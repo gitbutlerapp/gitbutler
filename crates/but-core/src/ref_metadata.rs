@@ -1,4 +1,5 @@
 use gix::refs::FullNameRef;
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::Id;
@@ -292,17 +293,14 @@ impl Workspace {
 }
 
 /// Metadata about branches, associated with any Git branch.
-#[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(no_debug)]
+#[derive(Clone, Eq, PartialEq, Default)]
 pub struct Branch {
     /// Standard data we want to know about any ref.
     pub ref_info: RefInfo,
     /// Information about possibly ongoing reviews in various forges.
     pub review: Review,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(Branch);
 
 /// Mutations
 impl Branch {
@@ -356,10 +354,8 @@ impl<T: std::fmt::Debug> std::fmt::Debug for MaybeDebug<'_, T> {
 ///
 /// It allows keeping track of when it changed, but also if we created it initially, a useful
 /// bit of information.
-#[derive(serde::Serialize, Default, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "export-schema", schemars(rename = "MetadataRefInfo"))]
+#[but_api_macros::but_transport(no_debug, schemars_rename = "MetadataRefInfo")]
+#[derive(Default, Clone, Eq, PartialEq)]
 pub struct RefInfo {
     /// The time of creation, *if we created the reference*.
     #[cfg_attr(
@@ -374,9 +370,6 @@ pub struct RefInfo {
     )]
     pub updated_at: Option<gix::date::Time>,
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(RefInfo);
 
 /// Mutations
 impl RefInfo {
@@ -527,17 +520,14 @@ impl WorkspaceStack {
 }
 
 /// Metadata about branches, associated with any Git branch.
-#[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(no_debug)]
+#[derive(Clone, Eq, PartialEq, Default)]
 pub struct Review {
     /// The number for the PR that was associated with this branch.
     pub pull_request: Option<usize>,
     /// A handle to the review created with the GitButler review system.
     pub review_id: Option<String>,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(Review);
 
 impl std::fmt::Debug for Review {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

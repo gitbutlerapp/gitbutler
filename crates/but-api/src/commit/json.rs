@@ -14,16 +14,11 @@ use super::types::{
 };
 
 /// JSON transport type for moving changes between commits.
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
 pub struct MoveChangesResult {
     /// Workspace state after moving changes.
     pub workspace: crate::json::WorkspaceState,
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(MoveChangesResult);
 
 impl TryFrom<EngineMoveChangesResult> for MoveChangesResult {
     type Error = anyhow::Error;
@@ -38,9 +33,7 @@ impl TryFrom<EngineMoveChangesResult> for MoveChangesResult {
 }
 
 /// A change that was rejected during commit creation, with the reason for rejection.
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
 pub struct RejectedChange {
     /// The reason the change was rejected.
     pub reason: but_core::tree::create_tree::RejectionReason,
@@ -54,25 +47,16 @@ pub struct RejectedChange {
     pub path_bytes: bstr::BString,
 }
 
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(RejectedChange);
-
 /// JSON transport type for creating a commit in the rebase graph.
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
 pub struct CommitCreateResult {
     /// The new commit if one was created.
-    #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
     pub new_commit: Option<HexHash>,
     /// Changes that were rejected during commit creation.
     pub rejected_changes: Vec<RejectedChange>,
     /// Workspace state after the create or amend.
     pub workspace: crate::json::WorkspaceState,
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(CommitCreateResult);
 
 impl TryFrom<EngineCommitCreateResult> for CommitCreateResult {
     type Error = anyhow::Error;
@@ -100,19 +84,13 @@ impl TryFrom<EngineCommitCreateResult> for CommitCreateResult {
 }
 
 /// JSON transport type for rewording a commit.
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
 pub struct CommitRewordResult {
     /// The new commit ID after rewording.
-    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub new_commit: HexHash,
     /// Workspace state after the reword.
     pub workspace: crate::json::WorkspaceState,
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(CommitRewordResult);
 
 impl TryFrom<EngineCommitRewordResult> for CommitRewordResult {
     type Error = anyhow::Error;
@@ -131,19 +109,13 @@ impl TryFrom<EngineCommitRewordResult> for CommitRewordResult {
 }
 
 /// JSON transport type for squashing commits.
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
 pub struct CommitSquashResult {
     /// The new commit ID after squashing.
-    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub new_commit: HexHash,
     /// Workspace state after the squash.
     pub workspace: crate::json::WorkspaceState,
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(CommitSquashResult);
 
 impl TryFrom<EngineCommitSquashResult> for CommitSquashResult {
     type Error = anyhow::Error;
@@ -162,19 +134,13 @@ impl TryFrom<EngineCommitSquashResult> for CommitSquashResult {
 }
 
 /// JSON transport type for inserting a blank commit.
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
 pub struct CommitInsertBlankResult {
     /// The new blank commit ID.
-    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub new_commit: HexHash,
     /// Workspace state after inserting the blank commit.
     pub workspace: crate::json::WorkspaceState,
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(CommitInsertBlankResult);
 
 impl TryFrom<EngineCommitInsertBlankResult> for CommitInsertBlankResult {
     type Error = anyhow::Error;
@@ -193,16 +159,11 @@ impl TryFrom<EngineCommitInsertBlankResult> for CommitInsertBlankResult {
 }
 
 /// JSON transport type for moving a commit.
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
 pub struct CommitMoveResult {
     /// Workspace state after moving the commit.
     pub workspace: crate::json::WorkspaceState,
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(CommitMoveResult);
 
 impl TryFrom<EngineCommitMoveResult> for CommitMoveResult {
     type Error = anyhow::Error;
@@ -216,19 +177,13 @@ impl TryFrom<EngineCommitMoveResult> for CommitMoveResult {
     }
 }
 /// JSON transport type for discarding a commit.
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
 pub struct CommitDiscardResult {
     /// The commit that was discarded as a result of this operation.
-    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub discarded_commit: HexHash,
     /// Workspace state after discarding the commit.
     pub workspace: crate::json::WorkspaceState,
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(CommitDiscardResult);
 
 impl TryFrom<EngineCommitDiscardResult> for CommitDiscardResult {
     type Error = anyhow::Error;
@@ -247,19 +202,13 @@ impl TryFrom<EngineCommitDiscardResult> for CommitDiscardResult {
 }
 
 /// JSON transport type for uncommitting one or more commits.
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
 pub struct UncommitResult {
     /// The IDs of the commits that were uncommitted.
-    #[cfg_attr(feature = "export-schema", schemars(with = "Vec<String>"))]
     pub uncommitted_ids: Vec<HexHash>,
     /// Workspace state after uncommitting.
     pub workspace: crate::json::WorkspaceState,
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(UncommitResult);
 
 impl TryFrom<EngineUncommitResult> for UncommitResult {
     type Error = anyhow::Error;
@@ -279,17 +228,12 @@ impl TryFrom<EngineUncommitResult> for UncommitResult {
 
 /// Specifies a location, usually used to either have something inserted
 /// relative to it, or for the selected object to actually be replaced.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+#[but_api_macros::but_transport(deserialize, tag = "type", content = "subject")]
+#[derive(Clone)]
 pub enum RelativeTo {
     /// Relative to a commit.
-    #[serde(with = "but_serde::object_id")]
-    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     Commit(gix::ObjectId),
     /// Relative to a reference.
-    #[serde(with = "but_serde::fullname_lossy")]
-    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     Reference(gix::refs::FullName),
     /// Relative to a reference, this time with teeth.
     #[cfg_attr(
@@ -298,9 +242,6 @@ pub enum RelativeTo {
     )]
     ReferenceBytes(gix::refs::FullName),
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(RelativeTo);
 
 impl From<RelativeTo> for but_rebase::graph_rebase::mutate::RelativeTo {
     fn from(value: RelativeTo) -> Self {

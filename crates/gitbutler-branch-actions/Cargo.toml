@@ -6,12 +6,16 @@ authors.workspace = true
 publish = false
 rust-version.workspace = true
 
+[package.metadata.cargo-machete]
+ignored = ["schemars"]
+
 [lib]
 doctest = false
 
 [features]
 export-schema = [
   "but-workspace/export-schema",
+  "but-settings/export-schema",
   "gitbutler-project/export-schema",
   "gitbutler-branch/export-schema",
   "dep:schemars",
@@ -20,6 +24,7 @@ export-schema = [
 
 [dependencies]
 but-error.workspace = true
+but-api-macros.workspace = true
 but-serde = { workspace = true, features = ["legacy"] }
 but-meta = { workspace = true, features = ["legacy"] }
 but-settings.workspace = true

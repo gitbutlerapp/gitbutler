@@ -86,7 +86,7 @@ export class ProjectsService {
 	isGerritProject(projectId: string) {
 		return this.backendApi.endpoints.project.useQuery(
 			{ projectId, noValidation: true },
-			{ transform: (data) => data.gerrit_mode },
+			{ transform: (data) => data.gerritMode },
 		);
 	}
 

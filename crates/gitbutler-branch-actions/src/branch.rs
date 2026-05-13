@@ -542,9 +542,8 @@ fn should_list_git_branch(identity: &BranchIdentity) -> bool {
 }
 
 /// A filter that can be applied to the branch listing
-#[derive(Default, Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Default, Clone, Copy, PartialEq)]
 pub struct BranchListingFilter {
     /// If the value is true, the listing will only include branches that have local references or virtual branches.
     /// If the value is false, the listing will include only branches that have local references or virtual branches.
@@ -553,17 +552,14 @@ pub struct BranchListingFilter {
     /// If the value is false, the listing will only include branches that are not applied in the workspace.
     pub applied: Option<bool>,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(BranchListingFilter);
 
 /// Represents a branch that exists for the repository
 /// This also combines the concept of a remote, local and virtual branch in order to provide a unified interface for the UI
 /// Branch entry is not meant to contain all the data a branch can have (e.g. full commit history, all files and diffs, etc.).
 /// It is intended a summary that can be quickly retrieved and displayed in the UI.
 /// For more detailed information, each branch can be queried individually for its `BranchData`.
-#[derive(Debug, Clone, Serialize, PartialEq)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(Clone, PartialEq)]
 pub struct BranchListing {
     /// The `identity` of the branch (e.g. `main`, `feature/branch`), excluding the remote name.
     #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
@@ -590,26 +586,18 @@ pub struct BranchListing {
     #[serde(skip)]
     pub head: gix::ObjectId,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(BranchListing);
 
 /// Represents a "commit author" or "signature", based on the data from the git history
-#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename = "BranchAuthor", rename_all = "camelCase")]
+#[but_api_macros::but_transport(schemars_rename = "BranchAuthor")]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Author {
     /// The name of the author as configured in the git config
-    #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
     pub name: Option<BStringForFrontend>,
     /// The email of the author as configured in the git config
-    #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
     pub email: Option<BStringForFrontend>,
 
-    #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
     pub gravatar_url: Option<BStringForFrontend>,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(Author);
 
 impl From<gix::actor::SignatureRef<'_>> for Author {
     fn from(value: gix::actor::SignatureRef<'_>) -> Self {
@@ -628,17 +616,12 @@ impl From<gix::actor::SignatureRef<'_>> for Author {
 }
 
 /// Represents a reference to an associated virtual branch
-#[derive(Debug, Clone, Serialize, PartialEq)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(Clone, PartialEq)]
 pub struct StackReference {
     /// A non-normalized name of the branch, set by the user
     pub given_name: String,
     /// Virtual Branch UUID identifier
-    #[cfg_attr(
-        feature = "export-schema",
-        schemars(schema_with = "but_schemars::stack_id")
-    )]
     pub id: StackId,
     /// Determines if the virtual branch is applied in the workspace
     pub in_workspace: bool,
@@ -648,8 +631,6 @@ pub struct StackReference {
     /// Pull Request numbers by branch name associated with the stack
     pub pull_requests: HashMap<String, usize>,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(StackReference);
 
 /// Takes a list of `branch_names` (the given name, as returned by `BranchListing`) and returns
 /// a list of enriched branch data.
@@ -835,9 +816,8 @@ pub fn get_branch_listing_details(
 }
 
 /// Represents a fat struct with all the data associated with a branch
-#[derive(Debug, Clone, Serialize, PartialEq)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(Clone, PartialEq)]
 pub struct BranchListingDetails {
     /// The name of the branch (e.g. `main`, `feature/branch`), excluding the remote name
     #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
@@ -871,8 +851,6 @@ pub struct BranchListingDetails {
     /// The branch may or may not have a virtual branch associated with it.
     pub stack: Option<StackReference>,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(BranchListingDetails);
 
 #[cfg(test)]
 mod tests {

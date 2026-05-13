@@ -364,6 +364,13 @@ pub struct SchemarEntry {
     pub schema: fn() -> schemars::Schema,
 }
 
+/// Marker trait for types declared as transport DTOs via `#[but_transport]`.
+///
+/// The `#[but_api]` macro uses this marker in export-schema builds to enforce
+/// that collected complex transport types are declared through the transport
+/// macro path instead of being silently auto-registered.
+pub trait SdkTransportType {}
+
 inventory::collect!(SchemarEntry);
 
 use std::borrow::Cow;

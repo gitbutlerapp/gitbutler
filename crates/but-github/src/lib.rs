@@ -350,13 +350,7 @@ pub mod json {
     ///
     /// This struct is used for API responses where the access token needs to be
     /// sent as a plain string. Field names are converted to camelCase for JSON.
-    #[derive(Debug, Serialize)]
-    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[cfg_attr(
-        feature = "export-schema",
-        schemars(rename = "GithubAuthStatusResponseSensitive")
-    )]
-    #[serde(rename_all = "camelCase")]
+    #[but_api_macros::but_transport(schemars_rename = "GithubAuthStatusResponseSensitive")]
     pub struct AuthStatusResponseSensitive {
         /// The GitHub access token as a plain string (sensitive data).
         pub access_token: String,
@@ -390,20 +384,11 @@ pub mod json {
         }
     }
 
-    #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(AuthStatusResponseSensitive);
-
     /// Serializable version of [`AuthenticatedUser`] with exposed access token.
     ///
     /// This struct represents an authenticated GitHub user with their credentials
     /// exposed as plain strings for API responses. Field names are converted to camelCase for JSON.
-    #[derive(Debug, Serialize)]
-    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[cfg_attr(
-        feature = "export-schema",
-        schemars(rename = "GithubAuthenticatedUserSensitive")
-    )]
-    #[serde(rename_all = "camelCase")]
+    #[but_api_macros::but_transport(schemars_rename = "GithubAuthenticatedUserSensitive")]
     pub struct AuthenticatedUserSensitive {
         /// The GitHub access token as a plain string (sensitive data).
         pub access_token: String,
@@ -436,9 +421,6 @@ pub mod json {
             }
         }
     }
-
-    #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(AuthenticatedUserSensitive);
 }
 
 #[cfg(test)]

@@ -6,6 +6,9 @@ authors.workspace = true
 publish = false
 rust-version.workspace = true
 
+[package.metadata.cargo-machete]
+ignored = ["but-schemars", "schemars"]
+
 [features]
 default = []
 export-schema = ["dep:schemars", "dep:but-schemars"]
@@ -18,6 +21,7 @@ but-core.workspace = true
 but-error.workspace = true
 but-gerrit.workspace = true
 but-graph.workspace = true
+but-api-macros.workspace = true
 
 gix = { workspace = true, features = ["revision", "merge"] }
 anyhow.workspace = true

@@ -21,31 +21,24 @@ pub mod git {
     /// UI types
     pub mod ui {
         use but_serde::BStringForFrontend;
+        use serde::{Deserialize, Serialize};
 
         /// See [`GitConfigSettings`](crate::GitConfigSettings) for the docs.
-        #[derive(Debug, PartialEq, Clone, Default, serde::Serialize, serde::Deserialize)]
-        #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-        #[serde(rename_all = "camelCase")]
+        #[but_api_macros::but_transport(deserialize)]
+        #[derive(PartialEq, Clone, Default)]
         #[expect(missing_docs)]
         pub struct GitConfigSettings {
             #[serde(rename = "signCommits")]
             pub gitbutler_sign_commits: Option<bool>,
             pub gitbutler_gerrit_mode: Option<bool>,
-            #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
             pub gitbutler_forge_review_template_path: Option<BStringForFrontend>,
             pub gitbutler_gitlab_project_id: Option<String>,
             pub gitbutler_gitlab_upstream_project_id: Option<String>,
-            #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
             pub signing_key: Option<BStringForFrontend>,
-            #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
             pub signing_format: Option<BStringForFrontend>,
-            #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
             pub gpg_program: Option<BStringForFrontend>,
-            #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
             pub gpg_ssh_program: Option<BStringForFrontend>,
         }
-        #[cfg(feature = "export-schema")]
-        but_schemars::register_sdk_type!(GitConfigSettings);
 
         impl From<crate::GitConfigSettings> for GitConfigSettings {
             fn from(

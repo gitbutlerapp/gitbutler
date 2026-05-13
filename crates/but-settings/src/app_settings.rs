@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct TelemetrySettings {
     /// Whether the anonymous metrics are enabled.
     pub app_metrics_enabled: bool,
@@ -25,18 +25,15 @@ impl TelemetrySettings {
             .flatten()
     }
 }
-but_schemars::register_sdk_type!(TelemetrySettings);
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct GitHubOAuthAppSettings {
     /// Client ID for the GitHub OAuth application. Set this to use custom (non-GitButler) OAuth application.
     pub oauth_client_id: String,
 }
-but_schemars::register_sdk_type!(GitHubOAuthAppSettings);
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct FeatureFlags {
     /// Turn on the set a v3 version of checkout
     pub cv3: bool,
@@ -68,28 +65,25 @@ pub struct FeatureFlags {
     /// "modern" uses ignore-aware non-recursive watching.
     pub watch_mode: String,
 }
-but_schemars::register_sdk_type!(FeatureFlags);
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct ExtraCsp {
     /// Additional hosts that the application can connect to.
     pub hosts: Vec<String>,
     /// Additional hosts for img-src that the application can load images from.
     pub img_src: Vec<String>,
 }
-but_schemars::register_sdk_type!(ExtraCsp);
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Fetch {
     /// The frequency at which the app will automatically fetch. A negative value (e.g. -1) disables auto fetching.
     pub auto_fetch_interval_minutes: isize,
 }
-but_schemars::register_sdk_type!(Fetch);
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Claude {
     /// Path to the Claude Code executable. Defaults to "claude" if not set.
     pub executable: String,
@@ -104,18 +98,16 @@ pub struct Claude {
     /// Whether to use the configured model in .claude/settings.json instead of passing --model.
     pub use_configured_model: bool,
 }
-but_schemars::register_sdk_type!(Claude);
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Reviews {
     /// Whether to auto-fill PR title and description from the first commit when a branch has only one commit.
     pub auto_fill_pr_description_from_commit: bool,
 }
-but_schemars::register_sdk_type!(Reviews);
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct UiSettings {
     /// Whether to use the native system title bar.
     pub use_native_title_bar: bool,
@@ -133,10 +125,9 @@ pub struct UiSettings {
     )]
     pub check_for_updates_interval_in_seconds: u64,
 }
-but_schemars::register_sdk_type!(UiSettings);
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct IrcSettings {
     /// IRC server configuration
     pub server: IrcServerSettings,
@@ -149,20 +140,18 @@ pub struct IrcSettings {
     /// IRC connection settings
     pub connection: IrcConnectionSettings,
 }
-but_schemars::register_sdk_type!(IrcSettings);
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct IrcServerSettings {
     /// IRC server hostname (e.g., "irc.gitbutler.com")
     pub host: String,
     /// IRC server port (default: 6697 for TLS)
     pub port: u16,
 }
-but_schemars::register_sdk_type!(IrcServerSettings);
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct IrcConnectionSettings {
     /// Whether this connection is enabled (controls connect/disconnect).
     pub enabled: bool,
@@ -182,4 +171,3 @@ pub struct IrcConnectionSettings {
     /// IRC real name
     pub realname: Option<String>,
 }
-but_schemars::register_sdk_type!(IrcConnectionSettings);

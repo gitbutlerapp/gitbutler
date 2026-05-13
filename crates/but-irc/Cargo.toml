@@ -19,7 +19,7 @@ serde_json.workspace = true
 tracing.workspace = true
 base64 = "0.22"
 but-project-handle.workspace = true
-but-settings = { path = "../but-settings" }
+but-settings.workspace = true
 notify-rust.workspace = true
 
 # IRC client library (using native TLS for system certificate support)

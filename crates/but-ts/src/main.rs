@@ -112,6 +112,7 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[derive(Debug)]
 struct CollectedSchemarEntry {
     /// The name of the schema getting registered
     pub name: Cow<'static, str>,
@@ -157,22 +158,7 @@ fn collect_all_schemas(
     // Order by registration location for a stable checking order
     types.sort_by_cached_key(|s| s.registration_location);
 
-    let mut existing_names = HashMap::<&str, &CollectedSchemarEntry>::new();
-
-    for t in &types {
-        if let Some(duplicate) = existing_names.get(t.name.as_ref()) {
-            bail!(
-                "Error when registering schema {} for type {} registered at {}\n\nDuplicate type {} was registered at {}. Consider renaming one of the types with either `#[serde(rename = ...)]` or `#[schemars(rename = ...)]`.\n",
-                t.name,
-                t.type_name,
-                t.registration_location,
-                duplicate.type_name,
-                duplicate.registration_location
-            );
-        } else {
-            existing_names.insert(t.name.as_ref(), t);
-        }
-    }
+    let existing_names = validate_duplicate_registrations(&types)?;
 
     for t in &types {
         if let Some(obj) = t.schema.as_object()
@@ -211,6 +197,34 @@ fn collect_all_schemas(
         .into_iter()
         .map(|s| (s.name.to_string(), s.schema))
         .collect())
+}
+
+fn validate_duplicate_registrations(
+    types: &[CollectedSchemarEntry],
+) -> anyhow::Result<HashMap<&str, &CollectedSchemarEntry>> {
+    let mut existing_names = HashMap::<&str, &CollectedSchemarEntry>::new();
+
+    for t in types {
+        if let Some(duplicate) = existing_names.get(t.name.as_ref()) {
+            let duplicate_schema = duplicate.schema.clone().to_value();
+            let current_schema = t.schema.clone().to_value();
+            if duplicate_schema != current_schema {
+                bail!(
+                    "Error when registering schema {} for type {} registered at {}\n\nDuplicate type {} was registered at {} with a different signature. Consider renaming one of the types with either `#[serde(rename = ...)]` or `#[schemars(rename = ...)]`.\n",
+                    t.name,
+                    t.type_name,
+                    t.registration_location,
+                    duplicate.type_name,
+                    duplicate.registration_location
+                );
+            }
+            continue;
+        }
+
+        existing_names.insert(t.name.as_ref(), t);
+    }
+
+    Ok(existing_names)
 }
 
 /// Determines whether a root schema and a reference schema are equal by the
@@ -573,6 +587,7 @@ mod tests {
     use super::*;
     use schemars::JsonSchema;
     use serde::Serialize;
+    use std::borrow::Cow;
 
     /// Convert a schemars-annotated type to its TypeScript representation.
     fn ts_for<T: JsonSchema>() -> String {
@@ -605,5 +620,62 @@ mod tests {
           tuple_with_optional_members: Array<[number | null, Array<string> | null]> | null;
         }
         ");
+    }
+
+    #[derive(Serialize, JsonSchema)]
+    struct DuplicateSchemaA {
+        value: String,
+    }
+
+    #[derive(Serialize, JsonSchema)]
+    struct DifferentDuplicateSchema {
+        value: i64,
+    }
+
+    #[test]
+    fn allows_identical_duplicate_schema_registrations() {
+        let schema = schemars::schema_for!(DuplicateSchemaA);
+        let entries = vec![
+            CollectedSchemarEntry {
+                name: Cow::Borrowed("DuplicateSchema"),
+                type_name: "crate::a::DuplicateSchemaA",
+                registration_location: "a.rs:1",
+                schema: schema.clone(),
+            },
+            CollectedSchemarEntry {
+                name: Cow::Borrowed("DuplicateSchema"),
+                type_name: "crate::a::DuplicateSchemaA",
+                registration_location: "b.rs:2",
+                schema,
+            },
+        ];
+
+        let validated = validate_duplicate_registrations(&entries).unwrap();
+        assert_eq!(validated.len(), 1);
+        assert!(validated.contains_key("DuplicateSchema"));
+    }
+
+    #[test]
+    fn rejects_different_duplicate_schema_registrations() {
+        let entries = vec![
+            CollectedSchemarEntry {
+                name: Cow::Borrowed("DuplicateSchema"),
+                type_name: "crate::a::DuplicateSchemaA",
+                registration_location: "a.rs:1",
+                schema: schemars::schema_for!(DuplicateSchemaA),
+            },
+            CollectedSchemarEntry {
+                name: Cow::Borrowed("DuplicateSchema"),
+                type_name: "crate::c::DifferentDuplicateSchema",
+                registration_location: "c.rs:3",
+                schema: schemars::schema_for!(DifferentDuplicateSchema),
+            },
+        ];
+
+        let err = validate_duplicate_registrations(&entries).unwrap_err();
+        assert!(
+            err.to_string().contains("different signature"),
+            "unexpected error: {err:#}"
+        );
     }
 }

@@ -1,6 +1,7 @@
 # but-ts
 
-`but-ts` generates TypeScript type declarations from JSON schemas registered in `but-api`.
+`but-ts` generates TypeScript type declarations from JSON schemas registered through
+the SDK schema inventory that gets linked via `but-api`.
 
 ## High-level
 
@@ -27,10 +28,16 @@ This crate is intended to be the single solution for TypeScript type generation.
 
 ## How it works
 
-1. `but-api` registers schema entries in `but_api::schema`.
-2. `but-ts` collects the registry (`collect_all_schemas`).
-3. It converts schema definitions into TypeScript declarations.
-4. It writes/appends output to the target file (`--output`).
+1. `but-ts` links `but-api` so all API modules and their schema registrations are reachable.
+2. Transport schemas are registered into `inventory` as `but_schemars::SchemarEntry`:
+   - `#[but_api(...)]` marks exported API functions and (for schema export builds) enforces that
+     complex transport types are declared through `#[but_transport]`.
+   - `#[but_transport]` applies transport defaults (serde casing/derive + schemars derive)
+     and auto-registers the type for SDK export.
+   - `but_schemars::register_sdk_type!(Type)` can still be used for non-transport helper types.
+3. `but-ts` collects the inventory (`collect_all_schemas`).
+4. It converts schema definitions into TypeScript declarations.
+5. It writes/appends output to the target file (`--output`).
 
 ## Build entrypoint
 
@@ -48,10 +55,20 @@ pnpm --filter @gitbutler/but-sdk build
 
 ## Add a new generated type
 
-1. Make sure the Rust type derives `schemars::JsonSchema`.
-2. Register it in `crates/but-api/src/schema.rs` with `TypeSchemaEntry`.
+For transport DTOs used by `#[but_api]` endpoints:
+
+1. Declare the DTO with `#[but_api_macros::but_transport]` (or `deserialize` variant when needed).
+2. Keep crate feature wiring consistent with transport macros:
+   - include an `export-schema` feature in the crate that declares DTOs
+   - depend on `but-api-macros` in that crate
 3. Re-run `pnpm --filter @gitbutler/but-sdk build:types`.
 4. Confirm it appears in `packages/but-sdk/src/generated/index.d.ts`.
+
+For non-transport types that still need SDK schema export:
+
+1. Derive `schemars::JsonSchema`.
+2. Register with `but_schemars::register_sdk_type!(Type)`.
+3. Re-run `pnpm --filter @gitbutler/but-sdk build:types`.
 
 ## Validation
 

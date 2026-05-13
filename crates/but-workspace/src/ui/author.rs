@@ -2,9 +2,8 @@ use bstr::ByteSlice;
 use serde::Serialize;
 
 /// Represents the author of a commit.
-#[derive(Serialize, Hash, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(no_debug)]
+#[derive(Hash, Clone, PartialEq, Eq)]
 pub struct Author {
     /// The name from the git commit signature
     pub name: String,
@@ -14,8 +13,6 @@ pub struct Author {
     #[cfg_attr(feature = "export-schema", schemars(schema_with = "but_schemars::url"))]
     pub gravatar_url: url::Url,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(Author);
 
 impl std::fmt::Debug for Author {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

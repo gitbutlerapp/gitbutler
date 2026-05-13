@@ -94,7 +94,7 @@ export class CommitAnalytics {
 				// Number of times F key shortcuts have been "clicked"
 				fKeyActivations: this.fModeManager.activations,
 				// Whether gerrit mode is enabled for this project
-				gerritMode: project.gerrit_mode,
+				gerritMode: project.gerritMode,
 				// Rule metrics
 				...this.getRuleMetrics(rules),
 				// Behavior metrics

@@ -1,3 +1,5 @@
+#![allow(unexpected_cfgs)]
+
 // Case: `_cmd` wrappers for context-remapped functions remain legacy-only.
 // It verifies:
 // - calling `<fn>_cmd` without `legacy` fails to compile

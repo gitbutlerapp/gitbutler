@@ -4,6 +4,7 @@ use anyhow::{Result, anyhow};
 use but_api_macros::but_api;
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_error::Code;
+use serde::Serialize;
 use tracing::instrument;
 
 #[but_api]
@@ -175,17 +176,13 @@ pub fn is_gerrit(ctx: &but_ctx::Context) -> Result<bool> {
     gitbutler_project::gerrit::is_used_by_default_remote(&*ctx.repo.get()?)
 }
 
-#[derive(serde::Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[but_api_macros::but_transport]
 pub struct ProjectForFrontend {
     #[serde(flatten)]
     pub inner: gitbutler_project::api::Project,
     /// Tell if the project is known to be open in a Window in the frontend.
     pub is_open: bool,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(ProjectForFrontend);
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -377,17 +377,17 @@ export type AbsorptionTarget = {
 export type ApiProject = {
   name: string;
   description: string | null;
-  repository_id: string;
+  repositoryId: string;
   /** The "gitbuler data, i.e. oplog" URL */
-  git_url: string;
+  gitUrl: string;
   /** The "project" git URL */
-  code_git_url: string | null;
-  created_at: string;
-  updated_at: string;
+  codeGitUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
   /** Determines if the project Operations log will be synched with the GitButHub */
   sync: boolean;
   /** Determines if the project code will be synched with the GitButHub */
-  sync_code?: boolean;
+  syncCode?: boolean;
   reviews?: boolean;
 };
 
@@ -1539,11 +1539,11 @@ export type ProjectForFrontend = {
   forge_override: string | null;
   preferred_forge_user: ForgeUser | null;
   /** Gerrit mode enabled for this project, derived from git configuration */
-  gerrit_mode?: boolean;
+  gerritMode?: boolean;
   /** Path to the forge review template, if set in git configuration. */
-  forge_review_template_path: string | null;
+  forgeReviewTemplatePath: string | null;
   /** Tell if the project is known to be open in a Window in the frontend. */
-  is_open: boolean;
+  isOpen: boolean;
 };
 
 export type PullRequestMinimal = {

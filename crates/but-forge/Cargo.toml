@@ -7,6 +7,9 @@ publish = false
 rust-version.workspace = true
 description = "Utilities to interact with forges in a somewhat generic way"
 
+[package.metadata.cargo-machete]
+ignored = ["but-schemars", "schemars"]
+
 [features]
 export-schema = [
   "dep:schemars",
@@ -20,6 +23,7 @@ doctest = false
 
 [dependencies]
 but-utils.workspace = true
+but-api-macros.workspace = true
 but-github.workspace = true
 but-gitlab.workspace = true
 but-forge-storage.workspace = true

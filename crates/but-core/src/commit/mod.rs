@@ -663,9 +663,8 @@ impl Commit<'_> {
 }
 
 /// Represents what was causing a particular commit to conflict when rebased.
-#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport(deserialize)]
+#[derive(Default, Clone, PartialEq)]
 pub struct ConflictEntries {
     /// The ancestors that were conflicted
     pub ancestor_entries: Vec<PathBuf>,
@@ -674,8 +673,6 @@ pub struct ConflictEntries {
     /// The theirs side entries that were conflicted
     pub their_entries: Vec<PathBuf>,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(ConflictEntries);
 
 impl ConflictEntries {
     /// If there are any conflict entries

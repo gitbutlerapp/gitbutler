@@ -81,8 +81,8 @@ pub fn log_target_first_parent(
     Ok(commits)
 }
 /// A filter for the list of stacks.
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[but_api_macros::but_transport(deserialize, rename_all = "PascalCase", register = false)]
+#[derive(Clone, Copy, Default)]
 pub enum StacksFilter {
     /// Show all stacks
     All,

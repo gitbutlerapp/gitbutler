@@ -8,6 +8,7 @@ use but_rebase::{
         Editor, Selector, Step, SuccessfulRebase, ToCommitSelector, mutate::InsertSide,
     },
 };
+use serde::{Deserialize, Serialize};
 
 /// The result of a squash_commits operation.
 #[derive(Debug)]
@@ -113,8 +114,8 @@ fn construct_new_squashed_commit<'ws, 'meta, M: RefMetadata>(
 }
 
 /// How to combine messages of commits being squashed.
-#[derive(Debug, serde::Serialize, serde::Deserialize, Copy, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[but_api_macros::but_transport(deserialize, rename_all = "PascalCase")]
+#[derive(Copy, Clone)]
 pub enum MessageCombinationStrategy {
     /// Keep both messages.
     KeepBoth,
@@ -127,9 +128,6 @@ pub enum MessageCombinationStrategy {
     /// Subject message will be discarded.
     KeepTarget,
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(MessageCombinationStrategy);
 
 /// Squash `subjects` into `target_commit`.
 ///

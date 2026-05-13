@@ -56,9 +56,9 @@
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 
-	// Get current project to check gerrit_mode
+	// Get current project to check gerritMode
 	const projectResponse = $derived(projectsService.getProject(projectId));
-	const isGerritMode = $derived(projectResponse.response?.gerrit_mode ?? false);
+	const isGerritMode = $derived(projectResponse.response?.gerritMode ?? false);
 	const runHooks = $derived(projectRunCommitHooks(projectId));
 
 	// Component is read-only when stackId is undefined

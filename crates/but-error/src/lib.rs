@@ -107,6 +107,7 @@
 //! to `anyhow::Error`.
 //!
 //! By default, `thiserror` instances have no context.
+use serde::Serialize;
 use std::{borrow::Cow, fmt::Debug};
 
 /// Like [`anyhow::bail!`], but tags the error with [`Code::PreconditionFailed`].
@@ -137,8 +138,8 @@ macro_rules! bail_precondition {
 /// Remove variants when no longer in use.
 ///
 /// In practice, it should match its [frontend counterpart](https://github.com/gitbutlerapp/gitbutler/blob/fa973fd8f1ae8807621f47601803d98b8a9cf348/app/src/lib/backend/ipc.ts#L5).
-#[derive(Debug, Default, Copy, Clone, PartialOrd, PartialEq)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[but_api_macros::but_transport(rename_all = "PascalCase")]
+#[derive(Default, Copy, Clone, PartialOrd, PartialEq)]
 pub enum Code {
     /// Much like a catch-all error code. It shouldn't be attached explicitly unless
     /// a message is provided as well as part of a [`Context`].
@@ -173,9 +174,6 @@ pub enum Code {
     /// The frontend should present this as a warning rather than an error.
     PreconditionFailed,
 }
-
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(Code);
 
 impl std::fmt::Display for Code {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

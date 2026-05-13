@@ -5,20 +5,16 @@ use but_core::{ref_metadata::StackId, ui::TreeChange};
 use but_ctx::Context;
 use gitbutler_edit_mode::ConflictEntryPresence;
 use gitbutler_operating_modes::{EditModeMetadata, OperatingMode};
+use serde::Serialize;
 use tracing::instrument;
 
 use crate::json::Error;
 
-#[derive(Debug, serde::Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
 pub struct HeadAndMode {
     pub head: Option<String>,
     pub operating_mode: OperatingMode,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(HeadAndMode);
-
 #[but_api]
 #[instrument(err(Debug))]
 pub fn operating_mode(ctx: &Context) -> Result<HeadAndMode, Error> {
@@ -36,12 +32,10 @@ pub fn operating_mode(ctx: &Context) -> Result<HeadAndMode, Error> {
     })
 }
 
-#[derive(Debug, serde::Serialize, schemars::JsonSchema)]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
 pub struct HeadSha {
     head_sha: String,
 }
-but_schemars::register_sdk_type!(HeadSha);
 
 #[but_api]
 #[instrument(err(Debug))]

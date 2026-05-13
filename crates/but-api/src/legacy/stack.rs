@@ -319,9 +319,7 @@ pub mod json {
     use serde::Serialize;
 
     /// JSON-friendly version of [`gitbutler_git::PushResult`].
-    #[derive(Debug, Serialize)]
-    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[serde(rename_all = "camelCase")]
+    #[but_api_macros::but_transport]
     pub struct PushResult {
         /// The name of the remote to which the branches were pushed.
         pub remote: String,
@@ -331,9 +329,6 @@ pub mod json {
         /// Format: (branch_name, before_sha, after_sha)
         pub branch_sha_updates: Vec<(String, String, String)>,
     }
-    #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(PushResult);
-
     impl From<gitbutler_git::PushResult> for PushResult {
         fn from(value: gitbutler_git::PushResult) -> Self {
             Self {

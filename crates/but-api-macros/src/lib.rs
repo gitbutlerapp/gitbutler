@@ -2,8 +2,457 @@ use std::collections::HashMap;
 
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
+use quote::{ToTokens, format_ident, quote};
 use syn::{FnArg, ItemFn, Pat, parse_macro_input};
+
+/// Apply transport boilerplate for DTO structs/enums and register schemas for SDK export.
+///
+/// Defaults:
+/// - `derive(Debug, Serialize)`
+/// - `#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]`
+/// - `#[serde(rename_all = "camelCase")]`
+/// - `#[cfg(feature = "export-schema")] but_schemars::register_sdk_type!(Type)`
+///
+/// Options:
+/// - `deserialize` -> also derive `Deserialize`
+/// - `no_debug` -> do not derive `Debug`
+/// - `no_serialize` -> do not derive `Serialize`
+/// - `rename_all = "..."` -> override serde rename_all casing
+/// - `rename_all_fields = "..."` -> for enums, override serde rename_all_fields casing
+/// - `tag = "...", content = "..."` -> adjacent tagging for enums
+/// - `schemars_rename = "..."` -> override exported schema type name
+#[proc_macro_attribute]
+pub fn but_transport(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let options = match syn::parse::Parser::parse(TransportOptions::parse, attr) {
+        Ok(options) => options,
+        Err(err) => return err.into_compile_error().into(),
+    };
+
+    let parsed_item = parse_macro_input!(item as syn::Item);
+    match expand_but_transport(options, parsed_item) {
+        Ok(expanded) => expanded.into(),
+        Err(err) => err.into_compile_error().into(),
+    }
+}
+
+#[derive(Debug)]
+struct TransportOptions {
+    deserialize: bool,
+    no_debug: bool,
+    no_serialize: bool,
+    rename_all: String,
+    rename_all_fields: Option<String>,
+    tag: Option<String>,
+    content: Option<String>,
+    schemars_rename: Option<String>,
+    register: bool,
+}
+
+impl Default for TransportOptions {
+    fn default() -> Self {
+        Self {
+            deserialize: false,
+            no_debug: false,
+            no_serialize: false,
+            rename_all: "camelCase".into(),
+            rename_all_fields: None,
+            tag: None,
+            content: None,
+            schemars_rename: None,
+            register: true,
+        }
+    }
+}
+
+impl TransportOptions {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut options = Self::default();
+
+        while !input.is_empty() {
+            if input.peek(syn::Ident) && input.peek2(syn::Token![=]) {
+                let key: syn::Ident = input.parse()?;
+                input.parse::<syn::Token![=]>()?;
+                match key.to_string().as_str() {
+                    "rename_all" => {
+                        let value: syn::LitStr = input.parse()?;
+                        options.rename_all = value.value();
+                    }
+                    "rename_all_fields" => {
+                        let value: syn::LitStr = input.parse()?;
+                        options.rename_all_fields = Some(value.value());
+                    }
+                    "tag" => {
+                        let value: syn::LitStr = input.parse()?;
+                        options.tag = Some(value.value());
+                    }
+                    "content" => {
+                        let value: syn::LitStr = input.parse()?;
+                        options.content = Some(value.value());
+                    }
+                    "register" => {
+                        let value: syn::LitBool = input.parse()?;
+                        options.register = value.value;
+                    }
+                    "schemars_rename" => {
+                        let value: syn::LitStr = input.parse()?;
+                        options.schemars_rename = Some(value.value());
+                    }
+                    _ => {
+                        return Err(syn::Error::new_spanned(
+                            key,
+                            "Unknown option. Supported: deserialize, no_debug, no_serialize, rename_all, rename_all_fields, tag, content, schemars_rename, register",
+                        ));
+                    }
+                }
+            } else {
+                let key: syn::Ident = input.parse()?;
+                if key == "deserialize" {
+                    options.deserialize = true;
+                } else if key == "no_debug" {
+                    options.no_debug = true;
+                } else if key == "no_serialize" {
+                    options.no_serialize = true;
+                } else {
+                    return Err(syn::Error::new_spanned(
+                        key,
+                        "Unknown flag. Supported: deserialize, no_debug, no_serialize",
+                    ));
+                }
+            }
+
+            if !input.is_empty() {
+                input.parse::<syn::Token![,]>()?;
+            }
+        }
+
+        if options.content.is_some() && options.tag.is_none() {
+            return Err(syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "`content = ...` requires `tag = ...`",
+            ));
+        }
+
+        Ok(options)
+    }
+}
+
+fn expand_but_transport(
+    options: TransportOptions,
+    mut item: syn::Item,
+) -> Result<proc_macro2::TokenStream, syn::Error> {
+    let (ident, attrs, is_enum) = match &mut item {
+        syn::Item::Struct(item_struct) => {
+            if !item_struct.generics.params.is_empty() {
+                return Err(syn::Error::new_spanned(
+                    &item_struct.generics,
+                    "#[but_transport] does not support generic transport types",
+                ));
+            }
+            auto_apply_special_handlers_on_fields(&mut item_struct.fields);
+            (&item_struct.ident, &mut item_struct.attrs, false)
+        }
+        syn::Item::Enum(item_enum) => {
+            if !item_enum.generics.params.is_empty() {
+                return Err(syn::Error::new_spanned(
+                    &item_enum.generics,
+                    "#[but_transport] does not support generic transport types",
+                ));
+            }
+            for variant in &mut item_enum.variants {
+                auto_apply_special_handlers_on_fields(&mut variant.fields);
+            }
+            (&item_enum.ident, &mut item_enum.attrs, true)
+        }
+        _ => {
+            return Err(syn::Error::new_spanned(
+                item,
+                "#[but_transport] can only be used on structs and enums",
+            ));
+        }
+    };
+
+    let derive_serialize = !options.no_serialize;
+    let derive_deserialize = options.deserialize;
+    let derive_debug = !options.no_debug;
+
+    let derive_idents: Vec<syn::Ident> = [
+        derive_debug.then_some(format_ident!("Debug")),
+        derive_serialize.then_some(format_ident!("Serialize")),
+        derive_deserialize.then_some(format_ident!("Deserialize")),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+
+    if !derive_idents.is_empty() {
+        let derive_attr: syn::Attribute = syn::parse_quote! { #[derive(#(#derive_idents),*)] };
+        attrs.push(derive_attr);
+    }
+
+    attrs.push(syn::parse_quote! {
+        #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    });
+
+    if let Some(schemars_rename) = options.schemars_rename {
+        let schemars_rename = syn::LitStr::new(&schemars_rename, proc_macro2::Span::call_site());
+        attrs.push(syn::parse_quote! {
+            #[cfg_attr(feature = "export-schema", schemars(rename = #schemars_rename))]
+        });
+    }
+
+    let has_serde_derive = derive_serialize || derive_deserialize;
+    if has_serde_derive {
+        let rename_all = syn::LitStr::new(&options.rename_all, proc_macro2::Span::call_site());
+        let rename_all_fields = options
+            .rename_all_fields
+            .as_ref()
+            .map(|value| syn::LitStr::new(value, proc_macro2::Span::call_site()));
+        if is_enum {
+            if let Some(tag) = options.tag {
+                let tag = syn::LitStr::new(&tag, proc_macro2::Span::call_site());
+                if let Some(content) = options.content {
+                    let content = syn::LitStr::new(&content, proc_macro2::Span::call_site());
+                    if let Some(rename_all_fields) = rename_all_fields {
+                        attrs.push(syn::parse_quote! {
+                            #[serde(rename_all = #rename_all, rename_all_fields = #rename_all_fields, tag = #tag, content = #content)]
+                        });
+                    } else {
+                        attrs.push(syn::parse_quote! {
+                            #[serde(rename_all = #rename_all, tag = #tag, content = #content)]
+                        });
+                    }
+                } else {
+                    if let Some(rename_all_fields) = rename_all_fields {
+                        attrs.push(syn::parse_quote! {
+                            #[serde(rename_all = #rename_all, rename_all_fields = #rename_all_fields, tag = #tag)]
+                        });
+                    } else {
+                        attrs.push(syn::parse_quote! {
+                            #[serde(rename_all = #rename_all, tag = #tag)]
+                        });
+                    }
+                }
+            } else {
+                if let Some(rename_all_fields) = rename_all_fields {
+                    attrs.push(syn::parse_quote! {
+                        #[serde(rename_all = #rename_all, rename_all_fields = #rename_all_fields)]
+                    });
+                } else {
+                    attrs.push(syn::parse_quote! { #[serde(rename_all = #rename_all)] });
+                }
+            }
+        } else {
+            if options.rename_all_fields.is_some() {
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "`rename_all_fields` is only supported for enums",
+                ));
+            }
+            attrs.push(syn::parse_quote! { #[serde(rename_all = #rename_all)] });
+        }
+    } else {
+        if options.rename_all_fields.is_some() {
+            return Err(syn::Error::new_spanned(
+                ident,
+                "`rename_all_fields` is only supported for enums",
+            ));
+        }
+    }
+
+    let register_item = if options.register {
+        Some(quote! {
+            #[cfg(feature = "export-schema")]
+            but_schemars::register_sdk_type!(#ident);
+        })
+    } else {
+        None
+    };
+
+    let marker_impl = quote! {
+        #[cfg(feature = "export-schema")]
+        impl but_schemars::SdkTransportType for #ident {}
+    };
+
+    Ok(quote! {
+        #item
+        #marker_impl
+        #register_item
+    })
+}
+
+fn auto_apply_special_handlers_on_fields(fields: &mut syn::Fields) {
+    for field in fields {
+        if has_special_handler_attrs(&field.attrs) {
+            continue;
+        }
+
+        let handler = special_handler_for_type(&field.ty);
+        match handler {
+            Some(SpecialHandler::ObjectId) => {
+                field
+                    .attrs
+                    .push(syn::parse_quote! { #[serde(with = "but_serde::object_id")] });
+                field.attrs.push(syn::parse_quote! {
+                    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+                });
+            }
+            Some(SpecialHandler::HexHash) => {
+                field.attrs.push(syn::parse_quote! {
+                    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+                });
+            }
+            Some(SpecialHandler::OptionHexHash) => {
+                field.attrs.push(syn::parse_quote! {
+                    #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
+                });
+            }
+            Some(SpecialHandler::VecHexHash) => {
+                field.attrs.push(syn::parse_quote! {
+                    #[cfg_attr(feature = "export-schema", schemars(with = "Vec<String>"))]
+                });
+            }
+            Some(SpecialHandler::StackId) => {
+                field.attrs.push(syn::parse_quote! {
+                    #[cfg_attr(feature = "export-schema", schemars(schema_with = "but_schemars::stack_id"))]
+                });
+            }
+            Some(SpecialHandler::OptionStackId) => {
+                field.attrs.push(syn::parse_quote! {
+                    #[cfg_attr(feature = "export-schema", schemars(schema_with = "but_schemars::stack_id_opt"))]
+                });
+            }
+            Some(SpecialHandler::BStringForFrontend) => {
+                field.attrs.push(syn::parse_quote! {
+                    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+                });
+            }
+            Some(SpecialHandler::OptionBStringForFrontend) => {
+                field.attrs.push(syn::parse_quote! {
+                    #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
+                });
+            }
+            Some(SpecialHandler::VecBStringForFrontend) => {
+                field.attrs.push(syn::parse_quote! {
+                    #[cfg_attr(feature = "export-schema", schemars(with = "Vec<String>"))]
+                });
+            }
+            Some(SpecialHandler::BString) => {
+                field.attrs.push(syn::parse_quote! {
+                    #[serde(serialize_with = "but_serde::bstring_lossy::serialize")]
+                });
+                field.attrs.push(syn::parse_quote! {
+                    #[cfg_attr(feature = "export-schema", schemars(schema_with = "but_schemars::bstring_lossy"))]
+                });
+            }
+            Some(SpecialHandler::OptionBString) => {
+                field
+                    .attrs
+                    .push(syn::parse_quote! { #[serde(with = "but_serde::bstring_lossy_opt")] });
+                field.attrs.push(syn::parse_quote! {
+                    #[cfg_attr(feature = "export-schema", schemars(schema_with = "but_schemars::bstring_lossy_opt"))]
+                });
+            }
+            Some(SpecialHandler::FullName) => {
+                field
+                    .attrs
+                    .push(syn::parse_quote! { #[serde(with = "but_serde::fullname_lossy")] });
+                field.attrs.push(syn::parse_quote! {
+                    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+                });
+            }
+            None => {}
+        }
+    }
+}
+
+fn has_special_handler_attrs(attrs: &[syn::Attribute]) -> bool {
+    attrs.iter().any(|attr| {
+        if attr.path().is_ident("schemars") {
+            return true;
+        }
+
+        if attr.path().is_ident("cfg_attr")
+            && attr.meta.to_token_stream().to_string().contains("schemars")
+        {
+            return true;
+        }
+
+        if attr.path().is_ident("serde") {
+            return serde_attr_has_custom_handler(attr);
+        }
+
+        false
+    })
+}
+
+fn serde_attr_has_custom_handler(attr: &syn::Attribute) -> bool {
+    let mut has_custom_handler = false;
+    let _ = attr.parse_nested_meta(|meta| {
+        if meta.path.is_ident("with")
+            || meta.path.is_ident("serialize_with")
+            || meta.path.is_ident("deserialize_with")
+        {
+            has_custom_handler = true;
+        }
+        Ok(())
+    });
+    has_custom_handler
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SpecialHandler {
+    ObjectId,
+    HexHash,
+    OptionHexHash,
+    VecHexHash,
+    StackId,
+    OptionStackId,
+    BString,
+    OptionBString,
+    BStringForFrontend,
+    OptionBStringForFrontend,
+    VecBStringForFrontend,
+    FullName,
+}
+
+fn special_handler_for_type(ty: &syn::Type) -> Option<SpecialHandler> {
+    let syn::Type::Path(type_path) = ty else {
+        return None;
+    };
+
+    if is_object_id_path(&type_path.path) {
+        Some(SpecialHandler::ObjectId)
+    } else if is_hex_hash_path(&type_path.path) {
+        Some(SpecialHandler::HexHash)
+    } else if is_hex_hash_container_path(&type_path.path, "Option") {
+        Some(SpecialHandler::OptionHexHash)
+    } else if is_hex_hash_container_path(&type_path.path, "Vec") {
+        Some(SpecialHandler::VecHexHash)
+    } else if is_stack_id_path(&type_path.path) {
+        Some(SpecialHandler::StackId)
+    } else if is_stack_id_container_path(&type_path.path, "Option") {
+        Some(SpecialHandler::OptionStackId)
+    } else if is_bstring_path(&type_path.path) {
+        Some(SpecialHandler::BString)
+    } else if is_bstring_container_path(&type_path.path, "Option") {
+        Some(SpecialHandler::OptionBString)
+    } else if is_bstring_for_frontend_path(&type_path.path) {
+        Some(SpecialHandler::BStringForFrontend)
+    } else if is_bstring_for_frontend_container_path(&type_path.path, "Option") {
+        Some(SpecialHandler::OptionBStringForFrontend)
+    } else if is_bstring_for_frontend_container_path(&type_path.path, "Vec") {
+        Some(SpecialHandler::VecBStringForFrontend)
+    } else if type_path
+        .path
+        .segments
+        .last()
+        .is_some_and(|last| last.ident == "FullName")
+    {
+        Some(SpecialHandler::FullName)
+    } else {
+        None
+    }
+}
 
 /// A macro to help generate wrappers which are used by some clients to support deserialisation of parameters
 /// for calls, and serialisation of return values, usually with JSON in mind.
@@ -871,6 +1320,63 @@ fn is_hex_hash_container_path(path: &syn::Path, expected_container: &str) -> boo
     };
 
     is_hex_hash_path(&type_path.path)
+}
+
+fn is_bstring_for_frontend_path(path: &syn::Path) -> bool {
+    path.segments
+        .last()
+        .is_some_and(|last| last.ident == "BStringForFrontend")
+        && (path.segments.len() == 1 || path.segments[0].ident == "but_serde")
+}
+
+fn is_stack_id_path(path: &syn::Path) -> bool {
+    path.segments
+        .last()
+        .is_some_and(|last| last.ident == "StackId")
+}
+
+fn is_stack_id_container_path(path: &syn::Path, expected_container: &str) -> bool {
+    let Some(inner_ty) = single_generic_type_arg(path, expected_container) else {
+        return false;
+    };
+    let syn::Type::Path(type_path) = inner_ty else {
+        return false;
+    };
+
+    is_stack_id_path(&type_path.path)
+}
+
+fn is_bstring_path(path: &syn::Path) -> bool {
+    path.segments
+        .last()
+        .is_some_and(|last| last.ident == "BString")
+        && (path.segments.len() == 1
+            || path.segments[0].ident == "bstr"
+            || (path.segments.len() >= 2
+                && path.segments[0].ident == "gix"
+                && path.segments[1].ident == "bstr"))
+}
+
+fn is_bstring_for_frontend_container_path(path: &syn::Path, expected_container: &str) -> bool {
+    let Some(inner_ty) = single_generic_type_arg(path, expected_container) else {
+        return false;
+    };
+    let syn::Type::Path(type_path) = inner_ty else {
+        return false;
+    };
+
+    is_bstring_for_frontend_path(&type_path.path)
+}
+
+fn is_bstring_container_path(path: &syn::Path, expected_container: &str) -> bool {
+    let Some(inner_ty) = single_generic_type_arg(path, expected_container) else {
+        return false;
+    };
+    let syn::Type::Path(type_path) = inner_ty else {
+        return false;
+    };
+
+    is_bstring_path(&type_path.path)
 }
 
 fn is_full_name_ref_path(path: &syn::Path) -> bool {
@@ -1836,5 +2342,131 @@ mod tests {
             !params.requires_legacy,
             "full-name references should not force legacy wrapper generation"
         );
+    }
+
+    #[test]
+    fn but_transport_struct_defaults_and_object_id_handler() {
+        let item: syn::Item = parse_quote! {
+            pub struct Example {
+                pub commit_id: gix::ObjectId,
+                pub title: String,
+            }
+        };
+
+        let expanded = super::expand_but_transport(super::TransportOptions::default(), item)
+            .expect("transport macro expansion should succeed")
+            .to_string();
+
+        assert!(expanded.contains("derive (Debug , Serialize)"));
+        assert!(
+            expanded.contains(
+                "cfg_attr (feature = \"export-schema\" , derive (schemars :: JsonSchema))"
+            )
+        );
+        assert!(expanded.contains("serde (rename_all = \"camelCase\")"));
+        assert!(expanded.contains("serde (with = \"but_serde::object_id\")"));
+        assert!(expanded.contains("register_sdk_type ! (Example)"));
+    }
+
+    #[test]
+    fn but_transport_enum_tagging_and_deserialize_and_full_name_handler() {
+        let options = syn::parse::Parser::parse2(
+            super::TransportOptions::parse,
+            quote!(deserialize, tag = "type", content = "subject"),
+        )
+        .expect("options should parse");
+
+        let item: syn::Item = parse_quote! {
+            pub enum ExampleEnum {
+                Reference(gix::refs::FullName),
+            }
+        };
+
+        let expanded = super::expand_but_transport(options, item)
+            .expect("transport macro expansion should succeed")
+            .to_string();
+
+        assert!(expanded.contains("derive (Debug , Serialize , Deserialize)"));
+        assert!(expanded.contains(
+            "serde (rename_all = \"camelCase\" , tag = \"type\" , content = \"subject\")"
+        ));
+        assert!(expanded.contains("serde (with = \"but_serde::fullname_lossy\")"));
+        assert!(expanded.contains("schemars (with = \"String\")"));
+    }
+
+    #[test]
+    fn but_transport_hex_hash_handlers_map_to_string_shapes() {
+        let item: syn::Item = parse_quote! {
+            pub struct Example {
+                pub commit_id: crate::json::HexHash,
+                pub maybe_commit_id: Option<crate::json::HexHash>,
+                pub commit_ids: Vec<crate::json::HexHash>,
+            }
+        };
+
+        let expanded = super::expand_but_transport(super::TransportOptions::default(), item)
+            .expect("transport macro expansion should succeed")
+            .to_string();
+
+        assert!(expanded.contains("schemars (with = \"String\")"));
+        assert!(expanded.contains("schemars (with = \"Option<String>\")"));
+        assert!(expanded.contains("schemars (with = \"Vec<String>\")"));
+    }
+
+    #[test]
+    fn but_transport_stack_id_handler_maps_to_stack_id_schema() {
+        let item: syn::Item = parse_quote! {
+            pub struct Example {
+                pub stack_id: StackId,
+                pub maybe_stack_id: Option<StackId>,
+            }
+        };
+
+        let expanded = super::expand_but_transport(super::TransportOptions::default(), item)
+            .expect("transport macro expansion should succeed")
+            .to_string();
+
+        assert!(expanded.contains("schemars (schema_with = \"but_schemars::stack_id\")"));
+        assert!(expanded.contains("schemars (schema_with = \"but_schemars::stack_id_opt\")"));
+    }
+
+    #[test]
+    fn but_transport_bstring_for_frontend_handlers_map_to_string_shapes() {
+        let item: syn::Item = parse_quote! {
+            pub struct Example {
+                pub path: but_serde::BStringForFrontend,
+                pub maybe_path: Option<but_serde::BStringForFrontend>,
+                pub paths: Vec<but_serde::BStringForFrontend>,
+            }
+        };
+
+        let expanded = super::expand_but_transport(super::TransportOptions::default(), item)
+            .expect("transport macro expansion should succeed")
+            .to_string();
+
+        assert!(expanded.contains("schemars (with = \"String\")"));
+        assert!(expanded.contains("schemars (with = \"Option<String>\")"));
+        assert!(expanded.contains("schemars (with = \"Vec<String>\")"));
+    }
+
+    #[test]
+    fn but_transport_bstring_handler_maps_to_lossy_string_attrs() {
+        let item: syn::Item = parse_quote! {
+            pub struct Example {
+                pub path: bstr::BString,
+                pub maybe_path: Option<bstr::BString>,
+            }
+        };
+
+        let expanded = super::expand_but_transport(super::TransportOptions::default(), item)
+            .expect("transport macro expansion should succeed")
+            .to_string();
+
+        assert!(
+            expanded.contains("serde (serialize_with = \"but_serde::bstring_lossy::serialize\")")
+        );
+        assert!(expanded.contains("schemars (schema_with = \"but_schemars::bstring_lossy\")"));
+        assert!(expanded.contains("serde (with = \"but_serde::bstring_lossy_opt\")"));
+        assert!(expanded.contains("schemars (schema_with = \"but_schemars::bstring_lossy_opt\")"));
     }
 }

@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 /// A bundle of information about a commit.
 #[derive(Debug, Clone)]
 pub struct CommitDetails {
@@ -12,9 +14,8 @@ pub struct CommitDetails {
 }
 
 /// Line statistics obtained from diffing the blobs of one or more [TreeChange](crate::TreeChange).
-#[derive(Default, Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, serde::Serialize)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct LineStats {
     /// The total amount of lines added in the between blobs of the two trees.
     pub lines_added: u64,
@@ -23,8 +24,6 @@ pub struct LineStats {
     /// The number of files that contributed to these statistics as they were added, removed or modified.
     pub files_changed: u64,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(LineStats);
 
 /// Lifecycle
 impl CommitDetails {

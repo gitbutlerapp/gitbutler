@@ -5,6 +5,7 @@ use but_core::{
     ref_metadata::{self, StackId},
 };
 use gix::refs::Category;
+use serde::Serialize;
 
 use crate::{
     ref_info::{LocalCommit, LocalCommitRelation},
@@ -13,9 +14,8 @@ use crate::{
 };
 
 /// A reference in `refs/heads`.
-#[derive(serde::Serialize, Debug, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(Clone)]
 pub struct BranchReference {
     /// The full ref name, like `refs/heads/feat`, for usage with the backend.
     #[cfg_attr(
@@ -26,8 +26,6 @@ pub struct BranchReference {
     /// The short version of `full_name_bytes` for display.
     pub display_name: String,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(BranchReference);
 
 impl From<gix::refs::FullName> for BranchReference {
     fn from(value: gix::refs::FullName) -> Self {
@@ -39,9 +37,8 @@ impl From<gix::refs::FullName> for BranchReference {
 }
 
 /// A reference in `refs/remotes`.
-#[derive(serde::Serialize, Debug, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(Clone)]
 pub struct RemoteTrackingReference {
     /// The full ref name, like `refs/remotes/origin/on-remote`, for usage with the backend.
     #[cfg_attr(
@@ -54,8 +51,6 @@ pub struct RemoteTrackingReference {
     /// The symbolic name of the remote, like `origin`, or `origin/other`.
     pub remote_name: String,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(RemoteTrackingReference);
 
 impl RemoteTrackingReference {
     /// Create a new instance from `ref_name` and `remote_names`, essentially splitting the remote
@@ -90,17 +85,14 @@ impl RemoteTrackingReference {
 }
 
 /// Information about the target reference, the one we want to integrate with.
-#[derive(serde::Serialize, Debug, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(Clone)]
 pub struct Target {
     /// The remote tracking branch of the target to integrate with, like `refs/remotes/origin/main`.
     pub remote_tracking_ref: RemoteTrackingReference,
     /// The amount of commits that aren't reachable by any segment in the workspace, they are in its future.
     pub commits_ahead: usize,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(Target);
 
 impl Target {
     fn for_ui(
@@ -120,12 +112,12 @@ impl Target {
 
 pub(crate) mod inner {
     use crate::ui::ref_info::{BranchReference, Stack, Target};
+    use serde::Serialize;
 
     /// The UI-clone of [`crate::RefInfo`].
     /// TODO: should also include base-branch data, see `get_base_branch_data()`.
-    #[derive(serde::Serialize, Debug, Clone)]
-    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-    #[serde(rename_all = "camelCase")]
+    #[but_api_macros::but_transport]
+    #[derive(Clone)]
     pub struct RefInfo {
         /// The name of the ref that points to a workspace commit,
         /// *or* the name of the first stack segment.
@@ -153,8 +145,6 @@ pub(crate) mod inner {
         /// The workspace represents what `HEAD` is pointing to.
         pub is_entrypoint: bool,
     }
-    #[cfg(feature = "export-schema")]
-    but_schemars::register_sdk_type!(RefInfo);
 
     impl RefInfo {
         /// Make sure only the stack and segment that is the entrypoint remains.
@@ -218,15 +208,10 @@ impl TryFrom<crate::RefInfo> for inner::RefInfo {
 }
 
 /// The UI-clone of `branch::Stack`.
-#[derive(serde::Serialize, Debug, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(Clone)]
 pub struct Stack {
     /// Otherwise, it is `None`.
-    #[cfg_attr(
-        feature = "export-schema",
-        schemars(schema_with = "but_schemars::stack_id_opt")
-    )]
     pub id: Option<StackId>,
     /// If there is an integration branch, we know a base commit shared with the integration branch from
     /// which we branched off.
@@ -242,8 +227,6 @@ pub struct Stack {
     /// This array is never empty.
     pub segments: Vec<Segment>,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(Stack);
 
 impl Stack {
     fn for_ui(
@@ -259,9 +242,8 @@ impl Stack {
 }
 
 /// A segment of a commit graph, representing a set of commits exclusively.
-#[derive(serde::Serialize, Debug, Clone)]
-#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
-#[serde(rename_all = "camelCase")]
+#[but_api_macros::but_transport]
+#[derive(Clone)]
 pub struct Segment {
     ///
     /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
@@ -315,8 +297,6 @@ pub struct Segment {
     )]
     pub base: Option<gix::ObjectId>,
 }
-#[cfg(feature = "export-schema")]
-but_schemars::register_sdk_type!(Segment);
 
 impl Segment {
     fn for_ui(
