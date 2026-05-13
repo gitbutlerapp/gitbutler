@@ -440,7 +440,7 @@ const rubOperation = ({ source, target }: { source: Operand; target: Operand }):
 		Match.orElse(() => null),
 	);
 
-export const moveOperation = ({
+const moveOperation = ({
 	source,
 	target,
 	side,

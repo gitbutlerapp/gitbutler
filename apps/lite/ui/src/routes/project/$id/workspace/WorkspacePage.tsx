@@ -7,17 +7,14 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import { useActiveElement } from "#ui/focus.ts";
-import {
-	focusAdjacentPanel,
-	focusPanel,
-	Panel as PanelType,
-	useFocusedProjectPanel,
-} from "#ui/panels.ts";
+import { focusPanel, Panel as PanelType, useFocusedProjectPanel } from "#ui/panels.ts";
 import { isPanelVisible } from "#ui/panels/state.ts";
 import {
 	projectActions,
 	selectProjectDialogState,
+	selectProjectOutlineModeState,
 	selectProjectPanelsState,
+	selectProjectSelectionOutline,
 } from "#ui/projects/state.ts";
 import { ShortcutsBarPortal, TopBarActionsPortal } from "#ui/portals.tsx";
 import { Keys } from "#ui/components/Keys.tsx";
@@ -25,13 +22,7 @@ import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { isInputElement } from "#ui/commands/hotkeys.ts";
 import { BranchListing, Segment, Stack } from "@gitbutler/but-sdk";
-import {
-	formatForDisplay,
-	Hotkey,
-	HotkeyOptions,
-	HotkeySequence,
-	normalizeRegisterableHotkey,
-} from "@tanstack/react-hotkeys";
+import { formatForDisplay, type Hotkey, type HotkeySequence } from "@tanstack/react-hotkeys";
 import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match, Order } from "effect";
@@ -41,59 +32,137 @@ import { branchOperand, type BranchOperand } from "#ui/operands.ts";
 import { PickerDialog, type PickerDialogGroup } from "#ui/ui/PickerDialog/PickerDialog.tsx";
 import { DetailsPanel } from "./DetailsPanel.tsx";
 import styles from "./WorkspacePage.module.css";
-import type { CommandGroup } from "#ui/commands/groups.ts";
 import { OutlinePanel } from "#ui/routes/project/$id/workspace/OutlinePanel.tsx";
 import { classes } from "#ui/ui/classes.ts";
-import { CommandOptions, useCommand, useCommandFn } from "#ui/commands/manager.ts";
-import type { CommandRegistrationId } from "#ui/commands/state.ts";
+import {
+	CommandFn,
+	type CommandId,
+	resolvedCommandHotkeys,
+	useCommandHotkeys,
+	useProjectCommands,
+} from "#ui/commands/manager.ts";
+import type { CommandGroup } from "#ui/commands/groups.ts";
+import { getOperation, getOperations, operationLabel } from "#ui/operations/operation.ts";
 
 type CommandPaletteItem = {
-	id: string;
-	name: string;
+	id: CommandId;
+	label: string;
 	hotkeys?: Array<Hotkey | HotkeySequence>;
-};
-
-const groupCommandPaletteItems = (
-	regs: Record<CommandRegistrationId, CommandOptions>,
-): Array<PickerDialogGroup<CommandPaletteItem>> => {
-	const grouped: Map<CommandGroup, Array<CommandPaletteItem>> = new Map();
-
-	for (const [id, cmd] of Object.entries(regs)) {
-		if (cmd.enabled === false || cmd.commandPalette === undefined) continue;
-
-		const mitems = grouped.get(cmd.group) ?? [];
-		grouped.set(cmd.group, [
-			...mitems,
-			{
-				id,
-				name: cmd.commandPalette.label,
-				hotkeys: cmd.hotkeys?.map((hk) =>
-					"sequence" in hk ? hk.sequence : normalizeRegisterableHotkey(hk.hotkey),
-				),
-			},
-		]);
-	}
-
-	return Array.from(grouped.entries())
-		.toSorted(Order.mapInput(Order.string, ([g]) => g))
-		.map(([group, cmds]) => ({
-			value: group,
-			items: cmds.toSorted(Order.mapInput(Order.string, (cmd) => cmd.name)),
-		}));
+	commandFn: CommandFn;
 };
 
 const CommandPalette: FC<{
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }> = ({ open, onOpenChange }) => {
-	const regs = useAppSelector((state) => state.commands.registrations);
-	const items = groupCommandPaletteItems(regs);
-	const getCommandFn = useCommandFn();
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const focusedPanel = useFocusedProjectPanel(projectId);
+	const [cmds, hotkeys] = useProjectCommands({ focusedPanel, projectId });
+	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
+	const selectionOutline = useAppSelector((state) =>
+		selectProjectSelectionOutline(state, projectId),
+	);
+	const keyboardTransfer =
+		outlineMode._tag === "Transfer" && outlineMode.value._tag === "Keyboard"
+			? outlineMode.value
+			: null;
+	const keyboardOperations = keyboardTransfer
+		? getOperations(keyboardTransfer.source, selectionOutline)
+		: null;
+	const keyboardOperation = keyboardTransfer
+		? getOperation({
+				source: keyboardTransfer.source,
+				target: selectionOutline,
+				operationType: keyboardTransfer.operationType,
+			})
+		: null;
+	const operationConfirmLabel = keyboardOperation
+		? operationLabel(keyboardOperation)
+		: outlineMode._tag === "Absorb" && outlineMode.absorptionPlan.length > 0
+			? "Confirm"
+			: undefined;
+
+	const item = (id: CommandId, label?: string): CommandPaletteItem | null => {
+		const commandFn = cmds[id];
+		if (label === undefined || !commandFn) return null;
+
+		return {
+			id,
+			label,
+			commandFn,
+			hotkeys: resolvedCommandHotkeys(hotkeys[id]),
+		};
+	};
+
+	const group = (
+		value: CommandGroup,
+		items: Array<CommandPaletteItem | null>,
+	): PickerDialogGroup<CommandPaletteItem> | null => {
+		const filteredItems = items
+			.filter((item) => item !== null)
+			.toSorted(Order.mapInput(Order.string, (cmd) => cmd.label));
+
+		if (filteredItems.length === 0) return null;
+
+		return { value, items: filteredItems };
+	};
+
+	const items = [
+		group("Branches", [item("branch.apply", "Apply")]),
+		group("Outline", [
+			item("branch.select", "Select branch"),
+			item("changes.select_changes", "Select changes"),
+			item("changes.compose_message", "Compose commit message"),
+			item("selection.move", "Move"),
+			item("selection.cut", "Cut"),
+			item("changes.commit_mode", "Commit"),
+		]),
+		group("Details", [
+			item("details.toggle", isPanelVisible(panelsState, "details") ? "Close" : "Open"),
+		]),
+		group("Changes", [
+			item("changes.focus_message", "Compose commit message"),
+			item("changes.absorb", "Absorb"),
+		]),
+		group("Changes file", [item("changes_file.absorb", "Absorb")]),
+		group("Commit", [
+			item("commit.amend", "Amend"),
+			item("commit.reword", "Reword"),
+			item("commit.add_empty.above", "Add empty commit above"),
+			item("commit.add_empty.below", "Add empty commit below"),
+			item("commit.delete", "Delete commit"),
+		]),
+		group("Branch", [item("branch.rename", "Rename")]),
+		group("Stack", [item("stack.unapply", "Unapply stack")]),
+		group("Operation mode", [
+			item(
+				"operation.move_above",
+				keyboardOperations?.moveAbove
+					? `Select ${operationLabel(keyboardOperations.moveAbove)}`
+					: undefined,
+			),
+			item(
+				"operation.rub",
+				keyboardOperations?.rub ? `Select ${operationLabel(keyboardOperations.rub)}` : undefined,
+			),
+			item(
+				"operation.move_below",
+				keyboardOperations?.moveBelow
+					? `Select ${operationLabel(keyboardOperations.moveBelow)}`
+					: undefined,
+			),
+			item("operation.confirm", operationConfirmLabel),
+			item(
+				"mode.cancel",
+				outlineMode._tag === "Absorb" || outlineMode._tag === "Transfer" ? "Cancel" : undefined,
+			),
+		]),
+	].flatMap((group) => (group ? [group] : []));
 
 	const runCommand = (hotkey: CommandPaletteItem) => {
 		onOpenChange(false);
-		// oxlint-disable-next-line typescript/no-non-null-assertion: Let it loudly fail.
-		getCommandFn(hotkey.id)!("commandPalette");
+		hotkey.commandFn();
 	};
 
 	return (
@@ -102,7 +171,7 @@ const CommandPalette: FC<{
 			closeLabel="Close command palette"
 			emptyLabel="No commands found."
 			getItemKey={(x) => x.id}
-			getItemLabel={(x) => x.name}
+			getItemLabel={(x) => x.label}
 			getItemType={(x) => {
 				// TODO: Render all hotkeys.
 				const firstViable = x.hotkeys?.find((hk) => typeof hk === "string");
@@ -258,53 +327,25 @@ const ApplyBranchPicker: FC<{
 };
 
 const TopBarActions: FC = () => {
-	const dispatch = useAppDispatch();
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 	const focusedPanel = useFocusedProjectPanel(projectId);
-	const openApplyBranchPicker = () => {
-		dispatch(projectActions.openApplyBranchPicker({ projectId }));
-	};
-	const toggleDetails = () => {
-		if (focusedPanel === "details" && isPanelVisible(panelsState, "details")) {
-			const detailsPanelIndex = panelsState.visiblePanels.indexOf("details");
-			const nextPanel = panelsState.visiblePanels[detailsPanelIndex - 1];
-			if (nextPanel !== undefined) focusPanel(nextPanel);
-		}
-
-		dispatch(projectActions.togglePanel({ projectId, panel: "details" }));
-	};
-
-	const applyBranchCommand = useCommand(openApplyBranchPicker, {
-		group: "Branches",
-		commandPalette: { label: "Apply" },
-		shortcutsBar: { label: "Apply" },
-		hotkeys: [{ hotkey: "Mod+Shift+A" }],
-	});
-
-	const toggleDetailsCommand = useCommand(toggleDetails, {
-		group: "Details",
-		commandPalette: {
-			label: isPanelVisible(panelsState, "details") ? "Close" : "Open",
-		},
-		shortcutsBar: { label: "Details" },
-		hotkeys: [{ hotkey: "D" }],
-	});
+	const [cmds, hotkeys] = useProjectCommands({ focusedPanel, projectId });
+	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 
 	return (
 		<>
 			<ShortcutButton
 				className={uiStyles.button}
-				hotkeys={applyBranchCommand.hotkeys}
-				onClick={applyBranchCommand.commandFn}
+				hotkeys={resolvedCommandHotkeys(hotkeys["branch.apply"])}
+				onClick={cmds["branch.apply"]}
 			>
 				Apply branch
 			</ShortcutButton>
 			<ShortcutButton
 				className={uiStyles.button}
-				hotkeys={toggleDetailsCommand.hotkeys}
+				hotkeys={resolvedCommandHotkeys(hotkeys["details.toggle"])}
 				aria-pressed={isPanelVisible(panelsState, "details")}
-				onClick={toggleDetailsCommand.commandFn}
+				onClick={cmds["details.toggle"]}
 			>
 				Details
 			</ShortcutButton>
@@ -317,7 +358,7 @@ const isInputIgnoredHotkey = ({
 	hotkeyOpts,
 }: {
 	activeElement: Element | null;
-	hotkeyOpts: HotkeyOptions;
+	hotkeyOpts: { ignoreInputs?: boolean };
 }): boolean =>
 	hotkeyOpts.ignoreInputs !== false &&
 	isInputElement(activeElement) &&
@@ -326,24 +367,62 @@ const isInputIgnoredHotkey = ({
 const ShortcutsBar: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const focusedPanel = useFocusedProjectPanel(projectId);
+	const [, hotkeys] = useProjectCommands({ focusedPanel, projectId });
 	const activeElement = useActiveElement();
-	const regs = useAppSelector((state) => state.commands.registrations);
-	const visibleHotkeys = Object.values(regs)
-		.flatMap(({ enabled, hotkeys, shortcutsBar }) =>
-			enabled !== false && shortcutsBar !== undefined && hotkeys !== undefined
-				? hotkeys.flatMap((hk) =>
-						// TODO: Render sequences too.
-						"sequence" in hk ||
-						hk.enabled === false ||
-						isInputIgnoredHotkey({ activeElement, hotkeyOpts: hk })
-							? []
-							: {
-									label: shortcutsBar.label,
-									hotkey: formatForDisplay(hk.hotkey),
-								},
-					)
-				: [],
-		)
+	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const selectionOutline = useAppSelector((state) =>
+		selectProjectSelectionOutline(state, projectId),
+	);
+	const keyboardTransfer =
+		outlineMode._tag === "Transfer" && outlineMode.value._tag === "Keyboard"
+			? outlineMode.value
+			: null;
+	const keyboardOperation = keyboardTransfer
+		? getOperation({
+				source: keyboardTransfer.source,
+				target: selectionOutline,
+				operationType: keyboardTransfer.operationType,
+			})
+		: null;
+	const shortcutBarLabels: Partial<Record<CommandId, string>> = {
+		"branch.apply": "Apply",
+		"branch.rename": "Rename",
+		"branch.select": "Branch",
+		"changes.absorb": "Absorb",
+		"changes.commit_mode": "Commit",
+		"changes.compose_message": "Compose commit message",
+		"changes.focus_message": "Compose commit message",
+		"changes.select_changes": "Changes",
+		"changes_file.absorb": "Absorb",
+		"command_palette.toggle": "Command palette",
+		"commit.amend": "Amend",
+		"commit.reword": "Reword",
+		"details.toggle": "Details",
+		"mode.cancel": "Cancel",
+		"operation.confirm": keyboardOperation ? operationLabel(keyboardOperation) : "Confirm",
+		"panel.focus_next": "Focus next panel",
+		"panel.focus_previous": "Focus previous panel",
+		"selection.cut": "Cut",
+		"selection.move": "Move",
+	};
+	const visibleHotkeys = Object.entries(hotkeys)
+		.flatMap(([id, hotkeys]) => {
+			const commandId = id as CommandId;
+			const label = shortcutBarLabels[commandId];
+			if (label === undefined || label === "" || hotkeys.length === 0) return [];
+
+			return hotkeys.flatMap((hk) =>
+				// TODO: Render sequences too.
+				"sequence" in hk ||
+				hk.enabled === false ||
+				isInputIgnoredHotkey({ activeElement, hotkeyOpts: hk })
+					? []
+					: {
+							label,
+							hotkey: formatForDisplay(hk.hotkey),
+						},
+			);
+		})
 		.toSorted(Order.mapInput(Order.string, (hk) => hk.hotkey));
 
 	if (visibleHotkeys.length === 0) return null;
@@ -361,32 +440,6 @@ const ShortcutsBar: FC = () => {
 	);
 };
 
-const usePanelsHotkeys = ({ focusedPanel }: { focusedPanel: PanelType | null }) => {
-	useCommand(
-		() => {
-			focusAdjacentPanel(-1);
-		},
-		{
-			group: "Panels",
-			enabled: focusedPanel !== null,
-			shortcutsBar: { label: "Focus previous panel" },
-			hotkeys: [{ hotkey: "H" }],
-		},
-	);
-
-	useCommand(
-		() => {
-			focusAdjacentPanel(1);
-		},
-		{
-			group: "Panels",
-			enabled: focusedPanel !== null,
-			shortcutsBar: { label: "Focus next panel" },
-			hotkeys: [{ hotkey: "L" }],
-		},
-	);
-};
-
 const WorkspacePage: FC = () => {
 	const dispatch = useAppDispatch();
 
@@ -395,20 +448,8 @@ const WorkspacePage: FC = () => {
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
 	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 	const focusedPanel = useFocusedProjectPanel(projectId);
-
-	useCommand(
-		() => {
-			if (dialog._tag === "CommandPalette") dispatch(projectActions.closeDialog({ projectId }));
-			else dispatch(projectActions.openCommandPalette({ projectId, focusedPanel }));
-		},
-		{
-			group: "Global",
-			shortcutsBar: { label: "Command palette" },
-			hotkeys: [{ hotkey: "Mod+K" }],
-		},
-	);
-
-	usePanelsHotkeys({ focusedPanel });
+	const [cmds, commandHotkeys] = useProjectCommands({ focusedPanel, projectId });
+	useCommandHotkeys(cmds, commandHotkeys);
 
 	const { defaultLayout, onLayoutChanged } = useDefaultLayout({
 		id: `project:${projectId}:layout`,

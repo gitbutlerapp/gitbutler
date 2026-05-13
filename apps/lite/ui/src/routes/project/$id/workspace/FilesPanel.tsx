@@ -1,6 +1,5 @@
 import { useNavigationIndexHotkeys } from "#ui/panels.ts";
 import {
-	absorptionPlanQueryOptions,
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
@@ -34,11 +33,20 @@ import { classes } from "#ui/ui/classes.ts";
 import { DependencyIcon, MenuTriggerIcon } from "#ui/ui/icons.tsx";
 import { mergeProps, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
-import { AbsorptionTarget, TreeChange } from "@gitbutler/but-sdk";
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { TreeChange } from "@gitbutler/but-sdk";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Match } from "effect";
-import { ComponentProps, createContext, FC, Suspense, use, useEffect } from "react";
+import {
+	ComponentProps,
+	createContext,
+	FC,
+	Suspense,
+	use,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+} from "react";
 import { Panel, PanelProps } from "react-resizable-panels";
 import styles from "./FilesPanel.module.css";
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
@@ -53,10 +61,21 @@ import {
 	NavigationIndex,
 	navigationIndexIncludes,
 } from "#ui/workspace/navigation-index.ts";
-import { useCommand } from "#ui/commands/manager.ts";
 import { assert } from "#ui/assert.ts";
+import { type CommandId, useProjectCommands } from "#ui/commands/manager.ts";
 
 const NavigationIndexContext = createContext<NavigationIndex | null>(null);
+
+const useNativeMenuCommand = (projectId: string) => {
+	const focusedPanel = useFocusedProjectPanel(projectId);
+	const [cmds] = useProjectCommands({ focusedPanel, projectId });
+	const cmdsRef = useRef(cmds);
+	useLayoutEffect(() => {
+		cmdsRef.current = cmds;
+	}, [cmds]);
+
+	return (id: CommandId) => () => cmdsRef.current[id]?.();
+};
 
 const useNavigationIndex = (projectId: string, parent: Operand, files: Array<Operand>) => {
 	const dispatch = useAppDispatch();
@@ -87,8 +106,6 @@ const useNavigationIndex = (projectId: string, parent: Operand, files: Array<Ope
 	useNavigationIndexHotkeys({
 		focusedPanel,
 		navigationIndex,
-		projectId,
-		group: "Files",
 		panel: "files",
 		select,
 		selection,
@@ -454,42 +471,20 @@ const ChangesFileRow: FC<{
 }> = ({ change, dependencyCommitIds, projectId }) => {
 	const operand = fileOperand({ parent: changesFileParent, path: change.path });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-	const isSelected = useIsSelected({ projectId, operand });
-	const focusedPanel = useFocusedProjectPanel(projectId);
 
 	const dispatch = useAppDispatch();
-	const queryClient = useQueryClient();
-	const enterAbsorbMode = (source: Operand, sourceTarget: AbsorptionTarget) => {
-		void queryClient
-			.fetchQuery(absorptionPlanQueryOptions({ projectId, target: sourceTarget }))
-			.then((absorptionPlan) => {
-				dispatch(projectActions.enterAbsorbMode({ projectId, source, absorptionPlan }));
-				focusPanel("outline");
-			});
+	const menuCommand = useNativeMenuCommand(projectId);
+	const selectFile = () => {
+		dispatch(projectActions.selectFiles({ projectId, selection: operand }));
+		focusPanel("files");
 	};
 
-	const absorb = () => {
-		enterAbsorbMode(operand, {
-			type: "treeChanges",
-			subject: {
-				changes: [change],
-				assignedStackId: null,
-			},
-		});
+	const absorbContextMenuItem: NativeMenuItem = {
+		_tag: "Item",
+		label: "Absorb",
+		enabled: true,
+		onSelect: menuCommand("changes_file.absorb"),
 	};
-
-	const { contextMenu: absorbContextMenuItem } = useCommand(absorb, {
-		enabled: isSelected && focusedPanel === "files" && outlineMode._tag === "Default",
-		group: "Changes file",
-		commandPalette: { label: "Absorb" },
-		shortcutsBar: { label: "Absorb" },
-		hotkeys: [{ hotkey: "A" }],
-		contextMenu: {
-			label: "Absorb",
-			// Focus change is too slow / the menu item isn't reactive.
-			enabled: true,
-		},
-	});
 
 	const menuItems: Array<NativeMenuItem> = [absorbContextMenuItem];
 
@@ -509,6 +504,7 @@ const ChangesFileRow: FC<{
 			<div
 				className={workspaceItemRowStyles.itemRowLabel}
 				onContextMenu={(event) => {
+					selectFile();
 					void showNativeContextMenu(event, menuItems);
 				}}
 			>
@@ -535,6 +531,7 @@ const ChangesFileRow: FC<{
 						className={workspaceItemRowStyles.itemRowToolbarButton}
 						aria-label="File menu"
 						onClick={(event) => {
+							selectFile();
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
 					>

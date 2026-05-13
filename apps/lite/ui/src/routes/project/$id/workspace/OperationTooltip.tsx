@@ -2,7 +2,6 @@ import { classes } from "#ui/ui/classes.ts";
 import {
 	getOperations,
 	operationLabel,
-	useRunOperationMutationOptions,
 	type OperationType,
 	type OperationsByType,
 } from "#ui/operations/operation.ts";
@@ -18,63 +17,32 @@ import { useAppDispatch } from "#ui/store.ts";
 import { projectActions } from "#ui/projects/state.ts";
 import { getTransferOperation, type OutlineMode } from "#ui/outline/mode.ts";
 import { Match } from "effect";
-import { useCommand } from "#ui/commands/manager.ts";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { resolvedCommandHotkeys, useProjectCommands } from "#ui/commands/manager.ts";
 import { type CommitAbsorption } from "@gitbutler/but-sdk";
+import { useFocusedProjectPanel } from "#ui/panels.ts";
 
 const AbsorbControls: FC<{
 	projectId: string;
 	absorptionPlan: Array<CommitAbsorption>;
 }> = ({ projectId, absorptionPlan }) => {
-	const dispatch = useAppDispatch();
-	const queryClient = useQueryClient();
-	const { mutate: absorb } = useMutation({
-		mutationFn: () => window.lite.absorb({ projectId, absorptionPlan }),
-		onSuccess: async () => {
-			await queryClient.invalidateQueries();
-		},
-	});
-
-	const confirm = () => {
-		dispatch(projectActions.exitMode({ projectId }));
-
-		if (absorptionPlan.length === 0) return;
-
-		absorb();
-	};
-
-	const cancel = () => dispatch(projectActions.exitMode({ projectId }));
-
-	const confirmCommand = useCommand(confirm, {
-		enabled: absorptionPlan.length > 0,
-		group: "Operation mode",
-		commandPalette: { label: "Confirm" },
-		shortcutsBar: { label: "Confirm" },
-		hotkeys: [{ hotkey: "Enter" }],
-	});
-
-	const cancelCommand = useCommand(cancel, {
-		group: "Operation mode",
-		commandPalette: { label: "Cancel" },
-		shortcutsBar: { label: "Cancel" },
-		hotkeys: [{ hotkey: "Escape" }],
-	});
+	const focusedPanel = useFocusedProjectPanel(projectId);
+	const [cmds, hotkeys] = useProjectCommands({ focusedPanel, projectId });
 
 	return (
 		<>
 			{absorptionPlan.length > 0 && (
 				<ShortcutButton
 					className={uiStyles.button}
-					hotkeys={confirmCommand.hotkeys}
-					onClick={confirmCommand.commandFn}
+					hotkeys={resolvedCommandHotkeys(hotkeys["operation.confirm"])}
+					onClick={cmds["operation.confirm"]}
 				>
 					Absorb
 				</ShortcutButton>
 			)}
 			<ShortcutButton
 				className={uiStyles.button}
-				hotkeys={cancelCommand.hotkeys}
-				onClick={cancelCommand.commandFn}
+				hotkeys={resolvedCommandHotkeys(hotkeys["mode.cancel"])}
+				onClick={cmds["mode.cancel"]}
 			>
 				Cancel
 			</ShortcutButton>
@@ -88,60 +56,12 @@ const TransferOperationControls: FC<{
 	operationType: OperationType;
 }> = ({ projectId, operations, operationType }) => {
 	const dispatch = useAppDispatch();
-	const { mutate: runOperation } = useMutation(useRunOperationMutationOptions());
 	const operation = operations[operationType];
-
-	const run = () => {
-		dispatch(projectActions.exitMode({ projectId }));
-
-		if (!operation) return;
-
-		runOperation(operation);
-	};
-
-	const cancel = () => dispatch(projectActions.exitMode({ projectId }));
+	const focusedPanel = useFocusedProjectPanel(projectId);
+	const [cmds, hotkeys] = useProjectCommands({ focusedPanel, projectId });
 
 	const setOperationType = (operationType: OperationType) =>
 		dispatch(projectActions.updateTransferOperationType({ projectId, operationType }));
-
-	const moveAboveCommand = useCommand(() => setOperationType("moveAbove"), {
-		group: "Operation mode",
-		commandPalette: operations.moveAbove
-			? { label: `Select ${operationLabel(operations.moveAbove)}` }
-			: undefined,
-		hotkeys: [{ hotkey: "A" }],
-	});
-
-	const rubCommand = useCommand(() => setOperationType("rub"), {
-		group: "Operation mode",
-		commandPalette: operations.rub
-			? { label: `Select ${operationLabel(operations.rub)}` }
-			: undefined,
-		hotkeys: [{ hotkey: "R" }],
-	});
-
-	const moveBelowCommand = useCommand(() => setOperationType("moveBelow"), {
-		group: "Operation mode",
-		commandPalette: operations.moveBelow
-			? { label: `Select ${operationLabel(operations.moveBelow)}` }
-			: undefined,
-		hotkeys: [{ hotkey: "B" }],
-	});
-
-	const confirmCommand = useCommand(run, {
-		enabled: !!operation,
-		group: "Operation mode",
-		commandPalette: operation ? { label: operationLabel(operation) } : undefined,
-		shortcutsBar: operation ? { label: operationLabel(operation) } : undefined,
-		hotkeys: [{ hotkey: "Mod+V", ignoreInputs: true }, { hotkey: "Enter" }],
-	});
-
-	const cancelCommand = useCommand(cancel, {
-		group: "Operation mode",
-		commandPalette: { label: "Cancel" },
-		shortcutsBar: { label: "Cancel" },
-		hotkeys: [{ hotkey: "Escape" }],
-	});
 
 	const onValueChange = (value: Array<string>) => {
 		if (value.length === 0) return;
@@ -162,37 +82,41 @@ const TransferOperationControls: FC<{
 				<Toggle
 					value={"moveAbove" satisfies OperationType}
 					className={styles.operationTypeToggle}
-					render={<ShortcutButton hotkeys={moveAboveCommand.hotkeys} />}
+					render={
+						<ShortcutButton hotkeys={resolvedCommandHotkeys(hotkeys["operation.move_above"])} />
+					}
 				>
 					{operations.moveAbove ? operationLabel(operations.moveAbove) : "Move above"}
 				</Toggle>
 				<Toggle
 					value={"rub" satisfies OperationType}
 					className={styles.operationTypeToggle}
-					render={<ShortcutButton hotkeys={rubCommand.hotkeys} />}
+					render={<ShortcutButton hotkeys={resolvedCommandHotkeys(hotkeys["operation.rub"])} />}
 				>
 					{operations.rub ? operationLabel(operations.rub) : "Rub"}
 				</Toggle>
 				<Toggle
 					value={"moveBelow" satisfies OperationType}
 					className={styles.operationTypeToggle}
-					render={<ShortcutButton hotkeys={moveBelowCommand.hotkeys} />}
+					render={
+						<ShortcutButton hotkeys={resolvedCommandHotkeys(hotkeys["operation.move_below"])} />
+					}
 				>
 					{operations.moveBelow ? operationLabel(operations.moveBelow) : "Move below"}
 				</Toggle>
 			</ToggleGroup>
 			<ShortcutButton
 				className={uiStyles.button}
-				hotkeys={confirmCommand.hotkeys}
-				onClick={confirmCommand.commandFn}
+				hotkeys={resolvedCommandHotkeys(hotkeys["operation.confirm"])}
+				onClick={cmds["operation.confirm"]}
 				disabled={!operation}
 			>
 				Confirm
 			</ShortcutButton>
 			<ShortcutButton
 				className={uiStyles.button}
-				hotkeys={cancelCommand.hotkeys}
-				onClick={cancelCommand.commandFn}
+				hotkeys={resolvedCommandHotkeys(hotkeys["mode.cancel"])}
+				onClick={cmds["mode.cancel"]}
 			>
 				Cancel
 			</ShortcutButton>

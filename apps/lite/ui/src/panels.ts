@@ -1,21 +1,14 @@
-import { CommandGroup } from "#ui/commands/groups.ts";
 import { useActiveElement } from "#ui/focus.ts";
-import { type OperationType } from "#ui/operations/operation.ts";
-import { keyboardTransferOperationMode } from "#ui/outline/mode.ts";
-import { changesSectionOperand, type Operand } from "#ui/operands.ts";
-import {
-	projectActions,
-	selectProjectOutlineModeState,
-	selectProjectDialogState,
-} from "#ui/projects/state.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
+import { type Operand } from "#ui/operands.ts";
+import { selectProjectDialogState } from "#ui/projects/state.ts";
+import { useAppSelector } from "#ui/store.ts";
 import {
 	getAdjacent,
 	getNextSection,
 	getPreviousSection,
 	NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
-import { useCommand } from "#ui/commands/manager.ts";
+import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
 
 export type Panel = "outline" | "files" | "details";
 export const orderedPanels: Array<Panel> = ["outline", "files", "details"];
@@ -45,22 +38,16 @@ export const focusAdjacentPanel = (offset: -1 | 1) => {
 export const useNavigationIndexHotkeys = ({
 	focusedPanel,
 	navigationIndex,
-	projectId,
-	group,
 	panel,
 	select,
 	selection,
 }: {
 	focusedPanel: Panel | null;
 	navigationIndex: NavigationIndex;
-	projectId: string;
-	group: CommandGroup;
 	panel: Panel;
 	select: (newItem: Operand) => void;
 	selection: Operand;
 }) => {
-	const dispatch = useAppDispatch();
-
 	const selectAndFocus = (newItem: Operand) => {
 		select(newItem);
 		focusPanel(panel);
@@ -104,80 +91,82 @@ export const useNavigationIndexHotkeys = ({
 		selectAndFocus(newItem);
 	};
 
-	useCommand(selectPreviousItem, {
-		group,
-		enabled: focusedPanel === panel,
-		shortcutsBar: { label: "Up" },
-		hotkeys: [{ hotkey: "ArrowUp" }, { hotkey: "K" }],
-	});
+	const enabled = focusedPanel === panel;
+	const conflictBehavior = enabled ? "warn" : "allow";
 
-	useCommand(selectNextItem, {
-		group,
-		enabled: focusedPanel === panel,
-		shortcutsBar: { label: "Down" },
-		hotkeys: [{ hotkey: "ArrowDown" }, { hotkey: "J" }],
-	});
+	useHotkeys([
+		{
+			hotkey: "ArrowUp",
+			callback: selectPreviousItem,
+			options: { enabled, conflictBehavior },
+		},
+		{
+			hotkey: "K",
+			callback: selectPreviousItem,
+			options: { enabled, conflictBehavior },
+		},
+		{
+			hotkey: "ArrowDown",
+			callback: selectNextItem,
+			options: { enabled, conflictBehavior },
+		},
+		{
+			hotkey: "J",
+			callback: selectNextItem,
+			options: { enabled, conflictBehavior },
+		},
+		{
+			hotkey: "Shift+ArrowUp",
+			callback: selectPreviousSection,
+			options: { enabled, conflictBehavior },
+		},
+		{
+			hotkey: "Shift+K",
+			callback: selectPreviousSection,
+			options: { enabled, conflictBehavior },
+		},
+		{
+			hotkey: "Shift+ArrowDown",
+			callback: selectNextSection,
+			options: { enabled, conflictBehavior },
+		},
+		{
+			hotkey: "Shift+J",
+			callback: selectNextSection,
+			options: { enabled, conflictBehavior },
+		},
+		{
+			hotkey: "Home",
+			callback: selectFirstItem,
+			options: { enabled, conflictBehavior },
+		},
+		{
+			hotkey: "Meta+ArrowUp",
+			callback: selectFirstItem,
+			options: { enabled, conflictBehavior },
+		},
+		{
+			hotkey: "End",
+			callback: selectLastItem,
+			options: { enabled, conflictBehavior },
+		},
+		{
+			hotkey: "Meta+ArrowDown",
+			callback: selectLastItem,
+			options: { enabled, conflictBehavior },
+		},
+		{
+			hotkey: "Shift+G",
+			callback: selectLastItem,
+			options: { enabled, conflictBehavior },
+		},
+	]);
 
-	useCommand(selectPreviousSection, {
-		group,
-		enabled: focusedPanel === panel,
-		hotkeys: [{ hotkey: "Shift+ArrowUp" }, { hotkey: "Shift+K" }],
-	});
-
-	useCommand(selectNextSection, {
-		group,
-		enabled: focusedPanel === panel,
-		hotkeys: [{ hotkey: "Shift+ArrowDown" }, { hotkey: "Shift+J" }],
-	});
-
-	useCommand(selectFirstItem, {
-		group,
-		enabled: focusedPanel === panel,
-		hotkeys: [{ hotkey: "Home" }, { hotkey: "Meta+ArrowUp" }, { sequence: ["G", "G"] }],
-	});
-
-	useCommand(selectLastItem, {
-		group,
-		enabled: focusedPanel === panel,
-		hotkeys: [{ hotkey: "End" }, { hotkey: "Meta+ArrowDown" }, { hotkey: "Shift+G" }],
-	});
-
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-
-	const enterTransferMode = (source: Operand, operationType: OperationType) => {
-		dispatch(
-			projectActions.enterTransferMode({
-				projectId,
-				mode: keyboardTransferOperationMode({
-					source,
-					operationType,
-				}),
-			}),
-		);
-		focusPanel("outline");
-	};
-
-	useCommand(() => enterTransferMode(selection, "moveAbove"), {
-		group,
-		enabled: focusedPanel === panel && outlineMode._tag === "Default",
-		commandPalette: { label: "Move" },
-		shortcutsBar: { label: "Move" },
-		hotkeys: [{ hotkey: "M" }],
-	});
-
-	useCommand(() => enterTransferMode(selection, "rub"), {
-		group,
-		enabled: focusedPanel === panel && outlineMode._tag === "Default",
-		commandPalette: { label: "Cut" },
-		shortcutsBar: { label: "Cut" },
-		hotkeys: [{ hotkey: "Mod+X", ignoreInputs: true }, { hotkey: "R" }],
-	});
-
-	useCommand(() => enterTransferMode(changesSectionOperand, "moveAbove"), {
-		group,
-		enabled: focusedPanel === panel && outlineMode._tag === "Default",
-		commandPalette: { label: "Commit" },
-		shortcutsBar: { label: "Commit" },
-		hotkeys: [{ hotkey: "C" }],
-	});
+	useHotkeySequences([
+		{
+			sequence: ["G", "G"],
+			callback: selectFirstItem,
+			options: { enabled, conflictBehavior },
+		},
+	]);
 };
