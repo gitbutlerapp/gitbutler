@@ -191,6 +191,9 @@ pub enum OperationKind {
     Unknown,
 }
 
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(OperationKind);
+
 impl OperationKind {
     pub fn kind_str(self) -> &'static str {
         match self {

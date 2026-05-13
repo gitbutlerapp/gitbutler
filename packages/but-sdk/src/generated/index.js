@@ -579,7 +579,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { absorb, absorptionPlan, apply, assignHunk, branchDetails, branchDiff, changesInWorktree, changesInWorktreeWithPerm, commitAmend, commitCreate, commitDetailsWithLineStats, commitDiscard, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitSquash, commitUncommit, commitUncommitChanges, forgeProvider, getReview, headInfo, listAvailableReviewTemplates, listBranches, listCiChecksAndUpdateCache, listProjectsStateless, listReviews, listReviewsForBranch, mergeReview, moveBranch, publishReview, pushStackLegacy, removeBranch, reviewTemplate, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, tearOffBranch, treeChangeDiffs, unapplyStack, updateBranchName, updateReviewFooters, warmCiChecksCache, workspaceIntegrateUpstream, WatcherHandle, watcherStart } = nativeBinding
+const { absorb, absorptionPlan, apply, assignHunk, branchDetails, branchDiff, changesInWorktree, changesInWorktreeWithPerm, commitAmend, commitCreate, commitDetailsWithLineStats, commitDiscard, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitSquash, commitUncommit, commitUncommitChanges, forgeProvider, getRedoTargetSnapshot, getReview, getUndoTargetSnapshot, headInfo, listAvailableReviewTemplates, listBranches, listCiChecksAndUpdateCache, listProjectsStateless, listReviews, listReviewsForBranch, mergeReview, moveBranch, peelRestoreSnapshot, publishReview, pushStackLegacy, removeBranch, restoreSnapshotWithKind, reviewTemplate, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, tearOffBranch, treeChangeDiffs, unapplyStack, updateBranchName, updateReviewFooters, warmCiChecksCache, workspaceIntegrateUpstream, WatcherHandle, watcherStart } = nativeBinding
 export { absorb }
 export { absorptionPlan }
 export { apply }
@@ -600,7 +600,9 @@ export { commitSquash }
 export { commitUncommit }
 export { commitUncommitChanges }
 export { forgeProvider }
+export { getRedoTargetSnapshot }
 export { getReview }
+export { getUndoTargetSnapshot }
 export { headInfo }
 export { listAvailableReviewTemplates }
 export { listBranches }
@@ -610,9 +612,11 @@ export { listReviews }
 export { listReviewsForBranch }
 export { mergeReview }
 export { moveBranch }
+export { peelRestoreSnapshot }
 export { publishReview }
 export { pushStackLegacy }
 export { removeBranch }
+export { restoreSnapshotWithKind }
 export { reviewTemplate }
 export { setReviewAutoMerge }
 export { setReviewDraftiness }

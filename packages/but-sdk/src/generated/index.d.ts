@@ -201,7 +201,21 @@ export declare function commitUncommitChanges(projectId: string, commitId: strin
  */
 export declare function forgeProvider(projectId: string): Promise<ForgeName | null>
 
+/**
+ * Get the snapshot that a redo operation should restore to.
+ *
+ * This handles multiple consecutive redos.
+ */
+export declare function getRedoTargetSnapshot(projectId: string): Promise<Snapshot | null>
+
 export declare function getReview(projectId: string, reviewId: number): Promise<ForgeReview>
+
+/**
+ * Get the snapshot that an undo operation should restore to.
+ *
+ * This handles multiple consecutive undos.
+ */
+export declare function getUndoTargetSnapshot(projectId: string): Promise<Snapshot | null>
 
 export declare function headInfo(projectId: string): Promise<RefInfo>
 
@@ -231,6 +245,23 @@ export declare function mergeReview(projectId: string, reviewId: number): Promis
  */
 export declare function moveBranch(projectId: string, subjectBranch: string, targetBranch: string, dryRun: boolean): Promise<MoveBranchResult>
 
+/**
+ * Find the final snapshot that a restore snapshot will restore from.
+ *
+ * For example if you do a reword and then a series of undos and redos the oplog would look like this:
+ *
+ * 9ea77ad REDO
+ * 71c6be6 UNDO
+ * c33acf3 REDO
+ * 3a0c4d1 UNDO
+ * bd1724b REWORD
+ *
+ * and `peel_restore_snapshot` will return the snapshot for `bd1724b`.
+ *
+ * If the given snapshot is not a restore snapshot then the same snapshot will be returned.
+ */
+export declare function peelRestoreSnapshot(projectId: string, sha: string): Promise<Snapshot | null>
+
 export declare function publishReview(projectId: string, params: CreateForgeReviewParams): Promise<ForgeReview>
 
 export declare function pushStackLegacy(projectId: string, stackId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean): Promise<PushResult>
@@ -245,6 +276,12 @@ export declare function pushStackLegacy(projectId: string, stackId: string, with
  * or on a branch that's empty.
  */
 export declare function removeBranch(projectId: string, stackId: string, branchName: string): Promise<void>
+
+/**
+ * Restores the project to a specific snapshot using a specific kind of restore. This operation
+ * also creates a new snapshot in the oplog.
+ */
+export declare function restoreSnapshotWithKind(projectId: string, restoreKind: RestoreKind, sha: string): Promise<void>
 
 /**
  * Get the review template content for the given project and relative path.
@@ -1499,6 +1536,8 @@ export type OperatingMode = {
   subject: EditModeMetadata;
 };
 
+export type OperationKind = "CreateCommit" | "CreateBranch" | "StashIntoBranch" | "SetBaseBranch" | "MergeUpstream" | "UpdateWorkspaceBase" | "MoveHunk" | "UpdateBranchName" | "UpdateBranchNotes" | "ReorderBranches" | "UpdateBranchRemoteName" | "GenericBranchUpdate" | "DeleteBranch" | "ApplyBranch" | "DiscardLines" | "DiscardHunk" | "DiscardFile" | "DiscardChanges" | "Discard" | "AmendCommit" | "Absorb" | "AutoCommit" | "UndoCommit" | "DiscardCommit" | "UnapplyBranch" | "CherryPick" | "SquashCommit" | "UpdateCommitMessage" | "MoveCommit" | "MoveBranch" | "TearOffBranch" | "ReorderCommit" | "InsertBlankCommit" | "MoveCommitFile" | "FileChanges" | "EnterEditMode" | "SyncWorkspace" | "CreateDependentBranch" | "RemoveDependentBranch" | "UpdateDependentBranchName" | "UpdateDependentBranchDescription" | "UpdateDependentBranchPrNumber" | "AutoHandleChangesBefore" | "AutoHandleChangesAfter" | "SplitBranch" | "CleanWorkspace" | "OnDemandSnapshot" | "Unknown" | "RestoreFromSnapshotViaUndo" | "RestoreFromSnapshotViaRedo" | "RestoreFromSnapshot";
+
 export type OutsideWorkspaceMetadata = {
   /** The name of the currently checked out branch or None if in detached head state. */
   branchName: string | null;
@@ -1680,6 +1719,9 @@ export type ResolutionApproach = {
   type: "delete";
 };
 
+/** The kind of restore to perform. */
+export type RestoreKind = "ExplicitRestoreFromSnapshot" | "RestoreFromSnapshotViaUndo" | "RestoreFromSnapshotViaRedo";
+
 /** Metadata about branches, associated with any Git branch. */
 export type Review = {
   /** The number for the PR that was associated with this branch. */
@@ -1770,6 +1812,20 @@ export type Segment = {
 export type SerdeError = {
   description: string;
   source: any | null;
+};
+
+export type Snapshot = {
+  commitId: string;
+  createdAt: number;
+  details: SnapshotDetails | null;
+};
+
+export type SnapshotDetails = {
+  version: number;
+  operation: OperationKind;
+  title: string;
+  body: string | null;
+  trailers: Array<Trailer>;
 };
 
 /** The UI-clone of `branch::Stack`. */
@@ -1892,6 +1948,11 @@ export type TelemetrySettings = {
    * This flag is set to true after the one-time migration and prevents repeated migration attempts.
    */
   migratedFromLegacy: boolean;
+};
+
+export type Trailer = {
+  key: string;
+  value: string;
 };
 
 export type TreeChange = {
