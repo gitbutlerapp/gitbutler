@@ -1498,18 +1498,13 @@ const BranchSegment: FC<{
 			aria-label={refName.displayName}
 			expanded
 			className={classes(workspaceItemRowStyles.section, styles.segment)}
+			render={<OperandC projectId={projectId} operand={operand} />}
 		>
-			<OperandC
+			<BranchRow
 				projectId={projectId}
-				operand={operand}
-				render={
-					<BranchRow
-						projectId={projectId}
-						branchName={refName.displayName}
-						branchRef={refName.fullNameBytes}
-						stackId={stackId}
-					/>
-				}
+				branchName={refName.displayName}
+				branchRef={refName.fullNameBytes}
+				stackId={stackId}
 			/>
 
 			{segment.commits.length === 0 ? (
