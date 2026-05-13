@@ -9,6 +9,9 @@ rust-version.workspace = true
 [lib]
 doctest = false
 
+[features]
+export-schema = ["dep:schemars", "dep:but-schemars"]
+
 [dependencies]
 but-meta = { workspace = true, features = ["legacy"] }
 but-serde = { workspace = true, features = ["legacy"]}
@@ -16,6 +19,7 @@ but-core.workspace = true
 but-oxidize.workspace = true
 but-utils.workspace = true
 but-ctx = { workspace = true }
+but-schemars = { workspace = true, optional = true }
 
 gitbutler-branch.workspace = true
 gitbutler-repo.workspace = true
@@ -29,6 +33,8 @@ strum = { version = "0.27", features = ["derive"] }
 tracing.workspace = true
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 toml.workspace = true
+
+schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 but-testsupport.workspace = true
