@@ -341,6 +341,14 @@ describe("AIService", () => {
 		});
 	});
 
+	describe("#validateConfiguration", () => {
+		test("With GitButler API, When a user token is provided directly, It returns true", async () => {
+			const { aiService } = buildDefaultServices();
+
+			expect(await aiService.validateConfiguration("test-token")).toBe(true);
+		});
+	});
+
 	describe.concurrent("#summarizeCommit", async () => {
 		test("When buildModel returns undefined, it returns undefined", async () => {
 			const { aiService } = buildDefaultServices();

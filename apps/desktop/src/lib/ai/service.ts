@@ -265,14 +265,14 @@ export class AIService {
 		return openAIActiveAndUsingButlerAPI || anthropicActiveAndUsingButlerAPI;
 	}
 
-	async validateConfiguration(): Promise<boolean> {
+	async validateConfiguration(userToken?: string): Promise<boolean> {
 		const modelKind = await this.getModelKind();
 		const ollamaEndpoint = await this.getOllamaEndpoint();
 		const ollamaModelName = await this.getOllamaModelName();
 		const lmStudioEndpoint = await this.getLMStudioEndpoint();
 		const lmStudioModelName = await this.getLMStudioModelName();
 
-		if (await this.usingGitButlerAPI()) return !!get(this.tokenMemoryService.token);
+		if (await this.usingGitButlerAPI()) return !!(userToken ?? get(this.tokenMemoryService.token));
 
 		const openAIActiveAndKeyProvided =
 			modelKind === ModelKind.OpenAI && !!(await this.getOpenAIKey());

@@ -14,6 +14,7 @@
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, TestId } from "@gitbutler/ui";
@@ -56,6 +57,7 @@
 	const uiState = inject(UI_STATE);
 	const aiService = inject(AI_SERVICE);
 	const promptService = inject(PROMPT_SERVICE);
+	const userService = inject(USER_SERVICE);
 
 	const useFloatingBox = $derived(uiState.global.useFloatingBox);
 
@@ -88,7 +90,7 @@
 	const canUseAI = $derived(aiMacros.canUseAI);
 
 	$effect(() => {
-		aiMacros.setGenAIEnabled($aiGenEnabled);
+		aiMacros.setGenAIEnabled($aiGenEnabled, userService.user?.access_token);
 	});
 
 	let generatedText = $state<string>("");

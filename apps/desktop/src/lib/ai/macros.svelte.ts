@@ -14,6 +14,7 @@ type GenerateCommitMessageParams = {
 
 export default class AIMacros {
 	private _canUseAI: boolean = $state<boolean>(false);
+	private configurationValidationId = 0;
 
 	constructor(
 		private readonly projectId: string,
@@ -22,10 +23,18 @@ export default class AIMacros {
 		private readonly diffInputContext: DiffInputContext,
 	) {}
 
-	async setGenAIEnabled(enabled: boolean) {
-		// TODO: Should this be called here, or evertime that we check the canUseAI?
-		const aiConfigurartionValid = await this.aiService.validateConfiguration();
-		this._canUseAI = enabled && aiConfigurartionValid;
+	async setGenAIEnabled(enabled: boolean, userToken?: string) {
+		const validationId = ++this.configurationValidationId;
+
+		if (!enabled) {
+			this._canUseAI = false;
+			return;
+		}
+
+		const aiConfigurationValid = await this.aiService.validateConfiguration(userToken);
+		if (validationId !== this.configurationValidationId) return;
+
+		this._canUseAI = aiConfigurationValid;
 	}
 
 	get canUseAI() {
