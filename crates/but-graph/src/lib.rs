@@ -215,6 +215,8 @@ pub use statistics::Statistics;
 
 mod debug;
 
+pub mod unsegmented;
+
 /// Edges to other segments are the index into the list of local commits of the parent segment.
 /// That way we can tell where a segment branches off, despite the graph only connecting segments, and not commits.
 pub type CommitIndex = usize;
