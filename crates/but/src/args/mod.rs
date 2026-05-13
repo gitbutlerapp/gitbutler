@@ -338,11 +338,15 @@ pub enum Subcommands {
 
     /// Commands for managing branches.
     ///
-    /// This includes creating, deleting, listing, and showing details about branches.
+    /// This includes creating, deleting and listing branches.
     ///
     /// By default without a subcommand, it will list the branches.
     ///
     /// To apply or unapply branches, use `but apply` and `but unapply`.
+    ///
+    /// To stack or unstack branches, use `but move`.
+    ///
+    /// To show branch details, use `but show`.
     ///
     #[clap(verbatim_doc_comment)]
     Branch(branch::Platform),
