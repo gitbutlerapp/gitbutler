@@ -285,4 +285,28 @@ mod behind_count {
             "behind count should match the farthest-behind stack (A, which is 3 commits behind)"
         );
     }
+
+    #[test]
+    fn behind_is_zero_when_up_to_date() {
+        let Test { ctx, .. } = &mut Test::from_fixture("scenario/single-stack-up-to-date.sh");
+
+        let mut guard = ctx.exclusive_worktree_access();
+        gitbutler_branch_actions::set_base_branch(
+            ctx,
+            &"refs/remotes/origin/master".parse().unwrap(),
+            guard.write_permission(),
+        )
+        .unwrap();
+        drop(guard);
+
+        let guard = ctx.shared_worktree_access();
+        let base =
+            gitbutler_branch_actions::base::get_base_branch_data(ctx, guard.read_permission())
+                .unwrap();
+        drop(guard);
+        assert_eq!(
+            base.behind, 0,
+            "behind count should be 0 when origin/master has not advanced"
+        );
+    }
 }

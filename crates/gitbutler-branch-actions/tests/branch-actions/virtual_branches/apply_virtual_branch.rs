@@ -590,6 +590,34 @@ fn upstream_integration_status_with_different_branch_pr() {
     }
 }
 
+/// When origin/master has not advanced, upstream_integration_statuses should
+/// return UpToDate. This tests the `upstream_commits.is_empty()` check that
+/// replaced the old `new_target == old_target_id` comparison.
+#[test]
+fn upstream_integration_status_up_to_date_when_no_upstream_changes() {
+    let Test { ctx, .. } = &mut Test::default();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+
+    // Don't push any extra commits — origin/master is exactly at the target.
+    let empty_review_map = HashMap::new();
+    let statuses =
+        gitbutler_branch_actions::upstream_integration_statuses(ctx, None, &empty_review_map)
+            .unwrap();
+
+    assert!(
+        matches!(statuses, StackStatuses::UpToDate),
+        "should be UpToDate when origin/master has no commits beyond the workspace, got: {statuses:?}"
+    );
+}
+
 /// Regression test: when a stack has a branch whose commits are fully integrated
 /// upstream (part of the new base), `integrate_upstream` should succeed and archive
 /// that branch — not fail with "The new head names do not match the current heads".
