@@ -126,9 +126,12 @@
 	$effect(() => {
 		if (!modal?.imports.open) return;
 		if (targetCommitOid) {
-			upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid).then((statuses) => {
-				branchStatuses = statuses;
-			});
+			upstreamIntegrationService
+				.upstreamStatuses(projectId, targetCommitOid)
+				.then((statuses) => {
+					branchStatuses = statuses;
+				})
+				.catch(console.error);
 		}
 	});
 
