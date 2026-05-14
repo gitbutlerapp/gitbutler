@@ -123,8 +123,13 @@ fn open_editor_url_as_command_invocation_on_wsl(target_url: &Url) -> bool {
 }
 
 fn is_wsl() -> bool {
-    cfg!(target_os = "linux") && env::var_os("WSL_DISTRO_NAME").is_some()
-        || env::var_os("WSL_INTEROP").is_some()
+    cfg!(target_os = "linux")
+        && std::fs::read_to_string("/proc/sys/kernel/osrelease")
+            .map(|release| {
+                let release = release.to_ascii_lowercase();
+                release.contains("microsoft")
+            })
+            .unwrap_or(false)
 }
 
 /// Builds the editor CLI command needed to open a WSL editor URL.
