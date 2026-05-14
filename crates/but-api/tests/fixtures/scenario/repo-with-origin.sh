@@ -1,0 +1,1 @@
+../../../../gitbutler-branch-actions/tests/fixtures/scenario/repo-with-origin.sh

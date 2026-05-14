@@ -7,6 +7,13 @@ use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_workspace::IntegrateUpstreamOutcome;
 use tracing::instrument;
 
+pub mod upstream_integration;
+
+mod upstream_statuses;
+pub use upstream_statuses::{
+    upstream_integration_statuses_inner, workspace_upstream_integration_statuses,
+};
+
 /// JSON transport types for workspace APIs.
 pub mod json {
     use serde::{Deserialize, Serialize};

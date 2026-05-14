@@ -144,6 +144,16 @@ but-schemars.workspace = true
 
 [dev-dependencies]
 but-api = { path = ".", features = ["legacy"]}
+but-core.workspace = true
+but-graph.workspace = true
+but-meta.workspace = true
+but-rebase.workspace = true
+but-testsupport.workspace = true
+but-forge.workspace = true
+but-workspace.workspace = true
+bstr.workspace = true
+chrono.workspace = true
+gitbutler-reference.workspace = true
 insta.workspace = true
 tempfile.workspace = true
 

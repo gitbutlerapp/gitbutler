@@ -10,12 +10,9 @@ import type { ForgeProvider, RemoteBranchInfo } from "$lib/baseBranch/baseBranch
 import type { BackendEndpointBuilder } from "$lib/state/backendApi";
 import type { BaseBranch } from "@gitbutler/but-sdk";
 import type {
-	BaseBranchResolution,
 	BaseBranchResolutionApproach,
 	BranchListing,
 	BranchListingDetails,
-	IntegrationOutcome,
-	Resolution,
 	StackStatuses,
 } from "@gitbutler/but-sdk";
 
@@ -110,25 +107,6 @@ export function buildBranchEndpoints(build: BackendEndpointBuilder) {
 			extraOptions: { command: "upstream_integration_statuses" },
 			query: (args) => args,
 			providesTags: [providesList(ReduxTag.UpstreamIntegrationStatus)],
-		}),
-		integrateUpstream: build.mutation<
-			IntegrationOutcome,
-			{
-				projectId: string;
-				resolutions: Resolution[];
-				baseBranchResolution?: BaseBranchResolution;
-			}
-		>({
-			extraOptions: {
-				command: "integrate_upstream",
-				actionName: "Integrate Upstream",
-			},
-			query: (args) => args,
-			invalidatesTags: [
-				invalidatesList(ReduxTag.UpstreamIntegrationStatus),
-				invalidatesList(ReduxTag.HeadSha),
-				invalidatesList(ReduxTag.BranchListing),
-			],
 		}),
 		resolveUpstreamIntegration: build.mutation<
 			string,

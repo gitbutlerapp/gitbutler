@@ -39,6 +39,8 @@ import type {
 	UncommitResult,
 	InsertSide,
 	RelativeTo,
+	BottomUpdate,
+	WorkspaceState,
 } from "@gitbutler/but-sdk";
 
 export type BranchParams = {
@@ -930,6 +932,22 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 		template: build.query<string, { projectId: string; forge: string; relativePath: string }>({
 			extraOptions: { command: "pr_template" },
 			query: (args) => args,
+		}),
+		workspaceIntegrateUpstream: build.mutation<
+			WorkspaceState,
+			{ projectId: string; updates: BottomUpdate[]; dryRun: boolean }
+		>({
+			extraOptions: {
+				command: "workspace_integrate_upstream",
+				actionName: "Integrate Upstream (Workspace)",
+			},
+			query: (args) => args,
+			invalidatesTags: [
+				invalidatesList(ReduxTag.HeadSha),
+				invalidatesList(ReduxTag.WorktreeChanges),
+				invalidatesList(ReduxTag.Stacks),
+				invalidatesList(ReduxTag.UpstreamIntegrationStatus),
+			],
 		}),
 	};
 }

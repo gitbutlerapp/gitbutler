@@ -578,6 +578,21 @@ export class StackService {
 		return this.backendApi.endpoints.unapply.mutate;
 	}
 
+	get workspaceIntegrateUpstream() {
+		return this.backendApi.endpoints.workspaceIntegrateUpstream.mutate;
+	}
+
+	upstreamStatusesQuery(projectId: string, targetCommitOid: string | undefined) {
+		return this.backendApi.endpoints.upstreamIntegrationStatuses.useQuery({
+			projectId,
+			targetCommitOid,
+		});
+	}
+
+	get resolveUpstreamIntegrationMutation() {
+		return this.backendApi.endpoints.resolveUpstreamIntegration.mutate;
+	}
+
 	get discardChanges() {
 		return this.backendApi.endpoints.discardChanges.mutate;
 	}

@@ -15,11 +15,9 @@ use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::{
     BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter,
     branch_upstream_integration::IntegrationStrategy,
-    upstream_integration::{
-        BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
-        StackStatuses,
-    },
 };
+
+use crate::workspace::upstream_integration::StackStatuses;
 use gitbutler_git::GitContextExt as _;
 use gitbutler_operating_modes::ensure_open_workspace_mode;
 use gitbutler_project::FetchResult;
@@ -669,8 +667,6 @@ pub async fn upstream_integration_statuses(
 ) -> Result<StackStatuses> {
     let (base_branch, commit_id, ctx) = {
         let ctx = ctx.into_thread_local();
-
-        // Get all the actively applied reviews
         (
             gitbutler_branch_actions::base::get_base_branch_data(&ctx)?,
             target_commit_id,
@@ -680,52 +676,11 @@ pub async fn upstream_integration_statuses(
 
     let resolved_reviews = resolve_review_map(ctx.clone(), &base_branch).await?;
     let mut ctx = ctx.into_thread_local();
-    gitbutler_branch_actions::upstream_integration_statuses(&mut ctx, commit_id, &resolved_reviews)
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub async fn integrate_upstream(
-    ctx: ThreadSafeContext,
-    resolutions: Vec<Resolution>,
-    base_branch_resolution: Option<BaseBranchResolution>,
-) -> Result<IntegrationOutcome> {
-    let (base_branch, ctx) = {
-        let ctx = ctx.into_thread_local();
-        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
-        (base_branch, ctx.to_sync())
-    };
-    let resolved_reviews = resolve_review_map(ctx.clone(), &base_branch).await?;
-    let mut ctx = ctx.into_thread_local();
-    let outcome = gitbutler_branch_actions::integrate_upstream(
+    crate::workspace::workspace_upstream_integration_statuses(
         &mut ctx,
-        &resolutions,
-        base_branch_resolution,
+        commit_id,
         &resolved_reviews,
-    )?;
-
-    Ok(outcome)
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub async fn resolve_upstream_integration(
-    ctx: ThreadSafeContext,
-    resolution_approach: BaseBranchResolutionApproach,
-) -> Result<String> {
-    let (base_branch, sync_ctx) = {
-        let ctx = ctx.into_thread_local();
-        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
-        (base_branch, ctx.into_sync())
-    };
-    let resolved_reviews = resolve_review_map(sync_ctx.clone(), &base_branch).await?;
-    let mut ctx = sync_ctx.into_thread_local();
-    let new_target_id = gitbutler_branch_actions::resolve_upstream_integration(
-        &mut ctx,
-        resolution_approach,
-        &resolved_reviews,
-    )?;
-    Ok(new_target_id.to_string())
+    )
 }
 
 /// Resolve all actively applied reviews for the given project and command context
