@@ -122,6 +122,7 @@ import {
 import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { OutlineModeTooltip } from "./OutlineModeTooltip.tsx";
+import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 
 const NavigationIndexContext = createContext<NavigationIndex | null>(null);
 
@@ -895,10 +896,9 @@ const InlineRewordCommit: FC<{
 	message: string;
 	onSubmit: (value: string) => void;
 	onExit: () => void;
-	projectId: string;
-}> = ({ message, onSubmit, onExit, projectId }) => {
+}> = ({ message, onSubmit, onExit }) => {
 	const formRef = useRef<HTMLFormElement | null>(null);
-	const focusedPanel = useFocusedProjectPanel(projectId);
+	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const submitAction = (formData: FormData) => {
 		onExit();
 		onSubmit(formData.get("message") as string);
@@ -906,28 +906,28 @@ const InlineRewordCommit: FC<{
 
 	useHotkey("Enter", () => formRef.current?.requestSubmit(), {
 		conflictBehavior: "allow",
-		enabled: focusedPanel === "outline",
 		ignoreInputs: false,
 		meta: { group: "Reword commit", name: "Save reworded commit" },
+		target: textareaRef,
 	});
 
 	useHotkey("Escape", onExit, {
 		conflictBehavior: "allow",
-		enabled: focusedPanel === "outline",
 		ignoreInputs: false,
 		meta: { group: "Reword commit", name: "Cancel reword commit" },
+		target: textareaRef,
 	});
 
 	return (
 		<form ref={formRef} className={styles.editorForm} action={submitAction}>
 			<textarea
-				ref={(el) => {
+				ref={useMergedRefs(textareaRef, (el) => {
 					if (!el) return;
 					el.focus();
 					const firstNewline = el.textContent.indexOf("\n");
 					const cursorPosition = firstNewline !== -1 ? firstNewline : el.value.length;
 					el.setSelectionRange(cursorPosition, cursorPosition);
-				}}
+				})}
 				aria-label="Commit message"
 				name="message"
 				defaultValue={message.trim()}
@@ -1183,7 +1183,6 @@ const CommitRow: FC<
 					message={optimisticMessage}
 					onSubmit={saveNewMessage}
 					onExit={endEditing}
-					projectId={projectId}
 				/>
 			) : (
 				<>
@@ -1785,10 +1784,9 @@ const InlineRenameBranch: FC<{
 	branchName: string;
 	onSubmit: (value: string) => void;
 	onExit: () => void;
-	projectId: string;
-}> = ({ branchName, onSubmit, onExit, projectId }) => {
+}> = ({ branchName, onSubmit, onExit }) => {
 	const formRef = useRef<HTMLFormElement | null>(null);
-	const focusedPanel = useFocusedProjectPanel(projectId);
+	const textareaRef = useRef<HTMLInputElement>(null);
 	const submitAction = (formData: FormData) => {
 		onExit();
 		onSubmit(formData.get("branchName") as string);
@@ -1796,27 +1794,27 @@ const InlineRenameBranch: FC<{
 
 	useHotkey("Enter", () => formRef.current?.requestSubmit(), {
 		conflictBehavior: "allow",
-		enabled: focusedPanel === "outline",
 		ignoreInputs: false,
 		meta: { group: "Rename branch", name: "Save branch name" },
+		target: textareaRef,
 	});
 
 	useHotkey("Escape", onExit, {
 		conflictBehavior: "allow",
-		enabled: focusedPanel === "outline",
 		ignoreInputs: false,
 		meta: { group: "Rename branch", name: "Cancel branch rename" },
+		target: textareaRef,
 	});
 
 	return (
 		<form ref={formRef} className={styles.editorForm} action={submitAction}>
 			<input
 				aria-label="Branch name"
-				ref={(el) => {
+				ref={useMergedRefs(textareaRef, (el) => {
 					if (!el) return;
 					el.focus();
 					el.select();
-				}}
+				})}
 				name="branchName"
 				defaultValue={branchName}
 				className={classes("text-bold", styles.editorInput)}
@@ -2134,7 +2132,6 @@ const BranchRow: FC<
 					branchName={optimisticBranchName}
 					onSubmit={saveBranchName}
 					onExit={endEditing}
-					projectId={projectId}
 				/>
 			) : (
 				<>

@@ -24,7 +24,7 @@ const allPanels: Array<Panel> = ["outline", "files", "details"];
 const isProjectPanel = (id: string): id is Panel => allPanels.includes(id as Panel);
 
 const getFocusedProjectPanel = (activeElement: Element | null): Panel | null => {
-	const panelId = activeElement?.closest("[data-panel]")?.id;
+	const panelId = activeElement?.matches("[data-panel]") ? activeElement.id : undefined;
 	if (panelId === undefined) return null;
 	return isProjectPanel(panelId) ? panelId : null;
 };
