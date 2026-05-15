@@ -85,9 +85,10 @@ impl BaseBranch {
 
 #[instrument(skip(ctx, perm), err(Debug))]
 pub fn get_base_branch_data(ctx: &Context, perm: &RepoShared) -> Result<BaseBranch> {
+    let target = default_target(ctx)?;
     let meta = ctx.meta()?;
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
-    let base = target_to_base_branch(&repo, &ctx.legacy_project, &ws, &meta)?;
+    let base = target_to_base_branch(&repo, &ctx.legacy_project, &ws, &meta, &target)?;
     Ok(base)
 }
 
@@ -352,38 +353,35 @@ pub(crate) fn target_to_base_branch(
     project: &Project,
     ws: &but_graph::Workspace,
     meta: &impl RefMetadata,
+    target: &Target,
 ) -> Result<BaseBranch> {
     // This function is presuming a workspace ref name.
     let ws_meta = meta.workspace(WORKSPACE_REF_NAME.try_into()?)?;
-    let target_ref = ws
-        .target_ref
-        .as_ref()
-        .context("target_to_base_branch require a defined target_ref")
-        .context(Code::DefaultTargetNotFound)?;
-    let target_ref_name = target_ref.ref_name.as_ref();
-    let target_sha = ws
-        .target_commit_id()
-        .context("target_to_base_branch require a defined target_commit_id")?;
-
-    let target_ref_commit_id = ws
-        .target_ref_tip_commit_id()
-        .context("target_to_base_branch requires the target ref tip to be in the graph")?;
+    let target_ref_name: gix::refs::FullName = target.branch.to_string().try_into()?;
+    let mut target_ref = repo.find_reference(target_ref_name.as_ref())?;
+    let target_ref_commit_id = target_ref
+        .peel_to_commit()
+        .context("target_to_base_branch requires the target ref tip to be available")?
+        .id;
 
     // The old integrate_upstream function cares about whether the target sha
     // is ahead of the target ref.
     //
     // The old function provided some options for how to resolve this.
-    let target_sha_not_ref = first_parent_commit_ids_until(repo, target_sha, target_ref_commit_id)
+    let target_sha_not_ref = first_parent_commit_ids_until(repo, target.sha, target_ref_commit_id)
         .context("failed to get fork point")?;
     let target_sha_ahead_of_ref = !target_sha_not_ref.is_empty();
 
-    // The longest list of updstream commit ids.
-    let upstream_commit_ids = ws
-        .upstream_commits(FirstParent::Yes)?
-        .into_iter()
-        .map(|h| h.upstream_commits)
-        .max_by_key(|us| us.len())
-        .unwrap_or_default();
+    // The longest list of upstream commit ids.
+    let upstream_commit_ids = if ws.target_ref.is_some() {
+        ws.upstream_commits(FirstParent::Yes)?
+            .into_iter()
+            .map(|h| h.upstream_commits)
+            .max_by_key(|us| us.len())
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
 
     let upstream_commits = upstream_commit_ids
         .iter()
@@ -396,7 +394,7 @@ pub(crate) fn target_to_base_branch(
     let behind = upstream_commits.len();
 
     // get some recent commits
-    let recent_commits = first_parent_commit_ids_with_limit(repo, target_sha, 20)
+    let recent_commits = first_parent_commit_ids_with_limit(repo, target.sha, 20)
         .context("failed to get recent commits")?
         .iter()
         .map(|id| {
@@ -412,8 +410,7 @@ pub(crate) fn target_to_base_branch(
     let remote_url = ws_meta.remote_url_with_fallback(repo)?;
 
     let branch_name = target_ref_name.shorten().to_string();
-    let remote_name = repo
-        .find_reference(target_ref_name)?
+    let remote_name = target_ref
         .remote_name(gix::remote::Direction::Push)
         .context("Failed to get current remote name")?
         .to_owned()
@@ -430,7 +427,7 @@ pub(crate) fn target_to_base_branch(
         remote_url,
         push_remote_name,
         push_remote_url,
-        base_sha: target_sha,
+        base_sha: target.sha,
         current_sha: target_ref_commit_id,
         behind,
         upstream_commits,

@@ -13,6 +13,51 @@ fn success() {
     .unwrap();
 }
 
+#[test]
+fn base_branch_data_falls_back_to_persisted_target_metadata() {
+    let Test { ctx, .. } = &mut Test::default();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let expected = gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap();
+
+    {
+        let (_repo, mut ws, _) = ctx
+            .workspace_mut_and_db_with_perm(guard.write_permission())
+            .unwrap();
+        assert!(
+            ws.metadata.as_ref().is_some_and(
+                |metadata| metadata.target_ref.is_some() && metadata.target_commit_id.is_some()
+            ),
+            "test setup should persist target metadata"
+        );
+
+        ws.target_ref = None;
+        ws.target_commit = None;
+        ws.metadata = None;
+
+        assert!(ws.target_ref.is_none());
+        assert!(ws.target_commit_id().is_none());
+        assert!(ws.target_ref_name().is_none());
+        assert!(ws.target_base_commit_id().is_none());
+    }
+
+    let actual =
+        gitbutler_branch_actions::base::get_base_branch_data(ctx, guard.read_permission()).unwrap();
+    assert_eq!(
+        (actual.branch_name, actual.base_sha, actual.current_sha),
+        (
+            expected.branch_name,
+            expected.base_sha,
+            expected.current_sha
+        )
+    );
+}
+
 mod error {
     use gitbutler_reference::RemoteRefname;
 
