@@ -554,13 +554,7 @@ impl Graph {
         out.dedup_by_key(|t| t.1.id);
 
         let mut out: Vec<_> = out.into_iter().map(|t| t.0).collect();
-        for extra_sidx in self
-            .extra_target
-            .into_iter()
-            .chain(target_commit_sidx)
-            .chain(ws_low_bound)
-            .dedup()
-        {
+        for extra_sidx in target_commit_sidx.into_iter().chain(ws_low_bound).dedup() {
             out.extend(
                 self.first_commit_or_find_along_first_parent(extra_sidx)
                     .and_then(|(c, sidx)| {
@@ -1373,9 +1367,6 @@ fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
         .filter(|ep_sidx| **ep_sidx == sidx)
     {
         *ep_sidx = new_target;
-    }
-    if let Some(extra_target) = graph.extra_target.as_mut() {
-        *extra_target = new_target;
     }
 }
 

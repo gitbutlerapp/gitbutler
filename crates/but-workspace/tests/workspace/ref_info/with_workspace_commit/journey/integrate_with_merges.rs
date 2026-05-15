@@ -84,7 +84,6 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -169,7 +168,6 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -258,7 +256,6 @@ fn remote_diverged() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -353,9 +350,6 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: Some(
-                NodeIndex(3),
-            ),
             lower_bound: Some(
                 NodeIndex(3),
             ),
@@ -436,7 +430,6 @@ fn remote_behind() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -526,9 +519,6 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: Some(
-                NodeIndex(3),
-            ),
             lower_bound: Some(
                 NodeIndex(3),
             ),
@@ -611,7 +601,6 @@ fn remote_ahead() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -695,9 +684,6 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
                     commit_id: Sha1(a62b0de7d50898e05c6cfa5b56d268aa5be17087),
                     segment_index: NodeIndex(2),
                 },
-            ),
-            extra_target: Some(
-                NodeIndex(3),
             ),
             lower_bound: Some(
                 NodeIndex(3),

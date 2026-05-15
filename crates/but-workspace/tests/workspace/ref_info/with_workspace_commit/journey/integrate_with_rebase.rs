@@ -84,7 +84,6 @@ fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(5),
             ),
@@ -176,7 +175,6 @@ fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(5),
             ),
@@ -265,7 +263,6 @@ fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -357,7 +354,6 @@ fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> 
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(5),
             ),

@@ -58,7 +58,6 @@ fn j01_unborn() -> anyhow::Result<()> {
             ],
             target_ref: None,
             target_commit: None,
-            extra_target: None,
             lower_bound: None,
             is_managed_ref: false,
             is_managed_commit: false,
@@ -116,7 +115,6 @@ fn j02_first_commit() -> anyhow::Result<()> {
             ],
             target_ref: None,
             target_commit: None,
-            extra_target: None,
             lower_bound: None,
             is_managed_ref: false,
             is_managed_commit: false,
@@ -180,7 +178,6 @@ fn j03_main_pushed() -> anyhow::Result<()> {
             ],
             target_ref: None,
             target_commit: None,
-            extra_target: None,
             lower_bound: None,
             is_managed_ref: false,
             is_managed_commit: false,
@@ -235,9 +232,6 @@ fn j03_main_pushed() -> anyhow::Result<()> {
             ],
             target_ref: None,
             target_commit: None,
-            extra_target: Some(
-                NodeIndex(0),
-            ),
             lower_bound: Some(
                 NodeIndex(0),
             ),
@@ -295,7 +289,6 @@ fn j04_create_workspace() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -376,7 +369,6 @@ fn j05_empty_stack() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -456,7 +448,6 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -526,7 +517,6 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -608,7 +598,6 @@ fn j07_push_commit() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -696,7 +685,6 @@ fn j08_next_local_commit() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -782,7 +770,6 @@ fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -875,7 +862,6 @@ fn j10_squash_merge_stack() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -981,7 +967,6 @@ fn j11_squash_merge_remote_only() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(5),
             ),
@@ -1126,7 +1111,6 @@ fn j12_local_only_multi_segment_squash_merge() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(8),
             ),

@@ -273,7 +273,7 @@ enum InitialTipRole {
         /// initial segment cannot infer an unambiguous ref from the tip commit.
         desired_ref_name: gix::refs::FullName,
     },
-    /// A target or extra-target commit whose history is considered integrated.
+    /// A target commit whose history is considered integrated.
     ///
     /// If this tip has a matching [`InitialTipRole::TargetLocal`], it waits for
     /// that local tracking branch segment and goal flag so the target queue
@@ -282,18 +282,10 @@ enum InitialTipRole {
         /// Key into `target_local_segments` and `pending_integrated_tips` used
         /// to match this target with its [`InitialTipRole::TargetLocal`].
         local_tracking_key: Option<usize>,
-        /// Whether the resulting segment should be stored as `graph.extra_target`.
-        ///
-        /// Extra targets are user-supplied integrated commits, not metadata
-        /// target refs. The workspace projection keeps this segment as an
-        /// additional lower-bound/base target so the workspace can include
-        /// history down to that commit even when it is not the configured
-        /// target branch.
-        remember_as_extra_target: bool,
         /// Whether to reuse an already queued segment if another initial tip
         /// has the same commit id.
         ///
-        /// `true` is used only for extra-target and metadata target-commit tips
+        /// `true` is used only for additional and metadata target-commit tips
         /// appended after workspace roots, because those commits may already
         /// have been queued by a workspace, target ref, or local tracking tip.
         /// `false` is used for caller-provided integrated tips and workspace
@@ -340,9 +332,6 @@ struct PendingIntegratedTip {
     id: gix::ObjectId,
     /// Segment created for the integrated target before it is queued.
     segment: SegmentIndex,
-    /// Whether this pending target should become `graph.extra_target` once its
-    /// segment can be queued.
-    remember_as_extra_target: bool,
     /// Queue placement to use once the target is released.
     queue_position: InitialTipQueuePosition,
 }
@@ -405,9 +394,9 @@ pub struct Options {
     pub hard_limit: Option<usize>,
     /// Provide the commit that should act like the tip of an additional target reference,
     /// just as if it was set by one of the workspaces.
-    /// This everything it touches will be considered integrated, and it can be used to 'extend' the border of
-    /// the workspace.
-    /// Typically, it's a past position of an existing target, or a target chosen by the user.
+    /// Everything it touches will be considered integrated, and it can be used
+    /// to extend the border of the workspace. Typically, it's a past position
+    /// of an existing target, or a target chosen by the user.
     pub extra_target_commit_id: Option<gix::ObjectId>,
     /// Enabling this will prevent the postprocessing step to run which is what makes the graph useful through clean-up
     /// and to make it more amenable to a workspace project.
@@ -459,7 +448,17 @@ impl Options {
         self
     }
 
-    /// Set the extra-target which should be included in the workspace.
+    /// Set an additional integrated traversal tip.
+    /// It's most useful for tests which want to affect the target of the workspace
+    /// without the respective setup.
+    /// Application code may use it to set global targets, to reduce the amount of
+    /// commits in the workspace even if the entrypoint otherwise is the target branch.
+    ///
+    /// The commit is queued like an integrated target so traversal can connect
+    /// the workspace to history that may otherwise be outside the ordinary
+    /// target ref or workspace metadata. The tip is also kept as a tip of
+    /// interest and re-resolved after post-processing so workspace projection
+    /// can use it as a past target/base candidate.
     pub fn with_extra_target_commit_id(mut self, id: impl Into<gix::ObjectId>) -> Self {
         self.extra_target_commit_id = Some(id.into());
         self
@@ -589,8 +588,8 @@ impl Graph {
     /// contain exactly one [`TipRole::EntryPoint`] or
     /// [`TipRole::DetachedEntryPoint`].
     /// `meta` provides branch metadata for any refs encountered while walking.
-    /// `options` controls tag collection, traversal limits, extra target
-    /// commits, and post-processing behavior.
+    /// `options` controls tag collection, traversal limits, additional
+    /// integrated tips, and post-processing behavior.
     pub fn from_commit_traversal_tips(
         repo: &gix::Repository,
         tips: impl IntoIterator<Item = Tip>,
@@ -649,6 +648,18 @@ impl Graph {
             hard_limit,
             dangerously_skip_postprocessing_for_debugging,
         } = options;
+        if let Some(extra_tip) = extra_target_commit_id {
+            graph
+                .tips_of_interest
+                .push(Tip::integrated(extra_tip, None));
+        }
+        if let TipSource::Explicit(tips) = &tip_source {
+            graph.tips_of_interest.extend(
+                tips.iter()
+                    .filter(|tip| tip.role == TipRole::Integrated)
+                    .cloned(),
+            );
+        }
 
         let max_limit = Limit::new(limit);
         if ref_name
@@ -1057,7 +1068,7 @@ fn initial_tips_from_source<T: RefMetadata>(
         TipSource::Explicit(tips) => {
             let mut initial = initial_tips_from_explicit(repo, tips);
             if let Some(extra_target) = extra_target_commit_id {
-                push_integrated_initial_tip(&mut initial, extra_target, true);
+                push_integrated_initial_tip(&mut initial, extra_target);
             }
             initial
         }
@@ -1096,7 +1107,6 @@ fn initial_tips_from_explicit(repo: &OverlayRepo<'_>, tips: Vec<Tip>) -> Initial
                 TipRole::Reachable => InitialTipRole::Reachable,
                 TipRole::Integrated => InitialTipRole::Integrated {
                     local_tracking_key: None,
-                    remember_as_extra_target: false,
                     dedupe_if_queued: false,
                 },
             };
@@ -1212,7 +1222,6 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
                 metadata: None,
                 role: InitialTipRole::Integrated {
                     local_tracking_key: local_tracking_key.as_ref().map(|(key, _, _)| *key),
-                    remember_as_extra_target: false,
                     dedupe_if_queued: false,
                 },
                 queue_position: InitialTipQueuePosition::Front,
@@ -1246,7 +1255,7 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
     }
 
     if let Some(extra_target) = extra_target_commit_id {
-        push_integrated_initial_tip(&mut initial, extra_target, true);
+        push_integrated_initial_tip(&mut initial, extra_target);
     }
 
     for target_commit_id in additional_target_commits {
@@ -1261,7 +1270,7 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
         }
         // We don't really have a place to store the segment index of the segment owning the target commit
         // so we will re-acquire it later when building the workspace projection.
-        push_integrated_initial_tip(&mut initial, target_commit_id, false);
+        push_integrated_initial_tip(&mut initial, target_commit_id);
     }
 
     // Queue workspace stack branch refs that may have advanced since the
@@ -1298,18 +1307,13 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
 
 /// Append an integrated target tip that can be deduplicated against already
 /// queued initial work.
-fn push_integrated_initial_tip(
-    initial: &mut InitialTips,
-    id: gix::ObjectId,
-    remember_as_extra_target: bool,
-) {
+fn push_integrated_initial_tip(initial: &mut InitialTips, id: gix::ObjectId) {
     initial.tips.push(InitialTip {
         id,
         ref_name: None,
         metadata: None,
         role: InitialTipRole::Integrated {
             local_tracking_key: None,
-            remember_as_extra_target,
             dedupe_if_queued: true,
         },
         queue_position: InitialTipQueuePosition::Front,
@@ -1431,18 +1435,10 @@ fn queue_initial_tips<T: RefMetadata>(
                 continue;
             }
             InitialTipRole::Integrated {
-                remember_as_extra_target,
                 dedupe_if_queued: true,
                 ..
-            } => {
-                if let Some(existing_segment) = next.iter().find_map(|(info, _, instruction, _)| {
-                    (info.id == tip.id).then_some(instruction.segment_idx())
-                }) {
-                    if *remember_as_extra_target {
-                        graph.extra_target = Some(existing_segment);
-                    }
-                    continue;
-                }
+            } if next.iter().any(|(info, _, _, _)| info.id == tip.id) => {
+                continue;
             }
             _ => {}
         }
@@ -1471,15 +1467,12 @@ fn queue_initial_tips<T: RefMetadata>(
         }
         let segment = graph.insert_segment(segment);
         if let InitialTipRole::Integrated {
-            local_tracking_key,
-            remember_as_extra_target,
-            ..
+            local_tracking_key, ..
         } = &tip.role
         {
             let pending = PendingIntegratedTip {
                 id: tip.id,
                 segment,
-                remember_as_extra_target: *remember_as_extra_target,
                 queue_position: tip.queue_position,
             };
             if let Some(key) = local_tracking_key {
@@ -1630,8 +1623,7 @@ fn queue_initial_tips<T: RefMetadata>(
     )
 }
 
-/// Queue an integrated target after optionally linking it to its local tracking
-/// segment and remembering it as the extra target.
+/// Queue an integrated target after optionally linking it to its local tracking segment.
 #[expect(clippy::too_many_arguments)]
 fn queue_pending_integrated_tip(
     graph: &mut Graph,
@@ -1647,9 +1639,6 @@ fn queue_pending_integrated_tip(
     if let Some(local_sidx) = local_sidx {
         graph[local_sidx].remote_tracking_branch_segment_id = Some(pending.segment);
         graph[pending.segment].sibling_segment_id = Some(local_sidx);
-    }
-    if pending.remember_as_extra_target {
-        graph.extra_target = Some(pending.segment);
     }
     let tip_info = find(commit_graph, repo.for_find_only(), pending.id, buf)?;
     let item = (

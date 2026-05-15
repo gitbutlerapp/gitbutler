@@ -94,10 +94,6 @@ pub struct RefInfo {
     ///
     /// Indeed, it's valid to not set the reference, and to only set the commit which should act as an integration base.
     pub target_commit: Option<TargetCommit>,
-    /// The segment index of the extra target as provided for traversal,
-    /// useful for AdHoc workspaces, but generally applicable to all workspaces to keep the lower bound lower than it
-    /// otherwise would be.
-    pub extra_target: Option<SegmentIndex>,
     /// The bound can be imagined as the segment from which all other commits in the workspace originate.
     /// It can also be imagined to be the delimiter at the bottom beyond which nothing belongs to the workspace,
     /// as antagonist to the first commit in tip of the segment with `id`, serving as first commit that is

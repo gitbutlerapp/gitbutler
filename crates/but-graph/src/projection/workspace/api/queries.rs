@@ -5,7 +5,7 @@
 
 use anyhow::Context;
 
-use crate::{Workspace, workspace::TargetRef};
+use crate::{SegmentIndex, Workspace, workspace::TargetRef};
 
 /// Legacy query helpers kept for callers that still depend on compatibility
 /// semantics.
@@ -32,6 +32,44 @@ impl Workspace {
             .as_ref()
             .and_then(|target| self.graph.tip_skip_empty(target.segment_index))
             .map(|commit| commit.id)
+    }
+
+    /// Return the commit id that currently acts as the workspace target.
+    ///
+    /// This follows the same precedence as operations that need a concrete
+    /// target side: target ref tip, then stored target commit, then the first
+    /// integrated traversal tip.
+    pub fn effective_target_commit_id(&self) -> Option<gix::ObjectId> {
+        self.target_ref
+            .as_ref()
+            .and_then(|target| self.graph.tip_skip_empty(target.segment_index))
+            .map(|commit| commit.id)
+            .or_else(|| self.target_commit.as_ref().map(|target| target.commit_id))
+            .or_else(|| {
+                self.graph
+                    .integrated_tip_segments()
+                    .into_iter()
+                    .find_map(|segment_index| {
+                        self.graph
+                            .tip_skip_empty(segment_index)
+                            .map(|commit| commit.id)
+                    })
+            })
+    }
+
+    /// Return the segment that currently acts as the workspace target.
+    ///
+    /// This follows target ref, then stored target commit, then the first
+    /// integrated traversal tip in that order.
+    pub fn effective_target_segment_index(&self) -> Option<SegmentIndex> {
+        self.target_ref
+            .as_ref()
+            .map(|target| target.segment_index)
+            .or(self
+                .target_commit
+                .as_ref()
+                .map(|target| target.segment_index))
+            .or_else(|| self.graph.integrated_tip_segments().into_iter().next())
     }
 }
 

@@ -249,8 +249,15 @@ pub struct Graph {
     /// on the correctly named segment, knowing that the post-process may alter segments quite substantially
     /// when crating independent and dependent branches.
     entrypoint_ref: Option<gix::refs::FullName>,
-    /// The segment index of the extra target as provided for traversal.
-    extra_target: Option<SegmentIndex>,
+    /// Initial tips whose role remains relevant after graph traversal.
+    ///
+    /// These are not all traversal tips. They are the subset of caller-provided
+    /// or option-derived tips that later projections and queries need to
+    /// interpret the graph, such as integrated tips that can act as workspace
+    /// bases. Segment ids are intentionally not stored here: post-processing can
+    /// split, delete, and reconnect segments, so consumers re-resolve each tip
+    /// by commit id against the final graph shape.
+    tips_of_interest: Vec<init::Tip>,
     /// It's `true` only if we have stopped the traversal due to a hard limit.
     hard_limit_hit: bool,
     /// The options used to create the graph, which allows it to regenerate itself after something

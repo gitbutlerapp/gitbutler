@@ -32,7 +32,6 @@ fn with_target_ref() -> anyhow::Result<()> {
     // We have a target_ref but nothing else
     assert!(ws.target_ref.is_some());
     assert!(ws.target_commit.is_none());
-    assert!(ws.extra_target.is_none());
 
     let main_id = repo.rev_parse_single("main")?.detach();
 
@@ -44,6 +43,11 @@ fn with_target_ref() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// This is important for when in single-branch mode, *without* a workspace,
+/// we want to still show a branch integrates with something.
+/// This would be set based on the remote configuration of a branch, where we read
+/// `refs/remotes/<remote>/HEAD` to get the branch to integrate with.
+/// Alternatively, the app might have a setting for it.,
 #[test]
 fn with_extra_target_when_no_target_ref() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
@@ -75,7 +79,6 @@ fn with_extra_target_when_no_target_ref() -> anyhow::Result<()> {
 
     assert!(ws.target_ref.is_none());
     assert!(ws.target_commit.is_none());
-    assert!(ws.extra_target.is_some());
 
     let a_id = repo.rev_parse_single("A")?.detach();
 
@@ -96,7 +99,6 @@ fn returns_none_when_no_target_is_set() -> anyhow::Result<()> {
     let ws = graph.into_workspace()?;
 
     assert!(ws.target_ref.is_none(), "should not have target_ref");
-    assert!(ws.extra_target.is_none(), "should not have extra_target");
     assert!(ws.target_commit.is_none(), "should not have target_commit");
 
     let a2_id = repo.rev_parse_single("A")?.detach();

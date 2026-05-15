@@ -45,7 +45,7 @@ fn unborn() -> anyhow::Result<()> {
             ),
         ),
         entrypoint_ref: None,
-        extra_target: None,
+        tips_of_interest: [],
         hard_limit_hit: false,
         options: Options {
             collect_tags: false,
@@ -152,7 +152,7 @@ fn detached() -> anyhow::Result<()> {
             ),
         ),
         entrypoint_ref: None,
-        extra_target: None,
+        tips_of_interest: [],
         hard_limit_hit: false,
         options: Options {
             collect_tags: true,

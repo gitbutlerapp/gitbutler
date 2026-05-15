@@ -921,7 +921,6 @@ mod tests {
             lower_bound_segment_id: None,
             target_ref: None,
             target_commit: None,
-            extra_target: None,
             metadata: None,
         }
     }

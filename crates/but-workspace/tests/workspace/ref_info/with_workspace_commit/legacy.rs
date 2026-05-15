@@ -618,7 +618,6 @@ mod stack_details {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
         }
         "#);
 
@@ -699,7 +698,6 @@ mod stack_details {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),

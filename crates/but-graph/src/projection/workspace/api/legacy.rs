@@ -26,6 +26,15 @@ impl Workspace {
     /// revspec, all the commits reachable from the `target_ref` will be
     /// returned - the tip that could hide some of the target isn't present.
     ///
+    /// The `repo` and `target_ref` parameters are intentionally redundant with
+    /// information that may also exist in the workspace graph. This function
+    /// must currently resolve `target_ref` through `repo` and perform its walk
+    /// against the repository instead of depending on the graph: in some cases,
+    /// the graph does not appear to contain a target ref at all. Commit
+    /// 615d01d58f5f3408d671ea5489a65b2cac638fe1 changed this back from the
+    /// graph-based implementation that the surrounding notes were originally
+    /// written for.
+    ///
     /// When looking at the new understanding of stacks used in the new
     /// `integrate_upstream` function, if you have a stack with N >1 heads,
     /// there will be a N entries in here which correspond with each of the
@@ -45,6 +54,10 @@ impl Workspace {
     ///
     /// If only the commits that aren't in the workspace were needed (i.e. not per stack),
     /// then one can do a mere pruned traversal from `target_tip ^InWorkspace`.
+    ///
+    /// Before this function, or a replacement for it, is lifted out of legacy,
+    /// the goal is that it should be able to use the graph exclusively rather
+    /// than needing repository-backed target ref resolution.
     pub fn upstream_commits(
         &self,
         repo: &gix::Repository,

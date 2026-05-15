@@ -362,9 +362,7 @@ pub(crate) fn target_to_base_branch(
     let target_ref = repo
         .find_reference(&target_ref_name)
         .context(Code::DefaultTargetNotFound)?;
-    let target_ref_commit_id = ws
-        .target_ref_tip_commit_id()
-        .context("target_to_base_branch requires the target ref tip to be in the graph")?;
+    let target_ref_commit_id = target_ref.id().detach();
 
     // The old integrate_upstream function cares about whether the target sha
     // is ahead of the target ref.

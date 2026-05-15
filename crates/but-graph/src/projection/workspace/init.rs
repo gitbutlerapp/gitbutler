@@ -16,6 +16,7 @@ use tracing::instrument;
 
 use crate::{
     CommitFlags, Graph, Segment, SegmentIndex, Workspace,
+    init::TipRole,
     workspace::{
         Stack, StackCommit, StackCommitFlags, StackSegment, TargetCommit, TargetRef, WorkspaceKind,
         workspace::{WorkspaceState, find_segment_owner_indexes_by_refname},
@@ -38,10 +39,8 @@ impl Graph {
     /// Further, the most expensive operations we perform to query additional commit information by reading it, but we
     /// only do so on the ones that the user can interact with.
     ///
-    /// The [extra-target](crate::init::Options::with_extra_target_commit_id) option extends the workspace to include
-    /// that target as base. The same is true for [target commit ids](but_core::ref_metadata::Workspace::target_commit_id).
-    /// This affects what we consider to be the part of the workspace.
-    /// Typically, that's a previous location of the target segment.
+    /// Target commit ids and integrated traversal tips can extend the
+    /// workspace to include these commits to define its lowest base.
     #[instrument(
         name = "Graph::into_workspace",
         level = "trace",
@@ -120,7 +119,7 @@ impl Graph {
             .as_ref()
             .and_then(|md| md.target_commit_id)
             .and_then(|target_commit_id| TargetCommit::from_commit(target_commit_id, self));
-        let extra_target = self.extra_target;
+        let integrated_tip_segments = self.integrated_tip_segments();
         let mut id = ws_tip_segment.id;
         let mut stacks = vec![];
 
@@ -129,7 +128,7 @@ impl Graph {
                 ComputeBaseTip::WorkspaceCommit(id),
                 target_ref.as_ref(),
                 target_commit.as_ref(),
-                self.extra_target,
+                &integrated_tip_segments,
             )
             .or_else(|| {
                 // target not available? Try the base of the workspace itself
@@ -162,12 +161,15 @@ impl Graph {
                         commits_ahead: 0,
                     });
             }
-            if target_ref.is_some() || target_commit.is_some() || extra_target.is_some() {
+            if target_ref.is_some()
+                || target_commit.is_some()
+                || !integrated_tip_segments.is_empty()
+            {
                 self.compute_lowest_base(
                     ComputeBaseTip::SingleBranch(id),
                     target_ref.as_ref(),
                     target_commit.as_ref(),
-                    self.extra_target,
+                    &integrated_tip_segments,
                 )
             } else {
                 None
@@ -354,7 +356,6 @@ impl Graph {
             lower_bound_segment_id,
             target_ref,
             target_commit,
-            extra_target,
             metadata,
         };
 
@@ -366,9 +367,20 @@ impl Graph {
         Ok(ws)
     }
 
-    /// Compute the lowest base (i.e. the highest generation) between the `tip` of a top-most segment of the workspace,
-    /// another `target` segment, and any amount of `additional` segments which could be *past targets* to keep
-    /// an artificial lower base for consistency.
+    /// Compute the lowest base (i.e. the highest generation) for the
+    /// workspace projection.
+    ///
+    /// `tip` identifies the workspace side. For a workspace commit, its direct
+    /// outgoing segments are used as stack tips; for a single-branch workspace,
+    /// the branch segment itself is used. `target_ref` and `target_commit`
+    /// identify the ordinary target side and are folded with the workspace
+    /// stack tips using the legacy pairwise merge-base behavior: candidates
+    /// are folded in order, and if a candidate pair has no merge-base, the
+    /// previous base candidate is kept instead of clearing the workspace base.
+    /// `integrated_tip_segments` are tips of interest that represent integrated
+    /// or past target positions. They are considered only after the ordinary
+    /// base is found, and can lower that base so the workspace does not appear
+    /// to lose stacks merely because they are now reachable from target tips.
     ///
     /// Returns `Some((lowest_base, segment_idx_with_lowest_base))`.
     ///
@@ -376,8 +388,9 @@ impl Graph {
     ///
     /// This is a best-effort merge-base fold for workspace lower-bound compatibility.
     ///
-    /// It does not use generation numbers to select a globally lowest base across all candidates;
-    /// it preserves the legacy pairwise fold behavior instead.
+    /// Target refs and target commits preserve the legacy pairwise fold
+    /// behavior. Integrated tips then lower that base if they are farther down
+    /// the common history.
     // TODO: actually compute the lowest base, see `first_merge_base()` which should be `lowest_merge_base()` by itself,
     //       accounting for finding the lowest of all merge-bases which would be assumed to be reachable by all segments
     //       searching downward, a necessary trait for many search problems.
@@ -386,7 +399,7 @@ impl Graph {
         tip: ComputeBaseTip,
         target_ref: Option<&TargetRef>,
         target_commit: Option<&TargetCommit>,
-        additional: impl IntoIterator<Item = SegmentIndex>,
+        integrated_tip_segments: &[SegmentIndex],
     ) -> Option<(ObjectId, SegmentIndex)> {
         // It's important to not start from the tip, but instead find paths to the merge-base from each stack individually.
         // Otherwise, we may end up with a short path to a segment that isn't actually reachable by all stacks.
@@ -400,13 +413,14 @@ impl Graph {
             ComputeBaseTip::SingleBranch(tip) => (vec![tip], tip),
         };
         let mut count = 0;
-        let all_segments = tips
-            .into_iter()
+        let base_segments = tips
+            .iter()
+            .copied()
             .chain(target_ref.map(|t| t.segment_index))
             .chain(target_commit.map(|t| t.segment_index))
-            .chain(additional);
+            .chain(integrated_tip_segments.iter().copied());
 
-        let base = self.find_best_effort_workspace_base(all_segments.inspect(|_| count += 1))?;
+        let base = self.find_best_effort_workspace_base(base_segments.inspect(|_| count += 1))?;
 
         if count < 2 || base == actual_tip {
             match tip {
@@ -441,6 +455,24 @@ impl Graph {
         segments
             .into_iter()
             .reduce(|base, segment| self.find_merge_base(base, segment).unwrap_or(base))
+    }
+
+    pub(super) fn integrated_tip_segments(&self) -> Vec<SegmentIndex> {
+        self.tips_of_interest
+            .iter()
+            .filter(|tip| tip.role == TipRole::Integrated)
+            .filter_map(|tip| {
+                TargetCommit::from_commit(tip.id, self).map(|target| target.segment_index)
+            })
+            .unique()
+            .collect()
+    }
+
+    // TODO: remove along with where it's used.
+    fn has_integrated_tips_of_interest(&self) -> bool {
+        self.tips_of_interest
+            .iter()
+            .any(|tip| tip.role == TipRole::Integrated)
     }
 }
 
@@ -720,7 +752,7 @@ impl WorkspaceState {
     /// Integrated commits above the target are kept until the user advances
     /// the target via upstream integration.
     fn prune_integrated_segments(&mut self, graph: &Graph) {
-        if self.extra_target.is_some() || self.target_ref.is_none() {
+        if graph.has_integrated_tips_of_interest() || self.target_ref.is_none() {
             return;
         }
         let (target_segment_index, target_commit_id) = if let Some(tc) = self.target_commit.as_ref()
@@ -987,7 +1019,7 @@ fn truncate_at_fork_point(stack: &mut Stack, is_target_or_below: &HashSet<gix::O
     // Remove all segments below the cut — their branch refs pointed into
     // integrated territory, not the fork point.
     // Also remove the cut segment itself if it became empty, UNLESS it is
-    // the topmost segment (index 0).  Keeping an empty topmost segment
+    // the topmost segment (index 0). Keeping an empty topmost segment
     // lets `remove_empty_branches` decide whether the branch ref should
     // be preserved (e.g. a metadata-tracked branch at the fork point).
     let keep = if stack.segments[cut_seg_idx].commits.is_empty() && cut_seg_idx > 0 {

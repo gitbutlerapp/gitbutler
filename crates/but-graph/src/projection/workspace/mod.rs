@@ -39,17 +39,12 @@ pub struct Workspace {
     /// possibly pushed branches are considered integrated. This happens when there is a local branch
     /// checked out without a remote tracking branch.
     pub target_ref: Option<TargetRef>,
-    /// A commit reachable by [`Self::target_ref`] which we chose to keep as base. That way we can extend the workspace
+    /// A commit *typically* reachable by [`Self::target_ref`] which we chose to keep as base. That way we can extend the workspace
     /// past its computed lower bound.
     ///
     /// Indeed, it's valid to not set the reference, and to only set the commit which should act as an integration base.
+    /// This can be done by direct user override, who simply wants to cut off history at a certain movable point in time.
     pub target_commit: Option<TargetCommit>,
-    /// The segment index of the extra target as provided for traversal,
-    /// useful for AdHoc workspaces, but generally applicable to all workspaces to keep the lower bound lower than it
-    /// otherwise would be.
-    // TODO: could extra-target and target_commit be one and the same? They kind of are, check usages.
-    //       Probably better to keep the `target_commit`.
-    pub extra_target: Option<SegmentIndex>,
     /// Read-only workspace metadata with additional information, or `None` if nothing was present.
     /// If this is `Some()` the `kind` is always [`WorkspaceKind::Managed`]
     pub metadata: Option<ref_metadata::Workspace>,
@@ -64,7 +59,6 @@ pub(crate) struct WorkspaceState {
     pub lower_bound_segment_id: Option<SegmentIndex>,
     pub target_ref: Option<TargetRef>,
     pub target_commit: Option<TargetCommit>,
-    pub extra_target: Option<SegmentIndex>,
     pub metadata: Option<ref_metadata::Workspace>,
 }
 
@@ -79,7 +73,6 @@ impl Workspace {
             lower_bound_segment_id,
             target_ref,
             target_commit,
-            extra_target,
             metadata,
         }: WorkspaceState,
     ) -> Self {
@@ -92,7 +85,6 @@ impl Workspace {
             lower_bound_segment_id,
             target_ref,
             target_commit,
-            extra_target,
             metadata,
         }
     }
@@ -155,7 +147,8 @@ impl WorkspaceKind {
     }
 }
 
-/// Information about the target reference.
+/// Information about the target reference, which marks a portion in the commit-graph
+/// that the workspace wants to integrate with.
 #[derive(Debug, Clone)]
 pub struct TargetRef {
     /// The name of the target branch, i.e. the branch that all [Stacks](Stack) want to get merged into.
@@ -163,11 +156,16 @@ pub struct TargetRef {
     pub ref_name: gix::refs::FullName,
     /// The index to the respective segment in the graph, it's the segment with [`Self::ref_name`] as name.
     pub segment_index: SegmentIndex,
-    /// The amount of commits that aren't included in any segment in the workspace, they are in its future.
+    /// The amount of *all* commits that aren't included in any segment in the workspace, they are in its future.
     pub commits_ahead: usize,
 }
 
-/// Information about the target commit.
+/// Information about the target commit, which marks a portion in the commit-graph
+/// that the workspace wants to integrate with.
+///
+/// It's an unnamed point of interest which may
+/// be set by any means. Typically, it's set by using a stored value, which makes it
+/// a point in time at which we have seen the [`TargetRef`].
 #[derive(Debug, Clone)]
 pub struct TargetCommit {
     /// The hash of the commit that was once included in the [target ref](TargetRef), and that we remember to expand

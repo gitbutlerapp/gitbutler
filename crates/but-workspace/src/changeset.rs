@@ -58,7 +58,7 @@ impl RefInfo {
             .target_ref
             .as_ref()
             .map(|t| t.segment_index)
-            .or(self.extra_target);
+            .or(self.target_commit.as_ref().map(|t| t.segment_index));
         let mut upstream_commits = Vec::new();
         let Some(target_tip) = topmost_target_sidx else {
             // Without any notion of 'target' we can't do anything here.

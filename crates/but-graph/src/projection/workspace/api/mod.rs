@@ -96,23 +96,11 @@ impl Workspace {
         }
     }
 
-    /// Return the segment index of the target, checking [`Self::target_ref`],
-    /// then [`Self::target_commit`], then [`Self::extra_target`] in that order.
-    ///
-    /// Returns `None` if no target is configured.
-    fn target_segment_index(&self) -> Option<SegmentIndex> {
-        self.target_ref
-            .as_ref()
-            .map(|t| t.segment_index)
-            .or(self.target_commit.as_ref().map(|t| t.segment_index))
-            .or(self.extra_target)
-    }
-
     /// Return the resolved target commit ID for use as a base for new branches.
     ///
     /// Prefers the stored [`Self::target_commit`] (the last-synced target SHA),
     /// falling back to the tip of [`Self::target_ref`] (the remote tracking branch).
-    /// Does not consider [`Self::extra_target`].
+    /// Does not consider additional traversal tips.
     ///
     /// Use [`Self::stored_target_commit_id()`] instead when callers need only the explicit
     /// stored target commit without falling back to the target ref tip.
@@ -127,9 +115,7 @@ impl Workspace {
     }
 
     /// Return the `(merge-base, target-commit-id)` of the merge-base between the `commit_to_merge`
-    /// and either the [target-branch](Self::target_ref), the [target-commit](Self::target_commit),
-    /// or the [extra-target](Self::extra_target), depending on which is set and encountered
-    /// in this order.
+    /// and the effective target side, see [Self::effective_target_segment_index()].
     /// Return `None` when none of these is set, or if there was no merge-base.
     ///
     /// Use this to get the merge-base for test-merges between `commit_to_merge` and the target,
@@ -146,7 +132,7 @@ impl Workspace {
                 .then_some(s.id)
         })?;
 
-        let target_segment_index = self.target_segment_index()?;
+        let target_segment_index = self.effective_target_segment_index()?;
 
         let merge_base_segment_index = self
             .graph
@@ -476,7 +462,6 @@ impl std::fmt::Debug for Workspace {
             .field("metadata", &self.metadata)
             .field("target_ref", &self.target_ref)
             .field("target_commit", &self.target_commit)
-            .field("extra_target", &self.extra_target)
             .finish()
     }
 }
