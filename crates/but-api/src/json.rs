@@ -131,6 +131,9 @@ mod hex_hash {
 }
 pub use hex_hash::{HexHash, HexHashString};
 
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HexHashString);
+
 /// Shared JSON transport type for mutation workspace results.
 #[derive(Debug, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
