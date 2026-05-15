@@ -7,8 +7,9 @@ use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use but_rebase::graph_rebase::{Editor, SuccessfulRebase};
 use but_workspace::branch::{
-    OnWorkspaceMergeConflict,
+    InitialBranchIntegration, OnWorkspaceMergeConflict,
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
+    integrate_branch_upstream::InteractiveIntegration,
 };
 use tracing::instrument;
 
@@ -185,6 +186,68 @@ pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges>
     let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
     let branch = repo.find_reference(&branch)?;
     but_workspace::ui::diff::changes_in_branch(&repo, &ws, branch.name())
+}
+
+/// Get the initial upstream integration script for `branch`.
+pub fn get_initial_branch_integration(
+    ctx: &Context,
+    branch: &gix::refs::FullNameRef,
+) -> anyhow::Result<InitialBranchIntegration> {
+    let repo = ctx.repo.get()?;
+    but_workspace::branch::get_initial_integration_steps_for_branch(branch, &repo)
+}
+
+/// Preview the result of applying `integration` to `branch` without materializing it.
+pub fn preview_branch_integration_with_perm(
+    ctx: &mut but_ctx::Context,
+    branch: &gix::refs::FullNameRef,
+    integration: InteractiveIntegration,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<WorkspaceState> {
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let rebase = but_workspace::branch::integrate_branch_with_steps(
+        branch,
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+    )?;
+    WorkspaceState::from_rebase_preview(&rebase, rebase.history.commit_mappings())
+}
+
+/// Materialize the result of applying `integration` to `branch`.
+pub fn apply_branch_integration_with_perm(
+    ctx: &mut but_ctx::Context,
+    branch: &gix::refs::FullNameRef,
+    integration: InteractiveIntegration,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<WorkspaceState> {
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+        ctx,
+        SnapshotDetails::new(OperationKind::GenericBranchUpdate),
+        perm.read_permission(),
+        DryRun::No,
+    );
+
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let rebase = but_workspace::branch::integrate_branch_with_steps(
+        branch,
+        integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+    )?;
+    let result = WorkspaceState::from_successful_rebase(rebase, &repo, DryRun::No);
+
+    if let Some(snapshot) = maybe_oplog_entry
+        && result.is_ok()
+    {
+        snapshot.commit(ctx, perm).ok();
+    }
+
+    result
 }
 
 /// Moves a branch using the behavior described by [`move_branch_with_perm()`].
