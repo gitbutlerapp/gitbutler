@@ -16,7 +16,7 @@ pub(crate) mod workspace;
 pub use workspace::{TargetCommit, TargetRef, WorkspaceKind};
 
 #[cfg(feature = "legacy")]
-pub use workspace::api::legacy::HeadStatus;
+pub use workspace::api::HeadStatus;
 
 /// utilities for workspace-related commits.
 pub mod commit {

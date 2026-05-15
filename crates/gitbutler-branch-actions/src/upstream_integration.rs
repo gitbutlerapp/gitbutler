@@ -251,7 +251,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
                 .unwrap_or_default();
             (
                 target_ref_name,
-                ws.target_base_commit_id()
+                ws.stored_target_commit_id()
                     .context("failed to get target base oid")?,
                 upstream_commits,
             )

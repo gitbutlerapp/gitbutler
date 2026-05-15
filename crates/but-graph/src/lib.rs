@@ -209,6 +209,7 @@ mod api;
 pub use api::FirstParent;
 /// Produce a graph from a Git repository.
 pub mod init;
+
 #[path = "projection/mod.rs"]
 pub mod workspace;
 pub use workspace::workspace::Workspace;

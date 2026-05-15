@@ -87,7 +87,9 @@ impl Workspace {
     /// so the `target_ref` field is populated. I would *not* read it from `self.metadata`,
     /// which means it might also not exist at all.
     /// If promoted as is, these exact semantics should be documented, along with its intended use.
-    pub fn target_ref_name(&self) -> Option<&gix::refs::FullNameRef> {
+    ///
+    /// Use [Self::target_ref_name()] instead.
+    pub fn legacy_target_ref_name(&self) -> Option<&gix::refs::FullNameRef> {
         self.target_ref
             .as_ref()
             .map(|target| target.ref_name.as_ref())
@@ -117,13 +119,5 @@ impl Workspace {
             .as_ref()
             .and_then(|metadata| metadata.target_commit_id)
             .or_else(|| self.target_commit.as_ref().map(|target| target.commit_id))
-    }
-
-    /// Return the current tip commit id of the target reference if it is available in the graph.
-    pub fn target_ref_tip_commit_id(&self) -> Option<gix::ObjectId> {
-        self.target_ref
-            .as_ref()
-            .and_then(|target| self.graph.tip_skip_empty(target.segment_index))
-            .map(|commit| commit.id)
     }
 }

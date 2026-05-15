@@ -17,10 +17,9 @@ use crate::{
 /// A utility type to represent `(stack_idx, segment_idx, commit_idx)`.
 pub type CommitOwnerIndexes = (usize, usize, CommitIndex);
 
-/// At the time this module was created, all of the functions in it were used by legacy crates.
-/// Feel free to promote them to non-legacy if the need arises, but mind the notes.
+mod queries;
 #[cfg(feature = "legacy")]
-pub(crate) mod legacy;
+pub use queries::legacy::HeadStatus;
 
 /// Lifecycle
 impl Workspace {
@@ -115,28 +114,16 @@ impl Workspace {
     /// falling back to the tip of [`Self::target_ref`] (the remote tracking branch).
     /// Does not consider [`Self::extra_target`].
     ///
-    /// Use [`Self::target_commit_id()`] instead when callers need only the explicit
+    /// Use [`Self::stored_target_commit_id()`] instead when callers need only the explicit
     /// stored target commit without falling back to the target ref tip.
     ///
     /// Returns `None` if neither `target_commit` nor `target_ref` is configured.
     pub fn resolved_target_commit_id(&self) -> Option<gix::ObjectId> {
-        self.target_commit
-            .as_ref()
-            .map(|t| t.commit_id)
-            .or_else(|| {
-                self.target_ref
-                    .as_ref()
-                    .and_then(|t| self.graph.tip_skip_empty(t.segment_index).map(|c| c.id))
-            })
-    }
-
-    /// Return the stored target commit ID, if configured.
-    ///
-    /// This is the commit (supposedly) reachable by the target ref that the workspace chose
-    /// to keep as its base. Unlike [`Self::resolved_target_commit_id()`], this
-    /// does not fall back to the current target ref tip.
-    pub fn target_commit_id(&self) -> Option<gix::ObjectId> {
-        self.target_commit.as_ref().map(|target| target.commit_id)
+        self.stored_target_commit_id().or_else(|| {
+            self.target_ref
+                .as_ref()
+                .and_then(|t| self.graph.tip_skip_empty(t.segment_index).map(|c| c.id))
+        })
     }
 
     /// Return the `(merge-base, target-commit-id)` of the merge-base between the `commit_to_merge`
@@ -455,7 +442,7 @@ impl TargetRef {
     /// Visit all segments whose commits would be considered 'upstream', or part of the target branch
     /// whose tip is identified with `target_segment`. The `lower_bound_segment_and_generation` is another way
     /// to stop the traversal.
-    pub fn visit_upstream_commits(
+    pub(crate) fn visit_upstream_commits(
         graph: &Graph,
         target_segment: SegmentIndex,
         lower_bound_segment_and_generation: Option<(SegmentIndex, usize)>,

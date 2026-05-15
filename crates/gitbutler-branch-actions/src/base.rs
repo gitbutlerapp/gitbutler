@@ -361,7 +361,9 @@ pub(crate) fn target_to_base_branch(
     let target_ref = repo
         .find_reference(&target_ref_name)
         .context(Code::DefaultTargetNotFound)?;
-    let target_ref_commit_id = target_ref.id().detach();
+    let target_ref_commit_id = ws
+        .target_ref_tip_commit_id()
+        .context("target_to_base_branch requires the target ref tip to be in the graph")?;
 
     // The old integrate_upstream function cares about whether the target sha
     // is ahead of the target ref.
@@ -371,7 +373,7 @@ pub(crate) fn target_to_base_branch(
         .context("failed to get fork point")?;
     let target_sha_ahead_of_ref = !target_sha_not_ref.is_empty();
 
-    // The longest list of upstream commit ids.
+    // The longest first-parent list of upstream commit ids.
     let upstream_commit_ids = ws
         .upstream_commits(repo, target_ref_name.as_ref(), FirstParent::Yes)?
         .into_iter()
