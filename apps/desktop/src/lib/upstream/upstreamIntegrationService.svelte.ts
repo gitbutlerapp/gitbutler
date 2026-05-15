@@ -24,7 +24,7 @@ export class UpstreamIntegrationService {
 			targetCommitOid,
 		});
 
-		if (!branchStatuses || branchStatuses.type === "upToDate") return branchStatuses;
+		if (branchStatuses.type === "upToDate") return branchStatuses;
 
 		const stackStatusesWithBranches: StackStatusesWithBranchesV3 = {
 			type: "updatesRequired",
