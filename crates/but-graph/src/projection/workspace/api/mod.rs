@@ -184,14 +184,26 @@ impl Workspace {
                 .is_some_and(|local_tracking_ref| local_tracking_ref == name)
     }
 
-    /// Return the `commit` at the tip of the workspace itself, and do so by following empty segments along the
-    /// first parent until the first commit is found.
-    /// This importantly is different from the [`Graph::lookup_entrypoint()`] `commit`, as the entrypoint could be anywhere
-    /// inside the workspace as well.
+    /// Return the `commit` at the tip of the workspace.
     ///
-    /// Note that this commit could also be the base of the workspace, particularly if there is no commits in the workspace.
+    /// Empty virtual workspace tip segments may fan out to multiple stack
+    /// branches, so the workspace segment has no unique graph path to a commit.
+    /// This falls back to the peeled commit id stored in the workspace segment's
+    /// [`crate::RefInfo`] and resolves that id against the final graph.
+    ///
+    /// This is different from the [`Graph::lookup_entrypoint()`] commit, as the
+    /// entrypoint could be anywhere inside the workspace.
+    ///
+    /// Note that this commit could also be the base of the workspace,
+    /// particularly if there are no commits in the workspace.
     pub fn tip_commit(&self) -> Option<&segment::Commit> {
-        self.graph.tip_skip_empty(self.id)
+        self.graph.tip_skip_empty(self.id).or_else(|| {
+            let commit_id = self.graph[self.id].ref_info.as_ref()?.commit_id?;
+            self.graph
+                .segment_by_commit_id(commit_id)
+                .ok()?
+                .commit_by_id(commit_id)
+        })
     }
 
     /// Lookup a triple obtained by [`Self::find_owner_indexes_by_commit_id()`] or panic.

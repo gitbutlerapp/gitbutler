@@ -1531,6 +1531,7 @@ mod util {
         let ref_info = Some(but_graph::RefInfo {
             ref_name: gix::refs::FullName::try_from(format!("refs/heads/{shortened_branch_name}"))
                 .expect("could not generate ref name"),
+            commit_id: local_commit_ids.first().copied(),
             worktree: None,
         });
         let mut commits: Vec<StackCommit> = Vec::new();

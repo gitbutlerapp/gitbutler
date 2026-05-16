@@ -127,6 +127,7 @@ fn unborn_untracked() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/heads/main",
                 ),
+                commit_id: None,
                 worktree: Some(
                     Main,
                 ),
@@ -286,6 +287,9 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/heads/main",
                 ),
+                commit_id: Some(
+                    Sha1(84503317a1e1464381fcff65ece14bc1f4315b7c),
+                ),
                 worktree: Some(
                     Main,
                 ),
@@ -401,6 +405,9 @@ fn single_branch() -> anyhow::Result<()> {
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/main",
+                ),
+                commit_id: Some(
+                    Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
                 ),
                 worktree: Some(
                     Main,
@@ -526,6 +533,9 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/main",
+                ),
+                commit_id: Some(
+                    Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
                 ),
                 worktree: Some(
                     Main,

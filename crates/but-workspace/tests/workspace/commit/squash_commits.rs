@@ -539,7 +539,7 @@ fn squash_all_c_commits_into_second_commit_of_b_keeps_new_file_content() -> Resu
     let new_file_blob = repo
         .rev_parse_single(format!("{squashed_id}:new-file").as_str())?
         .object()?;
-    insta::assert_snapshot!(new_file_blob.data.as_bstr(), @r"
+    insta::assert_snapshot!(new_file_blob.data.as_bstr(), @"
     1
     2
     3

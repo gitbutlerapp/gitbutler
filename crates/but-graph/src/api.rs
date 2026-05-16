@@ -1,10 +1,10 @@
 use std::{
     cmp::Reverse,
-    collections::BinaryHeap,
+    collections::{BTreeSet, BinaryHeap},
     ops::{Deref, Index, IndexMut},
 };
 
-use anyhow::{Context as _, bail};
+use anyhow::{Context as _, bail, ensure};
 use petgraph::{
     Direction,
     prelude::EdgeRef,
@@ -114,8 +114,8 @@ impl Graph {
         commit_a: gix::ObjectId,
         commit_b: gix::ObjectId,
     ) -> anyhow::Result<SegmentRelation> {
-        let a = self.commit_id_to_segment_id(commit_a)?;
-        let b = self.commit_id_to_segment_id(commit_b)?;
+        let a = self.segment_id_by_commit_id(commit_a)?;
+        let b = self.segment_id_by_commit_id(commit_b)?;
         Ok(self.relation_between(a, b))
     }
 
@@ -149,10 +149,10 @@ impl Graph {
         commit_a: gix::ObjectId,
         commit_b: gix::ObjectId,
     ) -> anyhow::Result<Option<gix::ObjectId>> {
-        let a = self.commit_id_to_segment_id(commit_a)?;
-        let b = self.commit_id_to_segment_id(commit_b)?;
+        let a = self.segment_id_by_commit_id(commit_a)?;
+        let b = self.segment_id_by_commit_id(commit_b)?;
         self.find_merge_base(a, b)
-            .map(|base| self.commit_id_for_segment(base))
+            .map(|base| self.commit_id_by_segment(base))
             .transpose()
     }
 
@@ -346,8 +346,8 @@ impl Graph {
         excluded: gix::ObjectId,
         first_parent: FirstParent,
     ) -> anyhow::Result<Vec<gix::ObjectId>> {
-        let included = self.commit_id_to_segment_id(included)?;
-        let excluded = self.commit_id_to_segment_id(excluded)?;
+        let included = self.segment_id_by_commit_id(included)?;
+        let excluded = self.segment_id_by_commit_id(excluded)?;
         Ok(self
             .find_segments_reachable_from_a_not_b(included, excluded, first_parent)
             .into_iter()
@@ -381,14 +381,65 @@ impl Graph {
     ) -> anyhow::Result<Option<gix::ObjectId>> {
         let mut segments = Vec::new();
         for commit_id in commits {
-            segments.push(self.commit_id_to_segment_id(commit_id)?);
+            segments.push(self.segment_id_by_commit_id(commit_id)?);
         }
         self.find_merge_base_octopus(segments)
-            .map(|base| self.commit_id_for_segment(base))
+            .map(|base| self.commit_id_by_segment(base))
             .transpose()
     }
 
-    fn commit_id_for_segment(&self, segment: SegmentIndex) -> anyhow::Result<gix::ObjectId> {
+    /// Return `(commit, owner_sidx_of_commit)` for `start` as long as it can unambiguously be attributed
+    /// to belong to the segment at `start` even if it doesn't own it.
+    ///
+    /// Empty virtual segments can be considered to *point* to a commit even if they don't own it as
+    /// long as it can be found by following the only outgoing edge of `start` and subsequent
+    /// segments. This lets real refs resolve even when another segment was prioritized to own the
+    /// shared commit.
+    ///
+    /// This helper intentionally stops at ambiguous segments with more than one outgoing connection.
+    pub fn resolve_to_unambiguously_pointed_to_commit(
+        &self,
+        start: SegmentIndex,
+    ) -> Option<(&crate::Commit, SegmentIndex)> {
+        if let Some(commit) = self[start].commits.first() {
+            return Some((commit, start));
+        }
+
+        let mut current = start;
+        let mut seen = BTreeSet::new(); // SeenTable isn't worth it here.
+        while seen.insert(current) {
+            let mut parents = self.inner.neighbors_directed(current, Direction::Outgoing);
+            let Some(parent) = parents.next() else {
+                tracing::warn!(
+                    start = start.index(),
+                    current = current.index(),
+                    "Could not resolve empty segment as it has no outgoing parent segment"
+                );
+                return None;
+            };
+            if parents.next().is_some() {
+                tracing::warn!(
+                    start = start.index(),
+                    current = current.index(),
+                    "Could not resolve empty segment as it has multiple outgoing parent segments"
+                );
+                return None;
+            }
+
+            current = parent;
+            if let Some(commit) = self[current].commits.first() {
+                return Some((commit, current));
+            }
+        }
+        tracing::warn!(
+            start = start.index(),
+            current = current.index(),
+            "Could not resolve empty segment as traversal ended, there were only empty segments or none at all"
+        );
+        None
+    }
+
+    fn commit_id_by_segment(&self, segment: SegmentIndex) -> anyhow::Result<gix::ObjectId> {
         self.tip_skip_empty(segment)
             .map(|commit| commit.id)
             .with_context(|| {
@@ -398,13 +449,19 @@ impl Graph {
 
     /// Return the id of the segment that owns `commit_id`, or error if it wasn't found.
     /// That is unexpected as the traversal is supposed to find all commits of interest.
-    pub fn commit_id_to_segment_id(
+    pub fn segment_id_by_commit_id(
         &self,
         commit_id: gix::ObjectId,
     ) -> anyhow::Result<SegmentIndex> {
+        self.segment_by_commit_id(commit_id).map(|s| s.id)
+    }
+
+    /// Return the segment that owns `commit_id`, or error if it wasn't found.
+    /// That is unexpected as the traversal is supposed to find all commits of interest.
+    pub fn segment_by_commit_id(&self, commit_id: gix::ObjectId) -> anyhow::Result<&Segment> {
         self.inner
             .node_weights()
-            .find_map(|s| s.commits.iter().any(|c| c.id == commit_id).then_some(s.id))
+            .find(|s| s.commits.iter().any(|c| c.id == commit_id))
             .with_context(|| {
                 format!("Commit {commit_id} not found in any segment, it wasn't traversed")
             })
@@ -634,33 +691,24 @@ impl Graph {
     /// ### Performance
     ///
     /// This is a brute-force search through all nodes and all data in the graph - beware of hot-loop usage.
-    pub fn named_segment_by_ref_name(&self, name: &gix::refs::FullNameRef) -> Option<&Segment> {
+    pub fn segment_by_ref_name(&self, name: &gix::refs::FullNameRef) -> Option<&Segment> {
         self.inner
             .node_weights()
             .find(|s| s.ref_name().is_some_and(|rn| rn == name))
     }
 
-    /// Starting a `segment`, ignore all segments that have no commit and return the first commit
-    /// of a non-empty segment.
+    /// Starting at `segment`, return the commit it owns, or the commit it
+    /// unambiguously points to through empty segments.
     ///
-    /// This is useful to counter the fact that multiple empty segments could be stacked, to ultimately
-    /// point to a segment that owns the commit.
+    /// Empty virtual segments can stand in for refs whose commit is owned by a
+    /// different segment. This follows the only outgoing connection through any
+    /// subsequent empty segments until it reaches the first non-empty segment.
     ///
-    /// Note that we will **visit the first parent only**.
+    /// Returns `None` if any empty segment on the path has zero or multiple
+    /// outgoing connections, as there is no unambiguous commit to return.
     pub fn tip_skip_empty(&self, segment: SegmentIndex) -> Option<&Commit> {
-        if let Some(tip) = self[segment].commits.first() {
-            return Some(tip);
-        }
-
-        let mut sidx_with_commits = None;
-        self.visit_segments_downward_along_first_parent_exclude_start(segment, |s| {
-            if s.commits.is_empty() {
-                return false;
-            }
-            sidx_with_commits = Some(s.id);
-            true
-        });
-        sidx_with_commits.and_then(|sidx| self[sidx].commits.first())
+        self.resolve_to_unambiguously_pointed_to_commit(segment)
+            .map(|(c, _)| c)
     }
 
     /// The first commit reachable by skipping over empty segments starting at the entrypoint segment.
@@ -928,8 +976,31 @@ impl Graph {
 impl Graph {
     /// Validate the graph for consistency and fail loudly when an issue was found.
     /// Use this before using the graph for anything serious, but particularly in testing.
-    // TODO: maybe make this mandatory as part of post-processing.
+    /// Final-graph invariants are skipped if the traversal hit the hard limit,
+    /// as these graphs are explicitly partial.
     pub fn validated(self) -> anyhow::Result<Self> {
+        if !self.hard_limit_hit {
+            for segment_index in self.inner.node_indices() {
+                let segment = &self.inner[segment_index];
+                let outgoing = self
+                    .inner
+                    .neighbors_directed(segment_index, Direction::Outgoing)
+                    .count();
+                self.check_virtual_segments_are_empty_and_connected(
+                    segment_index,
+                    segment,
+                    outgoing,
+                )?;
+                self.check_multi_parent_tip_or_ancestor_segments_have_commits(
+                    segment_index,
+                    segment,
+                    outgoing,
+                )?;
+            }
+            for tip in &self.traversal_tips {
+                self.check_traversal_tip_points_to_first_commit(tip)?;
+            }
+        }
         for edge in self.inner.edge_references() {
             Self::check_edge(&self.inner, edge, false)?;
         }
@@ -937,11 +1008,174 @@ impl Graph {
     }
 
     /// Validate the graph for consistency and return all errors.
+    ///
+    /// If the graph didn't hit the hard limit, this checks:
+    ///
+    /// - Virtual segments are empty, named graph nodes for real Git refs whose
+    ///   commit is owned elsewhere, and connected according to their
+    ///   GitButler-only role.
+    /// - Tip and ancestor segments with multiple parents own at least one commit.
+    /// - Traversal tips resolve to the first commit they describe.
+    ///
+    /// This always checks:
+    ///
+    /// - Edge weights still match the source and destination segment endpoints.
     pub fn validation_errors(&self) -> Vec<anyhow::Error> {
-        self.inner
-            .edge_references()
-            .filter_map(|edge| Self::check_edge(&self.inner, edge, false).err())
-            .collect()
+        let mut out = Vec::new();
+        if !self.hard_limit_hit {
+            for segment_index in self.inner.node_indices() {
+                let segment = &self.inner[segment_index];
+                let outgoing = self
+                    .inner
+                    .neighbors_directed(segment_index, Direction::Outgoing)
+                    .count();
+                out.extend(
+                    [
+                        self.check_virtual_segments_are_empty_and_connected(
+                            segment_index,
+                            segment,
+                            outgoing,
+                        ),
+                        self.check_multi_parent_tip_or_ancestor_segments_have_commits(
+                            segment_index,
+                            segment,
+                            outgoing,
+                        ),
+                    ]
+                    .into_iter()
+                    .flat_map(Result::err),
+                );
+            }
+            out.extend(
+                self.traversal_tips
+                    .iter()
+                    .filter_map(|tip| self.check_traversal_tip_points_to_first_commit(tip).err()),
+            );
+        }
+        out.extend(
+            self.inner
+                .edge_references()
+                .filter_map(|edge| Self::check_edge(&self.inner, edge, false).err()),
+        );
+        out
+    }
+
+    /// Virtual segments are empty graph nodes that correspond to real Git
+    /// references whose commits are owned by another segment.
+    ///
+    /// Ordinary virtual segments can resolve to the commit named by their refs by
+    /// following their outgoing edge with
+    /// [`Self::resolve_to_unambiguously_pointed_to_commit()`]. Virtual workspace
+    /// tip segments are the exception: they can fan out to multiple stack tips
+    /// and are therefore ambiguous. Such segments are empty because the commit
+    /// they name is owned elsewhere, sometimes because another segment was
+    /// prioritized to own the commit when multiple refs point to it. They are
+    /// virtual because their relationships to other segments are not represented
+    /// by the Git commit-graph or references. To Git, these are refs pointing at
+    /// the same commit; GitButler sees one or more ordered stacks of branches.
+    fn check_virtual_segments_are_empty_and_connected(
+        &self,
+        segment_index: SegmentIndex,
+        segment: &Segment,
+        outgoing: usize,
+    ) -> anyhow::Result<()> {
+        if !segment.commits.is_empty() {
+            return Ok(());
+        }
+
+        let is_virtual_workspace_tip = segment.workspace_metadata().is_some();
+        if is_virtual_workspace_tip {
+            ensure!(
+                segment.ref_name().is_some(),
+                "{segment_index:?}: virtual workspace tip segment must be named - we don't want empty anonymous segments"
+            );
+            ensure!(
+                outgoing > 0,
+                "{segment_index:?}: virtual workspace tip segment must have at least one outgoing connection"
+            );
+        } else if segment.ref_name().is_some() {
+            ensure!(
+                outgoing == 1,
+                "{segment_index:?}: virtual segment must have exactly one outgoing connection, got {outgoing}"
+            );
+        }
+        Ok(())
+    }
+
+    /// Tip and ancestor segments with multiple parents must own a commit.
+    ///
+    /// Empty virtual workspace tip segments are excluded because they can fan
+    /// out from one real workspace ref to multiple stack tips.
+    fn check_multi_parent_tip_or_ancestor_segments_have_commits(
+        &self,
+        segment_index: SegmentIndex,
+        segment: &Segment,
+        outgoing: usize,
+    ) -> anyhow::Result<()> {
+        if segment.workspace_metadata().is_some() {
+            return Ok(());
+        }
+
+        ensure!(
+            outgoing <= 1 || !segment.commits.is_empty(),
+            "{segment_index:?}: tip or ancestor segment with {outgoing} outgoing connections must own at least one commit"
+        );
+        Ok(())
+    }
+
+    /// A retained traversal tip must resolve to its first commit.
+    ///
+    /// If the segment named by the tip is empty, following its single outgoing
+    /// edge chain must reach a non-empty segment whose first commit is the tip
+    /// id. This validates the final-graph form of the initial tip-segment
+    /// invariant.
+    fn check_traversal_tip_points_to_first_commit(
+        &self,
+        tip: &crate::init::Tip,
+    ) -> anyhow::Result<()> {
+        if let Ok(segment_owning_tip_id) = self.segment_by_commit_id(tip.id) {
+            ensure!(
+                segment_owning_tip_id.commit_index_of(tip.id) == Some(0),
+                "{tip:?}: tip segment {segment_id:?} must contain the tip id as its first commit",
+                segment_id = segment_owning_tip_id.id
+            );
+            return Ok(());
+        }
+
+        let Some(ref_name) = tip.ref_name.as_ref() else {
+            bail!(
+                "{tip:?}: tip id is not owned by any segment, but it must as no segment was found by commit-id"
+            );
+        };
+        let segment = self
+            .segment_by_ref_name(ref_name.as_ref())
+            .with_context(|| format!("{tip:?}: tip ref {ref_name} is not owned by any segment"))?;
+        ensure!(
+            segment.commits.is_empty(),
+            "{tip:?}: named tip segment {segment_id:?} must be empty if it does not own the tip id",
+            segment_id = segment.id
+        );
+        let (commit, owner_segment_index) = self
+            .resolve_to_unambiguously_pointed_to_commit(segment.id)
+            .with_context(|| {
+                format!(
+                    "{tip:?}: empty tip segment {segment_id:?} must resolve through one outgoing path to a commit",
+                    segment_id = segment.id
+                )
+            })?;
+        ensure!(
+            commit.id == tip.id,
+            "{tip:?}: empty tip segment {segment_id:?} resolves to {actual}, not {expected}",
+            segment_id = segment.id,
+            actual = commit.id,
+            expected = tip.id
+        );
+        // Extra-check - this inavriant is also enforced by `resolve_to_unambiguously_pointed_to_commit()`.
+        ensure!(
+            self[owner_segment_index].commit_index_of(tip.id) == Some(0),
+            "{tip:?}: resolved tip owner {owner_segment_index:?} must contain the tip id as its first commit"
+        );
+        Ok(())
     }
 
     /// Fail with an error if the `edge` isn't consistent.

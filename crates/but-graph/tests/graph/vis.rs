@@ -20,6 +20,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         id: 0.into(),
         ref_info: Some(RefInfo {
             ref_name: "refs/heads/main".try_into()?,
+            commit_id: None,
             worktree: None,
         }),
         remote_tracking_ref_name: Some("refs/remotes/origin/main".try_into()?),
@@ -42,6 +43,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
             id: 1.into(),
             ref_info: Some(RefInfo {
                 ref_name: "refs/heads/new-stack".try_into()?,
+                commit_id: None,
                 worktree: None,
             }),
             ..Default::default()
@@ -55,6 +57,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         id: 2.into(),
         ref_info: Some(RefInfo {
             ref_name: "refs/remotes/origin/main".try_into()?,
+            commit_id: None,
             worktree: None,
         }),
         commits: vec![commit(id("c"), Some(init_commit_id), CommitFlags::empty())],
@@ -67,6 +70,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         generation: 2,
         ref_info: Some(RefInfo {
             ref_name: "refs/heads/A".try_into()?,
+            commit_id: None,
             worktree: None,
         }),
         remote_tracking_ref_name: Some("refs/remotes/origin/A".try_into()?),
@@ -84,6 +88,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
         id: 4.into(),
         ref_info: Some(RefInfo {
             ref_name: "refs/remotes/origin/A".try_into()?,
+            commit_id: None,
             worktree: None,
         }),
         commits: vec![

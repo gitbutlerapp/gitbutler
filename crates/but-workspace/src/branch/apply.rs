@@ -229,13 +229,14 @@ pub fn apply<'ws>(
         // This means our workspace encloses the desired branch, but it's not checked out yet.
         let commit_to_checkout = ws
             .tip_commit()
+            .map(|commit| commit.id)
             .context("Workspace must point to a commit to check out")?;
         let current_head_commit = ws.graph.entrypoint_commit().context(
             "The entrypoint must have a commit - it's equal to HEAD, and we skipped unborn earlier",
         )?;
         but_core::worktree::safe_checkout(
             current_head_commit.id,
-            commit_to_checkout.id,
+            commit_to_checkout,
             repo,
             but_core::worktree::checkout::Options {
                 uncommitted_changes,
@@ -249,7 +250,7 @@ pub fn apply<'ws>(
                 repo,
                 meta,
                 Overlay::default()
-                    .with_entrypoint(commit_to_checkout.id, ws.ref_name().map(|rn| rn.to_owned())),
+                    .with_entrypoint(commit_to_checkout, ws.ref_name().map(|rn| rn.to_owned())),
             )?
             .into_workspace()?;
 
@@ -758,7 +759,7 @@ fn find_superseded_stacks(
     Option<gix::ObjectId>,
 )> {
     let graph = &workspace.graph;
-    let superseded = if let Some(branch_segment) = graph.named_segment_by_ref_name(branch) {
+    let superseded = if let Some(branch_segment) = graph.segment_by_ref_name(branch) {
         // At this stage we know first segment isn't in the workspace, so exclude it.
         let _tip_commit_ids_and_sidx: Vec<_> = workspace
             .stacks

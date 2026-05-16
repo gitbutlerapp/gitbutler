@@ -332,7 +332,7 @@ fn merge_base_apis_can_resolve_segments_by_first_commit_id() -> anyhow::Result<(
 fn segment_id_by_ref_name(graph: &Graph, name: &str) -> anyhow::Result<SegmentIndex> {
     let full_name = ref_name(name)?;
     graph
-        .named_segment_by_ref_name(full_name.as_ref())
+        .segment_by_ref_name(full_name.as_ref())
         .map(|s| s.id)
         .ok_or_else(|| anyhow::anyhow!("missing segment for {name}"))
 }

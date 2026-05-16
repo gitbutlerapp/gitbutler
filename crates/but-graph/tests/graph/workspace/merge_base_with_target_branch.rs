@@ -78,13 +78,17 @@ fn with_extra_target_when_no_target_ref() -> anyhow::Result<()> {
     let ws = graph.into_workspace()?;
 
     assert!(ws.target_ref.is_none());
-    assert!(ws.target_commit.is_none());
+    let expected_target_id = repo.rev_parse_single("main")?.detach();
+    assert_eq!(
+        ws.target_commit.as_ref().map(|target| target.commit_id),
+        Some(expected_target_id),
+        "extra integrated target is used as the effective target commit"
+    );
 
     let a_id = repo.rev_parse_single("A")?.detach();
 
     let merge_base = ws.merge_base_with_target_branch(a_id);
     let expected_merge_base = repo.rev_parse_single(":/M2")?.detach();
-    let expected_target_id = repo.rev_parse_single("main")?.detach();
     assert_eq!(merge_base, Some((expected_merge_base, expected_target_id)));
 
     Ok(())
