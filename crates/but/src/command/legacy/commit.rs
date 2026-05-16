@@ -425,7 +425,12 @@ pub(crate) fn commit(
                 "In JSON mode, a commit message must be provided via --message (-m), --message-file, or --ai (-i)"
             );
         }
-        get_commit_message_from_editor(ctx, &files_to_commit, &changes, show_diff_in_editor)?
+        let comment_char = {
+            let repo = ctx.repo.get()?;
+            let config = repo.config_snapshot();
+            crate::command::config::get_comment_char(&config)
+        };
+        get_commit_message_from_editor(ctx, &files_to_commit, &changes, show_diff_in_editor, comment_char)?
     };
 
     if commit_message.trim().is_empty() {
@@ -729,19 +734,20 @@ fn get_commit_message_from_editor(
     files_to_commit: &[FileAssignment],
     changes: &[TreeChange],
     show_diff_in_editor: ShowDiffInEditor,
+    comment_char: char,
 ) -> anyhow::Result<String> {
     // Generate commit message template
     let mut template = String::new();
-    template.push_str("\n# Please enter the commit message for your changes. Lines starting\n");
-    template.push_str("# with '#' will be ignored, and an empty message aborts the commit.\n");
-    template.push_str("#\n");
-    template.push_str("# Changes to be committed:\n");
+    template.push_str(&format!("\n{comment_char} Please enter the commit message for your changes. Lines starting\n"));
+    template.push_str(&format!("{comment_char} with '{comment_char}' will be ignored, and an empty message aborts the commit.\n"));
+    template.push_str(&format!("{comment_char}\n"));
+    template.push_str(&format!("{comment_char} Changes to be committed:\n"));
 
     for fa in files_to_commit {
         let status_char = get_status_char(&fa.path, changes);
-        template.push_str(&format!("#\t{}  {}\n", status_char, fa.path.to_str_lossy()));
+        template.push_str(&format!("{comment_char}\t{}  {}\n", status_char, fa.path.to_str_lossy()));
     }
-    template.push_str("#\n");
+    template.push_str(&format!("{comment_char}\n"));
 
     // Compute diff for the editor if requested
     let should_show_diff = show_diff_in_editor.should_show_diff(|| {
@@ -767,6 +773,7 @@ fn get_commit_message_from_editor(
         "commit_msg",
         &template,
         diff_text.as_deref(),
+        comment_char,
     )?
     .to_string();
     Ok(lossy_message)
