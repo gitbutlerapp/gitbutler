@@ -4436,7 +4436,6 @@ dependencies = [
  "anyhow",
  "but-core",
  "but-ctx",
- "but-error",
  "but-meta",
  "but-oxidize",
  "git2",
