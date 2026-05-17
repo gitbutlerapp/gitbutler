@@ -14,7 +14,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, bail};
-use but_api::{commit, diff, github, gitlab, legacy, platform, workspace};
+use but_api::{commit, diff, github, gitlab, legacy, platform, terminals, workspace};
 #[cfg(feature = "irc")]
 use but_irc::IrcManager;
 use but_settings::AppSettingsWithDiskSync;
@@ -387,6 +387,8 @@ fn main() -> anyhow::Result<()> {
                 legacy::open::tauri_open_url::open_url,
                 legacy::open::tauri_open_in_terminal::open_in_terminal,
                 legacy::open::tauri_show_in_finder::show_in_finder,
+                terminals::tauri_get_terminal_options_for_platform::get_terminal_options_for_platform,
+                terminals::tauri_get_recommended_terminal_for_platform::get_recommended_terminal_for_platform,
                 legacy::forge::tauri_pr_templates::pr_templates,
                 legacy::forge::tauri_pr_template::pr_template,
                 legacy::forge::tauri_forge_provider::forge_provider,
