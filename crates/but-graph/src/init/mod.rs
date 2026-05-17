@@ -707,7 +707,7 @@ impl Graph {
         options: Options,
         entrypoint_ref_override: Option<gix::refs::FullName>,
     ) -> anyhow::Result<Self> {
-        let entrypoint = validate_explicit_tips(repo, &tips)?;
+        let entrypoint = validate_explicit_tips(repo, &tips, entrypoint_ref_override.as_ref())?;
         let tip = entrypoint.id;
         let ref_name = if entrypoint.is_detached {
             None
@@ -1026,14 +1026,18 @@ impl Graph {
                     .inner
                     .node_weight(entrypoint_sidx)
                     .context("BUG: entrypoint segment must be present")?;
-                let ref_name = entrypoint_segment.ref_info.clone().map(|ri| ri.ref_name);
-                let tip = if ref_name.is_some() {
-                    match ref_name.as_ref() {
-                        Some(ref_name) => repo
-                            .try_find_reference(ref_name.as_ref())?
-                            .map(|mut reference| reference.peel_to_id().map(|id| id.detach()))
-                            .transpose()?,
-                        None => None,
+                let mut ref_name = entrypoint_segment.ref_info.clone().map(|ri| ri.ref_name);
+                let tip = if let Some(name) = ref_name.as_ref() {
+                    match repo.try_find_reference(name.as_ref())? {
+                        Some(mut reference) => Some(reference.peel_to_id()?.detach()),
+                        None => {
+                            // The previous traversal may have had a named entrypoint, but
+                            // this overlay can drop that ref. If so, don't carry a stale
+                            // entrypoint_ref override into the new traversal; it would fail
+                            // validation instead of re-traversing from the remembered commit.
+                            ref_name = None;
+                            None
+                        }
                     }
                 } else {
                     None
@@ -1075,7 +1079,11 @@ impl Graph {
 /// traversal seeds or repeated ref names, must keep detached entrypoints
 /// unnamed, and any supplied ref name must resolve to the same commit id as its
 /// tip.
-fn validate_explicit_tips<'a>(repo: &OverlayRepo<'_>, tips: &'a [Tip]) -> anyhow::Result<&'a Tip> {
+fn validate_explicit_tips<'a>(
+    repo: &OverlayRepo<'_>,
+    tips: &'a [Tip],
+    entrypoint_ref_override: Option<&gix::refs::FullName>,
+) -> anyhow::Result<&'a Tip> {
     let mut entrypoints = tips.iter().filter(|tip| tip.is_entrypoint);
     let entrypoint = entrypoints
         .next()
@@ -1114,20 +1122,40 @@ fn validate_explicit_tips<'a>(repo: &OverlayRepo<'_>, tips: &'a [Tip]) -> anyhow
         }
 
         if let Some(ref_name) = tip.ref_name.as_ref() {
-            let resolved_id = repo
-                .try_find_reference(ref_name.as_ref())?
-                .with_context(|| format!("explicit traversal tip ref {ref_name} does not exist"))?
-                .peel_to_id()?
-                .detach();
-            ensure!(
-                resolved_id == tip.id,
-                "explicit traversal tip ref {ref_name} points to {resolved_id}, not {tip_id}",
-                tip_id = tip.id
-            );
+            validate_tip_ref(repo, ref_name, tip.id, "explicit traversal tip ref")?;
         }
     }
 
+    if !entrypoint.is_detached
+        && let Some(ref_name) = entrypoint_ref_override
+    {
+        validate_tip_ref(
+            repo,
+            ref_name,
+            entrypoint.id,
+            "explicit traversal entrypoint ref",
+        )?;
+    }
+
     Ok(entrypoint)
+}
+
+fn validate_tip_ref(
+    repo: &OverlayRepo<'_>,
+    ref_name: &gix::refs::FullName,
+    tip_id: gix::ObjectId,
+    context: &str,
+) -> anyhow::Result<()> {
+    let resolved_id = repo
+        .try_find_reference(ref_name.as_ref())?
+        .with_context(|| format!("{context} {ref_name} does not exist"))?
+        .peel_to_id()?
+        .detach();
+    ensure!(
+        resolved_id == tip_id,
+        "{context} {ref_name} points to {resolved_id}, not {tip_id}"
+    );
+    Ok(())
 }
 
 /// Return whether two tips would seed the same traversal work.

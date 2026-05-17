@@ -47,7 +47,7 @@ fn with_target_ref() -> anyhow::Result<()> {
 /// we want to still show a branch integrates with something.
 /// This would be set based on the remote configuration of a branch, where we read
 /// `refs/remotes/<remote>/HEAD` to get the branch to integrate with.
-/// Alternatively, the app might have a setting for it.,
+/// Alternatively, the app might have a setting for it.
 #[test]
 fn with_extra_target_when_no_target_ref() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;

@@ -1170,7 +1170,7 @@ impl Graph {
             actual = commit.id,
             expected = tip.id
         );
-        // Extra-check - this inavriant is also enforced by `resolve_to_unambiguously_pointed_to_commit()`.
+        // Extra-check - this invariant is also enforced by `resolve_to_unambiguously_pointed_to_commit()`.
         ensure!(
             self[owner_segment_index].commit_index_of(tip.id) == Some(0),
             "{tip:?}: resolved tip owner {owner_segment_index:?} must contain the tip id as its first commit"

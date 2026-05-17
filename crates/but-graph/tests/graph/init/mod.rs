@@ -771,6 +771,28 @@ fn explicit_traversal_tips_reject_ref_names_that_point_elsewhere() -> anyhow::Re
 }
 
 #[test]
+fn traversal_entrypoint_ref_override_must_point_to_entrypoint() -> anyhow::Result<()> {
+    let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
+    let merged_id = id_by_rev(&repo, "merged").detach();
+    let a_id = id_by_rev(&repo, "A").detach();
+    let a_ref = ref_name("refs/heads/A");
+
+    let err = Graph::from_commit_traversal(
+        id_by_rev(&repo, "merged"),
+        Some(a_ref.clone()),
+        &*meta,
+        standard_options(),
+    )
+    .expect_err("entrypoint ref override must resolve to the entrypoint id");
+
+    assert_eq!(
+        err.to_string(),
+        format!("explicit traversal entrypoint ref {a_ref} points to {a_id}, not {merged_id}")
+    );
+    Ok(())
+}
+
+#[test]
 fn explicit_traversal_tips_use_integrated_tip_as_workspace_target_commit() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
