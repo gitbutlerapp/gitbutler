@@ -74,7 +74,7 @@ const useNavigationIndex = (projectId: string, parent: Operand, files: Array<Ope
 
 	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
 
-	// Reset selection when it's no longer part of the workspace.
+	// Reset selection when it's no longer part of the files list.
 	//
 	// React allows state updates on render, but not for external stores.
 	// https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
