@@ -298,6 +298,7 @@ pub fn open_url(url: String) -> Result<()> {
 /// - `cmd` - Command Prompt
 ///
 /// **Linux:**
+/// - `ptyxis` - Ptyxis
 /// - `gnome-terminal` - GNOME Terminal
 /// - `konsole` - KDE Konsole
 /// - `xfce4-terminal` - XFCE Terminal
@@ -462,6 +463,13 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
             "gnome-terminal" | "konsole" | "xfce4-terminal" | "alacritty" | "ghostty" | "warp"
             | "kitty" | "cosmic-term" => {
                 let mut cmd = Command::new(binary);
+                cmd.current_dir(&path);
+                spawn_and_reap(cmd, binary, &path)?;
+            }
+            // Ptyxis requires --new-window argument
+            "ptyxis" => {
+                let mut cmd = Command::new(binary);
+                cmd.arg("--new-window");
                 cmd.current_dir(&path);
                 spawn_and_reap(cmd, binary, &path)?;
             }
