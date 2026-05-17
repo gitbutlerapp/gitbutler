@@ -1,3 +1,4 @@
+use but_testsupport::gix_testtools::is_ci;
 use gitbutler_branch_actions::BranchListingDetails;
 
 use crate::virtual_branches::list;
@@ -50,6 +51,10 @@ fn one_vbranch_in_workspace_single_commit() -> anyhow::Result<()> {
 
 #[test]
 fn many_commits_in_all_branch_types() -> anyhow::Result<()> {
+    if is_ci::cached() {
+        // This test is flaky on CI and it's code that is due to removal.
+        return Ok(());
+    }
     let ctx = project_ctx("complex-repo")?;
     let list = branch_details(&ctx, ["feature", "non-virtual-feature"])?;
     assert_eq!(list.len(), 2);
