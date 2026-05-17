@@ -1,6 +1,7 @@
 //! In place of commands.rs
 use std::env;
 
+use crate::terminals::terminal_binary;
 use anyhow::{Context as _, Result, bail};
 use but_api_macros::but_api;
 use tracing::instrument;
@@ -439,11 +440,7 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
             _ => bail!("Unknown terminal: {terminal_id}"),
         };
     } else if cfg!(target_os = "linux") {
-        // Resolve the actual binary name (some terminals use a different binary than their ID)
-        let binary = match terminal_id.as_str() {
-            "warp" => "warp-terminal",
-            other => other,
-        };
+        let binary = terminal_binary(&terminal_id);
 
         // Check if the terminal binary exists in PATH before attempting to launch.
         // This lets us give a clear error directing users to Settings, rather than

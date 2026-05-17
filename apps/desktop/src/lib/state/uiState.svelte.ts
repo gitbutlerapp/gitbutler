@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { type SnapPositionName } from "$lib/floating/types";
 import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
@@ -487,17 +488,6 @@ export type WritableReactiveStore<T extends DefaultConfig> = {
 	[K in keyof T]: WritableReactive<T[K]>;
 };
 
-function defaultTerminalForPlatform(platformName: string): TerminalSettings {
-	switch (platformName) {
-		case "windows":
-			return { identifier: "powershell", displayName: "PowerShell", platform: "windows" };
-		case "linux":
-			return { identifier: "gnome-terminal", displayName: "GNOME Terminal", platform: "linux" };
-		default:
-			return { identifier: "terminal", displayName: "Terminal", platform: "macos" };
-	}
-}
-
 const LEGACY_SETTINGS_KEY = "settings-json";
 
 /**
@@ -509,7 +499,7 @@ const LEGACY_SETTINGS_KEY = "settings-json";
  * Must be called after Redux Persist has rehydrated so that migrated values
  * are not overwritten.
  */
-export function initUserSettings(uiState: UiState, platformName: string) {
+export async function initUserSettings(uiState: UiState, platformName: string) {
 	const raw = localStorage.getItem(LEGACY_SETTINGS_KEY);
 	if (raw) {
 		try {
@@ -531,14 +521,24 @@ export function initUserSettings(uiState: UiState, platformName: string) {
 		}
 	}
 
-	// Ensure the terminal default matches the platform. The static default
-	// is macOS; on Windows/Linux (or after migration that didn't include a
-	// terminal) this resolves to the correct platform terminal.
+	// Ensure the terminal default matches the platform.
 	const DESKTOP_PLATFORMS = ["macos", "windows", "linux"];
 	if (DESKTOP_PLATFORMS.includes(platformName)) {
 		const terminal = uiState.global.defaultTerminal.current as TerminalSettings | null;
 		if (terminal?.platform !== platformName) {
-			uiState.global.defaultTerminal.set(defaultTerminalForPlatform(platformName));
+			try {
+				const recommended = await invoke<TerminalSettings | null>(
+					"get_recommended_terminal_for_platform",
+					{
+						platform: platformName,
+					},
+				);
+				if (recommended) {
+					uiState.global.defaultTerminal.set(recommended);
+				}
+			} catch (err) {
+				console.warn("Failed to get recommended terminal", err);
+			}
 		}
 	}
 }

@@ -14,7 +14,7 @@ use axum::{
     response::IntoResponse,
     routing::{MethodRouter, any, get, post},
 };
-use but_api::{commit, diff, github, gitlab, json, legacy, platform, workspace};
+use but_api::{commit, diff, github, gitlab, json, legacy, platform, terminals, workspace};
 use but_claude::{Broadcaster, Claude};
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 #[cfg(feature = "irc")]
@@ -1089,6 +1089,14 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         .route(
             "/show_in_finder",
             but_post(legacy::open::show_in_finder_cmd),
+        )
+        .route(
+            "/get_terminal_options_for_platform",
+            but_post(terminals::get_terminal_options_for_platform_cmd),
+        )
+        .route(
+            "/get_recommended_terminal_for_platform",
+            but_post(terminals::get_recommended_terminal_for_platform_cmd),
         )
         .route("/absorb", but_post(legacy::absorb::absorb_cmd))
         .route(

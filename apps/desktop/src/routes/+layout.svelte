@@ -51,8 +51,8 @@
 	const posthog = inject(POSTHOG_WRAPPER);
 	const uiState = inject(UI_STATE);
 
-	clientState.initPersist().then(() => {
-		initUserSettings(uiState, backend.platformName);
+	clientState.initPersist().then(async () => {
+		await initUserSettings(uiState, backend.platformName);
 	});
 
 	// =============================================================================
