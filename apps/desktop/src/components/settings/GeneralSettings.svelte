@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { invoke } from "@tauri-apps/api/core";
 	import { onMount } from "svelte";
 	import { goto } from "$app/navigation";
 	import CliSymlinkSetup from "$components/settings/CliSymlinkSetup.svelte";
@@ -11,6 +10,7 @@
 	import { showToast } from "$lib/notifications/toasts";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
+	import { TERMINAL_SERVICE } from "$lib/settings/terminalService";
 	import {
 		UI_STATE,
 		type CodeEditorSettings,
@@ -46,6 +46,8 @@
 	const backend = inject(BACKEND);
 	const platformName = backend.platformName;
 
+	const terminalService = inject(TERMINAL_SERVICE);
+
 	const appSettings = settingsService.appSettings;
 
 	let saving = $state(false);
@@ -78,20 +80,17 @@
 	let terminalOptions: TerminalSettings[] = $state([]);
 	let terminalOptionsForSelect: Array<{ label: string; value: string }> = $state([]);
 
-	onMount(() => {
-		invoke<TerminalSettings[]>("get_terminal_options_for_platform", {
-			platform: platformName,
-		})
-			.then((options) => {
-				terminalOptions = options;
-				terminalOptionsForSelect = options.map((option) => ({
-					label: option.displayName,
-					value: option.identifier,
-				}));
-			})
-			.catch((err) => {
-				console.error("Failed to load terminal options", err);
-			});
+	onMount(async () => {
+		try {
+			const options = await terminalService.getTerminalOptionsForPlatform(platformName);
+			terminalOptions = options;
+			terminalOptionsForSelect = options.map((option) => ({
+				label: option.displayName,
+				value: option.identifier,
+			}));
+		} catch (err) {
+			console.error("Failed to load terminal options", err);
+		}
 	});
 
 	$effect(() => {

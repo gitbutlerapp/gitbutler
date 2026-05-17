@@ -48,6 +48,7 @@ import {
 } from "$lib/selection/fileSelectionManager.svelte";
 import { UncommittedService, UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 import { SETTINGS_SERVICE, SettingsService } from "$lib/settings/appSettings";
+import { TerminalService, TERMINAL_SERVICE } from "$lib/settings/terminalService";
 import { ShortcutService, SHORTCUT_SERVICE } from "$lib/shortcuts/shortcutService";
 import { StackService, STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 import { ClientState, CLIENT_STATE } from "$lib/state/clientState.svelte";
@@ -145,6 +146,7 @@ export function initDependencies(args: {
 
 	const projectsService = new ProjectsService(clientState.backendApi, homeDir, backend);
 	const gitConfig = new GitConfigService(clientState.backendApi, clientState.dispatch, backend);
+	const terminalService = new TerminalService(backend);
 
 	// ============================================================================
 	// AI SERVICES
@@ -352,6 +354,7 @@ export function initDependencies(args: {
 		[RULES_SERVICE, rulesService],
 		[SECRET_SERVICE, secretsService],
 		[SETTINGS_SERVICE, settingsService],
+		[TERMINAL_SERVICE, terminalService],
 		[SHORTCUT_SERVICE, shortcutService],
 		[STACK_SERVICE, stackService],
 		[REORDER_DROPZONE_FACTORY, reorderDropzoneFactory],

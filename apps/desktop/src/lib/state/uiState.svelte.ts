@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { type SnapPositionName } from "$lib/floating/types";
 import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
@@ -6,6 +5,7 @@ import { type Reactive } from "@gitbutler/shared/storeUtils";
 import { createEntityAdapter, createSlice, type EntityState } from "@reduxjs/toolkit";
 import type { AppDispatch } from "$lib/state/clientState.svelte";
 import type { ScrollbarVisilitySettings } from "@gitbutler/ui";
+import type { TerminalService } from "$lib/settings/terminalService";
 
 export type GeneralSettingsPageId =
 	| "general"
@@ -471,7 +471,11 @@ const LEGACY_SETTINGS_KEY = "settings-json";
  * Must be called after Redux Persist has rehydrated so that migrated values
  * are not overwritten.
  */
-export async function initUserSettings(uiState: UiState, platformName: string) {
+export async function initUserSettings(
+	uiState: UiState,
+	platformName: string,
+	terminalService: TerminalService,
+) {
 	const raw = localStorage.getItem(LEGACY_SETTINGS_KEY);
 	if (raw) {
 		try {
@@ -499,12 +503,7 @@ export async function initUserSettings(uiState: UiState, platformName: string) {
 		const terminal = uiState.global.defaultTerminal.current as TerminalSettings | null;
 		if (terminal?.platform !== platformName) {
 			try {
-				const recommended = await invoke<TerminalSettings | null>(
-					"get_recommended_terminal_for_platform",
-					{
-						platform: platformName,
-					},
-				);
+				const recommended = await terminalService.getRecommendedTerminalForPlatform(platformName);
 				if (recommended) {
 					uiState.global.defaultTerminal.set(recommended);
 				}
