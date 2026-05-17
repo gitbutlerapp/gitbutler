@@ -466,7 +466,6 @@ pub fn graph_to_ref_info(
         stacks,
         target_ref,
         target_commit,
-        extra_target,
         metadata,
         lower_bound: _,
         lower_bound_segment_id,
@@ -490,7 +489,6 @@ pub fn graph_to_ref_info(
             .map(|n| n.into_owned().into())
             .collect(),
         lower_bound: *lower_bound_segment_id,
-        extra_target: *extra_target,
         stacks: stacks
             .iter()
             .map(|stack| branch::Stack::try_from_graph_stack(stack, repo))

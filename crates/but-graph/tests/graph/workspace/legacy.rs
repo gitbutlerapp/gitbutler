@@ -20,7 +20,7 @@ fn distinguishes_target_base_from_ref_tip() -> anyhow::Result<()> {
     assert_eq!(ws.target_base_commit_id(), Some(base_id));
     assert_eq!(ws.target_ref_tip_commit_id(), Some(target_tip_id));
     assert_eq!(
-        ws.target_ref_name().map(ToString::to_string),
+        ws.legacy_target_ref_name().map(ToString::to_string),
         Some("refs/remotes/origin/main".to_string())
     );
 
@@ -39,7 +39,7 @@ fn target_helpers_return_none_without_target() -> anyhow::Result<()> {
 
     assert_eq!(ws.target_base_commit_id(), None);
     assert_eq!(ws.target_ref_tip_commit_id(), None);
-    assert_eq!(ws.target_ref_name(), None);
+    assert_eq!(ws.legacy_target_ref_name(), None);
 
     Ok(())
 }

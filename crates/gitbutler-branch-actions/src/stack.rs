@@ -177,7 +177,7 @@ pub fn push_stack(
         };
         (
             target_ref_name,
-            ws.target_base_commit_id()
+            ws.stored_target_commit_id()
                 .context("failed to get target base oid")?,
             target_push_remote_name,
             target_branch_name.to_string(),

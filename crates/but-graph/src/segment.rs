@@ -20,8 +20,13 @@ pub struct Commit {
 
 impl Commit {
     /// Return an iterator over all reference names that point to this commit.
-    pub fn ref_iter(&self) -> impl Iterator<Item = &gix::refs::FullName> + Clone {
+    pub fn ref_name_iter(&self) -> impl Iterator<Item = &gix::refs::FullName> + Clone {
         self.refs.iter().map(|ri| &ri.ref_name)
+    }
+
+    /// Return information about the reference that matches `name`.
+    pub fn ref_by_name(&self, name: &gix::refs::FullNameRef) -> Option<&RefInfo> {
+        self.refs.iter().find(|ri| ri.ref_name.as_ref() == name)
     }
 }
 
@@ -30,6 +35,14 @@ impl Commit {
 pub struct RefInfo {
     /// The name of the reference.
     pub ref_name: gix::refs::FullName,
+    /// The peeled commit id the reference pointed to when the graph was built.
+    ///
+    /// This is `None` if the reference was known only by name, for example for
+    /// unborn branches or synthetic segments created without a resolved ref tip.
+    ///
+    /// It's useful if the segment with this ref-info instance doesn't actually
+    /// own a commit, and can't (always) discover it with [crate::Graph::tip_skip_empty()].
+    pub commit_id: Option<gix::ObjectId>,
     /// If `Some`, provide information about the worktree that checks out the reference at `ref_name`,
     /// i.e. its `HEAD` points to `ref_name` directly or indirectly due to chains of .
     ///
@@ -313,6 +326,11 @@ impl Segment {
     /// Find the commit associated with the given `commit_index`, which for convenience is optional.
     pub fn commit_id_by_index(&self, idx: Option<CommitIndex>) -> Option<gix::ObjectId> {
         self.commits.get(idx?).map(|c| c.id)
+    }
+
+    /// Find the commit with the given `id` in the commits of this segment.
+    pub fn commit_by_id(&self, id: gix::ObjectId) -> Option<&Commit> {
+        self.commits.iter().find(|c| c.id == id)
     }
 
     /// Return the flags of the first commit if non-empty, which is the top-most commit in the stack assuming

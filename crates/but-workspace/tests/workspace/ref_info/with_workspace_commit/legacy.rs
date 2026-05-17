@@ -512,7 +512,7 @@ mod stack_details {
             &repo,
         );
 
-        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
         * cc0bf57 (B) B-outside
         | * 2076060 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
         |/  
@@ -532,7 +532,7 @@ mod stack_details {
             },
         )?;
         let ws = graph.into_workspace()?;
-        insta::assert_snapshot!(graph_workspace(&ws), @r"
+        insta::assert_snapshot!(graph_workspace(&ws), @"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
         └── ≡📙:5:B →:3: on 85efbe4 {1}
             ├── 📙:5:B →:3:
@@ -548,6 +548,9 @@ mod stack_details {
                 ref_info: RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(2076060e1915b4caf40eb51ab9a462eced434cc7),
                     ),
                     worktree: Some(
                         Main,
@@ -618,7 +621,6 @@ mod stack_details {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
         }
         "#);
 
@@ -633,6 +635,9 @@ mod stack_details {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(2076060e1915b4caf40eb51ab9a462eced434cc7),
                     ),
                     worktree: Some(
                         Main,
@@ -699,7 +704,6 @@ mod stack_details {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),

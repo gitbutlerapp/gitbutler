@@ -47,6 +47,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
                 ),
+                commit_id: Some(
+                    Sha1(fb27086e5fe152421aac3fbb76934b57a179263a),
+                ),
                 worktree: Some(
                     Main,
                 ),
@@ -97,9 +100,6 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 segment_index: NodeIndex(2),
             },
         ),
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -119,6 +119,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(fb27086e5fe152421aac3fbb76934b57a179263a),
                 ),
                 worktree: Some(
                     Main,
@@ -169,9 +172,6 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 segment_index: NodeIndex(3),
             },
-        ),
-        extra_target: Some(
-            NodeIndex(3),
         ),
         lower_bound: Some(
             NodeIndex(3),
@@ -197,6 +197,9 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
                 ),
+                commit_id: Some(
+                    Sha1(fb27086e5fe152421aac3fbb76934b57a179263a),
+                ),
                 worktree: Some(
                     Main,
                 ),
@@ -246,9 +249,6 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 segment_index: NodeIndex(3),
             },
-        ),
-        extra_target: Some(
-            NodeIndex(3),
         ),
         lower_bound: Some(
             NodeIndex(3),
@@ -286,6 +286,9 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(d909178c50bba05d43acb4bffb2e6e59329e7710),
                 ),
                 worktree: Some(
                     Main,
@@ -348,9 +351,6 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 segment_index: NodeIndex(2),
             },
-        ),
-        extra_target: Some(
-            NodeIndex(2),
         ),
         lower_bound: Some(
             NodeIndex(2),
@@ -460,6 +460,9 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
                 ),
+                commit_id: Some(
+                    Sha1(d909178c50bba05d43acb4bffb2e6e59329e7710),
+                ),
                 worktree: Some(
                     Main,
                 ),
@@ -534,9 +537,6 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                 segment_index: NodeIndex(2),
             },
         ),
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -575,6 +575,9 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(4a62dfc214fe3aeb34debeb4831640fab49933ba),
                 ),
                 worktree: Some(
                     Main,
@@ -637,9 +640,6 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
                 segment_index: NodeIndex(2),
             },
         ),
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -687,6 +687,9 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(4a62dfc214fe3aeb34debeb4831640fab49933ba),
                 ),
                 worktree: Some(
                     Main,
@@ -736,9 +739,6 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 segment_index: NodeIndex(2),
             },
         ),
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: Some(
             NodeIndex(4),
         ),
@@ -762,6 +762,9 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(4a62dfc214fe3aeb34debeb4831640fab49933ba),
                 ),
                 worktree: Some(
                     Main,
@@ -826,9 +829,6 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 segment_index: NodeIndex(3),
             },
         ),
-        extra_target: Some(
-            NodeIndex(3),
-        ),
         lower_bound: Some(
             NodeIndex(3),
         ),
@@ -864,6 +864,9 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(4f08b8d7e0d7d524a13ca13eaf2cdff9cf4f4719),
                 ),
                 worktree: Some(
                     Main,
@@ -924,9 +927,6 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 segment_index: NodeIndex(2),
             },
         ),
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -948,6 +948,9 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(4f08b8d7e0d7d524a13ca13eaf2cdff9cf4f4719),
                 ),
                 worktree: Some(
                     Main,
@@ -1006,9 +1009,6 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 segment_index: NodeIndex(2),
             },
         ),
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -1048,6 +1048,9 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(03d2336cd39022a6898ff7678a0c1f985bd5ff60),
                 ),
                 worktree: Some(
                     Main,
@@ -1102,9 +1105,6 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
                 segment_index: NodeIndex(3),
             },
         ),
-        extra_target: Some(
-            NodeIndex(3),
-        ),
         lower_bound: Some(
             NodeIndex(3),
         ),
@@ -1145,6 +1145,9 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(7f3248ecc611d6181c218e105599bb82e35d24d4),
                 ),
                 worktree: Some(
                     Main,
@@ -1238,9 +1241,6 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 segment_index: NodeIndex(2),
             },
         ),
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -1289,6 +1289,9 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
                 ),
+                commit_id: Some(
+                    Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
+                ),
                 worktree: Some(
                     Main,
                 ),
@@ -1401,9 +1404,6 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 segment_index: NodeIndex(3),
             },
-        ),
-        extra_target: Some(
-            NodeIndex(3),
         ),
         lower_bound: Some(
             NodeIndex(3),
@@ -1441,6 +1441,9 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
                 ),
+                commit_id: Some(
+                    Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
+                ),
                 worktree: Some(
                     Main,
                 ),
@@ -1554,9 +1557,6 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 segment_index: NodeIndex(3),
             },
         ),
-        extra_target: Some(
-            NodeIndex(3),
-        ),
         lower_bound: Some(
             NodeIndex(3),
         ),
@@ -1593,6 +1593,9 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(335d6f2a960f387b039bd77476ae3d2d6649ed70),
                 ),
                 worktree: Some(
                     Main,
@@ -1663,9 +1666,6 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                 segment_index: NodeIndex(2),
             },
         ),
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -1701,6 +1701,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(335d6f2a960f387b039bd77476ae3d2d6649ed70),
                 ),
                 worktree: Some(
                     Main,
@@ -1748,9 +1751,6 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
                 segment_index: NodeIndex(2),
             },
         ),
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -1793,6 +1793,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
                 ),
+                commit_id: Some(
+                    Sha1(335d6f2a960f387b039bd77476ae3d2d6649ed70),
+                ),
                 worktree: Some(
                     Main,
                 ),
@@ -1851,9 +1854,6 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 segment_index: NodeIndex(2),
             },
-        ),
-        extra_target: Some(
-            NodeIndex(5),
         ),
         lower_bound: Some(
             NodeIndex(2),
@@ -1884,6 +1884,9 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
                 ),
+                commit_id: Some(
+                    Sha1(335d6f2a960f387b039bd77476ae3d2d6649ed70),
+                ),
                 worktree: Some(
                     Main,
                 ),
@@ -1942,9 +1945,6 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 segment_index: NodeIndex(2),
             },
-        ),
-        extra_target: Some(
-            NodeIndex(5),
         ),
         lower_bound: Some(
             NodeIndex(2),
@@ -1986,6 +1986,9 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
                 ),
+                commit_id: Some(
+                    Sha1(f8f33a7e66ad836cf09ab249941dfae175fcfc60),
+                ),
                 worktree: Some(
                     Main,
                 ),
@@ -2055,9 +2058,6 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 segment_index: NodeIndex(2),
             },
-        ),
-        extra_target: Some(
-            NodeIndex(5),
         ),
         lower_bound: Some(
             NodeIndex(2),
@@ -2086,6 +2086,9 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
                 ),
+                commit_id: Some(
+                    Sha1(f8f33a7e66ad836cf09ab249941dfae175fcfc60),
+                ),
                 worktree: Some(
                     Main,
                 ),
@@ -2155,9 +2158,6 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 segment_index: NodeIndex(2),
             },
-        ),
-        extra_target: Some(
-            NodeIndex(5),
         ),
         lower_bound: Some(
             NodeIndex(2),
@@ -2198,6 +2198,9 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(9b3cfd4456acdb1868ea982800025bdd50cbf5c8),
                 ),
                 worktree: Some(
                     Main,
@@ -2260,9 +2263,6 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
                 segment_index: NodeIndex(2),
             },
         ),
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -2302,6 +2302,9 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(a221221cec2713c3434087ce9da57431f2b41d84),
                 ),
                 worktree: Some(
                     Main,
@@ -2366,9 +2369,6 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                 segment_index: NodeIndex(3),
             },
         ),
-        extra_target: Some(
-            NodeIndex(3),
-        ),
         lower_bound: Some(
             NodeIndex(3),
         ),
@@ -2403,6 +2403,9 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
                 ),
                 worktree: Some(
                     Main,
@@ -2473,9 +2476,6 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 segment_index: NodeIndex(2),
             },
         ),
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -2493,6 +2493,9 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
                 ),
                 worktree: Some(
                     Main,
@@ -2562,9 +2565,6 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                 segment_index: NodeIndex(3),
             },
-        ),
-        extra_target: Some(
-            NodeIndex(3),
         ),
         lower_bound: Some(
             NodeIndex(3),
@@ -2607,6 +2607,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
                 ),
+                commit_id: Some(
+                    Sha1(873d0566081b0c92d2ff06331e3455dcc3e4df29),
+                ),
                 worktree: Some(
                     Main,
                 ),
@@ -2674,9 +2677,6 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 segment_index: NodeIndex(2),
             },
         ),
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -2695,6 +2695,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(873d0566081b0c92d2ff06331e3455dcc3e4df29),
                 ),
                 worktree: Some(
                     Main,
@@ -2763,9 +2766,6 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 segment_index: NodeIndex(3),
             },
         ),
-        extra_target: Some(
-            NodeIndex(3),
-        ),
         lower_bound: Some(
             NodeIndex(3),
         ),
@@ -2783,6 +2783,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(873d0566081b0c92d2ff06331e3455dcc3e4df29),
                 ),
                 worktree: Some(
                     Main,
@@ -2851,9 +2854,6 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 segment_index: NodeIndex(0),
             },
         ),
-        extra_target: Some(
-            NodeIndex(0),
-        ),
         lower_bound: Some(
             NodeIndex(0),
         ),
@@ -2877,6 +2877,9 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(873d0566081b0c92d2ff06331e3455dcc3e4df29),
                 ),
                 worktree: Some(
                     Main,
@@ -2945,9 +2948,6 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 segment_index: NodeIndex(2),
             },
         ),
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -2981,6 +2981,9 @@ fn disjoint() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/heads/disjoint",
                 ),
+                commit_id: Some(
+                    Sha1(32791d22e276ec0ed87d14f906321137356bc6d6),
+                ),
                 worktree: Some(
                     Main,
                 ),
@@ -3011,9 +3014,11 @@ fn disjoint() -> anyhow::Result<()> {
             },
         ],
         target_ref: None,
-        target_commit: None,
-        extra_target: Some(
-            NodeIndex(1),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(1),
+            },
         ),
         lower_bound: Some(
             NodeIndex(0),
@@ -3056,6 +3061,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
                 ),
+                commit_id: Some(
+                    Sha1(820f2b3c5007e15ba4558556a81d241fcee06856),
+                ),
                 worktree: Some(
                     Main,
                 ),
@@ -3155,9 +3163,6 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 segment_index: NodeIndex(2),
             },
         ),
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -3177,6 +3182,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(820f2b3c5007e15ba4558556a81d241fcee06856),
                 ),
                 worktree: Some(
                     Main,
@@ -3277,9 +3285,6 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 segment_index: NodeIndex(3),
             },
         ),
-        extra_target: Some(
-            NodeIndex(3),
-        ),
         lower_bound: Some(
             NodeIndex(3),
         ),
@@ -3299,6 +3304,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(820f2b3c5007e15ba4558556a81d241fcee06856),
                 ),
                 worktree: Some(
                     Main,
@@ -3398,9 +3406,6 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 segment_index: NodeIndex(3),
             },
-        ),
-        extra_target: Some(
-            NodeIndex(3),
         ),
         lower_bound: Some(
             NodeIndex(3),
@@ -3423,6 +3428,9 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
                 ),
+                commit_id: Some(
+                    Sha1(820f2b3c5007e15ba4558556a81d241fcee06856),
+                ),
                 worktree: Some(
                     Main,
                 ),
@@ -3521,9 +3529,6 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 segment_index: NodeIndex(3),
             },
-        ),
-        extra_target: Some(
-            NodeIndex(3),
         ),
         lower_bound: Some(
             NodeIndex(3),
@@ -3557,6 +3562,9 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(c7276fa4ef234bed041b4293f46615a99afc7f50),
                 ),
                 worktree: Some(
                     Main,
@@ -3604,9 +3612,6 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 segment_index: NodeIndex(2),
             },
         ),
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -3625,6 +3630,9 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(c7276fa4ef234bed041b4293f46615a99afc7f50),
                 ),
                 worktree: Some(
                     Main,
@@ -3672,9 +3680,6 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 segment_index: NodeIndex(0),
             },
         ),
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: Some(
             NodeIndex(0),
         ),
@@ -3696,6 +3701,9 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/gitbutler/workspace",
+                ),
+                commit_id: Some(
+                    Sha1(c7276fa4ef234bed041b4293f46615a99afc7f50),
                 ),
                 worktree: Some(
                     Main,
@@ -3721,9 +3729,6 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 segment_index: NodeIndex(2),
             },
         ),
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: Some(
             NodeIndex(2),
         ),
@@ -3743,6 +3748,9 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
             RefInfo {
                 ref_name: FullName(
                     "refs/heads/unrelated",
+                ),
+                commit_id: Some(
+                    Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
                 ),
                 worktree: None,
             },
@@ -3775,9 +3783,6 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
         ],
         target_ref: None,
         target_commit: None,
-        extra_target: Some(
-            NodeIndex(2),
-        ),
         lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,

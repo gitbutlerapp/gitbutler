@@ -37,6 +37,9 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
                     ),
+                    commit_id: Some(
+                        Sha1(946cdb70e5c527a30bf8154b445c188908d25806),
+                    ),
                     worktree: Some(
                         Main,
                     ),
@@ -84,7 +87,6 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -121,6 +123,9 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(946cdb70e5c527a30bf8154b445c188908d25806),
                     ),
                     worktree: Some(
                         Main,
@@ -169,7 +174,6 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -208,6 +212,9 @@ fn remote_diverged() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(3ea274233577e8e949de8b2c0385ecd36b6df904),
                     ),
                     worktree: Some(
                         Main,
@@ -258,7 +265,6 @@ fn remote_diverged() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -305,6 +311,9 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(3ea274233577e8e949de8b2c0385ecd36b6df904),
                     ),
                     worktree: Some(
                         Main,
@@ -353,9 +362,6 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: Some(
-                NodeIndex(3),
-            ),
             lower_bound: Some(
                 NodeIndex(3),
             ),
@@ -388,6 +394,9 @@ fn remote_behind() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(3ea274233577e8e949de8b2c0385ecd36b6df904),
                     ),
                     worktree: Some(
                         Main,
@@ -436,7 +445,6 @@ fn remote_behind() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -478,6 +486,9 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(3ea274233577e8e949de8b2c0385ecd36b6df904),
                     ),
                     worktree: Some(
                         Main,
@@ -526,9 +537,6 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: Some(
-                NodeIndex(3),
-            ),
             lower_bound: Some(
                 NodeIndex(3),
             ),
@@ -562,6 +570,9 @@ fn remote_ahead() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(8ee08de8bed7f60305c9b7fb5eefa64280c1c1cf),
                     ),
                     worktree: Some(
                         Main,
@@ -611,7 +622,6 @@ fn remote_ahead() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -649,6 +659,9 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(8ee08de8bed7f60305c9b7fb5eefa64280c1c1cf),
                     ),
                     worktree: Some(
                         Main,
@@ -695,9 +708,6 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
                     commit_id: Sha1(a62b0de7d50898e05c6cfa5b56d268aa5be17087),
                     segment_index: NodeIndex(2),
                 },
-            ),
-            extra_target: Some(
-                NodeIndex(3),
             ),
             lower_bound: Some(
                 NodeIndex(3),

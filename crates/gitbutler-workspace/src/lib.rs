@@ -1,8 +1,7 @@
 pub mod branch_trees;
 
 use anyhow::Result;
-use but_ctx::{Context, access::RepoShared};
-use but_error::Code;
+use but_ctx::{Context, access::RepoShared, legacy::persisted_default_target_from_meta};
 use but_meta::VirtualBranchesTomlMetadata;
 
 /// Returns the oid of the base of the workspace
@@ -66,13 +65,7 @@ pub(crate) fn legacy_target_base_oid(ctx: &Context) -> Result<gix::ObjectId> {
 }
 
 fn legacy_target_base_oid_from_meta(meta: &VirtualBranchesTomlMetadata) -> Result<gix::ObjectId> {
-    meta.data()
-        .default_target
-        .as_ref()
-        .map(|target| target.sha)
-        .ok_or_else(|| {
-            anyhow::anyhow!("there is no default target").context(Code::DefaultTargetNotFound)
-        })
+    Ok(persisted_default_target_from_meta(meta)?.sha)
 }
 
 pub(crate) fn workspace_base_from_heads_and_target(

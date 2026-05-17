@@ -496,11 +496,12 @@ pub fn branch_segment_from_name_and_meta_sibling<T: RefMetadata>(
     refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
     worktree_by_branch: &WorktreeByBranch,
 ) -> anyhow::Result<Segment> {
+    let commit_id = refs_by_id_lookup.map(|(_, id)| id);
     let (ref_name, metadata) =
         unambiguous_local_branch_and_segment_data(ref_name, meta, refs_by_id_lookup)?;
     Ok(Segment {
         metadata,
-        ref_info: ref_name.map(|rn| crate::RefInfo::from_ref(rn, worktree_by_branch)),
+        ref_info: ref_name.map(|rn| crate::RefInfo::from_ref(rn, commit_id, worktree_by_branch)),
         sibling_segment_id: sibling_sidx,
         ..Default::default()
     })
@@ -641,6 +642,13 @@ impl Ord for GenThenTime {
 }
 
 impl TraverseInfo {
+    /// Convert this traversal item into a graph [`Commit`].
+    ///
+    /// `flags` are the graph-specific classifications collected for this
+    /// commit during traversal. `refs` are the fully-qualified ref names that
+    /// peel to this commit and should be attached to the resulting commit.
+    /// `worktree_by_branch` is used to annotate each ref with the worktree that
+    /// currently has it checked out, if any.
     pub fn into_commit(
         self,
         flags: CommitFlags,
@@ -649,7 +657,7 @@ impl TraverseInfo {
     ) -> anyhow::Result<Commit> {
         let refs: Vec<_> = refs
             .into_iter()
-            .map(|rn| crate::RefInfo::from_ref(rn, worktree_by_branch))
+            .map(|rn| crate::RefInfo::from_ref(rn, self.inner.id, worktree_by_branch))
             .collect();
         Ok(match self.commit {
             Some(commit) => Commit {
@@ -753,21 +761,17 @@ pub fn find(
     })
 }
 
-/// Returns `([(workspace_tip, workspace_ref_name, workspace_info)], target_refs, desired_refs)` for all available workspace,
+/// Returns `[(workspace_tip, workspace_ref_name, workspace_info)]` for all available workspace,
 /// or exactly one workspace if `maybe_ref_name` has workspace metadata (and only then).
 ///
 /// That way we can discover the workspace containing any starting point, but only if needed.
 /// This means we process all workspaces if we aren't currently and clearly looking at a workspace.
 /// Also prune all non-standard workspaces early, or those that don't have a tip.
-#[expect(clippy::type_complexity)]
 pub fn obtain_workspace_infos<T: RefMetadata>(
     repo: &OverlayRepo<'_>,
     maybe_ref_name: Option<&gix::refs::FullNameRef>,
     meta: &OverlayMetadata<'_, T>,
-) -> anyhow::Result<(
-    Vec<(gix::ObjectId, gix::refs::FullName, ref_metadata::Workspace)>,
-    Vec<gix::refs::FullName>,
-)> {
+) -> anyhow::Result<Vec<(gix::ObjectId, gix::refs::FullName, ref_metadata::Workspace)>> {
     let workspaces = if let Some((ref_name, ws_data)) = maybe_ref_name
         .and_then(|ref_name| {
             meta.workspace_opt(ref_name)
@@ -816,7 +820,7 @@ pub fn obtain_workspace_infos<T: RefMetadata>(
         out.push((ws_tip, rn, data))
     }
 
-    Ok((out, target_refs))
+    Ok(out)
 }
 
 pub fn try_refname_to_id(
@@ -1205,12 +1209,17 @@ pub(crate) type WorktreeByBranch = BTreeMap<gix::refs::FullName, Vec<Worktree>>;
 impl crate::RefInfo {
     pub(crate) fn from_ref(
         ref_name: gix::refs::FullName,
+        commit_id: impl Into<Option<gix::ObjectId>>,
         worktree_by_branch: &WorktreeByBranch,
     ) -> Self {
         let worktree = worktree_by_branch
             .get(&ref_name)
             .and_then(|worktrees| worktrees.first().cloned());
-        Self { ref_name, worktree }
+        Self {
+            ref_name,
+            commit_id: commit_id.into(),
+            worktree,
+        }
     }
 }
 

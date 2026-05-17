@@ -209,6 +209,7 @@ mod api;
 pub use api::FirstParent;
 /// Produce a graph from a Git repository.
 pub mod init;
+
 #[path = "projection/mod.rs"]
 pub mod workspace;
 pub use workspace::workspace::Workspace;
@@ -248,8 +249,14 @@ pub struct Graph {
     /// on the correctly named segment, knowing that the post-process may alter segments quite substantially
     /// when crating independent and dependent branches.
     entrypoint_ref: Option<gix::refs::FullName>,
-    /// The segment index of the extra target as provided for traversal.
-    extra_target: Option<SegmentIndex>,
+    /// Effective initial traversal tips, in segment creation order.
+    ///
+    /// These are the caller-provided tips plus option-derived tips after
+    /// validation, deduplication, and queue-order normalization. Segment ids are
+    /// intentionally not stored here: post-processing can split, delete, and
+    /// reconnect segments, so consumers re-resolve each tip by commit id against
+    /// the final graph shape and filter for the roles they need.
+    traversal_tips: Vec<init::Tip>,
     /// It's `true` only if we have stopped the traversal due to a hard limit.
     hard_limit_hit: bool,
     /// The options used to create the graph, which allows it to regenerate itself after something

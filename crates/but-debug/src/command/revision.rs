@@ -111,7 +111,7 @@ fn merge_base(
         commits
             .iter()
             .copied()
-            .map(|commit_id| graph.commit_id_to_segment_id(commit_id))
+            .map(|commit_id| graph.segment_id_by_commit_id(commit_id))
             .collect::<Result<Vec<_>>>()
             .context("Failed to map commit ids to graph segments")?
     };

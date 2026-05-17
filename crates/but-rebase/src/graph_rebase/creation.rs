@@ -111,7 +111,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                             segment
                                 .commits
                                 .iter()
-                                .flat_map(|c| c.ref_iter())
+                                .flat_map(|c| c.ref_name_iter())
                                 .map(|r| r.to_owned()),
                         );
 

@@ -37,6 +37,9 @@ fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
                     ),
+                    commit_id: Some(
+                        Sha1(946cdb70e5c527a30bf8154b445c188908d25806),
+                    ),
                     worktree: Some(
                         Main,
                     ),
@@ -84,7 +87,6 @@ fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(5),
             ),
@@ -128,6 +130,9 @@ fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(4c3a992a5090077f9a5d35df22e065360c35729d),
                     ),
                     worktree: Some(
                         Main,
@@ -176,7 +181,6 @@ fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(5),
             ),
@@ -217,6 +221,9 @@ fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(0b1ed50b03e220f38d6d0930980512dc10bc9ab9),
                     ),
                     worktree: Some(
                         Main,
@@ -265,7 +272,6 @@ fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -309,6 +315,9 @@ fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> 
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(f1caa513c52daf127b94c157060d1ad7f911b1b1),
                     ),
                     worktree: Some(
                         Main,
@@ -357,7 +366,6 @@ fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> 
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(5),
             ),

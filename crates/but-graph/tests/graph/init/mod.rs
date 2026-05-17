@@ -1,7 +1,4 @@
-use but_graph::{
-    CommitFlags, Graph, StopCondition,
-    init::{Tip, TipRole},
-};
+use but_graph::{CommitFlags, Graph, StopCondition, init::Tip};
 use but_testsupport::{
     gix_testtools::{self, Creation, rust_fixture_writable},
     graph_tree, graph_workspace, visualize_commit_graph_all,
@@ -45,7 +42,7 @@ fn unborn() -> anyhow::Result<()> {
             ),
         ),
         entrypoint_ref: None,
-        extra_target: None,
+        traversal_tips: [],
         hard_limit_hit: false,
         options: Options {
             collect_tags: false,
@@ -152,7 +149,16 @@ fn detached() -> anyhow::Result<()> {
             ),
         ),
         entrypoint_ref: None,
-        extra_target: None,
+        traversal_tips: [
+            Tip {
+                id: Sha1(541396b24e13b8ac45b7905c3fe8691c7fc5fbd0),
+                ref_name: None,
+                role: Reachable,
+                metadata: None,
+                is_entrypoint: true,
+                is_detached: false,
+            },
+        ],
         hard_limit_hit: false,
         options: Options {
             collect_tags: true,
@@ -554,29 +560,143 @@ fn four_diamond() -> anyhow::Result<()> {
 }
 
 #[test]
-fn explicit_traversal_tips_reject_duplicate_commit_ids() -> anyhow::Result<()> {
+fn explicit_traversal_tips_reject_duplicate_traversal_seeds() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
     let merged_id = id_by_rev(&repo, "merged").detach();
+    let a_id = id_by_rev(&repo, "A").detach();
     let a_ref = ref_name("refs/heads/A");
 
-    for inputs in [
+    let err = Graph::from_commit_traversal_tips(
+        &repo,
         [
             Tip::entrypoint(merged_id, None),
-            Tip::reachable(merged_id, None),
+            Tip::reachable(a_id, None),
+            Tip::reachable(a_id, Some(a_ref)),
         ],
-        [
-            Tip::entrypoint(merged_id, None),
-            Tip::reachable(merged_id, Some(a_ref)),
-        ],
-    ] {
-        let err = Graph::from_commit_traversal_tips(&repo, inputs, &*meta, standard_options())
-            .expect_err("duplicate tips must be rejected");
+        &*meta,
+        standard_options(),
+    )
+    .expect_err("duplicate traversal seeds must be rejected");
 
-        assert_eq!(
-            err.to_string(),
-            format!("explicit traversal tips contain duplicate commit id {merged_id}")
-        );
-    }
+    assert!(
+        err.to_string()
+            .starts_with("explicit traversal tips contain duplicate traversal seed Tip"),
+        "unexpected error: {err}"
+    );
+    Ok(())
+}
+
+#[test]
+fn explicit_traversal_tips_allow_overlapping_commit_ids() -> anyhow::Result<()> {
+    let (repo, meta) = read_only_in_memory_scenario("detached")?;
+    let main_id = id_by_rev(&repo, "main").detach();
+    let main_ref = ref_name("refs/heads/main");
+    let release_tag = ref_name("refs/tags/release/v1");
+
+    let graph = Graph::from_commit_traversal_tips(
+        &repo,
+        [
+            Tip::entrypoint(main_id, Some(main_ref)),
+            Tip::reachable(main_id, Some(release_tag)),
+        ],
+        &*meta,
+        standard_options(),
+    )?
+    .validated()?;
+
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+
+    └── ►:0[0]:tags/release/v1
+        └── 👉►:1[1]:main
+            └── ·541396b (⌂|1) ►tags/annotated, ►tags/release/v1
+                └── ►:2[2]:other
+                    └── 🏁·fafd9d0 (⌂|1)
+    ");
+    Ok(())
+}
+
+#[test]
+fn explicit_traversal_tips_allow_named_and_anonymous_integrated_targets_on_same_commit()
+-> anyhow::Result<()> {
+    let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
+    let merged_id = id_by_rev(&repo, "merged").detach();
+    let main_id = id_by_rev(&repo, "main").detach();
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   8a6c109 (HEAD -> merged) Merge branch 'C' into merged
+    |\  
+    | *   7ed512a (C) Merge branch 'D' into C
+    | |\  
+    | | * ecb1877 (D) D
+    | * | 35ee481 C
+    | |/  
+    * |   62b409a (A) Merge branch 'B' into A
+    |\ \  
+    | * | f16dddf (B) B
+    | |/  
+    * / 592abec A
+    |/  
+    * 965998b (main) base
+    ");
+
+    let graph = Graph::from_commit_traversal_tips(
+        &repo,
+        [
+            Tip::entrypoint(merged_id, Some(ref_name("refs/heads/merged"))),
+            Tip::integrated(main_id, Some(ref_name("refs/heads/main"))),
+            Tip::integrated(main_id, None),
+        ],
+        &*meta,
+        standard_options(),
+    )?
+    .validated()?;
+
+    insta::assert_snapshot!(graph_tree(&graph), "anonymous target context with the same commit collapses into the named target ref", @r"
+
+    └── 👉►:1[0]:merged[🌳]
+        └── ·8a6c109 (⌂|1)
+            ├── ►:2[1]:A
+            │   └── ·62b409a (⌂|1)
+            │       ├── ►:4[2]:anon:
+            │       │   └── ·592abec (⌂|1)
+            │       │       └── ►:0[3]:main
+            │       │           └── 🏁·965998b (⌂|✓|1)
+            │       └── ►:5[2]:B
+            │           └── ·f16dddf (⌂|1)
+            │               └── →:0: (main)
+            └── ►:3[1]:C
+                └── ·7ed512a (⌂|1)
+                    ├── ►:6[2]:anon:
+                    │   └── ·35ee481 (⌂|1)
+                    │       └── →:0: (main)
+                    └── ►:7[2]:D
+                        └── ·ecb1877 (⌂|1)
+                            └── →:0: (main)
+    ");
+    Ok(())
+}
+
+#[test]
+fn explicit_traversal_tips_reject_multiple_entrypoints() -> anyhow::Result<()> {
+    let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
+    let merged_id = id_by_rev(&repo, "merged").detach();
+    let a_id = id_by_rev(&repo, "A").detach();
+
+    let err = Graph::from_commit_traversal_tips(
+        &repo,
+        [
+            Tip::entrypoint(merged_id, None),
+            Tip::entrypoint(a_id, None),
+        ],
+        &*meta,
+        standard_options(),
+    )
+    .expect_err("multiple entrypoints must be rejected");
+
+    assert_eq!(
+        err.to_string(),
+        "explicit traversal tips require exactly one entrypoint"
+    );
     Ok(())
 }
 
@@ -612,11 +732,10 @@ fn explicit_traversal_tips_reject_detached_entrypoint_with_ref_name() -> anyhow:
 
     let err = Graph::from_commit_traversal_tips(
         &repo,
-        [Tip {
-            id: merged_id,
-            ref_name: Some(ref_name("refs/heads/merged")),
-            role: TipRole::DetachedEntryPoint,
-        }],
+        [Tip::new(merged_id)
+            .with_ref_name(Some(ref_name("refs/heads/merged")))
+            .with_entrypoint()
+            .with_is_detached(true)],
         &*meta,
         standard_options(),
     )
@@ -647,6 +766,118 @@ fn explicit_traversal_tips_reject_ref_names_that_point_elsewhere() -> anyhow::Re
     assert_eq!(
         err.to_string(),
         format!("explicit traversal tip ref {a_ref} points to {a_id}, not {merged_id}")
+    );
+    Ok(())
+}
+
+#[test]
+fn traversal_entrypoint_ref_override_must_point_to_entrypoint() -> anyhow::Result<()> {
+    let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
+    let merged_id = id_by_rev(&repo, "merged").detach();
+    let a_id = id_by_rev(&repo, "A").detach();
+    let a_ref = ref_name("refs/heads/A");
+
+    let err = Graph::from_commit_traversal(
+        id_by_rev(&repo, "merged"),
+        Some(a_ref.clone()),
+        &*meta,
+        standard_options(),
+    )
+    .expect_err("entrypoint ref override must resolve to the entrypoint id");
+
+    assert_eq!(
+        err.to_string(),
+        format!("explicit traversal entrypoint ref {a_ref} points to {a_id}, not {merged_id}")
+    );
+    Ok(())
+}
+
+#[test]
+fn explicit_traversal_tips_use_integrated_tip_as_workspace_target_commit() -> anyhow::Result<()> {
+    let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   8a6c109 (HEAD -> merged) Merge branch 'C' into merged
+    |\  
+    | *   7ed512a (C) Merge branch 'D' into C
+    | |\  
+    | | * ecb1877 (D) D
+    | * | 35ee481 C
+    | |/  
+    * |   62b409a (A) Merge branch 'B' into A
+    |\ \  
+    | * | f16dddf (B) B
+    | |/  
+    * / 592abec A
+    |/  
+    * 965998b (main) base
+    ");
+
+    let merged_id = id_by_rev(&repo, "merged").detach();
+    let target_ref_name = ref_name("refs/heads/A");
+    let target_ref_id = id_by_rev(&repo, "A").detach();
+    let target_commit_id = id_by_rev(&repo, "main").detach();
+    let graph = Graph::from_commit_traversal_tips(
+        &repo,
+        [
+            Tip::entrypoint(merged_id, Some(ref_name("refs/heads/merged"))),
+            Tip::integrated(target_ref_id, Some(target_ref_name.clone())),
+            Tip::integrated(target_commit_id, None),
+        ],
+        &*meta,
+        standard_options(),
+    )?
+    .validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+
+    └── 👉►:2[0]:merged[🌳]
+        └── ·8a6c109 (⌂|1)
+            ├── ►:0[1]:A
+            │   └── ·62b409a (⌂|✓|1)
+            │       ├── ►:3[2]:anon:
+            │       │   └── ·592abec (⌂|✓|1)
+            │       │       └── ►:1[3]:main
+            │       │           └── 🏁·965998b (⌂|✓|1)
+            │       └── ►:4[2]:B
+            │           └── ·f16dddf (⌂|✓|1)
+            │               └── →:1: (main)
+            └── ►:5[1]:C
+                └── ·7ed512a (⌂|1)
+                    ├── ►:6[2]:anon:
+                    │   └── ·35ee481 (⌂|1)
+                    │       └── →:1: (main)
+                    └── ►:7[2]:D
+                        └── ·ecb1877 (⌂|1)
+                            └── →:1: (main)
+    ");
+
+    let target_segment = graph.segment_by_commit_id(target_commit_id)?;
+    assert_eq!(
+        target_segment.commits.first().map(|commit| commit.id),
+        Some(target_commit_id),
+        "integrated tip is also split into its own segment"
+    );
+
+    let ws = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    ⌂:2:merged[🌳] <> ✓refs/heads/A⇣3 on 965998b
+    └── ≡:2:merged[🌳] on 965998b {1}
+        ├── :2:merged[🌳]
+        │   └── ·8a6c109
+        └── :0:A
+            ├── ·62b409a (✓)
+            └── ·592abec (✓)
+    ");
+    assert_eq!(
+        ws.target_ref
+            .as_ref()
+            .map(|target| target.ref_name.as_ref()),
+        Some(target_ref_name.as_ref()),
+        "workspace projection uses named integrated tips as target refs if no metadata is available"
+    );
+    assert_eq!(
+        ws.target_commit.as_ref().map(|target| target.commit_id),
+        Some(target_commit_id),
+        "workspace projection falls back to using integrated refs"
     );
     Ok(())
 }

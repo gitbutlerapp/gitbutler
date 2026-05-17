@@ -921,7 +921,6 @@ mod tests {
             lower_bound_segment_id: None,
             target_ref: None,
             target_commit: None,
-            extra_target: None,
             metadata: None,
         }
     }
@@ -934,6 +933,7 @@ mod tests {
         StackSegment {
             ref_info: branch_ref_name.map(|name| but_graph::RefInfo {
                 ref_name: branch_ref(name),
+                commit_id: None,
                 worktree: None,
             }),
             remote_tracking_ref_name: None,

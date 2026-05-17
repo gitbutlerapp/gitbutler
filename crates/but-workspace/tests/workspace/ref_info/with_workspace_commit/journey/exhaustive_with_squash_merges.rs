@@ -29,6 +29,7 @@ fn j01_unborn() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/heads/main",
                     ),
+                    commit_id: None,
                     worktree: Some(
                         Main,
                     ),
@@ -58,7 +59,6 @@ fn j01_unborn() -> anyhow::Result<()> {
             ],
             target_ref: None,
             target_commit: None,
-            extra_target: None,
             lower_bound: None,
             is_managed_ref: false,
             is_managed_commit: false,
@@ -84,6 +84,9 @@ fn j02_first_commit() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/main",
+                    ),
+                    commit_id: Some(
+                        Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),
                     worktree: Some(
                         Main,
@@ -116,7 +119,6 @@ fn j02_first_commit() -> anyhow::Result<()> {
             ],
             target_ref: None,
             target_commit: None,
-            extra_target: None,
             lower_bound: None,
             is_managed_ref: false,
             is_managed_commit: false,
@@ -147,6 +149,9 @@ fn j03_main_pushed() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/heads/main",
                     ),
+                    commit_id: Some(
+                        Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    ),
                     worktree: Some(
                         Main,
                     ),
@@ -180,7 +185,6 @@ fn j03_main_pushed() -> anyhow::Result<()> {
             ],
             target_ref: None,
             target_commit: None,
-            extra_target: None,
             lower_bound: None,
             is_managed_ref: false,
             is_managed_commit: false,
@@ -203,6 +207,9 @@ fn j03_main_pushed() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/main",
+                    ),
+                    commit_id: Some(
+                        Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),
                     worktree: Some(
                         Main,
@@ -234,9 +241,11 @@ fn j03_main_pushed() -> anyhow::Result<()> {
                 },
             ],
             target_ref: None,
-            target_commit: None,
-            extra_target: Some(
-                NodeIndex(0),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(0),
+                },
             ),
             lower_bound: Some(
                 NodeIndex(0),
@@ -271,6 +280,9 @@ fn j04_create_workspace() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
                     ),
+                    commit_id: Some(
+                        Sha1(a26ae77fda20033f23c2b7790481e0b81d8cd9b9),
+                    ),
                     worktree: Some(
                         Main,
                     ),
@@ -295,7 +307,6 @@ fn j04_create_workspace() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -329,6 +340,9 @@ fn j05_empty_stack() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(a26ae77fda20033f23c2b7790481e0b81d8cd9b9),
                     ),
                     worktree: Some(
                         Main,
@@ -376,7 +390,6 @@ fn j05_empty_stack() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -409,6 +422,9 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(9a8283b423afb4f9c3feb18471ff2c543018c522),
                     ),
                     worktree: Some(
                         Main,
@@ -456,7 +472,6 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -477,6 +492,9 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(9a8283b423afb4f9c3feb18471ff2c543018c522),
                     ),
                     worktree: Some(
                         Main,
@@ -526,7 +544,6 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -559,6 +576,9 @@ fn j07_push_commit() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(9a8283b423afb4f9c3feb18471ff2c543018c522),
                     ),
                     worktree: Some(
                         Main,
@@ -608,7 +628,6 @@ fn j07_push_commit() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -646,6 +665,9 @@ fn j08_next_local_commit() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(9e1f2642e9591266fb00001789164f7960e508f5),
                     ),
                     worktree: Some(
                         Main,
@@ -696,7 +718,6 @@ fn j08_next_local_commit() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -732,6 +753,9 @@ fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(4d230909d7fba6bf00af30c9db74695a315fc93f),
                     ),
                     worktree: Some(
                         Main,
@@ -782,7 +806,6 @@ fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -825,6 +848,9 @@ fn j10_squash_merge_stack() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(4d230909d7fba6bf00af30c9db74695a315fc93f),
                     ),
                     worktree: Some(
                         Main,
@@ -875,7 +901,6 @@ fn j10_squash_merge_stack() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(2),
             ),
@@ -929,6 +954,9 @@ fn j11_squash_merge_remote_only() -> anyhow::Result<()> {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
                     ),
+                    commit_id: Some(
+                        Sha1(4d230909d7fba6bf00af30c9db74695a315fc93f),
+                    ),
                     worktree: Some(
                         Main,
                     ),
@@ -981,7 +1009,6 @@ fn j11_squash_merge_remote_only() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(5),
             ),
@@ -1039,6 +1066,9 @@ fn j12_local_only_multi_segment_squash_merge() -> anyhow::Result<()> {
                 RefInfo {
                     ref_name: FullName(
                         "refs/heads/gitbutler/workspace",
+                    ),
+                    commit_id: Some(
+                        Sha1(4da5b24e0457fb452972018e03505e0296ae0455),
                     ),
                     worktree: Some(
                         Main,
@@ -1126,7 +1156,6 @@ fn j12_local_only_multi_segment_squash_merge() -> anyhow::Result<()> {
                     segment_index: NodeIndex(2),
                 },
             ),
-            extra_target: None,
             lower_bound: Some(
                 NodeIndex(8),
             ),

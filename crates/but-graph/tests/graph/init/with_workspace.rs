@@ -2,7 +2,10 @@ use but_core::{
     RefMetadata,
     ref_metadata::{StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch},
 };
-use but_graph::{Graph, init::Overlay};
+use but_graph::{
+    Graph, SegmentMetadata,
+    init::{Overlay, Tip, TipRole},
+};
 use but_testsupport::{
     InMemoryRefMetadata, graph_tree, graph_workspace, visualize_commit_graph_all,
 };
@@ -1196,6 +1199,213 @@ fn just_init_with_branches() -> anyhow::Result<()> {
     ");
 
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0");
+
+    Ok(())
+}
+
+#[test]
+fn tips_equivalent_to_workspace_metadata_are_order_independent() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-branches")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* fafd9d0 (HEAD -> main, origin/main, gitbutler/workspace, F, E, D, C, B, A) init");
+
+    add_workspace(&mut meta);
+    add_stack_with_segments(&mut meta, 0, "C", StackState::InWorkspace, &["B", "A"]);
+    add_stack_with_segments(&mut meta, 1, "D", StackState::InWorkspace, &["E", "F"]);
+
+    let (id, ws_ref_name) = id_at(&repo, "gitbutler/workspace");
+    let commit_id = id.detach();
+    let workspace_metadata = (*meta.workspace(ws_ref_name.as_ref())?).clone();
+    let main_ref = super::ref_name("refs/heads/main");
+    let origin_main_ref = super::ref_name("refs/remotes/origin/main");
+    let stack_ref = |name: &str| super::ref_name(&format!("refs/heads/{name}"));
+
+    let head_baseline = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let head_baseline_tree = graph_tree(&head_baseline).to_string();
+    let head_baseline_workspace = graph_workspace(&head_baseline.into_workspace()?).to_string();
+
+    let head_tips = vec![
+        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
+            desired_ref_name: stack_ref("F"),
+        }),
+        Tip::new(commit_id)
+            .with_ref_name(Some(ws_ref_name.clone()))
+            .with_role(TipRole::Workspace)
+            .with_metadata(SegmentMetadata::Workspace(workspace_metadata.clone())),
+        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
+            desired_ref_name: stack_ref("B"),
+        }),
+        Tip::new(commit_id)
+            .with_ref_name(Some(origin_main_ref.clone()))
+            .with_role(TipRole::TargetRemote),
+        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
+            desired_ref_name: stack_ref("A"),
+        }),
+        Tip::new(commit_id)
+            .with_ref_name(Some(main_ref.clone()))
+            .with_entrypoint(),
+        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
+            desired_ref_name: stack_ref("E"),
+        }),
+        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
+            desired_ref_name: stack_ref("C"),
+        }),
+        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
+            desired_ref_name: stack_ref("D"),
+        }),
+    ];
+
+    let workspace_baseline =
+        Graph::from_commit_traversal(id, ws_ref_name.clone(), &*meta, standard_options())?
+            .validated()?;
+    let workspace_baseline_tree = graph_tree(&workspace_baseline).to_string();
+    let workspace_baseline_workspace = graph_workspace(&workspace_baseline.into_workspace()?);
+    insta::assert_snapshot!(workspace_baseline_workspace, @"
+    📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
+    ├── ≡📙:3:C on fafd9d0 {0}
+    │   ├── 📙:3:C
+    │   ├── 📙:4:B
+    │   └── 📙:5:A
+    └── ≡📙:6:D on fafd9d0 {1}
+        ├── 📙:6:D
+        ├── 📙:7:E
+        └── 📙:8:F
+    ");
+    let workspace_baseline_workspace = workspace_baseline_workspace.to_string();
+
+    let explicit_tips = vec![
+        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
+            desired_ref_name: stack_ref("E"),
+        }),
+        Tip::new(commit_id).with_role(TipRole::TargetLocal {
+            local_ref_name: main_ref.clone(),
+        }),
+        Tip::new(commit_id)
+            .with_ref_name(Some(ws_ref_name.clone()))
+            .with_role(TipRole::Workspace)
+            .with_metadata(SegmentMetadata::Workspace(workspace_metadata))
+            .with_entrypoint(),
+        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
+            desired_ref_name: stack_ref("C"),
+        }),
+        Tip::new(commit_id)
+            .with_ref_name(Some(origin_main_ref))
+            .with_role(TipRole::TargetRemote),
+        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
+            desired_ref_name: stack_ref("F"),
+        }),
+        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
+            desired_ref_name: stack_ref("A"),
+        }),
+        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
+            desired_ref_name: stack_ref("D"),
+        }),
+        Tip::new(commit_id).with_role(TipRole::WorkspaceStackBranch {
+            desired_ref_name: stack_ref("B"),
+        }),
+    ];
+    let graph = Graph::from_commit_traversal_tips(&repo, head_tips, &*meta, standard_options())?
+        .validated()?;
+    assert_eq!(
+        graph_tree(&graph).to_string(),
+        head_baseline_tree,
+        "unordered explicit tips with a reachable entrypoint should match HEAD traversal"
+    );
+    assert_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        head_baseline_workspace,
+        "unordered explicit tips with a reachable entrypoint should match the HEAD workspace projection"
+    );
+
+    let graph = Graph::from_commit_traversal_tips(
+        &repo,
+        explicit_tips.clone(),
+        &*meta,
+        standard_options(),
+    )?
+    .validated()?;
+    assert_eq!(
+        graph_tree(&graph).to_string(),
+        workspace_baseline_tree,
+        "unordered explicit tips should create the same graph as workspace metadata traversal"
+    );
+    let explicit_workspace = graph_workspace(&graph.into_workspace()?);
+    insta::assert_snapshot!(explicit_workspace, @"
+    📕🏘️⚠️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on fafd9d0
+    ├── ≡📙:3:C on fafd9d0 {0}
+    │   ├── 📙:3:C
+    │   ├── 📙:4:B
+    │   └── 📙:5:A
+    └── ≡📙:6:D on fafd9d0 {1}
+        ├── 📙:6:D
+        ├── 📙:7:E
+        └── 📙:8:F
+    ");
+    assert_eq!(
+        explicit_workspace.to_string(),
+        workspace_baseline_workspace,
+        "unordered explicit tips should create the same workspace projection as workspace metadata traversal"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn workspace_target_commit_and_extra_target_commit_can_overlap() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
+    let target_id = id_by_rev(&repo, "main").detach();
+    add_workspace_with_target(&mut meta, target_id);
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
+
+    let baseline = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let baseline_tree = graph_tree(&baseline).to_string();
+    let baseline_workspace = graph_workspace(&baseline.into_workspace()?).to_string();
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options().with_extra_target_commit_id(target_id),
+    )?
+    .validated()?;
+
+    assert_eq!(
+        graph_tree(&graph).to_string(),
+        baseline_tree,
+        "duplicated synthetic integrated tips should not change graph traversal"
+    );
+    assert_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        baseline_workspace,
+        "duplicated synthetic integrated tips should not change workspace projection"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn duplicate_workspace_stack_branch_tips_from_metadata_are_ignored() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
+    add_workspace(&mut meta);
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
+
+    let baseline = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let baseline_tree = graph_tree(&baseline).to_string();
+    let baseline_workspace = graph_workspace(&baseline.into_workspace()?).to_string();
+
+    add_stack_with_segments(&mut meta, 3, "B", StackState::InWorkspace, &[]);
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+
+    assert_eq!(
+        graph_tree(&graph).to_string(),
+        baseline_tree,
+        "duplicate stack branch metadata (B) should not enqueue the same stack branch traversal twice"
+    );
+    assert_eq!(
+        graph_workspace(&graph.into_workspace()?).to_string(),
+        baseline_workspace,
+        "duplicate stack branch metadata should not change workspace projection"
+    );
 
     Ok(())
 }
@@ -5024,15 +5234,9 @@ fn branch_ahead_of_workspace() -> anyhow::Result<()> {
     // The branches that are outside the workspace don't exist and segments are flattened.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣2 on fafd9d0
-    ├── ≡:5:anon: on fafd9d0
-    │   └── :5:anon:
-    │       ├── ·a62b0de (🏘️|✓)
-    │       └── ·120a217 (🏘️|✓)
     ├── ≡:6:B on fafd9d0
     │   └── :6:B
-    │       ├── ·2f8f06d (🏘️)
-    │       ├── ·91bc3fc (🏘️|✓)
-    │       └── ·cf9330f (🏘️|✓)
+    │       └── ·2f8f06d (🏘️)
     ├── ≡:7:C on fafd9d0
     │   └── :7:C
     │       ├── ·3f7c4e6 (🏘️)
@@ -6008,7 +6212,7 @@ fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch(
     ");
     let debug_graph = graph_tree(&graph);
     let target_segment = graph
-        .named_segment_by_ref_name(target_ref.as_ref())
+        .segment_by_ref_name(target_ref.as_ref())
         .unwrap_or_else(|| {
             panic!(
                 "expected exact target segment for existing ref {target_ref}, graph was:\n{debug_graph}"
@@ -6020,7 +6224,7 @@ fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch(
         "expected exact target segment to stay empty when the target rests on main, graph was:\n{debug_graph}"
     );
     assert!(
-        graph.named_segment_by_ref_name(main_ref.as_ref()).is_none(),
+        graph.segment_by_ref_name(main_ref.as_ref()).is_none(),
         "main should remain only as a commit ref in this fixture, as 'unapplied' takes precedence, graph was:\n{debug_graph}"
     );
 

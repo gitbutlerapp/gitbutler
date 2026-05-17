@@ -20,7 +20,6 @@ use crate::{
         walk::{RefsById, WorktreeByBranch, disambiguate_refs_by_branch_metadata},
     },
     utils::SegmentVisitScratch,
-    workspace::workspace,
 };
 
 pub(super) struct Context<'a> {
@@ -30,6 +29,7 @@ pub(super) struct Context<'a> {
     pub inserted_proxy_segments: Vec<SegmentIndex>,
     pub refs_by_id: RefsById,
     pub hard_limit: bool,
+    pub detach_entrypoint: bool,
     pub dangerously_skip_postprocessing_for_debugging: bool,
     pub worktree_by_branch: WorktreeByBranch,
 }
@@ -57,12 +57,14 @@ impl Graph {
             inserted_proxy_segments,
             refs_by_id,
             hard_limit,
+            detach_entrypoint,
             dangerously_skip_postprocessing_for_debugging,
             worktree_by_branch,
         }: Context<'_>,
     ) -> anyhow::Result<Self> {
         self.hard_limit_hit = hard_limit;
 
+        // Make sure edge order matches the git commit graph when traversed.
         self.rebuild_edges_in_parent_order();
 
         // Keep the original traversal tip available even if post-processing moves the
@@ -70,7 +72,7 @@ impl Graph {
         self.update_entrypoint_commit_id(tip);
 
         if dangerously_skip_postprocessing_for_debugging {
-            return Ok(self);
+            return self.finish_post_processing(detach_entrypoint);
         }
 
         // Before anything, cleanup the graph.
@@ -106,6 +108,13 @@ impl Graph {
         self.compute_generation_numbers();
 
         self.symbolic_remote_names = symbolic_remote_names.to_vec();
+        self.finish_post_processing(detach_entrypoint)
+    }
+
+    fn finish_post_processing(mut self, detach_entrypoint: bool) -> anyhow::Result<Self> {
+        if detach_entrypoint {
+            self.detach_entrypoint_segment()?;
+        }
         Ok(self)
     }
 
@@ -213,6 +222,7 @@ impl Graph {
                     &Default::default(),
                 )?;
                 if let Some(ri) = entrypoint_segment.ref_info.as_mut() {
+                    ri.commit_id = desired_ref_name.commit_id;
                     ri.worktree = desired_ref_name.worktree;
                 }
                 let entrypoint_sidx = self.insert_segment_set_entrypoint(entrypoint_segment);
@@ -497,8 +507,18 @@ impl Graph {
                         };
 
                         s.metadata = metadata;
+                        let ref_info = first_commit
+                            .ref_by_name(rn.as_ref())
+                            .cloned()
+                            .unwrap_or_else(|| {
+                                crate::RefInfo::from_ref(
+                                    rn.clone(),
+                                    first_commit.id,
+                                    worktree_by_branch,
+                                )
+                            });
                         first_commit.refs.retain(|cri| cri.ref_name != rn);
-                        s.ref_info = Some(crate::RefInfo::from_ref(rn, worktree_by_branch));
+                        s.ref_info = Some(ref_info);
                     }
                 }
             }
@@ -554,15 +574,9 @@ impl Graph {
         out.dedup_by_key(|t| t.1.id);
 
         let mut out: Vec<_> = out.into_iter().map(|t| t.0).collect();
-        for extra_sidx in self
-            .extra_target
-            .into_iter()
-            .chain(target_commit_sidx)
-            .chain(ws_low_bound)
-            .dedup()
-        {
+        for extra_sidx in target_commit_sidx.into_iter().chain(ws_low_bound).dedup() {
             out.extend(
-                self.first_commit_or_find_along_first_parent(extra_sidx)
+                self.resolve_to_unambiguously_pointed_to_commit(extra_sidx)
                     .and_then(|(c, sidx)| {
                         (!out.contains(&sidx) && c.flags.contains(CommitFlags::InWorkspace))
                             .then_some(sidx)
@@ -601,7 +615,7 @@ impl Graph {
                 let target_rtb = &self[target_sidx];
                 if self.is_connected_from_above(target_sidx, ws_sidx) {
                     out.extend(
-                        self.first_commit_or_find_along_first_parent(target_rtb.id)
+                        self.resolve_to_unambiguously_pointed_to_commit(target_rtb.id)
                             .and_then(|(c, sidx)| {
                                 c.flags.contains(CommitFlags::InWorkspace).then_some(sidx)
                             }),
@@ -627,40 +641,16 @@ impl Graph {
         refs_by_id: &RefsById,
         worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<()> {
-        let Some((
-            ws_sidx,
-            ws_stacks,
-            ws_data,
-            ws_target_ref,
-            ws_target_commit,
-            ws_low_bound_in_ws_sidx,
-            ws_low_bound,
-        )) = self
-            .to_workspace_state(workspace::Downgrade::Disallow)
-            .ok()
-            .and_then(|mut ws| {
-                let md = ws.metadata.take();
-                md.map(|md| {
-                    let lower_bound_if_in_workspace = ws.lower_bound_segment_id.filter(|lb_sidx| {
-                        ws.stacks
-                            .iter()
-                            .flat_map(|s| s.segments.iter().map(|s| s.id))
-                            .any(|sid| sid == *lb_sidx)
-                    });
-                    (
-                        ws.id,
-                        ws.stacks,
-                        md,
-                        ws.target_ref,
-                        ws.target_commit,
-                        lower_bound_if_in_workspace,
-                        ws.lower_bound_segment_id,
-                    )
-                })
-            })
-        else {
+        let Some(workspace) = self.workspace_reconciliation_input()? else {
             return Ok(());
         };
+        let ws_sidx = workspace.id;
+        let ws_low_bound_in_ws_sidx = workspace.lower_bound_segment_id_in_workspace();
+        let ws_stacks = workspace.stacks;
+        let ws_data = workspace.metadata;
+        let ws_target_ref = workspace.target_ref;
+        let ws_target_commit = workspace.target_commit;
+        let ws_low_bound = workspace.lower_bound_segment_id;
 
         // Setup independent stacks, first by looking at potential bases.
         let candidates = self.candidates_for_independent_branches_in_workspace(
@@ -747,7 +737,7 @@ impl Graph {
                     let Some(refs_for_dependent_branches) =
                         find_all_desired_stack_refs_in_commit_for_dependent_branches(
                             &ws_data,
-                            commit.ref_iter(),
+                            commit.ref_name_iter(),
                             None,
                         )
                         .next()
@@ -801,7 +791,7 @@ impl Graph {
                             .map(|ri| &ri.ref_name)
                             .filter(|_| !commit.refs.is_empty())
                             .into_iter()
-                            .chain(commit.ref_iter()),
+                            .chain(commit.ref_name_iter()),
                         Some(stack),
                     )
                     .next()
@@ -844,18 +834,20 @@ impl Graph {
                 }
 
                 let s = &mut self[base_sidx];
-                if let Some(refs) = s
-                    .commits
-                    .first_mut()
-                    .filter(|c| !c.refs.is_empty())
-                    .map(|c| &mut c.refs)
+                if let Some(first_commit) = s.commits.first_mut().filter(|c| !c.refs.is_empty())
                     && let Some((name, md)) = disambiguate_refs_by_branch_metadata(
-                        refs.iter().map(|ri| &ri.ref_name),
+                        first_commit.refs.iter().map(|ri| &ri.ref_name),
                         meta,
                     )
                 {
-                    refs.retain(|ri| ri.ref_name != name);
-                    s.ref_info = Some(crate::RefInfo::from_ref(name, worktree_by_branch));
+                    let ref_info = first_commit
+                        .ref_by_name(name.as_ref())
+                        .cloned()
+                        .unwrap_or_else(|| {
+                            crate::RefInfo::from_ref(name.clone(), None, worktree_by_branch)
+                        });
+                    first_commit.refs.retain(|ri| ri.ref_name != name);
+                    s.ref_info = Some(ref_info);
                     s.metadata = md;
                 }
                 reconnect_outgoing_edges(
@@ -1131,13 +1123,28 @@ impl Graph {
             .filter(|(_, candidates)| candidates.len() == 1)
         {
             let s = &mut self[anon_sidx];
+            let segment_id = s.id.index();
+            let no_commits = || {
+                format!(
+                    "BUG: remote-disambiguated anonymous segment {segment_id} should contain commits"
+                )
+            };
             let (local, remote, remote_sidx) =
                 disambiguated_name.pop().expect("one item as checked above");
-            s.ref_info = Some(crate::RefInfo::from_ref(local, worktree_by_branch));
+            let commit_id = s.commits.first().with_context(no_commits)?.id;
+            s.ref_info = Some(crate::RefInfo::from_ref(
+                local,
+                commit_id,
+                worktree_by_branch,
+            ));
             s.remote_tracking_ref_name = Some(remote);
             s.remote_tracking_branch_segment_id = Some(remote_sidx);
             let rn = s.ref_info.as_ref().expect("just set it");
-            s.commits.first_mut().unwrap().refs.retain(|crn| crn != rn);
+            s.commits
+                .first_mut()
+                .with_context(no_commits)?
+                .refs
+                .retain(|crn| crn != rn);
             // Assure the remote is also paired up!
             self[remote_sidx].sibling_segment_id = Some(s.id);
         }
@@ -1176,8 +1183,8 @@ impl Graph {
                 (_remote_commit, _owner_of_commit_same_as_local),
                 (_local_commmit, owner_of_commit_same_as_remote),
             )) = self
-                .first_commit_or_find_along_first_parent(remote_sidx)
-                .zip(self.first_commit_or_find_along_first_parent(local_sidx))
+                .resolve_to_unambiguously_pointed_to_commit(remote_sidx)
+                .zip(self.resolve_to_unambiguously_pointed_to_commit(local_sidx))
                 .filter(|((a, a_sidx), (b, b_sidx))| a.id == b.id && a_sidx == b_sidx)
             {
                 let outgoing: Vec<_> = self
@@ -1373,9 +1380,6 @@ fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
         .filter(|ep_sidx| **ep_sidx == sidx)
     {
         *ep_sidx = new_target;
-    }
-    if let Some(extra_target) = graph.extra_target.as_mut() {
-        *extra_target = new_target;
     }
 }
 

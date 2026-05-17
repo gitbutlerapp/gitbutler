@@ -329,6 +329,7 @@ pub(crate) fn set_target_push_remote(ctx: &Context, push_remote_name: &str) -> R
     workspace
         .target_ref
         .as_ref()
+        .context(Code::DefaultTargetNotFound)
         .context("there is no default target")?;
     workspace.push_remote = Some(push_remote_name.to_owned());
     meta.set_workspace(&workspace)?;
@@ -371,7 +372,7 @@ pub(crate) fn target_to_base_branch(
         .context("failed to get fork point")?;
     let target_sha_ahead_of_ref = !target_sha_not_ref.is_empty();
 
-    // The longest list of upstream commit ids.
+    // The longest first-parent list of upstream commit ids.
     let upstream_commit_ids = ws
         .upstream_commits(repo, target_ref_name.as_ref(), FirstParent::Yes)?
         .into_iter()
@@ -441,12 +442,7 @@ pub(crate) fn target_to_base_branch(
 }
 
 fn default_target(ctx: &Context) -> Result<Target> {
-    ctx.legacy_meta()?
-        .data()
-        .default_target
-        .clone()
-        .map(Into::into)
-        .ok_or_else(|| anyhow!("there is no default target").context(Code::DefaultTargetNotFound))
+    Ok(ctx.persisted_default_target()?.into())
 }
 
 /// Infer the default target from the Git repository without mutating workspace refs.

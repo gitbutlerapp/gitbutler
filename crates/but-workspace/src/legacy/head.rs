@@ -3,7 +3,6 @@
 use anyhow::Result;
 use but_core::RepositoryExt;
 use but_ctx::Context;
-use but_error::Code;
 use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_repo::{SignaturePurpose, commit_without_signature_gix, signature_gix};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
@@ -50,15 +49,7 @@ pub fn remerged_workspace_tree_v2(
     repo: &gix::Repository,
 ) -> Result<(gix::ObjectId, Vec<Stack>, gix::ObjectId)> {
     let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let target_base_oid = ctx
-        .legacy_meta()?
-        .data()
-        .default_target
-        .as_ref()
-        .map(|target| target.sha)
-        .ok_or_else(|| {
-            anyhow::anyhow!("there is no default target").context(Code::DefaultTargetNotFound)
-        })?;
+    let target_base_oid = ctx.persisted_default_target()?.sha;
     let mut stacks: Vec<Stack> = vb_state.list_stacks_in_workspace()?;
 
     let target_commit = repo.find_commit(target_base_oid)?;

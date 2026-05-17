@@ -131,7 +131,7 @@ fn returns_none_when_no_target() -> anyhow::Result<()> {
 }
 
 #[test]
-fn returns_none_with_only_extra_target() -> anyhow::Result<()> {
+fn returns_extra_target_without_target_ref() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/two-branches-one-below-base")?;
 
     add_workspace(&mut meta);
@@ -145,9 +145,11 @@ fn returns_none_with_only_extra_target() -> anyhow::Result<()> {
     .validated()?
     .into_workspace()?;
 
-    assert!(
-        ws.resolved_target_commit_id().is_none(),
-        "extra_target alone is not sufficient — need target_commit or target_ref"
+    let expected_target_id = repo.rev_parse_single("main")?.detach();
+    assert_eq!(
+        ws.resolved_target_commit_id(),
+        Some(expected_target_id),
+        "extra integrated target is used as the effective target commit"
     );
 
     Ok(())

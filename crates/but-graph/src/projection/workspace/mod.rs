@@ -39,17 +39,15 @@ pub struct Workspace {
     /// possibly pushed branches are considered integrated. This happens when there is a local branch
     /// checked out without a remote tracking branch.
     pub target_ref: Option<TargetRef>,
-    /// A commit reachable by [`Self::target_ref`] which we chose to keep as base. That way we can extend the workspace
+    /// A commit *typically* reachable by [`Self::target_ref`] which we chose to keep as base. That way we can extend the workspace
     /// past its computed lower bound.
     ///
     /// Indeed, it's valid to not set the reference, and to only set the commit which should act as an integration base.
+    /// This can be done by direct user override, who simply wants to cut off history at a certain movable point in time.
+    ///
+    /// It is also valid to have this field point to the same Segment as [Self::target_ref]. Both have different purposes,
+    /// semantically.
     pub target_commit: Option<TargetCommit>,
-    /// The segment index of the extra target as provided for traversal,
-    /// useful for AdHoc workspaces, but generally applicable to all workspaces to keep the lower bound lower than it
-    /// otherwise would be.
-    // TODO: could extra-target and target_commit be one and the same? They kind of are, check usages.
-    //       Probably better to keep the `target_commit`.
-    pub extra_target: Option<SegmentIndex>,
     /// Read-only workspace metadata with additional information, or `None` if nothing was present.
     /// If this is `Some()` the `kind` is always [`WorkspaceKind::Managed`]
     pub metadata: Option<ref_metadata::Workspace>,
@@ -64,8 +62,73 @@ pub(crate) struct WorkspaceState {
     pub lower_bound_segment_id: Option<SegmentIndex>,
     pub target_ref: Option<TargetRef>,
     pub target_commit: Option<TargetCommit>,
-    pub extra_target: Option<SegmentIndex>,
     pub metadata: Option<ref_metadata::Workspace>,
+}
+
+/// Graph-level workspace facts needed while reconciling a traversed graph.
+///
+/// This deliberately stops before the final workspace projection pruning and
+/// remote-display enrichment. Reconciliation needs the workspace frame and
+/// current graph paths, not a finished [`Workspace`].
+pub(crate) struct WorkspaceReconciliationInput {
+    /// Segment that represents the workspace tip/ref being reconciled.
+    ///
+    /// In managed mode this is the workspace ref segment. Reconciliation uses
+    /// it as the root for inserting or reordering virtual stack branch
+    /// segments according to workspace metadata.
+    pub id: SegmentIndex,
+    /// Current graph paths below the workspace tip, grouped using the same
+    /// first-parent path rules as projection, but before projection-only
+    /// pruning and remote display enrichment.
+    ///
+    /// Reconciliation uses these paths to discover which already-traversed
+    /// segments can receive metadata-defined branch segments.
+    pub stacks: Vec<Stack>,
+    /// Segment that owns the computed workspace lower-bound commit, regardless
+    /// of whether that segment is currently part of [`Self::stacks`].
+    ///
+    /// This is the full frame-of-reference lower bound used to decide where
+    /// workspace stack collection stops and which base candidates are relevant.
+    /// It may point to a target/integrated segment outside the workspace paths,
+    /// unlike [`Self::lower_bound_segment_id_in_workspace()`].
+    pub lower_bound_segment_id: Option<SegmentIndex>,
+    /// Resolved target ref for the workspace, if one is available.
+    ///
+    /// Reconciliation uses the target segment to avoid creating independent
+    /// branch segments from target-side history and to identify candidates
+    /// where the target is connected from above.
+    pub target_ref: Option<TargetRef>,
+    /// Resolved target commit for the workspace, if one is available.
+    ///
+    /// This can come from workspace metadata or traversal target context. It is
+    /// used as another lower-bound/candidate anchor when reconciling branches
+    /// against the traversed graph.
+    pub target_commit: Option<TargetCommit>,
+    /// Workspace metadata that defines the desired applied/unapplied stacks,
+    /// branch order, branch names, and target settings.
+    ///
+    /// This is the non-Git input reconciliation applies to the traversed graph.
+    pub metadata: ref_metadata::Workspace,
+}
+
+impl WorkspaceReconciliationInput {
+    /// Return the lower-bound segment only if it is currently part of one of
+    /// [`Self::stacks`].
+    ///
+    /// This is narrower than [`Self::lower_bound_segment_id`]. Reconciliation
+    /// uses it for the "split lower bound out of a named stack segment" fixup,
+    /// which is only valid when that lower-bound segment is inside the current
+    /// workspace stack paths. If the lower bound comes from the target side or
+    /// another integrated context outside the workspace paths, this returns
+    /// `None` to avoid mutating unrelated graph structure.
+    pub fn lower_bound_segment_id_in_workspace(&self) -> Option<SegmentIndex> {
+        self.lower_bound_segment_id.filter(|lb_sidx| {
+            self.stacks
+                .iter()
+                .flat_map(|s| s.segments.iter().map(|s| s.id))
+                .any(|sid| sid == *lb_sidx)
+        })
+    }
 }
 
 impl Workspace {
@@ -79,7 +142,6 @@ impl Workspace {
             lower_bound_segment_id,
             target_ref,
             target_commit,
-            extra_target,
             metadata,
         }: WorkspaceState,
     ) -> Self {
@@ -92,7 +154,6 @@ impl Workspace {
             lower_bound_segment_id,
             target_ref,
             target_commit,
-            extra_target,
             metadata,
         }
     }
@@ -155,7 +216,8 @@ impl WorkspaceKind {
     }
 }
 
-/// Information about the target reference.
+/// Information about the target reference, which marks a portion in the commit-graph
+/// that the workspace wants to integrate with.
 #[derive(Debug, Clone)]
 pub struct TargetRef {
     /// The name of the target branch, i.e. the branch that all [Stacks](Stack) want to get merged into.
@@ -163,11 +225,16 @@ pub struct TargetRef {
     pub ref_name: gix::refs::FullName,
     /// The index to the respective segment in the graph, it's the segment with [`Self::ref_name`] as name.
     pub segment_index: SegmentIndex,
-    /// The amount of commits that aren't included in any segment in the workspace, they are in its future.
+    /// The amount of *all* commits that aren't included in any segment in the workspace, they are in its future.
     pub commits_ahead: usize,
 }
 
-/// Information about the target commit.
+/// Information about the target commit, which marks a portion in the commit-graph
+/// that the workspace wants to integrate with.
+///
+/// It's an unnamed point of interest which may
+/// be set by any means. Typically, it's set by using a stored value, which makes it
+/// a point in time at which we have seen the [`TargetRef`].
 #[derive(Debug, Clone)]
 pub struct TargetCommit {
     /// The hash of the commit that was once included in the [target ref](TargetRef), and that we remember to expand
@@ -179,15 +246,22 @@ pub struct TargetCommit {
 
 impl TargetCommit {
     /// Find `target_commit_id` in the `graph` and store its segment in this instance, or return `None` if not found.
+    /// The `None` case is acceptable as we consider these possibly stored.
     fn from_commit(target_commit_id: gix::ObjectId, graph: &Graph) -> Option<Self> {
-        graph.node_weights().find_map(|s| {
-            s.commits
-                .iter()
-                .any(|c| c.id == target_commit_id)
-                .then_some(TargetCommit {
-                    commit_id: target_commit_id,
-                    segment_index: s.id,
-                })
+        let segment = graph.segment_by_commit_id(target_commit_id).ok()?;
+        let commit_index = segment.commit_index_of(target_commit_id)?;
+        if commit_index != 0 {
+            tracing::warn!(
+                current = ?target_commit_id,
+                segment = ?segment.id,
+                commit_index,
+                "Ignoring stored target commit because it is not the first commit in its segment"
+            );
+            return None;
+        }
+        Some(TargetCommit {
+            commit_id: target_commit_id,
+            segment_index: segment.id,
         })
     }
 }
@@ -200,13 +274,9 @@ impl TargetRef {
         ref_name: &gix::refs::FullName,
         graph: &Graph,
     ) -> Option<Self> {
-        let target_segment_sidx = graph.inner.node_indices().find_map(|n| {
-            let s = &graph[n];
-            (s.ref_name() == Some(ref_name.as_ref())).then_some(s.id)
-        })?;
         Some(TargetRef {
             ref_name: ref_name.to_owned(),
-            segment_index: target_segment_sidx,
+            segment_index: graph.segment_by_ref_name(ref_name.as_ref())?.id,
             commits_ahead: 0,
         })
     }
