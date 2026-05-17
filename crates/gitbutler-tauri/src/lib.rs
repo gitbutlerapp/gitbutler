@@ -17,7 +17,7 @@
     clippy::too_many_lines
 )]
 
-pub mod claude;
+pub mod broadcaster;
 #[cfg(feature = "irc")]
 pub mod irc;
 #[cfg(feature = "irc")]

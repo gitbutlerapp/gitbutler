@@ -1,10 +1,7 @@
 use but_api::{json::Error, legacy::settings};
 use but_settings::{
     AppSettings, AppSettingsWithDiskSync,
-    api::{
-        ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, IrcUpdate, ReviewsUpdate, TelemetryUpdate,
-        UiUpdate,
-    },
+    api::{FeatureFlagsUpdate, FetchUpdate, IrcUpdate, ReviewsUpdate, TelemetryUpdate, UiUpdate},
 };
 use tauri::State;
 use tracing::instrument;
@@ -59,16 +56,6 @@ pub fn update_feature_flags(
         settings::UpdateFeatureFlagsParams { update },
     )
     .map_err(Into::into)
-}
-
-#[tauri::command(async)]
-#[instrument(skip(app_settings_sync), err(Debug))]
-pub fn update_claude(
-    app_settings_sync: State<'_, AppSettingsWithDiskSync>,
-    update: ClaudeUpdate,
-) -> Result<(), Error> {
-    settings::update_claude(&app_settings_sync, settings::UpdateClaudeParams { update })
-        .map_err(Into::into)
 }
 
 #[tauri::command(async)]

@@ -26,13 +26,7 @@ export function buildActionEndpoints(build: BackendEndpointBuilder) {
 		deleteWorkspaceRule: build.mutation<void, { projectId: string; ruleId: WorkspaceRuleId }>({
 			extraOptions: { command: "delete_workspace_rule" },
 			query: (args) => args,
-			invalidatesTags: [
-				invalidatesList(ReduxTag.WorkspaceRules),
-				invalidatesList(ReduxTag.ClaudeCodeTranscript),
-				invalidatesList(ReduxTag.ClaudePermissionRequests),
-				invalidatesList(ReduxTag.ClaudeSessionDetails),
-				invalidatesList(ReduxTag.ClaudeStackActive),
-			],
+			invalidatesTags: [invalidatesList(ReduxTag.WorkspaceRules)],
 		}),
 		updateWorkspaceRule: build.mutation<
 			WorkspaceRule,

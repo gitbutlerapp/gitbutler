@@ -35,7 +35,6 @@ but-core.workspace = true
 but-askpass.workspace = true
 but-action.workspace = true
 but-api = { workspace = true, features = ["tauri", "path-bytes", "legacy"] }
-but-claude.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
 but-irc = { workspace = true, optional = true }
 notify-rust.workspace = true

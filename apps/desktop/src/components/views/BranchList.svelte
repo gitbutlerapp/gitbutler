@@ -6,7 +6,6 @@
 	import BranchDividerLine from "$components/branch/BranchDividerLine.svelte";
 	import BranchHeaderContextMenu from "$components/branch/BranchHeaderContextMenu.svelte";
 	import BranchReorderDropzone from "$components/branch/BranchReorderDropzone.svelte";
-	import CodegenSessionRow from "$components/codegen/CodegenSessionRow.svelte";
 	import ChangedFilesPanel from "$components/files/ChangedFilesPanel.svelte";
 	import PushButton from "$components/forge/PushButton.svelte";
 	import { getColorFromCommitState, getIconFromCommitState } from "$components/lib";
@@ -14,9 +13,6 @@
 	import BranchCommitList from "$components/views/BranchCommitList.svelte";
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
-	import { CLAUDE_CODE_SERVICE } from "$lib/codegen/claude";
-	import { currentStatus } from "$lib/codegen/messages";
-	import { projectDisableCodegen } from "$lib/config/config";
 	import { StartCommitDzHandler } from "$lib/dragging/dropHandlers/branchDropHandler";
 	import { REORDER_DROPZONE_FACTORY } from "$lib/dragging/stackingReorderDropzoneManager";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
@@ -24,7 +20,6 @@
 	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { combineResults } from "$lib/state/helpers";
-	import { focusClaudeInput } from "$lib/utils/focusClaudeInput";
 	import { ensureValue } from "$lib/utils/validation";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, TestId } from "@gitbutler/ui";
@@ -43,7 +38,6 @@
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const urlService = inject(URL_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
-	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const projectId = $derived(controller.projectId);
 	const stackId = $derived(controller.stackId);
 	const laneId = $derived(controller.laneId);
@@ -53,8 +47,6 @@
 
 	const selection = $derived(controller.selection);
 	const selectedCommitId = $derived(controller.commitId);
-	const codegenDisabled = $derived(projectDisableCodegen(projectId));
-
 	const selectedCommit = $derived(
 		selectedCommitId ? stackService.commitDetails(projectId, selectedCommitId) : undefined,
 	);
@@ -120,8 +112,7 @@
 					upstreamOnlyCommits.length === 0 && localAndRemoteCommits.length === 0}
 				{@const selected =
 					selection?.current?.branchName === branchName &&
-					selection?.current.commitId === undefined &&
-					!selection?.current.codegen}
+					selection?.current.commitId === undefined}
 				{@const pushStatus = branchDetails.pushStatus}
 				{@const isConflicted = branchDetails.isConflicted}
 				{@const reviewId = branch.reviewId || undefined}
@@ -130,13 +121,6 @@
 					.filter((b) => b.name !== branchName)
 					.map((b) => b.prNumber)
 					.filter((n): n is number => n !== undefined)}
-				{@const codegenSelected =
-					selection?.current?.branchName === branchName &&
-					selection?.current.commitId === undefined &&
-					selection?.current.codegen}
-				{@const codegenQuery = stackId
-					? claudeCodeService.messages({ projectId, stackId })
-					: undefined}
 				{@const startCommittingDz = new StartCommitDzHandler(projectId, stackId, branchName)}
 				{#if stackId}
 					<BranchReorderDropzone
@@ -166,10 +150,6 @@
 					{isNewBranch}
 					{pushStatus}
 					{isConflicted}
-					hasCodegenSessionRow={firstBranch &&
-						stackId !== undefined &&
-						codegenQuery?.response &&
-						codegenQuery.response.length > 0}
 					{reviewId}
 					{prNumber}
 					{allOtherPrNumbersInStack}
@@ -183,11 +163,7 @@
 					onclick={() => {
 						const currentSelection = controller.selection.current;
 						// Toggle: if this branch is already selected, clear the selection
-						if (
-							currentSelection?.branchName === branchName &&
-							!currentSelection.codegen &&
-							!currentSelection?.commitId
-						) {
+						if (currentSelection?.branchName === branchName && !currentSelection?.commitId) {
 							controller.selection.set(undefined);
 						} else {
 							controller.selection.set({ branchName, previewOpen: true });
@@ -261,19 +237,6 @@
 							isFirstBranchInStack={firstBranch}
 							isLastBranchInStack={lastBranch}
 						/>
-						{#if !$codegenDisabled && first && codegenQuery?.response?.length === 0}
-							<Button
-								icon="ai"
-								style="gray"
-								size="tag"
-								tooltip="New Codegen Session"
-								onclick={async () => {
-									if (!stackId) return;
-									controller.selection.set({ branchName, codegen: true, previewOpen: true });
-									focusClaudeInput(stackId);
-								}}
-							/>
-						{/if}
 					{/snippet}
 
 					{#snippet menu({ rightClickTrigger })}
@@ -290,26 +253,6 @@
 							{rightClickTrigger}
 							contextData={data}
 						/>
-					{/snippet}
-
-					{#snippet codegenRow()}
-						{#if firstBranch && stackId}
-							{#if codegenQuery?.response && codegenQuery.response.length > 0}
-								{@const stackActive = claudeCodeService.isStackActive(projectId, stackId)}
-								{@const status = currentStatus(
-									codegenQuery.response || [],
-									stackActive.response || false,
-								)}
-								<CodegenSessionRow
-									{projectId}
-									{branchName}
-									{stackId}
-									{status}
-									selected={codegenSelected}
-									onclick={() => controller.clearWorktreeSelection()}
-								/>
-							{/if}
-						{/if}
 					{/snippet}
 
 					{#snippet changedFiles()}
@@ -367,10 +310,6 @@
 							{branchName}
 							{branchDetails}
 							{stackingReorderDropzoneManager}
-							roundedTop={firstBranch &&
-								stackId !== undefined &&
-								codegenQuery?.response &&
-								codegenQuery.response.length > 0}
 						/>
 					{/snippet}
 				</BranchCard>

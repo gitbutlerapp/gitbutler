@@ -210,7 +210,6 @@ impl OutputChannel {
     /// buffering session; if called again while the buffer already holds data, a warning is
     /// emitted to stderr and the previous value is replaced.
     ///
-    /// Note that it's owned to avoid double-printing with [ResultJsonExt::output_json]
     pub fn write_value(&mut self, value: impl serde::Serialize) -> std::io::Result<()> {
         if self.json_buffer.is_some() {
             let new_value = serde_json::to_value(&value).map_err(std::io::Error::other)?;

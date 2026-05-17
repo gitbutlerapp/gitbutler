@@ -25,8 +25,6 @@ export function replaceBranchInExclusiveAction(
 				return { ...action, branchName };
 			}
 			return action;
-		case "codegen":
-			return action;
 	}
 }
 

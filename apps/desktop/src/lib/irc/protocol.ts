@@ -18,15 +18,14 @@
  *   continuation marker for future multi-part message support.
  */
 
-import type {
-	ClaudeMessage,
-	ClaudeTodo,
-	ClaudeStatus,
-	PromptAttachment,
-	PermissionDecision,
-	AskUserQuestion,
-} from "$lib/codegen/types";
 import type { SharedCommitPayload } from "$lib/irc/sharedStack";
+
+// Inline type definitions (previously from codegen/types)
+type ClaudeStatus = "enabled" | "disabled" | "running" | "idle" | "error";
+type ClaudeTodo = { content: string; status: "pending" | "in_progress" | "completed" };
+type PromptAttachment = unknown;
+type PermissionDecision = string;
+type AskUserQuestion = { question: string; options: { label: string; value: string }[] };
 import type { DiffHunk } from "@gitbutler/but-sdk";
 import type { TreeChange } from "@gitbutler/but-sdk";
 
@@ -202,18 +201,6 @@ export type AbortMessage = MessageEnvelope<
 	}
 >;
 
-// ----------------------------------------------------------------------------
-// Raw Claude Message (for full sync)
-// ----------------------------------------------------------------------------
-
-export type ClaudeMessageWrapper = MessageEnvelope<
-	"claude-message",
-	{
-		/** The raw ClaudeMessage, potentially truncated */
-		message: ClaudeMessage;
-	}
->;
-
 export type SharedCommitMessage = MessageEnvelope<
 	"shared-commit",
 	{
@@ -239,7 +226,6 @@ export type IrcProtocolMessage =
 	| QuestionMessage
 	| AnswerMessage
 	| AbortMessage
-	| ClaudeMessageWrapper
 	| SharedCommitMessage;
 
 // ============================================================================
@@ -557,9 +543,6 @@ function generateHumanReadable(message: IrcProtocolMessage): string {
 			return `[Abort] Session abort requested${by}`;
 		}
 
-		case "claude-message":
-			return `[Message] Claude message received`;
-
 		case "shared-commit": {
 			const { commit, sender } = message.payload;
 			const title = commit.commit.message.split("\n")[0] || "untitled";
@@ -609,12 +592,6 @@ function truncatePayload(type: string, payload: unknown): unknown {
 				...p,
 				input: undefined, // Remove full input, keep summary
 				inputSummary: truncateText(String(p.inputSummary || JSON.stringify(p.input)), 200),
-			};
-
-		case "claude-message":
-			// For raw messages, just mark as truncated - receiver should request full data
-			return {
-				[TRUNCATION_MARKER]: true,
 			};
 
 		case "shared-commit": {
@@ -741,10 +718,6 @@ export const Messages = {
 
 	abort(params: AbortMessage["payload"]): AbortMessage {
 		return { type: "abort", payload: params };
-	},
-
-	claudeMessage(params: ClaudeMessageWrapper["payload"]): ClaudeMessageWrapper {
-		return { type: "claude-message", payload: params };
 	},
 
 	sharedCommit(params: SharedCommitMessage["payload"]): SharedCommitMessage {

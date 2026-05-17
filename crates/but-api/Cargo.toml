@@ -14,6 +14,7 @@ rust-version.workspace = true
 ignored = [
     # Used by macro-generated async API glue that machete does not detect reliably.
     "futures",
+    "tokio",
     # Used only when the `napi` feature is enabled for Node bindings.
     "napi",
     # Used only when the `napi` feature is enabled for Node bindings.
@@ -66,7 +67,6 @@ legacy = [
     "dep:gitbutler-oplog",
     "dep:gitbutler-git",
     "dep:but-action",
-    "dep:but-claude",
     "dep:but-rules",
     "dep:but-gerrit",
     "dep:but-worktrees",
@@ -103,7 +103,6 @@ itertools.workspace = true
 # so need some refactoring/rethinking to become usable.
 but-cherry-apply = { workspace = true, optional = true }
 but-action = { workspace = true, optional = true }
-but-claude = { workspace = true, optional = true }
 but-rules = { workspace = true, optional = true }
 but-gerrit = { workspace = true, optional = true }
 but-worktrees = { workspace = true, optional = true }
@@ -130,8 +129,8 @@ boolean-enums.workspace = true
 bstr = { workspace = true }
 schemars.workspace = true
 serde.workspace = true
-tokio = { workspace = true, features = ["full"] }
 futures.workspace = true
+tokio = { workspace = true, features = ["full"] }
 anyhow.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
@@ -139,7 +138,6 @@ serde-error = "0.1.3"
 gix = { workspace = true, features = ["worktree-mutation"] }
 open.workspace = true
 url = { version = "2.5", optional = true }
-uuid.workspace = true
 which = "8.0.2"
 but-schemars.workspace = true
 
@@ -147,6 +145,7 @@ but-schemars.workspace = true
 but-api = { path = ".", features = ["legacy"]}
 insta.workspace = true
 tempfile.workspace = true
+tokio = { workspace = true, features = ["full"] }
 
 [lints]
 workspace = true

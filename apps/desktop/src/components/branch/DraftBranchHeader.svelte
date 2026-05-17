@@ -7,7 +7,7 @@
 	type Props = {
 		branchName: string;
 		lineColor: string;
-		mode?: "commit" | "codegen";
+		mode?: "commit";
 		isCommitting?: boolean;
 		isCommitTarget?: boolean;
 		commitId?: string;

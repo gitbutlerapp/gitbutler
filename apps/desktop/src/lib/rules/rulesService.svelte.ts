@@ -1,5 +1,4 @@
 import { workspaceRulesSelectors } from "$lib/actions/actionEndpoints";
-import { isAiRule } from "$lib/rules/rule";
 export { workspaceRulesSelectors } from "$lib/actions/actionEndpoints";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { BackendApi } from "$lib/state/backendApi";
@@ -31,38 +30,6 @@ export default class RulesService {
 
 	workspaceRules(projectId: string) {
 		return this.backendApi.endpoints.listWorkspaceRules.useQuery({ projectId });
-	}
-
-	hasRulesToClear(projectId: string, stackId?: string) {
-		return this.backendApi.endpoints.listWorkspaceRules.useQuery(
-			{ projectId },
-			{
-				transform: (result) => {
-					const allRules = workspaceRulesSelectors.selectAll(result);
-					return allRules.some(
-						(r) => isAiRule(r) && r.action.subject.subject.target.subject === stackId,
-					);
-				},
-			},
-		);
-	}
-
-	aiSessionId(projectId: string, stackId?: string) {
-		return this.backendApi.endpoints.listWorkspaceRules.useQuery(
-			{ projectId },
-			{
-				transform: (result) => {
-					const allRules = workspaceRulesSelectors.selectAll(result);
-					const rule = allRules.find(
-						(r) => isAiRule(r) && r.action.subject.subject.target.subject === stackId,
-					);
-					const sessionId = rule?.filters.at(0)?.subject;
-					if (typeof sessionId === "string") {
-						return sessionId;
-					}
-				},
-			},
-		);
 	}
 
 	async fetchListWorkspaceRules(projectId: string) {
