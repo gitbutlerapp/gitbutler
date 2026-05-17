@@ -1,4 +1,6 @@
 import { initUserSettings, type UiState } from "$lib/state/uiState.svelte";
+import type { TerminalService } from "$lib/settings/terminalService";
+import type { TerminalSettings } from "$lib/state/uiState.svelte";
 import { describe, expect, test, vi, beforeEach } from "vitest";
 
 const LEGACY_KEY = "settings-json";
@@ -33,6 +35,22 @@ function mockUiState(overrides?: { defaultTerminal?: unknown }) {
 	// narrow cast here is safe — we control every field the function touches.
 	const uiState = { global } as unknown as UiState;
 	return { uiState, global };
+}
+
+/** Creates a mock TerminalService that returns the first recommended terminal for each platform. */
+function mockTerminalService(): TerminalService {
+	const platformTerminals: Record<string, TerminalSettings | null> = {
+		macos: { identifier: "terminal", displayName: "Terminal", platform: "macos" },
+		windows: { identifier: "powershell", displayName: "PowerShell", platform: "windows" },
+		linux: { identifier: "gnome-terminal", displayName: "GNOME Terminal", platform: "linux" },
+	};
+
+	return {
+		getTerminalOptionsForPlatform: vi.fn(),
+		getRecommendedTerminalForPlatform: vi.fn((platform: string) =>
+			Promise.resolve(platformTerminals[platform] ?? null),
+		),
+	} as unknown as TerminalService;
 }
 
 beforeEach(() => {
@@ -103,18 +121,20 @@ describe("initUserSettings", () => {
 		expect(global.tabSize.set).toHaveBeenCalledWith(8);
 	});
 
-	test("corrects terminal default on Windows", () => {
+	test("corrects terminal default on Windows", async () => {
 		const { uiState, global } = mockUiState();
-		initUserSettings(uiState, "windows");
+		const terminalService = mockTerminalService();
+		await initUserSettings(uiState, "windows", terminalService);
 
 		expect(global.defaultTerminal.set).toHaveBeenCalledWith(
 			expect.objectContaining({ identifier: "powershell", platform: "windows" }),
 		);
 	});
 
-	test("corrects terminal default on Linux", () => {
+	test("corrects terminal default on Linux", async () => {
 		const { uiState, global } = mockUiState();
-		initUserSettings(uiState, "linux");
+		const terminalService = mockTerminalService();
+		await initUserSettings(uiState, "linux", terminalService);
 
 		expect(global.defaultTerminal.set).toHaveBeenCalledWith(
 			expect.objectContaining({ identifier: "gnome-terminal", platform: "linux" }),
