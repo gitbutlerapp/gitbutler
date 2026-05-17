@@ -537,7 +537,7 @@ export async function initUserSettings(uiState: UiState, platformName: string) {
 					uiState.global.defaultTerminal.set(recommended);
 				}
 			} catch (err) {
-				console.warn("Failed to get recommended terminal", err);
+				console.error("Failed to get recommended terminal", err);
 			}
 		}
 	}
