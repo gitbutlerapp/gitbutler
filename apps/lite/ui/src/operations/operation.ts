@@ -252,7 +252,7 @@ const runOperation = async ({
 
 				// We can't dry run this as it's not an atomic operation. Ideally this
 				// would be an atomic backend operation.
-				if (dryRun) return;
+				if (dryRun) return null;
 
 				const insertedCommit = await window.lite.commitInsertBlank({
 					projectId,
