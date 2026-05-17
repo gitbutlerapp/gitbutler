@@ -1,11 +1,37 @@
 import { setConfig } from "./config.ts";
 import { BUT, BUT_SERVER, BUT_SERVER_PORT, DESKTOP_PORT, GIT_CONFIG_GLOBAL } from "./env.ts";
-import { serverLogSink } from "./test.ts";
-import { type BrowserContext } from "@playwright/test";
+import { serverLogSink } from "./serverLog.ts";
+import { waitForTestId } from "./util.ts";
+import { type BrowserContext, type Page } from "@playwright/test";
 import { ChildProcess, spawn } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { Socket } from "node:net";
 import path from "node:path";
+
+/**
+ * Apply one or more upstream branches from `local-clone` (the default project workdir).
+ */
+export async function applyUpstream(gitbutler: GitButler, ...branches: string[]): Promise<void> {
+	for (const branch of branches) {
+		await gitbutler.runScript("apply-upstream-branch.sh", [branch, "local-clone"]);
+	}
+}
+
+/**
+ * Navigate to the workspace and wait for it to load.
+ */
+export async function openWorkspace(page: Page): Promise<void> {
+	await page.goto("/");
+	await waitForTestId(page, "workspace-view");
+}
+
+/**
+ * Navigate to the onboarding page and wait for it to load.
+ */
+export async function gotoOnboarding(page: Page): Promise<void> {
+	await page.goto("/");
+	await waitForTestId(page, "onboarding-page");
+}
 
 export function getBaseURL() {
 	const port = parseInt(DESKTOP_PORT, 10);
