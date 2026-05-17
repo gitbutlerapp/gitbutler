@@ -1,12 +1,20 @@
-# Error Checklist — v0.19.10 toast:show_error
+# Error Checklist — v0.19.10 & v0.19.12 toast:show_error
 
+## v0.19.10 Summary
 Based on PostHog `toast:show_error` events for `appVersion = 0.19.10`.
 Total: 3891 events across 60 error types. Last refreshed: 2026-05-14.
 
 With `PreconditionFailed` code on the backend, the frontend now shows
 these as warnings instead of errors.
 
-## Upstream Integration (1368 events, 35.2%)
+## v0.19.12 Summary
+91 events, 37 users. Last refreshed: 2026-05-17.
+
+---
+
+## Upstream Integration
+
+### v0.19.10 (1368 events, 35.2%)
 
 - [x] `integrate_upstream` — 1264 events (32.5%), 210 users
   - Majority were "Branches are all up to date" — backend fix in `b56a2785b1`, frontend shows as warning via `PreconditionFailed` code.
@@ -15,7 +23,18 @@ these as warnings instead of errors.
 - [ ] `integrate_upstream_commits` — 54 events (1.4%), 28 users
 - [ ] `upstream_integration_statuses` — 50 events (1.3%), 23 users
 
-## Branch Operations (762 events, 19.6%)
+### v0.19.12
+- [ ] `integrate_upstream` — 10 events, 6 users
+  - "Chosen resolutions do not match quantity of applied virtual branches" (5 events) — possible race/stale UI state
+  - "The new head names do not match the current heads" (2 events)
+  - "merge conflict when computing workspace tree" (1 event)
+  - Stack conflicts with other applied stacks (2 events) — correct error behavior
+
+---
+
+## Branch Operations
+
+### v0.19.10 (762 events, 19.6%)
 
 - [ ] `create_virtual_branch_from_branch` — 275 events (7.1%), 101 users
 - [ ] `create_virtual_branch` — 147 events (3.8%), 67 users
@@ -32,7 +51,27 @@ these as warnings instead of errors.
 - [ ] `update_stack_order` — 5 events (0.1%), 5 users
 - [ ] `remove_branch` — 3 events (0.1%), 3 users
 
-## Commit Operations (407 events, 10.5%)
+### v0.19.12
+- [ ] `create_virtual_branch` — 11 events, 4 users
+  - "target commit already belongs to another branch" (10 events) — should be `PreconditionFailed`/warning
+  - "database is locked" (1 event)
+- [ ] `switch_back_to_workspace` — 9 events, 5 users
+  - "Shared index checksum mismatch" (5 events, 1 user) — corrupted git index
+  - `<project-conflict>` / workspace conflicts (4 events, 4 users) — correct error behavior
+- [ ] `create_virtual_branch_from_branch` — 7 events, 6 users
+  - "Worktree changes would be overwritten by checkout" (4 events) — should be warning
+  - BUG errors in branch lookup (2 events)
+- [ ] `unapply_stack` — 2 events, 2 users
+  - `<verification-failed>` (1 event) — user on wrong branch
+  - branch not found (1 event)
+- [ ] `delete_local_branch` — 2 events, 2 users
+  - "Refusing to delete a branch that is checked out" (2 events) — should be warning
+
+---
+
+## Commit Operations
+
+### v0.19.10 (407 events, 10.5%)
 
 - [ ] `commit_create` — 210 events (5.4%), 63 users
 - [ ] `commit_amend` — 103 events (2.6%), 34 users
@@ -41,24 +80,56 @@ these as warnings instead of errors.
 - [ ] `commit_move_changes_between` — 13 events (0.3%), 7 users
 - [ ] `commit_squash` — 12 events (0.3%), 7 users
 
-## Git Operations (360 events, 9.2%)
+### v0.19.12
+- [ ] `commit_uncommit` — 2 events, 1 user — "failed to uncommit commits"
+- [ ] `commit_create` — 2 events, 2 users — submodule error + failed commit signing
+- [ ] `commit_squash` — 2 events, 2 users — commit became conflicted + commit not found in rebase editor
+
+---
+
+## Git Operations
+
+### v0.19.10 (360 events, 9.2%)
 
 - [ ] Git push failed — 227 events (5.8%), 83 users
 - [ ] Git hook failed — 130 events (3.3%), 27 users
 - [ ] Commit message hook failed — 3 events (0.1%), 3 users
 
-## Network / Connectivity (180 events, 4.6%)
+### v0.19.12
+- [ ] Git push failed — 14 events, 7 users
+  - pre-push hook failures (5 events) — user-side hooks
+  - auth/credential errors (4 events) — user-side
+  - `git push` non-zero exit (5 events) — various
+
+---
+
+## Network / Connectivity
+
+### v0.19.10 (180 events, 4.6%)
 
 - [ ] Failed to fetch — 180 events (4.6%), 90 users
 
-## Frontend / Client (153 events, 3.9%)
+---
+
+## Frontend / Client
+
+### v0.19.10 (153 events, 3.9%)
 
 - [ ] `git_get_global_config` — 178 events (4.6%), 1 user
-- [ ] TypeError — 112 events (2.9%), 37 users
+- [x] TypeError (`i.type`) — 112 events (2.9%), 37 users
+  - Root cause: unhandled promise rejection in `IntegrateUpstreamModal.svelte:127`
+  - Fixed: added `.catch(console.error)` to `upstreamStatuses()` call
 - [ ] Unhandled exception — 24 events (0.6%), 7 users
 - [ ] Error — 17 events (0.4%), 4 users
 
-## GitHub / Remote (70 events, 1.8%)
+### v0.19.12
+- [ ] TypeError (`i.type`) — 8 events, 2 users — fix not yet picked up by these users
+
+---
+
+## GitHub / Remote
+
+### v0.19.10 (70 events, 1.8%)
 
 - [ ] GitHub API error: pulls/create — 45 events (1.2%), 27 users
 - [ ] GitHub API error: pulls/get — 11 events (0.3%), 6 users
@@ -67,16 +138,24 @@ these as warnings instead of errors.
 - [ ] GitHub API error: pulls/merge — 4 events (0.1%), 3 users
 - [ ] GitHub API error: pulls/update — 4 events (0.1%), 4 users
 
-## Edit Mode (76 events, 2.0%)
+---
+
+## Edit Mode
+
+### v0.19.10 (76 events, 2.0%)
 
 - [ ] `save_edit_and_return_to_workspace` — 57 events (1.5%), 15 users
 - [ ] `enter_edit_mode` — 19 events (0.5%), 13 users
 
-## Other (337 events, 8.7%)
+---
+
+## Other
+
+### v0.19.10 (337 events, 8.7%)
 
 - [ ] `set_project_active` — 49 events (1.3%), 16 users
-- [ ] `irc_auto_leave` — 18 events (0.5%), 2 users
-- [ ] `irc_auto_join` — 18 events (0.5%), 2 users
+- [ ] `irc_auto_leave` — 18 events (0.5%), 2 users — "Command not found"
+- [ ] `irc_auto_join` — 18 events (0.5%), 2 users — "Command not found"
 - [ ] `assign_hunk` — 15 events (0.4%), 13 users
 - [ ] `integrate_branch_with_steps` — 13 events (0.3%), 9 users
 - [ ] `stacks` — 13 events (0.3%), 8 users
@@ -95,3 +174,15 @@ these as warnings instead of errors.
 - [ ] `get_logs_archive_path` — 1 event (0.0%), 1 user
 - [ ] Error occurred while logging in — 1 event (0.0%), 1 user
 - [ ] Failed to delete project — 1 event (0.0%), 1 user
+
+### v0.19.12
+- [ ] `irc_auto_join` / `irc_auto_leave` / `irc_start_working_files_broadcast` — 8 events, 1 user — "Command not found"
+- [ ] `set_project_active` — 7 events, 5 users
+  - "OS file watch limit reached" (4 events, 1 user) — Linux `inotify` limit
+  - "Shared index checksum mismatch" (3 events, 1 user) — corrupted git index
+- [ ] `target_commits` — 3 events, 1 user — "database is locked"
+- [ ] `update_stack_order` — 1 event — "Requires open workspace mode"
+- [ ] `stacks` — 1 event — "Found 58 commit(s) on top of workspace commit" (git state corruption)
+- [ ] `discard_worktree_changes` — 1 event — "Access is denied" (Windows, os error 5)
+- [ ] `commit_message_hook_failed` — 1 event — user-side husky hook
+- [ ] `Run cargo build -p gitbutler-git` — 1 event — missing askpass binary (dev build)
