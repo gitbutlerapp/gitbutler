@@ -334,6 +334,22 @@ fn can_undo_but_branch_delete_in_stack() -> anyhow::Result<()> {
 }
 
 #[test]
+fn can_undo_but_absorb() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
+    env.setup_metadata(&["A"])?;
+
+    env.file("first", "This is new stuff");
+
+    run_mutate_undo_roundtrip_test(&env, |env| {
+        env.but("absorb").assert().success();
+
+        Ok(())
+    })?;
+
+    Ok(())
+}
+
+#[test]
 fn can_undo_repeatedly() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
     env.setup_metadata(&["A"])?;
