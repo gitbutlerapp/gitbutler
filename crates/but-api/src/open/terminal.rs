@@ -1,21 +1,26 @@
-use anyhow::Result;
-use but_api_macros::but_api;
 use serde::{Deserialize, Serialize};
-use tracing::instrument;
 
 /// Configuration for a terminal application.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TerminalOption {
-    /// Unique identifier for the terminal.
+    /// The name of the process/program to run.
     pub identifier: String,
-    /// Human-readable name for display in the UI.
+    /// Human-readable terminal name shown to users in picker and settings UI.
     pub display_name: String,
-    /// Platform this terminal is available on (macos, windows, or linux).
+    /// Operating-system family this option applies to: `macos`, `windows`, or
+    /// `linux`.
     pub platform: String,
 }
 
-/// Terminal options ordered by preference (first is recommended default).
+// TODO: this list was in the frontend before, now it could be backend-integrated
+//       more so they don't get out of sync, when moving this out of legacy.
+/// Terminal options ordered by preference.
+/// In [`get_recommended_terminal_for_platform()`], platform binaries that are mentioned first will be returned first
+/// if once they are discovered in `PATH`.
+///
+/// # WARNING: keep in sync with [crate::open::open_in_terminal()].
+#[cfg(feature = "legacy")]
 const ALL_TERMINALS: &[(&str, &str, &str)] = &[
     // macOS
     ("terminal", "Terminal", "macos"),
@@ -46,7 +51,7 @@ const ALL_TERMINALS: &[(&str, &str, &str)] = &[
 
 /// Resolves a terminal identifier to the binary name used to detect/launch it.
 /// This mapping is shared between terminal detection and the open-in-terminal logic.
-pub fn terminal_binary(identifier: &str) -> &str {
+pub(super) fn terminal_binary(identifier: &str) -> &str {
     match identifier {
         "warp" => "warp-terminal",
         other => other,
@@ -54,9 +59,18 @@ pub fn terminal_binary(identifier: &str) -> &str {
 }
 
 /// Returns all available terminal options for the given platform.
-#[but_api]
-#[instrument(err(Debug))]
-pub fn get_terminal_options_for_platform(platform: String) -> Result<Vec<TerminalOption>> {
+///
+/// The list is empty if the `platform` isn't one of `linux`, `macos` or `windows`, case-sensitive.
+///
+/// ## Why Legacy?
+///
+/// It's born as a port from the frontend, which means it's frontend centric and serves mostly that right now.
+/// But it could be generalised as more consumers join in.
+/// Big question is if the backend shouldn't just know the platform… If it is needed, it should be an enum here.
+#[cfg(feature = "legacy")]
+#[but_api_macros::but_api]
+#[tracing::instrument(err(Debug))]
+pub fn get_terminal_options_for_platform(platform: String) -> anyhow::Result<Vec<TerminalOption>> {
     Ok(ALL_TERMINALS
         .iter()
         .filter(|(_, _, p)| *p == platform)
@@ -68,12 +82,22 @@ pub fn get_terminal_options_for_platform(platform: String) -> Result<Vec<Termina
         .collect())
 }
 
-/// Returns the recommended terminal for the platform by probing what is installed.
+/// Returns the recommended terminal for the `platform` by probing what is installed.
+/// The list is empty if the `platform` isn't one of `linux`, `macos` or `windows`, case-sensitive.
+///
 /// On macOS, Terminal.app is always present so it is returned immediately.
 /// On Linux and Windows the ordered list is walked and the first installed one wins.
-#[but_api]
-#[instrument(err(Debug))]
-pub fn get_recommended_terminal_for_platform(platform: String) -> Result<Option<TerminalOption>> {
+///
+/// ## Why Legacy?
+///
+/// It's born as a port from the frontend, which means it's frontend centric and serves mostly that right now.
+/// `platform` can be inferred.
+#[cfg(feature = "legacy")]
+#[but_api_macros::but_api]
+#[tracing::instrument(err(Debug))]
+pub fn get_recommended_terminal_for_platform(
+    platform: String,
+) -> anyhow::Result<Option<TerminalOption>> {
     // macOS is special-cased because Terminal.app is always available on every Mac and is the system default
     if platform == "macos" {
         return Ok(Some(TerminalOption {

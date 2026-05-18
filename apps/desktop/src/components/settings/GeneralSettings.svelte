@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from "svelte";
 	import { goto } from "$app/navigation";
 	import CliSymlinkSetup from "$components/settings/CliSymlinkSetup.svelte";
 	import AccessTokenSignIn from "$components/shared/AccessTokenSignIn.svelte";
@@ -31,6 +30,7 @@
 		Toggle,
 		chipToasts,
 	} from "@gitbutler/ui";
+	import { onMount } from "svelte";
 	import type { User } from "$lib/user/user";
 
 	const userService = inject(USER_SERVICE);

@@ -1,7 +1,7 @@
 import { initUserSettings, type UiState } from "$lib/state/uiState.svelte";
+import { describe, expect, test, vi, beforeEach } from "vitest";
 import type { TerminalService } from "$lib/settings/terminalService";
 import type { TerminalSettings } from "$lib/state/uiState.svelte";
-import { describe, expect, test, vi, beforeEach } from "vitest";
 
 const LEGACY_KEY = "settings-json";
 
@@ -34,7 +34,8 @@ function mockUiState(overrides?: { defaultTerminal?: unknown }) {
 	// initUserSettings only accesses .global and its properties, so the
 	// narrow cast here is safe — we control every field the function touches.
 	const uiState = { global } as unknown as UiState;
-	return { uiState, global };
+	const terminalService = mockTerminalService();
+	return { uiState, global, terminalService };
 }
 
 /** Creates a mock TerminalService that returns the first recommended terminal for each platform. */
@@ -47,8 +48,8 @@ function mockTerminalService(): TerminalService {
 
 	return {
 		getTerminalOptionsForPlatform: vi.fn(),
-		getRecommendedTerminalForPlatform: vi.fn((platform: string) =>
-			Promise.resolve(platformTerminals[platform] ?? null),
+		getRecommendedTerminalForPlatform: vi.fn(
+			async (platform: string) => await Promise.resolve(platformTerminals[platform] ?? null),
 		),
 	} as unknown as TerminalService;
 }
@@ -61,8 +62,8 @@ describe("initUserSettings", () => {
 	test("migrates legacy settings into UiState", () => {
 		localStorage.setItem(LEGACY_KEY, JSON.stringify({ zoom: 1.5, tabSize: 2, wrapText: true }));
 
-		const { uiState, global } = mockUiState();
-		initUserSettings(uiState, "macos");
+		const { uiState, global, terminalService } = mockUiState();
+		initUserSettings(uiState, "macos", terminalService);
 
 		expect(global.zoom.set).toHaveBeenCalledWith(1.5);
 		expect(global.tabSize.set).toHaveBeenCalledWith(2);
@@ -72,15 +73,15 @@ describe("initUserSettings", () => {
 	test("removes the legacy key after migration", () => {
 		localStorage.setItem(LEGACY_KEY, JSON.stringify({ zoom: 2 }));
 
-		const { uiState } = mockUiState();
-		initUserSettings(uiState, "macos");
+		const { uiState, terminalService } = mockUiState();
+		initUserSettings(uiState, "macos", terminalService);
 
 		expect(localStorage.getItem(LEGACY_KEY)).toBeNull();
 	});
 
 	test("does nothing when no legacy data exists", () => {
-		const { uiState, global } = mockUiState();
-		initUserSettings(uiState, "macos");
+		const { uiState, global, terminalService } = mockUiState();
+		initUserSettings(uiState, "macos", terminalService);
 
 		expect(global.zoom.set).not.toHaveBeenCalled();
 		expect(global.tabSize.set).not.toHaveBeenCalled();
@@ -89,8 +90,8 @@ describe("initUserSettings", () => {
 	test("removes corrupted legacy data without crashing", () => {
 		localStorage.setItem(LEGACY_KEY, "not valid json{{{");
 
-		const { uiState } = mockUiState();
-		expect(() => initUserSettings(uiState, "macos")).not.toThrow();
+		const { uiState, terminalService } = mockUiState();
+		expect(async () => await initUserSettings(uiState, "macos", terminalService)).not.toThrow();
 		expect(localStorage.getItem(LEGACY_KEY)).toBeNull();
 	});
 
@@ -102,8 +103,8 @@ describe("initUserSettings", () => {
 			'{"__proto__":{"malicious":true},"toString":"bad","zoom":1.5}',
 		);
 
-		const { uiState, global } = mockUiState();
-		initUserSettings(uiState, "macos");
+		const { uiState, global, terminalService } = mockUiState();
+		initUserSettings(uiState, "macos", terminalService);
 
 		expect(global.zoom.set).toHaveBeenCalledWith(1.5);
 		expect(global).not.toHaveProperty("__proto__.set");
@@ -114,16 +115,15 @@ describe("initUserSettings", () => {
 		// which is what JSON can actually represent.
 		localStorage.setItem(LEGACY_KEY, JSON.stringify({ zoom: null, tabSize: 8 }));
 
-		const { uiState, global } = mockUiState();
-		initUserSettings(uiState, "macos");
+		const { uiState, global, terminalService } = mockUiState();
+		initUserSettings(uiState, "macos", terminalService);
 
 		expect(global.zoom.set).not.toHaveBeenCalled();
 		expect(global.tabSize.set).toHaveBeenCalledWith(8);
 	});
 
 	test("corrects terminal default on Windows", async () => {
-		const { uiState, global } = mockUiState();
-		const terminalService = mockTerminalService();
+		const { uiState, global, terminalService } = mockUiState();
 		await initUserSettings(uiState, "windows", terminalService);
 
 		expect(global.defaultTerminal.set).toHaveBeenCalledWith(
@@ -132,8 +132,7 @@ describe("initUserSettings", () => {
 	});
 
 	test("corrects terminal default on Linux", async () => {
-		const { uiState, global } = mockUiState();
-		const terminalService = mockTerminalService();
+		const { uiState, global, terminalService } = mockUiState();
 		await initUserSettings(uiState, "linux", terminalService);
 
 		expect(global.defaultTerminal.set).toHaveBeenCalledWith(
@@ -142,8 +141,8 @@ describe("initUserSettings", () => {
 	});
 
 	test("does not overwrite terminal when platform already matches", () => {
-		const { uiState, global } = mockUiState();
-		initUserSettings(uiState, "macos");
+		const { uiState, global, terminalService } = mockUiState();
+		initUserSettings(uiState, "macos", terminalService);
 
 		expect(global.defaultTerminal.set).not.toHaveBeenCalled();
 	});
@@ -152,8 +151,8 @@ describe("initUserSettings", () => {
 		const editor = { schemeIdentifer: "cursor", displayName: "Cursor" };
 		localStorage.setItem(LEGACY_KEY, JSON.stringify({ defaultCodeEditor: editor }));
 
-		const { uiState, global } = mockUiState();
-		initUserSettings(uiState, "macos");
+		const { uiState, global, terminalService } = mockUiState();
+		initUserSettings(uiState, "macos", terminalService);
 
 		expect(global.defaultCodeEditor.set).toHaveBeenCalledWith(editor);
 	});
