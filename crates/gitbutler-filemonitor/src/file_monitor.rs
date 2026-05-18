@@ -76,7 +76,8 @@ pub enum WatchMode {
     /// Automatically pick a mode based on platform heuristics.
     ///
     #[default]
-    /// Currently, this enables `Modern` on WSL (Windows Subsystem for Linux.) and `Legacy` elsewhere.
+    /// Currently, this tries `Modern` first and falls back to `Legacy` if the ignore-aware watch
+    /// plan cannot be established.
     Auto,
 }
 
@@ -310,29 +311,27 @@ pub fn spawn(
         }
         WatchMode::Auto => {
             if is_wsl() {
-                match setup_watch_plan(
-                    &mut debouncer,
-                    project_id.clone(),
-                    &repo,
-                    &worktree_path,
-                    &git_dir,
-                ) {
-                    Ok(()) => {
-                        effective_watch_mode = WatchMode::Modern;
-                    }
-                    Err(err) => {
-                        tracing::warn!(
-                            %project_id,
-                            ?err,
-                            "watch-plan setup failed; falling back to legacy watch mode"
-                        );
-                        effective_watch_mode = WatchMode::Legacy;
-                        setup_legacy_watch(&mut debouncer, &worktree_path, &git_dir)?;
-                    }
+                tracing::debug!(%project_id, "using ignore-aware watcher for WSL project");
+            }
+            match setup_watch_plan(
+                &mut debouncer,
+                project_id.clone(),
+                &repo,
+                &worktree_path,
+                &git_dir,
+            ) {
+                Ok(()) => {
+                    effective_watch_mode = WatchMode::Modern;
                 }
-            } else {
-                effective_watch_mode = WatchMode::Legacy;
-                setup_legacy_watch(&mut debouncer, &worktree_path, &git_dir)?;
+                Err(err) => {
+                    tracing::warn!(
+                        %project_id,
+                        ?err,
+                        "watch-plan setup failed; falling back to legacy watch mode"
+                    );
+                    effective_watch_mode = WatchMode::Legacy;
+                    setup_legacy_watch(&mut debouncer, &worktree_path, &git_dir)?;
+                }
             }
         }
     }

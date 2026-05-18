@@ -14,7 +14,7 @@ use axum::{
     response::IntoResponse,
     routing::{MethodRouter, any, get, post},
 };
-use but_api::{commit, diff, github, gitlab, json, legacy, platform, workspace};
+use but_api::{commit, diff, github, gitlab, json, legacy, platform, unity, workspace};
 use but_claude::{Broadcaster, Claude};
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 #[cfg(feature = "irc")]
@@ -761,6 +761,18 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             but_post(legacy::git::git_get_global_config_cmd),
         )
         .route("/tree_change_diffs", but_post(diff::tree_change_diffs_cmd))
+        .route(
+            "/unity_semantic_diff",
+            but_post(unity::unity_semantic_diff_cmd),
+        )
+        .route(
+            "/unity_smart_merge_preview",
+            but_post(unity::unity_smart_merge_preview_cmd),
+        )
+        .route(
+            "/run_unity_smart_merge",
+            but_post(unity::run_unity_smart_merge_cmd),
+        )
         .route(
             "/commit_details_with_line_stats",
             but_post(diff::commit_details_with_line_stats_cmd),

@@ -1,0 +1,22 @@
+[package]
+name = "but-unity-yaml"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+description = "Semantic parsing and diffing for Unity scene and prefab YAML"
+
+[lib]
+doctest = false
+
+[features]
+export-schema = ["dep:schemars", "dep:but-schemars"]
+
+[dependencies]
+but-schemars = { workspace = true, optional = true }
+schemars = { workspace = true, optional = true }
+serde.workspace = true
+
+[lints]
+workspace = true

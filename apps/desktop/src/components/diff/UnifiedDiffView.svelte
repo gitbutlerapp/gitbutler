@@ -3,6 +3,7 @@
 	import HunkContextMenu from "$components/diff/HunkContextMenu.svelte";
 	import ImageDiff from "$components/diff/ImageDiff.svelte";
 	import LineLocksWarning from "$components/diff/LineLocksWarning.svelte";
+	import UnitySemanticDiffView from "$components/diff/UnitySemanticDiffView.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import binarySvg from "$lib/assets/empty-state/binary.svg?raw";
 	import emptyFileSvg from "$lib/assets/empty-state/empty-file.svg?raw";
@@ -11,6 +12,7 @@
 	import { draggableChips } from "$lib/dragging/draggable";
 	import { HunkDropDataV3 } from "$lib/dragging/draggables";
 	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
+	import { isUnitySceneOrPrefabPath } from "$lib/files/unitySemantic";
 	import { canBePartiallySelected, getLineLocks, hunkHeaderEquals } from "$lib/hunks/hunk";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { type SelectionId } from "$lib/selection/key";
@@ -64,6 +66,7 @@
 
 	let contextMenu = $state<ReturnType<typeof HunkContextMenu>>();
 	let showAnyways = $state(false);
+	let unityViewMode = $state<"unity" | "raw">("unity");
 	let viewport = $state<HTMLDivElement>();
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
@@ -73,6 +76,7 @@
 	);
 
 	const isUncommittedChange = $derived(selectionId.type === "worktree");
+	const isUnitySemanticPath = $derived(isUnitySceneOrPrefabPath(change.path));
 
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const dependencyService = inject(DEPENDENCY_SERVICE);
@@ -153,6 +157,11 @@
 		}
 		rafId = requestAnimationFrame(addMore);
 		return () => cancelAnimationFrame(rafId);
+	});
+
+	$effect(() => {
+		void change.path;
+		unityViewMode = "unity";
 	});
 
 	function linesInclude(
@@ -242,7 +251,34 @@
 			</div>
 		{:else if diff.type === "Patch"}
 			{@const linesModified = diff.subject.linesAdded + diff.subject.linesRemoved}
-			{#if linesModified > LARGE_DIFF_THRESHOLD && !showAnyways}
+			{#if isUnitySemanticPath}
+				<div class="unity-mode-toggle" role="group" aria-label="Unity diff mode">
+					<button
+						type="button"
+						class:active={unityViewMode === "unity"}
+						onclick={() => (unityViewMode = "unity")}
+					>
+						Unity
+					</button>
+					<button
+						type="button"
+						class:active={unityViewMode === "raw"}
+						onclick={() => (unityViewMode = "raw")}
+					>
+						Raw
+					</button>
+				</div>
+			{/if}
+			{#if isUnitySemanticPath && unityViewMode === "unity"}
+				<UnitySemanticDiffView
+					{projectId}
+					{stackId}
+					{change}
+					{selectable}
+					{selectionId}
+					onShowRaw={() => (unityViewMode = "raw")}
+				/>
+			{:else if linesModified > LARGE_DIFF_THRESHOLD && !showAnyways}
 				<HiddenDiffNotice
 					handleShow={() => {
 						showAnyways = true;
@@ -453,5 +489,28 @@
 		border-radius: 10px;
 		background-color: var(--bg-2);
 		font-size: 12px;
+	}
+
+	.unity-mode-toggle {
+		display: inline-flex;
+		align-self: flex-start;
+		padding: 2px;
+		border: 1px solid var(--border-2);
+		border-radius: var(--radius-m);
+		background-color: var(--bg-2);
+
+		button {
+			padding: 5px 10px;
+			border-radius: var(--radius-s);
+			color: var(--text-2);
+			font-weight: 600;
+			font-size: 12px;
+
+			&.active {
+				background-color: var(--bg-0);
+				box-shadow: var(--fx-shadow-s);
+				color: var(--text-1);
+			}
+		}
 	}
 </style>

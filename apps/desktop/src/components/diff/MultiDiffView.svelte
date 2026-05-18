@@ -15,6 +15,7 @@
 	import Drawer from "$components/shared/Drawer.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { computeChangeStatus } from "$lib/files/fileStatus";
+	import { isUnitySceneOrPrefabPath } from "$lib/files/unitySemantic";
 	import { isExecutableStatus } from "$lib/hunks/change";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
@@ -111,6 +112,20 @@
 	{@const diffData = diffQuery.response}
 	{@const isExecutable = isExecutableStatus(change.status)}
 	{@const patchData = diffData?.type === "Patch" ? diffData.subject : null}
+	{@const unityDiffQuery = isUnitySceneOrPrefabPath(change.path)
+		? diffService.getUnitySemanticDiff(projectId, change)
+		: undefined}
+	{@const unityDiff = unityDiffQuery?.response}
+	{@const badges = unityDiff
+		? [
+				"Unity",
+				`${unityDiff.summary.objectsChanged} objects`,
+				`${unityDiff.summary.componentsChanged} components`,
+				`${unityDiff.summary.prefabOverridesChanged} overrides`,
+			]
+		: isUnitySceneOrPrefabPath(change.path)
+			? ["Unity"]
+			: []}
 	{@const isCollapsed = diffExpandedState.get(change.path) ?? false}
 	<Drawer
 		noshrink
@@ -134,6 +149,7 @@
 					linesAdded={patchData?.linesAdded}
 					linesRemoved={patchData?.linesRemoved}
 					executable={isExecutable}
+					{badges}
 				/>
 			</div>
 		{/snippet}

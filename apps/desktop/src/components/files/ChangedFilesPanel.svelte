@@ -4,6 +4,7 @@
 	import FileListItems from "$components/files/FileListItems.svelte";
 	import FileListProvider from "$components/files/FileListProvider.svelte";
 	import emptyFolderSvg from "$lib/assets/empty-state/empty-folder.svg?raw";
+	import { unityChangeSummary } from "$lib/files/unitySemantic";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { readStableSelectionKey, stableSelectionKey, type SelectionId } from "$lib/selection/key";
 	import { inject } from "@gitbutler/core/context";
@@ -57,6 +58,7 @@
 
 	let listMode: "list" | "tree" = $state("tree");
 	const hasConflicts = $derived(conflictEntries && Object.keys(conflictEntries).length > 0);
+	const unitySummary = $derived(unityChangeSummary(changes));
 	// eslint-disable-next-line svelte/prefer-writable-derived
 	let folded = $state(false);
 	// Empty changesets are always folded; otherwise defer to the prop.
@@ -120,6 +122,25 @@
 				</EmptyStatePlaceholder>
 			{:else}
 				<FileListProvider {changes} {selectionId} {allowUnselect}>
+					{#if unitySummary.total > 0}
+						<button
+							type="button"
+							class="unity-summary-strip"
+							onclick={() => {
+								const index = changes.findIndex((change) => change.path === unitySummary.firstPath);
+								if (index >= 0) {
+									idSelection.set(changes[index]!.path, selectionId, index);
+									onFileClick?.(index);
+								}
+							}}
+						>
+							<span class="text-12 text-semibold">Unity review</span>
+							<span class="text-12 clr-text-2">
+								{unitySummary.scenes} scene{unitySummary.scenes === 1 ? "" : "s"} ·
+								{unitySummary.prefabs} prefab{unitySummary.prefabs === 1 ? "" : "s"}
+							</span>
+						</button>
+					{/if}
 					<FileListConflicts
 						{projectId}
 						{stackId}
@@ -182,6 +203,22 @@
 
 		&:hover {
 			color: var(--text-2);
+		}
+	}
+
+	.unity-summary-strip {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 8px 12px;
+		gap: 10px;
+		border-top: 1px solid var(--border-3);
+		border-bottom: 1px solid var(--border-3);
+		background-color: var(--bg-2);
+		text-align: left;
+
+		&:hover {
+			background-color: var(--bg-3);
 		}
 	}
 </style>

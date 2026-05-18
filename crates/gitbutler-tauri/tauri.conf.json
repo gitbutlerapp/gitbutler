@@ -1,5 +1,5 @@
 {
-	"productName": "GitButler Dev",
+	"productName": "YUCP UnityButler (powered by GitButler)",
 	"identifier": "com.gitbutler.app.dev",
 	"build": {
 		"beforeDevCommand": "pnpm dev:internal-tauri",

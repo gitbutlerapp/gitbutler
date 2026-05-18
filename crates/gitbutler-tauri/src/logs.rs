@@ -110,10 +110,10 @@ fn should_log(level: Option<Level>, meta: &tracing::Metadata<'_>) -> bool {
 
 fn get_server_addr(app_handle: &AppHandle) -> (Ipv4Addr, u16) {
     let config = app_handle.config();
-    let product_name = config.product_name.as_ref().expect("product name not set");
-    let port = if product_name.eq("GitButler") {
+    let identifier = &config.identifier;
+    let port = if identifier == "com.gitbutler.app" {
         6667
-    } else if product_name.eq("GitButler Nightly") {
+    } else if identifier == "com.gitbutler.app.nightly" {
         6668
     } else {
         6669

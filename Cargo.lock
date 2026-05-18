@@ -1075,6 +1075,7 @@ dependencies = [
  "but-secret",
  "but-serde",
  "but-settings",
+ "but-unity-yaml",
  "but-workspace",
  "but-worktrees",
  "futures",
@@ -1811,6 +1812,15 @@ dependencies = [
  "schemars 1.2.1",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "but-unity-yaml"
+version = "0.0.0"
+dependencies = [
+ "but-schemars",
+ "schemars 1.2.1",
+ "serde",
 ]
 
 [[package]]

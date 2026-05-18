@@ -12,6 +12,7 @@
 		conflictEntryPresence?: ConflictEntryPresence;
 		conflictState: ConflictState;
 		manuallyResolved: boolean;
+		resolveLabel?: string;
 		onresolveclick?: () => void;
 		oncontextmenu?: (e: MouseEvent) => void;
 	};
@@ -24,6 +25,7 @@
 		conflictEntryPresence,
 		conflictState,
 		manuallyResolved,
+		resolveLabel,
 		onresolveclick,
 		oncontextmenu,
 	}: Props = $props();
@@ -41,6 +43,7 @@
 		{conflicted}
 		clickable={false}
 		{onresolveclick}
+		{resolveLabel}
 		{conflictHint}
 		{oncontextmenu}
 	/>

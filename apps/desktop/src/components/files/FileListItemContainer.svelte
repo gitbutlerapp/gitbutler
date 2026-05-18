@@ -5,6 +5,7 @@
 	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
 	import { conflictEntryHint } from "$lib/files/conflictEntryPresence";
 	import { computeChangeStatus } from "$lib/files/fileStatus";
+	import { isUnitySceneOrPrefabPath } from "$lib/files/unitySemantic";
 	import { getFilename } from "$lib/files/utils";
 	import { targetEqual } from "$lib/hunks/dependencies";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
@@ -114,6 +115,7 @@
 
 	const conflict = $derived(conflictEntries ? conflictEntries.entries[change.path] : undefined);
 	const draggableDisabled = $derived(!draggable || showCheckbox);
+	const badges = $derived(isUnitySceneOrPrefabPath(change.path) ? ["Unity"] : []);
 
 	const lockText = $derived.by(() => {
 		if (!locked || lockedTargets.length === 0) return undefined;
@@ -197,6 +199,7 @@
 		{isLast}
 		{notched}
 		{ircWorkingUsers}
+		{badges}
 		onlockhover={handleLockHover}
 		onlockunhover={handleLockUnhover}
 		conflicted={!!conflict}

@@ -40,6 +40,7 @@
 		actionOpts?: FocusableOptions;
 		notched?: boolean;
 		ircWorkingUsers?: string[];
+		badges?: string[];
 		oncheckclick?: (e: MouseEvent) => void;
 		oncheck?: (
 			e: Event & {
@@ -49,6 +50,7 @@
 		onclick?: (e: MouseEvent) => void;
 		ondblclick?: (e: MouseEvent) => void;
 		onresolveclick?: (e: MouseEvent) => void;
+		resolveLabel?: string;
 		onkeydown?: (e: KeyboardEvent) => void;
 		oncontextmenu?: (e: MouseEvent) => void;
 		onlockhover?: () => void;
@@ -82,11 +84,13 @@
 		actionOpts,
 		notched,
 		ircWorkingUsers,
+		badges = [],
 		oncheck,
 		oncheckclick,
 		onclick,
 		ondblclick,
 		onresolveclick,
+		resolveLabel = "Mark resolved",
 		onkeydown,
 		oncontextmenu,
 		onlockhover,
@@ -166,6 +170,10 @@
 			<ExecutableLabel />
 		{/if}
 
+		{#each badges as badge}
+			<Badge kind="soft" style="gray" size="tag">{badge}</Badge>
+		{/each}
+
 		{#if conflicted}
 			<Tooltip text={conflictHint}>
 				<div class="conflicted-icon">
@@ -206,7 +214,7 @@
 					}}
 					icon="tick"
 				>
-					Mark resolved
+					{resolveLabel}
 				</Button>
 			{/if}
 		{/if}

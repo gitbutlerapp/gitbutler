@@ -5,6 +5,11 @@ import { hasBackendExtra } from "$lib/state/backendQuery";
 import { createSelectByIds } from "$lib/state/customSelectors";
 import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
 import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
+import type {
+	UnitySemanticDiff,
+	UnitySmartMergeOutcome,
+	UnitySmartMergeStatus,
+} from "$lib/files/unitySemantic";
 import type { UnifiedDiff } from "$lib/hunks/diff";
 import type { BackendEndpointBuilder } from "$lib/state/backendApi";
 import type {
@@ -112,6 +117,30 @@ export function buildWorktreeEndpoints(build: BackendEndpointBuilder) {
 			query: (args) => args,
 			providesTags: [providesList(ReduxTag.Diff)],
 		}),
+		unitySemanticDiff: build.query<
+			UnitySemanticDiff | null,
+			{ projectId: string; change: TreeChange }
+		>({
+			extraOptions: { command: "unity_semantic_diff" },
+			query: (args) => args,
+			providesTags: [providesList(ReduxTag.Diff)],
+		}),
+		unitySmartMergePreview: build.query<UnitySmartMergeStatus, { projectId: string; path: string }>(
+			{
+				extraOptions: { command: "unity_smart_merge_preview" },
+				query: (args) => args,
+			},
+		),
+		runUnitySmartMerge: build.mutation<UnitySmartMergeOutcome, { projectId: string; path: string }>(
+			{
+				extraOptions: { command: "run_unity_smart_merge" },
+				query: (args) => args,
+				invalidatesTags: [
+					invalidatesList(ReduxTag.WorktreeChanges),
+					invalidatesList(ReduxTag.Diff),
+				],
+			},
+		),
 		assignHunk: build.mutation<void, { projectId: string; assignments: HunkAssignmentRequest[] }>({
 			extraOptions: {
 				command: "assign_hunk",

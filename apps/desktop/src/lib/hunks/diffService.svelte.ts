@@ -18,6 +18,18 @@ export class DiffService {
 		return this.backendApi.endpoints.getDiff.useQuery({ projectId, change });
 	}
 
+	getUnitySemanticDiff(projectId: string, change: TreeChange) {
+		return this.backendApi.endpoints.unitySemanticDiff.useQuery({ projectId, change });
+	}
+
+	getUnitySmartMergePreview(projectId: string, path: string) {
+		return this.backendApi.endpoints.unitySmartMergePreview.useQuery({ projectId, path });
+	}
+
+	get runUnitySmartMerge() {
+		return this.backendApi.endpoints.runUnitySmartMerge.mutate;
+	}
+
 	get assignHunk() {
 		return this.backendApi.endpoints.assignHunk.mutate;
 	}

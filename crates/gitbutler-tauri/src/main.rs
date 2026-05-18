@@ -145,7 +145,7 @@ fn main() -> anyhow::Result<()> {
 
                 // TODO(mtsgrd): Is there a better way to disable devtools in E2E tests?
                 #[cfg(debug_assertions)]
-                if tauri_app.config().product_name != Some("GitButler Test".to_string()) {
+                if tauri_app.config().identifier != "com.gitbutler.app.test" {
                     window.open_devtools();
                 }
 
@@ -314,6 +314,9 @@ fn main() -> anyhow::Result<()> {
                 gitlab::tauri_clear_all_gitlab_tokens::clear_all_gitlab_tokens,
                 diff::tauri_commit_details::commit_details,
                 diff::tauri_commit_details_with_line_stats::commit_details_with_line_stats,
+                but_api::unity::tauri_unity_semantic_diff::unity_semantic_diff,
+                but_api::unity::tauri_unity_smart_merge_preview::unity_smart_merge_preview,
+                but_api::unity::tauri_run_unity_smart_merge::run_unity_smart_merge,
                 but_api::branch::tauri_branch_diff::branch_diff,
                 but_api::branch::tauri_move_branch::move_branch,
                 but_api::branch::tauri_tear_off_branch::tear_off_branch,

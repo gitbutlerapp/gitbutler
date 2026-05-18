@@ -7,12 +7,16 @@
 	import { BACKEND } from "$lib/backend";
 	import { getEditorUri, URL_SERVICE } from "$lib/backend/url";
 	import { splitMessage } from "$lib/commits/commitMessage";
+	import { showError } from "$lib/error/showError";
 	import { hasUnresolvedConflictsOnDisk } from "$lib/files/conflictCheck";
 	import { conflictEntryHint, getConflictState } from "$lib/files/conflictEntryPresence";
 	import { FILE_SERVICE } from "$lib/files/fileService";
 	import { isUnityYamlPath } from "$lib/files/unityConflicts";
+	import { isUnitySceneOrPrefabPath } from "$lib/files/unitySemantic";
 	import { computeChangeStatus } from "$lib/files/fileStatus";
+	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
+	import { showInfo, showWarning } from "$lib/notifications/toasts";
 	import { vscodePath } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { createCommitSelection } from "$lib/selection/key";
@@ -44,6 +48,7 @@
 	const uiState = inject(UI_STATE);
 	const urlService = inject(URL_SERVICE);
 	const fileService = inject(FILE_SERVICE);
+	const diffService = inject(DIFF_SERVICE);
 
 	const userAvatarUrl = useUserAvatarUrl();
 
@@ -234,9 +239,25 @@
 		conflictStates.set(path, "resolved");
 	}
 
-	function handleResolveClick(file: FileEntry) {
-		if (isUnityYamlPath(file.path)) {
-			void unityConflictModal?.show(file.path);
+	async function handleResolveClick(file: FileEntry) {
+		if (isUnitySceneOrPrefabPath(file.path)) {
+			try {
+				const outcome = await diffService.runUnitySmartMerge({ projectId, path: file.path });
+				if (outcome.success) {
+					showInfo("Unity Smart Merge completed", outcome.message);
+					handleResolvedUnityConflict(file.path);
+					return;
+				}
+				showWarning("Unity Smart Merge needs review", outcome.message);
+				if (isUnityYamlPath(file.path)) {
+					void unityConflictModal?.show(file.path);
+				}
+			} catch (error) {
+				showError("Failed to run Unity Smart Merge", error);
+				if (isUnityYamlPath(file.path)) {
+					void unityConflictModal?.show(file.path);
+				}
+			}
 			return;
 		}
 
@@ -337,7 +358,10 @@
 									conflictEntryPresence={file.conflictEntryPresence}
 									conflictState={conflictStates.get(file.path) ?? "unknown"}
 									manuallyResolved={manuallyResolvedFiles.has(file.path)}
-									onresolveclick={file.conflicted ? () => handleResolveClick(file) : undefined}
+									resolveLabel={isUnitySceneOrPrefabPath(file.path)
+										? "Smart Merge"
+										: "Mark resolved"}
+									onresolveclick={file.conflicted ? () => void handleResolveClick(file) : undefined}
 									oncontextmenu={(e) => {
 										const treeChange = getTreeChangeForFile(file);
 										if (treeChange) {

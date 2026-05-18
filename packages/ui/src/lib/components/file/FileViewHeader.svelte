@@ -20,6 +20,7 @@
 		executable?: boolean;
 		noPaddings?: boolean;
 		pathFirst?: boolean;
+		badges?: string[];
 		class?: string;
 		oncontextmenu?: (e: MouseEvent) => void;
 		oncloseclick?: () => void;
@@ -37,6 +38,7 @@
 		executable,
 		noPaddings,
 		pathFirst = true,
+		badges = [],
 		class: className,
 		oncontextmenu,
 		oncloseclick,
@@ -75,6 +77,10 @@
 		{#if executable}
 			<ExecutableLabel />
 		{/if}
+
+		{#each badges as badge}
+			<Badge kind="soft" style="gray">{badge}</Badge>
+		{/each}
 
 		{#if fileStatus}
 			<FileStatusBadge tooltip={fileStatusTooltip} status={fileStatus} style="full" />

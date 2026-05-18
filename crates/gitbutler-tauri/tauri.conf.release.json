@@ -1,5 +1,5 @@
 {
-	"productName": "GitButler",
+	"productName": "YUCP UnityButler (powered by GitButler)",
 	"identifier": "com.gitbutler.app",
 	"build": {
 		"beforeBuildCommand": "bash ./crates/gitbutler-tauri/tauri-before-build-command.sh production"
