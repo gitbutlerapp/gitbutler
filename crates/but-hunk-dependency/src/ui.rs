@@ -2,17 +2,35 @@ use std::fmt::Display;
 
 use but_core::{RepositoryExt, UnifiedPatch, ref_metadata::StackId, unified_diff::DiffHunk};
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 /// Compute the hunk dependencies of a set of tree changes.
+#[instrument(skip_all, err(Debug), fields(worktree_changes = changes.len()))]
 fn hunk_dependencies_for_changes(
     repo: &gix::Repository,
     workspace: &but_graph::Workspace,
     changes: Vec<but_core::TreeChange>,
 ) -> anyhow::Result<HunkDependencies> {
+    if changes.is_empty() {
+        return Ok(HunkDependencies::default());
+    }
+
+    let relevant_paths = changes
+        .iter()
+        .map(|change| change.path.clone())
+        .collect::<std::collections::HashSet<_>>();
+
     // accelerate tree-tree-diffs
     let repo = repo.clone().for_tree_diffing()?.with_object_memory();
-    let input_stacks = crate::new_stacks_to_input_stacks(&repo, workspace)?;
+    let input_stacks =
+        crate::new_stacks_to_input_stacks_for_paths(&repo, workspace, Some(&relevant_paths))?;
     let ranges = crate::WorkspaceRanges::try_from_stacks(input_stacks)?;
+    if ranges.ranges_by_path_map().is_empty() {
+        return Ok(HunkDependencies {
+            diffs: Vec::new(),
+            errors: ranges.errors,
+        });
+    }
     HunkDependencies::try_from_workspace_ranges(&repo, ranges, changes)
 }
 
@@ -47,6 +65,7 @@ but_schemars::register_sdk_type!(HunkDependencies);
 
 impl HunkDependencies {
     /// Calculate all hunk dependencies using a preparepd [`crate::WorkspaceRanges`].
+    #[instrument(skip_all, fields(worktree_changes = worktree_changes.len()), err(Debug))]
     pub fn try_from_workspace_ranges(
         repo: &gix::Repository,
         ranges: crate::WorkspaceRanges,
@@ -54,6 +73,9 @@ impl HunkDependencies {
     ) -> anyhow::Result<HunkDependencies> {
         let mut diffs = Vec::<(String, DiffHunk, Vec<HunkLock>)>::new();
         for change in worktree_changes {
+            if !ranges.ranges_by_path_map().contains_key(&change.path) {
+                continue;
+            }
             let unidiff = change.unified_patch(repo, 0 /* zero context lines */)?;
             let Some(UnifiedPatch::Patch { hunks, .. }) = unidiff else {
                 continue;

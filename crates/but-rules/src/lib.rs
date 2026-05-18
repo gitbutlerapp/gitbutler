@@ -1,3 +1,4 @@
+use anyhow::Context as _;
 use but_core::{ChangeId, sync::RepoExclusive};
 use but_ctx::Context;
 use serde::{Deserialize, Serialize};
@@ -290,11 +291,12 @@ pub fn get_rule(ctx: &Context, id: &str) -> anyhow::Result<WorkspaceRule> {
 
 /// Lists all workspace rules in the database.
 pub fn list_rules(ctx: &Context) -> anyhow::Result<Vec<WorkspaceRule>> {
-    let rules = ctx
+    let db = ctx
         .db
-        .get_cache()?
-        .workspace_rules()
-        .list()?
+        .get_cache()
+        .context("failed to open the project cache database for workspace rules")?;
+    let rules = but_db::backoff(|| db.workspace_rules().list().map_err(but_db::map_err))
+        .context("failed to list workspace rules because the project cache database stayed locked")?
         .into_iter()
         .map(|r| r.try_into())
         .collect::<Result<Vec<WorkspaceRule>, _>>()?;

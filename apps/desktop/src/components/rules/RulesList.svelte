@@ -3,6 +3,7 @@
 	import RuleEditor from "$components/rules/RuleEditor.svelte";
 	import Drawer from "$components/shared/Drawer.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
+	import { parseError } from "$lib/error/parser";
 	import {
 		type WorkspaceRuleId,
 		type RuleFilterMap,
@@ -12,7 +13,7 @@
 	} from "$lib/rules/rule";
 	import { RULES_SERVICE, workspaceRulesSelectors } from "$lib/rules/rulesService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Badge, Button, chipToasts, Link, SkeletonBone } from "@gitbutler/ui";
+	import { Badge, Button, chipToasts, InfoMessage, Link, SkeletonBone } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { untrack } from "svelte";
 	import { slide } from "svelte/transition";
@@ -141,6 +142,10 @@
 		<h4 class="text-14 text-semibold truncate">Rules</h4>
 		{#if rules.result.isSuccess}
 			<Badge>{rules.result.data.ids.length}</Badge>
+		{:else if rules.result.isError}
+			<Badge style="danger" size="tag" icon="warning" tooltip={parseError(rules.result.error).message}>
+				Error
+			</Badge>
 		{:else}
 			<Badge skeleton />
 		{/if}
@@ -174,6 +179,28 @@
 	<ReduxResult {projectId} result={rules.result}>
 		{#snippet loading()}
 			{@render skeletonLoading()}
+		{/snippet}
+
+		{#snippet error(error)}
+			{@const parsedError = parseError(error)}
+			<div class="rules-list__content rules-list__error">
+				<InfoMessage
+					style="danger"
+					filled
+					outlined={false}
+					error={parsedError.message}
+					primaryLabel="Retry"
+					primaryIcon="refresh"
+					primaryAction={() => rules.result.refetch()}
+				>
+					{#snippet title()}
+						{parsedError.name ?? "Could not load workspace rules"}
+					{/snippet}
+					{#snippet content()}
+						The backend error and cause chain are shown below.
+					{/snippet}
+				</InfoMessage>
+			</div>
 		{/snippet}
 
 		{#snippet children(rulesEntityState)}
@@ -278,6 +305,10 @@
 	.rules-list__content {
 		display: flex;
 		flex-direction: column;
+	}
+
+	.rules-list__error {
+		padding: 8px;
 	}
 
 	.rules-section {

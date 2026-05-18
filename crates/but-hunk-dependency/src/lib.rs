@@ -125,6 +125,8 @@
 //!
 //! In theory, would have to merge the parents, and diff it against the commit. That bears the risk of a conflict (that has been resolved in the commit),
 //! so in that case it should be fine to fallback to using the first parent.
+use std::collections::HashSet;
+
 mod input;
 
 use but_core::{TreeChange, UnifiedPatch};
@@ -148,6 +150,17 @@ pub fn new_stacks_to_input_stacks(
     repo: &gix::Repository,
     workspace: &but_graph::Workspace,
 ) -> anyhow::Result<Vec<InputStack>> {
+    new_stacks_to_input_stacks_for_paths(repo, workspace, None)
+}
+
+/// Produce [`InputStack`] instances like [`new_stacks_to_input_stacks`], but only include commit
+/// files that can intersect with `relevant_paths`.
+#[instrument(skip_all, err(Debug))]
+pub(crate) fn new_stacks_to_input_stacks_for_paths(
+    repo: &gix::Repository,
+    workspace: &but_graph::Workspace,
+    relevant_paths: Option<&HashSet<gix::bstr::BString>>,
+) -> anyhow::Result<Vec<InputStack>> {
     workspace
         .stacks
         .iter()
@@ -163,6 +176,13 @@ pub fn new_stacks_to_input_stacks(
                         commit.parent_ids().next().map(|id| id.detach()),
                         commit.id,
                     )?;
+                    let tree_changes = match relevant_paths {
+                        Some(paths) => tree_changes
+                            .into_iter()
+                            .filter(|change| paths.contains(&change.path))
+                            .collect(),
+                        None => tree_changes,
+                    };
                     let files = tree_changes_to_input_files(repo, tree_changes)?;
 
                     Ok(InputCommit {

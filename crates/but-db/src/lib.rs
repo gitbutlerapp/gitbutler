@@ -103,7 +103,7 @@ pub fn backoff<T, E>(
     // Set this value reasonably high as strong contention can actually lead to failures
     // if the value is too low (500ms previously). The idea is that failures basically never
     // happen, but with a low value they are just more likely.
-    let max_duration = std::time::Duration::from_millis(2500);
+    let max_duration = std::time::Duration::from_secs(5);
     let policy = ::backoff::ExponentialBackoffBuilder::new()
         .with_max_elapsed_time(Some(max_duration))
         .build();

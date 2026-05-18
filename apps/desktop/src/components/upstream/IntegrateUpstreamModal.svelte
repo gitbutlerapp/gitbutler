@@ -200,10 +200,18 @@
 				"Checking upstream status",
 				"Computing update options for the selected target commit.",
 			);
-			upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid, setLocalProgress).then((statuses) => {
-				branchStatuses = statuses;
-				loadingStatuses = false;
-			});
+			void (async () => {
+				try {
+					await tick();
+					branchStatuses = await upstreamIntegrationService.upstreamStatuses(
+						projectId,
+						targetCommitOid,
+						setLocalProgress,
+					);
+				} finally {
+					loadingStatuses = false;
+				}
+			})();
 		}
 	});
 

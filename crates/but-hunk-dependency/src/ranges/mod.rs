@@ -4,6 +4,7 @@ use but_core::TreeStatusKind;
 use gix::bstr::{BString, ByteSlice};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::{InputCommit, InputDiffHunk, InputStack, ui::HunkLockTarget};
 use but_core::unified_diff::DiffHunk;
@@ -91,6 +92,7 @@ impl StackRanges {
 impl WorkspaceRanges {
     /// Calculates all ranges for the workspace, which is identified by `input_stacks`,
     /// i.e. all stacks that make up that workspace.
+    #[instrument(skip_all, fields(stacks = input_stacks.len()), err(Debug))]
     pub fn try_from_stacks(input_stacks: Vec<InputStack>) -> anyhow::Result<WorkspaceRanges> {
         let mut stacks = vec![];
         let mut errors = vec![];

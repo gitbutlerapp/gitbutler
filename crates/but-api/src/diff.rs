@@ -5,7 +5,7 @@ use but_hunk_assignment::{HunkAssignmentRequest, WorktreeChanges};
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use gix::prelude::ObjectIdExt;
-use tracing::instrument;
+use tracing::{info_span, instrument};
 
 boolean_enums::gen_boolean_enum!(pub serde ComputeLineStats);
 
@@ -134,33 +134,50 @@ pub fn changes_in_worktree_with_perm(
 
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
-    let locally_ignored_paths = local_ignores::list_local_ignored_paths(&repo)?;
-    let changes = local_ignores::filter_locally_ignored_worktree_changes(
-        but_core::diff::worktree_changes(&repo)?,
-        &locally_ignored_paths,
-    );
+    let locally_ignored_paths = info_span!("list_local_ignored_paths")
+        .in_scope(|| local_ignores::list_local_ignored_paths(&repo))?;
+    let changes = info_span!("filter_locally_ignored_worktree_changes").in_scope(|| {
+        let worktree_changes = but_core::diff::worktree_changes(&repo)?;
+        anyhow::Ok(local_ignores::filter_locally_ignored_worktree_changes(
+            worktree_changes,
+            &locally_ignored_paths,
+        ))
+    })?;
 
-    let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
-        &repo,
-        &ws,
-        Some(changes.changes.clone()),
-    );
-    let mut trans = db.immediate_transaction()?;
+    let dependencies = info_span!(
+        "hunk_dependencies_for_workspace_changes",
+        changes = changes.changes.len()
+    )
+    .in_scope(|| {
+        hunk_dependencies_for_workspace_changes_by_worktree_dir(
+            &repo,
+            &ws,
+            Some(changes.changes.clone()),
+        )
+    });
+    let mut trans = info_span!("hunk_assignment_immediate_transaction")
+        .in_scope(|| db.immediate_transaction())?;
 
-    let (assignments, assignments_error) = {
+    let (assignments, assignments_error) = info_span!(
+        "hunk_assignments_with_fallback",
+        changes = changes.changes.len()
+    )
+    .in_scope(|| {
         but_hunk_assignment::assignments_with_fallback(
             trans.hunk_assignments_mut()?,
             &repo,
             &ws,
             Some(changes.changes.clone()),
             context_lines,
-        )?
-    };
+        )
+    })?;
 
-    trans.commit()?;
+    info_span!("hunk_assignment_transaction_commit").in_scope(|| trans.commit())?;
     drop((repo, ws, db));
     #[cfg(feature = "legacy")]
-    but_rules::handler::process_workspace_rules(ctx, &assignments, perm).ok();
+    info_span!("process_workspace_rules").in_scope(|| {
+        but_rules::handler::process_workspace_rules(ctx, &assignments, perm).ok();
+    });
 
     Ok(WorktreeChanges {
         worktree_changes: changes.into(),
