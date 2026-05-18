@@ -3,6 +3,7 @@ packages:
   - packages/*
   - crates/*
   - e2e
+  - e2e/cli
 
 catalog:
   "@vitest/browser": 3.2.4

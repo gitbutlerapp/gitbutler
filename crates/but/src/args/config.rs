@@ -404,6 +404,13 @@ pub enum MetricsStatus {
     Disable,
 }
 
+/// Forge providers for non-interactive authentication.
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum ForgeProvider {
+    Github,
+    Gitlab,
+}
+
 impl MetricsStatus {
     pub fn enabled(self) -> bool {
         matches!(self, MetricsStatus::Enable)
@@ -435,7 +442,24 @@ pub enum ForgeSubcommand {
     /// GitLab
     ///  - Personal Access Token (PAT)
     ///  - Self-Hosted
-    Auth,
+    ///
+    /// ## Non-interactive usage (CI)
+    ///
+    /// ```text
+    /// but config forge auth --provider github --token ghp_...
+    /// but config forge auth --provider gitlab --token glpat-...
+    /// ```
+    Auth {
+        /// Personal Access Token to store. When provided, authentication is non-interactive.
+        #[clap(long, env = "BUT_FORGE_TOKEN", hide_env_values = true)]
+        token: Option<String>,
+        /// Forge provider to authenticate with (required when --token is used).
+        #[clap(long, value_enum, requires = "token")]
+        provider: Option<ForgeProvider>,
+        /// Host for GitHub Enterprise or self-hosted GitLab instances.
+        #[clap(long)]
+        host: Option<String>,
+    },
 
     /// List authenticated forge accounts known to GitButler.
     ///
