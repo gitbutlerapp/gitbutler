@@ -31,6 +31,10 @@ export class WorktreeService {
 		return this.backendApi.endpoints.worktreeChanges.useQuery({ projectId });
 	}
 
+	localIgnoredPaths(projectId: string) {
+		return this.backendApi.endpoints.localIgnoredPaths.useQuery({ projectId });
+	}
+
 	treeChangeByPath(projectId: string, path: string) {
 		const { worktreeChanges: getChanges } = this.backendApi.endpoints;
 		return getChanges.useQueryState(
@@ -53,6 +57,10 @@ export class WorktreeService {
 			{ projectId },
 			{ transform: (res) => worktreeSelectors.selectById(res.changes, path)! },
 		);
+	}
+
+	async setLocalIgnoredPath(projectId: string, path: string, ignored: boolean) {
+		await this.backendApi.endpoints.setLocalIgnoredPath.fetch({ projectId, path, ignored });
 	}
 
 	/**

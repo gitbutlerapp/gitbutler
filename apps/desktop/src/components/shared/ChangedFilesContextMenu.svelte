@@ -14,6 +14,7 @@
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE, withStackBusy } from "$lib/state/uiState.svelte";
+	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import {
 		ContextMenu,
@@ -81,8 +82,13 @@
 	const backend = inject(BACKEND);
 	const [, absorbingChanges] = stackService.absorb;
 	const projectService = inject(PROJECTS_SERVICE);
+	const worktreeService = inject(WORKTREE_SERVICE);
 
 	const isUncommitted = $derived(selectionId.type === "worktree");
+	const localIgnoredPathsQuery = $derived(
+		isUncommitted ? worktreeService.localIgnoredPaths(projectId) : undefined,
+	);
+	const localIgnoredPaths = $derived(localIgnoredPathsQuery?.response ?? []);
 
 	// Platform-specific label for "Show in Finder/Explorer/File Manager"
 	const showInFolderLabel = (() => {
@@ -121,6 +127,20 @@
 			return item.changes[0]!.path;
 		}
 		return null;
+	}
+
+	function pathIsLocallyIgnored(path: string | null): boolean {
+		if (!path) {
+			return false;
+		}
+		return localIgnoredPaths.some(
+			(ignoredPath) => path === ignoredPath || path.startsWith(`${ignoredPath}/`),
+		);
+	}
+
+	async function setLocalIgnored(path: string, ignored: boolean) {
+		menuOpen = false;
+		await worktreeService.setLocalIgnoredPath(projectId, path, ignored);
 	}
 
 	export function open(e: MouseEvent | HTMLElement, newItem: ChangedFilesItem) {
@@ -221,6 +241,12 @@
 
 			{#if itemPath}
 				<ContextMenuSection>
+					{#if isUncommitted}
+						<ContextMenuItem
+							label={pathIsLocallyIgnored(itemPath) ? "Stop ignoring locally" : "Ignore locally"}
+							onclick={() => setLocalIgnored(itemPath, !pathIsLocallyIgnored(itemPath))}
+						/>
+					{/if}
 					<ContextMenuItemSubmenu label="Copy path" icon="copy">
 						{#snippet submenu(_sub)}
 							<ContextMenuSection>

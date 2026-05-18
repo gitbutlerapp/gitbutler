@@ -68,10 +68,19 @@ pub fn set_project_active(
     but_api::legacy::projects::prepare_project_for_activation(&mut ctx)?;
 
     let db_error = assure_database_valid(ctx.project_data_dir())?;
-    let filter_error = warn_about_filters_and_git_lfs(&*ctx.repo.get()?)?;
-    for err in [&db_error, &filter_error] {
-        if let Some(err) = &err {
-            tracing::error!("{err}");
+    let (unity_headsup, filter_error) = {
+        let repo = ctx.repo.get()?;
+        (
+            but_api::legacy::projects::project_activation_headsup(&repo)?,
+            warn_about_filters_and_git_lfs(&repo)?,
+        )
+    };
+    if let Some(err) = &db_error {
+        tracing::error!("{err}");
+    }
+    for headsup in [&unity_headsup, &filter_error] {
+        if let Some(message) = headsup {
+            tracing::warn!("{message}");
         }
     }
     let mode = window_state.set_project_to_window(window.label(), &app_settings_sync, &mut ctx)?;
@@ -82,7 +91,7 @@ pub fn set_project_active(
     Ok(Some(ProjectInfo {
         is_exclusive,
         db_error,
-        headsup: filter_error,
+        headsup: join_headsup_messages([unity_headsup, filter_error]),
     }))
 }
 
@@ -215,4 +224,9 @@ Ensure these aren't touched by GitButler or avoid using it in this repository.",
         ));
     }
     Ok(Some(msg))
+}
+
+fn join_headsup_messages<const N: usize>(messages: [Option<String>; N]) -> Option<String> {
+    let messages: Vec<_> = messages.into_iter().flatten().collect();
+    (!messages.is_empty()).then(|| messages.join("\n\n"))
 }

@@ -1,6 +1,6 @@
 use std::{path::Path, sync::Mutex};
 
-use anyhow::{Result, bail};
+use anyhow::{Context as _, Result, bail};
 use base64::engine::Engine as _;
 use but_core::commit::sign_buffer;
 use but_core::git_config::{edit_repo_config, ensure_config_value};
@@ -200,6 +200,10 @@ pub trait RepoCommands {
     /// Returns `FileInfo::default()` if file could not be found.
     fn read_file_from_workspace(&self, path: &Path) -> Result<FileInfo>;
 
+    /// Write `content` to `path` in the worktree after validating that the
+    /// target stays within the repository worktree.
+    fn write_file_to_workspace(&self, path: &Path, content: &[u8]) -> Result<()>;
+
     /// Find files in the repository that match the given search query.
     ///
     /// Uses fuzzy matching similar to VSCode's file search.
@@ -360,6 +364,24 @@ impl RepoCommands for Context {
         Ok(out)
     }
 
+    fn write_file_to_workspace(&self, path: &Path, content: &[u8]) -> Result<()> {
+        let workdir = self.workdir_or_fail()?;
+        let canonical_workdir = gix::path::realpath(&workdir)?;
+        let requested_path = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            canonical_workdir.join(path)
+        };
+        let target_path = resolve_workspace_write_path(&canonical_workdir, &requested_path)?;
+        let target_parent = target_path
+            .parent()
+            .context("Refusing to write workspace file without a parent directory")?;
+
+        std::fs::create_dir_all(target_parent)?;
+        std::fs::write(target_path, content)?;
+        Ok(())
+    }
+
     fn find_files(&self, query: &str, limit: usize) -> Result<Vec<String>> {
         static FAIR_QUEUE: Mutex<()> = Mutex::new(());
         let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
@@ -388,4 +410,42 @@ impl RepoCommands for Context {
 
         Ok(scored_files)
     }
+}
+
+fn resolve_workspace_write_path(
+    canonical_workdir: &Path,
+    requested_path: &Path,
+) -> Result<std::path::PathBuf> {
+    let mut existing_ancestor = requested_path.to_path_buf();
+    let mut suffix = Vec::new();
+
+    while !existing_ancestor.exists() {
+        let missing_component = existing_ancestor
+            .file_name()
+            .context("Refusing to write workspace path without a terminal file name")?
+            .to_os_string();
+        suffix.push(missing_component);
+        existing_ancestor = existing_ancestor
+            .parent()
+            .context("Refusing to write workspace path without an existing parent directory")?
+            .to_path_buf();
+    }
+
+    let canonical_existing_ancestor = gix::path::realpath(&existing_ancestor)?;
+    canonical_existing_ancestor
+        .strip_prefix(canonical_workdir)
+        .with_context(|| {
+            format!(
+                "Path to write to at '{}' isn't in the worktree directory '{}'",
+                requested_path.display(),
+                canonical_workdir.display()
+            )
+        })?;
+
+    let mut resolved_path = canonical_existing_ancestor;
+    while let Some(component) = suffix.pop() {
+        resolved_path.push(component);
+    }
+
+    Ok(resolved_path)
 }

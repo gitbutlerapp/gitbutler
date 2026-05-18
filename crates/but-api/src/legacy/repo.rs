@@ -12,6 +12,8 @@ use gitbutler_repo::{
 };
 use tracing::instrument;
 
+use crate::local_ignores;
+
 #[but_api]
 #[instrument(err(Debug))]
 pub fn check_signing_settings(ctx: &Context) -> Result<bool> {
@@ -60,6 +62,27 @@ pub fn get_commit_file(
 #[instrument(err(Debug))]
 pub fn get_workspace_file(ctx: &Context, relative_path: PathBuf) -> Result<FileInfo> {
     ctx.read_file_from_workspace(&relative_path)
+}
+
+#[but_api]
+#[instrument(err(Debug))]
+pub fn write_workspace_file(ctx: &Context, relative_path: PathBuf, content: String) -> Result<()> {
+    ctx.write_file_to_workspace(&relative_path, content.as_bytes())
+}
+
+#[but_api]
+#[instrument(err(Debug))]
+pub fn list_local_ignored_paths(ctx: &Context) -> Result<Vec<String>> {
+    let repo = ctx.repo.get()?;
+    local_ignores::list_local_ignored_paths(&repo)
+}
+
+#[but_api]
+#[instrument(err(Debug))]
+pub fn set_local_ignored_path(ctx: &Context, relative_path: PathBuf, ignored: bool) -> Result<()> {
+    let repo = ctx.repo.get()?;
+    local_ignores::set_local_ignored_path(&repo, &relative_path, ignored)?;
+    Ok(())
 }
 
 /// Retrieves file content directly from a Git blob object by its blob ID.

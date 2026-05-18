@@ -86,6 +86,26 @@ export function buildWorktreeEndpoints(build: BackendEndpointBuilder) {
 				};
 			},
 		}),
+		localIgnoredPaths: build.query<string[], { projectId: string }>({
+			extraOptions: { command: "list_local_ignored_paths" },
+			query: (args) => args,
+			providesTags: [providesList(ReduxTag.LocalIgnoredPaths)],
+		}),
+		setLocalIgnoredPath: build.mutation<
+			void,
+			{ projectId: string; path: string; ignored: boolean }
+		>({
+			extraOptions: { command: "set_local_ignored_path" },
+			query: ({ projectId, path, ignored }) => ({
+				projectId,
+				relativePath: path,
+				ignored,
+			}),
+			invalidatesTags: [
+				invalidatesList(ReduxTag.WorktreeChanges),
+				invalidatesList(ReduxTag.LocalIgnoredPaths),
+			],
+		}),
 
 		// ── Diff ────────────────────────────────────────────────────
 		getDiff: build.query<UnifiedDiff | null, { projectId: string; change: TreeChange }>({

@@ -42,6 +42,14 @@ export class FileService {
 		return await this.backend.readFile(path);
 	}
 
+	async writeToWorkspace(filePath: string, projectId: string, content: string): Promise<void> {
+		await this.backend.invoke<void>("write_workspace_file", {
+			relativePath: filePath,
+			projectId,
+			content,
+		});
+	}
+
 	async showFileInFolder(filePath: string) {
 		await this.backend.invoke<void>("show_in_finder", { path: filePath });
 	}

@@ -3,6 +3,7 @@
 	import UnassignedViewForgeIntegrationBanner from "$components/forge/ForgeIntegrationBanner.svelte";
 	import RulesList from "$components/rules/RulesList.svelte";
 	import UnassignedFoldButton from "$components/workspace/UnassignedFoldButton.svelte";
+	import WorktreeLocalIgnoredPaths from "$components/workspace/WorktreeLocalIgnoredPaths.svelte";
 	import noChanges from "$lib/assets/empty-state/no-new-changes.svg?raw";
 	import { stagingBehaviorFeature } from "$lib/config/uiFeatureFlags";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
@@ -123,6 +124,7 @@
 						</div>
 					{/snippet}
 				</WorktreeChanges>
+				<WorktreeLocalIgnoredPaths {projectId} />
 			</div>
 
 			<UnassignedViewForgeIntegrationBanner {projectId} />

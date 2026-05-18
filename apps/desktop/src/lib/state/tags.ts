@@ -6,6 +6,7 @@ export enum ReduxTag {
 	Stacks = "Stacks",
 	StackDetails = "StackDetails",
 	WorktreeChanges = "WorktreeChanges",
+	LocalIgnoredPaths = "LocalIgnoredPaths",
 	CommitChanges = "CommitChanges",
 	/**
 	 * Use stack id when invalidating this tag since invalidating just one

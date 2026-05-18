@@ -361,7 +361,7 @@
 
 	// Set active project and handle notifications
 	async function setActiveProjectOrRedirect(projectId: string) {
-		const dontShowAgainKey = `git-filters--dont-show-again--${projectId}`;
+		const dontShowAgainKey = `project-headsup--dont-show-again--${projectId}`;
 		try {
 			const info = await projectsService.setActiveProject(projectId);
 			posthog.captureOnboarding(OnboardingEvent.SetProjectActive);

@@ -3,11 +3,13 @@
 	import ChangedFilesContextMenu from "$components/shared/ChangedFilesContextMenu.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import EditModeFileListItem from "$components/workspace/EditModeFileListItem.svelte";
+	import UnityConflictResolverModal from "$components/workspace/UnityConflictResolverModal.svelte";
 	import { getEditorUri, URL_SERVICE } from "$lib/backend/url";
 	import { splitMessage } from "$lib/commits/commitMessage";
 	import { hasUnresolvedConflictsOnDisk } from "$lib/files/conflictCheck";
 	import { conflictEntryHint, getConflictState } from "$lib/files/conflictEntryPresence";
 	import { FILE_SERVICE } from "$lib/files/fileService";
+	import { isUnityYamlPath } from "$lib/files/unityConflicts";
 	import { computeChangeStatus } from "$lib/files/fileStatus";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { vscodePath } from "$lib/project/project";
@@ -54,6 +56,7 @@
 	let filesList = $state<HTMLDivElement | undefined>(undefined);
 	let contextMenu = $state<ReturnType<typeof ChangedFilesContextMenu> | undefined>(undefined);
 	let confirmSaveModal = $state<ReturnType<typeof Modal> | undefined>(undefined);
+	let unityConflictModal = $state<UnityConflictResolverModal | undefined>(undefined);
 
 	interface FileEntry {
 		path: string;
@@ -185,6 +188,20 @@
 	const loading = $derived(savingEdit.current.isLoading || abortingEdit.current.isLoading);
 
 	let abortModal = $state<Modal>();
+
+	function handleResolvedUnityConflict(path: string) {
+		manuallyResolvedFiles.add(path);
+		conflictStates.set(path, "resolved");
+	}
+
+	function handleResolveClick(file: FileEntry) {
+		if (isUnityYamlPath(file.path)) {
+			void unityConflictModal?.show(file.path);
+			return;
+		}
+
+		manuallyResolvedFiles.add(file.path);
+	}
 </script>
 
 <Modal
@@ -280,9 +297,7 @@
 									conflictEntryPresence={file.conflictEntryPresence}
 									conflictState={conflictStates.get(file.path) ?? "unknown"}
 									manuallyResolved={manuallyResolvedFiles.has(file.path)}
-									onresolveclick={file.conflicted
-										? () => manuallyResolvedFiles.add(file.path)
-										: undefined}
+									onresolveclick={file.conflicted ? () => handleResolveClick(file) : undefined}
 									oncontextmenu={(e) => {
 										const treeChange = getTreeChangeForFile(file);
 										if (treeChange) {
@@ -353,6 +368,11 @@
 				stackId={undefined}
 				selectionId={createCommitSelection({ commitId: editModeMetadata.commitOid })}
 				editMode={true}
+			/>
+			<UnityConflictResolverModal
+				bind:this={unityConflictModal}
+				{projectId}
+				onResolved={handleResolvedUnityConflict}
 			/>
 		{/snippet}
 	</ReduxResult>

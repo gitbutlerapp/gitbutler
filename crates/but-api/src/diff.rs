@@ -11,6 +11,8 @@ boolean_enums::gen_boolean_enum!(pub serde ComputeLineStats);
 
 use but_core::diff::CommitDetails;
 
+use crate::local_ignores;
+
 /// JSON types
 // TODO: add schemars
 pub mod json {
@@ -132,7 +134,11 @@ pub fn changes_in_worktree_with_perm(
 
     let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
-    let changes = but_core::diff::worktree_changes(&repo)?;
+    let locally_ignored_paths = local_ignores::list_local_ignored_paths(&repo)?;
+    let changes = local_ignores::filter_locally_ignored_worktree_changes(
+        but_core::diff::worktree_changes(&repo)?,
+        &locally_ignored_paths,
+    );
 
     let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
         &repo,

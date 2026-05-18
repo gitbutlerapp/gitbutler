@@ -166,6 +166,11 @@ pub async fn set_project_active(
     let mut active_projects = extra.active_projects.lock().await;
     let mut ctx: Context = params.id.try_into()?;
     but_api::legacy::projects::prepare_project_for_activation(&mut ctx)?;
+    let repo = ctx.repo.get()?;
+    let headsup = but_api::legacy::projects::project_activation_headsup(&repo)?;
+    if let Some(message) = &headsup {
+        tracing::warn!("{message}");
+    }
     active_projects.set_active(
         &ctx,
         claude,
@@ -179,6 +184,6 @@ pub async fn set_project_active(
     Ok(json!(ProjectInfo {
         is_exclusive: true,
         db_error: None,
-        headsup: None
+        headsup
     }))
 }

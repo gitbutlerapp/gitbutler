@@ -978,6 +978,18 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             "/get_workspace_file",
             but_post(legacy::repo::get_workspace_file_cmd),
         )
+        .route(
+            "/write_workspace_file",
+            but_post(legacy::repo::write_workspace_file_cmd),
+        )
+        .route(
+            "/list_local_ignored_paths",
+            but_post(legacy::repo::list_local_ignored_paths_cmd),
+        )
+        .route(
+            "/set_local_ignored_path",
+            but_post(legacy::repo::set_local_ignored_path_cmd),
+        )
         .route("/get_blob_file", but_post(legacy::repo::get_blob_file_cmd))
         .route("/find_files", but_post(legacy::repo::find_files_cmd))
         .route(
