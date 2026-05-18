@@ -18,6 +18,7 @@ export enum QueryKey {
 	Projects = "projects",
 	TreeChangeDiffs = "treeChangeDiffs",
 	AbsorptionPlan = "absorptionPlan",
+	DryRun = "dryRun",
 }
 
 export const branchDetailsQueryOptions = ({ projectId, ...params }: BranchDetailsParams) =>
