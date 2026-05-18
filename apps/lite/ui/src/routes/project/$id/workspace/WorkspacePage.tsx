@@ -246,9 +246,6 @@ const ApplyBranchPicker: FC<{
 	const toastManager = Toast.useToastManager();
 	const applyBranch = useMutation({
 		mutationFn: window.lite.apply,
-		onSuccess: async (_data, _input, _ctx, { client }) => {
-			await client.invalidateQueries();
-		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);

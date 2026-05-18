@@ -20,7 +20,7 @@ import { projectActions } from "#ui/projects/state.ts";
 import { getTransferOperation, type OutlineMode } from "#ui/outline/mode.ts";
 import { Match } from "effect";
 import { useHotkeys } from "@tanstack/react-hotkeys";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { type AbsorptionTarget } from "@gitbutler/but-sdk";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { operationHotkeys } from "#ui/hotkeys.ts";
@@ -30,7 +30,6 @@ const AbsorbControls: FC<{
 	sourceTarget: AbsorptionTarget;
 }> = ({ projectId, sourceTarget }) => {
 	const dispatch = useAppDispatch();
-	const queryClient = useQueryClient();
 	const absorptionPlan = useQuery(absorptionPlanQueryOptions({ projectId, target: sourceTarget }));
 	const canAbsorb =
 		!absorptionPlan.isPending && !!absorptionPlan.data && absorptionPlan.data.length > 0;
@@ -39,9 +38,6 @@ const AbsorbControls: FC<{
 		mutationFn: () => {
 			if (!absorptionPlan.data) return Promise.resolve(0);
 			return window.lite.absorb({ projectId, absorptionPlan: absorptionPlan.data });
-		},
-		onSuccess: async () => {
-			await queryClient.invalidateQueries();
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console

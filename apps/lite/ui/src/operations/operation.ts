@@ -357,8 +357,6 @@ export const useRunOperation = () => {
 						}),
 					);
 			}
-
-			await client.invalidateQueries();
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console

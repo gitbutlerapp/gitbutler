@@ -257,8 +257,6 @@ const useOutlineTreeHotkeys = ({
 					headInfo: response.workspace.headInfo,
 				}),
 			);
-
-			await mutation.client.invalidateQueries();
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -793,8 +791,6 @@ const CommitRow: FC<
 					headInfo: response.workspace.headInfo,
 				}),
 			);
-
-			await mutation.client.invalidateQueries();
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -822,8 +818,6 @@ const CommitRow: FC<
 					headInfo: response.workspace.headInfo,
 				}),
 			);
-
-			await mutation.client.invalidateQueries();
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -851,8 +845,6 @@ const CommitRow: FC<
 					headInfo: response.workspace.headInfo,
 				}),
 			);
-
-			await mutation.client.invalidateQueries();
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -1329,9 +1321,7 @@ const Changes: FC<{
 				dryRun: false,
 			});
 		},
-		onSuccess: async (response, _input, _ctx, { client }) => {
-			await client.invalidateQueries();
-
+		onSuccess: async (response) => {
 			if (commitTarget?.relativeTo.type === "commit" && response.newCommit !== null)
 				dispatch(
 					projectActions.setCommitTarget({
@@ -1412,8 +1402,6 @@ const Changes: FC<{
 						rejectedChanges: response.rejectedChanges,
 					}),
 				);
-
-			await client.invalidateQueries();
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -1725,8 +1713,6 @@ const BranchRow: FC<
 				}),
 			);
 			dispatch(projectActions.exitMode({ projectId }));
-
-			await mutation.client.invalidateQueries();
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -1768,8 +1754,6 @@ const BranchRow: FC<
 					headInfo: response.workspace.headInfo,
 				}),
 			);
-
-			await mutation.client.invalidateQueries();
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -1926,9 +1910,6 @@ const StackRow: FC<
 
 	const unapplyStack = useMutation({
 		mutationFn: window.lite.unapplyStack,
-		onSuccess: async (_data, _input, _ctx, { client }) => {
-			await client.invalidateQueries();
-		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
