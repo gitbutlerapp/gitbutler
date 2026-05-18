@@ -9,6 +9,7 @@ import type {
 	OpenDialogOptions,
 	OpenDialogReturn,
 } from "$lib/backend/backend";
+import type { UnlistenFn } from "@tauri-apps/api/event";
 
 export default class Web implements IBackend {
 	platformName = "web";
@@ -42,9 +43,13 @@ export default class Web implements IBackend {
 		document.title = title;
 	}
 
-	async initDeepLinking(): Promise<void> {
+	async getColdStartDeepLinkUrls(): Promise<string[]> {
+		return [];
+	}
+
+	async initDeepLinking(): Promise<UnlistenFn> {
 		// Deep linking is not supported in the web version
-		return await Promise.resolve();
+		return await Promise.resolve(() => {});
 	}
 }
 
