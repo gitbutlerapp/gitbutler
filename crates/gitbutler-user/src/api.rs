@@ -49,8 +49,14 @@ pub fn default_api_url() -> String {
     .to_string()
 }
 
+fn normalize_api_url(url: String) -> String {
+    url.trim_end_matches('/').to_string()
+}
+
 fn api_url_override_from_env(mut get_var: impl FnMut(&str) -> Option<String>) -> Option<String> {
-    get_var("GITBUTLER_API_URL").or_else(|| get_var("PUBLIC_API_BASE_URL"))
+    get_var("GITBUTLER_API_URL")
+        .or_else(|| get_var("PUBLIC_API_BASE_URL"))
+        .map(normalize_api_url)
 }
 
 /// Response from `POST /api/login/token.json`.
