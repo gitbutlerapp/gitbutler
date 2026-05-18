@@ -1,13 +1,9 @@
-use std::{
-    collections::BTreeSet,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, bail};
 use but_api::json;
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_settings::AppSettingsWithDiskSync;
-use gix::bstr::ByteSlice;
 use tauri::{State, Window};
 use tracing::instrument;
 
@@ -80,7 +76,7 @@ pub fn set_project_active(
         let repo = ctx.repo.get()?;
         (
             but_api::legacy::projects::project_activation_headsup(&repo)?,
-            warn_about_filters_and_git_lfs(&repo)?,
+            but_api::legacy::projects::project_filter_headsup(&repo)?,
         )
     };
     if let Some(err) = &db_error {
@@ -178,62 +174,6 @@ fn assure_database_valid(data_dir: PathBuf) -> anyhow::Result<Option<String>> {
         );
     }
     Ok(None)
-}
-
-/// Return an error message that
-fn warn_about_filters_and_git_lfs(repo: &gix::Repository) -> anyhow::Result<Option<String>> {
-    let index = repo.index_or_empty()?;
-    let mut cache = repo.attributes_only(
-        &index,
-        gix::worktree::stack::state::attributes::Source::WorktreeThenIdMapping,
-    )?;
-    let mut attrs = cache.selected_attribute_matches(Some("filter"));
-    let mut all_filters = BTreeSet::<String>::new();
-    let mut files_with_filter = Vec::new();
-    for entry in index.entries() {
-        let cache_entry = cache.at_entry(entry.path(&index), None)?;
-        if cache_entry.matching_attributes(&mut attrs) {
-            let mut added = false;
-            all_filters.extend(attrs.iter().filter_map(|attr| {
-                attr.assignment.state.as_bstr().map(|s| {
-                    if !added {
-                        files_with_filter.push(entry.path(&index).to_str_lossy());
-                        added = true;
-                    }
-                    s.to_string()
-                })
-            }));
-        }
-    }
-
-    if all_filters.is_empty() {
-        return Ok(None);
-    }
-
-    let has_lfs = all_filters.contains("lfs");
-    let mut msg = format!(
-        "Worktree filter(s) detected: {comma_separated}\n\
-Filters will silently not be applied during workspace operations to the files listed below.\n\
-Ensure these aren't touched by GitButler or avoid using it in this repository.",
-        comma_separated = Vec::from_iter(all_filters).join(", ")
-    );
-    if has_lfs {
-        msg.push_str(
-            r#"
-
-`git lfs pull --include="*"` can be used to restore git-lfs files after GitButler touched them."#,
-        );
-    }
-    let max_files = 10;
-    msg.push_str("\n\n");
-    msg.push_str(&files_with_filter[..files_with_filter.len().min(max_files)].join("\n"));
-    if files_with_filter.len() > max_files {
-        msg.push_str(&format!(
-            "\n[and {} more]",
-            files_with_filter.len() - max_files
-        ));
-    }
-    Ok(Some(msg))
 }
 
 fn join_headsup_messages<const N: usize>(messages: [Option<String>; N]) -> Option<String> {

@@ -1,11 +1,18 @@
-use std::path::{Path, PathBuf};
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Result, anyhow};
 use but_api_macros::but_api;
-use but_core::git_config::{edit_repo_config, set_config_value};
+use but_core::git_config::{edit_repo_config, remove_config_value, set_config_value};
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_error::Code;
+use gix::bstr::ByteSlice;
+use serde::Serialize;
 use tracing::instrument;
+
+use crate::local_ignores;
 
 #[but_api]
 #[instrument(err(Debug))]
@@ -156,6 +163,60 @@ pub fn prepare_project_for_activation(ctx: &mut Context) -> Result<()> {
     Ok(())
 }
 
+/// Result of applying safe local fixes for Unity repositories.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnityAutofixOutcome {
+    /// Whether `ProjectSettings/EditorSettings.asset` was changed to Force Text serialization.
+    pub force_text_updated: bool,
+    /// Whether unsafe low-level UnityYAMLMerge driver config was removed from local Git config.
+    pub unity_yaml_merge_driver_removed: bool,
+    /// Number of filter-managed tracked paths added to GitButler's repo-local ignore list.
+    pub locally_ignored_paths_added: usize,
+    /// Any remaining checks that still need manual user action.
+    pub remaining_headsup: Option<String>,
+}
+
+/// Apply safe local fixes for Unity repositories.
+#[but_api]
+#[instrument(err(Debug))]
+pub fn autofix_unity_project(ctx: &Context) -> Result<UnityAutofixOutcome> {
+    let repo = ctx.repo.get()?;
+    let Some(workdir) = repo.workdir() else {
+        return Ok(UnityAutofixOutcome {
+            force_text_updated: false,
+            unity_yaml_merge_driver_removed: false,
+            locally_ignored_paths_added: 0,
+            remaining_headsup: None,
+        });
+    };
+    if !looks_like_unity_project(workdir) {
+        return Ok(UnityAutofixOutcome {
+            force_text_updated: false,
+            unity_yaml_merge_driver_removed: false,
+            locally_ignored_paths_added: 0,
+            remaining_headsup: None,
+        });
+    }
+
+    let force_text_updated = set_unity_asset_serialization_to_force_text(workdir)?;
+    let unity_yaml_merge_driver_removed = remove_unityyamlmerge_driver(&repo)?;
+    let filter_paths = worktree_filter_paths(&repo)?;
+    let filter_paths = filter_paths.iter().map(Path::new).collect::<Vec<&Path>>();
+    let locally_ignored_paths_added =
+        local_ignores::set_local_ignored_paths(&repo, filter_paths, true)?;
+
+    Ok(UnityAutofixOutcome {
+        force_text_updated,
+        unity_yaml_merge_driver_removed,
+        locally_ignored_paths_added,
+        remaining_headsup: join_headsup_messages([
+            project_activation_headsup(&repo)?,
+            project_filter_headsup(&repo)?,
+        ]),
+    })
+}
+
 /// Return activation-time warnings for repositories that need additional operator awareness.
 ///
 /// Today this focuses on Unity repositories because they have well-known data-loss traps around
@@ -163,6 +224,45 @@ pub fn prepare_project_for_activation(ctx: &mut Context) -> Result<()> {
 pub fn project_activation_headsup(repo: &gix::Repository) -> Result<Option<String>> {
     let unityyamlmerge_path = std::env::var_os("GITBUTLER_UNITYYAMLMERGE_PATH").map(PathBuf::from);
     project_activation_headsup_with_unityyamlmerge_path(repo, unityyamlmerge_path.as_deref())
+}
+
+/// Return activation-time warnings for worktree filters that GitButler workspace operations won't apply.
+pub fn project_filter_headsup(repo: &gix::Repository) -> anyhow::Result<Option<String>> {
+    let locally_ignored_paths = local_ignores::list_local_ignored_paths(repo)?;
+    let (all_filters, files_with_filter) = worktree_filter_paths_and_filters(repo)?;
+    let files_with_filter = files_with_filter
+        .into_iter()
+        .filter(|path| !path_is_locally_ignored(path, &locally_ignored_paths))
+        .collect::<Vec<_>>();
+
+    if all_filters.is_empty() || files_with_filter.is_empty() {
+        return Ok(None);
+    }
+
+    let has_lfs = all_filters.contains("lfs");
+    let mut msg = format!(
+        "Worktree filter(s) detected: {comma_separated}\n\
+Filters will silently not be applied during workspace operations to the files listed below.\n\
+Ensure these aren't touched by GitButler or avoid using it in this repository.",
+        comma_separated = Vec::from_iter(all_filters).join(", ")
+    );
+    if has_lfs {
+        msg.push_str(
+            r#"
+
+`git lfs pull --include="*"` can be used to restore git-lfs files after GitButler touched them."#,
+        );
+    }
+    let max_files = 10;
+    msg.push_str("\n\n");
+    msg.push_str(&files_with_filter[..files_with_filter.len().min(max_files)].join("\n"));
+    if files_with_filter.len() > max_files {
+        msg.push_str(&format!(
+            "\n[and {} more]",
+            files_with_filter.len() - max_files
+        ));
+    }
+    Ok(Some(msg))
 }
 
 fn project_activation_headsup_with_unityyamlmerge_path(
@@ -176,6 +276,7 @@ fn project_activation_headsup_with_unityyamlmerge_path(
         return Ok(None);
     }
 
+    let locally_ignored_paths = local_ignores::list_local_ignored_paths(repo)?;
     let mut notices = Vec::new();
     let mut warnings = Vec::new();
 
@@ -183,7 +284,7 @@ fn project_activation_headsup_with_unityyamlmerge_path(
         ensure_unityyamlmerge_is_configured(repo, workdir, unityyamlmerge_path)?;
     if let Some(path) = &auto_configured_unityyamlmerge_path {
         notices.push(format!(
-            "Configured UnityYAMLMerge in local Git config using `{}`.",
+            "Configured UnityYAMLMerge mergetool in local Git config using `{}`.",
             path.display()
         ));
     }
@@ -203,34 +304,48 @@ fn project_activation_headsup_with_unityyamlmerge_path(
     if let Some(gitattributes) = read_optional_text_file(&gitattributes_path)? {
         if auto_configured_unityyamlmerge_path.is_none()
             && gitattributes.contains("merge=unityyamlmerge")
-            && !unityyamlmerge_is_configured(repo)
+            && !unityyamlmerge_mergetool_is_configured(repo)
         {
             warnings.push(
-                "`.gitattributes` expects `unityyamlmerge`, but this machine does not have a \
-                 Git config entry for `merge.unityyamlmerge.driver` or \
-                 `mergetool.unityyamlmerge.cmd`."
+                "`.gitattributes` references `merge=unityyamlmerge`, but this machine does not \
+                 have a Git config entry for `mergetool.unityyamlmerge.cmd`. GitButler only \
+                 configures UnityYAMLMerge as an explicit mergetool, not as a low-level merge \
+                 driver, because Git merge-driver temp files can make UnityYAMLMerge fail."
+                    .to_owned(),
+            );
+        }
+
+        if unityyamlmerge_merge_driver_is_configured(repo) {
+            warnings.push(
+                "`merge.unityyamlmerge.driver` is configured locally. This can make \
+                 UnityYAMLMerge fail on Git temporary files with messages like \
+                 \"Couldn't locate merge tool to handle extension merge_file_*\". Use the \
+                 UnityYAMLMerge mergetool instead."
                     .to_owned(),
             );
         }
 
         let lfs_managed_unity_paths = lfs_managed_unity_paths(&gitattributes);
         if !lfs_managed_unity_paths.is_empty() {
-            let protected_scenes = protected_scene_paths(workdir, &gitattributes)?;
-            let examples = if protected_scenes.is_empty() {
-                String::new()
-            } else {
-                format!(" Examples: {}.", protected_scenes.join(", "))
-            };
-            warnings.push(format!(
-                "Unity scene or asset paths are managed by Git LFS ({patterns}). GitButler \
-                 workspace operations do not apply worktree filters, so these paths should be \
-                 treated as externally managed.{examples}",
-                patterns = lfs_managed_unity_paths.join(", "),
-                examples = examples
-            ));
+            let protected_scenes = protected_scene_paths(workdir, &gitattributes)?
+                .into_iter()
+                .filter(|path| !path_is_locally_ignored(path, &locally_ignored_paths))
+                .collect::<Vec<_>>();
+            if !protected_scenes.is_empty() {
+                warnings.push(format!(
+                    "Unity scene or asset paths are managed by Git LFS ({patterns}). GitButler \
+                     workspace operations do not apply worktree filters, so these paths should be \
+                     treated as externally managed. Examples: {examples}.",
+                    patterns = lfs_managed_unity_paths.join(", "),
+                    examples = protected_scenes.join(", ")
+                ));
+            }
         }
 
-        let unmanaged_lighting_data = unmanaged_lighting_data_assets(workdir, &gitattributes)?;
+        let unmanaged_lighting_data = unmanaged_lighting_data_assets(workdir, &gitattributes)?
+            .into_iter()
+            .filter(|path| !path_is_locally_ignored(path, &locally_ignored_paths))
+            .collect::<Vec<_>>();
         if !unmanaged_lighting_data.is_empty() {
             warnings.push(format!(
                 "`LightingData.asset` should stay binary or externally managed. Found: {}.",
@@ -238,7 +353,10 @@ fn project_activation_headsup_with_unityyamlmerge_path(
             ));
         }
     } else {
-        let unmanaged_lighting_data = unmanaged_lighting_data_assets(workdir, "")?;
+        let unmanaged_lighting_data = unmanaged_lighting_data_assets(workdir, "")?
+            .into_iter()
+            .filter(|path| !path_is_locally_ignored(path, &locally_ignored_paths))
+            .collect::<Vec<_>>();
         if !unmanaged_lighting_data.is_empty() {
             warnings.push(format!(
                 "`LightingData.asset` should stay binary or externally managed. Found: {}.",
@@ -313,6 +431,92 @@ fn read_optional_text_file(path: &Path) -> Result<Option<String>> {
     }
 }
 
+fn set_unity_asset_serialization_to_force_text(workdir: &Path) -> Result<bool> {
+    let editor_settings_path = workdir.join("ProjectSettings").join("EditorSettings.asset");
+    let contents = match read_optional_text_file(&editor_settings_path)? {
+        Some(contents) => contents,
+        None => return Ok(false),
+    };
+    if contents.contains("m_SerializationMode: 2") {
+        return Ok(false);
+    }
+
+    let mut changed = false;
+    let mut updated = String::with_capacity(contents.len());
+    for line in contents.split_inclusive('\n') {
+        let (line_without_newline, newline) = line
+            .strip_suffix('\n')
+            .map(|line| (line, "\n"))
+            .unwrap_or((line, ""));
+        let (line_without_newline, carriage_return) = line_without_newline
+            .strip_suffix('\r')
+            .map(|line| (line, "\r"))
+            .unwrap_or((line_without_newline, ""));
+        let trimmed = line_without_newline.trim_start();
+        if trimmed.starts_with("m_SerializationMode:") {
+            let indent_len = line_without_newline.len() - trimmed.len();
+            updated.push_str(&line_without_newline[..indent_len]);
+            updated.push_str("m_SerializationMode: 2");
+            updated.push_str(carriage_return);
+            changed = true;
+        } else {
+            updated.push_str(line_without_newline);
+            updated.push_str(carriage_return);
+        }
+        updated.push_str(newline);
+    }
+
+    if changed {
+        std::fs::write(editor_settings_path, updated)?;
+    }
+    Ok(changed)
+}
+
+fn worktree_filter_paths(repo: &gix::Repository) -> anyhow::Result<Vec<String>> {
+    let (_filters, paths) = worktree_filter_paths_and_filters(repo)?;
+    Ok(paths)
+}
+
+fn worktree_filter_paths_and_filters(
+    repo: &gix::Repository,
+) -> anyhow::Result<(BTreeSet<String>, Vec<String>)> {
+    let index = repo.index_or_empty()?;
+    let mut cache = repo.attributes_only(
+        &index,
+        gix::worktree::stack::state::attributes::Source::WorktreeThenIdMapping,
+    )?;
+    let mut attrs = cache.selected_attribute_matches(Some("filter"));
+    let mut all_filters = BTreeSet::<String>::new();
+    let mut files_with_filter = Vec::new();
+    for entry in index.entries() {
+        let cache_entry = cache.at_entry(entry.path(&index), None)?;
+        if cache_entry.matching_attributes(&mut attrs) {
+            let mut added = false;
+            all_filters.extend(attrs.iter().filter_map(|attr| {
+                attr.assignment.state.as_bstr().map(|s| {
+                    if !added {
+                        files_with_filter.push(entry.path(&index).to_str_lossy().to_string());
+                        added = true;
+                    }
+                    s.to_string()
+                })
+            }));
+        }
+    }
+    Ok((all_filters, files_with_filter))
+}
+
+fn path_is_locally_ignored(path: &str, ignored_paths: &[String]) -> bool {
+    ignored_paths
+        .iter()
+        .any(|ignored_path| path == ignored_path || path.starts_with(&format!("{ignored_path}/")))
+}
+
+fn join_headsup_messages<const N: usize>(messages: [Option<String>; N]) -> Option<String> {
+    let messages: Vec<_> = messages.into_iter().flatten().collect();
+    (!messages.is_empty()).then(|| messages.join("\n\n"))
+}
+
 fn ensure_unityyamlmerge_is_configured(
     repo: &gix::Repository,
     workdir: &Path,
@@ -329,10 +533,14 @@ fn ensure_unityyamlmerge_is_configured(
     Ok(Some(unityyamlmerge_path))
 }
 
-fn unityyamlmerge_is_configured(repo: &gix::Repository) -> bool {
+fn unityyamlmerge_mergetool_is_configured(repo: &gix::Repository) -> bool {
+    let config = repo.config_snapshot();
+    config.string("mergetool.unityyamlmerge.cmd").is_some()
+}
+
+fn unityyamlmerge_merge_driver_is_configured(repo: &gix::Repository) -> bool {
     let config = repo.config_snapshot();
     config.string("merge.unityyamlmerge.driver").is_some()
-        || config.string("mergetool.unityyamlmerge.cmd").is_some()
 }
 
 fn unityyamlmerge_is_fully_configured(repo: &gix::Repository) -> bool {
@@ -340,8 +548,8 @@ fn unityyamlmerge_is_fully_configured(repo: &gix::Repository) -> bool {
     matches!(
         config.string("merge.tool").map(|value| value.to_string()),
         Some(value) if value == "unityyamlmerge"
-    ) && config.string("merge.unityyamlmerge.driver").is_some()
-        && config.string("mergetool.unityyamlmerge.cmd").is_some()
+    ) && config.string("mergetool.unityyamlmerge.cmd").is_some()
+        && config.string("merge.unityyamlmerge.driver").is_none()
 }
 
 fn find_unityyamlmerge_path(workdir: &Path, explicit_tool_path: Option<&Path>) -> Option<PathBuf> {
@@ -433,19 +641,27 @@ fn unity_editor_version(workdir: &Path) -> Option<String> {
 
 fn configure_unityyamlmerge(repo: &gix::Repository, unityyamlmerge_path: &Path) -> Result<()> {
     let path = shell_quoted_path(unityyamlmerge_path);
-    let merge_driver = format!(r#"{path} merge -p "%O" "%A" "%B" "%A""#);
     let mergetool_cmd = format!(r#"{path} merge -p "$BASE" "$REMOTE" "$LOCAL" "$MERGED""#);
 
     _ = edit_repo_config(repo, gix::config::Source::Local, |config| {
         set_config_value(config, "merge.tool", "unityyamlmerge")?;
-        set_config_value(config, "merge.unityyamlmerge.name", "Unity SmartMerge")?;
-        set_config_value(config, "merge.unityyamlmerge.driver", &merge_driver)?;
-        set_config_value(config, "merge.unityyamlmerge.recursive", "binary")?;
+        remove_config_value(config, "merge.unityyamlmerge.name")?;
+        remove_config_value(config, "merge.unityyamlmerge.driver")?;
+        remove_config_value(config, "merge.unityyamlmerge.recursive")?;
         set_config_value(config, "mergetool.unityyamlmerge.trustExitCode", "false")?;
         set_config_value(config, "mergetool.unityyamlmerge.cmd", &mergetool_cmd)?;
         Ok(())
     })?;
     Ok(())
+}
+
+fn remove_unityyamlmerge_driver(repo: &gix::Repository) -> Result<bool> {
+    edit_repo_config(repo, gix::config::Source::Local, |config| {
+        remove_config_value(config, "merge.unityyamlmerge.name")?;
+        remove_config_value(config, "merge.unityyamlmerge.driver")?;
+        remove_config_value(config, "merge.unityyamlmerge.recursive")?;
+        Ok(())
+    })
 }
 
 fn shell_quoted_path(path: &Path) -> String {
@@ -743,6 +959,86 @@ UserSettings/
     }
 
     #[test]
+    fn unity_autofix_sets_force_text_serialization() -> Result<()> {
+        let (repo, _tmp) = unity_repo(
+            r#"%YAML 1.1
+EditorSettings:
+  m_SerializationMode: 1
+"#,
+            Some(
+                r#"Library/
+Temp/
+Logs/
+UserSettings/
+"#,
+            ),
+            None,
+            &[],
+        )?;
+
+        let workdir = repo.workdir().expect("test repo has worktree");
+        assert!(set_unity_asset_serialization_to_force_text(workdir)?);
+        let editor_settings =
+            std::fs::read_to_string(workdir.join("ProjectSettings").join("EditorSettings.asset"))?;
+        assert!(
+            editor_settings.contains("m_SerializationMode: 2"),
+            "autofix should switch Unity serialization to Force Text"
+        );
+        assert_eq!(
+            project_activation_headsup(&repo)?,
+            None,
+            "Force Text warning should be gone after the safe autofix"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn unity_autofix_removes_low_level_unityyamlmerge_driver() -> Result<()> {
+        let (mut repo, _tmp) = unity_repo(
+            r#"%YAML 1.1
+EditorSettings:
+  m_SerializationMode: 2
+"#,
+            Some(
+                r#"Library/
+Temp/
+Logs/
+UserSettings/
+"#,
+            ),
+            Some("*.prefab -text merge=unityyamlmerge diff\n"),
+            &[],
+        )?;
+        _ = edit_repo_config(&repo, gix::config::Source::Local, |config| {
+            set_config_value(config, "merge.unityyamlmerge.name", "Unity SmartMerge")?;
+            set_config_value(
+                config,
+                "merge.unityyamlmerge.driver",
+                "UnityYAMLMerge merge -p %O %A %B %A",
+            )?;
+            set_config_value(config, "merge.unityyamlmerge.recursive", "binary")?;
+            Ok(())
+        })?;
+
+        assert!(
+            remove_unityyamlmerge_driver(&repo)?,
+            "autofix should report removing unsafe low-level UnityYAMLMerge config"
+        );
+
+        repo.reload()?;
+        let config = repo.config_snapshot();
+        assert!(
+            config.string("merge.unityyamlmerge.driver").is_none(),
+            "autofix must remove the low-level merge driver that receives Git temp file paths"
+        );
+        assert!(
+            config.string("merge.unityyamlmerge.recursive").is_none(),
+            "autofix should remove the old driver companion config"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn project_activation_headsup_warns_when_unityyamlmerge_is_not_configured_locally() -> Result<()>
     {
         let (repo, _tmp) = unity_repo(
@@ -767,9 +1063,8 @@ UserSettings/
             "must mention the missing UnityYAMLMerge setup: {headsup}"
         );
         assert!(
-            headsup.contains("merge.unityyamlmerge.driver")
-                || headsup.contains("mergetool.unityyamlmerge.cmd"),
-            "must point at the Git config keys that need local setup: {headsup}"
+            headsup.contains("mergetool.unityyamlmerge.cmd"),
+            "must point at the Git mergetool config key that needs local setup: {headsup}"
         );
         Ok(())
     }
@@ -795,6 +1090,15 @@ UserSettings/
         let tool_dir = tempfile::tempdir()?;
         let tool_path = tool_dir.path().join("UnityYAMLMerge.exe");
         std::fs::write(&tool_path, "stub")?;
+        _ = edit_repo_config(&repo, gix::config::Source::Local, |config| {
+            set_config_value(
+                config,
+                "merge.unityyamlmerge.driver",
+                "UnityYAMLMerge merge -p %O %A %B %A",
+            )?;
+            set_config_value(config, "merge.unityyamlmerge.recursive", "binary")?;
+            Ok(())
+        })?;
 
         let headsup = project_activation_headsup_with_unityyamlmerge_path(&repo, Some(&tool_path))?
             .expect("a setup notice");
@@ -814,8 +1118,8 @@ UserSettings/
             config
                 .string("merge.unityyamlmerge.driver")
                 .map(|value| value.to_string())
-                .is_some_and(|value| value.contains("UnityYAMLMerge.exe")),
-            "must configure the merge driver in local git config"
+                .is_none(),
+            "must not configure the low-level merge driver because Git temp files can make UnityYAMLMerge fail"
         );
         assert!(
             config

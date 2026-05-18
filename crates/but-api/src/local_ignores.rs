@@ -57,6 +57,41 @@ pub(crate) fn set_local_ignored_path(
     Ok(true)
 }
 
+/// Add or remove multiple repo-relative paths from the repo-local GitButler ignore list.
+pub(crate) fn set_local_ignored_paths<'a>(
+    repo: &gix::Repository,
+    relative_paths: impl IntoIterator<Item = &'a Path>,
+    ignored: bool,
+) -> Result<usize> {
+    let normalized_paths = relative_paths
+        .into_iter()
+        .map(normalize_local_ignore_path)
+        .collect::<Result<Vec<_>>>()?;
+    let mut paths: BTreeSet<_> = list_local_ignored_paths(repo)?.into_iter().collect();
+
+    let mut changed = 0;
+    for normalized_path in normalized_paths {
+        let path_changed = if ignored {
+            paths.insert(normalized_path)
+        } else {
+            paths.remove(&normalized_path)
+        };
+        changed += usize::from(path_changed);
+    }
+    if changed == 0 {
+        return Ok(0);
+    }
+
+    edit_repo_config(repo, gix::config::Source::Local, |config| {
+        remove_all_local_ignored_paths(config)?;
+        for path in &paths {
+            ensure_config_value(config, LOCAL_IGNORED_PATH_KEY, path)?;
+        }
+        Ok(())
+    })?;
+    Ok(changed)
+}
+
 /// Remove locally ignored paths from visible worktree changes.
 pub(crate) fn filter_locally_ignored_worktree_changes(
     mut changes: but_core::WorktreeChanges,

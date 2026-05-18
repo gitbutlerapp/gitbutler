@@ -9,6 +9,13 @@ export type ProjectInfo = {
 	headsup?: string;
 };
 
+export type UnityAutofixOutcome = {
+	forceTextUpdated: boolean;
+	unityYamlMergeDriverRemoved: boolean;
+	locallyIgnoredPathsAdded: number;
+	remainingHeadsup?: string;
+};
+
 export type ServerCapabilities = {
 	isRemote: boolean;
 	canAddProjects: boolean;
@@ -56,6 +63,14 @@ export function buildProjectEndpoints(build: BackendEndpointBuilder) {
 			extraOptions: { command: "update_project" },
 			query: (args) => args,
 			invalidatesTags: (_result, _error, args) => providesItem(ReduxTag.Project, args.project.id),
+		}),
+		autofixUnityProject: build.mutation<UnityAutofixOutcome, { projectId: string }>({
+			extraOptions: { command: "autofix_unity_project" },
+			query: (args) => args,
+			invalidatesTags: [
+				invalidatesList(ReduxTag.WorktreeChanges),
+				invalidatesList(ReduxTag.LocalIgnoredPaths),
+			],
 		}),
 		openProjectInWindow: build.mutation<void, { id: string }>({
 			extraOptions: { command: "open_project_in_window" },

@@ -9,7 +9,7 @@ import { persisted } from "@gitbutler/shared/persisted";
 import { chipToasts } from "@gitbutler/ui";
 import { get } from "svelte/store";
 import type { IBackend } from "$lib/backend";
-import type { ProjectInfo } from "$lib/project/projectEndpoints";
+import type { ProjectInfo, UnityAutofixOutcome } from "$lib/project/projectEndpoints";
 import type { BackendApi } from "$lib/state/backendApi";
 import type { ForgeUser } from "@gitbutler/but-sdk";
 
@@ -55,6 +55,10 @@ export class ProjectsService {
 
 	async updateProject(project: Project & { unset_bool?: boolean; unset_forge_override?: boolean }) {
 		await this.backendApi.endpoints.updateProject.mutate({ project });
+	}
+
+	async autofixUnityProject(projectId: string): Promise<UnityAutofixOutcome> {
+		return await this.backendApi.endpoints.autofixUnityProject.mutate({ projectId });
 	}
 
 	async updatePreferredForgeUser(projectId: string, preferredForgeUser: ForgeUser | null) {

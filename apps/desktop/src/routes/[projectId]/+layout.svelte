@@ -346,6 +346,67 @@
 		if (intervalId) clearInterval(intervalId);
 	}
 
+	function isUnityHeadsup(headsup: string) {
+		return (
+			headsup.includes("Unity repository checks:") ||
+			headsup.includes("Worktree filter(s) detected:")
+		);
+	}
+
+	function unityAutofixMessage(outcome: {
+		forceTextUpdated: boolean;
+		unityYamlMergeDriverRemoved: boolean;
+		locallyIgnoredPathsAdded: number;
+		remainingHeadsup?: string;
+	}) {
+		const fixes = [];
+		if (outcome.forceTextUpdated) {
+			fixes.push("Set Unity asset serialization to Force Text.");
+		}
+		if (outcome.unityYamlMergeDriverRemoved) {
+			fixes.push(
+				"Removed the local UnityYAMLMerge merge driver; use git mergetool for Unity conflicts.",
+			);
+		}
+		if (outcome.locallyIgnoredPathsAdded > 0) {
+			fixes.push(
+				`Added ${outcome.locallyIgnoredPathsAdded} filter-managed path${outcome.locallyIgnoredPathsAdded === 1 ? "" : "s"} to GitButler's local ignore list.`,
+			);
+		}
+		if (fixes.length === 0) {
+			fixes.push("No safe automatic changes were needed.");
+		}
+		if (outcome.remainingHeadsup) {
+			fixes.push("Some checks still need manual action.");
+		}
+		return fixes.join("\n");
+	}
+
+	async function autofixUnityProject(dismiss: () => void, dontShowAgainKey: string) {
+		try {
+			const outcome = await projectsService.autofixUnityProject(projectId);
+			dismiss();
+			clientState.dispatch(
+				clientState.backendApi.util.invalidateTags([
+					invalidatesList(ReduxTag.WorktreeChanges),
+					invalidatesList(ReduxTag.LocalIgnoredPaths),
+				]),
+			);
+			showInfo("Unity autofix applied", unityAutofixMessage(outcome));
+			if (outcome.remainingHeadsup && localStorage.getItem(dontShowAgainKey) !== "1") {
+				showWarning("Remaining Unity checks", outcome.remainingHeadsup, {
+					label: "Don't show again",
+					onClick: (dismiss) => {
+						localStorage.setItem(dontShowAgainKey, "1");
+						dismiss();
+					},
+				});
+			}
+		} catch (error: unknown) {
+			showError("Failed to autofix Unity project", error);
+		}
+	}
+
 	// =============================================================================
 	// PROJECT LIFECYCLE & NAVIGATION
 	// =============================================================================
@@ -381,10 +442,14 @@
 
 			if (info.headsup && localStorage.getItem(dontShowAgainKey) !== "1") {
 				showWarning("Important PSA", info.headsup, {
-					label: "Don't show again",
+					label: isUnityHeadsup(info.headsup) ? "Autofix safe checks" : "Don't show again",
 					onClick: (dismiss) => {
-						localStorage.setItem(dontShowAgainKey, "1");
-						dismiss();
+						if (isUnityHeadsup(info.headsup!)) {
+							void autofixUnityProject(dismiss, dontShowAgainKey);
+						} else {
+							localStorage.setItem(dontShowAgainKey, "1");
+							dismiss();
+						}
 					},
 				});
 			}

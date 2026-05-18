@@ -4,6 +4,8 @@ use but_core::{RepositoryExt, UnifiedPatch, ref_metadata::StackId, unified_diff:
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
+const MAX_EAGER_DEPENDENCY_CHANGES: usize = 500;
+
 /// Compute the hunk dependencies of a set of tree changes.
 #[instrument(skip_all, err(Debug), fields(worktree_changes = changes.len()))]
 fn hunk_dependencies_for_changes(
@@ -12,6 +14,14 @@ fn hunk_dependencies_for_changes(
     changes: Vec<but_core::TreeChange>,
 ) -> anyhow::Result<HunkDependencies> {
     if changes.is_empty() {
+        return Ok(HunkDependencies::default());
+    }
+    if changes.len() > MAX_EAGER_DEPENDENCY_CHANGES {
+        tracing::warn!(
+            changes = changes.len(),
+            max_changes = MAX_EAGER_DEPENDENCY_CHANGES,
+            "Skipping eager hunk dependency calculation for a large worktree scan"
+        );
         return Ok(HunkDependencies::default());
     }
 

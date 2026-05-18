@@ -25,6 +25,8 @@ use serde::{Deserialize, Serialize};
 use tracing::instrument;
 use uuid::Uuid;
 
+const MAX_EAGER_HUNK_PATCHES: usize = 500;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
@@ -482,12 +484,20 @@ fn reconcile_worktree_changes_with_worktree(
     if worktree_changes.is_empty() {
         return Ok(vec![]);
     }
+    let skip_eager_hunks = worktree_changes.len() > MAX_EAGER_HUNK_PATCHES;
+    if skip_eager_hunks {
+        tracing::warn!(
+            changes = worktree_changes.len(),
+            max_changes = MAX_EAGER_HUNK_PATCHES,
+            "Using whole-file hunk assignments for a large worktree scan"
+        );
+    }
     let mut worktree_assignments = vec![];
     for change in &worktree_changes {
-        let diff = change.unified_patch(repo, context_lines);
+        let diff = (!skip_eager_hunks).then(|| change.unified_patch(repo, context_lines));
         worktree_assignments.extend(HunkAssignment::from_tree_change(
             change,
-            diff.ok().flatten(),
+            diff.and_then(|diff| diff.ok().flatten()),
         ));
     }
     let mut reconciled = reconcile_with_worktree(db.to_ref(), workspace, &worktree_assignments)?;

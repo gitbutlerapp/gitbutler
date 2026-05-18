@@ -336,6 +336,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::projects::tauri_add_project_best_effort::add_project_best_effort,
                 legacy::projects::tauri_get_project::get_project,
                 legacy::projects::tauri_update_project::update_project,
+                legacy::projects::tauri_autofix_unity_project::autofix_unity_project,
                 legacy::projects::tauri_delete_project::delete_project,
                 legacy::projects::tauri_is_gerrit::is_gerrit,
                 legacy::repo::tauri_check_signing_settings::check_signing_settings,
