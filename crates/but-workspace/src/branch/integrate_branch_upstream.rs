@@ -806,6 +806,7 @@ pub fn get_initial_integration_steps_for_branch(
     }
 
     for upstream_commit in remote_only_commits {
+        divergence_upstream_only.push(divergence_commit(repo, upstream_commit)?);
         initial_steps.push(InteractiveIntegrationStep::PickUpstream {
             commit_id: upstream_commit,
         });
@@ -813,18 +814,53 @@ pub fn get_initial_integration_steps_for_branch(
 
     initial_steps.reverse();
 
-    Ok(InteractiveIntegration {
+    let integration = InteractiveIntegration {
         steps: initial_steps,
         merge_base,
+    };
+    let mut divergence = IntegrationDivergenceDisplay {
+        branch_ref_name: ref_name.to_owned(),
+        upstream_ref_name: upstream_ref_name.into_owned(),
+        local_only: divergence_local_only,
+        upstream_only: divergence_upstream_only,
+        matched: divergence_matched,
+        merge_base: divergence_commit(repo, merge_base)?,
+    };
+    let local_tip = divergence
+        .local_only
+        .first()
+        .map(|commit| commit.id)
+        .or_else(|| divergence.matched.first().map(|commit| commit.id));
+    let upstream_tip = divergence
+        .upstream_only
+        .first()
+        .map(|commit| commit.id)
+        .or_else(|| divergence.matched.first().map(|commit| commit.id));
+    add_ref_label(
+        &mut divergence.local_only,
+        &mut divergence.matched,
+        local_tip,
+        divergence.branch_ref_name.shorten().to_string(),
+    );
+    add_ref_label(
+        &mut divergence.upstream_only,
+        &mut divergence.matched,
+        upstream_tip,
+        divergence.upstream_ref_name.shorten().to_string(),
+    );
+
+    Ok(InitialBranchIntegration {
+        integration,
+        divergence,
     })
 }
 
 /// Computes local and upstream commit lists (tip to merge-base, first-parent) together
 /// with their merge base for a branch and its tracking branch.
-fn get_commits_until_merge_base(
-    ref_name: &gix::refs::FullNameRef,
-    repo: &gix::Repository,
-) -> Result<(Vec<gix::ObjectId>, Vec<gix::ObjectId>, gix::ObjectId), anyhow::Error> {
+fn get_commits_until_merge_base<'a>(
+    ref_name: &'a gix::refs::FullNameRef,
+    repo: &'a gix::Repository,
+) -> Result<BranchMergeBaseCommits<'a>, anyhow::Error> {
     let (local_tip, upstream_ref_name, upstream_tip) =
         get_branch_tips_and_upstream(ref_name, repo)?;
     let cache = repo.commit_graph_if_enabled()?;
@@ -839,7 +875,12 @@ fn get_commits_until_merge_base(
         })?;
     let local_commits = branch_commits_until(repo, local_tip, merge_base)?;
     let upstream_commits = branch_commits_until(repo, upstream_tip, merge_base)?;
-    Ok((local_commits, upstream_commits, merge_base))
+    Ok(BranchMergeBaseCommits {
+        local_commits,
+        upstream_commits,
+        merge_base,
+        upstream_ref_name,
+    })
 }
 
 /// Resolves local/upstream branch tips and tracking reference name for `ref_name`.
@@ -945,6 +986,59 @@ fn effective_change_id(repo: &gix::Repository, commit_id: gix::ObjectId) -> Resu
         .to_string())
 }
 
+fn divergence_commit(
+    repo: &gix::Repository,
+    commit_id: gix::ObjectId,
+) -> Result<IntegrationDivergenceCommit> {
+    Ok(IntegrationDivergenceCommit {
+        id: commit_id,
+        subject: but_core::Commit::from_id(commit_id.attach(repo))?
+            .message
+            .lines()
+            .next()
+            .unwrap_or_default()
+            .to_str_lossy()
+            .into_owned(),
+        refs: Vec::new(),
+    })
+}
+
+fn add_ref_label(
+    primary: &mut [IntegrationDivergenceCommit],
+    secondary: &mut [IntegrationDivergenceCommit],
+    id: Option<gix::ObjectId>,
+    label: String,
+) {
+    let Some(id) = id else {
+        return;
+    };
+    if let Some(commit) = primary.iter_mut().find(|commit| commit.id == id) {
+        if !commit.refs.contains(&label) {
+            commit.refs.push(label);
+        }
+        return;
+    }
+    if let Some(commit) = secondary.iter_mut().find(|commit| commit.id == id)
+        && !commit.refs.contains(&label)
+    {
+        commit.refs.push(label);
+    }
+}
+
+fn graph_commit_string(prefix: &str, commit: &IntegrationDivergenceCommit) -> String {
+    let refs = if commit.refs.is_empty() {
+        String::new()
+    } else {
+        format!(" ({})", commit.refs.join(", "))
+    };
+    format!(
+        "{prefix}{}{} {}",
+        commit.id.to_hex_with_len(7),
+        refs,
+        commit.subject
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1042,6 +1136,50 @@ mod tests {
         assert!(
             err.to_string().contains("invalid squash message"),
             "invalid squash message should produce a targeted error"
+        );
+    }
+
+    #[test]
+    fn divergence_display_renders_git_style_graph() {
+        let display = IntegrationDivergenceDisplay {
+            branch_ref_name: gix::refs::Category::LocalBranch
+                .to_full_name("feature")
+                .expect("valid local branch"),
+            upstream_ref_name: gix::refs::Category::RemoteBranch
+                .to_full_name("origin/feature")
+                .expect("valid remote branch"),
+            local_only: vec![IntegrationDivergenceCommit {
+                id: oid("1111111111111111111111111111111111111111"),
+                subject: "local tip".into(),
+                refs: vec!["feature".into()],
+            }],
+            upstream_only: vec![IntegrationDivergenceCommit {
+                id: oid("2222222222222222222222222222222222222222"),
+                subject: "remote tip".into(),
+                refs: vec!["origin/feature".into()],
+            }],
+            matched: vec![IntegrationDivergenceCommit {
+                id: oid("3333333333333333333333333333333333333333"),
+                subject: "shared".into(),
+                refs: Vec::new(),
+            }],
+            merge_base: IntegrationDivergenceCommit {
+                id: oid("4444444444444444444444444444444444444444"),
+                subject: "base".into(),
+                refs: Vec::new(),
+            },
+        };
+
+        insta::assert_snapshot!(
+            display.to_string(),
+            "graph output should stay stable because the CLI and frontend consume it directly",
+            @r"
+        * 1111111 (feature) local tip
+        | * 2222222 (origin/feature) remote tip
+        |/
+        * 3333333 shared
+        * 4444444 base
+        "
         );
     }
 }

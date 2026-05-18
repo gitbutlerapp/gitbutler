@@ -169,11 +169,11 @@ fn partitions_diverged_branch_into_application_order() -> Result<()> {
     let merge_base = repo.rev_parse_single("A~1")?.detach();
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let integration = get_initial_integration_steps_for_branch(r("refs/heads/A"), &repo)?;
+    let initial = get_initial_integration_steps_for_branch(r("refs/heads/A"), &repo)?;
 
     insta::assert_snapshot!(
         labeled_integration_snapshot(
-            &integration,
+            &initial.integration,
             &[
                 (merge_base, "merge-base"),
                 (local_tip, "local-tip"),
@@ -187,7 +187,24 @@ fn partitions_diverged_branch_into_application_order() -> Result<()> {
     "
     );
 
-    let step_ids = pick_step_ids(&integration.steps);
+    insta::assert_snapshot!(
+        labeled_divergence_snapshot(
+            &initial,
+            &[
+                (merge_base, "merge-base"),
+                (local_tip, "local-tip"),
+                (upstream_tip, "upstream-tip"),
+            ]
+        ),
+        @"
+        * local-tip (A) local change in A
+        | * upstream-tip (origin/A) change in A
+        |/
+        * merge-base new file in A
+        "
+    );
+
+    let step_ids = pick_step_ids(&initial.integration.steps);
 
     assert_eq!(
         step_ids,
@@ -266,11 +283,11 @@ fn matches_rewritten_commit_by_change_id_and_keeps_order() -> Result<()> {
     let merge_base = repo.rev_parse_single("A~2")?.detach();
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let integration = get_initial_integration_steps_for_branch(r("refs/heads/A"), &repo)?;
+    let initial = get_initial_integration_steps_for_branch(r("refs/heads/A"), &repo)?;
 
     insta::assert_snapshot!(
         labeled_integration_snapshot(
-            &integration,
+            &initial.integration,
             &[
                 (merge_base, "merge-base"),
                 (local_only, "local-only"),
@@ -286,7 +303,26 @@ fn matches_rewritten_commit_by_change_id_and_keeps_order() -> Result<()> {
     "
     );
 
-    let step_ids = pick_step_ids(&integration.steps);
+    insta::assert_snapshot!(
+        labeled_divergence_snapshot(
+            &initial,
+            &[
+                (merge_base, "merge-base"),
+                (local_only, "local-only"),
+                (remote_only, "remote-only"),
+                (local_and_remote, "local-and-remote"),
+            ]
+        ),
+        @"
+        * local-only (A) A1
+        | * remote-only (origin/A) A1
+        |/
+        * local-and-remote A2
+        * merge-base init
+        "
+    );
+
+    let step_ids = pick_step_ids(&initial.integration.steps);
 
     assert_eq!(
         step_ids,
@@ -1348,11 +1384,11 @@ fn initial_steps_remote_diverged_with_workspace_are_in_application_order() -> Re
     let merge_base = repo.rev_parse_single("A~2")?.detach();
     configure_tracking_for_branch_a(&mut repo)?;
 
-    let integration = get_initial_integration_steps_for_branch(r("refs/heads/A"), &repo)?;
+    let initial = get_initial_integration_steps_for_branch(r("refs/heads/A"), &repo)?;
 
     insta::assert_snapshot!(
         labeled_integration_snapshot(
-            &integration,
+            &initial.integration,
             &[
                 (merge_base, "merge-base"),
                 (local_commit_2, "local-commit-2"),
@@ -1370,8 +1406,29 @@ fn initial_steps_remote_diverged_with_workspace_are_in_application_order() -> Re
     "
     );
 
+    insta::assert_snapshot!(
+        labeled_divergence_snapshot(
+            &initial,
+            &[
+                (merge_base, "merge-base"),
+                (local_commit_2, "local-commit-2"),
+                (local_commit_1, "local-commit-1"),
+                (remote_commit_2, "remote-commit-2"),
+                (remote_commit_1, "remote-commit-1"),
+            ]
+        ),
+        @"
+        * local-commit-2 (A) local change in A 2
+        * local-commit-1 local change in A 1
+        | * remote-commit-2 (origin/A) remote change in A 2
+        | * remote-commit-1 remote change in A 1
+        |/
+        * merge-base shared local/remote
+        "
+    );
+
     assert_eq!(
-        pick_step_ids(&integration.steps),
+        pick_step_ids(&initial.integration.steps),
         vec![
             remote_commit_1,
             remote_commit_2,
