@@ -160,7 +160,6 @@ export function initDependencies(args: {
 	const userService = new UserService(
 		clientState.backendApi,
 		backend,
-		httpClient,
 		tokenMemoryService,
 		posthog,
 		uiState,

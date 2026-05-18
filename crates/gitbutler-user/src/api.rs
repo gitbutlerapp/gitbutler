@@ -33,12 +33,13 @@ pub struct ApiHttpError {
 /// Returns the GitButler API base URL.
 ///
 /// Resolution order:
-/// 1. `GITBUTLER_API_URL` env var at runtime (e.g. `http://localhost:3000`)
-/// 2. Compile-time [`AppChannel`]:
+/// 1. `GITBUTLER_API_URL` env var at runtime (backend-specific escape hatch)
+/// 2. `PUBLIC_API_BASE_URL` env var at runtime (shared with the desktop frontend)
+/// 3. Compile-time [`AppChannel`]:
 ///    - `Release` / `Nightly` → `https://app.gitbutler.com`
 ///    - `Dev` → `https://app.staging.gitbutler.com`
 pub fn default_api_url() -> String {
-    if let Ok(url) = std::env::var("GITBUTLER_API_URL") {
+    if let Some(url) = api_url_override_from_env(|key| std::env::var(key).ok()) {
         return url;
     }
     match AppChannel::new() {
@@ -46,6 +47,16 @@ pub fn default_api_url() -> String {
         AppChannel::Dev => "https://app.staging.gitbutler.com",
     }
     .to_string()
+}
+
+fn normalize_api_url(url: String) -> String {
+    url.trim_end_matches('/').to_string()
+}
+
+fn api_url_override_from_env(mut get_var: impl FnMut(&str) -> Option<String>) -> Option<String> {
+    get_var("GITBUTLER_API_URL")
+        .or_else(|| get_var("PUBLIC_API_BASE_URL"))
+        .map(normalize_api_url)
 }
 
 /// Response from `POST /api/login/token.json`.
@@ -272,4 +283,30 @@ where
     })
     .join()
     .map_err(|e| anyhow::anyhow!("thread panicked: {e:?}"))?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::api_url_override_from_env;
+
+    #[test]
+    fn prefers_backend_specific_override() {
+        let url = api_url_override_from_env(|key| match key {
+            "GITBUTLER_API_URL" => Some("https://backend.example.com".to_string()),
+            "PUBLIC_API_BASE_URL" => Some("https://frontend.example.com".to_string()),
+            _ => None,
+        });
+
+        assert_eq!(url.as_deref(), Some("https://backend.example.com"));
+    }
+
+    #[test]
+    fn falls_back_to_shared_frontend_override() {
+        let url = api_url_override_from_env(|key| match key {
+            "PUBLIC_API_BASE_URL" => Some("https://frontend.example.com".to_string()),
+            _ => None,
+        });
+
+        assert_eq!(url.as_deref(), Some("https://frontend.example.com"));
+    }
 }

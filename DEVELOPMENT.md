@@ -512,6 +512,15 @@ By default, you will not be able to log into GitButler using Github/Google becau
 PUBLIC_API_BASE_URL=https://app.gitbutler.com/
 ```
 
+The desktop frontend and local backend both honor `PUBLIC_API_BASE_URL`. If you
+need a backend-only override while debugging, `GITBUTLER_API_URL` still takes
+precedence on the Rust side.
+
+When you start the desktop app with `pnpm dev:desktop`, the Tauri launcher now
+loads `apps/desktop/.env`, `.env.local`, `.env.development`, and
+`.env.development.local` into the Rust process as well, so the frontend and
+backend see the same local overrides by default.
+
 ---
 
 ## Joining the GitButler Team
