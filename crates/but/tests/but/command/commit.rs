@@ -208,6 +208,7 @@ Created new independent branch 'feature-x'
 Operations History
 ──────────────────────────────────────────────────
 [SHORTHASH] 2000-01-02 00:00:00 [COMMIT] Created commit
+[SHORTHASH] 2000-01-02 00:00:00 [BRANCH] Created branch
 
 "#]]);
     Ok(())

@@ -264,18 +264,34 @@ fn can_undo_rewording_branch() -> anyhow::Result<()> {
     Ok(())
 }
 
+// TODO: but branch delete <branch>
+
 #[test]
-fn can_undo_creating_a_branch() -> anyhow::Result<()> {
+fn can_undo_but_branch_new_at_base() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
     env.setup_metadata(&["A"])?;
 
     run_mutate_undo_roundtrip_test(&env, |env| {
-        env.but("reword")
-            .args(["A", "-m", "reworded-branch"])
+        env.but("branch").args(["new", "foo"]).assert().success();
+
+        Ok(())
+    })?;
+
+    Ok(())
+}
+
+#[test]
+fn can_undo_but_branch_in_stack() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("branch").args(["new", "foo"]).assert().success();
+
+    run_mutate_undo_roundtrip_test(&env, |env| {
+        env.but("branch")
+            .args(["new", "bar", "-a", "foo"])
             .assert()
-            .success()
-            .stdout_eq("Renamed branch 'A' to 'reworded-branch'\n")
-            .stderr_eq("");
+            .success();
 
         Ok(())
     })?;
