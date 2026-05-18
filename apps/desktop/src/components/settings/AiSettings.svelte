@@ -100,8 +100,8 @@
 		await tick();
 
 		initialized = true;
-		if (modelKind === ModelKind.ACP && !acpCommand) {
-			selectDefaultAcpAgent();
+		if (modelKind === ModelKind.ACP) {
+			repairAcpAgentSelection();
 		}
 	});
 
@@ -253,6 +253,21 @@
 			acpAgents.find((agent) => agent.source === "builtIn");
 		if (agent) {
 			selectAcpAgent(agent.id);
+		}
+	}
+
+	function repairAcpAgentSelection() {
+		if (acpAgentId) {
+			const agent = acpAgents.find(
+				(agent) => agent.id === acpAgentId && agent.availability !== "suggestion",
+			);
+			if (agent) {
+				selectAcpAgent(agent.id);
+				return;
+			}
+		}
+		if (!acpCommand) {
+			selectDefaultAcpAgent();
 		}
 	}
 </script>

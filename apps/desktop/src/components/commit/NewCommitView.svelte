@@ -9,6 +9,7 @@
 	import { createWorktreeSelection } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import type { EventProperties } from "$lib/state/customHooks.svelte";
 	import { UI_STATE, type NewCommitMessage, type RejectionReason } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { TestId } from "@gitbutler/ui";
@@ -33,12 +34,17 @@
 	const laneState = $derived(uiState.lane(stackId || "new-commit-view--new-stack"));
 
 	const [createCommitInStack, commitCreation] = stackService.createCommit();
+	const [createNewStack, newStackQuery] = stackService.newStack;
 	const [runMessageHook] = hooksService.message;
 
 	let isCooking = $state(false);
+	let commitStatus = $state<string | undefined>();
 
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const commitAction = $derived(exclusiveAction?.type === "commit" ? exclusiveAction : undefined);
+	const isLoading = $derived(
+		commitCreation.current.isLoading || newStackQuery.current.isLoading || isCooking,
+	);
 
 	const selectedLines = $derived(uncommittedService.selectedLines(stackId));
 	const topBranchQuery = $derived(stackId ? stackService.branches(projectId, stackId) : undefined);
@@ -50,6 +56,29 @@
 	let input = $state<ReturnType<typeof CommitMessageEditor>>();
 	const runCommitHooks = $derived(projectRunCommitHooks(projectId));
 
+	async function getCommitAnalyticsProperties(args: {
+		projectId: string;
+		stackId: string;
+		selectedBranchName: string;
+		message: string;
+		parentId?: string;
+		isRichTextMode?: boolean;
+	}): Promise<EventProperties> {
+		let timedOut = false;
+		const timeout = new Promise<EventProperties>((resolve) => {
+			setTimeout(() => {
+				timedOut = true;
+				resolve({});
+			}, 250);
+		});
+
+		const properties = await Promise.race([commitAnalytics.getCommitProperties(args), timeout]);
+		if (timedOut) {
+			console.warn("Commit analytics took too long; creating commit without analytics properties.");
+		}
+		return properties;
+	}
+
 	async function createCommit(message: string) {
 		if (isCooking) {
 			showToast({ message: "Commit is already in progress", style: "danger" });
@@ -57,6 +86,7 @@
 		}
 
 		isCooking = true;
+		commitStatus = "Preparing commit...";
 		await tick();
 		try {
 			let finalStackId = stackId;
@@ -89,6 +119,7 @@
 			// Run commit-msg hook if hooks are enabled
 			let finalMessage = message;
 			if ($runCommitHooks) {
+				commitStatus = "Running commit message hook...";
 				const messageHookResult = await runMessageHook({ projectId, message });
 				if (messageHookResult?.status === "failure") {
 					showError("Commit message hook failed", messageHookResult.error);
@@ -98,13 +129,14 @@
 				}
 			}
 
+			commitStatus = "Preparing selected changes...";
 			const worktreeChanges = await uncommittedService.worktreeChanges(projectId, stackId);
 
 			// Get current editor mode from the component instance
 			const isRichTextMode = input?.isRichTextMode?.() || false;
 
-			// Await analytics data before creating commit
-			const analyticsProperties = await commitAnalytics.getCommitProperties({
+			commitStatus = "Preparing commit metadata...";
+			const analyticsProperties = await getCommitAnalyticsProperties({
 				projectId,
 				stackId: finalStackId,
 				selectedBranchName: finalBranchName,
@@ -114,9 +146,11 @@
 			});
 
 			if ($runCommitHooks) {
+				commitStatus = "Running pre-commit hooks...";
 				await hooksService.runPreCommitHooks(projectId, worktreeChanges);
 			}
 
+			commitStatus = "Creating commit...";
 			const response = await createCommitInStack(
 				{
 					projectId,
@@ -132,9 +166,11 @@
 			);
 
 			if ($runCommitHooks) {
+				commitStatus = "Running post-commit hooks...";
 				await hooksService.runPostCommitHooks(projectId);
 			}
 
+			commitStatus = "Finishing commit...";
 			const newId = response.newCommit;
 
 			if (newId) {
@@ -169,10 +205,9 @@
 			}
 		} finally {
 			isCooking = false;
+			commitStatus = undefined;
 		}
 	}
-
-	const [createNewStack, newStackQuery] = stackService.newStack;
 
 	async function handleCommitCreation(title: string, description: string) {
 		laneState.newCommitMessage.set({ title, description });
@@ -234,7 +269,8 @@
 		onChange={({ title, description }) => handleMessageUpdate(title, description)}
 		onCancel={cancel}
 		disabledAction={!canCommit}
-		loading={commitCreation.current.isLoading || newStackQuery.current.isLoading || isCooking}
+		loading={isLoading}
+		loadingLabel={commitStatus}
 		title={laneState.newCommitMessage.current.title}
 		description={laneState.newCommitMessage.current.description}
 	/>

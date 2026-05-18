@@ -19,6 +19,7 @@ import {
 	ModelKind,
 	OpenAIModelName,
 	type AIClient,
+	type AcpDiscovery,
 	type Prompt,
 } from "$lib/ai/types";
 import { GitConfigService } from "$lib/config/gitConfigService";
@@ -149,6 +150,33 @@ const hunk2 = {
 
 const exampleDiffs: DiffInput[] = [hunk1, hunk2];
 
+const acpDiscovery: AcpDiscovery = {
+	agents: [
+		{
+			id: "codex",
+			name: "Codex CLI",
+			description: null,
+			source: "builtIn",
+			availability: "available",
+			command: "npx",
+			args: ["-y", "@zed-industries/codex-acp@latest"],
+			env: {},
+			commandPreview: "npx -y @zed-industries/codex-acp@latest",
+		},
+		{
+			id: "gemini",
+			name: "Gemini CLI",
+			description: null,
+			source: "builtIn",
+			availability: "available",
+			command: "npx",
+			args: ["-y", "--", "@google/gemini-cli@latest", "--acp"],
+			env: {},
+			commandPreview: "npx -y -- @google/gemini-cli@latest --acp",
+		},
+	],
+};
+
 function buildDefaultServices() {
 	const gitConfig = new DummyGitConfigService(structuredClone(defaultGitConfig));
 	const secretsService = new DummySecretsService(structuredClone(defaultSecretsConfig));
@@ -278,6 +306,65 @@ describe("AIService", () => {
 			await expect(aiService.buildClient.bind(aiService)).rejects.toThrowError(
 				new Error("When using OpenRouter, you must provide a valid API key"),
 			);
+		});
+	});
+
+	describe("#getAcpConfig", () => {
+		test("When a built-in ACP agent id is selected, it resolves the agent even if command is missing", async () => {
+			const gitConfig = new DummyGitConfigService({
+				...defaultGitConfig,
+				[GitAIConfigKey.ModelProvider]: ModelKind.ACP,
+				[GitAIConfigKey.AcpAgentId]: "gemini",
+			});
+			const secretsService = new DummySecretsService();
+			const tokenMemoryService = new TokenMemoryService();
+			const fetchMock = vi.fn();
+			const cloud = new HttpClient(fetchMock, "https://www.example.com", tokenMemoryService.token);
+			const backend = mockCreateBackend();
+			backend.invoke.mockResolvedValue(acpDiscovery);
+			const aiService = new AIService(
+				gitConfig,
+				secretsService,
+				cloud,
+				tokenMemoryService,
+				backend,
+			);
+
+			await expect(aiService.getAcpConfig()).resolves.toMatchObject({
+				id: "gemini",
+				command: "npx",
+				args: ["-y", "--", "@google/gemini-cli@latest", "--acp"],
+			});
+			await expect(aiService.validateConfiguration()).resolves.toBe(true);
+		});
+
+		test("When stored ACP args are stale, the selected built-in agent id takes precedence", async () => {
+			const gitConfig = new DummyGitConfigService({
+				...defaultGitConfig,
+				[GitAIConfigKey.ModelProvider]: ModelKind.ACP,
+				[GitAIConfigKey.AcpAgentId]: "gemini",
+				[GitAIConfigKey.AcpCommand]: "npx",
+				[GitAIConfigKey.AcpArgs]: JSON.stringify(["-y", "@zed-industries/codex-acp@latest"]),
+			});
+			const secretsService = new DummySecretsService();
+			const tokenMemoryService = new TokenMemoryService();
+			const fetchMock = vi.fn();
+			const cloud = new HttpClient(fetchMock, "https://www.example.com", tokenMemoryService.token);
+			const backend = mockCreateBackend();
+			backend.invoke.mockResolvedValue(acpDiscovery);
+			const aiService = new AIService(
+				gitConfig,
+				secretsService,
+				cloud,
+				tokenMemoryService,
+				backend,
+			);
+
+			await expect(aiService.getAcpConfig()).resolves.toMatchObject({
+				id: "gemini",
+				command: "npx",
+				args: ["-y", "--", "@google/gemini-cli@latest", "--acp"],
+			});
 		});
 	});
 

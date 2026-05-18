@@ -31,6 +31,7 @@
 		noPadding?: boolean;
 		disabledAction?: boolean;
 		loading?: boolean;
+		loadingLabel?: string;
 		existingCommitId?: string;
 		title: string;
 		floatingBoxHeader?: string;
@@ -47,6 +48,7 @@
 		noPadding,
 		disabledAction,
 		loading,
+		loadingLabel,
 		title,
 		description,
 		floatingBoxHeader = "Create commit",
@@ -229,6 +231,9 @@
 			return false;
 		}}
 	/>
+	{#if loading && loadingLabel}
+		<div class="commit-message__status text-12" aria-live="polite">{loadingLabel}</div>
+	{/if}
 	<EditorFooter onCancel={handleCancel}>
 		<Button
 			testId={TestId.CommitDrawerActionButton}
@@ -238,7 +243,7 @@
 			tooltip={!title.trim() ? "Commit title is required" : undefined}
 			hotkey="⌘↵"
 			{loading}
-			wide>{actionLabel}</Button
+			wide>{loading && loadingLabel ? loadingLabel : actionLabel}</Button
 		>
 	</EditorFooter>
 {/snippet}
@@ -270,5 +275,10 @@
 		&:not(.no-padding) {
 			padding: 12px;
 		}
+	}
+
+	.commit-message__status {
+		padding: 8px 0 0;
+		color: var(--text-2);
 	}
 </style>

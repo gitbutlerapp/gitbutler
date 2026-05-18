@@ -497,7 +497,7 @@
 													stats={changesResult.stats ?? undefined}
 													conflictEntries={changesResult.conflictEntries}
 													ancestorMostConflictedCommitId={firstConflictedCommitId}
-													autoselect
+													autoselect={!controller.isCommitting}
 													allowUnselect={false}
 													onFileClick={(index) => {
 														// Ensure the commit is selected so the preview shows it

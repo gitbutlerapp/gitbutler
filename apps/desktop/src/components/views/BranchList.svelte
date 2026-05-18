@@ -332,7 +332,7 @@
 										{projectId}
 										{stackId}
 										draggableFiles
-										autoselect
+										autoselect={!controller.isCommitting}
 										foldedByDefault
 										selectionId={createBranchSelection({
 											stackId: stackId,

@@ -234,7 +234,11 @@
 									<Link href="https://lmstudio.ai">Learn more</Link>
 								</span>
 							{:else if modelKind === ModelKind.ACP}
-								<span> Please check that the selected ACP agent command is available. </span>
+								<span>
+									Please check that the selected ACP agent command is available.
+									<br />
+									{error}
+								</span>
 							{/if}
 						{:else}
 							<div class="text-12 text-body ai-response">

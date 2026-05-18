@@ -304,12 +304,21 @@ export class AIService {
 	async getAcpConfig(): Promise<AcpCommandConfig | undefined> {
 		const command = await this.getAcpCommand();
 		const agentId = await this.getAcpAgentId();
-		if (!command) {
-			if (!agentId) return undefined;
-			const agent = (await this.listAcpAgents()).agents.find(
-				(agent) => agent.id === agentId && agent.availability !== "suggestion",
-			);
-			if (!agent) return undefined;
+		const args = await this.getAcpArgs();
+		const env = await this.getAcpEnv();
+		const agent = agentId
+			? (await this.listAcpAgents()).agents.find(
+					(agent) => agent.id === agentId && agent.availability !== "suggestion",
+				)
+			: undefined;
+
+		if (
+			agent &&
+			(!command ||
+				command !== agent.command ||
+				JSON.stringify(args) !== JSON.stringify(agent.args) ||
+				JSON.stringify(env) !== JSON.stringify(agent.env))
+		) {
 			return {
 				id: agent.id,
 				name: agent.name,
@@ -318,12 +327,13 @@ export class AIService {
 				env: agent.env,
 			};
 		}
+		if (!command) return undefined;
 		return {
 			id: agentId || "custom",
 			name: "ACP Agent",
 			command,
-			args: await this.getAcpArgs(),
-			env: await this.getAcpEnv(),
+			args,
+			env,
 		};
 	}
 

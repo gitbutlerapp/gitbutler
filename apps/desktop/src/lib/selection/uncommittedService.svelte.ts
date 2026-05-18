@@ -227,15 +227,26 @@ export class UncommittedService {
 				continue;
 			}
 
-			const changeDiff = await this.getUnifiedDiff(projectId, change);
-			let staleSkipped = 0;
-			for (const { lines, assignmentId } of selection) {
-				// We want to use `null` to commit from unassigned changes if new stack was created.
-				const assignment = uncommittedSelectors.hunkAssignments.selectById(
+			const selectedAssignments = selection.map(({ lines, assignmentId }) => ({
+				lines,
+				assignment: uncommittedSelectors.hunkAssignments.selectById(
 					state.hunkAssignments,
 					assignmentId,
-				)!;
+				)!,
+			}));
 
+			if (selectedAssignments.every(({ assignment }) => assignment.hunkHeader === null)) {
+				worktreeChanges.push({
+					pathBytes: change.pathBytes,
+					previousPathBytes,
+					hunkHeaders: [],
+				});
+				continue;
+			}
+
+			const changeDiff = await this.getUnifiedDiff(projectId, change);
+			let staleSkipped = 0;
+			for (const { lines, assignment } of selectedAssignments) {
 				if (assignment.hunkHeader !== null) {
 					const hunkDiff = this.findHunkDiff(changeDiff, assignment.hunkHeader);
 					if (!hunkDiff) {
