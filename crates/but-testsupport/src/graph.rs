@@ -1,9 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use but_core::ref_metadata::StackId;
-use but_graph::{
-    EntryPoint, Graph, SegmentIndex, SegmentMetadata, workspace::StackCommitDebugFlags,
-};
+use but_graph::{Graph, SegmentIndex, SegmentMetadata, workspace::StackCommitDebugFlags};
 use termtree::Tree;
 
 type StringTree = Tree<String>;
@@ -98,13 +96,6 @@ pub fn graph_tree(graph: &Graph) -> StringTree {
     }
 }
 
-fn no_first_commit_on_named_segments(mut ep: EntryPoint<'_>) -> EntryPoint<'_> {
-    if ep.segment.ref_info.is_some() && ep.commit_index == Some(0) {
-        ep.commit_index = None;
-    }
-    ep
-}
-
 fn tree_for_commit(
     commit: &but_graph::Commit,
     is_entrypoint: bool,
@@ -148,12 +139,18 @@ fn recurse_segment(
         .into();
     }
     seen.insert(sidx);
-    let ep = no_first_commit_on_named_segments(graph.lookup_entrypoint().unwrap());
-    let segment_is_entrypoint = ep.segment_index == sidx;
+    let ep = graph.entrypoint().unwrap();
+    let segment_is_entrypoint = ep.segment.id == sidx;
+    let entrypoint_commit = ep.commit();
+    let mut entrypoint_commit_index =
+        entrypoint_commit.and_then(|commit| ep.segment.commit_index_of(commit.id));
+    if ep.segment.ref_info.is_some() && entrypoint_commit_index == Some(0) {
+        entrypoint_commit_index = None;
+    }
     let mut show_segment_entrypoint = segment_is_entrypoint;
     if segment_is_entrypoint {
         // Reduce noise by preferring ref-based entry-points.
-        if segment.ref_info.is_none() && ep.commit_index.is_some() {
+        if segment.ref_info.is_none() && entrypoint_commit_index.is_some() {
             show_segment_entrypoint = false;
         }
     }
@@ -187,7 +184,7 @@ fn recurse_segment(
             "►"
         },
         entrypoint = if show_segment_entrypoint {
-            if ep.commit.is_none() && ep.commit_index.is_some() {
+            if entrypoint_commit.is_none() && entrypoint_commit_index.is_some() {
                 "🫱"
             } else {
                 "👉"
@@ -205,7 +202,7 @@ fn recurse_segment(
     for (cidx, commit) in segment.commits.iter().enumerate() {
         let mut commit_tree = tree_for_commit(
             commit,
-            segment_is_entrypoint && Some(cidx) == ep.commit_index,
+            segment_is_entrypoint && Some(cidx) == entrypoint_commit_index,
             if cidx + 1 != segment.commits.len() {
                 None
             } else {

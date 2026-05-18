@@ -70,9 +70,9 @@ impl Workspace {
             .filter_map(|stack| stack.tip_skip_empty())
             .collect::<Vec<_>>();
         if heads.is_empty()
-            && let Some(entrypoint) = self.graph.entrypoint_commit()
+            && let Some(entrypoint_commit) = self.graph.entrypoint()?.commit()
         {
-            heads.push(entrypoint.id);
+            heads.push(entrypoint_commit.id);
         }
         let target_ref_id = repo.find_reference(target_ref)?.id();
 

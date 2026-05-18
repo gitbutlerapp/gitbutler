@@ -1183,7 +1183,7 @@ pub fn prune_integrated_tips(graph: &mut Graph, next: &mut Queue) -> anyhow::Res
     if !all_integated_and_done {
         return Ok(());
     }
-    let ep = graph.lookup_entrypoint()?;
+    let ep = graph.entrypoint()?;
     if ep
         .segment
         .non_empty_flags_of_first_commit()

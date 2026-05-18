@@ -1008,6 +1008,18 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
         └── 📙►:3[1]:B
             └── →:1:
     ");
+    assert_eq!(
+        graph.entrypoint()?.commit().map(|c| c.id),
+        extra_target_options.extra_target_commit_id,
+        "entrypoint points to a virtual workspace tip segment \
+        which can't unambiguously find the commit"
+    );
+    assert!(
+        graph
+            .tip_skip_empty(graph.entrypoint()?.segment.id)
+            .is_none(),
+        "no unique paths leads to a commit when starting at the segment"
+    );
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on fafd9d0
     ├── ≡📙:2:A on fafd9d0 {1}

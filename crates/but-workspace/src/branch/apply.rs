@@ -231,7 +231,7 @@ pub fn apply<'ws>(
             .tip_commit()
             .map(|commit| commit.id)
             .context("Workspace must point to a commit to check out")?;
-        let current_head_commit = ws.graph.entrypoint_commit().context(
+        let current_head_commit = ws.graph.entrypoint()?.commit().context(
             "The entrypoint must have a commit - it's equal to HEAD, and we skipped unborn earlier",
         )?;
         but_core::worktree::safe_checkout(
@@ -500,8 +500,9 @@ pub fn apply<'ws>(
 
     let prev_head_id = ws
         .graph
-        .entrypoint_commit()
-        .context("BUG: how is it possible that there is no head commit?")?
+        .entrypoint()?
+        .commit()
+        .context("BUG: unborn was skipped, why no entrypoint")?
         .id;
     let mut new_head_id = merge_result.workspace_commit_id;
     let mut conflicting_stack_ids = correlate_conflicting_stack_ids_and_remove_from_workspace(
