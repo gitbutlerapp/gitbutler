@@ -1199,7 +1199,7 @@ impl Graph {
             // If both remote and local point to the same commit, make sure that the remote points to the local segment.
             if let Some((
                 (_remote_commit, _owner_of_commit_same_as_local),
-                (_local_commmit, owner_of_commit_same_as_remote),
+                (_local_commit, owner_of_commit_same_as_remote),
             )) = self
                 .resolve_to_unambiguously_pointed_to_commit(remote_sidx)
                 .zip(self.resolve_to_unambiguously_pointed_to_commit(local_sidx))
