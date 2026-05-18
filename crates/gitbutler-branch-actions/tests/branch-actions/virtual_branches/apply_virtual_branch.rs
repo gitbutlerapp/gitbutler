@@ -995,3 +995,70 @@ fn integrate_upstream_with_inter_stack_tree_conflict() {
         );
     }
 }
+
+/// Regression test: when `default_target.sha` in TOML already matches the
+/// remote tip (e.g. written by `bootstrap_default_target_if_missing`) but the
+/// workspace commit is still parented on an older base, integrate_upstream
+/// must still rebuild the workspace commit so it sits on top of the target.
+#[test]
+fn integrate_upstream_rebuilds_stale_workspace_commit() {
+    let Test { repo, ctx, .. } = &mut Test::default();
+
+    // Create initial + second commit, push both
+    fs::write(repo.path().join("file.txt"), "initial").unwrap();
+    repo.commit_all("initial");
+    repo.push();
+    fs::write(repo.path().join("file.txt"), "second").unwrap();
+    let upstream_head = repo.commit_all("second commit");
+    repo.push();
+
+    // Reset local back so set_base_branch sees a delta
+    repo.reset_hard(Some(
+        but_testsupport::open_repo(repo.path())
+            .unwrap()
+            .rev_parse_single("HEAD~1")
+            .unwrap()
+            .detach(),
+    ));
+
+    // Set up GitButler — workspace commit will be parented on `initial`
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+
+    // Now simulate the bug condition: advance TOML target.sha to match
+    // origin/master without rebuilding the workspace commit. This is what
+    // bootstrap_default_target_if_missing does.
+    {
+        let mut meta = ctx.legacy_meta().unwrap();
+        let mut target = meta.data().default_target.clone().unwrap();
+        target.sha = upstream_head;
+        meta.set_default_target(target).unwrap();
+        ctx.invalidate_workspace_cache().unwrap();
+    }
+
+    // Verify the desync: TOML matches remote, but workspace is on old base
+    let base = gitbutler_branch_actions::base::get_base_branch_data(ctx).unwrap();
+    assert_eq!(base.base_sha, upstream_head, "TOML should be at remote tip");
+    assert!(
+        base.behind > 0,
+        "workspace commit is on old base, should show behind"
+    );
+
+    // Before the fix, this would return UpToDate and leave the workspace stale.
+    // Now it rebuilds the workspace commit even when the target is up-to-date.
+    let review_map = HashMap::new();
+    gitbutler_branch_actions::integrate_upstream(ctx, &[], None, &review_map)
+        .expect("integrate_upstream should succeed");
+
+    let base_after = gitbutler_branch_actions::base::get_base_branch_data(ctx).unwrap();
+    assert_eq!(
+        base_after.behind, 0,
+        "workspace should be rebuilt on current target"
+    );
+}
