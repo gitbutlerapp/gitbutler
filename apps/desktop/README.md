@@ -25,13 +25,19 @@ This should start the server on th default port 6978
 Execute the following command on another terminal, concurrently
 
 ```bash
-VITE_BUTLER_PORT=6978 \
-VITE_BUTLER_HOST=localhost \
-VITE_BUILD_TARGET=web \
-pnpm --filter @gitbutler/desktop dev
+pnpm dev:desktop-http
 ```
 
-This builds the **web** target, points it to the but-server on `http://localhost:6978` and serves it under the default address `http://localhost:1420/`
+This packages the local workspace dependencies, builds the **web** target, points it to
+the but-server on `http://localhost:6978` and serves it under the default address
+`http://localhost:1420/`
+
+If you run the desktop package's `dev` script directly, make sure the local package
+outputs exist first:
+
+```bash
+pnpm turbo run package --filter=...@gitbutler/desktop
+```
 
 #### 3. Go to the browser
 

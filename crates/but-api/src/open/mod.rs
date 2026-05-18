@@ -6,6 +6,19 @@ use but_api_macros::but_api;
 use tracing::instrument;
 use url::Url;
 
+/// Terminal configuration and detection.
+pub mod terminal;
+
+/// Opens a supported URL or file path with the platform's default handler.
+///
+/// Editor URLs are opened through a direct CLI invocation on WSL when possible;
+/// all other supported schemes are delegated to the system opener after
+/// cleaning environment variables that can point to transient AppImage mounts.
+///
+/// # Errors
+///
+/// Returns an error when the URL scheme is unsupported, a `file://` URL cannot
+/// be converted to a path, or every available opener command fails to launch.
 pub(crate) fn open_that(target_url: &Url) -> anyhow::Result<()> {
     if ![
         "http",
@@ -266,6 +279,10 @@ mod wsl_tests {
     }
 }
 
+/// Opens a `url` or file path with the platform's default handler.
+///
+/// The URL must use one of GitButler's supported schemes, including web,
+/// mail, editor, and `file://` URLs.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn open_url(url: String) -> Result<()> {
@@ -439,11 +456,7 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
             _ => bail!("Unknown terminal: {terminal_id}"),
         };
     } else if cfg!(target_os = "linux") {
-        // Resolve the actual binary name (some terminals use a different binary than their ID)
-        let binary = match terminal_id.as_str() {
-            "warp" => "warp-terminal",
-            other => other,
-        };
+        let binary = terminal::terminal_binary(&terminal_id);
 
         // Check if the terminal binary exists in PATH before attempting to launch.
         // This lets us give a clear error directing users to Settings, rather than
@@ -562,6 +575,11 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
     Ok(())
 }
 
+/// Reveals the file or directory at `path` in the platform's file manager.
+///
+/// On macOS this reveals the item in Finder, on Windows it selects the item in
+/// Explorer, and on Linux it opens either the directory itself or the file's
+/// parent directory.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn show_in_finder(path: String) -> Result<()> {

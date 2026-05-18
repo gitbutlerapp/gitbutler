@@ -89,6 +89,8 @@ commands.allow = [
   "get_logs_archive_path",
   "get_project",
   "get_project_archive_path",
+  "get_recommended_terminal_for_platform",
+  "get_terminal_options_for_platform",
   "get_user",
   "get_user_profile",
   "get_workspace_file",

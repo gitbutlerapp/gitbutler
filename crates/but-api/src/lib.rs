@@ -41,6 +41,8 @@ pub mod json;
 /// Functions releated to platform detection and information.
 pub mod platform;
 
+pub mod open;
+
 pub mod panic_capture;
 
 /// The types for watcher events
