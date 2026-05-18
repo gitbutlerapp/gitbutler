@@ -275,10 +275,17 @@ impl Graph {
         Ok(())
     }
 
-    /// This is a post-process as only in the end we are sure what is a remote commit.
-    /// On remote commits, we want to further segment remote tracking segments to avoid picking
+    /// This is a post-process as only in the end we are sure what is a remote
+    /// commit.
+    ///
+    /// We want to further segment remote tracking segments to avoid picking
     /// up too many remote commits later.
-    /// For everything else, we want to just remove the extra ref-names that we aren't interested in.
+    ///
+    /// We drop all remote-tracking branch references from each commit's `refs`
+    /// list. In the case of a commit being considered remote, if it's
+    /// containing segment is splittable, we preserve the remote reference by
+    /// splitting the containing segment, with the new segment being named with
+    /// the remote reference.
     fn fixup_remote_tracking_refs_and_maybe_split_segments<T: RefMetadata>(
         &mut self,
         meta: &OverlayMetadata<'_, T>,
