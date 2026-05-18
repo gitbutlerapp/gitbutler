@@ -408,6 +408,8 @@
 			trigger={viewport}
 			{projectId}
 			{change}
+			{stackId}
+			{commitId}
 			discardable={isUncommittedChange}
 			{selectable}
 			{selectAllHunkLines}
