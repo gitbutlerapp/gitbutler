@@ -34,6 +34,10 @@ pub enum Subcommands {
     Dump(DumpArgs),
     /// Return a segmented graph starting from `HEAD`.
     Graph(GraphArgs),
+    /// Apply a local branch using the new but-workspace apply path.
+    Apply(WorkspaceMutationArgs),
+    /// Unapply a local branch using the new but-workspace unapply path.
+    Unapply(WorkspaceMutationArgs),
     /// Debug revision graph operations.
     #[clap(visible_alias = "rev")]
     Revision(RevisionArgs),
@@ -145,6 +149,13 @@ pub struct GraphArgs {
     pub dot_show: bool,
     /// The name of the ref to start the graph traversal at.
     pub ref_name: Option<String>,
+}
+
+/// Arguments for direct workspace mutation commands.
+#[derive(Debug, clap::Args)]
+pub struct WorkspaceMutationArgs {
+    /// Branch or full ref name to apply or unapply.
+    pub ref_name: String,
 }
 
 /// Arguments for the `revision` subcommand.
