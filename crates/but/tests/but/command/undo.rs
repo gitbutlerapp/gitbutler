@@ -955,3 +955,14 @@ fn cannot_redo_without_undoing_first() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+/*
+
+but commit
+
+but commit empty
+but commit empty <target>
+but commit empty --before <commit>
+but commit empty --after <commit>
+
+ */

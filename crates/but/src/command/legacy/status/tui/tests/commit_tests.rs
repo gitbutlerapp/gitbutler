@@ -120,6 +120,43 @@ fn commit_from_unstaged_changes_creates_commit_visible_in_tui() {
 }
 
 #[test]
+fn commit_from_unstaged_changes_to_new_branch_creates_branch_and_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file(
+        "editor.sh",
+        format!("printf '{TEST_EDITOR_MESSAGE}\\n' > \"$1\"\n"),
+    );
+    let editor_path = env.projects_root().join("editor.sh");
+    let editor_command = format!("sh {}", editor_path.display());
+
+    let mut tui = test_tui(env);
+
+    tui.env().file("test.txt", "content");
+
+    tui.input_then_render(None)
+        .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
+
+    tui.input_then_render('c')
+        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [unassigned changes]"]);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊│ << insert commit >>"]);
+
+    with_var("GIT_EDITOR", Some(editor_command), || {
+        tui.input_then_render('b')
+            .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"]);
+    });
+
+    tui.input_then_render(None)
+        .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/commit_from_unstaged_changes_to_new_branch_creates_branch_and_commit_final.svg"
+        ]);
+}
+
+#[test]
 fn commit_from_unstaged_changes_with_multiple_hunks_in_same_file_commits_all_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
@@ -210,34 +247,6 @@ fn commit_mode_shows_commit_above_on_commit_rows() {
         .assert_current_line_eq(str!["┊│   << insert commit >>"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_mode_shows_commit_above_on_commit_rows_final.svg"
-        ]);
-}
-
-#[test]
-fn commit_mode_ignores_commit_target_insert_side_keys() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
-
-    let mut tui = test_tui(env);
-
-    tui.env().file("test.txt", "content");
-
-    tui.input_then_render(None)
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
-
-    tui.input_then_render('c')
-        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [unassigned changes]"]);
-
-    tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊│   << insert commit >>"]);
-
-    tui.input_then_render('b')
-        .assert_current_line_eq(str!["┊│   << insert commit >>"]);
-
-    tui.input_then_render('a')
-        .assert_current_line_eq(str!["┊│   << insert commit >>"])
-        .assert_rendered_term_svg_eq(file![
-            "snapshots/commit_mode_can_toggle_commit_target_insert_side_final.svg"
         ]);
 }
 

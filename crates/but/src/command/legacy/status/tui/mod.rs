@@ -692,6 +692,9 @@ impl App {
                 CommitMessage::ToggleMessageComposer(composer) => {
                     self.handle_commit_toggle_message_composer(composer);
                 }
+                CommitMessage::CommitToNewBranch => {
+                    self.handle_commit_to_new_branch(messages);
+                }
             },
             Message::Reword(reword_message) => match reword_message {
                 RewordMessage::WithEditor => {
@@ -774,8 +777,10 @@ impl App {
             Message::AndThen { lhs, rhs } => {
                 Box::pin(self.try_handle_message(ctx, out, mode, terminal_guard, messages, *lhs))
                     .await?;
-                Box::pin(self.try_handle_message(ctx, out, mode, terminal_guard, messages, *rhs))
-                    .await?;
+
+                // Push `rhs` to the end of the queue. That way any messages enqueued by `lhs` will
+                // be handled first.
+                messages.push(*rhs);
             }
             Message::Debug(text) => {
                 messages.push(Message::ShowToast {
@@ -1846,6 +1851,10 @@ impl App {
         );
 
         Ok(())
+    }
+
+    fn handle_commit_to_new_branch(&mut self, messages: &mut Vec<Message>) {
+        messages.push(Message::NewBranch.and_then(Message::Commit(CommitMessage::Confirm)));
     }
 
     fn handle_commit_toggle_message_composer(&mut self, composer: CommitMessageComposer) {
@@ -2981,7 +2990,6 @@ impl Message {
     }
 
     /// Send another message only if handling the first succeeds.
-    #[expect(dead_code)]
     pub(super) fn and_then(self, other: Self) -> Self {
         Self::AndThen {
             lhs: Box::new(self),
@@ -3042,6 +3050,7 @@ enum CommitMessage {
     Start,
     ToggleMessageComposer(CommitMessageComposer),
     Confirm,
+    CommitToNewBranch,
 }
 
 #[derive(Debug, Clone)]

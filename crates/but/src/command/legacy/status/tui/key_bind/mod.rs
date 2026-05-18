@@ -35,6 +35,7 @@ pub(super) fn default_key_binds() -> KeyBinds {
                 builder.commit_confirm().register();
                 builder.commit_empty_message().register();
                 builder.commit_reword_inline().register();
+                builder.commit_to_new_branch().register();
                 register_non_mode_specific_key_binds(&mut builder);
             }
             ModeDiscriminant::Move => {
@@ -745,6 +746,15 @@ impl KeyBindsBuilder<'_> {
             )),
         )
         .long_description("When creating commit, reword it inline")
+    }
+
+    fn commit_to_new_branch(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "commit to new branch",
+            press().code(KeyCode::Char('b')),
+            Message::Commit(CommitMessage::CommitToNewBranch),
+        )
+        .long_description("Create a new branch, then commit to it")
     }
 
     fn move_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
