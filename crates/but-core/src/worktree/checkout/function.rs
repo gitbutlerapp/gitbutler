@@ -74,7 +74,6 @@ pub fn safe_checkout(
     let snapshot_tree = merge_worktree_changes_into_destination_or_keep_snapshot(
         &changed_files,
         repo,
-        source_tree.id,
         destination_tree.id,
         &mut opts,
         conflicting_worktree_changes_opts,

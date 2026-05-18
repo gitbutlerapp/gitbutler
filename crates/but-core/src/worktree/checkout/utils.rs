@@ -36,9 +36,6 @@ use crate::{
 /// * `repo` - Repository used to inspect the current worktree, read the current `HEAD` tree, create
 ///   snapshot trees, and persist any in-memory objects needed by the adjusted destination tree if one is written.
 ///   No changes will be observable if there is no intersecting worktree changes.
-/// * `source_tree_id` - The tree expected to match the repository's current `HEAD`. It is used as the
-///   base for the snapshot of local worktree changes, and is verified against the actual `HEAD` before
-///   preserving changes.
 /// * `destination_tree_id` - The tree the checkout originally intends to write into the worktree. If
 ///   preserved worktree changes can be cleanly reapplied, they are resolved onto this tree and may
 ///   produce a replacement destination tree in the return value.
@@ -64,7 +61,6 @@ use crate::{
 pub fn merge_worktree_changes_into_destination_or_keep_snapshot(
     files_to_checkout: &[(ChangeKind, BString)],
     repo: &gix::Repository,
-    source_tree_id: gix::ObjectId,
     destination_tree_id: gix::ObjectId,
     checkout_opts: &mut git2::build::CheckoutBuilder,
     uncommitted_changes: UncommitedWorktreeChanges,
@@ -76,11 +72,11 @@ pub fn merge_worktree_changes_into_destination_or_keep_snapshot(
     let worktree_changes = crate::diff::worktree_changes_no_renames(repo)?;
     if !worktree_changes.changes.is_empty() || !worktree_changes.ignored_changes.is_empty() {
         let actual_head_tree_id = repo.head_tree_id_or_empty()?;
-        if actual_head_tree_id != source_tree_id {
-            bail!(
-                "Specified HEAD {source_tree_id} didn't match actual HEAD^{{tree}} {actual_head_tree_id}"
-            )
-        }
+        // Worktree changes are always relative to the actual HEAD tree (via the index),
+        // so the snapshot must use it as its base. If the caller's source tree diverges
+        // (e.g. due to a concurrent workspace commit update), we use the actual HEAD tree
+        // to keep the snapshot consistent with the worktree diff.
+        let source_tree_id = actual_head_tree_id.detach();
         let mut checkout_deletions_lut = super::tree::Lut::default();
         let mut checkout_writes_lut = super::tree::Lut::default();
         for (kind, path) in files_to_checkout {
