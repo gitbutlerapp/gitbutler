@@ -6,14 +6,3 @@
 .commitMessageBody {
 	white-space: pre-wrap;
 }
-
-.hunkHeaderRow {
-	display: flex;
-	column-gap: 4px;
-	align-items: center;
-}
-
-.hunkHeader {
-	flex-grow: 1;
-	font-family: monospace;
-}

@@ -3,6 +3,7 @@ import {
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
+	headInfoQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { decodeRefName } from "#ui/api/ref-name.ts";
@@ -22,22 +23,43 @@ import {
 	type FileParent,
 	type Operand,
 } from "#ui/operands.ts";
-import { selectProjectSelectionFiles } from "#ui/projects/state.ts";
+import { pointerTransferOperationMode } from "#ui/outline/mode.ts";
+import {
+	projectActions,
+	selectProjectOutlineModeState,
+	selectProjectSelectionFiles,
+} from "#ui/projects/state.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
-import { useAppSelector } from "#ui/store.ts";
+import operationSourceStyles from "#ui/routes/project/$id/workspace/OperationSourceC.module.css";
+import { OperationSourceLabel } from "#ui/routes/project/$id/workspace/OperationSourceLabel.tsx";
+import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/ui/classes.ts";
-import { DependencyIcon } from "#ui/ui/icons.tsx";
-import { DiffHunk, HunkHeader, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
-import { PatchDiff, Virtualizer } from "@pierre/diffs/react";
-import { useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
+import {
+	draggable,
+	type ElementGetFeedbackArgs,
+} from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
+import { centerUnderPointer } from "@atlaskit/pragmatic-drag-and-drop/element/center-under-pointer";
+import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview";
+import { DiffHunk, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
+import { parsePatchFiles, type FileDiffMetadata } from "@pierre/diffs";
+import { FileDiff as PFileDiff, Virtualizer } from "@pierre/diffs/react";
+import { useQuery, useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
-import { Array, Match, pipe } from "effect";
-import { FC, Suspense, useDeferredValue } from "react";
+import { Array, Match } from "effect";
+import { FC, Suspense, useCallback, useDeferredValue, useEffect, useRef } from "react";
+import { createRoot } from "react-dom/client";
 import { Panel, PanelProps } from "react-resizable-panels";
-import { DependencyIndicatorButton } from "./DependencyIndicatorButton.tsx";
 import styles from "./DetailsPanel.module.css";
 
-const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
+const ensureTrailingLineEnding = (value: string, lineEnding: string): string =>
+	value.endsWith("\n") ? value : `${value}${lineEnding}`;
+
+const patchForChange = (change: TreeChange, hunks: Array<DiffHunk>): string => {
+	const lineEnding = hunks.find((hunk) => hunk.diff.includes("\r\n")) ? "\r\n" : "\n";
+	return `${patchHeaderForChange(change, lineEnding)}${hunks
+		.map((hunk) => ensureTrailingLineEnding(hunk.diff, lineEnding))
+		.join("")}`;
+};
 
 const patchHeaderForChange = (change: TreeChange, lineEnding: string): string =>
 	Match.value(change.status).pipe(
@@ -60,63 +82,263 @@ const patchHeaderForChange = (change: TreeChange, lineEnding: string): string =>
 		Match.exhaustive,
 	);
 
-const HunkDiff: FC<{
-	change: TreeChange;
-	diff: string;
-}> = ({ change, diff }) => (
-	<PatchDiff
-		patch={`${patchHeaderForChange(change, lineEndingForDiff(diff))}${diff}`}
-		options={{
-			diffStyle: "unified",
-			themeType: "system",
-			disableFileHeader: true,
-		}}
-	/>
-);
+const HUNK_DRAG_HANDLE_SELECTOR = "[data-gitbutler-hunk-drag-handle]";
 
-const hunkKey = (hunk: HunkHeader): string =>
-	`${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`;
+const styleHunkDragHandle = (handle: HTMLButtonElement): void => {
+	handle.style.position = "absolute";
+	handle.style.insetBlockStart = "50%";
+	handle.style.insetInlineStart = "2px";
+	handle.style.zIndex = "1";
+	handle.style.width = "14px";
+	handle.style.height = "16px";
+	handle.style.padding = "0";
+	handle.style.border = "1px solid var(--border-2)";
+	handle.style.borderRadius = "3px";
+	handle.style.background = "var(--bg-1)";
+	handle.style.boxShadow = "0 1px 2px rgb(0 0 0 / 12%)";
+	handle.style.color = "inherit";
+	handle.style.cursor = "grab";
+	handle.style.font = "inherit";
+	handle.style.fontSize = "9px";
+	handle.style.lineHeight = "1";
+	handle.style.opacity = "0.8";
+	handle.style.transform = "translateY(-50%)";
+};
 
-const Hunk: FC<{
-	isResultOfBinaryToTextConversion: boolean;
+const createHunkDragHandle = (hunkIndex: number, label: string): HTMLButtonElement => {
+	const handle = document.createElement("button");
+	handle.type = "button";
+	handle.draggable = true;
+	handle.dataset.gitbutlerHunkDragHandle = "";
+	handle.dataset.hunkIndex = `${hunkIndex}`;
+	handle.textContent = "::";
+	handle.ariaLabel = label;
+	handle.title = label;
+	styleHunkDragHandle(handle);
+	return handle;
+};
+
+const FileDiffWithHunkHandles: FC<{
 	projectId: string;
-	fileParent: FileParent;
 	change: TreeChange;
-	hunk: DiffHunk;
+	fileParent: FileParent;
 	hunkDependencyDiffs?: Array<HunkDependencyDiff>;
+	fileDiff: FileDiffMetadata;
+	hunks: Array<DiffHunk>;
+	isResultOfBinaryToTextConversion: boolean;
 }> = ({
-	isResultOfBinaryToTextConversion,
 	projectId,
-	fileParent,
 	change,
-	hunk,
+	fileParent,
 	hunkDependencyDiffs,
+	fileDiff,
+	hunks,
+	isResultOfBinaryToTextConversion,
 }) => {
-	const dependencyCommitIds =
-		fileParent._tag === "Changes" && hunkDependencyDiffs
-			? getDependencyCommitIds({ hunk, hunkDependencyDiffs })
-			: undefined;
+	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const dispatch = useAppDispatch();
+	const handleSources = useRef(new WeakMap<HTMLElement, Operand>());
+	const hostDragCleanup = useRef<{ host: HTMLElement; key: string; cleanup: () => void } | null>(
+		null,
+	);
 
-	const operand = hunkOperand({
-		parent: { parent: fileParent, path: change.path },
-		hunkHeader: hunk,
-		isResultOfBinaryToTextConversion,
-	});
+	const canDrag = useCallback(
+		() => outlineMode._tag !== "RenameBranch" && outlineMode._tag !== "RewordCommit",
+		[outlineMode._tag],
+	);
+	const onGenerateDragPreview = useCallback(
+		({
+			nativeSetDragImage,
+			source,
+		}: {
+			nativeSetDragImage: DataTransfer["setDragImage"] | null;
+			source: Operand;
+		}) => {
+			setCustomNativeDragPreview({
+				nativeSetDragImage,
+				getOffset: centerUnderPointer,
+				render: ({ container }) => {
+					if (!headInfo) return;
+					const root = createRoot(container);
+					root.render(
+						<div className={operationSourceStyles.dragPreview}>
+							<OperationSourceLabel source={source} headInfo={headInfo} />
+						</div>,
+					);
+					return () => {
+						root.unmount();
+					};
+				},
+			});
+		},
+		[headInfo],
+	);
+	const onDragStart = useCallback(
+		(source: Operand) => {
+			dispatch(projectActions.selectFiles({ projectId, selection: source }));
+			dispatch(
+				projectActions.enterTransferMode({
+					projectId,
+					mode: pointerTransferOperationMode({
+						source,
+						operationType: null,
+					}),
+				}),
+			);
+		},
+		[dispatch, projectId],
+	);
+	const onDrop = useCallback(
+		(location: { current: { dropTargets: Array<unknown> } }) => {
+			if (location.current.dropTargets.length > 0) return;
+
+			dispatch(projectActions.cancelMode({ projectId }));
+		},
+		[dispatch, projectId],
+	);
+	const hostDragKey = `${outlineMode._tag}:${headInfo ? "ready" : "pending"}`;
+	const sourceFromDragInput = useCallback(
+		(host: HTMLElement, input: ElementGetFeedbackArgs["input"]): Operand | null => {
+			const shadowRoot = host.shadowRoot;
+			if (!shadowRoot) return null;
+
+			const element = shadowRoot.elementFromPoint(input.clientX, input.clientY);
+			const handle = element?.closest<HTMLElement>(HUNK_DRAG_HANDLE_SELECTOR);
+			if (!handle) return null;
+
+			return handleSources.current.get(handle) ?? null;
+		},
+		[],
+	);
+	const ensureHostDraggable = useCallback(
+		(host: HTMLElement) => {
+			if (hostDragCleanup.current?.host === host && hostDragCleanup.current.key === hostDragKey)
+				return;
+
+			hostDragCleanup.current?.cleanup();
+			hostDragCleanup.current = {
+				host,
+				key: hostDragKey,
+				cleanup: draggable({
+					element: host,
+					canDrag: ({ input }) => canDrag() && sourceFromDragInput(host, input) !== null,
+					getInitialData: ({ input }) => {
+						const source = sourceFromDragInput(host, input);
+						return source ? { source } : {};
+					},
+					onGenerateDragPreview: ({ location, nativeSetDragImage }) => {
+						const source = sourceFromDragInput(host, location.initial.input);
+						if (!source) return;
+
+						onGenerateDragPreview({ nativeSetDragImage, source });
+					},
+					onDragStart: ({ location }) => {
+						const source = sourceFromDragInput(host, location.initial.input);
+						if (!source) return;
+
+						onDragStart(source);
+					},
+					onDrop: ({ location }) => onDrop(location),
+				}),
+			};
+		},
+		[canDrag, hostDragKey, onDragStart, onDrop, onGenerateDragPreview, sourceFromDragInput],
+	);
+
+	const updateHunkDragHandles = useCallback(
+		(host: HTMLElement) => {
+			const shadowRoot = host.shadowRoot;
+			if (!shadowRoot) return;
+
+			ensureHostDraggable(host);
+
+			const liveHandles = new Set<HTMLElement>();
+
+			for (const [hunkIndex, fileDiffHunk] of fileDiff.hunks.entries()) {
+				const sdkHunk = hunks[hunkIndex];
+				if (!sdkHunk) continue;
+
+				const lineIndex = `${fileDiffHunk.unifiedLineStart},${fileDiffHunk.splitLineStart}`;
+				const gutterCell = shadowRoot.querySelector<HTMLElement>(
+					`[data-line-index="${lineIndex}"][data-column-number]`,
+				);
+				if (!gutterCell) continue;
+
+				gutterCell.style.position = "relative";
+				gutterCell.style.overflow = "visible";
+
+				const source = hunkOperand({
+					parent: { parent: fileParent, path: change.path },
+					hunkHeader: sdkHunk,
+					isResultOfBinaryToTextConversion,
+				});
+				const dependencyCommitIds =
+					fileParent._tag === "Changes" && hunkDependencyDiffs
+						? getDependencyCommitIds({ hunk: sdkHunk, hunkDependencyDiffs })
+						: undefined;
+				const hunkLabel = formatHunkHeader(sdkHunk);
+				const dependencyLabel = dependencyCommitIds
+					? `, ${dependencyCommitIds.length} dependent commit${
+							dependencyCommitIds.length === 1 ? "" : "s"
+						}`
+					: "";
+				const label = `Drag hunk ${hunkLabel}${dependencyLabel}`;
+				const sourceKey = JSON.stringify([
+					change.path,
+					fileParent,
+					sdkHunk,
+					isResultOfBinaryToTextConversion,
+				]);
+				let handle = gutterCell.querySelector<HTMLButtonElement>(HUNK_DRAG_HANDLE_SELECTOR);
+
+				if (handle?.dataset.hunkDragSourceKey !== sourceKey) {
+					handle?.remove();
+					handle = createHunkDragHandle(hunkIndex, label);
+					handle.dataset.hunkDragSourceKey = sourceKey;
+					gutterCell.appendChild(handle);
+				} else {
+					handle.dataset.hunkIndex = `${hunkIndex}`;
+					handle.ariaLabel = label;
+					handle.title = label;
+				}
+
+				handleSources.current.set(handle, source);
+				liveHandles.add(handle);
+			}
+
+			for (const handle of shadowRoot.querySelectorAll<HTMLElement>(HUNK_DRAG_HANDLE_SELECTOR))
+				if (!liveHandles.has(handle)) handle.remove();
+		},
+		[
+			change.path,
+			ensureHostDraggable,
+			fileDiff,
+			fileParent,
+			hunkDependencyDiffs,
+			hunks,
+			isResultOfBinaryToTextConversion,
+		],
+	);
+
+	useEffect(
+		() => () => {
+			hostDragCleanup.current?.cleanup();
+			hostDragCleanup.current = null;
+		},
+		[],
+	);
 
 	return (
-		<div>
-			<OperationSourceC projectId={projectId} selectionScope="files" source={operand}>
-				<div className={styles.hunkHeaderRow}>
-					{dependencyCommitIds && (
-						<DependencyIndicatorButton projectId={projectId} commitIds={dependencyCommitIds}>
-							<DependencyIcon />
-						</DependencyIndicatorButton>
-					)}
-					<div className={styles.hunkHeader}>{formatHunkHeader(hunk)}</div>
-				</div>
-			</OperationSourceC>
-			<HunkDiff change={change} diff={hunk.diff} />
-		</div>
+		<PFileDiff
+			fileDiff={fileDiff}
+			options={{
+				diffStyle: "unified",
+				themeType: "system",
+				disableFileHeader: true,
+				onPostRender: updateHunkDragHandles,
+			}}
+		/>
 	);
 };
 
@@ -137,21 +359,20 @@ const FileDiff: FC<{
 			const { hunks } = patch.subject;
 			if (hunks.length === 0) return <div>No hunks.</div>;
 
+			const [parsed] = parsePatchFiles(patchForChange(change, hunks));
+			const fileDiff = parsed?.files[0];
+			if (!fileDiff) return <div>No diff available for this file.</div>;
+
 			return (
-				<ul>
-					{hunks.map((hunk) => (
-						<li key={hunkKey(hunk)}>
-							<Hunk
-								isResultOfBinaryToTextConversion={patch.subject.isResultOfBinaryToTextConversion}
-								projectId={projectId}
-								fileParent={fileParent}
-								change={change}
-								hunk={hunk}
-								hunkDependencyDiffs={hunkDependencyDiffs}
-							/>
-						</li>
-					))}
-				</ul>
+				<FileDiffWithHunkHandles
+					projectId={projectId}
+					change={change}
+					fileParent={fileParent}
+					hunkDependencyDiffs={hunkDependencyDiffs}
+					fileDiff={fileDiff}
+					hunks={hunks}
+					isResultOfBinaryToTextConversion={patch.subject.isResultOfBinaryToTextConversion}
+				/>
 			);
 		}),
 		Match.exhaustive,
@@ -166,7 +387,7 @@ const ChangesFileDiffList: FC<{
 	const treeChangeDiffs = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 	}).map((result) => result.data);
-	const changesWithDiffs = pipe(changes, Array.zip(treeChangeDiffs));
+	const changesWithDiffs = Array.zip(changes, treeChangeDiffs);
 
 	return changesWithDiffs.length === 0 ? (
 		<div>No file changes.</div>
