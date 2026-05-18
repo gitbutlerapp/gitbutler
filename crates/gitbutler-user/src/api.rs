@@ -267,6 +267,24 @@ pub fn validate_token_owner(token: &str, expected_user_id: u64) -> Result<bool> 
     Ok(id == expected_user_id)
 }
 
+/// Execute an async future on a dedicated thread with its own Tokio runtime.
+///
+/// This keeps the crate's public API synchronous while still using async HTTP
+/// internally, following the same pattern as `but-forge`.
+fn run_async<F, T>(future: F) -> Result<T>
+where
+    F: std::future::Future<Output = Result<T>> + Send + 'static,
+    T: Send + 'static,
+{
+    std::thread::spawn(move || {
+        tokio::runtime::Runtime::new()
+            .expect("failed to create tokio runtime")
+            .block_on(future)
+    })
+    .join()
+    .map_err(|e| anyhow::anyhow!("thread panicked: {e:?}"))?
+}
+
 #[cfg(test)]
 mod tests {
     use super::api_url_override_from_env;
@@ -291,22 +309,4 @@ mod tests {
 
         assert_eq!(url.as_deref(), Some("https://frontend.example.com"));
     }
-}
-
-/// Execute an async future on a dedicated thread with its own Tokio runtime.
-///
-/// This keeps the crate's public API synchronous while still using async HTTP
-/// internally, following the same pattern as `but-forge`.
-fn run_async<F, T>(future: F) -> Result<T>
-where
-    F: std::future::Future<Output = Result<T>> + Send + 'static,
-    T: Send + 'static,
-{
-    std::thread::spawn(move || {
-        tokio::runtime::Runtime::new()
-            .expect("failed to create tokio runtime")
-            .block_on(future)
-    })
-    .join()
-    .map_err(|e| anyhow::anyhow!("thread panicked: {e:?}"))?
 }
