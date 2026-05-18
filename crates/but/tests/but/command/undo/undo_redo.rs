@@ -3,11 +3,7 @@ use gitbutler_oplog::entry::OperationKind;
 use crate::utils::Sandbox;
 
 #[track_caller]
-fn reword(
-    env: &Sandbox,
-    commit_before: &str,
-    new_message: &str,
-) -> anyhow::Result<(std::process::Output, String)> {
+fn reword(env: &Sandbox, commit_before: &str, new_message: &str) -> (std::process::Output, String) {
     #[derive(serde::Deserialize)]
     struct RewordOutput {
         new_commit_id: String,
@@ -22,7 +18,10 @@ fn reword(
     let reword_output =
         serde_json::from_slice::<RewordOutput>(&reword_output.get_output().stdout).unwrap();
 
-    Ok((env.but("status").output()?, reword_output.new_commit_id))
+    (
+        env.but("status").output().unwrap(),
+        reword_output.new_commit_id,
+    )
 }
 
 #[track_caller]
@@ -90,14 +89,15 @@ Workspace has been restored to the selected snapshot.
 }
 
 #[test]
-fn can_undo_repeatedly() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
-    env.setup_metadata(&["A"])?;
+fn can_undo_repeatedly() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
 
-    let (status_one, new_commit) = reword(&env, "9ac4652", "one")?;
-    let (status_two, new_commit) = reword(&env, &new_commit, "two")?;
-    let (status_three, new_commit) = reword(&env, &new_commit, "three")?;
-    reword(&env, &new_commit, "four")?;
+    let (status_one, new_commit) = reword(&env, "9ac4652", "one");
+    let (status_two, new_commit) = reword(&env, &new_commit, "two");
+    let (status_three, new_commit) = reword(&env, &new_commit, "three");
+    reword(&env, &new_commit, "four");
 
     env.but("oplog")
         .args(["list"])
@@ -181,19 +181,18 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn can_undo_explicit_restore() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
-    env.setup_metadata(&["A"])?;
+fn can_undo_explicit_restore() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
 
-    let (_, new_commit) = reword(&env, "9ac4652", "one")?;
-    let (status_two, new_commit) = reword(&env, &new_commit, "two")?;
-    let (_, new_commit) = reword(&env, &new_commit, "three")?;
-    let (status_four, _) = reword(&env, &new_commit, "four")?;
+    let (_, new_commit) = reword(&env, "9ac4652", "one");
+    let (status_two, new_commit) = reword(&env, &new_commit, "two");
+    let (_, new_commit) = reword(&env, &new_commit, "three");
+    let (status_four, _) = reword(&env, &new_commit, "four");
 
     env.but("oplog")
         .args(["list"])
@@ -248,19 +247,18 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn can_undo_perform_operation_then_undo_again() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
-    env.setup_metadata(&["A"])?;
+fn can_undo_perform_operation_then_undo_again() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
 
-    let (_, new_commit) = reword(&env, "9ac4652", "one")?;
-    let (status_two, new_commit) = reword(&env, &new_commit, "two")?;
-    let (status_three, new_commit) = reword(&env, &new_commit, "three")?;
-    reword(&env, &new_commit, "four")?;
+    let (_, new_commit) = reword(&env, "9ac4652", "one");
+    let (status_two, new_commit) = reword(&env, &new_commit, "two");
+    let (status_three, new_commit) = reword(&env, &new_commit, "three");
+    reword(&env, &new_commit, "four");
 
     env.but("oplog")
         .args(["list"])
@@ -283,7 +281,7 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         &status_three,
     );
 
-    reword(&env, &new_commit, "three-new")?;
+    reword(&env, &new_commit, "three-new");
 
     env.but("oplog")
         .args(["list"])
@@ -331,18 +329,17 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         "e637109",
         &status_two,
     );
-
-    Ok(())
 }
 
 #[test]
-fn undoing_past_end_of_oplog() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
-    env.setup_metadata(&["A"])?;
+fn undoing_past_end_of_oplog() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
 
-    let status_zero = env.but("status").output()?;
-    let (status_one, new_commit) = reword(&env, "9ac4652", "one")?;
-    reword(&env, &new_commit, "two")?;
+    let status_zero = env.but("status").output().unwrap();
+    let (status_one, new_commit) = reword(&env, "9ac4652", "one");
+    reword(&env, &new_commit, "two");
 
     env.but("oplog")
         .args(["list"])
@@ -401,19 +398,18 @@ Operations History
         r#"No previous operations to undo.
 "#,
     );
-
-    Ok(())
 }
 
 #[test]
-fn can_redo() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
-    env.setup_metadata(&["A"])?;
+fn can_redo() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
 
-    let (_, new_commit) = reword(&env, "9ac4652", "one")?;
-    let (_, new_commit) = reword(&env, &new_commit, "two")?;
-    let (status_three, new_commit) = reword(&env, &new_commit, "three")?;
-    let (status_four, _) = reword(&env, &new_commit, "four")?;
+    let (_, new_commit) = reword(&env, "9ac4652", "one");
+    let (_, new_commit) = reword(&env, &new_commit, "two");
+    let (status_three, new_commit) = reword(&env, &new_commit, "three");
+    let (status_four, _) = reword(&env, &new_commit, "four");
 
     env.but("oplog")
         .args(["list"])
@@ -478,19 +474,18 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
         r#"No previous undo to redo.
 "#,
     );
-
-    Ok(())
 }
 
 #[test]
-fn can_mix_undo_and_redo() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
-    env.setup_metadata(&["A"])?;
+fn can_mix_undo_and_redo() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
 
-    let (status_one, new_commit) = reword(&env, "9ac4652", "one")?;
-    let (status_two, new_commit) = reword(&env, &new_commit, "two")?;
-    let (status_three, new_commit) = reword(&env, &new_commit, "three")?;
-    let (status_four, _) = reword(&env, &new_commit, "four")?;
+    let (status_one, new_commit) = reword(&env, "9ac4652", "one");
+    let (status_two, new_commit) = reword(&env, &new_commit, "two");
+    let (status_three, new_commit) = reword(&env, &new_commit, "three");
+    let (status_four, _) = reword(&env, &new_commit, "four");
 
     env.but("oplog")
         .args(["list"])
@@ -693,21 +688,18 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
 7665ea7 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn cannot_redo_without_undoing_first() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
-    env.setup_metadata(&["A"])?;
+fn cannot_redo_without_undoing_first() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
 
-    reword(&env, "9ac4652", "one")?;
+    reword(&env, "9ac4652", "one");
 
     env.but("redo").assert().success().stdout_eq(
         r#"No previous undo to redo.
 "#,
     );
-
-    Ok(())
 }
