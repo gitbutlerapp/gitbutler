@@ -532,8 +532,10 @@ export async function initUserSettings(
 		if (terminal?.platform !== platformName) {
 			try {
 				const recommended = await terminalService.getRecommendedTerminalForPlatform(platformName);
-				if (recommended) {
-					uiState.global.defaultTerminal.set(recommended);
+				const fallback =
+					recommended ?? (await terminalService.getTerminalOptionsForPlatform(platformName))[0];
+				if (fallback) {
+					uiState.global.defaultTerminal.set(fallback);
 				}
 			} catch (err) {
 				console.error("Failed to get recommended terminal", err);
