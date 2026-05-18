@@ -2,6 +2,7 @@
 	import { goto } from "$app/navigation";
 	import CreateBranchModal from "$components/branch/CreateBranchModal.svelte";
 	import SyncButton from "$components/forge/SyncButton.svelte";
+	import OperationActivityIndicator from "$components/views/OperationActivityIndicator.svelte";
 	import IntegrateUpstreamModal from "$components/upstream/IntegrateUpstreamModal.svelte";
 	import { BACKEND } from "$lib/backend";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
@@ -114,6 +115,7 @@
 	<div class="chrome-left" data-tauri-drag-region={useCustomTitleBar}>
 		<div class="chrome-left-buttons" class:has-traffic-lights={useCustomTitleBar}>
 			<SyncButton {projectId} disabled={actionsDisabled} />
+			<OperationActivityIndicator {projectId} />
 
 			{#if isHasUpstreamCommits}
 				<Button

@@ -35,6 +35,14 @@ impl Context {
         but_core::sync::exclusive_repo_access(&self.gitdir, Some(&self.project_data_dir))
     }
 
+    /// Try to return a guard for exclusive worktree access without waiting.
+    ///
+    /// This is intended for opportunistic background refreshes that should step aside while a
+    /// foreground user operation is using the repository.
+    pub fn try_exclusive_worktree_access(&mut self) -> Option<RepoExclusiveGuard> {
+        but_core::sync::try_exclusive_repo_access(&self.gitdir, Some(&self.project_data_dir))
+    }
+
     /// Return a guard for shared (read) worktree access, and block while waiting for writers to disappear.
     /// There can be multiple readers, but only a single writer. Waiting writers will be handled with priority,
     /// thus block readers to prevent writer starvation.

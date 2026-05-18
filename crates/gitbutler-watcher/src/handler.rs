@@ -55,7 +55,14 @@ impl Handler {
             InternalEvent::ProjectFilesChange(project_id, paths) => {
                 let mut ctx =
                     self.open_command_context(project_id.clone(), app_settings.get()?.clone())?;
-                let mut guard = ctx.exclusive_worktree_access();
+                let Some(mut guard) = ctx.try_exclusive_worktree_access() else {
+                    tracing::debug!(
+                        %project_id,
+                        paths = paths.len(),
+                        "skipping opportunistic worktree refresh because repository is busy"
+                    );
+                    return Ok(());
+                };
                 self.project_files_change(project_id, paths, &mut ctx, guard.write_permission())
             }
 

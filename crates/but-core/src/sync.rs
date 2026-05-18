@@ -110,6 +110,33 @@ pub fn exclusive_repo_access(
     }
 }
 
+/// Try to return a guard for exclusive (read+write) *in-process* repository access without waiting.
+///
+/// This is intended for opportunistic background work. If another operation is already using the
+/// repository, callers should skip their refresh instead of queueing more work behind foreground
+/// user actions.
+pub fn try_exclusive_repo_access(
+    git_dir: impl Into<PathBuf>,
+    project_data_dir: Option<&Path>,
+) -> Option<RepoExclusiveGuard> {
+    let lock = {
+        let git_dir = git_dir.into();
+        let mut map = WORKTREE_LOCKS.lock();
+        Arc::clone(map.entry(git_dir).or_default())
+    };
+    let in_process_lock = lock.try_write_arc()?;
+    let inter_process_lock = match project_data_dir.map(try_best_effort_inter_process_lock) {
+        Some(TryInterProcessLock::Acquired(lock)) => lock,
+        Some(TryInterProcessLock::Busy) => return None,
+        None => None,
+    };
+    Some(RepoExclusiveGuard {
+        in_process_fair_lock: Some(in_process_lock),
+        inter_process_unfair_lock: inter_process_lock,
+        perm: RepoExclusive(()),
+    })
+}
+
 /// Return a guard for shared (read) repository access for the project at `git_dir`,
 /// and block while waiting for writers to disappear.
 /// There can be multiple readers, but only a single writer. Waiting writers will be handled with priority,
@@ -347,6 +374,54 @@ fn best_effort_inter_process_lock(project_data_dir: &Path) -> Option<LockFile> {
         return None;
     }
     Some(lock)
+}
+
+enum TryInterProcessLock {
+    Acquired(Option<LockFile>),
+    Busy,
+}
+
+fn try_best_effort_inter_process_lock(project_data_dir: &Path) -> TryInterProcessLock {
+    if let Err(err) = std::fs::create_dir_all(project_data_dir) {
+        tracing::warn!(
+            ?err,
+            path = %project_data_dir.display(),
+            "Failed to create project data directory for inter-process lock; continuing with in-process lock only"
+        );
+        return TryInterProcessLock::Acquired(None);
+    }
+
+    let inter_process_lock_path = project_data_dir.join("gitbutler.write-lock");
+    let mut lock = match LockFile::open(&inter_process_lock_path) {
+        Ok(lock) => lock,
+        Err(err) => {
+            tracing::warn!(
+                ?err,
+                path = %inter_process_lock_path.display(),
+                "Failed to open inter-process lock file; continuing with in-process lock only"
+            );
+            return TryInterProcessLock::Acquired(None);
+        }
+    };
+
+    match lock.try_lock() {
+        Ok(true) => TryInterProcessLock::Acquired(Some(lock)),
+        Ok(false) => {
+            tracing::debug!(
+                path = %inter_process_lock_path.display(),
+                "Inter-process lock already held; skipping opportunistic background refresh"
+            );
+            TryInterProcessLock::Busy
+        }
+        Err(err) => {
+            tracing::warn!(
+                ?err,
+                path = %inter_process_lock_path.display(),
+                "Failed to try acquiring inter-process lock; continuing with in-process lock only"
+            );
+            TryInterProcessLock::Acquired(None)
+        }
+    }
 }
 
 fn log_error_if_unsupported(err: std::io::Error, self_path: &Path) -> Result<bool, std::io::Error> {

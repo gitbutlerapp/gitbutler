@@ -1,4 +1,5 @@
 import { isReduxError } from "$lib/error/reduxError";
+import { beginBackendOperation } from "$lib/activity/operationActivity";
 import { getCookie } from "$lib/utils/cookies";
 import ReconnectingWebSocket from "reconnecting-websocket";
 import { readable } from "svelte/store";
@@ -179,6 +180,7 @@ async function webRelaunch(): Promise<void> {
  * @throws Throws an error if the backend responds with an error or if the request fails.
  */
 async function webInvoke<T>(command: string, params: Record<string, unknown> = {}): Promise<T> {
+	const activity = beginBackendOperation(command, params);
 	try {
 		const response = await fetch(`${getApiBaseUrl()}/${command}`, {
 			method: "POST",
@@ -206,6 +208,8 @@ async function webInvoke<T>(command: string, params: Record<string, unknown> = {
 			console.error(`ipc->${command}: ${JSON.stringify(params)}`, error);
 		}
 		throw error;
+	} finally {
+		activity.finish();
 	}
 }
 

@@ -1,4 +1,5 @@
 import { isReduxError } from "$lib/error/reduxError";
+import { beginBackendOperation } from "$lib/activity/operationActivity";
 import { getName, getVersion, getVersion as tauriGetVersion } from "@tauri-apps/api/app";
 import { invoke as invokeTauri } from "@tauri-apps/api/core";
 import { documentDir as documentDirTauri } from "@tauri-apps/api/path";
@@ -285,6 +286,7 @@ async function tauriInvoke<T>(command: string, params: Record<string, unknown> =
 	// 	throw userError;
 	// });
 
+	const activity = beginBackendOperation(command, params);
 	try {
 		return await invokeTauri<T>(command, params);
 	} catch (error: unknown) {
@@ -292,6 +294,8 @@ async function tauriInvoke<T>(command: string, params: Record<string, unknown> =
 			console.error(`ipc->${command}: ${JSON.stringify(params)}`, error);
 		}
 		throw error;
+	} finally {
+		activity.finish();
 	}
 }
 

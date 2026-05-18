@@ -89,8 +89,10 @@ pub fn watch_in_background(
         loop {
             tokio::select! {
                 Some(event) = events_in.recv() => {
-                    let events = coalesce_pending_events(event, &mut events_in, &project_id);
-                    for event in events {
+                    let mut events = CoalescedEvents::from(event);
+                    events.drain(&mut events_in);
+
+                    for event in events.into_events(&project_id) {
                         let handler = handler.clone();
                         let app_settings = app_settings.clone();
                         task::spawn_blocking(move || {
@@ -112,45 +114,51 @@ pub fn watch_in_background(
     Ok(handle)
 }
 
-fn coalesce_pending_events(
-    first_event: InternalEvent,
-    events_in: &mut UnboundedReceiver<InternalEvent>,
-    project_id: &ProjectHandleOrLegacyProjectId,
-) -> Vec<InternalEvent> {
-    let mut git_paths = BTreeSet::new();
-    let mut project_paths = BTreeSet::new();
-
-    add_event_paths(first_event, &mut git_paths, &mut project_paths);
-    while let Ok(event) = events_in.try_recv() {
-        add_event_paths(event, &mut git_paths, &mut project_paths);
-    }
-
-    let git_paths: Vec<_> = git_paths.into_iter().collect();
-    let project_paths: Vec<_> = project_paths.into_iter().collect();
-    let git_refreshes_worktree = git_paths
-        .iter()
-        .any(|path| path.to_str() == Some(gitbutler_filemonitor::INDEX));
-
-    let mut events = Vec::with_capacity(2);
-    if !git_paths.is_empty() {
-        events.push(InternalEvent::GitFilesChange(project_id.clone(), git_paths));
-    }
-    if !project_paths.is_empty() && !git_refreshes_worktree {
-        events.push(InternalEvent::ProjectFilesChange(
-            project_id.clone(),
-            project_paths,
-        ));
-    }
-    events
+struct CoalescedEvents {
+    git_paths: BTreeSet<std::path::PathBuf>,
+    project_paths: BTreeSet<std::path::PathBuf>,
 }
 
-fn add_event_paths(
-    event: InternalEvent,
-    git_paths: &mut BTreeSet<std::path::PathBuf>,
-    project_paths: &mut BTreeSet<std::path::PathBuf>,
-) {
-    match event {
-        InternalEvent::GitFilesChange(_, paths) => git_paths.extend(paths),
-        InternalEvent::ProjectFilesChange(_, paths) => project_paths.extend(paths),
+impl CoalescedEvents {
+    fn from(event: InternalEvent) -> Self {
+        let mut events = CoalescedEvents {
+            git_paths: BTreeSet::new(),
+            project_paths: BTreeSet::new(),
+        };
+        events.add(event);
+        events
+    }
+
+    fn drain(&mut self, events_in: &mut UnboundedReceiver<InternalEvent>) {
+        while let Ok(event) = events_in.try_recv() {
+            self.add(event);
+        }
+    }
+
+    fn add(&mut self, event: InternalEvent) {
+        match event {
+            InternalEvent::GitFilesChange(_, paths) => self.git_paths.extend(paths),
+            InternalEvent::ProjectFilesChange(_, paths) => self.project_paths.extend(paths),
+        }
+    }
+
+    fn into_events(self, project_id: &ProjectHandleOrLegacyProjectId) -> Vec<InternalEvent> {
+        let git_paths: Vec<_> = self.git_paths.into_iter().collect();
+        let project_paths: Vec<_> = self.project_paths.into_iter().collect();
+        let git_refreshes_worktree = git_paths
+            .iter()
+            .any(|path| path.to_str() == Some(gitbutler_filemonitor::INDEX));
+
+        let mut events = Vec::with_capacity(2);
+        if !git_paths.is_empty() {
+            events.push(InternalEvent::GitFilesChange(project_id.clone(), git_paths));
+        }
+        if !project_paths.is_empty() && !git_refreshes_worktree {
+            events.push(InternalEvent::ProjectFilesChange(
+                project_id.clone(),
+                project_paths,
+            ));
+        }
+        events
     }
 }
