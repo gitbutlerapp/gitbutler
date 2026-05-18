@@ -1,0 +1,117 @@
+name: "Publish Windows Push Build"
+
+on:
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    env:
+      CHANNEL: nightly
+      JS_PACKAGE_MANAGER: bun
+    steps:
+      - name: Set git to use LF
+        shell: bash
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: ".nvmrc"
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+
+      - name: Set Perl environment variables
+        shell: pwsh
+        run: |
+          echo "PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          echo "OPENSSL_SRC_PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Install dependencies with Bun
+        shell: bash
+        run: bun install --save-text-lockfile
+
+      - name: Prepare release metadata
+        id: meta
+        shell: bash
+        run: |
+          short_sha="${GITHUB_SHA::7}"
+          version="0.0.0-push.${GITHUB_RUN_NUMBER}+${short_sha}"
+          tag="push-build-${GITHUB_SHA}"
+
+          echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "SENTRY_RELEASE=$version" >> "$GITHUB_ENV"
+
+      - name: Build desktop frontend
+        shell: bash
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: bun run build:desktop -- --mode nightly
+
+      - name: Build embedded web frontend
+        shell: bash
+        run: |
+          SVELTEKIT_OUT_DIR=embedded-frontend \
+          VITE_BUILD_TARGET=web \
+          VITE_BUTLER_API_BASE_URL=/api \
+          VITE_EMBEDDED_BUILD=1 \
+          bun run build:desktop
+
+      - name: Build Windows installer
+        shell: bash
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        run: |
+          ./scripts/release.sh \
+            --channel "$CHANNEL" \
+            --dist "./release" \
+            --version "${{ steps.meta.outputs.version }}"
+
+      - name: Locate installer
+        id: installer
+        shell: bash
+        run: |
+          installer_path="$(find release/windows/x86_64 -maxdepth 1 -type f -name '*.msi' | head -n 1)"
+          if [ -z "$installer_path" ]; then
+            echo "No Windows installer was produced." >&2
+            exit 1
+          fi
+
+          echo "path=$installer_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: gitbutler-windows-installer-${{ steps.meta.outputs.short_sha }}
+          path: ${{ steps.installer.outputs.path }}
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          fail_on_unmatched_files: true
+          files: ${{ steps.installer.outputs.path }}
+          generate_release_notes: true
+          make_latest: false
+          name: GitButler push build ${{ steps.meta.outputs.short_sha }}
+          prerelease: true
+          tag_name: ${{ steps.meta.outputs.tag }}
+          target_commitish: ${{ github.sha }}

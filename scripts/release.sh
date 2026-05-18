@@ -36,6 +36,24 @@ function info() {
 	echo "$@"
 }
 
+function run_package_script() {
+	local script_name
+	script_name="$1"
+	shift
+
+	case "${JS_PACKAGE_MANAGER:-pnpm}" in
+	bun)
+		(cd "$PWD/.." && bun run "$script_name" "$@")
+		;;
+	pnpm)
+		(cd "$PWD/.." && pnpm "$script_name" "$@")
+		;;
+	*)
+		error "unsupported JS_PACKAGE_MANAGER: ${JS_PACKAGE_MANAGER}"
+		;;
+	esac
+}
+
 function os() {
 	local os
 	os="$(uname -s)"
@@ -95,7 +113,7 @@ DIST="release"
 export OS
 
 function tauri() {
-	(cd "$PWD/.." && pnpm tauri-for-release "$@")
+	run_package_script tauri-for-release "$@"
 }
 
 while [[ $# -gt 0 ]]; do

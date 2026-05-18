@@ -855,6 +855,10 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             but_post(legacy::projects::update_project_cmd),
         )
         .route(
+            "/autofix_unity_project",
+            but_post(legacy::projects::autofix_unity_project_cmd),
+        )
+        .route(
             "/add_project",
             local_only_post(legacy::projects::add_project_cmd),
         )

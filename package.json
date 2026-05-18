@@ -7,6 +7,44 @@
 	},
 	"type": "module",
 	"packageManager": "pnpm@10.20.0",
+	"workspaces": [
+		"apps/*",
+		"packages/*",
+		"crates/*",
+		"e2e"
+	],
+	"catalog": {
+		"@vitest/browser": "3.2.4",
+		"@vitest/ui": "3.2.4",
+		"marked": "15.0.12",
+		"rxjs": "7.8.2",
+		"typescript": "5.9.3",
+		"vite": "6.4.2",
+		"vitest": "3.2.4"
+	},
+	"catalogs": {
+		"postcss": {
+			"@types/postcss-pxtorem": "6.1.0",
+			"postcss": "8.5.10",
+			"postcss-cli": "11.0.1",
+			"postcss-custom-media": "11.0.6",
+			"postcss-load-config": "5.1.0",
+			"postcss-nesting": "12.1.5",
+			"postcss-pxtorem": "6.1.0"
+		},
+		"redux": {
+			"@reduxjs/toolkit": "2.11.2"
+		},
+		"svelte": {
+			"@sentry/sveltekit": "10.44.0",
+			"@sveltejs/adapter-static": "3.0.10",
+			"@sveltejs/kit": "2.52.2",
+			"@sveltejs/package": "2.5.7",
+			"@sveltejs/vite-plugin-svelte": "6.2.4",
+			"svelte": "5.54.0",
+			"svelte-check": "4.4.5"
+		}
+	},
 	"scripts": {
 		"dev:ui": "pnpm --filter @gitbutler/ui storybook",
 		"dev:web": "turbo watch --filter @gitbutler/web dev",
@@ -51,6 +89,13 @@
 		"isgood": "pnpm check && pnpm lint",
 		"begood": "pnpm format && pnpm fix"
 	},
+	"trustedDependencies": [
+		"@ffmpeg-installer/darwin-arm64",
+		"@prisma/client",
+		"core-js",
+		"electron",
+		"electron-winstaller"
+	],
 	"devDependencies": {
 		"@eslint/js": "9.39.4",
 		"@gitbutler/no-cross-domain-imports": "workspace:*",

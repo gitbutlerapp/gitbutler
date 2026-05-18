@@ -60,6 +60,8 @@ members = [
     # 👉Unclear purpose (a mix of everything?); lacks tests and docs. Uses legacy crates (a lot).
     "crates/but-tools", # 📄TBD
     # 👉No tests, lacks top-level docs, purpose somewhat unclear.
+    "crates/but-acp", # 📄Agent Client Protocol integration.
+    # 👉New ACP integration layer.
     "crates/but-llm", # 📄TBD
     # 👉lacks top-level docs and docs.
     "crates/but-github", # 📄A thin wrapper of the GitHub API, for authentication and resource access.
@@ -186,6 +188,7 @@ but-oxidize = { path = "crates/but-oxidize" }
 but-utils = { path = "crates/but-utils" }
 but-forge = { path = "crates/but-forge" }
 but-oplog = { path = "crates/but-oplog" }
+but-acp = { path = "crates/but-acp" }
 but-llm = { path = "crates/but-llm" }
 but-server = { path = "crates/but-server" }
 but-agentlog = { path = "crates/but-agentlog" }
@@ -257,6 +260,7 @@ rmcp = { version = "0.16.0", default-features = false, features = [
     "server",
     "macros",
 ] }
+agent-client-protocol = "0.12.1"
 serde_json_lenient = "0.2.3"
 reqwest = { version = "0.12.28", default-features = false, features = [
     "rustls-tls",

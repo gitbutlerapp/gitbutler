@@ -12,6 +12,7 @@ commands.allow = [
   "add_project_best_effort",
   "add_remote",
   "assign_hunk",
+  "autofix_unity_project",
   "branch_details",
   "branch_diff",
   "build_type",

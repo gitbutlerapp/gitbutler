@@ -1,12 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+run_package_script() {
+	local script_name
+	script_name="$1"
+	shift
+
+	case "${JS_PACKAGE_MANAGER:-pnpm}" in
+		bun)
+			bun run "$script_name" "$@"
+			;;
+		pnpm)
+			pnpm "$script_name" "$@"
+			;;
+		*)
+			echo "unsupported JS_PACKAGE_MANAGER: ${JS_PACKAGE_MANAGER:-}" >&2
+			exit 1
+			;;
+	esac
+}
+
 if [ "${CI:-}" = "true" ]; then
   echo "CI environment detected, expecting frontend build to be downloaded."
 else
   fe_mode=${1:?First argument must be the mode to build the frontend with}
   echo "Assuming local invocation, building frontend in $fe_mode mode"
-  pnpm build:desktop -- --mode "$fe_mode"
+  run_package_script build:desktop -- --mode "$fe_mode"
 fi
 
 set -x
@@ -24,7 +43,7 @@ if [ "${OS:-}" == "windows" ] || [ "${OS:-}" == "linux" ]; then
     if [ "${CI:-}" != "true" ]; then
       SVELTEKIT_OUT_DIR=embedded-frontend \
         VITE_BUILD_TARGET=web VITE_BUTLER_API_BASE_URL=/api VITE_EMBEDDED_BUILD=1 \
-        pnpm build:desktop
+        run_package_script build:desktop
     fi
   fi
   # shellcheck disable=SC2086
