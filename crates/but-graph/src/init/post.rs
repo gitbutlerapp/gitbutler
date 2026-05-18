@@ -564,7 +564,7 @@ impl Graph {
                         if target_ref.is_some() {
                             return None;
                         }
-                        // It's a very specialised filter… will that lead to strange behaviour later?
+                        // It's a very specialized filter… will that lead to strange behavior later?
                         let segment = &self[s];
                         if segment.ref_info.is_some() {
                             return None;
@@ -640,7 +640,7 @@ impl Graph {
     /// * workspace segments are either empty, or have just one managed commit.
     /// * insert empty segments as defined by the workspace that affects its downstream.
     /// * put workspace connection into the order defined in the workspace metadata.
-    /// * set sibling segment IDs for unnamed segments that are descendents of an out-of-workspace but known segment.
+    /// * set sibling segment IDs for unnamed segments that are descendants of an out-of-workspace but known segment.
     fn workspace_upgrades<T: RefMetadata>(
         &mut self,
         meta: &OverlayMetadata<'_, T>,
