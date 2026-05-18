@@ -339,7 +339,7 @@ fn squash_move_subject_below_target_for_shared_file_lineage() -> Result<()> {
 }
 
 #[test]
-fn squash_move_subject_above_target_out_of_order_for_shared_file_lineage_fails() -> Result<()> {
+fn squash_move_subject_above_target_out_of_order_for_shared_file_lineage() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("squash-shared-file-three-commits", |_| {})?;
 
@@ -360,12 +360,10 @@ fn squash_move_subject_above_target_out_of_order_for_shared_file_lineage_fails()
         target_id,
         squash_commits::MessageCombinationStrategy::KeepBoth,
     )
-    .expect_err("must fail when reordering produces conflicts");
-
-    assert!(
-        err.to_string()
-            .contains("became conflicted after reordering"),
-        "error should explain that conflicted commits cannot be squashed"
+    .expect_err("squash should fail before rebase materialization when the merge conflicts");
+    assert_eq!(
+        err.to_string(),
+        "Cannot squash commits that would result in merge conflicts"
     );
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -507,6 +505,61 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
     └── ≡📙:4:B on 85efbe4 {2}
         └── 📙:4:B
     ");
+
+    Ok(())
+}
+
+#[test]
+fn squash_cross_stack_commit_does_not_pull_in_ancestor_tree_state() -> Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        writable_scenario("ws-ref-ws-commit-single-stack-double-stack-files", |meta| {
+            add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+            add_stack_with_segments(meta, 2, "C", StackState::InWorkspace, &["B"]);
+        })?;
+
+    let normalized = visualize_commit_graph_all(&repo)?.replace("  \n", "\n");
+    insta::assert_snapshot!(normalized, @r"
+    *   c47834b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\
+    | * 26e45af (A) A
+    * | 356de85 (C) C
+    * | f25f65c (B) B
+    |/
+    * 893d602 (origin/main, main) M
+    ");
+
+    let mut ws = graph.into_workspace()?;
+    let subject_id = repo.rev_parse_single("C")?.detach();
+    let target_id = repo.rev_parse_single("A")?.detach();
+
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let outcome = squash_commits(
+        editor,
+        vec![subject_id],
+        target_id,
+        squash_commits::MessageCombinationStrategy::KeepBoth,
+    )?;
+
+    let materialized = outcome.rebase.materialize()?;
+    let squashed_id = materialized.lookup_pick(outcome.commit_selector)?;
+
+    let file_a = repo
+        .rev_parse_single(format!("{squashed_id}:file-a").as_str())?
+        .object()?;
+    assert_eq!(file_a.data.as_bstr(), "a\n");
+
+    let file_c = repo
+        .rev_parse_single(format!("{squashed_id}:file-c").as_str())?
+        .object()?;
+    assert_eq!(file_c.data.as_bstr(), "c\n");
+
+    let missing_file_b = repo
+        .rev_parse_single(format!("{squashed_id}:file-b").as_str())
+        .expect_err("squashing C into A should not pull in B's file");
+    assert!(
+        missing_file_b.to_string().contains("file-b"),
+        "missing file-b error should mention the absent path"
+    );
 
     Ok(())
 }
