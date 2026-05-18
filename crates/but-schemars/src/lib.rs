@@ -283,6 +283,20 @@ pub fn gix_time_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schem
     generate.subschema_for::<Option<GixTime>>()
 }
 
+/// Use on `gix::date::Time` fields that should keep the same
+/// `{ seconds, offset }` shape as the serialized value.
+///
+/// ```rust,ignore
+/// #[derive(schemars::JsonSchema)]
+/// struct Example {
+///     #[schemars(schema_with = "but_schemars::gix_time")]
+///     created_at: gix::date::Time,
+/// }
+/// ```
+pub fn gix_time(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<GixTime>()
+}
+
 #[derive(schemars::JsonSchema)]
 #[schemars(rename = "EntryKind")]
 #[expect(dead_code)]

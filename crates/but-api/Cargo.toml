@@ -47,6 +47,7 @@ export-schema = [
     "gitbutler-branch/export-schema",
     "gitbutler-branch-actions/export-schema",
     "gitbutler-edit-mode/export-schema",
+    "gitbutler-oplog/export-schema",
 ]
 ## Make legacy functionality available.
 legacy = [
