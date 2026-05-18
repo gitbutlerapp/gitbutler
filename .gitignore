@@ -9,6 +9,7 @@ generated-do-not-edit/
 .idea
 $.idea
 $.zed
+*.code-workspace
 
 .sentryclirc
 .DS_Store
