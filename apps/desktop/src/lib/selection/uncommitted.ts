@@ -526,6 +526,10 @@ function updateAssignments(
 	state: UncommittedState,
 	action: PayloadAction<{ assignments: HunkAssignment[]; changes: TreeChange[] }>,
 ): UncommittedState {
+	const assignments = assignmentsWithMissingWholeFileFallbacks(
+		action.payload.assignments,
+		action.payload.changes,
+	);
 	// Read: Replace whole tree changes slice with the new changes.
 	state.treeChanges = treeChangeAdapter.addMany(
 		treeChangeAdapter.getInitialState(),
@@ -534,7 +538,7 @@ function updateAssignments(
 	const oldAssignments = state.hunkAssignments;
 	state.hunkAssignments = hunkAssignmentAdapter.addMany(
 		hunkAssignmentAdapter.getInitialState(),
-		action.payload.assignments,
+		assignments,
 	);
 	const oldSelections = uncommittedSelectors.hunkSelection.selectAll(state.hunkSelection);
 	// Set hunk selection to empty. We will re-build this.
@@ -542,7 +546,7 @@ function updateAssignments(
 
 	// Keyed by stable ID or fallback to composite key.
 	const newAssignments = new Map(
-		action.payload.assignments.map((a) => [a.id || compositeKey(a), a]),
+		assignments.map((a) => [a.id || compositeKey(a), a]),
 	);
 
 	for (const old of oldSelections) {
@@ -569,6 +573,27 @@ function updateAssignments(
 	}
 
 	return state;
+}
+
+function assignmentsWithMissingWholeFileFallbacks(
+	assignments: HunkAssignment[],
+	changes: TreeChange[],
+): HunkAssignment[] {
+	const assignedPaths = new Set(assignments.map((assignment) => assignment.path));
+	const fallbackAssignments = changes
+		.filter((change) => !assignedPaths.has(change.path))
+		.map((change) => ({
+			id: `missing-assignment:${change.path}`,
+			hunkHeader: null,
+			path: change.path,
+			pathBytes: change.pathBytes,
+			stackId: null,
+			branchRefBytes: null,
+			lineNumsAdded: null,
+			lineNumsRemoved: null,
+		}));
+
+	return fallbackAssignments.length > 0 ? [...assignments, ...fallbackAssignments] : assignments;
 }
 
 /**

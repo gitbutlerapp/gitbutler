@@ -4,7 +4,6 @@ use crate::WorkspaceState;
 use anyhow::Context as _;
 use but_api_macros::but_api;
 use but_core::{DryRun, sync::RepoExclusive};
-use but_hunk_assignment::{HunkAssignmentRequest, HunkAssignmentTarget};
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use but_rebase::graph_rebase::Editor;
 use tracing::instrument;
@@ -123,15 +122,25 @@ pub fn commit_uncommit_only_with_perm(
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let mut tx = db.transaction()?;
 
-    let before_assignments = if assign_to.is_some() {
-        let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            tx.hunk_assignments_mut()?,
-            &repo,
-            &ws,
-            None::<Vec<but_core::TreeChange>>,
-            context_lines,
-        )?;
-        Some(assignments)
+    let before_assignment_ids = if assign_to.is_some() {
+        let persisted_ids = but_hunk_assignment::assignment_ids(tx.hunk_assignments())?;
+        if persisted_ids.is_empty() {
+            let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
+                tx.hunk_assignments_mut()?,
+                &repo,
+                &ws,
+                None::<Vec<but_core::TreeChange>>,
+                context_lines,
+            )?;
+            Some(
+                assignments
+                    .into_iter()
+                    .filter_map(|assignment| assignment.id)
+                    .collect(),
+            )
+        } else {
+            Some(persisted_ids)
+        }
     } else {
         None
     };
@@ -166,7 +175,7 @@ pub fn commit_uncommit_only_with_perm(
         )
     };
 
-    if let (Some(before_assignments), Some(assign_to)) = (before_assignments, assign_to) {
+    if let (Some(before_assignment_ids), Some(assign_to)) = (before_assignment_ids, assign_to) {
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
             tx.hunk_assignments_mut()?,
             repo,
@@ -175,29 +184,17 @@ pub fn commit_uncommit_only_with_perm(
             context_lines,
         )?;
 
-        let before_ids: HashSet<_> = before_assignments
+        let to_assign_ids: HashSet<_> = after_assignments
             .into_iter()
             .filter_map(|assignment| assignment.id)
+            .filter(|id| !before_assignment_ids.contains(id))
             .collect();
 
-        let to_assign: Vec<_> = after_assignments
-            .into_iter()
-            .filter(|assignment| assignment.id.is_some_and(|id| !before_ids.contains(&id)))
-            .map(|assignment| HunkAssignmentRequest {
-                hunk_header: assignment.hunk_header,
-                path_bytes: assignment.path_bytes,
-                target: Some(HunkAssignmentTarget::Stack {
-                    stack_id: assign_to,
-                }),
-            })
-            .collect();
-
-        but_hunk_assignment::assign(
+        but_hunk_assignment::assign_ids_to_stack(
             tx.hunk_assignments_mut()?,
-            repo,
             workspace,
-            to_assign,
-            context_lines,
+            &to_assign_ids,
+            assign_to,
         )?;
     }
 
@@ -263,15 +260,25 @@ pub fn commit_uncommit_changes_only_with_perm(
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let mut tx = db.transaction()?;
 
-    let before_assignments = if assign_to.is_some() {
-        let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            tx.hunk_assignments_mut()?,
-            &repo,
-            &ws,
-            None::<Vec<but_core::TreeChange>>,
-            context_lines,
-        )?;
-        Some(assignments)
+    let before_assignment_ids = if assign_to.is_some() {
+        let persisted_ids = but_hunk_assignment::assignment_ids(tx.hunk_assignments())?;
+        if persisted_ids.is_empty() {
+            let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
+                tx.hunk_assignments_mut()?,
+                &repo,
+                &ws,
+                None::<Vec<but_core::TreeChange>>,
+                context_lines,
+            )?;
+            Some(
+                assignments
+                    .into_iter()
+                    .filter_map(|assignment| assignment.id)
+                    .collect(),
+            )
+        } else {
+            Some(persisted_ids)
+        }
     } else {
         None
     };
@@ -296,7 +303,7 @@ pub fn commit_uncommit_changes_only_with_perm(
         )
     };
 
-    if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
+    if let (Some(before_assignment_ids), Some(stack_id)) = (before_assignment_ids, assign_to) {
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
             tx.hunk_assignments_mut()?,
             repo,
@@ -305,27 +312,17 @@ pub fn commit_uncommit_changes_only_with_perm(
             context_lines,
         )?;
 
-        let before_ids: HashSet<_> = before_assignments
+        let to_assign_ids: HashSet<_> = after_assignments
             .into_iter()
             .filter_map(|assignment| assignment.id)
+            .filter(|id| !before_assignment_ids.contains(id))
             .collect();
 
-        let to_assign: Vec<_> = after_assignments
-            .into_iter()
-            .filter(|assignment| assignment.id.is_some_and(|id| !before_ids.contains(&id)))
-            .map(|assignment| HunkAssignmentRequest {
-                hunk_header: assignment.hunk_header,
-                path_bytes: assignment.path_bytes,
-                target: Some(HunkAssignmentTarget::Stack { stack_id }),
-            })
-            .collect();
-
-        but_hunk_assignment::assign(
+        but_hunk_assignment::assign_ids_to_stack(
             tx.hunk_assignments_mut()?,
-            repo,
             workspace,
-            to_assign,
-            context_lines,
+            &to_assign_ids,
+            stack_id,
         )?;
     }
 

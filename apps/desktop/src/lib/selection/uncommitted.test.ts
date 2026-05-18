@@ -5,6 +5,7 @@ import {
 } from "$lib/selection/uncommitted";
 import { describe, expect, test } from "vitest";
 import type { HunkAssignment } from "@gitbutler/but-sdk";
+import type { TreeChange } from "@gitbutler/but-sdk";
 
 function assignment(path: string): HunkAssignment {
 	return {
@@ -16,6 +17,23 @@ function assignment(path: string): HunkAssignment {
 		branchRefBytes: null,
 		lineNumsAdded: null,
 		lineNumsRemoved: null,
+	};
+}
+
+function treeChange(path: string): TreeChange {
+	return {
+		path,
+		pathBytes: Array.from(new TextEncoder().encode(path)),
+		status: {
+			type: "Addition",
+			subject: {
+				isUntracked: false,
+				state: {
+					id: "0000000000000000000000000000000000000000",
+					kind: "Blob",
+				},
+			},
+		},
 	};
 }
 
@@ -70,5 +88,28 @@ describe("uncommitted selection", () => {
 		expect(
 			uncommittedSelectors.hunkSelection.selectAll(state.hunkSelection).map((item) => item.path),
 		).toEqual(["other/c.ts"]);
+	});
+
+	test("keeps changed files visible when assignment data is missing", () => {
+		let state = uncommittedSlice.reducer(
+			undefined,
+			uncommittedActions.update({
+				assignments: [],
+				changes: [treeChange("src/missing.ts")],
+			}),
+		);
+
+		expect(uncommittedSelectors.treeChanges.selectByStackId(state, null).map((c) => c.path)).toEqual([
+			"src/missing.ts",
+		]);
+
+		state = uncommittedSlice.reducer(
+			state,
+			uncommittedActions.checkFiles({ stackId: null, paths: ["src/missing.ts"] }),
+		);
+
+		expect(
+			uncommittedSelectors.hunkSelection.selectAll(state.hunkSelection).map((item) => item.path),
+		).toEqual(["src/missing.ts"]);
 	});
 });

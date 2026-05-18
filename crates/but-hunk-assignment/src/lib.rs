@@ -12,7 +12,7 @@
 mod reconcile;
 mod state;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anyhow::Result;
 use bstr::{BString, ByteSlice};
@@ -448,6 +448,48 @@ pub fn assign(
 
     derive_stack_ids(&mut with_requests, workspace);
     state::set_assignments(db, with_requests)?;
+
+    Ok(())
+}
+
+/// Returns IDs currently persisted for hunk assignments.
+pub fn assignment_ids(db: HunkAssignmentsHandle) -> Result<HashSet<Uuid>> {
+    Ok(state::assignments(db)?
+        .into_iter()
+        .filter_map(|assignment| assignment.id)
+        .collect())
+}
+
+/// Assign persisted hunk assignments by ID without re-scanning the worktree.
+pub fn assign_ids_to_stack(
+    db: HunkAssignmentsHandleMut,
+    workspace: &but_graph::Workspace,
+    assignment_ids: &HashSet<Uuid>,
+    stack_id: StackId,
+) -> Result<()> {
+    if assignment_ids.is_empty() {
+        return Ok(());
+    }
+
+    let branch_ref_bytes = workspace
+        .find_stack_by_id(stack_id)
+        .and_then(|stack| stack.ref_name())
+        .map(|ref_name| ref_name.to_owned())
+        .ok_or_else(|| anyhow::anyhow!("Unknown stack_id {stack_id} in assignment request"))?;
+
+    let mut assignments = state::assignments(db.to_ref())?;
+    let mut changed = false;
+    for assignment in &mut assignments {
+        if assignment.id.is_some_and(|id| assignment_ids.contains(&id)) {
+            assignment.branch_ref_bytes = Some(branch_ref_bytes.clone());
+            changed = true;
+        }
+    }
+
+    if changed {
+        derive_stack_ids(&mut assignments, workspace);
+        state::set_assignments(db, assignments)?;
+    }
 
     Ok(())
 }
