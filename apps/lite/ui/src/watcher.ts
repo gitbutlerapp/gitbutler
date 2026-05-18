@@ -8,10 +8,6 @@ export const handleWatcher = (
 	client: QueryClient,
 ): void => {
 	switch (event.payload.type) {
-		case "gitFetch":
-		case "gitHead":
-		case "gitActivity":
-			break;
 		case "worktreeChanges":
 			const workspaceChanges = event.payload.subject.changes;
 			client.setQueryData(
