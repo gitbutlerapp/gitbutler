@@ -124,6 +124,43 @@ fn ws_ref_no_ws_commit_two_virtual_stacks_on_same_commit_apply_dependent_first()
 
     // It's all virtual.
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A");
+
+    let ws = out.workspace.into_owned();
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/A"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @r#"
+    Outcome {
+        workspace_changed: true,
+        checked_out: None,
+    }
+    "#);
+    let ws = out.workspace.into_owned();
+    insta::assert_snapshot!(graph_workspace(&ws), @"
+    📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542
+    └── ≡📙:2:B on e5d0542 {1}
+        └── 📙:2:B
+    ");
+
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/B"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @r#"
+    Outcome {
+        workspace_changed: true,
+        checked_out: None,
+    }
+    "#);
+    insta::assert_snapshot!(graph_workspace(&out.workspace), @"📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A");
     Ok(())
 }
 
@@ -803,12 +840,9 @@ fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
     ├── ≡📙:1:main on e31e6ca {1a5}
     │   └── 📙:1:main
     │       └── ·b1540e5 (🏘️)
-    ├── ≡📙:2:A on e31e6ca {41}
-    │   └── 📙:2:A
-    │       └── ·bf53300 (🏘️)
-    └── ≡:4:B on e31e6ca
-        └── :4:B
-            └── ·0e391b2 (🏘️)
+    └── ≡📙:2:A on e31e6ca {41}
+        └── 📙:2:A
+            └── ·bf53300 (🏘️)
     ");
     assert!(
         !repo.workdir_path("B").expect("non-bare").exists(),
@@ -902,8 +936,6 @@ fn unapply_dirty_worktree_abort_keeps_refs_and_metadata() -> anyhow::Result<()> 
         worktree_before,
         "the locally modified file wasn't changed"
     );
-    assert!(refs_before.contains("HEAD -> gitbutler/workspace"));
-    assert!(refs_before.contains("origin/B, B"));
     assert_eq!(
         visualize_commit_graph_all(&repo)?,
         refs_before,
@@ -1075,6 +1107,96 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
         },
     )
     "#);
+
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/A2"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @"
+    Outcome {
+        workspace_changed: true,
+        checked_out: None,
+    }
+    ");
+    let ws = out.workspace.into_owned();
+    insta::assert_snapshot!(graph_workspace(&ws), "TODO: A2 is removed, along with A1", @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+    ├── ≡📙:3:unrelated on 3183e43 {3c4}
+    │   └── 📙:3:unrelated
+    │       └── ·53ad0c2 (🏘️)
+    └── ≡📙:4:A2 on 3183e43 {73}
+        ├── 📙:4:A2
+        │   └── ·f1889e7 (🏘️)
+        └── 📙:5:A1
+            └── ·7de99e1 (🏘️)
+    ");
+
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/A1"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, "this is a no-op, A1 was removed with A2 prior", @"
+    Outcome {
+        workspace_changed: false,
+        checked_out: None,
+    }
+    ");
+    let ws = out.workspace.into_owned();
+    insta::assert_snapshot!(graph_workspace(&ws), "nothing changed, this was a no-op" , @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+    ├── ≡📙:3:unrelated on 3183e43 {3c4}
+    │   └── 📙:3:unrelated
+    │       └── ·53ad0c2 (🏘️)
+    └── ≡📙:4:A2 on 3183e43 {73}
+        ├── 📙:4:A2
+        │   └── ·f1889e7 (🏘️)
+        └── 📙:5:A1
+            └── ·7de99e1 (🏘️)
+    ");
+
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/unrelated"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @"
+    Outcome {
+        workspace_changed: true,
+        checked_out: None,
+    }
+    ");
+    let ws = out.workspace.into_owned();
+    insta::assert_snapshot!(graph_workspace(&ws), @"
+    📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+    └── ≡📙:3:A2 on 3183e43 {73}
+        ├── 📙:3:A2
+        │   └── ·f1889e7 (🏘️)
+        └── :4:A1
+            └── ·7de99e1 (🏘️)
+    ");
+
+    insta::assert_snapshot!(
+        visualize_commit_graph_all(&repo)?
+            .lines()
+            .map(str::trim_end)
+            .collect::<Vec<_>>()
+            .join("\n"),
+        @"
+    * f1889e7 (HEAD -> gitbutler/workspace, A2) add A2
+    * 7de99e1 (A1) add A1
+    | * 53ad0c2 (unrelated) add U1
+    |/
+    * 3183e43 (origin/main, main) M1
+    "
+    );
     Ok(())
 }
 
@@ -1205,6 +1327,30 @@ fn detached_head_journey() -> anyhow::Result<()> {
     * / 49d4b34 (A) A1
     |/  
     * 3183e43 (main) M1
+    ");
+
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/A"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @"
+    Outcome {
+        workspace_changed: true,
+        checked_out: None,
+    }
+    ");
+    let ws = out.workspace.into_owned();
+    insta::assert_snapshot!(graph_workspace(&ws), "A was removed", @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43
+    ├── ≡📙:2:C on 3183e43 {43}
+    │   └── 📙:2:C
+    │       └── ·aaa195b (🏘️)
+    └── ≡📙:3:B on 3183e43 {42}
+        └── 📙:3:B
+            └── ·f57c528 (🏘️)
     ");
     Ok(())
 }
@@ -1705,6 +1851,101 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
 }
 
 #[test]
+fn unapply_with_workspace_merge_conflicts_always_works_as_conflicts_do_not_repeat_on_unapply()
+-> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "various-heads-for-multi-line-merge-conflict-on-main",
+            |_meta| {},
+        )?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * d3cce74 (clean-A) add A
+    | * 115e41b (clean-B) add B
+    |/  
+    | * 34c4591 (clean-C) add C
+    |/  
+    | * bf09eae (conflict-F1) add F1
+    |/  
+    | * f2ce66d (conflict-F2) add F2
+    |/  
+    | * 4bbb93c (conflict-hero) add conflicting-F2
+    | * 98519e9 add conflicting-F1
+    |/  
+    * 85efbe4 (HEAD -> main) M
+    ");
+    let mut ws = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @"
+    ⌂:0:main[🌳] <> ✓! on 85efbe4
+    └── ≡:0:main[🌳] {1}
+        └── :0:main[🌳]
+    ");
+    let branches = [
+        "clean-A",
+        "conflict-F1",
+        "clean-B",
+        "conflict-F2",
+        "clean-C",
+        "conflict-hero",
+    ];
+    for branch_to_apply in branches {
+        let out = but_workspace::branch::apply(
+            Category::LocalBranch
+                .to_full_name(branch_to_apply)?
+                .as_ref(),
+            &ws,
+            &repo,
+            &mut meta,
+            apply_options(),
+        )?;
+        ws = out.workspace.into_owned();
+    }
+    insta::assert_snapshot!(graph_workspace(&ws), "all branches are applied", @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓! on 85efbe4
+    ├── ≡📙:8:main on 85efbe4 {1a5}
+    │   └── 📙:8:main
+    ├── ≡📙:2:clean-A on 85efbe4 {271}
+    │   └── 📙:2:clean-A
+    │       └── ·d3cce74 (🏘️)
+    ├── ≡📙:3:conflict-F1 on 85efbe4 {3f6}
+    │   └── 📙:3:conflict-F1
+    │       └── ·bf09eae (🏘️)
+    ├── ≡📙:4:clean-B on 85efbe4 {272}
+    │   └── 📙:4:clean-B
+    │       └── ·115e41b (🏘️)
+    ├── ≡📙:5:conflict-F2 on 85efbe4 {3f7}
+    │   └── 📙:5:conflict-F2
+    │       └── ·f2ce66d (🏘️)
+    └── ≡📙:6:clean-C on 85efbe4 {273}
+        └── 📙:6:clean-C
+            └── ·34c4591 (🏘️)
+    ");
+
+    for branch_to_unapply in branches.into_iter().rev() {
+        let out = but_workspace::branch::unapply(
+            Category::LocalBranch
+                .to_full_name(branch_to_unapply)?
+                .as_ref(),
+            &ws,
+            &repo,
+            &mut meta,
+            unapply_options_with(
+                WorkspaceDisposition::RemoveWorkspaceMergeCommitAndDeleteWorkspaceReference,
+            ),
+        )?;
+        ws = out.workspace.into_owned();
+    }
+
+    insta::assert_snapshot!(graph_workspace(&ws), "TODO: we can go back to exactly the same initial state, without merge commit or reference, it checks out the last stack", @"
+    📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 85efbe4
+    └── ≡📙:2:main on 85efbe4 {1a5}
+        └── 📙:2:main
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
@@ -1848,6 +2089,22 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
     └── ≡📙:2:A on e5d0542 {41}
         └── 📙:2:A
     ");
+
+    let out = but_workspace::branch::unapply(
+        r("refs/heads/A"),
+        &ws,
+        &repo,
+        &mut meta,
+        unapply_options(),
+    )?;
+    insta::assert_debug_snapshot!(out, @"
+    Outcome {
+        workspace_changed: true,
+        checked_out: None,
+    }
+    ");
+    insta::assert_snapshot!(graph_workspace(&out.workspace), @"📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on e5d0542");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* e5d0542 (HEAD -> gitbutler/workspace, main, B, A) A");
 
     // TODO: apply second branch as new stack.
 

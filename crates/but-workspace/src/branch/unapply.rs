@@ -169,7 +169,27 @@ pub(crate) mod function {
             bail!("Refusing to work on workspace whose workspace commit isn't at the top");
         }
 
-        if !ws.refname_is_segment(branch) {
+        let Some(workspace_ref_name) = ws.ref_name().map(ToOwned::to_owned) else {
+            if !ws.refname_is_segment(branch) {
+                if branch_ref.is_none() {
+                    bail!(
+                        "Cannot unapply non-existing branch '{branch}'",
+                        branch = branch.shorten()
+                    );
+                }
+                return Ok(Outcome {
+                    workspace: Cow::Borrowed(ws),
+                    checked_out: None,
+                    workspace_merge: None,
+                    conflicting_stack_ids: Vec::new(),
+                });
+            }
+            bail!("Cannot unapply a branch from an ad-hoc workspace");
+        };
+        let mut ws_md = meta.workspace(workspace_ref_name.as_ref())?;
+        let removed = remove_branch_from_workspace_metadata(&mut ws_md, branch);
+
+        if !removed && !ws.refname_is_segment(branch) {
             if branch_ref.is_none() {
                 bail!(
                     "Cannot unapply non-existing branch '{branch}'",
@@ -184,12 +204,6 @@ pub(crate) mod function {
             });
         }
 
-        let workspace_ref_name = ws
-            .ref_name()
-            .context("Cannot unapply a branch from an ad-hoc workspace")?
-            .to_owned();
-        let mut ws_md = meta.workspace(workspace_ref_name.as_ref())?;
-        let removed = remove_branch_from_workspace_metadata(&mut ws_md, branch);
         if !removed {
             return Ok(Outcome {
                 workspace: Cow::Borrowed(ws),
@@ -207,6 +221,27 @@ pub(crate) mod function {
             );
 
         if delete_workspace_ref {
+            let prev_head_id = ws
+                .graph
+                .entrypoint()?
+                .commit()
+                .context("BUG: should not be unborn by now")?
+                .id;
+            let new_head_id = checked_out
+                .as_ref()
+                .expect("delete requires a checkout target")
+                .as_ref();
+            let new_head_id = repo.find_reference(new_head_id)?.peel_to_id()?.detach();
+            but_core::worktree::safe_checkout(
+                prev_head_id,
+                new_head_id,
+                repo,
+                but_core::worktree::checkout::Options {
+                    uncommitted_changes,
+                    skip_head_update: true,
+                    ..Default::default()
+                },
+            )?;
             switch_head_and_delete_workspace_ref(
                 repo,
                 checked_out
@@ -217,7 +252,26 @@ pub(crate) mod function {
             )?;
             meta.remove(workspace_ref_name.as_ref())?;
         } else {
-            meta.set_workspace(&ws_md)?;
+            let (graph, workspace_merge, conflicting_stack_ids, persist_metadata) =
+                update_workspace_ref_after_unapply(
+                    ws,
+                    repo,
+                    meta,
+                    workspace_ref_name.as_ref(),
+                    &mut ws_md,
+                    workspace_disposition,
+                    uncommitted_changes,
+                    on_workspace_conflict,
+                )?;
+            if persist_metadata {
+                meta.set_workspace(&ws_md)?;
+            }
+            return Ok(Outcome {
+                workspace: Cow::Owned(graph.into_workspace()?),
+                checked_out,
+                workspace_merge,
+                conflicting_stack_ids,
+            });
         }
 
         let overlay = match checked_out.as_ref() {
@@ -237,12 +291,195 @@ pub(crate) mod function {
         })
     }
 
+    /// Update the managed workspace reference after metadata has removed the branch.
+    ///
+    /// If the remaining applied stacks still need a workspace merge commit, this rebuilds it in
+    /// memory first, then safely checks out the resulting tree and moves the workspace ref. If the
+    /// merge conflicts and `on_workspace_conflict` asks to abort, refs and metadata are left
+    /// untouched; the returned `bool` tells the caller whether the adjusted metadata should be
+    /// persisted.
+    #[expect(clippy::too_many_arguments)]
+    fn update_workspace_ref_after_unapply(
+        ws: &but_graph::Workspace,
+        repo: &gix::Repository,
+        meta: &impl RefMetadata,
+        workspace_ref_name: &FullNameRef,
+        ws_md: &mut but_core::ref_metadata::Workspace,
+        disposition: WorkspaceDisposition,
+        uncommitted_changes: but_core::worktree::checkout::UncommitedWorktreeChanges,
+        on_workspace_conflict: crate::branch::OnWorkspaceMergeConflict,
+    ) -> anyhow::Result<(
+        but_graph::Graph,
+        Option<crate::commit::merge::Outcome>,
+        Vec<but_core::ref_metadata::StackId>,
+        bool,
+    )> {
+        let prev_head_id = ws
+            .graph
+            .entrypoint()?
+            .commit()
+            .context("BUG: should not be unrorn by now")?
+            .id;
+
+        let applied_stack_count = ws_md.stacks(StackKind::Applied).count();
+        let keep_workspace_commit = match disposition {
+            WorkspaceDisposition::KeepWorkspaceMergeCommit => ws.kind.has_managed_commit(),
+            WorkspaceDisposition::RemoveWorkspaceMergeCommitKeepWorkspaceReference
+            | WorkspaceDisposition::RemoveWorkspaceMergeCommitAndSwitch
+            | WorkspaceDisposition::RemoveWorkspaceMergeCommitAndDeleteWorkspaceReference => {
+                applied_stack_count > 1
+            }
+        };
+
+        if keep_workspace_commit {
+            let mut in_memory_repo = repo.clone().for_tree_diffing()?.with_object_memory();
+            let mut merge_result = WorkspaceCommit::from_new_merge_with_metadata(
+                ws_md.stacks.iter().filter(|s| s.is_in_workspace()),
+                anon_stacks(&ws.stacks),
+                &ws.graph,
+                &in_memory_repo,
+                None,
+            )?;
+            ensure_no_missing_stacks(&merge_result)?;
+
+            if merge_result.has_conflicts() && on_workspace_conflict.should_abort() {
+                let conflicting_stack_ids =
+                    correlate_conflicting_stack_ids(ws_md, &merge_result.conflicting_stacks);
+                let graph = ws.graph.redo_traversal_with_overlay(
+                    &in_memory_repo,
+                    meta,
+                    Overlay::default()
+                        .with_entrypoint(prev_head_id, Some(workspace_ref_name.to_owned()))
+                        .with_workspace_metadata_override(Some((
+                            workspace_ref_name.to_owned(),
+                            ws_md.clone(),
+                        ))),
+                )?;
+                return Ok((graph, Some(merge_result), conflicting_stack_ids, false));
+            }
+
+            let conflicting_stack_ids = correlate_conflicting_stack_ids_and_remove_from_workspace(
+                ws_md,
+                &merge_result.conflicting_stacks,
+            );
+            if merge_result.has_conflicts() {
+                merge_result = WorkspaceCommit::from_new_merge_with_metadata(
+                    ws_md.stacks.iter().filter(|s| s.is_in_workspace()),
+                    anon_stacks(&ws.stacks),
+                    &ws.graph,
+                    &in_memory_repo,
+                    None,
+                )?;
+                ensure_no_missing_stacks(&merge_result)?;
+            }
+            let new_head_id = merge_result.workspace_commit_id;
+            let graph = ws.graph.redo_traversal_with_overlay(
+                &in_memory_repo,
+                meta,
+                Overlay::default()
+                    .with_entrypoint(new_head_id, Some(workspace_ref_name.to_owned()))
+                    .with_workspace_metadata_override(Some((
+                        workspace_ref_name.to_owned(),
+                        ws_md.clone(),
+                    ))),
+            )?;
+
+            if let Some(storage) = in_memory_repo.objects.take_object_memory() {
+                storage.persist(repo)?;
+                drop(in_memory_repo);
+            }
+            checkout_and_update_workspace_ref(
+                repo,
+                prev_head_id,
+                new_head_id,
+                workspace_ref_name,
+                uncommitted_changes,
+            )?;
+            return Ok((graph, Some(merge_result), conflicting_stack_ids, true));
+        }
+
+        let new_head_id = commit_to_point_workspace_ref_to_after_unapply(ws, repo, ws_md)?;
+        let overlay = Overlay::default()
+            .with_entrypoint(new_head_id, Some(workspace_ref_name.to_owned()))
+            .with_workspace_metadata_override(Some((workspace_ref_name.to_owned(), ws_md.clone())));
+        let graph = ws.graph.redo_traversal_with_overlay(repo, meta, overlay)?;
+        checkout_and_update_workspace_ref(
+            repo,
+            prev_head_id,
+            new_head_id,
+            workspace_ref_name,
+            uncommitted_changes,
+        )?;
+        Ok((graph, None, Vec::new(), true))
+    }
+
+    /// Return the commit the workspace ref should point to when no workspace merge commit remains.
+    ///
+    /// A single remaining applied stack is preferred. Otherwise, an empty workspace falls back to
+    /// the remembered target commit, the resolved target, or the workspace lower bound.
+    fn commit_to_point_workspace_ref_to_after_unapply(
+        ws: &but_graph::Workspace,
+        repo: &gix::Repository,
+        ws_md: &but_core::ref_metadata::Workspace,
+    ) -> anyhow::Result<gix::ObjectId> {
+        if let Some(stack_name) = ws_md
+            .stacks(StackKind::Applied)
+            .find_map(|stack| stack.ref_name())
+        {
+            return Ok(repo.find_reference(stack_name)?.peel_to_id()?.detach());
+        }
+        ws_md
+            .target_commit_id
+            .or_else(|| ws.resolved_target_commit_id())
+            .or(ws.lower_bound)
+            .context("Cannot determine commit for empty workspace after unapply")
+    }
+
+    /// Safely update the worktree and move the managed workspace ref to `new_head_id`.
+    ///
+    /// The checkout runs before the ref update so uncommitted-change conflicts abort without
+    /// changing repository refs. `HEAD` is expected to remain symbolically attached to the workspace
+    /// ref, so the checkout skips its own head update and this function updates only the ref target.
+    fn checkout_and_update_workspace_ref(
+        repo: &gix::Repository,
+        prev_head_id: gix::ObjectId,
+        new_head_id: gix::ObjectId,
+        workspace_ref_name: &FullNameRef,
+        uncommitted_changes: but_core::worktree::checkout::UncommitedWorktreeChanges,
+    ) -> anyhow::Result<()> {
+        but_core::worktree::safe_checkout(
+            prev_head_id,
+            new_head_id,
+            repo,
+            but_core::worktree::checkout::Options {
+                uncommitted_changes,
+                skip_head_update: true,
+                ..Default::default()
+            },
+        )?;
+        repo.edit_reference(RefEdit {
+            change: Change::Update {
+                log: LogChange {
+                    mode: RefLog::AndReference,
+                    force_create_reflog: false,
+                    message: "GitButler update workspace during unapply-branch".into(),
+                },
+                expected: PreviousValue::Any,
+                new: Target::Object(new_head_id),
+            },
+            name: workspace_ref_name.to_owned(),
+            deref: false,
+        })?;
+        Ok(())
+    }
+
     /// Remove `branch` from applied workspace metadata.
     ///
     /// If `branch` is the only segment in its stack, the whole stack metadata entry is removed so
     /// virtual apply/unapply roundtrips return to the original empty-workspace shape. If `branch`
     /// is the tip of a multi-segment stack, the remaining stack is marked outside the workspace
     /// because its visible tip was removed.
+    #[expect(clippy::indexing_slicing)]
     fn remove_branch_from_workspace_metadata(
         ws_md: &mut but_core::ref_metadata::Workspace,
         branch: &FullNameRef,
