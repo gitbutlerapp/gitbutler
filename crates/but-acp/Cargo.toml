@@ -14,6 +14,7 @@ doctest = false
 [dependencies]
 agent-client-protocol.workspace = true
 anyhow.workspace = true
+but-schemars.workspace = true
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -1,114 +1,140 @@
 <div align="center">
   <img align="center" width="825px" alt="UnityButler" src="https://github.com/user-attachments/assets/7f21600a-aade-427e-9f91-7ebdac9cdad1" />
-  
 
   <br />
-  
-  <p align="center">
-    
-   <b>GitButler, <i> and its completely Unity</i> but its also GitButler so its not</b>.
-   <br/>
-   GitButler is a modern Git-based version control interface with both a GUI and CLI built from the ground up for AI-powered workflows.
+  <br />
+
+  <h1>UnityButler</h1>
+  <p>
+    <b>Powered by GitButler for Unity projects.</b>
     <br />
-    <br />
-    <a href="https://gitbutler.com">Website</a>
-    <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-    <a href="https://blog.gitbutler.com/">Blog</a>
-    <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-    <a href="https://docs.gitbutler.com/">Docs</a>
-    <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-    <a href="https://gitbutler.com/downloads">Downloads</a>
+    A Unity-focused presentation of the GitButler desktop app, web surface, and
+    CLI for Unity-heavy teams, technical artists, and AI-assisted workflows.
   </p>
 
-  <br/>
-
-  <img width="100%" src="https://gitbutler-docs-images-public.s3.us-east-1.amazonaws.com/app-preview-light.png" alt="GitButler desktop app preview" />
-  <p align="center"><i>Our beautiful GUI</i></p>
-
-  <img width="100%" src="https://gitbutler-docs-images-public.s3.us-east-1.amazonaws.com/cli-preview.png" alt="GitButler CLI preview" />
-  <p align="center"><i>Our amazing <code>but</code> CLI</i></p>
-
-  <br/>
-
-[![TWEET][s1]][l1] [
-![BLUESKY][s8]][l8] [![DISCORD][s2]][l2]
-
-[![CI][s0]][l0] [![INSTA][s3]][l3] [![YOUTUBE][s5]][l5] [![DEEPWIKI][s7]][l7]
-
-[s0]: https://github.com/gitbutlerapp/gitbutler/actions/workflows/push.yaml/badge.svg
-[l0]: https://github.com/gitbutlerapp/gitbutler/actions/workflows/push.yaml
-[s1]: https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white
-[l1]: https://twitter.com/intent/follow?screen_name=gitbutler
-[s2]: https://img.shields.io/discord/1060193121130000425?label=Discord&color=5865F2
-[l2]: https://discord.gg/MmFkmaJ42D
-[s3]: https://img.shields.io/badge/Instagram-E4405F?logo=instagram&logoColor=white
-[l3]: https://www.instagram.com/gitbutler/
-[s5]: https://img.shields.io/youtube/channel/subscribers/UCEwkZIHGqsTGYvX8wgD0LoQ
-[l5]: https://www.youtube.com/@gitbutlerapp
-[s7]: https://deepwiki.com/badge.svg
-[l7]: https://deepwiki.com/gitbutlerapp/gitbutler
-[s8]: https://img.shields.io/badge/Bluesky-0285FF?logo=bluesky&logoColor=fff
-[l8]: https://bsky.app/profile/gitbutler.com
-
+  <p>
+    <a href="./DEVELOPMENT.md">Development</a>
+    <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+    <a href="./CONTRIBUTING.md">Contributing</a>
+    <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+    <a href="./apps/desktop">Desktop App</a>
+    <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
+    <a href="./crates/but">CLI</a>
+  </p>
 </div>
 
-<br/>
+---
 
-GitButler is a powerful new Git-based version control system, designed from scratch to be simple, powerful and flexible. It is designed for ease of use and modern agentic workflows.
+## What is UnityButler?
 
-It features stacked branches, parallel branches, unlimited undo, easy commit mutations, forge integrations and more.
+UnityButler is a Unity-focused presentation of the GitButler codebase: the same
+Git-powered branching engine and agent-friendly tooling, but framed around the
+workflows that show up constantly in Unity development.
 
-Works instantly in any existing Git repo as a friendlier and more powerful drop-in Git user interface replacement - for you and your agents.
+It is explicitly **powered by GitButler**, not an unrelated replacement for it.
+The branding here is meant to describe a Unity-oriented packaging and
+documentation layer on top of the existing GitButler project and license.
 
-## Main Features
+That means:
 
-Why use GitButler instead of vanilla Git? What a great question.
+- managing feature work, scene work, prefab changes, tooling experiments, and
+  content updates without living in raw Git commands
+- giving designers, programmers, technical artists, and automation agents a
+  friendlier interface for the same repository
+- keeping a powerful desktop UI and a scriptable CLI backed by the same Rust
+  core
 
-- **Stacked Branches** ([gui](https://docs.gitbutler.com/features/branch-management/stacked-branches), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/branching-and-commiting#stacked-branches))
-  - Effortlessly create branches stacked on other branches. Amend or edit any commit easily with automatic restacking.
-- **Parallel Branches** ([gui](https://docs.gitbutler.com/features/branch-management/virtual-branches), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/branching-and-commiting#parallel-branches))
-  - Organize work on multiple branches simultaneously, rather than constantly switching branches.
-- **Easy Commit Management** ([gui](https://docs.gitbutler.com/features/branch-management/commits), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/rubbing))
-  - Uncommit, reword, amend, move, split and squash commits by dragging and dropping or simple CLI commands. Forget about `rebase -i`, you don't need it anymore.
-- **Undo Timeline** ([gui](https://docs.gitbutler.com/features/timeline), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/operations-log))
-  - Logs all operations and changes and allows you to easily undo or revert any operation.
-- **First Class Conflicts** ([gui](https://docs.gitbutler.com/overview#conflicting-branches), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/conflict-resolution))
-  - Rebases always succeed. Commits can be marked as conflicted and resolved at any time, in any order.
-- **Forge Integration** ([gui](https://docs.gitbutler.com/features/forge-integration/github-integration), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/forges))
-  - Authenticate to GitHub or GitLab to easily open and update Pull Requests, list branches, get CI statuses and more. No other tools required.
-- **AI Tooling** ([gui](https://docs.gitbutler.com/features/ai-integration/ai-overview), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/ai-stuff))
-  - Use built-in AI handlers to help create commit messages, branch names, PR descriptions and more.
-  - Easily install hooks or skills for all modern agent systems to level up their Git management.
+UnityButler still works on normal Git repositories. The difference is in how
+the project is described, organized, and released for teams building with
+Unity, while remaining rooted in GitButler itself.
 
-## Tech
+## Why Unity teams would use it
 
-The GitButler desktop app is a [Tauri](https://tauri.app/)-based application. Its UI is written in [Svelte](https://svelte.dev/) using [TypeScript](https://www.typescriptlang.org) and its backend is written in [Rust](https://www.rust-lang.org/).
+- **Stacked branches** for layered gameplay, content, and tooling work
+- **Parallel branches** so experimental scene or prefab changes do not block
+  each other
+- **Commit surgery** for splitting, moving, rewording, and squashing work
+  without a painful interactive rebase flow
+- **Timeline and undo** so destructive Git mistakes are easier to recover from
+- **Forge integration** for GitHub and GitLab-driven collaboration
+- **AI-friendly workflows** through the desktop app, the `but` CLI, and repo
+  automation
 
-The `but` CLI is the same Rust backend engine with a Rust command line UI.
+## Repository layout
 
-## Documentation
+This repository is a Rust/Svelte/React/TypeScript monorepo.
 
-You can find our end user documentation at: <https://docs.gitbutler.com>
+- `apps/desktop` - Tauri desktop frontend
+- `apps/web` - web frontend
+- `apps/lite` - Electron/React desktop app
+- `crates` - Rust workspace, including the shared backend APIs and the `but` CLI
+- `packages` - shared TypeScript packages and UI libraries
+- `e2e` - Playwright, WebdriverIO, and blackbox end-to-end tests
 
-## Bugs and Feature Requests
+## Tech stack
 
-If you have a bug or feature request, feel free to open an [issue](https://github.com/gitbutlerapp/gitbutler/issues/new),
-or [join our Discord server](https://discord.gg/MmFkmaJ42D).
+- **Desktop app:** Tauri + Svelte + TypeScript
+- **Backend/core:** Rust
+- **CLI:** Rust (`but`)
+- **Workspace tooling:** Turborepo + pnpm
+- **Release workflow:** GitHub Actions, with Bun used for the Windows push
+  release pipeline
 
-## License
+## Getting started
 
-The TLDR is that GitButler is under a [Fair Source](https://fair.io/) software license, meaning that you can use it, view the source, contribute, etc. You just can't build a competitor with it. It also becomes MIT after 2 years. So, MIT with an expiring non-compete clause.
+### Prerequisites
+
+1. Rust from `rust-toolchain.toml`
+2. Node.js from `.nvmrc` / `package.json`
+3. pnpm via Corepack for local development
+4. Platform dependencies required by Tauri
+
+### Local setup
+
+```bash
+corepack enable
+pnpm install
+cargo build
+```
+
+### Common development commands
+
+```bash
+pnpm dev:desktop
+pnpm dev:web
+pnpm build
+pnpm test
+pnpm lint
+```
+
+For the full developer environment and platform-specific setup, see
+[DEVELOPMENT.md](./DEVELOPMENT.md).
+
+## Release automation
+
+The repository now includes a push-triggered Windows release workflow:
+
+- it runs on pushes to `master`
+- installs JavaScript dependencies with **Bun**
+- builds a Windows **NSIS `.exe` installer**
+- uploads the installer as a workflow artifact
+- publishes a GitHub prerelease and lets GitHub generate release notes from the
+  changes included in that release
+
+That keeps the release changelog tied to the actual commits instead of requiring
+manual notes for every push build.
 
 ## Contributing
 
-So you want to help out? Please check out the [CONTRIBUTING.md](CONTRIBUTING.md)
-document.
+If you want to contribute, start here:
 
-If you want to skip right to getting the code to actually compile, take a look
-at the [DEVELOPMENT.md](DEVELOPMENT.md) file.
+- [CONTRIBUTING.md](./CONTRIBUTING.md)
+- [DEVELOPMENT.md](./DEVELOPMENT.md)
 
-### Contributors
+## License
 
-<a href="https://github.com/gitbutlerapp/gitbutler/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=gitbutlerapp/gitbutler" />
-</a>
+UnityButler is powered by the existing GitButler codebase and remains subject
+to the repository's current Fair Source licensing model. This README does not
+relicense or reframe the project as a separate competing product; it is a
+Unity-oriented presentation of the same licensed repository. See the license
+files in this repository for the exact terms.

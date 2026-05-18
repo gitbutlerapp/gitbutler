@@ -1,6 +1,6 @@
-use anyhow::{Context as _, bail};
 #[cfg(not(windows))]
 use anyhow::anyhow;
+use anyhow::{Context as _, bail};
 #[cfg(not(windows))]
 use but_error::{Code, Context as ErrorContext};
 

@@ -12,6 +12,7 @@ rust-version.workspace = true
 doctest = false
 
 [dependencies]
+but-acp.workspace = true
 but-path.workspace = true
 but-utils.workspace = true
 

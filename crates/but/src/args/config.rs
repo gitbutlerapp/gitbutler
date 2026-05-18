@@ -277,6 +277,25 @@ pub enum AiSubcommand {
         #[clap(long)]
         api_key_env: Option<String>,
     },
+
+    /// Configure an Agent Client Protocol agent as the active AI provider.
+    Acp {
+        /// Stable id for the configured ACP agent.
+        #[clap(long)]
+        agent_id: Option<String>,
+        /// Command to start the ACP agent, for example `npx`.
+        #[clap(long)]
+        command: String,
+        /// Argument to pass to the ACP command. Repeat for multiple args.
+        #[clap(long = "arg")]
+        args: Vec<String>,
+        /// Environment variable to pass to the ACP command, in KEY=VALUE form. Repeat for multiple variables.
+        #[clap(long = "env")]
+        env: Vec<String>,
+        /// Optional model or mode hint for agents that support it.
+        #[clap(long)]
+        model: Option<String>,
+    },
 }
 
 /// Credential source options for OpenAI/Anthropic.

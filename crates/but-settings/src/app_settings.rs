@@ -110,6 +110,14 @@ but_schemars::register_sdk_type!(Claude);
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct AcpSettings {
+    /// User-defined ACP agents. Built-in and registry agents are discovered dynamically.
+    pub agents: Vec<but_acp::AcpCommandConfig>,
+}
+but_schemars::register_sdk_type!(AcpSettings);
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct Reviews {
     /// Whether to auto-fill PR title and description from the first commit when a branch has only one commit.
     pub auto_fill_pr_description_from_commit: bool,

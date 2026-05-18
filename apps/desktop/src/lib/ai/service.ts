@@ -21,9 +21,12 @@ import {
 import {
 	OpenAIModelName,
 	type AIClient,
+	type AIEvalOptions,
 	AnthropicModelName,
 	ModelKind,
 	MessageRole,
+	type AcpCommandConfig,
+	type AcpDiscovery,
 	type OpenRouterModelName,
 	type Prompt,
 	type PromptMessage,
@@ -36,6 +39,7 @@ import type { GitConfigService } from "$lib/config/gitConfigService";
 import type { SecretsService } from "$lib/secrets/secretsService";
 import type { TokenMemoryService } from "$lib/user/tokenMemoryService";
 import type { HttpClient } from "@gitbutler/shared/network/httpClient";
+import type { IBackend } from "$lib/backend";
 
 const maxDiffLengthLimitForAPI = 5000;
 const prDescriptionTokenLimit = 4096;
@@ -64,6 +68,11 @@ export enum GitAIConfigKey {
 	LMStudioEndpoint = "gitbutler.aiLMStudioEndpoint",
 	LMStudioModelName = "gitbutler.aiLMStudioModelName",
 	OpenRouterModelName = "gitbutler.aiOpenRouterModelName",
+	AcpAgentId = "gitbutler.aiAcpAgentId",
+	AcpCommand = "gitbutler.aiAcpCommand",
+	AcpArgs = "gitbutler.aiAcpArgs",
+	AcpEnv = "gitbutler.aiAcpEnv",
+	AcpModelName = "gitbutler.aiAcpModelName",
 }
 
 interface BaseAIServiceOpts {
@@ -132,6 +141,7 @@ export class AIService {
 		private secretsService: SecretsService,
 		private cloud: HttpClient,
 		private tokenMemoryService: TokenMemoryService,
+		private backend?: IBackend,
 	) {}
 
 	async getModelKind() {
@@ -252,6 +262,57 @@ export class AIService {
 		);
 	}
 
+	async getAcpAgentId() {
+		return await this.gitConfig.get<string>(GitAIConfigKey.AcpAgentId);
+	}
+
+	async getAcpCommand() {
+		return await this.gitConfig.get<string>(GitAIConfigKey.AcpCommand);
+	}
+
+	async getAcpArgs() {
+		const raw = await this.gitConfig.getWithDefault<string>(GitAIConfigKey.AcpArgs, "[]");
+		try {
+			const parsed = JSON.parse(raw);
+			return Array.isArray(parsed) ? parsed.filter((value) => typeof value === "string") : [];
+		} catch {
+			return [];
+		}
+	}
+
+	async getAcpEnv() {
+		const raw = await this.gitConfig.getWithDefault<string>(GitAIConfigKey.AcpEnv, "{}");
+		try {
+			const parsed = JSON.parse(raw);
+			return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+				? (parsed as Record<string, string>)
+				: {};
+		} catch {
+			return {};
+		}
+	}
+
+	async getAcpModelName() {
+		return await this.gitConfig.get<string>(GitAIConfigKey.AcpModelName);
+	}
+
+	async listAcpAgents(): Promise<AcpDiscovery> {
+		if (!this.backend) return { agents: [] };
+		return await this.backend.invoke<AcpDiscovery>("acp_list_agents");
+	}
+
+	async getAcpConfig(): Promise<AcpCommandConfig | undefined> {
+		const command = await this.getAcpCommand();
+		if (!command) return undefined;
+		return {
+			id: (await this.getAcpAgentId()) || "custom",
+			name: "ACP Agent",
+			command,
+			args: await this.getAcpArgs(),
+			env: await this.getAcpEnv(),
+		};
+	}
+
 	async usingGitButlerAPI() {
 		const modelKind = await this.getModelKind();
 		const openAIKeyOption = await this.getOpenAIKeyOption();
@@ -284,13 +345,16 @@ export class AIService {
 			modelKind === ModelKind.LMStudio && !!lmStudioEndpoint && !!lmStudioModelName;
 		const openRouterActiveAndKeyProvided =
 			modelKind === ModelKind.OpenRouter && !!(await this.getOpenRouterKey());
+		const acpActiveAndCommandProvided =
+			modelKind === ModelKind.ACP && !!(await this.getAcpCommand());
 
 		return (
 			openAIActiveAndKeyProvided ||
 			anthropicActiveAndKeyProvided ||
 			ollamaActiveAndEndpointProvided ||
 			lmStudioActiveAndEndpointProvided ||
-			openRouterActiveAndKeyProvided
+			openRouterActiveAndKeyProvided ||
+			acpActiveAndCommandProvided
 		);
 	}
 
@@ -370,6 +434,17 @@ export class AIService {
 			}
 
 			return new OpenAIClient(openRouterKey, openRouterModelName, "https://openrouter.ai/api/v1");
+		}
+
+		if (modelKind === ModelKind.ACP) {
+			const agent = await this.getAcpConfig();
+			if (!agent) {
+				throw new Error("When using ACP, you must select or configure an ACP agent");
+			}
+			if (!this.backend) {
+				throw new Error("ACP agents require a desktop backend");
+			}
+			return new AcpAIClient(this.backend, agent);
 		}
 
 		return undefined;
@@ -537,5 +612,36 @@ export class AIService {
 		}
 
 		return message;
+	}
+}
+
+class AcpAIClient implements AIClient {
+	constructor(
+		private backend: IBackend,
+		private agent: AcpCommandConfig,
+	) {}
+
+	get defaultBranchTemplate() {
+		return new OpenAIClient("", OpenAIModelName.GPT54Nano, undefined).defaultBranchTemplate;
+	}
+
+	get defaultCommitTemplate() {
+		return new OpenAIClient("", OpenAIModelName.GPT54Nano, undefined).defaultCommitTemplate;
+	}
+
+	get defaultPRTemplate() {
+		return new OpenAIClient("", OpenAIModelName.GPT54Nano, undefined).defaultPRTemplate;
+	}
+
+	async evaluate(prompt: Prompt, options?: AIEvalOptions): Promise<string> {
+		const response = await this.backend.invoke<string>("acp_prompt", {
+			agent: this.agent,
+			prompt: [
+				"Return only the requested final text. Do not include markdown fences unless explicitly requested.",
+				...prompt.map((message) => `<${message.role}>\n${message.content}\n</${message.role}>`),
+			].join("\n\n"),
+		});
+		options?.onToken?.(response);
+		return response;
 	}
 }

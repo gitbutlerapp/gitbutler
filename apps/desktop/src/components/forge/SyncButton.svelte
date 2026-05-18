@@ -76,7 +76,8 @@
 	}
 
 	function fetchElapsedMs(): number | undefined {
-		if (!fetchProgress) return fetchStartedAt === undefined ? undefined : elapsedTick - fetchStartedAt;
+		if (!fetchProgress)
+			return fetchStartedAt === undefined ? undefined : elapsedTick - fetchStartedAt;
 		if (fetchStartedAt === undefined) return fetchProgress.elapsedMs;
 		return Math.max(fetchProgress.elapsedMs, elapsedTick - fetchStartedAt);
 	}

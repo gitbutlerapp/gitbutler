@@ -488,6 +488,7 @@ impl Sandbox {
                 auto_commit_after_completion: false,
                 use_configured_model: false,
             },
+            acp: but_settings::app_settings::AcpSettings { agents: vec![] },
             reviews: Reviews {
                 auto_fill_pr_description_from_commit: false,
             },

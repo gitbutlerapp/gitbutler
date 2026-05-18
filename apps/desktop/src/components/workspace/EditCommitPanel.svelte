@@ -490,12 +490,12 @@
 	.editmode__progress {
 		display: flex;
 		justify-content: space-between;
-		gap: 12px;
 		padding: 10px 12px;
+		gap: 12px;
 		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
-		color: var(--text-1);
 		background-color: var(--bg-2);
+		color: var(--text-1);
 		font-size: 12px;
 	}
 

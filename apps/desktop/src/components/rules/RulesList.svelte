@@ -143,7 +143,12 @@
 		{#if rules.result.isSuccess}
 			<Badge>{rules.result.data.ids.length}</Badge>
 		{:else if rules.result.isError}
-			<Badge style="danger" size="tag" icon="warning" tooltip={parseError(rules.result.error).message}>
+			<Badge
+				style="danger"
+				size="tag"
+				icon="warning"
+				tooltip={parseError(rules.result.error).message}
+			>
 				Error
 			</Badge>
 		{:else}

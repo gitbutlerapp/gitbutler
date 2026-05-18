@@ -10,6 +10,7 @@ CHANNEL=""
 DO_SIGN="false"
 VERSION=""
 TARGET="${CARGO_BUILD_TARGET:-}"
+WINDOWS_BUNDLE_TARGET="${WINDOWS_BUNDLE_TARGET:-msi}"
 
 function help() {
 	local to
@@ -159,6 +160,10 @@ if [ "$CHANNEL" != "release" ] && [ "$CHANNEL" != "nightly" ]; then
 	error "--channel must be either 'release' or 'nightly'"
 fi
 
+if [ "$WINDOWS_BUNDLE_TARGET" != "msi" ] && [ "$WINDOWS_BUNDLE_TARGET" != "nsis" ]; then
+	error "WINDOWS_BUNDLE_TARGET must be either 'msi' or 'nsis'"
+fi
+
 if [ "$DO_SIGN" = "true" ]; then
 	if [ "$OS" = "macos" ]; then
 		[ -z "${APPLE_CERTIFICATE-}" ] && error "$APPLE_CERTIFICATE is not set"
@@ -205,12 +210,15 @@ if [ "$OS" = "windows" ]; then
 	#          via 'inject-git-binaries.sh'.
 	EXTERNAL_BIN='["gitbutler-git-askpass", "but"]'
 	FEATURES="windows"
+	BUNDLE_TARGETS="[\"$WINDOWS_BUNDLE_TARGET\"]"
 elif [ "$OS" = "linux" ]; then
 	EXTERNAL_BIN='["gitbutler-git-askpass"]'
 	FEATURES="builtin-but packaged-but-distribution"
+	BUNDLE_TARGETS=""
 elif [ "$OS" = "macos" ]; then
 	EXTERNAL_BIN='["gitbutler-git-askpass"]'
 	FEATURES="builtin-but"
+	BUNDLE_TARGETS=""
 else
 	echo "Unsupported OS: $OS"
 	exit 1
@@ -222,9 +230,18 @@ if [ "$CHANNEL" != "release" ]; then
 fi
 
 # update the version in the tauri release config
-jq  --arg version "$VERSION"\
-    --argjson externalBin "$EXTERNAL_BIN"\
-  '.version = $version | .bundle.externalBin = $externalBin' "$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
+if [ -n "$BUNDLE_TARGETS" ]; then
+	jq --arg version "$VERSION" \
+		--argjson externalBin "$EXTERNAL_BIN" \
+		--argjson bundleTargets "$BUNDLE_TARGETS" \
+		'.version = $version | .bundle.externalBin = $externalBin | .bundle.targets = $bundleTargets' \
+		"$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
+else
+	jq --arg version "$VERSION" \
+		--argjson externalBin "$EXTERNAL_BIN" \
+		'.version = $version | .bundle.externalBin = $externalBin' \
+		"$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
+fi
 
 # Useful for understanding exactly what goes into the tauri build/bundle.
 cat "$TMP_DIR/tauri.conf.json"
@@ -301,18 +318,27 @@ elif [ "$OS" = "linux" ]; then
 	info "	- $RELEASE_DIR/$(basename "$RPM")"
 	info "	- $RELEASE_DIR/$(basename "$BUT_CLI")"
 elif [ "$OS" = "windows" ]; then
-	WINDOWS_INSTALLER="$(find "$BUNDLE_DIR/msi" -name \*.msi)"
-	WINDOWS_UPDATER="$(find "$BUNDLE_DIR/msi" -name \*.msi.zip)"
-	WINDOWS_UPDATER_SIG="$(find "$BUNDLE_DIR/msi" -name \*.msi.zip.sig)"
+	if [ "$WINDOWS_BUNDLE_TARGET" = "nsis" ]; then
+		WINDOWS_INSTALLER="$(find "$BUNDLE_DIR/nsis" -name '*-setup.exe')"
 
-	cp "$WINDOWS_INSTALLER" "$RELEASE_DIR"
-	cp "$WINDOWS_UPDATER" "$RELEASE_DIR"
-	cp "$WINDOWS_UPDATER_SIG" "$RELEASE_DIR"
+		cp "$WINDOWS_INSTALLER" "$RELEASE_DIR"
 
-	info "built:"
-	info "	- $RELEASE_DIR/$(basename "$WINDOWS_INSTALLER")"
-	info "	- $RELEASE_DIR/$(basename "$WINDOWS_UPDATER")"
-	info "	- $RELEASE_DIR/$(basename "$WINDOWS_UPDATER_SIG")"
+		info "built:"
+		info "	- $RELEASE_DIR/$(basename "$WINDOWS_INSTALLER")"
+	else
+		WINDOWS_INSTALLER="$(find "$BUNDLE_DIR/msi" -name \*.msi)"
+		WINDOWS_UPDATER="$(find "$BUNDLE_DIR/msi" -name \*.msi.zip)"
+		WINDOWS_UPDATER_SIG="$(find "$BUNDLE_DIR/msi" -name \*.msi.zip.sig)"
+
+		cp "$WINDOWS_INSTALLER" "$RELEASE_DIR"
+		cp "$WINDOWS_UPDATER" "$RELEASE_DIR"
+		cp "$WINDOWS_UPDATER_SIG" "$RELEASE_DIR"
+
+		info "built:"
+		info "	- $RELEASE_DIR/$(basename "$WINDOWS_INSTALLER")"
+		info "	- $RELEASE_DIR/$(basename "$WINDOWS_UPDATER")"
+		info "	- $RELEASE_DIR/$(basename "$WINDOWS_UPDATER_SIG")"
+	fi
 else
 	error "unsupported os: $OS"
 fi

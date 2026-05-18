@@ -61,6 +61,47 @@ fn ai_ollama_local_writes_repo_config() -> anyhow::Result<()> {
 }
 
 #[test]
+fn ai_acp_local_writes_repo_config() -> anyhow::Result<()> {
+    let env = Sandbox::empty()?;
+    env.invoke_bash("git init repo");
+    #[cfg(feature = "legacy")]
+    env.but("-C repo setup").assert().success();
+
+    env.but(
+        "-C repo config ai --local acp --agent-id codex --command npx --arg=-y --arg @zed-industries/codex-acp@latest --env CODEX_HOME=codex-home --model gpt-5.4",
+    )
+    .assert()
+    .success();
+
+    assert_eq!(
+        env.invoke_git("-C repo config --local --get gitbutler.aiModelProvider"),
+        "acp"
+    );
+    assert_eq!(
+        env.invoke_git("-C repo config --local --get gitbutler.aiAcpAgentId"),
+        "codex"
+    );
+    assert_eq!(
+        env.invoke_git("-C repo config --local --get gitbutler.aiAcpCommand"),
+        "npx"
+    );
+    assert_eq!(
+        env.invoke_git("-C repo config --local --get gitbutler.aiAcpArgs"),
+        r#"["-y","@zed-industries/codex-acp@latest"]"#
+    );
+    assert_eq!(
+        env.invoke_git("-C repo config --local --get gitbutler.aiAcpEnv"),
+        r#"{"CODEX_HOME":"codex-home"}"#
+    );
+    assert_eq!(
+        env.invoke_git("-C repo config --local --get gitbutler.aiAcpModelName"),
+        "gpt-5.4"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn ai_global_config_works_outside_repository() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
     let global_config = env.projects_root().join("global.gitconfig");
@@ -161,6 +202,11 @@ AI Configuration (global)
   Ollama model: (not set)
   LM Studio endpoint: (not set)
   LM Studio model: (not set)
+  ACP agent id: (not set)
+  ACP command: (not set)
+  ACP args: (not set)
+  ACP env: (not set)
+  ACP model: (not set)
 
 "#]]);
 

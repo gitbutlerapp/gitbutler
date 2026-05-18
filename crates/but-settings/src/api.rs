@@ -35,6 +35,13 @@ pub struct ClaudeUpdate {
     pub use_configured_model: Option<bool>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+/// Update request for [`crate::app_settings::AcpSettings`].
+pub struct AcpUpdate {
+    pub agents: Option<Vec<but_acp::AcpCommandConfig>>,
+}
+
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 /// Update request for [`crate::app_settings::Reviews`].
@@ -159,6 +166,14 @@ impl AppSettingsWithDiskSync {
         }
         if let Some(use_configured_model) = update.use_configured_model {
             settings.claude.use_configured_model = use_configured_model;
+        }
+        settings.save()
+    }
+
+    pub fn update_acp(&self, update: AcpUpdate) -> Result<()> {
+        let mut settings = self.get_mut_enforce_save()?;
+        if let Some(agents) = update.agents {
+            settings.acp.agents = agents;
         }
         settings.save()
     }

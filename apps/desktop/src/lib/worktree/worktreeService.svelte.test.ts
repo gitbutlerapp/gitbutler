@@ -12,11 +12,7 @@ describe("WorktreeService", () => {
 			},
 		} as never);
 
-		await service.setLocalIgnoredPath(
-			"project-1",
-			"Assets/Generated/NavMesh.asset",
-			true,
-		);
+		await service.setLocalIgnoredPath("project-1", "Assets/Generated/NavMesh.asset", true);
 
 		expect(mutate).toHaveBeenCalledWith({
 			projectId: "project-1",

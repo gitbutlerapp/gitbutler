@@ -9,6 +9,7 @@ rust-version.workspace = true
 description = "LLM client interface"
 
 [dependencies]
+but-acp.workspace = true
 but-secret.workspace = true
 but-tools.workspace = true
 async-openai.workspace = true

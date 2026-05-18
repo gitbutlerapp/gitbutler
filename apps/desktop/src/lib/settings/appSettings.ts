@@ -73,6 +73,10 @@ export class SettingsService {
 		await this.invokeAndRefresh("update_claude", { update });
 	}
 
+	async updateAcp(update: Partial<AppSettings["acp"]>) {
+		await this.invokeAndRefresh("update_acp", { update });
+	}
+
 	async updateReviews(update: Partial<AppSettings["reviews"]>) {
 		await this.invokeAndRefresh("update_reviews", { update });
 	}

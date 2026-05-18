@@ -17,7 +17,8 @@ pub(crate) fn list_local_ignored_paths(repo: &gix::Repository) -> Result<Vec<Str
         .with_context(|| format!("invalid git config key: {LOCAL_IGNORED_PATH_KEY}"))?;
 
     let mut paths = BTreeSet::new();
-    if let Ok(values) = config.raw_values_by(key.section_name, key.subsection_name, key.value_name) {
+    if let Ok(values) = config.raw_values_by(key.section_name, key.subsection_name, key.value_name)
+    {
         for value in values {
             if let Some(normalized) =
                 normalize_local_ignore_path_string(&String::from_utf8_lossy(value.as_ref()))
@@ -137,11 +138,14 @@ fn normalize_local_ignore_path(relative_path: &Path) -> Result<String> {
     for component in relative_path.components() {
         match component {
             Component::Normal(part) => {
-                let part = part
-                    .to_str()
-                    .with_context(|| format!("path component is not valid UTF-8: {relative_path:?}"))?;
+                let part = part.to_str().with_context(|| {
+                    format!("path component is not valid UTF-8: {relative_path:?}")
+                })?;
                 if part.contains('/') || part.contains('\\') {
-                    for nested in part.split(['/', '\\']).filter(|segment| !segment.is_empty()) {
+                    for nested in part
+                        .split(['/', '\\'])
+                        .filter(|segment| !segment.is_empty())
+                    {
                         parts.push(nested.to_owned());
                     }
                 } else {
@@ -185,8 +189,7 @@ fn remove_all_local_ignored_paths(config: &mut gix::config::File<'static>) -> Re
 }
 
 fn path_is_locally_ignored(path: &[u8], ignored_paths: &[String]) -> bool {
-    let Some(normalized_path) =
-        normalize_local_ignore_path_string(&String::from_utf8_lossy(path))
+    let Some(normalized_path) = normalize_local_ignore_path_string(&String::from_utf8_lossy(path))
     else {
         return false;
     };

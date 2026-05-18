@@ -29,6 +29,7 @@ pub mod modes;
 pub mod window;
 pub use window::state::{WindowState, event::ChangeForFrontend};
 
+pub mod acp;
 pub mod action;
 pub mod askpass;
 pub mod debug;

@@ -4,7 +4,12 @@
 	import AuthorizationBanner from "$components/settings/AuthorizationBanner.svelte";
 	import SettingsSection from "$components/shared/SettingsSection.svelte";
 	import { AISecretHandle, AI_SERVICE, GitAIConfigKey, KeyOption } from "$lib/ai/service";
-	import { OpenAIModelName, AnthropicModelName, ModelKind } from "$lib/ai/types";
+	import {
+		OpenAIModelName,
+		AnthropicModelName,
+		ModelKind,
+		type AcpAgentDescriptor,
+	} from "$lib/ai/types";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { SECRET_SERVICE } from "$lib/secrets/secretsService";
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
@@ -45,6 +50,12 @@
 	let lmStudioModel: string | undefined = $state();
 	let openRouterKey: string | undefined = $state();
 	let openRouterModel: string | undefined = $state();
+	let acpAgentId: string | undefined = $state();
+	let acpCommand: string | undefined = $state();
+	let acpArgs: string | undefined = $state();
+	let acpEnv: string | undefined = $state();
+	let acpModel: string | undefined = $state();
+	let acpAgents: AcpAgentDescriptor[] = $state([]);
 
 	async function setConfiguration(key: GitAIConfigKey, value: string | undefined) {
 		if (!initialized) return;
@@ -78,6 +89,12 @@
 
 		openRouterKey = await aiService.getOpenRouterKey();
 		openRouterModel = await aiService.getOpenRouterModelName();
+		acpAgentId = await aiService.getAcpAgentId();
+		acpCommand = await aiService.getAcpCommand();
+		acpArgs = JSON.stringify(await aiService.getAcpArgs());
+		acpEnv = JSON.stringify(await aiService.getAcpEnv());
+		acpModel = await aiService.getAcpModelName();
+		acpAgents = (await aiService.listAcpAgents()).agents;
 
 		// Ensure reactive declarations have finished running before we set initialized to true
 		await tick();
@@ -178,8 +195,46 @@
 		setConfiguration(GitAIConfigKey.OpenRouterModelName, openRouterModel);
 	});
 	run(() => {
+		setConfiguration(GitAIConfigKey.AcpAgentId, acpAgentId);
+	});
+	run(() => {
+		setConfiguration(GitAIConfigKey.AcpCommand, acpCommand);
+	});
+	run(() => {
+		setConfiguration(GitAIConfigKey.AcpArgs, acpArgs);
+	});
+	run(() => {
+		setConfiguration(GitAIConfigKey.AcpEnv, acpEnv);
+	});
+	run(() => {
+		setConfiguration(GitAIConfigKey.AcpModelName, acpModel);
+	});
+	run(() => {
 		if (form) form.modelKind.value = modelKind;
 	});
+
+	const acpAgentOptions = $derived(
+		acpAgents
+			.filter((agent) => agent.availability !== "suggestion")
+			.map((agent) => ({
+				label: agent.availability === "available" ? agent.name : `${agent.name} (command missing)`,
+				value: agent.id,
+				agent,
+			})),
+	);
+
+	const acpRegistrySuggestions = $derived(
+		acpAgents.filter((agent) => agent.availability === "suggestion").slice(0, 5),
+	);
+
+	function selectAcpAgent(id: string) {
+		const agent = acpAgents.find((agent) => agent.id === id);
+		if (!agent) return;
+		acpAgentId = agent.id;
+		acpCommand = agent.command;
+		acpArgs = JSON.stringify(agent.args);
+		acpEnv = JSON.stringify(agent.env);
+	}
 </script>
 
 {#snippet shortNote(text: string)}
@@ -422,6 +477,58 @@
 				/>
 
 				<Textbox label="Model" bind:value={openRouterModel} placeholder="openai/gpt-4.1-mini" />
+			</CardGroup.Item>
+		{/if}
+
+		<CardGroup.Item labelFor="acp">
+			{#snippet title()}
+				ACP Agent
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton name="modelKind" id="acp" value={ModelKind.ACP} />
+			{/snippet}
+		</CardGroup.Item>
+		{#if modelKind === ModelKind.ACP}
+			<CardGroup.Item>
+				{#if acpAgentOptions.length > 0}
+					<Select
+						value={acpAgentId}
+						options={acpAgentOptions}
+						label="Agent"
+						wide
+						onselect={(value) => selectAcpAgent(value as string)}
+					>
+						{#snippet itemSnippet({ item, highlighted })}
+							<SelectItem selected={item.value === acpAgentId} {highlighted}>
+								{item.label}
+							</SelectItem>
+						{/snippet}
+					</Select>
+				{/if}
+
+				<Textbox label="Command" bind:value={acpCommand} placeholder="npx" />
+				<Textbox
+					label="Arguments JSON"
+					bind:value={acpArgs}
+					placeholder={JSON.stringify(["-y", "@zed-industries/codex-acp@latest"])}
+				/>
+				<Textbox label="Environment JSON" bind:value={acpEnv} placeholder={"{}"} />
+				<Textbox label="Model" bind:value={acpModel} placeholder="optional" />
+
+				{#if acpRegistrySuggestions.length > 0}
+					<InfoMessage filled outlined={false}>
+						{#snippet title()}
+							Registry suggestions
+						{/snippet}
+						{#snippet content()}
+							<div class="ai-settings__section-text-block">
+								{#each acpRegistrySuggestions as agent}
+									<p>{agent.name}: {agent.commandPreview}</p>
+								{/each}
+							</div>
+						{/snippet}
+					</InfoMessage>
+				{/if}
 			</CardGroup.Item>
 		{/if}
 

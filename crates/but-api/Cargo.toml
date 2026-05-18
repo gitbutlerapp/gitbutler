@@ -84,6 +84,7 @@ but-graph.workspace = true
 but-ctx.workspace = true
 but-workspace.workspace = true
 but-settings.workspace = true
+but-acp.workspace = true
 but-secret.workspace = true
 but-rebase.workspace = true
 but-db.workspace = true

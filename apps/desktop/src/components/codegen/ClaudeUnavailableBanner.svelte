@@ -14,11 +14,9 @@
 			<h3 class="text-16 text-semibold">
 				<span class="not-available-banner__icon">
 					<Icon name="warning" />
-				</span> Claude code can't be found
+				</span> Coding agent can't be found
 			</h3>
-			<p class="text-13 text-body clr-text-2">
-				Connect Claude Code to keep going with this session.
-			</p>
+			<p class="text-13 text-body clr-text-2">Connect an agent to keep going with this session.</p>
 		</div>
 		<Button style="gray" icon="mixer" type="button" reversedDirection onclick={onSettingsBtnClick}
 			>Set up connection…</Button

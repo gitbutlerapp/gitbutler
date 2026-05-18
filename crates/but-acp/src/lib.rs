@@ -10,8 +10,7 @@ use agent_client_protocol::{
     AcpAgent, Agent, Client, ConnectionTo,
     schema::{
         InitializeRequest, NewSessionRequest, ProtocolVersion, RequestPermissionOutcome,
-        RequestPermissionRequest, RequestPermissionResponse, SelectedPermissionOutcome,
-        SessionNotification,
+        RequestPermissionRequest, RequestPermissionResponse, SessionNotification,
     },
 };
 use anyhow::{Context as _, Result};
@@ -30,6 +29,7 @@ pub struct AcpCommandConfig {
     #[serde(default)]
     pub env: BTreeMap<String, String>,
 }
+but_schemars::register_sdk_type!(AcpCommandConfig);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -38,6 +38,7 @@ pub enum AcpAgentSource {
     User,
     Registry,
 }
+but_schemars::register_sdk_type!(AcpAgentSource);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -46,6 +47,7 @@ pub enum AcpAvailability {
     MissingCommand,
     Suggestion,
 }
+but_schemars::register_sdk_type!(AcpAvailability);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -60,12 +62,14 @@ pub struct AcpAgentDescriptor {
     pub env: BTreeMap<String, String>,
     pub command_preview: String,
 }
+but_schemars::register_sdk_type!(AcpAgentDescriptor);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AcpDiscovery {
     pub agents: Vec<AcpAgentDescriptor>,
 }
+but_schemars::register_sdk_type!(AcpDiscovery);
 
 pub fn built_in_agents() -> Vec<AcpCommandConfig> {
     vec![
@@ -97,7 +101,7 @@ pub fn built_in_agents() -> Vec<AcpCommandConfig> {
                 "-y".to_string(),
                 "--".to_string(),
                 "@google/gemini-cli@latest".to_string(),
-                "--experimental-acp".to_string(),
+                "--acp".to_string(),
             ],
             env: BTreeMap::new(),
         },
@@ -154,18 +158,8 @@ pub async fn prompt_once(config: AcpCommandConfig, cwd: PathBuf, prompt: String)
             agent_client_protocol::on_receive_notification!(),
         )
         .on_receive_request(
-            async move |request: RequestPermissionRequest, responder, _connection| {
-                let response = request
-                    .options
-                    .first()
-                    .map(|option| {
-                        RequestPermissionResponse::new(RequestPermissionOutcome::Selected(
-                            SelectedPermissionOutcome::new(option.option_id.clone()),
-                        ))
-                    })
-                    .unwrap_or_else(|| {
-                        RequestPermissionResponse::new(RequestPermissionOutcome::Cancelled)
-                    });
+            async move |_request: RequestPermissionRequest, responder, _connection| {
+                let response = RequestPermissionResponse::new(RequestPermissionOutcome::Cancelled);
                 responder.respond(response)
             },
             agent_client_protocol::on_receive_request!(),
@@ -312,7 +306,11 @@ fn command_available(command: &str) -> bool {
         return false;
     };
     let candidates = executable_candidates(command);
-    std::env::split_paths(&paths).any(|path| candidates.iter().any(|candidate| path.join(candidate).is_file()))
+    std::env::split_paths(&paths).any(|path| {
+        candidates
+            .iter()
+            .any(|candidate| path.join(candidate).is_file())
+    })
 }
 
 #[cfg(windows)]
@@ -403,7 +401,10 @@ mod tests {
             .expect("npx distribution is usable");
         assert_eq!(descriptor.source, AcpAgentSource::Registry);
         assert_eq!(descriptor.command, "npx");
-        assert_eq!(descriptor.args, ["-y", "@zed-industries/codex-acp", "--flag"]);
+        assert_eq!(
+            descriptor.args,
+            ["-y", "@zed-industries/codex-acp", "--flag"]
+        );
         assert_eq!(descriptor.availability, AcpAvailability::Suggestion);
     }
 }

@@ -19,6 +19,8 @@ pub struct AppSettings {
     pub fetch: app_settings::Fetch,
     /// Settings related to Claude Code.
     pub claude: app_settings::Claude,
+    /// Settings related to Agent Client Protocol agents.
+    pub acp: app_settings::AcpSettings,
     /// Settings related to code reviews and pull requests.
     pub reviews: app_settings::Reviews,
     /// UI settings.

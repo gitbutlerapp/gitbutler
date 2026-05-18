@@ -80,7 +80,9 @@
 	let gitOperationProgress = $state<GitOperationProgress | undefined>();
 	let gitOperationStartedAt = $state<number | undefined>();
 	let elapsedTick = $state(Date.now());
-	let activeProgress = $derived(activeProgressPercent(workspaceUpdateProgress, gitOperationProgress));
+	let activeProgress = $derived(
+		activeProgressPercent(workspaceUpdateProgress, gitOperationProgress),
+	);
 	let progressVisible = $derived(loadingStatuses || integratingUpstream === "loading");
 	// const stackService = getContext(StackService);
 	// let appliedBranches = $state<string[]>();
@@ -689,10 +691,7 @@
 
 			{#if workspaceUpdateProgress || activeProgress !== undefined}
 				<div class="progress-track" aria-hidden="true">
-					<div
-						class="progress-fill"
-						style={`width: ${progressWidth(activeProgress)}%`}
-					></div>
+					<div class="progress-fill" style={`width: ${progressWidth(activeProgress)}%`}></div>
 				</div>
 			{/if}
 

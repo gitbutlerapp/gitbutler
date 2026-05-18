@@ -16,7 +16,7 @@ vi.mock("@gitbutler/core/context", () => ({
 			throw new Error("No mock for token");
 		}
 		return value;
-	}
+	},
 }));
 
 describe("WorktreeLocalIgnoredPaths", () => {
@@ -24,10 +24,7 @@ describe("WorktreeLocalIgnoredPaths", () => {
 		const setLocalIgnoredPath = vi.fn().mockResolvedValue(undefined);
 		injectMap.set(WORKTREE_SERVICE, {
 			localIgnoredPaths: () => ({
-				response: [
-					"Assets/Generated/NavMesh.asset",
-					"Assets/Scenes/dealers/LightingData.asset",
-				],
+				response: ["Assets/Generated/NavMesh.asset", "Assets/Scenes/dealers/LightingData.asset"],
 			}),
 			setLocalIgnoredPath,
 		});
@@ -43,7 +40,9 @@ describe("WorktreeLocalIgnoredPaths", () => {
 		expect(screen.getByText("Assets/Generated/NavMesh.asset")).toBeInTheDocument();
 		expect(screen.getByText("Assets/Scenes/dealers/LightingData.asset")).toBeInTheDocument();
 
-		await user.click(screen.getByRole("button", { name: "Stop ignoring Assets/Generated/NavMesh.asset" }));
+		await user.click(
+			screen.getByRole("button", { name: "Stop ignoring Assets/Generated/NavMesh.asset" }),
+		);
 
 		expect(setLocalIgnoredPath).toHaveBeenCalledWith(
 			"project-1",

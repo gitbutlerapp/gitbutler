@@ -89,6 +89,12 @@
 					// Get LM Studio configuration for more detailed error
 					const endpoint = await aiService.getLMStudioEndpoint();
 					throw new Error(`Please check LM Studio configuration: endpoint=${endpoint}`);
+				} else if (modelKind === ModelKind.ACP) {
+					const command = await aiService.getAcpCommand();
+					const args = await aiService.getAcpArgs();
+					throw new Error(
+						`Please check ACP configuration: command=${[command, ...args].filter(Boolean).join(" ")}`,
+					);
 				}
 			}
 
@@ -227,6 +233,8 @@
 
 									<Link href="https://lmstudio.ai">Learn more</Link>
 								</span>
+							{:else if modelKind === ModelKind.ACP}
+								<span> Please check that the selected ACP agent command is available. </span>
 							{/if}
 						{:else}
 							<div class="text-12 text-body ai-response">

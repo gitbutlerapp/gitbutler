@@ -22,8 +22,8 @@ use but_settings::AppSettingsWithDiskSync;
 #[cfg(feature = "irc")]
 use gitbutler_tauri_lib::irc;
 use gitbutler_tauri_lib::{
-    WindowState, action, askpass, claude, csp::csp_with_extras, env, logs, menu, modes, projects,
-    settings, upstream, zip,
+    WindowState, acp, action, askpass, claude, csp::csp_with_extras, env, logs, menu, modes,
+    projects, settings, upstream, zip,
 };
 use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -445,6 +445,8 @@ fn main() -> anyhow::Result<()> {
                 legacy::claude::tauri_claude_get_user_message::claude_get_user_message,
                 action::list_actions,
                 action::handle_changes,
+                acp::acp_list_agents,
+                acp::acp_prompt,
                 action::list_workflows,
                 askpass::submit_prompt_response,
                 menu::menu_item_set_enabled,
@@ -461,6 +463,7 @@ fn main() -> anyhow::Result<()> {
                 settings::update_feature_flags,
                 settings::update_telemetry_distinct_id,
                 settings::update_claude,
+                settings::update_acp,
                 settings::update_fetch,
                 settings::update_reviews,
                 settings::update_ui,

@@ -7,6 +7,7 @@ export enum ModelKind {
 	Ollama = "ollama",
 	LMStudio = "lmstudio",
 	OpenRouter = "openrouter",
+	ACP = "acp",
 }
 
 // OpenRouter model names follow the `provider/model` format (e.g. `openai/gpt-4.1-mini`)
@@ -57,6 +58,25 @@ export interface AIClient {
 	defaultCommitTemplate: Prompt;
 	defaultPRTemplate: Prompt;
 }
+
+export type AcpCommandConfig = {
+	id: string;
+	name: string;
+	command: string;
+	args: string[];
+	env: Record<string, string>;
+};
+
+export type AcpAgentDescriptor = AcpCommandConfig & {
+	description?: string | null;
+	source: "builtIn" | "user" | "registry";
+	availability: "available" | "missingCommand" | "suggestion";
+	commandPreview: string;
+};
+
+export type AcpDiscovery = {
+	agents: AcpAgentDescriptor[];
+};
 
 export type UserPrompt = {
 	id: string;

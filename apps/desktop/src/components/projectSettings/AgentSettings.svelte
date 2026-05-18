@@ -15,7 +15,7 @@
 	let autoCommitAfterCompletion = $state(true);
 	let useConfiguredModel = $state(false);
 
-	// Initialize Claude settings from store
+	// Initialize agent settings from the legacy Claude settings store.
 	$effect(() => {
 		if ($settingsStore?.claude) {
 			notifyOnCompletion = $settingsStore.claude.notifyOnCompletion;
@@ -63,8 +63,8 @@
 		Auto-commit after completion
 	{/snippet}
 	{#snippet caption()}
-		Automatically commit and rename branches when Claude Code finishes. Disable to review manually
-		before committing.
+		Automatically commit and rename branches when the coding agent finishes. Disable to review
+		manually before committing.
 	{/snippet}
 	{#snippet actions()}
 		<Toggle
@@ -80,7 +80,7 @@
 		Use configured model
 	{/snippet}
 	{#snippet caption()}
-		Use the model configured in .claude/settings.json.
+		Use the model configured by the selected coding agent.
 	{/snippet}
 	{#snippet actions()}
 		<Toggle
@@ -141,7 +141,7 @@
 		⚠ Dangerously allow all permissions
 	{/snippet}
 	{#snippet caption()}
-		Skips all permission prompts and allows Claude Code unrestricted access. Use with extreme
+		Skips all permission prompts and allows the coding agent unrestricted access. Use with extreme
 		caution.
 	{/snippet}
 	{#snippet actions()}

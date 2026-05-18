@@ -411,6 +411,39 @@ export type AbsorptionTarget = {
   type: "all";
 };
 
+export type AcpAgentDescriptor = {
+  id: string;
+  name: string;
+  description: string | null;
+  source: AcpAgentSource;
+  availability: AcpAvailability;
+  command: string;
+  args: Array<string>;
+  env: Record<string, string>;
+  commandPreview: string;
+};
+
+export type AcpAgentSource = "builtIn" | "user" | "registry";
+
+export type AcpAvailability = "available" | "missingCommand" | "suggestion";
+
+export type AcpCommandConfig = {
+  id: string;
+  name: string;
+  command: string;
+  args?: Array<string>;
+  env?: Record<string, string>;
+};
+
+export type AcpDiscovery = {
+  agents: Array<AcpAgentDescriptor>;
+};
+
+export type AcpSettings = {
+  /** User-defined ACP agents. Built-in and registry agents are discovered dynamically. */
+  agents: Array<AcpCommandConfig>;
+};
+
 export type ApiProject = {
   name: string;
   description: string | null;
@@ -445,6 +478,8 @@ export type AppSettings = {
   fetch: Fetch;
   /** Settings related to Claude Code. */
   claude: Claude;
+  /** Settings related to Agent Client Protocol agents. */
+  acp: AcpSettings;
   /** Settings related to code reviews and pull requests. */
   reviews: Reviews;
   /** UI settings. */

@@ -131,17 +131,11 @@ export class ClientState {
 	 * for the slice state. Consumers should use this in an `$effect` to
 	 * keep a local `$state.raw` field in sync.
 	 */
-	injectPersistedSlice<S>(
-		slice: Slice<S>,
-		options?: PersistedSliceOptions,
-	): () => S | undefined {
+	injectPersistedSlice<S>(slice: Slice<S>, options?: PersistedSliceOptions): () => S | undefined {
 		this.reducer.inject(
 			{
 				reducerPath: slice.reducerPath,
-				reducer: persistReducer(
-					{ key: slice.reducerPath, storage, ...options },
-					slice.reducer,
-				),
+				reducer: persistReducer({ key: slice.reducerPath, storage, ...options }, slice.reducer),
 			},
 			{ overrideExisting: false },
 		);

@@ -4,6 +4,7 @@
 
 use but_ctx::ProjectHandleOrLegacyProjectId;
 pub mod absorb;
+pub mod acp;
 pub mod askpass;
 pub mod cherry_apply;
 pub mod claude;

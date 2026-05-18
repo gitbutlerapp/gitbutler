@@ -9,11 +9,13 @@ use anyhow::{Context as _, Result};
 use but_core::git_config::{remove_config_value, set_config_value};
 use but_ctx::Context;
 use but_llm::{
-    AI_ANTHROPIC_KEY_OPTION_KEY, AI_ANTHROPIC_MODEL_NAME_KEY, AI_ANTHROPIC_SECRET_HANDLE,
-    AI_LMSTUDIO_ENDPOINT_KEY, AI_LMSTUDIO_MODEL_NAME_KEY, AI_MODEL_PROVIDER_KEY,
-    AI_OLLAMA_ENDPOINT_KEY, AI_OLLAMA_MODEL_NAME_KEY, AI_OPENAI_CUSTOM_ENDPOINT_KEY,
-    AI_OPENAI_KEY_OPTION_KEY, AI_OPENAI_MODEL_NAME_KEY, AI_OPENAI_SECRET_HANDLE,
-    AI_OPENROUTER_MODEL_NAME_KEY, AI_OPENROUTER_SECRET_HANDLE, LLMProviderKind,
+    AI_ACP_AGENT_ID_KEY, AI_ACP_ARGS_KEY, AI_ACP_COMMAND_KEY, AI_ACP_ENV_KEY,
+    AI_ACP_MODEL_NAME_KEY, AI_ANTHROPIC_KEY_OPTION_KEY, AI_ANTHROPIC_MODEL_NAME_KEY,
+    AI_ANTHROPIC_SECRET_HANDLE, AI_LMSTUDIO_ENDPOINT_KEY, AI_LMSTUDIO_MODEL_NAME_KEY,
+    AI_MODEL_PROVIDER_KEY, AI_OLLAMA_ENDPOINT_KEY, AI_OLLAMA_MODEL_NAME_KEY,
+    AI_OPENAI_CUSTOM_ENDPOINT_KEY, AI_OPENAI_KEY_OPTION_KEY, AI_OPENAI_MODEL_NAME_KEY,
+    AI_OPENAI_SECRET_HANDLE, AI_OPENROUTER_MODEL_NAME_KEY, AI_OPENROUTER_SECRET_HANDLE,
+    LLMProviderKind,
 };
 use but_secret::{Sensitive, secret};
 use but_settings::{AppSettingsWithDiskSync, api::TelemetryUpdate};
@@ -79,6 +81,11 @@ struct AiConfigInfo {
     ollama_model: Option<String>,
     lmstudio_endpoint: Option<String>,
     lmstudio_model: Option<String>,
+    acp_agent_id: Option<String>,
+    acp_command: Option<String>,
+    acp_args: Option<String>,
+    acp_env: Option<String>,
+    acp_model: Option<String>,
 }
 
 /// Main entry point for config command
@@ -1180,6 +1187,41 @@ fn show_ai_config(
             t.config_value
                 .paint(info.lmstudio_model.as_deref().unwrap_or("(not set)"))
         )?;
+        writeln!(
+            out,
+            "  {}: {}",
+            t.hint.paint("ACP agent id"),
+            t.config_value
+                .paint(info.acp_agent_id.as_deref().unwrap_or("(not set)"))
+        )?;
+        writeln!(
+            out,
+            "  {}: {}",
+            t.hint.paint("ACP command"),
+            t.config_value
+                .paint(info.acp_command.as_deref().unwrap_or("(not set)"))
+        )?;
+        writeln!(
+            out,
+            "  {}: {}",
+            t.hint.paint("ACP args"),
+            t.config_value
+                .paint(info.acp_args.as_deref().unwrap_or("(not set)"))
+        )?;
+        writeln!(
+            out,
+            "  {}: {}",
+            t.hint.paint("ACP env"),
+            t.config_value
+                .paint(info.acp_env.as_deref().unwrap_or("(not set)"))
+        )?;
+        writeln!(
+            out,
+            "  {}: {}",
+            t.hint.paint("ACP model"),
+            t.config_value
+                .paint(info.acp_model.as_deref().unwrap_or("(not set)"))
+        )?;
     } else if let Some(out) = out.for_shell() {
         writeln!(out, "{}", info.provider.as_deref().unwrap_or(""))?;
     } else if let Some(out) = out.for_json() {
@@ -1245,6 +1287,16 @@ fn ai_config_non_interactive(
             apply_openrouter_config(repo, scope, model, secret)?;
             write_ai_config_success(out, scope, LLMProviderKind::OpenRouter)?;
         }
+        AiSubcommand::Acp {
+            agent_id,
+            command,
+            args,
+            env,
+            model,
+        } => {
+            apply_acp_config(repo, scope, agent_id, command, args, env, model)?;
+            write_ai_config_success(out, scope, LLMProviderKind::Acp)?;
+        }
     }
 
     Ok(())
@@ -1264,7 +1316,15 @@ fn ai_config_interactive(
 
     let provider_prompt = cli_prompts::prompts::Selection::new(
         "Select an AI provider",
-        vec!["OpenAI", "Anthropic", "Ollama", "LM Studio", "OpenRouter"].into_iter(),
+        vec![
+            "OpenAI",
+            "Anthropic",
+            "Ollama",
+            "LM Studio",
+            "OpenRouter",
+            "ACP Agent",
+        ]
+        .into_iter(),
     );
 
     let provider_label = provider_prompt
@@ -1276,6 +1336,7 @@ fn ai_config_interactive(
         "Ollama" => LLMProviderKind::Ollama,
         "LM Studio" => LLMProviderKind::LMStudio,
         "OpenRouter" => LLMProviderKind::OpenRouter,
+        "ACP Agent" => LLMProviderKind::Acp,
         _ => anyhow::bail!("Unsupported AI provider selection: {provider_label}"),
     };
 
@@ -1344,6 +1405,19 @@ fn ai_config_interactive(
                     .context("No API key provided. Aborting configuration.")?,
             );
             apply_openrouter_config(repo, scope, model, secret)?;
+        }
+        LLMProviderKind::Acp => {
+            let agent_id = inout.prompt("ACP agent id (optional):")?;
+            let command = inout
+                .prompt("ACP command (for example, npx):")?
+                .filter(|value| !value.trim().is_empty())
+                .context("No ACP command provided. Aborting configuration.")?;
+            let args = inout.prompt("ACP arguments JSON array (optional):")?;
+            let env = inout.prompt("ACP environment JSON object (optional):")?;
+            let model = inout.prompt("ACP model or mode hint (optional):")?;
+            let args = parse_optional_string_array(args, "ACP arguments")?;
+            let env = parse_optional_string_map(env, "ACP environment")?;
+            apply_acp_config(repo, scope, agent_id, command, args, env, model)?;
         }
     }
 
@@ -1563,6 +1637,86 @@ fn apply_openrouter_config(
     Ok(())
 }
 
+fn apply_acp_config(
+    repo: Option<&gix::Repository>,
+    scope: AiScope,
+    agent_id: Option<String>,
+    command: String,
+    args: Vec<String>,
+    env: Vec<String>,
+    model: Option<String>,
+) -> Result<()> {
+    let args = optional_json_array(args)?;
+    let env = optional_env_json(env)?;
+    edit_ai_git_config(repo, scope, |config| {
+        set_config_value(
+            config,
+            AI_MODEL_PROVIDER_KEY,
+            LLMProviderKind::Acp.as_git_config_value(),
+        )?;
+        set_optional_config_value(config, AI_ACP_AGENT_ID_KEY, agent_id)?;
+        set_config_value(config, AI_ACP_COMMAND_KEY, &command)?;
+        set_optional_config_value(config, AI_ACP_ARGS_KEY, args)?;
+        set_optional_config_value(config, AI_ACP_ENV_KEY, env)?;
+        set_optional_config_value(config, AI_ACP_MODEL_NAME_KEY, model)?;
+        Ok(())
+    })
+}
+
+fn optional_json_array(values: Vec<String>) -> Result<Option<String>> {
+    if values.is_empty() {
+        Ok(None)
+    } else {
+        serde_json::to_string(&values)
+            .map(Some)
+            .context("failed to encode ACP arguments")
+    }
+}
+
+fn optional_env_json(values: Vec<String>) -> Result<Option<String>> {
+    if values.is_empty() {
+        return Ok(None);
+    }
+    let mut env = serde_json::Map::new();
+    for value in values {
+        let (key, value) = value
+            .split_once('=')
+            .with_context(|| format!("ACP environment entry must be KEY=VALUE: {value}"))?;
+        if key.trim().is_empty() {
+            anyhow::bail!("ACP environment key cannot be empty");
+        }
+        env.insert(
+            key.to_string(),
+            serde_json::Value::String(value.to_string()),
+        );
+    }
+    serde_json::to_string(&env)
+        .map(Some)
+        .context("failed to encode ACP environment")
+}
+
+fn parse_optional_string_array(value: Option<String>, label: &str) -> Result<Vec<String>> {
+    match value.filter(|value| !value.trim().is_empty()) {
+        Some(value) => serde_json::from_str::<Vec<String>>(&value)
+            .with_context(|| format!("{label} must be a JSON array of strings")),
+        None => Ok(Vec::new()),
+    }
+}
+
+fn parse_optional_string_map(value: Option<String>, label: &str) -> Result<Vec<String>> {
+    match value.filter(|value| !value.trim().is_empty()) {
+        Some(value) => {
+            let env = serde_json::from_str::<std::collections::BTreeMap<String, String>>(&value)
+                .with_context(|| format!("{label} must be a JSON object with string values"))?;
+            Ok(env
+                .into_iter()
+                .map(|(key, value)| format!("{key}={value}"))
+                .collect())
+        }
+        None => Ok(Vec::new()),
+    }
+}
+
 fn get_ai_config_info(repo: Option<&gix::Repository>, scope: AiScope) -> Result<AiConfigInfo> {
     match scope {
         AiScope::Global => {
@@ -1586,6 +1740,11 @@ fn get_ai_config_info(repo: Option<&gix::Repository>, scope: AiScope) -> Result<
                 lmstudio_model: file
                     .string(AI_LMSTUDIO_MODEL_NAME_KEY)
                     .map(|v| v.to_string()),
+                acp_agent_id: file.string(AI_ACP_AGENT_ID_KEY).map(|v| v.to_string()),
+                acp_command: file.string(AI_ACP_COMMAND_KEY).map(|v| v.to_string()),
+                acp_args: file.string(AI_ACP_ARGS_KEY).map(|v| v.to_string()),
+                acp_env: file.string(AI_ACP_ENV_KEY).map(|v| v.to_string()),
+                acp_model: file.string(AI_ACP_MODEL_NAME_KEY).map(|v| v.to_string()),
             })
         }
         AiScope::Local => {
@@ -1618,6 +1777,11 @@ fn get_ai_config_info(repo: Option<&gix::Repository>, scope: AiScope) -> Result<
                 lmstudio_model: config
                     .string(AI_LMSTUDIO_MODEL_NAME_KEY)
                     .map(|v| v.to_string()),
+                acp_agent_id: config.string(AI_ACP_AGENT_ID_KEY).map(|v| v.to_string()),
+                acp_command: config.string(AI_ACP_COMMAND_KEY).map(|v| v.to_string()),
+                acp_args: config.string(AI_ACP_ARGS_KEY).map(|v| v.to_string()),
+                acp_env: config.string(AI_ACP_ENV_KEY).map(|v| v.to_string()),
+                acp_model: config.string(AI_ACP_MODEL_NAME_KEY).map(|v| v.to_string()),
             })
         }
     }

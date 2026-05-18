@@ -98,8 +98,8 @@
 		border-radius: 999px;
 		background-color: var(--bg-3);
 		color: var(--text-2);
-		font-size: 12px;
 		font-weight: 600;
+		font-size: 12px;
 	}
 
 	.local-ignored__list {
@@ -107,8 +107,8 @@
 		flex-direction: column;
 		margin: 0;
 		padding: 0;
-		list-style: none;
 		gap: 8px;
+		list-style: none;
 	}
 
 	.local-ignored__item {
@@ -125,10 +125,10 @@
 	.local-ignored__path {
 		min-width: 0;
 		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 		color: var(--text-2);
 		font-size: 12px;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.local-ignored__button {
@@ -138,8 +138,8 @@
 		border-radius: var(--radius-s);
 		background-color: var(--bg-1);
 		color: var(--text-2);
-		font-size: 12px;
 		font-weight: 600;
+		font-size: 12px;
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast),

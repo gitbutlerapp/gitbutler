@@ -3,8 +3,8 @@ use anyhow::Result;
 use but_settings::{
     AppSettingsWithDiskSync,
     api::{
-        ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, IrcUpdate, ReviewsUpdate, TelemetryUpdate,
-        UiUpdate,
+        AcpUpdate, ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, IrcUpdate, ReviewsUpdate,
+        TelemetryUpdate, UiUpdate,
     },
 };
 use serde::Deserialize;
@@ -72,6 +72,19 @@ pub fn update_claude(
     params: UpdateClaudeParams,
 ) -> Result<()> {
     app_settings_sync.update_claude(params.update)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateAcpParams {
+    pub update: AcpUpdate,
+}
+
+pub fn update_acp(
+    app_settings_sync: &AppSettingsWithDiskSync,
+    params: UpdateAcpParams,
+) -> Result<()> {
+    app_settings_sync.update_acp(params.update)
 }
 
 #[derive(Deserialize)]

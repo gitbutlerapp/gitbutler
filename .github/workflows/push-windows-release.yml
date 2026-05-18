@@ -18,6 +18,7 @@ jobs:
     env:
       CHANNEL: nightly
       JS_PACKAGE_MANAGER: bun
+      WINDOWS_BUNDLE_TARGET: nsis
     steps:
       - name: Set git to use LF
         shell: bash
@@ -89,7 +90,7 @@ jobs:
         id: installer
         shell: bash
         run: |
-          installer_path="$(find release/windows/x86_64 -maxdepth 1 -type f -name '*.msi' | head -n 1)"
+          installer_path="$(find release/windows/x86_64 -maxdepth 1 -type f -name '*-setup.exe' | head -n 1)"
           if [ -z "$installer_path" ]; then
             echo "No Windows installer was produced." >&2
             exit 1
@@ -112,6 +113,7 @@ jobs:
           generate_release_notes: true
           make_latest: false
           name: GitButler push build ${{ steps.meta.outputs.short_sha }}
+          overwrite_files: true
           prerelease: true
           tag_name: ${{ steps.meta.outputs.tag }}
           target_commitish: ${{ github.sha }}

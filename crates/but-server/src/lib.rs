@@ -1579,6 +1579,9 @@ async fn handle_command(
         "update_claude" => deserialize_json(request.params).and_then(|params| {
             legacy::settings::update_claude(&app_settings_sync, params).map(|r| json!(r))
         }),
+        "update_acp" => deserialize_json(request.params).and_then(|params| {
+            legacy::settings::update_acp(&app_settings_sync, params).map(|r| json!(r))
+        }),
         "update_fetch" => deserialize_json(request.params).and_then(|params| {
             legacy::settings::update_fetch(&app_settings_sync, params).map(|r| json!(r))
         }),
@@ -1902,6 +1905,16 @@ async fn handle_command(
             let params = serde_json::from_value::<Params>(request.params)?;
             let ctx: Context = params.project_id.try_into()?;
             let result = legacy::claude::claude_verify_path(ctx.into_sync(), params.path).await;
+            result.map(|r| json!(r))
+        }
+        "acp_list_agents" => {
+            let settings = { app_settings_sync.get()?.clone() };
+            let result = legacy::acp::acp_list_agents(settings).await;
+            result.map(|r| json!(r))
+        }
+        "acp_prompt" => {
+            let params = deserialize_json(request.params)?;
+            let result = legacy::acp::acp_prompt(params).await;
             result.map(|r| json!(r))
         }
 

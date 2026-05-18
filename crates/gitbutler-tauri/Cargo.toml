@@ -29,6 +29,7 @@ tauri-build = { version = "2.6.1", features = [] }
 but = { workspace = true, optional = true }
 but-feedback.workspace = true
 but-error.workspace = true
+but-acp.workspace = true
 but-secret.workspace = true
 but-db.workspace = true
 but-settings.workspace = true
