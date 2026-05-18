@@ -55,39 +55,43 @@ pub(crate) fn insert_blank_commit(
     };
 
     // Determine target commit ID and use provided insert_side
-    let success_message = match cli_id {
+    let (outcome, success_message) = match cli_id {
         CliId::Commit { commit_id: oid, .. } => {
             let short_oid = {
                 let repo = ctx.repo.get()?;
                 shorten_object_id(&repo, *oid)
             };
-            but_api::commit::insert_blank::commit_insert_blank_with_perm(
+            let outcome = but_api::commit::insert_blank::commit_insert_blank_with_perm(
                 ctx,
                 RelativeTo::Commit(*oid),
                 insert_side,
                 DryRun::No,
                 guard.write_permission(),
             )?;
-            format!("Created blank commit {position_desc} commit {short_oid}")
+            (
+                outcome,
+                format!("Created blank commit {position_desc} commit {short_oid}"),
+            )
         }
         CliId::Branch { name, .. } => {
             let reference = {
                 let repo = ctx.repo.get()?;
                 repo.find_reference(name)?.detach()
             };
-            but_api::commit::insert_blank::commit_insert_blank_with_perm(
+            let outcome = but_api::commit::insert_blank::commit_insert_blank_with_perm(
                 ctx,
                 RelativeTo::Reference(reference.name),
                 insert_side,
                 DryRun::No,
                 guard.write_permission(),
             )?;
-            match insert_side {
+            let success_message = match insert_side {
                 InsertSide::Above => format!("Created blank commit at the top of stack '{name}'"),
                 InsertSide::Below => {
                     format!("Created blank commit at the bottom of stack '{name}'")
                 }
-            }
+            };
+            (outcome, success_message)
         }
         _ => {
             bail!(
@@ -99,6 +103,11 @@ pub(crate) fn insert_blank_commit(
 
     if let Some(out) = out.for_human() {
         writeln!(out, "{success_message}")?;
+    } else if let Some(json_out) = out.for_json() {
+        let commit_data = serde_json::json!({
+            "commit_id": outcome.new_commit.to_string(),
+        });
+        json_out.write_value(commit_data)?;
     }
     Ok(())
 }
