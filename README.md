@@ -1,12 +1,12 @@
 <div align="center">
+  <img align="center" width="825px" alt="UnityButler" src="https://github.com/user-attachments/assets/7f21600a-aade-427e-9f91-7ebdac9cdad1" />
   
-  <img align="center" width="100px" src="https://gitbutler-docs-images-public.s3.us-east-1.amazonaws.com/md-logo.png" alt="GitButler logo" />
-  <br />
 
-  <h1 align="center">GitButler</h1>
+  <br />
   
   <p align="center">
-   <b>Git, <i>but</i> better</b>.
+    
+   <b>GitButler, <i> and its completely Unity</i> but its also GitButler so its not</b>.
    <br/>
    GitButler is a modern Git-based version control interface with both a GUI and CLI built from the ground up for AI-powered workflows.
     <br />
