@@ -10,12 +10,13 @@
 <script lang="ts">
 	import FilePreviewPlaceholder from "$components/diff/FilePreviewPlaceholder.svelte";
 	import FloatingDiffModal from "$components/diff/FloatingDiffModal.svelte";
+	import UnityLazyDiffView from "$components/diff/UnityLazyDiffView.svelte";
 	import UnifiedDiffView from "$components/diff/UnifiedDiffView.svelte";
 	import ChangedFilesContextMenu from "$components/shared/ChangedFilesContextMenu.svelte";
 	import Drawer from "$components/shared/Drawer.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { computeChangeStatus } from "$lib/files/fileStatus";
-	import { isUnitySceneOrPrefabPath } from "$lib/files/unitySemantic";
+	import { isUnityPackagePath, isUnitySceneOrPrefabPath } from "$lib/files/unitySemantic";
 	import { isExecutableStatus } from "$lib/hunks/change";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
@@ -58,6 +59,7 @@
 	const diffService = inject(DIFF_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const uiState = inject(UI_STATE);
+	const binaryDiff = { type: "Binary" } as const;
 
 	const allInOneDiff = $derived(uiState.global.allInOneDiff.current);
 	const highlightDiffs = $derived(uiState.global.highlightDiffs.current);
@@ -108,24 +110,14 @@
 {/snippet}
 
 {#snippet changeItem(change: TreeChange, index?: number, highlight?: boolean)}
-	{@const diffQuery = diffService.getDiff(projectId, change)}
-	{@const diffData = diffQuery.response}
+	{@const isUnitySemantic = isUnitySceneOrPrefabPath(change.path)}
+	{@const isUnityPackage = isUnityPackagePath(change.path)}
+	{@const skipRawDiff = isUnitySemantic || isUnityPackage}
+	{@const diffQuery = skipRawDiff ? undefined : diffService.getDiff(projectId, change)}
+	{@const diffData = diffQuery?.response}
 	{@const isExecutable = isExecutableStatus(change.status)}
 	{@const patchData = diffData?.type === "Patch" ? diffData.subject : null}
-	{@const unityDiffQuery = isUnitySceneOrPrefabPath(change.path)
-		? diffService.getUnitySemanticDiff(projectId, change)
-		: undefined}
-	{@const unityDiff = unityDiffQuery?.response}
-	{@const badges = unityDiff
-		? [
-				"Unity",
-				`${unityDiff.summary.objectsChanged} objects`,
-				`${unityDiff.summary.componentsChanged} components`,
-				`${unityDiff.summary.prefabOverridesChanged} overrides`,
-			]
-		: isUnitySceneOrPrefabPath(change.path)
-			? ["Unity"]
-			: []}
+	{@const badges = skipRawDiff ? ["Unity"] : []}
 	{@const isCollapsed = diffExpandedState.get(change.path) ?? false}
 	<Drawer
 		noshrink
@@ -177,26 +169,51 @@
 			/>
 		{/snippet}
 
-		<ReduxResult {projectId} hideLoading result={diffQuery.result}>
-			{#snippet children(diff)}
-				<UnifiedDiffView
-					{projectId}
-					{stackId}
-					commitId={selectionId.type === "commit" ? selectionId.commitId : undefined}
-					{draggable}
-					{change}
-					{diff}
-					{selectable}
-					{selectionId}
-					topPadding
-				/>
-			{/snippet}
-			{#snippet loading()}
-				<div class="loading">
-					<HunkDiffSkeleton />
-				</div>
-			{/snippet}
-		</ReduxResult>
+		{#if isUnitySemantic}
+			<UnityLazyDiffView
+				{projectId}
+				{stackId}
+				commitId={selectionId.type === "commit" ? selectionId.commitId : undefined}
+				{draggable}
+				{change}
+				{selectable}
+				{selectionId}
+				topPadding
+			/>
+		{:else if isUnityPackage}
+			<UnifiedDiffView
+				{projectId}
+				{stackId}
+				commitId={selectionId.type === "commit" ? selectionId.commitId : undefined}
+				{draggable}
+				{change}
+				diff={binaryDiff}
+				{selectable}
+				{selectionId}
+				topPadding
+			/>
+		{:else if diffQuery}
+			<ReduxResult {projectId} hideLoading result={diffQuery.result}>
+				{#snippet children(diff)}
+					<UnifiedDiffView
+						{projectId}
+						{stackId}
+						commitId={selectionId.type === "commit" ? selectionId.commitId : undefined}
+						{draggable}
+						{change}
+						{diff}
+						{selectable}
+						{selectionId}
+						topPadding
+					/>
+				{/snippet}
+				{#snippet loading()}
+					<div class="loading">
+						<HunkDiffSkeleton />
+					</div>
+				{/snippet}
+			</ReduxResult>
+		{/if}
 	</Drawer>
 {/snippet}
 

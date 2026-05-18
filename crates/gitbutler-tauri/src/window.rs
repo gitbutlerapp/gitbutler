@@ -240,7 +240,7 @@ fn is_tauri_origin(url: &url::Url) -> bool {
         && (domain == "tauri.localhost" || domain == "asset.localhost")
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
 pub fn create(
     handle: &tauri::AppHandle,
     label: &state::WindowLabelRef,
@@ -259,6 +259,41 @@ pub fn create(
     .inner_size(1160.0, 720.0)
     .on_navigation(on_navigate)
     .build()?;
+    Ok(window)
+}
+
+#[cfg(target_os = "windows")]
+pub fn create(
+    handle: &tauri::AppHandle,
+    label: &state::WindowLabelRef,
+    window_relative_url: String,
+) -> tauri::Result<tauri::WebviewWindow> {
+    tracing::info!("creating window '{label}' created at '{window_relative_url}'");
+
+    let use_native_title_bar =
+        but_settings::AppSettings::load_from_default_path_creating_without_customization()
+            .ok()
+            .map(|settings| settings.ui.use_native_title_bar)
+            .unwrap_or(false);
+
+    let window = tauri::WebviewWindowBuilder::new(
+        handle,
+        label,
+        tauri::WebviewUrl::App(window_relative_url.into()),
+    )
+    .resizable(true)
+    .title(handle.package_info().name.clone())
+    .disable_drag_drop_handler()
+    .min_inner_size(1000.0, 600.0)
+    .inner_size(1160.0, 720.0)
+    .decorations(use_native_title_bar)
+    .on_navigation(on_navigate)
+    .build()?;
+
+    if !use_native_title_bar {
+        window.hide_menu()?;
+    }
+
     Ok(window)
 }
 

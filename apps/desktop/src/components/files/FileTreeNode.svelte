@@ -46,6 +46,7 @@
 
 	// Flag to suppress keyboard-nav selection when a mouse click is in progress
 	let mouseClickPending = false;
+	const folderChanges = $derived(node.kind === "dir" ? getAllChanges(node) : []);
 
 	// Handler for toggling the folder
 	function handleToggle() {
@@ -55,7 +56,6 @@
 	// Selects all files nested under this folder node
 	function selectFolderContents(addToSelection = false) {
 		if (node.kind !== "dir") return;
-		const folderChanges = getAllChanges(node);
 		if (folderChanges.length === 0) return;
 
 		const indexMap = new Map(changes.map((c, i) => [c.path, i]));
@@ -89,7 +89,6 @@
 	// Handles arrow-key navigation away from a folder by updating file selection
 	// before FocusManager moves focus to the next/prev item.
 	function handleFolderKeyDown(e: KeyboardEvent): boolean {
-		const folderChanges = getAllChanges(node);
 		if (folderChanges.length === 0) return false;
 
 		if ((e.key === "ArrowDown" || e.key === "j") && !e.shiftKey) {

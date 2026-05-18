@@ -1,5 +1,6 @@
 <script lang="ts">
 	import UnifiedDiffView from "$components/diff/UnifiedDiffView.svelte";
+	import UnityLazyDiffView from "$components/diff/UnityLazyDiffView.svelte";
 	import ChangedFileStats from "$components/files/ChangedFileStats.svelte";
 	import FileTreeList from "$components/files/FileTreeList.svelte";
 	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
@@ -9,6 +10,7 @@
 	import Resizer from "$components/shared/Resizer.svelte";
 	import SashLayer from "$components/shared/SashLayer.svelte";
 	import { computeChangeStatus } from "$lib/files/fileStatus";
+	import { isUnityPackagePath, isUnitySceneOrPrefabPath } from "$lib/files/unitySemantic";
 	import FloatingModal from "$lib/floating/FloatingModal.svelte";
 	import { isExecutableStatus } from "$lib/hunks/change";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
@@ -50,6 +52,7 @@
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const uiState = inject(UI_STATE);
 	const focusManager = inject(FOCUS_MANAGER);
+	const binaryDiff = { type: "Binary" } as const;
 
 	const allInOneDiff = $derived(uiState.global.allInOneDiff.current);
 	const highlightDiffs = $derived(uiState.global.highlightDiffs.current);
@@ -198,8 +201,13 @@
 					{#if !allInOneDiff}
 						<!-- Single-file mode: show selected file with header -->
 						{#if selectedChange}
-							{@const diffQuery = diffService.getDiff(projectId, selectedChange)}
-							{@const diffResponse = diffQuery.response}
+							{@const isUnitySemantic = isUnitySceneOrPrefabPath(selectedChange.path)}
+							{@const isUnityPackage = isUnityPackagePath(selectedChange.path)}
+							{@const skipRawDiff = isUnitySemantic || isUnityPackage}
+							{@const diffQuery = skipRawDiff
+								? undefined
+								: diffService.getDiff(projectId, selectedChange)}
+							{@const diffResponse = diffQuery?.response}
 							{@const lineChangesStat =
 								diffResponse?.type === "Patch"
 									? {
@@ -249,26 +257,51 @@
 									/>
 								{/snippet}
 
-								<ReduxResult {projectId} hideLoading result={diffQuery.result}>
-									{#snippet children(diff)}
-										<UnifiedDiffView
-											{projectId}
-											{stackId}
-											commitId={selectionId.type === "commit" ? selectionId.commitId : undefined}
-											{draggable}
-											change={selectedChange}
-											{diff}
-											{selectable}
-											{selectionId}
-											topPadding
-										/>
-									{/snippet}
-									{#snippet loading()}
-										<div class="loading">
-											<HunkDiffSkeleton />
-										</div>
-									{/snippet}
-								</ReduxResult>
+								{#if isUnitySemantic}
+									<UnityLazyDiffView
+										{projectId}
+										{stackId}
+										commitId={selectionId.type === "commit" ? selectionId.commitId : undefined}
+										{draggable}
+										change={selectedChange}
+										{selectable}
+										{selectionId}
+										topPadding
+									/>
+								{:else if isUnityPackage}
+									<UnifiedDiffView
+										{projectId}
+										{stackId}
+										commitId={selectionId.type === "commit" ? selectionId.commitId : undefined}
+										{draggable}
+										change={selectedChange}
+										diff={binaryDiff}
+										{selectable}
+										{selectionId}
+										topPadding
+									/>
+								{:else if diffQuery}
+									<ReduxResult {projectId} hideLoading result={diffQuery.result}>
+										{#snippet children(diff)}
+											<UnifiedDiffView
+												{projectId}
+												{stackId}
+												commitId={selectionId.type === "commit" ? selectionId.commitId : undefined}
+												{draggable}
+												change={selectedChange}
+												{diff}
+												{selectable}
+												{selectionId}
+												topPadding
+											/>
+										{/snippet}
+										{#snippet loading()}
+											<div class="loading">
+												<HunkDiffSkeleton />
+											</div>
+										{/snippet}
+									</ReduxResult>
+								{/if}
 							</Drawer>
 						{/if}
 					{:else}
@@ -290,8 +323,13 @@
 							}}
 						>
 							{#snippet template(change, index)}
-								{@const diffQuery = diffService.getDiff(projectId, change)}
-								{@const diffData = diffQuery.response}
+								{@const isUnitySemantic = isUnitySceneOrPrefabPath(change.path)}
+								{@const isUnityPackage = isUnityPackagePath(change.path)}
+								{@const skipRawDiff = isUnitySemantic || isUnityPackage}
+								{@const diffQuery = skipRawDiff
+									? undefined
+									: diffService.getDiff(projectId, change)}
+								{@const diffData = diffQuery?.response}
 								{@const isExecutable = isExecutableStatus(change.status)}
 								{@const patchData = diffData?.type === "Patch" ? diffData.subject : null}
 								{@const isCollapsed = diffExpandedState.get(change.path) ?? false}
@@ -345,26 +383,51 @@
 										/>
 									{/snippet}
 
-									<ReduxResult {projectId} hideLoading result={diffQuery.result}>
-										{#snippet children(diff)}
-											<UnifiedDiffView
-												{projectId}
-												{stackId}
-												commitId={selectionId.type === "commit" ? selectionId.commitId : undefined}
-												{draggable}
-												{change}
-												{diff}
-												{selectable}
-												{selectionId}
-												topPadding
-											/>
-										{/snippet}
-										{#snippet loading()}
-											<div class="loading">
-												<HunkDiffSkeleton />
-											</div>
-										{/snippet}
-									</ReduxResult>
+									{#if isUnitySemantic}
+										<UnityLazyDiffView
+											{projectId}
+											{stackId}
+											commitId={selectionId.type === "commit" ? selectionId.commitId : undefined}
+											{draggable}
+											{change}
+											{selectable}
+											{selectionId}
+											topPadding
+										/>
+									{:else if isUnityPackage}
+										<UnifiedDiffView
+											{projectId}
+											{stackId}
+											commitId={selectionId.type === "commit" ? selectionId.commitId : undefined}
+											{draggable}
+											{change}
+											diff={binaryDiff}
+											{selectable}
+											{selectionId}
+											topPadding
+										/>
+									{:else if diffQuery}
+										<ReduxResult {projectId} hideLoading result={diffQuery.result}>
+											{#snippet children(diff)}
+												<UnifiedDiffView
+													{projectId}
+													{stackId}
+													commitId={selectionId.type === "commit" ? selectionId.commitId : undefined}
+													{draggable}
+													{change}
+													{diff}
+													{selectable}
+													{selectionId}
+													topPadding
+												/>
+											{/snippet}
+											{#snippet loading()}
+												<div class="loading">
+													<HunkDiffSkeleton />
+												</div>
+											{/snippet}
+										</ReduxResult>
+									{/if}
 								</Drawer>
 							{/snippet}
 						</VirtualList>

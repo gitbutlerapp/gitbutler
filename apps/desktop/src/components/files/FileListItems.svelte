@@ -87,6 +87,7 @@
 		showLockedIndicator ? dependencyService.filesDependencies(projectId, filePaths, stackId) : null,
 	);
 	const fileDependencies = $derived(fileDependenciesQuery?.result.data || []);
+	const tree = $derived.by(() => abbreviateFolders(changesToFileTree(controller.changes)));
 </script>
 
 {#snippet fileTemplate(change: TreeChange, idx: number, depth: number = 0, isLast: boolean = false)}
@@ -199,13 +200,12 @@
 >
 	{#if controller.changes.length > 0}
 		{#if mode === "tree"}
-			{@const node = abbreviateFolders(changesToFileTree(controller.changes))}
 			<FileTreeNode
 				isRoot
 				{projectId}
 				selectionId={controller.selectionId}
 				{stackId}
-				{node}
+				node={tree}
 				{showCheckboxes}
 				draggableFiles={draggable}
 				changes={controller.changes}

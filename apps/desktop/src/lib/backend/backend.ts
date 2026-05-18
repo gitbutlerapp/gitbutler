@@ -4,6 +4,12 @@ export type DeepLinkHandlers = {
 	open: (path: string) => void;
 	login: (accesToken: string) => void;
 };
+
+export type WindowChromeState = {
+	isFocused: boolean;
+	isMaximized: boolean;
+};
+
 export interface IBackend {
 	/**
 	 * The name of the platform, e.g. 'macos', 'windows', 'linux', or 'web'
@@ -85,6 +91,24 @@ export interface IBackend {
 	 * Init deep linking handling.
 	 */
 	initDeepLinking: (handlers: DeepLinkHandlers) => Promise<void>;
+	/**
+	 * Minimizes the current window.
+	 */
+	minimizeWindow: () => Promise<void>;
+	/**
+	 * Toggles maximized state for the current window.
+	 */
+	toggleMaximizeWindow: () => Promise<void>;
+	/**
+	 * Closes the current window.
+	 */
+	closeWindow: () => Promise<void>;
+	/**
+	 * Emits current title bar-relevant window state and subscribes to further changes.
+	 */
+	listenToWindowChromeState: (
+		callback: (state: WindowChromeState) => void,
+	) => Promise<() => Promise<void>>;
 }
 
 export interface DiskStore {

@@ -74,6 +74,10 @@ export function isUnitySceneOrPrefabPath(path: string): boolean {
 	return lowerPath.endsWith(".unity") || lowerPath.endsWith(".prefab");
 }
 
+export function isUnityPackagePath(path: string): boolean {
+	return path.toLowerCase().endsWith(".unitypackage");
+}
+
 export function unityFileKind(path: string): UnityFileKind | undefined {
 	const lowerPath = path.toLowerCase();
 	if (lowerPath.endsWith(".unity")) return "scene";

@@ -137,7 +137,7 @@ pub fn changes_in_worktree_with_perm(
     let locally_ignored_paths = info_span!("list_local_ignored_paths")
         .in_scope(|| local_ignores::list_local_ignored_paths(&repo))?;
     let changes = info_span!("filter_locally_ignored_worktree_changes").in_scope(|| {
-        let worktree_changes = but_core::diff::worktree_changes(&repo)?;
+        let worktree_changes = but_core::diff::worktree_changes_no_renames(&repo)?;
         anyhow::Ok(local_ignores::filter_locally_ignored_worktree_changes(
             worktree_changes,
             &locally_ignored_paths,

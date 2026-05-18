@@ -1,14 +1,17 @@
 <script lang="ts">
 	import EnsureAuthorInfo from "$components/projectSettings/EnsureAuthorInfo.svelte";
-	import ErrorBoundary from "$components/shared/ErrorBoundary.svelte";
-	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import AppErrorFallback from "$components/views/AppErrorFallback.svelte";
-	import AppHeader from "$components/views/AppHeader.svelte";
-	import AppSidebar from "$components/views/AppSidebar.svelte";
-	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
-	import { inject } from "@gitbutler/core/context";
-	import { focusable } from "@gitbutler/ui/focus/focusable";
-	import type { Snippet } from "svelte";
+import ErrorBoundary from "$components/shared/ErrorBoundary.svelte";
+import ReduxResult from "$components/shared/ReduxResult.svelte";
+import AppErrorFallback from "$components/views/AppErrorFallback.svelte";
+import AppHeader from "$components/views/AppHeader.svelte";
+import AppSidebar from "$components/views/AppSidebar.svelte";
+import WindowsChrome from "$components/views/WindowsChrome.svelte";
+import { BACKEND } from "$lib/backend";
+import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
+import { inject } from "@gitbutler/core/context";
+import { focusable } from "@gitbutler/ui/focus/focusable";
+import type { Snippet } from "svelte";
 
 	const {
 		projectId,
@@ -18,12 +21,26 @@
 
 	const projectService = inject(PROJECTS_SERVICE);
 	const projectQuery = $derived(projectService.getProject(projectId));
+	const backend = inject(BACKEND);
+	const settingsService = inject(SETTINGS_SERVICE);
+	const settingsStore = $derived(settingsService.appSettings);
+	const useWindowsCustomChrome = $derived(
+		backend.platformName === "windows" && !($settingsStore?.ui.useNativeTitleBar ?? false),
+	);
 </script>
 
 <ReduxResult {projectId} result={projectQuery.result}>
 	{#snippet children(project, { projectId })}
 		<div class="chrome" use:focusable={{ vertical: true, activate: true }}>
-			<AppHeader {projectId} projectTitle={project.title} actionsDisabled={sidebarDisabled} />
+			{#if useWindowsCustomChrome}
+				<WindowsChrome
+					{projectId}
+					projectTitle={project.title}
+					actionsDisabled={sidebarDisabled}
+				/>
+			{:else}
+				<AppHeader {projectId} projectTitle={project.title} actionsDisabled={sidebarDisabled} />
+			{/if}
 			<div class="chrome-body" use:focusable>
 				<EnsureAuthorInfo {projectId} />
 				<AppSidebar {projectId} disabled={sidebarDisabled} />

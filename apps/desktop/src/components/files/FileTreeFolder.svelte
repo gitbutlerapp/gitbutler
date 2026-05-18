@@ -52,10 +52,10 @@
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 
 	const folderPath = $derived(nodePath(node));
+	const folderChanges = $derived(getAllChanges(node));
 	const selectionStatus = $derived(uncommittedService.folderCheckStatus(stackId, folderPath));
 
 	const folderSelected = $derived.by(() => {
-		const folderChanges = getAllChanges(node);
 		if (folderChanges.length === 0) return false;
 		return folderChanges.every((c) => idSelection.has(c.path, selectionId));
 	});
@@ -72,7 +72,7 @@
 	}
 
 	function getTreeChanges() {
-		return getAllChanges(node);
+		return folderChanges;
 	}
 
 	function onContextMenu(e: MouseEvent) {

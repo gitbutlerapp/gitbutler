@@ -2,15 +2,28 @@ use anyhow::Context as _;
 use but_api::json::Error;
 use but_error::Code;
 use but_settings::AppSettingsWithDiskSync;
+use serde::Deserialize;
 #[cfg(target_os = "macos")]
 use tauri::menu::AboutMetadata;
 use tauri::{
-    AppHandle, Emitter, EventTarget, Manager, Runtime, WebviewWindow,
+    AppHandle, Emitter, EventTarget, LogicalPosition, Manager, Runtime, WebviewWindow, Window,
     menu::{Menu, MenuEvent, MenuItemBuilder, PredefinedMenuItem, Submenu, SubmenuBuilder},
 };
 use tracing::instrument;
 
 static SHORTCUT_EVENT: &str = "menu://shortcut";
+pub const FILE_SUBMENU_ID: &str = "menu/file";
+pub const EDIT_SUBMENU_ID: &str = "menu/edit";
+pub const VIEW_SUBMENU_ID: &str = "menu/view";
+pub const PROJECT_SUBMENU_ID: &str = "menu/project";
+pub const HELP_SUBMENU_ID: &str = "menu/help";
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MenuPopupPosition {
+    x: f64,
+    y: f64,
+}
 
 #[tauri::command(async)]
 #[instrument(skip(handle), err(Debug))]
@@ -29,6 +42,36 @@ pub fn menu_item_set_enabled(handle: AppHandle, id: &str, enabled: bool) -> Resu
         .as_menuitem()
         .context(Code::Unknown)?
         .set_enabled(enabled)
+        .context(Code::Unknown)?;
+
+    Ok(())
+}
+
+#[tauri::command(async)]
+#[instrument(skip(window), err(Debug))]
+pub fn popup_window_menu(
+    window: Window,
+    id: &str,
+    position: MenuPopupPosition,
+) -> Result<(), Error> {
+    use tauri::{
+        Position,
+        menu::ContextMenu as _,
+    };
+
+    let menu = window.menu().context("menu not found")?;
+    let submenu_item = menu
+        .get(id)
+        .with_context(|| but_error::Context::new(format!("submenu not found: {id}")))?;
+    let submenu = submenu_item
+        .as_submenu()
+        .context(Code::Unknown)?;
+
+    submenu
+        .popup_at(
+            window,
+            Position::Logical(LogicalPosition::new(position.x, position.y)),
+        )
         .context(Code::Unknown)?;
 
     Ok(())
@@ -77,7 +120,7 @@ pub fn build<R: Runtime>(
             .build()?
     };
 
-    let file_menu = &SubmenuBuilder::new(handle, "File")
+    let file_menu = &SubmenuBuilder::with_id(handle, FILE_SUBMENU_ID, "File")
         .items(&[
             &MenuItemBuilder::with_id("file/add-local-repo", "Add Local Repository…")
                 .accelerator("CmdOrCtrl+O")
@@ -106,7 +149,7 @@ pub fn build<R: Runtime>(
     }
 
     #[cfg(not(target_os = "linux"))]
-    let edit_menu = &Submenu::new(handle, "Edit", true)?;
+    let edit_menu = &Submenu::with_id(handle, EDIT_SUBMENU_ID, "Edit", true)?;
 
     // For now, only on MacOS. Once mainstream, we'd have to set the accelerators correctly and test it more.
     #[cfg(not(target_os = "linux"))]
@@ -131,7 +174,7 @@ pub fn build<R: Runtime>(
         ])?;
     }
 
-    let view_menu = &Submenu::new(handle, "View", true)?;
+    let view_menu = &Submenu::with_id(handle, VIEW_SUBMENU_ID, "View", true)?;
 
     #[cfg(target_os = "macos")]
     view_menu.append(&PredefinedMenuItem::fullscreen(handle, None)?)?;
@@ -165,7 +208,7 @@ pub fn build<R: Runtime>(
             .build(handle)?,
     ])?;
 
-    let mut project_menu_builder = SubmenuBuilder::new(handle, "Project")
+    let mut project_menu_builder = SubmenuBuilder::with_id(handle, PROJECT_SUBMENU_ID, "Project")
         .item(
             &MenuItemBuilder::with_id("project/history", "Operations History")
                 .accelerator("CmdOrCtrl+Shift+H")
@@ -208,7 +251,7 @@ pub fn build<R: Runtime>(
         ])
         .build()?;
 
-    let help_menu = SubmenuBuilder::new(handle, "Help")
+    let help_menu = SubmenuBuilder::with_id(handle, HELP_SUBMENU_ID, "Help")
         .text("help/documentation", "Documentation")
         .text("help/debugging-guide", "Debugging Guide")
         .text("help/github", "Source Code")

@@ -249,6 +249,19 @@ fn main() -> anyhow::Result<()> {
                 app_handle.manage(app_settings);
                 app_handle.manage(claude);
 
+                #[cfg(target_os = "windows")]
+                if !app_handle
+                    .state::<AppSettingsWithDiskSync>()
+                    .get()?
+                    .ui
+                    .use_native_title_bar
+                {
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        window.set_decorations(false)?;
+                        window.hide_menu()?;
+                    }
+                }
+
                 // Auto-connect IRC connections based on settings (only when feature flag is on).
                 #[cfg(feature = "irc")]
                 if let Ok(settings) = app_handle.state::<AppSettingsWithDiskSync>().get() {
@@ -453,6 +466,7 @@ fn main() -> anyhow::Result<()> {
                 action::list_workflows,
                 askpass::submit_prompt_response,
                 menu::menu_item_set_enabled,
+                menu::popup_window_menu,
                 projects::list_projects,
                 projects::server_capabilities,
                 projects::set_project_active,

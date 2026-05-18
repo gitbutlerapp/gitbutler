@@ -123,7 +123,7 @@ impl Handler {
         let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
 
         let locally_ignored_paths = list_local_ignored_paths(&repo)?;
-        let mut wt_changes = but_core::diff::worktree_changes(&repo)?;
+        let mut wt_changes = but_core::diff::worktree_changes_no_renames(&repo)?;
         filter_locally_ignored_worktree_changes(&mut wt_changes, &locally_ignored_paths);
 
         let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(

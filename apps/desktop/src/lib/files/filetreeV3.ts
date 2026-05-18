@@ -31,8 +31,11 @@ export type TreeNode = {
 			kind: "file";
 			index: number;
 			change: TreeChange;
-	  }
+	}
 );
+
+const nodePathCache = new WeakMap<TreeNode, string>();
+const allChangesCache = new WeakMap<TreeNode, TreeChange[]>();
 
 function createNode(acc: TreeNode, pathParts: string[]) {
 	if (pathParts.length === 0) {
@@ -165,16 +168,28 @@ export function countLeafNodes(node: TreeNode): number {
 }
 
 export function nodePath(node: TreeNode): string {
+	const cached = nodePathCache.get(node);
+	if (cached !== undefined) return cached;
 	if (!node.parent) {
+		nodePathCache.set(node, "");
 		return "";
 	}
 	const parentPath = nodePath(node.parent);
-	return parentPath ? parentPath + "/" + node.name : node.name;
+	const path = parentPath ? parentPath + "/" + node.name : node.name;
+	nodePathCache.set(node, path);
+	return path;
 }
 
 export function getAllChanges(node: TreeNode): TreeChange[] {
+	const cached = allChangesCache.get(node);
+	if (cached) return cached;
+
+	let changes: TreeChange[];
 	if (node.kind === "file") {
-		return [node.change];
+		changes = [node.change];
+	} else {
+		changes = node.children.flatMap((child) => getAllChanges(child));
 	}
-	return node.children.reduce((prev, curr) => prev.concat(getAllChanges(curr)), [] as TreeChange[]);
+	allChangesCache.set(node, changes);
+	return changes;
 }

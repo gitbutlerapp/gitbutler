@@ -18,22 +18,33 @@ import { relaunch as relaunchTauri } from "@tauri-apps/plugin-process";
 import { Store } from "@tauri-apps/plugin-store";
 import { check as tauriCheck } from "@tauri-apps/plugin-updater";
 import { readable } from "svelte/store";
-import type { AppInfo, DeepLinkHandlers, DiskStore, IBackend } from "$lib/backend/backend";
+import type {
+	AppInfo,
+	DeepLinkHandlers,
+	DiskStore,
+	IBackend,
+	WindowChromeState,
+} from "$lib/backend/backend";
 import type { EventCallback, EventName } from "@tauri-apps/api/event";
 
 export default class Tauri implements IBackend {
 	platformName = platform();
 	private appWindow: Window | undefined;
 
-	systemTheme = readable<string | null>(null, (set) => {
+	private ensureWindow(): Window {
 		if (!this.appWindow) {
 			this.appWindow = getCurrentWindow();
 		}
-		this.appWindow.theme().then((value) => {
+		return this.appWindow;
+	}
+
+	systemTheme = readable<string | null>(null, (set) => {
+		const appWindow = this.ensureWindow();
+		appWindow.theme().then((value) => {
 			set(value);
 		});
 
-		this.appWindow.onThemeChanged((e) => {
+		appWindow.onThemeChanged((e) => {
 			set(e.payload);
 		});
 	});
@@ -79,17 +90,51 @@ export default class Tauri implements IBackend {
 	}
 
 	async getWindowTitle(): Promise<string> {
-		if (!this.appWindow) {
-			this.appWindow = getCurrentWindow();
-		}
-		return await this.appWindow.title();
+		return await this.ensureWindow().title();
 	}
 
 	setWindowTitle(title: string): void {
-		if (!this.appWindow) {
-			this.appWindow = getCurrentWindow();
+		this.ensureWindow().setTitle(title);
+	}
+
+	async minimizeWindow(): Promise<void> {
+		await this.ensureWindow().minimize();
+	}
+
+	async toggleMaximizeWindow(): Promise<void> {
+		await this.ensureWindow().toggleMaximize();
+	}
+
+	async closeWindow(): Promise<void> {
+		await this.ensureWindow().close();
+	}
+
+	async listenToWindowChromeState(
+		callback: (state: WindowChromeState) => void,
+	): Promise<() => Promise<void>> {
+		const appWindow = this.ensureWindow();
+
+		async function emitWindowChromeState() {
+			callback({
+				isFocused: await appWindow.isFocused(),
+				isMaximized: await appWindow.isMaximized(),
+			});
 		}
-		this.appWindow.setTitle(title);
+
+		await emitWindowChromeState();
+
+		const [unlistenResize, unlistenFocus] = await Promise.all([
+			appWindow.onResized(() => {
+				void emitWindowChromeState();
+			}),
+			appWindow.onFocusChanged(() => {
+				void emitWindowChromeState();
+			}),
+		]);
+
+		return async () => {
+			await Promise.all([unlistenResize(), unlistenFocus()]);
+		};
 	}
 }
 

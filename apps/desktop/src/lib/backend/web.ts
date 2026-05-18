@@ -9,6 +9,7 @@ import type {
 	IBackend,
 	OpenDialogOptions,
 	OpenDialogReturn,
+	WindowChromeState,
 } from "$lib/backend/backend";
 
 export default class Web implements IBackend {
@@ -46,6 +47,29 @@ export default class Web implements IBackend {
 	async initDeepLinking(): Promise<void> {
 		// Deep linking is not supported in the web version
 		return await Promise.resolve();
+	}
+
+	async minimizeWindow(): Promise<void> {
+		return await Promise.resolve();
+	}
+
+	async toggleMaximizeWindow(): Promise<void> {
+		return await Promise.resolve();
+	}
+
+	async closeWindow(): Promise<void> {
+		window.close();
+		return await Promise.resolve();
+	}
+
+	async listenToWindowChromeState(
+		callback: (state: WindowChromeState) => void,
+	): Promise<() => Promise<void>> {
+		callback({
+			isFocused: document.hasFocus(),
+			isMaximized: false,
+		});
+		return async () => await Promise.resolve();
 	}
 }
 

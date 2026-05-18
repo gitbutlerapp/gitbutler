@@ -40,8 +40,10 @@
 	const base = $derived(baseReponse?.response);
 	const settingsStore = $derived(settingsService.appSettings);
 	const singleBranchMode = $derived($settingsStore?.featureFlags.singleBranch ?? false);
-	const useCustomTitleBar = $derived(!($settingsStore?.ui.useNativeTitleBar ?? false));
 	const backend = inject(BACKEND);
+	const useOverlayTitleBar = $derived(
+		backend.platformName === "macos" && !($settingsStore?.ui.useNativeTitleBar ?? false),
+	);
 	const codegenDisabled = $derived(projectDisableCodegen(projectId));
 
 	const mode = $derived(modeService.mode(projectId));
@@ -108,12 +110,12 @@
 <div
 	class="chrome-header"
 	class:mac={backend.platformName === "macos"}
-	data-tauri-drag-region={useCustomTitleBar}
+	data-tauri-drag-region={useOverlayTitleBar}
 	class:single-branch={singleBranchMode}
 	use:focusable
 >
-	<div class="chrome-left" data-tauri-drag-region={useCustomTitleBar}>
-		<div class="chrome-left-buttons" class:has-traffic-lights={useCustomTitleBar}>
+	<div class="chrome-left" data-tauri-drag-region={useOverlayTitleBar}>
+		<div class="chrome-left-buttons" class:has-traffic-lights={useOverlayTitleBar}>
 			<SyncButton {projectId} disabled={actionsDisabled} />
 			<OperationActivityIndicator {projectId} />
 
@@ -135,7 +137,7 @@
 		</div>
 	</div>
 
-	<div class="chrome-center" data-tauri-drag-region={useCustomTitleBar}>
+	<div class="chrome-center" data-tauri-drag-region={useOverlayTitleBar}>
 		<div class="chrome-selector-wrapper">
 			<Select
 				searchable
@@ -246,7 +248,7 @@
 		{/if}
 	</div>
 
-	<div class="chrome-right" data-tauri-drag-region={useCustomTitleBar}>
+	<div class="chrome-right" data-tauri-drag-region={useOverlayTitleBar}>
 		{#if isOnWorkspacePage}
 			<Button
 				testId={TestId.ChromeHeaderCreateBranchButton}
