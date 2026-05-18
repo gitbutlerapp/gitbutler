@@ -8,6 +8,16 @@ export const handleWatcher = (
 	client: QueryClient,
 ): void => {
 	switch (event.payload.type) {
+		case "gitActivity": {
+			void client.invalidateQueries({ queryKey: [QueryKey.AbsorptionPlan, projectId] });
+			void client.invalidateQueries({ queryKey: [QueryKey.Branches, projectId] });
+			void client.invalidateQueries({ queryKey: [QueryKey.BranchDetails, projectId] });
+			void client.invalidateQueries({ queryKey: [QueryKey.BranchDiff, projectId] });
+			void client.invalidateQueries({ queryKey: [QueryKey.CommitDetailsWithLineStats, projectId] });
+			void client.invalidateQueries({ queryKey: [QueryKey.HeadInfo, projectId] });
+			void client.invalidateQueries({ queryKey: [QueryKey.TreeChangeDiffs, projectId] });
+			break;
+		}
 		case "worktreeChanges":
 			const workspaceChanges = event.payload.subject.changes;
 			client.setQueryData(
