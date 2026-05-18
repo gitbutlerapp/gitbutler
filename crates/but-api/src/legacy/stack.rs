@@ -181,7 +181,7 @@ pub fn create_branch(
                 )
                 .or_else(|| {
                     Some(but_workspace::branch::create_reference::Anchor::AtCommit {
-                        commit_id: ws.graph.tip_skip_empty(segment.id)?.id,
+                        commit_id: ws.tip_commit_by_segment_id(segment.id)?.id,
                         position: Above,
                     })
                 })

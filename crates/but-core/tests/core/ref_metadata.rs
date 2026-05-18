@@ -1,6 +1,10 @@
 mod workspace {
     use but_core::ref_metadata::{
-        StackId, StackKind::AppliedAndUnapplied, Workspace, WorkspaceCommitRelation::Merged,
+        StackId,
+        StackKind::{Applied, AppliedAndUnapplied},
+        Workspace,
+        WorkspaceCommitRelation::{Merged, Outside},
+        WorkspaceStack, WorkspaceStackBranch,
     };
 
     #[test]
@@ -139,6 +143,49 @@ mod workspace {
             push_remote: None,
         }
         "#);
+    }
+
+    #[test]
+    fn find_owner_indexes_by_name_returns_original_stack_index_after_filtering() {
+        let outside_ref = r("refs/heads/outside");
+        let applied_ref = r("refs/heads/applied");
+        let ws = Workspace {
+            stacks: vec![
+                WorkspaceStack {
+                    id: StackId::from_number_for_testing(1),
+                    branches: vec![WorkspaceStackBranch {
+                        ref_name: outside_ref.to_owned(),
+                        archived: false,
+                    }],
+                    workspacecommit_relation: Outside,
+                },
+                WorkspaceStack {
+                    id: StackId::from_number_for_testing(2),
+                    branches: vec![WorkspaceStackBranch {
+                        ref_name: applied_ref.to_owned(),
+                        archived: false,
+                    }],
+                    workspacecommit_relation: Merged,
+                },
+            ],
+            ..Workspace::default()
+        };
+
+        assert_eq!(
+            ws.find_owner_indexes_by_name(applied_ref, Applied),
+            Some((1, 0)),
+            "filtered applied lookup must still return the index into the original stack list"
+        );
+        assert_eq!(
+            ws.find_owner_indexes_by_name(outside_ref, Applied),
+            None,
+            "applied lookup ignores outside stacks"
+        );
+        assert_eq!(
+            ws.find_owner_indexes_by_name(outside_ref, AppliedAndUnapplied),
+            Some((0, 0)),
+            "unfiltered lookup still returns outside stacks"
+        );
     }
 
     fn r(name: &str) -> &gix::refs::FullNameRef {

@@ -480,7 +480,7 @@ pub fn graph_to_ref_info(
         }
         WorkspaceKind::AdHoc => (graph[*id].ref_info.as_ref(), false, None),
     };
-    let is_entrypoint = graph.lookup_entrypoint()?.segment_index == *id;
+    let is_entrypoint = graph.entrypoint()?.segment.id == *id;
     let mut info = RefInfo {
         workspace_ref_info: workspace_ref_info.cloned(),
         symbolic_remote_names: repo

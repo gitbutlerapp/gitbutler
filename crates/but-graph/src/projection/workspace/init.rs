@@ -74,7 +74,7 @@ fn segment_name_is_special(s: &Segment) -> bool {
 }
 
 impl Graph {
-    /// Analyze the current graph starting at its [entrypoint](Self::lookup_entrypoint()).
+    /// Analyze the current graph starting at its [entrypoint](Self::entrypoint()).
     ///
     /// No matter what, each location of `HEAD`, which corresponds to the entrypoint, can be represented as workspace.
     /// Further, the most expensive operations we perform to query additional commit information by reading it, but we
@@ -150,12 +150,12 @@ impl Graph {
             entrypoint_sidx,
             entrypoint_first_commit_flags,
         ) = {
-            let ep = self.lookup_entrypoint()?;
+            let ep = self.entrypoint()?;
             match ep.segment.workspace_metadata() {
                 None => {
                     // Skip over empty segments.
                     if let Some((maybe_integrated_flags, sidx_of_flags)) = self
-                        .resolve_to_unambiguously_pointed_to_commit(ep.segment_index)
+                        .resolve_to_unambiguously_pointed_to_commit(ep.segment.id)
                         .map(|(c, sidx)| (c.flags, sidx))
                         .filter(|(f, _sidx)| f.contains(CommitFlags::InWorkspace))
                     {
@@ -176,14 +176,14 @@ impl Graph {
                             WorkspaceKind::managed(&ws_segment.ref_info)?,
                             ws_segment.workspace_metadata().cloned(),
                             ws_segment.id,
-                            Some(ep.segment_index),
+                            Some(ep.segment.id),
                             maybe_integrated_flags,
                         )
                     } else {
                         (
                             WorkspaceKind::AdHoc,
                             None,
-                            ep.segment_index,
+                            ep.segment.id,
                             None,
                             CommitFlags::empty(),
                         )
@@ -192,7 +192,7 @@ impl Graph {
                 Some(meta) => (
                     WorkspaceKind::managed(&ep.segment.ref_info)?,
                     Some(meta.clone()),
-                    ep.segment_index,
+                    ep.segment.id,
                     None,
                     CommitFlags::empty(),
                 ),

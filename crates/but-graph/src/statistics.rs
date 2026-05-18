@@ -49,7 +49,7 @@ impl Graph {
         *segments_at_bottom = self.base_segments().count();
         *entrypoint = self.entrypoint_location().unwrap_or_default();
 
-        if let Ok(ep) = self.lookup_entrypoint() {
+        if let Ok(ep) = self.entrypoint() {
             *entrypoint_in_workspace = ep
                 .segment
                 .commits
@@ -57,11 +57,11 @@ impl Graph {
                 .map(|c| c.flags.contains(CommitFlags::InWorkspace));
             *segment_entrypoint_incoming = self
                 .inner
-                .edges_directed(ep.segment_index, Direction::Incoming)
+                .edges_directed(ep.segment.id, Direction::Incoming)
                 .count();
             *segment_entrypoint_outgoing = self
                 .inner
-                .edges_directed(ep.segment_index, Direction::Outgoing)
+                .edges_directed(ep.segment.id, Direction::Outgoing)
                 .count();
             for (storage, direction, start_cidx) in [
                 (
@@ -75,8 +75,8 @@ impl Graph {
                     ep.segment.commits.last().map(|_| ep.segment.commits.len()),
                 ),
             ] {
-                let mut walk = TopoWalk::start_from(ep.segment_index, start_cidx, direction)
-                    .skip_tip_segment();
+                let mut walk =
+                    TopoWalk::start_from(ep.segment.id, start_cidx, direction).skip_tip_segment();
                 while walk.next(&self.inner).is_some() {
                     *storage += 1;
                 }

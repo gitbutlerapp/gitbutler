@@ -173,7 +173,7 @@ fn detached() -> anyhow::Result<()> {
     "#);
 
     assert!(
-        graph.entrypoint_commit().map(|c| c.id).is_some(),
+        graph.entrypoint()?.commit().map(|c| c.id).is_some(),
         "there is an entrypoint commit, detached or not"
     );
     assert!(
