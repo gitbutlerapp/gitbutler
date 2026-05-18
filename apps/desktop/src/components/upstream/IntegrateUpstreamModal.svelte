@@ -75,9 +75,13 @@
 	let baseResolutionApproach = $state<BaseBranchResolutionApproach | undefined>();
 	let targetCommitOid = $state<string | undefined>(undefined);
 	let branchStatuses = $state<StackStatusesWithBranchesV3 | undefined>();
+	let loadingStatuses = $state(false);
 	let workspaceUpdateProgress = $state<WorkspaceUpdateProgress | undefined>();
 	let gitOperationProgress = $state<GitOperationProgress | undefined>();
+	let gitOperationStartedAt = $state<number | undefined>();
+	let elapsedTick = $state(Date.now());
 	let activeProgress = $derived(activeProgressPercent(workspaceUpdateProgress, gitOperationProgress));
+	let progressVisible = $derived(loadingStatuses || integratingUpstream === "loading");
 	// const stackService = getContext(StackService);
 	// let appliedBranches = $state<string[]>();
 	// Any PRs belonging to applied branches that have been merged
@@ -114,12 +118,16 @@
 	};
 
 	$effect(() => {
-		if (integratingUpstream !== "loading") {
+		if (!progressVisible) {
 			workspaceUpdateProgress = undefined;
 			gitOperationProgress = undefined;
+			gitOperationStartedAt = undefined;
 			return;
 		}
 
+		const timer = window.setInterval(() => {
+			elapsedTick = Date.now();
+		}, 1000);
 		const unlistenWorkspaceProgress = backend.listen<WorkspaceUpdateProgress>(
 			`project://${projectId}/workspace_update_progress`,
 			({ payload }) => {
@@ -129,13 +137,15 @@
 		const unlistenGitOperationProgress = backend.listen<GitOperationProgress>(
 			`project://${projectId}/git_operation_progress`,
 			({ payload }) => {
-				if (payload.operation === "upstreamIntegration") {
+				if (payload.operation === "upstreamIntegration" || payload.operation === "upstreamStatus") {
 					gitOperationProgress = payload;
+					gitOperationStartedAt = Date.now() - payload.elapsedMs;
 				}
 			},
 		);
 
 		return () => {
+			window.clearInterval(timer);
 			void unlistenWorkspaceProgress();
 			void unlistenGitOperationProgress();
 		};
@@ -183,8 +193,16 @@
 	$effect(() => {
 		if (!modal?.imports.open) return;
 		if (targetCommitOid) {
-			upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid).then((statuses) => {
+			loadingStatuses = true;
+			startLocalProgress(
+				"upstreamStatus",
+				"status",
+				"Checking upstream status",
+				"Computing update options for the selected target commit.",
+			);
+			upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid, setLocalProgress).then((statuses) => {
 				branchStatuses = statuses;
+				loadingStatuses = false;
 			});
 		}
 	});
@@ -246,6 +264,12 @@
 	async function integrate() {
 		integratingUpstream = "loading";
 		workspaceUpdateProgress = undefined;
+		startLocalProgress(
+			"upstreamIntegration",
+			"prepare",
+			"Preparing upstream integration",
+			"Git LFS hydration is deferred for this operation.",
+		);
 		await tick();
 		const baseResolution = getBaseBranchResolution(
 			targetCommitOid,
@@ -287,6 +311,41 @@
 		return `${minutes}m ${remainingSeconds}s`;
 	}
 
+	function currentElapsedMs(progress: GitOperationProgress | undefined): number | undefined {
+		if (!progress) return undefined;
+		if (gitOperationStartedAt === undefined) return progress.elapsedMs;
+		return Math.max(progress.elapsedMs, elapsedTick - gitOperationStartedAt);
+	}
+
+	function startLocalProgress(
+		operation: string,
+		phase: string,
+		phaseLabel: string,
+		detail?: string,
+	) {
+		gitOperationStartedAt = Date.now();
+		elapsedTick = Date.now();
+		gitOperationProgress = {
+			operation,
+			phase,
+			phaseLabel,
+			elapsedMs: 0,
+			detail,
+		};
+	}
+
+	function setLocalProgress(progress: { phase: string; phaseLabel: string; detail?: string }) {
+		if (gitOperationStartedAt === undefined) {
+			gitOperationStartedAt = Date.now();
+		}
+		elapsedTick = Date.now();
+		gitOperationProgress = {
+			operation: "upstreamStatus",
+			...progress,
+			elapsedMs: elapsedTick - gitOperationStartedAt,
+		};
+	}
+
 	function activeProgressPercent(
 		workspaceProgress: WorkspaceUpdateProgress | undefined,
 		gitProgress: GitOperationProgress | undefined,
@@ -307,7 +366,7 @@
 		gitProgress: GitOperationProgress | undefined = gitOperationProgress,
 	): string {
 		if (!progress) {
-			const elapsed = formatElapsed(gitProgress?.elapsedMs);
+			const elapsed = formatElapsed(currentElapsedMs(gitProgress));
 			const phase = gitProgress?.phaseLabel ?? "Preparing workspace update";
 			const suffix = elapsed ? `Elapsed ${elapsed}.` : "Waiting for Git progress.";
 			return `${phase}. ${suffix}`;
@@ -345,13 +404,28 @@
 
 	export async function show() {
 		integratingUpstream = "inert";
+		loadingStatuses = true;
 		branchStatuses = undefined;
 		filteredReviews = [];
+		startLocalProgress(
+			"upstreamStatus",
+			"stacks",
+			"Loading workspace stacks",
+			"Reading applied branches before upstream conflict analysis.",
+		);
 		await tick();
 		modal?.show();
 		// appliedBranches = await fetchAppliedBranches();
 		// await setFilteredBranches(untrack(() => appliedBranches) ?? []); // TODO: Some day this will be made good
-		branchStatuses = await upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid);
+		try {
+			branchStatuses = await upstreamIntegrationService.upstreamStatuses(
+				projectId,
+				targetCommitOid,
+				setLocalProgress,
+			);
+		} finally {
+			loadingStatuses = false;
+		}
 	}
 
 	export const imports = {
@@ -578,7 +652,7 @@
 		{/if}
 	</ScrollableContainer>
 
-	{#if integratingUpstream === "loading"}
+	{#if progressVisible}
 		<div class="progress-tip">
 			<div class="progress-tip-header">
 				<div class="progress-tip-copy">
@@ -590,8 +664,8 @@
 							File {workspaceUpdateProgress.currentFile} of {workspaceUpdateProgress.totalFiles}
 						{:else if gitOperationProgress?.detail}
 							{gitOperationProgress.detail}
-						{:else if gitOperationProgress?.elapsedMs !== undefined}
-							Elapsed {formatElapsed(gitOperationProgress.elapsedMs)}
+						{:else if gitOperationProgress}
+							Elapsed {formatElapsed(currentElapsedMs(gitOperationProgress))}
 						{:else}
 							Preparing workspace update.
 						{/if}
@@ -600,8 +674,8 @@
 
 				{#if activeProgress !== undefined}
 					<Badge>{formatProgressPercent(activeProgress)}</Badge>
-				{:else if gitOperationProgress?.elapsedMs !== undefined}
-					<Badge>{formatElapsed(gitOperationProgress.elapsedMs)}</Badge>
+				{:else if gitOperationProgress}
+					<Badge>{formatElapsed(currentElapsedMs(gitOperationProgress))}</Badge>
 				{/if}
 			</div>
 
@@ -639,7 +713,7 @@
 
 	{#snippet controls()}
 		<div class="controls-wrap">
-			{#if integratingUpstream === "loading"}
+			{#if progressVisible}
 				<p class="controls-status text-12 clr-text-2">
 					{workspaceUpdateStatusText(workspaceUpdateProgress, gitOperationProgress)}
 				</p>

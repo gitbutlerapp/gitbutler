@@ -7,7 +7,7 @@ import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 import { UPSTREAM_INTEGRATION_SERVICE } from "$lib/upstream/upstreamIntegrationService.svelte";
 import { render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const injectMap = new Map<unknown, unknown>();
 
@@ -36,6 +36,10 @@ vi.mock("@gitbutler/core/context", () => ({
 }));
 
 describe("IntegrateUpstreamModal", () => {
+	beforeEach(() => {
+		injectMap.clear();
+	});
+
 	test("shows workspace update progress and transfer speed while integrating upstream", async () => {
 		let progressHandler:
 			| ((event: {
@@ -107,9 +111,7 @@ describe("IntegrateUpstreamModal", () => {
 		await (component as { show: () => Promise<void> }).show();
 		await user.click(await screen.findByRole("button", { name: "Update workspace" }));
 		expect(await screen.findByRole("button", { name: "Updating workspace…" })).toBeInTheDocument();
-		expect(
-			screen.getByText("Preparing workspace update. Waiting for Git progress."),
-		).toBeInTheDocument();
+		expect(screen.getByText("Preparing upstream integration. Elapsed 0s.")).toBeInTheDocument();
 
 		await waitFor(() =>
 			expect(listen).toHaveBeenCalledWith(
@@ -161,5 +163,55 @@ describe("IntegrateUpstreamModal", () => {
 		).toBeInTheDocument();
 
 		resolveIntegration?.();
+	});
+
+	test("shows progress while loading upstream status before update options are ready", async () => {
+		const listen = vi.fn(() => async () => {});
+		let resolveStatuses: (() => void) | undefined;
+		const upstreamStatuses = vi.fn(
+			(_projectId: string, _targetCommitOid: string | undefined, onProgress?: Function) =>
+				new Promise((resolve) => {
+					onProgress?.({
+						phase: "status",
+						phaseLabel: "Checking upstream status",
+						detail: "Computing update options for the selected target commit.",
+					});
+					resolveStatuses = () => resolve({ type: "upToDate" });
+				}),
+		);
+
+		injectMap.set(BACKEND, { listen });
+		injectMap.set(BASE_BRANCH_SERVICE, {
+			baseBranch: () => ({ response: undefined }),
+			refreshBaseBranch: vi.fn().mockResolvedValue(undefined),
+		});
+		injectMap.set(DEFAULT_FORGE_FACTORY, {
+			current: {
+				commitUrl: () => undefined,
+			},
+		});
+		injectMap.set(UPSTREAM_INTEGRATION_SERVICE, {
+			upstreamStatuses,
+			integrateUpstream: () => [vi.fn()],
+			resolveUpstreamIntegrationMutation: vi.fn(),
+		});
+		injectMap.set(URL_SERVICE, { openExternalUrl: vi.fn() });
+		injectMap.set(CLIPBOARD_SERVICE, { write: vi.fn() });
+
+		const { component } = render(IntegrateUpstreamModal, {
+			props: {
+				projectId: "project-1",
+			},
+		});
+
+		const showPromise = (component as { show: () => Promise<void> }).show();
+
+		expect(await screen.findByText("Checking upstream status")).toBeInTheDocument();
+		expect(
+			screen.getByText("Computing update options for the selected target commit."),
+		).toBeInTheDocument();
+
+		resolveStatuses?.();
+		await showPromise;
 	});
 });

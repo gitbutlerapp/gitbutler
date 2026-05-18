@@ -4,6 +4,12 @@ import type { StackService } from "$lib/stacks/stackService.svelte";
 import type { BackendApi } from "$lib/state/backendApi";
 import type { StackStatusesWithBranchesV3 } from "$lib/upstream/types";
 
+type UpstreamStatusProgress = {
+	phase: string;
+	phaseLabel: string;
+	detail?: string;
+};
+
 export const UPSTREAM_INTEGRATION_SERVICE = new InjectionToken<UpstreamIntegrationService>(
 	"UpstreamIntegrationService",
 );
@@ -17,13 +23,28 @@ export class UpstreamIntegrationService {
 	async upstreamStatuses(
 		projectId: string,
 		targetCommitOid: string | undefined,
+		onProgress?: (progress: UpstreamStatusProgress) => void,
 	): Promise<StackStatusesWithBranchesV3 | undefined> {
+		onProgress?.({
+			phase: "stacks",
+			phaseLabel: "Loading workspace stacks",
+			detail: "Reading applied branch stacks before upstream conflict analysis.",
+		});
 		const stacks = await this.stackService.fetchStacks(projectId);
+		onProgress?.({
+			phase: "status",
+			phaseLabel: "Checking upstream status",
+			detail: "Computing which stacks can update cleanly and which need a resolution.",
+		});
 		const branchStatuses = await this.backendApi.endpoints.upstreamIntegrationStatuses.fetch({
 			projectId,
 			targetCommitOid,
 		});
 
+		onProgress?.({
+			phase: "map",
+			phaseLabel: "Preparing update options",
+		});
 		if (branchStatuses.type === "upToDate") return branchStatuses;
 
 		const stackStatusesWithBranches: StackStatusesWithBranchesV3 = {

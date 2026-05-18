@@ -14,9 +14,10 @@ use std::{
 
 use anyhow::Context as _;
 use but_api::{json, legacy::virtual_branches};
-use but_ctx::{ProjectHandleOrLegacyProjectId, ThreadSafeContext};
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId, ThreadSafeContext};
+use gitbutler_branch_actions::base::BaseBranch;
 use gitbutler_branch_actions::upstream_integration::{
-    BaseBranchResolution, IntegrationOutcome, Resolution,
+    BaseBranchResolution, IntegrationOutcome, Resolution, StackStatuses,
 };
 use tauri::{AppHandle, Emitter, EventTarget, Manager, Window};
 use tracing::instrument;
@@ -364,6 +365,74 @@ impl LfsProgressTracker {
             bytes_per_second,
             path: parsed.path,
         })
+    }
+}
+
+#[tauri::command]
+#[instrument(skip(window), err(Debug))]
+#[allow(non_snake_case)]
+pub fn fetch_from_remotes(
+    window: Window,
+    projectId: ProjectHandleOrLegacyProjectId,
+    action: Option<String>,
+) -> Result<BaseBranch, json::Error> {
+    let progress = GitOperationProgressEmitter::new(&window, &projectId, "fetchFromRemotes");
+    progress.phase("prepare", "Preparing remote fetch", None);
+    let ctx = Context::try_from(projectId.clone())?;
+
+    progress.phase(
+        "fetch",
+        "Fetching from configured remotes",
+        Some(
+            "Git fetch can spend a long time transferring packs before it reports completion."
+                .to_owned(),
+        ),
+    );
+    let result = virtual_branches::fetch_from_remotes(&ctx, action);
+    match result {
+        Ok(base_branch) => {
+            progress.phase("metadata", "Updating fetched metadata", None);
+            progress.phase("complete", "Fetch complete", None);
+            Ok(base_branch)
+        }
+        Err(err) => {
+            progress.phase("failed", "Fetch failed", Some(err.to_string()));
+            Err(err.into())
+        }
+    }
+}
+
+#[tauri::command(async)]
+#[instrument(skip(window), err(Debug))]
+#[allow(non_snake_case)]
+pub async fn upstream_integration_statuses(
+    window: Window,
+    projectId: ProjectHandleOrLegacyProjectId,
+    targetCommitOid: Option<gix::ObjectId>,
+) -> Result<StackStatuses, json::Error> {
+    let progress = GitOperationProgressEmitter::new(&window, &projectId, "upstreamStatus");
+    progress.phase("prepare", "Preparing upstream status check", None);
+    let ctx = ThreadSafeContext::try_from(projectId.clone())?;
+    progress.phase("baseBranch", "Reading base branch state", None);
+    progress.phase(
+        "reviewMetadata",
+        "Resolving review metadata",
+        Some("Checking branch and review data before conflict analysis.".to_owned()),
+    );
+    let result = virtual_branches::upstream_integration_statuses(ctx, targetCommitOid).await;
+    match result {
+        Ok(statuses) => {
+            progress.phase("complete", "Upstream status ready", None);
+            Ok(statuses)
+        }
+        Err(err) => {
+            progress.phase(
+                "failed",
+                "Upstream status check failed",
+                Some(err.to_string()),
+            );
+            Err(err.into())
+        }
     }
 }
 
