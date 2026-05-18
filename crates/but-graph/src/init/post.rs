@@ -157,12 +157,23 @@ impl Graph {
         }
     }
 
-    /// After everything, ensure the entrypoint still points to a segment with the correct ref-name,
-    /// if one was given when starting the traversal.
-    /// If not, try to find a segment with the right ref-name.
+    /// After everything, ensure the entrypoint still points to a segment with
+    /// the correct ref-name if one was given when starting the traversal.
     ///
-    /// *This is the brute-force way of doing it, instead of ensuring that the workspace upgrade functions
-    /// that create independent and dependent branches keep everything up-to-date at all times.
+    /// If the the entrypoint ref doesn't match the ref specified at the start
+    /// we:
+    /// - If a segment named with the desired ref is found, we update the
+    ///   entrypoint to match that
+    /// - If any segment whose first commit owns a ref with the desired name
+    ///   - If the segment has no ref_info, we remove the ref from the commit
+    ///     and set the ref_info on the segment, before setting the segment as the
+    ///     entrypoint.
+    ///   - Otherwise we split it out into a new segment and set that new
+    ///     entrypoint.
+    ///
+    /// *This is the brute-force way of doing it, instead of ensuring that the
+    /// workspace upgrade functions that create independent and dependent
+    /// branches keep everything up-to-date at all times.
     fn set_entrypoint_to_ref_name<T: RefMetadata>(
         &mut self,
         meta: &OverlayMetadata<'_, T>,
