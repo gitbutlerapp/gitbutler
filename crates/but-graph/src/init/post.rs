@@ -330,7 +330,7 @@ impl Graph {
         Ok(())
     }
 
-    /// Assure that workspace segments with managed commits only have that commit, and move all others
+    /// Ensure that workspace segments with managed commits only have that commit, and move all others
     /// into a new segment.
     fn fixup_workspace_segments<T: RefMetadata>(
         &mut self,
