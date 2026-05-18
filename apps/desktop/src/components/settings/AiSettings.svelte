@@ -95,14 +95,14 @@
 		acpEnv = JSON.stringify(await aiService.getAcpEnv());
 		acpModel = await aiService.getAcpModelName();
 		acpAgents = (await aiService.listAcpAgents()).agents;
-		if (modelKind === ModelKind.ACP && !acpCommand) {
-			selectDefaultAcpAgent();
-		}
 
 		// Ensure reactive declarations have finished running before we set initialized to true
 		await tick();
 
 		initialized = true;
+		if (modelKind === ModelKind.ACP && !acpCommand) {
+			selectDefaultAcpAgent();
+		}
 	});
 
 	const keyOptions = [

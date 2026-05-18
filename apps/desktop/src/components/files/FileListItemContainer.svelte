@@ -86,10 +86,16 @@
 	);
 
 	function onCheck(checked: boolean) {
+		const selectedFiles = idSelection.values(selectionId);
+		const paths =
+			selectedFiles.length > 1 && selectedFiles.some((file) => file.path === change.path)
+				? selectedFiles.map((file) => file.path)
+				: [change.path];
+
 		if (checked) {
-			uncommittedService.checkFile(stackId || null, change.path);
+			uncommittedService.checkFiles(stackId || null, paths);
 		} else {
-			uncommittedService.uncheckFile(stackId || null, change.path);
+			uncommittedService.uncheckFiles(stackId || null, paths);
 		}
 	}
 

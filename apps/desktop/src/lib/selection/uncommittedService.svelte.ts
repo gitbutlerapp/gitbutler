@@ -562,6 +562,10 @@ export class UncommittedService {
 		this.dispatch(uncommittedActions.uncheckFile({ stackId, path }));
 	}
 
+	uncheckFiles(stackId: string | null, paths: string[]) {
+		this.dispatch(uncommittedActions.uncheckFiles({ stackId, paths }));
+	}
+
 	checkDir(stackId: string | null, path: string) {
 		this.dispatch(uncommittedActions.checkDir({ stackId, path }));
 	}

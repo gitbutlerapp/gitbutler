@@ -260,6 +260,17 @@ export const uncommittedSlice = createSlice({
 				selections.map((a) => a.assignmentId),
 			);
 		},
+		uncheckFiles(state, action: PayloadAction<{ stackId: string | null; paths: string[] }>) {
+			const { stackId, paths } = action.payload;
+			const selectionIds = paths.flatMap((path) => {
+				const prefix = partialKey(stackId, path);
+				return uncommittedSelectors.hunkSelection
+					.selectByPrefix(state.hunkSelection, prefix)
+					.map((selection) => selection.assignmentId);
+			});
+
+			state.hunkSelection = hunkSelectionAdapter.removeMany(state.hunkSelection, selectionIds);
+		},
 		checkDir(state, action: PayloadAction<{ stackId: string | null; path: string }>) {
 			const { stackId, path } = action.payload;
 			const prefix = prefixKey(stackId, path);

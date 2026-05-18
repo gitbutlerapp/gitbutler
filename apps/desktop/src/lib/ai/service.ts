@@ -303,9 +303,23 @@ export class AIService {
 
 	async getAcpConfig(): Promise<AcpCommandConfig | undefined> {
 		const command = await this.getAcpCommand();
-		if (!command) return undefined;
+		const agentId = await this.getAcpAgentId();
+		if (!command) {
+			if (!agentId) return undefined;
+			const agent = (await this.listAcpAgents()).agents.find(
+				(agent) => agent.id === agentId && agent.availability !== "suggestion",
+			);
+			if (!agent) return undefined;
+			return {
+				id: agent.id,
+				name: agent.name,
+				command: agent.command,
+				args: agent.args,
+				env: agent.env,
+			};
+		}
 		return {
-			id: (await this.getAcpAgentId()) || "custom",
+			id: agentId || "custom",
 			name: "ACP Agent",
 			command,
 			args: await this.getAcpArgs(),
@@ -346,7 +360,7 @@ export class AIService {
 		const openRouterActiveAndKeyProvided =
 			modelKind === ModelKind.OpenRouter && !!(await this.getOpenRouterKey());
 		const acpActiveAndCommandProvided =
-			modelKind === ModelKind.ACP && !!(await this.getAcpCommand());
+			modelKind === ModelKind.ACP && !!(await this.getAcpConfig());
 
 		return (
 			openAIActiveAndKeyProvided ||
