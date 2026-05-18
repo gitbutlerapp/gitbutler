@@ -157,12 +157,23 @@ impl Graph {
         }
     }
 
-    /// After everything, assure the entrypoint still points to a segment with the correct ref-name,
-    /// if one was given when starting the traversal.
-    /// If not, try to find a segment with the right ref-name.
+    /// After everything, ensure the entrypoint still points to a segment with
+    /// the correct ref-name if one was given when starting the traversal.
     ///
-    /// *This is the brute-force way of doing it, instead of ensuring that the workspace upgrade functions
-    /// that create independent and dependent branches keep everything up-to-date at all times.
+    /// If the the entrypoint ref doesn't match the ref specified at the start
+    /// we:
+    /// - If a segment named with the desired ref is found, we update the
+    ///   entrypoint to match that
+    /// - If any segment whose first commit owns a ref with the desired name
+    ///   - If the segment has no ref_info, we remove the ref from the commit
+    ///     and set the ref_info on the segment, before setting the segment as the
+    ///     entrypoint.
+    ///   - Otherwise we split it out into a new segment and set that new
+    ///     entrypoint.
+    ///
+    /// *This is the brute-force way of doing it, instead of ensuring that the
+    /// workspace upgrade functions that create independent and dependent
+    /// branches keep everything up-to-date at all times.
     fn set_entrypoint_to_ref_name<T: RefMetadata>(
         &mut self,
         meta: &OverlayMetadata<'_, T>,
@@ -275,10 +286,17 @@ impl Graph {
         Ok(())
     }
 
-    /// This is a post-process as only in the end we are sure what is a remote commit.
-    /// On remote commits, we want to further segment remote tracking segments to avoid picking
+    /// This is a post-process as only in the end we are sure what is a remote
+    /// commit.
+    ///
+    /// We want to further segment remote tracking segments to avoid picking
     /// up too many remote commits later.
-    /// For everything else, we want to just remove the extra ref-names that we aren't interested in.
+    ///
+    /// We drop all remote-tracking branch references from each commit's `refs`
+    /// list. In the case of a commit being considered remote, if it's
+    /// containing segment is splittable, we preserve the remote reference by
+    /// splitting the containing segment, with the new segment being named with
+    /// the remote reference.
     fn fixup_remote_tracking_refs_and_maybe_split_segments<T: RefMetadata>(
         &mut self,
         meta: &OverlayMetadata<'_, T>,
@@ -330,7 +348,7 @@ impl Graph {
         Ok(())
     }
 
-    /// Assure that workspace segments with managed commits only have that commit, and move all others
+    /// Ensure that workspace segments with managed commits only have that commit, and move all others
     /// into a new segment.
     fn fixup_workspace_segments<T: RefMetadata>(
         &mut self,
@@ -557,7 +575,7 @@ impl Graph {
                         if target_ref.is_some() {
                             return None;
                         }
-                        // It's a very specialised filter… will that lead to strange behaviour later?
+                        // It's a very specialized filter… will that lead to strange behavior later?
                         let segment = &self[s];
                         if segment.ref_info.is_some() {
                             return None;
@@ -633,7 +651,7 @@ impl Graph {
     /// * workspace segments are either empty, or have just one managed commit.
     /// * insert empty segments as defined by the workspace that affects its downstream.
     /// * put workspace connection into the order defined in the workspace metadata.
-    /// * set sibling segment IDs for unnamed segments that are descendents of an out-of-workspace but known segment.
+    /// * set sibling segment IDs for unnamed segments that are descendants of an out-of-workspace but known segment.
     fn workspace_upgrades<T: RefMetadata>(
         &mut self,
         meta: &OverlayMetadata<'_, T>,
@@ -1181,7 +1199,7 @@ impl Graph {
             // If both remote and local point to the same commit, make sure that the remote points to the local segment.
             if let Some((
                 (_remote_commit, _owner_of_commit_same_as_local),
-                (_local_commmit, owner_of_commit_same_as_remote),
+                (_local_commit, owner_of_commit_same_as_remote),
             )) = self
                 .resolve_to_unambiguously_pointed_to_commit(remote_sidx)
                 .zip(self.resolve_to_unambiguously_pointed_to_commit(local_sidx))
