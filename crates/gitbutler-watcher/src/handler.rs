@@ -270,10 +270,10 @@ fn assignments_and_errors(
     ))
 }
 
-fn list_local_ignored_paths(repo: &gix::Repository) -> Result<Vec<String>> {
+fn list_local_ignored_paths(repo: &gix::Repository) -> Result<BTreeSet<String>> {
     let path = repo.common_dir().join("config");
     if !path.exists() {
-        return Ok(vec![]);
+        return Ok(BTreeSet::new());
     }
 
     let config = gix::config::File::from_path_no_includes(path.clone(), gix::config::Source::Local)
@@ -293,12 +293,12 @@ fn list_local_ignored_paths(repo: &gix::Repository) -> Result<Vec<String>> {
             }
         }
     }
-    Ok(paths.into_iter().collect())
+    Ok(paths)
 }
 
 fn filter_locally_ignored_worktree_changes(
     changes: &mut but_core::WorktreeChanges,
-    locally_ignored_paths: &[String],
+    locally_ignored_paths: &BTreeSet<String>,
 ) {
     if locally_ignored_paths.is_empty() {
         return;
@@ -315,7 +315,7 @@ fn filter_locally_ignored_worktree_changes(
     });
 }
 
-fn path_bytes_are_locally_ignored(path: &[u8], ignored_paths: &[String]) -> bool {
+fn path_bytes_are_locally_ignored(path: &[u8], ignored_paths: &BTreeSet<String>) -> bool {
     let Some(normalized_path) = normalize_local_ignore_path_string(&String::from_utf8_lossy(path))
     else {
         return false;
@@ -323,17 +323,29 @@ fn path_bytes_are_locally_ignored(path: &[u8], ignored_paths: &[String]) -> bool
     normalized_path_is_locally_ignored(&normalized_path, ignored_paths)
 }
 
-fn path_is_locally_ignored(path: &Path, ignored_paths: &[String]) -> bool {
+fn path_is_locally_ignored(path: &Path, ignored_paths: &BTreeSet<String>) -> bool {
     let Some(normalized_path) = normalize_local_ignore_path(path) else {
         return false;
     };
     normalized_path_is_locally_ignored(&normalized_path, ignored_paths)
 }
 
-fn normalized_path_is_locally_ignored(normalized_path: &str, ignored_paths: &[String]) -> bool {
-    ignored_paths.iter().any(|ignored_path| {
-        normalized_path == ignored_path || normalized_path.starts_with(&format!("{ignored_path}/"))
-    })
+fn normalized_path_is_locally_ignored(
+    normalized_path: &str,
+    ignored_paths: &BTreeSet<String>,
+) -> bool {
+    if ignored_paths.contains(normalized_path) {
+        return true;
+    }
+
+    let mut path = normalized_path;
+    while let Some((parent, _)) = path.rsplit_once('/') {
+        if ignored_paths.contains(parent) {
+            return true;
+        }
+        path = parent;
+    }
+    false
 }
 
 fn normalize_local_ignore_path(path: &Path) -> Option<String> {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getAiCredentialCheckTimeoutMs } from "$lib/ai/credentialCheck";
 	import { AI_SERVICE, type DiffInput } from "$lib/ai/service";
 	import { ModelKind } from "$lib/ai/types";
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
@@ -101,14 +102,16 @@
 			debugInfo += `, Testing commit message generation`;
 
 			// Set a timeout to fail if the streaming doesn't start or complete
+			const timeoutMs = getAiCredentialCheckTimeoutMs(modelKind);
+			const timeoutSeconds = Math.round(timeoutMs / 1000);
 			testTimeout = setTimeout(() => {
 				if (testing) {
-					console.error("AI response timed out after 20 seconds");
+					console.error(`AI response timed out after ${timeoutSeconds} seconds`);
 					error =
-						"AI response timed out after 20 seconds. Please check if your AI service is running properly.";
+						`AI response timed out after ${timeoutSeconds} seconds. Please check if your AI service is running properly.`;
 					testing = false;
 					isStreaming = false; // Make sure streaming state is reset on timeout
-					debugInfo += `, Timeout after 20s`;
+					debugInfo += `, Timeout after ${timeoutSeconds}s`;
 
 					// Abort the request if possible
 					if (abortController) {
@@ -123,7 +126,7 @@
 					testing = false;
 					isStreaming = false;
 				}
-			}, 20000);
+			}, timeoutMs);
 
 			// Start streaming mode
 			isStreaming = true;
@@ -147,6 +150,7 @@
 
 			// Set the final result (handling undefined case)
 			result = aiResult || streamingResult || null;
+			error = null;
 
 			debugInfo += `, Received commit message: ${result?.substring(0, 30)}${result && result.length > 30 ? "..." : ""}`;
 

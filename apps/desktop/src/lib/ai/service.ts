@@ -523,6 +523,7 @@ export class AIService {
 		});
 
 		let message = (await aiClient.evaluate(prompt, { onToken })).trim();
+		if (!message) return undefined;
 
 		if (useExtraConciseStyle) {
 			message = message.split("\n")[0] ?? message;

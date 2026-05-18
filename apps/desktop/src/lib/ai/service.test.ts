@@ -451,6 +451,16 @@ describe("AIService", () => {
 			);
 		});
 
+		test("When the AI returns an empty commit message, it returns undefined", async () => {
+			const { aiService } = buildDefaultServices();
+
+			vi.spyOn(aiService, "buildClient").mockReturnValue(Promise.resolve(new DummyAIClient("")));
+
+			expect(await aiService.summarizeCommit({ diffInput: exampleDiffs })).toStrictEqual(
+				undefined,
+			);
+		});
+
 		test("When the AI returns a title and body that is split by a single new line, it replaces it with two", async () => {
 			const { aiService } = buildDefaultServices();
 

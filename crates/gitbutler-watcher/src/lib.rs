@@ -2,13 +2,16 @@
 #![deny(unsafe_code)]
 #![allow(clippy::doc_markdown, clippy::missing_errors_doc)]
 
-use std::path::Path;
+use std::{collections::BTreeSet, path::Path};
 
 use anyhow::Result;
 use but_ctx::ProjectHandleOrLegacyProjectId;
 use but_settings::AppSettingsWithDiskSync;
 pub use handler::Handler;
-use tokio::{sync::mpsc::unbounded_channel, task};
+use tokio::{
+    sync::mpsc::{UnboundedReceiver, unbounded_channel},
+    task,
+};
 use tokio_util::sync::CancellationToken;
 
 mod events;
@@ -56,15 +59,10 @@ impl WatcherHandle {
 ///
 /// ### How it works
 ///
-/// The watcher is a processing loop that relies on filesystem events. These are aggregated so
-/// every ~100ms, the changed paths sorted by 'worktree' and 'git-repository' will be processed,
-/// each of these events is handled in its own thread, while being able to spawn additional processing
-/// tasks as well.
-///
-/// This also means that when there are continuous changes to the filesystem, these events might pile
-/// up if they take longer to process than the 100ms window between them, causing high-CPU and possibly
-/// high-memory. However, the likelihood for this is much lower than it was before the architecture
-/// was changed to what it is now, which should be much less wasteful.
+/// The watcher is a processing loop that relies on filesystem events. These are aggregated by the
+/// file monitor every ~100ms, then coalesced again here before dispatch. Handling a change can
+/// require a full worktree refresh, so dispatch stays sequential to avoid piling up expensive scans
+/// when a generated directory emits continuous filesystem events.
 pub fn watch_in_background(
     handler: handler::Handler,
     worktree_path: impl AsRef<Path>,
@@ -87,23 +85,21 @@ pub fn watch_in_background(
         file_monitor,
         cancellation_token: cancellation_token.clone(),
     };
-    let handle_event =
-        move |event: InternalEvent, app_settings: AppSettingsWithDiskSync| -> Result<()> {
-            let handler = handler.clone();
-            // NOTE: Traditional parallelization (blocking) is required as `tokio::spawn()` on
-            //       the `handler.handle()` future isn't `Send` as it keeps non-Send things
-            //       across await points. Further, there is a fair share of `sync` IO happening
-            //       as well, so nothing can really be done here.
-            task::spawn_blocking(move || {
-                handler.handle(event, app_settings).ok();
-            });
-            Ok(())
-        };
-
     tokio::spawn(async move {
         loop {
             tokio::select! {
-                Some(event) = events_in.recv() => handle_event(event, app_settings.clone())?,
+                Some(event) = events_in.recv() => {
+                    let events = coalesce_pending_events(event, &mut events_in, &project_id);
+                    for event in events {
+                        let handler = handler.clone();
+                        let app_settings = app_settings.clone();
+                        task::spawn_blocking(move || {
+                            handler.handle(event, app_settings).ok();
+                        })
+                        .await
+                        .ok();
+                    }
+                }
                 () = cancellation_token.cancelled() => {
                     tracing::debug!(%project_id, "stopped watcher");
                     break;
@@ -114,4 +110,47 @@ pub fn watch_in_background(
     });
 
     Ok(handle)
+}
+
+fn coalesce_pending_events(
+    first_event: InternalEvent,
+    events_in: &mut UnboundedReceiver<InternalEvent>,
+    project_id: &ProjectHandleOrLegacyProjectId,
+) -> Vec<InternalEvent> {
+    let mut git_paths = BTreeSet::new();
+    let mut project_paths = BTreeSet::new();
+
+    add_event_paths(first_event, &mut git_paths, &mut project_paths);
+    while let Ok(event) = events_in.try_recv() {
+        add_event_paths(event, &mut git_paths, &mut project_paths);
+    }
+
+    let git_paths: Vec<_> = git_paths.into_iter().collect();
+    let project_paths: Vec<_> = project_paths.into_iter().collect();
+    let git_refreshes_worktree = git_paths
+        .iter()
+        .any(|path| path.to_str() == Some(gitbutler_filemonitor::INDEX));
+
+    let mut events = Vec::with_capacity(2);
+    if !git_paths.is_empty() {
+        events.push(InternalEvent::GitFilesChange(project_id.clone(), git_paths));
+    }
+    if !project_paths.is_empty() && !git_refreshes_worktree {
+        events.push(InternalEvent::ProjectFilesChange(
+            project_id.clone(),
+            project_paths,
+        ));
+    }
+    events
+}
+
+fn add_event_paths(
+    event: InternalEvent,
+    git_paths: &mut BTreeSet<std::path::PathBuf>,
+    project_paths: &mut BTreeSet<std::path::PathBuf>,
+) {
+    match event {
+        InternalEvent::GitFilesChange(_, paths) => git_paths.extend(paths),
+        InternalEvent::ProjectFilesChange(_, paths) => project_paths.extend(paths),
+    }
 }

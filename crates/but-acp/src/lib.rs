@@ -9,8 +9,9 @@ use std::{
 use agent_client_protocol::{
     AcpAgent, Agent, Client, ConnectionTo,
     schema::{
-        InitializeRequest, NewSessionRequest, ProtocolVersion, RequestPermissionOutcome,
-        RequestPermissionRequest, RequestPermissionResponse, SessionNotification,
+        InitializeRequest, NewSessionRequest, PermissionOptionKind, ProtocolVersion,
+        RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
+        SelectedPermissionOutcome, SessionNotification,
     },
 };
 use anyhow::{Context as _, Result};
@@ -158,8 +159,13 @@ pub async fn prompt_once(config: AcpCommandConfig, cwd: PathBuf, prompt: String)
             agent_client_protocol::on_receive_notification!(),
         )
         .on_receive_request(
-            async move |_request: RequestPermissionRequest, responder, _connection| {
-                let response = RequestPermissionResponse::new(RequestPermissionOutcome::Cancelled);
+            async move |request: RequestPermissionRequest, responder, _connection| {
+                tracing::debug!(
+                    ?request.tool_call,
+                    ?request.options,
+                    "denying ACP permission request"
+                );
+                let response = RequestPermissionResponse::new(deny_permission_outcome(&request));
                 responder.respond(response)
             },
             agent_client_protocol::on_receive_request!(),
@@ -180,11 +186,34 @@ pub async fn prompt_once(config: AcpCommandConfig, cwd: PathBuf, prompt: String)
                 let mut session = connection.attach_session(response, Vec::new())?;
                 session.send_prompt(prompt)?;
                 let output = session.read_to_string().await?;
+                tracing::debug!(output_len = output.len(), "ACP agent response received");
+                if output.trim().is_empty() {
+                    return Err(agent_client_protocol::Error::internal_error()
+                        .data("ACP agent returned an empty response"));
+                }
                 Ok(output)
             }
         })
         .await
         .map_err(|e| anyhow::anyhow!("{e}"))
+}
+
+fn deny_permission_outcome(request: &RequestPermissionRequest) -> RequestPermissionOutcome {
+    request
+        .options
+        .iter()
+        .find(|option| {
+            matches!(
+                option.kind,
+                PermissionOptionKind::RejectOnce | PermissionOptionKind::RejectAlways
+            )
+        })
+        .map(|option| {
+            RequestPermissionOutcome::Selected(SelectedPermissionOutcome::new(
+                option.option_id.clone(),
+            ))
+        })
+        .unwrap_or(RequestPermissionOutcome::Cancelled)
 }
 
 fn descriptor(
@@ -263,6 +292,10 @@ fn agent_json(config: &AcpCommandConfig) -> Result<String> {
         env: Vec<EnvVar<'a>>,
     }
 
+    let command = resolve_command_for_spawn(&config.command)
+        .with_context(|| format!("failed to resolve ACP command '{}'", config.command))?
+        .to_string_lossy()
+        .to_string();
     let env = config
         .env
         .iter()
@@ -271,7 +304,7 @@ fn agent_json(config: &AcpCommandConfig) -> Result<String> {
     Ok(serde_json::to_string(&JsonConfig {
         kind: "stdio",
         name: &config.id,
-        command: &config.command,
+        command: &command,
         args: &config.args,
         env,
     })?)
@@ -297,19 +330,29 @@ fn shell_quote(value: &str) -> String {
 }
 
 fn command_available(command: &str) -> bool {
+    resolve_command_for_spawn(command).is_some()
+}
+
+fn resolve_command_for_spawn(command: &str) -> Option<OsString> {
     let command_path = Path::new(command);
     if command_path.components().count() > 1 {
-        return command_path.is_file();
+        return executable_candidates(command)
+            .into_iter()
+            .find(|candidate| {
+                let candidate_path = Path::new(candidate);
+                candidate_path.is_file()
+            });
     }
 
-    let Some(paths) = std::env::var_os("PATH") else {
-        return false;
-    };
+    let paths = std::env::var_os("PATH")?;
     let candidates = executable_candidates(command);
-    std::env::split_paths(&paths).any(|path| {
-        candidates
-            .iter()
-            .any(|candidate| path.join(candidate).is_file())
+    std::env::split_paths(&paths).find_map(|path| {
+        candidates.iter().find_map(|candidate| {
+            let candidate_path = path.join(candidate);
+            candidate_path
+                .is_file()
+                .then(|| candidate_path.into_os_string())
+        })
     })
 }
 
@@ -320,14 +363,20 @@ fn executable_candidates(command: &str) -> Vec<OsString> {
         return vec![OsString::from(command)];
     }
     let pathext = std::env::var_os("PATHEXT").unwrap_or_else(|| ".COM;.EXE;.BAT;.CMD".into());
-    let mut values = vec![OsString::from(command)];
+    let mut values: Vec<_> = pathext
+        .to_string_lossy()
+        .split(';')
+        .filter(|ext| !ext.is_empty())
+        .map(|ext| OsString::from(format!("{command}{ext}")))
+        .collect();
     values.extend(
         pathext
             .to_string_lossy()
             .split(';')
             .filter(|ext| !ext.is_empty())
-            .map(|ext| OsString::from(format!("{command}{ext}"))),
+            .map(|ext| OsString::from(format!("{command}{}", ext.to_ascii_lowercase()))),
     );
+    values.push(OsString::from(command));
     values
 }
 
@@ -366,7 +415,53 @@ struct RegistryNpx {
 
 #[cfg(test)]
 mod tests {
+    use agent_client_protocol::schema::{PermissionOption, ToolCallUpdate, ToolCallUpdateFields};
+
     use super::*;
+
+    #[cfg(windows)]
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[cfg(windows)]
+    struct EnvGuard {
+        path: Option<OsString>,
+        pathext: Option<OsString>,
+    }
+
+    #[cfg(windows)]
+    impl EnvGuard {
+        fn set_path(path: &Path, pathext: &str) -> Self {
+            let guard = Self {
+                path: std::env::var_os("PATH"),
+                pathext: std::env::var_os("PATHEXT"),
+            };
+            // Environment mutation is process-global; tests serialize this with ENV_LOCK.
+            unsafe {
+                std::env::set_var("PATH", path);
+                std::env::set_var("PATHEXT", pathext);
+            }
+            guard
+        }
+    }
+
+    #[cfg(windows)]
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            // Environment mutation is process-global; tests serialize this with ENV_LOCK.
+            unsafe {
+                if let Some(path) = &self.path {
+                    std::env::set_var("PATH", path);
+                } else {
+                    std::env::remove_var("PATH");
+                }
+                if let Some(pathext) = &self.pathext {
+                    std::env::set_var("PATHEXT", pathext);
+                } else {
+                    std::env::remove_var("PATHEXT");
+                }
+            }
+        }
+    }
 
     #[test]
     fn preview_quotes_only_when_needed() {
@@ -406,5 +501,63 @@ mod tests {
             ["-y", "@zed-industries/codex-acp", "--flag"]
         );
         assert_eq!(descriptor.availability, AcpAvailability::Suggestion);
+    }
+
+    #[test]
+    fn permission_request_denial_selects_reject_instead_of_cancelling_turn() {
+        let request = RequestPermissionRequest::new(
+            "session",
+            ToolCallUpdate::new("tool", ToolCallUpdateFields::new()),
+            vec![
+                PermissionOption::new("allow", "Allow", PermissionOptionKind::AllowOnce),
+                PermissionOption::new("reject", "Reject", PermissionOptionKind::RejectOnce),
+            ],
+        );
+
+        let outcome = deny_permission_outcome(&request);
+
+        assert!(
+            matches!(
+                outcome,
+                RequestPermissionOutcome::Selected(SelectedPermissionOutcome {
+                    option_id,
+                    ..
+                }) if option_id.0.as_ref() == "reject"
+            ),
+            "denying a tool permission should not cancel the whole ACP prompt turn"
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn agent_json_resolves_pathext_command_for_spawn() {
+        let _guard = ENV_LOCK.lock().expect("environment mutation test lock");
+        let temp_dir =
+            std::env::temp_dir().join(format!("but-acp-pathext-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&temp_dir);
+        std::fs::create_dir_all(&temp_dir).expect("temp dir is created for command resolution");
+        std::fs::write(temp_dir.join("npx"), "").expect("extensionless npx fixture is written");
+        std::fs::write(temp_dir.join("npx.cmd"), "@echo off\r\n")
+            .expect("cmd npx fixture is written");
+        let _env_guard = EnvGuard::set_path(&temp_dir, ".CMD");
+
+        let config = AcpCommandConfig {
+            id: "custom".to_string(),
+            name: "Custom".to_string(),
+            command: "npx".to_string(),
+            args: vec!["--version".to_string()],
+            env: BTreeMap::new(),
+        };
+        let json: serde_json::Value =
+            serde_json::from_str(&agent_json(&config).expect("agent json is generated"))
+                .expect("agent json is valid");
+        let command = json["command"]
+            .as_str()
+            .expect("serialized agent command is a string");
+
+        assert!(
+            command.to_ascii_lowercase().ends_with("npx.cmd"),
+            "ACP spawn command should use PATHEXT executable candidate, got {command}"
+        );
     }
 }
