@@ -1,10 +1,53 @@
-//! These tests exercise the add_edge and remove_edge operations.
+//! These tests exercise the add_step, add_edge and remove_edge operations.
 
 use anyhow::Result;
+use but_core::Commit;
 use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, testing::Testing as _};
+use but_rebase::graph_rebase::{Editor, Step, testing::Testing as _};
+use gix::prelude::ObjectIdExt;
 
-use crate::utils::{fixture, standard_options};
+use crate::utils::{fixture, fixture_writable, standard_options};
+
+#[test]
+fn adding_a_step_returns_a_selector_that_can_be_connected_into_the_graph() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    let c = repo.rev_parse_single("HEAD")?.detach();
+    let a = repo.rev_parse_single("HEAD~2")?.detach();
+    let c_selector = editor.select_commit(c)?;
+    let a_selector = editor.select_commit(a)?;
+
+    let mut commit = Commit::from_id(a.attach(&repo))?;
+    commit.message = "synthetic parent for c".into();
+    commit.parents = vec![].into();
+    let new_commit = repo.write_object(commit.inner)?.detach();
+
+    let new_selector = editor.add_step(Step::new_pick(new_commit))?;
+    editor.add_edge(c_selector, new_selector, 1)?;
+    editor.add_edge(new_selector, a_selector, 0)?;
+
+    let steps_ascii = editor
+        .steps_ascii()
+        .replace(&new_commit.to_hex_with_len(7).to_string(), "[new]");
+
+    insta::assert_snapshot!(steps_ascii, @r"
+    ◎ refs/heads/main
+    ● 120e3a9 c
+    ├─╮
+    ● │ a96434e b
+    │ ● [new] synthetic parent for c
+    ├─╯
+    ● d591dfe a
+    ● 35b8235 base
+    ╵
+    ");
+
+    Ok(())
+}
 
 #[test]
 fn adding_an_existing_edge_causes_an_error() -> Result<()> {
