@@ -59,7 +59,9 @@ export class UncommittedService {
 		private diffService: DiffService,
 	) {
 		this.dispatch = clientState.dispatch;
-		const getSlice = clientState.injectPersistedSlice(uncommittedSlice);
+		const getSlice = clientState.injectPersistedSlice(uncommittedSlice, {
+			blacklist: ["treeChanges", "hunkAssignments"],
+		});
 
 		$effect(() => {
 			this.state = getSlice() ?? uncommittedSlice.getInitialState();

@@ -60,7 +60,7 @@ export class WorktreeService {
 	}
 
 	async setLocalIgnoredPath(projectId: string, path: string, ignored: boolean) {
-		await this.backendApi.endpoints.setLocalIgnoredPath.fetch({ projectId, path, ignored });
+		await this.backendApi.endpoints.setLocalIgnoredPath.mutate({ projectId, path, ignored });
 	}
 
 	/**

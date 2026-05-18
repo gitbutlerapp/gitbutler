@@ -244,6 +244,7 @@
 					{#if isUncommitted}
 						<ContextMenuItem
 							label={pathIsLocallyIgnored(itemPath) ? "Stop ignoring locally" : "Ignore locally"}
+							icon={pathIsLocallyIgnored(itemPath) ? "eye" : "eye-closed"}
 							onclick={() => setLocalIgnored(itemPath, !pathIsLocallyIgnored(itemPath))}
 						/>
 					{/if}

@@ -45,6 +45,10 @@ type StoreResult = ReturnType<typeof createStore>;
 type AppStore = StoreResult["store"];
 type AppState = ReturnType<AppStore["getState"]>;
 export type AppDispatch = AppStore["dispatch"];
+type PersistedSliceOptions = {
+	whitelist?: string[];
+	blacklist?: string[];
+};
 
 /**
  * A redux store with dependency injection through middleware.
@@ -127,11 +131,17 @@ export class ClientState {
 	 * for the slice state. Consumers should use this in an `$effect` to
 	 * keep a local `$state.raw` field in sync.
 	 */
-	injectPersistedSlice<S>(slice: Slice<S>): () => S | undefined {
+	injectPersistedSlice<S>(
+		slice: Slice<S>,
+		options?: PersistedSliceOptions,
+	): () => S | undefined {
 		this.reducer.inject(
 			{
 				reducerPath: slice.reducerPath,
-				reducer: persistReducer({ key: slice.reducerPath, storage }, slice.reducer),
+				reducer: persistReducer(
+					{ key: slice.reducerPath, storage, ...options },
+					slice.reducer,
+				),
 			},
 			{ overrideExisting: false },
 		);
