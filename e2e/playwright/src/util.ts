@@ -4,12 +4,39 @@ import { expect, type Locator, type Page } from "@playwright/test";
 type TestIdValues = `${TestId}`;
 
 /**
+ * Platform modifier key for multi-select (Cmd on macOS, Ctrl elsewhere).
+ */
+export const MOD_KEY: "Meta" | "Control" = process.platform === "darwin" ? "Meta" : "Control";
+
+/**
  * Get by test ID from the page.
  *
  * This is only here in order to have nice autocompletion in the IDE.
  */
 export function getByTestId(page: Page, testId: TestIdValues) {
 	return page.getByTestId(testId);
+}
+
+/**
+ * Locator for a commit row, optionally filtered by its visible text.
+ */
+export function commitRow(page: Page, hasText?: string): Locator {
+	const base = page.getByTestId("commit-row");
+	return hasText ? base.filter({ hasText }) : base;
+}
+
+/**
+ * Locator for a stack. When `branchName` is provided, finds the stack
+ * that contains a branch header matching that name. This is more reliable
+ * than `.filter({ hasText })` because commit messages can also mention
+ * branch names.
+ */
+export function stack(page: Page, branchName?: string): Locator {
+	const base = page.getByTestId("stack");
+	if (!branchName) return base;
+	return base.filter({
+		has: page.getByTestId("branch-header").filter({ hasText: branchName }),
+	});
 }
 
 export async function waitForTestId(page: Page, testId: TestIdValues): Promise<Locator> {

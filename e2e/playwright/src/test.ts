@@ -1,15 +1,15 @@
+import { serverLogSink } from "./serverLog.ts";
+import { startGitButler, type GitButler } from "./setup.ts";
 import { test as base } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
-const FLAT_RESULTS_DIR = path.resolve(import.meta.dirname, "../test-results-flat");
+export type GitButlerOptions = {
+	env?: Record<string, string>;
+	config?: Record<string, unknown>;
+};
 
-/**
- * Module-level log sink for but-server output.
- * Safe because tests run sequentially within each worker process.
- * Cleared at the start of each test by the _autoArtifacts fixture.
- */
-export const serverLogSink: string[] = [];
+const FLAT_RESULTS_DIR = path.resolve(import.meta.dirname, "../test-results-flat");
 
 /**
  * Sanitize a string for use as a filename.
@@ -31,7 +31,25 @@ function sanitizeFilename(name: string): string {
  *   <suite>--<test-name>.webm         (video)
  *   <suite>--<test-name>-trace.zip    (trace)
  */
-export const test = base.extend<{ _autoArtifacts: void }>({
+export const test = base.extend<{
+	_autoArtifacts: void;
+	gitbutlerOptions: GitButlerOptions;
+	gitbutler: GitButler;
+}>({
+	gitbutlerOptions: [{ config: { onboardingComplete: true } }, { option: true }],
+	gitbutler: async ({ context, gitbutlerOptions }, use, testInfo) => {
+		const workdir = testInfo.outputPath("workdir");
+		const configdir = testInfo.outputPath("config");
+		const instance = await startGitButler(
+			workdir,
+			configdir,
+			context,
+			gitbutlerOptions.env,
+			gitbutlerOptions.config,
+		);
+		await use(instance);
+		await instance.destroy();
+	},
 	_autoArtifacts: [
 		async ({ page }, use, testInfo) => {
 			const logs: string[] = [];
