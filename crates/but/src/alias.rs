@@ -32,9 +32,14 @@ const DEFAULT_ALIASES: &[(&str, &str)] = &[
 
 /// Expands command aliases before argument parsing.
 ///
-/// If the first argument after "but" is an alias defined in git config
-/// (under `but.alias.<name>`), it will be expanded to its definition.
-/// Additional arguments are preserved and appended after the expansion.
+/// Scans through arguments after "but", skipping any leading flags (and their
+/// values), to find the first positional argument. If that argument is an alias
+/// defined in git config (under `but.alias.<name>`) or a built-in default alias,
+/// it will be expanded to its definition. All surrounding arguments (flags before
+/// and arguments after the alias) are preserved.
+///
+/// This allows persistent flags to appear before aliases, e.g.:
+///   `but --json st` expands to `but --json status`
 ///
 /// # Arguments
 ///
@@ -49,14 +54,21 @@ pub fn expand_aliases(args: Vec<OsString>) -> Result<Vec<OsString>> {
         return Ok(args);
     }
 
-    // Check if the first argument (after "but") might be an alias
-    let potential_alias = match args[1].to_str() {
+    // Find the first positional (non-flag) argument after "but", skipping
+    // leading flags and their values. This is necessary because persistent
+    // flags like `--json` or `-C <path>` may appear before the subcommand.
+    let alias_index = match find_first_positional(&args) {
+        Some(idx) => idx,
+        None => return Ok(args), // All args are flags, nothing to expand
+    };
+
+    let potential_alias = match args[alias_index].to_str() {
         Some(s) => s,
         None => return Ok(args), // Non-UTF8, not an alias
     };
 
-    // Skip if it's a flag or a known subcommand
-    if potential_alias.starts_with('-') || is_known_subcommand(potential_alias) {
+    // Skip if it's a known subcommand
+    if is_known_subcommand(potential_alias) {
         return Ok(args);
     }
 
@@ -83,12 +95,52 @@ pub fn expand_aliases(args: Vec<OsString>) -> Result<Vec<OsString>> {
         .map(OsString::from)
         .collect();
 
-    // Reconstruct args: [but, ...alias_parts, ...remaining_args]
-    let mut expanded = vec![args[0].clone()]; // Keep "but"
+    // Reconstruct args: [but, ...flags_before_alias, ...alias_parts, ...remaining_args]
+    let mut expanded = Vec::with_capacity(args.len() + alias_parts.len());
+    expanded.extend(args[..alias_index].iter().cloned()); // "but" + any leading flags
     expanded.extend(alias_parts);
-    expanded.extend(args[2..].iter().cloned()); // Remaining args after the alias
+    expanded.extend(args[alias_index + 1..].iter().cloned()); // Remaining args after the alias
 
     Ok(expanded)
+}
+
+/// Known root-level flags that consume the next argument as a value.
+const FLAGS_WITH_VALUE: &[&str] = &["-C", "--current-dir", "-f", "--format"];
+
+/// Finds the index of the first positional (non-flag) argument after the
+/// program name (`args[0]`). Skips flags and their associated values.
+fn find_first_positional(args: &[OsString]) -> Option<usize> {
+    let mut i = 1; // skip args[0] which is the program name
+    while i < args.len() {
+        let arg = match args[i].to_str() {
+            Some(s) => s,
+            None => return Some(i), // Non-UTF8 arg is treated as positional
+        };
+
+        if arg == "--" {
+            // Everything after `--` is positional; the next arg (if any) is the candidate.
+            return if i + 1 < args.len() {
+                Some(i + 1)
+            } else {
+                None
+            };
+        }
+
+        if !arg.starts_with('-') {
+            return Some(i);
+        }
+
+        // Check if this flag consumes the next argument as its value.
+        // Flags in the form `--flag=value` or `-Cvalue` (short flag with attached
+        // value) don't consume the next arg — but our known short flags (`-C`,
+        // `-f`) always expect a separate value argument per clap definition.
+        if FLAGS_WITH_VALUE.contains(&arg) {
+            i += 2; // skip the flag and its value
+        } else {
+            i += 1; // boolean flag like --json, -t, --status-after
+        }
+    }
+    None
 }
 
 /// Checks if a command is a known subcommand (not an alias).
@@ -195,6 +247,66 @@ mod tests {
     fn expand_unknown_alias_no_config() {
         // This test will pass through since there's no git config set
         let args = vec![OsString::from("but"), OsString::from("unknownalias")];
+        let result = expand_aliases(args.clone()).unwrap();
+        assert_eq!(result, args);
+    }
+
+    #[test]
+    fn expand_default_alias_after_boolean_flag() {
+        // `but --json st` should expand to `but --json status`
+        let args = vec![
+            OsString::from("but"),
+            OsString::from("--json"),
+            OsString::from("st"),
+        ];
+        let result = expand_aliases(args).unwrap();
+        assert_eq!(result[0], OsString::from("but"));
+        assert_eq!(result[1], OsString::from("--json"));
+        assert_eq!(result[2], OsString::from("status"));
+    }
+
+    #[test]
+    fn expand_default_alias_after_flag_with_value() {
+        // `but -C /some/path st` should expand to `but -C /some/path status`
+        let args = vec![
+            OsString::from("but"),
+            OsString::from("-C"),
+            OsString::from("/some/path"),
+            OsString::from("stf"),
+        ];
+        let result = expand_aliases(args).unwrap();
+        assert_eq!(result[0], OsString::from("but"));
+        assert_eq!(result[1], OsString::from("-C"));
+        assert_eq!(result[2], OsString::from("/some/path"));
+        assert_eq!(result[3], OsString::from("status"));
+        assert_eq!(result[4], OsString::from("--files"));
+    }
+
+    #[test]
+    fn expand_alias_preserves_trailing_args_after_flags() {
+        // `but --json stf --verbose` should expand to `but --json status --files --verbose`
+        let args = vec![
+            OsString::from("but"),
+            OsString::from("--json"),
+            OsString::from("stf"),
+            OsString::from("--verbose"),
+        ];
+        let result = expand_aliases(args).unwrap();
+        assert_eq!(result[0], OsString::from("but"));
+        assert_eq!(result[1], OsString::from("--json"));
+        assert_eq!(result[2], OsString::from("status"));
+        assert_eq!(result[3], OsString::from("--files"));
+        assert_eq!(result[4], OsString::from("--verbose"));
+    }
+
+    #[test]
+    fn only_flags_no_positional() {
+        // `but --json --status-after` with no subcommand should pass through unchanged
+        let args = vec![
+            OsString::from("but"),
+            OsString::from("--json"),
+            OsString::from("--status-after"),
+        ];
         let result = expand_aliases(args.clone()).unwrap();
         assert_eq!(result, args);
     }
