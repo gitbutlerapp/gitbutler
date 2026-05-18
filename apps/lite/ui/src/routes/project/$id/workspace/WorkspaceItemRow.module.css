@@ -1,6 +1,6 @@
 .itemRow {
 	display: flex;
-	align-items: start;
+	align-items: center;
 	border-radius: 8px;
 
 	&:where(:hover) {
@@ -40,7 +40,8 @@
 
 	.itemRow:hover &,
 	.itemRow:focus-within &,
-	.itemRowSelected & {
+	.itemRowSelected &,
+	.forceVisibleToolbar & {
 		display: flex;
 	}
 }

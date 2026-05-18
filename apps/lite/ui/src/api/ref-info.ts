@@ -1,15 +1,6 @@
 import { encodeRefName, refNamesEqual } from "#ui/api/ref-name.ts";
 import { type Commit, type RefInfo, type RelativeTo, type Segment } from "@gitbutler/but-sdk";
 
-export const getCommonBaseCommitId = (headInfo: RefInfo): string | undefined => {
-	const bases = headInfo.stacks
-		.map((stack) => stack.base)
-		.filter((base): base is string => base !== null);
-	const first = bases[0];
-	if (first === undefined) return undefined;
-	return bases.every((base) => base === first) ? first : undefined;
-};
-
 export const getBranchNameByCommitId = (headInfo: RefInfo): Map<string, string | undefined> => {
 	const byCommitId = new Map<string, string | undefined>();
 

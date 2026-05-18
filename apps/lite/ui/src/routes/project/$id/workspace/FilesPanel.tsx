@@ -37,7 +37,7 @@ import { AbsorptionTarget, TreeChange } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Match } from "effect";
-import { ComponentProps, createContext, FC, Suspense, use, useEffect } from "react";
+import { ComponentProps, createContext, FC, ReactNode, Suspense, use, useEffect } from "react";
 import { Panel, PanelProps } from "react-resizable-panels";
 import styles from "./FilesPanel.module.css";
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
@@ -182,7 +182,11 @@ const CommitFilesTreePanel: FC<{ projectId: string; commit: CommitOperand } & Pa
 		<FilesTreePanel {...panelProps} parent={parent} files={files}>
 			{(() => {
 				if (conflictedPaths.length === 0 && data.changes.length === 0)
-					return <div className={workspaceItemRowStyles.itemRowEmpty}>No file changes.</div>;
+					return (
+						<div className={classes(workspaceItemRowStyles.itemRowEmpty, styles.item)}>
+							No changes.
+						</div>
+					);
 
 				return (
 					<div role="group">
@@ -238,7 +242,7 @@ const ChangesFilesTreePanel: FC<
 	return (
 		<FilesTreePanel {...panelProps} parent={parent} files={files}>
 			{worktreeChanges.changes.length === 0 ? (
-				<div className={workspaceItemRowStyles.itemRowEmpty}>No changes.</div>
+				<div className={classes(workspaceItemRowStyles.itemRowEmpty, styles.item)}>No changes.</div>
 			) : (
 				<div role="group">
 					{worktreeChanges.changes.map((change) => {
@@ -286,7 +290,7 @@ const BranchFilesTreePanel: FC<
 	return (
 		<FilesTreePanel {...panelProps} parent={parent} files={files}>
 			{branchDiff.changes.length === 0 ? (
-				<div className={workspaceItemRowStyles.itemRowEmpty}>No changes.</div>
+				<div className={classes(workspaceItemRowStyles.itemRowEmpty, styles.item)}>No changes.</div>
 			) : (
 				<div role="group">
 					{branchDiff.changes.map((change) => (
@@ -314,7 +318,13 @@ export const FilesPanel: FC<PanelProps> = ({ ...panelProps }) => {
 	);
 
 	return (
-		<Suspense fallback={<Panel {...panelProps}>Loading files…</Panel>}>
+		<Suspense
+			fallback={
+				<Panel {...panelProps} className={classes(panelProps.className, styles.loading)}>
+					Loading files…
+				</Panel>
+			}
+		>
 			{Match.value(outlineSelection).pipe(
 				Match.tag("Commit", (commit) => (
 					<CommitFilesTreePanel {...panelProps} projectId={projectId} commit={commit} />
@@ -398,7 +408,7 @@ const useIsSelected = ({ projectId, operand }: { projectId: string; operand: Ope
 const treeItemId = (operand: Operand): string =>
 	`files-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
 
-const changeLabel = (change: TreeChange) => {
+const changeLabel = (change: TreeChange): [enhancedLabel: ReactNode, rawLabel: string] => {
 	const status = Match.value(change.status).pipe(
 		Match.when({ type: "Addition" }, () => "A"),
 		Match.when({ type: "Deletion" }, () => "D"),
@@ -407,7 +417,15 @@ const changeLabel = (change: TreeChange) => {
 		Match.exhaustive,
 	);
 
-	return `${status} ${change.path}`;
+	return [
+		<>
+			<span className={styles.fileStatusChar} data-char={status}>
+				{status}
+			</span>{" "}
+			{change.path}
+		</>,
+		`${status} ${change.path}`,
+	];
 };
 
 const ItemRow: FC<
@@ -429,6 +447,7 @@ const ItemRow: FC<
 			inert={!navigationIndexIncludes(navigationIndex, operand)}
 			isSelected={isSelected}
 			onSelect={selectItem}
+			className={styles.item}
 		/>
 	);
 };
@@ -458,23 +477,27 @@ const TreeChangeRow: FC<{
 	change: TreeChange;
 	operand: Operand;
 	projectId: string;
-}> = ({ change, operand, projectId }) => (
-	<TreeItem
-		projectId={projectId}
-		operand={operand}
-		aria-label={changeLabel(change)}
-		render={
-			<OperationSourceC
-				projectId={projectId}
-				selectionScope="files"
-				source={operand}
-				render={<ItemRow projectId={projectId} operand={operand} />}
-			/>
-		}
-	>
-		<div className={workspaceItemRowStyles.itemRowLabel}>{changeLabel(change)}</div>
-	</TreeItem>
-);
+}> = ({ change, operand, projectId }) => {
+	const [label, strLabel] = changeLabel(change);
+
+	return (
+		<TreeItem
+			projectId={projectId}
+			operand={operand}
+			aria-label={strLabel}
+			render={
+				<OperationSourceC
+					projectId={projectId}
+					selectionScope="files"
+					source={operand}
+					render={<ItemRow projectId={projectId} operand={operand} />}
+				/>
+			}
+		>
+			<div className={workspaceItemRowStyles.itemRowLabel}>{label}</div>
+		</TreeItem>
+	);
+};
 
 const ConflictedFileRow: FC<{
 	path: string;
@@ -535,11 +558,13 @@ const ChangesFileRow: FC<{
 
 	const menuItems: Array<NativeMenuItem> = [absorbContextMenuItem];
 
+	const [label, strLabel] = changeLabel(change);
+
 	return (
 		<TreeItem
 			projectId={projectId}
 			operand={operand}
-			aria-label={changeLabel(change)}
+			aria-label={strLabel}
 			render={
 				<OperationSourceC
 					projectId={projectId}
@@ -555,7 +580,7 @@ const ChangesFileRow: FC<{
 					void showNativeContextMenu(event, menuItems);
 				}}
 			>
-				{changeLabel(change)}
+				{label}
 			</div>
 			{outlineMode._tag === "Default" && (
 				<WorkspaceItemRowToolbar aria-label="File actions">

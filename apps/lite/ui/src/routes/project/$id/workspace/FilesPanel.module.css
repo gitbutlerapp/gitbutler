@@ -3,3 +3,26 @@
 	row-gap: 24px;
 	flex-direction: column;
 }
+
+.item,
+.loading {
+	font-size: 13px;
+}
+
+.fileStatusChar {
+	&[data-char="A"] {
+		color: #64d5a6;
+	}
+
+	&[data-char="D"] {
+		color: #f08a8a;
+	}
+
+	&[data-char="M"] {
+		color: #95c9f0;
+	}
+
+	&[data-char="R"] {
+		color: #a855f7;
+	}
+}

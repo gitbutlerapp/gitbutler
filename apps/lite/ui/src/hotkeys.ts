@@ -92,10 +92,6 @@ export const workspaceHotkeys = {
 		hotkey: "L",
 		meta: { group: "Panels", name: "Focus next panel" },
 	},
-	toggleDetailsPanel: {
-		hotkey: "D",
-		meta: { group: "Details", name: "Toggle details" },
-	},
 	toggleFilesPanel: {
 		hotkey: "F",
 		meta: { group: "Files", name: "Toggle files" },

@@ -2,6 +2,7 @@
 	display: flex;
 	position: relative;
 	flex-direction: column;
+	min-width: 0;
 }
 
 .activeTarget {
@@ -20,7 +21,7 @@
 	position: absolute;
 	height: var(--indicator-height);
 	inset-inline: 0;
-	background-color: hotpink;
+	background-color: var(--clr-pop-70);
 	pointer-events: none;
 }
 
