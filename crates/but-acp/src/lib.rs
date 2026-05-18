@@ -11,7 +11,7 @@ use agent_client_protocol::{
     schema::{
         InitializeRequest, NewSessionRequest, PermissionOptionKind, ProtocolVersion,
         RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
-        SelectedPermissionOutcome, SessionNotification,
+        SelectedPermissionOutcome,
     },
 };
 use anyhow::{Context as _, Result};
@@ -154,10 +154,6 @@ pub async fn prompt_once(config: AcpCommandConfig, cwd: PathBuf, prompt: String)
 
     Client
         .builder()
-        .on_receive_notification(
-            async move |_notification: SessionNotification, _cx| Ok(()),
-            agent_client_protocol::on_receive_notification!(),
-        )
         .on_receive_request(
             async move |request: RequestPermissionRequest, responder, _connection| {
                 tracing::debug!(
