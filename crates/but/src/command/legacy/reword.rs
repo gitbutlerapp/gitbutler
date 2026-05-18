@@ -99,7 +99,7 @@ fn edit_branch_name(
                 crate::command::config::get_comment_char(&config)
             };
             let new_name = prepare_provided_message(message, "branch name")
-                .unwrap_or_else(|| get_branch_name_from_editor(branch_name, comment_char))?;
+                .unwrap_or_else(|| get_branch_name_from_editor(branch_name, &comment_char))?;
             but_api::legacy::stack::update_branch_name_with_perm(
                 ctx,
                 sid,
@@ -160,7 +160,7 @@ pub(crate) fn get_commit_message_from_editor(
         &editor_initial_message,
         &changed_files,
         diff.as_deref(),
-        comment_char,
+        &comment_char,
     )?;
 
     if should_update_commit_message(current_message_for_comparison, &new_message) {
@@ -262,7 +262,7 @@ fn actually_get_commit_message_from_editor(
     current_message: &str,
     changed_files: &[String],
     diff: Option<&[BString]>,
-    comment_char: char,
+    comment_char: &str,
 ) -> Result<String> {
     // Generate commit message template with current message
     let mut template = String::new();
@@ -305,7 +305,7 @@ fn actually_get_commit_message_from_editor(
     Ok(lossy_message)
 }
 
-pub(crate) fn get_branch_name_from_editor(current_name: &str, comment_char: char) -> Result<String> {
+pub(crate) fn get_branch_name_from_editor(current_name: &str, comment_char: &str) -> Result<String> {
     let mut template = String::new();
     template.push_str(current_name);
     if !current_name.is_empty() && !current_name.ends_with('\n') {

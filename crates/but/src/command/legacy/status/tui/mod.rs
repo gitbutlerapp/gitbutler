@@ -2333,7 +2333,7 @@ impl App {
                     let config = repo.config_snapshot();
                     crate::command::config::get_comment_char(&config)
                 };
-                let new_name = get_branch_name_from_editor(line, comment_char)?;
+                let new_name = get_branch_name_from_editor(line, &comment_char)?;
                 let normalized_name =
                     operations::reword_branch_legacy(ctx, *stack_id, name.clone(), new_name)?;
                 SelectAfterReload::Branch(normalized_name)

@@ -430,7 +430,7 @@ pub(crate) fn commit(
             let config = repo.config_snapshot();
             crate::command::config::get_comment_char(&config)
         };
-        get_commit_message_from_editor(ctx, &files_to_commit, &changes, show_diff_in_editor, comment_char)?
+        get_commit_message_from_editor(ctx, &files_to_commit, &changes, show_diff_in_editor, &comment_char)?
     };
 
     if commit_message.trim().is_empty() {
@@ -734,7 +734,7 @@ fn get_commit_message_from_editor(
     files_to_commit: &[FileAssignment],
     changes: &[TreeChange],
     show_diff_in_editor: ShowDiffInEditor,
-    comment_char: char,
+    comment_char: &str,
 ) -> anyhow::Result<String> {
     // Generate commit message template
     let mut template = String::new();

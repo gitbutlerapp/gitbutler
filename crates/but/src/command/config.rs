@@ -357,19 +357,17 @@ pub(crate) fn load_app_settings_sync() -> Result<AppSettingsWithDiskSync> {
     AppSettingsWithDiskSync::new_with_customization(config_dir, None)
 }
 
-/// Get the comment character from git config. Defaults to '#' if not set or set to "auto".
-pub(crate) fn get_comment_char(config: &gix::config::Snapshot<'_>) -> char {
+/// Get the comment character(s) from git config. Defaults to "#" if not set or set to "auto".
+pub(crate) fn get_comment_char(config: &gix::config::Snapshot<'_>) -> String {
     if let Some(s) = config.string("core.commentChar") {
         let s_str = s.to_str_lossy();
-        if s_str == "auto" {
-            '#'
-        } else if let Some(c) = s_str.chars().next() {
-            c
+        if s_str == "auto" || s_str.is_empty() {
+            "#".to_string()
         } else {
-            '#'
+            s_str.to_string()
         }
     } else {
-        '#'
+        "#".to_string()
     }
 }
 
