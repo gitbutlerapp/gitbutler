@@ -1,4 +1,8 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    collections::BTreeSet,
+    path::{Component, Path, PathBuf},
+    sync::Arc,
+};
 
 use anyhow::{Context as _, Result};
 use but_core::{TreeChange, sync::RepoExclusive};
@@ -11,10 +15,12 @@ use gitbutler_filemonitor::{
     FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR, REMOTE_REFS_DIR,
 };
 use gitbutler_operating_modes::operating_mode;
-use gix::bstr::ByteSlice as _;
+use gix::{bstr::ByteSlice as _, config::AsKey as _};
 use tracing::instrument;
 
 use crate::Change;
+
+const LOCAL_IGNORED_PATH_KEY: &str = "gitbutler.localignoredpath";
 
 /// A type that contains enough state to make decisions based on changes in the filesystem, which themselves
 /// may trigger [Changes](Change)
@@ -85,6 +91,17 @@ impl Handler {
         ctx: &mut Context,
         perm: &mut RepoExclusive,
     ) -> Result<()> {
+        let repo = ctx.repo.get()?;
+        let locally_ignored_paths = list_local_ignored_paths(&repo)?;
+        if !locally_ignored_paths.is_empty()
+            && paths
+                .iter()
+                .all(|path| path_is_locally_ignored(path, &locally_ignored_paths))
+        {
+            return Ok(());
+        }
+        drop(repo);
+
         _ = self.emit_worktree_changes(project_id, ctx, perm);
         Ok(())
     }
@@ -98,7 +115,9 @@ impl Handler {
         let context_lines = ctx.settings.context_lines;
         let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
 
-        let wt_changes = but_core::diff::worktree_changes(&repo)?;
+        let locally_ignored_paths = list_local_ignored_paths(&repo)?;
+        let mut wt_changes = but_core::diff::worktree_changes(&repo)?;
+        filter_locally_ignored_worktree_changes(&mut wt_changes, &locally_ignored_paths);
 
         let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
             &repo,
@@ -249,4 +268,103 @@ fn assignments_and_errors(
         assignments,
         assignments_error.map(|err| serde_error::Error::new(&*err)),
     ))
+}
+
+fn list_local_ignored_paths(repo: &gix::Repository) -> Result<Vec<String>> {
+    let path = repo.common_dir().join("config");
+    if !path.exists() {
+        return Ok(vec![]);
+    }
+
+    let config = gix::config::File::from_path_no_includes(path.clone(), gix::config::Source::Local)
+        .with_context(|| format!("failed to open Local git config at {}", path.display()))?;
+    let key = LOCAL_IGNORED_PATH_KEY
+        .try_as_key()
+        .with_context(|| format!("invalid git config key: {LOCAL_IGNORED_PATH_KEY}"))?;
+
+    let mut paths = BTreeSet::new();
+    if let Ok(values) = config.raw_values_by(key.section_name, key.subsection_name, key.value_name)
+    {
+        for value in values {
+            if let Some(normalized) =
+                normalize_local_ignore_path_string(&String::from_utf8_lossy(value.as_ref()))
+            {
+                paths.insert(normalized);
+            }
+        }
+    }
+    Ok(paths.into_iter().collect())
+}
+
+fn filter_locally_ignored_worktree_changes(
+    changes: &mut but_core::WorktreeChanges,
+    locally_ignored_paths: &[String],
+) {
+    if locally_ignored_paths.is_empty() {
+        return;
+    }
+
+    changes.changes.retain(|change| {
+        !path_bytes_are_locally_ignored(change.path.as_slice(), locally_ignored_paths)
+    });
+    changes.ignored_changes.retain(|change| {
+        !path_bytes_are_locally_ignored(change.path.as_slice(), locally_ignored_paths)
+    });
+    changes.index_conflicts.retain(|(path, _)| {
+        !path_bytes_are_locally_ignored(path.as_slice(), locally_ignored_paths)
+    });
+}
+
+fn path_bytes_are_locally_ignored(path: &[u8], ignored_paths: &[String]) -> bool {
+    let Some(normalized_path) = normalize_local_ignore_path_string(&String::from_utf8_lossy(path))
+    else {
+        return false;
+    };
+    normalized_path_is_locally_ignored(&normalized_path, ignored_paths)
+}
+
+fn path_is_locally_ignored(path: &Path, ignored_paths: &[String]) -> bool {
+    let Some(normalized_path) = normalize_local_ignore_path(path) else {
+        return false;
+    };
+    normalized_path_is_locally_ignored(&normalized_path, ignored_paths)
+}
+
+fn normalized_path_is_locally_ignored(normalized_path: &str, ignored_paths: &[String]) -> bool {
+    ignored_paths.iter().any(|ignored_path| {
+        normalized_path == ignored_path || normalized_path.starts_with(&format!("{ignored_path}/"))
+    })
+}
+
+fn normalize_local_ignore_path(path: &Path) -> Option<String> {
+    let mut parts = Vec::new();
+    for component in path.components() {
+        match component {
+            Component::Normal(part) => {
+                let part = part.to_string_lossy();
+                for nested in part
+                    .split(['/', '\\'])
+                    .filter(|segment| !segment.is_empty())
+                {
+                    parts.push(nested.to_owned());
+                }
+            }
+            Component::CurDir => {}
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => return None,
+        }
+    }
+    (!parts.is_empty()).then(|| parts.join("/"))
+}
+
+fn normalize_local_ignore_path_string(path: &str) -> Option<String> {
+    let normalized = path.replace('\\', "/");
+    let mut parts = Vec::new();
+    for part in normalized.split('/') {
+        match part {
+            "" | "." => continue,
+            ".." => return None,
+            _ => parts.push(part),
+        }
+    }
+    (!parts.is_empty()).then(|| parts.join("/"))
 }

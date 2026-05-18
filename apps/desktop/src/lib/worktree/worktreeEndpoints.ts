@@ -16,20 +16,19 @@ import type {
 	WorktreeChanges,
 } from "@gitbutler/but-sdk";
 
+export type WorktreeData = {
+	changes: EntityState<TreeChange, string>;
+	rawChanges: TreeChange[];
+	ignoredChanges: IgnoredWorktreeChange[];
+	hunkAssignments: HunkAssignment[];
+	dependencies: HunkDependencies | undefined;
+	dependenciesError: DependencyError | undefined;
+};
+
 export function buildWorktreeEndpoints(build: BackendEndpointBuilder) {
 	return {
 		// ── Worktree Changes ────────────────────────────────────────
-		worktreeChanges: build.query<
-			{
-				changes: EntityState<TreeChange, string>;
-				rawChanges: TreeChange[];
-				ignoredChanges: IgnoredWorktreeChange[];
-				hunkAssignments: HunkAssignment[];
-				dependencies: HunkDependencies | undefined;
-				dependenciesError: DependencyError | undefined;
-			},
-			{ projectId: string }
-		>({
+		worktreeChanges: build.query<WorktreeData, { projectId: string }>({
 			extraOptions: { command: "changes_in_worktree" },
 			query: (args) => args,
 			providesTags: [providesList(ReduxTag.WorktreeChanges)],
@@ -101,9 +100,9 @@ export function buildWorktreeEndpoints(build: BackendEndpointBuilder) {
 				relativePath: path,
 				ignored,
 			}),
-			invalidatesTags: [
-				invalidatesList(ReduxTag.WorktreeChanges),
+			invalidatesTags: (_result, _error, args) => [
 				invalidatesList(ReduxTag.LocalIgnoredPaths),
+				...(!args.ignored ? [invalidatesList(ReduxTag.WorktreeChanges)] : []),
 			],
 		}),
 

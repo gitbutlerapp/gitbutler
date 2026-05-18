@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 use tracing::instrument;
 use uuid::Uuid;
 
-const MAX_EAGER_HUNK_PATCHES: usize = 500;
+const MAX_EAGER_HUNK_PATCHES: usize = 200;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]

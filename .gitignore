@@ -4,6 +4,7 @@
 generated-archives/
 generated-do-not-edit/
 /cli-docs/
+/references/
 
 # editors
 .idea
