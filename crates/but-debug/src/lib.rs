@@ -25,8 +25,13 @@ pub fn handle_args(
 
     let _span = tracing::info_span!("run").entered();
     match &args.cmd {
+        Subcommands::Api(api_args) => command::api::run(&args, api_args, out, err),
         Subcommands::Dump(dump_args) => command::dump::run(&args, dump_args, out, err),
         Subcommands::Graph(graph_args) => command::graph::run(&args, graph_args, out, err),
+        Subcommands::Apply(apply_args) => command::workspace::apply(&args, apply_args, out, err),
+        Subcommands::Unapply(unapply_args) => {
+            command::workspace::unapply(&args, unapply_args, out, err)
+        }
         Subcommands::Revision(revision_args) => command::revision::run(&args, revision_args, out),
     }
 }
