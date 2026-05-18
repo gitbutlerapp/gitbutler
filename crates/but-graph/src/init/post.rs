@@ -157,7 +157,7 @@ impl Graph {
         }
     }
 
-    /// After everything, assure the entrypoint still points to a segment with the correct ref-name,
+    /// After everything, ensure the entrypoint still points to a segment with the correct ref-name,
     /// if one was given when starting the traversal.
     /// If not, try to find a segment with the right ref-name.
     ///
