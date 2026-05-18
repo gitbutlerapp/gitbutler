@@ -270,14 +270,26 @@ impl RepositoryExt for gix::Repository {
         };
 
         let (mut pipeline, index) = self.filter_pipeline(None)?;
+        let work_dir = self.workdir().context("non-bare repository")?;
         let mut added_worktree_file = |rela_path: &BStr,
-                                       head_tree_editor: &mut gix::object::tree::Editor<'_>|
+                                       head_tree_editor: &mut gix::object::tree::Editor<'_>,
+                                       apply_size_limit: bool|
          -> anyhow::Result<bool> {
+            if apply_size_limit && untracked_limit_in_bytes != 0 {
+                let path = work_dir.join(gix::path::from_bstr(rela_path));
+                let md = gix::index::fs::Metadata::from_path_no_follow(&path)?;
+                if md.len() > untracked_limit_in_bytes {
+                    return Ok(false);
+                }
+            }
             let Some((id, kind, md)) = pipeline.worktree_file_to_object(rela_path, &index)? else {
                 head_tree_editor.remove(rela_path)?;
                 return Ok(false);
             };
-            if untracked_limit_in_bytes != 0 && md.len() > untracked_limit_in_bytes {
+            if apply_size_limit
+                && untracked_limit_in_bytes != 0
+                && md.len() > untracked_limit_in_bytes
+            {
                 return Ok(false);
             }
             head_tree_editor.upsert(rela_path, kind, id)?;
@@ -358,7 +370,7 @@ impl RepositoryExt for gix::Repository {
                         | EntryStatus::IntentToAdd,
                     ..
                 }) => {
-                    if added_worktree_file(rela_path.as_ref(), &mut head_tree_editor)? {
+                    if added_worktree_file(rela_path.as_ref(), &mut head_tree_editor, false)? {
                         worktreepaths_changed.insert(rela_path);
                     }
                 }
@@ -412,7 +424,7 @@ impl RepositoryExt for gix::Repository {
         }
 
         for rela_path in untracked_items {
-            added_worktree_file(rela_path.as_ref(), &mut head_tree_editor)?;
+            added_worktree_file(rela_path.as_ref(), &mut head_tree_editor, true)?;
         }
 
         Ok(head_tree_editor.write()?.detach())

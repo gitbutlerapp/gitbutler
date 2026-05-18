@@ -25,12 +25,14 @@ pub mod irc_lifecycle;
 
 pub mod logs;
 pub mod menu;
+pub mod modes;
 pub mod window;
 pub use window::state::{WindowState, event::ChangeForFrontend};
 
 pub mod action;
 pub mod askpass;
 pub mod debug;
+pub mod git_operation_progress;
 pub mod projects;
 pub mod upstream;
 

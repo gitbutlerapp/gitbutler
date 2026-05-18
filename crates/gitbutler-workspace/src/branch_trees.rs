@@ -104,15 +104,18 @@ pub fn update_uncommitted_changes_with_tree(
             }
         }
 
-        repo.checkout_index(
-            Some(&mut new_uncommitted_changes),
-            Some(
-                git2::build::CheckoutBuilder::new()
-                    .force()
-                    .remove_untracked(true)
-                    .conflict_style_diff3(true),
-            ),
-        )?;
+        {
+            let _lfs_scope = but_core::lfs::LfsFastOperationScope::new();
+            repo.checkout_index(
+                Some(&mut new_uncommitted_changes),
+                Some(
+                    git2::build::CheckoutBuilder::new()
+                        .force()
+                        .remove_untracked(true)
+                        .conflict_style_diff3(true),
+                ),
+            )?;
+        }
     } else {
         let gix_repo = ctx.clone_repo_for_merging()?;
         let old_tree_id = merge_workspace(&gix_repo, &old)?;

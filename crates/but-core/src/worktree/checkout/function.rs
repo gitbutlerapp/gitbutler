@@ -140,6 +140,7 @@ pub fn safe_checkout(
             }
         }
 
+        let _lfs_scope = crate::lfs::LfsFastOperationScope::new();
         git2_repo.checkout_tree(
             &destination_tree,
             Some(opts.update_index(true).force().disable_pathspec_match(true)),

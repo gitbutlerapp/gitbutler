@@ -4,6 +4,7 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import EditModeFileListItem from "$components/workspace/EditModeFileListItem.svelte";
 	import UnityConflictResolverModal from "$components/workspace/UnityConflictResolverModal.svelte";
+	import { BACKEND } from "$lib/backend";
 	import { getEditorUri, URL_SERVICE } from "$lib/backend/url";
 	import { splitMessage } from "$lib/commits/commitMessage";
 	import { hasUnresolvedConflictsOnDisk } from "$lib/files/conflictCheck";
@@ -39,6 +40,7 @@
 
 	const stackService = inject(STACK_SERVICE);
 	const modeService = inject(MODE_SERVICE);
+	const backend = inject(BACKEND);
 	const uiState = inject(UI_STATE);
 	const urlService = inject(URL_SERVICE);
 	const fileService = inject(FILE_SERVICE);
@@ -57,6 +59,15 @@
 	let contextMenu = $state<ReturnType<typeof ChangedFilesContextMenu> | undefined>(undefined);
 	let confirmSaveModal = $state<ReturnType<typeof Modal> | undefined>(undefined);
 	let unityConflictModal = $state<UnityConflictResolverModal | undefined>(undefined);
+	let gitOperationProgress = $state<GitOperationProgress | undefined>();
+
+	type GitOperationProgress = {
+		operation: string;
+		phase: string;
+		phaseLabel: string;
+		elapsedMs: number;
+		detail?: string;
+	};
 
 	interface FileEntry {
 		path: string;
@@ -188,6 +199,35 @@
 	const loading = $derived(savingEdit.current.isLoading || abortingEdit.current.isLoading);
 
 	let abortModal = $state<Modal>();
+
+	$effect(() => {
+		if (!loading) {
+			gitOperationProgress = undefined;
+			return;
+		}
+
+		const unlisten = backend.listen<GitOperationProgress>(
+			`project://${projectId}/git_operation_progress`,
+			({ payload }) => {
+				if (payload.operation === "returnToWorkspace") {
+					gitOperationProgress = payload;
+				}
+			},
+		);
+
+		return () => {
+			void unlisten();
+		};
+	});
+
+	function formatElapsed(ms: number | undefined): string | undefined {
+		if (ms === undefined) return undefined;
+		const seconds = Math.floor(ms / 1000);
+		if (seconds < 60) return `${seconds}s`;
+		const minutes = Math.floor(seconds / 60);
+		const remainingSeconds = seconds % 60;
+		return `${minutes}m ${remainingSeconds}s`;
+	}
 
 	function handleResolvedUnityConflict(path: string) {
 		manuallyResolvedFiles.add(path);
@@ -359,6 +399,19 @@
 						Save changes and exit
 					</Button>
 				</div>
+				{#if loading}
+					<div class="editmode__progress">
+						<span>{gitOperationProgress?.phaseLabel ?? "Returning to workspace"}</span>
+						{#if gitOperationProgress?.elapsedMs !== undefined}
+							<span>{formatElapsed(gitOperationProgress.elapsedMs)}</span>
+						{/if}
+					</div>
+					{#if gitOperationProgress?.detail}
+						<p class="text-12 clr-text-2 editmode__progress-detail">
+							{gitOperationProgress.detail}
+						</p>
+					{/if}
+				{/if}
 			</div>
 
 			<ChangedFilesContextMenu
@@ -432,6 +485,22 @@
 		justify-content: flex-end;
 		padding-bottom: 24px;
 		gap: 8px;
+	}
+
+	.editmode__progress {
+		display: flex;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 10px 12px;
+		border: 1px solid var(--border-2);
+		border-radius: var(--radius-m);
+		color: var(--text-1);
+		background-color: var(--bg-2);
+		font-size: 12px;
+	}
+
+	.editmode__progress-detail {
+		margin-top: 6px;
 	}
 
 	.files {

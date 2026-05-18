@@ -101,6 +101,9 @@ pub mod snapshot;
 /// Utilities to deal with git worktrees.
 pub mod worktree;
 
+/// Utilities for Git LFS-aware operations.
+pub mod lfs;
+
 /// Utilities to create Git trees.
 pub mod tree;
 

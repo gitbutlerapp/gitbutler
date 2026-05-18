@@ -51,8 +51,23 @@ describe("IntegrateUpstreamModal", () => {
 					};
 			  }) => void)
 			| undefined;
-		const listen = vi.fn((_event: string, handler: typeof progressHandler) => {
-			progressHandler = handler;
+		let gitOperationProgressHandler:
+			| ((event: {
+					payload: {
+						operation: string;
+						phase: string;
+						phaseLabel: string;
+						elapsedMs: number;
+						detail?: string;
+					};
+			  }) => void)
+			| undefined;
+		const listen = vi.fn((event: string, handler: typeof progressHandler) => {
+			if (event.endsWith("/workspace_update_progress")) {
+				progressHandler = handler;
+			} else {
+				gitOperationProgressHandler = handler as typeof gitOperationProgressHandler;
+			}
 			return async () => {};
 		});
 
@@ -93,9 +108,7 @@ describe("IntegrateUpstreamModal", () => {
 		await user.click(await screen.findByRole("button", { name: "Update workspace" }));
 		expect(await screen.findByRole("button", { name: "Updating workspace…" })).toBeInTheDocument();
 		expect(
-			screen.getByText(
-				"Preparing workspace update. Working through incoming changes and waiting for transfer progress.",
-			),
+			screen.getByText("Preparing workspace update. Waiting for Git progress."),
 		).toBeInTheDocument();
 
 		await waitFor(() =>
@@ -104,6 +117,27 @@ describe("IntegrateUpstreamModal", () => {
 				expect.any(Function),
 			),
 		);
+		await waitFor(() =>
+			expect(listen).toHaveBeenCalledWith(
+				"project://project-1/git_operation_progress",
+				expect.any(Function),
+			),
+		);
+
+		gitOperationProgressHandler?.({
+			payload: {
+				operation: "upstreamIntegration",
+				phase: "treeMerge",
+				phaseLabel: "Integrating upstream changes",
+				elapsedMs: 4000,
+				detail: "Git LFS hydration is deferred for this operation.",
+			},
+		});
+
+		expect(await screen.findByText("Integrating upstream changes")).toBeInTheDocument();
+		expect(
+			screen.getByText("Git LFS hydration is deferred for this operation."),
+		).toBeInTheDocument();
 
 		progressHandler?.({
 			payload: {

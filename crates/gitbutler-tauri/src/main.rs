@@ -22,7 +22,7 @@ use but_settings::AppSettingsWithDiskSync;
 #[cfg(feature = "irc")]
 use gitbutler_tauri_lib::irc;
 use gitbutler_tauri_lib::{
-    WindowState, action, askpass, claude, csp::csp_with_extras, env, logs, menu, projects,
+    WindowState, action, askpass, claude, csp::csp_with_extras, env, logs, menu, modes, projects,
     settings, upstream, zip,
 };
 use tauri::{Emitter, Manager, generate_context};
@@ -393,8 +393,8 @@ fn main() -> anyhow::Result<()> {
                 legacy::modes::tauri_operating_mode::operating_mode,
                 legacy::modes::tauri_head_sha::head_sha,
                 legacy::modes::tauri_enter_edit_mode::enter_edit_mode,
-                legacy::modes::tauri_save_edit_and_return_to_workspace::save_edit_and_return_to_workspace,
-                legacy::modes::tauri_abort_edit_and_return_to_workspace::abort_edit_and_return_to_workspace,
+                modes::save_edit_and_return_to_workspace,
+                modes::abort_edit_and_return_to_workspace,
                 legacy::modes::tauri_edit_initial_index_state::edit_initial_index_state,
                 legacy::modes::tauri_edit_changes_from_initial::edit_changes_from_initial,
                 legacy::open::tauri_open_url::open_url,

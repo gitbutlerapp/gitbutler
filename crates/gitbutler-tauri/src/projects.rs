@@ -11,7 +11,10 @@ use gix::bstr::ByteSlice;
 use tauri::{State, Window};
 use tracing::instrument;
 
-use crate::{WindowState, window, window::state::ProjectAccessMode};
+use crate::{
+    WindowState, git_operation_progress::GitOperationProgressEmitter, window,
+    window::state::ProjectAccessMode,
+};
 
 #[tauri::command(async)]
 #[instrument(skip(window_state), err(Debug))]
@@ -56,6 +59,8 @@ pub fn set_project_active(
     window: Window,
     id: ProjectHandleOrLegacyProjectId,
 ) -> Result<Option<ProjectInfo>, json::Error> {
+    let progress = GitOperationProgressEmitter::new(&window, &id, "projectActivation");
+    progress.phase("open", "Opening repository", None);
     // We don't get the legacy object in a validated fashion anymore, but that should be fine
     // as this only tries to open a Repo, and that's something we do later here as well.
     let mut ctx: Context = match id.clone().try_into() {
@@ -65,10 +70,13 @@ pub fn set_project_active(
             return Ok(None);
         }
     };
+    progress.phase("prepare", "Preparing project metadata", None);
     but_api::legacy::projects::prepare_project_for_activation(&mut ctx)?;
 
+    progress.phase("database", "Checking project database", None);
     let db_error = assure_database_valid(ctx.project_data_dir())?;
     let (unity_headsup, filter_error) = {
+        progress.phase("attributes", "Scanning worktree filters", None);
         let repo = ctx.repo.get()?;
         (
             but_api::legacy::projects::project_activation_headsup(&repo)?,
@@ -83,11 +91,13 @@ pub fn set_project_active(
             tracing::warn!("{message}");
         }
     }
+    progress.phase("watch", "Starting project watchers", None);
     let mode = window_state.set_project_to_window(window.label(), &app_settings_sync, &mut ctx)?;
     let is_exclusive = match mode {
         ProjectAccessMode::First => true,
         ProjectAccessMode::Shared => false,
     };
+    progress.phase("complete", "Project ready", None);
     Ok(Some(ProjectInfo {
         is_exclusive,
         db_error,

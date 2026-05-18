@@ -171,18 +171,21 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     let our_commit_msg = commit_title_to_merge_conflict_label(&commit_parent);
     let our_label = format!("New base: {our_commit_msg}");
 
-    git2_repo.checkout_index(
-        Some(&mut index),
-        Some(
-            CheckoutBuilder::new()
-                .force()
-                .remove_untracked(true)
-                .conflict_style_diff3(true)
-                .ancestor_label("Common ancestor")
-                .our_label(&our_label)
-                .their_label(&their_label),
-        ),
-    )?;
+    {
+        let _lfs_scope = but_core::lfs::LfsFastOperationScope::new();
+        git2_repo.checkout_index(
+            Some(&mut index),
+            Some(
+                CheckoutBuilder::new()
+                    .force()
+                    .remove_untracked(true)
+                    .conflict_style_diff3(true)
+                    .ancestor_label("Common ancestor")
+                    .our_label(&our_label)
+                    .their_label(&their_label),
+            ),
+        )?;
+    }
 
     Ok(())
 }
@@ -265,10 +268,13 @@ pub(crate) fn abort_and_return_to_workspace(
     let uncommited_changes = get_uncommitted_changes(&*ctx.repo.get()?)?;
     let uncommited_changes = repo.find_tree(uncommited_changes.to_git2())?;
 
-    repo.checkout_tree(
-        uncommited_changes.as_object(),
-        Some(CheckoutBuilder::new().force().remove_untracked(true)),
-    )?;
+    {
+        let _lfs_scope = but_core::lfs::LfsFastOperationScope::new();
+        repo.checkout_tree(
+            uncommited_changes.as_object(),
+            Some(CheckoutBuilder::new().force().remove_untracked(true)),
+        )?;
+    }
 
     Ok(())
 }
@@ -346,7 +352,10 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     git2_repo
         .set_head(WORKSPACE_BRANCH_REF)
         .context("Failed to set head reference")?;
-    git2_repo.checkout_head(Some(CheckoutBuilder::new().force()))?;
+    {
+        let _lfs_scope = but_core::lfs::LfsFastOperationScope::new();
+        git2_repo.checkout_head(Some(CheckoutBuilder::new().force()))?;
+    }
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let uncommtied_changes = get_uncommitted_changes(repo)?;

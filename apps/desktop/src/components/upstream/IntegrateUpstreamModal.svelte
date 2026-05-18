@@ -76,6 +76,8 @@
 	let targetCommitOid = $state<string | undefined>(undefined);
 	let branchStatuses = $state<StackStatusesWithBranchesV3 | undefined>();
 	let workspaceUpdateProgress = $state<WorkspaceUpdateProgress | undefined>();
+	let gitOperationProgress = $state<GitOperationProgress | undefined>();
+	let activeProgress = $derived(activeProgressPercent(workspaceUpdateProgress, gitOperationProgress));
 	// const stackService = getContext(StackService);
 	// let appliedBranches = $state<string[]>();
 	// Any PRs belonging to applied branches that have been merged
@@ -96,18 +98,47 @@
 		path: string;
 	};
 
+	type GitOperationProgress = {
+		operation: string;
+		phase: string;
+		phaseLabel: string;
+		elapsedMs: number;
+		path?: string;
+		currentPath?: number;
+		totalPaths?: number;
+		bytesDone?: number;
+		bytesTotal?: number;
+		bytesPerSecond?: number;
+		lfsDirection?: string;
+		detail?: string;
+	};
+
 	$effect(() => {
 		if (integratingUpstream !== "loading") {
 			workspaceUpdateProgress = undefined;
+			gitOperationProgress = undefined;
 			return;
 		}
 
-		return backend.listen<WorkspaceUpdateProgress>(
+		const unlistenWorkspaceProgress = backend.listen<WorkspaceUpdateProgress>(
 			`project://${projectId}/workspace_update_progress`,
 			({ payload }) => {
 				workspaceUpdateProgress = payload;
 			},
 		);
+		const unlistenGitOperationProgress = backend.listen<GitOperationProgress>(
+			`project://${projectId}/git_operation_progress`,
+			({ payload }) => {
+				if (payload.operation === "upstreamIntegration") {
+					gitOperationProgress = payload;
+				}
+			},
+		);
+
+		return () => {
+			void unlistenWorkspaceProgress();
+			void unlistenGitOperationProgress();
+		};
 	});
 
 	function someBranchesShouldNotBeDeleted(branchNames: string[]): boolean {
@@ -247,9 +278,39 @@
 		return `${Math.round(progressPercent)}%`;
 	}
 
-	function workspaceUpdateStatusText(progress: WorkspaceUpdateProgress | undefined): string {
+	function formatElapsed(ms: number | undefined): string | undefined {
+		if (ms === undefined) return undefined;
+		const seconds = Math.floor(ms / 1000);
+		if (seconds < 60) return `${seconds}s`;
+		const minutes = Math.floor(seconds / 60);
+		const remainingSeconds = seconds % 60;
+		return `${minutes}m ${remainingSeconds}s`;
+	}
+
+	function activeProgressPercent(
+		workspaceProgress: WorkspaceUpdateProgress | undefined,
+		gitProgress: GitOperationProgress | undefined,
+	): number | undefined {
+		if (workspaceProgress) return workspaceProgress.progressPercent;
+		if (
+			gitProgress?.bytesDone !== undefined &&
+			gitProgress.bytesTotal !== undefined &&
+			gitProgress.bytesTotal > 0
+		) {
+			return (gitProgress.bytesDone / gitProgress.bytesTotal) * 100;
+		}
+		return undefined;
+	}
+
+	function workspaceUpdateStatusText(
+		progress: WorkspaceUpdateProgress | undefined,
+		gitProgress: GitOperationProgress | undefined = gitOperationProgress,
+	): string {
 		if (!progress) {
-			return "Preparing workspace update. Working through incoming changes and waiting for transfer progress.";
+			const elapsed = formatElapsed(gitProgress?.elapsedMs);
+			const phase = gitProgress?.phaseLabel ?? "Preparing workspace update";
+			const suffix = elapsed ? `Elapsed ${elapsed}.` : "Waiting for Git progress.";
+			return `${phase}. ${suffix}`;
 		}
 
 		const speed = formatTransferSpeed(progress.bytesPerSecond);
@@ -260,10 +321,13 @@
 			: `Downloading ${fileLabel}. ${progressLabel}.`;
 	}
 
-	function workspaceUpdateTooltip(progress: WorkspaceUpdateProgress | undefined): string {
-		const status = workspaceUpdateStatusText(progress);
+	function workspaceUpdateTooltip(
+		progress: WorkspaceUpdateProgress | undefined,
+		gitProgress: GitOperationProgress | undefined = gitOperationProgress,
+	): string {
+		const status = workspaceUpdateStatusText(progress, gitProgress);
 		if (!progress) {
-			return `${status} This can take a while in large Unity repositories.`;
+			return gitProgress?.detail ? `${status} ${gitProgress.detail}` : status;
 		}
 
 		return `${status} Current path: ${progress.path}`;
@@ -518,30 +582,39 @@
 		<div class="progress-tip">
 			<div class="progress-tip-header">
 				<div class="progress-tip-copy">
-					<h3 class="text-14 text-semibold">Updating workspace</h3>
+					<h3 class="text-14 text-semibold">
+						{gitOperationProgress?.phaseLabel ?? "Updating workspace"}
+					</h3>
 					<p class="text-12 clr-text-2">
 						{#if workspaceUpdateProgress}
 							File {workspaceUpdateProgress.currentFile} of {workspaceUpdateProgress.totalFiles}
+						{:else if gitOperationProgress?.detail}
+							{gitOperationProgress.detail}
+						{:else if gitOperationProgress?.elapsedMs !== undefined}
+							Elapsed {formatElapsed(gitOperationProgress.elapsedMs)}
 						{:else}
-							Preparing workspace update. Binary download progress appears here as Git LFS reports
-							it.
+							Preparing workspace update.
 						{/if}
 					</p>
 				</div>
 
-				{#if workspaceUpdateProgress}
-					<Badge>{formatProgressPercent(workspaceUpdateProgress.progressPercent)}</Badge>
+				{#if activeProgress !== undefined}
+					<Badge>{formatProgressPercent(activeProgress)}</Badge>
+				{:else if gitOperationProgress?.elapsedMs !== undefined}
+					<Badge>{formatElapsed(gitOperationProgress.elapsedMs)}</Badge>
 				{/if}
 			</div>
 
-			{#if workspaceUpdateProgress}
+			{#if workspaceUpdateProgress || activeProgress !== undefined}
 				<div class="progress-track" aria-hidden="true">
 					<div
 						class="progress-fill"
-						style={`width: ${progressWidth(workspaceUpdateProgress.progressPercent)}%`}
+						style={`width: ${progressWidth(activeProgress)}%`}
 					></div>
 				</div>
+			{/if}
 
+			{#if workspaceUpdateProgress}
 				<div class="progress-tip-meta text-12">
 					<span>
 						{formatFileSize(workspaceUpdateProgress.fileDownloadedBytes)} of
@@ -556,6 +629,10 @@
 				<div class="progress-tip-path text-12" title={workspaceUpdateProgress.path}>
 					{workspaceUpdateProgress.path}
 				</div>
+			{:else if gitOperationProgress?.path}
+				<div class="progress-tip-path text-12" title={gitOperationProgress.path}>
+					{gitOperationProgress.path}
+				</div>
 			{/if}
 		</div>
 	{/if}
@@ -564,7 +641,7 @@
 		<div class="controls-wrap">
 			{#if integratingUpstream === "loading"}
 				<p class="controls-status text-12 clr-text-2">
-					{workspaceUpdateStatusText(workspaceUpdateProgress)}
+					{workspaceUpdateStatusText(workspaceUpdateProgress, gitOperationProgress)}
 				</p>
 			{/if}
 
@@ -577,7 +654,7 @@
 					disabled={isDivergedResolved || !branchStatuses}
 					loading={integratingUpstream === "loading" || !branchStatuses}
 					tooltip={integratingUpstream === "loading"
-						? workspaceUpdateTooltip(workspaceUpdateProgress)
+						? workspaceUpdateTooltip(workspaceUpdateProgress, gitOperationProgress)
 						: undefined}
 					tooltipDelay={0}
 					action={async () => {

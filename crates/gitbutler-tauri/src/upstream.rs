@@ -21,7 +21,10 @@ use gitbutler_branch_actions::upstream_integration::{
 use tauri::{AppHandle, Emitter, EventTarget, Manager, Window};
 use tracing::instrument;
 
+use crate::git_operation_progress::{GitOperationProgress, GitOperationProgressEmitter};
+
 const GIT_LFS_PROGRESS_ENV: &str = "GIT_LFS_PROGRESS";
+const GIT_LFS_SKIP_SMUDGE_ENV: &str = "GIT_LFS_SKIP_SMUDGE";
 
 fn workspace_update_progress_lock() -> &'static tokio::sync::Mutex<()> {
     static LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
@@ -68,6 +71,7 @@ struct LfsProgressTracker {
 struct WorkspaceUpdateProgressScope {
     progress_path: PathBuf,
     previous_progress_path: Option<OsString>,
+    previous_skip_smudge: Option<OsString>,
     stop: Arc<AtomicBool>,
     monitor: Option<JoinHandle<()>>,
 }
@@ -76,6 +80,9 @@ impl WorkspaceUpdateProgressScope {
     fn new(
         window: Window,
         project_id: &ProjectHandleOrLegacyProjectId,
+        git_operation_event_name: String,
+        git_operation: String,
+        started_at: Instant,
     ) -> anyhow::Result<WorkspaceUpdateProgressScope> {
         let progress_path = std::env::temp_dir().join(format!(
             "gitbutler-lfs-progress-{}-{}.log",
@@ -90,10 +97,12 @@ impl WorkspaceUpdateProgressScope {
         })?;
 
         let previous_progress_path = std::env::var_os(GIT_LFS_PROGRESS_ENV);
+        let previous_skip_smudge = std::env::var_os(GIT_LFS_SKIP_SMUDGE_ENV);
         // SAFETY: we serialize these temporary environment mutations behind a process-wide async
         // mutex and restore the previous value before releasing it again.
         unsafe {
             std::env::set_var(GIT_LFS_PROGRESS_ENV, &progress_path);
+            std::env::set_var(GIT_LFS_SKIP_SMUDGE_ENV, "1");
         }
 
         let stop = Arc::new(AtomicBool::new(false));
@@ -101,6 +110,9 @@ impl WorkspaceUpdateProgressScope {
             window.app_handle().clone(),
             window.label().to_owned(),
             format!("project://{project_id}/workspace_update_progress"),
+            git_operation_event_name,
+            git_operation,
+            started_at,
             progress_path.clone(),
             stop.clone(),
         ));
@@ -108,6 +120,7 @@ impl WorkspaceUpdateProgressScope {
         Ok(WorkspaceUpdateProgressScope {
             progress_path,
             previous_progress_path,
+            previous_skip_smudge,
             stop,
             monitor,
         })
@@ -119,6 +132,7 @@ impl WorkspaceUpdateProgressScope {
             let _ = monitor.join();
         }
         restore_lfs_progress_env(self.previous_progress_path.as_ref());
+        restore_lfs_skip_smudge_env(self.previous_skip_smudge.as_ref());
         let _ = std::fs::remove_file(&self.progress_path);
     }
 }
@@ -142,10 +156,32 @@ fn restore_lfs_progress_env(previous_value: Option<&OsString>) {
     }
 }
 
+fn restore_lfs_skip_smudge_env(previous_value: Option<&OsString>) {
+    match previous_value {
+        Some(value) => {
+            // SAFETY: callers only restore the variable while still holding the same global
+            // workspace-update lock that serialized the corresponding mutation.
+            unsafe {
+                std::env::set_var(GIT_LFS_SKIP_SMUDGE_ENV, value);
+            }
+        }
+        None => {
+            // SAFETY: callers only clear the variable while still holding the same global
+            // workspace-update lock that serialized the corresponding mutation.
+            unsafe {
+                std::env::remove_var(GIT_LFS_SKIP_SMUDGE_ENV);
+            }
+        }
+    }
+}
+
 fn spawn_progress_monitor(
     app_handle: AppHandle,
     window_label: String,
     event_name: String,
+    git_operation_event_name: String,
+    git_operation: String,
+    started_at: Instant,
     progress_path: PathBuf,
     stop: Arc<AtomicBool>,
 ) -> JoinHandle<()> {
@@ -158,6 +194,9 @@ fn spawn_progress_monitor(
                 &app_handle,
                 &window_label,
                 &event_name,
+                &git_operation_event_name,
+                &git_operation,
+                started_at,
                 &progress_path,
                 &mut offset,
                 &mut tracker,
@@ -176,6 +215,9 @@ fn drain_progress_updates(
     app_handle: &AppHandle,
     window_label: &str,
     event_name: &str,
+    git_operation_event_name: &str,
+    git_operation: &str,
+    started_at: Instant,
     progress_path: &PathBuf,
     offset: &mut u64,
     tracker: &mut LfsProgressTracker,
@@ -201,6 +243,27 @@ fn drain_progress_updates(
         drained_any = true;
 
         if let Some(progress) = tracker.observe(line.trim_end(), Instant::now()) {
+            let git_progress = GitOperationProgress {
+                operation: git_operation.to_owned(),
+                phase: "lfsTransfer".to_owned(),
+                phase_label: "Deferring Git LFS hydration".to_owned(),
+                elapsed_ms: started_at.elapsed().as_millis(),
+                path: Some(progress.path.clone()),
+                current_path: Some(progress.current_file),
+                total_paths: Some(progress.total_files),
+                bytes_done: Some(progress.file_downloaded_bytes),
+                bytes_total: Some(progress.file_total_bytes),
+                bytes_per_second: progress.bytes_per_second,
+                lfs_direction: Some(progress.direction.clone()),
+                detail: Some(
+                    "Git LFS content is not being hydrated during the workspace update.".to_owned(),
+                ),
+            };
+            let _ = app_handle.emit_to(
+                EventTarget::window(window_label),
+                git_operation_event_name,
+                git_progress,
+            );
             let _ = app_handle.emit_to(EventTarget::window(window_label), event_name, progress);
         }
     }
@@ -314,11 +377,44 @@ pub async fn integrate_upstream(
     baseBranchResolution: Option<BaseBranchResolution>,
 ) -> Result<IntegrationOutcome, json::Error> {
     let _progress_lock = workspace_update_progress_lock().lock().await;
+    let progress = GitOperationProgressEmitter::new(&window, &projectId, "upstreamIntegration");
+    let started_at = Instant::now();
+    progress.phase(
+        "prepare",
+        "Preparing upstream integration",
+        Some("Git LFS hydration is deferred for this operation.".to_owned()),
+    );
     let ctx = ThreadSafeContext::try_from(projectId.clone())?;
-    let progress_scope = WorkspaceUpdateProgressScope::new(window, &projectId)?;
+    progress.phase("worktreeStatus", "Checking workspace status", None);
+    let progress_scope = WorkspaceUpdateProgressScope::new(
+        window,
+        &projectId,
+        progress.event_name().to_owned(),
+        progress.operation().to_owned(),
+        started_at,
+    )?;
+    progress.phase("treeMerge", "Integrating upstream changes", None);
     let result = virtual_branches::integrate_upstream(ctx, resolutions, baseBranchResolution).await;
     progress_scope.finish();
-    result.map_err(Into::into)
+    match result {
+        Ok(outcome) => {
+            progress.phase(
+                "workspaceCacheInvalidation",
+                "Refreshing workspace cache",
+                None,
+            );
+            progress.phase("complete", "Upstream integration complete", None);
+            Ok(outcome)
+        }
+        Err(err) => {
+            progress.phase(
+                "failed",
+                "Upstream integration failed",
+                Some(err.to_string()),
+            );
+            Err(err.into())
+        }
+    }
 }
 
 #[cfg(test)]
