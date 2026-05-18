@@ -1407,15 +1407,43 @@ fn ai_config_interactive(
             apply_openrouter_config(repo, scope, model, secret)?;
         }
         LLMProviderKind::Acp => {
-            let agent_id = inout.prompt("ACP agent id (optional):")?;
-            let command = inout
-                .prompt("ACP command (for example, npx):")?
-                .filter(|value| !value.trim().is_empty())
-                .context("No ACP command provided. Aborting configuration.")?;
-            let args = inout.prompt("ACP arguments JSON array (optional):")?;
+            let agents = but_acp::built_in_agents();
+            let labels = agents
+                .iter()
+                .map(|agent| agent.name.as_str())
+                .chain(std::iter::once("Custom command"))
+                .collect::<Vec<_>>();
+            let agent_prompt =
+                cli_prompts::prompts::Selection::new("Select an ACP agent", labels.into_iter());
+            let agent_label = agent_prompt
+                .display()
+                .map_err(|_| anyhow::anyhow!("Could not determine selected ACP agent"))?;
+            let selected_agent = agents.iter().find(|agent| agent.name == agent_label);
+
+            let agent_id = if let Some(agent) = selected_agent {
+                Some(agent.id.clone())
+            } else {
+                inout.prompt("ACP agent id (optional):")?
+            };
+            let command = if let Some(agent) = selected_agent {
+                Some(agent.command.clone())
+            } else {
+                inout.prompt("ACP command (for example, npx):")?
+            };
+            let default_args = selected_agent
+                .map(|agent| agent.args.clone())
+                .unwrap_or_default();
+            let args = if default_args.is_empty() {
+                inout.prompt("ACP arguments JSON array (optional):")?
+            } else {
+                let default_args = serde_json::to_string(&default_args)?;
+                inout.prompt(&format!(
+                    "ACP arguments JSON array (default {default_args}):"
+                ))?
+            };
             let env = inout.prompt("ACP environment JSON object (optional):")?;
             let model = inout.prompt("ACP model or mode hint (optional):")?;
-            let args = parse_optional_string_array(args, "ACP arguments")?;
+            let args = parse_optional_string_array(args, "ACP arguments")?.unwrap_or(default_args);
             let env = parse_optional_string_map(env, "ACP environment")?;
             apply_acp_config(repo, scope, agent_id, command, args, env, model)?;
         }
@@ -1641,12 +1669,33 @@ fn apply_acp_config(
     repo: Option<&gix::Repository>,
     scope: AiScope,
     agent_id: Option<String>,
-    command: String,
+    command: Option<String>,
     args: Vec<String>,
     env: Vec<String>,
     model: Option<String>,
 ) -> Result<()> {
-    let args = optional_json_array(args)?;
+    let mut resolved_agent_id = agent_id;
+    let mut resolved_command = command;
+    let mut resolved_args = args;
+    if let Some(agent_id) = resolved_agent_id.as_deref()
+        && resolved_command.is_none()
+        && let Some(agent) = but_acp::built_in_agents()
+            .into_iter()
+            .find(|agent| agent.id.eq_ignore_ascii_case(agent_id))
+    {
+        resolved_agent_id = Some(agent.id);
+        resolved_command = Some(agent.command);
+        if resolved_args.is_empty() {
+            resolved_args = agent.args;
+        }
+    }
+
+    let command = resolved_command
+        .filter(|value| !value.trim().is_empty())
+        .context(
+            "No ACP command provided. Use --agent-id for a built-in agent or pass --command.",
+        )?;
+    let args = optional_json_array(resolved_args)?;
     let env = optional_env_json(env)?;
     edit_ai_git_config(repo, scope, |config| {
         set_config_value(
@@ -1654,7 +1703,7 @@ fn apply_acp_config(
             AI_MODEL_PROVIDER_KEY,
             LLMProviderKind::Acp.as_git_config_value(),
         )?;
-        set_optional_config_value(config, AI_ACP_AGENT_ID_KEY, agent_id)?;
+        set_optional_config_value(config, AI_ACP_AGENT_ID_KEY, resolved_agent_id)?;
         set_config_value(config, AI_ACP_COMMAND_KEY, &command)?;
         set_optional_config_value(config, AI_ACP_ARGS_KEY, args)?;
         set_optional_config_value(config, AI_ACP_ENV_KEY, env)?;
@@ -1695,11 +1744,12 @@ fn optional_env_json(values: Vec<String>) -> Result<Option<String>> {
         .context("failed to encode ACP environment")
 }
 
-fn parse_optional_string_array(value: Option<String>, label: &str) -> Result<Vec<String>> {
+fn parse_optional_string_array(value: Option<String>, label: &str) -> Result<Option<Vec<String>>> {
     match value.filter(|value| !value.trim().is_empty()) {
         Some(value) => serde_json::from_str::<Vec<String>>(&value)
+            .map(Some)
             .with_context(|| format!("{label} must be a JSON array of strings")),
-        None => Ok(Vec::new()),
+        None => Ok(None),
     }
 }
 

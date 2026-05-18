@@ -2,10 +2,14 @@ import { createBackendApi, type BackendApi } from "$lib/state/backendApi";
 import { butlerModule } from "$lib/state/butlerModule";
 import { messageQueueAdapter, messageQueueSlice } from "$lib/state/messageQueueSlice";
 import { ReduxTag } from "$lib/state/tags";
-import { uiStateSlice } from "$lib/state/uiState.svelte";
+import {
+	sanitizePersistedUiStateKey,
+	uiStateSlice,
+	type UiStateVariable,
+} from "$lib/state/uiState.svelte";
 import { InjectionToken } from "@gitbutler/core/context";
 import { mergeUnlisten } from "@gitbutler/ui/utils/mergeUnlisten";
-import { combineSlices, configureStore, type Slice } from "@reduxjs/toolkit";
+import { combineSlices, configureStore, type EntityState, type Slice } from "@reduxjs/toolkit";
 import {
 	buildCreateApi,
 	coreModule,
@@ -14,7 +18,16 @@ import {
 	type QueryReturnValue,
 	type RootState,
 } from "@reduxjs/toolkit/query";
-import { FLUSH, PAUSE, PERSIST, persistReducer, PURGE, REGISTER, REHYDRATE } from "redux-persist";
+import {
+	FLUSH,
+	PAUSE,
+	PERSIST,
+	persistReducer,
+	PURGE,
+	REGISTER,
+	REHYDRATE,
+	createTransform,
+} from "redux-persist";
 import persistStore from "redux-persist/lib/persistStore";
 import storage from "redux-persist/lib/storage";
 import type { IBackend } from "$lib/backend";
@@ -49,6 +62,16 @@ type PersistedSliceOptions = {
 	whitelist?: string[];
 	blacklist?: string[];
 };
+
+const uiStatePersistTransform = createTransform<
+	unknown,
+	unknown,
+	EntityState<UiStateVariable, string>,
+	EntityState<UiStateVariable, string>
+>(
+	(value: unknown, key: string | number) => sanitizePersistedUiStateKey(String(key), value),
+	(value: unknown, key: string | number) => sanitizePersistedUiStateKey(String(key), value),
+);
 
 /**
  * A redux store with dependency injection through middleware.
@@ -178,6 +201,7 @@ function createStore(params: {
 				{
 					key: uiStateSlice.reducerPath,
 					storage: storage,
+					transforms: [uiStatePersistTransform],
 				},
 				uiStateSlice.reducer,
 			),

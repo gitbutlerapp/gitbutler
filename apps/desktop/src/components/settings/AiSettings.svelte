@@ -95,6 +95,9 @@
 		acpEnv = JSON.stringify(await aiService.getAcpEnv());
 		acpModel = await aiService.getAcpModelName();
 		acpAgents = (await aiService.listAcpAgents()).agents;
+		if (modelKind === ModelKind.ACP && !acpCommand) {
+			selectDefaultAcpAgent();
+		}
 
 		// Ensure reactive declarations have finished running before we set initialized to true
 		await tick();
@@ -212,12 +215,20 @@
 	run(() => {
 		if (form) form.modelKind.value = modelKind;
 	});
+	run(() => {
+		if (initialized && modelKind === ModelKind.ACP && !acpCommand) {
+			selectDefaultAcpAgent();
+		}
+	});
 
 	const acpAgentOptions = $derived(
 		acpAgents
 			.filter((agent) => agent.availability !== "suggestion")
 			.map((agent) => ({
-				label: agent.availability === "available" ? agent.name : `${agent.name} (command missing)`,
+				label:
+					agent.availability === "available"
+						? `${agent.name} · ${agent.commandPreview}`
+						: `${agent.name} · ${agent.commandPreview} (command missing)`,
 				value: agent.id,
 				agent,
 			})),
@@ -234,6 +245,15 @@
 		acpCommand = agent.command;
 		acpArgs = JSON.stringify(agent.args);
 		acpEnv = JSON.stringify(agent.env);
+	}
+
+	function selectDefaultAcpAgent() {
+		const agent =
+			acpAgents.find((agent) => agent.availability === "available") ??
+			acpAgents.find((agent) => agent.source === "builtIn");
+		if (agent) {
+			selectAcpAgent(agent.id);
+		}
 	}
 </script>
 

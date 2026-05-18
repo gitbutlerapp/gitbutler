@@ -280,13 +280,13 @@ pub enum AiSubcommand {
 
     /// Configure an Agent Client Protocol agent as the active AI provider.
     Acp {
-        /// Stable id for the configured ACP agent.
-        #[clap(long)]
+        /// Discovered ACP agent id, for example codex, claude-agent, gemini, copilot, or opencode.
+        #[clap(long, alias = "agent")]
         agent_id: Option<String>,
-        /// Command to start the ACP agent, for example `npx`.
+        /// Custom command to start the ACP agent. Omit when using a discovered agent id.
         #[clap(long)]
-        command: String,
-        /// Argument to pass to the ACP command. Repeat for multiple args.
+        command: Option<String>,
+        /// Custom argument to pass to the ACP command. Repeat for multiple args.
         #[clap(long = "arg")]
         args: Vec<String>,
         /// Environment variable to pass to the ACP command, in KEY=VALUE form. Repeat for multiple variables.

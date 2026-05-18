@@ -68,7 +68,7 @@ fn ai_acp_local_writes_repo_config() -> anyhow::Result<()> {
     env.but("-C repo setup").assert().success();
 
     env.but(
-        "-C repo config ai --local acp --agent-id codex --command npx --arg=-y --arg @zed-industries/codex-acp@latest --env CODEX_HOME=codex-home --model gpt-5.4",
+        "-C repo config ai --local acp --agent-id codex --env CODEX_HOME=codex-home --model gpt-5.4",
     )
     .assert()
     .success();

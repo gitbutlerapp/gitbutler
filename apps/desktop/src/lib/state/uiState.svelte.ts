@@ -439,6 +439,30 @@ export const uiStateSlice = createSlice({
 
 const { upsertOne } = uiStateSlice.actions;
 
+const transientProjectUiStateSuffixes = [":exclusiveAction", ":stackBusy"];
+
+function isTransientProjectUiStateId(id: string): boolean {
+	return transientProjectUiStateSuffixes.some((suffix) => id.endsWith(suffix));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function sanitizePersistedUiStateKey(key: string, value: unknown): unknown {
+	if (key === "ids" && Array.isArray(value)) {
+		return value.filter((id) => typeof id !== "string" || !isTransientProjectUiStateId(id));
+	}
+
+	if (key === "entities" && isRecord(value)) {
+		return Object.fromEntries(
+			Object.entries(value).filter(([id]) => !isTransientProjectUiStateId(id)),
+		);
+	}
+
+	return value;
+}
+
 /** Allowed types for property values. */
 type UiStateValue =
 	| string
@@ -449,7 +473,7 @@ type UiStateValue =
 	| undefined;
 
 /** Type held by the RTK entity adapter. */
-type UiStateVariable = {
+export type UiStateVariable = {
 	id: string;
 	value: UiStateValue;
 };
