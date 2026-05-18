@@ -4345,6 +4345,7 @@ dependencies = [
  "but-settings",
  "console-subscriber",
  "document-features",
+ "gitbutler-branch-actions",
  "gitbutler-project",
  "gitbutler-watcher",
  "gix",

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { BACKEND } from "$lib/backend";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
@@ -55,6 +56,7 @@
 	const upstreamIntegrationService = inject(UPSTREAM_INTEGRATION_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	// const forgeListingService = $derived(forge.current.listService);
+	const backend = inject(BACKEND);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
 	const base = $derived(baseBranchQuery.response);
@@ -73,6 +75,7 @@
 	let baseResolutionApproach = $state<BaseBranchResolutionApproach | undefined>();
 	let targetCommitOid = $state<string | undefined>(undefined);
 	let branchStatuses = $state<StackStatusesWithBranchesV3 | undefined>();
+	let workspaceUpdateProgress = $state<WorkspaceUpdateProgress | undefined>();
 	// const stackService = getContext(StackService);
 	// let appliedBranches = $state<string[]>();
 	// Any PRs belonging to applied branches that have been merged
@@ -81,6 +84,31 @@
 
 	const isDivergedResolved = $derived(base?.targetShaAheadOfRef && !baseResolutionApproach);
 	const [integrateUpstream] = $derived(upstreamIntegrationService.integrateUpstream());
+
+	type WorkspaceUpdateProgress = {
+		direction: string;
+		currentFile: number;
+		totalFiles: number;
+		fileDownloadedBytes: number;
+		fileTotalBytes: number;
+		progressPercent: number;
+		bytesPerSecond?: number;
+		path: string;
+	};
+
+	$effect(() => {
+		if (integratingUpstream !== "loading") {
+			workspaceUpdateProgress = undefined;
+			return;
+		}
+
+		return backend.listen<WorkspaceUpdateProgress>(
+			`project://${projectId}/workspace_update_progress`,
+			({ payload }) => {
+				workspaceUpdateProgress = payload;
+			},
+		);
+	});
 
 	function someBranchesShouldNotBeDeleted(branchNames: string[]): boolean {
 		for (const branchName of branchNames) {
@@ -186,6 +214,7 @@
 
 	async function integrate() {
 		integratingUpstream = "loading";
+		workspaceUpdateProgress = undefined;
 		await tick();
 		const baseResolution = getBaseBranchResolution(
 			targetCommitOid,
@@ -200,6 +229,49 @@
 		await baseBranchService.refreshBaseBranch(projectId);
 		integratingUpstream = "completed";
 		modal?.close();
+	}
+
+	function formatFileSize(bytes: number): string {
+		if (bytes < 1024) return `${bytes} B`;
+		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+		if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+		return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+	}
+
+	function formatTransferSpeed(bytesPerSecond: number | undefined): string | undefined {
+		if (bytesPerSecond === undefined) return undefined;
+		return `${formatFileSize(bytesPerSecond)}/s`;
+	}
+
+	function formatProgressPercent(progressPercent: number): string {
+		return `${Math.round(progressPercent)}%`;
+	}
+
+	function workspaceUpdateStatusText(progress: WorkspaceUpdateProgress | undefined): string {
+		if (!progress) {
+			return "Preparing workspace update. Working through incoming changes and waiting for transfer progress.";
+		}
+
+		const speed = formatTransferSpeed(progress.bytesPerSecond);
+		const progressLabel = `${formatProgressPercent(progress.progressPercent)} complete`;
+		const fileLabel = `file ${progress.currentFile} of ${progress.totalFiles}`;
+		return speed
+			? `Downloading ${fileLabel} at ${speed}. ${progressLabel}.`
+			: `Downloading ${fileLabel}. ${progressLabel}.`;
+	}
+
+	function workspaceUpdateTooltip(progress: WorkspaceUpdateProgress | undefined): string {
+		const status = workspaceUpdateStatusText(progress);
+		if (!progress) {
+			return `${status} This can take a while in large Unity repositories.`;
+		}
+
+		return `${status} Current path: ${progress.path}`;
+	}
+
+	function progressWidth(progressPercent: number | undefined): number {
+		if (progressPercent === undefined) return 0;
+		return Math.max(0, Math.min(100, progressPercent));
 	}
 
 	// async function fetchAppliedBranches() {
@@ -442,21 +514,79 @@
 		{/if}
 	</ScrollableContainer>
 
+	{#if integratingUpstream === "loading"}
+		<div class="progress-tip">
+			<div class="progress-tip-header">
+				<div class="progress-tip-copy">
+					<h3 class="text-14 text-semibold">Updating workspace</h3>
+					<p class="text-12 clr-text-2">
+						{#if workspaceUpdateProgress}
+							File {workspaceUpdateProgress.currentFile} of {workspaceUpdateProgress.totalFiles}
+						{:else}
+							Preparing workspace update. Binary download progress appears here as Git LFS reports
+							it.
+						{/if}
+					</p>
+				</div>
+
+				{#if workspaceUpdateProgress}
+					<Badge>{formatProgressPercent(workspaceUpdateProgress.progressPercent)}</Badge>
+				{/if}
+			</div>
+
+			{#if workspaceUpdateProgress}
+				<div class="progress-track" aria-hidden="true">
+					<div
+						class="progress-fill"
+						style={`width: ${progressWidth(workspaceUpdateProgress.progressPercent)}%`}
+					></div>
+				</div>
+
+				<div class="progress-tip-meta text-12">
+					<span>
+						{formatFileSize(workspaceUpdateProgress.fileDownloadedBytes)} of
+						{formatFileSize(workspaceUpdateProgress.fileTotalBytes)}
+					</span>
+
+					{#if workspaceUpdateProgress.bytesPerSecond !== undefined}
+						<span>{formatTransferSpeed(workspaceUpdateProgress.bytesPerSecond)}</span>
+					{/if}
+				</div>
+
+				<div class="progress-tip-path text-12" title={workspaceUpdateProgress.path}>
+					{workspaceUpdateProgress.path}
+				</div>
+			{/if}
+		</div>
+	{/if}
+
 	{#snippet controls()}
-		<div class="controls">
-			<Button onclick={() => modal?.close()} kind="outline">Cancel</Button>
-			<AsyncButton
-				testId={TestId.IntegrateUpstreamActionButton}
-				wide
-				style="pop"
-				disabled={isDivergedResolved || !branchStatuses}
-				loading={integratingUpstream === "loading" || !branchStatuses}
-				action={async () => {
-					await integrate();
-				}}
-			>
-				Update workspace
-			</AsyncButton>
+		<div class="controls-wrap">
+			{#if integratingUpstream === "loading"}
+				<p class="controls-status text-12 clr-text-2">
+					{workspaceUpdateStatusText(workspaceUpdateProgress)}
+				</p>
+			{/if}
+
+			<div class="controls">
+				<Button onclick={() => modal?.close()} kind="outline">Cancel</Button>
+				<AsyncButton
+					testId={TestId.IntegrateUpstreamActionButton}
+					wide
+					style="pop"
+					disabled={isDivergedResolved || !branchStatuses}
+					loading={integratingUpstream === "loading" || !branchStatuses}
+					tooltip={integratingUpstream === "loading"
+						? workspaceUpdateTooltip(workspaceUpdateProgress)
+						: undefined}
+					tooltipDelay={0}
+					action={async () => {
+						await integrate();
+					}}
+				>
+					{integratingUpstream === "loading" ? "Updating workspace…" : "Update workspace"}
+				</AsyncButton>
+			</div>
 		</div>
 	{/snippet}
 </Modal>
@@ -519,10 +649,82 @@
 		max-width: 230px;
 	}
 
+	.progress-tip {
+		display: flex;
+		flex-direction: column;
+		padding: 16px;
+		gap: 12px;
+		border-top: 1px solid var(--border-2);
+		background: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--bg-1) 88%, var(--clr-theme-pop-element) 12%),
+			var(--bg-1)
+		);
+	}
+
+	.progress-tip-header {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 12px;
+	}
+
+	.progress-tip-copy {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.progress-track {
+		height: 8px;
+		overflow: hidden;
+		border: 1px solid color-mix(in srgb, var(--border-2) 78%, transparent);
+		border-radius: 999px;
+		background-color: color-mix(in srgb, var(--bg-2) 88%, transparent);
+	}
+
+	.progress-fill {
+		height: 100%;
+		border-radius: inherit;
+		background: linear-gradient(
+			90deg,
+			color-mix(in srgb, var(--clr-theme-pop-element) 82%, white 18%),
+			var(--clr-theme-pop-element)
+		);
+		transition: width 160ms ease-out;
+	}
+
+	.progress-tip-meta {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		color: var(--text-2);
+	}
+
+	.progress-tip-path {
+		overflow: hidden;
+		color: var(--text-1);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
 	/* CONTROLS */
+	.controls-wrap {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		gap: 8px;
+	}
+
+	.controls-status {
+		padding: 0 16px;
+	}
+
 	.controls {
 		display: flex;
 		width: 100%;
+		padding: 0 16px 16px;
 		gap: 6px;
 	}
 

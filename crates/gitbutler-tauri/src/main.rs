@@ -20,10 +20,10 @@ use but_claude::{Broadcaster, Claude};
 use but_irc::IrcManager;
 use but_settings::AppSettingsWithDiskSync;
 #[cfg(feature = "irc")]
-use gitbutler_tauri::irc;
-use gitbutler_tauri::{
+use gitbutler_tauri_lib::irc;
+use gitbutler_tauri_lib::{
     WindowState, action, askpass, claude, csp::csp_with_extras, env, logs, menu, projects,
-    settings, zip,
+    settings, upstream, zip,
 };
 use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -136,7 +136,7 @@ fn main() -> anyhow::Result<()> {
 
         let builder = tauri::Builder::default()
             .setup(move |tauri_app| {
-                let window = gitbutler_tauri::window::create(
+                let window = gitbutler_tauri_lib::window::create(
                     tauri_app.handle(),
                     "main",
                     "index.html".into(),
@@ -206,7 +206,7 @@ fn main() -> anyhow::Result<()> {
                                 if let Some(old_irc) = prev.as_ref()
                                     && old_irc != &new_irc
                                 {
-                                    gitbutler_tauri::irc_lifecycle::on_settings_changed(
+                                    gitbutler_tauri_lib::irc_lifecycle::on_settings_changed(
                                         &app_handle, old_irc, &new_irc,
                                     );
                                 }
@@ -214,7 +214,8 @@ fn main() -> anyhow::Result<()> {
                             }
                         }
 
-                        gitbutler_tauri::ChangeForFrontend::from(app_settings).send(&app_handle)
+                        gitbutler_tauri_lib::ChangeForFrontend::from(app_settings)
+                            .send(&app_handle)
                     }
                 })?;
 
@@ -252,7 +253,10 @@ fn main() -> anyhow::Result<()> {
                 #[cfg(feature = "irc")]
                 if let Ok(settings) = app_handle.state::<AppSettingsWithDiskSync>().get() {
                     let irc = effective_irc(&settings.irc, settings.feature_flags.irc);
-                    gitbutler_tauri::irc_lifecycle::auto_connect_on_startup(app_handle, &irc);
+                    gitbutler_tauri_lib::irc_lifecycle::auto_connect_on_startup(
+                        app_handle,
+                        &irc,
+                    );
                 }
                 tauri_app.on_menu_event(move |handle, event| {
                     let target_window = handle
@@ -365,7 +369,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::virtual_branches::tauri_fetch_from_remotes::fetch_from_remotes,
                 legacy::virtual_branches::tauri_normalize_branch_name::normalize_branch_name,
                 legacy::virtual_branches::tauri_upstream_integration_statuses::upstream_integration_statuses,
-                legacy::virtual_branches::tauri_integrate_upstream::integrate_upstream,
+                upstream::integrate_upstream,
                 legacy::virtual_branches::tauri_resolve_upstream_integration::resolve_upstream_integration,
                 legacy::stack::tauri_create_reference::create_reference,
                 legacy::stack::tauri_create_branch::create_branch,

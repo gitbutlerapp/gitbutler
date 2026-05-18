@@ -32,6 +32,7 @@ pub mod action;
 pub mod askpass;
 pub mod debug;
 pub mod projects;
+pub mod upstream;
 
 pub mod settings;
 pub mod zip;
