@@ -328,7 +328,7 @@ pub struct EntryPoint<'graph> {
     /// This can differ from [`Self::segment`] when post-processing moved the entrypoint to an
     /// empty synthetic segment, such as a virtual workspace tip segment.
     ///
-    /// May be `None` if the entrypoint was an a reference in a newly born repository,
+    /// May be `None` if the entrypoint was a reference in a newly born repository,
     /// which doesn't have any commits.
     pub commit_and_owner: Option<(&'graph Commit, &'graph Segment)>,
 }

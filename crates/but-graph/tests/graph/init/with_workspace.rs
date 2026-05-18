@@ -1018,7 +1018,7 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
         graph
             .tip_skip_empty(graph.entrypoint()?.segment.id)
             .is_none(),
-        "no unique paths leads to a commit when starting at the segment"
+        "no unique path leads to a commit when starting at the segment"
     );
     let ws = graph.into_workspace()?;
     assert_eq!(
