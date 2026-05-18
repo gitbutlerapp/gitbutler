@@ -1,9 +1,9 @@
 <script lang="ts">
 	import AppHeader from "$components/views/AppHeader.svelte";
+	import ChromeProjectSelector from "$components/views/ChromeProjectSelector.svelte";
 	import { BACKEND } from "$lib/backend";
 	import type { WindowChromeState } from "$lib/backend/backend";
 	import { inject } from "@gitbutler/core/context";
-	import { Icon } from "@gitbutler/ui";
 	import { onMount } from "svelte";
 
 	type Props = {
@@ -66,10 +66,13 @@
 	}
 </script>
 
-<div class="windows-chrome" class:focused={windowState.isFocused} class:maximized={windowState.isMaximized}>
+<div
+	class="windows-chrome"
+	class:focused={windowState.isFocused}
+	class:maximized={windowState.isMaximized}
+>
 	<div class="windows-titlebar">
 		<div class="windows-titlebar__left">
-			<div class="windows-titlebar__drag-pad" data-tauri-drag-region></div>
 			<div class="windows-titlebar__menus">
 				{#each menus as menu}
 					<button
@@ -83,17 +86,27 @@
 			</div>
 		</div>
 
-		<button
-			type="button"
-			class="windows-titlebar__center"
-			data-tauri-drag-region
-			ondblclick={() => void toggleMaximizeWindow()}
-		>
-			<div class="windows-titlebar__title text-12">
-				<Icon name="repo" color="var(--text-2)" />
-				<span class="truncate" title={projectTitle}>{projectTitle}</span>
+		<div class="windows-titlebar__center">
+			<div
+				class="windows-titlebar__drag-surface"
+				data-tauri-drag-region
+				role="button"
+				tabindex="-1"
+				aria-label="Window title bar"
+				ondblclick={() => void toggleMaximizeWindow()}
+			></div>
+			<div class="windows-titlebar__selector">
+				<ChromeProjectSelector {projectId} {projectTitle} />
 			</div>
-		</button>
+			<div
+				class="windows-titlebar__drag-surface"
+				data-tauri-drag-region
+				role="button"
+				tabindex="-1"
+				aria-label="Window title bar"
+				ondblclick={() => void toggleMaximizeWindow()}
+			></div>
+		</div>
 
 		<div class="windows-titlebar__controls">
 			<button
@@ -127,7 +140,7 @@
 		</div>
 	</div>
 
-	<AppHeader {projectId} {projectTitle} {actionsDisabled} />
+	<AppHeader {projectId} {projectTitle} {actionsDisabled} showProjectSelector={false} />
 </div>
 
 <style>
@@ -137,23 +150,17 @@
 	}
 
 	.windows-titlebar {
-		display: flex;
+		display: grid;
+		grid-template-columns: max-content minmax(0, 1fr) max-content;
 		align-items: center;
-		padding: 8px 10px 0;
-		gap: 10px;
+		padding: 8px 14px 2px;
+		gap: 14px;
 	}
 
 	.windows-titlebar__left {
 		display: flex;
 		align-items: center;
-		gap: 8px;
-		min-width: max-content;
-	}
-
-	.windows-titlebar__drag-pad {
-		width: 14px;
-		height: 28px;
-		flex-shrink: 0;
+		min-width: 0;
 	}
 
 	.windows-titlebar__menus {
@@ -193,27 +200,24 @@
 
 	.windows-titlebar__center {
 		display: flex;
+		align-items: center;
+		gap: 10px;
+		min-width: 0;
+	}
+
+	.windows-titlebar__drag-surface {
 		flex: 1;
+		align-self: stretch;
+		min-width: 24px;
+	}
+
+	.windows-titlebar__selector {
+		display: flex;
+		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
 		min-width: 0;
-		padding: 0;
-		border: none;
-		background: transparent;
-		cursor: default;
-	}
-
-	.windows-titlebar__title {
-		display: inline-flex;
-		align-items: center;
-		max-width: min(440px, 100%);
-		height: 28px;
-		padding: 0 12px;
-		gap: 6px;
-		border: 1px solid color-mix(in srgb, var(--border-2) 82%, transparent);
-		border-radius: 999px;
-		background: color-mix(in srgb, var(--bg-1) 70%, transparent);
-		color: var(--text-2);
+		max-width: min(340px, 100%);
 	}
 
 	.windows-titlebar__controls {
@@ -316,12 +320,9 @@
 		transform: rotate(-45deg);
 	}
 
-	.windows-chrome:not(.focused) .windows-titlebar__title {
-		opacity: 0.72;
-	}
-
 	.windows-chrome:not(.focused) .windows-menu-button,
-	.windows-chrome:not(.focused) .caption-button {
+	.windows-chrome:not(.focused) .caption-button,
+	.windows-chrome:not(.focused) .windows-titlebar__center {
 		color: color-mix(in srgb, var(--text-2) 86%, transparent);
 	}
 
@@ -330,6 +331,10 @@
 	}
 
 	.windows-chrome :global(.chrome-header) {
-		padding-top: 10px;
+		padding-top: 8px;
+	}
+
+	.windows-titlebar__selector :global(.chrome-project-selector) {
+		min-width: 0;
 	}
 </style>

@@ -1,37 +1,34 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
 	import CreateBranchModal from "$components/branch/CreateBranchModal.svelte";
 	import SyncButton from "$components/forge/SyncButton.svelte";
 	import OperationActivityIndicator from "$components/views/OperationActivityIndicator.svelte";
+	import ChromeProjectSelector from "$components/views/ChromeProjectSelector.svelte";
 	import IntegrateUpstreamModal from "$components/upstream/IntegrateUpstreamModal.svelte";
 	import { BACKEND } from "$lib/backend";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { projectDisableCodegen } from "$lib/config/config";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
-	import { handleAddProjectOutcome } from "$lib/project/project";
-	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { isWorkspacePath, projectPath } from "$lib/routes/routes.svelte";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { SHORTCUT_SERVICE } from "$lib/shortcuts/shortcutService";
 	import { useCreateAiStack } from "$lib/stacks/createAiStack.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
-	import { Button, Icon, OptionsGroup, Select, SelectItem, TestId, Tooltip } from "@gitbutler/ui";
+	import { Button, Icon, TestId, Tooltip } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 
 	type Props = {
 		projectId: string;
 		projectTitle: string;
 		actionsDisabled?: boolean;
+		showProjectSelector?: boolean;
 	};
 
-	const { projectId, projectTitle, actionsDisabled = false }: Props = $props();
+	const { projectId, projectTitle, actionsDisabled = false, showProjectSelector = true }: Props =
+		$props();
 
 	const { createAiStack } = useCreateAiStack(reactive(() => projectId));
 
-	const projectsService = inject(PROJECTS_SERVICE);
-	const serverCapabilitiesQuery = $derived(projectsService.serverCapabilities());
-	const canAddProjects = $derived(serverCapabilitiesQuery.response?.canAddProjects ?? true);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const modeService = inject(MODE_SERVICE);
@@ -76,18 +73,6 @@
 	const isHasUpstreamCommits = $derived(upstreamCommits > 0);
 
 	let modal = $state<ReturnType<typeof IntegrateUpstreamModal>>();
-
-	const projects = $derived(projectsService.projects());
-
-	const mappedProjects = $derived(
-		projects.response?.map((project) => ({
-			value: project.id,
-			label: project.title,
-		})) || [],
-	);
-
-	let newProjectLoading = $state(false);
-	let projectSelectorOpen = $state(false);
 
 	const isOnWorkspacePage = $derived(!!isWorkspacePath());
 
@@ -138,98 +123,26 @@
 	</div>
 
 	<div class="chrome-center" data-tauri-drag-region={useOverlayTitleBar}>
-		<div class="chrome-selector-wrapper">
-			<Select
-				searchable
-				value={projectId}
-				options={mappedProjects}
-				loading={newProjectLoading}
-				disabled={newProjectLoading}
-				onselect={(value: string, modifiers?) => {
-					if (modifiers?.meta) {
-						projectsService.openProjectInNewWindow(value);
-					} else {
-						goto(projectPath(value));
-					}
-				}}
-				ontoggle={(isOpen) => (projectSelectorOpen = isOpen)}
-				popupAlign="center"
-				customWidth={280}
-			>
-				{#snippet customSelectButton()}
-					<Button
-						testId={TestId.ChromeHeaderProjectSelector}
-						reversedDirection
-						width="auto"
-						kind="outline"
-						isDropdown
-						dropdownOpen={projectSelectorOpen}
-						class="project-selector-btn"
-					>
-						{#snippet custom()}
-							<div class="project-selector-btn__content">
-								<Icon name="repo" color="var(--text-2)" />
-								<span class="text-12 text-bold">{projectTitle}</span>
+		{#if showProjectSelector || singleBranchMode}
+			<div class="chrome-selector-wrapper">
+				{#if showProjectSelector}
+					<ChromeProjectSelector {projectId} {projectTitle} />
+				{/if}
+				{#if singleBranchMode}
+					<Tooltip text="Current branch">
+						<div class="chrome-current-branch" class:standalone={!showProjectSelector}>
+							<div class="chrome-current-branch__content">
+								<Icon name="branch" color="var(--text-2)" />
+								<span class="text-12 text-bold clr-text-2 truncate">{currentBranchName}</span>
+								{#if isNotInWorkspace}
+									<span class="text-12 text-bold clr-text-2 op-60"> read-only </span>
+								{/if}
 							</div>
-						{/snippet}
-					</Button>
-				{/snippet}
-
-				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={item.value === projectId} {highlighted}>
-						{item.label}
-					</SelectItem>
-				{/snippet}
-
-				<OptionsGroup>
-					{#if canAddProjects}
-						<SelectItem
-							icon="plus"
-							testId={TestId.ChromeHeaderProjectSelectorAddLocalProject}
-							loading={newProjectLoading}
-							onClick={async () => {
-								newProjectLoading = true;
-								try {
-									const outcome = await projectsService.addProject();
-									if (!outcome) {
-										// User cancelled the project creation
-										newProjectLoading = false;
-										return;
-									}
-
-									handleAddProjectOutcome(outcome, (project) => goto(projectPath(project.id)));
-								} finally {
-									newProjectLoading = false;
-								}
-							}}
-						>
-							Add local repository
-						</SelectItem>
-					{/if}
-					<SelectItem
-						icon="clone"
-						onClick={() => {
-							goto("/onboarding/clone");
-						}}
-					>
-						Clone repository
-					</SelectItem>
-				</OptionsGroup>
-			</Select>
-			{#if singleBranchMode}
-				<Tooltip text="Current branch">
-					<div class="chrome-current-branch">
-						<div class="chrome-current-branch__content">
-							<Icon name="branch" color="var(--text-2)" />
-							<span class="text-12 text-bold clr-text-2 truncate">{currentBranchName}</span>
-							{#if isNotInWorkspace}
-								<span class="text-12 text-bold clr-text-2 op-60"> read-only </span>
-							{/if}
 						</div>
-					</div>
-				</Tooltip>
-			{/if}
-		</div>
+					</Tooltip>
+				{/if}
+			</div>
+		{/if}
 
 		{#if currentMode && isNotInWorkspace}
 			<Tooltip text="Switch back to gitbutler/workspace">
@@ -298,14 +211,6 @@
 		border-bottom-right-radius: 0;
 	}
 
-	.project-selector-btn__content {
-		display: flex;
-		align-items: center;
-		padding-right: 2px;
-		gap: 6px;
-		text-wrap: nowrap;
-	}
-
 	.chrome-current-branch {
 		display: flex;
 		align-items: center;
@@ -315,6 +220,13 @@
 		border-left: none;
 		border-top-right-radius: 100px;
 		border-bottom-right-radius: 100px;
+	}
+
+	.chrome-current-branch.standalone {
+		padding-left: 10px;
+		border-left: 1px solid var(--border-2);
+		border-top-left-radius: 100px;
+		border-bottom-left-radius: 100px;
 	}
 
 	.chrome-current-branch__content {

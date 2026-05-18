@@ -24,7 +24,7 @@ gitbutler-operating-modes.workspace = true
 
 gix.workspace = true
 anyhow.workspace = true
-tokio = { workspace = true, features = ["macros", "sync"] }
+tokio = { workspace = true, features = ["macros", "sync", "time"] }
 tokio-util = "0.7.16"
 tracing.workspace = true
 serde-error = "0.1.3"

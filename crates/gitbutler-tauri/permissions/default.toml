@@ -168,6 +168,7 @@ commands.allow = [
   "pr_template",
   "pr_templates",
   "pre_commit_hook_diffspecs",
+  "popup_window_menu",
   "publish_review",
   "push_base_branch",
   "push_stack",

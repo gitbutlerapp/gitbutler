@@ -2,7 +2,11 @@
 #![deny(unsafe_code)]
 #![allow(clippy::doc_markdown, clippy::missing_errors_doc)]
 
-use std::{collections::BTreeSet, path::Path};
+use std::{
+    collections::BTreeSet,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use anyhow::Result;
 use but_ctx::ProjectHandleOrLegacyProjectId;
@@ -20,6 +24,8 @@ pub use events::Change;
 use gitbutler_filemonitor::{FileMonitorHandle, InternalEvent};
 
 mod handler;
+
+const UNITY_PROJECT_EVENT_QUIET_PERIOD: Duration = Duration::from_secs(10);
 
 /// Re-export for convenience
 pub use gitbutler_filemonitor::WatchMode;
@@ -71,10 +77,11 @@ pub fn watch_in_background(
     watch_mode: WatchMode,
 ) -> Result<WatcherHandle, anyhow::Error> {
     let (events_out, mut events_in) = unbounded_channel();
+    let worktree_path = worktree_path.as_ref().to_owned();
 
     let file_monitor = gitbutler_filemonitor::spawn(
         project_id.clone(),
-        worktree_path.as_ref(),
+        &worktree_path,
         events_out.clone(),
         watch_mode,
     )?;
@@ -91,6 +98,17 @@ pub fn watch_in_background(
                 Some(event) = events_in.recv() => {
                     let mut events = CoalescedEvents::from(event);
                     events.drain(&mut events_in);
+                    if !events
+                        .drain_until_project_quiet(
+                            &mut events_in,
+                            &worktree_path,
+                            &cancellation_token,
+                        )
+                        .await
+                    {
+                        tracing::debug!(%project_id, "stopped watcher");
+                        break;
+                    }
 
                     for event in events.into_events(&project_id) {
                         let handler = handler.clone();
@@ -135,6 +153,62 @@ impl CoalescedEvents {
         }
     }
 
+    async fn drain_until_project_quiet(
+        &mut self,
+        events_in: &mut UnboundedReceiver<InternalEvent>,
+        worktree_path: &Path,
+        cancellation_token: &CancellationToken,
+    ) -> bool {
+        if self.project_paths.is_empty()
+            || self
+                .git_paths
+                .iter()
+                .any(|path| path.to_str() == Some(gitbutler_filemonitor::INDEX))
+            || !unity_editor_appears_open(worktree_path)
+        {
+            return true;
+        }
+
+        tracing::debug!(
+            paths = self.project_paths.len(),
+            quiet_ms = UNITY_PROJECT_EVENT_QUIET_PERIOD.as_millis(),
+            "parking Unity project file events until lock files clear"
+        );
+        let quiet_until = tokio::time::sleep(UNITY_PROJECT_EVENT_QUIET_PERIOD);
+        tokio::pin!(quiet_until);
+        loop {
+            tokio::select! {
+                Some(event) = events_in.recv() => {
+                    self.add(event);
+                    if self
+                        .git_paths
+                        .iter()
+                        .any(|path| path.to_str() == Some(gitbutler_filemonitor::INDEX))
+                    {
+                        return true;
+                    }
+                    quiet_until
+                        .as_mut()
+                        .reset(tokio::time::Instant::now() + UNITY_PROJECT_EVENT_QUIET_PERIOD);
+                }
+                () = &mut quiet_until => {
+                    if !unity_editor_appears_open(worktree_path) {
+                        return true;
+                    }
+                    tracing::trace!(
+                        paths = self.project_paths.len(),
+                        quiet_ms = UNITY_PROJECT_EVENT_QUIET_PERIOD.as_millis(),
+                        "Unity lock files are still present; continuing to park project file events"
+                    );
+                    quiet_until
+                        .as_mut()
+                        .reset(tokio::time::Instant::now() + UNITY_PROJECT_EVENT_QUIET_PERIOD);
+                },
+                () = cancellation_token.cancelled() => return false,
+            }
+        }
+    }
+
     fn add(&mut self, event: InternalEvent) {
         match event {
             InternalEvent::GitFilesChange(_, paths) => self.git_paths.extend(paths),
@@ -161,4 +235,14 @@ impl CoalescedEvents {
         }
         events
     }
+}
+
+fn unity_editor_appears_open(worktree_path: &Path) -> bool {
+    [
+        PathBuf::from("Temp").join("UnityLockfile"),
+        PathBuf::from("Library").join("SourceAssetDB-lock"),
+        PathBuf::from("Library").join("ArtifactDB-lock"),
+    ]
+    .iter()
+    .any(|path| worktree_path.join(path).exists())
 }
