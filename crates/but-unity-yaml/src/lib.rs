@@ -473,22 +473,7 @@ fn index_scene_relationships(scene: &mut ParsedScene) {
 }
 
 fn diff_scenes(old_scene: &ParsedScene, new_scene: &ParsedScene) -> Vec<UnitySemanticNode> {
-    let mut nodes = Vec::new();
-    let all_go_ids: BTreeSet<i64> = old_scene
-        .game_objects
-        .keys()
-        .chain(new_scene.game_objects.keys())
-        .copied()
-        .collect();
-
-    for go_id in all_go_ids {
-        let old_go = old_scene.game_objects.get(&go_id);
-        let new_go = new_scene.game_objects.get(&go_id);
-        let Some(node) = diff_game_object(old_scene, new_scene, go_id, old_go, new_go) else {
-            continue;
-        };
-        nodes.push(node);
-    }
+    let mut nodes = diff_game_object_hierarchy(old_scene, new_scene);
 
     let all_prefab_ids: BTreeSet<i64> = old_scene
         .documents
@@ -509,7 +494,7 @@ fn diff_scenes(old_scene: &ParsedScene, new_scene: &ParsedScene) -> Vec<UnitySem
         if changes.is_empty() {
             continue;
         }
-        let label = format!("Prefab overrides {}", id);
+        let label = format!("Prefab overrides {id}");
         nodes.push(UnitySemanticNode {
             id: format!("prefab-{id}"),
             label: label.clone(),
@@ -524,6 +509,155 @@ fn diff_scenes(old_scene: &ParsedScene, new_scene: &ParsedScene) -> Vec<UnitySem
     }
 
     nodes
+}
+
+fn diff_game_object_hierarchy(
+    old_scene: &ParsedScene,
+    new_scene: &ParsedScene,
+) -> Vec<UnitySemanticNode> {
+    let all_go_ids: BTreeSet<i64> = old_scene
+        .game_objects
+        .keys()
+        .chain(new_scene.game_objects.keys())
+        .copied()
+        .collect();
+    let mut changed_nodes = BTreeMap::new();
+
+    for go_id in &all_go_ids {
+        let old_go = old_scene.game_objects.get(&go_id);
+        let new_go = new_scene.game_objects.get(&go_id);
+        let Some(node) = diff_game_object(old_scene, new_scene, *go_id, old_go, new_go) else {
+            continue;
+        };
+        changed_nodes.insert(*go_id, node);
+    }
+
+    let mut visible_ids = BTreeSet::new();
+    for go_id in changed_nodes.keys().copied().collect::<Vec<_>>() {
+        let mut current = Some(go_id);
+        let mut seen = BTreeSet::new();
+        while let Some(id) = current {
+            if !seen.insert(id) {
+                break;
+            }
+            visible_ids.insert(id);
+            current = parent_id(old_scene, new_scene, id);
+        }
+    }
+
+    let roots = visible_ids
+        .iter()
+        .copied()
+        .filter(|id| {
+            parent_id(old_scene, new_scene, *id).is_none_or(|parent| !visible_ids.contains(&parent))
+        })
+        .collect::<Vec<_>>();
+
+    let mut nodes = roots
+        .into_iter()
+        .filter_map(|root| {
+            build_hierarchy_node(
+                old_scene,
+                new_scene,
+                root,
+                &visible_ids,
+                &mut changed_nodes,
+                &mut BTreeSet::new(),
+            )
+        })
+        .collect::<Vec<_>>();
+    nodes.sort_by(|a, b| a.path.cmp(&b.path).then_with(|| a.label.cmp(&b.label)));
+    nodes
+}
+
+fn build_hierarchy_node(
+    old_scene: &ParsedScene,
+    new_scene: &ParsedScene,
+    go_id: i64,
+    visible_ids: &BTreeSet<i64>,
+    changed_nodes: &mut BTreeMap<i64, UnitySemanticNode>,
+    seen: &mut BTreeSet<i64>,
+) -> Option<UnitySemanticNode> {
+    if !seen.insert(go_id) {
+        return None;
+    }
+
+    let mut node = changed_nodes
+        .remove(&go_id)
+        .or_else(|| hierarchy_context_node(old_scene, new_scene, go_id))?;
+    let mut game_object_children = child_ids(old_scene, new_scene, go_id)
+        .into_iter()
+        .filter(|child_id| visible_ids.contains(child_id))
+        .filter_map(|child_id| {
+            build_hierarchy_node(
+                old_scene,
+                new_scene,
+                child_id,
+                visible_ids,
+                changed_nodes,
+                seen,
+            )
+        })
+        .collect::<Vec<_>>();
+    game_object_children.sort_by(|a, b| a.path.cmp(&b.path).then_with(|| a.label.cmp(&b.label)));
+
+    let mut children = game_object_children;
+    children.extend(node.children);
+    node.children = children;
+    seen.remove(&go_id);
+    Some(node)
+}
+
+fn hierarchy_context_node(
+    old_scene: &ParsedScene,
+    new_scene: &ParsedScene,
+    go_id: i64,
+) -> Option<UnitySemanticNode> {
+    let old_go = old_scene.game_objects.get(&go_id);
+    let new_go = new_scene.game_objects.get(&go_id);
+    let label = new_go.or(old_go)?.name.clone();
+    let path = new_go
+        .map(|_| object_path(new_scene, go_id))
+        .or_else(|| old_go.map(|_| object_path(old_scene, go_id)))
+        .unwrap_or_else(|| label.clone());
+    Some(UnitySemanticNode {
+        id: format!("go-{go_id}"),
+        label,
+        kind: UnityNodeKind::GameObject,
+        change_kind: UnityChangeKind::Unchanged,
+        path,
+        class_name: Some("GameObject".to_owned()),
+        children: Vec::new(),
+        changes: Vec::new(),
+        range: range_for_docs(
+            old_scene.documents.get(&go_id),
+            new_scene.documents.get(&go_id),
+        ),
+    })
+}
+
+fn parent_id(old_scene: &ParsedScene, new_scene: &ParsedScene, go_id: i64) -> Option<i64> {
+    new_scene
+        .game_objects
+        .get(&go_id)
+        .and_then(|go| go.parent)
+        .or_else(|| old_scene.game_objects.get(&go_id).and_then(|go| go.parent))
+}
+
+fn child_ids(old_scene: &ParsedScene, new_scene: &ParsedScene, go_id: i64) -> BTreeSet<i64> {
+    old_scene
+        .game_objects
+        .get(&go_id)
+        .into_iter()
+        .flat_map(|go| go.children.iter().copied())
+        .chain(
+            new_scene
+                .game_objects
+                .get(&go_id)
+                .into_iter()
+                .flat_map(|go| go.children.iter().copied()),
+        )
+        .collect()
 }
 
 fn diff_game_object(
@@ -1038,6 +1172,57 @@ PrefabInstance:
                 .iter()
                 .any(|node| node.kind == UnityNodeKind::PrefabOverride),
             "prefab modifications should be first-class semantic nodes"
+        );
+    }
+
+    #[test]
+    fn includes_hierarchy_context_for_changed_children() {
+        let before = r"%YAML 1.1
+--- !u!1 &100
+GameObject:
+  m_Name: Root
+--- !u!4 &200
+Transform:
+  m_GameObject: {fileID: 100}
+  m_Father: {fileID: 0}
+--- !u!1 &300
+GameObject:
+  m_Name: Child
+--- !u!4 &400
+Transform:
+  m_GameObject: {fileID: 300}
+  m_Father: {fileID: 200}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+";
+        let after = r"%YAML 1.1
+--- !u!1 &100
+GameObject:
+  m_Name: Root
+--- !u!4 &200
+Transform:
+  m_GameObject: {fileID: 100}
+  m_Father: {fileID: 0}
+--- !u!1 &300
+GameObject:
+  m_Name: Child
+--- !u!4 &400
+Transform:
+  m_GameObject: {fileID: 300}
+  m_Father: {fileID: 200}
+  m_LocalPosition: {x: 1, y: 0, z: 0}
+";
+        let diff = semantic_diff("Assets/Scenes/Test.unity", Some(before), Some(after), true)
+            .expect("Unity scene path should be supported");
+
+        let root = diff
+            .nodes
+            .iter()
+            .find(|node| node.label == "Root")
+            .expect("unchanged parent should be included as hierarchy context");
+        assert_eq!(root.change_kind, UnityChangeKind::Unchanged);
+        assert!(
+            root.children.iter().any(|node| node.label == "Child"),
+            "changed child GameObject should be nested under its Unity parent"
         );
     }
 }

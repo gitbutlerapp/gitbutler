@@ -9,7 +9,6 @@
 		UnitySemanticDiff,
 		UnitySemanticNode,
 		UnitySelection,
-		UnitySelectionMode,
 	} from "$lib/files/unitySemantic";
 	import type { SelectionId } from "$lib/selection/key";
 	import type { TreeChange } from "@gitbutler/but-sdk";
@@ -30,16 +29,16 @@
 	const semanticQuery = $derived(diffService.getUnitySemanticDiff(projectId, change));
 	const isWorktreeSelection = $derived(selectionId.type === "worktree");
 
-	function selectionLabel(mode: UnitySelectionMode) {
-		switch (mode) {
-			case "precise":
-				return "Include field";
-			case "hunk":
+	function nodeSelectionLabel(kind: string) {
+		switch (kind) {
+			case "gameObject":
+				return "Include object";
+			case "component":
+				return "Include component";
+			case "prefabOverride":
+				return "Include override";
+			default:
 				return "Include change";
-			case "file":
-				return "Include file";
-			case "unavailable":
-				return "Select this from Raw diff";
 		}
 	}
 
@@ -93,6 +92,8 @@
 				return "Moved";
 			case "modified":
 				return "Modified";
+			case "unchanged":
+				return "Context";
 			default:
 				return "Changed";
 		}
@@ -112,10 +113,10 @@
 	}
 </script>
 
-{#snippet selectionControl(selection: UnitySelection)}
+{#snippet selectionControl(selection: UnitySelection, label: string)}
 	{#if selectable && isWorktreeSelection}
 		{@const disabled = selection.mode === "unavailable"}
-		<Tooltip text={disabled ? "Select this from Raw diff" : selectionLabel(selection.mode)}>
+		<Tooltip text={disabled ? "Select this from Raw diff" : label}>
 			<Checkbox
 				small
 				checked={selectionChecked(selection)}
@@ -128,7 +129,7 @@
 
 {#snippet changeRow(change: UnitySemanticChange)}
 	<div class="unity-change-row">
-		{@render selectionControl(change.selection)}
+		{@render selectionControl(change.selection, "Include field")}
 		<div class="unity-change-row__body">
 			<div class="unity-change-row__title">
 				<span>{change.label}</span>
@@ -137,13 +138,13 @@
 				</Badge>
 			</div>
 			<div class="unity-change-row__values text-12">
-				{#if change.oldValue !== undefined}
+				{#if change.oldValue != null}
 					<span class="old">{change.oldValue}</span>
 				{/if}
-				{#if change.oldValue !== undefined || change.newValue !== undefined}
+				{#if change.oldValue != null || change.newValue != null}
 					<span class="arrow">-&gt;</span>
 				{/if}
-				{#if change.newValue !== undefined}
+				{#if change.newValue != null}
 					<span class="new">{change.newValue}</span>
 				{/if}
 			</div>
@@ -158,7 +159,7 @@
 {#snippet nodeRow(node: UnitySemanticNode, depth = 0)}
 	<div class="unity-node" style={`--depth: ${depth}`}>
 		<div class="unity-node__header">
-			{@render selectionControl(node.selection)}
+			{@render selectionControl(node.selection, nodeSelectionLabel(node.kind))}
 			<div class="unity-node__main">
 				<div class="unity-node__title">
 					<span>{node.label}</span>

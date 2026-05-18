@@ -22,8 +22,8 @@ export type UnitySelection = {
 export type UnitySemanticChange = {
 	label: string;
 	propertyPath: string;
-	oldValue?: string;
-	newValue?: string;
+	oldValue?: string | null;
+	newValue?: string | null;
 	changeKind: UnityChangeKind;
 	selection: UnitySelection;
 };
@@ -34,7 +34,7 @@ export type UnitySemanticNode = {
 	kind: UnityNodeKind;
 	changeKind: UnityChangeKind;
 	path: string;
-	className?: string;
+	className?: string | null;
 	children: UnitySemanticNode[];
 	changes: UnitySemanticChange[];
 	selection: UnitySelection;
@@ -50,13 +50,13 @@ export type UnitySemanticDiff = {
 		warnings: number;
 	};
 	nodes: UnitySemanticNode[];
-	warnings: { message: string; line?: number }[];
+	warnings: { message: string; line?: number | null }[];
 	rawAvailable: boolean;
 };
 
 export type UnitySmartMergeStatus = {
 	available: boolean;
-	command?: string;
+	command?: string | null;
 	message: string;
 };
 
