@@ -694,6 +694,14 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         self.insert_segment_into(target, delimiter, side, None)
     }
 
+    /// Add a step node to the graph.
+    ///
+    /// Almost always you really want to use `insert` function instead.
+    pub fn add_step(&mut self, step: Step) -> Result<Selector> {
+        let new_idx = self.graph.add_node(step);
+        Ok(self.new_selector(new_idx))
+    }
+
     /// Inserts a new node relative to a selector
     ///
     /// When inserting above, any nodes that point to the selector will now
