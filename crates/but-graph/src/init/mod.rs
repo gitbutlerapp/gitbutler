@@ -1495,6 +1495,8 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
 
     match tip_ref_matches_ws_ref {
         None => {
+            // We don't name the tip of the entrypoint as we want the segment
+            // naming to be handled by tips created from metadata.
             tips.push(Tip::entrypoint(entrypoint, None));
             queued_ids.push(entrypoint);
         }

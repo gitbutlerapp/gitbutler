@@ -37,7 +37,7 @@ pub struct BottomUpdate {
 
 /// The outcome of integrating upstream
 pub struct IntegrateUpstreamOutcome<'ws, 'meta, M: RefMetadata> {
-    /// The updated worskpace metadata.
+    /// The updated workspace metadata.
     pub ws_meta: but_core::ref_metadata::Workspace,
     /// The rebased outcome.
     pub rebase: SuccessfulRebase<'ws, 'meta, M>,
@@ -61,7 +61,7 @@ impl AnnotatedNode {
 }
 
 /// Describes a sub-graph of commits from beneath workspace commit (or from HEAD
-/// with a direct checkout) until the target commit or it's decendants.
+/// with a direct checkout) until the target commit or it's descendants.
 #[derive(Clone, Debug)]
 struct Stack {
     to_merge: bool,
@@ -87,14 +87,14 @@ struct Stack {
 /// particular bottom commit.
 ///
 /// All bottom commits can be updated by marking them to be rebased. If a stack
-/// has one head and one bottom, it is eligable to have upstream merged into it.
+/// has one head and one bottom, it is eligible to have upstream merged into it.
 ///
 /// ## Notes on the algorithm:
 ///
 /// The algorithm works as follows:
 ///
 /// ### Collecting the stacks:
-/// - Stacks are identified as the seperate sub-graphs between `workspace head`
+/// - Stacks are identified as the separate sub-graphs between `workspace head`
 ///   and `target.sha`.
 /// - Each node in a stack that is included in `target.ref` gets marked as
 ///   `historically_integrated`.
@@ -106,7 +106,7 @@ struct Stack {
 /// ### Resolving the updates
 /// - We validate updates match a bottom in a stack, and that Merge updates are
 ///   only marked on stacks with one head and one bottom.
-/// - For `Rebase` updates, we propogate a `to_rebase` flag to all the children
+/// - For `Rebase` updates, we propagate a `to_rebase` flag to all the children
 ///   nodes of that bottom.
 ///
 /// ### Performing merges
@@ -137,9 +137,9 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
         .context("Cannot update a workspace with no target ref")?;
     let target_ref_commit = repo.find_reference(&target_ref.ref_name)?.id();
 
-    let entrypoint = workspace.graph.lookup_entrypoint()?;
+    let entrypoint = workspace.graph.entrypoint()?;
     let head_commit = entrypoint
-        .commit
+        .commit()
         .context("Cannot update workspace without head commit")?;
     let head_commit = repo.find_commit(head_commit.id)?;
     let head_is_workspace_commit = is_managed_workspace_by_message(head_commit.message_raw()?);
@@ -247,7 +247,7 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
             // was historically integrated, we end up with both `B` and `D` with
             // a graph (target<-B, target<-D, B<-D).
             //
-            // The edge `target<-D` is superflous.
+            // The edge `target<-D` is superfluous.
             //
             // We should be able to drop edges under the following condition:
             // "If a commit that has an edge we would consider re-parenting; if
@@ -397,7 +397,7 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             }
         }
 
-        // Propogate content_integrated up to Reference or None steps who's
+        // Propagate content_integrated up to Reference or None steps who's
         // parents are _all_ content_integrated.
         //
         // We shouldn't need to do the same for historically_integrated

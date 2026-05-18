@@ -130,6 +130,7 @@ impl Display for SnapshotDetails {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize, strum::EnumIter)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub enum OperationKind {
     CreateCommit,
     CreateBranch,
@@ -189,6 +190,9 @@ pub enum OperationKind {
     OnDemandSnapshot,
     Unknown,
 }
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(OperationKind);
 
 impl OperationKind {
     pub fn kind_str(self) -> &'static str {
@@ -480,7 +484,7 @@ impl Trailer {
     const MESSAGE_KEY: &str = "message";
     const BRANCH_KEY: &str = "branch";
 
-    fn key(&self) -> &str {
+    pub fn key(&self) -> &str {
         match self {
             Trailer::Other { key, .. } => key,
             Trailer::Version(..) => Self::VERSION_KEY,
@@ -499,7 +503,7 @@ impl Trailer {
         }
     }
 
-    fn value(&self) -> Cow<'_, str> {
+    pub fn value(&self) -> Cow<'_, str> {
         match self {
             Trailer::Other { value, .. } => value.into(),
             Trailer::Version(version) => version.0.to_string().into(),

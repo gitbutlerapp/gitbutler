@@ -5,7 +5,7 @@
 
 use anyhow::Context;
 
-use crate::{SegmentIndex, Workspace, workspace::TargetRef};
+use crate::{SegmentIndex, Workspace, segment, workspace::TargetRef};
 
 /// Legacy query helpers kept for callers that still depend on compatibility
 /// semantics.
@@ -15,6 +15,42 @@ pub mod legacy;
 
 /// # Points of Interest
 impl Workspace {
+    /// Return the `commit` at the tip of the workspace, or that the tip reference
+    /// was pointing to in Git.
+    ///
+    /// Empty virtual workspace tip segments may fan out to multiple stack
+    /// branches, so the workspace segment has no unique graph path to a commit.
+    /// This falls back to the peeled commit id stored in the workspace segment's
+    /// [`crate::RefInfo`] and resolves that id against the final graph.
+    ///
+    /// Note that this commit could also be the base of the workspace,
+    /// particularly if there are no commits in the workspace.
+    pub fn tip_commit(&self) -> Option<&segment::Commit> {
+        self.tip_commit_by_segment_id(self.id)
+    }
+
+    /// Return the `commit` at the tip of `segment_id`, or that its ref was pointing
+    /// to in Git.
+    ///
+    /// This first uses [`Graph::tip_skip_empty()`](crate::Graph::tip_skip_empty)
+    /// to follow an unambiguous chain of empty segments to the first commit.
+    /// If that cannot resolve a commit, it falls back to the peeled commit id
+    /// stored in the segment's [`crate::RefInfo`] and resolves that id in the
+    /// graph.
+    ///
+    /// That fallback is what makes this useful for workspace-owned virtual
+    /// segments whose ref points at a commit, but whose graph edges do not form
+    /// a single unambiguous path to it.
+    pub fn tip_commit_by_segment_id(&self, segment_id: SegmentIndex) -> Option<&segment::Commit> {
+        self.graph.tip_skip_empty(segment_id).or_else(|| {
+            let commit_id = self.graph[segment_id].ref_info.as_ref()?.commit_id?;
+            self.graph
+                .segment_by_commit_id(commit_id)
+                .ok()?
+                .commit_by_id(commit_id)
+        })
+    }
+
     /// Return the stored target commit id.
     ///
     /// This is the previous target position remembered in workspace metadata.
@@ -30,7 +66,7 @@ impl Workspace {
     pub fn target_ref_tip_commit_id(&self) -> Option<gix::ObjectId> {
         self.target_ref
             .as_ref()
-            .and_then(|target| self.graph.tip_skip_empty(target.segment_index))
+            .and_then(|target| self.tip_commit_by_segment_id(target.segment_index))
             .map(|commit| commit.id)
     }
 
@@ -42,7 +78,7 @@ impl Workspace {
     pub fn effective_target_commit_id(&self) -> Option<gix::ObjectId> {
         self.target_ref
             .as_ref()
-            .and_then(|target| self.graph.tip_skip_empty(target.segment_index))
+            .and_then(|target| self.tip_commit_by_segment_id(target.segment_index))
             .map(|commit| commit.id)
             .or_else(|| self.target_commit.as_ref().map(|target| target.commit_id))
             .or_else(|| {
@@ -50,8 +86,7 @@ impl Workspace {
                     .integrated_tip_segments()
                     .into_iter()
                     .find_map(|segment_index| {
-                        self.graph
-                            .tip_skip_empty(segment_index)
+                        self.tip_commit_by_segment_id(segment_index)
                             .map(|commit| commit.id)
                     })
             })

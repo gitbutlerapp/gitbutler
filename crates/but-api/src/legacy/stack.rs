@@ -2,8 +2,9 @@ use std::borrow::Cow;
 
 use anyhow::{Context as _, Result, anyhow};
 use but_api_macros::but_api;
-use but_core::{branch, ref_metadata::StackId, sync::RepoExclusive};
+use but_core::{DryRun, branch, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
+use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
 use gitbutler_git::PushResult;
 use gitbutler_oplog::SnapshotExt;
@@ -103,7 +104,16 @@ pub fn create_reference_with_perm(
         .transpose()?;
 
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+        ctx,
+        SnapshotDetails::new(OperationKind::CreateBranch)
+            .with_trailers([Trailer::Branch(new_name)]),
+        perm.read_permission(),
+        DryRun::No,
+    );
+
     let new_ws = but_workspace::branch::create_reference(
         new_ref.clone(),
         anchor,
@@ -113,6 +123,10 @@ pub fn create_reference_with_perm(
         |_| StackId::generate(),
         None,
     )?;
+
+    if let Some(snapshot) = maybe_oplog_entry {
+        snapshot.commit(ctx, perm).ok();
+    }
 
     let stack_id = new_ws
         .find_segment_and_stack_by_refname(new_ref.as_ref())
@@ -167,7 +181,7 @@ pub fn create_branch(
                 )
                 .or_else(|| {
                     Some(but_workspace::branch::create_reference::Anchor::AtCommit {
-                        commit_id: ws.graph.tip_skip_empty(segment.id)?.id,
+                        commit_id: ws.tip_commit_by_segment_id(segment.id)?.id,
                         position: Above,
                     })
                 })

@@ -313,16 +313,21 @@ impl Workspace {
         })
     }
 
-    /// Find the `(stack_idx, branch_idx)` of `name` within our applied stack branches and return it,
+    /// Find the `(stack_idx, branch_idx)` of `name` within *all* stack branches
+    /// if `kind` is [StackKind::AppliedAndUnapplied], or those that are in the workspace
     /// for direct access like `ws.stacks[stack_idx].branches[branch_idx]`.
-    /// Use `kind` for filtering.
     pub fn find_owner_indexes_by_name(
         &self,
         name: &gix::refs::FullNameRef,
         kind: StackKind,
     ) -> Option<(usize, usize)> {
-        self.stacks(kind)
+        self.stacks
+            .iter()
             .enumerate()
+            .filter(|(_, stack)| {
+                matches!(kind, StackKind::AppliedAndUnapplied)
+                    || stack.workspacecommit_relation.is_in_workspace()
+            })
             .find_map(|(stack_idx, stack)| {
                 stack.branches.iter().enumerate().find_map(|(seg_idx, b)| {
                     (b.ref_name.as_ref() == name).then_some((stack_idx, seg_idx))

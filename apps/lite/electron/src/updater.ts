@@ -36,6 +36,18 @@ export const registerUpdater = (mainWindow: BrowserWindow): void => {
 };
 
 export const checkForUpdates = (): void => {
-	if (!app.isPackaged || env.LITE_NO_AUTOUPDATE === "1" || process.platform == "win32") return;
-	void getAutoUpdater().checkForUpdates();
+	const updater = getAutoUpdater();
+
+	if (
+		!app.isPackaged ||
+		env.LITE_NO_AUTOUPDATE === "1" ||
+		process.platform === "win32" ||
+		updater.currentVersion.prerelease.includes("dev")
+	)
+		return;
+
+	void updater.checkForUpdates().catch((error) => {
+		// oxlint-disable-next-line no-console
+		console.error("Failed to check for updates", error);
+	});
 };

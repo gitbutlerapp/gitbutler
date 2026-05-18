@@ -26,7 +26,7 @@ boolean_enums::gen_boolean_enum!(pub FirstParent);
 impl Graph {
     /// Insert `segment` to the graph so that it's not connected to any other segment, and return its index.
     ///
-    /// Note that as a side effect, the [entrypoint](Self::lookup_entrypoint()) will also be set if it's not
+    /// Note that as a side effect, the [entrypoint](Self::entrypoint()) will also be set if it's not
     /// set yet.
     pub fn insert_segment_set_entrypoint(&mut self, segment: Segment) -> SegmentIndex {
         let entrypoint = segment
@@ -653,6 +653,65 @@ impl Graph {
     }
 }
 
+/// # Points of interest
+impl Graph {
+    /// Return the entry-point commit of this graph if it is a
+    /// [managed](is_managed_workspace_by_message) workspace commit.
+    ///
+    /// Note that managed workspace commits are owned by GitButler.
+    /// The `repo` is used to look up the entrypoint commit and to obtain its message
+    /// and only return it if it seems to be owned by GitButler.
+    pub fn managed_entrypoint_commit(
+        &self,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<Option<&Commit>> {
+        let Some(ec) = self.entrypoint()?.commit() else {
+            return Ok(None);
+        };
+
+        let commit = repo.find_commit(ec.id)?;
+        let message = commit.message_raw()?;
+        Ok(is_managed_workspace_by_message(message).then_some(ec))
+    }
+
+    /// Return the entry-point of the graph as configured during traversal.
+    /// It's useful for when one wants to know which commit was used to discover the entire graph.
+    ///
+    /// Note that this method only fails if the entrypoint wasn't set correctly due to a bug.
+    pub fn entrypoint(&self) -> anyhow::Result<EntryPoint<'_>> {
+        let (segment_index, commit) = self
+            .entrypoint
+            .context("BUG: must always set the entrypoint")?;
+        let segment = self.inner.node_weight(segment_index).with_context(|| {
+            format!("BUG: entrypoint segment at {segment_index:?} wasn't present")
+        })?;
+        let commit_and_owner = match commit {
+            EntryPointCommit::Unborn => None,
+            EntryPointCommit::AtCommit(id) => {
+                // We don't check invariants here and are more flexible than we have to,
+                // validation takes care of the details.
+                if let Some(t) = segment.commit_by_id(id).map(|c| (c, segment)) {
+                    Some(t)
+                } else {
+                    let owner = self.segment_by_commit_id(id)?;
+                    let commit = owner.commit_by_id(id)
+                        .with_context(|| {
+                            format!(
+                                "BUG: owner segment {owner_id:?} did not contain remembered entrypoint commit {id}",
+                                owner_id = owner.id
+                            )
+                        })?;
+                    Some((commit, owner))
+                }
+            }
+        };
+        Ok(EntryPoint {
+            segment,
+            commit_and_owner,
+        })
+    }
+}
+
 /// Query
 /// ‼️Useful only if one knows the graph traversal was started where one expects, or else the graph may be partial.
 impl Graph {
@@ -709,30 +768,6 @@ impl Graph {
     pub fn tip_skip_empty(&self, segment: SegmentIndex) -> Option<&Commit> {
         self.resolve_to_unambiguously_pointed_to_commit(segment)
             .map(|(c, _)| c)
-    }
-
-    /// The first commit reachable by skipping over empty segments starting at the entrypoint segment.
-    pub fn entrypoint_commit(&self) -> Option<&Commit> {
-        self.tip_skip_empty(self.entrypoint?.0)
-    }
-
-    /// Return the entry-point commit of this graph if it is a
-    /// [managed](is_managed_workspace_by_message) workspace commit.
-    ///
-    /// The entry-point commit is obtained via [`Self::entrypoint_commit()`].
-    /// Note that managed workspace commits are owned by GitButler.
-    /// The `repo` is used to look up the entrypoint commit and to obtain its message.
-    pub fn managed_entrypoint_commit(
-        &self,
-        repo: &gix::Repository,
-    ) -> anyhow::Result<Option<&Commit>> {
-        let Some(ec) = self.entrypoint_commit() else {
-            return Ok(None);
-        };
-
-        let commit = repo.find_commit(ec.id)?;
-        let message = commit.message_raw()?;
-        Ok(is_managed_workspace_by_message(message).then_some(ec))
     }
 
     /// Visit the ancestry of `start` along the first parents, itself excluded, until `stop` returns `true`.
@@ -817,25 +852,6 @@ impl Graph {
         )
     }
 
-    /// Return the entry-point of the graph as configured during traversal.
-    /// It's useful for when one wants to know which commit was used to discover the entire graph.
-    ///
-    /// Note that this method only fails if the entrypoint wasn't set correctly due to a bug.
-    pub fn lookup_entrypoint(&self) -> anyhow::Result<EntryPoint<'_>> {
-        let (segment_index, commit) = self
-            .entrypoint
-            .context("BUG: must always set the entrypoint")?;
-        let segment = &self.inner.node_weight(segment_index).with_context(|| {
-            format!("BUG: entrypoint segment at {segment_index:?} wasn't present")
-        })?;
-        let commit_index = commit.index_in(segment);
-        Ok(EntryPoint {
-            segment_index,
-            commit_index,
-            segment,
-            commit: commit_index.and_then(|idx| segment.commits.get(idx)),
-        })
-    }
     /// Return all segments which have no other segments *above* them, making them tips.
     ///
     /// Typically, there is only one, but there *can* be multiple technically.
@@ -980,6 +996,7 @@ impl Graph {
     /// as these graphs are explicitly partial.
     pub fn validated(self) -> anyhow::Result<Self> {
         if !self.hard_limit_hit {
+            self.check_entrypoint_invariants()?;
             for segment_index in self.inner.node_indices() {
                 let segment = &self.inner[segment_index];
                 let outgoing = self
@@ -1011,6 +1028,9 @@ impl Graph {
     ///
     /// If the graph didn't hit the hard limit, this checks:
     ///
+    /// - The graph entrypoint exists, points to an existing segment, matches the
+    ///   remembered entrypoint ref when one exists, and remembers a commit id
+    ///   that is still represented in the graph.
     /// - Virtual segments are empty, named graph nodes for real Git refs whose
     ///   commit is owned elsewhere, and connected according to their
     ///   GitButler-only role.
@@ -1023,6 +1043,7 @@ impl Graph {
     pub fn validation_errors(&self) -> Vec<anyhow::Error> {
         let mut out = Vec::new();
         if !self.hard_limit_hit {
+            out.extend(self.check_entrypoint_invariants().err());
             for segment_index in self.inner.node_indices() {
                 let segment = &self.inner[segment_index];
                 let outgoing = self
@@ -1058,6 +1079,72 @@ impl Graph {
                 .filter_map(|edge| Self::check_edge(&self.inner, edge, false).err()),
         );
         out
+    }
+
+    /// The entrypoint is the user-facing traversal anchor.
+    ///
+    /// It must always point at an existing segment in completed graphs. If a
+    /// ref name was remembered for it, post-processing must have moved the
+    /// entrypoint to the segment with that name.
+    ///
+    /// If the entrypoint remembers a commit id, that id must either be the first
+    /// commit of its segment or be owned elsewhere as the first commit of another segment.
+    ///
+    /// The latter is valid for empty virtual workspace tip segments: they can fan out to
+    /// multiple stack segments and cannot resolve through a unique outgoing
+    /// edge, but the original traversal commit is still known.
+    fn check_entrypoint_invariants(&self) -> anyhow::Result<()> {
+        let (entrypoint_sidx, entrypoint_commit) = self
+            .entrypoint
+            .context("completed graph must have an entrypoint")?;
+        let segment = self
+            .inner
+            .node_weight(entrypoint_sidx)
+            .with_context(|| format!("entrypoint segment at {entrypoint_sidx:?} wasn't present"))?;
+
+        if let Some(entrypoint_ref) = self.entrypoint_ref.as_ref() {
+            ensure!(
+                segment
+                    .ref_name()
+                    .is_some_and(|rn| rn == entrypoint_ref.as_ref()),
+                "{entrypoint_sidx:?}: entrypoint segment must be named {entrypoint_ref}, got {actual:?}",
+                actual = segment.ref_name()
+            );
+        }
+
+        match entrypoint_commit {
+            EntryPointCommit::Unborn => {
+                ensure!(
+                    segment.commits.is_empty(),
+                    "{entrypoint_sidx:?}: unborn entrypoint segment must not contain commits"
+                );
+            }
+            EntryPointCommit::AtCommit(id) => {
+                if let Some(first_commit) = segment.commits.first() {
+                    ensure!(
+                        first_commit.id == id,
+                        "{entrypoint_sidx:?}: entrypoint segment first commit is {actual}, not remembered entrypoint commit {id}",
+                        actual = first_commit.id
+                    );
+                } else {
+                    ensure!(
+                        segment.ref_name().is_some(),
+                        "{entrypoint_sidx:?}: empty entrypoint segment with remembered commit {id} must be named"
+                    );
+                    let owner_segment = self.segment_by_commit_id(id).with_context(|| {
+                        format!(
+                            "{entrypoint_sidx:?}: empty entrypoint segment remembers {id}, but no segment owns that commit"
+                        )
+                    })?;
+                    ensure!(
+                        owner_segment.commit_index_of(id) == Some(0),
+                        "{entrypoint_sidx:?}: empty entrypoint segment remembers {id}, but owner {owner_segment_id:?} does not have it as first commit",
+                        owner_segment_id = owner_segment.id
+                    );
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Virtual segments are empty graph nodes that correspond to real Git

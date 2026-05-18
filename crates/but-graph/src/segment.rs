@@ -42,6 +42,8 @@ pub struct RefInfo {
     ///
     /// It's useful if the segment with this ref-info instance doesn't actually
     /// own a commit, and can't (always) discover it with [crate::Graph::tip_skip_empty()].
+    /// Workspace queries use it as a fallback in
+    /// [`Workspace::tip_commit_by_segment_id()`](crate::Workspace::tip_commit_by_segment_id).
     pub commit_id: Option<gix::ObjectId>,
     /// If `Some`, provide information about the worktree that checks out the reference at `ref_name`,
     /// i.e. its `HEAD` points to `ref_name` directly or indirectly due to chains of .

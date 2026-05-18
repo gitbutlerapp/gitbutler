@@ -7,7 +7,7 @@ use petgraph::Direction;
 use tracing::instrument;
 
 use crate::{
-    CommitFlags, CommitIndex, Graph, Segment, SegmentIndex, Workspace, segment,
+    CommitFlags, CommitIndex, Graph, Segment, SegmentIndex, Workspace,
     workspace::{
         Stack, StackCommit, StackSegment, TargetRef, WorkspaceKind,
         workspace::find_segment_owner_indexes_by_refname,
@@ -110,7 +110,7 @@ impl Workspace {
         self.stored_target_commit_id().or_else(|| {
             self.target_ref
                 .as_ref()
-                .and_then(|t| self.graph.tip_skip_empty(t.segment_index).map(|c| c.id))
+                .and_then(|t| self.tip_commit_by_segment_id(t.segment_index).map(|c| c.id))
         })
     }
 
@@ -138,12 +138,10 @@ impl Workspace {
             .graph
             .find_merge_base(commit_segment_index, target_segment_index)?;
 
-        self.graph
-            .tip_skip_empty(merge_base_segment_index)
+        self.tip_commit_by_segment_id(merge_base_segment_index)
             .map(|c| c.id)
             .zip(
-                self.graph
-                    .tip_skip_empty(target_segment_index)
+                self.tip_commit_by_segment_id(target_segment_index)
                     .map(|c| c.id),
             )
     }
@@ -182,28 +180,6 @@ impl Workspace {
                 .lookup_sibling_segment(t.segment_index)
                 .and_then(|local_tracking_segment| local_tracking_segment.ref_name())
                 .is_some_and(|local_tracking_ref| local_tracking_ref == name)
-    }
-
-    /// Return the `commit` at the tip of the workspace.
-    ///
-    /// Empty virtual workspace tip segments may fan out to multiple stack
-    /// branches, so the workspace segment has no unique graph path to a commit.
-    /// This falls back to the peeled commit id stored in the workspace segment's
-    /// [`crate::RefInfo`] and resolves that id against the final graph.
-    ///
-    /// This is different from the [`Graph::lookup_entrypoint()`] commit, as the
-    /// entrypoint could be anywhere inside the workspace.
-    ///
-    /// Note that this commit could also be the base of the workspace,
-    /// particularly if there are no commits in the workspace.
-    pub fn tip_commit(&self) -> Option<&segment::Commit> {
-        self.graph.tip_skip_empty(self.id).or_else(|| {
-            let commit_id = self.graph[self.id].ref_info.as_ref()?.commit_id?;
-            self.graph
-                .segment_by_commit_id(commit_id)
-                .ok()?
-                .commit_by_id(commit_id)
-        })
     }
 
     /// Lookup a triple obtained by [`Self::find_owner_indexes_by_commit_id()`] or panic.

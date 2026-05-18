@@ -2,7 +2,6 @@ import { resetSentry, setSentryUser } from "$lib/analytics/sentry";
 import { showError } from "$lib/error/showError";
 import { type UiState } from "$lib/state/uiState.svelte";
 import { InjectionToken } from "@gitbutler/core/context";
-import { type HttpClient } from "@gitbutler/shared/network/httpClient";
 import { chipToasts } from "@gitbutler/ui";
 import type { IBackend } from "$lib/backend";
 import type { BackendApi } from "$lib/state/backendApi";
@@ -28,7 +27,6 @@ export class UserService {
 	constructor(
 		private backendApi: BackendApi,
 		private backend: IBackend,
-		private httpClient: HttpClient,
 		private tokenMemoryService: TokenMemoryService,
 		private posthog: PostHogWrapper,
 		private uiState: UiState,
@@ -116,7 +114,10 @@ export class UserService {
 	private async getLoginUrl(): Promise<string> {
 		await this.forgetUserCredentials();
 		try {
-			const url = new URL("/login", this.httpClient.apiUrl);
+			const loginToken = await this.backendApi.endpoints.getLoginToken.fetch(undefined, {
+				forceRefetch: true,
+			});
+			const url = new URL(loginToken.url);
 			const buildType = await this.backend.invoke<string>("build_type").catch(() => undefined);
 			if (buildType !== undefined && buildType !== "development")
 				url.searchParams.set("bt", buildType);

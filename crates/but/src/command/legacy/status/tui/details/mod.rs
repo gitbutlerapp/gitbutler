@@ -220,7 +220,9 @@ impl Details {
             | Message::NewBranch => true,
 
             Message::Commit(commit_message) => match commit_message {
-                CommitMessage::Confirm | CommitMessage::CreateEmpty => true,
+                CommitMessage::Confirm
+                | CommitMessage::CommitToNewBranch
+                | CommitMessage::CreateEmpty => true,
                 CommitMessage::Start | CommitMessage::ToggleMessageComposer(..) => false,
             },
             Message::Rub(rub_message) => match rub_message {

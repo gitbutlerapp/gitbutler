@@ -6,7 +6,7 @@
 	"license": "FSL-1.1-MIT",
 	"homepage": "https://gitbutler.com",
 	"private": true,
-	"version": "0.0.1",
+	"version": "0.0.0-dev",
 	"type": "module",
 	"main": "dist/electron/main.js",
 	"copyright": "Copyright 2026 GitButler Inc",
@@ -25,6 +25,8 @@
 		"check": "tsgo -p ui/tsconfig.json --noEmit && tsgo -p electron/tsconfig.json --noEmit",
 		"test": "vitest run --config ui/vitest.config.ts --passWithNoTests",
 		"bundle": "pnpm build && electron-builder",
+		"bundle-local": "CHANNEL=${CHANNEL:-} pnpm -F @gitbutler/but-sdk build && CHANNEL=${CHANNEL:-} pnpm bundle -c.mac.entitlements=resources/entitlements.mac.local.plist -c.mac.entitlementsInherit=resources/entitlements.mac.local.plist",
+		"bundle-local-nightly": "CHANNEL=nightly pnpm -F @gitbutler/but-sdk build:release && CHANNEL=nightly pnpm bundle -c.mac.entitlements=resources/entitlements.mac.local.plist -c.mac.entitlementsInherit=resources/entitlements.mac.local.plist",
 		"demos": "storybook dev --no-open -p 6007"
 	},
 	"build": {
@@ -143,6 +145,7 @@
 		"@types/node": "^22.19.15",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.2.3",
+		"@types/semver": "^7.7.1",
 		"@typescript/native-preview": "7.0.0-dev.20260421.1",
 		"@vitejs/plugin-react": "^5.2.0",
 		"babel-plugin-react-compiler": "^1.0.0",

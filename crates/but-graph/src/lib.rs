@@ -317,21 +317,27 @@ impl Graph {
     }
 }
 
-/// A resolved entry point into the graph for easy access to the segment, commit,
-/// and the respective indices for later traversal.
+/// A resolved entry point into the graph for easy access to the entrypoint segment and,
+/// if present, the commit that started traversal along with the segment that owns it.
 #[derive(Debug, Copy, Clone)]
 pub struct EntryPoint<'graph> {
-    /// The index to the segment that served starting point for the traversal into this graph.
-    pub segment_index: SegmentIndex,
-    /// If present, the index of the commit that started the traversal in the segment denoted by `segment_index`.
-    pub commit_index: Option<CommitIndex>,
     /// The segment that served starting point for the traversal into this graph.
     pub segment: &'graph Segment,
-    /// If present, the commit that started the traversal in the `segment`.
+    /// If present, the commit that started traversal and the segment that owns it.
     ///
-    /// It's usually the first commit of the segment due to the way we split segments, and even though
-    /// downstream code relies on this properly, the graph itself does not.
-    pub commit: Option<&'graph Commit>,
+    /// This can differ from [`Self::segment`] when post-processing moved the entrypoint to an
+    /// empty synthetic segment, such as a virtual workspace tip segment.
+    ///
+    /// May be `None` if the entrypoint was a reference in a newly born repository,
+    /// which doesn't have any commits.
+    pub commit_and_owner: Option<(&'graph Commit, &'graph Segment)>,
+}
+
+impl<'graph> EntryPoint<'graph> {
+    /// The commit that started traversal, if the entrypoint is not unborn.
+    pub fn commit(&self) -> Option<&'graph Commit> {
+        self.commit_and_owner.map(|(c, _)| c)
+    }
 }
 
 /// Relationship of one segment to another in terms of graph ancestry.

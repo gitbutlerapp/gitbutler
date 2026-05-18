@@ -661,6 +661,7 @@ fn commit_snapshot(
 
 /// The kind of restore to perform.
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub enum RestoreKind {
     /// An explicit restore that restores to a specific point in the oplog.
     ///
@@ -681,6 +682,9 @@ pub enum RestoreKind {
     /// Used by `but undo` among others.
     RestoreFromSnapshotViaRedo,
 }
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(RestoreKind);
 
 fn restore_snapshot(
     ctx: &Context,
