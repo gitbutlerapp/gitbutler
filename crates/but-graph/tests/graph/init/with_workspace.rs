@@ -1020,7 +1020,13 @@ fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow:
             .is_none(),
         "no unique paths leads to a commit when starting at the segment"
     );
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    let ws = graph.into_workspace()?;
+    assert_eq!(
+        ws.tip_commit_by_segment_id(ws.id).map(|commit| commit.id),
+        extra_target_options.extra_target_commit_id,
+        "workspace query falls back to the ref-info commit for ambiguous empty segments"
+    );
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on fafd9d0
     ├── ≡📙:2:A on fafd9d0 {1}
     │   └── 📙:2:A

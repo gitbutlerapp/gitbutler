@@ -18,8 +18,7 @@ pub fn changes_in_branch(
         workspace.target_ref.as_ref().and_then(|target| {
             // NOTE: Can't do merge-base computation in graph as `branch` might not be contained in it.
             let base = workspace
-                .graph
-                .tip_skip_empty(target.segment_index)
+                .tip_commit_by_segment_id(target.segment_index)
                 .map(|c| c.id)?;
             // This works because the lower-bound itself is the merge-base
             // between all applicable targets and the workspace branches.

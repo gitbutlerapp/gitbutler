@@ -110,7 +110,7 @@ impl Workspace {
         self.stored_target_commit_id().or_else(|| {
             self.target_ref
                 .as_ref()
-                .and_then(|t| self.graph.tip_skip_empty(t.segment_index).map(|c| c.id))
+                .and_then(|t| self.tip_commit_by_segment_id(t.segment_index).map(|c| c.id))
         })
     }
 
@@ -138,12 +138,10 @@ impl Workspace {
             .graph
             .find_merge_base(commit_segment_index, target_segment_index)?;
 
-        self.graph
-            .tip_skip_empty(merge_base_segment_index)
+        self.tip_commit_by_segment_id(merge_base_segment_index)
             .map(|c| c.id)
             .zip(
-                self.graph
-                    .tip_skip_empty(target_segment_index)
+                self.tip_commit_by_segment_id(target_segment_index)
                     .map(|c| c.id),
             )
     }

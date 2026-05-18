@@ -104,7 +104,7 @@ pub fn remove_reference(
                 .iter()
                 .find_map(|s| {
                     let rn = s.ref_name()?;
-                    ws.graph.tip_skip_empty(s.id).map(|c| (rn, c.id))
+                    ws.tip_commit_by_segment_id(s.id).map(|c| (rn, c.id))
                 })
                 .with_context(|| {
                     "BUG: should not try to delete branch if anon \

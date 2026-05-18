@@ -246,8 +246,7 @@ pub(super) mod function {
                         let segment = &workspace.stacks[stack_idx].segments[seg_idx];
 
                         let id = workspace
-                            .graph
-                            .tip_skip_empty(segment.id)
+                            .tip_commit_by_segment_id(segment.id)
                             .map(|commit| position.resolve_commit(commit.into(), ws_base))
                             .context(
                                 "BUG: we should always see through to the base or eligible commits",
