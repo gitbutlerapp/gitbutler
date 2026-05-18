@@ -11,7 +11,7 @@ where
     F: FnOnce(&Sandbox) -> anyhow::Result<()>,
 {
     // Arrange
-    let status_output_before = env.but("status").output()?;
+    let status_output_before = env.but("status").args(["--verbose", "--files"]).output()?;
 
     {
         eprintln!("Status before mutation:");
@@ -22,7 +22,7 @@ where
     }
 
     mutate(env)?;
-    let status_output_after_mutate = env.but("status").output()?;
+    let status_output_after_mutate = env.but("status").args(["--verbose", "--files"]).output()?;
 
     {
         eprintln!();
@@ -48,6 +48,7 @@ where
 
     // Assert
     env.but("status")
+        .args(["--verbose", "--files"])
         .assert()
         .success()
         .stdout_eq(status_output_before.stdout)
@@ -246,6 +247,25 @@ fn can_undo_rewording_commit() -> anyhow::Result<()> {
 
 #[test]
 fn can_undo_rewording_branch() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
+    env.setup_metadata(&["A"])?;
+
+    run_mutate_undo_roundtrip_test(&env, |env| {
+        env.but("reword")
+            .args(["A", "-m", "reworded-branch"])
+            .assert()
+            .success()
+            .stdout_eq("Renamed branch 'A' to 'reworded-branch'\n")
+            .stderr_eq("");
+
+        Ok(())
+    })?;
+
+    Ok(())
+}
+
+#[test]
+fn can_undo_creating_a_branch() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
     env.setup_metadata(&["A"])?;
 
