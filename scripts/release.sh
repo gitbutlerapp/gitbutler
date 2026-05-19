@@ -151,6 +151,14 @@ done
 # Recalculate ARCH after TARGET is set
 ARCH="$(arch)"
 
+if [ -z "${TAURI_SIGNING_PRIVATE_KEY-}" ] && [ -n "${TAURI_PRIVATE_KEY-}" ]; then
+	export TAURI_SIGNING_PRIVATE_KEY="$TAURI_PRIVATE_KEY"
+fi
+
+if [ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD-}" ] && [ -n "${TAURI_KEY_PASSWORD-}" ]; then
+	export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$TAURI_KEY_PASSWORD"
+fi
+
 [ -z "${VERSION-}" ] && error "--version is not set"
 
 [ -z "${TAURI_SIGNING_PRIVATE_KEY-}" ] && error "TAURI_SIGNING_PRIVATE_KEY is not set"
@@ -231,16 +239,18 @@ fi
 
 # update the version in the tauri release config
 if [ -n "$BUNDLE_TARGETS" ]; then
-	jq --arg version "$VERSION" \
-		--argjson externalBin "$EXTERNAL_BIN" \
-		--argjson bundleTargets "$BUNDLE_TARGETS" \
-		'.version = $version | .bundle.externalBin = $externalBin | .bundle.targets = $bundleTargets' \
-		"$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
+	node "$PWD/write-tauri-config.mjs" \
+		"$CONFIG_PATH" \
+		"$TMP_DIR/tauri.conf.json" \
+		"$VERSION" \
+		"$EXTERNAL_BIN" \
+		"$BUNDLE_TARGETS"
 else
-	jq --arg version "$VERSION" \
-		--argjson externalBin "$EXTERNAL_BIN" \
-		'.version = $version | .bundle.externalBin = $externalBin' \
-		"$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
+	node "$PWD/write-tauri-config.mjs" \
+		"$CONFIG_PATH" \
+		"$TMP_DIR/tauri.conf.json" \
+		"$VERSION" \
+		"$EXTERNAL_BIN"
 fi
 
 # Useful for understanding exactly what goes into the tauri build/bundle.

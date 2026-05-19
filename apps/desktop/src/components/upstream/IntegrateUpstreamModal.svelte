@@ -33,7 +33,6 @@
 		Select,
 		SelectItem,
 		ScrollableContainer,
-		Toggle,
 		type BranchShouldBeDeletedMap,
 		TestId,
 		AsyncButton,
@@ -85,7 +84,6 @@
 	let gitOperationProgress = $state<GitOperationProgress | undefined>();
 	let gitOperationStartedAt = $state<number | undefined>();
 	let elapsedTick = $state(Date.now());
-	let selectedUnityConflictFile = $state<string | undefined>();
 	let unityConflictModal = $state<UnityConflictResolverModal | undefined>();
 	let incomingChangesExpanded = $state(true);
 	let conflictsExpanded = $state(true);
@@ -303,10 +301,6 @@
 		});
 		await baseBranchService.refreshBaseBranch(projectId);
 		integratingUpstream = "completed";
-		if (selectedUnityConflictFile && isUnityYamlPath(selectedUnityConflictFile)) {
-			await unityConflictModal?.show(selectedUnityConflictFile);
-			return;
-		}
 		modal?.close();
 	}
 
@@ -450,7 +444,6 @@
 		loadingStatuses = true;
 		branchStatuses = undefined;
 		filteredReviews = [];
-		selectedUnityConflictFile = undefined;
 		startLocalProgress(
 			"upstreamStatus",
 			"stacks",
@@ -709,38 +702,30 @@
 				{#if conflictsExpanded}
 					<p class="text-12 clr-text-2">
 						These local files overlap with incoming changes. Updating will write conflict markers
-						into them. Toggle a Unity file to open the resolver after the update completes.
+						into them. Click a Unity file to inspect and resolve the conflict details.
 					</p>
 					<div class="scroll-wrap">
 						<ScrollableContainer maxHeight="15rem">
 							{@const conflicts = branchStatuses?.worktreeConflicts}
 							{#each conflicts as file, i}
 								{@const isUnityConflict = isUnityYamlPath(file)}
-								{@const selected = selectedUnityConflictFile === file}
 								<div class="conflict-row" class:is-last={i === conflicts.length - 1}>
 									<FileListItem
 										listMode="list"
 										filePath={file}
 										clickable={isUnityConflict}
-										selected
 										badges={isUnityConflict ? ["Unity"] : []}
 										conflicted
 										isLast
 										onclick={isUnityConflict
 											? () => {
-													selectedUnityConflictFile = selected ? undefined : file;
+													void unityConflictModal?.show(file);
 												}
 											: undefined}
 									/>
-									<div class="conflict-toggle">
+									<div class="conflict-action">
 										{#if isUnityConflict}
-											<span class="text-11 clr-text-2">Resolve after update</span>
-											<Toggle
-												small
-												checked={selected}
-												onchange={(checked) =>
-													(selectedUnityConflictFile = checked ? file : undefined)}
-											/>
+											<span class="text-11 clr-text-2">Click to inspect</span>
 										{:else}
 											<span class="text-11 clr-text-2">Conflict markers only</span>
 										{/if}
@@ -886,15 +871,13 @@
 	{/snippet}
 </Modal>
 
-{#if selectedUnityConflictFile}
-	<UnityConflictResolverModal
-		bind:this={unityConflictModal}
-		{projectId}
-		onResolved={() => {
-			modal?.close();
-		}}
-	/>
-{/if}
+<UnityConflictResolverModal
+	bind:this={unityConflictModal}
+	{projectId}
+	onResolved={() => {
+		modal?.close();
+	}}
+/>
 
 <style>
 	/* INCOMING CHANGES */
@@ -1051,7 +1034,7 @@
 		}
 	}
 
-	.conflict-toggle {
+	.conflict-action {
 		display: flex;
 		align-items: center;
 		padding: 0 10px;

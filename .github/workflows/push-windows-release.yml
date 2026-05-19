@@ -1,9 +1,7 @@
-name: "Publish Windows Push Build"
+name: "Publish Windows Build"
 
 on:
-  push:
-    branches:
-      - master
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -39,6 +37,11 @@ jobs:
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
 
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: windows-build-${{ env.CHANNEL }}
+
       - name: Set Perl environment variables
         shell: pwsh
         run: |
@@ -54,8 +57,8 @@ jobs:
         shell: bash
         run: |
           short_sha="${GITHUB_SHA::7}"
-          version="0.0.0-push.${GITHUB_RUN_NUMBER}+${short_sha}"
-          tag="push-build-${GITHUB_SHA}"
+          version="0.0.0-${GITHUB_RUN_NUMBER}"
+          tag="windows-build-${GITHUB_SHA}"
 
           echo "short_sha=$short_sha" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -115,7 +118,7 @@ jobs:
           files: ${{ steps.installer.outputs.path }}
           generate_release_notes: true
           make_latest: false
-          name: GitButler push build ${{ steps.meta.outputs.short_sha }}
+          name: GitButler Windows build ${{ steps.meta.outputs.short_sha }}
           overwrite_files: true
           prerelease: true
           tag_name: ${{ steps.meta.outputs.tag }}

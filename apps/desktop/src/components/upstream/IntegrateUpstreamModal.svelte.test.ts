@@ -40,6 +40,10 @@ vi.mock("@gitbutler/core/context", () => ({
 describe("IntegrateUpstreamModal", () => {
 	beforeEach(() => {
 		injectMap.clear();
+		injectMap.set(FILE_SERVICE, {
+			readFromWorkspace: vi.fn(),
+			writeToWorkspace: vi.fn(),
+		});
 	});
 
 	test("shows workspace update progress and transfer speed while integrating upstream", async () => {
@@ -227,7 +231,7 @@ describe("IntegrateUpstreamModal", () => {
 		await showPromise;
 	});
 
-	test("opens selected Unity conflict resolver after applying upstream update", async () => {
+	test("opens Unity conflict resolver when clicking a conflict", async () => {
 		const listen = vi.fn(() => async () => {});
 		const integrateMutation = vi.fn().mockResolvedValue({ deletedBranches: [] });
 		const conflictStart = "<<<<<<< ours";
@@ -285,7 +289,6 @@ ${conflictEnd}
 
 		await (component as { show: () => Promise<void> }).show();
 		await user.click(await screen.findByText("dealers.unity"));
-		await user.click(await screen.findByRole("button", { name: "Update workspace" }));
 
 		expect(await screen.findByText("Unity Scene Resolver")).toBeInTheDocument();
 		expect(readFromWorkspace).toHaveBeenCalledWith("Assets/Scenes/dealers.unity", "project-1");
@@ -357,54 +360,5 @@ ${conflictEnd}
 		expect(screen.getByText("2 touched files")).toBeInTheDocument();
 		expect(screen.getByText("src/App.svelte")).toBeInTheDocument();
 		expect(screen.getByText("src/routes/new-route.ts")).toBeInTheDocument();
-	});
-
-	test("toggles Unity conflict resolver selection explicitly", async () => {
-		const listen = vi.fn(() => async () => {});
-
-		injectMap.set(BACKEND, { listen });
-		injectMap.set(BASE_BRANCH_SERVICE, {
-			baseBranch: () => ({ response: undefined }),
-			refreshBaseBranch: vi.fn().mockResolvedValue(undefined),
-		});
-		injectMap.set(DEFAULT_FORGE_FACTORY, {
-			current: {
-				commitUrl: () => undefined,
-			},
-		});
-		injectMap.set(UPSTREAM_INTEGRATION_SERVICE, {
-			upstreamStatuses: vi.fn().mockResolvedValue({
-				type: "updatesRequired",
-				worktreeConflicts: ["Assets/Scenes/dealers.unity"],
-				subject: [],
-			}),
-			integrateUpstream: () => [vi.fn()],
-			resolveUpstreamIntegrationMutation: vi.fn(),
-		});
-		injectMap.set(STACK_SERVICE, {
-			commitChanges: vi.fn(() => ({ response: undefined })),
-		});
-		injectMap.set(URL_SERVICE, { openExternalUrl: vi.fn() });
-		injectMap.set(CLIPBOARD_SERVICE, { write: vi.fn() });
-		injectMap.set(FILE_SERVICE, {
-			readFromWorkspace: vi.fn(),
-			writeToWorkspace: vi.fn(),
-		});
-
-		const user = userEvent.setup();
-		const { component } = render(IntegrateUpstreamModal, {
-			props: {
-				projectId: "project-1",
-			},
-		});
-
-		await (component as { show: () => Promise<void> }).show();
-		const toggle = await screen.findByRole("checkbox");
-
-		expect(toggle).not.toBeChecked();
-		await user.click(toggle);
-		expect(toggle).toBeChecked();
-		await user.click(toggle);
-		expect(toggle).not.toBeChecked();
 	});
 });

@@ -17,10 +17,17 @@
 
 	let resolutions = $state<Record<string, UnityConflictResolution>>({});
 
-	const resolvedCount = $derived(
-		document.blocks.filter((block) => resolutions[block.id] !== undefined).length,
-	);
+	const resolvedCount = $derived(document.blocks.filter((block) => blockResolved(block.id)).length);
 	const allResolved = $derived(resolvedCount === document.blocks.length);
+
+	function blockResolved(blockId: string) {
+		const resolution = resolutions[blockId];
+		if (!resolution) return false;
+		if (resolution.choice !== "fields") return true;
+		const block = document.blocks.find((candidate) => candidate.id === blockId);
+		if (!block || block.fields.length === 0) return false;
+		return block.fields.every((field) => resolution.fields?.[field.id] !== undefined);
+	}
 
 	function selectChoice(blockId: string, choice: UnityConflictChoice, initialText?: string) {
 		resolutions = {
@@ -35,12 +42,55 @@
 		};
 	}
 
+	function selectFieldChoice(
+		blockId: string,
+		fieldId: string,
+		choice: UnityConflictChoice,
+		initialText?: string,
+	) {
+		const blockResolution = resolutions[blockId];
+		const previousField = blockResolution?.fields?.[fieldId];
+		resolutions = {
+			...resolutions,
+			[blockId]: {
+				choice: "fields",
+				fields: {
+					...blockResolution?.fields,
+					[fieldId]: {
+						choice,
+						manualText:
+							choice === "manual"
+								? (previousField?.manualText ?? initialText ?? "")
+								: previousField?.manualText,
+					},
+				},
+			},
+		};
+	}
+
 	function updateManualText(blockId: string, manualText: string) {
 		resolutions = {
 			...resolutions,
 			[blockId]: {
 				choice: "manual",
 				manualText,
+			},
+		};
+	}
+
+	function updateFieldManualText(blockId: string, fieldId: string, manualText: string) {
+		const blockResolution = resolutions[blockId];
+		resolutions = {
+			...resolutions,
+			[blockId]: {
+				choice: "fields",
+				fields: {
+					...blockResolution?.fields,
+					[fieldId]: {
+						choice: "manual",
+						manualText,
+					},
+				},
 			},
 		};
 	}
@@ -114,18 +164,107 @@
 					>
 						Manual edit
 					</button>
+					{#if block.fields.length > 1}
+						<button
+							type="button"
+							class="choice"
+							class:selected={resolution?.choice === "fields"}
+							aria-pressed={resolution?.choice === "fields"}
+							aria-label={`Resolve fields separately for conflict ${index + 1}`}
+							onclick={() => selectChoice(block.id, "fields")}
+						>
+							Choose fields
+						</button>
+					{/if}
 				</div>
 
-				<div class="unity-workbench__preview-grid">
-					<div class="unity-workbench__preview">
-						<p class="text-11 text-semibold unity-workbench__preview-title">Ours</p>
-						<pre>{block.ours}</pre>
+				{#if resolution?.choice === "fields"}
+					<div class="unity-workbench__fields">
+						{#each block.fields as field, fieldIndex (field.id)}
+							{@const fieldResolution = resolution.fields?.[field.id]}
+							<div class="unity-field">
+								<div class="unity-field__header">
+									<p class="text-12 text-semibold">{field.label}</p>
+									<span class="text-11 clr-text-2">Field {fieldIndex + 1}</span>
+								</div>
+								<div class="unity-field__choices">
+									<button
+										type="button"
+										class="choice choice--small"
+										class:selected={fieldResolution?.choice === "ours"}
+										aria-pressed={fieldResolution?.choice === "ours"}
+										aria-label={`Use ours for ${field.label}`}
+										onclick={() => selectFieldChoice(block.id, field.id, "ours")}
+									>
+										Use ours
+									</button>
+									<button
+										type="button"
+										class="choice choice--small"
+										class:selected={fieldResolution?.choice === "theirs"}
+										aria-pressed={fieldResolution?.choice === "theirs"}
+										aria-label={`Use theirs for ${field.label}`}
+										onclick={() => selectFieldChoice(block.id, field.id, "theirs")}
+									>
+										Use theirs
+									</button>
+									<button
+										type="button"
+										class="choice choice--small"
+										class:selected={fieldResolution?.choice === "manual"}
+										aria-pressed={fieldResolution?.choice === "manual"}
+										aria-label={`Manual edit for ${field.label}`}
+										onclick={() =>
+											selectFieldChoice(
+												block.id,
+												field.id,
+												"manual",
+												`${field.ours}${field.theirs}`,
+											)}
+									>
+										Manual
+									</button>
+								</div>
+								<div class="unity-workbench__preview-grid">
+									<div class="unity-workbench__preview">
+										<p class="text-11 text-semibold unity-workbench__preview-title">Ours</p>
+										<pre>{field.ours || "No value"}</pre>
+									</div>
+									<div class="unity-workbench__preview">
+										<p class="text-11 text-semibold unity-workbench__preview-title">Theirs</p>
+										<pre>{field.theirs || "No value"}</pre>
+									</div>
+								</div>
+								{#if fieldResolution?.choice === "manual"}
+									<label class="unity-workbench__manual text-11">
+										<span class="text-semibold">Manual field merge</span>
+										<textarea
+											aria-label={`Manual resolution for ${field.label}`}
+											value={fieldResolution.manualText ?? ""}
+											oninput={(event) =>
+												updateFieldManualText(
+													block.id,
+													field.id,
+													(event.currentTarget as HTMLTextAreaElement).value,
+												)}
+										></textarea>
+									</label>
+								{/if}
+							</div>
+						{/each}
 					</div>
-					<div class="unity-workbench__preview">
-						<p class="text-11 text-semibold unity-workbench__preview-title">Theirs</p>
-						<pre>{block.theirs}</pre>
+				{:else}
+					<div class="unity-workbench__preview-grid">
+						<div class="unity-workbench__preview">
+							<p class="text-11 text-semibold unity-workbench__preview-title">Ours</p>
+							<pre>{block.ours}</pre>
+						</div>
+						<div class="unity-workbench__preview">
+							<p class="text-11 text-semibold unity-workbench__preview-title">Theirs</p>
+							<pre>{block.theirs}</pre>
+						</div>
 					</div>
-				</div>
+				{/if}
 
 				{#if resolution?.choice === "manual"}
 					<label class="unity-workbench__manual text-11">
@@ -255,6 +394,42 @@
 			background-color: color-mix(in srgb, var(--theme-pop-element) 18%, var(--bg-1));
 			color: var(--text-1);
 		}
+	}
+
+	.choice--small {
+		padding: 5px 8px;
+		font-size: 11px;
+	}
+
+	.unity-workbench__fields {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.unity-field {
+		display: flex;
+		flex-direction: column;
+		padding: 12px;
+		gap: 10px;
+		border: 1px solid var(--border-3);
+		border-radius: var(--radius-m);
+		background-color: var(--bg-0);
+	}
+
+	.unity-field__header,
+	.unity-field__choices {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.unity-field__header {
+		justify-content: space-between;
+	}
+
+	.unity-field__choices {
+		flex-wrap: wrap;
 	}
 
 	.unity-workbench__preview-grid {
