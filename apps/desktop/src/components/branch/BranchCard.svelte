@@ -1,6 +1,5 @@
 <script lang="ts">
 	import BranchBadge from "$components/branch/BranchBadge.svelte";
-	import BranchDividerLine from "$components/branch/BranchDividerLine.svelte";
 	import BranchHeader from "$components/branch/BranchHeader.svelte";
 	import BranchHeaderContextMenu from "$components/branch/BranchHeaderContextMenu.svelte";
 	import CIChecksBadge from "$components/forge/CIChecksBadge.svelte";
@@ -47,7 +46,6 @@
 		onclick?: () => void;
 		disableClick?: boolean;
 		branchContent: Snippet;
-		codegenRow?: Snippet;
 	}
 
 	interface StackBranchProps extends BranchCardProps {
@@ -69,14 +67,12 @@
 		numberOfCommits: number;
 		numberOfUpstreamCommits: number;
 		numberOfBranchesInStack: number;
-		hasCodegenSessionRow?: boolean;
 		baseCommit?: string;
 		onclick: () => void;
 		disableClick?: boolean;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		buttons?: Snippet;
 		branchContent: Snippet;
-		codegenRow?: Snippet;
 		changedFiles?: Snippet;
 	}
 
@@ -124,18 +120,16 @@
 				(args.type === "stack-branch" || args.type === "normal-branch") && args.isNewBranch;
 			if (isEmpty) return true;
 
-			// Stack branches with codegen row or no commits should be rounded when committing
+			// Stack branches with no commits should be rounded when committing
 			if (args.type === "stack-branch") {
-				return args.hasCodegenSessionRow || args.numberOfCommits === 0;
+				return args.numberOfCommits === 0;
 			}
 		}
 
 		// For stack branches not committing, check if actions are visible and structural conditions
 		if (args.type === "stack-branch" && !args.isCommitting) {
 			const hasActions = args.buttons !== undefined || args.menu !== undefined;
-			const structurallyRounded =
-				args.hasCodegenSessionRow ||
-				(args.numberOfCommits === 0 && args.numberOfUpstreamCommits === 0);
+			const structurallyRounded = args.numberOfCommits === 0 && args.numberOfUpstreamCommits === 0;
 			return hasActions && structurallyRounded;
 		}
 
@@ -332,14 +326,6 @@
 			readonly
 			isPushed
 		/>
-	{/if}
-
-	{#if args.type === "stack-branch" && args.hasCodegenSessionRow && args.codegenRow}
-		<BranchDividerLine {lineColor} short />
-		{@render args.codegenRow()}
-		{#if args.numberOfCommits > 0 || args.numberOfUpstreamCommits > 0}
-			<BranchDividerLine {lineColor} short />
-		{/if}
 	{/if}
 
 	{#if args.type === "stack-branch" || args.type === "normal-branch"}

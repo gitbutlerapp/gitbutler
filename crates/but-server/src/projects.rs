@@ -1,9 +1,12 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Result;
 use but_api::json::ToJsonError;
-use but_claude::{Claude, broadcaster::FrontendEvent};
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
+
+use tokio::sync::Mutex;
+
+use crate::broadcaster::{Broadcaster, FrontendEvent};
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_watcher::{Change, WatcherHandle};
 use serde::Deserialize;
@@ -39,7 +42,7 @@ impl ActiveProjects {
     pub fn set_active(
         &mut self,
         ctx: &Context,
-        claude: &Claude,
+        broadcaster: &Arc<Mutex<Broadcaster>>,
         app_settings_sync: AppSettingsWithDiskSync,
         #[cfg(feature = "irc")] working_files_broadcast: WorkingFilesBroadcast,
     ) -> Result<()> {
@@ -49,7 +52,7 @@ impl ActiveProjects {
 
         // Set up file watcher for worktree changes
         let handler = gitbutler_watcher::Handler::new({
-            let broadcaster = claude.broadcaster.clone();
+            let broadcaster = broadcaster.clone();
             #[cfg(feature = "irc")]
             let wfb = working_files_broadcast;
 
@@ -152,7 +155,7 @@ pub async fn list_projects(extra: &Extra) -> anyhow::Result<serde_json::Value> {
 }
 
 pub async fn set_project_active(
-    claude: &Claude,
+    broadcaster: &Arc<Mutex<Broadcaster>>,
     extra: &Extra,
     app_settings_sync: AppSettingsWithDiskSync,
     #[cfg(feature = "irc")] working_files_broadcast: WorkingFilesBroadcast,
@@ -168,7 +171,7 @@ pub async fn set_project_active(
     but_api::legacy::projects::prepare_project_for_activation(&mut ctx)?;
     active_projects.set_active(
         &ctx,
-        claude,
+        broadcaster,
         app_settings_sync,
         #[cfg(feature = "irc")]
         working_files_broadcast,

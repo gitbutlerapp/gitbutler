@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::Serialize;
 
 #[derive(Debug, Serialize, Clone)]
@@ -7,17 +9,10 @@ pub struct FrontendEvent {
     pub payload: serde_json::Value,
 }
 
-pub(super) mod types {
-    use std::collections::HashMap;
-
-    use super::FrontendEvent;
-
-    #[derive(Default)]
-    pub struct Broadcaster {
-        pub(super) senders: HashMap<uuid::Uuid, tokio::sync::mpsc::UnboundedSender<FrontendEvent>>,
-    }
+#[derive(Default)]
+pub struct Broadcaster {
+    senders: HashMap<uuid::Uuid, tokio::sync::mpsc::UnboundedSender<FrontendEvent>>,
 }
-use types::Broadcaster;
 
 impl Broadcaster {
     pub fn new() -> Self {

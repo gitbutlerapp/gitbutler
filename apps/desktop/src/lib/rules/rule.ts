@@ -28,31 +28,12 @@ export interface WorkspaceRule {
 	action: RuleAction;
 }
 
-export type AiRule = WorkspaceRule & {
-	trigger: "claudeCodeHook";
-	action: {
-		type: "explicit";
-		filters: (RuleFilter & { type: "claudeCodeSessionId" })[];
-		subject: { type: "assign"; subject: { target: { type: "stackId" } } };
-	};
-};
-
-export function isAiRule(rule: WorkspaceRule): rule is AiRule {
-	if (rule.trigger !== "claudeCodeHook") return false;
-	if (rule.action.type !== "explicit") return false;
-	if (rule.action.subject.type !== "assign") return false;
-	if (rule.action.subject.subject.target.type !== "stackId") return false;
-	return true;
-}
-
 /**
  * Represents the kinds of events in the app that can cause a rule to be evaluated.
  */
 export type Trigger =
 	/** When a file is added, removed or modified in the Git worktree. */
-	| "fileSytemChange"
-	/** Whenever a Claude Code hook is invoked. */
-	| "claudeCodeHook";
+	"fileSytemChange";
 
 /**
  * A filter is a condition that determines what files or changes the rule applies to.
@@ -62,8 +43,7 @@ export type RuleFilter =
 	| { type: "pathMatchesRegex"; subject: string } // regex patterns as strings
 	| { type: "contentMatchesRegex"; subject: string } // regex patterns as strings
 	| { type: "fileChangeType"; subject: FileStatus }
-	| { type: "semanticType"; subject: SemanticTypeFilter }
-	| { type: "claudeCodeSessionId"; subject: string };
+	| { type: "semanticType"; subject: SemanticTypeFilter };
 
 export type RuleFilterType = RuleFilter["type"];
 export const RULE_FILTER_TYPES = [
@@ -71,7 +51,6 @@ export const RULE_FILTER_TYPES = [
 	"contentMatchesRegex",
 	"fileChangeType",
 	"semanticType",
-	"claudeCodeSessionId",
 ] satisfies RuleFilterType[];
 
 export type RuleFilterMap = {
@@ -92,7 +71,6 @@ export function getFilterCountMap(rules: WorkspaceRule[]): FilterCountMap {
 		contentMatchesRegexCount: 0,
 		fileChangeTypeCount: 0,
 		semanticTypeCount: 0,
-		claudeCodeSessionIdCount: 0,
 	};
 
 	for (const rule of rules) {

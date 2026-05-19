@@ -42,8 +42,6 @@ members = [
     # 👉Too much legacy code.
     "crates/but-workspace", # 📄Workspace abstractions on top of `but-graph`; workspace manipulation.
     # 👉lacks tests, overview in docs, seems hacky. Uses `but-ctx`.
-    "crates/but-claude", # 📄Orchestrate `claude` instances
-    # 👉but at least one item lacks documentation.
     "crates/but-path", # 📄Provide paths interesting to the application, with global redirects for testing.
     # 👉Lacks tests, and overview, but still useful and simple enough to 'just works'
     "crates/but-serde", # 📄Serde attributes for serialisation and deserialisation of custom datatypes.
@@ -66,7 +64,6 @@ members = [
     # 👉lacks top-level docs and docs.
     "crates/but-gitlab", # 📄A thin wrapper of the GitLab API, for authentication and resource access.
     # 👉No tests, lacks top-level docs, purpose somewhat unclear.
-    "crates/but-cursor", # 📄Integration with Cursor
     # 👉Kind of no docs, no tests, and unclear purpose.
     "crates/but-forge", # 📄A generalised interface to communicate with forges.
     # 👉Kind of no docs, no tests, and unclear purpose. Does this need to be its own crate?
@@ -164,8 +161,6 @@ but-bot = { path = "crates/but-bot" }
 but-tools = { path = "crates/but-tools" }
 but-api = { path = "crates/but-api" }
 but-api-macros = { path = "crates/but-api-macros" }
-but-claude = { path = "crates/but-claude" }
-but-cursor = { path = "crates/but-cursor" }
 but-gerrit = { path = "crates/but-gerrit" }
 but-cherry-apply = { path = "crates/but-cherry-apply" }
 but-irc = { path = "crates/but-irc" }

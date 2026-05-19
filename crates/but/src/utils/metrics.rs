@@ -71,7 +71,7 @@ impl Subcommands {
     pub(crate) fn to_metrics_command(&self) -> CommandName {
         use CommandName::*;
 
-        use crate::args::{alias as alias_args, branch, claude, cursor, forge, skill, worktree};
+        use crate::args::{alias as alias_args, branch, forge, skill, worktree};
         match self {
             #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
@@ -132,18 +132,6 @@ impl Subcommands {
             Subcommands::Undo => Undo,
             #[cfg(feature = "legacy")]
             Subcommands::Redo => Redo,
-            #[cfg(feature = "legacy")]
-            Subcommands::Claude(claude::Platform { cmd }) => match cmd {
-                claude::Subcommands::PreTool => ClaudePreTool,
-                claude::Subcommands::PostTool => ClaudePostTool,
-                claude::Subcommands::Stop => ClaudeStop,
-                claude::Subcommands::Last { .. } => Unknown,
-            },
-            #[cfg(feature = "legacy")]
-            Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
-                cursor::Subcommands::AfterEdit => CursorAfterEdit,
-                cursor::Subcommands::Stop { .. } => CursorStop,
-            },
             #[cfg(feature = "legacy")]
             Subcommands::Absorb { .. } => Absorb,
             #[cfg(feature = "legacy")]

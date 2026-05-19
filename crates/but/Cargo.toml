@@ -25,8 +25,6 @@ legacy = [
     "but-api/legacy",
     "but-ctx/legacy",
     "dep:but-action",
-    "dep:but-claude",
-    "dep:but-cursor",
     "dep:but-rules",
     "dep:but-gerrit",
     "dep:but-worktrees",
@@ -81,8 +79,6 @@ but-server = { workspace = true, optional = true }
 but-action = { workspace = true, optional = true }
 # Still uses `gitbutler-stack`, but otherwise it is non-legacy.
 but-hunk-assignment.workspace = true
-but-claude = { workspace = true, optional = true }
-but-cursor = { workspace = true, optional = true }
 but-rules = { workspace = true, optional = true }
 but-gerrit = { workspace = true, optional = true }
 but-worktrees = { workspace = true, optional = true }

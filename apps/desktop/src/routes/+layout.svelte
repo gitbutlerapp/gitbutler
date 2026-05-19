@@ -18,7 +18,6 @@
 	import ToastController from "$components/shared/ToastController.svelte";
 	import GlobalModalRouter from "$components/views/GlobalModalRouter.svelte";
 	import { initDependencies } from "$lib/bootstrap/deps";
-	import { MessageQueueProcessor } from "$lib/codegen/messageQueue.svelte";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { fModeEnabled } from "$lib/config/uiFeatureFlags";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
@@ -44,8 +43,6 @@
 
 	const { backend } = untrack(() => data);
 	initDependencies(untrack(() => data));
-
-	new MessageQueueProcessor();
 
 	const clientState = inject(CLIENT_STATE);
 	const posthog = inject(POSTHOG_WRAPPER);

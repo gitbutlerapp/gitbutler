@@ -203,7 +203,6 @@
 		<div class="rule-editor__filters">
 			<RuleFiltersEditor
 				bind:this={ruleFiltersEditor}
-				{projectId}
 				initialFilterValues={draftRuleFilterInitialValues}
 				addFilter={addDraftRuleFilter}
 				deleteFilter={removeDraftRuleFilter}

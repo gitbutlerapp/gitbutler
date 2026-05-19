@@ -667,28 +667,6 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Mcp,
 
-    /// AI: Claude hooks
-    ///
-    /// Provides lifecycle hooks handlers for the Claude Code hooks feature.
-    ///
-    /// See: <https://docs.gitbutler.com/features/ai-integration/claude-code-hooks>
-    ///
-    #[cfg(feature = "legacy")]
-    #[clap(hide = true)]
-    #[clap(verbatim_doc_comment)]
-    Claude(claude::Platform),
-
-    /// AI: Cursor hooks
-    ///
-    /// Provides lifecycle hooks handlers for the Cursor hooks feature.
-    ///
-    /// See: <https://docs.gitbutler.com/features/ai-integration/cursor-hooks>
-    ///
-    #[cfg(feature = "legacy")]
-    #[clap(hide = true)]
-    #[clap(verbatim_doc_comment)]
-    Cursor(cursor::Platform),
-
     /// INTERNAL: GitButler Actions are automated tasks (like macros) that can be performed on a repository.
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
@@ -1316,45 +1294,6 @@ pub mod oplog;
 pub mod push;
 #[cfg(feature = "legacy")]
 pub mod resolve;
-
-pub mod claude {
-    #[derive(Debug, clap::Parser)]
-    pub struct Platform {
-        #[clap(subcommand)]
-        pub cmd: Subcommands,
-    }
-    #[derive(Debug, clap::Subcommand)]
-    pub enum Subcommands {
-        #[clap(alias = "pre-tool-use")]
-        PreTool,
-        #[clap(alias = "post-tool-use")]
-        PostTool,
-        Stop,
-        /// Get the last user message (for testing purposes)
-        #[clap(hide = true)]
-        Last {
-            /// Offset to skip N most recent messages (positive integer)
-            #[clap(long, short = 'o', default_value = "0")]
-            offset: usize,
-        },
-    }
-}
-
-pub mod cursor {
-    #[derive(Debug, clap::Parser)]
-    pub struct Platform {
-        #[clap(subcommand)]
-        pub cmd: Subcommands,
-    }
-    #[derive(Debug, clap::Subcommand)]
-    pub enum Subcommands {
-        AfterEdit,
-        Stop {
-            #[clap(long, default_value = "false")]
-            nightly: bool,
-        },
-    }
-}
 
 pub mod worktree {
     #[derive(Debug, clap::Parser)]

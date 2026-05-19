@@ -15,15 +15,14 @@ use std::sync::Arc;
 
 use anyhow::{Context, bail};
 use but_api::{commit, diff, github, gitlab, legacy, platform, workspace};
-use but_claude::{Broadcaster, Claude};
 #[cfg(feature = "irc")]
 use but_irc::IrcManager;
 use but_settings::AppSettingsWithDiskSync;
 #[cfg(feature = "irc")]
 use gitbutler_tauri::irc;
 use gitbutler_tauri::{
-    WindowState, action, askpass, claude, csp::csp_with_extras, env, logs, menu, projects,
-    settings, zip,
+    WindowState, action, askpass, broadcaster::Broadcaster, csp::csp_with_extras, env, logs, menu,
+    projects, settings, zip,
 };
 use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -236,17 +235,12 @@ fn main() -> anyhow::Result<()> {
                     }
                 });
 
-                let claude = Claude {
-                    broadcaster: broadcaster.clone(),
-                    instance_by_stack: Default::default(),
-                };
                 let archival = but_feedback::Archival {
                     cache_dir: app_cache_dir.clone(),
                     logs_dir: app_log_dir.clone(),
                 };
                 app_handle.manage(archival);
                 app_handle.manage(app_settings);
-                app_handle.manage(claude);
 
                 // Auto-connect IRC connections based on settings (only when feature flag is on).
                 #[cfg(feature = "irc")]
@@ -423,18 +417,6 @@ fn main() -> anyhow::Result<()> {
                 diff::tauri_assign_hunk::assign_hunk,
                 #[cfg(unix)]
                 legacy::workspace::tauri_show_graph_svg::show_graph_svg,
-                legacy::claude::tauri_claude_get_session_details::claude_get_session_details,
-                legacy::claude::tauri_claude_list_permission_requests::claude_list_permission_requests,
-                legacy::claude::tauri_claude_update_permission_request::claude_update_permission_request,
-                legacy::claude::tauri_claude_answer_ask_user_question::claude_answer_ask_user_question,
-                legacy::claude::tauri_claude_check_available::claude_check_available,
-                legacy::claude::tauri_claude_list_prompt_templates::claude_list_prompt_templates,
-                legacy::claude::tauri_claude_get_prompt_dirs::claude_get_prompt_dirs,
-                legacy::claude::tauri_claude_maybe_create_prompt_dir::claude_maybe_create_prompt_dir,
-                legacy::claude::tauri_claude_get_config::claude_get_config,
-                legacy::claude::tauri_claude_get_sub_agents::claude_get_sub_agents,
-                legacy::claude::tauri_claude_verify_path::claude_verify_path,
-                legacy::claude::tauri_claude_get_user_message::claude_get_user_message,
                 action::list_actions,
                 action::handle_changes,
                 action::list_workflows,
@@ -452,7 +434,6 @@ fn main() -> anyhow::Result<()> {
                 settings::update_telemetry,
                 settings::update_feature_flags,
                 settings::update_telemetry_distinct_id,
-                settings::update_claude,
                 settings::update_fetch,
                 settings::update_reviews,
                 settings::update_ui,
@@ -460,11 +441,6 @@ fn main() -> anyhow::Result<()> {
                 // Debug-only - not for production!
                 #[cfg(debug_assertions)]
                 env::env_vars,
-                claude::claude_send_message,
-                claude::claude_get_messages,
-                claude::claude_cancel_session,
-                claude::claude_is_stack_active,
-                claude::claude_compact_history,
                 #[cfg(feature = "irc")]
                 irc::irc_connect,
                 #[cfg(feature = "irc")]

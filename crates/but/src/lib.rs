@@ -30,7 +30,7 @@ use clap::Parser;
 
 pub mod args;
 use args::{
-    Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, claude, cursor, forge,
+    Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, forge,
     update as update_args, worktree,
 };
 use but_settings::AppSettings;
@@ -41,7 +41,7 @@ use theme::Paint;
 use crate::command::legacy::ShowDiffInEditor;
 use crate::{
     setup::{BackgroundSync, InitCtxOptions},
-    utils::{OutputChannel, ResultErrorExt, ResultJsonExt, ResultMetricsExt},
+    utils::{OutputChannel, ResultErrorExt, ResultMetricsExt},
 };
 
 mod id;
@@ -471,89 +471,6 @@ async fn match_subcommand(
             None => {
                 let ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
                 command::legacy::actions::list_actions(&ctx, out, 0, 10)
-            }
-        },
-        #[cfg(feature = "legacy")]
-        Subcommands::Claude(claude::Platform { cmd }) => {
-            use but_claude::hooks::OutputClaudeJson;
-            let ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            match cmd {
-                claude::Subcommands::PreTool => {
-                    but_claude::hooks::handle_pre_tool_call(ctx, std::io::stdin().lock())
-                        .output_claude_json()
-                        .emit_metrics(metrics_ctx)
-                }
-                claude::Subcommands::PostTool => {
-                    but_claude::hooks::handle_post_tool_call(ctx, std::io::stdin().lock())
-                        .output_claude_json()
-                        .emit_metrics(metrics_ctx)
-                }
-                claude::Subcommands::Stop => {
-                    but_claude::hooks::handle_stop(ctx, std::io::stdin().lock())
-                        .output_claude_json()
-                        .emit_metrics(metrics_ctx)
-                }
-                claude::Subcommands::Last { offset } => {
-                    let message = but_claude::db::get_user_message(&ctx, Some(offset as i64))?;
-                    match message {
-                        Some(msg) => {
-                            if args.json {
-                                // For JSON output, include timestamp and message
-                                let output = serde_json::json!({
-                                    "timestamp": msg.created_at().format("%Y-%m-%d %H:%M:%S").to_string(),
-                                    "message": match msg.content() {
-                                        but_claude::MessagePayload::User(input) => &input.message,
-                                        _ => "",
-                                    }
-                                });
-                                println!("{}", serde_json::to_string_pretty(&output)?);
-                            } else {
-                                // For human-readable output, show timestamp and message
-                                println!(
-                                    "{} {}",
-                                    theme::get().important.paint("Timestamp:"),
-                                    theme::get().time.paint(
-                                        msg.created_at().format("%Y-%m-%d %H:%M:%S").to_string()
-                                    )
-                                );
-                                match msg.content() {
-                                    but_claude::MessagePayload::User(input) => {
-                                        println!("{}", input.message);
-                                    }
-                                    _ => {
-                                        println!(
-                                            "{}",
-                                            theme::get().error.paint("Not a user input message")
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                        None => {
-                            if args.json {
-                                println!("null");
-                            } else {
-                                println!("No user message found at offset {offset}");
-                            }
-                        }
-                    }
-                    Ok(())
-                }
-            }
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
-            cursor::Subcommands::AfterEdit => {
-                but_cursor::handle_after_edit(std::io::stdin().lock())
-                    .await
-                    .output_json(true)
-                    .emit_metrics(metrics_ctx)
-            }
-            cursor::Subcommands::Stop { nightly } => {
-                but_cursor::handle_stop(nightly, std::io::stdin().lock())
-                    .await
-                    .output_json(true)
-                    .emit_metrics(metrics_ctx)
             }
         },
         #[cfg(feature = "legacy")]

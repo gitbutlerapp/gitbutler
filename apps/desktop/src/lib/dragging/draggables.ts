@@ -1,14 +1,9 @@
 import { key, type SelectionId } from "$lib/selection/key";
 import type { BranchDropData } from "$lib/dragging/dropHandlers/branchDropHandler";
 import type { CommitDropData } from "$lib/dragging/dropHandlers/commitDropHandler";
-import type { AiRule } from "$lib/rules/rule";
 import type { FileSelectionManager } from "$lib/selection/fileSelectionManager.svelte";
 import type { HunkAssignment, HunkHeader } from "@gitbutler/but-sdk";
 import type { TreeChange } from "@gitbutler/but-sdk";
-
-export class CodegenRuleDropData {
-	constructor(public rule: AiRule) {}
-}
 
 export class HunkDropDataV3 {
 	constructor(
@@ -93,9 +88,4 @@ export class FolderChangeDropData {
 
 export type ChangeDropData = FileChangeDropData | FolderChangeDropData;
 
-export type DropData =
-	| CommitDropData
-	| ChangeDropData
-	| HunkDropDataV3
-	| CodegenRuleDropData
-	| BranchDropData;
+export type DropData = CommitDropData | ChangeDropData | HunkDropDataV3 | BranchDropData;

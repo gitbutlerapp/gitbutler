@@ -22,7 +22,6 @@ embedded-frontend = ["dep:rust-embed", "dep:mime_guess"]
 [dependencies]
 but-api = { workspace = true, features = ["path-bytes", "legacy"] }
 but-askpass.workspace = true
-but-claude.workspace = true
 but-irc = { workspace = true, optional = true }
 but-path.workspace = true
 but-settings.workspace = true
