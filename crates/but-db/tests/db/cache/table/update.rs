@@ -184,6 +184,7 @@ fn all_fields_persisted() -> anyhow::Result<()> {
     let result = CachedCheckResult {
         checked_at: DateTime::from_timestamp(1000000, 0).unwrap(),
         status: CheckUpdateStatus {
+            valid_for_version: Some("1.2.3".to_string()),
             up_to_date: false,
             latest_version: "2.0.0".to_string(),
             release_notes: Some("Major release".to_string()),
@@ -209,6 +210,7 @@ fn optional_fields_can_be_none() -> anyhow::Result<()> {
     let result = CachedCheckResult {
         checked_at: DateTime::from_timestamp(1000000, 0).unwrap(),
         status: CheckUpdateStatus {
+            valid_for_version: None,
             up_to_date: true,
             latest_version: "1.0.0".to_string(),
             release_notes: None,
@@ -264,6 +266,7 @@ fn delete_removes_existing() -> anyhow::Result<()> {
 
 fn sample_status(up_to_date: bool) -> CheckUpdateStatus {
     CheckUpdateStatus {
+        valid_for_version: Some("0.0.0".to_string()),
         up_to_date,
         latest_version: "1.2.3".to_string(),
         release_notes: Some("Bug fixes and improvements".to_string()),
