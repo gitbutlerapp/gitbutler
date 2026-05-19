@@ -363,7 +363,6 @@ const Details: FC<{
 			Commit: ({ commitId, stackId }) => (
 				<CommitDetails projectId={projectId} commitId={commitId} stackId={stackId} />
 			),
-			BaseCommit: () => null,
 			Hunk: () => null,
 		}),
 	);

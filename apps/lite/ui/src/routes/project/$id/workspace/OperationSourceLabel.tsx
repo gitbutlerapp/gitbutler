@@ -13,7 +13,6 @@ export const OperationSourceLabel: FC<{
 }> = ({ source, headInfo }) =>
 	Match.value(source).pipe(
 		Match.tagsExhaustive({
-			BaseCommit: () => "Base commit",
 			Branch: ({ branchRef }) => {
 				const segment = findSegmentByBranchRef({ headInfo, branchRef });
 				return assert(segment?.refName).displayName;

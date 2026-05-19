@@ -64,8 +64,7 @@ export type Operand =
 	| ({ _tag: "Branch" } & BranchOperand)
 	| ({ _tag: "Commit" } & CommitOperand)
 	| ({ _tag: "File" } & FileOperand)
-	| ({ _tag: "Hunk" } & HunkOperand)
-	| { _tag: "BaseCommit" };
+	| ({ _tag: "Hunk" } & HunkOperand);
 
 /** @public */
 export const changesSectionOperand: Operand = {
@@ -111,11 +110,6 @@ export const hunkOperand = ({
 	isResultOfBinaryToTextConversion,
 });
 
-/** @public */
-export const baseCommitOperand: Operand = {
-	_tag: "BaseCommit",
-};
-
 export const operandIdentityKey = (operand: Operand): string =>
 	Match.value(operand).pipe(
 		Match.tagsExhaustive({
@@ -124,7 +118,6 @@ export const operandIdentityKey = (operand: Operand): string =>
 			Stack: (x) => JSON.stringify(["Stack", x.stackId]),
 			Branch: (x) => JSON.stringify(["Branch", x.stackId, x.branchRef]),
 			Commit: (x) => JSON.stringify(["Commit", x.stackId, x.commitId]),
-			BaseCommit: () => JSON.stringify(["BaseCommit"]),
 			Hunk: (x) =>
 				JSON.stringify(["Hunk", x.parent, x.hunkHeader, x.isResultOfBinaryToTextConversion]),
 		}),
