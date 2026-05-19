@@ -47,6 +47,7 @@
 
 		// Actions
 		onWidth?: (width: number) => void;
+		onResizeEnd?: (width: number) => void;
 		onResizing?: (isResizing: boolean) => void;
 		onOverflow?: (value: number) => void;
 		onDblClick?: () => void;
@@ -74,6 +75,7 @@
 		onOverflow,
 		onDblClick,
 		onWidth,
+		onResizeEnd,
 	}: Props = $props();
 
 	const orientation = $derived(["left", "right"].includes(direction) ? "horizontal" : "vertical");
@@ -119,6 +121,7 @@
 	let lastDragSashPosPx = 0;
 	let lastShiftSyncedValue: number | undefined;
 	let lastReportedWidth: number | undefined;
+	let pendingPersistedValue: number | undefined;
 	let pausedAutoLayout = false;
 
 	type StyleProp =
@@ -166,6 +169,7 @@
 		}
 
 		pendingPointerMove = undefined;
+		pendingPersistedValue = undefined;
 		lastShiftSyncedValue = undefined;
 
 		if (pausedAutoLayout) {
@@ -265,8 +269,12 @@
 					setStyle(resizerDiv.style, "top", `${lastDragSashPosPx}px`);
 				}
 				// Write viewport size and notify callbacks — no requestLayout here.
-				if (newValue !== $value) {
-					value.set(newValue);
+				if (newValue !== lastReportedWidth) {
+					if (persistId) {
+						pendingPersistedValue = newValue;
+					} else {
+						value.set(newValue);
+					}
 					updateDom(newValue, true);
 					reportWidth(newValue);
 				}
@@ -318,6 +326,13 @@
 			pointerMoveRaf = undefined;
 		}
 		processPointerMove();
+		if (pendingPersistedValue !== undefined && pendingPersistedValue !== $value) {
+			value.set(pendingPersistedValue);
+		}
+		const committedValue = pendingPersistedValue ?? lastReportedWidth;
+		if (committedValue !== undefined) {
+			onResizeEnd?.(committedValue);
+		}
 		cleanupPointerDragState();
 		// Re-sync sash to exact geometry once at the end of drag.
 		layerCtx.requestLayout();

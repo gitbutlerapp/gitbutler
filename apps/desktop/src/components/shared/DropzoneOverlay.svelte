@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { injectOptional } from "@gitbutler/core/context";
+	import { Icon } from "@gitbutler/ui";
 	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
 	import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
 	import { untrack } from "svelte";
@@ -15,9 +16,19 @@
 			bottom?: number;
 			left?: number;
 		};
+		loading?: boolean;
+		loadingLabel?: string;
 	}
 
-	const { visible, hovered, activated, label = "Drop here", extraPaddings }: Props = $props();
+	const {
+		visible,
+		hovered,
+		activated,
+		label = "Drop here",
+		extraPaddings,
+		loading = false,
+		loadingLabel = "Loading",
+	}: Props = $props();
 	let defaultPadding = 4;
 	const dragStateService = injectOptional(DRAG_STATE_SERVICE, undefined);
 
@@ -42,6 +53,7 @@
 	class:visible
 	class:activated
 	class:hovered
+	class:loading
 	style="--padding-top: {pxToRem(defaultPadding + extraPaddingTop)}rem; --padding-right: {pxToRem(
 		defaultPadding + extraPaddingRight,
 	)}rem; --padding-bottom: {pxToRem(
@@ -53,6 +65,12 @@
 		<svg width="100%" height="100%" class="animated-rectangle">
 			<rect width="100%" height="100%" rx="6" ry="6" vector-effect="non-scaling-stroke" />
 		</svg>
+		{#if loading}
+			<div class="loading-indicator">
+				<Icon name="spinner" size={18} />
+				<span class="text-12 text-semibold">{loadingLabel}</span>
+			</div>
+		{/if}
 	</div>
 </div>
 
@@ -85,6 +103,15 @@
 			display: flex;
 		}
 
+		&.loading {
+			display: flex;
+
+			& .animated-rectangle rect {
+				fill: color-mix(in srgb, var(--bg-3) 72%, transparent);
+				stroke: var(--border-3);
+			}
+		}
+
 		&.visible.activated {
 			& .animated-rectangle rect {
 				fill: var(--dropzone-fill);
@@ -99,6 +126,19 @@
 				animation: dropzone-dash 4s linear infinite;
 			}
 		}
+	}
+
+	.loading-indicator {
+		display: inline-flex;
+		z-index: 1;
+		align-items: center;
+		padding: 8px 12px;
+		gap: 8px;
+		border: 1px solid var(--border-3);
+		border-radius: var(--radius-m);
+		background-color: var(--bg-1);
+		box-shadow: var(--fx-shadow-s);
+		color: var(--text-2);
 	}
 
 	.container {

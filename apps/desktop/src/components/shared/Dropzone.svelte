@@ -22,8 +22,11 @@
 		handlers: DropzoneHandler[];
 		hideWhenInactive?: boolean;
 		onActivated?: (activated: boolean) => void;
+		onDropping?: (dropping: boolean) => void;
 		onHovered?: (hovered: boolean) => void;
-		overlay?: Snippet<[{ hovered: boolean; activated: boolean; handler?: DropzoneHandler }]>;
+		overlay?: Snippet<
+			[{ hovered: boolean; activated: boolean; handler?: DropzoneHandler; dropping: boolean }]
+		>;
 		children?: Snippet;
 		overflow?: boolean;
 	}
@@ -34,6 +37,7 @@
 		maxHeight = false,
 		handlers,
 		onActivated,
+		onDropping,
 		onHovered,
 		overlay,
 		children,
@@ -68,6 +72,24 @@
 		activated = false;
 		onActivated?.(activated);
 	}
+
+	let dropDepth = $state(0);
+	let droppingHandler: DropzoneHandler | undefined = $state();
+	const dropping = $derived(dropDepth > 0);
+
+	function onDropStart(args: HoverArgs) {
+		dropDepth += 1;
+		droppingHandler = args.handler;
+		onDropping?.(true);
+	}
+
+	function onDropEnd() {
+		dropDepth = Math.max(0, dropDepth - 1);
+		if (dropDepth === 0) {
+			droppingHandler = undefined;
+			onDropping?.(false);
+		}
+	}
 </script>
 
 <div
@@ -78,6 +100,8 @@
 		onHoverEnd,
 		onActivationStart,
 		onActivationEnd,
+		onDropStart,
+		onDropEnd,
 		onDropResult,
 		target: ".dropzone-target",
 		registry: dropzoneRegistry,
@@ -89,7 +113,7 @@
 	class="dropzone-container"
 >
 	{#if overlay}
-		{@render overlay({ hovered, activated, handler: hoveredHandler })}
+		{@render overlay({ hovered, activated, handler: droppingHandler ?? hoveredHandler, dropping })}
 	{/if}
 
 	{#if children}

@@ -100,6 +100,16 @@
 			return "Unassign";
 		}
 	}
+
+	function getDropzoneLoadingLabel(handler: DropzoneHandler | undefined): string {
+		if (handler instanceof UncommitDzHandler) {
+			return `Uncommitting from ${title}`;
+		}
+		if (mode === "unassigned") {
+			return `Moving to ${title}`;
+		}
+		return `${getDropzoneLabel(handler)}ing to ${title}`;
+	}
 </script>
 
 {#snippet fileList()}
@@ -125,11 +135,13 @@
 	onActivated={onDropzoneActivated}
 	onHovered={onDropzoneHovered}
 >
-	{#snippet overlay({ hovered, activated, handler })}
+	{#snippet overlay({ hovered, activated, handler, dropping })}
 		<DropzoneOverlay
 			{hovered}
 			{activated}
 			label={getDropzoneLabel(handler)}
+			loading={dropping}
+			loadingLabel={getDropzoneLoadingLabel(handler)}
 			visible={mode === "assigned" && changes.current.length === 0 && !activated}
 		/>
 	{/snippet}

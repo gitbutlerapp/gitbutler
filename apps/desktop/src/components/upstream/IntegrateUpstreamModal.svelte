@@ -3,7 +3,9 @@
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import UnityConflictResolverModal from "$components/workspace/UnityConflictResolverModal.svelte";
 	import { descriptionTitle } from "$lib/commits/commit";
+	import { isUnityYamlPath } from "$lib/files/unityConflicts";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import {
 		getBaseBranchResolution,
@@ -80,6 +82,8 @@
 	let gitOperationProgress = $state<GitOperationProgress | undefined>();
 	let gitOperationStartedAt = $state<number | undefined>();
 	let elapsedTick = $state(Date.now());
+	let selectedUnityConflictFile = $state<string | undefined>();
+	let unityConflictModal = $state<UnityConflictResolverModal | undefined>();
 	let activeProgress = $derived(
 		activeProgressPercent(workspaceUpdateProgress, gitOperationProgress),
 	);
@@ -293,6 +297,10 @@
 		});
 		await baseBranchService.refreshBaseBranch(projectId);
 		integratingUpstream = "completed";
+		if (selectedUnityConflictFile && isUnityYamlPath(selectedUnityConflictFile)) {
+			await unityConflictModal?.show(selectedUnityConflictFile);
+			return;
+		}
 		modal?.close();
 	}
 
@@ -417,6 +425,7 @@
 		loadingStatuses = true;
 		branchStatuses = undefined;
 		filteredReviews = [];
+		selectedUnityConflictFile = undefined;
 		startLocalProgress(
 			"upstreamStatus",
 			"stacks",
@@ -597,18 +606,28 @@
 					<Badge>{branchStatuses?.worktreeConflicts.length}</Badge>
 				</h3>
 				<p class="text-12 clr-text-2">
-					Updating the workspace will add conflict markers to the following files.
+					Updating the workspace will add conflict markers to the following files. Unity YAML files
+					can be selected now and resolved after the update is applied.
 				</p>
 				<div class="scroll-wrap">
 					<ScrollableContainer maxHeight="15rem">
 						{@const conflicts = branchStatuses?.worktreeConflicts}
 						{#each conflicts as file, i}
+							{@const isUnityConflict = isUnityYamlPath(file)}
 							<FileListItem
 								listMode="list"
 								filePath={file}
-								clickable={false}
+								clickable={isUnityConflict}
+								selected={selectedUnityConflictFile === file}
+								badges={isUnityConflict ? ["Unity"] : []}
 								conflicted
 								isLast={i === conflicts.length - 1}
+								onclick={isUnityConflict
+									? () => {
+											selectedUnityConflictFile =
+												selectedUnityConflictFile === file ? undefined : file;
+										}
+									: undefined}
 							/>
 						{/each}
 					</ScrollableContainer>
@@ -748,6 +767,16 @@
 		</div>
 	{/snippet}
 </Modal>
+
+{#if selectedUnityConflictFile}
+	<UnityConflictResolverModal
+		bind:this={unityConflictModal}
+		{projectId}
+		onResolved={() => {
+			modal?.close();
+		}}
+	/>
+{/if}
 
 <style>
 	/* INCOMING CHANGES */

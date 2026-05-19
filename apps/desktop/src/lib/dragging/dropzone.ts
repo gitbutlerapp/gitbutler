@@ -11,6 +11,8 @@ export interface DropzoneConfiguration {
 	handlers: DropzoneHandler[];
 	onActivationStart: () => void;
 	onActivationEnd: () => void;
+	onDropStart?: (args: HoverArgs) => void;
+	onDropEnd?: () => void;
 	onHoverStart: (args: HoverArgs) => void;
 	onHoverEnd: () => void;
 	onDropResult: (result: DropResult) => void;
@@ -188,6 +190,7 @@ export class Dropzone {
 	private async invokeHandler(): Promise<void> {
 		const handler = this.acceptedHandler;
 		if (!handler) return;
+		this.configuration.onDropStart?.({ handler });
 		try {
 			const result = await handler.ondrop(this.data);
 			if (result) {
@@ -199,6 +202,8 @@ export class Dropzone {
 				title: "Drop operation failed",
 				error: err,
 			});
+		} finally {
+			this.configuration.onDropEnd?.();
 		}
 	}
 

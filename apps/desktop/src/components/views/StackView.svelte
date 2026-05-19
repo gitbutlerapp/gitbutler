@@ -228,9 +228,6 @@
 							maxWidth={PANEL1_RESIZER.maxWidth}
 							defaultValue={$persistedStackWidth ?? PANEL1_RESIZER.defaultValue}
 							syncName="panel1"
-							onWidth={(newWidth) => {
-								persistedStackWidth.set(newWidth);
-							}}
 						/>
 					{/if}
 				</div>

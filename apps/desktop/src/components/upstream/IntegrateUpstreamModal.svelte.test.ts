@@ -3,6 +3,7 @@ import { BACKEND } from "$lib/backend";
 import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 import { URL_SERVICE } from "$lib/backend/url";
 import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+import { FILE_SERVICE } from "$lib/files/fileService";
 import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 import { UPSTREAM_INTEGRATION_SERVICE } from "$lib/upstream/upstreamIntegrationService.svelte";
 import { render, screen, waitFor } from "@testing-library/svelte";
@@ -213,5 +214,66 @@ describe("IntegrateUpstreamModal", () => {
 
 		resolveStatuses?.();
 		await showPromise;
+	});
+
+	test("opens selected Unity conflict resolver after applying upstream update", async () => {
+		const listen = vi.fn(() => async () => {});
+		const integrateMutation = vi.fn().mockResolvedValue({ deletedBranches: [] });
+		const conflictStart = "<<<<<<< ours";
+		const conflictMiddle = "=======";
+		const conflictEnd = ">>>>>>> theirs";
+		const readFromWorkspace = vi.fn().mockResolvedValue({
+			data: {
+				content: `%YAML 1.1
+--- !u!1 &1200
+GameObject:
+${conflictStart}
+  m_Name: Local
+${conflictMiddle}
+  m_Name: Remote
+${conflictEnd}
+`,
+			},
+		});
+
+		injectMap.set(BACKEND, { listen });
+		injectMap.set(BASE_BRANCH_SERVICE, {
+			baseBranch: () => ({ response: undefined }),
+			refreshBaseBranch: vi.fn().mockResolvedValue(undefined),
+		});
+		injectMap.set(DEFAULT_FORGE_FACTORY, {
+			current: {
+				commitUrl: () => undefined,
+			},
+		});
+		injectMap.set(UPSTREAM_INTEGRATION_SERVICE, {
+			upstreamStatuses: vi.fn().mockResolvedValue({
+				type: "updatesRequired",
+				worktreeConflicts: ["Assets/Scenes/dealers.unity"],
+				subject: [],
+			}),
+			integrateUpstream: () => [integrateMutation],
+			resolveUpstreamIntegrationMutation: vi.fn(),
+		});
+		injectMap.set(URL_SERVICE, { openExternalUrl: vi.fn() });
+		injectMap.set(CLIPBOARD_SERVICE, { write: vi.fn() });
+		injectMap.set(FILE_SERVICE, {
+			readFromWorkspace,
+			writeToWorkspace: vi.fn(),
+		});
+
+		const user = userEvent.setup();
+		const { component } = render(IntegrateUpstreamModal, {
+			props: {
+				projectId: "project-1",
+			},
+		});
+
+		await (component as { show: () => Promise<void> }).show();
+		await user.click(await screen.findByText("dealers.unity"));
+		await user.click(await screen.findByRole("button", { name: "Update workspace" }));
+
+		expect(await screen.findByText("Unity Scene Resolver")).toBeInTheDocument();
+		expect(readFromWorkspace).toHaveBeenCalledWith("Assets/Scenes/dealers.unity", "project-1");
 	});
 });

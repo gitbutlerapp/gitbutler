@@ -150,7 +150,7 @@ the window, then enlarge it and retain the original widths of the layout.
 					defaultValue={leftDefaultWidth}
 					maxWidth={leftMaxWidth}
 					persistId="viewport-${name}-left-section"
-					onWidth={(width) => {
+					onResizeEnd={(width) => {
 						leftPreferredWidth = width;
 					}}
 				/>
@@ -174,7 +174,7 @@ the window, then enlarge it and retain the original widths of the layout.
 						maxWidth={previewMaxWidth}
 						persistId="viewport-${name}-left-sideview"
 						defaultValue={pxToRem(previewWidth?.default, zoom)}
-						onWidth={(width) => {
+						onResizeEnd={(width) => {
 							previewPreferredWidth = width;
 						}}
 					/>
@@ -208,7 +208,7 @@ the window, then enlarge it and retain the original widths of the layout.
 					defaultValue={pxToRem(rightWidth.default, zoom)}
 					maxWidth={rightMaxWidth}
 					persistId="viewport-${name}-right-sideview"
-					onWidth={(width) => {
+					onResizeEnd={(width) => {
 						rightPreferredWidth = width;
 					}}
 				/>

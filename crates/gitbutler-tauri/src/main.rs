@@ -49,6 +49,7 @@ fn effective_irc(
 
 fn main() -> anyhow::Result<()> {
     but_api::panic_capture::install_panic_hook();
+    configure_webview2_browser_arguments();
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
@@ -611,6 +612,46 @@ fn main() -> anyhow::Result<()> {
     });
     Ok(())
 }
+
+#[cfg(target_os = "windows")]
+fn configure_webview2_browser_arguments() {
+    const WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: &str = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS";
+    const DISABLE_RENDERER_ACCESSIBILITY: &str = "--disable-renderer-accessibility";
+
+    let Some(mut arguments) = std::env::var_os(WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS) else {
+        // SAFETY: This runs during process startup, before the Tauri/WebView2
+        // runtime is created and before GitButler spawns application threads.
+        unsafe {
+            std::env::set_var(
+                WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS,
+                DISABLE_RENDERER_ACCESSIBILITY,
+            );
+        }
+        return;
+    };
+
+    if arguments
+        .to_string_lossy()
+        .split_whitespace()
+        .any(|argument| argument == DISABLE_RENDERER_ACCESSIBILITY)
+    {
+        return;
+    }
+
+    if !arguments.is_empty() {
+        arguments.push(" ");
+    }
+    arguments.push(DISABLE_RENDERER_ACCESSIBILITY);
+
+    // SAFETY: This runs during process startup, before the Tauri/WebView2
+    // runtime is created and before GitButler spawns application threads.
+    unsafe {
+        std::env::set_var(WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS, arguments);
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn configure_webview2_browser_arguments() {}
 
 /// read all objects, migrate them, and write them back if there was a migration.
 fn migrate_projects() -> anyhow::Result<()> {

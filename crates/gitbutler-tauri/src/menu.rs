@@ -54,18 +54,13 @@ pub fn popup_window_menu(
     id: &str,
     position: MenuPopupPosition,
 ) -> Result<(), Error> {
-    use tauri::{
-        Position,
-        menu::ContextMenu as _,
-    };
+    use tauri::{Position, menu::ContextMenu as _};
 
     let menu = window.menu().context("menu not found")?;
     let submenu_item = menu
         .get(id)
         .with_context(|| but_error::Context::new(format!("submenu not found: {id}")))?;
-    let submenu = submenu_item
-        .as_submenu()
-        .context(Code::Unknown)?;
+    let submenu = submenu_item.as_submenu().context(Code::Unknown)?;
 
     submenu
         .popup_at(

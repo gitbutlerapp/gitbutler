@@ -239,29 +239,45 @@
 		conflictStates.set(path, "resolved");
 	}
 
+	async function refreshConflictState(file: FileEntry) {
+		if (!file.conflictEntryPresence) return "unknown" satisfies ConflictState;
+		const result = await fileService.readFromWorkspace(file.path, projectId);
+		const state = getConflictState(file.conflictEntryPresence, result.data.content);
+		conflictStates.set(file.path, state);
+		if (state === "resolved") {
+			manuallyResolvedFiles.add(file.path);
+		} else {
+			manuallyResolvedFiles.delete(file.path);
+		}
+		return state;
+	}
+
 	async function handleResolveClick(file: FileEntry) {
-		if (isUnitySceneOrPrefabPath(file.path)) {
+		if (isUnityYamlPath(file.path)) {
 			try {
-				const outcome = await diffService.runUnitySmartMerge({ projectId, path: file.path });
-				if (outcome.success) {
-					showInfo("Unity Smart Merge completed", outcome.message);
-					handleResolvedUnityConflict(file.path);
-					return;
-				}
-				showWarning("Unity Smart Merge needs review", outcome.message);
-				if (isUnityYamlPath(file.path)) {
-					void unityConflictModal?.show(file.path);
+				if (isUnitySceneOrPrefabPath(file.path)) {
+					const outcome = await diffService.runUnitySmartMerge({ projectId, path: file.path });
+					const state = await refreshConflictState(file);
+					if (outcome.success && state === "resolved") {
+						showInfo("Unity Smart Merge completed", outcome.message);
+						return;
+					}
+					showWarning("Unity Smart Merge needs review", outcome.message);
 				}
 			} catch (error) {
 				showError("Failed to run Unity Smart Merge", error);
-				if (isUnityYamlPath(file.path)) {
-					void unityConflictModal?.show(file.path);
-				}
 			}
+			void unityConflictModal?.show(file.path);
 			return;
 		}
 
 		manuallyResolvedFiles.add(file.path);
+	}
+
+	function resolveLabel(file: FileEntry): string {
+		if (isUnitySceneOrPrefabPath(file.path)) return "Smart Merge";
+		if (isUnityYamlPath(file.path)) return "Resolve";
+		return "Mark resolved";
 	}
 </script>
 
@@ -358,9 +374,10 @@
 									conflictEntryPresence={file.conflictEntryPresence}
 									conflictState={conflictStates.get(file.path) ?? "unknown"}
 									manuallyResolved={manuallyResolvedFiles.has(file.path)}
-									resolveLabel={isUnitySceneOrPrefabPath(file.path)
-										? "Smart Merge"
-										: "Mark resolved"}
+									resolveLabel={resolveLabel(file)}
+									onclick={file.conflicted && isUnityYamlPath(file.path)
+										? () => void handleResolveClick(file)
+										: undefined}
 									onresolveclick={file.conflicted ? () => void handleResolveClick(file) : undefined}
 									oncontextmenu={(e) => {
 										const treeChange = getTreeChangeForFile(file);
