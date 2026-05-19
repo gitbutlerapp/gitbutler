@@ -1,5 +1,6 @@
 use bstr::ByteSlice;
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 
 /// Represents the author of a commit.
 #[derive(Serialize, Hash, Clone, PartialEq, Eq)]
@@ -48,9 +49,25 @@ impl From<gix::actor::Signature> for Author {
 }
 
 pub fn gravatar_url_from_email(email: &str) -> url::Url {
+    let email_hash = Sha256::digest(email.trim().to_lowercase().as_bytes());
     let gravatar_url = format!(
         "https://www.gravatar.com/avatar/{:x}?s=100&r=g&d=retro",
-        md5::compute(email.to_lowercase())
+        email_hash
     );
-    url::Url::parse(gravatar_url.as_str()).expect("an MD5 as part of the URl is always valid")
+    url::Url::parse(gravatar_url.as_str())
+        .expect("a SHA-256 hash as part of the URL is always valid")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::gravatar_url_from_email;
+
+    #[test]
+    fn gravatar_uses_sha256_and_normalized_email() {
+        assert_eq!(
+            gravatar_url_from_email(" Author@example.com ").as_str(),
+            "https://www.gravatar.com/avatar/b0eda69977c26118feff17875d53376006568bcbcde5ca0c916d01f05c281436?s=100&r=g&d=retro",
+            "gravatar hashes should match the normalized SHA-256 email used by Gravatar"
+        );
+    }
 }

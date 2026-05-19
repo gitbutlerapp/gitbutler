@@ -54,7 +54,7 @@ uuid = { workspace = true }
 serde.workspace = true
 bstr.workspace = true
 url = { version = "2.5.4", features = ["serde"] }
-md5.workspace = true
+sha2.workspace = true
 itertools.workspace = true
 schemars = { workspace = true, optional = true }
 but-schemars = { workspace = true, optional = true }

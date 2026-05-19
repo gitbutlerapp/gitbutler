@@ -18,19 +18,23 @@ type MockGitLabClientInput = {
 }
 
 describe.concurrent("AuthorIdentityService", () => {
-	test("prefers the signed-in user picture and name when the commit email matches", async () => {
+	test("prefers the signed-in user picture and name on non-provider forges when the commit email matches", async () => {
 		const searchUsers = vi.fn()
 		const getByUsername = vi.fn()
 		const service = createService({
-			forgeName: "github",
+			forgeName: "default",
 			gitHubClient: {
 				owner: "gitbutler",
 				repo: "gitbutler",
 				octokit: {
 					rest: {
+						users: {
+							getAuthenticated: vi.fn(),
+							listEmailsForAuthenticatedUser: vi.fn(),
+							getByUsername,
+						},
 						repos: { getCommit: vi.fn() },
 						search: { users: searchUsers },
-						users: { getByUsername },
 					},
 				},
 			},
@@ -53,6 +57,64 @@ describe.concurrent("AuthorIdentityService", () => {
 			email: "signed-in@example.com",
 			avatarUrl: "https://example.com/me.png",
 		})
+		expect(searchUsers).not.toHaveBeenCalled()
+		expect(getByUsername).not.toHaveBeenCalled()
+	})
+
+	test("prefers the authenticated GitHub account name and avatar for matching commit emails", async () => {
+		const getAuthenticated = vi.fn().mockResolvedValue({
+			data: {
+				login: "yeusepe",
+				name: "Yeusepe GH",
+				email: null,
+				avatar_url: "https://example.com/github-me.png",
+			},
+		})
+		const listEmailsForAuthenticatedUser = vi.fn().mockResolvedValue({
+			data: [{ email: "signed-in@example.com" }],
+		})
+		const getCommit = vi.fn()
+		const searchUsers = vi.fn()
+		const getByUsername = vi.fn()
+		const service = createService({
+			forgeName: "github",
+			gitHubClient: {
+				owner: "gitbutler",
+				repo: "gitbutler",
+				octokit: {
+					rest: {
+						repos: { getCommit },
+						search: { users: searchUsers },
+						users: {
+							getAuthenticated,
+							listEmailsForAuthenticatedUser,
+							getByUsername,
+						},
+					},
+				},
+			},
+			user: {
+				email: "signed-in@example.com",
+				name: "GitButler User",
+				picture: "https://example.com/gitbutler-me.png",
+			},
+			gitConfigEmail: "signed-in@example.com",
+		})
+
+		const result = await service.resolve({
+			name: "Commit Signature",
+			email: "signed-in@example.com",
+			gravatarUrl: "https://gravatar.example/avatar",
+		})
+
+		expect(result).toEqual({
+			name: "Yeusepe GH",
+			email: "signed-in@example.com",
+			avatarUrl: "https://example.com/github-me.png",
+		})
+		expect(getAuthenticated).toHaveBeenCalledOnce()
+		expect(listEmailsForAuthenticatedUser).toHaveBeenCalledOnce()
+		expect(getCommit).not.toHaveBeenCalled()
 		expect(searchUsers).not.toHaveBeenCalled()
 		expect(getByUsername).not.toHaveBeenCalled()
 	})
@@ -83,7 +145,20 @@ describe.concurrent("AuthorIdentityService", () => {
 					rest: {
 						repos: { getCommit },
 						search: { users: searchUsers },
-						users: { getByUsername },
+						users: {
+							getAuthenticated: vi.fn().mockResolvedValue({
+								data: {
+									login: "someone-else",
+									name: "Someone Else",
+									email: "someone-else@example.com",
+									avatar_url: "https://example.com/someone-else.png",
+								},
+							}),
+							listEmailsForAuthenticatedUser: vi.fn().mockResolvedValue({
+								data: [{ email: "someone-else@example.com" }],
+							}),
+							getByUsername,
+						},
 					},
 				},
 			},
@@ -112,6 +187,72 @@ describe.concurrent("AuthorIdentityService", () => {
 				"If-None-Match": "",
 			},
 		})
+	})
+
+	test("falls back from a missing GitHub commit to email search", async () => {
+		const getCommit = vi.fn().mockRejectedValue(Object.assign(new Error("Not Found"), { status: 404 }))
+		const searchUsers = vi.fn().mockResolvedValue({
+			data: {
+				items: [
+					{
+						login: "octocat",
+						avatar_url: "https://example.com/octocat-summary.png",
+					},
+				],
+			},
+		})
+		const getByUsername = vi.fn().mockResolvedValue({
+			data: {
+				name: "The Octocat",
+				login: "octocat",
+				avatar_url: "https://example.com/octocat-profile.png",
+			},
+		})
+		const service = createService({
+			forgeName: "github",
+			gitHubClient: {
+				owner: "gitbutler",
+				repo: "gitbutler",
+				octokit: {
+					rest: {
+						repos: { getCommit },
+						search: { users: searchUsers },
+						users: {
+							getAuthenticated: vi.fn().mockResolvedValue({
+								data: {
+									login: "someone-else",
+									name: "Someone Else",
+									email: "someone-else@example.com",
+									avatar_url: "https://example.com/someone-else.png",
+								},
+							}),
+							listEmailsForAuthenticatedUser: vi.fn().mockResolvedValue({
+								data: [{ email: "someone-else@example.com" }],
+							}),
+							getByUsername,
+						},
+					},
+				},
+			},
+		})
+
+		const result = await service.resolve(
+			{
+				name: "Raw Commit Name",
+				email: "octocat@example.com",
+				gravatarUrl: "https://gravatar.example/octocat",
+			},
+			{ commitId: "local-only-commit" },
+		)
+
+		expect(result).toEqual({
+			name: "The Octocat",
+			email: "octocat@example.com",
+			avatarUrl: "https://example.com/octocat-profile.png",
+		})
+		expect(getCommit).toHaveBeenCalledOnce()
+		expect(searchUsers).toHaveBeenCalledOnce()
+		expect(getByUsername).toHaveBeenCalledOnce()
 	})
 
 	test("uses the GitLab user lookup to enrich another author when available", async () => {
@@ -177,7 +318,20 @@ function createService(args?: {
 				rest: {
 					repos: { getCommit: vi.fn() },
 					search: { users: vi.fn() },
-					users: { getByUsername: vi.fn() },
+					users: {
+						getAuthenticated: vi.fn().mockResolvedValue({
+							data: {
+								login: "test-user",
+								name: "Test User",
+								email: "test@example.com",
+								avatar_url: "https://example.com/test-user.png",
+							},
+						}),
+						listEmailsForAuthenticatedUser: vi.fn().mockResolvedValue({
+							data: [{ email: "test@example.com" }],
+						}),
+						getByUsername: vi.fn(),
+					},
 				},
 			},
 			...args?.gitHubClient,

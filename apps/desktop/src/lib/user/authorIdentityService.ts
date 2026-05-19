@@ -39,6 +39,17 @@ type ProviderAuthorIdentity = {
 	avatarUrl?: string
 }
 
+type GitHubAuthenticatedUser = {
+	login?: string | null
+	name?: string | null
+	avatar_url?: string | null
+	email?: string | null
+}
+
+type GitHubAuthenticatedEmail = {
+	email?: string | null
+}
+
 export function fallbackAuthorIdentity(
 	author?: AuthorIdentityInput | null,
 ): ResolvedAuthorIdentity | undefined {
@@ -57,6 +68,8 @@ export function fallbackAuthorIdentity(
 export class AuthorIdentityService {
 	private providerLookupCache = new Map<string, Promise<ProviderAuthorIdentity | undefined>>()
 	private gitConfigEmailPromise?: Promise<string | undefined>
+	private gitHubAuthenticatedUserPromise?: Promise<GitHubAuthenticatedUser | undefined>
+	private gitHubAuthenticatedEmailsPromise?: Promise<Set<string>>
 
 	constructor(private deps: AuthorIdentityDependencies) {}
 
@@ -67,18 +80,20 @@ export class AuthorIdentityService {
 		const fallback = fallbackAuthorIdentity(author)
 		if (!fallback) return undefined
 
+		const providerIdentity = await this.resolveProviderIdentity(author, options, fallback)
+		if (providerIdentity) {
+			return {
+				...fallback,
+				...providerIdentity,
+				name: providerIdentity.name ?? fallback.name,
+				avatarUrl: providerIdentity.avatarUrl ?? fallback.avatarUrl,
+			}
+		}
+
 		const currentUserIdentity = await this.resolveCurrentUserIdentity(author, fallback)
 		if (currentUserIdentity) return currentUserIdentity
 
-		const providerIdentity = await this.resolveProviderIdentity(author, options, fallback)
-		if (!providerIdentity) return fallback
-
-		return {
-			...fallback,
-			...providerIdentity,
-			name: providerIdentity.name ?? fallback.name,
-			avatarUrl: providerIdentity.avatarUrl ?? fallback.avatarUrl,
-		}
+		return fallback
 	}
 
 	async resolveMany(
@@ -160,23 +175,34 @@ export class AuthorIdentityService {
 		options: ResolveAuthorIdentityOptions,
 		fallback: ResolvedAuthorIdentity,
 	): Promise<ProviderAuthorIdentity | undefined> {
+		const authorEmail = normalizeEmail(author?.email)
+		const authenticatedUserIdentity = await this.lookupAuthenticatedGitHubIdentity(authorEmail, fallback)
+		if (authenticatedUserIdentity) {
+			return authenticatedUserIdentity
+		}
+
 		const { owner, repo, octokit } = this.deps.gitHubClient
 
 		if (options.commitId && owner && repo) {
-			const commit = await octokit.rest.repos.getCommit({
-				owner,
-				repo,
-				ref: options.commitId,
-				headers: DEFAULT_HEADERS,
-			})
-			const providerAuthor = commit.data.author
+			try {
+				const commit = await octokit.rest.repos.getCommit({
+					owner,
+					repo,
+					ref: options.commitId,
+					headers: DEFAULT_HEADERS,
+				})
+				const providerAuthor = commit.data.author
 
-			if (providerAuthor?.login) {
-				return await this.lookupGitHubUser(providerAuthor.login, providerAuthor.avatar_url, fallback)
+				if (providerAuthor?.login) {
+					return await this.lookupGitHubUser(providerAuthor.login, providerAuthor.avatar_url, fallback)
+				}
+			} catch (error) {
+				if (!hasStatus(error, 404)) {
+					throw error
+				}
 			}
 		}
 
-		const authorEmail = normalizeEmail(author?.email)
 		if (!authorEmail) return undefined
 
 		const search = await octokit.rest.search.users({
@@ -188,6 +214,70 @@ export class AuthorIdentityService {
 
 		if (!providerAuthor?.login) return undefined
 		return await this.lookupGitHubUser(providerAuthor.login, providerAuthor.avatar_url, fallback)
+	}
+
+	private async lookupAuthenticatedGitHubIdentity(
+		authorEmail: string | undefined,
+		fallback: ResolvedAuthorIdentity,
+	): Promise<ProviderAuthorIdentity | undefined> {
+		if (!authorEmail) return undefined
+
+		const authenticatedUser = await this.getAuthenticatedGitHubUser()
+		if (!authenticatedUser) return undefined
+
+		const authenticatedEmails = await this.getAuthenticatedGitHubEmails(authenticatedUser)
+		if (!authenticatedEmails.has(authorEmail)) return undefined
+
+		return {
+			name: authenticatedUser.name ?? authenticatedUser.login ?? fallback.name,
+			avatarUrl: valueOrUndefined(authenticatedUser.avatar_url) ?? fallback.avatarUrl,
+		}
+	}
+
+	private async getAuthenticatedGitHubUser(): Promise<GitHubAuthenticatedUser | undefined> {
+		if (!this.gitHubAuthenticatedUserPromise) {
+			this.gitHubAuthenticatedUserPromise = this.deps.gitHubClient.octokit.rest.users
+				.getAuthenticated({
+					headers: DEFAULT_HEADERS,
+				})
+				.then((response) => response.data)
+		}
+
+		return await this.gitHubAuthenticatedUserPromise
+	}
+
+	private async getAuthenticatedGitHubEmails(user: GitHubAuthenticatedUser): Promise<Set<string>> {
+		if (!this.gitHubAuthenticatedEmailsPromise) {
+			this.gitHubAuthenticatedEmailsPromise = this.loadAuthenticatedGitHubEmails(user)
+		}
+
+		return await this.gitHubAuthenticatedEmailsPromise
+	}
+
+	private async loadAuthenticatedGitHubEmails(user: GitHubAuthenticatedUser): Promise<Set<string>> {
+		const emails = new Set<string>()
+		const authenticatedEmail = normalizeEmail(user.email)
+		if (authenticatedEmail) {
+			emails.add(authenticatedEmail)
+		}
+
+		try {
+			const response = await this.deps.gitHubClient.octokit.rest.users.listEmailsForAuthenticatedUser({
+				headers: DEFAULT_HEADERS,
+			})
+			for (const email of response.data as GitHubAuthenticatedEmail[]) {
+				const normalizedEmail = normalizeEmail(email.email)
+				if (normalizedEmail) {
+					emails.add(normalizedEmail)
+				}
+			}
+		} catch (error) {
+			if (!hasStatus(error, 403) && !hasStatus(error, 404)) {
+				throw error
+			}
+		}
+
+		return emails
 	}
 
 	private async lookupGitHubUser(
@@ -244,6 +334,7 @@ export class AuthorIdentityService {
 		author: AuthorIdentityInput | null | undefined,
 		options: ResolveAuthorIdentityOptions,
 	): string | undefined {
+		const authenticated = String(this.deps.forgeFactory.current.authenticated)
 		const email = normalizeEmail(author?.email) ?? ""
 		const commitId = valueOrUndefined(options.commitId) ?? ""
 
@@ -258,6 +349,7 @@ export class AuthorIdentityService {
 		if (forgeName === "github") {
 			return [
 				forgeName,
+				authenticated,
 				valueOrUndefined(this.deps.gitHubClient.owner) ?? "",
 				valueOrUndefined(this.deps.gitHubClient.repo) ?? "",
 				email,
@@ -267,6 +359,7 @@ export class AuthorIdentityService {
 
 		return [
 			forgeName,
+			authenticated,
 			valueOrUndefined(this.deps.gitLabClient.upstreamProjectId) ?? "",
 			email,
 		].join("|")
@@ -321,4 +414,8 @@ function normalizeUnknownEmail(email: unknown): string | undefined {
 
 function valueOrUndefined(value: string | null | undefined): string | undefined {
 	return value && value.trim().length > 0 ? value : undefined
+}
+
+function hasStatus(error: unknown, status: number): boolean {
+	return typeof error === "object" && error !== null && "status" in error && error.status === status
 }

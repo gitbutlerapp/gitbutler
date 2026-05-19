@@ -243,7 +243,7 @@ mod changes_in_branch {
                       "author": {
                         "name": "author",
                         "email": "author@example.com",
-                        "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
+                        "gravatarUrl": "https://www.gravatar.com/avatar/b0eda69977c26118feff17875d53376006568bcbcde5ca0c916d01f05c281436?s=100&r=g&d=retro"
                       },
                       "changeId": "mvvzyyvvvuosslxwrvqpxopvomovrrmz",
                       "gerritReviewUrl": null
@@ -257,7 +257,7 @@ mod changes_in_branch {
                       "author": {
                         "name": "author",
                         "email": "author@example.com",
-                        "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
+                        "gravatarUrl": "https://www.gravatar.com/avatar/b0eda69977c26118feff17875d53376006568bcbcde5ca0c916d01f05c281436?s=100&r=g&d=retro"
                       },
                       "changeId": null
                     }
@@ -428,7 +428,7 @@ mod changes_in_branch {
                       "author": {
                         "name": "author",
                         "email": "author@example.com",
-                        "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
+                        "gravatarUrl": "https://www.gravatar.com/avatar/b0eda69977c26118feff17875d53376006568bcbcde5ca0c916d01f05c281436?s=100&r=g&d=retro"
                       },
                       "changeId": "mvvzyyvvvuosslxwrvqpxopvomovrrmz",
                       "gerritReviewUrl": null
@@ -442,7 +442,7 @@ mod changes_in_branch {
                       "author": {
                         "name": "author",
                         "email": "author@example.com",
-                        "gravatarUrl": "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro"
+                        "gravatarUrl": "https://www.gravatar.com/avatar/b0eda69977c26118feff17875d53376006568bcbcde5ca0c916d01f05c281436?s=100&r=g&d=retro"
                       },
                       "changeId": null
                     }
