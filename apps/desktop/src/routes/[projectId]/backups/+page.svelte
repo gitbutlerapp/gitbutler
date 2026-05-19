@@ -13,7 +13,6 @@
 		Textbox,
 		VirtualList,
 	} from "@gitbutler/ui";
-	import type { BackupManifest, BackupRef } from "$lib/backups/backupEndpoints";
 
 	const projectId = $derived(page.params.projectId!);
 	const backupService = inject(BACKUP_SERVICE);
@@ -257,7 +256,6 @@
 				{#snippet caption()}Create a branch bundle backup to recover branches or files later.{/snippet}
 			</EmptyStatePlaceholder>
 		{:else}
-			<ScrollableContainer>
 			<VirtualList
 				grow
 				items={backups}
@@ -523,7 +521,7 @@
 
 	.detail-grid {
 		display: grid;
-		grid-template-columns: 240px minmax(0, 1fr);
+		grid-template-columns: 220px minmax(260px, 34%) minmax(0, 1fr);
 		min-height: 0;
 		flex: 1;
 		overflow: hidden;
@@ -548,11 +546,20 @@
 		border-bottom: 1px solid var(--border-2);
 	}
 
+	.preview-panel,
 	.files-panel {
+		border-right: 1px solid var(--border-2);
+	}
+
+	.preview-panel {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
 		border-right: none;
 	}
 
-	.file-list,
 	.branch-picker,
 	.modal-stack {
 		display: flex;
@@ -569,11 +576,81 @@
 		gap: 8px;
 	}
 
-	.file-row span,
+	.file-row.selected {
+		background: var(--focus-bg-mute);
+	}
+
+	.file-preview-trigger {
+		min-width: 0;
+		overflow: hidden;
+		text-align: left;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
 	.picker-row span {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.preview-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 12px 14px;
+		border-bottom: 1px solid var(--border-2);
+	}
+
+	.preview-path {
+		padding: 8px 14px;
+		overflow: hidden;
+		border-bottom: 1px solid var(--border-2);
+		color: var(--text-2);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.preview-empty,
+	.preview-error {
+		padding: 14px;
+		color: var(--text-2);
+	}
+
+	.preview-error {
+		color: var(--clr-scale-ntrl-60);
+	}
+
+	.diff-preview {
+		flex: 1;
+		min-height: 0;
+		margin: 0;
+		overflow: auto;
+		padding: 10px 0;
+		background: var(--bg-1);
+		font-family: var(--fontfamily-mono);
+		line-height: 1.45;
+		white-space: pre;
+	}
+
+	.diff-preview span {
+		display: block;
+		padding: 0 14px;
+	}
+
+	.diff-line--file,
+	.diff-line--hunk {
+		color: var(--text-2);
+	}
+
+	.diff-line--added {
+		background: var(--diff-addition-line-bg);
+		color: var(--diff-addition-count-text);
+	}
+
+	.diff-line--removed {
+		background: var(--diff-deletion-line-bg);
+		color: var(--diff-deletion-count-text);
 	}
 
 	.restore-panel {

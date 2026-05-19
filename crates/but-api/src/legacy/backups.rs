@@ -304,10 +304,8 @@ pub fn preview_backup_file(
             }
         };
 
-        let temp_dir = std::env::temp_dir().join(format!(
-            "gitbutler-backup-preview-{}",
-            timestamp_ms()?
-        ));
+        let temp_dir =
+            std::env::temp_dir().join(format!("gitbutler-backup-preview-{}", timestamp_ms()?));
         fs::create_dir_all(&temp_dir)?;
         let backup_path = temp_dir.join("backup");
         let worktree_path = temp_dir.join("worktree");
