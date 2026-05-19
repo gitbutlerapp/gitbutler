@@ -96,6 +96,32 @@ fn shows_full_error_cause_chain_with_multiple_contexts() {
 }
 
 #[test]
+fn narrow_hotbar_prioritizes_help_and_quit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui_with_size(env, 42, 20);
+
+    tui.input_then_render(None)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/narrow_hotbar_prioritizes_help_and_quit.svg"
+        ]);
+}
+
+#[test]
+fn narrow_hotbar_keeps_help_and_quit_visible_in_modal_modes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui_with_size(env, 36, 20);
+
+    tui.input_then_render('r')
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/narrow_hotbar_keeps_help_and_quit_visible_in_modal_modes.svg"
+        ]);
+}
+
+#[test]
 fn help_popup_opens_over_status_view() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
