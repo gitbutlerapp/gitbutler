@@ -263,29 +263,6 @@ pub fn create(
 }
 
 #[cfg(target_os = "macos")]
-fn no_shadow_from_global_git_config() -> bool {
-    let config = match git2::Config::open_default() {
-        Ok(config) => config,
-        Err(error) => {
-            tracing::warn!(?error, "failed to open global git config, keeping window shadow");
-            return false;
-        }
-    };
-
-    match config.get_bool("gitbutler.noShadow") {
-        Ok(no_shadow) => no_shadow,
-        Err(error) if error.code() == git2::ErrorCode::NotFound => false,
-        Err(error) => {
-            tracing::warn!(
-                ?error,
-                "failed to read gitbutler.noShadow from git config, keeping window shadow"
-            );
-            false
-        }
-    }
-}
-
-#[cfg(target_os = "macos")]
 pub fn create(
     handle: &tauri::AppHandle,
     label: &state::WindowLabelRef,
@@ -293,12 +270,11 @@ pub fn create(
 ) -> tauri::Result<tauri::WebviewWindow> {
     tracing::info!("creating window '{label}' created at '{window_relative_url}'");
 
-    let use_native_title_bar =
+    let (use_native_title_bar, no_shadow) =
         but_settings::AppSettings::load_from_default_path_creating_without_customization()
             .ok()
-            .map(|settings| settings.ui.use_native_title_bar)
-            .unwrap_or(false);
-    let no_shadow = no_shadow_from_global_git_config();
+            .map(|settings| (settings.ui.use_native_title_bar, settings.ui.no_shadow))
+            .unwrap_or((false, false));
 
     let window = tauri::WebviewWindowBuilder::new(
         handle,

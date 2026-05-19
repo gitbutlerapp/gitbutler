@@ -493,6 +493,7 @@ impl Sandbox {
             },
             ui: UiSettings {
                 use_native_title_bar: false,
+                no_shadow: false,
                 cli_is_managed_by_package_manager: false,
                 #[expect(deprecated)]
                 check_for_updates_interval_in_seconds: 0,
