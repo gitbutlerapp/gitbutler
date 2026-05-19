@@ -1,18 +1,18 @@
 import { listProjectsQueryOptions } from "#ui/api/queries.ts";
 import { lastOpenedProjectKey } from "#ui/projects/last-opened.ts";
-import { TopBarActionsElementContext } from "#ui/portals.tsx";
 import { PickerDialog } from "#ui/ui/PickerDialog/PickerDialog.tsx";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
-import { Spinner } from "#ui/components/Spinner.tsx";
 import { globalHotkeys } from "#ui/hotkeys.ts";
 import uiStyles from "#ui/ui/ui.module.css";
 import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
-import { useIsFetching, useIsMutating, useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { Outlet, useMatch, useNavigate } from "@tanstack/react-router";
 import { FC, useState } from "react";
 import styles from "./RootLayout.module.css";
 import { ProjectForFrontend } from "@gitbutler/but-sdk";
-import { Match } from "effect";
+import { classes } from "#ui/ui/classes.ts";
+import { Hash } from "effect";
+import { Tooltip } from "@base-ui/react";
 
 const ProjectSelect: FC = () => {
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
@@ -43,18 +43,47 @@ const ProjectSelect: FC = () => {
 		window.localStorage.setItem(lastOpenedProjectKey, project.id);
 	};
 
+	const hue = (id: string): number => ((Hash.string(id) % 360) + 360) % 360;
+
 	return (
-		<>
+		<div className={styles.projects}>
+			{projects.map((project) => {
+				const isSelected = selectedProject?.id === project.id;
+
+				return (
+					<Tooltip.Root key={project.id}>
+						<Tooltip.Trigger
+							aria-label={`Select project ${project.title}`}
+							className={classes(uiStyles.button, styles.project, isSelected && styles.selected)}
+							onClick={() => selectProject(project)}
+							style={{ "--hue": hue(project.id) }}
+							render={<button type="button" disabled={isSelected} />}
+						>
+							{project.title.slice(0, 2)}
+						</Tooltip.Trigger>
+						<Tooltip.Portal>
+							<Tooltip.Positioner side="right" sideOffset={8}>
+								<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
+									{project.title}
+								</Tooltip.Popup>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
+				);
+			})}
+
 			<ShortcutButton
 				aria-label="Select project"
-				className={uiStyles.button}
+				className={classes(uiStyles.button, styles.picker)}
 				disabled={projects.length === 0}
 				hotkey={globalHotkeys.selectProject.hotkey}
 				hotkeyOptions={{ meta: globalHotkeys.selectProject.meta }}
 				onClick={openProjectPicker}
+				positionerProps={{ side: "right" }}
 			>
-				{selectedProject?.title ?? "Select a project"}
+				+
 			</ShortcutButton>
+
 			<PickerDialog
 				ariaLabel="Select project"
 				closeLabel="Close project picker"
@@ -74,48 +103,19 @@ const ProjectSelect: FC = () => {
 				onSelectItem={selectProject}
 				placeholder="Search projects…"
 			/>
-		</>
+		</div>
 	);
 };
 
-const TopBar: FC<{
-	setTopBarActionsElement: (element: HTMLDivElement | null) => void;
-}> = ({ setTopBarActionsElement }) => {
-	const fetchingCount = useIsFetching();
-	const mutatingCount = useIsMutating();
-
-	const isFetching = fetchingCount > 0;
-	const isMutating = mutatingCount > 0;
-
-	const status = Match.value({ isFetching, isMutating }).pipe(
-		Match.when({ isFetching: true, isMutating: true }, () => "Syncing"),
-		Match.when({ isFetching: true }, () => "Loading"),
-		Match.when({ isMutating: true }, () => "Saving"),
-		Match.orElse(() => null),
-	);
-
-	return (
-		<header className={styles.topBar}>
-			<ProjectSelect />
-			{status !== null && <Spinner className={styles.topBarSpinner} aria-label={status} />}
-			<div ref={setTopBarActionsElement} className={styles.topBarActions} />
-		</header>
-	);
-};
-
-export const RootLayout: FC = () => {
-	const [topBarActionsElement, setTopBarActionsElement] = useState<HTMLDivElement | null>(null);
-
-	return (
-		<HotkeysProvider>
-			<TopBarActionsElementContext.Provider value={topBarActionsElement}>
-				<main className={styles.layout}>
-					<TopBar setTopBarActionsElement={setTopBarActionsElement} />
-					<section className={styles.content}>
-						<Outlet />
-					</section>
-				</main>
-			</TopBarActionsElementContext.Provider>
-		</HotkeysProvider>
-	);
-};
+export const RootLayout: FC = () => (
+	<HotkeysProvider>
+		<div className={styles.layout}>
+			<nav className={styles.sidebar}>
+				<ProjectSelect />
+			</nav>
+			<main className={styles.content}>
+				<Outlet />
+			</main>
+		</div>
+	</HotkeysProvider>
+);

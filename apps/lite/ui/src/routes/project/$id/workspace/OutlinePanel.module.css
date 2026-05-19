@@ -1,20 +1,46 @@
-.panel {
+.workspaceControls {
 	display: flex;
-	flex-direction: column;
+	align-items: center;
+	justify-content: space-between;
+	margin-block-start: var(--panel-padding);
+	margin-block-end: 4px;
+	overflow: hidden;
+	gap: 6px;
 }
 
-.panelPadding {
-	padding: var(--panel-padding);
+.workspaceControlsLeft {
+	display: flex;
+	align-items: center;
+	overflow: hidden;
+	gap: 4px;
+}
+
+.workspaceName {
+	overflow: hidden;
+	font-weight: 700;
+	font-size: 15px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.branchBtn {
+	flex-shrink: 0;
+	font-weight: 550;
+	font-size: 13px;
+}
+
+.panel {
+	display: grid;
+	grid-template-rows: auto auto minmax(0, 1fr);
+	padding-inline: var(--panel-padding);
+	gap: 12px;
 }
 
 .headInfo {
 	display: flex;
-	row-gap: 24px;
-	flex-grow: 1;
+	row-gap: 12px;
 	flex-direction: column;
-	padding: var(--panel-padding);
 	overflow: auto;
-	border-top: 1px solid var(--border-2);
 	scroll-padding: var(--panel-padding);
 }
 
@@ -36,6 +62,20 @@
 .stack {
 	display: flex;
 	flex-direction: column;
+
+	&:last-child {
+		margin-block-end: var(--panel-padding);
+	}
+}
+
+.stackRowLabel::before {
+	/* Don't shrink height with empty text content - relevant for context menu hitbox. */
+	content: "\00a0";
+}
+
+.branchRowLabel {
+	font-weight: 600;
+	font-size: 14px;
 }
 
 .editorForm {
@@ -105,20 +145,59 @@
 	display: flex;
 	row-gap: 2px;
 	flex-direction: column;
+	padding: 6px;
 }
 
-.commitTextarea {
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
-	field-sizing: content;
-	box-sizing: content-box;
-	min-height: calc(2lh);
-	border-radius: 8px;
+.changesRowLabel {
+	display: flex;
+	align-items: center;
+	padding-inline: 12px;
+	padding-block: 9px;
+	font-weight: 600;
+	font-size: 14px;
+}
+
+.changesCountBubble {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 20px;
+	height: 16px;
+	margin-inline-start: 6px;
+	padding-inline: 4px;
+	padding-block: 2px;
+	border-radius: 10px;
+	background: var(--fill-gray-bg);
+	color: var(--fill-gray-fg);
+	font-size: 10px;
+
+	.selected & {
+		background: var(--fill-gray-fg);
+		color: var(--fill-gray-bg);
+	}
 }
 
 .commitControls {
 	display: flex;
-	column-gap: 2px;
+	flex-direction: column;
+	border: 1px solid var(--border-2);
+	border-radius: 8px;
+	background: var(--bg-1);
+	font-size: 13px;
+}
+
+.commitTextarea {
+	padding: 12px;
+	resize: vertical;
+	field-sizing: content;
+	box-sizing: content-box;
+	min-height: calc(2lh);
+}
+
+.commitControlsFooter {
+	display: flex;
+	column-gap: 10px;
+	padding: 12px;
 }
 
 .commitTargetComboboxTrigger {
@@ -176,7 +255,11 @@
 .changesSectionCommitButton {
 	border-start-end-radius: 0;
 	border-end-end-radius: 0;
-	font-weight: bold;
+	font-weight: 550;
+}
+
+.commitRowLabel {
+	font-size: 13px;
 }
 
 .commitActionControls {

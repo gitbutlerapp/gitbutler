@@ -474,18 +474,6 @@ const moveOperation = ({
 					targetBranch: decodeRefName(target.branchRef),
 				}),
 		),
-		Match.when(
-			{
-				source: { _tag: "Branch" },
-				target: { _tag: "BaseCommit" },
-				side: "above",
-			},
-			({ source }) =>
-				tearOffBranchOperation({
-					source,
-					subjectBranch: decodeRefName(source.branchRef),
-				}),
-		),
 		Match.orElse(() => null),
 	);
 

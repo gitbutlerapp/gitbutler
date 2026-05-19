@@ -4,8 +4,12 @@
 	border: var(--button-border);
 	border-radius: 8px;
 
-	&:not(:disabled):hover {
-		background-color: var(--button-ghost-hover-bg);
+	&:not(:disabled) {
+		cursor: pointer;
+
+		&:hover {
+			background-color: var(--button-ghost-hover-bg);
+		}
 	}
 
 	&:disabled {

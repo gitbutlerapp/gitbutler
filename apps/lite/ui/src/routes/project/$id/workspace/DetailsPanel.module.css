@@ -1,19 +1,100 @@
+:root {
+	--diffs-font-size: 12px;
+}
+
+.panel {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+}
+
+.detailsMeta {
+	margin-block-end: 16px;
+}
+
+.filesBtn {
+	font-weight: 550;
+	font-size: 13px;
+}
+
 .detailsVirtualizer {
-	height: 100%;
+	padding-block-end: var(--panel-padding);
 	overflow: auto;
 }
 
+.heading {
+	margin-block-end: 18px;
+	font-weight: 600;
+	font-size: 14px;
+}
+
+.pr {
+	margin-block-end: 18px;
+	color: var(--text-2);
+	font-weight: 700;
+	font-size: 13px;
+}
+
 .commitMessageBody {
+	margin-block: 18px;
+	color: var(--text-2);
+	font-weight: 500;
+	font-size: 13px;
 	white-space: pre-wrap;
+}
+
+.fileDiffsList {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.fileDiff {
+	border: 1px solid var(--border-3);
+	border-radius: 10px;
+}
+
+.fileHeader {
+	border-bottom: 1px solid var(--border-3);
+}
+
+.filePath {
+	margin: 8px;
+	font-weight: 400;
+	font-size: 13px;
+}
+
+.pathInit,
+.pathLast {
+	font-size: 13px;
+}
+
+.pathInit {
+	color: var(--text-3);
 }
 
 .hunkHeaderRow {
 	display: flex;
 	column-gap: 4px;
 	align-items: center;
+	margin: 8px;
+
+	svg {
+		display: block;
+	}
 }
 
 .hunkHeader {
 	flex-grow: 1;
+	font-size: 11px;
 	font-family: monospace;
+}
+
+.emptyChanges,
+.emptyFileHunks,
+.loading {
+	font-size: 13px;
+}
+
+.emptyFileHunks {
+	margin: 8px;
 }

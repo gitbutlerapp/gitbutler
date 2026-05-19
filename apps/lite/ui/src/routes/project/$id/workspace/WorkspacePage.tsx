@@ -1,4 +1,3 @@
-import uiStyles from "#ui/ui/ui.module.css";
 import { FilesPanel } from "./FilesPanel.tsx";
 import {
 	headInfoQueryOptions,
@@ -17,9 +16,7 @@ import {
 	selectProjectDialogState,
 	selectProjectPanelsState,
 } from "#ui/projects/state.ts";
-import { TopBarActionsPortal } from "#ui/portals.tsx";
 import { Keys } from "#ui/components/Keys.tsx";
-import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
 import { globalHotkeys, workspaceHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { type AppThunk, useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { BranchListing, Segment, Stack } from "@gitbutler/but-sdk";
@@ -296,56 +293,6 @@ const ApplyBranchPicker: FC<{
 	);
 };
 
-const TopBarActions: FC = () => {
-	const dispatch = useAppDispatch();
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
-	const focusedPanel = useFocusedProjectPanel(projectId);
-	const openApplyBranchPicker = () => {
-		dispatch(projectActions.openApplyBranchPicker({ projectId }));
-	};
-	const togglePanel = (panel: PanelType) => {
-		dispatch(toggleProjectPanel({ projectId, panel, focusedPanel }));
-	};
-	const toggleFiles = () => {
-		togglePanel("files");
-	};
-	const toggleDetails = () => {
-		togglePanel("details");
-	};
-
-	return (
-		<>
-			<ShortcutButton
-				className={uiStyles.button}
-				hotkey={workspaceHotkeys.applyBranch.hotkey}
-				hotkeyOptions={{ meta: workspaceHotkeys.applyBranch.meta }}
-				onClick={openApplyBranchPicker}
-			>
-				Apply branch
-			</ShortcutButton>
-			<ShortcutButton
-				className={uiStyles.button}
-				hotkey={workspaceHotkeys.toggleFilesPanel.hotkey}
-				hotkeyOptions={{ meta: workspaceHotkeys.toggleFilesPanel.meta }}
-				aria-pressed={isPanelVisible(panelsState, "files")}
-				onClick={toggleFiles}
-			>
-				Files
-			</ShortcutButton>
-			<ShortcutButton
-				className={uiStyles.button}
-				hotkey={workspaceHotkeys.toggleDetailsPanel.hotkey}
-				hotkeyOptions={{ meta: workspaceHotkeys.toggleDetailsPanel.meta }}
-				aria-pressed={isPanelVisible(panelsState, "details")}
-				onClick={toggleDetails}
-			>
-				Details
-			</ShortcutButton>
-		</>
-	);
-};
-
 const useWorkspaceHotkeys = (projectId: string) => {
 	const dispatch = useAppDispatch();
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
@@ -386,16 +333,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			options: {
 				conflictBehavior: "allow",
 				meta: workspaceHotkeys.toggleFilesPanel.meta,
-			},
-		},
-		{
-			hotkey: workspaceHotkeys.toggleDetailsPanel.hotkey,
-			callback: () => {
-				togglePanel("details");
-			},
-			options: {
-				conflictBehavior: "allow",
-				meta: workspaceHotkeys.toggleDetailsPanel.meta,
 			},
 		},
 		{
@@ -466,14 +403,10 @@ const WorkspacePage: FC = () => {
 
 	return (
 		<>
-			<TopBarActionsPortal>
-				<TopBarActions />
-			</TopBarActionsPortal>
-
 			<Group className={styles.page} defaultLayout={defaultLayout} onLayoutChange={onLayoutChanged}>
 				<OutlinePanel
 					id={"outline" satisfies PanelType}
-					minSize={400}
+					minSize={300}
 					defaultSize={500}
 					groupResizeBehavior="preserve-pixel-size"
 					tabIndex={0}
@@ -485,11 +418,11 @@ const WorkspacePage: FC = () => {
 						<Separator className={styles.panelResizeHandle} />
 						<FilesPanel
 							id={"files" satisfies PanelType}
-							minSize={400}
+							minSize={250}
 							defaultSize={400}
 							groupResizeBehavior="preserve-pixel-size"
 							tabIndex={0}
-							className={classes(styles.panel, styles.panelPadding)}
+							className={classes(styles.panel, styles.filesPanel)}
 						/>
 					</>
 				)}
@@ -500,7 +433,7 @@ const WorkspacePage: FC = () => {
 							id={"details" satisfies PanelType}
 							minSize={400}
 							tabIndex={0}
-							className={classes(styles.panel, styles.panelPadding)}
+							className={classes(styles.panel, styles.detailsPanel)}
 						/>
 					</>
 				)}

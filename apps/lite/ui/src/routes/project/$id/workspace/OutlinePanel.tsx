@@ -3,15 +3,11 @@ import {
 	absorptionPlanQueryOptions,
 	changesInWorktreeQueryOptions,
 	headInfoQueryOptions,
+	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import {
-	findCommit,
-	getCommonBaseCommitId,
-	renameBranchInHeadInfo,
-	resolveRelativeTo,
-} from "#ui/api/ref-info.ts";
+import { findCommit, renameBranchInHeadInfo, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { decodeRefName, encodeRefName } from "#ui/api/ref-name.ts";
-import { commitTitle, shortCommitId } from "#ui/commit.ts";
+import { commitTitle } from "#ui/commit.ts";
 import {
 	nativeMenuItem,
 	nativeMenuSeparator,
@@ -20,7 +16,6 @@ import {
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
 import {
-	baseCommitOperand,
 	branchOperand,
 	changesSectionOperand,
 	commitOperand,
@@ -79,7 +74,15 @@ import {
 	useHotkeys,
 	useKeyHold,
 } from "@tanstack/react-hotkeys";
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+	useIsFetching,
+	useIsMutating,
+	useMutation,
+	useQueries,
+	useQuery,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 
@@ -89,7 +92,6 @@ import {
 	FC,
 	Fragment,
 	SubmitEventHandler,
-	Suspense,
 	use,
 	useEffect,
 	useOptimistic,
@@ -107,7 +109,12 @@ import { defaultOutlineSelection } from "#ui/projects/workspace/state.ts";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { rejectedChangesToastOptions } from "#ui/operations/rejectedChangesToastOptions.tsx";
-import { changesHotkeys, outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
+import {
+	changesHotkeys,
+	outlineHotkeys,
+	toElectronAccelerator,
+	workspaceHotkeys,
+} from "#ui/hotkeys.ts";
 import { assert } from "#ui/assert.ts";
 import { Spinner } from "#ui/components/Spinner.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
@@ -146,11 +153,6 @@ const sections = (headInfo: RefInfo | undefined): NonEmptyArray<Section> => {
 		};
 	};
 
-	const baseCommitSection: Section = {
-		section: baseCommitOperand,
-		children: [],
-	};
-
 	return [
 		changesSection,
 
@@ -169,8 +171,6 @@ const sections = (headInfo: RefInfo | undefined): NonEmptyArray<Section> => {
 				}),
 			];
 		}) ?? []),
-
-		baseCommitSection,
 	];
 };
 
@@ -212,18 +212,6 @@ const useNavigationIndex = ({
 		absorptionTargetKeys,
 	});
 };
-
-export const OutlinePanel: FC<PanelProps> = ({ ...panelProps }) => (
-	<Suspense
-		fallback={
-			<Panel {...panelProps} className={classes(panelProps.className, styles.panelPadding)}>
-				Loading outline…
-			</Panel>
-		}
-	>
-		<OutlineTreePanel {...panelProps} />
-	</Suspense>
-);
 
 const useOutlineTreeHotkeys = ({
 	navigationIndex,
@@ -483,7 +471,24 @@ const useOutlineTreeHotkeys = ({
 	]);
 };
 
-const OutlineTreePanel: FC<PanelProps> = ({ ...panelProps }) => {
+const ActivitySpinner: FC = () => {
+	const fetchingCount = useIsFetching();
+	const mutatingCount = useIsMutating();
+
+	const isFetching = fetchingCount > 0;
+	const isMutating = mutatingCount > 0;
+
+	const status = Match.value({ isFetching, isMutating }).pipe(
+		Match.when({ isFetching: true, isMutating: true }, () => "Syncing"),
+		Match.when({ isFetching: true }, () => "Loading"),
+		Match.when({ isMutating: true }, () => "Saving"),
+		Match.orElse(() => null),
+	);
+
+	return status !== null && <Spinner aria-label={status} />;
+};
+
+export const OutlinePanel: FC<PanelProps> = ({ ...panelProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
@@ -538,6 +543,15 @@ const OutlineTreePanel: FC<PanelProps> = ({ ...panelProps }) => {
 		commitTargetState,
 	});
 
+	const dispatch = useAppDispatch();
+	const openApplyBranchPicker = () => {
+		dispatch(projectActions.openApplyBranchPicker({ projectId }));
+	};
+
+	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
+	const selectedProject = projects.find((project) => project.id === projectId);
+	if (!selectedProject) throw new Error("Could not find selected project");
+
 	return (
 		<NavigationIndexContext value={navigationIndex}>
 			<AbsorptionTargetKeysContext value={absorptionTargetKeys}>
@@ -549,13 +563,27 @@ const OutlineTreePanel: FC<PanelProps> = ({ ...panelProps }) => {
 						aria-activedescendant={treeItemId(selection)}
 						className={classes(panelProps.className, styles.panel)}
 					>
-						<div className={styles.panelPadding}>
-							<Changes
-								projectId={projectId}
-								commitTarget={commitTarget}
-								targetComboboxItems={targetComboboxItems}
-							/>
-						</div>
+						<header className={styles.workspaceControls}>
+							<div className={styles.workspaceControlsLeft}>
+								<h1 className={styles.workspaceName}>{selectedProject.title}</h1>
+								<ActivitySpinner />
+							</div>
+
+							<ShortcutButton
+								className={classes(uiStyles.button, styles.branchBtn)}
+								hotkey={workspaceHotkeys.applyBranch.hotkey}
+								hotkeyOptions={{ meta: workspaceHotkeys.applyBranch.meta }}
+								onClick={openApplyBranchPicker}
+							>
+								Apply branch
+							</ShortcutButton>
+						</header>
+
+						<Changes
+							projectId={projectId}
+							commitTarget={commitTarget}
+							targetComboboxItems={targetComboboxItems}
+						/>
 
 						<div className={styles.headInfo}>
 							{headInfo?.stacks.map((stack) => (
@@ -566,11 +594,6 @@ const OutlineTreePanel: FC<PanelProps> = ({ ...panelProps }) => {
 									commitTarget={commitTarget?.relativeTo ?? null}
 								/>
 							))}
-
-							<BaseCommit
-								projectId={projectId}
-								commitId={headInfo ? getCommonBaseCommitId(headInfo) : undefined}
-							/>
 						</div>
 
 						{operationSource && headInfo && (
@@ -1029,7 +1052,7 @@ const CommitRow: FC<
 			) : (
 				<>
 					<div
-						className={workspaceItemRowStyles.itemRowLabel}
+						className={classes(workspaceItemRowStyles.itemRowLabel, styles.commitRowLabel)}
 						onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
 						onContextMenu={
 							outlineMode._tag === "Default"
@@ -1102,6 +1125,7 @@ const ChangesSectionRow: FC<{
 	projectId: string;
 }> = ({ changes, projectId }) => {
 	const operand = changesSectionOperand;
+	const isSelected = useIsSelected({ projectId, operand });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const dispatch = useAppDispatch();
@@ -1127,13 +1151,15 @@ const ChangesSectionRow: FC<{
 			<div
 				className={classes(
 					workspaceItemRowStyles.itemRowLabel,
-					workspaceItemRowStyles.sectionLabel,
+					styles.changesRowLabel,
+					isSelected && styles.selected,
 				)}
 				onContextMenu={(event) => {
 					void showNativeContextMenu(event, menuItems);
 				}}
 			>
-				Changes ({changes.length})
+				Changes
+				<span className={styles.changesCountBubble}>{changes.length}</span>
 			</div>
 			{outlineMode._tag === "Default" && (
 				<WorkspaceItemRowToolbar aria-label="Changes actions">
@@ -1150,41 +1176,6 @@ const ChangesSectionRow: FC<{
 				</WorkspaceItemRowToolbar>
 			)}
 		</ItemRow>
-	);
-};
-
-const BaseCommit: FC<{
-	projectId: string;
-	commitId?: string;
-}> = ({ projectId, commitId }) => {
-	const operand = baseCommitOperand;
-
-	return (
-		<div className={workspaceItemRowStyles.section}>
-			<TreeItem
-				projectId={projectId}
-				operand={operand}
-				aria-label="Base commit"
-				render={
-					<OperandC
-						projectId={projectId}
-						operand={operand}
-						render={<ItemRow projectId={projectId} operand={operand} />}
-					/>
-				}
-			>
-				<div
-					className={classes(
-						workspaceItemRowStyles.itemRowLabel,
-						workspaceItemRowStyles.sectionLabel,
-					)}
-				>
-					{commitId !== undefined
-						? `${shortCommitId(commitId)} (common base commit)`
-						: "(base commit)"}
-				</div>
-			</TreeItem>
-		</div>
 	);
 };
 
@@ -1521,78 +1512,82 @@ const Changes: FC<{
 		>
 			<ChangesSectionRow changes={worktreeChanges?.changes ?? []} projectId={projectId} />
 
-			<textarea
-				id={commitMessageInputId}
-				ref={commitTextareaRef}
-				aria-label="Compose commit message"
-				disabled={outlineMode._tag !== "Default"}
-				readOnly={isCommitOrAmendPending}
-				placeholder="Commit message (optional)"
-				className={styles.commitTextarea}
-				onFocus={selectChanges}
-				onKeyDown={(event) => {
-					if (event.key !== "Escape") return;
-					event.preventDefault();
-					focusPanel("outline");
-				}}
-			/>
-
 			<div className={styles.commitControls}>
-				<Combobox.Root<CommitTargetComboboxItem>
-					items={targetComboboxItems}
-					open={open}
-					onOpenChange={setOpen}
-					// Note `undefined` means uncontrolled.
-					value={commitTarget ?? null}
-					onValueChange={selectBranch}
-					itemToStringLabel={(x) => x.label}
-					itemToStringValue={(x) => relativeToKey(x.relativeTo)}
-					isItemEqualToValue={(a, b) => relativeToEquals(a.relativeTo, b.relativeTo)}
-					autoHighlight
-					disabled={outlineMode._tag !== "Default" || isCommitOrAmendPending}
-				>
-					<Combobox.Trigger
-						className={classes(uiStyles.button, styles.commitTargetComboboxTrigger)}
-						aria-label="Select branch"
-						render={
-							<ShortcutButton
-								hotkey={changesHotkeys.selectCommitBranch.hotkey}
-								hotkeyOptions={{ meta: changesHotkeys.selectCommitBranch.meta }}
-							/>
-						}
-					>
-						<Combobox.Value placeholder="Select branch" />
-					</Combobox.Trigger>
-					<Combobox.Portal>
-						<Combobox.Positioner align="start" sideOffset={8}>
-							<CommitTargetComboboxPopup />
-						</Combobox.Positioner>
-					</Combobox.Portal>
-				</Combobox.Root>
+				<textarea
+					id={commitMessageInputId}
+					ref={commitTextareaRef}
+					aria-label="Compose commit message"
+					disabled={outlineMode._tag !== "Default"}
+					readOnly={isCommitOrAmendPending}
+					placeholder="Commit message..."
+					className={styles.commitTextarea}
+					onFocus={selectChanges}
+					onKeyDown={(event) => {
+						if (event.key !== "Escape") return;
+						event.preventDefault();
+						focusPanel("outline");
+					}}
+				/>
 
-				<div className={styles.commitActionControls}>
-					<ShortcutButton
-						hotkey={isAmendMode ? changesHotkeys.amendCommit.hotkey : changesHotkeys.commit.hotkey}
-						hotkeyOptions={{
-							meta: isAmendMode ? changesHotkeys.amendCommit.meta : changesHotkeys.commit.meta,
-						}}
-						className={classes(uiStyles.button, styles.changesSectionCommitButton)}
-						type="submit"
-						disabled={!canCommitOrAmend}
-					>
-						{isAmendMode ? "Amend" : "Commit"}
-					</ShortcutButton>
-					<button
-						type="button"
-						className={classes(uiStyles.button, styles.commitActionMenuButton)}
-						aria-label="Commit options"
+				<div className={styles.commitControlsFooter}>
+					<Combobox.Root<CommitTargetComboboxItem>
+						items={targetComboboxItems}
+						open={open}
+						onOpenChange={setOpen}
+						// Note `undefined` means uncontrolled.
+						value={commitTarget ?? null}
+						onValueChange={selectBranch}
+						itemToStringLabel={(x) => x.label}
+						itemToStringValue={(x) => relativeToKey(x.relativeTo)}
+						isItemEqualToValue={(a, b) => relativeToEquals(a.relativeTo, b.relativeTo)}
+						autoHighlight
 						disabled={outlineMode._tag !== "Default" || isCommitOrAmendPending}
-						onClick={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, commitMenuItems);
-						}}
 					>
-						<ChevronDownIcon />
-					</button>
+						<Combobox.Trigger
+							className={classes(uiStyles.button, styles.commitTargetComboboxTrigger)}
+							aria-label="Select branch"
+							render={
+								<ShortcutButton
+									hotkey={changesHotkeys.selectCommitBranch.hotkey}
+									hotkeyOptions={{ meta: changesHotkeys.selectCommitBranch.meta }}
+								/>
+							}
+						>
+							<Combobox.Value placeholder="Select branch" />
+						</Combobox.Trigger>
+						<Combobox.Portal>
+							<Combobox.Positioner align="start" sideOffset={8}>
+								<CommitTargetComboboxPopup />
+							</Combobox.Positioner>
+						</Combobox.Portal>
+					</Combobox.Root>
+
+					<div className={styles.commitActionControls}>
+						<ShortcutButton
+							hotkey={
+								isAmendMode ? changesHotkeys.amendCommit.hotkey : changesHotkeys.commit.hotkey
+							}
+							hotkeyOptions={{
+								meta: isAmendMode ? changesHotkeys.amendCommit.meta : changesHotkeys.commit.meta,
+							}}
+							className={classes(uiStyles.button, styles.changesSectionCommitButton)}
+							type="submit"
+							disabled={!canCommitOrAmend}
+						>
+							{isAmendMode ? "Amend" : "Commit"}
+						</ShortcutButton>
+						<button
+							type="button"
+							className={classes(uiStyles.button, styles.commitActionMenuButton)}
+							aria-label="Commit options"
+							disabled={outlineMode._tag !== "Default" || isCommitOrAmendPending}
+							onClick={(event) => {
+								void showNativeMenuFromTrigger(event.currentTarget, commitMenuItems);
+							}}
+						>
+							<ChevronDownIcon />
+						</button>
+					</div>
 				</div>
 			</div>
 		</TreeItem>
@@ -1845,10 +1840,7 @@ const BranchRow: FC<
 			) : (
 				<>
 					<div
-						className={classes(
-							workspaceItemRowStyles.itemRowLabel,
-							workspaceItemRowStyles.sectionLabel,
-						)}
+						className={classes(workspaceItemRowStyles.itemRowLabel, styles.branchRowLabel)}
 						onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
 						onContextMenu={
 							outlineMode._tag === "Default"
@@ -1940,12 +1932,9 @@ const StackRow: FC<
 	];
 
 	return (
-		<ItemRow {...restProps} projectId={projectId} operand={operand}>
+		<ItemRow {...restProps} projectId={projectId} operand={operand} forceVisibleToolbar>
 			<div
-				className={classes(
-					workspaceItemRowStyles.itemRowLabel,
-					workspaceItemRowStyles.sectionLabel,
-				)}
+				className={classes(workspaceItemRowStyles.itemRowLabel, styles.stackRowLabel)}
 				onContextMenu={
 					outlineMode._tag === "Default"
 						? (event) => {
@@ -1953,9 +1942,8 @@ const StackRow: FC<
 							}
 						: undefined
 				}
-			>
-				Stack
-			</div>
+			/>
+
 			{outlineMode._tag === "Default" && (
 				<WorkspaceItemRowToolbar aria-label="Stack actions">
 					<Toolbar.Button

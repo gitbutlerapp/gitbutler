@@ -1,3 +1,4 @@
+import uiStyles from "#ui/ui/ui.module.css";
 import {
 	branchDetailsQueryOptions,
 	branchDiffQueryOptions,
@@ -17,14 +18,19 @@ import {
 	branchFileParent,
 	changesFileParent,
 	commitFileParent,
+	commitOperand,
 	fileOperand,
 	hunkOperand,
 	type FileParent,
 	type Operand,
 } from "#ui/operands.ts";
-import { selectProjectSelectionFiles } from "#ui/projects/state.ts";
+import {
+	projectActions,
+	selectProjectPanelsState,
+	selectProjectSelectionFiles,
+} from "#ui/projects/state.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
-import { useAppSelector } from "#ui/store.ts";
+import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/ui/classes.ts";
 import { DependencyIcon } from "#ui/ui/icons.tsx";
 import { DiffHunk, HunkHeader, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
@@ -36,6 +42,9 @@ import { FC, Suspense, useDeferredValue } from "react";
 import { Panel, PanelProps } from "react-resizable-panels";
 import { DependencyIndicatorButton } from "./DependencyIndicatorButton.tsx";
 import styles from "./DetailsPanel.module.css";
+import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
+import { workspaceHotkeys } from "#ui/hotkeys.ts";
+import { isPanelVisible } from "#ui/panels/state.ts";
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
@@ -135,7 +144,7 @@ const FileDiff: FC<{
 		)),
 		Match.when({ type: "Patch" }, (patch) => {
 			const { hunks } = patch.subject;
-			if (hunks.length === 0) return <div>No hunks.</div>;
+			if (hunks.length === 0) return <p className={styles.emptyFileHunks}>No hunks.</p>;
 
 			return (
 				<ul>
@@ -169,16 +178,25 @@ const ChangesFileDiffList: FC<{
 	const changesWithDiffs = pipe(changes, Array.zip(treeChangeDiffs));
 
 	return changesWithDiffs.length === 0 ? (
-		<div>No file changes.</div>
+		<p className={styles.emptyChanges}>No changes.</p>
 	) : (
-		<ul>
+		<ul className={styles.fileDiffsList}>
 			{changesWithDiffs.map(([change, diff]) => {
 				const source = fileOperand({ parent: fileParent, path: change.path });
 
+				const lastSepIdx = change.path.lastIndexOf("/");
+				const mpathInit = lastSepIdx !== -1 ? change.path.slice(0, lastSepIdx + 1) : null;
+				const pathLast = lastSepIdx !== -1 ? change.path.slice(lastSepIdx + 1) : change.path;
+
 				return (
-					<li key={change.path}>
+					<li key={change.path} className={styles.fileDiff}>
 						<OperationSourceC projectId={projectId} selectionScope="files" source={source}>
-							<h4>{change.path}</h4>
+							<header className={styles.fileHeader}>
+								<h4 className={styles.filePath}>
+									{mpathInit !== null && <span className={styles.pathInit}>{mpathInit}</span>}
+									<span className={styles.pathLast}>{pathLast}</span>
+								</h4>
+							</header>
 						</OperationSourceC>
 						<FileDiff
 							projectId={projectId}
@@ -210,6 +228,10 @@ const ChangesDetails: FC<{
 
 	return (
 		<div>
+			<header>
+				<h3 className={styles.heading}>Changes</h3>
+			</header>
+
 			<ChangesFileDiffList
 				changes={changes}
 				fileParent={changesFileParent}
@@ -231,36 +253,30 @@ const CommitDetails: FC<{
 	);
 
 	const fileParent = commitFileParent({ stackId, commitId });
-
-	if (selectedPath === undefined)
-		return (
-			<div>
-				<h3>
-					{commitTitle(commitDetails.commit.message)}
-					{commitDetails.commit.hasConflicts && " ⚠️"}
-				</h3>
-				{commitDetails.commit.message.includes("\n") && (
-					<p className={styles.commitMessageBody}>
-						{commitDetails.commit.message
-							.slice(commitDetails.commit.message.indexOf("\n") + 1)
-							.trim()}
-					</p>
-				)}
-				<ChangesFileDiffList
-					changes={commitDetails.changes}
-					fileParent={fileParent}
-					projectId={projectId}
-				/>
-			</div>
-		);
-
 	const selectedChange = commitDetails.changes.find((candidate) => candidate.path === selectedPath);
-	if (!selectedChange) return null;
+	if (selectedPath !== undefined && !selectedChange) return null;
+
+	const source = commitOperand({ stackId, commitId });
 
 	return (
 		<div>
+			<OperationSourceC projectId={projectId} selectionScope="outline" source={source}>
+				<header>
+					<h3 className={styles.heading}>
+						{commitTitle(commitDetails.commit.message)}
+						{commitDetails.commit.hasConflicts && " ⚠️"}
+					</h3>
+				</header>
+			</OperationSourceC>
+			{commitDetails.commit.message.includes("\n") && (
+				<p className={styles.commitMessageBody}>
+					{commitDetails.commit.message
+						.slice(commitDetails.commit.message.indexOf("\n") + 1)
+						.trim()}
+				</p>
+			)}
 			<ChangesFileDiffList
-				changes={[selectedChange]}
+				changes={selectedChange ? [selectedChange] : commitDetails.changes}
 				fileParent={fileParent}
 				projectId={projectId}
 			/>
@@ -295,8 +311,13 @@ const BranchDetails: FC<{
 
 	return (
 		<div>
-			<h3>{branchDetails.name}</h3>
-			{branchDetails.prNumber != null && <p>PR #{branchDetails.prNumber}</p>}
+			<header>
+				<h3 className={styles.heading}>{branchDetails.name}</h3>
+				{branchDetails.prNumber != null && (
+					<h4 className={styles.pr}>PR #{branchDetails.prNumber}</h4>
+				)}
+			</header>
+
 			<ChangesFileDiffList
 				changes={changes}
 				projectId={projectId}
@@ -342,27 +363,41 @@ const Details: FC<{
 			Commit: ({ commitId, stackId }) => (
 				<CommitDetails projectId={projectId} commitId={commitId} stackId={stackId} />
 			),
-			BaseCommit: () => null,
 			Hunk: () => null,
 		}),
 	);
 
-export const DetailsPanel: FC<
-	{
-		className?: string;
-	} & Omit<PanelProps, "className">
-> = ({ className, ...panelProps }) => {
+export const DetailsPanel: FC<PanelProps> = (panelProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
 	const urgentSelection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
+	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 	const selection = useDeferredValue(urgentSelection);
+
+	const toggleFiles = () => {
+		dispatch(projectActions.togglePanel({ projectId, panel: "files" }));
+	};
 
 	return (
 		<Panel
 			{...panelProps}
+			className={classes(panelProps.className, styles.panel)}
 			style={{ ...panelProps.style, opacity: urgentSelection !== selection ? 0.5 : 1 }}
 		>
-			<Virtualizer className={classes(className, styles.detailsVirtualizer)}>
-				<Suspense fallback={<div>Loading details…</div>}>
+			<section className={styles.detailsMeta}>
+				<ShortcutButton
+					className={classes(uiStyles.button, styles.filesBtn)}
+					hotkey={workspaceHotkeys.toggleFilesPanel.hotkey}
+					hotkeyOptions={{ meta: workspaceHotkeys.toggleFilesPanel.meta }}
+					aria-pressed={isPanelVisible(panelsState, "files")}
+					onClick={toggleFiles}
+				>
+					Files
+				</ShortcutButton>
+			</section>
+
+			<Virtualizer className={styles.detailsVirtualizer}>
+				<Suspense fallback={<p className={styles.loading}>Loading details…</p>}>
 					<Details projectId={projectId} selection={selection} />
 				</Suspense>
 			</Virtualizer>
