@@ -369,7 +369,10 @@ fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel, force: bool) ->
         return show_workflow_help(out);
     }
 
-    if !force && !changes_from_initial(ctx)?.is_empty() {
+    if !force && {
+        let guard = ctx.shared_worktree_access();
+        !changes_from_initial(ctx, guard.read_permission())?.is_empty()
+    } {
         bail!(
             "There are changes that differ from the original commit you were editing. Canceling will drop those changes.\n\nIf you want to go through with this, please re-run with `--force`.\n\nIf you want to keep the changes you have made, consider finishing the resolution and then moving the changes with the rub command."
         )

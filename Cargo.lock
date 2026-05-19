@@ -901,6 +901,7 @@ dependencies = [
  "but-ctx",
  "but-db",
  "but-error",
+ "but-graph",
  "but-hunk-assignment",
  "but-llm",
  "but-meta",
@@ -908,7 +909,6 @@ dependencies = [
  "but-serde",
  "but-workspace",
  "chrono",
- "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
@@ -1179,9 +1179,11 @@ name = "but-feedback"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-core",
  "but-ctx",
  "but-graph",
  "chrono",
+ "gix",
  "tempfile",
  "walkdir",
  "zip",

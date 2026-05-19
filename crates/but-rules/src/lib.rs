@@ -1,5 +1,6 @@
-use but_core::{ChangeId, sync::RepoExclusive};
+use but_core::{ChangeId, RefMetadata, sync::RepoExclusive};
 use but_ctx::Context;
+use but_db::DbHandle;
 use serde::{Deserialize, Serialize};
 
 pub mod db;
@@ -46,6 +47,7 @@ impl WorkspaceRule {
         }
     }
 
+    /// Return the target change ID if its action is an explicit amend operation.
     pub fn target_change_id(&self) -> Option<ChangeId> {
         if let Action::Explicit(Operation::Amend { change_id }) = &self.action {
             Some(change_id.clone())
@@ -54,6 +56,7 @@ impl WorkspaceRule {
         }
     }
 
+    /// Return the persistent rule ID.
     pub fn id(&self) -> String {
         self.id.clone()
     }
@@ -62,6 +65,7 @@ impl WorkspaceRule {
         self.enabled
     }
 
+    /// Return the creation timestamp.
     pub fn created_at(&self) -> chrono::NaiveDateTime {
         self.created_at
     }
@@ -185,12 +189,26 @@ pub struct CreateRuleRequest {
     pub action: Action,
 }
 
-/// Creates a new workspace rule
+/// Create a new workspace rule and attempt to reevaluate all workspace rules.
+///
+/// `ctx` provides database access for insertion and repository/workspace state for reevaluation.
+/// `req` contains the trigger, filters, and action to persist. `perm` is the caller-held exclusive
+/// worktree permission used while reevaluating rules after the insert.
 pub fn create_rule(
     ctx: &mut Context,
     req: CreateRuleRequest,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceRule> {
+    let rule = {
+        let mut db = ctx.db.get_cache_mut()?;
+        insert_rule(&mut db, req)?
+    };
+    process_rules_from_context(ctx, perm).ok(); // Reevaluate rules after creating
+    Ok(rule)
+}
+
+/// Insert a new workspace rule record into `db` from `req`.
+fn insert_rule(db: &mut DbHandle, req: CreateRuleRequest) -> anyhow::Result<WorkspaceRule> {
     let rule = WorkspaceRule {
         id: uuid::Uuid::new_v4().to_string(),
         created_at: chrono::Local::now().naive_local(),
@@ -200,16 +218,13 @@ pub fn create_rule(
         action: req.action,
     };
 
-    ctx.db
-        .get_cache_mut()?
-        .workspace_rules_mut()
-        .insert(rule.clone().try_into()?)?;
-    process_rules(ctx, perm).ok(); // Reevaluate rules after creating
+    db.workspace_rules_mut().insert(rule.clone().try_into()?)?;
     Ok(rule)
 }
 
-pub fn delete_rule(ctx: &Context, id: &str) -> anyhow::Result<()> {
-    ctx.db.get_cache_mut()?.workspace_rules_mut().delete(id)?;
+/// Delete the workspace rule with `id` from `db`.
+pub fn delete_rule(db: &mut DbHandle, id: &str) -> anyhow::Result<()> {
+    db.workspace_rules_mut().delete(id)?;
     Ok(())
 }
 
@@ -241,14 +256,29 @@ impl From<WorkspaceRule> for UpdateRuleRequest {
     }
 }
 
-/// Updates an existing workspace rule with the provided request data.
+/// Update an existing workspace rule and attempt to reevaluate all workspace rules.
+///
+/// `ctx` provides database access for the update and repository/workspace state for reevaluation.
+/// `req` contains the rule ID and optional replacement fields. `perm` is the caller-held exclusive
+/// worktree permission used while reevaluating rules after the update.
 pub fn update_rule(
     ctx: &mut Context,
     req: UpdateRuleRequest,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceRule> {
+    let rule = {
+        let mut db = ctx.db.get_cache_mut()?;
+        update_rule_record(&mut db, req)?
+    };
+    process_rules_from_context(ctx, perm).ok(); // Reevaluate rules after updating
+    Ok(rule)
+}
+
+/// Apply `req` to an existing workspace rule record in `db`.
+///
+/// Fields omitted from `req` retain their current values.
+fn update_rule_record(db: &mut DbHandle, req: UpdateRuleRequest) -> anyhow::Result<WorkspaceRule> {
     let mut rule: WorkspaceRule = {
-        let db = ctx.db.get_cache_mut()?;
         db.workspace_rules()
             .get(&req.id)?
             .ok_or_else(|| anyhow::anyhow!("Rule with ID {} not found", req.id))?
@@ -268,19 +298,14 @@ pub fn update_rule(
         rule.action = action;
     }
 
-    ctx.db
-        .get_cache_mut()?
-        .workspace_rules_mut()
+    db.workspace_rules_mut()
         .update(&req.id, rule.clone().try_into()?)?;
-    process_rules(ctx, perm).ok(); // Reevaluate rules after updating
     Ok(rule)
 }
 
-/// Retrieves a workspace rule by its ID.
-pub fn get_rule(ctx: &Context, id: &str) -> anyhow::Result<WorkspaceRule> {
-    let rule = ctx
-        .db
-        .get_cache()?
+/// Retrieve the workspace rule with `id` from `db`.
+pub fn get_rule(db: &DbHandle, id: &str) -> anyhow::Result<WorkspaceRule> {
+    let rule = db
         .workspace_rules()
         .get(id)?
         .ok_or_else(|| anyhow::anyhow!("Rule with ID {id} not found"))?
@@ -288,11 +313,9 @@ pub fn get_rule(ctx: &Context, id: &str) -> anyhow::Result<WorkspaceRule> {
     Ok(rule)
 }
 
-/// Lists all workspace rules in the database.
-pub fn list_rules(ctx: &Context) -> anyhow::Result<Vec<WorkspaceRule>> {
-    let rules = ctx
-        .db
-        .get_cache()?
+/// List all workspace rules stored in `db`.
+pub fn list_rules(db: &DbHandle) -> anyhow::Result<Vec<WorkspaceRule>> {
+    let rules = db
         .workspace_rules()
         .list()?
         .into_iter()
@@ -301,17 +324,55 @@ pub fn list_rules(ctx: &Context) -> anyhow::Result<Vec<WorkspaceRule>> {
     Ok(rules)
 }
 
+/// Reevaluate workspace rules using state extracted from `ctx`.
+///
+/// `ctx` provides rules from the database, settings, metadata, repository, workspace, and hunk
+/// assignment storage. `perm` is the caller-held exclusive worktree permission used for workspace
+/// access and any rule action that mutates workspace state.
+///
 /// NOTE: may create an empty branch!
-pub fn process_rules(ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<()> {
+fn process_rules_from_context(ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<()> {
+    let context_lines = ctx.settings.context_lines;
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let rules = list_rules(&db)?;
+    process_rules(
+        rules,
+        &repo,
+        &mut ws,
+        &mut db,
+        &mut meta,
+        perm,
+        context_lines,
+    )
+}
+
+/// Reevaluate `rules` against current worktree changes and apply matching actions.
+///
+/// `rules` are the workspace rules to evaluate. `repo` is used to read worktree changes and create
+/// or amend commits. `ws` is the mutable workspace view that rule actions inspect and update. `db`
+/// provides hunk assignment storage. `meta` provides mutable ref metadata for stack creation and
+/// rebase operations. `perm` is the caller-held exclusive worktree permission for workspace
+/// mutations. `context_lines` controls the diff context used while deriving hunk assignments and
+/// applying rule actions.
+///
+/// NOTE: may create an empty branch!
+pub fn process_rules(
+    rules: Vec<WorkspaceRule>,
+    repo: &gix::Repository,
+    ws: &mut but_graph::Workspace,
+    db: &mut DbHandle,
+    meta: &mut impl RefMetadata,
+    perm: &mut RepoExclusive,
+    context_lines: u32,
+) -> anyhow::Result<()> {
     let assignments = {
-        let context_lines = ctx.settings.context_lines;
-        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
-        let wt_changes = but_core::diff::worktree_changes(&repo)?;
+        let wt_changes = but_core::diff::worktree_changes(repo)?;
 
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
             db.hunk_assignments_mut()?,
-            &repo,
-            &ws,
+            repo,
+            ws,
             Some(wt_changes.changes),
             context_lines,
         )
@@ -319,6 +380,6 @@ pub fn process_rules(ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Res
         assignments
     };
 
-    handler::process_workspace_rules(ctx, &assignments, perm)?;
+    handler::process_workspace_rules(rules, &assignments, repo, ws, db, meta, perm, context_lines)?;
     Ok(())
 }

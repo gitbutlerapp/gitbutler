@@ -12,7 +12,7 @@ use tracing::instrument;
 #[but_api]
 #[instrument(err(Debug))]
 pub fn cherry_apply_status(
-    ctx: &mut but_ctx::Context,
+    ctx: &but_ctx::Context,
     subject: gix::ObjectId,
 ) -> Result<CherryApplyStatus> {
     let guard = ctx.shared_worktree_access();
@@ -25,7 +25,7 @@ pub fn cherry_apply_status(
 /// This reports whether `subject` can be applied in the current workspace state using
 /// [`but_cherry_apply::cherry_apply_status()`].
 pub fn cherry_apply_status_with_perm(
-    ctx: &mut but_ctx::Context,
+    ctx: &but_ctx::Context,
     subject: gix::ObjectId,
     perm: &but_core::sync::RepoShared,
 ) -> Result<CherryApplyStatus> {

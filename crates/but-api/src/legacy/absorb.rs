@@ -123,7 +123,8 @@ pub fn absorption_plan_with_perm(
             // Get all worktree changes, assignments, and dependencies
             // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
             // At this time, the context is passed pretty deep into the function.
-            let worktree_changes = crate::diff::changes_in_worktree_with_perm(ctx, perm)?;
+            let worktree_changes =
+                crate::diff::changes_in_worktree_with_perm(ctx, perm.read_permission())?;
             let all_assignments = worktree_changes.assignments;
             let dependencies = worktree_changes.dependencies;
 
@@ -160,7 +161,8 @@ pub fn absorption_plan_with_perm(
             assigned_stack_id,
         } => {
             // Get all worktree changes, assignments, and dependencies
-            let worktree_changes = crate::diff::changes_in_worktree_with_perm(ctx, perm)?;
+            let worktree_changes =
+                crate::diff::changes_in_worktree_with_perm(ctx, perm.read_permission())?;
             let all_assignments = worktree_changes.assignments;
             let dependencies = worktree_changes.dependencies;
 
@@ -193,7 +195,8 @@ pub fn absorption_plan_with_perm(
             // Get all worktree changes, assignments, and dependencies
             // TODO: Ideally, there's a simpler way of getting the worktree changes without passing the context to it.
             // At this time, the context is passed pretty deep into the function.
-            let worktree_changes = crate::diff::changes_in_worktree_with_perm(ctx, perm)?;
+            let worktree_changes =
+                crate::diff::changes_in_worktree_with_perm(ctx, perm.read_permission())?;
             (worktree_changes.assignments, worktree_changes.dependencies)
         }
     };
@@ -229,7 +232,7 @@ fn group_changes_by_target_commit(
             .as_ref()
             .map(|idx| locks_for_assignment(idx, assignment))
             .filter(|l| !l.is_empty());
-        let (stack_id, commit_id, reason) = determine_target_commit(
+        let (stack_id, commit_id, reason) = ensure_target_commit(
             ctx,
             assignment,
             locks.as_deref(),
@@ -370,7 +373,8 @@ fn find_target_branch<'a>(
 }
 
 /// Determine the target commit for an assignment based on dependencies and assignments
-fn determine_target_commit(
+/// Create a blank one if needed.
+fn ensure_target_commit(
     ctx: &mut Context,
     assignment: &HunkAssignment,
     locks: Option<&[HunkLock]>,

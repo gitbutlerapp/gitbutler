@@ -10,7 +10,8 @@ pub fn list_actions(
     limit: i64,
 ) -> anyhow::Result<but_action::ActionListing, Error> {
     let ctx: Context = project_id.try_into()?;
-    but_action::list_actions(&ctx, offset, limit).map_err(|e| Error::from(anyhow::anyhow!(e)))
+    let db = ctx.db.get_cache()?;
+    but_action::list_actions(&db, offset, limit).map_err(|e| Error::from(anyhow::anyhow!(e)))
 }
 
 #[tauri::command(async)]
@@ -21,16 +22,18 @@ pub fn handle_changes(
     handler: but_action::ActionHandler,
 ) -> anyhow::Result<but_action::Outcome, Error> {
     let mut ctx: Context = project_id.try_into()?;
-    but_action::handle_changes(
+    let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    let (_, outcome) = but_action::record_uncommitted_changes_with_perm(
         &mut ctx,
         &change_summary,
         None,
         handler,
         but_action::Source::GitButler,
         None,
-    )
-    .map(|(_id, outcome)| outcome)
-    .map_err(|e| Error::from(anyhow::anyhow!(e)))
+        perm,
+    )?;
+    Ok(outcome)
 }
 
 #[tauri::command(async)]

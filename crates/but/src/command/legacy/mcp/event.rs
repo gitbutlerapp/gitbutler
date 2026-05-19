@@ -20,7 +20,21 @@ impl Handler {
                     while let Some(event) = receiver.recv().await {
                         match event {
                             Event::Commit(c) => {
-                                let _ = but_action::reword::commit(&llm, c);
+                                let mut ctx = c.ctx.clone().into_thread_local();
+                                let context_lines = ctx.settings.context_lines;
+                                let _res = (|| -> anyhow::Result<_> {
+                                    let mut meta = ctx.meta()?;
+                                    let (_guard, repo, mut ws, _db) =
+                                        ctx.workspace_mut_and_db_mut()?;
+                                    but_action::reword::commit(
+                                        &llm,
+                                        c,
+                                        &repo,
+                                        &mut ws,
+                                        &mut meta,
+                                        context_lines,
+                                    )
+                                })();
                             }
                         }
                     }

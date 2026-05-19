@@ -2861,7 +2861,7 @@ fn handle_mark_commit(commit: &CliId, mode: &mut Mode) -> bool {
 
 fn handle_mark_branch(
     marks: &mut Marks,
-    ctx: &mut Context,
+    ctx: &Context,
     stack_id: StackId,
     name: &str,
 ) -> anyhow::Result<()> {

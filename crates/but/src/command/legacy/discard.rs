@@ -34,7 +34,7 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
 
     // Get worktree changes once for the Unassigned case
     // Also used to determine file status for additions/deletions
-    let worktree_changes = diff::changes_in_worktree_with_perm(ctx, guard.write_permission())?;
+    let worktree_changes = diff::changes_in_worktree_with_perm(ctx, guard.read_permission())?;
     let path_status: std::collections::HashMap<_, _> = worktree_changes
         .worktree_changes
         .changes

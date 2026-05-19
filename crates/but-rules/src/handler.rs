@@ -1,26 +1,42 @@
 use std::str::FromStr;
 
 use anyhow::ensure;
-use but_core::{ChangeId, DiffSpec, ref_metadata::StackId, sync::RepoExclusive};
-use but_ctx::Context;
-use but_db::HunkAssignmentsHandleMut;
+use but_core::{ChangeId, DiffSpec, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
+use but_db::{DbHandle, HunkAssignmentsHandleMut};
 use but_hunk_assignment::HunkAssignment;
 use but_rebase::graph_rebase::Editor;
 use itertools::Itertools;
 
-use crate::{Filter, StackTarget};
+use crate::{Filter, StackTarget, WorkspaceRule};
 
+/// Apply matching workspace `rules` to the current worktree `assignments`.
+///
+/// `rules` provides the enabled filesystem-change rules to evaluate. `assignments`
+/// is the current hunk-assignment view used for matching filters and deciding
+/// whether an update is necessary. `repo` is used for diff and commit lookups.
+/// `ws` is the mutable workspace graph that may be updated when a rule creates a
+/// new stack or amends a commit. `db` provides mutable access to persisted hunk
+/// assignments. `meta` is updated by workspace graph editing operations. `perm`
+/// proves the caller holds exclusive access because rule processing may create a
+/// stack and update the workspace graph.
+/// `context_lines` controls diff context when assigning or amending hunks.
+#[expect(clippy::too_many_arguments)]
 pub fn process_workspace_rules(
-    ctx: &mut Context,
+    rules: Vec<WorkspaceRule>,
     assignments: &[HunkAssignment],
+    repo: &gix::Repository,
+    ws: &mut but_graph::Workspace,
+    db: &mut DbHandle,
+    meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
+    context_lines: u32,
 ) -> anyhow::Result<usize> {
     let mut updates = 0;
     if assignments.is_empty() {
         // Don't create stacks if there are no changes to assign anywhere
         return Ok(updates);
     }
-    let rules = super::list_rules(ctx)?
+    let rules = rules
         .into_iter()
         .filter(|r| r.enabled)
         .filter(|r| matches!(r.trigger, super::Trigger::FileSytemChange))
@@ -39,10 +55,6 @@ pub fn process_workspace_rules(
         return Ok(updates);
     }
 
-    let context_lines = ctx.settings.context_lines;
-    let mut meta = ctx.meta()?;
-    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-
     let stack_ids: Vec<_> = ws.stacks.iter().filter_map(|s| s.id).collect();
     let mut new_ws = None;
 
@@ -50,7 +62,7 @@ pub fn process_workspace_rules(
         match rule.action {
             super::Action::Explicit(super::Operation::Assign { target }) => {
                 if let Some((stack_id, maybe_new_ws)) =
-                    get_or_create_stack_id(&repo, &ws, &mut meta, target, &stack_ids, perm)
+                    get_or_create_stack_id(repo, ws, meta, perm, target, &stack_ids)
                 {
                     if let Some(ws) = maybe_new_ws {
                         ensure!(
@@ -70,8 +82,8 @@ pub fn process_workspace_rules(
                         .collect_vec();
                     updates += handle_assign(
                         db.hunk_assignments_mut()?,
-                        &repo,
-                        new_ws.as_ref().unwrap_or(&ws),
+                        repo,
+                        new_ws.as_ref().unwrap_or(&*ws),
                         assignments,
                         context_lines,
                     )
@@ -83,9 +95,9 @@ pub fn process_workspace_rules(
                 let ws = if let Some(new_ws) = new_ws.as_mut() {
                     new_ws
                 } else {
-                    &mut ws
+                    &mut *ws
                 };
-                handle_amend(&repo, ws, &mut meta, assignments, &change_id, context_lines)
+                handle_amend(repo, ws, meta, assignments, &change_id, context_lines)
                     .unwrap_or_default();
             }
             _ => continue,
@@ -99,6 +111,14 @@ pub fn process_workspace_rules(
     Ok(updates)
 }
 
+/// Amend the commit identified by `change_id` with the provided `assignments`.
+///
+/// `repo` is used to inspect commits and materialize the resulting rebase. `ws`
+/// is the mutable workspace graph edited by the amend operation. `meta` stores
+/// graph metadata updates produced by the editor. `assignments` are flattened
+/// into diff specs to apply to the matched commit. `change_id` selects the
+/// destination commit by its Gerrit Change-Id header. `context_lines` controls
+/// diff context for the amend operation.
 fn handle_amend(
     repo: &gix::Repository,
     ws: &mut but_graph::Workspace,
@@ -134,13 +154,21 @@ fn handle_amend(
     Ok(())
 }
 
+/// Resolve a rule `target` into a stack ID, creating a stack if necessary.
+///
+/// `repo` is used when a new branch name must be generated. `ws` is inspected
+/// to find existing stacks or used as the base for a newly-created workspace
+/// graph. `meta` receives metadata updates if a new stack is created. `target`
+/// describes the requested stack selection. `perm` proves that stack creation is
+/// allowed if the target requires a new stack. `stack_ids_in_ws` is the
+/// precomputed list of stack IDs currently present in the workspace.
 fn get_or_create_stack_id(
     repo: &gix::Repository,
     ws: &but_graph::Workspace,
     meta: &mut impl but_core::RefMetadata,
+    perm: &mut RepoExclusive,
     target: StackTarget,
     stack_ids_in_ws: &[StackId],
-    perm: &mut RepoExclusive,
 ) -> Option<(StackId, Option<but_graph::Workspace>)> {
     match target {
         StackTarget::StackId(stack_id) => {
@@ -175,6 +203,12 @@ fn get_or_create_stack_id(
     }
 }
 
+/// Create a new stack in `ws` and return its generated ID and updated workspace.
+///
+/// `repo` is used to generate a unique canned branch name. `ws` is the workspace
+/// graph used as the base for the new reference. `meta` receives metadata updates
+/// from reference creation. `_perm` proves the caller holds exclusive access for
+/// the workspace change.
 fn create_stack(
     repo: &gix::Repository,
     ws: &but_graph::Workspace,
@@ -201,6 +235,12 @@ fn create_stack(
         .map(|id| (id, new_ws.into_owned()))
 }
 
+/// Persist assignment updates and return how many were attempted.
+///
+/// `db` is the mutable hunk-assignment table handle to update. `repo` and
+/// `workspace` provide the repository/workspace context required by assignment
+/// validation. `assignments` are converted into assignment requests before
+/// writing. `context_lines` controls diff context during assignment.
 fn handle_assign(
     db: HunkAssignmentsHandleMut,
     repo: &gix::Repository,
@@ -220,6 +260,10 @@ fn handle_assign(
     .or_else(|_| Ok(0))
 }
 
+/// Return worktree assignments matching any of the provided `filters`.
+///
+/// `wt_assignments` is the source list to filter. `filters` contains the rule
+/// filter predicates to evaluate; an empty list matches all assignments.
 fn matching(wt_assignments: &[HunkAssignment], filters: Vec<Filter>) -> Vec<HunkAssignment> {
     if filters.is_empty() {
         return wt_assignments.to_vec();
