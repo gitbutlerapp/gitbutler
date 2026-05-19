@@ -4,8 +4,8 @@
 //! (e.g. broadcast handlers, `send_message`) contain additional logic such as
 //! emitting frontend events or seeding initial state.
 
+use crate::broadcaster::FrontendEvent;
 use axum::{Json, extract::State};
-use but_claude::broadcaster::FrontendEvent;
 use but_irc::commands::{self, *};
 use serde::Deserialize;
 use serde_json::json;
@@ -59,7 +59,7 @@ pub async fn irc_connect(
             Ok(p) => p,
             Err(e) => return err_json(e),
         };
-    let emitter = crate::irc_lifecycle::BroadcasterEmitter::new(&state.app.broadcaster);
+    let emitter = crate::irc_lifecycle::BroadcasterEmitter::new(&state.broadcaster);
     match commands::connect(&state.irc_manager, &emitter, params).await {
         Ok(()) => ok_json(json!({})),
         Err(e) => err_json(e),
@@ -161,13 +161,13 @@ pub async fn irc_send_message(
                     name: format!("irc:{}:channels", p.id),
                     payload: json!({ "action": "updated" }),
                 };
-                state.app.broadcaster.lock().await.send(channels_event);
+                state.broadcaster.lock().await.send(channels_event);
             }
             let msg_event = FrontendEvent {
                 name: format!("irc:{}:message", p.id),
                 payload: serde_json::to_value(&stored).unwrap_or_default(),
             };
-            state.app.broadcaster.lock().await.send(msg_event);
+            state.broadcaster.lock().await.send(msg_event);
             ok_json(json!({}))
         }
         Ok(None) => ok_json(json!({})),
@@ -195,18 +195,18 @@ pub async fn irc_send_message_with_data(
                 name: format!("irc:{}:message", p.id),
                 payload: serde_json::to_value(&stored).unwrap_or_default(),
             };
-            state.app.broadcaster.lock().await.send(msg_event);
+            state.broadcaster.lock().await.send(msg_event);
             // Notify that reactions may have updated
             let commit_evt = FrontendEvent {
                 name: format!("irc:{}:commit-reaction", p.id),
                 payload: json!({}),
             };
-            state.app.broadcaster.lock().await.send(commit_evt);
+            state.broadcaster.lock().await.send(commit_evt);
             let reaction_evt = FrontendEvent {
                 name: format!("irc:{}:message-reaction", p.id),
                 payload: json!({}),
             };
-            state.app.broadcaster.lock().await.send(reaction_evt);
+            state.broadcaster.lock().await.send(reaction_evt);
             ok_json(json!({}))
         }
         Ok(None) => ok_json(json!({})),

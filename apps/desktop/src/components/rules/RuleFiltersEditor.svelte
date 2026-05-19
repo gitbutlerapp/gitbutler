@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ClaudeCodeSessionFilter from "$components/codegen/ClaudeCodeSessionFilter.svelte";
 	import NewRuleMenu from "$components/rules/NewRuleMenu.svelte";
 	import {
 		type SemanticType,
@@ -19,13 +18,12 @@
 	const FILE_STATUS_OPTIONS: FileStatus[] = ["addition", "modification", "deletion", "rename"];
 
 	type Props = {
-		projectId: string;
 		initialFilterValues: Partial<RuleFilterMap>;
 		addFilter: (type: RuleFilterType) => void;
 		deleteFilter: (type: RuleFilterType) => void;
 	};
 
-	const { projectId, initialFilterValues, addFilter, deleteFilter }: Props = $props();
+	const { initialFilterValues, addFilter, deleteFilter }: Props = $props();
 
 	let addFilterButton = $state<HTMLDivElement>();
 	let newFilterContextMenu = $state<NewRuleMenu>();
@@ -44,23 +42,16 @@
 	);
 
 	const ruleFilterTypes = $derived(typedKeys(initialFilterValues));
-	const hasClaudeSession = $derived(ruleFilterTypes.includes("claudeCodeSessionId"));
-	const claudeCodeSessionId = $derived.by(() => {
-		if (!hasClaudeSession) return undefined;
-		return initialFilterValues.claudeCodeSessionId;
-	});
 
 	const orderMap: Record<RuleFilterType, number> = {
 		pathMatchesRegex: 0,
 		contentMatchesRegex: 1,
 		fileChangeType: 2,
 		semanticType: 3,
-		claudeCodeSessionId: 4,
 	};
 
 	function isLastFilterType(type: RuleFilterType): boolean {
-		if (type === "claudeCodeSessionId") return false;
-		const regularFilters = ruleFilterTypes.filter((t) => t !== "claudeCodeSessionId");
+		const regularFilters = ruleFilterTypes;
 		if (regularFilters.length === 0) return false;
 		const orderValue = orderMap[type];
 		const allFilterOrderValue = regularFilters.map((t) => orderMap[t]);
@@ -79,12 +70,6 @@
 			case "semanticType":
 				// For now, user defined is not considered ready
 				return semanticType !== undefined && semanticType !== "userDefined";
-			case "claudeCodeSessionId":
-				return (
-					claudeCodeSessionId !== undefined &&
-					claudeCodeSessionId !== null &&
-					claudeCodeSessionId.trim() !== ""
-				);
 		}
 	}
 
@@ -96,8 +81,7 @@
 	}
 
 	const filtersAreReady = $derived(areDraftRuleFiltersReady(ruleFilterTypes));
-	const regularFilters = $derived(ruleFilterTypes.filter((t) => t !== "claudeCodeSessionId"));
-	const canAddMore = $derived(canAddMoreFilters(regularFilters));
+	const canAddMore = $derived(canAddMoreFilters(ruleFilterTypes));
 
 	function handleAddFilter(e: MouseEvent) {
 		e.stopPropagation();
@@ -127,10 +111,6 @@
 			semanticType !== "userDefined"
 		) {
 			filters.push({ type: "semanticType", subject: { type: semanticType } });
-		}
-
-		if (ruleFilterTypes.includes("claudeCodeSessionId") && claudeCodeSessionId) {
-			filters.push({ type: "claudeCodeSessionId", subject: claudeCodeSessionId });
 		}
 
 		return filters;
@@ -250,26 +230,22 @@
 	</div>
 {/snippet}
 
-{#if hasClaudeSession && claudeCodeSessionId}
-	<ClaudeCodeSessionFilter {projectId} sessionId={claudeCodeSessionId} />
-{:else}
-	<h3 class="text-13 text-semibold m-b-10">Filters</h3>
+<h3 class="text-13 text-semibold m-b-10">Filters</h3>
 
-	{#if ruleFilterTypes.includes("pathMatchesRegex")}
-		{@render ruleFilterRow("pathMatchesRegex")}
-	{/if}
+{#if ruleFilterTypes.includes("pathMatchesRegex")}
+	{@render ruleFilterRow("pathMatchesRegex")}
+{/if}
 
-	{#if ruleFilterTypes.includes("contentMatchesRegex")}
-		{@render ruleFilterRow("contentMatchesRegex")}
-	{/if}
+{#if ruleFilterTypes.includes("contentMatchesRegex")}
+	{@render ruleFilterRow("contentMatchesRegex")}
+{/if}
 
-	{#if ruleFilterTypes.includes("fileChangeType")}
-		{@render ruleFilterRow("fileChangeType")}
-	{/if}
+{#if ruleFilterTypes.includes("fileChangeType")}
+	{@render ruleFilterRow("fileChangeType")}
+{/if}
 
-	{#if ruleFilterTypes.includes("semanticType")}
-		{@render ruleFilterRow("semanticType")}
-	{/if}
+{#if ruleFilterTypes.includes("semanticType")}
+	{@render ruleFilterRow("semanticType")}
 {/if}
 
 <NewRuleMenu

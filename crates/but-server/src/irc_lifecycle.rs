@@ -3,8 +3,7 @@
 //! Provides a [`BroadcasterEmitter`] that implements [`but_irc::lifecycle::EventEmitter`],
 //! bridging the shared lifecycle logic to the WebSocket broadcaster.
 
-use but_claude::Broadcaster;
-use but_claude::broadcaster::FrontendEvent;
+use crate::broadcaster::{Broadcaster, FrontendEvent};
 use but_irc::IrcManager;
 use but_irc::lifecycle::EventEmitter;
 use but_settings::app_settings::IrcSettings;

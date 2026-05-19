@@ -15,8 +15,10 @@ use axum::{
     routing::{MethodRouter, any, get, post},
 };
 use but_api::{commit, diff, github, gitlab, json, legacy, platform, workspace};
-use but_claude::{Broadcaster, Claude};
-use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
+use but_ctx::ProjectHandleOrLegacyProjectId;
+
+mod broadcaster;
+use broadcaster::Broadcaster;
 #[cfg(feature = "irc")]
 use but_irc::IrcManager;
 use but_settings::AppSettingsWithDiskSync;
@@ -72,20 +74,13 @@ pub(crate) struct Extra {
 
 #[derive(Clone)]
 struct AppState {
-    app: Claude,
+    broadcaster: Arc<Mutex<Broadcaster>>,
     extra: Extra,
     app_settings: AppSettingsWithDiskSync,
     #[cfg(feature = "irc")]
     irc_manager: IrcManager,
     #[cfg(feature = "irc")]
     working_files_broadcast: WorkingFilesBroadcast,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ClaudeGetSessionDetailsParams {
-    project_id: ProjectHandleOrLegacyProjectId,
-    session_id: uuid::Uuid,
 }
 
 /// Converts a synchronous command handler into an axum `MethodRouter` that works with
@@ -593,11 +588,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), None)
             .expect("failed to create app settings");
 
-    let app = Claude {
-        broadcaster: broadcaster.clone(),
-        instance_by_stack: Default::default(),
-    };
-
     #[cfg(feature = "irc")]
     let irc_manager = IrcManager::new();
 
@@ -658,7 +648,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
                 if active
                     .set_active(
                         &ctx,
-                        &app,
+                        &broadcaster,
                         app_settings.clone(),
                         #[cfg(feature = "irc")]
                         working_files_broadcast.clone(),
@@ -725,7 +715,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         };
 
     let state = AppState {
-        app,
+        broadcaster: broadcaster.clone(),
         extra,
         app_settings,
         #[cfg(feature = "irc")]
@@ -1096,34 +1086,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             but_post(legacy::absorb::absorption_plan_cmd),
         )
         .route(
-            "/claude_get_user_message",
-            but_post(legacy::claude::claude_get_user_message_cmd),
-        )
-        .route(
-            "/claude_list_permission_requests",
-            but_post(legacy::claude::claude_list_permission_requests_cmd),
-        )
-        .route(
-            "/claude_update_permission_request",
-            but_post(legacy::claude::claude_update_permission_request_cmd),
-        )
-        .route(
-            "/claude_answer_ask_user_question",
-            but_post(legacy::claude::claude_answer_ask_user_question_cmd),
-        )
-        .route(
-            "/claude_list_prompt_templates",
-            but_post(legacy::claude::claude_list_prompt_templates_cmd),
-        )
-        .route(
-            "/claude_get_prompt_dirs",
-            but_post(legacy::claude::claude_get_prompt_dirs_cmd),
-        )
-        .route(
-            "/claude_maybe_create_prompt_dir",
-            but_post(legacy::claude::claude_maybe_create_prompt_dir_cmd),
-        )
-        .route(
             "/commit_reword",
             but_post(commit::reword::commit_reword_cmd),
         )
@@ -1240,8 +1202,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             any(move |headers, ws| handle_ws_request(headers, ws, broadcaster)),
         )
         // Spawning in a separate thread to prevent abort if the client
-        // disconnects. We need this to ensure locks are removed after
-        // the claude processes finishes.
+        // disconnects.
         .route_layer(middleware::from_fn(
             |req: axum::extract::Request<Body>, next: Next| async move {
                 tokio::task::spawn(next.run(req)).await.unwrap()
@@ -1468,16 +1429,23 @@ async fn post_handle_command_with_path(
     Path(command): Path<String>,
     Json(params): Json<serde_json::Value>,
 ) -> Json<serde_json::Value> {
-    let app = state.app;
+    let broadcaster = state.broadcaster;
     let extra = state.extra;
     let app_settings_sync = state.app_settings;
     #[cfg(feature = "irc")]
     let working_files_broadcast = state.working_files_broadcast;
     let req = Request { command, params };
     #[cfg(feature = "irc")]
-    let res = handle_command(req, app, extra, app_settings_sync, working_files_broadcast).await;
+    let res = handle_command(
+        req,
+        broadcaster,
+        extra,
+        app_settings_sync,
+        working_files_broadcast,
+    )
+    .await;
     #[cfg(not(feature = "irc"))]
-    let res = handle_command(req, app, extra, app_settings_sync).await;
+    let res = handle_command(req, broadcaster, extra, app_settings_sync).await;
     match res {
         Ok(value) => Json(json!(Response::Success(value))),
         Err(e) => {
@@ -1535,8 +1503,7 @@ async fn handle_websocket(socket: WebSocket, broadcaster: Arc<Mutex<Broadcaster>
 
 async fn handle_command(
     request: Request,
-    // TODO: this is due to mixing UI broadcasting into Claude related state (which also broadcasts)
-    app: Claude,
+    broadcaster: Arc<Mutex<Broadcaster>>,
     extra: Extra,
     app_settings_sync: AppSettingsWithDiskSync,
     #[cfg(feature = "irc")] working_files_broadcast: WorkingFilesBroadcast,
@@ -1560,9 +1527,6 @@ async fn handle_command(
         "update_feature_flags" => deserialize_json(request.params).and_then(|params| {
             legacy::settings::update_feature_flags(&app_settings_sync, params).map(|r| json!(r))
         }),
-        "update_claude" => deserialize_json(request.params).and_then(|params| {
-            legacy::settings::update_claude(&app_settings_sync, params).map(|r| json!(r))
-        }),
         "update_fetch" => deserialize_json(request.params).and_then(|params| {
             legacy::settings::update_fetch(&app_settings_sync, params).map(|r| json!(r))
         }),
@@ -1578,7 +1542,7 @@ async fn handle_command(
             #[cfg(feature = "irc")]
             {
                 return projects::set_project_active(
-                    &app,
+                    &broadcaster,
                     &extra,
                     app_settings_sync,
                     working_files_broadcast,
@@ -1587,7 +1551,8 @@ async fn handle_command(
                 .await;
             }
             #[cfg(not(feature = "irc"))]
-            projects::set_project_active(&app, &extra, app_settings_sync, request.params).await
+            projects::set_project_active(&broadcaster, &extra, app_settings_sync, request.params)
+                .await
         }
         // Async virtual branches commands (not yet migrated due to different pattern)
         "upstream_integration_statuses" => {
@@ -1788,107 +1753,6 @@ async fn handle_command(
             let result = extra.archival.zip_logs();
             result.map(|r| json!(r))
         }
-        // Claude commands (need app)
-        "claude_send_message" => {
-            let params = deserialize_json(request.params)?;
-            let result = legacy::claude::claude_send_message(&app, params).await;
-            result.map(|r| json!(r))
-        }
-        "claude_get_config" => {
-            #[derive(Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Params {
-                project_id: ProjectHandleOrLegacyProjectId,
-            }
-            let params = serde_json::from_value::<Params>(request.params)?;
-            let ctx: Context = params.project_id.try_into()?;
-            let result = legacy::claude::claude_get_config(ctx.into_sync()).await;
-            result.map(|r| json!(r))
-        }
-        "claude_get_messages" => {
-            let params = deserialize_json(request.params);
-            match params {
-                Ok(params) => {
-                    let result = legacy::claude::claude_get_messages(&app, params);
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
-        }
-        "claude_get_session_details" => {
-            let params = deserialize_json(request.params);
-            match params {
-                Ok(ClaudeGetSessionDetailsParams {
-                    project_id,
-                    session_id,
-                }) => {
-                    let ctx: Context = project_id.try_into()?;
-                    let result =
-                        legacy::claude::claude_get_session_details(ctx.into_sync(), session_id)
-                            .await;
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
-        }
-        "claude_cancel_session" => {
-            let params = deserialize_json(request.params);
-            match params {
-                Ok(params) => {
-                    let result = legacy::claude::claude_cancel_session(&app, params).await;
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
-        }
-        "claude_check_available" => {
-            let result = legacy::claude::claude_check_available().await;
-            result.map(|r| json!(r))
-        }
-        "claude_is_stack_active" => {
-            let params = deserialize_json(request.params);
-            match params {
-                Ok(params) => {
-                    let result = legacy::claude::claude_is_stack_active(&app, params).await;
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
-        }
-        "claude_compact_history" => {
-            let params = deserialize_json(request.params);
-            match params {
-                Ok(params) => {
-                    let result = legacy::claude::claude_compact_history(&app, params).await;
-                    result.map(|r| json!(r))
-                }
-                Err(e) => Err(e),
-            }
-        }
-        "claude_get_sub_agents" => {
-            #[derive(Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Params {
-                project_id: ProjectHandleOrLegacyProjectId,
-            }
-            let params = serde_json::from_value::<Params>(request.params)?;
-            let ctx: Context = params.project_id.try_into()?;
-            let result = legacy::claude::claude_get_sub_agents(ctx.into_sync()).await;
-            result.map(|r| json!(r))
-        }
-        "claude_verify_path" => {
-            #[derive(Debug, Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            pub struct Params {
-                pub project_id: ProjectHandleOrLegacyProjectId,
-                pub path: String,
-            }
-            let params = serde_json::from_value::<Params>(request.params)?;
-            let ctx: Context = params.project_id.try_into()?;
-            let result = legacy::claude::claude_verify_path(ctx.into_sync(), params.path).await;
-            result.map(|r| json!(r))
-        }
-
         _ => Err(anyhow::anyhow!("Command {command} not found!")),
     }
 }
@@ -1972,19 +1836,5 @@ mod tests {
 
         // Empty
         assert!(!is_localhost_host(b""));
-    }
-
-    #[test]
-    fn claude_get_session_details_params_deserialize_uuid_string() {
-        let project_id = uuid::Uuid::new_v4();
-        let session_id = uuid::Uuid::new_v4();
-        let params: ClaudeGetSessionDetailsParams = deserialize_json(json!({
-            "projectId": project_id,
-            "sessionId": session_id,
-        }))
-        .expect("params should deserialize");
-
-        assert_eq!(params.project_id.to_string(), project_id.to_string());
-        assert_eq!(params.session_id, session_id);
     }
 }

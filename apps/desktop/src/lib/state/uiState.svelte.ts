@@ -6,11 +6,6 @@ import { createEntityAdapter, createSlice, type EntityState } from "@reduxjs/too
 import type { AppDispatch } from "$lib/state/clientState.svelte";
 import type { ScrollbarVisilitySettings } from "@gitbutler/ui";
 
-// These types are defined here to avoid circular imports with feature modules.
-// Feature modules (codegen, settings, stacks) import these types from here.
-export type ThinkingLevel = "normal" | "think" | "megaThink" | "ultraThink";
-export type ModelType = "haiku" | "sonnet" | "sonnet[1m]" | "opus" | "opusplan";
-export type PermissionMode = "default" | "plan" | "acceptEdits";
 export type GeneralSettingsPageId =
 	| "general"
 	| "appearance"
@@ -22,7 +17,7 @@ export type GeneralSettingsPageId =
 	| "telemetry"
 	| "experimental"
 	| "organizations";
-export type ProjectSettingsPageId = "project" | "git" | "ai" | "agent" | "experimental";
+export type ProjectSettingsPageId = "project" | "git" | "ai" | "experimental";
 export type RejectionReason =
 	| "workspaceMergeConflict"
 	| "workspaceMergeConflictOfUnrelatedFile"
@@ -43,7 +38,6 @@ export type StackSelection = {
 	commitIds?: string[];
 	upstream?: boolean;
 	previewOpen: boolean;
-	codegen?: boolean;
 	irc?: boolean;
 };
 
@@ -55,14 +49,6 @@ export type NewCommitMessage = {
 export type StackState = {
 	selection: StackSelection | undefined;
 	newCommitMessage: NewCommitMessage;
-	// The current codegen prompt
-	prompt: string;
-	// The permission mode for Claude Code
-	permissionMode: PermissionMode;
-	// A list of mcp server names that should be disabled
-	disabledMcpServers: string[];
-	// A list of added directories for Claude Code
-	addedDirs: string[];
 };
 
 export type ExclusiveAction =
@@ -80,9 +66,6 @@ export type ExclusiveAction =
 			commitId: string;
 	  }
 	| {
-			type: "codegen";
-	  }
-	| {
 			type: "create-pr";
 			stackId: string | undefined;
 			branchName: string;
@@ -97,9 +80,6 @@ export type ProjectUiState = {
 	exclusiveAction: ExclusiveAction | undefined;
 	stackBusy: StackBusyState | undefined;
 	branchesToPoll: string[];
-	selectedClaudeSession: { stackId: string; head: string } | undefined;
-	thinkingLevel: ThinkingLevel;
-	selectedModel: ModelType;
 };
 
 type GlobalModalType =
@@ -235,11 +215,6 @@ export class UiState {
 	readonly lane = this.buildScopedProps<StackState>(this.scopesCache.lanes, {
 		selection: undefined,
 		newCommitMessage: { title: "", description: "" },
-		prompt: "",
-		// I _know_ we have a permission mode called 'default', but acceptEdits is a much more sensible default.
-		permissionMode: "acceptEdits",
-		disabledMcpServers: [],
-		addedDirs: [],
 	});
 
 	/** Properties scoped to a specific project. */
@@ -247,9 +222,6 @@ export class UiState {
 		exclusiveAction: undefined,
 		stackBusy: undefined,
 		branchesToPoll: [],
-		selectedClaudeSession: undefined,
-		thinkingLevel: "normal",
-		selectedModel: "sonnet",
 	});
 
 	/** Properties that are globally scoped. */

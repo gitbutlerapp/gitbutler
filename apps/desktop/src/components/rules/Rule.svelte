@@ -1,5 +1,4 @@
 <script lang="ts">
-	import ClaudeSessionTitle from "$components/codegen/ClaudeSessionTitle.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import {
 		semanticTypeToString,
@@ -76,12 +75,6 @@
 					label: semanticTypeToString(filter.subject.type),
 					tooltip: `Semantic type: ${semanticTypeToString(filter.subject.type)}`,
 				};
-			case "claudeCodeSessionId":
-				return {
-					icon: "ai",
-					label: filter.subject,
-					tooltip: `Claude session: ${filter.subject}`,
-				};
 		}
 	}
 
@@ -140,35 +133,10 @@
 	</Tooltip>
 {/snippet}
 
-{#snippet renderSessionPill(tooltip: string, icon: IconName, title: string)}
-	<Tooltip text={tooltip}>
-		<div class="ai-pill">
-			<Icon name={icon} color="var(--fill-purple-bg)" />
-			<span class="text-12 text-semibold truncate">{title}</span>
-		</div>
-	</Tooltip>
-{/snippet}
-
-{#snippet aiSessionPill(filter: RuleFilter)}
-	{#if filter.type === "claudeCodeSessionId"}
-		{@const config = getFilterConfig(filter)}
-		<ClaudeSessionTitle {projectId} sessionId={filter.subject}>
-			{#snippet fallback()}
-				{@render renderBasicPill(config)}
-			{/snippet}
-			{#snippet children(descriptor)}
-				{@render renderSessionPill(`Claude session: ${descriptor}`, config.icon!, descriptor)}
-			{/snippet}
-		</ClaudeSessionTitle>
-	{/if}
-{/snippet}
-
 {#snippet filterPill(filter: RuleFilter)}
 	{@const config = getFilterConfig(filter)}
 
-	{#if filter.type === "claudeCodeSessionId"}
-		{@render aiSessionPill(filter)}
-	{:else if filter.type === "fileChangeType"}
+	{#if filter.type === "fileChangeType"}
 		{@render renderFileChangePill(config, filter.subject)}
 	{:else}
 		{@render renderBasicPill(config)}
@@ -202,7 +170,7 @@
 	</div>
 {/snippet}
 
-{#if rule.action.type === "explicit" && rule.action.subject.type === "assign" && (rule.trigger === "fileSytemChange" || rule.trigger === "claudeCodeHook")}
+{#if rule.action.type === "explicit" && rule.action.subject.type === "assign" && rule.trigger === "fileSytemChange"}
 	{@const target = rule.action.subject.subject.target}
 	{@const filters = rule.filters}
 
@@ -272,8 +240,7 @@
 	}
 
 	.filter-pill,
-	.target-pill,
-	.ai-pill {
+	.target-pill {
 		display: flex;
 		align-items: center;
 		height: 24px;
@@ -289,10 +256,5 @@
 
 	.target-pill {
 		background-color: var(--bg-2);
-	}
-
-	.ai-pill {
-		background: var(--chip-purple-bg);
-		color: var(--chip-purple-fg);
 	}
 </style>

@@ -8,14 +8,10 @@ mod alias;
 #[cfg(feature = "legacy")]
 mod branch;
 #[cfg(feature = "legacy")]
-mod claude;
-#[cfg(feature = "legacy")]
 mod clean;
 #[cfg(feature = "legacy")]
 mod commit;
 mod config;
-#[cfg(feature = "legacy")]
-mod cursor;
 #[cfg(feature = "legacy")]
 mod diff;
 #[cfg(feature = "legacy")]

@@ -2,14 +2,11 @@
 	Compound child that renders the stack details/preview panel (right side).
 	Reads shared state from StackController via context.
 
-	Handles: commit view, branch view, worktree multi-diff,
-	codegen messages, IRC channel.
+	Handles: commit view, branch view, worktree multi-diff, IRC channel.
 
 	Usage:
 	```svelte
 	<StackDetails
-		{hasRulesToClear}
-		{claudeConfig}
 		{ircChannel}
 		onWidthChange={(w) => ...}
 	/>
@@ -24,7 +21,6 @@
 	import DropzoneOverlay from "$components/shared/DropzoneOverlay.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import Resizer from "$components/shared/Resizer.svelte";
-	import StackCodegen from "$components/stack/StackCodegen.svelte";
 	import BranchView from "$components/views/BranchView.svelte";
 	import { projectRunCommitHooks } from "$lib/config/config";
 	import {
@@ -44,16 +40,12 @@
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
 	import { get } from "svelte/store";
 	import { fly } from "svelte/transition";
-	import type { ClaudeConfig } from "$lib/codegen/types";
-
 	type Props = {
-		hasRulesToClear: boolean;
-		claudeConfig: ClaudeConfig;
 		ircChannel?: string;
 		onWidthChange: (width: number) => void;
 	};
 
-	const { hasRulesToClear, claudeConfig, ircChannel, onWidthChange }: Props = $props();
+	const { ircChannel, onWidthChange }: Props = $props();
 
 	const controller = getStackContext();
 
@@ -121,7 +113,7 @@
 <div
 	in:fly={{ y: 20, duration: 200 }}
 	class="details-view"
-	class:codegen-view={selection?.codegen || selection?.irc}
+	class:irc-view={selection?.irc}
 	bind:this={detailsEl}
 	data-details={stackId}
 	style:right="{DETAILS_RIGHT_PADDING_REM}rem"
@@ -130,8 +122,6 @@
 >
 	{#if stackId && selection?.irc && ircChannel}
 		<IrcChannel projectId={controller.projectId} type="group" channel={ircChannel} autojoin />
-	{:else if stackId && selection?.branchName && selection?.codegen}
-		<StackCodegen {hasRulesToClear} {claudeConfig} onclose={() => controller.closePreview()} />
 	{:else}
 		{@const commit = commitQuery?.response}
 		{@const dzCommit: DzCommitData | undefined = commit
@@ -300,7 +290,7 @@
 		margin-right: 2px;
 	}
 
-	.codegen-view {
+	.irc-view {
 		overflow: hidden;
 		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);

@@ -24,11 +24,6 @@ export const projectSettingsPages = [
 		icon: "ai",
 	},
 	{
-		id: "agent",
-		label: "Agent",
-		icon: "agent",
-	},
-	{
 		id: "experimental",
 		label: "Experimental",
 		icon: "lab",
