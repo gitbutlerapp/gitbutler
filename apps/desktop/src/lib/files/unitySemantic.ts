@@ -24,8 +24,17 @@ export type UnitySemanticChange = {
 	propertyPath: string;
 	oldValue?: string | null;
 	newValue?: string | null;
+	oldReference?: UnityAssetReference | null;
+	newReference?: UnityAssetReference | null;
 	changeKind: UnityChangeKind;
 	selection: UnitySelection;
+};
+
+export type UnityAssetReference = {
+	guid: string;
+	path: string;
+	name: string;
+	kind?: string | null;
 };
 
 export type UnitySemanticNode = {

@@ -8,6 +8,7 @@
 		UnitySemanticDiff,
 		UnitySemanticNode,
 		UnitySelection,
+		UnityAssetReference,
 	} from "$lib/files/unitySemantic";
 	import type { SelectionId } from "$lib/selection/key";
 	import type { TreeChange } from "@gitbutler/but-sdk";
@@ -261,22 +262,27 @@
 		return parts.length > 0 ? parts.join(", ") : "Context only";
 	}
 
-	function displayValue(change: UnitySemanticChange, value: string | null | undefined) {
+	function displayValue(
+		change: UnitySemanticChange,
+		value: string | null | undefined,
+		reference?: UnityAssetReference | null,
+	) {
 		if (value == null || value === "") return "None";
+		if (reference) return reference.name;
 		const objectRef = parseUnityObjectReference(value);
 		if (objectRef) {
 			if (change.propertyPath === "guid" || change.label.toLowerCase() === "guid") {
 				return shortenId(objectRef.guid ?? value);
 			}
 			if (objectRef.guid) {
-				return `Asset ${shortenId(objectRef.guid)}`;
+				return `Unresolved asset (${shortenId(objectRef.guid)})`;
 			}
 			if (objectRef.fileId) {
 				return `File ID ${objectRef.fileId}`;
 			}
 			return value;
 		}
-		if (/^[a-f0-9]{32}$/i.test(value)) return shortenId(value);
+		if (/^[a-f0-9]{32}$/i.test(value)) return `Unresolved asset (${shortenId(value)})`;
 		return value;
 	}
 
@@ -290,9 +296,9 @@
 	function propertyLabel(change: UnitySemanticChange) {
 		const path = change.propertyPath;
 		const label = change.label;
-		if (path === "programSource") return "Script asset";
-		if (path === "guid") return "Asset GUID";
-		if (path === "fileID") return "File ID";
+		if (path.endsWith("programSource")) return "Program source";
+		if (path.endsWith("guid")) return "Asset reference";
+		if (path.endsWith("fileID")) return "File ID";
 		if (path === "m_Name" || label === "Name") return "Name";
 		if (path === "m_Layer" || label === "Layer") return "Layer";
 		if (path === "m_IsActive" || label === "Active state") return "Active";
@@ -343,7 +349,9 @@
 		if (!isReferenceProperty(change)) return [];
 		return changes.filter((candidate) => {
 			if (candidate === change || consumed.has(candidate)) return false;
-			if (!["guid", "fileID"].includes(candidate.propertyPath)) return false;
+			if (!candidate.propertyPath.endsWith("guid") && !candidate.propertyPath.endsWith("fileID")) {
+				return false;
+			}
 			return sameReferencePair(change, candidate);
 		});
 	}
@@ -368,7 +376,11 @@
 		return (
 			["programSource", "guid", "fileID", "m_CorrespondingSourceObject", "m_Component"].includes(
 				change.propertyPath,
-			) || !!parseUnityObjectReference(change.oldValue ?? change.newValue ?? "")
+			) ||
+			change.propertyPath.endsWith("programSource") ||
+			change.propertyPath.endsWith("guid") ||
+			change.propertyPath.endsWith("fileID") ||
+			!!parseUnityObjectReference(change.oldValue ?? change.newValue ?? "")
 		);
 	}
 
@@ -392,7 +404,9 @@
 	): ReviewChange[] {
 		const result: ReviewChange[] = [];
 		const consumed = new Set<UnitySemanticChange>();
-		const referenceChanges = changes.filter((change) => change.propertyPath === "programSource");
+		const referenceChanges = changes.filter((change) =>
+			change.propertyPath.endsWith("programSource"),
+		);
 
 		for (const [index, scriptReference] of referenceChanges.entries()) {
 			if (consumed.has(scriptReference)) continue;
@@ -403,9 +417,17 @@
 			details.forEach((detail) => consumed.add(detail));
 			result.push({
 				key: `${keyPrefix}script-reference:${index}`,
-				label: "Script asset",
-				before: displayValue(scriptReference, scriptReference.oldValue),
-				after: displayValue(scriptReference, scriptReference.newValue),
+				label: "Program source",
+				before: displayValue(
+					scriptReference,
+					scriptReference.oldValue,
+					scriptReference.oldReference,
+				),
+				after: displayValue(
+					scriptReference,
+					scriptReference.newValue,
+					scriptReference.newReference,
+				),
 				changeKind: scriptReference.changeKind,
 				note: source.label.startsWith("Script ") ? "Component reference" : nodeLabel(source),
 				selection: scriptReference.selection,
@@ -421,8 +443,8 @@
 			result.push({
 				key: `${keyPrefix}${change.propertyPath}:${index}`,
 				label: propertyLabel(change),
-				before: displayValue(change, change.oldValue),
-				after: displayValue(change, change.newValue),
+				before: displayValue(change, change.oldValue, change.oldReference),
+				after: displayValue(change, change.newValue, change.newReference),
 				changeKind: change.changeKind,
 				note: changedValueLabel(change),
 				selection: change.selection,
@@ -438,7 +460,28 @@
 		for (const [index, child] of node.children.entries()) {
 			result.push(...collectReviewChanges(child, `${prefix}${node.id}:${index}/`));
 		}
-		return result;
+		return dedupeReviewChanges(result);
+	}
+
+	function dedupeReviewChanges(items: ReviewChange[]) {
+		const seenReferencePairs = new Set<string>();
+		return items.filter((item) => {
+			const referenceKey = reviewReferenceKey(item);
+			if (!referenceKey) return true;
+			if (item.label !== "Program source" && seenReferencePairs.has(referenceKey)) {
+				return false;
+			}
+			seenReferencePairs.add(referenceKey);
+			return true;
+		});
+	}
+
+	function reviewReferenceKey(item: ReviewChange) {
+		const referenceChange = item.details.find(isReferenceProperty);
+		if (!referenceChange) return undefined;
+		const pair = referencePair(referenceChange);
+		if (!pair.oldGuid && !pair.newGuid && !pair.oldFileId && !pair.newFileId) return undefined;
+		return [pair.oldGuid, pair.newGuid, pair.oldFileId, pair.newFileId].join("->");
 	}
 
 	function tooLongWarning(diff: UnitySemanticDiff | null) {
@@ -481,7 +524,7 @@
 		</div>
 		<div class="unity-review-row__body">
 			<div class="unity-review-row__headline">
-				<span>{item.label}</span>
+				<span class="unity-review-row__label">{item.label}</span>
 				{#if showChangeBadge(item.changeKind)}
 					<Badge kind="soft" style={changeKindStyle(item.changeKind)}>
 						{changeKindLabel(item.changeKind)}
@@ -489,15 +532,10 @@
 				{/if}
 				<span class="unity-review-row__note text-11">{item.note}</span>
 			</div>
-			<div class="unity-review-values">
-				<div class="unity-review-value">
-					<span class="unity-review-value__label text-11">Before</span>
-					<span class="unity-review-value__text old">{item.before}</span>
-				</div>
-				<div class="unity-review-value">
-					<span class="unity-review-value__label text-11">After</span>
-					<span class="unity-review-value__text new">{item.after}</span>
-				</div>
+			<div class="unity-review-change">
+				<span class="unity-review-value old">{item.before}</span>
+				<span class="unity-review-arrow">-&gt;</span>
+				<span class="unity-review-value new">{item.after}</span>
 			</div>
 			<details class="unity-details">
 				<summary>Serialized values</summary>
@@ -513,8 +551,14 @@
 					{#if change.oldValue != null}
 						<code>before: {change.oldValue}</code>
 					{/if}
+					{#if change.oldReference}
+						<code>before asset: {change.oldReference.path}</code>
+					{/if}
 					{#if change.newValue != null}
 						<code>after: {change.newValue}</code>
+					{/if}
+					{#if change.newReference}
+						<code>after asset: {change.newReference.path}</code>
 					{/if}
 				{/each}
 			</details>
@@ -742,7 +786,7 @@
 
 	.unity-review-row {
 		display: flex;
-		padding: 10px 12px 10px 0;
+		padding: 11px 12px 11px 0;
 		gap: 10px;
 		box-shadow: inset 0 1px 0 var(--border-3);
 	}
@@ -770,39 +814,49 @@
 		font-weight: 600;
 	}
 
+	.unity-review-row__label {
+		font-size: 13px;
+	}
+
 	.unity-review-row__note,
-	.unity-review-value__label {
+	.unity-details {
 		color: var(--text-3);
 	}
 
-	.unity-review-values {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	.unity-review-change {
+		display: flex;
+		align-items: center;
+		min-width: 0;
 		margin-top: 6px;
-		gap: 12px;
+		gap: 6px;
 	}
 
 	.unity-review-value {
-		display: flex;
-		flex-direction: column;
+		display: inline-block;
 		min-width: 0;
-		gap: 2px;
-	}
-
-	.unity-review-value__text {
+		padding: 2px 5px;
 		overflow: hidden;
+		border-radius: 4px;
 		font-weight: 500;
 		font-size: 12px;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 
-	.old {
-		color: var(--clr-scale-red-500);
+	.unity-review-value.old {
+		background-color: var(--diff-deletion-line-bg);
+		color: var(--diff-deletion-count-text);
 	}
 
-	.new {
-		color: var(--clr-scale-green-500);
+	.unity-review-value.new {
+		background-color: var(--diff-addition-line-bg);
+		color: var(--diff-addition-count-text);
+	}
+
+	.unity-review-arrow {
+		flex: 0 0 auto;
+		color: var(--text-3);
+		font-size: 12px;
 	}
 
 	.unity-details {

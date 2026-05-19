@@ -1,6 +1,10 @@
 //! Unity scene and prefab semantic review APIs.
 
-use std::{path::PathBuf, process::Command};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
@@ -96,6 +100,10 @@ pub mod json {
         pub old_value: Option<String>,
         /// Current value, if any.
         pub new_value: Option<String>,
+        /// Resolved previous Unity asset reference, if any.
+        pub old_reference: Option<UnityAssetReference>,
+        /// Resolved current Unity asset reference, if any.
+        pub new_reference: Option<UnityAssetReference>,
         /// Coarse change kind.
         pub change_kind: UnityChangeKind,
         /// Selection metadata.
@@ -103,6 +111,23 @@ pub mod json {
     }
     #[cfg(feature = "export-schema")]
     but_schemars::register_sdk_type!(UnitySemanticChangeForFrontend);
+
+    /// A Unity asset reference resolved from a GUID in a `.meta` file.
+    #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct UnityAssetReference {
+        /// Unity asset GUID.
+        pub guid: String,
+        /// Repository-relative Unity asset path.
+        pub path: String,
+        /// Asset filename.
+        pub name: String,
+        /// File extension without the dot, when present.
+        pub kind: Option<String>,
+    }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(UnityAssetReference);
 
     /// A Unity semantic node enriched with selection data.
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -205,6 +230,9 @@ pub fn unity_semantic_diff(
         CURRENT_PATCH.with(|current| {
             *current.borrow_mut() = None;
         });
+        CURRENT_GUID_INDEX.with(|current| {
+            current.borrow_mut().clear();
+        });
         return Ok(Some(diff));
     }
 
@@ -214,11 +242,19 @@ pub fn unity_semantic_diff(
         CURRENT_PATCH.with(|current| {
             *current.borrow_mut() = patch;
         });
+        CURRENT_GUID_INDEX.with(|current| {
+            current.borrow_mut().clear();
+        });
         return Ok(Some(diff));
     }
 
     let previous = previous_content(&repo, &core_change)?;
     let current = current_content(&repo, &core_change)?;
+    let guid_index = repo
+        .workdir()
+        .map(build_unity_guid_index)
+        .transpose()?
+        .unwrap_or_default();
 
     let diff = but_unity_yaml::semantic_diff(
         &path,
@@ -228,6 +264,9 @@ pub fn unity_semantic_diff(
     );
     CURRENT_PATCH.with(|current| {
         *current.borrow_mut() = patch;
+    });
+    CURRENT_GUID_INDEX.with(|current| {
+        *current.borrow_mut() = guid_index;
     });
     Ok(diff)
 }
@@ -469,13 +508,14 @@ fn truncate_output(output: &str) -> String {
 impl From<UnitySemanticDiff> for json::UnitySemanticDiffForFrontend {
     fn from(diff: UnitySemanticDiff) -> Self {
         let patch = CURRENT_PATCH.with(|patch| patch.borrow().clone());
+        let guid_index = CURRENT_GUID_INDEX.with(|index| index.borrow().clone());
         json::UnitySemanticDiffForFrontend {
             file_kind: diff.file_kind,
             summary: diff.summary,
             nodes: diff
                 .nodes
                 .into_iter()
-                .map(|node| convert_node(node, patch.as_ref()))
+                .map(|node| convert_node(node, patch.as_ref(), &guid_index))
                 .collect(),
             warnings: diff.warnings,
             raw_available: diff.raw_available,
@@ -485,11 +525,13 @@ impl From<UnitySemanticDiff> for json::UnitySemanticDiffForFrontend {
 
 thread_local! {
     static CURRENT_PATCH: std::cell::RefCell<Option<but_core::UnifiedPatch>> = const { std::cell::RefCell::new(None) };
+    static CURRENT_GUID_INDEX: std::cell::RefCell<UnityGuidIndex> = Default::default();
 }
 
 fn convert_node(
     node: UnitySemanticNode,
     patch: Option<&but_core::UnifiedPatch>,
+    guid_index: &UnityGuidIndex,
 ) -> json::UnitySemanticNodeForFrontend {
     json::UnitySemanticNodeForFrontend {
         id: node.id,
@@ -502,12 +544,12 @@ fn convert_node(
         changes: node
             .changes
             .into_iter()
-            .map(|change| convert_change(change, patch))
+            .map(|change| convert_change(change, patch, guid_index))
             .collect(),
         children: node
             .children
             .into_iter()
-            .map(|child| convert_node(child, patch))
+            .map(|child| convert_node(child, patch, guid_index))
             .collect(),
     }
 }
@@ -515,15 +557,129 @@ fn convert_node(
 fn convert_change(
     change: UnitySemanticChange,
     patch: Option<&but_core::UnifiedPatch>,
+    guid_index: &UnityGuidIndex,
 ) -> json::UnitySemanticChangeForFrontend {
+    let old_reference = resolve_unity_reference(change.old_value.as_deref(), guid_index);
+    let new_reference = resolve_unity_reference(change.new_value.as_deref(), guid_index);
     json::UnitySemanticChangeForFrontend {
         label: change.label,
         property_path: change.property_path,
         old_value: change.old_value,
         new_value: change.new_value,
+        old_reference,
+        new_reference,
         change_kind: change.change_kind,
         selection: selection_from_ranges(Some(change.range), patch),
     }
+}
+
+type UnityGuidIndex = HashMap<String, json::UnityAssetReference>;
+
+fn build_unity_guid_index(workdir: &Path) -> Result<UnityGuidIndex> {
+    let mut index = UnityGuidIndex::new();
+    collect_unity_guid_index(workdir, workdir, &mut index)?;
+    Ok(index)
+}
+
+fn collect_unity_guid_index(root: &Path, dir: &Path, index: &mut UnityGuidIndex) -> Result<()> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Ok(());
+    };
+
+    for entry in entries {
+        let entry = entry.with_context(|| format!("Failed to read entry in {}", dir.display()))?;
+        let path = entry.path();
+        let file_type = entry
+            .file_type()
+            .with_context(|| format!("Failed to read file type for {}", path.display()))?;
+
+        if file_type.is_dir() {
+            if should_skip_unity_guid_dir(&entry.file_name().to_string_lossy()) {
+                continue;
+            }
+            collect_unity_guid_index(root, &path, index)?;
+            continue;
+        }
+
+        if !file_type.is_file() || path.extension().is_none_or(|extension| extension != "meta") {
+            continue;
+        }
+
+        let Some(guid) = read_unity_meta_guid(&path)? else {
+            continue;
+        };
+        let Some(asset_path) = unity_asset_path_for_meta(root, &path) else {
+            continue;
+        };
+        let name = asset_path
+            .rsplit('/')
+            .next()
+            .filter(|name| !name.is_empty())
+            .unwrap_or(&asset_path)
+            .to_owned();
+        let kind = name
+            .rsplit_once('.')
+            .and_then(|(_, extension)| (!extension.is_empty()).then(|| extension.to_owned()));
+
+        index.insert(
+            guid.clone(),
+            json::UnityAssetReference {
+                guid,
+                path: asset_path,
+                name,
+                kind,
+            },
+        );
+    }
+    Ok(())
+}
+
+fn should_skip_unity_guid_dir(name: &str) -> bool {
+    matches!(
+        name,
+        ".git" | "Library" | "Logs" | "Temp" | "UserSettings" | "node_modules" | "target"
+    )
+}
+
+fn read_unity_meta_guid(path: &Path) -> Result<Option<String>> {
+    let contents = std::fs::read_to_string(path)
+        .with_context(|| format!("Failed to read Unity meta file {}", path.display()))?;
+    Ok(contents.lines().find_map(|line| {
+        line.trim()
+            .strip_prefix("guid:")
+            .map(str::trim)
+            .filter(|guid| !guid.is_empty())
+            .map(ToOwned::to_owned)
+    }))
+}
+
+fn unity_asset_path_for_meta(root: &Path, meta_path: &Path) -> Option<String> {
+    let relative = meta_path.strip_prefix(root).ok()?.to_string_lossy();
+    relative
+        .replace('\\', "/")
+        .strip_suffix(".meta")
+        .map(ToOwned::to_owned)
+}
+
+fn resolve_unity_reference(
+    value: Option<&str>,
+    guid_index: &UnityGuidIndex,
+) -> Option<json::UnityAssetReference> {
+    let guid = unity_reference_guid(value?)?;
+    guid_index.get(guid).cloned()
+}
+
+fn unity_reference_guid(value: &str) -> Option<&str> {
+    let value = value.trim();
+    if value.len() == 32 && value.chars().all(|ch| ch.is_ascii_hexdigit()) {
+        return Some(value);
+    }
+    let guid_start = value.find("guid:")? + "guid:".len();
+    let guid = value[guid_start..]
+        .trim_start()
+        .split([',', '}', ' '])
+        .find(|part| !part.is_empty())?;
+    (!guid.is_empty()).then_some(guid)
 }
 
 fn selection_from_ranges(
@@ -637,4 +793,46 @@ fn lines_in_hunk(range: Option<UnityLineRange>, start: u32, len: u32) -> Vec<u32
 
 fn ranges_overlap(a_start: u32, a_end: u32, b_start: u32, b_end: u32) -> bool {
     a_start <= b_end && b_start <= a_end
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unity_guid_index_resolves_meta_files_to_asset_paths() -> Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let asset_dir = tempdir.path().join("Assets").join("Scripts");
+        std::fs::create_dir_all(&asset_dir)?;
+        std::fs::write(asset_dir.join("Player.cs"), "class Player {}\n")?;
+        std::fs::write(
+            asset_dir.join("Player.cs.meta"),
+            "fileFormatVersion: 2\nguid: 1234567890abcdef1234567890abcdef\n",
+        )?;
+
+        let index = build_unity_guid_index(tempdir.path())?;
+        let reference = index
+            .get("1234567890abcdef1234567890abcdef")
+            .expect("GUID from Unity .meta file should be indexed");
+
+        assert_eq!(reference.name, "Player.cs");
+        assert_eq!(reference.path, "Assets/Scripts/Player.cs");
+        assert_eq!(reference.kind.as_deref(), Some("cs"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn unity_reference_guid_accepts_raw_and_serialized_values() {
+        assert_eq!(
+            unity_reference_guid("1234567890abcdef1234567890abcdef"),
+            Some("1234567890abcdef1234567890abcdef")
+        );
+        assert_eq!(
+            unity_reference_guid(
+                "{fileID: 11500000, guid: abcdef1234567890abcdef1234567890, type: 3}"
+            ),
+            Some("abcdef1234567890abcdef1234567890")
+        );
+    }
 }
