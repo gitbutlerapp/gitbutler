@@ -12,10 +12,10 @@ const REST_TEXT_MARKER: &str = "# --- ignore-rest ---";
 /// identified by a `filename_safe_intent` to help the user understand what's wanted of them.
 /// Note that this string must be valid in filenames.
 ///
-/// Returns the edited text (*without known encoding*), with comment lines (starting with `#`) removed.
-pub fn from_editor_no_comments(filename_safe_intent: &str, initial_text: &str) -> Result<BString> {
-    let content = from_editor(filename_safe_intent, initial_text, None, ".txt")?;
-    let filtered_lines = filter_content_from_editor(content.as_bstr());
+/// Returns the edited text (*without known encoding*), with comment lines (starting with `comment_char`) removed.
+pub fn from_editor_no_comments(filename_safe_intent: &str, initial_text: &str, comment_char: &str) -> Result<BString> {
+    let content = from_editor_impl(filename_safe_intent, initial_text, None, ".txt", Some(comment_char))?;
+    let filtered_lines = filter_content_from_editor(content.as_bstr(), comment_char);
     Ok(filtered_lines.into_iter().collect())
 }
 
@@ -25,23 +25,25 @@ pub fn from_editor_no_comments(filename_safe_intent: &str, initial_text: &str) -
 /// If `diff_text` is `Some`, appends it after a `REST_TEXT_MARKER` separator line in the editor.
 /// The marker and everything below it is automatically stripped from the returned text.
 ///
-/// Returns the edited text (*without known encoding*), with comment lines (starting with `#`) removed.
+/// Returns the edited text (*without known encoding*), with comment lines (starting with `comment_char`) removed.
 pub fn from_editor_no_comments_as_patch(
     filename_safe_intent: &str,
     initial_text: &str,
     diff_text: Option<&str>,
+    comment_char: &str,
 ) -> Result<BString> {
-    let content = from_editor(filename_safe_intent, initial_text, diff_text, ".patch")?;
-    let filtered_lines = filter_content_from_editor(content.as_bstr());
+    let content = from_editor_impl(filename_safe_intent, initial_text, diff_text, ".patch", Some(comment_char))?;
+    let filtered_lines = filter_content_from_editor(content.as_bstr(), comment_char);
     Ok(filtered_lines.into_iter().collect())
 }
 
-/// Strip comment lines (starting with '#') and everything below `REST_TEXT_MARKER`.
-fn filter_content_from_editor(content: &BStr) -> Vec<&BStr> {
+/// Strip comment lines (starting with `comment_char`) and everything below `REST_TEXT_MARKER`.
+fn filter_content_from_editor<'a>(content: &'a BStr, comment_char: &str) -> Vec<&'a BStr> {
+    let rest_marker = format!("{comment_char} --- ignore-rest ---");
     content
         .lines_with_terminator()
-        .take_while(|line| !line.trim_start().starts_with_str(REST_TEXT_MARKER))
-        .filter(|line| !line.trim_start().starts_with_str("#"))
+        .take_while(|line| !line.trim_start().starts_with_str(&rest_marker))
+        .filter(|line| !line.trim_start().starts_with_str(comment_char))
         .map(|line| line.as_bstr())
         .collect()
 }
@@ -60,6 +62,16 @@ pub fn from_editor(
     rest_text: Option<&str>,
     file_suffix: &str,
 ) -> Result<BString> {
+    from_editor_impl(filename_safe_intent, initial_text, rest_text, file_suffix, None)
+}
+
+fn from_editor_impl(
+    filename_safe_intent: &str,
+    initial_text: &str,
+    rest_text: Option<&str>,
+    file_suffix: &str,
+    comment_char: Option<&str>,
+) -> Result<BString> {
     const ALLOWED_SUFFIXES: &[&str] = &[".txt", ".md", ".patch"]; // feel free to add more allowed suffixes
     if !ALLOWED_SUFFIXES.contains(&file_suffix) {
         bail!(
@@ -76,8 +88,9 @@ pub fn from_editor(
             initial_text,
             rest_text,
             file_suffix,
+            comment_char,
         ),
-        None => from_builtin_editor(filename_safe_intent, initial_text, rest_text),
+        None => from_builtin_editor(filename_safe_intent, initial_text, rest_text, comment_char),
     }
 }
 
@@ -88,6 +101,7 @@ fn from_external_editor(
     initial_text: &str,
     rest_text: Option<&str>,
     file_suffix: &str,
+    comment_char: Option<&str>,
 ) -> Result<BString> {
     // Create a temporary file with the initial text
     let mut tempfile = tempfile::Builder::new()
@@ -101,7 +115,10 @@ fn from_external_editor(
         if !initial_text.ends_with('\n') {
             writeln!(&mut tempfile)?;
         }
-        writeln!(&mut tempfile, "{REST_TEXT_MARKER}")?;
+        let marker = comment_char
+            .map(|c| format!("{c} --- ignore-rest ---"))
+            .unwrap_or_else(|| REST_TEXT_MARKER.to_string());
+        writeln!(&mut tempfile, "{marker}")?;
         writeln!(&mut tempfile, "{rest_text}")?;
     }
 
@@ -129,6 +146,7 @@ fn from_builtin_editor(
     filename_safe_intent: &str,
     initial_text: &str,
     rest_text: Option<&str>,
+    comment_char: Option<&str>,
 ) -> Result<BString> {
     // Determine editor mode based on the intent
     let mode = if filename_safe_intent.contains("commit") {
@@ -144,7 +162,10 @@ fn from_builtin_editor(
         if !initial_text.ends_with('\n') {
             initial_text.push('\n');
         }
-        initial_text.push_str(REST_TEXT_MARKER);
+        let marker = comment_char
+            .map(|c| format!("{c} --- ignore-rest ---"))
+            .unwrap_or_else(|| REST_TEXT_MARKER.to_string());
+        initial_text.push_str(&marker);
         initial_text.push('\n');
         initial_text.push_str(rest_text);
         super::editor::run_builtin_editor(filename_safe_intent, &initial_text, mode)?
@@ -404,7 +425,77 @@ will
 be
 ignored"#
         ));
-        let filtered_content = filter_content_from_editor(raw_content.as_bstr());
+        let filtered_content = filter_content_from_editor(raw_content.as_bstr(), "#");
+
+        assert_eq!(
+            filtered_content,
+            Vec::from([
+                "commit message\n",
+                "\n",
+                "here is a longer description about the commit\n",
+                "\n",
+                "1. It does the thing\n",
+                "2. It does the other thing\n",
+                "\n",
+            ])
+        );
+    }
+
+    #[test]
+    fn test_filter_content_from_editor_custom_comment_char() {
+        let raw_content = BString::from(format!(
+            r#"commit message
+
+here is a longer description about the commit
+
+1. It does the thing
+2. It does the other thing
+
+; this line will be ignored
+; as will this
+; --- ignore-rest ---
+all
+this
+will
+be
+ignored"#
+        ));
+        let filtered_content = filter_content_from_editor(raw_content.as_bstr(), ";");
+
+        assert_eq!(
+            filtered_content,
+            Vec::from([
+                "commit message\n",
+                "\n",
+                "here is a longer description about the commit\n",
+                "\n",
+                "1. It does the thing\n",
+                "2. It does the other thing\n",
+                "\n",
+            ])
+        );
+    }
+
+    #[test]
+    fn test_filter_content_from_editor_multichar_comment_string() {
+        let raw_content = BString::from(format!(
+            r#"commit message
+
+here is a longer description about the commit
+
+1. It does the thing
+2. It does the other thing
+
+// this line will be ignored
+// as will this
+// --- ignore-rest ---
+all
+this
+will
+be
+ignored"#
+        ));
+        let filtered_content = filter_content_from_editor(raw_content.as_bstr(), "//");
 
         assert_eq!(
             filtered_content,

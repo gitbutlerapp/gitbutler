@@ -342,6 +342,9 @@ pub enum UserConfigKey {
     Email,
     /// Git editor (core.editor)
     Editor,
+    /// Git comment character (core.commentChar)
+    #[clap(name = "commentChar")]
+    CommentChar,
 }
 
 /// Subcommands for `but config ui`
@@ -417,6 +420,7 @@ impl UserConfigKey {
             UserConfigKey::Name => "user.name",
             UserConfigKey::Email => "user.email",
             UserConfigKey::Editor => "core.editor",
+            UserConfigKey::CommentChar => "core.commentChar",
         }
     }
 }
