@@ -1,9 +1,13 @@
 use std::{
     env,
     ops::{Deref, DerefMut},
+    path::{Path, PathBuf},
 };
 
 use but_testsupport::isolate_snapbox_cmd;
+
+mod ignored_tests_have_linear_ticket;
+pub use ignored_tests_have_linear_ticket::assert_ignored_tests_have_linear_ticket;
 
 /// A wrapper around [but_testsupport::Sandbox] to add `but` invocation support, which can only come from the crate that
 /// defines the binary.
@@ -155,4 +159,11 @@ impl CommandExt for snapbox::cmd::Command {
     fn allow_json(self) -> Self {
         self.env_remove("BUT_OUTPUT_FORMAT")
     }
+}
+
+pub fn make_absolute(path: impl AsRef<Path>) -> PathBuf {
+    let cargo_manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+    let mut cargo_manifest_dir = Path::new(&cargo_manifest_dir);
+    cargo_manifest_dir = cargo_manifest_dir.parent().unwrap().parent().unwrap();
+    cargo_manifest_dir.join(path)
 }

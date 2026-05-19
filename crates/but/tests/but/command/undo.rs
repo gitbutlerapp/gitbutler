@@ -1,8 +1,20 @@
-use crate::utils::Sandbox;
+use crate::utils::{Sandbox, assert_ignored_tests_have_linear_ticket, make_absolute};
 
 mod undo_commit;
 mod undo_redo;
 mod undo_rub;
+
+#[test]
+fn ignored_tests_have_linear_tickets() {
+    assert_ignored_tests_have_linear_ticket(file!());
+
+    let this_file = make_absolute(file!());
+    let this_dir = make_absolute(this_file.parent().unwrap()).join("undo");
+    for entry in this_dir.read_dir().unwrap() {
+        let entry = entry.unwrap();
+        assert_ignored_tests_have_linear_ticket(entry.path());
+    }
+}
 
 /// Run an undo test tests a roundtrip `mutate` -> `but undo`, and asserts that the status output is
 /// the same before and after the roundtrip.
@@ -141,7 +153,7 @@ fn can_undo_but_discard_rename() -> anyhow::Result<()> {
 }
 
 #[test]
-#[ignore = "Test harness runs with cv3 feature flag, and but_core::worktree::safe_checkout_from_head does not restore the worktree file A for some reason"]
+#[ignore = "Test harness runs with cv3 feature flag, and but_core::worktree::safe_checkout_from_head does not restore the worktree file A for some reason. https://linear.app/gitbutler/issue/GB-1403/run-test-both-with-and-without-cv3-feature-flag"]
 fn can_undo_unapply() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
@@ -156,7 +168,7 @@ fn can_undo_unapply() {
 }
 
 #[test]
-#[ignore = "Test harness runs with cv3 feature flag, and but_core::worktree::safe_checkout_from_head does not remove the worktree file A for some reason"]
+#[ignore = "Test harness runs with cv3 feature flag, and but_core::worktree::safe_checkout_from_head does not remove the worktree file A for some reason. https://linear.app/gitbutler/issue/GB-1403/run-test-both-with-and-without-cv3-feature-flag"]
 fn can_undo_clean_apply() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
