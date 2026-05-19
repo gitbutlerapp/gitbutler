@@ -57,9 +57,13 @@ pub fn commit(
             bail!("commit message can not be empty");
         }
 
-        let mut guard = ctx.exclusive_worktree_access();
+        let _guard = ctx.exclusive_worktree_access();
         let mut meta = ctx.meta()?;
-        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+        #[expect(
+            deprecated,
+            reason = "temporary use while this plumbing still owns Context"
+        )]
+        let (repo, mut ws, _) = ctx.workspace_mut_and_db_without_guard()?;
         let editor = Editor::create(&mut ws, &mut meta, &repo)?;
         let (rebase, edited_commit_selector) =
             but_workspace::commit::reword(editor, event.commit_id, message.as_bytes().as_bstr())?;

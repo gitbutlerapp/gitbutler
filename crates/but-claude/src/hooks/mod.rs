@@ -439,9 +439,11 @@ pub fn assign_hunks_post_tool_call(
 
     let changes = but_core::diff::ui::worktree_changes(&*defer.ctx.repo.get()?)?.changes;
     let context_lines = defer.ctx.settings.context_lines;
-    let (repo, ws, mut db) = defer
-        .ctx
-        .workspace_and_db_mut_with_perm(guard.read_permission())?;
+    #[expect(
+        deprecated,
+        reason = "temporary use while this plumbing still owns Context"
+    )]
+    let (repo, ws, mut db) = defer.ctx.workspace_and_db_mut_without_guard()?;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
         db.hunk_assignments_mut()?,
         &repo,
