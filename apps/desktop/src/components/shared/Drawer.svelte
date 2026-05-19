@@ -3,6 +3,7 @@
 	import DrawerHeader from "$components/shared/DrawerHeader.svelte";
 	import { persistWithExpiration } from "@gitbutler/shared/persisted";
 	import { Icon } from "@gitbutler/ui";
+	import { slideFade } from "@gitbutler/ui/utils/transitions";
 	import { untrack } from "svelte";
 	import { writable, type Writable } from "svelte/store";
 	import type { Snippet } from "svelte";
@@ -158,13 +159,19 @@
 	{/snippet}
 
 	{#if !isCollapsed}
-		{#if notScrollable}
-			{@render drawerContent()}
-		{:else}
-			<AppScrollableContainer>
+		<div
+			class="drawer__panel"
+			in:slideFade={{ axis: "y", duration: 200 }}
+			out:slideFade={{ axis: "y", duration: 160 }}
+		>
+			{#if notScrollable}
 				{@render drawerContent()}
-			</AppScrollableContainer>
-		{/if}
+			{:else}
+				<AppScrollableContainer>
+					{@render drawerContent()}
+				</AppScrollableContainer>
+			{/if}
+		</div>
 	{/if}
 </div>
 
@@ -176,6 +183,9 @@
 		width: 100%;
 		max-height: 100%;
 		background-color: var(--bg-1);
+		transition:
+			border-color var(--transition-medium),
+			box-shadow var(--transition-medium);
 
 		&.bottom-border {
 			border-bottom: 1px solid var(--border-2);
@@ -222,6 +232,10 @@
 		position: relative;
 		flex-grow: 1;
 		flex-direction: column;
+	}
+
+	.drawer__panel {
+		overflow: hidden;
 	}
 
 	.chevron-btn {

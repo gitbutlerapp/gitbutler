@@ -180,26 +180,41 @@ function inferConflictLabel(
 function inferConflictFields(ours: string, theirs: string): UnityConflictField[] {
 	const oursFields = splitUnityFieldGroups(ours);
 	const theirsFields = splitUnityFieldGroups(theirs);
-	const labels = [...new Set([...oursFields.keys(), ...theirsFields.keys()])];
-	if (labels.length <= 1) return [];
+	const keys = [...new Set([...oursFields.keys(), ...theirsFields.keys()])];
+	const changedKeys = keys.filter((key) => {
+		const ours = oursFields.get(key)?.content ?? "";
+		const theirs = theirsFields.get(key)?.content ?? "";
+		return ours !== theirs;
+	});
+	if (changedKeys.length <= 1) return [];
 
-	return labels.map((label, index) => ({
+	return changedKeys.map((key, index) => ({
 		id: `field-${index + 1}`,
-		label,
-		ours: oursFields.get(label) ?? "",
-		theirs: theirsFields.get(label) ?? "",
+		label: oursFields.get(key)?.label ?? theirsFields.get(key)?.label ?? key,
+		ours: oursFields.get(key)?.content ?? "",
+		theirs: theirsFields.get(key)?.content ?? "",
 	}));
 }
 
-function splitUnityFieldGroups(content: string): Map<string, string> {
-	const groups = new Map<string, string>();
+type UnityFieldGroup = {
+	label: string;
+	content: string;
+};
+
+function splitUnityFieldGroups(content: string): Map<string, UnityFieldGroup> {
+	const groups = new Map<string, UnityFieldGroup>();
+	const seenLabels = new Map<string, number>();
 	const lines = content.match(/[^\n]*\n|[^\n]+$/g) ?? [];
 	let currentLabel: string | undefined;
+	let currentKey: string | undefined;
 	let currentLines: string[] = [];
 
 	function flush() {
-		if (!currentLabel) return;
-		groups.set(currentLabel, currentLines.join(""));
+		if (!currentLabel || !currentKey) return;
+		groups.set(currentKey, {
+			label: currentLabel,
+			content: currentLines.join(""),
+		});
 	}
 
 	for (const line of lines) {
@@ -207,6 +222,9 @@ function splitUnityFieldGroups(content: string): Map<string, string> {
 		if (label) {
 			flush();
 			currentLabel = label;
+			const occurrence = (seenLabels.get(label) ?? 0) + 1;
+			seenLabels.set(label, occurrence);
+			currentKey = `${label}:${occurrence}`;
 			currentLines = [line];
 		} else if (currentLabel) {
 			currentLines.push(line);

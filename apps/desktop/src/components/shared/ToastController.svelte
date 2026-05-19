@@ -1,14 +1,20 @@
 <script lang="ts">
 	import { dismissToast, toastStore } from "$lib/notifications/toasts";
 	import { InfoMessage, Markdown, TestId } from "@gitbutler/ui";
-	import { slide } from "svelte/transition";
+	import { slideFade } from "@gitbutler/ui/utils/transitions";
+	import { flip } from "svelte/animate";
 </script>
 
 <div class="toast-controller hide-native-scrollbar">
 	{#each $toastStore as toast (toast.id)}
 		<!-- eslint-disable-next-line func-style -->
 		{@const dismiss = () => dismissToast(toast.id)}
-		<div transition:slide={{ duration: 170 }}>
+		<div
+			class="toast-item"
+			animate:flip={{ duration: 200 }}
+			in:slideFade={{ axis: "y", duration: 180 }}
+			out:slideFade={{ axis: "y", duration: 140 }}
+		>
 			<InfoMessage
 				testId={toast.testId ?? TestId.ToastInfoMessage}
 				style={toast.style ?? "info"}
@@ -48,5 +54,9 @@
 		overflow-y: auto;
 		gap: 8px;
 		user-select: none;
+	}
+
+	.toast-item {
+		will-change: transform, opacity;
 	}
 </style>

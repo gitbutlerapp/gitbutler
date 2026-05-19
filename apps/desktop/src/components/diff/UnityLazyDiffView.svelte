@@ -2,6 +2,7 @@
 	import UnifiedDiffView from "$components/diff/UnifiedDiffView.svelte";
 	import UnitySemanticDiffView from "$components/diff/UnitySemanticDiffView.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
+	import YucpBrandWordmark from "$components/shared/YucpBrandWordmark.svelte";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import type { SelectionId } from "$lib/selection/key";
@@ -35,8 +36,10 @@
 
 {#if viewMode === "unity"}
 	<div class="diff-section" class:top-padding={topPadding}>
-		<div class="unity-mode-toggle" role="group" aria-label="Unity diff mode">
-			<button type="button" class:active={true}>Unity</button>
+		<div class="unity-mode-toggle" role="group" aria-label="Semantic diff mode">
+			<button type="button" class:active={true}>
+				<YucpBrandWordmark decorative height="0.75rem" />
+			</button>
 			<button type="button" onclick={() => (viewMode = "raw")}>Raw</button>
 		</div>
 		<UnitySemanticDiffView

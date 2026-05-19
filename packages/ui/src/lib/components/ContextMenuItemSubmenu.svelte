@@ -33,7 +33,7 @@
 
 	let menuItemElement: HTMLDivElement | undefined = $state();
 	let isSubmenuOpen = $state(false);
-	let hoverTimeout: NodeJS.Timeout | undefined = $state();
+	let hoverTimeout: ReturnType<typeof setTimeout> | undefined = $state();
 
 	// Get submenu coordination context
 	const submenuCoordination: {

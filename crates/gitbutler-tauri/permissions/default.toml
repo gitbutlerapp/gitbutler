@@ -225,5 +225,6 @@ commands.allow = [
   "update_user_profile",
   "update_workspace_rule",
   "upstream_integration_statuses",
+  "worktree_conflict_preview",
   "workspace_integrate_upstream",
 ]

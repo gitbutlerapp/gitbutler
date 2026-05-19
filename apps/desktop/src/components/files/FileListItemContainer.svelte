@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ChangedFilesContextMenu from "$components/shared/ChangedFilesContextMenu.svelte";
+	import { createYucpLogoBadge } from "$lib/branding/yucpLogo";
 	import { draggableChips } from "$lib/dragging/draggable";
 	import { FileChangeDropData } from "$lib/dragging/draggables";
 	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
@@ -78,6 +79,7 @@
 	const dragStateService = inject(DRAG_STATE_SERVICE);
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
+	const yucpBadge = createYucpLogoBadge();
 
 	let contextMenu = $state<ReturnType<typeof ChangedFilesContextMenu>>();
 	let draggableEl: HTMLDivElement | undefined = $state();
@@ -117,7 +119,7 @@
 
 	const conflict = $derived(conflictEntries ? conflictEntries.entries[change.path] : undefined);
 	const draggableDisabled = $derived(!draggable || showCheckbox || locallyIgnored);
-	const badges = $derived(isUnitySceneOrPrefabPath(change.path) ? ["Unity"] : []);
+	const badges = $derived(isUnitySceneOrPrefabPath(change.path) ? [yucpBadge] : []);
 
 	const lockText = $derived.by(() => {
 		if (!locked || lockedTargets.length === 0) return undefined;

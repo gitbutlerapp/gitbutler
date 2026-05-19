@@ -753,7 +753,7 @@
 	{@const tooLong = tooLongWarning(diff)}
 	{#if tooLong}
 		<div class="unity-warning unity-warning--too-large">
-			<p class="text-13 text-semibold">This Unity diff is too large</p>
+			<p class="text-13 text-semibold">Semantic diff is too large</p>
 			<p class="text-12 clr-text-2">{tooLong.message}</p>
 			{#if onShowRaw}
 				<Button kind="outline" size="tag" onclick={onShowRaw}>Show raw diff</Button>
@@ -761,7 +761,7 @@
 		</div>
 	{:else if !diff || diff.nodes.length === 0}
 		<div class="unity-empty">
-			<p class="text-13 text-semibold">Unity view is not available for this change.</p>
+			<p class="text-13 text-semibold">Semantic view is not available for this change.</p>
 			<p class="text-12 clr-text-2">Raw diff is still available.</p>
 			{#if onShowRaw}
 				<Button kind="outline" size="tag" onclick={onShowRaw}>Show raw diff</Button>
@@ -770,9 +770,9 @@
 	{:else}
 		<div class="unity-summary">
 			<div>
-				<p class="text-13 text-semibold">Unity {fileKindLabel(diff.fileKind)} review</p>
+				<p class="text-13 text-semibold">{fileKindLabel(diff.fileKind)} review</p>
 				<p class="text-12 clr-text-2">
-					Grouped by object and component. Open serialized values only when you need the raw Unity
+					Grouped by object and component. Open serialized values only when you need raw scene
 					values.
 				</p>
 			</div>
@@ -782,7 +782,7 @@
 		</div>
 		{#if diff.warnings.length > 0}
 			<div class="unity-warning">
-				<p class="text-12 text-semibold">Unity view is partial</p>
+				<p class="text-12 text-semibold">Semantic view is partial</p>
 				{#each diff.warnings as warning}
 					<p class="text-12 clr-text-2">
 						{warning.message}{warning.line ? ` near line ${warning.line}` : ""}
@@ -796,7 +796,7 @@
 			{/each}
 			{#if renderedObjectCount < diff.nodes.length}
 				<div class="unity-empty unity-empty--loading-more">
-					<p class="text-12 clr-text-2">Loading Unity objects...</p>
+					<p class="text-12 clr-text-2">Loading objects...</p>
 				</div>
 			{/if}
 		</div>
@@ -805,23 +805,23 @@
 
 {#if !requested}
 	<div class="unity-empty">
-		<p class="text-13 text-semibold">Unity semantic view is paused.</p>
+		<p class="text-13 text-semibold">Semantic view is paused.</p>
 		<p class="text-12 clr-text-2">Load it when you need object-level review.</p>
-		<Button kind="outline" size="tag" onclick={() => loadSemanticDiff()}>Load Unity view</Button>
+		<Button kind="outline" size="tag" onclick={() => loadSemanticDiff()}>Load semantic view</Button>
 		{#if onShowRaw}
 			<Button kind="ghost" size="tag" onclick={onShowRaw}>Show raw diff</Button>
 		{/if}
 	</div>
 {:else if loading}
 	<div class="unity-empty">
-		<p class="text-13 text-semibold">Reading Unity scene...</p>
+		<p class="text-13 text-semibold">Scene is loading...</p>
 		{#if onShowRaw}
 			<Button kind="ghost" size="tag" onclick={onShowRaw}>Show raw diff</Button>
 		{/if}
 	</div>
 {:else if error}
 	<div class="unity-empty">
-		<p class="text-13 text-semibold">Unity view failed to load.</p>
+		<p class="text-13 text-semibold">Semantic view failed to load.</p>
 		<p class="text-12 clr-text-2">{String(error)}</p>
 		<Button kind="outline" size="tag" onclick={() => loadSemanticDiff(true)}>Try again</Button>
 		{#if onShowRaw}

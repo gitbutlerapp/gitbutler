@@ -170,7 +170,7 @@
 />
 
 <svelte:head>
-	<title>YUCP UnityButler (powered by GitButler)</title>
+	<title>YUCP (powered by GitButler)</title>
 </svelte:head>
 
 <div class="app-root" role="application" oncontextmenu={(e) => !dev && e.preventDefault()}>

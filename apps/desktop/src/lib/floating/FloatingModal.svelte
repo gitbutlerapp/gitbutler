@@ -296,12 +296,12 @@
 		border-radius: var(--radius-ml);
 		background: var(--bg-1);
 		box-shadow: var(--fx-shadow-l);
-		animation: slide-in 0.2s ease-out forwards;
+		animation: slide-in var(--motion-duration-overlay) var(--motion-ease-emphasized) forwards;
 	}
 
 	@keyframes slide-in {
 		from {
-			transform: translateY(30px);
+			transform: translateY(var(--motion-distance-md));
 			opacity: 0;
 		}
 		to {
@@ -312,8 +312,8 @@
 
 	.floating-modal.snapping {
 		transition:
-			left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-			top 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+			left var(--motion-duration-layout) var(--motion-ease-standard),
+			top var(--motion-duration-layout) var(--motion-ease-standard);
 	}
 
 	.floating-modal.resizing {

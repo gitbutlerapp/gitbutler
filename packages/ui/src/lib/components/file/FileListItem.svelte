@@ -3,6 +3,7 @@
 	import Button from "$components/Button.svelte";
 	import Checkbox from "$components/Checkbox.svelte";
 	import Icon from "$components/Icon.svelte";
+	import ThemedImage from "$components/ThemedImage.svelte";
 	import Tooltip from "$components/Tooltip.svelte";
 	import AvatarGroup from "$components/avatar/AvatarGroup.svelte";
 	import ExecutableLabel from "$components/file/ExecutableLabel.svelte";
@@ -10,8 +11,11 @@
 	import FileName from "$components/file/FileName.svelte";
 	import FileStatusBadge from "$components/file/FileStatusBadge.svelte";
 	import { focusable } from "$lib/focus/focusable";
+	import { isThemedImageAsset, type ThemedImageAsset } from "$lib/utils/themedImage";
 	import type { FileStatus } from "$components/file/types";
 	import type { FocusableOptions } from "$lib/focus/focusTypes";
+
+	type FileBadge = string | ThemedImageAsset;
 
 	interface Props {
 		ref?: HTMLDivElement;
@@ -41,7 +45,7 @@
 		actionOpts?: FocusableOptions;
 		notched?: boolean;
 		ircWorkingUsers?: string[];
-		badges?: string[];
+		badges?: FileBadge[];
 		oncheckclick?: (e: MouseEvent) => void;
 		oncheck?: (
 			e: Event & {
@@ -186,7 +190,20 @@
 		{/if}
 
 		{#each badges as badge}
-			<Badge kind="soft" style="gray" size="tag">{badge}</Badge>
+			<Badge kind="soft" style="gray" size="tag">
+				{#if isThemedImageAsset(badge)}
+					<ThemedImage
+						lightSrc={badge.lightSrc}
+						darkSrc={badge.darkSrc}
+						alt={badge.alt}
+						width={badge.width}
+						height={badge.height}
+						class={badge.className}
+					/>
+				{:else}
+					{badge}
+				{/if}
+			</Badge>
 		{/each}
 
 		{#if conflicted}

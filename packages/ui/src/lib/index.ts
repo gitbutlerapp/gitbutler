@@ -18,6 +18,8 @@ export { default as ContextMenuSection } from "$components/ContextMenuSection.sv
 export { default as DropdownButton } from "$components/DropdownButton.svelte";
 export { default as EditorLogo } from "$components/EditorLogo.svelte";
 export { default as EmptyStatePlaceholder } from "$components/EmptyStatePlaceholder.svelte";
+export { default as GlossaryText } from "$components/GlossaryText.svelte";
+export { default as GitTerm } from "$components/GitTerm.svelte";
 export { default as HunkDiff, type LineClickParams } from "$components/hunkDiff/HunkDiff.svelte";
 export { default as HunkDiffSkeleton } from "$components/hunkDiff/HunkDiffSkeleton.svelte";
 export { default as Icon, type IconName } from "$components/Icon.svelte";
@@ -53,6 +55,7 @@ export { default as TagInput, type Tag } from "$components/TagInput.svelte";
 export { default as Textarea } from "$components/Textarea.svelte";
 export { default as Textbox } from "$components/Textbox.svelte";
 export { default as EmailTextbox } from "$components/EmailTextbox.svelte";
+export { default as ThemedImage } from "$components/ThemedImage.svelte";
 export { default as TimeAgo } from "$components/TimeAgo.svelte";
 export { default as Timestamp } from "$components/Timestamp.svelte";
 export { default as Toggle } from "$components/Toggle.svelte";
@@ -161,6 +164,7 @@ export {
 } from "$lib/richText/plugins/Mention.svelte";
 export { default as FormattingButton } from "$lib/richText/tools/FormattingButton.svelte";
 export * from "$lib/utils/testIds";
+export type { GitTermKey } from "$lib/utils/gitGlossary";
 
 // Shared types
 export type {

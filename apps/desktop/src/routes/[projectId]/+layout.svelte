@@ -361,12 +361,10 @@
 	}) {
 		const fixes = [];
 		if (outcome.forceTextUpdated) {
-			fixes.push("Set Unity asset serialization to Force Text.");
+			fixes.push("Set scene asset serialization to Force Text.");
 		}
 		if (outcome.unityYamlMergeDriverRemoved) {
-			fixes.push(
-				"Removed the local UnityYAMLMerge merge driver; use git mergetool for Unity conflicts.",
-			);
+			fixes.push("Removed the local merge driver override; use git mergetool for scene conflicts.");
 		}
 		if (outcome.locallyIgnoredPathsAdded > 0) {
 			fixes.push(
@@ -392,9 +390,9 @@
 					invalidatesList(ReduxTag.LocalIgnoredPaths),
 				]),
 			);
-			showInfo("Unity autofix applied", unityAutofixMessage(outcome));
+			showInfo("Project autofix applied", unityAutofixMessage(outcome));
 			if (outcome.remainingHeadsup && localStorage.getItem(dontShowAgainKey) !== "1") {
-				showWarning("Remaining Unity checks", outcome.remainingHeadsup, {
+				showWarning("Remaining project checks", outcome.remainingHeadsup, {
 					label: "Don't show again",
 					onClick: (dismiss) => {
 						localStorage.setItem(dontShowAgainKey, "1");
@@ -403,7 +401,7 @@
 				});
 			}
 		} catch (error: unknown) {
-			showError("Failed to autofix Unity project", error);
+			showError("Failed to autofix project", error);
 		}
 	}
 

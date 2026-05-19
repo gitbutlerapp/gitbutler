@@ -2,7 +2,7 @@
 	import { Icon } from "@gitbutler/ui";
 </script>
 
-<div class="loading"><Icon name="spinner" /></div>
+<div class="loading" aria-busy="true"><Icon name="spinner" /></div>
 
 <style>
 	.loading {

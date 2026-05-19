@@ -3,6 +3,7 @@
 	import FileListConflicts from "$components/files/FileListConflicts.svelte";
 	import FileListItems from "$components/files/FileListItems.svelte";
 	import FileListProvider from "$components/files/FileListProvider.svelte";
+	import YucpBrandWordmark from "$components/shared/YucpBrandWordmark.svelte";
 	import emptyFolderSvg from "$lib/assets/empty-state/empty-folder.svg?raw";
 	import { unityChangeSummary } from "$lib/files/unitySemantic";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
@@ -134,7 +135,10 @@
 								}
 							}}
 						>
-							<span class="text-12 text-semibold">Unity review</span>
+							<span class="text-12 text-semibold unity-summary-strip__label">
+								<YucpBrandWordmark decorative height="0.75rem" />
+								review
+							</span>
 							<span class="text-12 clr-text-2">
 								{unitySummary.scenes} scene{unitySummary.scenes === 1 ? "" : "s"} ·
 								{unitySummary.prefabs} prefab{unitySummary.prefabs === 1 ? "" : "s"}
@@ -220,5 +224,11 @@
 		&:hover {
 			background-color: var(--bg-3);
 		}
+	}
+
+	.unity-summary-strip__label {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
 	}
 </style>

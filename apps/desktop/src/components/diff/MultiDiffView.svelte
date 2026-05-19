@@ -15,6 +15,7 @@
 	import ChangedFilesContextMenu from "$components/shared/ChangedFilesContextMenu.svelte";
 	import Drawer from "$components/shared/Drawer.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
+	import { createYucpLogoBadge } from "$lib/branding/yucpLogo";
 	import { computeChangeStatus } from "$lib/files/fileStatus";
 	import { isUnityPackagePath, isUnitySceneOrPrefabPath } from "$lib/files/unitySemantic";
 	import { isExecutableStatus } from "$lib/hunks/change";
@@ -60,6 +61,7 @@
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const uiState = inject(UI_STATE);
 	const binaryDiff = { type: "Binary" } as const;
+	const yucpBadge = createYucpLogoBadge();
 
 	const allInOneDiff = $derived(uiState.global.allInOneDiff.current);
 	const highlightDiffs = $derived(uiState.global.highlightDiffs.current);
@@ -117,7 +119,7 @@
 	{@const diffData = diffQuery?.response}
 	{@const isExecutable = isExecutableStatus(change.status)}
 	{@const patchData = diffData?.type === "Patch" ? diffData.subject : null}
-	{@const badges = skipRawDiff ? ["Unity"] : []}
+	{@const badges = skipRawDiff ? [yucpBadge] : []}
 	{@const isCollapsed = diffExpandedState.get(change.path) ?? false}
 	<Drawer
 		noshrink

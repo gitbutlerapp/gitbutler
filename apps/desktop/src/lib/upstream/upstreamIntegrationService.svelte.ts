@@ -66,6 +66,14 @@ export class UpstreamIntegrationService {
 		return stackStatusesWithBranches;
 	}
 
+	worktreeConflictPreview(projectId: string, targetCommitOid: string | undefined, path: string) {
+		return this.backendApi.endpoints.worktreeConflictPreview.fetch({
+			projectId,
+			targetCommitOid,
+			path,
+		});
+	}
+
 	resolveUpstreamIntegration() {
 		return this.backendApi.endpoints.resolveUpstreamIntegration.useMutation();
 	}

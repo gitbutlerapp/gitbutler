@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { Icon, type IconName } from "@gitbutler/ui";
+	import { slideFade } from "@gitbutler/ui/utils/transitions";
+	import { fade } from "svelte/transition";
 	import type { Snippet } from "svelte";
 
 	type Props = {
@@ -52,14 +54,18 @@
 		</div>
 
 		{#if summary && !(root && expanded)}
-			<div class="section-summary">
+			<div class="section-summary" transition:fade={{ duration: 120 }}>
 				{@render summary()}
 			</div>
 		{/if}
 	</button>
 
 	{#if expanded && content}
-		<div class="section-content">
+		<div
+			class="section-content"
+			in:slideFade={{ axis: "y", duration: 180 }}
+			out:slideFade={{ axis: "y", duration: 140 }}
+		>
 			{@render content()}
 		</div>
 	{/if}
@@ -72,6 +78,7 @@
 		max-width: 100%;
 		overflow: hidden;
 		gap: 12px;
+		transition: gap var(--transition-medium);
 		user-select: text;
 	}
 

@@ -259,13 +259,13 @@
 					const outcome = await diffService.runUnitySmartMerge({ projectId, path: file.path });
 					const state = await refreshConflictState(file);
 					if (outcome.success && state === "resolved") {
-						showInfo("Unity Smart Merge completed", outcome.message);
+						showInfo("Scene Smart Merge completed", outcome.message);
 						return;
 					}
-					showWarning("Unity Smart Merge needs review", outcome.message);
+					showWarning("Scene Smart Merge needs review", outcome.message);
 				}
 			} catch (error) {
-				showError("Failed to run Unity Smart Merge", error);
+				showError("Failed to run Scene Smart Merge", error);
 			}
 			void unityConflictModal?.show(file.path);
 			return;

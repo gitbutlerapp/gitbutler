@@ -906,6 +906,10 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             but_post(legacy::virtual_branches::integrate_upstream_commits_cmd),
         )
         .route(
+            "/worktree_conflict_preview",
+            but_post_async(legacy::virtual_branches::worktree_conflict_preview_cmd),
+        )
+        .route(
             "/get_initial_integration_steps_for_branch",
             but_post(legacy::virtual_branches::get_initial_integration_steps_for_branch_cmd),
         )
@@ -1627,6 +1631,17 @@ async fn handle_command(
                 Ok(params) => {
                     let result =
                         legacy::virtual_branches::upstream_integration_statuses_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "worktree_conflict_preview" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result =
+                        legacy::virtual_branches::worktree_conflict_preview_cmd(params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),

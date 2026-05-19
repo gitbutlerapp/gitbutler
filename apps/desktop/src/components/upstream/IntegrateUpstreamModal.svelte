@@ -3,9 +3,15 @@
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
-	import UnityConflictResolverModal from "$components/workspace/UnityConflictResolverModal.svelte";
+	import UnityConflictWorkbench from "$components/workspace/UnityConflictWorkbench.svelte";
+	import { createYucpLogoBadge } from "$lib/branding/yucpLogo";
 	import { descriptionTitle } from "$lib/commits/commit";
-	import { isUnityYamlPath } from "$lib/files/unityConflicts";
+	import { FILE_SERVICE } from "$lib/files/fileService";
+	import {
+		isUnityYamlPath,
+		parseUnityConflictDocument,
+		type UnityConflictDocument,
+	} from "$lib/files/unityConflicts";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import {
@@ -24,18 +30,20 @@
 		setBooleanStorageItem,
 	} from "@gitbutler/shared/persisted";
 	import {
+		AsyncButton,
 		Badge,
 		Button,
-		IntegrationSeriesRow,
-		Modal,
+		GlossaryText,
 		FileListItem,
 		Icon,
+		IntegrationSeriesRow,
+		Modal,
 		Select,
 		SelectItem,
 		ScrollableContainer,
-		type BranchShouldBeDeletedMap,
 		TestId,
-		AsyncButton,
+		type BranchShouldBeDeletedMap,
+		type GitTermKey,
 	} from "@gitbutler/ui";
 	import { tick } from "svelte";
 	import { SvelteMap } from "svelte/reactivity";
@@ -48,6 +56,17 @@
 	} from "@gitbutler/but-sdk";
 
 	type OperationState = "inert" | "loading" | "completed";
+	type BaseResolutionOption = {
+		label: string;
+		value: "rebase" | "merge" | "hardReset";
+		glossaryTerms?: readonly GitTermKey[];
+	};
+	type IntegrationOption = {
+		label: string;
+		value: "rebase" | "unapply" | "merge";
+		glossaryTerms?: readonly GitTermKey[];
+	};
+	const yucpBadge = createYucpLogoBadge();
 
 	interface Props {
 		projectId: string;
@@ -61,6 +80,7 @@
 	// const forgeListingService = $derived(forge.current.listService);
 	const backend = inject(BACKEND);
 	const stackService = inject(STACK_SERVICE);
+	const fileService = inject(FILE_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
 	const base = $derived(baseBranchQuery.response);
@@ -71,10 +91,10 @@
 	let integratingUpstream = $state<OperationState>("inert");
 	const results = new SvelteMap<string, Resolution>();
 	let statuses = $state<StackStatusInfoV3[]>([]);
-	const baseResolutionOptions = [
-		{ label: "Rebase", value: "rebase" as const },
-		{ label: "Merge", value: "merge" as const },
-		{ label: "Hard reset", value: "hardReset" as const },
+	const baseResolutionOptions: BaseResolutionOption[] = [
+		{ label: "Rebase", value: "rebase", glossaryTerms: ["rebase"] },
+		{ label: "Merge", value: "merge", glossaryTerms: ["merge"] },
+		{ label: "Hard reset", value: "hardReset", glossaryTerms: ["reset"] },
 	];
 	let baseResolutionApproach = $state<BaseBranchResolutionApproach | undefined>();
 	let targetCommitOid = $state<string | undefined>(undefined);
@@ -84,10 +104,15 @@
 	let gitOperationProgress = $state<GitOperationProgress | undefined>();
 	let gitOperationStartedAt = $state<number | undefined>();
 	let elapsedTick = $state(Date.now());
-	let unityConflictModal = $state<UnityConflictResolverModal | undefined>();
 	let incomingChangesExpanded = $state(true);
 	let conflictsExpanded = $state(true);
 	let selectedIncomingCommitId = $state<string | undefined>();
+	let conflictPreviewModal = $state<Modal>();
+	let conflictPreviewPath = $state("");
+	let conflictPreviewDocument = $state<UnityConflictDocument | undefined>();
+	let conflictPreviewError = $state<string | undefined>();
+	let conflictPreviewLoading = $state(false);
+	let pendingUnityResolutions = $state<Record<string, string>>({});
 	let activeProgress = $derived(
 		activeProgressPercent(workspaceUpdateProgress, gitOperationProgress),
 	);
@@ -299,6 +324,9 @@
 			resolutions: Array.from(results.values()),
 			baseBranchResolution: baseResolution,
 		});
+		for (const [path, content] of Object.entries(pendingUnityResolutions)) {
+			await fileService.writeToWorkspace(path, projectId, content);
+		}
 		await baseBranchService.refreshBaseBranch(projectId);
 		integratingUpstream = "completed";
 		modal?.close();
@@ -434,6 +462,67 @@
 		}
 	}
 
+	function errorMessage(error: unknown): string {
+		if (error instanceof Error) return error.message;
+		if (typeof error === "string") return error;
+		if (error && typeof error === "object" && "message" in error) {
+			const message = (error as { message?: unknown }).message;
+			if (typeof message === "string") return message;
+		}
+		try {
+			return JSON.stringify(error);
+		} catch {
+			return String(error);
+		}
+	}
+
+	async function openUnityConflictPreview(path: string) {
+		conflictPreviewPath = path;
+		conflictPreviewDocument = undefined;
+		conflictPreviewError = undefined;
+		conflictPreviewLoading = true;
+		conflictPreviewModal?.show();
+
+		try {
+			const preview = await upstreamIntegrationService.worktreeConflictPreview(
+				projectId,
+				targetCommitOid,
+				path,
+			);
+			if (!preview?.local || !preview.upstream) {
+				conflictPreviewError = "GitButler could not load the local and upstream versions.";
+				return;
+			}
+			const conflictContent = [
+				"<<<<<<< local\n",
+				preview.local,
+				preview.local.endsWith("\n") ? "" : "\n",
+				"=======\n",
+				preview.upstream,
+				preview.upstream.endsWith("\n") ? "" : "\n",
+				">>>>>>> upstream\n",
+			].join("");
+			const document = parseUnityConflictDocument(path, conflictContent);
+			if (!document) {
+				conflictPreviewError = "GitButler could not build a scene conflict preview for this file.";
+				return;
+			}
+			conflictPreviewDocument = document;
+		} catch (error) {
+			conflictPreviewError = errorMessage(error);
+		} finally {
+			conflictPreviewLoading = false;
+		}
+	}
+
+	function handlePreviewResolution(resolvedContent: string) {
+		pendingUnityResolutions = {
+			...pendingUnityResolutions,
+			[conflictPreviewPath]: resolvedContent,
+		};
+		void conflictPreviewModal?.close();
+	}
+
 	// async function fetchAppliedBranches() {
 	// 	const stacksResponse = await stackService.fetchStacks(projectId);
 	// 	return stacksResponse.data?.flatMap((stack) => stack.heads.map((head) => head.name)) ?? [];
@@ -444,6 +533,7 @@
 		loadingStatuses = true;
 		branchStatuses = undefined;
 		filteredReviews = [];
+		pendingUnityResolutions = {};
 		startLocalProgress(
 			"upstreamStatus",
 			"stacks",
@@ -534,19 +624,17 @@
 		results.set(stackId, { ...result, deleteIntegratedBranches: shouldBeDeleted });
 	}
 
-	function integrationOptions(
-		stackStatus: StackStatus,
-	): { label: string; value: "rebase" | "unapply" | "merge" }[] {
+	function integrationOptions(stackStatus: StackStatus): IntegrationOption[] {
 		if (stackStatus.branchStatuses.length > 1) {
 			return [
-				{ label: "Rebase", value: "rebase" },
-				{ label: "Stash", value: "unapply" },
+				{ label: "Rebase", value: "rebase", glossaryTerms: ["rebase"] },
+				{ label: "Stash", value: "unapply", glossaryTerms: ["stash"] },
 			];
 		} else {
 			return [
-				{ label: "Rebase", value: "rebase" },
-				{ label: "Merge", value: "merge" },
-				{ label: "Stash", value: "unapply" },
+				{ label: "Rebase", value: "rebase", glossaryTerms: ["rebase"] },
+				{ label: "Merge", value: "merge", glossaryTerms: ["merge"] },
+				{ label: "Stash", value: "unapply", glossaryTerms: ["stash"] },
 			];
 		}
 	}
@@ -573,7 +661,10 @@
 			>
 				{#snippet itemSnippet({ item, highlighted })}
 					<SelectItem selected={highlighted} {highlighted}>
-						{item.label}
+						<GlossaryText
+							text={item.label ?? ""}
+							terms={item.glossaryTerms as readonly GitTermKey[] | undefined}
+						/>
 					</SelectItem>
 				{/snippet}
 			</Select>
@@ -701,8 +792,10 @@
 				</button>
 				{#if conflictsExpanded}
 					<p class="text-12 clr-text-2">
-						These local files overlap with incoming changes. Updating will write conflict markers
-						into them. Click a Unity file to inspect and resolve the conflict details.
+						<GlossaryText
+							text="These local files overlap with incoming changes. Updating will write conflict markers into unresolved files. Scene files can be previewed and resolved before updating."
+							terms={["merge-conflict"]}
+						/>
 					</p>
 					<div class="scroll-wrap">
 						<ScrollableContainer maxHeight="15rem">
@@ -714,18 +807,20 @@
 										listMode="list"
 										filePath={file}
 										clickable={isUnityConflict}
-										badges={isUnityConflict ? ["Unity"] : []}
+										badges={isUnityConflict ? [yucpBadge] : []}
 										conflicted
 										isLast
 										onclick={isUnityConflict
 											? () => {
-													void unityConflictModal?.show(file);
+													void openUnityConflictPreview(file);
 												}
 											: undefined}
 									/>
 									<div class="conflict-action">
 										{#if isUnityConflict}
-											<span class="text-11 clr-text-2">Click to inspect</span>
+											<span class="text-11 clr-text-2">
+												{pendingUnityResolutions[file] ? "Resolution ready" : "Click to resolve"}
+											</span>
 										{:else}
 											<span class="text-11 clr-text-2">Conflict markers only</span>
 										{/if}
@@ -760,7 +855,10 @@
 					>
 						{#snippet itemSnippet({ item, highlighted })}
 							<SelectItem selected={highlighted} {highlighted}>
-								{item.label}
+								<GlossaryText
+									text={item.label ?? ""}
+									terms={item.glossaryTerms as readonly GitTermKey[] | undefined}
+								/>
 							</SelectItem>
 						{/snippet}
 					</Select>
@@ -871,13 +969,28 @@
 	{/snippet}
 </Modal>
 
-<UnityConflictResolverModal
-	bind:this={unityConflictModal}
-	{projectId}
-	onResolved={() => {
-		modal?.close();
-	}}
-/>
+<Modal bind:this={conflictPreviewModal} title="Resolve scene conflict" width={960} noPadding>
+	{#snippet children(_, close)}
+		<div class="unity-preview-modal">
+			{#if conflictPreviewLoading}
+				<p class="text-13 text-body unity-preview-modal__state">Loading conflict preview…</p>
+			{:else if conflictPreviewError}
+				<div class="unity-preview-modal__state">
+					<p class="text-13 text-body">{conflictPreviewError}</p>
+					<div class="unity-preview-modal__actions">
+						<Button kind="outline" onclick={close}>Close</Button>
+					</div>
+				</div>
+			{:else if conflictPreviewDocument}
+				<UnityConflictWorkbench
+					filePath={conflictPreviewPath}
+					document={conflictPreviewDocument}
+					onApply={handlePreviewResolution}
+				/>
+			{/if}
+		</div>
+	{/snippet}
+</Modal>
 
 <style>
 	/* INCOMING CHANGES */
@@ -1028,6 +1141,15 @@
 		grid-template-columns: minmax(0, 1fr) auto;
 		border-bottom: 1px solid var(--border-3);
 		background-color: var(--bg-danger);
+		transition: background-color var(--transition-fast);
+
+		&:hover {
+			background-color: var(--hover-danger-bg);
+		}
+
+		&:hover :global(.file-list-item) {
+			background-color: var(--hover-danger-bg);
+		}
 
 		&.is-last {
 			border-bottom: none;
@@ -1039,6 +1161,24 @@
 		align-items: center;
 		padding: 0 10px;
 		gap: 8px;
+	}
+
+	.unity-preview-modal {
+		max-height: 80vh;
+		padding: 16px;
+		overflow: auto;
+	}
+
+	.unity-preview-modal__state {
+		display: flex;
+		flex-direction: column;
+		padding: 16px;
+		gap: 16px;
+	}
+
+	.unity-preview-modal__actions {
+		display: flex;
+		justify-content: flex-end;
 	}
 
 	/* DIVERGANCE */

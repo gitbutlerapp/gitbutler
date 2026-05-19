@@ -5,6 +5,7 @@
 	import LineLocksWarning from "$components/diff/LineLocksWarning.svelte";
 	import UnitySemanticDiffView from "$components/diff/UnitySemanticDiffView.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
+	import YucpBrandWordmark from "$components/shared/YucpBrandWordmark.svelte";
 	import binarySvg from "$lib/assets/empty-state/binary.svg?raw";
 	import emptyFileSvg from "$lib/assets/empty-state/empty-file.svg?raw";
 	import tooLargeSvg from "$lib/assets/empty-state/too-large.svg?raw";
@@ -252,13 +253,13 @@
 		{:else if diff.type === "Patch"}
 			{@const linesModified = diff.subject.linesAdded + diff.subject.linesRemoved}
 			{#if isUnitySemanticPath}
-				<div class="unity-mode-toggle" role="group" aria-label="Unity diff mode">
+				<div class="unity-mode-toggle" role="group" aria-label="Semantic diff mode">
 					<button
 						type="button"
 						class:active={unityViewMode === "unity"}
 						onclick={() => (unityViewMode = "unity")}
 					>
-						Unity
+						<YucpBrandWordmark decorative height="0.75rem" />
 					</button>
 					<button
 						type="button"

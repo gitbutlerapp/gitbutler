@@ -189,6 +189,26 @@ pub fn upstream_integration_statuses(
     upstream_integration::upstream_integration_statuses(&context)
 }
 
+pub fn worktree_conflict_preview(
+    ctx: &mut Context,
+    target_commit_oid: Option<gix::ObjectId>,
+    path: &str,
+    review_map: &std::collections::HashMap<String, but_forge::ForgeReview>,
+) -> Result<Option<upstream_integration::WorktreeConflictPreview>> {
+    let mut guard = ctx.exclusive_worktree_access();
+
+    let repo = ctx.repo.get()?;
+    let context = UpstreamIntegrationContext::open(
+        ctx,
+        target_commit_oid,
+        guard.write_permission(),
+        &repo,
+        review_map,
+    )?;
+
+    upstream_integration::worktree_conflict_preview(&context, path)
+}
+
 pub fn integrate_upstream(
     ctx: &mut Context,
     resolutions: &[Resolution],

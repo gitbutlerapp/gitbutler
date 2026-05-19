@@ -7,7 +7,14 @@
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { AsyncButton, RadioButton, FileListItem, Link } from "@gitbutler/ui";
+	import {
+		AsyncButton,
+		FileListItem,
+		GlossaryText,
+		Link,
+		RadioButton,
+		type GitTermKey,
+	} from "@gitbutler/ui";
 	import type { BaseBranch } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
 
@@ -46,11 +53,17 @@
 	let selectedHandlingOfUncommitted: OptionsType = $state("stash");
 	let doStash = $derived(selectedHandlingOfUncommitted === "stash");
 
-	let handlingOptions: { label: string; value: OptionsType; selectable: boolean }[] = $derived([
+	let handlingOptions: {
+		label: string;
+		value: OptionsType;
+		selectable: boolean;
+		glossaryTerms?: readonly GitTermKey[];
+	}[] = $derived([
 		{
 			label: "Stash",
 			value: "stash",
 			selectable: true,
+			glossaryTerms: ["stash"],
 		},
 		{
 			label: "Bring to Workspace",
@@ -82,8 +95,10 @@
 				</p>
 
 				<p class="switchrepo__message text-13 text-body">
-					Due to GitButler managing multiple virtual branches, you cannot switch back and forth
-					between git branches and virtual branches easily.
+					<GlossaryText
+						text="Due to GitButler managing multiple virtual branches, you cannot switch back and forth between git branches and virtual branches easily."
+						terms={["branch"]}
+					/>
 					<Link href="https://docs.gitbutler.com/features/branch-management/integration-branch">
 						Learn more
 					</Link>
@@ -146,7 +161,9 @@
 										}}
 										checked={selectedHandlingOfUncommitted === item.value}
 									/>
-									<p class="text-13 text-body">{item.label}</p>
+									<p class="text-13 text-body">
+										<GlossaryText text={item.label} terms={item.glossaryTerms} />
+									</p>
 								</label>
 							{/each}
 						</div>

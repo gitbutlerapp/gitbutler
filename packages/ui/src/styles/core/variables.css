@@ -1,8 +1,23 @@
 /* CSS VARIABLES */
 :root {
-	--transition-fast: 0.05s ease;
-	--transition-medium: 0.15s ease;
-	--transition-slow: 0.2s ease;
+	--motion-duration-instant: 1ms;
+	--motion-duration-fast: 120ms;
+	--motion-duration-medium: 180ms;
+	--motion-duration-slow: 240ms;
+	--motion-duration-overlay: 220ms;
+	--motion-duration-overlay-exit: 160ms;
+	--motion-duration-layout: 200ms;
+	--motion-duration-loading: 900ms;
+	--motion-distance-xs: 4px;
+	--motion-distance-sm: 6px;
+	--motion-distance-md: 12px;
+	--motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+	--motion-ease-emphasized: cubic-bezier(0.2, 0.9, 0.25, 1);
+	--motion-ease-accelerate: cubic-bezier(0.3, 0, 1, 1);
+	--motion-ease-decelerate: cubic-bezier(0, 0, 0, 1);
+	--transition-fast: var(--motion-duration-fast) var(--motion-ease-standard);
+	--transition-medium: var(--motion-duration-medium) var(--motion-ease-standard);
+	--transition-slow: var(--motion-duration-slow) var(--motion-ease-standard);
 
 	/* Z-index */
 	--z-ground: 1;

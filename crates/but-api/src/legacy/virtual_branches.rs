@@ -694,6 +694,34 @@ pub async fn upstream_integration_statuses(
 
 #[but_api]
 #[instrument(err(Debug))]
+pub async fn worktree_conflict_preview(
+    ctx: ThreadSafeContext,
+    target_commit_id: Option<gix::ObjectId>,
+    path: String,
+) -> Result<Option<gitbutler_branch_actions::upstream_integration::WorktreeConflictPreview>> {
+    let (base_branch, commit_id, sync_ctx) = {
+        let ctx = ctx.into_thread_local();
+        let guard = ctx.shared_worktree_access();
+
+        (
+            gitbutler_branch_actions::base::get_base_branch_data(&ctx, guard.read_permission())?,
+            target_commit_id,
+            ctx.into_sync(),
+        )
+    };
+
+    let resolved_reviews = resolve_review_map(sync_ctx.clone(), &base_branch).await?;
+    let mut ctx = sync_ctx.into_thread_local();
+    gitbutler_branch_actions::worktree_conflict_preview(
+        &mut ctx,
+        commit_id,
+        &path,
+        &resolved_reviews,
+    )
+}
+
+#[but_api]
+#[instrument(err(Debug))]
 pub async fn integrate_upstream(
     ctx: ThreadSafeContext,
     resolutions: Vec<Resolution>,

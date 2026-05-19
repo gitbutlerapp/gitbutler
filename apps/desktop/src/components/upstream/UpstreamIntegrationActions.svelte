@@ -3,7 +3,7 @@
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { persisted } from "@gitbutler/shared/persisted";
-	import { Button, Modal, RadioButton, TestId } from "@gitbutler/ui";
+	import { Button, GlossaryText, Modal, RadioButton, TestId, type GitTermKey } from "@gitbutler/ui";
 
 	type IntegrationMode = "rebase" | "interactive";
 
@@ -59,12 +59,20 @@
 
 <BranchIntegrationModal bind:modalRef={integrationModal} {projectId} {stackId} {branchName} />
 
-{#snippet integrationRadioOption(mode: IntegrationMode, title: string, description: string)}
+{#snippet integrationRadioOption(
+	mode: IntegrationMode,
+	title: string,
+	description: string,
+	titleTerms: readonly GitTermKey[] = [],
+	descriptionTerms: readonly GitTermKey[] = [],
+)}
 	<label class="integration-radio-option" class:selected={$integrationMode === mode}>
 		<div class="integration-radio-content">
-			<h4 class="text-13 text-semibold">{title}</h4>
+			<h4 class="text-13 text-semibold">
+				<GlossaryText text={title} terms={titleTerms} />
+			</h4>
 			<p class="text-11 text-body clr-text-2">
-				{description}
+				<GlossaryText text={description} terms={descriptionTerms} />
 			</p>
 		</div>
 		<RadioButton
@@ -89,11 +97,15 @@
 			"rebase",
 			"Rebase upstream changes",
 			"Place local-only changes on top, then the upstream changes. Similar to git pull --rebase.",
+			["rebase", "upstream"],
+			["upstream", "pull", "rebase"],
 		)}
 		{@render integrationRadioOption(
 			"interactive",
 			"Interactive integration",
 			"Review and resolve any conflicts before completing the integration.",
+			[],
+			["merge-conflict"],
 		)}
 	</div>
 
@@ -103,7 +115,7 @@
 		disabled={integrating.current.isLoading}
 		testId={TestId.UpstreamCommitsIntegrateButton}
 	>
-		{getLabelForIntegrationMode($integrationMode)}
+		<GlossaryText text={getLabelForIntegrationMode($integrationMode)} terms={["rebase"]} />
 	</Button>
 </form>
 

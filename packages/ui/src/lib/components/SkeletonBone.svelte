@@ -30,15 +30,36 @@
 
 <style lang="postcss">
 	.skeleton-bone {
-		animation: pulse 0.8s ease-in-out infinite alternate;
+		position: relative;
+		overflow: hidden;
+		animation: skeleton-pulse var(--motion-duration-loading) var(--motion-ease-standard) infinite
+			alternate;
 	}
 
-	@keyframes pulse {
+	.skeleton-bone::after {
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+		content: "";
+		animation: skeleton-shimmer calc(var(--motion-duration-loading) * 1.6)
+			var(--motion-ease-decelerate) infinite;
+	}
+
+	@keyframes skeleton-pulse {
 		0% {
 			opacity: var(--opacity-value);
 		}
 		100% {
 			opacity: calc(var(--opacity-value) + var(--opacity-value) * 0.7);
+		}
+	}
+
+	@keyframes skeleton-shimmer {
+		from {
+			transform: translateX(-100%);
+		}
+		to {
+			transform: translateX(100%);
 		}
 	}
 </style>

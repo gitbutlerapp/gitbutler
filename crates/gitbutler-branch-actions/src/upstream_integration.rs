@@ -1,4 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    io::Write,
+    process::{Command, Stdio},
+};
 
 use anyhow::{Context as _, Result, bail};
 use bstr::ByteSlice;
@@ -81,6 +85,16 @@ pub enum StackStatuses {
 }
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(StackStatuses);
+
+#[derive(Serialize, PartialEq, Debug)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeConflictPreview {
+    pub path: String,
+    pub base: Option<String>,
+    pub local: Option<String>,
+    pub upstream: Option<String>,
+}
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -777,6 +791,173 @@ pub(crate) fn integrate_upstream(
     deleted_branches.dedup();
 
     Ok(IntegrationOutcome { deleted_branches })
+}
+
+pub fn worktree_conflict_preview(
+    context: &UpstreamIntegrationContext,
+    path: &str,
+) -> Result<Option<WorktreeConflictPreview>> {
+    let repo = context.ctx.repo.get()?;
+    let stacks_in_workspace = &context.stacks_in_workspace;
+    let heads = stacks_in_workspace
+        .iter()
+        .map(|stack| stack.tip)
+        .chain(std::iter::once(context.new_target))
+        .collect::<Vec<_>>();
+    let merge_base_tree = repo
+        .merge_base_octopus(heads)?
+        .object()?
+        .into_commit()
+        .tree_id()?;
+    #[expect(deprecated, reason = "calls repo.create_wd_tree")]
+    let workdir_tree = repo.create_wd_tree(gitbutler_project::AUTO_TRACK_LIMIT_BYTES)?;
+    let target_tree = repo.find_commit(context.new_target)?.tree_id()?;
+    let (merge_options_fail_fast, _conflict_kind) = repo.merge_options_no_rewrites_fail_fast()?;
+    let merge = repo.merge_trees(
+        merge_base_tree,
+        workdir_tree,
+        target_tree,
+        repo.default_merge_labels(),
+        merge_options_fail_fast,
+    )?;
+
+    let normalized_path = path.replace('\\', "/");
+    let Some(conflict) = merge.conflicts.iter().find(|conflict| {
+        conflict.ours.location().to_str_lossy().as_ref() == normalized_path
+    }) else {
+        return Ok(None);
+    };
+
+    let [base, local, upstream] = conflict.entries();
+    let base = if let Some(entry) = base {
+        let object = repo.find_object(entry.id)?;
+        Some(materialize_preview_content(
+            &repo,
+            &normalized_path,
+            PreviewSide::Base,
+            &String::from_utf8_lossy(&object.into_blob().data),
+        )?)
+    } else {
+        None
+    };
+    let local = if let Some(entry) = local {
+        let object = repo.find_object(entry.id)?;
+        Some(materialize_preview_content(
+            &repo,
+            &normalized_path,
+            PreviewSide::Local,
+            &String::from_utf8_lossy(&object.into_blob().data),
+        )?)
+    } else {
+        None
+    };
+    let upstream = if let Some(entry) = upstream {
+        let object = repo.find_object(entry.id)?;
+        Some(materialize_preview_content(
+            &repo,
+            &normalized_path,
+            PreviewSide::Upstream,
+            &String::from_utf8_lossy(&object.into_blob().data),
+        )?)
+    } else {
+        None
+    };
+    Ok(Some(WorktreeConflictPreview {
+        path: path.to_owned(),
+        base,
+        local,
+        upstream,
+    }))
+}
+
+enum PreviewSide {
+    Base,
+    Local,
+    Upstream,
+}
+
+fn materialize_preview_content(
+    repo: &gix::Repository,
+    path: &str,
+    side: PreviewSide,
+    content: &str,
+) -> Result<String> {
+    if !is_git_lfs_pointer(content) {
+        return Ok(content.to_owned());
+    }
+
+    if matches!(side, PreviewSide::Local) {
+        if let Some(workdir) = repo.workdir() {
+            let worktree_content = std::fs::read_to_string(workdir.join(path)).with_context(|| {
+                format!(
+                    "Failed to read local Unity file {}",
+                    workdir.join(path).display()
+                )
+            })?;
+            if !is_git_lfs_pointer(&worktree_content) {
+                return Ok(worktree_content);
+            }
+        }
+    }
+
+    smudge_lfs_pointer(repo, path, content)
+}
+
+fn is_git_lfs_pointer(content: &str) -> bool {
+    let mut lines = content.lines();
+    matches!(
+        lines.next(),
+        Some("version https://git-lfs.github.com/spec/v1")
+    ) && lines.any(|line| line.starts_with("oid sha256:"))
+}
+
+fn smudge_lfs_pointer(repo: &gix::Repository, path: &str, pointer: &str) -> Result<String> {
+    let workdir = repo
+        .workdir()
+        .context("Git LFS Unity conflict previews require a worktree")?;
+    let mut child = Command::new("git")
+        .arg("lfs")
+        .arg("smudge")
+        .arg("--")
+        .arg(path)
+        .current_dir(workdir)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .context("Failed to start git lfs smudge for Unity conflict preview")?;
+
+    {
+        let stdin = child
+            .stdin
+            .as_mut()
+            .context("Failed to open git lfs smudge stdin")?;
+        stdin
+            .write_all(pointer.as_bytes())
+            .context("Failed to send Git LFS pointer to smudge")?;
+    }
+
+    let output = child
+        .wait_with_output()
+        .context("Failed to finish git lfs smudge for Unity conflict preview")?;
+    if !output.status.success() {
+        bail!(
+            "Git LFS could not load {} for Unity conflict preview: {}",
+            path,
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+
+    let content = String::from_utf8(output.stdout)
+        .context("Git LFS returned non-UTF-8 content for Unity conflict preview")?;
+    if is_git_lfs_pointer(&content) {
+        bail!(
+            "Git LFS returned another pointer for {}; run `git lfs pull --include=\"{}\"` and try again.",
+            path,
+            path
+        );
+    }
+    Ok(content)
 }
 
 pub(crate) fn resolve_upstream_integration(

@@ -5,7 +5,7 @@
 	import { isTreeChange } from "$lib/hunks/change";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { AsyncButton, Button, Modal } from "@gitbutler/ui";
+	import { AsyncButton, Button, GitTerm, GlossaryText, Modal } from "@gitbutler/ui";
 	import type { TreeChange } from "@gitbutler/but-sdk";
 
 	type ChangedFilesItem = {
@@ -84,15 +84,19 @@
 					{:else}
 						Your selected changes
 					{/if}
-					will be moved to a new branch and removed from your current workspace. To get these changes
-					back later, switch to the new branch and uncommit the stash.
+					will be moved to a new <GitTerm term="branch">branch</GitTerm> and removed from your current
+					workspace. To get these changes back later, switch to the new
+					<GitTerm term="branch">branch</GitTerm> and uncommit the
+					<GitTerm term="stash">stash</GitTerm>.
 				</p>
 			</div>
 
 			<div class="technical-note">
 				<p class="text-12 text-body clr-text-2">
-					💡 This creates a new branch, commits your changes, then unapplies the branch. Future
-					versions will have simpler stash management.
+					💡 <GlossaryText
+						text="This creates a new branch, commits your changes, then unapplies the branch. Future versions will have simpler stash management."
+						terms={["branch", "commit", "stash"]}
+					/>
 				</p>
 			</div>
 		</div>
@@ -107,7 +111,7 @@
 				if (isChangedFilesItem(item)) await confirmStashIntoBranch(item, normalizedRefName);
 			}}
 		>
-			Stash into branch
+			<GlossaryText text="Stash into branch" terms={["stash", "branch"]} />
 		</AsyncButton>
 	{/snippet}
 </Modal>

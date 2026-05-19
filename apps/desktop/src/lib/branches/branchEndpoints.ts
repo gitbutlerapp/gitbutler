@@ -8,6 +8,7 @@ import {
 import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
 import type { ForgeProvider, RemoteBranchInfo } from "$lib/baseBranch/baseBranch";
 import type { BackendEndpointBuilder } from "$lib/state/backendApi";
+import type { WorktreeConflictPreview } from "$lib/upstream/types";
 import type { BaseBranch } from "@gitbutler/but-sdk";
 import type {
 	BaseBranchResolution,
@@ -110,6 +111,13 @@ export function buildBranchEndpoints(build: BackendEndpointBuilder) {
 			extraOptions: { command: "upstream_integration_statuses" },
 			query: (args) => args,
 			providesTags: [providesList(ReduxTag.UpstreamIntegrationStatus)],
+		}),
+		worktreeConflictPreview: build.query<
+			WorktreeConflictPreview | null,
+			{ projectId: string; targetCommitOid?: string; path: string }
+		>({
+			extraOptions: { command: "worktree_conflict_preview" },
+			query: (args) => args,
 		}),
 		integrateUpstream: build.mutation<
 			IntegrationOutcome,

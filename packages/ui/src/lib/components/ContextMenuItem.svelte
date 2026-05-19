@@ -11,7 +11,8 @@
 	interface Props {
 		icon?: IconName;
 		emoji?: string;
-		label: string;
+		label?: string;
+		labelSnippet?: Snippet;
 		disabled?: boolean;
 		selected?: boolean;
 		control?: Snippet;
@@ -25,7 +26,8 @@
 		onclick,
 		icon,
 		emoji,
-		label,
+		label = "",
+		labelSnippet,
 		disabled,
 		selected = false,
 		control,
@@ -79,7 +81,11 @@
 		{/if}
 
 		<span class="menu-item__label text-12">
-			{label}
+			{#if labelSnippet}
+				{@render labelSnippet()}
+			{:else}
+				{label}
+			{/if}
 		</span>
 		{#if keyboardShortcut}
 			<span class="menu-item__shortcut text-12">

@@ -1,15 +1,14 @@
 <script lang="ts">
 	import { focusable } from "$lib/focus/focusable";
 	import { menuManager } from "$lib/utils/menuManager";
+	import { motionDurations } from "$lib/utils/motion";
 	import { portal } from "$lib/utils/portal";
+	import { flyScale } from "$lib/utils/transitions";
 	import { onMount, setContext, onDestroy, tick } from "svelte";
 	import { type Snippet } from "svelte";
 
 	// Context key for submenu coordination
 	const SUBMENU_CONTEXT_KEY = "contextmenu-submenu-coordination";
-
-	// Constants
-	const ANIMATION_SHIFT = "6px";
 
 	interface Props {
 		testId?: string;
@@ -243,6 +242,16 @@
 		}
 	}
 
+	function getTransitionOptions(duration: number) {
+		return {
+			duration,
+			position: side,
+			start: 0.96,
+			x: side === "left" || side === "right" ? 6 : 0,
+			y: side === "top" || side === "bottom" ? 6 : 0,
+		} as const;
+	}
+
 	// Close on any scroll event (use capture since scroll doesn't bubble).
 	$effect(() => {
 		function onScroll(e: Event) {
@@ -293,14 +302,11 @@
 		class:bottom-oriented={side === "bottom"}
 		class:left-oriented={side === "left"}
 		class:right-oriented={side === "right"}
+		in:flyScale={getTransitionOptions(motionDurations.overlay)}
+		out:flyScale={getTransitionOptions(motionDurations.overlayExit)}
 		style:top="{menuPosition.y}px"
 		style:left="{menuPosition.x}px"
 		style:transform-origin={getTransformOrigin()}
-		style:--animation-transform-y-shift={side === "top"
-			? ANIMATION_SHIFT
-			: side === "bottom"
-				? `-${ANIMATION_SHIFT}`
-				: "0"}
 		role="menu"
 	>
 		{@render children?.()}
@@ -337,21 +343,5 @@
 		outline: none;
 		background: var(--bg-2);
 		box-shadow: var(--fx-shadow-l);
-		animation: fadeIn 0.08s ease-out forwards;
-		pointer-events: none;
-	}
-	@keyframes fadeIn {
-		0% {
-			transform: translateY(var(--animation-transform-y-shift)) scale(0.9);
-			opacity: 0;
-		}
-		50% {
-			opacity: 1;
-		}
-		100% {
-			transform: scale(1);
-			opacity: 1;
-			pointer-events: all;
-		}
 	}
 </style>

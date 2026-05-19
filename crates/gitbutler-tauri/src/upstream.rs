@@ -437,6 +437,20 @@ pub async fn upstream_integration_statuses(
 }
 
 #[tauri::command(async)]
+#[instrument(err(Debug))]
+#[allow(non_snake_case)]
+pub async fn worktree_conflict_preview(
+    projectId: ProjectHandleOrLegacyProjectId,
+    targetCommitOid: Option<gix::ObjectId>,
+    path: String,
+) -> Result<Option<gitbutler_branch_actions::upstream_integration::WorktreeConflictPreview>, json::Error>
+{
+    let ctx = ThreadSafeContext::try_from(projectId.clone())?;
+    let result = virtual_branches::worktree_conflict_preview(ctx, targetCommitOid, path).await;
+    result.map_err(Into::into)
+}
+
+#[tauri::command(async)]
 #[instrument(skip(window), err(Debug))]
 #[allow(non_snake_case)]
 pub async fn integrate_upstream(

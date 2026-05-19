@@ -18,6 +18,13 @@ export type StackStatusesWithBranchesV3 =
 			subject: StackStatusInfoV3[];
 	  };
 
+export type WorktreeConflictPreview = {
+	path: string;
+	base?: string | null;
+	local?: string | null;
+	upstream?: string | null;
+};
+
 export function stackFullyIntegrated(stackStatus: StackStatus): boolean {
 	return (
 		stackStatus.branchStatuses.every((branchStatus) => branchStatus.status.type === "integrated") &&

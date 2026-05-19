@@ -3,10 +3,14 @@
 	import Button from "$components/Button.svelte";
 	import Icon from "$components/Icon.svelte";
 	import LineStats from "$components/LineStats.svelte";
+	import ThemedImage from "$components/ThemedImage.svelte";
 	import ExecutableLabel from "$components/file/ExecutableLabel.svelte";
 	import FileName from "$components/file/FileName.svelte";
 	import FileStatusBadge from "$components/file/FileStatusBadge.svelte";
+	import { isThemedImageAsset, type ThemedImageAsset } from "$lib/utils/themedImage";
 	import type { FileStatus } from "$components/file/types";
+
+	type FileBadge = string | ThemedImageAsset;
 
 	interface Props {
 		id?: string;
@@ -20,7 +24,7 @@
 		executable?: boolean;
 		noPaddings?: boolean;
 		pathFirst?: boolean;
-		badges?: string[];
+		badges?: FileBadge[];
 		class?: string;
 		oncontextmenu?: (e: MouseEvent) => void;
 		oncloseclick?: () => void;
@@ -79,7 +83,20 @@
 		{/if}
 
 		{#each badges as badge}
-			<Badge kind="soft" style="gray">{badge}</Badge>
+			<Badge kind="soft" style="gray">
+				{#if isThemedImageAsset(badge)}
+					<ThemedImage
+						lightSrc={badge.lightSrc}
+						darkSrc={badge.darkSrc}
+						alt={badge.alt}
+						width={badge.width}
+						height={badge.height}
+						class={badge.className}
+					/>
+				{:else}
+					{badge}
+				{/if}
+			</Badge>
 		{/each}
 
 		{#if fileStatus}

@@ -41,7 +41,6 @@ describe("IntegrateUpstreamModal", () => {
 	beforeEach(() => {
 		injectMap.clear();
 		injectMap.set(FILE_SERVICE, {
-			readFromWorkspace: vi.fn(),
 			writeToWorkspace: vi.fn(),
 		});
 	});
@@ -109,11 +108,6 @@ describe("IntegrateUpstreamModal", () => {
 		});
 		injectMap.set(URL_SERVICE, { openExternalUrl: vi.fn() });
 		injectMap.set(CLIPBOARD_SERVICE, { write: vi.fn() });
-		injectMap.set(FILE_SERVICE, {
-			readFromWorkspace: vi.fn(),
-			writeToWorkspace: vi.fn(),
-		});
-
 		const user = userEvent.setup();
 		const { component } = render(IntegrateUpstreamModal, {
 			props: {
@@ -231,25 +225,9 @@ describe("IntegrateUpstreamModal", () => {
 		await showPromise;
 	});
 
-	test("opens Unity conflict resolver when clicking a conflict", async () => {
+	test("shows predicted scene conflicts as clickable previews", async () => {
 		const listen = vi.fn(() => async () => {});
 		const integrateMutation = vi.fn().mockResolvedValue({ deletedBranches: [] });
-		const conflictStart = "<<<<<<< ours";
-		const conflictMiddle = "=======";
-		const conflictEnd = ">>>>>>> theirs";
-		const readFromWorkspace = vi.fn().mockResolvedValue({
-			data: {
-				content: `%YAML 1.1
---- !u!1 &1200
-GameObject:
-${conflictStart}
-  m_Name: Local
-${conflictMiddle}
-  m_Name: Remote
-${conflictEnd}
-`,
-			},
-		});
 
 		injectMap.set(BACKEND, { listen });
 		injectMap.set(BASE_BRANCH_SERVICE, {
@@ -269,16 +247,13 @@ ${conflictEnd}
 			}),
 			integrateUpstream: () => [integrateMutation],
 			resolveUpstreamIntegrationMutation: vi.fn(),
+			worktreeConflictPreview: vi.fn(),
 		});
 		injectMap.set(STACK_SERVICE, {
 			commitChanges: vi.fn(() => ({ response: undefined })),
 		});
 		injectMap.set(URL_SERVICE, { openExternalUrl: vi.fn() });
 		injectMap.set(CLIPBOARD_SERVICE, { write: vi.fn() });
-		injectMap.set(FILE_SERVICE, {
-			readFromWorkspace,
-			writeToWorkspace: vi.fn(),
-		});
 
 		const user = userEvent.setup();
 		const { component } = render(IntegrateUpstreamModal, {
@@ -288,10 +263,10 @@ ${conflictEnd}
 		});
 
 		await (component as { show: () => Promise<void> }).show();
-		await user.click(await screen.findByText("dealers.unity"));
 
-		expect(await screen.findByText("Unity Scene Resolver")).toBeInTheDocument();
-		expect(readFromWorkspace).toHaveBeenCalledWith("Assets/Scenes/dealers.unity", "project-1");
+		expect(await screen.findByText("dealers.unity")).toBeInTheDocument();
+		expect(screen.getByText("Click to resolve")).toBeInTheDocument();
+		expect(screen.queryByText("scene resolver")).not.toBeInTheDocument();
 	});
 
 	test("expands incoming commits to show touched files", async () => {

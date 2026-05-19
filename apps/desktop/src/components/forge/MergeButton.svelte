@@ -5,9 +5,15 @@
 	import { inject } from "@gitbutler/core/context";
 	import { persisted, type Persisted } from "@gitbutler/shared/persisted";
 
-	import { ContextMenuItem, ContextMenuSection, DropdownButton } from "@gitbutler/ui";
+	import {
+		ContextMenuItem,
+		ContextMenuSection,
+		DropdownButton,
+		GlossaryText,
+		type ButtonProps,
+		type GitTermKey,
+	} from "@gitbutler/ui";
 	import { untrack } from "svelte";
-	import type { ButtonProps } from "@gitbutler/ui";
 
 	interface Props {
 		projectId: string;
@@ -65,6 +71,12 @@
 		[MergeMethod.Rebase]: "Rebase and merge",
 		[MergeMethod.Squash]: "Squash and merge",
 	});
+
+	const glossaryTermsByMethod: Record<MergeMethod, readonly GitTermKey[]> = {
+		[MergeMethod.Merge]: ["merge"],
+		[MergeMethod.Rebase]: ["rebase", "merge"],
+		[MergeMethod.Squash]: ["squash", "merge"],
+	};
 </script>
 
 <DropdownButton
@@ -84,7 +96,7 @@
 	{tooltip}
 	{disabled}
 >
-	{labels[$action]}
+	<GlossaryText text={labels[$action]} terms={glossaryTermsByMethod[$action]} />
 	{#snippet contextMenuSlot()}
 		<ContextMenuSection>
 			{#each availableMethods as method}
@@ -94,7 +106,11 @@
 						$action = method;
 						dropDown?.close();
 					}}
-				/>
+				>
+					{#snippet labelSnippet()}
+						<GlossaryText text={labels[method]} terms={glossaryTermsByMethod[method]} />
+					{/snippet}
+				</ContextMenuItem>
 			{/each}
 		</ContextMenuSection>
 		{#if onSetDraft}

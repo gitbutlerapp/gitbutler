@@ -79,7 +79,10 @@ export function recordGitOperationProgress(projectId: string, progress: GitOpera
 	});
 
 	if (progress.phase === "complete" || progress.phase === "failed") {
-		gitProgressTimers.set(id, setTimeout(() => removeActivity(id), 1200));
+		gitProgressTimers.set(
+			id,
+			setTimeout(() => removeActivity(id), 1200),
+		);
 	}
 }
 
@@ -106,7 +109,7 @@ function commandLabel(command: string, params?: Record<string, unknown>): string
 		absorb: "Absorbing changes",
 		add_project: "Adding repository",
 		add_project_best_effort: "Adding repository",
-		autofix_unity_project: "Checking Unity project",
+		autofix_unity_project: "Checking project settings",
 		changes_in_worktree: "Loading changed files",
 		commit_amend: "Amending commit",
 		commit_create: "Creating commit",

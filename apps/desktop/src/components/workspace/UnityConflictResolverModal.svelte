@@ -36,11 +36,11 @@
 			document = parseUnityConflictDocument(path, content);
 			if (!document) {
 				errorMessage =
-					"GitButler can only render Unity conflict cards when the file contains Git conflict markers.";
+					"GitButler can only render scene conflict cards when the file contains Git conflict markers.";
 			}
 		} catch (error) {
 			errorMessage =
-				error instanceof Error ? error.message : "Failed to load the conflicted Unity scene.";
+				error instanceof Error ? error.message : "Failed to load the conflicted scene.";
 		} finally {
 			loading = false;
 		}
@@ -67,7 +67,7 @@
 	}
 </script>
 
-<Modal bind:this={modal} title="Resolve Unity scene conflicts" width={960} noPadding>
+<Modal bind:this={modal} title="Resolve scene conflicts" width={960} noPadding>
 	{#snippet children(_, close)}
 		<div class="unity-modal">
 			{#if loading}

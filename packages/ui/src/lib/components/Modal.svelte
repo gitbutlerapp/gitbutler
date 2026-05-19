@@ -35,6 +35,7 @@
 	import ModalFooter from "$components/ModalFooter.svelte";
 	import ModalHeader from "$components/ModalHeader.svelte";
 	import { focusable } from "$lib/focus/focusable";
+	import { getMotionDuration, motionDurations } from "$lib/utils/motion";
 	import { portal } from "$lib/utils/portal";
 	import { pxToRem } from "$lib/utils/pxToRem";
 	import { onDestroy, untrack } from "svelte";
@@ -62,6 +63,14 @@
 	let isClosing = $state(false);
 	let closingPromise: Promise<void> | undefined = undefined;
 	let formEl: HTMLFormElement | undefined = $state();
+	const MODAL_OVERLAY_IN_DURATION_MS = getMotionDuration(motionDurations.medium);
+	const MODAL_OVERLAY_OUT_DURATION_MS = getMotionDuration(120);
+	const MODAL_PANEL_IN_DURATION_MS = getMotionDuration(motionDurations.overlay);
+	const MODAL_PANEL_OUT_DURATION_MS = getMotionDuration(motionDurations.overlayExit);
+	const MODAL_CLOSE_DURATION_MS = Math.max(
+		MODAL_OVERLAY_OUT_DURATION_MS,
+		MODAL_PANEL_OUT_DURATION_MS,
+	);
 
 	function handleKeyDown(event: KeyboardEvent) {
 		if (event.key === "Escape") {
@@ -114,7 +123,7 @@
 				onClose?.();
 				closingPromise = undefined;
 				resolve();
-			}, 100); // This should match the duration of the closing animation
+			}, MODAL_CLOSE_DURATION_MS);
 		});
 
 		return closingPromise;
@@ -134,6 +143,10 @@
 		use:portal={"body"}
 		class="modal-container {isClosing ? 'closing' : 'open'}"
 		class:open
+		style:--modal-overlay-in-duration={`${MODAL_OVERLAY_IN_DURATION_MS}ms`}
+		style:--modal-overlay-out-duration={`${MODAL_OVERLAY_OUT_DURATION_MS}ms`}
+		style:--modal-panel-in-duration={`${MODAL_PANEL_IN_DURATION_MS}ms`}
+		style:--modal-panel-out-duration={`${MODAL_PANEL_OUT_DURATION_MS}ms`}
 		onmousedown={(e) => {
 			e.stopPropagation();
 
@@ -210,18 +223,21 @@
 	}
 
 	.modal-container.open {
-		animation: dialog-fade-in 0.15s ease-out forwards;
+		animation: dialog-fade-in var(--modal-overlay-in-duration) var(--motion-ease-standard) forwards;
 
 		& .modal-form {
-			animation: dialog-zoom-in 0.25s cubic-bezier(0.34, 1.35, 0.7, 1) forwards;
+			animation: dialog-zoom-in var(--modal-panel-in-duration) var(--motion-ease-emphasized)
+				forwards;
 		}
 	}
 
 	.modal-container.closing {
-		animation: dialog-fade-out 0.05s ease-out forwards;
+		animation: dialog-fade-out var(--modal-overlay-out-duration) var(--motion-ease-accelerate)
+			forwards;
 
 		& .modal-form {
-			animation: dialog-zoom-out 0.1s cubic-bezier(0.34, 1.35, 0.7, 1) forwards;
+			animation: dialog-zoom-out var(--modal-panel-out-duration) var(--motion-ease-accelerate)
+				forwards;
 		}
 	}
 
@@ -234,6 +250,7 @@
 		border-radius: var(--radius-l);
 		background-color: var(--bg-1);
 		box-shadow: var(--fx-shadow-l);
+		will-change: transform, opacity;
 	}
 
 	.modal__body {
@@ -260,19 +277,23 @@
 
 	@keyframes dialog-zoom-in {
 		from {
-			transform: scale(0.95);
+			transform: translateY(var(--motion-distance-sm)) scale(0.97);
+			opacity: 0;
 		}
 		to {
-			transform: scale(1);
+			transform: translateY(0) scale(1);
+			opacity: 1;
 		}
 	}
 
 	@keyframes dialog-zoom-out {
 		from {
-			transform: scale(1);
+			transform: translateY(0) scale(1);
+			opacity: 1;
 		}
 		to {
-			transform: scale(0.95);
+			transform: translateY(calc(var(--motion-distance-xs) * -1)) scale(0.98);
+			opacity: 0;
 		}
 	}
 

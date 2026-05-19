@@ -16,9 +16,24 @@
 	const { filePath, document, onApply, applying = false }: Props = $props();
 
 	let resolutions = $state<Record<string, UnityConflictResolution>>({});
+	let activeDocumentPath = $state<string | undefined>();
+
+	$effect(() => {
+		if (activeDocumentPath === document.path) return;
+		resolutions = initialResolutions(document);
+		activeDocumentPath = document.path;
+	});
 
 	const resolvedCount = $derived(document.blocks.filter((block) => blockResolved(block.id)).length);
 	const allResolved = $derived(resolvedCount === document.blocks.length);
+
+	function initialResolutions(document: UnityConflictDocument): Record<string, UnityConflictResolution> {
+		return Object.fromEntries(
+			document.blocks
+				.filter((block) => block.fields.length > 1)
+				.map((block) => [block.id, { choice: "fields" } satisfies UnityConflictResolution]),
+		);
+	}
 
 	function blockResolved(blockId: string) {
 		const resolution = resolutions[blockId];
@@ -106,7 +121,7 @@
 <div class="unity-workbench">
 	<div class="unity-workbench__header">
 		<div>
-			<p class="text-15 text-semibold unity-workbench__title">Unity Scene Resolver</p>
+			<p class="text-15 text-semibold unity-workbench__title">Scene resolver</p>
 			<p class="text-12 clr-text-2 unity-workbench__subtitle">{filePath}</p>
 		</div>
 		<div class="unity-workbench__summary">
@@ -180,6 +195,9 @@
 
 				{#if resolution?.choice === "fields"}
 					<div class="unity-workbench__fields">
+						<p class="text-12 clr-text-2">
+							Choose ours or theirs for each changed YAML parameter.
+						</p>
 						{#each block.fields as field, fieldIndex (field.id)}
 							{@const fieldResolution = resolution.fields?.[field.id]}
 							<div class="unity-field">
