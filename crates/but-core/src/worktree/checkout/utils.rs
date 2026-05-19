@@ -2,6 +2,7 @@ use std::collections::{BTreeSet, VecDeque};
 
 use anyhow::bail;
 use bstr::{BStr, BString, ByteSlice, ByteVec};
+use but_error::bail_precondition;
 use gix::{
     diff::{
         rewrites::tracker::{Change, ChangeKind},
@@ -259,8 +260,8 @@ pub fn merge_worktree_changes_into_destination_or_keep_snapshot(
                                         .collect::<Vec<_>>();
                                     paths.sort();
                                     paths.dedup();
-                                    bail!(
-                                        "Worktree changes would be overwritten by checkout: {}",
+                                    bail_precondition!(
+                                        "Uncommitted files would be overwritten by checkout: {}",
                                         paths.join(", ")
                                     );
                                 }
