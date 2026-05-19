@@ -61,6 +61,28 @@
 
 	const userService = inject(USER_SERVICE);
 
+	let coldstartLinks = $state<string[] | undefined>(undefined);
+	backend
+		.getColdStartDeepLinkUrls()
+		.then((result) => (coldstartLinks = result))
+		.catch(() => (coldstartLinks = []));
+
+	$effect(() => {
+		if (coldstartLinks !== undefined) {
+			backend.initDeepLinking(
+				{
+					open: (path: string) => {
+						projectsService.handleDeepLinkOpen(path);
+					},
+					login: (accessToken: string) => {
+						userService.setUserAccessToken(accessToken);
+					},
+				},
+				coldstartLinks,
+			);
+		}
+	});
+
 	// Project tracking
 	const projectsService = inject(PROJECTS_SERVICE);
 	$effect(() => {
@@ -72,16 +94,6 @@
 	// Keyboard shortcuts
 	const shortcutService = inject(SHORTCUT_SERVICE);
 	$effect(() => shortcutService.listen());
-
-	// Deep linking
-	backend.initDeepLinking({
-		open: (path: string) => {
-			projectsService.handleDeepLinkOpen(path);
-		},
-		login: (accessToken: string) => {
-			userService.setUserAccessToken(accessToken);
-		},
-	});
 
 	// =============================================================================
 	// ANALYTICS & NAVIGATION

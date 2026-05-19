@@ -37,15 +37,18 @@ export default class Tauri implements IBackend {
 		});
 	});
 
-	async initDeepLinking(handlers: DeepLinkHandlers): Promise<void> {
-		// Check if app was launched via deep link
-		const urls = (await getCurrent()) ?? [];
-		if (urls.length > 0) {
-			handleDeepLinkUrls(urls, handlers);
+	async getColdStartDeepLinkUrls(): Promise<string[]> {
+		return (await getCurrent()) ?? [];
+	}
+
+	async initDeepLinking(handlers: DeepLinkHandlers, coldStartUrls: string[]) {
+		// Process cold-start URLs that were resolved before rendering began.
+		if (coldStartUrls.length > 0) {
+			handleDeepLinkUrls(coldStartUrls, handlers);
 		}
 
 		// Listen for new deep links while app is running
-		await onOpenUrl((urls) => {
+		return await onOpenUrl((urls) => {
 			handleDeepLinkUrls(urls, handlers);
 		});
 	}
@@ -92,46 +95,6 @@ export default class Tauri implements IBackend {
 	}
 }
 
-const LAST_PROCESSED_DEEP_LINK_URL_KEY = "lastProcessedDeepLinkUrl";
-const STORAGE_LOGIN_PREFIX = "login|";
-
-function alreadyProcessedDeepLinkUrl(
-	topLevel: DeepLinkTopLevelPath,
-	url: string,
-	timestamp: string,
-): boolean {
-	switch (topLevel) {
-		case "open": {
-			const lastProcessedUrl = localStorage.getItem(LAST_PROCESSED_DEEP_LINK_URL_KEY);
-			return lastProcessedUrl === url;
-		}
-		case "login": {
-			const value = localStorage.getItem(LAST_PROCESSED_DEEP_LINK_URL_KEY);
-			if (!value) return false;
-			if (!value.startsWith(STORAGE_LOGIN_PREFIX)) return false;
-			const storedTimestamp = value.replace(STORAGE_LOGIN_PREFIX, "").trim();
-			return storedTimestamp === timestamp;
-		}
-	}
-}
-
-function markDeepLinkUrlAsProcessed(
-	topLevel: DeepLinkTopLevelPath,
-	url: string,
-	timestamp: string,
-): true {
-	switch (topLevel) {
-		case "open":
-			localStorage.setItem(LAST_PROCESSED_DEEP_LINK_URL_KEY, url);
-			return true;
-		case "login": {
-			const value = `${STORAGE_LOGIN_PREFIX}${timestamp}`;
-			localStorage.setItem(LAST_PROCESSED_DEEP_LINK_URL_KEY, value);
-			return true;
-		}
-	}
-}
-
 function handleDeepLinkUrls(urls: string[], handlers: DeepLinkHandlers) {
 	// We don't care about the previous URLs, only the last one.
 	const url = urls[urls.length - 1];
@@ -148,20 +111,6 @@ function handleDeepLinkUrls(urls: string[], handlers: DeepLinkHandlers) {
 	}
 
 	const [topLevel, params] = result;
-	const timestamp = params.get("t");
-	if (!timestamp) {
-		// All deeplinks mus t have a timestamp to avoid processing duplicates.
-		console.warn("Deep link URL missing timestamp parameter:", url);
-		return;
-	}
-
-	if (alreadyProcessedDeepLinkUrl(topLevel, url, timestamp)) {
-		// Already processed this URL.
-		return;
-	}
-
-	markDeepLinkUrlAsProcessed(topLevel, url, timestamp);
-
 	handleTopLevel(topLevel, params, handlers);
 }
 

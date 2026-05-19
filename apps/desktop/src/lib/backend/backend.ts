@@ -1,3 +1,4 @@
+import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { Readable } from "svelte/store";
 
 export type DeepLinkHandlers = {
@@ -84,7 +85,11 @@ export interface IBackend {
 	/**
 	 * Init deep linking handling.
 	 */
-	initDeepLinking: (handlers: DeepLinkHandlers) => Promise<void>;
+	initDeepLinking: (handlers: DeepLinkHandlers, coldStartUrls: string[]) => Promise<UnlistenFn>;
+	/**
+	 * Returns cold start deep links that were passed to the binary.
+	 */
+	getColdStartDeepLinkUrls: () => Promise<string[]>;
 }
 
 export interface DiskStore {
