@@ -40,4 +40,35 @@ describe("WorktreeService", () => {
 			ignored: true,
 		});
 	});
+
+	test("serializes local ignore mutations per project", async () => {
+		let releaseFirstMutation: (() => void) | undefined;
+		const firstMutation = new Promise<void>((resolve) => {
+			releaseFirstMutation = resolve;
+		});
+		const mutate = vi.fn().mockImplementationOnce(() => firstMutation).mockResolvedValue(undefined);
+		const service = new WorktreeService({
+			endpoints: {
+				setLocalIgnoredPath: {
+					mutate,
+				},
+			},
+		} as never);
+
+		const first = service.setLocalIgnoredPath("project-1", "Assets/Generated", true);
+		const second = service.setLocalIgnoredPath("project-1", "ProjectSettings", true);
+
+		await Promise.resolve();
+		expect(mutate).toHaveBeenCalledTimes(1);
+
+		releaseFirstMutation?.();
+		await Promise.all([first, second]);
+
+		expect(mutate).toHaveBeenCalledTimes(2);
+		expect(mutate).toHaveBeenNthCalledWith(2, {
+			projectId: "project-1",
+			path: "ProjectSettings",
+			ignored: true,
+		});
+	});
 });

@@ -30,8 +30,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
+          cache: pnpm
           node-version-file: ".nvmrc"
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -42,9 +45,9 @@ jobs:
           echo "PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           echo "OPENSSL_SRC_PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Install dependencies with Bun
+      - name: Install dependencies with pnpm
         shell: bash
-        run: bun install --save-text-lockfile
+        run: pnpm install
 
       - name: Prepare release metadata
         id: meta
