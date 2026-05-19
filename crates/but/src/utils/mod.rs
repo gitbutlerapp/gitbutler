@@ -27,6 +27,8 @@ pub trait ResultErrorExt {
     fn show_root_cause_error_then_exit_without_destructors(self, out: OutputChannel) -> !;
 }
 
+pub mod envs;
+
 impl ResultErrorExt for anyhow::Result<()> {
     fn show_root_cause_error_then_exit_without_destructors(self, out: OutputChannel) -> ! {
         // Trigger the pager to be flushed before exiting early, or destructors aren't called.

@@ -1,3 +1,5 @@
+use crate::utils::envs;
+
 pub(crate) enum Pager {
     /// An external pager process (e.g. `less`)
     External(std::process::Child, std::process::ChildStdin),
@@ -49,7 +51,7 @@ pub(crate) fn try_init_pager() -> Option<Pager> {
 fn try_spawn_external_pager() -> Option<(std::process::Child, std::process::ChildStdin)> {
     use std::process::{Command, Stdio};
 
-    let pager_override = std::env::var("BUT_PAGER").ok();
+    let pager_override = std::env::var(envs::BUT_PAGER).ok();
     let (program, is_default) = if let Some(cmd) = &pager_override {
         (cmd.as_ref(), false)
     } else if Command::new(DEFAULT_PAGER)

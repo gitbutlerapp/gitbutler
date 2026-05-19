@@ -41,7 +41,7 @@ use theme::Paint;
 use crate::command::legacy::ShowDiffInEditor;
 use crate::{
     setup::{BackgroundSync, InitCtxOptions},
-    utils::{OutputChannel, ResultErrorExt, ResultMetricsExt},
+    utils::{OutputChannel, ResultErrorExt, ResultMetricsExt, envs},
 };
 
 mod id;
@@ -60,7 +60,7 @@ const CLI_DATE: CustomFormat = gix::date::time::format::ISO8601;
 /// Handle `args` which must be what's passed by `std::env::args_os()`.
 pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let theme_preset_from_env: anyhow::Result<theme::ThemePreset> =
-        if let Some(theme_name) = std::env::var_os("BUT_THEME") {
+        if let Some(theme_name) = std::env::var_os(envs::BUT_THEME) {
             theme_name.to_string_lossy().parse()
         } else {
             Ok(theme::ThemePreset::Dark)
