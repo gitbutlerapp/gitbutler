@@ -345,12 +345,11 @@ dependencies = [
 
 [[package]]
 name = "async-openai"
-version = "0.33.1"
+version = "0.38.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc48c3deb4ad9a2ee8c8e364c79eb0f74e69e17ed7e883d55988b90ea44fe986"
+checksum = "2bb666d696156a8da537278ecb3195806d885edf25a573ce23ceec4dee2b0eee"
 dependencies = [
  "async-openai-macros",
- "backoff",
  "base64 0.22.1",
  "bytes",
  "derive_builder",
@@ -358,8 +357,7 @@ dependencies = [
  "futures",
  "getrandom 0.3.4",
  "rand 0.9.4",
- "reqwest 0.12.28",
- "reqwest-eventsource",
+ "reqwest",
  "secrecy",
  "serde",
  "serde_json",
@@ -368,15 +366,16 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tokio-util",
+ "tower",
  "tracing",
  "url",
 ]
 
 [[package]]
 name = "async-openai-macros"
-version = "0.1.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81872a8e595e8ceceab71c6ba1f9078e313b452a1e31934e6763ef5d308705e4"
+checksum = "492a944774207eed3acf425214eadbd6ce84a2b89331164ff1c11bae92b26302"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -596,12 +595,9 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b62ddb9cb1ec0a098ad4bbf9344d0713fa193ae1a80af55febcff2627b6a00c1"
 dependencies = [
- "futures-core",
  "getrandom 0.2.17",
  "instant",
- "pin-project-lite",
  "rand 0.8.5",
- "tokio",
 ]
 
 [[package]]
@@ -1324,7 +1320,7 @@ dependencies = [
  "but-schemars",
  "but-secret",
  "but-settings",
- "reqwest 0.12.28",
+ "reqwest",
  "schemars 1.2.1",
  "serde",
  "serde_json",
@@ -1341,7 +1337,7 @@ dependencies = [
  "but-forge-storage",
  "but-schemars",
  "but-secret",
- "reqwest 0.12.28",
+ "reqwest",
  "schemars 1.2.1",
  "serde",
  "thiserror 2.0.18",
@@ -1459,7 +1455,7 @@ dependencies = [
  "but-tools",
  "futures",
  "gix",
- "reqwest 0.12.28",
+ "reqwest",
  "schemars 1.2.1",
  "serde",
  "serde_json",
@@ -1744,7 +1740,7 @@ dependencies = [
  "but-settings",
  "chrono",
  "machine-uid",
- "reqwest 0.12.28",
+ "reqwest",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -4400,7 +4396,7 @@ dependencies = [
  "but-secret",
  "but-utils",
  "keyring",
- "reqwest 0.12.28",
+ "reqwest",
  "serde",
  "serde_json",
  "serial_test",
@@ -5250,7 +5246,7 @@ dependencies = [
  "gix-quote",
  "gix-sec",
  "gix-url",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "thiserror 2.0.18",
 ]
@@ -5763,7 +5759,6 @@ dependencies = [
  "hyper",
  "hyper-util",
  "rustls",
- "rustls-native-certs",
  "rustls-pki-types",
  "tokio",
  "tokio-rustls",
@@ -8081,7 +8076,7 @@ dependencies = [
  "chrono",
  "derive_builder",
  "regex",
- "reqwest 0.13.2",
+ "reqwest",
  "semver",
  "serde",
  "serde_json",
@@ -8687,52 +8682,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.12.28"
+version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eddd3ca559203180a307f12d114c268abf583f59b03cb906fd0b3ff8646c1147"
-dependencies = [
- "base64 0.22.1",
- "bytes",
- "futures-channel",
- "futures-core",
- "futures-util",
- "http",
- "http-body",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-util",
- "js-sys",
- "log",
- "mime_guess",
- "percent-encoding",
- "pin-project-lite",
- "quinn",
- "rustls",
- "rustls-native-certs",
- "rustls-pki-types",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "sync_wrapper",
- "tokio",
- "tokio-rustls",
- "tokio-util",
- "tower",
- "tower-http",
- "tower-service",
- "url",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "wasm-streams 0.4.2",
- "web-sys",
-]
-
-[[package]]
-name = "reqwest"
-version = "0.13.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab3f43e3283ab1488b624b44b0e988d0acea0b3214e694730a055cb6b2efa801"
+checksum = "62e0021ea2c22aed41653bc7e1419abb2c97e038ff2c33d0e1309e49a97deec0"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -8750,6 +8702,7 @@ dependencies = [
  "js-sys",
  "log",
  "mime",
+ "mime_guess",
  "percent-encoding",
  "pin-project-lite",
  "quinn",
@@ -8758,6 +8711,7 @@ dependencies = [
  "rustls-platform-verifier",
  "serde",
  "serde_json",
+ "serde_urlencoded",
  "sync_wrapper",
  "tokio",
  "tokio-rustls",
@@ -8768,24 +8722,8 @@ dependencies = [
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-streams 0.5.0",
+ "wasm-streams",
  "web-sys",
-]
-
-[[package]]
-name = "reqwest-eventsource"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "632c55746dbb44275691640e7b40c907c16a2dc1a5842aa98aaec90da6ec6bde"
-dependencies = [
- "eventsource-stream",
- "futures-core",
- "futures-timer",
- "mime",
- "nom 7.1.3",
- "pin-project-lite",
- "reqwest 0.12.28",
- "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -10188,7 +10126,7 @@ dependencies = [
  "percent-encoding",
  "plist",
  "raw-window-handle",
- "reqwest 0.13.2",
+ "reqwest",
  "serde",
  "serde_json",
  "serde_repr",
@@ -10495,7 +10433,7 @@ dependencies = [
  "minisign-verify",
  "osakit",
  "percent-encoding",
- "reqwest 0.13.2",
+ "reqwest",
  "rustls",
  "semver",
  "serde",
@@ -11784,19 +11722,6 @@ dependencies = [
  "indexmap 2.14.0",
  "wasm-encoder",
  "wasmparser",
-]
-
-[[package]]
-name = "wasm-streams"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15053d8d85c7eccdbefef60f06769760a563c7f0a9d6902a13d35c7800b0ad65"
-dependencies = [
- "futures-util",
- "js-sys",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
 ]
 
 [[package]]
