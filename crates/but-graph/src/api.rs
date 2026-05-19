@@ -169,12 +169,36 @@ impl Graph {
     ///
     /// If `first_parent` is [`FirstParent::Yes`], both the included and excluded traversals follow
     /// only segment edges with `parent_order == 0`.
-    pub fn find_segments_reachable_from_a_not_b(
+    pub fn find_commits_reachable_from_a_not_b(
         &self,
         included: SegmentIndex,
         excluded: SegmentIndex,
         first_parent: FirstParent,
     ) -> Vec<&Commit> {
+        self.find_segments_reachable_from_a_not_b(included, excluded, first_parent)
+            .flat_map(|segment| segment.commits.iter())
+            .collect()
+    }
+
+    /// Return all segments reachable from `included`, but not reachable from `excluded`.
+    ///
+    /// This is equivalent to the reachable set of `excluded..included`, with segment ids
+    /// instead of rev-specs. The returned segments follow the graph traversal order from
+    /// `included` towards history.
+    ///
+    /// Unlike Git's revision walk, this does not sort pending commits by date or enforce
+    /// global topo-order across commits. It walks segments by their graph generation,
+    /// emits each segment's commits in stored tip-to-base order, and lazily paints the
+    /// excluded side only as far as needed to prove emitted segments are not hidden.
+    ///
+    /// If `first_parent` is [`FirstParent::Yes`], both the included and excluded traversals follow
+    /// only segment edges with `parent_order == 0`.
+    pub fn find_segments_reachable_from_a_not_b(
+        &self,
+        included: SegmentIndex,
+        excluded: SegmentIndex,
+        first_parent: FirstParent,
+    ) -> impl Iterator<Item = &Segment> {
         let first_parent: bool = first_parent.into();
         let mut flags = SegmentTable::new(self.inner.node_bound(), SegmentFlags::empty());
         let mut queue = BinaryHeap::new();
@@ -242,9 +266,8 @@ impl Graph {
 
         segments
             .into_iter()
-            .filter(|segment_id| !flags.get(*segment_id).contains(SegmentFlags::SEGMENT2))
-            .flat_map(|segment_id| self[segment_id].commits.iter())
-            .collect()
+            .filter(move |segment_id| !flags.get(*segment_id).contains(SegmentFlags::SEGMENT2))
+            .map(|segment_id| &self[segment_id])
     }
 
     /// Queue `segment_id` for the reachable-difference walk if this side has not seen it yet.
@@ -349,7 +372,7 @@ impl Graph {
         let included = self.segment_id_by_commit_id(included)?;
         let excluded = self.segment_id_by_commit_id(excluded)?;
         Ok(self
-            .find_segments_reachable_from_a_not_b(included, excluded, first_parent)
+            .find_commits_reachable_from_a_not_b(included, excluded, first_parent)
             .into_iter()
             .map(|commit| commit.id)
             .collect())
