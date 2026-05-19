@@ -443,8 +443,10 @@ pub async fn worktree_conflict_preview(
     projectId: ProjectHandleOrLegacyProjectId,
     targetCommitOid: Option<gix::ObjectId>,
     path: String,
-) -> Result<Option<gitbutler_branch_actions::upstream_integration::WorktreeConflictPreview>, json::Error>
-{
+) -> Result<
+    Option<gitbutler_branch_actions::upstream_integration::WorktreeConflictPreview>,
+    json::Error,
+> {
     let ctx = ThreadSafeContext::try_from(projectId.clone())?;
     let result = virtual_branches::worktree_conflict_preview(ctx, targetCommitOid, path).await;
     result.map_err(Into::into)
@@ -477,10 +479,20 @@ pub async fn integrate_upstream(
         started_at,
     )?;
     progress.phase("treeMerge", "Integrating upstream changes", None);
+    let workdir = ctx.clone().into_thread_local().workdir_or_fail()?;
     let result = virtual_branches::integrate_upstream(ctx, resolutions, baseBranchResolution).await;
     progress_scope.finish();
     match result {
         Ok(outcome) => {
+            progress.phase(
+                "lfsHydration",
+                "Hydrating Git LFS files",
+                Some("Replacing deferred Git LFS pointers with local media files.".to_owned()),
+            );
+            if let Err(err) = but_core::lfs::checkout_worktree(&workdir) {
+                progress.phase("failed", "Git LFS hydration failed", Some(err.to_string()));
+                return Err(err.into());
+            }
             progress.phase(
                 "workspaceCacheInvalidation",
                 "Refreshing workspace cache",

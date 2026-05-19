@@ -67,7 +67,12 @@ pub fn get_workspace_file(ctx: &Context, relative_path: PathBuf) -> Result<FileI
 #[but_api]
 #[instrument(err(Debug))]
 pub fn write_workspace_file(ctx: &Context, relative_path: PathBuf, content: String) -> Result<()> {
-    ctx.write_file_to_workspace(&relative_path, content.as_bytes())
+    ctx.write_file_to_workspace(&relative_path, content.as_bytes())?;
+    if but_core::lfs::is_lfs_pointer(content.as_bytes()) {
+        let workdir = ctx.workdir_or_fail()?;
+        but_core::lfs::checkout_paths(&workdir, [relative_path.as_path()])?;
+    }
+    Ok(())
 }
 
 #[but_api]
