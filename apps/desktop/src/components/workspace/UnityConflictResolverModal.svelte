@@ -49,7 +49,16 @@
 	async function handleApply(resolvedContent: string) {
 		applying = true;
 		try {
+			if (parseUnityConflictDocument(filePath, resolvedContent)) {
+				errorMessage = "The resolved scene still contains conflict markers.";
+				return;
+			}
 			await fileService.writeToWorkspace(filePath, projectId, resolvedContent);
+			const written = await fileService.readFromWorkspace(filePath, projectId);
+			if (parseUnityConflictDocument(filePath, written.data.content ?? "")) {
+				errorMessage = "The resolved scene still contains conflict markers.";
+				return;
+			}
 			onResolved?.(filePath);
 			await modal?.close();
 		} finally {

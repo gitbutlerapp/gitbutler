@@ -13,6 +13,7 @@
 		conflictState: ConflictState;
 		manuallyResolved: boolean;
 		resolveLabel?: string;
+		onclick?: () => void;
 		onresolveclick?: () => void;
 		oncontextmenu?: (e: MouseEvent) => void;
 	};
@@ -26,6 +27,7 @@
 		conflictState,
 		manuallyResolved,
 		resolveLabel,
+		onclick,
 		onresolveclick,
 		oncontextmenu,
 	}: Props = $props();
@@ -41,7 +43,8 @@
 		{pathFirst}
 		{fileStatus}
 		{conflicted}
-		clickable={false}
+		clickable={!!onclick}
+		{onclick}
 		{onresolveclick}
 		{resolveLabel}
 		{conflictHint}

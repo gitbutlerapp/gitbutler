@@ -11,6 +11,9 @@ use but_unity_yaml::{
 };
 use tracing::instrument;
 
+const UNITY_SEMANTIC_MAX_CHANGED_LINES: u32 = 1_000;
+const UNITY_SEMANTIC_MAX_FILE_BYTES: u64 = 1_000_000;
+
 /// API types for Unity semantic review.
 pub mod json {
     use but_unity_yaml::{
@@ -198,10 +201,24 @@ pub fn unity_semantic_diff(
 
     let repo = ctx.repo.get()?;
     let core_change: but_core::TreeChange = change.into();
-    let previous = previous_content(&repo, &core_change)?;
-    let current = current_content(&repo, &core_change)?;
+    if let Some(diff) = too_large_unity_file(&repo, &path, &core_change)? {
+        CURRENT_PATCH.with(|current| {
+            *current.borrow_mut() = None;
+        });
+        return Ok(Some(diff));
+    }
+
     let patch = core_change.unified_patch(&repo, ctx.settings.context_lines)?;
     let raw_available = patch.is_some();
+    if let Some(diff) = too_large_unity_diff(&path, patch.as_ref()) {
+        CURRENT_PATCH.with(|current| {
+            *current.borrow_mut() = patch;
+        });
+        return Ok(Some(diff));
+    }
+
+    let previous = previous_content(&repo, &core_change)?;
+    let current = current_content(&repo, &core_change)?;
 
     let diff = but_unity_yaml::semantic_diff(
         &path,
@@ -213,6 +230,113 @@ pub fn unity_semantic_diff(
         *current.borrow_mut() = patch;
     });
     Ok(diff)
+}
+
+fn too_large_unity_file(
+    repo: &gix::Repository,
+    path: &str,
+    change: &but_core::TreeChange,
+) -> Result<Option<UnitySemanticDiff>> {
+    let file_kind = but_unity_yaml::file_kind(path);
+    let Some(file_kind) = file_kind else {
+        return Ok(None);
+    };
+    let file_size = largest_change_size(repo, path, change)?;
+    Ok((file_size > UNITY_SEMANTIC_MAX_FILE_BYTES).then(|| {
+        too_large_diff(
+            file_kind,
+            format!(
+                "This Unity file is too large to analyze safely ({file_size} bytes). Use Raw diff when you need to inspect it."
+            ),
+        )
+    }))
+}
+
+fn too_large_unity_diff(
+    path: &str,
+    patch: Option<&but_core::UnifiedPatch>,
+) -> Option<UnitySemanticDiff> {
+    let file_kind = but_unity_yaml::file_kind(path)?;
+    let changed_lines = match patch? {
+        but_core::UnifiedPatch::Patch {
+            lines_added,
+            lines_removed,
+            ..
+        } => lines_added.saturating_add(*lines_removed),
+        but_core::UnifiedPatch::TooLarge { .. } => UNITY_SEMANTIC_MAX_CHANGED_LINES + 1,
+        but_core::UnifiedPatch::Binary => return None,
+    };
+
+    (changed_lines > UNITY_SEMANTIC_MAX_CHANGED_LINES).then(|| {
+        too_large_diff(
+            file_kind,
+            format!(
+                "This Unity diff is too long to render safely ({changed_lines} changed lines). Use Raw diff when you need to inspect it."
+            ),
+        )
+    })
+}
+
+fn too_large_diff(file_kind: but_unity_yaml::UnityFileKind, message: String) -> UnitySemanticDiff {
+    UnitySemanticDiff {
+        file_kind,
+        summary: but_unity_yaml::UnitySemanticSummary {
+            warnings: 1,
+            ..but_unity_yaml::UnitySemanticSummary::default()
+        },
+        nodes: Vec::new(),
+        warnings: vec![but_unity_yaml::UnitySemanticWarning {
+            message,
+            line: None,
+        }],
+        raw_available: true,
+    }
+}
+
+fn largest_change_size(
+    repo: &gix::Repository,
+    path: &str,
+    change: &but_core::TreeChange,
+) -> Result<u64> {
+    let size = match &change.status {
+        but_core::TreeStatus::Addition { state, .. } => change_state_size(repo, path, *state)?,
+        but_core::TreeStatus::Deletion { previous_state } => {
+            change_state_size(repo, path, *previous_state)?
+        }
+        but_core::TreeStatus::Modification {
+            previous_state,
+            state,
+            ..
+        }
+        | but_core::TreeStatus::Rename {
+            previous_state,
+            state,
+            ..
+        } => change_state_size(repo, path, *previous_state)?
+            .max(change_state_size(repo, path, *state)?),
+    };
+    Ok(size)
+}
+
+fn change_state_size(
+    repo: &gix::Repository,
+    path: &str,
+    state: but_core::ChangeState,
+) -> Result<u64> {
+    if !state.id.is_null() {
+        return Ok(repo.find_header(state.id)?.size());
+    }
+
+    let Some(workdir) = repo.workdir() else {
+        return Ok(0);
+    };
+    let metadata = std::fs::metadata(workdir.join(path)).with_context(|| {
+        format!(
+            "Failed to read metadata for {}",
+            workdir.join(path).display()
+        )
+    })?;
+    Ok(metadata.len())
 }
 
 /// Return the current Unity Smart Merge availability for a project.

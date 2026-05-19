@@ -1,9 +1,9 @@
 <script lang="ts">
-	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Badge, Button, Checkbox, Tooltip } from "@gitbutler/ui";
+	import { tick } from "svelte";
 	import type {
 		UnitySemanticChange,
 		UnitySemanticDiff,
@@ -22,12 +22,102 @@
 		onShowRaw?: () => void;
 	};
 
+	type SemanticRow =
+		| { type: "node"; key: string; depth: number; node: UnitySemanticNode }
+		| { type: "change"; key: string; depth: number; change: UnitySemanticChange };
+
+	const INITIAL_ROWS = 30;
+	const ROWS_PER_FRAME = 50;
+
 	const { projectId, stackId, change, selectable, selectionId, onShowRaw }: Props = $props();
 
 	const diffService = inject(DIFF_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
-	const semanticQuery = $derived(diffService.getUnitySemanticDiff(projectId, change));
 	const isWorktreeSelection = $derived(selectionId.type === "worktree");
+	let diff = $state<UnitySemanticDiff | null>();
+	let error = $state<unknown>();
+	let loading = $state(false);
+	let requested = $state(false);
+	let requestId = 0;
+	let renderedRowCount = $state(INITIAL_ROWS);
+	const rows = $derived(diff?.nodes ? flattenRows(diff.nodes) : []);
+
+	$effect(() => {
+		void projectId;
+		void change;
+		requested = false;
+		diff = undefined;
+		error = undefined;
+		loading = false;
+		renderedRowCount = INITIAL_ROWS;
+		requestId++;
+
+		const cached = diffService.peekUnitySemanticDiff(projectId, change);
+		if (!cached) {
+			return () => {
+				diffService.cancelUnitySemanticDiff(projectId, change);
+			};
+		}
+
+		const currentRequest = requestId;
+		requested = true;
+		loading = true;
+		cached
+			.then((result) => {
+				if (currentRequest !== requestId) return;
+				diff = result;
+			})
+			.catch((err) => {
+				if (currentRequest !== requestId) return;
+				error = err;
+			})
+			.finally(() => {
+				if (currentRequest !== requestId) return;
+				loading = false;
+			});
+
+		return () => {
+			diffService.cancelUnitySemanticDiff(projectId, change);
+		};
+	});
+
+	$effect(() => {
+		void rows;
+		renderedRowCount = INITIAL_ROWS;
+		if (rows.length <= INITIAL_ROWS) return;
+
+		let rafId: number;
+		function addMore() {
+			renderedRowCount = Math.min(renderedRowCount + ROWS_PER_FRAME, rows.length);
+			if (renderedRowCount < rows.length) {
+				rafId = requestAnimationFrame(addMore);
+			}
+		}
+
+		tick().then(() => {
+			rafId = requestAnimationFrame(addMore);
+		});
+		return () => cancelAnimationFrame(rafId);
+	});
+
+	async function loadSemanticDiff(force = false) {
+		const currentRequest = ++requestId;
+		requested = true;
+		loading = true;
+		error = undefined;
+
+		try {
+			const result = await diffService.fetchUnitySemanticDiff(projectId, change, force);
+			if (currentRequest !== requestId) return;
+			diff = result;
+		} catch (err) {
+			if (currentRequest !== requestId) return;
+			error = err;
+		} finally {
+			if (currentRequest !== requestId) return;
+			loading = false;
+		}
+	}
 
 	function nodeSelectionLabel(kind: string) {
 		switch (kind) {
@@ -111,6 +201,33 @@
 				return "gray";
 		}
 	}
+
+	function tooLongWarning(diff: UnitySemanticDiff | null) {
+		if (!diff || diff.nodes.length > 0) return;
+		return diff.warnings.find((warning) =>
+			["This Unity diff is too long", "This Unity file is too large"].some((message) =>
+				warning.message.startsWith(message),
+			),
+		);
+	}
+
+	function flattenRows(nodes: UnitySemanticNode[], depth = 0, parentKey = ""): SemanticRow[] {
+		const result: SemanticRow[] = [];
+		for (const [nodeIndex, node] of nodes.entries()) {
+			const nodeKey = `${parentKey}/node:${node.id}:${nodeIndex}`;
+			result.push({ type: "node", key: nodeKey, depth, node });
+			for (const [changeIndex, change] of node.changes.entries()) {
+				result.push({
+					type: "change",
+					key: `${nodeKey}/change:${change.propertyPath}:${changeIndex}`,
+					depth: depth + 1,
+					change,
+				});
+			}
+			result.push(...flattenRows(node.children, depth + 1, nodeKey));
+		}
+		return result;
+	}
 </script>
 
 {#snippet selectionControl(selection: UnitySelection, label: string)}
@@ -127,8 +244,8 @@
 	{/if}
 {/snippet}
 
-{#snippet changeRow(change: UnitySemanticChange)}
-	<div class="unity-change-row">
+{#snippet changeRow(change: UnitySemanticChange, depth = 0)}
+	<div class="unity-change-row" style={`--depth: ${depth}`}>
 		{@render selectionControl(change.selection, "Include field")}
 		<div class="unity-change-row__body">
 			<div class="unity-change-row__title">
@@ -156,7 +273,7 @@
 	</div>
 {/snippet}
 
-{#snippet nodeRow(node: UnitySemanticNode, depth = 0)}
+{#snippet nodeRow(node: UnitySemanticNode, depth: number)}
 	<div class="unity-node" style={`--depth: ${depth}`}>
 		<div class="unity-node__header">
 			{@render selectionControl(node.selection, nodeSelectionLabel(node.kind))}
@@ -173,25 +290,20 @@
 				<p class="unity-node__path text-11 clr-text-2">{node.path}</p>
 			</div>
 		</div>
-		{#if node.changes.length > 0}
-			<div class="unity-node__changes">
-				{#each node.changes as change}
-					{@render changeRow(change)}
-				{/each}
-			</div>
-		{/if}
-		{#if node.children.length > 0}
-			<div class="unity-node__children">
-				{#each node.children as child (child.id)}
-					{@render nodeRow(child, depth + 1)}
-				{/each}
-			</div>
-		{/if}
 	</div>
 {/snippet}
 
 {#snippet semanticContent(diff: UnitySemanticDiff | null)}
-	{#if !diff || diff.nodes.length === 0}
+	{@const tooLong = tooLongWarning(diff)}
+	{#if tooLong}
+		<div class="unity-warning unity-warning--too-large">
+			<p class="text-13 text-semibold">This Unity diff is too large</p>
+			<p class="text-12 clr-text-2">{tooLong.message}</p>
+			{#if onShowRaw}
+				<Button kind="outline" size="tag" onclick={onShowRaw}>Show raw diff</Button>
+			{/if}
+		</div>
+	{:else if !diff || diff.nodes.length === 0}
 		<div class="unity-empty">
 			<p class="text-13 text-semibold">Unity view is not available for this change.</p>
 			<p class="text-12 clr-text-2">Raw diff is still available.</p>
@@ -217,23 +329,50 @@
 			</div>
 		{/if}
 		<div class="unity-tree">
-			{#each diff.nodes as node (node.id)}
-				{@render nodeRow(node)}
+			{#each rows.slice(0, renderedRowCount) as row (row.key)}
+				{#if row.type === "node"}
+					{@render nodeRow(row.node, row.depth)}
+				{:else}
+					{@render changeRow(row.change, row.depth)}
+				{/if}
 			{/each}
+			{#if renderedRowCount < rows.length}
+				<div class="unity-empty unity-empty--loading-more">
+					<p class="text-12 clr-text-2">Loading Unity rows...</p>
+				</div>
+			{/if}
 		</div>
 	{/if}
 {/snippet}
 
-<ReduxResult {projectId} result={semanticQuery.result}>
-	{#snippet children(diff)}
-		{@render semanticContent(diff)}
-	{/snippet}
-	{#snippet loading()}
-		<div class="unity-empty">
-			<p class="text-13 text-semibold">Reading Unity scene...</p>
-		</div>
-	{/snippet}
-</ReduxResult>
+{#if !requested}
+	<div class="unity-empty">
+		<p class="text-13 text-semibold">Unity semantic view is paused.</p>
+		<p class="text-12 clr-text-2">Load it when you need object-level review.</p>
+		<Button kind="outline" size="tag" onclick={() => loadSemanticDiff()}>Load Unity view</Button>
+		{#if onShowRaw}
+			<Button kind="ghost" size="tag" onclick={onShowRaw}>Show raw diff</Button>
+		{/if}
+	</div>
+{:else if loading}
+	<div class="unity-empty">
+		<p class="text-13 text-semibold">Reading Unity scene...</p>
+		{#if onShowRaw}
+			<Button kind="ghost" size="tag" onclick={onShowRaw}>Show raw diff</Button>
+		{/if}
+	</div>
+{:else if error}
+	<div class="unity-empty">
+		<p class="text-13 text-semibold">Unity view failed to load.</p>
+		<p class="text-12 clr-text-2">{String(error)}</p>
+		<Button kind="outline" size="tag" onclick={() => loadSemanticDiff(true)}>Try again</Button>
+		{#if onShowRaw}
+			<Button kind="ghost" size="tag" onclick={onShowRaw}>Show raw diff</Button>
+		{/if}
+	</div>
+{:else}
+	{@render semanticContent(diff ?? null)}
+{/if}
 
 <style lang="postcss">
 	.unity-summary {
@@ -251,6 +390,14 @@
 		border: 1px solid var(--border-2);
 		border-radius: var(--radius-m);
 		background-color: var(--bg-2);
+	}
+
+	.unity-warning--too-large {
+		border-style: dashed;
+	}
+
+	.unity-empty--loading-more {
+		align-items: center;
 	}
 
 	.unity-tree {
@@ -302,15 +449,8 @@
 		word-break: break-word;
 	}
 
-	.unity-node__changes,
-	.unity-node__children {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-	}
-
 	.unity-change-row {
-		margin-left: 24px;
+		margin-left: calc((var(--depth) * 14px) + 24px);
 		background-color: var(--bg-1);
 	}
 
