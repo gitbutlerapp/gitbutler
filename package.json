@@ -77,7 +77,7 @@
 		"prettier-plugin-css-order": "^2.2.0",
 		"prettier-plugin-svelte": "^3.5.1",
 		"svelte-eslint-parser": "^1.6.0",
-		"turbo": "2.8.17",
+		"turbo": "2.9.14",
 		"typescript": "catalog:",
 		"typescript-eslint": "^8.57.1"
 	},
