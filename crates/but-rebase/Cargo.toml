@@ -9,9 +9,16 @@ rust-version.workspace = true
 [features]
 default = []
 export-schema = ["dep:schemars", "dep:but-schemars"]
+# Enables helpers that should only exist when building test targets.
+testing = []
 
 [lib]
 doctest = false
+
+[[test]]
+name = "rebase"
+path = "tests/rebase/main.rs"
+required-features = ["testing"]
 
 [dependencies]
 but-core.workspace = true

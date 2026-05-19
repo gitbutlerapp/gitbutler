@@ -1,5 +1,16 @@
 set -eu -o pipefail
 
+function tick () {
+  if test -z "${tick+set}"; then
+    tick=1675176957
+  else
+    tick=$(($tick + 60))
+  fi
+  GIT_COMMITTER_DATE="$tick +0100"
+  GIT_AUTHOR_DATE="$tick +0100"
+  export GIT_COMMITTER_DATE GIT_AUTHOR_DATE
+}
+
 function create_workspace_commit_once() {
   local workspace_commit_subject="GitButler Workspace Commit"
 
