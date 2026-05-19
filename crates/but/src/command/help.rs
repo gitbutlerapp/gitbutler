@@ -1,6 +1,7 @@
 use crate::args::Args;
 use crate::theme::{self, Paint};
 use crate::tui::text::{terminal_width, truncate_text};
+use crate::utils::envs;
 
 pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
     use std::collections::HashSet;
@@ -155,6 +156,15 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
         let available_width = terminal_width.saturating_sub(flag.len() + 2);
         let truncated_desc = truncate_text(desc, available_width);
         writeln!(out, "{flag}  {truncated_desc}")?;
+    }
+
+    writeln!(out)?;
+    writeln!(out, "{}:", t.important.paint("Environment variables"))?;
+    for (env, desc) in envs::ALL_ENVS {
+        let env = format!("  {env}");
+        let available_width = terminal_width.saturating_sub(env.len() + 2);
+        let truncated_desc = truncate_text(desc, available_width);
+        writeln!(out, "{env}  {truncated_desc}")?;
     }
 
     Ok(())

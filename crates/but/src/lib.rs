@@ -41,7 +41,7 @@ use theme::Paint;
 use crate::command::legacy::ShowDiffInEditor;
 use crate::{
     setup::{BackgroundSync, InitCtxOptions},
-    utils::{OutputChannel, ResultErrorExt, ResultMetricsExt},
+    utils::{OutputChannel, ResultErrorExt, ResultMetricsExt, envs},
 };
 
 mod id;
@@ -59,12 +59,30 @@ const CLI_DATE: CustomFormat = gix::date::time::format::ISO8601;
 
 /// Handle `args` which must be what's passed by `std::env::args_os()`.
 pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
+    let theme_preset_from_env: anyhow::Result<theme::ThemePreset> =
+        if let Some(theme_name) = std::env::var_os(envs::BUT_THEME) {
+            theme_name.to_string_lossy().parse()
+        } else {
+            Ok(theme::ThemePreset::Dark)
+        };
+
     {
+        let theme_preset = match &theme_preset_from_env {
+            Ok(theme_preset) => theme_preset.clone(),
+            Err(_) => {
+                // ignore for now, we print a warning once the output channel has been initialized
+                theme::ThemePreset::Dark
+            }
+        };
+
+        // Note: Overrides in but-theme.json are hardwired to apply to the Dark theme at present.
+        // This is only for internal testing at the moment so it's not worthwhile to go through the
+        // motions of merging overrides with a configurable theme.
         let theme = dirs::config_dir()
             .map(|dir| dir.join("gitbutler").join("but-theme.json"))
             .filter(|p| p.exists())
             .and_then(|p| theme::load(&p).ok())
-            .unwrap_or_default();
+            .unwrap_or_else(|| theme::Theme::default_for(theme_preset));
         theme::init(theme);
     }
 
@@ -146,6 +164,14 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     but_secret::secret::set_application_namespace(namespace);
 
     let mut out = OutputChannel::new_with_optional_pager(output_format, use_pager);
+
+    if let (Err(theme_preset_err), Some(out)) = (theme_preset_from_env, out.for_human()) {
+        writeln!(
+            out,
+            "{}: {theme_preset_err}",
+            theme::get().attention.paint("Failed to set theme")
+        )?;
+    }
 
     #[cfg(feature = "agentlog")]
     if let Some(Subcommands::AgentLog { .. }) = &args.cmd {

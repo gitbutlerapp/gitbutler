@@ -26,7 +26,7 @@ use ratatui::{
 };
 use syntect::{
     easy::HighlightLines,
-    highlighting::{self, ThemeSet},
+    highlighting,
     parsing::{SyntaxReference, SyntaxSet},
 };
 use unicode_width::UnicodeWidthStr;
@@ -46,12 +46,6 @@ use crate::{
 use super::{HelpMessage, RubSource};
 
 mod details_cursor;
-
-const MONOKAI_THEME: &[u8] =
-    include_bytes!("../../../../../../assets/syntax-highlighting-themes/Monokai Extended.tmTheme");
-const MONOKAI_THEME_LIGHT: &[u8] = include_bytes!(
-    "../../../../../../assets/syntax-highlighting-themes/Monokai Extended Light.tmTheme"
-);
 
 #[derive(Debug, Default, Copy, Clone)]
 pub(super) enum DetailsVisibility {
@@ -112,18 +106,7 @@ impl Details {
             visibility: Default::default(),
             line_highlight_cache: Default::default(),
             syntax_set: OnDemand::new(|| Ok(SyntaxSet::load_defaults_newlines())).into(),
-            syntax_theme: OnDemand::new(|| {
-                Ok(
-                    if std::env::var_os("EXPERIMENTAL_BUT_LIGHT_THEME").is_some() {
-                        ThemeSet::load_from_reader(&mut std::io::Cursor::new(MONOKAI_THEME_LIGHT))
-                            .unwrap()
-                    } else {
-                        ThemeSet::load_from_reader(&mut std::io::Cursor::new(MONOKAI_THEME))
-                            .unwrap()
-                    },
-                )
-            })
-            .into(),
+            syntax_theme: OnDemand::new(|| theme.load_syntax_highlighting_theme()).into(),
             theme,
         }
     }

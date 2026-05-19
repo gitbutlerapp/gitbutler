@@ -27,7 +27,7 @@
 //! Missing fields in a user-supplied file fall back to the built-in defaults thanks to
 //! `#[serde(default)]`.
 
-use std::{fmt::Display, path::Path, sync::OnceLock};
+use std::{fmt::Display, path::Path, str::FromStr, sync::OnceLock};
 
 use colored::{ColoredString, Colorize as _};
 use ratatui::{
@@ -36,6 +36,12 @@ use ratatui::{
     text::Span,
 };
 use serde::{Deserialize, Serialize};
+use syntect::highlighting::{self, ThemeSet};
+
+const MONOKAI_THEME: &[u8] =
+    include_bytes!("../assets/syntax-highlighting-themes/Monokai Extended.tmTheme");
+const MONOKAI_THEME_LIGHT: &[u8] =
+    include_bytes!("../assets/syntax-highlighting-themes/Monokai Extended Light.tmTheme");
 
 /// Global theme instance, initialized once at startup.
 static THEME: OnceLock<Theme> = OnceLock::new();
@@ -195,6 +201,28 @@ fn apply_modifiers(mut styled: ColoredString, modifiers: Modifier) -> ColoredStr
     styled
 }
 
+/// Identifiers for the theme presets.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum ThemePreset {
+    /// The dark preset.
+    Dark,
+    /// The light preset.
+    Light,
+}
+
+impl FromStr for ThemePreset {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let normalized = s.to_lowercase();
+        match normalized.trim() {
+            "dark" => Ok(ThemePreset::Dark),
+            "light" => Ok(ThemePreset::Light),
+            unknown => Err(anyhow::anyhow!("Unknown theme preset: {unknown}")),
+        }
+    }
+}
+
 /// The CLI color theme.
 ///
 /// Style fields ([`Style`]) control colors and text attributes for semantic
@@ -301,6 +329,10 @@ pub struct Theme {
     // This weirdness can be fixed by splitting the theme into two substructs: symbols and
     // styles.
     symbols: Option<ThemeSymbols>,
+
+    #[serde(skip_serializing, skip_deserializing)]
+    /// Serialized theme to use for syntax highlighting.
+    syntax_highlighting_theme_raw: &'static [u8],
 }
 
 /// Helper — builds a [`Style`] with the given foreground color.
@@ -316,15 +348,7 @@ const fn style_fg_bold(fg: Color) -> Style {
 impl Default for Theme {
     /// Produces the canonical color palette.
     fn default() -> Self {
-        // TODO move light/dark detection somewhere else. For now it's convenient to keep here as
-        // the serde deserialization automatically "fills in the blanks" with defaults
-        let mut t = if std::env::var_os("EXPERIMENTAL_BUT_LIGHT_THEME").is_some() {
-            Self::default_light()
-        } else {
-            Self::default_dark()
-        };
-        t.symbols = Some(ThemeSymbols::new(&t));
-        t
+        Self::default_for(ThemePreset::Dark)
     }
 }
 
@@ -334,6 +358,23 @@ impl Theme {
         self.symbols
             .as_ref()
             .expect("symbols must always be initialized")
+    }
+
+    /// Produces a specific default color palette.
+    pub fn default_for(preset: ThemePreset) -> Self {
+        let mut t = match preset {
+            ThemePreset::Light => Self::default_light(),
+            ThemePreset::Dark => Self::default_dark(),
+        };
+        t.symbols = Some(ThemeSymbols::new(&t));
+        t
+    }
+
+    /// Load the syntax highlighting theme.
+    pub fn load_syntax_highlighting_theme(&self) -> anyhow::Result<highlighting::Theme> {
+        Ok(ThemeSet::load_from_reader(&mut std::io::Cursor::new(
+            self.syntax_highlighting_theme_raw,
+        ))?)
     }
 
     fn default_dark() -> Self {
@@ -358,11 +399,6 @@ impl Theme {
             context: style_fg(Color::DarkGray),
             // Colors from Delta for preserving foreground syntax highlighting, with a lightness
             // adjustment for enhanced readability.
-            //
-            // IMPORTANT: These colors require 24 bit color (truecolor) support. Terminal.app on
-            // macOS does NOT support that, it only supports 8 bit (256) color.
-            //
-            // TODO detect if running in Terminal.app and use fallback 8 bit color
             addition_rich: Style::new().bg(Color::from_hsl(Hsl::new(
                 120.0,
                 1.0,
@@ -413,6 +449,8 @@ impl Theme {
                 .bg(Color::from_hsl(Hsl::new(236.8, 0.162, 0.229))),
             legend: Style::new().fg(Color::Blue),
 
+            syntax_highlighting_theme_raw: MONOKAI_THEME,
+
             // Symbols initialized below
             symbols: None,
         }
@@ -428,11 +466,6 @@ impl Theme {
         Self {
             // Modifications
             // Colors from Delta for preserving foreground syntax highlighting
-            //
-            // IMPORTANT: These colors require 24 bit color (truecolor) support. Terminal.app on
-            // macOS does NOT support that, it only supports 8 bit (256) color.
-            //
-            // TODO detect if running in Terminal.app and use fallback 8 bit color
             addition_rich: Style::new().bg(Color::Rgb(208, 255, 208)),
             addition_rich_subsection: Style::new().bg(Color::Rgb(160, 239, 160)),
             deletion_rich: Style::new().bg(Color::Rgb(255, 224, 224)),
@@ -458,6 +491,8 @@ impl Theme {
             // Layout
             selection_highlight: Style::new().fg(Color::Black).bg(Color::Indexed(252)),
             discrete_selection_highlight: Style::new().bg(Color::Indexed(255)),
+
+            syntax_highlighting_theme_raw: MONOKAI_THEME_LIGHT,
 
             ..dark_t
         }
