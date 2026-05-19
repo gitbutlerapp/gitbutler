@@ -59,6 +59,9 @@
 	const defaultCodeEditor = uiState.global.defaultCodeEditor;
 	const defaultTerminal = uiState.global.defaultTerminal;
 
+	const CUSTOM_EDITOR_VALUE = "__custom__";
+	const CUSTOM_EDITOR_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*$/;
+
 	const editorOptions: CodeEditorSettings[] = [
 		{ schemeIdentifer: "vscodium", displayName: "VSCodium" },
 		{ schemeIdentifer: "vscode", displayName: "VSCode" },
@@ -67,11 +70,51 @@
 		{ schemeIdentifer: "zed", displayName: "Zed" },
 		{ schemeIdentifer: "cursor", displayName: "Cursor" },
 		{ schemeIdentifer: "trae", displayName: "Trae" },
+		{ schemeIdentifer: "jetbrains-idea", displayName: "IntelliJ IDEA" },
+		{ schemeIdentifer: "jetbrains-webstorm", displayName: "WebStorm" },
+		{ schemeIdentifer: "jetbrains-pycharm", displayName: "PyCharm" },
+		{ schemeIdentifer: "jetbrains-clion", displayName: "CLion" },
+		{ schemeIdentifer: "jetbrains-goland", displayName: "GoLand" },
+		{ schemeIdentifer: "jetbrains-phpstorm", displayName: "PhpStorm" },
+		{ schemeIdentifer: "jetbrains-rider", displayName: "Rider" },
+		{ schemeIdentifer: "jetbrains-rubymine", displayName: "RubyMine" },
+		{ schemeIdentifer: "jetbrains-datagrip", displayName: "DataGrip" },
+		{ schemeIdentifer: "jetbrains-dataspell", displayName: "DataSpell" },
 	];
-	const editorOptionsForSelect = editorOptions.map((option) => ({
-		label: option.displayName,
-		value: option.schemeIdentifer,
-	}));
+	const editorOptionsForSelect = [
+		...editorOptions.map((option) => ({
+			label: option.displayName,
+			value: option.schemeIdentifer,
+		})),
+		{ label: "Custom", value: CUSTOM_EDITOR_VALUE },
+	];
+
+	let customEditorName = $state(
+		editorOptions.some(
+			(option) => option.schemeIdentifer === defaultCodeEditor.current.schemeIdentifer,
+		)
+			? "Custom editor"
+			: defaultCodeEditor.current.displayName,
+	);
+	let customEditorScheme = $state(
+		editorOptions.some(
+			(option) => option.schemeIdentifer === defaultCodeEditor.current.schemeIdentifer,
+		)
+			? ""
+			: defaultCodeEditor.current.schemeIdentifer,
+	);
+	let selectedEditorValue = $state(
+		editorOptions.some(
+			(option) => option.schemeIdentifer === defaultCodeEditor.current.schemeIdentifer,
+		)
+			? defaultCodeEditor.current.schemeIdentifer
+			: CUSTOM_EDITOR_VALUE,
+	);
+	const customEditorSchemeError = $derived(
+		customEditorScheme && !CUSTOM_EDITOR_SCHEME_PATTERN.test(customEditorScheme)
+			? "Use a URI scheme such as code, emacs, or my-editor."
+			: undefined,
+	);
 
 	const allTerminalOptions: TerminalSettings[] = [
 		// macOS
@@ -175,6 +218,15 @@
 	}
 
 	let showSymlink = $state(false);
+
+	function saveCustomEditor() {
+		const scheme = customEditorScheme.trim();
+		if (!scheme || !CUSTOM_EDITOR_SCHEME_PATTERN.test(scheme)) return;
+		defaultCodeEditor.set({
+			displayName: customEditorName.trim() || "Custom editor",
+			schemeIdentifer: scheme,
+		});
+	}
 </script>
 
 {#if userService.user}
@@ -228,25 +280,56 @@
 			Default code editor
 		{/snippet}
 		{#snippet actions()}
-			<Select
-				value={defaultCodeEditor.current.schemeIdentifer}
-				options={editorOptionsForSelect}
-				onselect={(value) => {
-					const selected = editorOptions.find((option) => option.schemeIdentifer === value);
-					if (selected) {
-						defaultCodeEditor.set(selected);
-					}
-				}}
-			>
-				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem
-						selected={item.value === defaultCodeEditor.current.schemeIdentifer}
-						{highlighted}
-					>
-						{item.label}
-					</SelectItem>
-				{/snippet}
-			</Select>
+			<div class="editor-settings">
+				<Select
+					value={selectedEditorValue}
+					options={editorOptionsForSelect}
+					onselect={(value) => {
+						if (value === CUSTOM_EDITOR_VALUE) {
+							selectedEditorValue = CUSTOM_EDITOR_VALUE;
+							if (!customEditorScheme) {
+								customEditorScheme = defaultCodeEditor.current.schemeIdentifer;
+							}
+							return;
+						}
+
+						const selected = editorOptions.find((option) => option.schemeIdentifer === value);
+						if (selected) {
+							selectedEditorValue = value;
+							defaultCodeEditor.set(selected);
+						}
+					}}
+				>
+					{#snippet itemSnippet({ item, highlighted })}
+						<SelectItem selected={item.value === selectedEditorValue} {highlighted}>
+							{item.label}
+						</SelectItem>
+					{/snippet}
+				</Select>
+				{#if selectedEditorValue === CUSTOM_EDITOR_VALUE}
+					<div class="custom-editor-fields">
+						<Textbox
+							label="Name"
+							bind:value={customEditorName}
+							placeholder="Custom editor"
+							onchange={saveCustomEditor}
+						/>
+						<Textbox
+							label="URI scheme"
+							bind:value={customEditorScheme}
+							placeholder="my-editor"
+							error={customEditorSchemeError}
+							helperText="GitButler opens files as scheme://file/path:line:column."
+							onchange={saveCustomEditor}
+						/>
+						<Button
+							style="pop"
+							disabled={!customEditorScheme || !!customEditorSchemeError}
+							onclick={saveCustomEditor}>Save</Button
+						>
+					</div>
+				{/if}
+			</div>
 		{/snippet}
 	</CardGroup.Item>
 	{#if platformName !== "web"}
@@ -418,5 +501,19 @@
 		flex-direction: column;
 		width: 100%;
 		gap: 12px;
+	}
+
+	.editor-settings {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 12px;
+	}
+
+	.custom-editor-fields {
+		display: grid;
+		grid-template-columns: minmax(140px, 1fr) minmax(180px, 1fr) auto;
+		align-items: end;
+		gap: 8px;
 	}
 </style>

@@ -153,8 +153,8 @@ ARCH="$(arch)"
 
 [ -z "${VERSION-}" ] && error "--version is not set"
 
-[ -z "${TAURI_SIGNING_PRIVATE_KEY-}" ] && error "$TAURI_SIGNING_PRIVATE_KEY is not set"
-[ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD-}" ] && error "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD is not set"
+[ -z "${TAURI_SIGNING_PRIVATE_KEY-}" ] && error "TAURI_SIGNING_PRIVATE_KEY is not set"
+[ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD-}" ] && error "TAURI_SIGNING_PRIVATE_KEY_PASSWORD is not set"
 
 if [ "$CHANNEL" != "release" ] && [ "$CHANNEL" != "nightly" ]; then
 	error "--channel must be either 'release' or 'nightly'"
@@ -166,19 +166,19 @@ fi
 
 if [ "$DO_SIGN" = "true" ]; then
 	if [ "$OS" = "macos" ]; then
-		[ -z "${APPLE_CERTIFICATE-}" ] && error "$APPLE_CERTIFICATE is not set"
-		[ -z "${APPLE_CERTIFICATE_PASSWORD-}" ] && error "$APPLE_CERTIFICATE_PASSWORD is not set"
-		[ -z "${APPLE_ID-}" ] && error "$APPLE_ID is not set"
-		[ -z "${APPLE_TEAM_ID-}" ] && error "$APPLE_TEAM_ID is not set"
-		[ -z "${APPLE_PASSWORD-}" ] && error "$APPLE_PASSWORD is not set"
+		[ -z "${APPLE_CERTIFICATE-}" ] && error "APPLE_CERTIFICATE is not set"
+		[ -z "${APPLE_CERTIFICATE_PASSWORD-}" ] && error "APPLE_CERTIFICATE_PASSWORD is not set"
+		[ -z "${APPLE_ID-}" ] && error "APPLE_ID is not set"
+		[ -z "${APPLE_TEAM_ID-}" ] && error "APPLE_TEAM_ID is not set"
+		[ -z "${APPLE_PASSWORD-}" ] && error "APPLE_PASSWORD is not set"
 		export APPLE_CERTIFICATE="$APPLE_CERTIFICATE"
 		export APPLE_CERTIFICATE_PASSWORD="$APPLE_CERTIFICATE_PASSWORD"
 		export APPLE_ID="$APPLE_ID"
 		export APPLE_TEAM_ID="$APPLE_TEAM_ID"
 		export APPLE_PASSWORD="$APPLE_PASSWORD"
 	elif [ "$OS" == "linux" ]; then
-		[ -z "${APPIMAGE_KEY_ID-}" ] && error "$APPIMAGE_KEY_ID is not set"
-		[ -z "${APPIMAGE_KEY_PASSPHRASE-}" ] && error "$APPIMAGE_KEY_PASSPHRASE is not set"
+		[ -z "${APPIMAGE_KEY_ID-}" ] && error "APPIMAGE_KEY_ID is not set"
+		[ -z "${APPIMAGE_KEY_PASSPHRASE-}" ] && error "APPIMAGE_KEY_PASSPHRASE is not set"
 		export SIGN=1
 		export SIGN_KEY="$APPIMAGE_KEY_ID"
 		export APPIMAGETOOL_SIGN_PASSPHRASE="$APPIMAGE_KEY_PASSPHRASE"

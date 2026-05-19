@@ -7,21 +7,11 @@ use tracing::instrument;
 use url::Url;
 
 pub(crate) fn open_that(target_url: &Url) -> anyhow::Result<()> {
-    if ![
-        "http",
-        "https",
-        "mailto",
-        "vscode",
-        "vscodium",
-        "vscode-insiders",
-        "zed",
-        "windsurf",
-        "cursor",
-        "trae",
-        "file",
-    ]
-    .contains(&target_url.scheme())
-    {
+    if let Some(result) = open_jetbrains_editor_url_as_command_invocation(target_url) {
+        return result;
+    }
+
+    if !url_scheme_allowed(target_url) {
         bail!("Invalid path scheme: {}", target_url.scheme());
     }
 
@@ -96,6 +86,141 @@ pub(crate) fn open_that(target_url: &Url) -> anyhow::Result<()> {
         bail!("Errors occurred: {cmd_errors:?}");
     }
     Ok(())
+}
+
+fn url_scheme_allowed(target_url: &Url) -> bool {
+    [
+        "http",
+        "https",
+        "mailto",
+        "vscode",
+        "vscodium",
+        "vscode-insiders",
+        "zed",
+        "windsurf",
+        "cursor",
+        "trae",
+        "file",
+    ]
+    .contains(&target_url.scheme())
+        || is_editor_file_url(target_url)
+}
+
+fn is_editor_file_url(target_url: &Url) -> bool {
+    target_url.host_str() == Some("file") && !target_url.path().is_empty()
+}
+
+/// Opens supported JetBrains editor URLs via their command-line launchers.
+///
+/// JetBrains IDEs document launcher usage as `<ide> [--line n] [--column n] <path>`.
+/// They do not consistently support VS Code-style `editor://file/...:line`
+/// protocol handling, so GitButler uses private `jetbrains-*` schemes and
+/// translates them to the documented launcher invocation.
+fn open_jetbrains_editor_url_as_command_invocation(target_url: &Url) -> Option<Result<()>> {
+    use std::process::Command;
+
+    let Some((command, args)) = jetbrains_editor_invocation(target_url) else {
+        return None;
+    };
+
+    let mut cmd = Command::new(&command);
+    cmd.args(&args);
+    tracing::info!(?cmd, "JetBrains editor command");
+    Some(
+        cmd.status()
+            .with_context(|| {
+                format!(
+                    "Failed to launch {command}. Make sure the JetBrains command-line launcher is installed and available on PATH."
+                )
+            })
+            .and_then(|status| {
+                if status.success() {
+                    Ok(())
+                } else {
+                    bail!("{command} exited with non-zero status: {status}")
+                }
+            }),
+    )
+}
+
+fn jetbrains_editor_invocation(target_url: &Url) -> Option<(String, Vec<String>)> {
+    let command = jetbrains_scheme_to_command(target_url.scheme())?;
+    if !is_editor_file_url(target_url) {
+        return None;
+    }
+
+    let path = editor_url_path(target_url)?;
+    if path.is_empty() {
+        return None;
+    }
+
+    let (path, line, column) = split_editor_path_position(&path);
+    let mut args = Vec::new();
+    if let Some(line) = line {
+        args.push("--line".to_owned());
+        args.push(line.to_string());
+    }
+    if let Some(column) = column {
+        args.push("--column".to_owned());
+        args.push(column.to_string());
+    }
+    args.push(path);
+
+    Some((command.to_owned(), args))
+}
+
+fn jetbrains_scheme_to_command(scheme: &str) -> Option<&'static str> {
+    match scheme {
+        "jetbrains-idea" => Some(jetbrains_command_name("idea")),
+        "jetbrains-webstorm" => Some(jetbrains_command_name("webstorm")),
+        "jetbrains-pycharm" => Some(jetbrains_command_name("pycharm")),
+        "jetbrains-clion" => Some(jetbrains_command_name("clion")),
+        "jetbrains-goland" => Some(jetbrains_command_name("goland")),
+        "jetbrains-phpstorm" => Some(jetbrains_command_name("phpstorm")),
+        "jetbrains-rider" => Some(jetbrains_command_name("rider")),
+        "jetbrains-rubymine" => Some(jetbrains_command_name("rubymine")),
+        "jetbrains-datagrip" => Some(jetbrains_command_name("datagrip")),
+        "jetbrains-dataspell" => Some(jetbrains_command_name("dataspell")),
+        _ => None,
+    }
+}
+
+fn jetbrains_command_name(base: &'static str) -> &'static str {
+    if cfg!(windows) {
+        match base {
+            "idea" => "idea64.exe",
+            "webstorm" => "webstorm64.exe",
+            "pycharm" => "pycharm64.exe",
+            "clion" => "clion64.exe",
+            "goland" => "goland64.exe",
+            "phpstorm" => "phpstorm64.exe",
+            "rider" => "rider64.exe",
+            "rubymine" => "rubymine64.exe",
+            "datagrip" => "datagrip64.exe",
+            "dataspell" => "dataspell64.exe",
+            _ => base,
+        }
+    } else {
+        base
+    }
+}
+
+fn split_editor_path_position(path: &str) -> (String, Option<u32>, Option<u32>) {
+    let Some((path_or_line, column)) = split_numeric_suffix(path) else {
+        return (path.to_owned(), None, None);
+    };
+
+    let Some((file_path, line)) = split_numeric_suffix(path_or_line) else {
+        return (path_or_line.to_owned(), Some(column), None);
+    };
+
+    (file_path.to_owned(), Some(line), Some(column))
+}
+
+fn split_numeric_suffix(path: &str) -> Option<(&str, u32)> {
+    let (path, suffix) = path.rsplit_once(':')?;
+    let number = suffix.parse().ok()?;
+    Some((path, number))
 }
 
 /// Opens supported editor URLs directly inside WSL.
@@ -206,7 +331,7 @@ fn path_has_position(path: &str) -> bool {
     line_or_column.parse::<u32>().is_ok()
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "linux"))]
 mod wsl_tests {
     use super::*;
 
@@ -263,6 +388,73 @@ mod wsl_tests {
         let url = Url::parse("zed://file/home/example/project/src/main.rs:42").unwrap();
 
         assert_eq!(wsl_editor_invocation(&url), None);
+    }
+}
+
+#[cfg(test)]
+mod jetbrains_tests {
+    use super::*;
+
+    #[cfg(windows)]
+    const PROJECT_URL_PATH: &str = "/C:/Users/example/project";
+    #[cfg(windows)]
+    const FILE_URL_PATH: &str = "/C:/Users/example/project/src/main.ts";
+    #[cfg(windows)]
+    const PROJECT_PATH: &str = "C:\\Users\\example\\project";
+    #[cfg(windows)]
+    const FILE_PATH: &str = "C:\\Users\\example\\project\\src\\main.ts";
+
+    #[cfg(not(windows))]
+    const PROJECT_URL_PATH: &str = "/home/example/project";
+    #[cfg(not(windows))]
+    const FILE_URL_PATH: &str = "/home/example/project/src/main.ts";
+    #[cfg(not(windows))]
+    const PROJECT_PATH: &str = "/home/example/project";
+    #[cfg(not(windows))]
+    const FILE_PATH: &str = "/home/example/project/src/main.ts";
+
+    #[test]
+    fn jetbrains_editor_url_becomes_line_column_cli_invocation() {
+        let url = Url::parse(&format!("jetbrains-webstorm://file{FILE_URL_PATH}:42:7")).unwrap();
+
+        let expected_command = if cfg!(windows) {
+            "webstorm64.exe"
+        } else {
+            "webstorm"
+        };
+
+        assert_eq!(
+            jetbrains_editor_invocation(&url),
+            Some((
+                expected_command.to_owned(),
+                vec![
+                    "--line".to_owned(),
+                    "42".to_owned(),
+                    "--column".to_owned(),
+                    "7".to_owned(),
+                    FILE_PATH.to_owned(),
+                ],
+            ))
+        );
+    }
+
+    #[test]
+    fn jetbrains_project_url_becomes_project_cli_invocation() {
+        let url = Url::parse(&format!("jetbrains-idea://file{PROJECT_URL_PATH}")).unwrap();
+
+        let expected_command = if cfg!(windows) { "idea64.exe" } else { "idea" };
+
+        assert_eq!(
+            jetbrains_editor_invocation(&url),
+            Some((expected_command.to_owned(), vec![PROJECT_PATH.to_owned()]))
+        );
+    }
+
+    #[test]
+    fn custom_editor_file_url_scheme_is_allowed() {
+        let url = Url::parse(&format!("my-editor://file{FILE_URL_PATH}:42")).unwrap();
+
+        assert!(url_scheme_allowed(&url));
     }
 }
 

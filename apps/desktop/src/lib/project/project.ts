@@ -31,7 +31,7 @@ export type Project = {
 };
 
 export function vscodePath(path: string) {
-	return path.includes("\\") ? "/" + path.replace("\\", "/") : path;
+	return path.includes("\\") ? "/" + path.replaceAll("\\", "/") : path;
 }
 
 export type AddProjectOutcome =
