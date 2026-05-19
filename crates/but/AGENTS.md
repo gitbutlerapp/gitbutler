@@ -17,6 +17,27 @@ changes, also read `crates/WORKSPACE_MODEL.md`.
   `read: impl std::io::Read` so tests can inject data. Keep `stdin().lock()` at
   top-level CLI wiring.
 
+## Worktree Guards And Deadlocks
+
+Command handlers should acquire the required worktree guard at the top of the
+operation and pass the derived permission down the call chain. Prefer
+permission-taking helpers such as `*_with_perm(...)` when a guard is already
+held. Do not call helpers that acquire another shared or exclusive worktree
+guard while the command is still holding one.
+
+When debugging a suspected worktree-lock deadlock, use a debug build with
+`BUT_WS_LOCK_DEBUG=1`. In debug builds, this makes worktree guard acquisition
+panic when the lock is already held instead of blocking indefinitely. Run the
+failing command with a backtrace, for example:
+
+```sh
+BUT_WS_LOCK_DEBUG=1 RUST_BACKTRACE=1 cargo run -p but -- -C <repo> <command>
+```
+
+Use the panic backtrace to find the nested guard acquisition, then thread the
+existing permission to that call site or switch it to an existing
+permission-taking helper.
+
 ## CLI Tests
 
 - In `crates/but/tests/`, prefer `env.but(...).assert().success()/failure()`

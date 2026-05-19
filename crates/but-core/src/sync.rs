@@ -91,11 +91,12 @@ pub fn exclusive_repo_access(
     git_dir: impl Into<PathBuf>,
     project_data_dir: Option<&Path>,
 ) -> RepoExclusiveGuard {
+    let git_dir = git_dir.into();
     let lock = {
-        let git_dir = git_dir.into();
         let mut map = WORKTREE_LOCKS.lock();
-        Arc::clone(map.entry(git_dir).or_default())
+        Arc::clone(map.entry(git_dir.clone()).or_default())
     };
+    panic_if_locked_in_debug(&lock, &git_dir, "exclusive");
     // The global `WORKTREE_LOCKS` mutex is released before blocking on the per-repo RwLock,
     // so contention on one repo cannot block access to unrelated repos.
     let in_process_lock = lock.write_arc();
@@ -119,14 +120,48 @@ pub fn exclusive_repo_access(
 /// alive in the caller that owns the lock, and pass [`RepoShared`] further down instead via
 /// [`RepoSharedGuard::read_permission()`].
 pub fn shared_repo_access(git_dir: impl Into<PathBuf>) -> RepoSharedGuard {
+    let git_dir = git_dir.into();
     let lock = {
         let mut map = WORKTREE_LOCKS.lock();
-        let git_dir = git_dir.into();
-        Arc::clone(map.entry(git_dir).or_default())
+        Arc::clone(map.entry(git_dir.clone()).or_default())
     };
+    panic_if_locked_in_debug(&lock, &git_dir, "shared");
     // The global `WORKTREE_LOCKS` mutex is released before blocking on the per-repo RwLock,
     // so contention on one repo cannot block access to unrelated repos.
     RepoSharedGuard(Some(lock.read_arc()))
+}
+
+/// Turn lock re-entry deadlocks into immediate panics while debugging.
+///
+/// This helper is active only in debug builds and only when `BUT_WS_LOCK_DEBUG` is present in the
+/// environment. In all other cases it is a no-op and normal lock acquisition keeps its blocking
+/// semantics.
+///
+/// The probe uses `try_write_arc()` for *both* shared and exclusive acquisition attempts. That is
+/// intentional: the goal is not to check whether this particular `mode` could proceed, but whether
+/// any repository lock is already held in this process for `git_dir`. This catches nested shared
+/// acquisitions too, as they are often harmless by themselves but still indicate code that would
+/// deadlock once the outer operation changes to hold an exclusive lock, or once a nested exclusive
+/// acquisition appears later in the same call path.
+fn panic_if_locked_in_debug(lock: &Arc<parking_lot::RwLock<()>>, git_dir: &Path, mode: &str) {
+    #[cfg(debug_assertions)]
+    {
+        if std::env::var_os("BUT_WS_LOCK_DEBUG").is_none() {
+            return;
+        }
+
+        if lock.try_write_arc().is_none() {
+            panic!(
+                "BUT_WS_LOCK_DEBUG: refusing to acquire {mode} worktree lock for '{}' because it is already held",
+                git_dir.display()
+            );
+        }
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        let _ = (lock, git_dir, mode);
+    }
 }
 
 /// Owns the *exclusive* in-process repository lock and the optional best-effort inter-process file
