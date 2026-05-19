@@ -14,6 +14,7 @@ const queryClient = new ReactQuery.QueryClient({
 		queries: {
 			// We don't expect network errors over the Node API.
 			retry: false,
+			staleTime: Number.POSITIVE_INFINITY,
 		},
 	},
 });

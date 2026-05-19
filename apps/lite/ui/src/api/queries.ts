@@ -18,18 +18,19 @@ export enum QueryKey {
 	Projects = "projects",
 	TreeChangeDiffs = "treeChangeDiffs",
 	AbsorptionPlan = "absorptionPlan",
+	DryRun = "dryRun",
 }
 
-export const branchDetailsQueryOptions = (params: BranchDetailsParams) =>
+export const branchDetailsQueryOptions = ({ projectId, ...params }: BranchDetailsParams) =>
 	queryOptions({
-		queryKey: [QueryKey.BranchDetails, params],
-		queryFn: () => window.lite.branchDetails(params),
+		queryKey: [QueryKey.BranchDetails, projectId, params],
+		queryFn: () => window.lite.branchDetails({ projectId, ...params }),
 	});
 
-export const branchDiffQueryOptions = (params: BranchDiffParams) =>
+export const branchDiffQueryOptions = ({ projectId, ...params }: BranchDiffParams) =>
 	queryOptions({
-		queryKey: [QueryKey.BranchDiff, params],
-		queryFn: () => window.lite.branchDiff(params),
+		queryKey: [QueryKey.BranchDiff, projectId, params],
+		queryFn: () => window.lite.branchDiff({ projectId, ...params }),
 	});
 
 export const changesInWorktreeQueryOptions = (projectId: string) =>
@@ -38,10 +39,13 @@ export const changesInWorktreeQueryOptions = (projectId: string) =>
 		queryFn: () => window.lite.changesInWorktree(projectId),
 	});
 
-export const commitDetailsWithLineStatsQueryOptions = (params: CommitDetailsWithLineStatsParams) =>
+export const commitDetailsWithLineStatsQueryOptions = ({
+	projectId,
+	...params
+}: CommitDetailsWithLineStatsParams) =>
 	queryOptions({
-		queryKey: [QueryKey.CommitDetailsWithLineStats, params],
-		queryFn: () => window.lite.commitDetailsWithLineStats(params),
+		queryKey: [QueryKey.CommitDetailsWithLineStats, projectId, params],
+		queryFn: () => window.lite.commitDetailsWithLineStats({ projectId, ...params }),
 	});
 
 export const headInfoQueryOptions = (projectId: string) =>
@@ -51,10 +55,10 @@ export const headInfoQueryOptions = (projectId: string) =>
 	});
 
 /** @public */
-export const listBranchesQueryOptions = (params: ListBranchesParams) =>
+export const listBranchesQueryOptions = ({ projectId, ...params }: ListBranchesParams) =>
 	queryOptions({
-		queryKey: [QueryKey.Branches, params],
-		queryFn: () => window.lite.listBranches(params.projectId, params.filter),
+		queryKey: [QueryKey.Branches, projectId, params],
+		queryFn: () => window.lite.listBranches(projectId, params.filter),
 	});
 
 export const listProjectsQueryOptions = queryOptions({

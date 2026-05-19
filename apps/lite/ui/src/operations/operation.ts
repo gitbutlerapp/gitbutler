@@ -13,7 +13,7 @@ import {
 	CommitSquashParams,
 	CommitUncommitParams,
 } from "#electron/ipc.ts";
-import { headInfoQueryOptions } from "#ui/api/queries.ts";
+import { headInfoQueryOptions, QueryKey } from "#ui/api/queries.ts";
 import { rejectedChangesToastOptions } from "#ui/operations/rejectedChangesToastOptions.tsx";
 import { DiffSpec, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 import { Operand, operandEquals, operandFileParent } from "#ui/operands.ts";
@@ -309,7 +309,7 @@ export const useDryRunOperation = ({
 
 	return useQuery({
 		enabled: !!operation,
-		queryKey: ["dryRun", projectId, operation, changes],
+		queryKey: [QueryKey.DryRun, projectId, operation, changes],
 		queryFn: () => {
 			if (!operation) return null;
 			return runOperation({
@@ -357,8 +357,6 @@ export const useRunOperation = () => {
 						}),
 					);
 			}
-
-			await client.invalidateQueries();
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console

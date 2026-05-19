@@ -8,18 +8,26 @@ export const handleWatcher = (
 	client: QueryClient,
 ): void => {
 	switch (event.payload.type) {
-		case "gitFetch":
-		case "gitHead":
-		case "gitActivity":
+		case "gitActivity": {
+			void client.invalidateQueries({ queryKey: [QueryKey.AbsorptionPlan, projectId] });
+			void client.invalidateQueries({ queryKey: [QueryKey.Branches, projectId] });
+			void client.invalidateQueries({ queryKey: [QueryKey.BranchDetails, projectId] });
+			void client.invalidateQueries({ queryKey: [QueryKey.BranchDiff, projectId] });
+			void client.invalidateQueries({ queryKey: [QueryKey.CommitDetailsWithLineStats, projectId] });
+			void client.invalidateQueries({ queryKey: [QueryKey.DryRun, projectId] });
+			void client.invalidateQueries({ queryKey: [QueryKey.HeadInfo, projectId] });
+			void client.invalidateQueries({ queryKey: [QueryKey.TreeChangeDiffs, projectId] });
 			break;
+		}
 		case "worktreeChanges":
 			const workspaceChanges = event.payload.subject.changes;
 			client.setQueryData(
 				changesInWorktreeQueryOptions(projectId).queryKey,
 				() => workspaceChanges,
 			);
-			void client.invalidateQueries({ queryKey: [QueryKey.TreeChangeDiffs, projectId] });
 			void client.invalidateQueries({ queryKey: [QueryKey.AbsorptionPlan, projectId] });
+			void client.invalidateQueries({ queryKey: [QueryKey.DryRun, projectId] });
+			void client.invalidateQueries({ queryKey: [QueryKey.TreeChangeDiffs, projectId] });
 			break;
 	}
 };
