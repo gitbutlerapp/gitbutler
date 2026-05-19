@@ -15,13 +15,15 @@
 	import { createWorktreeSelection } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { pathIsLocallyIgnored, WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject, injectOptional } from "@gitbutler/core/context";
 
-	import { Badge, TestId } from "@gitbutler/ui";
+	import { Badge, ContextMenu, ContextMenuItem, ContextMenuSection, TestId } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
 	import { untrack, type Snippet } from "svelte";
 	import type { DropzoneHandler } from "$lib/dragging/handler";
+	import type { TreeChange } from "@gitbutler/but-sdk";
 
 	type Props = {
 		projectId: string;
@@ -56,6 +58,7 @@
 
 	const diffService = inject(DIFF_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const worktreeService = inject(WORKTREE_SERVICE);
 	const uiState = inject(UI_STATE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const ircApiService = injectOptional(IRC_API_SERVICE, undefined);
@@ -82,8 +85,33 @@
 	);
 
 	const changes = $derived(uncommittedService.changesByStackId(stackId || null));
+	const localIgnoredPathsQuery = $derived(
+		mode === "unassigned" ? worktreeService.localIgnoredPaths(projectId) : undefined,
+	);
+	const localIgnoredPaths = $derived(localIgnoredPathsQuery?.response ?? []);
+	const compactLocalIgnoredPaths = $derived.by(() => compactIgnoredPaths(localIgnoredPaths));
+	const unfilteredWorktreeDataQuery = $derived(
+		mode === "unassigned" ? worktreeService.unfilteredWorktreeData(projectId) : undefined,
+	);
+	const locallyIgnoredChanges = $derived.by(() => {
+		if (mode !== "unassigned" || compactLocalIgnoredPaths.length === 0) return [];
+		const hiddenChanges = (unfilteredWorktreeDataQuery?.response?.rawChanges ?? []).filter((change) =>
+			pathIsLocallyIgnored(change.path, localIgnoredPaths),
+		);
+		const hiddenChangePaths = new Set(hiddenChanges.map((change) => change.path));
+		const placeholderChanges = compactLocalIgnoredPaths
+			.filter((path) => !hiddenChangePaths.has(path))
+			.map(createLocalIgnoredPlaceholderChange);
+
+		return [...hiddenChanges, ...placeholderChanges];
+	});
+	let showLocalIgnored = $state(false);
+	const visibleLocalIgnoredChanges = $derived(showLocalIgnored ? locallyIgnoredChanges : []);
+	const displayChanges = $derived([...changes.current, ...visibleLocalIgnoredChanges]);
 
 	let listMode: "list" | "tree" = $state("list");
+	let localIgnoredContextMenuOpen = $state(false);
+	let localIgnoredContextMenuTarget = $state<MouseEvent | HTMLElement>();
 
 	let scrollTopIsVisible = $state(true);
 
@@ -110,10 +138,47 @@
 		}
 		return `${getDropzoneLabel(handler)}ing to ${title}`;
 	}
+
+	function onContainerContextMenu(e: MouseEvent) {
+		if (mode !== "unassigned" || localIgnoredPaths.length === 0) return;
+
+		e.preventDefault();
+		localIgnoredContextMenuTarget = e;
+		localIgnoredContextMenuOpen = true;
+	}
+
+	function createLocalIgnoredPlaceholderChange(path: string): TreeChange {
+		return {
+			path,
+			pathBytes: Array.from(new TextEncoder().encode(path)),
+			status: {
+				type: "Modification",
+				subject: {
+					previousState: { id: "", kind: "Blob" },
+					state: { id: "", kind: "Blob" },
+					flags: null,
+				},
+			},
+		};
+	}
+
+	function compactIgnoredPaths(paths: string[]): string[] {
+		const sortedPaths = [...new Set(paths)].sort((a, b) => a.localeCompare(b));
+		const compacted: string[] = [];
+
+		for (const path of sortedPaths) {
+			const parentPath = compacted.find((parent) => path === parent || path.startsWith(`${parent}/`));
+			if (!parentPath) {
+				compacted.push(path);
+			}
+		}
+
+		return compacted;
+	}
 </script>
 
 {#snippet fileList()}
-	<FileListProvider changes={changes.current} {selectionId}>
+	<FileListProvider changes={displayChanges} {selectionId}>
 		<FileListItems
 			{projectId}
 			{stackId}
@@ -123,6 +188,7 @@
 			showLockedIndicator
 			{visibleRange}
 			{ircWorkingFiles}
+			{localIgnoredPaths}
 			dataTestId={TestId.UncommittedChanges_FileList}
 			onselect={onFileClick && ((_change, index) => onFileClick(index))}
 		/>
@@ -146,8 +212,8 @@
 		/>
 	{/snippet}
 
-	<div class="uncommitted-changes-wrap">
-		{#if mode === "unassigned" || changes.current.length > 0}
+	<div class="uncommitted-changes-wrap" role="presentation" oncontextmenu={onContainerContextMenu}>
+		{#if mode === "unassigned" || displayChanges.length > 0}
 			<div
 				role="presentation"
 				data-testid={TestId.UncommittedChanges_Header}
@@ -165,16 +231,16 @@
 					{/if}
 					<div class="worktree-header__title truncate">
 						<h3 class="text-14 text-semibold truncate">{title}</h3>
-						<Badge>{changes.current.length}</Badge>
+						<Badge>{displayChanges.length}</Badge>
 					</div>
 				</div>
-				{#if changes.current.length > 0}
+				{#if displayChanges.length > 0}
 					<FileListViewToggle bind:mode={listMode} {persistId} />
 				{/if}
 			</div>
 		{/if}
 
-		{#if changes.current.length > 0}
+		{#if displayChanges.length > 0}
 			<ScrollableContainer
 				{onscrollexists}
 				onscrollTop={(visible) => {
@@ -189,6 +255,25 @@
 		{/if}
 	</div>
 </Dropzone>
+
+{#if localIgnoredContextMenuOpen}
+	<ContextMenu
+		target={localIgnoredContextMenuTarget}
+		side="bottom"
+		onclose={() => (localIgnoredContextMenuOpen = false)}
+	>
+		<ContextMenuSection>
+			<ContextMenuItem
+				label={showLocalIgnored ? "Hide ignored" : "Show ignored"}
+				icon={showLocalIgnored ? "eye-closed" : "eye"}
+				onclick={() => {
+					showLocalIgnored = !showLocalIgnored;
+					localIgnoredContextMenuOpen = false;
+				}}
+			/>
+		</ContextMenuSection>
+	</ContextMenu>
+{/if}
 
 <style>
 	.uncommitted-changes-wrap {

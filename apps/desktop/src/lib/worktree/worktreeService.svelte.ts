@@ -66,6 +66,10 @@ export class WorktreeService {
 		);
 	}
 
+	unfilteredWorktreeData(projectId: string) {
+		return this.backendApi.endpoints.worktreeChanges.useQuery({ projectId });
+	}
+
 	localIgnoredPaths(projectId: string) {
 		return this.backendApi.endpoints.localIgnoredPaths.useQuery(
 			{ projectId },

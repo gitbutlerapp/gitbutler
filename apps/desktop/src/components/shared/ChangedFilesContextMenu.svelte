@@ -183,6 +183,7 @@
 	{@const item = menuItem}
 	{@const deletion = isDeleted(item)}
 	{@const itemPath = getItemPath(item)}
+	{@const itemLocallyIgnored = pathIsLocallyIgnored(itemPath)}
 	<ContextMenu
 		{leftClickTrigger}
 		rightClickTrigger={trigger}
@@ -196,7 +197,7 @@
 		}}
 	>
 		{#if isChangedFilesItem(item)}
-			{#if item.changes.length > 0 && !editMode}
+			{#if item.changes.length > 0 && !editMode && !itemLocallyIgnored}
 				<ContextMenuSection>
 					{@const changes = item.changes}
 					{#if isUncommitted}
@@ -243,9 +244,9 @@
 				<ContextMenuSection>
 					{#if isUncommitted}
 						<ContextMenuItem
-							label={pathIsLocallyIgnored(itemPath) ? "Stop ignoring locally" : "Ignore locally"}
-							icon={pathIsLocallyIgnored(itemPath) ? "eye" : "eye-closed"}
-							onclick={() => setLocalIgnored(itemPath, !pathIsLocallyIgnored(itemPath))}
+							label={itemLocallyIgnored ? "Stop ignoring locally" : "Ignore locally"}
+							icon={itemLocallyIgnored ? "eye" : "eye-closed"}
+							onclick={() => setLocalIgnored(itemPath, !itemLocallyIgnored)}
 						/>
 					{/if}
 					<ContextMenuItemSubmenu label="Copy path" icon="copy">

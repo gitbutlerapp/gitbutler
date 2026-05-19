@@ -10,7 +10,7 @@ use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
 use but_ctx::Context;
 use but_unity_yaml::{
-    UnityLineRange, UnitySemanticChange, UnitySemanticDiff, UnitySemanticNode,
+    UnityLineRange, UnityNodeKind, UnitySemanticChange, UnitySemanticDiff, UnitySemanticNode,
     UnitySemanticSelectionRange,
 };
 use tracing::instrument;
@@ -533,9 +533,10 @@ fn convert_node(
     patch: Option<&but_core::UnifiedPatch>,
     guid_index: &UnityGuidIndex,
 ) -> json::UnitySemanticNodeForFrontend {
+    let label = resolved_node_label(&node, guid_index);
     json::UnitySemanticNodeForFrontend {
         id: node.id,
-        label: node.label,
+        label,
         kind: node.kind,
         change_kind: node.change_kind,
         path: node.path,
@@ -552,6 +553,28 @@ fn convert_node(
             .map(|child| convert_node(child, patch, guid_index))
             .collect(),
     }
+}
+
+fn resolved_node_label(node: &UnitySemanticNode, guid_index: &UnityGuidIndex) -> String {
+    if node.kind != UnityNodeKind::Component || node.class_name.as_deref() != Some("MonoBehaviour")
+    {
+        return node.label.clone();
+    }
+
+    let Some(guid) = node.label.strip_prefix("Script ") else {
+        return node.label.clone();
+    };
+    guid_index
+        .get(guid.trim())
+        .map(script_asset_label)
+        .unwrap_or_else(|| node.label.clone())
+}
+
+fn script_asset_label(reference: &json::UnityAssetReference) -> String {
+    if reference.kind.as_deref() == Some("cs") {
+        return reference.name.clone();
+    }
+    reference.name.clone()
 }
 
 fn convert_change(
@@ -834,5 +857,36 @@ mod tests {
             ),
             Some("abcdef1234567890abcdef1234567890")
         );
+    }
+
+    #[test]
+    fn mono_behaviour_node_label_uses_resolved_script_asset_name() {
+        let guid = "1234567890abcdef1234567890abcdef";
+        let mut index = UnityGuidIndex::new();
+        index.insert(
+            guid.to_owned(),
+            json::UnityAssetReference {
+                guid: guid.to_owned(),
+                path: "Assets/Scripts/PlayerController.cs".to_owned(),
+                name: "PlayerController.cs".to_owned(),
+                kind: Some("cs".to_owned()),
+            },
+        );
+        let node = UnitySemanticNode {
+            id: "component-1".to_owned(),
+            label: format!("Script {guid}"),
+            kind: UnityNodeKind::Component,
+            change_kind: but_unity_yaml::UnityChangeKind::Modified,
+            path: "MonoBehaviour".to_owned(),
+            class_name: Some("MonoBehaviour".to_owned()),
+            children: Vec::new(),
+            changes: Vec::new(),
+            range: UnitySemanticSelectionRange {
+                old: None,
+                new: None,
+            },
+        };
+
+        assert_eq!(resolved_node_label(&node, &index), "PlayerController.cs");
     }
 }

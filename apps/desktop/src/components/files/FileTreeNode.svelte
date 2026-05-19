@@ -3,6 +3,7 @@
 	import Self from "$components/files/FileTreeNode.svelte";
 	import { getAllChanges } from "$lib/files/filetreeV3";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
+	import { pathIsLocallyIgnored } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { TestId } from "@gitbutler/ui";
 	import type { TreeNode } from "$lib/files/filetreeV3";
@@ -22,6 +23,7 @@
 		depth?: number;
 		initiallyExpanded?: boolean;
 		fileTemplate: Snippet<[TreeChange, number, number]>;
+		localIgnoredPaths?: string[];
 		active?: boolean;
 	};
 
@@ -36,6 +38,7 @@
 		changes,
 		depth = 0,
 		fileTemplate,
+		localIgnoredPaths = [],
 		active,
 	}: Props = $props();
 
@@ -47,6 +50,12 @@
 	// Flag to suppress keyboard-nav selection when a mouse click is in progress
 	let mouseClickPending = false;
 	const folderChanges = $derived(node.kind === "dir" ? getAllChanges(node) : []);
+	const selectableFolderChanges = $derived(
+		folderChanges.filter((change) => !pathIsLocallyIgnored(change.path, localIgnoredPaths)),
+	);
+	const folderLocallyIgnored = $derived(
+		folderChanges.length > 0 && selectableFolderChanges.length === 0,
+	);
 
 	// Handler for toggling the folder
 	function handleToggle() {
@@ -56,7 +65,7 @@
 	// Selects all files nested under this folder node
 	function selectFolderContents(addToSelection = false) {
 		if (node.kind !== "dir") return;
-		if (folderChanges.length === 0) return;
+		if (selectableFolderChanges.length === 0) return;
 
 		const indexMap = new Map(changes.map((c, i) => [c.path, i]));
 
@@ -64,10 +73,10 @@
 			idSelection.clear(selectionId);
 		}
 
-		const last = folderChanges.at(-1)!;
+		const last = selectableFolderChanges.at(-1)!;
 		const lastIndex = indexMap.get(last.path) ?? 0;
 		idSelection.addMany(
-			folderChanges.map((c) => c.path),
+			selectableFolderChanges.map((c) => c.path),
 			selectionId,
 			{ path: last.path, index: lastIndex },
 		);
@@ -89,18 +98,18 @@
 	// Handles arrow-key navigation away from a folder by updating file selection
 	// before FocusManager moves focus to the next/prev item.
 	function handleFolderKeyDown(e: KeyboardEvent): boolean {
-		if (folderChanges.length === 0) return false;
+		if (selectableFolderChanges.length === 0) return false;
 
 		if ((e.key === "ArrowDown" || e.key === "j") && !e.shiftKey) {
 			// FocusManager will focus the first file in this folder next.
-			const firstFile = folderChanges[0]!;
+			const firstFile = selectableFolderChanges[0]!;
 			const idx = changes.findIndex((c) => c.path === firstFile.path);
 			if (idx !== -1) {
 				idSelection.set(firstFile.path, selectionId, idx);
 			}
 		} else if ((e.key === "ArrowUp" || e.key === "k") && !e.shiftKey) {
 			// FocusManager will focus the item before this folder next.
-			const firstFile = folderChanges[0]!;
+			const firstFile = selectableFolderChanges[0]!;
 			const idx = changes.findIndex((c) => c.path === firstFile.path);
 			if (idx > 0) {
 				const prevFile = changes[idx - 1]!;
@@ -124,6 +133,7 @@
 			{draggableFiles}
 			{changes}
 			{fileTemplate}
+			{localIgnoredPaths}
 			{active}
 		/>
 	{/each}
@@ -137,15 +147,16 @@
 		testId={TestId.FileListTreeFolder}
 		{depth}
 		{isExpanded}
-		showCheckbox={showCheckboxes}
-		draggable={draggableFiles}
+		showCheckbox={showCheckboxes && !folderLocallyIgnored}
+		draggable={draggableFiles && !folderLocallyIgnored}
+		locallyIgnored={folderLocallyIgnored}
 		{node}
 		{active}
 		focusableOpts={{
-			focusable: true,
+			focusable: !folderLocallyIgnored,
 			onAction: () => selectFolderContents(),
 			onActive: (isActive) => {
-				if (isActive && !mouseClickPending) selectFolderContents();
+				if (!folderLocallyIgnored && isActive && !mouseClickPending) selectFolderContents();
 			},
 			onKeydown: handleFolderKeyDown,
 		}}
@@ -166,6 +177,7 @@
 				{draggableFiles}
 				{changes}
 				{fileTemplate}
+				{localIgnoredPaths}
 				{active}
 			/>
 		{/each}

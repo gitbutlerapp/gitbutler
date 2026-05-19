@@ -7,6 +7,7 @@
 	import { descriptionTitle } from "$lib/commits/commit";
 	import { isUnityYamlPath } from "$lib/files/unityConflicts";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import {
 		getBaseBranchResolution,
 		stackFullyIntegrated,
@@ -27,11 +28,12 @@
 		Button,
 		IntegrationSeriesRow,
 		Modal,
-		SimpleCommitRow,
 		FileListItem,
+		Icon,
 		Select,
 		SelectItem,
 		ScrollableContainer,
+		Toggle,
 		type BranchShouldBeDeletedMap,
 		TestId,
 		AsyncButton,
@@ -59,6 +61,7 @@
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	// const forgeListingService = $derived(forge.current.listService);
 	const backend = inject(BACKEND);
+	const stackService = inject(STACK_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
 	const base = $derived(baseBranchQuery.response);
@@ -84,6 +87,9 @@
 	let elapsedTick = $state(Date.now());
 	let selectedUnityConflictFile = $state<string | undefined>();
 	let unityConflictModal = $state<UnityConflictResolverModal | undefined>();
+	let incomingChangesExpanded = $state(true);
+	let conflictsExpanded = $state(true);
+	let selectedIncomingCommitId = $state<string | undefined>();
 	let activeProgress = $derived(
 		activeProgressPercent(workspaceUpdateProgress, gitOperationProgress),
 	);
@@ -415,6 +421,25 @@
 		return Math.max(0, Math.min(100, progressPercent));
 	}
 
+	function shortSha(sha: string): string {
+		return sha.slice(0, 7);
+	}
+
+	function changeStatusLabel(type: string): string {
+		switch (type) {
+			case "Addition":
+				return "Added";
+			case "Deletion":
+				return "Deleted";
+			case "Modification":
+				return "Modified";
+			case "Rename":
+				return "Renamed";
+			default:
+				return type;
+		}
+	}
+
 	// async function fetchAppliedBranches() {
 	// 	const stacksResponse = await stackService.fetchStacks(projectId);
 	// 	return stacksResponse.data?.flatMap((stack) => stack.heads.map((head) => head.name)) ?? [];
@@ -574,64 +599,157 @@
 	<ScrollableContainer maxHeight="70vh">
 		{#if base}
 			<div class="section">
-				<h3 class="text-14 text-semibold section-title">
-					<span>Incoming {base.upstreamCommits.length === 1 ? "change" : "changes"}</span><Badge
-						>{base.upstreamCommits.length}</Badge
-					>
-				</h3>
-				<div class="scroll-wrap">
-					<ScrollableContainer maxHeight="16.5rem">
-						{#each base.upstreamCommits as commit}
-							{@const commitUrl = forge.current.commitUrl(commit.id)}
-							<SimpleCommitRow
-								title={descriptionTitle(commit) ?? ""}
-								sha={commit.id}
-								date={new Date(commit.createdAt)}
-								author={commit.author.name}
-								url={commitUrl}
-								onOpen={(url) => urlService.openExternalUrl(url)}
-								onCopy={() => clipboardService.write(commit.id, { message: "Commit hash copied" })}
-							/>
-						{/each}
-					</ScrollableContainer>
-				</div>
+				<button
+					type="button"
+					class="section-toggle"
+					class:expanded={incomingChangesExpanded}
+					aria-expanded={incomingChangesExpanded}
+					onclick={() => (incomingChangesExpanded = !incomingChangesExpanded)}
+				>
+					<span class="section-toggle-copy">
+						<span class="section-toggle-icon"><Icon name="chevron-right" /></span>
+						<span class="text-14 text-semibold">
+							Incoming {base.upstreamCommits.length === 1 ? "change" : "changes"}
+						</span>
+						<Badge>{base.upstreamCommits.length}</Badge>
+					</span>
+				</button>
+				{#if incomingChangesExpanded}
+					<div class="scroll-wrap">
+						<ScrollableContainer maxHeight="18rem">
+							{#each base.upstreamCommits as commit}
+								{@const commitUrl = forge.current.commitUrl(commit.id)}
+								{@const selected = selectedIncomingCommitId === commit.id}
+								<div class="incoming-change" class:selected>
+									<button
+										type="button"
+										class="incoming-change-main"
+										aria-expanded={selected}
+										onclick={() => (selectedIncomingCommitId = selected ? undefined : commit.id)}
+									>
+										<Icon name={selected ? "chevron-down" : "chevron-right"} />
+										<div class="incoming-change-copy">
+											<span class="incoming-change-title text-13 text-semibold">
+												{descriptionTitle(commit) ?? commit.id}
+											</span>
+											<span class="incoming-change-meta text-11">
+												{shortSha(commit.id)} • {commit.author.name}
+											</span>
+										</div>
+									</button>
+									<div class="incoming-change-actions text-11">
+										<button
+											type="button"
+											class="text-btn"
+											onclick={() =>
+												clipboardService.write(commit.id, { message: "Commit hash copied" })}
+										>
+											Copy SHA
+										</button>
+										{#if commitUrl}
+											<button
+												type="button"
+												class="text-btn"
+												onclick={() => urlService.openExternalUrl(commitUrl)}
+											>
+												Open
+											</button>
+										{/if}
+									</div>
+									{#if selected}
+										{@const changesQuery = stackService.commitChanges(projectId, commit.id)}
+										<div class="incoming-change-details">
+											{#if changesQuery.response}
+												{@const stats = changesQuery.response.stats}
+												<div class="incoming-change-stats text-12">
+													<span>{changesQuery.response.changes.length} touched files</span>
+													{#if stats}
+														<span>+{stats.linesAdded}</span>
+														<span>-{stats.linesRemoved}</span>
+													{/if}
+												</div>
+												<div class="incoming-change-files">
+													{#each changesQuery.response.changes as change}
+														<div class="incoming-change-file text-12">
+															<span class="change-status"
+																>{changeStatusLabel(change.status.type)}</span
+															>
+															<span class="change-path" title={change.path}>{change.path}</span>
+														</div>
+													{/each}
+												</div>
+											{:else}
+												<p class="text-12 clr-text-2">Loading touched files…</p>
+											{/if}
+										</div>
+									{/if}
+								</div>
+							{/each}
+						</ScrollableContainer>
+					</div>
+				{/if}
 			</div>
 		{/if}
 		<!-- CONFLICTED FILES -->
 		{#if branchStatuses?.type === "updatesRequired" && branchStatuses?.worktreeConflicts.length > 0}
 			<div class="section">
-				<h3 class="text-14 text-semibold section-title">
-					<span>Conflicting uncommitted files</span>
-
-					<Badge>{branchStatuses?.worktreeConflicts.length}</Badge>
-				</h3>
-				<p class="text-12 clr-text-2">
-					Updating the workspace will add conflict markers to the following files. Unity YAML files
-					can be selected now and resolved after the update is applied.
-				</p>
-				<div class="scroll-wrap">
-					<ScrollableContainer maxHeight="15rem">
-						{@const conflicts = branchStatuses?.worktreeConflicts}
-						{#each conflicts as file, i}
-							{@const isUnityConflict = isUnityYamlPath(file)}
-							<FileListItem
-								listMode="list"
-								filePath={file}
-								clickable={isUnityConflict}
-								selected={selectedUnityConflictFile === file}
-								badges={isUnityConflict ? ["Unity"] : []}
-								conflicted
-								isLast={i === conflicts.length - 1}
-								onclick={isUnityConflict
-									? () => {
-											selectedUnityConflictFile =
-												selectedUnityConflictFile === file ? undefined : file;
-										}
-									: undefined}
-							/>
-						{/each}
-					</ScrollableContainer>
-				</div>
+				<button
+					type="button"
+					class="section-toggle"
+					class:expanded={conflictsExpanded}
+					aria-expanded={conflictsExpanded}
+					onclick={() => (conflictsExpanded = !conflictsExpanded)}
+				>
+					<span class="section-toggle-copy">
+						<span class="section-toggle-icon"><Icon name="chevron-right" /></span>
+						<span class="text-14 text-semibold">Conflicting uncommitted files</span>
+						<Badge>{branchStatuses?.worktreeConflicts.length}</Badge>
+					</span>
+				</button>
+				{#if conflictsExpanded}
+					<p class="text-12 clr-text-2">
+						These local files overlap with incoming changes. Updating will write conflict markers
+						into them. Toggle a Unity file to open the resolver after the update completes.
+					</p>
+					<div class="scroll-wrap">
+						<ScrollableContainer maxHeight="15rem">
+							{@const conflicts = branchStatuses?.worktreeConflicts}
+							{#each conflicts as file, i}
+								{@const isUnityConflict = isUnityYamlPath(file)}
+								{@const selected = selectedUnityConflictFile === file}
+								<div class="conflict-row" class:is-last={i === conflicts.length - 1}>
+									<FileListItem
+										listMode="list"
+										filePath={file}
+										clickable={isUnityConflict}
+										selected
+										badges={isUnityConflict ? ["Unity"] : []}
+										conflicted
+										isLast
+										onclick={isUnityConflict
+											? () => {
+													selectedUnityConflictFile = selected ? undefined : file;
+												}
+											: undefined}
+									/>
+									<div class="conflict-toggle">
+										{#if isUnityConflict}
+											<span class="text-11 clr-text-2">Resolve after update</span>
+											<Toggle
+												small
+												checked={selected}
+												onchange={(checked) =>
+													(selectedUnityConflictFile = checked ? file : undefined)}
+											/>
+										{:else}
+											<span class="text-11 clr-text-2">Conflict markers only</span>
+										{/if}
+									</div>
+								</div>
+							{/each}
+						</ScrollableContainer>
+					</div>
+				{/if}
 			</div>
 		{/if}
 		<!-- DIVERGED -->
@@ -798,10 +916,146 @@
 		}
 	}
 
-	.section-title {
+	.section-toggle {
 		display: flex;
 		align-items: center;
-		gap: 4px;
+		justify-content: space-between;
+		width: 100%;
+		text-align: left;
+	}
+
+	.section-toggle-copy {
+		display: flex;
+		align-items: center;
+		min-width: 0;
+		gap: 6px;
+	}
+
+	.section-toggle-icon {
+		display: flex;
+		color: var(--text-3);
+		transition: transform var(--transition-medium);
+	}
+
+	.section-toggle.expanded .section-toggle-icon {
+		transform: rotate(90deg);
+	}
+
+	.incoming-change {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-1);
+
+		&:last-child {
+			border-bottom: none;
+		}
+
+		&.selected {
+			background-color: var(--focus-bg-mute);
+		}
+	}
+
+	.incoming-change-main {
+		display: flex;
+		align-items: center;
+		min-width: 0;
+		padding: 12px 8px 12px 12px;
+		gap: 8px;
+		text-align: left;
+	}
+
+	.incoming-change-copy {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		gap: 5px;
+	}
+
+	.incoming-change-title,
+	.incoming-change-meta,
+	.change-path {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.incoming-change-meta {
+		color: var(--text-2);
+	}
+
+	.incoming-change-actions {
+		display: flex;
+		align-items: center;
+		padding-right: 12px;
+		gap: 8px;
+	}
+
+	.text-btn {
+		color: var(--text-2);
+		text-decoration: underline;
+		text-underline-offset: 3px;
+
+		&:hover {
+			color: var(--text-1);
+		}
+	}
+
+	.incoming-change-details {
+		display: flex;
+		grid-column: 1 / -1;
+		flex-direction: column;
+		padding: 0 12px 12px 34px;
+		gap: 8px;
+	}
+
+	.incoming-change-stats {
+		display: flex;
+		gap: 10px;
+		color: var(--text-2);
+	}
+
+	.incoming-change-files {
+		display: flex;
+		flex-direction: column;
+		max-height: 9rem;
+		overflow: auto;
+		border: 1px solid var(--border-3);
+		border-radius: var(--radius-s);
+	}
+
+	.incoming-change-file {
+		display: grid;
+		grid-template-columns: 72px minmax(0, 1fr);
+		padding: 6px 8px;
+		gap: 8px;
+		border-bottom: 1px solid var(--border-3);
+
+		&:last-child {
+			border-bottom: none;
+		}
+	}
+
+	.change-status {
+		color: var(--text-2);
+	}
+
+	.conflict-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		border-bottom: 1px solid var(--border-3);
+		background-color: var(--bg-danger);
+
+		&.is-last {
+			border-bottom: none;
+		}
+	}
+
+	.conflict-toggle {
+		display: flex;
+		align-items: center;
+		padding: 0 10px;
+		gap: 8px;
 	}
 
 	/* DIVERGANCE */

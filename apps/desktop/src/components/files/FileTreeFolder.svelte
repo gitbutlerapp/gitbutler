@@ -20,6 +20,7 @@
 		depth: number;
 		showCheckbox?: boolean;
 		draggable?: boolean;
+		locallyIgnored?: boolean;
 		isExpanded?: boolean;
 		active?: boolean;
 		focusableOpts?: FocusableOptions;
@@ -37,6 +38,7 @@
 		depth,
 		showCheckbox,
 		draggable,
+		locallyIgnored = false,
 		isExpanded,
 		active,
 		focusableOpts,
@@ -56,7 +58,7 @@
 	const selectionStatus = $derived(uncommittedService.folderCheckStatus(stackId, folderPath));
 
 	const folderSelected = $derived.by(() => {
-		if (folderChanges.length === 0) return false;
+		if (locallyIgnored || folderChanges.length === 0) return false;
 		return folderChanges.every((c) => idSelection.has(c.path, selectionId));
 	});
 
@@ -83,7 +85,7 @@
 		contextMenu?.open(e, item);
 	}
 
-	const draggableDisabled = $derived(!draggable || showCheckbox);
+	const draggableDisabled = $derived(!draggable || showCheckbox || locallyIgnored);
 </script>
 
 <div
@@ -118,6 +120,7 @@
 		indeterminate={selectionStatus.current === "indeterminate"}
 		draggable={!draggableDisabled}
 		selected={folderSelected}
+		disabled={locallyIgnored}
 		{active}
 		actionOpts={focusableOpts}
 		oncheck={(e) => handleCheck(e.currentTarget.checked)}

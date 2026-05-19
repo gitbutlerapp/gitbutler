@@ -2,7 +2,7 @@
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Badge, Button, Checkbox, Tooltip } from "@gitbutler/ui";
+	import { Badge, Button, Checkbox, Icon, Tooltip } from "@gitbutler/ui";
 	import type {
 		UnitySemanticChange,
 		UnitySemanticDiff,
@@ -54,6 +54,7 @@
 	let requested = $state(true);
 	let requestId = 0;
 	let renderedObjectCount = $state(INITIAL_OBJECTS);
+	let collapsedNodes = $state<Set<string>>(new Set());
 
 	$effect(() => {
 		void projectId;
@@ -63,6 +64,7 @@
 		error = undefined;
 		loading = true;
 		renderedObjectCount = INITIAL_OBJECTS;
+		collapsedNodes = new Set();
 		requestId++;
 
 		const currentRequest = requestId;
@@ -289,7 +291,7 @@
 	function changedValueLabel(change: UnitySemanticChange) {
 		if (change.changeKind === "added") return "Added";
 		if (change.changeKind === "removed") return "Removed";
-		if (isReferenceProperty(change)) return "Reference";
+		if (isReferenceProperty(change)) return "";
 		return "Changed";
 	}
 
@@ -358,14 +360,33 @@
 
 	function componentLabel(node: UnitySemanticNode) {
 		if (node.kind !== "component") return node.label;
-		if (node.label.startsWith("Script ")) return "Script component";
-		if (node.className === "MonoBehaviour") return "Behaviour component";
+		if (node.label.startsWith("Script ")) {
+			return `Script ${shortenId(node.label.slice("Script ".length).trim())}`;
+		}
 		return node.label;
 	}
 
 	function nodeLabel(node: UnitySemanticNode) {
 		if (node.kind === "component") return componentLabel(node);
 		return node.label;
+	}
+
+	function nodePathSegments(node: UnitySemanticNode) {
+		return node.path
+			.split("/")
+			.map((segment) => segment.trim())
+			.filter(Boolean);
+	}
+
+	function nodeDisplayName(node: UnitySemanticNode) {
+		const segments = nodePathSegments(node);
+		return segments.at(-1) || nodeLabel(node);
+	}
+
+	function nodePathContext(node: UnitySemanticNode) {
+		const segments = nodePathSegments(node);
+		if (segments.length <= 1) return "";
+		return segments.slice(0, -1).join(" / ");
 	}
 
 	function showChangeBadge(kind: string) {
@@ -407,6 +428,13 @@
 		const referenceChanges = changes.filter((change) =>
 			change.propertyPath.endsWith("programSource"),
 		);
+		if (referenceChanges.length > 0) {
+			for (const change of changes) {
+				if (change.propertyPath.endsWith("guid") || change.propertyPath.endsWith("fileID")) {
+					consumed.add(change);
+				}
+			}
+		}
 
 		for (const [index, scriptReference] of referenceChanges.entries()) {
 			if (consumed.has(scriptReference)) continue;
@@ -417,7 +445,7 @@
 			details.forEach((detail) => consumed.add(detail));
 			result.push({
 				key: `${keyPrefix}script-reference:${index}`,
-				label: "Program source",
+				label: "Script reference changed",
 				before: displayValue(
 					scriptReference,
 					scriptReference.oldValue,
@@ -429,7 +457,7 @@
 					scriptReference.newReference,
 				),
 				changeKind: scriptReference.changeKind,
-				note: source.label.startsWith("Script ") ? "Component reference" : nodeLabel(source),
+				note: "",
 				selection: scriptReference.selection,
 				details,
 				source,
@@ -456,11 +484,15 @@
 	}
 
 	function collectReviewChanges(node: UnitySemanticNode, prefix = ""): ReviewChange[] {
-		const result = reviewChanges(node.changes, node, `${prefix}${node.id}:`);
+		const result = nodeReviewChanges(node, prefix);
 		for (const [index, child] of node.children.entries()) {
 			result.push(...collectReviewChanges(child, `${prefix}${node.id}:${index}/`));
 		}
 		return dedupeReviewChanges(result);
+	}
+
+	function nodeReviewChanges(node: UnitySemanticNode, prefix = "") {
+		return dedupeReviewChanges(reviewChanges(node.changes, node, `${prefix}${node.id}:`));
 	}
 
 	function dedupeReviewChanges(items: ReviewChange[]) {
@@ -468,7 +500,7 @@
 		return items.filter((item) => {
 			const referenceKey = reviewReferenceKey(item);
 			if (!referenceKey) return true;
-			if (item.label !== "Program source" && seenReferencePairs.has(referenceKey)) {
+			if (item.label !== "Script reference changed" && seenReferencePairs.has(referenceKey)) {
 				return false;
 			}
 			seenReferencePairs.add(referenceKey);
@@ -497,9 +529,36 @@
 		return `${prefix}${node.id}:${index}`;
 	}
 
+	function nodeCollapseKey(node: UnitySemanticNode, index: number, prefix = "") {
+		return nodeKey(node, index, prefix);
+	}
+
+	function isNodeCollapsed(key: string) {
+		return collapsedNodes.has(key);
+	}
+
+	function toggleNodeCollapsed(key: string) {
+		const next = new Set(collapsedNodes);
+		if (next.has(key)) {
+			next.delete(key);
+		} else {
+			next.add(key);
+		}
+		collapsedNodes = next;
+	}
+
 	function objectSubtitle(reviewCount: number) {
 		if (reviewCount === 0) return "Context only";
 		return `${reviewCount} meaningful change${reviewCount === 1 ? "" : "s"}`;
+	}
+
+	function childSummary(node: UnitySemanticNode) {
+		const ownCount = nodeReviewChanges(node).length;
+		const childCount = node.children.length;
+		const parts = [];
+		if (ownCount > 0) parts.push(`${ownCount} change${ownCount === 1 ? "" : "s"}`);
+		if (childCount > 0) parts.push(`${childCount} nested item${childCount === 1 ? "" : "s"}`);
+		return parts.join(" • ");
 	}
 </script>
 
@@ -530,7 +589,9 @@
 						{changeKindLabel(item.changeKind)}
 					</Badge>
 				{/if}
-				<span class="unity-review-row__note text-11">{item.note}</span>
+				{#if item.note}
+					<span class="unity-review-row__note text-11">{item.note}</span>
+				{/if}
 			</div>
 			<div class="unity-review-change">
 				<span class="unity-review-value old">{item.before}</span>
@@ -566,17 +627,94 @@
 	</div>
 {/snippet}
 
+{#snippet nestedReviewNode(node: UnitySemanticNode, index: number, depth = 0, prefix = "")}
+	{@const items = nodeReviewChanges(node, `${prefix}${index}/`)}
+	{@const collapseKey = nodeCollapseKey(node, index, prefix)}
+	{@const collapsed = isNodeCollapsed(collapseKey)}
+	{@const canCollapse = items.length > 0 || node.children.length > 0}
+	<div class="unity-child-node" style={`--depth: ${depth}`}>
+		<div class="unity-child-node__header">
+			<button
+				type="button"
+				class="unity-collapse-button"
+				class:expanded={!collapsed}
+				disabled={!canCollapse}
+				aria-label={collapsed
+					? `Expand ${nodeDisplayName(node)}`
+					: `Collapse ${nodeDisplayName(node)}`}
+				aria-expanded={!collapsed}
+				onclick={() => toggleNodeCollapsed(collapseKey)}
+			>
+				<Icon name="chevron-right" size={14} />
+			</button>
+			<div class="unity-child-node__select">
+				{@render selectionControl(node.selection, nodeSelectionLabel(node.kind))}
+			</div>
+			<div class="unity-child-node__title-block">
+				<div class="unity-child-node__title">
+					<span class="unity-row-kind text-11">{nodeKindLabel(node.kind)}</span>
+					<span>{nodeDisplayName(node)}</span>
+					{#if showChangeBadge(node.changeKind)}
+						<Badge kind="soft" style={changeKindStyle(node.changeKind)}>
+							{changeKindLabel(node.changeKind)}
+						</Badge>
+					{/if}
+					{#if childSummary(node)}
+						<span class="unity-child-node__meta text-11">{childSummary(node)}</span>
+					{/if}
+				</div>
+				{#if nodePathContext(node)}
+					<div class="unity-child-node__path text-11">{nodePathContext(node)}</div>
+				{/if}
+			</div>
+		</div>
+		{#if !collapsed}
+			{#if items.length > 0}
+				<div class="unity-child-node__changes">
+					{#each items as item (item.key)}
+						{@render reviewChangeRow(item)}
+					{/each}
+				</div>
+			{/if}
+			{#if node.children.length > 0}
+				<div class="unity-child-node__children">
+					{#each node.children as child, childIndex (nodeKey(child, childIndex, `${node.id}:nested:`))}
+						{@render nestedReviewNode(child, childIndex, depth + 1, `${prefix}${node.id}:`)}
+					{/each}
+				</div>
+			{/if}
+		{/if}
+	</div>
+{/snippet}
+
 {#snippet objectSection(node: UnitySemanticNode, index: number, prefix = "")}
-	{@const items = collectReviewChanges(node, `${prefix}${index}/`)}
+	{@const items = nodeReviewChanges(node, `${prefix}${index}/`)}
+	{@const totalItems = collectReviewChanges(node, `${prefix}${index}/`).length}
+	{@const collapseKey = nodeCollapseKey(node, index, prefix)}
+	{@const collapsed = isNodeCollapsed(collapseKey)}
+	{@const canCollapse = items.length > 0 || node.children.length > 0}
 	<section class="unity-object">
 		<div class="unity-object__header">
+			<button
+				type="button"
+				class="unity-collapse-button unity-collapse-button--object"
+				class:expanded={!collapsed}
+				disabled={!canCollapse}
+				aria-label={collapsed
+					? `Expand ${nodeDisplayName(node)}`
+					: `Collapse ${nodeDisplayName(node)}`}
+				aria-expanded={!collapsed}
+				onclick={() => toggleNodeCollapsed(collapseKey)}
+			>
+				<Icon name="chevron-right" size={14} />
+			</button>
 			<div class="unity-object__select">
 				{@render selectionControl(node.selection, nodeSelectionLabel(node.kind))}
 			</div>
 			<div class="unity-object__title-block">
 				<div class="unity-object__title">
 					<span class="unity-row-kind text-11">{nodeKindLabel(node.kind)}</span>
-					<span>{nodeLabel(node)}</span>
+					<span>{nodeDisplayName(node)}</span>
 					{#if showChangeBadge(node.changeKind)}
 						<Badge kind="soft" style={changeKindStyle(node.changeKind)}>
 							{changeKindLabel(node.changeKind)}
@@ -584,17 +722,29 @@
 					{/if}
 				</div>
 				<div class="unity-object__meta text-11">
-					<span>{objectSubtitle(items.length)}</span>
+					<span>{objectSubtitle(totalItems)}</span>
+					{#if nodePathContext(node)}
+						<span>{nodePathContext(node)}</span>
+					{/if}
 				</div>
 			</div>
 		</div>
 
-		{#if items.length > 0}
-			<div class="unity-review-list">
-				{#each items as item (item.key)}
-					{@render reviewChangeRow(item)}
-				{/each}
-			</div>
+		{#if !collapsed}
+			{#if items.length > 0}
+				<div class="unity-review-list">
+					{#each items as item (item.key)}
+						{@render reviewChangeRow(item)}
+					{/each}
+				</div>
+			{/if}
+			{#if node.children.length > 0}
+				<div class="unity-child-list">
+					{#each node.children as child, childIndex (nodeKey(child, childIndex, `${node.id}:children:`))}
+						{@render nestedReviewNode(child, childIndex, 0, `${prefix}${index}/`)}
+					{/each}
+				</div>
+			{/if}
 		{/if}
 	</section>
 {/snippet}
@@ -737,9 +887,38 @@
 	.unity-object__header {
 		display: flex;
 		align-items: flex-start;
-		padding: 10px 12px;
-		gap: 10px;
+		padding: 9px 12px;
+		gap: 8px;
 		background-color: var(--bg-1);
+	}
+
+	.unity-collapse-button {
+		display: flex;
+		flex: 0 0 auto;
+		align-items: center;
+		justify-content: center;
+		width: 18px;
+		height: 18px;
+		margin-top: 1px;
+		border-radius: var(--radius-s);
+		color: var(--text-3);
+		transition:
+			background-color var(--transition-fast),
+			color var(--transition-fast),
+			transform var(--transition-medium);
+
+		&:hover:not(:disabled) {
+			background-color: var(--bg-3);
+			color: var(--text-1);
+		}
+
+		&:disabled {
+			visibility: hidden;
+		}
+	}
+
+	.unity-collapse-button.expanded {
+		transform: rotate(90deg);
 	}
 
 	.unity-object__select {
@@ -778,15 +957,79 @@
 		text-transform: uppercase;
 	}
 
+	.unity-child-list,
+	.unity-child-node__children {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.unity-child-list {
+		padding: 6px 0 8px 28px;
+		box-shadow: inset 0 1px 0 var(--border-3);
+	}
+
+	.unity-child-node {
+		position: relative;
+		margin-left: calc(var(--depth) * 14px);
+		padding: 2px 0;
+	}
+
+	.unity-child-node__header {
+		display: flex;
+		align-items: flex-start;
+		min-width: 0;
+		padding: 7px 12px 7px 8px;
+		gap: 8px;
+	}
+
+	.unity-child-node__select {
+		flex-shrink: 0;
+		width: 16px;
+	}
+
+	.unity-child-node__title-block {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.unity-child-node__title {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 6px;
+		color: var(--text-2);
+		font-weight: 500;
+	}
+
+	.unity-child-node__meta {
+		color: var(--text-3);
+		font-weight: 500;
+	}
+
+	.unity-child-node__path {
+		margin-top: 3px;
+		overflow: hidden;
+		color: var(--text-3);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.unity-child-node__changes {
+		display: flex;
+		flex-direction: column;
+		margin: 2px 0 6px 42px;
+		border-top: 1px solid var(--border-3);
+	}
+
 	.unity-review-list {
 		display: flex;
 		flex-direction: column;
-		padding-left: 26px;
+		padding-left: 42px;
 	}
 
 	.unity-review-row {
 		display: flex;
-		padding: 11px 12px 11px 0;
+		padding: 8px 12px 8px 0;
 		gap: 10px;
 		box-shadow: inset 0 1px 0 var(--border-3);
 	}
@@ -810,7 +1053,7 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 6px;
-		color: var(--text-1);
+		color: var(--text-2);
 		font-weight: 600;
 	}
 
@@ -827,16 +1070,16 @@
 		display: flex;
 		align-items: center;
 		min-width: 0;
-		margin-top: 6px;
+		margin-top: 5px;
 		gap: 6px;
 	}
 
 	.unity-review-value {
 		display: inline-block;
 		min-width: 0;
-		padding: 2px 5px;
+		padding: 1px 4px;
 		overflow: hidden;
-		border-radius: 4px;
+		border-radius: var(--radius-s);
 		font-weight: 500;
 		font-size: 12px;
 		text-overflow: ellipsis;
@@ -844,12 +1087,12 @@
 	}
 
 	.unity-review-value.old {
-		background-color: var(--diff-deletion-line-bg);
+		background-color: color-mix(in srgb, var(--diff-deletion-line-bg) 70%, transparent);
 		color: var(--diff-deletion-count-text);
 	}
 
 	.unity-review-value.new {
-		background-color: var(--diff-addition-line-bg);
+		background-color: color-mix(in srgb, var(--diff-addition-line-bg) 70%, transparent);
 		color: var(--diff-addition-count-text);
 	}
 

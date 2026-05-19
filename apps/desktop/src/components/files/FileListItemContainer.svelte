@@ -41,6 +41,7 @@
 		isLast?: boolean;
 		notched?: boolean;
 		ircWorkingUsers?: string[];
+		locallyIgnored?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		conflictEntries?: ConflictEntriesObj;
@@ -66,6 +67,7 @@
 		isLast = false,
 		notched,
 		ircWorkingUsers,
+		locallyIgnored = false,
 		onclick,
 		onkeydown,
 	}: Props = $props();
@@ -114,7 +116,7 @@
 	}
 
 	const conflict = $derived(conflictEntries ? conflictEntries.entries[change.path] : undefined);
-	const draggableDisabled = $derived(!draggable || showCheckbox);
+	const draggableDisabled = $derived(!draggable || showCheckbox || locallyIgnored);
 	const badges = $derived(isUnitySceneOrPrefabPath(change.path) ? ["Unity"] : []);
 
 	const lockText = $derived.by(() => {
@@ -193,13 +195,14 @@
 		{depth}
 		{executable}
 		draggable={!draggableDisabled}
+		disabled={locallyIgnored}
 		{onkeydown}
 		locked={locked || false}
 		{lockText}
 		{isLast}
 		{notched}
 		{ircWorkingUsers}
-		{badges}
+		badges={locallyIgnored ? [...badges, "Ignored"] : badges}
 		onlockhover={handleLockHover}
 		onlockunhover={handleLockUnhover}
 		conflicted={!!conflict}

@@ -21,6 +21,7 @@
 		getFileListContext,
 		type FileListKeyHandler,
 	} from "$lib/selection/fileListController.svelte";
+	import { pathIsLocallyIgnored } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { FOCUS_MANAGER } from "@gitbutler/ui/focus/focusManager";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
@@ -39,6 +40,7 @@
 		ircWorkingFiles?: Record<string, string[]>;
 		/** Per-file conflict hints (rendered inline on each item) */
 		conflictEntries?: ConflictEntriesObj;
+		localIgnoredPaths?: string[];
 		dataTestId?: string;
 		/** Called when a file is selected (click, Enter/Space/l, or arrow navigation). */
 		onselect?: (change: TreeChange, index: number) => void;
@@ -56,6 +58,7 @@
 		visibleRange,
 		ircWorkingFiles,
 		conflictEntries,
+		localIgnoredPaths = [],
 		dataTestId,
 		onselect,
 		extraKeyHandlers,
@@ -88,10 +91,15 @@
 	);
 	const fileDependencies = $derived(fileDependenciesQuery?.result.data || []);
 	const tree = $derived.by(() => abbreviateFolders(changesToFileTree(controller.changes)));
+
+	function isLocallyIgnored(path: string): boolean {
+		return pathIsLocallyIgnored(path, localIgnoredPaths);
+	}
 </script>
 
 {#snippet fileTemplate(change: TreeChange, idx: number, depth: number = 0, isLast: boolean = false)}
 	{@const isExecutable = isExecutableStatus(change.status)}
+	{@const locallyIgnored = isLocallyIgnored(change.path)}
 	{@const selected = controller.isSelected(change.path)}
 	{@const locked = showLockedIndicator && isFileLocked(change.path, fileDependencies)}
 	{@const lockedCommitIds = showLockedIndicator
@@ -117,12 +125,14 @@
 			visibleRange !== undefined &&
 			idx >= visibleRange.start &&
 			idx < visibleRange.end}
-		{draggable}
+		draggable={draggable && !locallyIgnored}
 		executable={isExecutable}
-		showCheckbox={showCheckboxes}
+		showCheckbox={showCheckboxes && !locallyIgnored}
 		ircWorkingUsers={ircWorkingUsersByPath?.get(change.path)}
+		{locallyIgnored}
 		focusableOpts={{
 			onKeydown: (e) => {
+				if (locallyIgnored) return false;
 				// 1. Activation keys (Enter/Space/l)
 				if (controller.handleActivation(change, idx, e)) {
 					onselect?.(change, idx);
@@ -169,7 +179,7 @@
 			// shift-range-select called focusByElement to move the ring, and we
 			// must not overwrite the multi-select with a single-file set().
 			onActive:
-				mode === "tree"
+				mode === "tree" && !locallyIgnored
 					? (active) => {
 							if (active && focusManager.isKeyboardNavigation && !controller.isKeyboardSelecting) {
 								controller.selectSingle(change, idx);
@@ -180,6 +190,7 @@
 			focusable: true,
 		}}
 		onclick={(e) => {
+			if (locallyIgnored) return;
 			e.stopPropagation();
 			controller.select(e, change, idx);
 			if (controller.isSelected(change.path)) {
@@ -211,6 +222,7 @@
 				changes={controller.changes}
 				{fileTemplate}
 				active={controller.active}
+				{localIgnoredPaths}
 			/>
 		{:else}
 			<LazyList items={controller.changes} chunkSize={100}>

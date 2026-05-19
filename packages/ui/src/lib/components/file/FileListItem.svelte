@@ -25,6 +25,7 @@
 		selected?: boolean;
 		focused?: boolean;
 		clickable?: boolean;
+		disabled?: boolean;
 		showCheckbox?: boolean;
 		listMode?: "list" | "tree";
 		depth?: number;
@@ -69,6 +70,7 @@
 		selected = false,
 		focused = false,
 		clickable = true,
+		disabled = false,
 		showCheckbox = false,
 		checked = $bindable(),
 		indeterminate,
@@ -109,6 +111,7 @@
 	class:selected
 	class:active
 	class:clickable
+	class:disabled
 	class:focused
 	class:draggable
 	class:conflicted
@@ -116,12 +119,19 @@
 	class:list-mode={listMode === "list"}
 	class:is-last={isLast}
 	aria-selected={selected}
+	aria-disabled={disabled}
 	role="option"
-	tabindex="0"
-	{onclick}
+	tabindex={disabled ? -1 : 0}
+	onclick={(e) => {
+		if (disabled) return;
+		onclick?.(e);
+	}}
 	{ondblclick}
-	{onkeydown}
-	use:focusable={actionOpts}
+	onkeydown={(e) => {
+		if (disabled) return;
+		onkeydown?.(e);
+	}}
+	use:focusable={disabled ? { focusable: false } : actionOpts}
 	oncontextmenu={(e) => {
 		if (oncontextmenu) {
 			e.preventDefault();
@@ -146,13 +156,18 @@
 				<FileIndent {depth} />
 			{/if}
 
-			{#if showCheckbox}
+			{#if showCheckbox && !disabled}
 				<Checkbox small {checked} {indeterminate} onchange={oncheck} onclick={oncheckclick} />
 			{/if}
 		</div>
 	{/if}
 
-	<FileName {filePath} hideFilePath={listMode === "tree"} {pathFirst} />
+	<FileName
+		{filePath}
+		hideFilePath={listMode === "tree"}
+		{pathFirst}
+		color={disabled ? "var(--text-3)" : undefined}
+	/>
 
 	<div class="file-list-item__details">
 		{#if ircWorkingUsers && ircWorkingUsers.length > 0}
@@ -261,6 +276,15 @@
 
 			&.conflicted:not(.selected):hover {
 				background-color: var(--hover-danger-bg);
+			}
+		}
+
+		&.disabled {
+			color: var(--text-3);
+			cursor: default;
+
+			&:not(.selected):hover {
+				background-color: var(--bg-1);
 			}
 		}
 

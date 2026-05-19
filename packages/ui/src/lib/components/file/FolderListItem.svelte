@@ -15,6 +15,7 @@
 		depth?: number;
 		transparent?: boolean;
 		draggable?: boolean;
+		disabled?: boolean;
 		selected?: boolean;
 		active?: boolean;
 		actionOpts?: FocusableOptions;
@@ -40,6 +41,7 @@
 		depth,
 		transparent,
 		draggable = false,
+		disabled = false,
 		selected = false,
 		active = false,
 		actionOpts,
@@ -58,15 +60,18 @@
 	class="folder-list-item"
 	role="option"
 	aria-selected={selected}
-	tabindex="0"
+	aria-disabled={disabled}
+	tabindex={disabled ? -1 : 0}
 	class:transparent
 	class:draggable
+	class:disabled
 	class:selected
 	class:active
-	use:focusable={actionOpts}
+	use:focusable={disabled ? { focusable: false } : actionOpts}
 	{onmousedown}
 	onclick={(e) => {
 		e.stopPropagation();
+		if (disabled) return;
 		onclick?.(e);
 	}}
 	{onkeydown}
@@ -113,7 +118,7 @@
 			</svg>
 		</button>
 
-		{#if showCheckbox}
+		{#if showCheckbox && !disabled}
 			<Checkbox small bind:checked {indeterminate} onchange={oncheck} />
 		{/if}
 
@@ -137,6 +142,19 @@
 
 		&:not(.selected):hover {
 			background-color: var(--hover-bg-1);
+		}
+		&.disabled {
+			color: var(--text-3);
+			cursor: default;
+
+			&:not(.selected):hover {
+				background-color: var(--bg-1);
+			}
+
+			.folder-list-item__indicators,
+			.folder-list-item__icon {
+				color: var(--text-3);
+			}
 		}
 		&.transparent {
 			background-color: transparent;

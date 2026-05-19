@@ -5,6 +5,7 @@ import { URL_SERVICE } from "$lib/backend/url";
 import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 import { FILE_SERVICE } from "$lib/files/fileService";
 import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 import { UPSTREAM_INTEGRATION_SERVICE } from "$lib/upstream/upstreamIntegrationService.svelte";
 import { render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
@@ -99,8 +100,15 @@ describe("IntegrateUpstreamModal", () => {
 			integrateUpstream: () => [integrateMutation],
 			resolveUpstreamIntegrationMutation: vi.fn(),
 		});
+		injectMap.set(STACK_SERVICE, {
+			commitChanges: vi.fn(() => ({ response: undefined })),
+		});
 		injectMap.set(URL_SERVICE, { openExternalUrl: vi.fn() });
 		injectMap.set(CLIPBOARD_SERVICE, { write: vi.fn() });
+		injectMap.set(FILE_SERVICE, {
+			readFromWorkspace: vi.fn(),
+			writeToWorkspace: vi.fn(),
+		});
 
 		const user = userEvent.setup();
 		const { component } = render(IntegrateUpstreamModal, {
@@ -196,6 +204,9 @@ describe("IntegrateUpstreamModal", () => {
 			integrateUpstream: () => [vi.fn()],
 			resolveUpstreamIntegrationMutation: vi.fn(),
 		});
+		injectMap.set(STACK_SERVICE, {
+			commitChanges: vi.fn(() => ({ response: undefined })),
+		});
 		injectMap.set(URL_SERVICE, { openExternalUrl: vi.fn() });
 		injectMap.set(CLIPBOARD_SERVICE, { write: vi.fn() });
 
@@ -255,6 +266,9 @@ ${conflictEnd}
 			integrateUpstream: () => [integrateMutation],
 			resolveUpstreamIntegrationMutation: vi.fn(),
 		});
+		injectMap.set(STACK_SERVICE, {
+			commitChanges: vi.fn(() => ({ response: undefined })),
+		});
 		injectMap.set(URL_SERVICE, { openExternalUrl: vi.fn() });
 		injectMap.set(CLIPBOARD_SERVICE, { write: vi.fn() });
 		injectMap.set(FILE_SERVICE, {
@@ -275,5 +289,122 @@ ${conflictEnd}
 
 		expect(await screen.findByText("Unity Scene Resolver")).toBeInTheDocument();
 		expect(readFromWorkspace).toHaveBeenCalledWith("Assets/Scenes/dealers.unity", "project-1");
+	});
+
+	test("expands incoming commits to show touched files", async () => {
+		const listen = vi.fn(() => async () => {});
+		const commitChanges = vi.fn(() => ({
+			response: {
+				changes: [
+					{
+						path: "src/App.svelte",
+						status: { type: "Modification" },
+					},
+					{
+						path: "src/routes/new-route.ts",
+						status: { type: "Addition" },
+					},
+				],
+				stats: {
+					linesAdded: 12,
+					linesRemoved: 4,
+					filesChanged: 2,
+				},
+			},
+		}));
+
+		injectMap.set(BACKEND, { listen });
+		injectMap.set(BASE_BRANCH_SERVICE, {
+			baseBranch: () => ({
+				response: {
+					upstreamCommits: [
+						{
+							id: "abcdef123456",
+							description: "Add route details\n\nMore context",
+							createdAt: Date.now(),
+							author: { name: "Ivay" },
+						},
+					],
+				},
+			}),
+			refreshBaseBranch: vi.fn().mockResolvedValue(undefined),
+		});
+		injectMap.set(DEFAULT_FORGE_FACTORY, {
+			current: {
+				commitUrl: () => undefined,
+			},
+		});
+		injectMap.set(UPSTREAM_INTEGRATION_SERVICE, {
+			upstreamStatuses: vi.fn().mockResolvedValue({ type: "upToDate" }),
+			integrateUpstream: () => [vi.fn()],
+			resolveUpstreamIntegrationMutation: vi.fn(),
+		});
+		injectMap.set(STACK_SERVICE, { commitChanges });
+		injectMap.set(URL_SERVICE, { openExternalUrl: vi.fn() });
+		injectMap.set(CLIPBOARD_SERVICE, { write: vi.fn() });
+
+		const user = userEvent.setup();
+		const { component } = render(IntegrateUpstreamModal, {
+			props: {
+				projectId: "project-1",
+			},
+		});
+
+		await (component as { show: () => Promise<void> }).show();
+		await user.click(await screen.findByRole("button", { name: /Add route details/ }));
+
+		expect(commitChanges).toHaveBeenCalledWith("project-1", "abcdef123456");
+		expect(screen.getByText("2 touched files")).toBeInTheDocument();
+		expect(screen.getByText("src/App.svelte")).toBeInTheDocument();
+		expect(screen.getByText("src/routes/new-route.ts")).toBeInTheDocument();
+	});
+
+	test("toggles Unity conflict resolver selection explicitly", async () => {
+		const listen = vi.fn(() => async () => {});
+
+		injectMap.set(BACKEND, { listen });
+		injectMap.set(BASE_BRANCH_SERVICE, {
+			baseBranch: () => ({ response: undefined }),
+			refreshBaseBranch: vi.fn().mockResolvedValue(undefined),
+		});
+		injectMap.set(DEFAULT_FORGE_FACTORY, {
+			current: {
+				commitUrl: () => undefined,
+			},
+		});
+		injectMap.set(UPSTREAM_INTEGRATION_SERVICE, {
+			upstreamStatuses: vi.fn().mockResolvedValue({
+				type: "updatesRequired",
+				worktreeConflicts: ["Assets/Scenes/dealers.unity"],
+				subject: [],
+			}),
+			integrateUpstream: () => [vi.fn()],
+			resolveUpstreamIntegrationMutation: vi.fn(),
+		});
+		injectMap.set(STACK_SERVICE, {
+			commitChanges: vi.fn(() => ({ response: undefined })),
+		});
+		injectMap.set(URL_SERVICE, { openExternalUrl: vi.fn() });
+		injectMap.set(CLIPBOARD_SERVICE, { write: vi.fn() });
+		injectMap.set(FILE_SERVICE, {
+			readFromWorkspace: vi.fn(),
+			writeToWorkspace: vi.fn(),
+		});
+
+		const user = userEvent.setup();
+		const { component } = render(IntegrateUpstreamModal, {
+			props: {
+				projectId: "project-1",
+			},
+		});
+
+		await (component as { show: () => Promise<void> }).show();
+		const toggle = await screen.findByRole("checkbox");
+
+		expect(toggle).not.toBeChecked();
+		await user.click(toggle);
+		expect(toggle).toBeChecked();
+		await user.click(toggle);
+		expect(toggle).not.toBeChecked();
 	});
 });
