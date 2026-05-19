@@ -24,6 +24,7 @@ export { default as HunkDiff, type LineClickParams } from "$components/hunkDiff/
 export { default as HunkDiffSkeleton } from "$components/hunkDiff/HunkDiffSkeleton.svelte";
 export { default as Icon, type IconName } from "$components/Icon.svelte";
 export { default as ImageDiff } from "$components/ImageDiff.svelte";
+export { default as HoldConfirmButton } from "$components/HoldConfirmButton.svelte";
 export { default as InfoButton } from "$components/InfoButton.svelte";
 export { default as InfoMessage, type MessageStyle } from "$components/InfoMessage.svelte";
 export {

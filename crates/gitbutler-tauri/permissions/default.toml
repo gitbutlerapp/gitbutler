@@ -178,6 +178,7 @@ commands.allow = [
   "publish_review",
   "push_base_branch",
   "push_stack",
+  "push_stack_to_target",
   "remove_branch",
   "resolve_upstream_integration",
   "restore_backup_branch",

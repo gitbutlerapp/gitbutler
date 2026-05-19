@@ -3,10 +3,15 @@
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { getPrStatus } from "$lib/forge/interface/prUtils";
+	import {
+		useResolvedAuthorIdentities,
+		useResolvedAuthorIdentity,
+	} from "$lib/user/authorIdentity.svelte";
 	import { useUserAvatarUrl } from "$lib/user/userAvatar.svelte";
 	import { inject } from "@gitbutler/core/context";
 
 	import { AvatarGroup, ReviewBadge, SeriesLabelsRow, TestId, TimeAgo } from "@gitbutler/ui";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import { gravatarUrlFromEmail } from "@gitbutler/ui/components/avatar/gravatar";
 	import type { ReviewUnitInfo } from "$lib/forge/interface/forgePrService";
 	import type { PullRequest } from "$lib/forge/interface/types";
@@ -34,9 +39,13 @@
 	const pr = $derived(prs.at(0));
 
 	const branchDetailsQuery = $derived(branchService.get(projectId, branchListing.name));
-
-	let lastCommitDetails = $state<{ authorName: string; lastCommitAt?: Date }>();
 	let branchListingDetails = $derived(branchDetailsQuery?.response);
+	const resolvedLastCommitter = useResolvedAuthorIdentity(reactive(() => branchListing.lastCommiter));
+	const resolvedBranchAuthors = useResolvedAuthorIdentities(
+		reactive(() => branchListingDetails?.authors),
+	);
+
+	let ownedByUserName = $state<string | undefined>();
 
 	// If there are zero commits we should not show the author
 	const ownedByUser = $derived(branchListingDetails?.numberOfCommits === 0);
@@ -48,54 +57,61 @@
 			gitConfigService.get("user.name").then((userName) => {
 				if (canceled) return;
 
-				if (userName) {
-					lastCommitDetails = { authorName: userName };
-				} else {
-					lastCommitDetails = undefined;
-				}
+				ownedByUserName = userName ?? undefined;
 			});
 		} else {
-			lastCommitDetails = {
-				authorName: branchListing.lastCommiter.name || unknownName,
-				lastCommitAt: new Date(branchListing.updatedAt),
-			};
+			ownedByUserName = undefined;
 		}
+
+		return () => {
+			canceled = true;
+		};
 	});
 
-	let avatars = $state<{ username: string; srcUrl: string }[]>([]);
+	const lastCommitDetails = $derived.by(() => {
+		if (ownedByUser) {
+			return ownedByUserName ? { authorName: ownedByUserName } : undefined;
+		}
+
+		return {
+			authorName:
+				resolvedLastCommitter.current?.name ?? branchListing.lastCommiter.name ?? unknownName,
+			lastCommitAt: new Date(branchListing.updatedAt),
+		};
+	});
+
+	let ownedByUserAvatars = $state<{ username: string; srcUrl: string }[]>([]);
 
 	$effect(() => {
-		setAvatars(ownedByUser, branchListingDetails);
+		setOwnedByUserAvatars(ownedByUser);
 	});
 
-	async function setAvatars(ownedByUser: boolean, branchListingDetails?: BranchListingDetails) {
+	const avatars = $derived.by(() => {
 		if (ownedByUser) {
-			const name = (await gitConfigService.get("user.name")) || unknownName;
-			const email = (await gitConfigService.get<string>("user.email")) || unknownEmail;
-
-			avatars = [
-				{
-					username: name,
-					srcUrl: userAvatarUrl(email) ?? (await gravatarUrlFromEmail(email)),
-				},
-			];
-		} else if (branchListingDetails) {
-			avatars = branchListingDetails.authors
-				? await Promise.all(
-						branchListingDetails.authors.map(async (author) => {
-							return {
-								username: author.name || unknownName,
-								srcUrl:
-									userAvatarUrl(author.email) ??
-									author.gravatarUrl ??
-									(await gravatarUrlFromEmail(author.email || unknownEmail)),
-							};
-						}),
-					)
-				: [];
-		} else {
-			avatars = [];
+			return ownedByUserAvatars;
 		}
+
+		return resolvedBranchAuthors.current.map((author) => ({
+			username: author.name || unknownName,
+			srcUrl: author.avatarUrl ?? "",
+		}));
+	});
+
+	async function setOwnedByUserAvatars(ownedByUser: boolean) {
+		if (!ownedByUser) {
+			ownedByUserAvatars = [];
+			return;
+		}
+
+		const name = (await gitConfigService.get("user.name")) || unknownName;
+		const email = (await gitConfigService.get<string>("user.email")) || unknownEmail;
+
+		ownedByUserAvatars = [
+			{
+				username: name,
+				srcUrl: userAvatarUrl(email) ?? (await gravatarUrlFromEmail(email)),
+			},
+		];
 	}
 
 	const stackBranches = $derived(branchListing.stack?.branches);

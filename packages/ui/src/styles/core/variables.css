@@ -24,8 +24,8 @@
 	--z-lifted: 2;
 	--z-floating: 3;
 	--z-modal: 4;
-	--z-tooltip: 5;
 	--z-blocker: 9999;
+	--z-tooltip: 10000;
 
 	/* TODO: add focus color */
 	--focus-color: var(--fill-pop-bg);

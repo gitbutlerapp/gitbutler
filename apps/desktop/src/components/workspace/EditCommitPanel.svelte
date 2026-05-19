@@ -22,10 +22,11 @@
 	import { createCommitSelection } from "$lib/selection/key";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
-	import { useUserAvatarUrl } from "$lib/user/userAvatar.svelte";
+	import { useResolvedAuthorIdentity } from "$lib/user/authorIdentity.svelte";
 	import { inject } from "@gitbutler/core/context";
 
 	import { AsyncButton, Avatar, Badge, Button, InfoButton, Modal, TestId } from "@gitbutler/ui";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import { SvelteMap, SvelteSet } from "svelte/reactivity";
 	import type { ConflictState } from "$lib/files/conflictEntryPresence";
 	import type { EditModeMetadata, TreeChange } from "@gitbutler/but-sdk";
@@ -50,8 +51,6 @@
 	const fileService = inject(FILE_SERVICE);
 	const diffService = inject(DIFF_SERVICE);
 
-	const userAvatarUrl = useUserAvatarUrl();
-
 	const initialFiles = $derived(modeService.initialEditModeState({ projectId }));
 	const uncommittedFiles = $derived(modeService.changesSinceInitialEditState({ projectId }));
 
@@ -59,6 +58,11 @@
 	const [abortEdit, abortingEdit] = modeService.abortEditAndReturnToWorkspaceMutation;
 
 	let commitQuery = $derived(stackService.commitDetails(projectId, editModeMetadata.commitOid));
+	const currentCommit = $derived(commitQuery.response);
+	const resolvedCommitAuthor = useResolvedAuthorIdentity(
+		reactive(() => currentCommit?.author),
+		reactive(() => ({ commitId: currentCommit?.id })),
+	);
 
 	let filesList = $state<HTMLDivElement | undefined>(undefined);
 	let contextMenu = $state<ReturnType<typeof ChangedFilesContextMenu> | undefined>(undefined);
@@ -326,9 +330,7 @@
 					<div class="card commit-card">
 						<ReduxResult {projectId} result={commitQuery.result}>
 							{#snippet children(commit)}
-								{@const authorImgUrl = commit
-									? (userAvatarUrl(commit.author.email) ?? commit.author.gravatarUrl)
-									: undefined}
+								{@const authorImgUrl = resolvedCommitAuthor.current?.avatarUrl}
 								{@const title = splitMessage(commit.message).title}
 								<h3 class="text-13 text-semibold text-body commit-card__title">
 									{title || "Undefined commit"}
@@ -339,14 +341,18 @@
 										{#if authorImgUrl && commit.author.email}
 											<Avatar
 												srcUrl={authorImgUrl}
-												username={commit.author.name || commit.author.email}
+												username={resolvedCommitAuthor.current?.name ||
+													commit.author.name ||
+													commit.author.email}
 												tooltip={commit.author.email}
 											/>
 											<span class="commit-card__divider">•</span>
 										{/if}
 										<span class="">{editModeMetadata.commitOid.slice(0, 7)}</span>
 										<span class="commit-card__divider">•</span>
-										<span class="">{commit.author.name}</span>
+										<span class="">
+											{resolvedCommitAuthor.current?.name ?? commit.author.name}
+										</span>
 									</div>
 								{/if}
 

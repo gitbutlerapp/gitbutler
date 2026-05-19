@@ -441,6 +441,42 @@ export class StackService {
 		});
 	}
 
+	get pushStackToTarget() {
+		return this.backendApi.endpoints.pushStackToTarget.useMutation({
+			sideEffect: (result, _) => {
+				setTimeout(() => {
+					const invalidations = [invalidatesList(ReduxTag.PullRequests)];
+
+					if (result) {
+						const upstreamBranchNames = result.branchToRemote
+							.map(([_, refname]) => getBranchNameFromRef(refname, result.remote))
+							.filter(isDefined);
+						for (const name of upstreamBranchNames) {
+							invalidations.push(invalidatesItem(ReduxTag.Checks, name));
+						}
+					}
+
+					this.forgeFactory.invalidate(invalidations);
+				}, 2000);
+			},
+			onError: (commandError: ReduxError) => {
+				const { code, message } = commandError;
+				if (code === "GitForcePushProtection") {
+					throw commandError;
+				}
+				const reason =
+					code === "ProjectGitAuth" ? "an authentication failure" : "an unforeseen error";
+				showToast({
+					title: "Publishing to target failed",
+					message: `The stack cannot be published to the target branch due to ${reason}.\n\nPlease check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)\non fetching and pushing for ways to resolve the problem.`,
+					error: message,
+					style: "warning",
+				});
+			},
+			throwSilentError: true,
+		});
+	}
+
 	createCommit() {
 		return this.backendApi.endpoints.commitCreate.useMutation();
 	}

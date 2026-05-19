@@ -1,6 +1,8 @@
 <script lang="ts">
 	import BranchesCardLayout from "$components/branchesPage/BranchesCardLayout.svelte";
+	import { useResolvedAuthorIdentity } from "$lib/user/authorIdentity.svelte";
 	import { Avatar, SeriesLabelsRow, TestId } from "@gitbutler/ui";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import type { Author } from "@gitbutler/but-sdk";
 	interface Props {
 		originName: string;
@@ -11,9 +13,17 @@
 	}
 
 	const { originName, commitsAmount: commitCount, lastCommit, selected, onclick }: Props = $props();
+	const resolvedAuthor = useResolvedAuthorIdentity(
+		reactive(() => lastCommit?.author),
+		reactive(() => ({ commitId: lastCommit?.sha })),
+	);
 
-	const authorName = $derived(lastCommit?.author.name ?? lastCommit?.author.email ?? "Unknown");
-	const authorAvatar = $derived(lastCommit?.author.gravatarUrl ?? "");
+	const authorName = $derived(
+		resolvedAuthor.current?.name ?? lastCommit?.author.name ?? lastCommit?.author.email ?? "Unknown",
+	);
+	const authorAvatar = $derived(
+		resolvedAuthor.current?.avatarUrl ?? lastCommit?.author.gravatarUrl ?? "",
+	);
 
 	const fromOtherBranch = $derived(
 		lastCommit && originName.endsWith(lastCommit.branch) ? "" : `from ${lastCommit?.branch}`,

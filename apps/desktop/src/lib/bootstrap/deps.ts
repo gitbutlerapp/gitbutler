@@ -65,6 +65,10 @@ import {
 	UpstreamIntegrationService,
 	UPSTREAM_INTEGRATION_SERVICE,
 } from "$lib/upstream/upstreamIntegrationService.svelte";
+import {
+	AUTHOR_IDENTITY_SERVICE,
+	createAuthorIdentityService,
+} from "$lib/user/authorIdentityService";
 import { TokenMemoryService } from "$lib/user/tokenMemoryService";
 import { USER_SERVICE, UserService } from "$lib/user/userService.svelte";
 import { WorktreeService, WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
@@ -195,6 +199,13 @@ export function initDependencies(args: {
 		gitLabApi: clientState.gitlabApi,
 		dispatch: clientState.dispatch,
 		posthog,
+	});
+	const authorIdentityService = createAuthorIdentityService({
+		forgeFactory,
+		gitHubClient,
+		gitLabClient,
+		gitConfigService: gitConfig,
+		userService,
 	});
 
 	// ============================================================================
@@ -332,6 +343,7 @@ export function initDependencies(args: {
 	provideAll([
 		[AI_PROMPT_SERVICE, aiPromptService],
 		[AI_SERVICE, aiService],
+		[AUTHOR_IDENTITY_SERVICE, authorIdentityService],
 		[APP_DISPATCH, appState.appDispatch],
 		[APP_STATE, appState],
 		[BACKEND, backend],

@@ -109,6 +109,8 @@ export enum TestId {
 	HunkContextMenu_OpenInEditor = "hunk-context-menu-open-in-editor",
 	StackPushButton = "stack-push-button",
 	StackConfirmPushModalButton = "stack-confirm-push-modal-button",
+	StackPublishToTargetButton = "stack-publish-to-target-button",
+	StackPublishToTargetHoldButton = "stack-publish-to-target-hold-button",
 	StackPublishButton = "stack-publish-button",
 	GlobalModal_CommitFailed = "global-modal-commit-failed",
 	GlobalModal_AuthorMissing = "global-modal-author-missing",

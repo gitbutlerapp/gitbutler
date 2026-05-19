@@ -1,4 +1,5 @@
 import { type CommitStatusType } from "$lib/commits/commit";
+import { blockEscapeDuringDrag } from "$lib/dragging/blockEscapeDuringDrag";
 import DragClone from "$lib/dragging/DragClone.svelte";
 import { FileChangeDropData, type DropData } from "$lib/dragging/draggables";
 import { CommitDropData } from "$lib/dragging/dropHandlers/commitDropHandler";
@@ -73,6 +74,7 @@ function setupDragHandlers(
 	let clone: HTMLElement | undefined;
 	let selectedElements: Element[] = [];
 	let endDragging: (() => void) | undefined;
+	let releaseEscapeBlock: (() => void) | undefined;
 
 	// State management
 	let isDragging = false;
@@ -313,6 +315,7 @@ function setupDragHandlers(
 		if (opts.dragStateService) {
 			endDragging = opts.dragStateService.startDragging();
 		}
+		releaseEscapeBlock = blockEscapeDuringDrag();
 
 		// Handle multi-selection for files
 		if (opts.data instanceof FileChangeDropData) {
@@ -496,6 +499,8 @@ function setupDragHandlers(
 		}
 
 		// End drag state tracking
+		releaseEscapeBlock?.();
+		releaseEscapeBlock = undefined;
 		endDragging?.();
 		endDragging = undefined;
 

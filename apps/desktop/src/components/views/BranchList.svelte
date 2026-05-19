@@ -8,6 +8,7 @@
 	import BranchReorderDropzone from "$components/branch/BranchReorderDropzone.svelte";
 	import CodegenSessionRow from "$components/codegen/CodegenSessionRow.svelte";
 	import ChangedFilesPanel from "$components/files/ChangedFilesPanel.svelte";
+	import PublishToTargetButton from "$components/forge/PublishToTargetButton.svelte";
 	import PushButton from "$components/forge/PushButton.svelte";
 	import { getColorFromCommitState, getIconFromCommitState } from "$components/lib";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
@@ -264,6 +265,14 @@
 							isFirstBranchInStack={firstBranch}
 							isLastBranchInStack={lastBranch}
 						/>
+						{#if first}
+							<PublishToTargetButton
+								{projectId}
+								{stackId}
+								{branches}
+								disabled={!!controller.exclusiveAction || controller.isReadOnly || isNewBranch}
+							/>
+						{/if}
 						{#if !$codegenDisabled && first && codegenQuery?.response?.length === 0}
 							<Button
 								icon="ai"

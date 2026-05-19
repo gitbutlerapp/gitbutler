@@ -21,6 +21,7 @@
  *     <div class="item" ondrop={() => updateOrder(sortedStacks)}>...</div>
  * </div>
  */
+import { blockEscapeDuringDrag } from "$lib/dragging/blockEscapeDuringDrag";
 import ReorderClone from "$lib/dragging/ReorderClone.svelte";
 import { cloneElement } from "$lib/dragging/draggable";
 import { mount } from "svelte";
@@ -31,6 +32,7 @@ let dragged: HTMLDivElement | undefined;
 let draggedFadeElement: HTMLElement | null = null;
 let clone: HTMLElement | undefined;
 let draggedId: string | undefined;
+let releaseEscapeBlock: (() => void) | undefined;
 
 export function onReorderMouseDown(e: MouseEvent) {
 	dragHandle = e.target as HTMLElement;
@@ -51,6 +53,7 @@ export function onReorderStart(
 	}
 
 	callback?.();
+	releaseEscapeBlock = blockEscapeDuringDrag();
 
 	const clonedElement = cloneElement(e.currentTarget);
 
@@ -94,6 +97,9 @@ export function onReorderEnd() {
 	}
 
 	draggedFadeElement = null;
+
+	releaseEscapeBlock?.();
+	releaseEscapeBlock = undefined;
 
 	clone?.remove();
 }

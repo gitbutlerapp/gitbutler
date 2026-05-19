@@ -4,6 +4,7 @@ import { createSelectByIds, createSelectNth } from "$lib/state/customSelectors";
 import {
 	invalidatesItem,
 	invalidatesList,
+	invalidatesType,
 	providesItem,
 	providesList,
 	ReduxTag,
@@ -360,6 +361,27 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			query: (args) => args,
 			invalidatesTags: (_result, _error, args) => [
 				invalidatesItem(ReduxTag.StackDetails, args.stackId), // Is this still needed?
+				invalidatesList(ReduxTag.BranchListing),
+			],
+		}),
+		pushStackToTarget: build.mutation<
+			BranchPushResult,
+			{
+				projectId: string;
+				stackId: string;
+				withForce: boolean;
+				skipForcePushProtection: boolean;
+				runHooks: boolean;
+			}
+		>({
+			extraOptions: {
+				command: "push_stack_to_target",
+				actionName: "Publish Stack to Target",
+			},
+			query: (args) => args,
+			invalidatesTags: (_result, _error, args) => [
+				invalidatesItem(ReduxTag.StackDetails, args.stackId),
+				invalidatesType(ReduxTag.BaseBranchData),
 				invalidatesList(ReduxTag.BranchListing),
 			],
 		}),

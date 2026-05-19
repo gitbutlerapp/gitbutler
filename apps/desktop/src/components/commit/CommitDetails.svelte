@@ -4,11 +4,12 @@
 	import { splitMessage } from "$lib/commits/commitMessage";
 	import { rewrapCommitMessage } from "$lib/config/uiFeatureFlags";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
-	import { useUserAvatarUrl } from "$lib/user/userAvatar.svelte";
 	import { rejoinParagraphs, truncate } from "$lib/utils/string";
 	import { inject } from "@gitbutler/core/context";
 
+	import { useResolvedAuthorIdentity } from "$lib/user/authorIdentity.svelte";
 	import { Avatar, CopyButton, TestId, TimeAgo, Tooltip } from "@gitbutler/ui";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
 	import type { Commit, UpstreamCommit } from "@gitbutler/but-sdk";
 
@@ -22,8 +23,11 @@
 
 	const uiState = inject(UI_STATE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
-	const userAvatarUrl = useUserAvatarUrl();
 	const zoom = $derived(uiState.global.zoom.current);
+	const resolvedAuthor = useResolvedAuthorIdentity(
+		reactive(() => commit.author),
+		reactive(() => ({ commitId: commit.id })),
+	);
 
 	let messageWidth = $state(0);
 	const messageWidthRem = $derived(pxToRem(messageWidth, zoom));
@@ -48,8 +52,8 @@
 		<span>Author:</span>
 		<Avatar
 			size="medium"
-			username={commit.author.name}
-			srcUrl={userAvatarUrl(commit.author.email) ?? commit.author.gravatarUrl}
+			username={resolvedAuthor.current?.name ?? commit.author.name}
+			srcUrl={resolvedAuthor.current?.avatarUrl ?? commit.author.gravatarUrl}
 		/>
 		<span class="divider">•</span>
 		<TimeAgo date={commitCreatedAtDate(commit)} />

@@ -387,6 +387,24 @@ pub fn push_stack(
 
 #[but_api(napi, json::PushResult)]
 #[instrument(err(Debug))]
+pub fn push_stack_to_target(
+    ctx: &mut Context,
+    stack_id: StackId,
+    with_force: bool,
+    skip_force_push_protection: bool,
+    run_hooks: bool,
+) -> Result<PushResult> {
+    gitbutler_branch_actions::stack::push_stack_to_target(
+        ctx,
+        stack_id,
+        with_force,
+        skip_force_push_protection,
+        run_hooks,
+    )
+}
+
+#[but_api(napi, json::PushResult)]
+#[instrument(err(Debug))]
 pub fn push_stack_legacy(
     ctx: &mut Context,
     stack_id: StackId,

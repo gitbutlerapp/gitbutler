@@ -3,8 +3,10 @@
 	import CommitTitle from "$components/commit/CommitTitle.svelte";
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { type CommitStatusType } from "$lib/commits/commit";
+	import { useResolvedAuthorIdentity } from "$lib/user/authorIdentity.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Avatar, Icon, TestId } from "@gitbutler/ui";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 
 	import { slide } from "svelte/transition";
@@ -70,6 +72,7 @@
 		(WithStackId | WithoutStackId);
 
 	const {
+		commitId,
 		commitMessage,
 		author,
 		tooltip,
@@ -98,6 +101,10 @@
 	let container = $state<HTMLDivElement>();
 
 	const urlService = inject(URL_SERVICE);
+	const resolvedAuthor = useResolvedAuthorIdentity(
+		reactive(() => author),
+		reactive(() => ({ commitId })),
+	);
 
 	function extractReviewId(url: string | undefined): string | null {
 		if (!url) return null;
@@ -117,7 +124,7 @@
 <div class="commit-row-wrapper" class:first class:last={lastCommit}>
 	<div
 		data-testid={TestId.CommitRow}
-		data-commit-id={args.disableCommitActions ? undefined : args.commitId}
+		data-commit-id={args.disableCommitActions ? undefined : commitId}
 		bind:this={container}
 		role="button"
 		tabindex="0"
@@ -168,9 +175,9 @@
 			{#if author}
 				<div class="commit-author-avatar">
 					<Avatar
-						srcUrl={author.gravatarUrl}
-						username={author.name}
-						tooltip={`${author.name} (${author.email})`}
+						srcUrl={resolvedAuthor.current?.avatarUrl ?? author.gravatarUrl}
+						username={resolvedAuthor.current?.name ?? author.name}
+						tooltip={`${resolvedAuthor.current?.name ?? author.name} (${author.email})`}
 						size="medium"
 					/>
 				</div>

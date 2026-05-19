@@ -1,6 +1,8 @@
 <script lang="ts">
 	import BranchBadge from "$components/branch/BranchBadge.svelte";
+	import { useResolvedAuthorIdentities } from "$lib/user/authorIdentity.svelte";
 	import { AvatarGroup, Button } from "@gitbutler/ui";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import type { BranchDetails } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
 
@@ -12,6 +14,7 @@
 	};
 
 	const { branch, children, conflictedCommits, onResolveConflicts }: Props = $props();
+	const resolvedAuthors = useResolvedAuthorIdentities(reactive(() => branch.authors));
 </script>
 
 <div class="branch-view">
@@ -25,9 +28,9 @@
 			<span class="factoid-label">Contribs:</span>
 			<AvatarGroup
 				maxAvatars={2}
-				avatars={branch.authors.map((a) => ({
-					username: a.name,
-					srcUrl: a.gravatarUrl,
+				avatars={resolvedAuthors.current.map((author) => ({
+					username: author.name,
+					srcUrl: author.avatarUrl ?? "",
 				}))}
 			/>
 		</div>

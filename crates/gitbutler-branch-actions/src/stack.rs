@@ -226,6 +226,96 @@ pub fn push_stack(
     Ok(result)
 }
 
+/// Pushes the stack head directly to the configured target branch.
+///
+/// This keeps the existing commits in the stack history and publishes only the
+/// final stack head to the target branch, instead of creating/updating each
+/// dependent branch on the remote.
+pub fn push_stack_to_target(
+    ctx: &mut Context,
+    stack_id: StackId,
+    with_force: bool,
+    skip_force_push_protection: bool,
+    run_hooks: bool,
+) -> Result<PushResult> {
+    let mut guard = ctx.exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
+    ensure_open_workspace_mode(ctx, guard.read_permission())
+        .context("Requires an open workspace mode")?;
+
+    let virtual_branches = ctx.virtual_branches();
+    let stack = virtual_branches.get_stack(stack_id)?;
+    let (target_ref_name, target_base_oid, target_push_remote_name, target_branch_name) = {
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        let target_ref_name = ws
+            .target_ref_name()
+            .context("failed to get target reference name")?
+            .to_owned();
+        let remote_names = repo.remote_names();
+        let target_branch_name =
+            target_branch_name_from_ref_name(target_ref_name.as_ref(), &remote_names)?;
+        let target_push_remote_name = match ws
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.push_remote.clone())
+        {
+            Some(push_remote) => push_remote,
+            None => extract_remote_name_and_short_name(target_ref_name.as_ref(), &remote_names)
+                .map(|(remote, _)| remote)
+                .context("failed to get target push remote name")?,
+        };
+        (
+            target_ref_name,
+            ws.stored_target_commit_id()
+                .context("failed to get target base oid")?,
+            target_push_remote_name,
+            target_branch_name.to_string(),
+        )
+    };
+    let push_env = PushStackEnv::new(
+        ctx,
+        &stack,
+        target_ref_name,
+        target_base_oid,
+        target_push_remote_name,
+        target_branch_name,
+        skip_force_push_protection,
+    )?;
+
+    ctx.fetch(&push_env.remote_name, Some("push_stack_to_target".into()))?;
+
+    let local_sha = stack.head_oid(ctx)?;
+    let target_remote_refname =
+        RemoteRefname::new(&push_env.remote_name, &push_env.target_branch_name);
+    let before_sha = remote_before_sha(&push_env.gix_repo, &target_remote_refname)?;
+
+    if run_hooks {
+        run_pre_push_hook(&push_env, local_sha, &target_remote_refname)?;
+    }
+
+    ctx.push(
+        local_sha,
+        &target_remote_refname,
+        with_force,
+        push_env.force_push_protection,
+        None,
+        Some(Some(stack.id)),
+        vec![],
+    )?;
+
+    let remote_name = push_env.remote_name;
+    let target_branch_name = push_env.target_branch_name;
+    Ok(PushResult {
+        remote: remote_name,
+        branch_to_remote: vec![(stack.name(), (&target_remote_refname).try_into()?)],
+        branch_sha_updates: vec![(
+            target_branch_name,
+            before_sha.to_string(),
+            local_sha.to_string(),
+        )],
+    })
+}
+
 struct PushStackEnv {
     target_ref_name: gix::refs::FullName,
     target_branch_name: String,
