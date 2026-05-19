@@ -613,9 +613,11 @@ fn push_single_branch(
     writeln!(progress, "{} Push completed successfully", t.sym().success)?;
     writeln!(progress)?;
     if !result.branch_sha_updates.is_empty() {
-        let repo = ctx.repo.get()?;
-        let repo_for_commit_shortening = repo.clone().for_commit_shortening();
+        let repo = ctx.repo.get()?.clone().for_commit_shortening();
         let gerrit_review_ref = if gerrit_mode {
+            // This should be a top-level guard, but called code further down also acquires their own, so it will deadlock.
+            // Generally, we have a lot of problems with plumbing code that accepts `ctx` and then can (and often will)
+            // acquire a workspace which right now also requires a guard.
             let guard = ctx.shared_worktree_access();
             Some(gerrit_review_ref(ctx, guard.read_permission(), &repo)?)
         } else {
@@ -625,9 +627,9 @@ fn push_single_branch(
             let before_str = if before_sha == "0000000000000000000000000000000000000000" {
                 "(new branch)".to_string()
             } else {
-                shorten_hex_object_id(&repo_for_commit_shortening, before_sha)
+                shorten_hex_object_id(&repo, before_sha)
             };
-            let after_str = shorten_hex_object_id(&repo_for_commit_shortening, after_sha);
+            let after_str = shorten_hex_object_id(&repo, after_sha);
             let remote_ref =
                 branch_remote_ref_for_display(&result, branch, gerrit_review_ref.as_deref());
 
@@ -780,8 +782,7 @@ fn push_all_branches(
         writeln!(progress)?;
 
         // Print combined branch, remote, and SHA information for all pushed branches
-        let repo = ctx.repo.get()?;
-        let repo_for_commit_shortening = repo.clone().for_commit_shortening();
+        let repo = ctx.repo.get()?.clone().for_commit_shortening();
         let gerrit_review_ref = if gerrit_mode {
             let guard = ctx.shared_worktree_access();
             Some(gerrit_review_ref(ctx, guard.read_permission(), &repo)?)
@@ -793,9 +794,9 @@ fn push_all_branches(
                 let before_str = if before_sha == "0000000000000000000000000000000000000000" {
                     "(new branch)".to_string()
                 } else {
-                    shorten_hex_object_id(&repo_for_commit_shortening, before_sha)
+                    shorten_hex_object_id(&repo, before_sha)
                 };
-                let after_str = shorten_hex_object_id(&repo_for_commit_shortening, after_sha);
+                let after_str = shorten_hex_object_id(&repo, after_sha);
                 let remote_ref =
                     branch_remote_ref_for_display(result, branch, gerrit_review_ref.as_deref());
 
@@ -1226,8 +1227,8 @@ fn check_for_conflicted_commits(ctx: &Context, branch_name: &str) -> anyhow::Res
         ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
-    let repo = ctx.repo.get()?.clone().for_commit_shortening();
 
+    let repo = ctx.repo.get()?.clone().for_commit_shortening();
     // Find the stack containing this branch and get its details
     for stack in &stacks {
         if let Some(stack_id) = stack.id {

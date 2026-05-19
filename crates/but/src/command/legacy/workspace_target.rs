@@ -41,8 +41,8 @@ impl ResolvedTarget {
 
     /// Resolve the effective workspace target while reusing an existing repository permission.
     pub(crate) fn resolve_with_perm(ctx: &Context, perm: &RepoShared) -> Result<Self> {
-        let (_, workspace, _) = ctx.workspace_and_db_with_perm(perm)?;
-        Self::from_workspace(&workspace)
+        let (_, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
+        Self::from_workspace(&ws)
     }
 
     /// Return the effective target commit ID.
