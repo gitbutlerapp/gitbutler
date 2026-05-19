@@ -466,6 +466,8 @@ impl Sandbox {
             },
             feature_flags: FeatureFlags {
                 cv3: true,
+                // TODO: turn on, it should all work like before.
+                unapply_v3: false,
                 undo: true,
                 rules: true,
                 single_branch: true,
