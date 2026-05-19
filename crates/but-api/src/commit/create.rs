@@ -68,7 +68,7 @@ pub(crate) fn commit_create_only_impl(
     } = but_workspace::commit::commit_create(
         editor,
         changes,
-        relative_to,
+        relative_to.as_relative_to_ref(),
         side,
         &message,
         context_lines,

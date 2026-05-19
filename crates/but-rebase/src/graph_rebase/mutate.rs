@@ -165,6 +165,16 @@ pub enum RelativeTo {
     Reference(gix::refs::FullName),
 }
 
+impl RelativeTo {
+    /// Returns self as [RelativeToRef].
+    pub fn as_relative_to_ref<'a>(&'a self) -> RelativeToRef<'a> {
+        match self {
+            RelativeTo::Commit(object_id) => RelativeToRef::Commit(*object_id),
+            RelativeTo::Reference(full_name) => RelativeToRef::Reference(full_name.as_ref()),
+        }
+    }
+}
+
 impl ToSelector for RelativeTo {
     fn to_selector(&self, editor: &Editor<impl RefMetadata>) -> Result<Selector> {
         match self {

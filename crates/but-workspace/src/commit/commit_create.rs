@@ -3,7 +3,8 @@
 use anyhow::Result;
 use but_core::{DiffSpec, RefMetadata};
 use but_rebase::graph_rebase::{
-    Editor, LookupStep, Pick, Selector, Step, SuccessfulRebase, ToSelector, mutate::InsertSide,
+    Editor, Selector, Step, SuccessfulRebase, ToSelector,
+    mutate::{InsertSide, RelativeToRef},
 };
 
 use crate::commit_engine::{Destination, create_commit};
@@ -48,14 +49,12 @@ pub struct CommitCreateOutcome<'ws, 'meta, M: RefMetadata> {
 pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     mut editor: Editor<'ws, 'meta, M>,
     changes: Vec<DiffSpec>,
-    relative_to: impl ToSelector,
+    relative_to: RelativeToRef<'_>,
     side: InsertSide,
     message: &str,
     context_lines: u32,
 ) -> Result<CommitCreateOutcome<'ws, 'meta, M>> {
-    let relative_to_selector = relative_to.to_selector(&editor)?;
-    let parent_commit_id =
-        parent_commit_id_for_new_commit(&editor, editor.lookup_step(relative_to_selector)?, side)?;
+    let parent_commit_id = parent_commit_id_for_new_commit(&editor, &relative_to, side)?;
 
     // Clone before `create_commit` consumes the vec — needed afterwards
     // to determine which changes were consumed (not rejected).
@@ -96,7 +95,7 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     }
 
     let commit_selector = editor.insert(
-        relative_to_selector,
+        relative_to.to_selector(&editor)?,
         Step::new_untracked_pick(new_commit_id),
         side,
     )?;
@@ -110,16 +109,17 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
 
 fn parent_commit_id_for_new_commit<'ws, 'meta, M: RefMetadata>(
     editor: &Editor<'ws, 'meta, M>,
-    target_step: Step,
+    relative_to: &RelativeToRef<'_>,
     side: InsertSide,
 ) -> Result<Option<gix::ObjectId>> {
-    Ok(match (target_step, side) {
-        (Step::Pick(Pick { id, .. }), InsertSide::Above) => Some(id),
-        (Step::Pick(Pick { id, .. }), InsertSide::Below) => {
-            let commit = editor.find_commit(id)?;
+    Ok(match (relative_to, side) {
+        (RelativeToRef::Commit(id), InsertSide::Above) => Some(*id),
+        (RelativeToRef::Commit(id), InsertSide::Below) => {
+            let commit = editor.find_commit(*id)?;
             commit.parents.first().copied()
         }
-        (Step::Reference { refname }, _) => Some(editor.find_reference_target(refname)?.1.id),
-        (Step::None, _) => None,
+        (RelativeToRef::Reference(refname), _) => {
+            Some(editor.find_reference_target(refname.to_owned())?.1.id)
+        }
     })
 }
