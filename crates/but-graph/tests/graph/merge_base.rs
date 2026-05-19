@@ -128,13 +128,13 @@ fn reachable_difference_returns_commits_in_traversal_order() -> anyhow::Result<(
     let merged = segment_id_by_ref_name(&graph, "refs/heads/merged")?;
     let a = segment_id_by_ref_name(&graph, "refs/heads/A")?;
 
-    let commits = graph.find_segments_reachable_from_a_not_b(merged, a, FirstParent::No);
+    let commits = graph.find_commits_reachable_from_a_not_b(merged, a, FirstParent::No);
     assert_eq!(
         commits.iter().map(|commit| commit.id).collect::<Vec<_>>(),
         ids
     );
     let first_parent_commits =
-        graph.find_segments_reachable_from_a_not_b(merged, a, FirstParent::Yes);
+        graph.find_commits_reachable_from_a_not_b(merged, a, FirstParent::Yes);
     assert_eq!(
         first_parent_commits
             .iter()
