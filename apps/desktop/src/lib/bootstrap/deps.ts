@@ -6,6 +6,7 @@ import { AIService, AI_SERVICE } from "$lib/ai/service";
 import { CommitAnalytics, COMMIT_ANALYTICS } from "$lib/analytics/commitAnalytics";
 import { type IBackend } from "$lib/backend";
 import { BACKEND } from "$lib/backend";
+import { BackupService, BACKUP_SERVICE } from "$lib/backups/backupService.svelte";
 import ClipboardService, { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 import URLService, { URL_SERVICE } from "$lib/backend/url";
 import BaseBranchService, { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
@@ -235,6 +236,7 @@ export function initDependencies(args: {
 	const fModeManager = new FModeManager();
 	const focusManager = new FocusManager(fModeManager);
 	const historyService = new HistoryService(backend, clientState.backendApi);
+	const backupService = new BackupService(clientState.backendApi, backend);
 	const oplogService = new OplogService(clientState.backendApi);
 	const commitAnalytics = new CommitAnalytics(
 		stackService,
@@ -333,6 +335,7 @@ export function initDependencies(args: {
 		[APP_DISPATCH, appState.appDispatch],
 		[APP_STATE, appState],
 		[BACKEND, backend],
+		[BACKUP_SERVICE, backupService],
 		[BASE_BRANCH_SERVICE, baseBranchService],
 		[BRANCH_SERVICE, branchService],
 		[CHERRY_APPLY_SERVICE, cherryApplyService],

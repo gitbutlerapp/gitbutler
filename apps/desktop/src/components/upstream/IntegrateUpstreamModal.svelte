@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { BACKEND } from "$lib/backend";
+	import { BACKUP_SERVICE } from "$lib/backups/backupService.svelte";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
@@ -33,6 +34,7 @@
 		AsyncButton,
 		Badge,
 		Button,
+		Checkbox,
 		ThemedImage,
 		GlossaryText,
 		Icon,
@@ -76,6 +78,7 @@
 	const { projectId, onClose }: Props = $props();
 
 	const upstreamIntegrationService = inject(UPSTREAM_INTEGRATION_SERVICE);
+	const backupService = inject(BACKUP_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	// const forgeListingService = $derived(forge.current.listService);
 	const backend = inject(BACKEND);
@@ -113,6 +116,8 @@
 	let conflictPreviewError = $state<string | undefined>();
 	let conflictPreviewLoading = $state(false);
 	let pendingUnityResolutions = $state<Record<string, string>>({});
+	let backupBeforeUpdate = $state(true);
+	let backupError = $state<string | undefined>();
 	let activeProgress = $derived(
 		activeProgressPercent(workspaceUpdateProgress, gitOperationProgress),
 	);
@@ -306,6 +311,7 @@
 
 	async function integrate() {
 		integratingUpstream = "loading";
+		backupError = undefined;
 		workspaceUpdateProgress = undefined;
 		startLocalProgress(
 			"upstreamIntegration",
@@ -318,6 +324,29 @@
 			targetCommitOid,
 			baseResolutionApproach ?? { type: "hardReset" },
 		);
+
+		try {
+			const settings = await backupService.getSettings(projectId);
+			await backupService.updateSettings(projectId, {
+				backupDirectory: settings.backupDirectory,
+				backupBeforeUpstreamDefault: backupBeforeUpdate,
+			});
+			if (backupBeforeUpdate) {
+				const branchNames = upstreamBackupBranchNames();
+				if (branchNames.length > 0) {
+					await backupService.createBackup({
+						projectId,
+						branchNames,
+						message: "Before upstream update",
+						reason: "upstream-integration",
+					});
+				}
+			}
+		} catch (error) {
+			backupError = errorMessage(error);
+			integratingUpstream = "inert";
+			return;
+		}
 
 		await integrateUpstream({
 			projectId,
@@ -534,6 +563,7 @@
 		branchStatuses = undefined;
 		filteredReviews = [];
 		pendingUnityResolutions = {};
+		backupError = undefined;
 		startLocalProgress(
 			"upstreamStatus",
 			"stacks",
@@ -545,6 +575,8 @@
 		// appliedBranches = await fetchAppliedBranches();
 		// await setFilteredBranches(untrack(() => appliedBranches) ?? []); // TODO: Some day this will be made good
 		try {
+			const settings = await backupService.getSettings(projectId);
+			backupBeforeUpdate = settings.backupBeforeUpstreamDefault;
 			branchStatuses = await upstreamIntegrationService.upstreamStatuses(
 				projectId,
 				targetCommitOid,
@@ -637,6 +669,11 @@
 				{ label: "Stash", value: "unapply", glossaryTerms: ["stash"] },
 			];
 		}
+	}
+
+	function upstreamBackupBranchNames(): string[] {
+		if (branchStatuses?.type !== "updatesRequired") return [];
+		return Array.from(new Set(statuses.flatMap(({ stack }) => stack.heads.map((head) => head.name))));
 	}
 </script>
 
@@ -906,6 +943,20 @@
 				</div>
 			</div>
 		{/if}
+		<div class="section backup-section">
+			<label class="backup-option">
+				<Checkbox small bind:checked={backupBeforeUpdate} />
+				<span>
+					<span class="text-13 text-semibold">Create backup before updating workspace</span>
+					<span class="text-12 clr-text-2">
+						Saves the branches in this update to a Git bundle before upstream changes are applied.
+					</span>
+				</span>
+			</label>
+			{#if backupError}
+				<p class="text-12 backup-error">{backupError}</p>
+			{/if}
+		</div>
 	</ScrollableContainer>
 
 	{#if progressVisible}
@@ -1374,5 +1425,25 @@
 	.section-disabled {
 		opacity: 0.5;
 		pointer-events: none;
+	}
+
+	.backup-section {
+		background: var(--bg-1);
+	}
+
+	.backup-option {
+		display: flex;
+		align-items: flex-start;
+		gap: 10px;
+	}
+
+	.backup-option > span {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.backup-error {
+		color: var(--clr-scale-n4);
 	}
 </style>

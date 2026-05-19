@@ -4,7 +4,9 @@
 	import ShareIssueModal from "$components/shared/ShareIssueModal.svelte";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import {
+		backupsPath,
 		branchesPath,
+		isBackupsPath,
 		isBranchesPath,
 		isWorkspacePath,
 		historyPath,
@@ -195,6 +197,43 @@
 							d="M0 1.78357L6.62924 7.08009L0.666363 7.74645L0 1.78357Z"
 							fill="var(--clr-history-outline)"
 						/>
+					</svg>
+				{/snippet}
+			</Button>
+		</div>
+		<div>
+			{#if isBackupsPath()}
+				<div class="active-page-indicator" in:slide={{ axis: "x", duration: 150 }}></div>
+			{/if}
+			<Button
+				kind="outline"
+				onclick={() => goto(backupsPath(projectId))}
+				width={34}
+				class={["btn-square", isBackupsPath() && "btn-active"]}
+				hotkey="⌘4"
+				tooltip="Backups"
+				{disabled}
+			>
+				{#snippet custom()}
+					<svg
+						width="1rem"
+						height="1rem"
+						viewBox="0 0 16 16"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<path
+							d="M2.75 5.25H13.25V12.75C13.25 13.3023 12.8023 13.75 12.25 13.75H3.75C3.19772 13.75 2.75 13.3023 2.75 12.75V5.25Z"
+							stroke="var(--clr-backups)"
+							stroke-width="1.5"
+						/>
+						<path
+							d="M4.25 2.25H11.75C12.5784 2.25 13.25 2.92157 13.25 3.75V5.25H2.75V3.75C2.75 2.92157 3.42157 2.25 4.25 2.25Z"
+							fill="var(--clr-backups)"
+							stroke="var(--clr-backups)"
+							stroke-width="1.5"
+						/>
+						<path d="M5.75 8.25H10.25M5.75 10.75H8.75" stroke="var(--clr-backups)" stroke-width="1.5" />
 					</svg>
 				{/snippet}
 			</Button>
@@ -403,6 +442,7 @@
 		--clr-codegen-star: currentColor;
 		--clr-history-outline: currentColor;
 		--clr-history-arrows: currentColor;
+		--clr-backups: currentColor;
 	}
 	:global(.sidebar .btn-square.btn-active) {
 		--icon-opacity: 1;
@@ -420,6 +460,7 @@
 		/* history icon */
 		--clr-history-arrows: #000;
 		--clr-history-outline: #e98959;
+		--clr-backups: #77a4d8;
 		/* settings icon */
 		--clr-settings-bg: var(--label-clr);
 		/* claude icon */

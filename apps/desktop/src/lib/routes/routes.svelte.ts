@@ -34,6 +34,14 @@ export function isHistoryPath() {
 	return isUrl<{ projectId: string }>("/[projectId]/history");
 }
 
+export function backupsPath(projectId: string) {
+	return `/${projectId}/backups`;
+}
+
+export function isBackupsPath() {
+	return isUrl<{ projectId: string }>("/[projectId]/backups");
+}
+
 export function branchesPath(projectId: string) {
 	return `/${projectId}/branches`;
 }

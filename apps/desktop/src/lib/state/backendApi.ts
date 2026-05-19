@@ -1,4 +1,5 @@
 import { buildActionEndpoints } from "$lib/actions/actionEndpoints";
+import { buildBackupEndpoints } from "$lib/backups/backupEndpoints";
 import { buildBranchEndpoints } from "$lib/branches/branchEndpoints";
 import { buildGitEndpoints } from "$lib/git/gitEndpoints";
 import { buildIrcEndpoints } from "$lib/irc/ircEndpoints";
@@ -32,6 +33,7 @@ export function createBackendApi(ctx: HookContext) {
 		baseQuery: tauriBaseQuery,
 		endpoints: (build) => ({
 			...buildStackEndpoints(build),
+			...buildBackupEndpoints(build),
 			...buildBranchEndpoints(build),
 			...buildWorktreeEndpoints(build),
 			...buildGitEndpoints(build),
