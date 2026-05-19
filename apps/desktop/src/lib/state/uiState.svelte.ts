@@ -1,4 +1,5 @@
 import { type SnapPositionName } from "$lib/floating/types";
+import type { AppTheme } from "$lib/theme/themes";
 import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { type Reactive } from "@gitbutler/shared/storeUtils";
@@ -143,8 +144,6 @@ export type ProjectSettingsModalState = BaseGlobalModalState & {
 export type LoginConfirmationModalState = BaseGlobalModalState & {
 	type: "login-confirmation";
 };
-
-export type AppTheme = "system" | "light" | "dark";
 
 export type GlobalModalState =
 	| CommitFailedModalState

@@ -11,8 +11,8 @@ export function createYucpLogoBadge(overrides: Partial<ThemedImageAsset> = {}): 
 		lightSrc: YUCP_LOGO_LIGHT_SRC,
 		darkSrc: YUCP_LOGO_DARK_SRC,
 		alt: "YUCP",
-		width: "1.5rem",
-		height: "0.75rem",
+		width: "0.55rem",
+		height: "0.625rem",
 		className: "yucp-logo-badge",
 		...overrides,
 	};

@@ -14,6 +14,7 @@
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { QUICK_THEME_OPTIONS, THEME_OPTIONS } from "$lib/theme/themes";
 	import { inject } from "@gitbutler/core/context";
 	import {
 		Badge,
@@ -44,6 +45,9 @@
 	const ircUnreadChannels = $derived(
 		(ircChannelsQuery?.response ?? []).filter((ch) => ch.unreadCount > 0).length,
 	);
+	const currentTheme = $derived(uiState.global.theme.current ?? "system");
+	const quickThemeIds = new Set(QUICK_THEME_OPTIONS.map((theme) => theme.id));
+	const extraThemeOptions = THEME_OPTIONS.filter((theme) => !quickThemeIds.has(theme.id));
 	const { openGeneralSettings, openProjectSettings } = useSettingsModal();
 </script>
 
@@ -295,27 +299,28 @@
 			/>
 		</ContextMenuSection>
 		<ContextMenuSection title="Theme (⌘T)">
-			<ContextMenuItem
-				label="Dark"
-				onclick={async () => {
-					uiState.global.theme.set("dark");
-					contextMenuOpen = false;
-				}}
-			/>
-			<ContextMenuItem
-				label="Light"
-				onclick={async () => {
-					uiState.global.theme.set("light");
-					contextMenuOpen = false;
-				}}
-			/>
-			<ContextMenuItem
-				label="System"
-				onclick={async () => {
-					uiState.global.theme.set("system");
-					contextMenuOpen = false;
-				}}
-			/>
+			{#each QUICK_THEME_OPTIONS as theme}
+				<ContextMenuItem
+					label={theme.label}
+					selected={currentTheme === theme.id}
+					onclick={async () => {
+						uiState.global.theme.set(theme.id);
+						contextMenuOpen = false;
+					}}
+				/>
+			{/each}
+		</ContextMenuSection>
+		<ContextMenuSection title="More palettes">
+			{#each extraThemeOptions as theme}
+				<ContextMenuItem
+					label={theme.label}
+					selected={currentTheme === theme.id}
+					onclick={async () => {
+						uiState.global.theme.set(theme.id);
+						contextMenuOpen = false;
+					}}
+				/>
+			{/each}
 		</ContextMenuSection>
 	</ContextMenu>
 {/if}

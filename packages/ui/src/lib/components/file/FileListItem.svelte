@@ -190,13 +190,19 @@
 		{/if}
 
 		{#each badges as badge}
-			<Badge kind="soft" style="gray" size="tag">
+			<Badge
+				kind="soft"
+				style="gray"
+				size={isThemedImageAsset(badge) ? "icon" : "tag"}
+				class={isThemedImageAsset(badge) ? "image-badge" : undefined}
+			>
 				{#if isThemedImageAsset(badge)}
 					<ThemedImage
 						lightSrc={badge.lightSrc}
 						darkSrc={badge.darkSrc}
 						alt={badge.alt}
 						width={badge.width}
+						minWidth={badge.minWidth}
 						height={badge.height}
 						class={badge.className}
 					/>

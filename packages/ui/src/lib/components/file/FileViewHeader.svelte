@@ -83,13 +83,14 @@
 		{/if}
 
 		{#each badges as badge}
-			<Badge kind="soft" style="gray">
+			<Badge kind="soft" style="gray" class={isThemedImageAsset(badge) ? "image-badge" : undefined}>
 				{#if isThemedImageAsset(badge)}
 					<ThemedImage
 						lightSrc={badge.lightSrc}
 						darkSrc={badge.darkSrc}
 						alt={badge.alt}
 						width={badge.width}
+						minWidth={badge.minWidth}
 						height={badge.height}
 						class={badge.className}
 					/>

@@ -33,8 +33,8 @@
 		AsyncButton,
 		Badge,
 		Button,
+		ThemedImage,
 		GlossaryText,
-		FileListItem,
 		Icon,
 		IntegrationSeriesRow,
 		Modal,
@@ -803,28 +803,54 @@
 							{#each conflicts as file, i}
 								{@const isUnityConflict = isUnityYamlPath(file)}
 								<div class="conflict-row" class:is-last={i === conflicts.length - 1}>
-									<FileListItem
-										listMode="list"
-										filePath={file}
-										clickable={isUnityConflict}
-										badges={isUnityConflict ? [yucpBadge] : []}
-										conflicted
-										isLast
-										onclick={isUnityConflict
-											? () => {
-													void openUnityConflictPreview(file);
-												}
-											: undefined}
-									/>
-									<div class="conflict-action">
-										{#if isUnityConflict}
-											<span class="text-11 clr-text-2">
-												{pendingUnityResolutions[file] ? "Resolution ready" : "Click to resolve"}
+									{#if isUnityConflict}
+										<button
+											type="button"
+											class="conflict-row__surface conflict-row__surface--button"
+											onclick={() => {
+												void openUnityConflictPreview(file);
+											}}
+										>
+											<span class="conflict-row__file">
+												<Icon name="file" size={14} />
+												<span class="conflict-row__path text-12" title={file}>{file}</span>
 											</span>
-										{:else}
-											<span class="text-11 clr-text-2">Conflict markers only</span>
-										{/if}
-									</div>
+											<span class="conflict-row__details">
+												<span class="conflict-row__unity-badge" aria-hidden="true">
+													<ThemedImage
+														lightSrc={yucpBadge.lightSrc}
+														darkSrc={yucpBadge.darkSrc}
+														alt={yucpBadge.alt}
+														width={yucpBadge.width}
+														minWidth={yucpBadge.minWidth}
+														height={yucpBadge.height}
+														class={yucpBadge.className}
+														decorative
+													/>
+												</span>
+												<span class="conflict-row__status">
+													<Icon
+														name={pendingUnityResolutions[file] ? "tick-circle" : "warning"}
+														size={12}
+													/>
+													<span class="text-11 text-semibold">
+														{pendingUnityResolutions[file] ? "Resolution ready" : "Click to resolve"}
+													</span>
+												</span>
+											</span>
+										</button>
+									{:else}
+										<div class="conflict-row__surface">
+											<span class="conflict-row__file">
+												<Icon name="file" size={14} />
+												<span class="conflict-row__path text-12" title={file}>{file}</span>
+											</span>
+											<span class="conflict-row__status">
+												<Icon name="warning" size={12} />
+												<span class="text-11">Conflict markers only</span>
+											</span>
+										</div>
+									{/if}
 								</div>
 							{/each}
 						</ScrollableContainer>
@@ -1137,30 +1163,82 @@
 	}
 
 	.conflict-row {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto;
 		border-bottom: 1px solid var(--border-3);
-		background-color: var(--bg-danger);
-		transition: background-color var(--transition-fast);
-
-		&:hover {
-			background-color: var(--hover-danger-bg);
-		}
-
-		&:hover :global(.file-list-item) {
-			background-color: var(--hover-danger-bg);
-		}
 
 		&.is-last {
 			border-bottom: none;
 		}
 	}
 
-	.conflict-action {
+	.conflict-row__surface {
 		display: flex;
 		align-items: center;
-		padding: 0 10px;
+		justify-content: space-between;
+		width: 100%;
+		min-width: 0;
+		padding: 7px 12px 7px 14px;
+		gap: 12px;
+		background-color: var(--bg-danger);
+		color: var(--text-1);
+		transition: background-color var(--transition-fast);
+	}
+
+	.conflict-row__surface--button {
+		appearance: none;
+		border: none;
+		outline: none;
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
+
+		&:hover {
+			background-color: var(--hover-danger-bg);
+		}
+	}
+
+	.conflict-row__file {
+		display: inline-flex;
+		align-items: center;
+		min-width: 0;
 		gap: 8px;
+	}
+
+	.conflict-row__path {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.conflict-row__details {
+		display: inline-flex;
+		align-items: center;
+		flex: none;
+		gap: 8px;
+	}
+
+	.conflict-row__unity-badge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 2px 6px;
+		border: 1px solid color-mix(in srgb, var(--fill-danger-bg) 18%, transparent);
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--bg-1) 24%, transparent);
+		opacity: 0.72;
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-1) 6%, transparent);
+	}
+
+	.conflict-row__status {
+		display: inline-flex;
+		align-items: center;
+		flex: none;
+		gap: 6px;
+		color: var(--text-2);
+		white-space: nowrap;
+	}
+
+	.conflict-row__surface--button:hover .conflict-row__status {
+		color: var(--text-1);
 	}
 
 	.unity-preview-modal {

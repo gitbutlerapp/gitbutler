@@ -551,8 +551,12 @@ fn worktree_changes_inner(
             });
             continue;
         }
-        changes.push(change);
-        last_change = changes.last();
+        if is_standalone_worktree_change_effective(&change, &mut filter, &index, &mut path_check)? {
+            changes.push(change);
+            last_change = changes.last();
+        } else {
+            last_change = None;
+        }
     }
 
     Ok(WorktreeChanges {
@@ -572,6 +576,37 @@ fn cmp_prefer_overlapping(a: &TreeChange, b: &TreeChange) -> Ordering {
     } else {
         a.path.cmp(&b.path)
     }
+}
+
+/// Return `false` for a standalone worktree modification that status reported as changed,
+/// but whose Git-cleaned content and mode still match the tracked state.
+fn is_standalone_worktree_change_effective(
+    change: &TreeChange,
+    filter: &mut gix::filter::Pipeline<'_>,
+    index: &gix::index::State,
+    path_check: &mut gix::status::plumbing::SymlinkCheck,
+) -> anyhow::Result<bool> {
+    let TreeStatus::Modification {
+        previous_state,
+        state,
+        flags: _,
+    } = change.status
+    else {
+        return Ok(true);
+    };
+
+    if previous_state.kind != state.kind {
+        return Ok(true);
+    }
+
+    let current_id = id_or_hash_from_worktree(
+        Some(state),
+        change.path.as_bstr(),
+        filter,
+        index,
+        path_check,
+    )?;
+    Ok(previous_state.id != current_id)
 }
 
 /// Merge changes from tree/index into changes of `index_wt` and assure the merged result isn't a no-op,

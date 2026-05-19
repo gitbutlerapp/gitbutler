@@ -147,6 +147,13 @@
 			gap: 3px;
 		}
 
+		&.image-badge {
+			height: var(--size-icon);
+			padding-right: 4px;
+			padding-left: 4px;
+			gap: 0;
+		}
+
 		&.reversed {
 			flex-direction: row-reverse;
 		}
@@ -157,6 +164,10 @@
 		line-height: var(--size-icon);
 		line-height: 1;
 		white-space: nowrap;
+	}
+
+	.badge.image-badge .badge__label {
+		line-height: 0;
 	}
 
 	.badge__icon {

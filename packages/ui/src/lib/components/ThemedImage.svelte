@@ -4,6 +4,7 @@
 		darkSrc: string;
 		alt: string;
 		width?: string;
+		minWidth?: string;
 		height?: string;
 		class?: string;
 		decorative?: boolean;
@@ -14,13 +15,14 @@
 		darkSrc,
 		alt,
 		width,
+		minWidth,
 		height,
 		class: className = "",
 		decorative = false,
 	}: Props = $props();
 </script>
 
-<span class="themed-image {className}" style:width style:height>
+<span class="themed-image {className}" style:width style:min-width={minWidth} style:height>
 	<img
 		class="themed-image__asset themed-image__asset--light"
 		src={lightSrc}
@@ -38,6 +40,7 @@
 <style lang="postcss">
 	.themed-image {
 		display: inline-flex;
+		flex: none;
 		align-items: center;
 		justify-content: center;
 		width: fit-content;
@@ -46,6 +49,7 @@
 
 	.themed-image__asset {
 		display: block;
+		flex: none;
 		width: auto;
 		max-width: 100%;
 		height: auto;

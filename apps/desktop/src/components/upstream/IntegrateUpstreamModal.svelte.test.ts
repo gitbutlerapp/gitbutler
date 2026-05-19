@@ -264,7 +264,9 @@ describe("IntegrateUpstreamModal", () => {
 
 		await (component as { show: () => Promise<void> }).show();
 
-		expect(await screen.findByText("dealers.unity")).toBeInTheDocument();
+		expect(
+			await screen.findByRole("button", { name: /Assets\/Scenes\/dealers\.unity/i }),
+		).toBeInTheDocument();
 		expect(screen.getByText("Click to resolve")).toBeInTheDocument();
 		expect(screen.queryByText("scene resolver")).not.toBeInTheDocument();
 	});

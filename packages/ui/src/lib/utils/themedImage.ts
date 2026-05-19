@@ -4,6 +4,7 @@ export type ThemedImageAsset = {
 	darkSrc: string;
 	alt: string;
 	width?: string;
+	minWidth?: string;
 	height?: string;
 	className?: string;
 };

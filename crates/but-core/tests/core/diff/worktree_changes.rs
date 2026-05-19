@@ -1,6 +1,6 @@
 use anyhow::Result;
 use but_core::{UnifiedPatch, WorktreeChanges, diff};
-use but_testsupport::gix_testtools;
+use but_testsupport::{CommandExt, git, git_at_dir, gix_testtools, open_repo};
 
 #[test]
 #[cfg(unix)]
@@ -1044,6 +1044,38 @@ fn modified_in_index() -> Result<()> {
             lines_removed: 1,
         },
     ]
+    "#);
+    Ok(())
+}
+
+#[test]
+fn modified_in_worktree_clean_filter_noop() -> Result<()> {
+    let tmp = gix_testtools::tempfile::TempDir::new()?;
+    git_at_dir(tmp.path()).arg("init").run();
+    let repo = open_repo(tmp.path())?;
+    git(&repo)
+        .args(["config", "user.email", "author@example.com"])
+        .run();
+    git(&repo).args(["config", "user.name", "author"]).run();
+
+    std::fs::write(
+        repo.workdir().expect("worktree").join(".gitattributes"),
+        "*.cs text eol=lf\n",
+    )?;
+    std::fs::write(repo.workdir().expect("worktree").join("file.cs"), "line\n")?;
+    git(&repo).args(["add", "."]).run();
+    git(&repo).args(["commit", "-m", "init"]).run();
+    std::fs::write(
+        repo.workdir().expect("worktree").join("file.cs"),
+        "line\r\n",
+    )?;
+
+    let actual = diff::worktree_changes(&repo)?;
+    insta::assert_debug_snapshot!(actual, @r#"
+    WorktreeChanges {
+        changes: [],
+        ignored_changes: [],
+    }
     "#);
     Ok(())
 }

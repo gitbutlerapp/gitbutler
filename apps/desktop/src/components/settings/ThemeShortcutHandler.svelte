@@ -13,7 +13,7 @@
 	initTheme(uiState, backend);
 
 	function updateTheme() {
-		theme.set(theme.current === "light" ? "dark" : "light");
+		theme.set(document.documentElement.classList.contains("dark") ? "light" : "dark");
 	}
 
 	$effect(() => shortcutService.on("switch-theme", () => updateTheme()));
