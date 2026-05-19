@@ -350,6 +350,7 @@ impl KeyBindsBuilder<'_> {
             message,
             hide_from_hotbar: false,
             show_only_in_normal_mode_help_section: false,
+            always_show_in_hot_bar: false,
         }
     }
 
@@ -466,6 +467,7 @@ impl KeyBindsBuilder<'_> {
     fn quit(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("quit", press().code(KeyCode::Char('q')), Message::Quit)
             .show_only_in_normal_mode_help_section()
+            .always_show_in_hot_bar()
     }
 
     fn help(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -476,6 +478,7 @@ impl KeyBindsBuilder<'_> {
         )
         .show_only_in_normal_mode_help_section()
         .long_description("Show this help menu")
+        .always_show_in_hot_bar()
     }
 
     fn unassigned(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -906,11 +909,17 @@ struct KeyBindsInModesBuilder<'a> {
     message: Message,
     hide_from_hotbar: bool,
     show_only_in_normal_mode_help_section: bool,
+    always_show_in_hot_bar: bool,
 }
 
 impl KeyBindsInModesBuilder<'_> {
     fn hide_from_hotbar(mut self) -> Self {
         self.hide_from_hotbar = true;
+        self
+    }
+
+    fn always_show_in_hot_bar(mut self) -> Self {
+        self.always_show_in_hot_bar = true;
         self
     }
 
@@ -947,6 +956,7 @@ impl KeyBindsInModesBuilder<'_> {
             message,
             hide_from_hotbar,
             show_only_in_normal_mode_help_section,
+            always_show_in_hot_bar,
         } = self;
 
         key_binds.register(KeyBind {
@@ -958,6 +968,7 @@ impl KeyBindsInModesBuilder<'_> {
             message,
             hide_from_hotbar,
             show_only_in_normal_mode_help_section,
+            always_show_in_hot_bar,
         })
     }
 }
@@ -972,6 +983,7 @@ pub(super) struct KeyBind {
     message: Message,
     hide_from_hotbar: bool,
     show_only_in_normal_mode_help_section: bool,
+    always_show_in_hot_bar: bool,
 }
 
 impl KeyBind {
@@ -1001,6 +1013,10 @@ impl KeyBind {
 
     pub(super) fn hide_from_hotbar(&self) -> bool {
         self.hide_from_hotbar
+    }
+
+    pub(super) fn always_show_in_hot_bar(&self) -> bool {
+        self.always_show_in_hot_bar
     }
 
     pub(super) fn show_only_in_normal_mode_help_section(&self) -> bool {

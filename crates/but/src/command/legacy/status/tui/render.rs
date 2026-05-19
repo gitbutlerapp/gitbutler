@@ -1,7 +1,7 @@
 use std::{borrow::Cow, iter::once};
 
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
-use itertools::Either;
+use itertools::{Either, Itertools, Position};
 use nonempty::NonEmpty;
 use ratatui::{
     Frame,
@@ -614,25 +614,71 @@ fn render_hotbar(app: &App, area: Rect, frame: &mut Frame) {
         | Mode::Commit(..)
         | Mode::Move(..)
         | Mode::InlineReword(..) => {
-            let mut line = Line::default();
-            let mut key_binds_iter = app
+            let separator = Span::styled(" • ", app.theme.hint);
+            let area = layout[2];
+
+            let items = app
                 .active_key_binds()
                 .iter_key_binds_available_in_mode(ModeDiscriminant::from(&*app.mode))
                 .filter(|key_bind| !key_bind.hide_from_hotbar())
-                .peekable();
-            while let Some(key_bind) = key_binds_iter.next() {
-                line.extend([
-                    Span::styled(key_bind.chord_display(), app.theme.legend),
-                    Span::raw(" "),
-                    Span::styled(key_bind.short_description(), app.theme.hint),
-                ]);
+                .with_position()
+                .map(|(pos, key_bind)| {
+                    let show_sep = match pos {
+                        Position::First | Position::Only => false,
+                        Position::Middle | Position::Last => true,
+                    };
 
-                if key_binds_iter.peek().is_some() {
-                    line.push_span(Span::styled(" • ", app.theme.hint));
+                    let separator = show_sep.then(|| separator.clone());
+                    let chord = Span::styled(key_bind.chord_display(), app.theme.legend);
+                    let space = Span::raw(" ");
+                    let description = Span::styled(key_bind.short_description(), app.theme.hint);
+
+                    (
+                        key_bind,
+                        HotBarItem {
+                            chord,
+                            space,
+                            description,
+                            separator,
+                        },
+                    )
+                })
+                .collect::<Vec<_>>();
+
+            let always_show = items
+                .iter()
+                .filter(|(key_bind, _)| key_bind.always_show_in_hot_bar())
+                .cloned()
+                .collect::<Vec<_>>();
+
+            let mut available_width = area.width as usize;
+            let mut line = Line::default();
+
+            for (key_bind, item) in items {
+                if key_bind.always_show_in_hot_bar() {
+                    continue;
                 }
+
+                if let Some(remaining_width_after_item) = item.fits_in_hot_bar(available_width)
+                    && always_show
+                        .iter()
+                        .try_fold(remaining_width_after_item, |remaining, (_, item)| {
+                            item.fits_in_hot_bar(remaining)
+                        })
+                        .is_some()
+                {
+                    available_width = remaining_width_after_item;
+                } else {
+                    break;
+                }
+
+                item.extend_line(&mut line);
+            }
+            for (_, item) in always_show {
+                item.extend_line(&mut line);
             }
 
-            frame.render_widget(line, layout[2]);
+            frame.render_widget(line, area);
         }
         Mode::Command(CommandMode { textarea, kind }) => {
             let command_layout = Layout::horizontal([
@@ -654,6 +700,38 @@ fn render_hotbar(app: &App, area: Rect, frame: &mut Frame) {
             }
             frame.render_widget(&**textarea, command_layout[1]);
         }
+    }
+}
+
+#[derive(Clone)]
+struct HotBarItem<'a> {
+    chord: Span<'a>,
+    space: Span<'a>,
+    description: Span<'a>,
+    separator: Option<Span<'a>>,
+}
+
+impl<'a> HotBarItem<'a> {
+    fn width(&self) -> usize {
+        self.chord.width()
+            + self.space.width()
+            + self.description.width()
+            + self.separator.as_ref().map_or(0, |s| s.width())
+    }
+
+    fn extend_line(self, line: &mut Line<'a>) {
+        let HotBarItem {
+            chord,
+            space,
+            description,
+            separator,
+        } = self;
+        line.extend(separator);
+        line.extend([chord, space, description]);
+    }
+
+    fn fits_in_hot_bar(&self, available_width: usize) -> Option<usize> {
+        available_width.checked_sub(self.width())
     }
 }
 
