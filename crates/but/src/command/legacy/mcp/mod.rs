@@ -129,14 +129,17 @@ impl Mcp {
             .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
         let mut ctx = Context::new_from_legacy_project_and_settings(&project, settings)
             .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
+        let mut guard = ctx.exclusive_worktree_access();
+        let perm = guard.write_permission();
 
-        let (id, outcome) = but_action::handle_changes(
+        let (id, outcome) = but_action::record_uncommitted_changes_with_perm(
             &mut ctx,
             &request.changes_summary,
             Some(request.full_prompt.clone()),
             ActionHandler::HandleChangesSimple,
             Source::Mcp(client_info.clone().map(Into::into)),
             None,
+            perm,
         )
         .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
         // Trigger commit message generation for newly created commits

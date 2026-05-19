@@ -11,10 +11,12 @@ test = false
 doctest = false
 
 [dependencies]
+but-core.workspace = true
 but-graph.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
 
 anyhow.workspace = true
+gix.workspace = true
 zip.workspace = true
 walkdir = "2.5.0"
 chrono.workspace = true

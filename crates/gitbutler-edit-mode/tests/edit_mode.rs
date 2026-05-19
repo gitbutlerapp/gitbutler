@@ -64,9 +64,7 @@ fn seed_metadata(repo: &gix::Repository) -> Result<()> {
     Ok(())
 }
 
-fn stack_id(ctx: &Context) -> Result<StackId> {
-    let guard = ctx.shared_worktree_access();
-    let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+fn stack_id(ws: &but_graph::Workspace) -> Result<StackId> {
     ws.stacks
         .first()
         .context("expected workspace stack")?
@@ -104,13 +102,17 @@ fn basic_leaving_edit_mode() -> Result<()> {
 
     let worktree_dir = repo.workdir().unwrap().to_owned();
     drop(repo);
-    let stack_id = stack_id(&ctx)?;
-    enter_edit_mode(&mut ctx, foobar, stack_id)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = {
+        let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        stack_id(&ws)?
+    };
+    enter_edit_mode(&mut ctx, foobar, stack_id, guard.write_permission())?;
 
     std::fs::write(worktree_dir.join("file"), "edited during edit mode\n")?;
     std::fs::write(worktree_dir.join("newfile"), "created during edit mode\n")?;
 
-    save_and_return_to_workspace(&mut ctx)?;
+    save_and_return_to_workspace(&mut ctx, guard.write_permission())?;
 
     let repo = ctx.repo.get()?;
     let blob = repo.rev_parse_single(b"HEAD^{/foobar}:file")?.object()?;
@@ -130,12 +132,16 @@ fn evolution_parents_written() -> Result<()> {
 
     let worktree_dir = repo.workdir().unwrap().to_owned();
     drop(repo);
-    let stack_id = stack_id(&ctx)?;
-    enter_edit_mode(&mut ctx, foobar, stack_id)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = {
+        let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        stack_id(&ws)?
+    };
+    enter_edit_mode(&mut ctx, foobar, stack_id, guard.write_permission())?;
 
     std::fs::write(worktree_dir.join("file"), "edited during edit mode\n")?;
 
-    save_and_return_to_workspace(&mut ctx)?;
+    save_and_return_to_workspace(&mut ctx, guard.write_permission())?;
 
     let repo = ctx.repo.get()?;
     let session = git_meta_lib::Session::open(repo.path())?;
@@ -169,8 +175,12 @@ fn multiple_commits_created_during_edit_mode() -> Result<()> {
 
     let worktree_dir = repo.workdir().unwrap().to_owned();
     drop(repo);
-    let stack_id = stack_id(&ctx)?;
-    enter_edit_mode(&mut ctx, foobar, stack_id)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = {
+        let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        stack_id(&ws)?
+    };
+    enter_edit_mode(&mut ctx, foobar, stack_id, guard.write_permission())?;
 
     let repo = ctx.repo.get()?;
     let commit = gix::objs::Commit::try_from(repo.find_commit(foobar)?.decode()?)?;
@@ -201,7 +211,7 @@ fn multiple_commits_created_during_edit_mode() -> Result<()> {
 
     std::fs::write(worktree_dir.join("file"), "edited during edit mode\n")?;
 
-    save_and_return_to_workspace(&mut ctx)?;
+    save_and_return_to_workspace(&mut ctx, guard.write_permission())?;
 
     let repo = &*ctx.repo.get()?;
     insta::assert_snapshot!(visualize_commit_graph(repo, "refs/heads/gitbutler/workspace")?, @"
@@ -230,8 +240,12 @@ fn apply_commit_on_itself() -> Result<()> {
     let foobar = repo.head_commit()?.decode()?.parents().next().unwrap();
 
     drop(repo);
-    let stack_id = stack_id(&ctx)?;
-    enter_edit_mode(&mut ctx, foobar, stack_id)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = {
+        let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        stack_id(&ws)?
+    };
+    enter_edit_mode(&mut ctx, foobar, stack_id, guard.write_permission())?;
 
     let repo = ctx.repo.get()?;
     // Set HEAD to gitbutler/workspace, detached, to see what happens when we
@@ -255,7 +269,7 @@ fn apply_commit_on_itself() -> Result<()> {
     })?;
     drop(repo);
 
-    save_and_return_to_workspace(&mut ctx)?;
+    save_and_return_to_workspace(&mut ctx, guard.write_permission())?;
 
     let repo = &*ctx.repo.get()?;
     // It works.
@@ -283,7 +297,8 @@ fn conficted_entries_get_written_when_leaving_edit_mode() -> Result<()> {
     let (mut ctx, _tempdir) =
         command_ctx("conficted_entries_get_written_when_leaving_edit_mode_in_edit_mode")?;
     seed_edit_mode_metadata(&ctx, "refs/heads/branchy")?;
-    save_and_return_to_workspace(&mut ctx)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    save_and_return_to_workspace(&mut ctx, guard.write_permission())?;
 
     let repo = ctx.repo.get()?;
     insta::assert_snapshot!(
@@ -308,8 +323,12 @@ fn abort_requires_force_when_changes_were_made() -> Result<()> {
     let foobar = repo.head_commit()?.decode()?.parents().next().unwrap();
     drop(repo);
 
-    let stack_id = stack_id(&ctx)?;
-    enter_edit_mode(&mut ctx, foobar, stack_id)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = {
+        let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        stack_id(&ws)?
+    };
+    enter_edit_mode(&mut ctx, foobar, stack_id, guard.write_permission())?;
 
     let repo = ctx.repo.get()?;
     insta::assert_debug_snapshot!(
@@ -327,7 +346,7 @@ fn abort_requires_force_when_changes_were_made() -> Result<()> {
 
     std::fs::write(worktree_dir.join("file"), "edited during edit mode\n")?;
 
-    let result = abort_and_return_to_workspace(&mut ctx, false);
+    let result = abort_and_return_to_workspace(&mut ctx, false, guard.write_permission());
     insta::assert_debug_snapshot!(result.as_ref().map(|_| ()).is_err(), @"true");
     let err = result
         .err()
@@ -350,7 +369,7 @@ fn abort_requires_force_when_changes_were_made() -> Result<()> {
     "#
     );
 
-    abort_and_return_to_workspace(&mut ctx, true)?;
+    abort_and_return_to_workspace(&mut ctx, true, guard.write_permission())?;
     insta::assert_debug_snapshot!(
         ctx.repo.get()?.head_name()?,
         @r#"
@@ -377,8 +396,17 @@ fn enter_edit_mode_checks_out_conflicted_commit() -> Result<()> {
 
     drop(repo);
 
-    let stack_id = stack_id(&ctx)?;
-    enter_edit_mode(&mut ctx, conflicted_commit, stack_id)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = {
+        let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        stack_id(&ws)?
+    };
+    enter_edit_mode(
+        &mut ctx,
+        conflicted_commit,
+        stack_id,
+        guard.write_permission(),
+    )?;
 
     let repo = ctx.repo.get()?;
     insta::assert_debug_snapshot!(
@@ -425,7 +453,7 @@ fn enter_edit_mode_checks_out_conflicted_commit() -> Result<()> {
     );
     drop(repo);
 
-    abort_and_return_to_workspace(&mut ctx, true)?;
+    abort_and_return_to_workspace(&mut ctx, true, guard.write_permission())?;
     insta::assert_debug_snapshot!(
         ctx.repo.get()?.head_name()?,
         @r#"
@@ -472,8 +500,12 @@ fn enter_edit_mode_works_with_only_integration_ref_present() -> Result<()> {
         foobar
     };
 
-    let stack_id = stack_id(&ctx)?;
-    enter_edit_mode(&mut ctx, foobar, stack_id)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let stack_id = {
+        let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        stack_id(&ws)?
+    };
+    enter_edit_mode(&mut ctx, foobar, stack_id, guard.write_permission())?;
 
     insta::assert_debug_snapshot!(
         ctx.repo.get()?.head_name()?,

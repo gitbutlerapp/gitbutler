@@ -1,103 +1,53 @@
 use std::collections::HashMap;
 
-use anyhow::anyhow;
-use but_core::{DiffSpec, ref_metadata::StackId};
-use but_ctx::{Context, access::RepoExclusive};
+use anyhow::{Context as _, anyhow};
+use but_core::{DiffSpec, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
+use but_db::DbHandle;
 use but_rebase::graph_rebase::{
     Editor, LookupStep as _,
     mutate::{InsertSide, RelativeToRef},
 };
-use gitbutler_operating_modes::OperatingMode;
-use gitbutler_oplog::{
-    OplogExt,
-    entry::{OperationKind, SnapshotDetails},
-};
-use uuid::Uuid;
 
-use crate::{Outcome, Source, default_target_setting_if_none};
+use crate::Outcome;
 
-/// This is a GitButler automation which allows easy handling of uncommitted changes in a repository.
-/// At a high level, it will:
-///   - Checkout GitButler's workspace branch if not already checked out
-///   - Create a new branch if necessary (using a generic canned branch name)
-///   - Create a new commit with all uncommitted changes found in the worktree (the request context is used as the commit message)
-///
-/// Avery time this automation is ran, GitButler will also:
-///   - Create an oplog snaposhot entry _before_ the automation is executed
-///   - Create an oplog snapshot entry _after_ the automation is executed
-///   - Create a separate persisted entry recording the request context and IDs for the two oplog snapshots
-pub(crate) fn handle_changes(
-    ctx: &mut Context,
-    change_summary: &str,
-    external_prompt: Option<String>,
-    source: Source,
-    exclusive_stack: Option<StackId>,
-) -> anyhow::Result<(Uuid, Outcome)> {
-    let mut guard = ctx.exclusive_worktree_access();
-    let perm = guard.write_permission();
-
-    default_target_setting_if_none(ctx)?; // Create a default target if none exists.
-
-    let snapshot_before = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::AutoHandleChangesBefore),
-        perm,
-    )?;
-
-    let response = handle_changes_simple_inner(
-        ctx,
-        change_summary,
-        external_prompt.clone(),
-        perm,
-        exclusive_stack,
-    );
-
-    let snapshot_after = ctx.create_snapshot(
-        SnapshotDetails::new(OperationKind::AutoHandleChangesAfter),
-        perm,
-    )?;
-
-    let action = crate::action::ButlerAction::new(
-        crate::ActionHandler::HandleChangesSimple,
-        external_prompt,
-        change_summary.to_owned(),
-        snapshot_before,
-        snapshot_after,
-        &response,
-        source,
-    );
-    let response = response.map(|outcome| (action.id, outcome));
-    crate::action::persist_action(ctx, action)?;
-    response
+struct StackForAction {
+    id: StackId,
+    branch_name: String,
 }
 
-fn handle_changes_simple_inner(
-    ctx: &mut Context,
+/// Create commits for currently uncommitted changes and report the updated stacks.
+///
+/// The simple handler:
+/// - loads hunk assignments for the current worktree changes;
+/// - returns without changes if there is nothing to commit;
+/// - creates a new workspace stack when no stack exists yet;
+/// - groups assigned changes by their target stack and unassigned changes by the default stack;
+/// - skips unassigned changes when `exclusive_stack` is set;
+/// - creates one commit per stack with pending changes via flattened diff-specs;
+/// - materializes successful rebases and reports the branches that received new commits.
+///
+/// `change_summary` forms the commit message, optionally prefixed by `external_prompt`.
+/// `exclusive_stack` limits commits to one stack and leaves unassigned changes untouched when set.
+/// `perm` proves that the caller holds exclusive worktree access for the commit and reference
+/// mutations. `repo`, `ws`, `db`, and `meta` are supplied by the caller, so this function does not
+/// acquire repository guards. `context_lines` controls hunk assignment fallback and commit creation
+/// context.
+#[expect(clippy::too_many_arguments)]
+pub(crate) fn handle_changes(
     change_summary: &str,
     external_prompt: Option<String>,
-    perm: &mut RepoExclusive,
     exclusive_stack: Option<StackId>,
+    perm: &mut RepoExclusive,
+    repo: &gix::Repository,
+    ws: &mut but_graph::Workspace,
+    db: &mut DbHandle,
+    meta: &mut impl RefMetadata,
+    context_lines: u32,
 ) -> anyhow::Result<Outcome> {
-    match gitbutler_operating_modes::operating_mode(ctx, perm.read_permission())? {
-        OperatingMode::OpenWorkspace => {
-            // No action needed, we're already in the workspace
-        }
-        OperatingMode::Edit(_) => {
-            return Err(anyhow::anyhow!(
-                "Cannot handle changes while in edit mode. Please exit edit mode first."
-            ));
-        }
-        OperatingMode::OutsideWorkspace(_) => {
-            let default_target = ctx.persisted_default_target()?;
-            gitbutler_branch_actions::set_base_branch(ctx, &default_target.branch, perm)?;
-        }
-    }
-
-    let context_lines = ctx.settings.context_lines;
-    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         db.hunk_assignments_mut()?,
-        &repo,
-        &ws,
+        repo,
+        ws,
         None::<Vec<but_core::TreeChange>>,
         context_lines,
     )
@@ -109,17 +59,14 @@ fn handle_changes_simple_inner(
     }
 
     // Get the current stacks in the workspace, creating one if none exists.
-    drop((repo, ws, db));
-    let stacks = crate::stacks_creating_if_none(ctx, perm)?;
+    let stacks = stacks_creating_if_none(repo, ws, meta, perm)?;
 
     // Put the assignments into buckets by stack ID.
-    let mut stack_assignments: HashMap<StackId, Vec<DiffSpec>> = stacks
-        .iter()
-        .filter_map(|s| Some((s.id?, vec![])))
-        .collect();
+    let mut stack_assignments: HashMap<StackId, Vec<DiffSpec>> =
+        stacks.iter().map(|s| (s.id, vec![])).collect();
     let default_stack_id = stacks
         .first()
-        .and_then(|s| s.id)
+        .map(|s| s.id)
         .ok_or_else(|| anyhow::anyhow!("No stacks found in the workspace"))?;
     for assignment in assignments {
         if let Some(stack_id) = assignment.stack_id {
@@ -161,22 +108,20 @@ fn handle_changes_simple_inner(
 
         let stack_branch_name = stacks
             .iter()
-            .find(|s| s.id == Some(stack_id))
-            .and_then(|s| s.heads.first().map(|h| h.name.to_string()))
+            .find(|s| s.id == stack_id)
+            .map(|s| s.branch_name.clone())
             .ok_or(anyhow!("Could not find associated reference name"))?;
         let full_ref_name: gix::refs::FullName =
             format!("refs/heads/{stack_branch_name}").try_into()?;
 
-        let mut meta = ctx.meta()?;
-        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-        let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+        let editor = Editor::create(ws, meta, repo)?;
         let outcome = but_workspace::commit::commit_create(
             editor,
             diff_specs,
             RelativeToRef::Reference(full_ref_name.as_ref()),
             InsertSide::Below,
             &commit_message,
-            ctx.settings.context_lines,
+            context_lines,
         )?;
 
         if !outcome.rejected_specs.is_empty() {
@@ -201,4 +146,61 @@ fn handle_changes_simple_inner(
     }
 
     Ok(Outcome { updated_branches })
+}
+
+/// Return the applied stacks that can receive action commits, creating one if none exists.
+///
+/// `repo` is used to generate the canned branch name and create the underlying reference. `ws` is
+/// updated when the first stack has to be created. `meta` records the stack metadata written by the
+/// reference creation operation. `_perm` proves that the caller holds exclusive worktree access for
+/// the reference creation path.
+fn stacks_creating_if_none(
+    repo: &gix::Repository,
+    ws: &mut but_graph::Workspace,
+    meta: &mut impl RefMetadata,
+    _perm: &mut RepoExclusive,
+) -> anyhow::Result<Vec<StackForAction>> {
+    let stacks = stack_info(ws);
+    if !stacks.is_empty() {
+        return Ok(stacks);
+    }
+
+    let branch_name = but_core::branch::unique_canned_refname(repo)?;
+    let new_ws = but_workspace::branch::create_reference(
+        branch_name.as_ref(),
+        None,
+        repo,
+        ws,
+        meta,
+        |_| StackId::generate(),
+        None,
+    )?;
+    *ws = new_ws.into_owned();
+    let stack = ws
+        .stacks
+        .iter()
+        .find(|stack| stack.ref_name() == Some(branch_name.as_ref()))
+        .context("BUG: need to find stack that was just created")?;
+    let id = stack
+        .id
+        .context("BUG: newly created stacks always have an ID")?;
+    Ok(vec![StackForAction {
+        id,
+        branch_name: branch_name.shorten().to_string(),
+    }])
+}
+
+/// Extract stack IDs and shortened branch names from `ws` for action commit targeting.
+///
+/// Stacks without an ID or reference name are skipped because the action needs both values to map
+/// assignments to a branch and report the resulting update.
+fn stack_info(ws: &but_graph::Workspace) -> Vec<StackForAction> {
+    ws.stacks
+        .iter()
+        .filter_map(|stack| {
+            let id = stack.id?;
+            let branch_name = stack.ref_name()?.shorten().to_string();
+            Some(StackForAction { id, branch_name })
+        })
+        .collect()
 }

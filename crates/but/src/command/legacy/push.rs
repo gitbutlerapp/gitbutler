@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use but_core::{RepositoryExt, ref_metadata::StackId};
+use but_core::{RepositoryExt, ref_metadata::StackId, sync::RepoShared};
 use but_ctx::Context;
 use cli_prompts::DisplayPrompt;
 use gitbutler_git::PushResult;
@@ -46,8 +46,6 @@ pub async fn handle(
     ctx: &mut Context,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let id_map = IdMap::legacy_new_from_context(ctx, None)?;
-
     // Check gerrit mode early
     let gerrit_mode = {
         let repo = ctx.repo.get()?;
@@ -58,6 +56,10 @@ pub async fn handle(
     if args.dry_run {
         return handle_dry_run(ctx, &args.branch_id, out);
     }
+
+    let guard = ctx.shared_worktree_access();
+    let perm = guard.read_permission();
+    let id_map = IdMap::new_from_context(ctx, None, perm)?;
 
     // If no branch_id is provided, show all branches and prompt or push all
     let branch_selection = if let Some(ref branch_id) = args.branch_id {
@@ -70,16 +72,16 @@ pub async fn handle(
 
     // Handle branch selection
     let had_successful_push = match branch_selection {
-        BranchSelection::All => push_all_branches(ctx, &args, gerrit_mode, out)?,
+        BranchSelection::All => push_all_branches(ctx, perm, &args, gerrit_mode, out)?,
         BranchSelection::Single(branch_name) => {
-            push_single_branch(ctx, &branch_name, &args, gerrit_mode, out)?;
+            push_single_branch(ctx, perm, &branch_name, &args, gerrit_mode, out)?;
             true
         }
         BranchSelection::None => return Ok(()),
     };
 
     // Best-effort: update PR/MR target branches to match the current stack structure.
-    if had_successful_push && let Err(err) = update_review_targets_for_stacks(ctx).await {
+    if had_successful_push && let Err(err) = update_review_targets_for_stacks(ctx, perm).await {
         tracing::warn!(?err, "Failed to update review target branches after push");
     }
 
@@ -596,13 +598,14 @@ fn dry_run_push_details(
 
 fn push_single_branch(
     ctx: &mut Context,
+    perm: &RepoShared,
     branch_name: &str,
     args: &Command,
     gerrit_mode: bool,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let t = theme::get();
-    let result = push_single_branch_impl(ctx, branch_name, args, gerrit_mode)?;
+    let result = push_single_branch_impl(ctx, perm, branch_name, args, gerrit_mode)?;
     let mut progress = out.progress_channel();
 
     if let Some(out) = out.for_json() {
@@ -614,6 +617,11 @@ fn push_single_branch(
     writeln!(progress)?;
     if !result.branch_sha_updates.is_empty() {
         let repo = ctx.repo.get()?.clone().for_commit_shortening();
+        let gerrit_review_ref = if gerrit_mode {
+            Some(gerrit_review_ref(ctx, perm, &repo)?)
+        } else {
+            None
+        };
         for (branch, before_sha, after_sha) in &result.branch_sha_updates {
             let before_str = if before_sha == "0000000000000000000000000000000000000000" {
                 "(new branch)".to_string()
@@ -621,9 +629,8 @@ fn push_single_branch(
                 shorten_hex_object_id(&repo, before_sha)
             };
             let after_str = shorten_hex_object_id(&repo, after_sha);
-
-            // Construct simple remote ref format: remote/branch
-            let remote_ref = format!("{}/{}", result.remote, branch);
+            let remote_ref =
+                branch_remote_ref_for_display(&result, branch, gerrit_review_ref.as_deref());
 
             writeln!(
                 progress,
@@ -642,6 +649,7 @@ fn push_single_branch(
 // Shared implementation for pushing a single branch
 fn push_single_branch_impl(
     ctx: &mut Context,
+    perm: &RepoShared,
     branch_name: &str,
     args: &Command,
     gerrit_mode: bool,
@@ -656,7 +664,7 @@ fn push_single_branch_impl(
     let gerrit_flags = get_gerrit_flags(args, branch_name, gerrit_mode)?;
 
     // Call push_stack
-    let result: PushResult = but_api::legacy::stack::push_stack(
+    let result: PushResult = but_api::legacy::stack::push_stack_with_perm(
         ctx,
         stack_id,
         args.with_force,
@@ -664,6 +672,7 @@ fn push_single_branch_impl(
         branch_name.to_string(),
         !args.no_hooks,
         gerrit_flags,
+        perm,
     )?;
 
     Ok(result)
@@ -672,6 +681,7 @@ fn push_single_branch_impl(
 /// Returns `true` if at least one branch was pushed successfully.
 fn push_all_branches(
     ctx: &mut Context,
+    perm: &RepoShared,
     args: &Command,
     gerrit_mode: bool,
     out: &mut OutputChannel,
@@ -720,7 +730,7 @@ fn push_all_branches(
             t.important.paint(&branch_name)
         )?;
 
-        match push_single_branch_impl(ctx, &branch_name, args, gerrit_mode) {
+        match push_single_branch_impl(ctx, perm, &branch_name, args, gerrit_mode) {
             Ok(result) => {
                 total_commits_pushed += unpushed_count;
                 writeln!(
@@ -775,6 +785,11 @@ fn push_all_branches(
 
         // Print combined branch, remote, and SHA information for all pushed branches
         let repo = ctx.repo.get()?.clone().for_commit_shortening();
+        let gerrit_review_ref = if gerrit_mode {
+            Some(gerrit_review_ref(ctx, perm, &repo)?)
+        } else {
+            None
+        };
         for result in &pushed_results {
             for (branch, before_sha, after_sha) in &result.branch_sha_updates {
                 let before_str = if before_sha == "0000000000000000000000000000000000000000" {
@@ -783,9 +798,8 @@ fn push_all_branches(
                     shorten_hex_object_id(&repo, before_sha)
                 };
                 let after_str = shorten_hex_object_id(&repo, after_sha);
-
-                // Construct simple remote ref format: remote/branch
-                let remote_ref = format!("{}/{}", result.remote, branch);
+                let remote_ref =
+                    branch_remote_ref_for_display(result, branch, gerrit_review_ref.as_deref());
 
                 writeln!(
                     progress,
@@ -1108,6 +1122,41 @@ fn format_branch_suggestions(branches: &[String]) -> String {
         .join("\n")
 }
 
+fn branch_remote_ref_for_display(
+    result: &PushResult,
+    branch: &str,
+    gerrit_review_ref: Option<&str>,
+) -> String {
+    if let Some(review_ref) = gerrit_review_ref {
+        return review_ref.to_string();
+    }
+
+    result
+        .branch_to_remote
+        .iter()
+        .find(|(pushed_branch, _)| pushed_branch == branch)
+        .map(|(_, remote_ref)| remote_ref.shorten().to_string())
+        .unwrap_or_else(|| format!("{}/{}", result.remote, branch))
+}
+
+fn gerrit_review_ref(
+    ctx: &Context,
+    perm: &RepoShared,
+    repo: &gix::Repository,
+) -> anyhow::Result<String> {
+    let target_ref_name = workspace_target::ResolvedTarget::resolve_with_perm(ctx, perm)?
+        .ref_name()
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| anyhow::anyhow!("Failed to determine Gerrit target branch"))?;
+    let remote_names = repo.remote_names();
+    let target_branch =
+        but_core::extract_remote_name_and_short_name(target_ref_name.as_ref(), &remote_names)
+            .map(|(_, short_name)| short_name.to_string())
+            .unwrap_or_else(|| target_ref_name.shorten().to_string());
+
+    Ok(format!("refs/for/{target_branch}"))
+}
+
 fn find_stack_id_by_branch_name(ctx: &Context, branch_name: &str) -> anyhow::Result<StackId> {
     let stacks = but_api::legacy::workspace::stacks(
         ctx,
@@ -1138,11 +1187,8 @@ fn find_stack_id_by_branch_name(ctx: &Context, branch_name: &str) -> anyhow::Res
 }
 
 /// Update PR/MR target branches to match the current stack structure.
-async fn update_review_targets_for_stacks(ctx: &Context) -> anyhow::Result<()> {
-    let base_branch = {
-        let guard = ctx.shared_worktree_access();
-        gitbutler_branch_actions::base::get_base_branch_data(ctx, guard.read_permission())?
-    };
+async fn update_review_targets_for_stacks(ctx: &Context, perm: &RepoShared) -> anyhow::Result<()> {
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx, perm)?;
     let stacks = but_api::legacy::workspace::stacks(
         ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
@@ -1179,8 +1225,8 @@ fn check_for_conflicted_commits(ctx: &Context, branch_name: &str) -> anyhow::Res
         ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
-    let repo = ctx.repo.get()?.clone().for_commit_shortening();
 
+    let repo = ctx.repo.get()?.clone().for_commit_shortening();
     // Find the stack containing this branch and get its details
     for stack in &stacks {
         if let Some(stack_id) = stack.id {
@@ -1228,4 +1274,42 @@ fn check_for_conflicted_commits(ctx: &Context, branch_name: &str) -> anyhow::Res
     Err(anyhow::anyhow!(
         "Branch '{branch_name}' not found when checking for conflicts"
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::branch_remote_ref_for_display;
+    use gitbutler_git::PushResult;
+
+    #[test]
+    fn branch_remote_ref_display_uses_recorded_remote_ref() -> anyhow::Result<()> {
+        let result = PushResult {
+            remote: "origin".to_string(),
+            branch_to_remote: vec![(
+                "feature".to_string(),
+                "refs/remotes/upstream/feature".try_into()?,
+            )],
+            branch_sha_updates: vec![],
+        };
+
+        assert_eq!(
+            branch_remote_ref_for_display(&result, "feature", None),
+            "upstream/feature"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn branch_remote_ref_display_uses_gerrit_review_ref() {
+        let result = PushResult {
+            remote: "origin".to_string(),
+            branch_to_remote: vec![],
+            branch_sha_updates: vec![],
+        };
+
+        assert_eq!(
+            branch_remote_ref_for_display(&result, "feature", Some("refs/for/main")),
+            "refs/for/main"
+        );
+    }
 }

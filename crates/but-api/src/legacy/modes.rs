@@ -63,13 +63,24 @@ pub fn enter_edit_mode(
     commit_id: gix::ObjectId,
     stack_id: StackId,
 ) -> Result<EditModeMetadata> {
-    gitbutler_edit_mode::commands::enter_edit_mode(ctx, commit_id, stack_id)
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_edit_mode::commands::enter_edit_mode(
+        ctx,
+        commit_id,
+        stack_id,
+        guard.write_permission(),
+    )
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn abort_edit_and_return_to_workspace(ctx: &mut but_ctx::Context, force: bool) -> Result<()> {
-    gitbutler_edit_mode::commands::abort_and_return_to_workspace(ctx, force)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_edit_mode::commands::abort_and_return_to_workspace(
+        ctx,
+        force,
+        guard.write_permission(),
+    )?;
 
     Ok(())
 }
@@ -78,7 +89,8 @@ pub fn abort_edit_and_return_to_workspace(ctx: &mut but_ctx::Context, force: boo
 #[but_api]
 #[instrument(err(Debug))]
 pub fn save_edit_and_return_to_workspace(ctx: &mut but_ctx::Context) -> Result<()> {
-    gitbutler_edit_mode::commands::save_and_return_to_workspace(ctx)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_edit_mode::commands::save_and_return_to_workspace(ctx, guard.write_permission())?;
 
     Ok(())
 }
@@ -86,20 +98,23 @@ pub fn save_edit_and_return_to_workspace(ctx: &mut but_ctx::Context) -> Result<(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn save_edit_and_return_to_workspace_with_output(ctx: &mut but_ctx::Context) -> Result<()> {
-    gitbutler_edit_mode::commands::save_and_return_to_workspace(ctx)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_edit_mode::commands::save_and_return_to_workspace(ctx, guard.write_permission())?;
     Ok(())
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn edit_initial_index_state(
-    ctx: &mut but_ctx::Context,
+    ctx: &but_ctx::Context,
 ) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>> {
-    gitbutler_edit_mode::commands::starting_index_state(ctx)
+    let guard = ctx.shared_worktree_access();
+    gitbutler_edit_mode::commands::starting_index_state(ctx, guard.read_permission())
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn edit_changes_from_initial(ctx: &mut but_ctx::Context) -> Result<Vec<TreeChange>> {
-    gitbutler_edit_mode::commands::changes_from_initial(ctx)
+pub fn edit_changes_from_initial(ctx: &but_ctx::Context) -> Result<Vec<TreeChange>> {
+    let guard = ctx.shared_worktree_access();
+    gitbutler_edit_mode::commands::changes_from_initial(ctx, guard.read_permission())
 }

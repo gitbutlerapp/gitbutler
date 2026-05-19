@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
+use but_core::RefMetadata;
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 
 /// A utility to keep important paths to make archival/zip-file creation easier later.
@@ -31,20 +32,17 @@ impl Archival {
         create_zip_file_from_dir(ctx.workdir_or_gitdir()?, output_file)
     }
 
-    /// Create an archive commit graph behind `project_id` such that it doesn't reveal PII.
+    /// Create an anonymous archive commit graph for `repo` and `meta`, such that it doesn't reveal PII.
     pub fn zip_anonymous_graph(
         &self,
-        project_id: ProjectHandleOrLegacyProjectId,
+        repo: &gix::Repository,
+        meta: &impl RefMetadata,
     ) -> Result<PathBuf> {
-        let ctx: Context = project_id.try_into()?;
-        let _guard = ctx.shared_worktree_access();
-        let repo = ctx.repo.get()?;
-        let meta = ctx.meta()?;
         let mut graph =
-            but_graph::Graph::from_head(&repo, &meta, Default::default()).or_else(|_| {
+            but_graph::Graph::from_head(repo, meta, Default::default()).or_else(|_| {
                 but_graph::Graph::from_head(
-                    &repo,
-                    &meta,
+                    repo,
+                    meta,
                     but_graph::init::Options {
                         // Assume it fails because of post-processing, try again without.
                         dangerously_skip_postprocessing_for_debugging: true,

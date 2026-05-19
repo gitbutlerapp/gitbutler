@@ -1,6 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_core::{RepositoryExt, extract_remote_name_and_short_name, ref_metadata::StackId};
-use but_ctx::Context;
+use but_ctx::{Context, access::RepoShared};
 use gitbutler_git::{GitContextExt as _, PushResult};
 use gitbutler_operating_modes::ensure_open_workspace_mode;
 use gitbutler_oplog::{
@@ -152,12 +152,36 @@ pub fn push_stack(
 ) -> Result<PushResult> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx, guard.read_permission())
-        .context("Requires an open workspace mode")?;
+    push_stack_with_perm(
+        ctx,
+        stack_id,
+        with_force,
+        skip_force_push_protection,
+        branch_limit,
+        run_hooks,
+        push_opts,
+        guard.read_permission(),
+    )
+}
+
+/// Pushes all series in the stack to the remote using an existing shared repository permission.
+/// This operation will error out if the target has no push remote configured.
+#[expect(clippy::too_many_arguments)]
+pub fn push_stack_with_perm(
+    ctx: &mut Context,
+    stack_id: StackId,
+    with_force: bool,
+    skip_force_push_protection: bool,
+    branch_limit: String,
+    run_hooks: bool,
+    push_opts: Vec<but_gerrit::PushFlag>,
+    perm: &RepoShared,
+) -> Result<PushResult> {
+    ensure_open_workspace_mode(ctx, perm).context("Requires an open workspace mode")?;
     let virtual_branches = ctx.virtual_branches();
     let stack = virtual_branches.get_stack(stack_id)?;
     let (target_ref_name, target_base_oid, target_push_remote_name, target_branch_name) = {
-        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
         let target_ref_name = ws
             .target_ref_name()
             .context("failed to get target reference name")?

@@ -254,8 +254,25 @@ async fn build_status_context<'a>(
         stacks,
         resolved_target,
     ) = {
-        let mut guard = ctx.exclusive_worktree_access();
-        but_rules::process_rules(ctx, guard.write_permission()).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
+        let context_lines = ctx.settings.context_lines;
+        let mut meta = ctx.meta()?;
+        let mut guard;
+        {
+            let (new_guard, repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut()?;
+            guard = new_guard;
+            if let Ok(rules) = but_rules::list_rules(&db) {
+                but_rules::process_rules(
+                    rules,
+                    &repo,
+                    &mut ws,
+                    &mut db,
+                    &mut meta,
+                    guard.write_permission(),
+                    context_lines,
+                )
+                .ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
+            }
+        }
 
         let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
         let head_info = but_workspace::graph_to_ref_info(

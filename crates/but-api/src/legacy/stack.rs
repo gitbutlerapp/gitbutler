@@ -2,7 +2,11 @@ use std::borrow::Cow;
 
 use anyhow::{Context as _, Result, anyhow};
 use but_api_macros::but_api;
-use but_core::{DryRun, branch, ref_metadata::StackId, sync::RepoExclusive};
+use but_core::{
+    DryRun, branch,
+    ref_metadata::StackId,
+    sync::{RepoExclusive, RepoShared},
+};
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
@@ -382,6 +386,29 @@ pub fn push_stack(
         branch,
         run_hooks,
         push_opts,
+    )
+}
+
+#[expect(clippy::too_many_arguments)]
+pub fn push_stack_with_perm(
+    ctx: &mut Context,
+    stack_id: StackId,
+    with_force: bool,
+    skip_force_push_protection: bool,
+    branch: String,
+    run_hooks: bool,
+    push_opts: Vec<but_gerrit::PushFlag>,
+    perm: &RepoShared,
+) -> Result<PushResult> {
+    gitbutler_branch_actions::stack::push_stack_with_perm(
+        ctx,
+        stack_id,
+        with_force,
+        skip_force_push_protection,
+        branch,
+        run_hooks,
+        push_opts,
+        perm,
     )
 }
 

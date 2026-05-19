@@ -757,7 +757,7 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Unmark => {
-            let mut ctx = setup::init_ctx(
+            let ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
                     background_sync: BackgroundSync::Enabled { silent: false },
@@ -765,7 +765,7 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            command::legacy::mark::unmark(&mut ctx, out)
+            command::legacy::mark::unmark(&ctx, out)
                 .context("Can't unmark this. Taaaa-na-na-na. Can't unmark this.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)

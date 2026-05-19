@@ -23,8 +23,12 @@ pub(crate) fn handle(
         ));
     }
     // Hack - delete all other rules
-    for rule in but_rules::list_rules(ctx)? {
-        but_rules::delete_rule(ctx, &rule.id())?;
+    {
+        let mut db = ctx.db.get_cache_mut()?;
+        let rules = but_rules::list_rules(&db)?;
+        for rule in rules {
+            but_rules::delete_rule(&mut db, &rule.id())?;
+        }
     }
     match target_result[0].clone() {
         CliId::Branch { name, .. } => mark_branch(ctx, name, delete, out, guard.write_permission()),
@@ -45,10 +49,11 @@ fn mark_commit(
     if delete {
         let repo = ctx.repo.get()?.clone();
         let commit = repo.find_commit(oid)?;
-        let rules = but_rules::list_rules(ctx)?;
+        let mut db = ctx.db.get_cache_mut()?;
+        let rules = but_rules::list_rules(&db)?;
         for rule in rules {
             if rule.target_change_id() == commit.change_id() {
-                but_rules::delete_rule(ctx, &rule.id())?;
+                but_rules::delete_rule(&mut db, &rule.id())?;
             }
         }
         if let Some(out) = out.for_human() {
@@ -92,10 +97,11 @@ fn mark_branch(
 ) -> anyhow::Result<()> {
     let stack_id = branch_name_to_stack_id(ctx, Some(&branch_name))?;
     if delete {
-        let rules = but_rules::list_rules(ctx)?;
+        let mut db = ctx.db.get_cache_mut()?;
+        let rules = but_rules::list_rules(&db)?;
         for rule in rules {
             if rule.target_stack_id() == stack_id.map(|s| s.to_string()) {
-                but_rules::delete_rule(ctx, &rule.id())?;
+                but_rules::delete_rule(&mut db, &rule.id())?;
             }
         }
         if let Some(out) = out.for_human() {
@@ -124,7 +130,8 @@ fn mark_branch(
 }
 
 pub(crate) fn stack_marked(ctx: &Context, stack_id: StackId) -> anyhow::Result<bool> {
-    let rules = but_rules::list_rules(ctx)?
+    let db = ctx.db.get_cache()?;
+    let rules = but_rules::list_rules(&db)?
         .iter()
         .any(|r| r.target_stack_id() == Some(stack_id.to_string()) && r.session_id().is_none());
     Ok(rules)
@@ -138,17 +145,16 @@ pub(crate) fn commit_marked(ctx: &Context, commit_id: String) -> anyhow::Result<
             anyhow::anyhow!("Commit {commit_id} does not have a Change-Id, cannot mark it")
         })?
     };
-    let rules = but_rules::list_rules(ctx)?
+    let db = ctx.db.get_cache()?;
+    let rules = but_rules::list_rules(&db)?
         .iter()
         .any(|r| r.target_change_id() == Some(change_id.clone()));
     Ok(rules)
 }
 
-pub(crate) fn unmark(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
-    // TODO: do we need an exclusive lock here? This only affects metadata. This is very safe for now,
-    // and `create_rule()` already needs a write guard, so this is just symmetric.
-    let _guard = ctx.exclusive_worktree_access();
-    let rules = but_rules::list_rules(ctx)?;
+pub(crate) fn unmark(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()> {
+    let mut db = ctx.db.get_cache_mut()?;
+    let rules = but_rules::list_rules(&db)?;
     let rule_count = rules.len();
 
     if rule_count == 0 {
@@ -159,7 +165,7 @@ pub(crate) fn unmark(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Resu
     }
 
     for rule in rules {
-        but_rules::delete_rule(ctx, &rule.id())?;
+        but_rules::delete_rule(&mut db, &rule.id())?;
     }
 
     if let Some(out) = out.for_human() {

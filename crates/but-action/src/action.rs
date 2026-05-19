@@ -1,6 +1,6 @@
 use std::{fmt::Debug, str::FromStr};
 
-use but_ctx::Context;
+use but_db::DbHandle;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -146,19 +146,50 @@ impl ButlerAction {
     }
 }
 
-pub(crate) fn persist_action(ctx: &Context, action: ButlerAction) -> anyhow::Result<()> {
-    ctx.db
-        .get_cache_mut()?
-        .butler_actions_mut()
+fn persist_action(db: &mut DbHandle, action: ButlerAction) -> anyhow::Result<()> {
+    db.butler_actions_mut()
         .insert(action.try_into()?)
         .map_err(|e| anyhow::anyhow!("Failed to persist action: {e}"))?;
     Ok(())
 }
 
-pub fn list_actions(ctx: &Context, offset: i64, limit: i64) -> anyhow::Result<ActionListing> {
-    let (total, actions) = ctx
-        .db
-        .get_cache()?
+/// Persist a completed handle-changes action record and return its generated ID.
+///
+/// `db` is the already-open project database handle to write into. `change_summary`,
+/// `external_prompt`, `handler`, and `source` describe the request that produced the action.
+/// `snapshot_before` and `snapshot_after` link the action to the surrounding oplog snapshots.
+/// `response` is stored as either the successful action outcome or the error text.
+#[expect(clippy::too_many_arguments)]
+pub(crate) fn record_handle_changes_action(
+    db: &mut DbHandle,
+    change_summary: &str,
+    external_prompt: Option<String>,
+    handler: crate::ActionHandler,
+    source: Source,
+    snapshot_before: gix::ObjectId,
+    snapshot_after: gix::ObjectId,
+    response: &anyhow::Result<Outcome>,
+) -> anyhow::Result<Uuid> {
+    let action = ButlerAction::new(
+        handler,
+        external_prompt,
+        change_summary.to_owned(),
+        snapshot_before,
+        snapshot_after,
+        response,
+        source,
+    );
+    let id = action.id;
+    persist_action(db, action)?;
+    Ok(id)
+}
+
+/// List persisted Butler actions from `db` using `offset` and `limit` pagination.
+///
+/// Invalid database rows are skipped to preserve the historical best-effort behavior of the
+/// action list endpoint.
+pub fn list_actions(db: &DbHandle, offset: i64, limit: i64) -> anyhow::Result<ActionListing> {
+    let (total, actions) = db
         .butler_actions()
         .list(offset, limit)
         .map_err(|e| anyhow::anyhow!("Failed to list actions: {e}"))?;

@@ -96,7 +96,9 @@ impl Handler {
         perm: &mut RepoExclusive,
     ) -> Result<()> {
         let context_lines = ctx.settings.context_lines;
-        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+        let mut meta = ctx.meta()?;
+        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let rules = but_rules::list_rules(&db)?;
 
         let wt_changes = but_core::diff::worktree_changes(&repo)?;
 
@@ -124,12 +126,17 @@ impl Handler {
                 .err()
                 .map(|err| serde_error::Error::new(&**err)),
         };
-        drop((repo, ws, db));
-        if let Ok(update_count) =
-            but_rules::handler::process_workspace_rules(ctx, &assignments, perm)
-            && update_count > 0
+        if let Ok(update_count) = but_rules::handler::process_workspace_rules(
+            rules,
+            &assignments,
+            &repo,
+            &mut ws,
+            &mut db,
+            &mut meta,
+            perm,
+            context_lines,
+        ) && update_count > 0
         {
-            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
             // Getting these again since they were updated
             let (assignments, assignments_error) = assignments_and_errors(
                 db.hunk_assignments_mut()?,

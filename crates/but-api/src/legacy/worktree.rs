@@ -14,7 +14,7 @@ pub fn worktree_new(
     ctx: &mut but_ctx::Context,
     reference: gix::refs::FullName,
 ) -> Result<NewWorktreeOutcome> {
-    let guard = ctx.exclusive_worktree_access();
+    let guard = ctx.shared_worktree_access();
 
     but_worktrees::new::worktree_new(ctx, guard.read_permission(), reference.as_ref())
 }
@@ -22,7 +22,7 @@ pub fn worktree_new(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn worktree_list(ctx: &mut but_ctx::Context) -> Result<ListWorktreeOutcome> {
-    let guard = ctx.exclusive_worktree_access();
+    let guard = ctx.shared_worktree_access();
 
     but_worktrees::list::worktree_list(ctx, guard.read_permission())
 }
