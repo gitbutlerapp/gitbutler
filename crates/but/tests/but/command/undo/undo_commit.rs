@@ -1,7 +1,7 @@
 use crate::{command::undo::run_mutate_undo_roundtrip_test, utils::Sandbox};
 
 // TODO: `but commit empty` doesn't support `--message`, it should so we don't need this hack
-fn commit_empty_with_message(env: &Sandbox, message: &str) -> String {
+pub(super) fn commit_empty_with_message(env: &Sandbox, message: &str) -> String {
     #[derive(serde::Deserialize)]
     struct CommitEmptyJson {
         commit_id: String,
