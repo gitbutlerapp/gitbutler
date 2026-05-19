@@ -276,7 +276,7 @@ pub fn preview_backup_file(
     ref_name: String,
     path: String,
 ) -> Result<BackupFilePreview> {
-    let relative = safe_relative_path(&path)?;
+    let relative = safe_relative_path(&path)?.to_owned();
     let repo = ctx.repo.get()?;
     let workdir = repo
         .workdir()
