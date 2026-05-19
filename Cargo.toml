@@ -253,10 +253,12 @@ rmcp = { version = "0.16.0", default-features = false, features = [
     "macros",
 ] }
 serde_json_lenient = "0.2.3"
-reqwest = { version = "0.12.28", default-features = false, features = [
-    "rustls-tls",
+reqwest = { version = "0.13.3", default-features = false, features = [
+    "rustls",
     "json",
     "multipart",
+    "query",
+    "stream",
 ] }
 rust-embed = { version = "8", features = ["axum"] }
 mime_guess = "2"
@@ -281,7 +283,7 @@ schemars = { version = "1.2.0", default-features = false, features = [
     "uuid1",
     "preserve_order",
 ] }
-async-openai = { version = "0.33.1", default-features = false, features = [
+async-openai = { version = "0.38.2", default-features = false, features = [
     "rustls",
     "chat-completion",
 ] }
