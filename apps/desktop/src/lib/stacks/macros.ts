@@ -1,4 +1,6 @@
+import { showToast } from "$lib/notifications/toasts";
 import { getStackName } from "$lib/stacks/stack";
+import { hasOnlyNoEffectiveChanges } from "$lib/stacks/stackEndpoints";
 import { ensureValue } from "$lib/utils/validation";
 import type { CreateCommitRequestWorktreeChanges } from "$lib/stacks/stackEndpoints";
 import type { StackService } from "$lib/stacks/stackService.svelte";
@@ -67,7 +69,14 @@ export default class StackMacros {
 			dryRun: false,
 		});
 
-		if (outcome.rejectedChanges.length > 0) {
+		if (hasOnlyNoEffectiveChanges(outcome)) {
+			showToast({
+				style: "info",
+				title: "No changes to commit",
+				message:
+					"Those selected changes no longer change the target branch. Refresh or reselect changes to commit.",
+			});
+		} else if (outcome.rejectedChanges.length > 0) {
 			const pathsToRejectedChanges = outcome.rejectedChanges.reduce(
 				(acc: Record<string, RejectionReason>, { reason, path }) => {
 					acc[path] = reason;

@@ -3,6 +3,16 @@ import { describe, expect, test, vi } from "vitest";
 import type { BackendApi } from "$lib/state/backendApi";
 import type { StackSelection, UiState } from "$lib/state/uiState.svelte";
 
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	let reject!: (reason?: unknown) => void;
+	const promise = new Promise<T>((res, rej) => {
+		resolve = res;
+		reject = rej;
+	});
+	return { promise, resolve, reject };
+}
+
 function makeMockUiState(initialSelection: StackSelection | undefined): {
 	uiState: UiState;
 	getSelection: () => StackSelection | undefined;
@@ -65,5 +75,74 @@ describe("StackService.uncommit", () => {
 			commitIds: ["commit-1"],
 		});
 		expect(getSelection()).toBeUndefined();
+	});
+});
+
+describe("StackService.amendCommitMutation", () => {
+	test("queues concurrent amends to the same original commit and retargets to the rewritten commit", async () => {
+		const firstMutation = deferred<{
+			newCommit: string | null;
+			rejectedChanges: [];
+			commitMapping: [];
+		}>();
+		const mutate = vi.fn().mockReturnValueOnce(firstMutation.promise).mockResolvedValueOnce({
+			newCommit: "commit-3",
+			rejectedChanges: [],
+			commitMapping: [],
+		});
+
+		const { uiState } = makeMockUiState(undefined);
+		const backendApi = {
+			endpoints: {
+				commitAmend: {
+					mutate,
+				},
+			},
+		} as unknown as BackendApi;
+		const service = new StackService(backendApi, {} as never, {} as never, uiState);
+
+		const first = service.amendCommitMutation({
+			projectId: "project-1",
+			stackId: "stack-1",
+			branchName: "branch-1",
+			commitId: "commit-1",
+			worktreeChanges: [{ previousPathBytes: null, pathBytes: [1], hunkHeaders: [] }],
+			dryRun: false,
+		});
+		const second = service.amendCommitMutation({
+			projectId: "project-1",
+			stackId: "stack-1",
+			branchName: "branch-1",
+			commitId: "commit-1",
+			worktreeChanges: [{ previousPathBytes: null, pathBytes: [2], hunkHeaders: [] }],
+			dryRun: false,
+		});
+
+		await Promise.resolve();
+
+		expect(mutate).toHaveBeenCalledTimes(1);
+		expect(mutate).toHaveBeenNthCalledWith(1, {
+			projectId: "project-1",
+			commitId: "commit-1",
+			worktreeChanges: [{ previousPathBytes: null, pathBytes: [1], hunkHeaders: [] }],
+			dryRun: false,
+		});
+
+		firstMutation.resolve({
+			newCommit: "commit-2",
+			rejectedChanges: [],
+			commitMapping: [],
+		});
+
+		await first;
+		await second;
+
+		expect(mutate).toHaveBeenCalledTimes(2);
+		expect(mutate).toHaveBeenNthCalledWith(2, {
+			projectId: "project-1",
+			commitId: "commit-2",
+			worktreeChanges: [{ previousPathBytes: null, pathBytes: [2], hunkHeaders: [] }],
+			dryRun: false,
+		});
 	});
 });

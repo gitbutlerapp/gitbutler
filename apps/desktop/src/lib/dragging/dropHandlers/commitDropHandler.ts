@@ -20,6 +20,7 @@ import type { RejectionReason } from "@gitbutler/but-sdk";
 /** Details about a commit belonging to a drop zone. */
 export type DzCommitData = {
 	id: string;
+	branchName?: string;
 	isRemote: boolean;
 	isIntegrated: boolean;
 	hasConflicts: boolean;
@@ -144,6 +145,7 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 						this.projectId,
 						{
 							commitId: sourceCommitId,
+							branchName: this.commit.branchName,
 							stackIds: [sourceStackId, this.stackId],
 						},
 						async () => {
@@ -172,34 +174,54 @@ export class AmendCommitWithChangeDzHandler implements DropzoneHandler {
 				break;
 			case "worktree": {
 				const assignments = data.assignments();
-				const worktreeChanges = changesToDiffSpec(await data.treeChanges(), assignments);
+				let outcome: CreateCommitOutcome | undefined;
+				let result: DropResult | undefined;
+				await withStackBusy(
+					this.uiState,
+					this.projectId,
+					{
+						commitId: this.commit.id,
+						branchName: this.commit.branchName,
+						stackIds: [this.stackId],
+					},
+					async () => {
+						const worktreeChanges = changesToDiffSpec(await data.treeChanges(), assignments);
 
-				if (this.runHooks) {
-					try {
-						await this.hooksService.runPreCommitHooks(this.projectId, worktreeChanges);
-					} catch (err) {
-						if (err instanceof HookFailedError) return { type: "ok" };
-						return { type: "error", title: "Git hook failed", error: err };
-					}
-				}
+						if (this.runHooks) {
+							try {
+								await this.hooksService.runPreCommitHooks(this.projectId, worktreeChanges);
+							} catch (err) {
+								result =
+									err instanceof HookFailedError
+										? { type: "ok" }
+										: { type: "error", title: "Git hook failed", error: err };
+								return;
+							}
+						}
 
-				const outcome = await this.stackService.amendCommitMutation({
-					projectId: this.projectId,
-					stackId: this.stackId,
-					commitId: this.commit.id,
-					worktreeChanges: worktreeChanges,
-					dryRun: false,
-				});
+						outcome = await this.stackService.amendCommitMutation({
+							projectId: this.projectId,
+							stackId: this.stackId,
+							branchName: this.commit.branchName,
+							commitId: this.commit.id,
+							worktreeChanges: worktreeChanges,
+							dryRun: false,
+						});
+
+						if (this.runHooks) {
+							await this.hooksService.runPostCommitHooks(this.projectId);
+						}
+					},
+				);
+
+				if (result) return result;
+				if (!outcome) return;
 
 				if (outcome.newCommit) {
 					this.onresult(outcome.newCommit);
 				}
 
 				const rejectionResult = toRejectedChangesResult(this.projectId, outcome);
-
-				if (this.runHooks) {
-					await this.hooksService.runPostCommitHooks(this.projectId);
-				}
 
 				return rejectionResult;
 			}
@@ -366,7 +388,11 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 				await withStackBusy(
 					this.uiState,
 					projectId,
-					{ commitId: sourceCommitId, stackIds: [sourceStackId, stackId] },
+					{
+						commitId: sourceCommitId,
+						branchName: commit.branchName,
+						stackIds: [sourceStackId, stackId],
+					},
 					async () => {
 						const { workspace } = await this.stackService.moveChangesBetweenCommits({
 							projectId,
@@ -415,27 +441,44 @@ export class AmendCommitWithHunkDzHandler implements DropzoneHandler {
 				},
 			];
 
-			if (runHooks) {
-				try {
-					await this.hooksService.runPreCommitHooks(projectId, worktreeChanges);
-				} catch (err) {
-					if (err instanceof HookFailedError) return { type: "ok" };
-					return { type: "error", title: "Git hook failed", error: err };
-				}
-			}
-			const outcome = await this.stackService.amendCommitMutation({
+			let outcome: CreateCommitOutcome | undefined;
+			let result: DropResult | undefined;
+			await withStackBusy(
+				this.uiState,
 				projectId,
-				stackId,
-				commitId: commit.id,
-				worktreeChanges,
-				dryRun: false,
-			});
+				{ commitId: commit.id, branchName: commit.branchName, stackIds: [stackId] },
+				async () => {
+					if (runHooks) {
+						try {
+							await this.hooksService.runPreCommitHooks(projectId, worktreeChanges);
+						} catch (err) {
+							result =
+								err instanceof HookFailedError
+									? { type: "ok" }
+									: { type: "error", title: "Git hook failed", error: err };
+							return;
+						}
+					}
+
+					outcome = await this.stackService.amendCommitMutation({
+						projectId,
+						stackId,
+						branchName: commit.branchName,
+						commitId: commit.id,
+						worktreeChanges,
+						dryRun: false,
+					});
+
+					if (runHooks) {
+						await this.hooksService.runPostCommitHooks(projectId);
+					}
+				},
+			);
+
+			if (result) return result;
+			if (!outcome) return;
 
 			const rejectionResult = toRejectedChangesResult(projectId, outcome);
-
-			if (runHooks) {
-				await this.hooksService.runPostCommitHooks(projectId);
-			}
 
 			return rejectionResult;
 		}

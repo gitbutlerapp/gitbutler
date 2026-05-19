@@ -359,6 +359,7 @@
 						{/if}
 						{@const dzCommit: DzCommitData = {
 							id: commit.id,
+							branchName,
 							isRemote: isUpstreamCommit(commit),
 							isIntegrated: isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
 							hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts

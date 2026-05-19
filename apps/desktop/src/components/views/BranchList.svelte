@@ -138,6 +138,7 @@
 					? claudeCodeService.messages({ projectId, stackId })
 					: undefined}
 				{@const startCommittingDz = new StartCommitDzHandler(projectId, stackId, branchName)}
+				{@const amendingBranch = controller.busyBranchName === branchName}
 				{#if stackId}
 					<BranchReorderDropzone
 						{projectId}
@@ -177,6 +178,8 @@
 					numberOfUpstreamCommits={upstreamOnlyCommits.length}
 					numberOfBranchesInStack={branches.length}
 					baseCommit={branchDetails.baseCommit}
+					loading={amendingBranch}
+					loadingLabel="Amending commit"
 					dropzones={[stackingReorderDropzoneManager.top(branchName), startCommittingDz]}
 					trackingBranch={branch.remoteTrackingBranch ?? undefined}
 					readonly={!!branch.remoteTrackingBranch}

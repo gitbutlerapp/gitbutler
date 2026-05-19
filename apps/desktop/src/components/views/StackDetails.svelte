@@ -137,6 +137,7 @@
 		{@const dzCommit: DzCommitData | undefined = commit
 			? {
 					id: commit.id,
+					branchName,
 					isRemote: isUpstreamCommit(commit),
 					isIntegrated:
 						isLocalAndRemoteCommit(commit) && commit.state.type === "Integrated",

@@ -24,6 +24,7 @@ import type { ReduxError } from "$lib/error/reduxError";
 import type { DefaultForgeFactory } from "$lib/forge/forgeFactory.svelte";
 import type { BackendApi } from "$lib/state/backendApi";
 import type { AppDispatch } from "$lib/state/clientState.svelte";
+import type { CreateCommitOutcome } from "$lib/stacks/stackEndpoints";
 import type { AbsorptionTarget, DiffSpec, StackDetails } from "@gitbutler/but-sdk";
 
 export { REJECTTION_REASONS } from "$lib/stacks/stackEndpoints";
@@ -31,6 +32,7 @@ export { REJECTTION_REASONS } from "$lib/stacks/stackEndpoints";
 type AmendCommitRequest = {
 	projectId: string;
 	stackId: string;
+	branchName?: string;
 	commitId: string;
 	worktreeChanges: DiffSpec[];
 	dryRun: boolean;
@@ -39,6 +41,14 @@ type AmendCommitRequest = {
 export const STACK_SERVICE = new InjectionToken<StackService>("StackService");
 
 export class StackService {
+	private amendQueues = new Map<
+		string,
+		{
+			currentCommitId: string;
+			tail: Promise<void>;
+		}
+	>();
+
 	constructor(
 		private backendApi: BackendApi,
 		private dispatch: AppDispatch,
@@ -722,13 +732,48 @@ export class StackService {
 	}
 
 	get amendCommitMutation() {
-		return (args: AmendCommitRequest) =>
-			this.backendApi.endpoints.commitAmend.mutate({
+		return (args: AmendCommitRequest) => this.queuedAmendCommit(args);
+	}
+
+	private async queuedAmendCommit(args: AmendCommitRequest): Promise<CreateCommitOutcome> {
+		const queueKey = `${args.projectId}:${args.stackId}:${args.branchName ?? args.commitId}`;
+		const queue = this.amendQueues.get(queueKey) ?? {
+			currentCommitId: args.commitId,
+			tail: Promise.resolve(),
+		};
+		this.amendQueues.set(queueKey, queue);
+
+		const run = queue.tail.then(async () => {
+			const outcome = await this.backendApi.endpoints.commitAmend.mutate({
 				projectId: args.projectId,
-				commitId: args.commitId,
+				commitId: queue.currentCommitId,
 				worktreeChanges: args.worktreeChanges,
 				dryRun: args.dryRun,
 			});
+
+			if (!args.dryRun && outcome.newCommit) {
+				queue.currentCommitId = outcome.newCommit;
+			}
+
+			return outcome;
+		});
+
+		const tail = run.then(
+			() => undefined,
+			() => undefined,
+		);
+		queue.tail = tail;
+
+		try {
+			return await run;
+		} finally {
+			tail.then(() => {
+				if (this.amendQueues.get(queueKey) === queue && queue.tail !== tail) return;
+				if (this.amendQueues.get(queueKey) === queue) {
+					this.amendQueues.delete(queueKey);
+				}
+			});
+		}
 	}
 
 	/** Squash all the commits in a branch together */

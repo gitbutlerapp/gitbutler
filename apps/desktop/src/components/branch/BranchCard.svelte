@@ -71,6 +71,8 @@
 		numberOfBranchesInStack: number;
 		hasCodegenSessionRow?: boolean;
 		baseCommit?: string;
+		loading?: boolean;
+		loadingLabel?: string;
 		onclick: () => void;
 		disableClick?: boolean;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
@@ -346,6 +348,15 @@
 		{#if args.branchContent}
 			{@render args.branchContent()}
 		{/if}
+	{/if}
+
+	{#if args.type === "stack-branch" && args.loading}
+		<DropzoneOverlay
+			hovered={false}
+			activated={false}
+			loading
+			loadingLabel={args.loadingLabel ?? "Loading"}
+		/>
 	{/if}
 </div>
 

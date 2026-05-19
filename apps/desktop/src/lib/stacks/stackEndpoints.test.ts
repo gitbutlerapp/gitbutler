@@ -1,4 +1,4 @@
-import { buildStackEndpoints } from "$lib/stacks/stackEndpoints";
+import { buildStackEndpoints, hasOnlyNoEffectiveChanges } from "$lib/stacks/stackEndpoints";
 import { invalidatesItem, invalidatesList, ReduxTag } from "$lib/state/tags";
 import { describe, expect, test } from "vitest";
 import type { BackendEndpointBuilder } from "$lib/state/backendApi";
@@ -11,6 +11,32 @@ function createEndpointBuilder(): BackendEndpointBuilder {
 }
 
 describe("buildStackEndpoints", () => {
+	test("identifies commit outcomes where every selected change is a no-op", () => {
+		expect(
+			hasOnlyNoEffectiveChanges({
+				newCommit: null,
+				rejectedChanges: [{ reason: "noEffectiveChanges", path: "src/a.ts" }],
+				commitMapping: [],
+			}),
+		).toBe(true);
+
+		expect(
+			hasOnlyNoEffectiveChanges({
+				newCommit: "abc123",
+				rejectedChanges: [{ reason: "noEffectiveChanges", path: "src/a.ts" }],
+				commitMapping: [],
+			}),
+		).toBe(false);
+
+		expect(
+			hasOnlyNoEffectiveChanges({
+				newCommit: null,
+				rejectedChanges: [{ reason: "cherryPickMergeConflict", path: "src/a.ts" }],
+				commitMapping: [],
+			}),
+		).toBe(false);
+	});
+
 	test("maps uncommit to commit_uncommit with the new request shape", () => {
 		const endpoints = buildStackEndpoints(createEndpointBuilder());
 		const query = endpoints.uncommit.query;

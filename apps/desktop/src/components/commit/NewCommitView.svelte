@@ -8,12 +8,13 @@
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { createWorktreeSelection } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { hasOnlyNoEffectiveChanges } from "$lib/stacks/stackEndpoints";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
-	import type { EventProperties } from "$lib/state/customHooks.svelte";
 	import { UI_STATE, type NewCommitMessage, type RejectionReason } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { TestId } from "@gitbutler/ui";
 	import { tick } from "svelte";
+	import type { EventProperties } from "$lib/state/customHooks.svelte";
 
 	type Props = {
 		projectId: string;
@@ -131,6 +132,16 @@
 
 			commitStatus = "Preparing selected changes...";
 			const worktreeChanges = await uncommittedService.worktreeChanges(projectId, stackId);
+			if (worktreeChanges.length === 0) {
+				showToast({
+					style: "info",
+					title: "No changes to commit",
+					message: "The selected changes are no longer available. Refresh or reselect changes to commit.",
+				});
+				uncommittedService.clearHunkSelection();
+				idSelection.clear(createWorktreeSelection({ stackId }));
+				return;
+			}
 
 			// Get current editor mode from the component instance
 			const isRichTextMode = input?.isRichTextMode?.() || false;
@@ -183,6 +194,18 @@
 				// Clear change/hunk selection used for creating the commit.
 				uncommittedService.clearHunkSelection();
 				idSelection.clear(createWorktreeSelection({ stackId }));
+			}
+
+			if (hasOnlyNoEffectiveChanges(response)) {
+				showToast({
+					style: "info",
+					title: "No changes to commit",
+					message:
+						"Those selected changes no longer change the target branch. Refresh or reselect changes to commit.",
+				});
+				uncommittedService.clearHunkSelection();
+				idSelection.clear(createWorktreeSelection({ stackId }));
+				return;
 			}
 
 			if (response.rejectedChanges.length > 0) {

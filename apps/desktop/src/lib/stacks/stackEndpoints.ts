@@ -140,6 +140,14 @@ export function normalizeCreateCommitOutcome(response: CommitCreateResult): Crea
 	};
 }
 
+export function hasOnlyNoEffectiveChanges(outcome: CreateCommitOutcome): boolean {
+	return (
+		outcome.newCommit === null &&
+		outcome.rejectedChanges.length > 0 &&
+		outcome.rejectedChanges.every(({ reason }) => reason === "noEffectiveChanges")
+	);
+}
+
 export function transformStacksResponse(response: Stack[]) {
 	return stackAdapter.addMany(stackAdapter.getInitialState(), response);
 }

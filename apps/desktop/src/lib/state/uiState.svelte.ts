@@ -90,6 +90,7 @@ export type ExclusiveAction =
 
 export type StackBusyState = {
 	commitId?: string;
+	branchName?: string;
 	stackIds?: string[];
 };
 
@@ -567,6 +568,32 @@ export function initUserSettings(uiState: UiState, platformName: string) {
 	}
 }
 
+const stackBusyOperations = new Map<string, Map<symbol, StackBusyState>>();
+
+function setProjectStackBusy(uiState: UiState, projectId: string) {
+	const operations = stackBusyOperations.get(projectId);
+	if (!operations || operations.size === 0) {
+		uiState.project(projectId).stackBusy.set(undefined);
+		return;
+	}
+
+	const stackIds = new Set<string>();
+	let commitId: string | undefined;
+	let branchName: string | undefined;
+
+	for (const operation of operations.values()) {
+		operation.stackIds?.forEach((stackId) => stackIds.add(stackId));
+		commitId = operation.commitId ?? commitId;
+		branchName = operation.branchName ?? branchName;
+	}
+
+	uiState.project(projectId).stackBusy.set({
+		commitId,
+		branchName,
+		stackIds: [...stackIds],
+	});
+}
+
 /**
  * Sets the `stackBusy` state while running `fn`, and clears it afterwards.
  * Used to show a busy spinner on commits and block interaction on affected
@@ -575,13 +602,22 @@ export function initUserSettings(uiState: UiState, platformName: string) {
 export async function withStackBusy(
 	uiState: UiState,
 	projectId: string,
-	opts: { commitId?: string; stackIds?: string[] },
+	opts: { commitId?: string; branchName?: string; stackIds?: string[] },
 	fn: () => Promise<void>,
 ) {
-	uiState.project(projectId).stackBusy.set({ commitId: opts.commitId, stackIds: opts.stackIds });
+	const operationId = Symbol("stackBusy");
+	const operations = stackBusyOperations.get(projectId) ?? new Map<symbol, StackBusyState>();
+	operations.set(operationId, opts);
+	stackBusyOperations.set(projectId, operations);
+	setProjectStackBusy(uiState, projectId);
+
 	try {
 		await fn();
 	} finally {
-		uiState.project(projectId).stackBusy.set(undefined);
+		operations.delete(operationId);
+		if (operations.size === 0) {
+			stackBusyOperations.delete(projectId);
+		}
+		setProjectStackBusy(uiState, projectId);
 	}
 }

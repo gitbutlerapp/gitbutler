@@ -176,6 +176,10 @@ export class StackController {
 		return this.stackBusyState?.commitId;
 	}
 
+	get busyBranchName(): string | undefined {
+		return this.stackBusyState?.branchName;
+	}
+
 	get activeSelectionId(): SelectionId | undefined {
 		if (this.commitId) {
 			return createCommitSelection({ commitId: this.commitId, stackId: this.stackId });
