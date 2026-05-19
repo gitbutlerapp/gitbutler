@@ -6,6 +6,9 @@ import type {
 	BranchListingFilter,
 	CommitAbsorption,
 	HunkAssignmentRequest,
+	InitialBranchIntegration,
+	IntegrateBranchResult,
+	InteractiveIntegration,
 	CommitDetails,
 	DiffSpec,
 	InsertSide,
@@ -61,6 +64,11 @@ export interface BranchDetailsParams {
 export interface BranchDiffParams {
 	projectId: string;
 	branch: string;
+}
+
+export interface GetInitialBranchIntegrationParams {
+	projectId: string;
+	branchRef: string;
 }
 
 export interface CommitAmendParams {
@@ -159,6 +167,13 @@ export interface PeelRestoreSnapshotParams {
 	sha: string;
 }
 
+export interface ApplyBranchIntegrationParams {
+	projectId: string;
+	branchRef: string;
+	integration: InteractiveIntegration;
+	dryRun: boolean;
+}
+
 export interface PushStackLegacyParams {
 	projectId: string;
 	stackId: string;
@@ -233,6 +248,7 @@ export interface LiteElectronApi {
 	absorptionPlan: (params: AbsorptionPlanParams) => Promise<Array<CommitAbsorption>>;
 	absorb: (params: AbsorbParams) => Promise<number>;
 	apply: (params: ApplyParams) => Promise<ApplyOutcome>;
+	applyBranchIntegration: (params: ApplyBranchIntegrationParams) => Promise<IntegrateBranchResult>;
 	assignHunk: (params: AssignHunkParams) => Promise<void>;
 	branchDetails: (params: BranchDetailsParams) => Promise<BranchDetails>;
 	branchDiff: (params: BranchDiffParams) => Promise<TreeChanges>;
@@ -248,6 +264,9 @@ export interface LiteElectronApi {
 	commitMoveChangesBetween: (params: CommitMoveChangesBetweenParams) => Promise<MoveChangesResult>;
 	commitUncommit: (params: CommitUncommitParams) => Promise<UncommitResult>;
 	commitUncommitChanges: (params: CommitUncommitChangesParams) => Promise<MoveChangesResult>;
+	getInitialBranchIntegration: (
+		params: GetInitialBranchIntegrationParams,
+	) => Promise<InitialBranchIntegration>;
 	getVersion: () => Promise<string>;
 	getRedoTargetSnapshot: (projectId: string) => Promise<Snapshot | null>;
 	getUndoTargetSnapshot: (projectId: string) => Promise<Snapshot | null>;
@@ -278,6 +297,7 @@ export const liteIpcChannels = {
 	absorptionPlan: "workspace:absorption-plan",
 	absorb: "workspace:absorb",
 	apply: "workspace:apply",
+	applyBranchIntegration: "workspace:apply-branch-integration",
 	assignHunk: "workspace:assign-hunk",
 	branchDetails: "workspace:branch-details",
 	branchDiff: "workspace:branch-diff",
@@ -295,6 +315,7 @@ export const liteIpcChannels = {
 	commitUncommitChanges: "workspace:commit-uncommit-changes",
 	getRedoTargetSnapshot: "workspace:get-redo-target-snapshot",
 	getUndoTargetSnapshot: "workspace:get-undo-target-snapshot",
+	getInitialBranchIntegration: "workspace:get-initial-branch-integration",
 	getVersion: "lite:get-version",
 	headInfo: "workspace:head-info",
 	listBranches: "workspace:list-branches",

@@ -1,0 +1,268 @@
+.page {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+	height: 100%;
+	padding: 12px;
+	gap: 12px;
+	background:
+		linear-gradient(180deg, color-mix(in srgb, var(--bg-2) 72%, transparent), transparent 30%),
+		var(--bg-0);
+}
+
+.panel {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	overflow: hidden;
+	border: 1px solid var(--border-1);
+	border-radius: 12px;
+	background-color: var(--bg-1);
+}
+
+.panelHeader {
+	padding: 12px 14px;
+	border-bottom: 1px solid var(--border-1);
+
+	h2 {
+		margin: 0;
+		font-size: 14px;
+	}
+
+	p {
+		margin: 4px 0 0;
+		color: var(--text-2);
+		font-size: 12px;
+	}
+}
+
+.panelHeaderTop {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.panelHeaderActions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.graphPanel {
+	flex: 1;
+	min-height: 0;
+	padding: 14px;
+	overflow: auto;
+}
+
+.graphFallback {
+	margin: 0;
+	color: var(--text-1);
+	font-size: 12px;
+	line-height: 1.5;
+	font-family: monospace;
+	white-space: pre-wrap;
+}
+
+.editor {
+	flex: 1;
+	min-height: 0;
+	padding: 14px;
+	border: 0;
+	background-color: transparent;
+	color: var(--text-1);
+	font-size: 12px;
+	line-height: 1.5;
+	font-family: monospace;
+	resize: none;
+
+	&:focus {
+		outline: none;
+	}
+}
+
+.hints {
+	margin: 0;
+	padding: 12px 14px;
+	border-top: 1px solid var(--border-1);
+	background-color: color-mix(in srgb, var(--bg-2) 60%, transparent);
+	color: var(--text-2);
+	font-size: 12px;
+	line-height: 1.5;
+	font-family: monospace;
+	white-space: pre-wrap;
+}
+
+.loadingState,
+.errorState {
+	display: grid;
+	place-items: center;
+	height: 100%;
+	padding: 24px;
+	text-align: center;
+}
+
+.errorState {
+	gap: 12px;
+}
+
+.editorLayout {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.editorList {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-height: 0;
+	padding: 14px;
+	overflow: auto;
+	gap: 8px;
+}
+
+.editorDropSlot {
+	height: 10px;
+	border: 1px dashed transparent;
+	border-radius: 999px;
+	transition:
+		background-color 120ms ease,
+		border-color 120ms ease;
+}
+
+.editorDropSlotActive {
+	border-color: color-mix(in srgb, var(--accent-9) 52%, transparent);
+	background: color-mix(in srgb, var(--accent-9) 18%, transparent);
+}
+
+.editorChip {
+	display: flex;
+	flex-direction: column;
+	padding: 12px;
+	padding-top: 0;
+	gap: 10px;
+	border: 1px solid var(--border-1);
+	border-radius: 12px;
+	background:
+		linear-gradient(180deg, color-mix(in srgb, var(--bg-2) 48%, transparent), transparent 42%),
+		var(--bg-1);
+}
+
+.editorChipDragging {
+	opacity: 0.55;
+}
+
+.editorChipHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	background-color: color-mix(in srgb, var(--bg-2) 58%, transparent);
+}
+
+.editorChipHandle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 20px;
+	color: var(--text-2);
+	font-size: small;
+	font-family: monospace;
+	cursor: grab;
+}
+
+.editorChipHandle:active {
+	cursor: grabbing;
+}
+
+.editorChipDelete {
+	border: 0;
+	background: transparent;
+	color: var(--text-2);
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.editorChipDelete:hover {
+	color: var(--text-1);
+}
+
+.editorControls {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+}
+
+.editorControlsSquash {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.editorField {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.editorFieldWide {
+	grid-column: 1 / -1;
+}
+
+.editorLabel {
+	color: var(--text-2);
+	font-size: 11px;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.editorSelect,
+.editorInput {
+	width: 100%;
+	padding: 8px 10px;
+	border: 1px solid var(--border-1);
+	border-radius: 10px;
+	background-color: color-mix(in srgb, var(--bg-0) 84%, transparent);
+	color: var(--text-1);
+	font-size: 12px;
+	font-family: monospace;
+}
+
+.editorInput::placeholder {
+	color: var(--text-3);
+}
+
+.editorFooter {
+	display: flex;
+	flex-direction: column;
+	padding: 12px 14px;
+	gap: 10px;
+	border-top: 1px solid var(--border-1);
+	background-color: color-mix(in srgb, var(--bg-2) 60%, transparent);
+}
+
+.editorAddRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.editorEmpty {
+	padding: 16px;
+	border: 1px dashed var(--border-1);
+	border-radius: 12px;
+	color: var(--text-2);
+	font-size: 12px;
+	text-align: center;
+}
+
+.editorHints {
+	margin: 0;
+	color: var(--text-2);
+	font-size: 12px;
+	line-height: 1.5;
+	font-family: monospace;
+	white-space: pre-wrap;
+}

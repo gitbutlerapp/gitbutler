@@ -1,0 +1,68 @@
+.graph {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	color: var(--text-1);
+	font-size: 12px;
+	line-height: 1.5;
+	font-family: monospace;
+}
+
+.row {
+	display: flex;
+	gap: 2px;
+}
+
+.cell {
+	white-space: pre;
+}
+
+.node-container {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.node {
+	box-sizing: border-box;
+	width: 11px;
+	height: 11px;
+	border: 2px solid #aaa;
+	border-radius: 50%;
+}
+
+.vertical-edge-container {
+	display: flex;
+	justify-content: center;
+	padding-left: 4px;
+}
+
+.vertical-edge {
+	box-sizing: border-box;
+	width: 1px;
+	height: 100%;
+	background-color: black;
+}
+
+.empty-cell {
+	width: 0;
+}
+
+.content {
+	min-width: 0;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.sha {
+	color: var(--text-1);
+	font-weight: bold;
+}
+
+.refs {
+	color: var(--text-2);
+}
+
+.subject {
+	color: var(--text-1);
+}

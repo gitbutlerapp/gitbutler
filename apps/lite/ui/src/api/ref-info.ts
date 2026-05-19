@@ -56,6 +56,24 @@ export const findSegmentByBranchRef = ({
 	return null;
 };
 
+export const findBranchByRef = ({
+	headInfo,
+	branchRef,
+}: {
+	headInfo: RefInfo;
+	branchRef: Array<number> | null;
+}): { stackId: string; segment: Segment } | null => {
+	for (const stack of headInfo.stacks) {
+		if (stack.id === null) continue;
+
+		for (const segment of stack.segments)
+			if (refNamesEqual(segment.refName?.fullNameBytes ?? null, branchRef))
+				return { stackId: stack.id, segment };
+	}
+
+	return null;
+};
+
 export const renameBranchInHeadInfo = ({
 	headInfo,
 	stackId,

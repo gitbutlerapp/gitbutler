@@ -45,7 +45,7 @@ import { OperationSourceLabel } from "#ui/routes/project/$id/workspace/Operation
 import { OperationTarget } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/ui/classes.ts";
-import { BullseyeIcon, ChevronDownIcon, MenuTriggerIcon, PushIcon } from "#ui/ui/icons.tsx";
+import { BullseyeIcon, ChevronDownIcon, MenuTriggerIcon } from "#ui/ui/icons.tsx";
 import {
 	buildNavigationIndex,
 	navigationIndexIncludes,
@@ -84,7 +84,7 @@ import {
 	useQueryClient,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 
 import {
@@ -1728,6 +1728,7 @@ const BranchRow: FC<
 		stackId: string;
 		isCommitTarget: boolean;
 		canTearOffBranch: boolean;
+		canIntegrateRemote: boolean;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -1736,10 +1737,12 @@ const BranchRow: FC<
 	stackId,
 	isCommitTarget,
 	canTearOffBranch,
+	canIntegrateRemote,
 	...restProps
 }) => {
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 	const dispatch = useAppDispatch();
+	const navigate = useNavigate();
 	const branchOperandV: BranchOperand = {
 		stackId,
 		branchRef,
@@ -1880,6 +1883,16 @@ const BranchRow: FC<
 		});
 	};
 
+	const openRemoteIntegration = () => {
+		dispatch(projectActions.selectOutline({ projectId, selection: operand }));
+		focusPanel("outline");
+		void navigate({
+			to: "/project/$id/workspace/integrate",
+			params: { id: projectId },
+			search: { branch: decodeRefName(branchRef) },
+		});
+	};
+
 	const startEditingContextMenuItem = nativeMenuItem({
 		label: "Rename Branch",
 		enabled: !isRenamePending,
@@ -1896,10 +1909,16 @@ const BranchRow: FC<
 		enabled: canTearOffBranch && !tearOffBranchMutation.isPending,
 		onSelect: tearOffBranch,
 	});
+	const integrateRemoteContextMenuItem = nativeMenuItem({
+		label: "Integrate Remote",
+		enabled: canIntegrateRemote,
+		onSelect: openRemoteIntegration,
+	});
 
 	const menuItems: Array<NativeMenuItem> = [
 		startEditingContextMenuItem,
 		setCommitTargetContextMenuItem,
+		integrateRemoteContextMenuItem,
 		nativeMenuSeparator,
 		tearOffBranchContextMenuItem,
 	];
@@ -1933,10 +1952,11 @@ const BranchRow: FC<
 							<Toolbar.Button
 								type="button"
 								className={workspaceItemRowStyles.itemRowToolbarButton}
-								aria-label="Push branch"
-								disabled
+								aria-label="Integrate remote"
+								disabled={!canIntegrateRemote}
+								onClick={openRemoteIntegration}
 							>
-								<PushIcon />
+								Integrate
 							</Toolbar.Button>
 							<Toolbar.Button
 								type="button"
@@ -2066,6 +2086,7 @@ const BranchSegment: FC<{
 						branchRef={refName.fullNameBytes}
 						stackId={stackId}
 						canTearOffBranch={canTearOffBranch}
+						canIntegrateRemote={segment.remoteTrackingRefName !== null}
 						isCommitTarget={
 							commitTarget
 								? relativeToEquals(commitTarget, {

@@ -7,6 +7,8 @@ import type {
 	BranchDetails,
 	BranchListing,
 	CommitDetails,
+	InitialBranchIntegration,
+	IntegrateBranchResult,
 	ProjectForFrontend,
 	PushResult,
 	RefInfo,
@@ -45,6 +47,11 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:absorption-plan", params) as Promise<Array<CommitAbsorption>>,
 	absorb: (params) => ipcRenderer.invoke("workspace:absorb", params) as Promise<number>,
 	apply: (params) => ipcRenderer.invoke("workspace:apply", params) as Promise<ApplyOutcome>,
+	applyBranchIntegration: (params) =>
+		ipcRenderer.invoke(
+			"workspace:apply-branch-integration",
+			params,
+		) as Promise<IntegrateBranchResult>,
 	assignHunk: (params) => ipcRenderer.invoke("workspace:assign-hunk", params) as Promise<void>,
 	branchDetails: (params) =>
 		ipcRenderer.invoke("workspace:branch-details", params) as Promise<BranchDetails>,
@@ -80,6 +87,11 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:commit-uncommit", params) as Promise<UncommitResult>,
 	commitUncommitChanges: (params) =>
 		ipcRenderer.invoke("workspace:commit-uncommit-changes", params) as Promise<MoveChangesResult>,
+	getInitialBranchIntegration: (params) =>
+		ipcRenderer.invoke(
+			"workspace:get-initial-branch-integration",
+			params,
+		) as Promise<InitialBranchIntegration>,
 	getVersion: () => ipcRenderer.invoke("lite:get-version") as Promise<string>,
 	getRedoTargetSnapshot: (params) =>
 		ipcRenderer.invoke("workspace:get-redo-target-snapshot", params) as Promise<Snapshot | null>,

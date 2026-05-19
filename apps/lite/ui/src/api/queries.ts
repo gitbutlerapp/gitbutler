@@ -3,6 +3,7 @@ import type {
 	BranchDetailsParams,
 	BranchDiffParams,
 	CommitDetailsWithLineStatsParams,
+	GetInitialBranchIntegrationParams,
 	ListBranchesParams,
 	TreeChangeDiffParams,
 } from "#electron/ipc.ts";
@@ -19,6 +20,7 @@ export enum QueryKey {
 	TreeChangeDiffs = "treeChangeDiffs",
 	AbsorptionPlan = "absorptionPlan",
 	DryRun = "dryRun",
+	InitialBranchIntegration = "initialBranchIntegration",
 }
 
 export const branchDetailsQueryOptions = ({ projectId, ...params }: BranchDetailsParams) =>
@@ -31,6 +33,12 @@ export const branchDiffQueryOptions = ({ projectId, ...params }: BranchDiffParam
 	queryOptions({
 		queryKey: [QueryKey.BranchDiff, projectId, params],
 		queryFn: () => window.lite.branchDiff({ projectId, ...params }),
+	});
+
+export const initialBranchIntegrationQueryOptions = (params: GetInitialBranchIntegrationParams) =>
+	queryOptions({
+		queryKey: [QueryKey.InitialBranchIntegration, params],
+		queryFn: () => window.lite.getInitialBranchIntegration(params),
 	});
 
 export const changesInWorktreeQueryOptions = (projectId: string) =>

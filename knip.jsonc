@@ -22,7 +22,6 @@
 			"ignoreDependencies": [
 				"@gitbutler/design-core",
 				"@tanstack/eslint-plugin-query",
-				"electron",
 				"@types/semver",
 			],
 		},
