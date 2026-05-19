@@ -11,7 +11,6 @@ pub mod forge;
 pub mod git;
 pub mod meta;
 pub mod modes;
-pub mod open;
 pub mod oplog;
 pub mod projects;
 pub mod remotes;

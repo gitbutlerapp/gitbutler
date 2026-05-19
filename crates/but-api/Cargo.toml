@@ -71,7 +71,6 @@ legacy = [
     "dep:but-gerrit",
     "dep:but-worktrees",
     "dep:but-cherry-apply",
-    "dep:url",
 ]
 
 [dependencies]
@@ -137,7 +136,7 @@ tracing.workspace = true
 serde-error = "0.1.3"
 gix = { workspace = true, features = ["worktree-mutation"] }
 open.workspace = true
-url = { version = "2.5", optional = true }
+url.workspace = true
 which = "8.0.2"
 but-schemars.workspace = true
 

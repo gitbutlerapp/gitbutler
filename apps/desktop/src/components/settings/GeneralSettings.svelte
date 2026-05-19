@@ -9,6 +9,7 @@
 	import { showToast } from "$lib/notifications/toasts";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
+	import { TERMINAL_SERVICE } from "$lib/settings/terminalService";
 	import {
 		UI_STATE,
 		type CodeEditorSettings,
@@ -29,6 +30,7 @@
 		Toggle,
 		chipToasts,
 	} from "@gitbutler/ui";
+	import { onMount } from "svelte";
 	import type { User } from "$lib/user/user";
 
 	const userService = inject(USER_SERVICE);
@@ -43,6 +45,8 @@
 
 	const backend = inject(BACKEND);
 	const platformName = backend.platformName;
+
+	const terminalService = inject(TERMINAL_SERVICE);
 
 	const appSettings = settingsService.appSettings;
 
@@ -73,39 +77,21 @@
 		value: option.schemeIdentifer,
 	}));
 
-	const allTerminalOptions: TerminalSettings[] = [
-		// macOS
-		{ identifier: "terminal", displayName: "Terminal", platform: "macos" },
-		{ identifier: "iterm2", displayName: "iTerm2", platform: "macos" },
-		{ identifier: "ghostty", displayName: "Ghostty", platform: "macos" },
-		{ identifier: "warp", displayName: "Warp", platform: "macos" },
-		{ identifier: "alacritty-mac", displayName: "Alacritty", platform: "macos" },
-		{ identifier: "wezterm-mac", displayName: "WezTerm", platform: "macos" },
-		{ identifier: "hyper", displayName: "Hyper", platform: "macos" },
-		{ identifier: "kitty", displayName: "Kitty", platform: "macos" },
-		// Windows
-		{ identifier: "wt", displayName: "Windows Terminal", platform: "windows" },
-		{ identifier: "powershell", displayName: "PowerShell", platform: "windows" },
-		{ identifier: "cmd", displayName: "Command Prompt", platform: "windows" },
-		// Linux
-		{ identifier: "gnome-terminal", displayName: "GNOME Terminal", platform: "linux" },
-		{ identifier: "konsole", displayName: "Konsole", platform: "linux" },
-		{ identifier: "xfce4-terminal", displayName: "XFCE Terminal", platform: "linux" },
-		{ identifier: "alacritty", displayName: "Alacritty", platform: "linux" },
-		{ identifier: "ghostty", displayName: "Ghostty", platform: "linux" },
-		{ identifier: "warp", displayName: "Warp", platform: "linux" },
-		{ identifier: "hyper", displayName: "Hyper", platform: "linux" },
-		{ identifier: "wezterm", displayName: "WezTerm", platform: "linux" },
-		{ identifier: "kitty", displayName: "Kitty", platform: "linux" },
-		{ identifier: "cosmic-term", displayName: "COSMIC Terminal", platform: "linux" },
-		{ identifier: "ptyxis", displayName: "Ptyxis", platform: "linux" },
-	];
+	let terminalOptions: TerminalSettings[] = $state([]);
+	let terminalOptionsForSelect: Array<{ label: string; value: string }> = $state([]);
 
-	const terminalOptions = allTerminalOptions.filter((t) => t.platform === platformName);
-	const terminalOptionsForSelect = terminalOptions.map((option) => ({
-		label: option.displayName,
-		value: option.identifier,
-	}));
+	onMount(async () => {
+		try {
+			const options = await terminalService.getTerminalOptionsForPlatform(platformName);
+			terminalOptions = options;
+			terminalOptionsForSelect = options.map((option) => ({
+				label: option.displayName,
+				value: option.identifier,
+			}));
+		} catch (err) {
+			console.error("Failed to load terminal options", err);
+		}
+	});
 
 	$effect(() => {
 		if (userService.user && !loaded) {

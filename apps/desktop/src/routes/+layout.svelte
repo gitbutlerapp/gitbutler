@@ -22,6 +22,7 @@
 	import { fModeEnabled } from "$lib/config/uiFeatureFlags";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
+	import { TERMINAL_SERVICE } from "$lib/settings/terminalService";
 	import { createKeybind } from "$lib/shortcuts/hotkeys";
 	import { SHORTCUT_SERVICE } from "$lib/shortcuts/shortcutService";
 	import { CLIENT_STATE } from "$lib/state/clientState.svelte";
@@ -47,9 +48,10 @@
 	const clientState = inject(CLIENT_STATE);
 	const posthog = inject(POSTHOG_WRAPPER);
 	const uiState = inject(UI_STATE);
+	const terminalService = inject(TERMINAL_SERVICE);
 
-	clientState.initPersist().then(() => {
-		initUserSettings(uiState, backend.platformName);
+	clientState.initPersist().then(async () => {
+		await initUserSettings(uiState, backend.platformName, terminalService);
 	});
 
 	// =============================================================================

@@ -3,6 +3,7 @@ import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { type Reactive } from "@gitbutler/shared/storeUtils";
 import { createEntityAdapter, createSlice, type EntityState } from "@reduxjs/toolkit";
+import type { TerminalService } from "$lib/settings/terminalService";
 import type { AppDispatch } from "$lib/state/clientState.svelte";
 import type { ScrollbarVisilitySettings } from "@gitbutler/ui";
 
@@ -459,17 +460,6 @@ export type WritableReactiveStore<T extends DefaultConfig> = {
 	[K in keyof T]: WritableReactive<T[K]>;
 };
 
-function defaultTerminalForPlatform(platformName: string): TerminalSettings {
-	switch (platformName) {
-		case "windows":
-			return { identifier: "powershell", displayName: "PowerShell", platform: "windows" };
-		case "linux":
-			return { identifier: "gnome-terminal", displayName: "GNOME Terminal", platform: "linux" };
-		default:
-			return { identifier: "terminal", displayName: "Terminal", platform: "macos" };
-	}
-}
-
 const LEGACY_SETTINGS_KEY = "settings-json";
 
 /**
@@ -481,7 +471,11 @@ const LEGACY_SETTINGS_KEY = "settings-json";
  * Must be called after Redux Persist has rehydrated so that migrated values
  * are not overwritten.
  */
-export function initUserSettings(uiState: UiState, platformName: string) {
+export async function initUserSettings(
+	uiState: UiState,
+	platformName: string,
+	terminalService: TerminalService,
+) {
 	const raw = localStorage.getItem(LEGACY_SETTINGS_KEY);
 	if (raw) {
 		try {
@@ -503,14 +497,21 @@ export function initUserSettings(uiState: UiState, platformName: string) {
 		}
 	}
 
-	// Ensure the terminal default matches the platform. The static default
-	// is macOS; on Windows/Linux (or after migration that didn't include a
-	// terminal) this resolves to the correct platform terminal.
+	// Ensure the terminal default matches the platform.
 	const DESKTOP_PLATFORMS = ["macos", "windows", "linux"];
 	if (DESKTOP_PLATFORMS.includes(platformName)) {
 		const terminal = uiState.global.defaultTerminal.current as TerminalSettings | null;
 		if (terminal?.platform !== platformName) {
-			uiState.global.defaultTerminal.set(defaultTerminalForPlatform(platformName));
+			try {
+				const recommended = await terminalService.getRecommendedTerminalForPlatform(platformName);
+				const fallback =
+					recommended ?? (await terminalService.getTerminalOptionsForPlatform(platformName))[0];
+				if (fallback) {
+					uiState.global.defaultTerminal.set(fallback);
+				}
+			} catch (err) {
+				console.error("Failed to get recommended terminal", err);
+			}
 		}
 	}
 }
