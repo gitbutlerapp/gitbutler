@@ -259,7 +259,7 @@ rmcp = { version = "0.16.0", default-features = false, features = [
 ] }
 serde_json_lenient = "0.2.3"
 reqwest = { version = "0.12.28", default-features = false, features = [
-    "rustls-tls",
+    "rustls-tls-native-roots",
     "json",
     "multipart",
 ] }
