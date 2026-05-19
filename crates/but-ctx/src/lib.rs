@@ -574,6 +574,34 @@ impl Context {
         cell::RefMut<'_, but_graph::Workspace>,
         cell::RefMut<'_, but_db::DbHandle>,
     )> {
+        self.workspace_mut_and_db_mut_without_guard_inner()
+    }
+
+    /// Like [`Context::workspace_mut_and_db_mut_with_perm()`], but without acquiring or requiring
+    /// a worktree guard.
+    ///
+    /// This is a temporary compatibility method for plumbing code that still takes
+    /// [`Context`] instead of the specific repository, workspace and database inputs it needs.
+    #[deprecated(
+        note = "temporary compatibility method: pass repository, workspace and database handles explicitly instead"
+    )]
+    pub fn workspace_mut_and_db_mut_without_guard(
+        &mut self,
+    ) -> anyhow::Result<(
+        cell::Ref<'_, gix::Repository>,
+        cell::RefMut<'_, but_graph::Workspace>,
+        cell::RefMut<'_, but_db::DbHandle>,
+    )> {
+        self.workspace_mut_and_db_mut_without_guard_inner()
+    }
+
+    fn workspace_mut_and_db_mut_without_guard_inner(
+        &mut self,
+    ) -> anyhow::Result<(
+        cell::Ref<'_, gix::Repository>,
+        cell::RefMut<'_, but_graph::Workspace>,
+        cell::RefMut<'_, but_db::DbHandle>,
+    )> {
         let repo = self.repo.get()?;
         if let Ok(cached) =
             cell::RefMut::filter_map(self.workspace.try_borrow_mut()?, |opt| opt.as_mut())
@@ -636,6 +664,34 @@ impl Context {
         cell::Ref<'_, but_graph::Workspace>,
         cell::RefMut<'_, but_db::DbHandle>,
     )> {
+        self.workspace_and_db_mut_without_guard_inner()
+    }
+
+    /// Like [`Context::workspace_and_db_mut_with_perm()`], but without acquiring or requiring a
+    /// worktree guard.
+    ///
+    /// This is a temporary compatibility method for plumbing code that still takes
+    /// [`Context`] instead of the specific repository, workspace and database inputs it needs.
+    #[deprecated(
+        note = "temporary compatibility method: pass repository, workspace and database handles explicitly instead"
+    )]
+    pub fn workspace_and_db_mut_without_guard(
+        &self,
+    ) -> anyhow::Result<(
+        cell::Ref<'_, gix::Repository>,
+        cell::Ref<'_, but_graph::Workspace>,
+        cell::RefMut<'_, but_db::DbHandle>,
+    )> {
+        self.workspace_and_db_mut_without_guard_inner()
+    }
+
+    fn workspace_and_db_mut_without_guard_inner(
+        &self,
+    ) -> anyhow::Result<(
+        cell::Ref<'_, gix::Repository>,
+        cell::Ref<'_, but_graph::Workspace>,
+        cell::RefMut<'_, but_db::DbHandle>,
+    )> {
         if let Ok(cached) = cell::Ref::filter_map(self.workspace.try_borrow()?, |opt| opt.as_ref())
         {
             return Ok((self.repo.get()?, cached, self.db.get_cache_mut()?));
@@ -692,6 +748,34 @@ impl Context {
         cell::RefMut<'_, but_graph::Workspace>,
         cell::Ref<'_, but_db::DbHandle>,
     )> {
+        self.workspace_mut_and_db_without_guard_inner()
+    }
+
+    /// Like [`Context::workspace_mut_and_db_with_perm()`], but without acquiring or requiring a
+    /// worktree guard.
+    ///
+    /// This is a temporary compatibility method for plumbing code that still takes
+    /// [`Context`] instead of the specific repository, workspace and database inputs it needs.
+    #[deprecated(
+        note = "temporary compatibility method: pass repository, workspace and database handles explicitly instead"
+    )]
+    pub fn workspace_mut_and_db_without_guard(
+        &self,
+    ) -> anyhow::Result<(
+        cell::Ref<'_, gix::Repository>,
+        cell::RefMut<'_, but_graph::Workspace>,
+        cell::Ref<'_, but_db::DbHandle>,
+    )> {
+        self.workspace_mut_and_db_without_guard_inner()
+    }
+
+    fn workspace_mut_and_db_without_guard_inner(
+        &self,
+    ) -> anyhow::Result<(
+        cell::Ref<'_, gix::Repository>,
+        cell::RefMut<'_, but_graph::Workspace>,
+        cell::Ref<'_, but_db::DbHandle>,
+    )> {
         if let Ok(cached) =
             cell::RefMut::filter_map(self.workspace.try_borrow_mut()?, |opt| opt.as_mut())
         {
@@ -740,6 +824,34 @@ impl Context {
     pub fn workspace_and_db_with_perm(
         &self,
         _perm: &RepoShared,
+    ) -> anyhow::Result<(
+        cell::Ref<'_, gix::Repository>,
+        cell::Ref<'_, but_graph::Workspace>,
+        cell::Ref<'_, but_db::DbHandle>,
+    )> {
+        self.workspace_and_db_without_guard_inner()
+    }
+
+    /// Like [`Context::workspace_and_db_with_perm()`], but without acquiring or requiring a
+    /// worktree guard.
+    ///
+    /// This is a temporary compatibility method for plumbing code that still takes
+    /// [`Context`] instead of the specific repository, workspace and database inputs it needs.
+    #[deprecated(
+        note = "temporary compatibility method: pass repository, workspace and database handles explicitly instead"
+    )]
+    pub fn workspace_and_db_without_guard(
+        &self,
+    ) -> anyhow::Result<(
+        cell::Ref<'_, gix::Repository>,
+        cell::Ref<'_, but_graph::Workspace>,
+        cell::Ref<'_, but_db::DbHandle>,
+    )> {
+        self.workspace_and_db_without_guard_inner()
+    }
+
+    fn workspace_and_db_without_guard_inner(
+        &self,
     ) -> anyhow::Result<(
         cell::Ref<'_, gix::Repository>,
         cell::Ref<'_, but_graph::Workspace>,

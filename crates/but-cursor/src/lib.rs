@@ -158,7 +158,11 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
 
     let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
     let context_lines = ctx.settings.context_lines;
-    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
+    #[expect(
+        deprecated,
+        reason = "temporary use while this plumbing still owns Context"
+    )]
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_without_guard()?;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
         db.hunk_assignments_mut()?,
         &repo,
