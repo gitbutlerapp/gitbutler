@@ -82,6 +82,65 @@ fn can_undo_discard() {
 }
 
 #[test]
+fn can_undo_but_discard_file_modifications() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
+    env.setup_metadata(&["A"])?;
+
+    env.file("first", "This is new stuff");
+
+    run_mutate_undo_roundtrip_test(&env, |env| {
+        env.but("discard zz").assert().success();
+    });
+
+    Ok(())
+}
+
+#[test]
+fn can_undo_but_discard_new_file() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
+    env.setup_metadata(&["A"])?;
+
+    env.file("totally_new_file", "This is new stuff");
+
+    run_mutate_undo_roundtrip_test(&env, |env| {
+        env.but("discard zz").assert().success();
+    });
+
+    Ok(())
+}
+
+#[test]
+fn can_undo_but_discard_deletion() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
+    env.setup_metadata(&["A"])?;
+
+    let filepath = env.projects_root().join("first");
+    std::fs::remove_file(&filepath).expect("must be able to delete file");
+
+    run_mutate_undo_roundtrip_test(&env, |env| {
+        env.but("discard zz").assert().success();
+    });
+
+    Ok(())
+}
+
+#[test]
+fn can_undo_but_discard_rename() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
+    env.setup_metadata(&["A"])?;
+
+    let filepath = env.projects_root().join("first");
+    let new_filepath = env.projects_root().join("first_renamed");
+    std::fs::rename(&filepath, &new_filepath).expect("must be able to move file");
+
+    run_mutate_undo_roundtrip_test(&env, |env| {
+        env.but("discard zz").assert().success();
+    });
+
+    Ok(())
+}
+
+#[test]
 #[ignore = "Test harness runs with cv3 feature flag, and but_core::worktree::safe_checkout_from_head does not restore the worktree file A for some reason"]
 fn can_undo_unapply() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
