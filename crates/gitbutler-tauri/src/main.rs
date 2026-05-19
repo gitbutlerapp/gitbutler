@@ -22,8 +22,8 @@ use but_settings::AppSettingsWithDiskSync;
 #[cfg(feature = "irc")]
 use gitbutler_tauri_lib::irc;
 use gitbutler_tauri_lib::{
-    WindowState, acp, action, askpass, claude, csp::csp_with_extras, env, logs, menu, modes,
-    projects, settings, upstream, zip,
+    WindowState, acp, action, askpass, claude, coderabbit, csp::csp_with_extras, env, logs, menu,
+    modes, projects, settings, upstream, zip,
 };
 use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -242,6 +242,7 @@ fn main() -> anyhow::Result<()> {
                     broadcaster: broadcaster.clone(),
                     instance_by_stack: Default::default(),
                 };
+                let coderabbit = coderabbit::CodeRabbit::default();
                 let archival = but_feedback::Archival {
                     cache_dir: app_cache_dir.clone(),
                     logs_dir: app_log_dir.clone(),
@@ -249,6 +250,7 @@ fn main() -> anyhow::Result<()> {
                 app_handle.manage(archival);
                 app_handle.manage(app_settings);
                 app_handle.manage(claude);
+                app_handle.manage(coderabbit);
 
                 #[cfg(target_os = "windows")]
                 if !app_handle
@@ -408,6 +410,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::backups::tauri_verify_backup::verify_backup,
                 legacy::backups::tauri_list_backup_refs::list_backup_refs,
                 legacy::backups::tauri_list_backup_files::list_backup_files,
+                legacy::backups::tauri_preview_backup_file::preview_backup_file,
                 legacy::backups::tauri_restore_backup_branch::restore_backup_branch,
                 legacy::backups::tauri_restore_backup_files::restore_backup_files,
                 legacy::oplog::tauri_list_snapshots::list_snapshots,
@@ -506,6 +509,13 @@ fn main() -> anyhow::Result<()> {
                 claude::claude_cancel_session,
                 claude::claude_is_stack_active,
                 claude::claude_compact_history,
+                coderabbit::coderabbit_status,
+                coderabbit::coderabbit_login,
+                coderabbit::coderabbit_review,
+                coderabbit::coderabbit_cancel,
+                coderabbit::coderabbit_findings,
+                coderabbit::coderabbit_update_finding,
+                coderabbit::coderabbit_write_default_config,
                 #[cfg(feature = "irc")]
                 irc::irc_connect,
                 #[cfg(feature = "irc")]

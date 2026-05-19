@@ -2,14 +2,23 @@
 	import { page } from "$app/state";
 	import { BACKUP_SERVICE } from "$lib/backups/backupService.svelte";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
-	import ScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Badge, Button, Checkbox, EmptyStatePlaceholder, Modal, Textbox } from "@gitbutler/ui";
+	import {
+		Badge,
+		Button,
+		Checkbox,
+		EmptyStatePlaceholder,
+		Modal,
+		Textbox,
+		VirtualList,
+	} from "@gitbutler/ui";
 	import type { BackupManifest, BackupRef } from "$lib/backups/backupEndpoints";
 
 	const projectId = $derived(page.params.projectId!);
 	const backupService = inject(BACKUP_SERVICE);
 	const branchService = inject(BRANCH_SERVICE);
+	const uiState = inject(UI_STATE);
 
 	const backupsQuery = $derived(backupService.backups(projectId));
 	const settingsQuery = $derived(backupService.settings(projectId));
@@ -32,6 +41,10 @@
 	let restoreBranchName = $state("");
 	let overwriteBranch = $state(false);
 	let backupDirectory = $state("");
+	let previewPath = $state<string | undefined>();
+	let previewDiff = $state<string | undefined>();
+	let previewLoading = $state(false);
+	let previewError = $state<string | undefined>();
 
 	const selectedBackup = $derived(
 		backups.find((backup) => backup.id === selectedBackupId) ?? backups[0],
@@ -53,6 +66,7 @@
 			selectedRefName = selectedRef.name;
 			restoreBranchName = shortBranchName(selectedRef.name);
 			selectedFiles = new Set();
+			resetPreview();
 		}
 	});
 
@@ -101,6 +115,27 @@
 			verifyMessage = result.valid ? "Backup verified" : result.message || "Backup verification failed";
 		} finally {
 			verifying = false;
+		}
+	}
+
+	async function previewFile(path: string) {
+		if (!selectedBackup || !selectedRef || previewLoading) return;
+		previewPath = path;
+		previewDiff = undefined;
+		previewError = undefined;
+		previewLoading = true;
+		try {
+			const preview = await backupService.previewFile({
+				projectId,
+				backupId: selectedBackup.id,
+				refName: selectedRef.name,
+				path,
+			});
+			previewDiff = preview.diff || "No changes from the current worktree file.";
+		} catch (error) {
+			previewError = error instanceof Error ? error.message : String(error);
+		} finally {
+			previewLoading = false;
 		}
 	}
 
@@ -169,6 +204,21 @@
 		selectedFiles = next;
 	}
 
+	function resetPreview() {
+		previewPath = undefined;
+		previewDiff = undefined;
+		previewError = undefined;
+		previewLoading = false;
+	}
+
+	function diffLineClass(line: string) {
+		if (line.startsWith("+++") || line.startsWith("---")) return "diff-line--file";
+		if (line.startsWith("@@")) return "diff-line--hunk";
+		if (line.startsWith("+")) return "diff-line--added";
+		if (line.startsWith("-")) return "diff-line--removed";
+		return "";
+	}
+
 	function formatDate(ms: number) {
 		return new Date(Number(ms)).toLocaleString();
 	}
@@ -208,8 +258,15 @@
 			</EmptyStatePlaceholder>
 		{:else}
 			<ScrollableContainer>
-				<div class="backup-cards">
-					{#each backups as backup (backup.id)}
+			<VirtualList
+				grow
+				items={backups}
+				defaultHeight={66}
+				renderDistance={180}
+				visibility={uiState.global.scrollbarVisibilityState.current}
+				getId={(backup) => backup.id}
+			>
+				{#snippet template(backup)}
 						<button
 							type="button"
 							class="backup-card"
@@ -218,6 +275,8 @@
 								selectedBackupId = backup.id;
 								selectedRefName = undefined;
 								verifyMessage = undefined;
+								selectedFiles = new Set();
+								resetPreview();
 							}}
 						>
 							<span class="backup-card__title text-13 text-semibold">
@@ -227,9 +286,8 @@
 								{formatDate(backup.createdAt)} • {backup.branches.length} branches • {formatSize(backup.size)}
 							</span>
 						</button>
-					{/each}
-				</div>
-			</ScrollableContainer>
+				{/snippet}
+			</VirtualList>
 		{/if}
 	</section>
 
@@ -266,6 +324,7 @@
 								selectedRefName = ref.name;
 								restoreBranchName = shortBranchName(ref.name);
 								selectedFiles = new Set();
+								resetPreview();
 							}}
 						>
 							<span>{shortBranchName(ref.name)}</span>
@@ -279,16 +338,49 @@
 						<h4 class="text-13 text-semibold">Files</h4>
 						<Badge>{files.length}</Badge>
 					</div>
-					<ScrollableContainer>
-						<div class="file-list">
-							{#each files as file (file)}
-								<label class="file-row">
-									<Checkbox small checked={selectedFiles.has(file)} onchange={() => toggleFile(file)} />
-									<span class="text-12">{file}</span>
-								</label>
-							{/each}
+					<VirtualList
+						grow
+						items={files}
+						defaultHeight={34}
+						renderDistance={180}
+						visibility={uiState.global.scrollbarVisibilityState.current}
+						getId={(file) => file}
+					>
+						{#snippet template(file)}
+							<div class="file-row" class:selected={previewPath === file}>
+								<Checkbox small checked={selectedFiles.has(file)} onchange={() => toggleFile(file)} />
+								<button type="button" class="file-preview-trigger text-12" onclick={() => previewFile(file)}>
+									{file}
+								</button>
+							</div>
+						{/snippet}
+					</VirtualList>
+				</div>
+
+				<div class="preview-panel">
+					<div class="preview-header">
+						<h4 class="text-13 text-semibold">Preview</h4>
+						{#if previewLoading}
+							<Badge>Loading</Badge>
+						{/if}
+					</div>
+					{#if previewPath}
+						<div class="preview-path text-12">{previewPath}</div>
+						{#if previewError}
+							<div class="preview-error text-12">{previewError}</div>
+						{:else if previewDiff}
+							<pre class="diff-preview text-12">{#each previewDiff.split("\n") as line}<span class={diffLineClass(line)}>{line}</span>
+{/each}</pre>
+						{:else}
+							<div class="preview-empty text-12">
+								Select a file to compare the backup copy with the current worktree.
+							</div>
+						{/if}
+					{:else}
+						<div class="preview-empty text-12">
+							Select a file to compare the backup copy with the current worktree.
 						</div>
-					</ScrollableContainer>
+					{/if}
 				</div>
 			</div>
 

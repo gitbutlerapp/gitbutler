@@ -19,6 +19,7 @@
 	} from "$lib/utils/diffParsing";
 	import { getHunkLineId } from "$lib/utils/hunk";
 	import type LineSelection from "$components/hunkDiff/lineSelection.svelte";
+	import type { ReviewAnnotation } from "$components/hunkDiff/reviewAnnotation";
 	import type { Snippet } from "svelte";
 
 	interface Props {
@@ -36,6 +37,7 @@
 		minWidth: number;
 		lockWarning?: Snippet<[DependencyLock[]]>;
 		hunkHasLocks?: boolean;
+		reviewAnnotations?: ReviewAnnotation[];
 	}
 
 	const {
@@ -53,6 +55,7 @@
 		minWidth,
 		lockWarning,
 		hunkHasLocks,
+		reviewAnnotations = [],
 	}: Props = $props();
 
 	let stagingColumnWidth = $state<number>(0);
@@ -60,6 +63,21 @@
 	const locked = $derived(row.locks !== undefined && row.locks.length > 0);
 	const clickable = $derived(isClickable);
 	const isSelectingForCommit = $derived(staged !== undefined && !hideCheckboxes);
+	const hasReviewAnnotations = $derived(reviewAnnotations.length > 0);
+	const reviewColspan = $derived(isSelectingForCommit || hunkHasLocks ? 4 : 3);
+
+	function severityLabel(severity: ReviewAnnotation["severity"]) {
+		switch (severity) {
+			case "critical":
+				return "Critical";
+			case "major":
+				return "Major";
+			case "minor":
+				return "Minor";
+			case "info":
+				return "Info";
+		}
+	}
 </script>
 
 {#snippet countColumn(side: CountColumnSide)}
@@ -198,6 +216,9 @@
 		}}
 	>
 		<div data-no-drag class="table__row-header">
+			{#if hasReviewAnnotations}
+				<span class="review-marker" title="CodeRabbit recommendation">◆</span>
+			{/if}
 			{#if row.isSelected}
 				<div
 					class="table__selected-row-overlay"
@@ -211,6 +232,30 @@
 		</div>
 	</td>
 </tr>
+
+{#if hasReviewAnnotations}
+	<tr class="review-row" data-no-drag>
+		<td colspan={reviewColspan}>
+			<div class="review-comments">
+				{#each reviewAnnotations as annotation (annotation.id)}
+					<div class="review-comment" class:critical={annotation.severity === "critical"}>
+						<div class="review-comment__header">
+							<span class="review-comment__source">CodeRabbit</span>
+							<span class="review-comment__severity">{severityLabel(annotation.severity)}</span>
+							<span class="review-comment__title">{annotation.title}</span>
+						</div>
+						{#if annotation.body}
+							<p>{annotation.body}</p>
+						{/if}
+						{#if annotation.suggestedPatch}
+							<pre>{annotation.suggestedPatch}</pre>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		</td>
+	</tr>
+{/if}
 
 <style lang="postcss">
 	td,
@@ -237,6 +282,75 @@
 		min-height: 18px;
 		white-space: var(--pre-wrap);
 		cursor: text;
+	}
+
+	.review-marker {
+		display: inline-flex;
+		margin-right: 4px;
+		color: var(--clr-scale-ntrl-60);
+		font-size: 10px;
+		vertical-align: middle;
+	}
+
+	.review-row td {
+		border-top: 1px solid var(--border-3);
+		border-bottom: 1px solid var(--border-3);
+		background-color: var(--bg-1);
+	}
+
+	.review-comments {
+		display: flex;
+		flex-direction: column;
+		padding: 8px 10px 8px 42px;
+		gap: 8px;
+	}
+
+	.review-comment {
+		padding: 8px 10px;
+		border: 1px solid var(--border-2);
+		border-left: 3px solid var(--clr-scale-ntrl-60);
+		border-radius: var(--radius-m);
+		background-color: var(--bg-0);
+		color: var(--text-1);
+		font-size: 12px;
+		line-height: 1.35;
+		user-select: text;
+
+		&.critical {
+			border-left-color: var(--fill-danger-bg);
+		}
+
+		p {
+			margin: 6px 0 0;
+			color: var(--text-2);
+			white-space: pre-wrap;
+		}
+
+		pre {
+			margin: 8px 0 0;
+			padding: 8px;
+			overflow-x: auto;
+			border-radius: var(--radius-s);
+			background-color: var(--bg-2);
+			white-space: pre-wrap;
+		}
+	}
+
+	.review-comment__header {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.review-comment__source,
+	.review-comment__severity {
+		color: var(--text-3);
+		font-weight: 600;
+		font-size: 11px;
+	}
+
+	.review-comment__title {
+		font-weight: 600;
 	}
 
 	.table__selected-row-overlay {

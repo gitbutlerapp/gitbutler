@@ -50,6 +50,10 @@ export class BackupService {
 		return await this.backendApi.endpoints.verifyBackup.mutate({ projectId, backupId });
 	}
 
+	async previewFile(args: { projectId: string; backupId: string; refName: string; path: string }) {
+		return await this.backendApi.endpoints.previewBackupFile.mutate(args);
+	}
+
 	async restoreBranch(args: {
 		projectId: string;
 		backupId: string;

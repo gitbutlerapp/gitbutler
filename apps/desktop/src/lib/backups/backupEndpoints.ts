@@ -33,6 +33,12 @@ export type BackupVerification = {
 	message: string;
 };
 
+export type BackupFilePreview = {
+	path: string;
+	diff: string;
+	currentExists: boolean;
+};
+
 export function buildBackupEndpoints(build: BackendEndpointBuilder) {
 	return {
 		backupSettings: build.query<BackupSettings, { projectId: string }>({
@@ -79,6 +85,13 @@ export function buildBackupEndpoints(build: BackendEndpointBuilder) {
 			{ projectId: string; backupId: string; refName: string }
 		>({
 			extraOptions: { command: "list_backup_files" },
+			query: (args) => args,
+		}),
+		previewBackupFile: build.mutation<
+			BackupFilePreview,
+			{ projectId: string; backupId: string; refName: string; path: string }
+		>({
+			extraOptions: { command: "preview_backup_file" },
 			query: (args) => args,
 		}),
 		restoreBackupBranch: build.mutation<

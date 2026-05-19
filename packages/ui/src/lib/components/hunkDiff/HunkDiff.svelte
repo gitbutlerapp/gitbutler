@@ -15,6 +15,7 @@
 		parseHunk,
 	} from "$lib/utils/diffParsing";
 	import type { ContextMenuParams } from "$components/hunkDiff/HunkDiffRow.svelte";
+	import type { ReviewAnnotation } from "$components/hunkDiff/reviewAnnotation";
 	import type { Snippet } from "svelte";
 
 	interface Props {
@@ -37,6 +38,7 @@
 		onChangeStage?: (staged: boolean) => void;
 		onLineClick?: (params: LineSelectionParams) => void;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
+		reviewAnnotations?: ReviewAnnotation[];
 		lockWarning?: Snippet<[DependencyLock[]]>;
 	}
 
@@ -59,6 +61,7 @@
 		onChangeStage,
 		onLineClick,
 		handleLineContextMenu,
+		reviewAnnotations = [],
 		draggingDisabled,
 		lockWarning,
 	}: Props = $props();
@@ -196,6 +199,7 @@
 					{stagedLines}
 					{hideCheckboxes}
 					{handleLineContextMenu}
+					{reviewAnnotations}
 					{lockWarning}
 				/>
 			{:else if tableWrapperElem}

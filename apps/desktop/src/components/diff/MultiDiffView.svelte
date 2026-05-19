@@ -16,6 +16,7 @@
 	import Drawer from "$components/shared/Drawer.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { createYucpLogoBadge } from "$lib/branding/yucpLogo";
+	import { CODERABBIT_SERVICE } from "$lib/coderabbit/coderabbit";
 	import { computeChangeStatus } from "$lib/files/fileStatus";
 	import { isUnityPackagePath, isUnitySceneOrPrefabPath } from "$lib/files/unitySemantic";
 	import { isExecutableStatus } from "$lib/hunks/change";
@@ -28,6 +29,7 @@
 	import { Button, FileViewHeader, HunkDiffSkeleton, VirtualList } from "@gitbutler/ui";
 	import { untrack } from "svelte";
 	import type { TreeChange } from "@gitbutler/but-sdk";
+	import type { ReviewAnnotation } from "@gitbutler/ui";
 
 	type Props = {
 		projectId: string;
@@ -58,6 +60,7 @@
 	}: Props = $props();
 
 	const diffService = inject(DIFF_SERVICE);
+	const codeRabbitService = inject(CODERABBIT_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const uiState = inject(UI_STATE);
 	const binaryDiff = { type: "Binary" } as const;
@@ -65,6 +68,10 @@
 
 	const allInOneDiff = $derived(uiState.global.allInOneDiff.current);
 	const highlightDiffs = $derived(uiState.global.highlightDiffs.current);
+	const codeRabbitFindingsQuery = $derived(codeRabbitService.findings(projectId));
+	const codeRabbitFindings = $derived(
+		(codeRabbitFindingsQuery.response ?? []).filter((finding) => finding.status === "open"),
+	);
 
 	// Not reactive by design — feeds `defaultCollapsed` as an initial value only,
 	// so Svelte does not need to track mutations. Persists across VirtualList recycles.
@@ -96,6 +103,21 @@
 		floatingDiffInitialIndex = highlightedIndex ?? startIndex ?? 0;
 		floatingDiffOpen = true;
 	}
+
+	function reviewAnnotationsForPath(path: string): ReviewAnnotation[] {
+		return codeRabbitFindings
+			.filter((finding) => finding.path === path)
+			.map((finding) => ({
+				id: finding.id,
+				path: finding.path,
+				oldLine: finding.oldLine,
+				newLine: finding.newLine,
+				severity: finding.severity,
+				title: finding.title,
+				body: finding.body,
+				suggestedPatch: finding.suggestedPatch,
+			}));
+	}
 </script>
 
 {#snippet popOutSnippet()}
@@ -121,6 +143,7 @@
 	{@const patchData = diffData?.type === "Patch" ? diffData.subject : null}
 	{@const badges = skipRawDiff ? [yucpBadge] : []}
 	{@const isCollapsed = diffExpandedState.get(change.path) ?? false}
+	{@const reviewAnnotations = reviewAnnotationsForPath(change.path)}
 	<Drawer
 		noshrink
 		stickyHeader={allInOneDiff}
@@ -180,6 +203,7 @@
 				{change}
 				{selectable}
 				{selectionId}
+				{reviewAnnotations}
 				topPadding
 			/>
 		{:else if isUnityPackage}
@@ -192,6 +216,7 @@
 				diff={binaryDiff}
 				{selectable}
 				{selectionId}
+				{reviewAnnotations}
 				topPadding
 			/>
 		{:else if diffQuery}
@@ -206,6 +231,7 @@
 						{diff}
 						{selectable}
 						{selectionId}
+						{reviewAnnotations}
 						topPadding
 					/>
 				{/snippet}

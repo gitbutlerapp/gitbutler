@@ -55,6 +55,14 @@ pub struct BackupVerification {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupFilePreview {
+    pub path: String,
+    pub diff: String,
+    pub current_exists: bool,
+}
+
 #[but_api]
 #[instrument(err(Debug))]
 pub fn get_backup_settings(ctx: &but_ctx::Context) -> Result<BackupSettings> {
@@ -257,6 +265,74 @@ pub fn list_backup_files(
             .lines()
             .map(ToOwned::to_owned)
             .collect())
+    })
+}
+
+#[but_api]
+#[instrument(err(Debug))]
+pub fn preview_backup_file(
+    ctx: &but_ctx::Context,
+    backup_id: String,
+    ref_name: String,
+    path: String,
+) -> Result<BackupFilePreview> {
+    let relative = safe_relative_path(&path)?;
+    let repo = ctx.repo.get()?;
+    let workdir = repo
+        .workdir()
+        .context("backups require a worktree repository")?;
+    with_bare_clone(ctx, &backup_id, |git_dir| {
+        let backup = Command::new("git")
+            .arg("--git-dir")
+            .arg(git_dir)
+            .arg("show")
+            .arg(format!("{ref_name}:{path}"))
+            .output()
+            .with_context(|| format!("Failed to read '{path}' from backup"))?;
+        if !backup.status.success() {
+            bail!(output_text(&backup));
+        }
+
+        let current_path = workdir.join(relative);
+        let current_exists = current_path.is_file();
+        let current = match fs::read(&current_path) {
+            Ok(content) => content,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+            Err(err) => {
+                return Err(err)
+                    .with_context(|| format!("Failed to read '{}'", current_path.display()));
+            }
+        };
+
+        let temp_dir = std::env::temp_dir().join(format!(
+            "gitbutler-backup-preview-{}",
+            timestamp_ms()?
+        ));
+        fs::create_dir_all(&temp_dir)?;
+        let backup_path = temp_dir.join("backup");
+        let worktree_path = temp_dir.join("worktree");
+        fs::write(&backup_path, backup.stdout)?;
+        fs::write(&worktree_path, current)?;
+
+        let output = Command::new("git")
+            .arg("diff")
+            .arg("--no-index")
+            .arg("--")
+            .arg(&worktree_path)
+            .arg(&backup_path)
+            .output()
+            .context("Failed to preview backup file changes")?;
+        let cleanup = fs::remove_dir_all(&temp_dir);
+        if !output.status.success() && output.status.code() != Some(1) {
+            bail!(output_text(&output));
+        }
+        cleanup.context("Failed to clean up temporary backup preview")?;
+
+        Ok(BackupFilePreview {
+            path,
+            diff: output_text(&output),
+            current_exists,
+        })
     })
 }
 

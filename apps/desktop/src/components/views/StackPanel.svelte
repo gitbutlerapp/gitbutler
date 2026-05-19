@@ -10,6 +10,7 @@
 -->
 <script lang="ts">
 	import NewCommitView from "$components/commit/NewCommitView.svelte";
+	import CodeRabbitReviewButton from "$components/coderabbit/CodeRabbitReviewButton.svelte";
 	import WorktreeChanges from "$components/files/WorktreeChanges.svelte";
 	import IrcRow from "$components/irc/IrcRow.svelte";
 	import StackDragHandle from "$components/stack/StackDragHandle.svelte";
@@ -177,6 +178,10 @@
 		{#if startCommitVisible.current || controller.isCommitting}
 			{#if !controller.isCommitting}
 				<div class="start-commit">
+					<CodeRabbitReviewButton
+						projectId={controller.projectId}
+						files={changes.current.map((change) => change.path)}
+					/>
 					<Button
 						testId={TestId.StartCommitButton}
 						kind={changes.current.length > 0 ? "solid" : "outline"}
@@ -252,7 +257,10 @@
 	}
 
 	.start-commit {
+		display: flex;
+		flex-direction: column;
 		padding: 12px;
+		gap: 8px;
 		background-color: var(--bg-1);
 	}
 

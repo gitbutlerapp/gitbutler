@@ -13,6 +13,7 @@ import BaseBranchService, { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBran
 import { BranchService, BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
 import { ATTACHMENT_SERVICE, AttachmentService } from "$lib/codegen/attachmentService.svelte";
 import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from "$lib/codegen/claude";
+import { CODERABBIT_SERVICE, CodeRabbitService } from "$lib/coderabbit/coderabbit";
 import { CodegenAnalytics, CODEGEN_ANALYTICS } from "$lib/codegen/codegenAnalytics";
 import CLIManager, { CLI_MANAGER } from "$lib/config/cli";
 import { GIT_CONFIG_SERVICE, GitConfigService } from "$lib/config/gitConfigService";
@@ -168,6 +169,7 @@ export function initDependencies(args: {
 		backend,
 	);
 	const claudeCodeService = new ClaudeCodeService(backend, clientState.backendApi);
+	const codeRabbitService = new CodeRabbitService(clientState.backendApi);
 	const userService = new UserService(
 		clientState.backendApi,
 		backend,
@@ -358,6 +360,7 @@ export function initDependencies(args: {
 		[CLOUD_USER_SERVICE, cloudUserService],
 		[COMMIT_ANALYTICS, commitAnalytics],
 		[CODEGEN_ANALYTICS, codegenAnalytics],
+		[CODERABBIT_SERVICE, codeRabbitService],
 		[DATA_SHARING_SERVICE, dataSharingService],
 		[DEFAULT_FORGE_FACTORY, forgeFactory],
 		[DEPENDENCY_SERVICE, dependencyService],

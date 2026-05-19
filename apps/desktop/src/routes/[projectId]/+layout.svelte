@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from "$app/navigation";
 	import IrcChatWindow from "$components/irc/IrcChatWindow.svelte";
+	import CodeRabbitFindingsPanel from "$components/coderabbit/CodeRabbitFindingsPanel.svelte";
 	import ProjectSettingsShortcutHandler from "$components/settings/ProjectSettingsShortcutHandler.svelte";
 	import AnalyticsMonitor from "$components/shared/AnalyticsMonitor.svelte";
 	import FullviewLoading from "$components/shared/FullviewLoading.svelte";
@@ -540,6 +541,7 @@
 </ReduxResult>
 
 <IrcChatWindow {projectId} />
+<CodeRabbitFindingsPanel {projectId} />
 
 <AnalyticsMonitor {projectId} />
 

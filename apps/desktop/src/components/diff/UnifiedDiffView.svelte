@@ -32,6 +32,7 @@
 	import type { DiffHunk } from "@gitbutler/but-sdk";
 	import type { TreeChange } from "@gitbutler/but-sdk";
 	import type { LineId } from "@gitbutler/ui/utils/diffParsing";
+	import type { ReviewAnnotation } from "@gitbutler/ui";
 
 	const LARGE_DIFF_THRESHOLD = 1000;
 	const INITIAL_HUNKS = 5;
@@ -47,6 +48,7 @@
 		commitId?: string;
 		draggable?: boolean;
 		topPadding?: boolean;
+		reviewAnnotations?: ReviewAnnotation[];
 	};
 
 	const {
@@ -59,6 +61,7 @@
 		commitId,
 		draggable,
 		topPadding,
+		reviewAnnotations = [],
 	}: Props = $props();
 
 	const uiState = inject(UI_STATE);
@@ -380,6 +383,7 @@
 									afterLineNumber: params.afterLineNumber,
 								});
 							}}
+							{reviewAnnotations}
 						>
 							{#snippet lockWarning(locks)}
 								<LineLocksWarning {projectId} {locks} />

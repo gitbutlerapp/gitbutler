@@ -15,6 +15,7 @@
 	} from "$lib/utils/diffParsing";
 	import { onHighlighterChange } from "$lib/utils/shikiHighlighter";
 	import type { LineSelectionParams } from "$components/hunkDiff/lineSelection.svelte";
+	import type { ReviewAnnotation } from "$components/hunkDiff/reviewAnnotation";
 	import type { Snippet } from "svelte";
 
 	interface Props {
@@ -32,6 +33,7 @@
 		stagedLines?: LineId[];
 		hideCheckboxes?: boolean;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
+		reviewAnnotations?: ReviewAnnotation[];
 		comment?: string;
 		lockWarning?: Snippet<[DependencyLock[]]>;
 	}
@@ -52,6 +54,7 @@
 		stagedLines,
 		hideCheckboxes,
 		handleLineContextMenu,
+		reviewAnnotations = [],
 		lockWarning,
 	}: Props = $props();
 
@@ -118,6 +121,23 @@
 		);
 	}
 
+	function annotationsForRow(row: Row): ReviewAnnotation[] {
+		return reviewAnnotations.filter((annotation) => {
+			if (annotation.newLine !== undefined && annotation.newLine === row.afterLineNumber) {
+				return true;
+			}
+			if (annotation.oldLine !== undefined && annotation.oldLine === row.beforeLineNumber) {
+				return true;
+			}
+			return (
+				annotation.newLine === undefined &&
+				annotation.oldLine === undefined &&
+				row.beforeLineNumber === undefined &&
+				row.afterLineNumber === undefined
+			);
+		});
+	}
+
 	const showingExtraColumn = $derived(staged !== undefined && !hideCheckboxes);
 	const commentNumericColSpan = $derived(showingExtraColumn ? 3 : 2);
 
@@ -178,6 +198,7 @@
 				{handleLineContextMenu}
 				{lockWarning}
 				hunkHasLocks={lineLocks && lineLocks.length > 0}
+				reviewAnnotations={annotationsForRow(row)}
 			/>
 		{/each}
 	</tbody>

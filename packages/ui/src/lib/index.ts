@@ -21,6 +21,7 @@ export { default as EmptyStatePlaceholder } from "$components/EmptyStatePlacehol
 export { default as GlossaryText } from "$components/GlossaryText.svelte";
 export { default as GitTerm } from "$components/GitTerm.svelte";
 export { default as HunkDiff, type LineClickParams } from "$components/hunkDiff/HunkDiff.svelte";
+export type { ReviewAnnotation } from "$components/hunkDiff/reviewAnnotation";
 export { default as HunkDiffSkeleton } from "$components/hunkDiff/HunkDiffSkeleton.svelte";
 export { default as Icon, type IconName } from "$components/Icon.svelte";
 export { default as ImageDiff } from "$components/ImageDiff.svelte";

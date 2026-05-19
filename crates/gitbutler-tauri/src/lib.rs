@@ -18,6 +18,7 @@
 )]
 
 pub mod claude;
+pub mod coderabbit;
 #[cfg(feature = "irc")]
 pub mod irc;
 #[cfg(feature = "irc")]

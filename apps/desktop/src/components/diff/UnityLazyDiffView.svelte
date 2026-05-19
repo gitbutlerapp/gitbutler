@@ -7,6 +7,7 @@
 	import { inject } from "@gitbutler/core/context";
 	import type { SelectionId } from "$lib/selection/key";
 	import type { TreeChange } from "@gitbutler/but-sdk";
+	import type { ReviewAnnotation } from "@gitbutler/ui";
 
 	type Props = {
 		projectId: string;
@@ -17,6 +18,7 @@
 		commitId?: string;
 		draggable?: boolean;
 		topPadding?: boolean;
+		reviewAnnotations?: ReviewAnnotation[];
 	};
 
 	const {
@@ -28,6 +30,7 @@
 		commitId,
 		draggable,
 		topPadding,
+		reviewAnnotations = [],
 	}: Props = $props();
 
 	const diffService = inject(DIFF_SERVICE);
@@ -64,6 +67,7 @@
 				{diff}
 				{selectable}
 				{selectionId}
+				{reviewAnnotations}
 				{topPadding}
 			/>
 		{/snippet}
