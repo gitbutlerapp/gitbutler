@@ -40,6 +40,7 @@ export function pathIsLocallyIgnored(path: string, ignoredPaths: string[]): bool
  */
 export class WorktreeService {
 	private localIgnoreOverrides = $state.raw<Record<string, LocalIgnoreOverride>>({});
+	private localIgnoreMutationQueue: Record<string, Promise<void>> = {};
 
 	constructor(private backendApi: BackendApi) {}
 
@@ -64,10 +65,6 @@ export class WorktreeService {
 			{ projectId },
 			{ transform: (res) => this.filterLocallyIgnoredWorktreeData(projectId, res) },
 		);
-	}
-
-	unfilteredWorktreeData(projectId: string) {
-		return this.backendApi.endpoints.worktreeChanges.useQuery({ projectId });
 	}
 
 	localIgnoredPaths(projectId: string) {
@@ -102,6 +99,22 @@ export class WorktreeService {
 	}
 
 	async setLocalIgnoredPath(projectId: string, path: string, ignored: boolean) {
+		const previousMutation = this.localIgnoreMutationQueue[projectId] ?? Promise.resolve();
+		const mutation = previousMutation
+			.catch(() => undefined)
+			.then(() => this.setLocalIgnoredPathNow(projectId, path, ignored));
+		this.localIgnoreMutationQueue[projectId] = mutation;
+
+		try {
+			await mutation;
+		} finally {
+			if (this.localIgnoreMutationQueue[projectId] === mutation) {
+				delete this.localIgnoreMutationQueue[projectId];
+			}
+		}
+	}
+
+	private async setLocalIgnoredPathNow(projectId: string, path: string, ignored: boolean) {
 		const previousOverrides = this.localIgnoreOverrides;
 		this.setLocalIgnoreOverride(projectId, path, ignored);
 		try {

@@ -3,7 +3,6 @@
 	import FileListProvider from "$components/files/FileListProvider.svelte";
 	import FileListViewToggle from "$components/files/FileListViewToggle.svelte";
 	import WorktreeChangesSelectAll from "$components/files/WorktreeChangesSelectAll.svelte";
-	import ScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
 	import Dropzone from "$components/shared/Dropzone.svelte";
 	import DropzoneOverlay from "$components/shared/DropzoneOverlay.svelte";
 	import { UncommitDzHandler } from "$lib/dragging/dropHandlers/commitDropHandler";
@@ -88,26 +87,15 @@
 	const localIgnoredPathsQuery = $derived(
 		mode === "unassigned" ? worktreeService.localIgnoredPaths(projectId) : undefined,
 	);
+	let showLocalIgnored = $state(false);
 	const localIgnoredPaths = $derived(localIgnoredPathsQuery?.response ?? []);
 	const compactLocalIgnoredPaths = $derived.by(() => compactIgnoredPaths(localIgnoredPaths));
-	const unfilteredWorktreeDataQuery = $derived(
-		mode === "unassigned" ? worktreeService.unfilteredWorktreeData(projectId) : undefined,
-	);
+	const visibleLocalIgnoredPaths = $derived(showLocalIgnored ? compactLocalIgnoredPaths : []);
 	const locallyIgnoredChanges = $derived.by(() => {
-		if (mode !== "unassigned" || compactLocalIgnoredPaths.length === 0) return [];
-		const hiddenChanges = (unfilteredWorktreeDataQuery?.response?.rawChanges ?? []).filter((change) =>
-			pathIsLocallyIgnored(change.path, localIgnoredPaths),
-		);
-		const hiddenChangePaths = new Set(hiddenChanges.map((change) => change.path));
-		const placeholderChanges = compactLocalIgnoredPaths
-			.filter((path) => !hiddenChangePaths.has(path))
-			.map(createLocalIgnoredPlaceholderChange);
-
-		return [...hiddenChanges, ...placeholderChanges];
+		if (mode !== "unassigned" || visibleLocalIgnoredPaths.length === 0) return [];
+		return visibleLocalIgnoredPaths.map(createLocalIgnoredPlaceholderChange);
 	});
-	let showLocalIgnored = $state(false);
-	const visibleLocalIgnoredChanges = $derived(showLocalIgnored ? locallyIgnoredChanges : []);
-	const displayChanges = $derived([...changes.current, ...visibleLocalIgnoredChanges]);
+	const displayChanges = $derived([...changes.current, ...locallyIgnoredChanges]);
 
 	let listMode: "list" | "tree" = $state("list");
 	let localIgnoredContextMenuOpen = $state(false);
@@ -165,11 +153,12 @@
 	function compactIgnoredPaths(paths: string[]): string[] {
 		const sortedPaths = [...new Set(paths)].sort((a, b) => a.localeCompare(b));
 		const compacted: string[] = [];
+		let currentParent: string | undefined;
 
 		for (const path of sortedPaths) {
-			const parentPath = compacted.find((parent) => path === parent || path.startsWith(`${parent}/`));
-			if (!parentPath) {
+			if (!currentParent || (path !== currentParent && !path.startsWith(`${currentParent}/`))) {
 				compacted.push(path);
+				currentParent = path;
 			}
 		}
 
@@ -188,9 +177,15 @@
 			showLockedIndicator
 			{visibleRange}
 			{ircWorkingFiles}
-			{localIgnoredPaths}
+			localIgnoredPaths={visibleLocalIgnoredPaths}
+			virtualized
+			scrollbarVisibility={uiState.global.scrollbarVisibilityState.current}
 			dataTestId={TestId.UncommittedChanges_FileList}
 			onselect={onFileClick && ((_change, index) => onFileClick(index))}
+			onvisiblechange={(range) => {
+				scrollTopIsVisible = !range || range.start === 0;
+				onscrollexists?.(!!range && displayChanges.length > range.end - range.start);
+			}}
 		/>
 	</FileListProvider>
 {/snippet}
@@ -241,15 +236,7 @@
 		{/if}
 
 		{#if displayChanges.length > 0}
-			<ScrollableContainer
-				{onscrollexists}
-				onscrollTop={(visible) => {
-					scrollTopIsVisible = visible;
-				}}
-				enableDragScroll={mode === "assigned"}
-			>
-				{@render fileList()}
-			</ScrollableContainer>
+			{@render fileList()}
 		{:else}
 			{@render emptyPlaceholder?.()}
 		{/if}
