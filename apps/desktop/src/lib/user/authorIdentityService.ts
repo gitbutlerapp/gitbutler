@@ -235,8 +235,7 @@ export class AuthorIdentityService {
 	) {
 		return (
 			users.find((user) => normalizeUnknownEmail(user.public_email) === email) ??
-			users.find((user) => normalizeUnknownEmail(user.email) === email) ??
-			users.at(0)
+			users.find((user) => normalizeUnknownEmail(user.email) === email)
 		)
 	}
 

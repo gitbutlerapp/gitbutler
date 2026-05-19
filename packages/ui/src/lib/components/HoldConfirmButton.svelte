@@ -159,6 +159,7 @@
 	:where(.hold-confirm) {
 		display: inline-flex;
 		position: relative;
+		box-sizing: border-box;
 		align-items: center;
 		justify-content: center;
 		overflow: hidden;
@@ -263,7 +264,11 @@
 	}
 
 	.hold-label {
+		display: inline-flex;
+		align-items: center;
+		height: 100%;
 		overflow: hidden;
+		line-height: 1;
 		white-space: nowrap;
 	}
 </style>

@@ -6,6 +6,17 @@ import type { GitLabClient } from "$lib/forge/gitlab/gitlabClient.svelte"
 import type { GitConfigService } from "$lib/config/gitConfigService"
 import type { UserService } from "$lib/user/userService.svelte"
 
+type MockGitHubClientInput = {
+	owner?: string
+	repo?: string
+	octokit?: unknown
+}
+
+type MockGitLabClientInput = {
+	upstreamProjectId?: string
+	api?: unknown
+}
+
 describe.concurrent("AuthorIdentityService", () => {
 	test("prefers the signed-in user picture and name when the commit email matches", async () => {
 		const searchUsers = vi.fn()
@@ -140,8 +151,8 @@ describe.concurrent("AuthorIdentityService", () => {
 
 function createService(args?: {
 	forgeName?: DefaultForgeFactory["current"]["name"]
-	gitHubClient?: Partial<GitHubClient>
-	gitLabClient?: Partial<GitLabClient>
+	gitHubClient?: MockGitHubClientInput
+	gitLabClient?: MockGitLabClientInput
 	user?: {
 		email?: string
 		name?: string
