@@ -1642,6 +1642,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-transaction"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "but-api",
+ "but-core",
+ "but-ctx",
+ "but-oplog",
+ "but-rebase",
+ "but-testsupport",
+ "but-workspace",
+ "gix",
+ "snapbox",
+]
+
+[[package]]
 name = "but-ts"
 version = "0.0.0"
 dependencies = [

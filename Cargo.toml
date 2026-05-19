@@ -80,6 +80,7 @@ members = [
     "crates/but-irc", # 📄IRC client with WebSocket transport and GitButler protocol support.
     # 👉Experimental; needs docs, it's used from `but` CLI and not a library
     "crates/but-agentlog",       # 📄Capture coding-agent logs into Git metadata.
+    "crates/but-transaction", # 📄TBD
 
     ##
     ### Soon obsolete
@@ -184,6 +185,7 @@ but-oplog = { path = "crates/but-oplog" }
 but-llm = { path = "crates/but-llm" }
 but-server = { path = "crates/but-server" }
 but-agentlog = { path = "crates/but-agentlog" }
+but-transaction = { path = "crates/but-transaction" }
 
 gitbutler-git = { path = "crates/gitbutler-git" }
 gitbutler-watcher = { path = "crates/gitbutler-watcher" }
