@@ -63,6 +63,8 @@ pub use upstream_integration::{
     BottomUpdate, BottomUpdateKind, IntegrateUpstreamOutcome, integrate_upstream,
 };
 
+pub mod experiment;
+
 /// Information about refs, as seen from within or outsie of a workspace.
 ///
 /// We always try to deduce a set of stacks that are currently applied to a workspace,
