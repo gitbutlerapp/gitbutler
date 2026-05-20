@@ -23,7 +23,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run scanner
-        uses: google/osv-scanner-action/osv-scanner-action@c51854704019a247608d928f370c98740469d4b5 # v2.3.5
+        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
         with:
           scan-args: |-
             --config=.github/osv-scanner.toml
@@ -93,7 +93,7 @@ jobs:
             git checkout FETCH_HEAD
           fi
       - name: Run scanner on existing code
-        uses: google/osv-scanner-action/osv-scanner-action@c51854704019a247608d928f370c98740469d4b5 # v2.3.5
+        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
         with:
           scan-args: |-
             --config=.github/osv-scanner.toml
@@ -105,7 +105,7 @@ jobs:
       - name: Checkout current branch
         run: git checkout -f "$GITHUB_SHA"
       - name: Run scanner on new code
-        uses: google/osv-scanner-action/osv-scanner-action@c51854704019a247608d928f370c98740469d4b5 # v2.3.5
+        uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
         with:
           scan-args: |-
             --config=.github/osv-scanner.toml
@@ -130,7 +130,7 @@ jobs:
       - name: Run reporter
         id: run_reporter
         if: ${{ always() && !cancelled() && steps.check_scan_outputs.outcome == 'success' }}
-        uses: google/osv-scanner-action/osv-reporter-action@c51854704019a247608d928f370c98740469d4b5 # v2.3.5
+        uses: google/osv-scanner-action/osv-reporter-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
         with:
           scan-args: |-
             --output=results.sarif
