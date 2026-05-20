@@ -159,6 +159,7 @@ impl Graph {
 
     /// After everything, ensure the entrypoint still points to a segment with
     /// the correct ref-name if one was given when starting the traversal.
+    /// This is only relevant if a ref-name is given at all.
     ///
     /// If the the entrypoint ref doesn't match the ref specified at the start
     /// we:
@@ -170,6 +171,8 @@ impl Graph {
     ///     entrypoint.
     ///   - Otherwise we split it out into a new segment and set that new
     ///     entrypoint.
+    /// - Otherwise, it's an error if no segment is named after the entrypoint-ref,
+    ///   or has a commit that holds it.
     ///
     /// *This is the brute-force way of doing it, instead of ensuring that the
     /// workspace upgrade functions that create independent and dependent
@@ -279,8 +282,8 @@ impl Graph {
                 s.ref_info = Some(desired_ref_name);
             }
         } else {
-            tracing::warn!(
-                "Couldn't find any segment that was named after the entrypoint ref name or contained its name '{desired_ref_name}'",
+            bail!(
+                "BUG: Couldn't find any segment that was named after the entrypoint ref name or contained its name '{desired_ref_name}'",
             );
         };
         Ok(())
