@@ -28,6 +28,7 @@
 	/* Override ui button. */
 	border: none;
 	background-color: oklch(90% 0.1 var(--hue));
+	color: oklch(30% 0.1 var(--hue));
 	font-weight: 700;
 	font-size: 10px;
 	text-transform: uppercase;
@@ -70,5 +71,5 @@
 	border-left: 1px solid var(--border-2);
 	border-start-start-radius: 14px;
 	border-end-start-radius: 14px;
-	background: white;
+	background: var(--bg-1);
 }
