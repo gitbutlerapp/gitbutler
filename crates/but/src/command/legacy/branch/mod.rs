@@ -44,9 +44,7 @@ pub fn delete(
         }
     }
 
-    Ok(Some(BadInput::new(format!(
-        "Branch '{branch_name}' not found in any stack"
-    ))))
+    BadInput::new(format!("Branch '{branch_name}' not found in any stack")).into_result()
 }
 
 pub fn new(

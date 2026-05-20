@@ -60,26 +60,24 @@ pub(crate) fn teardown(
         {
             ref_name
         } else {
-            return Ok(Some(
-                BadInput::new(format!("Invalid ref name: {checkout_to}",)).arg("--checkout-to"),
-            ));
+            return BadInput::new(format!("Invalid ref name: {checkout_to}",))
+                .arg("--checkout-to")
+                .into_result();
         };
         let resolved_ref = match repo.try_find_reference(ref_name.as_ref())? {
             Some(resolved_ref) => resolved_ref,
             None => {
-                return Ok(Some(
-                    BadInput::new(format!("The reference '{checkout_to}' did not exist"))
-                        .arg("--checkout-to"),
-                ));
+                return BadInput::new(format!("The reference '{checkout_to}' did not exist"))
+                    .arg("--checkout-to")
+                    .into_result();
             }
         };
         if !matches!(resolved_ref.name().category(), Some(Category::LocalBranch)) {
-            return Ok(Some(
-                BadInput::new(format!(
-                    "Invalid ref for checkout: '{checkout_to}' is not a local branch"
-                ))
-                .arg("--checkout-to"),
-            ));
+            return BadInput::new(format!(
+                "Invalid ref for checkout: '{checkout_to}' is not a local branch"
+            ))
+            .arg("--checkout-to")
+            .into_result();
         }
         Some(resolved_ref.name().shorten().to_string())
     } else {
@@ -148,9 +146,9 @@ pub(crate) fn teardown(
                 .map(|h| h.name.to_string())
                 .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?
         } else {
-            return Ok(Some(BadInput::new(
+            return BadInput::new(
                 "Failed to determine checkout target branch. Specify a target branch with `--checkout-to <branch>`.",
-            )));
+            ).into_result();
         }
     };
 

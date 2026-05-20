@@ -29,6 +29,11 @@ impl BadInput {
         self.arg = Some(arg.as_ref().to_string());
         self
     }
+
+    /// Wraps the [`BadInput`] in `Ok(Some())` to conform to the vast majority of use cases.
+    pub fn into_result(self) -> anyhow::Result<Option<Self>> {
+        Ok(Some(self))
+    }
 }
 
 impl Display for BadInput {
