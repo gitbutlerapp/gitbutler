@@ -8,7 +8,7 @@ import {
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { decodeRefName } from "#ui/api/ref-name.ts";
-import { commitTitle } from "#ui/commit.ts";
+import { commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
 	formatHunkHeader,
 	getDependencyCommitIds,
@@ -305,6 +305,43 @@ const Header: FC<{
 
 						<div className={styles.headerActions}>
 							<FilesToggle />
+
+							<Suspense>
+								<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
+									{({ data: commitDetails }) => {
+										const fmtDate = new Intl.DateTimeFormat(undefined, {
+											day: "2-digit",
+											month: "2-digit",
+											year: "numeric",
+											hour: "2-digit",
+											minute: "2-digit",
+											hour12: false,
+										}).format(commitDetails.commit.createdAt);
+
+										return (
+											<>
+												<img
+													src={commitDetails.commit.author.gravatarUrl}
+													className={styles.avatar}
+													alt="Commit author avatar"
+												/>
+
+												<div className={styles.author}>
+													<span title={commitDetails.commit.author.email}>
+														{commitDetails.commit.author.name}
+													</span>{" "}
+													at {fmtDate}
+												</div>
+
+												<div className={styles.commitMeta}>
+													{shortCommitId(commitDetails.commit.changeId)} (
+													{shortCommitId(commitDetails.commit.id)})
+												</div>
+											</>
+										);
+									}}
+								</SuspenseQuery>
+							</Suspense>
 						</div>
 					</>
 				);

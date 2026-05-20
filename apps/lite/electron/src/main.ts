@@ -455,7 +455,7 @@ void app.whenReady().then(async () => {
 			"base-uri 'none';" +
 			"frame-ancestors 'none';" +
 			"form-action 'none';" +
-			"img-src 'self' data:;" +
+			"img-src 'self' data: https://*.gravatar.com;" +
 			"worker-src 'self';";
 
 		session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -489,7 +489,7 @@ void app.whenReady().then(async () => {
 			"base-uri 'none';" +
 			"frame-ancestors 'none';" +
 			"form-action 'none';" +
-			"img-src 'self' data:;" +
+			"img-src 'self' data: https://*.gravatar.com;" +
 			"worker-src 'self';";
 
 		session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
