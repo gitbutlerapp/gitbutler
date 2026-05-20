@@ -190,13 +190,8 @@ async function webInvoke<T>(command: string, params: Record<string, unknown> = {
 			headers: {
 				"Content-Type": "application/json",
 			},
-			credentials: "include",
 			body: JSON.stringify(params),
 		});
-		if (response.status === 401) {
-			window.location.href = `${getApiBaseUrl()}/auth/login`;
-			throw new Error("Authentication required");
-		}
 		const out: ServerResonse<T> = await response.json();
 		if (out.type === "success") {
 			return out.subject;
@@ -299,9 +294,7 @@ class WebListener {
  * 2. Cookies (`butlerHost`, `butlerPort`) — runtime overrides used by e2e tests
  *    to direct each parallel worker to its own but-server instance.
  * 3. `VITE_BUTLER_HOST` + `VITE_BUTLER_PORT` — legacy host/port env vars
- * 4. `` — empty string (same origin, no prefix). When running with `--tunnel`,
- *    the server auto-sets `--base-path=/api` so `VITE_BUTLER_API_BASE_URL`
- *    should be set to `/api` if needed.
+ * 4. `` — empty string (same origin, no prefix).
  */
 export function getApiBaseUrl(): string {
 	const base = import.meta.env.VITE_BUTLER_API_BASE_URL;

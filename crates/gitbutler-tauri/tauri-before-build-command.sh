@@ -14,20 +14,6 @@ cargo build --release -p gitbutler-git
 if [ "${OS:-}" == "windows" ] || [ "${OS:-}" == "linux" ]; then
   # NOTE: Should run either if the builtin-but feature is *not* selected in `release.sh` (case for Windows), OR if we
   # need the standalone CLI for separate publishing (case for Linux)
-  # remote brings in but-server and the embedded frontend; excluded from release builds.
-  BUT_FEATURES=""
-  if [ "${CHANNEL:-}" != "release" ]; then
-    BUT_FEATURES="--features irc,remote"
-    # Build a web-targeted frontend for `but remote` into a separate directory
-    # so it doesn't clobber the Tauri-targeted build in apps/desktop/build/.
-    # In CI, the web frontend is pre-built and downloaded as an artifact.
-    if [ "${CI:-}" != "true" ]; then
-      SVELTEKIT_OUT_DIR=embedded-frontend \
-        VITE_BUILD_TARGET=web VITE_BUTLER_API_BASE_URL=/api VITE_EMBEDDED_BUILD=1 \
-        pnpm build:desktop
-    fi
-  fi
-  # shellcheck disable=SC2086
-  cargo build --release -p but $BUT_FEATURES
+  cargo build --release -p but
 fi
 bash ./crates/gitbutler-tauri/inject-git-binaries.sh
