@@ -294,12 +294,22 @@ impl Graph {
     ///
     /// We want to further segment remote tracking segments to avoid picking
     /// up too many remote commits later.
-    ///
+    /// 
+    /// The purpose here is to *restore* named segments for remote tracking branches
+    /// as during traversal, such segments are only created if their local tracking branches
+    /// were reachable through the entrypoint. This is done so that remote tracking branches
+    /// will not make segnemt naming ambiguous unnecessarily, i.e. we prefer segments named
+    /// by local branches right now.
+    /// 
+    /// Having additional segmentation caused by remote tracking branches is valuable
+    /// as it can reduce the amount of remote-commits that are attributed to the remote
+    /// tracking branch of a workspace commit, which is relevant for stacks in particular.
+    /// 
     /// We drop all remote-tracking branch references from each commit's `refs`
-    /// list. In the case of a commit being considered remote, if it's
-    /// containing segment is splittable, we preserve the remote reference by
-    /// splitting the containing segment, with the new segment being named with
-    /// the remote reference.
+    /// list. For remote commits that are not the first commit in a multi-commit
+    /// segment, we preserve the first remote-tracking reference by splitting the
+    /// containing segment there, with the new segment being named with that
+    /// reference.
     fn fixup_remote_tracking_refs_and_maybe_split_segments<T: RefMetadata>(
         &mut self,
         meta: &OverlayMetadata<'_, T>,
