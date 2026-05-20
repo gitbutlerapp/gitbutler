@@ -221,7 +221,11 @@ const Header: FC<{
 }> = ({ projectId, selection }) =>
 	Match.value(selection).pipe(
 		Match.tagsExhaustive({
-			Stack: () => null,
+			Stack: () => (
+				<header>
+					<h3 className={styles.heading}>Stack</h3>
+				</header>
+			),
 			Branch: ({ branchRef }) => {
 				const decodedBranchRef = decodeRefName(branchRef);
 
