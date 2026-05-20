@@ -10,7 +10,6 @@ use crate::{
 
 mod json;
 mod list;
-mod show;
 
 pub fn delete(
     ctx: &mut but_ctx::Context,
@@ -156,19 +155,6 @@ pub fn new(
         };
         out.write_value(value)?;
     }
-    Ok(())
-}
-
-pub fn show_branches(
-    ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
-    branch_id: String,
-    review: bool,
-    files: bool,
-    ai: bool,
-    check: bool,
-) -> Result<(), anyhow::Error> {
-    show::show(ctx, &branch_id, out, review, files, ai, check)?;
     Ok(())
 }
 

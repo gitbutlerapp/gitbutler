@@ -92,32 +92,12 @@ pub enum Subcommands {
         empty: bool,
     },
 
-    /// Show commits ahead of base for a specific branch
-    ///
-    /// This shows the list of commits that are on the specified branch
-    /// but not yet integrated into the base target branch.
-    ///
-    /// You can also choose to fetch and display review information,
-    /// show files modified in each commit with line counts, generate
-    /// an AI summary of the branch changes, and check if the branch
-    /// merges cleanly into upstream.
-    ///
-    #[cfg(feature = "legacy")]
+    /// Deprecated: use `but show` instead
+    #[clap(hide = true)]
     Show {
-        /// CLI ID or name of the branch to show
-        branch_id: String,
-        /// Fetch and display review information
-        #[clap(short, long)]
-        review: bool,
-        /// Show files modified in each commit with line counts
-        #[clap(short, long)]
-        files: bool,
-        /// Generate AI summary of the branch changes
-        #[clap(long)]
-        ai: bool,
-        /// Check if the branch merges cleanly into upstream and identify conflicting commits
-        #[clap(long)]
-        check: bool,
+        /// Branch name or ID (ignored)
+        #[clap(trailing_var_arg = true, allow_hyphen_values = true)]
+        _args: Vec<String>,
     },
     /// Deprecated: use `but move` instead
     #[clap(hide = true)]
