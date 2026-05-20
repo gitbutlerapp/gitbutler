@@ -30,7 +30,7 @@
 
 	const stackService = inject(STACK_SERVICE);
 
-	const stackQuery = $derived(stackService.allStackById(projectId, stackId));
+	const stackQuery = $derived(stackService.branchesPageStack(projectId, stackId, inWorkspace));
 </script>
 
 <ReduxResult result={stackQuery.result} {projectId} {stackId} {onerror}>
@@ -39,7 +39,12 @@
 			<p>Stack not found.</p>
 		{:else}
 			{#each getStackBranchNames(stack) as branchName, idx}
-				{@const branchDetailsQuery = stackService.branchDetails(projectId, stackId, branchName)}
+				{@const branchDetailsQuery = stackService.branchesPageBranchDetails(
+					projectId,
+					stackId,
+					branchName,
+					inWorkspace,
+				)}
 				{@const branchDetails = branchDetailsQuery.response}
 				{@const lineColor = branchDetails
 					? getColorFromPushStatus(branchDetails.pushStatus)
@@ -55,6 +60,7 @@
 					{branchName}
 					isTopBranch={idx === 0}
 					{inWorkspace}
+					branchesPage
 					{isTarget}
 					{selectedCommitId}
 					{onCommitClick}

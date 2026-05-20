@@ -20,6 +20,7 @@
 		isTopBranch?: boolean;
 		isTarget?: boolean;
 		inWorkspace?: boolean;
+		branchesPage?: boolean;
 		selectedCommitId?: string;
 		onCommitClick: (commitId: string) => void;
 		onFileClick: (index: number) => void;
@@ -33,6 +34,7 @@
 		remote,
 		isTopBranch = true,
 		inWorkspace,
+		branchesPage = false,
 		isTarget,
 		selectedCommitId,
 		onCommitClick,
@@ -42,9 +44,11 @@
 
 	const stackService = inject(STACK_SERVICE);
 	const branchQuery = $derived(
-		stackId
-			? stackService.branchDetails(projectId, stackId, branchName)
-			: stackService.unstackedBranchDetails(projectId, branchName, remote),
+		stackId && branchesPage
+			? stackService.branchesPageBranchDetails(projectId, stackId, branchName, inWorkspace ?? false)
+			: stackId
+				? stackService.branchDetails(projectId, stackId, branchName)
+				: stackService.unstackedBranchDetails(projectId, branchName, remote),
 	);
 
 	let cherryApplyModal = $state<CherryApplyModal>();

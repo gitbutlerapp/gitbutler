@@ -1,10 +1,16 @@
 import { ConflictEntries, type ConflictEntriesObj } from "$lib/files/conflicts";
 import { normalizeReferenceSubject } from "$lib/stacks/commitMovePlacement";
+import {
+	transformWorkspaceDetails,
+	workspaceStackDetailTags,
+	type WorkspaceDetails,
+} from "$lib/stacks/headInfoAdapters";
 import { createSelectByIds, createSelectNth } from "$lib/state/customSelectors";
 import {
 	invalidatesItem,
 	invalidatesList,
 	providesItem,
+	providesItems,
 	providesList,
 	ReduxTag,
 } from "$lib/state/tags";
@@ -39,6 +45,7 @@ import type {
 	UncommitResult,
 	InsertSide,
 	RelativeTo,
+	RefInfo,
 } from "@gitbutler/but-sdk";
 
 export type BranchParams = {
@@ -208,6 +215,17 @@ export const branchDetailsSelectors = branchDetailsAdapter.getSelectors();
 
 export function buildStackEndpoints(build: BackendEndpointBuilder) {
 	return {
+		workspaceDetails: build.query<WorkspaceDetails, { projectId: string }>({
+			extraOptions: { command: "head_info" },
+			query: (args) => args,
+			providesTags: (result) => {
+				const stackIds = result ? workspaceStackDetailTags(result) : [];
+				return [providesList(ReduxTag.Stacks), ...providesItems(ReduxTag.StackDetails, stackIds)];
+			},
+			transformResponse(response: RefInfo) {
+				return transformWorkspaceDetails(response);
+			},
+		}),
 		stacks: build.query<EntityState<Stack, string>, { projectId: string; all?: boolean }>({
 			extraOptions: { command: "stacks" },
 			query: (args) => {

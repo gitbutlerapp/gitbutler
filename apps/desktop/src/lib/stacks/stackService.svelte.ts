@@ -2,6 +2,10 @@ import { getBranchNameFromRef } from "$lib/branches/branchUtils";
 import { sortLikeFileTree } from "$lib/files/filetreeV3";
 import { showToast } from "$lib/notifications/toasts";
 import {
+	selectWorkspaceStackById,
+	selectWorkspaceStackDetails,
+} from "$lib/stacks/headInfoAdapters";
+import {
 	branchDetailsSelectors,
 	changesSelectors,
 	commitSelectors,
@@ -47,67 +51,84 @@ export class StackService {
 	) {}
 
 	stacks(projectId: string) {
-		return this.backendApi.endpoints.stacks.useQuery(
+		return this.backendApi.endpoints.workspaceDetails.useQuery(
 			{ projectId },
 			{
-				transform: (stacks) => stackSelectors.selectAll(stacks),
+				transform: (workspaceDetails) => stackSelectors.selectAll(workspaceDetails.stacks),
 			},
 		);
 	}
 
 	async fetchStacks(projectId: string) {
-		return await this.backendApi.endpoints.stacks.fetch(
+		return await this.backendApi.endpoints.workspaceDetails.fetch(
 			{ projectId },
 			{
-				transform: (stacks) => stackSelectors.selectAll(stacks),
+				transform: (workspaceDetails) => stackSelectors.selectAll(workspaceDetails.stacks),
 			},
 		);
 	}
 
 	stackAt(projectId: string, index: number) {
-		return this.backendApi.endpoints.stacks.useQuery(
+		return this.backendApi.endpoints.workspaceDetails.useQuery(
 			{ projectId },
 			{
-				transform: (stacks) => stackSelectors.selectNth(stacks, index),
+				transform: (workspaceDetails) => stackSelectors.selectNth(workspaceDetails.stacks, index),
 			},
 		);
 	}
 
 	stackById(projectId: string, id: string) {
-		return this.backendApi.endpoints.stacks.useQuery(
+		return this.backendApi.endpoints.workspaceDetails.useQuery(
 			{ projectId },
 			{
-				transform: (stacks) => stackSelectors.selectById(stacks, id) ?? null,
+				transform: (workspaceDetails) => selectWorkspaceStackById(workspaceDetails, id) ?? null,
 			},
 		);
 	}
 
-	allStackById(projectId: string, id: string) {
+	branchesPageStack(projectId: string, stackId: string, inWorkspace: boolean) {
+		if (inWorkspace) {
+			return this.stackById(projectId, stackId);
+		}
 		return this.backendApi.endpoints.stacks.useQuery(
 			{ projectId, all: true },
 			{
-				transform: (stacks) => stackSelectors.selectById(stacks, id) ?? null,
+				transform: (stacks) => stackSelectors.selectById(stacks, stackId) ?? null,
 			},
 		);
+	}
+
+	branchesPageBranchDetails(
+		projectId: string,
+		stackId: string,
+		branchName: string,
+		inWorkspace: boolean,
+	) {
+		if (inWorkspace) {
+			return this.branchDetails(projectId, stackId, branchName);
+		}
+		return this.unstackedBranchDetails(projectId, branchName);
 	}
 
 	defaultBranch(projectId: string, stackId?: string) {
 		if (!stackId) return null;
-		return this.backendApi.endpoints.stacks.useQuery(
+		return this.backendApi.endpoints.workspaceDetails.useQuery(
 			{ projectId },
 			{
-				transform: (stacks) => stackSelectors.selectById(stacks, stackId)?.heads[0]?.name ?? null,
+				transform: (workspaceDetails) =>
+					selectWorkspaceStackById(workspaceDetails, stackId)?.heads[0]?.name ?? null,
 			},
 		);
 	}
 
 	branchDetails(projectId: string, stackId: string | undefined, branchName?: string) {
-		return this.backendApi.endpoints.stackDetails.useQuery(
-			{ projectId, stackId },
+		return this.backendApi.endpoints.workspaceDetails.useQuery(
+			{ projectId },
 			{
-				transform: ({ branchDetails }) => {
+				transform: (workspaceDetails) => {
+					const details = selectWorkspaceStackDetails(workspaceDetails, stackId, branchName);
 					return branchName
-						? branchDetailsSelectors.selectById(branchDetails, branchName)
+						? details && branchDetailsSelectors.selectById(details.branchDetails, branchName)
 						: undefined;
 				},
 			},
@@ -127,17 +148,23 @@ export class StackService {
 	}
 
 	branches(projectId: string, stackId?: string) {
-		return this.backendApi.endpoints.stackDetails.useQuery(
-			{ projectId, stackId },
-			{ transform: ({ branchDetails }) => branchDetailsSelectors.selectAll(branchDetails) },
+		return this.backendApi.endpoints.workspaceDetails.useQuery(
+			{ projectId },
+			{
+				transform: (workspaceDetails) => {
+					const details = selectWorkspaceStackDetails(workspaceDetails, stackId);
+					return details ? branchDetailsSelectors.selectAll(details.branchDetails) : [];
+				},
+			},
 		);
 	}
 
 	branchAt(projectId: string, stackId: string | undefined, index: number) {
-		return this.backendApi.endpoints.stackDetails.useQuery(
-			{ projectId, stackId },
+		return this.backendApi.endpoints.workspaceDetails.useQuery(
+			{ projectId },
 			{
-				transform: ({ stackInfo }) => stackInfo.branchDetails[index],
+				transform: (workspaceDetails) =>
+					selectWorkspaceStackDetails(workspaceDetails, stackId)?.stackInfo.branchDetails[index],
 			},
 		);
 	}
@@ -158,96 +185,137 @@ export class StackService {
 		name: string,
 		offset: number,
 	) {
-		return this.backendApi.endpoints.stackDetails.useQuery(
-			{ projectId, stackId },
+		return this.backendApi.endpoints.workspaceDetails.useQuery(
+			{ projectId },
 			{
-				transform: ({ stackInfo, branchDetails }) => {
-					const names = stackInfo.branchDetails.map((branch) => branch.name);
+				transform: (workspaceDetails) => {
+					const details = selectWorkspaceStackDetails(workspaceDetails, stackId, name);
+					if (!details) return;
+					const names = details.stackInfo.branchDetails.map((branch) => branch.name);
 					const index = names.indexOf(name);
 					if (index === -1) return;
 
 					const relativeName = names[index + offset];
 					if (!relativeName) return;
 
-					return branchDetailsSelectors.selectById(branchDetails, relativeName);
+					return branchDetailsSelectors.selectById(details.branchDetails, relativeName);
 				},
 			},
 		);
 	}
 
 	branchByName(projectId: string, stackId: string | undefined, name: string) {
-		return this.backendApi.endpoints.stackDetails.useQuery(
-			{ projectId, stackId },
-			{ transform: ({ branchDetails }) => branchDetailsSelectors.selectById(branchDetails, name) },
+		return this.backendApi.endpoints.workspaceDetails.useQuery(
+			{ projectId },
+			{
+				transform: (workspaceDetails) => {
+					const details = selectWorkspaceStackDetails(workspaceDetails, stackId, name);
+					return details && branchDetailsSelectors.selectById(details.branchDetails, name);
+				},
+			},
 		);
 	}
 
 	commits(projectId: string, stackId: string | undefined, branchName: string) {
-		return this.backendApi.endpoints.stackDetails.useQuery(
-			{ projectId, stackId },
+		return this.backendApi.endpoints.workspaceDetails.useQuery(
+			{ projectId },
 			{
-				transform: ({ branchDetails }) =>
-					branchDetailsSelectors.selectById(branchDetails, branchName)?.commits,
+				transform: (workspaceDetails) => {
+					const details = selectWorkspaceStackDetails(workspaceDetails, stackId, branchName);
+					return (
+						details && branchDetailsSelectors.selectById(details.branchDetails, branchName)?.commits
+					);
+				},
 			},
 		);
 	}
 
 	fetchCommits(projectId: string, stackId: string | undefined, branchName: string) {
-		return this.backendApi.endpoints.stackDetails.fetch(
-			{ projectId, stackId },
+		return this.backendApi.endpoints.workspaceDetails.fetch(
+			{ projectId },
 			{
-				transform: ({ branchDetails }) =>
-					branchDetailsSelectors.selectById(branchDetails, branchName)?.commits,
+				transform: (workspaceDetails) => {
+					const details = selectWorkspaceStackDetails(workspaceDetails, stackId, branchName);
+					return (
+						details && branchDetailsSelectors.selectById(details.branchDetails, branchName)?.commits
+					);
+				},
 			},
 		);
 	}
 
 	async fetchStackById(projectId: string, stackId: string) {
-		return await this.backendApi.endpoints.stacks.fetch(
+		return await this.backendApi.endpoints.workspaceDetails.fetch(
 			{ projectId },
 			{
-				transform: (stacks) => stackSelectors.selectById(stacks, stackId),
+				transform: (workspaceDetails) => selectWorkspaceStackById(workspaceDetails, stackId),
 			},
 		);
 	}
 
 	async fetchBranches(projectId: string, stackId: string) {
-		return await this.backendApi.endpoints.stackDetails.fetch(
-			{ projectId, stackId },
+		return await this.backendApi.endpoints.workspaceDetails.fetch(
+			{ projectId },
 			{
-				transform: ({ branchDetails }) => branchDetailsSelectors.selectAll(branchDetails),
+				transform: (workspaceDetails) => {
+					const details = selectWorkspaceStackDetails(workspaceDetails, stackId);
+					return details ? branchDetailsSelectors.selectAll(details.branchDetails) : [];
+				},
 			},
 		);
 	}
 
 	commitAt(projectId: string, stackId: string | undefined, branchName: string, index: number) {
-		return this.backendApi.endpoints.stackDetails.useQuery(
-			{ projectId, stackId },
+		return this.backendApi.endpoints.workspaceDetails.useQuery(
+			{ projectId },
 			{
-				transform: ({ branchDetails }) =>
-					branchDetailsSelectors.selectById(branchDetails, branchName)?.commits[index] ?? null,
+				transform: (workspaceDetails) => {
+					const details = selectWorkspaceStackDetails(workspaceDetails, stackId, branchName);
+					return (
+						(details &&
+							branchDetailsSelectors.selectById(details.branchDetails, branchName)?.commits[
+								index
+							]) ??
+						null
+					);
+				},
 			},
 		);
 	}
 
 	allLocalCommits(projectId: string) {
-		const stacks = $derived(this.stacks(projectId));
-		const stackIds = $derived(stacks.response?.map((s) => s.id).filter(isDefined) || []);
-		const args = $derived(stackIds?.map((stackId) => ({ projectId, stackId })));
 		const details = $derived(
-			this.backendApi.endpoints.stackDetails.useQueries(args, {
-				transform: ({ commits, stackInfo }) => ({
-					commits: commitSelectors.selectAll(commits),
-					branches: stackInfo.branchDetails.map((b) => b.name),
-					baseCommitShas: stackInfo.branchDetails.map((b) => b.baseCommit),
-					stackInfo,
-				}),
-			}),
+			this.backendApi.endpoints.workspaceDetails.useQuery(
+				{ projectId },
+				{
+					transform: (workspaceDetails) => {
+						const stacks = stackSelectors.selectAll(workspaceDetails.stacks);
+						const stackIds = stacks.map((stack) => stack.id).filter(isDefined);
+						const detailsData = stackIds
+							.map((stackId) => workspaceDetails.stackDetails[stackId])
+							.filter(isDefined);
+						return {
+							stackIds,
+							detailsData,
+							allCommits: detailsData.flatMap((details) =>
+								commitSelectors.selectAll(details.commits),
+							),
+							allBranches: detailsData.flatMap((details) =>
+								details.stackInfo.branchDetails.map((branch) => branch.name),
+							),
+							allBaseCommitShas: detailsData.flatMap((details) =>
+								details.stackInfo.branchDetails.map((branch) => branch.baseCommit),
+							),
+						};
+					},
+				},
+			),
 		);
-		const detailsData = $derived(details.current);
-		const allCommits = $derived(detailsData.flatMap((d) => d.data?.commits ?? []));
-		const allBranches = $derived(detailsData.flatMap((d) => d.data?.branches ?? []));
-		const allBaseCommitShas = $derived(detailsData.flatMap((d) => d.data?.baseCommitShas ?? []));
+		const stackIds = $derived(details.response?.stackIds ?? []);
+		const detailsData = $derived(details.response?.detailsData ?? []);
+		const allCommits = $derived(details.response?.allCommits ?? []);
+		const allBranches = $derived(details.response?.allBranches ?? []);
+		const allBaseCommitShas = $derived(details.response?.allBaseCommitShas ?? []);
 
 		$effect(() => {
 			updateStaleProjectState(
@@ -284,7 +352,7 @@ export class StackService {
 
 			const nextSnapshot: Record<string, StackDetails> = {};
 			stackIds.forEach((stackId, i) => {
-				const stackInfo = detailsData[i]?.data?.stackInfo;
+				const stackInfo = detailsData[i]?.stackInfo;
 				if (!stackInfo) return;
 				// Only run when the StackDetails object is actually new (different reference).
 				// During a re-fetch, RTK Query keeps the cached data object unchanged while
@@ -308,25 +376,33 @@ export class StackService {
 	}
 
 	commitById(projectId: string, stackId: string | undefined, commitId: string) {
-		return this.backendApi.endpoints.stackDetails.useQuery(
-			{ projectId, stackId },
+		return this.backendApi.endpoints.workspaceDetails.useQuery(
+			{ projectId },
 			{
-				transform: ({ commits, upstreamCommits }) =>
-					commitSelectors.selectById(commits, commitId) ??
-					upstreamCommitSelectors.selectById(upstreamCommits, commitId),
+				transform: (workspaceDetails) => {
+					const details = selectWorkspaceStackDetails(workspaceDetails, stackId);
+					return (
+						(details &&
+							(commitSelectors.selectById(details.commits, commitId) ??
+								upstreamCommitSelectors.selectById(details.upstreamCommits, commitId))) ??
+						undefined
+					);
+				},
 			},
 		);
 	}
 
 	commitsByIds(projectId: string, stackId: string | undefined, commitIds: string[]) {
-		return this.backendApi.endpoints.stackDetails.useQuery(
-			{ projectId, stackId },
+		return this.backendApi.endpoints.workspaceDetails.useQuery(
+			{ projectId },
 			{
-				transform: ({ commits, upstreamCommits }) => {
+				transform: (workspaceDetails) => {
+					const details = selectWorkspaceStackDetails(workspaceDetails, stackId);
+					if (!details) return [];
 					const commitDetails = commitIds.map((id) => {
 						return (
-							commitSelectors.selectById(commits, id) ??
-							upstreamCommitSelectors.selectById(upstreamCommits, id)
+							commitSelectors.selectById(details.commits, id) ??
+							upstreamCommitSelectors.selectById(details.upstreamCommits, id)
 						);
 					});
 					return commitDetails.filter(isDefined);
@@ -336,25 +412,32 @@ export class StackService {
 	}
 
 	fetchCommitById(projectId: string, stackId: string, commitId: string) {
-		return this.backendApi.endpoints.stackDetails.fetch(
-			{ projectId, stackId },
+		return this.backendApi.endpoints.workspaceDetails.fetch(
+			{ projectId },
 			{
-				transform: ({ commits, upstreamCommits }) =>
-					commitSelectors.selectById(commits, commitId) ??
-					upstreamCommitSelectors.selectById(upstreamCommits, commitId),
+				transform: (workspaceDetails) => {
+					const details = selectWorkspaceStackDetails(workspaceDetails, stackId);
+					return (
+						details &&
+						(commitSelectors.selectById(details.commits, commitId) ??
+							upstreamCommitSelectors.selectById(details.upstreamCommits, commitId))
+					);
+				},
 			},
 		);
 	}
 
 	fetchCommitsByIds(projectId: string, stackId: string, commitIds: string[]) {
-		return this.backendApi.endpoints.stackDetails.fetch(
-			{ projectId, stackId },
+		return this.backendApi.endpoints.workspaceDetails.fetch(
+			{ projectId },
 			{
-				transform: ({ commits, upstreamCommits }) => {
+				transform: (workspaceDetails) => {
+					const details = selectWorkspaceStackDetails(workspaceDetails, stackId);
+					if (!details) return [];
 					const commitDetails = commitIds.map((id) => {
 						return (
-							commitSelectors.selectById(commits, id) ??
-							upstreamCommitSelectors.selectById(upstreamCommits, id)
+							commitSelectors.selectById(details.commits, id) ??
+							upstreamCommitSelectors.selectById(details.upstreamCommits, id)
 						);
 					});
 					return commitDetails.filter(isDefined);
@@ -364,32 +447,46 @@ export class StackService {
 	}
 
 	upstreamCommits(projectId: string, stackId: string | undefined, branchName: string) {
-		return this.backendApi.endpoints.stackDetails.useQuery(
-			{ projectId, stackId },
+		return this.backendApi.endpoints.workspaceDetails.useQuery(
+			{ projectId },
 			{
-				transform: ({ branchDetails }) =>
-					branchDetailsSelectors.selectById(branchDetails, branchName)?.upstreamCommits,
+				transform: (workspaceDetails) => {
+					const details = selectWorkspaceStackDetails(workspaceDetails, stackId, branchName);
+					return (
+						details &&
+						branchDetailsSelectors.selectById(details.branchDetails, branchName)?.upstreamCommits
+					);
+				},
 			},
 		);
 	}
 
 	upstreamCommitAt(projectId: string, stackId: string, branchName: string, index: number) {
-		return this.backendApi.endpoints.stackDetails.useQuery(
-			{ projectId, stackId },
+		return this.backendApi.endpoints.workspaceDetails.useQuery(
+			{ projectId },
 			{
-				transform: ({ branchDetails }) =>
-					branchDetailsSelectors.selectById(branchDetails, branchName)?.upstreamCommits[index] ??
-					null,
+				transform: (workspaceDetails) => {
+					const details = selectWorkspaceStackDetails(workspaceDetails, stackId, branchName);
+					return (
+						(details &&
+							branchDetailsSelectors.selectById(details.branchDetails, branchName)?.upstreamCommits[
+								index
+							]) ??
+						null
+					);
+				},
 			},
 		);
 	}
 
 	fetchUpstreamCommitById(projectId: string, stackId: string, commitId: string) {
-		return this.backendApi.endpoints.stackDetails.fetch(
-			{ projectId, stackId },
+		return this.backendApi.endpoints.workspaceDetails.fetch(
+			{ projectId },
 			{
-				transform: ({ upstreamCommits }) =>
-					upstreamCommitSelectors.selectById(upstreamCommits, commitId),
+				transform: (workspaceDetails) => {
+					const details = selectWorkspaceStackDetails(workspaceDetails, stackId);
+					return details && upstreamCommitSelectors.selectById(details.upstreamCommits, commitId);
+				},
 			},
 		);
 	}
@@ -741,11 +838,15 @@ export class StackService {
 		stackId: string;
 		branchName: string;
 	}) {
-		const allCommits = await this.backendApi.endpoints.stackDetails.fetch(
-			{ projectId, stackId },
+		const allCommits = await this.backendApi.endpoints.workspaceDetails.fetch(
+			{ projectId },
 			{
-				transform: ({ branchDetails }) =>
-					branchDetailsSelectors.selectById(branchDetails, branchName)?.commits,
+				transform: (workspaceDetails) => {
+					const details = selectWorkspaceStackDetails(workspaceDetails, stackId, branchName);
+					return (
+						details && branchDetailsSelectors.selectById(details.branchDetails, branchName)?.commits
+					);
+				},
 			},
 		);
 
@@ -777,11 +878,13 @@ export class StackService {
 	}
 
 	isBranchConflicted(projectId: string, stackId: string, branchName: string) {
-		return this.backendApi.endpoints.stackDetails.useQuery(
-			{ projectId, stackId },
+		return this.backendApi.endpoints.workspaceDetails.useQuery(
+			{ projectId },
 			{
-				transform: ({ branchDetails }) => {
-					const branch = branchDetailsSelectors.selectById(branchDetails, branchName);
+				transform: (workspaceDetails) => {
+					const details = selectWorkspaceStackDetails(workspaceDetails, stackId, branchName);
+					const branch =
+						details && branchDetailsSelectors.selectById(details.branchDetails, branchName);
 					return branch?.isConflicted ?? false;
 				},
 			},
