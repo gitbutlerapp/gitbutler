@@ -5,7 +5,7 @@ use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 use crate::{
     CliId, IdMap,
     theme::{self, Paint},
-    utils::{Confirm, ConfirmDefault, OutputChannel, shorten_object_id},
+    utils::{Confirm, ConfirmDefault, OutputChannel, bad_input::BadInput, shorten_object_id},
 };
 
 mod json;
@@ -17,7 +17,7 @@ pub fn delete(
     out: &mut OutputChannel,
     branch_name: String,
     force: bool,
-) -> Result<(), anyhow::Error> {
+) -> Result<Option<BadInput>, anyhow::Error> {
     let mut guard = ctx.exclusive_worktree_access();
     let stacks = but_api::legacy::workspace::stacks(
         ctx,
@@ -39,14 +39,14 @@ pub fn delete(
                 force,
                 out,
                 guard.write_permission(),
-            );
+            )
+            .map(|()| None);
         }
     }
 
-    if let Some(out) = out.for_human() {
-        writeln!(out, "Branch '{branch_name}' not found in any stack")?;
-    }
-    Ok(())
+    Ok(Some(BadInput::new(format!(
+        "Branch '{branch_name}' not found in any stack"
+    ))))
 }
 
 pub fn new(
