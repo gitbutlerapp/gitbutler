@@ -411,7 +411,7 @@ fn teardown_informs_of_checkout_to_when_there_are_no_stacks() -> anyhow::Result<
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-error: Failed to determine checkout target branch. Specify a target branch with `--checkout-to <branch>`.
+Error: Failed to determine checkout target branch. Specify a target branch with `--checkout-to <branch>`.
 
 "#]]);
 
@@ -496,7 +496,7 @@ fn teardown_checkout_to_handles_missing_branch() -> anyhow::Result<()> {
         .failure()
         .stderr_eq(str![
             r#"
-error: bad input for '--checkout-to'
+Error: Bad input for '--checkout-to'
 
 The reference 'no-such-branch' did not exist
 
@@ -518,7 +518,7 @@ fn teardown_checkout_to_handles_malformed_branch_name() -> anyhow::Result<()> {
         .failure()
         .stderr_eq(str![
             r#"
-error: bad input for '--checkout-to'
+Error: Bad input for '--checkout-to'
 
 Invalid ref name: not a branch
 
@@ -539,7 +539,7 @@ fn teardown_checkout_to_disallows_non_branch_ref() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-error: bad input for '--checkout-to'
+Error: Bad input for '--checkout-to'
 
 Invalid ref for checkout: 'HEAD' is not a local branch
 
@@ -559,7 +559,7 @@ fn teardown_checkout_to_disallows_non_local_branch_ref() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-error: bad input for '--checkout-to'
+Error: Bad input for '--checkout-to'
 
 Invalid ref for checkout: 'origin/main' is not a local branch
 

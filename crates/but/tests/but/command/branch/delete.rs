@@ -10,7 +10,7 @@ fn rejects_non_existent_branch_name() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-error: Branch 'no-such-branch' not found in any stack
+Error: Branch 'no-such-branch' not found in any stack
 
 "#]])
         .stdout_eq(str![[]]);

@@ -403,8 +403,11 @@ fn posthog_client(app_settings: AppSettings) -> Option<impl Future<Output = post
     }
 }
 
-impl<T> ResultMetricsExt<T> for anyhow::Result<T> {
-    fn emit_metrics(self, ctx: Option<OneshotMetricsContext>) -> anyhow::Result<T> {
+impl<T, E> ResultMetricsExt<T, E> for Result<T, E>
+where
+    E: std::fmt::Display + From<std::io::Error>,
+{
+    fn emit_metrics(self, ctx: Option<OneshotMetricsContext>) -> Result<T, E> {
         let Some(OneshotMetricsContext { start, command }) = ctx else {
             return self;
         };
