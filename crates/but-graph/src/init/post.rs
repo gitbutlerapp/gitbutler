@@ -157,12 +157,26 @@ impl Graph {
         }
     }
 
-    /// After everything, assure the entrypoint still points to a segment with the correct ref-name,
-    /// if one was given when starting the traversal.
-    /// If not, try to find a segment with the right ref-name.
+    /// After everything, ensure the entrypoint still points to a segment with
+    /// the correct ref-name if one was given when starting the traversal.
+    /// This is only relevant if a ref-name is given at all.
     ///
-    /// *This is the brute-force way of doing it, instead of ensuring that the workspace upgrade functions
-    /// that create independent and dependent branches keep everything up-to-date at all times.
+    /// If the the entrypoint ref doesn't match the ref specified at the start
+    /// we:
+    /// - If a segment named with the desired ref is found, we update the
+    ///   entrypoint to match that
+    /// - If any segment whose first commit owns a ref with the desired name
+    ///   - If the segment has no ref_info, we remove the ref from the commit
+    ///     and set the ref_info on the segment, before setting the segment as the
+    ///     entrypoint.
+    ///   - Otherwise we split it out into a new segment and set that new
+    ///     entrypoint.
+    /// - Otherwise, it's an error if no segment is named after the entrypoint-ref,
+    ///   or has a commit that holds it.
+    ///
+    /// *This is the brute-force way of doing it, instead of ensuring that the
+    /// workspace upgrade functions that create independent and dependent
+    /// branches keep everything up-to-date at all times.
     fn set_entrypoint_to_ref_name<T: RefMetadata>(
         &mut self,
         meta: &OverlayMetadata<'_, T>,
@@ -268,23 +282,55 @@ impl Graph {
                 s.ref_info = Some(desired_ref_name);
             }
         } else {
-            tracing::warn!(
-                "Couldn't find any segment that was named after the entrypoint ref name or contained its name '{desired_ref_name}'",
+            bail!(
+                "BUG: Couldn't find any segment that was named after the entrypoint ref name or contained its name '{desired_ref_name}'",
             );
         };
         Ok(())
     }
 
-    /// This is a post-process as only in the end we are sure what is a remote commit.
-    /// On remote commits, we want to further segment remote tracking segments to avoid picking
+    /// This is a post-process as only in the end we are sure what is a remote
+    /// commit.
+    ///
+    /// We want to further segment remote tracking segments to avoid picking
     /// up too many remote commits later.
-    /// For everything else, we want to just remove the extra ref-names that we aren't interested in.
+    ///
+    /// The purpose here is to *restore* named segments for remote tracking branches
+    /// as during traversal, such segments are only created if their local tracking branches
+    /// were reachable through the entrypoint. This is done so that remote tracking branches
+    /// will not make segment naming ambiguous unnecessarily, i.e. we prefer segments named
+    /// by local branches right now.
+    ///
+    /// Having additional segmentation caused by remote tracking branches is valuable
+    /// as it can reduce the amount of remote-commits that are attributed to the remote
+    /// tracking branch of a workspace commit, which is relevant for stacks in particular.
+    ///
+    /// We drop all remote-tracking branch references from each commit's `refs`
+    /// list. For remote commits that are not the first commit in a
+    /// multi-commit segment, we preserve the first remote-tracking reference by
+    /// splitting the containing segment there, with the new segment being named
+    /// with that reference. Additional remote-tracking references at the same
+    /// commit become named empty virtual segments pointing to the owning remote
+    /// segment. They are not 'inline', and merely there as visual evidence of what
+    /// happened here during debugging. For now, no algorithm discovers references
+    /// by checking incoming connections, instead they are expected to be either
+    /// inline, i.e. virutal branch segments in a workspace, or they are
+    /// named segments.
     fn fixup_remote_tracking_refs_and_maybe_split_segments<T: RefMetadata>(
         &mut self,
         meta: &OverlayMetadata<'_, T>,
         worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<()> {
-        let mut split_info = Vec::new();
+        struct SplitInfo {
+            segment: SegmentIndex,
+            commit: CommitIndex,
+            owner_ref: gix::refs::FullName,
+            /// Additional remote-tracking refs at `commit` that should become
+            /// named empty virtual segments pointing to `owner_ref`.
+            virtual_refs: Vec<gix::refs::FullName>,
+        }
+
+        let mut split_info = Vec::<SplitInfo>::new();
         for node in self.node_weights_mut() {
             let node_has_commits = node.commits.len() > 1;
             for (cidx, commit_with_refs) in node
@@ -300,12 +346,18 @@ impl Graph {
                         if matches!(c, Category::RemoteBranch) {
                             // Always remove the ref, but keep info to create a split if possible.
                             if is_splittable {
-                                let info = (node.id, cidx, ri.ref_name.clone());
-                                // This means we are more interested in the split than in representing every reference for now.
-                                if split_info.iter().any(|(a_sidx, a_cidx, _)| *a_sidx == node.id && *a_cidx == cidx) {
-                                    tracing::debug!(?node.id, ?commit_with_refs.id, ?ri, "Ignoring remote reference which *should* have no effect");
+                                if let Some(info) = split_info
+                                    .iter_mut()
+                                    .find(|info| info.segment == node.id && info.commit == cidx)
+                                {
+                                    info.virtual_refs.push(ri.ref_name.clone());
                                 } else {
-                                    split_info.push(info);
+                                    split_info.push(SplitInfo {
+                                        segment: node.id,
+                                        commit: cidx,
+                                        owner_ref: ri.ref_name.clone(),
+                                        virtual_refs: Vec::new(),
+                                    });
                                 }
                             }
                             false
@@ -317,20 +369,46 @@ impl Graph {
             }
         }
 
-        for (sidx, new_segment_start_idx, segment_name) in split_info.into_iter().rev() {
-            self.split_segment(
-                sidx,
-                new_segment_start_idx,
-                Some(segment_name),
+        for info in split_info.into_iter().rev() {
+            let owner_sidx = self.split_segment(
+                info.segment,
+                info.commit,
+                Some(info.owner_ref),
                 None,
                 meta,
                 worktree_by_branch,
             )?;
+            let owner_tip = self[owner_sidx]
+                .commits
+                .first()
+                .context("BUG: remote split segment should own at least one commit")?
+                .id;
+
+            for virtual_segment_name in info.virtual_refs {
+                let virtual_segment = crate::Segment {
+                    ref_info: Some(crate::RefInfo::from_ref(
+                        virtual_segment_name,
+                        owner_tip,
+                        worktree_by_branch,
+                    )),
+                    ..Default::default()
+                };
+                let virtual_sidx = self.insert_segment(virtual_segment);
+                self.connect_segments_with_ids(
+                    virtual_sidx,
+                    None,
+                    None,
+                    owner_sidx,
+                    0,
+                    Some(owner_tip),
+                    0,
+                );
+            }
         }
         Ok(())
     }
 
-    /// Assure that workspace segments with managed commits only have that commit, and move all others
+    /// Ensure that workspace segments with managed commits only have that commit, and move all others
     /// into a new segment.
     fn fixup_workspace_segments<T: RefMetadata>(
         &mut self,
@@ -557,7 +635,7 @@ impl Graph {
                         if target_ref.is_some() {
                             return None;
                         }
-                        // It's a very specialised filter… will that lead to strange behaviour later?
+                        // It's a very specialized filter… will that lead to strange behavior later?
                         let segment = &self[s];
                         if segment.ref_info.is_some() {
                             return None;
@@ -633,7 +711,7 @@ impl Graph {
     /// * workspace segments are either empty, or have just one managed commit.
     /// * insert empty segments as defined by the workspace that affects its downstream.
     /// * put workspace connection into the order defined in the workspace metadata.
-    /// * set sibling segment IDs for unnamed segments that are descendents of an out-of-workspace but known segment.
+    /// * set sibling segment IDs for unnamed segments that are descendants of an out-of-workspace but known segment.
     fn workspace_upgrades<T: RefMetadata>(
         &mut self,
         meta: &OverlayMetadata<'_, T>,
@@ -1181,7 +1259,7 @@ impl Graph {
             // If both remote and local point to the same commit, make sure that the remote points to the local segment.
             if let Some((
                 (_remote_commit, _owner_of_commit_same_as_local),
-                (_local_commmit, owner_of_commit_same_as_remote),
+                (_local_commit, owner_of_commit_same_as_remote),
             )) = self
                 .resolve_to_unambiguously_pointed_to_commit(remote_sidx)
                 .zip(self.resolve_to_unambiguously_pointed_to_commit(local_sidx))

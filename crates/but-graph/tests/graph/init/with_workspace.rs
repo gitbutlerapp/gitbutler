@@ -4387,17 +4387,35 @@ fn two_dependent_branches_rebased_with_remotes_squash_merge_remote_ambiguous() -
     │                           └── 🏁·281456a (⌂|🏘|✓|1111)
     ├── ►:1[0]:origin/main →:2:
     │   └── →:2: (main →:1:)
-    └── ►:4[0]:origin/D →:3:
-        └── 🟣3045ea6 (0x0|1000)
-            └── ►:6[1]:origin/A
-                └── 🟣1818c17 (0x0|1000)
-                    └── →:5:
+    ├── ►:4[0]:origin/D →:3:
+    │   └── 🟣3045ea6 (0x0|1000)
+    │       └── ►:6[1]:origin/A
+    │           └── 🟣1818c17 (0x0|1000)
+    │               └── →:5:
+    ├── ►:7[0]:origin/B
+    │   └── →:6: (origin/A)
+    └── ►:8[0]:origin/C
+        └── →:6: (origin/A)
     ");
 
-    // We want to let each remote on the path down own a commit, even if ownership would be ambiguous
-    // as we are in this situation because these ambiguous remotes don't actually matter as their
-    // local tracking branches aren't present anymore.
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @r"
+    let ambiguous_remote_tip = repo.rev_parse_single("origin/A")?.detach();
+    for remote_ref in [
+        "refs/remotes/origin/A",
+        "refs/remotes/origin/B",
+        "refs/remotes/origin/C",
+    ] {
+        let remote_ref = super::ref_name(remote_ref);
+        let remote_segment = graph
+            .segment_by_ref_name(remote_ref.as_ref())
+            .expect("remote tracking segment should be present");
+        assert_eq!(
+            graph.tip_skip_empty(remote_segment.id).map(|c| c.id),
+            Some(ambiguous_remote_tip),
+            "{remote_ref} should resolve to the commit its Git ref points to, showing that something special happened here"
+        );
+    }
+
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), "only one remote commit as unrelated remotes split a linear segment", @r"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 0b6b861
     └── ≡📙:3:D <> origin/D →:4:⇡1⇣1 on 0b6b861 {0}
         └── 📙:3:D <> origin/D →:4:⇡1⇣1

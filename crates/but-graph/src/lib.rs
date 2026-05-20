@@ -32,7 +32,7 @@
 //! Besides that, operating on a graph, despite its own complexities, is finally aligning the mental model of the programmer
 //! with what's actually there, for algorithms suitable to perform the job correctly.
 //!
-//! All this makes the Graph the **new core data-structure** that is the world of GitButler and upon which visualisations and
+//! All this makes the Graph the **new core data-structure** that is the world of GitButler and upon which visualizations and
 //! mutation operations are based.
 //!
 //! ### New Workspace Concepts
@@ -154,7 +154,7 @@
 //! first commit in `gitbutler/workspace` effectively. The other references aren't participating in the traversal.
 //!
 //! The tip that finds the commit first is dependent on various factors, and it could also happen that `origin/main` finds
-//! it first. In any case, this needs to be adjusted after traversal in the process called *reconiliation*, so the graph
+//! it first. In any case, this needs to be adjusted after traversal in the process called *reconciliation*, so the graph
 //! matches what our [workspace metadata](but_core::ref_metadata::Workspace::stacks) says it should be.
 //!
 //! After reconciling, the graph would become this:
