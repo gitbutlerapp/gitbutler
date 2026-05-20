@@ -29,6 +29,8 @@ pub trait ResultErrorExt {
 
 pub mod envs;
 
+pub mod bad_input;
+
 impl ResultErrorExt for anyhow::Result<()> {
     fn show_root_cause_error_then_exit_without_destructors(self, out: OutputChannel) -> ! {
         // Trigger the pager to be flushed before exiting early, or destructors aren't called.
@@ -44,8 +46,8 @@ impl ResultErrorExt for anyhow::Result<()> {
 }
 
 /// Utilities attached to `anyhow::Result<T>`.
-pub trait ResultMetricsExt {
-    fn emit_metrics(self, ctx: Option<OneshotMetricsContext>) -> anyhow::Result<()>;
+pub trait ResultMetricsExt<T> {
+    fn emit_metrics(self, ctx: Option<OneshotMetricsContext>) -> anyhow::Result<T>;
 }
 
 fn json_pretty_to_stdout(value: &impl serde::Serialize) -> std::io::Result<()> {

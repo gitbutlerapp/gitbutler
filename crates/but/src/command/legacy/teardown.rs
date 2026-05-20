@@ -7,7 +7,7 @@ use serde::Serialize;
 
 use crate::{
     theme::{self, Paint},
-    utils::{OutputChannel, shorten_object_id},
+    utils::{OutputChannel, bad_input::BadInput, shorten_object_id},
 };
 
 #[derive(Debug, Serialize)]
@@ -21,7 +21,7 @@ pub(crate) fn teardown(
     ctx: &mut Context,
     checkout_to: Option<String>,
     out: &mut OutputChannel,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<BadInput>> {
     let t = theme::get();
 
     // Check that we're on gitbutler/workspace
@@ -56,13 +56,30 @@ pub(crate) fn teardown(
     // Note: Validate checkout_to before snapshot creation to prevent unnecessary snapshot
     let checkout_to = if let Some(checkout_to) = &checkout_to {
         let repo = ctx.repo.get()?;
-        let ref_name: gix::refs::PartialName = checkout_to
-            .clone()
-            .try_into()
-            .with_context(|| format!("Invalid ref name: {checkout_to}"))?;
-        let resolved_ref = repo.find_reference(ref_name.as_ref())?;
+        let ref_name: gix::refs::PartialName = if let Ok(ref_name) = checkout_to.clone().try_into()
+        {
+            ref_name
+        } else {
+            return Ok(Some(
+                BadInput::new(format!("Invalid ref name: {checkout_to}",)).arg("--checkout-to"),
+            ));
+        };
+        let resolved_ref = match repo.try_find_reference(ref_name.as_ref())? {
+            Some(resolved_ref) => resolved_ref,
+            None => {
+                return Ok(Some(
+                    BadInput::new(format!("The reference '{checkout_to}' did not exist"))
+                        .arg("--checkout-to"),
+                ));
+            }
+        };
         if !matches!(resolved_ref.name().category(), Some(Category::LocalBranch)) {
-            anyhow::bail!("Invalid ref for checkout: '{checkout_to}' is not a local branch")
+            return Ok(Some(
+                BadInput::new(format!(
+                    "Invalid ref for checkout: '{checkout_to}' is not a local branch"
+                ))
+                .arg("--checkout-to"),
+            ));
         }
         Some(resolved_ref.name().shorten().to_string())
     } else {
@@ -131,12 +148,9 @@ pub(crate) fn teardown(
                 .map(|h| h.name.to_string())
                 .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?
         } else {
-            let msg = "Failed to determine checkout target branch. Specify a target branch with `--checkout-to <branch>`.";
-            if let Some(out) = out.for_human() {
-                writeln!(out, "   {}", t.error.paint(msg))?;
-            }
-
-            anyhow::bail!(msg)
+            return Ok(Some(BadInput::new(
+                "Failed to determine checkout target branch. Specify a target branch with `--checkout-to <branch>`.",
+            )));
         }
     };
 
@@ -248,7 +262,7 @@ pub(crate) fn teardown(
         })?;
     }
 
-    Ok(())
+    Ok(None)
 }
 
 // a call to get stacks failed, which could be because someone committed on top

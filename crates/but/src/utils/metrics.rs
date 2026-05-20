@@ -403,16 +403,16 @@ fn posthog_client(app_settings: AppSettings) -> Option<impl Future<Output = post
     }
 }
 
-impl<T> ResultMetricsExt for anyhow::Result<T> {
-    fn emit_metrics(self, ctx: Option<OneshotMetricsContext>) -> anyhow::Result<()> {
+impl<T> ResultMetricsExt<T> for anyhow::Result<T> {
+    fn emit_metrics(self, ctx: Option<OneshotMetricsContext>) -> anyhow::Result<T> {
         let Some(OneshotMetricsContext { start, command }) = ctx else {
-            return self.map(|_| ());
+            return self;
         };
 
         let props = Props::from_result(start, &self);
         let Some(v) = command.to_possible_value() else {
             tracing::warn!("BUG: didn't get string value for {command:?}");
-            return self.map(|_| ());
+            return self;
         };
 
         tokio::process::Command::new(binary_path::current_exe_for_but_exec()?)
@@ -426,6 +426,6 @@ impl<T> ResultMetricsExt for anyhow::Result<T> {
             .group()
             .kill_on_drop(false)
             .spawn()?;
-        self.map(|_| ())
+        self
     }
 }
