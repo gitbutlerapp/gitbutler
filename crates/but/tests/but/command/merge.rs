@@ -135,3 +135,73 @@ To undo this operation:
 
     Ok(())
 }
+
+#[test]
+fn pull_integrates_branch_when_gb_local_target_points_at_branch_head() -> anyhow::Result<()> {
+    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches")?;
+
+    env.but("setup").assert().success();
+    env.but("branch new first-branch").assert().success();
+
+    env.file("file1.txt", "content1");
+    env.but("commit first-branch -m 'first commit on branch A'")
+        .assert()
+        .success();
+
+    let branch_head = env.invoke_git("rev-parse first-branch");
+    let main_before = env.invoke_git("rev-parse main");
+    assert_ne!(
+        branch_head, main_before,
+        "test setup must leave main behind the virtual branch"
+    );
+
+    env.invoke_git("update-ref refs/heads/main first-branch");
+
+    env.but("pull").assert().success().stdout_eq(str![[r#"
+
+Found 1 upstream commits on gb-local/main
+   [..] first commit on branch A
+
+Updating 1 active branches...
+
+
+Branch first-branch has been integrated upstream and removed locally
+
+Summary
+────────
+  first-branch - integrated
+
+To undo this operation:
+  Run `but undo`
+
+"#]]);
+
+    let main_after = env.invoke_git("rev-parse main");
+    assert_eq!(
+        main_after, branch_head,
+        "main should still point at the manually integrated branch head"
+    );
+
+    let status_after = env
+        .but("status --json")
+        .allow_json()
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let status_after_str = String::from_utf8_lossy(&status_after);
+    let status_after_json: serde_json::Value = serde_json::from_str(&status_after_str)?;
+    assert_eq!(
+        status_after_json["stacks"].as_array().unwrap().len(),
+        0,
+        "the branch should be removed from the workspace after base integration"
+    );
+    assert_eq!(
+        status_after_json["upstreamState"]["behind"].as_u64(),
+        Some(0),
+        "the stored base should be advanced to the updated gb-local target"
+    );
+
+    Ok(())
+}
