@@ -285,7 +285,17 @@ jobs:
       - name: Dependencies for 'keyring'
         run: sudo ./scripts/install-minimal-debian-dependencies.sh
       - name: Install cargo-nextest
-        run: curl -LsSf https://get.nexte.st/0.9.133/linux | tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
+        run: |
+
+          # To update the version of cargo-nextest, replace the version specifier in the `curl` command and update the
+          # checksum.
+          #
+          # Checksums are available as artifacts on GitHub Release (https://github.com/nextest-rs/nextest/releases),
+          # should be called "cargo-nextest-<VERSION>-x86_64-unknown-linux-gnu.sha256"
+          curl -LsSf https://get.nexte.st/0.9.133/linux -o cargo-nextest.tar.gz
+          echo "a9f992321e8759818400d93abb9477b4b11422d18d216e8d208505bd73454103 cargo-nextest.tar.gz" | sha256sum -c -
+          tar -xzf cargo-nextest.tar.gz -C ${CARGO_HOME:-~/.cargo}/bin
+          rm cargo-nextest.tar.gz
       - name: Run workspace tests
         run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci
       - name: Run doctests
