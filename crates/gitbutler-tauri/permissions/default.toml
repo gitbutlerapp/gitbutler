@@ -186,8 +186,6 @@ commands.allow = [
   "show_graph_svg",
   "show_in_finder",
   "snapshot_diff",
-  "stack_details",
-  "stacks",
   "stash_into_branch",
   "store_author_globally_if_unset",
   "store_github_enterprise_pat",

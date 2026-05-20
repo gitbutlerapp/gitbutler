@@ -86,30 +86,6 @@ export class StackService {
 		);
 	}
 
-	branchesPageStack(projectId: string, stackId: string, inWorkspace: boolean) {
-		if (inWorkspace) {
-			return this.stackById(projectId, stackId);
-		}
-		return this.backendApi.endpoints.stacks.useQuery(
-			{ projectId, all: true },
-			{
-				transform: (stacks) => stackSelectors.selectById(stacks, stackId) ?? null,
-			},
-		);
-	}
-
-	branchesPageBranchDetails(
-		projectId: string,
-		stackId: string,
-		branchName: string,
-		inWorkspace: boolean,
-	) {
-		if (inWorkspace) {
-			return this.branchDetails(projectId, stackId, branchName);
-		}
-		return this.unstackedBranchDetails(projectId, branchName);
-	}
-
 	defaultBranch(projectId: string, stackId?: string) {
 		if (!stackId) return null;
 		return this.backendApi.endpoints.workspaceDetails.useQuery(

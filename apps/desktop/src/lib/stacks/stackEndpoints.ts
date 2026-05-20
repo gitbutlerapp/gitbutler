@@ -26,7 +26,6 @@ import type { BackendEndpointBuilder } from "$lib/state/backendApi";
 import type {
 	AbsorptionTarget,
 	CommitAbsorption,
-	StackDetails,
 	BranchDetails,
 	UpstreamCommit,
 	Commit,
@@ -147,10 +146,6 @@ export function normalizeCreateCommitOutcome(response: CommitCreateResult): Crea
 	};
 }
 
-export function transformStacksResponse(response: Stack[]) {
-	return stackAdapter.addMany(stackAdapter.getInitialState(), response);
-}
-
 export function toCommitCreatePlacement(args: CreateCommitRequest): {
 	relativeTo: RelativeTo;
 	side: "above" | "below";
@@ -226,17 +221,6 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				return transformWorkspaceDetails(response);
 			},
 		}),
-		stacks: build.query<EntityState<Stack, string>, { projectId: string; all?: boolean }>({
-			extraOptions: { command: "stacks" },
-			query: (args) => {
-				const filter = args.all ? "All" : undefined;
-				return { projectId: args.projectId, filter };
-			},
-			providesTags: [providesList(ReduxTag.Stacks)],
-			transformResponse(response: Stack[]) {
-				return transformStacksResponse(response);
-			},
-		}),
 		createStack: build.mutation<Stack, { projectId: string; branch: BranchParams }>({
 			extraOptions: {
 				command: "create_virtual_branch",
@@ -264,55 +248,10 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			// reload, however, so leaving it like this for now.
 			// invalidatesTags: [invalidatesList(ReduxTag.Stacks)]
 		}),
-		stackDetails: build.query<
-			{
-				stackInfo: StackDetails;
-				branchDetails: EntityState<BranchDetails, string>;
-				commits: EntityState<Commit, string>;
-				upstreamCommits: EntityState<UpstreamCommit, string>;
-			},
-			// TODO(single-branch): stackId is actually `stackId?` in the backend to be able to query details in single-branch mode.
-			// 	  however, ideally all this goes away in favor of consuming `RefInfo` from the backend.
-			{ projectId: string; stackId?: string }
-		>({
-			extraOptions: { command: "stack_details" },
-			query: (args) => args,
-			providesTags: (_result, _error, { stackId }) => [
-				...providesItem(ReduxTag.StackDetails, stackId || "undefined"),
-			],
-			transformResponse(response: StackDetails) {
-				const branchDetailsEntity = branchDetailsAdapter.addMany(
-					branchDetailsAdapter.getInitialState(),
-					response.branchDetails,
-				);
-
-				// This is a list of all the commits across all branches in the stack.
-				// If you want to access the commits of a specific branch, use the
-				// `commits` property of the `BranchDetails` struct.
-				const commitsEntity = commitAdapter.addMany(
-					commitAdapter.getInitialState(),
-					response.branchDetails.flatMap((branch) => branch.commits),
-				);
-
-				// This is a list of all the upstream commits across all the branches in the stack.
-				// If you want to access the upstream commits of a specific branch, use the
-				// `upstreamCommits` property of the `BranchDetails` struct.
-				const upstreamCommitsEntity = upstreamCommitAdapter.addMany(
-					upstreamCommitAdapter.getInitialState(),
-					response.branchDetails.flatMap((branch) => branch.upstreamCommits),
-				);
-
-				return {
-					stackInfo: response,
-					branchDetails: branchDetailsEntity,
-					commits: commitsEntity,
-					upstreamCommits: upstreamCommitsEntity,
-				};
-			},
-		}),
 		/**
 		 * Note: This is specifically for looking up branches outside of
-		 * a stacking context. You almost certainly want `stackDetails`
+		 * a stacking context. Stacked workspace branches should be read from
+		 * the `head_info`-backed workspace details query.
 		 */
 		unstackedBranchDetails: build.query<
 			{
