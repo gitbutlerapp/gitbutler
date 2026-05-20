@@ -1,4 +1,5 @@
 import uiStyles from "#ui/ui/ui.module.css";
+import { SuspenseQuery } from "@suspensive/react-query";
 import {
 	branchDetailsQueryOptions,
 	branchDiffQueryOptions,
@@ -7,7 +8,7 @@ import {
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { decodeRefName } from "#ui/api/ref-name.ts";
-import { commitTitle } from "#ui/commit.ts";
+import { commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
 	formatHunkHeader,
 	getDependencyCommitIds,
@@ -16,7 +17,9 @@ import {
 } from "#ui/hunk.ts";
 import {
 	branchFileParent,
+	branchOperand,
 	changesFileParent,
+	changesSectionOperand,
 	commitFileParent,
 	commitOperand,
 	fileOperand,
@@ -35,7 +38,7 @@ import { classes } from "#ui/ui/classes.ts";
 import { DependencyIcon } from "#ui/ui/icons.tsx";
 import { DiffHunk, HunkHeader, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import { PatchDiff, Virtualizer } from "@pierre/diffs/react";
-import { useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { FC, Suspense, useDeferredValue } from "react";
@@ -68,20 +71,6 @@ const patchHeaderForChange = (change: TreeChange, lineEnding: string): string =>
 		),
 		Match.exhaustive,
 	);
-
-const HunkDiff: FC<{
-	change: TreeChange;
-	diff: string;
-}> = ({ change, diff }) => (
-	<PatchDiff
-		patch={`${patchHeaderForChange(change, lineEndingForDiff(diff))}${diff}`}
-		options={{
-			diffStyle: "unified",
-			themeType: "system",
-			disableFileHeader: true,
-		}}
-	/>
-);
 
 const hunkKey = (hunk: HunkHeader): string =>
 	`${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`;
@@ -124,7 +113,15 @@ const Hunk: FC<{
 					<div className={styles.hunkHeader}>{formatHunkHeader(hunk)}</div>
 				</div>
 			</OperationSourceC>
-			<HunkDiff change={change} diff={hunk.diff} />
+
+			<PatchDiff
+				patch={`${patchHeaderForChange(change, lineEndingForDiff(hunk.diff))}${hunk.diff}`}
+				options={{
+					diffStyle: "unified",
+					themeType: "system",
+					disableFileHeader: true,
+				}}
+			/>
 		</div>
 	);
 };
@@ -212,122 +209,170 @@ const ChangesFileDiffList: FC<{
 	);
 };
 
-const ChangesDetails: FC<{
+const Header: FC<{
 	projectId: string;
-	selectedPath?: string;
-}> = ({ projectId, selectedPath }) => {
-	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
-	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
-		worktreeChanges.dependencies?.diffs ?? [],
-	);
-	const selectedChange =
-		selectedPath !== undefined
-			? worktreeChanges.changes.find((candidate) => candidate.path === selectedPath)
-			: undefined;
-	const changes = selectedChange ? [selectedChange] : worktreeChanges.changes;
-
-	return (
-		<div>
-			<header>
-				<h3 className={styles.heading}>Changes</h3>
-			</header>
-
-			<ChangesFileDiffList
-				changes={changes}
-				fileParent={changesFileParent}
-				hunkDependencyDiffsByPath={hunkDependencyDiffsByPath}
-				projectId={projectId}
-			/>
-		</div>
-	);
-};
-
-const CommitDetails: FC<{
-	projectId: string;
-	commitId: string;
-	selectedPath?: string | null;
-	stackId: string;
-}> = ({ projectId, commitId, selectedPath, stackId }) => {
-	const { data: commitDetails } = useSuspenseQuery(
-		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
-	);
-
-	const fileParent = commitFileParent({ stackId, commitId });
-	const selectedChange = commitDetails.changes.find((candidate) => candidate.path === selectedPath);
-	if (selectedPath !== undefined && !selectedChange) return null;
-
-	const source = commitOperand({ stackId, commitId });
-
-	return (
-		<div>
-			<OperationSourceC projectId={projectId} selectionScope="outline" source={source}>
+	selection: Operand;
+}> = ({ projectId, selection }) =>
+	Match.value(selection).pipe(
+		Match.tagsExhaustive({
+			Stack: () => (
 				<header>
-					<h3 className={styles.heading}>
-						{commitTitle(commitDetails.commit.message)}
-						{commitDetails.commit.hasConflicts && " ⚠️"}
-					</h3>
+					<h3 className={styles.heading}>Stack</h3>
+
+					<div className={styles.headerActions}>
+						<FilesToggle />
+					</div>
 				</header>
-			</OperationSourceC>
-			{commitDetails.commit.message.includes("\n") && (
-				<p className={styles.commitMessageBody}>
-					{commitDetails.commit.message
-						.slice(commitDetails.commit.message.indexOf("\n") + 1)
-						.trim()}
-				</p>
-			)}
-			<ChangesFileDiffList
-				changes={selectedChange ? [selectedChange] : commitDetails.changes}
-				fileParent={fileParent}
-				projectId={projectId}
-			/>
-		</div>
+			),
+			Branch: ({ branchRef }) => {
+				const decodedBranchRef = decodeRefName(branchRef);
+
+				return (
+					<>
+						<SuspenseQuery
+							{...branchDetailsQueryOptions({
+								projectId,
+								// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
+								branchName: decodedBranchRef.replace(/^refs\/heads\//, ""),
+								remote: null,
+							})}
+						>
+							{({ data: branchDetails }) => (
+								<header>
+									<h3 className={styles.heading}>{branchDetails.name}</h3>
+									{branchDetails.prNumber != null && (
+										<h4 className={styles.pr}>PR #{branchDetails.prNumber}</h4>
+									)}
+								</header>
+							)}
+						</SuspenseQuery>
+
+						<div className={styles.headerActions}>
+							<FilesToggle />
+						</div>
+					</>
+				);
+			},
+			ChangesSection: () => (
+				<header>
+					<h3 className={styles.heading}>Changes</h3>
+
+					<div className={styles.headerActions}>
+						<FilesToggle />
+					</div>
+				</header>
+			),
+			// Reuse the same headers.
+			File: ({ parent }) =>
+				Match.value(parent).pipe(
+					Match.tagsExhaustive({
+						Changes: () => <Header projectId={projectId} selection={changesSectionOperand} />,
+						Branch: ({ branchRef, stackId }) => (
+							<Header projectId={projectId} selection={branchOperand({ stackId, branchRef })} />
+						),
+						Commit: ({ commitId, stackId }) => (
+							<Header projectId={projectId} selection={commitOperand({ stackId, commitId })} />
+						),
+					}),
+				),
+			Commit: ({ commitId, stackId }) => {
+				const source = commitOperand({ stackId, commitId });
+
+				return (
+					<>
+						<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
+							{({ data: commitDetails }) => (
+								<>
+									<OperationSourceC projectId={projectId} selectionScope="outline" source={source}>
+										<header>
+											<h3 className={styles.heading}>
+												{commitTitle(commitDetails.commit.message)}
+												{commitDetails.commit.hasConflicts && " ⚠️"}
+											</h3>
+										</header>
+									</OperationSourceC>
+
+									{commitDetails.commit.message.includes("\n") && (
+										<p className={styles.commitMessageBody}>
+											{commitDetails.commit.message
+												.slice(commitDetails.commit.message.indexOf("\n") + 1)
+												.trim()}
+										</p>
+									)}
+								</>
+							)}
+						</SuspenseQuery>
+
+						<div className={styles.headerActions}>
+							<FilesToggle />
+
+							<Suspense>
+								<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
+									{({ data: commitDetails }) => {
+										const fmtDate = new Intl.DateTimeFormat(undefined, {
+											day: "2-digit",
+											month: "2-digit",
+											year: "numeric",
+											hour: "2-digit",
+											minute: "2-digit",
+											hour12: false,
+										}).format(commitDetails.commit.createdAt);
+
+										return (
+											<>
+												<img
+													src={commitDetails.commit.author.gravatarUrl}
+													className={styles.avatar}
+													alt="Commit author avatar"
+												/>
+
+												<div className={styles.author}>
+													<span title={commitDetails.commit.author.email}>
+														{commitDetails.commit.author.name}
+													</span>{" "}
+													at {fmtDate}
+												</div>
+
+												<div className={styles.commitMeta}>
+													{shortCommitId(commitDetails.commit.changeId)} (
+													{shortCommitId(commitDetails.commit.id)})
+												</div>
+											</>
+										);
+									}}
+								</SuspenseQuery>
+							</Suspense>
+						</div>
+					</>
+				);
+			},
+			Hunk: () => null,
+		}),
 	);
-};
 
-const BranchDetails: FC<{
-	projectId: string;
-	branchRef: Array<number>;
-	selectedPath?: string;
-	stackId: string;
-}> = ({ projectId, branchRef, selectedPath, stackId }) => {
-	const decodedBranchRef = decodeRefName(branchRef);
-	const [{ data: branchDetails }, { data: branchDiff }] = useSuspenseQueries({
-		queries: [
-			branchDetailsQueryOptions({
-				projectId,
-				// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
-				branchName: decodedBranchRef.replace(/^refs\/heads\//, ""),
-				remote: null,
-			}),
-			branchDiffQueryOptions({ projectId, branch: decodedBranchRef }),
-		],
-	});
+const FilesToggle: FC = () => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 
-	const selectedChange =
-		selectedPath !== undefined
-			? branchDiff.changes.find((candidate) => candidate.path === selectedPath)
-			: undefined;
-	const changes = selectedChange ? [selectedChange] : branchDiff.changes;
+	const toggleFiles = () => {
+		dispatch(projectActions.togglePanel({ projectId, panel: "files" }));
+	};
 
 	return (
-		<div>
-			<header>
-				<h3 className={styles.heading}>{branchDetails.name}</h3>
-				{branchDetails.prNumber != null && (
-					<h4 className={styles.pr}>PR #{branchDetails.prNumber}</h4>
-				)}
-			</header>
-
-			<ChangesFileDiffList
-				changes={changes}
-				projectId={projectId}
-				fileParent={branchFileParent({ stackId, branchRef })}
-			/>
-		</div>
+		<ShortcutButton
+			className={classes(uiStyles.button, styles.filesBtn)}
+			hotkey={workspaceHotkeys.toggleFilesPanel.hotkey}
+			hotkeyOptions={{ meta: workspaceHotkeys.toggleFilesPanel.meta }}
+			aria-pressed={isPanelVisible(panelsState, "files")}
+			onClick={toggleFiles}
+		>
+			Files
+		</ShortcutButton>
 	);
 };
 
-const Details: FC<{
+const DiffContents: FC<{
 	projectId: string;
 	selection: Operand;
 }> = ({ projectId, selection }) =>
@@ -335,33 +380,108 @@ const Details: FC<{
 		Match.tagsExhaustive({
 			Stack: () => null,
 			Branch: ({ branchRef, stackId }) => (
-				<BranchDetails projectId={projectId} branchRef={branchRef} stackId={stackId} />
+				<SuspenseQuery {...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}>
+					{({ data: branchDiff }) => (
+						<ChangesFileDiffList
+							changes={branchDiff.changes}
+							projectId={projectId}
+							fileParent={branchFileParent({ stackId, branchRef })}
+						/>
+					)}
+				</SuspenseQuery>
 			),
-			ChangesSection: () => <ChangesDetails projectId={projectId} />,
+			ChangesSection: () => (
+				<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
+					{({ data: worktreeChanges }) => (
+						<ChangesFileDiffList
+							changes={worktreeChanges.changes}
+							fileParent={changesFileParent}
+							hunkDependencyDiffsByPath={getHunkDependencyDiffsByPath(
+								worktreeChanges.dependencies?.diffs ?? [],
+							)}
+							projectId={projectId}
+						/>
+					)}
+				</SuspenseQuery>
+			),
+
 			File: ({ parent, path }) =>
 				Match.value(parent).pipe(
 					Match.tagsExhaustive({
-						Changes: () => <ChangesDetails projectId={projectId} selectedPath={path} />,
+						Changes: () => (
+							<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
+								{({ data: worktreeChanges }) => {
+									const selectedChange = worktreeChanges.changes.find(
+										(candidate) => candidate.path === path,
+									);
+
+									return (
+										<ChangesFileDiffList
+											changes={selectedChange ? [selectedChange] : worktreeChanges.changes}
+											fileParent={changesFileParent}
+											hunkDependencyDiffsByPath={getHunkDependencyDiffsByPath(
+												worktreeChanges.dependencies?.diffs ?? [],
+											)}
+											projectId={projectId}
+										/>
+									);
+								}}
+							</SuspenseQuery>
+						),
+
 						Branch: ({ branchRef, stackId }) => (
-							<BranchDetails
-								projectId={projectId}
-								branchRef={branchRef}
-								selectedPath={path}
-								stackId={stackId}
-							/>
+							<SuspenseQuery
+								{...branchDiffQueryOptions({
+									projectId,
+									branch: decodeRefName(branchRef),
+								})}
+							>
+								{({ data: branchDiff }) => {
+									const selectedChange = branchDiff.changes.find(
+										(candidate) => candidate.path === path,
+									);
+
+									return (
+										<ChangesFileDiffList
+											changes={selectedChange ? [selectedChange] : branchDiff.changes}
+											projectId={projectId}
+											fileParent={branchFileParent({ stackId, branchRef })}
+										/>
+									);
+								}}
+							</SuspenseQuery>
 						),
 						Commit: ({ commitId, stackId }) => (
-							<CommitDetails
-								projectId={projectId}
-								commitId={commitId}
-								stackId={stackId}
-								selectedPath={path}
-							/>
+							<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
+								{({ data: commitDetails }) => {
+									const fileParent = commitFileParent({ stackId, commitId });
+									const selectedChange = commitDetails.changes.find(
+										(candidate) => candidate.path === path,
+									);
+									if (!selectedChange) return null;
+
+									return (
+										<ChangesFileDiffList
+											changes={[selectedChange]}
+											fileParent={fileParent}
+											projectId={projectId}
+										/>
+									);
+								}}
+							</SuspenseQuery>
 						),
 					}),
 				),
 			Commit: ({ commitId, stackId }) => (
-				<CommitDetails projectId={projectId} commitId={commitId} stackId={stackId} />
+				<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
+					{({ data: commitDetails }) => (
+						<ChangesFileDiffList
+							changes={commitDetails.changes}
+							fileParent={commitFileParent({ stackId, commitId })}
+							projectId={projectId}
+						/>
+					)}
+				</SuspenseQuery>
 			),
 			Hunk: () => null,
 		}),
@@ -369,14 +489,8 @@ const Details: FC<{
 
 export const DetailsPanel: FC<PanelProps> = (panelProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const dispatch = useAppDispatch();
 	const urgentSelection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
-	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 	const selection = useDeferredValue(urgentSelection);
-
-	const toggleFiles = () => {
-		dispatch(projectActions.togglePanel({ projectId, panel: "files" }));
-	};
 
 	return (
 		<Panel
@@ -384,21 +498,15 @@ export const DetailsPanel: FC<PanelProps> = (panelProps) => {
 			className={classes(panelProps.className, styles.panel)}
 			style={{ ...panelProps.style, opacity: urgentSelection !== selection ? 0.5 : 1 }}
 		>
-			<section className={styles.detailsMeta}>
-				<ShortcutButton
-					className={classes(uiStyles.button, styles.filesBtn)}
-					hotkey={workspaceHotkeys.toggleFilesPanel.hotkey}
-					hotkeyOptions={{ meta: workspaceHotkeys.toggleFilesPanel.meta }}
-					aria-pressed={isPanelVisible(panelsState, "files")}
-					onClick={toggleFiles}
-				>
-					Files
-				</ShortcutButton>
-			</section>
+			<div>
+				<Suspense fallback={<p className={styles.loading}>Loading details…</p>}>
+					<Header projectId={projectId} selection={selection} />
+				</Suspense>
+			</div>
 
 			<Virtualizer className={styles.detailsVirtualizer}>
-				<Suspense fallback={<p className={styles.loading}>Loading details…</p>}>
-					<Details projectId={projectId} selection={selection} />
+				<Suspense>
+					<DiffContents projectId={projectId} selection={selection} />
 				</Suspense>
 			</Virtualizer>
 		</Panel>

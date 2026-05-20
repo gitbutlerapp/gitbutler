@@ -7,8 +7,24 @@
 	grid-template-rows: auto minmax(0, 1fr);
 }
 
-.detailsMeta {
-	margin-block-end: 16px;
+.headerActions {
+	display: flex;
+	align-items: center;
+	margin-block: 16px;
+	gap: 10px;
+}
+
+.avatar {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background-color: lightgray;
+}
+
+.author,
+.commitMeta {
+	color: var(--text-3);
+	font-size: 13px;
 }
 
 .filesBtn {
