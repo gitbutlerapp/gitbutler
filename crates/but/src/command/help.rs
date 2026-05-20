@@ -40,7 +40,7 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
         ),
         (
             t.important.paint("Operation History"),
-            vec!["oplog", "undo", "restore"],
+            vec!["oplog", "undo", "redo"],
         ),
     ];
 
