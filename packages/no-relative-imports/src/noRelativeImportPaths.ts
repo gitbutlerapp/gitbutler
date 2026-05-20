@@ -1,5 +1,6 @@
 import { ConfigPaths } from "./paths.js";
 import { parse } from "comment-json";
+import { Rule } from "eslint";
 import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
@@ -143,7 +144,7 @@ function create(context: any) {
 	};
 }
 
-export const noRelativeImportPaths = {
+export const noRelativeImportPaths: Rule.RuleModule = {
 	meta: {
 		type: "layout",
 		fixable: "code",
