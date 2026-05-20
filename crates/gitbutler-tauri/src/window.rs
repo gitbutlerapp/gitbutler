@@ -270,11 +270,11 @@ pub fn create(
 ) -> tauri::Result<tauri::WebviewWindow> {
     tracing::info!("creating window '{label}' created at '{window_relative_url}'");
 
-    let use_native_title_bar =
+    let (use_native_title_bar, no_shadow) =
         but_settings::AppSettings::load_from_default_path_creating_without_customization()
             .ok()
-            .map(|settings| settings.ui.use_native_title_bar)
-            .unwrap_or(false);
+            .map(|settings| (settings.ui.use_native_title_bar, settings.ui.no_shadow))
+            .unwrap_or((false, false));
 
     let window = tauri::WebviewWindowBuilder::new(
         handle,
@@ -292,6 +292,7 @@ pub fn create(
     } else {
         tauri::TitleBarStyle::Overlay
     })
+    .shadow(!no_shadow)
     .on_navigation(on_navigate)
     .build()?;
 

@@ -2013,6 +2013,11 @@ export type UiSettings = {
   /** Whether to use the native system title bar. */
   useNativeTitleBar: boolean;
   /**
+   * When `true`, app windows are drawn without a drop shadow (macOS only).
+   * Set in GitButler `settings.json` as `ui.noShadow`; requires an app restart.
+   */
+  noShadow: boolean;
+  /**
    * Whether the `but` CLI is managed by a package manager.
    * When true, the UI should show a specific message instead of installation options.
    */

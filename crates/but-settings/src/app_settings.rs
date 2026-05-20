@@ -121,6 +121,9 @@ but_schemars::register_sdk_type!(Reviews);
 pub struct UiSettings {
     /// Whether to use the native system title bar.
     pub use_native_title_bar: bool,
+    /// When `true`, app windows are drawn without a drop shadow (macOS only).
+    /// Set in GitButler `settings.json` as `ui.noShadow`; requires an app restart.
+    pub no_shadow: bool,
     /// Whether the `but` CLI is managed by a package manager.
     /// When true, the UI should show a specific message instead of installation options.
     pub cli_is_managed_by_package_manager: bool,

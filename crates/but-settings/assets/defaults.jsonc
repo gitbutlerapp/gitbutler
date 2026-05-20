@@ -74,6 +74,8 @@
 	"ui": {
 		// Whether to use the native system title bar.
 		"useNativeTitleBar": false,
+		// When true, skip the macOS window drop shadow for app windows (requires restart).
+		"noShadow": false,
 		// Whether the `but` CLI is managed by a package manager.
 		// When true, the UI should show a specific message instead of installation options.
 		"cliIsManagedByPackageManager": false,
