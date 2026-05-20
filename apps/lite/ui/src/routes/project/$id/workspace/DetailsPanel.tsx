@@ -224,34 +224,48 @@ const Header: FC<{
 			Stack: () => (
 				<header>
 					<h3 className={styles.heading}>Stack</h3>
+
+					<div className={styles.headerActions}>
+						<FilesToggle />
+					</div>
 				</header>
 			),
 			Branch: ({ branchRef }) => {
 				const decodedBranchRef = decodeRefName(branchRef);
 
 				return (
-					<SuspenseQuery
-						{...branchDetailsQueryOptions({
-							projectId,
-							// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
-							branchName: decodedBranchRef.replace(/^refs\/heads\//, ""),
-							remote: null,
-						})}
-					>
-						{({ data: branchDetails }) => (
-							<header>
-								<h3 className={styles.heading}>{branchDetails.name}</h3>
-								{branchDetails.prNumber != null && (
-									<h4 className={styles.pr}>PR #{branchDetails.prNumber}</h4>
-								)}
-							</header>
-						)}
-					</SuspenseQuery>
+					<>
+						<SuspenseQuery
+							{...branchDetailsQueryOptions({
+								projectId,
+								// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
+								branchName: decodedBranchRef.replace(/^refs\/heads\//, ""),
+								remote: null,
+							})}
+						>
+							{({ data: branchDetails }) => (
+								<header>
+									<h3 className={styles.heading}>{branchDetails.name}</h3>
+									{branchDetails.prNumber != null && (
+										<h4 className={styles.pr}>PR #{branchDetails.prNumber}</h4>
+									)}
+								</header>
+							)}
+						</SuspenseQuery>
+
+						<div className={styles.headerActions}>
+							<FilesToggle />
+						</div>
+					</>
 				);
 			},
 			ChangesSection: () => (
 				<header>
 					<h3 className={styles.heading}>Changes</h3>
+
+					<div className={styles.headerActions}>
+						<FilesToggle />
+					</div>
 				</header>
 			),
 			// Reuse the same headers.
@@ -271,33 +285,61 @@ const Header: FC<{
 				const source = commitOperand({ stackId, commitId });
 
 				return (
-					<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
-						{({ data: commitDetails }) => (
-							<>
-								<OperationSourceC projectId={projectId} selectionScope="outline" source={source}>
-									<header>
-										<h3 className={styles.heading}>
-											{commitTitle(commitDetails.commit.message)}
-											{commitDetails.commit.hasConflicts && " ⚠️"}
-										</h3>
-									</header>
-								</OperationSourceC>
+					<>
+						<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
+							{({ data: commitDetails }) => (
+								<>
+									<OperationSourceC projectId={projectId} selectionScope="outline" source={source}>
+										<header>
+											<h3 className={styles.heading}>
+												{commitTitle(commitDetails.commit.message)}
+												{commitDetails.commit.hasConflicts && " ⚠️"}
+											</h3>
+										</header>
+									</OperationSourceC>
 
-								{commitDetails.commit.message.includes("\n") && (
-									<p className={styles.commitMessageBody}>
-										{commitDetails.commit.message
-											.slice(commitDetails.commit.message.indexOf("\n") + 1)
-											.trim()}
-									</p>
-								)}
-							</>
-						)}
-					</SuspenseQuery>
+									{commitDetails.commit.message.includes("\n") && (
+										<p className={styles.commitMessageBody}>
+											{commitDetails.commit.message
+												.slice(commitDetails.commit.message.indexOf("\n") + 1)
+												.trim()}
+										</p>
+									)}
+								</>
+							)}
+						</SuspenseQuery>
+
+						<div className={styles.headerActions}>
+							<FilesToggle />
+						</div>
+					</>
 				);
 			},
 			Hunk: () => null,
 		}),
 	);
+
+const FilesToggle: FC = () => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
+
+	const toggleFiles = () => {
+		dispatch(projectActions.togglePanel({ projectId, panel: "files" }));
+	};
+
+	return (
+		<ShortcutButton
+			className={classes(uiStyles.button, styles.filesBtn)}
+			hotkey={workspaceHotkeys.toggleFilesPanel.hotkey}
+			hotkeyOptions={{ meta: workspaceHotkeys.toggleFilesPanel.meta }}
+			aria-pressed={isPanelVisible(panelsState, "files")}
+			onClick={toggleFiles}
+		>
+			Files
+		</ShortcutButton>
+	);
+};
 
 const DiffContents: FC<{
 	projectId: string;
@@ -416,14 +458,8 @@ const DiffContents: FC<{
 
 export const DetailsPanel: FC<PanelProps> = (panelProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const dispatch = useAppDispatch();
 	const urgentSelection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
-	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 	const selection = useDeferredValue(urgentSelection);
-
-	const toggleFiles = () => {
-		dispatch(projectActions.togglePanel({ projectId, panel: "files" }));
-	};
 
 	return (
 		<Panel
@@ -432,18 +468,6 @@ export const DetailsPanel: FC<PanelProps> = (panelProps) => {
 			style={{ ...panelProps.style, opacity: urgentSelection !== selection ? 0.5 : 1 }}
 		>
 			<div>
-				<section className={styles.detailsMeta}>
-					<ShortcutButton
-						className={classes(uiStyles.button, styles.filesBtn)}
-						hotkey={workspaceHotkeys.toggleFilesPanel.hotkey}
-						hotkeyOptions={{ meta: workspaceHotkeys.toggleFilesPanel.meta }}
-						aria-pressed={isPanelVisible(panelsState, "files")}
-						onClick={toggleFiles}
-					>
-						Files
-					</ShortcutButton>
-				</section>
-
 				<Suspense fallback={<p className={styles.loading}>Loading details…</p>}>
 					<Header projectId={projectId} selection={selection} />
 				</Suspense>
