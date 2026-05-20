@@ -566,14 +566,6 @@ pub(super) fn commit_discard(
     but_api::commit::discard_commit::commit_discard(ctx, commit_id, DryRun::No)
 }
 
-pub(super) fn remove_branch_legacy(
-    ctx: &mut Context,
-    stack_id: StackId,
-    branch_name: String,
-) -> anyhow::Result<()> {
-    but_api::legacy::stack::remove_branch(ctx, stack_id, branch_name)
-}
-
 pub(super) fn get_undo_target_snapshot_legacy(ctx: &Context) -> anyhow::Result<Option<Snapshot>> {
     but_api::legacy::oplog::get_undo_target_snapshot(ctx)
 }

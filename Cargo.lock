@@ -829,6 +829,7 @@ dependencies = [
  "but-server",
  "but-settings",
  "but-testsupport",
+ "but-transaction",
  "but-update",
  "but-workspace",
  "but-worktrees",

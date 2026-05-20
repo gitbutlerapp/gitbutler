@@ -12,14 +12,15 @@ use std::{
 use anyhow::Context as _;
 use bstr::{BString, ByteSlice};
 use but_api::{diff::ComputeLineStats, legacy::oplog::RestoreKind};
-use but_core::ref_metadata::StackId;
 use but_core::tree::create_tree::RejectionReason;
+use but_core::{DryRun, ref_metadata::StackId};
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
 use but_settings::AppSettingsWithDiskSync;
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use gitbutler_operating_modes::OperatingMode;
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::refs::FullName;
 use nonempty::NonEmpty;
 use ratatui::prelude::*;
@@ -769,7 +770,7 @@ impl App {
                 self.delayed_messages.push(*msg);
             }
             Message::Discard => {
-                self.handle_discard(ctx, messages);
+                self.handle_discard(ctx, messages)?;
             }
             Message::DropToBeDiscarded => {
                 self.to_be_discarded = None;
@@ -1406,12 +1407,16 @@ impl App {
         })
     }
 
-    fn handle_discard(&mut self, ctx: &mut Context, messages: &mut Vec<Message>) {
+    fn handle_discard(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
         let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
-            return;
+            return Ok(());
         };
         let Some(cli_id) = selection.data.cli_id() else {
-            return;
+            return Ok(());
         };
 
         self.modal = Some(Modal::Confirm {
@@ -1536,21 +1541,45 @@ impl App {
                 }
                 CliId::Branch { name, stack_id, .. } => {
                     let Some(stack_id) = *stack_id else {
-                        return;
+                        return Ok(());
                     };
 
                     let name = name.to_owned();
+
+                    let commits = commits_on_branch(ctx, stack_id, &name)?;
+
                     self.to_be_discarded = Some(Arc::clone(cli_id));
                     let select_after_reload = self
                         .cursor
                         .select_after_discarded_branch(&self.status_lines);
                     let drop_to_be_discarded =
                         message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
+
                     Confirm::new(
                         NonEmpty::new(format!("Discard branch {name}?").into()),
                         self.theme,
                         move |ctx, messages| {
-                            operations::remove_branch_legacy(ctx, stack_id, name)?;
+                            let mut meta = ctx.meta()?;
+                            let snapshot_details =
+                                SnapshotDetails::new(OperationKind::DeleteBranch);
+
+                            let refname = FullName::try_from(format!("refs/heads/{name}"))?;
+                            but_transaction::with_transaction(
+                                ctx,
+                                &mut meta,
+                                snapshot_details,
+                                DryRun::No,
+                                |mut tx| {
+                                    tx.remove_reference(refname.as_ref())?;
+                                    if !commits.is_empty() {
+                                        tx.discard_commits(
+                                            commits.into_iter().map(|(commit, _)| commit),
+                                        )?;
+                                    }
+                                    Ok(())
+                                },
+                            )?;
+
                             messages
                                 .push(Message::Reload(select_after_reload, ReloadCause::Mutation));
                             drop(drop_to_be_discarded);
@@ -1558,10 +1587,12 @@ impl App {
                         },
                     )
                 }
-                CliId::PathPrefix { .. } | CliId::CommittedFile { .. } => return,
+                CliId::PathPrefix { .. } | CliId::CommittedFile { .. } => return Ok(()),
             },
             key_binds: confirm_key_binds(),
         });
+
+        Ok(())
     }
 
     /// Handles creating an empty commit relative to the current selection.
@@ -2865,30 +2896,12 @@ fn handle_mark_branch(
     stack_id: StackId,
     name: &str,
 ) -> anyhow::Result<()> {
-    let guard = ctx.shared_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
-
-    let Some(segment) = id_map
-        .stacks()
-        .iter()
-        .filter(|stack| stack.id.is_some_and(|id| id == stack_id))
-        .flat_map(|stack| &stack.segments)
-        .find(|segment| {
-            segment
-                .branch_name()
-                .is_some_and(|branch_name| branch_name == name)
-        })
-    else {
-        return Ok(());
-    };
-
-    let Some(commits) = segment
-        .workspace_commits
-        .iter()
-        .map(|commit| {
+    let Some(commits) = commits_on_branch(ctx, stack_id, name)?
+        .into_iter()
+        .map(|(commit_id, short_id)| {
             Markable::try_from_cli_id(&CliId::Commit {
-                commit_id: commit.commit_id(),
-                id: commit.short_id.clone(),
+                commit_id,
+                id: short_id,
             })
         })
         .collect::<Option<Vec<_>>>()
@@ -2919,6 +2932,35 @@ fn handle_mark_branch(
     }
 
     Ok(())
+}
+
+fn commits_on_branch(
+    ctx: &Context,
+    stack_id: StackId,
+    name: &str,
+) -> anyhow::Result<Vec<(gix::ObjectId, String)>> {
+    let guard = ctx.shared_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+
+    let segment = id_map
+        .stacks()
+        .iter()
+        .filter(|stack| stack.id.is_some_and(|id| id == stack_id))
+        .flat_map(|stack| &stack.segments)
+        .find(|segment| {
+            segment
+                .branch_name()
+                .is_some_and(|branch_name| branch_name == name)
+        })
+        .context("segment not found")?;
+
+    let commits = segment
+        .workspace_commits
+        .iter()
+        .map(|commit| (commit.commit_id(), commit.short_id.clone()))
+        .collect::<Vec<_>>();
+
+    Ok(commits)
 }
 
 #[derive(Debug, Clone, strum::EnumDiscriminants)]
