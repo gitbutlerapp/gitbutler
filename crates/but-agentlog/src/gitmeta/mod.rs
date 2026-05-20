@@ -70,6 +70,23 @@ struct IndexHit {
 #[derive(Deserialize)]
 struct StoredTurnDetail {
     records: Vec<AcceptedRecord>,
+    #[serde(default)]
+    observed_targets: StoredObservedTargets,
+}
+
+#[derive(Default, Deserialize)]
+struct StoredObservedTargets {
+    #[serde(default)]
+    branches: Vec<StoredObservedTarget>,
+    #[serde(default)]
+    reviews: Vec<StoredObservedTarget>,
+    #[serde(default)]
+    changes: Vec<StoredObservedTarget>,
+}
+
+#[derive(Deserialize)]
+struct StoredObservedTarget {
+    key: String,
 }
 
 struct SessionListEntry {
@@ -88,14 +105,19 @@ struct StoredTurnSummaryEntry {
     summary: StoredTurnSummary,
 }
 
+mod outline_support;
 mod read;
+mod read_support;
+mod records_outline;
+mod session_outline;
+mod timeline_outline;
 mod write;
 
-pub use read::{
-    RelatedSession, RelatedTarget, RelatedTimelineTurn, RelatedTurnWindow, SessionSummary,
-    TimelineTurn, find_related_sessions, get_related_session_detail, get_session_timeline,
-    list_sessions,
-};
+pub(crate) use read::RelatedTarget;
+pub(crate) use read::find_related_sessions_limited;
+pub(crate) use records_outline::{SessionRecords, get_session_records};
+pub(crate) use session_outline::RelatedSession;
+pub(crate) use timeline_outline::{SessionTimeline, get_session_timeline_outline};
 pub(crate) use write::{sync_metadata, write_transcript_batch};
 
 fn index_key(kind: &str, target_key: &str) -> String {

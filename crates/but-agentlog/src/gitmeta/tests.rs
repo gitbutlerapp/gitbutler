@@ -358,7 +358,19 @@ fn find_related_sessions_returns_verified_turn_keys() {
 
     let branch = only_related(repo.path(), RelatedTarget::Branch(TEST_BRANCH_KEY));
     assert_eq!(branch.session_key, TEST_SESSION_KEY);
-    assert_eq!(branch.turn_keys.as_slice(), std::slice::from_ref(&turn_key));
+    assert_eq!(
+        branch.related_turn_keys.as_slice(),
+        std::slice::from_ref(&turn_key)
+    );
+    assert_eq!(branch.turn_count, 1);
+    assert_eq!(branch.record_count, 1);
+    assert_eq!(
+        branch
+            .latest_assistant_preview
+            .as_ref()
+            .map(|preview| preview.text.as_str()),
+        Some("Related work")
+    );
 
     for target in [
         RelatedTarget::Review(TEST_REVIEW_KEY),
@@ -366,7 +378,7 @@ fn find_related_sessions_returns_verified_turn_keys() {
     ] {
         let related = only_related(repo.path(), target);
         assert_eq!(
-            related.turn_keys.as_slice(),
+            related.related_turn_keys.as_slice(),
             std::slice::from_ref(&turn_key)
         );
     }
@@ -378,49 +390,9 @@ fn find_related_sessions_returns_verified_turn_keys() {
         .collect::<Vec<_>>();
 
     let branch = only_related(repo.path(), RelatedTarget::Branch(TEST_BRANCH_KEY));
-    assert_eq!(branch.turn_keys, turn_keys);
+    assert_eq!(branch.related_turn_keys, turn_keys);
     let review = only_related(repo.path(), RelatedTarget::Review(TEST_REVIEW_KEY));
-    assert_eq!(review.turn_keys, branch.turn_keys);
-}
-
-#[test]
-fn find_related_sessions_returns_all_verified_sessions_for_target() {
-    let repo = setup_repo();
-    let other_session_key = "sha256-33333333333333333333333333333333";
-    let other_source_key = "sha256-44444444444444444444444444444444";
-    let observed_targets = || {
-        ObservedTargets::from_index_keys_for_testing(
-            TEST_BRANCH_KEY,
-            TEST_REVIEW_KEY,
-            TEST_CHANGE_KEY,
-        )
-    };
-    let first_turn_key =
-        write_turn_with_targets(repo.path(), "First related work", observed_targets());
-    let second_turn_key = write_turn_for_session(
-        repo.path(),
-        other_session_key,
-        other_source_key,
-        "Second related work",
-        observed_targets(),
-    );
-
-    let sessions = find_related_sessions(repo.path(), RelatedTarget::Branch(TEST_BRANCH_KEY))
-        .expect("find related sessions");
-
-    assert_eq!(
-        sessions,
-        vec![
-            RelatedSession {
-                session_key: TEST_SESSION_KEY.to_owned(),
-                turn_keys: vec![first_turn_key],
-            },
-            RelatedSession {
-                session_key: other_session_key.to_owned(),
-                turn_keys: vec![second_turn_key],
-            },
-        ]
-    );
+    assert_eq!(review.related_turn_keys, branch.related_turn_keys);
 }
 
 #[test]
@@ -454,203 +426,285 @@ fn find_related_sessions_ignores_stale_index_hits() {
 }
 
 #[test]
-fn read_helpers_deduplicate_merged_turn_summaries() {
+fn get_session_timeline_outline_returns_compact_bounded_turns() {
     let repo = setup_repo();
-    let turn_key = write_turn_with_targets(repo.path(), "Merged once", ObservedTargets::default());
-    let turns_key = format!("gitbutler:agent-session:{TEST_SESSION_KEY}:turns");
-    let Some(MetaValue::List(mut turn_entries)) = project_value(repo.path(), &turns_key) else {
-        panic!("expected turn summary list");
+    let observed_targets = || {
+        ObservedTargets::from_index_keys_for_testing(
+            TEST_BRANCH_KEY,
+            TEST_REVIEW_KEY,
+            TEST_CHANGE_KEY,
+        )
     };
-    turn_entries.push(turn_entries[0].clone());
-    let target = project_target();
-    let turns_value = MetaValue::List(turn_entries);
-    Session::open(repo.path())
-        .expect("open session")
-        .target(&target)
-        .apply_edits(vec![MetaEdit::set_value(&turns_key, &turns_value)])
-        .expect("duplicate stored turn summary");
+    let first_batch = TranscriptBatch::parse(
+        Agent::Codex,
+        jsonl([
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:00Z",
+                "type": "session_meta",
+                "payload": { "id": "session-1" },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:01Z",
+                "type": "turn_context",
+                "payload": { "model": "gpt-5.5" },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:02Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{ "type": "input_text", "text": "Please build timeline" }],
+                },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:03Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": "Working on it",
+                },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:04Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "function_call",
+                    "name": "exec_command",
+                    "arguments": "{\"cmd\":\"cargo test\"}",
+                },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:05Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "function_call_output",
+                    "tool_name": "exec_command",
+                    "output": "tests passed",
+                },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:06Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{ "type": "input_text", "text": "Actually include previews" }],
+                },
+            }),
+        ])
+        .as_bytes(),
+    )
+    .expect("parse first timeline batch");
+    write_transcript_batch(
+        repo.path(),
+        Agent::Codex,
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        first_batch,
+        || EnvironmentObservation::from_observed_targets_for_testing(observed_targets()),
+    )
+    .expect("write first timeline batch");
+    let second_batch = TranscriptBatch::parse(
+        Agent::Codex,
+        jsonl([serde_json::json!({
+            "timestamp": "2026-05-07T09:00:07Z",
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "assistant",
+                "content": "Done",
+            },
+        })])
+        .as_bytes(),
+    )
+    .expect("parse second timeline batch");
+    write_transcript_batch(
+        repo.path(),
+        Agent::Codex,
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        second_batch,
+        || EnvironmentObservation::from_observed_targets_for_testing(observed_targets()),
+    )
+    .expect("write second timeline batch");
 
     let timeline =
-        get_session_timeline(repo.path(), TEST_SESSION_KEY, None).expect("read timeline");
-    assert_eq!(timeline.len(), 1);
-    assert_eq!(timeline[0].turn_key, turn_key);
+        get_session_timeline_outline(repo.path(), TEST_SESSION_KEY, None).expect("read outline");
 
-    let sessions = list_sessions(repo.path(), None).expect("list sessions");
-    assert_eq!(sessions[0].turn_count, 1);
+    assert_eq!(timeline.session_key, TEST_SESSION_KEY);
+    assert_eq!(timeline.coverage.showing_turns, 2);
+    assert_eq!(timeline.coverage.total_turns, 2);
+    assert!(!timeline.coverage.has_more_before);
+    assert_eq!(timeline.turns[0].turn_index, 0);
+    assert_eq!(timeline.turns[0].capture_kind, "backfill");
+    assert_eq!(timeline.turns[0].record_count, 5);
+    assert_eq!(timeline.turns[0].source_record_index_range.start, Some(2));
+    assert_eq!(timeline.turns[0].source_record_index_range.end, Some(6));
     assert_eq!(
-        sessions[0].latest_turn_key.as_deref(),
-        Some(turn_key.as_str())
+        timeline.turns[0].first_record_timestamp.as_deref(),
+        Some("2026-05-07T09:00:02Z")
+    );
+    assert_eq!(
+        timeline.turns[0]
+            .latest_user_preview
+            .as_ref()
+            .map(|preview| preview.text.as_str()),
+        Some("Actually include previews")
+    );
+    assert_eq!(
+        timeline.turns[0]
+            .latest_assistant_preview
+            .as_ref()
+            .map(|preview| preview.text.as_str()),
+        Some("Working on it")
+    );
+    assert_eq!(timeline.turns[0].tool_counts.tool_call_count, 1);
+    assert_eq!(timeline.turns[0].tool_counts.tool_result_count, 1);
+    assert_eq!(timeline.turns[0].tool_counts.tool_names, ["exec_command"]);
+    assert_eq!(
+        timeline.turns[0].observed_targets.branches,
+        [TEST_BRANCH_KEY]
+    );
+    assert_eq!(
+        timeline.turns[0].observed_targets.reviews,
+        [TEST_REVIEW_KEY]
+    );
+    assert_eq!(
+        timeline.turns[0].observed_targets.changes,
+        [TEST_CHANGE_KEY]
+    );
+
+    let latest =
+        get_session_timeline_outline(repo.path(), TEST_SESSION_KEY, Some(1)).expect("read window");
+    assert_eq!(latest.coverage.showing_turns, 1);
+    assert_eq!(latest.coverage.total_turns, 2);
+    assert!(latest.coverage.has_more_before);
+    assert_eq!(latest.turns.len(), 1);
+    assert_eq!(latest.turns[0].turn_index, 1);
+    assert_eq!(latest.turns[0].capture_kind, "incremental");
+    assert_eq!(
+        latest.turns[0]
+            .latest_assistant_preview
+            .as_ref()
+            .map(|preview| preview.text.as_str()),
+        Some("Done")
     );
 }
 
 #[test]
-fn list_sessions_returns_recent_session_summaries() {
+fn get_session_records_returns_latest_bounded_records_without_storage_keys() {
     let repo = setup_repo();
-    assert!(
-        list_sessions(repo.path(), None)
-            .expect("list empty sessions")
-            .is_empty()
-    );
-    let first_session_key = "sha256-11111111111111111111111111111111";
-    let first_source_key = "sha256-22222222222222222222222222222222";
-    let second_session_key = "sha256-33333333333333333333333333333333";
-    let second_source_key = "sha256-44444444444444444444444444444444";
-    let second_source_key_next = "sha256-55555555555555555555555555555555";
-    let first_turn_key = write_turn_for_session(
+    let batch = TranscriptBatch::parse(
+        Agent::Codex,
+        jsonl([
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:00Z",
+                "type": "session_meta",
+                "payload": { "id": "session-1" },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:01Z",
+                "type": "turn_context",
+                "payload": { "model": "gpt-5.5" },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:02Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{ "type": "input_text", "text": "First record" }],
+                },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:03Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": "Second record",
+                },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:04Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "function_call",
+                    "name": "exec_command",
+                    "arguments": "{\"cmd\":\"cargo test\"}",
+                },
+            }),
+        ])
+        .as_bytes(),
+    )
+    .expect("parse records batch");
+    write_transcript_batch(
         repo.path(),
-        first_session_key,
-        first_source_key,
-        "First session",
-        ObservedTargets::default(),
-    );
-    write_turn_for_session(
-        repo.path(),
-        second_session_key,
-        second_source_key,
-        "Second session",
-        ObservedTargets::default(),
-    );
-    let second_turn_key_next = write_turn_for_session(
-        repo.path(),
-        second_session_key,
-        second_source_key_next,
-        "Second session follow-up",
-        ObservedTargets::default(),
-    );
-    set_session_updated_at(repo.path(), first_session_key, "2026-05-07T09:00:00.000Z");
-    set_session_updated_at(repo.path(), second_session_key, "2026-05-07T10:00:00.000Z");
-
-    let sessions = list_sessions(repo.path(), None).expect("list sessions");
-
-    assert_eq!(sessions.len(), 2);
-    assert_eq!(sessions[0].session_key, second_session_key);
-    assert_eq!(sessions[0].updated_at, "2026-05-07T10:00:00.000Z");
-    assert_eq!(
-        sessions[0].source_keys,
-        [second_source_key, second_source_key_next]
-    );
-    assert_eq!(sessions[0].turn_count, 2);
-    assert_eq!(
-        sessions[0].latest_turn_key.as_deref(),
-        Some(second_turn_key_next.as_str())
-    );
-    assert_eq!(sessions[1].session_key, first_session_key);
-    assert_eq!(
-        sessions[1].latest_turn_key.as_deref(),
-        Some(first_turn_key.as_str())
-    );
-
-    let latest = list_sessions(repo.path(), Some(1)).expect("list latest session");
-    assert_eq!(latest.len(), 1);
-    assert_eq!(latest[0].session_key, second_session_key);
-}
-
-#[test]
-fn get_related_session_detail_merges_windows_for_multiple_highlighted_turns() {
-    let repo = setup_repo();
-    let before_turn_key = write_turn_with_targets(
-        repo.path(),
-        "Before related work",
-        ObservedTargets::default(),
-    );
-    let related_turn_key = write_turn_with_targets(
-        repo.path(),
-        "Related work",
-        ObservedTargets::from_index_keys_for_testing(
-            TEST_BRANCH_KEY,
-            TEST_REVIEW_KEY,
-            TEST_CHANGE_KEY,
-        ),
-    );
-    let middle_turn_key = write_turn_with_targets(
-        repo.path(),
-        "Between related turns",
-        ObservedTargets::default(),
-    );
-    let next_related_turn_key = write_turn_with_targets(
-        repo.path(),
-        "Related follow-up",
-        ObservedTargets::from_index_keys_for_testing(
-            TEST_BRANCH_KEY,
-            TEST_REVIEW_KEY,
-            TEST_CHANGE_KEY,
-        ),
-    );
-    let after_turn_key = write_turn_with_targets(
-        repo.path(),
-        "After related work",
-        ObservedTargets::default(),
-    );
-
-    let detail = get_related_session_detail(
-        repo.path(),
-        RelatedTarget::Branch(TEST_BRANCH_KEY),
+        Agent::Codex,
         TEST_SESSION_KEY,
-        RelatedTurnWindow {
-            context_before: 1,
-            context_after: 1,
-        },
+        TEST_SOURCE_KEY,
+        batch,
+        || EnvironmentObservation::from_observed_targets_for_testing(ObservedTargets::default()),
     )
-    .expect("read related session detail")
-    .expect("related session detail");
+    .expect("write records batch");
+    let turn_key = turn_summaries(repo.path(), TEST_SESSION_KEY)[0]["turn_key"]
+        .as_str()
+        .expect("turn key")
+        .to_owned();
 
-    let turn_window = detail
-        .iter()
-        .map(|turn| {
-            (
-                turn.turn.turn_key.as_str(),
-                turn.highlighted,
-                turn.turn.records[0]["text"].as_str().expect("record text"),
-            )
-        })
-        .collect::<Vec<_>>();
+    let records =
+        get_session_records(repo.path(), TEST_SESSION_KEY, &turn_key, 2).expect("records");
+
+    assert_eq!(records.session_key, TEST_SESSION_KEY);
+    assert_eq!(records.turn_key, turn_key);
+    assert_eq!(records.coverage.showing_records, 2);
+    assert_eq!(records.coverage.total_records, 3);
+    assert!(records.coverage.has_more_before);
+    assert_eq!(records.records.len(), 2);
+    assert_eq!(records.records[0].turn_record_index, 1);
+    assert_eq!(records.records[0].source_record_index, Some(3));
     assert_eq!(
-        turn_window,
-        [
-            (before_turn_key.as_str(), false, "Before related work"),
-            (related_turn_key.as_str(), true, "Related work"),
-            (middle_turn_key.as_str(), false, "Between related turns"),
-            (next_related_turn_key.as_str(), true, "Related follow-up"),
-            (after_turn_key.as_str(), false, "After related work"),
-        ]
+        records.records[0].timestamp.as_deref(),
+        Some("2026-05-07T09:00:03Z")
     );
-}
-
-#[test]
-fn get_related_session_detail_returns_none_for_unrelated_target_or_session() {
-    let repo = setup_repo();
-    write_turn_with_targets(
-        repo.path(),
-        "Related work",
-        ObservedTargets::from_index_keys_for_testing(
-            TEST_BRANCH_KEY,
-            TEST_REVIEW_KEY,
-            TEST_CHANGE_KEY,
-        ),
+    assert_eq!(records.records[0].kind.as_deref(), Some("message"));
+    assert_eq!(
+        records.records[0].source_event_kind.as_deref(),
+        Some("codex:response_item:message")
     );
-    let missing = get_related_session_detail(
-        repo.path(),
-        RelatedTarget::Branch("ref:refs/heads/missing"),
-        TEST_SESSION_KEY,
-        RelatedTurnWindow {
-            context_before: 0,
-            context_after: 0,
-        },
-    )
-    .expect("read missing related session detail");
-    assert!(missing.is_none());
+    assert_eq!(records.records[0].role.as_deref(), Some("assistant"));
+    assert_eq!(records.records[0].text.as_deref(), Some("Second record"));
+    assert_eq!(records.records[1].turn_record_index, 2);
+    assert_eq!(records.records[1].kind.as_deref(), Some("tool_call"));
+    assert_eq!(
+        records.records[1].tool_name.as_deref(),
+        Some("exec_command")
+    );
+    assert_eq!(
+        records.records[1].tool_input.as_ref().expect("tool input")["cmd"],
+        "cargo test"
+    );
+    assert_eq!(records.records[1].source_record["type"], "response_item");
 
-    let wrong_session = get_related_session_detail(
-        repo.path(),
-        RelatedTarget::Branch(TEST_BRANCH_KEY),
-        "sha256-33333333333333333333333333333333",
-        RelatedTurnWindow {
-            context_before: 0,
-            context_after: 0,
-        },
-    )
-    .expect("read wrong-session related detail");
-    assert!(wrong_session.is_none());
+    let json = serde_json::to_value(&records).expect("serialize records");
+    assert!(json["records"][0].get("record_hash").is_none());
+    assert!(json["records"][0].get("source_key").is_none());
+    assert_eq!(json["records"][0]["source_record_index"], 3);
+
+    let empty = get_session_records(repo.path(), TEST_SESSION_KEY, &turn_key, 0).expect("empty");
+    assert_eq!(empty.coverage.showing_records, 0);
+    assert_eq!(empty.coverage.total_records, 3);
+    assert!(empty.coverage.has_more_before);
+    assert!(empty.records.is_empty());
+
+    let all = get_session_records(repo.path(), TEST_SESSION_KEY, &turn_key, 99).expect("all");
+    assert_eq!(all.coverage.showing_records, 3);
+    assert_eq!(all.coverage.total_records, 3);
+    assert!(!all.coverage.has_more_before);
+    assert_eq!(all.records[0].turn_record_index, 0);
+    assert_eq!(all.records[2].turn_record_index, 2);
 }
 
 #[test]
@@ -1105,67 +1159,5 @@ fn incremental_capture_links_previous_turn_by_entry_timestamp() {
             second_turn_key.as_str(),
             third_turn_key.as_str()
         ]
-    );
-}
-
-#[test]
-fn association_is_idempotent_and_can_link_multiple_targets() {
-    let repo = setup_repo();
-    commit_file(repo.path(), "src/lib.rs", "pub fn committed() {}\n");
-    let transcript = write_transcript(repo.path(), &codex_fixture());
-    capture_project(repo.path(), Agent::Codex, &transcript);
-    let session_key = only_session_key(repo.path());
-    let main_target = Target::branch("main");
-    let change_target = Target::change_id("change-123");
-    let commit_id = but_testsupport::open_repo(repo.path())
-        .expect("open gitoxide repo")
-        .head_id()
-        .expect("head id")
-        .detach()
-        .to_string();
-    let short_commit_target = Target::commit(&commit_id[..7]).expect("short commit target");
-    let full_commit_target = Target::commit(&commit_id).expect("full commit target");
-
-    assert!(associate_session(repo.path(), &main_target, &session_key).expect("associate main"));
-    assert!(
-        !associate_session(repo.path(), &main_target, &session_key).expect("associate main again"),
-        "duplicate association should not report a metadata change"
-    );
-    assert!(
-        associate_session(repo.path(), &change_target, &session_key).expect("associate change")
-    );
-    assert!(
-        associate_session(repo.path(), &short_commit_target, &session_key)
-            .expect("associate short commit")
-    );
-
-    assert_eq!(
-        session_index(repo.path(), &main_target),
-        vec![session_key.clone()]
-    );
-    assert!(
-        target_value(
-            repo.path(),
-            &main_target,
-            &format!("gitbutler:agent-session:{session_key}:transcript"),
-        )
-        .is_none()
-    );
-    assert_eq!(
-        session_index(repo.path(), &change_target),
-        vec![session_key.clone()]
-    );
-    assert_eq!(
-        session_index(repo.path(), &full_commit_target),
-        vec![session_key]
-    );
-    assert!(
-        target_value(
-            repo.path(),
-            &short_commit_target,
-            "gitbutler:agent-sessions",
-        )
-        .is_none(),
-        "short commit target should resolve before writing association metadata"
     );
 }

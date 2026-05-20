@@ -1481,7 +1481,7 @@ async fn match_subcommand(
         }
         #[cfg(feature = "agentlog")]
         Subcommands::AgentLog { .. } => {
-            unreachable!("agentlog capture is handled before metrics setup")
+            unreachable!("agentlog command is handled before metrics setup")
         }
     }
 }
@@ -1494,11 +1494,16 @@ fn run_agentlog_command(
 ) -> Result<()> {
     let quiet = matches!(cmd, but_agentlog::Command::Hook { .. });
     match &mut cmd {
-        but_agentlog::Command::Capture { agent, .. } if agent.is_none() => {
-            *agent = Some(detect_agentlog_agent()?);
-        }
         but_agentlog::Command::Hook { agent, .. } if agent.is_none() => {
-            *agent = detect_agentlog_agent().ok();
+            use utils::detect_agent::Agent as DetectedAgent;
+
+            *agent = match utils::detect_agent::detect() {
+                Some(DetectedAgent::Codex) => Some(but_agentlog::Agent::Codex),
+                Some(DetectedAgent::ClaudeCode | DetectedAgent::ClaudeCodeCowork) => {
+                    Some(but_agentlog::Agent::Claude)
+                }
+                _ => None,
+            };
         }
         _ => {}
     }
@@ -1513,23 +1518,6 @@ fn run_agentlog_command(
         json_out.write_value(&report)?;
     }
     Ok(())
-}
-
-#[cfg(feature = "agentlog")]
-fn detect_agentlog_agent() -> Result<but_agentlog::Agent> {
-    use utils::detect_agent::Agent as DetectedAgent;
-
-    let Some(agent) = utils::detect_agent::detect() else {
-        anyhow::bail!("agentlog requires --agent when no supported agent is detected");
-    };
-
-    match agent {
-        DetectedAgent::Codex => Ok(but_agentlog::Agent::Codex),
-        DetectedAgent::ClaudeCode | DetectedAgent::ClaudeCodeCowork => {
-            Ok(but_agentlog::Agent::Claude)
-        }
-        agent => anyhow::bail!("detected agent '{agent}' is not supported by agentlog capture"),
-    }
 }
 
 /// Resolve a legacy top-level `but apply` branch name to the narrowest directly applicable ref.
