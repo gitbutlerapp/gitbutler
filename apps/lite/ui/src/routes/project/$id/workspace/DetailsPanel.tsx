@@ -72,20 +72,6 @@ const patchHeaderForChange = (change: TreeChange, lineEnding: string): string =>
 		Match.exhaustive,
 	);
 
-const HunkDiff: FC<{
-	change: TreeChange;
-	diff: string;
-}> = ({ change, diff }) => (
-	<PatchDiff
-		patch={`${patchHeaderForChange(change, lineEndingForDiff(diff))}${diff}`}
-		options={{
-			diffStyle: "unified",
-			themeType: "system",
-			disableFileHeader: true,
-		}}
-	/>
-);
-
 const hunkKey = (hunk: HunkHeader): string =>
 	`${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`;
 
@@ -127,7 +113,15 @@ const Hunk: FC<{
 					<div className={styles.hunkHeader}>{formatHunkHeader(hunk)}</div>
 				</div>
 			</OperationSourceC>
-			<HunkDiff change={change} diff={hunk.diff} />
+
+			<PatchDiff
+				patch={`${patchHeaderForChange(change, lineEndingForDiff(hunk.diff))}${hunk.diff}`}
+				options={{
+					diffStyle: "unified",
+					themeType: "system",
+					disableFileHeader: true,
+				}}
+			/>
 		</div>
 	);
 };
