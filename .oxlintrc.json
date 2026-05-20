@@ -1,6 +1,6 @@
 {
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
-	"ignorePatterns": ["**/*", "!apps/lite/**/*"],
+	"ignorePatterns": ["**/*", "!apps/lite/**/*", "apps/lite/scripts/**"],
 	"options": {
 		"typeAware": true,
 		"denyWarnings": true,
