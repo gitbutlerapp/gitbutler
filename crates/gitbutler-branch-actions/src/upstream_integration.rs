@@ -236,7 +236,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
             )?;
         }
 
-        let (target_ref_name, old_target_id, upstream_commits) = {
+        let (target_ref_name, old_target_id, mut upstream_commits) = {
             let (repo, ws, _db) = ctx.workspace_and_db_with_perm(permission.read_permission())?;
             let target_ref_name = ws
                 .target_ref_name()
@@ -265,6 +265,10 @@ impl<'a> UpstreamIntegrationContext<'a> {
                     .id
             }
         };
+        if upstream_commits.is_empty() && new_target != old_target_id {
+            upstream_commits = first_parent_commit_ids_until(gix_repo, new_target, old_target_id)
+                .context("failed to get target commits since stored base")?;
+        }
 
         let stacks_in_workspace = stacks(ctx, gix_repo)?;
 

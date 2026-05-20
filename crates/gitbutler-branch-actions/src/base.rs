@@ -373,12 +373,16 @@ pub(crate) fn target_to_base_branch(
     let target_sha_ahead_of_ref = !target_sha_not_ref.is_empty();
 
     // The longest first-parent list of upstream commit ids.
-    let upstream_commit_ids = ws
+    let mut upstream_commit_ids = ws
         .upstream_commits(repo, target_ref_name.as_ref(), FirstParent::Yes)?
         .into_iter()
         .map(|h| h.upstream_commits)
         .max_by_key(|us| us.len())
         .unwrap_or_default();
+    if upstream_commit_ids.is_empty() && target_ref_commit_id != target.sha {
+        upstream_commit_ids = first_parent_commit_ids_until(repo, target_ref_commit_id, target.sha)
+            .context("failed to get target commits since stored base")?;
+    }
 
     let upstream_commits = upstream_commit_ids
         .iter()
