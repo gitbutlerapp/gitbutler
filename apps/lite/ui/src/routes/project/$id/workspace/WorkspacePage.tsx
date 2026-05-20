@@ -460,7 +460,7 @@ export const Route: FC = () => {
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const project = projects.find((project) => project.id === projectId);
-	if (!project) return <p>Project not found.</p>;
+	if (!project) return <p className={styles.notFound}>Project not found.</p>;
 
 	return <WorkspacePage />;
 };

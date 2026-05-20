@@ -33,3 +33,10 @@
 	width: 1px;
 	background-color: var(--border-2);
 }
+
+.notFound {
+	display: grid;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+}
