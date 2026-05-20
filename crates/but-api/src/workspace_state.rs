@@ -38,6 +38,7 @@ impl WorkspaceState {
             but_workspace::ref_info::Options {
                 traversal: but_graph::init::Options::limited(),
                 expensive_commit_info: true,
+                ..Default::default()
             },
         )?
         .pruned_to_entrypoint();

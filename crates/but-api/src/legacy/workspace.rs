@@ -30,12 +30,21 @@ use crate::json::HexHash;
 pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.meta()?;
+    let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
+    let db = gerrit_mode_enabled
+        .then(|| ctx.db.get_cache())
+        .transpose()?;
+    let gerrit_mode = match db.as_ref() {
+        Some(db) => but_workspace::ref_info::GerritMode::Enabled(db.gerrit_metadata()),
+        None => but_workspace::ref_info::GerritMode::Disabled,
+    };
     but_workspace::head_info(
         &repo,
         &meta,
         but_workspace::ref_info::Options {
             traversal: but_graph::init::Options::limited(),
             expensive_commit_info: true,
+            gerrit_mode,
         },
     )
     .map(|info| info.pruned_to_entrypoint())

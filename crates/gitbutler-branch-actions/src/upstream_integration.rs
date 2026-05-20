@@ -232,6 +232,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
                 Options {
                     expensive_commit_info: true,
                     traversal: but_graph::init::Options::limited(),
+                    ..Default::default()
                 },
             )?;
         }

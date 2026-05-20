@@ -74,6 +74,7 @@ pub fn list_branches(
                 but_workspace::ref_info::Options {
                     traversal: but_graph::init::Options::limited(),
                     expensive_commit_info: false,
+                    ..Default::default()
                 },
             )?;
             info.stacks
