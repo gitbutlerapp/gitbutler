@@ -425,6 +425,9 @@ importers:
       '@reduxjs/toolkit':
         specifier: catalog:redux
         version: 2.11.2(react-redux@9.2.0(@types/react@19.2.14)(react@19.2.4)(redux@5.0.1))(react@19.2.4)
+      '@suspensive/react-query':
+        specifier: npm:@suspensive/react-query-5@^3.21.2
+        version: '@suspensive/react-query-5@3.21.2(@tanstack/react-query@5.90.21(react@19.2.4))(react@19.2.4)'
       '@tanstack/react-hotkeys':
         specifier: ^0.10.0
         version: 0.10.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -4189,6 +4192,12 @@ packages:
       storybook: ^10.3.3
       svelte: ^5.0.0
       vite: ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
+
+  '@suspensive/react-query-5@3.21.2':
+    resolution: {integrity: sha512-VjpVidHE+/QCVvWoPW034wrpLaaPKyX5GF14jcBLHtJIod7u7ijNakqL4vyHZePh1wLipQvH4sfc2GZvLi/Lyg==}
+    peerDependencies:
+      '@tanstack/react-query': '*'
+      react: ^18 || ^19
 
   '@sveltejs/acorn-typescript@1.0.8':
     resolution: {integrity: sha512-esgN+54+q0NjB0Y/4BomT9samII7jGwNy/2a3wNZbT2A2RpmXsXwUt24LvLhx6jUq2gVk4cWEvcRO6MFQbOfNA==}
@@ -13077,6 +13086,11 @@ snapshots:
       - esbuild
       - rollup
       - webpack
+
+  '@suspensive/react-query-5@3.21.2(@tanstack/react-query@5.90.21(react@19.2.4))(react@19.2.4)':
+    dependencies:
+      '@tanstack/react-query': 5.90.21(react@19.2.4)
+      react: 19.2.4
 
   '@sveltejs/acorn-typescript@1.0.8(acorn@8.16.0)':
     dependencies:
