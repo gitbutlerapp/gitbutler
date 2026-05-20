@@ -13,6 +13,12 @@ Typechecking is the fastest way to validate that everything is okay. Always run 
 $ nix develop -c pnpm -F @gitbutler/lite check
 ```
 
+If you don't have nix available, go for the plain:
+
+```console
+$ pnpm -F @gitbutler/lite check
+```
+
 ## Components
 
 Memoization utilities such as `useMemo`, `useCallback`, and `React.memo` are redundant as we use React Compiler.
@@ -35,4 +41,10 @@ Once the work is functionally complete, lint and format it with Oxlint, Prettier
 
 ```console
 $ nix develop -c bash -c "pnpm oxlint:fix && pnpm exec prettier --write apps/lite && pnpm knip:prod && pnpm knip:non-prod"
+```
+
+If you don't have nix available, go for the plain:
+
+```console
+$  pnpm oxlint:fix && pnpm exec prettier --write apps/lite && pnpm knip:prod && pnpm knip:non-prod
 ```
