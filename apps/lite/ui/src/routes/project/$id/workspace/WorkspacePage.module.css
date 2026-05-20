@@ -33,3 +33,30 @@
 	width: 1px;
 	background-color: var(--border-2);
 }
+
+.notFound {
+	display: grid;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+}
+
+.error {
+	max-width: 500px;
+	margin: auto;
+	padding: 24px;
+}
+
+.errorTitle {
+	margin-block-end: 16px;
+	font-size: 15px;
+}
+
+.errorActions {
+	margin-block: 16px;
+}
+
+.errorMessage {
+	font-size: 13px;
+	word-break: break-word;
+}

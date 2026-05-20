@@ -1,4 +1,5 @@
 import { FilesPanel } from "./FilesPanel.tsx";
+import uiStyles from "#ui/ui/ui.module.css";
 import {
 	headInfoQueryOptions,
 	listBranchesQueryOptions,
@@ -28,10 +29,15 @@ import {
 	useHotkeys,
 	useHotkeyRegistrations,
 } from "@tanstack/react-hotkeys";
-import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import {
+	QueryErrorResetBoundary,
+	useMutation,
+	useQuery,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match, Order } from "effect";
-import { FC } from "react";
+import { type FC, Component, ReactNode } from "react";
 import { Group, Separator, useDefaultLayout } from "react-resizable-panels";
 import { branchOperand, type BranchOperand } from "#ui/operands.ts";
 import { PickerDialog, type PickerDialogGroup } from "#ui/ui/PickerDialog/PickerDialog.tsx";
@@ -455,12 +461,62 @@ const WorkspacePage: FC = () => {
 	);
 };
 
+class WorkspacePageErrorBoundary extends Component<
+	{
+		onReset: () => void;
+		children: ReactNode;
+	},
+	{
+		error: Error | null;
+	}
+> {
+	state = { error: null as Error | null };
+
+	static getDerivedStateFromError(error: unknown) {
+		return {
+			error:
+				error instanceof Error
+					? error
+					: new Error(typeof error === "string" ? error : JSON.stringify(error)),
+		};
+	}
+
+	handleRetry(): void {
+		this.props.onReset();
+		this.setState({ error: null });
+	}
+
+	render(): ReactNode {
+		if (!this.state.error) return this.props.children;
+
+		return (
+			<div className={styles.error}>
+				<h1 className={styles.errorTitle}>Something went wrong.</h1>
+				<div className={styles.errorActions}>
+					<button type="button" className={uiStyles.button} onClick={() => this.handleRetry()}>
+						Retry
+					</button>
+				</div>
+				<code className={styles.errorMessage}>{this.state.error.message}</code>
+			</div>
+		);
+	}
+}
+
 export const Route: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const project = projects.find((project) => project.id === projectId);
-	if (!project) return <p>Project not found.</p>;
+	if (!project) return <p className={styles.notFound}>Project not found.</p>;
 
-	return <WorkspacePage />;
+	return (
+		<QueryErrorResetBoundary>
+			{({ reset }) => (
+				<WorkspacePageErrorBoundary onReset={reset}>
+					<WorkspacePage />
+				</WorkspacePageErrorBoundary>
+			)}
+		</QueryErrorResetBoundary>
+	);
 };
