@@ -9,16 +9,21 @@ description = "Capture coding-agent session logs into Git metadata"
 
 [dependencies]
 anyhow.workspace = true
+bstr.workspace = true
+but-core.workspace = true
+but-meta = { workspace = true, features = ["legacy"] }
+but-workspace.workspace = true
 chrono = { workspace = true, features = ["clock"] }
 clap.workspace = true
 gix.workspace = true
-git-meta-lib = { git = "https://github.com/git-meta/git-meta.git", rev = "5d7ba3d77700938db819b645c746ab193df73e3a" }
+git-meta-lib = { git = "https://github.com/git-meta/git-meta.git", rev = "e5244374ec2bb413d5f8af28b7983ef29957a0d2" }
 hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 
 [dev-dependencies]
+but-testsupport.workspace = true
 tempfile.workspace = true
 
 [lints]
