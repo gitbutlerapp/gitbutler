@@ -14,12 +14,18 @@ export const Route = createRoute({
 		if (matches.at(-1)?.routeId === routeId) throw notFound();
 	},
 	loader: async ({ params, context }) => {
-		const subscriptionId = await window.lite.watcherSubscribe(params.id, (event) =>
-			handleWatcher(event, params.id, context.queryClient),
-		);
-		return { subscriptionId };
+		// Allow the route to render and handle failure via its queries.
+		try {
+			const subscriptionId = await window.lite.watcherSubscribe(params.id, (event) =>
+				handleWatcher(event, params.id, context.queryClient),
+			);
+			return { subscriptionId };
+		} catch {
+			return { subscriptionId: undefined };
+		}
 	},
 	onLeave: ({ loaderData }) => {
-		if (loaderData) void window.lite.watcherUnsubscribe(loaderData.subscriptionId);
+		if (loaderData?.subscriptionId !== undefined)
+			void window.lite.watcherUnsubscribe(loaderData.subscriptionId);
 	},
 });
