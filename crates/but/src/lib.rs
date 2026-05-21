@@ -44,6 +44,9 @@ use crate::{
     utils::{OutputChannel, ResultErrorExt, ResultMetricsExt, envs},
 };
 
+mod error;
+pub(crate) use error::{BadInput, CliError, CliResult};
+
 mod id;
 pub use id::{CliId, IdMap};
 
@@ -183,7 +186,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
 
-    match args.cmd.take() {
+    let result = match args.cmd.take() {
         None if args.path.is_some() => {
             // If one argument is provided without a subcommand, check if this is a valid path.
             let maybe_path = args
@@ -238,6 +241,16 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             }
         }
         Some(cmd) => match_subcommand(cmd, args, app_settings, out).await,
+    };
+
+    match result {
+        Err(CliError::BadInput(bad_input)) => {
+            use std::io::Write;
+            writeln!(std::io::stderr(), "{bad_input}")?;
+            std::process::exit(1);
+        }
+        Err(CliError::Internal(err)) => Err(err),
+        Ok(()) => Ok(()),
     }
 }
 
@@ -246,7 +259,7 @@ async fn match_subcommand(
     args: Args,
     app_settings: AppSettings,
     mut output: OutputChannel,
-) -> Result<()> {
+) -> CliResult<()> {
     let out = &mut output;
 
     #[cfg(feature = "agentlog")]
@@ -271,12 +284,16 @@ async fn match_subcommand(
             utils::metrics::capture_event_blocking(&app_settings, event).await;
             Ok(())
         }
-        Subcommands::Gui => command::gui::open(&args.current_dir).emit_metrics(metrics_ctx),
-        Subcommands::Completions { shell } => {
-            command::completions::generate_completions(shell).emit_metrics(metrics_ctx)
-        }
+        Subcommands::Gui => command::gui::open(&args.current_dir)
+            .emit_metrics(metrics_ctx)
+            .map_err(CliError::from),
+        Subcommands::Completions { shell } => command::completions::generate_completions(shell)
+            .emit_metrics(metrics_ctx)
+            .map_err(CliError::from),
         Subcommands::Update(update_args::Platform { cmd }) => {
-            command::update::handle(cmd, out, &app_settings).emit_metrics(metrics_ctx)
+            command::update::handle(cmd, out, &app_settings)
+                .emit_metrics(metrics_ctx)
+                .map_err(CliError::from)
         }
         #[cfg(all(feature = "legacy", feature = "remote"))]
         Subcommands::Remote {
@@ -286,25 +303,24 @@ async fn match_subcommand(
             named_tunnel,
             origin,
             dangerously_allow_anyone,
-        } => {
-            but_server::run(but_server::Config {
-                port: Some(port),
-                bind_addr,
-                tunnel: !local && named_tunnel.is_none(),
-                named_tunnel,
-                origin,
-                base_path: Some("/api".into()),
-                allow_anyone: dangerously_allow_anyone,
-                project_path: Some(args.current_dir.clone()),
-                verbose: args.trace > 0,
-            })
-            .await
-        }
+        } => but_server::run(but_server::Config {
+            port: Some(port),
+            bind_addr,
+            tunnel: !local && named_tunnel.is_none(),
+            named_tunnel,
+            origin,
+            base_path: Some("/api".into()),
+            allow_anyone: dangerously_allow_anyone,
+            project_path: Some(args.current_dir.clone()),
+            verbose: args.trace > 0,
+        })
+        .await
+        .map_err(CliError::from),
         Subcommands::Help => {
             command::help::print_grouped(out)?;
             Ok(())
         }
-        Subcommands::Onboarding => command::onboarding::handle(out),
+        Subcommands::Onboarding => command::onboarding::handle(out).map_err(CliError::from),
         Subcommands::EvalHook => {
             command::eval_hook::execute();
             Ok(())
@@ -313,17 +329,21 @@ async fn match_subcommand(
             let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
             match cmd {
                 Some(alias_args::Subcommands::List) | None => {
-                    command::alias::list(&*ctx.repo.get()?, out).emit_metrics(metrics_ctx)
+                    command::alias::list(&*ctx.repo.get()?, out)
+                        .emit_metrics(metrics_ctx)
+                        .map_err(CliError::from)
                 }
                 Some(alias_args::Subcommands::Add {
                     name,
                     value,
                     global,
                 }) => command::alias::add(&mut ctx, out, &name, &value, global.into())
-                    .emit_metrics(metrics_ctx),
+                    .emit_metrics(metrics_ctx)
+                    .map_err(CliError::from),
                 Some(alias_args::Subcommands::Remove { name, global }) => {
                     command::alias::remove(&mut ctx, out, &name, global.into())
                         .emit_metrics(metrics_ctx)
+                        .map_err(CliError::from)
                 }
             }
         }
@@ -334,18 +354,21 @@ async fn match_subcommand(
                     command::config::metrics_config(out, *status)
                         .await
                         .emit_metrics(metrics_ctx)
+                        .map_err(CliError::from)
                 }
                 Some(args::config::Subcommands::Forge { cmd: forge_cmd }) => {
                     command::config::forge_config(out, forge_cmd.clone())
                         .await
                         .emit_metrics(metrics_ctx)
+                        .map_err(CliError::from)
                 }
                 Some(args::config::Subcommands::Ai {
                     cmd: ai_cmd,
                     local,
                     global,
                 }) if !local => command::config::ai_config(out, ai_cmd.clone(), *local, *global)
-                    .emit_metrics(metrics_ctx),
+                    .emit_metrics(metrics_ctx)
+                    .map_err(CliError::from),
                 _ => {
                     // Other subcommands need a repo context
                     cfg_if! {
@@ -353,12 +376,12 @@ async fn match_subcommand(
                             let mut ctx = setup::init_ctx(&args, InitCtxOptions { background_sync: BackgroundSync::Disabled, ..Default::default() }, out)?;
                             command::config::exec(&mut ctx, out, cmd)
                                 .await
-                                .emit_metrics(metrics_ctx)
+                                .emit_metrics(metrics_ctx).map_err(CliError::from)
                         } else {
                             let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
                             command::config::exec(&mut ctx, out, cmd)
                                 .await
-                                .emit_metrics(metrics_ctx)
+                                .emit_metrics(metrics_ctx).map_err(CliError::from)
                         }
                     }
                 }
@@ -372,7 +395,7 @@ async fn match_subcommand(
             let mut ctx = match ctx {
                 Ok(ctx) => Some(ctx),
                 Err(err) if is_not_in_git_repository_error(&err) => None,
-                Err(err) => return Err(err),
+                Err(err) => return Err(CliError::Internal(err)),
             };
             let result = command::skill::handle(ctx.as_mut(), out, cmd);
 
@@ -383,7 +406,7 @@ async fn match_subcommand(
                 return Ok(());
             }
 
-            result.emit_metrics(metrics_ctx)
+            result.emit_metrics(metrics_ctx).map_err(CliError::from)
         }
         Subcommands::Branch(branch::Platform { cmd }) => {
             let result = match cmd {
@@ -400,6 +423,7 @@ async fn match_subcommand(
                         out,
                     )?;
                     command::legacy::branch::handle_no_subcommand(&mut ctx, out)
+                        .map_err(CliError::from)
                 }
                 #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::List {
@@ -424,6 +448,7 @@ async fn match_subcommand(
                         &mut ctx, out, filter, local, remote, all, no_ahead, review, no_check,
                         empty,
                     )
+                    .map_err(CliError::from)
                 }
                 #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::Show {
@@ -444,6 +469,7 @@ async fn match_subcommand(
                     command::legacy::branch::show_branches(
                         &mut ctx, out, branch_id, review, files, ai, check,
                     )
+                    .map_err(CliError::from)
                 }
                 #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::New {
@@ -459,6 +485,7 @@ async fn match_subcommand(
                         out,
                     )?;
                     command::legacy::branch::new(&mut ctx, out, branch_name, anchor)
+                        .map_err(CliError::from)
                 }
                 #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::Delete { branch_name, force }) => {
@@ -475,16 +502,19 @@ async fn match_subcommand(
                 #[cfg(not(feature = "legacy"))]
                 Some(branch::Subcommands::Apply { branch_name }) => {
                     let ctx = but_ctx::Context::discover(&args.current_dir)?;
-                    command::branch::apply(ctx, &branch_name, out)
+                    command::branch::apply(ctx, &branch_name, out).map_err(CliError::from)
                 }
-                Some(branch::Subcommands::Move { .. }) => {
-                    anyhow::bail!("`but branch move` has been removed. Use `but move` instead.")
-                }
+                Some(branch::Subcommands::Move { .. }) => Err(BadInput::new(
+                    "`but branch move` has been removed. Use `but move` instead.",
+                )
+                .into()),
             };
             result.emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Mcp => command::legacy::mcp::start(app_settings).await,
+        Subcommands::Mcp => command::legacy::mcp::start(app_settings)
+            .await
+            .map_err(CliError::from),
         #[cfg(feature = "legacy")]
         Subcommands::Actions(actions::Platform { cmd }) => match cmd {
             Some(actions::Subcommands::HandleChanges {
@@ -493,10 +523,11 @@ async fn match_subcommand(
             }) => {
                 let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
                 command::legacy::actions::handle_changes(&mut ctx, out, handler, &description)
+                    .map_err(CliError::from)
             }
             None => {
                 let ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-                command::legacy::actions::list_actions(&ctx, out, 0, 10)
+                command::legacy::actions::list_actions(&ctx, out, 0, 10).map_err(CliError::from)
             }
         },
         #[cfg(feature = "legacy")]
@@ -505,6 +536,7 @@ async fn match_subcommand(
             command::legacy::pull::handle(&ctx, out, check)
                 .await
                 .emit_metrics(metrics_ctx)
+                .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Fetch => {
@@ -521,6 +553,7 @@ async fn match_subcommand(
             command::legacy::pull::handle(&ctx, out, true)
                 .await
                 .emit_metrics(metrics_ctx)
+                .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Clean {
@@ -557,7 +590,7 @@ async fn match_subcommand(
             )
             .emit_metrics(metrics_ctx);
             maybe_run_status_after(status_after, &result, &mut ctx, out).await;
-            result
+            result.map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Worktree(worktree::Platform { cmd }) => {
@@ -605,6 +638,7 @@ async fn match_subcommand(
             )
             .await
             .emit_metrics(metrics_ctx)
+            .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Tui {
@@ -657,6 +691,7 @@ async fn match_subcommand(
             )
             .await
             .emit_metrics(metrics_ctx)
+            .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Rub { source, target } => {
@@ -793,40 +828,47 @@ async fn match_subcommand(
 
                     // Validate that no regular commit options are specified with the empty subcommand
                     if commit_args.message.is_some() {
-                        anyhow::bail!(
+                        return BadInput::new(
                             "--message cannot be used with 'commit empty'. Empty commits have no message by default."
-                        );
+                        ).into_cli_result();
                     }
                     if commit_args.message_file.is_some() {
-                        anyhow::bail!(
+                        return BadInput::new(
                             "--message-file cannot be used with 'commit empty'. Empty commits have no message by default."
-                        );
+                        ).into_cli_result();
                     }
                     if commit_args.branch.is_some() {
-                        anyhow::bail!(
+                        return BadInput::new(
                             "branch argument cannot be used with 'commit empty'. Use the target positional argument or --before/--after flags."
-                        );
+                        ).into_cli_result();
                     }
                     if commit_args.create {
-                        anyhow::bail!("--create cannot be used with 'commit empty'.");
+                        return BadInput::new("--create cannot be used with 'commit empty'.")
+                            .into_cli_result();
                     }
                     if commit_args.only {
-                        anyhow::bail!("--only cannot be used with 'commit empty'.");
+                        return BadInput::new("--only cannot be used with 'commit empty'.")
+                            .into_cli_result();
                     }
                     if commit_args.all {
-                        anyhow::bail!("--all cannot be used with 'commit empty'.");
+                        return BadInput::new("--all cannot be used with 'commit empty'.")
+                            .into_cli_result();
                     }
                     if commit_args.no_hooks {
-                        anyhow::bail!("--no-hooks cannot be used with 'commit empty'.");
+                        return BadInput::new("--no-hooks cannot be used with 'commit empty'.")
+                            .into_cli_result();
                     }
                     if commit_args.ai.is_some() {
-                        anyhow::bail!("--ai cannot be used with 'commit empty'.");
+                        return BadInput::new("--ai cannot be used with 'commit empty'.")
+                            .into_cli_result();
                     }
                     if commit_args.diff {
-                        anyhow::bail!("--diff cannot be used with 'commit empty'.");
+                        return BadInput::new("--diff cannot be used with 'commit empty'.")
+                            .into_cli_result();
                     }
                     if commit_args.no_diff {
-                        anyhow::bail!("--no-diff cannot be used with 'commit empty'.");
+                        return BadInput::new("--no-diff cannot be used with 'commit empty'.")
+                            .into_cli_result();
                     }
                     // Note: --paths with commit empty is rejected by clap at parse time
                     // because --paths is not a flag on the empty subcommand
@@ -906,9 +948,9 @@ async fn match_subcommand(
                         && commit_args.message_file.is_none()
                         && commit_args.ai.is_none()
                     {
-                        anyhow::bail!(
+                        return BadInput::new(
                             "In JSON mode, either --message (-m), --message-file, or --ai (-i) must be specified"
-                        );
+                        ).into_cli_result();
                     }
 
                     // Read message from file if provided, otherwise use message option
@@ -940,7 +982,7 @@ async fn match_subcommand(
             };
 
             maybe_run_status_after(status_after, &result, &mut ctx, out).await;
-            result
+            result.map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Push(push_args) => {
@@ -948,6 +990,7 @@ async fn match_subcommand(
             command::legacy::push::handle(push_args, &mut ctx, out)
                 .await
                 .emit_metrics(metrics_ctx)
+                .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Reword {
@@ -976,6 +1019,7 @@ async fn match_subcommand(
                 ShowDiffInEditor::from_args(diff, no_diff).unwrap_or(ShowDiffInEditor::Unspecified),
             )
             .emit_metrics(metrics_ctx)
+            .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Oplog(args::oplog::Platform { cmd }) => {
@@ -989,31 +1033,39 @@ async fn match_subcommand(
                     };
                     command::legacy::oplog::show_oplog(&mut ctx, out, since.as_deref(), filter)
                         .emit_metrics(metrics_ctx)
+                        .map_err(CliError::from)
                 }
                 Some(args::oplog::Subcommands::Snapshot { message }) => {
                     command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref())
                         .emit_metrics(metrics_ctx)
+                        .map_err(CliError::from)
                 }
                 Some(args::oplog::Subcommands::Restore { oplog_sha, force }) => {
                     command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha, force)
                         .emit_metrics(metrics_ctx)
+                        .map_err(CliError::from)
                 }
                 None => {
                     // Default to list when no subcommand is provided
                     command::legacy::oplog::show_oplog(&mut ctx, out, None, None)
                         .emit_metrics(metrics_ctx)
+                        .map_err(CliError::from)
                 }
             }
         }
         #[cfg(feature = "legacy")]
         Subcommands::Undo => {
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::oplog::handle_undo(&mut ctx, out).emit_metrics(metrics_ctx)
+            command::legacy::oplog::handle_undo(&mut ctx, out)
+                .emit_metrics(metrics_ctx)
+                .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Redo => {
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::oplog::handle_redo(&mut ctx, out).emit_metrics(metrics_ctx)
+            command::legacy::oplog::handle_redo(&mut ctx, out)
+                .emit_metrics(metrics_ctx)
+                .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Absorb { source, dry_run } => {
@@ -1030,7 +1082,7 @@ async fn match_subcommand(
             let result = command::legacy::absorb::handle(&mut ctx, out, source.as_deref(), dry_run)
                 .emit_metrics(metrics_ctx);
             maybe_run_status_after(status_after, &result, &mut ctx, out).await;
-            result
+            result.map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Discard { id } => {
@@ -1042,7 +1094,9 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            command::legacy::discard::handle(&mut ctx, out, &id).emit_metrics(metrics_ctx)
+            command::legacy::discard::handle(&mut ctx, out, &id)
+                .emit_metrics(metrics_ctx)
+                .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Setup { init } => {
@@ -1064,6 +1118,7 @@ async fn match_subcommand(
             command::legacy::setup::repo(&mut ctx, &args.current_dir, out, guard.write_permission())
                 .context("Failed to set up GitButler project.")
                 .emit_metrics(metrics_ctx)
+                .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Teardown { checkout_to } => {
@@ -1076,7 +1131,7 @@ async fn match_subcommand(
                 out,
             )?;
             command::legacy::teardown::teardown(&mut ctx, checkout_to, out)
-                .context("Failed to teardown GitButler project.")
+                .map_err(|err| err.context("Failed to teardown GitButler project."))
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
@@ -1124,14 +1179,15 @@ async fn match_subcommand(
                     // Check for non-interactive environment
                     if !out.can_prompt() {
                         if branch.is_none() {
-                            anyhow::bail!(
-                                "Non-interactive environment detected. Please specify a branch."
-                            );
+                            return BadInput::new(
+                                "Non-interactive environment detected. Please specify a branch.",
+                            )
+                            .into_cli_result();
                         }
                         if review_message.is_none() && !default {
-                            anyhow::bail!(
+                            return BadInput::new(
                                 "Non-interactive environment detected. Provide one of: --message (-m), --file (-F), or --default (-t)."
-                            );
+                            ).into_cli_result();
                         }
                     }
                     command::legacy::forge::review::create_review(
@@ -1148,6 +1204,7 @@ async fn match_subcommand(
                     .await
                     .context("Failed to create forge review for branch.")
                     .emit_metrics(metrics_ctx)
+                    .map_err(CliError::from)
                 }
                 Some(forge::pr::Subcommands::Template { template_path }) => {
                     command::legacy::forge::review::set_review_template(
@@ -1157,24 +1214,28 @@ async fn match_subcommand(
                     )
                     .context("Failed to set forge review template.")
                     .emit_metrics(metrics_ctx)
+                    .map_err(CliError::from)
                 }
                 Some(forge::pr::Subcommands::AutoMerge { selector, off }) => {
                     command::legacy::forge::review::enable_auto_merge(&mut ctx, selector, off, out)
                         .await
                         .context("Failed to set the auto-merge state.")
                         .emit_metrics(metrics_ctx)
+                        .map_err(CliError::from)
                 }
                 Some(forge::pr::Subcommands::SetDraft { selector }) => {
                     command::legacy::forge::review::set_draftiness(&mut ctx, selector, true, out)
                         .await
                         .context("Failed to set reviews as draft.")
                         .emit_metrics(metrics_ctx)
+                        .map_err(CliError::from)
                 }
                 Some(forge::pr::Subcommands::SetReady { selector }) => {
                     command::legacy::forge::review::set_draftiness(&mut ctx, selector, false, out)
                         .await
                         .context("Failed to set reviews as ready-for-review.")
                         .emit_metrics(metrics_ctx)
+                        .map_err(CliError::from)
                 }
                 None => {
                     // Default to `pr new` when no subcommand is provided
@@ -1192,6 +1253,7 @@ async fn match_subcommand(
                     .await
                     .context("Failed to create forge review for branch.")
                     .emit_metrics(metrics_ctx)
+                    .map_err(CliError::from)
                 }
             }
         }
@@ -1205,6 +1267,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             command::legacy::refresh::handle(&mut ctx, out, fetch, prs, ci, updates, &app_settings)
                 .emit_metrics(metrics_ctx)
+                .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Resolve { cmd, commit } => {
@@ -1285,9 +1348,9 @@ async fn match_subcommand(
                 // Interactive mode: but stage [--branch <branch>]
                 use std::io::IsTerminal;
                 if !std::io::stdout().is_terminal() {
-                    anyhow::bail!(
+                    return BadInput::new(
                         "Interactive stage requires a terminal. Use: but stage <file_or_hunk> <branch>"
-                    );
+                    ).into_cli_result();
                 }
                 command::legacy::rub::handle_stage_tui(&mut ctx, out, branch.as_deref())
                     .context("Failed to stage.")

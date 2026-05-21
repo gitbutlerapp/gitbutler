@@ -3,7 +3,7 @@ use but_api::json::HexHash;
 use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 
 use crate::{
-    CliId, IdMap,
+    BadInput, CliError, CliId, CliResult, IdMap,
     theme::{self, Paint},
     utils::{Confirm, ConfirmDefault, OutputChannel, shorten_object_id},
 };
@@ -17,7 +17,7 @@ pub fn delete(
     out: &mut OutputChannel,
     branch_name: String,
     force: bool,
-) -> Result<(), anyhow::Error> {
+) -> CliResult<()> {
     let mut guard = ctx.exclusive_worktree_access();
     let stacks = but_api::legacy::workspace::stacks(
         ctx,
@@ -39,14 +39,12 @@ pub fn delete(
                 force,
                 out,
                 guard.write_permission(),
-            );
+            )
+            .map_err(CliError::from);
         }
     }
 
-    if let Some(out) = out.for_human() {
-        writeln!(out, "Branch '{branch_name}' not found in any stack")?;
-    }
-    Ok(())
+    BadInput::new(format!("Branch '{branch_name}' not found in any stack")).into_cli_result()
 }
 
 pub fn new(

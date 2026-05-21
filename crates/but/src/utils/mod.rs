@@ -44,8 +44,8 @@ impl ResultErrorExt for anyhow::Result<()> {
 }
 
 /// Utilities attached to `anyhow::Result<T>`.
-pub trait ResultMetricsExt {
-    fn emit_metrics(self, ctx: Option<OneshotMetricsContext>) -> anyhow::Result<()>;
+pub trait ResultMetricsExt<T, E> {
+    fn emit_metrics(self, ctx: Option<OneshotMetricsContext>) -> Result<T, E>;
 }
 
 fn json_pretty_to_stdout(value: &impl serde::Serialize) -> std::io::Result<()> {
