@@ -812,6 +812,7 @@ dependencies = [
  "but-cherry-apply",
  "but-core",
  "but-ctx",
+ "but-db",
  "but-forge",
  "but-forge-storage",
  "but-gerrit",

@@ -12,16 +12,17 @@ use std::{
 use anyhow::Context as _;
 use bstr::{BString, ByteSlice};
 use but_api::{diff::ComputeLineStats, legacy::oplog::RestoreKind};
-use but_core::tree::create_tree::RejectionReason;
 use but_core::{DryRun, ref_metadata::StackId};
+use but_core::{diff::CommitDetails, tree::create_tree::RejectionReason};
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::InsertSide;
 use but_settings::AppSettingsWithDiskSync;
+use but_transaction::DynamicOutcome;
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
-use gix::refs::FullName;
+use gix::{prelude::ObjectIdExt as _, refs::FullName};
 use nonempty::NonEmpty;
 use ratatui::prelude::*;
 use ratatui_textarea::{CursorMove, TextArea};
@@ -30,6 +31,7 @@ use tracing::Level;
 use crate::{
     CliId, IdMap,
     command::legacy::{
+        self, ShowDiffInEditor,
         reword::get_branch_name_from_editor,
         status::{
             StatusFlags, StatusOutputLine, TuiLaunchOptions,
@@ -689,7 +691,9 @@ impl App {
             Message::Commit(commit_message) => match commit_message {
                 CommitMessage::CreateEmpty => self.handle_commit_create_empty(ctx, messages)?,
                 CommitMessage::Start => self.handle_commit_start(ctx)?,
-                CommitMessage::Confirm => self.handle_commit_confirm(ctx, messages)?,
+                CommitMessage::Confirm => {
+                    self.handle_commit_confirm(ctx, terminal_guard, messages)?
+                }
                 CommitMessage::ToggleMessageComposer(composer) => {
                     self.handle_commit_toggle_message_composer(composer);
                 }
@@ -1747,11 +1751,16 @@ impl App {
         Ok(())
     }
 
-    fn handle_commit_confirm(
+    fn handle_commit_confirm<T>(
         &mut self,
         ctx: &mut Context,
+        terminal_guard: &mut T,
         messages: &mut Vec<Message>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<()>
+    where
+        T: TerminalGuard,
+        anyhow::Error: From<<T::Backend as Backend>::Error>,
+    {
         let Mode::Commit(CommitMode {
             source,
             scope_to_stack,
@@ -1795,21 +1804,123 @@ impl App {
             }
         };
 
-        let Some(commit_create_result) = operations::create_commit_legacy(
-            ctx,
-            target,
-            source,
-            *scope_to_stack,
-            InsertSide::Below,
-        )?
+        let Some((insert_commit_relative_to, insert_side)) =
+            operations::where_to_place_commit(ctx, target, InsertSide::Below)?
         else {
             return Ok(());
         };
 
-        let rejected_specs_error_msg = if !commit_create_result.rejected_specs.is_empty() {
-            let mut full_error_msg = "Some selected changes could not be committed:\n".to_owned();
-            let mut errors_per_diff_spec = commit_create_result
-                .rejected_specs
+        let changes_to_commit = {
+            let context_lines = ctx.settings.context_lines;
+            let guard = ctx.shared_worktree_access();
+            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
+            operations::prepare_changes_to_commit(
+                &mut db,
+                &repo,
+                &ws,
+                context_lines,
+                source,
+                *scope_to_stack,
+            )?
+        };
+        let Some(changes_to_commit) = changes_to_commit else {
+            return Ok(());
+        };
+
+        let mut meta = ctx.meta()?;
+        let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
+        let commit_create_result = but_transaction::with_transaction(
+            ctx,
+            &mut meta,
+            snapshot_details,
+            DryRun::No,
+            |mut tx| {
+                let commit_create_result = tx.create_commit(
+                    insert_commit_relative_to,
+                    insert_side,
+                    changes_to_commit,
+                    String::new(),
+                )?;
+
+                if commit_create_result.rejected_specs.is_empty() {
+                    if let Some(new_commit) = commit_create_result.new_commit {
+                        match message_composer {
+                            CommitMessageComposer::Editor => {
+                                let repo = tx.repo();
+                                let commit_details = CommitDetails::from_commit_id(
+                                    new_commit.attach(repo),
+                                    ComputeLineStats::No.into(),
+                                )?;
+                                let current_message =
+                                    commit_details.commit.inner.message.to_string();
+
+                                let _suspend_guard = terminal_guard.suspend()?;
+
+                                let message = legacy::reword::get_commit_message_from_editor(
+                                    tx.repo(),
+                                    tx.context_lines(),
+                                    commit_details,
+                                    String::new(),
+                                    &current_message,
+                                    ShowDiffInEditor::Unspecified,
+                                )?
+                                .unwrap_or_default();
+
+                                let reworded_commit =
+                                    tx.reword_commit(new_commit, BString::from(message).as_ref())?;
+
+                                Ok(DynamicOutcome::Commit((Some(reworded_commit), None)))
+                            }
+                            CommitMessageComposer::Inline => {
+                                Ok(DynamicOutcome::Commit((
+                                    commit_create_result.new_commit,
+                                    // TODO(david): rewording separately isn't great because it
+                                    // results in two oplog entries. One for creating the commit
+                                    // and one for rewording it.
+                                    //
+                                    // Fixing that is a little tricky because we'd have to show a
+                                    // "temp" commit in the status while composing the message and
+                                    // then only commit when the user confirms.
+                                    Some(Message::Reword(RewordMessage::InlineStart)),
+                                )))
+                            }
+                            CommitMessageComposer::Empty => Ok(DynamicOutcome::Commit((
+                                commit_create_result.new_commit,
+                                None,
+                            ))),
+                        }
+                    } else {
+                        Ok(DynamicOutcome::Commit((
+                            commit_create_result.new_commit,
+                            None,
+                        )))
+                    }
+                } else {
+                    Ok(DynamicOutcome::Rollback(
+                        commit_create_result.rejected_specs,
+                    ))
+                }
+            },
+        )?;
+
+        match commit_create_result {
+            DynamicOutcome::Commit(((new_commit, reword_msg), _workspace)) => {
+                messages.extend(
+                    [
+                        Message::EnterNormalModeAfterConfirmingOperation,
+                        Message::Reload(
+                            new_commit.map(SelectAfterReload::Commit),
+                            ReloadCause::Mutation,
+                        ),
+                    ]
+                    .into_iter()
+                    .chain(reword_msg),
+                );
+            }
+            DynamicOutcome::Rollback(rejected_specs) => {
+                let mut full_error_msg =
+                    "Some selected changes could not be committed:\n".to_owned();
+                let mut errors_per_diff_spec = rejected_specs
                 .iter()
                 .map(|(rejection_reason, diff_spec)| {
                     let human_reason = match rejection_reason {
@@ -1837,49 +1948,19 @@ impl App {
                     out
                 })
                 .peekable();
-            while let Some(line) = errors_per_diff_spec.next() {
-                full_error_msg.push_str(&line);
-                if errors_per_diff_spec.peek().is_some() {
-                    full_error_msg.push('\n');
+                while let Some(line) = errors_per_diff_spec.next() {
+                    full_error_msg.push_str(&line);
+                    if errors_per_diff_spec.peek().is_some() {
+                        full_error_msg.push('\n');
+                    }
                 }
-            }
-            Some(full_error_msg)
-        } else {
-            None
-        };
 
-        messages.extend(
-            [
-                Message::EnterNormalModeAfterConfirmingOperation,
-                Message::Reload(
-                    commit_create_result
-                        .new_commit
-                        .map(SelectAfterReload::Commit),
-                    ReloadCause::Mutation,
-                ),
-            ]
-            .into_iter()
-            // TODO(david): don't use a separate reword step, instead get message before creating
-            // commit. However that requires computing the diff which I haven't yet figured out how
-            // to do
-            .chain(if commit_create_result.new_commit.is_some() {
-                match message_composer {
-                    CommitMessageComposer::Editor => {
-                        Some(Message::Reword(RewordMessage::WithEditor))
-                    }
-                    CommitMessageComposer::Inline => {
-                        Some(Message::Reword(RewordMessage::InlineStart))
-                    }
-                    CommitMessageComposer::Empty => None,
-                }
-            } else {
-                None
-            })
-            .chain(rejected_specs_error_msg.map(|text| Message::ShowToast {
-                kind: ToastKind::Error,
-                text,
-            })),
-        );
+                messages.push(Message::ShowToast {
+                    kind: ToastKind::Error,
+                    text: full_error_msg,
+                });
+            }
+        }
 
         Ok(())
     }

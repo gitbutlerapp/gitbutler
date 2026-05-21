@@ -752,7 +752,7 @@ fn get_commit_message_from_editor(
             .cloned()
             .map(but_core::TreeChange::from)
             .collect();
-        estimate_diff_blob_size(&core_changes, ctx)
+        estimate_diff_blob_size(&core_changes, &*ctx.repo.get()?)
     })?;
 
     let diff_text = if should_show_diff {
