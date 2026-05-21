@@ -1652,6 +1652,7 @@ dependencies = [
  "but-api",
  "but-core",
  "but-ctx",
+ "but-db",
  "but-oplog",
  "but-rebase",
  "but-testsupport",
