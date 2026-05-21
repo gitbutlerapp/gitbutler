@@ -345,7 +345,7 @@ fn can_undo_but_squash_with_three_commits() {
         .stdout_eq(snapbox::str![[r#"
 Operations History
 ──────────────────────────────────────────────────
-177ce51 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (a7a1cd4)
+f6b7464 2000-01-02 00:00:00 [UNDO] Restored from snapshot: Squashed commit (a7a1cd4)
 a7a1cd4 2000-01-02 00:00:00 [SQUASH] Squashed commit
 c763bf9 2000-01-02 00:00:00 [REWORD] Updated commit message
 3d40c95 2000-01-02 00:00:00 [INSERT_COMMIT] Inserted blank commit
