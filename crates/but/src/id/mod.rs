@@ -308,7 +308,8 @@ impl SegmentWithId {
     /// Returns the linked worktree ID.
     pub fn linked_worktree_id(&self) -> Option<&BStr> {
         if let Some(ref_info) = &self.inner.ref_info
-            && let Some(but_graph::Worktree::LinkedId(id)) = &ref_info.worktree
+            && let Some(worktree) = &ref_info.worktree
+            && let but_graph::WorktreeKind::LinkedId(id) = &worktree.kind
         {
             Some(id.as_bstr())
         } else {

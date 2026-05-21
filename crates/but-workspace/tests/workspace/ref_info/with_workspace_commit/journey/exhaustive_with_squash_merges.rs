@@ -31,7 +31,10 @@ fn j01_unborn() -> anyhow::Result<()> {
                     ),
                     commit_id: None,
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -89,7 +92,10 @@ fn j02_first_commit() -> anyhow::Result<()> {
                         Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -153,7 +159,10 @@ fn j03_main_pushed() -> anyhow::Result<()> {
                         Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -212,7 +221,10 @@ fn j03_main_pushed() -> anyhow::Result<()> {
                         Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -284,7 +296,10 @@ fn j04_create_workspace() -> anyhow::Result<()> {
                         Sha1(a26ae77fda20033f23c2b7790481e0b81d8cd9b9),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -345,7 +360,10 @@ fn j05_empty_stack() -> anyhow::Result<()> {
                         Sha1(a26ae77fda20033f23c2b7790481e0b81d8cd9b9),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -427,7 +445,10 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                         Sha1(9a8283b423afb4f9c3feb18471ff2c543018c522),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -497,7 +518,10 @@ fn j06_create_commit_in_stack() -> anyhow::Result<()> {
                         Sha1(9a8283b423afb4f9c3feb18471ff2c543018c522),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -581,7 +605,10 @@ fn j07_push_commit() -> anyhow::Result<()> {
                         Sha1(9a8283b423afb4f9c3feb18471ff2c543018c522),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -670,7 +697,10 @@ fn j08_next_local_commit() -> anyhow::Result<()> {
                         Sha1(9e1f2642e9591266fb00001789164f7960e508f5),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -758,7 +788,10 @@ fn j09_rewritten_remote_and_local_commit() -> anyhow::Result<()> {
                         Sha1(4d230909d7fba6bf00af30c9db74695a315fc93f),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -853,7 +886,10 @@ fn j10_squash_merge_stack() -> anyhow::Result<()> {
                         Sha1(4d230909d7fba6bf00af30c9db74695a315fc93f),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -958,7 +994,10 @@ fn j11_squash_merge_remote_only() -> anyhow::Result<()> {
                         Sha1(4d230909d7fba6bf00af30c9db74695a315fc93f),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -1071,7 +1110,10 @@ fn j12_local_only_multi_segment_squash_merge() -> anyhow::Result<()> {
                         Sha1(4da5b24e0457fb452972018e03505e0296ae0455),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),

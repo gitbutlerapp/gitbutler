@@ -130,6 +130,43 @@ impl Graph {
         hard_limit: bool,
         max_goals: Option<usize>,
     ) -> String {
+        Self::commit_debug_string_inner(
+            commit,
+            is_entrypoint,
+            stop_condition,
+            hard_limit,
+            max_goals,
+            false,
+        )
+    }
+
+    /// Like [`Self::commit_debug_string()`], but includes graph-contextual worktree ownership markers.
+    pub fn commit_debug_string_with_graph_context(
+        &self,
+        commit: &crate::Commit,
+        is_entrypoint: bool,
+        stop_condition: Option<StopCondition>,
+        hard_limit: bool,
+        max_goals: Option<usize>,
+    ) -> String {
+        Self::commit_debug_string_inner(
+            commit,
+            is_entrypoint,
+            stop_condition,
+            hard_limit,
+            max_goals,
+            self.has_multiple_worktrees(),
+        )
+    }
+
+    fn commit_debug_string_inner(
+        commit: &crate::Commit,
+        is_entrypoint: bool,
+        stop_condition: Option<StopCondition>,
+        hard_limit: bool,
+        max_goals: Option<usize>,
+        show_owned_by_repo: bool,
+    ) -> String {
         format!(
             "{ep}{end}{kind}{hex}{flags}{refs}",
             ep = if is_entrypoint { "👉" } else { "" },
@@ -156,7 +193,11 @@ impl Graph {
                         .refs
                         .iter()
                         .map(|ri| format!("►{}", {
-                            Self::ref_debug_string(ri.ref_name.as_ref(), ri.worktree.as_ref())
+                            Self::ref_debug_string_inner(
+                                ri.ref_name.as_ref(),
+                                ri.worktree.as_ref(),
+                                show_owned_by_repo,
+                            )
                         }))
                         .collect::<Vec<_>>()
                         .join(", ")
@@ -169,6 +210,23 @@ impl Graph {
     pub fn ref_debug_string(
         ref_name: &gix::refs::FullNameRef,
         worktree: Option<&crate::Worktree>,
+    ) -> String {
+        Self::ref_debug_string_inner(ref_name, worktree, false)
+    }
+
+    /// Like [`Self::ref_debug_string()`], but includes graph-contextual worktree ownership markers.
+    pub fn ref_debug_string_with_graph_context(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+        worktree: Option<&crate::Worktree>,
+    ) -> String {
+        Self::ref_debug_string_inner(ref_name, worktree, self.has_multiple_worktrees())
+    }
+
+    fn ref_debug_string_inner(
+        ref_name: &gix::refs::FullNameRef,
+        worktree: Option<&crate::Worktree>,
+        show_owned_by_repo: bool,
     ) -> String {
         let (cat, sn) = ref_name.category_and_short_name().expect("valid refs");
         // Only shorten those that look good and are unambiguous enough.
@@ -184,7 +242,7 @@ impl Graph {
                     .unwrap_or(ref_name.as_bstr())
             },
             ws = worktree
-                .map(|ws| ws.debug_string(ref_name))
+                .map(|wt| wt.debug_string_with_graph_context(ref_name, show_owned_by_repo))
                 .unwrap_or_default()
         )
     }
@@ -197,13 +255,50 @@ impl Graph {
         sibling_id: Option<SegmentIndex>,
         remote_tracking_branch_id: Option<SegmentIndex>,
     ) -> String {
+        Self::ref_and_remote_debug_string_inner(
+            ref_info,
+            remote_ref_name,
+            sibling_id,
+            remote_tracking_branch_id,
+            false,
+        )
+    }
+
+    /// Like [`Self::ref_and_remote_debug_string()`], but includes graph-contextual worktree ownership markers.
+    pub fn ref_and_remote_debug_string_with_graph_context(
+        &self,
+        ref_info: Option<&crate::RefInfo>,
+        remote_ref_name: Option<&gix::refs::FullName>,
+        sibling_id: Option<SegmentIndex>,
+        remote_tracking_branch_id: Option<SegmentIndex>,
+    ) -> String {
+        Self::ref_and_remote_debug_string_inner(
+            ref_info,
+            remote_ref_name,
+            sibling_id,
+            remote_tracking_branch_id,
+            self.has_multiple_worktrees(),
+        )
+    }
+
+    fn ref_and_remote_debug_string_inner(
+        ref_info: Option<&crate::RefInfo>,
+        remote_ref_name: Option<&gix::refs::FullName>,
+        sibling_id: Option<SegmentIndex>,
+        remote_tracking_branch_id: Option<SegmentIndex>,
+        show_owned_by_repo: bool,
+    ) -> String {
         format!(
             "{ref_name}{remote}",
             ref_name = ref_info
                 .as_ref()
                 .map(|ri| format!(
                     "{}{maybe_id}",
-                    Graph::ref_debug_string(ri.ref_name.as_ref(), ri.worktree.as_ref()),
+                    Graph::ref_debug_string_inner(
+                        ri.ref_name.as_ref(),
+                        ri.worktree.as_ref(),
+                        show_owned_by_repo,
+                    ),
                     maybe_id = sibling_id
                         .filter(|_| remote_ref_name.is_none())
                         .map(|id| format!(" →:{}:", id.index()))
@@ -312,6 +407,27 @@ impl Graph {
             .max()
     }
 
+    /// Return `true` if more than one unique worktree is referenced by the graph.
+    pub(crate) fn has_multiple_worktrees(&self) -> bool {
+        let mut first: Option<&crate::WorktreeKind> = None;
+        self.node_weights()
+            .flat_map(|segment| {
+                segment
+                    .ref_info
+                    .iter()
+                    .chain(segment.commits.iter().flat_map(|commit| commit.refs.iter()))
+            })
+            .filter_map(|ref_info| ref_info.worktree.as_ref())
+            .any(|worktree| {
+                if let Some(first) = first {
+                    first != &worktree.kind
+                } else {
+                    first = Some(&worktree.kind);
+                    false
+                }
+            })
+    }
+
     /// Produces a pruned dot-version of the graph.
     ///
     /// This best-effort rendering path prunes very large graphs from the bottom
@@ -332,14 +448,16 @@ impl Graph {
         const HEX: usize = 7;
         let entrypoint = self.entrypoint_location();
         let max_goals = self.max_goals();
+        let show_owned_by_repo = self.has_multiple_worktrees();
         let node_attrs = |_: &PetGraph, (sidx, s): (SegmentIndex, &Segment)| {
             let name = format!(
                 "{ref_name_and_remote}{maybe_centering_newline}",
-                ref_name_and_remote = Self::ref_and_remote_debug_string(
+                ref_name_and_remote = Self::ref_and_remote_debug_string_inner(
                     s.ref_info.as_ref(),
                     s.remote_tracking_ref_name.as_ref(),
                     s.sibling_segment_id,
                     s.remote_tracking_branch_segment_id,
+                    show_owned_by_repo,
                 ),
                 maybe_centering_newline = if s.commits.is_empty() { "" } else { "\n" },
             );
@@ -351,7 +469,7 @@ impl Graph {
                 .iter()
                 .enumerate()
                 .map(|(cidx, c)| {
-                    Self::commit_debug_string(
+                    Self::commit_debug_string_inner(
                         c,
                         !show_segment_entrypoint && Some((sidx, Some(cidx))) == entrypoint,
                         if cidx + 1 != s.commits.len() {
@@ -361,6 +479,7 @@ impl Graph {
                         },
                         self.hard_limit_hit,
                         max_goals,
+                        show_owned_by_repo,
                     )
                 })
                 .collect::<Vec<_>>()

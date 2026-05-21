@@ -990,6 +990,78 @@ fn minimal_merge() -> anyhow::Result<()> {
 }
 
 #[test]
+fn entrypoint_inside_second_parent_of_workspace_diamond_is_included() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/dual-merge")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 47e1cf1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   f40fb16 (merge-2) Merge branch 'C' into merge-2
+    |\  
+    | * c6d714c (C) C
+    * | 450c58a (D) D
+    |/  
+    *   0cc5a6f (merge, empty-2-on-merge, empty-1-on-merge) Merge branch 'A' into merge
+    |\  
+    | * e255adc (A) A
+    * | 7fdb58d (B) B
+    |/  
+    * fafd9d0 (origin/main, main) init
+    ");
+    add_workspace(&mut meta);
+    let (id, name) = id_at(&repo, "C");
+    let graph = Graph::from_commit_traversal(id, name, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+
+    ├── 📕►►►:1[0]:gitbutler/workspace[🌳]
+    │   └── ·47e1cf1 (⌂|🏘)
+    │       └── ►:5[1]:merge-2
+    │           └── ·f40fb16 (⌂|🏘)
+    │               ├── ►:8[2]:D
+    │               │   └── ·450c58a (⌂|🏘)
+    │               │       └── ►:4[3]:anon:
+    │               │           └── ·0cc5a6f (⌂|🏘|01) ►empty-1-on-merge, ►empty-2-on-merge, ►merge
+    │               │               ├── ►:6[4]:B
+    │               │               │   └── ·7fdb58d (⌂|🏘|01)
+    │               │               │       └── ►:3[5]:main <> origin/main →:2:
+    │               │               │           └── 🏁·fafd9d0 (⌂|🏘|✓|11)
+    │               │               └── ►:7[4]:A
+    │               │                   └── ·e255adc (⌂|🏘|01)
+    │               │                       └── →:3: (main →:2:)
+    │               └── 👉►:0[2]:C
+    │                   └── ·c6d714c (⌂|🏘|01)
+    │                       └── →:4:
+    └── ►:2[0]:origin/main →:3:
+        └── →:3: (main →:2:)
+    ");
+
+    let ws = graph.into_workspace()?;
+    let entrypoint_stack_segment = ws
+        .stacks
+        .iter()
+        .flat_map(|stack| stack.segments.iter())
+        .find(|segment| segment.is_entrypoint)
+        .expect("entrypoint segment must stay in a workspace stack");
+    assert!(
+        entrypoint_stack_segment
+            .commits
+            .iter()
+            .any(|commit| commit.id == id.detach()),
+        "the entrypoint stack segment must contain the custom traversal commit"
+    );
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:1:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
+    └── ≡:5:merge-2 on fafd9d0
+        ├── :5:merge-2
+        │   └── ·f40fb16 (🏘️)
+        ├── 👉:0:C
+        │   ├── ·c6d714c (🏘️)
+        │   └── ·0cc5a6f (🏘️) ►empty-1-on-merge, ►empty-2-on-merge, ►merge
+        └── :6:B
+            └── ·7fdb58d (🏘️)
+    ");
+    Ok(())
+}
+
+#[test]
 fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* fafd9d0 (HEAD -> gitbutler/workspace, main, B, A) init");
@@ -6420,7 +6492,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
-    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳@repo]
     │   └── ·a5f94a2 (⌂|🏘|0001)
     │       ├── 📙►:6[1]:A <> origin/A →:4:
     │       │   └── ►:3[2]:anon:
@@ -6439,12 +6511,51 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     ");
 
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 081bae9
+    📕🏘️:0:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main⇣1 on 081bae9
     ├── ≡📙:6:A <> origin/A →:4:⇣1 on 081bae9 {0}
     │   └── 📙:6:A <> origin/A →:4:⇣1
     │       └── 🟣197ddce
     └── ≡:5:B[📁wt-B-inside] on 081bae9
         └── :5:B[📁wt-B-inside]
+            └── ·3e01e28 (🏘️)
+    ");
+
+    let linked_repo = gix::open_opts(
+        repo.path()
+            .parent()
+            .expect("repository git dir is inside the worktree")
+            .join("wt-B-inside"),
+        gix::open::Options::isolated(),
+    )?
+    .with_object_memory();
+    let graph = Graph::from_head(&linked_repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), "when the graph is built from the B linked worktree repository, the workspace remains visible but the B worktree owns the entrypoint branch", @"
+
+    ├── 📕►►►:1[0]:gitbutler/workspace[🌳]
+    │   └── ·a5f94a2 (⌂|🏘)
+    │       ├── 📙►:6[1]:A <> origin/A →:5:
+    │       │   └── ►:4[2]:anon:
+    │       │       ├── ·081bae9 (⌂|🏘|✓|1111) ►A-inside[📁wt-A-inside], ►A-outside[📁wt-A-outside]
+    │       │       └── 🏁·3183e43 (⌂|🏘|✓|1111)
+    │       └── 👉►:0[1]:B[📁wt-B-inside@repo]
+    │           └── ·3e01e28 (⌂|🏘|0001)
+    │               └── →:4:
+    ├── ►:2[0]:origin/main →:3:
+    │   └── ►:3[1]:main <> origin/main →:2:
+    │       └── ·8dc508f (⌂|✓|0010)
+    │           └── →:4:
+    └── ►:5[0]:origin/A →:6:
+        └── 🟣197ddce (0x0|1000)
+            └── →:4:
+    ");
+
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), "workspace projection should keep the linked-worktree ownership marker on the focused stack while leaving the workspace ref itself unowned", @"
+    📕🏘️:1:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 081bae9
+    ├── ≡📙:6:A <> origin/A →:5:⇣1 on 081bae9 {0}
+    │   └── 📙:6:A <> origin/A →:5:⇣1
+    │       └── 🟣197ddce
+    └── ≡👉:0:B[📁wt-B-inside@repo] on 081bae9
+        └── 👉:0:B[📁wt-B-inside@repo]
             └── ·3e01e28 (🏘️)
     ");
     Ok(())

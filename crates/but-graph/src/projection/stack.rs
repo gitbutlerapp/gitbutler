@@ -104,6 +104,25 @@ impl Stack {
             .segments
             .first()
             .map_or_else(|| "<anon>".into(), |s| s.debug_string());
+        self.push_debug_suffix(&mut dbg, id_override);
+        dbg
+    }
+
+    /// Like [`Self::debug_string()`], but includes graph-contextual worktree ownership markers.
+    pub fn debug_string_with_graph_context(
+        &self,
+        graph: &Graph,
+        id_override: Option<StackId>,
+    ) -> String {
+        let mut dbg = self.segments.first().map_or_else(
+            || "<anon>".into(),
+            |s| s.debug_string_with_graph_context(graph),
+        );
+        self.push_debug_suffix(&mut dbg, id_override);
+        dbg
+    }
+
+    fn push_debug_suffix(&self, dbg: &mut String, id_override: Option<StackId>) {
         if let Some(base) = self.base() {
             dbg.push_str(" on ");
             dbg.push_str(&base.to_hex_with_len(7).to_string());
@@ -120,7 +139,6 @@ impl Stack {
                 }
             ));
         }
-        dbg
     }
 }
 
@@ -386,6 +404,27 @@ impl StackSegment {
 
     /// Digest as much as possible into a single line.
     pub fn debug_string(&self) -> String {
+        self.debug_string_with_ref_name_remote(Graph::ref_and_remote_debug_string(
+            self.ref_info.as_ref(),
+            self.remote_tracking_ref_name.as_ref(),
+            self.sibling_segment_id,
+            self.remote_tracking_branch_segment_id,
+        ))
+    }
+
+    /// Like [`Self::debug_string()`], but includes graph-contextual worktree ownership markers.
+    pub fn debug_string_with_graph_context(&self, graph: &Graph) -> String {
+        self.debug_string_with_ref_name_remote(
+            graph.ref_and_remote_debug_string_with_graph_context(
+                self.ref_info.as_ref(),
+                self.remote_tracking_ref_name.as_ref(),
+                self.sibling_segment_id,
+                self.remote_tracking_branch_segment_id,
+            ),
+        )
+    }
+
+    fn debug_string_with_ref_name_remote(&self, ref_name_remote: String) -> String {
         let num_local_commits = if self.remote_tracking_ref_name.is_some() {
             self.commits
                 .iter()
@@ -403,12 +442,6 @@ impl StackSegment {
             ep = if self.is_entrypoint { "👉" } else { "" },
             meta = if self.metadata.is_some() { "📙" } else { "" },
             id = self.id.index(),
-            ref_name_remote = Graph::ref_and_remote_debug_string(
-                self.ref_info.as_ref(),
-                self.remote_tracking_ref_name.as_ref(),
-                self.sibling_segment_id,
-                self.remote_tracking_branch_segment_id,
-            ),
             local_commits = if num_local_commits == 0 {
                 "".into()
             } else {

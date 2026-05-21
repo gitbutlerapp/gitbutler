@@ -1332,15 +1332,37 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
-    └── 👉►:0[0]:main[🌳]
+    └── 👉►:0[0]:main[🌳@repo]
         └── 🏁·85efbe4 (⌂|1) ►wt-inside-ambiguous-worktree[📁], ►wt-outside-ambiguous-worktree[📁]
     ");
 
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    ⌂:0:main[🌳] <> ✓!
-    └── ≡:0:main[🌳] {1}
-        └── :0:main[🌳]
+    ⌂:0:main[🌳@repo] <> ✓!
+    └── ≡:0:main[🌳@repo] {1}
+        └── :0:main[🌳@repo]
             └── ·85efbe4 ►wt-inside-ambiguous-worktree[📁], ►wt-outside-ambiguous-worktree[📁]
+    ");
+
+    let linked_repo = gix::open_opts(
+        repo.path()
+            .parent()
+            .expect("repository git dir is inside the worktree")
+            .join("wt-inside-ambiguous-worktree"),
+        gix::open::Options::isolated(),
+    )?
+    .with_object_memory();
+    let graph = Graph::from_head(&linked_repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), "when the graph is built from the linked worktree repository, it can't see anything else without metadata", @"
+
+    └── 👉►:0[0]:wt-inside-ambiguous-worktree[📁@repo]
+        └── 🏁·85efbe4 (⌂|1) ►main[🌳], ►wt-outside-ambiguous-worktree[📁]
+    ");
+
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), "workspace debug output should preserve that the linked worktree, not the main worktree, is owned by the repository used to build the graph", @"
+    ⌂:0:wt-inside-ambiguous-worktree[📁@repo] <> ✓!
+    └── ≡:0:wt-inside-ambiguous-worktree[📁@repo] {1}
+        └── :0:wt-inside-ambiguous-worktree[📁@repo]
+            └── ·85efbe4 ►main[🌳], ►wt-outside-ambiguous-worktree[📁]
     ");
     Ok(())
 }

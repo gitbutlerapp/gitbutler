@@ -41,7 +41,10 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
                         Sha1(946cdb70e5c527a30bf8154b445c188908d25806),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -128,7 +131,10 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
                         Sha1(946cdb70e5c527a30bf8154b445c188908d25806),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -217,7 +223,10 @@ fn remote_diverged() -> anyhow::Result<()> {
                         Sha1(3ea274233577e8e949de8b2c0385ecd36b6df904),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -316,7 +325,10 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
                         Sha1(3ea274233577e8e949de8b2c0385ecd36b6df904),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -399,7 +411,10 @@ fn remote_behind() -> anyhow::Result<()> {
                         Sha1(3ea274233577e8e949de8b2c0385ecd36b6df904),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -491,7 +506,10 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
                         Sha1(3ea274233577e8e949de8b2c0385ecd36b6df904),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -575,7 +593,10 @@ fn remote_ahead() -> anyhow::Result<()> {
                         Sha1(8ee08de8bed7f60305c9b7fb5eefa64280c1c1cf),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),
@@ -664,7 +685,10 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
                         Sha1(8ee08de8bed7f60305c9b7fb5eefa64280c1c1cf),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),

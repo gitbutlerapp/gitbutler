@@ -203,6 +203,7 @@ mod segment;
 pub use petgraph;
 pub use segment::{
     Commit, CommitFlags, RefInfo, Segment, SegmentFlags, SegmentMetadata, StopCondition, Worktree,
+    WorktreeKind,
 };
 
 mod api;

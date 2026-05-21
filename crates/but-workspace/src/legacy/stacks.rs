@@ -450,9 +450,9 @@ impl ui::BranchDetails {
                 .is_some_and(|c| matches!(c, gix::refs::Category::RemoteBranch)),
             name: ref_info.ref_name.shorten().into(),
             reference: ref_info.ref_name,
-            linked_worktree_id: ref_info.worktree.and_then(|ws| match ws {
-                but_graph::Worktree::Main => None,
-                but_graph::Worktree::LinkedId(id) => Some(id),
+            linked_worktree_id: ref_info.worktree.and_then(|ws| match ws.kind {
+                but_graph::WorktreeKind::Main => None,
+                but_graph::WorktreeKind::LinkedId(id) => Some(id),
             }),
             remote_tracking_branch: remote_tracking_ref_name
                 .as_ref()

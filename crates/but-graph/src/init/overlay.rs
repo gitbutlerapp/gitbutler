@@ -8,7 +8,7 @@ use but_core::{RefMetadata, ref_metadata};
 use gix::{prelude::ReferenceExt, refs::Target};
 
 use crate::{
-    Worktree,
+    Worktree, WorktreeKind,
     init::{
         Entrypoint, Overlay,
         walk::{RefsById, WorktreeByBranch},
@@ -341,14 +341,18 @@ impl<'repo> OverlayRepo<'repo> {
             main_head_referent: Option<&gix::refs::FullNameRef>,
             overriding: &NameToReference,
             out: &mut WorktreeByBranch,
+            owned_by_repo: bool,
         ) -> anyhow::Result<()> {
             let Some((head, wd)) = head.and_then(|head| {
                 head.repo.worktree().map(|wt| {
                     (
                         head,
-                        match wt.id() {
-                            None => Worktree::Main,
-                            Some(id) => Worktree::LinkedId(id.to_owned()),
+                        Worktree {
+                            kind: match wt.id() {
+                                None => WorktreeKind::Main,
+                                Some(id) => WorktreeKind::LinkedId(id.to_owned()),
+                            },
+                            owned_by_repo,
                         },
                     )
                 })
@@ -394,14 +398,42 @@ impl<'repo> OverlayRepo<'repo> {
             main_head_referent,
             &self.overriding_references,
             &mut map,
+            true,
+        )?;
+
+        let mut repo_is_linked = false;
+        let current_dir = std::env::current_dir()?;
+        let repo_real_path = gix::path::realpath_opts(
+            self.inner.path(),
+            &current_dir,
+            gix::path::realpath::MAX_SYMLINKS,
         )?;
         for proxy in self.inner.worktrees()? {
             let repo = proxy.into_repo_with_possibly_inaccessible_worktree()?;
+            let linked_repo_real_path = gix::path::realpath_opts(
+                repo.path(),
+                &current_dir,
+                gix::path::realpath::MAX_SYMLINKS,
+            )?;
+            if linked_repo_real_path == repo_real_path {
+                repo_is_linked = true;
+                continue;
+            }
             maybe_insert_head(
                 repo.head().ok(),
                 None,
                 &self.overriding_references,
                 &mut map,
+                false,
+            )?;
+        }
+        if repo_is_linked && let Ok(main_repo) = self.inner.main_repo() {
+            maybe_insert_head(
+                main_repo.head().ok(),
+                None,
+                &self.overriding_references,
+                &mut map,
+                false,
             )?;
         }
         Ok(map)

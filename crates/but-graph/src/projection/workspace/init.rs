@@ -11,11 +11,12 @@ use but_core::ref_metadata::{
 };
 use gix::{ObjectId, refs::Category};
 use itertools::Itertools;
-use petgraph::{Direction, visit::NodeRef};
+use petgraph::{Direction, prelude::EdgeRef, visit::NodeRef};
 use tracing::instrument;
 
 use crate::{
     CommitFlags, Graph, Segment, SegmentIndex, Workspace,
+    utils::SeenTable,
     workspace::{
         Stack, StackCommit, StackCommitFlags, StackSegment, TargetCommit, TargetRef, WorkspaceKind,
         workspace::{
@@ -321,6 +322,16 @@ impl Graph {
     fn workspace_stacks(&self, frame: &WorkspaceFrame) -> anyhow::Result<Vec<Stack>> {
         let mut stacks = vec![];
         let (lowest_base, lowest_base_sidx) = (frame.lower_bound, frame.lower_bound_segment_id);
+        let preferred_parent_order_by_commit = frame
+            .entrypoint_sidx
+            .map(|entrypoint| {
+                self.preferred_parent_order_by_commit(
+                    frame.ws_tip_segment_id,
+                    entrypoint,
+                    frame.lower_bound_segment_id,
+                )
+            })
+            .unwrap_or_default();
         if frame.kind.has_managed_ref() {
             let mut used_stack_ids = BTreeSet::default();
             for stack_top_sidx in self
@@ -333,6 +344,7 @@ impl Graph {
                     self.collect_stack_segments(
                         stack_top_sidx,
                         frame.entrypoint_sidx,
+                        &preferred_parent_order_by_commit,
                         |s| {
                             let stop = true;
                             // The lowest base is a segment that all stacks will run into.
@@ -405,6 +417,7 @@ impl Graph {
                 .collect_stack_segments(
                     start.id,
                     None,
+                    &preferred_parent_order_by_commit,
                     |s| {
                         let stop = true;
                         if segment_name_is_special(s) {
@@ -634,6 +647,90 @@ impl Graph {
             .and_then(|target| self.tip_skip_empty(target.segment_index))
             .is_some_and(|commit| commit.id == commit_id)
     }
+
+    /// Return commit-specific parent choices for the path from `start` down to `entrypoint`.
+    ///
+    /// Each graph edge knows which parent of its source commit it represents.
+    /// For a merge commit `M` with parents `[A, B]`, the edge from `M` to `A`
+    /// has parent order `0`, and the edge from `M` to `B` has parent order `1`.
+    /// This records the edge parent order for each source commit on the path
+    /// that reaches the entrypoint, then sorts by commit id so stack collection
+    /// can binary-search it while walking downward.
+    fn preferred_parent_order_by_commit(
+        &self,
+        start: SegmentIndex,
+        entrypoint: SegmentIndex,
+        lower_bound: Option<SegmentIndex>,
+    ) -> Vec<(ObjectId, u32)> {
+        let mut seen = self.seen_table();
+        let mut out = Vec::new();
+        if !self.collect_preferred_parent_order_by_commit(
+            start,
+            entrypoint,
+            lower_bound,
+            &mut seen,
+            &mut out,
+        ) {
+            return Vec::new();
+        }
+        out.sort_by_key(|lhs| lhs.0);
+        out.dedup_by(|lhs, rhs| lhs.0 == rhs.0);
+        out
+    }
+
+    /// Depth-first search for one downward segment path from `current` to `entrypoint`.
+    ///
+    /// Edges point from a segment toward its parents in commit history. When the recursion finds
+    /// `entrypoint`, it returns `true` and unwinds, appending one `(source_commit_id, parent_order)`
+    /// pair for each edge on the successful path. The source commit id is enough to identify the
+    /// merge commit during later stack walking, and `parent_order` identifies which parent edge
+    /// keeps that walk on the entrypoint path.
+    ///
+    /// If `lower_bound` is set, the search does not descend past it. Reaching the lower-bound
+    /// segment fails the current branch unless that segment is also `entrypoint`. This keeps the
+    /// entrypoint path search within the same workspace range that stack collection will later use.
+    ///
+    /// Branches that do not lead to `entrypoint` are backtracked by truncating `out` to its length
+    /// before that branch was explored. `seen` prevents revisiting shared history in the segmented
+    /// graph, so the search cost is linear in the bounded reachable segment subgraph from `current`:
+    /// `O(segments + edges)` up to the lower bound, with `O(segments)` visited storage and
+    /// `O(path length)` output.
+    fn collect_preferred_parent_order_by_commit(
+        &self,
+        current: SegmentIndex,
+        entrypoint: SegmentIndex,
+        lower_bound: Option<SegmentIndex>,
+        seen: &mut SeenTable,
+        out: &mut Vec<(ObjectId, u32)>,
+    ) -> bool {
+        if current == entrypoint {
+            return true;
+        }
+        if Some(current) == lower_bound {
+            return false;
+        }
+        if !seen.insert_unseen(current) {
+            return false;
+        }
+
+        for edge in self.inner.edges_directed(current, Direction::Outgoing) {
+            let before = out.len();
+            if self.collect_preferred_parent_order_by_commit(
+                edge.target(),
+                entrypoint,
+                lower_bound,
+                seen,
+                out,
+            ) {
+                if let Some(src_id) = edge.weight().src_id {
+                    out.push((src_id, edge.weight().parent_order));
+                }
+                return true;
+            }
+            out.truncate(before);
+        }
+        false
+    }
 }
 
 enum ComputeBaseTip {
@@ -702,9 +799,16 @@ fn find_matching_stack_id(
 
 /// Traversals
 impl Graph {
-    /// Return the ancestry of `start` along the first parents, itself included, until `stop` returns `true`.
+    /// Return the ancestry of `start` along the preferred parent path, itself included, until `stop` returns `true`.
     /// Also return the segment that we stopped at.
     /// **Important**: `stop` is not called with `start`, this is a feature.
+    ///
+    /// `preferred_parent_order_by_commit` is a sorted list of `(commit_id, parent_order)` pairs
+    /// produced from the path between the workspace tip and the traversal entrypoint. During the
+    /// stack walk, each outgoing edge is matched by its source commit id and parent order. If a
+    /// matching hint exists, that edge is followed so a merge can walk through the parent that
+    /// reaches the entrypoint. Without a hint for the current source commit, the preferred path
+    /// falls back to the first-parent edge.
     ///
     /// The `stop` signal is ignored for unnamed segments (no `ref_info`) whose `sibling_segment_id`
     /// points to a segment already collected in the output. This prevents the traversal from stopping
@@ -714,27 +818,82 @@ impl Graph {
     fn collect_first_parent_segments_until<'a>(
         &'a self,
         start: &'a Segment,
+        preferred_parent_order_by_commit: &[(ObjectId, u32)],
         mut stop: impl FnMut(&Segment) -> bool,
     ) -> (Vec<&'a Segment>, Option<&'a Segment>) {
         let mut out = vec![start.id];
         let mut stopped_at = None;
-        self.visit_segments_downward_along_first_parent_exclude_start(start.id, |next| {
-            if stop(next)
-                && !(next.ref_info.is_none()
-                    && next
-                        .sibling_segment_id
-                        .is_some_and(|sid| out.contains(&sid)))
-            {
-                stopped_at = Some(next.id);
-                return true;
-            }
-            out.push(next.id);
-            false
-        });
+        self.visit_segments_downward_with_parent_order_hints_exclude_start(
+            start.id,
+            preferred_parent_order_by_commit,
+            |next| {
+                if stop(next)
+                    && !(next.ref_info.is_none()
+                        && next
+                            .sibling_segment_id
+                            .is_some_and(|sid| out.contains(&sid)))
+                {
+                    stopped_at = Some(next.id);
+                    return true;
+                }
+                out.push(next.id);
+                false
+            },
+        );
         (
             out.into_iter().map(|sidx| &self[sidx]).collect(),
             stopped_at.map(|sidx| &self[sidx]),
         )
+    }
+
+    /// Visit the ancestry of `start` along the preferred parent path, itself excluded, until `stop` returns `true`.
+    /// **Important**: `stop` is not called with `start`, this is a feature.
+    ///
+    /// `preferred_parent_order_by_commit` is a sorted list of `(commit_id, parent_order)` pairs.
+    /// Each outgoing edge is matched by its source commit id and parent order. If a matching
+    /// hint exists, that edge is followed. Without a hint for the current source commit, the
+    /// walk falls back to the first-parent edge.
+    pub fn visit_segments_downward_with_parent_order_hints_exclude_start(
+        &self,
+        start: SegmentIndex,
+        preferred_parent_order_by_commit: &[(ObjectId, u32)],
+        mut stop: impl FnMut(&Segment) -> bool,
+    ) {
+        let mut next = self.next_segment_downward(start, preferred_parent_order_by_commit);
+        let mut seen = self.seen_table();
+        while let Some(sidx) = next {
+            let segment = &self[sidx];
+            if stop(segment) {
+                return;
+            }
+            next = if seen.insert_unseen(sidx) {
+                self.next_segment_downward(sidx, preferred_parent_order_by_commit)
+            } else {
+                None
+            };
+        }
+    }
+
+    fn next_segment_downward(
+        &self,
+        segment: SegmentIndex,
+        preferred_parent_order_by_commit: &[(ObjectId, u32)],
+    ) -> Option<SegmentIndex> {
+        let preferred_parent_order = self[segment]
+            .commits
+            .last()
+            .and_then(|commit| {
+                preferred_parent_order_by_commit
+                    .binary_search_by(|(id, _)| id.cmp(&commit.id))
+                    .ok()
+            })
+            .map(|hint_idx| preferred_parent_order_by_commit[hint_idx].1);
+        for edge in self.inner.edges_directed(segment, Direction::Outgoing) {
+            if preferred_parent_order.is_none_or(|order| edge.weight().parent_order == order) {
+                return Some(edge.target());
+            }
+        }
+        None
     }
 
     /// Visit all segments from `start`, excluding, and return once `find` returns something mapped from the
@@ -775,6 +934,7 @@ impl Graph {
         &self,
         from: SegmentIndex,
         mut entrypoint_sidx: Option<SegmentIndex>,
+        preferred_parent_order_by_commit: &[(ObjectId, u32)],
         mut is_one_past_end_of_stack_segment: impl FnMut(&Segment) -> bool,
         mut starts_next_stack_segment: impl FnMut(&Segment) -> bool,
         mut discard_stack: impl FnMut(&StackSegment) -> bool,
@@ -783,8 +943,11 @@ impl Graph {
         let mut next = Some(from);
         while let Some(from) = next.take() {
             let start = &self[from];
-            let (segments, stopped_at) = self
-                .collect_first_parent_segments_until(start, &mut is_one_past_end_of_stack_segment);
+            let (segments, stopped_at) = self.collect_first_parent_segments_until(
+                start,
+                preferred_parent_order_by_commit,
+                &mut is_one_past_end_of_stack_segment,
+            );
             let mut segment = StackSegment::from_graph_segments(&segments, self)?;
             if entrypoint_sidx.is_some_and(|id| segment.id == id) {
                 segment.is_entrypoint = true;
