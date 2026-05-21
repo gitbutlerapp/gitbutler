@@ -7,7 +7,7 @@ import {
 } from "#ui/api/queries.ts";
 import { findCommit, renameBranchInHeadInfo, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { decodeRefName, encodeRefName } from "#ui/api/ref-name.ts";
-import { commitTitle } from "#ui/commit.ts";
+import { commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
 	nativeMenuItem,
 	nativeMenuSeparator,
@@ -63,6 +63,7 @@ import {
 	RefInfo,
 	RelativeTo,
 	Segment,
+	Snapshot,
 	Stack,
 	TreeChange,
 	WorkspaceState,
@@ -316,6 +317,63 @@ const useOutlineTreeHotkeys = ({
 		});
 	};
 
+	const restoreSnapshotMutation = useMutation({
+		mutationFn: async (direction: "redo" | "undo"): Promise<Snapshot | null> => {
+			const snapshot =
+				direction === "redo"
+					? await window.lite.getRedoTargetSnapshot(projectId)
+					: await window.lite.getUndoTargetSnapshot(projectId);
+			if (!snapshot) return null;
+
+			const [peeled] = await Promise.all([
+				window.lite.peelRestoreSnapshot({ projectId, sha: snapshot.commitId }),
+
+				window.lite.restoreSnapshotWithKind({
+					projectId,
+					restoreKind:
+						direction === "redo" ? "RestoreFromSnapshotViaRedo" : "RestoreFromSnapshotViaUndo",
+					sha: snapshot.commitId,
+				}),
+			]);
+
+			return peeled ?? snapshot;
+		},
+		onSuccess: (snapshot, direction) => {
+			const title = direction === "redo" ? "Redo" : "Undo";
+
+			if (!snapshot) {
+				toastManager.add({ type: "warning", title, description: `Nothing to ${direction}` });
+				return;
+			}
+
+			// TODO: We should map this to something user-friendly.
+			const op = snapshot.details?.operation;
+
+			// TODO: We should use dynamic units.
+			const minsAgo = new Intl.RelativeTimeFormat(undefined, { style: "short" }).format(
+				Math.ceil((snapshot.createdAt - Date.now()) / 1000 / 60),
+				"minutes",
+			);
+
+			toastManager.add({
+				type: "info",
+				title,
+				description: `Restored to ${shortCommitId(snapshot.commitId)} (${op !== undefined ? `${op}, ` : ""}${minsAgo})`,
+			});
+		},
+		onError: (error, direction) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: `Failed to ${direction}`,
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+
 	const defaultOutlineHotkeysEnabled = focusedPanel === "outline" && outlineMode._tag === "Default";
 	const isSelectedCommit = selection._tag === "Commit";
 	const isSelectedChanges = selection._tag === "ChangesSection";
@@ -466,6 +524,24 @@ const useOutlineTreeHotkeys = ({
 					worktreeChanges &&
 					worktreeChanges.changes.length > 0,
 				meta: outlineHotkeys.absorb.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.redo.hotkey,
+			callback: () => restoreSnapshotMutation.mutate("redo"),
+			options: {
+				enabled: defaultOutlineHotkeysEnabled && !restoreSnapshotMutation.isPending,
+				meta: outlineHotkeys.redo.meta,
+				ignoreInputs: true,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.undo.hotkey,
+			callback: () => restoreSnapshotMutation.mutate("undo"),
+			options: {
+				enabled: defaultOutlineHotkeysEnabled && !restoreSnapshotMutation.isPending,
+				meta: outlineHotkeys.undo.meta,
+				ignoreInputs: true,
 			},
 		},
 	]);

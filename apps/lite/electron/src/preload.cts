@@ -23,6 +23,7 @@ import type {
 	WatcherEvent,
 	WorktreeChanges,
 	UncommitResult,
+	Snapshot,
 } from "@gitbutler/but-sdk";
 
 /**
@@ -80,6 +81,10 @@ const api: LiteElectronApi = {
 	commitUncommitChanges: (params) =>
 		ipcRenderer.invoke("workspace:commit-uncommit-changes", params) as Promise<MoveChangesResult>,
 	getVersion: () => ipcRenderer.invoke("lite:get-version") as Promise<string>,
+	getRedoTargetSnapshot: (params) =>
+		ipcRenderer.invoke("workspace:get-redo-target-snapshot", params) as Promise<Snapshot | null>,
+	getUndoTargetSnapshot: (params) =>
+		ipcRenderer.invoke("workspace:get-undo-target-snapshot", params) as Promise<Snapshot | null>,
 	headInfo: (projectId) => ipcRenderer.invoke("workspace:head-info", projectId) as Promise<RefInfo>,
 	listBranches: (projectId, filter) =>
 		ipcRenderer.invoke("workspace:list-branches", projectId, filter) as Promise<
@@ -92,9 +97,13 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:update-branch-name", params) as Promise<void>,
 	tearOffBranch: (params) =>
 		ipcRenderer.invoke("workspace:tear-off-branch", params) as Promise<MoveBranchResult>,
+	peelRestoreSnapshot: (params) =>
+		ipcRenderer.invoke("workspace:peel-restore-snapshot", params) as Promise<Snapshot | null>,
 	ping: (input) => ipcRenderer.invoke("lite:ping", input) as Promise<string>,
 	pushStackLegacy: (params) =>
 		ipcRenderer.invoke("workspace:push-stack-legacy", params) as Promise<PushResult>,
+	restoreSnapshotWithKind: (params) =>
+		ipcRenderer.invoke("workspace:restore-snapshot-with-kind", params) as Promise<void>,
 	showNativeMenu: (params) =>
 		ipcRenderer.invoke("lite:show-native-menu", params) as Promise<string | null>,
 	treeChangeDiffs: (params) =>

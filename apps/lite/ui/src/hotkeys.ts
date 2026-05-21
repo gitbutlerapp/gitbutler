@@ -127,6 +127,10 @@ export const outlineHotkeys = {
 		hotkey: "Alt+ArrowUp",
 		meta: { group: "Commit", name: "Move commit up" },
 	},
+	redo: {
+		hotkey: "Mod+Shift+Z",
+		meta: { group: "Outline", name: "Redo" },
+	},
 	renameBranch: {
 		hotkey: "Enter",
 		meta: { group: "Branch", name: "Rename branch" },
@@ -142,6 +146,10 @@ export const outlineHotkeys = {
 	selectChanges: {
 		hotkey: "Z",
 		meta: { group: "Outline", name: "Select changes" },
+	},
+	undo: {
+		hotkey: "Mod+Z",
+		meta: { group: "Outline", name: "Undo" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
