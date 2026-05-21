@@ -430,7 +430,7 @@ impl<'repo> OverlayRepo<'repo> {
         if repo_is_linked && let Ok(main_repo) = self.inner.main_repo() {
             maybe_insert_head(
                 main_repo.head().ok(),
-                main_head_referent,
+                None,
                 &self.overriding_references,
                 &mut map,
                 false,
