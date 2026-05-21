@@ -123,7 +123,8 @@ fn prepare_provided_message(msg: Option<&str>, entity: &str) -> Option<Result<St
 }
 
 pub(crate) fn get_commit_message_from_editor(
-    ctx: &mut Context,
+    repo: &gix::Repository,
+    context_lines: u32,
     commit_details: but_core::diff::CommitDetails,
     editor_initial_message: String,
     current_message_for_comparison: &str,
@@ -132,14 +133,14 @@ pub(crate) fn get_commit_message_from_editor(
     let changed_files = get_changed_files_from_commit_details(&commit_details);
 
     let should_show_diff = show_diff_in_editor.should_show_diff(|| {
-        estimate_diff_blob_size(&commit_details.diff_with_first_parent, ctx)
+        estimate_diff_blob_size(&commit_details.diff_with_first_parent, repo)
     })?;
     let diff = should_show_diff
         .then(|| {
             commit_details
                 .diff_with_first_parent
                 .iter()
-                .map(|change| change.unified_diff(&*ctx.repo.get()?, ctx.settings.context_lines))
+                .map(|change| change.unified_diff(repo, context_lines))
                 .filter_map(|diff| diff.transpose())
                 .collect::<Result<Vec<_>>>()
         })
@@ -184,7 +185,8 @@ fn edit_commit_message_by_id_and_reword_commit(
         Some(prepare_provided_commit_message(message)?)
     } else {
         get_commit_message_from_editor(
-            ctx,
+            &*ctx.repo.get()?,
+            ctx.settings.context_lines,
             commit_details,
             current_message.clone(),
             &current_message,

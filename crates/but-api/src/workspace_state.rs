@@ -53,7 +53,7 @@ impl WorkspaceState {
     ///
     /// The `replaced_commits` map should describe the commit rewrites visible in the
     /// preview graph, which typically comes from `rebase.history.commit_mappings()`.
-    pub(crate) fn from_rebase_preview<M: RefMetadata>(
+    pub fn from_rebase_preview<M: RefMetadata>(
         rebase: &SuccessfulRebase<'_, '_, M>,
         replaced_commits: BTreeMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<WorkspaceState> {
@@ -66,13 +66,13 @@ impl WorkspaceState {
 
     /// Build a [`WorkspaceState`] from a successful rebase, materializing it when needed.
     ///
-    /// Use this as the default entry point when an operation ends with a
-    /// [`SuccessfulRebase`] and the API should return the resulting workspace state.
-    /// When `dry_run` is `true`, this delegates to [`from_rebase_preview`] so the caller
-    /// sees the projected state without changing the repository. Otherwise it
-    /// materializes the rebase, then reports the workspace state together with the final
-    /// commit-replacement mappings returned by the materialized history.
-    pub(crate) fn from_successful_rebase<M: RefMetadata>(
+    /// Use this as the default entry point when an operation ends with a [`SuccessfulRebase`] and
+    /// the API should return the resulting workspace state. When `dry_run` is `true`, this
+    /// delegates to [`WorkspaceState::from_rebase_preview`] so the caller sees the projected state
+    /// without changing the repository. Otherwise it materializes the rebase, then reports the
+    /// workspace state together with the final commit-replacement mappings returned by the
+    /// materialized history.
+    pub fn from_successful_rebase<M: RefMetadata>(
         rebase: SuccessfulRebase<'_, '_, M>,
         repo: &gix::Repository,
         dry_run: DryRun,

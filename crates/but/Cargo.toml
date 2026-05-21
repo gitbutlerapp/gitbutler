@@ -72,6 +72,8 @@ but-api = { workspace = true, features = ["path-bytes"] }
 but-graph.workspace = true
 but-llm.workspace = true
 but-agentlog = { workspace = true, optional = true }
+but-transaction.workspace = true
+but-db.workspace = true
 
 # What follows is *basically* newly written crates that are built on top of legacy,
 # so need some refactoring/rethinking to become usable.

@@ -7,9 +7,7 @@
 use anyhow::Context as _;
 use bstr::BString;
 use but_api::{
-    commit::types::{
-        CommitCreateResult, CommitDiscardResult, CommitInsertBlankResult, CommitRewordResult,
-    },
+    commit::types::{CommitDiscardResult, CommitInsertBlankResult, CommitRewordResult},
     diff::ComputeLineStats,
     legacy::oplog::RestoreKind,
 };
@@ -91,43 +89,22 @@ pub(super) fn create_empty_commit_relative_to_commit(
     )
 }
 
-pub(super) fn create_commit_legacy(
-    ctx: &mut Context,
-    target: &CliId,
+pub(super) fn prepare_changes_to_commit(
+    db: &mut but_db::DbHandle,
+    repo: &gix::Repository,
+    workspace: &but_graph::Workspace,
+    context_lines: u32,
     source: &CommitSource,
     scope_to_stack: Option<StackId>,
-    insert_side: InsertSide,
-) -> anyhow::Result<Option<CommitCreateResult>> {
-    let mut guard = ctx.exclusive_worktree_access();
-    let (insert_commit_relative_to, insert_side) = match target {
-        CliId::Branch { name, .. } => {
-            let repo = ctx.repo.get()?;
-            let reference = repo.find_reference(name)?;
-            (
-                RelativeTo::Reference(reference.name().to_owned()),
-                InsertSide::Below,
-            )
-        }
-        CliId::Commit { commit_id, .. } => (RelativeTo::Commit(*commit_id), insert_side),
-        CliId::Uncommitted(_)
-        | CliId::PathPrefix { .. }
-        | CliId::CommittedFile { .. }
-        | CliId::Unassigned { .. }
-        | CliId::Stack { .. } => {
-            return Ok(None);
-        }
-    };
-
+) -> anyhow::Result<Option<Vec<DiffSpec>>> {
     // find what to commit
     let changes_to_commit = match source {
         CommitSource::Unassigned(..) => {
-            let context_lines = ctx.settings.context_lines;
-            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
-            let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
+            let changes = but_core::diff::ui::worktree_changes(repo)?.changes;
             let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
                 db.hunk_assignments_mut()?,
-                &repo,
-                &ws,
+                repo,
+                workspace,
                 Some(changes),
                 context_lines,
             )?;
@@ -145,13 +122,11 @@ pub(super) fn create_commit_legacy(
             .map(DiffSpec::from)
             .collect::<Vec<_>>(),
         CommitSource::Stack(StackCommitSource { stack_id, .. }) => {
-            let context_lines = ctx.settings.context_lines;
-            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
-            let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
+            let changes = but_core::diff::ui::worktree_changes(repo)?.changes;
             let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
                 db.hunk_assignments_mut()?,
-                &repo,
-                &ws,
+                repo,
+                workspace,
                 Some(changes),
                 context_lines,
             )?;
@@ -163,21 +138,30 @@ pub(super) fn create_commit_legacy(
         }
     };
 
-    let changes_to_commit = but_workspace::flatten_diff_specs(changes_to_commit);
+    Ok(Some(but_workspace::flatten_diff_specs(changes_to_commit)))
+}
 
-    // create commit
-    but_api::commit::create::commit_create(
-        ctx,
-        insert_commit_relative_to,
-        insert_side,
-        changes_to_commit,
-        // we reword the commit with the editor before the next render
-        String::new(),
-        DryRun::No,
-        guard.write_permission(),
-    )
-    .context("failed to create commit")
-    .map(Some)
+pub(super) fn where_to_place_commit(
+    ctx: &Context,
+    target: &CliId,
+    insert_side: InsertSide,
+) -> anyhow::Result<Option<(RelativeTo, InsertSide)>> {
+    match target {
+        CliId::Branch { name, .. } => {
+            let repo = ctx.repo.get()?;
+            let reference = repo.find_reference(name)?;
+            Ok(Some((
+                RelativeTo::Reference(reference.name().to_owned()),
+                InsertSide::Below,
+            )))
+        }
+        CliId::Commit { commit_id, .. } => Ok(Some((RelativeTo::Commit(*commit_id), insert_side))),
+        CliId::Uncommitted(_)
+        | CliId::PathPrefix { .. }
+        | CliId::CommittedFile { .. }
+        | CliId::Unassigned { .. }
+        | CliId::Stack { .. } => Ok(None),
+    }
 }
 
 pub(super) fn rub(
@@ -207,7 +191,8 @@ pub(super) fn reword_commit_with_editor_with_message_legacy(
     let commit_id = commit_details.commit.id;
     let current_message = commit_details.commit.inner.message.to_string();
     let new_message = legacy::reword::get_commit_message_from_editor(
-        ctx,
+        &*ctx.repo.get()?,
+        ctx.settings.context_lines,
         commit_details,
         editor_initial_message,
         &current_message,
@@ -564,14 +549,6 @@ pub(super) fn commit_discard(
     commit_id: gix::ObjectId,
 ) -> anyhow::Result<CommitDiscardResult> {
     but_api::commit::discard_commit::commit_discard(ctx, commit_id, DryRun::No)
-}
-
-pub(super) fn remove_branch_legacy(
-    ctx: &mut Context,
-    stack_id: StackId,
-    branch_name: String,
-) -> anyhow::Result<()> {
-    but_api::legacy::stack::remove_branch(ctx, stack_id, branch_name)
 }
 
 pub(super) fn get_undo_target_snapshot_legacy(ctx: &Context) -> anyhow::Result<Option<Snapshot>> {

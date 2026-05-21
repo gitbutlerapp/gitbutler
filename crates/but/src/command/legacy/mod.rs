@@ -85,21 +85,17 @@ pub(crate) const MAX_DIFF_BLOB_SIZE_FOR_EDITOR_IF_UNSPECIFIED: u64 = 900_000;
 /// For modifications/renames, uses the larger of the two sides as an upper bound.
 pub(crate) fn estimate_diff_blob_size(
     changes: &[but_core::TreeChange],
-    ctx: &but_ctx::Context,
+    repo: &gix::Repository,
 ) -> Result<u64> {
     fn blob_size(repo: &gix::Repository, id: gix::ObjectId) -> u64 {
         repo.find_header(id).map(|h| h.size()).unwrap_or(0)
     }
 
-    let repo = ctx.repo.get()?;
-
     Ok(changes
         .iter()
         .map(|change| match &change.status {
-            but_core::TreeStatus::Addition { state, .. } => blob_size(&repo, state.id),
-            but_core::TreeStatus::Deletion { previous_state } => {
-                blob_size(&repo, previous_state.id)
-            }
+            but_core::TreeStatus::Addition { state, .. } => blob_size(repo, state.id),
+            but_core::TreeStatus::Deletion { previous_state } => blob_size(repo, previous_state.id),
             but_core::TreeStatus::Modification {
                 previous_state,
                 state,
@@ -110,8 +106,8 @@ pub(crate) fn estimate_diff_blob_size(
                 state,
                 ..
             } => {
-                let a = blob_size(&repo, previous_state.id);
-                let b = blob_size(&repo, state.id);
+                let a = blob_size(repo, previous_state.id);
+                let b = blob_size(repo, state.id);
                 a.max(b)
             }
         })
