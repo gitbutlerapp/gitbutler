@@ -7,7 +7,7 @@ import {
 } from "#ui/api/queries.ts";
 import { findCommit, renameBranchInHeadInfo, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { decodeRefName, encodeRefName } from "#ui/api/ref-name.ts";
-import { commitTitle, shortCommitId } from "#ui/commit.ts";
+import { commitIsDiverged, commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
 	nativeMenuItem,
 	nativeMenuSeparator,
@@ -1170,19 +1170,26 @@ const CommitRow: FC<
 				/>
 			) : (
 				<>
-					<div
-						className={classes(workspaceItemRowStyles.itemRowLabel, styles.commitRowLabel)}
-						onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
-						onContextMenu={
-							outlineMode._tag === "Default"
-								? (event) => {
-										void showNativeContextMenu(event, menuItems);
-									}
-								: undefined
-						}
-					>
-						{commitTitle(commitWithOptimisticMessage.message)}
-						{hasConflicts && " ⚠️"}
+					<div className={styles.commitRowLabel}>
+						<span
+							className={styles.commitState}
+							data-status={commitIsDiverged(commit) ? "Diverged" : commit.state.type}
+						/>
+
+						<div
+							className={workspaceItemRowStyles.itemRowLabel}
+							onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
+							onContextMenu={
+								outlineMode._tag === "Default"
+									? (event) => {
+											void showNativeContextMenu(event, menuItems);
+										}
+									: undefined
+							}
+						>
+							{commitTitle(commitWithOptimisticMessage.message)}
+							{hasConflicts && " ⚠️"}
+						</div>
 					</div>
 					{outlineMode._tag === "Default" && (
 						<WorkspaceItemRowToolbar aria-label="Commit actions">
