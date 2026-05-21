@@ -28,6 +28,7 @@
 		ReorderCommitDzFactory,
 		ReorderCommitDzHandler,
 	} from "$lib/dragging/stackingReorderDropzoneManager";
+
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { createCommitSelection } from "$lib/selection/key";
@@ -82,6 +83,11 @@
 
 	const selectedBranchName = $derived(selection.current?.branchName);
 	const selectedCommitId = $derived(selection.current?.commitId);
+	const branchRef = $derived(
+		segment.refName
+			? new TextDecoder().decode(new Uint8Array(segment.refName.fullNameBytes))
+			: null,
+	);
 
 	const localAndRemoteCommits = $derived(segment.commits);
 	const upstreamOnlyCommits = $derived(segment.commitsOnRemote);
@@ -295,7 +301,7 @@
 		use:focusable={{ vertical: true }}
 	>
 		{#if hasRemoteCommits}
-			{#each upstreamOnlyCommits as commit, i (commit.id)}
+			<!-- {#each upstreamOnlyCommits as commit, i (commit.id)}
 				{@const first = i === 0}
 				{@const lastCommit = i === upstreamOnlyCommits.length - 1}
 				{@const selected =
@@ -320,14 +326,12 @@
 						editable={!!stackId}
 					/>
 				{/if}
-			{/each}
+			{/each} -->
 
 			<UpstreamActionRow testId={TestId.UpstreamCommitsCommitAction} isLast={!hasCommits}>
 				{#snippet action()}
-					<h3 class="text-13 text-semibold m-b-4">Upstream has new commits</h3>
-					<p class="text-12 text-body clr-text-2 m-b-14">Update your branch to stay current.</p>
-					{#if branchName}
-						<UpstreamIntegrationActions {projectId} {stackId} {branchName} />
+					{#if branchName && branchRef}
+						<UpstreamIntegrationActions {projectId} {stackId} {branchName} {branchRef} />
 					{/if}
 				{/snippet}
 			</UpstreamActionRow>

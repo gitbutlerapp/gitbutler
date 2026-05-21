@@ -167,38 +167,6 @@ export type CreateRefRequest = {
 	anchor: CreateRefAnchor;
 };
 
-export type InteractiveIntegrationStep =
-	| {
-			type: "skip";
-			subject: {
-				id: string;
-				commitId: string;
-			};
-	  }
-	| {
-			type: "pick";
-			subject: {
-				id: string;
-				commitId: string;
-			};
-	  }
-	| {
-			type: "pickUpstream";
-			subject: {
-				id: string;
-				commitId: string;
-				upstreamCommitId: string;
-			};
-	  }
-	| {
-			type: "squash";
-			subject: {
-				id: string;
-				commits: string[];
-				message: string | null;
-			};
-	  };
-
 /**
  * Converts an unapplied-stack count into a `DropResult` warning if stacks were unapplied.
  */
