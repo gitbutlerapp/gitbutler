@@ -485,7 +485,6 @@ async fn match_subcommand(
                         out,
                     )?;
                     command::legacy::branch::new(&mut ctx, out, branch_name, anchor)
-                        .map_err(CliError::from)
                 }
                 #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::Delete { branch_name, force }) => {

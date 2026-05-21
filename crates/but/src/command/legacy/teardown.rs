@@ -59,14 +59,14 @@ pub(crate) fn teardown(
         let repo = ctx.repo.get()?;
         let ref_name: gix::refs::PartialName = checkout_to.clone().try_into().map_err(|_| {
             CliError::from(
-                BadInput::new(format!("Invalid ref name: {checkout_to}")).arg("--checkout-to"),
+                BadInput::new(format!("Invalid ref name: {checkout_to}")).arg_name("--checkout-to"),
             )
         })?;
         let resolved_ref = match repo.try_find_reference(ref_name.as_ref())? {
             Some(resolved_ref) => resolved_ref,
             None => {
                 return BadInput::new(format!("The reference '{checkout_to}' did not exist"))
-                    .arg("--checkout-to")
+                    .arg_name("--checkout-to")
                     .into_cli_result();
             }
         };
@@ -74,7 +74,7 @@ pub(crate) fn teardown(
             return BadInput::new(format!(
                 "Invalid ref for checkout: '{checkout_to}' is not a local branch"
             ))
-            .arg("--checkout-to")
+            .arg_name("--checkout-to")
             .into_cli_result();
         }
         Some(resolved_ref.name().shorten().to_string())

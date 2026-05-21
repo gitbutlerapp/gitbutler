@@ -90,7 +90,7 @@ pub(crate) fn insert_blank_commit(
                         && stack_head_ref == &reference.name
                     {
                         return BadInput::new("Cannot insert empty commit above stack head")
-                            .arg("--after")
+                            .arg_name("--after")
                             .hint("Use '--before' to insert at the tip of the stack")
                             .into_cli_result();
                     }

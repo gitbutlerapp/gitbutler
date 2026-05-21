@@ -42,7 +42,9 @@ fn rejects_head() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Could not turn "HEAD" into a valid reference name
+Error: Bad input 'HEAD' for '<BRANCH_NAME>'
+
+Invalid branch name: Could not turn "HEAD" into a valid reference name
 
 "#]]);
 
@@ -58,7 +60,62 @@ fn rejects_name_that_normalizes_to_head() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Could not turn "HEAD-" into a valid reference name
+Error: Bad input 'HEAD-' for '<BRANCH_NAME>'
+
+Invalid branch name: Could not turn "HEAD-" into a valid reference name
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn rejects_name_that_normalizes_to_something_else_and_suggests_alternative() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("branch new 'my branch'")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Bad input 'my branch' for '<BRANCH_NAME>'
+
+Invalid branch name
+
+Hint: Try 'my-branch' instead
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn rejects_branch_name_already_applied_in_workspace() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("branch new A")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: A branch named 'A' already exists
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn rejects_name_that_exists_outside_workspace() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+    env.but("unapply A").assert().success();
+
+    env.but("branch new A")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: A branch named 'A' already exists
 
 "#]]);
 
@@ -90,31 +147,6 @@ fn with_json_output() -> anyhow::Result<()> {
 "#]]);
 
     // Test JSON output with anchor
-    env.but("branch new --json --anchor 9477ae7 my-anchored-feature")
-        .allow_json()
-        .assert()
-        .success()
-        .stderr_eq(str![])
-        .stdout_eq(str![[r#"
-{
-  "branch": "my-anchored-feature",
-  "anchor": "9477ae7"
-}
-
-"#]]);
-
-    // Test JSON output when branch already exists - it's idempotent.
-    env.but("branch --json new my-feature")
-        .allow_json()
-        .assert()
-        .success()
-        .stderr_eq(str![])
-        .stdout_eq(str![[r#"
-{
-  "branch": "my-feature"
-}
-
-"#]]);
     env.but("branch new --json --anchor 9477ae7 my-anchored-feature")
         .allow_json()
         .assert()
