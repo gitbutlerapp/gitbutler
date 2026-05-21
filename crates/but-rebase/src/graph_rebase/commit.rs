@@ -19,6 +19,11 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         &self.repo
     }
 
+    /// Returns a reference to the in-memory repository and the workspace.
+    pub fn repo_and_workspace(&self) -> (&gix::Repository, &but_graph::Workspace) {
+        (&self.repo, self.workspace)
+    }
+
     /// Set a merge-base override for checkout so that consumed worktree
     /// changes don't reappear as uncommitted after materialization.
     pub fn set_merge_base_override(&mut self, tree_id: gix::ObjectId) {
