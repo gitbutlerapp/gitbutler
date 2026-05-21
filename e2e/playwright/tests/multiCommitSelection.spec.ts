@@ -123,8 +123,8 @@ test("should squash 3 selected commits via context menu", async ({ page, gitbutl
 	await expect(squashItem).toContainText("Squash 3 commits");
 	await squashItem.click();
 
-	// Local history changed → upstream divergence indicator appears.
-	await expect(page.locator("text=Upstream has new commits")).toBeVisible();
+	// Local history changed → upstream divergence action becomes available.
+	await expect(getByTestId(page, "upstream-commits-integrate-button")).toBeVisible();
 	await expect(commitRow(page, "branch1: first commit")).toBeVisible();
 });
 

@@ -18,7 +18,6 @@ import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
 import type {
 	Stack,
 	CreateRefRequest,
-	InteractiveIntegrationStep,
 	CreateBranchFromBranchOutcome,
 	GerritPushFlag,
 } from "$lib/stacks/stack";
@@ -29,6 +28,10 @@ import type {
 	BranchDetails,
 	UpstreamCommit,
 	Commit,
+	InitialBranchIntegration,
+	BranchIntegrationStrategy,
+	InteractiveIntegration,
+	IntegrateBranchResult,
 	TreeChange,
 	TreeStats,
 	TreeChanges,
@@ -351,6 +354,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			invalidatesTags: [
 				invalidatesList(ReduxTag.WorktreeChanges),
 				invalidatesList(ReduxTag.UpstreamIntegrationStatus),
+				invalidatesList(ReduxTag.IntegrationSteps),
 				invalidatesList(ReduxTag.HeadSha),
 			],
 		}),
@@ -771,36 +775,50 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				invalidatesItem(ReduxTag.BranchChanges, args.seriesName),
 			],
 		}),
-		getInitialIntegrationSteps: build.query<
-			InteractiveIntegrationStep[],
-			{ projectId: string; stackId: string | undefined; branchName: string }
+		getInitialBranchIntegration: build.query<
+			InitialBranchIntegration,
+			{ projectId: string; branchRef: string; strategy: BranchIntegrationStrategy | null }
 		>({
-			extraOptions: { command: "get_initial_integration_steps_for_branch" },
-			query: (args) => args,
-			providesTags: (_result, _error, { stackId, branchName }) =>
-				providesItem(ReduxTag.IntegrationSteps, (stackId ?? "--no stack ID--") + branchName),
+			extraOptions: { command: "get_initial_branch_integration" },
+			query: ({ projectId, branchRef, strategy }) => ({
+				projectId,
+				branch: branchRef,
+				strategy,
+			}),
+			providesTags: (_result, _error, { branchRef }) =>
+				providesItem(ReduxTag.IntegrationSteps, branchRef),
 		}),
-		integrateBranchWithSteps: build.mutation<
-			void,
+		applyBranchIntegration: build.mutation<
+			IntegrateBranchResult,
 			{
 				projectId: string;
-				stackId: string;
-				branchName: string;
-				steps: InteractiveIntegrationStep[];
+				branchRef: string;
+				integration: InteractiveIntegration;
+				dryRun: boolean;
 			}
 		>({
 			extraOptions: {
-				command: "integrate_branch_with_steps",
-				actionName: "Integrate Branch with Steps",
+				command: "apply_branch_integration",
+				actionName: "Apply Branch Integration",
 			},
-			query: (args) => args,
-			invalidatesTags: (_result, _error, args) => [
-				invalidatesList(ReduxTag.HeadSha),
-				invalidatesItem(ReduxTag.StackDetails, args.stackId),
-				invalidatesItem(ReduxTag.IntegrationSteps, args.stackId + args.branchName),
-				invalidatesItem(ReduxTag.BranchDetails, args.branchName),
-				invalidatesItem(ReduxTag.BranchChanges, args.branchName),
-			],
+			query: ({ projectId, branchRef, integration, dryRun }) => ({
+				projectId,
+				branch: branchRef,
+				integration,
+				dryRun,
+			}),
+			invalidatesTags: (_result, _error, args) =>
+				args.dryRun
+					? []
+					: [
+							invalidatesList(ReduxTag.HeadSha),
+							invalidatesList(ReduxTag.WorktreeChanges),
+							invalidatesList(ReduxTag.Stacks),
+							invalidatesList(ReduxTag.StackDetails),
+							invalidatesList(ReduxTag.BranchListing),
+							invalidatesList(ReduxTag.UpstreamIntegrationStatus),
+							invalidatesItem(ReduxTag.IntegrationSteps, args.branchRef),
+						],
 		}),
 		createVirtualBranchFromBranch: build.mutation<
 			CreateBranchFromBranchOutcome,

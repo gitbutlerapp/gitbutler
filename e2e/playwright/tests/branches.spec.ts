@@ -44,8 +44,9 @@ async function applyBranchFromBranchesView(page: Page, branchName: string) {
 async function syncAndIntegrate(page: Page) {
 	await clickByTestId(page, "sync-button");
 	await clickByTestId(page, "upstream-commits-integrate-button");
-	await waitForTestIdToNotExist(page, "upstream-commits-integrate-button");
-	await waitForTestIdToNotExist(page, "upstream-commits-commit-action");
+	await waitForTestId(page, "branch-integration-apply-button");
+	await clickByTestId(page, "branch-integration-apply-button");
+	await waitForTestIdToNotExist(page, "branch-integration-modal");
 }
 
 test("should be able to apply a remote branch", async ({ page, gitbutler }) => {
@@ -102,8 +103,9 @@ test("should be able to apply a remote branch and integrate the remote changes -
 
 	// Integrate upstream commits on top
 	await clickByTestId(page, "upstream-commits-integrate-button");
-	await waitForTestIdToNotExist(page, "upstream-commits-integrate-button");
-	await waitForTestIdToNotExist(page, "upstream-commits-commit-action");
+	await waitForTestId(page, "branch-integration-apply-button");
+	await clickByTestId(page, "branch-integration-apply-button");
+	await waitForTestIdToNotExist(page, "branch-integration-modal");
 
 	const commits = commitRow(page);
 	await expect(commits).toHaveCount(4);

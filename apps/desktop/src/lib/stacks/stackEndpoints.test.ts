@@ -99,6 +99,17 @@ describe("buildStackEndpoints", () => {
 		]);
 	});
 
+	test("invalidates integration state after creating commits", () => {
+		const endpoints = buildStackEndpoints(createEndpointBuilder());
+
+		expect(endpoints.commitCreate.invalidatesTags).toEqual([
+			invalidatesList(ReduxTag.WorktreeChanges),
+			invalidatesList(ReduxTag.UpstreamIntegrationStatus),
+			invalidatesList(ReduxTag.IntegrationSteps),
+			invalidatesList(ReduxTag.HeadSha),
+		]);
+	});
+
 	test("uses move_branch with normalized refs and dryRun disabled", () => {
 		const endpoints = buildStackEndpoints(createEndpointBuilder());
 		const query = endpoints.moveBranch.query;
@@ -153,6 +164,71 @@ describe("buildStackEndpoints", () => {
 			invalidatesList(ReduxTag.Stacks),
 			invalidatesList(ReduxTag.BranchChanges),
 			invalidatesItem(ReduxTag.StackDetails, "stack-1"),
+		]);
+	});
+
+	test("uses get_initial_branch_integration with the branch ref", () => {
+		const endpoints = buildStackEndpoints(createEndpointBuilder());
+		const query = endpoints.getInitialBranchIntegration.query;
+
+		expect(endpoints.getInitialBranchIntegration.extraOptions).toEqual({
+			command: "get_initial_branch_integration",
+		});
+		expect(query).toBeDefined();
+		expect(
+			query?.({
+				projectId: "project-1",
+				branchRef: "refs/heads/feature",
+				strategy: "merge",
+			}),
+		).toEqual({
+			projectId: "project-1",
+			branch: "refs/heads/feature",
+			strategy: "merge",
+		});
+	});
+
+	test("uses apply_branch_integration with dryRun previews and branch refs", () => {
+		const endpoints = buildStackEndpoints(createEndpointBuilder());
+		const query = endpoints.applyBranchIntegration.query;
+		const invalidatesTags = endpoints.applyBranchIntegration.invalidatesTags;
+		const previewArgs = {
+			projectId: "project-1",
+			branchRef: "refs/heads/feature",
+			integration: {
+				mergeBase: "1111111111111111111111111111111111111111",
+				firstLocalNotIntegrated: null,
+				steps: [{ kind: "pick" as const, commitId: "2222222222222222222222222222222222222222" }],
+			},
+			dryRun: true,
+		};
+		const applyArgs = { ...previewArgs, dryRun: false };
+
+		expect(endpoints.applyBranchIntegration.extraOptions).toEqual({
+			command: "apply_branch_integration",
+			actionName: "Apply Branch Integration",
+		});
+		expect(query).toBeDefined();
+		expect(query?.(previewArgs)).toEqual({
+			projectId: "project-1",
+			branch: "refs/heads/feature",
+			integration: previewArgs.integration,
+			dryRun: true,
+		});
+
+		if (typeof invalidatesTags !== "function") {
+			throw new Error("Expected applyBranchIntegration.invalidatesTags to be callable");
+		}
+
+		expect(invalidatesTags(undefined, undefined, previewArgs, undefined)).toEqual([]);
+		expect(invalidatesTags(undefined, undefined, applyArgs, undefined)).toEqual([
+			invalidatesList(ReduxTag.HeadSha),
+			invalidatesList(ReduxTag.WorktreeChanges),
+			invalidatesList(ReduxTag.Stacks),
+			invalidatesList(ReduxTag.StackDetails),
+			invalidatesList(ReduxTag.BranchListing),
+			invalidatesList(ReduxTag.UpstreamIntegrationStatus),
+			invalidatesItem(ReduxTag.IntegrationSteps, "refs/heads/feature"),
 		]);
 	});
 });
