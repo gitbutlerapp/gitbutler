@@ -29,6 +29,8 @@ import {
 	WatcherUnsubscribeParams,
 	NativeMenuPopupItem,
 	CommitUncommitParams,
+	RestoreSnapshotWithKindParams,
+	PeelRestoreSnapshotParams,
 } from "./ipc.js";
 import {
 	absorb,
@@ -59,6 +61,10 @@ import {
 	updateBranchName,
 	BranchListingFilter,
 	commitUncommit,
+	restoreSnapshotWithKind,
+	getUndoTargetSnapshot,
+	getRedoTargetSnapshot,
+	peelRestoreSnapshot,
 } from "@gitbutler/but-sdk";
 import {
 	app,
@@ -333,6 +339,12 @@ const registerIpcHandlers = (): void => {
 			commitUncommitChanges(projectId, commitId, changes, assignTo, dryRun),
 	);
 	senderValidatingHandle(liteIpcChannels.getVersion, () => Promise.resolve(app.getVersion()));
+	senderValidatingHandle(liteIpcChannels.getRedoTargetSnapshot, async (_e, projectId: string) =>
+		getRedoTargetSnapshot(projectId),
+	);
+	senderValidatingHandle(liteIpcChannels.getUndoTargetSnapshot, async (_e, projectId: string) =>
+		getUndoTargetSnapshot(projectId),
+	);
 	senderValidatingHandle(liteIpcChannels.headInfo, (_e, projectId: string) => headInfo(projectId));
 	senderValidatingHandle(
 		liteIpcChannels.listBranches,
@@ -354,6 +366,10 @@ const registerIpcHandlers = (): void => {
 		(_e, { projectId, subjectBranch, dryRun }: TearOffBranchParams) =>
 			tearOffBranch(projectId, subjectBranch, dryRun),
 	);
+	senderValidatingHandle(
+		liteIpcChannels.peelRestoreSnapshot,
+		(_e, { projectId, sha }: PeelRestoreSnapshotParams) => peelRestoreSnapshot(projectId, sha),
+	);
 	senderValidatingHandle(liteIpcChannels.ping, (_event, input: string) =>
 		Promise.resolve(`pong: ${input}`),
 	);
@@ -361,6 +377,11 @@ const registerIpcHandlers = (): void => {
 		liteIpcChannels.pushStackLegacy,
 		(_e, { projectId, stackId, branch }: PushStackLegacyParams) =>
 			pushStackLegacy(projectId, stackId, false, false, branch, true),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.restoreSnapshotWithKind,
+		(_e, { projectId, restoreKind, sha }: RestoreSnapshotWithKindParams) =>
+			restoreSnapshotWithKind(projectId, restoreKind, sha),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.showNativeMenu,

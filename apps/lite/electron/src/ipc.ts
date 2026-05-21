@@ -27,6 +27,8 @@ import type {
 	WatcherEvent,
 	WorktreeChanges,
 	UncommitResult,
+	RestoreKind,
+	Snapshot,
 } from "@gitbutler/but-sdk";
 import type { UpdateDownloadedEvent } from "electron-updater";
 
@@ -152,10 +154,21 @@ export interface MoveBranchParams {
 	dryRun: boolean;
 }
 
+export interface PeelRestoreSnapshotParams {
+	projectId: string;
+	sha: string;
+}
+
 export interface PushStackLegacyParams {
 	projectId: string;
 	stackId: string;
 	branch: string;
+}
+
+export interface RestoreSnapshotWithKindParams {
+	projectId: string;
+	restoreKind: RestoreKind;
+	sha: string;
 }
 
 export interface TearOffBranchParams {
@@ -236,6 +249,8 @@ export interface LiteElectronApi {
 	commitUncommit: (params: CommitUncommitParams) => Promise<UncommitResult>;
 	commitUncommitChanges: (params: CommitUncommitChangesParams) => Promise<MoveChangesResult>;
 	getVersion: () => Promise<string>;
+	getRedoTargetSnapshot: (projectId: string) => Promise<Snapshot | null>;
+	getUndoTargetSnapshot: (projectId: string) => Promise<Snapshot | null>;
 	headInfo: (projectId: string) => Promise<RefInfo>;
 	listBranches: (
 		projectId: string,
@@ -246,7 +261,9 @@ export interface LiteElectronApi {
 	updateBranchName: (params: UpdateBranchNameParams) => Promise<void>;
 	tearOffBranch: (params: TearOffBranchParams) => Promise<MoveBranchResult>;
 	ping: (input: string) => Promise<string>;
+	peelRestoreSnapshot: (params: PeelRestoreSnapshotParams) => Promise<Snapshot | null>;
 	pushStackLegacy: (params: PushStackLegacyParams) => Promise<PushResult>;
+	restoreSnapshotWithKind: (params: RestoreSnapshotWithKindParams) => Promise<void>;
 	showNativeMenu: (params: ShowNativeMenuParams) => Promise<string | null>;
 	treeChangeDiffs: (params: TreeChangeDiffParams) => Promise<UnifiedPatch | null>;
 	unapplyStack: (params: UnapplyStackParams) => Promise<void>;
@@ -276,6 +293,8 @@ export const liteIpcChannels = {
 	commitMoveChangesBetween: "workspace:commit-move-changes-between",
 	commitUncommit: "workspace:commit-uncommit",
 	commitUncommitChanges: "workspace:commit-uncommit-changes",
+	getRedoTargetSnapshot: "workspace:get-redo-target-snapshot",
+	getUndoTargetSnapshot: "workspace:get-undo-target-snapshot",
 	getVersion: "lite:get-version",
 	headInfo: "workspace:head-info",
 	listBranches: "workspace:list-branches",
@@ -283,8 +302,10 @@ export const liteIpcChannels = {
 	moveBranch: "workspace:move-branch",
 	updateBranchName: "workspace:update-branch-name",
 	tearOffBranch: "workspace:tear-off-branch",
+	peelRestoreSnapshot: "workspace:peel-restore-snapshot",
 	ping: "lite:ping",
 	pushStackLegacy: "workspace:push-stack-legacy",
+	restoreSnapshotWithKind: "workspace:restore-snapshot-with-kind",
 	showNativeMenu: "lite:show-native-menu",
 	treeChangeDiffs: "workspace:tree-change-diffs",
 	unapplyStack: "workspace:unapply-stack",
