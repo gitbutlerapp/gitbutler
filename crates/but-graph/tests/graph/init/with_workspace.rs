@@ -990,6 +990,78 @@ fn minimal_merge() -> anyhow::Result<()> {
 }
 
 #[test]
+fn entrypoint_inside_second_parent_of_workspace_diamond_is_included() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/dual-merge")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 47e1cf1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   f40fb16 (merge-2) Merge branch 'C' into merge-2
+    |\  
+    | * c6d714c (C) C
+    * | 450c58a (D) D
+    |/  
+    *   0cc5a6f (merge, empty-2-on-merge, empty-1-on-merge) Merge branch 'A' into merge
+    |\  
+    | * e255adc (A) A
+    * | 7fdb58d (B) B
+    |/  
+    * fafd9d0 (origin/main, main) init
+    ");
+    add_workspace(&mut meta);
+    let (id, name) = id_at(&repo, "C");
+    let graph = Graph::from_commit_traversal(id, name, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @r"
+
+    ├── 📕►►►:1[0]:gitbutler/workspace[🌳]
+    │   └── ·47e1cf1 (⌂|🏘)
+    │       └── ►:5[1]:merge-2
+    │           └── ·f40fb16 (⌂|🏘)
+    │               ├── ►:8[2]:D
+    │               │   └── ·450c58a (⌂|🏘)
+    │               │       └── ►:4[3]:anon:
+    │               │           └── ·0cc5a6f (⌂|🏘|01) ►empty-1-on-merge, ►empty-2-on-merge, ►merge
+    │               │               ├── ►:6[4]:B
+    │               │               │   └── ·7fdb58d (⌂|🏘|01)
+    │               │               │       └── ►:3[5]:main <> origin/main →:2:
+    │               │               │           └── 🏁·fafd9d0 (⌂|🏘|✓|11)
+    │               │               └── ►:7[4]:A
+    │               │                   └── ·e255adc (⌂|🏘|01)
+    │               │                       └── →:3: (main →:2:)
+    │               └── 👉►:0[2]:C
+    │                   └── ·c6d714c (⌂|🏘|01)
+    │                       └── →:4:
+    └── ►:2[0]:origin/main →:3:
+        └── →:3: (main →:2:)
+    ");
+
+    let ws = graph.into_workspace()?;
+    let entrypoint_stack_segment = ws
+        .stacks
+        .iter()
+        .flat_map(|stack| stack.segments.iter())
+        .find(|segment| segment.is_entrypoint)
+        .expect("entrypoint segment must stay in a workspace stack");
+    assert!(
+        entrypoint_stack_segment
+            .commits
+            .iter()
+            .any(|commit| commit.id == id.detach()),
+        "the entrypoint stack segment must contain the custom traversal commit"
+    );
+    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    📕🏘️:1:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
+    └── ≡:5:merge-2 on fafd9d0
+        ├── :5:merge-2
+        │   └── ·f40fb16 (🏘️)
+        ├── 👉:0:C
+        │   ├── ·c6d714c (🏘️)
+        │   └── ·0cc5a6f (🏘️) ►empty-1-on-merge, ►empty-2-on-merge, ►merge
+        └── :6:B
+            └── ·7fdb58d (🏘️)
+    ");
+    Ok(())
+}
+
+#[test]
 fn stack_configuration_is_respected_if_one_of_them_is_an_entrypoint() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/just-init-with-two-branches")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* fafd9d0 (HEAD -> gitbutler/workspace, main, B, A) init");
