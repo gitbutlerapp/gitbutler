@@ -323,6 +323,10 @@ uninlined_format_args = "deny"
 # This comes mostly from `thiserror` in `gix`, and it's going to be converted
 # to `Exn`, which will box erorrs and keep them small (much like `anyhow`).
 result_large_err = "allow"
+# This being `deny` is overly strict
+unnecessary_mut_passed = "warn"
+# This being `deny` is overly strict
+needless_borrow = "warn"
 
 [profile.release]
 # There are no overrides here as we optimise for fast release builds,
