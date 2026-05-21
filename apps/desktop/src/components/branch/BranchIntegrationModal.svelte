@@ -1,470 +1,618 @@
 <script lang="ts">
-	import CommitTimelineNode from "$components/commit/CommitTimelineNode.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
-	import { commitCreatedAtDate, extractUpstreamCommitId, isCommit } from "$lib/branches/v3";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import {
-		canShiftStepDown,
-		canShiftStepUp,
-		getStepCommitInfo,
-		pickLocalStep,
-		pickUpstreamStep,
-		shiftStepDown,
-		shiftStepUp,
-		splitStepAtCommit,
-		squashStepInto,
-		updateStepType,
-	} from "$lib/upstream/integrationStepUtils";
+		buildCommitPickerOptions,
+		buildIntegrationStepDrafts,
+		buildInteractiveIntegration,
+		changeIntegrationStepDraftKind,
+		createDefaultIntegrationStepDraft,
+		type CommitPickerOption,
+		type IntegrationStepDraft,
+		reorderIntegrationStepDrafts,
+		updateIntegrationStepDraftCommit,
+		updateIntegrationStepDraftMessage,
+	} from "$lib/upstream/branchIntegrationEditor";
+	import {
+		buildCurrentStateGraphRows,
+		buildNextStateGraphRows,
+		type IntegrationGraphRow,
+	} from "$lib/upstream/branchIntegrationView";
 	import { inject } from "@gitbutler/core/context";
-	import { Modal, ModalFooter, Button, ScrollableContainer, SimpleCommitRow } from "@gitbutler/ui";
-	import { untrack } from "svelte";
-	import { flip } from "svelte/animate";
-	import type { InteractiveIntegrationStep } from "$lib/stacks/stack";
-	import type { Commit, UpstreamCommit } from "@gitbutler/but-sdk";
+	import { Button, Modal, ModalFooter } from "@gitbutler/ui";
 
 	type Props = {
 		modalRef: Modal | undefined;
 		projectId: string;
-		stackId: string | undefined;
 		branchName: string;
+		branchRef: string;
 	};
 
-	let { modalRef = $bindable(), projectId, stackId, branchName }: Props = $props();
+	let { modalRef = $bindable(), projectId, branchName, branchRef }: Props = $props();
+
+	const stackService = inject(STACK_SERVICE);
+	const initialBranchIntegration = $derived(
+		stackService.initialBranchIntegration(projectId, branchRef),
+	);
+	const [applyBranchIntegration, integrationMutation] = stackService.applyBranchIntegration;
+
+	let stepDrafts = $state<IntegrationStepDraft[]>([]);
+	let previewRows = $state<IntegrationGraphRow[] | null>(null);
+	let previewError = $state<string | null>(null);
+	let previewEmpty = $state(true);
+	let activeAction = $state<"preview" | "apply" | null>(null);
+	let initializedForOpen = $state(false);
+
+	function displayCommitOption(option: CommitPickerOption): string {
+		const refs = option.refs.length === 0 ? "" : ` (${option.refs.join(", ")})`;
+		return `${option.id.slice(0, 7)}${refs} ${option.subject}`;
+	}
 
 	function closeModal() {
 		modalRef?.close();
 	}
 
-	const clipboardService = inject(CLIPBOARD_SERVICE);
-	const stackService = inject(STACK_SERVICE);
-	const [integrate, integrating] = stackService.integrateBranchWithSteps;
-	const initialIntegrationSteps = stackService.initialIntegrationSteps(
-		untrack(() => projectId),
-		untrack(() => stackId),
-		untrack(() => branchName),
-	);
-
-	let editableSteps = $derived(initialIntegrationSteps.response ?? []);
-
-	const FLIP_ANIMATION_DURATION = 150;
-	const MAX_SCROLL_HEIGHT = "50vh";
-
-	function skipStepById(stepId: string, commitId: string) {
-		editableSteps = updateStepType(editableSteps, stepId, commitId, "skip");
-	}
-	function pickStepById(stepId: string, commitId: string) {
-		editableSteps = updateStepType(editableSteps, stepId, commitId, "pick");
-	}
-	function pickUpstreamFromStep(stepId: string, commitId: string, upstreamCommitId: string) {
-		editableSteps = pickUpstreamStep(editableSteps, stepId, commitId, upstreamCommitId);
-	}
-	function pickLocalFromStep(stepId: string, commitId: string) {
-		editableSteps = pickLocalStep(editableSteps, stepId, commitId);
+	function formatError(error: unknown): string {
+		return error instanceof Error ? error.message : JSON.stringify(error);
 	}
 
-	async function getCommitMessage(commitIds: string[]): Promise<string> {
-		if (stackId === undefined) return "";
-		const commitDetails = await stackService.fetchCommitsByIds(projectId, stackId, commitIds);
-		return commitDetails.map((c) => c.message).join("\n\n");
-	}
-	async function squashStepById(stepId: string, commitIds: string[]) {
-		const stepIndex = editableSteps.findIndex((s) => s.subject.id === stepId);
-		if (stepIndex === -1 || stepIndex >= editableSteps.length - 1) return;
-		const targetStepInfo = getStepCommitInfo(editableSteps[stepIndex + 1]!);
-		const combinedCommits = [...commitIds, ...targetStepInfo.commitIds];
-		const squashMessage = await getCommitMessage(combinedCommits);
-		editableSteps = squashStepInto(editableSteps, stepId, commitIds, squashMessage);
-	}
-	async function splitOffCommitFromStep(stepId: string, commitId: string) {
-		const step = editableSteps.find((s) => s.subject.id === stepId);
-		if (!step || step.type !== "squash") return;
-		const { commits } = step.subject;
-		const commitIndex = commits.indexOf(commitId);
-		if (commitIndex <= 0 || !commits.includes(commitId)) return;
-		const firstGroup = commits.slice(0, commitIndex);
-		const secondGroup = commits.slice(commitIndex);
-		const firstGroupMessage = firstGroup.length > 1 ? await getCommitMessage(firstGroup) : "";
-		const secondGroupMessage = secondGroup.length > 1 ? await getCommitMessage(secondGroup) : "";
-		editableSteps = splitStepAtCommit(
-			editableSteps,
-			stepId,
-			commitId,
-			firstGroupMessage,
-			secondGroupMessage,
-		);
-	}
-	async function handleIntegrate() {
-		if (stackId === undefined) {
-			throw new Error("Stack ID is undefined");
-		}
-		await integrate({
-			projectId,
-			stackId,
-			branchName,
-			steps: editableSteps,
+	function moveStep(stepId: string, offset: -1 | 1) {
+		const sourceIndex = stepDrafts.findIndex((step) => step.id === stepId);
+		if (sourceIndex === -1) return;
+		const destinationIndex = sourceIndex + offset;
+		if (destinationIndex < 0 || destinationIndex > stepDrafts.length) return;
+		stepDrafts = reorderIntegrationStepDrafts({
+			steps: stepDrafts,
+			draggedStepId: stepId,
+			destinationIndex,
 		});
-		closeModal();
 	}
+
+	function deleteStep(stepId: string) {
+		stepDrafts = stepDrafts.filter((step) => step.id !== stepId);
+	}
+
+	async function previewIntegration(mergeBase: string) {
+		activeAction = "preview";
+		previewError = null;
+		try {
+			const integration = buildInteractiveIntegration({ mergeBase, steps: stepDrafts });
+			const result = await applyBranchIntegration({
+				projectId,
+				branchRef,
+				integration,
+				dryRun: true,
+			});
+			previewRows = buildNextStateGraphRows({
+				workspace: result.workspace,
+				branchRef,
+			});
+			previewEmpty = false;
+		} catch (error) {
+			previewRows = null;
+			previewError = formatError(error);
+			previewEmpty = false;
+		} finally {
+			activeAction = null;
+		}
+	}
+
+	async function applyIntegration(mergeBase: string) {
+		activeAction = "apply";
+		previewError = null;
+		try {
+			const integration = buildInteractiveIntegration({ mergeBase, steps: stepDrafts });
+			await applyBranchIntegration({
+				projectId,
+				branchRef,
+				integration,
+				dryRun: false,
+			});
+			closeModal();
+		} catch (error) {
+			previewError = formatError(error);
+		} finally {
+			activeAction = null;
+		}
+	}
+
+	$effect(() => {
+		const modalOpen = modalRef?.imports.open ?? false;
+		if (!modalOpen) {
+			initializedForOpen = false;
+			previewRows = null;
+			previewError = null;
+			previewEmpty = true;
+		}
+	});
+
+	$effect(() => {
+		const modalOpen = modalRef?.imports.open ?? false;
+		const initial = initialBranchIntegration.response;
+		if (!modalOpen || !initial || initializedForOpen) return;
+
+		stepDrafts = buildIntegrationStepDrafts(initial.integration);
+		previewRows = null;
+		previewError = null;
+		previewEmpty = true;
+		initializedForOpen = true;
+	});
 </script>
 
-<Modal bind:this={modalRef} title="Integrate the upstream changes" noPadding width={500}>
-	<div class="branch-integration__content">
-		<p class="text=13">
-			Review and adjust the integration if needed.<br />
-			This is what the outcome of the integration will look like.
-		</p>
-		<div class="branch-integration__steps">
-			<ScrollableContainer maxHeight={MAX_SCROLL_HEIGHT}>
-				{#each editableSteps as step (step.subject.id)}
-					<div
-						class="branch-integration__commit-wrap"
-						animate:flip={{ duration: FLIP_ANIMATION_DURATION }}
-					>
-						{@render genericStep(step)}
-					</div>
-				{/each}
-			</ScrollableContainer>
-		</div>
-	</div>
-	<ModalFooter>
-		<Button kind="outline" type="reset" onclick={closeModal}>Cancel</Button>
-		<Button
-			style="pop"
-			type="submit"
-			onclick={handleIntegrate}
-			loading={integrating.current.isLoading}>Integrate changes</Button
-		>
-	</ModalFooter>
+<Modal
+	bind:this={modalRef}
+	title={`Integrate ${branchName} upstream`}
+	noPadding
+	width="full-screen"
+>
+	<ReduxResult {projectId} result={initialBranchIntegration.result}>
+		{#snippet children(initialIntegration)}
+			{@const commitOptions = buildCommitPickerOptions(initialIntegration)}
+			{@const currentRows = buildCurrentStateGraphRows(initialIntegration)}
+			<div class="branch-integration">
+				<div class="branch-integration__intro">
+					<p class="text-13">
+						Review the current divergence, edit the integration steps, and preview the result before
+						applying it.
+					</p>
+				</div>
+
+				<div class="branch-integration__sections">
+					<section class="branch-integration__section">
+						<div class="branch-integration__section-header">
+							<h3 class="text-13 text-semibold">Current state</h3>
+						</div>
+						<div class="branch-integration__graph">
+							{#each currentRows as row, index (`current-${index}`)}
+								{@render graphRow(row)}
+							{/each}
+						</div>
+					</section>
+
+					<section class="branch-integration__section">
+						<div class="branch-integration__section-header">
+							<h3 class="text-13 text-semibold">Integration steps</h3>
+							<Button
+								kind="outline"
+								size="tag"
+								icon="plus"
+								disabled={commitOptions.length === 0}
+								onclick={() =>
+									(stepDrafts = [...stepDrafts, createDefaultIntegrationStepDraft(commitOptions)])}
+							>
+								Add step
+							</Button>
+						</div>
+						<div class="branch-integration__steps">
+							{#if stepDrafts.length === 0}
+								<div class="branch-integration__empty">
+									No integration steps yet. Add a step to build the plan.
+								</div>
+							{:else}
+								{#each stepDrafts as step, index (step.id)}
+									<div class="branch-integration__step">
+										<div class="branch-integration__step-toolbar">
+											<span class="text-11 clr-text-2">Step {index + 1}</span>
+											<div class="branch-integration__step-actions">
+												<Button
+													kind="outline"
+													size="tag"
+													icon="arrow-up"
+													disabled={index === 0}
+													onclick={() => moveStep(step.id, -1)}
+												/>
+												<Button
+													kind="outline"
+													size="tag"
+													icon="arrow-down"
+													disabled={index === stepDrafts.length - 1}
+													onclick={() => moveStep(step.id, 1)}
+												/>
+												<Button kind="outline" size="tag" onclick={() => deleteStep(step.id)}>
+													Delete
+												</Button>
+											</div>
+										</div>
+
+										<div class="branch-integration__step-fields">
+											<label class="branch-integration__field">
+												<select
+													value={step.kind}
+													onchange={(event) =>
+														(stepDrafts = stepDrafts.map((candidate) =>
+															candidate.id === step.id
+																? changeIntegrationStepDraftKind({
+																		step: candidate,
+																		kind: event.currentTarget.value as IntegrationStepDraft["kind"],
+																		commitOptions,
+																	})
+																: candidate,
+														))}
+												>
+													<option value="pick">Pick</option>
+													<option value="merge">Merge</option>
+													<option value="squash">Squash</option>
+												</select>
+											</label>
+
+											{#if step.kind === "squash"}
+												<label class="branch-integration__field">
+													<select
+														value={step.commitIds[0]}
+														onchange={(event) =>
+															(stepDrafts = stepDrafts.map((candidate) =>
+																candidate.id === step.id
+																	? updateIntegrationStepDraftCommit({
+																			step: candidate,
+																			commitId: event.currentTarget.value,
+																			index: 0,
+																			commitOptions,
+																		})
+																	: candidate,
+															))}
+													>
+														{@render commitOptionsMarkup(commitOptions)}
+													</select>
+												</label>
+												<label class="branch-integration__field">
+													<select
+														value={step.commitIds[1]}
+														onchange={(event) =>
+															(stepDrafts = stepDrafts.map((candidate) =>
+																candidate.id === step.id
+																	? updateIntegrationStepDraftCommit({
+																			step: candidate,
+																			commitId: event.currentTarget.value,
+																			index: 1,
+																			commitOptions,
+																		})
+																	: candidate,
+															))}
+													>
+														{@render commitOptionsMarkup(commitOptions, step.commitIds[0])}
+													</select>
+												</label>
+												<label class="branch-integration__field branch-integration__field--full">
+													<textarea
+														rows="3"
+														value={step.message}
+														oninput={(event) =>
+															(stepDrafts = stepDrafts.map((candidate) =>
+																candidate.id === step.id
+																	? updateIntegrationStepDraftMessage({
+																			step: candidate,
+																			message: event.currentTarget.value,
+																		})
+																	: candidate,
+															))}
+													></textarea>
+												</label>
+											{:else}
+												<label class="branch-integration__field branch-integration__field--full">
+													<select
+														value={step.commitId}
+														onchange={(event) =>
+															(stepDrafts = stepDrafts.map((candidate) =>
+																candidate.id === step.id
+																	? updateIntegrationStepDraftCommit({
+																			step: candidate,
+																			commitId: event.currentTarget.value,
+																			commitOptions,
+																		})
+																	: candidate,
+															))}
+													>
+														{@render commitOptionsMarkup(commitOptions)}
+													</select>
+												</label>
+											{/if}
+										</div>
+									</div>
+								{/each}
+							{/if}
+						</div>
+					</section>
+
+					<section class="branch-integration__section">
+						<div class="branch-integration__section-header">
+							<h3 class="text-13 text-semibold">Preview</h3>
+						</div>
+						<div class="branch-integration__graph">
+							{#if previewEmpty}
+								<div class="branch-integration__empty">
+									Run preview to inspect the resulting branch shape.
+								</div>
+							{:else if previewError}
+								<div class="branch-integration__error">{previewError}</div>
+							{:else if previewRows === null}
+								<div class="branch-integration__empty">
+									Preview produced no branch segment for this ref.
+								</div>
+							{:else if previewRows.length === 0}
+								<div class="branch-integration__empty">The resulting branch would be empty.</div>
+							{:else}
+								{#each previewRows as row, index (`preview-${index}`)}
+									{@render graphRow(row)}
+								{/each}
+							{/if}
+						</div>
+					</section>
+				</div>
+			</div>
+
+			<ModalFooter>
+				<Button kind="outline" type="reset" onclick={closeModal}>Cancel</Button>
+				<Button
+					kind="outline"
+					type="button"
+					onclick={() => previewIntegration(initialIntegration.integration.mergeBase)}
+					disabled={stepDrafts.length === 0 || integrationMutation.current.isLoading}
+					loading={integrationMutation.current.isLoading && activeAction === "preview"}
+				>
+					Preview
+				</Button>
+				<Button
+					style="pop"
+					type="button"
+					onclick={() => applyIntegration(initialIntegration.integration.mergeBase)}
+					disabled={stepDrafts.length === 0 || integrationMutation.current.isLoading}
+					loading={integrationMutation.current.isLoading && activeAction === "apply"}
+				>
+					Apply integration
+				</Button>
+			</ModalFooter>
+		{/snippet}
+	</ReduxResult>
 </Modal>
 
-<!-- Snippets from InteractiveBranchIntegration.svelte -->
-{#snippet commitItemTemplate(
-	commit: Commit | UpstreamCommit,
-	stepId: string,
-	commitId: string,
-	stepType: "pick" | "skip" | "squash" | "pickUpstream",
-	isLastInSquash: boolean = false,
-	isFirstInSquash: boolean = false,
-	squashCommits: string[] = [],
+{#snippet commitOptionsMarkup(
+	commitOptions: CommitPickerOption[],
+	excludeCommitId: string | undefined = undefined,
 )}
-	{@const isSkipStep = stepType === "skip"}
-	{@const hideCommitDot = stepType === "squash" && !isFirstInSquash}
-	{@const upstreamSha = stepType !== "pickUpstream" ? extractUpstreamCommitId(commit) : undefined}
-	{@render commitLine(commit, hideCommitDot, stepType === "pickUpstream")}
-	<div class="branch-integration__commit-content">
-		<SimpleCommitRow
-			author={commit.author.name}
-			date={commitCreatedAtDate(commit)}
-			title={commit.message}
-			sha={commit.id}
-			{upstreamSha}
-			onCopy={() => {
-				clipboardService.write(commit.id, {
-					message: "Commit SHA copied",
-				});
-			}}
-			onCopyUpstream={() => {
-				clipboardService.write(upstreamSha ?? "", {
-					message: "Upstream commit SHA copied",
-				});
-			}}
-			onlyContent
-		/>
-		{#if stepType === "squash" && !isFirstInSquash}
-			<div class="branch-integration__split-off-button">
-				<Button
-					icon="cut"
-					kind="outline"
-					size="tag"
-					reversedDirection
-					tooltip="Split squashed commits at this point"
-					onclick={() => splitOffCommitFromStep(stepId, commit.id)}
-					disabled={isSkipStep}
-				>
-					Split off
-				</Button>
-			</div>
-		{/if}
-		<div class="branch-integration__commit-actions">
-			{#if stepType === "squash" && isLastInSquash}
-				<Button
-					kind="outline"
-					size="tag"
-					tooltip="Squash these commits into below"
-					icon="commit-arrow-down"
-					onclick={() => squashStepById(stepId, squashCommits)}
-					disabled={isSkipStep}
-				>
-					Squash down
-				</Button>
-				{@render shiftActions(stepId, isSkipStep)}
-			{/if}
-			{#if stepType === "skip"}
-				<Button
-					kind="outline"
-					size="tag"
-					tooltip="Pick this commit"
-					icon="eye"
-					onclick={() => pickStepById(stepId, commitId)}
-					disabled={false}
-				>
-					Pick
-				</Button>
-				{@render commitActions(stepId, commitId, true)}
-				{@render shiftActions(stepId, true)}
-			{:else if stepType === "pick"}
-				{#if upstreamSha}
-					<Button
-						kind="outline"
-						size="tag"
-						icon="target"
-						tooltip="Pick the upstream commit instead"
-						onclick={() => pickUpstreamFromStep(stepId, commitId, upstreamSha)}
-					>
-						Pick upstream
-					</Button>
-				{/if}
-				{@render commitActions(stepId, commitId, false)}
-				{@render shiftActions(stepId, false)}
-			{:else if stepType === "pickUpstream"}
-				<Button
-					kind="outline"
-					size="tag"
-					icon="target"
-					tooltip="Pick the local commit instead"
-					onclick={() => pickLocalFromStep(stepId, commitId)}
-				>
-					Pick local
-				</Button>
-				{@render commitActions(stepId, commit.id, false)}
-				{@render shiftActions(stepId, false)}
-			{/if}
-		</div>
-	</div>
-{/snippet}
-
-{#snippet genericStep(step: InteractiveIntegrationStep)}
-	{@const isSquashStep = step.type === "squash"}
-	{@const isIndividualStep = step.type === "pick" || step.type === "skip"}
-	{#if isSquashStep}
-		{@const commitsQuery = stackService.commitsByIds(projectId, stackId, step.subject.commits)}
-		<ReduxResult {projectId} result={commitsQuery.result}>
-			{#snippet children(commits)}
-				{#each commits as commit, commitIndex (commit.id)}
-					{@const isLastCommit = commitIndex === commits.length - 1}
-					{@const isFirstCommit = commitIndex === 0}
-					<div class="branch-integration__commit">
-						{@render commitItemTemplate(
-							commit,
-							step.subject.id,
-							commit.id,
-							"squash",
-							isLastCommit,
-							isFirstCommit,
-							step.subject.commits,
-						)}
-					</div>
-					{#if !isLastCommit}
-						<div class="branch-integration__commit-divider dotted"></div>
-					{/if}
+	{@const groups = ["Local", "Upstream", "Shared"] as const}
+	{@const filteredOptions = commitOptions.filter((option) => option.id !== excludeCommitId)}
+	{#each groups as group}
+		{@const options = filteredOptions.filter((option) => option.group === group)}
+		{#if options.length > 0}
+			<optgroup label={group}>
+				{#each options as option (option.id)}
+					<option value={option.id}>
+						{displayCommitOption(option)}
+					</option>
 				{/each}
-			{/snippet}
-		</ReduxResult>
-	{:else if isIndividualStep}
-		{@const commitDetails = stackService.commitById(projectId, stackId, step.subject.commitId)}
-		<ReduxResult {projectId} result={commitDetails.result}>
-			{#snippet children(commit)}
-				{@const isSkipStep = step.type === "skip"}
-				<div class="branch-integration__commit" class:skipped={isSkipStep}>
-					{@render commitItemTemplate(
-						commit,
-						step.subject.id,
-						step.subject.commitId,
-						step.type,
-						false,
-						false,
-					)}
-				</div>
-			{/snippet}
-		</ReduxResult>
-	{:else if step.type === "pickUpstream"}
-		{@const commitDetails = stackService.commitDetails(projectId, step.subject.upstreamCommitId)}
-		{@const localCommitDetails = stackService.commitById(projectId, stackId, step.subject.commitId)}
-		<ReduxResult {projectId} result={commitDetails.result}>
-			{#snippet loading()}
-				<!-- Show local commit data while loading upstream commit to prevent flickering -->
-				<ReduxResult {projectId} result={localCommitDetails.result}>
-					{#snippet children(localCommit)}
-						<div class="branch-integration__commit">
-							{@render commitItemTemplate(
-								localCommit,
-								step.subject.id,
-								step.subject.commitId,
-								step.type,
-								false,
-								false,
-							)}
-						</div>
-					{/snippet}
-				</ReduxResult>
-			{/snippet}
-			{#snippet children(commit)}
-				<div class="branch-integration__commit">
-					{@render commitItemTemplate(
-						commit,
-						step.subject.id,
-						step.subject.commitId,
-						step.type,
-						false,
-						false,
-					)}
-				</div>
-			{/snippet}
-		</ReduxResult>
-	{/if}
+			</optgroup>
+		{/if}
+	{/each}
 {/snippet}
 
-{#snippet commitActions(stepId: string, commitId: string, disabled: boolean = false)}
-	{#if !disabled}
-		<Button
-			kind="outline"
-			size="tag"
-			icon="eye-closed"
-			tooltip="Don't pick this commit"
-			onclick={() => skipStepById(stepId, commitId)}
-			{disabled}
-		>
-			Skip
-		</Button>
-	{/if}
-	<Button
-		kind="outline"
-		size="tag"
-		icon="commit-arrow-down"
-		tooltip="Squash this commit into the one below"
-		onclick={() => squashStepById(stepId, [commitId])}
-		{disabled}
-	>
-		Squash down
-	</Button>
-{/snippet}
-
-{#snippet shiftActions(stepId: string, disabled: boolean = false)}
-	<div class="branch-integration__move-buttons">
-		<Button
-			kind="outline"
-			tooltip="Move this commit up"
-			class="branch-integration__move-buttons__up"
-			size="tag"
-			icon="arrow-up"
-			disabled={!canShiftStepUp(editableSteps, stepId) || disabled}
-			onclick={() => (editableSteps = shiftStepUp(editableSteps, stepId))}
-		/>
-		<Button
-			kind="outline"
-			tooltip="Move this commit down"
-			class="branch-integration__move-buttons__down"
-			size="tag"
-			icon="arrow-down"
-			disabled={!canShiftStepDown(editableSteps, stepId) || disabled}
-			onclick={() => (editableSteps = shiftStepDown(editableSteps, stepId))}
-		/>
-	</div>
-{/snippet}
-
-{#snippet commitLine(
-	commit: Commit | UpstreamCommit,
-	hideCommitDot: boolean = true,
-	overrideIsRemote: boolean = false,
-)}
-	{#if isCommit(commit) && !overrideIsRemote}
-		<CommitTimelineNode
-			commitStatus={commit.state.type}
-			dotOnTop
-			hideDot={hideCommitDot}
-			diverged={commit.state.type === "LocalAndRemote" && commit.state.subject !== commit.id}
-		/>
+{#snippet graphRow(row: IntegrationGraphRow)}
+	{#if row.kind === "join"}
+		<div class="branch-integration__graph-row branch-integration__graph-row--join">
+			<div class="branch-integration__graph-rail">
+				{#if row.leftRail === "|"}
+					<div class="branch-integration__graph-vertical-edge"></div>
+				{/if}
+			</div>
+			<div class="branch-integration__graph-node">
+				{#if row.node !== ""}
+					<span class="branch-integration__graph-rail-text">{row.node}</span>
+				{/if}
+			</div>
+			<div class="branch-integration__graph-rail">
+				{#if row.rightRail !== ""}
+					<span class="branch-integration__graph-rail-text">{row.rightRail}</span>
+				{/if}
+			</div>
+			<div></div>
+		</div>
 	{:else}
-		<CommitTimelineNode hideDot={hideCommitDot} dotOnTop commitStatus="Remote" diverged={false} />
+		<div class="branch-integration__graph-row">
+			<div class="branch-integration__graph-rail">
+				{#if row.leftRail === "|"}
+					<div class="branch-integration__graph-vertical-edge"></div>
+				{/if}
+			</div>
+			<div class="branch-integration__graph-node">
+				{#if row.node === "*"}
+					<div class="branch-integration__graph-node-dot"></div>
+				{:else if row.node !== ""}
+					<span class="branch-integration__graph-rail-text">{row.node}</span>
+				{/if}
+			</div>
+			<div class="branch-integration__graph-rail">
+				{#if row.rightRail !== ""}
+					<span class="branch-integration__graph-rail-text">{row.rightRail}</span>
+				{/if}
+			</div>
+			<div class="branch-integration__graph-content">
+				<div class="branch-integration__graph-subject">{row.content.subject}</div>
+				<div class="branch-integration__graph-meta">
+					<span>{row.content.commitId.slice(0, 7)}</span>
+					{#if row.content.refs.length > 0}
+						<span>•</span>
+						<span>{row.content.refs.join(", ")}</span>
+					{/if}
+				</div>
+			</div>
+		</div>
 	{/if}
 {/snippet}
 
 <style lang="postcss">
-	.branch-integration__content {
+	.branch-integration {
 		display: flex;
 		flex-direction: column;
+		height: 100%;
+		min-height: 70vh;
 		padding: 0 16px 16px 16px;
+	}
+
+	.branch-integration__intro {
+		padding-top: 16px;
+	}
+
+	.branch-integration__sections {
+		display: flex;
+		position: relative;
+		width: 100%;
+		height: 100%;
 		gap: 12px;
 	}
-	.branch-integration__steps {
+
+	.branch-integration__section {
+		box-sizing: border-box;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
+		width: 100%;
+		height: 100%;
 		overflow: hidden;
 		border: 1px solid var(--border-2);
 		border-radius: var(--radius-ml);
+		background: var(--bg-1);
 	}
-	.branch-integration__commit-wrap {
+
+	.branch-integration__section-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 12px 14px;
 		border-bottom: 1px solid var(--border-2);
+	}
+
+	.branch-integration__graph,
+	.branch-integration__steps {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.branch-integration__graph-row {
+		display: grid;
+		grid-template-columns: 8px 12px 8px minmax(0, 1fr);
+		column-gap: 4px;
+		align-items: stretch;
+		padding: 10px 14px;
+		border-bottom: 1px solid var(--border-2);
+
 		&:last-child {
 			border-bottom: none;
 		}
 	}
-	.branch-integration__commit {
-		display: flex;
-		z-index: var(--z-ground);
-		position: relative;
-		&.skipped {
-			background-color: var(--bg-2);
-		}
+
+	.branch-integration__graph-row--join {
+		padding-top: 4px;
+		padding-bottom: 4px;
 	}
-	.branch-integration__commit-divider {
-		height: 0;
-		border-bottom: 1px solid var(--border-2);
-		&.dotted {
-			height: 1px;
-			border-bottom: none;
-			background: repeating-linear-gradient(
-				to right,
-				var(--border-2) 0px,
-				var(--border-2) 2px,
-				transparent 2px,
-				transparent 4px
-			);
-		}
-	}
-	.branch-integration__split-off-button {
-		z-index: var(--z-lifted);
-		position: absolute;
-		top: 0;
-		right: 20px;
-		transform: translateY(-50%);
-		border-radius: var(--radius-button);
-		background-color: var(--bg-1);
-	}
-	.branch-integration__commit-content {
-		display: flex;
-		flex-direction: column;
-		padding: 14px;
-		padding-left: 0;
-		overflow: hidden;
-		gap: 12px;
-	}
-	.branch-integration__commit-actions {
+
+	.branch-integration__graph-rail,
+	.branch-integration__graph-node {
 		display: flex;
 		align-items: center;
+		justify-content: center;
+		min-height: 18px;
+	}
+
+	.branch-integration__graph-rail-text {
+		color: var(--text-2);
+		font-family: var(--font-mono, monospace);
+		white-space: pre;
+	}
+
+	.branch-integration__graph-vertical-edge {
+		width: 1px;
+		height: 100%;
+		background: var(--text-2);
+	}
+
+	.branch-integration__graph-node-dot {
+		box-sizing: border-box;
+		width: 11px;
+		height: 11px;
+		border: 2px solid var(--text-2);
+		border-radius: 999px;
+	}
+
+	.branch-integration__graph-content {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		padding-left: 2px;
 		gap: 4px;
 	}
-	.branch-integration__move-buttons {
+
+	.branch-integration__graph-subject {
+		overflow: hidden;
+		font-weight: 600;
+		font-size: 13px;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.branch-integration__graph-meta {
 		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		color: var(--text-2);
+		font-size: 11px;
 	}
-	:global(.branch-integration__move-buttons__up) {
-		border-top-right-radius: 0;
-		border-bottom-right-radius: 0;
+
+	.branch-integration__step {
+		display: flex;
+		flex-direction: column;
+		padding: 12px 14px;
+		gap: 10px;
+		border-bottom: 1px solid var(--border-2);
+
+		&:last-child {
+			border-bottom: none;
+		}
 	}
-	:global(.branch-integration__move-buttons__down) {
-		border-left: none !important;
-		border-top-left-radius: 0;
-		border-bottom-left-radius: 0;
+
+	.branch-integration__step-toolbar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+	}
+
+	.branch-integration__step-actions {
+		display: flex;
+		gap: 4px;
+	}
+
+	.branch-integration__step-fields {
+		display: flex;
+		gap: 10px;
+	}
+
+	.branch-integration__field {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+
+		& select,
+		& textarea {
+			width: 100%;
+			padding: 8px 10px;
+			border: 1px solid var(--border-2);
+			border-radius: var(--radius-m);
+			background: var(--bg-2);
+			color: var(--text-1);
+		}
+	}
+
+	.branch-integration__field--full {
+		grid-column: 1 / -1;
+	}
+
+	.branch-integration__empty,
+	.branch-integration__error {
+		padding: 16px 14px;
+		color: var(--text-2);
+		font-size: 12px;
+	}
+
+	.branch-integration__error {
+		color: var(--text-warn);
 	}
 </style>

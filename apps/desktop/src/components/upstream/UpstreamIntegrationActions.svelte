@@ -11,9 +11,10 @@
 		projectId: string;
 		stackId: string | undefined;
 		branchName: string;
+		branchRef: string;
 	};
 
-	const { projectId, stackId, branchName }: Props = $props();
+	const { projectId, stackId, branchName, branchRef }: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
 	const [integrateUpstreamCommits, integrating] = stackService.integrateUpstreamCommits;
@@ -57,7 +58,7 @@
 	}
 </script>
 
-<BranchIntegrationModal bind:modalRef={integrationModal} {projectId} {stackId} {branchName} />
+<BranchIntegrationModal bind:modalRef={integrationModal} {projectId} {branchName} {branchRef} />
 
 {#snippet integrationRadioOption(mode: IntegrationMode, title: string, description: string)}
 	<label class="integration-radio-option" class:selected={$integrationMode === mode}>

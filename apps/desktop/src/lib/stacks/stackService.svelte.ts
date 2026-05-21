@@ -24,7 +24,14 @@ import type { ReduxError } from "$lib/error/reduxError";
 import type { DefaultForgeFactory } from "$lib/forge/forgeFactory.svelte";
 import type { BackendApi } from "$lib/state/backendApi";
 import type { AppDispatch } from "$lib/state/clientState.svelte";
-import type { AbsorptionTarget, DiffSpec, StackDetails } from "@gitbutler/but-sdk";
+import type {
+	AbsorptionTarget,
+	DiffSpec,
+	InitialBranchIntegration,
+	IntegrateBranchResult,
+	InteractiveIntegration,
+	StackDetails,
+} from "@gitbutler/but-sdk";
 
 export { REJECTTION_REASONS } from "$lib/stacks/stackEndpoints";
 
@@ -683,16 +690,38 @@ export class StackService {
 		return this.backendApi.endpoints.integrateUpstreamCommits.useMutation();
 	}
 
-	initialIntegrationSteps(projectId: string, stackId: string | undefined, branchName: string) {
-		return this.backendApi.endpoints.getInitialIntegrationSteps.useQuery({
+	initialBranchIntegration(projectId: string, branchRef: string) {
+		return this.backendApi.endpoints.getInitialBranchIntegration.useQuery({
 			projectId,
-			stackId,
-			branchName,
+			branchRef,
 		});
 	}
 
-	get integrateBranchWithSteps() {
-		return this.backendApi.endpoints.integrateBranchWithSteps.useMutation();
+	get applyBranchIntegration() {
+		return this.backendApi.endpoints.applyBranchIntegration.useMutation();
+	}
+
+	async previewBranchIntegration(args: {
+		projectId: string;
+		branchRef: string;
+		integration: InteractiveIntegration;
+	}): Promise<IntegrateBranchResult> {
+		return await this.backendApi.endpoints.applyBranchIntegration.mutate({
+			projectId: args.projectId,
+			branchRef: args.branchRef,
+			integration: args.integration,
+			dryRun: true,
+		});
+	}
+
+	async fetchInitialBranchIntegration(
+		projectId: string,
+		branchRef: string,
+	): Promise<InitialBranchIntegration> {
+		return await this.backendApi.endpoints.getInitialBranchIntegration.fetch({
+			projectId,
+			branchRef,
+		});
 	}
 
 	get createVirtualBranchFromBranch() {
