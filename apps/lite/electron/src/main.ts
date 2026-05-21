@@ -370,9 +370,6 @@ const registerIpcHandlers = (): void => {
 		liteIpcChannels.peelRestoreSnapshot,
 		(_e, { projectId, sha }: PeelRestoreSnapshotParams) => peelRestoreSnapshot(projectId, sha),
 	);
-	senderValidatingHandle(liteIpcChannels.ping, (_event, input: string) =>
-		Promise.resolve(`pong: ${input}`),
-	);
 	senderValidatingHandle(
 		liteIpcChannels.pushStackLegacy,
 		(_e, { projectId, stackId, branch }: PushStackLegacyParams) =>
