@@ -110,7 +110,9 @@ const Hunk: FC<{
 							<DependencyIcon />
 						</DependencyIndicatorButton>
 					)}
-					<div className={styles.hunkHeader}>{formatHunkHeader(hunk)}</div>
+					<div className={classes("text-11", "text-monospace", styles.hunkHeader)}>
+						{formatHunkHeader(hunk)}
+					</div>
 				</div>
 			</OperationSourceC>
 
@@ -141,7 +143,8 @@ const FileDiff: FC<{
 		)),
 		Match.when({ type: "Patch" }, (patch) => {
 			const { hunks } = patch.subject;
-			if (hunks.length === 0) return <p className={styles.emptyFileHunks}>No hunks.</p>;
+			if (hunks.length === 0)
+				return <p className={classes("text-13", styles.emptyFileHunks)}>No hunks.</p>;
 
 			return (
 				<ul>
@@ -175,7 +178,7 @@ const ChangesFileDiffList: FC<{
 	const changesWithDiffs = pipe(changes, Array.zip(treeChangeDiffs));
 
 	return changesWithDiffs.length === 0 ? (
-		<p className={styles.emptyChanges}>No changes.</p>
+		<p className={classes("text-13", styles.emptyChanges)}>No changes.</p>
 	) : (
 		<ul className={styles.fileDiffsList}>
 			{changesWithDiffs.map(([change, diff]) => {
@@ -189,7 +192,7 @@ const ChangesFileDiffList: FC<{
 					<li key={change.path} className={styles.fileDiff}>
 						<OperationSourceC projectId={projectId} selectionScope="files" source={source}>
 							<header className={styles.fileHeader}>
-								<h4 className={styles.filePath}>
+								<h4 className={classes("text-13", styles.filePath)}>
 									{mpathInit !== null && <span className={styles.pathInit}>{mpathInit}</span>}
 									<span className={styles.pathLast}>{pathLast}</span>
 								</h4>
@@ -217,7 +220,7 @@ const Header: FC<{
 		Match.tagsExhaustive({
 			Stack: () => (
 				<header>
-					<h3 className={styles.heading}>Stack</h3>
+					<h3 className={classes("text-14", "text-semibold", styles.heading)}>Stack</h3>
 
 					<div className={styles.headerActions}>
 						<FilesToggle />
@@ -239,9 +242,13 @@ const Header: FC<{
 						>
 							{({ data: branchDetails }) => (
 								<header>
-									<h3 className={styles.heading}>{branchDetails.name}</h3>
+									<h3 className={classes("text-14", "text-semibold", styles.heading)}>
+										{branchDetails.name}
+									</h3>
 									{branchDetails.prNumber != null && (
-										<h4 className={styles.pr}>PR #{branchDetails.prNumber}</h4>
+										<h4 className={classes("text-13", "text-bold", styles.pr)}>
+											PR #{branchDetails.prNumber}
+										</h4>
 									)}
 								</header>
 							)}
@@ -255,7 +262,7 @@ const Header: FC<{
 			},
 			ChangesSection: () => (
 				<header>
-					<h3 className={styles.heading}>Changes</h3>
+					<h3 className={classes("text-14", "text-semibold", styles.heading)}>Changes</h3>
 
 					<div className={styles.headerActions}>
 						<FilesToggle />
@@ -285,7 +292,7 @@ const Header: FC<{
 								<>
 									<OperationSourceC projectId={projectId} selectionScope="outline" source={source}>
 										<header>
-											<h3 className={styles.heading}>
+											<h3 className={classes("text-14", "text-semibold", styles.heading)}>
 												{commitTitle(commitDetails.commit.message)}
 												{commitDetails.commit.hasConflicts && " ⚠️"}
 											</h3>
@@ -293,7 +300,7 @@ const Header: FC<{
 									</OperationSourceC>
 
 									{commitDetails.commit.message.includes("\n") && (
-										<p className={styles.commitMessageBody}>
+										<p className={classes("text-13", "text-pre", styles.commitMessageBody)}>
 											{commitDetails.commit.message
 												.slice(commitDetails.commit.message.indexOf("\n") + 1)
 												.trim()}
@@ -326,14 +333,14 @@ const Header: FC<{
 													alt="Commit author avatar"
 												/>
 
-												<div className={styles.author}>
+												<div className={classes("text-13", styles.author)}>
 													<span title={commitDetails.commit.author.email}>
 														{commitDetails.commit.author.name}
 													</span>{" "}
 													at {fmtDate}
 												</div>
 
-												<div className={styles.commitMeta}>
+												<div className={classes("text-13", styles.commitMeta)}>
 													{shortCommitId(commitDetails.commit.changeId)} (
 													{shortCommitId(commitDetails.commit.id)})
 												</div>
@@ -361,7 +368,7 @@ const FilesToggle: FC = () => {
 
 	return (
 		<ShortcutButton
-			className={classes(uiStyles.button, styles.filesBtn)}
+			className={classes(uiStyles.button, "text-13", "text-semibold")}
 			hotkey={workspaceHotkeys.toggleFilesPanel.hotkey}
 			hotkeyOptions={{ meta: workspaceHotkeys.toggleFilesPanel.meta }}
 			aria-pressed={isPanelVisible(panelsState, "files")}
@@ -499,7 +506,7 @@ export const DetailsPanel: FC<PanelProps> = (panelProps) => {
 			style={{ ...panelProps.style, opacity: urgentSelection !== selection ? 0.5 : 1 }}
 		>
 			<div>
-				<Suspense fallback={<p className={styles.loading}>Loading details…</p>}>
+				<Suspense fallback={<p className="text-13">Loading details…</p>}>
 					<Header projectId={projectId} selection={selection} />
 				</Suspense>
 			</div>
