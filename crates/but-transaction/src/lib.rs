@@ -9,7 +9,9 @@ use but_rebase::graph_rebase::{
     Editor, LookupStep as _, SuccessfulRebase,
     mutate::{InsertSide, RelativeTo},
 };
-use but_workspace::commit::{SquashCommitsOutcome, squash_commits::MessageCombinationStrategy};
+use but_workspace::commit::{
+    MoveChangesOutcome, SquashCommitsOutcome, squash_commits::MessageCombinationStrategy,
+};
 use gix::{ObjectId, refs::FullNameRef};
 
 #[cfg(test)]
@@ -77,27 +79,40 @@ where
         dry_run,
     );
 
-    let context_lines = ctx.settings.context_lines;
-    let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let (should_rollback, outcome) = {
+        let context_lines = ctx.settings.context_lines;
+        let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
-    let editor = Editor::create(&mut ws, meta, &repo)?;
-    let rebase = editor.rebase()?;
+        let db_tx = db.transaction()?;
 
-    let mut inner = Inner {
-        rebase: Some(rebase),
-        commit_mappings: CommitMappings::default(),
-        context_lines,
+        let editor = Editor::create(&mut ws, meta, &repo)?;
+        let rebase = editor.rebase()?;
+
+        let mut inner = Inner {
+            rebase: Some(rebase),
+            db_tx,
+            commit_mappings: CommitMappings::default(),
+            context_lines,
+        };
+
+        let callback_outcome = {
+            let tx = Transaction { inner: &mut inner };
+            f(tx)?
+        };
+
+        let Inner {
+            mut rebase,
+            db_tx,
+            commit_mappings: _,
+            context_lines: _,
+        } = inner;
+        let rebase = rebase.take().expect("rebase is always Some(_)");
+
+        (
+            callback_outcome.should_rollback(),
+            callback_outcome.maybe_commit(&repo, rebase, db_tx, dry_run)?,
+        )
     };
-
-    let callback_outcome = {
-        let tx = Transaction { inner: &mut inner };
-        f(tx)?
-    };
-
-    let rebase = inner.rebase.take().expect("rebase is always Some(_)");
-    let should_rollback = callback_outcome.should_rollback();
-
-    let outcome = callback_outcome.maybe_commit(&repo, rebase, dry_run)?;
 
     if !should_rollback && let Some(snapshot) = maybe_oplog_entry {
         snapshot.commit(ctx, perm)?;
@@ -127,6 +142,7 @@ where
     // an Option so we can "take" the rebase, convert it into an editor, perform another rebase,
     // and put the result back.
     rebase: Option<SuccessfulRebase<'rebase, 'rebase, M>>,
+    db_tx: but_db::Transaction<'rebase>,
     // Commits given to `squash_commits`, `reword_commit`, etc are allowed to be the original
     // commits from live repo. This is used to map those to the rebased in-memory commits.
     //
@@ -154,7 +170,7 @@ where
         target: ObjectId,
         how_to_combine_messages: MessageCombinationStrategy,
     ) -> anyhow::Result<ObjectId> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase(|editor, commit_mappings, _| {
             let SquashCommitsOutcome {
                 rebase,
                 commit_selector,
@@ -173,7 +189,7 @@ where
     }
 
     pub fn reword_commit(&mut self, commit: ObjectId, message: &BStr) -> anyhow::Result<ObjectId> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase(|editor, commit_mappings, _| {
             let (rebase, edited_commit_selector) =
                 but_workspace::commit::reword(editor, commit_mappings.map(commit), message)?;
             let new_commit = rebase.lookup_pick(edited_commit_selector)?;
@@ -185,7 +201,7 @@ where
         &mut self,
         subjects: impl IntoIterator<Item = gix::ObjectId>,
     ) -> anyhow::Result<()> {
-        self.rebase(|editor, commit_mappings| {
+        self.rebase(|editor, commit_mappings, _| {
             let rebase = but_workspace::commit::discard_commits(
                 editor,
                 subjects
@@ -197,7 +213,7 @@ where
     }
 
     pub fn remove_reference(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
-        self.rebase(|mut editor, _| {
+        self.rebase(|mut editor, _, _| {
             let selector = editor.select_reference(ref_name)?;
             editor.replace(selector, but_rebase::graph_rebase::Step::None)?;
             let rebase = editor.rebase()?;
@@ -213,7 +229,7 @@ where
         message: String,
     ) -> anyhow::Result<IntermediateCommitCreateResult> {
         let context_lines = self.inner.context_lines;
-        self.rebase(|editor, commit_mappings| {
+        self.rebase(|editor, commit_mappings, _| {
             let relative_to = match relative_to {
                 RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
                 RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
@@ -246,6 +262,81 @@ where
         })
     }
 
+    pub fn insert_blank_commit(
+        &mut self,
+        relative_to: RelativeTo,
+        side: InsertSide,
+    ) -> anyhow::Result<gix::ObjectId> {
+        self.rebase(|editor, commit_mappings, _| {
+            let relative_to = match relative_to {
+                RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
+                RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
+            };
+
+            let (rebase, blank_commit_selector) =
+                but_workspace::commit::insert_blank_commit(editor, side, relative_to)?;
+            let new_commit = rebase.lookup_pick(blank_commit_selector)?;
+
+            Ok((new_commit, rebase))
+        })
+    }
+
+    pub fn amend_commit(
+        &mut self,
+        target: ObjectId,
+        changes: Vec<DiffSpec>,
+    ) -> anyhow::Result<IntermediateCommitCreateResult> {
+        let context_lines = self.context_lines();
+        self.rebase(|editor, commit_mappings, _| {
+            let but_workspace::commit::CommitAmendOutcome {
+                rebase,
+                commit_selector,
+                rejected_specs,
+            } = but_workspace::commit::commit_amend(
+                editor,
+                commit_mappings.map(target),
+                changes,
+                context_lines,
+            )?;
+
+            let new_commit = commit_selector
+                .map(|commit_selector| rebase.lookup_pick(commit_selector))
+                .transpose()?;
+
+            Ok((
+                IntermediateCommitCreateResult {
+                    new_commit,
+                    rejected_specs,
+                },
+                rebase,
+            ))
+        })
+    }
+
+    pub fn move_committed_changes_between(
+        &mut self,
+        source: ObjectId,
+        target: ObjectId,
+        changes: Vec<but_core::DiffSpec>,
+    ) -> anyhow::Result<()> {
+        let context_lines = self.context_lines();
+        self.rebase(|editor, commit_mappings, _| {
+            let source = commit_mappings.map(source);
+            let target = commit_mappings.map(target);
+
+            let MoveChangesOutcome { rebase, .. } =
+                but_workspace::commit::move_changes_between_commits(
+                    editor,
+                    source,
+                    target,
+                    changes,
+                    context_lines,
+                )?;
+
+            Ok(((), rebase))
+        })
+    }
+
     /// Look up a commit that has been rewritten as part of a rebase.
     ///
     /// In most cases this shouldn't be necessary. See [`with_transaction`] for more details.
@@ -271,6 +362,7 @@ where
         F: FnOnce(
             Editor<'rebase, 'rebase, M>,
             &CommitMappings,
+            &mut but_db::Transaction<'rebase>,
         ) -> anyhow::Result<(T, SuccessfulRebase<'rebase, 'rebase, M>)>,
     {
         let editor = self
@@ -279,7 +371,7 @@ where
             .take()
             .expect("rebase is always Some(_)")
             .into_editor();
-        let (outcome, new_rebase) = f(editor, &self.inner.commit_mappings)?;
+        let (outcome, new_rebase) = f(editor, &self.inner.commit_mappings, &mut self.inner.db_tx)?;
         self.inner.commit_mappings = CommitMappings(new_rebase.history.commit_mappings());
         self.inner.rebase = Some(new_rebase);
         Ok(outcome)
@@ -315,6 +407,7 @@ pub trait TransactionOutcome: sealed::Sealed {
         self,
         repo: &gix::Repository,
         rebase: SuccessfulRebase<'_, '_, M>,
+        db_tx: but_db::Transaction<'_>,
         dry_run: DryRun,
     ) -> anyhow::Result<Self::Outcome>;
 }
@@ -330,9 +423,14 @@ impl TransactionOutcome for () {
         self,
         repo: &gix::Repository,
         rebase: SuccessfulRebase<'_, '_, M>,
+        db_tx: but_db::Transaction<'_>,
         dry_run: DryRun,
     ) -> anyhow::Result<Self::Outcome> {
-        WorkspaceState::from_successful_rebase(rebase, repo, dry_run)
+        let ws = WorkspaceState::from_successful_rebase(rebase, repo, dry_run)?;
+        if dry_run == DryRun::No {
+            db_tx.commit()?;
+        }
+        Ok(ws)
     }
 }
 
@@ -351,6 +449,7 @@ impl<T> TransactionOutcome for Rollback<T> {
         self,
         _repo: &gix::Repository,
         _rebase: SuccessfulRebase<'_, '_, M>,
+        _db_tx: but_db::Transaction<'_>,
         _dry_run: DryRun,
     ) -> anyhow::Result<Self::Outcome> {
         Ok(self.0)
@@ -375,11 +474,15 @@ impl<T, K> TransactionOutcome for DynamicOutcome<T, K> {
         self,
         repo: &gix::Repository,
         rebase: SuccessfulRebase<'_, '_, M>,
+        db_tx: but_db::Transaction<'_>,
         dry_run: DryRun,
     ) -> anyhow::Result<Self::Outcome> {
         match self {
             DynamicOutcome::Commit(value) => {
                 let workspace = WorkspaceState::from_successful_rebase(rebase, repo, dry_run)?;
+                if dry_run == DryRun::No {
+                    db_tx.commit()?;
+                }
                 Ok(DynamicOutcome::Commit((value, workspace)))
             }
             DynamicOutcome::Rollback(value) => Ok(DynamicOutcome::Rollback(value)),
