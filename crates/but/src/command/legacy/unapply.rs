@@ -3,10 +3,7 @@
 use anyhow::{Context as _, bail};
 use but_core::ref_metadata::StackId;
 
-use crate::{
-    CliId, IdMap,
-    utils::{Confirm, ConfirmDefault, OutputChannel},
-};
+use crate::{CliId, IdMap, utils::OutputChannel};
 
 /// Handle the unapply command.
 ///
@@ -20,7 +17,6 @@ pub fn handle(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     identifier: &str,
-    force: bool,
 ) -> anyhow::Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     // Fetch stacks once at the start
@@ -70,14 +66,7 @@ pub fn handle(
         );
     };
 
-    confirm_and_unapply_stack(
-        ctx,
-        stack_id,
-        &branches,
-        force,
-        out,
-        guard.write_permission(),
-    )
+    unapply_stack(ctx, stack_id, &branches, out, guard.write_permission())
 }
 
 /// Get branches for a stack by ID, validating the stack exists.
@@ -121,26 +110,14 @@ fn find_stack_by_branch_name(
     bail!("Branch '{branch_name}' not found in any applied stack");
 }
 
-/// Confirm with the user and unapply the stack.
-fn confirm_and_unapply_stack(
+fn unapply_stack(
     ctx: &mut but_ctx::Context,
     sid: StackId,
     branches: &[String],
-    force: bool,
     out: &mut OutputChannel,
     perm: &mut but_core::sync::RepoExclusive,
 ) -> anyhow::Result<()> {
     let branches_display = branches.join(", ");
-
-    if !force
-        && let Some(mut inout) = out.prepare_for_terminal_input()
-        && inout.confirm(
-            format!("Are you sure you want to unapply stack with branches '{branches_display}'?"),
-            ConfirmDefault::No,
-        )? == Confirm::No
-    {
-        bail!("Aborted unapply operation.");
-    }
 
     but_api::legacy::virtual_branches::unapply_stack_with_perm(ctx, sid, perm)?;
 
