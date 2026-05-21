@@ -12,7 +12,10 @@ use but_rebase::graph_rebase::{
 use but_workspace::commit::{
     MoveChangesOutcome, SquashCommitsOutcome, squash_commits::MessageCombinationStrategy,
 };
-use gix::{ObjectId, refs::FullNameRef};
+use gix::{
+    ObjectId,
+    refs::{FullName, FullNameRef},
+};
 
 #[cfg(test)]
 mod tests;
@@ -92,6 +95,7 @@ where
             rebase: Some(rebase),
             db_tx,
             commit_mappings: CommitMappings::default(),
+            pending_metadata_removals: Vec::new(),
             context_lines,
         };
 
@@ -104,13 +108,20 @@ where
             mut rebase,
             db_tx,
             commit_mappings: _,
+            pending_metadata_removals,
             context_lines: _,
         } = inner;
         let rebase = rebase.take().expect("rebase is always Some(_)");
 
         (
             callback_outcome.should_rollback(),
-            callback_outcome.maybe_commit(&repo, rebase, db_tx, dry_run)?,
+            callback_outcome.maybe_commit(
+                &repo,
+                rebase,
+                db_tx,
+                pending_metadata_removals,
+                dry_run,
+            )?,
         )
     };
 
@@ -143,6 +154,12 @@ where
     // and put the result back.
     rebase: Option<SuccessfulRebase<'rebase, 'rebase, M>>,
     db_tx: but_db::Transaction<'rebase>,
+    // Metadata removals to apply only if the transaction commits. Applying them immediately would
+    // leak through dry-runs and rollbacks because the current metadata backend writes on drop.
+    //
+    // HACK: When all the meta data is backed by the database we should be able to remove this and
+    // instead use `db_tx`.
+    pending_metadata_removals: Vec<FullName>,
     // Commits given to `squash_commits`, `reword_commit`, etc are allowed to be the original
     // commits from live repo. This is used to map those to the rebased in-memory commits.
     //
@@ -218,7 +235,11 @@ where
             editor.replace(selector, but_rebase::graph_rebase::Step::None)?;
             let rebase = editor.rebase()?;
             Ok(((), rebase))
-        })
+        })?;
+        self.inner
+            .pending_metadata_removals
+            .push(ref_name.to_owned());
+        Ok(())
     }
 
     pub fn create_commit(
@@ -408,6 +429,7 @@ pub trait TransactionOutcome: sealed::Sealed {
         repo: &gix::Repository,
         rebase: SuccessfulRebase<'_, '_, M>,
         db_tx: but_db::Transaction<'_>,
+        pending_metadata_removals: Vec<FullName>,
         dry_run: DryRun,
     ) -> anyhow::Result<Self::Outcome>;
 }
@@ -424,9 +446,10 @@ impl TransactionOutcome for () {
         repo: &gix::Repository,
         rebase: SuccessfulRebase<'_, '_, M>,
         db_tx: but_db::Transaction<'_>,
+        pending_metadata_removals: Vec<FullName>,
         dry_run: DryRun,
     ) -> anyhow::Result<Self::Outcome> {
-        let ws = WorkspaceState::from_successful_rebase(rebase, repo, dry_run)?;
+        let ws = workspace_state_from_rebase(rebase, repo, pending_metadata_removals, dry_run)?;
         if dry_run == DryRun::No {
             db_tx.commit()?;
         }
@@ -450,6 +473,7 @@ impl<T> TransactionOutcome for Rollback<T> {
         _repo: &gix::Repository,
         _rebase: SuccessfulRebase<'_, '_, M>,
         _db_tx: but_db::Transaction<'_>,
+        _pending_metadata_removals: Vec<FullName>,
         _dry_run: DryRun,
     ) -> anyhow::Result<Self::Outcome> {
         Ok(self.0)
@@ -475,11 +499,13 @@ impl<T, K> TransactionOutcome for DynamicOutcome<T, K> {
         repo: &gix::Repository,
         rebase: SuccessfulRebase<'_, '_, M>,
         db_tx: but_db::Transaction<'_>,
+        pending_metadata_removals: Vec<FullName>,
         dry_run: DryRun,
     ) -> anyhow::Result<Self::Outcome> {
         match self {
             DynamicOutcome::Commit(value) => {
-                let workspace = WorkspaceState::from_successful_rebase(rebase, repo, dry_run)?;
+                let workspace =
+                    workspace_state_from_rebase(rebase, repo, pending_metadata_removals, dry_run)?;
                 if dry_run == DryRun::No {
                     db_tx.commit()?;
                 }
@@ -488,6 +514,24 @@ impl<T, K> TransactionOutcome for DynamicOutcome<T, K> {
             DynamicOutcome::Rollback(value) => Ok(DynamicOutcome::Rollback(value)),
         }
     }
+}
+
+fn workspace_state_from_rebase<M: RefMetadata>(
+    rebase: SuccessfulRebase<'_, '_, M>,
+    repo: &gix::Repository,
+    pending_metadata_removals: Vec<FullName>,
+    dry_run: DryRun,
+) -> anyhow::Result<WorkspaceState> {
+    if dry_run.into() {
+        return WorkspaceState::from_successful_rebase(rebase, repo, dry_run);
+    }
+
+    let materialized = rebase.materialize()?;
+    for ref_name in pending_metadata_removals {
+        materialized.meta.remove(ref_name.as_ref())?;
+    }
+
+    WorkspaceState::from_materialized_rebase(materialized, repo)
 }
 
 /// Intermediate outcome after creating a commit.
