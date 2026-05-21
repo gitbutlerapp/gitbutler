@@ -24,12 +24,6 @@
 .author,
 .commitMeta {
 	color: var(--text-3);
-	font-size: 13px;
-}
-
-.filesBtn {
-	font-weight: 550;
-	font-size: 13px;
 }
 
 .detailsVirtualizer {
@@ -39,23 +33,16 @@
 
 .heading {
 	margin-block-end: 18px;
-	font-weight: 600;
-	font-size: 14px;
 }
 
 .pr {
 	margin-block-end: 18px;
 	color: var(--text-2);
-	font-weight: 700;
-	font-size: 13px;
 }
 
 .commitMessageBody {
 	margin-block: 18px;
 	color: var(--text-2);
-	font-weight: 500;
-	font-size: 13px;
-	white-space: pre-wrap;
 }
 
 .fileDiffsList {
@@ -75,13 +62,6 @@
 
 .filePath {
 	margin: 8px;
-	font-weight: 400;
-	font-size: 13px;
-}
-
-.pathInit,
-.pathLast {
-	font-size: 13px;
 }
 
 .pathInit {
@@ -101,14 +81,6 @@
 
 .hunkHeader {
 	flex-grow: 1;
-	font-size: 11px;
-	font-family: monospace;
-}
-
-.emptyChanges,
-.emptyFileHunks,
-.loading {
-	font-size: 13px;
 }
 
 .emptyFileHunks {
