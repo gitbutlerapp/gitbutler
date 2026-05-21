@@ -265,6 +265,38 @@ where
         })
     }
 
+    pub fn amend_commit(
+        &mut self,
+        target: ObjectId,
+        changes: Vec<DiffSpec>,
+    ) -> anyhow::Result<IntermediateCommitCreateResult> {
+        let context_lines = self.context_lines();
+        self.rebase(|editor, commit_mappings| {
+            let but_workspace::commit::CommitAmendOutcome {
+                rebase,
+                commit_selector,
+                rejected_specs,
+            } = but_workspace::commit::commit_amend(
+                editor,
+                commit_mappings.map(target),
+                changes,
+                context_lines,
+            )?;
+
+            let new_commit = commit_selector
+                .map(|commit_selector| rebase.lookup_pick(commit_selector))
+                .transpose()?;
+
+            Ok((
+                IntermediateCommitCreateResult {
+                    new_commit,
+                    rejected_specs,
+                },
+                rebase,
+            ))
+        })
+    }
+
     /// Look up a commit that has been rewritten as part of a rebase.
     ///
     /// In most cases this shouldn't be necessary. See [`with_transaction`] for more details.
