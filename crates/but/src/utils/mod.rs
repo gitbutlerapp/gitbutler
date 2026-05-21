@@ -43,8 +43,13 @@ impl ResultErrorExt for anyhow::Result<()> {
     }
 }
 
-/// Utilities attached to `anyhow::Result<T>`.
+/// Metrics utilities for results
 pub trait ResultMetricsExt<T, E> {
+    /// Emit metrics for the [`Result`].
+    ///
+    /// The result must simply be propagated through this method, regardless of if emitting metrics
+    /// is successful or not. We do not want a failure to emit metrics to impact the user
+    /// experience.
     fn emit_metrics(self, ctx: Option<OneshotMetricsContext>) -> Result<T, E>;
 }
 
