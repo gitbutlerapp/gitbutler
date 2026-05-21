@@ -20,6 +20,7 @@ use crate::graph_rebase::cherry_pick::{PickMode, TreeMergeMode};
 pub mod cherry_pick;
 pub mod commit;
 pub mod materialize;
+pub mod merge_commit_changes;
 pub mod mutate;
 pub mod ordering;
 pub(crate) mod util;

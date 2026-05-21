@@ -6,6 +6,7 @@ use anyhow::{Context as _, bail};
 use bstr::{BStr, BString, ByteSlice};
 use but_error::Code;
 use gix::objs::WriteTo;
+use gix::objs::tree::EntryKind;
 use gix::prelude::ObjectIdExt;
 use serde::{Deserialize, Serialize};
 
@@ -698,8 +699,149 @@ impl ConflictEntries {
     }
 }
 
+/// Derive GitButler conflict entry metadata from a `gix` tree-merge outcome.
+///
+/// This is the shared translation used when a merge is auto-resolved but still
+/// has unresolved conflicts that must be persisted in a conflicted commit/tree.
+/// It first asks `gix` to materialize conflict stages into an index view of the
+/// merged tree. If that yields no staged conflict paths, it falls back to the
+/// unresolved conflict list from the merge outcome itself, which is important
+/// for force-resolved merges where Git would otherwise omit index stages.
+///
+/// - `repo` - is the repository that owns `merged_tree_id` and provides the index
+///   machinery used to derive stage entries from the merge result.
+///
+/// - `merged_tree_id` - is the tree written from the merge result's auto-resolved
+///   output, which is reloaded so conflict stages can be inspected.
+///
+/// - `merge_result` - is the original `gix` merge outcome whose unresolved
+///   conflicts are translated into GitButler conflict-entry metadata.
+///
+/// - `treat_as_unresolved` - decides which conflicts should still be treated as
+///   unresolved when scanning both staged entries and fallback conflict records.
+pub fn conflict_entries_from_merge_outcome(
+    repo: &gix::Repository,
+    merged_tree_id: gix::ObjectId,
+    merge_result: &gix::merge::tree::Outcome<'_>,
+    treat_as_unresolved: gix::merge::tree::TreatAsUnresolved,
+) -> anyhow::Result<ConflictEntries> {
+    use gix::index::entry::Stage;
+
+    let mut index = repo.index_from_tree(&merged_tree_id.attach(repo))?;
+    merge_result.index_changed_after_applying_conflicts(
+        &mut index,
+        treat_as_unresolved,
+        gix::merge::tree::apply_index_entries::RemovalMode::Mark,
+    );
+
+    let (mut ancestor_entries, mut our_entries, mut their_entries) =
+        (Vec::new(), Vec::new(), Vec::new());
+    for entry in index.entries() {
+        let storage = match entry.stage() {
+            Stage::Unconflicted => continue,
+            Stage::Base => &mut ancestor_entries,
+            Stage::Ours => &mut our_entries,
+            Stage::Theirs => &mut their_entries,
+        };
+        storage.push(gix::path::from_bstr(entry.path(&index)).into_owned());
+    }
+
+    let mut out = ConflictEntries {
+        ancestor_entries,
+        our_entries,
+        their_entries,
+    };
+
+    if !out.has_entries() {
+        fn push_unique(v: &mut Vec<PathBuf>, change: &gix::diff::tree_with_rewrites::Change) {
+            let path = gix::path::from_bstr(change.location()).into_owned();
+            if !v.contains(&path) {
+                v.push(path);
+            }
+        }
+
+        for conflict in merge_result
+            .conflicts
+            .iter()
+            .filter(|c| c.is_unresolved(treat_as_unresolved))
+        {
+            let (ours, theirs) = conflict.changes_in_resolution();
+            push_unique(&mut out.our_entries, ours);
+            push_unique(&mut out.their_entries, theirs);
+        }
+    }
+
+    assert_eq!(
+        out.has_entries(),
+        merge_result.has_unresolved_conflicts(treat_as_unresolved),
+        "Must have entries to indicate conflicting files, or bad things will happen later: {:#?}",
+        merge_result.conflicts
+    );
+
+    Ok(out)
+}
+
 mod conflict;
 pub use conflict::{
     add_conflict_markers, is_conflicted, message_is_conflicted,
     rewrite_conflict_markers_on_message_change, strip_conflict_markers,
 };
+
+/// Write a GitButler conflicted tree that wraps `resolved_tree_id` together
+/// with the conflict side trees and conflict file list.
+///
+/// - `repo` - is the repository that owns all tree objects involved and receives
+///   the newly written conflicted tree.
+///
+/// - `resolved_tree_id` - is the visible auto-resolved tree that callers want to
+///   present as the conflicted commit's main tree.
+///
+/// - `base_tree_id` - is the merge-base tree used for the conflicted merge step.
+///
+/// - `ours_tree_id` - is the accumulated tree on the "ours" side of the conflict.
+///
+/// - `theirs_tree_id` - is the incoming tree on the "theirs" side of the conflict.
+///
+/// - `conflict_entries` - lists the paths that should be recorded as conflicted in
+///   the synthetic GitButler tree metadata.
+pub fn write_conflicted_tree(
+    repo: &gix::Repository,
+    resolved_tree_id: gix::ObjectId,
+    base_tree_id: gix::ObjectId,
+    ours_tree_id: gix::ObjectId,
+    theirs_tree_id: gix::ObjectId,
+    conflict_entries: &ConflictEntries,
+) -> anyhow::Result<gix::ObjectId> {
+    let conflicted_files_string = toml::to_string(conflict_entries)?;
+    let conflicted_files_blob = repo.write_blob(conflicted_files_string.as_bytes())?;
+
+    let mut tree = repo.find_tree(resolved_tree_id)?.edit()?;
+    tree.upsert(
+        TreeKind::Ours.as_tree_entry_name(),
+        EntryKind::Tree,
+        ours_tree_id,
+    )?;
+    tree.upsert(
+        TreeKind::Theirs.as_tree_entry_name(),
+        EntryKind::Tree,
+        theirs_tree_id,
+    )?;
+    tree.upsert(
+        TreeKind::Base.as_tree_entry_name(),
+        EntryKind::Tree,
+        base_tree_id,
+    )?;
+    tree.upsert(
+        TreeKind::AutoResolution.as_tree_entry_name(),
+        EntryKind::Tree,
+        resolved_tree_id,
+    )?;
+    tree.upsert(
+        TreeKind::ConflictFiles.as_tree_entry_name(),
+        EntryKind::Blob,
+        conflicted_files_blob,
+    )?;
+    tree.write()
+        .context("failed to write conflicted tree")
+        .map(|tree_id| tree_id.detach())
+}
