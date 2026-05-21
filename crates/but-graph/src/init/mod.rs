@@ -561,7 +561,13 @@ impl Graph {
                 let wt_by_branch = {
                     // Assume linked worktrees are never unborn!
                     let mut m = BTreeMap::new();
-                    m.insert(ref_name.clone(), vec![crate::Worktree::Main]);
+                    m.insert(
+                        ref_name.clone(),
+                        vec![crate::Worktree {
+                            kind: crate::WorktreeKind::Main,
+                            owned_by_repo: true,
+                        }],
+                    );
                     m
                 };
                 graph.insert_segment_set_entrypoint(branch_segment_from_name_and_meta(

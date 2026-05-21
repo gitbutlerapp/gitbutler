@@ -52,9 +52,9 @@ pub struct RefInfo {
     pub worktree: Option<Worktree>,
 }
 
-/// Describes which worktree is checked out.
+/// Describes which kind of worktree is checked out by a [Ref](RefInfo).
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Worktree {
+pub enum WorktreeKind {
     /// The main worktree, i.e. the primary workspace associated with this repository, is checked out.
     ///
     /// It cannot be removed.
@@ -64,15 +64,50 @@ pub enum Worktree {
     LinkedId(BString),
 }
 
+/// Describes which worktree is checked out and how it relates to the repository that produced the graph.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Worktree {
+    /// The kind of worktree that checks out the reference.
+    pub kind: WorktreeKind,
+    /// The repository that produced the graph is using this worktree.
+    ///
+    /// Only one worktree in a graph should have this flag set.
+    pub owned_by_repo: bool,
+}
+
 impl Worktree {
     /// Produce a string that identifies this instance concisely, and visually distinguishable.
-    /// Use `ref_name` to deduplicate the name we chose.
+    /// `ref_name` is the name from the [`RefInfo`] that owns this worktree,
+    /// used to deduplicate the name we chose.
+    ///
+    /// For example, `refs/heads/foo` in linked worktree id `foo` prints
+    /// `foo[📁]`, not `foo[📁foo]`.
     pub fn debug_string(&self, ref_name: &gix::refs::FullNameRef) -> String {
+        self.debug_string_with_graph_context(ref_name, false)
+    }
+
+    /// Like [`Self::debug_string()`], but includes graph-contextual worktree ownership markers.
+    pub fn debug_string_with_graph_context(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+        show_owned_by_repo: bool,
+    ) -> String {
+        let owned_by_repo = if show_owned_by_repo && self.owned_by_repo {
+            "@repo"
+        } else {
+            ""
+        };
+        self.kind.debug_string(ref_name, owned_by_repo)
+    }
+}
+
+impl WorktreeKind {
+    fn debug_string(&self, ref_name: &gix::refs::FullNameRef, owned_by_repo: &str) -> String {
         match self {
-            Worktree::Main => "[🌳]".to_owned(),
-            Worktree::LinkedId(id) => {
+            WorktreeKind::Main => format!("[🌳{owned_by_repo}]"),
+            WorktreeKind::LinkedId(id) => {
                 format!(
-                    "[📁{id}]",
+                    "[📁{id}{owned_by_repo}]",
                     id = if ref_name.shorten() != id {
                         id.as_bstr()
                     } else {

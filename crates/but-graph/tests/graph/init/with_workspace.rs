@@ -6420,7 +6420,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
-    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳@repo]
     │   └── ·a5f94a2 (⌂|🏘|0001)
     │       ├── 📙►:6[1]:A <> origin/A →:4:
     │       │   └── ►:3[2]:anon:
@@ -6439,12 +6439,51 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     ");
 
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 081bae9
+    📕🏘️:0:gitbutler/workspace[🌳@repo] <> ✓refs/remotes/origin/main⇣1 on 081bae9
     ├── ≡📙:6:A <> origin/A →:4:⇣1 on 081bae9 {0}
     │   └── 📙:6:A <> origin/A →:4:⇣1
     │       └── 🟣197ddce
     └── ≡:5:B[📁wt-B-inside] on 081bae9
         └── :5:B[📁wt-B-inside]
+            └── ·3e01e28 (🏘️)
+    ");
+
+    let linked_repo = gix::open_opts(
+        repo.path()
+            .parent()
+            .expect("repository git dir is inside the worktree")
+            .join("wt-B-inside"),
+        gix::open::Options::isolated(),
+    )?
+    .with_object_memory();
+    let graph = Graph::from_head(&linked_repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), "when the graph is built from the B linked worktree repository, the workspace remains visible but the B worktree owns the entrypoint branch", @"
+
+    ├── 📕►►►:1[0]:gitbutler/workspace[🌳]
+    │   └── ·a5f94a2 (⌂|🏘)
+    │       ├── 📙►:6[1]:A <> origin/A →:5:
+    │       │   └── ►:4[2]:anon:
+    │       │       ├── ·081bae9 (⌂|🏘|✓|1111) ►A-inside[📁wt-A-inside], ►A-outside[📁wt-A-outside]
+    │       │       └── 🏁·3183e43 (⌂|🏘|✓|1111)
+    │       └── 👉►:0[1]:B[📁wt-B-inside@repo]
+    │           └── ·3e01e28 (⌂|🏘|0001)
+    │               └── →:4:
+    ├── ►:2[0]:origin/main →:3:
+    │   └── ►:3[1]:main <> origin/main →:2:
+    │       └── ·8dc508f (⌂|✓|0010)
+    │           └── →:4:
+    └── ►:5[0]:origin/A →:6:
+        └── 🟣197ddce (0x0|1000)
+            └── →:4:
+    ");
+
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), "workspace projection should keep the linked-worktree ownership marker on the focused stack while leaving the workspace ref itself unowned", @"
+    📕🏘️:1:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 081bae9
+    ├── ≡📙:6:A <> origin/A →:5:⇣1 on 081bae9 {0}
+    │   └── 📙:6:A <> origin/A →:5:⇣1
+    │       └── 🟣197ddce
+    └── ≡👉:0:B[📁wt-B-inside@repo] on 081bae9
+        └── 👉:0:B[📁wt-B-inside@repo]
             └── ·3e01e28 (🏘️)
     ");
     Ok(())

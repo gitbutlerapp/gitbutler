@@ -129,7 +129,10 @@ fn unborn_untracked() -> anyhow::Result<()> {
                 ),
                 commit_id: None,
                 worktree: Some(
-                    Main,
+                    Worktree {
+                        kind: Main,
+                        owned_by_repo: true,
+                    },
                 ),
             },
         ),
@@ -291,7 +294,10 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
                     Sha1(84503317a1e1464381fcff65ece14bc1f4315b7c),
                 ),
                 worktree: Some(
-                    Main,
+                    Worktree {
+                        kind: Main,
+                        owned_by_repo: true,
+                    },
                 ),
             },
         ),
@@ -410,7 +416,10 @@ fn single_branch() -> anyhow::Result<()> {
                     Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
                 ),
                 worktree: Some(
-                    Main,
+                    Worktree {
+                        kind: Main,
+                        owned_by_repo: true,
+                    },
                 ),
             },
         ),
@@ -538,7 +547,10 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                     Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
                 ),
                 worktree: Some(
-                    Main,
+                    Worktree {
+                        kind: Main,
+                        owned_by_repo: true,
+                    },
                 ),
             },
         ),

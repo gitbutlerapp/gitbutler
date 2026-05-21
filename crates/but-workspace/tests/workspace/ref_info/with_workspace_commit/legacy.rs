@@ -553,7 +553,10 @@ mod stack_details {
                         Sha1(2076060e1915b4caf40eb51ab9a462eced434cc7),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             },
@@ -640,7 +643,10 @@ mod stack_details {
                         Sha1(2076060e1915b4caf40eb51ab9a462eced434cc7),
                     ),
                     worktree: Some(
-                        Main,
+                        Worktree {
+                            kind: Main,
+                            owned_by_repo: true,
+                        },
                     ),
                 },
             ),

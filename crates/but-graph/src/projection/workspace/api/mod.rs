@@ -368,11 +368,17 @@ impl Workspace {
         let graph = &self.graph;
         let (name, sign) = match &self.kind {
             WorkspaceKind::Managed { ref_info } => (
-                Graph::ref_debug_string(ref_info.ref_name.as_ref(), ref_info.worktree.as_ref()),
+                graph.ref_debug_string_with_graph_context(
+                    ref_info.ref_name.as_ref(),
+                    ref_info.worktree.as_ref(),
+                ),
                 "🏘️",
             ),
             WorkspaceKind::ManagedMissingWorkspaceCommit { ref_info } => (
-                Graph::ref_debug_string(ref_info.ref_name.as_ref(), ref_info.worktree.as_ref()),
+                graph.ref_debug_string_with_graph_context(
+                    ref_info.ref_name.as_ref(),
+                    ref_info.worktree.as_ref(),
+                ),
                 "🏘️⚠️",
             ),
             WorkspaceKind::AdHoc => (
@@ -380,7 +386,10 @@ impl Workspace {
                     .ref_info
                     .as_ref()
                     .map_or("DETACHED".into(), |ri| {
-                        Graph::ref_debug_string(ri.ref_name.as_ref(), ri.worktree.as_ref())
+                        graph.ref_debug_string_with_graph_context(
+                            ri.ref_name.as_ref(),
+                            ri.worktree.as_ref(),
+                        )
                     }),
                 "⌂",
             ),

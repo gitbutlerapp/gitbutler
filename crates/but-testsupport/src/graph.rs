@@ -27,33 +27,41 @@ fn graph_workspace_inner(
     };
     let mut root = Tree::new(workspace.debug_string());
     for stack in &workspace.stacks {
-        root.push(tree_for_stack(stack, commit_flags, stack_id_map.as_mut()));
+        root.push(tree_for_stack(
+            &workspace.graph,
+            stack,
+            commit_flags,
+            stack_id_map.as_mut(),
+        ));
     }
     root
 }
 
 fn tree_for_stack(
+    graph: &Graph,
     stack: &but_graph::workspace::Stack,
     commit_flags: StackCommitDebugFlags,
     stack_id_map: Option<&mut BTreeMap<StackId, StackId>>,
 ) -> StringTree {
-    let mut root = Tree::new(
-        stack.debug_string(stack.id.zip(stack_id_map).map(|(id, map)| {
+    let mut root = Tree::new(stack.debug_string_with_graph_context(
+        graph,
+        stack.id.zip(stack_id_map).map(|(id, map)| {
             let next_id = StackId::from_number_for_testing((map.len() + 1) as u128);
             *map.entry(id).or_insert(next_id)
-        })),
-    );
+        }),
+    ));
     for segment in &stack.segments {
-        root.push(tree_for_stack_segment(segment, commit_flags));
+        root.push(tree_for_stack_segment(graph, segment, commit_flags));
     }
     root
 }
 
 fn tree_for_stack_segment(
+    graph: &Graph,
     segment: &but_graph::workspace::StackSegment,
     commit_flags: StackCommitDebugFlags,
 ) -> StringTree {
-    let mut root = Tree::new(segment.debug_string());
+    let mut root = Tree::new(segment.debug_string_with_graph_context(graph));
     if let Some(outside) = &segment.commits_outside {
         for commit in outside {
             root.push(format!("{}*", commit.debug_string(commit_flags)));
@@ -97,20 +105,22 @@ pub fn graph_tree(graph: &Graph) -> StringTree {
 }
 
 fn tree_for_commit(
+    graph: &Graph,
     commit: &but_graph::Commit,
     is_entrypoint: bool,
     stop_condition: Option<but_graph::StopCondition>,
     hard_limit_hit: bool,
     max_goals: Option<usize>,
 ) -> StringTree {
-    Graph::commit_debug_string(
-        commit,
-        is_entrypoint,
-        stop_condition,
-        hard_limit_hit,
-        max_goals,
-    )
-    .into()
+    graph
+        .commit_debug_string_with_graph_context(
+            commit,
+            is_entrypoint,
+            stop_condition,
+            hard_limit_hit,
+            max_goals,
+        )
+        .into()
 }
 fn recurse_segment(
     graph: &but_graph::Graph,
@@ -128,7 +138,10 @@ fn recurse_segment(
                 .as_ref()
                 .map(|ri| format!(
                     " ({}{maybe_sibling})",
-                    Graph::ref_debug_string(ri.ref_name.as_ref(), ri.worktree.as_ref()),
+                    graph.ref_debug_string_with_graph_context(
+                        ri.ref_name.as_ref(),
+                        ri.worktree.as_ref(),
+                    ),
                     maybe_sibling = segment
                         .remote_tracking_branch_segment_id
                         .or(segment.sibling_segment_id)
@@ -192,7 +205,7 @@ fn recurse_segment(
         } else {
             ""
         },
-        ref_name_and_remote = Graph::ref_and_remote_debug_string(
+        ref_name_and_remote = graph.ref_and_remote_debug_string_with_graph_context(
             segment.ref_info.as_ref(),
             segment.remote_tracking_ref_name.as_ref(),
             segment.sibling_segment_id,
@@ -201,6 +214,7 @@ fn recurse_segment(
     ));
     for (cidx, commit) in segment.commits.iter().enumerate() {
         let mut commit_tree = tree_for_commit(
+            graph,
             commit,
             segment_is_entrypoint && Some(cidx) == entrypoint_commit_index,
             if cidx + 1 != segment.commits.len() {
