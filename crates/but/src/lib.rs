@@ -1448,7 +1448,7 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Unapply { identifier, force } => {
+        Subcommands::Unapply { identifier } => {
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -1457,7 +1457,7 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            command::legacy::unapply::handle(&mut ctx, out, &identifier, force)
+            command::legacy::unapply::handle(&mut ctx, out, &identifier)
                 .context("Failed to unapply branch.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)

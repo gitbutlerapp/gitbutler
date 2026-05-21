@@ -1016,9 +1016,6 @@ pub enum Subcommands {
     Unapply {
         /// CLI ID or name of the branch/stack to unapply
         identifier: String,
-        /// Force unapply without confirmation
-        #[clap(long, short = 'f')]
-        force: bool,
     },
 
     /// Apply a branch to the workspace.
