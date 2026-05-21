@@ -9,7 +9,9 @@ use but_rebase::graph_rebase::{
     Editor, LookupStep as _, SuccessfulRebase,
     mutate::{InsertSide, RelativeTo},
 };
-use but_workspace::commit::{SquashCommitsOutcome, squash_commits::MessageCombinationStrategy};
+use but_workspace::commit::{
+    MoveChangesOutcome, SquashCommitsOutcome, squash_commits::MessageCombinationStrategy,
+};
 use gix::{ObjectId, refs::FullNameRef};
 
 #[cfg(test)]
@@ -294,6 +296,30 @@ where
                 },
                 rebase,
             ))
+        })
+    }
+
+    pub fn move_committed_changes_between(
+        &mut self,
+        source: ObjectId,
+        target: ObjectId,
+        changes: Vec<but_core::DiffSpec>,
+    ) -> anyhow::Result<()> {
+        let context_lines = self.context_lines();
+        self.rebase(|editor, commit_mappings| {
+            let source = commit_mappings.map(source);
+            let target = commit_mappings.map(target);
+
+            let MoveChangesOutcome { rebase, .. } =
+                but_workspace::commit::move_changes_between_commits(
+                    editor,
+                    source,
+                    target,
+                    changes,
+                    context_lines,
+                )?;
+
+            Ok(((), rebase))
         })
     }
 
