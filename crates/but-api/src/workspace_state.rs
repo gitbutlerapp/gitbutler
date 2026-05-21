@@ -2,7 +2,7 @@ use super::WorkspaceState;
 use std::collections::BTreeMap;
 
 use but_core::{DryRun, RefMetadata};
-use but_rebase::graph_rebase::SuccessfulRebase;
+use but_rebase::graph_rebase::{MaterializeOutcome, SuccessfulRebase};
 
 use but_workspace::RefInfo;
 
@@ -61,6 +61,21 @@ impl WorkspaceState {
             &rebase.overlayed_graph()?.into_workspace()?,
             rebase.repo(),
             replaced_commits,
+        )
+    }
+
+    /// Build a [`WorkspaceState`] from an already-materialized rebase.
+    ///
+    /// Use this when the caller needs to perform additional bookkeeping after materialization
+    /// before constructing the final workspace state.
+    pub fn from_materialized_rebase<M: RefMetadata>(
+        materialized: MaterializeOutcome<'_, '_, M>,
+        repo: &gix::Repository,
+    ) -> anyhow::Result<WorkspaceState> {
+        Self::from_workspace(
+            materialized.workspace,
+            repo,
+            materialized.history.commit_mappings(),
         )
     }
 

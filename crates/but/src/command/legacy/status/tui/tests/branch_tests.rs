@@ -80,6 +80,45 @@ fn focus_reload_preserves_branch_selection() {
 }
 
 #[test]
+fn deleted_branch_name_can_be_reused_without_restoring_old_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
+
+    tui.input_then_render('x')
+        .assert_rendered_contains("Discard branch A?");
+
+    tui.input_then_render('y');
+
+    tui.input_then_render(None)
+        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+
+    tui.input_then_render('b')
+        .assert_current_line_eq(str!["┊╭┄br [c-branch-1] (no commits)"]);
+
+    tui.input_then_render(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊╭┄br [c-branch-1 ] (no commits)"]);
+
+    for _ in 0..10 {
+        tui.input_then_render(KeyCode::Backspace);
+    }
+
+    tui.input_then_render("A")
+        .assert_current_line_eq(str!["┊╭┄br [A ] (no commits)"]);
+
+    tui.input_then_render(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊╭┄g0 [A] (no commits)"]);
+
+    let mut tui = tui.recreate();
+    tui.input_then_render(None)
+        .assert_rendered_contains("[A] (no commits)");
+}
+
+#[test]
 fn focus_reload_preserves_merge_base_selection() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
