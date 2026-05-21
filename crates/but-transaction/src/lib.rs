@@ -246,6 +246,25 @@ where
         })
     }
 
+    pub fn insert_blank_commit(
+        &mut self,
+        relative_to: RelativeTo,
+        side: InsertSide,
+    ) -> anyhow::Result<gix::ObjectId> {
+        self.rebase(|editor, commit_mappings| {
+            let relative_to = match relative_to {
+                RelativeTo::Commit(object_id) => RelativeTo::Commit(commit_mappings.map(object_id)),
+                RelativeTo::Reference(full_name) => RelativeTo::Reference(full_name),
+            };
+
+            let (rebase, blank_commit_selector) =
+                but_workspace::commit::insert_blank_commit(editor, side, relative_to)?;
+            let new_commit = rebase.lookup_pick(blank_commit_selector)?;
+
+            Ok((new_commit, rebase))
+        })
+    }
+
     /// Look up a commit that has been rewritten as part of a rebase.
     ///
     /// In most cases this shouldn't be necessary. See [`with_transaction`] for more details.
