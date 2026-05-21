@@ -1,4 +1,5 @@
 import { listProjectsQueryOptions } from "#ui/api/queries.ts";
+import { Icon } from "#ui/components/Icon.tsx";
 import { lastOpenedProjectKey } from "#ui/projects/last-opened.ts";
 import { PickerDialog } from "#ui/ui/PickerDialog/PickerDialog.tsx";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
@@ -80,7 +81,7 @@ const ProjectSelect: FC = () => {
 				onClick={openProjectPicker}
 				positionerProps={{ side: "right" }}
 			>
-				+
+				<Icon name="plus" />
 			</ShortcutButton>
 
 			<PickerDialog

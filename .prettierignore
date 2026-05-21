@@ -25,5 +25,8 @@ packages/but-sdk/**/*.md
 # TanStack Router's generated types for file-based routing
 apps/lite/ui/src/routeTree.gen.ts
 
+# Auto-generated icon names union type
+apps/lite/ui/src/components/iconNames.ts
+
 # Apple Icon Composer generated file
 apps/lite/resources/icons/macos/icon.icon/icon.json
