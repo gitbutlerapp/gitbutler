@@ -265,7 +265,7 @@ async fn match_subcommand(
     #[cfg(feature = "agentlog")]
     let cmd = match cmd {
         Subcommands::AgentLog { cmd } => {
-            return run_agentlog_command(&args.current_dir, cmd, out);
+            return Ok(run_agentlog_command(&args.current_dir, cmd, out)?);
         }
         cmd => cmd,
     };
