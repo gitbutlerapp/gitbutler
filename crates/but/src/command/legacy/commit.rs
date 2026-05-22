@@ -86,9 +86,9 @@ pub(crate) fn insert_blank_commit(
                 guard.write_permission(),
             )?;
             let success_message = match insert_side {
-                InsertSide::Above => format!("Created blank commit at the top of stack '{name}'"),
+                InsertSide::Above => format!("Created blank commit above branch '{name}'"),
                 InsertSide::Below => {
-                    format!("Created blank commit at the bottom of stack '{name}'")
+                    format!("Created blank commit at the tip of branch '{name}'")
                 }
             };
             (outcome, success_message)

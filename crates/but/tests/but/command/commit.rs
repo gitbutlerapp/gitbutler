@@ -272,61 +272,100 @@ Created blank commit before commit 9477ae7
 }
 
 #[test]
-#[ignore = "Inserting after a branch reference is not currently supported by the underlying API"]
-fn commit_empty_with_after_flag() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
-    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * 9477ae7 (A) add A
-    * 0dc3733 (origin/main, origin/HEAD, main) add M
-    ");
-
+fn commit_empty_after_branch_for_non_stack_head() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
     env.setup_metadata(&["A"])?;
 
-    // Insert empty commit after (at top of) branch A
-    env.but("commit empty --after A")
+    env.but("branch new bottom")
+        .arg("-a")
+        .arg(env.open_repo()?.rev_parse("A~")?.to_string())
         .assert()
-        .success()
-        .stdout_eq(str![[r#"
-Created blank commit at the top of stack 'A'
+        .success();
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9ac4652 add second
+┊│
+┊├┄bo [bottom]
+┊●   fe12bcd add first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
 
 "#]]);
 
-    // Verify a new commit was created
-    let log = env.git_log()?;
-    // Should have one more commit than before
-    assert!(log.lines().filter(|l| l.starts_with("*")).count() > 3);
+    // Insert empty commit after branch A, with a new branch created to prevent an anonymous segment
+    env.but("commit empty --after bottom")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Created blank commit above branch 'bottom'
+
+"#]]);
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   76b24fa add second
+┊●   32d198c (no commit message) (no changes)
+┊│
+┊├┄bo [bottom]
+┊●   fe12bcd add first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
 
     Ok(())
 }
 
 #[test]
-#[ignore = "Inserting before a branch reference is not currently supported by the underlying API"]
 fn commit_empty_with_before_branch() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
-    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * 9477ae7 (A) add A
-    * 0dc3733 (origin/main, origin/HEAD, main) add M
-    ");
-
     env.setup_metadata(&["A"])?;
 
-    // Insert empty commit before branch A (at bottom of stack)
-    // Note: This currently fails with "Commit has parents that are not referenced"
-    // which suggests the underlying API doesn't properly support InsertSide::Below with branches
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
     env.but("commit empty --before A")
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Created blank commit at the bottom of stack 'A'
+Created blank commit at the tip of branch 'A'
 
 "#]]);
 
-    // Verify a new commit was created
-    let log = env.git_log()?;
-    // Should have one more commit than before
-    assert!(log.lines().filter(|l| l.starts_with("*")).count() > 3);
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   2594ce3 (no commit message) (no changes)
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
 
     Ok(())
 }
