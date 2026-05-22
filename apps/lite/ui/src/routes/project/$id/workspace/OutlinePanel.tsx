@@ -45,14 +45,13 @@ import { OperationSourceLabel } from "#ui/routes/project/$id/workspace/Operation
 import { OperationTarget } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/ui/classes.ts";
-import { BullseyeIcon, MenuTriggerIcon, PushIcon } from "#ui/ui/icons.tsx";
 import {
 	buildNavigationIndex,
 	navigationIndexIncludes,
 	Section,
 	type NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
-import { mergeProps, Toast, useRender } from "@base-ui/react";
+import { mergeProps, Toast, Tooltip, useRender } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
 import { Toolbar } from "@base-ui/react/toolbar";
 import {
@@ -108,6 +107,7 @@ import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 import { defaultOutlineSelection } from "#ui/projects/workspace/state.ts";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
+import { Icon } from "#ui/components/Icon.tsx";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { rejectedChangesToastOptions } from "#ui/operations/rejectedChangesToastOptions.tsx";
 import {
@@ -698,6 +698,53 @@ const useIsSelected = ({ projectId, operand }: { projectId: string; operand: Ope
 const treeItemId = (operand: Operand): string =>
 	`outline-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
 
+const ItemRowMenuButton: FC<{
+	ariaLabel: string;
+	menuItems: Array<NativeMenuItem>;
+	disabled?: boolean;
+}> = ({ ariaLabel, menuItems, disabled = false }) => (
+	<Toolbar.Button
+		type="button"
+		className={workspaceItemRowStyles.itemRowToolbarButton}
+		aria-label={ariaLabel}
+		disabled={disabled}
+		onClick={(event) => {
+			void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+		}}
+	>
+		<Icon name="kebab" />
+	</Toolbar.Button>
+);
+
+const CommitTargetIndicator: FC = () => {
+	const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+
+	return (
+		<Tooltip.Root
+			open={isTooltipOpen}
+			// [ref:tooltip-disable-hoverable-popup]
+			disableHoverablePopup
+		>
+			<Tooltip.Trigger
+				onMouseEnter={() => setIsTooltipOpen(true)}
+				onMouseLeave={() => setIsTooltipOpen(false)}
+				render={
+					<span className={styles.commitTargetIndicator} aria-label="Commit target">
+						<Icon name="bullseye" />
+					</span>
+				}
+			/>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={8}>
+					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
+						Commit target
+					</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
+
 const ItemRow: FC<
 	{
 		projectId: string;
@@ -1144,27 +1191,10 @@ const CommitRow: FC<
 					</div>
 					{outlineMode._tag === "Default" && (
 						<WorkspaceItemRowToolbar aria-label="Commit actions">
-							<Toolbar.Button
-								type="button"
-								className={workspaceItemRowStyles.itemRowToolbarButton}
-								aria-label="Commit menu"
-								onClick={(event) => {
-									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-								}}
-							>
-								<MenuTriggerIcon />
-							</Toolbar.Button>
+							<ItemRowMenuButton ariaLabel="Commit menu" menuItems={menuItems} />
 						</WorkspaceItemRowToolbar>
 					)}
-					{isCommitTarget && (
-						<span
-							className={styles.commitTargetIndicator}
-							aria-label="Commit target"
-							title="Commit target"
-						>
-							<BullseyeIcon />
-						</span>
-					)}
+					{isCommitTarget && <CommitTargetIndicator />}
 				</>
 			)}
 		</ItemRow>
@@ -1240,16 +1270,7 @@ const ChangesSectionRow: FC<{
 			</div>
 			{outlineMode._tag === "Default" && (
 				<WorkspaceItemRowToolbar aria-label="Changes actions">
-					<Toolbar.Button
-						type="button"
-						className={workspaceItemRowStyles.itemRowToolbarButton}
-						aria-label="Changes menu"
-						onClick={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-						}}
-					>
-						<MenuTriggerIcon />
-					</Toolbar.Button>
+					<ItemRowMenuButton ariaLabel="Changes menu" menuItems={menuItems} />
 				</WorkspaceItemRowToolbar>
 			)}
 		</ItemRow>
@@ -1925,29 +1946,12 @@ const BranchRow: FC<
 								aria-label="Push branch"
 								disabled
 							>
-								<PushIcon />
+								<Icon name="arrow-line-up" />
 							</Toolbar.Button>
-							<Toolbar.Button
-								type="button"
-								className={workspaceItemRowStyles.itemRowToolbarButton}
-								aria-label="Branch menu"
-								onClick={(event) => {
-									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-								}}
-							>
-								<MenuTriggerIcon />
-							</Toolbar.Button>
+							<ItemRowMenuButton ariaLabel="Branch menu" menuItems={menuItems} />
 						</WorkspaceItemRowToolbar>
 					)}
-					{isCommitTarget && (
-						<span
-							className={styles.commitTargetIndicator}
-							aria-label="Commit target"
-							title="Commit target"
-						>
-							<BullseyeIcon />
-						</span>
-					)}
+					{isCommitTarget && <CommitTargetIndicator />}
 				</>
 			)}
 		</ItemRow>
@@ -2011,16 +2015,7 @@ const StackRow: FC<
 
 			{outlineMode._tag === "Default" && (
 				<WorkspaceItemRowToolbar aria-label="Stack actions">
-					<Toolbar.Button
-						type="button"
-						className={workspaceItemRowStyles.itemRowToolbarButton}
-						aria-label="Stack menu"
-						onClick={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-						}}
-					>
-						<MenuTriggerIcon />
-					</Toolbar.Button>
+					<ItemRowMenuButton ariaLabel="Stack menu" menuItems={menuItems} />
 				</WorkspaceItemRowToolbar>
 			)}
 		</ItemRow>

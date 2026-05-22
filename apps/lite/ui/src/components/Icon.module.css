@@ -1,0 +1,13 @@
+.icon {
+	display: inline-flex;
+	width: var(--icon-size, 16px);
+	height: var(--icon-size, 16px);
+	font-style: normal;
+	line-height: 0;
+}
+
+.icon :where(svg) {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
