@@ -5,6 +5,7 @@
 use std::{
     borrow::Cow,
     ops::{Deref, DerefMut},
+    str::FromStr,
 };
 
 use bstr::BString;
@@ -45,6 +46,8 @@ pub struct Commit {
     /// if it's not stored in the Commit. Use [`Self::change_id()`] to always get the change id,
     /// if necessary, by deriving it from the commit hash itself.
     pub change_id: Option<but_core::ChangeId>,
+    /// Optional URL to the Gerrit review for this commit, if applicable.
+    pub gerrit_review_url: Option<String>,
 }
 
 impl std::fmt::Debug for Commit {
@@ -80,6 +83,7 @@ impl From<but_core::Commit<'_>> for Commit {
             change_id,
             refs: Vec::new(),
             flags: StackCommitFlags::empty(),
+            gerrit_review_url: None,
         }
     }
 }
@@ -114,6 +118,7 @@ impl Commit {
             refs: graph_commit.refs.clone(),
             flags: graph_commit.flags.into(),
             change_id: hdr.and_then(|hdr| hdr.change_id),
+            gerrit_review_url: None,
         }
     }
 }
@@ -222,15 +227,48 @@ impl WorkspaceExt for but_graph::Workspace {
     }
 }
 
+/// Controls whether [`RefInfo`] should be interpreted with Gerrit push metadata.
+///
+/// Standard `head_info()` derives commit relation and push status from the Git
+/// graph: local branch tips, remote-tracking refs, target reachability, and
+/// similarity checks. Gerrit mode has an extra source of truth: after a push,
+/// GitButler records the Gerrit Change-Id, the patchset commit id accepted by
+/// Gerrit, and the review URL in the cache database.
+///
+/// When enabled, that recorded metadata is applied after the standard graph and
+/// similarity pass. This lets `RefInfo` report commits as already present on
+/// Gerrit even when there is no normal remote-tracking branch update for
+/// `refs/for/*` pushes, and lets the UI link commits back to their Gerrit
+/// reviews.
+#[derive(Default)]
+pub enum GerritMode<'db> {
+    /// Use only the standard graph-derived `head_info()` data.
+    #[default]
+    Disabled,
+    /// Apply Gerrit metadata from the cache database to commits and push status.
+    Enabled(but_db::GerritMetadataHandle<'db>),
+}
+
+impl std::fmt::Debug for GerritMode<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GerritMode::Disabled => f.write_str("Disabled"),
+            GerritMode::Enabled(_) => f.write_str("Enabled(..)"),
+        }
+    }
+}
+
 /// Options for the [`ref_info()`](crate::ref_info()) call.
-#[derive(Default, Debug, Clone)]
-pub struct Options {
+#[derive(Default, Debug)]
+pub struct Options<'db> {
     /// Control how to traverse the commit-graph as the basis for the workspace conversion.
     pub traversal: but_graph::init::Options,
     /// Perform expensive computations on a per-commit basis.
     ///
     /// Note that less expensive checks are still performed.
     pub expensive_commit_info: bool,
+    /// Configure whether Gerrit metadata should augment the standard graph-derived result.
+    pub gerrit_mode: GerritMode<'db>,
 }
 
 /// A segment of a commit graph, representing a set of commits exclusively.
@@ -358,7 +396,7 @@ impl std::fmt::Debug for Segment {
     }
 }
 
-use anyhow::bail;
+use anyhow::{Context as _, bail};
 use but_core::{is_workspace_ref_name, ref_metadata::ValueInfo};
 use but_graph::{
     Graph,
@@ -377,7 +415,7 @@ use crate::{AncestorWorkspaceCommit, RefInfo, WorkspaceCommit, branch, ui::PushS
 pub fn head_info(
     repo: &gix::Repository,
     meta: &impl but_core::RefMetadata,
-    opts: Options,
+    opts: Options<'_>,
 ) -> anyhow::Result<RefInfo> {
     let graph = Graph::from_head(repo, meta, opts.traversal.clone())?;
     graph_to_ref_info(&graph.into_workspace()?, repo, opts)
@@ -395,7 +433,7 @@ pub fn head_info(
 pub fn ref_info(
     mut existing_ref: gix::Reference<'_>,
     meta: &impl but_core::RefMetadata,
-    opts: Options,
+    opts: Options<'_>,
 ) -> anyhow::Result<RefInfo> {
     let id = existing_ref.peel_to_id()?;
     let repo = id.repo;
@@ -451,7 +489,7 @@ pub(crate) fn find_ancestor_workspace_commit(
 pub fn graph_to_ref_info(
     workspace: &but_graph::Workspace,
     repo: &gix::Repository,
-    opts: Options,
+    opts: Options<'_>,
 ) -> anyhow::Result<RefInfo> {
     if workspace.graph.hard_limit_hit() {
         tracing::warn!(hard_limit=?opts.traversal.hard_limit,
@@ -518,7 +556,88 @@ pub fn graph_to_ref_info(
         bail!("{msg}");
     }
     info.compute_similarity(graph, repo, opts.expensive_commit_info)?;
+    if let GerritMode::Enabled(metadata) = opts.gerrit_mode {
+        info.apply_gerrit_metadata(metadata)?;
+    }
     Ok(info)
+}
+
+impl RefInfo {
+    /// Enrich standard `RefInfo` output with Gerrit review metadata.
+    ///
+    /// The regular construction path has already computed stack shape, commit
+    /// similarity, integration state, and ordinary push status from refs and
+    /// graph reachability. Gerrit pushes do not update a branch remote-tracking
+    /// ref in the same way a normal Git push does, so those graph-only signals
+    /// are not enough to tell whether a local commit has already been accepted
+    /// by Gerrit.
+    ///
+    /// For each local commit, this pass looks up its GitButler Change-Id in the
+    /// Gerrit metadata table populated after successful pushes. A hit attaches
+    /// the review URL and, unless the commit is already integrated, marks the
+    /// commit as `LocalAndRemote(recorded_patchset_commit_id)`. If the recorded
+    /// patchset id differs from the local commit id, the commit is treated as a
+    /// rewritten patchset that would require another Gerrit push.
+    fn apply_gerrit_metadata(
+        &mut self,
+        metadata: but_db::GerritMetadataHandle<'_>,
+    ) -> anyhow::Result<()> {
+        for segment in self
+            .stacks
+            .iter_mut()
+            .flat_map(|stack| stack.segments.iter_mut())
+        {
+            for commit in &mut segment.commits {
+                let Some(meta) = metadata.get(&commit.change_id().to_string())? else {
+                    continue;
+                };
+                commit.inner.gerrit_review_url = Some(meta.review_url);
+                if !matches!(commit.relation, LocalCommitRelation::Integrated(_)) {
+                    let remote_id =
+                        gix::ObjectId::from_str(&meta.commit_id).with_context(|| {
+                            format!(
+                                "Gerrit metadata for change-id {} has invalid commit id",
+                                meta.change_id
+                            )
+                        })?;
+                    commit.relation = LocalCommitRelation::LocalAndRemote(remote_id);
+                }
+            }
+            segment.push_status = gerrit_push_status(segment);
+        }
+        Ok(())
+    }
+}
+
+/// Derive push status for a Gerrit-enriched segment.
+///
+/// Standard push status compares local branches with their remote-tracking
+/// branches. Gerrit mode instead compares local commits with the patchset
+/// commit ids recorded in Gerrit metadata. A matching id means the current
+/// local commit is already pushed as-is, a different recorded id means the
+/// local commit has been rewritten since the last Gerrit patchset, and a
+/// local-only commit still needs to be pushed.
+fn gerrit_push_status(segment: &crate::ref_info::Segment) -> PushStatus {
+    let has_local_only = segment
+        .commits
+        .iter()
+        .any(|commit| matches!(commit.relation, LocalCommitRelation::LocalOnly));
+    let has_diverged = segment.commits.iter().any(|commit| {
+        matches!(commit.relation, LocalCommitRelation::LocalAndRemote(remote_id) if commit.id != remote_id)
+    });
+    let all_pushed = segment.commits.iter().all(|commit| {
+        matches!(commit.relation, LocalCommitRelation::LocalAndRemote(remote_id) if commit.id == remote_id)
+    });
+
+    if has_diverged {
+        PushStatus::UnpushedCommitsRequiringForce
+    } else if has_local_only {
+        PushStatus::UnpushedCommits
+    } else if all_pushed {
+        PushStatus::NothingToPush
+    } else {
+        segment.push_status
+    }
 }
 
 impl branch::Stack {

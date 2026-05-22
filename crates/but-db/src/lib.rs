@@ -76,7 +76,7 @@ pub use table::{
     claude::{ClaudeMessage, ClaudePermissionRequest, ClaudeSession},
     file_write_locks::FileWriteLock,
     workspace_rules::WorkspaceRule,
-    gerrit_metadata::GerritMeta,
+    gerrit_metadata::{GerritMeta, GerritMetadataHandle},
     forge_reviews::ForgeReview,
     ci_checks::CiCheck,
     virtual_branches::{VbBranchTarget, VbStack, VbStackHead, VbState, VirtualBranchesSnapshot, VirtualBranchesHandle, VirtualBranchesHandleMut},

@@ -229,6 +229,7 @@ pub fn stacks_v3(
     let options = ref_info::Options {
         expensive_commit_info: false,
         traversal: but_graph::init::Options::limited(),
+        ..Default::default()
     };
     let info = match ref_name_override {
         None => head_info(repo, meta, options),
@@ -304,11 +305,14 @@ pub fn stack_details_v3(
             .into_iter()
             .find(|stack| stack.id == Some(stack_id))
     }
-    let mut ref_info_options = ref_info::Options {
-        // TODO(perf): make this so it can be enabled for a specific stack-id.
-        expensive_commit_info: true,
-        traversal: but_graph::init::Options::limited(),
-    };
+    fn new_ref_info_options() -> ref_info::Options<'static> {
+        ref_info::Options {
+            expensive_commit_info: true,
+            traversal: but_graph::init::Options::limited(),
+            ..Default::default()
+        }
+    }
+    let mut ref_info_options = new_ref_info_options();
     let mut stack = match stack_id {
         None => {
             // assume single-branch mode.
@@ -335,7 +339,7 @@ pub fn stack_details_v3(
         }
         Some(stack_id) => {
             if let Some(stack) =
-                stack_by_id(head_info(repo, meta, ref_info_options.clone())?, stack_id)
+                stack_by_id(head_info(repo, meta, new_ref_info_options())?, stack_id)
             {
                 stack
             } else {
@@ -349,7 +353,7 @@ pub fn stack_details_v3(
                     .with_context(|| {
                         format!("Couldn't find any refs for stack {stack_id} in the repository")
                     })?;
-                let ref_info = ref_info(existing_ref, meta, ref_info_options)?;
+                let ref_info = ref_info(existing_ref, meta, new_ref_info_options())?;
                 stack_by_id(ref_info, stack_id).with_context(|| {
                     format!("Really couldn't find {stack_id} in the current workspace projection")
                 })?

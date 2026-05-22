@@ -387,6 +387,7 @@ impl From<&crate::ref_info::Commit> for ui::UpstreamCommit {
             // TODO: Represent this in the UI (maybe) and/or deal with divergence of the local and remote tracking branch.
             has_conflicts: _,
             change_id,
+            gerrit_review_url: _,
         }: &crate::ref_info::Commit,
     ) -> Self {
         ui::UpstreamCommit {
@@ -417,6 +418,7 @@ impl From<&LocalCommit> for ui::Commit {
                     flags: _,
                     has_conflicts,
                     change_id,
+                    gerrit_review_url,
                 },
             relation,
         }: &LocalCommit,
@@ -437,7 +439,7 @@ impl From<&LocalCommit> for ui::Commit {
                 .unwrap_or_else(|| {
                     but_core::commit::Headers::synthetic_change_id_from_commit_id(*id).to_string()
                 }),
-            gerrit_review_url: None,
+            gerrit_review_url: gerrit_review_url.clone(),
         }
     }
 }
