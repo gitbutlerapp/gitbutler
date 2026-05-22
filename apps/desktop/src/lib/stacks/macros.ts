@@ -1,4 +1,3 @@
-import { getStackName } from "$lib/stacks/stack";
 import { ensureValue } from "$lib/utils/validation";
 import type { CreateCommitRequestWorktreeChanges } from "$lib/stacks/stackEndpoints";
 import type { StackService } from "$lib/stacks/stackService.svelte";
@@ -56,7 +55,7 @@ export default class StackMacros {
 			projectId: this.projectId,
 			branch: { name },
 		});
-		const branchName = getStackName(stack);
+		const branchName = ensureValue(stack.heads.at(0)?.name);
 		const outcome = await this.stackService.createCommitMutation({
 			projectId: this.projectId,
 			stackId: ensureValue(stack.id),

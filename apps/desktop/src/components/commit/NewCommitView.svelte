@@ -42,7 +42,7 @@
 
 	const selectedLines = $derived(uncommittedService.selectedLines(stackId));
 	const topBranchQuery = $derived(stackId ? stackService.branches(projectId, stackId) : undefined);
-	const topBranchName = $derived(topBranchQuery?.response?.at(0)?.name);
+	const topBranchName = $derived(topBranchQuery?.response?.at(0)?.refName?.displayName);
 
 	const draftBranchName = $derived(uiState.global.draftBranchName.current);
 	const canCommit = $derived(selectedLines.current.length > 0);

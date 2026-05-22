@@ -13,7 +13,7 @@
 
 	type BaseProps = {
 		type: CommitStatusType;
-		branchName: string;
+		branchName?: string;
 		commitId: string;
 		commitMessage: string;
 		createdAt: number;

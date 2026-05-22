@@ -24,10 +24,10 @@
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, TestId } from "@gitbutler/ui";
-	import type { BranchDetails } from "@gitbutler/but-sdk";
+	import type { Segment } from "@gitbutler/but-sdk";
 
 	type Props = {
-		branches: BranchDetails[];
+		branches: Segment[];
 		topBranchName?: string;
 		onFoldStack?: () => void;
 		ircEnabled: boolean;

@@ -20,6 +20,7 @@
 	import { WorkspaceAutoPanner } from "$lib/dragging/workspaceAutoPanner";
 	import { branchesPath } from "$lib/routes/routes.svelte";
 	import { type SelectionId } from "$lib/selection/key";
+	import { getStackBranchNames, type Stack } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { throttle } from "$lib/utils/misc";
@@ -28,7 +29,6 @@
 	import { resizeObserver } from "@gitbutler/ui/utils/resizeObserver";
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
 	import { flip } from "svelte/animate";
-	import type { Stack } from "$lib/stacks/stack";
 
 	type Props = {
 		projectId: string;
@@ -263,7 +263,7 @@
 				>
 					{#if stack.id && foldedStackIds.includes(stack.id)}
 						<FoldedStack
-							branchNames={stack.heads.map((head) => head.name)}
+							branchNames={getStackBranchNames(stack)}
 							onUnfold={() => unfoldStack(stack.id)}
 						/>
 					{:else}
@@ -273,7 +273,7 @@
 								laneId={stack.id || "banana"}
 								stackId={stack.id ?? undefined}
 								onFoldStack={() => foldStack(stack.id)}
-								topBranchName={stack.heads.at(0)?.name}
+								topBranchName={stack.segments.at(0)?.refName?.displayName}
 								bind:clientWidth={laneWidths[i]}
 								bind:clientHeight={lineHeights[i]}
 								onVisible={(visible) => {

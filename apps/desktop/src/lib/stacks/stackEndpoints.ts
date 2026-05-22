@@ -45,6 +45,7 @@ import type {
 	InsertSide,
 	RelativeTo,
 	RefInfo,
+	StackEntry,
 } from "@gitbutler/but-sdk";
 
 export type BranchParams = {
@@ -171,7 +172,7 @@ export function toCommitCreatePlacement(args: CreateCommitRequest): {
 // Entity adapters and selectors
 
 export const stackAdapter = createEntityAdapter<Stack, string>({
-	selectId: (stack) => stack.id || stack.heads.at(0)?.name || stack.tip,
+	selectId: (stack) => stack.id ?? stack.segments.at(0)?.refName?.displayName ?? stack.base ?? "",
 });
 export const stackSelectors = {
 	...stackAdapter.getSelectors(),
@@ -202,12 +203,6 @@ export const changesSelectors = changesAdapter.getSelectors();
 
 export const selectChangesByPaths = createSelectByIds<TreeChange>();
 
-export const branchDetailsAdapter = createEntityAdapter<BranchDetails, string>({
-	selectId: (branch) => branch.name,
-});
-
-export const branchDetailsSelectors = branchDetailsAdapter.getSelectors();
-
 export function buildStackEndpoints(build: BackendEndpointBuilder) {
 	return {
 		workspaceDetails: build.query<WorkspaceDetails, { projectId: string }>({
@@ -221,7 +216,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				return transformWorkspaceDetails(response);
 			},
 		}),
-		createStack: build.mutation<Stack, { projectId: string; branch: BranchParams }>({
+		createStack: build.mutation<StackEntry, { projectId: string; branch: BranchParams }>({
 			extraOptions: {
 				command: "create_virtual_branch",
 				actionName: "Create Stack",

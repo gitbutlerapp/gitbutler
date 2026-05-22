@@ -107,14 +107,15 @@
 							<form onchange={(e) => handleStackSelectionChange(e.currentTarget)}>
 								{#each stacks as stack}
 									{@const isDisabled = !canSelectStack && selectedStackId !== stack.id}
+									{@const branchesCount = stack.segments.length}
 
 									<CardGroup.Item labelFor="stack-{stack.id}" disabled={isDisabled}>
 										{#snippet title()}
 											{getStackName(stack)}
 										{/snippet}
 										{#snippet caption()}
-											{stack.heads.length}
-											{stack.heads.length === 1 ? "branch" : "branches"}
+											{branchesCount}
+											{branchesCount === 1 ? "branch" : "branches"}
 										{/snippet}
 										{#snippet actions()}
 											<RadioButton

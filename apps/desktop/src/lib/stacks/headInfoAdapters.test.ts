@@ -77,7 +77,7 @@ function refInfo(stacks: RefInfo["stacks"]): RefInfo {
 }
 
 describe("headInfoAdapters", () => {
-	test("maps head_info stacks to legacy stack entries and stack details", () => {
+	test("keeps head_info stacks and indexes segment commits", () => {
 		const result = transformWorkspaceDetails(
 			refInfo([
 				{
@@ -91,43 +91,43 @@ describe("headInfoAdapters", () => {
 		expect(result.stacks.ids).toEqual(["stack-1"]);
 		expect(result.stacks.entities["stack-1"]).toMatchObject({
 			id: "stack-1",
-			tip: localCommit.id,
-			order: 0,
-			isCheckedOut: true,
-			heads: [
-				{
-					name: "feature/top",
-					tip: localCommit.id,
-					reviewId: 7,
-					isCheckedOut: true,
-				},
+			base: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+			segments: [
+				expect.objectContaining({
+					refName: {
+						fullNameBytes: bytes("refs/heads/feature/top"),
+						displayName: "feature/top",
+					},
+				}),
 			],
 		});
 
 		const details = result.stackDetails["stack-1"]!;
-		expect(details.stackInfo).toMatchObject({
-			derivedName: "feature/top",
-			pushStatus: "unpushedCommits",
-			isConflicted: true,
-		});
-		expect(details.stackInfo.branchDetails[0]).toMatchObject({
-			name: "feature/top",
-			reference: "refs/heads/feature/top",
-			remoteTrackingBranch: "refs/remotes/origin/feature/top",
-			prNumber: 7,
-			reviewId: "review-7",
-			tip: localCommit.id,
-			baseCommit: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-			lastUpdatedAt: 123000,
+		expect(details.stack).toBe(result.stacks.entities["stack-1"]);
+		expect(details.segments[0]).toMatchObject({
+			refName: {
+				fullNameBytes: bytes("refs/heads/feature/top"),
+				displayName: "feature/top",
+			},
+			remoteTrackingRefName: {
+				fullNameBytes: bytes("refs/remotes/origin/feature/top"),
+				displayName: "feature/top",
+				remoteName: "origin",
+			},
+			metadata: {
+				review: {
+					pullRequest: 7,
+					reviewId: "review-7",
+				},
+			},
 			commits: [localCommit],
-			upstreamCommits: [upstreamCommit],
-			isRemoteHead: false,
+			commitsOnRemote: [upstreamCommit],
 		});
 		expect(details.commits.ids).toEqual([localCommit.id]);
 		expect(details.upstreamCommits.ids).toEqual([upstreamCommit.id]);
 	});
 
-	test("uses the stack base as the tip for empty segments", () => {
+	test("preserves empty segments without manufacturing legacy tips", () => {
 		const result = transformWorkspaceDetails(
 			refInfo([
 				{
@@ -143,9 +143,9 @@ describe("headInfoAdapters", () => {
 			]),
 		);
 
-		expect(result.stacks.entities["stack-1"]?.tip).toBe("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-		expect(result.stackDetails["stack-1"]?.stackInfo.branchDetails[0]?.tip).toBe(
+		expect(result.stacks.entities["stack-1"]?.base).toBe(
 			"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 		);
+		expect(result.stackDetails["stack-1"]?.segments[0]?.commits).toEqual([]);
 	});
 });

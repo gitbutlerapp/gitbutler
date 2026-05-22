@@ -207,6 +207,7 @@
 				onclick={args.disableClick ? undefined : args.onclick}
 				disableClick={args.disableClick}
 				menu={args.menu}
+				buttons={args.buttons}
 				conflicts={args.isConflicted}
 				{showPrCreation}
 				changedFiles={args.changedFiles}
@@ -228,12 +229,6 @@
 							: undefined,
 				}}
 			>
-				{#snippet buttons()}
-					{#if args.buttons}
-						{@render args.buttons()}
-					{/if}
-				{/snippet}
-
 				{#snippet emptyState()}
 					<span class="branch-header__empty-state-span">This is an empty branch.</span>
 					<span class="branch-header__empty-state-span">Click for details.</span>

@@ -27,24 +27,28 @@
 	const repoService = $derived(forge.current.repoService);
 	const prService = $derived(forge.current.prService);
 
-	const branchQuery = $derived(stackService.branchByName(projectId, stackId, branchName));
-	const branch = $derived(branchQuery.response);
 	const branchDetailsQuery = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const branchDetails = $derived(branchDetailsQuery.response);
 	const isPushed = $derived(branchDetails?.pushStatus !== "completelyUnpushed");
-	const prQuery = $derived(branch?.prNumber ? prService?.get(branch?.prNumber) : undefined);
+	const prQuery = $derived(
+		branchDetails?.metadata?.review.pullRequest
+			? prService?.get(branchDetails.metadata.review.pullRequest)
+			: undefined,
+	);
 	const pr = $derived(prQuery?.response);
 
 	const parentQuery = $derived(stackService.branchParentByName(projectId, stackId, branchName));
 	const parent = $derived(parentQuery.response);
 	const hasParent = $derived(!!parent);
+	const parentName = $derived(parent?.refName?.displayName);
 	const parentBranchDetailsQuery = $derived(
-		parent ? stackService.branchDetails(projectId, stackId, parent.name) : undefined,
+		parentName ? stackService.branchDetails(projectId, stackId, parentName) : undefined,
 	);
 	const parentBranchDetails = $derived(parentBranchDetailsQuery?.response);
 	const parentIsPushed = $derived(parentBranchDetails?.pushStatus !== "completelyUnpushed");
 	const childQuery = $derived(stackService.branchChildByName(projectId, stackId, branchName));
 	const child = $derived(childQuery.response);
+	const childPrNumber = $derived(child?.metadata?.review.pullRequest);
 
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
 	const baseBranch = $derived(baseBranchQuery.response);
@@ -54,7 +58,7 @@
 	const repoInfo = $derived(repoQuery?.response);
 
 	let shouldUpdateTargetBaseBranch = $derived(
-		repoInfo?.deleteBranchAfterMerge === false && !!child?.prNumber,
+		repoInfo?.deleteBranchAfterMerge === false && !!childPrNumber,
 	);
 	const baseIsTargetBranch = $derived.by(() => {
 		if (forge.current.name === "gitlab") return true;
@@ -76,9 +80,9 @@
 
 		// In a stack, after merging, update the new bottom PR target
 		// base branch to master if necessary
-		if (baseBranch && shouldUpdateTargetBaseBranch && prService && child?.prNumber) {
+		if (baseBranch && shouldUpdateTargetBaseBranch && prService && childPrNumber) {
 			const targetBase = baseBranch.branchName.replace(`${baseBranch.remoteName}/`, "");
-			await prService.update(child.prNumber, { targetBase });
+			await prService.update(childPrNumber, { targetBase });
 		}
 
 		await Promise.all([
