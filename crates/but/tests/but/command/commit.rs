@@ -215,6 +215,49 @@ Operations History
 }
 
 #[test]
+fn commit_empty_default() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("commit empty")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Created blank commit at the tip of branch 'A'
+
+"#]]);
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   2594ce3 (no commit message) (no changes)
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
 fn commit_empty_with_before_flag() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @r"

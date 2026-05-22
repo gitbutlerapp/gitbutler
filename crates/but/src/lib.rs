@@ -923,7 +923,7 @@ async fn match_subcommand(
                                 )
                             })?;
 
-                        TargetSpec::Owned(branch_name, InsertSide::Above)
+                        TargetSpec::Owned(branch_name, InsertSide::Below)
                     };
 
                     let (target_str, insert_side) = match &target_spec {
