@@ -378,10 +378,21 @@ pub struct Edge {
     /// and widening this field pushes hot edge storage over an important size boundary.
     ///
     /// This limit would only be reached if there is a merge with 4.3 billion commits.
-    pub parent_order: u32,
+    pub(crate) parent_order: u32,
 }
 
 impl Edge {
+    /// Return the 0-based position of this edge's destination among the source commit's parents.
+    /// For instance, if the source is a merge commit and this edge represents the connection
+    /// to the second parent, the output will be `Some(1)`.
+    ///
+    /// This is `None` when the edge does not point at a concrete destination commit.
+    /// That happens for synthetic graph structure such as empty virtual segments,
+    /// where there is no Git commit parent for this edge to identify.
+    pub fn parent_order(&self) -> Option<u32> {
+        self.dst_id.map(|_| self.parent_order)
+    }
+
     /// Useful when reusing an edge to assure it doesn't list commits that don't exist in `src_idx` and `dst_idx` anymore.
     pub(crate) fn adjusted_for(
         mut self,

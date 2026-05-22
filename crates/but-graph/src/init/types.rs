@@ -165,6 +165,8 @@ impl Queue {
             inner: Default::default(),
             count: 0,
             max: limit,
+            hard_limit_hit: false,
+            exhausted: false,
             sorted: false,
         }
     }
@@ -178,6 +180,10 @@ pub struct Queue {
     count: usize,
     /// The maximum number of queuing operations, each representing one commit.
     max: Option<usize>,
+    /// Whether the hard limit stopped further queuing at least once.
+    hard_limit_hit: bool,
+    /// Whether no more items should be queued for reasons other than the hard limit.
+    exhausted: bool,
     /// Whether new items must maintain `inner` in traversal order.
     sorted: bool,
 }
@@ -202,6 +208,13 @@ impl Queue {
     }
     #[must_use]
     pub fn push_back_exhausted(&mut self, item: QueueItem) -> bool {
+        if self.exhausted || self.record_hard_limit_if_exhausted() {
+            return true;
+        }
+        self.push_back_even_if_exhausted(item)
+    }
+
+    pub(crate) fn push_back_even_if_exhausted(&mut self, item: QueueItem) -> bool {
         if self.sorted {
             self.insert_sorted(item);
         } else {
@@ -211,6 +224,9 @@ impl Queue {
     }
     #[must_use]
     pub fn push_front_exhausted(&mut self, item: QueueItem) -> bool {
+        if self.exhausted || self.record_hard_limit_if_exhausted() {
+            return true;
+        }
         if self.sorted {
             self.insert_sorted(item);
         } else {
@@ -228,7 +244,30 @@ impl Queue {
 
     fn is_exhausted_after_increment(&mut self) -> bool {
         self.count += 1;
+        self.exhausted || self.record_hard_limit_if_exhausted()
+    }
+
+    pub fn is_exhausted(&self) -> bool {
+        self.exhausted || self.is_hard_limit_exhausted()
+    }
+
+    pub(crate) fn is_hard_limit_exhausted(&self) -> bool {
         self.max.is_some_and(|l| self.count >= l)
+    }
+
+    pub(crate) fn hard_limit_hit(&self) -> bool {
+        self.hard_limit_hit
+    }
+
+    fn record_hard_limit_if_exhausted(&mut self) -> bool {
+        let hard_limit_exhausted = self.is_hard_limit_exhausted();
+        self.hard_limit_hit |= hard_limit_exhausted;
+        hard_limit_exhausted
+    }
+
+    /// Stop accepting new items while leaving already queued items to drain.
+    pub(crate) fn exhaust(&mut self) {
+        self.exhausted = true;
     }
 
     /// Add `goal` as additional goal to `id` or panic if `id` was not found.
@@ -525,5 +564,41 @@ impl TopoWalk {
                 Some(range)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Queue;
+
+    #[test]
+    fn explicit_exhaustion_does_not_count_as_hard_limit_hit() {
+        let mut queue = Queue::new_with_limit(Some(1));
+
+        queue.exhaust();
+
+        assert!(queue.is_exhausted(), "explicit exhaustion stops queueing");
+        assert!(
+            !queue.record_hard_limit_if_exhausted(),
+            "hard-limit state stays separate from explicit exhaustion"
+        );
+        assert!(
+            !queue.hard_limit_hit(),
+            "explicit exhaustion must not mark the hard limit as hit"
+        );
+    }
+
+    #[test]
+    fn hard_limit_exhaustion_records_hard_limit_hit() {
+        let mut queue = Queue::new_with_limit(Some(0));
+
+        assert!(
+            queue.record_hard_limit_if_exhausted(),
+            "a depleted hard limit stops queueing"
+        );
+        assert!(
+            queue.hard_limit_hit(),
+            "the queue records when the hard limit stopped queueing"
+        );
     }
 }

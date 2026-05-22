@@ -458,11 +458,13 @@ pub struct Options {
     /// commits to traverse back to `commit_limit_hint`.
     /// Imagine it like a gas station that can be chosen to direct where the commit-budge should be spent.
     pub commits_limit_recharge_location: Vec<gix::ObjectId>,
-    /// As opposed to the limit-hint, if not `None` we will stop after pretty much this many commits have been seen.
+    /// As opposed to the limit-hint, if not `None` we will stop queuing new commits after pretty much this many
+    /// commits have been seen.
     ///
-    /// This is a last line of defense against runaway traversals and for not it's recommended to set it to a high
+    /// This is a last line of defense against runaway traversals and for now it's recommended to set it to a high
     /// but manageable value. Note that depending on the commit-graph, we may need more commits to find the local branch
-    /// for a remote branch, leaving remote branches unconnected.
+    /// for a remote branch, leaving remote branches unconnected. Commits that are already queued are still processed so
+    /// their existing graph connections can be completed.
     ///
     /// Due to multiple paths being taken, more commits may be queued (which is what's counted here) than actually
     /// end up in the graph, so usually one will see many less.
@@ -942,7 +944,7 @@ impl Graph {
             let segment = &mut graph[segment_idx_for_id];
             let commit_idx_for_possible_fork = segment.commits.len();
             let propagated_flags = propagated_flags | maybe_make_id_a_goal_so_remote_can_find_local;
-            let hard_limit_hit = queue_parents(
+            queue_parents(
                 &mut next,
                 &info.parent_ids,
                 propagated_flags,
@@ -954,9 +956,6 @@ impl Graph {
                 repo.for_find_only(),
                 &mut buf,
             )?;
-            if hard_limit_hit {
-                return graph.post_processed(meta, tip, ctx.with_hard_limit());
-            }
 
             segment.commits.push(
                 info.into_commit(
@@ -977,7 +976,9 @@ impl Graph {
 
             for item in remote_items_to_queue_later {
                 if next.push_back_exhausted(item) {
-                    return graph.post_processed(meta, tip, ctx.with_hard_limit());
+                    // The break here means we may end up with unconnected remote tracking ref segments,
+                    // that's fine. If it ever is not, we should remove the hard limit.
+                    break;
                 }
             }
 
@@ -987,6 +988,7 @@ impl Graph {
             }
         }
 
+        ctx.hard_limit = next.hard_limit_hit();
         graph.post_processed(meta, tip, ctx)
     }
 

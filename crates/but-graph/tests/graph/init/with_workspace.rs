@@ -2173,20 +2173,22 @@ fn target_with_remote_on_stack_tip() -> anyhow::Result<()> {
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
-    └── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-        └── ·dd0cca8 (⌂|🏘|01)
-            └── 📙►:2[1]:A
-                └── ·e255adc (⌂|🏘|11) ►main
-                    └── ►:1[2]:origin/main
-                        └── 🏁·fafd9d0 (⌂|🏘|✓|11)
+    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+    │   └── ·dd0cca8 (⌂|🏘|01)
+    │       └── 📙►:2[1]:A
+    │           └── ·e255adc (⌂|🏘|11)
+    │               └── ►:1[2]:origin/main →:3:
+    │                   └── 🏁·fafd9d0 (⌂|🏘|✓|11)
+    └── ►:3[0]:main <> origin/main →:1:
+        └── →:2: (A)
     ");
 
     // The main branch is not present, as it's the target.
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @r"
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fafd9d0
     └── ≡📙:2:A on fafd9d0 {1}
         └── 📙:2:A
-            └── ·e255adc (🏘️) ►main
+            └── ·e255adc (🏘️)
     ");
 
     // But mention it if it's in the workspace. It should retain order.
@@ -2368,7 +2370,8 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     │               └── ►:5[2]:A
     │                   ├── ·79bbb29 (⌂|🏘|✓|1)
     │                   ├── ·fc98174 (⌂|🏘|✓|1)
-    │                   └── ✂·a381df5 (⌂|🏘|✓|1)
+    │                   ├── ·a381df5 (⌂|🏘|✓|1)
+    │                   └── ✂·777b552 (⌂|🏘|✓|1)
     └── ►:1[0]:origin/main →:4:
         ├── 🟣d0df794 (✓)
         └── 🟣09c6e08 (✓)
@@ -2407,7 +2410,9 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     │                   ├── ·79bbb29 (⌂|🏘|✓|1)
     │                   ├── ·fc98174 (⌂|🏘|✓|1)
     │                   ├── ·a381df5 (⌂|🏘|✓|1)
-    │                   └── ✂·777b552 (⌂|🏘|✓|1)
+    │                   └── ·777b552 (⌂|🏘|✓|1)
+    │                       └── ►:6[3]:anon:
+    │                           └── ✂·ce4a760 (⌂|🏘|✓|1)
     └── ►:1[0]:origin/main →:5:
         ├── 🟣d0df794 (✓)
         └── 🟣09c6e08 (✓)
@@ -3440,7 +3445,8 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
     │               │           ├── ·dca4960 (⌂|🏘|✓|1)
     │               │           ├── ·11c29b8 (⌂|🏘|✓|1)
     │               │           ├── ·c32dd03 (⌂|🏘|✓|1)
-    │               │           └── ✂·b625665 (⌂|🏘|✓|1)
+    │               │           ├── ·b625665 (⌂|🏘|✓|1)
+    │               │           └── ✂·a821094 (⌂|🏘|✓|1)
     │               └── ►:6[3]:long-main-to-workspace
     │                   ├── ·77f31a0 (⌂|🏘|✓|1)
     │                   ├── ·eb17e31 (⌂|🏘|✓|1)
@@ -6293,7 +6299,6 @@ fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch(
 
     let target_ref: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
     let target_head_ref: gix::refs::FullName = "refs/remotes/origin/HEAD".try_into()?;
-    let main_ref: gix::refs::FullName = "refs/heads/main".try_into()?;
 
     assert!(
         repo.try_find_reference(target_ref.as_ref())?.is_some(),
@@ -6313,10 +6318,11 @@ fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch(
     │           ├── ·4ca0966 (⌂|🏘|01)
     │           └── ·a3b180e (⌂|🏘|01)
     │               └── 📙►:2[2]:unapplied
-    │                   ├── ·ce09734 (⌂|🏘|✓|11) ►base-peer, ►base-peer-1, ►base-peer-2, ►base-peer-3, ►base-peer-4, ►base-peer-5, ►base-peer-6, ►base-peer-7, ►base-peer-8, ►main
+    │                   ├── ·ce09734 (⌂|🏘|✓|11) ►base-peer, ►base-peer-1, ►base-peer-2, ►base-peer-3, ►base-peer-4, ►base-peer-5, ►base-peer-6, ►base-peer-7, ►base-peer-8
     │                   └── 🏁·fafd9d0 (⌂|🏘|✓|11)
-    └── ►:1[0]:origin/main
-        └── →:2: (unapplied)
+    └── ►:1[0]:origin/main →:4:
+        └── ►:4[1]:main <> origin/main →:1:
+            └── →:2: (unapplied)
     ");
     let debug_graph = graph_tree(&graph);
     let target_segment = graph
@@ -6330,10 +6336,6 @@ fn shared_target_base_keeps_exact_target_segment_with_inactive_unapplied_branch(
     assert!(
         target_segment.commits.is_empty(),
         "expected exact target segment to stay empty when the target rests on main, graph was:\n{debug_graph}"
-    );
-    assert!(
-        graph.segment_by_ref_name(main_ref.as_ref()).is_none(),
-        "main should remain only as a commit ref in this fixture, as 'unapplied' takes precedence, graph was:\n{debug_graph}"
     );
 
     let ws = graph.into_workspace()?;
@@ -6444,7 +6446,7 @@ fn unapplied_branch_on_base_no_target() -> anyhow::Result<()> {
 fn no_ws_commit_two_branches_no_target() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario("ws/no-ws-ref-no-ws-commit-two-branches")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * bce0c5e (HEAD -> gitbutler/workspace, main, B, A) M2
+    * bce0c5e (HEAD -> gitbutler/workspace, origin/main, main, B, A) M2
     * 3183e43 M1
     ");
     remove_target(&mut meta);
@@ -6452,22 +6454,23 @@ fn no_ws_commit_two_branches_no_target() -> anyhow::Result<()> {
     add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @"
+    insta::assert_snapshot!(graph_tree(&graph), "notably the target ref and local tracking branch have sibling links setup", @"
 
-    └── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-        ├── 📙►:2[1]:main
-        │   └── ►:1[2]:anon:
-        │       ├── ·bce0c5e (⌂|🏘|1) ►B
-        │       └── 🏁·3183e43 (⌂|🏘|1)
-        └── 📙►:3[1]:A
-            └── →:1:
+    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+    │   ├── 📙►:3[1]:main <> origin/main →:1:
+    │   │   └── ►:2[2]:anon:
+    │   │       └── ✂·bce0c5e (⌂|🏘|✓|1) ►B
+    │   └── 📙►:4[1]:A
+    │       └── →:2:
+    └── ►:1[0]:origin/main →:3:
+        └── →:3: (main →:1:)
     ");
-    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on bce0c5e
-    ├── ≡📙:2:main on bce0c5e {0}
-    │   └── 📙:2:main
-    └── ≡📙:3:A on bce0c5e {1}
-        └── 📙:3:A
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), "sibling links between origin/main and main are also set", @"
+    📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on bce0c5e
+    ├── ≡📙:3:main <> origin/main →:1: {0}
+    │   └── 📙:3:main <> origin/main →:1:
+    └── ≡📙:4:A {1}
+        └── 📙:4:A
     ");
     Ok(())
 }
@@ -7054,6 +7057,17 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
     └── ≡📙:5:my-branch on 312f819 {0}
         └── 📙:5:my-branch
     ");
+
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options().with_hard_limit(usize::MAX),
+    )?
+    .validated()?;
+    assert!(
+        !graph.hard_limit_hit(),
+        "pruning integrated tips should not report a hard-limit traversal stop"
+    );
 
     Ok(())
 }

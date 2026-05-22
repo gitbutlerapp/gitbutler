@@ -13,7 +13,7 @@ use tracing::instrument;
 use crate::{
     Commit, CommitFlags, CommitIndex, Edge, EntryPointCommit, Graph, SegmentIndex, SegmentMetadata,
     init::{
-        PetGraph, branch_segment_from_name_and_meta,
+        PetGraph, TipRole, branch_segment_from_name_and_meta,
         overlay::{OverlayMetadata, OverlayRepo},
         remotes,
         types::{EdgeOwned, TopoWalk},
@@ -32,13 +32,6 @@ pub(super) struct Context<'a> {
     pub detach_entrypoint: bool,
     pub dangerously_skip_postprocessing_for_debugging: bool,
     pub worktree_by_branch: WorktreeByBranch,
-}
-
-impl Context<'_> {
-    pub(super) fn with_hard_limit(mut self) -> Self {
-        self.hard_limit = true;
-        self
-    }
 }
 
 /// Processing
@@ -98,6 +91,7 @@ impl Graph {
         // because it can't reorder existing empty segments (which are not natural).
         self.improve_remote_segments(
             repo,
+            meta,
             symbolic_remote_names,
             configured_remote_tracking_branches,
             &worktree_by_branch,
@@ -1114,17 +1108,27 @@ impl Graph {
         Ok(())
     }
 
-    /// Name ambiguous segments if they are reachable by remote tracking branch and
-    /// if the first commit has (unambiguously) the matching local tracking branch.
-    /// Also, link up all remote segments with their local ones, and vice versa.
+    /// Name ambiguous segments if they are reachable by a remote-tracking branch
+    /// and the first commit has the unambiguous matching local tracking branch.
+    /// Also link all paired local and remote segments in both directions.
     ///
     /// Additionally, restore possibly broken linkage to their siblings
     /// (from remote to local tracking branch), as this connection might have been destroyed by
     /// the insertion of empty segments. Again, instead of making that smarter, we fix it up here
     /// because it's simpler.
+    ///
+    /// Target remote refs need one extra repair. Their local tracking branch may
+    /// point at the same commit while another branch segment owns that commit,
+    /// leaving the local branch only as a commit ref. In that case, create an
+    /// empty local tracking segment that points at the owning segment, remove the
+    /// duplicate commit ref, and set the remote/local sibling links. This is
+    /// restricted to named target-remote traversal tips so ordinary remote refs
+    /// keep their historical presentation unless an earlier disambiguation step
+    /// already paired them.
     fn improve_remote_segments(
         &mut self,
         repo: &OverlayRepo<'_>,
+        meta: &OverlayMetadata<'_, impl RefMetadata>,
         symbolic_remote_names: &[String],
         configured_remote_tracking_branches: &BTreeSet<gix::refs::FullName>,
         worktree_by_branch: &WorktreeByBranch,
@@ -1253,6 +1257,28 @@ impl Graph {
                 links_from_remote_to_local.push((remote_sidx, segment.id));
             }
         }
+        let workspace_target_refs: BTreeSet<_> = self
+            .traversal_tips
+            .iter()
+            .filter(|tip| matches!(tip.role, TipRole::TargetRemote))
+            .filter_map(|tip| tip.ref_name.clone())
+            .collect();
+        for (remote_ref_name, remote_sidx) in remote_sidx_by_ref_name {
+            if !workspace_target_refs.contains(&remote_ref_name) {
+                continue;
+            }
+            let Some(local_sidx) = self.ensure_local_tracking_segment_for_remote(
+                repo,
+                meta,
+                remote_ref_name,
+                remote_sidx,
+                worktree_by_branch,
+            )?
+            else {
+                continue;
+            };
+            links_from_remote_to_local.push((remote_sidx, local_sidx));
+        }
         for (remote_sidx, local_sidx) in links_from_remote_to_local {
             self[remote_sidx].sibling_segment_id = Some(local_sidx);
 
@@ -1288,6 +1314,116 @@ impl Graph {
             }
         }
         Ok(())
+    }
+
+    /// Ensure `remote_sidx` can reach the local branch configured to track
+    /// `remote_ref_name`.
+    ///
+    /// Most local/remote tracking pairs are established earlier in this pass:
+    /// either an anonymous local segment is disambiguated by walking down from
+    /// the remote, or a named local segment already advertises
+    /// `remote_tracking_ref_name`. The remaining target-ref edge case is a
+    /// missing local-side segment:
+    ///
+    /// * `refs/remotes/origin/main` is a target segment.
+    /// * `refs/heads/main` is configured as its local tracking branch.
+    /// * The local branch's tip commit is already owned by another segment, for
+    ///   example because branch metadata disambiguated a shared tip.
+    /// * `main` is therefore only a ref on that owning commit, so the target
+    ///   segment has no `sibling_segment_id`.
+    ///
+    /// If a segment named after the local tracking branch already exists, return
+    /// it as-is. Otherwise, create an empty local tracking segment named after
+    /// the configured local branch and point it at the segment/commit that owns
+    /// the local branch tip. The local and remote tips do not have to be the
+    /// same commit; the sibling relationship represents the configured tracking
+    /// pair, while the new empty segment preserves where the local ref points in
+    /// the graph. The caller records the reverse `sibling_segment_id` link on
+    /// the remote segment afterwards.
+    ///
+    /// Returning `None` means the graph should keep its current presentation.
+    /// That happens when there is no configured local tracking branch, the local
+    /// ref no longer exists, its tip was not traversed, or the local tip is not
+    /// the first commit of the segment that owns it. The last case keeps this
+    /// synthetic empty segment from pointing into the middle of an existing
+    /// segment.
+    fn ensure_local_tracking_segment_for_remote<T: RefMetadata>(
+        &mut self,
+        repo: &OverlayRepo<'_>,
+        meta: &OverlayMetadata<'_, T>,
+        remote_ref_name: gix::refs::FullName,
+        remote_sidx: SegmentIndex,
+        worktree_by_branch: &WorktreeByBranch,
+    ) -> anyhow::Result<Option<SegmentIndex>> {
+        let Some((local_ref_name, _remote)) =
+            repo.upstream_branch_and_remote_for_tracking_branch(remote_ref_name.as_ref())?
+        else {
+            return Ok(None);
+        };
+
+        let Some(local_tip) = repo
+            .try_find_reference(local_ref_name.as_ref())?
+            .map(|mut r| r.peel_to_id().map(|id| id.detach()))
+            .transpose()?
+        else {
+            return Ok(None);
+        };
+
+        let (sidx_with_local_ref_name, commit_owner) =
+            self.segment_by_ref_name_or_commit_id(local_ref_name.as_ref(), local_tip);
+        if let Some(local_sidx) = sidx_with_local_ref_name {
+            return Ok(Some(local_sidx));
+        }
+        let Some((owner_sidx, owner_cidx)) = commit_owner else {
+            return Ok(None);
+        };
+        if owner_cidx != 0 {
+            return Ok(None);
+        }
+
+        let local_segment = crate::Segment {
+            metadata: meta
+                .branch_opt(local_ref_name.as_ref())?
+                .map(SegmentMetadata::Branch),
+            ref_info: Some(crate::RefInfo::from_ref(
+                local_ref_name.clone(),
+                local_tip,
+                worktree_by_branch,
+            )),
+            remote_tracking_ref_name: Some(remote_ref_name),
+            remote_tracking_branch_segment_id: Some(remote_sidx),
+            ..Default::default()
+        };
+        let local_sidx = self.insert_segment(local_segment);
+        self.connect_segments_with_ids(
+            local_sidx,
+            None,
+            None,
+            owner_sidx,
+            Some(owner_cidx),
+            Some(local_tip),
+            0,
+        );
+        self[owner_sidx].commits[owner_cidx]
+            .refs
+            .retain(|ri| ri.ref_name != local_ref_name);
+        Ok(Some(local_sidx))
+    }
+
+    fn segment_by_ref_name_or_commit_id(
+        &self,
+        ref_name: &gix::refs::FullNameRef,
+        commit_id: gix::ObjectId,
+    ) -> (Option<SegmentIndex>, Option<(SegmentIndex, CommitIndex)>) {
+        for segment in self.inner.node_weights() {
+            if segment.ref_name().is_some_and(|rn| rn == ref_name) {
+                return (Some(segment.id), None);
+            }
+            if let Some(commit_idx) = segment.commit_index_of(commit_id) {
+                return (None, Some((segment.id, commit_idx)));
+            }
+        }
+        (None, None)
     }
 
     fn push_commit_and_reconnect_outgoing(

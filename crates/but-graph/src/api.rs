@@ -846,8 +846,8 @@ impl Graph {
     }
 
     /// Return `true` if this graph is possibly partial as the hard limit was hit,
-    /// meaning that the core traversal algorithm was interrupted without necessarily
-    /// satisfying all constraints.
+    /// meaning that the core traversal algorithm stopped queueing new commits without
+    /// necessarily satisfying all constraints.
     ///
     /// Such a graph is possibly partial, which can affect algorithms
     /// relying on it being complete.
@@ -862,8 +862,7 @@ impl Graph {
 
     /// Lookup the segment of `sidx` and then find its sibling segment, if it has one.
     pub fn lookup_sibling_segment(&self, sidx: SegmentIndex) -> Option<&Segment> {
-        self.inner
-            .node_weight(self.inner.node_weight(sidx)?.sibling_segment_id?)
+        self.inner.node_weight(sidx)?.sibling_segment(self)
     }
 
     /// Lookup the segment of `sidx` and then find its remote tracking branch segment, if it has one.

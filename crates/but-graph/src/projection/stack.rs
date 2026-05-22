@@ -265,7 +265,7 @@ impl StackSegment {
 
     /// Return `true` if this segment *would* be anonymous if it wasn't for the out-of-workspace segment to be projected onto this one.
     ///
-    /// This is signaled by its underlying graph segment being unnamed, with a sybling set.
+    /// This is signaled by its underlying graph segment being unnamed, with a sibling set.
     pub fn is_projected_from_outside(&self, graph: &Graph) -> bool {
         let segment = &graph[self.id];
         segment.ref_info.is_none() && segment.sibling_segment_id.is_some()

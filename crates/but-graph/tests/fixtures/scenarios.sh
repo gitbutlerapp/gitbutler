@@ -1342,6 +1342,7 @@ EOF
   (cd no-ws-ref-no-ws-commit-two-branches
     commit M1
     commit M2
+    setup_target_to_match_main
 
     git branch A
     git branch B

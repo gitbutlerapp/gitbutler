@@ -3878,7 +3878,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                         ref_name: "►unrelated",
                         remote_tracking_ref_name: "None",
                         commits: [
-                            LocalCommit(c166d42, "init-integration\n", integrated(c166d42), ►main),
+                            LocalCommit(c166d42, "init-integration\n", integrated(c166d42)),
                         ],
                         commits_on_remote: [],
                         commits_outside: None,
