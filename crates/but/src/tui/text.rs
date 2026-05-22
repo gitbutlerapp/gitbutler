@@ -11,7 +11,11 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 /// Returns the current terminal width in columns, defaulting to 80
 /// when detection fails (e.g. when stdout is not a TTY).
 pub fn terminal_width() -> usize {
-    terminal_size::terminal_size().map_or(80, |(Width(w), _)| w as usize)
+    if cfg!(test) {
+        80
+    } else {
+        terminal_size::terminal_size().map_or(80, |(Width(w), _)| w as usize)
+    }
 }
 
 /// Truncate `text` to fit within `max_width` display columns.
