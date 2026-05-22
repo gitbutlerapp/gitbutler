@@ -75,8 +75,31 @@ impl Cursor {
         self,
         lines: &[StatusOutputLine],
     ) -> Option<SelectAfterReload> {
+        if let Some(CliId::Commit { commit_id, .. }) = lines
+            .get(self.0)
+            .and_then(|line| line.data.cli_id())
+            .map(|id| &**id)
+        {
+            self.select_after_discarded_commits(lines, &[*commit_id])
+        } else {
+            self.select_after_discarded_commits(lines, &[])
+        }
+    }
+
+    /// Selects what should be focused after discarding marked commits.
+    pub(super) fn select_after_discarded_commits(
+        self,
+        lines: &[StatusOutputLine],
+        discarded_commits: &[gix::ObjectId],
+    ) -> Option<SelectAfterReload> {
         if self.0 >= lines.len() {
             return None;
+        }
+
+        if let Some(CliId::Commit { commit_id, .. }) = lines[self.0].data.cli_id().map(|id| &**id)
+            && !discarded_commits.contains(commit_id)
+        {
+            return Some(SelectAfterReload::Commit(*commit_id));
         }
 
         for line in lines.iter().skip(self.0 + 1) {
@@ -84,7 +107,9 @@ impl Cursor {
                 break;
             }
 
-            if let Some(CliId::Commit { commit_id, .. }) = line.data.cli_id().map(|id| &**id) {
+            if let Some(CliId::Commit { commit_id, .. }) = line.data.cli_id().map(|id| &**id)
+                && !discarded_commits.contains(commit_id)
+            {
                 return Some(SelectAfterReload::Commit(*commit_id));
             }
         }
@@ -94,7 +119,9 @@ impl Cursor {
                 break;
             }
 
-            if let Some(CliId::Commit { commit_id, .. }) = line.data.cli_id().map(|id| &**id) {
+            if let Some(CliId::Commit { commit_id, .. }) = line.data.cli_id().map(|id| &**id)
+                && !discarded_commits.contains(commit_id)
+            {
                 return Some(SelectAfterReload::Commit(*commit_id));
             }
         }

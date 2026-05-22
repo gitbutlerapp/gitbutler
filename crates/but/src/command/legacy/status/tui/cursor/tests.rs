@@ -353,6 +353,123 @@ fn select_after_discarded_commit_selects_commit_below_when_on_middle_commit() {
 }
 
 #[test]
+fn select_after_discarded_commits_keeps_unmarked_current_commit_selected() {
+    let marked = "1111111111111111111111111111111111111111";
+    let current = "2222222222222222222222222222222222222222";
+    let lines = vec![
+        line(StatusOutputLineData::Branch {
+            cli_id: branch_cli_id("main", "b0", None),
+        }),
+        line(StatusOutputLineData::Commit {
+            cli_id: commit_cli_id(marked, "c0"),
+            stack_id: None,
+            classification: CommitClassification::LocalOnly,
+        }),
+        line(StatusOutputLineData::Commit {
+            cli_id: commit_cli_id(current, "c1"),
+            stack_id: None,
+            classification: CommitClassification::LocalOnly,
+        }),
+    ];
+
+    assert!(matches!(
+        Cursor(2).select_after_discarded_commits(&lines, &[commit_id(marked)]),
+        Some(SelectAfterReload::Commit(target_commit_id)) if target_commit_id == commit_id(current)
+    ));
+}
+
+#[test]
+fn select_after_discarded_commits_skips_marked_commit_below() {
+    let top = "1111111111111111111111111111111111111111";
+    let marked = "2222222222222222222222222222222222222222";
+    let below = "3333333333333333333333333333333333333333";
+    let lines = vec![
+        line(StatusOutputLineData::Branch {
+            cli_id: branch_cli_id("main", "b0", None),
+        }),
+        line(StatusOutputLineData::Commit {
+            cli_id: commit_cli_id(top, "c0"),
+            stack_id: None,
+            classification: CommitClassification::LocalOnly,
+        }),
+        line(StatusOutputLineData::Commit {
+            cli_id: commit_cli_id(marked, "c1"),
+            stack_id: None,
+            classification: CommitClassification::LocalOnly,
+        }),
+        line(StatusOutputLineData::Commit {
+            cli_id: commit_cli_id(below, "c2"),
+            stack_id: None,
+            classification: CommitClassification::LocalOnly,
+        }),
+    ];
+
+    assert!(matches!(
+        Cursor(1).select_after_discarded_commits(&lines, &[commit_id(top), commit_id(marked)]),
+        Some(SelectAfterReload::Commit(target_commit_id)) if target_commit_id == commit_id(below)
+    ));
+}
+
+#[test]
+fn select_after_discarded_commits_selects_commit_above_when_no_unmarked_commit_below() {
+    let above = "1111111111111111111111111111111111111111";
+    let marked = "2222222222222222222222222222222222222222";
+    let bottom = "3333333333333333333333333333333333333333";
+    let lines = vec![
+        line(StatusOutputLineData::Branch {
+            cli_id: branch_cli_id("main", "b0", None),
+        }),
+        line(StatusOutputLineData::Commit {
+            cli_id: commit_cli_id(above, "c0"),
+            stack_id: None,
+            classification: CommitClassification::LocalOnly,
+        }),
+        line(StatusOutputLineData::Commit {
+            cli_id: commit_cli_id(marked, "c1"),
+            stack_id: None,
+            classification: CommitClassification::LocalOnly,
+        }),
+        line(StatusOutputLineData::Commit {
+            cli_id: commit_cli_id(bottom, "c2"),
+            stack_id: None,
+            classification: CommitClassification::LocalOnly,
+        }),
+    ];
+
+    assert!(matches!(
+        Cursor(2).select_after_discarded_commits(&lines, &[commit_id(marked), commit_id(bottom)]),
+        Some(SelectAfterReload::Commit(target_commit_id)) if target_commit_id == commit_id(above)
+    ));
+}
+
+#[test]
+fn select_after_discarded_commits_selects_branch_when_all_commits_in_section_are_discarded() {
+    let top = "1111111111111111111111111111111111111111";
+    let bottom = "2222222222222222222222222222222222222222";
+    let lines = vec![
+        line(StatusOutputLineData::Branch {
+            cli_id: branch_cli_id("main", "b0", None),
+        }),
+        line(StatusOutputLineData::Commit {
+            cli_id: commit_cli_id(top, "c0"),
+            stack_id: None,
+            classification: CommitClassification::LocalOnly,
+        }),
+        line(StatusOutputLineData::Commit {
+            cli_id: commit_cli_id(bottom, "c1"),
+            stack_id: None,
+            classification: CommitClassification::LocalOnly,
+        }),
+    ];
+
+    assert!(matches!(
+        Cursor(1).select_after_discarded_commits(&lines, &[commit_id(top), commit_id(bottom)]),
+        Some(SelectAfterReload::CliId(cli_id))
+            if matches!(&*cli_id, CliId::Branch { id, .. } if id == "b0")
+    ));
+}
+
+#[test]
 fn select_after_discarded_branch_selects_branch_below_when_available() {
     let lines = vec![
         line(StatusOutputLineData::Branch {
