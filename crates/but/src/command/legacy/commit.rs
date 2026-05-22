@@ -13,7 +13,7 @@ use gitbutler_repo::hooks;
 
 use super::{ShowDiffInEditor, estimate_diff_blob_size};
 use crate::{
-    CliId, IdMap,
+    BadInput, CliId, IdMap,
     command::legacy::status::assignment::{CLIHunkAssignment, FileAssignment},
     theme::{self, Paint},
     tui,
@@ -25,7 +25,7 @@ pub(crate) fn insert_blank_commit(
     out: &mut OutputChannel,
     target: &str,
     insert_side: InsertSide,
-) -> Result<()> {
+) -> crate::CliResult<()> {
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
@@ -33,15 +33,15 @@ pub(crate) fn insert_blank_commit(
     let cli_ids = id_map.parse_using_context(target, ctx)?;
 
     if cli_ids.is_empty() {
-        bail!("Target '{target}' not found");
+        return BadInput::new(format!("Target '{target}' not found")).into_cli_result();
     }
 
     if cli_ids.len() > 1 {
-        bail!(
-            "Target '{}' is ambiguous. Found {} matches",
-            target,
+        return BadInput::new(format!(
+            "Target '{target}' is ambiguous. Found {} matches",
             cli_ids.len()
-        );
+        ))
+        .into_cli_result();
     }
 
     let cli_id = &cli_ids[0];
@@ -78,6 +78,25 @@ pub(crate) fn insert_blank_commit(
                 let repo = ctx.repo.get()?;
                 repo.find_reference(name)?.detach()
             };
+
+            if matches!(insert_side, InsertSide::Above) {
+                // Must prevent inserting above a stack head, as that would create an anonymous
+                // segment as a direct child of the workspace commit. This is not well supported
+                // overall at the moment, and among other things causes `but status` to crash as it
+                // uses the stack's ref name to compute the CLI ID.
+                let head_info = but_api::legacy::workspace::head_info(ctx)?;
+                for stack in head_info.stacks {
+                    if let Some(stack_head_ref) = stack.ref_name()
+                        && stack_head_ref == &reference.name
+                    {
+                        return BadInput::new("Cannot insert empty commit above stack head")
+                            .arg("--after")
+                            .hint("Use '--before' to insert at the tip of the stack")
+                            .into_cli_result();
+                    }
+                }
+            }
+
             let outcome = but_api::commit::insert_blank::commit_insert_blank_with_perm(
                 ctx,
                 RelativeTo::Reference(reference.name),
@@ -86,18 +105,19 @@ pub(crate) fn insert_blank_commit(
                 guard.write_permission(),
             )?;
             let success_message = match insert_side {
-                InsertSide::Above => format!("Created blank commit at the top of stack '{name}'"),
+                InsertSide::Above => format!("Created blank commit above branch '{name}'"),
                 InsertSide::Below => {
-                    format!("Created blank commit at the bottom of stack '{name}'")
+                    format!("Created blank commit at the tip of branch '{name}'")
                 }
             };
             (outcome, success_message)
         }
         _ => {
-            bail!(
+            return BadInput::new(format!(
                 "Target must be a commit ID or branch name, not {}",
                 cli_id.kind_for_humans()
-            );
+            ))
+            .into_cli_result();
         }
     };
 

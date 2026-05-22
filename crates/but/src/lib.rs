@@ -923,7 +923,7 @@ async fn match_subcommand(
                                 )
                             })?;
 
-                        TargetSpec::Owned(branch_name, InsertSide::Above)
+                        TargetSpec::Owned(branch_name, InsertSide::Below)
                     };
 
                     let (target_str, insert_side) = match &target_spec {
@@ -977,12 +977,13 @@ async fn match_subcommand(
                         ShowDiffInEditor::from_args(commit_args.diff, commit_args.no_diff)
                             .unwrap_or(ShowDiffInEditor::Unspecified),
                     )
+                    .map_err(CliError::from)
                     .emit_metrics(metrics_ctx)
                 }
             };
 
             maybe_run_status_after(status_after, &result, &mut ctx, out).await;
-            result.map_err(CliError::from)
+            result
         }
         #[cfg(feature = "legacy")]
         Subcommands::Push(push_args) => {
@@ -1588,9 +1589,9 @@ fn is_not_in_git_repository_error(err: &anyhow::Error) -> bool {
 /// Errors from the status query itself are logged to stderr but never mask
 /// the mutation's success.
 #[cfg(feature = "legacy")]
-async fn maybe_run_status_after(
+async fn maybe_run_status_after<T, E>(
     status_after: bool,
-    result: &anyhow::Result<()>,
+    result: &Result<T, E>,
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
 ) {
