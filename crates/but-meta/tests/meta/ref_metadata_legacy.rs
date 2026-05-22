@@ -556,6 +556,73 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
 }
 
 #[test]
+fn set_workspace_stack_only_changes_are_written_on_drop() -> anyhow::Result<()> {
+    let (mut store, _tmp) = empty_vb_store_rw()?;
+    store.data_mut().default_target = None;
+    let first_stack_id = StackId::from_number_for_testing(1);
+    let second_stack_id = StackId::from_number_for_testing(2);
+    let first_head = gix::ObjectId::from_str("1111111111111111111111111111111111111111")?;
+    let second_head = gix::ObjectId::from_str("2222222222222222222222222222222222222222")?;
+
+    let mut first_stack = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head: first_head,
+            name: "first".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        0,
+        true,
+    );
+    first_stack.id = first_stack_id;
+    let mut second_stack = LegacyStack::new_with_just_heads(
+        vec![StackBranch {
+            head: second_head,
+            name: "second".into(),
+            pr_number: None,
+            archived: false,
+            review_id: None,
+        }],
+        1,
+        true,
+    );
+    second_stack.id = second_stack_id;
+
+    store
+        .data_mut()
+        .branches
+        .insert(first_stack_id, first_stack);
+    store
+        .data_mut()
+        .branches
+        .insert(second_stack_id, second_stack);
+    store.set_changed_to_necessitate_write();
+    store.write_unreconciled()?;
+
+    let toml_path = store.path().to_owned();
+    drop(store);
+
+    let ws_ref: gix::refs::FullName = "refs/heads/gitbutler/workspace".try_into()?;
+    let mut store = VirtualBranchesTomlMetadata::from_path(&toml_path)?;
+    let mut ws = store.workspace(ws_ref.as_ref())?;
+    assert_eq!(ws.stacks.len(), 2, "fixture starts with both stacks");
+    ws.stacks.retain(|stack| stack.id == first_stack_id);
+    store.set_workspace(&ws)?;
+    drop(store);
+
+    let store = VirtualBranchesTomlMetadata::from_path(&toml_path)?;
+    let ws = store.workspace(ws_ref.as_ref())?;
+    assert_eq!(
+        ws.stacks.len(),
+        1,
+        "stack-only workspace metadata changes must be persisted on drop"
+    );
+    assert_eq!(ws.stacks[0].id, first_stack_id);
+    Ok(())
+}
+
+#[test]
 fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
     store.data_mut().default_target = None;

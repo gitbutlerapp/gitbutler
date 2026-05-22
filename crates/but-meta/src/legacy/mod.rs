@@ -693,6 +693,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
         if !is_workspace_ref_name(ref_name) {
             bail!("This backend doesn't support saving arbitrary workspaces");
         }
+        let previous_content = self.snapshot.content.clone();
 
         // Find exactly one stack-id per branch name, and assign all branches to it.
         // `stacks` is the target state, and we have to make an actual stack look like it.
@@ -876,7 +877,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             changed_target = true;
         }
 
-        if changed_target {
+        if changed_target || self.snapshot.content != previous_content {
             self.snapshot.set_changed_to_necessitate_write();
         }
         Ok(())
