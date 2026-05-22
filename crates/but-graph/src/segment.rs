@@ -2,7 +2,7 @@ use bitflags::bitflags;
 use bstr::{BString, ByteSlice};
 use but_core::ref_metadata::MaybeDebug;
 
-use crate::{CommitIndex, SegmentIndex};
+use crate::{CommitIndex, Graph, SegmentIndex};
 
 /// A commit with must useful information extracted from the Git commit itself.
 #[derive(Clone, Eq, PartialEq)]
@@ -342,6 +342,23 @@ impl Segment {
     pub fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
         self.ref_info.as_ref().map(|ri| ri.ref_name.as_ref())
     }
+
+    /// Return the segment that this segment treats as its sibling, if any.
+    ///
+    /// A sibling is a paired segment that represents the same logical ref
+    /// relationship from another side of the graph. For remote-tracking
+    /// segments, this points back to the local branch segment configured to
+    /// track them, such as `refs/remotes/origin/main` pointing to
+    /// `refs/heads/main`. For anonymous workspace-reconstruction segments, this
+    /// can point to the named segment that gives the otherwise anonymous segment
+    /// its intended workspace identity.
+    ///
+    /// The sibling id is graph-local, so the lookup must happen in the `graph`
+    /// that owns this segment.
+    pub fn sibling_segment<'graph>(&self, graph: &'graph Graph) -> Option<&'graph Segment> {
+        graph.inner.node_weight(self.sibling_segment_id?)
+    }
+
     /// Return the top-most commit id of the segment.
     pub fn tip(&self) -> Option<gix::ObjectId> {
         self.commits.first().map(|commit| commit.id)
