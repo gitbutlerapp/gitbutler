@@ -7058,6 +7058,17 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
         └── 📙:5:my-branch
     ");
 
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        standard_options().with_hard_limit(usize::MAX),
+    )?
+    .validated()?;
+    assert!(
+        !graph.hard_limit_hit(),
+        "pruning integrated tips should not report a hard-limit traversal stop"
+    );
+
     Ok(())
 }
 

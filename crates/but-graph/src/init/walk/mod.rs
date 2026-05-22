@@ -434,14 +434,14 @@ pub fn queue_parents(
     }
     // Don't enqueue new parents if we don't have space anymore.
     if next.is_exhausted() {
-        return Ok(next.is_hard_limit_exhausted());
+        return Ok(next.hard_limit_hit());
     }
     if limit.is_exhausted_or_decrement(flags, next) {
         return Ok(false);
     }
+    let mut queue_is_exhausted = false;
     if parent_ids.len() > 1 {
         let limit_per_parent = limit.per_parent(parent_ids.len());
-        let mut hard_limit_reached = false;
         for (parent_order, pid) in parent_ids.iter().enumerate() {
             let instruction = Instruction::ConnectNewSegment {
                 parent_above: current_sidx,
@@ -453,27 +453,20 @@ pub fn queue_parents(
                     .context("commit parent position does not fit into u32")?,
             };
             let info = find(commit_graph, objects, *pid, buf)?;
-            hard_limit_reached |=
+            queue_is_exhausted =
                 next.push_back_even_if_exhausted((info, flags, instruction, limit_per_parent));
-        }
-        if hard_limit_reached {
-            // All parents were queued and will be processed, but nothing new will be queued
-            // to wrap up the traversal.
-            return Ok(true);
         }
     } else if !parent_ids.is_empty() {
         let info = find(commit_graph, objects, parent_ids[0], buf)?;
-        if next.push_back_exhausted((
+        queue_is_exhausted |= next.push_back_exhausted((
             info,
             flags,
             Instruction::CollectCommit { into: current_sidx },
             limit,
-        )) {
-            return Ok(true);
-        }
+        ));
     }
 
-    Ok(false)
+    Ok(queue_is_exhausted)
 }
 
 /// As convenience, if `ref_name` is `Some` and the metadata is not set, it will look it up for you.
