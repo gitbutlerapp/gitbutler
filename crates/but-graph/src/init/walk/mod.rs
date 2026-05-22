@@ -1188,10 +1188,10 @@ pub fn prune_integrated_tips(graph: &mut Graph, next: &mut Queue) -> anyhow::Res
     if next.is_exhausted() {
         return Ok(());
     }
-    let all_integated_and_done = next.iter().all(|(_id, flags, _instruction, tip_limit)| {
+    let all_integrated_and_done = next.iter().all(|(_id, flags, _instruction, tip_limit)| {
         flags.contains(CommitFlags::Integrated) && tip_limit.goal_reached()
     });
-    if !all_integated_and_done {
+    if !all_integrated_and_done {
         return Ok(());
     }
     let ep = graph.entrypoint()?;
