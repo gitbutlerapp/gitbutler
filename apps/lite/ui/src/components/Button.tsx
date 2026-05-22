@@ -2,8 +2,8 @@ import styles from "./Button.module.css";
 import { classes } from "#ui/ui/classes.ts";
 import { ComponentProps, ReactNode, forwardRef, isValidElement } from "react";
 
-export type ButtonVariant = "pop" | "gray" | "outline" | "danger" | "ghost";
-export type ButtonSize = "regular" | "small";
+type ButtonVariant = "pop" | "gray" | "outline" | "danger" | "ghost";
+type ButtonSize = "regular" | "small";
 
 type Props = ComponentProps<"button"> & {
 	variant?: ButtonVariant;
@@ -31,7 +31,7 @@ function hasLabelContent(children: ReactNode): boolean {
 }
 
 export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
-	{ variant = "pop", size = "regular", children, type = "button", className, ...props },
+	{ variant = "outline", size = "regular", children, type = "button", className, ...props },
 	ref,
 ) {
 	const iconOnly = !hasLabelContent(children);

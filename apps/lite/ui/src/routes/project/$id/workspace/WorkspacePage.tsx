@@ -1,5 +1,4 @@
 import { FilesPanel } from "./FilesPanel.tsx";
-import uiStyles from "#ui/ui/ui.module.css";
 import {
 	headInfoQueryOptions,
 	listBranchesQueryOptions,
@@ -17,6 +16,7 @@ import {
 	selectProjectDialogState,
 	selectProjectPanelsState,
 } from "#ui/projects/state.ts";
+import { Button } from "#ui/components/Button.tsx";
 import { Keys } from "#ui/components/Keys.tsx";
 import { globalHotkeys, workspaceHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { type AppThunk, useAppDispatch, useAppSelector } from "#ui/store.ts";
@@ -493,9 +493,9 @@ class WorkspacePageErrorBoundary extends Component<
 			<div className={styles.error}>
 				<h1 className={styles.errorTitle}>Something went wrong.</h1>
 				<div className={styles.errorActions}>
-					<button type="button" className={uiStyles.button} onClick={() => this.handleRetry()}>
+					<Button type="button" onClick={() => this.handleRetry()}>
 						Retry
-					</button>
+					</Button>
 				</div>
 				<code className={styles.errorMessage}>{this.state.error.message}</code>
 			</div>

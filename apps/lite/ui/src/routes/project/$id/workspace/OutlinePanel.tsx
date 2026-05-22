@@ -45,7 +45,7 @@ import { OperationSourceLabel } from "#ui/routes/project/$id/workspace/Operation
 import { OperationTarget } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/ui/classes.ts";
-import { BullseyeIcon, ChevronDownIcon, MenuTriggerIcon, PushIcon } from "#ui/ui/icons.tsx";
+import { BullseyeIcon, MenuTriggerIcon, PushIcon } from "#ui/ui/icons.tsx";
 import {
 	buildNavigationIndex,
 	navigationIndexIncludes,
@@ -116,6 +116,7 @@ import {
 	toElectronAccelerator,
 	workspaceHotkeys,
 } from "#ui/hotkeys.ts";
+import { DropdownButton } from "#ui/components/DropdownButton.tsx";
 import { assert } from "#ui/assert.ts";
 import { Spinner } from "#ui/components/Spinner.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
@@ -1638,32 +1639,20 @@ const Changes: FC<{
 						</Combobox.Portal>
 					</Combobox.Root>
 
-					<div className={styles.commitActionControls}>
-						<ShortcutButton
-							hotkey={
-								isAmendMode ? changesHotkeys.amendCommit.hotkey : changesHotkeys.commit.hotkey
-							}
-							hotkeyOptions={{
-								meta: isAmendMode ? changesHotkeys.amendCommit.meta : changesHotkeys.commit.meta,
-							}}
-							className={classes(uiStyles.button, styles.changesSectionCommitButton)}
-							type="submit"
-							disabled={!canCommitOrAmend}
-						>
-							{isAmendMode ? "Amend" : "Commit"}
-						</ShortcutButton>
-						<button
-							type="button"
-							className={classes(uiStyles.button, styles.commitActionMenuButton)}
-							aria-label="Commit options"
-							disabled={outlineMode._tag !== "Default" || isCommitOrAmendPending}
-							onClick={(event) => {
-								void showNativeMenuFromTrigger(event.currentTarget, commitMenuItems);
-							}}
-						>
-							<ChevronDownIcon />
-						</button>
-					</div>
+					<DropdownButton
+						hotkey={isAmendMode ? changesHotkeys.amendCommit.hotkey : changesHotkeys.commit.hotkey}
+						hotkeyOptions={{
+							meta: isAmendMode ? changesHotkeys.amendCommit.meta : changesHotkeys.commit.meta,
+						}}
+						type="submit"
+						disabled={!canCommitOrAmend || outlineMode._tag !== "Default" || isCommitOrAmendPending}
+						onMenuOpen={(event) => {
+							void showNativeMenuFromTrigger(event.currentTarget, commitMenuItems);
+						}}
+						menuAriaLabel="Commit options"
+					>
+						{isAmendMode ? "Amend" : "Commit"}
+					</DropdownButton>
 				</div>
 			</div>
 		</TreeItem>

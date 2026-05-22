@@ -12,9 +12,10 @@
 	color: var(--text-1);
 	line-height: 1;
 	white-space: nowrap;
+	--button-group-divider-color: transparent;
 	transition:
-		background-color 0.1s ease-in-out,
-		color 0.1s ease-in-out;
+		background-color 0.08s ease,
+		color 0.08s ease;
 
 	&:not(:disabled) {
 		cursor: pointer;
@@ -59,39 +60,47 @@
 
 .pop {
 	background-color: color-mix(in srgb, var(--scale-pop-60) 50%, transparent);
+	--button-group-divider-color: color-mix(in srgb, var(--scale-pop-40) 20%, transparent);
 }
 
-.pop:hover {
+.pop:not(:disabled):hover {
 	background-color: color-mix(in srgb, var(--scale-pop-60) 70%, transparent);
 }
 
 .gray {
 	background-color: var(--fill-gray-bg);
 	color: var(--fill-gray-fg);
+	--button-group-divider-color: color-mix(in srgb, var(--fill-gray-fg) 18%, transparent);
 }
 
-.gray:hover {
+.gray:not(:disabled):hover {
 	background-color: color-mix(in srgb, var(--fill-gray-bg) 45%, var(--scale-gray-0));
 }
 
 .outline {
 	border: 1px solid color-mix(in srgb, var(--fill-gray-bg) 30%, transparent);
+	--button-group-divider-color: color-mix(in srgb, var(--fill-gray-bg) 30%, transparent);
 }
 
-.outline:hover {
+.outline:not(:disabled):hover {
 	background-color: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
 }
 
 .danger {
 	background-color: color-mix(in srgb, var(--scale-danger-50) 14%, transparent);
 	color: var(--text-danger);
+	--button-group-divider-color: color-mix(in srgb, var(--scale-danger-50) 20%, transparent);
 }
 
-.danger:hover {
+.danger:not(:disabled):hover {
 	background-color: color-mix(in srgb, var(--scale-danger-50) 20%, transparent);
 }
 
-.ghost:hover {
+.ghost {
+	--button-group-divider-color: color-mix(in srgb, var(--scale-gray-0) 14%, transparent);
+}
+
+.ghost:not(:disabled):hover {
 	background-color: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
 }
 
@@ -100,8 +109,8 @@
 	opacity: 0.6;
 }
 
-.ghost:hover :where(svg),
-.outline:hover :where(svg) {
+.ghost:not(:disabled):hover :where(svg),
+.outline:not(:disabled):hover :where(svg) {
 	opacity: 0.8;
 }
 
@@ -111,8 +120,8 @@
 	opacity: 0.7;
 }
 
-.pop:hover :where(svg),
-.gray:hover :where(svg),
-.danger:hover :where(svg) {
+.pop:not(:disabled):hover :where(svg),
+.gray:not(:disabled):hover :where(svg),
+.danger:not(:disabled):hover :where(svg) {
 	opacity: 0.9;
 }
