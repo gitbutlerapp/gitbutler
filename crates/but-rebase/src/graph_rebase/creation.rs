@@ -256,7 +256,8 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     continue 'inner;
                 };
 
-                let order = edge.weight().parent_order as usize;
+                // TODO: does it have relevance when `parent_order()` is `None` for edges to virtual segments?
+                let order = edge.weight().parent_order().unwrap_or(0) as usize;
                 graph.add_edge(*source, *target, Edge { order });
             }
         }
