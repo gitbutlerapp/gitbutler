@@ -1,0 +1,118 @@
+.button {
+	display: inline-flex;
+	position: relative;
+	column-gap: 6px;
+	align-items: center;
+	justify-content: center;
+	height: 28px;
+	padding-inline: 10px;
+	border: 0;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--text-1);
+	line-height: 1;
+	white-space: nowrap;
+	transition:
+		background-color 0.1s ease-in-out,
+		color 0.1s ease-in-out;
+
+	&:not(:disabled) {
+		cursor: pointer;
+	}
+
+	&:disabled {
+		opacity: 0.5;
+	}
+}
+
+.small {
+	column-gap: 4px;
+	height: 20px;
+	padding-inline: 6px;
+}
+
+.iconOnly {
+	width: 28px;
+	padding-inline: 8px;
+}
+
+.small.iconOnly {
+	width: 20px;
+	padding-inline: 3px;
+}
+
+.labelOnly {
+	column-gap: 0;
+}
+
+.button :where(svg) {
+	display: inline-flex;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+}
+
+.small :where(svg) {
+	width: 14px;
+	height: 14px;
+}
+
+.pop {
+	background-color: color-mix(in srgb, var(--scale-pop-60) 50%, transparent);
+}
+
+.pop:hover {
+	background-color: color-mix(in srgb, var(--scale-pop-60) 70%, transparent);
+}
+
+.gray {
+	background-color: var(--fill-gray-bg);
+	color: var(--fill-gray-fg);
+}
+
+.gray:hover {
+	background-color: color-mix(in srgb, var(--fill-gray-bg) 45%, var(--scale-gray-0));
+}
+
+.outline {
+	border: 1px solid color-mix(in srgb, var(--fill-gray-bg) 30%, transparent);
+}
+
+.outline:hover {
+	background-color: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
+}
+
+.danger {
+	background-color: color-mix(in srgb, var(--scale-danger-50) 14%, transparent);
+	color: var(--text-danger);
+}
+
+.danger:hover {
+	background-color: color-mix(in srgb, var(--scale-danger-50) 20%, transparent);
+}
+
+.ghost:hover {
+	background-color: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
+}
+
+.ghost :where(svg),
+.outline :where(svg) {
+	opacity: 0.6;
+}
+
+.ghost:hover :where(svg),
+.outline:hover :where(svg) {
+	opacity: 0.8;
+}
+
+.pop :where(svg),
+.gray :where(svg),
+.danger :where(svg) {
+	opacity: 0.7;
+}
+
+.pop:hover :where(svg),
+.gray:hover :where(svg),
+.danger:hover :where(svg) {
+	opacity: 0.9;
+}
