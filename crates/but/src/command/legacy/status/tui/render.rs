@@ -190,9 +190,10 @@ pub(super) fn render_status_list_item(
         }
     }
 
-    let line_is_to_be_discarded = app.to_be_discarded.as_ref().is_some_and(|to_be_discarded| {
-        data.cli_id()
-            .is_some_and(|selection| to_be_discarded == selection)
+    let line_is_to_be_discarded = data.cli_id().is_some_and(|selection| {
+        app.to_be_discarded
+            .iter()
+            .any(|to_be_discarded| to_be_discarded == selection)
     });
 
     if line_is_to_be_discarded {

@@ -416,7 +416,7 @@ struct App {
     delayed_messages: Vec<Message>,
     incoming_out_of_band_messages: Vec<Rc<Receiver<Message>>>,
     fps: FpsCounter,
-    to_be_discarded: Option<Arc<CliId>>,
+    to_be_discarded: Vec<Arc<CliId>>,
     status_width_percentage: u16,
     theme: &'static Theme,
     has_focus: bool,
@@ -777,7 +777,7 @@ impl App {
                 self.handle_discard(ctx, messages)?;
             }
             Message::DropToBeDiscarded => {
-                self.to_be_discarded = None;
+                self.to_be_discarded.clear();
             }
             Message::AndThen { lhs, rhs } => {
                 Box::pin(self.try_handle_message(ctx, out, mode, terminal_guard, messages, *lhs))
@@ -815,6 +815,9 @@ impl App {
             }
             Message::Mark => {
                 self.handle_mark(ctx)?;
+            }
+            Message::ClearNormalModeMarks => {
+                self.handle_clear_normal_mode_marks();
             }
             Message::SetHasFocus(has_focus) => {
                 self.has_focus = has_focus;
@@ -1416,6 +1419,18 @@ impl App {
         ctx: &mut Context,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
+        if self.marks().is_none_or(|marks| marks.is_empty()) {
+            self.handle_discard_selection(ctx, messages)
+        } else {
+            self.handle_discard_marks(messages)
+        }
+    }
+
+    fn handle_discard_selection(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
         let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
             return Ok(());
         };
@@ -1426,7 +1441,7 @@ impl App {
         self.modal = Some(Modal::Confirm {
             confirm: match &**cli_id {
                 CliId::Unassigned { .. } => {
-                    self.to_be_discarded = Some(Arc::clone(cli_id));
+                    self.to_be_discarded = Vec::from([Arc::clone(cli_id)]);
                     let drop_to_be_discarded =
                         message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
                     Confirm::new(
@@ -1444,7 +1459,7 @@ impl App {
                     )
                 }
                 CliId::Uncommitted(uncommitted) => {
-                    self.to_be_discarded = Some(Arc::clone(cli_id));
+                    self.to_be_discarded = Vec::from([Arc::clone(cli_id)]);
                     let uncommitted = uncommitted.clone();
 
                     let select_after_reload = if uncommitted.is_entire_file
@@ -1487,7 +1502,7 @@ impl App {
                     )
                 }
                 CliId::Stack { stack_id, .. } => {
-                    self.to_be_discarded = Some(Arc::clone(cli_id));
+                    self.to_be_discarded = Vec::from([Arc::clone(cli_id)]);
                     let stack_id = *stack_id;
                     let select_after_reload = self
                         .select_top_branch_for_stack_after_reload(stack_id)
@@ -1509,7 +1524,7 @@ impl App {
                     )
                 }
                 CliId::Commit { commit_id, .. } => {
-                    self.to_be_discarded = Some(Arc::clone(cli_id));
+                    self.to_be_discarded = Vec::from([Arc::clone(cli_id)]);
                     let commit_id = *commit_id;
                     let select_after_reload = self
                         .cursor
@@ -1552,7 +1567,7 @@ impl App {
 
                     let commits = commits_on_branch(ctx, stack_id, &name)?;
 
-                    self.to_be_discarded = Some(Arc::clone(cli_id));
+                    self.to_be_discarded = Vec::from([Arc::clone(cli_id)]);
                     let select_after_reload = self
                         .cursor
                         .select_after_discarded_branch(&self.status_lines);
@@ -1593,6 +1608,95 @@ impl App {
                 }
                 CliId::PathPrefix { .. } | CliId::CommittedFile { .. } => return Ok(()),
             },
+            key_binds: confirm_key_binds(),
+        });
+
+        Ok(())
+    }
+
+    fn handle_discard_marks(&mut self, messages: &mut Vec<Message>) -> anyhow::Result<()> {
+        let Mode::Normal(normal_mode) = &*self.mode else {
+            return Ok(());
+        };
+
+        if normal_mode.marks.is_empty() {
+            return Ok(());
+        }
+
+        let commits = normal_mode
+            .marks
+            .iter()
+            .map(|mark| match mark {
+                Markable::Commit { commit_id, .. } => *commit_id,
+            })
+            .collect::<Vec<_>>();
+
+        self.to_be_discarded = normal_mode
+            .marks
+            .iter()
+            .map(|mark| match mark {
+                Markable::Commit { commit_id, id } => Arc::new(CliId::Commit {
+                    commit_id: *commit_id,
+                    id: id.clone(),
+                }),
+            })
+            .collect::<Vec<_>>();
+
+        let select_after_reload = self
+            .cursor
+            .select_after_discarded_commits(&self.status_lines, &commits);
+
+        let drop_to_be_discarded =
+            message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
+
+        let confirm = Confirm::new(
+            NonEmpty::new(
+                if commits.len() == 1 {
+                    "Discard 1 commit?".to_owned()
+                } else {
+                    format!("Discard {} commits?", commits.len())
+                }
+                .into(),
+            ),
+            self.theme,
+            move |ctx, messages| {
+                let mut meta = ctx.meta()?;
+                let snapshot_details = SnapshotDetails::new(OperationKind::DiscardCommit);
+                let workspace = but_transaction::with_transaction(
+                    ctx,
+                    &mut meta,
+                    snapshot_details,
+                    DryRun::No,
+                    |mut tx| {
+                        if !commits.is_empty() {
+                            tx.discard_commits(commits)?;
+                        }
+                        Ok(())
+                    },
+                )?;
+                let select_after_reload = select_after_reload.map(|selection| match selection {
+                    SelectAfterReload::Commit(target_commit_id) => {
+                        let remapped_target_commit_id = workspace
+                            .replaced_commits
+                            .get(&target_commit_id)
+                            .copied()
+                            .unwrap_or(target_commit_id);
+                        SelectAfterReload::Commit(remapped_target_commit_id)
+                    }
+                    other => other,
+                });
+
+                drop(drop_to_be_discarded);
+                messages.extend([
+                    Message::ClearNormalModeMarks,
+                    Message::Reload(select_after_reload, ReloadCause::Mutation),
+                ]);
+                Ok(())
+            },
+        );
+
+        self.modal = Some(Modal::Confirm {
+            confirm,
             key_binds: confirm_key_binds(),
         });
 
@@ -2738,6 +2842,18 @@ impl App {
         Ok(())
     }
 
+    fn handle_clear_normal_mode_marks(&mut self) {
+        let Mode::Normal(normal_mode) = self
+            .mode
+            .get_mut_without_updating_backstack_and_i_promise_not_to_change_state()
+        else {
+            return;
+        };
+
+        normal_mode.marks.clear();
+        self.backstack.remove_mark();
+    }
+
     fn marks(&self) -> Option<&Marks> {
         self.mode.marks()
     }
@@ -3089,6 +3205,7 @@ enum Message {
     NewBranch,
     ToggleHelp,
     Mark,
+    ClearNormalModeMarks,
     Undo,
     Redo,
 

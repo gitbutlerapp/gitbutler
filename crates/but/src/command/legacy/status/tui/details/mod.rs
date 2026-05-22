@@ -183,6 +183,7 @@ impl Details {
             | Message::PickAndGotoBranch
             | Message::ToggleHelp
             | Message::Mark
+            | Message::ClearNormalModeMarks
             | Message::SetHasFocus(_)
             | Message::RegisterOutOfBandMessage(_)
             | Message::WithOneFrameDelay(_)

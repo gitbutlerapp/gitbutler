@@ -118,6 +118,32 @@ fn discard_commit_confirm_yes_removes_commit() {
 }
 
 #[test]
+fn discard_top_commit_selects_next_commit_in_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
+
+    tui.input_then_render('n')
+        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
+
+    tui.input_then_render('n')
+        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
+
+    tui.input_then_render('x')
+        .assert_rendered_contains("Discard commit")
+        .assert_rendered_contains("<< discard >>");
+
+    tui.input_then_render('y');
+
+    tui.input_then_render(None)
+        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
+}
+
+#[test]
 fn discard_stack_confirm_yes_discards_staged_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
@@ -247,4 +273,34 @@ fn discard_on_committed_file_row_is_noop() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/discard_on_committed_file_row_is_noop_final.svg"
         ]);
+}
+
+#[test]
+fn discard_multiple_commits() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('b')
+        .assert_current_line_eq(str!["┊╭┄br [c-branch-1] (no commits)"]);
+
+    for msg in ["one", "two", "three"] {
+        tui.input_then_render('n');
+        tui.input_then_render(KeyCode::Enter);
+        tui.input_then_render(msg);
+        tui.input_then_render(KeyCode::Enter);
+    }
+
+    tui.input_then_render(' ');
+    tui.input_then_render(KeyCode::Down);
+    tui.input_then_render(' ');
+
+    tui.input_then_render('x')
+        .assert_rendered_contains("Discard 2 commits?");
+
+    tui.input_then_render('y');
+
+    tui.input_then_render(None)
+        .assert_rendered_term_svg_eq(file!["snapshots/discard_multiple_commits_final.svg"]);
 }

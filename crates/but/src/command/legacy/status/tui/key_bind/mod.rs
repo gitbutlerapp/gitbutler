@@ -856,9 +856,7 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
     builder.files().register();
     builder.all_files().register();
 
-    if without_marks {
-        builder.discard().register();
-    }
+    builder.discard().register();
 
     builder.mark().register();
 
