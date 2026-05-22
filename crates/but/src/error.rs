@@ -14,6 +14,8 @@ pub struct BadInput {
     pub message: String,
     /// If applicable, the input argument to which the bad input was passed
     pub arg: Option<String>,
+    /// A hint to guide the user to proper usage of the command
+    pub hint: Option<String>,
 }
 
 impl BadInput {
@@ -22,12 +24,19 @@ impl BadInput {
         Self {
             message: message.as_ref().to_string(),
             arg: None,
+            hint: None,
         }
     }
 
     /// Add the argument for which this message applies.
     pub fn arg<S: AsRef<str>>(mut self, arg: S) -> Self {
         self.arg = Some(arg.as_ref().to_string());
+        self
+    }
+
+    /// Add a hint to guide the user to correct usage.
+    pub fn hint<S: AsRef<str>>(mut self, hint: S) -> Self {
+        self.hint = Some(hint.as_ref().to_string());
         self
     }
 
@@ -39,18 +48,28 @@ impl BadInput {
 
 impl Display for BadInput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let t = theme::get();
+
         if let Some(arg) = &self.arg {
             writeln!(
                 f,
                 "{} Bad input for '{}'",
-                theme::get().error.paint("Error:"),
-                theme::get().attention.paint(arg),
+                t.error.paint("Error:"),
+                t.attention.paint(arg),
             )?;
             writeln!(f)?;
-            write!(f, "{}", self.message)
+            write!(f, "{}", self.message)?;
         } else {
-            write!(f, "{} {}", theme::get().error.paint("Error:"), self.message)
+            write!(f, "{} {}", t.error.paint("Error:"), self.message)?;
+        };
+
+        if let Some(hint) = &self.hint {
+            writeln!(f)?;
+            writeln!(f)?;
+            write!(f, "{}", t.hint.paint(format!("Hint: {hint}")))?;
         }
+
+        Ok(())
     }
 }
 

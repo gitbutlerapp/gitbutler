@@ -315,6 +315,44 @@ Created blank commit before commit 9477ae7
 }
 
 #[test]
+/// Creating a commit above a stack head creates an anonymous segment as a direct child of the
+/// workspace commit, i.e. an anonymous stack. This is not well supported and breaks `but status`.
+///
+/// We intend to support this together with the `--create` flag once `but commit empty` is migrated
+/// up to `but commit --empty`.
+fn commit_empty_after_stack_head_is_disallowed() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("commit empty --after A")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Bad input for '--after'
+
+Cannot insert empty commit above stack head
+
+Hint: Use '--before' to insert at the tip of the stack
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
 fn commit_empty_after_branch_for_non_stack_head() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits")?;
     env.setup_metadata(&["A"])?;
