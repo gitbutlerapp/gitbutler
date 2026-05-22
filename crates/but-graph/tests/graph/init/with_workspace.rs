@@ -2368,7 +2368,8 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     │               └── ►:5[2]:A
     │                   ├── ·79bbb29 (⌂|🏘|✓|1)
     │                   ├── ·fc98174 (⌂|🏘|✓|1)
-    │                   └── ✂·a381df5 (⌂|🏘|✓|1)
+    │                   ├── ·a381df5 (⌂|🏘|✓|1)
+    │                   └── ✂·777b552 (⌂|🏘|✓|1)
     └── ►:1[0]:origin/main →:4:
         ├── 🟣d0df794 (✓)
         └── 🟣09c6e08 (✓)
@@ -2407,7 +2408,9 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     │                   ├── ·79bbb29 (⌂|🏘|✓|1)
     │                   ├── ·fc98174 (⌂|🏘|✓|1)
     │                   ├── ·a381df5 (⌂|🏘|✓|1)
-    │                   └── ✂·777b552 (⌂|🏘|✓|1)
+    │                   └── ·777b552 (⌂|🏘|✓|1)
+    │                       └── ►:6[3]:anon:
+    │                           └── ✂·ce4a760 (⌂|🏘|✓|1)
     └── ►:1[0]:origin/main →:5:
         ├── 🟣d0df794 (✓)
         └── 🟣09c6e08 (✓)
@@ -3440,7 +3443,8 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
     │               │           ├── ·dca4960 (⌂|🏘|✓|1)
     │               │           ├── ·11c29b8 (⌂|🏘|✓|1)
     │               │           ├── ·c32dd03 (⌂|🏘|✓|1)
-    │               │           └── ✂·b625665 (⌂|🏘|✓|1)
+    │               │           ├── ·b625665 (⌂|🏘|✓|1)
+    │               │           └── ✂·a821094 (⌂|🏘|✓|1)
     │               └── ►:6[3]:long-main-to-workspace
     │                   ├── ·77f31a0 (⌂|🏘|✓|1)
     │                   ├── ·eb17e31 (⌂|🏘|✓|1)

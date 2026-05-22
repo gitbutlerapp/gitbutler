@@ -415,7 +415,7 @@ pub fn try_split_non_empty_segment_at_branch<T: RefMetadata>(
 /// are used.
 /// `limit` is used to determine if the tip is NOT supposed to be dropped, with `0` meaning it's depleted.
 ///
-/// Returns `true` if queueing a parent exhausts the queue's hard limit.
+/// Returns `true` if queueing a parent reaches the queue's hard limit.
 #[expect(clippy::too_many_arguments)]
 pub fn queue_parents(
     next: &mut Queue,
@@ -432,11 +432,16 @@ pub fn queue_parents(
     if is_shallow_boundary {
         return Ok(false);
     }
+    // Don't enqueue new parents if we don't have space anymore.
+    if next.is_exhausted() {
+        return Ok(next.is_hard_limit_exhausted());
+    }
     if limit.is_exhausted_or_decrement(flags, next) {
         return Ok(false);
     }
     if parent_ids.len() > 1 {
         let limit_per_parent = limit.per_parent(parent_ids.len());
+        let mut hard_limit_reached = false;
         for (parent_order, pid) in parent_ids.iter().enumerate() {
             let instruction = Instruction::ConnectNewSegment {
                 parent_above: current_sidx,
@@ -448,9 +453,13 @@ pub fn queue_parents(
                     .context("commit parent position does not fit into u32")?,
             };
             let info = find(commit_graph, objects, *pid, buf)?;
-            if next.push_back_exhausted((info, flags, instruction, limit_per_parent)) {
-                return Ok(true);
-            }
+            hard_limit_reached |=
+                next.push_back_even_if_exhausted((info, flags, instruction, limit_per_parent));
+        }
+        if hard_limit_reached {
+            // All parents were queued and will be processed, but nothing new will be queued
+            // to wrap up the traversal.
+            return Ok(true);
         }
     } else if !parent_ids.is_empty() {
         let info = find(commit_graph, objects, parent_ids[0], buf)?;
@@ -1172,11 +1181,13 @@ fn propagate_goals_of_reachable_tips(
     }
 }
 
-/// Remove tips with only integrated commits and delete empty segments of pruned tips,
-/// as these are uninteresting.
+/// Stop traversal once only integrated tips with reached goals are left.
 /// However, do so only if our entrypoint isn't integrated itself and is not in a workspace. The reason for this is that we
 /// always also traverse workspaces and their targets, even if the traversal starts outside a workspace.
 pub fn prune_integrated_tips(graph: &mut Graph, next: &mut Queue) -> anyhow::Result<()> {
+    if next.is_exhausted() {
+        return Ok(());
+    }
     let all_integated_and_done = next.iter().all(|(_id, flags, _instruction, tip_limit)| {
         flags.contains(CommitFlags::Integrated) && tip_limit.goal_reached()
     });
@@ -1192,15 +1203,7 @@ pub fn prune_integrated_tips(graph: &mut Graph, next: &mut Queue) -> anyhow::Res
         return Ok(());
     }
 
-    next.inner
-        .retain_mut(|(_id, _flags, instruction, _tip_limit)| {
-            let sidx = instruction.segment_idx();
-            let s = &graph[sidx];
-            if s.commits.is_empty() {
-                graph.inner.remove_node(sidx);
-            }
-            false
-        });
+    next.exhaust();
     Ok(())
 }
 

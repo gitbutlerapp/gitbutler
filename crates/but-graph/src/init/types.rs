@@ -165,6 +165,7 @@ impl Queue {
             inner: Default::default(),
             count: 0,
             max: limit,
+            exhausted: false,
             sorted: false,
         }
     }
@@ -178,6 +179,8 @@ pub struct Queue {
     count: usize,
     /// The maximum number of queuing operations, each representing one commit.
     max: Option<usize>,
+    /// Whether no more items should be queued for reasons other than the hard limit.
+    exhausted: bool,
     /// Whether new items must maintain `inner` in traversal order.
     sorted: bool,
 }
@@ -202,6 +205,13 @@ impl Queue {
     }
     #[must_use]
     pub fn push_back_exhausted(&mut self, item: QueueItem) -> bool {
+        if self.is_exhausted() {
+            return true;
+        }
+        self.push_back_even_if_exhausted(item)
+    }
+
+    pub(crate) fn push_back_even_if_exhausted(&mut self, item: QueueItem) -> bool {
         if self.sorted {
             self.insert_sorted(item);
         } else {
@@ -211,6 +221,9 @@ impl Queue {
     }
     #[must_use]
     pub fn push_front_exhausted(&mut self, item: QueueItem) -> bool {
+        if self.is_exhausted() {
+            return true;
+        }
         if self.sorted {
             self.insert_sorted(item);
         } else {
@@ -228,7 +241,20 @@ impl Queue {
 
     fn is_exhausted_after_increment(&mut self) -> bool {
         self.count += 1;
+        self.is_exhausted()
+    }
+
+    pub fn is_exhausted(&self) -> bool {
+        self.exhausted || self.is_hard_limit_exhausted()
+    }
+
+    pub(crate) fn is_hard_limit_exhausted(&self) -> bool {
         self.max.is_some_and(|l| self.count >= l)
+    }
+
+    /// Stop accepting new items while leaving already queued items to drain.
+    pub(crate) fn exhaust(&mut self) {
+        self.exhausted = true;
     }
 
     /// Add `goal` as additional goal to `id` or panic if `id` was not found.

@@ -34,13 +34,6 @@ pub(super) struct Context<'a> {
     pub worktree_by_branch: WorktreeByBranch,
 }
 
-impl Context<'_> {
-    pub(super) fn with_hard_limit(mut self) -> Self {
-        self.hard_limit = true;
-        self
-    }
-}
-
 /// Processing
 impl Graph {
     /// Now that the graph is complete, perform additional structural improvements with

@@ -924,24 +924,28 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
             └── ·e255adc
     ");
 
-    // The hard limit is always respected though, despite yielding an incorrect result overall.
-    // That's why it's the *hard* limit.
+    // The hard limit stops queueing deeper commits, but queued commits are still processed
+    // so existing work can complete its graph connections.
     let graph =
-        Graph::from_head(&repo, &*meta, standard_options().with_hard_limit(7))?.validated()?;
+        Graph::from_head(&repo, &*meta, standard_options().with_hard_limit(5))?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     ├── 👉►:0[0]:B[🌳] <> origin/B →:1:
     │   └── ·312f819 (⌂|001)
-    │       └── ►:2[1]:A <> origin/A →:4:
+    │       └── ►:2[1]:A <> origin/A →:5:
     │           └── ❌·e255adc (⌂|101)
     ├── ►:1[0]:origin/B →:0:
     │   └── 🟣682be32 (0x0|010)
-    │       └── ►:4[1]:origin/A →:2:
-    │           └── ❌🟣e29c23d (0x0|010)
+    │       └── ►:5[1]:origin/A →:2:
+    │           └── 🟣e29c23d (0x0|010)
+    │               └── ►:4[2]:main
+    │                   └── 🏁🟣fafd9d0 (0x0|010)
     └── ►:3[0]:origin/A
     ");
-    // As the remotes don't connect, they are entirely unknown.
-    // And if it's weird, it's due to the hard limit
+    assert!(
+        graph.hard_limit_hit(),
+        "graph should record that traversal stopped queueing after hitting the hard limit"
+    );
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
     ⌂:0:B[🌳] <> ✓refs/remotes/origin/B⇣1 on 312f819
     └── ≡:0:B[🌳] <> origin/B →:1:⇣1 on e255adc {1}
@@ -1094,6 +1098,26 @@ fn with_limits() -> anyhow::Result<()> {
         └── :0:C[🌳]
             ├── ·2a95729
             └── ✂️·6861158
+    ");
+
+    // Hitting the hard limit while queueing merge parents still queues the
+    // complete parent set. The hard limit only prevents traversal beyond them.
+    let graph =
+        Graph::from_head(&repo, &*meta, standard_options().with_hard_limit(2))?.validated()?;
+    assert!(
+        graph.hard_limit_hit(),
+        "graph should record that traversal stopped queueing after hitting the hard limit"
+    );
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
+    └── 👉►:0[0]:C[🌳]
+        └── ·2a95729 (⌂|1)
+            ├── ►:1[1]:anon:
+            │   └── ❌·6861158 (⌂|1)
+            ├── ►:2[1]:A
+            │   └── ❌·20a823c (⌂|1)
+            └── ►:3[1]:B
+                └── ❌·9908c99 (⌂|1)
     ");
 
     // The merge commit, then we witness lane-duplication of the limit so we get more than requested.

@@ -63,7 +63,9 @@ fn four_commits_with_short_traversal() -> Result<()> {
     └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]
             ├── ·120e3a9
-            └── ❌·a96434e
+            ├── ·a96434e
+            ├── ·d591dfe
+            └── ·35b8235
     ");
 
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -73,7 +75,9 @@ fn four_commits_with_short_traversal() -> Result<()> {
 
     └── 👉►:0[0]:main[🌳]
         ├── ·120e3a9 (⌂|1)
-        └── ❌·a96434e (⌂|1)
+        ├── ·a96434e (⌂|1)
+        ├── ·d591dfe (⌂|1)
+        └── 🏁·35b8235 (⌂|1)
     ");
     let outcome = outcome.materialize()?;
     assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());

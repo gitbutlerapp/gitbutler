@@ -846,8 +846,8 @@ impl Graph {
     }
 
     /// Return `true` if this graph is possibly partial as the hard limit was hit,
-    /// meaning that the core traversal algorithm was interrupted without necessarily
-    /// satisfying all constraints.
+    /// meaning that the core traversal algorithm stopped queueing new commits without
+    /// necessarily satisfying all constraints.
     ///
     /// Such a graph is possibly partial, which can affect algorithms
     /// relying on it being complete.
