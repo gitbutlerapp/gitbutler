@@ -3957,6 +3957,7 @@ dependencies = [
  "gitbutler-workspace",
  "gix",
  "glob",
+ "insta",
  "itertools",
  "md5",
  "pretty_assertions",

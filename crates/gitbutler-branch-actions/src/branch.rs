@@ -62,29 +62,33 @@ pub fn list_branches(
     }
 
     let remote_names = repo.remote_names();
-    let mut workspace_target_ref_name = None;
-    let stacks = {
-        if let Some(workspace_ref) = repo.try_find_reference(WORKSPACE_REF_NAME)? {
-            // Let's get this here for convenience, and hope this isn't ever called by a writer (or there will be a deadlock).
-            let meta = ctx.meta()?;
-            workspace_target_ref_name = meta.workspace(workspace_ref.name())?.target_ref.clone();
-            let info = but_workspace::ref_info(
-                workspace_ref,
-                &meta,
-                but_workspace::ref_info::Options {
-                    traversal: but_graph::init::Options::limited(),
-                    expensive_commit_info: false,
-                    ..Default::default()
-                },
-            )?;
-            info.stacks
-                .into_iter()
-                .filter_map(|s| GitButlerStack::try_new(s, &remote_names).transpose())
-                .collect::<Result<Vec<_>, _>>()?
-        } else {
-            Vec::new()
-        }
+    let meta = ctx.meta()?;
+    let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
+    let db = gerrit_mode_enabled
+        .then(|| ctx.db.get_cache())
+        .transpose()?;
+    let gerrit_mode = match db.as_ref() {
+        Some(db) => but_workspace::ref_info::GerritMode::Enabled(db.gerrit_metadata()),
+        None => but_workspace::ref_info::GerritMode::Disabled,
     };
+
+    // This head_info call is intended to match the but-api head_info, such that
+    // the current tauri frontend can look them up consistently.
+    let info = but_workspace::head_info(
+        &repo,
+        &meta,
+        but_workspace::ref_info::Options {
+            traversal: but_graph::init::Options::limited(),
+            expensive_commit_info: false,
+            gerrit_mode,
+        },
+    )?;
+    let stacks = info
+        .stacks
+        .into_iter()
+        .filter_map(|s| GitButlerStack::try_new(s, &remote_names).transpose())
+        .collect::<Result<Vec<_>, _>>()?;
+    let workspace_target_ref_name = info.target_ref.map(|r| r.ref_name);
 
     branches.extend(stacks.iter().map(|s| GroupBranch::Virtual(s.clone())));
     let target_ref_name = if let Some(target_ref_name) = workspace_target_ref_name {
