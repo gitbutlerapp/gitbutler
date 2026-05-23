@@ -42,9 +42,21 @@ fn is_sensitive_key(key: &str) -> bool {
     let normalized = lower.replace(['-', '_'], "");
     matches!(
         normalized.as_str(),
-        "branch" | "cwd" | "path" | "uuid" | "worktree"
+        "accesskey"
+            | "auth"
+            | "branch"
+            | "cookie"
+            | "credential"
+            | "credentials"
+            | "cwd"
+            | "path"
+            | "setcookie"
+            | "uuid"
+            | "worktree"
     ) || normalized.ends_with("apikey")
         || normalized.ends_with("authorization")
+        || normalized.ends_with("credential")
+        || normalized.ends_with("credentials")
         || normalized.ends_with("password")
         || normalized.ends_with("passphrase")
         || normalized.ends_with("privatekey")
@@ -64,9 +76,12 @@ fn is_sensitive_key(key: &str) -> bool {
 }
 
 fn redact_string(text: &str) -> Option<String> {
+    let redacted = redact_named_secret_values(text).unwrap_or_else(|| text.to_owned());
+    let named_secret_changed = redacted != text;
+    let text = redacted.as_str();
     let bytes = text.as_bytes();
-    let mut redacted = String::new();
-    let mut changed = false;
+    let mut entropy_redacted = String::new();
+    let mut entropy_changed = false;
     let mut last_written = 0;
     let mut index = 0;
 
@@ -87,19 +102,141 @@ fn redact_string(text: &str) -> Option<String> {
 
         let candidate = &text[start..index];
         if should_redact(candidate) {
-            redacted.push_str(&text[last_written..start]);
-            redacted.push_str(REDACTION);
+            entropy_redacted.push_str(&text[last_written..start]);
+            entropy_redacted.push_str(REDACTION);
             last_written = index;
+            entropy_changed = true;
+        }
+    }
+
+    if !entropy_changed {
+        return named_secret_changed.then_some(redacted);
+    }
+
+    entropy_redacted.push_str(&text[last_written..]);
+    Some(entropy_redacted)
+}
+
+fn redact_named_secret_values(text: &str) -> Option<String> {
+    const NAMES: &[&str] = &[
+        "access_key",
+        "apikey",
+        "api_key",
+        "auth",
+        "authorization",
+        "cookie",
+        "credential",
+        "credentials",
+        "password",
+        "secret",
+        "set-cookie",
+        "token",
+    ];
+
+    let mut redacted = text.to_owned();
+    let mut lower = redacted.to_ascii_lowercase();
+    let mut changed = false;
+    for name in NAMES {
+        let mut search_start = 0;
+        while let Some(relative_start) = lower[search_start..].find(name) {
+            let start = search_start + relative_start;
+            if !has_name_boundary(&lower, start, name.len()) {
+                search_start = start + name.len();
+                continue;
+            }
+            let mut separator = start + name.len();
+            if matches!(lower.as_bytes().get(separator), Some(b'"' | b'\'')) {
+                separator += 1;
+            }
+            while lower
+                .as_bytes()
+                .get(separator)
+                .is_some_and(u8::is_ascii_whitespace)
+            {
+                separator += 1;
+            }
+            let Some(&separator_byte) = lower.as_bytes().get(separator) else {
+                break;
+            };
+            if !matches!(separator_byte, b':' | b'=') {
+                search_start = separator;
+                continue;
+            }
+
+            let mut value_start = separator + 1;
+            while lower
+                .as_bytes()
+                .get(value_start)
+                .is_some_and(u8::is_ascii_whitespace)
+            {
+                value_start += 1;
+            }
+            let quote = lower
+                .as_bytes()
+                .get(value_start)
+                .copied()
+                .filter(|byte| matches!(byte, b'"' | b'\''));
+            if quote.is_some() {
+                value_start += 1;
+            }
+            let value_end = quote
+                .and_then(|quote| quoted_value_end(&lower, value_start, quote))
+                .unwrap_or_else(|| secret_value_end(&lower, value_start, separator_byte, name));
+            if value_start == value_end {
+                search_start = value_start;
+                continue;
+            }
+
+            redacted.replace_range(value_start..value_end, REDACTION);
+            // REDACTION is ASCII, so `lower` stays byte-aligned with `redacted`
+            // without rebuilding the whole lowercase copy on every match.
+            lower.replace_range(value_start..value_end, REDACTION);
+            search_start = value_start + REDACTION.len();
             changed = true;
         }
     }
 
-    if !changed {
-        return None;
-    }
+    changed.then_some(redacted)
+}
 
-    redacted.push_str(&text[last_written..]);
-    Some(redacted)
+fn has_name_boundary(text: &str, start: usize, len: usize) -> bool {
+    let bytes = text.as_bytes();
+    let left = start
+        .checked_sub(1)
+        .and_then(|index| bytes.get(index))
+        .is_none_or(|byte| !is_name_byte(*byte));
+    let right = bytes
+        .get(start + len)
+        .is_none_or(|byte| !is_name_byte(*byte) || matches!(byte, b'"' | b'\''));
+    left && right
+}
+
+fn is_name_byte(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-')
+}
+
+fn quoted_value_end(text: &str, start: usize, quote: u8) -> Option<usize> {
+    text.as_bytes()[start..]
+        .iter()
+        .position(|byte| *byte == quote)
+        .map(|offset| start + offset)
+}
+
+fn secret_value_end(text: &str, start: usize, separator: u8, name: &str) -> usize {
+    let bytes = text.as_bytes();
+    let mut end = start;
+    let header_value =
+        separator == b':' && matches!(name, "authorization" | "cookie" | "set-cookie");
+    while end < bytes.len() {
+        let byte = bytes[end];
+        let value_ended = matches!(byte, b'\n' | b'\r' | b',' | b';')
+            || !header_value && byte.is_ascii_whitespace();
+        if value_ended {
+            break;
+        }
+        end += 1;
+    }
+    end
 }
 
 fn should_redact(candidate: &str) -> bool {
@@ -181,11 +318,28 @@ mod tests {
             ),
             (
                 "TOKEN=0123456789abcdef0123456789abcdef01234567; git commit -m fix",
-                "[REDACTED:entropy]; git commit -m fix",
+                "TOKEN=[REDACTED:entropy]; git commit -m fix",
             ),
             (
                 "token AbCdEfGhIjKl/MnOpQrSt/UvWxYz12+34= done",
                 "token [REDACTED:entropy] done",
+            ),
+            ("password=hunter2 done", "password=[REDACTED:entropy] done"),
+            (
+                "Cookie: sid=dev token=abc\nnext",
+                "Cookie: [REDACTED:entropy]\nnext",
+            ),
+            (
+                "Authorization: Bearer short-token\nnext",
+                "Authorization: [REDACTED:entropy]\nnext",
+            ),
+            (
+                r#"{"api_key": "hunter2", "notoken": "keep"}"#,
+                r#"{"api_key": "[REDACTED:entropy]", "notoken": "keep"}"#,
+            ),
+            (
+                "secret\t=\tshort secretary=keep",
+                "secret\t=\t[REDACTED:entropy] secretary=keep",
             ),
         ] {
             assert_eq!(redact_text(input), expected);
@@ -202,11 +356,46 @@ mod tests {
     }
 
     #[test]
+    fn keeps_short_high_entropy_runs_below_candidate_length() {
+        // Known limit: secrets shorter than MIN_CANDIDATE_LEN with no adjacent
+        // key name are not entropy-redacted.
+        assert_eq!(redact_text("k7Qz9Xy2Wp"), "k7Qz9Xy2Wp");
+    }
+
+    #[test]
+    fn redacts_uuid_embedded_in_surrounding_text() {
+        assert_eq!(
+            redact_text("trace 550e8400-e29b-41d4-a716-446655440000 ok"),
+            "trace [REDACTED:entropy] ok"
+        );
+    }
+
+    #[test]
+    fn redacts_domain_sensitive_keys() {
+        let value = json!({
+            "branch": "feature/login",
+            "cwd": "/home/alice/project",
+            "path": "/etc/passwd",
+            "keep": "plain value",
+        });
+
+        let redacted = redact_value(value);
+
+        assert_eq!(redacted["branch"], "[REDACTED:entropy]");
+        assert_eq!(redacted["cwd"], "[REDACTED:entropy]");
+        assert_eq!(redacted["path"], "[REDACTED:entropy]");
+        assert_eq!(redacted["keep"], "plain value");
+    }
+
+    #[test]
     fn redacts_sensitive_key_values_recursively() {
         let value = json!({
             "api_key": "short",
             "openai_api_key": "short",
             "db_password": "short",
+            "cookie": "sid=short",
+            "credentials": "short",
+            "access_key": "short",
             "token": {
                 "parts": ["alpha", "beta"],
             },
@@ -224,6 +413,9 @@ mod tests {
         assert_eq!(redacted["api_key"], "[REDACTED:entropy]");
         assert_eq!(redacted["openai_api_key"], "[REDACTED:entropy]");
         assert_eq!(redacted["db_password"], "[REDACTED:entropy]");
+        assert_eq!(redacted["cookie"], "[REDACTED:entropy]");
+        assert_eq!(redacted["credentials"], "[REDACTED:entropy]");
+        assert_eq!(redacted["access_key"], "[REDACTED:entropy]");
         assert_eq!(redacted["token"]["parts"][0], "[REDACTED:entropy]");
         assert_eq!(redacted["token"]["parts"][1], "[REDACTED:entropy]");
         assert_eq!(redacted["nested"]["secret"], "[REDACTED:entropy]");

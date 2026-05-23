@@ -6,95 +6,246 @@ use std::{
 };
 
 use anyhow::Context as _;
-use git_meta_lib::Target;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     agent::Agent,
-    capture::record_transcript,
-    gitmeta::{associate_session, sync_metadata},
+    capture::{prepare_transcript, record_prepared_transcript},
+    capture_lock::with_capture_lock,
+    gitmeta::{
+        RelatedTarget, SessionRecords, SessionTimeline, find_related_sessions_limited,
+        get_session_records, get_session_timeline_outline, sync_metadata,
+    },
+    skim::{self, SkimReport},
 };
+
+const DEFAULT_TIMELINE_LIMIT: usize = 20;
+const DEFAULT_RECORD_LIMIT: usize = 20;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Command {
-    Capture {
-        #[clap(long, value_enum)]
-        agent: Option<Agent>,
-        #[clap(long, value_name = "PATH", value_parser = non_empty_path)]
-        transcript_path: PathBuf,
-        #[clap(long, value_name = "TARGET", value_parser = Target::parse)]
-        associate_target: Option<Target>,
-    },
+    /// Capture an agent transcript from hook input.
+    #[clap(hide = true)]
     Hook {
         #[clap(long, value_enum)]
         agent: Option<Agent>,
-        #[clap(long, value_name = "TARGET", value_parser = Target::parse)]
-        associate_target: Option<Target>,
     },
+    /// Show a session, or one turn in detail.
+    #[clap(name = "show")]
+    Show {
+        /// Session key from `skim --json`.
+        #[clap(value_name = "SESSION", value_parser = non_empty_value)]
+        session_key: String,
+        /// Show detailed records for this turn key.
+        #[clap(long, value_name = "TURN", value_parser = non_empty_value)]
+        turn: Option<String>,
+        /// Maximum turns or turn records to return.
+        #[clap(long)]
+        limit: Option<usize>,
+    },
+    /// Skim prior agent work.
+    #[clap(name = "skim")]
+    Skim {
+        #[clap(value_enum)]
+        target: Option<RelatedSessionTarget>,
+        /// Branch, review, or change value to skim.
+        #[clap(value_name = "VALUE", value_parser = non_empty_value)]
+        value: Option<String>,
+    },
+    /// Sync GitMeta metadata.
+    #[clap(hide = true)]
     Sync,
 }
 
 #[derive(Debug, Serialize)]
-struct CommandOutput {
-    message: String,
+#[serde(untagged)]
+enum CommandOutput {
+    Message { message: String },
+    Timeline(SessionTimeline),
+    Records(SessionRecords),
+    Skim(SkimReport),
 }
 
 impl fmt::Display for CommandOutput {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.message)
+        match self {
+            CommandOutput::Message { message } => f.write_str(message),
+            CommandOutput::Timeline(timeline) => {
+                writeln!(
+                    f,
+                    "{} of {} turns for {}",
+                    timeline.coverage.showing_turns,
+                    timeline.coverage.total_turns,
+                    timeline.session_key
+                )?;
+                for turn in &timeline.turns {
+                    writeln!(
+                        f,
+                        "#{} {} {} records={} env={}",
+                        turn.turn_index,
+                        turn.turn_key,
+                        turn.captured_at,
+                        turn.record_count,
+                        turn.environment_snapshot_status
+                    )?;
+                    if let Some(preview) = turn.latest_user_preview.as_ref() {
+                        writeln!(f, "  user: {}", display_preview(&preview.text))?;
+                    }
+                    if let Some(preview) = turn.latest_assistant_preview.as_ref() {
+                        writeln!(f, "  assistant: {}", display_preview(&preview.text))?;
+                    }
+                }
+                Ok(())
+            }
+            CommandOutput::Records(records) => {
+                writeln!(
+                    f,
+                    "{} of {} records for {} turn {}",
+                    records.coverage.showing_records,
+                    records.coverage.total_records,
+                    records.session_key,
+                    records.turn_key
+                )?;
+                for record in &records.records {
+                    let timestamp = record.timestamp.as_deref().unwrap_or("unknown");
+                    let kind = record.kind.as_deref().unwrap_or("unknown");
+                    let label = record
+                        .role
+                        .as_deref()
+                        .or(record.tool_name.as_deref())
+                        .unwrap_or("-");
+                    let preview = record
+                        .text
+                        .as_deref()
+                        .map(display_preview)
+                        .filter(|preview| !preview.is_empty());
+                    if let Some(preview) = preview {
+                        writeln!(
+                            f,
+                            "#{} {} {} {} {}",
+                            record.turn_record_index, timestamp, kind, label, preview
+                        )?;
+                    } else {
+                        writeln!(
+                            f,
+                            "#{} {} {} {}",
+                            record.turn_record_index, timestamp, kind, label
+                        )?;
+                    }
+                }
+                Ok(())
+            }
+            CommandOutput::Skim(report) => report.fmt(f),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum RelatedSessionTarget {
+    /// Branch ref target.
+    Branch,
+    /// GitButler review target, including pull request / merge request style reviews.
+    Review,
+    /// GitButler change id target.
+    Change,
+}
+
+impl RelatedSessionTarget {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            RelatedSessionTarget::Branch => "branch",
+            RelatedSessionTarget::Review => "review",
+            RelatedSessionTarget::Change => "change",
+        }
+    }
+
+    fn related_target<'a>(self, target_key: &'a str) -> RelatedTarget<'a> {
+        match self {
+            RelatedSessionTarget::Branch => RelatedTarget::Branch(target_key),
+            RelatedSessionTarget::Review => RelatedTarget::Review(target_key),
+            RelatedSessionTarget::Change => RelatedTarget::Change(target_key),
+        }
     }
 }
 
 pub fn run_from_dir(dir: &Path, command: Command) -> anyhow::Result<impl Serialize + fmt::Display> {
     match command {
-        Command::Capture {
-            agent,
-            transcript_path,
-            associate_target,
-        } => {
-            let (records_written, associated_target) = record_agent_log(
-                dir,
-                agent.context("agent is required")?,
-                &transcript_path,
-                associate_target.as_ref(),
-            )
-            .context("failed to capture agent log")?;
-            let mut message = format!("Captured {records_written} records");
-            if let Some(target_label) = associated_target {
-                message.push_str(&format!(" and associated session with {target_label}"));
-            }
-            Ok(CommandOutput { message })
-        }
-        Command::Hook {
-            agent,
-            associate_target,
-        } => {
+        Command::Hook { agent } => {
             let mut input = String::new();
             std::io::stdin()
                 .read_to_string(&mut input)
                 .context("failed to read agent hook input")?;
-            if let Some(sync_dir) = run_hook(dir, agent, associate_target.as_ref(), &input)? {
+            if let Some(sync_dir) = run_hook(dir, agent, &input)? {
                 spawn_agentlog_sync(&sync_dir);
             }
-            Ok(CommandOutput {
+            Ok(CommandOutput::Message {
                 message: String::new(),
             })
         }
+        Command::Show {
+            session_key,
+            turn,
+            limit,
+        } => {
+            let workdir = resolve_workdir(dir)?;
+            match turn {
+                Some(turn) => {
+                    let records = get_session_records(
+                        &workdir,
+                        &session_key,
+                        &turn,
+                        limit.unwrap_or(DEFAULT_RECORD_LIMIT),
+                    )
+                    .context("failed to read agent session records")?;
+                    Ok(CommandOutput::Records(records))
+                }
+                None => {
+                    let timeline = get_session_timeline_outline(
+                        &workdir,
+                        &session_key,
+                        Some(limit.unwrap_or(DEFAULT_TIMELINE_LIMIT)),
+                    )
+                    .context("failed to read agent session timeline")?;
+                    Ok(CommandOutput::Timeline(timeline))
+                }
+            }
+        }
+        Command::Skim { target, value } => {
+            let explicit_target = match (target, value) {
+                (Some(target), Some(value)) => Some((target, value)),
+                (Some(target), None) => {
+                    anyhow::bail!("{} target value is required", target.as_str())
+                }
+                (None, Some(_)) => {
+                    anyhow::bail!("target kind is required when target value is provided")
+                }
+                (None, None) => None,
+            };
+            let workdir = resolve_workdir(dir)?;
+            let (target, value) = match explicit_target {
+                Some(target) => target,
+                None => skim::resolve_default_branch_target(&workdir)?,
+            };
+            let target_key = related_session_target_key(target, &value);
+            let sessions =
+                find_related_sessions_limited(&workdir, target.related_target(&target_key), None)
+                    .context("failed to find related agent sessions")?;
+            let report = skim::report(&workdir, target, target_key, sessions)
+                .context("failed to build agent skim")?;
+            Ok(CommandOutput::Skim(report))
+        }
         Command::Sync => {
-            sync_metadata(&resolve_workdir(dir)?).context("failed to sync GitMeta metadata")?;
-            Ok(CommandOutput {
+            let workdir = resolve_workdir(dir)?;
+            with_capture_lock(&workdir, || sync_metadata(&workdir))
+                .context("failed to sync GitMeta metadata")?;
+            Ok(CommandOutput::Message {
                 message: "Synced GitMeta metadata".into(),
             })
         }
     }
 }
 
-fn run_hook(
-    dir: &Path,
-    agent: Option<Agent>,
-    associate_target: Option<&Target>,
-    input: &str,
-) -> anyhow::Result<Option<PathBuf>> {
+fn run_hook(dir: &Path, agent: Option<Agent>, input: &str) -> anyhow::Result<Option<PathBuf>> {
     let input: HookInput =
         serde_json::from_str(input).context("failed to parse agent hook input")?;
     let Some(transcript_path) = input
@@ -110,14 +261,8 @@ fn run_hook(
         .unwrap_or(dir);
     let agent = agent.context("agent is required")?;
 
-    let (records_written, associated_target) =
-        record_agent_log(dir, agent, &transcript_path, associate_target)
-            .context("failed to capture agent log from hook input")?;
-
-    if records_written == 0 && associated_target.is_none() {
-        return Ok(None);
-    }
-    Ok(Some(dir.to_path_buf()))
+    record_agent_log(dir, agent, &transcript_path)
+        .context("failed to capture agent log from hook input")
 }
 
 fn spawn_agentlog_sync(dir: &Path) {
@@ -143,27 +288,26 @@ fn record_agent_log(
     dir: &Path,
     agent: Agent,
     transcript_path: &Path,
-    associate_target: Option<&Target>,
-) -> anyhow::Result<(usize, Option<String>)> {
+) -> anyhow::Result<Option<PathBuf>> {
     let workdir = resolve_workdir(dir)?;
     let transcript_path = if transcript_path.is_absolute() {
         transcript_path.to_path_buf()
     } else {
         dir.join(transcript_path)
     };
-    let (records_written, session_key) = record_transcript(&workdir, agent, &transcript_path)?;
+    let transcript = prepare_transcript(agent, &transcript_path)?;
+    let Some(transcript) = transcript else {
+        return Ok(None);
+    };
 
-    let associated_target =
-        if let (Some(target), Some(session_key)) = (associate_target, session_key.as_deref()) {
-            let target_label = target.to_string();
-            associate_session(&workdir, target, session_key)
-                .context("failed to associate agent log")?;
-            Some(target_label)
-        } else {
-            None
-        };
+    let metadata_changed = with_capture_lock(&workdir, || {
+        let (_records_written, metadata_changed) =
+            record_prepared_transcript(&workdir, agent, transcript)?;
 
-    Ok((records_written, associated_target))
+        Ok(metadata_changed)
+    })?;
+
+    Ok(metadata_changed.then_some(workdir))
 }
 
 fn resolve_workdir(dir: &Path) -> anyhow::Result<PathBuf> {
@@ -175,11 +319,54 @@ fn resolve_workdir(dir: &Path) -> anyhow::Result<PathBuf> {
     std::fs::canonicalize(workdir).context("failed to resolve repository worktree")
 }
 
-fn non_empty_path(value: &str) -> Result<PathBuf, String> {
+fn non_empty_value(value: &str) -> Result<String, String> {
     if value.is_empty() {
-        Err("transcript path is required".into())
+        Err("target value is required".into())
     } else {
-        Ok(value.into())
+        Ok(value.to_owned())
+    }
+}
+
+fn display_preview(text: &str) -> String {
+    const PREVIEW_CHARS: usize = 120;
+
+    let single_line = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut chars = single_line.chars();
+    let mut preview = chars.by_ref().take(PREVIEW_CHARS).collect::<String>();
+    if chars.next().is_some() {
+        preview.push_str("...");
+    }
+    preview
+}
+
+fn related_session_target_key(target: RelatedSessionTarget, value: &str) -> String {
+    match target {
+        RelatedSessionTarget::Branch => {
+            let value = value.strip_prefix("branch:").unwrap_or(value);
+            if value.starts_with("ref:") {
+                value.to_owned()
+            } else if value.starts_with("refs/") {
+                format!("ref:{value}")
+            } else {
+                format!("ref:refs/heads/{value}")
+            }
+        }
+        RelatedSessionTarget::Review => {
+            let value = value.strip_prefix("review:").unwrap_or(value);
+            if value.starts_with("gitbutler-review:") || value.starts_with("pull-request:") {
+                value.to_owned()
+            } else {
+                format!("gitbutler-review:{value}")
+            }
+        }
+        RelatedSessionTarget::Change => {
+            let value = value.strip_prefix("change-id:").unwrap_or(value);
+            if value.starts_with("gitbutler-change:") {
+                value.to_owned()
+            } else {
+                format!("gitbutler-change:{value}")
+            }
+        }
     }
 }
 
@@ -194,125 +381,250 @@ mod tests {
     use std::{
         collections::BTreeSet,
         fs,
-        path::Path,
-        process::{Command as ProcessCommand, Stdio},
+        path::{Path, PathBuf},
     };
 
+    use but_core::RepositoryExt as _;
     use git_meta_lib::{MetaValue, Session, Target};
     use tempfile::TempDir;
 
-    use super::{Command, run_from_dir, run_hook};
+    use super::{
+        Command, RelatedSessionTarget, related_session_target_key, run_from_dir, run_hook,
+    };
     use crate::Agent;
+    use crate::environment::{EnvironmentObservation, ObservedTargets};
+    use crate::gitmeta::write_transcript_batch;
+    use crate::transcript::TranscriptBatch;
 
-    #[derive(Debug, clap::Parser)]
-    struct Args {
-        #[clap(subcommand)]
-        command: Command,
-    }
-
-    #[test]
-    fn rejects_unsupported_agent_while_parsing_args() {
-        use clap::Parser as _;
-
-        Args::try_parse_from([
-            "but-agentlog",
-            "capture",
-            "--agent",
-            "cursor",
-            "--transcript-path",
-            "missing.jsonl",
-        ])
-        .expect_err("unsupported agent should fail");
-    }
+    const TEST_SESSION_KEY: &str = "sha256-11111111111111111111111111111111";
+    const TEST_SOURCE_KEY: &str = "sha256-22222222222222222222222222222222";
+    const TEST_BRANCH_KEY: &str = "ref:refs/heads/main";
+    const TEST_REVIEW_KEY: &str = "gitbutler-review:review-1";
+    const TEST_CHANGE_KEY: &str = "gitbutler-change:change-1";
 
     #[test]
-    fn rejects_empty_transcript_path_while_parsing_args() {
-        use clap::Parser as _;
-
-        Args::try_parse_from([
-            "but-agentlog",
-            "capture",
-            "--agent",
-            "codex",
-            "--transcript-path",
-            "",
-        ])
-        .expect_err("empty transcript path should fail");
-    }
-
-    #[test]
-    fn parses_association_target_flag_without_agent() {
-        use clap::Parser as _;
-
-        let args = Args::try_parse_from([
-            "but-agentlog",
-            "capture",
-            "--transcript-path",
-            "session.jsonl",
-            "--associate-target",
-            "branch:main",
-        ])
-        .expect("parse args");
-
-        let Command::Capture {
-            agent,
-            associate_target,
-            ..
-        } = args.command
-        else {
-            panic!("expected capture command");
-        };
-        assert_eq!(agent, None);
-        assert_eq!(
-            associate_target.expect("association target").to_string(),
-            "branch:main"
-        );
-    }
-
-    #[test]
-    fn parses_sync_command() {
-        use clap::Parser as _;
-
-        let args = Args::try_parse_from(["but-agentlog", "sync"]).expect("parse args");
-
-        let Command::Sync = args.command else {
-            panic!("expected sync command");
-        };
-    }
-
-    #[test]
-    fn capture_can_associate_existing_session_without_new_records() {
+    fn timeline_outputs_compact_turns() {
         let repo = setup_repo();
-        write_transcript_with_message(repo.path());
-        run_from_dir(
-            repo.path(),
-            Command::Capture {
-                agent: Some(Agent::Codex),
-                transcript_path: "session.jsonl".into(),
-                associate_target: None,
-            },
-        )
-        .expect("initial capture");
+        let turn_key = write_turn_with_targets(repo.path());
 
         let output = run_from_dir(
             repo.path(),
-            Command::Capture {
-                agent: Some(Agent::Codex),
-                transcript_path: "session.jsonl".into(),
-                associate_target: Some(Target::branch("main")),
+            Command::Show {
+                session_key: TEST_SESSION_KEY.to_owned(),
+                turn: None,
+                limit: None,
             },
         )
-        .expect("associate existing session")
-        .to_string();
+        .expect("show timeline");
+        let json = serde_json::to_value(&output).expect("serialize command output");
 
-        assert_eq!(
-            output,
-            "Captured 0 records and associated session with branch:main"
+        assert_eq!(json["session_key"], TEST_SESSION_KEY);
+        assert_eq!(json["turns"][0]["turn_key"], turn_key);
+        assert!(json["turns"][0].get("records").is_none());
+        assert!(output.to_string().contains(&format!(
+            "1 of 1 turns for {TEST_SESSION_KEY}\n#0 {turn_key}"
+        )));
+    }
+
+    #[test]
+    fn records_outputs_bounded_turn_records() {
+        let repo = setup_repo();
+        let turn_key = write_turn_with_targets(repo.path());
+
+        let output = run_from_dir(
+            repo.path(),
+            Command::Show {
+                session_key: TEST_SESSION_KEY.to_owned(),
+                turn: Some(turn_key.clone()),
+                limit: Some(1),
+            },
+        )
+        .expect("show records");
+        let json = serde_json::to_value(&output).expect("serialize command output");
+
+        assert_eq!(json["session_key"], TEST_SESSION_KEY);
+        assert_eq!(json["turn_key"], turn_key);
+        assert_eq!(json["coverage"]["showing_records"], 1);
+        assert_eq!(json["records"][0]["text"], "hello");
+        assert!(json["records"][0].get("record_hash").is_none());
+        assert!(json["records"][0].get("source_key").is_none());
+        assert!(output.to_string().contains(&format!(
+            "1 of 1 records for {TEST_SESSION_KEY} turn {turn_key}"
+        )));
+        assert!(output.to_string().contains("message - hello"));
+    }
+
+    #[test]
+    fn skim_outputs_all_turns_with_drill_down_keys_in_json() {
+        let repo = setup_repo();
+        let turn_key = write_user_turn_with_targets(repo.path());
+
+        let output = run_from_dir(
+            repo.path(),
+            Command::Skim {
+                target: Some(RelatedSessionTarget::Branch),
+                value: Some("main".into()),
+            },
+        )
+        .expect("read skim");
+        let json = serde_json::to_value(&output).expect("serialize command output");
+
+        assert_eq!(json["target_kind"], "branch");
+        assert_eq!(json["target_key"], TEST_BRANCH_KEY);
+        assert_eq!(json["sessions"][0]["session_key"], TEST_SESSION_KEY);
+        assert_eq!(json["sessions"][0]["related_turn_count"], 1);
+        assert_eq!(json["coverage"]["showing_sessions"], 1);
+        assert_eq!(json["coverage"]["showing_turns"], 1);
+        assert_eq!(json["coverage"]["related_turn_count"], 1);
+        assert_eq!(json["sessions"][0]["turns"][0]["turn_key"], turn_key);
+        assert_eq!(json["sessions"][0]["turns"][0]["related"], true);
+
+        let human = output.to_string();
+        assert!(human.starts_with(&format!("Skim for branch {TEST_BRANCH_KEY}\n")));
+        assert!(human.contains(
+            "\nSessions: showing 1 related sessions, 1 turns total, 1 directly related turns."
+        ));
+        assert!(human.contains("\nSession #1: 1 turns, 1 records, latest "));
+        assert!(human.contains("\n- #0 "));
+        assert!(human.contains("hello"));
+        assert!(human.contains("\nThis is a skim: all related sessions and turns, abbreviated."));
+        assert!(
+            !human.contains("sha256-"),
+            "human output should not print session or turn handles by default"
         );
-        assert_eq!(
-            session_keys(repo.path(), &Target::branch("main")),
-            session_keys(repo.path(), &Target::project())
+        assert!(
+            !human.contains(TEST_SESSION_KEY),
+            "human output should keep full session keys in JSON for drill-down"
         );
+        assert!(
+            !human.contains(&turn_key),
+            "human output should keep full turn keys in JSON for drill-down"
+        );
+    }
+
+    #[test]
+    fn skim_outputs_related_sessions_chronologically() {
+        let repo = setup_repo();
+        let probe_session_key = "sha256-33333333333333333333333333333333";
+        let probe_source_key = "sha256-44444444444444444444444444444444";
+        write_turn_for_session(repo.path(), TEST_SESSION_KEY, TEST_SOURCE_KEY, "first");
+        write_turn_for_session(repo.path(), TEST_SESSION_KEY, TEST_SOURCE_KEY, "second");
+        write_turn_for_session(repo.path(), TEST_SESSION_KEY, TEST_SOURCE_KEY, "third");
+        write_turn_for_session(repo.path(), probe_session_key, probe_source_key, "probe");
+        set_session_updated_at(repo.path(), TEST_SESSION_KEY, "2026-05-07T09:00:00.000Z");
+        set_session_updated_at(repo.path(), probe_session_key, "2026-05-07T10:00:00.000Z");
+
+        let output = run_from_dir(
+            repo.path(),
+            Command::Skim {
+                target: Some(RelatedSessionTarget::Branch),
+                value: Some("main".into()),
+            },
+        )
+        .expect("read skim");
+        let json = serde_json::to_value(&output).expect("serialize command output");
+
+        assert_eq!(json["coverage"]["showing_sessions"], 2);
+        assert_eq!(json["coverage"]["showing_turns"], 4);
+        assert_eq!(json["coverage"]["related_turn_count"], 4);
+        assert_eq!(json["sessions"][0]["session_key"], TEST_SESSION_KEY);
+        assert_eq!(json["sessions"][0]["related_turn_count"], 3);
+        assert_eq!(json["sessions"][1]["session_key"], probe_session_key);
+        assert_eq!(json["sessions"][1]["related_turn_count"], 1);
+    }
+
+    #[test]
+    fn skim_includes_unrelated_turns_in_related_sessions() {
+        let repo = setup_repo();
+        let related_turn_key = write_turn_for_session_with_targets(
+            repo.path(),
+            TEST_SESSION_KEY,
+            TEST_SOURCE_KEY,
+            "related setup",
+            Some("assistant"),
+            ObservedTargets::from_index_keys_for_testing(
+                TEST_BRANCH_KEY,
+                TEST_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+            ),
+        );
+        let unrelated_turn_key = write_turn_for_session_with_targets(
+            repo.path(),
+            TEST_SESSION_KEY,
+            TEST_SOURCE_KEY,
+            "unrelated follow-up",
+            Some("assistant"),
+            ObservedTargets::default(),
+        );
+
+        let output = run_from_dir(
+            repo.path(),
+            Command::Skim {
+                target: Some(RelatedSessionTarget::Branch),
+                value: Some("main".into()),
+            },
+        )
+        .expect("read skim");
+        let json = serde_json::to_value(&output).expect("serialize command output");
+
+        assert_eq!(json["coverage"]["showing_turns"], 2);
+        assert_eq!(json["coverage"]["related_turn_count"], 1);
+        assert_eq!(
+            json["sessions"][0]["turns"][0]["turn_key"],
+            related_turn_key
+        );
+        assert_eq!(json["sessions"][0]["turns"][0]["related"], true);
+        assert_eq!(
+            json["sessions"][0]["turns"][1]["turn_key"],
+            unrelated_turn_key
+        );
+        assert_eq!(json["sessions"][0]["turns"][1]["related"], false);
+        assert_eq!(
+            json["sessions"][0]["previews"][0],
+            "assistant: related setup"
+        );
+    }
+
+    #[test]
+    fn related_session_target_key_normalizes_common_inputs() {
+        for (target, value, expected) in [
+            (RelatedSessionTarget::Branch, "main", TEST_BRANCH_KEY),
+            (RelatedSessionTarget::Branch, "branch:main", TEST_BRANCH_KEY),
+            (
+                RelatedSessionTarget::Branch,
+                "refs/heads/main",
+                TEST_BRANCH_KEY,
+            ),
+            (
+                RelatedSessionTarget::Branch,
+                "ref:refs/heads/main",
+                TEST_BRANCH_KEY,
+            ),
+            (RelatedSessionTarget::Review, "review-1", TEST_REVIEW_KEY),
+            (
+                RelatedSessionTarget::Review,
+                "review:review-1",
+                TEST_REVIEW_KEY,
+            ),
+            (
+                RelatedSessionTarget::Review,
+                "gitbutler-review:review-1",
+                TEST_REVIEW_KEY,
+            ),
+            (RelatedSessionTarget::Change, "change-1", TEST_CHANGE_KEY),
+            (
+                RelatedSessionTarget::Change,
+                "change-id:change-1",
+                TEST_CHANGE_KEY,
+            ),
+            (
+                RelatedSessionTarget::Change,
+                "gitbutler-change:change-1",
+                TEST_CHANGE_KEY,
+            ),
+        ] {
+            assert_eq!(related_session_target_key(target, value), expected);
+        }
     }
 
     #[test]
@@ -320,14 +632,22 @@ mod tests {
         let repo = setup_repo();
         write_transcript_with_message(repo.path());
         let payload = serde_json::json!({
-            "transcript_path": repo.path().join("session.jsonl").display().to_string(),
+            "transcript_path": "session.jsonl",
             "cwd": repo.path().display().to_string(),
         })
         .to_string();
 
-        run_hook(repo.path(), Some(Agent::Codex), None, &payload).expect("run hook");
+        let sync_dir = run_hook(Path::new("/"), Some(Agent::Codex), &payload).expect("run hook");
 
+        assert_eq!(
+            sync_dir,
+            Some(fs::canonicalize(repo.path()).expect("canonical repo"))
+        );
         assert_eq!(session_keys(repo.path(), &Target::project()).len(), 1);
+
+        let duplicate_sync_dir =
+            run_hook(repo.path(), Some(Agent::Codex), &payload).expect("duplicate hook");
+        assert_eq!(duplicate_sync_dir, None);
     }
 
     #[test]
@@ -338,54 +658,16 @@ mod tests {
         })
         .to_string();
 
-        run_hook(repo.path(), None, None, &payload).expect("run hook");
+        let sync_dir = run_hook(repo.path(), None, &payload).expect("run hook");
 
+        assert_eq!(sync_dir, None);
+        assert!(
+            !gitbutler_storage_path(repo.path()).exists(),
+            "transcriptless hook should not create GitButler storage"
+        );
         assert!(
             target_value(repo.path(), &Target::project(), "gitbutler:agent-sessions").is_none()
         );
-    }
-
-    #[test]
-    fn sync_with_empty_metadata_remote_outputs_message() {
-        let repo = setup_repo();
-        let remote = TempDir::new().expect("temp remote");
-        let status = ProcessCommand::new("git")
-            .args(["init", "--bare"])
-            .current_dir(remote.path())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .expect("git init bare");
-        assert!(status.success());
-
-        let status = ProcessCommand::new("git")
-            .args(["remote", "add", "origin", &remote.path().to_string_lossy()])
-            .current_dir(repo.path())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .expect("git remote add");
-        assert!(status.success());
-        let status = ProcessCommand::new("git")
-            .args(["config", "remote.origin.meta", "true"])
-            .current_dir(repo.path())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .expect("git config remote origin meta");
-        assert!(status.success());
-
-        let session = Session::open(repo.path()).expect("open session");
-        session
-            .target(&Target::project())
-            .set("gitbutler:test", "value")
-            .expect("write metadata");
-
-        let output = run_from_dir(repo.path(), Command::Sync)
-            .expect("sync")
-            .to_string();
-
-        assert_eq!(output, "Synced GitMeta metadata");
     }
 
     fn write_transcript_with_message(repo: &Path) {
@@ -401,16 +683,123 @@ mod tests {
         .expect("write transcript");
     }
 
+    fn write_turn_with_targets(repo: &Path) -> String {
+        write_turn_for_session(repo, TEST_SESSION_KEY, TEST_SOURCE_KEY, "hello")
+    }
+
+    fn write_user_turn_with_targets(repo: &Path) -> String {
+        write_turn_for_session_with_role(
+            repo,
+            TEST_SESSION_KEY,
+            TEST_SOURCE_KEY,
+            "hello",
+            Some("user"),
+        )
+    }
+
+    fn write_turn_for_session(
+        repo: &Path,
+        session_key: &str,
+        source_key: &str,
+        text: &str,
+    ) -> String {
+        write_turn_for_session_with_role(repo, session_key, source_key, text, None)
+    }
+
+    fn write_turn_for_session_with_role(
+        repo: &Path,
+        session_key: &str,
+        source_key: &str,
+        text: &str,
+        role: Option<&str>,
+    ) -> String {
+        write_turn_for_session_with_targets(
+            repo,
+            session_key,
+            source_key,
+            text,
+            role,
+            ObservedTargets::from_index_keys_for_testing(
+                TEST_BRANCH_KEY,
+                TEST_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+            ),
+        )
+    }
+
+    fn write_turn_for_session_with_targets(
+        repo: &Path,
+        session_key: &str,
+        source_key: &str,
+        text: &str,
+        role: Option<&str>,
+        observed_targets: ObservedTargets,
+    ) -> String {
+        let role_fragment = role
+            .map(|role| {
+                format!(
+                    r#","role":{}"#,
+                    serde_json::to_string(role).expect("serialize role")
+                )
+            })
+            .unwrap_or_default();
+        let batch = TranscriptBatch::parse(
+            Agent::Codex,
+            format!(
+                concat!(
+                    r#"{{"timestamp":"2026-05-07T09:00:00Z","type":"session_meta","payload":{{"id":"session-1"}}}}"#,
+                    "\n",
+                    r#"{{"timestamp":"2026-05-07T09:00:01Z","type":"response_item","payload":{{"type":"message"{},"content":{}}}}}"#,
+                    "\n",
+                ),
+                role_fragment,
+                serde_json::to_string(text).expect("serialize message text")
+            )
+            .as_bytes(),
+        )
+        .expect("parse transcript");
+
+        write_transcript_batch(repo, Agent::Codex, session_key, source_key, batch, || {
+            EnvironmentObservation::from_observed_targets_for_testing(observed_targets)
+        })
+        .expect("write transcript batch");
+        latest_turn_key(repo, session_key)
+    }
+
+    fn latest_turn_key(repo: &Path, session_key: &str) -> String {
+        let Some(MetaValue::List(entries)) = target_value(
+            repo,
+            &Target::project(),
+            &format!("gitbutler:agent-session:{session_key}:turns"),
+        ) else {
+            panic!("expected turn summaries");
+        };
+        let summary: serde_json::Value =
+            serde_json::from_str(&entries.last().expect("latest turn").value)
+                .expect("turn summary JSON");
+        summary["turn_key"].as_str().expect("turn key").to_owned()
+    }
+
+    fn set_session_updated_at(repo: &Path, session_key: &str, updated_at: &str) {
+        let session = Session::open(repo).expect("open session");
+        let target = Target::project();
+        let key = format!("gitbutler:agent-session:{session_key}:updated-at");
+        let value = MetaValue::String(updated_at.to_owned());
+        session
+            .target(&target)
+            .apply_edits(vec![git_meta_lib::MetaEdit::set_value(&key, &value)])
+            .expect("set session updated-at");
+    }
+
     fn setup_repo() -> TempDir {
         let dir = TempDir::new().expect("temp repo");
-        let status = ProcessCommand::new("git")
-            .args(["init", "--initial-branch", "main"])
-            .current_dir(dir.path())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .expect("git init");
-        assert!(status.success());
+        gix::ThreadSafeRepository::init_opts(
+            dir.path(),
+            gix::create::Kind::WithWorktree,
+            gix::create::Options::default(),
+            gix::open::Options::isolated().config_overrides(["init.defaultBranch=main"]),
+        )
+        .expect("gitoxide repo init");
         dir
     }
 
@@ -428,5 +817,12 @@ mod tests {
             .target(target)
             .get_value(key)
             .expect("read GitMeta value")
+    }
+
+    fn gitbutler_storage_path(repo: &Path) -> PathBuf {
+        gix::discover(repo)
+            .expect("discover repo")
+            .gitbutler_storage_path()
+            .expect("storage path")
     }
 }

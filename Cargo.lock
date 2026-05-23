@@ -930,9 +930,14 @@ name = "but-agentlog"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "bstr",
+ "but-core",
+ "but-meta",
+ "but-testsupport",
+ "but-workspace",
  "chrono",
  "clap",
- "git-meta-lib 0.1.9",
+ "git-meta-lib 0.1.10 (git+https://github.com/git-meta/git-meta.git?rev=e5244374ec2bb413d5f8af28b7983ef29957a0d2)",
  "gix",
  "hex",
  "serde",
@@ -3838,8 +3843,9 @@ dependencies = [
 
 [[package]]
 name = "git-meta-lib"
-version = "0.1.9"
-source = "git+https://github.com/git-meta/git-meta.git?rev=5d7ba3d77700938db819b645c746ab193df73e3a#5d7ba3d77700938db819b645c746ab193df73e3a"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d8d88d5f482ae39baea4b7375ccb5e99932c5f6079436530f044854763e30c1"
 dependencies = [
  "gix",
  "rusqlite",
@@ -3853,8 +3859,7 @@ dependencies = [
 [[package]]
 name = "git-meta-lib"
 version = "0.1.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d8d88d5f482ae39baea4b7375ccb5e99932c5f6079436530f044854763e30c1"
+source = "git+https://github.com/git-meta/git-meta.git?rev=e5244374ec2bb413d5f8af28b7983ef29957a0d2#e5244374ec2bb413d5f8af28b7983ef29957a0d2"
 dependencies = [
  "gix",
  "rusqlite",
@@ -4002,7 +4007,7 @@ dependencies = [
  "but-rebase",
  "but-schemars",
  "but-testsupport",
- "git-meta-lib 0.1.10",
+ "git-meta-lib 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "git2",
  "gitbutler-cherry-pick",
  "gitbutler-commit",

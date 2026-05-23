@@ -277,10 +277,7 @@ fn prune_codex(source_record: &mut Value, kind: RecordKind, has_tool_input: bool
                 &["payload", "item", "content"],
                 &["payload", "item", "text"],
             ] {
-                if value_at(source_record, path).is_some_and(is_plain_text_payload) {
-                    remove_field_at(source_record, path);
-                    break;
-                }
+                remove_field_at(source_record, path);
             }
         }
         RecordKind::ToolCall if has_tool_input => {
@@ -316,30 +313,6 @@ fn text_at(value: &Value, path: &[&str]) -> Option<String> {
         Value::String(text) => Some(text.clone()),
         Value::Array(blocks) => joined_block_text(blocks),
         _ => None,
-    }
-}
-
-fn is_plain_text_payload(value: &Value) -> bool {
-    match value {
-        Value::String(_) => true,
-        Value::Array(blocks) => {
-            !blocks.is_empty()
-                && blocks.iter().all(|block| {
-                    let Some(object) = block.as_object() else {
-                        return false;
-                    };
-                    let text_kind = matches!(
-                        object.get("type").and_then(Value::as_str),
-                        Some("text" | "input_text" | "output_text") | None
-                    );
-                    object.get("text").is_some_and(Value::is_string)
-                        && text_kind
-                        && object
-                            .keys()
-                            .all(|key| matches!(key.as_str(), "text" | "type"))
-                })
-        }
-        _ => false,
     }
 }
 
@@ -446,12 +419,7 @@ fn claude_block_text(block: &Value) -> Option<String> {
 }
 
 fn prune_claude(source_record: &mut Value, kind: RecordKind, has_tool_input: bool) {
-    if kind == RecordKind::Message
-        && source_record
-            .get("message")
-            .and_then(|message| message.get("content"))
-            .is_some_and(is_plain_text_payload)
-    {
+    if kind == RecordKind::Message {
         remove_field_at(source_record, &["message", "content"]);
         return;
     }
