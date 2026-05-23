@@ -1,5 +1,5 @@
 import styles from "./ButtonGroup.module.css";
-import { classes } from "#ui/ui/classes.ts";
+import { classes } from "#ui/components/classes.ts";
 import { type ComponentProps, type FC } from "react";
 
 type Props = ComponentProps<"div">;

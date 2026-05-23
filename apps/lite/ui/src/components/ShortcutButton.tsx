@@ -1,8 +1,8 @@
 import styles from "./ShortcutButton.module.css";
 import { Button } from "#ui/components/Button.tsx";
 import { Keys } from "#ui/components/Keys.tsx";
-import { classes } from "#ui/ui/classes.ts";
-import uiStyles from "#ui/ui/ui.module.css";
+import { classes } from "#ui/components/classes.ts";
+import uiStyles from "#ui/components/ui.module.css";
 import { Tooltip, TooltipPositionerProps } from "@base-ui/react";
 import { type Hotkey, type UseHotkeyOptions } from "@tanstack/react-hotkeys";
 import { ComponentProps, FC } from "react";

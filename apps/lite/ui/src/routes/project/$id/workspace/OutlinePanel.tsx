@@ -1,4 +1,4 @@
-import uiStyles from "#ui/ui/ui.module.css";
+import uiStyles from "#ui/components/ui.module.css";
 import {
 	absorptionPlanQueryOptions,
 	changesInWorktreeQueryOptions,
@@ -45,7 +45,7 @@ import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSour
 import { OperationSourceLabel } from "#ui/routes/project/$id/workspace/OperationSourceLabel.tsx";
 import { OperationTarget } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { classes } from "#ui/ui/classes.ts";
+import { classes } from "#ui/components/classes.ts";
 import {
 	buildNavigationIndex,
 	navigationIndexIncludes,

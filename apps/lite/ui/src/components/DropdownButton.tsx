@@ -1,8 +1,8 @@
 import { Button } from "#ui/components/Button.tsx";
 import { ButtonGroup } from "#ui/components/ButtonGroup.tsx";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
-import { classes } from "#ui/ui/classes.ts";
-import { ChevronDownIcon } from "#ui/ui/icons.tsx";
+import { classes } from "#ui/components/classes.ts";
+import { Icon } from "#ui/components/Icon.tsx";
 import { type TooltipPositionerProps } from "@base-ui/react";
 import { type Hotkey, type UseHotkeyOptions } from "@tanstack/react-hotkeys";
 import { type ComponentProps, type FC, type MouseEvent, type ReactNode } from "react";
@@ -91,7 +91,7 @@ export const DropdownButton: FC<Props> = ({
 				className={classes(menuButtonProps?.className)}
 				onClick={onMenuOpen}
 			>
-				<ChevronDownIcon />
+				<Icon name="chevron-down" />
 			</Button>
 		</ButtonGroup>
 	);
