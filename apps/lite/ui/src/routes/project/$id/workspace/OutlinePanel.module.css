@@ -55,10 +55,6 @@
 	flex-direction: column;
 }
 
-.renameBranchInput {
-	font-weight: bold;
-}
-
 .stack {
 	display: flex;
 	flex-direction: column;
@@ -73,7 +69,8 @@
 	content: "\00a0";
 }
 
-.branchRowLabel {
+.branchRowLabel,
+.renameBranchInput {
 	font-weight: 600;
 	font-size: 14px;
 }
@@ -252,13 +249,17 @@
 	color: var(--color-text-secondary);
 }
 
+.commitRowLabel,
+.rewordCommitInput {
+	font-size: 13px;
+}
+
 .commitRowLabel {
 	display: flex;
 	flex-grow: 1;
 	align-items: center;
 	margin-inline-start: 6px;
 	overflow: hidden;
-	font-size: 13px;
 }
 
 [data-status="LocalOnly"] {
