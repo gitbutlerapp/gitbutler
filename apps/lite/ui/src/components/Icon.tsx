@@ -21,7 +21,9 @@ type Props = {
 
 export const Icon: FC<Props> = ({ name, size }) => (
 	<i
-		className={styles.icon}
+		className={[styles.icon, name === "spinner" ? styles.spinning : undefined]
+			.filter(Boolean)
+			.join(" ")}
 		data-icon
 		aria-hidden="true"
 		style={size !== undefined ? ({ "--icon-size": `${size}px` } as CSSProperties) : undefined}

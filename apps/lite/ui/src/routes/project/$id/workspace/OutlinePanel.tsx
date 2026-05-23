@@ -119,7 +119,6 @@ import {
 } from "#ui/hotkeys.ts";
 import { DropdownButton } from "#ui/components/DropdownButton.tsx";
 import { assert } from "#ui/assert.ts";
-import { Spinner } from "#ui/components/Spinner.tsx";
 import { errorMessageForToast } from "#ui/errors.ts";
 
 const NavigationIndexContext = createContext<NavigationIndex | null>(null);
@@ -563,7 +562,7 @@ const ActivitySpinner: FC = () => {
 		Match.orElse(() => null),
 	);
 
-	return status !== null && <Spinner aria-label={status} />;
+	return status !== null && <Icon name="spinner" aria-label={status} />;
 };
 
 export const OutlinePanel: FC<PanelProps> = ({ ...panelProps }) => {
@@ -678,7 +677,7 @@ export const OutlinePanel: FC<PanelProps> = ({ ...panelProps }) => {
 							<div className={styles.operationSourcePreview}>
 								<OperationSourceLabel headInfo={headInfo} source={operationSource} />
 								{outlineMode._tag === "Absorb" && absorptionPlanQuery?.isPending && (
-									<Spinner aria-label="Loading absorb plan" />
+									<Icon name="spinner" aria-label="Loading absorb plan" />
 								)}
 							</div>
 						)}
