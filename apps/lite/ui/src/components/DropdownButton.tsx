@@ -17,6 +17,8 @@ type Props = BaseButtonProps & {
 	positionerProps?: TooltipPositionerProps;
 	/** Optional explicit aria-label for the primary action button. */
 	primaryAriaLabel?: string;
+	/** Accessible name for the ButtonGroup wrapper. */
+	groupAriaLabel?: string;
 	/** Called when the chevron/dropdown trigger is clicked. */
 	onMenuOpen: (event: MouseEvent<HTMLButtonElement>) => void;
 	menuAriaLabel?: string;
@@ -41,6 +43,7 @@ export const DropdownButton: FC<Props> = ({
 	hotkeyOptions,
 	positionerProps,
 	primaryAriaLabel,
+	groupAriaLabel,
 	onMenuOpen,
 	menuAriaLabel = "More options",
 	menuButtonProps,
@@ -79,7 +82,7 @@ export const DropdownButton: FC<Props> = ({
 	);
 
 	return (
-		<ButtonGroup>
+		<ButtonGroup aria-label={groupAriaLabel}>
 			{primary}
 			<Button
 				{...menuButtonProps}
