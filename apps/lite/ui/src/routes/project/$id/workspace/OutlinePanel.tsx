@@ -864,7 +864,8 @@ const InlineRewordCommit: FC<{
 				ref={(el) => {
 					if (!el) return;
 					el.focus();
-					const cursorPosition = el.value.length;
+					const firstNewline = el.textContent.indexOf("\n");
+					const cursorPosition = firstNewline !== -1 ? firstNewline : el.value.length;
 					el.setSelectionRange(cursorPosition, cursorPosition);
 				}}
 				aria-label="Commit message"
