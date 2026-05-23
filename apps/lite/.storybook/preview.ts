@@ -14,6 +14,11 @@ const themeDecorator: Decorator = (Story, context) => {
 
 export default definePreview({
 	addons: [],
+	parameters: {
+		docs: {
+			codePanel: true,
+		},
+	},
 	initialGlobals: {
 		theme: "light",
 	} as never,

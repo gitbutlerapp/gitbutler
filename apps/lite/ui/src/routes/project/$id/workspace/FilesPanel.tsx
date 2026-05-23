@@ -29,8 +29,9 @@ import {
 	selectProjectSelectionOutline,
 } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { classes } from "#ui/ui/classes.ts";
-import { DependencyIcon, MenuTriggerIcon } from "#ui/ui/icons.tsx";
+import { Icon } from "#ui/components/Icon.tsx";
+import { Button } from "#ui/components/Button.tsx";
+import { classes } from "#ui/components/classes.ts";
 import { mergeProps, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
 import { AbsorptionTarget, TreeChange } from "@gitbutler/but-sdk";
@@ -588,25 +589,20 @@ const ChangesFileRow: FC<{
 						<DependencyIndicatorButton
 							projectId={projectId}
 							commitIds={dependencyCommitIds}
-							render={
-								<Toolbar.Button
-									type="button"
-									className={workspaceItemRowStyles.itemRowToolbarButton}
-								/>
-							}
+							render={<Toolbar.Button type="button" />}
 						>
-							<DependencyIcon />
+							<Icon name="link" />
 						</DependencyIndicatorButton>
 					)}
 					<Toolbar.Button
 						type="button"
-						className={workspaceItemRowStyles.itemRowToolbarButton}
 						aria-label="File menu"
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
+						render={<Button variant="ghost" size="small" />}
 					>
-						<MenuTriggerIcon />
+						<Icon name="kebab" />
 					</Toolbar.Button>
 				</WorkspaceItemRowToolbar>
 			)}

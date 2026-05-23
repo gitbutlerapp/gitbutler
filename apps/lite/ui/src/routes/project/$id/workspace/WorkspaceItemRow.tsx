@@ -1,4 +1,4 @@
-import { classes } from "#ui/ui/classes.ts";
+import { classes } from "#ui/components/classes.ts";
 import { Toolbar } from "@base-ui/react/toolbar";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { ComponentProps, FC, useLayoutEffect, useRef } from "react";

@@ -252,36 +252,12 @@
 	color: var(--color-text-secondary);
 }
 
-.changesSectionCommitButton {
-	border-start-end-radius: 0;
-	border-end-end-radius: 0;
-	font-weight: 550;
-}
-
 .commitRowLabel {
 	font-size: 13px;
-}
-
-.commitActionControls {
-	display: flex;
-	flex-shrink: 0;
-}
-
-.commitActionMenuButton {
-	display: grid;
-	place-items: center;
-	margin-inline-start: -1px;
-	border-start-start-radius: 0;
-	border-end-start-radius: 0;
 }
 
 .commitTargetIndicator {
 	display: grid;
 	padding-inline: var(--row-inline-padding);
 	padding-block: var(--row-block-padding);
-
-	svg {
-		width: var(--row-line-height);
-		height: var(--row-line-height);
-	}
 }

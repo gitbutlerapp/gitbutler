@@ -1,17 +1,17 @@
 import { listProjectsQueryOptions } from "#ui/api/queries.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { lastOpenedProjectKey } from "#ui/projects/last-opened.ts";
-import { PickerDialog } from "#ui/ui/PickerDialog/PickerDialog.tsx";
+import { PickerDialog } from "#ui/components/PickerDialog/PickerDialog.tsx";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
 import { globalHotkeys } from "#ui/hotkeys.ts";
-import uiStyles from "#ui/ui/ui.module.css";
+import uiStyles from "#ui/components/ui.module.css";
 import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Outlet, useMatch, useNavigate } from "@tanstack/react-router";
 import { FC, useState } from "react";
 import styles from "./RootLayout.module.css";
 import { ProjectForFrontend } from "@gitbutler/but-sdk";
-import { classes } from "#ui/ui/classes.ts";
+import { classes } from "#ui/components/classes.ts";
 import { Hash } from "effect";
 import { Tooltip } from "@base-ui/react";
 
@@ -75,7 +75,8 @@ const ProjectSelect: FC = () => {
 
 			<ShortcutButton
 				aria-label="Select project"
-				className={classes(uiStyles.button, styles.picker)}
+				variant="ghost"
+				className={classes(styles.picker)}
 				hotkey={globalHotkeys.selectProject.hotkey}
 				hotkeyOptions={{ meta: globalHotkeys.selectProject.meta }}
 				onClick={openProjectPicker}

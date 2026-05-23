@@ -1,5 +1,5 @@
 import { absorptionPlanQueryOptions } from "#ui/api/queries.ts";
-import { classes } from "#ui/ui/classes.ts";
+import { classes } from "#ui/components/classes.ts";
 import {
 	getOperations,
 	operationLabel,
@@ -8,7 +8,7 @@ import {
 	type OperationsByType,
 } from "#ui/operations/operation.ts";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
-import uiStyles from "#ui/ui/ui.module.css";
+import uiStyles from "#ui/components/ui.module.css";
 import { Toast, Tooltip, useRender } from "@base-ui/react";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";

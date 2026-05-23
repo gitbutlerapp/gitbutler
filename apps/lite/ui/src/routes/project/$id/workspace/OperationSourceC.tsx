@@ -3,7 +3,7 @@ import { pointerTransferOperationMode } from "#ui/outline/mode.ts";
 import styles from "./OperationSourceC.module.css";
 import { OperationSourceLabel } from "./OperationSourceLabel.tsx";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
-import { classes } from "#ui/ui/classes.ts";
+import { classes } from "#ui/components/classes.ts";
 import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";

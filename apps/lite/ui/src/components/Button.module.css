@@ -1,0 +1,142 @@
+.button {
+	display: inline-flex;
+	position: relative;
+	column-gap: 6px;
+	align-items: center;
+	justify-content: center;
+	height: 28px;
+	padding-inline: 10px;
+	border: 0;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--text-1);
+	line-height: 1;
+	white-space: nowrap;
+	--icon-size: 16px;
+	--button-group-divider-color: transparent;
+	transition:
+		background-color 0.08s ease,
+		color 0.08s ease;
+
+	&:not(:disabled) {
+		cursor: pointer;
+	}
+
+	&:disabled {
+		opacity: 0.5;
+	}
+}
+
+.small {
+	column-gap: 4px;
+	height: 20px;
+	padding-inline: 6px;
+	--icon-size: 14px;
+}
+
+.iconOnly {
+	width: 28px;
+	padding-inline: 8px;
+}
+
+.small.iconOnly {
+	width: 22px;
+	padding-inline: 3px;
+}
+
+.button :where([data-icon]) {
+	flex-shrink: 0;
+}
+
+.button :where([data-icon] svg) {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+.button > :where(svg) {
+	display: block;
+	flex-shrink: 0;
+	width: var(--icon-size);
+	height: var(--icon-size);
+}
+
+.pop {
+	background-color: color-mix(in srgb, var(--scale-pop-60) 50%, transparent);
+	--button-group-divider-color: color-mix(in srgb, var(--scale-pop-40) 20%, transparent);
+}
+
+.pop:not(:disabled):hover {
+	background-color: color-mix(in srgb, var(--scale-pop-60) 70%, transparent);
+}
+
+.gray {
+	background-color: var(--fill-gray-bg);
+	color: var(--fill-gray-fg);
+	--button-group-divider-color: color-mix(in srgb, var(--fill-gray-fg) 18%, transparent);
+}
+
+.gray:not(:disabled):hover {
+	background-color: color-mix(in srgb, var(--fill-gray-bg) 45%, var(--scale-gray-0));
+}
+
+.inverted {
+	background-color: transparent;
+	color: var(--text-1-invert);
+	--button-group-divider-color: color-mix(in srgb, var(--text-1-invert) 18%, transparent);
+}
+
+.inverted:not(:disabled):hover {
+	background-color: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
+}
+
+.outline {
+	border: 1px solid color-mix(in srgb, var(--fill-gray-bg) 30%, transparent);
+	--button-group-divider-color: color-mix(in srgb, var(--fill-gray-bg) 30%, transparent);
+}
+
+.outline:not(:disabled):hover {
+	background-color: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
+}
+
+.danger {
+	background-color: color-mix(in srgb, var(--scale-danger-50) 14%, transparent);
+	color: var(--text-danger);
+	--button-group-divider-color: color-mix(in srgb, var(--scale-danger-50) 20%, transparent);
+}
+
+.danger:not(:disabled):hover {
+	background-color: color-mix(in srgb, var(--scale-danger-50) 20%, transparent);
+}
+
+.ghost {
+	--button-group-divider-color: color-mix(in srgb, var(--scale-gray-0) 14%, transparent);
+}
+
+.ghost:not(:disabled):hover {
+	background-color: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
+}
+
+.ghost :where([data-icon]),
+.outline :where([data-icon]) {
+	opacity: 0.6;
+}
+
+.ghost:not(:disabled):hover :where([data-icon]),
+.outline:not(:disabled):hover :where([data-icon]) {
+	opacity: 0.8;
+}
+
+.pop :where([data-icon]),
+.gray :where([data-icon]),
+.inverted :where([data-icon]),
+.danger :where([data-icon]) {
+	opacity: 0.7;
+}
+
+.pop:not(:disabled):hover :where([data-icon]),
+.gray:not(:disabled):hover :where([data-icon]),
+.inverted:not(:disabled):hover :where([data-icon]),
+.danger:not(:disabled):hover :where([data-icon]) {
+	opacity: 0.9;
+}

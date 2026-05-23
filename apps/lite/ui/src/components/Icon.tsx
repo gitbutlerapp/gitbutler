@@ -1,4 +1,5 @@
-import { FC } from "react";
+import styles from "./Icon.module.css";
+import { CSSProperties, FC } from "react";
 import type { IconName } from "./iconNames";
 
 const svgModules = import.meta.glob("./icons/*.svg", {
@@ -18,11 +19,14 @@ type Props = {
 	size?: number;
 };
 
-export const Icon: FC<Props> = ({ name, size = 16 }) => (
+export const Icon: FC<Props> = ({ name, size }) => (
 	<i
-		className="icon"
+		className={[styles.icon, name === "spinner" ? styles.spinning : undefined]
+			.filter(Boolean)
+			.join(" ")}
+		data-icon
 		aria-hidden="true"
-		style={{ display: "inline-flex", width: size, height: size }}
+		style={size !== undefined ? ({ "--icon-size": `${size}px` } as CSSProperties) : undefined}
 		// oxlint-disable-next-line react/no-danger
 		dangerouslySetInnerHTML={{ __html: icons[name] ?? "" }}
 	/>

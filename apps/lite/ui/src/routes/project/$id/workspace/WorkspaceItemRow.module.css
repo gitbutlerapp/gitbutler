@@ -46,30 +46,6 @@
 	}
 }
 
-.itemRowToolbarButton {
-	display: grid;
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
-	border-radius: 8px;
-
-	&:not([data-disabled]):hover {
-		background-color: var(--button-ghost-hover-bg);
-
-		.itemRowSelected & {
-			background-color: color-mix(var(--fill-gray-fg) 10%, transparent);
-		}
-	}
-
-	svg {
-		width: var(--row-line-height);
-		height: var(--row-line-height);
-	}
-
-	&[data-disabled] {
-		opacity: 0.5;
-	}
-}
-
 .itemRowLabel {
 	flex-grow: 1;
 	padding-inline: var(--row-inline-padding);

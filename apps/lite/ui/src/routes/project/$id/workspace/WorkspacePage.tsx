@@ -1,5 +1,4 @@
 import { FilesPanel } from "./FilesPanel.tsx";
-import uiStyles from "#ui/ui/ui.module.css";
 import {
 	headInfoQueryOptions,
 	listBranchesQueryOptions,
@@ -17,6 +16,7 @@ import {
 	selectProjectDialogState,
 	selectProjectPanelsState,
 } from "#ui/projects/state.ts";
+import { Button } from "#ui/components/Button.tsx";
 import { Keys } from "#ui/components/Keys.tsx";
 import { globalHotkeys, workspaceHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { type AppThunk, useAppDispatch, useAppSelector } from "#ui/store.ts";
@@ -40,11 +40,11 @@ import { Match, Order } from "effect";
 import { type FC, Component, ReactNode } from "react";
 import { Group, Separator, useDefaultLayout } from "react-resizable-panels";
 import { branchOperand, type BranchOperand } from "#ui/operands.ts";
-import { PickerDialog, type PickerDialogGroup } from "#ui/ui/PickerDialog/PickerDialog.tsx";
+import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog/PickerDialog.tsx";
 import { DetailsPanel } from "./DetailsPanel.tsx";
 import styles from "./WorkspacePage.module.css";
 import { OutlinePanel } from "#ui/routes/project/$id/workspace/OutlinePanel.tsx";
-import { classes } from "#ui/ui/classes.ts";
+import { classes } from "#ui/components/classes.ts";
 import { Toast } from "@base-ui/react";
 import { errorMessageForToast } from "#ui/errors.ts";
 
@@ -493,9 +493,9 @@ class WorkspacePageErrorBoundary extends Component<
 			<div className={styles.error}>
 				<h1 className={styles.errorTitle}>Something went wrong.</h1>
 				<div className={styles.errorActions}>
-					<button type="button" className={uiStyles.button} onClick={() => this.handleRetry()}>
+					<Button type="button" onClick={() => this.handleRetry()}>
 						Retry
-					</button>
+					</Button>
 				</div>
 				<code className={styles.errorMessage}>{this.state.error.message}</code>
 			</div>

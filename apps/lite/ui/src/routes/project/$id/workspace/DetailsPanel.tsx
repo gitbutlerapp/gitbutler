@@ -1,4 +1,4 @@
-import uiStyles from "#ui/ui/ui.module.css";
+import uiStyles from "#ui/components/ui.module.css";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
 	branchDetailsQueryOptions,
@@ -32,10 +32,10 @@ import {
 	selectProjectPanelsState,
 	selectProjectSelectionFiles,
 } from "#ui/projects/state.ts";
+import { Icon } from "#ui/components/Icon.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { classes } from "#ui/ui/classes.ts";
-import { DependencyIcon } from "#ui/ui/icons.tsx";
+import { classes } from "#ui/components/classes.ts";
 import { DiffHunk, HunkHeader, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import { PatchDiff, Virtualizer } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
@@ -107,7 +107,7 @@ const Hunk: FC<{
 				<div className={styles.hunkHeaderRow}>
 					{dependencyCommitIds && (
 						<DependencyIndicatorButton projectId={projectId} commitIds={dependencyCommitIds}>
-							<DependencyIcon />
+							<Icon name="link" />
 						</DependencyIndicatorButton>
 					)}
 					<div className={classes("text-11", "text-monospace", styles.hunkHeader)}>
