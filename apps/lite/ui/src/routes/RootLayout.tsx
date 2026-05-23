@@ -75,7 +75,8 @@ const ProjectSelect: FC = () => {
 
 			<ShortcutButton
 				aria-label="Select project"
-				className={classes(uiStyles.button, styles.picker)}
+				variant="ghost"
+				className={classes(styles.picker)}
 				hotkey={globalHotkeys.selectProject.hotkey}
 				hotkeyOptions={{ meta: globalHotkeys.selectProject.meta }}
 				onClick={openProjectPicker}

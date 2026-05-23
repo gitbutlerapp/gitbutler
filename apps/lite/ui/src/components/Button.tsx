@@ -2,7 +2,7 @@ import styles from "./Button.module.css";
 import { classes } from "#ui/ui/classes.ts";
 import { ComponentProps, ReactNode, forwardRef, isValidElement } from "react";
 
-type ButtonVariant = "pop" | "gray" | "outline" | "danger" | "ghost";
+type ButtonVariant = "pop" | "gray" | "outline" | "danger" | "ghost" | "inverted";
 type ButtonSize = "regular" | "small";
 
 type Props = ComponentProps<"button"> & {

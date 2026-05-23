@@ -18,7 +18,7 @@ export const Playground = meta.story({
 	argTypes: {
 		variant: {
 			control: "select",
-			options: ["pop", "gray", "outline", "danger", "ghost"],
+			options: ["pop", "gray", "outline", "danger", "ghost", "inverted"],
 		},
 		size: {
 			control: "radio",
@@ -60,12 +60,13 @@ export const Playground = meta.story({
 
 export const Variants = meta.story({
 	render: () => (
-		<div style={{ display: "grid", gridTemplateColumns: "repeat(5, max-content)", gap: 12 }}>
+		<div style={{ display: "grid", gridTemplateColumns: "repeat(6, max-content)", gap: 12 }}>
 			<Button variant="pop">Button</Button>
 			<Button variant="gray">Button</Button>
 			<Button variant="outline">Button</Button>
 			<Button variant="ghost">Button</Button>
 			<Button variant="danger">Button</Button>
+			<Button variant="inverted">Button</Button>
 		</div>
 	),
 });
@@ -86,6 +87,9 @@ export const IconOnly = meta.story({
 				<Icon name="plus" />
 			</Button>
 			<Button variant="danger" aria-label="Danger action">
+				<Icon name="plus" />
+			</Button>
+			<Button variant="inverted" aria-label="Inverted action">
 				<Icon name="plus" />
 			</Button>
 		</div>

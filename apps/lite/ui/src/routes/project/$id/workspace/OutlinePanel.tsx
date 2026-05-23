@@ -26,6 +26,7 @@ import {
 	type CommitOperand,
 	type Operand,
 } from "#ui/operands.ts";
+import { Button } from "#ui/components/Button.tsx";
 import {
 	filterNavigationIndexForOutlineMode,
 	getTransferOperation,
@@ -702,12 +703,12 @@ const ItemRowMenuButton: FC<{
 	ariaLabel: string;
 	menuItems: Array<NativeMenuItem>;
 	disabled?: boolean;
-}> = ({ ariaLabel, menuItems, disabled = false }) => (
+	isSelected?: boolean;
+}> = ({ ariaLabel, menuItems, disabled = false, isSelected = false }) => (
 	<Toolbar.Button
-		type="button"
-		className={workspaceItemRowStyles.itemRowToolbarButton}
 		aria-label={ariaLabel}
-		disabled={disabled}
+		disabled={disabled === true}
+		render={<Button variant={isSelected === true ? "inverted" : "ghost"} size="small" />}
 		onClick={(event) => {
 			void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 		}}
@@ -1191,7 +1192,11 @@ const CommitRow: FC<
 					</div>
 					{outlineMode._tag === "Default" && (
 						<WorkspaceItemRowToolbar aria-label="Commit actions">
-							<ItemRowMenuButton ariaLabel="Commit menu" menuItems={menuItems} />
+							<ItemRowMenuButton
+								ariaLabel="Commit menu"
+								menuItems={menuItems}
+								isSelected={isSelected}
+							/>
 						</WorkspaceItemRowToolbar>
 					)}
 					{isCommitTarget && <CommitTargetIndicator />}
@@ -1270,7 +1275,11 @@ const ChangesSectionRow: FC<{
 			</div>
 			{outlineMode._tag === "Default" && (
 				<WorkspaceItemRowToolbar aria-label="Changes actions">
-					<ItemRowMenuButton ariaLabel="Changes menu" menuItems={menuItems} />
+					<ItemRowMenuButton
+						ariaLabel="Changes menu"
+						menuItems={menuItems}
+						isSelected={isSelected}
+					/>
 				</WorkspaceItemRowToolbar>
 			)}
 		</ItemRow>
@@ -1755,6 +1764,7 @@ const BranchRow: FC<
 		branchRef,
 	};
 	const operand = branchOperand(branchOperandV);
+	const isSelected = useIsSelected({ projectId, operand });
 	const isRenaming =
 		outlineMode._tag === "RenameBranch" &&
 		operandEquals(operand, branchOperand(outlineMode.operand));
@@ -1941,14 +1951,22 @@ const BranchRow: FC<
 					{outlineMode._tag === "Default" && (
 						<WorkspaceItemRowToolbar aria-label="Branch actions">
 							<Toolbar.Button
-								type="button"
-								className={workspaceItemRowStyles.itemRowToolbarButton}
-								aria-label="Push branch"
-								disabled
+								render={
+									<Button
+										variant={isSelected ? "inverted" : "ghost"}
+										size="small"
+										disabled
+										aria-label="Push branch"
+									/>
+								}
 							>
 								<Icon name="arrow-line-up" />
 							</Toolbar.Button>
-							<ItemRowMenuButton ariaLabel="Branch menu" menuItems={menuItems} />
+							<ItemRowMenuButton
+								ariaLabel="Branch menu"
+								menuItems={menuItems}
+								isSelected={isSelected}
+							/>
 						</WorkspaceItemRowToolbar>
 					)}
 					{isCommitTarget && <CommitTargetIndicator />}

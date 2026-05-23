@@ -26,7 +26,7 @@ export const Playground = meta.story({
 	argTypes: {
 		variant: {
 			control: "select",
-			options: ["pop", "gray", "outline", "danger", "ghost"],
+			options: ["pop", "gray", "outline", "danger"],
 		},
 		size: {
 			control: "radio",
@@ -46,8 +46,8 @@ export const Playground = meta.story({
 
 export const Variants = meta.story({
 	render: () => (
-		<div style={{ display: "grid", gridTemplateColumns: "repeat(5, max-content)", gap: 12 }}>
-			{(["pop", "gray", "outline", "ghost", "danger"] as const).map((variant) => (
+		<div style={{ display: "grid", gridTemplateColumns: "repeat(6, max-content)", gap: 12 }}>
+			{(["pop", "gray", "outline", "danger"] as const).map((variant) => (
 				<DropdownButton key={variant} variant={variant} onMenuOpen={fn()}>
 					{variant}
 				</DropdownButton>
