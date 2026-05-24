@@ -2083,7 +2083,9 @@ const BranchSegment: FC<{
 			/>
 
 			{segment.commits.length === 0 ? (
-				<div className={workspaceItemRowStyles.itemRowEmpty}>No commits.</div>
+				<div className={classes(workspaceItemRowStyles.itemRowEmpty, styles.noCommits)}>
+					No commits.
+				</div>
 			) : (
 				<div role="group">
 					{segment.commits.map((commit) => (

@@ -51,6 +51,9 @@
 }
 
 .segment {
+	--commit-row-left-spacing: 6px;
+	--commit-state-width: 8px;
+
 	display: flex;
 	flex-direction: column;
 }
@@ -67,6 +70,11 @@
 .stackRowLabel::before {
 	/* Don't shrink height with empty text content - relevant for context menu hitbox. */
 	content: "\00a0";
+}
+
+.branchRowLabel,
+.noCommits {
+	margin-inline-start: calc(var(--commit-row-left-spacing) + var(--commit-state-width));
 }
 
 .branchRowLabel,
@@ -250,7 +258,8 @@
 }
 
 .commitRowLabel,
-.rewordCommitInput {
+.rewordCommitInput,
+.noCommits {
 	font-size: 13px;
 }
 
@@ -258,7 +267,7 @@
 	display: flex;
 	flex-grow: 1;
 	align-items: center;
-	margin-inline-start: 6px;
+	margin-inline-start: var(--commit-row-left-spacing);
 	overflow: hidden;
 }
 
@@ -282,7 +291,7 @@
 	display: block;
 	flex-shrink: 0;
 	aspect-ratio: 1;
-	width: 8px;
+	width: var(--commit-state-width);
 	border: 1.5px solid var(--commit-status-color);
 	border-radius: 50%;
 }
