@@ -77,6 +77,8 @@ pub enum WorkspaceDisposition {
     /// no reference that points to a non-base commit, then the reference may already be sufficient
     /// without a merge commit.
     // TODO: make this the default when this is the default in apply().
+    //       WARNING: ANY MUTATION now has to be able to re-merge the workspace commit if they turn a virtual stack
+    //       into a non-virtual one or vice-versa.
     KeepWorkspaceReference,
     /// Remove the workspace merge commit if it is unnecessary, switch to a non-workspace ref , and delete the
     /// managed workspace reference and its metadata.

@@ -642,7 +642,7 @@ fn assigned_diffspec_for_stack(
 ///
 /// # What makes this legacy
 ///
-/// - use of `stack_id` should be brnach name or maybe even stack index (i.e. index in workspace projection,
+/// - use of `stack_id` should be branch name or maybe even stack index (i.e. index in workspace projection,
 ///   along with other identification, maybe even as much as we have)
 /// - Ideally, this new way of identifying stacks by bundling various identifiers, is also used in `unapply()`
 ///   itself and a simple [`but_graph::Workspace`] method.

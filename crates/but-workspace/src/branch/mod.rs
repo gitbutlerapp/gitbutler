@@ -598,7 +598,7 @@ pub(crate) fn try_find_validated_ref<'repo>(
 pub mod apply;
 pub use apply::apply;
 
-/// Functions and types related to removing a branch to the workspace.
+/// Functions and types related to removing a branch from the workspace.
 pub mod unapply;
 pub use unapply::function::unapply;
 

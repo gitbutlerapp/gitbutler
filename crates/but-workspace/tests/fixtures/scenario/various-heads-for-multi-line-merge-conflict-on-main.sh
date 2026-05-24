@@ -14,7 +14,6 @@ function commit-file() {
 
 ### Description
 # A couple of independent heads where some merge cleanly, and some don't, with `conflict-hero` conflicting with two different branches.
-# A workspace ref is present to make it easier to discover the branches of interest in the graph.
 git init
 commit M
 
