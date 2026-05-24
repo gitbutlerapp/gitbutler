@@ -5,11 +5,11 @@ use crate::utils::{CommandExt, Sandbox};
 #[test]
 fn outputs_branch_name() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
-* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 9477ae7 (A) add A
-* 0dc3733 (origin/main, origin/HEAD, main) add M
-");
+    insta::assert_snapshot!(env.git_log()?, @"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
 
     env.setup_metadata(&["A"])?;
 
@@ -68,11 +68,11 @@ Error: Could not turn "HEAD-" into a valid reference name
 #[test]
 fn with_json_output() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
-* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 9477ae7 (A) add A
-* 0dc3733 (origin/main, origin/HEAD, main) add M
-");
+    insta::assert_snapshot!(env.git_log()?, @"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
 
     env.setup_metadata(&["A"])?;
 

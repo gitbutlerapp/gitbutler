@@ -44,7 +44,7 @@ fn worktrees() -> anyhow::Result<()> {
 #[test]
 fn unborn() -> anyhow::Result<()> {
     let env = Sandbox::open_scenario_with_target_and_default_settings("unborn")?;
-    insta::assert_snapshot!(env.git_log()?, @r"");
+    insta::assert_snapshot!(env.git_log()?, @"");
 
     // TODO: make this work
     env.but("status --verbose")
