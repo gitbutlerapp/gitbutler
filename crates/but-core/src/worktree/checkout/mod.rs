@@ -28,6 +28,12 @@ pub struct Options {
     /// commit/amend so the consumed hunks cancel in the 3-way merge and don't
     /// reappear as uncommitted changes.
     pub merge_base_override: Option<gix::ObjectId>,
+    /// Allow checking out GitButler-managed conflicted commits.
+    ///
+    /// Most callers should keep the default refusal and surface a higher-level
+    /// conflict workflow instead. Rebase materialization may opt in when it
+    /// intentionally created the conflicted commit it is about to materialize.
+    pub allow_conflicted_commit_checkout: bool,
 }
 
 /// The successful outcome of [super::safe_checkout()] operation.

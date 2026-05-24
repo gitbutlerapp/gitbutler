@@ -83,6 +83,33 @@ fn no_op_trees_never_touch_worktree() -> anyhow::Result<()> {
 }
 
 #[test]
+fn conflicted_commits_cannot_be_checked_out() -> anyhow::Result<()> {
+    let repo = crate::commit::conflict_repo("normal-and-artificial")?;
+    let normal = repo.rev_parse_single("normal")?.detach();
+    let conflicted = repo.rev_parse_single("conflicted")?.detach();
+
+    let err = safe_checkout(normal, conflicted, &repo, Default::default())
+        .expect_err("safe_checkout must reject GitButler-conflicted commits");
+    assert_eq!(
+        err.to_string(),
+        "Refusing to check out conflicted commit 84503317a1e1464381fcff65ece14bc1f4315b7c",
+    );
+
+    safe_checkout(
+        repo.head_id()?.detach(),
+        conflicted,
+        &repo,
+        checkout::Options {
+            allow_conflicted_commit_checkout: true,
+            ..Default::default()
+        },
+    )
+    .expect("internal callers can explicitly opt into conflicted commit checkout");
+
+    Ok(())
+}
+
+#[test]
 fn pure_deletion_checkout_does_not_restore_unrelated_worktree_deletions() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario_slow("all-file-types-renamed-and-modified");
     insta::assert_snapshot!(git_status(&repo)?, @r"
