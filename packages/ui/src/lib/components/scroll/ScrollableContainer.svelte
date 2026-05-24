@@ -23,6 +23,7 @@
 		onscroll?: (e: Event) => void;
 		onscrollexists?: (exists: boolean) => void;
 		viewport?: HTMLDivElement;
+		scrollableEl?: HTMLDivElement;
 		viewportHeight?: number;
 		childrenWrapHeight?: string;
 		childrenWrapDisplay?: "block" | "contents" | "flex"; // 'contents' is used for virtual lists to avoid unnecessary height calculations
@@ -53,6 +54,7 @@
 		onscrollexists,
 		zIndex,
 		viewport = $bindable(),
+		scrollableEl = $bindable(),
 		viewportHeight = $bindable(),
 		childrenWrapHeight,
 		childrenWrapDisplay = "block",
@@ -138,7 +140,12 @@
 	}
 </script>
 
-<div class="scrollable" style:flex-grow={wide ? 1 : 0} style:max-height={maxHeight}>
+<div
+	bind:this={scrollableEl}
+	class="scrollable"
+	style:flex-grow={wide ? 1 : 0}
+	style:max-height={maxHeight}
+>
 	<div
 		bind:this={viewport}
 		bind:offsetHeight={viewportHeight}

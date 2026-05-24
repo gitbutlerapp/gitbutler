@@ -5,6 +5,7 @@
 
 	let {
 		viewport = $bindable(),
+		scrollableEl = $bindable(),
 		viewportHeight = $bindable(),
 		...restProps
 	}: ScrollableProps = $props();
@@ -30,6 +31,7 @@
 <ScrollableContainer
 	bind:this={scrollableContainer}
 	bind:viewport
+	bind:scrollableEl
 	bind:viewportHeight
 	whenToShow={uiState.global.scrollbarVisibilityState.current}
 	{...restProps}

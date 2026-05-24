@@ -35,6 +35,8 @@
 		onFileClick?: (index: number) => void;
 		onscrollexists?: (exists: boolean) => void;
 		visibleRange?: { start: number; end: number };
+		maxListHeight?: string;
+		scrollAreaEl?: HTMLDivElement;
 	};
 
 	let {
@@ -49,6 +51,8 @@
 		onFileClick,
 		onscrollexists,
 		visibleRange,
+		maxListHeight,
+		scrollAreaEl = $bindable(),
 	}: Props = $props();
 
 	// Create a unique persist ID based on stackId and mode (both are static props)
@@ -169,6 +173,8 @@
 					scrollTopIsVisible = visible;
 				}}
 				enableDragScroll={mode === "assigned"}
+				maxHeight={maxListHeight}
+				bind:scrollableEl={scrollAreaEl}
 			>
 				{@render fileList()}
 			</ScrollableContainer>

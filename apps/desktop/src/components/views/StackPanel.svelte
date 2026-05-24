@@ -12,6 +12,8 @@
 	import NewCommitView from "$components/commit/NewCommitView.svelte";
 	import WorktreeChanges from "$components/files/WorktreeChanges.svelte";
 	import IrcRow from "$components/irc/IrcRow.svelte";
+	import Resizer from "$components/shared/Resizer.svelte";
+	import SashLayer from "$components/shared/SashLayer.svelte";
 	import StackDragHandle from "$components/stack/StackDragHandle.svelte";
 	import BranchList from "$components/views/BranchList.svelte";
 	import { stagingBehaviorFeature } from "$lib/config/uiFeatureFlags";
@@ -48,6 +50,19 @@
 
 	let dropzoneActivated = $state(false);
 	let dropzoneHovered = $state(false);
+	let stagedListEl = $state<HTMLDivElement | undefined>();
+	let stagedHeight = $state("40vh");
+	let stagedContentHeightRem = $state(60);
+
+	$effect(() => {
+		const viewport = stagedListEl?.querySelector<HTMLElement>(".viewport");
+		if (!viewport) return;
+		const observer = new ResizeObserver(() => {
+			stagedContentHeightRem = viewport.scrollHeight / 16;
+		});
+		observer.observe(viewport);
+		return () => observer.disconnect();
+	});
 
 	function selectedPathsForSelection(selectionId: SelectionId): string[] {
 		return idSelection.values(selectionId).map((entry) => entry.path);
@@ -138,41 +153,58 @@
 		class="assignments-wrap"
 		class:assignments__empty={changes.current.length === 0 && !controller.isCommitting}
 	>
-		<div
-			class="worktree-wrap"
-			class:remove-border-bottom={(controller.isCommitting && changes.current.length === 0) ||
-				!startCommitVisible.current}
-			class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
-			class:dropzone-hovered={dropzoneHovered && changes.current.length === 0}
-		>
-			<WorktreeChanges
-				title="Staged"
-				projectId={controller.projectId}
-				stackId={controller.stackId}
-				mode="assigned"
-				visibleRange={controller.visibleRange}
-				onDropzoneActivated={(activated) => {
-					dropzoneActivated = activated;
-				}}
-				onDropzoneHovered={(hovered) => {
-					dropzoneHovered = hovered;
-				}}
-				onFileClick={(index) => {
-					controller.selection.set(undefined);
-					controller.jumpToIndex(index);
-				}}
+		<SashLayer>
+			<div
+				class="worktree-wrap"
+				class:remove-border-bottom={(controller.isCommitting && changes.current.length === 0) ||
+					!startCommitVisible.current}
+				class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
+				class:dropzone-hovered={dropzoneHovered && changes.current.length === 0}
 			>
-				{#snippet emptyPlaceholder()}
-					{#if !controller.isCommitting}
-						<div class="assigned-changes-empty">
-							<p class="text-12 text-body assigned-changes-empty__text">
-								Drop files to stage or commit directly
-							</p>
-						</div>
-					{/if}
-				{/snippet}
-			</WorktreeChanges>
-		</div>
+				<WorktreeChanges
+					title="Staged"
+					projectId={controller.projectId}
+					stackId={controller.stackId}
+					mode="assigned"
+					visibleRange={controller.visibleRange}
+					maxListHeight={stagedHeight}
+					bind:scrollAreaEl={stagedListEl}
+					onDropzoneActivated={(activated) => {
+						dropzoneActivated = activated;
+					}}
+					onDropzoneHovered={(hovered) => {
+						dropzoneHovered = hovered;
+					}}
+					onFileClick={(index) => {
+						controller.selection.set(undefined);
+						controller.jumpToIndex(index);
+					}}
+				>
+					{#snippet emptyPlaceholder()}
+						{#if !controller.isCommitting}
+							<div class="assigned-changes-empty">
+								<p class="text-12 text-body assigned-changes-empty__text">
+									Drop files to stage or commit directly
+								</p>
+							</div>
+						{/if}
+					{/snippet}
+				</WorktreeChanges>
+				{#if stagedListEl && changes.current.length > 0}
+					<Resizer
+						viewport={stagedListEl}
+						direction="down"
+						defaultValue={undefined}
+						minHeight={3}
+						maxHeight={stagedContentHeightRem}
+						unsetMaxHeight="40vh"
+						persistId="staged-changes-height-{controller.stackId ?? 'unassigned'}"
+						onWidth={(h) => (stagedHeight = `${h}rem`)}
+						onDblClick={() => (stagedHeight = "40vh")}
+					/>
+				{/if}
+			</div>
+		</SashLayer>
 
 		{#if startCommitVisible.current || controller.isCommitting}
 			{#if !controller.isCommitting}
