@@ -48,6 +48,25 @@ pub struct Workspace {
     pub push_remote: Option<String>,
 }
 
+/// A projected workspace stack used to reconcile persisted workspace metadata.
+///
+/// This is intentionally smaller than the full workspace projection so metadata
+/// code does not depend on graph presentation types and only sees what it needs.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectedWorkspaceStack {
+    /// Existing stable stack id from projection, if one was already known.
+    ///
+    /// `Some(id)` means reconciliation may use that id to match an existing
+    /// metadata stack, or preserve it when creating metadata for a projected
+    /// stack that is missing from metadata.
+    ///
+    /// `None` means reconciliation should create a new stack id if the projected
+    /// stack does not match any existing metadata stack.
+    pub id: Option<StackId>,
+    /// Branch names in stack order, from tip toward base.
+    pub branches: Vec<gix::refs::FullName>,
+}
+
 impl std::fmt::Debug for Workspace {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Workspace {
@@ -72,6 +91,86 @@ impl std::fmt::Debug for Workspace {
 
 /// Mutations
 impl Workspace {
+    /// Add missing metadata for stacks visible in the current workspace projection.
+    ///
+    /// This is additive with respect to branch names: projected branches are
+    /// added to metadata when missing, existing branch metadata is preserved,
+    /// and branches not present in `projected_stacks` are not removed.
+    ///
+    /// Projected stacks are authoritative for grouping. If a projected branch is
+    /// already in another metadata stack, it is moved to the projected stack.
+    /// Metadata stacks made empty by such moves are removed. Existing metadata
+    /// may contain duplicate branch names across stacks; these are tolerated as
+    /// stale hints. Projected branch names must still be unique.
+    pub fn reconcile_projected_stacks(
+        &mut self,
+        projected_stacks: impl IntoIterator<Item = ProjectedWorkspaceStack>,
+        mut new_stack_id: impl FnMut(&gix::refs::FullNameRef) -> StackId,
+    ) -> Result<()> {
+        let projected_stacks = projected_stacks
+            .into_iter()
+            .filter(|stack| !stack.branches.is_empty())
+            .collect::<Vec<_>>();
+        ensure_unique_branch_names(
+            projected_stacks
+                .iter()
+                .flat_map(|stack| stack.branches.iter().map(|branch| branch.as_ref())),
+            "projected workspace",
+        )?;
+
+        for ProjectedWorkspaceStack {
+            id: projected_stack_id,
+            branches: projected_branches,
+        } in projected_stacks
+        {
+            let owning_stack_idx = projected_stack_id
+                .and_then(|id| self.stacks.iter().position(|stack| stack.id == id))
+                .or_else(|| {
+                    projected_branches.iter().find_map(|branch| {
+                        self.find_owner_indexes_by_name(
+                            branch.as_ref(),
+                            StackKind::AppliedAndUnapplied,
+                        )
+                        .map(|(stack_idx, _branch_idx)| stack_idx)
+                    })
+                });
+
+            if let Some(stack_idx) = owning_stack_idx {
+                let mut branches = Vec::new();
+                for branch in projected_branches {
+                    branches.push(
+                        remove_branch_from_stacks(&mut self.stacks, stack_idx, branch.as_ref())
+                            .unwrap_or(WorkspaceStackBranch {
+                                ref_name: branch,
+                                archived: false,
+                            }),
+                    );
+                }
+                let stack = &mut self.stacks[stack_idx];
+                branches.extend(std::mem::take(&mut stack.branches));
+                stack.branches = branches;
+                stack.workspacecommit_relation = WorkspaceCommitRelation::Merged;
+            } else {
+                let stack_id = projected_stack_id
+                    .unwrap_or_else(|| new_stack_id(projected_branches[0].as_ref()));
+                self.stacks.push(WorkspaceStack {
+                    id: stack_id,
+                    branches: projected_branches
+                        .into_iter()
+                        .map(|ref_name| WorkspaceStackBranch {
+                            ref_name,
+                            archived: false,
+                        })
+                        .collect(),
+                    workspacecommit_relation: WorkspaceCommitRelation::Merged,
+                });
+            }
+        }
+        self.stacks.retain(|stack| !stack.branches.is_empty());
+
+        Ok(())
+    }
+
     /// Remove the named segment `branch`, which removes the whole stack if it's empty after removing a segment
     /// of that name.
     /// Returns `true` if it was removed or `false` if it wasn't found.
@@ -88,6 +187,39 @@ impl Workspace {
         if stack.branches.is_empty() {
             self.stacks.remove(stack_idx);
         }
+        true
+    }
+
+    /// Remove `branch` from applied workspace metadata, and return `true` if it was removed from the metadata,
+    /// or `false` if it wasn't present.
+    ///
+    /// If `branch` is the only segment in its stack, the whole stack metadata entry is removed so
+    /// virtual apply/unapply roundtrips return to the original empty-workspace shape.
+    ///
+    /// If `branch` is the tip of a multi-segment stack, the remaining stack is marked outside
+    /// the workspace because its visible tip was removed. This is necessary
+    /// to keep previous stacks alive in metadata, in case they are re-applied later, to return
+    /// to the same shape.
+    #[expect(clippy::indexing_slicing)]
+    pub fn unapply_branch(&mut self, branch: &FullNameRef) -> bool {
+        let Some((stack_idx, segment_idx)) =
+            self.find_owner_indexes_by_name(branch, StackKind::Applied)
+        else {
+            return false;
+        };
+
+        let stack_len = self.stacks[stack_idx].branches.len();
+        if stack_len == 1 {
+            // There is nothing to remember, remove the whole stack.
+            self.stacks.remove(stack_idx);
+        } else if segment_idx == 0 {
+            // The tip of the stack should be removed, mark the whole stack as outside, to remember its configuration.
+            self.stacks[stack_idx].workspacecommit_relation = WorkspaceCommitRelation::Outside;
+        } else {
+            // It's a segment in the middle, remove its metadata.
+            self.stacks[stack_idx].branches.remove(segment_idx);
+        }
+
         true
     }
 
@@ -198,6 +330,43 @@ impl Workspace {
             .map(Ok)
             .unwrap_or_else(|| self.remote_url_with_fallback(repo))
     }
+}
+
+fn ensure_unique_branch_names<'a>(
+    names: impl IntoIterator<Item = &'a gix::refs::FullNameRef>,
+    source: &str,
+) -> Result<()> {
+    let mut seen = Vec::<gix::refs::FullName>::new();
+    for name in names {
+        if seen.iter().any(|seen| seen.as_ref() == name) {
+            bail!("Cannot reconcile {source}: branch name '{name}' occurs more than once");
+        }
+        seen.push(name.to_owned());
+    }
+    Ok(())
+}
+
+fn remove_branch_from_stacks(
+    stacks: &mut [WorkspaceStack],
+    preferred_stack_idx: usize,
+    name: &gix::refs::FullNameRef,
+) -> Option<WorkspaceStackBranch> {
+    if let Some(stack) = stacks.get_mut(preferred_stack_idx)
+        && let Some(branch_idx) = stack
+            .branches
+            .iter()
+            .position(|branch| branch.ref_name.as_ref() == name)
+    {
+        return Some(stack.branches.remove(branch_idx));
+    }
+
+    stacks.iter_mut().find_map(|stack| {
+        let branch_idx = stack
+            .branches
+            .iter()
+            .position(|branch| branch.ref_name.as_ref() == name)?;
+        Some(stack.branches.remove(branch_idx))
+    })
 }
 
 /// Determine what kind of stack a query operation is interested in.
