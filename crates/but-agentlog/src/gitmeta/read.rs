@@ -6,6 +6,7 @@ use std::{
 use anyhow::{Context as _, Result, bail};
 use chrono::{DateTime, Utc};
 use git_meta_lib::{MetaValue, SessionTargetHandle};
+use serde::Deserialize;
 
 use super::{
     IndexHit, SessionListEntry, StoredObservedTargets, index_key,
@@ -95,11 +96,12 @@ fn verified_related_turns_by_session(
     target: RelatedTarget<'_>,
 ) -> Result<BTreeMap<String, Vec<String>>> {
     let mut indexed_turns = BTreeMap::<String, HashSet<String>>::new();
+    let mut session_association_matches = BTreeMap::<String, bool>::new();
     for hit in target_index_hits(handle, target)? {
         let Ok(hit) = serde_json::from_str::<IndexHit>(&hit) else {
             continue;
         };
-        if turn_detail_observes_target(handle, &hit, target)? {
+        if turn_detail_observes_target(handle, &hit, target, &mut session_association_matches)? {
             indexed_turns
                 .entry(hit.session_key)
                 .or_default()
@@ -156,6 +158,7 @@ fn turn_detail_observes_target(
     handle: &SessionTargetHandle<'_>,
     hit: &IndexHit,
     target: RelatedTarget<'_>,
+    session_association_matches: &mut BTreeMap<String, bool>,
 ) -> Result<bool> {
     let detail_key = format!(
         "gitbutler:agent-session:{}:turn:{}",
@@ -164,7 +167,15 @@ fn turn_detail_observes_target(
     let Some(detail) = read_optional_turn_detail(handle, &detail_key)? else {
         return Ok(false);
     };
-    Ok(observed_targets_observe(&detail.observed_targets, target))
+    if observed_targets_observe(&detail.observed_targets, target) {
+        return Ok(true);
+    }
+    if let Some(matches) = session_association_matches.get(&hit.session_key) {
+        return Ok(*matches);
+    }
+    let matches = session_associations_observe_target(handle, &hit.session_key, target)?;
+    session_association_matches.insert(hit.session_key.clone(), matches);
+    Ok(matches)
 }
 
 fn observed_targets_observe(targets: &StoredObservedTargets, target: RelatedTarget<'_>) -> bool {
@@ -172,5 +183,47 @@ fn observed_targets_observe(targets: &StoredObservedTargets, target: RelatedTarg
         RelatedTarget::Branch(key) => targets.branches.iter().any(|target| target.key == key),
         RelatedTarget::Review(key) => targets.reviews.iter().any(|target| target.key == key),
         RelatedTarget::Change(key) => targets.changes.iter().any(|target| target.key == key),
+    }
+}
+
+fn session_associations_observe_target(
+    handle: &SessionTargetHandle<'_>,
+    session_key: &str,
+    target: RelatedTarget<'_>,
+) -> Result<bool> {
+    let associated_targets_key =
+        format!("gitbutler:agent-session:{session_key}:associated-targets");
+    let Some(value) = handle
+        .get_value(&associated_targets_key)
+        .with_context(|| format!("failed to read GitMeta key '{associated_targets_key}'"))?
+    else {
+        return Ok(false);
+    };
+    let MetaValue::String(value) = value else {
+        bail!("existing GitMeta key '{associated_targets_key}' is not a string");
+    };
+    let targets: StoredSessionAssociations = serde_json::from_str(&value).with_context(|| {
+        format!("existing GitMeta key '{associated_targets_key}' has invalid JSON")
+    })?;
+    Ok(targets.observes(target))
+}
+
+#[derive(Deserialize)]
+struct StoredSessionAssociations {
+    #[serde(default)]
+    branches: BTreeSet<String>,
+    #[serde(default)]
+    reviews: BTreeSet<String>,
+    #[serde(default)]
+    changes: BTreeSet<String>,
+}
+
+impl StoredSessionAssociations {
+    fn observes(&self, target: RelatedTarget<'_>) -> bool {
+        match target {
+            RelatedTarget::Branch(key) => self.branches.contains(key),
+            RelatedTarget::Review(key) => self.reviews.contains(key),
+            RelatedTarget::Change(key) => self.changes.contains(key),
+        }
     }
 }
