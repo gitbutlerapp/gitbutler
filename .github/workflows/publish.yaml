@@ -57,6 +57,15 @@ jobs:
           NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ env.bump }}")
           echo "version=$NEXT_VERSION" >> $GITHUB_ENV
           mkdir -p release && echo "$NEXT_VERSION" > release/version
+
+      - name: Check AppStream metadata contains release entry for next version
+        if: runner.os == 'Linux' && env.channel == 'release'
+        env:
+          VERSION: ${{ env.version }}
+        run: |
+          sudo apt update && sudo apt install -y xmlstarlet
+          ./scripts/check-appstream-metadata.sh "$VERSION" "./crates/gitbutler-tauri/com.gitbutler.gitbutler.metainfo.xml"
+
       - name: Init Node Environment
         uses: ./.github/actions/init-env-node
       - name: Build SvelteKit

@@ -37,6 +37,72 @@
   </screenshots>
 
   <releases>
+    <release version="0.19.13" date="2026-05-19">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.19.13</url>
+    </release>
+    <release version="0.19.12" date="2026-05-15">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.19.12</url>
+    </release>
+    <release version="0.19.11" date="2026-05-15">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.19.11</url>
+    </release>
+    <release version="0.19.10" date="2026-05-08">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.19.10</url>
+    </release>
+    <release version="0.19.9" date="2026-04-21">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.19.9</url>
+    </release>
+    <release version="0.19.8" date="2026-04-17">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.19.8</url>
+    </release>
+    <release version="0.19.7" date="2026-04-02">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.19.7</url>
+    </release>
+    <release version="0.19.6" date="2026-03-16">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.19.6</url>
+    </release>
+    <release version="0.19.5" date="2026-03-03">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.19.5</url>
+    </release>
+    <release version="0.19.4" date="2026-03-03">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.19.4</url>
+    </release>
+    <release version="0.19.3" date="2026-02-19">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.19.3</url>
+    </release>
+    <release version="0.19.2" date="2026-02-16">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.19.2</url>
+    </release>
+    <release version="0.19.1" date="2026-02-08">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.19.1</url>
+    </release>
+    <release version="0.19.0" date="2026-02-05">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.19.0</url>
+    </release>
+    <release version="0.18.8" date="2026-02-03">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.18.8</url>
+    </release>
+    <release version="0.18.7" date="2026-01-23">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.18.7</url>
+    </release>
+    <release version="0.18.6" date="2026-01-22">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.18.6</url>
+    </release>
+    <release version="0.18.5" date="2026-01-20">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.18.5</url>
+    </release>
+    <release version="0.18.4" date="2026-01-20">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.18.4</url>
+    </release>
+    <release version="0.18.3" date="2025-12-16">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.18.3</url>
+    </release>
+    <release version="0.18.2" date="2025-11-29">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.18.2</url>
+    </release>
+    <release version="0.18.1" date="2025-11-27">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.18.1</url>
+    </release>
     <release version="0.18.0" date="2025-11-20"/>
     <release version="0.13.8" date="2024-10-30"/>
     <release version="0.13.7" date="2024-10-25"/>
