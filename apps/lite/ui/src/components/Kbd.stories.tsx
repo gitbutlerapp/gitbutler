@@ -1,9 +1,15 @@
 import preview from "#storybook/preview";
 
-import { Keys } from "./Keys.tsx";
+import { Kbd } from "./Kbd.tsx";
 
 const meta = preview.meta({
-	component: Keys,
+	component: Kbd,
+	parameters: {
+		design: {
+			type: "figma",
+			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=426-883&t=zrLHwmcDOZvnbONB-1",
+		},
+	},
 });
 
 export const Default = meta.story({
@@ -20,6 +26,6 @@ export const Modifier = meta.story({
 
 export const Sequence = meta.story({
 	args: {
-		hotkey: ["G", "G"],
+		hotkey: ["G", "F"],
 	},
 });

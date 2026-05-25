@@ -4,7 +4,6 @@ import { lastOpenedProjectKey } from "#ui/projects/last-opened.ts";
 import { PickerDialog } from "#ui/components/PickerDialog/PickerDialog.tsx";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
 import { globalHotkeys } from "#ui/hotkeys.ts";
-import uiStyles from "#ui/components/ui.module.css";
 import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Outlet, useMatch, useNavigate } from "@tanstack/react-router";
@@ -13,7 +12,7 @@ import styles from "./RootLayout.module.css";
 import { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { classes } from "#ui/components/classes.ts";
 import { Hash } from "effect";
-import { Tooltip } from "@base-ui/react";
+import { Tooltip } from "#ui/components/Tooltip.tsx";
 
 const ProjectSelect: FC = () => {
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
@@ -52,31 +51,29 @@ const ProjectSelect: FC = () => {
 				const isSelected = selectedProject?.id === project.id;
 
 				return (
-					<Tooltip.Root key={project.id}>
-						<Tooltip.Trigger
-							aria-label={`Select project ${project.title}`}
-							className={classes(uiStyles.button, styles.project, isSelected && styles.selected)}
-							onClick={() => selectProject(project)}
-							style={{ "--hue": hue(project.id) }}
-							render={<button type="button" disabled={isSelected} />}
-						>
-							{project.title.slice(0, 2)}
-						</Tooltip.Trigger>
-						<Tooltip.Portal>
-							<Tooltip.Positioner side="right" sideOffset={8}>
-								<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-									{project.title}
-								</Tooltip.Popup>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
+					<Tooltip
+						key={project.id}
+						trigger={
+							<button
+								type="button"
+								aria-label={`Select project ${project.title}`}
+								className={classes(styles.project, isSelected && styles.selected)}
+								onClick={() => selectProject(project)}
+								style={{ "--hue": hue(project.id) }}
+								disabled={isSelected}
+							>
+								{project.title.slice(0, 2)}
+							</button>
+						}
+						content={project.title}
+						positionerProps={{ side: "right" }}
+					/>
 				);
 			})}
 
 			<ShortcutButton
 				aria-label="Select project"
 				variant="ghost"
-				className={classes(styles.picker)}
 				hotkey={globalHotkeys.selectProject.hotkey}
 				hotkeyOptions={{ meta: globalHotkeys.selectProject.meta }}
 				onClick={openProjectPicker}

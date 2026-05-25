@@ -1,0 +1,20 @@
+.keys {
+	display: inline-flex;
+	align-items: center;
+	gap: 1px;
+}
+
+.key {
+	display: inline-flex;
+	position: relative;
+	align-items: center;
+	justify-content: center;
+	padding: 2px 4px;
+	border-radius: var(--radius-s);
+	background: var(--bg-2);
+	color: var(--text-1);
+	font-size: 11px;
+	line-height: 1;
+	font-family: inherit;
+	white-space: nowrap;
+}

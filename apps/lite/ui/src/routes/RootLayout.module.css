@@ -25,8 +25,10 @@
 	position: relative;
 	width: 40px;
 	height: 31px;
+	padding: 8px;
 	/* Override ui button. */
 	border: none;
+	border-radius: 8px;
 	background-color: oklch(90% 0.1 var(--hue));
 	color: oklch(30% 0.1 var(--hue));
 	font-weight: 700;
@@ -57,11 +59,6 @@
 			content: "";
 		}
 	}
-}
-
-.picker {
-	width: 100%;
-	padding: 16px 0;
 }
 
 .content {

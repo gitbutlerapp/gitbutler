@@ -2,13 +2,11 @@ import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { getBranchNameByCommitId } from "#ui/api/ref-info.ts";
 import { projectActions } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
-import { classes } from "#ui/components/classes.ts";
-import uiStyles from "#ui/components/ui.module.css";
-import { Tooltip, useRender } from "@base-ui/react";
+import { Tooltip } from "#ui/components/Tooltip.tsx";
+import { useRender } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { Array, pipe } from "effect";
 import { FC, useState } from "react";
-import styles from "./DependencyIndicatorButton.module.css";
 
 export const DependencyIndicatorButton: FC<
 	{
@@ -46,27 +44,22 @@ export const DependencyIndicatorButton: FC<
 	};
 
 	return (
-		<Tooltip.Root
+		<Tooltip
 			open={isTooltipOpen}
 			// [ref:tooltip-disable-hoverable-popup]
 			disableHoverablePopup
-		>
-			<Tooltip.Trigger
-				{...restProps}
-				type="button"
-				onMouseEnter={highlightCommitIds}
-				onMouseLeave={clearHighlightedCommitIds}
-				onFocus={highlightCommitIds}
-				onBlur={clearHighlightedCommitIds}
-				aria-label={tooltip}
-			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip, styles.popup)}>
-						{tooltip}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+			trigger={
+				<button
+					{...restProps}
+					type="button"
+					onMouseEnter={highlightCommitIds}
+					onMouseLeave={clearHighlightedCommitIds}
+					onFocus={highlightCommitIds}
+					onBlur={clearHighlightedCommitIds}
+					aria-label={tooltip}
+				/>
+			}
+			content={tooltip}
+		/>
 	);
 };

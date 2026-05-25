@@ -1,0 +1,14 @@
+.tooltip {
+	display: flex;
+	padding: 6px;
+	gap: 6px;
+	border: 1px solid var(--border-3);
+	border-radius: var(--radius-m);
+	background-color: var(--bg-1);
+	box-shadow: var(--shadow-s);
+}
+
+.text {
+	padding: 0 2px;
+	color: var(--text-1);
+}

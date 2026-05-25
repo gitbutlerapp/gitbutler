@@ -1,22 +1,3 @@
-.button {
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
-	border: var(--button-border);
-	border-radius: 8px;
-
-	&:not(:disabled) {
-		cursor: pointer;
-
-		&:hover {
-			background-color: var(--button-ghost-hover-bg);
-		}
-	}
-
-	&:disabled {
-		opacity: 0.5;
-	}
-}
-
 .popup {
 	border-radius: 8px;
 	outline: 1px solid light-dark(rgb(0 0 0 / 0.2), rgb(255 255 255 / 0.16));
@@ -33,8 +14,4 @@
 	flex-direction: column;
 	padding: 16px;
 	transform: translate(-50%, -50%);
-}
-
-.tooltip {
-	padding: 8px;
 }
