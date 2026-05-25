@@ -412,6 +412,7 @@ fn normalized_prompt(text: &str) -> &str {
 fn is_system_injected_prompt(text: &str) -> bool {
     let trimmed = text.trim_start();
     trimmed.starts_with("# AGENTS.md instructions")
+        || trimmed.starts_with("<INSTRUCTIONS>")
         || trimmed.starts_with("<environment_context>")
         || trimmed.starts_with("<subagent_notification>")
         || (trimmed.contains("<INSTRUCTIONS>")
@@ -764,19 +765,29 @@ mod tests {
         let data = br##"
 {"timestamp":"2026-05-07T09:00:00Z","type":"session_meta","payload":{"id":"session-1","thread_source":"subagent"}}
 {"timestamp":"2026-05-07T09:00:01Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"# AGENTS.md instructions\n\n<INSTRUCTIONS>rules</INSTRUCTIONS>\n<environment_context>ctx</environment_context>"}]}}
-{"timestamp":"2026-05-07T09:00:02Z","type":"response_item","payload":{"type":"message","role":"user","content":"Repo: /tmp/project. Review the code."}}
+{"timestamp":"2026-05-07T09:00:02Z","type":"response_item","payload":{"type":"message","role":"user","content":"<INSTRUCTIONS>rules</INSTRUCTIONS>"}}
+{"timestamp":"2026-05-07T09:00:03Z","type":"response_item","payload":{"type":"message","role":"user","content":"<environment_context>ctx</environment_context>"}}
+{"timestamp":"2026-05-07T09:00:04Z","type":"response_item","payload":{"type":"message","role":"user","content":"Repo: /tmp/project. Review the code."}}
 "##;
 
         let transcript = TranscriptBatch::parse(Agent::Codex, data).expect("parse transcript");
 
         assert_eq!(transcript.thread_source.as_deref(), Some("subagent"));
-        assert_eq!(transcript.records.len(), 2);
+        assert_eq!(transcript.records.len(), 4);
         assert_eq!(
             transcript.records[0].prompt_source,
             Some(PromptSource::SystemInjected)
         );
         assert_eq!(
             transcript.records[1].prompt_source,
+            Some(PromptSource::SystemInjected)
+        );
+        assert_eq!(
+            transcript.records[2].prompt_source,
+            Some(PromptSource::SystemInjected)
+        );
+        assert_eq!(
+            transcript.records[3].prompt_source,
             Some(PromptSource::SpawnedAgent)
         );
     }
