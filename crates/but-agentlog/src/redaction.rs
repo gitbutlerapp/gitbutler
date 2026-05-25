@@ -1,6 +1,7 @@
 use serde_json::Value;
 
 const REDACTION: &str = "[REDACTED:entropy]";
+const PATH_REDACTION: &str = "[REDACTED:path]";
 const MIN_CANDIDATE_LEN: usize = 20;
 const ENTROPY_THRESHOLD: f64 = 4.0;
 const HEX_ENTROPY_THRESHOLD: f64 = 3.0;
@@ -78,6 +79,10 @@ fn is_sensitive_key(key: &str) -> bool {
 fn redact_string(text: &str) -> Option<String> {
     let redacted = redact_named_secret_values(text).unwrap_or_else(|| text.to_owned());
     let named_secret_changed = redacted != text;
+    let (redacted, path_changed) = match redact_path_tokens(&redacted) {
+        Some(redacted) => (redacted, true),
+        None => (redacted, false),
+    };
     let text = redacted.as_str();
     let bytes = text.as_bytes();
     let mut entropy_redacted = String::new();
@@ -101,7 +106,9 @@ fn redact_string(text: &str) -> Option<String> {
         }
 
         let candidate = &text[start..index];
-        if should_redact(candidate) {
+        if is_relative_path_candidate(text, start, index) {
+            continue;
+        } else if should_redact(candidate) {
             entropy_redacted.push_str(&text[last_written..start]);
             entropy_redacted.push_str(REDACTION);
             last_written = index;
@@ -110,11 +117,37 @@ fn redact_string(text: &str) -> Option<String> {
     }
 
     if !entropy_changed {
-        return named_secret_changed.then_some(redacted);
+        return (named_secret_changed || path_changed).then_some(redacted);
     }
 
     entropy_redacted.push_str(&text[last_written..]);
     Some(entropy_redacted)
+}
+
+fn redact_path_tokens(text: &str) -> Option<String> {
+    let mut redacted = String::new();
+    let mut changed = false;
+    let mut last_written = 0;
+    let mut index = 0;
+
+    while index < text.len() {
+        if let Some(path_end) = absolute_path_token_end(text, index) {
+            redacted.push_str(&text[last_written..index]);
+            redacted.push_str(PATH_REDACTION);
+            last_written = path_end;
+            index = path_end;
+            changed = true;
+        } else {
+            index += 1;
+        }
+    }
+
+    if changed {
+        redacted.push_str(&text[last_written..]);
+        Some(redacted)
+    } else {
+        None
+    }
 }
 
 fn redact_named_secret_values(text: &str) -> Option<String> {
@@ -255,6 +288,87 @@ fn is_candidate_byte(byte: u8) -> bool {
     )
 }
 
+fn absolute_path_token_end(text: &str, start: usize) -> Option<usize> {
+    let bytes = text.as_bytes();
+    if !is_path_start_boundary(bytes, start) {
+        return None;
+    }
+
+    let token_start = if bytes.get(start) == Some(&b'/') && bytes.get(start + 1) != Some(&b'/') {
+        start + 1
+    } else if bytes
+        .get(start..)
+        .is_some_and(|remaining| remaining.starts_with(b"~/"))
+    {
+        start + 2
+    } else if is_windows_absolute_path_start(bytes, start) {
+        start + 3
+    } else {
+        return None;
+    };
+
+    let end = path_token_end(text, token_start);
+    (end > token_start).then_some(end)
+}
+
+fn is_path_start_boundary(bytes: &[u8], start: usize) -> bool {
+    start == 0
+        || bytes.get(start - 1).is_some_and(|byte| {
+            byte.is_ascii_whitespace()
+                || matches!(byte, b'"' | b'\'' | b'`' | b'(' | b'[' | b'{' | b'<' | b'=')
+        })
+}
+
+fn is_windows_absolute_path_start(bytes: &[u8], start: usize) -> bool {
+    bytes.get(start).is_some_and(u8::is_ascii_alphabetic)
+        && bytes.get(start + 1) == Some(&b':')
+        && matches!(bytes.get(start + 2).copied(), Some(b'\\' | b'/'))
+}
+
+fn is_relative_path_candidate(text: &str, start: usize, end: usize) -> bool {
+    let candidate = &text[start..end];
+    if !candidate.contains('/') {
+        return false;
+    }
+    candidate.split('/').any(|segment| {
+        matches!(
+            segment,
+            "." | ".." | "apps" | "crates" | "docs" | "e2e" | "packages" | "src" | "test" | "tests"
+        )
+    }) || has_file_extension_suffix(text, end)
+}
+
+fn has_file_extension_suffix(text: &str, end: usize) -> bool {
+    let Some(rest) = text.get(end..) else {
+        return false;
+    };
+    let Some(rest) = rest.strip_prefix('.') else {
+        return false;
+    };
+    let extension_len = rest
+        .bytes()
+        .take_while(u8::is_ascii_alphanumeric)
+        .take(10)
+        .count();
+    extension_len > 0
+        && rest
+            .as_bytes()
+            .get(extension_len)
+            .is_none_or(|byte| !is_candidate_byte(*byte) && *byte != b'.')
+}
+
+fn path_token_end(text: &str, mut end: usize) -> usize {
+    let bytes = text.as_bytes();
+    while bytes.get(end).is_some_and(|byte| is_path_token_byte(*byte)) {
+        end += 1;
+    }
+    end
+}
+
+fn is_path_token_byte(byte: u8) -> bool {
+    is_candidate_byte(byte) || matches!(byte, b'.' | b'\\' | b':')
+}
+
 fn is_random_hex(candidate: &str, entropy: f64) -> bool {
     candidate.len() >= 32
         && candidate.bytes().all(|byte| byte.is_ascii_hexdigit())
@@ -353,6 +467,38 @@ mod tests {
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         );
         assert_eq!(redact_text("2026-05-07T09-30-00Z"), "2026-05-07T09-30-00Z");
+        assert_eq!(
+            redact_text("*** Update File: crates/but-agentlog/src/transcript.rs"),
+            "*** Update File: crates/but-agentlog/src/transcript.rs"
+        );
+        assert_eq!(
+            redact_text("docs/quarterly-notes/agent-trail-review.md"),
+            "docs/quarterly-notes/agent-trail-review.md"
+        );
+        assert_eq!(
+            redact_text("token AbCdEfGhIjKl/MnOpQrSt/UvWxYz12+34= done"),
+            "token [REDACTED:entropy] done"
+        );
+    }
+
+    #[test]
+    fn redacts_absolute_paths_as_path_tokens() {
+        assert_eq!(
+            redact_text("see /tmp/gitbutler-zizmor-results.sarif for details"),
+            "see [REDACTED:path] for details"
+        );
+        assert_eq!(
+            redact_text("*** Update File: /Users/alice/src/project/src/lib.rs"),
+            "*** Update File: [REDACTED:path]"
+        );
+        assert_eq!(
+            redact_text("short /tmp/a path"),
+            "short [REDACTED:path] path"
+        );
+        assert_eq!(
+            redact_text(r"see C:\Users\alice\src\agent-trail\log.json"),
+            "see [REDACTED:path]"
+        );
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, bail};
 use serde::Serialize;
@@ -13,6 +13,7 @@ pub(crate) struct TranscriptBatch {
     pub(crate) provider: Option<String>,
     pub(crate) model: Option<String>,
     pub(crate) tool_version: Option<String>,
+    pub(crate) thread_source: Option<String>,
     pub(crate) records: Vec<ParsedRecord>,
 }
 
@@ -32,8 +33,11 @@ impl TranscriptBatch {
             },
             model: None,
             tool_version: None,
+            thread_source: None,
             records: Vec::new(),
         };
+        let mut codex_tool_names = HashMap::new();
+        let mut codex_spawn_prompts = HashSet::new();
         let mut claude_tool_names = HashMap::new();
 
         while let Some((index, trimmed)) = raw_records.next() {
@@ -46,7 +50,14 @@ impl TranscriptBatch {
             let record = match agent {
                 Agent::Codex => {
                     transcript.apply_codex_metadata(&parsed);
-                    ParsedRecord::from_codex_source(index, trimmed, parsed)
+                    ParsedRecord::from_codex_source(
+                        index,
+                        trimmed,
+                        parsed,
+                        &mut codex_tool_names,
+                        &mut codex_spawn_prompts,
+                        transcript.thread_source.as_deref(),
+                    )
                 }
                 Agent::Claude => {
                     transcript.apply_claude_metadata(&parsed);
@@ -75,6 +86,15 @@ impl TranscriptBatch {
             if self.tool_version.is_none() {
                 self.tool_version =
                     str_at(source_record, &["payload", "cli_version"]).map(ToOwned::to_owned);
+            }
+            if self.thread_source.is_none() {
+                self.thread_source = str_at(source_record, &["payload", "thread_source"])
+                    .map(ToOwned::to_owned)
+                    .or_else(|| {
+                        value_at(source_record, &["payload", "source", "subagent"])
+                            .is_some()
+                            .then(|| "subagent".to_owned())
+                    });
             }
         }
 
@@ -108,6 +128,33 @@ pub(crate) enum RecordKind {
     ToolResult,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum PromptSource {
+    Human,
+    SpawnedAgent,
+    SystemInjected,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ToolKind {
+    Exec,
+    FileEdit,
+    SubAgent,
+    Housekeeping,
+    WebSearch,
+    Other,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ToolOutcome {
+    Succeeded,
+    Failed,
+    CouldNotExecute,
+}
+
 #[derive(Debug)]
 pub(crate) struct ParsedRecord {
     pub(crate) index: usize,
@@ -117,13 +164,24 @@ pub(crate) struct ParsedRecord {
     pub(crate) source_event_kind: String,
     pub(crate) role: Option<String>,
     pub(crate) text: Option<String>,
+    pub(crate) prompt_source: Option<PromptSource>,
     pub(crate) tool_name: Option<String>,
+    pub(crate) tool_kind: Option<ToolKind>,
     pub(crate) tool_input: Option<Value>,
+    pub(crate) exit_code: Option<i32>,
+    pub(crate) tool_outcome: Option<ToolOutcome>,
     pub(crate) source_record: Value,
 }
 
 impl ParsedRecord {
-    fn from_codex_source(index: usize, trimmed: &[u8], mut source_record: Value) -> Option<Self> {
+    fn from_codex_source(
+        index: usize,
+        trimmed: &[u8],
+        mut source_record: Value,
+        tool_names: &mut HashMap<String, String>,
+        spawn_prompts: &mut HashSet<String>,
+        thread_source: Option<&str>,
+    ) -> Option<Self> {
         let raw_event_kind = codex_event_kind(&source_record);
         let kind = codex_kind(&raw_event_kind)?;
         let role = str_at(&source_record, &["payload", "role"])
@@ -133,7 +191,7 @@ impl ParsedRecord {
             return None;
         }
         let text = codex_text(&source_record, kind);
-        let tool_name = [
+        let mut tool_name = [
             &["payload", "tool_name"][..],
             &["payload", "tool"],
             &["payload", "name"],
@@ -142,6 +200,32 @@ impl ParsedRecord {
         .iter()
         .find_map(|path| str_at(&source_record, path).map(ToOwned::to_owned));
         let tool_input = codex_tool_input(&source_record, kind);
+        if kind == RecordKind::ToolResult && tool_name.is_none() {
+            tool_name = codex_call_id(&source_record)
+                .and_then(|call_id| tool_names.get(call_id))
+                .cloned();
+        }
+        if kind == RecordKind::ToolCall
+            && let (Some(call_id), Some(name)) = (codex_call_id(&source_record), tool_name.as_ref())
+        {
+            tool_names.insert(call_id.to_owned(), name.clone());
+        }
+        if matches!(tool_name.as_deref(), Some("spawn_agent"))
+            && let Some(message) = tool_input.as_ref().and_then(spawn_prompt)
+        {
+            spawn_prompts.insert(normalized_prompt(message).to_owned());
+        }
+        let prompt_source = prompt_source(
+            role.as_deref(),
+            text.as_deref(),
+            thread_source == Some("subagent"),
+            spawn_prompts,
+        );
+        let tool_kind = tool_name.as_deref().map(classify_tool);
+        let exit_code = (kind == RecordKind::ToolResult)
+            .then(|| text.as_deref().and_then(parse_exit_code))
+            .flatten();
+        let tool_outcome = exit_code.map(|code| classify_outcome(code, text.as_deref()));
         prune_codex(&mut source_record, kind, tool_input.is_some());
 
         Some(ParsedRecord {
@@ -152,8 +236,12 @@ impl ParsedRecord {
             kind,
             role,
             text,
+            prompt_source,
             tool_name,
+            tool_kind,
             tool_input,
+            exit_code,
+            tool_outcome,
             source_record,
         })
     }
@@ -197,6 +285,14 @@ impl ParsedRecord {
             _ => {}
         }
         prune_claude(&mut source_record, kind, tool_input.is_some());
+        let mut spawn_prompts = HashSet::new();
+        let prompt_source =
+            prompt_source(role.as_deref(), text.as_deref(), false, &mut spawn_prompts);
+        let tool_kind = tool_name.as_deref().map(classify_tool);
+        let exit_code = (kind == RecordKind::ToolResult)
+            .then(|| text.as_deref().and_then(parse_exit_code))
+            .flatten();
+        let tool_outcome = exit_code.map(|code| classify_outcome(code, text.as_deref()));
 
         Some(ParsedRecord {
             index,
@@ -206,8 +302,12 @@ impl ParsedRecord {
             kind,
             role,
             text,
+            prompt_source,
             tool_name,
+            tool_kind,
             tool_input,
+            exit_code,
+            tool_outcome,
             source_record,
         })
     }
@@ -265,6 +365,116 @@ fn codex_tool_input(source_record: &Value, kind: RecordKind) -> Option<Value> {
     .iter()
     .find_map(|path| value_at(source_record, path))
     .map(json_value)
+}
+
+fn codex_call_id(source_record: &Value) -> Option<&str> {
+    [
+        &["payload", "call_id"][..],
+        &["payload", "item", "call_id"],
+        &["payload", "id"],
+        &["payload", "item", "id"],
+    ]
+    .iter()
+    .find_map(|path| str_at(source_record, path))
+}
+
+fn spawn_prompt(input: &Value) -> Option<&str> {
+    ["message", "prompt", "task"]
+        .into_iter()
+        .find_map(|key| input.get(key).and_then(Value::as_str))
+}
+
+fn prompt_source(
+    role: Option<&str>,
+    text: Option<&str>,
+    subagent_session: bool,
+    spawn_prompts: &mut HashSet<String>,
+) -> Option<PromptSource> {
+    if role != Some("user") {
+        return None;
+    }
+    let Some(text) = text else {
+        return Some(PromptSource::Human);
+    };
+    if is_system_injected_prompt(text) {
+        return Some(PromptSource::SystemInjected);
+    }
+    if subagent_session || spawn_prompts.remove(normalized_prompt(text)) {
+        return Some(PromptSource::SpawnedAgent);
+    }
+    Some(PromptSource::Human)
+}
+
+fn normalized_prompt(text: &str) -> &str {
+    text.trim()
+}
+
+fn is_system_injected_prompt(text: &str) -> bool {
+    let trimmed = text.trim_start();
+    trimmed.starts_with("# AGENTS.md instructions")
+        || trimmed.starts_with("<environment_context>")
+        || trimmed.starts_with("<subagent_notification>")
+        || (trimmed.contains("<INSTRUCTIONS>")
+            && trimmed.contains("</INSTRUCTIONS>")
+            && trimmed.contains("<environment_context>"))
+}
+
+fn classify_tool(tool_name: &str) -> ToolKind {
+    match tool_name {
+        "exec_command" | "Bash" | "bash" | "shell" | "local_shell" | "run_command" => {
+            ToolKind::Exec
+        }
+        "apply_patch" | "edit_file" | "write_file" | "str_replace" | "Edit" | "MultiEdit"
+        | "Write" => ToolKind::FileEdit,
+        "spawn_agent" | "Task" => ToolKind::SubAgent,
+        "write_stdin" | "wait_agent" | "close_agent" | "kill_agent" | "update_plan" | "Read"
+        | "Glob" | "Grep" | "LS" | "TodoWrite" => ToolKind::Housekeeping,
+        "web_search" | "web_search_call" => ToolKind::WebSearch,
+        _ => ToolKind::Other,
+    }
+}
+
+fn parse_exit_code(text: &str) -> Option<i32> {
+    let lower = text.to_ascii_lowercase();
+    for marker in ["exited with code ", "exit code ", "exit status "] {
+        if let Some(index) = lower.find(marker) {
+            let rest = &text[index + marker.len()..];
+            let digits = rest
+                .trim_start()
+                .chars()
+                .take_while(|ch| ch.is_ascii_digit() || *ch == '-')
+                .collect::<String>();
+            if let Ok(code) = digits.parse() {
+                return Some(code);
+            }
+        }
+    }
+    None
+}
+
+fn classify_outcome(exit_code: i32, text: Option<&str>) -> ToolOutcome {
+    match exit_code {
+        0 => ToolOutcome::Succeeded,
+        126 | 127 => ToolOutcome::CouldNotExecute,
+        101 if text.is_some_and(looks_like_cargo_invocation_error) => ToolOutcome::CouldNotExecute,
+        _ => ToolOutcome::Failed,
+    }
+}
+
+fn looks_like_cargo_invocation_error(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    [
+        "is ambiguous",
+        "package id specification",
+        "did not match any packages",
+        "could not find `cargo.toml`",
+        "could not find cargo.toml",
+        "no such command",
+        "no bin target",
+        "could not determine which binary to run",
+    ]
+    .into_iter()
+    .any(|needle| lower.contains(needle))
 }
 
 fn prune_codex(source_record: &mut Value, kind: RecordKind, has_tool_input: bool) {
@@ -484,11 +694,16 @@ mod tests {
         assert_eq!(transcript.records[0].role.as_deref(), Some("user"));
         assert_eq!(transcript.records[0].kind, RecordKind::Message);
         assert_eq!(
+            transcript.records[0].prompt_source,
+            Some(PromptSource::Human)
+        );
+        assert_eq!(
             transcript.records[0].text.as_deref(),
             Some("Implemented change")
         );
         assert_eq!(transcript.records[1].kind, RecordKind::ToolCall);
         assert_eq!(transcript.records[1].tool_name.as_deref(), Some("shell"));
+        assert_eq!(transcript.records[1].tool_kind, Some(ToolKind::Exec));
         assert_eq!(
             transcript.records[1]
                 .tool_input
@@ -516,6 +731,10 @@ mod tests {
         assert_eq!(transcript.records.len(), 4);
         assert_eq!(transcript.records[0].role.as_deref(), Some("user"));
         assert_eq!(transcript.records[0].kind, RecordKind::Message);
+        assert_eq!(
+            transcript.records[0].prompt_source,
+            Some(PromptSource::Human)
+        );
         assert_eq!(transcript.records[0].text.as_deref(), Some("hello"));
         assert_eq!(transcript.records[1].role.as_deref(), Some("assistant"));
         assert_eq!(transcript.records[1].text.as_deref(), Some("Done"));
@@ -525,6 +744,7 @@ mod tests {
         );
         assert_eq!(transcript.records[2].kind, RecordKind::ToolCall);
         assert_eq!(transcript.records[2].tool_name.as_deref(), Some("Bash"));
+        assert_eq!(transcript.records[2].tool_kind, Some(ToolKind::Exec));
         assert_eq!(
             transcript.records[2]
                 .tool_input
@@ -535,7 +755,88 @@ mod tests {
         assert_eq!(transcript.records[3].kind, RecordKind::ToolResult);
         assert_eq!(transcript.records[3].role.as_deref(), None);
         assert_eq!(transcript.records[3].tool_name.as_deref(), Some("Bash"));
+        assert_eq!(transcript.records[3].tool_kind, Some(ToolKind::Exec));
         assert_eq!(transcript.records[3].text.as_deref(), Some("ok"));
+    }
+
+    #[test]
+    fn tags_codex_prompt_sources() {
+        let data = br##"
+{"timestamp":"2026-05-07T09:00:00Z","type":"session_meta","payload":{"id":"session-1","thread_source":"subagent"}}
+{"timestamp":"2026-05-07T09:00:01Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"# AGENTS.md instructions\n\n<INSTRUCTIONS>rules</INSTRUCTIONS>\n<environment_context>ctx</environment_context>"}]}}
+{"timestamp":"2026-05-07T09:00:02Z","type":"response_item","payload":{"type":"message","role":"user","content":"Repo: /tmp/project. Review the code."}}
+"##;
+
+        let transcript = TranscriptBatch::parse(Agent::Codex, data).expect("parse transcript");
+
+        assert_eq!(transcript.thread_source.as_deref(), Some("subagent"));
+        assert_eq!(transcript.records.len(), 2);
+        assert_eq!(
+            transcript.records[0].prompt_source,
+            Some(PromptSource::SystemInjected)
+        );
+        assert_eq!(
+            transcript.records[1].prompt_source,
+            Some(PromptSource::SpawnedAgent)
+        );
+    }
+
+    #[test]
+    fn tags_user_prompt_matching_spawn_agent_message() {
+        let data = br#"
+{"timestamp":"2026-05-07T09:00:00Z","type":"session_meta","payload":{"id":"session-1"}}
+{"timestamp":"2026-05-07T09:00:01Z","type":"response_item","payload":{"type":"function_call","name":"spawn_agent","call_id":"call-1","arguments":"{\"message\":\"Review tests only\"}"}}
+{"timestamp":"2026-05-07T09:00:02Z","type":"response_item","payload":{"type":"message","role":"user","content":"Review tests only"}}
+{"timestamp":"2026-05-07T09:00:03Z","type":"response_item","payload":{"type":"message","role":"user","content":"A real follow-up"}}
+"#;
+
+        let transcript = TranscriptBatch::parse(Agent::Codex, data).expect("parse transcript");
+
+        assert_eq!(transcript.records.len(), 3);
+        assert_eq!(transcript.records[0].tool_kind, Some(ToolKind::SubAgent));
+        assert_eq!(
+            transcript.records[1].prompt_source,
+            Some(PromptSource::SpawnedAgent)
+        );
+        assert_eq!(
+            transcript.records[2].prompt_source,
+            Some(PromptSource::Human)
+        );
+    }
+
+    #[test]
+    fn parses_codex_tool_kind_exit_code_and_outcome() {
+        let data = br#"
+{"timestamp":"2026-05-07T09:00:00Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","call_id":"call-1","arguments":"{\"cmd\":\"cargo test\"}"}}
+{"timestamp":"2026-05-07T09:00:01Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-1","output":"error[E0599]\nProcess exited with code 101"}}
+{"timestamp":"2026-05-07T09:00:02Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","call_id":"call-2","arguments":"{\"cmd\":\"cargo fmt --check\"}"}}
+{"timestamp":"2026-05-07T09:00:03Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-2","output":"error: `git-meta-lib` is ambiguous\nProcess exited with code 101"}}
+{"timestamp":"2026-05-07T09:00:04Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","call_id":"call-3","arguments":"{\"cmd\":\"missing-tool\"}"}}
+{"timestamp":"2026-05-07T09:00:05Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-3","output":"Process exited with code 127"}}
+"#;
+
+        let transcript = TranscriptBatch::parse(Agent::Codex, data).expect("parse transcript");
+
+        assert_eq!(
+            transcript.records[1].tool_name.as_deref(),
+            Some("exec_command")
+        );
+        assert_eq!(transcript.records[1].tool_kind, Some(ToolKind::Exec));
+        assert_eq!(transcript.records[1].exit_code, Some(101));
+        assert_eq!(
+            transcript.records[1].tool_outcome,
+            Some(ToolOutcome::Failed)
+        );
+        assert_eq!(transcript.records[3].exit_code, Some(101));
+        assert_eq!(
+            transcript.records[3].tool_outcome,
+            Some(ToolOutcome::CouldNotExecute)
+        );
+        assert_eq!(transcript.records[5].exit_code, Some(127));
+        assert_eq!(
+            transcript.records[5].tool_outcome,
+            Some(ToolOutcome::CouldNotExecute)
+        );
     }
 
     #[test]

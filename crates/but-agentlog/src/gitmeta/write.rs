@@ -10,7 +10,7 @@ use crate::{
     agent::Agent,
     environment::{EnvironmentObservation, ObservedTargets, SnapshotStatus},
     redaction::{redact_text, redact_value},
-    transcript::{RecordKind, TranscriptBatch},
+    transcript::{PromptSource, RecordKind, ToolKind, ToolOutcome, TranscriptBatch},
 };
 
 use super::{
@@ -123,8 +123,12 @@ pub(crate) fn write_transcript_batch(
             source_event_kind: redact_text(&record.source_event_kind),
             role: record.role.as_deref().map(redact_text),
             text: stored_text(record.kind, record.text.as_deref()),
+            prompt_source: record.prompt_source,
             tool_name: record.tool_name.as_deref().map(redact_text),
+            tool_kind: record.tool_kind,
             tool_input: record.tool_input.map(redact_value),
+            exit_code: record.exit_code,
+            outcome: record.tool_outcome,
             source_record: redact_value(record.source_record),
         };
         let transcript_record = serde_json::to_string(&transcript_record)
@@ -475,7 +479,15 @@ struct TranscriptRecord<'a> {
     source_event_kind: String,
     role: Option<String>,
     text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    prompt_source: Option<PromptSource>,
     tool_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_kind: Option<ToolKind>,
     tool_input: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    exit_code: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    outcome: Option<ToolOutcome>,
     source_record: Value,
 }

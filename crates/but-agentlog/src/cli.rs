@@ -187,11 +187,11 @@ pub fn run_from_dir(dir: &Path, command: Command) -> anyhow::Result<impl Seriali
             turn,
             limit,
         } => {
-            let workdir = resolve_workdir(dir)?;
+            let repo_path = resolve_read_repo_path(dir)?;
             match turn {
                 Some(turn) => {
                     let records = get_session_records(
-                        &workdir,
+                        &repo_path,
                         &session_key,
                         &turn,
                         limit.unwrap_or(DEFAULT_RECORD_LIMIT),
@@ -201,7 +201,7 @@ pub fn run_from_dir(dir: &Path, command: Command) -> anyhow::Result<impl Seriali
                 }
                 None => {
                     let timeline = get_session_timeline_outline(
-                        &workdir,
+                        &repo_path,
                         &session_key,
                         Some(limit.unwrap_or(DEFAULT_TIMELINE_LIMIT)),
                     )
@@ -221,16 +221,20 @@ pub fn run_from_dir(dir: &Path, command: Command) -> anyhow::Result<impl Seriali
                 }
                 (None, None) => None,
             };
-            let workdir = resolve_workdir(dir)?;
+            let repo_path = if explicit_target.is_some() {
+                resolve_read_repo_path(dir)?
+            } else {
+                resolve_workdir(dir)?
+            };
             let (target, value) = match explicit_target {
                 Some(target) => target,
-                None => skim::resolve_default_branch_target(&workdir)?,
+                None => skim::resolve_default_branch_target(&repo_path)?,
             };
             let target_key = related_session_target_key(target, &value);
             let sessions =
-                find_related_sessions_limited(&workdir, target.related_target(&target_key), None)
+                find_related_sessions_limited(&repo_path, target.related_target(&target_key), None)
                     .context("failed to find related agent sessions")?;
-            let report = skim::report(&workdir, target, target_key, sessions)
+            let report = skim::report(&repo_path, target, target_key, sessions)
                 .context("failed to build agent skim")?;
             Ok(CommandOutput::Skim(report))
         }
@@ -311,12 +315,23 @@ fn record_agent_log(
 }
 
 fn resolve_workdir(dir: &Path) -> anyhow::Result<PathBuf> {
-    let repo =
-        gix::discover(dir).context("No git repository found. Use -C to choose a repository.")?;
+    let repo = discover_repo(dir)?;
     let workdir = repo
         .workdir()
         .context("Bare repositories are not supported.")?;
     std::fs::canonicalize(workdir).context("failed to resolve repository worktree")
+}
+
+fn resolve_read_repo_path(dir: &Path) -> anyhow::Result<PathBuf> {
+    let repo = discover_repo(dir)?;
+    let repo_path = repo.workdir().unwrap_or_else(|| repo.git_dir());
+    std::fs::canonicalize(repo_path).context("failed to resolve repository path")
+}
+
+fn discover_repo(dir: &Path) -> anyhow::Result<gix::Repository> {
+    gix::discover(dir)
+        .or_else(|_| gix::open(dir))
+        .context("No git repository found. Use -C to choose a repository.")
 }
 
 fn non_empty_value(value: &str) -> Result<String, String> {
@@ -455,6 +470,27 @@ mod tests {
     }
 
     #[test]
+    fn show_reads_bare_repo_metadata() {
+        let repo = setup_bare_repo();
+        let turn_key = write_turn_with_targets(repo.path());
+
+        let output = run_from_dir(
+            repo.path(),
+            Command::Show {
+                session_key: TEST_SESSION_KEY.to_owned(),
+                turn: Some(turn_key.clone()),
+                limit: Some(1),
+            },
+        )
+        .expect("show bare repo records");
+        let json = serde_json::to_value(&output).expect("serialize command output");
+
+        assert_eq!(json["session_key"], TEST_SESSION_KEY);
+        assert_eq!(json["turn_key"], turn_key);
+        assert_eq!(json["records"][0]["text"], "hello");
+    }
+
+    #[test]
     fn skim_outputs_all_turns_with_drill_down_keys_in_json() {
         let repo = setup_repo();
         let turn_key = write_user_turn_with_targets(repo.path());
@@ -500,6 +536,26 @@ mod tests {
             !human.contains(&turn_key),
             "human output should keep full turn keys in JSON for drill-down"
         );
+    }
+
+    #[test]
+    fn explicit_skim_reads_bare_repo_metadata() {
+        let repo = setup_bare_repo();
+        let turn_key = write_user_turn_with_targets(repo.path());
+
+        let output = run_from_dir(
+            repo.path(),
+            Command::Skim {
+                target: Some(RelatedSessionTarget::Branch),
+                value: Some("main".into()),
+            },
+        )
+        .expect("skim bare repo");
+        let json = serde_json::to_value(&output).expect("serialize command output");
+
+        assert_eq!(json["target_key"], TEST_BRANCH_KEY);
+        assert_eq!(json["sessions"][0]["session_key"], TEST_SESSION_KEY);
+        assert_eq!(json["sessions"][0]["turns"][0]["turn_key"], turn_key);
     }
 
     #[test]
@@ -800,6 +856,12 @@ mod tests {
             gix::open::Options::isolated().config_overrides(["init.defaultBranch=main"]),
         )
         .expect("gitoxide repo init");
+        dir
+    }
+
+    fn setup_bare_repo() -> TempDir {
+        let dir = TempDir::new().expect("temp bare repo");
+        gix::init_bare(dir.path()).expect("gitoxide bare repo init");
         dir
     }
 
