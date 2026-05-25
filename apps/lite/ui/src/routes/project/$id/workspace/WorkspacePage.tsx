@@ -17,7 +17,7 @@ import {
 	selectProjectPanelsState,
 } from "#ui/projects/state.ts";
 import { Button } from "#ui/components/Button.tsx";
-import { Keys } from "#ui/components/Keys.tsx";
+import { Kbd } from "#ui/components/Kbd.tsx";
 import { globalHotkeys, workspaceHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { type AppThunk, useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { BranchListing, Segment, Stack } from "@gitbutler/but-sdk";
@@ -135,7 +135,7 @@ const CommandPalette: FC<{
 			emptyLabel="No hotkeys found."
 			getItemKey={(x) => x.id}
 			getItemLabel={(x) => x.name}
-			getItemType={(x) => <Keys hotkey={x.hotkey} />}
+			getItemType={(x) => <Kbd hotkey={x.hotkey} />}
 			items={items}
 			open={open}
 			onOpenChange={onOpenChange}
