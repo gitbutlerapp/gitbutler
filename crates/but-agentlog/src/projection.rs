@@ -21,6 +21,7 @@ use crate::gitmeta::{
     RelatedSession, RelatedTarget, SessionRecords, find_related_sessions_limited,
     get_session_records, get_session_timeline_outline,
 };
+use crate::redaction::redact_text;
 
 const DEFAULT_MAX_TURNS: usize = 32;
 const DEFAULT_MAX_RECORDS_PER_TURN: usize = 512;
@@ -618,7 +619,8 @@ fn public_text(
     if trimmed.is_empty() {
         return (None, false);
     }
-    bounded_text(trimmed, request.limits.max_text_chars)
+    let redacted = redact_text(trimmed);
+    bounded_text(redacted.trim(), request.limits.max_text_chars)
 }
 
 fn file_paths_of(input: Option<&Value>) -> Vec<String> {
@@ -828,4 +830,53 @@ fn normalize_branch_target_key(value: &str) -> String {
     let value = value.strip_prefix("ref:").unwrap_or(value);
     let value = value.strip_prefix("refs/heads/").unwrap_or(value);
     format!("ref:refs/heads/{value}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn projection_request_with_text_limit(max_text_chars: usize) -> ProjectionRequest {
+        let mut request = ProjectionRequest::new(
+            ProjectionPrFacts {
+                agent_trail_host: "https://agent-trail.test".to_owned(),
+                github_repository_id: 42,
+                owner: "gitbutler".to_owned(),
+                repo: "gitbutler".to_owned(),
+                pull_request: 1,
+                base_ref: "main".to_owned(),
+                head_ref: "main".to_owned(),
+                head_sha: "0123456789abcdef".to_owned(),
+            },
+            ProjectionSnapshotInput {
+                metadata_oid: "sha256-test-metadata".to_owned(),
+                projection_version: 1,
+                generated_at_unix_seconds: 1_779_999_999,
+            },
+        );
+        request.limits.max_text_chars = max_text_chars;
+        request
+    }
+
+    #[test]
+    fn public_text_redacts_absolute_paths_before_emitting() {
+        let request = projection_request_with_text_limit(200);
+        let kind = Some("tool_result".to_owned());
+
+        let (text, truncated) = public_text(
+            &kind,
+            Some(
+                "Chunk ID: abc\nUpdated /Users/alice/src/project/src/lib.rs and /home/alice/.ssh/id_ed25519\nProcess exited with code 0",
+            ),
+            &request,
+        );
+
+        assert!(!truncated, "redacted text should fit within the test limit");
+        let text = text.expect("public text");
+        assert_eq!(text, "Updated [REDACTED:path] and [REDACTED:path]");
+        assert!(
+            !text.contains("/Users/") && !text.contains("/home/"),
+            "public projection text must not expose home-prefixed absolute paths"
+        );
+    }
 }
