@@ -1,5 +1,4 @@
 import { absorptionPlanQueryOptions } from "#ui/api/queries.ts";
-import { classes } from "#ui/components/classes.ts";
 import {
 	getOperations,
 	operationLabel,
@@ -8,8 +7,8 @@ import {
 	type OperationsByType,
 } from "#ui/operations/operation.ts";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
-import uiStyles from "#ui/components/ui.module.css";
-import { Toast, Tooltip, useRender } from "@base-ui/react";
+import { Tooltip } from "#ui/components/Tooltip.tsx";
+import { Toast, useRender } from "@base-ui/react";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { FC } from "react";
@@ -83,7 +82,6 @@ const AbsorbControls: FC<{
 	return (
 		<>
 			<ShortcutButton
-				className={uiStyles.button}
 				hotkey={operationHotkeys.confirm.hotkey}
 				hotkeyOptions={{ meta: operationHotkeys.confirm.meta }}
 				onClick={confirm}
@@ -92,7 +90,6 @@ const AbsorbControls: FC<{
 				Absorb
 			</ShortcutButton>
 			<ShortcutButton
-				className={uiStyles.button}
 				hotkey={operationHotkeys.cancel.hotkey}
 				hotkeyOptions={{ meta: operationHotkeys.cancel.meta }}
 				onClick={cancel}
@@ -233,7 +230,6 @@ const TransferOperationControls: FC<{
 				</Toggle>
 			</ToggleGroup>
 			<ShortcutButton
-				className={uiStyles.button}
 				hotkey={operationHotkeys.confirm.hotkey}
 				hotkeyOptions={{ meta: operationHotkeys.confirm.meta }}
 				onClick={run}
@@ -242,7 +238,6 @@ const TransferOperationControls: FC<{
 				Confirm
 			</ShortcutButton>
 			<ShortcutButton
-				className={uiStyles.button}
 				hotkey={operationHotkeys.cancel.hotkey}
 				hotkeyOptions={{ meta: operationHotkeys.cancel.meta }}
 				onClick={cancel}
@@ -301,21 +296,15 @@ export const OperationTooltip: FC<
 	);
 
 	return (
-		<Tooltip.Root
+		<Tooltip
 			open={!!tooltip}
 			disableHoverablePopup={isPointerTransfer}
 			onOpenChange={(_open, eventDetails) => {
 				eventDetails.allowPropagation();
 			}}
-		>
-			<Tooltip.Trigger render={trigger} />
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={8} side="right">
-					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip, styles.popup)}>
-						{tooltip}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+			trigger={trigger}
+			content={tooltip ?? undefined}
+			positionerProps={{ sideOffset: 8, side: "right" }}
+		/>
 	);
 };

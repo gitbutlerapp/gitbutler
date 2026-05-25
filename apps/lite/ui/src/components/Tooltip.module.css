@@ -1,8 +1,3 @@
-.text {
-	padding: 0 2px;
-	color: var(--text-1);
-}
-
 .tooltip {
 	display: flex;
 	padding: 6px;
@@ -11,4 +6,9 @@
 	border-radius: var(--radius-m);
 	background-color: var(--bg-1);
 	box-shadow: var(--shadow-s);
+}
+
+.text {
+	padding: 0 2px;
+	color: var(--text-1);
 }

@@ -255,9 +255,3 @@
 .commitRowLabel {
 	font-size: 13px;
 }
-
-.commitTargetIndicator {
-	display: grid;
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
-}

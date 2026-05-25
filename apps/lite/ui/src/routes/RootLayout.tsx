@@ -4,7 +4,6 @@ import { lastOpenedProjectKey } from "#ui/projects/last-opened.ts";
 import { PickerDialog } from "#ui/components/PickerDialog/PickerDialog.tsx";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
 import { globalHotkeys } from "#ui/hotkeys.ts";
-import uiStyles from "#ui/components/ui.module.css";
 import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Outlet, useMatch, useNavigate } from "@tanstack/react-router";
@@ -58,7 +57,7 @@ const ProjectSelect: FC = () => {
 							<button
 								type="button"
 								aria-label={`Select project ${project.title}`}
-								className={classes(uiStyles.button, styles.project, isSelected && styles.selected)}
+								className={classes(styles.project, isSelected && styles.selected)}
 								onClick={() => selectProject(project)}
 								style={{ "--hue": hue(project.id) }}
 								disabled={isSelected}
@@ -75,7 +74,6 @@ const ProjectSelect: FC = () => {
 			<ShortcutButton
 				aria-label="Select project"
 				variant="ghost"
-				className={classes(styles.picker)}
 				hotkey={globalHotkeys.selectProject.hotkey}
 				hotkeyOptions={{ meta: globalHotkeys.selectProject.meta }}
 				onClick={openProjectPicker}

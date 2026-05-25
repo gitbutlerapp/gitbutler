@@ -1,4 +1,3 @@
-import uiStyles from "#ui/components/ui.module.css";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
 	branchDetailsQueryOptions,
@@ -368,7 +367,6 @@ const FilesToggle: FC = () => {
 
 	return (
 		<ShortcutButton
-			className={classes(uiStyles.button, "text-13", "text-semibold")}
 			hotkey={workspaceHotkeys.toggleFilesPanel.hotkey}
 			hotkeyOptions={{ meta: workspaceHotkeys.toggleFilesPanel.meta }}
 			aria-pressed={isPanelVisible(panelsState, "files")}

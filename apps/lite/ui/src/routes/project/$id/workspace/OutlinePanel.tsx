@@ -52,7 +52,7 @@ import {
 	Section,
 	type NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
-import { mergeProps, Toast, Tooltip, useRender } from "@base-ui/react";
+import { mergeProps, Toast, useRender } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
 import { Toolbar } from "@base-ui/react/toolbar";
 import {
@@ -108,6 +108,7 @@ import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 import { defaultOutlineSelection } from "#ui/projects/workspace/state.ts";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
+import { Tooltip } from "#ui/components/Tooltip.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { rejectedChangesToastOptions } from "#ui/operations/rejectedChangesToastOptions.tsx";
@@ -647,7 +648,6 @@ export const OutlinePanel: FC<PanelProps> = ({ ...panelProps }) => {
 							</div>
 
 							<ShortcutButton
-								className={classes(uiStyles.button, styles.branchBtn)}
 								hotkey={workspaceHotkeys.applyBranch.hotkey}
 								hotkeyOptions={{ meta: workspaceHotkeys.applyBranch.meta }}
 								onClick={openApplyBranchPicker}
@@ -717,31 +717,26 @@ const ItemRowMenuButton: FC<{
 );
 
 const CommitTargetIndicator: FC = () => {
-	const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+	const [open, setOpen] = useState(false);
 
 	return (
-		<Tooltip.Root
-			open={isTooltipOpen}
+		<Tooltip
+			open={open}
 			// [ref:tooltip-disable-hoverable-popup]
 			disableHoverablePopup
-		>
-			<Tooltip.Trigger
-				onMouseEnter={() => setIsTooltipOpen(true)}
-				onMouseLeave={() => setIsTooltipOpen(false)}
-				render={
-					<span className={styles.commitTargetIndicator} aria-label="Commit target">
-						<Icon name="bullseye" />
-					</span>
-				}
-			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={8}>
-					<Tooltip.Popup className={classes(uiStyles.popup, uiStyles.tooltip)}>
-						Commit target
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+			trigger={
+				<span
+					className={styles.commitTargetIndicator}
+					aria-label="Commit target"
+					onMouseEnter={() => setOpen(true)}
+					onMouseLeave={() => setOpen(false)}
+				>
+					<Icon name="bullseye" />
+				</span>
+			}
+			content="Commit target"
+			positionerProps={{ sideOffset: 8 }}
+		/>
 	);
 };
 
@@ -1650,7 +1645,7 @@ const Changes: FC<{
 						disabled={outlineMode._tag !== "Default" || isCommitOrAmendPending}
 					>
 						<Combobox.Trigger
-							className={classes(uiStyles.button, styles.commitTargetComboboxTrigger)}
+							className={classes(styles.commitTargetComboboxTrigger)}
 							aria-label="Select branch"
 							render={
 								<ShortcutButton

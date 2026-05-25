@@ -7,7 +7,6 @@ import { useRender } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { Array, pipe } from "effect";
 import { FC, useState } from "react";
-import styles from "./DependencyIndicatorButton.module.css";
 
 export const DependencyIndicatorButton: FC<
 	{
@@ -61,7 +60,6 @@ export const DependencyIndicatorButton: FC<
 				/>
 			}
 			content={tooltip}
-			popupClassName={styles.popup}
 		/>
 	);
 };
