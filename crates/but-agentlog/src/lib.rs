@@ -4,6 +4,7 @@ mod capture_lock;
 mod cli;
 mod environment;
 mod gitmeta;
+pub mod projection;
 mod redaction;
 mod skim;
 mod transcript;

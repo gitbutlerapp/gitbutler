@@ -2,6 +2,11 @@ use super::*;
 use crate::agent::Agent;
 use crate::capture::record_transcript;
 use crate::environment::{EnvironmentObservation, ObservedTargets, capture_environment};
+use crate::projection::{
+    ProjectionEvidenceTier, ProjectionLimits, ProjectionMatchKind, ProjectionPrFacts,
+    ProjectionRequest, ProjectionSnapshotInput, ProjectionStatus, ProjectionWarningKind,
+    project_pr,
+};
 use crate::transcript::TranscriptBatch;
 use but_core::worktree::safe_checkout;
 use git_meta_lib::{MetaEdit, MetaValue, Session, Target};
@@ -13,6 +18,7 @@ const TEST_SESSION_KEY: &str = "sha256-11111111111111111111111111111111";
 const TEST_SOURCE_KEY: &str = "sha256-22222222222222222222222222222222";
 const TEST_BRANCH_KEY: &str = "ref:refs/heads/main";
 const TEST_REVIEW_KEY: &str = "gitbutler-review:review-1";
+const TEST_PR_REVIEW_KEY: &str = "pull-request:ref:refs/heads/main#1";
 const TEST_CHANGE_KEY: &str = "gitbutler-change:change-1";
 
 fn setup_repo() -> TempDir {
@@ -92,6 +98,26 @@ fn jsonl(records: impl IntoIterator<Item = serde_json::Value>) -> String {
         output.push('\n');
     }
     output
+}
+
+fn projection_request() -> ProjectionRequest {
+    ProjectionRequest::new(
+        ProjectionPrFacts {
+            agent_trail_host: "https://agent-trail.test".to_owned(),
+            github_repository_id: 42,
+            owner: "gitbutler".to_owned(),
+            repo: "gitbutler".to_owned(),
+            pull_request: 1,
+            base_ref: "main".to_owned(),
+            head_ref: "main".to_owned(),
+            head_sha: "0123456789abcdef".to_owned(),
+        },
+        ProjectionSnapshotInput {
+            metadata_oid: "sha256-test-metadata".to_owned(),
+            projection_version: 1,
+            generated_at_unix_seconds: 1_779_999_999,
+        },
+    )
 }
 
 fn codex_fixture() -> String {
@@ -393,6 +419,244 @@ fn find_related_sessions_returns_verified_turn_keys() {
     assert_eq!(branch.related_turn_keys, turn_keys);
     let review = only_related(repo.path(), RelatedTarget::Review(TEST_REVIEW_KEY));
     assert_eq!(review.related_turn_keys, branch.related_turn_keys);
+}
+
+#[test]
+fn project_pr_returns_public_review_projection_without_raw_storage_keys() {
+    let repo = setup_repo();
+    let turn_key = write_turn_with_targets(
+        repo.path(),
+        "Related PR work",
+        ObservedTargets::from_index_keys_for_testing(
+            TEST_BRANCH_KEY,
+            TEST_PR_REVIEW_KEY,
+            TEST_CHANGE_KEY,
+        ),
+    );
+
+    let projection = project_pr(repo.path(), &projection_request()).expect("project PR");
+
+    assert_eq!(projection.status, ProjectionStatus::Ready);
+    assert!(projection.warnings.is_empty());
+    assert_eq!(projection.sessions.len(), 1);
+    let session = &projection.sessions[0];
+    assert!(session.handle.starts_with("ps_"));
+    assert_eq!(session.evidence_tier, ProjectionEvidenceTier::Supporting);
+    assert_eq!(session.agents.len(), 1);
+    assert_eq!(session.agents[0].agent.as_deref(), Some("codex"));
+    assert_eq!(session.turns.len(), 1);
+    let turn = &session.turns[0];
+    assert!(turn.handle.starts_with("pt_"));
+    assert_eq!(turn.evidence_tier, ProjectionEvidenceTier::Supporting);
+    assert_eq!(
+        turn.match_reasons
+            .iter()
+            .map(|reason| reason.kind)
+            .collect::<Vec<_>>(),
+        [
+            ProjectionMatchKind::ReviewTarget,
+            ProjectionMatchKind::BranchTarget
+        ]
+    );
+    assert_eq!(turn.records.len(), 1);
+    let record = &turn.records[0];
+    assert!(record.handle.starts_with("pr_"));
+    assert_eq!(record.text.as_deref(), Some("Related PR work"));
+    assert_eq!(record.kind.as_deref(), Some("message"));
+
+    let json = serde_json::to_string(&projection).expect("projection json");
+    assert!(
+        !json.contains(TEST_SESSION_KEY),
+        "public projection must not expose raw session keys"
+    );
+    assert!(
+        !json.contains(TEST_SOURCE_KEY),
+        "public projection must not expose raw source keys"
+    );
+    assert!(
+        !json.contains(&turn_key),
+        "public projection must not expose raw turn keys"
+    );
+    assert!(
+        !json.contains("\"source_record\":"),
+        "public projection must not expose raw source records"
+    );
+    assert!(
+        !json.contains("\"tool_input\""),
+        "public projection must not expose raw tool payloads"
+    );
+    assert!(
+        !json.contains("record_hash"),
+        "public projection must not expose raw record hashes"
+    );
+}
+
+#[test]
+fn project_pr_marks_branch_only_matches_as_weak_evidence() {
+    let repo = setup_repo();
+    write_turn_with_targets(
+        repo.path(),
+        "Branch-only work",
+        ObservedTargets::from_index_keys_for_testing(
+            TEST_BRANCH_KEY,
+            "pull-request:ref:refs/heads/main#99",
+            TEST_CHANGE_KEY,
+        ),
+    );
+
+    let projection = project_pr(repo.path(), &projection_request()).expect("project PR");
+
+    assert_eq!(projection.status, ProjectionStatus::WeakMatches);
+    assert_eq!(projection.sessions.len(), 1);
+    assert_eq!(
+        projection
+            .warnings
+            .iter()
+            .map(|warning| warning.kind)
+            .collect::<Vec<_>>(),
+        [
+            ProjectionWarningKind::NoReviewMatch,
+            ProjectionWarningKind::WeakBranchOnly
+        ]
+    );
+    let session = &projection.sessions[0];
+    assert_eq!(session.evidence_tier, ProjectionEvidenceTier::Possible);
+    let turn = &session.turns[0];
+    assert_eq!(turn.evidence_tier, ProjectionEvidenceTier::Possible);
+    assert_eq!(turn.match_reasons.len(), 1);
+    assert_eq!(
+        turn.match_reasons[0].kind,
+        ProjectionMatchKind::BranchTarget
+    );
+}
+
+#[test]
+fn project_pr_filters_hidden_prompts_and_strips_tool_payloads() {
+    let repo = setup_repo();
+    let batch = TranscriptBatch::parse(
+        Agent::Codex,
+        jsonl([
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:00Z",
+                "type": "session_meta",
+                "payload": {
+                    "id": "session-1",
+                    "model_provider": "openai",
+                    "cli_version": "0.1.0",
+                },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:01Z",
+                "type": "turn_context",
+                "payload": { "model": "gpt-5.5" },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:02Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": "Please update src/lib.rs",
+                },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:03Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": "# AGENTS.md instructions\n\n<INSTRUCTIONS>rules</INSTRUCTIONS>\n<environment_context>ctx</environment_context>",
+                },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:04Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "function_call",
+                    "name": "apply_patch",
+                    "call_id": "call-1",
+                    "arguments": serde_json::json!({
+                        "input": "*** Begin Patch\n*** Update File: src/lib.rs\n*** Add File: ../private.md\n*** Add File: ~/notes.md\n*** Add File: C:\\Users\\name\\secret.rs\n*** Add File: src/../secret.rs\n*** Add File: src//weird.rs\n@@\n-pub fn old() {}\n+pub fn new() {}\n*** End Patch\n",
+                    }).to_string(),
+                },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:05Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "function_call_output",
+                    "call_id": "call-1",
+                    "output": "Chunk ID: abc\nWall time: 0.01s\nProcess exited with code 0\nUpdated file\n",
+                },
+            }),
+        ])
+        .as_bytes(),
+    )
+    .expect("parse projection batch");
+    write_transcript_batch(
+        repo.path(),
+        Agent::Codex,
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        batch,
+        || {
+            EnvironmentObservation::from_observed_targets_for_testing(
+                ObservedTargets::from_index_keys_for_testing(
+                    TEST_BRANCH_KEY,
+                    TEST_PR_REVIEW_KEY,
+                    TEST_CHANGE_KEY,
+                ),
+            )
+        },
+    )
+    .expect("write projection batch");
+    let mut request = projection_request();
+    request.limits = ProjectionLimits {
+        max_turns: 8,
+        max_records_per_turn: 16,
+        max_text_chars: 80,
+    };
+
+    let projection = project_pr(repo.path(), &request).expect("project PR");
+
+    let turn = &projection.sessions[0].turns[0];
+    assert_eq!(
+        turn.latest_user_preview
+            .as_ref()
+            .map(|preview| preview.text.as_str()),
+        Some("Please update src/lib.rs")
+    );
+    let records = &turn.records;
+    assert_eq!(records.len(), 3);
+    assert!(
+        records
+            .iter()
+            .all(|record| record.prompt_source.as_deref() != Some("system_injected")),
+        "public projection must not expose hidden setup prompts"
+    );
+    assert_eq!(records[0].role.as_deref(), Some("user"));
+    assert_eq!(records[0].prompt_source.as_deref(), Some("human"));
+    assert_eq!(records[0].text.as_deref(), Some("Please update src/lib.rs"));
+    assert_eq!(records[1].kind.as_deref(), Some("tool_call"));
+    assert_eq!(records[1].tool_name.as_deref(), Some("apply_patch"));
+    assert_eq!(records[1].tool_kind.as_deref(), Some("file_edit"));
+    assert_eq!(records[1].file_paths, ["src/lib.rs"]);
+    assert_eq!(records[2].kind.as_deref(), Some("tool_result"));
+    assert_eq!(records[2].tool_name.as_deref(), Some("apply_patch"));
+    assert_eq!(records[2].text.as_deref(), Some("Updated file"));
+    assert_eq!(records[2].exit_code, Some(0));
+    assert_eq!(records[2].outcome.as_deref(), Some("succeeded"));
+
+    let json = serde_json::to_string(&projection).expect("projection json");
+    assert!(!json.contains("# AGENTS.md instructions"));
+    assert!(!json.contains("\"tool_input\""));
+    assert!(!json.contains("\"command\""));
+    assert!(!json.contains("\"target_key\""));
+    assert!(!json.contains("../private.md"));
+    assert!(!json.contains("~/notes.md"));
+    assert!(!json.contains("secret.rs"));
+    assert!(!json.contains("Process exited"));
+    assert!(!json.contains("Chunk ID"));
 }
 
 #[test]

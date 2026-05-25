@@ -29,6 +29,8 @@ pub(crate) struct RecordCoverage {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub(crate) struct RecordDetail {
+    #[serde(skip)]
+    pub(crate) record_hash: String,
     pub(crate) turn_record_index: usize,
     pub(crate) source_record_index: Option<usize>,
     pub(crate) timestamp: Option<String>,
@@ -136,6 +138,7 @@ fn parse_record(raw: &str) -> Option<(String, StoredRecord)> {
 
 fn record_detail(turn_record_index: usize, record: StoredRecord) -> RecordDetail {
     RecordDetail {
+        record_hash: record.record_hash,
         turn_record_index,
         source_record_index: record.record_index,
         timestamp: record.timestamp,
