@@ -2005,7 +2005,14 @@ fn unapply_dirty_worktree_abort_keeps_refs_and_metadata() -> anyhow::Result<()> 
     let err =
         but_workspace::branch::unapply(r("refs/heads/B"), &ws, &repo, &mut meta, unapply_options())
             .unwrap_err();
-    insta::assert_debug_snapshot!(err, @r#""Worktree changes would be overwritten by checkout: \"B\"""#);
+    insta::assert_debug_snapshot!(err, @r#"
+    Context {
+        code: PreconditionFailed,
+        message: Some(
+            "Uncommitted files would be overwritten by checkout: \"B\"",
+        ),
+    }
+    "#);
 
     assert_eq!(
         visualize_disk_tree_with_hashes_skip_dot_git(repo.workdir().expect("worktree dir"))?

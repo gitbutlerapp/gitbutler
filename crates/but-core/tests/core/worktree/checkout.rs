@@ -315,7 +315,7 @@ this will cause a conflict
     let err = safe_checkout(head_commit.id, new_commit.id, &repo, Default::default()).unwrap_err();
     assert_eq!(
         err.to_string(),
-        "Worktree changes would be overwritten by checkout: \"file\"",
+        "Uncommitted files would be overwritten by checkout: \"file\"",
         "we check for conflict markers, and fail."
     );
     // Nothing else changes
@@ -566,7 +566,7 @@ fn snapshot_fails_by_default_if_changed_file_turns_into_directory() -> anyhow::R
     let err = safe_checkout(head_commit.id, new_commit.id, &repo, Default::default()).unwrap_err();
     assert_eq!(
         err.to_string(),
-        "Worktree changes would be overwritten by checkout: \"file\", \"file-in-index\"",
+        "Uncommitted files would be overwritten by checkout: \"file\", \"file-in-index\"",
         "conflicting worktree changes prevent a commit"
     );
 
@@ -776,7 +776,7 @@ fn unrelated_additions_are_fine_even_with_conflicts_in_index() -> anyhow::Result
     let err = safe_checkout(head_commit.id, new_commit.id, &repo, Default::default()).unwrap_err();
     assert_eq!(
         err.to_string(),
-        "Worktree changes would be overwritten by checkout: \"file\"",
+        "Uncommitted files would be overwritten by checkout: \"file\"",
         "We don't allow to checkout conflicting files with default settings as there is no snapshot"
     );
 
@@ -1072,7 +1072,7 @@ fn partial_commit_with_adjacent_lines_conflicts_on_checkout() -> anyhow::Result<
     let err = safe_checkout(head_commit.id, new_commit.id, &repo, Default::default()).unwrap_err();
     assert!(
         err.to_string()
-            .contains("Worktree changes would be overwritten"),
+            .contains("Uncommitted files would be overwritten"),
         "checkout must abort on partial-commit conflict: {err}"
     );
 
@@ -1106,7 +1106,7 @@ fn partial_commit_with_deletion_plus_insertion_conflicts_on_checkout() -> anyhow
     let err = safe_checkout(head_commit.id, new_commit.id, &repo, Default::default()).unwrap_err();
     assert!(
         err.to_string()
-            .contains("Worktree changes would be overwritten"),
+            .contains("Uncommitted files would be overwritten"),
         "checkout must abort on partial-commit conflict: {err}"
     );
 
