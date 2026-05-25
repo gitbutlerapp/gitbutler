@@ -670,15 +670,18 @@ fn unapply_stack_v3_with_perm(
 
     let mut meta = ctx.legacy_meta_mut(perm)?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let workspace_disposition = if ctx.settings.feature_flags.unapply_v3_pgm {
+        WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit
+    } else {
+        WorkspaceDisposition::KeepWorkspaceCommit
+    };
     let outcome = but_workspace::branch::unapply(
         branch_to_unapply.as_ref(),
         &ws,
         &repo,
         &mut meta,
         but_workspace::branch::unapply::Options {
-            // TODO: change this to `RemoveWorkspaceMergeCommitKeepWorkspaceReference` once we know all
-            //       algorithms can deal with it (which should be the case if there is no legacy).
-            workspace_disposition: WorkspaceDisposition::KeepWorkspaceCommit,
+            workspace_disposition,
             uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
         },
     )?;
