@@ -12,7 +12,7 @@ use axum::{
     http::StatusCode,
     middleware::{self, Next},
     response::IntoResponse,
-    routing::{MethodRouter, any, get, post},
+    routing::{MethodRouter, any, post},
 };
 use but_api::{commit, diff, github, gitlab, json, legacy, open, platform, workspace};
 use but_ctx::ProjectHandleOrLegacyProjectId;
@@ -27,28 +27,15 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
 use tower::ServiceBuilder;
-use tower_http::compression::CompressionLayer;
 use tower_http::cors::{self, CorsLayer};
 
-mod auth;
-#[cfg(feature = "embedded-frontend")]
-mod frontend;
 #[cfg(feature = "irc")]
 mod irc;
 #[cfg(feature = "irc")]
 mod irc_lifecycle;
 mod projects;
-mod tunnel;
 use crate::projects::ActiveProjects;
 
-/// Escapes a string for safe embedding in an HTML attribute value.
-pub(crate) fn html_escape(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('"', "&quot;")
-        .replace('\'', "&#x27;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-}
 #[cfg(feature = "irc")]
 use but_irc::WorkingFilesBroadcast;
 
@@ -112,55 +99,22 @@ where
     })
 }
 
-/// Like `but_post`, but rejects the request when the server is running in
-/// remote mode (tunnel active). Used for commands that only make sense when
-/// the user is on the same machine as the server, e.g. adding a project from
-/// a local filesystem path.
-fn local_only_post<F, S>(f: F) -> MethodRouter<S, Infallible>
-where
-    F: Fn(serde_json::Value) -> anyhow::Result<serde_json::Value> + Copy + Send + Sync + 'static,
-    S: Clone + Send + Sync + 'static,
-{
-    post(move |Json(params)| async move {
-        let res = if is_remote() {
-            Err(anyhow::anyhow!(
-                "This action is disabled when but-server is running in remote mode"
-            ))
-        } else {
-            tokio::task::spawn_blocking(move || f(params))
-                .await
-                .unwrap_or_else(|e| Err(anyhow::anyhow!("handler task panicked: {e}")))
-        };
-        cmd_result_to_json(res)
-    })
-}
-
-/// Reports capabilities that depend on how but-server was launched, so the
-/// frontend can hide affordances that would fail on the backend (e.g. "Add
-/// project" when the server is behind a tunnel and the user's filesystem is
-/// not reachable).
 fn server_capabilities(_params: serde_json::Value) -> anyhow::Result<serde_json::Value> {
-    let remote = is_remote();
     Ok(serde_json::to_value(
         but_api::platform::ServerCapabilities {
-            is_remote: remote,
-            can_add_projects: !remote,
+            is_remote: false,
+            can_add_projects: true,
         },
     )?)
 }
 
 /// Opens a native directory picker on the machine running but-server.
-/// Only available in local mode — remote clients cannot trigger a dialog on
-/// the server's display.
 ///
 /// `rfd` cannot be used here because but-server is a headless process without
 /// an NSApplication run loop, so on macOS it would panic trying to show a
 /// dialog off the main thread. Instead we shell out to `osascript` (macOS) or
 /// `zenity`/`kdialog` (Linux) which work from any thread and any process.
 async fn pick_directory(_params: serde_json::Value) -> anyhow::Result<serde_json::Value> {
-    if is_remote() {
-        anyhow::bail!("Native file picker is not available in remote mode");
-    }
     let path = tokio::task::spawn_blocking(native_pick_directory).await??;
     match path {
         Some(p) => Ok(json!({ "path": p })),
@@ -342,120 +296,38 @@ fn is_localhost_host(host: &[u8]) -> bool {
 /// Configuration for the but-server, populated from CLI args.
 #[derive(Debug, Default)]
 pub struct Config {
-    /// Port to listen on. `but-server` defaults to 6978; `but remote` defaults to 8080.
+    /// Port to listen on. `but-server` defaults to 6978.
     pub port: Option<u16>,
     /// Address to bind to. Defaults to 127.0.0.1. Override with --bind-addr if needed
     /// (e.g. 0.0.0.0 in a container environment).
     pub bind_addr: Option<String>,
-    /// Spawn a Cloudflare quick tunnel and use its URL as the allowed remote origin.
-    pub tunnel: bool,
-    /// Named tunnel mode: cloudflared tunnel name (or UUID) to run.
-    /// Must be paired with `origin`. Requires `cloudflared tunnel login`
-    /// and `cloudflared tunnel route dns <name> <hostname>` to have been run already.
-    pub named_tunnel: Option<String>,
-    /// The public hostname routed to `named_tunnel` (e.g. `but.example.com`).
-    /// Used as the CORS allowed-origin and display URL. Must be set when `named_tunnel` is set.
-    pub origin: Option<String>,
     /// Prefix all API routes with this path (e.g. `/api`).
     pub base_path: Option<String>,
-    /// Disable authentication entirely. DANGEROUS — only use on trusted networks.
-    pub allow_anyone: bool,
     /// If set, auto-activate this directory's project on startup.
     pub project_path: Option<std::path::PathBuf>,
-    /// Show cloudflared output on stderr. Enabled by `-v` in the CLI.
-    pub verbose: bool,
 }
 
-static TUNNEL_ORIGIN: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-static ALLOW_ANYONE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-
-/// Return the allowed remote origin (set from tunnel or --remote-origin arg).
-fn allowed_remote_origin() -> Option<&'static str> {
-    TUNNEL_ORIGIN.get().map(String::as_str)
-}
-
-/// Whether authentication is disabled via --dangerously-allow-anyone.
-pub(crate) fn allow_anyone() -> bool {
-    ALLOW_ANYONE.get().copied().unwrap_or(false)
-}
-
-/// Whether but-server is reachable from outside localhost (a tunnel is active).
+/// Middleware to ensure all connections are from localhost only.
 ///
-/// Used to gate features that only make sense when the user is on the same
-/// machine as the server — notably adding projects, which needs a filesystem
-/// path the user can actually pick from their own machine.
-pub(crate) fn is_remote() -> bool {
-    allowed_remote_origin().is_some()
-}
-
-/// Check if an origin matches the configured remote origin.
-fn is_allowed_remote_origin(origin: &[u8]) -> bool {
-    allowed_remote_origin().is_some_and(|allowed| origin == allowed.as_bytes())
-}
-
-/// Middleware to ensure all connections are from localhost only,
-/// unless remote access is enabled via tunnel or `--remote-origin`.
-///
-/// For mutating methods (POST, PUT, DELETE, PATCH), `Origin` is required to be
-/// present and must match localhost or the configured remote origin. Modern
-/// browsers always send `Origin` on mutating requests, so this reliably blocks
-/// all cross-site state-changing requests without needing CSRF tokens.
-///
-/// For safe methods (GET, HEAD, OPTIONS), `Origin` is checked only when present
-/// since browsers omit it on direct navigation and same-origin safe requests.
+/// Rejects non-loopback peer addresses and `Host` headers that don't match
+/// `localhost`/`127.0.0.1`/`[::1]`. The Host check defends against DNS
+/// rebinding: an attacker's domain pointed at 127.0.0.1 connects from
+/// loopback (so the IP check passes) but the browser sets Host to the
+/// attacker's domain, which fails here.
 async fn localhost_only_middleware(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     req: axum::extract::Request<Body>,
     next: Next,
 ) -> Result<impl IntoResponse, StatusCode> {
-    let is_mutating = matches!(
-        req.method(),
-        &axum::http::Method::POST
-            | &axum::http::Method::PUT
-            | &axum::http::Method::DELETE
-            | &axum::http::Method::PATCH
-    );
-
-    match req.headers().get(axum::http::header::ORIGIN) {
-        Some(origin) => {
-            let origin_bytes = origin.as_bytes();
-            if !is_localhost_origin(origin_bytes) && !is_allowed_remote_origin(origin_bytes) {
-                tracing::warn!(
-                    "Rejected request with disallowed Origin: {}",
-                    String::from_utf8_lossy(origin_bytes)
-                );
-                return Err(StatusCode::FORBIDDEN);
-            }
-        }
-        None if is_mutating && allowed_remote_origin().is_some() => {
-            // In remote-access mode, browsers always send Origin on mutating
-            // requests. A missing Origin on POST/PUT/DELETE/PATCH means a
-            // non-browser client — reject to prevent cross-site attacks via
-            // the tunnel. In local-only mode the loopback + Host checks below
-            // are sufficient, so programmatic clients (curl, Playwright, etc.)
-            // can POST without Origin.
-            tracing::warn!("Rejected mutating request with no Origin header");
-            return Err(StatusCode::FORBIDDEN);
-        }
-        None => {} // Safe method, no Origin — direct navigation or same-origin GET; allow.
+    if let Some(origin) = req.headers().get(axum::http::header::ORIGIN)
+        && !is_localhost_origin(origin.as_bytes())
+    {
+        tracing::warn!(
+            "Rejected request with disallowed Origin: {}",
+            String::from_utf8_lossy(origin.as_bytes())
+        );
+        return Err(StatusCode::FORBIDDEN);
     }
-
-    // When a remote origin is configured, cloudflared connects from localhost
-    // too (it's a local process), so the IP check still passes. Skip it only
-    // for explicit reverse-proxy setups where the proxy may be on another host.
-    if allowed_remote_origin().is_some() {
-        return Ok(next.run(req).await);
-    }
-    // Local-only mode: require a loopback address AND a localhost Host header.
-    //
-    // The Host header check defends against DNS rebinding: an attacker can
-    // change their domain's DNS to 127.0.0.1, making the browser treat it as
-    // same-origin (no Origin header sent). The TCP connection still comes from
-    // loopback, so the IP check passes. But the browser always sets Host to the
-    // *domain name* being requested (e.g. "evil.com:8080"), not the resolved IP,
-    // so checking Host catches the attack.
-    //
-    // This only applies to --local mode. Tunnel mode has authentication instead.
     if !addr.ip().is_loopback() {
         tracing::warn!("Rejected non-localhost connection from: {}", addr);
         return Err(StatusCode::FORBIDDEN);
@@ -492,57 +364,10 @@ fn effective_irc(
 pub async fn run(config: Config) -> anyhow::Result<()> {
     but_api::panic_capture::install_panic_hook();
 
-    if config.allow_anyone {
-        let remote = config.tunnel || config.named_tunnel.is_some();
-        anyhow::ensure!(
-            !remote,
-            "--dangerously-allow-anyone cannot be used with a tunnel: \
-             it would expose the server to the internet without any authentication"
-        );
-        ALLOW_ANYONE.set(true).ok();
-        eprintln!("WARNING: --dangerously-allow-anyone is set — authentication is disabled");
-    }
-
-    let api_url = gitbutler_user::api::default_api_url();
-
     let port: u16 = config
         .port
         .or_else(|| std::env::var("BUTLER_PORT").ok()?.parse().ok())
         .unwrap_or(6978);
-
-    // Spawn cloudflared (quick or named tunnel).
-    // The child process must stay alive for the tunnel to remain open.
-    let _tunnel_child = if let (Some(name), Some(origin)) = (&config.named_tunnel, &config.origin) {
-        println!(
-            "{} {}",
-            "Starting named cloudflare tunnel on port".dimmed(),
-            port.to_string().dimmed()
-        );
-        let mode = tunnel::Mode::Named {
-            name,
-            hostname: origin,
-        };
-        Some(mode)
-    } else if config.tunnel {
-        println!(
-            "{} {}",
-            "Starting cloudflare tunnel on port".dimmed(),
-            port.to_string().dimmed()
-        );
-        Some(tunnel::Mode::Quick)
-    } else {
-        None
-    };
-    let _tunnel_child = if let Some(mode) = _tunnel_child {
-        let (url, child) = tunnel::start(mode, port, config.verbose).await?;
-        println!("{} {}", "Tunnel:".bold(), url.cyan().underline());
-        TUNNEL_ORIGIN
-            .set(url.trim_end_matches('/').to_string())
-            .ok();
-        Some(child)
-    } else {
-        None
-    };
 
     // CORS wildcards are forbidden when credentials are allowed, so always list explicitly.
     // `baggage` and `sentry-trace` are injected by Sentry's performance monitoring into
@@ -550,7 +375,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     let allowed_headers: cors::AllowHeaders = vec![
         axum::http::header::CONTENT_TYPE,
         axum::http::header::AUTHORIZATION,
-        axum::http::HeaderName::from_static("x-auth-token"),
         axum::http::HeaderName::from_static("baggage"),
         axum::http::HeaderName::from_static("sentry-trace"),
     ]
@@ -566,7 +390,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     let cors = CorsLayer::new()
         .allow_methods(allowed_methods)
         .allow_origin(cors::AllowOrigin::predicate(|origin, _parts| {
-            is_localhost_origin(origin.as_bytes()) || is_allowed_remote_origin(origin.as_bytes())
+            is_localhost_origin(origin.as_bytes())
         }))
         .allow_headers(allowed_headers)
         .allow_credentials(true);
@@ -667,52 +491,16 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         }
     }
 
-    // Compute base path early — needed for both auth redirects and route nesting.
-    // In any remote-access mode default to /api so the embedded frontend (which
-    // fetches from the same origin without a prefix) and API routes don't clash.
-    let remote_access = config.tunnel || config.named_tunnel.is_some();
-    let default_base = if remote_access { "/api" } else { "" };
     let mut api_base = config
         .base_path
         .as_deref()
-        .unwrap_or(default_base)
+        .unwrap_or("")
         .trim_end_matches('/')
         .to_string();
     // Ensure the base path starts with '/' when non-empty so Router::nest doesn't panic.
     if !api_base.is_empty() && !api_base.starts_with('/') {
         api_base.insert(0, '/');
     }
-
-    // Set up remote auth when a remote origin is configured (via --tunnel or --remote-origin)
-    // AND authentication is not explicitly bypassed via --dangerously-allow-anyone.
-    // Fail fast if no local user is found — remote access without auth would be a security hole.
-    // `None` here means exactly one thing: no remote origin is configured (or allow_anyone is set,
-    // in which case auth_middleware's allow_anyone() check fires before inspecting this value).
-    let auth_state: Option<Arc<auth::AuthState>> =
-        if !config.allow_anyone && allowed_remote_origin().is_some() {
-            match gitbutler_user::get_user() {
-                Ok(Some(user)) => {
-                    tracing::info!(
-                        "Remote access enabled for user {} (id={}) via {}",
-                        user.name.as_deref().unwrap_or("?"),
-                        user.id,
-                        api_url,
-                    );
-                    Some(Arc::new(auth::AuthState::new(user.id, &api_base)))
-                }
-                Ok(None) => {
-                    anyhow::bail!(
-                        "Remote access is enabled but no local GitButler user is logged in.\n\
-                     Open the GitButler desktop app and log in, then retry."
-                    );
-                }
-                Err(e) => {
-                    anyhow::bail!("Failed to read local user for remote auth: {e}");
-                }
-            }
-        } else {
-            None
-        };
 
     let state = AppState {
         broadcaster: broadcaster.clone(),
@@ -844,13 +632,10 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             "/update_project",
             but_post(legacy::projects::update_project_cmd),
         )
-        .route(
-            "/add_project",
-            local_only_post(legacy::projects::add_project_cmd),
-        )
+        .route("/add_project", but_post(legacy::projects::add_project_cmd))
         .route(
             "/add_project_best_effort",
-            local_only_post(legacy::projects::add_project_best_effort_cmd),
+            but_post(legacy::projects::add_project_best_effort_cmd),
         )
         .route("/get_project", but_post(legacy::projects::get_project_cmd))
         .route(
@@ -1178,24 +963,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             post(irc::irc_stop_working_files_broadcast),
         );
 
-    // Auth routes (only functional when remote access is enabled).
-    // When the frontend is embedded, GET / is handled by the frontend fallback
-    // instead of the plain-HTML root handler.
-    let auth_state_for_routes = auth_state.clone();
-    let app = app
-        .route(
-            "/auth/login",
-            get(auth::login).with_state(auth_state_for_routes.clone()),
-        )
-        .route(
-            "/auth/callback",
-            post(auth::callback).with_state(auth_state_for_routes.clone()),
-        )
-        .route(
-            "/auth/logout",
-            post(auth::logout).with_state(auth_state_for_routes.clone()),
-        );
-
     // Catch-all for commands that need special handling (app, extra, app_settings_sync)
     let app = app
         .route("/{command}", post(post_handle_command_with_path))
@@ -1214,93 +981,16 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
 
     // Optionally nest all API routes under a configurable base path.
     // e.g. --base-path=/api makes all endpoints available at /api/...
-    // The embedded frontend fallback is attached to the outermost router so
-    // that it handles / regardless of where the API lives.
     let app: Router = if api_base.is_empty() {
         app
     } else {
         Router::new().nest(&api_base, app)
     };
 
-    // When the frontend is embedded, serve static files as a fallback for
-    // all routes not handled by the API. This makes but-server self-contained
-    // with no need for a separate frontend dev server or Caddy.
-    // The api_url is injected into index.html via a <meta> tag so the frontend
-    // can use the correct API URL at runtime.
-    #[cfg(feature = "embedded-frontend")]
-    let app = {
-        let api_url_for_frontend = api_url.clone();
-        let api_base_for_frontend = api_base.clone();
-        app.fallback(move |uri| {
-            frontend::serve(
-                uri,
-                api_url_for_frontend.clone(),
-                api_base_for_frontend.clone(),
-            )
-        })
-    };
-
-    // Security layers are applied to the outermost router so they cover
-    // *every* HTTP entrypoint — API routes, the embedded-frontend fallback,
-    // and static assets alike.
-    //
-    // Ordering (outermost → innermost, i.e. request hits them top-to-bottom):
-    //
-    //   CORS  →  localhost_only  →  auth  →  handler
-    //
-    // CORS must be outermost of the three so browser OPTIONS preflight
-    // requests (which carry no cookies) get proper `Access-Control-*`
-    // headers *before* auth can reject them with 401.
     let app = app
-        .layer(
-            ServiceBuilder::new()
-                // Middleware to ensure only localhost connections are accepted.
-                .layer(middleware::from_fn(localhost_only_middleware))
-                // Auth middleware — validates remote tokens when a remote origin is configured.
-                .layer(middleware::from_fn_with_state(
-                    auth_state,
-                    auth::auth_middleware,
-                )),
-        )
+        .layer(ServiceBuilder::new().layer(middleware::from_fn(localhost_only_middleware)))
         .layer(cors);
 
-    // Collect SHA-256 hashes of every inline <script> in the embedded frontend
-    // plus the auth login page script. These replace 'unsafe-inline' in the CSP.
-    let script_hashes = {
-        let login_hash = sha256_csp_hash(auth::login_page_script(&api_base).as_bytes());
-        #[cfg(not(feature = "embedded-frontend"))]
-        let hashes = vec![login_hash];
-        #[cfg(feature = "embedded-frontend")]
-        let hashes = std::iter::once(login_hash)
-            .chain(frontend::inline_script_hashes())
-            .collect::<Vec<_>>();
-        hashes
-    };
-
-    // Add Content-Security-Policy header to all responses.
-    // Adapted from crates/gitbutler-tauri/tauri.conf.json — Tauri-specific
-    // schemes (tauri://, asset:, ipc:) are dropped; connect-src includes the
-    // remote origin's WebSocket when remote access is configured.
-    let csp = build_csp(allowed_remote_origin(), port, &script_hashes);
-    let csp_value = axum::http::HeaderValue::from_str(&csp).expect("CSP is valid header value");
-    let app = app
-        .layer(axum::middleware::from_fn(
-            move |req: axum::extract::Request<Body>, next: Next| {
-                let csp_value = csp_value.clone();
-                async move {
-                    let mut response = next.run(req).await;
-                    response
-                        .headers_mut()
-                        .insert(axum::http::header::CONTENT_SECURITY_POLICY, csp_value);
-                    response
-                }
-            },
-        ))
-        .layer(CompressionLayer::new());
-
-    // Always bind to loopback by default. Cloudflared (quick or named tunnel) connects
-    // from localhost so 127.0.0.1 is sufficient. Users who need a different address
-    // (e.g. a container environment) can pass --bind-addr explicitly.
     let default_host = "127.0.0.1";
     let host_env = std::env::var("BUTLER_HOST").ok();
     let host = config
@@ -1322,13 +1012,11 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             anyhow::bail!("Failed to bind to {url}: {e}");
         }
     };
-    if !config.tunnel && config.named_tunnel.is_none() {
-        println!(
-            "{} {}",
-            "Local:".bold(),
-            format!("http://localhost:{port}").cyan().underline()
-        );
-    }
+    println!(
+        "{} {}",
+        "Local:".bold(),
+        format!("http://localhost:{port}").cyan().underline()
+    );
     let server = axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
@@ -1342,10 +1030,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
                 tracing::info!("Shutdown signal received, closing IRC connections…");
                 irc_manager_for_shutdown.shutdown().await;
             }
-            // Kill the cloudflared tunnel process if one was started.
-            if let Some(mut child) = _tunnel_child {
-                let _ = child.kill().await;
-            }
             // The settings file watcher (spawn_blocking with infinite loop) and
             // other background tasks prevent the tokio runtime from exiting
             // cleanly. It's safe to terminate immediately.
@@ -1353,75 +1037,6 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         }
     }
     Ok(())
-}
-
-/// Compute a `'sha256-<base64>'` CSP hash for a script body.
-pub(crate) fn sha256_csp_hash(data: &[u8]) -> String {
-    use base64::Engine as _;
-    use sha2::Digest as _;
-    let hash = sha2::Sha256::digest(data);
-    format!(
-        "'sha256-{}'",
-        base64::engine::general_purpose::STANDARD.encode(hash)
-    )
-}
-
-/// Build a Content-Security-Policy header value.
-///
-/// Mirrors `crates/gitbutler-tauri/tauri.conf.json` with Tauri-specific
-/// schemes removed. Always allows WebSocket connections to the server's own
-/// loopback address (needed in local mode, where `'self'` does not cover the
-/// `ws://` scheme). In remote-access mode the wss form of the tunnel origin is
-/// added as well.
-fn build_csp(remote_origin: Option<&str>, port: u16, script_hashes: &[String]) -> String {
-    // Always allow WebSocket to the loopback addresses on this port.
-    // `'self'` covers http/https but not the ws/wss scheme change, so without
-    // these entries the browser will block /ws in local mode.
-    let mut ws_origins = format!(" ws://localhost:{port} ws://127.0.0.1:{port}");
-
-    // In remote-access mode also allow the wss form of the tunnel origin
-    // (https://foo.com → wss://foo.com).
-    if let Some(origin) = remote_origin {
-        let wss = origin
-            .replacen("https://", "wss://", 1)
-            .replacen("http://", "ws://", 1);
-        ws_origins.push(' ');
-        ws_origins.push_str(&wss);
-    }
-
-    [
-        "default-src 'self'",
-        "img-src 'self' data: blob: \
-             https://avatars.githubusercontent.com \
-             https://*.gitbutler.com \
-             https://gitbutler-public.s3.amazonaws.com \
-             https://*.gravatar.com \
-             https://io.wp.com https://i0.wp.com https://i1.wp.com \
-             https://i2.wp.com https://i3.wp.com \
-             https://github.com \
-             https://*.googleusercontent.com \
-             https://*.giphy.com/",
-        &format!(
-            "connect-src 'self'{ws_origins} \
-             https://eu.posthog.com https://eu.i.posthog.com \
-             https://eu-assets.i.posthog.com \
-             https://app.gitbutler.com \
-             https://app.staging.gitbutler.com \
-             https://o4504644069687296.ingest.sentry.io \
-             https://github.com https://api.github.com \
-             https://api.openai.com https://api.anthropic.com \
-             https://*.gitlab.com https://gitlab.com \
-             wss://irc.gitbutler.com:8097 data:"
-        ),
-        &format!(
-            "script-src 'self' 'wasm-unsafe-eval' {} \
-             https://eu.posthog.com https://eu.i.posthog.com \
-             https://eu-assets.i.posthog.com",
-            script_hashes.join(" ")
-        ),
-        "style-src 'self' 'unsafe-inline'",
-    ]
-    .join("; ")
 }
 
 /// Handler that extracts the command from the URL path.
@@ -1467,7 +1082,7 @@ async fn handle_ws_request(
     let origin = headers
         .get(axum::http::header::ORIGIN)
         .ok_or(StatusCode::FORBIDDEN)?;
-    if !is_localhost_origin(origin.as_bytes()) && !is_allowed_remote_origin(origin.as_bytes()) {
+    if !is_localhost_origin(origin.as_bytes()) {
         tracing::warn!("Rejected WebSocket connection from origin: {origin:?}");
         return Err(StatusCode::FORBIDDEN);
     }

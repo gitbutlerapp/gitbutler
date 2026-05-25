@@ -295,27 +295,6 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
                 .map_err(CliError::from)
         }
-        #[cfg(all(feature = "legacy", feature = "remote"))]
-        Subcommands::Remote {
-            port,
-            bind_addr,
-            local,
-            named_tunnel,
-            origin,
-            dangerously_allow_anyone,
-        } => but_server::run(but_server::Config {
-            port: Some(port),
-            bind_addr,
-            tunnel: !local && named_tunnel.is_none(),
-            named_tunnel,
-            origin,
-            base_path: Some("/api".into()),
-            allow_anyone: dangerously_allow_anyone,
-            project_path: Some(args.current_dir.clone()),
-            verbose: args.trace > 0,
-        })
-        .await
-        .map_err(CliError::from),
         Subcommands::Help => {
             command::help::print_grouped(out)?;
             Ok(())

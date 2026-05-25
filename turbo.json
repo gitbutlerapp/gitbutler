@@ -21,7 +21,6 @@
 				"!.sveltekit/types",
 				"!.sveltekit/*.d.ts",
 				"dist/**",
-				"embedded-frontend/**",
 				".vercel/**"
 			]
 		},

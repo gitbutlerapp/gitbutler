@@ -18,7 +18,6 @@ package-lock.json
 # Ignore  minified css
 *.min.css
 e2e/playwright/fixtures
-apps/desktop/embedded-frontend
 packages/but-sdk/src/generated
 packages/but-sdk/**/*.md
 

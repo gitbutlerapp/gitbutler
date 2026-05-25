@@ -36,7 +36,6 @@ dist-ssr
 
 .turbo
 build
-embedded-frontend
 .svelte-kit
 package
 !.env.example

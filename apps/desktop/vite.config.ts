@@ -57,18 +57,13 @@ export default defineConfig({
 		rollupOptions: {
 			output: {
 				manualChunks: {},
-				// When building for the embedded server, merge small chunks to
-				// reduce the number of files embedded in the binary.
-				...(process.env.VITE_EMBEDDED_BUILD ? { experimentalMinChunkSize: 500_000 } : {}),
 			},
 		},
 		// Tauri supports es2021
 		target: "modules",
 		// minify production builds
 		minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
-		// Sourcemaps are useful for Sentry in Tauri builds but wasteful when
-		// the frontend is embedded in the server binary.
-		sourcemap: process.env.VITE_EMBEDDED_BUILD ? false : true,
+		sourcemap: true,
 	},
 	test: {
 		includeSource: ["src/**/*.test.{js,ts}"],
