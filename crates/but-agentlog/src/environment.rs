@@ -269,7 +269,8 @@ fn workspace_snapshot_with_meta(
                 key: format!("ref:{full_ref_name}"),
                 name: ref_info.ref_name.shorten().to_string(),
             };
-            let review = review_target(&branch.key, segment.metadata.as_ref());
+            let reviews = review_targets(&branch.key, segment.metadata.as_ref());
+            let review = reviews.first().cloned();
             for commit in &segment.commits {
                 let change_id = commit.change_id.as_ref().map(ToString::to_string);
                 if let Some(change_id) = &change_id {
@@ -281,9 +282,7 @@ fn workspace_snapshot_with_meta(
             }
 
             observed_targets.branches.push(branch.clone());
-            if let Some(review) = review.clone() {
-                observed_targets.reviews.push(review);
-            }
+            observed_targets.reviews.extend(reviews);
             branches.push(BranchSnapshot {
                 key: branch.key,
                 name: branch.name,
@@ -303,20 +302,26 @@ fn workspace_snapshot_with_meta(
     })
 }
 
-fn review_target(branch_key: &str, metadata: Option<&Branch>) -> Option<ReviewTarget> {
-    let review = &metadata?.review;
+fn review_targets(branch_key: &str, metadata: Option<&Branch>) -> Vec<ReviewTarget> {
+    let Some(review) = metadata.map(|metadata| &metadata.review) else {
+        return Vec::new();
+    };
+    let mut targets = Vec::new();
     if let Some(review_id) = &review.review_id {
-        return Some(ReviewTarget {
+        targets.push(ReviewTarget {
             key: format!("gitbutler-review:{review_id}"),
             pull_request: review.pull_request,
             review_id: Some(review_id.clone()),
         });
     }
-    review.pull_request.map(|pull_request| ReviewTarget {
-        key: format!("pull-request:{branch_key}#{pull_request}"),
-        pull_request: Some(pull_request),
-        review_id: None,
-    })
+    if let Some(pull_request) = review.pull_request {
+        targets.push(ReviewTarget {
+            key: format!("pull-request:{branch_key}#{pull_request}"),
+            pull_request: Some(pull_request),
+            review_id: None,
+        });
+    }
+    targets
 }
 
 fn paths_from_changes(changes: impl IntoIterator<Item = TreeChange>) -> Vec<String> {
@@ -478,6 +483,31 @@ impl RefMetadata for EmptyRefMetadata {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn review_targets_include_review_id_and_pull_request() {
+        let mut metadata = Branch::default();
+        metadata.review.review_id = Some("review-1".to_owned());
+        metadata.review.pull_request = Some(42);
+
+        let targets = review_targets("ref:refs/heads/feature", Some(&metadata));
+
+        assert_eq!(
+            targets,
+            [
+                ReviewTarget {
+                    key: "gitbutler-review:review-1".to_owned(),
+                    pull_request: Some(42),
+                    review_id: Some("review-1".to_owned()),
+                },
+                ReviewTarget {
+                    key: "pull-request:ref:refs/heads/feature#42".to_owned(),
+                    pull_request: Some(42),
+                    review_id: None,
+                }
+            ]
+        );
+    }
 
     #[test]
     fn environment_from_parts_classifies_partial_and_failed_observations() {

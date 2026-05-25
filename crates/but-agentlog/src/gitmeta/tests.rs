@@ -472,6 +472,7 @@ fn get_session_timeline_outline_returns_compact_bounded_turns() {
                 "payload": {
                     "type": "function_call",
                     "name": "exec_command",
+                    "call_id": "call-1",
                     "arguments": "{\"cmd\":\"cargo test\"}",
                 },
             }),
@@ -633,6 +634,7 @@ fn get_session_records_returns_latest_bounded_records_without_storage_keys() {
                 "payload": {
                     "type": "function_call",
                     "name": "exec_command",
+                    "call_id": "call-1",
                     "arguments": "{\"cmd\":\"cargo test\"}",
                 },
             }),
@@ -682,6 +684,7 @@ fn get_session_records_returns_latest_bounded_records_without_storage_keys() {
         records.records[1].tool_name.as_deref(),
         Some("exec_command")
     );
+    assert_eq!(records.records[1].tool_kind.as_deref(), Some("exec"));
     assert_eq!(
         records.records[1].tool_input.as_ref().expect("tool input")["cmd"],
         "cargo test"
@@ -952,6 +955,90 @@ fn transcript_records_redact_secrets_and_copied_scalar_fields() {
 }
 
 #[test]
+fn transcript_records_store_prompt_source_tool_kind_and_outcome() {
+    let repo = setup_repo();
+    let transcript = write_transcript(
+        repo.path(),
+        &jsonl([
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:00Z",
+                "type": "session_meta",
+                "payload": {
+                    "id": "session-1",
+                    "thread_source": "subagent",
+                },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:01Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": "# AGENTS.md instructions\n\n<INSTRUCTIONS>rules</INSTRUCTIONS>\n<environment_context>ctx</environment_context>",
+                },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:02Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": "Repo: /tmp/project. Review the code.",
+                },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:03Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "function_call",
+                    "name": "exec_command",
+                    "call_id": "call-1",
+                    "arguments": "{\"cmd\":\"cargo test\"}",
+                },
+            }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:04Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "function_call_output",
+                    "call_id": "call-1",
+                    "output": "Process exited with code 0",
+                },
+            }),
+        ]),
+    );
+
+    assert_eq!(capture_project(repo.path(), Agent::Codex, &transcript), 4);
+    let session_key = only_session_key(repo.path());
+    let records = transcript_entries(repo.path(), &session_key)
+        .into_iter()
+        .map(|entry| {
+            serde_json::from_str::<serde_json::Value>(&entry).expect("transcript record json")
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(records[0]["prompt_source"], "system_injected");
+    assert_eq!(records[1]["prompt_source"], "spawned_agent");
+    assert_eq!(records[2]["tool_kind"], "exec");
+    assert_eq!(records[3]["tool_name"], "exec_command");
+    assert_eq!(records[3]["tool_kind"], "exec");
+    assert_eq!(records[3]["exit_code"], 0);
+    assert_eq!(records[3]["outcome"], "succeeded");
+
+    let turn_key = turn_summaries(repo.path(), &session_key)[0]["turn_key"]
+        .as_str()
+        .expect("turn key")
+        .to_owned();
+    let records = get_session_records(repo.path(), &session_key, &turn_key, 10).expect("records");
+    assert_eq!(
+        records.records[1].prompt_source.as_deref(),
+        Some("spawned_agent")
+    );
+    assert_eq!(records.records[3].exit_code, Some(0));
+    assert_eq!(records.records[3].outcome.as_deref(), Some("succeeded"));
+}
+
+#[test]
 fn tool_payloads_are_slimmed_before_storage() {
     let repo = setup_repo();
     let long_output = format!(
@@ -972,6 +1059,7 @@ fn tool_payloads_are_slimmed_before_storage() {
                 "payload": {
                     "type": "function_call",
                     "name": "exec_command",
+                    "call_id": "call-1",
                     "arguments": "{\"cmd\":\"cargo test\"}",
                 },
             }),
@@ -980,6 +1068,7 @@ fn tool_payloads_are_slimmed_before_storage() {
                 "type": "response_item",
                 "payload": {
                     "type": "function_call_output",
+                    "call_id": "call-1",
                     "output": long_output,
                 },
             }),
@@ -988,6 +1077,7 @@ fn tool_payloads_are_slimmed_before_storage() {
                 "type": "response_item",
                 "payload": {
                     "type": "function_call_output",
+                    "call_id": "call-1",
                     "output": {
                         "raw": "x".repeat(MAX_TOOL_RESULT_TEXT_BYTES + 1024),
                     },
@@ -1014,7 +1104,9 @@ fn tool_payloads_are_slimmed_before_storage() {
 
     assert_eq!(records[0]["kind"], "tool_call");
     assert_eq!(records[0]["tool_input"]["cmd"], "cargo test");
+    assert_eq!(records[0]["tool_kind"], "exec");
     assert_eq!(records[1]["kind"], "tool_result");
+    assert_eq!(records[1]["tool_kind"], "exec");
     let text = records[1]["text"].as_str().expect("tool result text");
     assert!(text.len() <= MAX_TOOL_RESULT_TEXT_BYTES);
     assert!(text.starts_with("start:"));

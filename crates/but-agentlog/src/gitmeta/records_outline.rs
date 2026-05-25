@@ -36,8 +36,12 @@ pub(crate) struct RecordDetail {
     pub(crate) source_event_kind: Option<String>,
     pub(crate) role: Option<String>,
     pub(crate) text: Option<String>,
+    pub(crate) prompt_source: Option<String>,
     pub(crate) tool_name: Option<String>,
+    pub(crate) tool_kind: Option<String>,
     pub(crate) tool_input: Option<Value>,
+    pub(crate) exit_code: Option<i32>,
+    pub(crate) outcome: Option<String>,
     pub(crate) source_record: Value,
 }
 
@@ -95,8 +99,16 @@ struct StoredRecord {
     source_event_kind: Option<String>,
     role: Option<String>,
     text: Option<String>,
+    #[serde(default)]
+    prompt_source: Option<String>,
     tool_name: Option<String>,
+    #[serde(default)]
+    tool_kind: Option<String>,
     tool_input: Option<Value>,
+    #[serde(default)]
+    exit_code: Option<i32>,
+    #[serde(default)]
+    outcome: Option<String>,
     source_record: Value,
 }
 
@@ -131,8 +143,12 @@ fn record_detail(turn_record_index: usize, record: StoredRecord) -> RecordDetail
         source_event_kind: record.source_event_kind,
         role: record.role,
         text: record.text,
+        prompt_source: record.prompt_source,
         tool_name: record.tool_name,
+        tool_kind: record.tool_kind,
         tool_input: record.tool_input,
+        exit_code: record.exit_code,
+        outcome: record.outcome,
         source_record: record.source_record,
     }
 }
