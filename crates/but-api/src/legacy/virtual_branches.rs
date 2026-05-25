@@ -1,15 +1,22 @@
 use std::collections::HashMap;
 
-use anyhow::{Context as _, Result, anyhow};
+use anyhow::{Context as _, Result, anyhow, bail};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
     DiffSpec, RefMetadata,
     ref_metadata::{StackId, StackKind, WorkspaceStack},
-    sync::RepoExclusive,
+    sync::{RepoExclusive, RepoShared},
+    worktree::checkout::UncommitedWorktreeChanges,
 };
 use but_ctx::{Context, ThreadSafeContext};
 use but_error::bail_precondition;
+use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
+use but_rebase::graph_rebase::{
+    Editor,
+    mutate::{InsertSide, RelativeToRef},
+};
+use but_workspace::branch::unapply::WorkspaceDisposition;
 use but_workspace::legacy::ui::{StackEntryNoOpt, StackHeadInfo};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::{
@@ -22,6 +29,7 @@ use gitbutler_branch_actions::{
 };
 use gitbutler_git::GitContextExt as _;
 use gitbutler_operating_modes::ensure_open_workspace_mode;
+use gitbutler_oplog::OplogExt;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, normalize_branch_name as normalize_name};
 use gix::reference::Category;
@@ -552,8 +560,6 @@ mod tests {
     }
 }
 
-#[but_api(napi)]
-#[instrument(err(Debug))]
 /// Take the stack identified by `stack_id` out of the workspace.
 ///
 /// This acquires exclusive worktree access from `ctx` before collecting the
@@ -561,6 +567,8 @@ mod tests {
 ///
 /// See [`unapply_stack_with_perm()`] for how assigned changes are collected before
 /// delegating to the underlying mutation.
+#[but_api(napi)]
+#[instrument(err(Debug))]
 pub fn unapply_stack(ctx: &mut Context, stack_id: StackId) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     unapply_stack_with_perm(ctx, stack_id, guard.write_permission())
@@ -576,8 +584,27 @@ pub fn unapply_stack_with_perm(
     stack_id: StackId,
     perm: &mut RepoExclusive,
 ) -> Result<()> {
+    if ctx.settings.feature_flags.unapply_v3 {
+        return unapply_stack_v3_with_perm(ctx, stack_id, perm);
+    }
+
+    let assigned_diffspec = assigned_diffspec_for_stack(ctx, stack_id, perm.read_permission())?;
+    gitbutler_branch_actions::unapply_stack(ctx, perm, stack_id, assigned_diffspec)?;
+    Ok(())
+}
+
+/// Return the worktree diffspecs currently assigned to `stack_id`.
+///
+/// This reconciles persisted hunk assignments with current worktree changes,
+/// keeps only assignments owned by `stack_id`, and flattens them into the
+/// diffspec list consumed by unapply implementations.
+fn assigned_diffspec_for_stack(
+    ctx: &Context,
+    stack_id: StackId,
+    perm: &RepoShared,
+) -> Result<Vec<DiffSpec>> {
     let context_lines = ctx.settings.context_lines;
-    let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
         db.hunk_assignments_mut()?,
         &repo,
@@ -592,8 +619,169 @@ pub fn unapply_stack_with_perm(
             .map(|a| a.into())
             .collect::<Vec<DiffSpec>>(),
     );
-    drop((repo, ws, db));
-    gitbutler_branch_actions::unapply_stack(ctx, perm, stack_id, assigned_diffspec)?;
+    Ok(assigned_diffspec)
+}
+
+/// Unapply a stack through the newer workspace metadata implementation.
+///
+/// This deliberately keeps the workspace reference and workspace merge commit in
+/// place for compatibility with the legacy API surface while trying the new
+/// unapply implementation behind `feature_flags.unapply_v3`.
+/// We implement plumbing here, particularly relative to assignment handling,
+/// to facilitate the eventual removal of `gitbutler-branch-actions`.
+///
+/// # Control-flow
+///
+/// - verify that the project is in open workspace mode;
+/// - collect currently assigned worktree changes for `stack_id`;
+/// - identify the workspace metadata branch representing the stack;
+/// - create a best-effort unapply snapshot with all stack branch names as trailers;
+/// - commit assigned changes below the branch being unapplied so they travel with it;
+/// - delegate the actual workspace mutation to [`but_workspace::branch::unapply()`]
+///   and update the cached workspace projection with the returned workspace.
+///
+/// # What makes this legacy
+///
+/// - use of `stack_id` should be branch name or maybe even stack index (i.e. index in workspace projection,
+///   along with other identification, maybe even as much as we have)
+/// - Ideally, this new way of identifying stacks by bundling various identifiers, is also used in `unapply()`
+///   itself and a simple [`but_graph::Workspace`] method.
+fn unapply_stack_v3_with_perm(
+    ctx: &mut Context,
+    stack_id: StackId,
+    perm: &mut RepoExclusive,
+) -> Result<()> {
+    ensure_open_workspace_mode(ctx, perm.read_permission())
+        .context("Unapplying a stack requires open workspace mode")?;
+
+    let assigned_diffspec = assigned_diffspec_for_stack(ctx, stack_id, perm.read_permission())?;
+    let stack_branches = stack_branch_names(ctx, stack_id, perm)?;
+    let Some(branch_to_unapply) = stack_branches.first().cloned() else {
+        return Ok(());
+    };
+
+    let trailers = stack_branches
+        .iter()
+        .map(|branch| Trailer::Branch(branch.shorten().to_string()));
+    let details = SnapshotDetails::new(OperationKind::UnapplyBranch).with_trailers(trailers);
+    let _snapshot = ctx.create_snapshot(details, perm).ok();
+
+    commit_assigned_diffspec(ctx, branch_to_unapply.as_ref(), assigned_diffspec, perm)?;
+
+    let mut meta = ctx.legacy_meta_mut(perm)?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let workspace_disposition = if ctx.settings.feature_flags.unapply_v3_pgm {
+        WorkspaceDisposition::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit
+    } else {
+        WorkspaceDisposition::KeepWorkspaceCommit
+    };
+    let outcome = but_workspace::branch::unapply(
+        branch_to_unapply.as_ref(),
+        &ws,
+        &repo,
+        &mut meta,
+        but_workspace::branch::unapply::Options {
+            workspace_disposition,
+            uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
+        },
+    )?;
+    *ws = outcome.workspace.into_owned();
+    // Keeping the workspace merge commit can make legacy reconciliation infer the
+    // removed stack as applied again, so persist the explicit workspace metadata.
+    meta.write_unreconciled()?;
+    Ok(())
+}
+
+/// Return branch names for the projected workspace stack identified by `stack_id`.
+///
+/// The returned names describe the stack as it appears in the current
+/// workspace: tip-most branch first, then branches closer to the workspace base.
+fn stack_branch_names(
+    ctx: &mut Context,
+    stack_id: StackId,
+    perm: &mut RepoExclusive,
+) -> Result<Vec<gix::refs::FullName>> {
+    let (_repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let Some(stack) = ws.stacks.iter().find(|stack| stack.id == Some(stack_id)) else {
+        return Err(
+            anyhow!("branch with ID {stack_id} not found").context(but_error::Code::BranchNotFound)
+        );
+    };
+
+    if stack
+        .segments
+        .first()
+        .is_none_or(|s| s.ref_name().is_none())
+    {
+        bail!("Cannot unapply anonymous segments yet even if they have a stack id");
+    }
+
+    Ok(stack
+        .segments
+        .iter()
+        .filter_map(|segment| {
+            segment
+                .ref_info
+                .as_ref()
+                .map(|ref_info| ref_info.ref_name.clone())
+        })
+        .collect())
+}
+
+/// Commit assigned worktree changes so they remain with the branch being unapplied.
+///
+/// `ctx` supplies repository, workspace, metadata, and diff settings used to
+/// create the assignment commit. `branch` is the reference the new "WIP
+/// Assignments" commit is inserted below. `assigned_diffspec` is the list of
+/// worktree hunks or files to include; an empty list is a no-op. `perm` is the
+/// caller-held exclusive repository permission used while mutating history and
+/// refreshing the cached workspace state.
+///
+/// # TODOs
+///
+/// - The "WIP Assignments" commit feels like an elaborate PoC and ideally, there is
+///   a well-tested and general way to deal with this.
+///   The [new snapshot system](but_core::snapshot) can be used to store and attach all kinds
+///   of data in Git and maybe that can be used to make assignments visible, but hide them from
+///   plain Git. Maybe showing them as plain git commit even is a good thing, i.e. it's discoverable
+///   and could be uncommitted to geth the cahnges back, but ideally this functionality is at
+///   least more integrated where it matters and maybe implemented and tested in the crate
+///   that implements assignments.
+/// - The assignment commit is materialised immediately, even though it could be held in limbo
+///   and combined with unapply later to materisalise everything at once. Right now this would
+///   be hard to achieve though, but it's definitely possible.
+fn commit_assigned_diffspec(
+    ctx: &mut Context,
+    branch: &gix::refs::FullNameRef,
+    assigned_diffspec: Vec<DiffSpec>,
+    perm: &mut RepoExclusive,
+) -> Result<()> {
+    if assigned_diffspec.is_empty() {
+        return Ok(());
+    }
+
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let outcome = but_workspace::commit::commit_create(
+        editor,
+        assigned_diffspec,
+        RelativeToRef::Reference(branch),
+        InsertSide::Below,
+        "WIP Assignments",
+        ctx.settings.context_lines,
+    )?;
+    if !outcome.rejected_specs.is_empty() {
+        tracing::warn!(
+            ?outcome.rejected_specs,
+            "Failed to commit at least one hunk"
+        );
+    }
+    if outcome.commit_selector.is_some() {
+        outcome.rebase.materialize()?;
+        drop((repo, ws));
+        ctx.reload_repo_and_invalidate_workspace(perm)?;
+    }
     Ok(())
 }
 

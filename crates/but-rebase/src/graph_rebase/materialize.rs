@@ -52,6 +52,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
                             uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
                             skip_head_update: true,
                             merge_base_override,
+                            allow_conflicted_commit_checkout: true,
                         },
                     )?;
                 }

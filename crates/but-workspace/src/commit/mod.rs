@@ -112,6 +112,17 @@ pub mod merge {
         pub segment_idx: SegmentIndex,
     }
 
+    /// Tips resolved from workspace metadata, with references that metadata mentioned but the graph
+    /// couldn't resolve.
+    /// Returned by [WorkspaceCommit::tips_from_metadata()].
+    pub struct ResolvedTips {
+        /// Tips in the order they should appear as workspace commit parents.
+        pub tips: Vec<Tip>,
+        /// Metadata stack tips that couldn't be found in the graph.
+        /// This is usually a problem, as the Graph is expected to contain everything of interest.
+        pub missing_stacks: Vec<gix::refs::FullName>,
+    }
+
     /// A minimal stack for to represent a stack that conflicted.
     #[derive(Clone)]
     pub struct ConflictingStack {
@@ -154,6 +165,76 @@ pub mod merge {
 
     /// Merging - create a merge-commit along with its tree.
     impl WorkspaceCommit<'_> {
+        /// Resolve workspace metadata and anonymous stacks into merge tips.
+        ///
+        /// This preserves metadata ordering, reports missing metadata stacks, and inserts anonymous
+        /// stacks at their projected parent slots while avoiding duplicate commit/segment tips.
+        ///
+        /// `stacks` are the workspace metadata stacks whose top branches should become named
+        /// merge tips unless they are marked outside of the workspace.
+        ///
+        /// `anon_stacks` are unnamed projected tips paired with the parent slot they occupied in
+        /// the workspace projection, used to preserve anonymous parents not represented in metadata.
+        ///
+        /// `graph` resolves metadata branch names to commit and segment ids.
+        pub fn tips_from_metadata<'a>(
+            stacks: impl IntoIterator<Item = &'a but_core::ref_metadata::WorkspaceStack>,
+            anon_stacks: impl IntoIterator<Item = (usize, Tip)>,
+            graph: &but_graph::Graph,
+        ) -> ResolvedTips {
+            let mut missing_stacks = Vec::new();
+            let mut tips_with_metadata_slots: Vec<_> = stacks
+                .into_iter()
+                .filter_map(|s| s.branches.first().map(|b| (b, s.workspacecommit_relation)))
+                .map(|(top_segment, relation)| {
+                    match relation {
+                        WorkspaceCommitRelation::Merged => {}
+                        WorkspaceCommitRelation::MergeFrom { .. } => {
+                            // These need to be part of the parents list, but shouldn't be merged.
+                            // If the caller wants to retry them, they can be passed here as "Merged".
+                            todo!(
+                                "this is a placeholder for where we will have to start handling this UnmergedTree"
+                            )
+                        }
+                        WorkspaceCommitRelation::Outside => return None,
+                    }
+                    let stack_tip_name = top_segment.ref_name.as_ref();
+                    match graph.segment_and_commit_by_ref_name(stack_tip_name) {
+                        None => {
+                            missing_stacks.push(top_segment.ref_name.to_owned());
+                            None
+                        }
+                        Some((segment, commit)) => Some(Tip {
+                            name: Some(stack_tip_name.to_owned()),
+                            commit_id: commit.id,
+                            segment_idx: segment.id,
+                        }),
+                    }
+                })
+                .collect();
+            let named_tips = tips_with_metadata_slots
+                .iter()
+                .flatten()
+                .cloned()
+                .collect::<Vec<_>>();
+            let mut anon_stacks = anon_stacks.into_iter().collect::<Vec<_>>();
+            anon_stacks.sort_by_key(|(idx, _)| *idx);
+            for (idx, anon_tip) in anon_stacks {
+                if named_tips.iter().any(|t| {
+                    t.commit_id == anon_tip.commit_id || t.segment_idx == anon_tip.segment_idx
+                }) {
+                    // prevent duplication of tips, make calling this easier as well.
+                    continue;
+                }
+                tips_with_metadata_slots
+                    .insert(idx.min(tips_with_metadata_slots.len()), Some(anon_tip));
+            }
+            ResolvedTips {
+                tips: tips_with_metadata_slots.into_iter().flatten().collect(),
+                missing_stacks,
+            }
+        }
+
         /// like [`Self::from_new_merge_with_metadata`], but supports tips, which makes it possible to re-merge anything
         /// even if the tip is unnamed.
         /// Note that [`missing_stacks`](Outcome::missing_stacks) is never set.
@@ -403,10 +484,6 @@ pub mod merge {
         /// `repo` is expected to be configured to be suitable for merges, and it *should* be configured to write objects into memory
         /// unless the caller knows that any result of the merge is acceptable.
         ///
-        /// IMPORTANT: This inherently needs the tips to be represented by named branches, so this can't be used to
-        ///            re-merge a workspace with lost or renamed branches. It is, however, good to 'fix' workspaces
-        ///            whose tips were advanced and now are outside the workspace, provide the ref that advanced still exists.
-        ///
         /// ### Shortcoming: inefficient conflict behaviour
         ///
         /// In order to find out exactly which branches conflicts, we repeat the whole operations with different configuration.
@@ -425,43 +502,10 @@ pub mod merge {
             repo: &gix::Repository,
             hero_stack: Option<&gix::refs::FullNameRef>,
         ) -> anyhow::Result<Outcome> {
-            let mut missing_stacks = Vec::new();
-            let mut tips: Vec<_> = stacks
-                .into_iter()
-                .filter_map(|s| s.branches.first().map(|b| (b, s.workspacecommit_relation)))
-                .filter_map(|(top_segment, relation)| {
-                    match relation {
-                        WorkspaceCommitRelation::Merged => {}
-                        WorkspaceCommitRelation::MergeFrom { .. } => {
-                            // These need to be part of the parents list, but shouldn't be merged.
-                            // If the caller wants to retry them, they can be passed here as "Merged".
-                            todo!("this is a placeholder for where we will have to start handling this UnmergedTree")
-                        }
-                        WorkspaceCommitRelation::Outside => return None,
-                    }
-                    let stack_tip_name = top_segment.ref_name.as_ref();
-                    match graph.segment_and_commit_by_ref_name(stack_tip_name) {
-                        None => {
-                            missing_stacks.push(top_segment.ref_name.to_owned());
-                            None
-                        }
-                        Some((segment, commit)) => Some(Tip {
-                            name: Some(stack_tip_name.to_owned()),
-                            commit_id: commit.id,
-                            segment_idx: segment.id,
-                        }),
-                    }
-                })
-                .collect();
-            for (idx, anon_tip) in anon_stacks {
-                if tips.iter().any(|t| {
-                    t.commit_id == anon_tip.commit_id || t.segment_idx == anon_tip.segment_idx
-                }) {
-                    // prevent duplication of tips, make calling this easier as well.
-                    continue;
-                }
-                tips.insert(idx, anon_tip)
-            }
+            let ResolvedTips {
+                tips,
+                missing_stacks,
+            } = Self::tips_from_metadata(stacks, anon_stacks, graph);
             let mut out = Self::from_new_merge_with_tips(tips, graph, repo, hero_stack)?;
             out.missing_stacks = missing_stacks;
             Ok(out)

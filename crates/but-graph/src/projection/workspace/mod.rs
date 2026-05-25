@@ -50,6 +50,12 @@ pub struct Workspace {
     pub target_commit: Option<TargetCommit>,
     /// Read-only workspace metadata with additional information, or `None` if nothing was present.
     /// If this is `Some()` the `kind` is always [`WorkspaceKind::Managed`]
+    ///
+    /// # WARNING
+    ///
+    /// Do not use this data to understand the workspace. It's unreconciled metadata which may
+    /// have nothing to do with the actual workspace.
+    /// To see that, look at [Self::stacks].
     pub metadata: Option<ref_metadata::Workspace>,
 }
 

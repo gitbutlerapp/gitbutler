@@ -1149,11 +1149,14 @@ name = "but-debug"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-api",
  "but-core",
  "but-ctx",
  "but-graph",
  "but-testsupport",
+ "but-workspace",
  "clap",
+ "gitbutler-reference",
  "gix",
  "insta",
  "open",

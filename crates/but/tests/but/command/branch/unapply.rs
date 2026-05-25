@@ -10,11 +10,11 @@ use crate::{
 #[test]
 fn single_branch() -> anyhow::Result<()> {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
-* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 9477ae7 (A) add A
-* 0dc3733 (origin/main, origin/HEAD, main) add M
-");
+    insta::assert_snapshot!(env.git_log()?, @"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
 
     env.setup_metadata(&["A"])?;
 
@@ -45,9 +45,9 @@ Unapplied stack with branches 'feature-branch' from workspace
 "#]]);
 
     // Verify the branch is removed from workspace
-    insta::assert_snapshot!(env.git_log()?, @r"
+    insta::assert_snapshot!(env.git_log()?, @"
     * 9f9d5a6 (feature-branch) Add feature
-    | * 4ee40a2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * 0bbfbfd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | * 9477ae7 (A) add A
     |/  
     * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
@@ -59,11 +59,11 @@ Unapplied stack with branches 'feature-branch' from workspace
 #[test]
 fn unapply_with_json_output() -> anyhow::Result<()> {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
-* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 9477ae7 (A) add A
-* 0dc3733 (origin/main, origin/HEAD, main) add M
-");
+    insta::assert_snapshot!(env.git_log()?, @"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
 
     env.setup_metadata(&["A"])?;
 
@@ -81,9 +81,9 @@ fn unapply_with_json_output() -> anyhow::Result<()> {
         .success()
         .stderr_eq(str![]);
 
-    insta::assert_snapshot!(env.git_log()?, @r"
+    insta::assert_snapshot!(env.git_log()?, @"
     * 9f9d5a6 (feature-branch) Add feature
-    | * 4ee40a2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * 0bbfbfd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | * 9477ae7 (A) add A
     |/  
     * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
@@ -201,11 +201,11 @@ Failed to unapply branch. Branch 'feature-branch' not found in any applied stack
 #[test]
 fn unapply_remote_tracking_branch() -> anyhow::Result<()> {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
-* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 9477ae7 (A) add A
-* 0dc3733 (origin/main, origin/HEAD, main) add M
-");
+    insta::assert_snapshot!(env.git_log()?, @"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
 
     env.setup_metadata(&["A"])?;
 
@@ -242,8 +242,8 @@ Unapplied stack with branches 'remote-feature' from workspace
 "#]]);
 
     // Verify it was removed from workspace
-    insta::assert_snapshot!(env.git_log()?, @r"
-    * 4ee40a2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    insta::assert_snapshot!(env.git_log()?, @"
+    * 0bbfbfd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 9477ae7 (A) add A
     | * ba02e5f (origin/remote-feature, remote-feature) Add remote feature
     |/  

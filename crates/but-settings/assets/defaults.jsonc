@@ -23,8 +23,10 @@
 	"featureFlags": {
 		// Enables the v3 safe checkout.
 		"cv3": false,
-		/// Enable the usage of V3 workspace APIs.
-		"ws3": true,
+		/// Enable the V3 unapply implementation.
+		"unapplyV3": false,
+		/// Use the V3 unapply compatibility mode that keeps workspace commits unless deleting the workspace ref.
+		"unapplyV3Pgm": false,
 		/// Enable undo/redo support.
 		"undo": false,
 		/// Enable processing of workspace rules.

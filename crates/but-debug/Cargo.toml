@@ -15,9 +15,14 @@ path = "src/main.rs"
 doctest = false
 
 [dependencies]
+but-api = { workspace = true, features = ["legacy"] }
 but-core.workspace = true
 but-ctx.workspace = true
 but-graph.workspace = true
+but-workspace.workspace = true
+
+gitbutler-reference.workspace = true
+
 anyhow.workspace = true
 clap = { workspace = true, features = [
     "env",

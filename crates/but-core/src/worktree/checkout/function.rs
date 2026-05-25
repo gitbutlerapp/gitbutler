@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use anyhow::Context as _;
+use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use but_oxidize::ObjectIdExt;
 use gix::{
@@ -35,6 +35,7 @@ pub fn safe_checkout_from_head(
 ///
 /// If `new_head_id` is a *commit*, we will also set `HEAD` (or the ref it points to if symbolic) to the `new_head_id`.
 /// We will also update the `.git/index` to match the `new_head_id^{tree}`.
+/// GitButler-conflicted commits are rejected by default before any worktree, index, or ref update.
 /// Note that the value for [`super::UncommitedWorktreeChanges`] is critical to determine what happens if a change would be overwritten.
 ///
 /// We will always handle changes in the worktree safely to avoid loss of uncommitted information. This also means that deletions
@@ -54,10 +55,17 @@ pub fn safe_checkout(
         uncommitted_changes: conflicting_worktree_changes_opts,
         skip_head_update,
         merge_base_override,
+        allow_conflicted_commit_checkout,
     }: Options,
 ) -> anyhow::Result<Outcome> {
     let source_tree = current_head_id.attach(repo).object()?.peel_to_tree()?;
     let new_object = new_head_id.attach(repo).object()?;
+    if !allow_conflicted_commit_checkout
+        && new_object.kind.is_commit()
+        && crate::Commit::from_id(new_head_id.attach(repo))?.is_conflicted()
+    {
+        bail!("Refusing to check out conflicted commit {new_head_id}");
+    }
     let mut destination_tree = new_object.clone().peel_to_tree()?;
 
     let mut delegate = super::utils::Delegate::default();

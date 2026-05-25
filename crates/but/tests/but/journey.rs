@@ -172,7 +172,7 @@ fn from_workspace() -> anyhow::Result<()> {
     |/  
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
-    insta::assert_snapshot!(env.git_status()?, @r"");
+    insta::assert_snapshot!(env.git_status()?, @"");
 
     // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
     env.setup_metadata(&["A", "B"])?;

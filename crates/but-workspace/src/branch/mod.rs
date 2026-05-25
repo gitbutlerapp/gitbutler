@@ -410,7 +410,7 @@
 //!                                      junctions', decide which parent to
 //!                                      walk along.
 //! ```
-use but_core::ref_metadata::StackId;
+use but_core::ref_metadata::{StackId, StackKind, WorkspaceCommitRelation::Outside};
 
 use crate::ref_info;
 
@@ -476,9 +476,131 @@ impl OnWorkspaceMergeConflict {
     }
 }
 
-/// Functions and types related to applying a workspace branch.
+/// Convert unnamed projected stacks into merge tips while preserving their parent order.
+///
+/// Named stacks are driven by workspace metadata, but anonymous stacks have no metadata entry
+/// and must be supplied explicitly when rebuilding a workspace merge commit.
+///
+/// Each returned tuple is `(parent_index, tip)`: `parent_index` is the stack's position in the
+/// projected workspace so the merge builder can insert the anonymous tip at the same parent slot,
+/// and `tip` is the commit/segment pair to merge, with no ref name attached.
+pub(crate) fn anon_stacks(
+    stacks: &[but_graph::workspace::Stack],
+) -> impl Iterator<Item = (usize, crate::commit::merge::Tip)> {
+    stacks.iter().enumerate().filter_map(|(idx, s)| {
+        if s.ref_name().is_none() {
+            s.tip_skip_empty().and_then(|cid| {
+                s.segments.first().map(|s| {
+                    (
+                        idx,
+                        crate::commit::merge::Tip {
+                            name: None,
+                            commit_id: cid,
+                            segment_idx: s.id,
+                        },
+                    )
+                })
+            })
+        } else {
+            None
+        }
+    })
+}
+
+/// Ensure every metadata stack that should be merged was visible in the graph.
+pub(crate) fn ensure_no_missing_stacks(
+    merge: &crate::commit::merge::Outcome,
+) -> anyhow::Result<()> {
+    if merge.missing_stacks.is_empty() {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!(
+            "Somehow some of the workspace stacks weren't part of the graph: {:#?}",
+            merge.missing_stacks
+        ))
+    }
+}
+
+/// Map conflicting merge tips back to stable workspace stack ids.
+///
+/// Each entry in `conflicts` may carry the ref name of the tip that could not be merged. That ref
+/// name is looked up in `ws_md` across both applied and unapplied stacks, and the owning stack's
+/// stable id is returned.
+///
+/// Conflicts without a ref name, or whose ref name is no longer known to the
+/// workspace metadata, are skipped.
+pub(crate) fn correlate_conflicting_stack_ids(
+    ws_md: &but_core::ref_metadata::Workspace,
+    conflicts: &[crate::commit::merge::ConflictingStack],
+) -> Vec<StackId> {
+    conflicts
+        .iter()
+        .filter_map(|cs| cs.ref_name.as_ref())
+        .filter_map(|ref_name| {
+            ws_md
+                .find_stack_with_branch(ref_name.as_ref(), StackKind::AppliedAndUnapplied)
+                .map(|stack| stack.id)
+        })
+        .collect()
+}
+
+/// Mark conflicting stacks as outside the workspace and return their stable stack ids.
+///
+/// This is used when the caller chooses to materialize the best-effort merge result: the
+/// conflicting branches remain known in metadata, but are no longer represented in the
+/// checked-out workspace tree.
+///
+/// For each conflicting stack id given in `conflicts` and found in `ws_md`, this changes only
+/// `WorkspaceStack::workspacecommit_relation` to `Outside`. The stack entry and its branch list
+/// stay in `ws_md`, so the branch can still be re-applied later with its metadata intact.
+pub(crate) fn correlate_conflicting_stack_ids_and_remove_from_workspace(
+    ws_md: &mut but_core::ref_metadata::Workspace,
+    conflicts: &[crate::commit::merge::ConflictingStack],
+) -> Vec<StackId> {
+    let conflicting_stack_ids = correlate_conflicting_stack_ids(ws_md, conflicts);
+    for conflicting_id in &conflicting_stack_ids {
+        let stack = ws_md
+            .stacks
+            .iter_mut()
+            .find(|s| s.id == *conflicting_id)
+            .expect("if it was found before it will be found as id");
+        // TODO: this might as well be 'Unmerged' to keep them in the workspace, but not let them be merged.
+        stack.workspacecommit_relation = Outside;
+    }
+    conflicting_stack_ids
+}
+
+/// Find `branch` in `repo` and reject it if it resolves to a symbolic reference.
+///
+/// `operation` is used only for the error message so callers such as apply and unapply can share
+/// validation while still reporting the action they refused to perform.
+///
+/// Missing references are returned as `Ok(None)` so each caller can decide whether absence is an error or a no-op.
+pub(crate) fn try_find_validated_ref<'repo>(
+    repo: &'repo gix::Repository,
+    branch: &gix::refs::FullNameRef,
+    operation: &str,
+) -> anyhow::Result<Option<gix::Reference<'repo>>> {
+    let branch_ref = repo.try_find_reference(branch)?;
+    if branch_ref
+        .as_ref()
+        .is_some_and(|r| matches!(r.target(), gix::refs::TargetRef::Symbolic(_)))
+    {
+        anyhow::bail!(
+            "Refusing to {operation} symbolic ref '{}' due to potential ambiguity",
+            branch.shorten()
+        );
+    }
+    Ok(branch_ref)
+}
+
+/// Functions and types related to adding a branch to the workspace.
 pub mod apply;
 pub use apply::apply;
+
+/// Functions and types related to removing a branch from the workspace.
+pub mod unapply;
+pub use unapply::function::unapply;
 
 /// related types for removing a workspace reference.
 pub mod remove_reference;

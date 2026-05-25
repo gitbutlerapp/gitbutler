@@ -90,11 +90,11 @@ use crate::command::branch::apply::utils::create_local_branch_with_commit_with_m
 #[test]
 fn local_branch() -> anyhow::Result<()> {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
-* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 9477ae7 (A) add A
-* 0dc3733 (origin/main, origin/HEAD, main) add M
-");
+    insta::assert_snapshot!(env.git_log()?, @"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
 
     env.setup_metadata(&["A"])?;
 
@@ -138,11 +138,11 @@ refs/heads/feature-branch
 #[test]
 fn local_branch_with_json_output() -> anyhow::Result<()> {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
-* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 9477ae7 (A) add A
-* 0dc3733 (origin/main, origin/HEAD, main) add M
-");
+    insta::assert_snapshot!(env.git_log()?, @"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
 
     env.setup_metadata(&["A"])?;
 
@@ -207,11 +207,11 @@ fn local_branch_with_json_output() -> anyhow::Result<()> {
 #[test]
 fn remote_branch_creates_local_tracking_branch_automatically() -> anyhow::Result<()> {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
-* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 9477ae7 (A) add A
-* 0dc3733 (origin/main, origin/HEAD, main) add M
-");
+    insta::assert_snapshot!(env.git_log()?, @"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
 
     env.setup_metadata(&["A"])?;
 
@@ -251,11 +251,11 @@ Applied remote branch 'origin/remote-feature' to workspace
 #[test]
 fn remote_branch_short_name_resolves_to_unique_remote_tracking_branch() -> anyhow::Result<()> {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
-* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 9477ae7 (A) add A
-* 0dc3733 (origin/main, origin/HEAD, main) add M
-");
+    insta::assert_snapshot!(env.git_log()?, @"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
 
     env.setup_metadata(&["A"])?;
 
@@ -296,11 +296,11 @@ Applied remote branch 'origin/remote-feature' to workspace
 fn remote_branch_short_name_requires_disambiguation_across_multiple_remotes() -> anyhow::Result<()>
 {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
-* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 9477ae7 (A) add A
-* 0dc3733 (origin/main, origin/HEAD, main) add M
-");
+    insta::assert_snapshot!(env.git_log()?, @"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
 
     env.setup_metadata(&["A"])?;
 
@@ -417,11 +417,11 @@ Failed to apply branch. The reference 'nonexistent-branch' did not exist
 #[test]
 fn multiple_branches_sequentially() -> anyhow::Result<()> {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
-* edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 9477ae7 (A) add A
-* 0dc3733 (origin/main, origin/HEAD, main) add M
-");
+    insta::assert_snapshot!(env.git_log()?, @"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
 
     env.setup_metadata(&["A"])?;
 

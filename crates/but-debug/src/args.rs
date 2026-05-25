@@ -30,13 +30,60 @@ pub struct Args {
 /// The debugging subcommands supported by `but-debug`.
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
+    /// Call selected but-api entry points directly.
+    Api(ApiArgs),
     /// Archive a repository for debugging.
     Dump(DumpArgs),
     /// Return a segmented graph starting from `HEAD`.
     Graph(GraphArgs),
+    /// Apply a local branch using the new but-workspace apply path.
+    Apply(ApplyArgs),
+    /// Unapply a local branch using the new but-workspace unapply path.
+    Unapply(UnapplyArgs),
     /// Debug revision graph operations.
     #[clap(visible_alias = "rev")]
     Revision(RevisionArgs),
+}
+
+/// Arguments for direct `but-api` calls.
+#[derive(Debug, clap::Args)]
+pub struct ApiArgs {
+    /// The API command to run.
+    #[command(subcommand)]
+    pub cmd: ApiSubcommands,
+}
+
+/// The `but-api` entry points exposed by `but-debug`.
+#[derive(Debug, clap::Subcommand)]
+pub enum ApiSubcommands {
+    /// Apply a branch through `but_api::legacy::virtual_branches::create_virtual_branch_from_branch`.
+    Apply(ApiApplyArgs),
+    /// Unapply a stack through `but_api::legacy::virtual_branches::unapply_stack`.
+    #[command(name = "unapply-stack", visible_alias = "unapply")]
+    UnapplyStack(ApiUnapplyStackArgs),
+}
+
+/// Arguments for `but-debug api apply`.
+#[derive(Debug, clap::Args)]
+pub struct ApiApplyArgs {
+    /// Shared workspace debug output options.
+    #[command(flatten)]
+    pub debug: DebugWorkspaceArgs,
+    /// Optional pull request number to store on the applied branch.
+    #[arg(long)]
+    pub pr_number: Option<usize>,
+    /// Branch or full ref name to apply.
+    pub branch: String,
+}
+
+/// Arguments for `but-debug api unapply-stack`.
+#[derive(Debug, clap::Args)]
+pub struct ApiUnapplyStackArgs {
+    /// Shared workspace debug output options.
+    #[command(flatten)]
+    pub debug: DebugWorkspaceArgs,
+    /// Stack UUID, stack tip branch name, or any branch name in the stack.
+    pub stack: String,
 }
 
 /// Arguments for the `dump` debugging subcommand.
@@ -145,6 +192,83 @@ pub struct GraphArgs {
     pub dot_show: bool,
     /// The name of the ref to start the graph traversal at.
     pub ref_name: Option<String>,
+}
+
+/// Arguments for direct workspace mutation commands.
+#[derive(Debug, clap::Args)]
+pub struct ApplyArgs {
+    /// Shared workspace debug output options.
+    #[command(flatten)]
+    pub debug: DebugWorkspaceArgs,
+    /// Branch or full ref name to apply or unapply.
+    pub ref_name: String,
+}
+
+/// Arguments for direct workspace unapply commands.
+#[derive(Debug, clap::Args)]
+pub struct UnapplyArgs {
+    /// Shared workspace debug output options.
+    #[command(flatten)]
+    pub debug: DebugWorkspaceArgs,
+    /// How the workspace should be represented after unapplying.
+    #[arg(long, value_enum, default_value_t = WorkspaceDispositionArg::KeepWorkspaceReference)]
+    pub disposition: WorkspaceDispositionArg,
+    /// Branch or full ref name to unapply.
+    pub ref_name: String,
+}
+
+/// Workspace disposition choices exposed by `but-debug unapply`.
+#[derive(Debug, Copy, Clone, clap::ValueEnum)]
+pub enum WorkspaceDispositionArg {
+    /// Preserve the managed workspace commit even if it is no longer necessary.
+    KeepWorkspaceCommit,
+    /// Collapse unnecessary workspace commits, but keep the workspace reference checked out.
+    KeepWorkspaceReference,
+    /// Delete the workspace reference after switching away when it is no longer necessary.
+    PreventUnnecessaryWorkspaceReferences,
+    /// Delete the workspace reference when possible, otherwise keep the workspace merge commit for compatibility.
+    PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit,
+}
+
+impl From<WorkspaceDispositionArg> for but_workspace::branch::unapply::WorkspaceDisposition {
+    fn from(value: WorkspaceDispositionArg) -> Self {
+        use but_workspace::branch::unapply::WorkspaceDisposition as T;
+        match value {
+            WorkspaceDispositionArg::KeepWorkspaceCommit => T::KeepWorkspaceCommit,
+            WorkspaceDispositionArg::KeepWorkspaceReference => T::KeepWorkspaceReference,
+            WorkspaceDispositionArg::PreventUnnecessaryWorkspaceReferences => {
+                T::PreventUnnecessaryWorkspaceReferences
+            }
+            WorkspaceDispositionArg::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit => {
+                T::PreventUnnecessaryWorkspaceReferencesKeepWorkspaceCommit
+            }
+        }
+    }
+}
+
+/// Shared option for commands that can debug-print the post-operation workspace.
+#[derive(Debug, clap::Args)]
+pub struct DebugWorkspaceArgs {
+    /// Debug-print the workspace after the mutation.
+    #[arg(long, visible_alias = "ws")]
+    pub debug_workspace: bool,
+    /// Re-read the workspace from repository state before emitting post-operation workspace output.
+    #[arg(long, visible_alias = "invalidate")]
+    pub invalidate_workspace: bool,
+}
+
+impl DebugWorkspaceArgs {
+    /// Emit the workspace details controlled only by these debug options.
+    pub fn emit_workspace(
+        &self,
+        workspace: &but_graph::Workspace,
+        err: &mut dyn std::io::Write,
+    ) -> anyhow::Result<()> {
+        if self.debug_workspace {
+            writeln!(err, "{workspace:#?}")?;
+        }
+        Ok(())
+    }
 }
 
 /// Arguments for the `revision` subcommand.

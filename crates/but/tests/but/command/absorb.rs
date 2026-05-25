@@ -58,7 +58,7 @@ Hint: you can run `but undo` to undo these changes
     // Change was absorbed
     let repo = env.open_repo()?;
     let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
-    insta::assert_snapshot!(blob.data.as_bstr(), @r"
+    insta::assert_snapshot!(blob.data.as_bstr(), @"
     firsta
     line
     line
@@ -136,7 +136,7 @@ Hint: you can run `but undo` to undo these changes
     // Change was partially absorbed
     let repo = env.open_repo()?;
     let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
-    insta::assert_snapshot!(blob.data.as_bstr(), @r"
+    insta::assert_snapshot!(blob.data.as_bstr(), @"
     firsta
     line
     line
@@ -481,7 +481,7 @@ Dry run complete. No changes were made.
     // Verify the file content wasn't actually changed
     let repo = env.open_repo()?;
     let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
-    insta::assert_snapshot!(blob.data.as_bstr(), @r"
+    insta::assert_snapshot!(blob.data.as_bstr(), @"
     first
     line
     line

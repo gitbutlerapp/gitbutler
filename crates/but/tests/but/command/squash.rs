@@ -541,9 +541,9 @@ fn squash_multiple_commits_keeps_squashed_commit_content() -> anyhow::Result<()>
     let second_blob = repo.rev_parse_single(b"A:A-file2.txt")?.object()?;
     let third_blob = repo.rev_parse_single(b"A:A-file3.txt")?.object()?;
 
-    insta::assert_snapshot!(first_blob.data.as_bstr(), @"content for commit 1\n");
-    insta::assert_snapshot!(second_blob.data.as_bstr(), @"content for commit 2\n");
-    insta::assert_snapshot!(third_blob.data.as_bstr(), @"content for commit 3\n");
+    insta::assert_snapshot!(first_blob.data.as_bstr(), @"content for commit 1");
+    insta::assert_snapshot!(second_blob.data.as_bstr(), @"content for commit 2");
+    insta::assert_snapshot!(third_blob.data.as_bstr(), @"content for commit 3");
 
     let log_after = env.git_log()?;
     assert!(
@@ -732,7 +732,7 @@ fn squash_all_c_commits_into_second_commit_of_b_keeps_new_file_content() -> anyh
 
     let repo = env.open_repo()?;
     let new_file_blob = repo.rev_parse_single(b"B:new-file")?.object()?;
-    insta::assert_snapshot!(new_file_blob.data.as_bstr(), @r"
+    insta::assert_snapshot!(new_file_blob.data.as_bstr(), @"
     1
     2
     3

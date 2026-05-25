@@ -18,6 +18,8 @@ pub struct TelemetryUpdate {
 /// Update request for [`crate::app_settings::FeatureFlags`].
 pub struct FeatureFlagsUpdate {
     pub cv3: Option<bool>,
+    pub unapply_v3: Option<bool>,
+    pub unapply_v3_pgm: Option<bool>,
     pub rules: Option<bool>,
     pub single_branch: Option<bool>,
     pub irc: Option<bool>,
@@ -120,6 +122,8 @@ impl AppSettingsWithDiskSync {
         &self,
         FeatureFlagsUpdate {
             cv3,
+            unapply_v3,
+            unapply_v3_pgm,
             rules,
             single_branch,
             irc,
@@ -128,6 +132,12 @@ impl AppSettingsWithDiskSync {
         let mut settings = self.get_mut_enforce_save()?;
         if let Some(cv3) = cv3 {
             settings.feature_flags.cv3 = cv3;
+        }
+        if let Some(unapply_v3) = unapply_v3 {
+            settings.feature_flags.unapply_v3 = unapply_v3;
+        }
+        if let Some(unapply_v3_pgm) = unapply_v3_pgm {
+            settings.feature_flags.unapply_v3_pgm = unapply_v3_pgm;
         }
         if let Some(rules) = rules {
             settings.feature_flags.rules = rules;

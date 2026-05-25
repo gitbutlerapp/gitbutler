@@ -217,11 +217,18 @@ impl DerefMut for LocalCommit {
 /// Additional workspace functionality that can't easily be implemented in `but-graph`.
 pub trait WorkspaceExt {
     /// Return `true` if this workspace has a workspace commit that the workspace reference isn't directly pointing to.
+    /// Is always `false` for [managed workspaces](WorkspaceKind::Managed) whose reference is pointing to a managed commit.
+    ///
+    /// Workspaces without any workspace commit return `false`; this only detects a workspace commit
+    /// buried in the workspace history.
     fn has_workspace_commit_in_ancestry(&self, repo: &gix::Repository) -> bool;
 }
 
 impl WorkspaceExt for but_graph::Workspace {
     fn has_workspace_commit_in_ancestry(&self, repo: &Repository) -> bool {
+        if self.kind.has_managed_commit() {
+            return false;
+        }
         find_ancestor_workspace_commit(&self.graph, repo, self.id, self.lower_bound_segment_id)
             .is_some()
     }

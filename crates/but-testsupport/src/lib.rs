@@ -335,6 +335,23 @@ pub fn visualize_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
 ///   are encountered.
 #[cfg(unix)]
 pub fn visualize_disk_tree_skip_dot_git(root: &Path) -> anyhow::Result<termtree::Tree<String>> {
+    visualize_disk_tree_skip_dot_git_with_optional_hashes(root, false)
+}
+
+/// Just like [`visualize_disk_tree_skip_dot_git()`], but also show SHA-1 blob hashes for files.
+/// For convenience, skip `.git` and don't display the root.
+#[cfg(unix)]
+pub fn visualize_disk_tree_with_hashes_skip_dot_git(
+    root: &Path,
+) -> anyhow::Result<termtree::Tree<String>> {
+    visualize_disk_tree_skip_dot_git_with_optional_hashes(root, true)
+}
+
+#[cfg(unix)]
+fn visualize_disk_tree_skip_dot_git_with_optional_hashes(
+    root: &Path,
+    show_hashes: bool,
+) -> anyhow::Result<termtree::Tree<String>> {
     use std::os::unix::fs::MetadataExt;
     fn normalize_mode(mode: u32) -> u32 {
         let filetype_bits = 0o170000 & mode;
@@ -344,17 +361,27 @@ pub fn visualize_disk_tree_skip_dot_git(root: &Path) -> anyhow::Result<termtree:
         filetype_bits | normalized_permission_bits
     }
 
-    fn label(p: &Path, md: &std::fs::Metadata) -> String {
-        format!(
+    fn label(p: &Path, md: &std::fs::Metadata, show_hash: bool) -> anyhow::Result<String> {
+        let mut label = format!(
             "{name}:{mode:o}",
             name = p.file_name().unwrap().to_str().unwrap(),
             mode = normalize_mode(md.mode()),
-        )
+        );
+        if show_hash && let Ok(contents) = std::fs::read(p) {
+            let id =
+                gix::objs::compute_hash(gix::hash::Kind::Sha1, gix::object::Kind::Blob, &contents)?;
+            label.push_str(&format!(":{id}"));
+        }
+        Ok(label)
     }
 
-    fn tree(p: &Path, show_label: bool) -> std::io::Result<termtree::Tree<String>> {
+    fn tree(
+        p: &Path,
+        show_label: bool,
+        show_hashes: bool,
+    ) -> anyhow::Result<termtree::Tree<String>> {
         let mut cur = termtree::Tree::new(if show_label {
-            label(p, &p.symlink_metadata()?)
+            label(p, &p.symlink_metadata()?, show_hashes)?
         } else {
             ".".into()
         });
@@ -364,15 +391,15 @@ pub fn visualize_disk_tree_skip_dot_git(root: &Path) -> anyhow::Result<termtree:
         for entry in entries {
             let md = entry.metadata()?;
             if md.is_dir() && entry.file_name() != ".git" {
-                cur.push(tree(&entry.path(), true)?);
+                cur.push(tree(&entry.path(), true, show_hashes)?);
             } else {
-                cur.push(termtree::Tree::new(label(&entry.path(), &md)));
+                cur.push(termtree::Tree::new(label(&entry.path(), &md, show_hashes)?));
             }
         }
         Ok(cur)
     }
 
-    Ok(tree(root, false)?)
+    tree(root, false, show_hashes)
 }
 
 /// Write a `sequence` of numbers into `repo`.workdir / `filename`, where `sequences` can be `Some((1, 5))`,
@@ -579,6 +606,14 @@ fn writable_scenario_inner<T>(
 /// Windows dummy
 #[cfg(not(unix))]
 pub fn visualize_disk_tree_skip_dot_git(_root: &Path) -> anyhow::Result<termtree::Tree<String>> {
+    anyhow::bail!("BUG: must not run on Windows - results won't be desirable");
+}
+
+/// Windows dummy
+#[cfg(not(unix))]
+pub fn visualize_disk_tree_with_hashes_skip_dot_git(
+    _root: &Path,
+) -> anyhow::Result<termtree::Tree<String>> {
     anyhow::bail!("BUG: must not run on Windows - results won't be desirable");
 }
 

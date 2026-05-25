@@ -995,6 +995,10 @@ export type ExtraCsp = {
 export type FeatureFlags = {
   /** Turn on the set a v3 version of checkout */
   cv3: boolean;
+  /** Enable the V3 unapply implementation. */
+  unapplyV3: boolean;
+  /** Use the V3 unapply compatibility mode that keeps workspace commits unless deleting the workspace ref. */
+  unapplyV3Pgm: boolean;
   /**
    * Enable undo/redo support.
    *

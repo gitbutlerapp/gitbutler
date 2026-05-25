@@ -49,7 +49,7 @@ fn commit_id_works_with_two_or_more_characters() -> anyhow::Result<()> {
     let id1 = id(1);
     let stacks = vec![stack([segment("not-important", [id1], None, [])])];
     let id_map = IdMap::new(stacks, Vec::new())?;
-    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    insta::assert_debug_snapshot!(id_map.debug_state(), @"
     workspace_and_remote_commits_count: 1
     branches: [ no ]
     ");
@@ -118,7 +118,7 @@ fn commit_ids_become_longer_if_ambiguous() -> anyhow::Result<()> {
     let id3 = hex_to_id("21bccccccccccccccccccccccccccccccccccccc");
     let stacks = vec![stack([segment("not-important", [id1, id2, id3], None, [])])];
     let id_map = IdMap::new(stacks, Vec::new())?;
-    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    insta::assert_debug_snapshot!(id_map.debug_state(), @"
     workspace_and_remote_commits_count: 3
     branches: [ no ]
     ");
@@ -168,7 +168,7 @@ fn branches_work_with_single_character() -> anyhow::Result<()> {
      -> anyhow::Result<Vec<but_core::TreeChange>> {
         bail!("unexpected IDs {commit_id} {parent_id:?}");
     };
-    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    insta::assert_debug_snapshot!(id_map.debug_state(), @"
     workspace_and_remote_commits_count: 1
     branches: [ g0 ]
     ");
@@ -206,7 +206,7 @@ fn branches_match_by_substring() -> anyhow::Result<()> {
      -> anyhow::Result<Vec<but_core::TreeChange>> {
         bail!("unexpected IDs {commit_id} {parent_id:?}");
     };
-    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    insta::assert_debug_snapshot!(id_map.debug_state(), @"
     workspace_and_remote_commits_count: 4
     branches: [ az, g0, h0, i0 ]
     ");
@@ -251,7 +251,7 @@ fn branches_avoid_unassigned_area_id() -> anyhow::Result<()> {
      -> anyhow::Result<Vec<but_core::TreeChange>> {
         bail!("unexpected IDs {commit_id} {parent_id:?}");
     };
-    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    insta::assert_debug_snapshot!(id_map.debug_state(), @"
     workspace_and_remote_commits_count: 1
     branches: [ za ]
     ");
@@ -276,7 +276,7 @@ fn branches_avoid_invalid_ids() -> anyhow::Result<()> {
         segment("0ax", [id(2)], None, []),
     ])];
     let id_map = IdMap::new(stacks, Vec::new())?;
-    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    insta::assert_debug_snapshot!(id_map.debug_state(), @"
     workspace_and_remote_commits_count: 2
     branches: [ ax, yz ]
     ");
@@ -319,7 +319,7 @@ fn branches_avoid_uncommitted_filenames() -> anyhow::Result<()> {
      -> anyhow::Result<Vec<but_core::TreeChange>> {
         bail!("unexpected IDs {commit_id} {parent_id:?}");
     };
-    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    insta::assert_debug_snapshot!(id_map.debug_state(), @"
     workspace_and_remote_commits_count: 1
     branches: [ ij ]
     uncommitted_files: [ nx, yz ]
@@ -351,7 +351,7 @@ fn branch_cannot_generate_id() -> anyhow::Result<()> {
      -> anyhow::Result<Vec<but_core::TreeChange>> {
         bail!("unexpected IDs {commit_id} {parent_id:?}");
     };
-    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    insta::assert_debug_snapshot!(id_map.debug_state(), @"
     workspace_and_remote_commits_count: 2
     branches: [ g0, up ]
     ");
@@ -397,7 +397,7 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
         hunk_assignment("uncommitted2.txt", None),
     ];
     let id_map = IdMap::new(stacks, hunk_assignments)?;
-    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    insta::assert_debug_snapshot!(id_map.debug_state(), @"
     workspace_and_remote_commits_count: 1
     branches: [ h0 ]
     uncommitted_files: [ kv, ro ]
@@ -561,7 +561,7 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
             bail!("unexpected IDs {commit_id} {parent_id:?}");
         })
     };
-    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
+    insta::assert_debug_snapshot!(id_map.debug_state(), @"
     workspace_and_remote_commits_count: 1
     branches: [ h0 ]
     uncommitted_files: [ ln ]

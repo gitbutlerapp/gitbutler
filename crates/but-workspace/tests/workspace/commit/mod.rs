@@ -10,9 +10,10 @@ mod uncommit_changes;
 
 mod from_new_merge_with_metadata {
     use bstr::ByteSlice;
+    use but_core::ref_metadata::WorkspaceCommitRelation::Outside;
     use but_graph::init::{Options, Overlay};
     use but_testsupport::{visualize_commit_graph_all, visualize_tree};
-    use but_workspace::WorkspaceCommit;
+    use but_workspace::{WorkspaceCommit, commit::merge::Tip};
     use gix::{prelude::ObjectIdExt, refs::Target};
 
     use crate::ref_info::with_workspace_commit::utils::{
@@ -149,6 +150,62 @@ mod from_new_merge_with_metadata {
         ├── B:100644:223b783 "B\n"
         ├── C:100644:3cc58df "C\n"
         └── D:100644:1784810 "D\n"
+        "#);
+        Ok(())
+    }
+
+    #[test]
+    fn anonymous_tip_after_removed_parent_slot() -> anyhow::Result<()> {
+        let (repo, mut meta) =
+            named_read_only_in_memory_scenario("various-heads-for-clean-merge", "")?;
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+        * d3cce74 (add-A) add A
+        | * 115e41b (add-B) add B
+        |/  
+        | * 34c4591 (add-C) add C
+        |/  
+        | * 27ab782 (HEAD -> add-D) add D
+        |/  
+        * 85efbe4 (main, gitbutler/workspace) M
+        ");
+        add_stacks(&mut meta, ["add-A", "add-B", "add-C"]);
+        let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
+
+        let add_c_ref = "refs/heads/add-C".try_into()?;
+        let (segment, commit) = graph
+            .segment_and_commit_by_ref_name(add_c_ref)
+            .expect("add-C is visible in the graph");
+        let anon_c_tip = Tip {
+            name: None,
+            commit_id: commit.id,
+            segment_idx: segment.id,
+        };
+
+        let mut stacks = to_stacks(["add-A", "add-D", "add-B"]);
+        stacks
+            .get_mut(1)
+            .expect("add-D is the skipped metadata slot")
+            .workspacecommit_relation = Outside;
+
+        let out = WorkspaceCommit::from_new_merge_with_metadata(
+            &stacks,
+            [(2, anon_c_tip)],
+            &graph,
+            &repo,
+            None,
+        )?;
+
+        insta::assert_debug_snapshot!(out, "anonymous stacks preserve order after filtered named parents", @r#"
+        Outcome {
+            workspace_commit_id: Sha1(24731387ff4bfbd9c803b388d8f65ca64a9d87b3),
+            stacks: [
+                Stack { tip: d3cce74, name: "add-A" },
+                Stack { tip: 34c4591, name: None },
+                Stack { tip: 115e41b, name: "add-B" },
+            ],
+            missing_stacks: [],
+            conflicting_stacks: [],
+        }
         "#);
         Ok(())
     }
