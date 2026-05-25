@@ -6,7 +6,8 @@ use std::{
 
 use bstr::{BStr, ByteSlice};
 use but_core::{
-    RefMetadata, RepositoryExt, TreeChange, TreeStatus, open_repo_for_merging,
+    RefMetadata, RepositoryExt, TreeChange, TreeStatus, is_workspace_ref_name,
+    open_repo_for_merging,
     ref_metadata::{Branch, ValueInfo, Workspace},
 };
 use but_meta::VirtualBranchesTomlMetadata;
@@ -225,10 +226,10 @@ fn workspace_snapshot(repo: &gix::Repository) -> anyhow::Result<WorkspaceObserva
     if legacy_metadata_exists
         && let Ok(meta) = VirtualBranchesTomlMetadata::from_path_read_only(&metadata_path)
     {
-        return workspace_snapshot_with_meta(repo, &meta);
+        return workspace_snapshot_with_current_branch_fallback(repo, &meta);
     }
 
-    let mut observation = workspace_snapshot_with_meta(repo, &EmptyRefMetadata)?;
+    let mut observation = workspace_snapshot_with_current_branch_fallback(repo, &EmptyRefMetadata)?;
     if legacy_metadata_exists && observation.error_kind.is_none() {
         observation.error_kind = Some(SnapshotErrorKind::Workspace);
     }
@@ -240,6 +241,65 @@ fn legacy_metadata_exists(metadata_path: &Path) -> bool {
         || metadata_path
             .parent()
             .is_some_and(|storage_path| storage_path.join("but.sqlite").is_file())
+}
+
+fn workspace_snapshot_with_current_branch_fallback(
+    repo: &gix::Repository,
+    meta: &impl RefMetadata,
+) -> anyhow::Result<WorkspaceObservation> {
+    match workspace_snapshot_with_meta(repo, meta) {
+        Ok(mut observation) => {
+            if observation.observed_targets.is_empty()
+                && let Ok(fallback) = current_branch_targets(repo, meta)
+                && !fallback.is_empty()
+            {
+                observation.observed_targets = fallback;
+            }
+            Ok(observation)
+        }
+        Err(error) => match current_branch_targets(repo, meta) {
+            Ok(fallback) if !fallback.is_empty() => Ok(WorkspaceObservation {
+                stacks: Vec::new(),
+                observed_targets: fallback,
+                error_kind: Some(SnapshotErrorKind::Workspace),
+            }),
+            _ => Err(error),
+        },
+    }
+}
+
+fn current_branch_targets(
+    repo: &gix::Repository,
+    meta: &impl RefMetadata,
+) -> anyhow::Result<ObservedTargets> {
+    let head = repo.head()?;
+    let Some(ref_name) = head.referent_name() else {
+        anyhow::bail!("HEAD is detached");
+    };
+    let full_ref_name = ref_name.to_string();
+    if !full_ref_name.starts_with("refs/heads/") {
+        anyhow::bail!("HEAD does not point to a local branch");
+    }
+    if is_workspace_ref_name(ref_name) {
+        anyhow::bail!("HEAD points to the GitButler workspace branch");
+    }
+    let branch = BranchTarget {
+        key: format!("ref:{full_ref_name}"),
+        name: ref_name.shorten().to_string(),
+    };
+    let reviews = meta
+        .branch_opt(ref_name)
+        .ok()
+        .flatten()
+        .map(|branch_metadata| review_targets(&branch.key, Some(&branch_metadata)))
+        .unwrap_or_default();
+    let mut observed_targets = ObservedTargets {
+        branches: vec![branch],
+        reviews,
+        changes: Vec::new(),
+    };
+    observed_targets.sort_and_dedup();
+    Ok(observed_targets)
 }
 
 fn workspace_snapshot_with_meta(
@@ -364,6 +424,10 @@ impl PathList {
 }
 
 impl ObservedTargets {
+    fn is_empty(&self) -> bool {
+        self.branches.is_empty() && self.reviews.is_empty() && self.changes.is_empty()
+    }
+
     pub(crate) fn branch_keys(&self) -> impl Iterator<Item = &str> {
         self.branches.iter().map(|target| target.key.as_str())
     }

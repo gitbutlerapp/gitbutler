@@ -590,7 +590,7 @@ mod tests {
     }
 
     #[test]
-    fn skim_includes_unrelated_turns_in_related_sessions() {
+    fn skim_marks_session_associated_follow_up_related() {
         let repo = setup_repo();
         let related_turn_key = write_turn_for_session_with_targets(
             repo.path(),
@@ -624,7 +624,7 @@ mod tests {
         let json = serde_json::to_value(&output).expect("serialize command output");
 
         assert_eq!(json["coverage"]["showing_turns"], 2);
-        assert_eq!(json["coverage"]["related_turn_count"], 1);
+        assert_eq!(json["coverage"]["related_turn_count"], 2);
         assert_eq!(
             json["sessions"][0]["turns"][0]["turn_key"],
             related_turn_key
@@ -634,10 +634,10 @@ mod tests {
             json["sessions"][0]["turns"][1]["turn_key"],
             unrelated_turn_key
         );
-        assert_eq!(json["sessions"][0]["turns"][1]["related"], false);
+        assert_eq!(json["sessions"][0]["turns"][1]["related"], true);
         assert_eq!(
             json["sessions"][0]["previews"][0],
-            "assistant: related setup"
+            "assistant: unrelated follow-up"
         );
     }
 

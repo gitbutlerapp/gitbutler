@@ -422,6 +422,79 @@ fn find_related_sessions_returns_verified_turn_keys() {
 }
 
 #[test]
+fn session_target_association_backfills_targetless_turns() {
+    let repo = setup_repo();
+    let first_turn_key = write_turn_with_targets(
+        repo.path(),
+        "Initial targetless prompt",
+        ObservedTargets::default(),
+    );
+    let second_turn_key = write_turn_with_targets(
+        repo.path(),
+        "Branch-associated work",
+        ObservedTargets::from_index_keys_for_testing(
+            TEST_BRANCH_KEY,
+            TEST_PR_REVIEW_KEY,
+            TEST_CHANGE_KEY,
+        ),
+    );
+    let third_turn_key = write_turn_with_targets(
+        repo.path(),
+        "Later targetless follow-up",
+        ObservedTargets::default(),
+    );
+    let expected_turn_keys = vec![first_turn_key, second_turn_key, third_turn_key];
+
+    let branch = only_related(repo.path(), RelatedTarget::Branch(TEST_BRANCH_KEY));
+    assert_eq!(branch.related_turn_keys, expected_turn_keys);
+    let review = only_related(repo.path(), RelatedTarget::Review(TEST_PR_REVIEW_KEY));
+    assert_eq!(review.related_turn_keys, branch.related_turn_keys);
+
+    let first_detail = turn_detail(repo.path(), TEST_SESSION_KEY, &expected_turn_keys[0]);
+    assert!(
+        first_detail["observed_targets"]["branches"]
+            .as_array()
+            .expect("observed branches")
+            .is_empty(),
+        "backfill must not rewrite what the turn observed at capture time"
+    );
+    let associated_targets_key =
+        format!("gitbutler:agent-session:{TEST_SESSION_KEY}:associated-targets");
+    let Some(MetaValue::String(associated_targets)) =
+        project_value(repo.path(), &associated_targets_key)
+    else {
+        panic!("expected session target associations");
+    };
+    let associated_targets: serde_json::Value =
+        serde_json::from_str(&associated_targets).expect("associated targets json");
+    assert!(
+        associated_targets["branches"]
+            .as_array()
+            .expect("associated branches")
+            .iter()
+            .any(|branch| branch.as_str() == Some(TEST_BRANCH_KEY)),
+        "backfill stores the session branch association"
+    );
+
+    let projection = project_pr(repo.path(), &projection_request()).expect("project PR");
+    let projected_previews = projection.sessions[0]
+        .turns
+        .iter()
+        .filter_map(|turn| turn.latest_assistant_preview.as_ref())
+        .map(|preview| preview.text.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        projected_previews,
+        [
+            "Initial targetless prompt",
+            "Branch-associated work",
+            "Later targetless follow-up"
+        ],
+        "PR projection includes the whole associated session"
+    );
+}
+
+#[test]
 fn project_pr_returns_public_review_projection_without_raw_storage_keys() {
     let repo = setup_repo();
     let turn_key = write_turn_with_targets(
@@ -978,8 +1051,6 @@ fn get_session_records_returns_latest_bounded_records_without_storage_keys() {
 fn duplicate_capture_enriches_matching_failed_turn_without_new_records() {
     let repo = setup_repo();
     let branch_index_key = index_key("branch", TEST_BRANCH_KEY);
-    let review_index_key = index_key("review", TEST_REVIEW_KEY);
-    let change_index_key = index_key("change", TEST_CHANGE_KEY);
     let missing_repo_path = repo.path().join("missing-repo");
     let transcript = codex_fixture();
     let mut grown_transcript = transcript.clone();
@@ -1062,12 +1133,14 @@ fn duplicate_capture_enriches_matching_failed_turn_without_new_records() {
             .any(|branch| branch["key"] == TEST_BRANCH_KEY),
         "enriched turn stores observed branch target"
     );
-    for index_key in [&branch_index_key, &review_index_key, &change_index_key] {
-        let hits = index_hits(repo.path(), index_key);
-        assert_eq!(hits.len(), 1);
-        assert_eq!(hits[0]["session_key"], TEST_SESSION_KEY);
-        assert_eq!(hits[0]["turn_key"], turn_key);
-    }
+    let hits = index_hits(repo.path(), &branch_index_key);
+    assert_eq!(hits.len(), 2);
+    assert!(
+        hits.iter()
+            .all(|hit| hit["session_key"] == TEST_SESSION_KEY)
+    );
+    assert!(hits.iter().any(|hit| hit["turn_key"] == turn_key));
+    assert!(hits.iter().any(|hit| hit["turn_key"] == newer_turn_key));
 
     let grown_batch = TranscriptBatch::parse(Agent::Codex, grown_transcript.as_bytes())
         .expect("parse duplicate grown transcript");

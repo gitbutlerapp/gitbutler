@@ -1,9 +1,12 @@
-use std::{collections::HashSet, path::Path};
+use std::{
+    collections::{BTreeSet, HashSet},
+    path::Path,
+};
 
 use anyhow::{Context as _, Result, bail};
 use chrono::{SecondsFormat, Utc};
 use git_meta_lib::{ListEntry, MetaEdit, MetaValue, Session, SessionTargetHandle, Target};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
@@ -15,7 +18,7 @@ use crate::{
 
 use super::{
     AcceptedRecord, CaptureKind, IndexHit, TurnDetail, TurnSummary, cap_tool_result_text,
-    capture_turn_key, index_key, latest_stored_turn,
+    capture_turn_key, index_key, stored_turn_summary_entries,
 };
 
 #[derive(Debug)]
@@ -53,6 +56,7 @@ pub(crate) fn write_transcript_batch(
     let transcript_key = format!("{session_prefix}:transcript");
     let record_hashes_key = format!("{session_prefix}:record-hashes");
     let turns_key = format!("{session_prefix}:turns");
+    let associated_targets_key = format!("{session_prefix}:associated-targets");
 
     let gitmeta = Session::open(repo_path).context("failed to open GitMeta session")?;
     let target = Target::project();
@@ -60,8 +64,16 @@ pub(crate) fn write_transcript_batch(
     let turns_value = handle
         .get_value(&turns_key)
         .with_context(|| format!("failed to read GitMeta key '{turns_key}'"))?;
-    let previous_turn = latest_stored_turn(turns_value.as_ref(), &turns_key)?;
-    let previous_turn_key = previous_turn.as_ref().map(|turn| turn.turn_key.to_owned());
+    let previous_turns = match turns_value.as_ref() {
+        None => Vec::new(),
+        Some(MetaValue::List(entries)) => {
+            stored_turn_summary_entries(entries.to_vec(), &turns_key)?
+        }
+        Some(_) => bail!("existing GitMeta key '{turns_key}' is not a list"),
+    };
+    let previous_turn_key = previous_turns
+        .last()
+        .map(|turn| turn.summary.turn_key.to_owned());
     let incoming_record_hashes = records
         .iter()
         .map(|record| record.source_record_hash.clone())
@@ -109,8 +121,8 @@ pub(crate) fn write_transcript_batch(
     let mut transcript_entries = Vec::with_capacity(records_captured);
     let mut accepted_records = Vec::with_capacity(records_captured);
     let now = Utc::now().timestamp_millis();
-    let entry_timestamp = previous_turn
-        .as_ref()
+    let entry_timestamp = previous_turns
+        .last()
         .map_or(now, |turn| now.max(turn.timestamp + 1));
     for (entry_timestamp, record) in (entry_timestamp..).zip(records) {
         let record_hash = record.source_record_hash;
@@ -181,16 +193,25 @@ pub(crate) fn write_transcript_batch(
     let updated_at_value = MetaValue::String(updated_at.clone());
     let source_fields =
         source_metadata_fields(&source_prefix, agent, provider, model, tool_version);
+    let previous_turn_keys = previous_turns
+        .into_iter()
+        .map(|turn| turn.summary.turn_key)
+        .collect::<Vec<_>>();
+    let original_associations = session_target_associations(&handle, &associated_targets_key)?;
+    let mut target_associations = original_associations.clone();
+    target_associations.add_observed_targets(environment_observation.observed_targets());
     let turn_detail_value = MetaValue::String(
         serde_json::to_string(&turn_detail).context("failed to serialize turn detail")?,
     );
-    let index_hit = serde_json::to_string(&IndexHit {
-        session_key: session_key.to_owned(),
-        turn_key,
-    })
-    .context("failed to serialize agentlog index hit")?;
-    let index_hit_members = [index_hit];
-    let index_keys = observed_target_index_keys(environment_observation.observed_targets());
+    let mut associated_turn_keys = previous_turn_keys;
+    associated_turn_keys.push(turn_key.clone());
+    let index_hit_members = index_hits_for_turns(session_key, &associated_turn_keys)?;
+    let index_keys = target_associations.index_keys();
+    let associated_targets_value = if target_associations != original_associations {
+        target_associations.meta_value()?
+    } else {
+        None
+    };
 
     let mut edits = vec![
         MetaEdit::set_add("gitbutler:agent-sessions", &session_keys),
@@ -209,6 +230,12 @@ pub(crate) fn write_transcript_batch(
         MetaEdit::list_append(&turns_key, &turn_summary_entries),
         MetaEdit::set_value(&turn_detail_key, &turn_detail_value),
     ]);
+    if let Some(associated_targets_value) = associated_targets_value.as_ref() {
+        edits.push(MetaEdit::set_value(
+            &associated_targets_key,
+            associated_targets_value,
+        ));
+    }
     edits.extend(
         index_keys
             .iter()
@@ -298,24 +325,78 @@ fn source_metadata_fields(
     fields
 }
 
-fn observed_target_index_keys(observed_targets: &ObservedTargets) -> Vec<String> {
-    let mut keys = Vec::new();
-    keys.extend(
-        observed_targets
-            .branch_keys()
-            .map(|key| index_key("branch", key)),
-    );
-    keys.extend(
-        observed_targets
-            .review_keys()
-            .map(|key| index_key("review", key)),
-    );
-    keys.extend(
-        observed_targets
-            .change_keys()
-            .map(|key| index_key("change", key)),
-    );
-    keys
+#[derive(Clone, Default, Deserialize, PartialEq, Eq, Serialize)]
+struct TargetAssociations {
+    #[serde(default)]
+    branches: BTreeSet<String>,
+    #[serde(default)]
+    reviews: BTreeSet<String>,
+    #[serde(default)]
+    changes: BTreeSet<String>,
+}
+
+impl TargetAssociations {
+    fn add_observed_targets(&mut self, observed_targets: &ObservedTargets) {
+        self.branches
+            .extend(observed_targets.branch_keys().map(str::to_owned));
+        self.reviews
+            .extend(observed_targets.review_keys().map(str::to_owned));
+        self.changes
+            .extend(observed_targets.change_keys().map(str::to_owned));
+    }
+
+    fn is_empty(&self) -> bool {
+        self.branches.is_empty() && self.reviews.is_empty() && self.changes.is_empty()
+    }
+
+    fn meta_value(&self) -> Result<Option<MetaValue>> {
+        if self.is_empty() {
+            return Ok(None);
+        }
+        Ok(Some(MetaValue::String(
+            serde_json::to_string(self)
+                .context("failed to serialize session target associations")?,
+        )))
+    }
+
+    fn index_keys(&self) -> Vec<String> {
+        let mut keys = Vec::new();
+        keys.extend(self.branches.iter().map(|key| index_key("branch", key)));
+        keys.extend(self.reviews.iter().map(|key| index_key("review", key)));
+        keys.extend(self.changes.iter().map(|key| index_key("change", key)));
+        keys
+    }
+}
+
+fn session_target_associations(
+    handle: &SessionTargetHandle<'_>,
+    associated_targets_key: &str,
+) -> Result<TargetAssociations> {
+    let Some(value) = handle
+        .get_value(associated_targets_key)
+        .with_context(|| format!("failed to read GitMeta key '{associated_targets_key}'"))?
+    else {
+        return Ok(TargetAssociations::default());
+    };
+    let MetaValue::String(value) = value else {
+        bail!("existing GitMeta key '{associated_targets_key}' is not a string");
+    };
+    serde_json::from_str::<TargetAssociations>(&value).with_context(|| {
+        format!("existing GitMeta key '{associated_targets_key}' has invalid JSON")
+    })
+}
+
+fn index_hits_for_turns(session_key: &str, turn_keys: &[String]) -> Result<Vec<String>> {
+    turn_keys
+        .iter()
+        .map(|turn_key| {
+            serde_json::to_string(&IndexHit {
+                session_key: session_key.to_owned(),
+                turn_key: turn_key.to_owned(),
+            })
+            .context("failed to serialize agentlog index hit")
+        })
+        .collect()
 }
 
 fn enrich_incomplete_turn(
@@ -354,42 +435,62 @@ fn enrich_incomplete_turn(
         ("failed", SnapshotStatus::Partial | SnapshotStatus::Complete)
             | ("partial", SnapshotStatus::Complete)
     );
-    if !improves_status {
+    let updated_at_key = format!("{session_prefix}:updated-at");
+    let associated_targets_key = format!("{session_prefix}:associated-targets");
+
+    let all_turn_keys = stored_turn_summary_entries(turn_entries.clone(), &turns_key)?
+        .into_iter()
+        .map(|entry| entry.summary.turn_key)
+        .collect::<Vec<_>>();
+    let original_associations = session_target_associations(handle, &associated_targets_key)?;
+    let mut target_associations = original_associations.clone();
+    target_associations.add_observed_targets(environment_observation.observed_targets());
+    let associations_changed = target_associations != original_associations;
+    if !improves_status && !associations_changed {
         return Ok(false);
     }
 
-    let turn_detail_key = format!("{session_prefix}:turn:{turn_key}");
-    let updated_at_key = format!("{session_prefix}:updated-at");
-
-    summary["environment_snapshot_status"] = serde_json::to_value(new_status)
-        .context("failed to serialize environment snapshot status")?;
-    turn_entries[turn_index].value =
-        serde_json::to_string(&summary).context("failed to serialize enriched turn summary")?;
-
-    detail["observed_targets"] = serde_json::to_value(environment_observation.observed_targets())
-        .context("failed to serialize enriched observed targets")?;
-    detail["environment"] = serde_json::to_value(environment_observation.environment())
-        .context("failed to serialize enriched environment snapshot")?;
+    let mut detail_value = None;
+    if improves_status {
+        summary["environment_snapshot_status"] = serde_json::to_value(new_status)
+            .context("failed to serialize environment snapshot status")?;
+        turn_entries[turn_index].value =
+            serde_json::to_string(&summary).context("failed to serialize enriched turn summary")?;
+        detail["observed_targets"] =
+            serde_json::to_value(environment_observation.observed_targets())
+                .context("failed to serialize enriched observed targets")?;
+        detail["environment"] = serde_json::to_value(environment_observation.environment())
+            .context("failed to serialize enriched environment snapshot")?;
+        detail_value = Some(MetaValue::String(
+            serde_json::to_string(&detail).context("failed to serialize enriched turn detail")?,
+        ));
+    }
 
     let turns_value = MetaValue::List(turn_entries);
-    let turn_detail_value = MetaValue::String(
-        serde_json::to_string(&detail).context("failed to serialize enriched turn detail")?,
-    );
     let updated_at_value =
         MetaValue::String(Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true));
-    let index_hit = serde_json::to_string(&IndexHit {
-        session_key: session_key.to_owned(),
-        turn_key: turn_key.to_owned(),
-    })
-    .context("failed to serialize agentlog index hit")?;
-    let index_hit_members = [index_hit];
-    let index_keys = observed_target_index_keys(environment_observation.observed_targets());
+    let turn_detail_key = format!("{session_prefix}:turn:{turn_key}");
+    let associated_targets_value = if associations_changed {
+        target_associations.meta_value()?
+    } else {
+        None
+    };
+    let index_hit_members = index_hits_for_turns(session_key, &all_turn_keys)?;
+    let index_keys = target_associations.index_keys();
 
-    let mut edits = vec![
-        MetaEdit::set_value(&updated_at_key, &updated_at_value),
-        MetaEdit::set_value(&turns_key, &turns_value),
-        MetaEdit::set_value(&turn_detail_key, &turn_detail_value),
-    ];
+    let mut edits = vec![MetaEdit::set_value(&updated_at_key, &updated_at_value)];
+    if improves_status {
+        edits.push(MetaEdit::set_value(&turns_key, &turns_value));
+        if let Some(detail_value) = detail_value.as_ref() {
+            edits.push(MetaEdit::set_value(&turn_detail_key, detail_value));
+        }
+    }
+    if let Some(associated_targets_value) = associated_targets_value.as_ref() {
+        edits.push(MetaEdit::set_value(
+            &associated_targets_key,
+            associated_targets_value,
+        ));
+    }
     edits.extend(
         index_keys
             .iter()

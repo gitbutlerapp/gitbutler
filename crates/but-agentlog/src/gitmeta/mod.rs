@@ -1,8 +1,8 @@
 use std::{borrow::Cow, collections::HashMap};
 
-use anyhow::{Context as _, Result, bail};
+use anyhow::{Context as _, Result};
 use chrono::{DateTime, Utc};
-use git_meta_lib::{ListEntry, MetaValue};
+use git_meta_lib::ListEntry;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -95,11 +95,6 @@ struct SessionListEntry {
     sort_updated_at: DateTime<Utc>,
 }
 
-struct LatestStoredTurn {
-    turn_key: String,
-    timestamp: i64,
-}
-
 struct StoredTurnSummaryEntry {
     timestamp: i64,
     summary: StoredTurnSummary,
@@ -131,25 +126,6 @@ fn hashed_index_target_key(target_key: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(target_key.as_bytes());
     format!("sha256-{}", hex::encode(hasher.finalize()))
-}
-
-fn latest_stored_turn(
-    value: Option<&MetaValue>,
-    turns_key: &str,
-) -> Result<Option<LatestStoredTurn>> {
-    let Some(value) = value else {
-        return Ok(None);
-    };
-    let MetaValue::List(entries) = value else {
-        bail!("existing GitMeta key '{turns_key}' is not a list");
-    };
-    let Some(entry) = stored_turn_summary_entries(entries.to_vec(), turns_key)?.pop() else {
-        return Ok(None);
-    };
-    Ok(Some(LatestStoredTurn {
-        turn_key: entry.summary.turn_key,
-        timestamp: entry.timestamp,
-    }))
 }
 
 fn sorted_turn_entries(mut entries: Vec<ListEntry>) -> Vec<ListEntry> {
