@@ -32,7 +32,6 @@ pub enum Subcommands {
     /// unless the `--force` flag is used.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(short_flag = 'd')]
     #[clap(verbatim_doc_comment)]
     Delete {
         /// Name of the branch to delete
