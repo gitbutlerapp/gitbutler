@@ -34,6 +34,8 @@ fn commit_title_to_merge_conflict_label(commit: &gix::Commit<'_>) -> String {
         but_core::commit::strip_conflict_markers(commit.message_bstr()).as_ref(),
     )
     .title
+    // For some reason, the title sometimes contains newlines at the end, so trim it.
+    .trim_ascii_end()
     .to_str_lossy()
     .chars()
     .take(80)
@@ -143,12 +145,12 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     let commit = commit_id.attach(repo).object()?.try_into_commit()?;
 
     // Checkout commits's parent
-    let commit_parent_id = find_or_create_base_commit(repo, commit_id)?;
-    let commit_parent = commit_parent_id.attach(repo).object()?.try_into_commit()?;
+    let base_commit_id = find_or_create_base_commit(repo, commit_id)?;
+    let base_commit = base_commit_id.attach(repo).object()?.try_into_commit()?;
     let edit_branch_ref: gix::refs::FullName = EDIT_BRANCH_REF.try_into()?;
     repo.reference(
         edit_branch_ref.as_ref(),
-        commit_parent_id,
+        base_commit_id,
         gix::refs::transaction::PreviousValue::Any,
         "enter edit mode",
     )?;
@@ -168,8 +170,14 @@ fn checkout_edit_branch(ctx: &Context, commit_id: gix::ObjectId) -> Result<()> {
     let their_commit_msg = commit_title_to_merge_conflict_label(&commit);
     let their_label = format!("Current commit: {their_commit_msg}");
 
-    let our_commit_msg = commit_title_to_merge_conflict_label(&commit_parent);
-    let our_label = format!("New base: {our_commit_msg}");
+    let commit_parent_id = base_commit.parent_ids().next();
+    let our_label = if let Some(commit_parent_id) = commit_parent_id {
+        let our_commit_msg =
+            commit_title_to_merge_conflict_label(&commit_parent_id.object()?.try_into_commit()?);
+        format!("New base: {our_commit_msg}")
+    } else {
+        "New base: (no commit)".to_string()
+    };
 
     git2_repo.checkout_index(
         Some(&mut index),
