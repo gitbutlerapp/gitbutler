@@ -2,7 +2,6 @@ import {
 	persisted,
 	getBooleanStorageItem,
 	setStorageItem,
-	persistWithExpiration,
 	type Persisted,
 } from "@gitbutler/shared/persisted";
 
@@ -61,5 +60,5 @@ export function getSwallowGitHubOrgAuthErrors(): boolean {
 
 export function persistedDismissedForgeIntegrationPrompt(projectId: string): Persisted<boolean> {
 	const key = "dismissedForgeIntegrationPrompt_";
-	return persistWithExpiration(false, key + projectId, 48 * 60); // 48 hours
+	return persisted<boolean>(false, key + projectId);
 }
