@@ -25,8 +25,6 @@
 </tspan>
     <tspan x="10px" y="64px"><tspan>Usage: but [OPTIONS] [COMMAND]</tspan>
 </tspan>
-    <tspan x="10px" y="82px"><tspan>       but [OPTIONS] [PATH]</tspan>
-</tspan>
     <tspan x="10px" y="100px">
 </tspan>
     <tspan x="10px" y="118px"><tspan>The GitButler CLI can be used to do nearly anything the desktop client can do (and more).</tspan>
