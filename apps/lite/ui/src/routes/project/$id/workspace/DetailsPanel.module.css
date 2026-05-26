@@ -7,6 +7,47 @@
 	grid-template-rows: auto minmax(0, 1fr);
 }
 
+.header {
+	padding-inline: var(--panel-padding);
+	padding-block-start: var(--panel-padding);
+}
+
+.panes {
+	--resize-spacing: 6px;
+
+	min-height: 0;
+}
+
+.innerPanel {
+	min-width: 0;
+}
+
+.filesPanel {
+	padding-inline: var(--panel-padding) var(--resize-spacing);
+	padding-block: var(--panel-padding);
+}
+
+.detailsContentPanel {
+	display: grid;
+	grid-template-rows: minmax(0, 1fr);
+	padding-inline: var(--panel-padding);
+
+	&.alongsideFiles {
+		padding-inline-start: var(--resize-spacing);
+	}
+}
+
+.panelResizeHandle {
+	width: 1px;
+	margin-block-start: var(--panel-padding);
+	transition: background-color 0.2s;
+
+	&[data-separator="hover"],
+	&[data-separator="active"] {
+		background-color: var(--border-3);
+	}
+}
+
 .headerActions {
 	display: flex;
 	align-items: center;
@@ -27,7 +68,8 @@
 }
 
 .detailsVirtualizer {
-	padding-block-end: var(--panel-padding);
+	min-height: 0;
+	padding-block: var(--panel-padding);
 	overflow: auto;
 }
 
@@ -62,10 +104,18 @@
 
 .filePath {
 	margin: 8px;
+	overflow: hidden;
+	color: var(--text-3);
+
+	/* Overflow ellipsis on the left, pioritising filename. */
+	direction: rtl;
+	text-align: left;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
-.pathInit {
-	color: var(--text-3);
+.pathLast {
+	color: var(--text-1);
 }
 
 .hunkHeaderRow {

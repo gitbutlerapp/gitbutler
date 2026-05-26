@@ -16,12 +16,18 @@ import {
 	NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
+import type { PanelsState } from "./panels/state.ts";
 
 export type Panel = "outline" | "files" | "details";
-export const orderedPanels: Array<Panel> = ["outline", "files", "details"];
+const allPanels: Array<Panel> = ["outline", "files", "details"];
 
-const getFocusedProjectPanel = (activeElement: Element | null) =>
-	(activeElement?.closest("[data-panel]")?.id as Panel | undefined) ?? null;
+const isProjectPanel = (id: string): id is Panel => allPanels.includes(id as Panel);
+
+const getFocusedProjectPanel = (activeElement: Element | null): Panel | null => {
+	const panelId = activeElement?.closest("[data-panel]")?.id;
+	if (panelId === undefined) return null;
+	return isProjectPanel(panelId) ? panelId : null;
+};
 
 export const useFocusedProjectPanel = (projectId: string): Panel | null => {
 	const activeElement = useActiveElement();
@@ -34,12 +40,23 @@ export const focusPanel = (panel: Panel) => {
 	document.getElementById(panel)?.focus({ focusVisible: false });
 };
 
-export const focusAdjacentPanel = (offset: -1 | 1, panels: Array<Panel>) => {
+export const focusAdjacentPanel = (panelsState: PanelsState, offset: -1 | 1) => {
 	const currentPanel = getFocusedProjectPanel(document.activeElement);
-	if (currentPanel === null) return;
-	const nextPanel = panels[panels.indexOf(currentPanel) + offset];
-	if (nextPanel === undefined) return;
-	focusPanel(nextPanel);
+
+	if (currentPanel === null) {
+		const nextPanel: Panel = offset === 1 ? "outline" : "details";
+
+		focusPanel(nextPanel);
+	} else {
+		const orderedPanels: Array<Panel> = panelsState.filesVisible
+			? ["outline", "files", "details"]
+			: ["outline", "details"];
+		const curr = orderedPanels.indexOf(currentPanel);
+		// oxlint-disable-next-line typescript/no-non-null-assertion: This shouldn't ever fail.
+		const nextPanel = orderedPanels.at((curr + offset) % orderedPanels.length)!;
+
+		focusPanel(nextPanel);
+	}
 };
 
 export const useNavigationIndexHotkeys = ({
