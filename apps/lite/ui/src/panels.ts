@@ -47,8 +47,9 @@ export const focusAdjacentPanel = (panelsState: PanelsState, offset: -1 | 1) => 
 	const orderedPanels: Array<Panel> = panelsState.filesVisible
 		? ["outline", "files", "details"]
 		: ["outline", "details"];
-	const nextPanel = orderedPanels[orderedPanels.indexOf(currentPanel) + offset];
-	if (nextPanel === undefined) return;
+	const curr = orderedPanels.indexOf(currentPanel);
+	// oxlint-disable-next-line typescript/no-non-null-assertion: This shouldn't ever fail.
+	const nextPanel = orderedPanels.at((curr + offset) % orderedPanels.length)!;
 
 	focusPanel(nextPanel);
 };
