@@ -8,9 +8,12 @@ use rand::{Rng, distr::OpenClosed01};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    CliError,
     args::{Subcommands, config, metrics::CommandName},
     utils::{ResultMetricsExt, binary_path},
 };
+
+const RUB_ERROR_MESSAGE_MAX_CHARS: usize = 1024;
 
 pub(super) mod types {
     use crate::{args::metrics::CommandName, utils::metrics::Event};
@@ -225,15 +228,36 @@ impl Props {
         }
     }
 
-    pub fn from_result<E, T, R>(start: std::time::Instant, result: R) -> Props
+    fn from_result<E, T>(start: std::time::Instant, result: &Result<T, E>) -> Props
     where
-        R: std::ops::Deref<Target = anyhow::Result<T, E>>,
         E: std::fmt::Display,
     {
-        let error = result.as_ref().err().map(|e| e.to_string());
+        let error = result.as_ref().err();
         let mut props = Props::new();
         props.insert("durationMs", start.elapsed().as_millis());
-        props.insert("error", error);
+        props.insert("error", error.map(|e| e.to_string()));
+        props
+    }
+
+    fn from_anyhow_result<T>(
+        start: std::time::Instant,
+        result: &anyhow::Result<T>,
+        command: CommandName,
+    ) -> Props {
+        let mut props = Self::from_result(start, result);
+        let Some(error) = result.as_ref().err() else {
+            return props;
+        };
+        if !matches!(command, CommandName::Rub) {
+            return props;
+        }
+
+        let error_message = rub_error_message(error);
+        props.insert("errorMessage", &error_message);
+        props.insert(
+            "errorRoot",
+            rub_error_message(error.root_cause()).trim().to_string(),
+        );
         props
     }
 
@@ -257,6 +281,33 @@ impl Props {
             event.insert_prop(key, value);
         }
     }
+}
+
+fn rub_error_message(error: &(impl std::fmt::Display + ?Sized)) -> String {
+    let error_message = format!("{error:#}");
+    let mut message = error_message.as_str();
+
+    if let Some((value, _)) = message.split_once("\nHint: ") {
+        message = value;
+    }
+    let message =
+        if let Some((value, _)) = message.split_once(". If you just performed a Git operation") {
+            format!("{value}.")
+        } else {
+            message.to_string()
+        };
+
+    let message = message
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    truncate_rub_error_message(message)
+}
+
+fn truncate_rub_error_message(message: String) -> String {
+    message.chars().take(RUB_ERROR_MESSAGE_MAX_CHARS).collect()
 }
 
 #[derive(Debug, Clone)]
@@ -400,44 +451,123 @@ fn posthog_client(app_settings: AppSettings) -> Option<impl Future<Output = post
     }
 }
 
-impl<T, E> ResultMetricsExt<T, E> for Result<T, E>
-where
-    E: std::fmt::Display + From<std::io::Error>,
-{
-    fn emit_metrics(self, ctx: Option<OneshotMetricsContext>) -> Result<T, E> {
+impl<T> ResultMetricsExt<T, anyhow::Error> for anyhow::Result<T> {
+    fn emit_metrics(self, ctx: Option<OneshotMetricsContext>) -> anyhow::Result<T> {
+        let Some(OneshotMetricsContext { start, command }) = ctx else {
+            return self;
+        };
+
+        let props = Props::from_anyhow_result(start, &self, command);
+        emit_metrics(command, &props);
+        self
+    }
+}
+
+impl<T> ResultMetricsExt<T, CliError> for Result<T, CliError> {
+    fn emit_metrics(self, ctx: Option<OneshotMetricsContext>) -> Result<T, CliError> {
         let Some(OneshotMetricsContext { start, command }) = ctx else {
             return self;
         };
 
         let props = Props::from_result(start, &self);
-        let Some(v) = command.to_possible_value() else {
-            tracing::warn!("BUG: didn't get string value for {command:?}");
-            return self;
-        };
-
-        // We can fail both in resolving the path to the but binary, and in invoking it. As metrics
-        // emissions shouldn't impact user experience, we swallow these errors.
-        let but_path = match binary_path::current_exe_for_but_exec() {
-            Err(err) => {
-                tracing::warn!(?err, "Failed to resolve binary path to `but`");
-                return self;
-            }
-            Ok(path) => path,
-        };
-
-        let _ = tokio::process::Command::new(but_path)
-            .arg("metrics")
-            .arg("--command-name")
-            .arg(v.get_name())
-            .arg("--props")
-            .arg(props.as_json_string())
-            .stderr(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .group()
-            .kill_on_drop(false)
-            .spawn()
-            .map_err(|err| tracing::warn!(?err, "Failed to emit metrics"));
-
+        emit_metrics(command, &props);
         self
+    }
+}
+
+fn emit_metrics(command: CommandName, props: &Props) {
+    let Some(v) = command.to_possible_value() else {
+        tracing::warn!("BUG: didn't get string value for {command:?}");
+        return;
+    };
+
+    // We can fail both in resolving the path to the but binary, and in invoking it. As metrics
+    // emissions shouldn't impact user experience, we swallow these errors.
+    let but_path = match binary_path::current_exe_for_but_exec() {
+        Err(err) => {
+            tracing::warn!(?err, "Failed to resolve binary path to `but`");
+            return;
+        }
+        Ok(path) => path,
+    };
+
+    let _ = tokio::process::Command::new(but_path)
+        .arg("metrics")
+        .arg("--command-name")
+        .arg(v.get_name())
+        .arg("--props")
+        .arg(props.as_json_string())
+        .stderr(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .group()
+        .kill_on_drop(false)
+        .spawn()
+        .map_err(|err| tracing::warn!(?err, "Failed to emit metrics"));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rub_metrics_include_detailed_error_properties() {
+        let result = Err::<(), _>(
+            anyhow::anyhow!(
+                "Source 'old-id' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state."
+            )
+            .context("Failed to stage."),
+        );
+
+        let props = Props::from_anyhow_result(std::time::Instant::now(), &result, CommandName::Rub);
+
+        assert_eq!(props.values["error"], "Failed to stage.");
+        assert_eq!(
+            props.values["errorMessage"],
+            "Failed to stage.: Source 'old-id' not found."
+        );
+        assert_eq!(props.values["errorRoot"], "Source 'old-id' not found.");
+    }
+
+    #[test]
+    fn non_rub_metrics_do_not_include_detailed_error_properties() {
+        let result =
+            Err::<(), _>(anyhow::anyhow!("Source 'old-id' not found.").context("Failed to stage."));
+
+        let props =
+            Props::from_anyhow_result(std::time::Instant::now(), &result, CommandName::Commit);
+
+        assert_eq!(props.values["error"], "Failed to stage.");
+        assert!(!props.values.contains_key("errorMessage"));
+        assert!(!props.values.contains_key("errorRoot"));
+    }
+
+    #[test]
+    fn rub_metrics_normalize_multiline_error_properties() {
+        let result =
+            Err::<(), _>(anyhow::anyhow!("first line\nsecond line").context("Failed to stage."));
+
+        let props = Props::from_anyhow_result(std::time::Instant::now(), &result, CommandName::Rub);
+
+        assert_eq!(
+            props.values["errorMessage"],
+            "Failed to stage.: first line second line"
+        );
+        assert_eq!(props.values["errorRoot"], "first line second line");
+    }
+
+    #[test]
+    fn rub_metrics_cap_detailed_error_properties() {
+        let result = Err::<(), _>(anyhow::anyhow!("{}", "a".repeat(1100)));
+
+        let props = Props::from_anyhow_result(std::time::Instant::now(), &result, CommandName::Rub);
+
+        assert_eq!(
+            props.values["errorMessage"].as_str().unwrap().len(),
+            RUB_ERROR_MESSAGE_MAX_CHARS
+        );
+        assert_eq!(
+            props.values["errorRoot"].as_str().unwrap().len(),
+            RUB_ERROR_MESSAGE_MAX_CHARS
+        );
     }
 }
