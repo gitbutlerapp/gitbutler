@@ -519,7 +519,7 @@ mod tests {
         assert!(human.contains(
             "\nSessions: showing 1 related sessions, 1 turns total, 1 directly related turns."
         ));
-        assert!(human.contains("\nSession #1: 1 turns, 1 records, latest "));
+        assert!(human.contains("\nSession #1: 1 turns, 2 records, latest "));
         assert!(human.contains("\n- #0 "));
         assert!(human.contains("hello"));
         assert!(human.contains("\nThis is a skim: all related sessions and turns, abbreviated."));
@@ -562,10 +562,10 @@ mod tests {
         let repo = setup_repo();
         let probe_session_key = "sha256-33333333333333333333333333333333";
         let probe_source_key = "sha256-44444444444444444444444444444444";
-        write_turn_for_session(repo.path(), TEST_SESSION_KEY, TEST_SOURCE_KEY, "first");
-        write_turn_for_session(repo.path(), TEST_SESSION_KEY, TEST_SOURCE_KEY, "second");
-        write_turn_for_session(repo.path(), TEST_SESSION_KEY, TEST_SOURCE_KEY, "third");
-        write_turn_for_session(repo.path(), probe_session_key, probe_source_key, "probe");
+        write_active_turn_for_session(repo.path(), TEST_SESSION_KEY, TEST_SOURCE_KEY, "first");
+        write_active_turn_for_session(repo.path(), TEST_SESSION_KEY, TEST_SOURCE_KEY, "second");
+        write_active_turn_for_session(repo.path(), TEST_SESSION_KEY, TEST_SOURCE_KEY, "third");
+        write_active_turn_for_session(repo.path(), probe_session_key, probe_source_key, "probe");
         set_session_updated_at(repo.path(), TEST_SESSION_KEY, "2026-05-07T09:00:00.000Z");
         set_session_updated_at(repo.path(), probe_session_key, "2026-05-07T10:00:00.000Z");
 
@@ -591,7 +591,7 @@ mod tests {
     #[test]
     fn skim_marks_session_associated_follow_up_related() {
         let repo = setup_repo();
-        let related_turn_key = write_turn_for_session_with_targets(
+        let related_turn_key = write_active_turn_for_session_with_targets(
             repo.path(),
             TEST_SESSION_KEY,
             TEST_SOURCE_KEY,
@@ -743,7 +743,7 @@ mod tests {
     }
 
     fn write_user_turn_with_targets(repo: &Path) -> String {
-        write_turn_for_session_with_role(
+        write_active_turn_for_session_with_role(
             repo,
             TEST_SESSION_KEY,
             TEST_SOURCE_KEY,
@@ -761,6 +761,15 @@ mod tests {
         write_turn_for_session_with_role(repo, session_key, source_key, text, None)
     }
 
+    fn write_active_turn_for_session(
+        repo: &Path,
+        session_key: &str,
+        source_key: &str,
+        text: &str,
+    ) -> String {
+        write_active_turn_for_session_with_role(repo, session_key, source_key, text, None)
+    }
+
     fn write_turn_for_session_with_role(
         repo: &Path,
         session_key: &str,
@@ -769,6 +778,27 @@ mod tests {
         role: Option<&str>,
     ) -> String {
         write_turn_for_session_with_targets(
+            repo,
+            session_key,
+            source_key,
+            text,
+            role,
+            ObservedTargets::from_index_keys_for_testing(
+                TEST_BRANCH_KEY,
+                TEST_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+            ),
+        )
+    }
+
+    fn write_active_turn_for_session_with_role(
+        repo: &Path,
+        session_key: &str,
+        source_key: &str,
+        text: &str,
+        role: Option<&str>,
+    ) -> String {
+        write_active_turn_for_session_with_targets(
             repo,
             session_key,
             source_key,
@@ -805,6 +835,47 @@ mod tests {
                     r#"{{"timestamp":"2026-05-07T09:00:00Z","type":"session_meta","payload":{{"id":"session-1"}}}}"#,
                     "\n",
                     r#"{{"timestamp":"2026-05-07T09:00:01Z","type":"response_item","payload":{{"type":"message"{},"content":{}}}}}"#,
+                    "\n",
+                ),
+                role_fragment,
+                serde_json::to_string(text).expect("serialize message text")
+            )
+            .as_bytes(),
+        )
+        .expect("parse transcript");
+
+        write_transcript_batch(repo, Agent::Codex, session_key, source_key, batch, || {
+            EnvironmentObservation::from_observed_targets_for_testing(observed_targets)
+        })
+        .expect("write transcript batch");
+        latest_turn_key(repo, session_key)
+    }
+
+    fn write_active_turn_for_session_with_targets(
+        repo: &Path,
+        session_key: &str,
+        source_key: &str,
+        text: &str,
+        role: Option<&str>,
+        observed_targets: ObservedTargets,
+    ) -> String {
+        let role_fragment = role
+            .map(|role| {
+                format!(
+                    r#","role":{}"#,
+                    serde_json::to_string(role).expect("serialize role")
+                )
+            })
+            .unwrap_or_default();
+        let batch = TranscriptBatch::parse(
+            Agent::Codex,
+            format!(
+                concat!(
+                    r#"{{"timestamp":"2026-05-07T09:00:00Z","type":"session_meta","payload":{{"id":"session-1"}}}}"#,
+                    "\n",
+                    r#"{{"timestamp":"2026-05-07T09:00:01Z","type":"response_item","payload":{{"type":"message"{},"content":{}}}}}"#,
+                    "\n",
+                    r#"{{"timestamp":"2026-05-07T09:00:02Z","type":"response_item","payload":{{"type":"function_call","name":"exec_command","call_id":"call-activity","arguments":"{{\"cmd\":\"but pr new main\"}}"}}}}"#,
                     "\n",
                 ),
                 role_fragment,

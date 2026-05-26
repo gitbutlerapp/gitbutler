@@ -270,6 +270,64 @@ fn write_turn_with_targets(repo: &Path, text: &str, observed_targets: ObservedTa
     )
 }
 
+fn write_active_turn_with_targets(
+    repo: &Path,
+    text: &str,
+    observed_targets: ObservedTargets,
+) -> String {
+    write_active_turn_for_session(
+        repo,
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        text,
+        observed_targets,
+    )
+}
+
+fn write_readonly_command_turn_with_targets(
+    repo: &Path,
+    text: &str,
+    observed_targets: ObservedTargets,
+) -> String {
+    let transcript = jsonl([
+        serde_json::json!({
+            "timestamp": "2026-05-07T09:00:00Z",
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "assistant",
+                "content": text,
+            },
+        }),
+        serde_json::json!({
+            "timestamp": "2026-05-07T09:00:01Z",
+            "type": "response_item",
+            "payload": {
+                "type": "function_call",
+                "name": "exec_command",
+                "call_id": "call-readonly",
+                "arguments": "{\"cmd\":\"git branch --show-current\"}",
+            },
+        }),
+    ]);
+    let batch =
+        TranscriptBatch::parse(Agent::Codex, transcript.as_bytes()).expect("parse transcript");
+    write_transcript_batch(
+        repo,
+        Agent::Codex,
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        batch,
+        || EnvironmentObservation::from_observed_targets_for_testing(observed_targets),
+    )
+    .expect("write transcript batch");
+    turn_summaries(repo, TEST_SESSION_KEY)
+        .last()
+        .and_then(|turn| turn["turn_key"].as_str())
+        .expect("latest turn key")
+        .to_owned()
+}
+
 fn write_turn_for_session(
     repo: &Path,
     session_key: &str,
@@ -286,6 +344,47 @@ fn write_turn_for_session(
             "content": text,
         },
     })]);
+    let batch =
+        TranscriptBatch::parse(Agent::Codex, transcript.as_bytes()).expect("parse transcript");
+    write_transcript_batch(repo, Agent::Codex, session_key, source_key, batch, || {
+        EnvironmentObservation::from_observed_targets_for_testing(observed_targets)
+    })
+    .expect("write transcript batch");
+    turn_summaries(repo, session_key)
+        .last()
+        .and_then(|turn| turn["turn_key"].as_str())
+        .expect("latest turn key")
+        .to_owned()
+}
+
+fn write_active_turn_for_session(
+    repo: &Path,
+    session_key: &str,
+    source_key: &str,
+    text: &str,
+    observed_targets: ObservedTargets,
+) -> String {
+    let transcript = jsonl([
+        serde_json::json!({
+            "timestamp": "2026-05-07T09:00:00Z",
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "assistant",
+                "content": text,
+            },
+        }),
+        serde_json::json!({
+            "timestamp": "2026-05-07T09:00:01Z",
+            "type": "response_item",
+            "payload": {
+                "type": "function_call",
+                "name": "exec_command",
+                "call_id": "call-activity",
+                "arguments": "{\"cmd\":\"but pr new main\"}",
+            },
+        }),
+    ]);
     let batch =
         TranscriptBatch::parse(Agent::Codex, transcript.as_bytes()).expect("parse transcript");
     write_transcript_batch(repo, Agent::Codex, session_key, source_key, batch, || {
@@ -380,7 +479,7 @@ fn find_related_sessions_returns_verified_turn_keys() {
             TEST_CHANGE_KEY,
         )
     };
-    let turn_key = write_turn_with_targets(repo.path(), "Related work", observed_targets());
+    let turn_key = write_active_turn_with_targets(repo.path(), "Related work", observed_targets());
 
     let branch = only_related(repo.path(), RelatedTarget::Branch(TEST_BRANCH_KEY));
     assert_eq!(branch.session_key, TEST_SESSION_KEY);
@@ -389,7 +488,7 @@ fn find_related_sessions_returns_verified_turn_keys() {
         std::slice::from_ref(&turn_key)
     );
     assert_eq!(branch.turn_count, 1);
-    assert_eq!(branch.record_count, 1);
+    assert_eq!(branch.record_count, 2);
     assert_eq!(
         branch
             .latest_assistant_preview
@@ -409,7 +508,7 @@ fn find_related_sessions_returns_verified_turn_keys() {
         );
     }
 
-    write_turn_with_targets(repo.path(), "Related follow-up", observed_targets());
+    write_active_turn_with_targets(repo.path(), "Related follow-up", observed_targets());
     let turn_keys = turn_summaries(repo.path(), TEST_SESSION_KEY)
         .iter()
         .map(|turn| turn["turn_key"].as_str().expect("turn key").to_owned())
@@ -495,9 +594,39 @@ fn session_target_association_backfills_targetless_turns() {
 }
 
 #[test]
+fn applied_branch_targets_from_session_start_are_not_enough_evidence() {
+    let repo = setup_repo();
+    let observed_targets = || {
+        ObservedTargets::from_index_keys_for_testing(
+            TEST_BRANCH_KEY,
+            TEST_PR_REVIEW_KEY,
+            TEST_CHANGE_KEY,
+        )
+    };
+    write_readonly_command_turn_with_targets(
+        repo.path(),
+        "Unrelated investigation",
+        observed_targets(),
+    );
+    write_turn_with_targets(repo.path(), "Still unrelated", observed_targets());
+
+    let review_sessions =
+        find_related_sessions_limited(repo.path(), RelatedTarget::Review(TEST_PR_REVIEW_KEY), None)
+            .expect("find review sessions");
+    assert!(
+        review_sessions.is_empty(),
+        "an already-applied branch should not attach a passive session to its PR"
+    );
+
+    let projection = project_pr(repo.path(), &projection_request()).expect("project PR");
+    assert_eq!(projection.status, ProjectionStatus::NoMatches);
+    assert!(projection.sessions.is_empty());
+}
+
+#[test]
 fn project_pr_returns_public_review_projection_without_raw_storage_keys() {
     let repo = setup_repo();
-    let turn_key = write_turn_with_targets(
+    let turn_key = write_active_turn_with_targets(
         repo.path(),
         "Related PR work",
         ObservedTargets::from_index_keys_for_testing(
@@ -531,11 +660,14 @@ fn project_pr_returns_public_review_projection_without_raw_storage_keys() {
             ProjectionMatchKind::BranchTarget
         ]
     );
-    assert_eq!(turn.records.len(), 1);
-    let record = &turn.records[0];
-    assert!(record.handle.starts_with("pr_"));
-    assert_eq!(record.text.as_deref(), Some("Related PR work"));
-    assert_eq!(record.kind.as_deref(), Some("message"));
+    assert_eq!(turn.records.len(), 2);
+    let message = &turn.records[0];
+    assert!(message.handle.starts_with("pr_"));
+    assert_eq!(message.text.as_deref(), Some("Related PR work"));
+    assert_eq!(message.kind.as_deref(), Some("message"));
+    let command = &turn.records[1];
+    assert_eq!(command.kind.as_deref(), Some("tool_call"));
+    assert_eq!(command.tool_kind.as_deref(), Some("exec"));
 
     let json = serde_json::to_string(&projection).expect("projection json");
     assert!(
@@ -567,7 +699,7 @@ fn project_pr_returns_public_review_projection_without_raw_storage_keys() {
 #[test]
 fn project_pr_marks_branch_only_matches_as_weak_evidence() {
     let repo = setup_repo();
-    write_turn_with_targets(
+    write_active_turn_with_targets(
         repo.path(),
         "Branch-only work",
         ObservedTargets::from_index_keys_for_testing(
@@ -662,6 +794,16 @@ fn project_pr_filters_hidden_prompts_and_strips_tool_payloads() {
                     "output": "Chunk ID: abc\nWall time: 0.01s\nProcess exited with code 0\nUpdated file\n",
                 },
             }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:06Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "function_call",
+                    "name": "exec_command",
+                    "call_id": "call-2",
+                    "arguments": "{\"cmd\":\"but pr new main\"}",
+                },
+            }),
         ])
         .as_bytes(),
     )
@@ -700,7 +842,7 @@ fn project_pr_filters_hidden_prompts_and_strips_tool_payloads() {
         Some("Please update src/lib.rs")
     );
     let records = &turn.records;
-    assert_eq!(records.len(), 3);
+    assert_eq!(records.len(), 4);
     assert!(
         records
             .iter()
@@ -719,6 +861,9 @@ fn project_pr_filters_hidden_prompts_and_strips_tool_payloads() {
     assert_eq!(records[2].text.as_deref(), Some("Updated file"));
     assert_eq!(records[2].exit_code, Some(0));
     assert_eq!(records[2].outcome.as_deref(), Some("succeeded"));
+    assert_eq!(records[3].kind.as_deref(), Some("tool_call"));
+    assert_eq!(records[3].tool_name.as_deref(), Some("exec_command"));
+    assert_eq!(records[3].tool_kind.as_deref(), Some("exec"));
 
     let json = serde_json::to_string(&projection).expect("projection json");
     assert!(!json.contains("# AGENTS.md instructions"));

@@ -9,8 +9,11 @@ use git_meta_lib::{MetaValue, SessionTargetHandle};
 use serde::Deserialize;
 
 use super::{
-    IndexHit, SessionListEntry, StoredObservedTargets, index_key,
-    read_support::{read_optional_turn_detail, read_turn_summaries, with_project_target},
+    AcceptedRecord, IndexHit, SessionListEntry, StoredObservedTargets, index_key,
+    read_support::{
+        read_optional_turn_detail, read_transcript_entries, read_turn_detail, read_turn_summaries,
+        transcript_records_by_hash, with_project_target,
+    },
     session_outline::{RelatedSession, related_session_outline},
 };
 
@@ -96,12 +99,12 @@ fn verified_related_turns_by_session(
     target: RelatedTarget<'_>,
 ) -> Result<BTreeMap<String, Vec<String>>> {
     let mut indexed_turns = BTreeMap::<String, HashSet<String>>::new();
-    let mut session_association_matches = BTreeMap::<String, bool>::new();
+    let mut session_activity_matches = BTreeMap::<String, bool>::new();
     for hit in target_index_hits(handle, target)? {
         let Ok(hit) = serde_json::from_str::<IndexHit>(&hit) else {
             continue;
         };
-        if turn_detail_observes_target(handle, &hit, target, &mut session_association_matches)? {
+        if turn_detail_observes_target(handle, &hit, target, &mut session_activity_matches)? {
             indexed_turns
                 .entry(hit.session_key)
                 .or_default()
@@ -158,7 +161,7 @@ fn turn_detail_observes_target(
     handle: &SessionTargetHandle<'_>,
     hit: &IndexHit,
     target: RelatedTarget<'_>,
-    session_association_matches: &mut BTreeMap<String, bool>,
+    session_activity_matches: &mut BTreeMap<String, bool>,
 ) -> Result<bool> {
     let detail_key = format!(
         "gitbutler:agent-session:{}:turn:{}",
@@ -167,14 +170,16 @@ fn turn_detail_observes_target(
     let Some(detail) = read_optional_turn_detail(handle, &detail_key)? else {
         return Ok(false);
     };
-    if observed_targets_observe(&detail.observed_targets, target) {
-        return Ok(true);
+    if !observed_targets_observe(&detail.observed_targets, target)
+        && !session_associations_observe_target(handle, &hit.session_key, target)?
+    {
+        return Ok(false);
     }
-    if let Some(matches) = session_association_matches.get(&hit.session_key) {
+    if let Some(matches) = session_activity_matches.get(&hit.session_key) {
         return Ok(*matches);
     }
-    let matches = session_associations_observe_target(handle, &hit.session_key, target)?;
-    session_association_matches.insert(hit.session_key.clone(), matches);
+    let matches = session_has_target_activity(handle, &hit.session_key, target)?;
+    session_activity_matches.insert(hit.session_key.clone(), matches);
     Ok(matches)
 }
 
@@ -226,4 +231,199 @@ impl StoredSessionAssociations {
             RelatedTarget::Change(key) => self.changes.contains(key),
         }
     }
+}
+
+fn session_has_target_activity(
+    handle: &SessionTargetHandle<'_>,
+    session_key: &str,
+    target: RelatedTarget<'_>,
+) -> Result<bool> {
+    let session_prefix = format!("gitbutler:agent-session:{session_key}");
+    let summaries = read_turn_summaries(handle, &format!("{session_prefix}:turns"))?;
+    let mut saw_turn_before_target = false;
+    for summary in summaries {
+        let detail_key = format!("{session_prefix}:turn:{}", summary.turn_key);
+        let detail = read_turn_detail(handle, &detail_key)?;
+        if observed_targets_observe(&detail.observed_targets, target) {
+            if saw_turn_before_target
+                || turn_has_agent_activity(handle, &session_prefix, &detail.records)?
+            {
+                return Ok(true);
+            }
+        } else {
+            saw_turn_before_target = true;
+        }
+    }
+    Ok(false)
+}
+
+#[derive(Deserialize)]
+struct StoredActivityRecord {
+    record_hash: String,
+    #[serde(default)]
+    tool_kind: Option<String>,
+    tool_input: Option<serde_json::Value>,
+}
+
+fn turn_has_agent_activity(
+    handle: &SessionTargetHandle<'_>,
+    session_prefix: &str,
+    accepted_records: &[AcceptedRecord],
+) -> Result<bool> {
+    if accepted_records.is_empty() {
+        return Ok(false);
+    }
+    let transcript_key = format!("{session_prefix}:transcript");
+    let records = activity_records_by_hash(handle, &transcript_key, accepted_records)?;
+    Ok(records.values().any(activity_record_touches_target))
+}
+
+fn activity_records_by_hash(
+    handle: &SessionTargetHandle<'_>,
+    transcript_key: &str,
+    accepted_records: &[AcceptedRecord],
+) -> Result<BTreeMap<String, StoredActivityRecord>> {
+    let needed_hashes = accepted_records
+        .iter()
+        .map(|record| record.record_hash.clone())
+        .collect::<HashSet<_>>();
+    let entries = read_transcript_entries(handle, transcript_key)?;
+    Ok(
+        transcript_records_by_hash(entries, &needed_hashes, parse_activity_record)
+            .into_iter()
+            .collect(),
+    )
+}
+
+fn parse_activity_record(raw: &str) -> Option<(String, StoredActivityRecord)> {
+    let record = serde_json::from_str::<StoredActivityRecord>(raw).ok()?;
+    Some((record.record_hash.clone(), record))
+}
+
+fn activity_record_touches_target(record: &StoredActivityRecord) -> bool {
+    match record.tool_kind.as_deref() {
+        Some("exec") => record
+            .tool_input
+            .as_ref()
+            .and_then(command_text)
+            .is_some_and(is_mutating_repo_command),
+        _ => false,
+    }
+}
+
+fn command_text(input: &serde_json::Value) -> Option<&str> {
+    if let Some(command) = input.as_str() {
+        return Some(command);
+    }
+    ["cmd", "command", "input"]
+        .into_iter()
+        .find_map(|key| input.get(key).and_then(serde_json::Value::as_str))
+}
+
+fn is_mutating_repo_command(command: impl AsRef<str>) -> bool {
+    command
+        .as_ref()
+        .lines()
+        .flat_map(|line| line.split("&&"))
+        .flat_map(|line| line.split(';'))
+        .any(|segment| {
+            let tokens = segment.split_whitespace().collect::<Vec<_>>();
+            mutating_but_subcommand(&tokens).is_some_and(is_mutating_but_subcommand)
+                || mutating_git_subcommand(&tokens).is_some_and(is_mutating_git_subcommand)
+        })
+}
+
+fn mutating_but_subcommand<'a>(tokens: &'a [&str]) -> Option<&'a str> {
+    let first = *tokens.first()?;
+    if first == "but" {
+        return first_non_option(&tokens[1..]);
+    }
+    if first == "cargo" && tokens.get(1).copied() == Some("run") {
+        let after_separator = tokens
+            .iter()
+            .position(|token| *token == "--")
+            .map(|index| &tokens[index + 1..])?;
+        return first_non_option(after_separator);
+    }
+    None
+}
+
+fn mutating_git_subcommand<'a>(tokens: &'a [&str]) -> Option<&'a str> {
+    if tokens.first().copied() == Some("git") {
+        first_non_option(&tokens[1..])
+    } else {
+        None
+    }
+}
+
+fn first_non_option<'a>(tokens: &'a [&str]) -> Option<&'a str> {
+    let mut skip_next = false;
+    for token in tokens.iter().copied() {
+        if skip_next {
+            skip_next = false;
+            continue;
+        }
+        if matches!(
+            token,
+            "-C" | "--current-dir" | "--git-dir" | "--work-tree" | "-c"
+        ) {
+            skip_next = true;
+            continue;
+        }
+        if token.starts_with("-C")
+            || token.starts_with("--current-dir=")
+            || token.starts_with("--git-dir=")
+            || token.starts_with("--work-tree=")
+            || token.starts_with("-c")
+        {
+            continue;
+        }
+        if token.starts_with('-') || token.contains('=') {
+            continue;
+        }
+        return Some(token);
+    }
+    None
+}
+
+fn is_mutating_but_subcommand(subcommand: &str) -> bool {
+    matches!(
+        subcommand,
+        "absorb"
+            | "amend"
+            | "apply"
+            | "commit"
+            | "discard"
+            | "move"
+            | "pick"
+            | "pr"
+            | "push"
+            | "resolve"
+            | "reword"
+            | "rub"
+            | "squash"
+            | "stage"
+            | "unapply"
+            | "uncommit"
+    )
+}
+
+fn is_mutating_git_subcommand(subcommand: &str) -> bool {
+    matches!(
+        subcommand,
+        "add"
+            | "am"
+            | "apply"
+            | "checkout"
+            | "cherry-pick"
+            | "commit"
+            | "merge"
+            | "mv"
+            | "push"
+            | "rebase"
+            | "reset"
+            | "revert"
+            | "rm"
+            | "switch"
+    )
 }
