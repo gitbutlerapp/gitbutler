@@ -2874,10 +2874,15 @@ impl App {
                     handle_mark_branch(&mut normal_mode.marks, ctx, stack_id, name)?;
                 }
             }
-            CliId::PathPrefix { .. }
-            | CliId::CommittedFile { .. }
-            | CliId::Unassigned { .. }
-            | CliId::Stack { .. } => {}
+            CliId::Unassigned { .. } => {
+                if let Mode::Normal(normal_mode) = self
+                    .mode
+                    .get_mut_without_updating_backstack_and_i_promise_not_to_change_state()
+                {
+                    handle_mark_unassigned(&mut normal_mode.marks, ctx)?;
+                }
+            }
+            CliId::PathPrefix { .. } | CliId::CommittedFile { .. } | CliId::Stack { .. } => {}
         }
 
         if let Some(marks) = self.marks() {
@@ -3143,27 +3148,7 @@ fn handle_mark_branch(
         return Ok(());
     };
 
-    let (marked, unmarked) = commits
-        .into_iter()
-        .partition::<Vec<_>, _>(|commit| marks.contains(commit));
-
-    match (marked.is_empty(), unmarked.is_empty()) {
-        (true, false) => {
-            for commit in unmarked {
-                marks.insert(commit);
-            }
-        }
-        (false, true) => {
-            for commit in marked {
-                marks.remove(&commit);
-            }
-        }
-        _ => {
-            for commit in unmarked {
-                marks.insert(commit);
-            }
-        }
-    }
+    toggle_marks_section(marks, commits);
 
     Ok(())
 }
@@ -3195,6 +3180,49 @@ fn commits_on_branch(
         .collect::<Vec<_>>();
 
     Ok(commits)
+}
+
+fn handle_mark_unassigned(marks: &mut Marks, ctx: &Context) -> anyhow::Result<()> {
+    let guard = ctx.shared_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+
+    let Some(ids) = id_map
+        .uncommitted_files
+        .values()
+        .filter(|uncommitted_file| uncommitted_file.stack_id().is_none())
+        .map(|uncommitted_file| Markable::try_from_cli_id(&uncommitted_file.to_id()))
+        .collect::<Option<Vec<_>>>()
+    else {
+        return Ok(());
+    };
+
+    toggle_marks_section(marks, ids);
+
+    Ok(())
+}
+
+fn toggle_marks_section(marks: &mut Marks, markables: Vec<Markable>) {
+    let (marked, unmarked) = markables
+        .into_iter()
+        .partition::<Vec<_>, _>(|mark| marks.contains(mark));
+
+    match (marked.is_empty(), unmarked.is_empty()) {
+        (true, false) => {
+            for mark in unmarked {
+                marks.insert(mark);
+            }
+        }
+        (false, true) => {
+            for mark in marked {
+                marks.remove(&mark);
+            }
+        }
+        _ => {
+            for mark in unmarked {
+                marks.insert(mark);
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, strum::EnumDiscriminants)]

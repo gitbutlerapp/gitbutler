@@ -361,3 +361,17 @@ fn discard_commit_and_uncommitted_file() {
             "snapshots/discard_commit_and_uncommitted_file_final.svg"
         ]);
 }
+
+#[test]
+fn marking_all_unassigned_files() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.env().file("file-one", "content");
+    tui.env().file("file-two", "content");
+
+    tui.input_then_render(' ')
+        .assert_rendered_term_svg_eq(file!["snapshots/marking_all_unassigned_files_final.svg"]);
+}
