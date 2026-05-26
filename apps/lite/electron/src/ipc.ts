@@ -260,7 +260,6 @@ export interface LiteElectronApi {
 	moveBranch: (params: MoveBranchParams) => Promise<MoveBranchResult>;
 	updateBranchName: (params: UpdateBranchNameParams) => Promise<void>;
 	tearOffBranch: (params: TearOffBranchParams) => Promise<MoveBranchResult>;
-	ping: (input: string) => Promise<string>;
 	peelRestoreSnapshot: (params: PeelRestoreSnapshotParams) => Promise<Snapshot | null>;
 	pushStackLegacy: (params: PushStackLegacyParams) => Promise<PushResult>;
 	restoreSnapshotWithKind: (params: RestoreSnapshotWithKindParams) => Promise<void>;
@@ -303,7 +302,6 @@ export const liteIpcChannels = {
 	updateBranchName: "workspace:update-branch-name",
 	tearOffBranch: "workspace:tear-off-branch",
 	peelRestoreSnapshot: "workspace:peel-restore-snapshot",
-	ping: "lite:ping",
 	pushStackLegacy: "workspace:push-stack-legacy",
 	restoreSnapshotWithKind: "workspace:restore-snapshot-with-kind",
 	showNativeMenu: "lite:show-native-menu",

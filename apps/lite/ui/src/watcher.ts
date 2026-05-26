@@ -8,7 +8,8 @@ export const handleWatcher = (
 	client: QueryClient,
 ): void => {
 	switch (event.payload.type) {
-		case "gitActivity": {
+		case "gitActivity":
+		case "gitRemoteActivity": {
 			void client.invalidateQueries({ queryKey: [QueryKey.AbsorptionPlan, projectId] });
 			void client.invalidateQueries({ queryKey: [QueryKey.Branches, projectId] });
 			void client.invalidateQueries({ queryKey: [QueryKey.BranchDetails, projectId] });

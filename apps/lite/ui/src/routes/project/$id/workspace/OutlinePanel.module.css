@@ -51,12 +51,11 @@
 }
 
 .segment {
+	--commit-row-left-spacing: 6px;
+	--commit-state-width: 8px;
+
 	display: flex;
 	flex-direction: column;
-}
-
-.renameBranchInput {
-	font-weight: bold;
 }
 
 .stack {
@@ -73,7 +72,13 @@
 	content: "\00a0";
 }
 
-.branchRowLabel {
+.branchRowLabel,
+.noCommits {
+	margin-inline-start: calc(var(--commit-row-left-spacing) + var(--commit-state-width));
+}
+
+.branchRowLabel,
+.renameBranchInput {
 	font-weight: 600;
 	font-size: 14px;
 }
@@ -201,6 +206,8 @@
 }
 
 .commitTargetComboboxTrigger {
+	/* Override button inline-flex to fix overflow behaviour. */
+	display: block;
 	flex-grow: 1;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -252,6 +259,48 @@
 	color: var(--color-text-secondary);
 }
 
-.commitRowLabel {
+.commitRowLabel,
+.rewordCommitInput,
+.noCommits {
 	font-size: 13px;
+}
+
+.commitRowLabel {
+	display: flex;
+	flex-grow: 1;
+	align-items: center;
+	margin-inline-start: var(--commit-row-left-spacing);
+	overflow: hidden;
+}
+
+.commitTargetIndicator {
+	display: grid;
+	margin-inline-start: calc(var(--row-inline-padding) * -0.5);
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
+}
+
+[data-status="LocalOnly"] {
+	--commit-status-color: var(--commit-local);
+}
+
+[data-status="LocalAndRemote"] {
+	--commit-status-color: var(--commit-remote);
+}
+
+[data-status="Integrated"] {
+	--commit-status-color: var(--commit-integrated);
+}
+
+[data-status="Diverged"] {
+	--commit-status-color: var(--commit-shadow);
+}
+
+.commitState {
+	display: block;
+	flex-shrink: 0;
+	aspect-ratio: 1;
+	width: var(--commit-state-width);
+	border: 1.5px solid var(--commit-status-color);
+	border-radius: 50%;
 }
