@@ -2,6 +2,7 @@ import { listProjectsQueryOptions } from "#ui/api/queries.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { lastOpenedProjectKey } from "#ui/projects/last-opened.ts";
 import { PickerDialog } from "#ui/components/PickerDialog/PickerDialog.tsx";
+import { ProjectButton } from "#ui/components/ProjectButton.tsx";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
 import { globalHotkeys } from "#ui/hotkeys.ts";
 import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
@@ -10,9 +11,7 @@ import { Outlet, useMatch, useNavigate } from "@tanstack/react-router";
 import { FC, useState } from "react";
 import styles from "./RootLayout.module.css";
 import { ProjectForFrontend } from "@gitbutler/but-sdk";
-import { classes } from "#ui/components/classes.ts";
 import { Hash } from "effect";
-import { Tooltip } from "#ui/components/Tooltip.tsx";
 
 const ProjectSelect: FC = () => {
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
@@ -51,22 +50,12 @@ const ProjectSelect: FC = () => {
 				const isSelected = selectedProject?.id === project.id;
 
 				return (
-					<Tooltip
+					<ProjectButton
 						key={project.id}
-						trigger={
-							<button
-								type="button"
-								aria-label={`Select project ${project.title}`}
-								className={classes(styles.project, isSelected && styles.selected)}
-								onClick={() => selectProject(project)}
-								style={{ "--hue": hue(project.id) }}
-								disabled={isSelected}
-							>
-								{project.title.slice(0, 2)}
-							</button>
-						}
-						content={project.title}
-						positionerProps={{ side: "right" }}
+						title={project.title}
+						hue={hue(project.id)}
+						isSelected={isSelected}
+						onClick={() => selectProject(project)}
 					/>
 				);
 			})}
@@ -105,10 +94,13 @@ const ProjectSelect: FC = () => {
 	);
 };
 
+const isMac = window.lite.platform === "darwin";
+
 export const RootLayout: FC = () => (
 	<HotkeysProvider>
 		<div className={styles.layout}>
-			<nav className={styles.sidebar}>
+			<div className={styles.dragRegion} />
+			<nav className={`${styles.sidebar}${isMac ? ` ${styles.sidebarMac}` : ""}`}>
 				<ProjectSelect />
 			</nav>
 			<main className={styles.content}>

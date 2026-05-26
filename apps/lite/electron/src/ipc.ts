@@ -280,6 +280,7 @@ export interface LiteElectronApi {
 	watcherStopAll: () => Promise<number>;
 	onUpdateDownloaded: (callback: (info: UpdateDownloadedEvent) => void) => () => void;
 	quitAndInstallUpdate: () => Promise<void>;
+	platform: string;
 }
 
 export const liteIpcChannels = {
