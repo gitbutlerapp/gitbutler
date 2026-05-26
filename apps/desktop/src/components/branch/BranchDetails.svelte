@@ -1,23 +1,32 @@
 <script lang="ts">
 	import BranchBadge from "$components/branch/BranchBadge.svelte";
 	import { AvatarGroup, Button } from "@gitbutler/ui";
-	import type { BranchDetails } from "@gitbutler/but-sdk";
+	import type { Author, PushStatus } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
 
 	type Props = {
-		branch: BranchDetails;
+		pushStatus: PushStatus;
+		authors: Author[];
+		isConflicted: boolean;
 		children?: Snippet;
 		conflictedCommits?: Snippet;
 		onResolveConflicts?: () => void;
 	};
 
-	const { branch, children, conflictedCommits, onResolveConflicts }: Props = $props();
+	const {
+		pushStatus,
+		authors,
+		isConflicted,
+		children,
+		conflictedCommits,
+		onResolveConflicts,
+	}: Props = $props();
 </script>
 
 <div class="branch-view">
 	<div class="text-12 branch-view__header-container">
 		<div class="factoid-wrap">
-			<BranchBadge pushStatus={branch.pushStatus} unstyled />
+			<BranchBadge {pushStatus} unstyled />
 			<span class="branch-view__details-divider">•</span>
 		</div>
 
@@ -25,7 +34,7 @@
 			<span class="factoid-label">Contribs:</span>
 			<AvatarGroup
 				maxAvatars={2}
-				avatars={branch.authors.map((a) => ({
+				avatars={authors.map((a) => ({
 					username: a.name,
 					srcUrl: a.gravatarUrl,
 				}))}
@@ -35,7 +44,7 @@
 
 	{@render children?.()}
 
-	{#if branch.isConflicted && conflictedCommits}
+	{#if isConflicted && conflictedCommits}
 		<div class="header-details__conflicts">
 			{@render conflictedCommits?.()}
 

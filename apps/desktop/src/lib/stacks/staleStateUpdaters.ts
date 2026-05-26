@@ -1,3 +1,4 @@
+import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import type {
 	ExclusiveAction,
 	WritableReactiveStore,
@@ -5,7 +6,7 @@ import type {
 	StackSelection,
 	UiState,
 } from "$lib/state/uiState.svelte";
-import type { StackDetails } from "@gitbutler/but-sdk";
+import type { Stack } from "@gitbutler/but-sdk";
 
 export function replaceBranchInExclusiveAction(
 	action: ExclusiveAction,
@@ -48,12 +49,12 @@ export function replaceBranchInStackSelection(
 export function updateStackSelection(
 	uiState: UiState,
 	stackId: string,
-	details: StackDetails,
-	prevDetails?: StackDetails,
+	stack: Stack,
+	prevStack?: Stack,
 ): void {
 	const laneState = uiState.lane(stackId);
 	const selection = laneState.selection.current;
-	const branches = details.branchDetails.map((branch) => branch.name);
+	const branches = stack.segments.map((segment) => segment.refName?.displayName).filter(isDefined);
 
 	// If no selection, do nothing
 	if (!selection) return;
@@ -68,30 +69,28 @@ export function updateStackSelection(
 	if (!selection.commitId) return;
 
 	const selectedBranch = selection.branchName;
-	const branchDetails = details.branchDetails.find((branch) => branch.name === selectedBranch);
+	const segment = stack.segments.find((segment) => segment.refName?.displayName === selectedBranch);
 
-	if (!branchDetails) {
+	if (!segment) {
 		// Should not happen since we already checked the branch exists
 		return;
 	}
 
-	const branchCommits = branchDetails.commits;
+	const branchCommits = segment.commits;
 	const branchCommitIds = branchCommits.map((commit) => commit.id);
 
 	// If the selected commit is not in the branch, it may have been amended (SHA changed)
 	// or deleted/squashed. Distinguish between the two using the previous state.
 	if (!selection.upstream && !branchCommitIds.includes(selection.commitId)) {
-		const prevBranchDetails = prevDetails?.branchDetails.find(
-			(branch) => branch.name === selectedBranch,
+		const prevSegment = prevStack?.segments.find(
+			(segment) => segment.refName?.displayName === selectedBranch,
 		);
-		const oldIndex = prevBranchDetails?.commits.findIndex(
-			(commit) => commit.id === selection.commitId,
-		);
+		const oldIndex = prevSegment?.commits.findIndex((commit) => commit.id === selection.commitId);
 
 		// If the commit existed at position N, the count stayed the same, and position N still
 		// exists, the commit was amended (same position, new SHA). Update the selection.
 		// A count decrease means the commit was truly deleted or squashed — clear it instead.
-		const sameCount = (prevBranchDetails?.commits.length ?? 0) === branchCommits.length;
+		const sameCount = (prevSegment?.commits.length ?? 0) === branchCommits.length;
 		if (oldIndex !== undefined && oldIndex !== -1 && oldIndex < branchCommits.length && sameCount) {
 			laneState.selection.set({ ...selection, commitId: branchCommits[oldIndex]!.id });
 			return;
@@ -106,7 +105,7 @@ export function updateStackSelection(
 		return;
 	}
 
-	const upstreamCommits = branchDetails.upstreamCommits;
+	const upstreamCommits = segment.commitsOnRemote;
 	const upstreamCommitIds = upstreamCommits.map((commit) => commit.id);
 
 	// If the selection is for an upstream commit and the commit is not in the upstream commits, clear the selection

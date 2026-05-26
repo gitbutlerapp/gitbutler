@@ -159,10 +159,16 @@ export interface PeelRestoreSnapshotParams {
 	sha: string;
 }
 
-export interface PushStackLegacyParams {
+export interface PushStackParams {
 	projectId: string;
 	stackId: string;
 	branch: string;
+}
+
+export interface RemoveBranchParams {
+	projectId: string;
+	stackId: string;
+	branchName: string;
 }
 
 export interface RestoreSnapshotWithKindParams {
@@ -237,6 +243,7 @@ export interface LiteElectronApi {
 	branchDetails: (params: BranchDetailsParams) => Promise<BranchDetails>;
 	branchDiff: (params: BranchDiffParams) => Promise<TreeChanges>;
 	changesInWorktree: (projectId: string) => Promise<WorktreeChanges>;
+	clipboardWriteText: (text: string) => Promise<void>;
 	commitAmend: (params: CommitAmendParams) => Promise<CommitCreateResult>;
 	commitCreate: (params: CommitCreateParams) => Promise<CommitCreateResult>;
 	commitDiscard: (params: CommitDiscardParams) => Promise<CommitDiscardResult>;
@@ -258,10 +265,12 @@ export interface LiteElectronApi {
 	) => Promise<Array<BranchListing>>;
 	listProjects: () => Promise<Array<ProjectForFrontend>>;
 	moveBranch: (params: MoveBranchParams) => Promise<MoveBranchResult>;
+	pathJoin: (...paths: Array<string>) => Promise<string>;
 	updateBranchName: (params: UpdateBranchNameParams) => Promise<void>;
 	tearOffBranch: (params: TearOffBranchParams) => Promise<MoveBranchResult>;
 	peelRestoreSnapshot: (params: PeelRestoreSnapshotParams) => Promise<Snapshot | null>;
-	pushStackLegacy: (params: PushStackLegacyParams) => Promise<PushResult>;
+	pushStack: (params: PushStackParams) => Promise<PushResult>;
+	removeBranch: (params: RemoveBranchParams) => Promise<void>;
 	restoreSnapshotWithKind: (params: RestoreSnapshotWithKindParams) => Promise<void>;
 	showNativeMenu: (params: ShowNativeMenuParams) => Promise<string | null>;
 	treeChangeDiffs: (params: TreeChangeDiffParams) => Promise<UnifiedPatch | null>;
@@ -281,6 +290,7 @@ export const liteIpcChannels = {
 	branchDetails: "workspace:branch-details",
 	branchDiff: "workspace:branch-diff",
 	changesInWorktree: "workspace:changes-in-worktree",
+	clipboardWriteText: "lite:clipboard-write-text",
 	commitAmend: "workspace:commit-amend",
 	commitCreate: "workspace:commit-create",
 	commitDiscard: "workspace:commit-discard",
@@ -299,10 +309,12 @@ export const liteIpcChannels = {
 	listBranches: "workspace:list-branches",
 	listProjects: "projects:list",
 	moveBranch: "workspace:move-branch",
+	pathJoin: "lite:path-join",
 	updateBranchName: "workspace:update-branch-name",
 	tearOffBranch: "workspace:tear-off-branch",
 	peelRestoreSnapshot: "workspace:peel-restore-snapshot",
-	pushStackLegacy: "workspace:push-stack-legacy",
+	pushStack: "workspace:push-stack",
+	removeBranch: "workspace:remove-branch",
 	restoreSnapshotWithKind: "workspace:restore-snapshot-with-kind",
 	showNativeMenu: "lite:show-native-menu",
 	treeChangeDiffs: "workspace:tree-change-diffs",

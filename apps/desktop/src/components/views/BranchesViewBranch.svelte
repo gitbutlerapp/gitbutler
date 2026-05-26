@@ -10,12 +10,13 @@
 	import { getColorFromPushStatus, pushStatusToIcon } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import type { BranchDetails, Commit } from "@gitbutler/but-sdk";
+	import type { BranchDetails, Commit, Segment } from "@gitbutler/but-sdk";
 
 	type Props = {
 		projectId: string;
 		stackId?: string;
-		branchName: string;
+		branchName?: string;
+		segment?: Segment;
 		remote?: string;
 		isTopBranch?: boolean;
 		isTarget?: boolean;
@@ -30,6 +31,7 @@
 		projectId,
 		stackId,
 		branchName,
+		segment,
 		remote,
 		isTopBranch = true,
 		inWorkspace,
@@ -41,20 +43,26 @@
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
-	const branchQuery = $derived(
-		stackId
-			? stackService.branchDetails(projectId, stackId, branchName)
-			: stackService.unstackedBranchDetails(projectId, branchName, remote),
-	);
-
 	let cherryApplyModal = $state<CherryApplyModal>();
 </script>
 
-<ReduxResult result={branchQuery.result} {projectId} {stackId} {onerror}>
-	{#snippet children(branch, env)}
-		{@render branchCard(branch, env)}
-	{/snippet}
-</ReduxResult>
+{#if segment}
+	{@render branchCard(segment, { projectId, stackId })}
+{:else if stackId && branchName}
+	{@const branchQuery = stackService.branchDetails(projectId, stackId, branchName)}
+	<ReduxResult result={branchQuery.result} {projectId} {stackId} {onerror}>
+		{#snippet children(branch, env)}
+			{@render branchCard(branch, env)}
+		{/snippet}
+	</ReduxResult>
+{:else if branchName}
+	{@const branchQuery = stackService.unstackedBranchDetails(projectId, branchName, remote)}
+	<ReduxResult result={branchQuery.result} {projectId} {stackId} {onerror}>
+		{#snippet children(branch, env)}
+			{@render branchCard(branch, env)}
+		{/snippet}
+	</ReduxResult>
+{/if}
 
 {#snippet commitMenu(rightClickTrigger: HTMLElement)}
 	<BranchesViewCommitContextMenu
@@ -117,21 +125,29 @@
 	</CommitListItem>
 {/snippet}
 
-{#snippet branchCard(branch: BranchDetails, env: { projectId: string; stackId?: string })}
+{#snippet branchCard(branch: BranchDetails | Segment, env: { projectId: string; stackId?: string })}
 	{@const commitColor = getColorFromPushStatus(branch.pushStatus)}
 	{@const localCount = branch.commits?.length ?? 0}
 	{@const hasCommits = localCount > 0}
+	{@const trackingBranch =
+		"refName" in branch
+			? branch.remoteTrackingRefName
+				? new TextDecoder().decode(new Uint8Array(branch.remoteTrackingRefName.fullNameBytes))
+				: undefined
+			: branch.remoteTrackingBranch || undefined}
+	{@const displayBranchName =
+		branchName ?? ("refName" in branch ? branch.refName?.displayName : branch.name)}
 
 	<BranchCard
 		type="normal-branch"
 		first={isTopBranch}
 		lineColor={commitColor}
 		projectId={env.projectId}
-		branchName={branch.name}
+		branchName={displayBranchName ?? "Unnamed segment"}
 		{isTopBranch}
 		isNewBranch={localCount === 0}
 		iconName={pushStatusToIcon(branch.pushStatus)}
-		trackingBranch={branch.remoteTrackingBranch || undefined}
+		{trackingBranch}
 		readonly
 		roundedBottom={!hasCommits}
 		selected={false}

@@ -9,27 +9,6 @@ use crate::{
     utils::{CommandExt, Sandbox},
 };
 
-#[test]
-fn shorthand_without_subcommand_is_rejected() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
-
-    env.but("nonexistent1 nonexistent2")
-        .assert()
-        .failure()
-        .stdout_eq(str![[]])
-        .stderr_eq(str![[r#"
-error: unexpected argument 'nonexistent2' found
-
-Usage: but [OPTIONS] [COMMAND]
-       but [OPTIONS] [PATH]
-
-For more information, try '--help'.
-
-"#]]);
-
-    Ok(())
-}
-
 fn assigned_uncommitted_file_env() -> anyhow::Result<Sandbox> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 

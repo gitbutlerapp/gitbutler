@@ -49,6 +49,7 @@ export-schema = [
     "gitbutler-branch-actions/export-schema",
     "gitbutler-edit-mode/export-schema",
     "gitbutler-oplog/export-schema",
+    "but-gerrit/export-schema",
 ]
 ## Make legacy functionality available.
 legacy = [
@@ -141,7 +142,7 @@ which = "8.0.2"
 but-schemars.workspace = true
 
 [dev-dependencies]
-but-api = { path = ".", features = ["legacy"]}
+but-api = { path = ".", features = ["legacy"] }
 insta.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["full"] }

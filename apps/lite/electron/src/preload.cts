@@ -52,6 +52,8 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:branch-diff", params) as Promise<TreeChanges>,
 	changesInWorktree: (projectId) =>
 		ipcRenderer.invoke("workspace:changes-in-worktree", projectId) as Promise<WorktreeChanges>,
+	clipboardWriteText: (text) =>
+		ipcRenderer.invoke("lite:clipboard-write-text", text) as Promise<void>,
 	commitAmend: (params) =>
 		ipcRenderer.invoke("workspace:commit-amend", params) as Promise<CommitCreateResult>,
 	commitCreate: (params) =>
@@ -93,14 +95,16 @@ const api: LiteElectronApi = {
 	listProjects: () => ipcRenderer.invoke("projects:list") as Promise<Array<ProjectForFrontend>>,
 	moveBranch: (params) =>
 		ipcRenderer.invoke("workspace:move-branch", params) as Promise<MoveBranchResult>,
+	pathJoin: (path, ...paths) =>
+		ipcRenderer.invoke("lite:path-join", path, ...paths) as Promise<string>,
 	updateBranchName: (params) =>
 		ipcRenderer.invoke("workspace:update-branch-name", params) as Promise<void>,
 	tearOffBranch: (params) =>
 		ipcRenderer.invoke("workspace:tear-off-branch", params) as Promise<MoveBranchResult>,
 	peelRestoreSnapshot: (params) =>
 		ipcRenderer.invoke("workspace:peel-restore-snapshot", params) as Promise<Snapshot | null>,
-	pushStackLegacy: (params) =>
-		ipcRenderer.invoke("workspace:push-stack-legacy", params) as Promise<PushResult>,
+	pushStack: (params) => ipcRenderer.invoke("workspace:push-stack", params) as Promise<PushResult>,
+	removeBranch: (params) => ipcRenderer.invoke("workspace:remove-branch", params) as Promise<void>,
 	restoreSnapshotWithKind: (params) =>
 		ipcRenderer.invoke("workspace:restore-snapshot-with-kind", params) as Promise<void>,
 	showNativeMenu: (params) =>

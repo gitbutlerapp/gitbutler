@@ -67,10 +67,7 @@
 	const branchDetails = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const branchesQuery = $derived(stackService.branches(projectId, stackId));
 	const [pushStack, pushQuery] = stackService.pushStack;
-	const upstreamCommitsQuery = $derived(
-		stackService.upstreamCommits(projectId, stackId, branchName),
-	);
-	const upstreamCommits = $derived(upstreamCommitsQuery.response);
+
 	function handleClick(args: {
 		withForce: boolean;
 		skipForcePushProtection: boolean;
@@ -176,6 +173,10 @@
 		{@const withForce = partialStackRequestsForcePush(branchName, branches)}
 		{@const hasThingsToPush = branchHasUnpushedCommits(branchDetails)}
 		{@const hasConflicts = branchHasConflicts(branchDetails)}
+		{@const upstreamCommits = branchDetails.commitsOnRemote}
+		{@const remoteTrackingBranch = branchDetails.remoteTrackingRefName
+			? new TextDecoder().decode(new Uint8Array(branchDetails.remoteTrackingRefName.fullNameBytes))
+			: null}
 		{@const buttonDisabled = isReadOnly || !hasThingsToPush || hasConflicts}
 
 		<Button
@@ -185,12 +186,7 @@
 			style="gray"
 			{loading}
 			disabled={buttonDisabled}
-			tooltip={getButtonTooltip(
-				hasThingsToPush,
-				hasConflicts,
-				withForce,
-				branchDetails.remoteTrackingBranch,
-			)}
+			tooltip={getButtonTooltip(hasThingsToPush, hasConflicts, withForce, remoteTrackingBranch)}
 			onclick={() => handleClick({ withForce, skipForcePushProtection: false, gerritFlags: [] })}
 			icon={multipleBranches && !isLastBranchInStack ? "push-all" : "push"}
 		>

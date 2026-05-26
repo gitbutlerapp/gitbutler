@@ -10,6 +10,7 @@ use crate::parse::PushOutput;
 
 pub mod parse;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum PushFlag {
     Wip,
@@ -18,6 +19,8 @@ pub enum PushFlag {
     Hashtag(String),
     Topic(String),
 }
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(PushFlag);
 
 impl Display for PushFlag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

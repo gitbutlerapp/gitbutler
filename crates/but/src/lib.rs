@@ -132,11 +132,6 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     }
 
     let mut args: Args = Args::parse_from(args);
-    if args.path.is_some() && args.cmd.is_some() {
-        anyhow::bail!(
-            "PATH cannot be used together with a subcommand. To run a subcommand in a different directory, use `-C <path>` before the subcommand, for example: `but -C <path> status`"
-        );
-    }
     let output_format = if args.json {
         OutputFormat::Json
     } else {
@@ -176,7 +171,6 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         )?;
     }
 
-    #[cfg(feature = "agentlog")]
     if let Some(Subcommands::AgentLog { .. }) = &args.cmd {
         let Some(Subcommands::AgentLog { cmd }) = args.cmd.take() else {
             unreachable!("agentlog command was checked above")
@@ -187,27 +181,8 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
 
     let result = match args.cmd.take() {
-        None if args.path.is_some() => {
-            // If one argument is provided without a subcommand, check if this is a valid path.
-            let maybe_path = args
-                .path
-                .as_ref()
-                .expect("path is checked to be Some in match guard");
-            let path = args.current_dir.join(maybe_path);
-
-            // Check if the path exists before trying to open the GUI
-            if !path.exists() {
-                anyhow::bail!(
-                    "\"but {}\" is not a command. Type \"but --help\" to see all available commands.",
-                    maybe_path.display()
-                );
-            }
-
-            command::gui::open(&path)?;
-            Ok(())
-        }
         None => {
-            // No subcommand and no path means run the default alias
+            // No arguments means run the default alias
             // The default alias expands to "status" which provides a helpful entry point
             let default_args = vec![OsString::from("but"), OsString::from("default")];
             let expanded = alias::expand_aliases(default_args)?;
@@ -262,7 +237,6 @@ async fn match_subcommand(
 ) -> CliResult<()> {
     let out = &mut output;
 
-    #[cfg(feature = "agentlog")]
     let cmd = match cmd {
         Subcommands::AgentLog { cmd } => {
             return Ok(run_agentlog_command(&args.current_dir, cmd, out)?);
@@ -284,9 +258,15 @@ async fn match_subcommand(
             utils::metrics::capture_event_blocking(&app_settings, event).await;
             Ok(())
         }
-        Subcommands::Gui => command::gui::open(&args.current_dir)
-            .emit_metrics(metrics_ctx)
-            .map_err(CliError::from),
+        Subcommands::Gui { path } => {
+            let path = path
+                .as_ref()
+                .map(|path| args.current_dir.join(path))
+                .unwrap_or_else(|| args.current_dir.clone());
+            command::gui::open(&path)
+                .emit_metrics(metrics_ctx)
+                .map_err(CliError::from)
+        }
         Subcommands::Completions { shell } => command::completions::generate_completions(shell)
             .emit_metrics(metrics_ctx)
             .map_err(CliError::from),
@@ -1456,14 +1436,12 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
-        #[cfg(feature = "agentlog")]
         Subcommands::AgentLog { .. } => {
             unreachable!("agentlog command is handled before metrics setup")
         }
     }
 }
 
-#[cfg(feature = "agentlog")]
 fn run_agentlog_command(
     current_dir: &std::path::Path,
     mut cmd: but_agentlog::Command,

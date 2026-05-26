@@ -1,7 +1,7 @@
 import { updateStackSelection } from "$lib/stacks/staleStateUpdaters";
 import { describe, expect, test } from "vitest";
 import type { StackSelection, UiState } from "$lib/state/uiState.svelte";
-import type { StackDetails } from "@gitbutler/but-sdk";
+import type { Stack } from "@gitbutler/but-sdk";
 
 /**
  * Minimal mock of UiState that tracks the lane selection without Svelte reactivity.
@@ -28,30 +28,32 @@ function makeMockUiState(initialSelection: StackSelection | undefined): {
 	return { uiState, getSelection: () => selection };
 }
 
-/** Minimal StackDetails with just the fields updateStackSelection reads. */
+/** Minimal Stack with just the fields updateStackSelection reads. */
 function makeDetails(
 	branches: Array<{
 		name: string;
 		commits?: Array<{ id: string }>;
 		upstreamCommits?: Array<{ id: string }>;
 	}>,
-): StackDetails {
+): Stack {
 	return {
-		derivedName: "test-stack",
-		pushStatus: "nothingToPush",
-		isConflicted: false,
-		branchDetails: branches.map((b) => ({
-			name: b.name,
+		id: STACK_ID,
+		base: null,
+		segments: branches.map((b) => ({
+			refName: {
+				displayName: b.name,
+				fullNameBytes: [],
+			},
+			remoteTrackingRefName: null,
 			commits: (b.commits ?? []) as any,
-			upstreamCommits: (b.upstreamCommits ?? []) as any,
-			reference: `refs/heads/${b.name}`,
+			commitsOnRemote: (b.upstreamCommits ?? []) as any,
+			commitsOutside: null,
+			metadata: null,
+			isEntrypoint: false,
 			pushStatus: "nothingToPush",
-			isConflicted: false,
-			prNumber: undefined,
-			reviewId: undefined,
-			linkedTo: undefined,
+			base: null,
 		})),
-	} as unknown as StackDetails;
+	} as unknown as Stack;
 }
 
 const STACK_ID = "stack-1";

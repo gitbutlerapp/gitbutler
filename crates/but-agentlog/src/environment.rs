@@ -11,9 +11,14 @@ use but_core::{
     ref_metadata::{Branch, ValueInfo, Workspace},
 };
 use but_meta::VirtualBranchesTomlMetadata;
+use gix::prelude::ObjectIdExt as _;
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 
 const MAX_PATHS: usize = 256;
+// Commit file paths are captured on every turn, so keep the synced GitMeta
+// payload bounded to recent branch tips.
+const MAX_COMMIT_SNAPSHOTS_PER_BRANCH: usize = 32;
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -42,6 +47,8 @@ enum SnapshotErrorKind {
     Workspace,
     #[serde(rename = "diff_unavailable")]
     Diff,
+    #[serde(rename = "truncated")]
+    Truncated,
 }
 
 #[derive(Debug, Serialize)]
@@ -62,8 +69,24 @@ struct StackSnapshot {
 struct BranchSnapshot {
     key: String,
     name: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    reviews: Vec<TargetKey>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    commits: Vec<CommitSnapshot>,
+}
+
+#[derive(Debug, Serialize)]
+struct CommitSnapshot {
+    id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    review: Option<ReviewTarget>,
+    change: Option<TargetKey>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    file_hashes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+struct TargetKey {
+    key: String,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize)]
@@ -123,6 +146,93 @@ impl EnvironmentObservation {
                 stacks: Vec::new(),
             },
             observed_targets,
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn from_branch_commits_for_testing(
+        observed_targets: ObservedTargets,
+        branches: Vec<TestBranchCommitSnapshot>,
+    ) -> Self {
+        Self::from_worktree_and_branch_commits_for_testing(&[], observed_targets, branches)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn from_worktree_and_branch_commits_for_testing(
+        worktree_files: &[&str],
+        observed_targets: ObservedTargets,
+        branches: Vec<TestBranchCommitSnapshot>,
+    ) -> Self {
+        Self {
+            environment: EnvironmentSnapshot {
+                snapshot_status: SnapshotStatus::Complete,
+                error_kind: None,
+                worktree: Some(path_list(
+                    worktree_files
+                        .iter()
+                        .map(|path| (*path).to_owned())
+                        .collect(),
+                )),
+                stacks: vec![StackSnapshot {
+                    stack_id: None,
+                    branches: branches
+                        .into_iter()
+                        .map(TestBranchCommitSnapshot::into_branch_snapshot)
+                        .collect(),
+                }],
+            },
+            observed_targets,
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_partial_diff_for_testing(mut self) -> Self {
+        self.environment.snapshot_status = SnapshotStatus::Partial;
+        self.environment.error_kind = Some(SnapshotErrorKind::Diff);
+        self
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_partial_truncated_for_testing(mut self) -> Self {
+        self.environment.snapshot_status = SnapshotStatus::Partial;
+        self.environment.error_kind = Some(SnapshotErrorKind::Truncated);
+        self
+    }
+}
+
+#[cfg(test)]
+pub(crate) struct TestBranchCommitSnapshot {
+    pub(crate) branch_key: String,
+    pub(crate) review_keys: Vec<String>,
+    pub(crate) change_key: Option<String>,
+    pub(crate) commit_id: Option<String>,
+    pub(crate) files: Vec<String>,
+}
+
+#[cfg(test)]
+impl TestBranchCommitSnapshot {
+    fn into_branch_snapshot(self) -> BranchSnapshot {
+        let reviews = self
+            .review_keys
+            .into_iter()
+            .map(|key| TargetKey { key })
+            .collect::<Vec<_>>();
+        let change = self.change_key.map(|key| TargetKey { key });
+        let files = path_list(self.files);
+        let commits = self
+            .commit_id
+            .map(|id| CommitSnapshot {
+                id,
+                change,
+                file_hashes: file_hashes(&files.files),
+            })
+            .into_iter()
+            .collect();
+        BranchSnapshot {
+            key: self.branch_key.clone(),
+            name: self.branch_key,
+            reviews,
+            commits,
         }
     }
 }
@@ -317,6 +427,8 @@ fn workspace_snapshot_with_meta(
 
     let mut observed_targets = ObservedTargets::default();
     let mut stacks = Vec::new();
+    let mut commit_paths_failed = false;
+    let mut commit_snapshots_truncated = false;
     for stack in info.stacks {
         let stack_id = stack.id.map(|id| id.to_string());
         let mut branches = Vec::new();
@@ -330,23 +442,49 @@ fn workspace_snapshot_with_meta(
                 name: ref_info.ref_name.shorten().to_string(),
             };
             let reviews = review_targets(&branch.key, segment.metadata.as_ref());
-            let review = reviews.first().cloned();
-            for commit in &segment.commits {
-                let change_id = commit.change_id.as_ref().map(ToString::to_string);
-                if let Some(change_id) = &change_id {
-                    observed_targets.changes.push(ChangeTarget {
-                        key: format!("gitbutler-change:{change_id}"),
-                        change_id: change_id.clone(),
-                    });
+            let mut commits = Vec::new();
+            commit_snapshots_truncated |= segment.commits.len() > MAX_COMMIT_SNAPSHOTS_PER_BRANCH;
+            for (commit_index, commit) in segment.commits.iter().enumerate() {
+                let change = commit.change_id.as_ref().map(|change_id| ChangeTarget {
+                    key: format!("gitbutler-change:{change_id}"),
+                    change_id: change_id.to_string(),
+                });
+                if let Some(change) = &change {
+                    observed_targets.changes.push(change.clone());
                 }
+                let commit_change = change.as_ref().map(|change| TargetKey {
+                    key: change.key.clone(),
+                });
+                if commit_index >= MAX_COMMIT_SNAPSHOTS_PER_BRANCH {
+                    continue;
+                }
+                let files = match commit_paths(repo, commit.id) {
+                    Ok(files) => files,
+                    Err(_) => {
+                        commit_paths_failed = true;
+                        path_list(Vec::new())
+                    }
+                };
+                commits.push(CommitSnapshot {
+                    id: commit.id.to_hex().to_string(),
+                    change: commit_change,
+                    file_hashes: file_hashes(&files.files),
+                });
             }
 
             observed_targets.branches.push(branch.clone());
-            observed_targets.reviews.extend(reviews);
+            let branch_reviews = reviews
+                .iter()
+                .map(|review| TargetKey {
+                    key: review.key.clone(),
+                })
+                .collect();
+            observed_targets.reviews.extend(reviews.iter().cloned());
             branches.push(BranchSnapshot {
                 key: branch.key,
                 name: branch.name,
-                review,
+                reviews: branch_reviews,
+                commits,
             });
         }
         if !branches.is_empty() {
@@ -358,7 +496,13 @@ fn workspace_snapshot_with_meta(
     Ok(WorkspaceObservation {
         stacks,
         observed_targets,
-        error_kind: None,
+        error_kind: if commit_paths_failed {
+            Some(SnapshotErrorKind::Diff)
+        } else if commit_snapshots_truncated {
+            Some(SnapshotErrorKind::Truncated)
+        } else {
+            None
+        },
     })
 }
 
@@ -382,6 +526,11 @@ fn review_targets(branch_key: &str, metadata: Option<&Branch>) -> Vec<ReviewTarg
         });
     }
     targets
+}
+
+fn commit_paths(repo: &gix::Repository, commit_id: gix::ObjectId) -> anyhow::Result<PathList> {
+    let changes = but_core::diff::commit_changes(commit_id.attach(repo))?;
+    Ok(path_list(paths_from_changes(changes.into_tree_changes())))
 }
 
 fn paths_from_changes(changes: impl IntoIterator<Item = TreeChange>) -> Vec<String> {
@@ -410,6 +559,16 @@ fn path_list(mut files: Vec<String>) -> PathList {
 
 fn path_to_string(path: &BStr) -> String {
     path.to_str_lossy().into_owned()
+}
+
+fn file_hashes(files: &[String]) -> Vec<String> {
+    files.iter().map(|path| path_fingerprint(path)).collect()
+}
+
+pub(crate) fn path_fingerprint(path: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(path.as_bytes());
+    hex::encode(&hasher.finalize()[..16])
 }
 
 #[cfg(test)]
@@ -455,20 +614,38 @@ impl ObservedTargets {
         review_key: &str,
         change_key: &str,
     ) -> Self {
+        Self::from_index_key_sets_for_testing(&[branch_key], &[review_key], &[change_key])
+    }
+
+    #[cfg(test)]
+    pub(crate) fn from_index_key_sets_for_testing(
+        branch_keys: &[&str],
+        review_keys: &[&str],
+        change_keys: &[&str],
+    ) -> Self {
         Self {
-            branches: vec![BranchTarget {
-                key: branch_key.to_owned(),
-                name: branch_key.to_owned(),
-            }],
-            reviews: vec![ReviewTarget {
-                key: review_key.to_owned(),
-                pull_request: None,
-                review_id: Some(review_key.to_owned()),
-            }],
-            changes: vec![ChangeTarget {
-                key: change_key.to_owned(),
-                change_id: change_key.to_owned(),
-            }],
+            branches: branch_keys
+                .iter()
+                .map(|key| BranchTarget {
+                    key: (*key).to_owned(),
+                    name: (*key).to_owned(),
+                })
+                .collect(),
+            reviews: review_keys
+                .iter()
+                .map(|key| ReviewTarget {
+                    key: (*key).to_owned(),
+                    pull_request: None,
+                    review_id: Some((*key).to_owned()),
+                })
+                .collect(),
+            changes: change_keys
+                .iter()
+                .map(|key| ChangeTarget {
+                    key: (*key).to_owned(),
+                    change_id: (*key).to_owned(),
+                })
+                .collect(),
         }
     }
 }

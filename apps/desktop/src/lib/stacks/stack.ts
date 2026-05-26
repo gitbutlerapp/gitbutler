@@ -2,13 +2,7 @@ import { showToast } from "$lib/notifications/toasts";
 import { TestId } from "@gitbutler/ui";
 import type { BranchIconName } from "$lib/branches/branchIcon";
 import type { DropResult } from "$lib/dragging/dropResult";
-import type {
-	BranchDetails,
-	PushStatus,
-	StackDetails,
-	StackEntry,
-	StackHeadInfo,
-} from "@gitbutler/but-sdk";
+import type { PushStatus, Segment, Stack as RefInfoStack } from "@gitbutler/but-sdk";
 
 export type CreateBranchFromBranchOutcome = {
 	stackId: string;
@@ -55,10 +49,7 @@ You can always re-apply them later from the branches page.`,
 	}
 }
 
-/**
- * Return type of Tauri `stacks` command.
- */
-export type Stack = StackEntry;
+export type Stack = RefInfoStack;
 
 export type GerritPushFlag =
 	| { type: "wip" }
@@ -68,52 +59,25 @@ export type GerritPushFlag =
 	| { type: "topic"; subject: string };
 
 /**
- * Return (future) type of Tauri `stacks` command.
- * It's currently used to assure the frontend doesn't accidentally see
- * an optional stack-id yet, and to show what it would have to be.
- *
- * This is only useful if one wants to go from `Stack` -> `StackOpt` -> `RefInfo`.
- * Ultimately, this is just a step on the way to deal with the entire workspace at once.
- */
-export type StackOpt = {
-	/**
-	 * The id of the stack, or null if there is no permanent id.
-	 * This can happen if no workspace is known, or even (rare) the workspace
-	 * would be out-of-sync with the workspace data that only we can attach.
-	 * Ideally there is no catastrophic failure if this is null for one
-	 * stack but set for the others.
-	 */
-	id?: string;
-	/**
-	 * Information about the branches contained in the stack.
-	 */
-	heads: StackHeadInfo[];
-	/**
-	 * The commit hash of the tip of the stack.
-	 */
-	tip: string;
-	/**
-	 * Zero-based index for sorting the stacks.
-	 */
-	order: number;
-};
-
-/**
  * Returns the name of the stack.
  *
  * This is the name of the top-most branch in the stack.
  */
 export function getStackName(stack: Stack): string {
-	if (stack.heads.length === 0) {
-		// Should not happen
-		throw new Error("Stack has no heads");
+	const firstSegment = stack.segments.at(0);
+	if (!firstSegment?.refName) {
+		return "Unnamed segment";
 	}
-	const lastBranch = stack.heads.at(0)!.name;
-	return lastBranch;
+	return firstSegment.refName.displayName;
 }
 
 export function getStackBranchNames(stack: Stack): string[] {
-	return stack.heads.map((head) => head.name);
+	return stack.segments.map((segment) => {
+		if (!segment.refName) {
+			return "Unnamed segment";
+		}
+		return segment.refName.displayName;
+	});
 }
 
 /**
@@ -145,11 +109,11 @@ export function pushStatusToIcon(pushStatus: PushStatus): BranchIconName {
 	}
 }
 
-export function stackRequiresForcePush(stack: StackDetails): boolean {
-	return stack.pushStatus === "unpushedCommitsRequiringForce";
+export function stackRequiresForcePush(stack: Stack): boolean {
+	return stack.segments.at(0)?.pushStatus === "unpushedCommitsRequiringForce";
 }
 
-export function branchRequiresForcePush(branch: BranchDetails): boolean {
+export function branchRequiresForcePush(branch: Segment): boolean {
 	return branch.pushStatus === "unpushedCommitsRequiringForce";
 }
 
@@ -159,14 +123,11 @@ export function branchRequiresForcePush(branch: BranchDetails): boolean {
  * @param branchName The name of the branch to check
  * @param allBranches Complete list of branches in the stack. The order is expected to be child-to-parent
  */
-export function partialStackRequestsForcePush(
-	branchName: string,
-	allBranches: BranchDetails[],
-): boolean {
+export function partialStackRequestsForcePush(branchName: string, allBranches: Segment[]): boolean {
 	let foundBranch = false;
 
 	for (const branch of allBranches) {
-		if (branch.name === branchName && !foundBranch) {
+		if (branch.refName?.displayName === branchName && !foundBranch) {
 			foundBranch = true;
 		}
 		if (!foundBranch) continue;
@@ -176,19 +137,20 @@ export function partialStackRequestsForcePush(
 	return false;
 }
 
-export function stackHasConflicts(stack: StackDetails): boolean {
-	return stack.isConflicted;
+export function stackHasConflicts(stack: Stack): boolean {
+	return stack.segments.at(0)?.commits.some((commit) => commit.hasConflicts) ?? false;
 }
 
-export function branchHasConflicts(branch: BranchDetails): boolean {
-	return branch.isConflicted;
+export function branchHasConflicts(branch: Segment): boolean {
+	return branch.commits.some((commit) => commit.hasConflicts);
 }
 
-export function stackHasUnpushedCommits(stack: StackDetails): boolean {
-	return requiresPush(stack.pushStatus);
+export function stackHasUnpushedCommits(stack: Stack): boolean {
+	const pushStatus = stack.segments.at(0)?.pushStatus;
+	return pushStatus ? requiresPush(pushStatus) : false;
 }
 
-export function branchHasUnpushedCommits(branch: BranchDetails): boolean {
+export function branchHasUnpushedCommits(branch: Segment): boolean {
 	return requiresPush(branch.pushStatus);
 }
 

@@ -53,7 +53,6 @@
 
 	const branchQuery = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const branchesQuery = $derived(stackService.branches(projectId, stackId));
-	const topCommitQuery = $derived(stackService.commitAt(projectId, stackId, branchName, 0));
 
 	// Get conflicted commits for this branch
 	const conflictedCommitsInBranch = $derived(
@@ -84,14 +83,28 @@
 	{stackId}
 	{projectId}
 	{onerror}
-	result={combineResults(branchesQuery.result, branchQuery.result, topCommitQuery.result)}
+	result={combineResults(branchesQuery.result, branchQuery.result)}
 >
-	{#snippet children([branches, branch, topCommit], { stackId, projectId })}
-		{@const hasCommits = !!topCommit || branch.upstreamCommits.length > 0}
-		{@const remoteTrackingBranch = branch.remoteTrackingBranch}
+	{#snippet children([branches, branch], { stackId, projectId })}
+		{@const topCommit = branch.commits.at(0)}
+		{@const hasCommits = !!topCommit || branch.commitsOnRemote.length > 0}
+		{@const remoteTrackingBranch = branch.remoteTrackingRefName
+			? new TextDecoder().decode(new Uint8Array(branch.remoteTrackingRefName.fullNameBytes))
+			: undefined}
+		{@const prNumber = branch.metadata?.review.pullRequest ?? undefined}
+		{@const reviewId = branch.metadata?.review.reviewId ?? undefined}
+		{@const authors = Array.from(
+			new Map(
+				[...branch.commits, ...branch.commitsOnRemote].map((commit) => [
+					JSON.stringify(commit.author),
+					commit.author,
+				]),
+			).values(),
+		)}
+		{@const isConflicted = branch.commits.some((commit) => commit.hasConflicts)}
 		<Drawer
 			bind:clientHeight
-			persistId="branch-view-drawer-{projectId}-{stackId}-{branch.name}"
+			persistId="branch-view-drawer-{projectId}-{stackId}-{branchName}"
 			testId={TestId.BranchView}
 			{grow}
 			{onclose}
@@ -123,14 +136,14 @@
 							</div>
 						</Tooltip>
 					{/if}
-					<h3 class="text-15 text-bold truncate">{branch.name}</h3>
+					<h3 class="text-15 text-bold truncate">{branchName}</h3>
 				</div>
 			{/snippet}
 
 			{#snippet actions()}
 				{@const data = {
 					branch,
-					prNumber: branch.prNumber || undefined,
+					prNumber,
 					stackLength: branches.length,
 				}}
 				<BranchHeaderContextMenu {projectId} {stackId} {laneId} contextData={data} />
@@ -138,14 +151,13 @@
 
 			{#if hasCommits}
 				<div class="branch-view">
-					<BranchDetails {branch} onResolveConflicts={handleResolveConflicts}>
-						<BranchReview
-							{stackId}
-							{projectId}
-							branchName={branch.name}
-							prNumber={branch.prNumber || undefined}
-							reviewId={branch.reviewId || undefined}
-						/>
+					<BranchDetails
+						pushStatus={branch.pushStatus}
+						{authors}
+						{isConflicted}
+						onResolveConflicts={handleResolveConflicts}
+					>
+						<BranchReview {stackId} {projectId} {branchName} {prNumber} {reviewId} />
 
 						{#snippet conflictedCommits()}
 							{#if conflictedCommitsInBranch.length > 0}
@@ -197,16 +209,11 @@
 			{projectId}
 			{stackId}
 			{laneId}
-			branchName={branch.name}
+			{branchName}
 			bind:this={renameBranchModal}
-			isPushed={!!branch.remoteTrackingBranch}
+			isPushed={!!remoteTrackingBranch}
 		/>
-		<DeleteBranchModal
-			{projectId}
-			{stackId}
-			branchName={branch.name}
-			bind:this={deleteBranchModal}
-		/>
+		<DeleteBranchModal {projectId} {stackId} {branchName} bind:this={deleteBranchModal} />
 	{/snippet}
 </ReduxResult>
 

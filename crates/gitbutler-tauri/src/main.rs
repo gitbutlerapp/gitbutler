@@ -405,8 +405,6 @@ fn main() -> anyhow::Result<()> {
                 legacy::rules::tauri_update_workspace_rule::update_workspace_rule,
                 legacy::rules::tauri_list_workspace_rules::list_workspace_rules,
                 legacy::workspace::tauri_head_info::head_info,
-                legacy::workspace::tauri_stacks::stacks,
-                legacy::workspace::tauri_stack_details::stack_details,
                 legacy::workspace::tauri_branch_details::branch_details,
                 legacy::workspace::tauri_discard_worktree_changes::discard_worktree_changes,
                 legacy::workspace::tauri_stash_into_branch::stash_into_branch,

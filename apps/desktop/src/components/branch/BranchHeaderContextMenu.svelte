@@ -1,6 +1,8 @@
 <script lang="ts" module>
+	import type { Segment } from "@gitbutler/but-sdk";
+
 	export type BranchHeaderContextData = {
-		branch: BranchDetails;
+		branch: Segment;
 		prNumber?: number;
 		first?: boolean;
 		stackLength: number;
@@ -33,7 +35,6 @@
 
 	import { tick } from "svelte";
 	import type { AnchorPosition } from "$lib/stacks/stack";
-	import type { BranchDetails } from "@gitbutler/but-sdk";
 
 	type Props = {
 		projectId: string;
@@ -67,18 +68,28 @@
 	const isReadOnly = $derived(!stackId);
 
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
+	const branchName = $derived(contextData.branch.refName?.displayName);
+	const branchReference = $derived(
+		contextData.branch.refName
+			? new TextDecoder().decode(new Uint8Array(contextData.branch.refName.fullNameBytes))
+			: undefined,
+	);
+	const remoteTrackingBranch = $derived(contextData.branch.remoteTrackingRefName);
+	const branchCommits = $derived(contextData.branch.commits);
 
 	const allCommits = $derived.by(() => {
+		if (!branchName) return;
 		return stackId
-			? stackService.commits(projectId, stackId, contextData.branch.name)
-			: stackService.unstackedCommits(projectId, contextData.branch.name);
+			? stackService.commits(projectId, stackId, branchName)
+			: stackService.unstackedCommits(projectId, branchName);
 	});
 
 	async function getAllCommits() {
+		if (!branchName) return [];
 		if (stackId) {
-			return stackService.fetchCommits(projectId, stackId, contextData.branch.name);
+			return stackService.fetchCommits(projectId, stackId, branchName);
 		}
-		return stackService.fetchUnstackedCommits(projectId, contextData.branch.name);
+		return stackService.fetchUnstackedCommits(projectId, branchName);
 	}
 
 	const commits = $derived(allCommits?.response);
@@ -127,6 +138,7 @@
 	}
 
 	async function handleCreateNewRef(stackId: string, position: AnchorPosition) {
+		if (!branchName) return;
 		const newName = await stackService.fetchNewBranchName(projectId);
 		await createRef({
 			projectId,
@@ -136,7 +148,7 @@
 				anchor: {
 					type: "atReference",
 					subject: {
-						short_name: contextData.branch.name,
+						short_name: branchName,
 						position,
 					},
 				},
@@ -155,10 +167,9 @@
 	contextMenuTestId={TestId.BranchHeaderContextMenu}
 >
 	{#snippet contextMenu({ close })}
-		{@const { branch, prNumber, first, stackLength } = contextData}
-		{@const branchName = branch.name}
+		{@const { prNumber, first, stackLength } = contextData}
 		<ContextMenuSection>
-			{#if branch.remoteTrackingBranch}
+			{#if remoteTrackingBranch && branchName}
 				<ContextMenuItem
 					label="Open in browser"
 					icon="open-in-browser"
@@ -175,9 +186,12 @@
 				icon="copy"
 				testId={TestId.BranchHeaderContextMenu_CopyBranchName}
 				onclick={() => {
-					clipboardService.write(branch?.name, { message: "Branch name copied" });
+					if (branchName) {
+						clipboardService.write(branchName, { message: "Branch name copied" });
+					}
 					close();
 				}}
+				disabled={!branchName}
 			/>
 		</ContextMenuSection>
 		{#if stackId}
@@ -216,17 +230,18 @@
 					icon="commit-plus"
 					testId={TestId.BranchHeaderContextMenu_AddEmptyCommit}
 					onclick={async () => {
+						if (!branchReference) return;
 						await insertBlankCommitInBranch({
 							projectId,
-							relativeTo: { type: "reference", subject: contextData.branch.reference },
+							relativeTo: { type: "reference", subject: branchReference },
 							side: "below",
 							dryRun: false,
 						});
 						close();
 					}}
-					disabled={isReadOnly || commitInsertion.current.isLoading}
+					disabled={isReadOnly || commitInsertion.current.isLoading || !branchReference}
 				/>
-				{#if branch.commits.length > 1}
+				{#if branchCommits.length > 1 && branchName}
 					<ContextMenuItem
 						label="Squash all commits"
 						icon="commit-double-chevron-down"
@@ -244,7 +259,7 @@
 				{/if}
 			</ContextMenuSection>
 			<ContextMenuSection>
-				{#if $aiGenEnabled && aiConfigurationValid && !branch.remoteTrackingBranch && stackId}
+				{#if $aiGenEnabled && aiConfigurationValid && !remoteTrackingBranch && stackId && branchName}
 					<ContextMenuItem
 						label="Generate branch name"
 						icon="edit-ai"
@@ -256,7 +271,7 @@
 						}}
 					/>
 				{/if}
-				{#if branchType !== "Integrated"}
+				{#if branchType !== "Integrated" && branchName}
 					<ContextMenuItem
 						label="Rename"
 						icon="edit"
@@ -268,7 +283,7 @@
 								stackId,
 								laneId,
 								branchName,
-								isPushed: !!branch.remoteTrackingBranch,
+								isPushed: !!remoteTrackingBranch,
 							};
 							await tick();
 							renameBranchModal?.show();
@@ -276,7 +291,7 @@
 						}}
 					/>
 				{/if}
-				{#if stackLength && (stackLength > 1 || (stackLength === 1 && branch.commits.length === 0))}
+				{#if branchName && stackLength && (stackLength > 1 || (stackLength === 1 && branchCommits.length === 0))}
 					<ContextMenuItem
 						label="Delete"
 						icon="bin"

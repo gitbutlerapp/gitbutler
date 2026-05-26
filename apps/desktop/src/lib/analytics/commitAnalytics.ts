@@ -10,7 +10,7 @@ import type RulesService from "$lib/rules/rulesService.svelte";
 import type { Stack } from "$lib/stacks/stack";
 import type { EventProperties } from "$lib/state/customHooks.svelte";
 import type { HunkAssignment } from "@gitbutler/but-sdk";
-import type { BranchDetails, Commit } from "@gitbutler/but-sdk";
+import type { Commit, Segment } from "@gitbutler/but-sdk";
 import type { FModeManager } from "@gitbutler/ui/focus/fModeManager";
 
 export const COMMIT_ANALYTICS = new InjectionToken<CommitAnalytics>("CommitAnalytics");
@@ -76,7 +76,7 @@ export class CommitAnalytics {
 				// Number of commits in the branch in the stack that we are committing to
 				branchCommitCount: this.getBranchCommitCount(commits),
 				// Whether this commit is the last/top commit in the branch
-				isLastCommit: this.getIsLastCommit(stack, args.parentId),
+				isLastCommit: this.getIsLastCommit(branches, args.parentId),
 				// Number of characters in the commit message
 				messageCharacterCount: this.getMessageCharacterCount(args.message),
 				// Number of new lines in the commit message
@@ -107,10 +107,10 @@ export class CommitAnalytics {
 	}
 
 	private getBranchCount(stack: Stack | undefined): number {
-		return stack?.heads.length || 0;
+		return stack?.segments.length || 0;
 	}
 
-	private getLaneCommitCount(branches: BranchDetails[]): number {
+	private getLaneCommitCount(branches: Segment[]): number {
 		return branches.reduce((total, branch) => total + branch.commits.length, 0);
 	}
 
@@ -118,13 +118,14 @@ export class CommitAnalytics {
 		return commits.length;
 	}
 
-	private getIsLastCommit(stack: Stack | undefined, parentId: string | undefined): boolean {
+	private getIsLastCommit(branches: Segment[], parentId: string | undefined): boolean {
 		// If there is no parent, then this is implicitly the top of the stack.
 		if (!parentId) {
 			return true;
 		}
 
-		return stack?.tip === parentId;
+		const topBranch = branches.at(0);
+		return (topBranch?.commits.at(0)?.id ?? topBranch?.base) === parentId;
 	}
 
 	private getMessageCharacterCount(message: string): number {

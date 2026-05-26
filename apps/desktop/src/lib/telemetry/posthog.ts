@@ -109,9 +109,7 @@ type EventDescription = {
 	command: string;
 };
 
-const HIGH_VOLUME_EVENTS: EventDescription[] = [
-	{ name: "tauri_command", command: "stack_details" },
-];
+const HIGH_VOLUME_EVENTS: EventDescription[] = [{ name: "tauri_command", command: "head_info" }];
 
 const MID_VOLUME_EVENTS: EventDescription[] = [
 	{ name: "tauri_command", command: "get_base_branch_data" },

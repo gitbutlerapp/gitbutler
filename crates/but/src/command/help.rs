@@ -152,7 +152,6 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
                 SubcommandDiscriminant::Actions => continue,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Fetch => continue,
-                #[cfg(feature = "agentlog")]
                 SubcommandDiscriminant::AgentLog => continue,
             };
             groups.entry(group).or_default().push(*clap_subcommand);
@@ -172,7 +171,6 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
     )?;
     writeln!(out)?;
     writeln!(out, "Usage: but [OPTIONS] [COMMAND]")?;
-    writeln!(out, "       but [OPTIONS] [PATH]")?;
     writeln!(out)?;
     writeln!(
         out,
@@ -283,7 +281,6 @@ mod tests {
 The GitButler CLI change control system
 
 Usage: but [OPTIONS] [COMMAND]
-       but [OPTIONS] [PATH]
 
 The GitButler CLI can be used to do nearly anything the desktop client can do (and more).
 It is a drop in replacement for most of the Git workflows you would normally use, but Git
@@ -373,7 +370,6 @@ Environment variables:
 The GitButler CLI change control system
 
 Usage: but [OPTIONS] [COMMAND]
-       but [OPTIONS] [PATH]
 
 The GitButler CLI can be used to do nearly anything the desktop client can do (and more).
 It is a drop in replacement for most of the Git workflows you would normally use, but Git

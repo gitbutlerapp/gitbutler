@@ -2,7 +2,7 @@
 	import BranchDividerLine from "$components/branch/BranchDividerLine.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import BranchesViewBranch from "$components/views/BranchesViewBranch.svelte";
-	import { getColorFromPushStatus, getStackBranchNames } from "$lib/stacks/stack";
+	import { getColorFromPushStatus } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 
@@ -30,7 +30,7 @@
 
 	const stackService = inject(STACK_SERVICE);
 
-	const stackQuery = $derived(stackService.allStackById(projectId, stackId));
+	const stackQuery = $derived(stackService.stackById(projectId, stackId));
 </script>
 
 <ReduxResult result={stackQuery.result} {projectId} {stackId} {onerror}>
@@ -38,12 +38,9 @@
 		{#if stack === null}
 			<p>Stack not found.</p>
 		{:else}
-			{#each getStackBranchNames(stack) as branchName, idx}
-				{@const branchDetailsQuery = stackService.branchDetails(projectId, stackId, branchName)}
-				{@const branchDetails = branchDetailsQuery.response}
-				{@const lineColor = branchDetails
-					? getColorFromPushStatus(branchDetails.pushStatus)
-					: "var(--commit-local)"}
+			{#each stack.segments as segment, idx}
+				{@const branchName = segment.refName?.displayName}
+				{@const lineColor = getColorFromPushStatus(segment.pushStatus)}
 
 				{#if idx > 0}
 					<BranchDividerLine {lineColor} />
@@ -53,6 +50,7 @@
 					{projectId}
 					{stackId}
 					{branchName}
+					{segment}
 					isTopBranch={idx === 0}
 					{inWorkspace}
 					{isTarget}

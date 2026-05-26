@@ -1,4 +1,3 @@
-import { FilesPanel } from "./FilesPanel.tsx";
 import {
 	headInfoQueryOptions,
 	listBranchesQueryOptions,
@@ -10,7 +9,6 @@ import {
 	Panel as PanelType,
 	useFocusedProjectPanel,
 } from "#ui/panels.ts";
-import { isPanelVisible } from "#ui/panels/state.ts";
 import {
 	projectActions,
 	selectProjectDialogState,
@@ -44,7 +42,6 @@ import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialo
 import { DetailsPanel } from "./DetailsPanel.tsx";
 import styles from "./WorkspacePage.module.css";
 import { OutlinePanel } from "#ui/routes/project/$id/workspace/OutlinePanel.tsx";
-import { classes } from "#ui/components/classes.ts";
 import { Toast } from "@base-ui/react";
 import { errorMessageForToast } from "#ui/errors.ts";
 
@@ -56,26 +53,14 @@ type CommandPaletteItem = {
 	type: "hotkey" | "sequence";
 };
 
-const toggleProjectPanel =
-	({
-		projectId,
-		panel,
-		focusedPanel,
-	}: {
-		projectId: string;
-		panel: PanelType;
-		focusedPanel: PanelType | null;
-	}): AppThunk =>
+const toggleFilesPanel =
+	({ projectId, focusedPanel }: { projectId: string; focusedPanel: PanelType | null }): AppThunk =>
 	(dispatch, getState) => {
 		const panelsState = selectProjectPanelsState(getState(), projectId);
 
-		if (focusedPanel === panel && isPanelVisible(panelsState, panel)) {
-			const panelIndex = panelsState.visiblePanels.indexOf(panel);
-			const nextPanel = panelsState.visiblePanels[panelIndex - 1];
-			if (nextPanel !== undefined) focusPanel(nextPanel);
-		}
+		if (focusedPanel === "files" && panelsState.filesVisible) focusPanel("outline");
 
-		dispatch(projectActions.togglePanel({ projectId, panel }));
+		dispatch(projectActions.toggleFilesPanel({ projectId }));
 	};
 
 const groupCommandPaletteItems = (
@@ -305,10 +290,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 	const focusedPanel = useFocusedProjectPanel(projectId);
 
-	const togglePanel = (panel: PanelType) => {
-		dispatch(toggleProjectPanel({ projectId, panel, focusedPanel }));
-	};
-
 	useHotkeys([
 		{
 			hotkey: globalHotkeys.commandPalette.hotkey,
@@ -334,7 +315,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		{
 			hotkey: workspaceHotkeys.toggleFilesPanel.hotkey,
 			callback: () => {
-				togglePanel("files");
+				dispatch(toggleFilesPanel({ projectId, focusedPanel }));
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -344,22 +325,20 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		{
 			hotkey: workspaceHotkeys.focusPreviousPanel.hotkey,
 			callback: () => {
-				focusAdjacentPanel(-1, panelsState.visiblePanels);
+				focusAdjacentPanel(panelsState, -1);
 			},
 			options: {
 				conflictBehavior: "allow",
-				enabled: focusedPanel !== null,
 				meta: workspaceHotkeys.focusPreviousPanel.meta,
 			},
 		},
 		{
 			hotkey: workspaceHotkeys.focusNextPanel.hotkey,
 			callback: () => {
-				focusAdjacentPanel(1, panelsState.visiblePanels);
+				focusAdjacentPanel(panelsState, 1);
 			},
 			options: {
 				conflictBehavior: "allow",
-				enabled: focusedPanel !== null,
 				meta: workspaceHotkeys.focusNextPanel.meta,
 			},
 		},
@@ -378,8 +357,8 @@ const WorkspacePage: FC = () => {
 	useWorkspaceHotkeys(projectId);
 
 	const { defaultLayout, onLayoutChanged } = useDefaultLayout({
-		id: `project:${projectId}:layout`,
-		panelIds: panelsState.visiblePanels,
+		id: `project:${projectId}:workspace`,
+		panelIds: ["outline", "details-files-container"],
 	});
 
 	const selectBranch = (branch: BranchOperand) => {
@@ -416,33 +395,12 @@ const WorkspacePage: FC = () => {
 					defaultSize={500}
 					groupResizeBehavior="preserve-pixel-size"
 					tabIndex={0}
-					className={styles.panel}
 					elementRef={(el) => el?.focus({ focusVisible: false })}
 				/>
-				{isPanelVisible(panelsState, "files") && (
-					<>
-						<Separator className={styles.panelResizeHandle} />
-						<FilesPanel
-							id={"files" satisfies PanelType}
-							minSize={250}
-							defaultSize={400}
-							groupResizeBehavior="preserve-pixel-size"
-							tabIndex={0}
-							className={classes(styles.panel, styles.filesPanel)}
-						/>
-					</>
-				)}
-				{isPanelVisible(panelsState, "details") && (
-					<>
-						<Separator className={styles.panelResizeHandle} />
-						<DetailsPanel
-							id={"details" satisfies PanelType}
-							minSize={400}
-							tabIndex={0}
-							className={classes(styles.panel, styles.detailsPanel)}
-						/>
-					</>
-				)}
+
+				<Separator className={styles.panelResizeHandle} />
+
+				<DetailsPanel id="details-files-container" minSize={panelsState.filesVisible ? 650 : 400} />
 			</Group>
 
 			{Match.value(dialog).pipe(

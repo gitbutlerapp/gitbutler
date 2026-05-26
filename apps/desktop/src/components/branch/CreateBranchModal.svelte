@@ -5,6 +5,7 @@
 	import newStackRightSvg from "$components/stackTabs/assets/new-stack-right.svg?raw";
 	import { autoSelectBranchCreationFeature } from "$lib/config/uiFeatureFlags";
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
+	import { getStackName } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { persisted } from "@gitbutler/shared/persisted";
@@ -54,9 +55,9 @@
 		allStacks
 			.map((stack) => {
 				if (!stack.id) return;
-				const firstBranchName = stack.heads[0]?.name ?? `Stack ${stack?.id.slice(0, 8)}`;
 				return {
-					label: firstBranchName,
+					// TODO(CTO): Change this not to error out if stack name is undefined
+					label: getStackName(stack),
 					value: stack.id,
 				};
 			})
