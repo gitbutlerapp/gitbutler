@@ -11,7 +11,6 @@ import { Outlet, useMatch, useNavigate } from "@tanstack/react-router";
 import { FC, useState } from "react";
 import styles from "./RootLayout.module.css";
 import { ProjectForFrontend } from "@gitbutler/but-sdk";
-import { Hash } from "effect";
 
 const ProjectSelect: FC = () => {
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
@@ -42,8 +41,6 @@ const ProjectSelect: FC = () => {
 		window.localStorage.setItem(lastOpenedProjectKey, project.id);
 	};
 
-	const hue = (id: string): number => ((Hash.string(id) % 360) + 360) % 360;
-
 	return (
 		<div className={styles.projects}>
 			{projects.map((project) => {
@@ -53,7 +50,7 @@ const ProjectSelect: FC = () => {
 					<ProjectButton
 						key={project.id}
 						title={project.title}
-						hue={hue(project.id)}
+						id={project.id}
 						isSelected={isSelected}
 						onClick={() => selectProject(project)}
 					/>
@@ -64,6 +61,7 @@ const ProjectSelect: FC = () => {
 				aria-label="Select project"
 				variant="ghost"
 				hotkey={globalHotkeys.selectProject.hotkey}
+				className={styles.addProjectButton}
 				hotkeyOptions={{ meta: globalHotkeys.selectProject.meta }}
 				onClick={openProjectPicker}
 				positionerProps={{ side: "right" }}
@@ -100,8 +98,15 @@ export const RootLayout: FC = () => (
 	<HotkeysProvider>
 		<div className={styles.layout}>
 			<div className={styles.dragRegion} />
-			<nav className={`${styles.sidebar}${isMac ? ` ${styles.sidebarMac}` : ""}`}>
-				<ProjectSelect />
+			<nav className={styles.sidebar}>
+				{isMac && <div className={styles.sidebarMacSpacer} />}
+				<div
+					className={[styles.sidebarScroll, isMac ? styles.sidebarScrollMac : undefined]
+						.filter(Boolean)
+						.join(" ")}
+				>
+					<ProjectSelect />
+				</div>
 			</nav>
 			<main className={styles.content}>
 				<Outlet />
