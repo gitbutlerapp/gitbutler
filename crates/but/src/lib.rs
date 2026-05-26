@@ -1294,12 +1294,13 @@ async fn match_subcommand(
                 out,
             )?;
             out.begin_status_after(status_after);
-            let result = if let Some(file_or_hunk) = file_or_hunk {
+            let result = if let Some(file_or_hunk) = file_or_hunk.as_deref() {
                 // Direct mode: but stage <file_or_hunk> <branch>
-                let branch = branch.or(branch_pos).ok_or_else(|| {
-                    anyhow::anyhow!("Missing required argument: <branch>. Usage: but stage <file_or_hunk> <branch>")
+                let branch = branch.as_deref().or(branch_pos.as_deref()).ok_or_else(|| {
+                    bad_input("Missing required argument: <branch>. Usage: but stage <file_or_hunk> <branch>")
+                        .arg_name("<BRANCH>")
                 })?;
-                command::legacy::rub::handle_stage(&mut ctx, out, &file_or_hunk, &branch)
+                command::legacy::rub::handle_stage(&mut ctx, out, file_or_hunk, branch)
                     .context("Failed to stage.")
                     .emit_metrics(metrics_ctx)
             } else {
@@ -1315,7 +1316,7 @@ async fn match_subcommand(
                     .emit_metrics(metrics_ctx)
             };
             maybe_run_status_after(status_after, &result, &mut ctx, out).await;
-            result.show_root_cause_error_then_exit_without_destructors(output)
+            result.map_err(command::legacy::rub::stage_cli_error)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Unstage {
