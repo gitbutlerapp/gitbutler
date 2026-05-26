@@ -203,7 +203,6 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Clean { .. } => Clean,
             Subcommands::Onboarding | Subcommands::EvalHook => Unknown,
-            #[cfg(feature = "agentlog")]
             Subcommands::AgentLog { .. } => Unknown,
         }
     }
