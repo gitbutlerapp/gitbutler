@@ -345,6 +345,12 @@ impl Sandbox {
         self
     }
 
+    /// Remove a file in our projects root.
+    pub fn remove_file(&self, path: impl AsRef<Path>) -> &Self {
+        std::fs::remove_file(self.projects_root().join(path)).expect("failed to remove file");
+        self
+    }
+
     /// The root directory of the project itself, either the `workdir` or `gitdir` if the underlying repository is bare.
     pub fn projects_root(&self) -> &Path {
         self.project_root.as_ref().unwrap().path()

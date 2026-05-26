@@ -6,6 +6,7 @@ use crate::{
 mod undo_commit;
 mod undo_redo;
 mod undo_rub;
+mod undo_uncommit;
 
 #[test]
 fn ignored_tests_have_linear_tickets() {
