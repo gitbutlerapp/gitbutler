@@ -7,6 +7,33 @@
 	grid-template-rows: auto minmax(0, 1fr);
 }
 
+.header {
+	padding-inline: var(--panel-padding);
+	padding-block-start: var(--panel-padding);
+}
+
+.panes {
+	min-height: 0;
+}
+
+.innerPanel {
+	min-width: 0;
+}
+
+.filesPanel {
+	padding: var(--panel-padding);
+}
+
+.detailsContentPanel {
+	display: grid;
+	grid-template-rows: minmax(0, 1fr);
+}
+
+.panelResizeHandle {
+	width: 1px;
+	background-color: var(--border-2);
+}
+
 .headerActions {
 	display: flex;
 	align-items: center;
@@ -27,6 +54,8 @@
 }
 
 .detailsVirtualizer {
+	min-height: 0;
+	padding-inline: var(--panel-padding);
 	padding-block-end: var(--panel-padding);
 	overflow: auto;
 }

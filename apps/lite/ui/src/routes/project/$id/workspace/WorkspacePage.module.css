@@ -20,15 +20,6 @@
 	}
 }
 
-.filesPanel {
-	padding: var(--panel-padding);
-}
-
-.detailsPanel {
-	padding-inline: var(--panel-padding);
-	padding-block-start: var(--panel-padding);
-}
-
 .panelResizeHandle {
 	width: 1px;
 	background-color: var(--border-2);

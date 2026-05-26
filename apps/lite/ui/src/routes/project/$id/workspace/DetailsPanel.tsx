@@ -41,8 +41,9 @@ import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { FC, Suspense, useDeferredValue } from "react";
-import { Panel, PanelProps } from "react-resizable-panels";
+import { Group, Panel, PanelProps, Separator, useDefaultLayout } from "react-resizable-panels";
 import { DependencyIndicatorButton } from "./DependencyIndicatorButton.tsx";
+import { FilesPanel } from "./FilesPanel.tsx";
 import styles from "./DetailsPanel.module.css";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
@@ -494,26 +495,56 @@ const DiffContents: FC<{
 
 export const DetailsPanel: FC<PanelProps> = (panelProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 	const urgentSelection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
 	const selection = useDeferredValue(urgentSelection);
+	const detailsOpacity = urgentSelection !== selection ? 0.5 : 1;
+	const { defaultLayout, onLayoutChanged } = useDefaultLayout({
+		id: `project:${projectId}:details`,
+		panelIds: isPanelVisible(panelsState, "files") ? ["files", "details"] : ["details"],
+	});
 
 	return (
-		<Panel
-			{...panelProps}
-			className={classes(panelProps.className, styles.panel)}
-			style={{ ...panelProps.style, opacity: urgentSelection !== selection ? 0.5 : 1 }}
-		>
-			<div>
+		<Panel {...panelProps} className={classes(panelProps.className, styles.panel)}>
+			<div className={styles.header} style={{ opacity: detailsOpacity }}>
 				<Suspense fallback={<p className="text-13">Loading details…</p>}>
 					<Header projectId={projectId} selection={selection} />
 				</Suspense>
 			</div>
 
-			<Virtualizer className={styles.detailsVirtualizer}>
-				<Suspense>
-					<DiffContents projectId={projectId} selection={selection} />
-				</Suspense>
-			</Virtualizer>
+			<Group
+				className={styles.panes}
+				defaultLayout={defaultLayout}
+				onLayoutChange={onLayoutChanged}
+			>
+				{isPanelVisible(panelsState, "files") && (
+					<>
+						<FilesPanel
+							id="files"
+							minSize={250}
+							defaultSize={400}
+							groupResizeBehavior="preserve-pixel-size"
+							tabIndex={0}
+							className={classes(styles.innerPanel, styles.filesPanel)}
+						/>
+						<Separator className={styles.panelResizeHandle} />
+					</>
+				)}
+
+				<Panel
+					id="details"
+					minSize={400}
+					tabIndex={0}
+					className={classes(styles.innerPanel, styles.detailsContentPanel)}
+					style={{ opacity: detailsOpacity }}
+				>
+					<Virtualizer className={styles.detailsVirtualizer}>
+						<Suspense>
+							<DiffContents projectId={projectId} selection={selection} />
+						</Suspense>
+					</Virtualizer>
+				</Panel>
+			</Group>
 		</Panel>
 	);
 };

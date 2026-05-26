@@ -20,8 +20,13 @@ import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
 export type Panel = "outline" | "files" | "details";
 export const orderedPanels: Array<Panel> = ["outline", "files", "details"];
 
-const getFocusedProjectPanel = (activeElement: Element | null) =>
-	(activeElement?.closest("[data-panel]")?.id as Panel | undefined) ?? null;
+const isProjectPanel = (id: string): id is Panel => orderedPanels.includes(id as Panel);
+
+const getFocusedProjectPanel = (activeElement: Element | null): Panel | null => {
+	const panelId = activeElement?.closest("[data-panel]")?.id;
+	if (panelId === undefined) return null;
+	return isProjectPanel(panelId) ? panelId : null;
+};
 
 export const useFocusedProjectPanel = (projectId: string): Panel | null => {
 	const activeElement = useActiveElement();

@@ -1,4 +1,3 @@
-import { FilesPanel } from "./FilesPanel.tsx";
 import {
 	headInfoQueryOptions,
 	listBranchesQueryOptions,
@@ -44,7 +43,6 @@ import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialo
 import { DetailsPanel } from "./DetailsPanel.tsx";
 import styles from "./WorkspacePage.module.css";
 import { OutlinePanel } from "#ui/routes/project/$id/workspace/OutlinePanel.tsx";
-import { classes } from "#ui/components/classes.ts";
 import { Toast } from "@base-ui/react";
 import { errorMessageForToast } from "#ui/errors.ts";
 
@@ -378,8 +376,8 @@ const WorkspacePage: FC = () => {
 	useWorkspaceHotkeys(projectId);
 
 	const { defaultLayout, onLayoutChanged } = useDefaultLayout({
-		id: `project:${projectId}:layout`,
-		panelIds: panelsState.visiblePanels,
+		id: `project:${projectId}:workspace`,
+		panelIds: ["outline", "details-files-container"],
 	});
 
 	const selectBranch = (branch: BranchOperand) => {
@@ -419,30 +417,14 @@ const WorkspacePage: FC = () => {
 					className={styles.panel}
 					elementRef={(el) => el?.focus({ focusVisible: false })}
 				/>
-				{isPanelVisible(panelsState, "files") && (
-					<>
-						<Separator className={styles.panelResizeHandle} />
-						<FilesPanel
-							id={"files" satisfies PanelType}
-							minSize={250}
-							defaultSize={400}
-							groupResizeBehavior="preserve-pixel-size"
-							tabIndex={0}
-							className={classes(styles.panel, styles.filesPanel)}
-						/>
-					</>
-				)}
-				{isPanelVisible(panelsState, "details") && (
-					<>
-						<Separator className={styles.panelResizeHandle} />
-						<DetailsPanel
-							id={"details" satisfies PanelType}
-							minSize={400}
-							tabIndex={0}
-							className={classes(styles.panel, styles.detailsPanel)}
-						/>
-					</>
-				)}
+
+				<Separator className={styles.panelResizeHandle} />
+
+				<DetailsPanel
+					id="details-files-container"
+					minSize={isPanelVisible(panelsState, "files") ? 650 : 400}
+					className={styles.panel}
+				/>
 			</Group>
 
 			{Match.value(dialog).pipe(
