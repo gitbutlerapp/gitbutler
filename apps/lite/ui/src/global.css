@@ -1,5 +1,9 @@
 @import "@gitbutler/design-core/core";
 
+[role="treeitem"] {
+	cursor: pointer;
+}
+
 :root {
 	color-scheme: light dark;
 
