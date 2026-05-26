@@ -1749,6 +1749,7 @@ const BranchRow: FC<
 		stackId: string;
 		isCommitTarget: boolean;
 		canTearOffBranch: boolean;
+		canRemoveBranch: boolean;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -1757,6 +1758,7 @@ const BranchRow: FC<
 	stackId,
 	isCommitTarget,
 	canTearOffBranch,
+	canRemoveBranch,
 	...restProps
 }) => {
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -1861,6 +1863,27 @@ const BranchRow: FC<
 		},
 	});
 
+	// TODO: This mutation doesn't trigger any watcher events, hence the manual invalidation.
+	const removeBranchMutation = useMutation({
+		mutationFn: window.lite.removeBranch,
+		onSuccess: async (_response, input, _context, mutation) => {
+			await mutation.client.invalidateQueries({
+				queryKey: headInfoQueryOptions(input.projectId).queryKey,
+			});
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to remove branch",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+
 	const saveBranchName = (newBranchName: string) => {
 		const trimmed = newBranchName.trim();
 		if (trimmed === "" || trimmed === branchName) return;
@@ -1918,12 +1941,23 @@ const BranchRow: FC<
 		enabled: canTearOffBranch && !tearOffBranchMutation.isPending,
 		onSelect: tearOffBranch,
 	});
+	const removeBranchContextMenuItem = nativeMenuItem({
+		label: "Remove Branch",
+		enabled: canRemoveBranch,
+		onSelect: () =>
+			removeBranchMutation.mutate({
+				projectId,
+				stackId,
+				branchName,
+			}),
+	});
 
 	const menuItems: Array<NativeMenuItem> = [
 		startEditingContextMenuItem,
 		setCommitTargetContextMenuItem,
 		nativeMenuSeparator,
 		tearOffBranchContextMenuItem,
+		removeBranchContextMenuItem,
 	];
 
 	return (
@@ -2049,7 +2083,16 @@ const BranchSegment: FC<{
 	stackId: string;
 	commitTarget: RelativeTo | null;
 	canTearOffBranch: boolean;
-}> = ({ projectId, segment, refName, stackId, commitTarget, canTearOffBranch }) => {
+	canRemoveBranch: boolean;
+}> = ({
+	projectId,
+	segment,
+	refName,
+	stackId,
+	commitTarget,
+	canTearOffBranch,
+	canRemoveBranch,
+}) => {
 	const operand = branchOperand({ stackId, branchRef: refName.fullNameBytes });
 
 	return (
@@ -2070,6 +2113,7 @@ const BranchSegment: FC<{
 						branchRef={refName.fullNameBytes}
 						stackId={stackId}
 						canTearOffBranch={canTearOffBranch}
+						canRemoveBranch={canRemoveBranch}
 						isCommitTarget={
 							commitTarget
 								? relativeToEquals(commitTarget, {
@@ -2147,6 +2191,10 @@ const StackC: FC<{
 	const operand = stackOperand({ stackId });
 	const canTearOffBranch = stack.segments.length > 1;
 
+	const hasAnyCommits = stack.segments.some((segment) => segment.commits.length > 0);
+	const numBranches = stack.segments.filter((segment) => segment.refName !== null).length;
+	const canRemoveBranches = !hasAnyCommits || numBranches > 1;
+
 	return (
 		<TreeItem
 			projectId={projectId}
@@ -2169,6 +2217,7 @@ const StackC: FC<{
 							stackId={stackId}
 							commitTarget={commitTarget}
 							canTearOffBranch={canTearOffBranch}
+							canRemoveBranch={canRemoveBranches}
 						/>
 					) : (
 						// A segment should always either have a branch reference or at

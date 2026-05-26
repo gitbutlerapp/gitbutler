@@ -165,6 +165,12 @@ export interface PushStackLegacyParams {
 	branch: string;
 }
 
+export interface RemoveBranchParams {
+	projectId: string;
+	stackId: string;
+	branchName: string;
+}
+
 export interface RestoreSnapshotWithKindParams {
 	projectId: string;
 	restoreKind: RestoreKind;
@@ -262,6 +268,7 @@ export interface LiteElectronApi {
 	tearOffBranch: (params: TearOffBranchParams) => Promise<MoveBranchResult>;
 	peelRestoreSnapshot: (params: PeelRestoreSnapshotParams) => Promise<Snapshot | null>;
 	pushStackLegacy: (params: PushStackLegacyParams) => Promise<PushResult>;
+	removeBranch: (params: RemoveBranchParams) => Promise<void>;
 	restoreSnapshotWithKind: (params: RestoreSnapshotWithKindParams) => Promise<void>;
 	showNativeMenu: (params: ShowNativeMenuParams) => Promise<string | null>;
 	treeChangeDiffs: (params: TreeChangeDiffParams) => Promise<UnifiedPatch | null>;
@@ -303,6 +310,7 @@ export const liteIpcChannels = {
 	tearOffBranch: "workspace:tear-off-branch",
 	peelRestoreSnapshot: "workspace:peel-restore-snapshot",
 	pushStackLegacy: "workspace:push-stack-legacy",
+	removeBranch: "workspace:remove-branch",
 	restoreSnapshotWithKind: "workspace:restore-snapshot-with-kind",
 	showNativeMenu: "lite:show-native-menu",
 	treeChangeDiffs: "workspace:tree-change-diffs",

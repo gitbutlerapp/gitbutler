@@ -101,6 +101,7 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:peel-restore-snapshot", params) as Promise<Snapshot | null>,
 	pushStackLegacy: (params) =>
 		ipcRenderer.invoke("workspace:push-stack-legacy", params) as Promise<PushResult>,
+	removeBranch: (params) => ipcRenderer.invoke("workspace:remove-branch", params) as Promise<void>,
 	restoreSnapshotWithKind: (params) =>
 		ipcRenderer.invoke("workspace:restore-snapshot-with-kind", params) as Promise<void>,
 	showNativeMenu: (params) =>

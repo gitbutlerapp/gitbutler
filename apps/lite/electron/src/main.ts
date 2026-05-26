@@ -19,18 +19,19 @@ import {
 	type CommitUncommitChangesParams,
 	type MoveBranchParams,
 	type PushStackLegacyParams,
+	type RemoveBranchParams,
 	type TearOffBranchParams,
 	type TreeChangeDiffParams,
 	type UpdateBranchNameParams,
 	type ApplyParams,
 	type ShowNativeMenuParams,
 	type UnapplyStackParams,
-	WatcherSubscribeParams,
-	WatcherUnsubscribeParams,
-	NativeMenuPopupItem,
-	CommitUncommitParams,
-	RestoreSnapshotWithKindParams,
-	PeelRestoreSnapshotParams,
+	type WatcherSubscribeParams,
+	type WatcherUnsubscribeParams,
+	type NativeMenuPopupItem,
+	type CommitUncommitParams,
+	type RestoreSnapshotWithKindParams,
+	type PeelRestoreSnapshotParams,
 } from "./ipc.js";
 import {
 	absorb,
@@ -55,6 +56,7 @@ import {
 	listProjectsStateless,
 	moveBranch,
 	pushStackLegacy,
+	removeBranch,
 	tearOffBranch,
 	treeChangeDiffs,
 	unapplyStack,
@@ -374,6 +376,11 @@ const registerIpcHandlers = (): void => {
 		liteIpcChannels.pushStackLegacy,
 		(_e, { projectId, stackId, branch }: PushStackLegacyParams) =>
 			pushStackLegacy(projectId, stackId, false, false, branch, true),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.removeBranch,
+		(_e, { projectId, stackId, branchName }: RemoveBranchParams) =>
+			removeBranch(projectId, stackId, branchName),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.restoreSnapshotWithKind,
