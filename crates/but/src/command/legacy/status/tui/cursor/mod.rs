@@ -13,6 +13,7 @@ use crate::{
             render::{commit_operation_display, move_operation_display},
         },
     },
+    id::UncommittedCliId,
 };
 
 #[cfg(test)]
@@ -92,25 +93,60 @@ impl Cursor {
         lines: &[StatusOutputLine],
         discarded_commits: &[gix::ObjectId],
     ) -> Option<SelectAfterReload> {
-        if self.0 >= lines.len() {
-            return None;
-        }
+        self.select_after_discarded_marks(lines, discarded_commits, &[])
+    }
 
-        if let Some(CliId::Commit { commit_id, .. }) = lines[self.0].data.cli_id().map(|id| &**id)
-            && !discarded_commits.contains(commit_id)
+    /// Selects what should be focused after discarding marked commits and uncommitted files.
+    pub(super) fn select_after_discarded_marks(
+        self,
+        lines: &[StatusOutputLine],
+        discarded_commits: &[gix::ObjectId],
+        discarded_uncommitted: &[UncommittedCliId],
+    ) -> Option<SelectAfterReload> {
+        let current = lines.get(self.0)?;
+
+        if let Some(cli_id) = current.data.cli_id()
+            && matches!(&**cli_id, CliId::Commit { .. } | CliId::Uncommitted(..))
+            && !is_discarded_cli_id(cli_id, discarded_commits, discarded_uncommitted)
         {
-            return Some(SelectAfterReload::Commit(*commit_id));
+            return select_after_reload_for_cli_id(cli_id);
         }
 
+        if matches!(
+            current.data.cli_id().map(|id| &**id),
+            Some(CliId::Commit { .. })
+        ) {
+            return self.select_after_discarded_marks_in_commit_section(
+                lines,
+                discarded_commits,
+                discarded_uncommitted,
+            );
+        }
+
+        self.select_after_discarded_marks_in_file_section(
+            lines,
+            discarded_commits,
+            discarded_uncommitted,
+        )
+    }
+
+    fn select_after_discarded_marks_in_commit_section(
+        self,
+        lines: &[StatusOutputLine],
+        discarded_commits: &[gix::ObjectId],
+        discarded_uncommitted: &[UncommittedCliId],
+    ) -> Option<SelectAfterReload> {
         for line in lines.iter().skip(self.0 + 1) {
             if is_discard_commit_boundary(line) {
                 break;
             }
 
-            if let Some(CliId::Commit { commit_id, .. }) = line.data.cli_id().map(|id| &**id)
-                && !discarded_commits.contains(commit_id)
+            if let Some(cli_id) = line.data.cli_id()
+                && !is_discarded_cli_id(cli_id, discarded_commits, discarded_uncommitted)
+                && let Some(target @ SelectAfterReload::Commit(_)) =
+                    select_after_reload_for_cli_id(cli_id)
             {
-                return Some(SelectAfterReload::Commit(*commit_id));
+                return Some(target);
             }
         }
 
@@ -119,10 +155,12 @@ impl Cursor {
                 break;
             }
 
-            if let Some(CliId::Commit { commit_id, .. }) = line.data.cli_id().map(|id| &**id)
-                && !discarded_commits.contains(commit_id)
+            if let Some(cli_id) = line.data.cli_id()
+                && !is_discarded_cli_id(cli_id, discarded_commits, discarded_uncommitted)
+                && let Some(target @ SelectAfterReload::Commit(_)) =
+                    select_after_reload_for_cli_id(cli_id)
             {
-                return Some(SelectAfterReload::Commit(*commit_id));
+                return Some(target);
             }
         }
 
@@ -133,6 +171,52 @@ impl Cursor {
 
             if is_discard_commit_boundary(line) {
                 break;
+            }
+        }
+
+        None
+    }
+
+    fn select_after_discarded_marks_in_file_section(
+        self,
+        lines: &[StatusOutputLine],
+        discarded_commits: &[gix::ObjectId],
+        discarded_uncommitted: &[UncommittedCliId],
+    ) -> Option<SelectAfterReload> {
+        for line in lines.iter().skip(self.0 + 1) {
+            if is_discard_file_boundary(line) {
+                break;
+            }
+
+            if let Some(cli_id) = line.data.cli_id()
+                && !is_discarded_cli_id(cli_id, discarded_commits, discarded_uncommitted)
+                && let Some(target) = select_after_reload_for_cli_id(cli_id)
+            {
+                return Some(target);
+            }
+        }
+
+        for line in lines.iter().take(self.0).rev() {
+            if is_discard_file_boundary(line) {
+                break;
+            }
+
+            if let Some(cli_id) = line.data.cli_id()
+                && !is_discarded_cli_id(cli_id, discarded_commits, discarded_uncommitted)
+                && let Some(target) = select_after_reload_for_cli_id(cli_id)
+            {
+                return Some(target);
+            }
+        }
+
+        for line in lines.iter().take(self.0 + 1).rev() {
+            match &line.data {
+                StatusOutputLineData::Branch { cli_id }
+                | StatusOutputLineData::StagedChanges { cli_id }
+                | StatusOutputLineData::UnassignedChanges { cli_id } => {
+                    return Some(SelectAfterReload::CliId(Arc::clone(cli_id)));
+                }
+                _ => {}
             }
         }
 
@@ -515,6 +599,34 @@ fn first_selectable_in_section(
         .map(|(idx, _)| idx)
 }
 
+fn select_after_reload_for_cli_id(cli_id: &Arc<CliId>) -> Option<SelectAfterReload> {
+    match &**cli_id {
+        CliId::Commit { commit_id, .. } => Some(SelectAfterReload::Commit(*commit_id)),
+        CliId::Branch { name, .. } => Some(SelectAfterReload::Branch(name.clone())),
+        CliId::Unassigned { .. } => Some(SelectAfterReload::Unassigned),
+        CliId::Stack { stack_id, .. } => Some(SelectAfterReload::Stack(*stack_id)),
+        CliId::Uncommitted(..) | CliId::PathPrefix { .. } | CliId::CommittedFile { .. } => {
+            Some(SelectAfterReload::CliId(Arc::clone(cli_id)))
+        }
+    }
+}
+
+fn is_discarded_cli_id(
+    cli_id: &CliId,
+    discarded_commits: &[gix::ObjectId],
+    discarded_uncommitted: &[UncommittedCliId],
+) -> bool {
+    match cli_id {
+        CliId::Commit { commit_id, .. } => discarded_commits.contains(commit_id),
+        CliId::Uncommitted(uncommitted) => discarded_uncommitted.contains(uncommitted),
+        CliId::PathPrefix { .. }
+        | CliId::CommittedFile { .. }
+        | CliId::Branch { .. }
+        | CliId::Unassigned { .. }
+        | CliId::Stack { .. } => false,
+    }
+}
+
 /// Returns true if a line marks the boundary of a commit list within a branch section.
 fn is_discard_commit_boundary(line: &StatusOutputLine) -> bool {
     match &line.data {
@@ -535,6 +647,18 @@ fn is_discard_commit_boundary(line: &StatusOutputLine) -> bool {
         | StatusOutputLineData::Hint
         | StatusOutputLineData::NoAssignmentsUnstaged => false,
     }
+}
+
+/// Returns true if a line marks the boundary of an uncommitted file list.
+fn is_discard_file_boundary(line: &StatusOutputLine) -> bool {
+    matches!(
+        line.data,
+        StatusOutputLineData::Branch { .. }
+            | StatusOutputLineData::StagedChanges { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::MergeBase
+            | StatusOutputLineData::Commit { .. }
+    )
 }
 
 /// Returns true if a line is a section header row.

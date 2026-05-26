@@ -11,7 +11,7 @@ use but_api::{
     diff::ComputeLineStats,
     legacy::oplog::RestoreKind,
 };
-use but_core::{DiffSpec, DryRun, diff::CommitDetails, ref_metadata::StackId};
+use but_core::{DiffSpec, DryRun, RefMetadata, diff::CommitDetails, ref_metadata::StackId};
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use gitbutler_operating_modes::OperatingMode;
@@ -410,7 +410,7 @@ pub(super) fn reword_branch_legacy(
 }
 
 /// Collect paths whose worktree status is either addition or deletion.
-fn addition_or_deletion_paths(
+pub(super) fn addition_or_deletion_paths(
     changes: &[but_core::ui::TreeChange],
 ) -> std::collections::HashSet<Vec<u8>> {
     changes
@@ -431,8 +431,8 @@ fn addition_or_deletion_paths(
 }
 
 /// Convert hunk assignments to diff specs, using whole-file mode for additions/deletions.
-fn diff_specs_from_assignments(
-    assignments: impl IntoIterator<Item = but_hunk_assignment::HunkAssignment>,
+pub(super) fn diff_specs_from_assignments<'a>(
+    assignments: impl IntoIterator<Item = &'a but_hunk_assignment::HunkAssignment>,
     addition_or_deletion_paths: &std::collections::HashSet<Vec<u8>>,
 ) -> Vec<DiffSpec> {
     assignments
@@ -443,7 +443,7 @@ fn diff_specs_from_assignments(
 
             DiffSpec {
                 previous_path: None,
-                path: assignment.path_bytes,
+                path: assignment.path_bytes.clone(),
                 hunk_headers: if is_addition_or_deletion {
                     Vec::new()
                 } else {
@@ -454,40 +454,21 @@ fn diff_specs_from_assignments(
         .collect()
 }
 
-/// Discard uncommitted assignments with precomputed addition/deletion paths.
-fn discard_uncommitted_legacy_with_paths(
-    ctx: &mut Context,
-    hunk_assignments: Vec<but_hunk_assignment::HunkAssignment>,
+pub(super) fn discard_uncommitted_legacy_with_paths_tx<'a>(
+    tx: &mut but_transaction::Transaction<'_, '_, impl RefMetadata>,
+    hunk_assignments: impl IntoIterator<Item = &'a but_hunk_assignment::HunkAssignment>,
     addition_or_deletion_paths: &std::collections::HashSet<Vec<u8>>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<bool> {
     let changes_to_discard =
         diff_specs_from_assignments(hunk_assignments, addition_or_deletion_paths);
 
     if changes_to_discard.is_empty() {
-        return Ok(());
+        return Ok(false);
     }
 
-    let mut meta = ctx.meta()?;
-    let snapshot_details = SnapshotDetails::new(OperationKind::UndoCommit);
-    but_transaction::with_transaction(ctx, &mut meta, snapshot_details, DryRun::No, |mut tx| {
-        tx.discard_workspace_changes(changes_to_discard)?;
-        Ok(())
-    })?;
+    tx.discard_workspace_changes(changes_to_discard)?;
 
-    Ok(())
-}
-
-pub(super) fn discard_uncommitted_legacy(
-    ctx: &mut Context,
-    hunk_assignments: Vec<but_hunk_assignment::HunkAssignment>,
-) -> anyhow::Result<()> {
-    let addition_or_deletion_paths = {
-        let repo = ctx.repo.get()?;
-        let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
-        addition_or_deletion_paths(&changes)
-    };
-
-    discard_uncommitted_legacy_with_paths(ctx, hunk_assignments, &addition_or_deletion_paths)
+    Ok(true)
 }
 
 pub(super) fn discard_unassigned_legacy(ctx: &mut Context) -> anyhow::Result<()> {
@@ -511,7 +492,7 @@ pub(super) fn discard_unassigned_legacy(ctx: &mut Context) -> anyhow::Result<()>
             .filter(|assignment| assignment.stack_id.is_none())
             .collect::<Vec<_>>();
 
-        diff_specs_from_assignments(unassigned_assignments, &addition_or_deletion_paths)
+        diff_specs_from_assignments(&unassigned_assignments, &addition_or_deletion_paths)
     };
 
     if unassigned_changes.is_empty() {
@@ -519,7 +500,7 @@ pub(super) fn discard_unassigned_legacy(ctx: &mut Context) -> anyhow::Result<()>
     }
 
     let mut meta = ctx.meta()?;
-    let snapshot_details = SnapshotDetails::new(OperationKind::UndoCommit);
+    let snapshot_details = SnapshotDetails::new(OperationKind::Discard);
     but_transaction::with_transaction(ctx, &mut meta, snapshot_details, DryRun::No, |mut tx| {
         tx.discard_workspace_changes(unassigned_changes)?;
         Ok(())
@@ -551,7 +532,21 @@ pub(super) fn discard_stack(ctx: &mut Context, stack_id: StackId) -> anyhow::Res
         (stack_changes, addition_or_deletion_paths)
     };
 
-    discard_uncommitted_legacy_with_paths(ctx, stack_changes, &addition_or_deletion_paths)
+    let mut meta = ctx.meta()?;
+    let snapshot_details = SnapshotDetails::new(OperationKind::Discard);
+    but_transaction::with_transaction(ctx, &mut meta, snapshot_details, DryRun::No, |mut tx| {
+        if discard_uncommitted_legacy_with_paths_tx(
+            &mut tx,
+            &stack_changes,
+            &addition_or_deletion_paths,
+        )? {
+            Ok(None)
+        } else {
+            Ok(Some(tx.rollback(())))
+        }
+    })?;
+
+    Ok(())
 }
 
 pub(super) fn commit_discard(

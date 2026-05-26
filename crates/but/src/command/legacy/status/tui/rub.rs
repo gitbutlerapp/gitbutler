@@ -66,9 +66,10 @@ pub(super) fn supports_rubbing(id: &CliId) -> bool {
     }
 }
 
-pub(super) fn mark_supports_rubbing(mark: &Markable) -> bool {
+pub(super) fn mark_supports_being_the_rub_source(mark: &Markable) -> bool {
     match mark {
         Markable::Commit { .. } => true,
+        Markable::Uncommitted(..) => false,
     }
 }
 

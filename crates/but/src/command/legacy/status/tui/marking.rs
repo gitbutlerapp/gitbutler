@@ -1,15 +1,18 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 
-use crate::{CliId, id::ShortId};
+use crate::{
+    CliId,
+    id::{ShortId, UncommittedCliId},
+};
 
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Clone)]
 pub(super) struct Marks {
-    marks: HashSet<Markable>,
+    marks: HashMap<ShortId, Markable>,
 }
 
 impl Marks {
     pub(super) fn toggle(&mut self, markable: Markable) {
-        if self.marks.contains(&markable) {
+        if self.marks.contains_key(markable.short_id()) {
             self.remove(&markable);
         } else {
             self.insert(markable);
@@ -17,11 +20,11 @@ impl Marks {
     }
 
     pub(super) fn insert(&mut self, markable: Markable) {
-        self.marks.insert(markable);
+        self.marks.insert(markable.short_id().to_owned(), markable);
     }
 
     pub(super) fn remove(&mut self, markable: &Markable) {
-        self.marks.remove(markable);
+        self.marks.remove(markable.short_id());
     }
 
     pub(super) fn clear(&mut self) {
@@ -37,29 +40,21 @@ impl Marks {
     }
 
     pub(super) fn contains(&self, markable: &Markable) -> bool {
-        self.marks.contains(markable)
+        self.marks.contains_key(markable.short_id())
     }
 
     pub(super) fn iter(&self) -> impl Iterator<Item = &Markable> {
-        self.into_iter()
+        self.marks.values()
     }
 }
 
-impl<'a> IntoIterator for &'a Marks {
-    type Item = <&'a HashSet<Markable> as IntoIterator>::Item;
-    type IntoIter = <&'a HashSet<Markable> as IntoIterator>::IntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.marks.iter()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq)]
 pub(super) enum Markable {
     Commit {
         commit_id: gix::ObjectId,
         id: ShortId,
     },
+    Uncommitted(UncommittedCliId),
 }
 
 impl Markable {
@@ -69,12 +64,26 @@ impl Markable {
                 commit_id: *commit_id,
                 id: id.clone(),
             }),
-            CliId::Uncommitted(..)
-            | CliId::PathPrefix { .. }
+            CliId::Uncommitted(uncommitted) => Some(Self::Uncommitted(uncommitted.clone())),
+            CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Branch { .. }
             | CliId::Unassigned { .. }
             | CliId::Stack { .. } => None,
+        }
+    }
+
+    fn short_id(&self) -> &ShortId {
+        match self {
+            Markable::Commit { id, .. } => id,
+            Markable::Uncommitted(uncommitted_cli_id) => &uncommitted_cli_id.id,
+        }
+    }
+
+    pub(super) fn into_cli_id(self) -> CliId {
+        match self {
+            Markable::Commit { commit_id, id } => CliId::Commit { commit_id, id },
+            Markable::Uncommitted(uncommitted_cli_id) => CliId::Uncommitted(uncommitted_cli_id),
         }
     }
 }

@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
+use bstr::BString;
 use but_core::ref_metadata::StackId;
+use but_hunk_assignment::HunkAssignment;
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
+use nonempty::NonEmpty;
 use ratatui_textarea::TextArea;
 
 use super::{Cursor, is_selectable_in_mode};
@@ -16,6 +19,7 @@ use crate::{
             mode::UnassignedCommitSource,
         },
     },
+    id::UncommittedCliId,
 };
 
 fn line(data: StatusOutputLineData) -> StatusOutputLine {
@@ -46,6 +50,30 @@ fn committed_file_cli_id(hex: &str, path: &str, id: &str) -> Arc<CliId> {
         commit_id: commit_id(hex),
         path: path.into(),
         id: id.into(),
+    })
+}
+
+fn uncommitted_cli_id(path: &str, id: &str, stack_id: Option<StackId>) -> UncommittedCliId {
+    UncommittedCliId {
+        id: id.into(),
+        hunk_assignments: NonEmpty::new(HunkAssignment {
+            id: None,
+            hunk_header: None,
+            path: path.into(),
+            path_bytes: BString::from(path),
+            stack_id,
+            branch_ref_bytes: None,
+            line_nums_added: None,
+            line_nums_removed: None,
+            diff: None,
+        }),
+        is_entire_file: true,
+    }
+}
+
+fn uncommitted_line(path: &str, id: &str, stack_id: Option<StackId>) -> StatusOutputLine {
+    line(StatusOutputLineData::File {
+        cli_id: Arc::new(CliId::Uncommitted(uncommitted_cli_id(path, id, stack_id))),
     })
 }
 
@@ -466,6 +494,121 @@ fn select_after_discarded_commits_selects_branch_when_all_commits_in_section_are
         Cursor(1).select_after_discarded_commits(&lines, &[commit_id(top), commit_id(bottom)]),
         Some(SelectAfterReload::CliId(cli_id))
             if matches!(&*cli_id, CliId::Branch { id, .. } if id == "b0")
+    ));
+}
+
+#[test]
+fn select_after_discarded_marks_selects_unmarked_uncommitted_file_below() {
+    let marked = uncommitted_cli_id("marked.txt", "u0", None);
+    let lines = vec![
+        line(StatusOutputLineData::UnassignedChanges {
+            cli_id: unassigned("zz"),
+        }),
+        uncommitted_line("marked.txt", "u0", None),
+        uncommitted_line("below.txt", "u1", None),
+    ];
+
+    assert!(matches!(
+        Cursor(1).select_after_discarded_marks(&lines, &[], &[marked]),
+        Some(SelectAfterReload::CliId(cli_id))
+            if matches!(&*cli_id, CliId::Uncommitted(uncommitted)
+                if uncommitted.hunk_assignments.first().path_bytes == "below.txt")
+    ));
+}
+
+#[test]
+fn select_after_discarded_marks_skips_marked_uncommitted_files_below() {
+    let top = uncommitted_cli_id("top.txt", "u0", None);
+    let marked = uncommitted_cli_id("marked.txt", "u1", None);
+    let lines = vec![
+        line(StatusOutputLineData::UnassignedChanges {
+            cli_id: unassigned("zz"),
+        }),
+        uncommitted_line("top.txt", "u0", None),
+        uncommitted_line("marked.txt", "u1", None),
+        uncommitted_line("below.txt", "u2", None),
+    ];
+
+    assert!(matches!(
+        Cursor(1).select_after_discarded_marks(&lines, &[], &[top, marked]),
+        Some(SelectAfterReload::CliId(cli_id))
+            if matches!(&*cli_id, CliId::Uncommitted(uncommitted)
+                if uncommitted.hunk_assignments.first().path_bytes == "below.txt")
+    ));
+}
+
+#[test]
+fn select_after_discarded_marks_selects_uncommitted_file_above_when_no_unmarked_file_below() {
+    let marked = uncommitted_cli_id("marked.txt", "u1", None);
+    let bottom = uncommitted_cli_id("bottom.txt", "u2", None);
+    let lines = vec![
+        line(StatusOutputLineData::UnassignedChanges {
+            cli_id: unassigned("zz"),
+        }),
+        uncommitted_line("above.txt", "u0", None),
+        uncommitted_line("marked.txt", "u1", None),
+        uncommitted_line("bottom.txt", "u2", None),
+    ];
+
+    assert!(matches!(
+        Cursor(2).select_after_discarded_marks(&lines, &[], &[marked, bottom]),
+        Some(SelectAfterReload::CliId(cli_id))
+            if matches!(&*cli_id, CliId::Uncommitted(uncommitted)
+                if uncommitted.hunk_assignments.first().path_bytes == "above.txt")
+    ));
+}
+
+#[test]
+fn select_after_discarded_marks_selects_section_header_when_all_uncommitted_files_discarded() {
+    let top = uncommitted_cli_id("top.txt", "u0", None);
+    let bottom = uncommitted_cli_id("bottom.txt", "u1", None);
+    let lines = vec![
+        line(StatusOutputLineData::UnassignedChanges {
+            cli_id: unassigned("zz"),
+        }),
+        uncommitted_line("top.txt", "u0", None),
+        uncommitted_line("bottom.txt", "u1", None),
+    ];
+
+    assert!(matches!(
+        Cursor(1).select_after_discarded_marks(&lines, &[], &[top, bottom]),
+        Some(SelectAfterReload::CliId(cli_id))
+            if matches!(&*cli_id, CliId::Unassigned { .. })
+    ));
+}
+
+#[test]
+fn select_after_discarded_marks_skips_mixed_discarded_items() {
+    let marked_file = uncommitted_cli_id("marked.txt", "u0", None);
+    let marked_commit = "1111111111111111111111111111111111111111";
+    let target_commit = "2222222222222222222222222222222222222222";
+    let lines = vec![
+        line(StatusOutputLineData::Branch {
+            cli_id: branch_cli_id("main", "b0", None),
+        }),
+        line(StatusOutputLineData::Commit {
+            cli_id: commit_cli_id(marked_commit, "c0"),
+            stack_id: None,
+            classification: CommitClassification::LocalOnly,
+        }),
+        line(StatusOutputLineData::Commit {
+            cli_id: commit_cli_id(target_commit, "c1"),
+            stack_id: None,
+            classification: CommitClassification::LocalOnly,
+        }),
+        line(StatusOutputLineData::UnassignedChanges {
+            cli_id: unassigned("zz"),
+        }),
+        uncommitted_line("marked.txt", "u0", None),
+    ];
+
+    assert!(matches!(
+        Cursor(1).select_after_discarded_marks(
+            &lines,
+            &[commit_id(marked_commit)],
+            &[marked_file],
+        ),
+        Some(SelectAfterReload::Commit(target)) if target == commit_id(target_commit)
     ));
 }
 

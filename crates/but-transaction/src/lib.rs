@@ -430,6 +430,7 @@ mod sealed {
     pub trait Sealed {}
     impl Sealed for () {}
     impl<T> Sealed for super::Rollback<T> {}
+    impl<T> Sealed for Option<super::Rollback<T>> {}
     impl<T, K> Sealed for super::DynamicOutcome<T, K> {}
 }
 
@@ -491,6 +492,35 @@ impl<T> TransactionOutcome for Rollback<T> {
         _dry_run: DryRun,
     ) -> anyhow::Result<Self::Outcome> {
         Ok(self.0)
+    }
+}
+
+impl<T> TransactionOutcome for Option<Rollback<T>> {
+    type Outcome = Option<T>;
+
+    fn should_rollback(&self) -> bool {
+        self.is_some()
+    }
+
+    fn maybe_commit<M: RefMetadata>(
+        self,
+        repo: &gix::Repository,
+        rebase: SuccessfulRebase<'_, '_, M>,
+        db_tx: but_db::Transaction<'_>,
+        pending_metadata_removals: Vec<FullName>,
+        dry_run: DryRun,
+    ) -> anyhow::Result<Self::Outcome> {
+        match self {
+            Some(Rollback(output)) => Ok(Some(output)),
+            None => {
+                let _workspace =
+                    workspace_state_from_rebase(rebase, repo, pending_metadata_removals, dry_run)?;
+                if dry_run == DryRun::No {
+                    db_tx.commit()?;
+                }
+                Ok(None)
+            }
+        }
     }
 }
 

@@ -517,3 +517,23 @@ fn rub_api_stack_to_stack_operation() {
     tui.input_then_render('r')
         .assert_current_line_eq(str!["┊╭┄h0 [B]"]);
 }
+
+#[test]
+fn cannot_yet_rub_multiple_uncommitted_files() {
+    // some day we will allow rubbing multiple uncommitted files
+
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.env().file("file-one", "content");
+    tui.env().file("file-two", "content");
+
+    tui.input_then_render(KeyCode::Down);
+    tui.input_then_render(' ');
+    tui.input_then_render(' ');
+
+    tui.input_then_render('r')
+        .assert_rendered_term_svg_eq(file!["snapshots/cannot_yet_rub_multiple_files_final.svg"]);
+}

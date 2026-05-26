@@ -872,7 +872,18 @@ fn print_assignments(
         };
 
         if unstaged {
-            output.unassigned_file(Vec::from([Span::raw("┊   ")]), file_line, file_cli_id)?;
+            output.unassigned_file(
+                Vec::from([
+                    Span::raw("┊"),
+                    // The way we render checkmarks next to marked uncommitted files requires there
+                    // being at least three connector spans. Therefore we bread the padding up into
+                    // separate spans.
+                    Span::raw(" "),
+                    Span::raw("  "),
+                ]),
+                file_line,
+                file_cli_id,
+            )?;
         } else {
             output.staged_file(Vec::from([Span::raw("┊  │ ")]), file_line, file_cli_id)?;
         }

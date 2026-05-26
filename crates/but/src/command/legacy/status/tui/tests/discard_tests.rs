@@ -321,3 +321,43 @@ fn discard_uncommitted_file() {
     tui.input_then_render(None)
         .assert_rendered_term_svg_eq(file!["snapshots/discard_uncommitted_final.svg"]);
 }
+
+#[test]
+fn discard_commit_and_uncommitted_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    // create file and commit it on a new branch
+    tui.env().file("file-one", "content");
+    tui.input_then_render('c');
+    tui.input_then_render('e');
+    tui.input_then_render('b');
+
+    tui.env().file("file-two", "content");
+    tui.input_then_render('g');
+
+    // mark the file
+    tui.input_then_render(KeyCode::Down);
+    tui.input_then_render(' ');
+
+    // mark the commit
+    tui.input_then_render(KeyCode::Down);
+    tui.input_then_render(KeyCode::Down);
+    tui.input_then_render(' ');
+
+    tui.input_then_render(None)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/discard_commit_and_uncommitted_file_both_marked.svg"
+        ]);
+
+    // discard both
+    tui.input_then_render('x');
+    tui.input_then_render('y');
+
+    tui.input_then_render(None)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/discard_commit_and_uncommitted_file_final.svg"
+        ]);
+}
