@@ -1,7 +1,9 @@
 use super::*;
 use crate::agent::Agent;
 use crate::capture::record_transcript;
-use crate::environment::{EnvironmentObservation, ObservedTargets, capture_environment};
+use crate::environment::{
+    EnvironmentObservation, ObservedTargets, TestBranchCommitSnapshot, capture_environment,
+};
 use crate::projection::{
     ProjectionEvidenceTier, ProjectionLimits, ProjectionMatchKind, ProjectionPrFacts,
     ProjectionRequest, ProjectionSnapshotInput, ProjectionStatus, ProjectionWarningKind,
@@ -270,12 +272,72 @@ fn write_turn_with_targets(repo: &Path, text: &str, observed_targets: ObservedTa
     )
 }
 
+fn write_readonly_command_turn_with_targets(
+    repo: &Path,
+    text: &str,
+    observed_targets: ObservedTargets,
+) -> String {
+    let transcript = jsonl([
+        serde_json::json!({
+            "timestamp": "2026-05-07T09:00:00Z",
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "assistant",
+                "content": text,
+            },
+        }),
+        serde_json::json!({
+            "timestamp": "2026-05-07T09:00:01Z",
+            "type": "response_item",
+            "payload": {
+                "type": "function_call",
+                "name": "exec_command",
+                "call_id": "call-readonly",
+                "arguments": "{\"cmd\":\"git branch --show-current\"}",
+            },
+        }),
+    ]);
+    let batch =
+        TranscriptBatch::parse(Agent::Codex, transcript.as_bytes()).expect("parse transcript");
+    write_transcript_batch(
+        repo,
+        Agent::Codex,
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        batch,
+        || EnvironmentObservation::from_observed_targets_for_testing(observed_targets),
+    )
+    .expect("write transcript batch");
+    turn_summaries(repo, TEST_SESSION_KEY)
+        .last()
+        .and_then(|turn| turn["turn_key"].as_str())
+        .expect("latest turn key")
+        .to_owned()
+}
+
 fn write_turn_for_session(
     repo: &Path,
     session_key: &str,
     source_key: &str,
     text: &str,
     observed_targets: ObservedTargets,
+) -> String {
+    write_turn_with_observation(
+        repo,
+        session_key,
+        source_key,
+        text,
+        EnvironmentObservation::from_observed_targets_for_testing(observed_targets),
+    )
+}
+
+fn write_turn_with_observation(
+    repo: &Path,
+    session_key: &str,
+    source_key: &str,
+    text: &str,
+    observation: EnvironmentObservation,
 ) -> String {
     let transcript = jsonl([serde_json::json!({
         "timestamp": "2026-05-07T09:00:00Z",
@@ -289,7 +351,7 @@ fn write_turn_for_session(
     let batch =
         TranscriptBatch::parse(Agent::Codex, transcript.as_bytes()).expect("parse transcript");
     write_transcript_batch(repo, Agent::Codex, session_key, source_key, batch, || {
-        EnvironmentObservation::from_observed_targets_for_testing(observed_targets)
+        observation
     })
     .expect("write transcript batch");
     turn_summaries(repo, session_key)
@@ -297,6 +359,36 @@ fn write_turn_for_session(
         .and_then(|turn| turn["turn_key"].as_str())
         .expect("latest turn key")
         .to_owned()
+}
+
+fn branch_commit(
+    branch_key: &str,
+    review_key: &str,
+    change_key: &str,
+    commit_id: &str,
+    files: &[&str],
+) -> TestBranchCommitSnapshot {
+    TestBranchCommitSnapshot {
+        branch_key: branch_key.to_owned(),
+        review_keys: vec![review_key.to_owned()],
+        change_key: Some(change_key.to_owned()),
+        commit_id: Some(commit_id.to_owned()),
+        files: files.iter().map(|file| (*file).to_owned()).collect(),
+    }
+}
+
+fn branch_without_commits(
+    branch_key: &str,
+    review_key: &str,
+    change_key: &str,
+) -> TestBranchCommitSnapshot {
+    TestBranchCommitSnapshot {
+        branch_key: branch_key.to_owned(),
+        review_keys: vec![review_key.to_owned()],
+        change_key: Some(change_key.to_owned()),
+        commit_id: None,
+        files: Vec::new(),
+    }
 }
 
 #[test]
@@ -380,16 +472,19 @@ fn find_related_sessions_returns_verified_turn_keys() {
             TEST_CHANGE_KEY,
         )
     };
-    let turn_key = write_turn_with_targets(repo.path(), "Related work", observed_targets());
+    let first_turn_key = write_turn_with_targets(
+        repo.path(),
+        "Initial targetless work",
+        ObservedTargets::default(),
+    );
+    let second_turn_key = write_turn_with_targets(repo.path(), "Related work", observed_targets());
+    let expected_turn_keys = vec![first_turn_key.clone(), second_turn_key.clone()];
 
     let branch = only_related(repo.path(), RelatedTarget::Branch(TEST_BRANCH_KEY));
     assert_eq!(branch.session_key, TEST_SESSION_KEY);
-    assert_eq!(
-        branch.related_turn_keys.as_slice(),
-        std::slice::from_ref(&turn_key)
-    );
-    assert_eq!(branch.turn_count, 1);
-    assert_eq!(branch.record_count, 1);
+    assert_eq!(branch.related_turn_keys, expected_turn_keys);
+    assert_eq!(branch.turn_count, 2);
+    assert_eq!(branch.record_count, 2);
     assert_eq!(
         branch
             .latest_assistant_preview
@@ -403,10 +498,7 @@ fn find_related_sessions_returns_verified_turn_keys() {
         RelatedTarget::Change(TEST_CHANGE_KEY),
     ] {
         let related = only_related(repo.path(), target);
-        assert_eq!(
-            related.related_turn_keys.as_slice(),
-            std::slice::from_ref(&turn_key)
-        );
+        assert_eq!(related.related_turn_keys, branch.related_turn_keys);
     }
 
     write_turn_with_targets(repo.path(), "Related follow-up", observed_targets());
@@ -495,8 +587,434 @@ fn session_target_association_backfills_targetless_turns() {
 }
 
 #[test]
+fn applied_branch_targets_from_session_start_are_not_enough_evidence() {
+    let repo = setup_repo();
+    let observed_targets = || {
+        ObservedTargets::from_index_keys_for_testing(
+            TEST_BRANCH_KEY,
+            TEST_PR_REVIEW_KEY,
+            TEST_CHANGE_KEY,
+        )
+    };
+    write_readonly_command_turn_with_targets(
+        repo.path(),
+        "Unrelated investigation",
+        observed_targets(),
+    );
+    write_turn_with_targets(repo.path(), "Still unrelated", observed_targets());
+
+    let review_sessions =
+        find_related_sessions_limited(repo.path(), RelatedTarget::Review(TEST_PR_REVIEW_KEY), None)
+            .expect("find review sessions");
+    assert!(
+        review_sessions.is_empty(),
+        "an already-applied branch should not attach a passive session to its PR"
+    );
+
+    let projection = project_pr(repo.path(), &projection_request()).expect("project PR");
+    assert_eq!(projection.status, ProjectionStatus::NoMatches);
+    assert!(projection.sessions.is_empty());
+}
+
+#[test]
+fn worktree_files_promoted_to_target_commit_are_strong_evidence() {
+    let repo = setup_repo();
+    let first_turn_key = write_turn_with_observation(
+        repo.path(),
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        "Update src/lib.rs",
+        EnvironmentObservation::from_worktree_and_branch_commits_for_testing(
+            &["src/lib.rs"],
+            ObservedTargets::from_index_keys_for_testing(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+            ),
+            vec![branch_commit(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+                "commit-before",
+                &["src/before.rs"],
+            )],
+        ),
+    );
+    let second_turn_key = write_turn_with_observation(
+        repo.path(),
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        "Committed update",
+        EnvironmentObservation::from_branch_commits_for_testing(
+            ObservedTargets::from_index_keys_for_testing(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+            ),
+            vec![branch_commit(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+                "commit-1",
+                &["src/lib.rs"],
+            )],
+        ),
+    );
+
+    let review = only_related(repo.path(), RelatedTarget::Review(TEST_PR_REVIEW_KEY));
+    assert_eq!(
+        review.related_turn_keys,
+        [first_turn_key.clone(), second_turn_key.clone()]
+    );
+    let branch = only_related(repo.path(), RelatedTarget::Branch(TEST_BRANCH_KEY));
+    assert_eq!(branch.related_turn_keys, [first_turn_key, second_turn_key]);
+}
+
+#[test]
+fn promotion_matches_the_branch_that_received_the_files() {
+    let repo = setup_repo();
+    const OTHER_BRANCH_KEY: &str = "ref:refs/heads/other";
+    const OTHER_REVIEW_KEY: &str = "pull-request:ref:refs/heads/other#2";
+    const OTHER_CHANGE_KEY: &str = "gitbutler-change:change-2";
+    write_turn_with_observation(
+        repo.path(),
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        "Update other branch file",
+        EnvironmentObservation::from_worktree_and_branch_commits_for_testing(
+            &["src/other.rs"],
+            ObservedTargets::default(),
+            vec![
+                branch_commit(
+                    TEST_BRANCH_KEY,
+                    TEST_PR_REVIEW_KEY,
+                    TEST_CHANGE_KEY,
+                    "commit-main-before",
+                    &["src/main-before.rs"],
+                ),
+                branch_commit(
+                    OTHER_BRANCH_KEY,
+                    OTHER_REVIEW_KEY,
+                    OTHER_CHANGE_KEY,
+                    "commit-other-before",
+                    &["src/other-before.rs"],
+                ),
+            ],
+        ),
+    );
+    write_turn_with_observation(
+        repo.path(),
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        "Committed mixed branch state",
+        EnvironmentObservation::from_branch_commits_for_testing(
+            ObservedTargets::from_index_key_sets_for_testing(
+                &[TEST_BRANCH_KEY, OTHER_BRANCH_KEY],
+                &[TEST_PR_REVIEW_KEY, OTHER_REVIEW_KEY],
+                &[TEST_CHANGE_KEY, OTHER_CHANGE_KEY],
+            ),
+            vec![
+                branch_commit(
+                    TEST_BRANCH_KEY,
+                    TEST_PR_REVIEW_KEY,
+                    TEST_CHANGE_KEY,
+                    "commit-main",
+                    &["src/main.rs"],
+                ),
+                branch_commit(
+                    OTHER_BRANCH_KEY,
+                    OTHER_REVIEW_KEY,
+                    OTHER_CHANGE_KEY,
+                    "commit-other",
+                    &["src/other.rs"],
+                ),
+            ],
+        ),
+    );
+
+    let main_sessions =
+        find_related_sessions_limited(repo.path(), RelatedTarget::Review(TEST_PR_REVIEW_KEY), None)
+            .expect("find main review sessions");
+    assert!(main_sessions.is_empty());
+    let other = only_related(repo.path(), RelatedTarget::Review(OTHER_REVIEW_KEY));
+    assert_eq!(other.related_turn_keys.len(), 2);
+}
+
+#[test]
+fn promotion_handles_branch_that_appears_with_commit() {
+    let repo = setup_repo();
+    const OTHER_BRANCH_KEY: &str = "ref:refs/heads/other";
+    const OTHER_REVIEW_KEY: &str = "pull-request:ref:refs/heads/other#2";
+    const OTHER_CHANGE_KEY: &str = "gitbutler-change:change-2";
+    write_turn_with_observation(
+        repo.path(),
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        "Update file before branches exist",
+        EnvironmentObservation::from_worktree_and_branch_commits_for_testing(
+            &["src/other.rs"],
+            ObservedTargets::default(),
+            Vec::new(),
+        ),
+    );
+    write_turn_with_observation(
+        repo.path(),
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        "Branches appeared with commits",
+        EnvironmentObservation::from_branch_commits_for_testing(
+            ObservedTargets::from_index_key_sets_for_testing(
+                &[TEST_BRANCH_KEY, OTHER_BRANCH_KEY],
+                &[TEST_PR_REVIEW_KEY, OTHER_REVIEW_KEY],
+                &[TEST_CHANGE_KEY, OTHER_CHANGE_KEY],
+            ),
+            vec![
+                branch_commit(
+                    TEST_BRANCH_KEY,
+                    TEST_PR_REVIEW_KEY,
+                    TEST_CHANGE_KEY,
+                    "commit-main",
+                    &["src/main.rs"],
+                ),
+                branch_commit(
+                    OTHER_BRANCH_KEY,
+                    OTHER_REVIEW_KEY,
+                    OTHER_CHANGE_KEY,
+                    "commit-other",
+                    &["src/other.rs"],
+                ),
+            ],
+        ),
+    );
+
+    let main_sessions =
+        find_related_sessions_limited(repo.path(), RelatedTarget::Review(TEST_PR_REVIEW_KEY), None)
+            .expect("find main review sessions");
+    assert!(main_sessions.is_empty());
+    let other = only_related(repo.path(), RelatedTarget::Review(OTHER_REVIEW_KEY));
+    assert_eq!(other.related_turn_keys.len(), 2);
+}
+
+#[test]
+fn existing_branch_without_commit_snapshots_is_not_promotion_evidence() {
+    let repo = setup_repo();
+    write_turn_with_observation(
+        repo.path(),
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        "Update file while branch is already ambient",
+        EnvironmentObservation::from_worktree_and_branch_commits_for_testing(
+            &["src/lib.rs"],
+            ObservedTargets::from_index_keys_for_testing(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+            ),
+            vec![branch_without_commits(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+            )],
+        ),
+    );
+    write_turn_with_observation(
+        repo.path(),
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        "Later capture has commit snapshots",
+        EnvironmentObservation::from_branch_commits_for_testing(
+            ObservedTargets::from_index_keys_for_testing(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+            ),
+            vec![branch_commit(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+                "commit-1",
+                &["src/lib.rs"],
+            )],
+        ),
+    );
+
+    let sessions =
+        find_related_sessions_limited(repo.path(), RelatedTarget::Review(TEST_PR_REVIEW_KEY), None)
+            .expect("find review sessions");
+    assert!(
+        sessions.is_empty(),
+        "a legacy existing branch without commit snapshots cannot prove a new commit"
+    );
+}
+
+#[test]
+fn rewritten_commit_with_already_committed_worktree_file_is_not_promotion_evidence() {
+    let repo = setup_repo();
+    write_turn_with_observation(
+        repo.path(),
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        "Update file already touched by branch commit",
+        EnvironmentObservation::from_worktree_and_branch_commits_for_testing(
+            &["src/lib.rs"],
+            ObservedTargets::from_index_keys_for_testing(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+            ),
+            vec![branch_commit(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+                "commit-before-rewrite",
+                &["src/lib.rs"],
+            )],
+        ),
+    );
+    write_turn_with_observation(
+        repo.path(),
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        "Commit was rewritten but did not gain a new file",
+        EnvironmentObservation::from_branch_commits_for_testing(
+            ObservedTargets::from_index_keys_for_testing(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+            ),
+            vec![branch_commit(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+                "commit-after-rewrite",
+                &["src/lib.rs"],
+            )],
+        ),
+    );
+
+    let sessions =
+        find_related_sessions_limited(repo.path(), RelatedTarget::Review(TEST_PR_REVIEW_KEY), None)
+            .expect("find review sessions");
+    assert!(
+        sessions.is_empty(),
+        "a rewritten commit is not promotion evidence when the file was already on the branch"
+    );
+}
+
+#[test]
+fn partial_current_environment_is_not_promotion_evidence() {
+    let repo = setup_repo();
+    write_turn_with_observation(
+        repo.path(),
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        "Update file while target branch is ambient",
+        EnvironmentObservation::from_worktree_and_branch_commits_for_testing(
+            &["src/lib.rs"],
+            ObservedTargets::from_index_keys_for_testing(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+            ),
+            vec![branch_commit(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+                "commit-before",
+                &["src/before.rs"],
+            )],
+        ),
+    );
+    write_turn_with_observation(
+        repo.path(),
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        "Truncated capture has matching commit evidence",
+        EnvironmentObservation::from_branch_commits_for_testing(
+            ObservedTargets::from_index_keys_for_testing(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+            ),
+            vec![branch_commit(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+                "commit-1",
+                &["src/lib.rs"],
+            )],
+        )
+        .with_partial_truncated_for_testing(),
+    );
+
+    let sessions =
+        find_related_sessions_limited(repo.path(), RelatedTarget::Review(TEST_PR_REVIEW_KEY), None)
+            .expect("find review sessions");
+    assert!(
+        sessions.is_empty(),
+        "partial current captures cannot provide strong promotion evidence"
+    );
+}
+
+#[test]
+fn partial_previous_environment_is_not_promotion_evidence() {
+    let repo = setup_repo();
+    write_turn_with_observation(
+        repo.path(),
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        "Update file while previous branch files are unknown",
+        EnvironmentObservation::from_worktree_and_branch_commits_for_testing(
+            &["src/lib.rs"],
+            ObservedTargets::from_index_keys_for_testing(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+            ),
+            vec![branch_commit(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+                "commit-with-unknown-files",
+                &[],
+            )],
+        )
+        .with_partial_diff_for_testing(),
+    );
+    write_turn_with_observation(
+        repo.path(),
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        "Later capture has rewritten matching commit",
+        EnvironmentObservation::from_branch_commits_for_testing(
+            ObservedTargets::from_index_keys_for_testing(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+            ),
+            vec![branch_commit(
+                TEST_BRANCH_KEY,
+                TEST_PR_REVIEW_KEY,
+                TEST_CHANGE_KEY,
+                "commit-after-rewrite",
+                &["src/lib.rs"],
+            )],
+        ),
+    );
+
+    let sessions =
+        find_related_sessions_limited(repo.path(), RelatedTarget::Review(TEST_PR_REVIEW_KEY), None)
+            .expect("find review sessions");
+    assert!(
+        sessions.is_empty(),
+        "partial previous captures cannot prove the file was absent before"
+    );
+}
+
+#[test]
 fn project_pr_returns_public_review_projection_without_raw_storage_keys() {
     let repo = setup_repo();
+    write_turn_with_targets(repo.path(), "Initial PR work", ObservedTargets::default());
     let turn_key = write_turn_with_targets(
         repo.path(),
         "Related PR work",
@@ -517,8 +1035,8 @@ fn project_pr_returns_public_review_projection_without_raw_storage_keys() {
     assert_eq!(session.evidence_tier, ProjectionEvidenceTier::Supporting);
     assert_eq!(session.agents.len(), 1);
     assert_eq!(session.agents[0].agent.as_deref(), Some("codex"));
-    assert_eq!(session.turns.len(), 1);
-    let turn = &session.turns[0];
+    assert_eq!(session.turns.len(), 2);
+    let turn = &session.turns[1];
     assert!(turn.handle.starts_with("pt_"));
     assert_eq!(turn.evidence_tier, ProjectionEvidenceTier::Supporting);
     assert_eq!(
@@ -532,10 +1050,10 @@ fn project_pr_returns_public_review_projection_without_raw_storage_keys() {
         ]
     );
     assert_eq!(turn.records.len(), 1);
-    let record = &turn.records[0];
-    assert!(record.handle.starts_with("pr_"));
-    assert_eq!(record.text.as_deref(), Some("Related PR work"));
-    assert_eq!(record.kind.as_deref(), Some("message"));
+    let message = &turn.records[0];
+    assert!(message.handle.starts_with("pr_"));
+    assert_eq!(message.text.as_deref(), Some("Related PR work"));
+    assert_eq!(message.kind.as_deref(), Some("message"));
 
     let json = serde_json::to_string(&projection).expect("projection json");
     assert!(
@@ -569,6 +1087,11 @@ fn project_pr_marks_branch_only_matches_as_weak_evidence() {
     let repo = setup_repo();
     write_turn_with_targets(
         repo.path(),
+        "Initial branch-only work",
+        ObservedTargets::default(),
+    );
+    write_turn_with_targets(
+        repo.path(),
         "Branch-only work",
         ObservedTargets::from_index_keys_for_testing(
             TEST_BRANCH_KEY,
@@ -594,7 +1117,7 @@ fn project_pr_marks_branch_only_matches_as_weak_evidence() {
     );
     let session = &projection.sessions[0];
     assert_eq!(session.evidence_tier, ProjectionEvidenceTier::Possible);
-    let turn = &session.turns[0];
+    let turn = &session.turns[1];
     assert_eq!(turn.evidence_tier, ProjectionEvidenceTier::Possible);
     assert_eq!(turn.match_reasons.len(), 1);
     assert_eq!(
@@ -606,6 +1129,7 @@ fn project_pr_marks_branch_only_matches_as_weak_evidence() {
 #[test]
 fn project_pr_filters_hidden_prompts_and_strips_tool_payloads() {
     let repo = setup_repo();
+    write_turn_with_targets(repo.path(), "Initial prompt", ObservedTargets::default());
     let batch = TranscriptBatch::parse(
         Agent::Codex,
         jsonl([
@@ -662,6 +1186,16 @@ fn project_pr_filters_hidden_prompts_and_strips_tool_payloads() {
                     "output": "Chunk ID: abc\nWall time: 0.01s\nProcess exited with code 0\nUpdated file\n",
                 },
             }),
+            serde_json::json!({
+                "timestamp": "2026-05-07T09:00:06Z",
+                "type": "response_item",
+                "payload": {
+                    "type": "function_call",
+                    "name": "exec_command",
+                    "call_id": "call-2",
+                    "arguments": "{\"cmd\":\"but pr new main\"}",
+                },
+            }),
         ])
         .as_bytes(),
     )
@@ -673,12 +1207,20 @@ fn project_pr_filters_hidden_prompts_and_strips_tool_payloads() {
         TEST_SOURCE_KEY,
         batch,
         || {
-            EnvironmentObservation::from_observed_targets_for_testing(
+            EnvironmentObservation::from_worktree_and_branch_commits_for_testing(
+                &["private/secret.rs"],
                 ObservedTargets::from_index_keys_for_testing(
                     TEST_BRANCH_KEY,
                     TEST_PR_REVIEW_KEY,
                     TEST_CHANGE_KEY,
                 ),
+                vec![branch_commit(
+                    TEST_BRANCH_KEY,
+                    TEST_PR_REVIEW_KEY,
+                    TEST_CHANGE_KEY,
+                    "commit-with-private-path",
+                    &["private/secret.rs"],
+                )],
             )
         },
     )
@@ -692,7 +1234,7 @@ fn project_pr_filters_hidden_prompts_and_strips_tool_payloads() {
 
     let projection = project_pr(repo.path(), &request).expect("project PR");
 
-    let turn = &projection.sessions[0].turns[0];
+    let turn = projection.sessions[0].turns.last().expect("projected turn");
     assert_eq!(
         turn.latest_user_preview
             .as_ref()
@@ -700,7 +1242,7 @@ fn project_pr_filters_hidden_prompts_and_strips_tool_payloads() {
         Some("Please update src/lib.rs")
     );
     let records = &turn.records;
-    assert_eq!(records.len(), 3);
+    assert_eq!(records.len(), 4);
     assert!(
         records
             .iter()
@@ -719,6 +1261,9 @@ fn project_pr_filters_hidden_prompts_and_strips_tool_payloads() {
     assert_eq!(records[2].text.as_deref(), Some("Updated file"));
     assert_eq!(records[2].exit_code, Some(0));
     assert_eq!(records[2].outcome.as_deref(), Some("succeeded"));
+    assert_eq!(records[3].kind.as_deref(), Some("tool_call"));
+    assert_eq!(records[3].tool_name.as_deref(), Some("exec_command"));
+    assert_eq!(records[3].tool_kind.as_deref(), Some("exec"));
 
     let json = serde_json::to_string(&projection).expect("projection json");
     assert!(!json.contains("# AGENTS.md instructions"));

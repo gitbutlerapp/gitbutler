@@ -8,9 +8,14 @@ use chrono::{DateTime, Utc};
 use git_meta_lib::{MetaValue, SessionTargetHandle};
 use serde::Deserialize;
 
+use crate::environment::path_fingerprint;
+
 use super::{
-    IndexHit, SessionListEntry, StoredObservedTargets, index_key,
-    read_support::{read_optional_turn_detail, read_turn_summaries, with_project_target},
+    IndexHit, SessionListEntry, StoredBranchSnapshot, StoredCommitSnapshot,
+    StoredEnvironmentSnapshot, StoredObservedTargets, index_key,
+    read_support::{
+        read_optional_turn_detail, read_turn_detail, read_turn_summaries, with_project_target,
+    },
     session_outline::{RelatedSession, related_session_outline},
 };
 
@@ -96,12 +101,12 @@ fn verified_related_turns_by_session(
     target: RelatedTarget<'_>,
 ) -> Result<BTreeMap<String, Vec<String>>> {
     let mut indexed_turns = BTreeMap::<String, HashSet<String>>::new();
-    let mut session_association_matches = BTreeMap::<String, bool>::new();
+    let mut session_activity_matches = BTreeMap::<String, bool>::new();
     for hit in target_index_hits(handle, target)? {
         let Ok(hit) = serde_json::from_str::<IndexHit>(&hit) else {
             continue;
         };
-        if turn_detail_observes_target(handle, &hit, target, &mut session_association_matches)? {
+        if turn_detail_observes_target(handle, &hit, target, &mut session_activity_matches)? {
             indexed_turns
                 .entry(hit.session_key)
                 .or_default()
@@ -158,7 +163,7 @@ fn turn_detail_observes_target(
     handle: &SessionTargetHandle<'_>,
     hit: &IndexHit,
     target: RelatedTarget<'_>,
-    session_association_matches: &mut BTreeMap<String, bool>,
+    session_activity_matches: &mut BTreeMap<String, bool>,
 ) -> Result<bool> {
     let detail_key = format!(
         "gitbutler:agent-session:{}:turn:{}",
@@ -167,14 +172,16 @@ fn turn_detail_observes_target(
     let Some(detail) = read_optional_turn_detail(handle, &detail_key)? else {
         return Ok(false);
     };
-    if observed_targets_observe(&detail.observed_targets, target) {
-        return Ok(true);
+    if !observed_targets_observe(&detail.observed_targets, target)
+        && !session_associations_observe_target(handle, &hit.session_key, target)?
+    {
+        return Ok(false);
     }
-    if let Some(matches) = session_association_matches.get(&hit.session_key) {
+    if let Some(matches) = session_activity_matches.get(&hit.session_key) {
         return Ok(*matches);
     }
-    let matches = session_associations_observe_target(handle, &hit.session_key, target)?;
-    session_association_matches.insert(hit.session_key.clone(), matches);
+    let matches = session_has_target_activity(handle, &hit.session_key, target)?;
+    session_activity_matches.insert(hit.session_key.clone(), matches);
     Ok(matches)
 }
 
@@ -225,5 +232,194 @@ impl StoredSessionAssociations {
             RelatedTarget::Review(key) => self.reviews.contains(key),
             RelatedTarget::Change(key) => self.changes.contains(key),
         }
+    }
+}
+
+fn session_has_target_activity(
+    handle: &SessionTargetHandle<'_>,
+    session_key: &str,
+    target: RelatedTarget<'_>,
+) -> Result<bool> {
+    let session_prefix = format!("gitbutler:agent-session:{session_key}");
+    let summaries = read_turn_summaries(handle, &format!("{session_prefix}:turns"))?;
+    let mut saw_turn_before_target = false;
+    let mut previous_detail: Option<super::StoredTurnDetail> = None;
+    for summary in summaries {
+        let detail_key = format!("{session_prefix}:turn:{}", summary.turn_key);
+        let detail = read_turn_detail(handle, &detail_key)?;
+        if previous_detail.as_ref().is_some_and(|previous| {
+            environment_promotes_worktree_to_target(
+                &previous.environment,
+                &detail.environment,
+                target,
+            )
+        }) {
+            return Ok(true);
+        }
+        if observed_targets_observe(&detail.observed_targets, target) {
+            if saw_turn_before_target
+                && target_appearance_is_specific(&detail.observed_targets, target)
+            {
+                return Ok(true);
+            }
+        } else {
+            saw_turn_before_target = true;
+        }
+        previous_detail = Some(detail);
+    }
+    Ok(false)
+}
+
+fn target_appearance_is_specific(
+    targets: &StoredObservedTargets,
+    target: RelatedTarget<'_>,
+) -> bool {
+    match target {
+        RelatedTarget::Branch(_) => targets.branches.len() == 1,
+        RelatedTarget::Review(_) => targets.branches.len() <= 1,
+        RelatedTarget::Change(_) => targets.changes.len() == 1,
+    }
+}
+
+fn environment_promotes_worktree_to_target(
+    previous: &StoredEnvironmentSnapshot,
+    current: &StoredEnvironmentSnapshot,
+    target: RelatedTarget<'_>,
+) -> bool {
+    // Strong association: files dirty in one turn show up in a new commit on the
+    // target in the next turn. Ambient applied branches stay weak.
+    if !environment_is_complete(previous) || !environment_is_complete(current) {
+        return false;
+    }
+    let Some(previous_worktree) = previous.worktree.as_ref() else {
+        return false;
+    };
+    let previous_worktree_files = previous_worktree
+        .files
+        .iter()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
+    if previous_worktree_files.is_empty() {
+        return false;
+    }
+    let previous_worktree_file_hashes = previous_worktree_files
+        .iter()
+        .map(|file| path_fingerprint(file))
+        .collect::<BTreeSet<_>>();
+
+    environment_branches(current).any(|branch| {
+        let previous_branch = match previous_branch_snapshot(previous, &branch.key) {
+            PreviousBranchSnapshot::Absent => KnownPreviousBranch::default(),
+            PreviousBranchSnapshot::Known(snapshot) => snapshot,
+            PreviousBranchSnapshot::Unknown => return false,
+        };
+        branch_matches_target(branch, target)
+            && branch.commits.iter().any(|commit| {
+                commit_matches_target(commit, target)
+                    && !previous_branch.commit_ids.contains(&commit.id)
+                    && commit_contains_worktree_file(
+                        commit,
+                        &previous_worktree_files,
+                        &previous_worktree_file_hashes,
+                        &previous_branch,
+                    )
+            })
+    })
+}
+
+fn environment_is_complete(environment: &StoredEnvironmentSnapshot) -> bool {
+    environment.snapshot_status.as_deref() == Some("complete") && environment.error_kind.is_none()
+}
+
+enum PreviousBranchSnapshot {
+    Absent,
+    Known(KnownPreviousBranch),
+    Unknown,
+}
+
+#[derive(Default)]
+struct KnownPreviousBranch {
+    commit_ids: BTreeSet<String>,
+    file_hashes: BTreeSet<String>,
+    files: BTreeSet<String>,
+}
+
+fn commit_contains_worktree_file(
+    commit: &StoredCommitSnapshot,
+    previous_worktree_files: &BTreeSet<&str>,
+    previous_worktree_file_hashes: &BTreeSet<String>,
+    previous_branch: &KnownPreviousBranch,
+) -> bool {
+    commit.file_hashes.iter().any(|hash| {
+        previous_worktree_file_hashes.contains(hash) && !previous_branch.file_hashes.contains(hash)
+    }) || commit.files.iter().any(|file| {
+        previous_worktree_files.contains(file.as_str())
+            && !previous_branch.files.contains(file)
+            && !previous_branch
+                .file_hashes
+                .contains(&path_fingerprint(file))
+    })
+}
+
+fn environment_branches(
+    environment: &StoredEnvironmentSnapshot,
+) -> impl Iterator<Item = &StoredBranchSnapshot> {
+    environment
+        .stacks
+        .iter()
+        .flat_map(|stack| stack.branches.iter())
+}
+
+fn previous_branch_snapshot(
+    environment: &StoredEnvironmentSnapshot,
+    branch_key: &str,
+) -> PreviousBranchSnapshot {
+    let mut branch_exists = false;
+    let mut snapshot = KnownPreviousBranch::default();
+    for branch in environment_branches(environment).filter(|branch| branch.key == branch_key) {
+        branch_exists = true;
+        for commit in &branch.commits {
+            snapshot.commit_ids.insert(commit.id.clone());
+            snapshot
+                .file_hashes
+                .extend(commit.file_hashes.iter().cloned());
+            snapshot
+                .file_hashes
+                .extend(commit.files.iter().map(|file| path_fingerprint(file)));
+            snapshot.files.extend(commit.files.iter().cloned());
+        }
+    }
+    if !branch_exists {
+        PreviousBranchSnapshot::Absent
+    } else if snapshot.commit_ids.is_empty() {
+        PreviousBranchSnapshot::Unknown
+    } else {
+        PreviousBranchSnapshot::Known(snapshot)
+    }
+}
+
+fn branch_matches_target(branch: &StoredBranchSnapshot, target: RelatedTarget<'_>) -> bool {
+    match target {
+        RelatedTarget::Branch(key) => branch.key == key,
+        RelatedTarget::Review(key) => branch_reviews(branch).any(|review_key| review_key == key),
+        RelatedTarget::Change(_) => true,
+    }
+}
+
+fn branch_reviews(branch: &StoredBranchSnapshot) -> impl Iterator<Item = &str> {
+    branch
+        .legacy_review
+        .iter()
+        .chain(branch.reviews.iter())
+        .map(|review| review.key.as_str())
+}
+
+fn commit_matches_target(commit: &StoredCommitSnapshot, target: RelatedTarget<'_>) -> bool {
+    match target {
+        RelatedTarget::Branch(_) | RelatedTarget::Review(_) => true,
+        RelatedTarget::Change(key) => commit
+            .change
+            .as_ref()
+            .is_some_and(|change| change.key == key),
     }
 }
