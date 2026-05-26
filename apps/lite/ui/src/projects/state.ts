@@ -169,23 +169,8 @@ const projectSlice = createSlice({
 				headInfo,
 			);
 		},
-		showPanel: (state, action: PayloadAction<{ projectId: string; panel: Panel }>) => {
-			panels.showPanel(
-				ensureProjectState(state, action.payload.projectId).panels,
-				action.payload.panel,
-			);
-		},
-		hidePanel: (state, action: PayloadAction<{ projectId: string; panel: Panel }>) => {
-			panels.hidePanel(
-				ensureProjectState(state, action.payload.projectId).panels,
-				action.payload.panel,
-			);
-		},
-		togglePanel: (state, action: PayloadAction<{ projectId: string; panel: Panel }>) => {
-			panels.togglePanel(
-				ensureProjectState(state, action.payload.projectId).panels,
-				action.payload.panel,
-			);
+		toggleFilesPanel: (state, action: PayloadAction<{ projectId: string }>) => {
+			panels.toggleFilesPanel(ensureProjectState(state, action.payload.projectId).panels);
 		},
 		openCommandPalette: (
 			state,

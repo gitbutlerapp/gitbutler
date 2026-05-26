@@ -47,7 +47,6 @@ import { FilesPanel } from "./FilesPanel.tsx";
 import styles from "./DetailsPanel.module.css";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
-import { isPanelVisible } from "#ui/panels/state.ts";
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
@@ -362,16 +361,12 @@ const FilesToggle: FC = () => {
 	const dispatch = useAppDispatch();
 	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 
-	const toggleFiles = () => {
-		dispatch(projectActions.togglePanel({ projectId, panel: "files" }));
-	};
-
 	return (
 		<ShortcutButton
 			hotkey={workspaceHotkeys.toggleFilesPanel.hotkey}
 			hotkeyOptions={{ meta: workspaceHotkeys.toggleFilesPanel.meta }}
-			aria-pressed={isPanelVisible(panelsState, "files")}
-			onClick={toggleFiles}
+			aria-pressed={panelsState.filesVisible}
+			onClick={() => dispatch(projectActions.toggleFilesPanel({ projectId }))}
 		>
 			Files
 		</ShortcutButton>
@@ -501,7 +496,7 @@ export const DetailsPanel: FC<PanelProps> = (panelProps) => {
 	const detailsOpacity = urgentSelection !== selection ? 0.5 : 1;
 	const { defaultLayout, onLayoutChanged } = useDefaultLayout({
 		id: `project:${projectId}:details`,
-		panelIds: isPanelVisible(panelsState, "files") ? ["files", "details"] : ["details"],
+		panelIds: panelsState.filesVisible ? ["files", "details"] : ["details"],
 	});
 
 	return (
@@ -517,7 +512,7 @@ export const DetailsPanel: FC<PanelProps> = (panelProps) => {
 				defaultLayout={defaultLayout}
 				onLayoutChange={onLayoutChanged}
 			>
-				{isPanelVisible(panelsState, "files") && (
+				{panelsState.filesVisible && (
 					<>
 						<FilesPanel
 							id="files"
@@ -538,7 +533,7 @@ export const DetailsPanel: FC<PanelProps> = (panelProps) => {
 					className={classes(
 						styles.innerPanel,
 						styles.detailsContentPanel,
-						isPanelVisible(panelsState, "files") && styles.alongsideFiles,
+						panelsState.filesVisible && styles.alongsideFiles,
 					)}
 					style={{ opacity: detailsOpacity }}
 				>

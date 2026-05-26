@@ -9,7 +9,6 @@ import {
 	Panel as PanelType,
 	useFocusedProjectPanel,
 } from "#ui/panels.ts";
-import { isPanelVisible } from "#ui/panels/state.ts";
 import {
 	projectActions,
 	selectProjectDialogState,
@@ -54,26 +53,14 @@ type CommandPaletteItem = {
 	type: "hotkey" | "sequence";
 };
 
-const toggleProjectPanel =
-	({
-		projectId,
-		panel,
-		focusedPanel,
-	}: {
-		projectId: string;
-		panel: PanelType;
-		focusedPanel: PanelType | null;
-	}): AppThunk =>
+const toggleFilesPanel =
+	({ projectId, focusedPanel }: { projectId: string; focusedPanel: PanelType | null }): AppThunk =>
 	(dispatch, getState) => {
 		const panelsState = selectProjectPanelsState(getState(), projectId);
 
-		if (focusedPanel === panel && isPanelVisible(panelsState, panel)) {
-			const panelIndex = panelsState.visiblePanels.indexOf(panel);
-			const nextPanel = panelsState.visiblePanels[panelIndex - 1];
-			if (nextPanel !== undefined) focusPanel(nextPanel);
-		}
+		if (focusedPanel === "files" && panelsState.filesVisible) focusPanel("outline");
 
-		dispatch(projectActions.togglePanel({ projectId, panel }));
+		dispatch(projectActions.toggleFilesPanel({ projectId }));
 	};
 
 const groupCommandPaletteItems = (
@@ -303,10 +290,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 	const focusedPanel = useFocusedProjectPanel(projectId);
 
-	const togglePanel = (panel: PanelType) => {
-		dispatch(toggleProjectPanel({ projectId, panel, focusedPanel }));
-	};
-
 	useHotkeys([
 		{
 			hotkey: globalHotkeys.commandPalette.hotkey,
@@ -332,7 +315,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		{
 			hotkey: workspaceHotkeys.toggleFilesPanel.hotkey,
 			callback: () => {
-				togglePanel("files");
+				dispatch(toggleFilesPanel({ projectId, focusedPanel }));
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -342,7 +325,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		{
 			hotkey: workspaceHotkeys.focusPreviousPanel.hotkey,
 			callback: () => {
-				focusAdjacentPanel(-1, panelsState.visiblePanels);
+				focusAdjacentPanel(panelsState, -1);
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -353,7 +336,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		{
 			hotkey: workspaceHotkeys.focusNextPanel.hotkey,
 			callback: () => {
-				focusAdjacentPanel(1, panelsState.visiblePanels);
+				focusAdjacentPanel(panelsState, 1);
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -419,10 +402,7 @@ const WorkspacePage: FC = () => {
 
 				<Separator className={styles.panelResizeHandle} />
 
-				<DetailsPanel
-					id="details-files-container"
-					minSize={isPanelVisible(panelsState, "files") ? 650 : 400}
-				/>
+				<DetailsPanel id="details-files-container" minSize={panelsState.filesVisible ? 650 : 400} />
 			</Group>
 
 			{Match.value(dialog).pipe(

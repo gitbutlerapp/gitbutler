@@ -16,11 +16,12 @@ import {
 	NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
+import type { PanelsState } from "./panels/state.ts";
 
 export type Panel = "outline" | "files" | "details";
-export const orderedPanels: Array<Panel> = ["outline", "files", "details"];
+const allPanels: Array<Panel> = ["outline", "files", "details"];
 
-const isProjectPanel = (id: string): id is Panel => orderedPanels.includes(id as Panel);
+const isProjectPanel = (id: string): id is Panel => allPanels.includes(id as Panel);
 
 const getFocusedProjectPanel = (activeElement: Element | null): Panel | null => {
 	const panelId = activeElement?.closest("[data-panel]")?.id;
@@ -39,11 +40,16 @@ export const focusPanel = (panel: Panel) => {
 	document.getElementById(panel)?.focus({ focusVisible: false });
 };
 
-export const focusAdjacentPanel = (offset: -1 | 1, panels: Array<Panel>) => {
+export const focusAdjacentPanel = (panelsState: PanelsState, offset: -1 | 1) => {
 	const currentPanel = getFocusedProjectPanel(document.activeElement);
 	if (currentPanel === null) return;
-	const nextPanel = panels[panels.indexOf(currentPanel) + offset];
+
+	const orderedPanels: Array<Panel> = panelsState.filesVisible
+		? ["outline", "files", "details"]
+		: ["outline", "details"];
+	const nextPanel = orderedPanels[orderedPanels.indexOf(currentPanel) + offset];
 	if (nextPanel === undefined) return;
+
 	focusPanel(nextPanel);
 };
 
