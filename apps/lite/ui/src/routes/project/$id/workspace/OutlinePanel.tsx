@@ -1137,6 +1137,14 @@ const CommitRow: FC<
 		accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
 		onSelect: composeCommitHere,
 	});
+	const copyChangeIdContextMenuItem = nativeMenuItem({
+		label: "Change ID",
+		onSelect: () => window.lite.clipboardWriteText(commit.changeId),
+	});
+	const copyCommitIdContextMenuItem = nativeMenuItem({
+		label: "Commit ID",
+		onSelect: () => window.lite.clipboardWriteText(commit.id),
+	});
 
 	const menuItems: Array<NativeMenuItem> = [
 		startEditingContextMenuItem,
@@ -1144,6 +1152,10 @@ const CommitRow: FC<
 		cutCommitContextMenuItem,
 		nativeMenuSeparator,
 		setCommitTargetContextMenuItem,
+		nativeMenuItem({
+			label: "Copy",
+			submenu: [copyChangeIdContextMenuItem, copyCommitIdContextMenuItem],
+		}),
 		nativeMenuItem({
 			label: "Add Empty Commit",
 			submenu: [insertBlankCommitAboveContextMenuItem, insertBlankCommitBelowContextMenuItem],
@@ -1936,6 +1948,10 @@ const BranchRow: FC<
 		accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
 		onSelect: composeCommitHere,
 	});
+	const copyBranchNameContextMenuItem = nativeMenuItem({
+		label: "Copy Branch Name",
+		onSelect: () => window.lite.clipboardWriteText(optimisticBranchName),
+	});
 	const tearOffBranchContextMenuItem = nativeMenuItem({
 		label: "Tear Off Branch",
 		enabled: canTearOffBranch && !tearOffBranchMutation.isPending,
@@ -1954,6 +1970,7 @@ const BranchRow: FC<
 
 	const menuItems: Array<NativeMenuItem> = [
 		startEditingContextMenuItem,
+		copyBranchNameContextMenuItem,
 		setCommitTargetContextMenuItem,
 		nativeMenuSeparator,
 		tearOffBranchContextMenuItem,
