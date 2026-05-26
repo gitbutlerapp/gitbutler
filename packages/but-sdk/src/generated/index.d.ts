@@ -264,7 +264,7 @@ export declare function peelRestoreSnapshot(projectId: string, sha: string): Pro
 
 export declare function publishReview(projectId: string, params: CreateForgeReviewParams): Promise<ForgeReview>
 
-export declare function pushStackLegacy(projectId: string, stackId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean): Promise<PushResult>
+export declare function pushStack(projectId: string, stackId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
 
 /**
  * Remove a branch from a stack.
@@ -1599,6 +1599,20 @@ export type PullRequestMinimal = {
   baseRepoUrl: string | null;
   headRef: string;
   headRepoUrl: string | null;
+};
+
+export type PushFlag = {
+  type: "wip";
+} | {
+  type: "ready";
+} | {
+  type: "private";
+} | {
+  type: "hashtag";
+  subject: string;
+} | {
+  type: "topic";
+  subject: string;
 };
 
 /** JSON-friendly version of [`gitbutler_git::PushResult`]. */

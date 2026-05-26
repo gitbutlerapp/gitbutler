@@ -367,7 +367,7 @@ pub mod json {
     }
 }
 
-#[but_api]
+#[but_api(napi, json::PushResult)]
 #[instrument(err(Debug))]
 pub fn push_stack(
     ctx: &mut Context,
@@ -409,26 +409,5 @@ pub fn push_stack_with_perm(
         run_hooks,
         push_opts,
         perm,
-    )
-}
-
-#[but_api(napi, json::PushResult)]
-#[instrument(err(Debug))]
-pub fn push_stack_legacy(
-    ctx: &mut Context,
-    stack_id: StackId,
-    with_force: bool,
-    skip_force_push_protection: bool,
-    branch: String,
-    run_hooks: bool,
-) -> Result<PushResult> {
-    push_stack(
-        ctx,
-        stack_id,
-        with_force,
-        skip_force_push_protection,
-        branch,
-        run_hooks,
-        Vec::new(),
     )
 }

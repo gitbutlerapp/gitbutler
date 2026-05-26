@@ -18,7 +18,7 @@ import {
 	type CommitMoveChangesBetweenParams,
 	type CommitUncommitChangesParams,
 	type MoveBranchParams,
-	type PushStackLegacyParams,
+	type PushStackParams,
 	type RemoveBranchParams,
 	type TearOffBranchParams,
 	type TreeChangeDiffParams,
@@ -55,7 +55,7 @@ import {
 	listBranches,
 	listProjectsStateless,
 	moveBranch,
-	pushStackLegacy,
+	pushStack,
 	removeBranch,
 	tearOffBranch,
 	treeChangeDiffs,
@@ -380,9 +380,9 @@ const registerIpcHandlers = (): void => {
 		(_e, { projectId, sha }: PeelRestoreSnapshotParams) => peelRestoreSnapshot(projectId, sha),
 	);
 	senderValidatingHandle(
-		liteIpcChannels.pushStackLegacy,
-		(_e, { projectId, stackId, branch }: PushStackLegacyParams) =>
-			pushStackLegacy(projectId, stackId, false, false, branch, true),
+		liteIpcChannels.pushStack,
+		(_e, { projectId, stackId, branch }: PushStackParams) =>
+			pushStack(projectId, stackId, false, false, branch, true, []),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.removeBranch,
