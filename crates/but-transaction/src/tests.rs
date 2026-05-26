@@ -307,7 +307,7 @@ fn remove_references() {
 }
 
 #[test]
-fn discard_workspace_changes() {
+fn rolling_back_discard_workspace_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
 
@@ -345,25 +345,19 @@ fn discard_workspace_changes() {
                 dropped_changes.is_empty(),
                 "all matching worktree changes should be discarded"
             );
-
-            Ok(())
+            Ok(tx.rollback(()))
         },
     )
     .unwrap();
 
-    snapbox::assert_data_eq!(env.git_status().unwrap(), snapbox::str![[r#""#]]);
-
     snapbox::assert_data_eq!(
-        env.git_log().unwrap(),
+        env.git_status().unwrap(),
         snapbox::str![[r#"
-* ebaef69 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-* 1e25c58 (branch) add file-three
-* 9b3b3d5 add file-two
-* dbdbcea add file-one
-* 6674d4f (origin/main, origin/HEAD, main, gitbutler/target) add random-file
+ M file-one
+?? new-file
 
 "#]]
     );
 
-    assert_num_snapshots(&ctx, 1);
+    assert_num_snapshots(&ctx, 0);
 }
