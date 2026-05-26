@@ -1,5 +1,5 @@
 use but_api::WorkspaceState;
-use but_core::DryRun;
+use but_core::{DiffSpec, DryRun};
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_testsupport::Sandbox;
@@ -24,6 +24,21 @@ fn assert_num_snapshots(ctx: &Context, expected: usize) {
             .unwrap()
             .count(),
     );
+}
+
+#[track_caller]
+fn worktree_changes_as_specs(repo: &gix::Repository) -> Vec<DiffSpec> {
+    let changes = but_core::diff::worktree_changes(repo).unwrap();
+    let specs = changes
+        .changes
+        .into_iter()
+        .map(DiffSpec::from)
+        .collect::<Vec<_>>();
+    assert!(
+        !specs.is_empty(),
+        "fixture should contain worktree changes to discard"
+    );
+    specs
 }
 
 #[test]
@@ -283,6 +298,68 @@ fn remove_references() {
         env.git_log().unwrap(),
         snapbox::str![[r#"
 * 8413d71 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 6674d4f (origin/main, origin/HEAD, main, gitbutler/target) add random-file
+
+"#]]
+    );
+
+    assert_num_snapshots(&ctx, 1);
+}
+
+#[test]
+fn discard_workspace_changes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.append_file("file-one", "changed\n");
+    env.file("new-file", "new\n");
+
+    snapbox::assert_data_eq!(
+        env.git_status().unwrap(),
+        snapbox::str![[r#"
+ M file-one
+?? new-file
+
+"#]]
+    );
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let changes = worktree_changes_as_specs(&repo);
+    let mut ctx = Context::from_repo(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+
+    assert_num_snapshots(&ctx, 0);
+
+    let mut meta = ctx.meta().unwrap();
+    let snapshot_details = SnapshotDetails::new(OperationKind::DiscardChanges);
+
+    with_transaction(
+        &mut ctx,
+        &mut meta,
+        snapshot_details,
+        DryRun::No,
+        |mut tx| {
+            let dropped_changes = tx.discard_workspace_changes(changes)?;
+            assert!(
+                dropped_changes.is_empty(),
+                "all matching worktree changes should be discarded"
+            );
+
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    snapbox::assert_data_eq!(env.git_status().unwrap(), snapbox::str![[r#""#]]);
+
+    snapbox::assert_data_eq!(
+        env.git_log().unwrap(),
+        snapbox::str![[r#"
+* ebaef69 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+* 1e25c58 (branch) add file-three
+* 9b3b3d5 add file-two
+* dbdbcea add file-one
 * 6674d4f (origin/main, origin/HEAD, main, gitbutler/target) add random-file
 
 "#]]

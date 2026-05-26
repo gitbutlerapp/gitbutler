@@ -229,6 +229,20 @@ where
         })
     }
 
+    pub fn discard_workspace_changes(
+        &mut self,
+        changes: impl IntoIterator<Item = DiffSpec>,
+    ) -> anyhow::Result<Vec<DiffSpec>> {
+        let context_lines = self.inner.context_lines;
+        self.rebase(|editor, _, _| {
+            let dropped_changes =
+                but_workspace::discard_workspace_changes(editor.repo(), changes, context_lines)?;
+            let rebase = editor.rebase()?;
+
+            Ok((dropped_changes, rebase))
+        })
+    }
+
     pub fn remove_reference(&mut self, ref_name: &FullNameRef) -> anyhow::Result<()> {
         self.rebase(|mut editor, _, _| {
             let selector = editor.select_reference(ref_name)?;
