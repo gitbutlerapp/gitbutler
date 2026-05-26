@@ -4,7 +4,7 @@ use but_api::json::HexHash;
 use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 
 use crate::{
-    BadInput, CliError, CliId, CliResult, IdMap,
+    CliError, CliId, CliResult, IdMap, bad_input,
     theme::{self, Paint},
     utils::{Confirm, ConfirmDefault, OutputChannel, shorten_object_id},
 };
@@ -45,7 +45,7 @@ pub fn delete(
         }
     }
 
-    BadInput::new(format!("Branch '{branch_name}' not found in any stack")).into_cli_result()
+    Err(bad_input(format!("Branch '{branch_name}' not found in any stack")).into())
 }
 
 pub fn new(
@@ -76,13 +76,13 @@ pub fn new(
         // Resolve the anchor string to a CliId
         let anchor_ids = id_map.parse_using_context(&anchor_str, ctx)?;
         if anchor_ids.is_empty() {
-            return BadInput::new(format!("Could not find anchor: {anchor_str}")).into_cli_result();
+            return Err(bad_input(format!("Could not find anchor: {anchor_str}")).into());
         }
         if anchor_ids.len() > 1 {
-            return BadInput::new(format!(
+            return Err(bad_input(format!(
                 "Ambiguous anchor '{anchor_str}', matches multiple items"
             ))
-            .into_cli_result();
+            .into());
         }
         let anchor_id = &anchor_ids[0];
 
@@ -102,11 +102,11 @@ pub fn new(
                 },
             ),
             _ => {
-                return BadInput::new(format!(
+                return Err(bad_input(format!(
                     "Invalid anchor type: {}, expected commit or branch",
                     anchor_id.kind_for_humans()
                 ))
-                .into_cli_result();
+                .into());
             }
         }
     } else {
@@ -175,7 +175,7 @@ fn check_can_create_branch_with_user_provided_name(
     let normalized =
         but_core::branch::normalize_short_name(user_provided_branch_name).map_err(|err| {
             CliError::from(
-                BadInput::new(format!("Invalid branch name: {err}"))
+                bad_input(format!("Invalid branch name: {err}"))
                     .arg_name("<BRANCH_NAME>")
                     .arg_value(user_provided_branch_name),
             )
@@ -183,11 +183,11 @@ fn check_can_create_branch_with_user_provided_name(
 
     let user_name_bstr: &BStr = user_provided_branch_name.into();
     if normalized != user_name_bstr {
-        return BadInput::new("Invalid branch name")
+        return Err(bad_input("Invalid branch name")
             .arg_name("<BRANCH_NAME>")
             .arg_value(user_provided_branch_name)
             .hint(format!("Try '{normalized}' instead"))
-            .into_cli_result();
+            .into());
     }
 
     let branch_ref_name = if user_provided_branch_name.starts_with("refs/heads") {
@@ -200,10 +200,10 @@ fn check_can_create_branch_with_user_provided_name(
         .try_find_reference(&branch_ref_name.to_owned())?
         .is_some()
     {
-        return BadInput::new(format!(
+        return Err(bad_input(format!(
             "A branch named '{user_provided_branch_name}' already exists"
         ))
-        .into_cli_result();
+        .into());
     }
 
     Ok(())

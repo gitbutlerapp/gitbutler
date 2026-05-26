@@ -48,11 +48,11 @@ impl BadInput {
         self.hint = Some(hint.as_ref().to_string());
         self
     }
+}
 
-    /// Wrap this value as a [`CliError::BadInput`] in a [`CliResult`].
-    pub fn into_cli_result<T>(self) -> CliResult<T> {
-        Err(self.into())
-    }
+/// Convenience wrapper around [`BadInput::new`].
+pub(crate) fn bad_input<S: AsRef<str>>(message: S) -> BadInput {
+    BadInput::new(message)
 }
 
 impl Display for BadInput {
