@@ -25,7 +25,6 @@ const DEFAULT_RECORD_LIMIT: usize = 20;
 #[derive(Debug, clap::Subcommand)]
 pub enum Command {
     /// Capture an agent transcript from hook input.
-    #[clap(hide = true)]
     Hook {
         #[clap(long, value_enum)]
         agent: Option<Agent>,

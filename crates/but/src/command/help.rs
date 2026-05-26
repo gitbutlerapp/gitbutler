@@ -152,7 +152,6 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
                 SubcommandDiscriminant::Actions => continue,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Fetch => continue,
-                #[cfg(feature = "agentlog")]
                 SubcommandDiscriminant::AgentLog => continue,
             };
             groups.entry(group).or_default().push(*clap_subcommand);
