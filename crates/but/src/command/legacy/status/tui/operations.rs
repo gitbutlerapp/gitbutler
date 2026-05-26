@@ -15,7 +15,7 @@ use but_core::{DiffSpec, DryRun, diff::CommitDetails, ref_metadata::StackId};
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use gitbutler_operating_modes::OperatingMode;
-use gitbutler_oplog::entry::Snapshot;
+use gitbutler_oplog::entry::{OperationKind, Snapshot, SnapshotDetails};
 
 use crate::{
     CliId,
@@ -467,7 +467,12 @@ fn discard_uncommitted_legacy_with_paths(
         return Ok(());
     }
 
-    but_api::legacy::workspace::discard_worktree_changes(ctx, changes_to_discard)?;
+    let mut meta = ctx.meta()?;
+    let snapshot_details = SnapshotDetails::new(OperationKind::UndoCommit);
+    but_transaction::with_transaction(ctx, &mut meta, snapshot_details, DryRun::No, |mut tx| {
+        tx.discard_workspace_changes(changes_to_discard)?;
+        Ok(())
+    })?;
 
     Ok(())
 }
@@ -513,7 +518,12 @@ pub(super) fn discard_unassigned_legacy(ctx: &mut Context) -> anyhow::Result<()>
         return Ok(());
     }
 
-    but_api::legacy::workspace::discard_worktree_changes(ctx, unassigned_changes)?;
+    let mut meta = ctx.meta()?;
+    let snapshot_details = SnapshotDetails::new(OperationKind::UndoCommit);
+    but_transaction::with_transaction(ctx, &mut meta, snapshot_details, DryRun::No, |mut tx| {
+        tx.discard_workspace_changes(unassigned_changes)?;
+        Ok(())
+    })?;
 
     Ok(())
 }

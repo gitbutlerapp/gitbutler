@@ -304,3 +304,20 @@ fn discard_multiple_commits() {
     tui.input_then_render(None)
         .assert_rendered_term_svg_eq(file!["snapshots/discard_multiple_commits_final.svg"]);
 }
+
+#[test]
+fn discard_uncommitted_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.env().file("file", "content");
+
+    tui.input_then_render(KeyCode::Down);
+    tui.input_then_render('x');
+    tui.input_then_render('y');
+
+    tui.input_then_render(None)
+        .assert_rendered_term_svg_eq(file!["snapshots/discard_uncommitted_final.svg"]);
+}
