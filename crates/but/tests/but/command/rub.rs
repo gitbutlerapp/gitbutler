@@ -882,6 +882,70 @@ Staged hunk(s) → [A].
 }
 
 #[test]
+fn stage_command_missing_source_hints_to_refresh_cli_ids() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    env.but("stage missing-file A")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Bad input 'missing-file' for '<FILE_OR_HUNK>'
+
+Source 'missing-file' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.
+
+Hint: Run `but status --json -f` to refresh CLI IDs, then retry with a file or hunk cliId from the output
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn stage_command_missing_branch_hints_to_refresh_cli_ids() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    env.file("a.txt", "text\n");
+
+    env.but("stage a.txt missing-branch")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Bad input 'missing-branch' for '<BRANCH>'
+
+Branch 'missing-branch' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.
+
+Hint: Use a branch name or branch cliId from `but status --json -f`
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn stage_command_non_branch_target_hints_to_use_branch() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    env.file("a.txt", "text\n");
+
+    env.but("stage a.txt zz")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Bad input 'zz' for '<BRANCH>'
+
+Cannot stage to zz - it is the unassigned area. Target must be a branch.
+
+Hint: Use a branch name or branch cliId from `but status --json -f`
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
 fn unstage_command() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 

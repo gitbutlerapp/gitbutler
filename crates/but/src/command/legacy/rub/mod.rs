@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt};
 
 use crate::theme::{self, Paint};
 use anyhow::{Context as _, bail};
@@ -24,9 +24,9 @@ use gix::refs::FullName;
 use nonempty::NonEmpty;
 
 use crate::{
-    CliId, IdMap,
+    CliError, CliId, IdMap, bad_input,
     command::legacy::rub::assign::stack_id_to_branch_name,
-    id::parser::{parse_sources_with_disambiguation, prompt_for_disambiguation},
+    id::parser::{IdResolutionError, parse_sources_with_disambiguation, prompt_for_disambiguation},
     utils::{OutputChannel, shorten_object_id, split_short_id},
 };
 
@@ -1245,7 +1245,16 @@ pub(crate) fn handle(
 ) -> anyhow::Result<()> {
     let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let (sources, target) = ids(ctx, &id_map, source_str, target_str, out)?;
+    handle_resolved(ctx, out, sources, target, how_to_combine_messages)
+}
 
+fn handle_resolved(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    sources: Vec<CliId>,
+    target: CliId,
+    how_to_combine_messages: MessageCombinationStrategy,
+) -> anyhow::Result<()> {
     for source in sources {
         let Some(operation) =
             route_operation(NonEmpty::new(&source), &target, how_to_combine_messages)
@@ -1372,9 +1381,10 @@ fn resolve_single_id(
     let matches = id_map.parse_using_context(entity_str, ctx)?;
 
     if matches.is_empty() {
-        return Err(anyhow::anyhow!(
+        return Err(IdResolutionError::new(format!(
             "{context} '{entity_str}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state."
-        ));
+        ))
+        .into());
     }
 
     if matches.len() == 1 {
@@ -1532,6 +1542,78 @@ pub(crate) fn handle_amend(
     Ok(())
 }
 
+pub(crate) fn stage_cli_error(err: anyhow::Error) -> CliError {
+    if let Some(stage_bad_input) = err
+        .chain()
+        .find_map(|cause| cause.downcast_ref::<StageBadInput>())
+    {
+        stage_bad_input.cli_error()
+    } else {
+        err.into()
+    }
+}
+
+const STAGE_FILE_OR_HUNK_HINT: &str = "Run `but status --json -f` to refresh CLI IDs, then retry with a file or hunk cliId from the output";
+const STAGE_BRANCH_HINT: &str = "Use a branch name or branch cliId from `but status --json -f`";
+
+#[derive(Debug)]
+struct StageBadInput {
+    message: String,
+    arg_name: &'static str,
+    arg_value: String,
+    hint: &'static str,
+}
+
+impl StageBadInput {
+    fn file_or_hunk(value: &str, message: impl fmt::Display) -> Self {
+        Self {
+            message: message.to_string(),
+            arg_name: "<FILE_OR_HUNK>",
+            arg_value: value.to_owned(),
+            hint: STAGE_FILE_OR_HUNK_HINT,
+        }
+    }
+
+    fn branch(value: &str, message: impl fmt::Display) -> Self {
+        Self {
+            message: message.to_string(),
+            arg_name: "<BRANCH>",
+            arg_value: value.to_owned(),
+            hint: STAGE_BRANCH_HINT,
+        }
+    }
+
+    fn cli_error(&self) -> CliError {
+        bad_input(&self.message)
+            .arg_name(self.arg_name)
+            .arg_value(&self.arg_value)
+            .hint(self.hint)
+            .into()
+    }
+}
+
+impl fmt::Display for StageBadInput {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for StageBadInput {}
+
+fn stage_resolution_error(
+    err: anyhow::Error,
+    wrap: impl FnOnce(anyhow::Error) -> StageBadInput,
+) -> anyhow::Error {
+    if err
+        .chain()
+        .any(|cause| cause.downcast_ref::<IdResolutionError>().is_some())
+    {
+        wrap(err).into()
+    } else {
+        err
+    }
+}
+
 /// Handler for `but stage <file_or_hunk> <branch>` - runs `but rub <file_or_hunk> <branch>`
 /// Validates that file_or_hunk is uncommitted or a path prefix, and that branch is a branch.
 pub(crate) fn handle_stage(
@@ -1542,8 +1624,14 @@ pub(crate) fn handle_stage(
 ) -> anyhow::Result<()> {
     let t = theme::get();
     let id_map = IdMap::legacy_new_from_context(ctx, None)?;
-    let files = parse_sources_with_disambiguation(ctx, &id_map, file_or_hunk_str, out)?;
-    let branch = resolve_single_id(ctx, &id_map, branch_str, "Branch", out)?;
+    let files =
+        parse_sources_with_disambiguation(ctx, &id_map, file_or_hunk_str, out).map_err(|err| {
+            stage_resolution_error(err, |err| {
+                StageBadInput::file_or_hunk(file_or_hunk_str, err)
+            })
+        })?;
+    let branch = resolve_single_id(ctx, &id_map, branch_str, "Branch", out)
+        .map_err(|err| stage_resolution_error(err, |err| StageBadInput::branch(branch_str, err)))?;
 
     // Validate that all files are uncommitted or a path prefix
     for file in &files {
@@ -1552,11 +1640,15 @@ pub(crate) fn handle_stage(
                 // Valid type for stage
             }
             _ => {
-                bail!(
-                    "Cannot stage {} - it is {}. Only uncommitted files and hunks can be staged.",
-                    t.cli_id.paint(file.to_short_string()),
-                    t.attention.paint(file.kind_for_humans())
-                );
+                return Err(StageBadInput::file_or_hunk(
+                    file_or_hunk_str,
+                    format!(
+                        "Cannot stage {} - it is {}. Only uncommitted files and hunks can be staged.",
+                        t.cli_id.paint(file.to_short_string()),
+                        t.attention.paint(file.kind_for_humans())
+                    ),
+                )
+                .into());
             }
         }
     }
@@ -1567,20 +1659,23 @@ pub(crate) fn handle_stage(
             // Valid type for target
         }
         other => {
-            bail!(
-                "Cannot stage to {} - it is {}. Target must be a branch.",
-                t.cli_id.paint(other.to_short_string()),
-                t.attention.paint(other.kind_for_humans())
-            );
+            return Err(StageBadInput::branch(
+                branch_str,
+                format!(
+                    "Cannot stage to {} - it is {}. Target must be a branch.",
+                    t.cli_id.paint(other.to_short_string()),
+                    t.attention.paint(other.kind_for_humans())
+                ),
+            )
+            .into());
         }
     }
 
-    // Call the main rub handler
-    handle(
+    handle_resolved(
         ctx,
         out,
-        file_or_hunk_str,
-        branch_str,
+        files,
+        branch,
         MessageCombinationStrategy::KeepBoth,
     )
 }
@@ -1599,15 +1694,21 @@ pub(crate) fn handle_stage_tui(
 
     // Resolve branch: from flag, or interactive selection
     let branch_name = if let Some(branch_str) = branch_str {
-        let branch = resolve_single_id(ctx, &id_map, branch_str, "Branch", out)?;
+        let branch = resolve_single_id(ctx, &id_map, branch_str, "Branch", out).map_err(|err| {
+            stage_resolution_error(err, |err| StageBadInput::branch(branch_str, err))
+        })?;
         match &branch {
             CliId::Branch { name, .. } => name.clone(),
             other => {
-                bail!(
-                    "Cannot stage to {} - it is {}. Target must be a branch.",
-                    t.cli_id.paint(other.to_short_string()),
-                    t.attention.paint(other.kind_for_humans())
-                );
+                return Err(StageBadInput::branch(
+                    branch_str,
+                    format!(
+                        "Cannot stage to {} - it is {}. Target must be a branch.",
+                        t.cli_id.paint(other.to_short_string()),
+                        t.attention.paint(other.kind_for_humans())
+                    ),
+                )
+                .into());
             }
         }
     } else {

@@ -3,6 +3,23 @@ use but_ctx::Context;
 
 use crate::{CliId, IdMap, utils::OutputChannel};
 
+#[derive(Debug)]
+pub(crate) struct IdResolutionError(String);
+
+impl IdResolutionError {
+    pub(crate) fn new(message: impl Into<String>) -> Self {
+        Self(message.into())
+    }
+}
+
+impl std::fmt::Display for IdResolutionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for IdResolutionError {}
+
 pub(crate) fn parse_sources(
     ctx: &mut Context,
     id_map: &IdMap,
@@ -26,19 +43,21 @@ pub(crate) fn parse_sources(
     let source_result = id_map.parse_using_context(source, ctx)?;
     if source_result.len() != 1 {
         if source_result.is_empty() {
-            return Err(anyhow::anyhow!(
+            return Err(IdResolutionError::new(format!(
                 "Source '{source}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state."
-            ));
+            ))
+            .into());
         } else {
             let matches: Vec<String> = source_result
                 .iter()
                 .map(|id| format!("{} ({})", id.to_short_string(), id.kind_for_humans()))
                 .collect();
-            return Err(anyhow::anyhow!(
+            return Err(IdResolutionError::new(format!(
                 "Source '{}' is ambiguous. Matches: {}. Try using more characters, a longer SHA, or the full branch name to disambiguate.",
                 source,
                 matches.join(", ")
-            ));
+            ))
+            .into());
         }
     }
     Ok(vec![source_result[0].clone()])
@@ -149,9 +168,10 @@ pub fn parse_sources_with_disambiguation(
     // Single source (including strings with dashes that aren't valid ranges)
     let source_result = id_map.parse_using_context(source, ctx)?;
     if source_result.is_empty() {
-        return Err(anyhow::anyhow!(
+        return Err(IdResolutionError::new(format!(
             "Source '{source}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state."
-        ));
+        ))
+        .into());
     }
 
     if source_result.len() > 1 {
@@ -183,9 +203,10 @@ fn parse_list_with_disambiguation(
 
         let matches = id_map.parse_using_context(part, ctx)?;
         if matches.is_empty() {
-            return Err(anyhow::anyhow!(
+            return Err(IdResolutionError::new(format!(
                 "Item '{part}' in list not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state."
-            ));
+            ))
+            .into());
         }
 
         if matches.len() == 1 {
@@ -200,9 +221,10 @@ fn parse_list_with_disambiguation(
 
     // If all parts were empty, return an error
     if result.is_empty() {
-        return Err(anyhow::anyhow!(
+        return Err(IdResolutionError::new(format!(
             "Source list '{source}' contains no valid items"
-        ));
+        ))
+        .into());
     }
 
     Ok(result)
@@ -223,13 +245,15 @@ fn parse_list(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Result
         let matches = id_map.parse_using_context(part, ctx)?;
         if matches.len() != 1 {
             if matches.is_empty() {
-                return Err(anyhow::anyhow!(
+                return Err(IdResolutionError::new(format!(
                     "Item '{part}' in list not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state."
-                ));
+                ))
+                .into());
             } else {
-                return Err(anyhow::anyhow!(
+                return Err(IdResolutionError::new(format!(
                     "Item '{part}' in list is ambiguous. Try using more characters to disambiguate."
-                ));
+                ))
+                .into());
             }
         }
         result.push(matches[0].clone());
@@ -237,9 +261,10 @@ fn parse_list(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Result
 
     // If all parts were empty, return an error
     if result.is_empty() {
-        return Err(anyhow::anyhow!(
+        return Err(IdResolutionError::new(format!(
             "Source list '{source}' contains no valid items"
-        ));
+        ))
+        .into());
     }
 
     Ok(result)
@@ -289,9 +314,10 @@ pub fn prompt_for_disambiguation(
             .collect::<Vec<_>>()
             .join("\n");
 
-        return Err(anyhow::anyhow!(
+        return Err(IdResolutionError::new(format!(
             "'{entity_str}' is ambiguous for {context}. Cannot prompt in non-interactive mode. Matches:\n{options_str}"
-        ));
+        ))
+        .into());
     }
 
     // Build options with clear descriptions
