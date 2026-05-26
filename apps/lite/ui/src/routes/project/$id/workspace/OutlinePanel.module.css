@@ -293,7 +293,7 @@
 }
 
 [data-status="Diverged"] {
-	--commit-status-color: var(--commit-shadow);
+	--commit-status-color: var(--commit-local);
 }
 
 .commitState {
