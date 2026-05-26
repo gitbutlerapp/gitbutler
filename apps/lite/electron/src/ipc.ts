@@ -243,6 +243,7 @@ export interface LiteElectronApi {
 	branchDetails: (params: BranchDetailsParams) => Promise<BranchDetails>;
 	branchDiff: (params: BranchDiffParams) => Promise<TreeChanges>;
 	changesInWorktree: (projectId: string) => Promise<WorktreeChanges>;
+	clipboardWriteText: (text: string) => Promise<void>;
 	commitAmend: (params: CommitAmendParams) => Promise<CommitCreateResult>;
 	commitCreate: (params: CommitCreateParams) => Promise<CommitCreateResult>;
 	commitDiscard: (params: CommitDiscardParams) => Promise<CommitDiscardResult>;
@@ -288,6 +289,7 @@ export const liteIpcChannels = {
 	branchDetails: "workspace:branch-details",
 	branchDiff: "workspace:branch-diff",
 	changesInWorktree: "workspace:changes-in-worktree",
+	clipboardWriteText: "lite:clipboard-write-text",
 	commitAmend: "workspace:commit-amend",
 	commitCreate: "workspace:commit-create",
 	commitDiscard: "workspace:commit-discard",

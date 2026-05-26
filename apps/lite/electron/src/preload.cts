@@ -52,6 +52,8 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:branch-diff", params) as Promise<TreeChanges>,
 	changesInWorktree: (projectId) =>
 		ipcRenderer.invoke("workspace:changes-in-worktree", projectId) as Promise<WorktreeChanges>,
+	clipboardWriteText: (text) =>
+		ipcRenderer.invoke("lite:clipboard-write-text", text) as Promise<void>,
 	commitAmend: (params) =>
 		ipcRenderer.invoke("workspace:commit-amend", params) as Promise<CommitCreateResult>,
 	commitCreate: (params) =>

@@ -71,6 +71,7 @@ import {
 import {
 	app,
 	BrowserWindow,
+	clipboard,
 	ipcMain,
 	Menu,
 	net,
@@ -277,6 +278,9 @@ const registerIpcHandlers = (): void => {
 	senderValidatingHandle(liteIpcChannels.changesInWorktree, (_e, projectId: string) =>
 		changesInWorktree(projectId),
 	);
+	senderValidatingHandle(liteIpcChannels.clipboardWriteText, (_e, text: string) => {
+		clipboard.writeText(text, "clipboard");
+	});
 	senderValidatingHandle(
 		liteIpcChannels.commitAmend,
 		(_e, { projectId, commitId, changes, dryRun }: CommitAmendParams) =>
