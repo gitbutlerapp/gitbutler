@@ -329,7 +329,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			},
 			options: {
 				conflictBehavior: "allow",
-				enabled: focusedPanel !== null,
 				meta: workspaceHotkeys.focusPreviousPanel.meta,
 			},
 		},
@@ -340,7 +339,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			},
 			options: {
 				conflictBehavior: "allow",
-				enabled: focusedPanel !== null,
 				meta: workspaceHotkeys.focusNextPanel.meta,
 			},
 		},

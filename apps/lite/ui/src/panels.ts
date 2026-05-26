@@ -42,16 +42,21 @@ export const focusPanel = (panel: Panel) => {
 
 export const focusAdjacentPanel = (panelsState: PanelsState, offset: -1 | 1) => {
 	const currentPanel = getFocusedProjectPanel(document.activeElement);
-	if (currentPanel === null) return;
 
-	const orderedPanels: Array<Panel> = panelsState.filesVisible
-		? ["outline", "files", "details"]
-		: ["outline", "details"];
-	const curr = orderedPanels.indexOf(currentPanel);
-	// oxlint-disable-next-line typescript/no-non-null-assertion: This shouldn't ever fail.
-	const nextPanel = orderedPanels.at((curr + offset) % orderedPanels.length)!;
+	if (currentPanel === null) {
+		const nextPanel: Panel = offset === 1 ? "outline" : "details";
 
-	focusPanel(nextPanel);
+		focusPanel(nextPanel);
+	} else {
+		const orderedPanels: Array<Panel> = panelsState.filesVisible
+			? ["outline", "files", "details"]
+			: ["outline", "details"];
+		const curr = orderedPanels.indexOf(currentPanel);
+		// oxlint-disable-next-line typescript/no-non-null-assertion: This shouldn't ever fail.
+		const nextPanel = orderedPanels.at((curr + offset) % orderedPanels.length)!;
+
+		focusPanel(nextPanel);
+	}
 };
 
 export const useNavigationIndexHotkeys = ({
