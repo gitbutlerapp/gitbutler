@@ -72,21 +72,69 @@ struct StoredTurnDetail {
     records: Vec<AcceptedRecord>,
     #[serde(default)]
     observed_targets: StoredObservedTargets,
+    #[serde(default)]
+    environment: StoredEnvironmentSnapshot,
 }
 
 #[derive(Default, Deserialize)]
 struct StoredObservedTargets {
     #[serde(default)]
-    branches: Vec<StoredObservedTarget>,
+    branches: Vec<StoredTargetKey>,
     #[serde(default)]
-    reviews: Vec<StoredObservedTarget>,
+    reviews: Vec<StoredTargetKey>,
     #[serde(default)]
-    changes: Vec<StoredObservedTarget>,
+    changes: Vec<StoredTargetKey>,
 }
 
 #[derive(Deserialize)]
-struct StoredObservedTarget {
+struct StoredTargetKey {
     key: String,
+}
+
+#[derive(Default, Deserialize)]
+struct StoredEnvironmentSnapshot {
+    #[serde(default)]
+    snapshot_status: Option<String>,
+    #[serde(default)]
+    error_kind: Option<String>,
+    #[serde(default)]
+    worktree: Option<StoredPathList>,
+    #[serde(default)]
+    stacks: Vec<StoredStackSnapshot>,
+}
+
+#[derive(Deserialize)]
+struct StoredPathList {
+    #[serde(default)]
+    files: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct StoredStackSnapshot {
+    #[serde(default)]
+    branches: Vec<StoredBranchSnapshot>,
+}
+
+#[derive(Deserialize)]
+struct StoredBranchSnapshot {
+    key: String,
+    #[serde(default, rename = "review")]
+    legacy_review: Option<StoredTargetKey>,
+    #[serde(default)]
+    reviews: Vec<StoredTargetKey>,
+    #[serde(default)]
+    commits: Vec<StoredCommitSnapshot>,
+}
+
+#[derive(Deserialize)]
+struct StoredCommitSnapshot {
+    id: String,
+    #[serde(default)]
+    change: Option<StoredTargetKey>,
+    #[serde(default)]
+    file_hashes: Vec<String>,
+    #[serde(default)]
+    files: Vec<String>,
 }
 
 struct SessionListEntry {

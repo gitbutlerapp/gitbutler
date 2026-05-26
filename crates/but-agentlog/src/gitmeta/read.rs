@@ -8,11 +8,13 @@ use chrono::{DateTime, Utc};
 use git_meta_lib::{MetaValue, SessionTargetHandle};
 use serde::Deserialize;
 
+use crate::environment::path_fingerprint;
+
 use super::{
-    AcceptedRecord, IndexHit, SessionListEntry, StoredObservedTargets, index_key,
+    IndexHit, SessionListEntry, StoredBranchSnapshot, StoredCommitSnapshot,
+    StoredEnvironmentSnapshot, StoredObservedTargets, index_key,
     read_support::{
-        read_optional_turn_detail, read_transcript_entries, read_turn_detail, read_turn_summaries,
-        transcript_records_by_hash, with_project_target,
+        read_optional_turn_detail, read_turn_detail, read_turn_summaries, with_project_target,
     },
     session_outline::{RelatedSession, related_session_outline},
 };
@@ -241,189 +243,183 @@ fn session_has_target_activity(
     let session_prefix = format!("gitbutler:agent-session:{session_key}");
     let summaries = read_turn_summaries(handle, &format!("{session_prefix}:turns"))?;
     let mut saw_turn_before_target = false;
+    let mut previous_detail: Option<super::StoredTurnDetail> = None;
     for summary in summaries {
         let detail_key = format!("{session_prefix}:turn:{}", summary.turn_key);
         let detail = read_turn_detail(handle, &detail_key)?;
+        if previous_detail.as_ref().is_some_and(|previous| {
+            environment_promotes_worktree_to_target(
+                &previous.environment,
+                &detail.environment,
+                target,
+            )
+        }) {
+            return Ok(true);
+        }
         if observed_targets_observe(&detail.observed_targets, target) {
             if saw_turn_before_target
-                || turn_has_agent_activity(handle, &session_prefix, &detail.records)?
+                && target_appearance_is_specific(&detail.observed_targets, target)
             {
                 return Ok(true);
             }
         } else {
             saw_turn_before_target = true;
         }
+        previous_detail = Some(detail);
     }
     Ok(false)
 }
 
-#[derive(Deserialize)]
-struct StoredActivityRecord {
-    record_hash: String,
-    #[serde(default)]
-    tool_kind: Option<String>,
-    tool_input: Option<serde_json::Value>,
-}
-
-fn turn_has_agent_activity(
-    handle: &SessionTargetHandle<'_>,
-    session_prefix: &str,
-    accepted_records: &[AcceptedRecord],
-) -> Result<bool> {
-    if accepted_records.is_empty() {
-        return Ok(false);
+fn target_appearance_is_specific(
+    targets: &StoredObservedTargets,
+    target: RelatedTarget<'_>,
+) -> bool {
+    match target {
+        RelatedTarget::Branch(_) => targets.branches.len() == 1,
+        RelatedTarget::Review(_) => targets.branches.len() <= 1,
+        RelatedTarget::Change(_) => targets.changes.len() == 1,
     }
-    let transcript_key = format!("{session_prefix}:transcript");
-    let records = activity_records_by_hash(handle, &transcript_key, accepted_records)?;
-    Ok(records.values().any(activity_record_touches_target))
 }
 
-fn activity_records_by_hash(
-    handle: &SessionTargetHandle<'_>,
-    transcript_key: &str,
-    accepted_records: &[AcceptedRecord],
-) -> Result<BTreeMap<String, StoredActivityRecord>> {
-    let needed_hashes = accepted_records
+fn environment_promotes_worktree_to_target(
+    previous: &StoredEnvironmentSnapshot,
+    current: &StoredEnvironmentSnapshot,
+    target: RelatedTarget<'_>,
+) -> bool {
+    // Strong association: files dirty in one turn show up in a new commit on the
+    // target in the next turn. Ambient applied branches stay weak.
+    if !environment_is_complete(previous) || !environment_is_complete(current) {
+        return false;
+    }
+    let Some(previous_worktree) = previous.worktree.as_ref() else {
+        return false;
+    };
+    let previous_worktree_files = previous_worktree
+        .files
         .iter()
-        .map(|record| record.record_hash.clone())
-        .collect::<HashSet<_>>();
-    let entries = read_transcript_entries(handle, transcript_key)?;
-    Ok(
-        transcript_records_by_hash(entries, &needed_hashes, parse_activity_record)
-            .into_iter()
-            .collect(),
-    )
-}
-
-fn parse_activity_record(raw: &str) -> Option<(String, StoredActivityRecord)> {
-    let record = serde_json::from_str::<StoredActivityRecord>(raw).ok()?;
-    Some((record.record_hash.clone(), record))
-}
-
-fn activity_record_touches_target(record: &StoredActivityRecord) -> bool {
-    match record.tool_kind.as_deref() {
-        Some("exec") => record
-            .tool_input
-            .as_ref()
-            .and_then(command_text)
-            .is_some_and(is_mutating_repo_command),
-        _ => false,
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
+    if previous_worktree_files.is_empty() {
+        return false;
     }
+    let previous_worktree_file_hashes = previous_worktree_files
+        .iter()
+        .map(|file| path_fingerprint(file))
+        .collect::<BTreeSet<_>>();
+
+    environment_branches(current).any(|branch| {
+        let previous_branch = match previous_branch_snapshot(previous, &branch.key) {
+            PreviousBranchSnapshot::Absent => KnownPreviousBranch::default(),
+            PreviousBranchSnapshot::Known(snapshot) => snapshot,
+            PreviousBranchSnapshot::Unknown => return false,
+        };
+        branch_matches_target(branch, target)
+            && branch.commits.iter().any(|commit| {
+                commit_matches_target(commit, target)
+                    && !previous_branch.commit_ids.contains(&commit.id)
+                    && commit_contains_worktree_file(
+                        commit,
+                        &previous_worktree_files,
+                        &previous_worktree_file_hashes,
+                        &previous_branch,
+                    )
+            })
+    })
 }
 
-fn command_text(input: &serde_json::Value) -> Option<&str> {
-    if let Some(command) = input.as_str() {
-        return Some(command);
+fn environment_is_complete(environment: &StoredEnvironmentSnapshot) -> bool {
+    environment.snapshot_status.as_deref() == Some("complete") && environment.error_kind.is_none()
+}
+
+enum PreviousBranchSnapshot {
+    Absent,
+    Known(KnownPreviousBranch),
+    Unknown,
+}
+
+#[derive(Default)]
+struct KnownPreviousBranch {
+    commit_ids: BTreeSet<String>,
+    file_hashes: BTreeSet<String>,
+    files: BTreeSet<String>,
+}
+
+fn commit_contains_worktree_file(
+    commit: &StoredCommitSnapshot,
+    previous_worktree_files: &BTreeSet<&str>,
+    previous_worktree_file_hashes: &BTreeSet<String>,
+    previous_branch: &KnownPreviousBranch,
+) -> bool {
+    commit.file_hashes.iter().any(|hash| {
+        previous_worktree_file_hashes.contains(hash) && !previous_branch.file_hashes.contains(hash)
+    }) || commit.files.iter().any(|file| {
+        previous_worktree_files.contains(file.as_str())
+            && !previous_branch.files.contains(file)
+            && !previous_branch
+                .file_hashes
+                .contains(&path_fingerprint(file))
+    })
+}
+
+fn environment_branches(
+    environment: &StoredEnvironmentSnapshot,
+) -> impl Iterator<Item = &StoredBranchSnapshot> {
+    environment
+        .stacks
+        .iter()
+        .flat_map(|stack| stack.branches.iter())
+}
+
+fn previous_branch_snapshot(
+    environment: &StoredEnvironmentSnapshot,
+    branch_key: &str,
+) -> PreviousBranchSnapshot {
+    let mut branch_exists = false;
+    let mut snapshot = KnownPreviousBranch::default();
+    for branch in environment_branches(environment).filter(|branch| branch.key == branch_key) {
+        branch_exists = true;
+        for commit in &branch.commits {
+            snapshot.commit_ids.insert(commit.id.clone());
+            snapshot
+                .file_hashes
+                .extend(commit.file_hashes.iter().cloned());
+            snapshot
+                .file_hashes
+                .extend(commit.files.iter().map(|file| path_fingerprint(file)));
+            snapshot.files.extend(commit.files.iter().cloned());
+        }
     }
-    ["cmd", "command", "input"]
-        .into_iter()
-        .find_map(|key| input.get(key).and_then(serde_json::Value::as_str))
-}
-
-fn is_mutating_repo_command(command: impl AsRef<str>) -> bool {
-    command
-        .as_ref()
-        .lines()
-        .flat_map(|line| line.split("&&"))
-        .flat_map(|line| line.split(';'))
-        .any(|segment| {
-            let tokens = segment.split_whitespace().collect::<Vec<_>>();
-            mutating_but_subcommand(&tokens).is_some_and(is_mutating_but_subcommand)
-                || mutating_git_subcommand(&tokens).is_some_and(is_mutating_git_subcommand)
-        })
-}
-
-fn mutating_but_subcommand<'a>(tokens: &'a [&str]) -> Option<&'a str> {
-    let first = *tokens.first()?;
-    if first == "but" {
-        return first_non_option(&tokens[1..]);
-    }
-    if first == "cargo" && tokens.get(1).copied() == Some("run") {
-        let after_separator = tokens
-            .iter()
-            .position(|token| *token == "--")
-            .map(|index| &tokens[index + 1..])?;
-        return first_non_option(after_separator);
-    }
-    None
-}
-
-fn mutating_git_subcommand<'a>(tokens: &'a [&str]) -> Option<&'a str> {
-    if tokens.first().copied() == Some("git") {
-        first_non_option(&tokens[1..])
+    if !branch_exists {
+        PreviousBranchSnapshot::Absent
+    } else if snapshot.commit_ids.is_empty() {
+        PreviousBranchSnapshot::Unknown
     } else {
-        None
+        PreviousBranchSnapshot::Known(snapshot)
     }
 }
 
-fn first_non_option<'a>(tokens: &'a [&str]) -> Option<&'a str> {
-    let mut skip_next = false;
-    for token in tokens.iter().copied() {
-        if skip_next {
-            skip_next = false;
-            continue;
-        }
-        if matches!(
-            token,
-            "-C" | "--current-dir" | "--git-dir" | "--work-tree" | "-c"
-        ) {
-            skip_next = true;
-            continue;
-        }
-        if token.starts_with("-C")
-            || token.starts_with("--current-dir=")
-            || token.starts_with("--git-dir=")
-            || token.starts_with("--work-tree=")
-            || token.starts_with("-c")
-        {
-            continue;
-        }
-        if token.starts_with('-') || token.contains('=') {
-            continue;
-        }
-        return Some(token);
+fn branch_matches_target(branch: &StoredBranchSnapshot, target: RelatedTarget<'_>) -> bool {
+    match target {
+        RelatedTarget::Branch(key) => branch.key == key,
+        RelatedTarget::Review(key) => branch_reviews(branch).any(|review_key| review_key == key),
+        RelatedTarget::Change(_) => true,
     }
-    None
 }
 
-fn is_mutating_but_subcommand(subcommand: &str) -> bool {
-    matches!(
-        subcommand,
-        "absorb"
-            | "amend"
-            | "apply"
-            | "commit"
-            | "discard"
-            | "move"
-            | "pick"
-            | "pr"
-            | "push"
-            | "resolve"
-            | "reword"
-            | "rub"
-            | "squash"
-            | "stage"
-            | "unapply"
-            | "uncommit"
-    )
+fn branch_reviews(branch: &StoredBranchSnapshot) -> impl Iterator<Item = &str> {
+    branch
+        .legacy_review
+        .iter()
+        .chain(branch.reviews.iter())
+        .map(|review| review.key.as_str())
 }
 
-fn is_mutating_git_subcommand(subcommand: &str) -> bool {
-    matches!(
-        subcommand,
-        "add"
-            | "am"
-            | "apply"
-            | "checkout"
-            | "cherry-pick"
-            | "commit"
-            | "merge"
-            | "mv"
-            | "push"
-            | "rebase"
-            | "reset"
-            | "revert"
-            | "rm"
-            | "switch"
-    )
+fn commit_matches_target(commit: &StoredCommitSnapshot, target: RelatedTarget<'_>) -> bool {
+    match target {
+        RelatedTarget::Branch(_) | RelatedTarget::Review(_) => true,
+        RelatedTarget::Change(key) => commit
+            .change
+            .as_ref()
+            .is_some_and(|change| change.key == key),
+    }
 }

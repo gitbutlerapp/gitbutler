@@ -492,7 +492,7 @@ mod tests {
     #[test]
     fn skim_outputs_all_turns_with_drill_down_keys_in_json() {
         let repo = setup_repo();
-        let turn_key = write_user_turn_with_targets(repo.path());
+        let turn_key = write_user_session_with_targetless_prelude(repo.path());
 
         let output = run_from_dir(
             repo.path(),
@@ -507,19 +507,19 @@ mod tests {
         assert_eq!(json["target_kind"], "branch");
         assert_eq!(json["target_key"], TEST_BRANCH_KEY);
         assert_eq!(json["sessions"][0]["session_key"], TEST_SESSION_KEY);
-        assert_eq!(json["sessions"][0]["related_turn_count"], 1);
+        assert_eq!(json["sessions"][0]["related_turn_count"], 2);
         assert_eq!(json["coverage"]["showing_sessions"], 1);
-        assert_eq!(json["coverage"]["showing_turns"], 1);
-        assert_eq!(json["coverage"]["related_turn_count"], 1);
+        assert_eq!(json["coverage"]["showing_turns"], 2);
+        assert_eq!(json["coverage"]["related_turn_count"], 2);
         assert_eq!(json["sessions"][0]["turns"][0]["turn_key"], turn_key);
         assert_eq!(json["sessions"][0]["turns"][0]["related"], true);
 
         let human = output.to_string();
         assert!(human.starts_with(&format!("Skim for branch {TEST_BRANCH_KEY}\n")));
         assert!(human.contains(
-            "\nSessions: showing 1 related sessions, 1 turns total, 1 directly related turns."
+            "\nSessions: showing 1 related sessions, 2 turns total, 2 directly related turns."
         ));
-        assert!(human.contains("\nSession #1: 1 turns, 2 records, latest "));
+        assert!(human.contains("\nSession #1: 2 turns, 2 records, latest "));
         assert!(human.contains("\n- #0 "));
         assert!(human.contains("hello"));
         assert!(human.contains("\nThis is a skim: all related sessions and turns, abbreviated."));
@@ -540,7 +540,7 @@ mod tests {
     #[test]
     fn explicit_skim_reads_bare_repo_metadata() {
         let repo = setup_bare_repo();
-        let turn_key = write_user_turn_with_targets(repo.path());
+        let turn_key = write_user_session_with_targetless_prelude(repo.path());
 
         let output = run_from_dir(
             repo.path(),
@@ -562,10 +562,24 @@ mod tests {
         let repo = setup_repo();
         let probe_session_key = "sha256-33333333333333333333333333333333";
         let probe_source_key = "sha256-44444444444444444444444444444444";
-        write_active_turn_for_session(repo.path(), TEST_SESSION_KEY, TEST_SOURCE_KEY, "first");
-        write_active_turn_for_session(repo.path(), TEST_SESSION_KEY, TEST_SOURCE_KEY, "second");
-        write_active_turn_for_session(repo.path(), TEST_SESSION_KEY, TEST_SOURCE_KEY, "third");
-        write_active_turn_for_session(repo.path(), probe_session_key, probe_source_key, "probe");
+        write_targetless_turn_for_session(
+            repo.path(),
+            TEST_SESSION_KEY,
+            TEST_SOURCE_KEY,
+            "targetless setup",
+            None,
+        );
+        write_turn_for_session(repo.path(), TEST_SESSION_KEY, TEST_SOURCE_KEY, "first");
+        write_turn_for_session(repo.path(), TEST_SESSION_KEY, TEST_SOURCE_KEY, "second");
+        write_turn_for_session(repo.path(), TEST_SESSION_KEY, TEST_SOURCE_KEY, "third");
+        write_targetless_turn_for_session(
+            repo.path(),
+            probe_session_key,
+            probe_source_key,
+            "probe targetless setup",
+            None,
+        );
+        write_turn_for_session(repo.path(), probe_session_key, probe_source_key, "probe");
         set_session_updated_at(repo.path(), TEST_SESSION_KEY, "2026-05-07T09:00:00.000Z");
         set_session_updated_at(repo.path(), probe_session_key, "2026-05-07T10:00:00.000Z");
 
@@ -580,18 +594,25 @@ mod tests {
         let json = serde_json::to_value(&output).expect("serialize command output");
 
         assert_eq!(json["coverage"]["showing_sessions"], 2);
-        assert_eq!(json["coverage"]["showing_turns"], 4);
-        assert_eq!(json["coverage"]["related_turn_count"], 4);
+        assert_eq!(json["coverage"]["showing_turns"], 6);
+        assert_eq!(json["coverage"]["related_turn_count"], 6);
         assert_eq!(json["sessions"][0]["session_key"], TEST_SESSION_KEY);
-        assert_eq!(json["sessions"][0]["related_turn_count"], 3);
+        assert_eq!(json["sessions"][0]["related_turn_count"], 4);
         assert_eq!(json["sessions"][1]["session_key"], probe_session_key);
-        assert_eq!(json["sessions"][1]["related_turn_count"], 1);
+        assert_eq!(json["sessions"][1]["related_turn_count"], 2);
     }
 
     #[test]
     fn skim_marks_session_associated_follow_up_related() {
         let repo = setup_repo();
-        let related_turn_key = write_active_turn_for_session_with_targets(
+        write_targetless_turn_for_session(
+            repo.path(),
+            TEST_SESSION_KEY,
+            TEST_SOURCE_KEY,
+            "targetless setup",
+            Some("assistant"),
+        );
+        let related_turn_key = write_turn_for_session_with_targets(
             repo.path(),
             TEST_SESSION_KEY,
             TEST_SOURCE_KEY,
@@ -622,18 +643,19 @@ mod tests {
         .expect("read skim");
         let json = serde_json::to_value(&output).expect("serialize command output");
 
-        assert_eq!(json["coverage"]["showing_turns"], 2);
-        assert_eq!(json["coverage"]["related_turn_count"], 2);
-        assert_eq!(
-            json["sessions"][0]["turns"][0]["turn_key"],
-            related_turn_key
-        );
+        assert_eq!(json["coverage"]["showing_turns"], 3);
+        assert_eq!(json["coverage"]["related_turn_count"], 3);
         assert_eq!(json["sessions"][0]["turns"][0]["related"], true);
         assert_eq!(
             json["sessions"][0]["turns"][1]["turn_key"],
-            unrelated_turn_key
+            related_turn_key
         );
         assert_eq!(json["sessions"][0]["turns"][1]["related"], true);
+        assert_eq!(
+            json["sessions"][0]["turns"][2]["turn_key"],
+            unrelated_turn_key
+        );
+        assert_eq!(json["sessions"][0]["turns"][2]["related"], true);
         assert_eq!(
             json["sessions"][0]["previews"][0],
             "assistant: unrelated follow-up"
@@ -742,14 +764,22 @@ mod tests {
         write_turn_for_session(repo, TEST_SESSION_KEY, TEST_SOURCE_KEY, "hello")
     }
 
-    fn write_user_turn_with_targets(repo: &Path) -> String {
-        write_active_turn_for_session_with_role(
+    fn write_user_session_with_targetless_prelude(repo: &Path) -> String {
+        let first_turn_key = write_targetless_turn_for_session(
             repo,
             TEST_SESSION_KEY,
             TEST_SOURCE_KEY,
             "hello",
             Some("user"),
-        )
+        );
+        write_turn_for_session_with_role(
+            repo,
+            TEST_SESSION_KEY,
+            TEST_SOURCE_KEY,
+            "hello target",
+            Some("user"),
+        );
+        first_turn_key
     }
 
     fn write_turn_for_session(
@@ -759,15 +789,6 @@ mod tests {
         text: &str,
     ) -> String {
         write_turn_for_session_with_role(repo, session_key, source_key, text, None)
-    }
-
-    fn write_active_turn_for_session(
-        repo: &Path,
-        session_key: &str,
-        source_key: &str,
-        text: &str,
-    ) -> String {
-        write_active_turn_for_session_with_role(repo, session_key, source_key, text, None)
     }
 
     fn write_turn_for_session_with_role(
@@ -791,24 +812,20 @@ mod tests {
         )
     }
 
-    fn write_active_turn_for_session_with_role(
+    fn write_targetless_turn_for_session(
         repo: &Path,
         session_key: &str,
         source_key: &str,
         text: &str,
         role: Option<&str>,
     ) -> String {
-        write_active_turn_for_session_with_targets(
+        write_turn_for_session_with_targets(
             repo,
             session_key,
             source_key,
             text,
             role,
-            ObservedTargets::from_index_keys_for_testing(
-                TEST_BRANCH_KEY,
-                TEST_REVIEW_KEY,
-                TEST_CHANGE_KEY,
-            ),
+            ObservedTargets::default(),
         )
     }
 
@@ -835,47 +852,6 @@ mod tests {
                     r#"{{"timestamp":"2026-05-07T09:00:00Z","type":"session_meta","payload":{{"id":"session-1"}}}}"#,
                     "\n",
                     r#"{{"timestamp":"2026-05-07T09:00:01Z","type":"response_item","payload":{{"type":"message"{},"content":{}}}}}"#,
-                    "\n",
-                ),
-                role_fragment,
-                serde_json::to_string(text).expect("serialize message text")
-            )
-            .as_bytes(),
-        )
-        .expect("parse transcript");
-
-        write_transcript_batch(repo, Agent::Codex, session_key, source_key, batch, || {
-            EnvironmentObservation::from_observed_targets_for_testing(observed_targets)
-        })
-        .expect("write transcript batch");
-        latest_turn_key(repo, session_key)
-    }
-
-    fn write_active_turn_for_session_with_targets(
-        repo: &Path,
-        session_key: &str,
-        source_key: &str,
-        text: &str,
-        role: Option<&str>,
-        observed_targets: ObservedTargets,
-    ) -> String {
-        let role_fragment = role
-            .map(|role| {
-                format!(
-                    r#","role":{}"#,
-                    serde_json::to_string(role).expect("serialize role")
-                )
-            })
-            .unwrap_or_default();
-        let batch = TranscriptBatch::parse(
-            Agent::Codex,
-            format!(
-                concat!(
-                    r#"{{"timestamp":"2026-05-07T09:00:00Z","type":"session_meta","payload":{{"id":"session-1"}}}}"#,
-                    "\n",
-                    r#"{{"timestamp":"2026-05-07T09:00:01Z","type":"response_item","payload":{{"type":"message"{},"content":{}}}}}"#,
-                    "\n",
-                    r#"{{"timestamp":"2026-05-07T09:00:02Z","type":"response_item","payload":{{"type":"function_call","name":"exec_command","call_id":"call-activity","arguments":"{{\"cmd\":\"but pr new main\"}}"}}}}"#,
                     "\n",
                 ),
                 role_fragment,
