@@ -62,10 +62,18 @@
 
 .filePath {
 	margin: 8px;
+	overflow: hidden;
+	color: var(--text-3);
+
+	/* Overflow ellipsis on the left, pioritising filename. */
+	direction: rtl;
+	text-align: left;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
-.pathInit {
-	color: var(--text-3);
+.pathLast {
+	color: var(--text-1);
 }
 
 .hunkHeaderRow {
