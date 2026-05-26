@@ -1,7 +1,6 @@
 use crate::utils::OutputChannel;
 use anyhow::{Context as _, Result};
 use bstr::BStr;
-use bstr::ByteSlice;
 use but_core::{DiffSpec, DryRun, diff::tree_changes, sync::RepoExclusive};
 use but_ctx::Context;
 
@@ -30,71 +29,6 @@ pub fn commited_file_to_another_commit_with_perm(
         writeln!(out, "Moved files between commits!")?;
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({"ok": true}))?;
-    }
-
-    Ok(())
-}
-
-pub fn uncommit_file_and_discard(
-    ctx: &mut Context,
-    path: &BStr,
-    source_id: gix::ObjectId,
-    out: &mut OutputChannel,
-    emit_output: bool,
-) -> Result<()> {
-    let mut guard = ctx.exclusive_worktree_access();
-    uncommit_file_and_discard_with_perm(
-        ctx,
-        path,
-        source_id,
-        out,
-        emit_output,
-        guard.write_permission(),
-    )
-}
-
-pub fn uncommit_file_and_discard_with_perm(
-    ctx: &mut Context,
-    path: &BStr,
-    source_id: gix::ObjectId,
-    out: &mut OutputChannel,
-    emit_output: bool,
-    perm: &mut RepoExclusive,
-) -> Result<()> {
-    let relevant_changes = changes_for_path_in_commit(ctx, path, source_id)?;
-
-    let context_lines = ctx.settings.context_lines;
-    but_api::commit::uncommit::commit_uncommit_changes_with_perm(
-        ctx,
-        source_id,
-        relevant_changes.clone(),
-        None,
-        DryRun::No,
-        perm,
-    )?;
-
-    let dropped = {
-        let repo = ctx.repo.get()?;
-        but_workspace::discard_workspace_changes(&repo, relevant_changes, context_lines)?
-    };
-
-    legacy_update_workspace_commit(ctx)?;
-
-    if emit_output {
-        if let Some(out) = out.for_human() {
-            if !dropped.is_empty() {
-                writeln!(
-                    out,
-                    "Warning: Some changes could not be discarded (possibly already discarded or modified):"
-                )?;
-                for spec in &dropped {
-                    writeln!(out, "  {}", spec.path.as_bstr())?;
-                }
-            }
-            writeln!(out, "Discarded committed changes")?;
-        } else if let Some(out) = out.for_json() {
-            out.write_value(serde_json::json!({"ok": true}))?;
-        }
     }
 
     Ok(())

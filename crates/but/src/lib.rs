@@ -1265,7 +1265,7 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Uncommit { source, discard } => {
+        Subcommands::Uncommit { source } => {
             let status_after = args.status_after;
             let mut ctx = setup::init_ctx(
                 &args,
@@ -1276,7 +1276,7 @@ async fn match_subcommand(
                 out,
             )?;
             out.begin_status_after(status_after);
-            let result = command::legacy::rub::handle_uncommit(&mut ctx, out, &source, discard)
+            let result = command::legacy::rub::handle_uncommit(&mut ctx, out, &source)
                 .context("Failed to uncommit.")
                 .emit_metrics(metrics_ctx);
             maybe_run_status_after(status_after, &result, &mut ctx, out).await;

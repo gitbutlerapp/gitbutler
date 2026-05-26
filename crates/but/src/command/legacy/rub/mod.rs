@@ -1391,7 +1391,6 @@ pub(crate) fn handle_uncommit(
     ctx: &mut Context,
     out: &mut OutputChannel,
     source_str: &str,
-    discard: bool,
 ) -> anyhow::Result<()> {
     let t = theme::get();
     let id_map = IdMap::legacy_new_from_context(ctx, None)?;
@@ -1411,47 +1410,6 @@ pub(crate) fn handle_uncommit(
                 );
             }
         }
-    }
-
-    if discard {
-        let json_mode = out.for_json().is_some();
-
-        for source in sources {
-            match source {
-                CliId::Commit { commit_id, .. } => {
-                    but_api::commit::discard_commit::commit_discard(ctx, commit_id, DryRun::No)?;
-
-                    if !json_mode && let Some(out) = out.for_human() {
-                        let repo = ctx.repo.get()?;
-                        writeln!(
-                            out,
-                            "Discarded {}",
-                            t.cli_id.paint(shorten_object_id(&repo, commit_id))
-                        )?;
-                    }
-                }
-                CliId::CommittedFile {
-                    path, commit_id, ..
-                } => {
-                    crate::command::commit::file::uncommit_file_and_discard(
-                        ctx,
-                        path.as_ref(),
-                        commit_id,
-                        out,
-                        !json_mode,
-                    )?;
-                }
-                _ => {
-                    unreachable!("uncommit sources were validated before execution");
-                }
-            }
-        }
-
-        if json_mode && let Some(out) = out.for_json() {
-            out.write_value(serde_json::json!({"ok": true}))?;
-        }
-
-        return Ok(());
     }
 
     // Call the main rub handler with "zz" as target

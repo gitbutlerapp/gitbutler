@@ -592,9 +592,6 @@ pub enum Subcommands {
     Uncommit {
         /// Commit ID or file-in-commit ID to uncommit
         source: String,
-        /// Discard the selected committed changes instead of moving them to unassigned
-        #[clap(long, short = 'd')]
-        discard: bool,
     },
 
     /// Amend a file change into a specific commit and rebases any dependent commits.
