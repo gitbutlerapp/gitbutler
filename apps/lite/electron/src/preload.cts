@@ -176,6 +176,7 @@ const api: LiteElectronApi = {
 		return () => ipcRenderer.removeListener("updater:update-downloaded", listener);
 	},
 	quitAndInstallUpdate: () => ipcRenderer.invoke("updater:quit-and-install") as Promise<void>,
+	platform: process.platform,
 };
 
 contextBridge.exposeInMainWorld("lite", api);

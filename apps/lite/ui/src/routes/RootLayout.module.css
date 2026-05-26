@@ -2,69 +2,64 @@
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr);
 	height: 100dvh;
+	overflow: hidden;
 	background-color: var(--bg-2);
+}
+
+.dragRegion {
+	position: absolute;
+	top: 0;
+	left: 0;
+	grid-column: 1 / -1;
+	width: 100%;
+	height: 12px;
+	-webkit-app-region: drag;
+	app-region: drag;
 }
 
 .sidebar {
 	display: flex;
+	position: relative;
+	flex-direction: column;
+	width: 76px;
+	height: 100%;
+	min-height: 0;
+}
+
+.sidebarMacSpacer {
+	z-index: 1;
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 40px;
+	background: linear-gradient(to bottom, var(--bg-2) 70%, transparent);
+}
+
+.sidebarScroll {
+	display: flex;
+	flex: 1;
 	flex-direction: column;
 	align-items: center;
 	justify-content: space-between;
-	width: 64px;
-	padding-inline: 12px;
 	padding-block: 18px;
+	overflow-y: auto;
+	scrollbar-width: none;
+}
+
+.sidebarScrollMac {
+	padding-block-start: 38px;
+}
+
+/* Temporary fix. Design is being updated, so we can remove this once it's done. */
+.sidebarScroll::-webkit-scrollbar {
+	display: none;
 }
 
 .projects {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
-}
-
-.project {
-	display: grid;
-	position: relative;
-	width: 40px;
-	height: 31px;
-	padding: 8px;
-	/* Override ui button. */
-	border: none;
-	border-radius: 8px;
-	background-color: oklch(90% 0.1 var(--hue));
-	color: oklch(30% 0.1 var(--hue));
-	font-weight: 700;
-	font-size: 10px;
-	text-transform: uppercase;
-
-	&:disabled:hover {
-		/* Override ui button. */
-		background-color: oklch(90% 0.1 var(--hue));
-	}
-
-	&:not(:disabled) {
-		cursor: pointer;
-
-		&:hover {
-			/* Override ui button. */
-			background-color: oklch(88% 0.12 var(--hue));
-		}
-	}
-
-	&.selected {
-		/* Override ui button. */
-		opacity: unset;
-
-		&::before {
-			position: absolute;
-			left: -10px;
-			align-self: center;
-			width: 4px;
-			height: calc(100% - 10px);
-			border-radius: 10px;
-			background-color: var(--fill-gray-bg);
-			content: "";
-		}
-	}
+	gap: 10px;
 }
 
 .content {
@@ -75,4 +70,9 @@
 	border-start-start-radius: 14px;
 	border-end-start-radius: 14px;
 	background: var(--bg-1);
+}
+
+.addProjectButton {
+	width: 100%;
+	padding-block: 16px;
 }
