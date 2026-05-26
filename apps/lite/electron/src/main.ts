@@ -362,6 +362,9 @@ const registerIpcHandlers = (): void => {
 		(_e, { projectId, subjectBranch, targetBranch, dryRun }: MoveBranchParams) =>
 			moveBranch(projectId, subjectBranch, targetBranch, dryRun),
 	);
+	senderValidatingHandle(liteIpcChannels.pathJoin, (_e, ...paths: Array<string>) =>
+		path.join(...paths),
+	);
 	senderValidatingHandle(
 		liteIpcChannels.updateBranchName,
 		(_e, { projectId, stackId, branchName, newName }: UpdateBranchNameParams) =>

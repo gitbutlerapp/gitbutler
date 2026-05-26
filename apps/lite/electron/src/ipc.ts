@@ -265,6 +265,7 @@ export interface LiteElectronApi {
 	) => Promise<Array<BranchListing>>;
 	listProjects: () => Promise<Array<ProjectForFrontend>>;
 	moveBranch: (params: MoveBranchParams) => Promise<MoveBranchResult>;
+	pathJoin: (...paths: Array<string>) => Promise<string>;
 	updateBranchName: (params: UpdateBranchNameParams) => Promise<void>;
 	tearOffBranch: (params: TearOffBranchParams) => Promise<MoveBranchResult>;
 	peelRestoreSnapshot: (params: PeelRestoreSnapshotParams) => Promise<Snapshot | null>;
@@ -308,6 +309,7 @@ export const liteIpcChannels = {
 	listBranches: "workspace:list-branches",
 	listProjects: "projects:list",
 	moveBranch: "workspace:move-branch",
+	pathJoin: "lite:path-join",
 	updateBranchName: "workspace:update-branch-name",
 	tearOffBranch: "workspace:tear-off-branch",
 	peelRestoreSnapshot: "workspace:peel-restore-snapshot",
