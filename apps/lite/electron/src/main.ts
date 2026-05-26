@@ -19,18 +19,19 @@ import {
 	type CommitUncommitChangesParams,
 	type MoveBranchParams,
 	type PushStackLegacyParams,
+	type RemoveBranchParams,
 	type TearOffBranchParams,
 	type TreeChangeDiffParams,
 	type UpdateBranchNameParams,
 	type ApplyParams,
 	type ShowNativeMenuParams,
 	type UnapplyStackParams,
-	WatcherSubscribeParams,
-	WatcherUnsubscribeParams,
-	NativeMenuPopupItem,
-	CommitUncommitParams,
-	RestoreSnapshotWithKindParams,
-	PeelRestoreSnapshotParams,
+	type WatcherSubscribeParams,
+	type WatcherUnsubscribeParams,
+	type NativeMenuPopupItem,
+	type CommitUncommitParams,
+	type RestoreSnapshotWithKindParams,
+	type PeelRestoreSnapshotParams,
 } from "./ipc.js";
 import {
 	absorb,
@@ -55,6 +56,7 @@ import {
 	listProjectsStateless,
 	moveBranch,
 	pushStackLegacy,
+	removeBranch,
 	tearOffBranch,
 	treeChangeDiffs,
 	unapplyStack,
@@ -69,6 +71,7 @@ import {
 import {
 	app,
 	BrowserWindow,
+	clipboard,
 	ipcMain,
 	Menu,
 	net,
@@ -275,6 +278,9 @@ const registerIpcHandlers = (): void => {
 	senderValidatingHandle(liteIpcChannels.changesInWorktree, (_e, projectId: string) =>
 		changesInWorktree(projectId),
 	);
+	senderValidatingHandle(liteIpcChannels.clipboardWriteText, (_e, text: string) => {
+		clipboard.writeText(text, "clipboard");
+	});
 	senderValidatingHandle(
 		liteIpcChannels.commitAmend,
 		(_e, { projectId, commitId, changes, dryRun }: CommitAmendParams) =>
@@ -356,6 +362,9 @@ const registerIpcHandlers = (): void => {
 		(_e, { projectId, subjectBranch, targetBranch, dryRun }: MoveBranchParams) =>
 			moveBranch(projectId, subjectBranch, targetBranch, dryRun),
 	);
+	senderValidatingHandle(liteIpcChannels.pathJoin, (_e, ...paths: Array<string>) =>
+		path.join(...paths),
+	);
 	senderValidatingHandle(
 		liteIpcChannels.updateBranchName,
 		(_e, { projectId, stackId, branchName, newName }: UpdateBranchNameParams) =>
@@ -374,6 +383,11 @@ const registerIpcHandlers = (): void => {
 		liteIpcChannels.pushStackLegacy,
 		(_e, { projectId, stackId, branch }: PushStackLegacyParams) =>
 			pushStackLegacy(projectId, stackId, false, false, branch, true),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.removeBranch,
+		(_e, { projectId, stackId, branchName }: RemoveBranchParams) =>
+			removeBranch(projectId, stackId, branchName),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.restoreSnapshotWithKind,
