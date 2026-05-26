@@ -12,14 +12,6 @@
 	}
 }
 
-.panel {
-	border-top: 2px solid transparent;
-
-	[data-panel]:focus-within & {
-		border-top-color: var(--fill-gray-bg);
-	}
-}
-
 .panelResizeHandle {
 	width: 1px;
 	background-color: var(--border-2);

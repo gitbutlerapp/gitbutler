@@ -414,7 +414,6 @@ const WorkspacePage: FC = () => {
 					defaultSize={500}
 					groupResizeBehavior="preserve-pixel-size"
 					tabIndex={0}
-					className={styles.panel}
 					elementRef={(el) => el?.focus({ focusVisible: false })}
 				/>
 
@@ -423,7 +422,6 @@ const WorkspacePage: FC = () => {
 				<DetailsPanel
 					id="details-files-container"
 					minSize={isPanelVisible(panelsState, "files") ? 650 : 400}
-					className={styles.panel}
 				/>
 			</Group>
 
