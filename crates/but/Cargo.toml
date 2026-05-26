@@ -41,7 +41,6 @@ legacy = [
 ]
 # Feature that enables profiling related features of the TUI.
 tui-profiling = []
-agentlog = ["dep:but-agentlog"]
 
 [dependencies]
 but-core.workspace = true
@@ -62,7 +61,7 @@ but-workspace = { workspace = true }
 but-api = { workspace = true, features = ["path-bytes"] }
 but-graph.workspace = true
 but-llm.workspace = true
-but-agentlog = { workspace = true, optional = true }
+but-agentlog.workspace = true
 but-transaction.workspace = true
 but-db.workspace = true
 

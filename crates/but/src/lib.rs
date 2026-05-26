@@ -176,7 +176,6 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         )?;
     }
 
-    #[cfg(feature = "agentlog")]
     if let Some(Subcommands::AgentLog { .. }) = &args.cmd {
         let Some(Subcommands::AgentLog { cmd }) = args.cmd.take() else {
             unreachable!("agentlog command was checked above")
@@ -262,7 +261,6 @@ async fn match_subcommand(
 ) -> CliResult<()> {
     let out = &mut output;
 
-    #[cfg(feature = "agentlog")]
     let cmd = match cmd {
         Subcommands::AgentLog { cmd } => {
             return Ok(run_agentlog_command(&args.current_dir, cmd, out)?);
@@ -1456,14 +1454,12 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
-        #[cfg(feature = "agentlog")]
         Subcommands::AgentLog { .. } => {
             unreachable!("agentlog command is handled before metrics setup")
         }
     }
 }
 
-#[cfg(feature = "agentlog")]
 fn run_agentlog_command(
     current_dir: &std::path::Path,
     mut cmd: but_agentlog::Command,

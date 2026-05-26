@@ -1160,7 +1160,6 @@ pub enum Subcommands {
     },
 
     /// AI: capture agent logs into GitMeta.
-    #[cfg(feature = "agentlog")]
     #[clap(name = "agentlog", hide = true)]
     AgentLog {
         #[clap(subcommand)]
