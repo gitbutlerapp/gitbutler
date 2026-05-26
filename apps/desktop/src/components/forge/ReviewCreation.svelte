@@ -73,8 +73,10 @@
 		stackService.branchParentByName(projectId, stackId, branchName),
 	);
 	const branchParent = $derived(branchParentQuery.response);
+	const branchParentName = $derived(branchParent?.refName?.displayName);
+	const branchParentPrNumber = $derived(branchParent?.metadata?.review.pullRequest);
 	const branchParentDetailsQuery = $derived(
-		branchParent ? stackService.branchDetails(projectId, stackId, branchParent.name) : undefined,
+		branchParentName ? stackService.branchDetails(projectId, stackId, branchParentName) : undefined,
 	);
 	const branchParentDetails = $derived(branchParentDetailsQuery?.response);
 	const branchDetailsQuery = $derived(stackService.branchDetails(projectId, stackId, branchName));
@@ -245,7 +247,7 @@
 		}
 
 		// All ids that existed prior to creating a new one (including archived).
-		const prNumbers = branches.map((branch) => branch.prNumber);
+		const prNumbers = branches.map((branch) => branch.metadata?.review.pullRequest);
 
 		try {
 			if (!baseBranchName) {
@@ -264,7 +266,7 @@
 			}
 
 			// Find the index of the current branch so we know where we want to point the pr.
-			const currentIndex = branches.findIndex((b) => b.name === params.branchName);
+			const currentIndex = branches.findIndex((b) => b.refName?.displayName === params.branchName);
 			if (currentIndex === -1) {
 				throw new Error("Branch index not found.");
 			}
@@ -274,12 +276,12 @@
 			let base = baseBranch?.shortName || "master";
 
 			if (
-				branchParent &&
-				branchParent.prNumber &&
+				branchParentName &&
+				branchParentPrNumber &&
 				branchParentDetails &&
 				branchParentDetails.pushStatus !== "integrated"
 			) {
-				base = branchParent.name;
+				base = branchParentName;
 			}
 
 			const pushRemoteName = baseBranch?.pushRemoteName;

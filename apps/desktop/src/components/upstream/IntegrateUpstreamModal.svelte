@@ -4,6 +4,7 @@
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { descriptionTitle } from "$lib/commits/commit";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { getStackBranchNames } from "$lib/stacks/stack";
 	import {
 		getBaseBranchResolution,
 		stackFullyIntegrated,
@@ -107,7 +108,7 @@
 		results.clear();
 		for (const status of statusesTmp) {
 			if (status.stack.id) {
-				const dontDelete = someBranchesShouldNotBeDeleted(status.stack.heads.map((b) => b.name));
+				const dontDelete = someBranchesShouldNotBeDeleted(getStackBranchNames(status.stack));
 
 				results.set(status.stack.id, {
 					stackId: status.stack.id,

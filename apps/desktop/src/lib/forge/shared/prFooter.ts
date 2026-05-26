@@ -1,6 +1,6 @@
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import type { ForgePrService } from "$lib/forge/interface/forgePrService";
-import type { BranchDetails } from "@gitbutler/but-sdk";
+import type { Segment } from "@gitbutler/but-sdk";
 
 export const STACKING_FOOTER_BOUNDARY_TOP = "<!-- GitButler Footer Boundary Top -->";
 export const STACKING_FOOTER_BOUNDARY_BOTTOM = "<!-- GitButler Footer Boundary Bottom -->";
@@ -39,26 +39,28 @@ type PrUpdate = {
 
 export async function updateStackPrs(
 	prService: ForgePrService,
-	branchDetails: BranchDetails[],
+	branchDetails: Segment[],
 	baseBranchName: string,
 ) {
 	if (branchDetails.length <= 1) return;
-	const allPrNumbers = branchDetails.map((b) => b.prNumber).filter(isDefined);
+	const allPrNumbers = branchDetails.map((b) => b.metadata?.review.pullRequest).filter(isDefined);
 	const updates: PrUpdate[] = [];
 	let prevBranch: string | undefined = undefined;
 
 	for (let i = branchDetails.length - 1; i >= 0; i--) {
 		const details = branchDetails[i];
 		if (!details) continue;
-		const prNumber = details.prNumber;
+		const branchName = details.refName?.displayName;
+		if (!branchName) continue;
+		const prNumber = details.metadata?.review.pullRequest;
 		if (!isDefined(prNumber)) {
-			prevBranch = details.name;
+			prevBranch = branchName;
 			continue;
 		}
 		const pr = await prService.fetch(prNumber);
 
 		if (!isDefined(pr)) {
-			prevBranch = details.name;
+			prevBranch = branchName;
 			continue;
 		}
 
@@ -67,7 +69,7 @@ export async function updateStackPrs(
 			description: updateBody(pr.body, pr.number, allPrNumbers, prService.unit.symbol),
 			targetBase: prevBranch ?? baseBranchName,
 		});
-		prevBranch = details.name;
+		prevBranch = branchName;
 	}
 
 	if (updates.length > 0) {

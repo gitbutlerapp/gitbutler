@@ -84,7 +84,7 @@
 											{@const commitBranch = branch?.find((b) =>
 												b.commits.some((c) => c.id === lock.commitId),
 											)}
-											{@const branchName = commitBranch?.name || "Unknown branch"}
+											{@const branchName = commitBranch?.refName?.displayName || "Unknown branch"}
 											{@const commitMessage = commitBranch?.commits.find(
 												(c) => c.id === lock.commitId,
 											)}

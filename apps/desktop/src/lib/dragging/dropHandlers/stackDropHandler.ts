@@ -11,7 +11,7 @@ import { parseError } from "$lib/error/parser";
 import { unstackPRs, updateStackPrs } from "$lib/forge/shared/prFooter";
 import { toCommitMovePlacement } from "$lib/stacks/commitMovePlacement";
 import StackMacros from "$lib/stacks/macros";
-import { getStackName, toMoveBranchWarning } from "$lib/stacks/stack";
+import { toMoveBranchWarning } from "$lib/stacks/stack";
 import { withStackBusy } from "$lib/state/uiState.svelte";
 import { ensureValue } from "$lib/utils/validation";
 import { untrack } from "svelte";
@@ -220,7 +220,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 		});
 
 		const stackId = ensureValue(stack.id);
-		const branchName = getStackName(stack);
+		const branchName = ensureValue(stack.heads.at(0)?.name);
 
 		const { relativeTo, side } = toCommitMovePlacement({
 			targetBranchName: branchName,

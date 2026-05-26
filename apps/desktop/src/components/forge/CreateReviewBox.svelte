@@ -30,9 +30,9 @@
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 
-	const branch = $derived(stackService.branchByName(projectId, stackId, branchName));
+	const branch = $derived(stackService.branchDetails(projectId, stackId, branchName));
 
-	const prNumber = $derived(branch.response?.prNumber ?? undefined);
+	const prNumber = $derived(branch.response?.metadata?.review.pullRequest ?? undefined);
 	const prService = $derived(forge.current.prService);
 	const reviewUnit = $derived(prService?.unit.abbr ?? "PR");
 	const prQuery = $derived(prNumber ? prService?.get(prNumber) : undefined);
