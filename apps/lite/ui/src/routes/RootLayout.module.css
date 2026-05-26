@@ -22,6 +22,7 @@
 }
 
 .project {
+	display: grid;
 	position: relative;
 	width: 40px;
 	height: 31px;
@@ -40,9 +41,13 @@
 		background-color: oklch(90% 0.1 var(--hue));
 	}
 
-	&:not(:disabled):hover {
-		/* Override ui button. */
-		background-color: oklch(88% 0.12 var(--hue));
+	&:not(:disabled) {
+		cursor: pointer;
+
+		&:hover {
+			/* Override ui button. */
+			background-color: oklch(88% 0.12 var(--hue));
+		}
 	}
 
 	&.selected {
@@ -52,6 +57,7 @@
 		&::before {
 			position: absolute;
 			left: -10px;
+			align-self: center;
 			width: 4px;
 			height: calc(100% - 10px);
 			border-radius: 10px;
