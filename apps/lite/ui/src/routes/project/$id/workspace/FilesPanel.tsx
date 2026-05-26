@@ -2,9 +2,11 @@ import {
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
+	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import {
 	nativeMenuItem,
+	nativeMenuSeparator,
 	showNativeContextMenu,
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
@@ -409,6 +411,31 @@ const useIsSelected = ({ projectId, operand }: { projectId: string; operand: Ope
 const treeItemId = (operand: Operand): string =>
 	`files-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
 
+const useCopyPathMenuItem = (relativePath: string): NativeMenuItem => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
+
+	const selectedProject = projects.find((project) => project.id === projectId);
+	if (!selectedProject) throw new Error("Could not find selected project");
+
+	return nativeMenuItem({
+		label: "Copy Path",
+		submenu: [
+			nativeMenuItem({
+				label: "Absolute Path",
+				onSelect: async () => {
+					const absolutePath = await window.lite.pathJoin(selectedProject.path, relativePath);
+					await window.lite.clipboardWriteText(absolutePath);
+				},
+			}),
+			nativeMenuItem({
+				label: "Relative Path",
+				onSelect: () => window.lite.clipboardWriteText(relativePath),
+			}),
+		],
+	});
+};
+
 const changeLabel = (change: TreeChange): [enhancedLabel: ReactNode, rawLabel: string] => {
 	const status = Match.value(change.status).pipe(
 		Match.when({ type: "Addition" }, () => "A"),
@@ -480,6 +507,8 @@ const TreeChangeRow: FC<{
 	projectId: string;
 }> = ({ change, operand, projectId }) => {
 	const [label, strLabel] = changeLabel(change);
+	const copyPathMenuItem = useCopyPathMenuItem(change.path);
+	const menuItems: Array<NativeMenuItem> = [copyPathMenuItem];
 
 	return (
 		<TreeItem
@@ -495,7 +524,14 @@ const TreeChangeRow: FC<{
 				/>
 			}
 		>
-			<div className={workspaceItemRowStyles.itemRowLabel}>{label}</div>
+			<div
+				className={workspaceItemRowStyles.itemRowLabel}
+				onContextMenu={(event) => {
+					void showNativeContextMenu(event, menuItems);
+				}}
+			>
+				{label}
+			</div>
 		</TreeItem>
 	);
 };
@@ -506,6 +542,9 @@ const ConflictedFileRow: FC<{
 	projectId: string;
 }> = ({ path, operand, projectId }) => {
 	const label = `C ${path}`;
+	const copyPathMenuItem = useCopyPathMenuItem(path);
+	const menuItems: Array<NativeMenuItem> = [copyPathMenuItem];
+
 	return (
 		<TreeItem
 			projectId={projectId}
@@ -520,7 +559,14 @@ const ConflictedFileRow: FC<{
 				/>
 			}
 		>
-			<div className={workspaceItemRowStyles.itemRowLabel}>{label}</div>
+			<div
+				className={workspaceItemRowStyles.itemRowLabel}
+				onContextMenu={(event) => {
+					void showNativeContextMenu(event, menuItems);
+				}}
+			>
+				{label}
+			</div>
 		</TreeItem>
 	);
 };
@@ -528,7 +574,6 @@ const ConflictedFileRow: FC<{
 const ChangesFileRow: FC<{
 	change: TreeChange;
 	dependencyCommitIds: Array.NonEmptyArray<string> | undefined;
-
 	projectId: string;
 }> = ({ change, dependencyCommitIds, projectId }) => {
 	const operand = fileOperand({ parent: changesFileParent, path: change.path });
@@ -557,7 +602,12 @@ const ChangesFileRow: FC<{
 		onSelect: absorb,
 	});
 
-	const menuItems: Array<NativeMenuItem> = [absorbContextMenuItem];
+	const copyPathMenuItem = useCopyPathMenuItem(change.path);
+	const menuItems: Array<NativeMenuItem> = [
+		copyPathMenuItem,
+		nativeMenuSeparator,
+		absorbContextMenuItem,
+	];
 
 	const [label, strLabel] = changeLabel(change);
 
