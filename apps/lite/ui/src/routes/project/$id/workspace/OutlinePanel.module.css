@@ -206,6 +206,8 @@
 }
 
 .commitTargetComboboxTrigger {
+	/* Override button inline-flex to fix overflow behaviour. */
+	display: block;
 	flex-grow: 1;
 	overflow: hidden;
 	text-overflow: ellipsis;
