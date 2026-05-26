@@ -11,11 +11,13 @@ use crate::theme::{self, Paint};
 #[derive(Debug)]
 pub struct BadInput {
     /// A message to print verbatim to the user
-    pub message: String,
-    /// If applicable, the input argument to which the bad input was passed
-    pub arg: Option<String>,
+    message: String,
+    /// If applicable, the name of the input argument to which the bad input was passed
+    arg_name: Option<String>,
+    /// If applicable, the bad value that was passed
+    arg_value: Option<String>,
     /// A hint to guide the user to proper usage of the command
-    pub hint: Option<String>,
+    hint: Option<String>,
 }
 
 impl BadInput {
@@ -23,14 +25,21 @@ impl BadInput {
     pub fn new<S: AsRef<str>>(message: S) -> Self {
         Self {
             message: message.as_ref().to_string(),
-            arg: None,
+            arg_name: None,
+            arg_value: None,
             hint: None,
         }
     }
 
-    /// Add the argument for which this message applies.
-    pub fn arg<S: AsRef<str>>(mut self, arg: S) -> Self {
-        self.arg = Some(arg.as_ref().to_string());
+    /// Add the name of the argument for which this message applies.
+    pub fn arg_name<S: AsRef<str>>(mut self, name: S) -> Self {
+        self.arg_name = Some(name.as_ref().to_string());
+        self
+    }
+
+    /// Add the value that was passed by the user.
+    pub fn arg_value<S: AsRef<str>>(mut self, value: S) -> Self {
+        self.arg_value = Some(value.as_ref().to_string());
         self
     }
 
@@ -39,29 +48,38 @@ impl BadInput {
         self.hint = Some(hint.as_ref().to_string());
         self
     }
+}
 
-    /// Wrap this value as a [`CliError::BadInput`] in a [`CliResult`].
-    pub fn into_cli_result<T>(self) -> CliResult<T> {
-        Err(self.into())
-    }
+/// Convenience wrapper around [`BadInput::new`].
+pub(crate) fn bad_input<S: AsRef<str>>(message: S) -> BadInput {
+    BadInput::new(message)
 }
 
 impl Display for BadInput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let t = theme::get();
 
-        if let Some(arg) = &self.arg {
-            writeln!(
-                f,
-                "{} Bad input for '{}'",
-                t.error.paint("Error:"),
-                t.attention.paint(arg),
-            )?;
-            writeln!(f)?;
-            write!(f, "{}", self.message)?;
-        } else {
-            write!(f, "{} {}", t.error.paint("Error:"), self.message)?;
-        };
+        write!(f, "{}", t.error.paint("Error: "))?;
+
+        match (&self.arg_name, &self.arg_value) {
+            (Some(name), Some(value)) => {
+                writeln!(
+                    f,
+                    "Bad input '{}' for '{}'",
+                    t.attention.paint(value),
+                    t.attention.paint(name),
+                )?;
+                writeln!(f)?;
+            }
+            (Some(name), None) => {
+                writeln!(f, "Bad input for '{}'", t.attention.paint(name),)?;
+                writeln!(f)?;
+            }
+            (None, Some(value)) => writeln!(f, "Bad input '{}'", t.attention.paint(value))?,
+            _ => (),
+        }
+
+        write!(f, "{}", self.message)?;
 
         if let Some(hint) = &self.hint {
             writeln!(f)?;

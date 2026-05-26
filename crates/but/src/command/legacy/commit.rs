@@ -13,7 +13,7 @@ use gitbutler_repo::hooks;
 
 use super::{ShowDiffInEditor, estimate_diff_blob_size};
 use crate::{
-    BadInput, CliId, IdMap,
+    CliId, IdMap, bad_input,
     command::legacy::status::assignment::{CLIHunkAssignment, FileAssignment},
     theme::{self, Paint},
     tui,
@@ -33,15 +33,15 @@ pub(crate) fn insert_blank_commit(
     let cli_ids = id_map.parse_using_context(target, ctx)?;
 
     if cli_ids.is_empty() {
-        return BadInput::new(format!("Target '{target}' not found")).into_cli_result();
+        return Err(bad_input(format!("Target '{target}' not found")).into());
     }
 
     if cli_ids.len() > 1 {
-        return BadInput::new(format!(
+        return Err(bad_input(format!(
             "Target '{target}' is ambiguous. Found {} matches",
             cli_ids.len()
         ))
-        .into_cli_result();
+        .into());
     }
 
     let cli_id = &cli_ids[0];
@@ -89,10 +89,10 @@ pub(crate) fn insert_blank_commit(
                     if let Some(stack_head_ref) = stack.ref_name()
                         && stack_head_ref == &reference.name
                     {
-                        return BadInput::new("Cannot insert empty commit above stack head")
-                            .arg("--after")
+                        return Err(bad_input("Cannot insert empty commit above stack head")
+                            .arg_name("--after")
                             .hint("Use '--before' to insert at the tip of the stack")
-                            .into_cli_result();
+                            .into());
                     }
                 }
             }
@@ -113,11 +113,11 @@ pub(crate) fn insert_blank_commit(
             (outcome, success_message)
         }
         _ => {
-            return BadInput::new(format!(
+            return Err(bad_input(format!(
                 "Target must be a commit ID or branch name, not {}",
                 cli_id.kind_for_humans()
             ))
-            .into_cli_result();
+            .into());
         }
     };
 

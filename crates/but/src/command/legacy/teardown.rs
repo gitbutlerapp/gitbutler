@@ -6,7 +6,7 @@ use gix::refs::{Category, transaction::PreviousValue};
 use serde::Serialize;
 
 use crate::{
-    BadInput, CliError, CliResult,
+    CliError, CliResult, bad_input,
     theme::{self, Paint},
     utils::{OutputChannel, shorten_object_id},
 };
@@ -51,7 +51,7 @@ pub(crate) fn teardown(
                     .paint("Teardown can only be run while on the gitbutler/workspace branch.")
             )?;
         }
-        return Err(BadInput::new("Not on gitbutler/workspace branch").into());
+        return Err(bad_input("Not on gitbutler/workspace branch").into());
     }
 
     // Note: Validate checkout_to before snapshot creation to prevent unnecessary snapshot
@@ -59,23 +59,25 @@ pub(crate) fn teardown(
         let repo = ctx.repo.get()?;
         let ref_name: gix::refs::PartialName = checkout_to.clone().try_into().map_err(|_| {
             CliError::from(
-                BadInput::new(format!("Invalid ref name: {checkout_to}")).arg("--checkout-to"),
+                bad_input(format!("Invalid ref name: {checkout_to}")).arg_name("--checkout-to"),
             )
         })?;
         let resolved_ref = match repo.try_find_reference(ref_name.as_ref())? {
             Some(resolved_ref) => resolved_ref,
             None => {
-                return BadInput::new(format!("The reference '{checkout_to}' did not exist"))
-                    .arg("--checkout-to")
-                    .into_cli_result();
+                return Err(
+                    bad_input(format!("The reference '{checkout_to}' did not exist"))
+                        .arg_name("--checkout-to")
+                        .into(),
+                );
             }
         };
         if !matches!(resolved_ref.name().category(), Some(Category::LocalBranch)) {
-            return BadInput::new(format!(
+            return Err(bad_input(format!(
                 "Invalid ref for checkout: '{checkout_to}' is not a local branch"
             ))
-            .arg("--checkout-to")
-            .into_cli_result();
+            .arg_name("--checkout-to")
+            .into());
         }
         Some(resolved_ref.name().shorten().to_string())
     } else {
@@ -144,9 +146,9 @@ pub(crate) fn teardown(
                 .map(|h| h.name.to_string())
                 .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?
         } else {
-            return BadInput::new(
+            return Err(bad_input(
                 "Failed to determine checkout target branch. Specify a target branch with `--checkout-to <branch>`.",
-            ).into_cli_result();
+            ).into());
         }
     };
 

@@ -1,9 +1,10 @@
 use anyhow::bail;
+use bstr::BStr;
 use but_api::json::HexHash;
 use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 
 use crate::{
-    BadInput, CliError, CliId, CliResult, IdMap,
+    CliError, CliId, CliResult, IdMap, bad_input,
     theme::{self, Paint},
     utils::{Confirm, ConfirmDefault, OutputChannel, shorten_object_id},
 };
@@ -44,7 +45,7 @@ pub fn delete(
         }
     }
 
-    BadInput::new(format!("Branch '{branch_name}' not found in any stack")).into_cli_result()
+    Err(bad_input(format!("Branch '{branch_name}' not found in any stack")).into())
 }
 
 pub fn new(
@@ -52,15 +53,19 @@ pub fn new(
     out: &mut OutputChannel,
     branch_name: Option<String>,
     anchor: Option<String>,
-) -> Result<(), anyhow::Error> {
+) -> crate::CliResult<()> {
     let t = theme::get();
 
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
     // Get branch name or use canned name
-    let branch_name = branch_name
-        .map(Ok)
-        .unwrap_or_else(|| but_api::legacy::workspace::canned_branch_name(ctx))?;
+    let branch_name = if let Some(branch_name) = branch_name {
+        let repo = ctx.repo.get()?;
+        check_can_create_branch_with_user_provided_name(&repo, &branch_name)?;
+        branch_name
+    } else {
+        but_api::legacy::workspace::canned_branch_name(ctx)?
+    };
 
     // Store anchor string for JSON output
     let anchor_for_json = anchor.clone();
@@ -71,12 +76,13 @@ pub fn new(
         // Resolve the anchor string to a CliId
         let anchor_ids = id_map.parse_using_context(&anchor_str, ctx)?;
         if anchor_ids.is_empty() {
-            return Err(anyhow::anyhow!("Could not find anchor: {anchor_str}"));
+            return Err(bad_input(format!("Could not find anchor: {anchor_str}")).into());
         }
         if anchor_ids.len() > 1 {
-            return Err(anyhow::anyhow!(
+            return Err(bad_input(format!(
                 "Ambiguous anchor '{anchor_str}', matches multiple items"
-            ));
+            ))
+            .into());
         }
         let anchor_id = &anchor_ids[0];
 
@@ -96,10 +102,11 @@ pub fn new(
                 },
             ),
             _ => {
-                return Err(anyhow::anyhow!(
+                return Err(bad_input(format!(
                     "Invalid anchor type: {}, expected commit or branch",
                     anchor_id.kind_for_humans()
-                ));
+                ))
+                .into());
             }
         }
     } else {
@@ -154,6 +161,51 @@ pub fn new(
         };
         out.write_value(value)?;
     }
+    Ok(())
+}
+
+/// Validate that `user_provided_branch_name` is a valid branch name that does not already exist.
+///
+/// Unlike the GUI, we don't normalize branch names for users in the CLI, as this could lead to
+/// unexpected behavior in scripts. This function rejects names that are possible to normalize.
+fn check_can_create_branch_with_user_provided_name(
+    repo: &gix::Repository,
+    user_provided_branch_name: &str,
+) -> Result<(), CliError> {
+    let normalized =
+        but_core::branch::normalize_short_name(user_provided_branch_name).map_err(|err| {
+            CliError::from(
+                bad_input(format!("Invalid branch name: {err}"))
+                    .arg_name("<BRANCH_NAME>")
+                    .arg_value(user_provided_branch_name),
+            )
+        })?;
+
+    let user_name_bstr: &BStr = user_provided_branch_name.into();
+    if normalized != user_name_bstr {
+        return Err(bad_input("Invalid branch name")
+            .arg_name("<BRANCH_NAME>")
+            .arg_value(user_provided_branch_name)
+            .hint(format!("Try '{normalized}' instead"))
+            .into());
+    }
+
+    let branch_ref_name = if user_provided_branch_name.starts_with("refs/heads") {
+        user_provided_branch_name.to_string()
+    } else {
+        format!("refs/heads/{user_provided_branch_name}")
+    };
+
+    if repo
+        .try_find_reference(&branch_ref_name.to_owned())?
+        .is_some()
+    {
+        return Err(bad_input(format!(
+            "A branch named '{user_provided_branch_name}' already exists"
+        ))
+        .into());
+    }
+
     Ok(())
 }
 
