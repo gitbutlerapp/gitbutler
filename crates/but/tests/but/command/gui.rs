@@ -8,7 +8,7 @@ fn good_error_message_for_non_directories() -> anyhow::Result<()> {
 
     env.file("not-a-dir", "content-does-not-matter");
 
-    env.but("not-a-dir")
+    env.but("gui not-a-dir")
         .assert()
         .failure()
         .stdout_eq(str![[]])
