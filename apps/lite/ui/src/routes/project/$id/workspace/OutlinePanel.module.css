@@ -271,6 +271,13 @@
 	overflow: hidden;
 }
 
+.commitTargetIndicator {
+	display: grid;
+	margin-inline-start: calc(var(--row-inline-padding) * -0.5);
+	padding-inline: var(--row-inline-padding);
+	padding-block: var(--row-block-padding);
+}
+
 [data-status="LocalOnly"] {
 	--commit-status-color: var(--commit-local);
 }
