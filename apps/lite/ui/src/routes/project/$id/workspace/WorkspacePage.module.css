@@ -14,7 +14,7 @@
 
 .panelResizeHandle {
 	width: 1px;
-	background-color: var(--border-2);
+	background-color: var(--border-3);
 }
 
 .notFound {

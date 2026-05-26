@@ -13,6 +13,8 @@
 }
 
 .panes {
+	--resize-spacing: 6px;
+
 	min-height: 0;
 }
 
@@ -21,17 +23,29 @@
 }
 
 .filesPanel {
-	padding: var(--panel-padding);
+	padding-inline: var(--panel-padding) var(--resize-spacing);
+	padding-block: var(--panel-padding);
 }
 
 .detailsContentPanel {
 	display: grid;
 	grid-template-rows: minmax(0, 1fr);
+	padding-inline: var(--panel-padding);
+
+	&.alongsideFiles {
+		padding-inline-start: var(--resize-spacing);
+	}
 }
 
 .panelResizeHandle {
 	width: 1px;
-	background-color: var(--border-2);
+	margin-block-start: var(--panel-padding);
+	transition: background-color 0.2s;
+
+	&[data-separator="hover"],
+	&[data-separator="active"] {
+		background-color: var(--border-3);
+	}
 }
 
 .headerActions {
@@ -55,8 +69,7 @@
 
 .detailsVirtualizer {
 	min-height: 0;
-	padding-inline: var(--panel-padding);
-	padding-block-end: var(--panel-padding);
+	padding-block: var(--panel-padding);
 	overflow: auto;
 }
 

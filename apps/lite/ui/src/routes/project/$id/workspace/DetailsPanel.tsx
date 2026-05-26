@@ -535,7 +535,11 @@ export const DetailsPanel: FC<PanelProps> = (panelProps) => {
 					id="details"
 					minSize={400}
 					tabIndex={0}
-					className={classes(styles.innerPanel, styles.detailsContentPanel)}
+					className={classes(
+						styles.innerPanel,
+						styles.detailsContentPanel,
+						isPanelVisible(panelsState, "files") && styles.alongsideFiles,
+					)}
 					style={{ opacity: detailsOpacity }}
 				>
 					<Virtualizer className={styles.detailsVirtualizer}>
