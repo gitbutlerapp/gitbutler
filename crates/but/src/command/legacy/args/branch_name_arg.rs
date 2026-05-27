@@ -1,0 +1,120 @@
+use bstr::BStr;
+use gix::refs::{Category, FullName};
+
+use crate::{CliError, CliResult, bad_input};
+
+#[derive(Debug, Clone)]
+pub struct BranchNameArg(pub String);
+
+impl std::str::FromStr for BranchNameArg {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(s.to_owned()))
+    }
+}
+
+impl std::fmt::Display for BranchNameArg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl BranchNameArg {
+    pub fn resolve_local_branch_name(&self) -> CliResult<FullName> {
+        Ok(Category::LocalBranch.to_full_name(&*self.0)?)
+    }
+
+    pub fn resolve_segment(
+        &self,
+        ctx: &mut but_ctx::Context,
+    ) -> CliResult<but_workspace::ref_info::Segment> {
+        let ref_name = self.resolve_local_branch_name()?;
+        let head_info = but_api::legacy::workspace::head_info(ctx)?;
+        let segment = head_info
+            .stacks
+            .iter()
+            .flat_map(|stack| &stack.segments)
+            .find(|segment| {
+                if let Some(ref_info) = &segment.ref_info {
+                    ref_info.ref_name == ref_name
+                } else {
+                    false
+                }
+            });
+        let Some(segment) = segment else {
+            return Err(bad_input(format!("Branch '{self}' not found in any stack")).into());
+        };
+        Ok(segment.clone())
+    }
+
+    pub fn resolve_for_creation(&self, repo: &gix::Repository) -> CliResult<String> {
+        check_can_create_branch_with_user_provided_name(repo, &self.0)?;
+        Ok(self.0.clone())
+    }
+}
+
+impl AsRef<str> for BranchNameArg {
+    fn as_ref(&self) -> &str {
+        self.0.as_ref()
+    }
+}
+
+pub trait OptionBranchNameArgExt {
+    fn resolve_for_creation_or_canned(&self, ctx: &but_ctx::Context) -> CliResult<String>;
+}
+
+impl OptionBranchNameArgExt for Option<BranchNameArg> {
+    fn resolve_for_creation_or_canned(&self, ctx: &but_ctx::Context) -> CliResult<String> {
+        if let Some(branch_name) = self {
+            branch_name.resolve_for_creation(&*ctx.repo.get()?)
+        } else {
+            Ok(but_api::legacy::workspace::canned_branch_name(ctx)?)
+        }
+    }
+}
+
+/// Validate that `user_provided_branch_name` is a valid branch name that does not already exist.
+///
+/// Unlike the GUI, we don't normalize branch names for users in the CLI, as this could lead to
+/// unexpected behavior in scripts. This function rejects names that are possible to normalize.
+fn check_can_create_branch_with_user_provided_name(
+    repo: &gix::Repository,
+    user_provided_branch_name: &str,
+) -> Result<(), CliError> {
+    let normalized =
+        but_core::branch::normalize_short_name(user_provided_branch_name).map_err(|err| {
+            CliError::from(
+                bad_input(format!("Invalid branch name: {err}"))
+                    .arg_name("<BRANCH_NAME>")
+                    .arg_value(user_provided_branch_name),
+            )
+        })?;
+
+    let user_name_bstr: &BStr = user_provided_branch_name.into();
+    if normalized != user_name_bstr {
+        return Err(bad_input("Invalid branch name")
+            .arg_name("<BRANCH_NAME>")
+            .arg_value(user_provided_branch_name)
+            .hint(format!("Try '{normalized}' instead"))
+            .into());
+    }
+
+    let branch_ref_name = if user_provided_branch_name.starts_with("refs/heads") {
+        user_provided_branch_name.to_string()
+    } else {
+        format!("refs/heads/{user_provided_branch_name}")
+    };
+
+    if repo
+        .try_find_reference(&branch_ref_name.to_owned())?
+        .is_some()
+    {
+        return Err(bad_input(format!(
+            "A branch named '{user_provided_branch_name}' already exists"
+        ))
+        .into());
+    }
+
+    Ok(())
+}

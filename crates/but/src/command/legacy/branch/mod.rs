@@ -1,16 +1,16 @@
 use anyhow::Context as _;
-use bstr::BStr;
 use but_api::json::HexHash;
 use but_core::DryRun;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 
 use crate::{
-    CliError, CliId, CliResult, IdMap,
-    args::branch::BranchNameArg,
-    bad_input,
+    CliResult, IdMap,
+    command::legacy::args::{BranchNameArg, CliIdArg, OptionBranchNameArgExt as _, Purpose},
     theme::{self, Paint},
-    utils::{OutputChannel, shorten_object_id},
+    utils::OutputChannel,
 };
+
+use super::args::CommitOrBranchCliId;
 
 mod json;
 mod list;
@@ -50,80 +50,48 @@ pub fn delete(
 pub fn new(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
-    branch_name: Option<String>,
-    anchor: Option<String>,
-) -> crate::CliResult<()> {
+    branch_name_arg: Option<BranchArg>,
+    anchor_arg: Option<CliIdArg>,
+) -> CliResult<()> {
     let t = theme::get();
 
-    let mut guard = ctx.exclusive_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
-    // Get branch name or use canned name
-    let branch_name = if let Some(branch_name) = branch_name {
-        let repo = ctx.repo.get()?;
-        check_can_create_branch_with_user_provided_name(&repo, &branch_name)?;
-        branch_name
+    let branch_name = if let Some(branch_name_arg) = branch_name_arg {
+        branch_name_arg.resolve_for_creation(&*ctx.repo.get()?)?
     } else {
         but_api::legacy::workspace::canned_branch_name(ctx)?
     };
 
-    // Store anchor string for JSON output
-    let anchor_for_json = anchor.clone();
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
-    let anchor = if let Some(anchor_str) = anchor {
-        // Use the new create_reference API when anchor is provided
+    let resolved_anchor = anchor_arg
+        .clone()
+        .and_then(|anchor| {
+            anchor
+                .try_resolve(ctx, &id_map, Purpose::Anchor)
+                .transpose()
+        })
+        .transpose()?;
 
-        // Resolve the anchor string to a CliId
-        let anchor_ids = id_map.parse_using_context(&anchor_str, ctx)?;
-        if anchor_ids.is_empty() {
-            return Err(bad_input(format!("Could not find anchor: {anchor_str}")).into());
-        }
-        if anchor_ids.len() > 1 {
-            return Err(bad_input(format!(
-                "Ambiguous anchor '{anchor_str}', matches multiple items"
-            ))
-            .into());
-        }
-        let anchor_id = &anchor_ids[0];
-
-        // Create the anchor for create_reference
-        // as dependent branch
-        match anchor_id {
-            CliId::Commit { commit_id: oid, .. } => {
-                Some(but_api::legacy::stack::create_reference::Anchor::AtCommit {
-                    commit_id: HexHash(*oid),
-                    position: but_workspace::branch::create_reference::Position::Above,
-                })
-            }
-            CliId::Branch { name, .. } => Some(
-                but_api::legacy::stack::create_reference::Anchor::AtReference {
-                    short_name: name.clone(),
-                    position: but_workspace::branch::create_reference::Position::Above,
-                },
-            ),
-            _ => {
-                return Err(bad_input(format!(
-                    "Invalid anchor type: {}, expected commit or branch",
-                    anchor_id.kind_for_humans()
-                ))
-                .into());
-            }
-        }
-    } else {
-        // Create an independent branch
-        None
-    };
-
-    let anchor_display = {
-        let repo = ctx.repo.get()?;
-        anchor.as_ref().map(|anchor_ref| match anchor_ref {
-            but_api::legacy::stack::create_reference::Anchor::AtReference {
-                short_name, ..
-            } => short_name.clone(),
-            but_api::legacy::stack::create_reference::Anchor::AtCommit { commit_id, .. } => {
-                shorten_object_id(&repo, commit_id.0)
+    let anchor = resolved_anchor
+        .clone()
+        .map(|anchor| -> CliResult<_> {
+            match anchor {
+                ResolvedCliIdArg::Commit(commit) => {
+                    Ok(but_api::legacy::stack::create_reference::Anchor::AtCommit {
+                        commit_id: HexHash(commit),
+                        position: but_workspace::branch::create_reference::Position::Above,
+                    })
+                }
+                ResolvedCliIdArg::Branch(BranchArg(name)) => Ok(
+                    but_api::legacy::stack::create_reference::Anchor::AtReference {
+                        short_name: name.clone(),
+                        position: but_workspace::branch::create_reference::Position::Above,
+                    },
+                ),
             }
         })
-    };
+        .transpose()?;
 
     but_api::legacy::stack::create_reference_with_perm(
         ctx,
@@ -135,13 +103,13 @@ pub fn new(
     )?;
 
     if let Some(out) = out.for_human() {
-        if let Some(anchor_name) = anchor_display {
+        if let Some(resolved_anchor) = resolved_anchor {
             writeln!(
                 out,
                 "{} Created branch {} stacked on {}",
                 t.sym().success,
                 t.local_branch.paint(branch_name),
-                t.hint.paint(anchor_name),
+                t.hint.paint(format!("{resolved_anchor}")),
             )?;
         } else {
             writeln!(
@@ -156,53 +124,9 @@ pub fn new(
     } else if let Some(out) = out.for_json() {
         let value = json::BranchNewOutput {
             branch: branch_name.clone(),
-            anchor: anchor_for_json,
+            anchor: anchor_arg,
         };
         out.write_value(value)?;
-    }
-    Ok(())
-}
-
-/// Validate that `user_provided_branch_name` is a valid branch name that does not already exist.
-///
-/// Unlike the GUI, we don't normalize branch names for users in the CLI, as this could lead to
-/// unexpected behavior in scripts. This function rejects names that are possible to normalize.
-fn check_can_create_branch_with_user_provided_name(
-    repo: &gix::Repository,
-    user_provided_branch_name: &str,
-) -> Result<(), CliError> {
-    let normalized =
-        but_core::branch::normalize_short_name(user_provided_branch_name).map_err(|err| {
-            CliError::from(
-                bad_input(format!("Invalid branch name: {err}"))
-                    .arg_name("<BRANCH_NAME>")
-                    .arg_value(user_provided_branch_name),
-            )
-        })?;
-
-    let user_name_bstr: &BStr = user_provided_branch_name.into();
-    if normalized != user_name_bstr {
-        return Err(bad_input("Invalid branch name")
-            .arg_name("<BRANCH_NAME>")
-            .arg_value(user_provided_branch_name)
-            .hint(format!("Try '{normalized}' instead"))
-            .into());
-    }
-
-    let branch_ref_name = if user_provided_branch_name.starts_with("refs/heads") {
-        user_provided_branch_name.to_string()
-    } else {
-        format!("refs/heads/{user_provided_branch_name}")
-    };
-
-    if repo
-        .try_find_reference(&branch_ref_name.to_owned())?
-        .is_some()
-    {
-        return Err(bad_input(format!(
-            "A branch named '{user_provided_branch_name}' already exists"
-        ))
-        .into());
     }
 
     Ok(())
