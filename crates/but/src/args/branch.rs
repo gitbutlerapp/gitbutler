@@ -39,7 +39,7 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Delete {
         /// Name of the branch to delete
-        branch_name: BranchNameArg,
+        branch_name: CliIdArg,
     },
 
     /// List the branches in the repository

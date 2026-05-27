@@ -1,8 +1,8 @@
-use but_core::ref_metadata::StackId;
 use serde::Serialize;
 
-use crate::{CliId, CliResult, IdMap, bad_input, id::ShortId, utils::shorten_object_id};
+use crate::{CliId, CliResult, IdMap, args::atoms::BranchArg, bad_input};
 
+/// An argument atom for cli ids that can match multiple things like branches, commits, files, etc.
 #[derive(Debug, Clone, Serialize)]
 #[serde(transparent)]
 pub struct CliIdArg(pub String);
@@ -91,6 +91,23 @@ impl CliIdArg {
             ))
             .into()),
         }
+    }
+
+    pub fn resolve_branch_arg(
+        &self,
+        ctx: &but_ctx::Context,
+        id_map: &IdMap,
+        purpose: Purpose,
+    ) -> BranchNameArg {
+        self.try_resolve_branch(ctx, id_map, purpose)
+            // TODO: IdMap returns an error if you look up single letter ids, however branches
+            // might be single letters which shouldn't be considered an error. We should fix that
+            // so it returns `None` instead of erroring.
+            .ok()
+            .flatten()
+            .map(|branch| BranchNameArg(branch.name))
+            // the branch might be unapplied in which case it wont be in the IdMap
+            .unwrap_or_else(|| BranchNameArg(self.0.clone()))
     }
 }
 

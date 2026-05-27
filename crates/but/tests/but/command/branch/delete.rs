@@ -164,3 +164,41 @@ Hint: run `but help` for all commands
 
     Ok(())
 }
+
+#[test]
+fn can_delete_branches_via_short_code() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "one-stack-three-dependent-branches",
+    )?;
+    env.setup_metadata(&["A", "B", "C"])?;
+
+    env.but("branch delete g0")
+        .assert()
+        .success()
+        .stderr_eq(str![[""]])
+        .stdout_eq(str![[r#"
+Deleted branch C
+
+"#]]);
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [B]
+┊●   582f37b add B
+┊│
+┊├┄h0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    Ok(())
+}

@@ -25,15 +25,8 @@ pub fn show(
         let guard = ctx.exclusive_worktree_access();
         let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
         branch_arg
-            .try_resolve_branch(ctx, &id_map, Purpose::Branch)
-            // TODO: IdMap returns an error if you look up single letter ids, however branches
-            // might be single letters which shouldn't be considered an error. We should fix that
-            // so it returns `None` instead of erroring.
-            .ok()
-            .flatten()
-            .map(|branch| BranchNameArg(branch.name))
-            // the branch might be unapplied in which case it wont be in the IdMap
-            .unwrap_or_else(|| BranchNameArg(branch_arg.0.clone()))
+            .try_resolve_branch(ctx, &id_map)?
+            .unwrap_or(BranchArg(branch_arg.0))
     };
 
     // Get the list of commits ahead of base for this branch

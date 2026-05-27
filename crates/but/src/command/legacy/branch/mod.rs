@@ -17,11 +17,17 @@ mod show;
 pub fn delete(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
-    branch_name: BranchNameArg,
+    branch_arg: CliIdArg,
 ) -> CliResult<()> {
     let t = theme::get();
 
-    let segment = branch_name.resolve_segment(ctx)?;
+    let branch_arg = {
+        let guard = ctx.exclusive_worktree_access();
+        let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+        branch_arg.resolve_branch_arg(ctx, &id_map, Purpose::Branch)
+    };
+
+    let segment = branch_arg.resolve_segment(ctx)?;
 
     let ref_name = &segment
         .ref_info
@@ -39,7 +45,7 @@ pub fn delete(
     })?;
 
     if let Some(out) = out.for_human() {
-        writeln!(out, "Deleted branch {}", t.local_branch.paint(&branch_name))?;
+        writeln!(out, "Deleted branch {}", t.local_branch.paint(&branch_arg))?;
     }
 
     Ok(())
