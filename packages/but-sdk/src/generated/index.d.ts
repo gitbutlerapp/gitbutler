@@ -277,6 +277,8 @@ export declare function pushStack(projectId: string, stackId: string, withForce:
  */
 export declare function removeBranch(projectId: string, stackId: string, branchName: string): Promise<void>
 
+export declare function renderWorkspace(projectId: string): Promise<Array<GrStack>>
+
 /**
  * Restores the project to a specific snapshot using a specific kind of restore. This operation
  * also creates a new snapshot in the oplog.
@@ -1296,6 +1298,35 @@ export type GixTime = {
   offset: number;
 };
 
+/** Graph segment */
+export type GrSegment = {
+  /** The rows!!! */
+  rows: Array<GraphRow>;
+};
+
+/** Some SubSegment */
+export type GrStack = {
+  /** The rows!!! */
+  rows: Array<GraphRow>;
+};
+
+/** A row...from graph <shocked pikachu face> */
+export type GraphRow = {
+  /** The stuff the row contains */
+  data: string;
+  /** The node columns for this row. */
+  node_line: Array<NodeLine>;
+  /** The link columns for this row, if a link row is necessary. */
+  link_line: Array<LinkLine> | null;
+  /**
+   * The location of any terminators, if necessary.  Other columns should be
+   * filled in with pad lines.
+   */
+  term_line: Array<boolean> | null;
+  /** The pad columns for this row. */
+  pad_lines: Array<PadLine>;
+};
+
 export type HeadAndMode = {
   head: string | null;
   operatingMode: OperatingMode;
@@ -1495,6 +1526,9 @@ export type LineStats = {
   filesChanged: number;
 };
 
+/** A column in a linking row. */
+export type LinkLine = number;
+
 /** How to combine messages of commits being squashed. */
 export type MessageCombinationStrategy = "KeepBoth" | "KeepSubject" | "KeepTarget";
 
@@ -1530,6 +1564,9 @@ export type NameAndStatus = {
   status: BranchStatus;
 };
 
+/** A column in the node row. */
+export type NodeLine = "Blank" | "Ancestor" | "Parent" | "Node";
+
 export type OperatingMode = {
   type: "OpenWorkspace";
 } | {
@@ -1548,6 +1585,9 @@ export type OutsideWorkspaceMetadata = {
   /** The paths of any files that would conflict with the workspace as it currently is */
   worktreeConflicts: Array<string>;
 };
+
+/** A column in a padding row. */
+export type PadLine = "Blank" | "Ancestor" | "Parent";
 
 /**
  * API-specific project type that can be enriched with computed/derived data
