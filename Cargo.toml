@@ -313,8 +313,10 @@ inventory = "0.3"
 git-meta-lib = { version = "0.1.10" }
 
 [patch.crates-io]
-# Make all dependencies use the same gix as our crates, so that we don't end up
-# with two versions of gix compiled in.
+# Keep workspace crates that use the `gix 0.84` line on the same git revision.
+# Note that this does not currently eliminate duplicate `gix` versions entirely:
+# `git-meta-lib` still depends on `gix 0.83`, so Cargo will continue to pull that
+# version from crates.io until `git-meta-lib` moves to `0.84` as well.
 gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "b5b2d54d6a63921621d48c492eaa77faf89e8cb5" }
 
 [workspace.lints.clippy]
