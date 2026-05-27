@@ -16,7 +16,7 @@ but-workspace.workspace = true
 chrono = { workspace = true, features = ["clock"] }
 clap.workspace = true
 gix.workspace = true
-git-meta-lib = { git = "https://github.com/git-meta/git-meta.git", rev = "3237a6e1cad6bbd5acf348f7ed8b861b14090c69" }
+git-meta-lib = { git = "https://github.com/git-meta/git-meta.git", rev = "13a3a118c16c07532d84e97df43fdecd4accd6ef" }
 hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -936,7 +936,7 @@ dependencies = [
  "but-workspace",
  "chrono",
  "clap",
- "git-meta-lib 0.1.10 (git+https://github.com/git-meta/git-meta.git?rev=3237a6e1cad6bbd5acf348f7ed8b861b14090c69)",
+ "git-meta-lib 0.1.10 (git+https://github.com/git-meta/git-meta.git?rev=13a3a118c16c07532d84e97df43fdecd4accd6ef)",
  "gix 0.84.0",
  "hex",
  "serde",
@@ -3854,9 +3854,9 @@ dependencies = [
 [[package]]
 name = "git-meta-lib"
 version = "0.1.10"
-source = "git+https://github.com/git-meta/git-meta.git?rev=3237a6e1cad6bbd5acf348f7ed8b861b14090c69#3237a6e1cad6bbd5acf348f7ed8b861b14090c69"
+source = "git+https://github.com/git-meta/git-meta.git?rev=13a3a118c16c07532d84e97df43fdecd4accd6ef#13a3a118c16c07532d84e97df43fdecd4accd6ef"
 dependencies = [
- "gix 0.83.0",
+ "gix 0.84.0",
  "rusqlite",
  "serde",
  "serde_json",
