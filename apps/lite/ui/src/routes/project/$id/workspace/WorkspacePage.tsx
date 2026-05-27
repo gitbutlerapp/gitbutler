@@ -2,6 +2,7 @@ import {
 	headInfoQueryOptions,
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
+	renderWorkspaceQueryOptions,
 } from "#ui/api/queries.ts";
 import {
 	focusAdjacentPanel,
@@ -18,7 +19,7 @@ import { Button } from "#ui/components/Button.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import { globalHotkeys, workspaceHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { type AppThunk, useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { BranchListing, Segment, Stack } from "@gitbutler/but-sdk";
+import { GraphRow, BranchListing, Segment, Stack, LinkLine, NodeLine } from "@gitbutler/but-sdk";
 import {
 	getHotkeyManager,
 	getSequenceManager,
@@ -44,6 +45,19 @@ import styles from "./WorkspacePage.module.css";
 import { OutlinePanel } from "#ui/routes/project/$id/workspace/OutlinePanel.tsx";
 import { Toast } from "@base-ui/react";
 import { errorMessageForToast } from "#ui/errors.ts";
+import {
+	ANY_FORK,
+	ANY_MERGE,
+	CHILD,
+	HORIZONTAL,
+	LEFT_FORK,
+	LEFT_MERGE,
+	RIGHT_FORK,
+	RIGHT_MERGE,
+	VERT_ANCESTOR,
+	VERT_PARENT,
+	VERTICAL,
+} from "#ui/workspace/link-lines.ts";
 
 type CommandPaletteItem = {
 	group: CommandGroup;
@@ -461,6 +475,117 @@ class WorkspacePageErrorBoundary extends Component<
 	}
 }
 
+const glyphs = {
+	node: "○",
+	space: "  ",
+	horizontal: "──",
+	parent: "│ ",
+	ancestor: "╷ ",
+	mergeLeft: "╯ ",
+	mergeRight: "╰─",
+	mergeBoth: "┴─",
+	forkLeft: "╮ ",
+	forkRight: "╭─",
+	forkBoth: "┬─",
+	joinLeft: "┤ ",
+	joinRight: "├─",
+	joinBoth: "┼─",
+	termination: "~ ",
+} as const;
+
+const linkLineIntersects = (line: LinkLine, mask: number): boolean => (line & mask) !== 0;
+
+const linkCellGlyph = (line: LinkLine): string => {
+	if (linkLineIntersects(line, HORIZONTAL)) {
+		if (
+			linkLineIntersects(line, CHILD) ||
+			(linkLineIntersects(line, ANY_FORK) && linkLineIntersects(line, ANY_MERGE)) ||
+			(linkLineIntersects(line, ANY_FORK) && linkLineIntersects(line, VERT_PARENT))
+		)
+			return glyphs.joinBoth;
+		if (linkLineIntersects(line, ANY_FORK)) return glyphs.forkBoth;
+		if (linkLineIntersects(line, ANY_MERGE)) return glyphs.mergeBoth;
+		return glyphs.horizontal;
+	}
+
+	if (linkLineIntersects(line, VERT_PARENT)) {
+		const left = linkLineIntersects(line, LEFT_MERGE | LEFT_FORK);
+		const right = linkLineIntersects(line, RIGHT_MERGE | RIGHT_FORK);
+		if (left && right) return glyphs.joinBoth;
+		if (left) return glyphs.joinLeft;
+		if (right) return glyphs.joinRight;
+		return glyphs.parent;
+	}
+
+	if (linkLineIntersects(line, VERTICAL) && !linkLineIntersects(line, LEFT_FORK | RIGHT_FORK)) {
+		const left = linkLineIntersects(line, LEFT_MERGE);
+		const right = linkLineIntersects(line, RIGHT_MERGE);
+		if (left && right) return glyphs.joinBoth;
+		if (left) return glyphs.joinLeft;
+		if (right) return glyphs.joinRight;
+		if (linkLineIntersects(line, VERT_ANCESTOR)) return glyphs.ancestor;
+		return glyphs.parent;
+	}
+
+	if (linkLineIntersects(line, LEFT_FORK) && linkLineIntersects(line, LEFT_MERGE | CHILD))
+		return glyphs.joinLeft;
+	if (linkLineIntersects(line, RIGHT_FORK) && linkLineIntersects(line, RIGHT_MERGE | CHILD))
+		return glyphs.joinRight;
+	if (linkLineIntersects(line, LEFT_MERGE) && linkLineIntersects(line, RIGHT_MERGE))
+		return glyphs.mergeBoth;
+	if (linkLineIntersects(line, LEFT_FORK) && linkLineIntersects(line, RIGHT_FORK))
+		return glyphs.forkBoth;
+	if (linkLineIntersects(line, LEFT_FORK)) return glyphs.forkLeft;
+	if (linkLineIntersects(line, LEFT_MERGE)) return glyphs.mergeLeft;
+	if (linkLineIntersects(line, RIGHT_FORK)) return glyphs.forkRight;
+	if (linkLineIntersects(line, RIGHT_MERGE)) return glyphs.mergeRight;
+	return glyphs.space;
+};
+
+const nodeGlyph = (row: GraphRow): string =>
+	row.data.startsWith("refs/") ? glyphs.forkRight : glyphs.node;
+
+const nodeCellGlyph = ({ row, line }: { row: GraphRow; line: NodeLine }): string => {
+	switch (line) {
+		case "Node":
+			return nodeGlyph(row);
+		case "Parent":
+			return glyphs.parent;
+		case "Ancestor":
+			return glyphs.ancestor;
+		case "Blank":
+			return glyphs.space;
+	}
+};
+
+const GraphRowC: FC<{ graphRow: GraphRow }> = ({ graphRow }) => (
+	<div>
+		<div style={{ display: "flex", columnGap: "8px" }}>
+			<div style={{ fontFamily: "monospace" }}>
+				{graphRow.node_line.map((line) => nodeCellGlyph({ row: graphRow, line })).join("")}
+			</div>
+			{graphRow.data}
+		</div>
+		<div style={{ fontFamily: "monospace" }}>{graphRow.link_line?.map(linkCellGlyph).join("")}</div>
+	</div>
+);
+
+const F: FC = () => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const { data: stacks } = useSuspenseQuery(renderWorkspaceQueryOptions(projectId));
+	return (
+		<div style={{ display: "flex", flexDirection: "column", rowGap: "20px" }}>
+			{stacks.map((stack, index) => (
+				<div key={index}>
+					{stack.rows.map((row) => (
+						<GraphRowC key={row.data} graphRow={row} />
+					))}
+				</div>
+			))}
+		</div>
+	);
+};
+
 export const Route: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
@@ -472,7 +597,7 @@ export const Route: FC = () => {
 		<QueryErrorResetBoundary>
 			{({ reset }) => (
 				<WorkspacePageErrorBoundary onReset={reset}>
-					<WorkspacePage />
+					<F />
 				</WorkspacePageErrorBoundary>
 			)}
 		</QueryErrorResetBoundary>

@@ -77,3 +77,9 @@ export const absorptionPlanQueryOptions = ({ projectId, target }: AbsorptionPlan
 		queryKey: [QueryKey.AbsorptionPlan, projectId, target],
 		queryFn: () => window.lite.absorptionPlan({ projectId, target }),
 	});
+
+export const renderWorkspaceQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: ["renderWorkspace", projectId],
+		queryFn: () => window.lite.renderWorkspace(projectId),
+	});
