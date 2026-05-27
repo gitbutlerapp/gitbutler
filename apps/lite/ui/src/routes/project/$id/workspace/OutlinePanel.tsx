@@ -4,6 +4,7 @@ import {
 	changesInWorktreeQueryOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
+	renderWorkspaceQueryOptions,
 } from "#ui/api/queries.ts";
 import { findCommit, renameBranchInHeadInfo, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { decodeRefName, encodeRefName } from "#ui/api/ref-name.ts";
@@ -52,13 +53,15 @@ import {
 	Section,
 	type NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
+import { graphGlyphs, linkCellGlyph, nodeCellGlyph, padCellGlyph } from "#ui/graph.ts";
 import { mergeProps, Toast, useRender } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
 import { Toolbar } from "@base-ui/react/toolbar";
-import {
+import type {
 	AbsorptionTarget,
 	BranchReference,
 	Commit,
+	GraphRow,
 	InsertSide,
 	RefInfo,
 	RelativeTo,
@@ -92,6 +95,7 @@ import {
 	createContext,
 	FC,
 	Fragment,
+	type ReactNode,
 	SubmitEventHandler,
 	use,
 	useEffect,
@@ -566,6 +570,70 @@ const ActivitySpinner: FC = () => {
 	return status !== null && <Icon name="spinner" aria-label={status} />;
 };
 
+const RenderedWorkspaceLine: FC<{ glyphs: Array<string>; children?: ReactNode }> = ({
+	glyphs,
+	children,
+}) => (
+	<div className={styles.renderedWorkspaceLine}>
+		<span
+			className={styles.renderedWorkspaceGraph}
+			style={{ "--rendered-workspace-graph-columns": glyphs.length }}
+		>
+			{glyphs.map((glyph, column) => (
+				// oxlint-disable-next-line react/no-array-index-key: No other reasonable option.
+				<span key={column}>{glyph}</span>
+			))}
+		</span>
+
+		<span className={styles.renderedWorkspaceData}>{children}</span>
+	</div>
+);
+
+const RenderedWorkspaceRow: FC<{ row: GraphRow; shouldRenderTermLine: boolean }> = ({
+	row,
+	shouldRenderTermLine,
+}) => (
+	<>
+		<RenderedWorkspaceLine glyphs={row.node_line.map((line) => nodeCellGlyph({ row, line }))}>
+			{/* oxlint-disable-next-line typescript/no-non-null-assertion: TODO: Until we have proper data. */}
+			{row.data.split("\n", 1)[0]!}
+		</RenderedWorkspaceLine>
+
+		{row.link_line && <RenderedWorkspaceLine glyphs={row.link_line.map(linkCellGlyph)} />}
+
+		{row.term_line && shouldRenderTermLine && (
+			<RenderedWorkspaceLine
+				glyphs={row.term_line.map((term, column) =>
+					term ? graphGlyphs.termination : padCellGlyph(row.pad_lines[column] ?? "Blank"),
+				)}
+			/>
+		)}
+	</>
+);
+
+const RenderedWorkspaceGraph: FC<{ projectId: string }> = ({ projectId }) => {
+	const { data: stacks } = useSuspenseQuery(renderWorkspaceQueryOptions(projectId));
+
+	return (
+		<>
+			{stacks.map((stack, idx) => (
+				// oxlint-disable-next-line react/no-array-index-key: No other reasonable option.
+				<div key={idx} className={styles.renderedWorkspaceStack}>
+					{stack.rows.map((row, idx) => (
+						<RenderedWorkspaceRow
+							// oxlint-disable-next-line react/no-array-index-key: Until we have proper data.
+							key={`${row.data}-${idx}`}
+							row={row}
+							// Don't render term lines at the bottom of stacks.
+							shouldRenderTermLine={idx !== stack.rows.length - 1}
+						/>
+					))}
+				</div>
+			))}
+		</>
+	);
+};
+
 export const OutlinePanel: FC<PanelProps> = ({ ...panelProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
@@ -663,6 +731,8 @@ export const OutlinePanel: FC<PanelProps> = ({ ...panelProps }) => {
 						/>
 
 						<div className={styles.headInfo}>
+							<RenderedWorkspaceGraph projectId={projectId} />
+
 							{headInfo?.stacks.map((stack) => (
 								<StackC
 									key={stack.id}

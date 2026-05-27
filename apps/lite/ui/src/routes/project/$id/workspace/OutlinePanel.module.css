@@ -304,3 +304,25 @@
 	border: 1.5px solid var(--commit-status-color);
 	border-radius: 50%;
 }
+
+.renderedWorkspaceStack {
+	display: flex;
+	flex-direction: column;
+}
+
+.renderedWorkspaceLine {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+}
+
+.renderedWorkspaceGraph {
+	display: grid;
+	grid-template-columns: repeat(var(--rendered-workspace-graph-columns), 2ch);
+	font-family: monospace;
+}
+
+.renderedWorkspaceData {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
