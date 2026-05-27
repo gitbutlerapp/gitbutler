@@ -1,7 +1,8 @@
-use anyhow::bail;
 use bstr::BStr;
 use but_api::json::HexHash;
-use but_core::{ref_metadata::StackId, sync::RepoExclusive};
+use but_core::DryRun;
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
+use gix::refs::Category;
 
 use crate::{
     CliError, CliId, CliResult, IdMap, bad_input,
@@ -19,33 +20,55 @@ pub fn delete(
     branch_name: String,
     force: bool,
 ) -> CliResult<()> {
-    let mut guard = ctx.exclusive_worktree_access();
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let t = theme::get();
 
-    // Find which stack this branch belongs to
-    for stack_entry in &stacks {
-        if stack_entry.heads.iter().all(|b| b.name != *branch_name) {
-            // Not found in this stack,
-            continue;
-        }
+    let ref_name = Category::LocalBranch.to_full_name(&*branch_name)?;
 
-        if let Some(sid) = stack_entry.id {
-            return confirm_branch_deletion(
-                ctx,
-                sid,
-                &branch_name,
-                force,
-                out,
-                guard.write_permission(),
-            )
-            .map_err(CliError::from);
-        }
+    let head_info = but_api::legacy::workspace::head_info(ctx)?;
+
+    let segment = head_info
+        .stacks
+        .iter()
+        .flat_map(|stack| &stack.segments)
+        .find(|segment| {
+            if let Some(ref_info) = &segment.ref_info {
+                ref_info.ref_name == ref_name
+            } else {
+                false
+            }
+        });
+    let Some(segment) = segment else {
+        return Err(bad_input(format!("Branch '{branch_name}' not found in any stack")).into());
+    };
+
+    if !force
+        && let Some(mut inout) = out.prepare_for_terminal_input()
+        && inout.confirm(
+            format!(
+                "Are you sure you want to delete branch {}?",
+                t.local_branch.paint(&branch_name)
+            ),
+            ConfirmDefault::No,
+        )? == Confirm::No
+    {
+        return Err(anyhow::anyhow!("Aborted branch deletion.").into());
     }
 
-    Err(bad_input(format!("Branch '{branch_name}' not found in any stack")).into())
+    let mut meta = ctx.meta()?;
+    let snapshot_details = SnapshotDetails::new(OperationKind::DeleteBranch);
+    but_transaction::with_transaction(ctx, &mut meta, snapshot_details, DryRun::No, |mut tx| {
+        tx.remove_reference(ref_name.as_ref())?;
+        if !segment.commits.is_empty() {
+            tx.discard_commits(segment.commits.iter().map(|commit| commit.id))?;
+        }
+        Ok(())
+    })?;
+
+    if let Some(out) = out.for_human() {
+        writeln!(out, "Deleted branch {}", t.local_branch.paint(&branch_name))?;
+    }
+
+    Ok(())
 }
 
 pub fn new(
@@ -252,34 +275,4 @@ pub fn handle_no_subcommand(
     list_branches(
         ctx, out, None, false, false, false, false, false, false, false,
     )
-}
-
-fn confirm_branch_deletion(
-    ctx: &mut but_ctx::Context,
-    sid: StackId,
-    branch_name: &str,
-    force: bool,
-    out: &mut OutputChannel,
-    perm: &mut RepoExclusive,
-) -> Result<(), anyhow::Error> {
-    let t = theme::get();
-    if !force
-        && let Some(mut inout) = out.prepare_for_terminal_input()
-        && inout.confirm(
-            format!(
-                "Are you sure you want to delete branch {}?",
-                t.local_branch.paint(branch_name)
-            ),
-            ConfirmDefault::No,
-        )? == Confirm::No
-    {
-        bail!("Aborted branch deletion.");
-    }
-
-    but_api::legacy::stack::remove_branch_with_perm(ctx, sid, branch_name.to_owned(), perm)?;
-
-    if let Some(out) = out.for_human() {
-        writeln!(out, "Deleted branch {}", t.local_branch.paint(branch_name))?;
-    }
-    Ok(())
 }
