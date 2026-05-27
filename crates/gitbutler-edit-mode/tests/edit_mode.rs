@@ -442,7 +442,7 @@ fn enter_edit_mode_checks_out_conflicted_commit() -> Result<()> {
     insta::assert_snapshot!(
         std::fs::read_to_string(repo.path().parent().unwrap().join("conflict"))?,
         @r"
-    <<<<<<< New base: Changes to make millions
+    <<<<<<< New base: foobar
     left
     ||||||| Common ancestor
     base

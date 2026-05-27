@@ -156,7 +156,7 @@ baz
 branch1 commit 1
 branch1 commit 2
 <<<<<` +
-			`<< New base: Conflicting change commit
+			`<< New base: branch1: third commit
 branch1 commit 3
 ||||||| Common ancestor
 =======
