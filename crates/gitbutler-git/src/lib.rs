@@ -17,7 +17,7 @@ mod refspec;
 mod repository;
 
 #[cfg(feature = "tokio")]
-pub use self::context::{GitContextExt, PushResult};
+pub use self::context::{GitContextExt, PushResult, push_with_askpass};
 #[cfg(feature = "tokio")]
 pub use self::executor::tokio;
 pub use self::{

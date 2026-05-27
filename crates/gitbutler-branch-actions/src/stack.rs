@@ -541,7 +541,7 @@ fn maybe_record_gerrit_push_metadata(
 
     let push_output = but_gerrit::parse::push_output(push_output)?;
     let candidate_ids = stack.commits(ctx)?;
-    but_gerrit::record_push_metadata(ctx, candidate_ids, push_output)
+    but_gerrit::record_push_metadata_with_context(ctx, candidate_ids, push_output)
 }
 
 fn append_push_result(result: &mut PushResult, pushed_branch: PushedBranch) {

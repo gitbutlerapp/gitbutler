@@ -10,6 +10,7 @@ rust-version.workspace = true
 ignored = [
     # Used only by feature-gated legacy modules.
     "git2",
+    "bitflags",
 ]
 
 [lib]
@@ -24,6 +25,8 @@ legacy = [
     "dep:gitbutler-cherry-pick",
     "dep:gitbutler-commit",
     "dep:gitbutler-repo",
+    "dep:gitbutler-git",
+    "dep:gitbutler-reference",
 ]
 export-schema = ["dep:schemars", "dep:but-schemars", "but-core/export-schema"]
 
@@ -41,6 +44,8 @@ gitbutler-stack = { workspace = true, optional = true }
 gitbutler-cherry-pick = { workspace = true, optional = true }
 gitbutler-commit = { workspace = true, optional = true }
 gitbutler-repo = { workspace = true, optional = true }
+gitbutler-git = { workspace = true, optional = true }
+gitbutler-reference = { workspace = true, optional = true }
 
 anyhow.workspace = true
 bstr.workspace = true
@@ -56,6 +61,10 @@ tracing.workspace = true
 # For SPMC channel
 flume = "0.11.1"
 tempfile.workspace = true
+
+bitflags = { workspace = true, optional = true }
+
+but-gerrit = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
 but-schemars = { workspace = true, optional = true }
 

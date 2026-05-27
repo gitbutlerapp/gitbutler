@@ -424,8 +424,21 @@ pub fn head_info(
     meta: &impl but_core::RefMetadata,
     opts: Options<'_>,
 ) -> anyhow::Result<RefInfo> {
+    head_info_and_workspace(repo, meta, opts).map(|a| a.0)
+}
+
+/// Gather information about the current `HEAD` and the workspace that might be associated with it,
+/// based on data in `repo` and `meta`. Use `options` to further configure the call.
+///
+/// For details, see [`ref_info()`].
+pub fn head_info_and_workspace(
+    repo: &gix::Repository,
+    meta: &impl but_core::RefMetadata,
+    opts: Options<'_>,
+) -> anyhow::Result<(RefInfo, but_graph::Workspace)> {
     let graph = Graph::from_head(repo, meta, opts.traversal.clone())?;
-    graph_to_ref_info(&graph.into_workspace()?, repo, opts)
+    let ws = graph.into_workspace()?;
+    Ok((graph_to_ref_info(&ws, repo, opts)?, ws))
 }
 
 /// Gather information about the commit at `existing_ref` and the workspace that might be associated with it,

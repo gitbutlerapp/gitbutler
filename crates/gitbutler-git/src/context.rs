@@ -107,66 +107,16 @@ impl GitContextExt for Context {
         B: TryInto<gix::refs::FullName>,
         B::Error: Into<anyhow::Error>,
     {
-        let branch: gix::refs::FullName = branch.try_into().map_err(Into::into)?;
-        let repo = self.repo.get()?;
-        let (remote, branch_name) = remote_tracking_branch_parts(&repo, branch.as_ref())?;
-        let refspec = refspec.unwrap_or_else(|| format!("{head}:refs/heads/{branch_name}"));
-
-        let on_prompt = if askpass::get_broker().is_some() {
-            Some(move |prompt: String| handle_git_prompt_push(prompt, askpass_broker))
-        } else {
-            None
-        };
-
-        let repo_path = self.workdir_or_gitdir()?;
-        let result = std::thread::spawn(move || -> Result<_> {
-            let runtime = tokio::runtime::Runtime::new().context(
-                but_error::Context::new("failed to initialize async runtime for git push")
-                    .with_code(Code::Unknown),
-            )?;
-            let refspec = crate::RefSpec::parse(&refspec).context(
-                but_error::Context::new(format!("failed to parse git push refspec `{refspec}`"))
-                    .with_code(Code::Validation),
-            )?;
-            Ok(runtime.block_on(crate::push(
-                repo_path,
-                crate::tokio::TokioExecutor,
-                &remote,
-                refspec,
-                with_force,
-                force_push_protection,
-                on_prompt,
-                push_opts,
-            )))
-        })
-        .join()
-        .map_err(|panic| {
-            let reason = if let Some(message) = panic.downcast_ref::<String>() {
-                message.clone()
-            } else if let Some(message) = panic.downcast_ref::<&'static str>() {
-                (*message).to_owned()
-            } else {
-                "unknown panic payload".to_owned()
-            };
-
-            anyhow!("git push worker thread panicked: {reason}").context(
-                but_error::Context::new("git push failed unexpectedly").with_code(Code::Unknown),
-            )
-        })??;
-        match result {
-            Ok(stderr) => Ok(stderr),
-            Err(err) => match err {
-                crate::Error::ForcePushProtection(e) => Err(anyhow!(
-                    "The force push was blocked because the remote branch contains commits that would be overwritten.\n\n{e}"
-                )
-                .context(Code::GitForcePushProtection)),
-                crate::Error::GerritNoNewChanges(_) => {
-                    // Treat "no new changes" as success for Gerrit.
-                    Ok(String::new())
-                }
-                _ => Err(err.into()),
-            },
-        }
+        push_with_askpass(
+            &*self.repo.get()?,
+            head,
+            branch,
+            with_force,
+            force_push_protection,
+            refspec,
+            askpass_broker,
+            push_opts,
+        )
     }
 
     fn git_test_push(
@@ -212,6 +162,85 @@ impl GitContextExt for Context {
 
         Ok(())
     }
+}
+
+/// Push the given commit to the provided remote branch.
+///
+/// Returns the stderr output of the Git executable if used.
+#[allow(clippy::too_many_arguments)]
+pub fn push_with_askpass<B>(
+    repo: &gix::Repository,
+    head: gix::ObjectId,
+    branch: B,
+    with_force: bool,
+    force_push_protection: bool,
+    refspec: Option<String>,
+    askpass_broker: Option<Option<but_core::Id<'S'>>>,
+    push_opts: Vec<String>,
+) -> Result<String>
+where
+    B: TryInto<gix::refs::FullName>,
+    B::Error: Into<anyhow::Error>,
+{
+    let branch: gix::refs::FullName = branch.try_into().map_err(Into::into)?;
+    let (remote, branch_name) = remote_tracking_branch_parts(repo, branch.as_ref())?;
+    let refspec = refspec.unwrap_or_else(|| format!("{head}:refs/heads/{branch_name}"));
+
+    let on_prompt = if askpass::get_broker().is_some() {
+        Some(move |prompt: String| handle_git_prompt_push(prompt, askpass_broker))
+    } else {
+        None
+    };
+
+    let repo_path = repo.git_dir().to_owned();
+    let result = std::thread::spawn(move || -> Result<_> {
+        let runtime = tokio::runtime::Runtime::new().context(
+            but_error::Context::new("failed to initialize async runtime for git push")
+                .with_code(Code::Unknown),
+        )?;
+        let refspec = crate::RefSpec::parse(&refspec).context(
+            but_error::Context::new(format!("failed to parse git push refspec `{refspec}`"))
+                .with_code(Code::Validation),
+        )?;
+        Ok(runtime.block_on(crate::push(
+            repo_path,
+            crate::tokio::TokioExecutor,
+            &remote,
+            refspec,
+            with_force,
+            force_push_protection,
+            on_prompt,
+            push_opts,
+        )))
+    })
+    .join()
+    .map_err(|panic| {
+        let reason = if let Some(message) = panic.downcast_ref::<String>() {
+            message.clone()
+        } else if let Some(message) = panic.downcast_ref::<&'static str>() {
+            (*message).to_owned()
+        } else {
+            "unknown panic payload".to_owned()
+        };
+
+        anyhow!("git push worker thread panicked: {reason}").context(
+            but_error::Context::new("git push failed unexpectedly").with_code(Code::Unknown),
+        )
+    })??;
+    match result {
+            Ok(stderr) => Ok(stderr),
+            Err(err) => match err {
+                crate::Error::ForcePushProtection(e) => Err(anyhow!(
+                    "The force push was blocked because the remote branch contains commits that would be overwritten.\n\n{e}"
+                )
+                .context(Code::GitForcePushProtection)),
+                crate::Error::GerritNoNewChanges(_) => {
+                    // Treat "no new changes" as success for Gerrit.
+                    Ok(String::new())
+                }
+                _ => Err(err.into()),
+            },
+        }
 }
 
 fn serialize_branch_to_remote<S>(

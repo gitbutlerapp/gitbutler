@@ -1711,11 +1711,13 @@ name = "but-workspace"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "bitflags 2.11.1",
  "bstr",
  "but-core",
  "but-ctx",
  "but-db",
  "but-error",
+ "but-gerrit",
  "but-graph",
  "but-meta",
  "but-rebase",
@@ -1728,6 +1730,7 @@ dependencies = [
  "git2",
  "gitbutler-cherry-pick",
  "gitbutler-commit",
+ "gitbutler-git",
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-stack",
