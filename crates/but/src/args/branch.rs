@@ -1,3 +1,7 @@
+use gix::refs::{Category, FullName};
+
+use crate::{CliResult, bad_input};
+
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
     #[clap(subcommand)]
@@ -36,7 +40,7 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Delete {
         /// Name of the branch to delete
-        branch_name: String,
+        branch_name: BranchNameArg,
     },
 
     /// List the branches in the repository
@@ -136,4 +140,56 @@ pub enum Subcommands {
         /// Name of the branch to apply
         branch_name: String,
     },
+}
+
+#[derive(Debug, Clone)]
+pub struct BranchNameArg(pub String);
+
+impl std::str::FromStr for BranchNameArg {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(s.to_owned()))
+    }
+}
+
+impl std::fmt::Display for BranchNameArg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl BranchNameArg {
+    pub fn resolve(&self) -> CliResult<FullName> {
+        Ok(Category::LocalBranch.to_full_name(&*self.0)?)
+    }
+
+    pub fn resolve_segment(
+        &self,
+        ctx: &mut but_ctx::Context,
+    ) -> CliResult<but_workspace::ref_info::Segment> {
+        let ref_name = self.resolve()?;
+        let head_info = but_api::legacy::workspace::head_info(ctx)?;
+        let segment = head_info
+            .stacks
+            .iter()
+            .flat_map(|stack| &stack.segments)
+            .find(|segment| {
+                if let Some(ref_info) = &segment.ref_info {
+                    ref_info.ref_name == ref_name
+                } else {
+                    false
+                }
+            });
+        let Some(segment) = segment else {
+            return Err(bad_input(format!("Branch '{self}' not found in any stack")).into());
+        };
+        Ok(segment.clone())
+    }
+}
+
+impl AsRef<str> for BranchNameArg {
+    fn as_ref(&self) -> &str {
+        self.0.as_ref()
+    }
 }

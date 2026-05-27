@@ -1,11 +1,13 @@
+use anyhow::Context as _;
 use bstr::BStr;
 use but_api::json::HexHash;
 use but_core::DryRun;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
-use gix::refs::Category;
 
 use crate::{
-    CliError, CliId, CliResult, IdMap, bad_input,
+    CliError, CliId, CliResult, IdMap,
+    args::branch::BranchNameArg,
+    bad_input,
     theme::{self, Paint},
     utils::{OutputChannel, shorten_object_id},
 };
@@ -17,28 +19,16 @@ mod show;
 pub fn delete(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
-    branch_name: String,
+    branch_name: BranchNameArg,
 ) -> CliResult<()> {
     let t = theme::get();
 
-    let ref_name = Category::LocalBranch.to_full_name(&*branch_name)?;
+    let segment = branch_name.resolve_segment(ctx)?;
 
-    let head_info = but_api::legacy::workspace::head_info(ctx)?;
-
-    let segment = head_info
-        .stacks
-        .iter()
-        .flat_map(|stack| &stack.segments)
-        .find(|segment| {
-            if let Some(ref_info) = &segment.ref_info {
-                ref_info.ref_name == ref_name
-            } else {
-                false
-            }
-        });
-    let Some(segment) = segment else {
-        return Err(bad_input(format!("Branch '{branch_name}' not found in any stack")).into());
-    };
+    let ref_name = &segment
+        .ref_info
+        .context("segment missing ref_info")?
+        .ref_name;
 
     let mut meta = ctx.meta()?;
     let snapshot_details = SnapshotDetails::new(OperationKind::DeleteBranch);
