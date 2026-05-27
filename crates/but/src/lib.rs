@@ -994,7 +994,7 @@ async fn match_subcommand(
             command::legacy::reword::reword_target(
                 &mut ctx,
                 out,
-                &target,
+                target,
                 message.as_deref(),
                 format,
                 // clap's `conflicts_with` should prevent this being `None` but better safe than
@@ -1002,7 +1002,6 @@ async fn match_subcommand(
                 ShowDiffInEditor::from_args(diff, no_diff).unwrap_or(ShowDiffInEditor::Unspecified),
             )
             .emit_metrics(metrics_ctx)
-            .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Oplog(args::oplog::Platform { cmd }) => {

@@ -12,62 +12,52 @@ use super::{
     },
     estimate_diff_blob_size,
 };
-use crate::{CliId, IdMap, tui, utils::OutputChannel};
+use crate::{
+    CliResult, IdMap,
+    args::atoms::{BranchArg, CliIdArg, Purpose, ResolvedCliIdArg},
+    tui,
+    utils::OutputChannel,
+};
 
 pub(crate) fn reword_target(
     ctx: &mut Context,
     out: &mut OutputChannel,
-    target: &str,
+    target: CliIdArg,
     message: Option<&str>,
     format: bool,
     show_diff_in_editor: ShowDiffInEditor,
-) -> Result<()> {
+) -> CliResult<()> {
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
-    // Resolve the commit ID
-    let cli_ids = id_map.parse_using_context(target, ctx)?;
+    let target = target.resolve_in_workspace(ctx, &id_map, Purpose::Target)?;
 
-    if cli_ids.is_empty() {
-        bail!("ID '{target}' not found");
-    }
-
-    if cli_ids.len() > 1 {
-        bail!(
-            "Target ID '{}' is ambiguous. Found {} matches",
-            target,
-            cli_ids.len()
-        );
-    }
-
-    let cli_id = &cli_ids[0];
-
-    match cli_id {
-        CliId::Branch { name, .. } => {
+    match target {
+        ResolvedCliIdArg::Branch(BranchArg(name)) => {
             if format {
-                bail!("--format flag can only be used with commits, not branches");
+                return Err(anyhow::anyhow!(
+                    "--format flag can only be used with commits, not branches"
+                )
+                .into());
             }
             if !matches!(show_diff_in_editor, ShowDiffInEditor::Unspecified) {
-                bail!("--diff and --no-diff flags can only be used with commits, not branches");
+                return Err(anyhow::anyhow!(
+                    "--diff and --no-diff flags can only be used with commits, not branches"
+                )
+                .into());
             }
-            edit_branch_name(ctx, name, out, message, guard.write_permission())?;
+            edit_branch_name(ctx, &name, out, message, guard.write_permission())?;
         }
-        CliId::Commit { commit_id: oid, .. } => {
+        ResolvedCliIdArg::Commit(commit) => {
             edit_commit_message_by_id_and_reword_commit(
                 ctx,
-                *oid,
+                commit,
                 out,
                 message,
                 format,
                 show_diff_in_editor,
                 guard.write_permission(),
             )?;
-        }
-        _ => {
-            bail!(
-                "Target must be a commit ID, not {}",
-                cli_id.kind_for_humans()
-            );
         }
     }
 

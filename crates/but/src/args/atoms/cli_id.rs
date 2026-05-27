@@ -115,6 +115,7 @@ impl CliIdArg {
 pub enum Purpose {
     Anchor,
     Branch,
+    Target,
 }
 
 impl std::fmt::Display for Purpose {
@@ -122,6 +123,7 @@ impl std::fmt::Display for Purpose {
         match self {
             Purpose::Anchor => f.write_str("anchor"),
             Purpose::Branch => f.write_str("branch"),
+            Purpose::Target => f.write_str("target"),
         }
     }
 }

@@ -11,6 +11,9 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 
 #[cfg(feature = "legacy")]
+use crate::args::atoms::CliIdArg;
+
+#[cfg(feature = "legacy")]
 pub mod atoms;
 
 #[derive(Debug, clap::Parser)]
@@ -568,7 +571,7 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Reword {
         /// Commit ID to edit the message for, or branch ID to rename
-        target: String,
+        target: CliIdArg,
         /// The new commit message or branch name. If not provided, opens an editor.
         #[clap(short = 'm', long = "message", conflicts_with = "format")]
         message: Option<String>,

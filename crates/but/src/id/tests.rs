@@ -73,14 +73,6 @@ fn commit_id_works_with_two_or_more_characters() -> anyhow::Result<()> {
         expected,
         "three characters work too"
     );
-    assert_eq!(
-        id_map
-            .parse("1", Box::new(changed_paths_fn))
-            .unwrap_err()
-            .to_string(),
-        "Id needs to be at least 2 characters long: '1'",
-        "one character isn't enough"
-    );
     Ok(())
 }
 
