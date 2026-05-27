@@ -214,10 +214,10 @@ bstr = "1.12.1"
 zip = { version = "4", default-features = false, features = ["bzip2"] }
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
 # When adjusting this, update `gix-testtools` as well!
-gix = { version = "0.83.0", default-features = false, features = [
+gix = { version = "0.84.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "b5b2d54d6a63921621d48c492eaa77faf89e8cb5", default-features = false, features = [
     "sha1", "sha256"
 ] }
-gix-testtools = { version = "0.19.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "575113dfb10b3ba12eb57f57a81b241e773968bd" }
+gix-testtools = { version = "0.19.0", git = "https://github.com/GitoxideLabs/gitoxide", rev = "b5b2d54d6a63921621d48c492eaa77faf89e8cb5" }
 
 
 insta = { version = "1.47.2", features = ["json"] }
@@ -313,9 +313,11 @@ inventory = "0.3"
 git-meta-lib = { version = "0.1.10" }
 
 [patch.crates-io]
-# Make all dependencies use the same gix as our crates, so that we don't end up
-# with two versions of gix compiled in.
-gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "575113dfb10b3ba12eb57f57a81b241e773968bd" }
+# Keep workspace crates that use the `gix 0.84` line on the same git revision.
+# Note that this does not currently eliminate duplicate `gix` versions entirely:
+# `git-meta-lib` still depends on `gix 0.83`, so Cargo will continue to pull that
+# version from crates.io until `git-meta-lib` moves to `0.84` as well.
+gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "b5b2d54d6a63921621d48c492eaa77faf89e8cb5" }
 
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
