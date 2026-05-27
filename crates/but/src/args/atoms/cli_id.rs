@@ -22,15 +22,15 @@ impl std::fmt::Display for CliIdArg {
 }
 
 impl CliIdArg {
-    pub fn resolve(
+    pub fn try_resolve(
         &self,
         ctx: &but_ctx::Context,
         id_map: &IdMap,
         purpose: Purpose,
-    ) -> CliResult<CliId> {
+    ) -> CliResult<Option<CliId>> {
         let mut target_ids = id_map.parse_using_context(&self.0, ctx)?;
         if target_ids.is_empty() {
-            return Err(bad_input(format!("Could not find {purpose}: {self}")).into());
+            return Ok(None);
         }
         if target_ids.len() > 1 {
             return Err(bad_input(format!(
@@ -38,7 +38,20 @@ impl CliIdArg {
             ))
             .into());
         }
-        Ok(target_ids.swap_remove(0))
+        Ok(Some(target_ids.swap_remove(0)))
+    }
+
+    pub fn resolve(
+        &self,
+        ctx: &but_ctx::Context,
+        id_map: &IdMap,
+        purpose: Purpose,
+    ) -> CliResult<CliId> {
+        if let Some(cli_id) = self.try_resolve(ctx, id_map, purpose)? {
+            Ok(cli_id)
+        } else {
+            Err(bad_input(format!("Could not find {purpose}: {self}")).into())
+        }
     }
 
     pub fn resolve_commit_or_branch(
@@ -48,7 +61,7 @@ impl CliIdArg {
         purpose: Purpose,
     ) -> CliResult<CommitOrBranchCliId> {
         let target_id = self.resolve(ctx, id_map, purpose)?;
-        match self.resolve(ctx, id_map, purpose)? {
+        match target_id {
             CliId::Commit { commit_id, id } => Ok(CommitOrBranchCliId::Commit { commit_id, id }),
             CliId::Branch { name, id, stack_id } => {
                 Ok(CommitOrBranchCliId::Branch { name, id, stack_id })
@@ -60,42 +73,56 @@ impl CliIdArg {
             .into()),
         }
     }
+
+    pub fn try_resolve_branch(
+        &self,
+        ctx: &but_ctx::Context,
+        id_map: &IdMap,
+        purpose: Purpose,
+    ) -> CliResult<Option<Branch>> {
+        let Some(target_id) = self.try_resolve(ctx, id_map, purpose)? else {
+            return Ok(None);
+        };
+        match target_id {
+            CliId::Branch { name, id, stack_id } => Ok(Some(Branch { name, id, stack_id })),
+            _ => Err(bad_input(format!(
+                "Invalid {purpose} type: {}, expected branch",
+                target_id.kind_for_humans()
+            ))
+            .into()),
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
 pub enum Purpose {
     Anchor,
+    Branch,
 }
 
 impl std::fmt::Display for Purpose {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Purpose::Anchor => f.write_str("anchor"),
+            Purpose::Branch => f.write_str("branch"),
         }
     }
 }
 
+/// A [`CliIdArg`] that has actually been resolved.
 #[derive(Debug, Clone)]
-pub enum CommitOrBranchCliId {
-    Commit {
-        commit_id: gix::ObjectId,
-        id: ShortId,
-    },
-    Branch {
-        name: String,
-        id: ShortId,
-        stack_id: Option<StackId>,
-    },
+pub enum ResolvedCliIdArg {
+    #[expect(missing_docs)]
+    Commit(gix::ObjectId),
+    #[expect(missing_docs)]
+    Branch(BranchArg),
 }
 
-impl CommitOrBranchCliId {
-    pub fn display(&self, repo: &gix::Repository) -> impl std::fmt::Display {
-        std::fmt::from_fn(|f| match self {
-            CommitOrBranchCliId::Commit { commit_id, .. } => {
-                let short = shorten_object_id(repo, *commit_id);
-                std::fmt::Display::fmt(&short, f)
-            }
-            CommitOrBranchCliId::Branch { name, .. } => std::fmt::Display::fmt(name, f),
-        })
+impl std::fmt::Display for ResolvedCliIdArg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ResolvedCliIdArg::Commit(inner) => inner.to_hex_with_len(7).fmt(f),
+            ResolvedCliIdArg::Branch(inner) => inner.fmt(f),
+        }
     }
 }

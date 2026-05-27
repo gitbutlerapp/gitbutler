@@ -5,12 +5,10 @@ use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 
 use crate::{
     CliResult, IdMap,
-    command::legacy::args::{BranchNameArg, CliIdArg, OptionBranchNameArgExt as _, Purpose},
+    args::atoms::{BranchArg, CliIdArg, Purpose, ResolvedCliIdArg},
     theme::{self, Paint},
     utils::OutputChannel,
 };
-
-use super::args::CommitOrBranchCliId;
 
 mod json;
 mod list;
@@ -135,14 +133,13 @@ pub fn new(
 pub fn show_branches(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
-    branch_id: String,
+    branch_arg: CliIdArg,
     review: bool,
     files: bool,
     ai: bool,
     check: bool,
-) -> Result<(), anyhow::Error> {
-    show::show(ctx, &branch_id, out, review, files, ai, check)?;
-    Ok(())
+) -> CliResult<()> {
+    show::show(ctx, branch_arg, out, review, files, ai, check)
 }
 
 #[expect(clippy::too_many_arguments)]

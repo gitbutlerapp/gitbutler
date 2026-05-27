@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::command::legacy::args::CliIdArg;
+use crate::args::atoms::CliIdArg;
 
 #[derive(Debug, Serialize)]
 pub struct BranchNewOutput {

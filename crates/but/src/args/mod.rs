@@ -10,6 +10,9 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 
+#[cfg(feature = "legacy")]
+pub mod atoms;
+
 #[derive(Debug, clap::Parser)]
 #[clap(
     name = "but",

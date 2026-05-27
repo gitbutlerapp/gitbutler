@@ -1,4 +1,5 @@
 use bstr::BStr;
+use but_workspace::legacy::ui::StackEntry;
 use gix::refs::{Category, FullName};
 
 use crate::{CliError, CliResult, bad_input};
@@ -27,7 +28,7 @@ impl BranchNameArg {
 
     pub fn resolve_segment(
         &self,
-        ctx: &mut but_ctx::Context,
+        ctx: &but_ctx::Context,
     ) -> CliResult<but_workspace::ref_info::Segment> {
         let ref_name = self.resolve_local_branch_name()?;
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
@@ -51,6 +52,30 @@ impl BranchNameArg {
     pub fn resolve_for_creation(&self, repo: &gix::Repository) -> CliResult<String> {
         check_can_create_branch_with_user_provided_name(repo, &self.0)?;
         Ok(self.0.clone())
+    }
+
+    pub fn resolve_branch(
+        &self,
+        ctx: &but_ctx::Context,
+    ) -> CliResult<gitbutler_branch_actions::BranchListing> {
+        let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
+        let Some(branch) = branches.iter().find(|b| b.name.to_string() == self.0) else {
+            return Err(bad_input(format!("Branch '{self}' not found")).into());
+        };
+        Ok(branch.clone())
+    }
+
+    pub fn try_resolve_stack(&self, ctx: &but_ctx::Context) -> anyhow::Result<Option<StackEntry>> {
+        let stacks = but_api::legacy::workspace::stacks(
+            ctx,
+            Some(but_workspace::legacy::StacksFilter::InWorkspace),
+        )?;
+
+        let stack = stacks
+            .iter()
+            .find(|stack| stack.heads.iter().any(|head| head.name == self.0));
+
+        Ok(stack.cloned())
     }
 }
 

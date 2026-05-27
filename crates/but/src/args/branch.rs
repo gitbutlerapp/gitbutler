@@ -1,5 +1,5 @@
 #[cfg(feature = "legacy")]
-use crate::command::legacy::args::{BranchNameArg, CliIdArg};
+use crate::args::atoms::{BranchArg, CliIdArg};
 
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
@@ -105,7 +105,7 @@ pub enum Subcommands {
     #[cfg(feature = "legacy")]
     Show {
         /// CLI ID or name of the branch to show
-        branch_id: String,
+        branch: CliIdArg,
         /// Fetch and display review information
         #[clap(short, long)]
         review: bool,

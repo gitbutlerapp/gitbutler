@@ -33,8 +33,6 @@ pub mod unapply;
 pub(crate) mod workspace_target;
 pub mod worktree;
 
-pub mod args;
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub(crate) enum ShowDiffInEditor {
     /// The user requested we always show the diff.
