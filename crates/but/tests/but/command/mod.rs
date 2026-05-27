@@ -16,6 +16,8 @@ mod config;
 mod diff;
 #[cfg(feature = "legacy")]
 mod discard;
+#[cfg(unix)]
+mod external;
 mod format;
 mod gui;
 mod help;

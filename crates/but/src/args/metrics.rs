@@ -61,6 +61,8 @@ pub enum CommandName {
     Clean,
     #[default]
     Unknown,
+    #[cfg(unix)]
+    External,
 }
 
 impl CommandName {

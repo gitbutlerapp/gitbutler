@@ -2,6 +2,9 @@
 
 use std::fmt::Display;
 
+#[cfg(unix)]
+use std::ffi::OsString;
+
 use crate::theme::{self, Paint};
 
 /// Signifies that a command could not complete its intended action due to the user providing input
@@ -75,16 +78,18 @@ impl Display for BadInput {
                 writeln!(f, "Bad input for '{}'", t.attention.paint(name),)?;
                 writeln!(f)?;
             }
-            (None, Some(value)) => writeln!(f, "Bad input '{}'", t.attention.paint(value))?,
+            (None, Some(value)) => {
+                writeln!(f, "Bad input '{}'", t.attention.paint(value))?;
+                writeln!(f)?;
+            }
             _ => (),
         }
 
-        write!(f, "{}", self.message)?;
+        writeln!(f, "{}", self.message)?;
 
         if let Some(hint) = &self.hint {
             writeln!(f)?;
-            writeln!(f)?;
-            write!(f, "{}", t.hint.paint(format!("Hint: {hint}")))?;
+            writeln!(f, "{}", t.hint.paint(format!("Hint: {hint}")))?;
         }
 
         Ok(())
@@ -114,6 +119,10 @@ impl CliError {
     {
         match self {
             Self::BadInput(value) => Self::BadInput(value),
+            #[cfg(unix)]
+            Self::ExternalCommandNotFound(command_name) => {
+                Self::ExternalCommandNotFound(command_name)
+            }
             Self::Internal(value) => Self::Internal(value.context(context)),
         }
     }
@@ -123,6 +132,14 @@ impl Display for CliError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::BadInput(value) => value.fmt(f),
+            #[cfg(unix)]
+            Self::ExternalCommandNotFound(command_name) => {
+                writeln!(
+                    f,
+                    "{}",
+                    bad_input("Unrecognized subcommand").arg_value(command_name.to_string_lossy())
+                )
+            }
             Self::Internal(value) => value.fmt(f),
         }
     }
@@ -132,6 +149,9 @@ impl Display for CliError {
 pub enum CliError {
     /// User provided bad input.
     BadInput(BadInput),
+    /// We tried to execute the subcommand as an external command, but that command was not found.
+    #[cfg(unix)]
+    ExternalCommandNotFound(OsString),
     /// Something went wrong internally.
     Internal(anyhow::Error),
 }
