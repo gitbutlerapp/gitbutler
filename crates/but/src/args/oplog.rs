@@ -54,8 +54,5 @@ pub enum Subcommands {
     Restore {
         /// Oplog SHA to restore to
         oplog_sha: String,
-        /// Skip confirmation prompt
-        #[clap(short = 'f', long = "force")]
-        force: bool,
     },
 }

@@ -37,9 +37,6 @@ pub enum Subcommands {
     Delete {
         /// Name of the branch to delete
         branch_name: String,
-        /// Force deletion without confirmation
-        #[clap(long, short = 'f')]
-        force: bool,
     },
 
     /// List the branches in the repository

@@ -5,7 +5,7 @@ use gix::{date::time::CustomFormat, prelude::ObjectIdExt};
 
 use crate::{
     theme::{self, Paint},
-    utils::{Confirm, ConfirmDefault, OutputChannel, shorten_object_id},
+    utils::{OutputChannel, shorten_object_id},
 };
 
 pub const ISO8601_NO_TZ: CustomFormat = CustomFormat::new("%Y-%m-%d %H:%M:%S");
@@ -267,7 +267,6 @@ pub(crate) fn restore_to_oplog(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     oplog_sha: &str,
-    force: bool,
 ) -> anyhow::Result<()> {
     let commit_id = ctx.repo.get()?.rev_parse_single(oplog_sha)?.detach();
     let target_snapshot = &but_api::legacy::oplog::get_snapshot(ctx, commit_id)?;
@@ -299,19 +298,6 @@ pub(crate) fn restore_to_oplog(
             t.time.paint(&target_time)
         )?;
         writeln!(out, "  Snapshot: {}", t.commit_id.paint(&commit_short))?;
-
-        // Confirm the restoration (safety check)
-        if !force {
-            writeln!(
-                out,
-                "\n{}",
-                t.attention
-                    .paint("⚠️  This will overwrite your current workspace state.")
-            )?;
-            if out.confirm("Continue with restore?", ConfirmDefault::No)? == Confirm::No {
-                return Ok(());
-            }
-        }
     }
 
     // Restore to the target snapshot using the but-api crate
