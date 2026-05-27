@@ -70,6 +70,7 @@ fn updates() -> Vec<EnvOp> {
             ("GIT_COMMITTER_DATE", "2000-01-02 00:00:00 +0000"),
             ("GIT_COMMITTER_EMAIL", "committer@example.com"),
             ("GIT_COMMITTER_NAME", "committer"),
+            ("TZ", "UTC0"),
             ("GIT_CONFIG_COUNT", "4"),
             ("GIT_CONFIG_KEY_0", "commit.gpgsign"),
             ("GIT_CONFIG_VALUE_0", "false"),

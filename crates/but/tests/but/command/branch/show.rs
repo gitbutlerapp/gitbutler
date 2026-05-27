@@ -60,7 +60,7 @@ fn show_works_for_unapplied_branches() -> anyhow::Result<()> {
 Branch: A (1 commits ahead)
 
 9477ae7 add A
-    2000-01-02 01:00:00 by author
+    2000-01-02 00:00:00 by author
     1 file changed, 1 insertion, 0 deletions
 
 "#]]);
@@ -80,7 +80,7 @@ Unapplied stack with branches 'A' from workspace
 Branch: A (1 commits ahead)
 
 9477ae7 add A
-    2000-01-02 01:00:00 by author
+    2000-01-02 00:00:00 by author
     1 file changed, 1 insertion, 0 deletions
 
 "#]]);
@@ -100,7 +100,7 @@ fn supports_short_codes() -> anyhow::Result<()> {
 Branch: A (1 commits ahead)
 
 9477ae7 add A
-    2000-01-02 01:00:00 by author
+    2000-01-02 00:00:00 by author
     1 file changed, 1 insertion, 0 deletions
 
 "#]]);
