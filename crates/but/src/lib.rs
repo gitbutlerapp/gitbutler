@@ -446,7 +446,7 @@ async fn match_subcommand(
                     command::legacy::branch::new(&mut ctx, out, branch_name, anchor)
                 }
                 #[cfg(feature = "legacy")]
-                Some(branch::Subcommands::Delete { branch_name, force }) => {
+                Some(branch::Subcommands::Delete { branch_name }) => {
                     let mut ctx = setup::init_ctx(
                         &args,
                         InitCtxOptions {
@@ -455,7 +455,7 @@ async fn match_subcommand(
                         },
                         out,
                     )?;
-                    command::legacy::branch::delete(&mut ctx, out, branch_name, force)
+                    command::legacy::branch::delete(&mut ctx, out, branch_name)
                 }
                 #[cfg(not(feature = "legacy"))]
                 Some(branch::Subcommands::Apply { branch_name }) => {
@@ -998,8 +998,8 @@ async fn match_subcommand(
                         .emit_metrics(metrics_ctx)
                         .map_err(CliError::from)
                 }
-                Some(args::oplog::Subcommands::Restore { oplog_sha, force }) => {
-                    command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha, force)
+                Some(args::oplog::Subcommands::Restore { oplog_sha }) => {
+                    command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha)
                         .emit_metrics(metrics_ctx)
                         .map_err(CliError::from)
                 }

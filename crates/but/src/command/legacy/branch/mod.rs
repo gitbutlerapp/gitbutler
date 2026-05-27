@@ -7,7 +7,7 @@ use gix::refs::Category;
 use crate::{
     CliError, CliId, CliResult, IdMap, bad_input,
     theme::{self, Paint},
-    utils::{Confirm, ConfirmDefault, OutputChannel, shorten_object_id},
+    utils::{OutputChannel, shorten_object_id},
 };
 
 mod json;
@@ -18,7 +18,6 @@ pub fn delete(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     branch_name: String,
-    force: bool,
 ) -> CliResult<()> {
     let t = theme::get();
 
@@ -40,19 +39,6 @@ pub fn delete(
     let Some(segment) = segment else {
         return Err(bad_input(format!("Branch '{branch_name}' not found in any stack")).into());
     };
-
-    if !force
-        && let Some(mut inout) = out.prepare_for_terminal_input()
-        && inout.confirm(
-            format!(
-                "Are you sure you want to delete branch {}?",
-                t.local_branch.paint(&branch_name)
-            ),
-            ConfirmDefault::No,
-        )? == Confirm::No
-    {
-        return Err(anyhow::anyhow!("Aborted branch deletion.").into());
-    }
 
     let mut meta = ctx.meta()?;
     let snapshot_details = SnapshotDetails::new(OperationKind::DeleteBranch);
