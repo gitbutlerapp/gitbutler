@@ -12,7 +12,7 @@
 	left: 0;
 	grid-column: 1 / -1;
 	width: 100%;
-	height: 12px;
+	height: 16px;
 	-webkit-app-region: drag;
 	app-region: drag;
 }
