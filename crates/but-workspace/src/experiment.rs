@@ -10,7 +10,9 @@ use but_graph::{
     Commit, FirstParent, Segment, SegmentIndex, SegmentMetadata,
     petgraph::{Direction, visit::EdgeRef},
 };
-use renderdag::{Ancestor, Renderer};
+use gitbutler_commit::commit_ext::CommitMessageBstr as _;
+use renderdag::{Ancestor, GraphRowRenderer, Renderer};
+use serde::Serialize;
 
 struct Subgraph {
     heads: Vec<SegmentIndex>,
@@ -29,6 +31,165 @@ struct Row<'a> {
     id: u64,
     ancestors: Vec<Ancestor<u64>>,
     data: RowData<'a>,
+}
+
+/// Some SubSegment
+#[derive(Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+pub struct GrStack {
+    /// The rows!!!
+    pub rows: Vec<GraphRow>,
+    // /// Segments yey
+    // pub segments: Vec<GrSegment>,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(GrStack);
+
+/// Graph segment
+#[derive(Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+pub struct GrSegment {
+    /// The rows!!!
+    pub rows: Vec<GraphRow>,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(GrSegment);
+
+/// A row...from graph <shocked pikachu face>
+#[derive(Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+pub struct GraphRow {
+    /// The stuff the row contains
+    pub data: String,
+
+    /// The node columns for this row.
+    pub node_line: Vec<NodeLine>,
+
+    /// The link columns for this row, if a link row is necessary.
+    pub link_line: Option<Vec<LinkLine>>,
+
+    /// The location of any terminators, if necessary.  Other columns should be
+    /// filled in with pad lines.
+    pub term_line: Option<Vec<bool>>,
+
+    /// The pad columns for this row.
+    pub pad_lines: Vec<PadLine>,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(GraphRow);
+
+/// A column in the node row.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+pub enum NodeLine {
+    /// Blank.
+    Blank,
+
+    /// Vertical line indicating an ancestor.
+    Ancestor,
+
+    /// Vertical line indicating a parent.
+    Parent,
+
+    /// The node for this row.
+    Node,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(NodeLine);
+
+impl From<renderdag::NodeLine> for NodeLine {
+    fn from(value: renderdag::NodeLine) -> Self {
+        match value {
+            renderdag::NodeLine::Blank => Self::Blank,
+            renderdag::NodeLine::Ancestor => Self::Ancestor,
+            renderdag::NodeLine::Parent => Self::Parent,
+            renderdag::NodeLine::Node => Self::Node,
+        }
+    }
+}
+
+/// A column in a padding row.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+pub enum PadLine {
+    /// Blank.
+    Blank,
+
+    /// Vertical line indicating an ancestor.
+    Ancestor,
+
+    /// Vertical line indicating a parent.
+    Parent,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(PadLine);
+
+impl From<renderdag::PadLine> for PadLine {
+    fn from(value: renderdag::PadLine) -> Self {
+        match value {
+            renderdag::PadLine::Blank => Self::Blank,
+            renderdag::PadLine::Parent => Self::Parent,
+            renderdag::PadLine::Ancestor => Self::Ancestor,
+        }
+    }
+}
+
+/// A column in a linking row.
+#[derive(Default, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+pub struct LinkLine(u16);
+
+impl From<renderdag::LinkLine> for LinkLine {
+    fn from(value: renderdag::LinkLine) -> Self {
+        Self(value.bits())
+    }
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(LinkLine);
+
+/// The bestest workspace
+pub fn render_workspace(
+    repo: &gix::Repository,
+    workspace: &but_graph::Workspace,
+) -> Result<Vec<GrStack>> {
+    let stacks = render_stacks(workspace, GraphRowRenderer::new, |row_data| {
+        Ok(match &row_data {
+            RowData::Commit(commit) => repo.find_commit(commit.id)?.message_bstr().to_string(),
+            RowData::Reference(ref_name) => ref_name.to_string(),
+        })
+    })?;
+
+    let mut out = vec![];
+
+    for stack in stacks {
+        out.push(GrStack {
+            rows: stack
+                .into_iter()
+                .map(|row| GraphRow {
+                    data: row.message,
+                    node_line: row
+                        .node_line
+                        .iter()
+                        .cloned()
+                        .map(|n| n.into())
+                        .collect::<Vec<_>>(),
+                    link_line: row
+                        .link_line
+                        .map(|ll| ll.iter().cloned().map(|n| n.into()).collect::<Vec<_>>()),
+                    term_line: row.term_line,
+                    pad_lines: row
+                        .pad_lines
+                        .iter()
+                        .cloned()
+                        .map(|n| n.into())
+                        .collect::<Vec<_>>(),
+                })
+                .collect(),
+        })
+    }
+
+    Ok(out)
 }
 
 /// Render out stacks
