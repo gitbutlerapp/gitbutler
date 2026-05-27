@@ -22,7 +22,10 @@ use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
-use gix::{prelude::ObjectIdExt as _, refs::FullName};
+use gix::{
+    prelude::ObjectIdExt as _,
+    refs::{Category, FullName},
+};
 use nonempty::NonEmpty;
 use ratatui::prelude::*;
 use ratatui_textarea::{CursorMove, TextArea};
@@ -1582,7 +1585,7 @@ impl App {
                             let snapshot_details =
                                 SnapshotDetails::new(OperationKind::DeleteBranch);
 
-                            let refname = FullName::try_from(format!("refs/heads/{name}"))?;
+                            let refname = Category::LocalBranch.to_full_name(&*name)?;
                             but_transaction::with_transaction(
                                 ctx,
                                 &mut meta,
