@@ -6,6 +6,8 @@
 ///
 /// Nearly all documentation for the CLI is defined here using `clap` attributes,
 /// which are then used to generate help messages and online documentation.
+#[cfg(unix)]
+use std::ffi::OsString;
 use std::path::PathBuf;
 
 #[derive(Debug, clap::Parser)]
@@ -50,7 +52,10 @@ pub struct Args {
     /// {"result": ..., "status_error": ...} if the status query fails (in which case "status" is absent).
     #[clap(long = "status-after", global = true)]
     pub status_after: bool,
-    /// Subcommand to run.
+    /// Subcommand to run (`but <COMMAND>`).
+    ///
+    /// On UNIX, if `<COMMAND>` is not built in and `but-<COMMAND>` exists on the PATH, that program
+    /// is executed with the remaining arguments (`but <COMMAND> [ARGS]`).
     #[clap(subcommand)]
     pub cmd: Option<Subcommands>,
 }
@@ -1189,6 +1194,11 @@ pub enum Subcommands {
     #[clap(hide = true)]
     #[clap(verbatim_doc_comment)]
     EvalHook,
+
+    #[cfg(unix)]
+    #[strum(disabled)]
+    #[clap(hide = true, external_subcommand)]
+    External(Vec<OsString>),
 }
 
 pub mod alias;

@@ -207,6 +207,8 @@ impl Subcommands {
             Subcommands::Clean { .. } => Clean,
             Subcommands::Onboarding | Subcommands::EvalHook => Unknown,
             Subcommands::AgentLog { .. } => Unknown,
+            #[cfg(unix)]
+            Subcommands::External(_) => External,
         }
     }
 }

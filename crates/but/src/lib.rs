@@ -26,6 +26,8 @@ use std::ffi::OsString;
 
 use anyhow::{Context as _, Result};
 use cfg_if::cfg_if;
+#[cfg(unix)]
+use clap::CommandFactory;
 use clap::Parser;
 
 pub mod args;
@@ -177,10 +179,13 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         };
         return run_agentlog_command(&args.current_dir, cmd, &mut out);
     }
-
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
 
     let result = match args.cmd.take() {
+        #[cfg(unix)]
+        Some(Subcommands::External(extra)) => {
+            command::external::dispatch(&args.current_dir, &extra)
+        }
         None => {
             // No arguments means run the default alias
             // The default alias expands to "status" which provides a helpful entry point
@@ -219,14 +224,35 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     };
 
     match result {
-        Err(CliError::BadInput(bad_input)) => {
-            use std::io::Write;
-            writeln!(std::io::stderr(), "{bad_input}")?;
-            std::process::exit(1);
-        }
         Err(CliError::Internal(err)) => Err(err),
+        Err(CliError::BadInput(bad_input)) => print_and_exit_non_zero(bad_input),
+        #[cfg(unix)]
+        Err(CliError::ExternalCommandNotFound(command_name)) => {
+            // We reparse without external subcommands allowed, which _should_ result in a proper
+            // clap error, including suggestions for "near matches". This gives richer error
+            // information than the plain ExternalCommandNotFound error.
+            let cmd = Args::command();
+            let argv = [OsString::from(cmd.get_name()), command_name.clone()];
+
+            // This should fail to parse, print a nicely formatted Clap error and exit on its own.
+            let _ = cmd
+                .external_subcommand_value_parser(None)
+                .allow_external_subcommands(false)
+                .get_matches_from(argv);
+
+            // If for some reason we succeeded to parse now, we'll print the original error.
+            // This shouldn't happen in practice but logically it could.
+            print_and_exit_non_zero(CliError::ExternalCommandNotFound(command_name))
+        }
         Ok(()) => Ok(()),
     }
+}
+
+fn print_and_exit_non_zero<T: std::fmt::Display>(err: T) -> ! {
+    use std::io::Write;
+    // We swallow this error, there is nothing more to do at this point
+    let _ = write!(std::io::stderr(), "{err}");
+    std::process::exit(1)
 }
 
 async fn match_subcommand(
@@ -1439,6 +1465,10 @@ async fn match_subcommand(
         }
         Subcommands::AgentLog { .. } => {
             unreachable!("agentlog command is handled before metrics setup")
+        }
+        #[cfg(unix)]
+        Subcommands::External(_) => {
+            unreachable!("external commands are delegated before reaching match_subcommand")
         }
     }
 }

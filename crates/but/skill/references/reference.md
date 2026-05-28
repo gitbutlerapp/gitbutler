@@ -580,6 +580,14 @@ Available on most commands:
 - `-C, --current-dir <PATH>` - Run as if started in different directory
 - `-h, --help` - Show help for command
 
+## External commands (PATH helpers)
+
+> Important: Not available for Windows yet
+
+Similar to Git, if `<command>` is not a built-in `but` command and `but-<command>` exists on `PATH`, `but` runs that executable instead (for example `but forecast …` invokes `but-forecast …`).
+
+Restriction: `<command>` must consist of characters in the set `[a-zA-Z_-]`
+
 ## Getting More Help
 
 ```bash

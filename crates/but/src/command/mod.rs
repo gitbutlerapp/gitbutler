@@ -8,6 +8,8 @@ pub mod commit;
 pub mod completions;
 pub mod config;
 pub mod eval_hook;
+#[cfg(unix)]
+pub(crate) mod external;
 pub(crate) mod git_config;
 pub mod gui;
 pub mod help;
