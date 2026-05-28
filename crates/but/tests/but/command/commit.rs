@@ -527,7 +527,7 @@ fn commit_empty_with_nonexistent_target() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Target 'nonexistent' not found
+Error: Could not find target: 'nonexistent'
 
 "#]]);
 
