@@ -1328,6 +1328,23 @@ Created new independent branch 'foo'
         .success();
 }
 
+#[test]
+fn committing_to_existing_branch_via_short_id() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("file.txt", "data");
+
+    env.but("commit -m 'my commit msg' -c g0")
+        .assert()
+        .stderr_eq(snapbox::str![[""]])
+        .stdout_eq(snapbox::str![[r#"
+✓ Created commit [..] on branch A
+
+"#]])
+        .success();
+}
+
 /// Helper to build an isolated `std::process::Command` for `but` with the same
 /// environment as the Sandbox test harness.
 /// That way it can be spawned, which isn't possible in the [`Sandbox`] version.

@@ -338,18 +338,17 @@ pub(crate) fn commit(
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
     let branch_hint = if let Some(branch_arg) = branch_arg {
-        if let Some(id) =
-            branch_arg.try_resolve(ctx, &id_map, Purpose::Branch, Some(Priority::Branch))?
+        if let Some(branch) = branch_arg
+            .try_resolve(ctx, &id_map, Purpose::Branch, Some(Priority::Branch))?
+            .and_then(|id| {
+                if let ResolvedCliIdArg::Branch(BranchArg(branch)) = id {
+                    Some(branch)
+                } else {
+                    None
+                }
+            })
         {
-            match id {
-                ResolvedCliIdArg::Branch(BranchArg(branch)) => Some(branch),
-                ResolvedCliIdArg::Commit(..)
-                | ResolvedCliIdArg::Uncommitted
-                | ResolvedCliIdArg::PathPrefix
-                | ResolvedCliIdArg::CommittedFile
-                | ResolvedCliIdArg::Unassigned
-                | ResolvedCliIdArg::Stack => Some(branch_arg.0),
-            }
+            Some(branch)
         } else {
             let repo = ctx.repo.get()?;
             Some(BranchArg(branch_arg.0).resolve_for_creation(&repo)?)
