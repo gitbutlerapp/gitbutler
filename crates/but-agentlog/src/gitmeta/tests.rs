@@ -316,6 +316,53 @@ fn write_readonly_command_turn_with_targets(
         .to_owned()
 }
 
+/// A spawned sub-agent turn: the `thread_source: subagent` session meta makes the
+/// parser tag the user prompt `spawned_agent`, marking the whole session a
+/// sub-agent thread. Read-only (no commits), observing the target from the start.
+fn write_subagent_turn_with_targets(
+    repo: &Path,
+    text: &str,
+    observed_targets: ObservedTargets,
+) -> String {
+    let transcript = jsonl([
+        serde_json::json!({
+            "timestamp": "2026-05-07T09:00:00Z",
+            "type": "session_meta",
+            "payload": { "id": "subagent-1", "thread_source": "subagent" },
+        }),
+        serde_json::json!({
+            "timestamp": "2026-05-07T09:00:01Z",
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "user",
+                "content": "Review the staging error handling",
+            },
+        }),
+        serde_json::json!({
+            "timestamp": "2026-05-07T09:00:02Z",
+            "type": "response_item",
+            "payload": { "type": "message", "role": "assistant", "content": text },
+        }),
+    ]);
+    let batch =
+        TranscriptBatch::parse(Agent::Codex, transcript.as_bytes()).expect("parse transcript");
+    write_transcript_batch(
+        repo,
+        Agent::Codex,
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        batch,
+        || EnvironmentObservation::from_observed_targets_for_testing(observed_targets),
+    )
+    .expect("write transcript batch");
+    turn_summaries(repo, TEST_SESSION_KEY)
+        .last()
+        .and_then(|turn| turn["turn_key"].as_str())
+        .expect("latest turn key")
+        .to_owned()
+}
+
 fn write_turn_for_session(
     repo: &Path,
     session_key: &str,
@@ -614,6 +661,35 @@ fn applied_branch_targets_from_session_start_are_not_enough_evidence() {
     let projection = project_pr(repo.path(), &projection_request()).expect("project PR");
     assert_eq!(projection.status, ProjectionStatus::NoMatches);
     assert!(projection.sessions.is_empty());
+}
+
+#[test]
+fn spawned_subagent_observing_target_from_start_is_related() {
+    let repo = setup_repo();
+    let observed_targets = || {
+        ObservedTargets::from_index_keys_for_testing(
+            TEST_BRANCH_KEY,
+            TEST_PR_REVIEW_KEY,
+            TEST_CHANGE_KEY,
+        )
+    };
+    // Same passive shape as the ambient case above (observes the target from the
+    // start, never commits), but this session is a spawned sub-agent — so it was
+    // spawned to work on the target and must stay attached to its PR.
+    let turn_key = write_subagent_turn_with_targets(
+        repo.path(),
+        "Findings: staging error handling looks brittle",
+        observed_targets(),
+    );
+
+    let review = only_related(repo.path(), RelatedTarget::Review(TEST_PR_REVIEW_KEY));
+    assert_eq!(
+        review.related_turn_keys,
+        [turn_key.clone()],
+        "a spawned sub-agent observing the PR's branch should attach to it"
+    );
+    let branch = only_related(repo.path(), RelatedTarget::Branch(TEST_BRANCH_KEY));
+    assert_eq!(branch.related_turn_keys, [turn_key]);
 }
 
 #[test]

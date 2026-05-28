@@ -180,9 +180,52 @@ fn turn_detail_observes_target(
     if let Some(matches) = session_activity_matches.get(&hit.session_key) {
         return Ok(*matches);
     }
-    let matches = session_has_target_activity(handle, &hit.session_key, target)?;
+    // A spawned sub-agent inherits relatedness from observing the target: it was
+    // spawned to work on it (e.g. a read-only review pass) and never commits, so
+    // the worktree→commit / transition heuristics in `session_has_target_activity`
+    // would wrongly drop it as ambient. A top-level session that merely has the
+    // branch applied is not a sub-agent, so it still faces the strict gate.
+    let matches = session_is_sub_agent(handle, &hit.session_key)?
+        || session_has_target_activity(handle, &hit.session_key, target)?;
     session_activity_matches.insert(hit.session_key.clone(), matches);
     Ok(matches)
+}
+
+/// Whether a session is a spawned sub-agent thread rather than a top-level run.
+/// Mirrors the projection's rule: a sub-agent thread tags every user prompt
+/// `spawned_agent` and none `human`. Read straight from the stored transcript so
+/// it works on already-captured sessions — no capture-side marker required. A
+/// missing or unreadable transcript is treated as "not a sub-agent" rather than
+/// failing the surrounding match.
+fn session_is_sub_agent(handle: &SessionTargetHandle<'_>, session_key: &str) -> Result<bool> {
+    let transcript_key = format!("gitbutler:agent-session:{session_key}:transcript");
+    let Some(MetaValue::List(entries)) = handle
+        .get_value(&transcript_key)
+        .with_context(|| format!("failed to read GitMeta key '{transcript_key}'"))?
+    else {
+        return Ok(false);
+    };
+    let mut saw_spawned = false;
+    for entry in &entries {
+        let Ok(record) = serde_json::from_str::<SubAgentProbeRecord>(&entry.value) else {
+            continue;
+        };
+        if record.role.as_deref() == Some("user") {
+            match record.prompt_source.as_deref() {
+                Some("human") => return Ok(false),
+                Some("spawned_agent") => saw_spawned = true,
+                _ => {}
+            }
+        }
+    }
+    Ok(saw_spawned)
+}
+
+#[derive(Deserialize)]
+struct SubAgentProbeRecord {
+    role: Option<String>,
+    #[serde(default)]
+    prompt_source: Option<String>,
 }
 
 fn observed_targets_observe(targets: &StoredObservedTargets, target: RelatedTarget<'_>) -> bool {
