@@ -1,10 +1,12 @@
 use serde::Serialize;
 
+use crate::args::atoms::CliIdArg;
+
 #[derive(Debug, Serialize)]
 pub struct BranchNewOutput {
     pub branch: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub anchor: Option<String>,
+    pub anchor: Option<CliIdArg>,
 }
 
 #[derive(Debug, Serialize)]

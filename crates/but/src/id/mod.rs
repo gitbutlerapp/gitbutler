@@ -665,10 +665,11 @@ impl IdMap {
             return Ok(matches);
         }
 
+        // Short codes are always two characters or more. So if we don't have an exact match yet
+        // and the input is less than two characters then it doesn't exist and there are no
+        // matches.
         if element.len() < 2 {
-            return Err(anyhow::anyhow!(
-                "Id needs to be at least 2 characters long: '{element}'"
-            ));
+            return Ok(Vec::new());
         }
 
         // Partial branch name match.

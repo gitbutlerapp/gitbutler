@@ -5,6 +5,8 @@ use but_llm::ChatMessage;
 use tracing::instrument;
 
 use crate::{
+    CliResult, IdMap,
+    args::atoms::{BranchArg, CliIdArg},
     command::legacy::workspace_target,
     theme::{self, Paint},
     utils::{OutputChannel, shorten_object_id},
@@ -12,20 +14,28 @@ use crate::{
 
 pub fn show(
     ctx: &mut Context,
-    branch_id: &str,
+    branch_arg: CliIdArg,
     out: &mut OutputChannel,
     review: bool,
     show_files: bool,
     generate_ai_summary: bool,
     check_merge: bool,
-) -> anyhow::Result<()> {
-    let branch_name = branch_id.to_string();
+) -> CliResult<()> {
+    let branch_arg = {
+        let guard = ctx.exclusive_worktree_access();
+        let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+        branch_arg
+            .try_resolve_branch(ctx, &id_map)?
+            .unwrap_or(BranchArg(branch_arg.0))
+    };
 
     // Get the list of commits ahead of base for this branch
-    let commits = get_commits_ahead(ctx, &branch_name, show_files)?;
+    let commits = get_commits_ahead(ctx, &branch_arg, show_files)?;
 
     // Get unassigned files for this branch
-    let unassigned_files = get_unassigned_files(ctx, &branch_name)?;
+    let unassigned_files = get_unassigned_files(ctx, &branch_arg)?;
+
+    let branch_name = &branch_arg.0;
 
     // Get review information if requested
     let reviews = if review {
@@ -33,7 +43,7 @@ pub fn show(
             ctx,
             Some(but_forge::CacheConfig::CacheOnly),
         )?
-        .get(&branch_name)
+        .get(branch_name)
         .cloned()
         .unwrap_or_default()
     } else {
@@ -43,25 +53,21 @@ pub fn show(
     // Generate AI summary if requested
     let ai_summary = if generate_ai_summary {
         let git_config = gix::config::File::from_globals()?;
-        Some(generate_branch_summary(
-            &branch_name,
-            &commits,
-            &git_config,
-        )?)
+        Some(generate_branch_summary(branch_name, &commits, &git_config)?)
     } else {
         None
     };
 
     // Check merge conflicts if requested
     let merge_check = if check_merge {
-        Some(check_merge_conflicts(ctx, &branch_name)?)
+        Some(check_merge_conflicts(ctx, branch_name)?)
     } else {
         None
     };
 
     if let Some(out) = out.for_json() {
         output_json(
-            &branch_name,
+            branch_name,
             &commits,
             &unassigned_files,
             &reviews,
@@ -71,7 +77,7 @@ pub fn show(
         )?;
     } else if let Some(out) = out.for_human() {
         output_human(
-            &branch_name,
+            branch_name,
             &commits,
             &unassigned_files,
             &reviews,
@@ -249,31 +255,25 @@ fn find_commits_modifying_file(
 
 fn get_commits_ahead(
     ctx: &Context,
-    branch_name: &str,
+    branch_arg: &BranchArg,
     show_files: bool,
-) -> Result<Vec<CommitInfo>, anyhow::Error> {
+) -> CliResult<Vec<CommitInfo>> {
     use gix::prelude::ObjectIdExt as _;
 
-    // Find the branch by name
-    let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
-    let branch = branches
-        .iter()
-        .find(|b| b.name.to_string() == branch_name)
-        .ok_or_else(|| anyhow::anyhow!("Branch '{branch_name}' not found"))?;
-
-    let branch_oid_gix = branch.head;
+    let branch = branch_arg.resolve_branch(ctx)?;
 
     // Find merge base
     let guard = ctx.shared_worktree_access();
     let (merge_base, _) = workspace_target::merge_base_with_target_with_perm(
         ctx,
         guard.read_permission(),
-        branch_oid_gix,
+        branch.head,
     )?;
     let repo = ctx.repo.get()?;
 
     // Walk from branch head to merge base, collecting commits
-    let traversal = branch_oid_gix
+    let traversal = branch
+        .head
         .attach(&repo)
         .ancestors()
         .with_hidden(Some(merge_base))
@@ -317,28 +317,17 @@ fn get_commits_ahead(
     Ok(commits)
 }
 
-fn get_unassigned_files(
-    ctx: &mut Context,
-    branch_name: &str,
-) -> Result<Vec<String>, anyhow::Error> {
+fn get_unassigned_files(ctx: &mut Context, branch_arg: &BranchArg) -> anyhow::Result<Vec<String>> {
     use std::collections::BTreeMap;
 
     use bstr::{BString, ByteSlice};
     use but_hunk_assignment::HunkAssignment;
 
-    // Find the stack that contains this branch
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stack = branch_arg.try_resolve_stack(ctx)?;
 
-    // Find the stack ID for this branch
-    let stack_id = stacks
-        .iter()
-        .find(|stack| stack.heads.iter().any(|head| head.name == branch_name))
-        .and_then(|stack| stack.id);
-
-    if let Some(stack_id) = stack_id {
+    if let Some(stack) = stack
+        && let Some(stack_id) = stack.id
+    {
         // Get worktree changes and assignments
         let worktree_changes = but_api::diff::changes_in_worktree(ctx)?;
 

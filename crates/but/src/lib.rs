@@ -437,7 +437,7 @@ async fn match_subcommand(
                 }
                 #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::Show {
-                    branch_id,
+                    branch,
                     review,
                     files,
                     ai,
@@ -452,9 +452,8 @@ async fn match_subcommand(
                         out,
                     )?;
                     command::legacy::branch::show_branches(
-                        &mut ctx, out, branch_id, review, files, ai, check,
+                        &mut ctx, out, branch, review, files, ai, check,
                     )
-                    .map_err(CliError::from)
                 }
                 #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::New {
@@ -995,7 +994,7 @@ async fn match_subcommand(
             command::legacy::reword::reword_target(
                 &mut ctx,
                 out,
-                &target,
+                target,
                 message.as_deref(),
                 format,
                 // clap's `conflicts_with` should prevent this being `None` but better safe than
@@ -1003,7 +1002,6 @@ async fn match_subcommand(
                 ShowDiffInEditor::from_args(diff, no_diff).unwrap_or(ShowDiffInEditor::Unspecified),
             )
             .emit_metrics(metrics_ctx)
-            .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Oplog(args::oplog::Platform { cmd }) => {

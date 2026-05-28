@@ -47,3 +47,63 @@ fn show_check_reports_clean_merge_for_applied_branch() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn show_works_for_unapplied_branches() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("branch show A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Branch: A (1 commits ahead)
+
+9477ae7 add A
+    2000-01-02 00:00:00 by author
+    1 file changed, 1 insertion, 0 deletions
+
+"#]]);
+
+    env.but("unapply A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Unapplied stack with branches 'A' from workspace
+
+"#]]);
+
+    env.but("branch show A")
+        .assert()
+        .stderr_eq(snapbox::str![[""]])
+        .stdout_eq(snapbox::str![[r#"
+Branch: A (1 commits ahead)
+
+9477ae7 add A
+    2000-01-02 00:00:00 by author
+    1 file changed, 1 insertion, 0 deletions
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn supports_short_codes() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("branch show g0")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Branch: A (1 commits ahead)
+
+9477ae7 add A
+    2000-01-02 00:00:00 by author
+    1 file changed, 1 insertion, 0 deletions
+
+"#]]);
+
+    Ok(())
+}

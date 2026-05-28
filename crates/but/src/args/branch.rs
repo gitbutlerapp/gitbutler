@@ -1,3 +1,6 @@
+#[cfg(feature = "legacy")]
+use crate::args::atoms::{BranchArg, CliIdArg};
+
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
     #[clap(subcommand)]
@@ -19,10 +22,10 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     New {
         /// Name of the new branch
-        branch_name: Option<String>,
+        branch_name: Option<BranchArg>,
         /// Anchor point - either a commit ID or branch name to create the new branch from
         #[clap(long, short = 'a')]
-        anchor: Option<String>,
+        anchor: Option<CliIdArg>,
     },
 
     /// Deletes a branch from the workspace
@@ -36,7 +39,7 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Delete {
         /// Name of the branch to delete
-        branch_name: String,
+        branch_name: CliIdArg,
     },
 
     /// List the branches in the repository
@@ -102,7 +105,7 @@ pub enum Subcommands {
     #[cfg(feature = "legacy")]
     Show {
         /// CLI ID or name of the branch to show
-        branch_id: String,
+        branch: CliIdArg,
         /// Fetch and display review information
         #[clap(short, long)]
         review: bool,
@@ -116,12 +119,14 @@ pub enum Subcommands {
         #[clap(long)]
         check: bool,
     },
+
     /// Deprecated: use `but move` instead
     #[clap(hide = true)]
     Move {
         #[clap(trailing_var_arg = true, allow_hyphen_values = true)]
         _args: Vec<String>,
     },
+
     /// Apply a branch to the workspace (non-legacy path)
     ///
     /// If you want to apply an unapplied branch to your workspace so you
