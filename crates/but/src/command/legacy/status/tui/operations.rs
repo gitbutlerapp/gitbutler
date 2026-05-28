@@ -105,36 +105,36 @@ pub(super) fn prepare_changes_to_commit(
                 db.hunk_assignments_mut()?,
                 repo,
                 workspace,
-                Some(changes),
+                Some(changes.clone()),
                 context_lines,
             )?;
-            assignments
+            let assignments = assignments
                 .into_iter()
-                .filter(|assignment| assignment.stack_id.is_none())
-                .map(DiffSpec::from)
-                .collect::<Vec<_>>()
+                .filter(|assignment| assignment.stack_id.is_none());
+            but_hunk_assignment::diff_specs_from_assignments_with_changes(assignments, &changes)
         }
-        CommitSource::Uncommitted(uncommitted_cli_id) => uncommitted_cli_id
-            .hunk_assignments
-            .iter()
-            .filter(|assignment| assignment.stack_id == scope_to_stack)
-            .cloned()
-            .map(DiffSpec::from)
-            .collect::<Vec<_>>(),
+        CommitSource::Uncommitted(uncommitted_cli_id) => {
+            let changes = but_core::diff::ui::worktree_changes(repo)?.changes;
+            let assignments = uncommitted_cli_id
+                .hunk_assignments
+                .iter()
+                .filter(|assignment| assignment.stack_id == scope_to_stack)
+                .cloned();
+            but_hunk_assignment::diff_specs_from_assignments_with_changes(assignments, &changes)
+        }
         CommitSource::Stack(StackCommitSource { stack_id, .. }) => {
             let changes = but_core::diff::ui::worktree_changes(repo)?.changes;
             let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
                 db.hunk_assignments_mut()?,
                 repo,
                 workspace,
-                Some(changes),
+                Some(changes.clone()),
                 context_lines,
             )?;
-            assignments
+            let assignments = assignments
                 .into_iter()
-                .filter(|assignment| assignment.stack_id.is_some_and(|id| &id == stack_id))
-                .map(DiffSpec::from)
-                .collect::<Vec<_>>()
+                .filter(|assignment| assignment.stack_id.is_some_and(|id| &id == stack_id));
+            but_hunk_assignment::diff_specs_from_assignments_with_changes(assignments, &changes)
         }
     };
 
