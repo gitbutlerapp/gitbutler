@@ -854,11 +854,7 @@ async fn match_subcommand(
                     // because --paths is not a flag on the empty subcommand
 
                     command::legacy::commit::insert_blank_commit(
-                        &mut ctx,
-                        out,
-                        target.as_deref(),
-                        before.as_deref(),
-                        after.as_deref(),
+                        &mut ctx, out, target, before, after,
                     )
                     .emit_metrics(metrics_ctx)
                 }

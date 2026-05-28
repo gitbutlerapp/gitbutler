@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::BTreeMap, fmt::Write as _};
+use std::{collections::BTreeMap, fmt::Write as _};
 
 use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
@@ -14,28 +14,43 @@ use gitbutler_repo::hooks;
 use super::{ShowDiffInEditor, estimate_diff_blob_size};
 use crate::{
     CliId, CliResult, IdMap,
-    args::atoms::{BranchArg, CliIdArg, Priority, Purpose, ResolvedCliIdArg},
+    args::atoms::{BranchArg, BranchOrCommit, CliIdArg, Priority, Purpose, ResolvedCliIdArg},
     bad_input,
     command::legacy::status::assignment::{CLIHunkAssignment, FileAssignment},
     theme::{self, Paint},
     tui,
-    utils::{InputOutputChannel, OutputChannel, shorten_object_id},
+    utils::{InputOutputChannel, OutputChannel},
 };
 
 pub(crate) fn insert_blank_commit(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
-    target: Option<&str>,
-    before: Option<&str>,
-    after: Option<&str>,
-) -> crate::CliResult<()> {
-    let (target, insert_side): (Cow<'_, str>, _) = if let Some(t) = before {
-        (t.into(), InsertSide::Below)
+    target: Option<CliIdArg>,
+    before: Option<CliIdArg>,
+    after: Option<CliIdArg>,
+) -> CliResult<()> {
+    let mut guard = ctx.exclusive_worktree_access();
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+
+    let (target, insert_side) = if let Some(t) = before {
+        (
+            t.resolve_in_workspace(ctx, &id_map, Purpose::Target, None)?
+                .into_branch_or_commit()?,
+            InsertSide::Below,
+        )
     } else if let Some(t) = after {
-        (t.into(), InsertSide::Above)
+        (
+            t.resolve_in_workspace(ctx, &id_map, Purpose::Target, None)?
+                .into_branch_or_commit()?,
+            InsertSide::Above,
+        )
     } else if let Some(t) = target {
         // Default to --before behavior when using positional argument
-        (t.into(), InsertSide::Below)
+        (
+            t.resolve_in_workspace(ctx, &id_map, Purpose::Target, None)?
+                .into_branch_or_commit()?,
+            InsertSide::Below,
+        )
     } else {
         // No arguments provided - default to inserting at top of first branch
 
@@ -69,28 +84,11 @@ pub(crate) fn insert_blank_commit(
                 )
             })?;
 
-        (branch_name.into(), InsertSide::Below)
+        (
+            BranchOrCommit::Branch(BranchArg(branch_name)),
+            InsertSide::Below,
+        )
     };
-
-    let mut guard = ctx.exclusive_worktree_access();
-    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
-
-    // Resolve the target ID
-    let cli_ids = id_map.parse_using_context(&target, ctx)?;
-
-    if cli_ids.is_empty() {
-        return Err(bad_input(format!("Target '{target}' not found")).into());
-    }
-
-    if cli_ids.len() > 1 {
-        return Err(bad_input(format!(
-            "Target '{target}' is ambiguous. Found {} matches",
-            cli_ids.len()
-        ))
-        .into());
-    }
-
-    let cli_id = &cli_ids[0];
 
     let position_desc = match insert_side {
         InsertSide::Above => "after",
@@ -98,29 +96,22 @@ pub(crate) fn insert_blank_commit(
     };
 
     // Determine target commit ID and use provided insert_side
-    let (outcome, success_message) = match cli_id {
-        CliId::Commit { commit_id: oid, .. } => {
-            let short_oid = {
-                let repo = ctx.repo.get()?;
-                shorten_object_id(&repo, *oid)
-            };
+    let (outcome, success_message) = match target {
+        BranchOrCommit::Commit(oid) => {
             let outcome = but_api::commit::insert_blank::commit_insert_blank_with_perm(
                 ctx,
-                RelativeTo::Commit(*oid),
+                RelativeTo::Commit(oid),
                 insert_side,
                 DryRun::No,
                 guard.write_permission(),
             )?;
             (
                 outcome,
-                format!("Created blank commit {position_desc} commit {short_oid}"),
+                format!("Created blank commit {position_desc} commit {target}"),
             )
         }
-        CliId::Branch { name, .. } => {
-            let reference = {
-                let repo = ctx.repo.get()?;
-                repo.find_reference(name)?.detach()
-            };
+        BranchOrCommit::Branch(branch) => {
+            let reference = branch.resolve_local_branch_name()?;
 
             if matches!(insert_side, InsertSide::Above) {
                 // Must prevent inserting above a stack head, as that would create an anonymous
@@ -130,7 +121,7 @@ pub(crate) fn insert_blank_commit(
                 let head_info = but_api::legacy::workspace::head_info(ctx)?;
                 for stack in head_info.stacks {
                     if let Some(stack_head_ref) = stack.ref_name()
-                        && stack_head_ref == &reference.name
+                        && stack_head_ref == &reference
                     {
                         return Err(bad_input("Cannot insert empty commit above stack head")
                             .arg_name("--after")
@@ -142,25 +133,18 @@ pub(crate) fn insert_blank_commit(
 
             let outcome = but_api::commit::insert_blank::commit_insert_blank_with_perm(
                 ctx,
-                RelativeTo::Reference(reference.name),
+                RelativeTo::Reference(reference),
                 insert_side,
                 DryRun::No,
                 guard.write_permission(),
             )?;
             let success_message = match insert_side {
-                InsertSide::Above => format!("Created blank commit above branch '{name}'"),
+                InsertSide::Above => format!("Created blank commit above branch '{branch}'"),
                 InsertSide::Below => {
-                    format!("Created blank commit at the tip of branch '{name}'")
+                    format!("Created blank commit at the tip of branch '{branch}'")
                 }
             };
             (outcome, success_message)
-        }
-        _ => {
-            return Err(bad_input(format!(
-                "Target must be a commit ID or branch name, not {}",
-                cli_id.kind_for_humans()
-            ))
-            .into());
         }
     };
 

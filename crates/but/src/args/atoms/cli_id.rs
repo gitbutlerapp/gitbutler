@@ -304,3 +304,12 @@ pub enum BranchOrCommit {
     #[expect(missing_docs)]
     Branch(BranchArg),
 }
+
+impl std::fmt::Display for BranchOrCommit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BranchOrCommit::Commit(inner) => inner.to_hex_with_len(7).fmt(f),
+            BranchOrCommit::Branch(inner) => inner.fmt(f),
+        }
+    }
+}

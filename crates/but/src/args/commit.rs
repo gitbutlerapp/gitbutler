@@ -107,12 +107,12 @@ pub enum Subcommands {
         /// If a target is provided without --before or --after, defaults to --before behavior.
         /// If no arguments are provided at all, inserts at the top of the first branch.
         #[arg(group = "position")]
-        target: Option<String>,
+        target: Option<CliIdArg>,
         /// Insert the blank commit before this commit or branch
         #[arg(long, group = "position")]
-        before: Option<String>,
+        before: Option<CliIdArg>,
         /// Insert the blank commit after this commit or branch
         #[arg(long, group = "position")]
-        after: Option<String>,
+        after: Option<CliIdArg>,
     },
 }
