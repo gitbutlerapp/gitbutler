@@ -1877,7 +1877,7 @@ const useRemoveBranch = () => {
 
 			toastManager.add({
 				type: "error",
-				title: "Failed to remove branch",
+				title: "Failed to delete branch reference",
 				description: errorMessageForToast(error),
 				priority: "high",
 			});
@@ -2088,7 +2088,7 @@ const BranchRow: FC<
 			onSelect: tearOffBranch,
 		}),
 		nativeMenuItem({
-			label: "Remove Branch",
+			label: "Delete Branch Reference",
 			enabled: canRemoveBranch,
 			onSelect: () =>
 				removeBranchMutation.mutate({
