@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt};
+use std::fmt;
 
 use crate::theme::{self, Paint};
 use anyhow::{Context as _, bail};
@@ -8,7 +8,10 @@ use but_api::commit::types::{
 };
 use but_core::{DiffSpec, DryRun, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
-use but_hunk_assignment::{HunkAssignment, HunkAssignmentRequest, HunkAssignmentTarget};
+use but_hunk_assignment::{
+    HunkAssignment, HunkAssignmentRequest, HunkAssignmentTarget,
+    diff_specs_from_assignments_with_changes,
+};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 mod amend;
 mod assign;
@@ -309,11 +312,9 @@ impl<'a> UncommittedToCommitOperation<'a> {
     /// Executes this operation without writing any output.
     pub(crate) fn execute_inner(&self, ctx: &mut Context) -> anyhow::Result<CommitCreateResult> {
         let worktree_changes = but_api::diff::changes_in_worktree(ctx)?;
-        let rename_previous_path_by_path = rename_previous_path_by_path(&worktree_changes);
-
-        let changes = diff_specs_from_assignments_with_rename_metadata(
+        let changes = diff_specs_from_assignments_with_changes(
             self.hunk_assignments.iter().copied().cloned(),
-            &rename_previous_path_by_path,
+            &worktree_changes.worktree_changes.changes,
         );
         let changes = but_workspace::flatten_diff_specs(changes);
         but_api::commit::amend::commit_amend(ctx, self.oid, changes, DryRun::No)
@@ -1905,48 +1906,14 @@ fn changes_for_stack_assignment(
     stack_id: Option<StackId>,
 ) -> anyhow::Result<Vec<DiffSpec>> {
     let worktree_changes = but_api::diff::changes_in_worktree(ctx)?;
-    let rename_previous_path_by_path = rename_previous_path_by_path(&worktree_changes);
-
-    let changes = diff_specs_from_assignments_with_rename_metadata(
+    let changes = diff_specs_from_assignments_with_changes(
         worktree_changes
             .assignments
             .into_iter()
             .filter(|assignment| assignment.stack_id == stack_id),
-        &rename_previous_path_by_path,
+        &worktree_changes.worktree_changes.changes,
     );
     Ok(but_workspace::flatten_diff_specs(changes))
-}
-
-fn rename_previous_path_by_path(
-    worktree_changes: &but_hunk_assignment::WorktreeChanges,
-) -> BTreeMap<bstr::BString, bstr::BString> {
-    worktree_changes
-        .worktree_changes
-        .changes
-        .iter()
-        .filter_map(|change| match &change.status {
-            but_core::ui::TreeStatus::Rename {
-                previous_path_bytes,
-                ..
-            } => Some((change.path_bytes.clone(), previous_path_bytes.clone())),
-            _ => None,
-        })
-        .collect()
-}
-
-fn diff_specs_from_assignments_with_rename_metadata(
-    assignments: impl IntoIterator<Item = HunkAssignment>,
-    rename_previous_path_by_path: &BTreeMap<bstr::BString, bstr::BString>,
-) -> Vec<DiffSpec> {
-    assignments
-        .into_iter()
-        .map(|assignment| {
-            let path_bytes = assignment.path_bytes.clone();
-            let mut spec = DiffSpec::from(assignment);
-            spec.previous_path = rename_previous_path_by_path.get(&path_bytes).cloned();
-            spec
-        })
-        .collect()
 }
 
 /// Computes diff specs for changes to `path` in `commit_oid` relative to its first parent.

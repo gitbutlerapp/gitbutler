@@ -410,3 +410,124 @@ fn commit_with_inline_reword() {
     tui.input_then_render(KeyCode::Enter)
         .assert_current_line_eq(str!["┊●   [..] commit message here"]);
 }
+
+#[test]
+fn commit_moved_file_from_unassigned_changes_line() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    // show files in commits
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')));
+
+    // commit test.txt
+    tui.env().file("test.txt", "content");
+    tui.input_then_render('c');
+    tui.input_then_render(KeyCode::Down);
+    tui.input_then_render('i');
+    tui.input_then_render(KeyCode::Enter);
+    tui.input_then_render("add test.txt");
+    tui.input_then_render(KeyCode::Enter);
+
+    // go back to top to normalize inputs
+    tui.input_then_render('g');
+
+    // move the file
+    tui.env().rename_file("test.txt", "moved-test.txt");
+
+    // commit the moved file
+    tui.input_then_render('c');
+    tui.input_then_render(KeyCode::Down);
+    tui.input_then_render('i');
+    tui.input_then_render(KeyCode::Enter);
+    tui.input_then_render("move test.txt to moved-test.txt");
+    tui.input_then_render(KeyCode::Enter);
+
+    // there should be no more changes to commit
+    tui.input_then_render(None)
+        .assert_rendered_contains("zz [unassigned changes] (no changes)");
+}
+
+#[test]
+fn commit_moved_file_from_file_line() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    // show files in commits
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')));
+
+    // commit test.txt
+    tui.env().file("test.txt", "content");
+    tui.input_then_render('c');
+    tui.input_then_render(KeyCode::Down);
+    tui.input_then_render('i');
+    tui.input_then_render(KeyCode::Enter);
+    tui.input_then_render("add test.txt");
+    tui.input_then_render(KeyCode::Enter);
+
+    // go back to top to normalize inputs
+    tui.input_then_render('g');
+
+    // move the file
+    tui.env().rename_file("test.txt", "moved-test.txt");
+
+    // commit the moved file via the file list, not [unassigned changes]
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str![["┊   [..] R moved-test.txt"]]);
+    tui.input_then_render('c');
+    tui.input_then_render(KeyCode::Down);
+    tui.input_then_render('i');
+    tui.input_then_render(KeyCode::Enter);
+    tui.input_then_render("move test.txt to moved-test.txt");
+    tui.input_then_render(KeyCode::Enter);
+
+    // there should be no more changes to commit
+    tui.input_then_render(None)
+        .assert_rendered_contains("zz [unassigned changes] (no changes)");
+}
+
+#[test]
+fn commit_moved_and_modified_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    // show files in commits
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')));
+
+    // commit test.txt
+    tui.env().file("test.txt", "");
+    for _ in 0..100 {
+        tui.env().append_file("test.txt", "content\n");
+    }
+
+    tui.input_then_render('c');
+    tui.input_then_render(KeyCode::Down);
+    tui.input_then_render('i');
+    tui.input_then_render(KeyCode::Enter);
+    tui.input_then_render("add test.txt");
+    tui.input_then_render(KeyCode::Enter);
+
+    // go back to top to normalize inputs
+    tui.input_then_render('g');
+
+    // move and modify the file
+    tui.env().rename_file("test.txt", "moved-test.txt");
+    tui.env().append_file("moved-test.txt", "new content\n");
+
+    // commit the moved file
+    tui.input_then_render('c');
+    tui.input_then_render(KeyCode::Down);
+    tui.input_then_render('i');
+    tui.input_then_render(KeyCode::Enter);
+    tui.input_then_render("move test.txt to moved-test.txt");
+    tui.input_then_render(KeyCode::Enter);
+
+    // there should be no more changes to commit
+    tui.input_then_render(None)
+        .assert_rendered_contains("zz [unassigned changes] (no changes)");
+}

@@ -351,6 +351,16 @@ impl Sandbox {
         self
     }
 
+    /// Rename a file in our projects root.
+    pub fn rename_file(&self, from: impl AsRef<Path>, to: impl AsRef<Path>) -> &Self {
+        std::fs::rename(
+            self.projects_root().join(from),
+            self.projects_root().join(to),
+        )
+        .expect("failed to rename file");
+        self
+    }
+
     /// The root directory of the project itself, either the `workdir` or `gitdir` if the underlying repository is bare.
     pub fn projects_root(&self) -> &Path {
         self.project_root.as_ref().unwrap().path()
