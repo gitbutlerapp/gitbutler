@@ -256,6 +256,10 @@ pub fn create(
     .inner_size(1160.0, 720.0)
     .on_navigation(on_navigate)
     .build()?;
+
+    #[cfg(target_os = "linux")]
+    window.maximize()?;
+
     Ok(window)
 }
 
