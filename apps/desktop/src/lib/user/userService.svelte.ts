@@ -112,7 +112,14 @@ export class UserService {
 	}
 
 	private async getLoginUrl(): Promise<string> {
-		await this.forgetUserCredentials();
+		// Only clear existing credentials when a user is actually signed in.
+		// forgetUserCredentials() has side effects (backend deleteUser call,
+		// telemetry/observability state resets) that should not fire when no
+		// user exists -- the normal case when invoked from the onboarding
+		// "Log in / Sign up" button.
+		if (this.user) {
+			await this.forgetUserCredentials();
+		}
 		try {
 			const loginToken = await this.backendApi.endpoints.getLoginToken.fetch(undefined, {
 				forceRefetch: true,
