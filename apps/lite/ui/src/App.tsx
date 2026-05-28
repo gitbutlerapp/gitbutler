@@ -6,7 +6,7 @@ import { RegisteredRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { Provider } from "react-redux";
 import { store } from "#ui/store.ts";
-import { Toasts } from "#ui/components/Toasts/Toasts.tsx";
+import { Toasts } from "#ui/components/Toasts.tsx";
 import { Updater } from "#ui/Updater.tsx";
 
 const workerFactory = (): Worker =>
