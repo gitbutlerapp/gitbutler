@@ -24,7 +24,7 @@ pub fn delete(
     let branch_arg = {
         let guard = ctx.exclusive_worktree_access();
         let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
-        branch_arg.resolve_branch_arg(ctx, &id_map, Purpose::Branch)
+        branch_arg.resolve_branch_in_workspace(ctx, &id_map)?
     };
 
     let segment = branch_arg.resolve_segment(ctx)?;

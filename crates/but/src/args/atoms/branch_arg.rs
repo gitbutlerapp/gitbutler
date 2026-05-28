@@ -4,10 +4,11 @@ use gix::refs::{Category, FullName};
 
 use crate::{CliError, CliResult, bad_input};
 
+/// An argument atom for branches.
 #[derive(Debug, Clone)]
-pub struct BranchNameArg(pub String);
+pub struct BranchArg(pub String);
 
-impl std::str::FromStr for BranchNameArg {
+impl std::str::FromStr for BranchArg {
     type Err = std::convert::Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -15,17 +16,21 @@ impl std::str::FromStr for BranchNameArg {
     }
 }
 
-impl std::fmt::Display for BranchNameArg {
+impl std::fmt::Display for BranchArg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl BranchNameArg {
+impl BranchArg {
+    /// Resolve the argument to a local branch name like `refs/heads/foo`.
+    ///
+    /// Doesn't check that the branch actually exists.
     pub fn resolve_local_branch_name(&self) -> CliResult<FullName> {
         Ok(Category::LocalBranch.to_full_name(&*self.0)?)
     }
 
+    /// Resolve the argument to its corresponding segment.
     pub fn resolve_segment(
         &self,
         ctx: &but_ctx::Context,
@@ -49,11 +54,13 @@ impl BranchNameArg {
         Ok(segment.clone())
     }
 
+    /// Validate if the argument is suitable for naming new branches.
     pub fn resolve_for_creation(&self, repo: &gix::Repository) -> CliResult<String> {
         check_can_create_branch_with_user_provided_name(repo, &self.0)?;
         Ok(self.0.clone())
     }
 
+    /// Resolve the argument to a branch that exists in the repository.
     pub fn resolve_branch(
         &self,
         ctx: &but_ctx::Context,
@@ -65,6 +72,9 @@ impl BranchNameArg {
         Ok(branch.clone())
     }
 
+    /// Try to resolve the branch to a stack that exists in the workspace.
+    ///
+    /// Returns `None` if the branch can't be found which might be caused it not being applied.
     pub fn try_resolve_stack(&self, ctx: &but_ctx::Context) -> anyhow::Result<Option<StackEntry>> {
         let stacks = but_api::legacy::workspace::stacks(
             ctx,
@@ -79,23 +89,9 @@ impl BranchNameArg {
     }
 }
 
-impl AsRef<str> for BranchNameArg {
+impl AsRef<str> for BranchArg {
     fn as_ref(&self) -> &str {
         self.0.as_ref()
-    }
-}
-
-pub trait OptionBranchNameArgExt {
-    fn resolve_for_creation_or_canned(&self, ctx: &but_ctx::Context) -> CliResult<String>;
-}
-
-impl OptionBranchNameArgExt for Option<BranchNameArg> {
-    fn resolve_for_creation_or_canned(&self, ctx: &but_ctx::Context) -> CliResult<String> {
-        if let Some(branch_name) = self {
-            branch_name.resolve_for_creation(&*ctx.repo.get()?)
-        } else {
-            Ok(but_api::legacy::workspace::canned_branch_name(ctx)?)
-        }
     }
 }
 

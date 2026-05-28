@@ -22,99 +22,165 @@ impl std::fmt::Display for CliIdArg {
 }
 
 impl CliIdArg {
+    /// Resolve the argument to something that exists in the workspace.
+    ///
+    /// Returns an error if attempting to resolve a branch that isn't applied, since its not in the
+    /// workspace.
+    pub fn resolve_in_workspace(
+        &self,
+        ctx: &but_ctx::Context,
+        id_map: &IdMap,
+        purpose: Purpose,
+    ) -> CliResult<ResolvedCliIdArg> {
+        if let Some(id) = self.try_resolve(ctx, id_map, purpose)? {
+            Ok(id)
+        } else {
+            Err(bad_input(format!("Could not find {purpose}: '{self}'")).into())
+        }
+    }
+
+    /// Try and resolve the argument to something that might exist in the workspace.
+    ///
+    /// Returns `Ok(None)` if it doesn't exist in the workspace.
     pub fn try_resolve(
         &self,
         ctx: &but_ctx::Context,
         id_map: &IdMap,
         purpose: Purpose,
-    ) -> CliResult<Option<CliId>> {
-        let mut target_ids = id_map.parse_using_context(&self.0, ctx)?;
-        if target_ids.is_empty() {
+    ) -> CliResult<Option<ResolvedCliIdArg>> {
+        let Some(id) = try_resolve_cli_id(self, ctx, id_map, purpose)? else {
             return Ok(None);
-        }
-        if target_ids.len() > 1 {
-            return Err(bad_input(format!(
-                "Ambiguous {purpose} '{self}', matches multiple items"
-            ))
-            .into());
-        }
-        Ok(Some(target_ids.swap_remove(0)))
-    }
-
-    pub fn resolve(
-        &self,
-        ctx: &but_ctx::Context,
-        id_map: &IdMap,
-        purpose: Purpose,
-    ) -> CliResult<CliId> {
-        if let Some(cli_id) = self.try_resolve(ctx, id_map, purpose)? {
-            Ok(cli_id)
-        } else {
-            Err(bad_input(format!("Could not find {purpose}: {self}")).into())
-        }
-    }
-
-    pub fn resolve_commit_or_branch(
-        &self,
-        ctx: &but_ctx::Context,
-        id_map: &IdMap,
-        purpose: Purpose,
-    ) -> CliResult<CommitOrBranchCliId> {
-        let target_id = self.resolve(ctx, id_map, purpose)?;
-        match target_id {
-            CliId::Commit { commit_id, id } => Ok(CommitOrBranchCliId::Commit { commit_id, id }),
-            CliId::Branch { name, id, stack_id } => {
-                Ok(CommitOrBranchCliId::Branch { name, id, stack_id })
+        };
+        let kind = match id {
+            CliId::Branch { name, .. } => {
+                return Ok(Some(ResolvedCliIdArg::Branch(BranchArg(name))));
             }
-            _ => Err(bad_input(format!(
-                "Invalid {purpose} type: {}, expected commit or branch",
-                target_id.kind_for_humans()
-            ))
-            .into()),
+            CliId::Commit { commit_id, .. } => {
+                return Ok(Some(ResolvedCliIdArg::Commit(commit_id)));
+            }
+            CliId::Uncommitted(..) => "uncommitted file",
+            CliId::PathPrefix { .. } => "path",
+            CliId::CommittedFile { .. } => "committed file",
+            CliId::Unassigned { .. } => "unassigned changes",
+            CliId::Stack { .. } => "stack",
+        };
+        Err(bad_input(format!(
+            "Invalid {purpose} '{self}'. Expected a commit or a branch, got {kind}"
+        ))
+        .into())
+    }
+
+    /// Resolve the argument to a commit that exists in the workspace.
+    pub fn resolve_commit_in_workspace(
+        &self,
+        ctx: &but_ctx::Context,
+        id_map: &IdMap,
+    ) -> CliResult<gix::ObjectId> {
+        if let Some(commit) = self.try_resolve_commit(ctx, id_map)? {
+            Ok(commit)
+        } else {
+            Err(bad_input(format!("Could not find commit: '{self}'")).into())
         }
     }
 
+    /// Try and resolve the argument a commit that might exist in the workspace.
+    ///
+    /// Returns `Ok(None)` if it doesn't exist in the workspace.
+    pub fn try_resolve_commit(
+        &self,
+        ctx: &but_ctx::Context,
+        id_map: &IdMap,
+    ) -> CliResult<Option<gix::ObjectId>> {
+        let Some(id) = try_resolve_cli_id(self, ctx, id_map, Purpose::Branch)? else {
+            return Ok(None);
+        };
+        let kind = match id {
+            CliId::Commit { commit_id, .. } => {
+                return Ok(Some(commit_id));
+            }
+            CliId::Branch { .. } => "a branch",
+            CliId::Uncommitted(..) => "an uncommitted file",
+            CliId::PathPrefix { .. } => "a path",
+            CliId::CommittedFile { .. } => "a committed file",
+            CliId::Unassigned { .. } => "unassigned changes",
+            CliId::Stack { .. } => "a stack",
+        };
+        Err(bad_input(format!("Invalid commit. '{self}' is {kind}")).into())
+    }
+
+    /// Resolve the argument to a branch that exists in the workspace.
+    pub fn resolve_branch_in_workspace(
+        &self,
+        ctx: &but_ctx::Context,
+        id_map: &IdMap,
+    ) -> CliResult<BranchArg> {
+        if let Some(branch) = self.try_resolve_branch(ctx, id_map)? {
+            Ok(branch)
+        } else {
+            Err(bad_input(format!("Could not find branch: '{self}'")).into())
+        }
+    }
+
+    /// Try and resolve the argument a branch that might exist in the workspace.
+    ///
+    /// Returns `Ok(None)` if it doesn't exist in the workspace.
     pub fn try_resolve_branch(
         &self,
         ctx: &but_ctx::Context,
         id_map: &IdMap,
-        purpose: Purpose,
-    ) -> CliResult<Option<Branch>> {
-        let Some(target_id) = self.try_resolve(ctx, id_map, purpose)? else {
+    ) -> CliResult<Option<BranchArg>> {
+        let Some(id) = try_resolve_cli_id(self, ctx, id_map, Purpose::Branch)? else {
             return Ok(None);
         };
-        match target_id {
-            CliId::Branch { name, id, stack_id } => Ok(Some(Branch { name, id, stack_id })),
-            _ => Err(bad_input(format!(
-                "Invalid {purpose} type: {}, expected branch",
-                target_id.kind_for_humans()
-            ))
-            .into()),
-        }
-    }
-
-    pub fn resolve_branch_arg(
-        &self,
-        ctx: &but_ctx::Context,
-        id_map: &IdMap,
-        purpose: Purpose,
-    ) -> BranchNameArg {
-        self.try_resolve_branch(ctx, id_map, purpose)
-            // TODO: IdMap returns an error if you look up single letter ids, however branches
-            // might be single letters which shouldn't be considered an error. We should fix that
-            // so it returns `None` instead of erroring.
-            .ok()
-            .flatten()
-            .map(|branch| BranchNameArg(branch.name))
-            // the branch might be unapplied in which case it wont be in the IdMap
-            .unwrap_or_else(|| BranchNameArg(self.0.clone()))
+        let kind = match id {
+            CliId::Branch { name, .. } => {
+                return Ok(Some(BranchArg(name)));
+            }
+            CliId::Commit { .. } => "a commit",
+            CliId::Uncommitted(..) => "an uncommitted file",
+            CliId::PathPrefix { .. } => "a path",
+            CliId::CommittedFile { .. } => "a committed file",
+            CliId::Unassigned { .. } => "unassigned changes",
+            CliId::Stack { .. } => "a stack",
+        };
+        Err(bad_input(format!("Invalid branch. '{self}' is {kind}")).into())
     }
 }
 
+// intentionally private since callers should use the more specific resolution methods on
+// `CliIdArg`
+//
+// returns `Option` because the IdMap doesn't contain things that aren't in the workspace such as
+// unapplied branches or commits outside the workspace. Lots of commands do support things outside
+// the workspace so we need a specific type for that.
+fn try_resolve_cli_id(
+    arg: &CliIdArg,
+    ctx: &but_ctx::Context,
+    id_map: &IdMap,
+    purpose: Purpose,
+) -> CliResult<Option<CliId>> {
+    let mut target_ids = id_map.parse_using_context(&arg.0, ctx)?.into_iter();
+    let Some(target) = target_ids.next() else {
+        // return Err(bad_input(format!("Could not find {purpose}: '{arg};")).into());
+        return Ok(None);
+    };
+    if target_ids.next().is_some() {
+        return Err(bad_input(format!(
+            "Ambiguous {purpose} '{arg}', matches multiple items"
+        ))
+        .into());
+    }
+    Ok(Some(target))
+}
+
+/// The "purpose" of the resolution. Used in error messages.
 #[derive(Debug, Copy, Clone)]
 pub enum Purpose {
+    #[expect(missing_docs)]
     Anchor,
+    #[expect(missing_docs)]
     Branch,
+    #[expect(missing_docs)]
     Target,
 }
 
