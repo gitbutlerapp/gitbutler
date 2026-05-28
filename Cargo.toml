@@ -320,17 +320,17 @@ git-meta-lib = { version = "0.1.10" }
 gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "b5b2d54d6a63921621d48c492eaa77faf89e8cb5" }
 
 [workspace.lints.clippy]
-all = { level = "deny", priority = -1 }
 # Note that `all` doesn't include everything, so extra lints should be added here.
 # You can try `pedantic = deny` to see those extra lints (alongside `all`).
-uninlined_format_args = "deny"
+all = { level = "deny", priority = -1 }
 # This comes mostly from `thiserror` in `gix`, and it's going to be converted
 # to `Exn`, which will box erorrs and keep them small (much like `anyhow`).
 result_large_err = "allow"
-# This being `deny` is overly strict
+# These being `deny` is overly strict
 unnecessary_mut_passed = "warn"
-# This being `deny` is overly strict
 needless_borrow = "warn"
+explicit_auto_deref = "warn"
+uninlined_format_args = "warn"
 
 [profile.release]
 # There are no overrides here as we optimise for fast release builds,
