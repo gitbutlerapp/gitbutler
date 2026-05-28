@@ -974,6 +974,33 @@ const CommitRow: FC<
 			});
 		},
 	});
+	const commitUncommit = useMutation({
+		mutationFn: window.lite.commitUncommit,
+		onSuccess: async (response, input, _context, mutation) => {
+			mutation.client.setQueryData(
+				headInfoQueryOptions(input.projectId).queryKey,
+				response.workspace.headInfo,
+			);
+			dispatch(
+				projectActions.updateRewrittenCommitReferences({
+					projectId: input.projectId,
+					replacedCommits: response.workspace.replacedCommits,
+					headInfo: response.workspace.headInfo,
+				}),
+			);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to uncommit",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
 	const commitReword = useMutation({
 		mutationFn: window.lite.commitReword,
 		onSuccess: async (response, input, _context, mutation) => {
@@ -1132,6 +1159,17 @@ const CommitRow: FC<
 		enabled: !commitDiscard.isPending,
 		onSelect: deleteCommit,
 	});
+	const uncommitContextMenuItem = nativeMenuItem({
+		label: "Uncommit",
+		enabled: !commitUncommit.isPending,
+		onSelect: () =>
+			commitUncommit.mutate({
+				projectId,
+				assignTo: null,
+				subjectCommitIds: [commit.id],
+				dryRun: false,
+			}),
+	});
 	const setCommitTargetContextMenuItem = nativeMenuItem({
 		label: "Compose Commit Here",
 		accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
@@ -1162,6 +1200,7 @@ const CommitRow: FC<
 		}),
 		nativeMenuSeparator,
 		deleteCommitContextMenuItem,
+		uncommitContextMenuItem,
 	];
 
 	return (

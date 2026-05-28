@@ -2,6 +2,7 @@ import {
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
+	headInfoQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import {
@@ -34,10 +35,10 @@ import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Button } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
-import { mergeProps, useRender } from "@base-ui/react";
+import { mergeProps, Toast, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
 import { AbsorptionTarget, TreeChange } from "@gitbutler/but-sdk";
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Match } from "effect";
 import { ComponentProps, createContext, FC, ReactNode, Suspense, use, useEffect } from "react";
@@ -58,6 +59,8 @@ import {
 import { changesFileHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { assert } from "#ui/assert.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
+import { errorMessageForToast } from "#ui/errors.ts";
+import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 
 const NavigationIndexContext = createContext<NavigationIndex | null>(null);
 
@@ -208,7 +211,8 @@ const CommitFilesTreePanel: FC<{ projectId: string; commit: CommitOperand } & Pa
 
 						{data.changes.length > 0 &&
 							data.changes.map((change) => (
-								<TreeChangeRow
+								<CommitFileRow
+									commitId={commit.commitId}
 									operand={fileOperand({
 										parent: commitFileParent(commit),
 										path: change.path,
@@ -297,7 +301,7 @@ const BranchFilesTreePanel: FC<
 			) : (
 				<div role="group">
 					{branchDiff.changes.map((change) => (
-						<TreeChangeRow
+						<BranchFileRow
 							operand={fileOperand({
 								parent: branchFileParent({ stackId, branchRef }),
 								path: change.path,
@@ -436,6 +440,57 @@ const useCopyPathMenuItem = (relativePath: string): NativeMenuItem => {
 	});
 };
 
+const useUncommitMenuItem = (
+	commitId: string,
+	change: TreeChange,
+	projectId: string,
+): NativeMenuItem => {
+	const dispatch = useAppDispatch();
+
+	const toastManager = Toast.useToastManager();
+
+	const commitUncommitChanges = useMutation({
+		mutationFn: window.lite.commitUncommitChanges,
+		onSuccess: async (response, input, _context, mutation) => {
+			mutation.client.setQueryData(
+				headInfoQueryOptions(input.projectId).queryKey,
+				response.workspace.headInfo,
+			);
+			dispatch(
+				projectActions.updateRewrittenCommitReferences({
+					projectId: input.projectId,
+					replacedCommits: response.workspace.replacedCommits,
+					headInfo: response.workspace.headInfo,
+				}),
+			);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to uncommit",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+
+	return nativeMenuItem({
+		label: "Uncommit",
+		enabled: !commitUncommitChanges.isPending,
+		onSelect: () =>
+			commitUncommitChanges.mutate({
+				projectId,
+				commitId,
+				assignTo: null,
+				changes: [createDiffSpec(change, [])],
+				dryRun: false,
+			}),
+	});
+};
+
 const changeLabel = (change: TreeChange): [enhancedLabel: ReactNode, rawLabel: string] => {
 	const status = Match.value(change.status).pipe(
 		Match.when({ type: "Addition" }, () => "A"),
@@ -501,7 +556,48 @@ const TreeItem: FC<
 	});
 };
 
-const TreeChangeRow: FC<{
+const CommitFileRow: FC<{
+	commitId: string;
+	change: TreeChange;
+	operand: Operand;
+	projectId: string;
+}> = ({ commitId, change, operand, projectId }) => {
+	const [label, strLabel] = changeLabel(change);
+	const copyPathMenuItem = useCopyPathMenuItem(change.path);
+	const uncommitMenuItem = useUncommitMenuItem(commitId, change, projectId);
+	const menuItems: Array<NativeMenuItem> = [
+		copyPathMenuItem,
+		nativeMenuSeparator,
+		uncommitMenuItem,
+	];
+
+	return (
+		<TreeItem
+			projectId={projectId}
+			operand={operand}
+			aria-label={strLabel}
+			render={
+				<OperationSourceC
+					projectId={projectId}
+					selectionScope="files"
+					source={operand}
+					render={<ItemRow projectId={projectId} operand={operand} />}
+				/>
+			}
+		>
+			<div
+				className={workspaceItemRowStyles.itemRowLabel}
+				onContextMenu={(event) => {
+					void showNativeContextMenu(event, menuItems);
+				}}
+			>
+				{label}
+			</div>
+		</TreeItem>
+	);
+};
+
+const BranchFileRow: FC<{
 	change: TreeChange;
 	operand: Operand;
 	projectId: string;
