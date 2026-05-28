@@ -14,6 +14,7 @@ export const handleWatcher = (
 			void client.invalidateQueries({ queryKey: [QueryKey.Branches, projectId] });
 			void client.invalidateQueries({ queryKey: [QueryKey.BranchDetails, projectId] });
 			void client.invalidateQueries({ queryKey: [QueryKey.BranchDiff, projectId] });
+			void client.invalidateQueries({ queryKey: [QueryKey.ChangesInWorktree, projectId] });
 			void client.invalidateQueries({ queryKey: [QueryKey.CommitDetailsWithLineStats, projectId] });
 			void client.invalidateQueries({ queryKey: [QueryKey.DryRun, projectId] });
 			void client.invalidateQueries({ queryKey: [QueryKey.HeadInfo, projectId] });
