@@ -208,7 +208,7 @@ const CommitFilesTreePanel: FC<{ projectId: string; commit: CommitOperand } & Pa
 
 						{data.changes.length > 0 &&
 							data.changes.map((change) => (
-								<TreeChangeRow
+								<CommitFileRow
 									operand={fileOperand({
 										parent: commitFileParent(commit),
 										path: change.path,
@@ -297,7 +297,7 @@ const BranchFilesTreePanel: FC<
 			) : (
 				<div role="group">
 					{branchDiff.changes.map((change) => (
-						<TreeChangeRow
+						<BranchFileRow
 							operand={fileOperand({
 								parent: branchFileParent({ stackId, branchRef }),
 								path: change.path,
@@ -501,7 +501,42 @@ const TreeItem: FC<
 	});
 };
 
-const TreeChangeRow: FC<{
+const CommitFileRow: FC<{
+	change: TreeChange;
+	operand: Operand;
+	projectId: string;
+}> = ({ change, operand, projectId }) => {
+	const [label, strLabel] = changeLabel(change);
+	const copyPathMenuItem = useCopyPathMenuItem(change.path);
+	const menuItems: Array<NativeMenuItem> = [copyPathMenuItem];
+
+	return (
+		<TreeItem
+			projectId={projectId}
+			operand={operand}
+			aria-label={strLabel}
+			render={
+				<OperationSourceC
+					projectId={projectId}
+					selectionScope="files"
+					source={operand}
+					render={<ItemRow projectId={projectId} operand={operand} />}
+				/>
+			}
+		>
+			<div
+				className={workspaceItemRowStyles.itemRowLabel}
+				onContextMenu={(event) => {
+					void showNativeContextMenu(event, menuItems);
+				}}
+			>
+				{label}
+			</div>
+		</TreeItem>
+	);
+};
+
+const BranchFileRow: FC<{
 	change: TreeChange;
 	operand: Operand;
 	projectId: string;
