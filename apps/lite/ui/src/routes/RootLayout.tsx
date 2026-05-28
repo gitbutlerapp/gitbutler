@@ -1,7 +1,7 @@
 import { listProjectsQueryOptions } from "#ui/api/queries.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { lastOpenedProjectKey } from "#ui/projects/last-opened.ts";
-import { PickerDialog } from "#ui/components/PickerDialog/PickerDialog.tsx";
+import { PickerDialog } from "#ui/components/PickerDialog.tsx";
 import { ProjectButton } from "#ui/components/ProjectButton.tsx";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
 import { globalHotkeys } from "#ui/hotkeys.ts";
