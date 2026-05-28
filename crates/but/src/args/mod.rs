@@ -1208,6 +1208,7 @@ pub enum Subcommands {
 }
 
 pub mod alias;
+#[cfg(feature = "legacy")]
 pub mod commit;
 pub mod config;
 pub mod skill;

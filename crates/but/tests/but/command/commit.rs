@@ -1291,6 +1291,43 @@ fn commit_single_hunk_leaves_other_hunks_uncommitted() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn committing_to_existing_branch_with_same_name_as_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    // create a file with the same name as the branch
+    env.file("A", "data");
+
+    env.but("commit -m 'my commit msg' -c A")
+        .assert()
+        .stderr_eq(snapbox::str![[""]])
+        .stdout_eq(snapbox::str![[r#"
+✓ Created commit 500ca64 on branch A
+
+"#]])
+        .success();
+}
+
+#[test]
+fn committing_to_new_branch_with_same_name_as_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("foo", "data");
+
+    // commit to a new branch with the same name as the file
+    env.but("commit -m 'my commit msg' -c foo")
+        .assert()
+        .stderr_eq(snapbox::str![[""]])
+        .stdout_eq(snapbox::str![[r#"
+Created new independent branch 'foo'
+✓ Created commit 5ee3c3d on branch foo
+
+"#]])
+        .success();
+}
+
 /// Helper to build an isolated `std::process::Command` for `but` with the same
 /// environment as the Sandbox test harness.
 /// That way it can be spawned, which isn't possible in the [`Sandbox`] version.

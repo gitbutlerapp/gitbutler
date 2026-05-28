@@ -5,7 +5,7 @@ use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 
 use crate::{
     CliResult, IdMap,
-    args::atoms::{BranchArg, CliIdArg, Purpose, ResolvedCliIdArg},
+    args::atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose},
     theme::{self, Paint},
     utils::OutputChannel,
 };
@@ -72,7 +72,7 @@ pub fn new(
         .clone()
         .and_then(|anchor| {
             anchor
-                .try_resolve(ctx, &id_map, Purpose::Anchor)
+                .try_resolve(ctx, &id_map, Purpose::Anchor, None)
                 .transpose()
         })
         .transpose()?;
@@ -80,14 +80,14 @@ pub fn new(
     let anchor = resolved_anchor
         .clone()
         .map(|anchor| -> CliResult<_> {
-            match anchor {
-                ResolvedCliIdArg::Commit(commit) => {
+            match anchor.into_branch_or_commit()? {
+                BranchOrCommit::Commit(commit) => {
                     Ok(but_api::legacy::stack::create_reference::Anchor::AtCommit {
                         commit_id: HexHash(commit),
                         position: but_workspace::branch::create_reference::Position::Above,
                     })
                 }
-                ResolvedCliIdArg::Branch(BranchArg(name)) => Ok(
+                BranchOrCommit::Branch(BranchArg(name)) => Ok(
                     but_api::legacy::stack::create_reference::Anchor::AtReference {
                         short_name: name.clone(),
                         position: but_workspace::branch::create_reference::Position::Above,

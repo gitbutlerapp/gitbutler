@@ -31,8 +31,9 @@ impl CliIdArg {
         ctx: &but_ctx::Context,
         id_map: &IdMap,
         purpose: Purpose,
+        priority: Option<Priority>,
     ) -> CliResult<ResolvedCliIdArg> {
-        if let Some(id) = self.try_resolve(ctx, id_map, purpose)? {
+        if let Some(id) = self.try_resolve(ctx, id_map, purpose, priority)? {
             Ok(id)
         } else {
             Err(bad_input(format!("Could not find {purpose}: '{self}'")).into())
@@ -47,27 +48,20 @@ impl CliIdArg {
         ctx: &but_ctx::Context,
         id_map: &IdMap,
         purpose: Purpose,
+        priority: Option<Priority>,
     ) -> CliResult<Option<ResolvedCliIdArg>> {
-        let Some(id) = try_resolve_cli_id(self, ctx, id_map, purpose)? else {
+        let Some(id) = try_resolve_cli_id(self, ctx, id_map, purpose, priority)? else {
             return Ok(None);
         };
-        let kind = match id {
-            CliId::Branch { name, .. } => {
-                return Ok(Some(ResolvedCliIdArg::Branch(BranchArg(name))));
-            }
-            CliId::Commit { commit_id, .. } => {
-                return Ok(Some(ResolvedCliIdArg::Commit(commit_id)));
-            }
-            CliId::Uncommitted(..) => "uncommitted file",
-            CliId::PathPrefix { .. } => "path",
-            CliId::CommittedFile { .. } => "committed file",
-            CliId::Unassigned { .. } => "unassigned changes",
-            CliId::Stack { .. } => "stack",
-        };
-        Err(bad_input(format!(
-            "Invalid {purpose} '{self}'. Expected a commit or a branch, got {kind}"
-        ))
-        .into())
+        Ok(Some(match id {
+            CliId::Branch { name, .. } => ResolvedCliIdArg::Branch(BranchArg(name)),
+            CliId::Commit { commit_id, .. } => ResolvedCliIdArg::Commit(commit_id),
+            CliId::Uncommitted(..) => ResolvedCliIdArg::Uncommitted,
+            CliId::PathPrefix { .. } => ResolvedCliIdArg::PathPrefix,
+            CliId::CommittedFile { .. } => ResolvedCliIdArg::CommittedFile,
+            CliId::Unassigned { .. } => ResolvedCliIdArg::Unassigned,
+            CliId::Stack { .. } => ResolvedCliIdArg::Stack,
+        }))
     }
 
     /// Resolve the argument to a commit that exists in the workspace.
@@ -91,7 +85,9 @@ impl CliIdArg {
         ctx: &but_ctx::Context,
         id_map: &IdMap,
     ) -> CliResult<Option<gix::ObjectId>> {
-        let Some(id) = try_resolve_cli_id(self, ctx, id_map, Purpose::Branch)? else {
+        let Some(id) =
+            try_resolve_cli_id(self, ctx, id_map, Purpose::Commit, Some(Priority::Commit))?
+        else {
             return Ok(None);
         };
         let kind = match id {
@@ -129,7 +125,9 @@ impl CliIdArg {
         ctx: &but_ctx::Context,
         id_map: &IdMap,
     ) -> CliResult<Option<BranchArg>> {
-        let Some(id) = try_resolve_cli_id(self, ctx, id_map, Purpose::Branch)? else {
+        let Some(id) =
+            try_resolve_cli_id(self, ctx, id_map, Purpose::Branch, Some(Priority::Branch))?
+        else {
             return Ok(None);
         };
         let kind = match id {
@@ -147,6 +145,21 @@ impl CliIdArg {
     }
 }
 
+/// Which kinds of objects id resolution should prioritize in the event of ambiguity.
+///
+/// For example "foo" might match a branch called "foo" or an uncommitted file called "foo". By
+/// using `Priority::Branch` we'd get the branch.
+///
+/// If there are multiple objects of the same type matched and prioritized (i.e. multiple branches)
+/// then the resolution is still ambiguous.
+#[derive(Copy, Clone, Debug)]
+pub enum Priority {
+    /// Prioritize branches.
+    Branch,
+    /// Prioritize commits.
+    Commit,
+}
+
 // intentionally private since callers should use the more specific resolution methods on
 // `CliIdArg`
 //
@@ -158,19 +171,53 @@ fn try_resolve_cli_id(
     ctx: &but_ctx::Context,
     id_map: &IdMap,
     purpose: Purpose,
+    priority: Option<Priority>,
 ) -> CliResult<Option<CliId>> {
-    let mut target_ids = id_map.parse_using_context(&arg.0, ctx)?.into_iter();
+    let mut target_ids = id_map
+        .parse_using_context(&arg.0, ctx)?
+        .into_iter()
+        .peekable();
     let Some(target) = target_ids.next() else {
-        // return Err(bad_input(format!("Could not find {purpose}: '{arg};")).into());
         return Ok(None);
     };
-    if target_ids.next().is_some() {
-        return Err(bad_input(format!(
-            "Ambiguous {purpose} '{arg}', matches multiple items"
-        ))
-        .into());
+
+    if target_ids.peek().is_none() {
+        return Ok(Some(target));
     }
-    Ok(Some(target))
+
+    if let Some(priority) = priority {
+        let mut commits = Vec::new();
+        let mut branches = Vec::new();
+        for id in std::iter::once(target).chain(target_ids) {
+            match id {
+                CliId::Branch { .. } => branches.push(id),
+                CliId::Commit { .. } => commits.push(id),
+                CliId::Uncommitted(..)
+                | CliId::PathPrefix { .. }
+                | CliId::CommittedFile { .. }
+                | CliId::Unassigned { .. }
+                | CliId::Stack { .. } => {}
+            }
+        }
+
+        match priority {
+            Priority::Branch => {
+                if branches.len() == 1 {
+                    return Ok(Some(branches.pop().unwrap()));
+                }
+            }
+            Priority::Commit => {
+                if commits.len() == 1 {
+                    return Ok(Some(commits.pop().unwrap()));
+                }
+            }
+        }
+    }
+
+    Err(bad_input(format!(
+        "Ambiguous {purpose} '{arg}', matches multiple items"
+    ))
+    .into())
 }
 
 /// The "purpose" of the resolution. Used in error messages.
@@ -181,6 +228,8 @@ pub enum Purpose {
     #[expect(missing_docs)]
     Branch,
     #[expect(missing_docs)]
+    Commit,
+    #[expect(missing_docs)]
     Target,
 }
 
@@ -190,6 +239,7 @@ impl std::fmt::Display for Purpose {
             Purpose::Anchor => f.write_str("anchor"),
             Purpose::Branch => f.write_str("branch"),
             Purpose::Target => f.write_str("target"),
+            Purpose::Commit => f.write_str("commit"),
         }
     }
 }
@@ -201,6 +251,34 @@ pub enum ResolvedCliIdArg {
     Commit(gix::ObjectId),
     #[expect(missing_docs)]
     Branch(BranchArg),
+    // These have no data because we don't have any commands that use them. So just add data if you
+    // have a use case
+    #[expect(missing_docs)]
+    Uncommitted,
+    #[expect(missing_docs)]
+    PathPrefix,
+    #[expect(missing_docs)]
+    CommittedFile,
+    #[expect(missing_docs)]
+    Unassigned,
+    #[expect(missing_docs)]
+    Stack,
+}
+
+impl ResolvedCliIdArg {
+    /// Convert this into either a branch or a commit.
+    pub fn into_branch_or_commit(self) -> CliResult<BranchOrCommit> {
+        let kind = match self {
+            ResolvedCliIdArg::Commit(commit) => return Ok(BranchOrCommit::Commit(commit)),
+            ResolvedCliIdArg::Branch(branch) => return Ok(BranchOrCommit::Branch(branch)),
+            ResolvedCliIdArg::Uncommitted => "an uncommitted file",
+            ResolvedCliIdArg::PathPrefix => "a path",
+            ResolvedCliIdArg::CommittedFile => "a committed file",
+            ResolvedCliIdArg::Unassigned => "unassigned changes",
+            ResolvedCliIdArg::Stack => "a stack",
+        };
+        Err(bad_input(format!("Expected a commit or a branch, got {kind}")).into())
+    }
 }
 
 impl std::fmt::Display for ResolvedCliIdArg {
@@ -208,6 +286,21 @@ impl std::fmt::Display for ResolvedCliIdArg {
         match self {
             ResolvedCliIdArg::Commit(inner) => inner.to_hex_with_len(7).fmt(f),
             ResolvedCliIdArg::Branch(inner) => inner.fmt(f),
+            ResolvedCliIdArg::Uncommitted => f.write_str("uncommitted file"),
+            ResolvedCliIdArg::PathPrefix => f.write_str("path"),
+            ResolvedCliIdArg::CommittedFile => f.write_str("committed file"),
+            ResolvedCliIdArg::Unassigned => f.write_str("unassigned changes"),
+            ResolvedCliIdArg::Stack => f.write_str("stack"),
         }
     }
+}
+
+/// Most commands need cli ids that point to either branches or commits.
+/// [`ResolvedCliIdArg::into_branch_or_commit`] facilitates that via this enum.
+#[derive(Debug, Clone)]
+pub enum BranchOrCommit {
+    #[expect(missing_docs)]
+    Commit(gix::ObjectId),
+    #[expect(missing_docs)]
+    Branch(BranchArg),
 }

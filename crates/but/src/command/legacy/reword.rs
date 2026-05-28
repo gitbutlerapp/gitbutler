@@ -14,7 +14,7 @@ use super::{
 };
 use crate::{
     CliResult, IdMap,
-    args::atoms::{BranchArg, CliIdArg, Purpose, ResolvedCliIdArg},
+    args::atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose},
     tui,
     utils::OutputChannel,
 };
@@ -30,10 +30,10 @@ pub(crate) fn reword_target(
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
-    let target = target.resolve_in_workspace(ctx, &id_map, Purpose::Target)?;
+    let target = target.resolve_in_workspace(ctx, &id_map, Purpose::Target, None)?;
 
-    match target {
-        ResolvedCliIdArg::Branch(BranchArg(name)) => {
+    match target.into_branch_or_commit()? {
+        BranchOrCommit::Branch(BranchArg(name)) => {
             if format {
                 return Err(anyhow::anyhow!(
                     "--format flag can only be used with commits, not branches"
@@ -48,7 +48,7 @@ pub(crate) fn reword_target(
             }
             edit_branch_name(ctx, &name, out, message, guard.write_permission())?;
         }
-        ResolvedCliIdArg::Commit(commit) => {
+        BranchOrCommit::Commit(commit) => {
             edit_commit_message_by_id_and_reword_commit(
                 ctx,
                 commit,
