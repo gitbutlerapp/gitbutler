@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Write as _};
+use std::{borrow::Cow, collections::BTreeMap, fmt::Write as _};
 
 use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
@@ -25,14 +25,58 @@ use crate::{
 pub(crate) fn insert_blank_commit(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
-    target: &str,
-    insert_side: InsertSide,
+    target: Option<&str>,
+    before: Option<&str>,
+    after: Option<&str>,
 ) -> crate::CliResult<()> {
+    let (target, insert_side): (Cow<'_, str>, _) = if let Some(t) = before {
+        (t.into(), InsertSide::Below)
+    } else if let Some(t) = after {
+        (t.into(), InsertSide::Above)
+    } else if let Some(t) = target {
+        // Default to --before behavior when using positional argument
+        (t.into(), InsertSide::Below)
+    } else {
+        // No arguments provided - default to inserting at top of first branch
+
+        let stack_entries = workspace::stacks(ctx, None)?;
+        let stacks: Vec<(
+            but_core::ref_metadata::StackId,
+            but_workspace::ui::StackDetails,
+        )> = stack_entries
+            .iter()
+            .filter_map(|s| {
+                s.id.and_then(|id| {
+                    workspace::stack_details(ctx, Some(id))
+                        .ok()
+                        .map(|details| (id, details))
+                })
+            })
+            .collect();
+
+        // Find the first stack with branches and convert BString to String
+        let branch_name = stacks
+            .iter()
+            .find_map(|(_, stack_details)| {
+                stack_details
+                    .branch_details
+                    .first()
+                    .map(|b| b.name.to_string())
+            })
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "No branches found. Create a branch first or specify a target explicitly."
+                )
+            })?;
+
+        (branch_name.into(), InsertSide::Below)
+    };
+
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
     // Resolve the target ID
-    let cli_ids = id_map.parse_using_context(target, ctx)?;
+    let cli_ids = id_map.parse_using_context(&target, ctx)?;
 
     if cli_ids.is_empty() {
         return Err(bad_input(format!("Target '{target}' not found")).into());
@@ -48,9 +92,6 @@ pub(crate) fn insert_blank_commit(
 
     let cli_id = &cli_ids[0];
 
-    // Determine the position description for the success message
-    // Note: InsertSide::Above inserts as a child (after in time),
-    // InsertSide::Below inserts as a parent (before in time)
     let position_desc = match insert_side {
         InsertSide::Above => "after",
         InsertSide::Below => "before",
