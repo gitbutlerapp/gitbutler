@@ -412,13 +412,11 @@ async fn do_capture(
         return Ok(());
     }
 
-    let id = if let Some(id) = app_settings.telemetry.app_distinct_id.clone() {
-        id
-    } else if app_settings.telemetry.app_non_anon_metrics_enabled {
-        machine()
-    } else {
-        "anonymous".to_string()
-    };
+    let id = app_settings
+        .telemetry
+        .app_distinct_id
+        .clone()
+        .unwrap_or_else(machine);
     let mut posthog_event = posthog_rs::Event::new(event.event_name.to_string(), id);
     for (key, prop) in event.props {
         let _ = posthog_event.insert_prop(key, prop);

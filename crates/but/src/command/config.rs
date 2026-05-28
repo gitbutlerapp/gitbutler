@@ -324,7 +324,6 @@ pub(crate) async fn metrics_config(
             let update = TelemetryUpdate {
                 app_metrics_enabled: Some(enabled),
                 app_error_reporting_enabled: None,
-                app_non_anon_metrics_enabled: None,
             };
 
             app_settings_sync.update_telemetry(update)?;
