@@ -13,7 +13,9 @@ use gitbutler_repo::hooks;
 
 use super::{ShowDiffInEditor, estimate_diff_blob_size};
 use crate::{
-    CliId, IdMap, bad_input,
+    CliId, CliResult, IdMap,
+    args::atoms::{BranchArg, CliIdArg, Priority, Purpose, ResolvedCliIdArg},
+    bad_input,
     command::legacy::status::assignment::{CLIHunkAssignment, FileAssignment},
     theme::{self, Paint},
     tui,
@@ -323,7 +325,7 @@ pub(crate) fn commit(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     message: Option<&str>,
-    branch_hint: Option<&str>,
+    branch_arg: Option<CliIdArg>,
     file_ids: &[String],
     only: bool,
     all: bool,
@@ -331,9 +333,30 @@ pub(crate) fn commit(
     no_hooks: bool,
     generate_message: Option<Option<String>>,
     show_diff_in_editor: ShowDiffInEditor,
-) -> anyhow::Result<()> {
+) -> CliResult<()> {
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+
+    let branch_hint = if let Some(branch_arg) = branch_arg {
+        if let Some(id) =
+            branch_arg.try_resolve(ctx, &id_map, Purpose::Branch, Some(Priority::Branch))?
+        {
+            match id {
+                ResolvedCliIdArg::Branch(BranchArg(branch)) => Some(branch),
+                ResolvedCliIdArg::Commit(..)
+                | ResolvedCliIdArg::Uncommitted
+                | ResolvedCliIdArg::PathPrefix
+                | ResolvedCliIdArg::CommittedFile
+                | ResolvedCliIdArg::Unassigned
+                | ResolvedCliIdArg::Stack => Some(branch_arg.0),
+            }
+        } else {
+            let repo = ctx.repo.get()?;
+            Some(BranchArg(branch_arg.0).resolve_for_creation(&repo)?)
+        }
+    } else {
+        None
+    };
 
     let t = theme::get();
 
@@ -359,14 +382,17 @@ pub(crate) fn commit(
 
     // In JSON mode with multiple branches, require branch specification
     if out.for_json().is_some() && stacks.len() > 1 && branch_hint.is_none() {
-        bail!("Multiple branches found. Specify a branch to commit to using the branch argument");
+        return Err(anyhow::anyhow!(
+            "Multiple branches found. Specify a branch to commit to using the branch argument"
+        )
+        .into());
     }
 
     let (target_stack_id, target_stack) = select_stack(
         &id_map,
         ctx,
         &stacks,
-        branch_hint,
+        branch_hint.as_deref(),
         create_branch,
         out,
         guard.write_permission(),
@@ -407,7 +433,7 @@ pub(crate) fn commit(
     };
 
     if files_to_commit.is_empty() {
-        bail!("No changes to commit.")
+        return Err(anyhow::anyhow!("No changes to commit.").into());
     }
 
     // Convert files to DiffSpec early so we can run pre-commit hooks before prompting for message
@@ -423,10 +449,11 @@ pub(crate) fn commit(
                 // Hook passed or not configured, proceed with commit
             }
             hooks::HookResult::Failure(error_data) => {
-                bail!(
+                return Err(anyhow::anyhow!(
                     "pre-commit hook failed:\n{}\n\nTo bypass the hook, run: but commit --no-hooks",
                     error_data.error
-                );
+                )
+                .into());
             }
         }
     }
@@ -441,15 +468,15 @@ pub(crate) fn commit(
         // In JSON mode, we should have already validated that a message was provided
         // This is a safeguard in case the validation was missed
         if out.for_json().is_some() {
-            bail!(
+            return Err(anyhow::anyhow!(
                 "In JSON mode, a commit message must be provided via --message (-m), --message-file, or --ai (-i)"
-            );
+            ).into());
         }
         get_commit_message_from_editor(ctx, &files_to_commit, &changes, show_diff_in_editor)?
     };
 
     if commit_message.trim().is_empty() {
-        bail!("Aborting commit due to empty commit message.");
+        return Err(anyhow::anyhow!("Aborting commit due to empty commit message.").into());
     }
 
     // Run commit-msg hook unless --no-hooks was specified
@@ -470,10 +497,11 @@ pub(crate) fn commit(
                 commit_message
             }
             gitbutler_repo::hooks::MessageHookResult::Failure(error_data) => {
-                bail!(
+                return Err(anyhow::anyhow!(
                     "commit-msg hook failed:\n{}\n\nTo bypass the hook, run: but commit --no-hooks",
                     error_data.error
-                );
+                )
+                .into());
             }
         }
     } else {
@@ -481,15 +509,15 @@ pub(crate) fn commit(
     };
 
     // If a branch hint was provided, find that specific branch; otherwise use first branch
-    let target_branch = if let Some(hint) = branch_hint {
+    let target_branch = if let Some(branch_hint) = branch_hint.as_deref() {
         // First try exact name match
         target_stack
             .branch_details
             .iter()
-            .find(|branch| branch.name == hint)
+            .find(|branch| branch.name == branch_hint)
             .or_else(|| {
                 // If no exact match, try to parse as CLI ID and match
-                if let Ok(cli_ids) = id_map.parse_using_context(hint, ctx) {
+                if let Ok(cli_ids) = id_map.parse_using_context(branch_hint, ctx) {
                     for cli_id in cli_ids {
                         if let CliId::Branch { name, .. } = cli_id
                             && let Some(branch) =
@@ -501,7 +529,7 @@ pub(crate) fn commit(
                 }
                 None
             })
-            .ok_or_else(|| anyhow::anyhow!("Branch '{hint}' not found in target stack"))?
+            .ok_or_else(|| anyhow::anyhow!("Branch '{branch_hint}' not found in target stack"))?
     } else {
         // No branch hint, use first branch (HEAD of stack)
         target_stack

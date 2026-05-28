@@ -949,7 +949,7 @@ async fn match_subcommand(
                         &mut ctx,
                         out,
                         commit_message.as_deref(),
-                        commit_args.branch.as_deref(),
+                        commit_args.branch,
                         &commit_args.changes,
                         commit_args.only,
                         commit_args.all,
@@ -959,7 +959,6 @@ async fn match_subcommand(
                         ShowDiffInEditor::from_args(commit_args.diff, commit_args.no_diff)
                             .unwrap_or(ShowDiffInEditor::Unspecified),
                     )
-                    .map_err(CliError::from)
                     .emit_metrics(metrics_ctx)
                 }
             };
