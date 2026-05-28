@@ -110,8 +110,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         return Ok(());
     }
 
-    // Expand aliases before parsing arguments
-    let args = alias::expand_aliases(args)?;
+    let args = expand_aliases(args)?;
 
     // The `but push --help` output is different if gerrit mode is enabled, hence the special handling
     let args_vec: Vec<String> = std::env::args().collect();
@@ -189,9 +188,10 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         None => {
             // No arguments means run the default alias
             // The default alias expands to "status" which provides a helpful entry point
-            let default_args = vec![OsString::from("but"), OsString::from("default")];
-            let expanded = alias::expand_aliases(default_args)?;
-            let mut default_alias_args: Args = clap::Parser::parse_from(expanded);
+            let mut default_args: Vec<OsString> = vec!["but".into()];
+            let expanded_alias = alias::expand_alias("default")?;
+            default_args.extend_from_slice(&expanded_alias);
+            let mut default_alias_args: Args = clap::Parser::parse_from(default_args);
 
             // Preserve globals from the default alias, while letting explicit user globals
             // take precedence (e.g. `but -C <dir>` without a subcommand).
@@ -246,6 +246,67 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         }
         Ok(()) => Ok(()),
     }
+}
+
+/// Expand aliases in the argument list.
+///
+/// The parser treats aliases in the same way as external subcommands, so they end up inside of
+/// [`Subcommands::External`]. Anytime we find an external subcommand, we attempt to expand the
+/// first word in the command string as an alias.
+///
+/// Note that root options are consumed by the parser separatly from [`Subcommands::External`], so
+/// e.g.
+///
+/// This also has the intended effect of allowing aliases to shadow external commands. For example,
+/// if there is an external command `but-b` on the PATH and an alias `b=branch`, then `but b` will
+/// expand to `but branch` rather than be executid as `but-b`.
+///
+/// Cargo considers this shadowing behavior to be a security concern due to the fact that Cargo
+/// aliases can be defined in the worktree of a repository (see
+/// https://github.com/rust-lang/cargo/issues/10049). We don't have that problem as `but` aliases
+/// can only ever be defined in Git config, which is trusted and does not follow with clones.
+///
+/// Note that at present, aliases are resolved from the real working directory ("."). If you pass
+/// `-C /repo`, aliases from `/repo` are _not_ resolved.
+///
+/// # Examples
+///
+/// ```bash
+/// # Set up aliases
+/// but alias add b branch
+/// but alias add bl 'branch list --local'
+///
+/// # Use them
+/// but b                       # Expands to: but branch
+/// but bl                      # Expands to: but branch list --local
+/// but bl --review             # Expands to: but branch list --local --review
+/// but -C /repo bl --review    # Expands to: but branch -C /repo list --local --review
+/// ```
+///
+fn expand_aliases(args: Vec<OsString>) -> Result<Vec<OsString>, anyhow::Error> {
+    let args = {
+        match &Args::parse_from(&args).cmd {
+            Some(Subcommands::External(subcommand_args))
+                if let Some(command_name) = subcommand_args.first() =>
+            {
+                if let Some(command_name) = command_name.to_str() {
+                    let subcommand_start = args.len() - subcommand_args.len();
+                    let expanded = alias::expand_alias(command_name)?;
+                    Vec::<OsString>::new()
+                        .iter()
+                        .chain(args[..subcommand_start].iter())
+                        .chain(expanded.iter())
+                        .chain(args[subcommand_start + 1..].iter())
+                        .cloned()
+                        .collect()
+                } else {
+                    args
+                }
+            }
+            _ => args,
+        }
+    };
+    Ok(args)
 }
 
 fn print_and_exit_non_zero<T: std::fmt::Display>(err: T) -> ! {
