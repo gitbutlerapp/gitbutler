@@ -46,6 +46,7 @@ attached to posthog events.
 		eventContext.update({
 			v3: true,
 			rules: $settingsService?.featureFlags.rules,
+			unapplyV3: $settingsService?.featureFlags.unapplyV3,
 		});
 	});
 </script>
