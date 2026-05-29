@@ -546,7 +546,7 @@ fn is_section_header(line: &StatusOutputLine, mode: &Mode) -> bool {
         | Mode::Command(..)
         | Mode::Commit(..)
         | Mode::Move(..)
-        | Mode::Details => {
+        | Mode::Details(..) => {
             matches!(
                 line.data,
                 StatusOutputLineData::Branch { .. }
@@ -696,7 +696,7 @@ pub(super) fn is_selectable_in_mode(
                 return true;
             }
         }
-        Mode::Command(..) | Mode::InlineReword(..) | Mode::Normal(..) | Mode::Details => {}
+        Mode::Command(..) | Mode::InlineReword(..) | Mode::Normal(..) | Mode::Details(..) => {}
     }
 
     if let Mode::Normal(normal_mode) = mode
@@ -732,7 +732,7 @@ pub(super) fn is_selectable_in_mode(
     }
 
     match mode {
-        Mode::Normal(..) | Mode::Details => match show_files_flag {
+        Mode::Normal(..) | Mode::Details(..) => match show_files_flag {
             FilesStatusFlag::None | FilesStatusFlag::All => true,
             FilesStatusFlag::Commit(object_id) => {
                 if let Some(cli_id) = line.data.cli_id()

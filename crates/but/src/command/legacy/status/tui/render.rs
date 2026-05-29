@@ -22,7 +22,6 @@ use crate::{
 use super::{
     App, CURSOR_CONTEXT_ROWS, Modal, NOOP,
     cursor::is_selectable_in_mode,
-    details::DetailsVisibility,
     graph_extension::{ExtensionDirection, extend_connector_spans},
     highlight::with_highlight,
     mode::{
@@ -49,36 +48,41 @@ pub(super) fn render_app(app: &App, frame: &mut Frame) {
 
     let status_layout = status_layout(app, main_content_area);
 
-    let dimmed_block = Block::bordered()
-        .border_style(app.theme.border)
-        .border_type(BorderType::Plain)
-        .borders(Borders::BOTTOM);
-    let focused_block = Block::bordered()
-        .border_style(app.theme.default.fg(app.mode.bg(app.theme)))
-        .border_type(BorderType::Thick)
-        .borders(Borders::BOTTOM);
-
-    let (status_block, details_block) = if matches!(&*app.mode, Mode::Details) {
-        (dimmed_block, focused_block)
-    } else {
-        (focused_block, dimmed_block)
-    };
-
+    if let Mode::Details(details_mode) = &*app.mode
+        && details_mode.full_screen
     {
-        let inner_area = status_block.inner(status_layout.status_area);
-        frame.render_widget(status_block, status_layout.status_area);
-        render_status(app, inner_area, frame);
-    }
-
-    if let Some(details_area) = status_layout.details_area {
-        let inner_area = details_block.inner(details_area);
-        frame.render_widget(details_block, details_area);
+        let block = pane_block(app, true, Borders::BOTTOM);
+        let inner_area = block.inner(status_layout.status_area);
+        frame.render_widget(block, status_layout.status_area);
         app.details.render(
             matches!(app.modal, Some(Modal::Help { .. })),
             app.has_focus,
             inner_area,
             frame,
         );
+    } else {
+        let details_focused = matches!(&*app.mode, Mode::Details(..));
+        let status_block = pane_block(app, !details_focused, Borders::BOTTOM);
+        let details_block = pane_block(app, details_focused, Borders::BOTTOM);
+
+        {
+            let inner_area = status_block.inner(status_layout.status_area);
+            frame.render_widget(status_block, status_layout.status_area);
+            render_status(app, inner_area, frame);
+        }
+
+        if let Some(details_area) = status_layout.details_area {
+            let inner_area = details_content_area(app, details_area);
+            let details_separator_area = details_block.inner(details_area);
+            frame.render_widget(details_block, details_area);
+            render_details_separator(app, details_separator_area, frame);
+            app.details.render(
+                matches!(app.modal, Some(Modal::Help { .. })),
+                app.has_focus,
+                inner_area,
+                frame,
+            );
+        }
     }
 
     if let Some(debug_area) = debug_area {
@@ -111,17 +115,63 @@ pub(super) fn render_app(app: &App, frame: &mut Frame) {
     }
 }
 
+fn render_details_separator(app: &App, area: Rect, frame: &mut Frame) {
+    frame.render_widget(details_separator(app), area);
+}
+
+fn details_content_area(app: &App, details_area: Rect) -> Rect {
+    let details_area = pane_block(
+        app,
+        matches!(&*app.mode, Mode::Details(..)),
+        Borders::BOTTOM,
+    )
+    .inner(details_area);
+    details_separator(app).inner(details_area)
+}
+
+fn details_separator(app: &App) -> Block<'static> {
+    Block::bordered()
+        .border_style(app.theme.border)
+        .borders(Borders::LEFT)
+}
+
+fn pane_block(app: &App, focused: bool, borders: Borders) -> Block<'static> {
+    let border_style = if focused {
+        app.theme.default.fg(app.mode.bg(app.theme))
+    } else {
+        app.theme.border
+    };
+    let border_type = if focused {
+        BorderType::Thick
+    } else {
+        BorderType::Plain
+    };
+
+    Block::bordered()
+        .border_style(border_style)
+        .border_type(border_type)
+        .borders(borders)
+}
+
 pub(super) fn status_layout(app: &App, area: Rect) -> StatusLayout {
-    let (status_area, details_area) = match app.details.visibility() {
-        DetailsVisibility::Hidden => (area, None),
-        DetailsVisibility::VisibleVertical => {
-            let layout = Layout::horizontal([
-                Constraint::Percentage(app.status_width_percentage),
-                Constraint::Percentage(100 - app.status_width_percentage),
-            ])
-            .split(area);
-            (layout[0], Some(layout[1]))
-        }
+    if let Mode::Details(details_mode) = &*app.mode
+        && details_mode.full_screen
+    {
+        return StatusLayout {
+            status_area: area,
+            details_area: None,
+        };
+    }
+
+    let (status_area, details_area) = if app.is_details_visible {
+        let layout = Layout::horizontal([
+            Constraint::Percentage(app.status_width_percentage),
+            Constraint::Percentage(100 - app.status_width_percentage),
+        ])
+        .split(area);
+        (layout[0], Some(layout[1]))
+    } else {
+        (area, None)
     };
 
     StatusLayout {
@@ -200,7 +250,7 @@ pub(super) fn render_status_list_item(
         line.extend([Span::raw("<< discard >>").black().on_red(), Span::raw(" ")]);
     } else if is_selected {
         match &*app.mode {
-            Mode::Normal(..) | Mode::InlineReword(..) | Mode::Command(..) | Mode::Details => {}
+            Mode::Normal(..) | Mode::InlineReword(..) | Mode::Command(..) | Mode::Details(..) => {}
             Mode::Rub(RubMode {
                 source,
                 how_to_combine_messages,
@@ -235,7 +285,7 @@ pub(super) fn render_status_list_item(
         }
     } else {
         match &*app.mode {
-            Mode::Normal(..) | Mode::InlineReword(..) | Mode::Command(..) | Mode::Details => {}
+            Mode::Normal(..) | Mode::InlineReword(..) | Mode::Command(..) | Mode::Details(..) => {}
             Mode::Rub(RubMode {
                 source,
                 how_to_combine_messages: _,
@@ -361,7 +411,7 @@ pub(super) fn render_status_list_item(
             }
         }
         Mode::Normal(..)
-        | Mode::Details
+        | Mode::Details(..)
         | Mode::Move(..)
         | Mode::Command(..)
         | Mode::Rub(..)
@@ -450,7 +500,7 @@ pub(super) fn render_status_list_item(
                 }
             }
             Mode::Normal(..)
-            | Mode::Details
+            | Mode::Details(..)
             | Mode::Rub(..)
             | Mode::InlineReword(..)
             | Mode::Command(..) => {}
@@ -610,7 +660,7 @@ fn render_hotbar(app: &App, area: Rect, frame: &mut Frame) {
 
     match &*app.mode {
         Mode::Normal(..)
-        | Mode::Details
+        | Mode::Details(..)
         | Mode::Rub(..)
         | Mode::Commit(..)
         | Mode::Move(..)
@@ -1002,6 +1052,7 @@ pub(super) fn details_viewport(app: &App, terminal_area: Rect) -> Rect {
     let content_area = status_content_area(terminal_area);
     status_layout(app, content_area)
         .details_area
+        .map(|details_area| details_content_area(app, details_area))
         .unwrap_or(content_area)
 }
 

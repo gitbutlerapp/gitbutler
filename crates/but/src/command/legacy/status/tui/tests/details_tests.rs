@@ -1,6 +1,6 @@
 use but_testsupport::Sandbox;
 use crossterm::event::{KeyCode, KeyModifiers};
-use snapbox::file;
+use snapbox::{file, str};
 use temp_env::with_var;
 
 use crate::command::legacy::status::tui::tests::utils::{test_tui, test_tui_with_size};
@@ -269,4 +269,251 @@ fn details_cursor_stays_visible_after_resizing() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/details_cursor_stays_visible_after_resizing_001.svg"
         ]);
+}
+
+#[test]
+fn toggle_full_screen_details_view() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("file.txt", "content");
+
+    let mut tui = test_tui(env);
+
+    // can open details with shift+d
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/toggle_full_screen_details_view_for_commit_showing_full_screen_details.svg"
+        ]);
+
+    // full screen details don't close when pressing h
+    tui.input_then_render('h')
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/toggle_full_screen_details_view_for_commit_showing_full_screen_details.svg"
+        ]);
+
+    // can close details with shift+d
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/toggle_full_screen_details_view_for_commit_closed_full_screen_details.svg"
+        ]);
+
+    // can close full screen details with escape
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/toggle_full_screen_details_view_for_commit_showing_full_screen_details.svg"
+        ]);
+    tui.input_then_render(KeyCode::Esc)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/toggle_full_screen_details_view_for_commit_closed_full_screen_details.svg"
+        ]);
+
+    // can close full screen details with d
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/toggle_full_screen_details_view_for_commit_showing_full_screen_details.svg"
+        ]);
+    tui.input_then_render('d')
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/toggle_full_screen_details_view_for_commit_closed_full_screen_details.svg"
+        ]);
+
+    // shift+d with split details in normal mode opens full screen details
+    tui.input_then_render('d')
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/toggle_full_screen_details_view_for_commit_split_details.svg"
+        ]);
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/toggle_full_screen_details_view_for_commit_showing_full_screen_details.svg"
+        ]);
+    tui.input_then_render(KeyCode::Esc)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/toggle_full_screen_details_view_for_commit_closed_full_screen_details.svg"
+        ]);
+
+    // shift+d with split details in details mode opens full screen details
+    tui.input_then_render('d')
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/toggle_full_screen_details_view_for_commit_split_details.svg"
+        ]);
+    tui.input_then_render('l')
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/toggle_full_screen_details_view_for_commit_split_details_mode.svg"
+        ]);
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/toggle_full_screen_details_view_for_commit_showing_full_screen_details.svg"
+        ]);
+    tui.input_then_render(KeyCode::Esc)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/toggle_full_screen_details_view_for_commit_closed_full_screen_details.svg"
+        ]);
+}
+
+#[test]
+fn rubbing_from_full_screen_details() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("file.txt", "content");
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/rubbing_from_full_screen_details_details_open.svg"
+        ]);
+
+    // avoid `input_then_render` here: its synthetic reload resets the details
+    // selection that the idle frame below lets us establish.
+    tui.render_with_messages(None, Vec::new());
+    tui.render_with_messages('r', Vec::new())
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/rubbing_from_full_screen_details_rubbing.svg"
+        ]);
+
+    tui.input_then_render('j')
+        .assert_current_line_eq(str![["┊●   << amend >> [..] add A[..]"]]);
+
+    // The details view should close. The split shouldn't show either
+    tui.input_then_render(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/rubbing_from_full_screen_details_final.svg"
+        ]);
+}
+
+#[test]
+fn rubbing_from_split_details() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("file.txt", "content");
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('l')
+        .assert_rendered_term_svg_eq(file!["snapshots/rubbing_from_split_details_open.svg"]);
+
+    // avoid `input_then_render` here: its synthetic reload resets the details
+    // selection that the idle frame below lets us establish.
+    tui.render_with_messages(None, Vec::new());
+    tui.render_with_messages('r', Vec::new())
+        .assert_rendered_term_svg_eq(file!["snapshots/rubbing_from_split_details_rubbing.svg"]);
+
+    tui.input_then_render('j')
+        .assert_current_line_eq(str![["┊●   << amend >> [..] add A[..]"]]);
+
+    // the details view should remain open
+    tui.input_then_render(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file!["snapshots/rubbing_from_split_details_final.svg"]);
+}
+
+#[test]
+fn details_view_with_no_changes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')));
+
+    tui.render_with_messages(None, Vec::new())
+        .assert_rendered_contains("No changes");
+}
+
+#[test]
+fn unfocusing_split_details_with_escape() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("file.txt", "content");
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('l')
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/unfocusing_split_details_with_escape_focused.svg"
+        ]);
+
+    tui.input_then_render(KeyCode::Esc)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/unfocusing_split_details_with_escape_unfocused.svg"
+        ]);
+}
+
+#[test]
+fn close_split_details_with_escape() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("file.txt", "content");
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('d')
+        .assert_rendered_term_svg_eq(file!["snapshots/close_split_details_with_escape_open.svg"]);
+
+    tui.input_then_render(KeyCode::Esc)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/close_split_details_with_escape_closed.svg"
+        ]);
+}
+
+#[test]
+fn escape_after_toggling_split_details_closed_does_not_reopen_details() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("file.txt", "content");
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('d');
+    tui.input_then_render('d');
+
+    tui.input_then_render(KeyCode::Esc)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/close_split_details_with_escape_closed.svg"
+        ]);
+}
+
+#[test]
+fn escape_after_toggling_full_screen_details_closed_does_not_reopen_details() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("file.txt", "content");
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')));
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')));
+
+    tui.input_then_render(KeyCode::Esc)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/toggle_full_screen_details_view_for_commit_closed_full_screen_details.svg"
+        ]);
+}
+
+#[test]
+fn open_and_focus_details_split_can_be_closed_with_esc() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("file.txt", "content");
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('l')
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/open_and_focus_details_split_can_be_closed_with_esc_focused.svg"
+        ]);
+
+    tui.input_then_render(KeyCode::Esc)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/open_and_focus_details_split_can_be_closed_with_esc_open.svg"
+        ]);
+
+    tui.input_then_render(KeyCode::Esc);
 }
