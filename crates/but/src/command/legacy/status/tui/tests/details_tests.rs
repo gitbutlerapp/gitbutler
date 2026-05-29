@@ -352,6 +352,32 @@ fn toggle_full_screen_details_view() {
 }
 
 #[test]
+fn full_screen_details_scrolls_selected_hunk_to_include_final_line() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let first_file_contents = (1..=4)
+        .map(|line| format!("first-{line:02}\n"))
+        .collect::<String>();
+    let second_file_contents = (1..=4)
+        .map(|line| format!("second-{line:02}\n"))
+        .collect::<String>();
+    env.file("first-added.txt", first_file_contents);
+    env.file("second-added.txt", second_file_contents);
+
+    let mut tui = test_tui_with_size(env, 100, 12);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')));
+    tui.render_with_messages(None, Vec::new());
+
+    let output = tui.render_with_messages('j', Vec::new()).output();
+    assert!(
+        output.contains("second-04"),
+        "selected second hunk should include its final line, got:\n{output}"
+    );
+}
+
+#[test]
 fn rubbing_from_full_screen_details() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
