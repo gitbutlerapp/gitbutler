@@ -1,4 +1,6 @@
 use crate::utils::Sandbox;
+
+#[cfg(feature = "legacy")]
 use snapbox::str;
 
 #[test]
@@ -96,6 +98,32 @@ INFO [..]
 INFO [..]
 INFO [..]
 "#]]);
+
+    Ok(())
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn can_invoke_alias_with_root_flags_with_args() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("alias add b branch").assert().success();
+    let log_file_path = env.projects_root().join("log_file.txt");
+
+    env.but("-t --log-file")
+        .arg(&log_file_path)
+        .arg("b")
+        .assert()
+        .stdout_eq(str![[r#"
+Applied branches
+active  ✓ *A          26y ago    author
+
+"#]])
+        .stderr_eq(str![[]]);
+
+    let log_file_content = std::fs::read_to_string(&log_file_path)?;
+    assert!(!log_file_content.is_empty(), "Log file must be non-empty");
 
     Ok(())
 }
