@@ -4,20 +4,6 @@
 //! similar to how `git` handles aliases like `git co` -> `git checkout`.
 //!
 //! Aliases are read from git config under the `but.alias.<name>` key.
-//!
-//! ## Examples
-//!
-//! ```bash
-//! # Set up aliases
-//! git config but.alias.st status
-//! git config but.alias.stv "status --verbose"
-//! git config but.alias.co "commit --only"
-//!
-//! # Use them
-//! but st           # Expands to: but status
-//! but stv          # Expands to: but status --verbose
-//! but co -m "fix"  # Expands to: but commit --only -m "fix"
-//! ```
 
 use std::ffi::OsString;
 
@@ -30,34 +16,27 @@ const DEFAULT_ALIASES: &[(&str, &str)] = &[
     ("stf", "status --files"),
 ];
 
-/// Expands command aliases before argument parsing.
+/// Attempts to expand `potential_alias`.
 ///
-/// If the first argument after "but" is an alias defined in git config
-/// (under `but.alias.<name>`), it will be expanded to its definition.
-/// Additional arguments are preserved and appended after the expansion.
+/// Passing a known subcommand is considered an error.
+///
+/// Note that at present, aliases are resolved from the real working directory (".").
 ///
 /// # Arguments
 ///
-/// * `args` - The raw command-line arguments including the program name
+/// * `potential_alias` - A potential alias that we try to expand
 ///
 /// # Returns
 ///
-/// The expanded arguments, or the original arguments if no alias was found
-pub fn expand_aliases(args: Vec<OsString>) -> Result<Vec<OsString>> {
-    // Skip if no subcommand (just "but" or "but --help", etc.)
-    if args.len() < 2 {
-        return Ok(args);
-    }
-
-    // Check if the first argument (after "but") might be an alias
-    let potential_alias = match args[1].to_str() {
-        Some(s) => s,
-        None => return Ok(args), // Non-UTF8, not an alias
-    };
-
-    // Skip if it's a flag or a known subcommand
-    if potential_alias.starts_with('-') || is_known_subcommand(potential_alias) {
-        return Ok(args);
+/// A vector containing the expansion of `potential_alias`. If `potential_alias` did not match any
+/// existing alias, it expands into itself (i.e. `vec![potential_alias]`).
+///
+/// An `Ok(..)` value does _not_ indicate that an alias was found!
+pub fn expand_alias(potential_alias: &str) -> Result<Vec<OsString>> {
+    if is_known_subcommand(potential_alias) {
+        anyhow::bail!(
+            "BUG: Tried to expand known subcommand {potential_alias} as an alias - parsing order should not allow this!"
+        )
     }
 
     // Try to read from git config: but.alias.<name>
@@ -72,7 +51,7 @@ pub fn expand_aliases(args: Vec<OsString>) -> Result<Vec<OsString>> {
             // Check for default aliases that can be overridden
             match get_default_alias(potential_alias) {
                 Some(default) => default,
-                None => return Ok(args), // No alias found
+                None => return Ok(vec![potential_alias.into()]), // No alias found
             }
         }
     };
@@ -83,12 +62,7 @@ pub fn expand_aliases(args: Vec<OsString>) -> Result<Vec<OsString>> {
         .map(OsString::from)
         .collect();
 
-    // Reconstruct args: [but, ...alias_parts, ...remaining_args]
-    let mut expanded = vec![args[0].clone()]; // Keep "but"
-    expanded.extend(alias_parts);
-    expanded.extend(args[2..].iter().cloned()); // Remaining args after the alias
-
-    Ok(expanded)
+    Ok(alias_parts)
 }
 
 /// Checks if a command is a known subcommand (not an alias).
@@ -171,64 +145,8 @@ mod tests {
     }
 
     #[test]
-    fn expand_no_args() {
-        let args = vec![OsString::from("but")];
-        let result = expand_aliases(args.clone()).unwrap();
-        assert_eq!(result, args);
-    }
-
-    #[test]
-    fn expand_known_command() {
-        let args = vec![OsString::from("but"), OsString::from("status")];
-        let result = expand_aliases(args.clone()).unwrap();
-        assert_eq!(result, args);
-    }
-
-    #[test]
-    fn expand_with_flag() {
-        let args = vec![OsString::from("but"), OsString::from("--help")];
-        let result = expand_aliases(args.clone()).unwrap();
-        assert_eq!(result, args);
-    }
-
-    #[test]
-    fn expand_unknown_alias_no_config() {
-        // This test will pass through since there's no git config set
-        let args = vec![OsString::from("but"), OsString::from("unknownalias")];
-        let result = expand_aliases(args.clone()).unwrap();
-        assert_eq!(result, args);
-    }
-
-    #[test]
     fn default_alias_stf() {
         assert_eq!(get_default_alias("stf"), Some("status --files".to_string()));
         assert_eq!(get_default_alias("other"), None);
-    }
-
-    #[test]
-    fn expand_default_alias() {
-        // Test that the default stf alias expands correctly
-        // Note: This test is sensitive to git config overrides
-        let args = vec![
-            OsString::from("but"),
-            OsString::from("stf"),
-            OsString::from("--verbose"),
-        ];
-        let result = expand_aliases(args).unwrap();
-
-        // Git config may override the default alias, so we just check:
-        // 1. That expansion happened (length > 3)
-        // 2. That "but" is still first
-        // 3. That "status" is the command
-        // 4. That --verbose is preserved at the end
-        assert!(
-            result.len() >= 4,
-            "Expected at least 4 args, got {}: {:?}",
-            result.len(),
-            result
-        );
-        assert_eq!(result[0], OsString::from("but"));
-        assert_eq!(result[1], OsString::from("status"));
-        assert_eq!(result[result.len() - 1], OsString::from("--verbose"));
     }
 }

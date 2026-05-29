@@ -6,7 +6,6 @@
 ///
 /// Nearly all documentation for the CLI is defined here using `clap` attributes,
 /// which are then used to generate help messages and online documentation.
-#[cfg(unix)]
 use std::ffi::OsString;
 use std::path::PathBuf;
 
@@ -1201,7 +1200,10 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     EvalHook,
 
-    #[cfg(unix)]
+    /// External commands and aliases are resolved to this variant.
+    ///
+    /// External commands are currently only supported on UNIX platforms, but this is available on
+    /// Windows for alias resolution.
     #[strum(disabled)]
     #[clap(hide = true, external_subcommand)]
     External(Vec<OsString>),

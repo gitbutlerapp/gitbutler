@@ -1,18 +1,24 @@
 //! Run `but-{name}` executables discovered on [`std::env::var_os`]("PATH"), akin to Git's `git-send-email`-style helpers.
 
+use std::{ffi::OsString, path::Path};
+
+#[cfg(unix)]
 use std::{
-    ffi::{OsStr, OsString},
+    ffi::OsStr,
     io::ErrorKind,
     os::unix::ffi::OsStrExt,
-    path::Path,
     process::{Command, Stdio},
 };
 
+#[cfg(unix)]
 use anyhow::Context;
 
-use crate::{CliError, CliResult, bad_input};
+#[cfg(unix)]
+use crate::bad_input;
 
-pub(crate) fn dispatch(current_dir: &Path, extra: &[std::ffi::OsString]) -> CliResult<()> {
+use crate::{CliError, CliResult};
+
+pub(crate) fn dispatch(current_dir: &Path, extra: &[OsString]) -> CliResult<()> {
     let subcommand_name = match extra {
         [head, ..] => head,
         _ => {
@@ -22,41 +28,52 @@ pub(crate) fn dispatch(current_dir: &Path, extra: &[std::ffi::OsString]) -> CliR
         }
     };
 
-    if !is_allowed_command_name(subcommand_name) {
-        return Err(bad_input("Subcommand contains illegal characters")
-            .arg_value(subcommand_name.to_string_lossy())
-            .hint("Are you trying to write an extension command 'but-<command>'? Make sure that '<command>' only contains characters in the set [a-zA-Z_-]")
-            .into());
+    #[cfg(windows)]
+    {
+        // External commands not yet supported on Windows
+        return Err(CliError::ExternalCommandNotFound(
+            subcommand_name.to_owned(),
+        ));
     }
 
-    let mut prefixed = OsString::from("but-");
-    prefixed.push(subcommand_name);
-
-    let status = match Command::new(&prefixed)
-        .args(&extra[1..])
-        .current_dir(current_dir)
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status()
+    #[cfg(unix)]
     {
-        Ok(status) => status,
-        Err(e) if e.kind() == ErrorKind::NotFound => {
-            return Err(CliError::ExternalCommandNotFound(
-                subcommand_name.to_owned(),
-            ));
+        if !is_allowed_command_name(subcommand_name) {
+            return Err(bad_input("Subcommand contains illegal characters")
+                .arg_value(subcommand_name.to_string_lossy())
+                .hint("Are you trying to write an extension command 'but-<command>'? Make sure that '<command>' only contains characters in the set [a-zA-Z_-]")
+                .into());
         }
-        Err(e) => {
-            return Err(e)
-                .with_context(|| format!("could not invoke `{prefixed:?}` from PATH"))
-                .map_err(CliError::from);
-        }
-    };
 
-    if status.success() {
-        Ok(())
-    } else {
-        std::process::exit(status.code().unwrap_or(1));
+        let mut prefixed = OsString::from("but-");
+        prefixed.push(subcommand_name);
+
+        let status = match Command::new(&prefixed)
+            .args(&extra[1..])
+            .current_dir(current_dir)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .status()
+        {
+            Ok(status) => status,
+            Err(e) if e.kind() == ErrorKind::NotFound => {
+                return Err(CliError::ExternalCommandNotFound(
+                    subcommand_name.to_owned(),
+                ));
+            }
+            Err(e) => {
+                return Err(e)
+                    .with_context(|| format!("could not invoke `{prefixed:?}` from PATH"))
+                    .map_err(CliError::from);
+            }
+        };
+
+        if status.success() {
+            Ok(())
+        } else {
+            std::process::exit(status.code().unwrap_or(1));
+        }
     }
 }
 
@@ -64,6 +81,7 @@ pub(crate) fn dispatch(current_dir: &Path, extra: &[std::ffi::OsString]) -> CliR
 ///
 /// This is overly restrictive, but I just want to prevent people from doing anything funny here. We
 /// can loosen this as we need to in the future.
+#[cfg(unix)]
 fn is_allowed_command_name(command_name: &OsStr) -> bool {
     command_name
         .as_bytes()
