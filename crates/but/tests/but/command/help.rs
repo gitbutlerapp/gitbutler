@@ -1,3 +1,4 @@
+use bstr::ByteSlice;
 use snapbox::str;
 
 use crate::utils::Sandbox;
@@ -117,6 +118,20 @@ Usage: but [OPTIONS] [COMMAND]
 For more information, try '--help'.
 
 "#]]);
+
+    Ok(())
+}
+
+#[test]
+/// We want the output of `help --help` to be the same as `help`.
+fn help_help_should_be_help() -> anyhow::Result<()> {
+    let env = Sandbox::empty()?;
+
+    let help = env.but("help").output()?.stdout;
+    env.but("help --help")
+        .assert()
+        .success()
+        .stdout_eq(help.to_str_lossy().to_string());
 
     Ok(())
 }

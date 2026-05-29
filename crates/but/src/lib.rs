@@ -282,8 +282,18 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 /// ```
 ///
 fn expand_aliases(args: Vec<OsString>) -> Result<Vec<OsString>, anyhow::Error> {
-    let args = {
-        match &Args::parse_from(&args).cmd {
+    let parsed_args = match Args::try_parse_from(&args) {
+        Ok(parsed) => parsed,
+        Err(_) => {
+            // We let the core parsing logic handle hard parse errors as there is special handling
+            // of e.g. help output. If we get rid of that bespoke parsing we can also get rid of
+            // this early return and let Clap handle parse errors with [`Args::parse_from`].
+            return Ok(args);
+        }
+    };
+
+    let expanded_args = {
+        match &parsed_args.cmd {
             Some(Subcommands::External(subcommand_args))
                 if let Some(command_name) = subcommand_args.first() =>
             {
@@ -304,7 +314,7 @@ fn expand_aliases(args: Vec<OsString>) -> Result<Vec<OsString>, anyhow::Error> {
             _ => args,
         }
     };
-    Ok(args)
+    Ok(expanded_args)
 }
 
 fn print_and_exit_non_zero<T: std::fmt::Display>(err: T) -> ! {
