@@ -132,6 +132,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     }
 
     let mut args: Args = Args::parse_from(args);
+    args.status_after = utils::detect_agent::detect().is_some();
     let output_format = if args.json {
         OutputFormat::Json
     } else {
@@ -1568,7 +1569,7 @@ fn is_not_in_git_repository_error(err: &anyhow::Error) -> bool {
     )
 }
 
-/// If `--status-after` was requested, appends workspace status to the output.
+/// If requested, appends workspace status to the output.
 ///
 /// Call `out.begin_status_after(status_after)` *before* the mutation to set up
 /// JSON buffering, then call this *after* to conditionally emit the combined output.
@@ -1598,7 +1599,7 @@ async fn maybe_run_status_after<T, E>(
     }
 }
 
-/// Ignore `--status-after` in non-legacy builds until a non-legacy status command exists.
+/// Ignore mutation status output in non-legacy builds until a non-legacy status command exists.
 #[cfg(not(feature = "legacy"))]
 async fn maybe_run_status_after(
     _status_after: bool,
@@ -1643,7 +1644,7 @@ async fn run_status_after(
             }),
             Err(err) => {
                 eprintln!(
-                    "warning: --status-after failed: {err:#}. Run 'but status' separately to check workspace state."
+                    "warning: status after mutation failed: {err:#}. Run 'but status' separately to check workspace state."
                 );
                 serde_json::json!({
                     "result": mutation_json.unwrap_or(serde_json::Value::Null),
@@ -1652,7 +1653,7 @@ async fn run_status_after(
             }
         };
         if let Err(err) = out.write_value(combined) {
-            eprintln!("warning: failed to write --status-after output: {err}");
+            eprintln!("warning: failed to write status after mutation: {err}");
         }
     } else {
         if let Some(human) = out.for_human() {
@@ -1672,7 +1673,7 @@ async fn run_status_after(
         .await
         {
             eprintln!(
-                "warning: --status-after failed: {err:#}. Run 'but status' separately to check workspace state."
+                "warning: status after mutation failed: {err:#}. Run 'but status' separately to check workspace state."
             );
         }
     }

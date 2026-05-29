@@ -60,7 +60,7 @@ Stacks:     m0, n0          (auto-generated, 2–3 chars)
 
 ```bash
 but commit <branch-id> -m "message"      # Commit to branch
-but stage <file-id> <branch-id>          # Stage file to branch
+but stage <file-or-hunk-id> <branch-id>  # Stage file or hunk to branch
 but rub <commit-id> <commit-id>          # Squash commits
 ```
 
@@ -135,7 +135,7 @@ but commit api-branch -m "..."   # Commit from api-branch's staging area
 but commit ui-branch -m "..."    # Commit from ui-branch's staging area
 ```
 
-**Unstaged changes:** Files not staged to any branch yet. Use `but status` to see them, then `but stage` to assign them.
+**Unassigned changes:** Files not assigned to any branch yet. Use `but status` to see them, then `but stage` to assign them.
 
 **Auto-assignment:** If only one branch is applied, changes may auto-assign to it.
 
@@ -176,7 +176,7 @@ File-in-Commit       │ Uncommit        │ Move       │ Uncommit & assign �
 
 These commands are wrappers around `but rub`:
 
-- `but stage <file> <branch>` = `but rub <file> <branch>`
+- `but stage <file-or-hunk> <branch>` = `but rub <file-or-hunk> <branch>`
 - `but amend <file> <commit>` = `but rub <file> <commit>`
 - `but squash` = Multiple `but rub <commit> <commit>` operations
 - `but move` = commit move/reorder with position control, plus branch stack/tear-off (`<branch> <target-branch>` and `<branch> zz`)
@@ -229,7 +229,8 @@ but commit empty --after c3
 Example workflow:
 
 ```bash
-but commit empty -m "TODO: Add error handling" --before c5
+but commit empty --before c5
+but reword <empty-commit-id> -m "TODO: Add error handling"
 but mark <empty-commit-id>
 # Now work on error handling, changes auto-amend into the placeholder
 ```
@@ -244,7 +245,7 @@ Set a "mark" on a branch or commit to automatically organize new changes.
 but mark <branch-id>
 ```
 
-New unstaged changes automatically stage to this branch. Useful when focused on one feature.
+New unassigned changes automatically stage to this branch. Useful when focused on one feature.
 
 ### Mark a Commit
 
@@ -287,6 +288,10 @@ Every operation in GitButler is recorded in the oplog (operation log).
 ```bash
 but oplog                      # View history
 but undo                       # Undo last operation
+but redo                       # Redo last undone operation
+but oplog list --since <snapshot-id>
+but oplog list --snapshot
+but oplog snapshot -m "known good"
 but oplog restore <snapshot-id>  # Restore to specific point
 ```
 
@@ -315,7 +320,7 @@ Branches can be in two states:
 ### Controlling State
 
 ```bash
-but apply <id>             # Make branch active
+but apply <branch-name>    # Make branch active
 but unapply <id>           # Make branch inactive
 ```
 

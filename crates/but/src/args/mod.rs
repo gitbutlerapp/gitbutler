@@ -50,12 +50,8 @@ pub struct Args {
     /// Whether to use JSON output format.
     #[clap(long, short = 'j', global = true)]
     pub json: bool,
-    /// After a mutation command completes, also output workspace status.
-    ///
-    /// In human mode, prints status after the command output.
-    /// In JSON mode, wraps both in {"result": ..., "status": ...} on success, or
-    /// {"result": ..., "status_error": ...} if the status query fails (in which case "status" is absent).
-    #[clap(long = "status-after", global = true)]
+    /// Whether mutation commands should append workspace status.
+    #[clap(skip)]
     pub status_after: bool,
     /// Subcommand to run (`but <COMMAND>`).
     ///

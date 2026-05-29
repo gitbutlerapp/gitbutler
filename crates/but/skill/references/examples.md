@@ -19,19 +19,19 @@ but branch new ui-styling
 # 3. Make changes to multiple files
 # (edit api/users.js and components/Button.svelte)
 
-# 4. Check what's unstaged
+# 4. Check what's unassigned
 but status -fv
 
 # 5. Commit specific files directly using --changes (recommended for agents)
 # Use CLI ID values from but status -fv output (e.g., branch IDs and file IDs)
 # For multiple IDs, use one comma-separated argument or repeat --changes.
-but commit <api-branch-id> -m "Add user details endpoint" --changes <api-file-id> --status-after
-but commit <ui-branch-id> -m "Update button hover styles" --changes <ui-file-id> --status-after
+but commit <api-branch-id> -m "Add user details endpoint" --changes <api-file-id>
+but commit <ui-branch-id> -m "Update button hover styles" --changes <ui-file-id>
 
 # Alternative: stage first, then commit with --only
 # but stage <api-file-id> <api-branch-id> && but stage <ui-file-id> <ui-branch-id>
-# but commit <api-branch-id> --only -m "Add user details endpoint" --status-after
-# but commit <ui-branch-id> --only -m "Update button hover styles" --status-after
+# but commit <api-branch-id> --only -m "Add user details endpoint"
+# but commit <ui-branch-id> --only -m "Update button hover styles"
 
 # 6. Push branches independently (optional, can skip if using pr new)
 but push <api-branch-id>
@@ -59,8 +59,8 @@ but branch new add-authentication
 # 3. Implement auth and commit
 # (edit auth/login.js, auth/middleware.js)
 but status -fv
-but stage <file-ids> bu --status-after  # Stage changes to auth branch
-but commit bu --only -m "Add JWT authentication" --status-after
+but stage <file-ids> bu  # Stage changes to auth branch
+but commit bu --only -m "Add JWT authentication"
 
 # 4. Create stacked branch anchored on authentication
 but branch new user-profile -a bu
@@ -68,8 +68,8 @@ but branch new user-profile -a bu
 # 5. Implement profile page (depends on auth)
 # (edit pages/profile.js)
 but status -fv
-but stage <file-ids> bv --status-after  # Stage changes to profile branch
-but commit bv --only -m "Add user profile page" --status-after
+but stage <file-ids> bv  # Stage changes to profile branch
+but commit bv --only -m "Add user profile page"
 
 # 6. Push both branches (maintains stack relationship)
 but push
@@ -82,7 +82,7 @@ but push
 **Scenario:** Made a small typo fix that should be part of the last commit, not a new commit.
 
 ```bash
-# 1. Check current commits and unstaged changes
+# 1. Check current commits and unassigned changes
 but status -fv
 
 # Output shows:
@@ -97,7 +97,7 @@ but status -fv
 but absorb a1 --dry-run    # Shows where a1 would be absorbed
 
 # 3. Absorb the specific file into appropriate commit
-but absorb a1 --status-after    # Absorb just this file + get updated status
+but absorb a1    # Absorb just this file + get updated status
 
 # GitButler analyzes the change and amends it into c3
 # (because the typo is in code from c3)
@@ -106,9 +106,9 @@ but absorb a1 --status-after    # Absorb just this file + get updated status
 **Targeted vs blanket absorb:**
 
 ```bash
-but absorb a1 --status-after    # Absorb specific file (recommended)
-but absorb bu --status-after    # Absorb all changes staged to branch bu
-but absorb --status-after       # Absorb ALL uncommitted changes (use with caution)
+but absorb a1    # Absorb specific file (recommended)
+but absorb bu    # Absorb all changes staged to branch bu
+but absorb       # Absorb ALL uncommitted changes (use with caution)
 ```
 
 **Why absorb?** Keeps history clean. Small fixes belong in the commits they fix, not as separate "fix typo" commits.
@@ -128,13 +128,13 @@ but absorb --status-after       # Absorb ALL uncommitted changes (use with cauti
 # c1: Initial implementation
 
 # Squash all commits in branch
-but squash bu --status-after
+but squash bu
 
 # Or squash specific range
-but squash c2..c5 --status-after    # Squashes c2, c3, c4, c5 into one
+but squash c2..c5    # Squashes c2, c3, c4, c5 into one
 
 # Or squash specific commits
-but squash c2 c3 c4 --status-after    # Squashes these three
+but squash c2 c3 c4    # Squashes these three
 ```
 
 ### Scenario B: Moving Files Between Commits
@@ -150,7 +150,7 @@ but status -fv
 # c2: config.js
 
 # 2. Move utils.js from c3 to c2
-but rub a2 c2 --status-after    # File a2 (utils.js) → commit c2 + get updated status
+but rub a2 c2    # File a2 (utils.js) → commit c2 + get updated status
 ```
 
 ### Scenario C: Moving Commit to Different Branch
@@ -170,7 +170,7 @@ but status -fv
 but branch new feature-b    # Creates branch bv
 
 # 3. Move the commit
-but move c3 bv --status-after    # Move c3 to top of branch bv
+but move c3 bv    # Move c3 to top of branch bv
 ```
 
 ## Example 5: Stacking Existing Branches
@@ -194,8 +194,8 @@ but move feature/frontend feature/backend
 
 # 3. Continue working — commits go to the right branch
 but status -fv
-but commit bu -m "Add caching layer" --changes <id> --status-after   # To backend
-but commit bv -m "Add dialog component" --changes <id> --status-after # To frontend
+but commit bu -m "Add caching layer" --changes <id>   # To backend
+but commit bv -m "Add dialog component" --changes <id> # To frontend
 ```
 
 **Key point:** branch stack moves use branch **names** (like `feature/frontend`) or branch CLI IDs. Commit reordering still uses commit IDs.
@@ -218,7 +218,7 @@ but mark bu    # Branch bu (refactor) is now marked
 but status -fv  # Shows all changes staged to bu
 
 # 5. Commit the staged changes
-but commit bu --only -m "Refactor error handling across app" --status-after
+but commit bu --only -m "Refactor error handling across app"
 
 # 6. Remove mark
 but unmark
@@ -228,7 +228,8 @@ but unmark
 
 ```bash
 # 1. Create empty commit as placeholder
-but commit empty -m "TODO: Add error handling"
+but commit empty
+but reword <empty-commit-id> -m "TODO: Add error handling"
 
 # 2. Mark it
 but mark c5    # Commit c5 is now marked
@@ -306,24 +307,24 @@ but branch new user-dashboard
 
 # 4. Check and stage
 but status -fv
-but stage <file-ids> bu --status-after  # Stage changes to dashboard branch
+but stage <file-ids> bu  # Stage changes to dashboard branch
 
 # 5. First commit
-but commit bu --only -m "Add dashboard route and basic layout" --status-after
+but commit bu --only -m "Add dashboard route and basic layout"
 
 # 6. Continue iterating
 # (add widgets, styling)
-but stage <file-ids> bu --status-after
-but commit bu --only -m "Add dashboard widgets" --status-after
-but stage <file-ids> bu --status-after
-but commit bu --only -m "Style dashboard components" --status-after
+but stage <file-ids> bu
+but commit bu --only -m "Add dashboard widgets"
+but stage <file-ids> bu
+but commit bu --only -m "Style dashboard components"
 
 # 7. Make small fix
 # (fix typo in widget)
-but absorb a1 --status-after    # Absorb specific file into appropriate commit
+but absorb a1    # Absorb specific file into appropriate commit
 
 # 8. Clean up if needed
-but squash bu --status-after    # Combine all commits (optional)
+but squash bu    # Combine all commits (optional)
 
 # 9. Push to remote (can also skip - pr new auto-pushes)
 but push bu
@@ -359,15 +360,15 @@ but unapply bw
 
 # 3. Focus on feature-a
 # (make changes, stage, commit)
-but stage <file-ids> bu --status-after
-but commit bu --only -m "Complete feature-a" --status-after
+but stage <file-ids> bu
+but commit bu --only -m "Complete feature-a"
 
 # 4. Create PR for feature-a (auto-pushes)
 but pr new bu
 
 # 5. Reapply other branches
-but apply bv
-but apply bw
+but apply feature-b
+but apply feature-c
 
 # 6. Deal with their conflicts now
 but resolve ...
@@ -395,10 +396,10 @@ but reword c3 -m "Fix edge case in parser"
 but reword c2 -m "Update error messages"
 
 # 3. Move c5 to be earlier
-but move c5 c3 --status-after    # Move c5 before c3
+but move c5 c3    # Move c5 before c3
 
 # 4. Squash similar commits
-but squash c2 c3 --status-after    # Combine error handling commits
+but squash c2 c3    # Combine error handling commits
 
 # Output:
 # Branch: feature-x (bu)
@@ -417,44 +418,44 @@ but push bu
 
 ```bash
 # Morning: Start day
-but pull                   # Get latest from team
+but pull    # Get latest from team
 
 # Start new task
-but branch new fix-auth-bug       # Create branch for today's work
+but branch new fix-auth-bug  # Create branch for today's work
 
 # Work and commit iteratively
 # (make changes)
 but status -fv              # Check changes
-but stage <file-ids> bu --status-after    # Stage to branch
-but commit bu --only -m "Identify auth bug source" --status-after
+but stage <file-ids> bu    # Stage to branch
+but commit bu --only -m "Identify auth bug source"
 # (make more changes)
-but stage <file-ids> bu --status-after    # Stage to branch
-but commit bu --only -m "Fix token expiration handling" --status-after
+but stage <file-ids> bu    # Stage to branch
+but commit bu --only -m "Fix token expiration handling"
 # (small fix to existing code)
-but absorb a1 --status-after              # Absorb specific fix into appropriate commit
+but absorb a1              # Absorb specific fix into appropriate commit
 
 # Mid-day: Start urgent fix on different branch
-but branch new hotfix-login       # Parallel branch for urgent work
+but branch new hotfix-login  # Parallel branch for urgent work
 # (make fix)
-but stage <file-ids> bv --status-after    # Stage to hotfix branch
-but commit bv --only -m "Fix login redirect loop" --status-after
-but pr new bv              # Push and create PR immediately
+but stage <file-ids> bv    # Stage to hotfix branch
+but commit bv --only -m "Fix login redirect loop"
+but pr new bv      # Push and create PR immediately
 
 # Back to original work
 # (continue working on bu, auth bug fix)
-but stage <file-ids> bu --status-after    # Stage to auth branch
-but commit bu --only -m "Add tests for token handling" --status-after
+but stage <file-ids> bu    # Stage to auth branch
+but commit bu --only -m "Add tests for token handling"
 
 # End of day: Clean up and create PR
-but squash bu --status-after    # Combine into clean history
-but pr new bu              # Push and create PR
+but squash bu    # Combine into clean history
+but pr new bu      # Push and create PR
 
 # After PR review: Make requested changes
 # (make changes based on feedback)
-but absorb <file-id> --status-after    # Absorb specific changes into commits
+but absorb <file-id>    # Absorb specific changes into commits
 # Or absorb all changes for this branch:
-but absorb bu --status-after          # Absorb all changes staged to bu
-but push bu --with-force   # Force push updated history
+but absorb bu          # Absorb all changes staged to bu
+but push bu        # Push updated history
 ```
 
 ## Example 12: Recovering from Mistakes
@@ -495,7 +496,7 @@ but oplog restore s4
 but status -fv
 
 # Output:
-# Unstaged:
+# Unassigned:
 #   a1: bad-changes.js
 
 # Discard it

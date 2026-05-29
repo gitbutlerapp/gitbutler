@@ -787,7 +787,7 @@ fn uncommit_help_mentions_discard_flag() -> anyhow::Result<()> {
 }
 
 #[test]
-fn uncommit_discard_multiple_sources_writes_single_json_with_status_after() -> anyhow::Result<()> {
+fn agent_uncommit_discard_multiple_sources_writes_single_json_with_status() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
     env.setup_metadata(&["A", "B"])?;
@@ -799,9 +799,8 @@ fn uncommit_discard_multiple_sources_writes_single_json_with_status_after() -> a
     let sources = format!("{},{}", commits_before[0], commits_before[1]);
 
     let output = env
-        .but(format!(
-            "--json --status-after uncommit {sources} --discard"
-        ))
+        .but(format!("--json uncommit {sources} --discard"))
+        .env("AI_AGENT", "codex")
         .allow_json()
         .output()?;
     assert!(output.status.success());
@@ -810,7 +809,7 @@ fn uncommit_discard_multiple_sources_writes_single_json_with_status_after() -> a
     assert_eq!(parsed["result"]["ok"], serde_json::json!(true));
     assert!(
         parsed.get("status").is_some(),
-        "--status-after JSON wrapper should include status"
+        "agent JSON wrapper should include status"
     );
 
     let after = status_json(&env)?;
@@ -2016,15 +2015,15 @@ Rubbed the wrong way. Operation doesn't make sense.[..]
 }
 
 #[test]
-fn status_after_json_wraps_mutation_and_status() -> anyhow::Result<()> {
+fn agent_json_wraps_mutation_and_status() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
     env.setup_metadata(&["A", "B"])?;
     env.file("a.txt", "arbitrary text\n");
 
-    // Use --json --status-after with a stage operation
     let output = env
-        .but("--json --status-after stage a.txt A")
+        .but("--json stage a.txt A")
+        .env("AI_AGENT", "codex")
         .allow_json()
         .output()?;
     assert!(output.status.success());
@@ -2061,16 +2060,44 @@ fn status_after_json_wraps_mutation_and_status() -> anyhow::Result<()> {
 }
 
 #[test]
-fn status_after_json_success_has_no_status_error_field() -> anyhow::Result<()> {
-    // Verifies that on a successful mutation with --status-after, the combined
-    // JSON output contains {result, status} but NOT status_error.
+fn agent_invocation_enables_status_after_for_mutations() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    env.file("agent.txt", "content\n");
+
+    let output = env
+        .but("--json stage agent.txt A")
+        .env("AI_AGENT", "codex")
+        .allow_json()
+        .output()?;
+    assert!(output.status.success());
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    assert!(
+        json.get("result").is_some(),
+        "agent mutation output should include the command result"
+    );
+    assert!(
+        json.get("status").is_some(),
+        "agent mutation output should include workspace status"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn agent_json_success_has_no_status_error_field() -> anyhow::Result<()> {
+    // Verifies that on a successful agent mutation, the combined JSON output
+    // contains {result, status} but NOT status_error.
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
     env.setup_metadata(&["A", "B"])?;
     env.file("b.txt", "content\n");
 
     let output = env
-        .but("--json --status-after stage b.txt A")
+        .but("--json stage b.txt A")
+        .env("AI_AGENT", "codex")
         .allow_json()
         .output()?;
     assert!(output.status.success());
