@@ -1,9 +1,7 @@
 //! Utilities for communicating user errors (i.e. the equivalent of 4xx HTTP responses) to the user.
 
-use std::fmt::Display;
-
-#[cfg(unix)]
 use std::ffi::OsString;
+use std::fmt::Display;
 
 use crate::theme::{self, Paint};
 
@@ -119,7 +117,6 @@ impl CliError {
     {
         match self {
             Self::BadInput(value) => Self::BadInput(value),
-            #[cfg(unix)]
             Self::ExternalCommandNotFound(command_name) => {
                 Self::ExternalCommandNotFound(command_name)
             }
@@ -132,7 +129,6 @@ impl Display for CliError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::BadInput(value) => value.fmt(f),
-            #[cfg(unix)]
             Self::ExternalCommandNotFound(command_name) => {
                 writeln!(
                     f,
@@ -150,7 +146,6 @@ pub enum CliError {
     /// User provided bad input.
     BadInput(BadInput),
     /// We tried to execute the subcommand as an external command, but that command was not found.
-    #[cfg(unix)]
     ExternalCommandNotFound(OsString),
     /// Something went wrong internally.
     Internal(anyhow::Error),

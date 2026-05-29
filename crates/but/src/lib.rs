@@ -26,7 +26,6 @@ use std::ffi::OsString;
 
 use anyhow::{Context as _, Result};
 use cfg_if::cfg_if;
-#[cfg(unix)]
 use clap::CommandFactory;
 use clap::Parser;
 
@@ -181,7 +180,6 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
 
     let result = match args.cmd.take() {
-        #[cfg(unix)]
         Some(Subcommands::External(extra)) => {
             command::external::dispatch(&args.current_dir, &extra)
         }
@@ -226,7 +224,6 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     match result {
         Err(CliError::Internal(err)) => Err(err),
         Err(CliError::BadInput(bad_input)) => print_and_exit_non_zero(bad_input),
-        #[cfg(unix)]
         Err(CliError::ExternalCommandNotFound(command_name)) => {
             // We reparse without external subcommands allowed, which _should_ result in a proper
             // clap error, including suggestions for "near matches". This gives richer error
@@ -1461,7 +1458,6 @@ async fn match_subcommand(
         Subcommands::AgentLog { .. } => {
             unreachable!("agentlog command is handled before metrics setup")
         }
-        #[cfg(unix)]
         Subcommands::External(_) => {
             unreachable!("external commands are delegated before reaching match_subcommand")
         }

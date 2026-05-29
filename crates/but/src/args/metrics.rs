@@ -59,10 +59,9 @@ pub enum CommandName {
     SkillCheck,
     Pick,
     Clean,
+    External,
     #[default]
     Unknown,
-    #[cfg(unix)]
-    External,
 }
 
 impl CommandName {

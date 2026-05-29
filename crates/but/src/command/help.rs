@@ -44,14 +44,10 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
         .collect::<IndexMap<_, Vec<_>>>();
 
     for subcommand_variant in SubcommandDiscriminant::iter() {
-        #[cfg(unix)]
-        if matches!(subcommand_variant, SubcommandDiscriminant::External) {
-            continue;
-        }
-
         if let Some(clap_subcommand) = clap_subcommands.iter().find(|clap_subcommand| {
             clap_subcommand.get_name().to_lowercase().replace('-', "")
                 == subcommand_variant.as_ref().to_lowercase()
+                || matches!(subcommand_variant, SubcommandDiscriminant::External)
         }) {
             if clap_subcommand.is_hide_set() {
                 continue;
@@ -146,7 +142,6 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
                 SubcommandDiscriminant::Completions => continue,
                 SubcommandDiscriminant::Onboarding => continue,
                 SubcommandDiscriminant::EvalHook => continue,
-                #[cfg(unix)]
                 SubcommandDiscriminant::External => continue,
 
                 #[cfg(feature = "legacy")]
