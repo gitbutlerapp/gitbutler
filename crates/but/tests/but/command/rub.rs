@@ -2061,6 +2061,33 @@ fn status_after_json_wraps_mutation_and_status() -> anyhow::Result<()> {
 }
 
 #[test]
+fn agent_invocation_enables_status_after_for_mutations() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    env.file("agent.txt", "content\n");
+
+    let output = env
+        .but("--json stage agent.txt A")
+        .env("AI_AGENT", "codex")
+        .allow_json()
+        .output()?;
+    assert!(output.status.success());
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    assert!(
+        json.get("result").is_some(),
+        "agent mutation output should include the command result"
+    );
+    assert!(
+        json.get("status").is_some(),
+        "agent mutation output should include workspace status"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn status_after_json_success_has_no_status_error_field() -> anyhow::Result<()> {
     // Verifies that on a successful mutation with --status-after, the combined
     // JSON output contains {result, status} but NOT status_error.

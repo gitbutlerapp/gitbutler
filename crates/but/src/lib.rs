@@ -132,6 +132,8 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     }
 
     let mut args: Args = Args::parse_from(args);
+    // If this was invoked by an agent, always set the status after flag since it's helpful to the agent
+    args.status_after |= utils::detect_agent::detect().is_some();
     let output_format = if args.json {
         OutputFormat::Json
     } else {
