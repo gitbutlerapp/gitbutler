@@ -18,11 +18,7 @@ const DEFAULT_ALIASES: &[(&str, &str)] = &[
 
 /// Attempts to expand `potential_alias`.
 ///
-/// This function is naive, and does not take the broader program into consideration. If you pass a
-/// `potential_alias` that clashes with a built-in command, it'll happily try to expand it for you.
-///
-/// It is up to the caller to ensure that `potential_alias` is a reasonable target for alias
-/// expansion.
+/// Passing a known subcommand is considered an error.
 ///
 /// Note that at present, aliases are resolved from the real working directory (".").
 ///
@@ -33,10 +29,16 @@ const DEFAULT_ALIASES: &[(&str, &str)] = &[
 /// # Returns
 ///
 /// A vector containing the expansion of `potential_alias`. If `potential_alias` did not match any
-/// existing alias, it simply expands into itself (i.e. `vec![potential_alias]`).
+/// existing alias, it expands into itself (i.e. `vec![potential_alias]`).
 ///
 /// An `Ok(..)` value does _not_ indicate that an alias was found!
 pub fn expand_alias(potential_alias: &str) -> Result<Vec<OsString>> {
+    if is_known_subcommand(potential_alias) {
+        anyhow::bail!(
+            "BUG: Tried to expand known subcommand {potential_alias} as an alias - parsing order should not allow this!"
+        )
+    }
+
     // Try to read from git config: but.alias.<name>
     // And try to discover a git repository from the current directory, way before we have a context.
     let repo = gix::discover(".").ok();

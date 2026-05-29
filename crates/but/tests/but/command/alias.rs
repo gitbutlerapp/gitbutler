@@ -203,3 +203,30 @@ For more information, try '--help'.
 
     Ok(())
 }
+
+#[cfg(unix)]
+#[cfg(feature = "legacy")]
+#[test]
+/// `but alias add branch help` rejects aliases that conflict with known commands, but a user
+/// can still write such an alias into git config directly. Known subcommands must not expand!
+///
+/// There are multiple layers of protection in the application against this. The parsing should make
+/// it impossible as known subcommands should not be parsed as external commands, and the alias
+/// expansion itself should bail if a known subcommand is passed in.
+fn alias_of_known_subcommand_is_not_expanded() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.invoke_git("config --local but.alias.branch help");
+
+    env.but("branch")
+        .assert()
+        .stdout_eq(str![[r#"
+Applied branches
+active  ✓ *A          26y ago    author
+
+"#]])
+        .stderr_eq(str![[]]);
+
+    Ok(())
+}
