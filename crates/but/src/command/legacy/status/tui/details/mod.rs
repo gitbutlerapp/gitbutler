@@ -6,7 +6,7 @@ use std::{
     time::Instant,
 };
 
-use anyhow::bail;
+use anyhow::{Context as _, bail};
 use bstr::{BStr, BString, ByteSlice};
 use but_core::{
     HunkHeader, UnifiedPatch,
@@ -37,7 +37,7 @@ use crate::{
     command::legacy::status::tui::{
         CommandMessage, CommitMessage, DebugAsType, DetailsLayoutMessage, FilesMessage, Message,
         MessageOnDrop, MoveMessage, RewordMessage, RubMessage,
-        details::details_cursor::DetailsCursor, message_on_drop::message_on_drop,
+        details::details_cursor::DetailsCursor, highlight, message_on_drop::message_on_drop,
         mode::CommittedHunk,
     },
     id::{UncommittedCliId, UncommittedHunk},
@@ -52,6 +52,7 @@ mod details_cursor;
 pub(super) enum DetailsMessage {
     Deselect,
     SelectFirstSection,
+    CopyCurrentHunk,
     SelectNextSection,
     SelectPrevSection,
     ScrollUp(usize),
@@ -83,6 +84,7 @@ pub(super) struct Details {
     syntax_theme: DebugAsType<OnDemand<highlighting::Theme>>,
     line_highlight_cache: LineHighlightCache,
     is_locked: bool,
+    copied_hunk_highlight: highlight::Highlights<SectionId>,
     theme: &'static Theme,
 }
 
@@ -96,6 +98,7 @@ impl Details {
             cursor: Default::default(),
             scroll_top: 0,
             line_highlight_cache: Default::default(),
+            copied_hunk_highlight: Default::default(),
             syntax_set: OnDemand::new(|| Ok(SyntaxSet::load_defaults_newlines())).into(),
             syntax_theme: OnDemand::new(|| theme.load_syntax_highlighting_theme()).into(),
             theme,
@@ -109,6 +112,10 @@ impl Details {
 
     pub(super) fn is_dirty(&self) -> bool {
         self.is_dirty
+    }
+
+    pub(super) fn update_highlight(&mut self) -> bool {
+        self.copied_hunk_highlight.update()
     }
 
     fn lock(&mut self, messages: &mut Vec<Message>) -> MessageOnDrop {
@@ -216,6 +223,7 @@ impl Details {
             Message::Details(details_message) => match details_message {
                 DetailsMessage::Unlock // `unlock` sets the dirty flag if necessary
                 | DetailsMessage::Deselect
+                | DetailsMessage::CopyCurrentHunk
                 | DetailsMessage::SelectFirstSection
                 | DetailsMessage::SelectNextSection
                 | DetailsMessage::SelectPrevSection
@@ -276,6 +284,9 @@ impl Details {
                     self.cursor.select_section(section.id.clone());
                     self.ensure_selection_visible(viewport);
                 }
+            }
+            DetailsMessage::CopyCurrentHunk => {
+                self.copy_current_hunk()?;
             }
             DetailsMessage::StartRub => {
                 let Some(selection) = self.cursor.selection() else {
@@ -339,6 +350,47 @@ impl Details {
 
     pub(super) fn selection(&self) -> Option<&SectionId> {
         self.cursor.selection()
+    }
+
+    fn copy_current_hunk(&mut self) -> anyhow::Result<()> {
+        let Some(selection) = self.cursor.selection().cloned() else {
+            return Ok(());
+        };
+        let Some(hunk) = self.hunk_text(&selection) else {
+            return Ok(());
+        };
+
+        arboard::Clipboard::new()
+            .and_then(|mut clipboard| clipboard.set_text(hunk))
+            .context("failed to copy to system clipboard")?;
+
+        self.copied_hunk_highlight.insert(selection);
+
+        Ok(())
+    }
+
+    fn hunk_text(&self, selection: &SectionId) -> Option<String> {
+        let section = self
+            .renderer
+            .sections
+            .iter()
+            .find(|section| &section.id == selection)?;
+
+        let SectionContent::DiffLines { path, diff, .. } = section
+            .content
+            .iter()
+            .find(|content| matches!(content, SectionContent::DiffLines { .. }))?
+        else {
+            return None;
+        };
+
+        let mut hunk = path.to_str_lossy().into_owned();
+        hunk.push_str("\n\n");
+        for line in diff {
+            hunk.push_str(&line.to_str_lossy());
+            hunk.push('\n');
+        }
+        Some(hunk)
     }
 
     fn clamp_scroll_top(&mut self, viewport: Rect) {
@@ -516,6 +568,7 @@ impl Details {
                 help_shown,
                 has_focus,
                 self.is_dirty,
+                &self.copied_hunk_highlight,
                 self.theme,
             );
         }
@@ -693,6 +746,7 @@ impl DetailsAndDiffWidget {
         help_shown: bool,
         has_focus: bool,
         is_dirty: bool,
+        copied_hunk_highlight: &highlight::Highlights<SectionId>,
         theme: &'static Theme,
     ) {
         enum ListItemOrString<'a> {
@@ -748,7 +802,9 @@ impl DetailsAndDiffWidget {
         .map(|item| match item {
             ListItemOrString::ListItem(list_item) => list_item.to_owned(),
             ListItemOrString::ListItemInSection(section_id, list_item) => {
-                if !help_shown
+                if copied_hunk_highlight.contains(section_id) {
+                    list_item.to_owned().style(highlight::style())
+                } else if !help_shown
                     && has_focus
                     && cursor
                         .selection()

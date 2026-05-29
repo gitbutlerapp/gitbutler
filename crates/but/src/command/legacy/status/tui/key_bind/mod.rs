@@ -52,6 +52,7 @@ pub(super) fn default_key_binds() -> KeyBinds {
                 builder.details_scroll_up(scroll_distance).register();
 
                 builder.details_rub().register();
+                builder.details_copy().register();
                 builder.details_top().register();
                 builder.details_bottom().register();
                 builder.toggle_full_screen_details().register();
@@ -814,6 +815,16 @@ impl KeyBindsBuilder<'_> {
             press().code(KeyCode::Char('r')),
             Message::Details(DetailsMessage::StartRub),
         )
+    }
+
+    fn details_copy(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "copy hunk",
+            press().shift().code(KeyCode::Char('C')),
+            Message::Details(DetailsMessage::CopyCurrentHunk),
+        )
+        .hide_from_hotbar()
+        .long_description("Copy current hunk to clipboard")
     }
 
     fn details_focus_status(&mut self) -> KeyBindsInModesBuilder<'_> {
