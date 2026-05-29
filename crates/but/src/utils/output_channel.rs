@@ -43,7 +43,7 @@ pub struct OutputChannel {
     /// Possibly a pager we are using. If `Some`, the pager itself is used for output instead of `stdout`.
     pager: Option<Pager>,
     /// When `Some`, JSON values written via `write_value` are captured here instead of going to stdout.
-    /// Used by `--status-after` to buffer mutation JSON before combining with status JSON.
+    /// Used to buffer mutation JSON before combining with status JSON.
     json_buffer: Option<serde_json::Value>,
 }
 
@@ -231,7 +231,7 @@ impl OutputChannel {
         self.json_buffer = Some(serde_json::Value::Null);
     }
 
-    /// Conditionally start JSON buffering for `--status-after` mode.
+    /// Conditionally start JSON buffering for mutation status output.
     ///
     /// If `status_after` is `true` and the output is in JSON mode,
     /// begins buffering so mutation output can be captured and later
@@ -635,7 +635,7 @@ impl OutputChannel {
 impl Drop for OutputChannel {
     fn drop(&mut self) {
         // Flush any buffered JSON that was never consumed — this means
-        // the status-after path did not complete, but we should still
+        // the combined status path did not complete, but we should still
         // emit the mutation result rather than silently discarding it.
         if let Some(buffer) = self.json_buffer.take()
             && buffer != serde_json::Value::Null

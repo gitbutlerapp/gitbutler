@@ -73,13 +73,6 @@ Options:
   -j, --json
           Whether to use JSON output format
 
-      --status-after
-          After a mutation command completes, also output workspace status.
-          
-          In human mode, prints status after the command output. In JSON mode, wraps both in
-          {"result": ..., "status": ...} on success, or {"result": ..., "status_error": ...} if the
-          status query fails (in which case "status" is absent).
-
   -h, --help
           Print help (see a summary with '-h')
 
@@ -94,9 +87,8 @@ Arguments:
   <TARGET>  The target entity to combine with the source
 
 Options:
-  -j, --json          Whether to use JSON output format
-      --status-after  After a mutation command completes, also output workspace status
-  -h, --help          Print help (see more with '--help')
+  -j, --json  Whether to use JSON output format
+  -h, --help  Print help (see more with '--help')
 
 "#]]);
     Ok(())

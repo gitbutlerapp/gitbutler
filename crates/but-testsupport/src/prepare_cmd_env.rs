@@ -57,6 +57,25 @@ fn updates() -> Vec<EnvOp> {
         EnvOp::Remove("GIT_EDITOR"),
         EnvOp::Remove("VISUAL"),
         EnvOp::Remove("EDITOR"),
+        // Keep ambient agent environments from changing default CLI test output.
+        EnvOp::Remove("AI_AGENT"),
+        EnvOp::Remove("CLAUDE_CODE_IS_COWORK"),
+        EnvOp::Remove("CLAUDE_CODE"),
+        EnvOp::Remove("CLAUDECODE"),
+        EnvOp::Remove("CURSOR_AGENT"),
+        EnvOp::Remove("CURSOR_TRACE_ID"),
+        EnvOp::Remove("CODEX_SANDBOX"),
+        EnvOp::Remove("CODEX_CI"),
+        EnvOp::Remove("CODEX_THREAD_ID"),
+        EnvOp::Remove("CODEX_SHELL"),
+        EnvOp::Remove("GEMINI_CLI"),
+        EnvOp::Remove("COPILOT_MODEL"),
+        EnvOp::Remove("COPILOT_ALLOW_ALL"),
+        EnvOp::Remove("COPILOT_GITHUB_TOKEN"),
+        EnvOp::Remove("OPENCODE_CLIENT"),
+        EnvOp::Remove("AUGMENT_AGENT"),
+        EnvOp::Remove("ANTIGRAVITY_AGENT"),
+        EnvOp::Remove("REPL_ID"),
     ]
     .into_iter()
     .chain(
