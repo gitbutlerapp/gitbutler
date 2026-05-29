@@ -370,6 +370,56 @@ mod tests {
     }
 
     #[test]
+    fn update_feature_flags_updates_unapply_v3_and_persists() {
+        let (dir, settings) = create_test_settings();
+        let original_irc = settings.get().unwrap().feature_flags.irc;
+
+        settings
+            .update_feature_flags(FeatureFlagsUpdate {
+                cv3: None,
+                unapply_v3: Some(true),
+                unapply_v3_pgm: None,
+                rules: None,
+                single_branch: None,
+                irc: None,
+            })
+            .unwrap();
+
+        let s = settings.get().unwrap();
+        assert!(
+            s.feature_flags.unapply_v3,
+            "the API should be able to enable the Unapply v3 flag"
+        );
+        assert_eq!(
+            s.feature_flags.irc, original_irc,
+            "partial updates should leave unrelated feature flags untouched"
+        );
+        drop(s);
+
+        let reloaded = AppSettingsWithDiskSync::new_with_customization(dir.path(), None).unwrap();
+        assert!(
+            reloaded.get().unwrap().feature_flags.unapply_v3,
+            "the Unapply v3 flag should be readable after reload"
+        );
+    }
+
+    #[test]
+    fn feature_flags_update_deserializes_unapply_v3_from_api_payload() {
+        let update: FeatureFlagsUpdate =
+            serde_json::from_value(serde_json::json!({ "unapplyV3": true })).unwrap();
+
+        assert_eq!(
+            update.unapply_v3,
+            Some(true),
+            "the API payload should map unapplyV3 to the settings update"
+        );
+        assert_eq!(
+            update.unapply_v3_pgm, None,
+            "omitted feature flags should remain untouched"
+        );
+    }
+
+    #[test]
     fn update_irc_server_host_only() {
         let (_dir, settings) = create_test_settings();
         let original_port = settings.get().unwrap().irc.server.port;
