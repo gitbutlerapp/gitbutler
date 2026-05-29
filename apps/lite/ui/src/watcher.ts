@@ -18,6 +18,7 @@ export const handleWatcher = (
 			void client.invalidateQueries({ queryKey: [QueryKey.CommitDetailsWithLineStats, projectId] });
 			void client.invalidateQueries({ queryKey: [QueryKey.DryRun, projectId] });
 			void client.invalidateQueries({ queryKey: [QueryKey.HeadInfo, projectId] });
+			void client.invalidateQueries({ queryKey: [QueryKey.RenderWorkspace, projectId] });
 			void client.invalidateQueries({ queryKey: [QueryKey.TreeChangeDiffs, projectId] });
 			break;
 		}

@@ -16,6 +16,7 @@ export enum QueryKey {
 	HeadInfo = "headInfo",
 	Branches = "branches",
 	Projects = "projects",
+	RenderWorkspace = "renderWorkspace",
 	TreeChangeDiffs = "treeChangeDiffs",
 	AbsorptionPlan = "absorptionPlan",
 	DryRun = "dryRun",
@@ -65,6 +66,12 @@ export const listProjectsQueryOptions = queryOptions({
 	queryKey: [QueryKey.Projects],
 	queryFn: () => window.lite.listProjects(),
 });
+
+export const renderWorkspaceQueryOptions = (projectId: string) =>
+	queryOptions({
+		queryKey: [QueryKey.RenderWorkspace, projectId],
+		queryFn: () => window.lite.renderWorkspace(projectId),
+	});
 
 export const treeChangeDiffsQueryOptions = ({ projectId, change }: TreeChangeDiffParams) =>
 	queryOptions({
