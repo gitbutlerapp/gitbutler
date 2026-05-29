@@ -42,7 +42,7 @@ fn rejects_head() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Bad input 'HEAD' for '<BRANCH_NAME>'
+Error: Bad input 'HEAD'
 
 Invalid branch name: Could not turn "HEAD" into a valid reference name
 
@@ -60,7 +60,7 @@ fn rejects_name_that_normalizes_to_head() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Bad input 'HEAD-' for '<BRANCH_NAME>'
+Error: Bad input 'HEAD-'
 
 Invalid branch name: Could not turn "HEAD-" into a valid reference name
 
@@ -78,7 +78,7 @@ fn rejects_name_that_normalizes_to_something_else_and_suggests_alternative() -> 
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Bad input 'my branch' for '<BRANCH_NAME>'
+Error: Bad input 'my branch'
 
 Invalid branch name
 
