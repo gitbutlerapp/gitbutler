@@ -10,7 +10,6 @@ use crate::app_settings::IrcConnectionSettings;
 pub struct TelemetryUpdate {
     pub app_metrics_enabled: Option<bool>,
     pub app_error_reporting_enabled: Option<bool>,
-    pub app_non_anon_metrics_enabled: Option<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -105,9 +104,6 @@ impl AppSettingsWithDiskSync {
         }
         if let Some(app_error_reporting_enabled) = update.app_error_reporting_enabled {
             settings.telemetry.app_error_reporting_enabled = app_error_reporting_enabled;
-        }
-        if let Some(app_non_anon_metrics_enabled) = update.app_non_anon_metrics_enabled {
-            settings.telemetry.app_non_anon_metrics_enabled = app_non_anon_metrics_enabled;
         }
         settings.save()
     }

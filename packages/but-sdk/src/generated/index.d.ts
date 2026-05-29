@@ -1957,8 +1957,6 @@ export type TelemetrySettings = {
   appMetricsEnabled: boolean;
   /** Whether anonymous error reporting is enabled. */
   appErrorReportingEnabled: boolean;
-  /** Whether non-anonymous metrics are enabled. */
-  appNonAnonMetricsEnabled: boolean;
   /** Distinct ID, if reporting is enabled. */
   appDistinctId: string | null;
   /**

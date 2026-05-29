@@ -473,7 +473,6 @@ impl Sandbox {
             telemetry: TelemetrySettings {
                 app_metrics_enabled: false,
                 app_error_reporting_enabled: false,
-                app_non_anon_metrics_enabled: false,
                 app_distinct_id: None,
                 migrated_from_legacy: true,
             },

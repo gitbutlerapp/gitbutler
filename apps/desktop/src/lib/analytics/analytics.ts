@@ -1,6 +1,5 @@
 import { initSentry } from "$lib/analytics/sentry";
 import { PostHogWrapper } from "$lib/telemetry/posthog";
-import posthog from "posthog-js";
 import type { AppSettings } from "@gitbutler/but-sdk";
 
 export async function initAnalyticsIfEnabled(
@@ -18,11 +17,6 @@ export async function initAnalyticsIfEnabled(
 		}
 		if (appSettings.telemetry.appMetricsEnabled) {
 			await postHog.init();
-		}
-		if (appSettings.telemetry.appNonAnonMetricsEnabled) {
-			posthog.capture("nonAnonMetricsEnabled");
-		} else {
-			posthog.capture("nonAnonMetricsDisabled");
 		}
 	}
 }

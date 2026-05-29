@@ -8,8 +8,6 @@
 		"appMetricsEnabled": true,
 		// Whether anonymous error reporting is enabled.
 		"appErrorReportingEnabled": true,
-		// Whether non-anonymous metrics are enabled.
-		"appNonAnonMetricsEnabled": false,
 		/// Distinct ID, if reporting is enabled.
 		"appDistinctId": null,
 		// Whether settings have been migrated from the legacy Tauri store.

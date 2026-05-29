@@ -7,8 +7,6 @@ pub struct TelemetrySettings {
     pub app_metrics_enabled: bool,
     /// Whether anonymous error reporting is enabled.
     pub app_error_reporting_enabled: bool,
-    /// Whether non-anonymous metrics are enabled.
-    pub app_non_anon_metrics_enabled: bool,
     /// Distinct ID, if reporting is enabled.
     pub app_distinct_id: Option<String>,
     /// Whether settings have been migrated from the legacy Tauri store.

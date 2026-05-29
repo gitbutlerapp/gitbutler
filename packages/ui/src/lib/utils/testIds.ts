@@ -132,7 +132,6 @@ export enum TestId {
 	OnboardingPageAnalyticsSettings = "onboarding-page-analytics-settings",
 	OnboardingPageAnalyticsSettingsErrorReportingToggle = "onboarding-page-analytics-settings-error-reporting-toggle",
 	OnboardingPageAnalyticsSettingsTelemetryToggle = "onboarding-page-analytics-settings-telemetry-toggle",
-	OnboardingPageAnalyticsSettingsNonAnonymousToggle = "onboarding-page-analytics-settings-non-anonymous-toggle",
 	OnboardingPageAnalyticsSettingsContinueButton = "analytics-continue",
 	WelcomePage = "welcome-page",
 	WelcomePageAddLocalProjectButton = "add-local-project",

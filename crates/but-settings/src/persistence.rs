@@ -17,17 +17,32 @@ fn remove_deprecated_settings(customizations: &mut serde_json::Value) -> bool {
     let Some(root) = customizations.as_object_mut() else {
         return false;
     };
-    let Some(feature_flags) = root
+    let mut removed = false;
+
+    if let Some(feature_flags) = root
         .get_mut("featureFlags")
         .and_then(serde_json::Value::as_object_mut)
-    else {
-        return false;
-    };
-
-    let removed = feature_flags.remove("apply3").is_some();
-    if feature_flags.is_empty() {
-        root.remove("featureFlags");
+    {
+        if feature_flags.remove("apply3").is_some() {
+            removed = true;
+        }
+        if feature_flags.is_empty() {
+            root.remove("featureFlags");
+        }
     }
+
+    if let Some(telemetry) = root
+        .get_mut("telemetry")
+        .and_then(serde_json::Value::as_object_mut)
+    {
+        if telemetry.remove("appNonAnonMetricsEnabled").is_some() {
+            removed = true;
+        }
+        if telemetry.is_empty() {
+            root.remove("telemetry");
+        }
+    }
+
     removed
 }
 
@@ -206,5 +221,30 @@ mod tests {
 
         assert_eq!(saved["featureFlags"]["cv3"], json!(true));
         assert_eq!(saved["featureFlags"].get("apply3"), None);
+    }
+
+    #[test]
+    fn save_prunes_deprecated_non_anon_metrics_flag() {
+        let (_temp_dir, config_path, _legacy_path) = create_test_env();
+
+        std::fs::write(
+            &config_path,
+            r#"{
+                "telemetry": {
+                    "appNonAnonMetricsEnabled": true,
+                    "appMetricsEnabled": false
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let settings = AppSettings::load(&config_path, None).unwrap();
+        settings.save(&config_path, None).unwrap();
+
+        let saved: serde_json::Value =
+            serde_json_lenient::from_str(&std::fs::read_to_string(&config_path).unwrap()).unwrap();
+
+        assert_eq!(saved["telemetry"]["appMetricsEnabled"], json!(false));
+        assert_eq!(saved["telemetry"].get("appNonAnonMetricsEnabled"), None);
     }
 }

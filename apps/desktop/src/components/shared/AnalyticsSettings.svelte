@@ -7,7 +7,6 @@
 	const appSettings = $derived(settingsService.appSettings);
 	const errorReportingEnabled = $derived($appSettings?.telemetry.appErrorReportingEnabled);
 	const metricsEnabled = $derived($appSettings?.telemetry.appMetricsEnabled);
-	const nonAnonMetricsEnabled = $derived($appSettings?.telemetry.appNonAnonMetricsEnabled);
 </script>
 
 <div class="analytics-settings__content">
@@ -63,26 +62,6 @@
 				onclick={() =>
 					settingsService.updateTelemetry({
 						appMetricsEnabled: !metricsEnabled,
-					})}
-			/>
-		{/snippet}
-	</CardGroup.Item>
-
-	<CardGroup.Item labelFor="nonAnonMetricsEnabledToggle">
-		{#snippet title()}
-			Non-anonymous usage metrics
-		{/snippet}
-		{#snippet caption()}
-			Toggle sharing of identifiable usage statistics.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="nonAnonMetricsEnabledToggle"
-				testId={TestId.OnboardingPageAnalyticsSettingsNonAnonymousToggle}
-				checked={nonAnonMetricsEnabled}
-				onclick={() =>
-					settingsService.updateTelemetry({
-						appNonAnonMetricsEnabled: !nonAnonMetricsEnabled,
 					})}
 			/>
 		{/snippet}
