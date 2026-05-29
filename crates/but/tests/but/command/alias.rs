@@ -56,6 +56,7 @@ fn global_alias_roundtrip_uses_global_config() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "legacy")]
 #[test]
 fn can_invoke_alias() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
@@ -75,6 +76,7 @@ active  ✓ *A          26y ago    author
     Ok(())
 }
 
+#[cfg(feature = "legacy")]
 #[test]
 fn can_invoke_alias_with_root_flags() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
@@ -99,6 +101,7 @@ INFO [..]
 }
 
 #[cfg(unix)]
+#[cfg(feature = "legacy")]
 #[test]
 /// We allow aliases to shadow external commands. This is mostly for the sake of simplicity. There's
 /// no particular security concern with this as aliases can only be defined in trusted files, so
