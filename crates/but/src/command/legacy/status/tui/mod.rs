@@ -353,6 +353,10 @@ where
         app.should_render = true;
     }
 
+    if app.details.update_highlight() {
+        app.should_render = true;
+    }
+
     if app.details.needs_update(app.is_details_visible) {
         let selection = app
             .cursor
@@ -412,7 +416,7 @@ struct App {
     renders: u64,
     updates: u64,
     app_key_binds: AppKeyBinds,
-    highlight: Highlights,
+    highlight: Highlights<CliId>,
     modal: Option<Modal>,
     details: Details,
     is_details_visible: bool,
@@ -2457,7 +2461,8 @@ impl App {
             .and_then(|mut clipboard| clipboard.set_text(what_to_copy))
             .context("failed to copy to system clipboard")?;
 
-        self.highlight.insert(Arc::clone(cli_id));
+        self.highlight
+            .insert(Arc::unwrap_or_clone(Arc::clone(cli_id)));
 
         Ok(())
     }
