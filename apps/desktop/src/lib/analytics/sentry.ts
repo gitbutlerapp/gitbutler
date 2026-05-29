@@ -1,4 +1,5 @@
 import { dev } from "$app/environment";
+import { applyIpcFingerprint } from "$lib/error/reduxError";
 import * as Sentry from "@sentry/sveltekit";
 import { PUBLIC_SENTRY_ENVIRONMENT } from "$env/static/public";
 
@@ -25,6 +26,14 @@ export function initSentry() {
 			...defaults.filter((i) => i.name !== "GlobalHandlers"),
 			globalHandlersIntegration({ onerror: true, onunhandledrejection: false }),
 		],
+		// Override Sentry's stack-based grouping for IPC errors. The stack
+		// inside `tauriInvoke` / `webInvoke` is uniform across calls into a
+		// single backend command, which buckets distinct backend failures
+		// (reflog write, worktree conflict, missing anchor) into one Sentry
+		// issue. Use [command, normalised-first-line] instead, so each root
+		// cause gets its own bucket and prod triage isn't fighting one
+		// mega-issue per endpoint.
+		beforeSend: applyIpcFingerprint,
 	});
 }
 
