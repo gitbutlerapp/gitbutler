@@ -1226,6 +1226,79 @@ mod with_workspace {
         );
         Ok(())
     }
+
+    /// Regression: `but branch new <name>` and `create_virtual_branch` both go through
+    /// `create_reference(.., None, ..)`. When the target (`origin/main`) is advanced past the
+    /// workspace, its tip sits OUTSIDE the workspace. The no-anchor path used to anchor the new
+    /// ref at that tip and bail with "the target commit ... already belongs to another branch".
+    /// It must instead anchor at `merge_base(target_tip, ws-commit)` (here M1), inside the
+    /// workspace, so the branch emerges cleanly as its own stack.
+    #[test]
+    fn no_anchor_branch_with_target_tip_outside_workspace() -> anyhow::Result<()> {
+        let (_tmp, repo, mut meta) = named_writable_scenario("stack-below-advanced-target")?;
+        insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+        * 1021d74 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+        * 49d4b34 (A) A1
+        | * bce0c5e (origin/main, main) M2
+        |/  
+        * 3183e43 M1
+        ");
+
+        // `A` is applied (in the workspace), based at M1.
+        add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
+
+        let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+        let ws = graph.into_workspace()?;
+        insta::assert_snapshot!(graph_workspace(&ws), @"
+        📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+        └── ≡📙:3:A on 3183e43 {0}
+            └── 📙:3:A
+                └── ·49d4b34 (🏘️)
+        ");
+
+        // Precondition (see `⇣1` above): the target tip (M2) is one commit ahead of A's base,
+        // so it sits OUTSIDE the workspace — the situation the no-anchor path mishandled.
+        let target_id = ws
+            .resolved_target_commit_id()
+            .expect("the scenario sets a default target");
+        assert!(
+            ws.find_owner_indexes_by_commit_id(target_id).is_none(),
+            "the target tip must be outside the workspace for this repro"
+        );
+
+        // Creating the no-anchor branch now succeeds (it used to bail).
+        let new_name = rc("refs/heads/new-branch");
+        let new_ref = new_name.as_ref();
+        let updated_ws = but_workspace::branch::create_reference(
+            new_ref,
+            None,
+            &repo,
+            &ws,
+            &mut meta,
+            stack_id_for_name,
+            None,
+        )?;
+
+        // `new-branch` emerges as its own standalone stack/segment, based at M1.
+        insta::assert_snapshot!(graph_workspace(&updated_ws), @"
+        📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+        ├── ≡📙:3:A on 3183e43 {0}
+        │   └── 📙:3:A
+        │       └── ·49d4b34 (🏘️)
+        └── ≡📙:5:new-branch on 3183e43 {3e5}
+            └── 📙:5:new-branch
+        ");
+
+        // `new-branch` was written at M1 (== merge_base(target, ws-commit)), the commit just
+        // below the advanced target — inside the workspace, not at the out-of-workspace tip.
+        let new_tip = repo.find_reference(new_ref)?.peel_to_id()?.detach();
+        assert_eq!(
+            new_tip,
+            repo.rev_parse_single("main~1")?.detach(),
+            "the new branch must be anchored at M1, inside the workspace"
+        );
+        Ok(())
+    }
 }
 
 #[test]
