@@ -251,17 +251,18 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 /// [`Subcommands::External`]. Anytime we find an external subcommand, we attempt to expand the
 /// first word in the command string as an alias.
 ///
-/// Note that root options are consumed by the parser separatly from [`Subcommands::External`], so
-/// e.g.
-///
 /// This also has the intended effect of allowing aliases to shadow external commands. For example,
 /// if there is an external command `but-b` on the PATH and an alias `b=branch`, then `but b` will
-/// expand to `but branch` rather than be executid as `but-b`.
+/// expand to `but branch` rather than be executed as `but-b`.
 ///
 /// Cargo considers this shadowing behavior to be a security concern due to the fact that Cargo
 /// aliases can be defined in the worktree of a repository (see
 /// https://github.com/rust-lang/cargo/issues/10049). We don't have that problem as `but` aliases
 /// can only ever be defined in Git config, which is trusted and does not follow with clones.
+///
+/// Root options are consumed by the parser separately from [`Subcommands::External`], so e.g. `but
+/// -C some-alias a -b c` resolves into `External(["some-alias", "a", "-b", "c"])`, and the root
+/// options are correctly parsed into the [`Args`] struct.
 ///
 /// Note that at present, aliases are resolved from the real working directory ("."). If you pass
 /// `-C /repo`, aliases from `/repo` are _not_ resolved.
@@ -277,7 +278,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 /// but b                       # Expands to: but branch
 /// but bl                      # Expands to: but branch list --local
 /// but bl --review             # Expands to: but branch list --local --review
-/// but -C /repo bl --review    # Expands to: but branch -C /repo list --local --review
+/// but -C /repo bl --review    # Expands to: but -C /repo branch list --local --review
 /// ```
 ///
 fn expand_aliases(args: Vec<OsString>) -> Result<Vec<OsString>, anyhow::Error> {

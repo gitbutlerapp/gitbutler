@@ -32,10 +32,10 @@ const DEFAULT_ALIASES: &[(&str, &str)] = &[
 ///
 /// # Returns
 ///
-/// The expanded alias, or a vector consisting only of `expanded_alias` if there is no known alias
-/// associated with it.
+/// A vector containing the expansion of `potential_alias`. If `potential_alias` did not match any
+/// existing alias, it simply expands into itself (i.e. `vec![potential_alias]`).
 ///
-/// An `Ok()` value doe _not_ indicate that an alias was found!
+/// An `Ok(..)` value does _not_ indicate that an alias was found!
 pub fn expand_alias(potential_alias: &str) -> Result<Vec<OsString>> {
     // Try to read from git config: but.alias.<name>
     // And try to discover a git repository from the current directory, way before we have a context.

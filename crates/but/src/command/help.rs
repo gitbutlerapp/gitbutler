@@ -44,10 +44,14 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
         .collect::<IndexMap<_, Vec<_>>>();
 
     for subcommand_variant in SubcommandDiscriminant::iter() {
+        if matches!(subcommand_variant, SubcommandDiscriminant::External) {
+            // There is no explicit subcommand that corresponds to External
+            continue;
+        }
+
         if let Some(clap_subcommand) = clap_subcommands.iter().find(|clap_subcommand| {
             clap_subcommand.get_name().to_lowercase().replace('-', "")
                 == subcommand_variant.as_ref().to_lowercase()
-                || matches!(subcommand_variant, SubcommandDiscriminant::External)
         }) {
             if clap_subcommand.is_hide_set() {
                 continue;
