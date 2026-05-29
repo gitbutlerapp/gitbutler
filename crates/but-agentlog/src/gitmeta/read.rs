@@ -7,14 +7,16 @@ use anyhow::{Context as _, Result, bail};
 use chrono::{DateTime, Utc};
 use git_meta_lib::{MetaValue, SessionTargetHandle};
 use serde::Deserialize;
+use serde_json::Value;
 
-use crate::environment::path_fingerprint;
+use crate::environment::{is_public_repo_path, path_fingerprint};
 
 use super::{
     IndexHit, SessionListEntry, StoredBranchSnapshot, StoredCommitSnapshot,
     StoredEnvironmentSnapshot, StoredObservedTargets, index_key,
     read_support::{
-        read_optional_turn_detail, read_turn_detail, read_turn_summaries, with_project_target,
+        read_optional_turn_detail, read_transcript_entries, read_turn_detail, read_turn_summaries,
+        transcript_records_by_hash, with_project_target,
     },
     session_outline::{RelatedSession, related_session_outline},
 };
@@ -242,19 +244,67 @@ fn session_has_target_activity(
 ) -> Result<bool> {
     let session_prefix = format!("gitbutler:agent-session:{session_key}");
     let summaries = read_turn_summaries(handle, &format!("{session_prefix}:turns"))?;
+    let turns = read_session_turn_details(handle, &session_prefix, &summaries)?;
+    let file_edit_hashes_by_turn =
+        session_file_edit_hashes_by_turn(handle, &session_prefix, &turns)?;
+    session_has_target_activity_from_turns(target, &turns, &file_edit_hashes_by_turn)
+}
+
+struct SessionTurnDetail {
+    turn_key: String,
+    detail: super::StoredTurnDetail,
+}
+
+fn read_session_turn_details(
+    handle: &SessionTargetHandle<'_>,
+    session_prefix: &str,
+    summaries: &[super::StoredTurnSummary],
+) -> Result<Vec<SessionTurnDetail>> {
+    summaries
+        .iter()
+        .map(|summary| {
+            let detail_key = format!("{session_prefix}:turn:{}", summary.turn_key);
+            Ok(SessionTurnDetail {
+                turn_key: summary.turn_key.clone(),
+                detail: read_turn_detail(handle, &detail_key)?,
+            })
+        })
+        .collect()
+}
+
+fn session_has_target_activity_from_turns(
+    target: RelatedTarget<'_>,
+    turns: &[SessionTurnDetail],
+    file_edit_hashes_by_turn: &BTreeMap<String, BTreeSet<String>>,
+) -> Result<bool> {
+    if let RelatedTarget::Review(review_key) = target
+        && let Some(branch_key) = pull_request_review_branch_key(review_key)
+        && session_has_target_activity_from_turns(
+            RelatedTarget::Branch(branch_key),
+            turns,
+            file_edit_hashes_by_turn,
+        )?
+    {
+        return Ok(true);
+    }
+
     let mut saw_turn_before_target = false;
-    let mut previous_detail: Option<super::StoredTurnDetail> = None;
-    for summary in summaries {
-        let detail_key = format!("{session_prefix}:turn:{}", summary.turn_key);
-        let detail = read_turn_detail(handle, &detail_key)?;
+    let mut previous_detail: Option<&super::StoredTurnDetail> = None;
+    let mut session_file_edit_hashes = BTreeSet::new();
+    for turn in turns {
+        let detail = &turn.detail;
         if previous_detail.as_ref().is_some_and(|previous| {
             environment_promotes_worktree_to_target(
                 &previous.environment,
                 &detail.environment,
                 target,
+                &session_file_edit_hashes,
             )
         }) {
             return Ok(true);
+        }
+        if let Some(file_edit_hashes) = file_edit_hashes_by_turn.get(&turn.turn_key) {
+            session_file_edit_hashes.extend(file_edit_hashes.iter().cloned());
         }
         if observed_targets_observe(&detail.observed_targets, target) {
             if saw_turn_before_target
@@ -268,6 +318,137 @@ fn session_has_target_activity(
         previous_detail = Some(detail);
     }
     Ok(false)
+}
+
+fn pull_request_review_branch_key(review_key: &str) -> Option<&str> {
+    review_key
+        .strip_prefix("pull-request:")
+        .and_then(|review| review.rsplit_once('#').map(|(branch_key, _)| branch_key))
+}
+
+#[derive(Deserialize)]
+struct StoredTranscriptActivityRecord {
+    record_hash: String,
+    #[serde(default)]
+    tool_name: Option<String>,
+    #[serde(default)]
+    tool_kind: Option<String>,
+    #[serde(default)]
+    file_path_hashes: BTreeSet<String>,
+    #[serde(default)]
+    tool_input: Option<Value>,
+}
+
+impl StoredTranscriptActivityRecord {
+    fn is_file_edit(&self) -> bool {
+        self.tool_kind.as_deref() == Some("file_edit")
+            || matches!(
+                self.tool_name.as_deref(),
+                Some(
+                    "apply_patch"
+                        | "edit_file"
+                        | "write_file"
+                        | "str_replace"
+                        | "Edit"
+                        | "MultiEdit"
+                        | "Write"
+                )
+            )
+    }
+}
+
+fn session_file_edit_hashes_by_turn(
+    handle: &SessionTargetHandle<'_>,
+    session_prefix: &str,
+    turns: &[SessionTurnDetail],
+) -> Result<BTreeMap<String, BTreeSet<String>>> {
+    let mut needed_hashes = HashSet::new();
+    let mut turn_record_hashes = Vec::new();
+    for turn in turns {
+        let record_hashes = turn
+            .detail
+            .records
+            .iter()
+            .map(|record| record.record_hash.clone())
+            .collect::<Vec<_>>();
+        needed_hashes.extend(record_hashes.iter().cloned());
+        turn_record_hashes.push((turn.turn_key.clone(), record_hashes));
+    }
+    if needed_hashes.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+
+    let transcript_key = format!("{session_prefix}:transcript");
+    let records = transcript_records_by_hash(
+        read_transcript_entries(handle, &transcript_key)?,
+        &needed_hashes,
+        parse_activity_record,
+    );
+
+    let mut file_edit_hashes_by_turn = BTreeMap::new();
+    for (turn_key, record_hashes) in turn_record_hashes {
+        let mut file_edit_hashes = BTreeSet::new();
+        for record_hash in record_hashes {
+            let Some(record) = records.get(&record_hash) else {
+                continue;
+            };
+            if record.is_file_edit() {
+                file_edit_hashes.extend(record.file_path_hashes.iter().cloned());
+                file_edit_hashes.extend(file_edit_path_hashes(record.tool_input.as_ref()));
+            }
+        }
+        if !file_edit_hashes.is_empty() {
+            file_edit_hashes_by_turn.insert(turn_key, file_edit_hashes);
+        }
+    }
+    Ok(file_edit_hashes_by_turn)
+}
+
+fn parse_activity_record(raw: &str) -> Option<(String, StoredTranscriptActivityRecord)> {
+    let record = serde_json::from_str::<StoredTranscriptActivityRecord>(raw).ok()?;
+    Some((record.record_hash.clone(), record))
+}
+
+fn file_edit_path_hashes(input: Option<&Value>) -> BTreeSet<String> {
+    let mut hashes = BTreeSet::new();
+    let Some(input) = input else {
+        return hashes;
+    };
+
+    for field in ["path", "file_path", "filename"] {
+        if let Some(path) = input.get(field).and_then(Value::as_str) {
+            insert_public_path_hash(&mut hashes, path);
+        }
+    }
+
+    let patch = input
+        .get("patch")
+        .or_else(|| input.get("input"))
+        .or_else(|| input.get("content"))
+        .and_then(Value::as_str)
+        .or_else(|| input.as_str())
+        .unwrap_or_default();
+    for line in patch.lines().map(str::trim) {
+        for marker in [
+            "*** Update File: ",
+            "*** Add File: ",
+            "*** Delete File: ",
+            "*** Move to: ",
+        ] {
+            if let Some(path) = line.strip_prefix(marker) {
+                insert_public_path_hash(&mut hashes, path);
+            }
+        }
+    }
+
+    hashes
+}
+
+fn insert_public_path_hash(hashes: &mut BTreeSet<String>, path: &str) {
+    let path = path.trim();
+    if is_public_repo_path(path) {
+        hashes.insert(path_fingerprint(path));
+    }
 }
 
 fn target_appearance_is_specific(
@@ -285,9 +466,12 @@ fn environment_promotes_worktree_to_target(
     previous: &StoredEnvironmentSnapshot,
     current: &StoredEnvironmentSnapshot,
     target: RelatedTarget<'_>,
+    session_file_edit_hashes: &BTreeSet<String>,
 ) -> bool {
     // Strong association: files dirty in one turn show up in a new commit on the
-    // target in the next turn. Ambient applied branches stay weak.
+    // target in the next turn. In multi-branch workspaces, the dirty file must
+    // also have been edited by this session; otherwise shared worktree dirtiness
+    // can be credited to the wrong concurrent session.
     if !environment_is_complete(previous) || !environment_is_complete(current) {
         return false;
     }
@@ -306,6 +490,7 @@ fn environment_promotes_worktree_to_target(
         .iter()
         .map(|file| path_fingerprint(file))
         .collect::<BTreeSet<_>>();
+    let requires_session_file_edit = environment_branches(current).count() > 1;
 
     environment_branches(current).any(|branch| {
         let previous_branch = match previous_branch_snapshot(previous, &branch.key) {
@@ -322,6 +507,8 @@ fn environment_promotes_worktree_to_target(
                         &previous_worktree_files,
                         &previous_worktree_file_hashes,
                         &previous_branch,
+                        session_file_edit_hashes,
+                        requires_session_file_edit,
                     )
             })
     })
@@ -349,15 +536,19 @@ fn commit_contains_worktree_file(
     previous_worktree_files: &BTreeSet<&str>,
     previous_worktree_file_hashes: &BTreeSet<String>,
     previous_branch: &KnownPreviousBranch,
+    session_file_edit_hashes: &BTreeSet<String>,
+    requires_session_file_edit: bool,
 ) -> bool {
     commit.file_hashes.iter().any(|hash| {
-        previous_worktree_file_hashes.contains(hash) && !previous_branch.file_hashes.contains(hash)
+        previous_worktree_file_hashes.contains(hash)
+            && !previous_branch.file_hashes.contains(hash)
+            && (!requires_session_file_edit || session_file_edit_hashes.contains(hash))
     }) || commit.files.iter().any(|file| {
+        let path_fingerprint = path_fingerprint(file);
         previous_worktree_files.contains(file.as_str())
             && !previous_branch.files.contains(file)
-            && !previous_branch
-                .file_hashes
-                .contains(&path_fingerprint(file))
+            && !previous_branch.file_hashes.contains(&path_fingerprint)
+            && (!requires_session_file_edit || session_file_edit_hashes.contains(&path_fingerprint))
     })
 }
 

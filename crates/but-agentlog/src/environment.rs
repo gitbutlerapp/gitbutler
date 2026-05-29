@@ -571,6 +571,20 @@ pub(crate) fn path_fingerprint(path: &str) -> String {
     hex::encode(&hasher.finalize()[..16])
 }
 
+pub(crate) fn is_public_repo_path(path: &str) -> bool {
+    !path.is_empty()
+        && !path.starts_with('/')
+        && !path.starts_with('~')
+        && !path.contains('\\')
+        && !path.contains(':')
+        && !path.contains("[local path]")
+        && !path.contains("[REDACTED")
+        && !path.contains('‹')
+        && path
+            .split('/')
+            .all(|component| !matches!(component, "" | "." | ".."))
+}
+
 #[cfg(test)]
 impl PathList {
     fn empty() -> Self {

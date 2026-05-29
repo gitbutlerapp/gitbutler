@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeSet, HashSet},
-    path::Path,
+    path::{Component, Path, PathBuf},
 };
 
 use anyhow::{Context as _, Result, bail};
@@ -11,7 +11,10 @@ use serde_json::Value;
 
 use crate::{
     agent::Agent,
-    environment::{EnvironmentObservation, ObservedTargets, SnapshotStatus},
+    environment::{
+        EnvironmentObservation, ObservedTargets, SnapshotStatus, is_public_repo_path,
+        path_fingerprint,
+    },
     redaction::{redact_text, redact_value},
     transcript::{PromptSource, RecordKind, ToolKind, ToolOutcome, TranscriptBatch},
 };
@@ -117,6 +120,9 @@ pub(crate) fn write_transcript_batch(
     } else {
         CaptureKind::Backfill
     };
+    let repo_root = repo_path
+        .canonicalize()
+        .unwrap_or_else(|_| repo_path.to_owned());
     let mut record_hashes = Vec::with_capacity(records_captured);
     let mut transcript_entries = Vec::with_capacity(records_captured);
     let mut accepted_records = Vec::with_capacity(records_captured);
@@ -138,6 +144,11 @@ pub(crate) fn write_transcript_batch(
             prompt_source: record.prompt_source,
             tool_name: record.tool_name.as_deref().map(redact_text),
             tool_kind: record.tool_kind,
+            file_path_hashes: file_path_hashes_for_record(
+                &repo_root,
+                record.tool_kind,
+                record.tool_input.as_ref(),
+            ),
             tool_input: record.tool_input.map(redact_value),
             exit_code: record.exit_code,
             outcome: record.tool_outcome,
@@ -291,6 +302,101 @@ fn stored_text(kind: RecordKind, text: Option<&str>) -> Option<String> {
         RecordKind::ToolResult => redact_text(cap_tool_result_text(text).as_ref()),
         _ => redact_text(text),
     })
+}
+
+fn file_path_hashes_for_record(
+    repo_root: &Path,
+    tool_kind: Option<ToolKind>,
+    input: Option<&Value>,
+) -> Vec<String> {
+    if tool_kind != Some(ToolKind::FileEdit) {
+        return Vec::new();
+    }
+    let Some(input) = input else {
+        return Vec::new();
+    };
+
+    let mut hashes = BTreeSet::new();
+    for field in ["path", "file_path", "filename"] {
+        if let Some(path) = input.get(field).and_then(Value::as_str) {
+            insert_file_path_hash(&mut hashes, repo_root, path);
+        }
+    }
+
+    let patch = input
+        .get("patch")
+        .or_else(|| input.get("input"))
+        .or_else(|| input.get("content"))
+        .and_then(Value::as_str)
+        .or_else(|| input.as_str())
+        .unwrap_or_default();
+    for line in patch.lines().map(str::trim) {
+        for marker in [
+            "*** Update File: ",
+            "*** Add File: ",
+            "*** Delete File: ",
+            "*** Move to: ",
+        ] {
+            if let Some(path) = line.strip_prefix(marker) {
+                insert_file_path_hash(&mut hashes, repo_root, path);
+            }
+        }
+    }
+
+    hashes.into_iter().collect()
+}
+
+fn insert_file_path_hash(hashes: &mut BTreeSet<String>, repo_root: &Path, path: &str) {
+    if let Some(path) = repo_relative_file_path(repo_root, path.trim()) {
+        hashes.insert(path_fingerprint(&path));
+    }
+}
+
+fn repo_relative_file_path(repo_root: &Path, path: &str) -> Option<String> {
+    if path.is_empty()
+        || path.contains("[local path]")
+        || path.contains("[REDACTED")
+        || path.contains('‹')
+    {
+        return None;
+    }
+
+    let candidate = Path::new(path);
+    if candidate.is_absolute() {
+        if let Ok(relative_path) = candidate.strip_prefix(repo_root) {
+            return path_to_repo_string(relative_path);
+        }
+        let normalized = normalize_absolute_path(candidate)?;
+        return path_to_repo_string(normalized.strip_prefix(repo_root).ok()?);
+    }
+
+    is_public_repo_path(path).then(|| path.to_owned())
+}
+
+fn normalize_absolute_path(path: &Path) -> Option<PathBuf> {
+    let mut missing_components = Vec::new();
+    let mut existing_prefix = path;
+    while !existing_prefix.exists() {
+        missing_components.push(existing_prefix.file_name()?.to_owned());
+        existing_prefix = existing_prefix.parent()?;
+    }
+
+    let mut normalized = existing_prefix.canonicalize().ok()?;
+    for component in missing_components.iter().rev() {
+        normalized.push(component);
+    }
+    Some(normalized)
+}
+
+fn path_to_repo_string(path: &Path) -> Option<String> {
+    let mut components = Vec::new();
+    for component in path.components() {
+        let Component::Normal(component) = component else {
+            return None;
+        };
+        components.push(component.to_str()?);
+    }
+    (!components.is_empty()).then(|| components.join("/"))
 }
 
 fn source_metadata_fields(
@@ -585,6 +691,8 @@ struct TranscriptRecord<'a> {
     tool_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     tool_kind: Option<ToolKind>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    file_path_hashes: Vec<String>,
     tool_input: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     exit_code: Option<i32>,

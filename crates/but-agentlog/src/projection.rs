@@ -17,6 +17,7 @@ use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+use crate::environment::is_public_repo_path;
 use crate::gitmeta::{
     RelatedSession, RelatedTarget, SessionRecords, find_related_sessions_limited,
     get_session_records, get_session_timeline_outline,
@@ -652,20 +653,6 @@ fn file_paths_of(input: Option<&Value>) -> Vec<String> {
         }
     }
     paths
-}
-
-fn is_public_repo_path(path: &str) -> bool {
-    !path.is_empty()
-        && !path.starts_with('/')
-        && !path.starts_with('~')
-        && !path.contains('\\')
-        && !path.contains(':')
-        && !path.contains("[local path]")
-        && !path.contains("[REDACTED")
-        && !path.contains('‹')
-        && path
-            .split('/')
-            .all(|component| !matches!(component, "" | "." | ".."))
 }
 
 fn bounded_text(text: &str, max_chars: usize) -> (Option<String>, bool) {
