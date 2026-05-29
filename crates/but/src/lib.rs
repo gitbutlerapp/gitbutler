@@ -1155,6 +1155,12 @@ async fn match_subcommand(
                         .emit_metrics(metrics_ctx)
                         .map_err(CliError::from)
                 }
+                Some(forge::pr::Subcommands::Open { selector }) => {
+                    command::legacy::forge::review::open_review(&mut ctx, selector, out)
+                        .await
+                        .context("Failed to open review in browser.")
+                        .emit_metrics(metrics_ctx)
+                }
                 None => {
                     // Default to `pr new` when no subcommand is provided
                     command::legacy::forge::review::create_review(

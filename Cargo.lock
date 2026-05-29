@@ -859,6 +859,7 @@ dependencies = [
  "machine-uid",
  "minus",
  "nonempty",
+ "open",
  "posthog-rs",
  "quote",
  "rand 0.9.4",
