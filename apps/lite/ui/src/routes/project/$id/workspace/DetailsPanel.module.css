@@ -7,24 +7,24 @@
 	grid-template-rows: auto minmax(0, 1fr);
 }
 
-.header {
+.headerWrap {
 	padding-inline: var(--panel-padding);
-	padding-block-start: var(--panel-padding);
+	padding-block-start: calc(var(--panel-padding) + 4px);
+
+	& header {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
 }
 
 .panes {
 	--resize-spacing: 6px;
-
 	min-height: 0;
-}
-
-.innerPanel {
-	min-width: 0;
 }
 
 .filesPanel {
 	padding-inline: var(--panel-padding) var(--resize-spacing);
-	padding-block: var(--panel-padding);
 }
 
 .detailsContentPanel {
@@ -51,6 +51,7 @@
 .headerActions {
 	display: flex;
 	align-items: center;
+	justify-content: space-between;
 	margin-block: 16px;
 	gap: 10px;
 }
@@ -62,6 +63,13 @@
 	background-color: lightgray;
 }
 
+.toggleAvatar {
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	background-color: lightgray;
+}
+
 .author,
 .commitMeta {
 	color: var(--text-3);
@@ -69,12 +77,11 @@
 
 .detailsVirtualizer {
 	min-height: 0;
-	padding-block: var(--panel-padding);
 	overflow: auto;
 }
 
 .heading {
-	margin-block-end: 18px;
+	margin-block-end: 14px;
 }
 
 .pr {
@@ -82,9 +89,15 @@
 	color: var(--text-2);
 }
 
+.commitHeader {
+	display: flex;
+	gap: 6px;
+}
+
 .commitMessageBody {
-	margin-block: 18px;
-	color: var(--text-2);
+	font-size: 13px;
+	/* text pre */
+	white-space: pre-line;
 }
 
 .fileDiffsList {
@@ -135,4 +148,22 @@
 
 .emptyFileHunks {
 	margin: 8px;
+}
+
+.commitDetailsWrapper {
+	padding: 0 var(--panel-padding) var(--panel-padding);
+	overflow: auto;
+}
+
+.commitDetailsContent {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.commitDetailsMeta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
 }

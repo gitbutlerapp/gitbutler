@@ -1,0 +1,13 @@
+.container {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+
+.added {
+	color: var(--text-safe);
+}
+
+.removed {
+	color: var(--text-danger);
+}
