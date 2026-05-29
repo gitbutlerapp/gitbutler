@@ -316,6 +316,101 @@ fn write_readonly_command_turn_with_targets(
         .to_owned()
 }
 
+fn write_file_edit_turn_with_observation(
+    repo: &Path,
+    session_key: &str,
+    source_key: &str,
+    text: &str,
+    edited_path: &str,
+    observation: EnvironmentObservation,
+) -> String {
+    let patch =
+        format!("*** Begin Patch\n*** Update File: {edited_path}\n@@\n-old\n+new\n*** End Patch\n");
+    let arguments =
+        serde_json::to_string(&serde_json::json!({ "patch": patch })).expect("tool arguments");
+    let transcript = jsonl([
+        serde_json::json!({
+            "timestamp": "2026-05-07T09:00:00Z",
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "assistant",
+                "content": text,
+            },
+        }),
+        serde_json::json!({
+            "timestamp": "2026-05-07T09:00:01Z",
+            "type": "response_item",
+            "payload": {
+                "type": "function_call",
+                "name": "apply_patch",
+                "call_id": "call-edit",
+                "arguments": arguments,
+            },
+        }),
+    ]);
+    let batch =
+        TranscriptBatch::parse(Agent::Codex, transcript.as_bytes()).expect("parse transcript");
+    write_transcript_batch(repo, Agent::Codex, session_key, source_key, batch, || {
+        observation
+    })
+    .expect("write transcript batch");
+    turn_summaries(repo, session_key)
+        .last()
+        .and_then(|turn| turn["turn_key"].as_str())
+        .expect("latest turn key")
+        .to_owned()
+}
+
+fn write_structured_file_edit_turn_with_observation(
+    repo: &Path,
+    session_key: &str,
+    source_key: &str,
+    text: &str,
+    edited_path: &str,
+    observation: EnvironmentObservation,
+) -> String {
+    let file_path = repo.join(edited_path).to_string_lossy().to_string();
+    let arguments = serde_json::to_string(&serde_json::json!({
+        "file_path": file_path,
+        "old_string": "old",
+        "new_string": "new",
+    }))
+    .expect("tool arguments");
+    let transcript = jsonl([
+        serde_json::json!({
+            "timestamp": "2026-05-07T09:00:00Z",
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "assistant",
+                "content": text,
+            },
+        }),
+        serde_json::json!({
+            "timestamp": "2026-05-07T09:00:01Z",
+            "type": "response_item",
+            "payload": {
+                "type": "function_call",
+                "name": "Edit",
+                "call_id": "call-edit",
+                "arguments": arguments,
+            },
+        }),
+    ]);
+    let batch =
+        TranscriptBatch::parse(Agent::Codex, transcript.as_bytes()).expect("parse transcript");
+    write_transcript_batch(repo, Agent::Codex, session_key, source_key, batch, || {
+        observation
+    })
+    .expect("write transcript batch");
+    turn_summaries(repo, session_key)
+        .last()
+        .and_then(|turn| turn["turn_key"].as_str())
+        .expect("latest turn key")
+        .to_owned()
+}
+
 fn write_turn_for_session(
     repo: &Path,
     session_key: &str,
@@ -671,16 +766,268 @@ fn worktree_files_promoted_to_target_commit_are_strong_evidence() {
 }
 
 #[test]
+fn shared_worktree_files_from_another_session_do_not_promote_to_target() {
+    let repo = setup_repo();
+    const SESSION_A: &str = "sha256-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const SOURCE_A: &str = "sha256-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const SESSION_B: &str = "sha256-cccccccccccccccccccccccccccccccc";
+    const SOURCE_B: &str = "sha256-dddddddddddddddddddddddddddddddd";
+    const BRANCH_A: &str = "ref:refs/heads/agent-status-after-default";
+    const REVIEW_A: &str = "pull-request:ref:refs/heads/agent-status-after-default#13995";
+    const CHANGE_A: &str = "gitbutler-change:change-a";
+    const BRANCH_B: &str = "ref:refs/heads/unapply-v3-settings-toggle";
+    const REVIEW_B: &str = "pull-request:ref:refs/heads/unapply-v3-settings-toggle#13996";
+    const CHANGE_B: &str = "gitbutler-change:change-b";
+    const FILE_A: &str = "crates/but/src/lib.rs";
+    const FILE_B: &str = "apps/desktop/src/components/settings/ExperimentalSettings.svelte";
+
+    let branch_b_without_review = || TestBranchCommitSnapshot {
+        branch_key: BRANCH_B.to_owned(),
+        review_keys: Vec::new(),
+        change_key: Some(CHANGE_B.to_owned()),
+        commit_id: Some("commit-b".to_owned()),
+        files: vec![FILE_B.to_owned()],
+    };
+
+    write_file_edit_turn_with_observation(
+        repo.path(),
+        SESSION_A,
+        SOURCE_A,
+        "Session A edits its own file",
+        FILE_A,
+        EnvironmentObservation::from_worktree_and_branch_commits_for_testing(
+            &[FILE_A],
+            ObservedTargets::default(),
+            Vec::new(),
+        ),
+    );
+    write_turn_with_observation(
+        repo.path(),
+        SESSION_A,
+        SOURCE_A,
+        "Session A commits its own file",
+        EnvironmentObservation::from_branch_commits_for_testing(
+            ObservedTargets::from_index_keys_for_testing(BRANCH_A, REVIEW_A, CHANGE_A),
+            vec![branch_commit(
+                BRANCH_A,
+                REVIEW_A,
+                CHANGE_A,
+                "commit-a",
+                &[FILE_A],
+            )],
+        ),
+    );
+    write_turn_with_observation(
+        repo.path(),
+        SESSION_A,
+        SOURCE_A,
+        "Session A sees session B's dirty workspace file",
+        EnvironmentObservation::from_worktree_and_branch_commits_for_testing(
+            &[FILE_B],
+            ObservedTargets::from_index_keys_for_testing(BRANCH_A, REVIEW_A, CHANGE_A),
+            vec![branch_commit(
+                BRANCH_A,
+                REVIEW_A,
+                CHANGE_A,
+                "commit-a",
+                &[FILE_A],
+            )],
+        ),
+    );
+    write_file_edit_turn_with_observation(
+        repo.path(),
+        SESSION_B,
+        SOURCE_B,
+        "Session B edits its own file",
+        FILE_B,
+        EnvironmentObservation::from_worktree_and_branch_commits_for_testing(
+            &[FILE_B],
+            ObservedTargets::from_index_keys_for_testing(BRANCH_A, REVIEW_A, CHANGE_A),
+            vec![branch_commit(
+                BRANCH_A,
+                REVIEW_A,
+                CHANGE_A,
+                "commit-a",
+                &[FILE_A],
+            )],
+        ),
+    );
+    write_turn_with_observation(
+        repo.path(),
+        SESSION_B,
+        SOURCE_B,
+        "Session B commits its file before the review exists",
+        EnvironmentObservation::from_branch_commits_for_testing(
+            ObservedTargets::from_index_key_sets_for_testing(
+                &[BRANCH_A, BRANCH_B],
+                &[REVIEW_A],
+                &[CHANGE_A, CHANGE_B],
+            ),
+            vec![
+                branch_commit(BRANCH_A, REVIEW_A, CHANGE_A, "commit-a", &[FILE_A]),
+                branch_b_without_review(),
+            ],
+        ),
+    );
+    write_turn_with_observation(
+        repo.path(),
+        SESSION_A,
+        SOURCE_A,
+        "Session A later sees both branches and reviews",
+        EnvironmentObservation::from_branch_commits_for_testing(
+            ObservedTargets::from_index_key_sets_for_testing(
+                &[BRANCH_A, BRANCH_B],
+                &[REVIEW_A, REVIEW_B],
+                &[CHANGE_A, CHANGE_B],
+            ),
+            vec![
+                branch_commit(BRANCH_A, REVIEW_A, CHANGE_A, "commit-a", &[FILE_A]),
+                branch_commit(BRANCH_B, REVIEW_B, CHANGE_B, "commit-b", &[FILE_B]),
+            ],
+        ),
+    );
+    write_turn_with_observation(
+        repo.path(),
+        SESSION_B,
+        SOURCE_B,
+        "Session B later sees its review",
+        EnvironmentObservation::from_branch_commits_for_testing(
+            ObservedTargets::from_index_key_sets_for_testing(
+                &[BRANCH_A, BRANCH_B],
+                &[REVIEW_A, REVIEW_B],
+                &[CHANGE_A, CHANGE_B],
+            ),
+            vec![
+                branch_commit(BRANCH_A, REVIEW_A, CHANGE_A, "commit-a", &[FILE_A]),
+                branch_commit(BRANCH_B, REVIEW_B, CHANGE_B, "commit-b", &[FILE_B]),
+            ],
+        ),
+    );
+
+    let branch_b_sessions =
+        find_related_sessions_limited(repo.path(), RelatedTarget::Branch(BRANCH_B), None)
+            .expect("find branch B sessions");
+    assert_eq!(
+        branch_b_sessions
+            .iter()
+            .map(|session| session.session_key.as_str())
+            .collect::<Vec<_>>(),
+        [SESSION_B],
+        "only the session that edited the promoted worktree file should match branch B"
+    );
+
+    let review_b_sessions =
+        find_related_sessions_limited(repo.path(), RelatedTarget::Review(REVIEW_B), None)
+            .expect("find review B sessions");
+    assert_eq!(
+        review_b_sessions
+            .iter()
+            .map(|session| session.session_key.as_str())
+            .collect::<Vec<_>>(),
+        [SESSION_B],
+        "branch-proven work should carry to the review once the review target is known"
+    );
+
+    let review_a_sessions =
+        find_related_sessions_limited(repo.path(), RelatedTarget::Review(REVIEW_A), None)
+            .expect("find review A sessions");
+    assert_eq!(
+        review_a_sessions
+            .iter()
+            .map(|session| session.session_key.as_str())
+            .collect::<Vec<_>>(),
+        [SESSION_A],
+        "session B's worktree file must not attach it to review A"
+    );
+}
+
+#[test]
+fn structured_file_edit_paths_are_hashed_before_redaction_for_promotion() {
+    let repo = setup_repo();
+    const OTHER_BRANCH_KEY: &str = "ref:refs/heads/other";
+    const OTHER_REVIEW_KEY: &str = "pull-request:ref:refs/heads/other#2";
+    const OTHER_CHANGE_KEY: &str = "gitbutler-change:change-2";
+    const FILE: &str = "src/structured.rs";
+
+    write_structured_file_edit_turn_with_observation(
+        repo.path(),
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        "Update structured file",
+        FILE,
+        EnvironmentObservation::from_worktree_and_branch_commits_for_testing(
+            &[FILE],
+            ObservedTargets::default(),
+            Vec::new(),
+        ),
+    );
+    write_turn_with_observation(
+        repo.path(),
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        "Branches appeared with commits",
+        EnvironmentObservation::from_branch_commits_for_testing(
+            ObservedTargets::from_index_key_sets_for_testing(
+                &[TEST_BRANCH_KEY, OTHER_BRANCH_KEY],
+                &[TEST_PR_REVIEW_KEY, OTHER_REVIEW_KEY],
+                &[TEST_CHANGE_KEY, OTHER_CHANGE_KEY],
+            ),
+            vec![
+                branch_commit(
+                    TEST_BRANCH_KEY,
+                    TEST_PR_REVIEW_KEY,
+                    TEST_CHANGE_KEY,
+                    "commit-main",
+                    &["src/main.rs"],
+                ),
+                branch_commit(
+                    OTHER_BRANCH_KEY,
+                    OTHER_REVIEW_KEY,
+                    OTHER_CHANGE_KEY,
+                    "commit-other",
+                    &[FILE],
+                ),
+            ],
+        ),
+    );
+
+    let main_sessions =
+        find_related_sessions_limited(repo.path(), RelatedTarget::Review(TEST_PR_REVIEW_KEY), None)
+            .expect("find main review sessions");
+    assert!(main_sessions.is_empty());
+    let other = only_related(repo.path(), RelatedTarget::Review(OTHER_REVIEW_KEY));
+    assert_eq!(other.related_turn_keys.len(), 2);
+
+    let records = transcript_entries(repo.path(), TEST_SESSION_KEY)
+        .into_iter()
+        .map(|entry| {
+            serde_json::from_str::<serde_json::Value>(&entry).expect("transcript record json")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(records[1]["tool_input"]["file_path"], "[REDACTED:entropy]");
+    assert_eq!(
+        records[1]["file_path_hashes"]
+            .as_array()
+            .expect("file path hashes")
+            .len(),
+        1
+    );
+    let json = serde_json::to_string(&records).expect("records json");
+    assert!(!json.contains(FILE));
+}
+
+#[test]
 fn promotion_matches_the_branch_that_received_the_files() {
     let repo = setup_repo();
     const OTHER_BRANCH_KEY: &str = "ref:refs/heads/other";
     const OTHER_REVIEW_KEY: &str = "pull-request:ref:refs/heads/other#2";
     const OTHER_CHANGE_KEY: &str = "gitbutler-change:change-2";
-    write_turn_with_observation(
+    write_file_edit_turn_with_observation(
         repo.path(),
         TEST_SESSION_KEY,
         TEST_SOURCE_KEY,
         "Update other branch file",
+        "src/other.rs",
         EnvironmentObservation::from_worktree_and_branch_commits_for_testing(
             &["src/other.rs"],
             ObservedTargets::default(),
@@ -746,11 +1093,12 @@ fn promotion_handles_branch_that_appears_with_commit() {
     const OTHER_BRANCH_KEY: &str = "ref:refs/heads/other";
     const OTHER_REVIEW_KEY: &str = "pull-request:ref:refs/heads/other#2";
     const OTHER_CHANGE_KEY: &str = "gitbutler-change:change-2";
-    write_turn_with_observation(
+    write_file_edit_turn_with_observation(
         repo.path(),
         TEST_SESSION_KEY,
         TEST_SOURCE_KEY,
         "Update file before branches exist",
+        "src/other.rs",
         EnvironmentObservation::from_worktree_and_branch_commits_for_testing(
             &["src/other.rs"],
             ObservedTargets::default(),
