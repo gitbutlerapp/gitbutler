@@ -8,6 +8,7 @@ pub use table::types::Table;
 pub mod text;
 
 pub mod get_text;
+pub(crate) mod keyboard;
 
 pub(crate) mod diff_viewer;
 pub mod editor;
@@ -51,6 +52,7 @@ impl CrosstermTerminalGuard {
         let hook_ref = Arc::clone(&original_hook);
         let mouse = enable_mouse;
         std::panic::set_hook(Box::new(move |panic_info| {
+            keyboard::restore_active_mode();
             let _ = disable_raw_mode();
             if mouse {
                 let _ = crossterm::execute!(
@@ -93,6 +95,7 @@ impl CrosstermTerminalGuard {
 
 impl Drop for CrosstermTerminalGuard {
     fn drop(&mut self) {
+        keyboard::restore_active_mode();
         let _ = disable_raw_mode();
         if self.mouse_captured {
             let _ = crossterm::execute!(
@@ -186,6 +189,7 @@ impl TerminalGuard for CrosstermTerminalGuard {
     type SuspendGuard<'a> = SuspendGuard<'a>;
 
     fn suspend(&mut self) -> anyhow::Result<Self::SuspendGuard<'_>> {
+        keyboard::suspend_active_mode();
         disable_raw_mode()?;
 
         if self.mouse_captured {
@@ -218,6 +222,7 @@ pub(crate) struct SuspendGuard<'a>(&'a mut CrosstermTerminalGuard);
 impl Drop for SuspendGuard<'_> {
     fn drop(&mut self) {
         _ = enable_raw_mode();
+        keyboard::resume_active_mode();
         if self.0.mouse_captured {
             _ = crossterm::execute!(
                 self.0.terminal.backend_mut(),

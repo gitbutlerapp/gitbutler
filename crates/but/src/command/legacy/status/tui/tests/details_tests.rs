@@ -105,7 +105,7 @@ fn commit_message_wraps_in_details_view() {
 
     with_var("GIT_AUTHOR_DATE", Some("2000-01-01T00:00:00Z"), || {
         with_var("GIT_COMMITTER_DATE", Some("2000-01-01T00:00:00Z"), || {
-            tui.input_then_render((KeyModifiers::CONTROL, KeyCode::Char('s')));
+            tui.input_then_render(KeyCode::Enter);
         });
     });
 

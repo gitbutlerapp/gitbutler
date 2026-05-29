@@ -168,7 +168,7 @@ fn undo_opens_confirm_for_latest_snapshot() {
     tui.input_then_render('i');
     tui.input_then_render(KeyCode::Enter);
     tui.input_then_render("commit for undo prompt test");
-    tui.input_then_render((KeyModifiers::CONTROL, KeyCode::Char('s')));
+    tui.input_then_render(KeyCode::Enter);
 
     tui.input_then_render('u')
         .assert_rendered_term_svg_eq(file![
@@ -527,7 +527,7 @@ fn inline_reword() {
     tui.input_then_render("foo")
         .assert_rendered_term_svg_eq(file!["snapshots/inline_reword_004.svg"]);
 
-    tui.input_then_render((KeyModifiers::CONTROL, KeyCode::Char('s')))
+    tui.input_then_render(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/inline_reword_005.svg"])
         .assert_current_line_eq(str!["┊●   [..] foo (no changes)"]);
 }

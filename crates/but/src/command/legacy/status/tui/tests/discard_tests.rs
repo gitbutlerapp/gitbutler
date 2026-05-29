@@ -1,5 +1,5 @@
 use but_testsupport::Sandbox;
-use crossterm::event::{KeyCode, KeyModifiers};
+use crossterm::event::KeyCode;
 use snapbox::{file, str};
 
 use crate::command::legacy::status::tui::tests::utils::test_tui;
@@ -289,7 +289,7 @@ fn discard_multiple_commits() {
         tui.input_then_render('n');
         tui.input_then_render(KeyCode::Enter);
         tui.input_then_render(msg);
-        tui.input_then_render((KeyModifiers::CONTROL, KeyCode::Char('s')));
+        tui.input_then_render(KeyCode::Enter);
     }
 
     tui.input_then_render(' ');

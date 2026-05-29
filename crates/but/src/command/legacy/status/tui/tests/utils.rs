@@ -114,7 +114,7 @@ impl TestTui {
     #[track_caller]
     pub(super) fn render_with_messages<E>(
         &mut self,
-        event: E,
+        mut event: E,
         mut messages: Vec<Message>,
     ) -> TestTuiInputThenRenderResult<'_>
     where
@@ -129,7 +129,7 @@ impl TestTui {
                     .block_on(render_loop_once(
                         &mut self.app,
                         &mut self.terminal,
-                        event,
+                        &mut event,
                         &mut messages,
                         &mut other_messages,
                         &AtomicBool::default(),
@@ -856,18 +856,20 @@ where
 {
     type Error = Infallible;
 
-    fn poll(self, timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
-        Ok(self.into_iter().flat_map(move |inner| {
+    fn poll(&mut self, timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+        let mut events = Vec::new();
+        for inner in self {
             let Ok(iter) = inner.poll(timeout);
-            iter
-        }))
+            events.extend(iter);
+        }
+        Ok(events)
     }
 }
 
 impl EventPolling for Option<Event> {
     type Error = Infallible;
 
-    fn poll(mut self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+    fn poll(&mut self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
         Ok(self.take())
     }
 }
@@ -875,9 +877,9 @@ impl EventPolling for Option<Event> {
 impl EventPolling for KeyCode {
     type Error = Infallible;
 
-    fn poll(self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+    fn poll(&mut self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
         Ok([Event::Key(KeyEvent {
-            code: self,
+            code: *self,
             modifiers: KeyModifiers::NONE,
             kind: KeyEventKind::Press,
             state: KeyEventState::NONE,
@@ -888,7 +890,7 @@ impl EventPolling for KeyCode {
 impl EventPolling for (KeyModifiers, KeyCode) {
     type Error = Infallible;
 
-    fn poll(self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+    fn poll(&mut self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
         Ok([Event::Key(KeyEvent {
             code: self.1,
             modifiers: self.0,
@@ -901,15 +903,20 @@ impl EventPolling for (KeyModifiers, KeyCode) {
 impl EventPolling for char {
     type Error = Infallible;
 
-    fn poll(self, timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
-        KeyCode::Char(self).poll(timeout)
+    fn poll(&mut self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+        Ok([Event::Key(KeyEvent {
+            code: KeyCode::Char(*self),
+            modifiers: KeyModifiers::NONE,
+            kind: KeyEventKind::Press,
+            state: KeyEventState::NONE,
+        })])
     }
 }
 
 impl EventPolling for &str {
     type Error = Infallible;
 
-    fn poll(self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+    fn poll(&mut self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
         Ok(self.chars().map(KeyCode::Char).map(|code| {
             Event::Key(KeyEvent {
                 code,

@@ -306,6 +306,8 @@ shell-words = "1.1.1"
 nonempty = "0.12.0"
 ratatui = "0.30"
 crossterm = "0.29"
+rustix = { version = "1.1.4", features = ["event"] }
+termwiz = "0.23.3"
 self_cell = "1.2.2"
 unicode-segmentation = "1.13.2"
 urlencoding = "2.1"

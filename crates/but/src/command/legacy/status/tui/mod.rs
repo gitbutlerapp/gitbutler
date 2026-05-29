@@ -44,7 +44,7 @@ use crate::{
                 confirm::{Confirm, ConfirmMessage},
                 cursor::{Cursor, is_selectable_in_mode},
                 details::{Details, DetailsMessage, RenderNextChunkResult},
-                event_polling::{CrosstermEventPolling, EventPolling, NoopEventPolling},
+                event_polling::{EventPolling, NoopEventPolling, RawEventPolling},
                 fps::FpsCounter,
                 help::{Help, HelpMessage},
                 highlight::Highlights,
@@ -152,7 +152,7 @@ pub(super) async fn render_tui(
             start_watcher(ctx).context("failed to start filesystem watcher")?;
 
         let mut terminal_guard = CrosstermTerminalGuard::new(true)?;
-        let event_polling = CrosstermEventPolling;
+        let event_polling = RawEventPolling::new()?;
 
         render_loop(
             &mut app,
@@ -174,7 +174,7 @@ pub(super) async fn render_tui(
 async fn render_loop<T, E>(
     app: &mut App,
     terminal_guard: &mut T,
-    event_polling: E,
+    mut event_polling: E,
     messages: &mut Vec<Message>,
     other_messages: &mut Vec<Message>,
     received_watcher_event: Arc<AtomicBool>,
@@ -185,7 +185,7 @@ async fn render_loop<T, E>(
 where
     T: TerminalGuard,
     anyhow::Error: From<<T::Backend as Backend>::Error>,
-    E: EventPolling + Copy,
+    E: EventPolling,
 {
     render(app, terminal_guard)?;
 
@@ -201,7 +201,7 @@ where
         render_loop_once(
             app,
             terminal_guard,
-            event_polling,
+            &mut event_polling,
             messages,
             other_messages,
             &received_watcher_event,
@@ -221,7 +221,7 @@ where
 async fn render_loop_once<T, E>(
     app: &mut App,
     terminal_guard: &mut T,
-    event_polling: E,
+    event_polling: &mut E,
     messages: &mut Vec<Message>,
     other_messages: &mut Vec<Message>,
     received_watcher_event: &AtomicBool,
@@ -258,7 +258,7 @@ where
 async fn update<T, E>(
     app: &mut App,
     terminal_guard: &mut T,
-    event_polling: E,
+    event_polling: &mut E,
     messages: &mut Vec<Message>,
     other_messages: &mut Vec<Message>,
     received_watcher_event: &AtomicBool,
@@ -3115,6 +3115,16 @@ fn event_to_messages(
 ) {
     match ev {
         Event::Key(key) => {
+            if matches!(mode, Mode::InlineReword(InlineRewordMode::Commit { .. }))
+                && key.code == KeyCode::Enter
+                && key.modifiers == event::KeyModifiers::SHIFT
+            {
+                messages.push(Message::Reword(RewordMessage::InlineInput(Event::Key(
+                    event::KeyEvent::new(KeyCode::Enter, event::KeyModifiers::NONE),
+                ))));
+                return;
+            }
+
             let mut handled = false;
             for key_bind in key_binds.iter_key_binds_available_in_mode(ModeDiscriminant::from(mode))
             {

@@ -5,24 +5,24 @@ use crate::command::legacy::status::tui::tests::utils::{TestTui, test_tui, test_
 
 fn reword_selected_commit_to_multiline(tui: &mut TestTui) {
     tui.input_then_render(KeyCode::Enter);
-    tui.input_then_render(KeyCode::Enter);
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Enter));
     tui.input_then_render("first body line");
-    tui.input_then_render(KeyCode::Enter);
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Enter));
     tui.input_then_render("second body line");
-    tui.input_then_render((KeyModifiers::CONTROL, KeyCode::Char('s')));
+    tui.input_then_render(KeyCode::Enter);
 }
 
 fn reword_selected_commit_to_many_lines(tui: &mut TestTui) {
     tui.input_then_render(KeyCode::Enter);
     for idx in 1..=8 {
-        tui.input_then_render(KeyCode::Enter);
+        tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Enter));
         tui.input_then_render(format!("body line {idx}").as_str());
     }
-    tui.input_then_render((KeyModifiers::CONTROL, KeyCode::Char('s')));
+    tui.input_then_render(KeyCode::Enter);
 }
 
 #[test]
-fn commit_inline_reword_enter_inserts_newline_and_ctrl_s_saves() {
+fn commit_inline_reword_shift_enter_inserts_newline_and_enter_saves() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
 
@@ -32,19 +32,14 @@ fn commit_inline_reword_enter_inserts_newline_and_ctrl_s_saves() {
         .assert_current_line_eq(snapbox::str!["┊●   [..] add A"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_rendered_contains("ctrl+s confirm")
+        .assert_rendered_contains("enter confirm")
         .assert_current_line_eq(snapbox::str!["┊●   [..] add A"]);
 
-    tui.input_then_render([
-        KeyCode::Enter,
-        KeyCode::Char('b'),
-        KeyCode::Char('o'),
-        KeyCode::Char('d'),
-        KeyCode::Char('y'),
-    ])
-    .assert_rendered_contains("body");
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Enter));
+    tui.input_then_render("body")
+        .assert_rendered_contains("body");
 
-    tui.input_then_render((KeyModifiers::CONTROL, KeyCode::Char('s')))
+    tui.input_then_render(KeyCode::Enter)
         .assert_current_line_eq(snapbox::str!["┊●   [..] add A"]);
 
     let messages = tui.env().invoke_git("log --all --format=%B");
@@ -64,7 +59,7 @@ fn branch_inline_reword_enter_still_confirms() {
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(snapbox::str!["┊╭┄g0 [A]"]);
     tui.input_then_render(KeyCode::Enter)
-        .assert_rendered_contains("ctrl+s confirm");
+        .assert_rendered_contains("enter confirm");
     tui.input_then_render(KeyCode::Backspace);
     tui.input_then_render("renamed");
     tui.input_then_render(KeyCode::Enter)
@@ -89,7 +84,7 @@ fn existing_multiline_commit_message_opens_inline_and_pushes_rows_down_with_curs
         .assert_rendered_contains("┊│           second body line");
 
     tui.input_then_render(" appended");
-    tui.input_then_render((KeyModifiers::CONTROL, KeyCode::Char('s')));
+    tui.input_then_render(KeyCode::Enter);
     let messages = tui.env().invoke_git("log --all --format=%B");
     assert!(
         messages.contains("second body line appended"),
@@ -126,7 +121,7 @@ fn long_inline_reword_scrolls_textarea_to_cursor_when_message_exceeds_viewport()
         .assert_rendered_contains("body line 8");
 
     tui.input_then_render(" appended");
-    tui.input_then_render((KeyModifiers::CONTROL, KeyCode::Char('s')));
+    tui.input_then_render(KeyCode::Enter);
     let messages = tui.env().invoke_git("log --all --format=%B");
     assert!(
         messages.contains("body line 8 appended"),
@@ -143,12 +138,7 @@ fn multiline_inline_reword_clips_when_bottom_is_offscreen() {
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Enter])
         .assert_current_line_eq(snapbox::str!["┊●   [..] add A"]);
-    tui.input_then_render([
-        KeyCode::Enter,
-        KeyCode::Char('b'),
-        KeyCode::Char('o'),
-        KeyCode::Char('d'),
-        KeyCode::Char('y'),
-    ])
-    .assert_rendered_contains("body");
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Enter));
+    tui.input_then_render("body")
+        .assert_rendered_contains("body");
 }

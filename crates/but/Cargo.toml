@@ -132,6 +132,8 @@ ratatui = { workspace = true, features = [
     "serde",
 ] }
 crossterm.workspace = true
+rustix.workspace = true
+termwiz.workspace = true
 sha2.workspace = true
 machine-uid = "0.5.4"
 tempfile.workspace = true
