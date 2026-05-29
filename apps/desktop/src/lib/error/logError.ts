@@ -101,7 +101,12 @@ export function logError(error: unknown, options?: LogErrorOptions) {
 	}
 }
 
-function reduxErrorToException(error: { name?: string; message: string; code?: string }): Error {
+function reduxErrorToException(error: {
+	name?: string;
+	message: string;
+	code?: string;
+	fingerprint?: readonly string[];
+}): Error {
 	const err = new Error(error.message);
 	// Prefer the backend-provided name (e.g. "API error: (push_stack)") over
 	// the default "Error" so Sentry's title grouping matches the PostHog
@@ -109,6 +114,11 @@ function reduxErrorToException(error: { name?: string; message: string; code?: s
 	err.name = error.name || "Error";
 	if (error.code) {
 		(err as Error & { code?: string }).code = error.code;
+	}
+	if (error.fingerprint) {
+		// `applyIpcFingerprint` (Sentry `beforeSend`) reads from this field
+		// to apply the precomputed IpcError fingerprint to outgoing events.
+		(err as Error & { fingerprint?: readonly string[] }).fingerprint = error.fingerprint;
 	}
 	return err;
 }

@@ -1,5 +1,5 @@
 import { isBackend, type IBackend } from "$lib/backend";
-import { isReduxError, type ReduxError } from "$lib/error/reduxError";
+import { IpcError, isReduxError, type ReduxError } from "$lib/error/reduxError";
 import { isErrorlike } from "@gitbutler/ui/utils/typeguards";
 import { type BaseQueryApi, type QueryReturnValue } from "@reduxjs/toolkit/query";
 import type { ExtraOptions } from "$lib/state/butlerModule";
@@ -30,7 +30,13 @@ export const tauriBaseQuery: TauriBaseQueryFn = async (
 	} catch (error: unknown) {
 		const name = `API error: (${command})`;
 		if (isReduxError(error)) {
-			return { error: { name, message: error.message, code: error.code } };
+			// Forward the IpcError fingerprint across the plain-object hop so
+			// `applyIpcFingerprint` (Sentry `beforeSend`) can still find it
+			// downstream of `reduxErrorToException` in `logError.ts`.
+			const fingerprint = error instanceof IpcError ? error.fingerprint : undefined;
+			return {
+				error: { name, message: error.message, code: error.code, fingerprint },
+			};
 		}
 
 		if (isErrorlike(error)) {
