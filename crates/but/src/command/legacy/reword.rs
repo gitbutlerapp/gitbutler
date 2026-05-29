@@ -85,6 +85,14 @@ fn edit_branch_name(
         if let Some(sid) = stack_entry.id {
             let non_validated_new_name = prepare_provided_message(message, "branch name")
                 .unwrap_or_else(|| get_branch_name_from_editor(branch_name))?;
+
+            if non_validated_new_name == branch_name {
+                if let Some(out) = out.for_human() {
+                    writeln!(out, "Branch already named '{branch_name}' - nothing to do")?;
+                };
+                return Ok(());
+            };
+
             let new_branch_name = {
                 let repo = ctx.repo.get()?;
                 BranchArg(non_validated_new_name).resolve_for_creation(&repo)?

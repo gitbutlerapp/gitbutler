@@ -161,6 +161,23 @@ Error: A branch named 'existing' already exists
 }
 
 #[test]
+fn reword_branch_allows_rewording_to_same_name() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("reword A -m A")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Branch already named 'A' - nothing to do
+
+"#]])
+        .stderr_eq(str![[]]);
+
+    Ok(())
+}
+
+#[test]
 fn reword_commit_with_same_message_succeeds_as_noop() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @"
