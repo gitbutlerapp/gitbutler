@@ -23,7 +23,7 @@ pub(super) enum Mode {
     Command(CommandMode),
     Commit(CommitMode),
     Move(MoveMode),
-    Details,
+    Details(DetailsMode),
 }
 
 impl Default for Mode {
@@ -53,7 +53,7 @@ impl Mode {
             | Mode::Command(..)
             | Mode::Commit(..)
             | Mode::Move(..)
-            | Mode::Details => None,
+            | Mode::Details(..) => None,
         }
     }
 }
@@ -349,4 +349,9 @@ impl PartialEq<CliId> for MoveSource {
             }
         }
     }
+}
+
+#[derive(Debug)]
+pub(super) struct DetailsMode {
+    pub(super) full_screen: bool,
 }

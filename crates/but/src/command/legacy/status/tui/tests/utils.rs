@@ -162,13 +162,13 @@ impl Drop for TestTui {
         // much of it depends on getting the cursor on the right line.
 
         let render_result = self.input_then_render(None);
-        let selected_row = render_result.selected_row() as usize;
+        let selected_row = render_result.selected_row().map(|row| row as usize);
 
         eprintln!("\nCurrent terminal state:");
 
         for (idx, line) in render_result.output().lines().enumerate() {
             let line = line.trim_matches('"');
-            if idx == selected_row {
+            if selected_row.is_some_and(|row| row == idx) {
                 colored::control::set_override(true);
                 eprintln!(
                     "\"{}\"",
@@ -218,7 +218,9 @@ impl TestTuiInputThenRenderResult<'_> {
         self.0.terminal.backend().to_string()
     }
 
-    fn selected_row(&self) -> u16 {
+    /// We might not be able to find the selected row for example if we're in full screen details
+    /// view.
+    fn selected_row(&self) -> Option<u16> {
         let backend = self.0.terminal.backend();
         let buffer = backend.buffer();
         let area = *buffer.area();
@@ -227,12 +229,9 @@ impl TestTuiInputThenRenderResult<'_> {
             .bg
             .expect("background must be set on selection_highlight");
 
-        (area.y..area.y.saturating_add(area.height))
-            .find(|&y| {
-                (area.x..area.x.saturating_add(area.width))
-                    .any(|x| buffer[(x, y)].bg == selected_bg)
-            })
-            .unwrap_or_else(|| panic!("failed to find selected row in rendered output:\n{backend}"))
+        (area.y..area.y.saturating_add(area.height)).find(|&y| {
+            (area.x..area.x.saturating_add(area.width)).any(|x| buffer[(x, y)].bg == selected_bg)
+        })
     }
 
     #[track_caller]
@@ -241,7 +240,9 @@ impl TestTuiInputThenRenderResult<'_> {
         let buffer = backend.buffer();
         let area = *buffer.area();
 
-        let selected_row = self.selected_row();
+        let selected_row = self
+            .selected_row()
+            .expect("failed to find selected row in rendered output");
 
         let mut line = String::new();
         for x in area.x..area.x.saturating_add(area.width) {

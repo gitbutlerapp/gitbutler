@@ -18,8 +18,21 @@ impl Backstack {
         self.push_front(BackstackEntry::ShowFileList);
     }
 
+    pub(super) fn push_open_details_view(&mut self, full_screen: bool) {
+        self.push_front(if full_screen {
+            BackstackEntry::OpenFullScreenDetailsView
+        } else {
+            BackstackEntry::OpenSplitDetailsView
+        });
+    }
+
     pub(super) fn remove_show_file_list(&mut self) {
         self.remove(BackstackEntry::ShowFileList);
+    }
+
+    pub(super) fn remove_open_details_view(&mut self) {
+        self.remove(BackstackEntry::OpenSplitDetailsView);
+        self.remove(BackstackEntry::OpenFullScreenDetailsView);
     }
 
     pub(super) fn push_mark(&mut self) {
@@ -61,6 +74,8 @@ pub(super) enum BackstackEntry {
     LeaveNormalMode,
     ShowFileList,
     Mark,
+    OpenSplitDetailsView,
+    OpenFullScreenDetailsView,
 }
 
 /// Wrapper type that makes it hard to forget updating the backstack when updating the inner value.

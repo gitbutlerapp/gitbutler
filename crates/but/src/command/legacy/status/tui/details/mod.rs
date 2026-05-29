@@ -22,7 +22,7 @@ use ratatui::{
     layout::Rect,
     style::{Color, Stylize},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, List, ListItem, Widget},
+    widgets::{List, ListItem, Widget},
 };
 use syntect::{
     easy::HighlightLines,
@@ -35,9 +35,10 @@ use uuid::Uuid;
 use crate::{
     CliId, IdMap,
     command::legacy::status::tui::{
-        CommandMessage, CommitMessage, DebugAsType, FilesMessage, Message, MessageOnDrop,
-        MoveMessage, RewordMessage, RubMessage, details::details_cursor::DetailsCursor,
-        message_on_drop::message_on_drop, mode::CommittedHunk,
+        CommandMessage, CommitMessage, DebugAsType, DetailsLayoutMessage, FilesMessage, Message,
+        MessageOnDrop, MoveMessage, RewordMessage, RubMessage,
+        details::details_cursor::DetailsCursor, message_on_drop::message_on_drop,
+        mode::CommittedHunk,
     },
     id::{UncommittedCliId, UncommittedHunk},
     theme::Theme,
@@ -47,16 +48,8 @@ use super::{HelpMessage, RubSource};
 
 mod details_cursor;
 
-#[derive(Debug, Default, Copy, Clone)]
-pub(super) enum DetailsVisibility {
-    #[default]
-    Hidden,
-    VisibleVertical,
-}
-
 #[derive(Debug, Clone)]
 pub(super) enum DetailsMessage {
-    ToggleVisibility,
     Deselect,
     SelectFirstSection,
     SelectNextSection,
@@ -88,14 +81,13 @@ pub(super) struct Details {
     renderer: IncrementalDiffRenderer,
     syntax_set: DebugAsType<OnDemand<SyntaxSet>>,
     syntax_theme: DebugAsType<OnDemand<highlighting::Theme>>,
-    visibility: DetailsVisibility,
     line_highlight_cache: LineHighlightCache,
     is_locked: bool,
     theme: &'static Theme,
 }
 
 impl Details {
-    pub(super) fn new_hidden(theme: &'static Theme) -> Self {
+    pub(super) fn new(theme: &'static Theme) -> Self {
         Self {
             is_dirty: false,
             is_locked: false,
@@ -103,19 +95,10 @@ impl Details {
             renderer: Default::default(),
             cursor: Default::default(),
             scroll_top: 0,
-            visibility: Default::default(),
             line_highlight_cache: Default::default(),
             syntax_set: OnDemand::new(|| Ok(SyntaxSet::load_defaults_newlines())).into(),
             syntax_theme: OnDemand::new(|| theme.load_syntax_highlighting_theme()).into(),
             theme,
-        }
-    }
-
-    pub(super) fn new_visible(theme: &'static Theme) -> Self {
-        Self {
-            is_dirty: true,
-            visibility: DetailsVisibility::VisibleVertical,
-            ..Self::new_hidden(theme)
         }
     }
 
@@ -126,17 +109,6 @@ impl Details {
 
     pub(super) fn is_dirty(&self) -> bool {
         self.is_dirty
-    }
-
-    pub(super) fn visibility(&self) -> DetailsVisibility {
-        self.visibility
-    }
-
-    pub(super) fn is_visible(&self) -> bool {
-        match self.visibility {
-            DetailsVisibility::Hidden => false,
-            DetailsVisibility::VisibleVertical => true,
-        }
     }
 
     fn lock(&mut self, messages: &mut Vec<Message>) -> MessageOnDrop {
@@ -152,25 +124,29 @@ impl Details {
         self.mark_dirty();
     }
 
-    pub(super) fn needs_update(&self) -> bool {
-        self.is_visible() && self.is_dirty()
+    pub(super) fn needs_update(&self, is_visible: bool) -> bool {
+        is_visible && self.is_dirty()
     }
 
-    pub(super) fn needs_update_after_message(&self, msg: &Message) -> bool {
+    pub(super) fn reset_scroll(&mut self) {
+        self.cursor = DetailsCursor::default();
+        self.scroll_top = 0;
+    }
+
+    pub(super) fn needs_update_after_message(&self, is_visible: bool, msg: &Message) -> bool {
         if self.is_locked {
             return false;
         }
 
-        match self.visibility {
-            DetailsVisibility::Hidden => return false,
-            DetailsVisibility::VisibleVertical => {}
+        if !is_visible {
+            return false;
         }
 
         match msg {
             Message::JustRender
             | Message::CopySelection
             | Message::Quit
-            | Message::EnterDetailsMode
+            | Message::DetailsLayout(DetailsLayoutMessage::Focus { .. })
             | Message::Discard
             | Message::DropToBeDiscarded
             | Message::Debug(_)
@@ -189,6 +165,9 @@ impl Details {
             | Message::WithOneFrameDelay(_)
             | Message::Back
             | Message::UnfocusDetails
+            | Message::DetailsLayout(DetailsLayoutMessage::ToggleFullScreen)
+            | Message::DetailsLayout(DetailsLayoutMessage::ToggleVisibility)
+            | Message::DetailsLayout(DetailsLayoutMessage::Dismiss)
             | Message::Undo
             | Message::Redo
             | Message::EnterNormalModeAfterConfirmingOperation => false,
@@ -244,16 +223,13 @@ impl Details {
                 | DetailsMessage::GotoBottom
                 | DetailsMessage::StartRub
                 | DetailsMessage::ScrollUp(_)
-                | DetailsMessage::ScrollDown(_)
-                | DetailsMessage::ToggleVisibility => false,
+                | DetailsMessage::ScrollDown(_) => false,
             },
             Message::Help(help_message) => match help_message {
                 HelpMessage::Close | HelpMessage::ScrollUp(_) | HelpMessage::ScrollDown(_) => false,
             },
 
-            Message::AndThen { lhs, rhs } => {
-                self.needs_update_after_message(lhs) || self.needs_update_after_message(rhs)
-            }
+            Message::AndThen { .. } => true,
         }
     }
 
@@ -291,23 +267,6 @@ impl Details {
                 self.cursor
                     .move_selection_by(&self.renderer.sections, |_| usize::MAX);
                 self.ensure_selection_visible(viewport);
-            }
-            DetailsMessage::ToggleVisibility => {
-                self.visibility = match self.visibility {
-                    DetailsVisibility::Hidden => DetailsVisibility::VisibleVertical,
-                    DetailsVisibility::VisibleVertical => DetailsVisibility::Hidden,
-                };
-
-                match self.visibility {
-                    DetailsVisibility::Hidden => {
-                        self.cursor = DetailsCursor::default();
-                        self.scroll_top = 0;
-                        messages.push(Message::UnfocusDetails);
-                    }
-                    DetailsVisibility::VisibleVertical => {
-                        self.mark_dirty();
-                    }
-                }
             }
             DetailsMessage::Deselect => {
                 self.cursor.deselect();
@@ -548,20 +507,15 @@ impl Details {
     }
 
     pub(super) fn render(&self, help_shown: bool, has_focus: bool, area: Rect, frame: &mut Frame) {
-        let outer_block = Block::bordered()
-            .borders(Borders::LEFT)
-            .border_style(self.theme.border);
-        let inner_area = outer_block.inner(area);
-        frame.render_widget(outer_block, area);
-
         if let Some(diff) = &self.widget {
             diff.render(
                 &self.cursor,
                 self.scroll_top,
-                inner_area,
+                area,
                 frame,
                 help_shown,
                 has_focus,
+                self.is_dirty,
                 self.theme,
             );
         }
@@ -569,16 +523,11 @@ impl Details {
 }
 
 fn details_content_width(viewport: Rect) -> u16 {
-    // `render()` reserves one column for the left border before passing the remaining
-    // area to `DetailsAndDiffWidget::render`.
-    viewport.width.saturating_sub(1).max(1)
+    viewport.width.max(1)
 }
 
 fn details_content_height(viewport: Rect) -> usize {
-    // The parent `Tui::render` places details inside a block with a bottom border,
-    // then calls `Details::render` with that inner area. So one terminal row is not
-    // available for diff content.
-    viewport.height.saturating_sub(1).max(1) as usize
+    viewport.height.max(1) as usize
 }
 
 /// Returns true if `hunk_assignment` is part of the selected uncommitted entity.
@@ -743,6 +692,7 @@ impl DetailsAndDiffWidget {
         buf: &mut Frame,
         help_shown: bool,
         has_focus: bool,
+        is_dirty: bool,
         theme: &'static Theme,
     ) {
         enum ListItemOrString<'a> {
@@ -764,7 +714,7 @@ impl DetailsAndDiffWidget {
         .into_iter()
         .flatten();
 
-        let items = match self {
+        let mut items = match self {
             DetailsAndDiffWidget::FromCommit {
                 header_items,
                 diff_line_items,
@@ -812,9 +762,14 @@ impl DetailsAndDiffWidget {
                 }
             }
             ListItemOrString::Str(cow) => ListItem::new(cow),
-        });
+        })
+        .peekable();
 
-        List::new(items).render(area, buf.buffer_mut());
+        if items.peek().is_some() {
+            List::new(items).render(area, buf.buffer_mut());
+        } else if !is_dirty {
+            Span::styled("No changes", theme.hint).render(area, buf.buffer_mut());
+        }
     }
 }
 
