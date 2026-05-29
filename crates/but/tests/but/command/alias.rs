@@ -176,3 +176,30 @@ active  ✓ *A          26y ago    author
 
     Ok(())
 }
+
+#[cfg(unix)]
+#[cfg(feature = "legacy")]
+#[test]
+fn alias_expansion_failure_falls_back_to_original_args() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+
+    env.but("alias add bad").arg("'").assert().success();
+
+    env.but("bad")
+        .assert()
+        .stdout_eq(str![[]])
+        .stderr_eq(str![[r#"
+Failed to expand alias 'bad': missing closing quote
+Skipping alias expansion
+error: unrecognized subcommand 'bad'
+
+  tip: a similar subcommand exists: 'onboarding'
+
+Usage: but [OPTIONS] [COMMAND]
+
+For more information, try '--help'.
+
+"#]]);
+
+    Ok(())
+}

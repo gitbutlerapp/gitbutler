@@ -109,7 +109,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         return Ok(());
     }
 
-    let args = expand_aliases(args)?;
+    let args = expand_aliases(args);
 
     // The `but push --help` output is different if gerrit mode is enabled, hence the special handling
     let args_vec: Vec<String> = std::env::args().collect();
@@ -281,46 +281,60 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 /// but -C /repo bl --review    # Expands to: but -C /repo branch list --local --review
 /// ```
 ///
-fn expand_aliases(args: Vec<OsString>) -> Result<Vec<OsString>, anyhow::Error> {
+/// This function never fails - any unexpected situation leads to the original args being returned.
+fn expand_aliases(args: Vec<OsString>) -> Vec<OsString> {
     let parsed_args = match Args::try_parse_from(&args) {
         Ok(parsed) => parsed,
         Err(_) => {
             // We let the core parsing logic handle hard parse errors as there is special handling
             // of e.g. help output. If we get rid of that bespoke parsing we can also get rid of
             // this early return and let Clap handle parse errors with [`Args::parse_from`].
-            return Ok(args);
+            return args;
         }
     };
 
-    let expanded_args = {
-        match &parsed_args.cmd {
-            Some(Subcommands::External(subcommand_args))
-                if let Some(command_name) = subcommand_args.first() =>
-            {
-                if let Some(command_name) = command_name.to_str() {
-                    let subcommand_start = args.len() - subcommand_args.len();
-                    let expanded = alias::expand_alias(command_name)?;
-                    Vec::<OsString>::new()
-                        .iter()
-                        .chain(args[..subcommand_start].iter())
-                        .chain(expanded.iter())
-                        .chain(args[subcommand_start + 1..].iter())
-                        .cloned()
-                        .collect()
-                } else {
-                    args
-                }
+    match &parsed_args.cmd {
+        Some(Subcommands::External(subcommand_args))
+            if let Some(command_name) = subcommand_args.first() =>
+        {
+            if let Some(command_name) = command_name.to_str() {
+                let subcommand_start = args.len() - subcommand_args.len();
+
+                let expanded = match alias::expand_alias(command_name) {
+                    Ok(expanded) => expanded,
+                    Err(err) => {
+                        print_err_infallible(theme::get().attention.paint(format!(
+                            "Failed to expand alias '{command_name}': {err}\nSkipping alias expansion\n",
+                        )));
+                        return args;
+                    }
+                };
+
+                Vec::<OsString>::new()
+                    .iter()
+                    .chain(args[..subcommand_start].iter())
+                    .chain(expanded.iter())
+                    .chain(args[subcommand_start + 1..].iter())
+                    .cloned()
+                    .collect()
+            } else {
+                args
             }
-            _ => args,
         }
-    };
-    Ok(expanded_args)
+        _ => args,
+    }
 }
 
-fn print_and_exit_non_zero<T: std::fmt::Display>(err: T) -> ! {
+/// Print to stderr, ignoring any errors in printing. Use this when printing to stderr is the only
+/// reasonable thing to do and there are no other options left.
+fn print_err_infallible<T: std::fmt::Display>(err: T) {
     use std::io::Write;
     // We swallow this error, there is nothing more to do at this point
     let _ = write!(std::io::stderr(), "{err}");
+}
+
+fn print_and_exit_non_zero<T: std::fmt::Display>(err: T) -> ! {
+    print_err_infallible(err);
     std::process::exit(1)
 }
 
