@@ -499,6 +499,23 @@ pub(super) fn render_status_list_item(
                     }
                 }
             }
+            Mode::InlineReword(InlineRewordMode::Commit { textarea, .. }) => {
+                if matches!(data, StatusOutputLineData::Commit { .. }) {
+                    let highlight = !matches!(app.modal, Some(Modal::Help { .. })) && app.has_focus;
+                    let mut lines = Vec::with_capacity(textarea_line_count(textarea));
+                    lines.push(highlight_line_if(line, highlight, app.theme));
+                    for _ in 1..textarea_line_count(textarea) {
+                        let mut extension_line = Line::default();
+                        extend_connector_spans(
+                            connector.as_deref().unwrap_or_default(),
+                            ExtensionDirection::Below,
+                            &mut extension_line,
+                        );
+                        lines.push(highlight_line_if(extension_line, highlight, app.theme));
+                    }
+                    return StatusListItem::Lines(lines);
+                }
+            }
             Mode::Normal(..)
             | Mode::Details(..)
             | Mode::Rub(..)
@@ -514,6 +531,10 @@ pub(super) fn render_status_list_item(
     );
 
     StatusListItem::Single(line)
+}
+
+fn textarea_line_count(textarea: &ratatui_textarea::TextArea<'_>) -> usize {
+    textarea.lines().len().max(1)
 }
 
 fn highlight_line_if(line: Line<'static>, highlight: bool, theme: &'static Theme) -> Line<'static> {
@@ -801,13 +822,15 @@ fn render_inline_reword(app: &App, area: Rect, frame: &mut Frame) {
     let Some(selected_rows) = selected_row_range(app) else {
         return;
     };
-    if selected_rows.start < app.scroll_top {
+    let viewport = app.scroll_top..app.scroll_top.saturating_add(area.height as usize);
+    let visible_start = selected_rows.start.max(viewport.start);
+    let visible_end = selected_rows.end.min(viewport.end);
+    if visible_start >= visible_end {
         return;
     }
-    let idx = selected_rows.start - app.scroll_top;
-    if idx >= area.height as usize {
-        return;
-    }
+    let idx = visible_start - app.scroll_top;
+    let skipped_rows = visible_start - selected_rows.start;
+    let visible_height = (visible_end - visible_start) as u16;
     let Some(line) = app.status_lines.get(selected_idx) else {
         return;
     };
@@ -831,10 +854,15 @@ fn render_inline_reword(app: &App, area: Rect, frame: &mut Frame) {
             let padding = 1;
 
             let start_x = connector_and_prefix + padding;
-            let x = area.x.saturating_add(start_x);
-            let width = area.right().saturating_sub(x);
-            let area = Rect::new(x, area.y.saturating_add(idx as u16), width, 1);
-            frame.render_widget(&**textarea, area);
+            render_textarea(
+                textarea,
+                area,
+                frame,
+                start_x,
+                idx,
+                visible_height,
+                skipped_rows,
+            );
         }
         InlineRewordMode::Branch { textarea, .. } => {
             let StatusOutputLineData::Branch { .. } = &line.data else {
@@ -857,12 +885,33 @@ fn render_inline_reword(app: &App, area: Rect, frame: &mut Frame) {
             let padding = 0;
 
             let start_x = connector_and_prefix + padding;
-            let x = area.x.saturating_add(start_x);
-            let width = area.right().saturating_sub(x);
-            let area = Rect::new(x, area.y.saturating_add(idx as u16), width, 1);
-            frame.render_widget(&**textarea, area);
+            render_textarea(
+                textarea,
+                area,
+                frame,
+                start_x,
+                idx,
+                visible_height,
+                skipped_rows,
+            );
         }
     }
+}
+
+fn render_textarea(
+    textarea: &ratatui_textarea::TextArea<'_>,
+    area: Rect,
+    frame: &mut Frame,
+    start_x: u16,
+    idx: usize,
+    visible_height: u16,
+    skipped_rows: usize,
+) {
+    let x = area.x.saturating_add(start_x);
+    let width = area.right().saturating_sub(x);
+    let area = Rect::new(x, area.y.saturating_add(idx as u16), width, visible_height);
+    let _ = skipped_rows;
+    frame.render_widget(textarea, area);
 }
 
 fn render_debug(app: &App, area: Rect, frame: &mut Frame) {
@@ -1020,19 +1069,29 @@ impl SpanExt<ModeDiscriminant> for Span<'_> {
 pub(super) enum StatusListItem {
     Single(Line<'static>),
     Double(Line<'static>, Line<'static>),
+    Lines(Vec<Line<'static>>),
 }
 
 impl IntoIterator for StatusListItem {
     type Item = ListItem<'static>;
-    type IntoIter =
-        Either<std::iter::Once<ListItem<'static>>, std::array::IntoIter<ListItem<'static>, 2>>;
+    type IntoIter = Either<
+        Either<std::iter::Once<ListItem<'static>>, std::array::IntoIter<ListItem<'static>, 2>>,
+        std::vec::IntoIter<ListItem<'static>>,
+    >;
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            StatusListItem::Single(line) => Either::Left(once(ListItem::new(line))),
-            StatusListItem::Double(line1, line2) => {
-                Either::Right([ListItem::new(line1), ListItem::new(line2)].into_iter())
-            }
+            StatusListItem::Single(line) => Either::Left(Either::Left(once(ListItem::new(line)))),
+            StatusListItem::Double(line1, line2) => Either::Left(Either::Right(
+                [ListItem::new(line1), ListItem::new(line2)].into_iter(),
+            )),
+            StatusListItem::Lines(lines) => Either::Right(
+                lines
+                    .into_iter()
+                    .map(ListItem::new)
+                    .collect::<Vec<_>>()
+                    .into_iter(),
+            ),
         }
     }
 }
@@ -1114,6 +1173,18 @@ pub(super) fn ensure_cursor_visible(app: &mut App, visible_height: usize) {
     };
 
     let selected_height = selected_rows.end.saturating_sub(selected_rows.start);
+
+    if selected_height > visible_height {
+        // Oversized selections cannot be fully fit into the status viewport. Keep the status
+        // viewport anchored at the bottom of the selected block and let stateful widgets inside the
+        // block, such as the inline reword textarea, handle their own internal scrolling. Trying to
+        // alternate between the top and bottom of the selected block causes the commit row prefix
+        // (including the SHA) to flicker into continuation rows while editing long messages.
+        app.scroll_top = selected_rows.end.saturating_sub(visible_height);
+        clamp_scroll_top(app, visible_height);
+        return;
+    }
+
     let context_rows = CURSOR_CONTEXT_ROWS.min(visible_height.saturating_sub(selected_height) / 2);
 
     let min_scroll_top = selected_rows

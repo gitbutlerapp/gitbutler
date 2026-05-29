@@ -723,7 +723,7 @@ impl KeyBindsBuilder<'_> {
     fn reword_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "confirm",
-            press().code(KeyCode::Enter),
+            press().control().code(KeyCode::Char('s')),
             Message::Reword(RewordMessage::InlineConfirm),
         )
     }

@@ -428,7 +428,7 @@ fn commit_moved_file_from_unassigned_changes_line() {
     tui.input_then_render('i');
     tui.input_then_render(KeyCode::Enter);
     tui.input_then_render("add test.txt");
-    tui.input_then_render(KeyCode::Enter);
+    tui.input_then_render((KeyModifiers::CONTROL, KeyCode::Char('s')));
 
     // go back to top to normalize inputs
     tui.input_then_render('g');
@@ -442,7 +442,7 @@ fn commit_moved_file_from_unassigned_changes_line() {
     tui.input_then_render('i');
     tui.input_then_render(KeyCode::Enter);
     tui.input_then_render("move test.txt to moved-test.txt");
-    tui.input_then_render(KeyCode::Enter);
+    tui.input_then_render((KeyModifiers::CONTROL, KeyCode::Char('s')));
 
     // there should be no more changes to commit
     tui.input_then_render(None)
@@ -466,7 +466,7 @@ fn commit_moved_file_from_file_line() {
     tui.input_then_render('i');
     tui.input_then_render(KeyCode::Enter);
     tui.input_then_render("add test.txt");
-    tui.input_then_render(KeyCode::Enter);
+    tui.input_then_render((KeyModifiers::CONTROL, KeyCode::Char('s')));
 
     // go back to top to normalize inputs
     tui.input_then_render('g');
@@ -482,7 +482,7 @@ fn commit_moved_file_from_file_line() {
     tui.input_then_render('i');
     tui.input_then_render(KeyCode::Enter);
     tui.input_then_render("move test.txt to moved-test.txt");
-    tui.input_then_render(KeyCode::Enter);
+    tui.input_then_render((KeyModifiers::CONTROL, KeyCode::Char('s')));
 
     // there should be no more changes to commit
     tui.input_then_render(None)
@@ -510,7 +510,7 @@ fn commit_moved_and_modified_file() {
     tui.input_then_render('i');
     tui.input_then_render(KeyCode::Enter);
     tui.input_then_render("add test.txt");
-    tui.input_then_render(KeyCode::Enter);
+    tui.input_then_render((KeyModifiers::CONTROL, KeyCode::Char('s')));
 
     // go back to top to normalize inputs
     tui.input_then_render('g');
@@ -525,7 +525,7 @@ fn commit_moved_and_modified_file() {
     tui.input_then_render('i');
     tui.input_then_render(KeyCode::Enter);
     tui.input_then_render("move test.txt to moved-test.txt");
-    tui.input_then_render(KeyCode::Enter);
+    tui.input_then_render((KeyModifiers::CONTROL, KeyCode::Char('s')));
 
     // there should be no more changes to commit
     tui.input_then_render(None)

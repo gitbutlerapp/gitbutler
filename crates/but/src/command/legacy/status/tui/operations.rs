@@ -220,10 +220,6 @@ pub(super) fn current_commit_message(
     Ok(commit_details.commit.inner.message.to_string())
 }
 
-pub(super) fn commit_message_has_multiple_lines_legacy(message: &str) -> bool {
-    legacy::commit_message_prep::commit_message_has_multiple_lines(message)
-}
-
 pub(super) fn reword_commit_legacy(
     ctx: &mut Context,
     commit_id: gix::ObjectId,

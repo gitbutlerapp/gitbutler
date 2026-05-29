@@ -2500,7 +2500,7 @@ impl App {
     fn handle_reword_inline_start(
         &mut self,
         ctx: &mut Context,
-        messages: &mut Vec<Message>,
+        _messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
         let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
             return Ok(());
@@ -2527,14 +2527,14 @@ impl App {
             CliId::Commit { commit_id, .. } => {
                 let current_message = operations::current_commit_message(ctx, *commit_id)?;
 
-                if operations::commit_message_has_multiple_lines_legacy(&current_message) {
-                    messages.push(Message::Reword(RewordMessage::WithEditor));
-                    return Ok(());
-                }
-
-                let first_line = current_message.lines().next().unwrap_or("").to_string();
-                let mut textarea = TextArea::from([first_line]);
+                let mut textarea = TextArea::from(
+                    current_message
+                        .lines()
+                        .map(str::to_owned)
+                        .collect::<Vec<_>>(),
+                );
                 textarea.set_cursor_line_style(self.theme.default);
+                textarea.move_cursor(CursorMove::Bottom);
                 textarea.move_cursor(CursorMove::End);
 
                 InlineRewordMode::Commit {
@@ -2583,7 +2583,25 @@ impl App {
                 InlineRewordMode::Commit { .. } => ev,
             };
 
+            let commit_line_count_before = match inline_reword_mode {
+                InlineRewordMode::Commit { textarea, .. } => Some(textarea.lines().len()),
+                InlineRewordMode::Branch { .. } => None,
+            };
             inline_reword_mode.textarea_mut().input(ev);
+
+            if let InlineRewordMode::Commit { textarea, .. } = inline_reword_mode
+                && commit_line_count_before
+                    .is_some_and(|line_count| textarea.lines().len() < line_count)
+            {
+                let cursor = textarea.cursor();
+                if cursor.0 + 1 >= textarea.lines().len() {
+                    textarea.scroll((-i16::MAX, -i16::MAX));
+                    textarea.move_cursor(CursorMove::Jump(
+                        cursor.0.min(u16::MAX as usize) as u16,
+                        cursor.1.min(u16::MAX as usize) as u16,
+                    ));
+                }
+            }
         }
     }
 
@@ -2599,17 +2617,14 @@ impl App {
             return Ok(());
         };
 
-        let first_line = inline_reword_mode
-            .textarea()
-            .lines()
-            .first()
-            .map(std::string::String::as_str)
-            .unwrap_or("");
-
         match inline_reword_mode {
-            InlineRewordMode::Commit { commit_id, .. } => {
+            InlineRewordMode::Commit {
+                commit_id,
+                textarea,
+            } => {
+                let message = textarea.lines().join("\n");
                 let Some(reword_result) =
-                    operations::reword_commit_legacy(ctx, *commit_id, first_line)?
+                    operations::reword_commit_legacy(ctx, *commit_id, &message)?
                 else {
                     messages.push(Message::EnterNormalModeAfterConfirmingOperation);
                     return Ok(());
@@ -2623,7 +2638,16 @@ impl App {
                     ),
                 ]);
             }
-            InlineRewordMode::Branch { name, stack_id, .. } => {
+            InlineRewordMode::Branch {
+                name,
+                stack_id,
+                textarea,
+            } => {
+                let first_line = textarea
+                    .lines()
+                    .first()
+                    .map(std::string::String::as_str)
+                    .unwrap_or("");
                 let new_name = operations::reword_branch_legacy(
                     ctx,
                     *stack_id,
@@ -2659,20 +2683,18 @@ impl App {
         };
 
         let textarea = inline_reword_mode.textarea();
-        let Some(line) = textarea.lines().first() else {
-            return Ok(());
-        };
 
         let _suspend_guard = terminal_guard.suspend()?;
         let what_to_select = match inline_reword_mode {
             InlineRewordMode::Commit { commit_id, .. } => {
+                let message = textarea.lines().join("\n");
                 let commit_details =
                     but_api::diff::commit_details(ctx, *commit_id, ComputeLineStats::No)?;
                 if let Some(reword_result) =
                     operations::reword_commit_with_editor_with_message_legacy(
                         ctx,
                         commit_details,
-                        line.to_owned(),
+                        message,
                     )?
                 {
                     SelectAfterReload::Commit(reword_result.new_commit)
@@ -2681,6 +2703,9 @@ impl App {
                 }
             }
             InlineRewordMode::Branch { name, stack_id, .. } => {
+                let Some(line) = textarea.lines().first() else {
+                    return Ok(());
+                };
                 let new_name = get_branch_name_from_editor(line)?;
                 let normalized_name =
                     operations::reword_branch_legacy(ctx, *stack_id, name.clone(), new_name)?;
@@ -3104,6 +3129,12 @@ fn event_to_messages(
                     messages.push(Message::BranchPicker(BranchPickerMessage::Input(ev)));
                 } else {
                     match mode {
+                        Mode::InlineReword(InlineRewordMode::Branch { .. })
+                            if key.modifiers == event::KeyModifiers::NONE
+                                && matches!(key.code, KeyCode::Enter) =>
+                        {
+                            messages.push(Message::Reword(RewordMessage::InlineConfirm));
+                        }
                         Mode::InlineReword(..) => {
                             messages.push(Message::Reword(RewordMessage::InlineInput(ev)));
                         }
