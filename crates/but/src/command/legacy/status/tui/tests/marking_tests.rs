@@ -45,44 +45,6 @@ fn marking_branch_toggles_all_commits_in_that_branch() {
 }
 
 #[test]
-fn multi_squash_multiple_marked_sources_into_unmarked_target() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
-
-    let mut tui = test_tui(env);
-
-    tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
-
-    tui.input_then_render('n')
-        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
-
-    tui.input_then_render('n')
-        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
-
-    tui.input_then_render(' ')
-        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
-
-    tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
-
-    tui.input_then_render(' ')
-        .assert_current_line_eq(str!["┊✔︎   9477ae7 add A"]);
-
-    tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"]);
-
-    tui.input_then_render('r')
-        .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"]);
-
-    tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"])
-        .assert_rendered_term_svg_eq(file![
-            "snapshots/multi_squash_multiple_marked_sources_into_unmarked_target_final.svg"
-        ]);
-}
-
-#[test]
 fn multi_squash_marked_commits_into_selected_marked_target() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
     env.setup_metadata(&["A", "B"]).unwrap();

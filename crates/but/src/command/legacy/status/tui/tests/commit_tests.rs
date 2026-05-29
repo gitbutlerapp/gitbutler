@@ -531,3 +531,77 @@ fn commit_moved_and_modified_file() {
     tui.input_then_render(None)
         .assert_rendered_contains("zz [unassigned changes] (no changes)");
 }
+
+#[test]
+fn cannot_select_unassigned_files_with_commits_marked() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.env().file("test.txt", "content");
+
+    // mark the commit
+    tui.input_then_render('j');
+    tui.input_then_render('j');
+    tui.input_then_render('j');
+    tui.input_then_render(' ')
+        .assert_current_line_eq(str![["┊✔︎   [..] add A"]]);
+
+    // moving up selects the branch
+    tui.input_then_render('k')
+        .assert_current_line_eq(str![["┊╭┄g0 [A]"]]);
+
+    // cannot move further up, stays on the branch
+    tui.input_then_render('k')
+        .assert_current_line_eq(str![["┊╭┄g0 [A]"]]);
+}
+
+#[test]
+fn cannot_select_committed_files_with_commits_marked() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.env().file("test.txt", "content");
+
+    // mark the commit
+    tui.input_then_render('j');
+    tui.input_then_render('j');
+    tui.input_then_render('j');
+    tui.input_then_render(' ')
+        .assert_current_line_eq(str![["┊✔︎   [..] add A"]]);
+
+    // cannot open the file list with marked commits
+    tui.input_then_render('f')
+        .assert_current_line_eq(str![["┊✔︎   [..] add A"]]);
+}
+
+#[test]
+fn cannot_select_committed_files_from_global_listing_with_commits_marked() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.env().file("test.txt", "content");
+
+    // mark the commit
+    tui.input_then_render('j');
+    tui.input_then_render('j');
+    tui.input_then_render('j');
+    tui.input_then_render(' ')
+        .assert_current_line_eq(str![["┊✔︎   [..] add A"]]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
+        .assert_current_line_eq(str![["┊✔︎   [..] add A"]]);
+
+    tui.input_then_render('j')
+        .assert_current_line_eq(str![["┊✔︎   [..] add A"]])
+        .assert_rendered_term_svg_eq(file!["snapshots/cannot_select_committed_files_from_global_listing_with_commits_marked_showing_global_file_list.svg"]);
+
+    // the global file list can be closed with f
+    tui.input_then_render('f')
+        .assert_rendered_term_svg_eq(file!["snapshots/cannot_select_committed_files_from_global_listing_with_commits_marked_final.svg"]);
+}
