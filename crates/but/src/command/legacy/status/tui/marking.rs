@@ -43,6 +43,16 @@ impl Marks {
     pub(super) fn iter(&self) -> impl Iterator<Item = &Markable> {
         self.into_iter()
     }
+
+    pub(super) fn classify(&self) -> MarkClasses {
+        let mut marked_commits = false;
+        for mark in &self.marks {
+            match mark {
+                Markable::Commit { .. } => marked_commits = true,
+            }
+        }
+        MarkClasses { marked_commits }
+    }
 }
 
 impl<'a> IntoIterator for &'a Marks {
@@ -77,4 +87,9 @@ impl Markable {
             | CliId::Stack { .. } => None,
         }
     }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct MarkClasses {
+    pub marked_commits: bool,
 }

@@ -10,6 +10,7 @@ use crate::{
         output::StatusOutputLineData,
         tui::{
             Mode, MoveSource, SelectAfterReload,
+            marking::MarkClasses,
             render::{commit_operation_display, move_operation_display},
         },
     },
@@ -696,6 +697,38 @@ pub(super) fn is_selectable_in_mode(
             }
         }
         Mode::Command(..) | Mode::InlineReword(..) | Mode::Normal(..) | Mode::Details => {}
+    }
+
+    if let Mode::Normal(normal_mode) = mode
+        && !normal_mode.marks.is_empty()
+    {
+        let MarkClasses { marked_commits } = normal_mode.marks.classify();
+
+        match &line.data {
+            StatusOutputLineData::Branch { .. } | StatusOutputLineData::Commit { .. } => {
+                // you're allowed to select branches and commits regardless of markings
+            }
+            StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::Connector
+            | StatusOutputLineData::StagedChanges { .. }
+            | StatusOutputLineData::StagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
+            | StatusOutputLineData::CommitMessage
+            | StatusOutputLineData::EmptyCommitMessage
+            | StatusOutputLineData::File { .. }
+            | StatusOutputLineData::MergeBase
+            | StatusOutputLineData::UpstreamChanges
+            | StatusOutputLineData::Warning
+            | StatusOutputLineData::Hint
+            | StatusOutputLineData::NoAssignmentsUnstaged => {
+                // we currently don't allow mixing marks, i.e., you cannot mark both commits and
+                // files, so don't allow selecting them
+                if marked_commits {
+                    return false;
+                }
+            }
+        }
     }
 
     match mode {

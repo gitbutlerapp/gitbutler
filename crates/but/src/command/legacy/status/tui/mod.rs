@@ -52,7 +52,7 @@ use crate::{
                     KeyBinds, branch_picker_key_binds, confirm_key_binds, default_key_binds,
                     help_key_binds, normal_with_marks_key_binds,
                 },
-                marking::{Markable, Marks},
+                marking::{MarkClasses, Markable, Marks},
                 message_on_drop::MessageOnDrop,
                 mode::{
                     CommandMode, CommandModeKind, CommitMessageComposer, CommitMode, CommitSource,
@@ -1183,6 +1183,26 @@ impl App {
         ctx: &mut Context,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
+        if let Mode::Normal(normal_mode) = &*self.mode
+            && !normal_mode.marks.is_empty()
+        {
+            let MarkClasses { marked_commits } = normal_mode.marks.classify();
+            if marked_commits {
+                match self.flags.show_files {
+                    FilesStatusFlag::None => {
+                        return Ok(());
+                    }
+                    FilesStatusFlag::Commit(_) => {}
+                    FilesStatusFlag::All => {
+                        self.flags.show_files = FilesStatusFlag::None;
+                        self.backstack.remove_show_file_list();
+                        messages.push(Message::Reload(None, ReloadCause::ViewOnly));
+                        return Ok(());
+                    }
+                }
+            }
+        }
+
         if let Some(selection) = self.cursor.selected_line(&self.status_lines)
             && let Some(cli_id) = selection.data.cli_id()
             && let CliId::Commit { commit_id, .. } = &**cli_id
