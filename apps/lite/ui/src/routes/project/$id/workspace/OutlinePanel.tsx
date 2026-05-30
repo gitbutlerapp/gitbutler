@@ -637,17 +637,13 @@ const ItemRowMenuButton: FC<{
 }> = ({ ariaLabel, menuItems, disabled = false, isSelected = false }) => (
 	<Toolbar.Button
 		aria-label={ariaLabel}
-		disabled={disabled}
-		render={
-			<button
-				type="button"
-				className={getButtonClassName({
-					variant: isSelected ? "inverted" : "ghost",
-					size: "small",
-					iconOnly: true,
-				})}
-			/>
-		}
+		className={getButtonClassName({
+			variant: isSelected ? "inverted" : "ghost",
+			size: "small",
+			iconOnly: true,
+		})}
+		// This is needed to ensure the `disabled` attribute is used.
+		render={<button type="button" disabled={disabled} />}
 		onClick={(event) => {
 			void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 		}}
@@ -2018,18 +2014,14 @@ const BranchRow: FC<
 					{outlineMode._tag === "Default" && (
 						<WorkspaceItemRowToolbar aria-label="Branch actions">
 							<Toolbar.Button
-								render={
-									<button
-										className={getButtonClassName({
-											variant: isSelected ? "inverted" : "ghost",
-											size: "small",
-											iconOnly: true,
-										})}
-										type="button"
-										disabled
-										aria-label="Push branch"
-									/>
-								}
+								className={getButtonClassName({
+									variant: isSelected ? "inverted" : "ghost",
+									size: "small",
+									iconOnly: true,
+								})}
+								aria-label="Push branch"
+								// This is needed to ensure the `disabled` attribute is used.
+								render={<button type="button" disabled />}
 							>
 								<Icon name="arrow-line-up" />
 							</Toolbar.Button>
