@@ -1817,6 +1817,64 @@ const InlineRenameBranch: FC<{
 	);
 };
 
+const useTearOffBranch = () => {
+	const dispatch = useAppDispatch();
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.tearOffBranch,
+		onSuccess: async (response, input, _context, mutation) => {
+			mutation.client.setQueryData(
+				headInfoQueryOptions(input.projectId).queryKey,
+				response.workspace.headInfo,
+			);
+			dispatch(
+				projectActions.updateRewrittenCommitReferences({
+					projectId: input.projectId,
+					replacedCommits: response.workspace.replacedCommits,
+					headInfo: response.workspace.headInfo,
+				}),
+			);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to tear off branch",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+const useRemoveBranch = () => {
+	const toastManager = Toast.useToastManager();
+
+	// TODO: This mutation doesn't trigger any watcher events, hence the manual invalidation.
+	return useMutation({
+		mutationFn: window.lite.removeBranch,
+		onSuccess: async (_response, input, _context, mutation) => {
+			await mutation.client.invalidateQueries({
+				queryKey: headInfoQueryOptions(input.projectId).queryKey,
+			});
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to remove branch",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
 const BranchRow: FC<
 	{
 		projectId: string;
@@ -1911,54 +1969,8 @@ const BranchRow: FC<
 
 	const toastManager = Toast.useToastManager();
 
-	const tearOffBranchMutation = useMutation({
-		mutationFn: window.lite.tearOffBranch,
-		onSuccess: async (response, _input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to tear off branch",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-
-	// TODO: This mutation doesn't trigger any watcher events, hence the manual invalidation.
-	const removeBranchMutation = useMutation({
-		mutationFn: window.lite.removeBranch,
-		onSuccess: async (_response, input, _context, mutation) => {
-			await mutation.client.invalidateQueries({
-				queryKey: headInfoQueryOptions(input.projectId).queryKey,
-			});
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to remove branch",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
+	const tearOffBranchMutation = useTearOffBranch();
+	const removeBranchMutation = useRemoveBranch();
 
 	const saveBranchName = (newBranchName: string) => {
 		const trimmed = newBranchName.trim();
