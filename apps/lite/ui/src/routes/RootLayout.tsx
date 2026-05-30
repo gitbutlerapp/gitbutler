@@ -61,7 +61,6 @@ const Projects: FC = () => {
 						>
 							<div className={styles.folderFront}>
 								<span className={classes("text-bold", styles.folderFrontText)}>
-									{" "}
 									{project.title.slice(0, 2)}
 								</span>
 							</div>
