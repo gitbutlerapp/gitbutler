@@ -585,7 +585,7 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 
 	return (
 		<div {...panelProps} className={classes(panelProps.className, styles.panel)}>
-			<div className={styles.headerWrap} style={{ opacity: detailsOpacity }}>
+			<div className={styles.headerWrap}>
 				<Suspense fallback={<p className="text-13">Loading details…</p>}>
 					<Header
 						projectId={projectId}
