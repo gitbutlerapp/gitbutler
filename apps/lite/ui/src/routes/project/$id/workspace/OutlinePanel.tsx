@@ -640,29 +640,19 @@ const ItemRowMenuButton: FC<{
 	</Toolbar.Button>
 );
 
-const CommitTargetIndicator: FC = () => {
-	const [open, setOpen] = useState(false);
-
-	return (
-		<Tooltip
-			open={open}
-			// [ref:tooltip-disable-hoverable-popup]
-			disableHoverablePopup
-			trigger={
-				<span
-					className={styles.commitTargetIndicator}
-					aria-label="Commit target"
-					onMouseEnter={() => setOpen(true)}
-					onMouseLeave={() => setOpen(false)}
-				>
-					<Icon name="bullseye" />
-				</span>
-			}
-			content="Commit target"
-			positionerProps={{ sideOffset: 8 }}
-		/>
-	);
-};
+const CommitTargetIndicator: FC = () => (
+	<Tooltip
+		// [ref:tooltip-disable-hoverable-popup]
+		disableHoverablePopup
+		trigger={
+			<span className={styles.commitTargetIndicator} aria-label="Commit target">
+				<Icon name="bullseye" />
+			</span>
+		}
+		content="Commit target"
+		positionerProps={{ sideOffset: 8 }}
+	/>
+);
 
 const ItemRow: FC<
 	{
