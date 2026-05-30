@@ -735,13 +735,12 @@ const ChangesFileRow: FC<{
 						<DependencyIndicatorButton
 							projectId={projectId}
 							commitIds={dependencyCommitIds}
-							render={<Toolbar.Button type="button" />}
+							render={<Toolbar.Button />}
 						>
 							<Icon name="link" />
 						</DependencyIndicatorButton>
 					)}
 					<Toolbar.Button
-						type="button"
 						aria-label="File menu"
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
