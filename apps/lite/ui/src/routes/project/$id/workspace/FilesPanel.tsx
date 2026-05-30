@@ -691,18 +691,16 @@ const ChangesFileRow: FC<{
 		});
 	};
 
-	const absorbContextMenuItem = nativeMenuItem({
-		label: "Absorb",
-		enabled: true,
-		accelerator: toElectronAccelerator(changesFileHotkeys.absorb.hotkey),
-		onSelect: absorb,
-	});
-
 	const copyPathMenuItem = useCopyPathMenuItem(change.path);
 	const menuItems: Array<NativeMenuItem> = [
 		copyPathMenuItem,
 		nativeMenuSeparator,
-		absorbContextMenuItem,
+		nativeMenuItem({
+			label: "Absorb",
+			enabled: true,
+			accelerator: toElectronAccelerator(changesFileHotkeys.absorb.hotkey),
+			onSelect: absorb,
+		}),
 	];
 
 	const [label, strLabel] = changeLabel(change);

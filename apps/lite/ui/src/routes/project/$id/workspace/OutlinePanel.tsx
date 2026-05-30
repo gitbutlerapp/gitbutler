@@ -1056,80 +1056,75 @@ const CommitRow: FC<
 		focusCommitMessageInput();
 	};
 
-	const amendCommitContextMenuItem = nativeMenuItem({
-		label: "Amend Commit",
-		enabled: true,
-		accelerator: toElectronAccelerator(outlineHotkeys.amendCommit.hotkey),
-		onSelect: amendCommit,
-	});
-	const cutCommitContextMenuItem = nativeMenuItem({
-		label: "Cut Commit",
-		enabled: true,
-		onSelect: cutCommit,
-	});
-	const startEditingContextMenuItem = nativeMenuItem({
-		label: "Reword Commit",
-		enabled: !isCommitMessagePending,
-		accelerator: toElectronAccelerator(outlineHotkeys.rewordCommit.hotkey),
-		onSelect: startEditing,
-	});
-	const insertBlankCommitAboveContextMenuItem = nativeMenuItem({
-		label: "Above",
-		enabled: true,
-		onSelect: insertBlankCommitAbove,
-	});
-	const insertBlankCommitBelowContextMenuItem = nativeMenuItem({
-		label: "Below",
-		enabled: true,
-		onSelect: insertBlankCommitBelow,
-	});
-	const deleteCommitContextMenuItem = nativeMenuItem({
-		label: "Delete Commit",
-		enabled: !commitDiscard.isPending,
-		onSelect: deleteCommit,
-	});
-	const uncommitContextMenuItem = nativeMenuItem({
-		label: "Uncommit",
-		enabled: !commitUncommit.isPending,
-		onSelect: () =>
-			commitUncommit.mutate({
-				projectId,
-				assignTo: null,
-				subjectCommitIds: [commit.id],
-				dryRun: false,
-			}),
-	});
-	const setCommitTargetContextMenuItem = nativeMenuItem({
-		label: "Compose Commit Here",
-		accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
-		onSelect: composeCommitHere,
-	});
-	const copyChangeIdContextMenuItem = nativeMenuItem({
-		label: "Change ID",
-		onSelect: () => window.lite.clipboardWriteText(commit.changeId),
-	});
-	const copyCommitIdContextMenuItem = nativeMenuItem({
-		label: "Commit ID",
-		onSelect: () => window.lite.clipboardWriteText(commit.id),
-	});
-
 	const menuItems: Array<NativeMenuItem> = [
-		startEditingContextMenuItem,
-		amendCommitContextMenuItem,
-		cutCommitContextMenuItem,
+		nativeMenuItem({
+			label: "Reword Commit",
+			enabled: !isCommitMessagePending,
+			accelerator: toElectronAccelerator(outlineHotkeys.rewordCommit.hotkey),
+			onSelect: startEditing,
+		}),
+		nativeMenuItem({
+			label: "Amend Commit",
+			enabled: true,
+			accelerator: toElectronAccelerator(outlineHotkeys.amendCommit.hotkey),
+			onSelect: amendCommit,
+		}),
+		nativeMenuItem({
+			label: "Cut Commit",
+			enabled: true,
+			onSelect: cutCommit,
+		}),
 		nativeMenuSeparator,
-		setCommitTargetContextMenuItem,
+		nativeMenuItem({
+			label: "Compose Commit Here",
+			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
+			onSelect: composeCommitHere,
+		}),
 		nativeMenuItem({
 			label: "Copy",
-			submenu: [copyChangeIdContextMenuItem, copyCommitIdContextMenuItem],
+			submenu: [
+				nativeMenuItem({
+					label: "Change ID",
+					onSelect: () => window.lite.clipboardWriteText(commit.changeId),
+				}),
+				nativeMenuItem({
+					label: "Commit ID",
+					onSelect: () => window.lite.clipboardWriteText(commit.id),
+				}),
+			],
 		}),
 		nativeMenuItem({
 			label: "Add Empty Commit",
-			submenu: [insertBlankCommitAboveContextMenuItem, insertBlankCommitBelowContextMenuItem],
+			submenu: [
+				nativeMenuItem({
+					label: "Above",
+					enabled: true,
+					onSelect: insertBlankCommitAbove,
+				}),
+				nativeMenuItem({
+					label: "Below",
+					enabled: true,
+					onSelect: insertBlankCommitBelow,
+				}),
+			],
 		}),
 		nativeMenuSeparator,
-		deleteCommitContextMenuItem,
-		uncommitContextMenuItem,
+		nativeMenuItem({
+			label: "Delete Commit",
+			enabled: !commitDiscard.isPending,
+			onSelect: deleteCommit,
+		}),
+		nativeMenuItem({
+			label: "Uncommit",
+			enabled: !commitUncommit.isPending,
+			onSelect: () =>
+				commitUncommit.mutate({
+					projectId,
+					assignTo: null,
+					subjectCommitIds: [commit.id],
+					dryRun: false,
+				}),
+		}),
 	];
 
 	return (
@@ -1231,14 +1226,14 @@ const ChangesSectionRow: FC<{
 		enterAbsorbMode(operand, { type: "all" });
 	};
 
-	const absorbContextMenuItem = nativeMenuItem({
-		label: "Absorb",
-		enabled: changes.length > 0,
-		accelerator: toElectronAccelerator(outlineHotkeys.absorb.hotkey),
-		onSelect: absorb,
-	});
-
-	const menuItems: Array<NativeMenuItem> = [absorbContextMenuItem];
+	const menuItems: Array<NativeMenuItem> = [
+		nativeMenuItem({
+			label: "Absorb",
+			enabled: changes.length > 0,
+			accelerator: toElectronAccelerator(outlineHotkeys.absorb.hotkey),
+			onSelect: absorb,
+		}),
+	];
 
 	return (
 		<ItemRow projectId={projectId} operand={operand}>
@@ -1944,44 +1939,38 @@ const BranchRow: FC<
 		});
 	};
 
-	const startEditingContextMenuItem = nativeMenuItem({
-		label: "Rename Branch",
-		enabled: !isRenamePending,
-		accelerator: toElectronAccelerator(outlineHotkeys.renameBranch.hotkey),
-		onSelect: startEditing,
-	});
-	const setCommitTargetContextMenuItem = nativeMenuItem({
-		label: "Compose Commit Here",
-		accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
-		onSelect: composeCommitHere,
-	});
-	const copyBranchNameContextMenuItem = nativeMenuItem({
-		label: "Copy Branch Name",
-		onSelect: () => window.lite.clipboardWriteText(optimisticBranchName),
-	});
-	const tearOffBranchContextMenuItem = nativeMenuItem({
-		label: "Tear Off Branch",
-		enabled: canTearOffBranch && !tearOffBranchMutation.isPending,
-		onSelect: tearOffBranch,
-	});
-	const removeBranchContextMenuItem = nativeMenuItem({
-		label: "Remove Branch",
-		enabled: canRemoveBranch,
-		onSelect: () =>
-			removeBranchMutation.mutate({
-				projectId,
-				stackId,
-				branchName,
-			}),
-	});
-
 	const menuItems: Array<NativeMenuItem> = [
-		startEditingContextMenuItem,
-		copyBranchNameContextMenuItem,
-		setCommitTargetContextMenuItem,
+		nativeMenuItem({
+			label: "Rename Branch",
+			enabled: !isRenamePending,
+			accelerator: toElectronAccelerator(outlineHotkeys.renameBranch.hotkey),
+			onSelect: startEditing,
+		}),
+		nativeMenuItem({
+			label: "Copy Branch Name",
+			onSelect: () => window.lite.clipboardWriteText(optimisticBranchName),
+		}),
+		nativeMenuItem({
+			label: "Compose Commit Here",
+			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
+			onSelect: composeCommitHere,
+		}),
 		nativeMenuSeparator,
-		tearOffBranchContextMenuItem,
-		removeBranchContextMenuItem,
+		nativeMenuItem({
+			label: "Tear Off Branch",
+			enabled: canTearOffBranch && !tearOffBranchMutation.isPending,
+			onSelect: tearOffBranch,
+		}),
+		nativeMenuItem({
+			label: "Remove Branch",
+			enabled: canRemoveBranch,
+			onSelect: () =>
+				removeBranchMutation.mutate({
+					projectId,
+					stackId,
+					branchName,
+				}),
+		}),
 	];
 
 	return (
@@ -2066,17 +2055,15 @@ const StackRow: FC<
 		unapplyStack.mutate({ projectId, stackId });
 	};
 
-	const unapplyContextMenuItem = nativeMenuItem({
-		label: "Unapply Stack",
-		enabled: !unapplyStack.isPending,
-		onSelect: unapply,
-	});
-
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({ label: "Move Up", enabled: false }),
 		nativeMenuItem({ label: "Move Down", enabled: false }),
 		nativeMenuSeparator,
-		unapplyContextMenuItem,
+		nativeMenuItem({
+			label: "Unapply Stack",
+			enabled: !unapplyStack.isPending,
+			onSelect: unapply,
+		}),
 	];
 
 	return (
