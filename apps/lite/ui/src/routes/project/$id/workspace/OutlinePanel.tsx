@@ -625,7 +625,7 @@ const ActivitySpinner: FC = () => {
 	return status !== null && <Icon name="spinner" aria-label={status} />;
 };
 
-export const OutlinePanel: FC<PanelProps> = ({ ...panelProps }) => {
+export const OutlinePanel: FC<PanelProps> = (panelProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));

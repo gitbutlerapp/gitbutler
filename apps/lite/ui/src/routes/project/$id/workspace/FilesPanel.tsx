@@ -317,7 +317,7 @@ const BranchFilesTreePanel: FC<
 	);
 };
 
-export const FilesPanel: FC<PanelProps> = ({ ...panelProps }) => {
+export const FilesPanel: FC<PanelProps> = (panelProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const outlineSelection = useAppSelector((state) =>
