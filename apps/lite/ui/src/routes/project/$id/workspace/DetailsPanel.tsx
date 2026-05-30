@@ -486,7 +486,6 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 	const urgentSelection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
 	const selection = useDeferredValue(urgentSelection);
-	const detailsOpacity = urgentSelection !== selection ? 0.5 : 1;
 
 	if (selection._tag === "Stack") return;
 
@@ -522,7 +521,7 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 					// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 					tabIndex={0}
 					className={styles.detailsContentPanel}
-					style={{ opacity: detailsOpacity }}
+					style={{ opacity: urgentSelection !== selection ? 0.5 : 1 }}
 				>
 					<Virtualizer className={styles.detailsVirtualizer}>
 						<Suspense fallback={<p className="text-13">Loading diff…</p>}>
