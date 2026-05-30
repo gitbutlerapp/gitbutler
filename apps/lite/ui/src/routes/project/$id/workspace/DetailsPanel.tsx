@@ -291,70 +291,68 @@ const Header: FC<{
 							)}
 						</SuspenseQuery>
 
-						<div className={styles.headerActions}>
-							<ToggleGroup
-								render={<ToggleGroupStyles />}
-								value={[commitView ?? "diff"]}
-								onValueChange={(value) => {
-									if (value.length > 0) onCommitViewChange?.(value[0] as CommitView);
-								}}
-								aria-label="Commit view"
-							>
-								<Toggle render={<ToggleStyles />} value="diff">
-									<Icon name="diff" size={14} />
-									<Suspense fallback="Diff">
-										<SuspenseQuery
-											{...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}
-										>
-											{({ data: commitDetails }) =>
-												commitDetails.stats ? (
-													<>
-														{commitDetails.stats.filesChanged} file
-														{commitDetails.stats.filesChanged !== 1 ? "s" : ""}
-														<DiffStat
-															linesAdded={commitDetails.stats.linesAdded}
-															linesRemoved={commitDetails.stats.linesRemoved}
-														/>
-													</>
-												) : (
-													"Diff"
-												)
-											}
-										</SuspenseQuery>
-									</Suspense>
-								</Toggle>
-								<Toggle render={<ToggleStyles />} value="details">
-									<Suspense fallback="Details">
-										<SuspenseQuery
-											{...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}
-										>
-											{({ data: commitDetails }) => {
-												const fmtDate = new Intl.DateTimeFormat(undefined, {
-													day: "2-digit",
-													month: "2-digit",
-													year: "numeric",
-													hour: "2-digit",
-													minute: "2-digit",
-													hour12: false,
-												}).format(commitDetails.commit.createdAt);
+						<ToggleGroup
+							render={<ToggleGroupStyles />}
+							value={[commitView ?? "diff"]}
+							onValueChange={(value) => {
+								if (value.length > 0) onCommitViewChange?.(value[0] as CommitView);
+							}}
+							aria-label="Commit view"
+						>
+							<Toggle render={<ToggleStyles />} value="diff">
+								<Icon name="diff" size={14} />
+								<Suspense fallback="Diff">
+									<SuspenseQuery
+										{...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}
+									>
+										{({ data: commitDetails }) =>
+											commitDetails.stats ? (
+												<>
+													{commitDetails.stats.filesChanged} file
+													{commitDetails.stats.filesChanged !== 1 ? "s" : ""}
+													<DiffStat
+														linesAdded={commitDetails.stats.linesAdded}
+														linesRemoved={commitDetails.stats.linesRemoved}
+													/>
+												</>
+											) : (
+												"Diff"
+											)
+										}
+									</SuspenseQuery>
+								</Suspense>
+							</Toggle>
+							<Toggle render={<ToggleStyles />} value="details">
+								<Suspense fallback="Details">
+									<SuspenseQuery
+										{...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}
+									>
+										{({ data: commitDetails }) => {
+											const fmtDate = new Intl.DateTimeFormat(undefined, {
+												day: "2-digit",
+												month: "2-digit",
+												year: "numeric",
+												hour: "2-digit",
+												minute: "2-digit",
+												hour12: false,
+											}).format(commitDetails.commit.createdAt);
 
-												return (
-													<>
-														<Icon name="text-block" size={14} />
-														<img
-															src={commitDetails.commit.author.gravatarUrl}
-															className={styles.toggleAvatar}
-															alt={commitDetails.commit.author.name}
-														/>
-														{fmtDate}
-													</>
-												);
-											}}
-										</SuspenseQuery>
-									</Suspense>
-								</Toggle>
-							</ToggleGroup>
-						</div>
+											return (
+												<>
+													<Icon name="text-block" size={14} />
+													<img
+														src={commitDetails.commit.author.gravatarUrl}
+														className={styles.toggleAvatar}
+														alt={commitDetails.commit.author.name}
+													/>
+													{fmtDate}
+												</>
+											);
+										}}
+									</SuspenseQuery>
+								</Suspense>
+							</Toggle>
+						</ToggleGroup>
 					</>
 				);
 			},
@@ -584,7 +582,7 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 				)}
 
 				{commitView === "diff" && (
-					<div className={styles.headerActions}>
+					<div>
 						<FilesToggle />
 					</div>
 				)}
