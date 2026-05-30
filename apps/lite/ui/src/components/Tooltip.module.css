@@ -9,6 +9,6 @@
 }
 
 .text {
-	padding: 0 2px;
+	padding-inline: 2px;
 	color: var(--text-1);
 }
