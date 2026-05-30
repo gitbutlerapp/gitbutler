@@ -37,19 +37,17 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
-import { Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
+import { Tooltip } from "@base-ui/react";
 import { DiffHunk, HunkHeader, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import { PatchDiff, Virtualizer } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
-import { ComponentProps, FC, Suspense, useDeferredValue, useState } from "react";
-import { DiffStat } from "#ui/components/DiffStat.tsx";
+import { ComponentProps, FC, Suspense, useDeferredValue } from "react";
 import { DependencyIndicatorButton } from "./DependencyIndicatorButton.tsx";
 import { FilesPanel } from "./FilesPanel.tsx";
 import styles from "./DetailsPanel.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
-import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { Panel } from "#ui/panels.ts";
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
@@ -215,14 +213,10 @@ const ChangesFileDiffList: FC<{
 	);
 };
 
-type CommitView = "details" | "diff";
-
 const Header: FC<{
 	projectId: string;
 	selection: Operand;
-	commitView?: CommitView;
-	onCommitViewChange?: (view: CommitView) => void;
-}> = ({ projectId, selection, commitView, onCommitViewChange }) =>
+}> = ({ projectId, selection }) =>
 	Match.value(selection).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
@@ -273,87 +267,22 @@ const Header: FC<{
 				const source = commitOperand({ stackId, commitId });
 
 				return (
-					<>
-						<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
-							{({ data: commitDetails }) => (
-								<OperationSourceC projectId={projectId} selectionScope="outline" source={source}>
-									<header className={styles.header}>
-										<Icon name="commit" />
-										<h3 className={classes("text-14", "text-semibold")}>
-											{commitTitle(commitDetails.commit.message)}
-											{commitDetails.commit.hasConflicts && " ⚠️"}
-										</h3>
-										<span className={classes("text-13", styles.commitMeta)}>
-											#{shortCommitId(commitDetails.commit.id)}
-										</span>
-									</header>
-								</OperationSourceC>
-							)}
-						</SuspenseQuery>
-
-						<ToggleGroup
-							render={<ToggleGroupStyles />}
-							value={[commitView ?? "diff"]}
-							onValueChange={(value) => {
-								if (value.length > 0) onCommitViewChange?.(value[0] as CommitView);
-							}}
-							aria-label="Commit view"
-						>
-							<Toggle render={<ToggleStyles />} value="diff">
-								<Icon name="diff" size={14} />
-								<Suspense fallback="Diff">
-									<SuspenseQuery
-										{...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}
-									>
-										{({ data: commitDetails }) =>
-											commitDetails.stats ? (
-												<>
-													{commitDetails.stats.filesChanged} file
-													{commitDetails.stats.filesChanged !== 1 ? "s" : ""}
-													<DiffStat
-														linesAdded={commitDetails.stats.linesAdded}
-														linesRemoved={commitDetails.stats.linesRemoved}
-													/>
-												</>
-											) : (
-												"Diff"
-											)
-										}
-									</SuspenseQuery>
-								</Suspense>
-							</Toggle>
-							<Toggle render={<ToggleStyles />} value="details">
-								<Suspense fallback="Details">
-									<SuspenseQuery
-										{...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}
-									>
-										{({ data: commitDetails }) => {
-											const fmtDate = new Intl.DateTimeFormat(undefined, {
-												day: "2-digit",
-												month: "2-digit",
-												year: "numeric",
-												hour: "2-digit",
-												minute: "2-digit",
-												hour12: false,
-											}).format(commitDetails.commit.createdAt);
-
-											return (
-												<>
-													<Icon name="text-block" size={14} />
-													<img
-														src={commitDetails.commit.author.gravatarUrl}
-														className={styles.toggleAvatar}
-														alt={commitDetails.commit.author.name}
-													/>
-													{fmtDate}
-												</>
-											);
-										}}
-									</SuspenseQuery>
-								</Suspense>
-							</Toggle>
-						</ToggleGroup>
-					</>
+					<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
+						{({ data: commitDetails }) => (
+							<OperationSourceC projectId={projectId} selectionScope="outline" source={source}>
+								<header className={styles.header}>
+									<Icon name="commit" />
+									<h3 className={classes("text-14", "text-semibold")}>
+										{commitTitle(commitDetails.commit.message)}
+										{commitDetails.commit.hasConflicts && " ⚠️"}
+									</h3>
+									<span className={classes("text-13", styles.commitMeta)}>
+										#{shortCommitId(commitDetails.commit.id)}
+									</span>
+								</header>
+							</OperationSourceC>
+						)}
+					</SuspenseQuery>
 				);
 			},
 			Hunk: () => null,
@@ -558,8 +487,6 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 	const urgentSelection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
 	const selection = useDeferredValue(urgentSelection);
 	const detailsOpacity = urgentSelection !== selection ? 0.5 : 1;
-	const [commitView, setCommitView] = useState<CommitView>("diff");
-	const showDiff = selection._tag !== "Commit" || commitView === "diff";
 
 	if (selection._tag === "Stack") return;
 
@@ -567,54 +494,43 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 		<div {...panelProps} className={classes(panelProps.className, styles.panel)}>
 			<div className={styles.headerWrap}>
 				<Suspense fallback={<p className="text-13">Loading details…</p>}>
-					<Header
-						projectId={projectId}
-						selection={selection}
-						commitView={commitView}
-						onCommitViewChange={setCommitView}
-					/>
+					<Header projectId={projectId} selection={selection} />
+
+					{selection._tag === "Commit" && (
+						<CommitDetailsContent projectId={projectId} commitId={selection.commitId} />
+					)}
 				</Suspense>
 
-				{selection._tag === "Commit" && commitView === "details" && (
-					<Suspense>
-						<CommitDetailsContent projectId={projectId} commitId={selection.commitId} />
-					</Suspense>
-				)}
-
-				{commitView === "diff" && (
-					<div>
-						<FilesToggle />
-					</div>
-				)}
+				<div>
+					<FilesToggle />
+				</div>
 			</div>
 
-			{showDiff && (
-				<div className={classes(styles.panels, panelsState.filesVisible && styles.panelsWithFiles)}>
-					{panelsState.filesVisible && (
-						<FilesPanel
-							id={"files" satisfies Panel}
-							data-panel
-							tabIndex={0}
-							className={styles.filesPanel}
-						/>
-					)}
-
-					<div
-						id={"details" satisfies Panel}
+			<div className={classes(styles.panels, panelsState.filesVisible && styles.panelsWithFiles)}>
+				{panelsState.filesVisible && (
+					<FilesPanel
+						id={"files" satisfies Panel}
 						data-panel
-						// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 						tabIndex={0}
-						className={styles.detailsContentPanel}
-						style={{ opacity: detailsOpacity }}
-					>
-						<Virtualizer className={styles.detailsVirtualizer}>
-							<Suspense>
-								<DiffContents projectId={projectId} selection={selection} />
-							</Suspense>
-						</Virtualizer>
-					</div>
+						className={styles.filesPanel}
+					/>
+				)}
+
+				<div
+					id={"details" satisfies Panel}
+					data-panel
+					// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
+					tabIndex={0}
+					className={styles.detailsContentPanel}
+					style={{ opacity: detailsOpacity }}
+				>
+					<Virtualizer className={styles.detailsVirtualizer}>
+						<Suspense>
+							<DiffContents projectId={projectId} selection={selection} />
+						</Suspense>
+					</Virtualizer>
 				</div>
-			)}
+			</div>
 		</div>
 	);
 };
