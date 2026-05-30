@@ -20,7 +20,6 @@ export const Playground = meta.story({
 		size: "regular",
 		disabled: false,
 		menuAriaLabel: "More options",
-		onClick: fn(),
 		onMenuOpen: fn(),
 	},
 	argTypes: {
@@ -72,7 +71,6 @@ export const DisabledInteraction = meta.story({
 		children: "Commit",
 		disabled: true,
 		menuAriaLabel: "More options",
-		onClick: fn(),
 		onMenuOpen: fn(),
 	},
 	play: async ({ canvasElement, args }) => {

@@ -2,7 +2,7 @@ import preview from "#storybook/preview";
 import { getButtonClassName, type ButtonStyleProps } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 
 const meta = preview.meta({});
 
@@ -31,7 +31,6 @@ export const Playground = meta.story({
 		variant: "pop",
 		size: "regular",
 		showIcon: false,
-		onClick: fn(),
 	},
 	render: (args: React.ComponentProps<"button"> & ButtonStyleProps & { showIcon?: boolean }) => {
 		const { showIcon, children, variant, size, iconOnly, className, ...buttonArgs } = args;
