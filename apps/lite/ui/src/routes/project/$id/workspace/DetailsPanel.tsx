@@ -31,10 +31,13 @@ import {
 	selectProjectPanelsState,
 	selectProjectSelectionFiles,
 } from "#ui/projects/state.ts";
+import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
+import { Tooltip } from "@base-ui/react";
 import { DiffHunk, HunkHeader, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import { PatchDiff, Virtualizer } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
@@ -46,7 +49,6 @@ import { DiffStat } from "#ui/components/DiffStat.tsx";
 import { DependencyIndicatorButton } from "./DependencyIndicatorButton.tsx";
 import { FilesPanel } from "./FilesPanel.tsx";
 import styles from "./DetailsPanel.module.css";
-import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
 import { ToggleGroup, ToggleItem } from "#ui/components/ToggleGroup.tsx";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 
@@ -385,14 +387,27 @@ const FilesToggle: FC = () => {
 	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 
 	return (
-		<ShortcutButton
-			hotkey={workspaceHotkeys.toggleFilesPanel.hotkey}
-			hotkeyMeta={workspaceHotkeys.toggleFilesPanel.meta}
-			aria-pressed={panelsState.filesVisible}
-			onClick={() => dispatch(projectActions.toggleFilesPanel({ projectId }))}
-		>
-			Files
-		</ShortcutButton>
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				className={getButtonClassName({})}
+				aria-pressed={panelsState.filesVisible}
+				onClick={() => dispatch(projectActions.toggleFilesPanel({ projectId }))}
+			>
+				Files
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup
+						render={
+							<TooltipPopup
+								content={workspaceHotkeys.toggleFilesPanel.meta.name}
+								kbd={workspaceHotkeys.toggleFilesPanel.hotkey}
+							/>
+						}
+					/>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
 	);
 };
 

@@ -1,10 +1,13 @@
 import { listProjectsQueryOptions } from "#ui/api/queries.ts";
+import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { lastOpenedProjectKey } from "#ui/projects/last-opened.ts";
 import { PickerDialog } from "#ui/components/PickerDialog.tsx";
 import { ProjectButton } from "#ui/components/ProjectButton.tsx";
-import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
+import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { classes } from "#ui/components/classes.ts";
 import { globalHotkeys } from "#ui/hotkeys.ts";
+import { Tooltip } from "@base-ui/react";
 import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Outlet, useMatch, useNavigate } from "@tanstack/react-router";
@@ -57,18 +60,30 @@ const ProjectSelect: FC = () => {
 				);
 			})}
 
-			<ShortcutButton
-				aria-label="Select project"
-				variant="ghost"
-				hotkey={globalHotkeys.selectProject.hotkey}
-				className={styles.addProjectButton}
-				hotkeyMeta={globalHotkeys.selectProject.meta}
-				onClick={openProjectPicker}
-				positionerProps={{ side: "right" }}
-				iconOnly
-			>
-				<Icon name="plus" />
-			</ShortcutButton>
+			<Tooltip.Root>
+				<Tooltip.Trigger
+					className={classes(
+						getButtonClassName({ variant: "ghost", iconOnly: true }),
+						styles.addProjectButton,
+					)}
+					aria-label="Select project"
+					onClick={openProjectPicker}
+				>
+					<Icon name="plus" />
+				</Tooltip.Trigger>
+				<Tooltip.Portal>
+					<Tooltip.Positioner sideOffset={4} side="right">
+						<Tooltip.Popup
+							render={
+								<TooltipPopup
+									content={globalHotkeys.selectProject.meta.name}
+									kbd={globalHotkeys.selectProject.hotkey}
+								/>
+							}
+						/>
+					</Tooltip.Positioner>
+				</Tooltip.Portal>
+			</Tooltip.Root>
 
 			<PickerDialog
 				ariaLabel="Select project"

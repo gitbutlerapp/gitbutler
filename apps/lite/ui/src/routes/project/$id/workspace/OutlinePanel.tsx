@@ -105,7 +105,6 @@ import { WorkspaceItemRow, WorkspaceItemRowToolbar } from "./WorkspaceItemRow.ts
 import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 import { defaultOutlineSelection } from "#ui/projects/workspace/state.ts";
-import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
@@ -569,13 +568,23 @@ export const OutlinePanel: FC<PanelProps> = ({ ...panelProps }) => {
 								<ActivitySpinner />
 							</div>
 
-							<ShortcutButton
-								hotkey={workspaceHotkeys.applyBranch.hotkey}
-								hotkeyMeta={workspaceHotkeys.applyBranch.meta}
-								onClick={openApplyBranchPicker}
-							>
-								Apply branch
-							</ShortcutButton>
+							<Tooltip.Root>
+								<Tooltip.Trigger className={getButtonClassName({})} onClick={openApplyBranchPicker}>
+									Apply branch
+								</Tooltip.Trigger>
+								<Tooltip.Portal>
+									<Tooltip.Positioner sideOffset={4}>
+										<Tooltip.Popup
+											render={
+												<TooltipPopup
+													content={workspaceHotkeys.applyBranch.meta.name}
+													kbd={workspaceHotkeys.applyBranch.hotkey}
+												/>
+											}
+										/>
+									</Tooltip.Positioner>
+								</Tooltip.Portal>
+							</Tooltip.Root>
 						</header>
 
 						<Changes
@@ -1630,18 +1639,27 @@ const Changes: FC<{
 						autoHighlight
 						disabled={outlineMode._tag !== "Default" || isCommitOrAmendPending}
 					>
-						<Combobox.Trigger
-							className={classes(styles.commitTargetComboboxTrigger)}
-							aria-label="Select branch"
-							render={
-								<ShortcutButton
-									hotkey={changesHotkeys.selectCommitBranch.hotkey}
-									hotkeyMeta={changesHotkeys.selectCommitBranch.meta}
-								/>
-							}
-						>
-							<Combobox.Value placeholder="Select branch" />
-						</Combobox.Trigger>
+						<Tooltip.Root>
+							<Combobox.Trigger
+								className={classes(styles.commitTargetComboboxTrigger)}
+								aria-label="Select branch"
+								render={<Tooltip.Trigger className={getButtonClassName({})} />}
+							>
+								<Combobox.Value placeholder="Select branch" />
+							</Combobox.Trigger>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup
+										render={
+											<TooltipPopup
+												content={changesHotkeys.selectCommitBranch.meta.name}
+												kbd={changesHotkeys.selectCommitBranch.hotkey}
+											/>
+										}
+									/>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
 						<Combobox.Portal>
 							<Combobox.Positioner align="start" sideOffset={8}>
 								<CommitTargetComboboxPopup />
@@ -1650,18 +1668,36 @@ const Changes: FC<{
 					</Combobox.Root>
 
 					<div role="group" className={styles.commitDropdownButton}>
-						<ShortcutButton
-							type="submit"
-							disabled={!canCommitOrAmend}
-							hotkey={
-								isAmendMode ? changesHotkeys.amendCommit.hotkey : changesHotkeys.commit.hotkey
-							}
-							hotkeyMeta={
-								isAmendMode ? changesHotkeys.amendCommit.meta : changesHotkeys.commit.meta
-							}
-						>
-							{isAmendMode ? "Amend" : "Commit"}
-						</ShortcutButton>
+						<Tooltip.Root disabled={!canCommitOrAmend}>
+							<Tooltip.Trigger
+								className={getButtonClassName({})}
+								render={
+									<button type="submit" disabled={!canCommitOrAmend}>
+										{isAmendMode ? "Amend" : "Commit"}
+									</button>
+								}
+							/>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup
+										render={
+											<TooltipPopup
+												content={
+													isAmendMode
+														? changesHotkeys.amendCommit.meta.name
+														: changesHotkeys.commit.meta.name
+												}
+												kbd={
+													isAmendMode
+														? changesHotkeys.amendCommit.hotkey
+														: changesHotkeys.commit.hotkey
+												}
+											/>
+										}
+									/>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
 						<button
 							type="button"
 							disabled={!canCommitOrAmend}

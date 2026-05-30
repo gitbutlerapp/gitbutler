@@ -6,8 +6,9 @@ import {
 	type OperationType,
 	type OperationsByType,
 } from "#ui/operations/operation.ts";
-import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
+import { getButtonClassName } from "#ui/components/Button.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { classes } from "#ui/components/classes.ts";
 import { Toast, Tooltip, useRender } from "@base-ui/react";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
@@ -81,21 +82,45 @@ const AbsorbControls: FC<{
 
 	return (
 		<>
-			<ShortcutButton
-				hotkey={operationHotkeys.confirm.hotkey}
-				hotkeyMeta={operationHotkeys.confirm.meta}
-				onClick={confirm}
-				disabled={!canAbsorb}
-			>
-				Absorb
-			</ShortcutButton>
-			<ShortcutButton
-				hotkey={operationHotkeys.cancel.hotkey}
-				hotkeyMeta={operationHotkeys.cancel.meta}
-				onClick={cancel}
-			>
-				Cancel
-			</ShortcutButton>
+			<Tooltip.Root disabled={!canAbsorb}>
+				<Tooltip.Trigger
+					className={getButtonClassName({})}
+					onClick={confirm}
+					// This is needed to ensure the `disabled` attribute is used.
+					render={<button type="button" disabled={!canAbsorb} />}
+				>
+					Absorb
+				</Tooltip.Trigger>
+				<Tooltip.Portal>
+					<Tooltip.Positioner sideOffset={4}>
+						<Tooltip.Popup
+							render={
+								<TooltipPopup
+									content={operationHotkeys.confirm.meta.name}
+									kbd={operationHotkeys.confirm.hotkey}
+								/>
+							}
+						/>
+					</Tooltip.Positioner>
+				</Tooltip.Portal>
+			</Tooltip.Root>
+			<Tooltip.Root>
+				<Tooltip.Trigger className={getButtonClassName({})} onClick={cancel}>
+					Cancel
+				</Tooltip.Trigger>
+				<Tooltip.Portal>
+					<Tooltip.Positioner sideOffset={4}>
+						<Tooltip.Popup
+							render={
+								<TooltipPopup
+									content={operationHotkeys.cancel.meta.name}
+									kbd={operationHotkeys.cancel.hotkey}
+								/>
+							}
+						/>
+					</Tooltip.Positioner>
+				</Tooltip.Portal>
+			</Tooltip.Root>
 		</>
 	);
 };
@@ -195,55 +220,121 @@ const TransferOperationControls: FC<{
 				<Toggle
 					value={"moveAbove" satisfies OperationType}
 					className={styles.operationTypeToggle}
-					render={
-						<ShortcutButton
-							hotkey={operationHotkeys.selectMoveAbove.hotkey}
-							hotkeyMeta={operationHotkeys.selectMoveAbove.meta}
-						/>
-					}
+					render={(props) => (
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								{...props}
+								className={classes(getButtonClassName({}), props.className)}
+							/>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup
+										render={
+											<TooltipPopup
+												content={operationHotkeys.selectMoveAbove.meta.name}
+												kbd={operationHotkeys.selectMoveAbove.hotkey}
+											/>
+										}
+									/>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
+					)}
 				>
 					{operations.moveAbove ? operationLabel(operations.moveAbove) : "Move above"}
 				</Toggle>
 				<Toggle
 					value={"rub" satisfies OperationType}
 					className={styles.operationTypeToggle}
-					render={
-						<ShortcutButton
-							hotkey={operationHotkeys.selectRub.hotkey}
-							hotkeyMeta={operationHotkeys.selectRub.meta}
-						/>
-					}
+					render={(props) => (
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								{...props}
+								className={classes(getButtonClassName({}), props.className)}
+							/>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup
+										render={
+											<TooltipPopup
+												content={operationHotkeys.selectRub.meta.name}
+												kbd={operationHotkeys.selectRub.hotkey}
+											/>
+										}
+									/>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
+					)}
 				>
 					{operations.rub ? operationLabel(operations.rub) : "Rub"}
 				</Toggle>
 				<Toggle
 					value={"moveBelow" satisfies OperationType}
 					className={styles.operationTypeToggle}
-					render={
-						<ShortcutButton
-							hotkey={operationHotkeys.selectMoveBelow.hotkey}
-							hotkeyMeta={operationHotkeys.selectMoveBelow.meta}
-						/>
-					}
+					render={(props) => (
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								{...props}
+								className={classes(getButtonClassName({}), props.className)}
+							/>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup
+										render={
+											<TooltipPopup
+												content={operationHotkeys.selectMoveBelow.meta.name}
+												kbd={operationHotkeys.selectMoveBelow.hotkey}
+											/>
+										}
+									/>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
+					)}
 				>
 					{operations.moveBelow ? operationLabel(operations.moveBelow) : "Move below"}
 				</Toggle>
 			</ToggleGroup>
-			<ShortcutButton
-				hotkey={operationHotkeys.confirm.hotkey}
-				hotkeyMeta={operationHotkeys.confirm.meta}
-				onClick={run}
-				disabled={!operation}
-			>
-				Confirm
-			</ShortcutButton>
-			<ShortcutButton
-				hotkey={operationHotkeys.cancel.hotkey}
-				hotkeyMeta={operationHotkeys.cancel.meta}
-				onClick={cancel}
-			>
-				Cancel
-			</ShortcutButton>
+			<Tooltip.Root disabled={!operation}>
+				<Tooltip.Trigger
+					className={getButtonClassName({})}
+					render={
+						<button type="button" onClick={run} disabled={!operation}>
+							Confirm
+						</button>
+					}
+				/>
+				<Tooltip.Portal>
+					<Tooltip.Positioner sideOffset={4}>
+						<Tooltip.Popup
+							render={
+								<TooltipPopup
+									content={operationHotkeys.confirm.meta.name}
+									kbd={operationHotkeys.confirm.hotkey}
+								/>
+							}
+						/>
+					</Tooltip.Positioner>
+				</Tooltip.Portal>
+			</Tooltip.Root>
+			<Tooltip.Root>
+				<Tooltip.Trigger className={getButtonClassName({})} onClick={cancel}>
+					Cancel
+				</Tooltip.Trigger>
+				<Tooltip.Portal>
+					<Tooltip.Positioner sideOffset={4}>
+						<Tooltip.Popup
+							render={
+								<TooltipPopup
+									content={operationHotkeys.cancel.meta.name}
+									kbd={operationHotkeys.cancel.hotkey}
+								/>
+							}
+						/>
+					</Tooltip.Positioner>
+				</Tooltip.Portal>
+			</Tooltip.Root>
 		</>
 	);
 };
