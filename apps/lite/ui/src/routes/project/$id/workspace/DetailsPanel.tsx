@@ -270,7 +270,7 @@ const Header: FC<{
 					<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
 						{({ data: commitDetails }) => (
 							<OperationSourceC projectId={projectId} selectionScope="outline" source={source}>
-								<header className={styles.header}>
+								<header>
 									<Icon name="commit" />
 									<h3 className={classes("text-14", "text-semibold")}>
 										{commitTitle(commitDetails.commit.message)}
