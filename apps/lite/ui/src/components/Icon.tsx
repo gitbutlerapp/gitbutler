@@ -1,6 +1,7 @@
 import styles from "./Icon.module.css";
 import { FC } from "react";
 import type { IconName } from "./iconNames";
+import { classes } from "#ui/components/classes.ts";
 
 const svgModules = import.meta.glob("./icons/*.svg", {
 	query: "?raw",
@@ -21,9 +22,7 @@ type Props = {
 
 export const Icon: FC<Props> = ({ name, size }) => (
 	<i
-		className={[styles.icon, name === "spinner" ? styles.spinning : undefined]
-			.filter(Boolean)
-			.join(" ")}
+		className={classes(styles.icon, name === "spinner" && styles.spinning)}
 		data-icon
 		aria-hidden="true"
 		style={size !== undefined ? { "--icon-size": `${size}px` } : undefined}
