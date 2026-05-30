@@ -20,24 +20,18 @@ import { getTransferOperation, type OutlineMode } from "#ui/outline/mode.ts";
 import { Match } from "effect";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { type AbsorptionTarget } from "@gitbutler/but-sdk";
+import { type AbsorptionTarget, type CommitAbsorption } from "@gitbutler/but-sdk";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { operationHotkeys } from "#ui/hotkeys.ts";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 
-const AbsorbControls: FC<{
-	projectId: string;
-	sourceTarget: AbsorptionTarget;
-}> = ({ projectId, sourceTarget }) => {
-	const dispatch = useAppDispatch();
-	const absorptionPlan = useQuery(absorptionPlanQueryOptions({ projectId, target: sourceTarget }));
-	const canAbsorb =
-		!absorptionPlan.isPending && !!absorptionPlan.data && absorptionPlan.data.length > 0;
+const useAbsorb = ({ projectId }: { projectId: string }) => {
 	const toastManager = Toast.useToastManager();
-	const absorbMutation = useMutation({
-		mutationFn: () => {
-			if (!absorptionPlan.data) return Promise.resolve(0);
-			return window.lite.absorb({ projectId, absorptionPlan: absorptionPlan.data });
+
+	return useMutation({
+		mutationFn: (absorptionPlan: Array<CommitAbsorption> | undefined) => {
+			if (!absorptionPlan) return Promise.resolve(0);
+			return window.lite.absorb({ projectId, absorptionPlan });
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -51,11 +45,22 @@ const AbsorbControls: FC<{
 			});
 		},
 	});
+};
+
+const AbsorbControls: FC<{
+	projectId: string;
+	sourceTarget: AbsorptionTarget;
+}> = ({ projectId, sourceTarget }) => {
+	const dispatch = useAppDispatch();
+	const absorptionPlan = useQuery(absorptionPlanQueryOptions({ projectId, target: sourceTarget }));
+	const canAbsorb =
+		!absorptionPlan.isPending && !!absorptionPlan.data && absorptionPlan.data.length > 0;
+	const absorbMutation = useAbsorb({ projectId });
 
 	const confirm = () => {
 		dispatch(projectActions.exitMode({ projectId }));
 
-		absorbMutation.mutate();
+		absorbMutation.mutate(absorptionPlan.data);
 	};
 
 	const cancel = () => dispatch(projectActions.cancelMode({ projectId }));
