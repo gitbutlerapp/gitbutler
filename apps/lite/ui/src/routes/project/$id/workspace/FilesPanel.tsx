@@ -729,7 +729,7 @@ const ChangesFileRow: FC<{
 				{label}
 			</div>
 			{outlineMode._tag === "Default" && (
-				<WorkspaceItemRowToolbar aria-label="File actions">
+				<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
 					{dependencyCommitIds && (
 						<Toolbar.Button
 							className={getButtonClassName({
@@ -757,7 +757,7 @@ const ChangesFileRow: FC<{
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
-				</WorkspaceItemRowToolbar>
+				</Toolbar.Root>
 			)}
 		</TreeItem>
 	);

@@ -1148,7 +1148,7 @@ const CommitRow: FC<
 						</div>
 					</div>
 					{outlineMode._tag === "Default" && (
-						<WorkspaceItemRowToolbar aria-label="Commit actions">
+						<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
 							<Toolbar.Button
 								aria-label="Commit menu"
 								className={getButtonClassName({
@@ -1162,7 +1162,7 @@ const CommitRow: FC<
 							>
 								<Icon name="kebab" />
 							</Toolbar.Button>
-						</WorkspaceItemRowToolbar>
+						</Toolbar.Root>
 					)}
 					{isCommitTarget && <CommitTargetIndicator />}
 				</>
@@ -1239,7 +1239,7 @@ const ChangesSectionRow: FC<{
 				<span className={styles.changesCountBubble}>{changes.length}</span>
 			</div>
 			{outlineMode._tag === "Default" && (
-				<WorkspaceItemRowToolbar aria-label="Changes actions">
+				<Toolbar.Root aria-label="Changes actions" render={<WorkspaceItemRowToolbar />}>
 					<Toolbar.Button
 						aria-label="Changes menu"
 						className={getButtonClassName({
@@ -1253,7 +1253,7 @@ const ChangesSectionRow: FC<{
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
-				</WorkspaceItemRowToolbar>
+				</Toolbar.Root>
 			)}
 		</ItemRow>
 	);
@@ -1994,7 +1994,7 @@ const BranchRow: FC<
 						{optimisticBranchName}
 					</div>
 					{outlineMode._tag === "Default" && (
-						<WorkspaceItemRowToolbar aria-label="Branch actions">
+						<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar />}>
 							<Toolbar.Button
 								className={getButtonClassName({
 									variant: isSelected ? "inverted" : "ghost",
@@ -2021,7 +2021,7 @@ const BranchRow: FC<
 							>
 								<Icon name="kebab" />
 							</Toolbar.Button>
-						</WorkspaceItemRowToolbar>
+						</Toolbar.Root>
 					)}
 					{isCommitTarget && <CommitTargetIndicator />}
 				</>
@@ -2085,7 +2085,7 @@ const StackRow: FC<
 			/>
 
 			{outlineMode._tag === "Default" && (
-				<WorkspaceItemRowToolbar aria-label="Stack actions">
+				<Toolbar.Root aria-label="Stack actions" render={<WorkspaceItemRowToolbar />}>
 					<Toolbar.Button
 						aria-label="Stack menu"
 						className={getButtonClassName({
@@ -2099,7 +2099,7 @@ const StackRow: FC<
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
-				</WorkspaceItemRowToolbar>
+				</Toolbar.Root>
 			)}
 		</ItemRow>
 	);
