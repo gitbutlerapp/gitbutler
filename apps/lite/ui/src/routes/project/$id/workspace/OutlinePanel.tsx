@@ -1514,10 +1514,11 @@ const Changes: FC<{
 	const isAltHeld = useKeyHold("Alt");
 	const isAmendMode = isAltHeld;
 	const isCommitOrAmendPending = commitCreate.isPending || commitAmend.isPending;
-	const canCommit =
+	const canCommitOrAmendBase =
 		outlineMode._tag === "Default" && commitTarget !== null && !isCommitOrAmendPending;
+	const canCommit = canCommitOrAmendBase;
 	const canAmend =
-		canCommit &&
+		canCommitOrAmendBase &&
 		worktreeChanges &&
 		worktreeChanges.changes.length > 0 &&
 		headInfo &&
