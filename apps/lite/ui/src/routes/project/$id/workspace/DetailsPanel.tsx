@@ -225,15 +225,7 @@ const Header: FC<{
 }> = ({ projectId, selection, commitView, onCommitViewChange }) =>
 	Match.value(selection).pipe(
 		Match.tagsExhaustive({
-			Stack: () => (
-				<header>
-					<h3 className={classes("text-14", "text-semibold")}>Stack</h3>
-
-					<div className={styles.headerActions}>
-						<FilesToggle />
-					</div>
-				</header>
-			),
+			Stack: () => null,
 			Branch: ({ branchRef }) => {
 				const decodedBranchRef = decodeRefName(branchRef);
 
