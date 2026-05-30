@@ -1147,6 +1147,7 @@ const CommitRow: FC<
 							{hasConflicts && " ⚠️"}
 						</div>
 					</div>
+
 					{outlineMode._tag === "Default" && (
 						<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
 							<Toolbar.Button
@@ -1238,6 +1239,7 @@ const ChangesSectionRow: FC<{
 				Changes
 				<span className={styles.changesCountBubble}>{changes.length}</span>
 			</div>
+
 			{outlineMode._tag === "Default" && (
 				<Toolbar.Root aria-label="Changes actions" render={<WorkspaceItemRowToolbar />}>
 					<Toolbar.Button
@@ -1993,6 +1995,7 @@ const BranchRow: FC<
 					>
 						{optimisticBranchName}
 					</div>
+
 					{outlineMode._tag === "Default" && (
 						<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar />}>
 							<Toolbar.Button

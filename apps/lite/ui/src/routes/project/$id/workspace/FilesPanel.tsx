@@ -722,6 +722,7 @@ const ChangesFileRow: FC<{
 			>
 				{label}
 			</div>
+
 			{outlineMode._tag === "Default" && (
 				<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
 					{dependencyCommitIds && (
