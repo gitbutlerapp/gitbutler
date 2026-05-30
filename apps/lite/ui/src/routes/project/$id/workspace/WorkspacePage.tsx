@@ -224,17 +224,10 @@ const branchListingToApplyBranchPickerOptions = (
 	}));
 };
 
-const ApplyBranchPicker: FC<{
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	projectId: string;
-}> = ({ open, onOpenChange, projectId }) => {
-	const branchesQuery = useQuery(
-		listBranchesQueryOptions({ projectId, filter: { local: null, applied: false } }),
-	);
-	const items = (branchesQuery.data ?? []).flatMap(branchListingToApplyBranchPickerOptions);
+const useApplyBranch = () => {
 	const toastManager = Toast.useToastManager();
-	const applyBranch = useMutation({
+
+	return useMutation({
 		mutationFn: window.lite.apply,
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -248,6 +241,18 @@ const ApplyBranchPicker: FC<{
 			});
 		},
 	});
+};
+
+const ApplyBranchPicker: FC<{
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	projectId: string;
+}> = ({ open, onOpenChange, projectId }) => {
+	const branchesQuery = useQuery(
+		listBranchesQueryOptions({ projectId, filter: { local: null, applied: false } }),
+	);
+	const items = (branchesQuery.data ?? []).flatMap(branchListingToApplyBranchPickerOptions);
+	const applyBranch = useApplyBranch();
 	const statusLabel =
 		items.length === 0
 			? branchesQuery.isPending
