@@ -47,15 +47,6 @@ export const WorkspaceItemRow: FC<
 	);
 };
 
-export const WorkspaceItemRowToolbar: FC<
-	Omit<ComponentProps<typeof Toolbar.Root>, "className">
-> = ({ onClick, ...props }) => (
-	<Toolbar.Root
-		{...props}
-		className={styles.itemRowToolbar}
-		onClick={(event) => {
-			onClick?.(event);
-			event.stopPropagation();
-		}}
-	/>
-);
+export const WorkspaceItemRowToolbar: FC<Omit<ComponentProps<typeof Toolbar.Root>, "className">> = (
+	props,
+) => <Toolbar.Root {...props} className={styles.itemRowToolbar} />;
