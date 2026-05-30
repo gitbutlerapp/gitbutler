@@ -732,6 +732,11 @@ const ChangesFileRow: FC<{
 				<WorkspaceItemRowToolbar aria-label="File actions">
 					{dependencyCommitIds && (
 						<Toolbar.Button
+							className={getButtonClassName({
+								variant: isSelected ? "inverted" : "ghost",
+								size: "small",
+								iconOnly: true,
+							})}
 							render={
 								<DependencyIndicatorButton projectId={projectId} commitIds={dependencyCommitIds} />
 							}
