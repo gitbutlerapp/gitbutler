@@ -732,13 +732,13 @@ const ChangesFileRow: FC<{
 			{outlineMode._tag === "Default" && (
 				<WorkspaceItemRowToolbar aria-label="File actions">
 					{dependencyCommitIds && (
-						<DependencyIndicatorButton
-							projectId={projectId}
-							commitIds={dependencyCommitIds}
-							render={<Toolbar.Button />}
+						<Toolbar.Button
+							render={
+								<DependencyIndicatorButton projectId={projectId} commitIds={dependencyCommitIds} />
+							}
 						>
 							<Icon name="link" />
-						</DependencyIndicatorButton>
+						</Toolbar.Button>
 					)}
 					<Toolbar.Button
 						aria-label="File menu"

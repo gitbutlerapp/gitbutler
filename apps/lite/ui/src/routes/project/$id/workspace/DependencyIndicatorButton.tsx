@@ -3,16 +3,15 @@ import { getBranchNameByCommitId } from "#ui/api/ref-info.ts";
 import { projectActions } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { Tooltip } from "#ui/components/Tooltip.tsx";
-import { useRender } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { Array, pipe } from "effect";
-import { FC } from "react";
+import { ComponentProps, FC } from "react";
 
 export const DependencyIndicatorButton: FC<
 	{
 		projectId: string;
 		commitIds: Array.NonEmptyArray<string>;
-	} & useRender.ComponentProps<"button">
+	} & ComponentProps<"button">
 > = ({ projectId, commitIds, ...restProps }) => {
 	const dispatch = useAppDispatch();
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
