@@ -634,13 +634,9 @@ const CommitTargetIndicator: FC = () => (
 		// [ref:tooltip-disable-hoverable-popup]
 		disableHoverablePopup
 	>
-		<Tooltip.Trigger
-			render={
-				<span className={styles.commitTargetIndicator} aria-label="Commit target">
-					<Icon name="bullseye" />
-				</span>
-			}
-		/>
+		<Tooltip.Trigger className={styles.commitTargetIndicator} aria-label="Commit target">
+			<Icon name="bullseye" />
+		</Tooltip.Trigger>
 		<Tooltip.Portal>
 			<Tooltip.Positioner sideOffset={8}>
 				<Tooltip.Popup render={<TooltipPopup content="Commit target" />} />
