@@ -480,9 +480,6 @@ void app.whenReady().then(async () => {
 			"script-src 'self' 'wasm-unsafe-eval';" +
 			// Hash is for inline style in index.html
 			"style-src 'self' 'sha256-XBXaUBQCe+0UGd1QCfoPFCc7UsLKd8xrn9oXNYqjFog=';" +
-			// react-resizable-panels has inline styles in elements. `style-src-attr 'unsafe-inline'` is slightly more narrow
-			// than just `style-src 'unsafe-inline'`, but we should still try to get rid of this.
-			"style-src-attr 'unsafe-inline';" +
 			"font-src 'self';" +
 			"connect-src 'self';" +
 			"object-src 'none';" +

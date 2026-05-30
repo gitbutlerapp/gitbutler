@@ -43,14 +43,14 @@ import { PatchDiff, Virtualizer } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
-import { FC, Suspense, useDeferredValue, useState } from "react";
-import { Group, Panel, PanelProps, Separator, useDefaultLayout } from "react-resizable-panels";
+import { ComponentProps, FC, Suspense, useDeferredValue, useState } from "react";
 import { DiffStat } from "#ui/components/DiffStat.tsx";
 import { DependencyIndicatorButton } from "./DependencyIndicatorButton.tsx";
 import { FilesPanel } from "./FilesPanel.tsx";
 import styles from "./DetailsPanel.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
+import { Panel } from "#ui/panels.ts";
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
@@ -574,7 +574,7 @@ const DiffContents: FC<{
 		}),
 	);
 
-export const DetailsPanel: FC<PanelProps> = (panelProps) => {
+export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 	const urgentSelection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
@@ -582,13 +582,9 @@ export const DetailsPanel: FC<PanelProps> = (panelProps) => {
 	const detailsOpacity = urgentSelection !== selection ? 0.5 : 1;
 	const [commitView, setCommitView] = useState<CommitView>("diff");
 	const showDiff = selection._tag !== "Commit" || commitView === "diff";
-	const { defaultLayout, onLayoutChanged } = useDefaultLayout({
-		id: `project:${projectId}:details`,
-		panelIds: panelsState.filesVisible ? ["files", "details"] : ["details"],
-	});
 
 	return (
-		<Panel {...panelProps} className={classes(panelProps.className, styles.panel)}>
+		<div {...panelProps} className={classes(panelProps.className, styles.panel)}>
 			<div className={styles.headerWrap} style={{ opacity: detailsOpacity }}>
 				<Suspense fallback={<p className="text-13">Loading details…</p>}>
 					<Header
@@ -609,28 +605,20 @@ export const DetailsPanel: FC<PanelProps> = (panelProps) => {
 			)}
 
 			{showDiff && (
-				<Group
-					className={styles.panels}
-					defaultLayout={defaultLayout}
-					onLayoutChange={onLayoutChanged}
-				>
+				<div className={classes(styles.panels, panelsState.filesVisible && styles.panelsWithFiles)}>
 					{panelsState.filesVisible && (
-						<>
-							<FilesPanel
-								id="files"
-								minSize={250}
-								defaultSize={400}
-								groupResizeBehavior="preserve-pixel-size"
-								tabIndex={0}
-								className={styles.filesPanel}
-							/>
-							<Separator className={styles.panelResizeHandle} />
-						</>
+						<FilesPanel
+							id={"files" satisfies Panel}
+							data-panel
+							tabIndex={0}
+							className={styles.filesPanel}
+						/>
 					)}
 
-					<Panel
-						id="details"
-						minSize={400}
+					<div
+						id={"details" satisfies Panel}
+						data-panel
+						// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 						tabIndex={0}
 						className={classes(
 							styles.detailsContentPanel,
@@ -643,9 +631,9 @@ export const DetailsPanel: FC<PanelProps> = (panelProps) => {
 								<DiffContents projectId={projectId} selection={selection} />
 							</Suspense>
 						</Virtualizer>
-					</Panel>
-				</Group>
+					</div>
+				</div>
 			)}
-		</Panel>
+		</div>
 	);
 };

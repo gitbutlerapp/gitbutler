@@ -20,31 +20,27 @@
 
 .panels {
 	--resize-spacing: 6px;
-	min-height: 0;
+
+	display: grid;
+	grid-template-rows: minmax(0, 1fr);
+	grid-template-columns: 1fr;
+}
+
+.panelsWithFiles {
+	grid-template-columns: 300px 1fr;
 }
 
 .filesPanel {
 	padding-inline: var(--panel-padding) var(--resize-spacing);
+	overflow: auto;
 }
 
 .detailsContentPanel {
 	display: grid;
-	grid-template-rows: minmax(0, 1fr);
 	padding-inline: var(--panel-padding);
 
 	&.alongsideFiles {
 		padding-inline-start: var(--resize-spacing);
-	}
-}
-
-.panelResizeHandle {
-	width: 1px;
-	margin-block-start: var(--panel-padding);
-	transition: background-color 0.2s;
-
-	&[data-separator="hover"],
-	&[data-separator="active"] {
-		background-color: var(--border-3);
 	}
 }
 

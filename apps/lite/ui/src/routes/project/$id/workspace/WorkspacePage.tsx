@@ -37,7 +37,6 @@ import {
 import { useParams } from "@tanstack/react-router";
 import { Match, Order } from "effect";
 import { type FC, Component, ReactNode } from "react";
-import { Group, Separator, useDefaultLayout } from "react-resizable-panels";
 import { branchOperand, type BranchOperand } from "#ui/operands.ts";
 import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog.tsx";
 import { DetailsPanel } from "./DetailsPanel.tsx";
@@ -440,15 +439,9 @@ const WorkspacePage: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
-	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 	const focusedPanel = useFocusedProjectPanel(projectId);
 
 	useWorkspaceHotkeys(projectId);
-
-	const { defaultLayout, onLayoutChanged } = useDefaultLayout({
-		id: `project:${projectId}:workspace`,
-		panelIds: ["outline", "details-files-container"],
-	});
 
 	const selectBranch = (branch: BranchOperand) => {
 		dispatch(
@@ -477,20 +470,16 @@ const WorkspacePage: FC = () => {
 
 	return (
 		<>
-			<Group className={styles.page} defaultLayout={defaultLayout} onLayoutChange={onLayoutChanged}>
+			<div className={styles.page}>
 				<OutlinePanel
 					id={"outline" satisfies PanelType}
-					minSize={300}
-					defaultSize={500}
-					groupResizeBehavior="preserve-pixel-size"
+					data-panel
 					tabIndex={0}
-					elementRef={(el) => el?.focus({ focusVisible: false })}
+					ref={(el) => el?.focus({ focusVisible: false })}
 				/>
 
-				<Separator className={styles.panelResizeHandle} />
-
-				<DetailsPanel id="details-files-container" minSize={panelsState.filesVisible ? 650 : 400} />
-			</Group>
+				<DetailsPanel />
+			</div>
 
 			{Match.value(dialog).pipe(
 				Match.tagsExhaustive({

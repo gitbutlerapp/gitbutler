@@ -1,20 +1,9 @@
 .page {
+	display: grid;
+	grid-template-rows: minmax(0, 1fr);
+	grid-template-columns: 400px 1fr;
 	flex-grow: 1;
-}
-
-[data-panel] {
-	/* `operationSourcePreview` is relative to this. */
-	position: relative;
-
-	&:focus {
-		/* The focus state is displayed on the item row instead. */
-		outline: none;
-	}
-}
-
-.panelResizeHandle {
-	width: 1px;
-	background-color: var(--border-3);
+	min-height: 0;
 }
 
 .notFound {
