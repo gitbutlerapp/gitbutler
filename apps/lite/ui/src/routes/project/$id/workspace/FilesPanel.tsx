@@ -745,16 +745,11 @@ const ChangesFileRow: FC<{
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						render={
-							<button
-								type="button"
-								className={getButtonClassName({
-									variant: "ghost",
-									size: "small",
-									iconOnly: true,
-								})}
-							/>
-						}
+						className={getButtonClassName({
+							variant: "ghost",
+							size: "small",
+							iconOnly: true,
+						})}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
