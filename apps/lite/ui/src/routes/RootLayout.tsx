@@ -15,7 +15,7 @@ import styles from "./RootLayout.module.css";
 import { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { Hash } from "effect";
 
-const ProjectSelect: FC = () => {
+const Projects: FC = () => {
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const navigate = useNavigate();
 	const [pickerOpen, setPickerOpen] = useState(false);
@@ -132,7 +132,7 @@ export const RootLayout: FC = () => (
 			<nav className={styles.sidebar}>
 				{isMac && <div className={styles.sidebarMacSpacer} />}
 				<div className={styles.sidebarScroll}>
-					<ProjectSelect />
+					<Projects />
 				</div>
 			</nav>
 			<main className={styles.content}>
