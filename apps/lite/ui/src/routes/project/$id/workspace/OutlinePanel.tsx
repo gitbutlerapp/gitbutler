@@ -1391,19 +1391,19 @@ const focusCommitMessageInput = () => {
 	document.getElementById(commitMessageInputId)?.focus();
 };
 
-const Changes: FC<{
-	projectId: string;
-	commitTarget: CommitTargetComboboxItem | null;
-	targetComboboxItems: Array<CommitTargetComboboxItem>;
-}> = ({ projectId, commitTarget, targetComboboxItems }) => {
+const useCommitCreate = ({ projectId }: { projectId: string }) => {
 	const toastManager = Toast.useToastManager();
 	const queryClient = useQueryClient();
 	const dispatch = useAppDispatch();
 
-	const commitCreate = useMutation({
-		mutationFn: async () => {
-			if (!commitTarget) throw new Error("No target.");
-
+	return useMutation({
+		mutationFn: async ({
+			commitTarget,
+			message,
+		}: {
+			commitTarget: CommitTargetComboboxItem;
+			message: string;
+		}) => {
 			const worktreeChanges = await queryClient.fetchQuery(
 				changesInWorktreeQueryOptions(projectId),
 			);
@@ -1420,12 +1420,12 @@ const Changes: FC<{
 					Match.when({ type: "referenceBytes" }, () => "below"),
 					Match.exhaustive,
 				),
-				message: commitTextareaRef.current?.value ?? "",
+				message,
 				dryRun: false,
 			});
 		},
-		onSuccess: async (response) => {
-			if (commitTarget?.relativeTo.type === "commit" && response.newCommit !== null)
+		onSuccess: async (response, input) => {
+			if (input.commitTarget.relativeTo.type === "commit" && response.newCommit !== null)
 				dispatch(
 					projectActions.setCommitTarget({
 						projectId,
@@ -1440,9 +1440,6 @@ const Changes: FC<{
 						rejectedChanges: response.rejectedChanges,
 					}),
 				);
-
-			if (response.newCommit !== null && commitTextareaRef.current)
-				commitTextareaRef.current.value = "";
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -1456,10 +1453,15 @@ const Changes: FC<{
 			});
 		},
 	});
-	const commitAmend = useMutation({
-		mutationFn: async () => {
-			if (!commitTarget) throw new Error("No target.");
+};
 
+const useCommitAmend = ({ projectId }: { projectId: string }) => {
+	const toastManager = Toast.useToastManager();
+	const queryClient = useQueryClient();
+	const dispatch = useAppDispatch();
+
+	return useMutation({
+		mutationFn: async ({ commitTarget }: { commitTarget: CommitTargetComboboxItem }) => {
 			const headInfo = await queryClient.fetchQuery(headInfoQueryOptions(projectId));
 
 			const commitId = resolveRelativeTo({
@@ -1480,7 +1482,7 @@ const Changes: FC<{
 				dryRun: false,
 			});
 		},
-		onSuccess: async (response, _input, _ctx, { client }) => {
+		onSuccess: async (response, input, _ctx, { client }) => {
 			client.setQueryData(headInfoQueryOptions(projectId).queryKey, response.workspace.headInfo);
 			dispatch(
 				projectActions.updateRewrittenCommitReferences({
@@ -1490,7 +1492,7 @@ const Changes: FC<{
 				}),
 			);
 
-			if (commitTarget?.relativeTo.type === "commit" && response.newCommit !== null)
+			if (input.commitTarget.relativeTo.type === "commit" && response.newCommit !== null)
 				dispatch(
 					projectActions.setCommitTarget({
 						projectId,
@@ -1518,6 +1520,16 @@ const Changes: FC<{
 			});
 		},
 	});
+};
+
+const Changes: FC<{
+	projectId: string;
+	commitTarget: CommitTargetComboboxItem | null;
+	targetComboboxItems: Array<CommitTargetComboboxItem>;
+}> = ({ projectId, commitTarget, targetComboboxItems }) => {
+	const dispatch = useAppDispatch();
+	const commitCreate = useCommitCreate({ projectId });
+	const commitAmend = useCommitAmend({ projectId });
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
@@ -1556,28 +1568,50 @@ const Changes: FC<{
 	const selectChanges = () => {
 		dispatch(projectActions.selectOutline({ projectId, selection: operand }));
 	};
+	const createCommit = () => {
+		if (!commitTarget) return;
+
+		commitCreate.mutate(
+			{
+				commitTarget,
+				message: commitTextareaRef.current?.value ?? "",
+			},
+			{
+				onSuccess: (response) => {
+					if (response.newCommit !== null && commitTextareaRef.current)
+						commitTextareaRef.current.value = "";
+				},
+			},
+		);
+	};
+	const amendCommit = () => {
+		if (!commitTarget) return;
+
+		commitAmend.mutate({ commitTarget });
+	};
 	const submit: SubmitEventHandler = (event) => {
 		event.preventDefault();
 
 		if (isAmendMode) {
-			commitAmend.mutate();
+			amendCommit();
 			return;
 		}
 
-		commitCreate.mutate();
+		createCommit();
 	};
 	const commitMenuItems: Array<NativeMenuItem> = [
+		// oxlint-disable-next-line react-hooks-js/refs -- False positive. Ref is only accessed in `onSelect` event handler.
 		nativeMenuItem({
 			label: "Commit",
 			enabled: canCommit,
 			accelerator: toElectronAccelerator(changesHotkeys.commit.hotkey),
-			onSelect: () => commitCreate.mutate(),
+			onSelect: createCommit,
 		}),
 		nativeMenuItem({
 			label: "Amend Commit",
 			enabled: canAmend,
 			accelerator: toElectronAccelerator(changesHotkeys.amendCommit.hotkey),
-			onSelect: () => commitAmend.mutate(),
+			onSelect: amendCommit,
 		}),
 	];
 
@@ -1593,7 +1627,7 @@ const Changes: FC<{
 		},
 		{
 			hotkey: changesHotkeys.commit.hotkey,
-			callback: () => commitCreate.mutate(),
+			callback: createCommit,
 			options: {
 				conflictBehavior: "allow",
 				enabled: canCommit,
@@ -1603,7 +1637,7 @@ const Changes: FC<{
 		},
 		{
 			hotkey: changesHotkeys.amendCommit.hotkey,
-			callback: () => commitAmend.mutate(),
+			callback: amendCommit,
 			options: {
 				conflictBehavior: "allow",
 				enabled: canAmend,
