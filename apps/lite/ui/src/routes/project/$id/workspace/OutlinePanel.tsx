@@ -637,12 +637,12 @@ const ItemRowMenuButton: FC<{
 }> = ({ ariaLabel, menuItems, disabled = false, isSelected = false }) => (
 	<Toolbar.Button
 		aria-label={ariaLabel}
-		disabled={disabled === true}
+		disabled={disabled}
 		render={
 			<button
 				type="button"
 				className={getButtonClassName({
-					variant: isSelected === true ? "inverted" : "ghost",
+					variant: isSelected ? "inverted" : "ghost",
 					size: "small",
 					iconOnly: true,
 				})}
