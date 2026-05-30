@@ -1,6 +1,5 @@
 import { createRoute, redirect } from "@tanstack/react-router";
 import { FC } from "react";
-
 import { Route as rootRoute } from "#ui/routes/__root.tsx";
 import { lastOpenedProjectKey } from "#ui/projects/last-opened.ts";
 

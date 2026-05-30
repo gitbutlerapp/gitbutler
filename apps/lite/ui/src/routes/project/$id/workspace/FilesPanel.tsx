@@ -33,7 +33,7 @@ import {
 } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Icon } from "#ui/components/Icon.tsx";
-import { Button } from "#ui/components/Button.tsx";
+import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, Toast, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
@@ -440,16 +440,12 @@ const useCopyPathMenuItem = (relativePath: string): NativeMenuItem => {
 	});
 };
 
-const useUncommitMenuItem = (
-	commitId: string,
-	change: TreeChange,
-	projectId: string,
-): NativeMenuItem => {
+const useCommitUncommitChanges = () => {
 	const dispatch = useAppDispatch();
 
 	const toastManager = Toast.useToastManager();
 
-	const commitUncommitChanges = useMutation({
+	return useMutation({
 		mutationFn: window.lite.commitUncommitChanges,
 		onSuccess: async (response, input, _context, mutation) => {
 			mutation.client.setQueryData(
@@ -475,19 +471,6 @@ const useUncommitMenuItem = (
 				priority: "high",
 			});
 		},
-	});
-
-	return nativeMenuItem({
-		label: "Uncommit",
-		enabled: !commitUncommitChanges.isPending,
-		onSelect: () =>
-			commitUncommitChanges.mutate({
-				projectId,
-				commitId,
-				assignTo: null,
-				changes: [createDiffSpec(change, [])],
-				dryRun: false,
-			}),
 	});
 };
 
@@ -530,7 +513,7 @@ const ItemRow: FC<
 			inert={!navigationIndexIncludes(navigationIndex, operand)}
 			isSelected={isSelected}
 			onSelect={selectItem}
-			className={styles.item}
+			className={classes(props.className, styles.item)}
 		/>
 	);
 };
@@ -564,11 +547,22 @@ const CommitFileRow: FC<{
 }> = ({ commitId, change, operand, projectId }) => {
 	const [label, strLabel] = changeLabel(change);
 	const copyPathMenuItem = useCopyPathMenuItem(change.path);
-	const uncommitMenuItem = useUncommitMenuItem(commitId, change, projectId);
+	const commitUncommitChanges = useCommitUncommitChanges();
 	const menuItems: Array<NativeMenuItem> = [
 		copyPathMenuItem,
 		nativeMenuSeparator,
-		uncommitMenuItem,
+		nativeMenuItem({
+			label: "Uncommit",
+			enabled: !commitUncommitChanges.isPending,
+			onSelect: () =>
+				commitUncommitChanges.mutate({
+					projectId,
+					commitId,
+					assignTo: null,
+					changes: [createDiffSpec(change, [])],
+					dryRun: false,
+				}),
+		}),
 	];
 
 	return (
@@ -673,6 +667,7 @@ const ChangesFileRow: FC<{
 	projectId: string;
 }> = ({ change, dependencyCommitIds, projectId }) => {
 	const operand = fileOperand({ parent: changesFileParent, path: change.path });
+	const isSelected = useIsSelected({ projectId, operand });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const dispatch = useAppDispatch();
@@ -691,18 +686,16 @@ const ChangesFileRow: FC<{
 		});
 	};
 
-	const absorbContextMenuItem = nativeMenuItem({
-		label: "Absorb",
-		enabled: true,
-		accelerator: toElectronAccelerator(changesFileHotkeys.absorb.hotkey),
-		onSelect: absorb,
-	});
-
 	const copyPathMenuItem = useCopyPathMenuItem(change.path);
 	const menuItems: Array<NativeMenuItem> = [
 		copyPathMenuItem,
 		nativeMenuSeparator,
-		absorbContextMenuItem,
+		nativeMenuItem({
+			label: "Absorb",
+			enabled: true,
+			accelerator: toElectronAccelerator(changesFileHotkeys.absorb.hotkey),
+			onSelect: absorb,
+		}),
 	];
 
 	const [label, strLabel] = changeLabel(change);
@@ -729,28 +722,37 @@ const ChangesFileRow: FC<{
 			>
 				{label}
 			</div>
+
 			{outlineMode._tag === "Default" && (
-				<WorkspaceItemRowToolbar aria-label="File actions">
+				<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
 					{dependencyCommitIds && (
-						<DependencyIndicatorButton
-							projectId={projectId}
-							commitIds={dependencyCommitIds}
-							render={<Toolbar.Button type="button" />}
+						<Toolbar.Button
+							className={getButtonClassName({
+								variant: isSelected ? "inverted" : "ghost",
+								size: "small",
+								iconOnly: true,
+							})}
+							render={
+								<DependencyIndicatorButton projectId={projectId} commitIds={dependencyCommitIds} />
+							}
 						>
 							<Icon name="link" />
-						</DependencyIndicatorButton>
+						</Toolbar.Button>
 					)}
 					<Toolbar.Button
-						type="button"
 						aria-label="File menu"
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						render={<Button variant="ghost" size="small" />}
+						className={getButtonClassName({
+							variant: isSelected ? "inverted" : "ghost",
+							size: "small",
+							iconOnly: true,
+						})}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
-				</WorkspaceItemRowToolbar>
+				</Toolbar.Root>
 			)}
 		</TreeItem>
 	);

@@ -40,8 +40,8 @@ export const OperationSourceC: FC<
 
 	const dispatch = useAppDispatch();
 	const dragRef = useRef<HTMLElement>(null);
-	const onGenerateDragPreview = useEffectEvent(
-		({ nativeSetDragImage }: { nativeSetDragImage: DataTransfer["setDragImage"] | null }) => {
+	const onGenerateDragPreview: Parameters<typeof draggable>[0]["onGenerateDragPreview"] =
+		useEffectEvent(({ nativeSetDragImage }) => {
 			setCustomNativeDragPreview({
 				nativeSetDragImage,
 				getOffset: centerUnderPointer,
@@ -58,8 +58,7 @@ export const OperationSourceC: FC<
 					};
 				},
 			});
-		},
-	);
+		});
 	const canDrag = useEffectEvent(
 		() => outlineMode._tag !== "RenameBranch" && outlineMode._tag !== "RewordCommit",
 	);
@@ -103,6 +102,7 @@ export const OperationSourceC: FC<
 	}, [dispatch, projectId, selectionScope, source]);
 
 	const isActiveSource = Match.value(outlineMode).pipe(
+		Match.tag("Absorb", (x) => operandEquals(x.source, source)),
 		Match.tag("Transfer", ({ value: mode }) => operandEquals(mode.source, source)),
 		Match.orElse(() => false),
 	);

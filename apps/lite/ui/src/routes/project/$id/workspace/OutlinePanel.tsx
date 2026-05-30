@@ -26,7 +26,7 @@ import {
 	type CommitOperand,
 	type Operand,
 } from "#ui/operands.ts";
-import { Button } from "#ui/components/Button.tsx";
+import { getButtonClassName } from "#ui/components/Button.tsx";
 import {
 	filterNavigationIndexForOutlineMode,
 	getTransferOperation,
@@ -52,7 +52,7 @@ import {
 	Section,
 	type NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
-import { mergeProps, Toast, useRender } from "@base-ui/react";
+import { mergeProps, Toast, Tooltip, useRender } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
 import { Toolbar } from "@base-ui/react/toolbar";
 import {
@@ -85,7 +85,6 @@ import {
 } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
-
 import {
 	ComponentProps,
 	createContext,
@@ -106,8 +105,7 @@ import { WorkspaceItemRow, WorkspaceItemRowToolbar } from "./WorkspaceItemRow.ts
 import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 import { defaultOutlineSelection } from "#ui/projects/workspace/state.ts";
-import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
-import { Tooltip } from "#ui/components/Tooltip.tsx";
+import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { rejectedChangesToastOptions } from "#ui/operations/rejectedChangesToastOptions.tsx";
@@ -117,7 +115,6 @@ import {
 	toElectronAccelerator,
 	workspaceHotkeys,
 } from "#ui/hotkeys.ts";
-import { DropdownButton } from "#ui/components/DropdownButton.tsx";
 import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 
@@ -215,25 +212,11 @@ const useNavigationIndex = ({
 	});
 };
 
-const useOutlineTreeHotkeys = ({
-	navigationIndex,
-	projectId,
-}: {
-	navigationIndex: NavigationIndex;
-	projectId: string;
-}) => {
-	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-	const focusedPanel = useFocusedProjectPanel(projectId);
-	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
-
+const useCommitMove = () => {
 	const dispatch = useAppDispatch();
-
-	const select = (newItem: Operand) =>
-		dispatch(projectActions.selectOutline({ projectId, selection: newItem }));
-
 	const toastManager = Toast.useToastManager();
-	const commitMoveMutation = useMutation({
+
+	return useMutation({
 		mutationFn: window.lite.commitMove,
 		onSuccess: async (response, input, _context, mutation) => {
 			mutation.client.setQueryData(
@@ -260,6 +243,158 @@ const useOutlineTreeHotkeys = ({
 			});
 		},
 	});
+};
+
+const useCommitInsertBlank = () => {
+	const dispatch = useAppDispatch();
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.commitInsertBlank,
+		onSuccess: async (response, input, _context, mutation) => {
+			mutation.client.setQueryData(
+				headInfoQueryOptions(input.projectId).queryKey,
+				response.workspace.headInfo,
+			);
+			dispatch(
+				projectActions.updateRewrittenCommitReferences({
+					projectId: input.projectId,
+					replacedCommits: response.workspace.replacedCommits,
+					headInfo: response.workspace.headInfo,
+				}),
+			);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to insert commit",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+const useCommitDiscard = () => {
+	const dispatch = useAppDispatch();
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.commitDiscard,
+		onSuccess: async (response, input, _context, mutation) => {
+			mutation.client.setQueryData(
+				headInfoQueryOptions(input.projectId).queryKey,
+				response.workspace.headInfo,
+			);
+			dispatch(
+				projectActions.updateRewrittenCommitReferences({
+					projectId: input.projectId,
+					replacedCommits: response.workspace.replacedCommits,
+					headInfo: response.workspace.headInfo,
+				}),
+			);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to discard commit",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+const useCommitUncommit = () => {
+	const dispatch = useAppDispatch();
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.commitUncommit,
+		onSuccess: async (response, input, _context, mutation) => {
+			mutation.client.setQueryData(
+				headInfoQueryOptions(input.projectId).queryKey,
+				response.workspace.headInfo,
+			);
+			dispatch(
+				projectActions.updateRewrittenCommitReferences({
+					projectId: input.projectId,
+					replacedCommits: response.workspace.replacedCommits,
+					headInfo: response.workspace.headInfo,
+				}),
+			);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to uncommit",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+const useCommitReword = () => {
+	const dispatch = useAppDispatch();
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.commitReword,
+		onSuccess: async (response, input, _context, mutation) => {
+			mutation.client.setQueryData(
+				headInfoQueryOptions(input.projectId).queryKey,
+				response.workspace.headInfo,
+			);
+			dispatch(
+				projectActions.updateRewrittenCommitReferences({
+					projectId: input.projectId,
+					replacedCommits: response.workspace.replacedCommits,
+					headInfo: response.workspace.headInfo,
+				}),
+			);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to reword commit",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+const useOutlineTreeHotkeys = ({
+	navigationIndex,
+	projectId,
+}: {
+	navigationIndex: NavigationIndex;
+	projectId: string;
+}) => {
+	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
+	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const focusedPanel = useFocusedProjectPanel(projectId);
+	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
+
+	const dispatch = useAppDispatch();
+
+	const select = (newItem: Operand) =>
+		dispatch(projectActions.selectOutline({ projectId, selection: newItem }));
+
+	const commitMoveMutation = useCommitMove();
 
 	const openBranchPicker = () => {
 		dispatch(projectActions.openBranchPicker({ projectId }));
@@ -571,13 +706,23 @@ export const OutlinePanel: FC<PanelProps> = ({ ...panelProps }) => {
 								<ActivitySpinner />
 							</div>
 
-							<ShortcutButton
-								hotkey={workspaceHotkeys.applyBranch.hotkey}
-								hotkeyOptions={{ meta: workspaceHotkeys.applyBranch.meta }}
-								onClick={openApplyBranchPicker}
-							>
-								Apply branch
-							</ShortcutButton>
+							<Tooltip.Root>
+								<Tooltip.Trigger className={getButtonClassName({})} onClick={openApplyBranchPicker}>
+									Apply branch
+								</Tooltip.Trigger>
+								<Tooltip.Portal>
+									<Tooltip.Positioner sideOffset={4}>
+										<Tooltip.Popup
+											render={
+												<TooltipPopup
+													content={workspaceHotkeys.applyBranch.meta.name}
+													kbd={workspaceHotkeys.applyBranch.hotkey}
+												/>
+											}
+										/>
+									</Tooltip.Positioner>
+								</Tooltip.Portal>
+							</Tooltip.Root>
 						</header>
 
 						<Changes
@@ -622,47 +767,21 @@ const useIsSelected = ({ projectId, operand }: { projectId: string; operand: Ope
 const treeItemId = (operand: Operand): string =>
 	`outline-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
 
-const ItemRowMenuButton: FC<{
-	ariaLabel: string;
-	menuItems: Array<NativeMenuItem>;
-	disabled?: boolean;
-	isSelected?: boolean;
-}> = ({ ariaLabel, menuItems, disabled = false, isSelected = false }) => (
-	<Toolbar.Button
-		aria-label={ariaLabel}
-		disabled={disabled === true}
-		render={<Button variant={isSelected === true ? "inverted" : "ghost"} size="small" />}
-		onClick={(event) => {
-			void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-		}}
+const CommitTargetIndicator: FC = () => (
+	<Tooltip.Root
+		// [ref:tooltip-disable-hoverable-popup]
+		disableHoverablePopup
 	>
-		<Icon name="kebab" />
-	</Toolbar.Button>
+		<Tooltip.Trigger className={styles.commitTargetIndicator} aria-label="Commit target">
+			<Icon name="bullseye" />
+		</Tooltip.Trigger>
+		<Tooltip.Portal>
+			<Tooltip.Positioner sideOffset={8}>
+				<Tooltip.Popup render={<TooltipPopup content="Commit target" />} />
+			</Tooltip.Positioner>
+		</Tooltip.Portal>
+	</Tooltip.Root>
 );
-
-const CommitTargetIndicator: FC = () => {
-	const [open, setOpen] = useState(false);
-
-	return (
-		<Tooltip
-			open={open}
-			// [ref:tooltip-disable-hoverable-popup]
-			disableHoverablePopup
-			trigger={
-				<span
-					className={styles.commitTargetIndicator}
-					aria-label="Commit target"
-					onMouseEnter={() => setOpen(true)}
-					onMouseLeave={() => setOpen(false)}
-				>
-					<Icon name="bullseye" />
-				</span>
-			}
-			content="Commit target"
-			positionerProps={{ sideOffset: 8 }}
-		/>
-	);
-};
 
 const ItemRow: FC<
 	{
@@ -844,117 +963,13 @@ const CommitRow: FC<
 	};
 	const { hasConflicts } = dryRunCommit ? dryRunCommit : commitWithOptimisticMessage;
 
-	const commitInsertBlank = useMutation({
-		mutationFn: window.lite.commitInsertBlank,
-		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to insert commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-	const commitDiscard = useMutation({
-		mutationFn: window.lite.commitDiscard,
-		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to discard commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-	const commitUncommit = useMutation({
-		mutationFn: window.lite.commitUncommit,
-		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to uncommit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-	const commitReword = useMutation({
-		mutationFn: window.lite.commitReword,
-		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to reword commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
+	const commitInsertBlankMutation = useCommitInsertBlank();
+	const commitDiscardMutation = useCommitDiscard();
+	const commitUncommitMutation = useCommitUncommit();
+	const commitRewordMutation = useCommitReword();
 
 	const insertBlankCommitAbove = () => {
-		commitInsertBlank.mutate({
+		commitInsertBlankMutation.mutate({
 			projectId,
 			relativeTo: { type: "commit", subject: commit.id },
 			side: "above",
@@ -963,7 +978,7 @@ const CommitRow: FC<
 	};
 
 	const insertBlankCommitBelow = () => {
-		commitInsertBlank.mutate({
+		commitInsertBlankMutation.mutate({
 			projectId,
 			relativeTo: { type: "commit", subject: commit.id },
 			side: "below",
@@ -972,7 +987,7 @@ const CommitRow: FC<
 	};
 
 	const deleteCommit = () => {
-		commitDiscard.mutate({
+		commitDiscardMutation.mutate({
 			projectId,
 			subjectCommitId: commit.id,
 			dryRun: false,
@@ -1011,7 +1026,7 @@ const CommitRow: FC<
 		startCommitMessageTransition(async () => {
 			setOptimisticMessage(trimmed);
 			try {
-				await commitReword.mutateAsync({
+				await commitRewordMutation.mutateAsync({
 					projectId,
 					commitId: commit.id,
 					message: trimmed,
@@ -1051,80 +1066,75 @@ const CommitRow: FC<
 		focusCommitMessageInput();
 	};
 
-	const amendCommitContextMenuItem = nativeMenuItem({
-		label: "Amend Commit",
-		enabled: true,
-		accelerator: toElectronAccelerator(outlineHotkeys.amendCommit.hotkey),
-		onSelect: amendCommit,
-	});
-	const cutCommitContextMenuItem = nativeMenuItem({
-		label: "Cut Commit",
-		enabled: true,
-		onSelect: cutCommit,
-	});
-	const startEditingContextMenuItem = nativeMenuItem({
-		label: "Reword Commit",
-		enabled: !isCommitMessagePending,
-		accelerator: toElectronAccelerator(outlineHotkeys.rewordCommit.hotkey),
-		onSelect: startEditing,
-	});
-	const insertBlankCommitAboveContextMenuItem = nativeMenuItem({
-		label: "Above",
-		enabled: true,
-		onSelect: insertBlankCommitAbove,
-	});
-	const insertBlankCommitBelowContextMenuItem = nativeMenuItem({
-		label: "Below",
-		enabled: true,
-		onSelect: insertBlankCommitBelow,
-	});
-	const deleteCommitContextMenuItem = nativeMenuItem({
-		label: "Delete Commit",
-		enabled: !commitDiscard.isPending,
-		onSelect: deleteCommit,
-	});
-	const uncommitContextMenuItem = nativeMenuItem({
-		label: "Uncommit",
-		enabled: !commitUncommit.isPending,
-		onSelect: () =>
-			commitUncommit.mutate({
-				projectId,
-				assignTo: null,
-				subjectCommitIds: [commit.id],
-				dryRun: false,
-			}),
-	});
-	const setCommitTargetContextMenuItem = nativeMenuItem({
-		label: "Compose Commit Here",
-		accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
-		onSelect: composeCommitHere,
-	});
-	const copyChangeIdContextMenuItem = nativeMenuItem({
-		label: "Change ID",
-		onSelect: () => window.lite.clipboardWriteText(commit.changeId),
-	});
-	const copyCommitIdContextMenuItem = nativeMenuItem({
-		label: "Commit ID",
-		onSelect: () => window.lite.clipboardWriteText(commit.id),
-	});
-
 	const menuItems: Array<NativeMenuItem> = [
-		startEditingContextMenuItem,
-		amendCommitContextMenuItem,
-		cutCommitContextMenuItem,
+		nativeMenuItem({
+			label: "Reword Commit",
+			enabled: !isCommitMessagePending,
+			accelerator: toElectronAccelerator(outlineHotkeys.rewordCommit.hotkey),
+			onSelect: startEditing,
+		}),
+		nativeMenuItem({
+			label: "Amend Commit",
+			enabled: true,
+			accelerator: toElectronAccelerator(outlineHotkeys.amendCommit.hotkey),
+			onSelect: amendCommit,
+		}),
+		nativeMenuItem({
+			label: "Cut Commit",
+			enabled: true,
+			onSelect: cutCommit,
+		}),
 		nativeMenuSeparator,
-		setCommitTargetContextMenuItem,
+		nativeMenuItem({
+			label: "Compose Commit Here",
+			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
+			onSelect: composeCommitHere,
+		}),
 		nativeMenuItem({
 			label: "Copy",
-			submenu: [copyChangeIdContextMenuItem, copyCommitIdContextMenuItem],
+			submenu: [
+				nativeMenuItem({
+					label: "Change ID",
+					onSelect: () => window.lite.clipboardWriteText(commit.changeId),
+				}),
+				nativeMenuItem({
+					label: "Commit ID",
+					onSelect: () => window.lite.clipboardWriteText(commit.id),
+				}),
+			],
 		}),
 		nativeMenuItem({
 			label: "Add Empty Commit",
-			submenu: [insertBlankCommitAboveContextMenuItem, insertBlankCommitBelowContextMenuItem],
+			submenu: [
+				nativeMenuItem({
+					label: "Above",
+					enabled: true,
+					onSelect: insertBlankCommitAbove,
+				}),
+				nativeMenuItem({
+					label: "Below",
+					enabled: true,
+					onSelect: insertBlankCommitBelow,
+				}),
+			],
 		}),
 		nativeMenuSeparator,
-		deleteCommitContextMenuItem,
-		uncommitContextMenuItem,
+		nativeMenuItem({
+			label: "Delete Commit",
+			enabled: !commitDiscardMutation.isPending,
+			onSelect: deleteCommit,
+		}),
+		nativeMenuItem({
+			label: "Uncommit",
+			enabled: !commitUncommitMutation.isPending,
+			onSelect: () =>
+				commitUncommitMutation.mutate({
+					projectId,
+					assignTo: null,
+					subjectCommitIds: [commit.id],
+					dryRun: false,
+				}),
+		}),
 	];
 
 	return (
@@ -1167,14 +1177,23 @@ const CommitRow: FC<
 							{hasConflicts && " ⚠️"}
 						</div>
 					</div>
+
 					{outlineMode._tag === "Default" && (
-						<WorkspaceItemRowToolbar aria-label="Commit actions">
-							<ItemRowMenuButton
-								ariaLabel="Commit menu"
-								menuItems={menuItems}
-								isSelected={isSelected}
-							/>
-						</WorkspaceItemRowToolbar>
+						<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
+							<Toolbar.Button
+								aria-label="Commit menu"
+								className={getButtonClassName({
+									variant: isSelected ? "inverted" : "ghost",
+									size: "small",
+									iconOnly: true,
+								})}
+								onClick={(event) => {
+									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+								}}
+							>
+								<Icon name="kebab" />
+							</Toolbar.Button>
+						</Toolbar.Root>
 					)}
 					{isCommitTarget && <CommitTargetIndicator />}
 				</>
@@ -1226,14 +1245,14 @@ const ChangesSectionRow: FC<{
 		enterAbsorbMode(operand, { type: "all" });
 	};
 
-	const absorbContextMenuItem = nativeMenuItem({
-		label: "Absorb",
-		enabled: changes.length > 0,
-		accelerator: toElectronAccelerator(outlineHotkeys.absorb.hotkey),
-		onSelect: absorb,
-	});
-
-	const menuItems: Array<NativeMenuItem> = [absorbContextMenuItem];
+	const menuItems: Array<NativeMenuItem> = [
+		nativeMenuItem({
+			label: "Absorb",
+			enabled: changes.length > 0,
+			accelerator: toElectronAccelerator(outlineHotkeys.absorb.hotkey),
+			onSelect: absorb,
+		}),
+	];
 
 	return (
 		<ItemRow projectId={projectId} operand={operand}>
@@ -1250,14 +1269,23 @@ const ChangesSectionRow: FC<{
 				Changes
 				<span className={styles.changesCountBubble}>{changes.length}</span>
 			</div>
+
 			{outlineMode._tag === "Default" && (
-				<WorkspaceItemRowToolbar aria-label="Changes actions">
-					<ItemRowMenuButton
-						ariaLabel="Changes menu"
-						menuItems={menuItems}
-						isSelected={isSelected}
-					/>
-				</WorkspaceItemRowToolbar>
+				<Toolbar.Root aria-label="Changes actions" render={<WorkspaceItemRowToolbar />}>
+					<Toolbar.Button
+						aria-label="Changes menu"
+						className={getButtonClassName({
+							variant: isSelected ? "inverted" : "ghost",
+							size: "small",
+							iconOnly: true,
+						})}
+						onClick={(event) => {
+							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+						}}
+					>
+						<Icon name="kebab" />
+					</Toolbar.Button>
+				</Toolbar.Root>
 			)}
 		</ItemRow>
 	);
@@ -1363,19 +1391,19 @@ const focusCommitMessageInput = () => {
 	document.getElementById(commitMessageInputId)?.focus();
 };
 
-const Changes: FC<{
-	projectId: string;
-	commitTarget: CommitTargetComboboxItem | null;
-	targetComboboxItems: Array<CommitTargetComboboxItem>;
-}> = ({ projectId, commitTarget, targetComboboxItems }) => {
+const useCommitCreate = ({ projectId }: { projectId: string }) => {
 	const toastManager = Toast.useToastManager();
 	const queryClient = useQueryClient();
 	const dispatch = useAppDispatch();
 
-	const commitCreate = useMutation({
-		mutationFn: async () => {
-			if (!commitTarget) throw new Error("No target.");
-
+	return useMutation({
+		mutationFn: async ({
+			commitTarget,
+			message,
+		}: {
+			commitTarget: CommitTargetComboboxItem;
+			message: string;
+		}) => {
 			const worktreeChanges = await queryClient.fetchQuery(
 				changesInWorktreeQueryOptions(projectId),
 			);
@@ -1392,12 +1420,12 @@ const Changes: FC<{
 					Match.when({ type: "referenceBytes" }, () => "below"),
 					Match.exhaustive,
 				),
-				message: commitTextareaRef.current?.value ?? "",
+				message,
 				dryRun: false,
 			});
 		},
-		onSuccess: async (response) => {
-			if (commitTarget?.relativeTo.type === "commit" && response.newCommit !== null)
+		onSuccess: async (response, input) => {
+			if (input.commitTarget.relativeTo.type === "commit" && response.newCommit !== null)
 				dispatch(
 					projectActions.setCommitTarget({
 						projectId,
@@ -1412,9 +1440,6 @@ const Changes: FC<{
 						rejectedChanges: response.rejectedChanges,
 					}),
 				);
-
-			if (response.newCommit !== null && commitTextareaRef.current)
-				commitTextareaRef.current.value = "";
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -1428,10 +1453,15 @@ const Changes: FC<{
 			});
 		},
 	});
-	const commitAmend = useMutation({
-		mutationFn: async () => {
-			if (!commitTarget) throw new Error("No target.");
+};
 
+const useCommitAmend = ({ projectId }: { projectId: string }) => {
+	const toastManager = Toast.useToastManager();
+	const queryClient = useQueryClient();
+	const dispatch = useAppDispatch();
+
+	return useMutation({
+		mutationFn: async ({ commitTarget }: { commitTarget: CommitTargetComboboxItem }) => {
 			const headInfo = await queryClient.fetchQuery(headInfoQueryOptions(projectId));
 
 			const commitId = resolveRelativeTo({
@@ -1452,7 +1482,7 @@ const Changes: FC<{
 				dryRun: false,
 			});
 		},
-		onSuccess: async (response, _input, _ctx, { client }) => {
+		onSuccess: async (response, input, _ctx, { client }) => {
 			client.setQueryData(headInfoQueryOptions(projectId).queryKey, response.workspace.headInfo);
 			dispatch(
 				projectActions.updateRewrittenCommitReferences({
@@ -1462,7 +1492,7 @@ const Changes: FC<{
 				}),
 			);
 
-			if (commitTarget?.relativeTo.type === "commit" && response.newCommit !== null)
+			if (input.commitTarget.relativeTo.type === "commit" && response.newCommit !== null)
 				dispatch(
 					projectActions.setCommitTarget({
 						projectId,
@@ -1490,6 +1520,16 @@ const Changes: FC<{
 			});
 		},
 	});
+};
+
+const Changes: FC<{
+	projectId: string;
+	commitTarget: CommitTargetComboboxItem | null;
+	targetComboboxItems: Array<CommitTargetComboboxItem>;
+}> = ({ projectId, commitTarget, targetComboboxItems }) => {
+	const dispatch = useAppDispatch();
+	const commitCreateMutation = useCommitCreate({ projectId });
+	const commitAmendMutation = useCommitAmend({ projectId });
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
@@ -1501,11 +1541,12 @@ const Changes: FC<{
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const isAltHeld = useKeyHold("Alt");
 	const isAmendMode = isAltHeld;
-	const isCommitOrAmendPending = commitCreate.isPending || commitAmend.isPending;
-	const canCommit =
+	const isCommitOrAmendPending = commitCreateMutation.isPending || commitAmendMutation.isPending;
+	const canCommitOrAmendBase =
 		outlineMode._tag === "Default" && commitTarget !== null && !isCommitOrAmendPending;
+	const canCommit = canCommitOrAmendBase;
 	const canAmend =
-		canCommit &&
+		canCommitOrAmendBase &&
 		worktreeChanges &&
 		worktreeChanges.changes.length > 0 &&
 		headInfo &&
@@ -1527,28 +1568,50 @@ const Changes: FC<{
 	const selectChanges = () => {
 		dispatch(projectActions.selectOutline({ projectId, selection: operand }));
 	};
+	const createCommit = () => {
+		if (!commitTarget) return;
+
+		commitCreateMutation.mutate(
+			{
+				commitTarget,
+				message: commitTextareaRef.current?.value ?? "",
+			},
+			{
+				onSuccess: (response) => {
+					if (response.newCommit !== null && commitTextareaRef.current)
+						commitTextareaRef.current.value = "";
+				},
+			},
+		);
+	};
+	const amendCommit = () => {
+		if (!commitTarget) return;
+
+		commitAmendMutation.mutate({ commitTarget });
+	};
 	const submit: SubmitEventHandler = (event) => {
 		event.preventDefault();
 
 		if (isAmendMode) {
-			commitAmend.mutate();
+			amendCommit();
 			return;
 		}
 
-		commitCreate.mutate();
+		createCommit();
 	};
 	const commitMenuItems: Array<NativeMenuItem> = [
+		// oxlint-disable-next-line react-hooks-js/refs -- False positive. Ref is only accessed in `onSelect` event handler.
 		nativeMenuItem({
 			label: "Commit",
 			enabled: canCommit,
 			accelerator: toElectronAccelerator(changesHotkeys.commit.hotkey),
-			onSelect: () => commitCreate.mutate(),
+			onSelect: createCommit,
 		}),
 		nativeMenuItem({
 			label: "Amend Commit",
 			enabled: canAmend,
 			accelerator: toElectronAccelerator(changesHotkeys.amendCommit.hotkey),
-			onSelect: () => commitAmend.mutate(),
+			onSelect: amendCommit,
 		}),
 	];
 
@@ -1564,7 +1627,7 @@ const Changes: FC<{
 		},
 		{
 			hotkey: changesHotkeys.commit.hotkey,
-			callback: () => commitCreate.mutate(),
+			callback: createCommit,
 			options: {
 				conflictBehavior: "allow",
 				enabled: canCommit,
@@ -1574,7 +1637,7 @@ const Changes: FC<{
 		},
 		{
 			hotkey: changesHotkeys.amendCommit.hotkey,
-			callback: () => commitAmend.mutate(),
+			callback: amendCommit,
 			options: {
 				conflictBehavior: "allow",
 				enabled: canAmend,
@@ -1627,18 +1690,27 @@ const Changes: FC<{
 						autoHighlight
 						disabled={outlineMode._tag !== "Default" || isCommitOrAmendPending}
 					>
-						<Combobox.Trigger
-							className={classes(styles.commitTargetComboboxTrigger)}
-							aria-label="Select branch"
-							render={
-								<ShortcutButton
-									hotkey={changesHotkeys.selectCommitBranch.hotkey}
-									hotkeyOptions={{ meta: changesHotkeys.selectCommitBranch.meta }}
-								/>
-							}
-						>
-							<Combobox.Value placeholder="Select branch" />
-						</Combobox.Trigger>
+						<Tooltip.Root>
+							<Combobox.Trigger
+								className={classes(styles.commitTargetComboboxTrigger)}
+								aria-label="Select branch"
+								render={<Tooltip.Trigger className={getButtonClassName({})} />}
+							>
+								<Combobox.Value placeholder="Select branch" />
+							</Combobox.Trigger>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup
+										render={
+											<TooltipPopup
+												content={changesHotkeys.selectCommitBranch.meta.name}
+												kbd={changesHotkeys.selectCommitBranch.hotkey}
+											/>
+										}
+									/>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
 						<Combobox.Portal>
 							<Combobox.Positioner align="start" sideOffset={8}>
 								<CommitTargetComboboxPopup />
@@ -1646,20 +1718,49 @@ const Changes: FC<{
 						</Combobox.Portal>
 					</Combobox.Root>
 
-					<DropdownButton
-						hotkey={isAmendMode ? changesHotkeys.amendCommit.hotkey : changesHotkeys.commit.hotkey}
-						hotkeyOptions={{
-							meta: isAmendMode ? changesHotkeys.amendCommit.meta : changesHotkeys.commit.meta,
-						}}
-						type="submit"
-						disabled={!canCommitOrAmend || outlineMode._tag !== "Default" || isCommitOrAmendPending}
-						onMenuOpen={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, commitMenuItems);
-						}}
-						menuAriaLabel="Commit options"
-					>
-						{isAmendMode ? "Amend" : "Commit"}
-					</DropdownButton>
+					<div role="group" className={styles.commitDropdownButton}>
+						<Tooltip.Root disabled={!canCommitOrAmend}>
+							<Tooltip.Trigger
+								className={getButtonClassName({})}
+								// This is needed to ensure the `disabled` attribute is passed
+								// to the button element. Other props should be passed above.
+								render={<button type="submit" disabled={!canCommitOrAmend} />}
+							>
+								{isAmendMode ? "Amend" : "Commit"}
+							</Tooltip.Trigger>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup
+										render={
+											<TooltipPopup
+												content={
+													isAmendMode
+														? changesHotkeys.amendCommit.meta.name
+														: changesHotkeys.commit.meta.name
+												}
+												kbd={
+													isAmendMode
+														? changesHotkeys.amendCommit.hotkey
+														: changesHotkeys.commit.hotkey
+												}
+											/>
+										}
+									/>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
+						<button
+							type="button"
+							disabled={!canCommitOrAmend}
+							aria-label="Commit options"
+							className={getButtonClassName({ iconOnly: true })}
+							onClick={(event) => {
+								void showNativeMenuFromTrigger(event.currentTarget, commitMenuItems);
+							}}
+						>
+							<Icon name="chevron-down" />
+						</button>
+					</div>
 				</div>
 			</div>
 		</TreeItem>
@@ -1716,6 +1817,142 @@ const InlineRenameBranch: FC<{
 	);
 };
 
+const useTearOffBranch = () => {
+	const dispatch = useAppDispatch();
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.tearOffBranch,
+		onSuccess: async (response, input, _context, mutation) => {
+			mutation.client.setQueryData(
+				headInfoQueryOptions(input.projectId).queryKey,
+				response.workspace.headInfo,
+			);
+			dispatch(
+				projectActions.updateRewrittenCommitReferences({
+					projectId: input.projectId,
+					replacedCommits: response.workspace.replacedCommits,
+					headInfo: response.workspace.headInfo,
+				}),
+			);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to tear off branch",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+const useRemoveBranch = () => {
+	const toastManager = Toast.useToastManager();
+
+	// TODO: This mutation doesn't trigger any watcher events, hence the manual invalidation.
+	return useMutation({
+		mutationFn: window.lite.removeBranch,
+		onSuccess: async (_response, input, _context, mutation) => {
+			await mutation.client.invalidateQueries({
+				queryKey: headInfoQueryOptions(input.projectId).queryKey,
+			});
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to remove branch",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+const useUnapplyStack = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.unapplyStack,
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to unapply stack",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+const useUpdateBranchName = ({
+	projectId,
+	stackId,
+	branchRef,
+	oldBranch,
+}: {
+	projectId: string;
+	stackId: string;
+	branchRef: Array<number>;
+	oldBranch: BranchOperand;
+}) => {
+	const dispatch = useAppDispatch();
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.updateBranchName,
+		onSuccess: async (_response, input, _context, mutation) => {
+			const newBranchRef = encodeRefName(`refs/heads/${input.newName}`);
+			const newBranch: BranchOperand = {
+				stackId,
+				// TODO: ideally the API would return the new ref?
+				branchRef: newBranchRef,
+			};
+
+			mutation.client.setQueryData(headInfoQueryOptions(projectId).queryKey, (headInfo) => {
+				if (!headInfo) return headInfo;
+
+				return renameBranchInHeadInfo({
+					headInfo,
+					stackId,
+					branchRef,
+					newName: input.newName,
+					newBranchRef,
+				});
+			});
+
+			dispatch(
+				projectActions.updateRewrittenBranchReferences({
+					projectId,
+					oldBranch,
+					newBranch,
+				}),
+			);
+			dispatch(projectActions.exitMode({ projectId }));
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to rename branch",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
 const BranchRow: FC<
 	{
 		projectId: string;
@@ -1753,48 +1990,11 @@ const BranchRow: FC<
 	);
 	const [isRenamePending, startRenameTransition] = useTransition();
 
-	const updateBranchName = useMutation({
-		mutationFn: window.lite.updateBranchName,
-		onSuccess: async (_response, input, _context, mutation) => {
-			const newBranchRef = encodeRefName(`refs/heads/${input.newName}`);
-			const newBranch: BranchOperand = {
-				stackId,
-				// TODO: ideally the API would return the new ref?
-				branchRef: newBranchRef,
-			};
-
-			mutation.client.setQueryData(headInfoQueryOptions(projectId).queryKey, (headInfo) => {
-				if (!headInfo) return headInfo;
-
-				return renameBranchInHeadInfo({
-					headInfo,
-					stackId,
-					branchRef,
-					newName: input.newName,
-					newBranchRef,
-				});
-			});
-
-			dispatch(
-				projectActions.updateRewrittenBranchReferences({
-					projectId,
-					oldBranch: branchOperandV,
-					newBranch,
-				}),
-			);
-			dispatch(projectActions.exitMode({ projectId }));
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to rename branch",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+	const updateBranchNameMutation = useUpdateBranchName({
+		projectId,
+		stackId,
+		branchRef,
+		oldBranch: branchOperandV,
 	});
 
 	const startEditing = () => {
@@ -1810,54 +2010,8 @@ const BranchRow: FC<
 
 	const toastManager = Toast.useToastManager();
 
-	const tearOffBranchMutation = useMutation({
-		mutationFn: window.lite.tearOffBranch,
-		onSuccess: async (response, _input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to tear off branch",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-
-	// TODO: This mutation doesn't trigger any watcher events, hence the manual invalidation.
-	const removeBranchMutation = useMutation({
-		mutationFn: window.lite.removeBranch,
-		onSuccess: async (_response, input, _context, mutation) => {
-			await mutation.client.invalidateQueries({
-				queryKey: headInfoQueryOptions(input.projectId).queryKey,
-			});
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to remove branch",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
+	const tearOffBranchMutation = useTearOffBranch();
+	const removeBranchMutation = useRemoveBranch();
 
 	const saveBranchName = (newBranchName: string) => {
 		const trimmed = newBranchName.trim();
@@ -1865,7 +2019,7 @@ const BranchRow: FC<
 		startRenameTransition(async () => {
 			setOptimisticBranchName(trimmed);
 			try {
-				await updateBranchName.mutateAsync({
+				await updateBranchNameMutation.mutateAsync({
 					projectId,
 					stackId,
 					branchName,
@@ -1900,44 +2054,38 @@ const BranchRow: FC<
 		});
 	};
 
-	const startEditingContextMenuItem = nativeMenuItem({
-		label: "Rename Branch",
-		enabled: !isRenamePending,
-		accelerator: toElectronAccelerator(outlineHotkeys.renameBranch.hotkey),
-		onSelect: startEditing,
-	});
-	const setCommitTargetContextMenuItem = nativeMenuItem({
-		label: "Compose Commit Here",
-		accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
-		onSelect: composeCommitHere,
-	});
-	const copyBranchNameContextMenuItem = nativeMenuItem({
-		label: "Copy Branch Name",
-		onSelect: () => window.lite.clipboardWriteText(optimisticBranchName),
-	});
-	const tearOffBranchContextMenuItem = nativeMenuItem({
-		label: "Tear Off Branch",
-		enabled: canTearOffBranch && !tearOffBranchMutation.isPending,
-		onSelect: tearOffBranch,
-	});
-	const removeBranchContextMenuItem = nativeMenuItem({
-		label: "Remove Branch",
-		enabled: canRemoveBranch,
-		onSelect: () =>
-			removeBranchMutation.mutate({
-				projectId,
-				stackId,
-				branchName,
-			}),
-	});
-
 	const menuItems: Array<NativeMenuItem> = [
-		startEditingContextMenuItem,
-		copyBranchNameContextMenuItem,
-		setCommitTargetContextMenuItem,
+		nativeMenuItem({
+			label: "Rename Branch",
+			enabled: !isRenamePending,
+			accelerator: toElectronAccelerator(outlineHotkeys.renameBranch.hotkey),
+			onSelect: startEditing,
+		}),
+		nativeMenuItem({
+			label: "Copy Branch Name",
+			onSelect: () => window.lite.clipboardWriteText(optimisticBranchName),
+		}),
+		nativeMenuItem({
+			label: "Compose Commit Here",
+			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
+			onSelect: composeCommitHere,
+		}),
 		nativeMenuSeparator,
-		tearOffBranchContextMenuItem,
-		removeBranchContextMenuItem,
+		nativeMenuItem({
+			label: "Tear Off Branch",
+			enabled: canTearOffBranch && !tearOffBranchMutation.isPending,
+			onSelect: tearOffBranch,
+		}),
+		nativeMenuItem({
+			label: "Remove Branch",
+			enabled: canRemoveBranch,
+			onSelect: () =>
+				removeBranchMutation.mutate({
+					projectId,
+					stackId,
+					branchName,
+				}),
+		}),
 	];
 
 	return (
@@ -1964,26 +2112,36 @@ const BranchRow: FC<
 					>
 						{optimisticBranchName}
 					</div>
+
 					{outlineMode._tag === "Default" && (
-						<WorkspaceItemRowToolbar aria-label="Branch actions">
+						<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar />}>
 							<Toolbar.Button
-								render={
-									<Button
-										variant={isSelected ? "inverted" : "ghost"}
-										size="small"
-										disabled
-										aria-label="Push branch"
-									/>
-								}
+								className={getButtonClassName({
+									variant: isSelected ? "inverted" : "ghost",
+									size: "small",
+									iconOnly: true,
+								})}
+								aria-label="Push branch"
+								// This is needed to ensure the `disabled` attribute is passed
+								// to the button element. Other props should be passed above.
+								render={<button type="button" disabled />}
 							>
 								<Icon name="arrow-line-up" />
 							</Toolbar.Button>
-							<ItemRowMenuButton
-								ariaLabel="Branch menu"
-								menuItems={menuItems}
-								isSelected={isSelected}
-							/>
-						</WorkspaceItemRowToolbar>
+							<Toolbar.Button
+								aria-label="Branch menu"
+								className={getButtonClassName({
+									variant: isSelected ? "inverted" : "ghost",
+									size: "small",
+									iconOnly: true,
+								})}
+								onClick={(event) => {
+									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+								}}
+							>
+								<Icon name="kebab" />
+							</Toolbar.Button>
+						</Toolbar.Root>
 					)}
 					{isCommitTarget && <CommitTargetIndicator />}
 				</>
@@ -1999,39 +2157,23 @@ const StackRow: FC<
 	} & ComponentProps<"div">
 > = ({ projectId, stackId, ...restProps }) => {
 	const operand = stackOperand({ stackId });
+	const isSelected = useIsSelected({ projectId, operand });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
-	const toastManager = Toast.useToastManager();
-
-	const unapplyStack = useMutation({
-		mutationFn: window.lite.unapplyStack,
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to unapply stack",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
+	const unapplyStackMutation = useUnapplyStack();
 	const unapply = () => {
-		unapplyStack.mutate({ projectId, stackId });
+		unapplyStackMutation.mutate({ projectId, stackId });
 	};
-
-	const unapplyContextMenuItem = nativeMenuItem({
-		label: "Unapply Stack",
-		enabled: !unapplyStack.isPending,
-		onSelect: unapply,
-	});
 
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({ label: "Move Up", enabled: false }),
 		nativeMenuItem({ label: "Move Down", enabled: false }),
 		nativeMenuSeparator,
-		unapplyContextMenuItem,
+		nativeMenuItem({
+			label: "Unapply Stack",
+			enabled: !unapplyStackMutation.isPending,
+			onSelect: unapply,
+		}),
 	];
 
 	return (
@@ -2048,9 +2190,21 @@ const StackRow: FC<
 			/>
 
 			{outlineMode._tag === "Default" && (
-				<WorkspaceItemRowToolbar aria-label="Stack actions">
-					<ItemRowMenuButton ariaLabel="Stack menu" menuItems={menuItems} />
-				</WorkspaceItemRowToolbar>
+				<Toolbar.Root aria-label="Stack actions" render={<WorkspaceItemRowToolbar />}>
+					<Toolbar.Button
+						aria-label="Stack menu"
+						className={getButtonClassName({
+							variant: isSelected ? "inverted" : "ghost",
+							size: "small",
+							iconOnly: true,
+						})}
+						onClick={(event) => {
+							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+						}}
+					>
+						<Icon name="kebab" />
+					</Toolbar.Button>
+				</Toolbar.Root>
 			)}
 		</ItemRow>
 	);

@@ -1,5 +1,4 @@
 import { classes } from "#ui/components/classes.ts";
-import { Toolbar } from "@base-ui/react/toolbar";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { ComponentProps, FC, useLayoutEffect, useRef } from "react";
 import styles from "./WorkspaceItemRow.module.css";
@@ -47,15 +46,6 @@ export const WorkspaceItemRow: FC<
 	);
 };
 
-export const WorkspaceItemRowToolbar: FC<
-	Omit<ComponentProps<typeof Toolbar.Root>, "className">
-> = ({ onClick, ...props }) => (
-	<Toolbar.Root
-		{...props}
-		className={styles.itemRowToolbar}
-		onClick={(event) => {
-			onClick?.(event);
-			event.stopPropagation();
-		}}
-	/>
+export const WorkspaceItemRowToolbar: FC<ComponentProps<"div">> = (props) => (
+	<div {...props} className={classes(props.className, styles.itemRowToolbar)} />
 );

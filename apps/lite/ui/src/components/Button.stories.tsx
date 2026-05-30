@@ -1,12 +1,14 @@
 import preview from "#storybook/preview";
+import {
+	ButtonSize,
+	ButtonVariant,
+	getButtonClassName,
+	type ButtonStyleProps,
+} from "#ui/components/Button.tsx";
+import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
-import { expect, fn, userEvent, within } from "storybook/test";
 
-import { Button } from "./Button.tsx";
-
-const meta = preview.meta({
-	component: Button,
-});
+const meta = preview.meta({});
 
 export const Playground = meta.story({
 	parameters: {
@@ -18,11 +20,18 @@ export const Playground = meta.story({
 	argTypes: {
 		variant: {
 			control: "select",
-			options: ["pop", "gray", "outline", "danger", "ghost", "inverted"],
+			options: [
+				"pop",
+				"gray",
+				"outline",
+				"danger",
+				"ghost",
+				"inverted",
+			] satisfies Array<ButtonVariant>,
 		},
 		size: {
 			control: "radio",
-			options: ["regular", "small"],
+			options: ["regular", "small"] satisfies Array<ButtonSize>,
 		},
 		showIcon: {
 			control: "boolean",
@@ -33,13 +42,16 @@ export const Playground = meta.story({
 		variant: "pop",
 		size: "regular",
 		showIcon: false,
-		onClick: fn(),
 	},
-	render: (args: React.ComponentProps<typeof Button> & { showIcon?: boolean }) => {
-		const { showIcon, children, ...buttonArgs } = args;
+	render: (args: React.ComponentProps<"button"> & ButtonStyleProps & { showIcon?: boolean }) => {
+		const { showIcon, children, variant, size, iconOnly, className, ...buttonArgs } = args;
 
 		return (
-			<Button {...buttonArgs}>
+			<button
+				{...buttonArgs}
+				type="button"
+				className={classes(getButtonClassName({ variant, size, iconOnly }), className)}
+			>
 				{showIcon ? (
 					<>
 						<Icon name="plus" />
@@ -48,25 +60,32 @@ export const Playground = meta.story({
 				) : (
 					children
 				)}
-			</Button>
+			</button>
 		);
-	},
-	play: async ({ canvasElement, args }) => {
-		const canvas = within(canvasElement);
-		await userEvent.click(canvas.getByRole("button"));
-		await expect(args.onClick).toHaveBeenCalledTimes(1);
 	},
 });
 
 export const Variants = meta.story({
 	render: () => (
 		<div style={{ display: "grid", gridTemplateColumns: "repeat(6, max-content)", gap: 12 }}>
-			<Button variant="pop">Button</Button>
-			<Button variant="gray">Button</Button>
-			<Button variant="outline">Button</Button>
-			<Button variant="ghost">Button</Button>
-			<Button variant="danger">Button</Button>
-			<Button variant="inverted">Button</Button>
+			<button type="button" className={getButtonClassName({ variant: "pop" })}>
+				Button
+			</button>
+			<button type="button" className={getButtonClassName({ variant: "gray" })}>
+				Button
+			</button>
+			<button type="button" className={getButtonClassName({ variant: "outline" })}>
+				Button
+			</button>
+			<button type="button" className={getButtonClassName({ variant: "ghost" })}>
+				Button
+			</button>
+			<button type="button" className={getButtonClassName({ variant: "danger" })}>
+				Button
+			</button>
+			<button type="button" className={getButtonClassName({ variant: "inverted" })}>
+				Button
+			</button>
 		</div>
 	),
 });
@@ -74,24 +93,48 @@ export const Variants = meta.story({
 export const IconOnly = meta.story({
 	render: () => (
 		<div style={{ display: "flex", gap: 12 }}>
-			<Button aria-label="Pop action">
+			<button
+				type="button"
+				className={getButtonClassName({ iconOnly: true })}
+				aria-label="Pop action"
+			>
 				<Icon name="plus" />
-			</Button>
-			<Button variant="gray" aria-label="Gray action">
+			</button>
+			<button
+				type="button"
+				className={getButtonClassName({ variant: "gray", iconOnly: true })}
+				aria-label="Gray action"
+			>
 				<Icon name="plus" />
-			</Button>
-			<Button variant="outline" aria-label="Outline action">
+			</button>
+			<button
+				type="button"
+				className={getButtonClassName({ variant: "outline", iconOnly: true })}
+				aria-label="Outline action"
+			>
 				<Icon name="plus" />
-			</Button>
-			<Button variant="ghost" aria-label="Ghost action">
+			</button>
+			<button
+				type="button"
+				className={getButtonClassName({ variant: "ghost", iconOnly: true })}
+				aria-label="Ghost action"
+			>
 				<Icon name="plus" />
-			</Button>
-			<Button variant="danger" aria-label="Danger action">
+			</button>
+			<button
+				type="button"
+				className={getButtonClassName({ variant: "danger", iconOnly: true })}
+				aria-label="Danger action"
+			>
 				<Icon name="plus" />
-			</Button>
-			<Button variant="inverted" aria-label="Inverted action">
+			</button>
+			<button
+				type="button"
+				className={getButtonClassName({ variant: "inverted", iconOnly: true })}
+				aria-label="Inverted action"
+			>
 				<Icon name="plus" />
-			</Button>
+			</button>
 		</div>
 	),
 });
@@ -99,14 +142,14 @@ export const IconOnly = meta.story({
 export const WithIconStartAndEnd = meta.story({
 	render: () => (
 		<div style={{ display: "grid", gridTemplateColumns: "repeat(2, max-content)", gap: 12 }}>
-			<Button variant="outline">
+			<button type="button" className={getButtonClassName({ variant: "outline" })}>
 				<Icon name="branch" />
 				New Branch
-			</Button>
-			<Button variant="outline">
+			</button>
+			<button type="button" className={getButtonClassName({ variant: "outline" })}>
 				New Branch
 				<Icon name="branch" />
-			</Button>
+			</button>
 		</div>
 	),
 });

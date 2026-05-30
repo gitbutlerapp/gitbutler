@@ -1,10 +1,10 @@
 import preview from "#storybook/preview";
-import { Button } from "#ui/components/Button.tsx";
-
-import { Tooltip } from "./Tooltip.tsx";
+import { getButtonClassName } from "#ui/components/Button.tsx";
+import { Tooltip } from "@base-ui/react";
+import { TooltipPopup } from "./Tooltip.tsx";
 
 const meta = preview.meta({
-	component: Tooltip,
+	component: TooltipPopup,
 	parameters: {
 		design: {
 			type: "figma",
@@ -14,28 +14,27 @@ const meta = preview.meta({
 	decorators: [
 		(Story) => (
 			<div style={{ display: "flex", justifyContent: "center", padding: "64px" }}>
-				<Story />
+				<Tooltip.Provider>
+					<Story />
+				</Tooltip.Provider>
 			</div>
 		),
 	],
 });
 
 export const Playground = meta.story({
-	argTypes: {
-		positionerProps: {
-			control: "select",
-			options: ["top", "right", "bottom", "left"],
-			mapping: {
-				top: { side: "top" },
-				right: { side: "right" },
-				bottom: { side: "bottom" },
-				left: { side: "left" },
-			},
-		},
-	},
 	args: {
-		trigger: <Button>Hover me</Button>,
 		content: "This is a tooltip",
-		positionerProps: { side: "top" },
+		kbd: "Mod+A",
 	},
+	render: (args) => (
+		<Tooltip.Root>
+			<Tooltip.Trigger className={getButtonClassName({})}>Hover me</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4} side="top">
+					<Tooltip.Popup render={<TooltipPopup {...args} />} />
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	),
 });

@@ -31,10 +31,13 @@ import {
 	selectProjectPanelsState,
 	selectProjectSelectionFiles,
 } from "#ui/projects/state.ts";
+import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
+import { Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import { DiffHunk, HunkHeader, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import { PatchDiff, Virtualizer } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
@@ -46,9 +49,8 @@ import { DiffStat } from "#ui/components/DiffStat.tsx";
 import { DependencyIndicatorButton } from "./DependencyIndicatorButton.tsx";
 import { FilesPanel } from "./FilesPanel.tsx";
 import styles from "./DetailsPanel.module.css";
-import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
-import { ToggleGroup, ToggleItem } from "#ui/components/ToggleGroup.tsx";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
+import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
@@ -309,13 +311,14 @@ const Header: FC<{
 
 						<div className={styles.headerActions}>
 							<ToggleGroup
+								render={<ToggleGroupStyles />}
 								value={[commitView ?? "diff"]}
 								onValueChange={(value) => {
 									if (value.length > 0) onCommitViewChange?.(value[0] as CommitView);
 								}}
 								aria-label="Commit view"
 							>
-								<ToggleItem value="diff">
+								<Toggle render={<ToggleStyles />} value="diff">
 									<Icon name="diff" size={14} />
 									<Suspense fallback="Diff">
 										<SuspenseQuery
@@ -337,8 +340,8 @@ const Header: FC<{
 											}
 										</SuspenseQuery>
 									</Suspense>
-								</ToggleItem>
-								<ToggleItem value="details">
+								</Toggle>
+								<Toggle render={<ToggleStyles />} value="details">
 									<Suspense fallback="Details">
 										<SuspenseQuery
 											{...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}
@@ -367,7 +370,7 @@ const Header: FC<{
 											}}
 										</SuspenseQuery>
 									</Suspense>
-								</ToggleItem>
+								</Toggle>
 							</ToggleGroup>
 
 							{commitView === "diff" && <FilesToggle />}
@@ -385,14 +388,27 @@ const FilesToggle: FC = () => {
 	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 
 	return (
-		<ShortcutButton
-			hotkey={workspaceHotkeys.toggleFilesPanel.hotkey}
-			hotkeyOptions={{ meta: workspaceHotkeys.toggleFilesPanel.meta }}
-			aria-pressed={panelsState.filesVisible}
-			onClick={() => dispatch(projectActions.toggleFilesPanel({ projectId }))}
-		>
-			Files
-		</ShortcutButton>
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				className={getButtonClassName({})}
+				aria-pressed={panelsState.filesVisible}
+				onClick={() => dispatch(projectActions.toggleFilesPanel({ projectId }))}
+			>
+				Files
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup
+						render={
+							<TooltipPopup
+								content={workspaceHotkeys.toggleFilesPanel.meta.name}
+								kbd={workspaceHotkeys.toggleFilesPanel.hotkey}
+							/>
+						}
+					/>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
 	);
 };
 

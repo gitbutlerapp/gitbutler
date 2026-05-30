@@ -1,5 +1,4 @@
 import { createRoute, notFound, Outlet } from "@tanstack/react-router";
-
 import { Route as rootRoute } from "#ui/routes/__root.tsx";
 import { handleWatcher } from "#ui/watcher.ts";
 

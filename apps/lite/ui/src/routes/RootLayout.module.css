@@ -9,11 +9,9 @@
 .dragRegion {
 	position: absolute;
 	top: 0;
+	right: 0;
 	left: 0;
-	grid-column: 1 / -1;
-	width: 100%;
 	height: 16px;
-	-webkit-app-region: drag;
 	app-region: drag;
 }
 
@@ -27,12 +25,7 @@
 }
 
 .sidebarMacSpacer {
-	z-index: 1;
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 40px;
+	height: 22px;
 	background: linear-gradient(to bottom, var(--bg-2) 70%, transparent);
 }
 
@@ -47,10 +40,6 @@
 	scrollbar-width: none;
 }
 
-.sidebarScrollMac {
-	padding-block-start: 38px;
-}
-
 /* Temporary fix. Design is being updated, so we can remove this once it's done. */
 .sidebarScroll::-webkit-scrollbar {
 	display: none;
@@ -60,6 +49,47 @@
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
+}
+
+.project {
+	position: relative;
+	scroll-snap-align: center;
+
+	&.selected {
+		/* Override ui button. */
+		opacity: unset;
+
+		&::before {
+			position: absolute;
+			bottom: 4px;
+			left: -15px;
+			width: 4px;
+			height: 22px;
+			border-radius: 10px;
+			background-color: var(--fill-gray-bg);
+			content: "";
+		}
+	}
+}
+
+.folderFront {
+	position: relative;
+	width: 44px;
+	height: 35px;
+	background: linear-gradient(to bottom, oklch(90% 0.05 var(--hue)), oklch(80% 0.1 var(--hue)));
+	mask-image: url("data:image/svg+xml,%3Csvg width='44' height='35' viewBox='0 0 44 35' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M38 35H6C2.68629 35 0 32.3137 0 29V6C0 2.68629 2.68629 0 6 0H12.3647C14.2645 0 16.052 0.899672 17.1837 2.42547L18.2009 3.79675C19.3327 5.32255 21.1202 6.22222 23.0199 6.22222H38C41.3137 6.22222 44 8.90851 44 12.2222V29C44 32.3137 41.3137 35 38 35Z' fill='black'/%3E%3C/svg%3E");
+	mask-repeat: no-repeat;
+	mask-size: contain;
+}
+
+.folderFrontText {
+	display: flex;
+	position: absolute;
+	bottom: 6px;
+	left: 6px;
+	color: oklch(38% 0.12 var(--hue));
+	font-size: 11px;
+	text-transform: uppercase;
 }
 
 .content {

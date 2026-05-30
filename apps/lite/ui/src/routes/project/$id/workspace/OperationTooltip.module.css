@@ -1,32 +1,14 @@
-.popup {
+.keyboardTooltip {
 	display: flex;
 	row-gap: 4px;
 	flex-direction: column;
-
-	button {
-		text-align: center;
-	}
 }
 
-.operationTypeToggleGroup {
-	--group-radius: 8px;
-	--group-padding: 2px;
-
+.keyboardTooltipControls {
 	display: flex;
-	row-gap: 2px;
-	flex-direction: column;
-	padding: var(--group-padding);
-	border: var(--button-border);
-	border-radius: var(--group-radius);
-}
+	column-gap: 4px;
 
-.operationTypeToggle {
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
-	/* Concentric */
-	border-radius: calc(var(--group-radius) - var(--group-padding));
-
-	&[data-pressed] {
-		background-color: var(--button-ghost-hover-bg);
+	& > * {
+		flex: 1;
 	}
 }

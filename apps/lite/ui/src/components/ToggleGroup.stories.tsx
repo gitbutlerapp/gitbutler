@@ -1,7 +1,7 @@
 import preview from "#storybook/preview";
-
+import { ToggleGroup, Toggle } from "@base-ui/react";
 import { Icon } from "./Icon.tsx";
-import { ToggleGroup, ToggleItem } from "./ToggleGroup.tsx";
+import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 
 const meta = preview.meta({
 	component: ToggleGroup,
@@ -15,53 +15,57 @@ const meta = preview.meta({
 
 export const Default = meta.story({
 	render: () => (
-		<ToggleGroup defaultValue={["list"]} aria-label="View mode">
-			<ToggleItem value="list">List</ToggleItem>
-			<ToggleItem value="tree">Tree</ToggleItem>
+		<ToggleGroup render={<ToggleGroupStyles />} defaultValue={["list"]} aria-label="View mode">
+			<Toggle render={<ToggleStyles />} value="list">
+				List
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="tree">
+				Tree
+			</Toggle>
 		</ToggleGroup>
 	),
 });
 
 export const WithIcons = meta.story({
 	render: () => (
-		<ToggleGroup defaultValue={["list"]} aria-label="View mode">
-			<ToggleItem value="list">
+		<ToggleGroup render={<ToggleGroupStyles />} defaultValue={["list"]} aria-label="View mode">
+			<Toggle render={<ToggleStyles />} value="list">
 				<Icon name="list" size={14} />
 				List
-			</ToggleItem>
-			<ToggleItem value="tree">
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="tree">
 				<Icon name="folder-tree" size={14} />
 				Tree
-			</ToggleItem>
+			</Toggle>
 		</ToggleGroup>
 	),
 });
 
 export const IconOnly = meta.story({
 	render: () => (
-		<ToggleGroup defaultValue={["list"]} aria-label="View mode">
-			<ToggleItem value="list" aria-label="List view">
+		<ToggleGroup render={<ToggleGroupStyles />} defaultValue={["list"]} aria-label="View mode">
+			<Toggle render={<ToggleStyles />} value="list" aria-label="List view">
 				<Icon name="list" size={14} />
-			</ToggleItem>
-			<ToggleItem value="tree" aria-label="Tree view">
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="tree" aria-label="Tree view">
 				<Icon name="folder-tree" size={14} />
-			</ToggleItem>
+			</Toggle>
 		</ToggleGroup>
 	),
 });
 
 export const ThreeItems = meta.story({
 	render: () => (
-		<ToggleGroup defaultValue={["list"]} aria-label="View mode">
-			<ToggleItem value="list">
+		<ToggleGroup render={<ToggleGroupStyles />} defaultValue={["list"]} aria-label="View mode">
+			<Toggle render={<ToggleStyles />} value="list">
 				<Icon name="list" size={14} />
-			</ToggleItem>
-			<ToggleItem value="tree">
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="tree">
 				<Icon name="folder-tree" size={14} />
-			</ToggleItem>
-			<ToggleItem value="grid">
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value="grid">
 				<Icon name="text-block" size={14} />
-			</ToggleItem>
+			</Toggle>
 		</ToggleGroup>
 	),
 });

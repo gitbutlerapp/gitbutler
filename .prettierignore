@@ -29,3 +29,5 @@ apps/lite/ui/src/components/iconNames.ts
 
 # Apple Icon Composer generated file
 apps/lite/resources/icons/macos/icon.icon/icon.json
+
+apps/lite/release

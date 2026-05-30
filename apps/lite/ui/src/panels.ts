@@ -43,14 +43,17 @@ export const focusPanel = (panel: Panel) => {
 export const focusAdjacentPanel = (panelsState: PanelsState, offset: -1 | 1) => {
 	const currentPanel = getFocusedProjectPanel(document.activeElement);
 
-	if (currentPanel === null) {
-		const nextPanel: Panel = offset === 1 ? "outline" : "details";
+	const orderedPanels: Array<Panel> = [
+		"outline",
+		...(panelsState.filesVisible ? (["files"] satisfies Array<Panel>) : []),
+		"details",
+	];
 
-		focusPanel(nextPanel);
+	if (currentPanel === null) {
+		const nextPanel: Panel | undefined = offset === 1 ? orderedPanels.at(0) : orderedPanels.at(-1);
+
+		if (nextPanel !== undefined) focusPanel(nextPanel);
 	} else {
-		const orderedPanels: Array<Panel> = panelsState.filesVisible
-			? ["outline", "files", "details"]
-			: ["outline", "details"];
 		const curr = orderedPanels.indexOf(currentPanel);
 		// oxlint-disable-next-line typescript/no-non-null-assertion: This shouldn't ever fail.
 		const nextPanel = orderedPanels.at((curr + offset) % orderedPanels.length)!;
