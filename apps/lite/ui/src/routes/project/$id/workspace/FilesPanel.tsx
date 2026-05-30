@@ -673,6 +673,7 @@ const ChangesFileRow: FC<{
 	projectId: string;
 }> = ({ change, dependencyCommitIds, projectId }) => {
 	const operand = fileOperand({ parent: changesFileParent, path: change.path });
+	const isSelected = useIsSelected({ projectId, operand });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const dispatch = useAppDispatch();
@@ -744,7 +745,7 @@ const ChangesFileRow: FC<{
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
 						className={getButtonClassName({
-							variant: "ghost",
+							variant: isSelected ? "inverted" : "ghost",
 							size: "small",
 							iconOnly: true,
 						})}
