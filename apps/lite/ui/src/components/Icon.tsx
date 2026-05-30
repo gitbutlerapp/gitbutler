@@ -2,6 +2,7 @@ import styles from "./Icon.module.css";
 import { FC } from "react";
 import type { IconName } from "./iconNames";
 import { classes } from "#ui/components/classes.ts";
+import { assert } from "#ui/assert.ts";
 
 const svgModules = import.meta.glob("./icons/*.svg", {
 	query: "?raw",
@@ -27,6 +28,6 @@ export const Icon: FC<Props> = ({ name, size }) => (
 		aria-hidden
 		style={size !== undefined ? { "--icon-size": `${size}px` } : undefined}
 		// oxlint-disable-next-line react/no-danger
-		dangerouslySetInnerHTML={{ __html: icons[name] ?? "" }}
+		dangerouslySetInnerHTML={{ __html: assert(icons[name]) }}
 	/>
 );
