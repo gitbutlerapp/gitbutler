@@ -12,13 +12,14 @@ import {
 import {
 	projectActions,
 	selectProjectDialogState,
+	selectProjectOutlineModeState,
 	selectProjectPanelsState,
 } from "#ui/projects/state.ts";
 import { Button } from "#ui/components/Button.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import { globalHotkeys, workspaceHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { type AppThunk, useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { BranchListing, Segment, Stack } from "@gitbutler/but-sdk";
+import { BranchListing, Segment, Snapshot, Stack } from "@gitbutler/but-sdk";
 import {
 	getHotkeyManager,
 	getSequenceManager,
@@ -44,6 +45,7 @@ import styles from "./WorkspacePage.module.css";
 import { OutlinePanel } from "#ui/routes/project/$id/workspace/OutlinePanel.tsx";
 import { Toast } from "@base-ui/react";
 import { errorMessageForToast } from "#ui/errors.ts";
+import { shortCommitId } from "#ui/commit.ts";
 
 type CommandPaletteItem = {
 	group: CommandGroup;
@@ -289,8 +291,85 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
 	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
 	const focusedPanel = useFocusedProjectPanel(projectId);
+	const toastManager = Toast.useToastManager();
+	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+
+	const restoreSnapshotMutation = useMutation({
+		mutationFn: async (direction: "redo" | "undo"): Promise<Snapshot | null> => {
+			const snapshot =
+				direction === "redo"
+					? await window.lite.getRedoTargetSnapshot(projectId)
+					: await window.lite.getUndoTargetSnapshot(projectId);
+			if (!snapshot) return null;
+
+			const [peeled] = await Promise.all([
+				window.lite.peelRestoreSnapshot({ projectId, sha: snapshot.commitId }),
+
+				window.lite.restoreSnapshotWithKind({
+					projectId,
+					restoreKind:
+						direction === "redo" ? "RestoreFromSnapshotViaRedo" : "RestoreFromSnapshotViaUndo",
+					sha: snapshot.commitId,
+				}),
+			]);
+
+			return peeled ?? snapshot;
+		},
+		onSuccess: (snapshot, direction) => {
+			const title = direction === "redo" ? "Redo" : "Undo";
+
+			if (!snapshot) {
+				toastManager.add({ type: "warning", title, description: `Nothing to ${direction}` });
+				return;
+			}
+
+			// TODO: We should map this to something user-friendly.
+			const op = snapshot.details?.operation;
+
+			// TODO: We should use dynamic units.
+			const minsAgo = new Intl.RelativeTimeFormat(undefined, { style: "short" }).format(
+				Math.ceil((snapshot.createdAt - Date.now()) / 1000 / 60),
+				"minutes",
+			);
+
+			toastManager.add({
+				type: "info",
+				title,
+				description: `Restored to ${shortCommitId(snapshot.commitId)} (${op !== undefined ? `${op}, ` : ""}${minsAgo})`,
+			});
+		},
+		onError: (error, direction) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: `Failed to ${direction}`,
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
 
 	useHotkeys([
+		{
+			hotkey: globalHotkeys.redo.hotkey,
+			callback: () => restoreSnapshotMutation.mutate("redo"),
+			options: {
+				enabled: outlineMode._tag === "Default" && !restoreSnapshotMutation.isPending,
+				meta: globalHotkeys.redo.meta,
+				ignoreInputs: true,
+			},
+		},
+		{
+			hotkey: globalHotkeys.undo.hotkey,
+			callback: () => restoreSnapshotMutation.mutate("undo"),
+			options: {
+				enabled: outlineMode._tag === "Default" && !restoreSnapshotMutation.isPending,
+				meta: globalHotkeys.undo.meta,
+				ignoreInputs: true,
+			},
+		},
 		{
 			hotkey: globalHotkeys.commandPalette.hotkey,
 			callback: () => {
