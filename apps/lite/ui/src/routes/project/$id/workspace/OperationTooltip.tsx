@@ -7,8 +7,8 @@ import {
 	type OperationsByType,
 } from "#ui/operations/operation.ts";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
-import { Tooltip } from "#ui/components/Tooltip.tsx";
-import { Toast, useRender } from "@base-ui/react";
+import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { Toast, Tooltip, useRender } from "@base-ui/react";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { FC } from "react";
@@ -296,15 +296,19 @@ export const OperationTooltip: FC<
 	);
 
 	return (
-		<Tooltip
+		<Tooltip.Root
 			open={!!tooltip}
 			disableHoverablePopup={isPointerTransfer}
 			onOpenChange={(_open, eventDetails) => {
 				eventDetails.allowPropagation();
 			}}
-			trigger={trigger}
-			content={tooltip ?? undefined}
-			positionerProps={{ sideOffset: 8, side: "right" }}
-		/>
+		>
+			<Tooltip.Trigger render={trigger} />
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={8} side="right">
+					<Tooltip.Popup render={<TooltipPopup content={tooltip ?? undefined} />} />
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
 	);
 };

@@ -52,7 +52,7 @@ import {
 	Section,
 	type NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
-import { mergeProps, Toast, useRender } from "@base-ui/react";
+import { mergeProps, Toast, Tooltip, useRender } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
 import { Toolbar } from "@base-ui/react/toolbar";
 import {
@@ -106,7 +106,7 @@ import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 import { defaultOutlineSelection } from "#ui/projects/workspace/state.ts";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
-import { Tooltip } from "#ui/components/Tooltip.tsx";
+import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { rejectedChangesToastOptions } from "#ui/operations/rejectedChangesToastOptions.tsx";
@@ -648,17 +648,23 @@ const ItemRowMenuButton: FC<{
 );
 
 const CommitTargetIndicator: FC = () => (
-	<Tooltip
+	<Tooltip.Root
 		// [ref:tooltip-disable-hoverable-popup]
 		disableHoverablePopup
-		trigger={
-			<span className={styles.commitTargetIndicator} aria-label="Commit target">
-				<Icon name="bullseye" />
-			</span>
-		}
-		content="Commit target"
-		positionerProps={{ sideOffset: 8 }}
-	/>
+	>
+		<Tooltip.Trigger
+			render={
+				<span className={styles.commitTargetIndicator} aria-label="Commit target">
+					<Icon name="bullseye" />
+				</span>
+			}
+		/>
+		<Tooltip.Portal>
+			<Tooltip.Positioner sideOffset={8}>
+				<Tooltip.Popup render={<TooltipPopup content="Commit target" />} />
+			</Tooltip.Positioner>
+		</Tooltip.Portal>
+	</Tooltip.Root>
 );
 
 const ItemRow: FC<
