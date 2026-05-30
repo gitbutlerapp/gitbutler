@@ -6,8 +6,5 @@
 	border-radius: var(--radius-m);
 	background-color: var(--bg-1);
 	box-shadow: var(--shadow-s);
-}
-
-.text {
 	color: var(--text-1);
 }

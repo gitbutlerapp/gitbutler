@@ -12,8 +12,8 @@ export const TooltipPopup: FC<
 		kbd?: string | HotkeySequence;
 	}
 > = ({ content = "", kbd, ...props }) => (
-	<div {...props} className={classes(props.className, styles.tooltip)}>
-		{content !== "" && <span className={classes("text-12", styles.text)}>{content}</span>}
+	<div {...props} className={classes(props.className, "text-12", styles.tooltip)}>
+		{content !== "" && <span>{content}</span>}
 		{kbd != null && <Kbd hotkey={kbd} />}
 	</div>
 );
