@@ -1894,6 +1894,65 @@ const useUnapplyStack = () => {
 	});
 };
 
+const useUpdateBranchName = ({
+	projectId,
+	stackId,
+	branchRef,
+	oldBranch,
+}: {
+	projectId: string;
+	stackId: string;
+	branchRef: Array<number>;
+	oldBranch: BranchOperand;
+}) => {
+	const dispatch = useAppDispatch();
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.updateBranchName,
+		onSuccess: async (_response, input, _context, mutation) => {
+			const newBranchRef = encodeRefName(`refs/heads/${input.newName}`);
+			const newBranch: BranchOperand = {
+				stackId,
+				// TODO: ideally the API would return the new ref?
+				branchRef: newBranchRef,
+			};
+
+			mutation.client.setQueryData(headInfoQueryOptions(projectId).queryKey, (headInfo) => {
+				if (!headInfo) return headInfo;
+
+				return renameBranchInHeadInfo({
+					headInfo,
+					stackId,
+					branchRef,
+					newName: input.newName,
+					newBranchRef,
+				});
+			});
+
+			dispatch(
+				projectActions.updateRewrittenBranchReferences({
+					projectId,
+					oldBranch,
+					newBranch,
+				}),
+			);
+			dispatch(projectActions.exitMode({ projectId }));
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to rename branch",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
 const BranchRow: FC<
 	{
 		projectId: string;
@@ -1931,48 +1990,11 @@ const BranchRow: FC<
 	);
 	const [isRenamePending, startRenameTransition] = useTransition();
 
-	const updateBranchName = useMutation({
-		mutationFn: window.lite.updateBranchName,
-		onSuccess: async (_response, input, _context, mutation) => {
-			const newBranchRef = encodeRefName(`refs/heads/${input.newName}`);
-			const newBranch: BranchOperand = {
-				stackId,
-				// TODO: ideally the API would return the new ref?
-				branchRef: newBranchRef,
-			};
-
-			mutation.client.setQueryData(headInfoQueryOptions(projectId).queryKey, (headInfo) => {
-				if (!headInfo) return headInfo;
-
-				return renameBranchInHeadInfo({
-					headInfo,
-					stackId,
-					branchRef,
-					newName: input.newName,
-					newBranchRef,
-				});
-			});
-
-			dispatch(
-				projectActions.updateRewrittenBranchReferences({
-					projectId,
-					oldBranch: branchOperandV,
-					newBranch,
-				}),
-			);
-			dispatch(projectActions.exitMode({ projectId }));
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to rename branch",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
+	const updateBranchName = useUpdateBranchName({
+		projectId,
+		stackId,
+		branchRef,
+		oldBranch: branchOperandV,
 	});
 
 	const startEditing = () => {
