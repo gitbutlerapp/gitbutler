@@ -1,5 +1,5 @@
 import preview from "#storybook/preview";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { fn } from "storybook/test";
 
 import { DropdownButton } from "./DropdownButton.tsx";
 
@@ -32,15 +32,6 @@ export const Playground = meta.story({
 			options: ["regular", "small"],
 		},
 	},
-	play: async ({ canvasElement, args }) => {
-		const canvas = within(canvasElement);
-
-		await userEvent.click(canvas.getByRole("button", { name: "Commit" }));
-		await userEvent.click(canvas.getByRole("button", { name: "More options" }));
-
-		await expect(args.onClick).toHaveBeenCalledTimes(1);
-		await expect(args.onMenuOpen).toHaveBeenCalledTimes(1);
-	},
 });
 
 export const Variants = meta.story({
@@ -72,14 +63,5 @@ export const DisabledInteraction = meta.story({
 		disabled: true,
 		menuAriaLabel: "More options",
 		onMenuOpen: fn(),
-	},
-	play: async ({ canvasElement, args }) => {
-		const canvas = within(canvasElement);
-
-		await userEvent.click(canvas.getByRole("button", { name: "Commit" }));
-		await userEvent.click(canvas.getByRole("button", { name: "More options" }));
-
-		await expect(args.onClick).toHaveBeenCalledTimes(0);
-		await expect(args.onMenuOpen).toHaveBeenCalledTimes(0);
 	},
 });

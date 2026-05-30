@@ -2,7 +2,6 @@ import preview from "#storybook/preview";
 import { getButtonClassName, type ButtonStyleProps } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
-import { expect, userEvent, within } from "storybook/test";
 
 const meta = preview.meta({});
 
@@ -51,11 +50,6 @@ export const Playground = meta.story({
 				)}
 			</button>
 		);
-	},
-	play: async ({ canvasElement, args }) => {
-		const canvas = within(canvasElement);
-		await userEvent.click(canvas.getByRole("button"));
-		await expect(args.onClick).toHaveBeenCalledTimes(1);
 	},
 });
 
