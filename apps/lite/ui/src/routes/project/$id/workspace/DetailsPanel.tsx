@@ -525,7 +525,7 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 					style={{ opacity: detailsOpacity }}
 				>
 					<Virtualizer className={styles.detailsVirtualizer}>
-						<Suspense>
+						<Suspense fallback={<p className="text-13">Loading diff…</p>}>
 							<DiffContents projectId={projectId} selection={selection} />
 						</Suspense>
 					</Virtualizer>
