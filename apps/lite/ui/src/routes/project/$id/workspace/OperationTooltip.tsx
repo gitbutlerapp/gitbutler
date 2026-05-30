@@ -127,39 +127,17 @@ const AbsorbControls: FC<{
 	);
 };
 
-const TransferOperationControls: FC<{
+const TransferTypeToggleGroup: FC<{
 	projectId: string;
 	operations: OperationsByType;
 	operationType: OperationType;
 }> = ({ projectId, operations, operationType }) => {
 	const dispatch = useAppDispatch();
-	const { mutate: runOperation } = useRunOperation();
-	const operation = operations[operationType];
-
-	const run = () => {
-		dispatch(projectActions.exitMode({ projectId }));
-
-		if (!operation) return;
-
-		runOperation(operation);
-	};
-
-	const cancel = () => dispatch(projectActions.cancelMode({ projectId }));
 
 	const setOperationType = (operationType: OperationType) =>
 		dispatch(projectActions.updateTransferOperationType({ projectId, operationType }));
 
 	useHotkeys([
-		{
-			hotkey: operationHotkeys.confirmTransfer.hotkey,
-			callback: run,
-			options: {
-				conflictBehavior: "allow",
-				enabled: !!operation,
-				ignoreInputs: true,
-				meta: operationHotkeys.confirmTransfer.meta,
-			},
-		},
 		{
 			hotkey: operationHotkeys.selectMoveAbove.hotkey,
 			callback: () => setOperationType("moveAbove"),
@@ -184,6 +162,124 @@ const TransferOperationControls: FC<{
 				meta: operationHotkeys.selectMoveBelow.meta,
 			},
 		},
+	]);
+
+	const onValueChange = (value: Array<string>) => {
+		if (value.length === 0) return;
+		const nextOperationType = value[0] as OperationType;
+
+		setOperationType(nextOperationType);
+	};
+
+	return (
+		<ToggleGroup
+			render={<ToggleGroupStyles />}
+			aria-label="Operation type"
+			value={[operationType]}
+			onValueChange={onValueChange}
+			className={styles.operationTypeToggleGroup}
+			orientation="vertical"
+		>
+			<Toggle
+				value={"moveAbove" satisfies OperationType}
+				render={(props) => (
+					<Tooltip.Root>
+						<Tooltip.Trigger {...props} render={<ToggleStyles />} />
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup
+									render={
+										<TooltipPopup
+											content={operationHotkeys.selectMoveAbove.meta.name}
+											kbd={operationHotkeys.selectMoveAbove.hotkey}
+										/>
+									}
+								/>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
+				)}
+			>
+				{operations.moveAbove ? operationLabel(operations.moveAbove) : "Move above"}
+			</Toggle>
+			<Toggle
+				value={"rub" satisfies OperationType}
+				render={(props) => (
+					<Tooltip.Root>
+						<Tooltip.Trigger {...props} render={<ToggleStyles />} />
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup
+									render={
+										<TooltipPopup
+											content={operationHotkeys.selectRub.meta.name}
+											kbd={operationHotkeys.selectRub.hotkey}
+										/>
+									}
+								/>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
+				)}
+			>
+				{operations.rub ? operationLabel(operations.rub) : "Rub"}
+			</Toggle>
+			<Toggle
+				value={"moveBelow" satisfies OperationType}
+				render={(props) => (
+					<Tooltip.Root>
+						<Tooltip.Trigger {...props} render={<ToggleStyles />} />
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup
+									render={
+										<TooltipPopup
+											content={operationHotkeys.selectMoveBelow.meta.name}
+											kbd={operationHotkeys.selectMoveBelow.hotkey}
+										/>
+									}
+								/>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
+				)}
+			>
+				{operations.moveBelow ? operationLabel(operations.moveBelow) : "Move below"}
+			</Toggle>
+		</ToggleGroup>
+	);
+};
+
+const TransferOperationControls: FC<{
+	projectId: string;
+	operations: OperationsByType;
+	operationType: OperationType;
+}> = ({ projectId, operations, operationType }) => {
+	const dispatch = useAppDispatch();
+	const { mutate: runOperation } = useRunOperation();
+	const operation = operations[operationType];
+
+	const run = () => {
+		dispatch(projectActions.exitMode({ projectId }));
+
+		if (!operation) return;
+
+		runOperation(operation);
+	};
+
+	const cancel = () => dispatch(projectActions.cancelMode({ projectId }));
+
+	useHotkeys([
+		{
+			hotkey: operationHotkeys.confirmTransfer.hotkey,
+			callback: run,
+			options: {
+				conflictBehavior: "allow",
+				enabled: !!operation,
+				ignoreInputs: true,
+				meta: operationHotkeys.confirmTransfer.meta,
+			},
+		},
 		{
 			hotkey: operationHotkeys.confirm.hotkey,
 			callback: run,
@@ -203,90 +299,8 @@ const TransferOperationControls: FC<{
 		},
 	]);
 
-	const onValueChange = (value: Array<string>) => {
-		if (value.length === 0) return;
-		const nextOperationType = value[0] as OperationType;
-
-		setOperationType(nextOperationType);
-	};
-
 	return (
-		<>
-			<ToggleGroup
-				render={<ToggleGroupStyles />}
-				aria-label="Operation type"
-				value={[operationType]}
-				onValueChange={onValueChange}
-				className={styles.operationTypeToggleGroup}
-				orientation="vertical"
-			>
-				<Toggle
-					value={"moveAbove" satisfies OperationType}
-					render={(props) => (
-						<Tooltip.Root>
-							<Tooltip.Trigger {...props} render={<ToggleStyles />} />
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup
-										render={
-											<TooltipPopup
-												content={operationHotkeys.selectMoveAbove.meta.name}
-												kbd={operationHotkeys.selectMoveAbove.hotkey}
-											/>
-										}
-									/>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
-					)}
-				>
-					{operations.moveAbove ? operationLabel(operations.moveAbove) : "Move above"}
-				</Toggle>
-				<Toggle
-					value={"rub" satisfies OperationType}
-					render={(props) => (
-						<Tooltip.Root>
-							<Tooltip.Trigger {...props} render={<ToggleStyles />} />
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup
-										render={
-											<TooltipPopup
-												content={operationHotkeys.selectRub.meta.name}
-												kbd={operationHotkeys.selectRub.hotkey}
-											/>
-										}
-									/>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
-					)}
-				>
-					{operations.rub ? operationLabel(operations.rub) : "Rub"}
-				</Toggle>
-				<Toggle
-					value={"moveBelow" satisfies OperationType}
-					render={(props) => (
-						<Tooltip.Root>
-							<Tooltip.Trigger {...props} render={<ToggleStyles />} />
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup
-										render={
-											<TooltipPopup
-												content={operationHotkeys.selectMoveBelow.meta.name}
-												kbd={operationHotkeys.selectMoveBelow.hotkey}
-											/>
-										}
-									/>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
-					)}
-				>
-					{operations.moveBelow ? operationLabel(operations.moveBelow) : "Move below"}
-				</Toggle>
-			</ToggleGroup>
+		<div>
 			<Tooltip.Root disabled={!operation}>
 				<Tooltip.Trigger
 					className={getButtonClassName({})}
@@ -309,6 +323,7 @@ const TransferOperationControls: FC<{
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
 			</Tooltip.Root>
+
 			<Tooltip.Root>
 				<Tooltip.Trigger className={getButtonClassName({})} onClick={cancel}>
 					Cancel
@@ -326,7 +341,7 @@ const TransferOperationControls: FC<{
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
 			</Tooltip.Root>
-		</>
+		</div>
 	);
 };
 
@@ -356,6 +371,11 @@ export const OperationTooltip: FC<
 								Keyboard: (mode) => (
 									<>
 										{operandEquals(mode.source, target) && <>Select a target</>}
+										<TransferTypeToggleGroup
+											projectId={projectId}
+											operations={getOperations(mode.source, target)}
+											operationType={mode.operationType}
+										/>
 										<TransferOperationControls
 											projectId={projectId}
 											operations={getOperations(mode.source, target)}
