@@ -116,7 +116,6 @@ import {
 	toElectronAccelerator,
 	workspaceHotkeys,
 } from "#ui/hotkeys.ts";
-import { DropdownButton } from "#ui/components/DropdownButton.tsx";
 import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 
@@ -1644,20 +1643,35 @@ const Changes: FC<{
 						</Combobox.Portal>
 					</Combobox.Root>
 
-					<DropdownButton
-						hotkey={isAmendMode ? changesHotkeys.amendCommit.hotkey : changesHotkeys.commit.hotkey}
-						hotkeyOptions={{
-							meta: isAmendMode ? changesHotkeys.amendCommit.meta : changesHotkeys.commit.meta,
-						}}
-						type="submit"
-						disabled={!canCommitOrAmend || outlineMode._tag !== "Default" || isCommitOrAmendPending}
-						onMenuOpen={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, commitMenuItems);
-						}}
-						menuAriaLabel="Commit options"
-					>
-						{isAmendMode ? "Amend" : "Commit"}
-					</DropdownButton>
+					<div role="group" className={styles.commitDropdownButton}>
+						<ShortcutButton
+							type="submit"
+							disabled={
+								!canCommitOrAmend || outlineMode._tag !== "Default" || isCommitOrAmendPending
+							}
+							hotkey={
+								isAmendMode ? changesHotkeys.amendCommit.hotkey : changesHotkeys.commit.hotkey
+							}
+							hotkeyOptions={{
+								meta: isAmendMode ? changesHotkeys.amendCommit.meta : changesHotkeys.commit.meta,
+							}}
+						>
+							{isAmendMode ? "Amend" : "Commit"}
+						</ShortcutButton>
+						<button
+							type="button"
+							disabled={
+								!canCommitOrAmend || outlineMode._tag !== "Default" || isCommitOrAmendPending
+							}
+							aria-label="Commit options"
+							className={getButtonClassName({ iconOnly: true })}
+							onClick={(event) => {
+								void showNativeMenuFromTrigger(event.currentTarget, commitMenuItems);
+							}}
+						>
+							<Icon name="chevron-down" />
+						</button>
+					</div>
 				</div>
 			</div>
 		</TreeItem>
