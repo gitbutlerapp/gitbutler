@@ -10,6 +10,7 @@ const svgModules = import.meta.glob("./icons/*.svg", {
 	eager: true,
 }) as Record<string, string>;
 
+/** @internal */
 export const icons: Map<IconName, string> = new Map();
 for (const [path, svg] of Object.entries(svgModules)) {
 	const name = path.replace(/^.*\/(.+)\.svg$/, "$1") as IconName;

@@ -1,9 +1,12 @@
 import styles from "./Button.module.css";
 import { classes } from "#ui/components/classes.ts";
 
+/** @public */
 export type ButtonVariant = "pop" | "gray" | "outline" | "danger" | "ghost" | "inverted";
+/** @public */
 export type ButtonSize = "regular" | "small";
 
+/** @public */
 export type ButtonStyleProps = {
 	variant?: ButtonVariant;
 	size?: ButtonSize;
