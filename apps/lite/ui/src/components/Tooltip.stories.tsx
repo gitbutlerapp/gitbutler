@@ -1,6 +1,5 @@
 import preview from "#storybook/preview";
 import { getButtonClassName } from "#ui/components/Button.tsx";
-
 import { Tooltip } from "./Tooltip.tsx";
 
 const meta = preview.meta({

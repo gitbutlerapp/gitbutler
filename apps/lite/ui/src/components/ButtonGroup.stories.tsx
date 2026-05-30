@@ -1,6 +1,5 @@
 import preview from "#storybook/preview";
 import { getButtonClassName } from "#ui/components/Button.tsx";
-
 import { ButtonGroup } from "./ButtonGroup.tsx";
 
 const meta = preview.meta({

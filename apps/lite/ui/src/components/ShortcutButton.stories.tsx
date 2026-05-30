@@ -1,6 +1,5 @@
 import preview from "#storybook/preview";
 import { Tooltip } from "@base-ui/react";
-
 import { ShortcutButton } from "./ShortcutButton.tsx";
 
 const meta = preview.meta({

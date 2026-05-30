@@ -1,5 +1,4 @@
 import preview from "#storybook/preview";
-
 import { Icon } from "./Icon.tsx";
 import type { IconName } from "./iconNames";
 

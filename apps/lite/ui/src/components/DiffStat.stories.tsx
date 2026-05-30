@@ -1,5 +1,4 @@
 import preview from "#storybook/preview";
-
 import { DiffStat } from "./DiffStat.tsx";
 
 const meta = preview.meta({

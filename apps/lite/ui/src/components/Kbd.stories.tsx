@@ -1,5 +1,4 @@
 import preview from "#storybook/preview";
-
 import { Kbd } from "./Kbd.tsx";
 
 const meta = preview.meta({

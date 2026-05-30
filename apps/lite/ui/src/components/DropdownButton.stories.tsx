@@ -1,6 +1,5 @@
 import preview from "#storybook/preview";
 import { fn } from "storybook/test";
-
 import { DropdownButton } from "./DropdownButton.tsx";
 
 const meta = preview.meta({
