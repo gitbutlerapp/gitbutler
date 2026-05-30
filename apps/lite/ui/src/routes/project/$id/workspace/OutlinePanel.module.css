@@ -61,10 +61,6 @@
 .stack {
 	display: flex;
 	flex-direction: column;
-
-	&:last-child {
-		margin-block-end: var(--panel-padding);
-	}
 }
 
 .stackRowLabel::before {
