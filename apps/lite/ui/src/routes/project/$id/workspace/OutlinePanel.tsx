@@ -212,25 +212,11 @@ const useNavigationIndex = ({
 	});
 };
 
-const useOutlineTreeHotkeys = ({
-	navigationIndex,
-	projectId,
-}: {
-	navigationIndex: NavigationIndex;
-	projectId: string;
-}) => {
-	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-	const focusedPanel = useFocusedProjectPanel(projectId);
-	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
-
+const useCommitMove = () => {
 	const dispatch = useAppDispatch();
-
-	const select = (newItem: Operand) =>
-		dispatch(projectActions.selectOutline({ projectId, selection: newItem }));
-
 	const toastManager = Toast.useToastManager();
-	const commitMoveMutation = useMutation({
+
+	return useMutation({
 		mutationFn: window.lite.commitMove,
 		onSuccess: async (response, input, _context, mutation) => {
 			mutation.client.setQueryData(
@@ -257,6 +243,158 @@ const useOutlineTreeHotkeys = ({
 			});
 		},
 	});
+};
+
+const useCommitInsertBlank = () => {
+	const dispatch = useAppDispatch();
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.commitInsertBlank,
+		onSuccess: async (response, input, _context, mutation) => {
+			mutation.client.setQueryData(
+				headInfoQueryOptions(input.projectId).queryKey,
+				response.workspace.headInfo,
+			);
+			dispatch(
+				projectActions.updateRewrittenCommitReferences({
+					projectId: input.projectId,
+					replacedCommits: response.workspace.replacedCommits,
+					headInfo: response.workspace.headInfo,
+				}),
+			);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to insert commit",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+const useCommitDiscard = () => {
+	const dispatch = useAppDispatch();
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.commitDiscard,
+		onSuccess: async (response, input, _context, mutation) => {
+			mutation.client.setQueryData(
+				headInfoQueryOptions(input.projectId).queryKey,
+				response.workspace.headInfo,
+			);
+			dispatch(
+				projectActions.updateRewrittenCommitReferences({
+					projectId: input.projectId,
+					replacedCommits: response.workspace.replacedCommits,
+					headInfo: response.workspace.headInfo,
+				}),
+			);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to discard commit",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+const useCommitUncommit = () => {
+	const dispatch = useAppDispatch();
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.commitUncommit,
+		onSuccess: async (response, input, _context, mutation) => {
+			mutation.client.setQueryData(
+				headInfoQueryOptions(input.projectId).queryKey,
+				response.workspace.headInfo,
+			);
+			dispatch(
+				projectActions.updateRewrittenCommitReferences({
+					projectId: input.projectId,
+					replacedCommits: response.workspace.replacedCommits,
+					headInfo: response.workspace.headInfo,
+				}),
+			);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to uncommit",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+const useCommitReword = () => {
+	const dispatch = useAppDispatch();
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.commitReword,
+		onSuccess: async (response, input, _context, mutation) => {
+			mutation.client.setQueryData(
+				headInfoQueryOptions(input.projectId).queryKey,
+				response.workspace.headInfo,
+			);
+			dispatch(
+				projectActions.updateRewrittenCommitReferences({
+					projectId: input.projectId,
+					replacedCommits: response.workspace.replacedCommits,
+					headInfo: response.workspace.headInfo,
+				}),
+			);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to reword commit",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+const useOutlineTreeHotkeys = ({
+	navigationIndex,
+	projectId,
+}: {
+	navigationIndex: NavigationIndex;
+	projectId: string;
+}) => {
+	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
+	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const focusedPanel = useFocusedProjectPanel(projectId);
+	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
+
+	const dispatch = useAppDispatch();
+
+	const select = (newItem: Operand) =>
+		dispatch(projectActions.selectOutline({ projectId, selection: newItem }));
+
+	const commitMoveMutation = useCommitMove();
 
 	const openBranchPicker = () => {
 		dispatch(projectActions.openBranchPicker({ projectId }));
@@ -825,114 +963,10 @@ const CommitRow: FC<
 	};
 	const { hasConflicts } = dryRunCommit ? dryRunCommit : commitWithOptimisticMessage;
 
-	const commitInsertBlank = useMutation({
-		mutationFn: window.lite.commitInsertBlank,
-		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to insert commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-	const commitDiscard = useMutation({
-		mutationFn: window.lite.commitDiscard,
-		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to discard commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-	const commitUncommit = useMutation({
-		mutationFn: window.lite.commitUncommit,
-		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to uncommit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-	const commitReword = useMutation({
-		mutationFn: window.lite.commitReword,
-		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to reword commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
+	const commitInsertBlank = useCommitInsertBlank();
+	const commitDiscard = useCommitDiscard();
+	const commitUncommit = useCommitUncommit();
+	const commitReword = useCommitReword();
 
 	const insertBlankCommitAbove = () => {
 		commitInsertBlank.mutate({
