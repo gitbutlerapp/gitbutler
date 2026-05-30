@@ -1,3 +1,14 @@
-.operationTypeToggleGroup {
+.keyboardTooltip {
 	display: flex;
+	row-gap: 4px;
+	flex-direction: column;
+}
+
+.keyboardTooltipControls {
+	display: flex;
+	column-gap: 4px;
+
+	& > * {
+		flex: 1;
+	}
 }

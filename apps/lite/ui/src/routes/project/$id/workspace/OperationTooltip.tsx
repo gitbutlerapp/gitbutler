@@ -176,7 +176,6 @@ const TransferTypeToggleGroup: FC<{
 			aria-label="Operation type"
 			value={[operationType]}
 			onValueChange={onValueChange}
-			className={styles.operationTypeToggleGroup}
 			orientation="vertical"
 		>
 			<Tooltip.Root>
@@ -295,7 +294,7 @@ const TransferOperationControls: FC<{
 	]);
 
 	return (
-		<div>
+		<div className={styles.keyboardTooltipControls}>
 			<Tooltip.Root disabled={!operation}>
 				<Tooltip.Trigger
 					className={getButtonClassName({})}
@@ -364,7 +363,7 @@ export const OperationTooltip: FC<
 									return <>{operationLabel(operation)}</>;
 								},
 								Keyboard: (mode) => (
-									<>
+									<div className={styles.keyboardTooltip}>
 										{operandEquals(mode.source, target) && <>Select a target</>}
 										<TransferTypeToggleGroup
 											projectId={projectId}
@@ -376,7 +375,7 @@ export const OperationTooltip: FC<
 											operations={getOperations(mode.source, target)}
 											operationType={mode.operationType}
 										/>
-									</>
+									</div>
 								),
 							}),
 						),
