@@ -513,7 +513,7 @@ const ItemRow: FC<
 			inert={!navigationIndexIncludes(navigationIndex, operand)}
 			isSelected={isSelected}
 			onSelect={selectItem}
-			className={styles.item}
+			className={classes(props.className, styles.item)}
 		/>
 	);
 };
