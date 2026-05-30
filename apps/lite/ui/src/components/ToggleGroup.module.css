@@ -28,7 +28,6 @@
 	line-height: 1;
 	white-space: nowrap;
 	--icon-size: 14px;
-	cursor: pointer;
 	transition:
 		border-color 0.08s ease,
 		box-shadow 0.08s ease,
