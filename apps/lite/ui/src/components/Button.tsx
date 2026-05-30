@@ -30,6 +30,24 @@ function hasLabelContent(children: ReactNode): boolean {
 	return false;
 }
 
+export const getButtonClassName = ({
+	variant = "outline",
+	size = "regular",
+	iconOnly,
+}: {
+	variant?: ButtonVariant;
+	size?: ButtonSize;
+	iconOnly: boolean;
+}) =>
+	classes(
+		"text-semibold",
+		styles.button,
+		styles[variant],
+		size === "small" && styles.small,
+		size === "small" ? "text-12" : "text-13",
+		iconOnly && styles.iconOnly,
+	);
+
 export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
 	{ variant = "outline", size = "regular", children, type = "button", className, ...props },
 	ref,
@@ -41,15 +59,7 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
 			{...props}
 			ref={ref}
 			type={type === "submit" ? "submit" : type === "reset" ? "reset" : "button"}
-			className={classes(
-				"text-semibold",
-				styles.button,
-				styles[variant],
-				size === "small" && styles.small,
-				size === "small" ? "text-12" : "text-13",
-				iconOnly && styles.iconOnly,
-				className,
-			)}
+			className={classes(getButtonClassName({ variant, size, iconOnly }), className)}
 		>
 			{children}
 		</button>
