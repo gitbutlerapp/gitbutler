@@ -1,5 +1,5 @@
 import styles from "./Icon.module.css";
-import { CSSProperties, FC } from "react";
+import { FC } from "react";
 import type { IconName } from "./iconNames";
 
 const svgModules = import.meta.glob("./icons/*.svg", {
@@ -26,7 +26,7 @@ export const Icon: FC<Props> = ({ name, size }) => (
 			.join(" ")}
 		data-icon
 		aria-hidden="true"
-		style={size !== undefined ? ({ "--icon-size": `${size}px` } as CSSProperties) : undefined}
+		style={size !== undefined ? { "--icon-size": `${size}px` } : undefined}
 		// oxlint-disable-next-line react/no-danger
 		dangerouslySetInnerHTML={{ __html: icons[name] ?? "" }}
 	/>
