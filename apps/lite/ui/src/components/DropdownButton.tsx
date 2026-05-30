@@ -1,5 +1,5 @@
+import styles from "./DropdownButton.module.css";
 import { getButtonClassName, type ButtonStyleProps } from "#ui/components/Button.tsx";
-import { ButtonGroup } from "#ui/components/ButtonGroup.tsx";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -17,7 +17,7 @@ type Props = BaseButtonProps & {
 	positionerProps?: TooltipPositionerProps;
 	/** Optional explicit aria-label for the primary action button. */
 	primaryAriaLabel?: string;
-	/** Accessible name for the ButtonGroup wrapper. */
+	/** Accessible name for the grouped primary and menu buttons. */
 	groupAriaLabel?: string;
 	/** Called when the chevron/dropdown trigger is clicked. */
 	onMenuOpen: (event: MouseEvent<HTMLButtonElement>) => void;
@@ -83,7 +83,7 @@ export const DropdownButton: FC<Props> = ({
 	);
 
 	return (
-		<ButtonGroup aria-label={groupAriaLabel}>
+		<div role="group" aria-label={groupAriaLabel} className={styles.group}>
 			{primary}
 			<button
 				{...menuButtonProps}
@@ -98,6 +98,6 @@ export const DropdownButton: FC<Props> = ({
 			>
 				<Icon name="chevron-down" />
 			</button>
-		</ButtonGroup>
+		</div>
 	);
 };
