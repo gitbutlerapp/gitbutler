@@ -230,40 +230,30 @@ const Header: FC<{
 				const decodedBranchRef = decodeRefName(branchRef);
 
 				return (
-					<>
-						<SuspenseQuery
-							{...branchDetailsQueryOptions({
-								projectId,
-								// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
-								branchName: decodedBranchRef.replace(/^refs\/heads\//, ""),
-								remote: null,
-							})}
-						>
-							{({ data: branchDetails }) => (
-								<header>
-									<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
-									{branchDetails.prNumber != null && (
-										<h4 className={classes("text-13", "text-bold", styles.pr)}>
-											PR #{branchDetails.prNumber}
-										</h4>
-									)}
-								</header>
-							)}
-						</SuspenseQuery>
-
-						<div className={styles.headerActions}>
-							<FilesToggle />
-						</div>
-					</>
+					<SuspenseQuery
+						{...branchDetailsQueryOptions({
+							projectId,
+							// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
+							branchName: decodedBranchRef.replace(/^refs\/heads\//, ""),
+							remote: null,
+						})}
+					>
+						{({ data: branchDetails }) => (
+							<header>
+								<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
+								{branchDetails.prNumber != null && (
+									<h4 className={classes("text-13", "text-bold", styles.pr)}>
+										PR #{branchDetails.prNumber}
+									</h4>
+								)}
+							</header>
+						)}
+					</SuspenseQuery>
 				);
 			},
 			ChangesSection: () => (
 				<header>
 					<h3 className={classes("text-14", "text-semibold")}>Changes</h3>
-
-					<div className={styles.headerActions}>
-						<FilesToggle />
-					</div>
 				</header>
 			),
 			// Reuse the same headers.
@@ -364,8 +354,6 @@ const Header: FC<{
 									</Suspense>
 								</Toggle>
 							</ToggleGroup>
-
-							{commitView === "diff" && <FilesToggle />}
 						</div>
 					</>
 				);
@@ -588,13 +576,19 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 						onCommitViewChange={setCommitView}
 					/>
 				</Suspense>
-			</div>
 
-			{selection._tag === "Commit" && commitView === "details" && (
-				<Suspense>
-					<CommitDetailsContent projectId={projectId} commitId={selection.commitId} />
-				</Suspense>
-			)}
+				{selection._tag === "Commit" && commitView === "details" && (
+					<Suspense>
+						<CommitDetailsContent projectId={projectId} commitId={selection.commitId} />
+					</Suspense>
+				)}
+
+				{commitView === "diff" && (
+					<div className={styles.headerActions}>
+						<FilesToggle />
+					</div>
+				)}
+			</div>
 
 			{showDiff && (
 				<div className={classes(styles.panels, panelsState.filesVisible && styles.panelsWithFiles)}>
