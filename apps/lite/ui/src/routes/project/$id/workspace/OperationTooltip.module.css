@@ -11,8 +11,6 @@
 }
 
 .operationTypeToggle {
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
 	/* Concentric */
 	border-radius: calc(var(--group-radius) - var(--group-padding));
 
