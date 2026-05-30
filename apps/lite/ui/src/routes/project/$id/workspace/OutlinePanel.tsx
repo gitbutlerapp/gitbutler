@@ -1652,9 +1652,7 @@ const Changes: FC<{
 					<div role="group" className={styles.commitDropdownButton}>
 						<ShortcutButton
 							type="submit"
-							disabled={
-								!canCommitOrAmend || outlineMode._tag !== "Default" || isCommitOrAmendPending
-							}
+							disabled={!canCommitOrAmend}
 							hotkey={
 								isAmendMode ? changesHotkeys.amendCommit.hotkey : changesHotkeys.commit.hotkey
 							}
@@ -1666,9 +1664,7 @@ const Changes: FC<{
 						</ShortcutButton>
 						<button
 							type="button"
-							disabled={
-								!canCommitOrAmend || outlineMode._tag !== "Default" || isCommitOrAmendPending
-							}
+							disabled={!canCommitOrAmend}
 							aria-label="Commit options"
 							className={getButtonClassName({ iconOnly: true })}
 							onClick={(event) => {
