@@ -120,8 +120,8 @@
 	"dependencies": {
 		"@atlaskit/pragmatic-drag-and-drop": "^1.7.9",
 		"@atlaskit/pragmatic-drag-and-drop-hitbox": "^1.1.0",
-		"@base-ui/react": "^1.4.0",
-		"@base-ui/utils": "^0.2.7",
+		"@base-ui/react": "^1.5.0",
+		"@base-ui/utils": "^0.2.9",
 		"@gitbutler/but-sdk": "workspace:*",
 		"@gitbutler/design-core": "3.4.2",
 		"@pierre/diffs": "^1.1.3",
