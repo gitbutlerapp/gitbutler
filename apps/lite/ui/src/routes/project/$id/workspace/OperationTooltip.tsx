@@ -187,7 +187,7 @@ const TransferTypeToggleGroup: FC<{
 					{operations.moveAbove ? operationLabel(operations.moveAbove) : "Move above"}
 				</Toggle>
 				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Positioner sideOffset={4} side="right">
 						<Tooltip.Popup
 							render={
 								<TooltipPopup
@@ -208,7 +208,7 @@ const TransferTypeToggleGroup: FC<{
 					{operations.rub ? operationLabel(operations.rub) : "Rub"}
 				</Toggle>
 				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Positioner sideOffset={4} side="right">
 						<Tooltip.Popup
 							render={
 								<TooltipPopup
@@ -229,7 +229,7 @@ const TransferTypeToggleGroup: FC<{
 					{operations.moveBelow ? operationLabel(operations.moveBelow) : "Move below"}
 				</Toggle>
 				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Positioner sideOffset={4} side="right">
 						<Tooltip.Popup
 							render={
 								<TooltipPopup
