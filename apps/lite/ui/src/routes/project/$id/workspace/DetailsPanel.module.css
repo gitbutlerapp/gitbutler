@@ -6,6 +6,8 @@
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
 
+	row-gap: 12px;
+
 	padding: var(--panel-padding);
 }
 
@@ -40,7 +42,6 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	margin-block: 16px;
 	gap: 10px;
 }
 
