@@ -1,7 +1,7 @@
 .tooltip {
 	display: flex;
-	padding: 6px;
-	gap: 6px;
+	padding: 6px 8px;
+	gap: 8px;
 	border: 1px solid var(--border-3);
 	border-radius: var(--radius-m);
 	background-color: var(--bg-1);
@@ -9,6 +9,5 @@
 }
 
 .text {
-	padding-inline: 2px;
 	color: var(--text-1);
 }
