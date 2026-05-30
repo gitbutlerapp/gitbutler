@@ -15,7 +15,7 @@ import {
 	selectProjectOutlineModeState,
 	selectProjectPanelsState,
 } from "#ui/projects/state.ts";
-import { Button } from "#ui/components/Button.tsx";
+import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import { globalHotkeys, workspaceHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { type AppThunk, useAppDispatch, useAppSelector } from "#ui/store.ts";
@@ -530,9 +530,13 @@ class WorkspacePageErrorBoundary extends Component<
 			<div className={styles.error}>
 				<h1 className={styles.errorTitle}>Something went wrong.</h1>
 				<div className={styles.errorActions}>
-					<Button type="button" onClick={() => this.handleRetry()}>
+					<button
+						type="button"
+						className={getButtonClassName({})}
+						onClick={() => this.handleRetry()}
+					>
 						Retry
-					</Button>
+					</button>
 				</div>
 				<code className={styles.errorMessage}>{this.state.error.message}</code>
 			</div>

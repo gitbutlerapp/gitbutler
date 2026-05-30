@@ -26,7 +26,7 @@ import {
 	type CommitOperand,
 	type Operand,
 } from "#ui/operands.ts";
-import { Button } from "#ui/components/Button.tsx";
+import { getButtonClassName } from "#ui/components/Button.tsx";
 import {
 	filterNavigationIndexForOutlineMode,
 	getTransferOperation,
@@ -631,7 +631,16 @@ const ItemRowMenuButton: FC<{
 	<Toolbar.Button
 		aria-label={ariaLabel}
 		disabled={disabled === true}
-		render={<Button variant={isSelected === true ? "inverted" : "ghost"} size="small" />}
+		render={
+			<button
+				type="button"
+				className={getButtonClassName({
+					variant: isSelected === true ? "inverted" : "ghost",
+					size: "small",
+					iconOnly: true,
+				})}
+			/>
+		}
 		onClick={(event) => {
 			void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 		}}
@@ -1958,9 +1967,13 @@ const BranchRow: FC<
 						<WorkspaceItemRowToolbar aria-label="Branch actions">
 							<Toolbar.Button
 								render={
-									<Button
-										variant={isSelected ? "inverted" : "ghost"}
-										size="small"
+									<button
+										className={getButtonClassName({
+											variant: isSelected ? "inverted" : "ghost",
+											size: "small",
+											iconOnly: true,
+										})}
+										type="button"
 										disabled
 										aria-label="Push branch"
 									/>

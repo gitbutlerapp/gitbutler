@@ -1,4 +1,4 @@
-import { Button } from "#ui/components/Button.tsx";
+import { getButtonClassName, type ButtonStyleProps } from "#ui/components/Button.tsx";
 import { ButtonGroup } from "#ui/components/ButtonGroup.tsx";
 import { ShortcutButton } from "#ui/components/ShortcutButton.tsx";
 import { classes } from "#ui/components/classes.ts";
@@ -7,7 +7,7 @@ import { type TooltipPositionerProps } from "@base-ui/react";
 import { type Hotkey, type UseHotkeyOptions } from "@tanstack/react-hotkeys";
 import { type ComponentProps, type FC, type MouseEvent, type ReactNode } from "react";
 
-type BaseButtonProps = Omit<ComponentProps<typeof Button>, "children">;
+type BaseButtonProps = Omit<ComponentProps<"button">, "children"> & ButtonStyleProps;
 
 type Props = BaseButtonProps & {
 	children: ReactNode;
@@ -23,8 +23,8 @@ type Props = BaseButtonProps & {
 	onMenuOpen: (event: MouseEvent<HTMLButtonElement>) => void;
 	menuAriaLabel?: string;
 	menuButtonProps?: Omit<
-		ComponentProps<typeof Button>,
-		"children" | "variant" | "size" | "disabled" | "type" | "onClick" | "aria-label"
+		ComponentProps<"button"> & ButtonStyleProps,
+		"children" | "variant" | "size" | "iconOnly" | "disabled" | "type" | "onClick" | "aria-label"
 	>;
 };
 
@@ -36,6 +36,7 @@ export const DropdownButton: FC<Props> = ({
 	children,
 	variant,
 	size,
+	iconOnly,
 	disabled,
 	type,
 	className,
@@ -57,6 +58,7 @@ export const DropdownButton: FC<Props> = ({
 			{...primaryButtonProps}
 			variant={variant}
 			size={size}
+			iconOnly={iconOnly}
 			disabled={disabled}
 			type={type}
 			className={className}
@@ -68,34 +70,34 @@ export const DropdownButton: FC<Props> = ({
 			{children}
 		</ShortcutButton>
 	) : (
-		<Button
+		<button
 			{...primaryButtonProps}
-			variant={variant}
-			size={size}
 			disabled={disabled}
-			type={type}
-			className={className}
+			// oxlint-disable-next-line react/button-has-type -- False positive.
+			type={type ?? "button"}
+			className={classes(getButtonClassName({ variant, size, iconOnly }), className)}
 			aria-label={resolvedPrimaryAriaLabel}
 		>
 			{children}
-		</Button>
+		</button>
 	);
 
 	return (
 		<ButtonGroup aria-label={groupAriaLabel}>
 			{primary}
-			<Button
+			<button
 				{...menuButtonProps}
-				variant={variant}
-				size={size}
 				disabled={disabled}
 				type="button"
 				aria-label={menuAriaLabel}
-				className={classes(menuButtonProps?.className)}
+				className={classes(
+					getButtonClassName({ variant, size, iconOnly: true }),
+					menuButtonProps?.className,
+				)}
 				onClick={onMenuOpen}
 			>
 				<Icon name="chevron-down" />
-			</Button>
+			</button>
 		</ButtonGroup>
 	);
 };

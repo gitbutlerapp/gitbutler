@@ -1,5 +1,5 @@
 import preview from "#storybook/preview";
-import { Button } from "#ui/components/Button.tsx";
+import { getButtonClassName } from "#ui/components/Button.tsx";
 
 import { Tooltip } from "./Tooltip.tsx";
 
@@ -34,7 +34,11 @@ export const Playground = meta.story({
 		},
 	},
 	args: {
-		trigger: <Button>Hover me</Button>,
+		trigger: (
+			<button type="button" className={getButtonClassName({})}>
+				Hover me
+			</button>
+		),
 		content: "This is a tooltip",
 		positionerProps: { side: "top" },
 	},

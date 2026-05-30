@@ -1,7 +1,7 @@
 import { AlertDialog } from "@base-ui/react";
 import { useEffect, useState } from "react";
 import type { FC } from "react";
-import { Button } from "#ui/components/Button.tsx";
+import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import uiStyles from "#ui/components/ui.module.css";
 
@@ -33,9 +33,13 @@ export const Updater: FC = () => {
 						Restart to update. You don't have a choice :)
 					</AlertDialog.Description>
 					<div>
-						<Button type="button" onClick={() => void window.lite.quitAndInstallUpdate()}>
+						<button
+							type="button"
+							className={getButtonClassName({})}
+							onClick={() => void window.lite.quitAndInstallUpdate()}
+						>
 							Restart and install
-						</Button>
+						</button>
 					</div>
 				</AlertDialog.Popup>
 			</AlertDialog.Portal>

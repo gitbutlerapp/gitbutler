@@ -65,6 +65,7 @@ const ProjectSelect: FC = () => {
 				hotkeyOptions={{ meta: globalHotkeys.selectProject.meta }}
 				onClick={openProjectPicker}
 				positionerProps={{ side: "right" }}
+				iconOnly
 			>
 				<Icon name="plus" />
 			</ShortcutButton>

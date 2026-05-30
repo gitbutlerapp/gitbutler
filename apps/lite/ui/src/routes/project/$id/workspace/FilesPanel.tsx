@@ -33,7 +33,7 @@ import {
 } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Icon } from "#ui/components/Icon.tsx";
-import { Button } from "#ui/components/Button.tsx";
+import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, Toast, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
@@ -746,7 +746,16 @@ const ChangesFileRow: FC<{
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						render={<Button variant="ghost" size="small" />}
+						render={
+							<button
+								type="button"
+								className={getButtonClassName({
+									variant: "ghost",
+									size: "small",
+									iconOnly: true,
+								})}
+							/>
+						}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
