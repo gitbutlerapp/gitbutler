@@ -291,15 +291,10 @@ const ApplyBranchPicker: FC<{
 	);
 };
 
-const useWorkspaceHotkeys = (projectId: string) => {
-	const dispatch = useAppDispatch();
-	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
-	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
-	const focusedPanel = useFocusedProjectPanel(projectId);
+const useRestoreSnapshot = ({ projectId }: { projectId: string }) => {
 	const toastManager = Toast.useToastManager();
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
-	const restoreSnapshotMutation = useMutation({
+	return useMutation({
 		mutationFn: async (direction: "redo" | "undo"): Promise<Snapshot | null> => {
 			const snapshot =
 				direction === "redo"
@@ -355,6 +350,16 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			});
 		},
 	});
+};
+
+const useWorkspaceHotkeys = (projectId: string) => {
+	const dispatch = useAppDispatch();
+	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
+	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
+	const focusedPanel = useFocusedProjectPanel(projectId);
+	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+
+	const restoreSnapshotMutation = useRestoreSnapshot({ projectId });
 
 	useHotkeys([
 		{
