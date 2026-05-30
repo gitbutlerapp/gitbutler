@@ -12,6 +12,10 @@
 }
 
 .headerWrap {
+	display: flex;
+	row-gap: 12px;
+	flex-direction: column;
+
 	& header {
 		display: flex;
 		align-items: center;
@@ -129,12 +133,6 @@
 
 .emptyFileHunks {
 	margin: 8px;
-}
-
-.commitDetailsContent {
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
 }
 
 .commitDetailsMeta {

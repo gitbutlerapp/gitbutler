@@ -335,7 +335,7 @@ const CommitDetailsContent: FC<{
 			}).format(commitDetails.commit.createdAt);
 
 			return (
-				<div className={styles.commitDetailsContent}>
+				<>
 					{commitDetails.commit.message.includes("\n") && (
 						<p className={classes("text-monospace", "text-body", styles.commitMessageBody)}>
 							{commitDetails.commit.message
@@ -360,7 +360,7 @@ const CommitDetailsContent: FC<{
 							{shortCommitId(commitDetails.commit.id)})
 						</div>
 					</div>
-				</div>
+				</>
 			);
 		}}
 	</SuspenseQuery>
