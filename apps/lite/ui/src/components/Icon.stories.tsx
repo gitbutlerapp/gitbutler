@@ -1,16 +1,8 @@
 import preview from "#storybook/preview";
-import { Icon } from "./Icon.tsx";
+import { Icon, icons } from "./Icon.tsx";
 import type { IconName } from "./iconNames";
 
-const iconNames = Object.keys(
-	import.meta.glob("./icons/*.svg", {
-		eager: true,
-		query: "?raw",
-		import: "default",
-	}),
-)
-	.map((path) => path.replace(/^.*\/(.+)\.svg$/, "$1"))
-	.sort((a, b) => a.localeCompare(b)) as Array<IconName>;
+const iconNames = Object.keys(icons).sort((a, b) => a.localeCompare(b)) as Array<IconName>;
 
 const meta = preview.type<{ args: { size: number } }>().meta({
 	argTypes: {

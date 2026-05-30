@@ -9,7 +9,7 @@ const svgModules = import.meta.glob("./icons/*.svg", {
 	eager: true,
 }) as Record<string, string>;
 
-const icons: Record<string, string> = {};
+export const icons: Record<string, string> = {};
 for (const [path, svg] of Object.entries(svgModules)) {
 	const name = path.replace(/^.*\/(.+)\.svg$/, "$1");
 	icons[name] = svg;
