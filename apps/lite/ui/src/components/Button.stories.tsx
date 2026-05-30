@@ -1,5 +1,10 @@
 import preview from "#storybook/preview";
-import { getButtonClassName, type ButtonStyleProps } from "#ui/components/Button.tsx";
+import {
+	ButtonSize,
+	ButtonVariant,
+	getButtonClassName,
+	type ButtonStyleProps,
+} from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 
@@ -15,11 +20,18 @@ export const Playground = meta.story({
 	argTypes: {
 		variant: {
 			control: "select",
-			options: ["pop", "gray", "outline", "danger", "ghost", "inverted"],
+			options: [
+				"pop",
+				"gray",
+				"outline",
+				"danger",
+				"ghost",
+				"inverted",
+			] satisfies Array<ButtonVariant>,
 		},
 		size: {
 			control: "radio",
-			options: ["regular", "small"],
+			options: ["regular", "small"] satisfies Array<ButtonSize>,
 		},
 		showIcon: {
 			control: "boolean",
