@@ -24,6 +24,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { type AbsorptionTarget } from "@gitbutler/but-sdk";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { operationHotkeys } from "#ui/hotkeys.ts";
+import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 
 const AbsorbControls: FC<{
 	projectId: string;
@@ -212,6 +213,7 @@ const TransferOperationControls: FC<{
 	return (
 		<>
 			<ToggleGroup
+				render={<ToggleGroupStyles />}
 				aria-label="Operation type"
 				value={[operationType]}
 				onValueChange={onValueChange}
@@ -220,13 +222,9 @@ const TransferOperationControls: FC<{
 			>
 				<Toggle
 					value={"moveAbove" satisfies OperationType}
-					className={styles.operationTypeToggle}
 					render={(props) => (
 						<Tooltip.Root>
-							<Tooltip.Trigger
-								{...props}
-								className={classes(getButtonClassName({}), props.className)}
-							/>
+							<Tooltip.Trigger {...props} render={<ToggleStyles />} />
 							<Tooltip.Portal>
 								<Tooltip.Positioner sideOffset={4}>
 									<Tooltip.Popup
@@ -246,13 +244,9 @@ const TransferOperationControls: FC<{
 				</Toggle>
 				<Toggle
 					value={"rub" satisfies OperationType}
-					className={styles.operationTypeToggle}
 					render={(props) => (
 						<Tooltip.Root>
-							<Tooltip.Trigger
-								{...props}
-								className={classes(getButtonClassName({}), props.className)}
-							/>
+							<Tooltip.Trigger {...props} render={<ToggleStyles />} />
 							<Tooltip.Portal>
 								<Tooltip.Positioner sideOffset={4}>
 									<Tooltip.Popup
@@ -272,13 +266,9 @@ const TransferOperationControls: FC<{
 				</Toggle>
 				<Toggle
 					value={"moveBelow" satisfies OperationType}
-					className={styles.operationTypeToggle}
 					render={(props) => (
 						<Tooltip.Root>
-							<Tooltip.Trigger
-								{...props}
-								className={classes(getButtonClassName({}), props.className)}
-							/>
+							<Tooltip.Trigger {...props} render={<ToggleStyles />} />
 							<Tooltip.Portal>
 								<Tooltip.Positioner sideOffset={4}>
 									<Tooltip.Popup
