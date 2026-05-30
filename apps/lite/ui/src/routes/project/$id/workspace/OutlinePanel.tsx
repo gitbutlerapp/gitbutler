@@ -963,13 +963,13 @@ const CommitRow: FC<
 	};
 	const { hasConflicts } = dryRunCommit ? dryRunCommit : commitWithOptimisticMessage;
 
-	const commitInsertBlank = useCommitInsertBlank();
-	const commitDiscard = useCommitDiscard();
-	const commitUncommit = useCommitUncommit();
-	const commitReword = useCommitReword();
+	const commitInsertBlankMutation = useCommitInsertBlank();
+	const commitDiscardMutation = useCommitDiscard();
+	const commitUncommitMutation = useCommitUncommit();
+	const commitRewordMutation = useCommitReword();
 
 	const insertBlankCommitAbove = () => {
-		commitInsertBlank.mutate({
+		commitInsertBlankMutation.mutate({
 			projectId,
 			relativeTo: { type: "commit", subject: commit.id },
 			side: "above",
@@ -978,7 +978,7 @@ const CommitRow: FC<
 	};
 
 	const insertBlankCommitBelow = () => {
-		commitInsertBlank.mutate({
+		commitInsertBlankMutation.mutate({
 			projectId,
 			relativeTo: { type: "commit", subject: commit.id },
 			side: "below",
@@ -987,7 +987,7 @@ const CommitRow: FC<
 	};
 
 	const deleteCommit = () => {
-		commitDiscard.mutate({
+		commitDiscardMutation.mutate({
 			projectId,
 			subjectCommitId: commit.id,
 			dryRun: false,
@@ -1026,7 +1026,7 @@ const CommitRow: FC<
 		startCommitMessageTransition(async () => {
 			setOptimisticMessage(trimmed);
 			try {
-				await commitReword.mutateAsync({
+				await commitRewordMutation.mutateAsync({
 					projectId,
 					commitId: commit.id,
 					message: trimmed,
@@ -1121,14 +1121,14 @@ const CommitRow: FC<
 		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Delete Commit",
-			enabled: !commitDiscard.isPending,
+			enabled: !commitDiscardMutation.isPending,
 			onSelect: deleteCommit,
 		}),
 		nativeMenuItem({
 			label: "Uncommit",
-			enabled: !commitUncommit.isPending,
+			enabled: !commitUncommitMutation.isPending,
 			onSelect: () =>
-				commitUncommit.mutate({
+				commitUncommitMutation.mutate({
 					projectId,
 					assignTo: null,
 					subjectCommitIds: [commit.id],
@@ -1528,8 +1528,8 @@ const Changes: FC<{
 	targetComboboxItems: Array<CommitTargetComboboxItem>;
 }> = ({ projectId, commitTarget, targetComboboxItems }) => {
 	const dispatch = useAppDispatch();
-	const commitCreate = useCommitCreate({ projectId });
-	const commitAmend = useCommitAmend({ projectId });
+	const commitCreateMutation = useCommitCreate({ projectId });
+	const commitAmendMutation = useCommitAmend({ projectId });
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
@@ -1541,7 +1541,7 @@ const Changes: FC<{
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const isAltHeld = useKeyHold("Alt");
 	const isAmendMode = isAltHeld;
-	const isCommitOrAmendPending = commitCreate.isPending || commitAmend.isPending;
+	const isCommitOrAmendPending = commitCreateMutation.isPending || commitAmendMutation.isPending;
 	const canCommitOrAmendBase =
 		outlineMode._tag === "Default" && commitTarget !== null && !isCommitOrAmendPending;
 	const canCommit = canCommitOrAmendBase;
@@ -1571,7 +1571,7 @@ const Changes: FC<{
 	const createCommit = () => {
 		if (!commitTarget) return;
 
-		commitCreate.mutate(
+		commitCreateMutation.mutate(
 			{
 				commitTarget,
 				message: commitTextareaRef.current?.value ?? "",
@@ -1587,7 +1587,7 @@ const Changes: FC<{
 	const amendCommit = () => {
 		if (!commitTarget) return;
 
-		commitAmend.mutate({ commitTarget });
+		commitAmendMutation.mutate({ commitTarget });
 	};
 	const submit: SubmitEventHandler = (event) => {
 		event.preventDefault();
@@ -1990,7 +1990,7 @@ const BranchRow: FC<
 	);
 	const [isRenamePending, startRenameTransition] = useTransition();
 
-	const updateBranchName = useUpdateBranchName({
+	const updateBranchNameMutation = useUpdateBranchName({
 		projectId,
 		stackId,
 		branchRef,
@@ -2019,7 +2019,7 @@ const BranchRow: FC<
 		startRenameTransition(async () => {
 			setOptimisticBranchName(trimmed);
 			try {
-				await updateBranchName.mutateAsync({
+				await updateBranchNameMutation.mutateAsync({
 					projectId,
 					stackId,
 					branchName,
@@ -2160,9 +2160,9 @@ const StackRow: FC<
 	const isSelected = useIsSelected({ projectId, operand });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
-	const unapplyStack = useUnapplyStack();
+	const unapplyStackMutation = useUnapplyStack();
 	const unapply = () => {
-		unapplyStack.mutate({ projectId, stackId });
+		unapplyStackMutation.mutate({ projectId, stackId });
 	};
 
 	const menuItems: Array<NativeMenuItem> = [
@@ -2171,7 +2171,7 @@ const StackRow: FC<
 		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Unapply Stack",
-			enabled: !unapplyStack.isPending,
+			enabled: !unapplyStackMutation.isPending,
 			onSelect: unapply,
 		}),
 	];
