@@ -632,9 +632,8 @@ const treeItemId = (operand: Operand): string =>
 const ItemRowMenuButton: FC<{
 	ariaLabel: string;
 	menuItems: Array<NativeMenuItem>;
-	disabled?: boolean;
 	isSelected?: boolean;
-}> = ({ ariaLabel, menuItems, disabled = false, isSelected = false }) => (
+}> = ({ ariaLabel, menuItems, isSelected = false }) => (
 	<Toolbar.Button
 		aria-label={ariaLabel}
 		className={getButtonClassName({
@@ -642,8 +641,6 @@ const ItemRowMenuButton: FC<{
 			size: "small",
 			iconOnly: true,
 		})}
-		// This is needed to ensure the `disabled` attribute is used.
-		render={<button type="button" disabled={disabled} />}
 		onClick={(event) => {
 			void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 		}}
