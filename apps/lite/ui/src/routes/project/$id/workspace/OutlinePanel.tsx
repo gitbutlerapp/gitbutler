@@ -1875,6 +1875,25 @@ const useRemoveBranch = () => {
 	});
 };
 
+const useUnapplyStack = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.unapplyStack,
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to unapply stack",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
 const BranchRow: FC<
 	{
 		projectId: string;
@@ -2119,22 +2138,7 @@ const StackRow: FC<
 	const isSelected = useIsSelected({ projectId, operand });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
-	const toastManager = Toast.useToastManager();
-
-	const unapplyStack = useMutation({
-		mutationFn: window.lite.unapplyStack,
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to unapply stack",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
+	const unapplyStack = useUnapplyStack();
 	const unapply = () => {
 		unapplyStack.mutate({ projectId, stackId });
 	};
