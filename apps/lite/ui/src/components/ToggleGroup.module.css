@@ -6,11 +6,11 @@
 	gap: 2px;
 	border-radius: var(--radius-m);
 	background-color: var(--bg-2);
-}
 
-.group[data-orientation="vertical"] {
-	flex-direction: column;
-	align-items: stretch;
+	&[data-orientation="vertical"] {
+		flex-direction: column;
+		align-items: stretch;
+	}
 }
 
 .item {
@@ -47,27 +47,27 @@
 			opacity 0.12s ease,
 			transform 0.12s ease;
 	}
-}
 
-.item:not([data-pressed]):hover::before {
-	transform: scale(1);
-	opacity: 1;
-}
+	&:not([data-pressed]):hover::before {
+		transform: scale(1);
+		opacity: 1;
+	}
 
-.item[data-pressed] {
-	background-color: var(--bg-1);
-	box-shadow: 0 0 0 1px var(--border-2);
-	color: var(--text-1);
-}
+	&[data-pressed] {
+		background-color: var(--bg-1);
+		box-shadow: 0 0 0 1px var(--border-2);
+		color: var(--text-1);
+	}
 
-.item :where([data-icon]) {
-	color: var(--text-3);
-}
+	& :where([data-icon]) {
+		color: var(--text-3);
+	}
 
-.item:hover :where([data-icon]) {
-	color: var(--text-2);
-}
+	&:hover :where([data-icon]) {
+		color: var(--text-2);
+	}
 
-.item[data-pressed] :where([data-icon]) {
-	color: var(--text-2);
+	&[data-pressed] :where([data-icon]) {
+		color: var(--text-2);
+	}
 }
