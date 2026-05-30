@@ -3,7 +3,7 @@ export type PanelsState = {
 };
 
 export const createInitialState = (): PanelsState => ({
-	filesVisible: false,
+	filesVisible: true,
 });
 
 export const initialState: PanelsState = createInitialState();
