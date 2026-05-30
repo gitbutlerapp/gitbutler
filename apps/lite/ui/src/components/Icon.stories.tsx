@@ -1,8 +1,7 @@
 import preview from "#storybook/preview";
 import { Icon, icons } from "./Icon.tsx";
-import type { IconName } from "./iconNames";
 
-const iconNames = Object.keys(icons).sort((a, b) => a.localeCompare(b)) as Array<IconName>;
+const iconNames = Array.from(icons.keys()).sort((a, b) => a.localeCompare(b));
 
 const meta = preview.type<{ args: { size: number } }>().meta({
 	argTypes: {
