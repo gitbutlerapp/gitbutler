@@ -2,19 +2,19 @@ import { getButtonClassName, type ButtonStyleProps } from "#ui/components/Button
 import { classes } from "#ui/components/classes.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Tooltip, TooltipPositionerProps } from "@base-ui/react";
-import { type Hotkey, type UseHotkeyOptions } from "@tanstack/react-hotkeys";
+import { type Hotkey, type HotkeyMeta } from "@tanstack/react-hotkeys";
 import { type ComponentProps, type FC } from "react";
 
 type Props = ComponentProps<"button"> &
 	ButtonStyleProps & {
 		hotkey: Hotkey;
-		hotkeyOptions?: UseHotkeyOptions;
+		hotkeyMeta?: HotkeyMeta;
 		positionerProps?: TooltipPositionerProps;
 	};
 
 export const ShortcutButton: FC<Props> = ({
 	hotkey,
-	hotkeyOptions,
+	hotkeyMeta,
 	positionerProps,
 	variant,
 	size,
@@ -23,7 +23,7 @@ export const ShortcutButton: FC<Props> = ({
 	type = "button",
 	...props
 }) => (
-	<Tooltip.Root disabled={props.disabled || hotkeyOptions?.enabled === false}>
+	<Tooltip.Root disabled={props.disabled}>
 		<Tooltip.Trigger
 			className={classes(getButtonClassName({ variant, size, iconOnly }), className)}
 			// This is needed to ensure the `disabled` attribute is used.
@@ -37,7 +37,7 @@ export const ShortcutButton: FC<Props> = ({
 		/>
 		<Tooltip.Portal>
 			<Tooltip.Positioner sideOffset={4} {...positionerProps}>
-				<Tooltip.Popup render={<TooltipPopup content={hotkeyOptions?.meta?.name} kbd={hotkey} />} />
+				<Tooltip.Popup render={<TooltipPopup content={hotkeyMeta?.name} kbd={hotkey} />} />
 			</Tooltip.Positioner>
 		</Tooltip.Portal>
 	</Tooltip.Root>

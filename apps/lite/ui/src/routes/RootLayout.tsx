@@ -62,7 +62,7 @@ const ProjectSelect: FC = () => {
 				variant="ghost"
 				hotkey={globalHotkeys.selectProject.hotkey}
 				className={styles.addProjectButton}
-				hotkeyOptions={{ meta: globalHotkeys.selectProject.meta }}
+				hotkeyMeta={globalHotkeys.selectProject.meta}
 				onClick={openProjectPicker}
 				positionerProps={{ side: "right" }}
 				iconOnly

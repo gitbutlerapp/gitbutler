@@ -571,7 +571,7 @@ export const OutlinePanel: FC<PanelProps> = ({ ...panelProps }) => {
 
 							<ShortcutButton
 								hotkey={workspaceHotkeys.applyBranch.hotkey}
-								hotkeyOptions={{ meta: workspaceHotkeys.applyBranch.meta }}
+								hotkeyMeta={workspaceHotkeys.applyBranch.meta}
 								onClick={openApplyBranchPicker}
 							>
 								Apply branch
@@ -1636,7 +1636,7 @@ const Changes: FC<{
 							render={
 								<ShortcutButton
 									hotkey={changesHotkeys.selectCommitBranch.hotkey}
-									hotkeyOptions={{ meta: changesHotkeys.selectCommitBranch.meta }}
+									hotkeyMeta={changesHotkeys.selectCommitBranch.meta}
 								/>
 							}
 						>
@@ -1658,9 +1658,9 @@ const Changes: FC<{
 							hotkey={
 								isAmendMode ? changesHotkeys.amendCommit.hotkey : changesHotkeys.commit.hotkey
 							}
-							hotkeyOptions={{
-								meta: isAmendMode ? changesHotkeys.amendCommit.meta : changesHotkeys.commit.meta,
-							}}
+							hotkeyMeta={
+								isAmendMode ? changesHotkeys.amendCommit.meta : changesHotkeys.commit.meta
+							}
 						>
 							{isAmendMode ? "Amend" : "Commit"}
 						</ShortcutButton>

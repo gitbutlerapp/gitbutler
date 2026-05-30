@@ -387,7 +387,7 @@ const FilesToggle: FC = () => {
 	return (
 		<ShortcutButton
 			hotkey={workspaceHotkeys.toggleFilesPanel.hotkey}
-			hotkeyOptions={{ meta: workspaceHotkeys.toggleFilesPanel.meta }}
+			hotkeyMeta={workspaceHotkeys.toggleFilesPanel.meta}
 			aria-pressed={panelsState.filesVisible}
 			onClick={() => dispatch(projectActions.toggleFilesPanel({ projectId }))}
 		>

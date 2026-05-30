@@ -83,7 +83,7 @@ const AbsorbControls: FC<{
 		<>
 			<ShortcutButton
 				hotkey={operationHotkeys.confirm.hotkey}
-				hotkeyOptions={{ meta: operationHotkeys.confirm.meta }}
+				hotkeyMeta={operationHotkeys.confirm.meta}
 				onClick={confirm}
 				disabled={!canAbsorb}
 			>
@@ -91,7 +91,7 @@ const AbsorbControls: FC<{
 			</ShortcutButton>
 			<ShortcutButton
 				hotkey={operationHotkeys.cancel.hotkey}
-				hotkeyOptions={{ meta: operationHotkeys.cancel.meta }}
+				hotkeyMeta={operationHotkeys.cancel.meta}
 				onClick={cancel}
 			>
 				Cancel
@@ -198,7 +198,7 @@ const TransferOperationControls: FC<{
 					render={
 						<ShortcutButton
 							hotkey={operationHotkeys.selectMoveAbove.hotkey}
-							hotkeyOptions={{ meta: operationHotkeys.selectMoveAbove.meta }}
+							hotkeyMeta={operationHotkeys.selectMoveAbove.meta}
 						/>
 					}
 				>
@@ -210,7 +210,7 @@ const TransferOperationControls: FC<{
 					render={
 						<ShortcutButton
 							hotkey={operationHotkeys.selectRub.hotkey}
-							hotkeyOptions={{ meta: operationHotkeys.selectRub.meta }}
+							hotkeyMeta={operationHotkeys.selectRub.meta}
 						/>
 					}
 				>
@@ -222,7 +222,7 @@ const TransferOperationControls: FC<{
 					render={
 						<ShortcutButton
 							hotkey={operationHotkeys.selectMoveBelow.hotkey}
-							hotkeyOptions={{ meta: operationHotkeys.selectMoveBelow.meta }}
+							hotkeyMeta={operationHotkeys.selectMoveBelow.meta}
 						/>
 					}
 				>
@@ -231,7 +231,7 @@ const TransferOperationControls: FC<{
 			</ToggleGroup>
 			<ShortcutButton
 				hotkey={operationHotkeys.confirm.hotkey}
-				hotkeyOptions={{ meta: operationHotkeys.confirm.meta }}
+				hotkeyMeta={operationHotkeys.confirm.meta}
 				onClick={run}
 				disabled={!operation}
 			>
@@ -239,7 +239,7 @@ const TransferOperationControls: FC<{
 			</ShortcutButton>
 			<ShortcutButton
 				hotkey={operationHotkeys.cancel.hotkey}
-				hotkeyOptions={{ meta: operationHotkeys.cancel.meta }}
+				hotkeyMeta={operationHotkeys.cancel.meta}
 				onClick={cancel}
 			>
 				Cancel
