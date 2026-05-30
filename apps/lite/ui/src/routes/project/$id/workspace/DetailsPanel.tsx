@@ -575,6 +575,8 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 	const [commitView, setCommitView] = useState<CommitView>("diff");
 	const showDiff = selection._tag !== "Commit" || commitView === "diff";
 
+	if (selection._tag === "Stack") return;
+
 	return (
 		<div {...panelProps} className={classes(panelProps.className, styles.panel)}>
 			<div className={styles.headerWrap}>
