@@ -622,7 +622,7 @@ export const DetailsPanel: FC<PanelProps> = (panelProps) => {
 								defaultSize={400}
 								groupResizeBehavior="preserve-pixel-size"
 								tabIndex={0}
-								className={classes(styles.filesPanel)}
+								className={styles.filesPanel}
 							/>
 							<Separator className={styles.panelResizeHandle} />
 						</>
