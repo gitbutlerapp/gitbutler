@@ -22,29 +22,23 @@ export const ShortcutButton: FC<Props> = ({
 	className,
 	type = "button",
 	...props
-}) => {
-	const hotkeyEnabled = !props.disabled && hotkeyOptions?.enabled !== false;
-
-	return (
-		<Tooltip.Root disabled={!hotkeyEnabled}>
-			<Tooltip.Trigger
-				className={classes(getButtonClassName({ variant, size, iconOnly }), className)}
-				// This is needed to ensure the `disabled` attribute is used.
-				render={
-					<button
-						{...props}
-						// oxlint-disable-next-line react/button-has-type -- False positive.
-						type={type}
-					/>
-				}
-			/>
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={4} {...positionerProps}>
-					<Tooltip.Popup
-						render={<TooltipPopup content={hotkeyOptions?.meta?.name} kbd={hotkey} />}
-					/>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
-	);
-};
+}) => (
+	<Tooltip.Root disabled={props.disabled || hotkeyOptions?.enabled === false}>
+		<Tooltip.Trigger
+			className={classes(getButtonClassName({ variant, size, iconOnly }), className)}
+			// This is needed to ensure the `disabled` attribute is used.
+			render={
+				<button
+					{...props}
+					// oxlint-disable-next-line react/button-has-type -- False positive.
+					type={type}
+				/>
+			}
+		/>
+		<Tooltip.Portal>
+			<Tooltip.Positioner sideOffset={4} {...positionerProps}>
+				<Tooltip.Popup render={<TooltipPopup content={hotkeyOptions?.meta?.name} kbd={hotkey} />} />
+			</Tooltip.Positioner>
+		</Tooltip.Portal>
+	</Tooltip.Root>
+);
