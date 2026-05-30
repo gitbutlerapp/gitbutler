@@ -28,13 +28,13 @@ export const ShortcutButton: FC<Props> = ({
 	return (
 		<Tooltip.Root disabled={!hotkeyEnabled}>
 			<Tooltip.Trigger
+				className={classes(getButtonClassName({ variant, size, iconOnly }), className)}
 				// This is needed to ensure the `disabled` attribute is used.
 				render={
 					<button
 						{...props}
 						// oxlint-disable-next-line react/button-has-type -- False positive.
 						type={type}
-						className={classes(getButtonClassName({ variant, size, iconOnly }), className)}
 					/>
 				}
 			/>
