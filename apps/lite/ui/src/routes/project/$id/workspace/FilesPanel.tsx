@@ -440,16 +440,12 @@ const useCopyPathMenuItem = (relativePath: string): NativeMenuItem => {
 	});
 };
 
-const useUncommitMenuItem = (
-	commitId: string,
-	change: TreeChange,
-	projectId: string,
-): NativeMenuItem => {
+const useCommitUncommitChanges = () => {
 	const dispatch = useAppDispatch();
 
 	const toastManager = Toast.useToastManager();
 
-	const commitUncommitChanges = useMutation({
+	return useMutation({
 		mutationFn: window.lite.commitUncommitChanges,
 		onSuccess: async (response, input, _context, mutation) => {
 			mutation.client.setQueryData(
@@ -475,19 +471,6 @@ const useUncommitMenuItem = (
 				priority: "high",
 			});
 		},
-	});
-
-	return nativeMenuItem({
-		label: "Uncommit",
-		enabled: !commitUncommitChanges.isPending,
-		onSelect: () =>
-			commitUncommitChanges.mutate({
-				projectId,
-				commitId,
-				assignTo: null,
-				changes: [createDiffSpec(change, [])],
-				dryRun: false,
-			}),
 	});
 };
 
@@ -564,11 +547,22 @@ const CommitFileRow: FC<{
 }> = ({ commitId, change, operand, projectId }) => {
 	const [label, strLabel] = changeLabel(change);
 	const copyPathMenuItem = useCopyPathMenuItem(change.path);
-	const uncommitMenuItem = useUncommitMenuItem(commitId, change, projectId);
+	const commitUncommitChanges = useCommitUncommitChanges();
 	const menuItems: Array<NativeMenuItem> = [
 		copyPathMenuItem,
 		nativeMenuSeparator,
-		uncommitMenuItem,
+		nativeMenuItem({
+			label: "Uncommit",
+			enabled: !commitUncommitChanges.isPending,
+			onSelect: () =>
+				commitUncommitChanges.mutate({
+					projectId,
+					commitId,
+					assignTo: null,
+					changes: [createDiffSpec(change, [])],
+					dryRun: false,
+				}),
+		}),
 	];
 
 	return (
