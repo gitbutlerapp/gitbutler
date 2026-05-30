@@ -12,8 +12,7 @@ const iconNames = Object.keys(
 	.map((path) => path.replace(/^.*\/(.+)\.svg$/, "$1"))
 	.sort((a, b) => a.localeCompare(b)) as Array<IconName>;
 
-const meta = preview.meta({
-	component: Icon,
+const meta = preview.type<{ args: { size: number } }>().meta({
 	argTypes: {
 		size: {
 			control: { type: "range", min: 8, max: 128, step: 4 },
@@ -28,11 +27,7 @@ export const AllIcons = meta.story({
 			url: "https://www.figma.com/design/cqdnAotT8n9op8WGYLOHg4/%E2%9A%9B%EF%B8%8F-Lite-Core?node-id=231-330&t=ZB1Gk29sFC15sDSb-1",
 		},
 	},
-	args: {
-		name: "commit",
-		size: 16,
-	} as never,
-	render: ((args: { size: number }) => (
+	render: (args) => (
 		<div
 			style={{
 				display: "grid",
@@ -56,5 +51,5 @@ export const AllIcons = meta.story({
 				</div>
 			))}
 		</div>
-	)) as never,
+	),
 });
