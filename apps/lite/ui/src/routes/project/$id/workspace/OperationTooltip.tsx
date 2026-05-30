@@ -8,7 +8,6 @@ import {
 } from "#ui/operations/operation.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { classes } from "#ui/components/classes.ts";
 import { Toast, Tooltip, useRender } from "@base-ui/react";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
@@ -180,72 +179,68 @@ const TransferTypeToggleGroup: FC<{
 			className={styles.operationTypeToggleGroup}
 			orientation="vertical"
 		>
-			<Toggle
-				value={"moveAbove" satisfies OperationType}
-				render={(props) => (
-					<Tooltip.Root>
-						<Tooltip.Trigger {...props} render={<ToggleStyles />} />
-						<Tooltip.Portal>
-							<Tooltip.Positioner sideOffset={4}>
-								<Tooltip.Popup
-									render={
-										<TooltipPopup
-											content={operationHotkeys.selectMoveAbove.meta.name}
-											kbd={operationHotkeys.selectMoveAbove.hotkey}
-										/>
-									}
+			<Tooltip.Root>
+				<Toggle
+					value={"moveAbove" satisfies OperationType}
+					render={<Tooltip.Trigger render={<ToggleStyles />} />}
+				>
+					{operations.moveAbove ? operationLabel(operations.moveAbove) : "Move above"}
+				</Toggle>
+				<Tooltip.Portal>
+					<Tooltip.Positioner sideOffset={4}>
+						<Tooltip.Popup
+							render={
+								<TooltipPopup
+									content={operationHotkeys.selectMoveAbove.meta.name}
+									kbd={operationHotkeys.selectMoveAbove.hotkey}
 								/>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
-				)}
-			>
-				{operations.moveAbove ? operationLabel(operations.moveAbove) : "Move above"}
-			</Toggle>
-			<Toggle
-				value={"rub" satisfies OperationType}
-				render={(props) => (
-					<Tooltip.Root>
-						<Tooltip.Trigger {...props} render={<ToggleStyles />} />
-						<Tooltip.Portal>
-							<Tooltip.Positioner sideOffset={4}>
-								<Tooltip.Popup
-									render={
-										<TooltipPopup
-											content={operationHotkeys.selectRub.meta.name}
-											kbd={operationHotkeys.selectRub.hotkey}
-										/>
-									}
+							}
+						/>
+					</Tooltip.Positioner>
+				</Tooltip.Portal>
+			</Tooltip.Root>
+
+			<Tooltip.Root>
+				<Toggle
+					value={"rub" satisfies OperationType}
+					render={<Tooltip.Trigger render={<ToggleStyles />} />}
+				>
+					{operations.rub ? operationLabel(operations.rub) : "Rub"}
+				</Toggle>
+				<Tooltip.Portal>
+					<Tooltip.Positioner sideOffset={4}>
+						<Tooltip.Popup
+							render={
+								<TooltipPopup
+									content={operationHotkeys.selectRub.meta.name}
+									kbd={operationHotkeys.selectRub.hotkey}
 								/>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
-				)}
-			>
-				{operations.rub ? operationLabel(operations.rub) : "Rub"}
-			</Toggle>
-			<Toggle
-				value={"moveBelow" satisfies OperationType}
-				render={(props) => (
-					<Tooltip.Root>
-						<Tooltip.Trigger {...props} render={<ToggleStyles />} />
-						<Tooltip.Portal>
-							<Tooltip.Positioner sideOffset={4}>
-								<Tooltip.Popup
-									render={
-										<TooltipPopup
-											content={operationHotkeys.selectMoveBelow.meta.name}
-											kbd={operationHotkeys.selectMoveBelow.hotkey}
-										/>
-									}
+							}
+						/>
+					</Tooltip.Positioner>
+				</Tooltip.Portal>
+			</Tooltip.Root>
+
+			<Tooltip.Root>
+				<Toggle
+					value={"moveBelow" satisfies OperationType}
+					render={<Tooltip.Trigger render={<ToggleStyles />} />}
+				>
+					{operations.moveBelow ? operationLabel(operations.moveBelow) : "Move below"}
+				</Toggle>
+				<Tooltip.Portal>
+					<Tooltip.Positioner sideOffset={4}>
+						<Tooltip.Popup
+							render={
+								<TooltipPopup
+									content={operationHotkeys.selectMoveBelow.meta.name}
+									kbd={operationHotkeys.selectMoveBelow.hotkey}
 								/>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
-				)}
-			>
-				{operations.moveBelow ? operationLabel(operations.moveBelow) : "Move below"}
-			</Toggle>
+							}
+						/>
+					</Tooltip.Positioner>
+				</Tooltip.Portal>
+			</Tooltip.Root>
 		</ToggleGroup>
 	);
 };
