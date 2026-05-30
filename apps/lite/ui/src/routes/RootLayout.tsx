@@ -127,8 +127,8 @@ const isMac = window.lite.platform === "darwin";
 
 export const RootLayout: FC = () => (
 	<HotkeysProvider>
+		<div className={styles.dragRegion} />
 		<div className={styles.layout}>
-			<div className={styles.dragRegion} />
 			<nav className={styles.sidebar}>
 				{isMac && <div className={styles.sidebarMacSpacer} />}
 				<div
