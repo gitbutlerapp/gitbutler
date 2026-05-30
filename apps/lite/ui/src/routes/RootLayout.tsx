@@ -53,24 +53,19 @@ const ProjectSelect: FC = () => {
 				return (
 					<Tooltip.Root key={project.id}>
 						<Tooltip.Trigger
-							render={
-								<button
-									type="button"
-									aria-label={`Select project ${project.title}`}
-									className={classes(styles.project, isSelected && styles.selected)}
-									onClick={() => selectProject(project)}
-									style={{ "--hue": hue }}
-									disabled={isSelected}
-								>
-									<div className={styles.folderFront}>
-										<span className={classes("text-bold", styles.folderFrontText)}>
-											{" "}
-											{project.title.slice(0, 2)}
-										</span>
-									</div>
-								</button>
-							}
-						/>
+							aria-label={`Select project ${project.title}`}
+							className={classes(styles.project, isSelected && styles.selected)}
+							onClick={() => selectProject(project)}
+							style={{ "--hue": hue }}
+							disabled={isSelected}
+						>
+							<div className={styles.folderFront}>
+								<span className={classes("text-bold", styles.folderFrontText)}>
+									{" "}
+									{project.title.slice(0, 2)}
+								</span>
+							</div>
+						</Tooltip.Trigger>
 						<Tooltip.Portal>
 							<Tooltip.Positioner sideOffset={4} side="right">
 								<Tooltip.Popup render={<TooltipPopup content={project.title} />} />

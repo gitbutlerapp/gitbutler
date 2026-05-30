@@ -29,13 +29,7 @@ export const Playground = meta.story({
 	},
 	render: (args) => (
 		<Tooltip.Root>
-			<Tooltip.Trigger
-				render={
-					<button type="button" className={getButtonClassName({})}>
-						Hover me
-					</button>
-				}
-			/>
+			<Tooltip.Trigger className={getButtonClassName({})}>Hover me</Tooltip.Trigger>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4} side="top">
 					<Tooltip.Popup render={<TooltipPopup {...args} />} />
