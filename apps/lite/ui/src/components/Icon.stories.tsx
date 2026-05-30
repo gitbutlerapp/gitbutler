@@ -41,7 +41,7 @@ export const AllIcons = meta.story({
 				gap: 16,
 			}}
 		>
-			{iconNames.map((name: IconName) => (
+			{iconNames.map((name) => (
 				<div
 					key={name}
 					style={{
