@@ -610,7 +610,7 @@ export const DetailsPanel: FC<PanelProps> = (panelProps) => {
 
 			{showDiff && (
 				<Group
-					className={styles.panes}
+					className={styles.panels}
 					defaultLayout={defaultLayout}
 					onLayoutChange={onLayoutChanged}
 				>
