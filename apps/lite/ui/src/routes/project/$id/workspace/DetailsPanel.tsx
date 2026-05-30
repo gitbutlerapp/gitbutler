@@ -233,7 +233,7 @@ const Header: FC<{
 						})}
 					>
 						{({ data: branchDetails }) => (
-							<header>
+							<header className={styles.header}>
 								<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
 								{branchDetails.prNumber != null && (
 									<h4 className={classes("text-13", "text-bold", styles.pr)}>
@@ -246,7 +246,7 @@ const Header: FC<{
 				);
 			},
 			ChangesSection: () => (
-				<header>
+				<header className={styles.header}>
 					<h3 className={classes("text-14", "text-semibold")}>Changes</h3>
 				</header>
 			),
@@ -270,7 +270,7 @@ const Header: FC<{
 					<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
 						{({ data: commitDetails }) => (
 							<OperationSourceC projectId={projectId} selectionScope="outline" source={source}>
-								<header>
+								<header className={styles.header}>
 									<Icon name="commit" />
 									<h3 className={classes("text-14", "text-semibold")}>
 										{commitTitle(commitDetails.commit.message)}

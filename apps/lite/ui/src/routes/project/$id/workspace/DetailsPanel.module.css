@@ -15,12 +15,12 @@
 	display: flex;
 	row-gap: 12px;
 	flex-direction: column;
+}
 
-	& header {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
+.header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }
 
 .panels {
