@@ -632,8 +632,8 @@ const treeItemId = (operand: Operand): string =>
 const ItemRowMenuButton: FC<{
 	ariaLabel: string;
 	menuItems: Array<NativeMenuItem>;
-	isSelected?: boolean;
-}> = ({ ariaLabel, menuItems, isSelected = false }) => (
+	isSelected: boolean;
+}> = ({ ariaLabel, menuItems, isSelected }) => (
 	<Toolbar.Button
 		aria-label={ariaLabel}
 		className={getButtonClassName({
@@ -2043,6 +2043,7 @@ const StackRow: FC<
 	} & ComponentProps<"div">
 > = ({ projectId, stackId, ...restProps }) => {
 	const operand = stackOperand({ stackId });
+	const isSelected = useIsSelected({ projectId, operand });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const toastManager = Toast.useToastManager();
@@ -2093,7 +2094,7 @@ const StackRow: FC<
 
 			{outlineMode._tag === "Default" && (
 				<WorkspaceItemRowToolbar aria-label="Stack actions">
-					<ItemRowMenuButton ariaLabel="Stack menu" menuItems={menuItems} />
+					<ItemRowMenuButton isSelected={isSelected} ariaLabel="Stack menu" menuItems={menuItems} />
 				</WorkspaceItemRowToolbar>
 			)}
 		</ItemRow>
