@@ -24,7 +24,7 @@ export const Icon: FC<Props> = ({ name, size }) => (
 	<i
 		className={classes(styles.icon, name === "spinner" && styles.spinning)}
 		data-icon
-		aria-hidden="true"
+		aria-hidden
 		style={size !== undefined ? { "--icon-size": `${size}px` } : undefined}
 		// oxlint-disable-next-line react/no-danger
 		dangerouslySetInnerHTML={{ __html: icons[name] ?? "" }}
