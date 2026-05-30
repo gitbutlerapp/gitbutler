@@ -32,13 +32,12 @@ export const AllIcons = meta.story({
 					style={{
 						display: "flex",
 						flexDirection: "column",
-						lineHeight: 1.3,
 						gap: 12,
 						padding: 16,
 					}}
 				>
 					<Icon name={name} size={args.size} />
-					<span style={{ fontSize: 11, opacity: 0.5 }}>{name}</span>
+					<span style={{ fontSize: 11, lineHeight: 1.3, opacity: 0.5 }}>{name}</span>
 				</div>
 			))}
 		</div>
