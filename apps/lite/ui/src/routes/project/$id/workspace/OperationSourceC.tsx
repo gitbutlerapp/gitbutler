@@ -102,6 +102,7 @@ export const OperationSourceC: FC<
 	}, [dispatch, projectId, selectionScope, source]);
 
 	const isActiveSource = Match.value(outlineMode).pipe(
+		Match.tag("Absorb", (x) => operandEquals(x.source, source)),
 		Match.tag("Transfer", ({ value: mode }) => operandEquals(mode.source, source)),
 		Match.orElse(() => false),
 	);
