@@ -6,7 +6,7 @@ import { Tooltip } from "#ui/components/Tooltip.tsx";
 import { useRender } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { Array, pipe } from "effect";
-import { FC, useState } from "react";
+import { FC } from "react";
 
 export const DependencyIndicatorButton: FC<
 	{
@@ -14,8 +14,6 @@ export const DependencyIndicatorButton: FC<
 		commitIds: Array.NonEmptyArray<string>;
 	} & useRender.ComponentProps<"button">
 > = ({ projectId, commitIds, ...restProps }) => {
-	// We use a controlled tooltip as a workaround for https://github.com/mui/base-ui/issues/4499.
-	const [isTooltipOpen, setIsTooltipOpen] = useState(false);
 	const dispatch = useAppDispatch();
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	// TODO: expensive
@@ -30,7 +28,6 @@ export const DependencyIndicatorButton: FC<
 	const tooltip =
 		branchNames.length > 0 ? `Depends on ${branchNames.join(", ")}` : "Unknown dependencies";
 	const highlightCommitIds = () => {
-		setIsTooltipOpen(true);
 		dispatch(
 			projectActions.setHighlightedCommitIds({
 				projectId,
@@ -39,13 +36,11 @@ export const DependencyIndicatorButton: FC<
 		);
 	};
 	const clearHighlightedCommitIds = () => {
-		setIsTooltipOpen(false);
 		dispatch(projectActions.setHighlightedCommitIds({ projectId, commitIds: null }));
 	};
 
 	return (
 		<Tooltip
-			open={isTooltipOpen}
 			// [ref:tooltip-disable-hoverable-popup]
 			disableHoverablePopup
 			trigger={
