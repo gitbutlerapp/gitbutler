@@ -212,7 +212,6 @@
 
 .commitDropdownButton {
 	display: flex;
-	flex-shrink: 0;
 
 	& > :first-child {
 		border-right: 0;
