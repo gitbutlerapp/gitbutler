@@ -597,11 +597,9 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 			</div>
 
 			{selection._tag === "Commit" && commitView === "details" && (
-				<div className={styles.commitDetailsWrapper}>
-					<Suspense>
-						<CommitDetailsContent projectId={projectId} commitId={selection.commitId} />
-					</Suspense>
-				</div>
+				<Suspense>
+					<CommitDetailsContent projectId={projectId} commitId={selection.commitId} />
+				</Suspense>
 			)}
 
 			{showDiff && (
@@ -620,10 +618,7 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 						data-panel
 						// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 						tabIndex={0}
-						className={classes(
-							styles.detailsContentPanel,
-							panelsState.filesVisible && styles.alongsideFiles,
-						)}
+						className={styles.detailsContentPanel}
 						style={{ opacity: detailsOpacity }}
 					>
 						<Virtualizer className={styles.detailsVirtualizer}>

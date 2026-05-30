@@ -5,12 +5,11 @@
 .panel {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
+
+	padding: var(--panel-padding);
 }
 
 .headerWrap {
-	padding-inline: var(--panel-padding);
-	padding-block-start: calc(var(--panel-padding) + 4px);
-
 	& header {
 		display: flex;
 		align-items: center;
@@ -19,11 +18,10 @@
 }
 
 .panels {
-	--resize-spacing: 6px;
-
 	display: grid;
 	grid-template-rows: minmax(0, 1fr);
 	grid-template-columns: 1fr;
+	column-gap: 12px;
 }
 
 .panelsWithFiles {
@@ -31,17 +29,11 @@
 }
 
 .filesPanel {
-	padding-inline: var(--panel-padding) var(--resize-spacing);
 	overflow: auto;
 }
 
 .detailsContentPanel {
 	display: grid;
-	padding-inline: var(--panel-padding);
-
-	&.alongsideFiles {
-		padding-inline-start: var(--resize-spacing);
-	}
 }
 
 .headerActions {
@@ -143,11 +135,6 @@
 
 .emptyFileHunks {
 	margin: 8px;
-}
-
-.commitDetailsWrapper {
-	padding: 0 var(--panel-padding) var(--panel-padding);
-	overflow: auto;
 }
 
 .commitDetailsContent {
