@@ -629,26 +629,6 @@ const useIsSelected = ({ projectId, operand }: { projectId: string; operand: Ope
 const treeItemId = (operand: Operand): string =>
 	`outline-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
 
-const ItemRowMenuButton: FC<{
-	ariaLabel: string;
-	menuItems: Array<NativeMenuItem>;
-	isSelected: boolean;
-}> = ({ ariaLabel, menuItems, isSelected }) => (
-	<Toolbar.Button
-		aria-label={ariaLabel}
-		className={getButtonClassName({
-			variant: isSelected ? "inverted" : "ghost",
-			size: "small",
-			iconOnly: true,
-		})}
-		onClick={(event) => {
-			void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-		}}
-	>
-		<Icon name="kebab" />
-	</Toolbar.Button>
-);
-
 const CommitTargetIndicator: FC = () => (
 	<Tooltip.Root
 		// [ref:tooltip-disable-hoverable-popup]
@@ -1169,11 +1149,19 @@ const CommitRow: FC<
 					</div>
 					{outlineMode._tag === "Default" && (
 						<WorkspaceItemRowToolbar aria-label="Commit actions">
-							<ItemRowMenuButton
-								ariaLabel="Commit menu"
-								menuItems={menuItems}
-								isSelected={isSelected}
-							/>
+							<Toolbar.Button
+								aria-label="Commit menu"
+								className={getButtonClassName({
+									variant: isSelected ? "inverted" : "ghost",
+									size: "small",
+									iconOnly: true,
+								})}
+								onClick={(event) => {
+									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+								}}
+							>
+								<Icon name="kebab" />
+							</Toolbar.Button>
 						</WorkspaceItemRowToolbar>
 					)}
 					{isCommitTarget && <CommitTargetIndicator />}
@@ -1252,11 +1240,19 @@ const ChangesSectionRow: FC<{
 			</div>
 			{outlineMode._tag === "Default" && (
 				<WorkspaceItemRowToolbar aria-label="Changes actions">
-					<ItemRowMenuButton
-						ariaLabel="Changes menu"
-						menuItems={menuItems}
-						isSelected={isSelected}
-					/>
+					<Toolbar.Button
+						aria-label="Changes menu"
+						className={getButtonClassName({
+							variant: isSelected ? "inverted" : "ghost",
+							size: "small",
+							iconOnly: true,
+						})}
+						onClick={(event) => {
+							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+						}}
+					>
+						<Icon name="kebab" />
+					</Toolbar.Button>
 				</WorkspaceItemRowToolbar>
 			)}
 		</ItemRow>
@@ -2011,11 +2007,19 @@ const BranchRow: FC<
 							>
 								<Icon name="arrow-line-up" />
 							</Toolbar.Button>
-							<ItemRowMenuButton
-								ariaLabel="Branch menu"
-								menuItems={menuItems}
-								isSelected={isSelected}
-							/>
+							<Toolbar.Button
+								aria-label="Branch menu"
+								className={getButtonClassName({
+									variant: isSelected ? "inverted" : "ghost",
+									size: "small",
+									iconOnly: true,
+								})}
+								onClick={(event) => {
+									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+								}}
+							>
+								<Icon name="kebab" />
+							</Toolbar.Button>
 						</WorkspaceItemRowToolbar>
 					)}
 					{isCommitTarget && <CommitTargetIndicator />}
@@ -2081,7 +2085,19 @@ const StackRow: FC<
 
 			{outlineMode._tag === "Default" && (
 				<WorkspaceItemRowToolbar aria-label="Stack actions">
-					<ItemRowMenuButton isSelected={isSelected} ariaLabel="Stack menu" menuItems={menuItems} />
+					<Toolbar.Button
+						aria-label="Stack menu"
+						className={getButtonClassName({
+							variant: isSelected ? "inverted" : "ghost",
+							size: "small",
+							iconOnly: true,
+						})}
+						onClick={(event) => {
+							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+						}}
+					>
+						<Icon name="kebab" />
+					</Toolbar.Button>
 				</WorkspaceItemRowToolbar>
 			)}
 		</ItemRow>
