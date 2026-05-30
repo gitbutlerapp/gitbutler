@@ -58,7 +58,8 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
 		<button
 			{...props}
 			ref={ref}
-			type={type === "submit" ? "submit" : type === "reset" ? "reset" : "button"}
+			// oxlint-disable-next-line react/button-has-type -- False positive.
+			type={type}
 			className={classes(getButtonClassName({ variant, size, iconOnly }), className)}
 		>
 			{children}
