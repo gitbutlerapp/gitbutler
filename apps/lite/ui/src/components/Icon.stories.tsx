@@ -47,7 +47,6 @@ export const AllIcons = meta.story({
 					style={{
 						display: "flex",
 						flexDirection: "column",
-						// alignItems: "center",
 						lineHeight: 1.3,
 						gap: 12,
 						padding: 16,
