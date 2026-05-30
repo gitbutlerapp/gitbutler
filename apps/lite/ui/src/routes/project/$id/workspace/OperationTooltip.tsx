@@ -86,7 +86,8 @@ const AbsorbControls: FC<{
 				<Tooltip.Trigger
 					className={getButtonClassName({})}
 					onClick={confirm}
-					// This is needed to ensure the `disabled` attribute is used.
+					// This is needed to ensure the `disabled` attribute is passed to the
+					// button element. Other props should be passed above.
 					render={<button type="button" disabled={!canAbsorb} />}
 				>
 					Absorb

@@ -2002,7 +2002,8 @@ const BranchRow: FC<
 									iconOnly: true,
 								})}
 								aria-label="Push branch"
-								// This is needed to ensure the `disabled` attribute is used.
+								// This is needed to ensure the `disabled` attribute is passed
+								// to the button element. Other props should be passed above.
 								render={<button type="button" disabled />}
 							>
 								<Icon name="arrow-line-up" />
