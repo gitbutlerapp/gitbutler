@@ -298,12 +298,13 @@ const TransferOperationControls: FC<{
 			<Tooltip.Root disabled={!operation}>
 				<Tooltip.Trigger
 					className={getButtonClassName({})}
-					render={
-						<button type="button" onClick={run} disabled={!operation}>
-							Confirm
-						</button>
-					}
-				/>
+					onClick={run}
+					// This is needed to ensure the `disabled` attribute is passed
+					// to the button element. Other props should be passed above.
+					render={<button type="button" disabled={!operation} />}
+				>
+					Confirm
+				</Tooltip.Trigger>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
 						<Tooltip.Popup

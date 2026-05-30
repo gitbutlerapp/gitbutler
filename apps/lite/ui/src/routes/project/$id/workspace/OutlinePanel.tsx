@@ -1658,12 +1658,12 @@ const Changes: FC<{
 						<Tooltip.Root disabled={!canCommitOrAmend}>
 							<Tooltip.Trigger
 								className={getButtonClassName({})}
-								render={
-									<button type="submit" disabled={!canCommitOrAmend}>
-										{isAmendMode ? "Amend" : "Commit"}
-									</button>
-								}
-							/>
+								// This is needed to ensure the `disabled` attribute is passed
+								// to the button element. Other props should be passed above.
+								render={<button type="submit" disabled={!canCommitOrAmend} />}
+							>
+								{isAmendMode ? "Amend" : "Commit"}
+							</Tooltip.Trigger>
 							<Tooltip.Portal>
 								<Tooltip.Positioner sideOffset={4}>
 									<Tooltip.Popup
