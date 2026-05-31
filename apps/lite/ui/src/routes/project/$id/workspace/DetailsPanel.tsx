@@ -336,10 +336,11 @@ const CommitDetailsContent: FC<{
 
 			return (
 				<>
-					{commitDetails.commit.message.includes("\n") && (
+					{commitDetails.commit.message.trim().includes("\n") && (
 						<p className={classes("text-monospace", "text-body", styles.commitMessageBody)}>
 							{commitDetails.commit.message
-								.slice(commitDetails.commit.message.indexOf("\n") + 1)
+								.trim()
+								.slice(commitDetails.commit.message.trim().indexOf("\n") + 1)
 								.trim()}
 						</p>
 					)}
