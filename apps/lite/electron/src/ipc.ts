@@ -8,6 +8,7 @@ import type {
 	HunkAssignmentRequest,
 	CommitDetails,
 	DiffSpec,
+	GrStack,
 	InsertSide,
 	PushResult,
 	ProjectForFrontend,
@@ -271,6 +272,7 @@ export interface LiteElectronApi {
 	peelRestoreSnapshot: (params: PeelRestoreSnapshotParams) => Promise<Snapshot | null>;
 	pushStack: (params: PushStackParams) => Promise<PushResult>;
 	removeBranch: (params: RemoveBranchParams) => Promise<void>;
+	renderWorkspace: (projectId: string) => Promise<Array<GrStack>>;
 	restoreSnapshotWithKind: (params: RestoreSnapshotWithKindParams) => Promise<void>;
 	showNativeMenu: (params: ShowNativeMenuParams) => Promise<string | null>;
 	treeChangeDiffs: (params: TreeChangeDiffParams) => Promise<UnifiedPatch | null>;
@@ -316,6 +318,7 @@ export const liteIpcChannels = {
 	peelRestoreSnapshot: "workspace:peel-restore-snapshot",
 	pushStack: "workspace:push-stack",
 	removeBranch: "workspace:remove-branch",
+	renderWorkspace: "workspace:render-workspace",
 	restoreSnapshotWithKind: "workspace:restore-snapshot-with-kind",
 	showNativeMenu: "lite:show-native-menu",
 	treeChangeDiffs: "workspace:tree-change-diffs",

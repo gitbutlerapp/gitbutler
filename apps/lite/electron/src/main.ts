@@ -57,6 +57,7 @@ import {
 	moveBranch,
 	pushStack,
 	removeBranch,
+	renderWorkspace,
 	tearOffBranch,
 	treeChangeDiffs,
 	unapplyStack,
@@ -388,6 +389,9 @@ const registerIpcHandlers = (): void => {
 		liteIpcChannels.removeBranch,
 		(_e, { projectId, stackId, branchName }: RemoveBranchParams) =>
 			removeBranch(projectId, stackId, branchName),
+	);
+	senderValidatingHandle(liteIpcChannels.renderWorkspace, (_e, projectId: string) =>
+		renderWorkspace(projectId),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.restoreSnapshotWithKind,

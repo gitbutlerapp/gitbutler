@@ -50,6 +50,15 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     .map(|info| info.pruned_to_entrypoint())
 }
 
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub fn render_workspace(
+    ctx: &mut but_ctx::Context,
+) -> Result<Vec<but_workspace::experiment::GrStack>> {
+    let (_, repo, ws, _) = ctx.workspace_mut_and_db()?;
+    but_workspace::experiment::render_workspace(&repo, &ws)
+}
+
 #[but_api]
 #[instrument(err(Debug))]
 pub fn stacks(

@@ -17,6 +17,7 @@ import type {
 	CommitMoveResult,
 	CommitRewordResult,
 	CommitSquashResult,
+	GrStack,
 	MoveBranchResult,
 	MoveChangesResult,
 	UnifiedPatch,
@@ -105,6 +106,8 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:peel-restore-snapshot", params) as Promise<Snapshot | null>,
 	pushStack: (params) => ipcRenderer.invoke("workspace:push-stack", params) as Promise<PushResult>,
 	removeBranch: (params) => ipcRenderer.invoke("workspace:remove-branch", params) as Promise<void>,
+	renderWorkspace: (projectId) =>
+		ipcRenderer.invoke("workspace:render-workspace", projectId) as Promise<Array<GrStack>>,
 	restoreSnapshotWithKind: (params) =>
 		ipcRenderer.invoke("workspace:restore-snapshot-with-kind", params) as Promise<void>,
 	showNativeMenu: (params) =>
