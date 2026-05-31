@@ -714,7 +714,10 @@ export const OutlinePanel: FC<ComponentProps<"div">> = (panelProps) => {
 							</div>
 
 							<Tooltip.Root>
-								<Tooltip.Trigger className={getButtonClassName({})} onClick={openApplyBranchPicker}>
+								<Tooltip.Trigger
+									className={classes(styles.workspaceControlsRight, getButtonClassName({}))}
+									onClick={openApplyBranchPicker}
+								>
 									Apply branch
 								</Tooltip.Trigger>
 								<Tooltip.Portal>
