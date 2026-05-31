@@ -7,7 +7,7 @@ import {
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { decodeRefName } from "#ui/api/ref-name.ts";
-import { commitTitle, shortCommitId } from "#ui/commit.ts";
+import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
 	formatHunkHeader,
 	getDependencyCommitIds,
@@ -334,14 +334,13 @@ const CommitDetailsContent: FC<{
 				hour12: false,
 			}).format(commitDetails.commit.createdAt);
 
+			const body = commitBody(commitDetails.commit.message);
+
 			return (
 				<>
-					{commitDetails.commit.message.trim().includes("\n") && (
+					{body !== undefined && (
 						<p className={classes("text-monospace", "text-body", styles.commitMessageBody)}>
-							{commitDetails.commit.message
-								.trim()
-								.slice(commitDetails.commit.message.trim().indexOf("\n") + 1)
-								.trim()}
+							{body}
 						</p>
 					)}
 					<div className={styles.commitDetailsMeta}>
