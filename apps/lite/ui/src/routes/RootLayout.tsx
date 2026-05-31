@@ -67,7 +67,7 @@ const Projects: FC = () => {
 						</Tooltip.Trigger>
 						<Tooltip.Portal>
 							<Tooltip.Positioner sideOffset={4} side="right">
-								<Tooltip.Popup render={<TooltipPopup>{project.title}</TooltipPopup>} />
+								<Tooltip.Popup render={<TooltipPopup />}>{project.title}</Tooltip.Popup>
 							</Tooltip.Positioner>
 						</Tooltip.Portal>
 					</Tooltip.Root>
@@ -87,13 +87,9 @@ const Projects: FC = () => {
 				</Tooltip.Trigger>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4} side="right">
-						<Tooltip.Popup
-							render={
-								<TooltipPopup kbd={globalHotkeys.selectProject.hotkey}>
-									{globalHotkeys.selectProject.meta.name}
-								</TooltipPopup>
-							}
-						/>
+						<Tooltip.Popup render={<TooltipPopup kbd={globalHotkeys.selectProject.hotkey} />}>
+							{globalHotkeys.selectProject.meta.name}
+						</Tooltip.Popup>
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
 			</Tooltip.Root>

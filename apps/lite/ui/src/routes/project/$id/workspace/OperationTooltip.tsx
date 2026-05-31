@@ -40,7 +40,7 @@ export const OperationTooltip: FC<
 			<Tooltip.Trigger render={trigger} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8} side="right">
-					<Tooltip.Popup render={<TooltipPopup>{tooltip}</TooltipPopup>} />
+					<Tooltip.Popup render={<TooltipPopup />}>{tooltip}</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>

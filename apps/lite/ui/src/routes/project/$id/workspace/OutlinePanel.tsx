@@ -713,12 +713,10 @@ export const OutlinePanel: FC<ComponentProps<"div">> = (panelProps) => {
 								<Tooltip.Portal>
 									<Tooltip.Positioner sideOffset={4}>
 										<Tooltip.Popup
-											render={
-												<TooltipPopup kbd={workspaceHotkeys.applyBranch.hotkey}>
-													{workspaceHotkeys.applyBranch.meta.name}
-												</TooltipPopup>
-											}
-										/>
+											render={<TooltipPopup kbd={workspaceHotkeys.applyBranch.hotkey} />}
+										>
+											{workspaceHotkeys.applyBranch.meta.name}
+										</Tooltip.Popup>
 									</Tooltip.Positioner>
 								</Tooltip.Portal>
 							</Tooltip.Root>
@@ -781,7 +779,7 @@ const CommitTargetIndicator: FC = () => (
 				// To match tooltips.
 				side="top"
 			>
-				<Popover.Popup render={<TooltipPopup>Commit target</TooltipPopup>} />
+				<Popover.Popup render={<TooltipPopup />}>Commit target</Popover.Popup>
 			</Popover.Positioner>
 		</Popover.Portal>
 	</Popover.Root>
@@ -1721,12 +1719,10 @@ const Changes: FC<{
 							<Tooltip.Portal>
 								<Tooltip.Positioner sideOffset={4}>
 									<Tooltip.Popup
-										render={
-											<TooltipPopup kbd={changesHotkeys.selectCommitBranch.hotkey}>
-												{changesHotkeys.selectCommitBranch.meta.name}
-											</TooltipPopup>
-										}
-									/>
+										render={<TooltipPopup kbd={changesHotkeys.selectCommitBranch.hotkey} />}
+									>
+										{changesHotkeys.selectCommitBranch.meta.name}
+									</Tooltip.Popup>
 								</Tooltip.Positioner>
 							</Tooltip.Portal>
 						</Tooltip.Root>
@@ -1757,13 +1753,13 @@ const Changes: FC<{
 														? changesHotkeys.amendCommit.hotkey
 														: changesHotkeys.commit.hotkey
 												}
-											>
-												{isAmendMode
-													? changesHotkeys.amendCommit.meta.name
-													: changesHotkeys.commit.meta.name}
-											</TooltipPopup>
+											/>
 										}
-									/>
+									>
+										{isAmendMode
+											? changesHotkeys.amendCommit.meta.name
+											: changesHotkeys.commit.meta.name}
+									</Tooltip.Popup>
 								</Tooltip.Positioner>
 							</Tooltip.Portal>
 						</Tooltip.Root>
