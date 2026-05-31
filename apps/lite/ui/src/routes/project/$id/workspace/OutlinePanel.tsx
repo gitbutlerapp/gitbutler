@@ -1373,7 +1373,7 @@ const selectCommitTargetComboboxItem = ({
 	null;
 
 const CommitTargetComboboxPopup: FC = () => (
-	<Combobox.Popup className={classes(uiStyles.popup, styles.commitTargetComboboxPopup)}>
+	<Combobox.Popup className={classes(uiStyles.popup, "text-13", styles.commitTargetComboboxPopup)}>
 		<Combobox.Input
 			aria-label="Search targets"
 			placeholder="Search targets…"
