@@ -775,7 +775,7 @@ const CommitTargetIndicator: FC = () => (
 			<Icon name="bullseye" />
 		</Tooltip.Trigger>
 		<Tooltip.Portal>
-			<Tooltip.Positioner sideOffset={8}>
+			<Tooltip.Positioner sideOffset={4}>
 				<Tooltip.Popup render={<TooltipPopup content="Commit target" />} />
 			</Tooltip.Positioner>
 		</Tooltip.Portal>
