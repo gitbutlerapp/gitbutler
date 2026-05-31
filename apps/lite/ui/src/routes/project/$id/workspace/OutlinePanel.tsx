@@ -33,7 +33,7 @@ import {
 	keyboardTransferOperationMode,
 	getOperationSource,
 } from "#ui/outline/mode.ts";
-import { focusPanel, useFocusedProjectPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
+import { focusPanel, getFocusedProjectPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
 import {
 	projectActions,
 	selectProjectCommitTarget,
@@ -123,6 +123,7 @@ import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { OutlineModeTooltip } from "./OutlineModeTooltip.tsx";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
+import { useActiveElement } from "#ui/focus.ts";
 
 const NavigationIndexContext = createContext<NavigationIndex | null>(null);
 
@@ -392,7 +393,8 @@ const useOutlineTreeHotkeys = ({
 }) => {
 	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-	const focusedPanel = useFocusedProjectPanel();
+	const activeElement = useActiveElement();
+	const focusedPanel = getFocusedProjectPanel(activeElement);
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
 	const dispatch = useAppDispatch();

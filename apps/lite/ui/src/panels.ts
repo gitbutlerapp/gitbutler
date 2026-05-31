@@ -1,4 +1,3 @@
-import { useActiveElement } from "#ui/focus.ts";
 import type { CommandGroup } from "#ui/hotkeys.ts";
 import { type OperationType } from "#ui/operations/operation.ts";
 import { keyboardTransferOperationMode } from "#ui/outline/mode.ts";
@@ -19,16 +18,10 @@ const allPanels: Array<Panel> = ["outline", "files", "details"];
 
 const isProjectPanel = (id: string): id is Panel => allPanels.includes(id as Panel);
 
-const getFocusedProjectPanel = (activeElement: Element | null): Panel | null => {
+export const getFocusedProjectPanel = (activeElement: Element | null): Panel | null => {
 	const panelId = activeElement?.matches("[data-panel]") ? activeElement.id : undefined;
 	if (panelId === undefined) return null;
 	return isProjectPanel(panelId) ? panelId : null;
-};
-
-export const useFocusedProjectPanel = (): Panel | null => {
-	const activeElement = useActiveElement();
-	const focusedPanel = getFocusedProjectPanel(activeElement);
-	return focusedPanel;
 };
 
 export const focusPanel = (panel: Panel) => {

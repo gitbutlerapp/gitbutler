@@ -6,8 +6,8 @@ import {
 import {
 	focusAdjacentPanel,
 	focusPanel,
+	getFocusedProjectPanel,
 	Panel as PanelType,
-	useFocusedProjectPanel,
 } from "#ui/panels.ts";
 import {
 	projectActions,
@@ -45,6 +45,7 @@ import { OutlinePanel } from "#ui/routes/project/$id/workspace/OutlinePanel.tsx"
 import { Toast } from "@base-ui/react";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { shortCommitId } from "#ui/commit.ts";
+import { useActiveElement } from "#ui/focus.ts";
 
 type CommandPaletteItem = {
 	group: CommandGroup;
@@ -355,7 +356,8 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	const dispatch = useAppDispatch();
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
 	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
-	const focusedPanel = useFocusedProjectPanel();
+	const activeElement = useActiveElement();
+	const focusedPanel = getFocusedProjectPanel(activeElement);
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const restoreSnapshotMutation = useRestoreSnapshot({ projectId });
@@ -439,7 +441,8 @@ const WorkspacePage: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
-	const focusedPanel = useFocusedProjectPanel();
+	const activeElement = useActiveElement();
+	const focusedPanel = getFocusedProjectPanel(activeElement);
 	const focusedPanelForCommandPalette =
 		dialog._tag === "CommandPalette" ? dialog.focusedPanel : focusedPanel;
 

@@ -52,7 +52,8 @@ import { decodeRefName } from "#ui/api/ref-name.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.ts";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
-import { focusPanel, useFocusedProjectPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
+import { focusPanel, getFocusedProjectPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
+import { useActiveElement } from "#ui/focus.ts";
 import {
 	buildNavigationIndex,
 	NavigationIndex,
@@ -99,7 +100,8 @@ const useFilesTreeHotkeys = ({
 }) => {
 	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-	const focusedPanel = useFocusedProjectPanel();
+	const activeElement = useActiveElement();
+	const focusedPanel = getFocusedProjectPanel(activeElement);
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
 	const dispatch = useAppDispatch();
