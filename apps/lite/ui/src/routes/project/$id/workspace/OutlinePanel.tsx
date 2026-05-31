@@ -1550,6 +1550,7 @@ const Changes: FC<{
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const isAltHeld = useKeyHold("Alt");
+	// TODO: bug: false positive when holding alt e.g. inside commit reword input
 	const isAmendMode = isAltHeld;
 	const isCommitOrAmendPending = commitCreateMutation.isPending || commitAmendMutation.isPending;
 	const canCommitOrAmendBase =
