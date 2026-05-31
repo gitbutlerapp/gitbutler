@@ -178,7 +178,7 @@ const ChangesFileDiffList: FC<{
 	const changesWithDiffs = pipe(changes, Array.zip(treeChangeDiffs));
 
 	return changesWithDiffs.length === 0 ? (
-		<p className={classes("text-13", styles.emptyChanges)}>No changes.</p>
+		<p className="text-13">No changes.</p>
 	) : (
 		<ul className={styles.fileDiffsList}>
 			{changesWithDiffs.map(([change, diff]) => {
