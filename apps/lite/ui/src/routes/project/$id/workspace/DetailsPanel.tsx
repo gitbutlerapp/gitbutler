@@ -16,9 +16,7 @@ import {
 } from "#ui/hunk.ts";
 import {
 	branchFileParent,
-	branchOperand,
 	changesFileParent,
-	changesSectionOperand,
 	commitFileParent,
 	commitOperand,
 	fileOperand,
@@ -30,6 +28,7 @@ import {
 	projectActions,
 	selectProjectPanelsState,
 	selectProjectSelectionFiles,
+	selectProjectSelectionOutline,
 } from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -250,19 +249,7 @@ const Header: FC<{
 					<h3 className={classes("text-14", "text-semibold")}>Changes</h3>
 				</header>
 			),
-			// Reuse the same headers.
-			File: ({ parent }) =>
-				Match.value(parent).pipe(
-					Match.tagsExhaustive({
-						Changes: () => <Header projectId={projectId} selection={changesSectionOperand} />,
-						Branch: ({ branchRef, stackId }) => (
-							<Header projectId={projectId} selection={branchOperand({ stackId, branchRef })} />
-						),
-						Commit: ({ commitId, stackId }) => (
-							<Header projectId={projectId} selection={commitOperand({ stackId, commitId })} />
-						),
-					}),
-				),
+			File: () => null,
 			Commit: ({ commitId, stackId }) => {
 				const source = commitOperand({ stackId, commitId });
 
@@ -484,21 +471,29 @@ const DiffContents: FC<{
 export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
+	const urgentOutlineSelection = useAppSelector((state) =>
+		selectProjectSelectionOutline(state, projectId),
+	);
+	const outlineSelection = useDeferredValue(urgentOutlineSelection);
 	const urgentFilesSelection = useAppSelector((state) =>
 		selectProjectSelectionFiles(state, projectId),
 	);
 	const filesSelection = useDeferredValue(urgentFilesSelection);
 
-	if (filesSelection._tag === "Stack") return;
+	if (outlineSelection._tag === "Stack") return;
 
 	return (
-		<div {...panelProps} className={classes(panelProps.className, styles.panel)}>
+		<div
+			{...panelProps}
+			className={classes(panelProps.className, styles.panel)}
+			style={{ opacity: urgentOutlineSelection !== outlineSelection ? 0.5 : 1 }}
+		>
 			<div className={styles.headerWrap}>
 				<Suspense fallback={<p className="text-13">Loading details…</p>}>
-					<Header projectId={projectId} selection={filesSelection} />
+					<Header projectId={projectId} selection={outlineSelection} />
 
-					{filesSelection._tag === "Commit" && (
-						<CommitDetailsContent projectId={projectId} commitId={filesSelection.commitId} />
+					{outlineSelection._tag === "Commit" && (
+						<CommitDetailsContent projectId={projectId} commitId={outlineSelection.commitId} />
 					)}
 				</Suspense>
 
