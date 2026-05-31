@@ -391,13 +391,7 @@ export const OperationTooltip: FC<
 	);
 
 	return (
-		<Tooltip.Root
-			open={!!tooltip}
-			disableHoverablePopup={isPointerTransfer}
-			onOpenChange={(_open, eventDetails) => {
-				eventDetails.allowPropagation();
-			}}
-		>
+		<Tooltip.Root open={!!tooltip} disableHoverablePopup={isPointerTransfer}>
 			<Tooltip.Trigger render={trigger} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8} side="right">
