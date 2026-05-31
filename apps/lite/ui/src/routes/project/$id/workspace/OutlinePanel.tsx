@@ -1145,7 +1145,20 @@ const CommitRow: FC<
 	];
 
 	return (
-		<ItemRow {...restProps} projectId={projectId} operand={operand} isHighlighted={isHighlighted}>
+		<ItemRow
+			{...restProps}
+			projectId={projectId}
+			operand={operand}
+			isHighlighted={isHighlighted}
+			onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
+			onContextMenu={
+				outlineMode._tag === "Default"
+					? (event) => {
+							void showNativeContextMenu(event, menuItems);
+						}
+					: undefined
+			}
+		>
 			{isRewording ? (
 				<InlineRewordCommit
 					message={optimisticMessage}
@@ -1161,17 +1174,7 @@ const CommitRow: FC<
 							data-status={commitIsDiverged(commit) ? "Diverged" : commit.state.type}
 						/>
 
-						<div
-							className={workspaceItemRowStyles.itemRowLabel}
-							onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
-							onContextMenu={
-								outlineMode._tag === "Default"
-									? (event) => {
-											void showNativeContextMenu(event, menuItems);
-										}
-									: undefined
-							}
-						>
+						<div className={workspaceItemRowStyles.itemRowLabel}>
 							{commitTitle(commitWithOptimisticMessage.message)}
 							{hasConflicts && " ⚠️"}
 						</div>
@@ -1258,16 +1261,20 @@ const ChangesSectionRow: FC<{
 	];
 
 	return (
-		<ItemRow projectId={projectId} operand={operand} forceVisibleToolbar>
+		<ItemRow
+			projectId={projectId}
+			operand={operand}
+			forceVisibleToolbar
+			onContextMenu={(event) => {
+				void showNativeContextMenu(event, menuItems);
+			}}
+		>
 			<div
 				className={classes(
 					workspaceItemRowStyles.itemRowLabel,
 					styles.changesRowLabel,
 					isSelected && styles.selected,
 				)}
-				onContextMenu={(event) => {
-					void showNativeContextMenu(event, menuItems);
-				}}
 			>
 				Changes
 				<span className={styles.changesCountBubble}>{changes.length}</span>
@@ -2095,7 +2102,19 @@ const BranchRow: FC<
 	];
 
 	return (
-		<ItemRow {...restProps} projectId={projectId} operand={operand}>
+		<ItemRow
+			{...restProps}
+			projectId={projectId}
+			operand={operand}
+			onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
+			onContextMenu={
+				outlineMode._tag === "Default"
+					? (event) => {
+							void showNativeContextMenu(event, menuItems);
+						}
+					: undefined
+			}
+		>
 			{isRenaming ? (
 				<InlineRenameBranch
 					branchName={optimisticBranchName}
@@ -2105,17 +2124,7 @@ const BranchRow: FC<
 				/>
 			) : (
 				<>
-					<div
-						className={classes(workspaceItemRowStyles.itemRowLabel, styles.branchRowLabel)}
-						onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
-						onContextMenu={
-							outlineMode._tag === "Default"
-								? (event) => {
-										void showNativeContextMenu(event, menuItems);
-									}
-								: undefined
-						}
-					>
+					<div className={classes(workspaceItemRowStyles.itemRowLabel, styles.branchRowLabel)}>
 						{optimisticBranchName}
 					</div>
 
@@ -2187,17 +2196,20 @@ const StackRow: FC<
 	];
 
 	return (
-		<ItemRow {...restProps} projectId={projectId} operand={operand} forceVisibleToolbar>
-			<div
-				className={classes(workspaceItemRowStyles.itemRowLabel, styles.stackRowLabel)}
-				onContextMenu={
-					outlineMode._tag === "Default"
-						? (event) => {
-								void showNativeContextMenu(event, menuItems);
-							}
-						: undefined
-				}
-			/>
+		<ItemRow
+			{...restProps}
+			projectId={projectId}
+			operand={operand}
+			forceVisibleToolbar
+			onContextMenu={
+				outlineMode._tag === "Default"
+					? (event) => {
+							void showNativeContextMenu(event, menuItems);
+						}
+					: undefined
+			}
+		>
+			<div className={classes(workspaceItemRowStyles.itemRowLabel, styles.stackRowLabel)} />
 
 			{outlineMode._tag === "Default" && (
 				<Toolbar.Root aria-label="Stack actions" render={<WorkspaceItemRowToolbar />}>
