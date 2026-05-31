@@ -1266,7 +1266,7 @@ const ChangesSectionRow: FC<{
 	];
 
 	return (
-		<ItemRow projectId={projectId} operand={operand}>
+		<ItemRow projectId={projectId} operand={operand} forceVisibleToolbar>
 			<div
 				className={classes(
 					workspaceItemRowStyles.itemRowLabel,
