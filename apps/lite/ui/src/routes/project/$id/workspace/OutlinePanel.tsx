@@ -52,7 +52,7 @@ import {
 	Section,
 	type NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
-import { mergeProps, Toast, Tooltip, useRender } from "@base-ui/react";
+import { mergeProps, Popover, Toast, Tooltip, useRender } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
 import { Toolbar } from "@base-ui/react/toolbar";
 import {
@@ -767,19 +767,24 @@ const treeItemId = (operand: Operand): string =>
 	`outline-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
 
 const CommitTargetIndicator: FC = () => (
-	<Tooltip.Root
-		// [ref:tooltip-disable-hoverable-popup]
-		disableHoverablePopup
-	>
-		<Tooltip.Trigger className={styles.commitTargetIndicator} aria-label="Commit target">
+	<Popover.Root>
+		<Popover.Trigger
+			className={styles.commitTargetIndicator}
+			aria-label="Commit target"
+			openOnHover
+		>
 			<Icon name="bullseye" />
-		</Tooltip.Trigger>
-		<Tooltip.Portal>
-			<Tooltip.Positioner sideOffset={4}>
-				<Tooltip.Popup render={<TooltipPopup content="Commit target" />} />
-			</Tooltip.Positioner>
-		</Tooltip.Portal>
-	</Tooltip.Root>
+		</Popover.Trigger>
+		<Popover.Portal>
+			<Popover.Positioner
+				sideOffset={4}
+				// To match tooltips.
+				side="top"
+			>
+				<Popover.Popup render={<TooltipPopup content="Commit target" />} />
+			</Popover.Positioner>
+		</Popover.Portal>
+	</Popover.Root>
 );
 
 const ItemRow: FC<
