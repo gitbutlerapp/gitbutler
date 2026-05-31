@@ -12,11 +12,15 @@
 }
 
 .headerWrap {
-	& header {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
+	display: flex;
+	row-gap: 12px;
+	flex-direction: column;
+}
+
+.header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }
 
 .panels {
@@ -36,13 +40,6 @@
 
 .detailsContentPanel {
 	display: grid;
-}
-
-.headerActions {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 10px;
 }
 
 .avatar {
@@ -136,12 +133,6 @@
 
 .emptyFileHunks {
 	margin: 8px;
-}
-
-.commitDetailsContent {
-	display: flex;
-	flex-direction: column;
-	gap: 16px;
 }
 
 .commitDetailsMeta {

@@ -52,7 +52,7 @@ import {
 	Section,
 	type NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
-import { mergeProps, Toast, Tooltip, useRender } from "@base-ui/react";
+import { mergeProps, Popover, Toast, Tooltip, useRender } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
 import { Toolbar } from "@base-ui/react/toolbar";
 import {
@@ -116,6 +116,7 @@ import {
 } from "#ui/hotkeys.ts";
 import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
+import { OutlineModeTooltip } from "./OutlineModeTooltip.tsx";
 
 const NavigationIndexContext = createContext<NavigationIndex | null>(null);
 
@@ -712,13 +713,10 @@ export const OutlinePanel: FC<ComponentProps<"div">> = (panelProps) => {
 								<Tooltip.Portal>
 									<Tooltip.Positioner sideOffset={4}>
 										<Tooltip.Popup
-											render={
-												<TooltipPopup
-													content={workspaceHotkeys.applyBranch.meta.name}
-													kbd={workspaceHotkeys.applyBranch.hotkey}
-												/>
-											}
-										/>
+											render={<TooltipPopup kbd={workspaceHotkeys.applyBranch.hotkey} />}
+										>
+											{workspaceHotkeys.applyBranch.meta.name}
+										</Tooltip.Popup>
 									</Tooltip.Positioner>
 								</Tooltip.Portal>
 							</Tooltip.Root>
@@ -767,19 +765,24 @@ const treeItemId = (operand: Operand): string =>
 	`outline-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
 
 const CommitTargetIndicator: FC = () => (
-	<Tooltip.Root
-		// [ref:tooltip-disable-hoverable-popup]
-		disableHoverablePopup
-	>
-		<Tooltip.Trigger className={styles.commitTargetIndicator} aria-label="Commit target">
+	<Popover.Root>
+		<Popover.Trigger
+			className={styles.commitTargetIndicator}
+			aria-label="Commit target"
+			openOnHover
+		>
 			<Icon name="bullseye" />
-		</Tooltip.Trigger>
-		<Tooltip.Portal>
-			<Tooltip.Positioner sideOffset={8}>
-				<Tooltip.Popup render={<TooltipPopup content="Commit target" />} />
-			</Tooltip.Positioner>
-		</Tooltip.Portal>
-	</Tooltip.Root>
+		</Popover.Trigger>
+		<Popover.Portal>
+			<Popover.Positioner
+				sideOffset={4}
+				// To match tooltips.
+				side="top"
+			>
+				<Popover.Popup render={<TooltipPopup />}>Commit target</Popover.Popup>
+			</Popover.Positioner>
+		</Popover.Portal>
+	</Popover.Root>
 );
 
 const ItemRow: FC<
@@ -796,11 +799,18 @@ const ItemRow: FC<
 	};
 
 	return (
-		<WorkspaceItemRow
-			{...props}
-			inert={!navigationIndexIncludes(navigationIndex, operand)}
-			isSelected={isSelected}
-			onSelect={selectItem}
+		<OutlineModeTooltip
+			projectId={projectId}
+			target={operand}
+			isActive={isSelected}
+			render={
+				<WorkspaceItemRow
+					{...props}
+					inert={!navigationIndexIncludes(navigationIndex, operand)}
+					isSelected={isSelected}
+					onSelect={selectItem}
+				/>
+			}
 		/>
 	);
 };
@@ -809,9 +819,8 @@ const TreeItem: FC<
 	{
 		projectId: string;
 		operand: Operand;
-		expanded?: boolean;
 	} & useRender.ComponentProps<"div">
-> = ({ projectId, operand, expanded, render, ...props }) => {
+> = ({ projectId, operand, render, ...props }) => {
 	const isSelected = useIsSelected({ projectId, operand });
 
 	return useRender({
@@ -821,7 +830,6 @@ const TreeItem: FC<
 			id: treeItemId(operand),
 			role: "treeitem",
 			"aria-selected": isSelected,
-			"aria-expanded": expanded,
 		}),
 	});
 };
@@ -1194,7 +1202,11 @@ const CommitRow: FC<
 							</Toolbar.Button>
 						</Toolbar.Root>
 					)}
-					{isCommitTarget && <CommitTargetIndicator />}
+					{isCommitTarget && (
+						<div className={styles.commitTargetIndicatorWrapper}>
+							<CommitTargetIndicator />
+						</div>
+					)}
 				</>
 			)}
 		</ItemRow>
@@ -1691,27 +1703,31 @@ const Changes: FC<{
 					>
 						<Tooltip.Root>
 							<Combobox.Trigger
-								className={classes(styles.commitTargetComboboxTrigger)}
+								className={classes(getButtonClassName({}), styles.commitTargetComboboxTrigger)}
 								aria-label="Select branch"
-								render={<Tooltip.Trigger className={getButtonClassName({})} />}
+								render={(props, state) => (
+									<Tooltip.Trigger
+										{...props}
+										// This is needed to ensure the `disabled` attribute is passed
+										// to the button element. Other props should be passed above.
+										render={<button type="button" disabled={state.disabled} />}
+									/>
+								)}
 							>
 								<Combobox.Value placeholder="Select branch" />
 							</Combobox.Trigger>
 							<Tooltip.Portal>
 								<Tooltip.Positioner sideOffset={4}>
 									<Tooltip.Popup
-										render={
-											<TooltipPopup
-												content={changesHotkeys.selectCommitBranch.meta.name}
-												kbd={changesHotkeys.selectCommitBranch.hotkey}
-											/>
-										}
-									/>
+										render={<TooltipPopup kbd={changesHotkeys.selectCommitBranch.hotkey} />}
+									>
+										{changesHotkeys.selectCommitBranch.meta.name}
+									</Tooltip.Popup>
 								</Tooltip.Positioner>
 							</Tooltip.Portal>
 						</Tooltip.Root>
 						<Combobox.Portal>
-							<Combobox.Positioner align="start" sideOffset={8}>
+							<Combobox.Positioner align="start" sideOffset={4}>
 								<CommitTargetComboboxPopup />
 							</Combobox.Positioner>
 						</Combobox.Portal>
@@ -1732,11 +1748,6 @@ const Changes: FC<{
 									<Tooltip.Popup
 										render={
 											<TooltipPopup
-												content={
-													isAmendMode
-														? changesHotkeys.amendCommit.meta.name
-														: changesHotkeys.commit.meta.name
-												}
 												kbd={
 													isAmendMode
 														? changesHotkeys.amendCommit.hotkey
@@ -1744,7 +1755,11 @@ const Changes: FC<{
 												}
 											/>
 										}
-									/>
+									>
+										{isAmendMode
+											? changesHotkeys.amendCommit.meta.name
+											: changesHotkeys.commit.meta.name}
+									</Tooltip.Popup>
 								</Tooltip.Positioner>
 							</Tooltip.Portal>
 						</Tooltip.Root>
@@ -2142,7 +2157,11 @@ const BranchRow: FC<
 							</Toolbar.Button>
 						</Toolbar.Root>
 					)}
-					{isCommitTarget && <CommitTargetIndicator />}
+					{isCommitTarget && (
+						<div className={styles.commitTargetIndicatorWrapper}>
+							<CommitTargetIndicator />
+						</div>
+					)}
 				</>
 			)}
 		</ItemRow>
@@ -2233,7 +2252,7 @@ const BranchSegment: FC<{
 			projectId={projectId}
 			operand={operand}
 			aria-label={refName.displayName}
-			expanded
+			aria-expanded
 			className={classes(workspaceItemRowStyles.section, styles.segment)}
 		>
 			<OperandC
@@ -2333,7 +2352,7 @@ const StackC: FC<{
 			projectId={projectId}
 			operand={operand}
 			aria-label="Stack"
-			expanded
+			aria-expanded
 			className={classes(styles.stack, workspaceItemRowStyles.section)}
 			render={<OperandC projectId={projectId} operand={operand} />}
 		>

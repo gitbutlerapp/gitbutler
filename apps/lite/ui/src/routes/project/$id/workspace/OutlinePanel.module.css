@@ -211,8 +211,7 @@
 }
 
 .commitDropdownButton {
-	display: inline-flex;
-	flex-shrink: 0;
+	display: flex;
 
 	& > :first-child {
 		border-right: 0;
@@ -295,11 +294,15 @@
 	overflow: hidden;
 }
 
-.commitTargetIndicator {
+.commitTargetIndicatorWrapper {
 	display: grid;
 	margin-inline-start: calc(var(--row-inline-padding) * -0.5);
 	padding-inline: var(--row-inline-padding);
 	padding-block: var(--row-block-padding);
+}
+
+.commitTargetIndicator {
+	display: grid;
 }
 
 [data-status="LocalOnly"] {

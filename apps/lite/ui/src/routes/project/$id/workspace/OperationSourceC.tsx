@@ -1,5 +1,5 @@
 import { Operand, operandEquals } from "#ui/operands.ts";
-import { pointerTransferOperationMode } from "#ui/outline/mode.ts";
+import { getOperationSource, pointerTransferOperationMode } from "#ui/outline/mode.ts";
 import styles from "./OperationSourceC.module.css";
 import { OperationSourceLabel } from "./OperationSourceLabel.tsx";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
@@ -101,11 +101,8 @@ export const OperationSourceC: FC<
 		});
 	}, [dispatch, projectId, selectionScope, source]);
 
-	const isActiveSource = Match.value(outlineMode).pipe(
-		Match.tag("Absorb", (x) => operandEquals(x.source, source)),
-		Match.tag("Transfer", ({ value: mode }) => operandEquals(mode.source, source)),
-		Match.orElse(() => false),
-	);
+	const operationSource = getOperationSource(outlineMode);
+	const isActiveSource = operationSource ? operandEquals(operationSource, source) : false;
 
 	return useRender({
 		render,

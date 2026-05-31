@@ -380,7 +380,7 @@ const FilesTreePanel: FC<{ parent: Operand; files: Array<Operand> } & ComponentP
 					projectId={projectId}
 					operand={parent}
 					aria-label="All changes"
-					expanded
+					aria-expanded
 					className={workspaceItemRowStyles.section}
 					render={<OperationSourceC projectId={projectId} selectionScope="files" source={parent} />}
 				>
@@ -519,9 +519,8 @@ const TreeItem: FC<
 	{
 		projectId: string;
 		operand: Operand;
-		expanded?: boolean;
 	} & useRender.ComponentProps<"div">
-> = ({ projectId, operand, expanded, render, ...props }) => {
+> = ({ projectId, operand, render, ...props }) => {
 	const isSelected = useIsSelected({ projectId, operand });
 
 	return useRender({
@@ -531,7 +530,6 @@ const TreeItem: FC<
 			id: treeItemId(operand),
 			role: "treeitem",
 			"aria-selected": isSelected,
-			"aria-expanded": expanded,
 		}),
 	});
 };
