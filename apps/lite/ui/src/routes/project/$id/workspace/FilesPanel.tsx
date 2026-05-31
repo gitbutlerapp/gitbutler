@@ -681,7 +681,6 @@ const ChangesFileRow: FC<{
 		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Absorb",
-			enabled: true,
 			accelerator: toElectronAccelerator(changesFileHotkeys.absorb.hotkey),
 			onSelect: absorb,
 		}),

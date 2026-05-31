@@ -1094,13 +1094,11 @@ const CommitRow: FC<
 		}),
 		nativeMenuItem({
 			label: "Amend Commit",
-			enabled: true,
 			accelerator: toElectronAccelerator(outlineHotkeys.amendCommit.hotkey),
 			onSelect: amendCommit,
 		}),
 		nativeMenuItem({
 			label: "Cut Commit",
-			enabled: true,
 			onSelect: cutCommit,
 		}),
 		nativeMenuSeparator,
@@ -1127,12 +1125,10 @@ const CommitRow: FC<
 			submenu: [
 				nativeMenuItem({
 					label: "Above",
-					enabled: true,
 					onSelect: insertBlankCommitAbove,
 				}),
 				nativeMenuItem({
 					label: "Below",
-					enabled: true,
 					onSelect: insertBlankCommitBelow,
 				}),
 			],
