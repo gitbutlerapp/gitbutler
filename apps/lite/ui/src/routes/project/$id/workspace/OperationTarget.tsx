@@ -185,7 +185,6 @@ export const OperationTarget: FC<
 	return (
 		<div className={styles.target}>
 			<OperationTooltip
-				projectId={projectId}
 				target={target}
 				isActive={isMainTargetTooltipActive}
 				outlineMode={outlineMode}
@@ -194,7 +193,6 @@ export const OperationTarget: FC<
 
 			{insertTargetOperationType !== null && (
 				<OperationTooltip
-					projectId={projectId}
 					target={target}
 					isActive
 					outlineMode={outlineMode}

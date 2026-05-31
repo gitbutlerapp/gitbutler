@@ -116,6 +116,7 @@ import {
 } from "#ui/hotkeys.ts";
 import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
+import { OutlineModeTooltip } from "./OutlineModeTooltip.tsx";
 
 const NavigationIndexContext = createContext<NavigationIndex | null>(null);
 
@@ -800,11 +801,18 @@ const ItemRow: FC<
 	};
 
 	return (
-		<WorkspaceItemRow
-			{...props}
-			inert={!navigationIndexIncludes(navigationIndex, operand)}
-			isSelected={isSelected}
-			onSelect={selectItem}
+		<OutlineModeTooltip
+			projectId={projectId}
+			target={operand}
+			isActive={isSelected}
+			render={
+				<WorkspaceItemRow
+					{...props}
+					inert={!navigationIndexIncludes(navigationIndex, operand)}
+					isSelected={isSelected}
+					onSelect={selectItem}
+				/>
+			}
 		/>
 	);
 };
