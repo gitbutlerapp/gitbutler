@@ -2,8 +2,9 @@ import type { Commit } from "@gitbutler/but-sdk";
 
 export const shortCommitId = (commitId: string): string => commitId.slice(0, 7);
 
-export const commitTitle = (message: string): string => {
-	const _title = message.trim().split("\n")[0];
+export const commitTitle = (input: string): string => {
+	const trimmed = input.trim();
+	const _title = trimmed.split("\n")[0];
 	const title = _title === "" ? undefined : _title;
 	return title ?? "(no message)";
 };
