@@ -5,17 +5,19 @@ use git_meta_lib::SessionTargetHandle;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    AcceptedRecord, StoredObservedTargets, StoredTurnSummary,
+    AcceptedRecord, PublicationStatus, StoredObservedTargets, StoredTurnSummary,
     outline_support::{ObservedTargetKeys, RecordPreview, compact_preview, push_unique},
     read_support::{
         read_transcript_entries, read_turn_detail, read_turn_summaries, transcript_records_by_hash,
         with_project_target,
     },
+    session_storage_prefix,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub(crate) struct SessionTimeline {
     pub(crate) session_key: String,
+    pub(crate) status: PublicationStatus,
     pub(crate) coverage: TimelineCoverage,
     pub(crate) turns: Vec<TimelineTurnOutline>,
 }
@@ -61,10 +63,11 @@ pub(crate) struct ToolCounts {
 pub(crate) fn get_session_timeline_outline(
     repo_path: &std::path::Path,
     session_key: &str,
+    status: PublicationStatus,
     max_turns: Option<usize>,
 ) -> Result<SessionTimeline> {
     with_project_target(repo_path, |handle| {
-        let session_prefix = format!("gitbutler:agent-session:{session_key}");
+        let session_prefix = session_storage_prefix(status, session_key);
         let turns_key = format!("{session_prefix}:turns");
         let summaries = read_turn_summaries(handle, &turns_key)?;
         let total_turns = summaries.len();
@@ -81,6 +84,7 @@ pub(crate) fn get_session_timeline_outline(
 
         Ok(SessionTimeline {
             session_key: session_key.to_owned(),
+            status,
             coverage,
             turns,
         })

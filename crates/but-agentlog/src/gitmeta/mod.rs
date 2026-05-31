@@ -13,6 +13,39 @@ const TRUNCATION_MARKER: &str = "\n[TRUNCATED]\n";
 
 // Index entries are rebuildable lookup data; readers verify hits against turn details.
 const INDEX_NAMESPACE: &str = "gitbutler:agentlog-index:v1";
+const LOCAL_KEY_PREFIX: &str = "local:";
+const SESSION_SET_KEY: &str = "gitbutler:agent-sessions";
+const SESSION_PREFIX: &str = "gitbutler:agent-session";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum PublicationStatus {
+    LocalOnly,
+    Published,
+}
+
+impl PublicationStatus {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            PublicationStatus::LocalOnly => "local_only",
+            PublicationStatus::Published => "published",
+        }
+    }
+
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            PublicationStatus::LocalOnly => "local-only",
+            PublicationStatus::Published => "published",
+        }
+    }
+
+    pub(crate) fn storage_key(self, key: &str) -> String {
+        match self {
+            PublicationStatus::LocalOnly => local_storage_key(key),
+            PublicationStatus::Published => key.to_owned(),
+        }
+    }
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 struct AcceptedRecord {
@@ -139,6 +172,7 @@ struct StoredCommitSnapshot {
 
 struct SessionListEntry {
     session_key: String,
+    status: PublicationStatus,
     updated_at: String,
     sort_updated_at: DateTime<Utc>,
 }
@@ -153,21 +187,41 @@ mod read;
 mod read_support;
 mod records_outline;
 mod session_outline;
+mod share;
 mod timeline_outline;
 mod write;
 
 pub(crate) use read::RelatedTarget;
-pub(crate) use read::find_related_sessions_limited;
+pub(crate) use read::{
+    find_related_sessions_limited, find_related_sessions_limited_by_statuses, find_session_status,
+};
 pub(crate) use records_outline::{SessionRecords, get_session_records};
 pub(crate) use session_outline::RelatedSession;
+pub(crate) use share::share_sessions;
 pub(crate) use timeline_outline::{SessionTimeline, get_session_timeline_outline};
-pub(crate) use write::{sync_metadata, write_transcript_batch};
+pub(crate) use write::{CaptureWriteOutcome, sync_metadata, write_transcript_batch};
 
 fn index_key(kind: &str, target_key: &str) -> String {
     format!(
         "{INDEX_NAMESPACE}:{kind}:{}",
         hashed_index_target_key(target_key)
     )
+}
+
+fn local_storage_key(key: &str) -> String {
+    format!("{LOCAL_KEY_PREFIX}{key}")
+}
+
+fn strip_local_storage_prefix(key: &str) -> Option<&str> {
+    key.strip_prefix(LOCAL_KEY_PREFIX)
+}
+
+fn session_storage_prefix(status: PublicationStatus, session_key: &str) -> String {
+    status.storage_key(&format!("{SESSION_PREFIX}:{session_key}"))
+}
+
+fn status_index_key(status: PublicationStatus, kind: &str, target_key: &str) -> String {
+    status.storage_key(&index_key(kind, target_key))
 }
 
 fn hashed_index_target_key(target_key: &str) -> String {

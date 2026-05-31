@@ -4,7 +4,9 @@ use anyhow::{Context as _, Result};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    agent::Agent, environment::capture_environment, gitmeta::write_transcript_batch,
+    agent::Agent,
+    environment::capture_environment,
+    gitmeta::{CaptureWriteOutcome, write_transcript_batch},
     transcript::TranscriptBatch,
 };
 
@@ -23,7 +25,8 @@ pub(crate) fn record_transcript(
     let Some(transcript) = prepare_transcript(agent, transcript_path)? else {
         return Ok((0, false));
     };
-    record_prepared_transcript(repo_path, agent, transcript)
+    let write = record_prepared_transcript(repo_path, agent, transcript)?;
+    Ok((write.records_written, write.metadata_changed))
 }
 
 pub(crate) fn prepare_transcript(
@@ -60,16 +63,15 @@ pub(crate) fn record_prepared_transcript(
     repo_path: &Path,
     agent: Agent,
     transcript: PreparedTranscript,
-) -> Result<(usize, bool)> {
+) -> Result<CaptureWriteOutcome> {
     let PreparedTranscript {
         session_key,
         source_key,
         batch,
     } = transcript;
-    let write = write_transcript_batch(repo_path, agent, &session_key, &source_key, batch, || {
+    write_transcript_batch(repo_path, agent, &session_key, &source_key, batch, || {
         capture_environment(repo_path)
-    })?;
-    Ok((write.records_written, write.metadata_changed))
+    })
 }
 
 fn agent_identity_key(agent: Agent, identity: &[u8]) -> String {

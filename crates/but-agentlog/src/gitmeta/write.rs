@@ -20,14 +20,18 @@ use crate::{
 };
 
 use super::{
-    AcceptedRecord, CaptureKind, IndexHit, TurnDetail, TurnSummary, cap_tool_result_text,
-    capture_turn_key, index_key, stored_turn_summary_entries,
+    AcceptedRecord, CaptureKind, IndexHit, PublicationStatus, SESSION_PREFIX, SESSION_SET_KEY,
+    TurnDetail, TurnSummary, cap_tool_result_text, capture_turn_key, session_storage_prefix,
+    status_index_key, stored_turn_summary_entries,
 };
 
 #[derive(Debug)]
 pub(crate) struct CaptureWriteOutcome {
+    #[allow(dead_code)]
     pub(crate) records_written: usize,
+    #[allow(dead_code)]
     pub(crate) metadata_changed: bool,
+    pub(crate) published_metadata_changed: bool,
 }
 
 pub(crate) fn write_transcript_batch(
@@ -50,10 +54,15 @@ pub(crate) fn write_transcript_batch(
         return Ok(CaptureWriteOutcome {
             records_written: 0,
             metadata_changed: false,
+            published_metadata_changed: false,
         });
     }
 
-    let session_prefix = format!("gitbutler:agent-session:{session_key}");
+    let gitmeta = Session::open(repo_path).context("failed to open GitMeta session")?;
+    let target = Target::project();
+    let handle = gitmeta.target(&target);
+    let publication_status = capture_publication_status(repo_path, &handle, session_key)?;
+    let session_prefix = session_storage_prefix(publication_status, session_key);
     let sources_key = format!("{session_prefix}:sources");
     let source_prefix = format!("{session_prefix}:source:{source_key}");
     let transcript_key = format!("{session_prefix}:transcript");
@@ -61,9 +70,6 @@ pub(crate) fn write_transcript_batch(
     let turns_key = format!("{session_prefix}:turns");
     let associated_targets_key = format!("{session_prefix}:associated-targets");
 
-    let gitmeta = Session::open(repo_path).context("failed to open GitMeta session")?;
-    let target = Target::project();
-    let handle = gitmeta.target(&target);
     let turns_value = handle
         .get_value(&turns_key)
         .with_context(|| format!("failed to read GitMeta key '{turns_key}'"))?;
@@ -102,15 +108,17 @@ pub(crate) fn write_transcript_batch(
         let metadata_changed = enrich_incomplete_turn(
             &handle,
             turns_value,
-            &session_prefix,
             session_key,
             source_key,
             &incoming_record_hashes,
+            publication_status,
             capture_environment,
         )?;
         return Ok(CaptureWriteOutcome {
             records_written: 0,
             metadata_changed,
+            published_metadata_changed: metadata_changed
+                && publication_status == PublicationStatus::Published,
         });
     }
 
@@ -217,15 +225,16 @@ pub(crate) fn write_transcript_batch(
     let mut associated_turn_keys = previous_turn_keys;
     associated_turn_keys.push(turn_key.clone());
     let index_hit_members = index_hits_for_turns(session_key, &associated_turn_keys)?;
-    let index_keys = target_associations.index_keys();
+    let index_keys = target_associations.index_keys(publication_status);
     let associated_targets_value = if target_associations != original_associations {
         target_associations.meta_value()?
     } else {
         None
     };
 
+    let session_set_key = publication_status.storage_key(SESSION_SET_KEY);
     let mut edits = vec![
-        MetaEdit::set_add("gitbutler:agent-sessions", &session_keys),
+        MetaEdit::set_add(&session_set_key, &session_keys),
         MetaEdit::set_value(&session_schema_key, &session_schema_value),
         MetaEdit::set_value(&updated_at_key, &updated_at_value),
         MetaEdit::set_add(&sources_key, &source_keys),
@@ -260,6 +269,7 @@ pub(crate) fn write_transcript_batch(
     Ok(CaptureWriteOutcome {
         records_written: records_captured,
         metadata_changed: true,
+        published_metadata_changed: publication_status == PublicationStatus::Published,
     })
 }
 
@@ -465,11 +475,23 @@ impl TargetAssociations {
         )))
     }
 
-    fn index_keys(&self) -> Vec<String> {
+    fn index_keys(&self, status: PublicationStatus) -> Vec<String> {
         let mut keys = Vec::new();
-        keys.extend(self.branches.iter().map(|key| index_key("branch", key)));
-        keys.extend(self.reviews.iter().map(|key| index_key("review", key)));
-        keys.extend(self.changes.iter().map(|key| index_key("change", key)));
+        keys.extend(
+            self.branches
+                .iter()
+                .map(|key| status_index_key(status, "branch", key)),
+        );
+        keys.extend(
+            self.reviews
+                .iter()
+                .map(|key| status_index_key(status, "review", key)),
+        );
+        keys.extend(
+            self.changes
+                .iter()
+                .map(|key| status_index_key(status, "change", key)),
+        );
         keys
     }
 }
@@ -508,22 +530,23 @@ fn index_hits_for_turns(session_key: &str, turn_keys: &[String]) -> Result<Vec<S
 fn enrich_incomplete_turn(
     handle: &SessionTargetHandle<'_>,
     turns_value: Option<MetaValue>,
-    session_prefix: &str,
     session_key: &str,
     source_key: &str,
     incoming_record_hashes: &[String],
+    publication_status: PublicationStatus,
     capture_environment: impl FnOnce() -> EnvironmentObservation,
 ) -> Result<bool> {
     let Some(MetaValue::List(mut turn_entries)) = turns_value else {
         return Ok(false);
     };
 
+    let session_prefix = session_storage_prefix(publication_status, session_key);
     let turns_key = format!("{session_prefix}:turns");
     let Some((turn_index, mut summary, turn_key, mut detail)) = incomplete_turn_matching_records(
         handle,
         &turn_entries,
         &turns_key,
-        session_prefix,
+        &session_prefix,
         source_key,
         incoming_record_hashes,
     )?
@@ -582,7 +605,7 @@ fn enrich_incomplete_turn(
         None
     };
     let index_hit_members = index_hits_for_turns(session_key, &all_turn_keys)?;
-    let index_keys = target_associations.index_keys();
+    let index_keys = target_associations.index_keys(publication_status);
 
     let mut edits = vec![MetaEdit::set_value(&updated_at_key, &updated_at_value)];
     if improves_status {
@@ -607,6 +630,43 @@ fn enrich_incomplete_turn(
         .apply_edits(edits)
         .context("failed to enrich agent session turn")?;
     Ok(true)
+}
+
+fn capture_publication_status(
+    repo_path: &Path,
+    handle: &SessionTargetHandle<'_>,
+    session_key: &str,
+) -> Result<PublicationStatus> {
+    let published_schema_key = format!("{SESSION_PREFIX}:{session_key}:schema");
+    if handle
+        .get_value(&published_schema_key)
+        .with_context(|| format!("failed to read GitMeta key '{published_schema_key}'"))?
+        .is_some()
+    {
+        return Ok(PublicationStatus::Published);
+    }
+    let local_schema_key =
+        PublicationStatus::LocalOnly.storage_key(&format!("{SESSION_PREFIX}:{session_key}:schema"));
+    if handle
+        .get_value(&local_schema_key)
+        .with_context(|| format!("failed to read GitMeta key '{local_schema_key}'"))?
+        .is_some()
+    {
+        return Ok(PublicationStatus::LocalOnly);
+    }
+    if agentlog_share_default(repo_path)? {
+        Ok(PublicationStatus::Published)
+    } else {
+        Ok(PublicationStatus::LocalOnly)
+    }
+}
+
+fn agentlog_share_default(repo_path: &Path) -> Result<bool> {
+    let repo = gix::open(repo_path).context("failed to open repository config")?;
+    Ok(repo
+        .config_snapshot()
+        .boolean("gitbutler.agentlog-share-default")
+        .unwrap_or(false))
 }
 
 fn incomplete_turn_matching_records(

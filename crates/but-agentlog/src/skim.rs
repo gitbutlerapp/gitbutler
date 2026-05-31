@@ -32,6 +32,7 @@ struct SkimCoverage {
 #[derive(Debug, Serialize)]
 struct SkimSession {
     session_key: String,
+    status: &'static str,
     updated_at: String,
     latest_captured_at: Option<String>,
     turn_count: usize,
@@ -76,6 +77,7 @@ impl fmt::Display for SkimReport {
                 session.record_count,
                 session.latest_captured_at.as_deref().unwrap_or("unknown")
             )?;
+            writeln!(f, "  status: {}", session.status)?;
             for turn in &session.turns {
                 write!(f, "- #{}", turn.turn_index)?;
                 if !turn.labels.is_empty() {
@@ -135,6 +137,7 @@ pub(crate) fn report(
         let previews = session_previews(&session);
         skim_sessions.push(SkimSession {
             session_key: session.session_key,
+            status: session.status.label(),
             updated_at: session.updated_at,
             latest_captured_at: session.latest_captured_at,
             turn_count: session.turn_count,
@@ -159,8 +162,9 @@ pub(crate) fn report(
 }
 
 fn skim_session_turns(workdir: &Path, session: &RelatedSession) -> anyhow::Result<Vec<SkimTurn>> {
-    let timeline = get_session_timeline_outline(workdir, &session.session_key, None)
-        .context("failed to read agent session timeline")?;
+    let timeline =
+        get_session_timeline_outline(workdir, &session.session_key, session.status, None)
+            .context("failed to read agent session timeline")?;
     let related_turn_keys = &session.related_turn_keys;
     Ok(timeline
         .turns

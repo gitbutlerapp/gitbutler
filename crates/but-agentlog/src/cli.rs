@@ -13,8 +13,9 @@ use crate::{
     capture::{prepare_transcript, record_prepared_transcript},
     capture_lock::with_capture_lock,
     gitmeta::{
-        RelatedTarget, SessionRecords, SessionTimeline, find_related_sessions_limited,
-        get_session_records, get_session_timeline_outline, sync_metadata,
+        PublicationStatus, RelatedSession, RelatedTarget, SessionRecords, SessionTimeline,
+        find_related_sessions_limited_by_statuses, find_session_status, get_session_records,
+        get_session_timeline_outline, share_sessions, sync_metadata,
     },
     skim::{self, SkimReport},
 };
@@ -51,6 +52,22 @@ pub enum Command {
         #[clap(value_name = "VALUE", value_parser = non_empty_value)]
         value: Option<String>,
     },
+    /// Share local-only agent sessions for a branch, review, or change.
+    #[clap(
+        name = "publish",
+        after_help = "Examples:\n  but agentlog publish main\n  but agentlog publish branch main\n  but agentlog publish review <id>\n  but agentlog publish change <id>"
+    )]
+    Publish {
+        /// Branch name, or `branch`, `review`, or `change` when VALUE is provided.
+        #[clap(value_name = "BRANCH_OR_TARGET", value_parser = non_empty_value)]
+        branch_or_target: String,
+        /// Target value for explicit branch, review, or change publishing.
+        #[clap(value_name = "VALUE", value_parser = non_empty_value)]
+        value: Option<String>,
+        /// Report what would be shared without changing metadata or syncing.
+        #[clap(long)]
+        dry_run: bool,
+    },
     /// Sync GitMeta metadata.
     #[clap(hide = true)]
     Sync,
@@ -63,6 +80,7 @@ enum CommandOutput {
     Timeline(SessionTimeline),
     Records(SessionRecords),
     Skim(SkimReport),
+    Publish(ShareReport),
 }
 
 impl fmt::Display for CommandOutput {
@@ -135,6 +153,7 @@ impl fmt::Display for CommandOutput {
                 Ok(())
             }
             CommandOutput::Skim(report) => report.fmt(f),
+            CommandOutput::Publish(report) => report.fmt(f),
         }
     }
 }
@@ -167,6 +186,123 @@ impl RelatedSessionTarget {
     }
 }
 
+#[derive(Debug, Serialize)]
+pub(crate) struct ShareReport {
+    target_kind: &'static str,
+    target_value: String,
+    target_key: String,
+    dry_run: bool,
+    session_count: usize,
+    turn_count: usize,
+    related_turn_count: usize,
+    latest_captured_at: Option<String>,
+    sessions: Vec<ShareSession>,
+    #[serde(skip)]
+    synced: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct ShareSession {
+    session_key: String,
+    turn_count: usize,
+    related_turn_count: usize,
+    latest_captured_at: Option<String>,
+}
+
+impl ShareReport {
+    fn new(
+        target: RelatedSessionTarget,
+        target_value: String,
+        target_key: String,
+        dry_run: bool,
+        sessions: Vec<RelatedSession>,
+    ) -> Self {
+        let mut latest_captured_at = None;
+        let mut turn_count = 0;
+        let mut related_turn_count = 0;
+        let sessions = sessions
+            .into_iter()
+            .map(|session| {
+                turn_count += session.turn_count;
+                related_turn_count += session.related_turn_keys.len();
+                if let Some(latest) = session.latest_captured_at.as_ref()
+                    && latest_captured_at
+                        .as_ref()
+                        .is_none_or(|current| latest > current)
+                {
+                    latest_captured_at = Some(latest.clone());
+                }
+                ShareSession {
+                    session_key: session.session_key,
+                    turn_count: session.turn_count,
+                    related_turn_count: session.related_turn_keys.len(),
+                    latest_captured_at: session.latest_captured_at,
+                }
+            })
+            .collect::<Vec<_>>();
+        Self {
+            target_kind: target.as_str(),
+            target_value,
+            target_key,
+            dry_run,
+            session_count: sessions.len(),
+            turn_count,
+            related_turn_count,
+            latest_captured_at,
+            sessions,
+            synced: false,
+        }
+    }
+}
+
+impl fmt::Display for ShareReport {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let action = if self.dry_run {
+            "Would share"
+        } else {
+            "Shared"
+        };
+        writeln!(
+            f,
+            "{} {} local-only sessions for {} {}",
+            action, self.session_count, self.target_kind, self.target_key
+        )?;
+        if self.session_count == 0 {
+            if self.synced {
+                writeln!(f, "Synced GitMeta metadata.")?;
+            }
+            return Ok(());
+        }
+        writeln!(
+            f,
+            "Turns: {} total, {} directly related. Latest: {}",
+            self.turn_count,
+            self.related_turn_count,
+            self.latest_captured_at.as_deref().unwrap_or("unknown")
+        )?;
+        for (index, session) in self.sessions.iter().enumerate() {
+            writeln!(
+                f,
+                "Session #{}: {} turns, {} directly related, latest {}",
+                index + 1,
+                session.turn_count,
+                session.related_turn_count,
+                session.latest_captured_at.as_deref().unwrap_or("unknown")
+            )?;
+        }
+        if self.dry_run {
+            writeln!(
+                f,
+                "Preview with `but agentlog skim {} {}`. For exact records, rerun skim with JSON and use `but agentlog show <session> --turn <turn>`.",
+                self.target_kind, self.target_value
+            )?;
+        } else if self.synced {
+            writeln!(f, "Synced GitMeta metadata.")?;
+        }
+        Ok(())
+    }
+}
+
 pub fn run_from_dir(dir: &Path, command: Command) -> anyhow::Result<impl Serialize + fmt::Display> {
     match command {
         Command::Hook { agent } => {
@@ -189,9 +325,12 @@ pub fn run_from_dir(dir: &Path, command: Command) -> anyhow::Result<impl Seriali
             let repo_path = resolve_read_repo_path(dir)?;
             match turn {
                 Some(turn) => {
+                    let status = find_session_status(&repo_path, &session_key)?
+                        .with_context(|| format!("agent session '{session_key}' was not found"))?;
                     let records = get_session_records(
                         &repo_path,
                         &session_key,
+                        status,
                         &turn,
                         limit.unwrap_or(DEFAULT_RECORD_LIMIT),
                     )
@@ -199,9 +338,12 @@ pub fn run_from_dir(dir: &Path, command: Command) -> anyhow::Result<impl Seriali
                     Ok(CommandOutput::Records(records))
                 }
                 None => {
+                    let status = find_session_status(&repo_path, &session_key)?
+                        .with_context(|| format!("agent session '{session_key}' was not found"))?;
                     let timeline = get_session_timeline_outline(
                         &repo_path,
                         &session_key,
+                        status,
                         Some(limit.unwrap_or(DEFAULT_TIMELINE_LIMIT)),
                     )
                     .context("failed to read agent session timeline")?;
@@ -230,12 +372,69 @@ pub fn run_from_dir(dir: &Path, command: Command) -> anyhow::Result<impl Seriali
                 None => skim::resolve_default_branch_target(&repo_path)?,
             };
             let target_key = related_session_target_key(target, &value);
-            let sessions =
-                find_related_sessions_limited(&repo_path, target.related_target(&target_key), None)
-                    .context("failed to find related agent sessions")?;
+            let sessions = find_related_sessions_limited_by_statuses(
+                &repo_path,
+                target.related_target(&target_key),
+                None,
+                &[PublicationStatus::LocalOnly, PublicationStatus::Published],
+            )
+            .context("failed to find related agent sessions")?;
             let report = skim::report(&repo_path, target, target_key, sessions)
                 .context("failed to build agent skim")?;
             Ok(CommandOutput::Skim(report))
+        }
+        Command::Publish {
+            branch_or_target,
+            value,
+            dry_run,
+        } => {
+            let (target, value) = resolve_publish_target(branch_or_target, value)?;
+            let repo_path = resolve_workdir(dir)?;
+            let target_key = related_session_target_key(target, &value);
+            let report = with_capture_lock(&repo_path, || {
+                let sessions = find_related_sessions_limited_by_statuses(
+                    &repo_path,
+                    target.related_target(&target_key),
+                    None,
+                    &[PublicationStatus::LocalOnly],
+                )
+                .context("failed to find local-only agent sessions")?;
+                let mut report =
+                    ShareReport::new(target, value.clone(), target_key.clone(), dry_run, sessions);
+                if !dry_run {
+                    let session_keys = report
+                        .sessions
+                        .iter()
+                        .map(|session| session.session_key.clone())
+                        .collect::<Vec<_>>();
+                    let should_sync = if session_keys.is_empty() {
+                        !find_related_sessions_limited_by_statuses(
+                            &repo_path,
+                            target.related_target(&target_key),
+                            Some(1),
+                            &[PublicationStatus::Published],
+                        )
+                        .context("failed to find published agent sessions")?
+                        .is_empty()
+                    } else {
+                        share_sessions(&repo_path, &session_keys)
+                            .context("failed to share agent sessions")?;
+                        true
+                    };
+                    if should_sync {
+                        sync_metadata(&repo_path).with_context(|| {
+                            if session_keys.is_empty() {
+                                "failed to sync GitMeta metadata"
+                            } else {
+                                "shared agent sessions, but failed to sync GitMeta metadata"
+                            }
+                        })?;
+                        report.synced = true;
+                    }
+                }
+                Ok(report)
+            })?;
+            Ok(CommandOutput::Publish(report))
         }
         Command::Sync => {
             let workdir = resolve_workdir(dir)?;
@@ -245,6 +444,23 @@ pub fn run_from_dir(dir: &Path, command: Command) -> anyhow::Result<impl Seriali
                 message: "Synced GitMeta metadata".into(),
             })
         }
+    }
+}
+
+fn resolve_publish_target(
+    branch_or_target: String,
+    value: Option<String>,
+) -> anyhow::Result<(RelatedSessionTarget, String)> {
+    let Some(value) = value else {
+        return Ok((RelatedSessionTarget::Branch, branch_or_target));
+    };
+    match branch_or_target.as_str() {
+        "branch" => Ok((RelatedSessionTarget::Branch, value)),
+        "review" => Ok((RelatedSessionTarget::Review, value)),
+        "change" => Ok((RelatedSessionTarget::Change, value)),
+        other => anyhow::bail!(
+            "unknown publish target '{other}'. Use `but agentlog publish <branch>` or `but agentlog publish <branch|review|change> <value>`."
+        ),
     }
 }
 
@@ -303,14 +519,12 @@ fn record_agent_log(
         return Ok(None);
     };
 
-    let metadata_changed = with_capture_lock(&workdir, || {
-        let (_records_written, metadata_changed) =
-            record_prepared_transcript(&workdir, agent, transcript)?;
-
-        Ok(metadata_changed)
+    let published_metadata_changed = with_capture_lock(&workdir, || {
+        let write = record_prepared_transcript(&workdir, agent, transcript)?;
+        Ok(write.published_metadata_changed)
     })?;
 
-    Ok(metadata_changed.then_some(workdir))
+    Ok(published_metadata_changed.then_some(workdir))
 }
 
 fn resolve_workdir(dir: &Path) -> anyhow::Result<PathBuf> {
@@ -403,11 +617,12 @@ mod tests {
     use tempfile::TempDir;
 
     use super::{
-        Command, RelatedSessionTarget, related_session_target_key, run_from_dir, run_hook,
+        Command, RelatedSessionTarget, related_session_target_key, resolve_publish_target,
+        run_from_dir, run_hook,
     };
     use crate::Agent;
     use crate::environment::{EnvironmentObservation, ObservedTargets};
-    use crate::gitmeta::write_transcript_batch;
+    use crate::gitmeta::{share_sessions, write_transcript_batch};
     use crate::transcript::TranscriptBatch;
 
     const TEST_SESSION_KEY: &str = "sha256-11111111111111111111111111111111";
@@ -538,6 +753,59 @@ mod tests {
     }
 
     #[test]
+    fn skim_labels_local_only_and_published_sessions() {
+        let repo = setup_repo();
+        let published_session_key = TEST_SESSION_KEY.to_owned();
+        write_targetless_turn_for_session(
+            repo.path(),
+            &published_session_key,
+            TEST_SOURCE_KEY,
+            "published setup",
+            None,
+        );
+        write_turn_for_session(
+            repo.path(),
+            &published_session_key,
+            TEST_SOURCE_KEY,
+            "published",
+        );
+        share_sessions(repo.path(), std::slice::from_ref(&published_session_key))
+            .expect("share session");
+
+        let local_session_key = "sha256-33333333333333333333333333333333";
+        let local_source_key = "sha256-44444444444444444444444444444444";
+        write_targetless_turn_for_session(
+            repo.path(),
+            local_session_key,
+            local_source_key,
+            "local setup",
+            None,
+        );
+        write_turn_for_session(repo.path(), local_session_key, local_source_key, "local");
+
+        let output = run_from_dir(
+            repo.path(),
+            Command::Skim {
+                target: Some(RelatedSessionTarget::Branch),
+                value: Some("main".into()),
+            },
+        )
+        .expect("read skim");
+        let json = serde_json::to_value(&output).expect("serialize command output");
+        let statuses = json["sessions"]
+            .as_array()
+            .expect("sessions")
+            .iter()
+            .map(|session| session["status"].as_str().expect("status"))
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(statuses, BTreeSet::from(["local-only", "published"]));
+        let human = output.to_string();
+        assert!(human.contains("status: local-only"));
+        assert!(human.contains("status: published"));
+    }
+
+    #[test]
     fn explicit_skim_reads_bare_repo_metadata() {
         let repo = setup_bare_repo();
         let turn_key = write_user_session_with_targetless_prelude(repo.path());
@@ -663,6 +931,134 @@ mod tests {
     }
 
     #[test]
+    fn publish_dry_run_reports_local_sessions_without_moving_metadata() {
+        let repo = setup_repo();
+        write_user_session_with_targetless_prelude(repo.path());
+
+        let output = run_from_dir(
+            repo.path(),
+            Command::Publish {
+                branch_or_target: "main".into(),
+                value: None,
+                dry_run: true,
+            },
+        )
+        .expect("publish dry-run");
+        let json = serde_json::to_value(&output).expect("serialize command output");
+
+        assert_eq!(json["dry_run"], true);
+        assert_eq!(json["session_count"], 1);
+        assert_eq!(json["turn_count"], 2);
+        assert!(
+            output
+                .to_string()
+                .contains("Would share 1 local-only sessions")
+        );
+        assert!(
+            target_value(repo.path(), &Target::project(), "gitbutler:agent-sessions").is_none(),
+            "dry-run must not share the session index"
+        );
+        assert!(
+            target_value(
+                repo.path(),
+                &Target::project(),
+                &format!("gitbutler:agent-session:{TEST_SESSION_KEY}:schema")
+            )
+            .is_none(),
+            "dry-run must not share session payload keys"
+        );
+        assert!(
+            target_value(
+                repo.path(),
+                &Target::project(),
+                &format!("gitbutler:agent-session:{TEST_SESSION_KEY}:turns")
+            )
+            .is_none(),
+            "dry-run must not share session turns"
+        );
+        assert!(
+            target_value(
+                repo.path(),
+                &Target::project(),
+                &format!("gitbutler:agent-session:{TEST_SESSION_KEY}:transcript")
+            )
+            .is_none(),
+            "dry-run must not share transcript records"
+        );
+        assert!(
+            target_value(
+                repo.path(),
+                &Target::project(),
+                "local:gitbutler:agent-sessions"
+            )
+            .is_some(),
+            "dry-run must leave local metadata in place"
+        );
+        assert!(
+            target_value(
+                repo.path(),
+                &Target::project(),
+                &format!("local:gitbutler:agent-session:{TEST_SESSION_KEY}:schema")
+            )
+            .is_some(),
+            "dry-run must leave local session payload keys in place"
+        );
+        assert!(
+            target_value(
+                repo.path(),
+                &Target::project(),
+                &format!("local:gitbutler:agent-session:{TEST_SESSION_KEY}:turns")
+            )
+            .is_some(),
+            "dry-run must leave local session turns in place"
+        );
+        assert!(
+            target_value(
+                repo.path(),
+                &Target::project(),
+                &format!("local:gitbutler:agent-session:{TEST_SESSION_KEY}:transcript")
+            )
+            .is_some(),
+            "dry-run must leave local transcript records in place"
+        );
+    }
+
+    #[test]
+    fn publish_target_resolution_defaults_to_branch_shorthand() {
+        let (target, value) =
+            resolve_publish_target("review".to_owned(), None).expect("resolve publish target");
+
+        assert_eq!(target, RelatedSessionTarget::Branch);
+        assert_eq!(value, "review");
+    }
+
+    #[test]
+    fn publish_target_resolution_keeps_explicit_targets() {
+        for (target_name, expected_target, expected_value) in [
+            ("branch", RelatedSessionTarget::Branch, "main"),
+            ("review", RelatedSessionTarget::Review, "review-1"),
+            ("change", RelatedSessionTarget::Change, "change-1"),
+        ] {
+            let (target, value) =
+                resolve_publish_target(target_name.to_owned(), Some(expected_value.to_owned()))
+                    .expect("resolve explicit publish target");
+            assert_eq!(target, expected_target);
+            assert_eq!(value, expected_value);
+        }
+    }
+
+    #[test]
+    fn publish_target_resolution_rejects_two_value_branch_shorthand() {
+        let error = resolve_publish_target("main".to_owned(), Some("other".to_owned()))
+            .expect_err("ambiguous two-value publish target should fail");
+
+        assert!(
+            error.to_string().contains("unknown publish target 'main'"),
+            "ambiguous publish target should explain the accepted forms"
+        );
+    }
+
+    #[test]
     fn related_session_target_key_normalizes_common_inputs() {
         for (target, value, expected) in [
             (RelatedSessionTarget::Branch, "main", TEST_BRANCH_KEY),
@@ -716,15 +1112,53 @@ mod tests {
 
         let sync_dir = run_hook(Path::new("/"), Some(Agent::Codex), &payload).expect("run hook");
 
-        assert_eq!(
-            sync_dir,
-            Some(fs::canonicalize(repo.path()).expect("canonical repo"))
-        );
+        assert_eq!(sync_dir, None);
         assert_eq!(session_keys(repo.path(), &Target::project()).len(), 1);
+        assert!(
+            target_value(repo.path(), &Target::project(), "gitbutler:agent-sessions").is_none()
+        );
+        assert!(
+            target_value(
+                repo.path(),
+                &Target::project(),
+                "local:gitbutler:agent-sessions"
+            )
+            .is_some()
+        );
 
         let duplicate_sync_dir =
             run_hook(repo.path(), Some(Agent::Codex), &payload).expect("duplicate hook");
         assert_eq!(duplicate_sync_dir, None);
+    }
+
+    #[test]
+    fn hook_requests_sync_for_share_default_capture() {
+        let repo = setup_repo();
+        set_agentlog_share_default(repo.path(), true);
+        write_transcript_with_message(repo.path());
+        let payload = serde_json::json!({
+            "transcript_path": "session.jsonl",
+            "cwd": repo.path().display().to_string(),
+        })
+        .to_string();
+
+        let sync_dir = run_hook(Path::new("/"), Some(Agent::Codex), &payload).expect("run hook");
+
+        assert_eq!(
+            sync_dir,
+            Some(fs::canonicalize(repo.path()).expect("canonical repo"))
+        );
+        assert!(
+            target_value(repo.path(), &Target::project(), "gitbutler:agent-sessions").is_some()
+        );
+        assert!(
+            target_value(
+                repo.path(),
+                &Target::project(),
+                "local:gitbutler:agent-sessions"
+            )
+            .is_none()
+        );
     }
 
     #[test]
@@ -744,6 +1178,14 @@ mod tests {
         );
         assert!(
             target_value(repo.path(), &Target::project(), "gitbutler:agent-sessions").is_none()
+        );
+        assert!(
+            target_value(
+                repo.path(),
+                &Target::project(),
+                "local:gitbutler:agent-sessions"
+            )
+            .is_none()
         );
     }
 
@@ -872,8 +1314,15 @@ mod tests {
         let Some(MetaValue::List(entries)) = target_value(
             repo,
             &Target::project(),
-            &format!("gitbutler:agent-session:{session_key}:turns"),
-        ) else {
+            &format!("local:gitbutler:agent-session:{session_key}:turns"),
+        )
+        .or_else(|| {
+            target_value(
+                repo,
+                &Target::project(),
+                &format!("gitbutler:agent-session:{session_key}:turns"),
+            )
+        }) else {
             panic!("expected turn summaries");
         };
         let summary: serde_json::Value =
@@ -885,7 +1334,12 @@ mod tests {
     fn set_session_updated_at(repo: &Path, session_key: &str, updated_at: &str) {
         let session = Session::open(repo).expect("open session");
         let target = Target::project();
-        let key = format!("gitbutler:agent-session:{session_key}:updated-at");
+        let public_key = format!("gitbutler:agent-session:{session_key}:updated-at");
+        let key = if target_value(repo, &target, &public_key).is_some() {
+            public_key
+        } else {
+            format!("local:gitbutler:agent-session:{session_key}:updated-at")
+        };
         let value = MetaValue::String(updated_at.to_owned());
         session
             .target(&target)
@@ -905,6 +1359,20 @@ mod tests {
         dir
     }
 
+    fn set_agentlog_share_default(repo: &Path, value: bool) {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo)
+            .args([
+                "config",
+                "gitbutler.agentlog-share-default",
+                if value { "true" } else { "false" },
+            ])
+            .output()
+            .expect("set git config");
+        assert!(output.status.success(), "git config should succeed");
+    }
+
     fn setup_bare_repo() -> TempDir {
         let dir = TempDir::new().expect("temp bare repo");
         gix::init_bare(dir.path()).expect("gitoxide bare repo init");
@@ -912,7 +1380,9 @@ mod tests {
     }
 
     fn session_keys(repo: &Path, target: &Target) -> BTreeSet<String> {
-        let Some(MetaValue::Set(keys)) = target_value(repo, target, "gitbutler:agent-sessions")
+        let Some(MetaValue::Set(keys)) =
+            target_value(repo, target, "local:gitbutler:agent-sessions")
+                .or_else(|| target_value(repo, target, "gitbutler:agent-sessions"))
         else {
             panic!("expected session index set");
         };

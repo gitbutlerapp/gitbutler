@@ -136,6 +136,65 @@ fn clap() {
     Args::command().debug_assert();
 }
 
+mod agentlog {
+    use clap::Parser;
+
+    use crate::args::{Args, Subcommands};
+
+    #[test]
+    fn publish_parses_branch_shorthand() {
+        let args =
+            Args::try_parse_from(["but", "agentlog", "publish", "main"]).expect("parse args");
+        let cmd = args.cmd.expect("subcommand");
+
+        match cmd {
+            Subcommands::AgentLog {
+                cmd:
+                    but_agentlog::Command::Publish {
+                        branch_or_target,
+                        value,
+                        dry_run,
+                    },
+            } => {
+                assert_eq!(branch_or_target, "main");
+                assert_eq!(value, None);
+                assert!(!dry_run);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn publish_parses_explicit_review_target() {
+        let args = Args::try_parse_from([
+            "but",
+            "agentlog",
+            "publish",
+            "review",
+            "review-1",
+            "--dry-run",
+        ])
+        .expect("parse args");
+        let cmd = args.cmd.expect("subcommand");
+
+        match cmd {
+            Subcommands::AgentLog {
+                cmd:
+                    but_agentlog::Command::Publish {
+                        branch_or_target,
+                        value,
+                        dry_run,
+                    },
+            } => {
+                assert_eq!(branch_or_target, "review");
+                assert_eq!(value.as_deref(), Some("review-1"));
+                assert!(dry_run);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+}
+
 #[cfg(feature = "legacy")]
 mod push {
     use clap::Parser;
