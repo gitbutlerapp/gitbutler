@@ -310,13 +310,10 @@ self_cell = "1.2.2"
 unicode-segmentation = "1.13.2"
 urlencoding = "2.1"
 inventory = "0.3"
-git-meta-lib = { version = "0.1.10" }
+git-meta-lib = { git = "https://github.com/git-meta/git-meta", rev = "b40c108514a992abea2f739889376334481af1a3" }
 
 [patch.crates-io]
 # Keep workspace crates that use the `gix 0.84` line on the same git revision.
-# Note that this does not currently eliminate duplicate `gix` versions entirely:
-# `git-meta-lib` still depends on `gix 0.83`, so Cargo will continue to pull that
-# version from crates.io until `git-meta-lib` moves to `0.84` as well.
 gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "b5b2d54d6a63921621d48c492eaa77faf89e8cb5" }
 
 [workspace.lints.clippy]

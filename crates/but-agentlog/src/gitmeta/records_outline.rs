@@ -6,15 +6,17 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{
-    AcceptedRecord,
+    AcceptedRecord, PublicationStatus,
     read_support::{
         read_transcript_entries, read_turn_detail, transcript_records_by_hash, with_project_target,
     },
+    session_storage_prefix,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub(crate) struct SessionRecords {
     pub(crate) session_key: String,
+    pub(crate) status: PublicationStatus,
     pub(crate) turn_key: String,
     pub(crate) coverage: RecordCoverage,
     pub(crate) records: Vec<RecordDetail>,
@@ -50,11 +52,12 @@ pub(crate) struct RecordDetail {
 pub(crate) fn get_session_records(
     repo_path: &std::path::Path,
     session_key: &str,
+    status: PublicationStatus,
     turn_key: &str,
     limit: usize,
 ) -> Result<SessionRecords> {
     with_project_target(repo_path, |handle| {
-        let session_prefix = format!("gitbutler:agent-session:{session_key}");
+        let session_prefix = session_storage_prefix(status, session_key);
         let detail_key = format!("{session_prefix}:turn:{turn_key}");
         let detail = read_turn_detail(handle, &detail_key)?;
         let total_records = detail.records.len();
@@ -85,6 +88,7 @@ pub(crate) fn get_session_records(
 
         Ok(SessionRecords {
             session_key: session_key.to_owned(),
+            status,
             turn_key: turn_key.to_owned(),
             coverage,
             records,

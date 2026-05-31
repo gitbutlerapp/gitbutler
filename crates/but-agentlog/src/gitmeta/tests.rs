@@ -32,7 +32,34 @@ fn setup_repo() -> TempDir {
         gix::open::Options::isolated().config_overrides(["init.defaultBranch=main"]),
     )
     .expect("gitoxide repo init");
+    set_agentlog_share_default(dir.path(), true);
     dir
+}
+
+fn setup_local_repo() -> TempDir {
+    let dir = TempDir::new().expect("temp repo");
+    gix::ThreadSafeRepository::init_opts(
+        dir.path(),
+        gix::create::Kind::WithWorktree,
+        gix::create::Options::default(),
+        gix::open::Options::isolated().config_overrides(["init.defaultBranch=main"]),
+    )
+    .expect("gitoxide repo init");
+    dir
+}
+
+fn set_agentlog_share_default(repo: &Path, value: bool) {
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(repo)
+        .args([
+            "config",
+            "gitbutler.agentlog-share-default",
+            if value { "true" } else { "false" },
+        ])
+        .output()
+        .expect("set git config");
+    assert!(output.status.success(), "git config should succeed");
 }
 
 fn commit_file(repo: &Path, path: &str, body: &str) {
@@ -100,6 +127,32 @@ fn jsonl(records: impl IntoIterator<Item = serde_json::Value>) -> String {
         output.push('\n');
     }
     output
+}
+
+fn write_test_batch(repo: &Path, text: &str, observed_targets: ObservedTargets) {
+    let batch = TranscriptBatch::parse(
+        Agent::Codex,
+        jsonl([serde_json::json!({
+            "timestamp": "2026-05-07T09:00:00Z",
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "assistant",
+                "content": text,
+            },
+        })])
+        .as_bytes(),
+    )
+    .expect("parse transcript");
+    write_transcript_batch(
+        repo,
+        Agent::Codex,
+        TEST_SESSION_KEY,
+        TEST_SOURCE_KEY,
+        batch,
+        || EnvironmentObservation::from_observed_targets_for_testing(observed_targets),
+    )
+    .expect("write transcript batch");
 }
 
 fn projection_request() -> ProjectionRequest {
@@ -555,6 +608,104 @@ fn codex_capture_can_be_read_back_and_is_idempotent() {
         detail["records"][0]["record_hash"],
         records[0]["record_hash"]
     );
+}
+
+#[test]
+fn capture_defaults_to_local_only_without_share_default() {
+    let repo = setup_local_repo();
+    let observed_targets = ObservedTargets::from_index_keys_for_testing(
+        TEST_BRANCH_KEY,
+        TEST_REVIEW_KEY,
+        TEST_CHANGE_KEY,
+    );
+    write_test_batch(repo.path(), "private setup", ObservedTargets::default());
+    write_test_batch(repo.path(), "private by default", observed_targets);
+
+    assert!(project_value(repo.path(), "gitbutler:agent-sessions").is_none());
+    assert!(
+        project_value(repo.path(), "local:gitbutler:agent-sessions").is_some(),
+        "new captures should stay under the local prefix by default"
+    );
+    let published =
+        find_related_sessions_limited(repo.path(), RelatedTarget::Branch(TEST_BRANCH_KEY), None)
+            .expect("find published sessions");
+    assert!(
+        published.is_empty(),
+        "published readers should not see local-only captures"
+    );
+    let local = find_related_sessions_limited_by_statuses(
+        repo.path(),
+        RelatedTarget::Branch(TEST_BRANCH_KEY),
+        None,
+        &[PublicationStatus::LocalOnly],
+    )
+    .expect("find local sessions");
+    assert_eq!(local.len(), 1);
+    assert_eq!(local[0].status, PublicationStatus::LocalOnly);
+}
+
+#[test]
+fn share_sessions_moves_whole_sessions_to_shared_keys() {
+    let repo = setup_local_repo();
+    let observed_targets = ObservedTargets::from_index_keys_for_testing(
+        TEST_BRANCH_KEY,
+        TEST_REVIEW_KEY,
+        TEST_CHANGE_KEY,
+    );
+    write_test_batch(repo.path(), "share setup", ObservedTargets::default());
+    write_test_batch(repo.path(), "share me", observed_targets);
+
+    share_sessions(repo.path(), &[TEST_SESSION_KEY.to_owned()]).expect("share sessions");
+
+    assert!(project_value(repo.path(), "local:gitbutler:agent-sessions").is_some());
+    assert!(project_value(repo.path(), "gitbutler:agent-sessions").is_some());
+    assert!(
+        project_value(
+            repo.path(),
+            &format!("local:gitbutler:agent-session:{TEST_SESSION_KEY}:schema"),
+        )
+        .is_none(),
+        "session-specific keys should move out of local storage when shared"
+    );
+    assert!(
+        project_value(
+            repo.path(),
+            &format!("gitbutler:agent-session:{TEST_SESSION_KEY}:schema"),
+        )
+        .is_some()
+    );
+    let published =
+        find_related_sessions_limited(repo.path(), RelatedTarget::Branch(TEST_BRANCH_KEY), None)
+            .expect("find published sessions");
+    assert_eq!(published.len(), 1);
+    assert_eq!(published[0].status, PublicationStatus::Published);
+    let timeline = get_session_timeline_outline(
+        repo.path(),
+        TEST_SESSION_KEY,
+        PublicationStatus::Published,
+        None,
+    )
+    .expect("read published timeline");
+    assert_eq!(timeline.coverage.total_turns, 2);
+    let latest_turn_key = timeline.turns[1].turn_key.clone();
+    let records = get_session_records(
+        repo.path(),
+        TEST_SESSION_KEY,
+        PublicationStatus::Published,
+        &latest_turn_key,
+        10,
+    )
+    .expect("read published records");
+    assert_eq!(records.coverage.total_records, 1);
+    assert_eq!(records.records[0].text.as_deref(), Some("share me"));
+    let local = find_related_sessions_limited_by_statuses(
+        repo.path(),
+        RelatedTarget::Branch(TEST_BRANCH_KEY),
+        None,
+        &[PublicationStatus::LocalOnly],
+    )
+    .expect("find local sessions");
+    assert!(local.is_empty());
 }
 
 #[test]
@@ -1431,6 +1582,34 @@ fn project_pr_returns_public_review_projection_without_raw_storage_keys() {
 }
 
 #[test]
+fn project_pr_ignores_local_only_sessions() {
+    let repo = setup_local_repo();
+    write_test_batch(repo.path(), "Private setup", ObservedTargets::default());
+    write_test_batch(
+        repo.path(),
+        "Private PR work",
+        ObservedTargets::from_index_keys_for_testing(
+            TEST_BRANCH_KEY,
+            TEST_PR_REVIEW_KEY,
+            TEST_CHANGE_KEY,
+        ),
+    );
+
+    let projection = project_pr(repo.path(), &projection_request()).expect("project PR");
+
+    assert_eq!(projection.status, ProjectionStatus::NoMatches);
+    assert!(projection.sessions.is_empty());
+    assert_eq!(
+        projection
+            .warnings
+            .iter()
+            .map(|warning| warning.kind)
+            .collect::<Vec<_>>(),
+        [ProjectionWarningKind::NoMatches]
+    );
+}
+
+#[test]
 fn project_pr_marks_branch_only_matches_as_weak_evidence() {
     let repo = setup_repo();
     write_turn_with_targets(
@@ -1761,8 +1940,13 @@ fn get_session_timeline_outline_returns_compact_bounded_turns() {
     )
     .expect("write second timeline batch");
 
-    let timeline =
-        get_session_timeline_outline(repo.path(), TEST_SESSION_KEY, None).expect("read outline");
+    let timeline = get_session_timeline_outline(
+        repo.path(),
+        TEST_SESSION_KEY,
+        PublicationStatus::Published,
+        None,
+    )
+    .expect("read outline");
 
     assert_eq!(timeline.session_key, TEST_SESSION_KEY);
     assert_eq!(timeline.coverage.showing_turns, 2);
@@ -1807,8 +1991,13 @@ fn get_session_timeline_outline_returns_compact_bounded_turns() {
         [TEST_CHANGE_KEY]
     );
 
-    let latest =
-        get_session_timeline_outline(repo.path(), TEST_SESSION_KEY, Some(1)).expect("read window");
+    let latest = get_session_timeline_outline(
+        repo.path(),
+        TEST_SESSION_KEY,
+        PublicationStatus::Published,
+        Some(1),
+    )
+    .expect("read window");
     assert_eq!(latest.coverage.showing_turns, 1);
     assert_eq!(latest.coverage.total_turns, 2);
     assert!(latest.coverage.has_more_before);
@@ -1886,8 +2075,14 @@ fn get_session_records_returns_latest_bounded_records_without_storage_keys() {
         .expect("turn key")
         .to_owned();
 
-    let records =
-        get_session_records(repo.path(), TEST_SESSION_KEY, &turn_key, 2).expect("records");
+    let records = get_session_records(
+        repo.path(),
+        TEST_SESSION_KEY,
+        PublicationStatus::Published,
+        &turn_key,
+        2,
+    )
+    .expect("records");
 
     assert_eq!(records.session_key, TEST_SESSION_KEY);
     assert_eq!(records.turn_key, turn_key);
@@ -1926,13 +2121,27 @@ fn get_session_records_returns_latest_bounded_records_without_storage_keys() {
     assert!(json["records"][0].get("source_key").is_none());
     assert_eq!(json["records"][0]["source_record_index"], 3);
 
-    let empty = get_session_records(repo.path(), TEST_SESSION_KEY, &turn_key, 0).expect("empty");
+    let empty = get_session_records(
+        repo.path(),
+        TEST_SESSION_KEY,
+        PublicationStatus::Published,
+        &turn_key,
+        0,
+    )
+    .expect("empty");
     assert_eq!(empty.coverage.showing_records, 0);
     assert_eq!(empty.coverage.total_records, 3);
     assert!(empty.coverage.has_more_before);
     assert!(empty.records.is_empty());
 
-    let all = get_session_records(repo.path(), TEST_SESSION_KEY, &turn_key, 99).expect("all");
+    let all = get_session_records(
+        repo.path(),
+        TEST_SESSION_KEY,
+        PublicationStatus::Published,
+        &turn_key,
+        99,
+    )
+    .expect("all");
     assert_eq!(all.coverage.showing_records, 3);
     assert_eq!(all.coverage.total_records, 3);
     assert!(!all.coverage.has_more_before);
@@ -2259,7 +2468,14 @@ fn transcript_records_store_prompt_source_tool_kind_and_outcome() {
         .as_str()
         .expect("turn key")
         .to_owned();
-    let records = get_session_records(repo.path(), &session_key, &turn_key, 10).expect("records");
+    let records = get_session_records(
+        repo.path(),
+        &session_key,
+        PublicationStatus::Published,
+        &turn_key,
+        10,
+    )
+    .expect("records");
     assert_eq!(
         records.records[1].prompt_source.as_deref(),
         Some("spawned_agent")
@@ -2467,8 +2683,13 @@ fn incremental_capture_links_previous_turn_by_entry_timestamp() {
     assert_eq!(third_turn["previous_turn_key"], second_turn_key);
     assert_ne!(third_turn["previous_turn_key"], first_turn_key);
 
-    let timeline =
-        get_session_timeline_outline(repo.path(), TEST_SESSION_KEY, None).expect("read timeline");
+    let timeline = get_session_timeline_outline(
+        repo.path(),
+        TEST_SESSION_KEY,
+        PublicationStatus::Published,
+        None,
+    )
+    .expect("read timeline");
     let timeline_turn_keys = timeline
         .turns
         .iter()

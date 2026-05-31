@@ -19,8 +19,8 @@ use sha2::{Digest, Sha256};
 
 use crate::environment::is_public_repo_path;
 use crate::gitmeta::{
-    RelatedSession, RelatedTarget, SessionRecords, find_related_sessions_limited,
-    get_session_records, get_session_timeline_outline,
+    PublicationStatus, RelatedSession, RelatedTarget, SessionRecords,
+    find_related_sessions_limited, get_session_records, get_session_timeline_outline,
 };
 use crate::redaction::redact_text;
 
@@ -83,10 +83,15 @@ pub fn project_pr(repo_path: &Path, request: &ProjectionRequest) -> Result<Proje
     let source_metadata = session_source_metadata(repo_path, candidates.keys())?;
     let mut turn_candidates = Vec::new();
     for (session_key, candidate) in &candidates {
-        let timeline =
-            get_session_timeline_outline(repo_path, session_key, None).with_context(|| {
-                format!("failed to read projected timeline for session '{session_key}'")
-            })?;
+        let timeline = get_session_timeline_outline(
+            repo_path,
+            session_key,
+            PublicationStatus::Published,
+            None,
+        )
+        .with_context(|| {
+            format!("failed to read projected timeline for session '{session_key}'")
+        })?;
         for turn in &timeline.turns {
             let reasons = candidate.turn_match_reasons(&turn.turn_key);
             if reasons.is_empty() {
@@ -133,6 +138,7 @@ pub fn project_pr(repo_path: &Path, request: &ProjectionRequest) -> Result<Proje
         let records = get_session_records(
             repo_path,
             &selected.session_key,
+            PublicationStatus::Published,
             &selected.turn_key,
             request.limits.max_records_per_turn,
         )

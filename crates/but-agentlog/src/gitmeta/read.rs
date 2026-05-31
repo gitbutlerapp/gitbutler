@@ -12,13 +12,14 @@ use serde_json::Value;
 use crate::environment::{is_public_repo_path, path_fingerprint};
 
 use super::{
-    IndexHit, SessionListEntry, StoredBranchSnapshot, StoredCommitSnapshot,
-    StoredEnvironmentSnapshot, StoredObservedTargets, index_key,
+    IndexHit, PublicationStatus, SESSION_PREFIX, SessionListEntry, StoredBranchSnapshot,
+    StoredCommitSnapshot, StoredEnvironmentSnapshot, StoredObservedTargets,
     read_support::{
         read_optional_turn_detail, read_transcript_entries, read_turn_detail, read_turn_summaries,
         transcript_records_by_hash, with_project_target,
     },
     session_outline::{RelatedSession, related_session_outline},
+    session_storage_prefix, status_index_key,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,9 +49,10 @@ impl<'a> RelatedTarget<'a> {
 
 fn session_list_entry(
     handle: &SessionTargetHandle<'_>,
+    status: PublicationStatus,
     session_key: String,
 ) -> Result<SessionListEntry> {
-    let session_prefix = format!("gitbutler:agent-session:{session_key}");
+    let session_prefix = session_storage_prefix(status, &session_key);
     let updated_at_key = format!("{session_prefix}:updated-at");
     let updated_at = match handle
         .get_value(&updated_at_key)
@@ -65,6 +67,7 @@ fn session_list_entry(
         .with_timezone(&Utc);
     Ok(SessionListEntry {
         session_key,
+        status,
         updated_at,
         sort_updated_at,
     })
@@ -75,15 +78,34 @@ pub(crate) fn find_related_sessions_limited(
     target: RelatedTarget<'_>,
     max_sessions: Option<usize>,
 ) -> Result<Vec<RelatedSession>> {
+    find_related_sessions_limited_by_statuses(
+        repo_path,
+        target,
+        max_sessions,
+        &[PublicationStatus::Published],
+    )
+}
+
+pub(crate) fn find_related_sessions_limited_by_statuses(
+    repo_path: &Path,
+    target: RelatedTarget<'_>,
+    max_sessions: Option<usize>,
+    statuses: &[PublicationStatus],
+) -> Result<Vec<RelatedSession>> {
     with_project_target(repo_path, |handle| {
         let mut matches = Vec::new();
-        for (session_key, related_turn_keys) in verified_related_turns_by_session(handle, target)? {
-            let entry = session_list_entry(handle, session_key)?;
-            matches.push((entry, related_turn_keys));
+        for &status in statuses {
+            for (session_key, related_turn_keys) in
+                verified_related_turns_by_session(handle, target, status)?
+            {
+                let entry = session_list_entry(handle, status, session_key)?;
+                matches.push((entry, related_turn_keys));
+            }
         }
         matches.sort_by(|(lhs, _), (rhs, _)| {
             rhs.sort_updated_at
                 .cmp(&lhs.sort_updated_at)
+                .then_with(|| lhs.status.as_str().cmp(rhs.status.as_str()))
                 .then_with(|| lhs.session_key.cmp(&rhs.session_key))
         });
         if let Some(max_sessions) = max_sessions {
@@ -98,17 +120,38 @@ pub(crate) fn find_related_sessions_limited(
     })
 }
 
+pub(crate) fn find_session_status(
+    repo_path: &Path,
+    session_key: &str,
+) -> Result<Option<PublicationStatus>> {
+    with_project_target(repo_path, |handle| {
+        for status in [PublicationStatus::Published, PublicationStatus::LocalOnly] {
+            let schema_key = status.storage_key(&format!("{SESSION_PREFIX}:{session_key}:schema"));
+            if handle
+                .get_value(&schema_key)
+                .with_context(|| format!("failed to read GitMeta key '{schema_key}'"))?
+                .is_some()
+            {
+                return Ok(Some(status));
+            }
+        }
+        Ok(None)
+    })
+}
+
 fn verified_related_turns_by_session(
     handle: &SessionTargetHandle<'_>,
     target: RelatedTarget<'_>,
+    status: PublicationStatus,
 ) -> Result<BTreeMap<String, Vec<String>>> {
     let mut indexed_turns = BTreeMap::<String, HashSet<String>>::new();
     let mut session_activity_matches = BTreeMap::<String, bool>::new();
-    for hit in target_index_hits(handle, target)? {
+    for hit in target_index_hits(handle, target, status)? {
         let Ok(hit) = serde_json::from_str::<IndexHit>(&hit) else {
             continue;
         };
-        if turn_detail_observes_target(handle, &hit, target, &mut session_activity_matches)? {
+        if turn_detail_observes_target(handle, &hit, target, status, &mut session_activity_matches)?
+        {
             indexed_turns
                 .entry(hit.session_key)
                 .or_default()
@@ -118,7 +161,8 @@ fn verified_related_turns_by_session(
 
     let mut by_session = BTreeMap::new();
     for (session_key, turn_keys) in indexed_turns {
-        let ordered_turn_keys = ordered_existing_turn_keys(handle, &session_key, &turn_keys)?;
+        let ordered_turn_keys =
+            ordered_existing_turn_keys(handle, &session_key, status, &turn_keys)?;
         if !ordered_turn_keys.is_empty() {
             by_session.insert(session_key, ordered_turn_keys);
         }
@@ -129,9 +173,10 @@ fn verified_related_turns_by_session(
 fn ordered_existing_turn_keys(
     handle: &SessionTargetHandle<'_>,
     session_key: &str,
+    status: PublicationStatus,
     turn_keys: &HashSet<String>,
 ) -> Result<Vec<String>> {
-    let turns_key = format!("gitbutler:agent-session:{session_key}:turns");
+    let turns_key = format!("{}:turns", session_storage_prefix(status, session_key));
     Ok(read_turn_summaries(handle, &turns_key)?
         .into_iter()
         .filter_map(|summary| {
@@ -147,8 +192,9 @@ fn ordered_existing_turn_keys(
 fn target_index_hits(
     handle: &SessionTargetHandle<'_>,
     target: RelatedTarget<'_>,
+    status: PublicationStatus,
 ) -> Result<BTreeSet<String>> {
-    let index_key = index_key(target.index_kind(), target.key());
+    let index_key = status_index_key(status, target.index_kind(), target.key());
     let Some(value) = handle
         .get_value(&index_key)
         .with_context(|| format!("failed to read GitMeta key '{index_key}'"))?
@@ -165,24 +211,26 @@ fn turn_detail_observes_target(
     handle: &SessionTargetHandle<'_>,
     hit: &IndexHit,
     target: RelatedTarget<'_>,
+    status: PublicationStatus,
     session_activity_matches: &mut BTreeMap<String, bool>,
 ) -> Result<bool> {
     let detail_key = format!(
-        "gitbutler:agent-session:{}:turn:{}",
-        hit.session_key, hit.turn_key
+        "{}:turn:{}",
+        session_storage_prefix(status, &hit.session_key),
+        hit.turn_key
     );
     let Some(detail) = read_optional_turn_detail(handle, &detail_key)? else {
         return Ok(false);
     };
     if !observed_targets_observe(&detail.observed_targets, target)
-        && !session_associations_observe_target(handle, &hit.session_key, target)?
+        && !session_associations_observe_target(handle, &hit.session_key, status, target)?
     {
         return Ok(false);
     }
     if let Some(matches) = session_activity_matches.get(&hit.session_key) {
         return Ok(*matches);
     }
-    let matches = session_has_target_activity(handle, &hit.session_key, target)?;
+    let matches = session_has_target_activity(handle, &hit.session_key, status, target)?;
     session_activity_matches.insert(hit.session_key.clone(), matches);
     Ok(matches)
 }
@@ -198,10 +246,13 @@ fn observed_targets_observe(targets: &StoredObservedTargets, target: RelatedTarg
 fn session_associations_observe_target(
     handle: &SessionTargetHandle<'_>,
     session_key: &str,
+    status: PublicationStatus,
     target: RelatedTarget<'_>,
 ) -> Result<bool> {
-    let associated_targets_key =
-        format!("gitbutler:agent-session:{session_key}:associated-targets");
+    let associated_targets_key = format!(
+        "{}:associated-targets",
+        session_storage_prefix(status, session_key)
+    );
     let Some(value) = handle
         .get_value(&associated_targets_key)
         .with_context(|| format!("failed to read GitMeta key '{associated_targets_key}'"))?
@@ -240,9 +291,10 @@ impl StoredSessionAssociations {
 fn session_has_target_activity(
     handle: &SessionTargetHandle<'_>,
     session_key: &str,
+    status: PublicationStatus,
     target: RelatedTarget<'_>,
 ) -> Result<bool> {
-    let session_prefix = format!("gitbutler:agent-session:{session_key}");
+    let session_prefix = session_storage_prefix(status, session_key);
     let summaries = read_turn_summaries(handle, &format!("{session_prefix}:turns"))?;
     let turns = read_session_turn_details(handle, &session_prefix, &summaries)?;
     let file_edit_hashes_by_turn =

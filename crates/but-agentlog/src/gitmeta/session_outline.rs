@@ -6,14 +6,16 @@ use serde::Serialize;
 use serde_json::Value;
 
 use super::{
-    SessionListEntry,
+    PublicationStatus, SessionListEntry,
     outline_support::{RecordPreview, compact_preview},
     read_support::{read_turn_detail, read_turn_summaries},
+    session_storage_prefix,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub(crate) struct RelatedSession {
     pub(crate) session_key: String,
+    pub(crate) status: PublicationStatus,
     pub(crate) updated_at: String,
     pub(crate) started_at: Option<String>,
     pub(crate) turn_count: usize,
@@ -29,7 +31,7 @@ pub(super) fn related_session_outline(
     entry: SessionListEntry,
     related_turn_keys: Vec<String>,
 ) -> Result<RelatedSession> {
-    let session_prefix = format!("gitbutler:agent-session:{}", entry.session_key);
+    let session_prefix = session_storage_prefix(entry.status, &entry.session_key);
     let summaries = read_turn_summaries(handle, &format!("{session_prefix}:turns"))?;
     let related_turn_key_set = related_turn_keys
         .iter()
@@ -50,6 +52,7 @@ pub(super) fn related_session_outline(
     let latest = summaries.last();
     Ok(RelatedSession {
         session_key: entry.session_key,
+        status: entry.status,
         updated_at: entry.updated_at,
         started_at: summaries.first().map(|summary| summary.captured_at.clone()),
         turn_count: summaries.len(),
