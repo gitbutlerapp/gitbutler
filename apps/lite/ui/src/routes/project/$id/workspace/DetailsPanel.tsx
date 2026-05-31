@@ -523,11 +523,11 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 					className={styles.detailsContentPanel}
 					style={{ opacity: urgentSelection !== selection ? 0.5 : 1 }}
 				>
-					<Virtualizer className={styles.detailsVirtualizer}>
-						<Suspense fallback={<p className="text-13">Loading diff…</p>}>
+					<Suspense fallback={<p className="text-13">Loading diff…</p>}>
+						<Virtualizer className={styles.detailsVirtualizer}>
 							<DiffContents projectId={projectId} selection={selection} />
-						</Suspense>
-					</Virtualizer>
+						</Virtualizer>
+					</Suspense>
 				</div>
 			</div>
 		</div>
