@@ -18,7 +18,8 @@
 		background-color 0.08s ease,
 		color 0.08s ease;
 
-	&:disabled {
+	&:disabled,
+	&[data-disabled] {
 		opacity: 0.5;
 	}
 }
@@ -62,7 +63,7 @@
 	--button-group-divider-color: color-mix(in srgb, var(--scale-pop-40) 20%, transparent);
 }
 
-.pop:not(:disabled):hover {
+.pop:not(:disabled, [data-disabled]):hover {
 	background-color: color-mix(in srgb, var(--scale-pop-60) 70%, transparent);
 }
 
@@ -72,7 +73,7 @@
 	--button-group-divider-color: color-mix(in srgb, var(--fill-gray-fg) 18%, transparent);
 }
 
-.gray:not(:disabled):hover {
+.gray:not(:disabled, [data-disabled]):hover {
 	background-color: color-mix(in srgb, var(--fill-gray-bg) 45%, var(--scale-gray-0));
 }
 
@@ -82,7 +83,7 @@
 	--button-group-divider-color: color-mix(in srgb, var(--text-1-invert) 18%, transparent);
 }
 
-.inverted:not(:disabled):hover {
+.inverted:not(:disabled, [data-disabled]):hover {
 	background-color: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
 }
 
@@ -91,7 +92,7 @@
 	--button-group-divider-color: color-mix(in srgb, var(--fill-gray-bg) 30%, transparent);
 }
 
-.outline:not(:disabled):hover {
+.outline:not(:disabled, [data-disabled]):hover {
 	background-color: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
 }
 
@@ -101,7 +102,7 @@
 	--button-group-divider-color: color-mix(in srgb, var(--scale-danger-50) 20%, transparent);
 }
 
-.danger:not(:disabled):hover {
+.danger:not(:disabled, [data-disabled]):hover {
 	background-color: color-mix(in srgb, var(--scale-danger-50) 20%, transparent);
 }
 
@@ -109,7 +110,7 @@
 	--button-group-divider-color: color-mix(in srgb, var(--scale-gray-0) 14%, transparent);
 }
 
-.ghost:not(:disabled):hover {
+.ghost:not(:disabled, [data-disabled]):hover {
 	background-color: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
 }
 
@@ -118,8 +119,8 @@
 	opacity: 0.6;
 }
 
-.ghost:not(:disabled):hover :where([data-icon]),
-.outline:not(:disabled):hover :where([data-icon]) {
+.ghost:not(:disabled, [data-disabled]):hover :where([data-icon]),
+.outline:not(:disabled, [data-disabled]):hover :where([data-icon]) {
 	opacity: 0.8;
 }
 
@@ -130,9 +131,9 @@
 	opacity: 0.7;
 }
 
-.pop:not(:disabled):hover :where([data-icon]),
-.gray:not(:disabled):hover :where([data-icon]),
-.inverted:not(:disabled):hover :where([data-icon]),
-.danger:not(:disabled):hover :where([data-icon]) {
+.pop:not(:disabled, [data-disabled]):hover :where([data-icon]),
+.gray:not(:disabled, [data-disabled]):hover :where([data-icon]),
+.inverted:not(:disabled, [data-disabled]):hover :where([data-icon]),
+.danger:not(:disabled, [data-disabled]):hover :where([data-icon]) {
 	opacity: 0.9;
 }
