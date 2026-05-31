@@ -441,10 +441,6 @@ const WorkspacePage: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
-	const activeElement = useActiveElement();
-	const focusedPanel = getFocusedProjectPanel(activeElement);
-	const focusedPanelForCommandPalette =
-		dialog._tag === "CommandPalette" ? dialog.focusedPanel : focusedPanel;
 
 	useWorkspaceHotkeys(projectId);
 
@@ -468,6 +464,10 @@ const WorkspacePage: FC = () => {
 		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 
+	const activeElement = useActiveElement();
+	const focusedPanel = getFocusedProjectPanel(activeElement);
+	const focusedPanelForCommandPalette =
+		dialog._tag === "CommandPalette" ? dialog.focusedPanel : focusedPanel;
 	const setCommandPaletteOpen = (open: boolean) => {
 		if (open)
 			dispatch(
