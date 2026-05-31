@@ -1629,12 +1629,12 @@ const Changes: FC<{
 
 	useHotkeys([
 		{
-			hotkey: changesHotkeys.selectCommitBranch.hotkey,
+			hotkey: changesHotkeys.selectCommitTarget.hotkey,
 			callback: () => setOpen(true),
 			options: {
 				conflictBehavior: "allow",
 				enabled: outlineMode._tag === "Default" && !isCommitOrAmendPending,
-				meta: changesHotkeys.selectCommitBranch.meta,
+				meta: changesHotkeys.selectCommitTarget.meta,
 			},
 		},
 		{
@@ -1720,9 +1720,9 @@ const Changes: FC<{
 							<Tooltip.Portal>
 								<Tooltip.Positioner sideOffset={4}>
 									<Tooltip.Popup
-										render={<TooltipPopup kbd={changesHotkeys.selectCommitBranch.hotkey} />}
+										render={<TooltipPopup kbd={changesHotkeys.selectCommitTarget.hotkey} />}
 									>
-										{changesHotkeys.selectCommitBranch.meta.name}
+										{changesHotkeys.selectCommitTarget.meta.name}
 									</Tooltip.Popup>
 								</Tooltip.Positioner>
 							</Tooltip.Portal>
