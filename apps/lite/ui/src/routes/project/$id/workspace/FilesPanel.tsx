@@ -99,7 +99,7 @@ const useFilesTreeHotkeys = ({
 }) => {
 	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-	const focusedPanel = useFocusedProjectPanel(projectId);
+	const focusedPanel = useFocusedProjectPanel();
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
 	const dispatch = useAppDispatch();

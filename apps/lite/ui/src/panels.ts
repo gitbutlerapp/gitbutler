@@ -3,11 +3,7 @@ import type { CommandGroup } from "#ui/hotkeys.ts";
 import { type OperationType } from "#ui/operations/operation.ts";
 import { keyboardTransferOperationMode } from "#ui/outline/mode.ts";
 import { type Operand } from "#ui/operands.ts";
-import {
-	projectActions,
-	selectProjectOutlineModeState,
-	selectProjectDialogState,
-} from "#ui/projects/state.ts";
+import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import {
 	getAdjacent,
@@ -29,11 +25,10 @@ const getFocusedProjectPanel = (activeElement: Element | null): Panel | null => 
 	return isProjectPanel(panelId) ? panelId : null;
 };
 
-export const useFocusedProjectPanel = (projectId: string): Panel | null => {
+export const useFocusedProjectPanel = (): Panel | null => {
 	const activeElement = useActiveElement();
 	const focusedPanel = getFocusedProjectPanel(activeElement);
-	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
-	return dialog._tag === "CommandPalette" ? dialog.focusedPanel : focusedPanel;
+	return focusedPanel;
 };
 
 export const focusPanel = (panel: Panel) => {

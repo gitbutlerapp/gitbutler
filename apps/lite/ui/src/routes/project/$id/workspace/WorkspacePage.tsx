@@ -355,7 +355,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	const dispatch = useAppDispatch();
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
 	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
-	const focusedPanel = useFocusedProjectPanel(projectId);
+	const focusedPanel = useFocusedProjectPanel();
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const restoreSnapshotMutation = useRestoreSnapshot({ projectId });
@@ -439,7 +439,9 @@ const WorkspacePage: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
-	const focusedPanel = useFocusedProjectPanel(projectId);
+	const focusedPanel = useFocusedProjectPanel();
+	const focusedPanelForCommandPalette =
+		dialog._tag === "CommandPalette" ? dialog.focusedPanel : focusedPanel;
 
 	useWorkspaceHotkeys(projectId);
 
@@ -464,7 +466,13 @@ const WorkspacePage: FC = () => {
 	};
 
 	const setCommandPaletteOpen = (open: boolean) => {
-		if (open) dispatch(projectActions.openCommandPalette({ projectId, focusedPanel }));
+		if (open)
+			dispatch(
+				projectActions.openCommandPalette({
+					projectId,
+					focusedPanel: focusedPanelForCommandPalette,
+				}),
+			);
 		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 
