@@ -16,8 +16,6 @@
 
 .workspaceName {
 	overflow: hidden;
-	font-weight: 700;
-	font-size: 15px;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }

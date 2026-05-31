@@ -707,7 +707,9 @@ export const OutlinePanel: FC<ComponentProps<"div">> = (panelProps) => {
 					>
 						<header className={styles.workspaceControls}>
 							<div className={styles.workspaceControlsLeft}>
-								<h1 className={styles.workspaceName}>{selectedProject.title}</h1>
+								<h1 className={classes("text-15", "text-bold", styles.workspaceName)}>
+									{selectedProject.title}
+								</h1>
 								<ActivitySpinner />
 							</div>
 
