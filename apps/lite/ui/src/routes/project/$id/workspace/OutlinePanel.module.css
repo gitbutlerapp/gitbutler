@@ -21,12 +21,6 @@
 	white-space: nowrap;
 }
 
-.branchBtn {
-	flex-shrink: 0;
-	font-weight: 550;
-	font-size: 13px;
-}
-
 .panel {
 	display: grid;
 
