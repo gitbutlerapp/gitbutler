@@ -711,25 +711,28 @@ const ChangesFileRow: FC<{
 			</div>
 
 			{outlineMode._tag === "Default" && (
-				<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
-					{dependencyCommitIds && (
+				<>
+					<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
 						<Toolbar.Button
+							aria-label="File menu"
+							onClick={(event) => {
+								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+							}}
 							className={workspaceItemRowStyles.itemRowIconButton}
-							render={<DependencyIndicator projectId={projectId} commitIds={dependencyCommitIds} />}
+						>
+							<Icon name="kebab" />
+						</Toolbar.Button>
+					</Toolbar.Root>
+					{dependencyCommitIds && (
+						<DependencyIndicator
+							projectId={projectId}
+							commitIds={dependencyCommitIds}
+							className={workspaceItemRowStyles.itemRowIconButton}
 						>
 							<Icon name="link" />
-						</Toolbar.Button>
+						</DependencyIndicator>
 					)}
-					<Toolbar.Button
-						aria-label="File menu"
-						onClick={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-						}}
-						className={workspaceItemRowStyles.itemRowIconButton}
-					>
-						<Icon name="kebab" />
-					</Toolbar.Button>
-				</Toolbar.Root>
+				</>
 			)}
 		</TreeItem>
 	);
