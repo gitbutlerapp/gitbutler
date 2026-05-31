@@ -73,7 +73,7 @@
 }
 
 .stackRowLabel::before {
-	/* Don't shrink height with empty text content - relevant for context menu hitbox. */
+	/* Don't shrink height with empty text content to ensure height always matches other labels. */
 	content: "\00a0";
 }
 
