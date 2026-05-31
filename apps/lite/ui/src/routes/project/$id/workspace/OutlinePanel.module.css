@@ -48,7 +48,9 @@
 
 .segments {
 	display: flex;
-	row-gap: 24px;
+	/* The size of an item row. Eventually this should be a fixed/shared value,
+	somehow. */
+	row-gap: 28px;
 	flex-direction: column;
 }
 
