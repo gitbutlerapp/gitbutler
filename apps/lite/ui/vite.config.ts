@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
 	root: currentDirPath,
 	plugins: [
 		react({
@@ -27,4 +27,13 @@ export default defineConfig({
 		port: 5173,
 		strictPort: true,
 	},
-});
+	// Improve readability of class names in development mode by adding the module
+	// name as a prefix, e.g. `MyComponent_myClass__abc123`.
+	...(command === "serve" && {
+		css: {
+			modules: {
+				generateScopedName: "[name]_[local]__[hash:base64:5]",
+			},
+		},
+	}),
+}));

@@ -20,6 +20,7 @@
 			"project": ["electron/src/**!", "ui/src/**!"],
 			"includeEntryExports": true,
 			"ignoreDependencies": [
+				"babel-plugin-react-compiler",
 				"@gitbutler/design-core",
 				"@tanstack/eslint-plugin-query",
 				"electron",
