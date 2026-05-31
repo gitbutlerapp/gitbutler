@@ -44,6 +44,7 @@ export const DependencyIndicator: FC<
 			<Popover.Trigger
 				{...restProps}
 				onMouseEnter={highlightCommitIds}
+				// TODO: we should also clear if the element unmounts
 				onMouseLeave={clearHighlightedCommitIds}
 				onFocus={highlightCommitIds}
 				onBlur={clearHighlightedCommitIds}
