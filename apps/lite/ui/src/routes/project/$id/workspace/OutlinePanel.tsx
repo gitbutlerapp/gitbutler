@@ -1691,9 +1691,9 @@ const Changes: FC<{
 					>
 						<Tooltip.Root>
 							<Combobox.Trigger
-								className={classes(styles.commitTargetComboboxTrigger)}
+								className={classes(getButtonClassName({}), styles.commitTargetComboboxTrigger)}
 								aria-label="Select branch"
-								render={<Tooltip.Trigger className={getButtonClassName({})} />}
+								render={<Tooltip.Trigger />}
 							>
 								<Combobox.Value placeholder="Select branch" />
 							</Combobox.Trigger>
