@@ -162,9 +162,9 @@ export const changesHotkeys = {
 		hotkey: "Mod+Enter",
 		meta: { group: "Changes", name: "Commit" },
 	},
-	selectCommitBranch: {
+	selectCommitTarget: {
 		hotkey: "Mod+Shift+B",
-		meta: { group: "Changes", name: "Select commit branch" },
+		meta: { group: "Changes", name: "Select commit target" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 

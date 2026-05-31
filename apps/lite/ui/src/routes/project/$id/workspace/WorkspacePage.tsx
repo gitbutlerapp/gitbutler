@@ -3,12 +3,7 @@ import {
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import {
-	focusAdjacentPanel,
-	focusPanel,
-	Panel as PanelType,
-	useFocusedProjectPanel,
-} from "#ui/panels.ts";
+import { focusAdjacentPanel, focusPanel, getFocusedProjectPanel, Panel } from "#ui/panels.ts";
 import {
 	projectActions,
 	selectProjectDialogState,
@@ -45,6 +40,17 @@ import { OutlinePanel } from "#ui/routes/project/$id/workspace/OutlinePanel.tsx"
 import { Toast } from "@base-ui/react";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { shortCommitId } from "#ui/commit.ts";
+import { useActiveElement } from "#ui/focus.ts";
+
+const toggleFilesPanel =
+	({ projectId, focusedPanel }: { projectId: string; focusedPanel: Panel | null }): AppThunk =>
+	(dispatch, getState) => {
+		const panelsState = selectProjectPanelsState(getState(), projectId);
+
+		if (focusedPanel === "files" && panelsState.filesVisible) focusPanel("outline");
+
+		dispatch(projectActions.toggleFilesPanel({ projectId }));
+	};
 
 type CommandPaletteItem = {
 	group: CommandGroup;
@@ -53,16 +59,6 @@ type CommandPaletteItem = {
 	hotkey: Hotkey | HotkeySequence;
 	type: "hotkey" | "sequence";
 };
-
-const toggleFilesPanel =
-	({ projectId, focusedPanel }: { projectId: string; focusedPanel: PanelType | null }): AppThunk =>
-	(dispatch, getState) => {
-		const panelsState = selectProjectPanelsState(getState(), projectId);
-
-		if (focusedPanel === "files" && panelsState.filesVisible) focusPanel("outline");
-
-		dispatch(projectActions.toggleFilesPanel({ projectId }));
-	};
 
 const groupCommandPaletteItems = (
 	items: Array<CommandPaletteItem>,
@@ -355,7 +351,8 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	const dispatch = useAppDispatch();
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
 	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
-	const focusedPanel = useFocusedProjectPanel(projectId);
+	const activeElement = useActiveElement();
+	const focusedPanel = getFocusedProjectPanel(activeElement);
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const restoreSnapshotMutation = useRestoreSnapshot({ projectId });
@@ -439,7 +436,6 @@ const WorkspacePage: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
-	const focusedPanel = useFocusedProjectPanel(projectId);
 
 	useWorkspaceHotkeys(projectId);
 
@@ -463,8 +459,18 @@ const WorkspacePage: FC = () => {
 		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 
+	const activeElement = useActiveElement();
+	const focusedPanel = getFocusedProjectPanel(activeElement);
+	const focusedPanelForCommandPalette =
+		dialog._tag === "CommandPalette" ? dialog.focusedPanel : focusedPanel;
 	const setCommandPaletteOpen = (open: boolean) => {
-		if (open) dispatch(projectActions.openCommandPalette({ projectId, focusedPanel }));
+		if (open)
+			dispatch(
+				projectActions.openCommandPalette({
+					projectId,
+					focusedPanel: focusedPanelForCommandPalette,
+				}),
+			);
 		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 
@@ -472,7 +478,7 @@ const WorkspacePage: FC = () => {
 		<>
 			<div className={styles.page}>
 				<OutlinePanel
-					id={"outline" satisfies PanelType}
+					id={"outline" satisfies Panel}
 					data-panel
 					tabIndex={0}
 					ref={(el) => el?.focus({ focusVisible: false })}

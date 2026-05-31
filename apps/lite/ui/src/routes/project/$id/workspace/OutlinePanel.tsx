@@ -33,7 +33,7 @@ import {
 	keyboardTransferOperationMode,
 	getOperationSource,
 } from "#ui/outline/mode.ts";
-import { focusPanel, useFocusedProjectPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
+import { focusPanel, getFocusedProjectPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
 import {
 	projectActions,
 	selectProjectCommitTarget,
@@ -122,6 +122,8 @@ import {
 import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { OutlineModeTooltip } from "./OutlineModeTooltip.tsx";
+import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
+import { useActiveElement } from "#ui/focus.ts";
 
 const NavigationIndexContext = createContext<NavigationIndex | null>(null);
 
@@ -391,7 +393,8 @@ const useOutlineTreeHotkeys = ({
 }) => {
 	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-	const focusedPanel = useFocusedProjectPanel(projectId);
+	const activeElement = useActiveElement();
+	const focusedPanel = getFocusedProjectPanel(activeElement);
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
 	const dispatch = useAppDispatch();
@@ -895,10 +898,9 @@ const InlineRewordCommit: FC<{
 	message: string;
 	onSubmit: (value: string) => void;
 	onExit: () => void;
-	projectId: string;
-}> = ({ message, onSubmit, onExit, projectId }) => {
+}> = ({ message, onSubmit, onExit }) => {
 	const formRef = useRef<HTMLFormElement | null>(null);
-	const focusedPanel = useFocusedProjectPanel(projectId);
+	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const submitAction = (formData: FormData) => {
 		onExit();
 		onSubmit(formData.get("message") as string);
@@ -906,28 +908,28 @@ const InlineRewordCommit: FC<{
 
 	useHotkey("Enter", () => formRef.current?.requestSubmit(), {
 		conflictBehavior: "allow",
-		enabled: focusedPanel === "outline",
 		ignoreInputs: false,
 		meta: { group: "Reword commit", name: "Save reworded commit" },
+		target: textareaRef,
 	});
 
 	useHotkey("Escape", onExit, {
 		conflictBehavior: "allow",
-		enabled: focusedPanel === "outline",
 		ignoreInputs: false,
 		meta: { group: "Reword commit", name: "Cancel reword commit" },
+		target: textareaRef,
 	});
 
 	return (
 		<form ref={formRef} className={styles.editorForm} action={submitAction}>
 			<textarea
-				ref={(el) => {
+				ref={useMergedRefs(textareaRef, (el) => {
 					if (!el) return;
 					el.focus();
 					const firstNewline = el.textContent.indexOf("\n");
 					const cursorPosition = firstNewline !== -1 ? firstNewline : el.value.length;
 					el.setSelectionRange(cursorPosition, cursorPosition);
-				}}
+				})}
 				aria-label="Commit message"
 				name="message"
 				defaultValue={message.trim()}
@@ -1092,13 +1094,11 @@ const CommitRow: FC<
 		}),
 		nativeMenuItem({
 			label: "Amend Commit",
-			enabled: true,
 			accelerator: toElectronAccelerator(outlineHotkeys.amendCommit.hotkey),
 			onSelect: amendCommit,
 		}),
 		nativeMenuItem({
 			label: "Cut Commit",
-			enabled: true,
 			onSelect: cutCommit,
 		}),
 		nativeMenuSeparator,
@@ -1125,12 +1125,10 @@ const CommitRow: FC<
 			submenu: [
 				nativeMenuItem({
 					label: "Above",
-					enabled: true,
 					onSelect: insertBlankCommitAbove,
 				}),
 				nativeMenuItem({
 					label: "Below",
-					enabled: true,
 					onSelect: insertBlankCommitBelow,
 				}),
 			],
@@ -1183,7 +1181,6 @@ const CommitRow: FC<
 					message={optimisticMessage}
 					onSubmit={saveNewMessage}
 					onExit={endEditing}
-					projectId={projectId}
 				/>
 			) : (
 				<>
@@ -1550,6 +1547,7 @@ const Changes: FC<{
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const isAltHeld = useKeyHold("Alt");
+	// TODO: bug: false positive when holding alt e.g. inside commit reword input
 	const isAmendMode = isAltHeld;
 	const isCommitOrAmendPending = commitCreateMutation.isPending || commitAmendMutation.isPending;
 	const canCommitOrAmendBase =
@@ -1627,12 +1625,12 @@ const Changes: FC<{
 
 	useHotkeys([
 		{
-			hotkey: changesHotkeys.selectCommitBranch.hotkey,
+			hotkey: changesHotkeys.selectCommitTarget.hotkey,
 			callback: () => setOpen(true),
 			options: {
 				conflictBehavior: "allow",
 				enabled: outlineMode._tag === "Default" && !isCommitOrAmendPending,
-				meta: changesHotkeys.selectCommitBranch.meta,
+				meta: changesHotkeys.selectCommitTarget.meta,
 			},
 		},
 		{
@@ -1718,9 +1716,9 @@ const Changes: FC<{
 							<Tooltip.Portal>
 								<Tooltip.Positioner sideOffset={4}>
 									<Tooltip.Popup
-										render={<TooltipPopup kbd={changesHotkeys.selectCommitBranch.hotkey} />}
+										render={<TooltipPopup kbd={changesHotkeys.selectCommitTarget.hotkey} />}
 									>
-										{changesHotkeys.selectCommitBranch.meta.name}
+										{changesHotkeys.selectCommitTarget.meta.name}
 									</Tooltip.Popup>
 								</Tooltip.Positioner>
 							</Tooltip.Portal>
@@ -1784,10 +1782,9 @@ const InlineRenameBranch: FC<{
 	branchName: string;
 	onSubmit: (value: string) => void;
 	onExit: () => void;
-	projectId: string;
-}> = ({ branchName, onSubmit, onExit, projectId }) => {
+}> = ({ branchName, onSubmit, onExit }) => {
 	const formRef = useRef<HTMLFormElement | null>(null);
-	const focusedPanel = useFocusedProjectPanel(projectId);
+	const textareaRef = useRef<HTMLInputElement>(null);
 	const submitAction = (formData: FormData) => {
 		onExit();
 		onSubmit(formData.get("branchName") as string);
@@ -1795,27 +1792,27 @@ const InlineRenameBranch: FC<{
 
 	useHotkey("Enter", () => formRef.current?.requestSubmit(), {
 		conflictBehavior: "allow",
-		enabled: focusedPanel === "outline",
 		ignoreInputs: false,
 		meta: { group: "Rename branch", name: "Save branch name" },
+		target: textareaRef,
 	});
 
 	useHotkey("Escape", onExit, {
 		conflictBehavior: "allow",
-		enabled: focusedPanel === "outline",
 		ignoreInputs: false,
 		meta: { group: "Rename branch", name: "Cancel branch rename" },
+		target: textareaRef,
 	});
 
 	return (
 		<form ref={formRef} className={styles.editorForm} action={submitAction}>
 			<input
 				aria-label="Branch name"
-				ref={(el) => {
+				ref={useMergedRefs(textareaRef, (el) => {
 					if (!el) return;
 					el.focus();
 					el.select();
-				}}
+				})}
 				name="branchName"
 				defaultValue={branchName}
 				className={classes("text-bold", styles.editorInput)}
@@ -1880,7 +1877,7 @@ const useRemoveBranch = () => {
 
 			toastManager.add({
 				type: "error",
-				title: "Failed to remove branch",
+				title: "Failed to delete branch reference",
 				description: errorMessageForToast(error),
 				priority: "high",
 			});
@@ -2091,7 +2088,7 @@ const BranchRow: FC<
 			onSelect: tearOffBranch,
 		}),
 		nativeMenuItem({
-			label: "Remove Branch",
+			label: "Delete Branch Reference",
 			enabled: canRemoveBranch,
 			onSelect: () =>
 				removeBranchMutation.mutate({
@@ -2133,7 +2130,6 @@ const BranchRow: FC<
 					branchName={optimisticBranchName}
 					onSubmit={saveBranchName}
 					onExit={endEditing}
-					projectId={projectId}
 				/>
 			) : (
 				<>
