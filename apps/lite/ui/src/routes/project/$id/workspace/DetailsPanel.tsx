@@ -484,19 +484,21 @@ const DiffContents: FC<{
 export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
-	const urgentSelection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
-	const selection = useDeferredValue(urgentSelection);
+	const urgentFilesSelection = useAppSelector((state) =>
+		selectProjectSelectionFiles(state, projectId),
+	);
+	const filesSelection = useDeferredValue(urgentFilesSelection);
 
-	if (selection._tag === "Stack") return;
+	if (filesSelection._tag === "Stack") return;
 
 	return (
 		<div {...panelProps} className={classes(panelProps.className, styles.panel)}>
 			<div className={styles.headerWrap}>
 				<Suspense fallback={<p className="text-13">Loading details…</p>}>
-					<Header projectId={projectId} selection={selection} />
+					<Header projectId={projectId} selection={filesSelection} />
 
-					{selection._tag === "Commit" && (
-						<CommitDetailsContent projectId={projectId} commitId={selection.commitId} />
+					{filesSelection._tag === "Commit" && (
+						<CommitDetailsContent projectId={projectId} commitId={filesSelection.commitId} />
 					)}
 				</Suspense>
 
@@ -521,11 +523,11 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 					// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 					tabIndex={0}
 					className={styles.detailsContentPanel}
-					style={{ opacity: urgentSelection !== selection ? 0.5 : 1 }}
+					style={{ opacity: urgentFilesSelection !== filesSelection ? 0.5 : 1 }}
 				>
 					<Suspense fallback={<p className="text-13">Loading diff…</p>}>
 						<Virtualizer className={styles.detailsVirtualizer}>
-							<DiffContents projectId={projectId} selection={selection} />
+							<DiffContents projectId={projectId} selection={filesSelection} />
 						</Virtualizer>
 					</Suspense>
 				</div>
