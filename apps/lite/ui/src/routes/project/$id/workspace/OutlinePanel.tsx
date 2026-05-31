@@ -1693,7 +1693,14 @@ const Changes: FC<{
 							<Combobox.Trigger
 								className={classes(getButtonClassName({}), styles.commitTargetComboboxTrigger)}
 								aria-label="Select branch"
-								render={<Tooltip.Trigger />}
+								render={(props, state) => (
+									<Tooltip.Trigger
+										{...props}
+										// This is needed to ensure the `disabled` attribute is passed
+										// to the button element. Other props should be passed above.
+										render={<button type="button" disabled={state.disabled} />}
+									/>
+								)}
 							>
 								<Combobox.Value placeholder="Select branch" />
 							</Combobox.Trigger>
