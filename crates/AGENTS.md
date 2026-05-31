@@ -24,12 +24,11 @@ vendored, or fixture data unless the task is specifically about that code.
   acquire permission near the wrapper and delegate to a `_with_perm` or other
   permission-taking implementation.
 - API consumers such as the CLI, TUI, and other composed callers should use
-  `_with_perm` variants when applicable and when they already hold permission.
+  `_with_perm` variants when they already hold permission to avoid extra locking
+  and deadlock risk.
 - Keep `Context` at API/composition boundaries; pass granular dependencies
   like repo, workspace, metadata, database handles, or an `Editor` into
   lower-level crates where possible.
-- Use existing `_with_perm` variants when the caller already holds permission to
-  avoid extra locking and deadlock risk.
 - Acquire repository access locks at top-level API/command boundaries. Do not
   call helpers that acquire permissions while holding a guard; drop the guard or
   call a permission-taking helper.
@@ -56,8 +55,10 @@ vendored, or fixture data unless the task is specifically about that code.
   that owns the concept.
 - Avoid vague names like `Manager`, `Service`, `Helper`, `Util`, or `Processor`
   unless nearby code uses that concept.
-- Avoid speculative abstractions: one-use traits/types/functions, future
-  extensibility, and ceremonial wrappers/modules.
+- Solve the present problem directly. Avoid speculative abstractions: one-use
+  traits/types/functions, fake extension points, ceremonial wrappers/modules,
+  and public APIs larger than real callers need.
+- Keep module boundaries discoverable from names and the call graph.
 - Avoid drive-by refactors while fixing a specific bug.
 - Prefer explicit domain enum matches when wildcard arms would hide behavior.
 - Comment public API purpose/invariants/errors and complex algorithm intent;
@@ -86,6 +87,21 @@ vendored, or fixture data unless the task is specifically about that code.
 - Use `anyhow::Context` to explain what operation failed. When frontend/API
   consumers need classification, use existing `but_error::Code` patterns; do
   not make consumers match error strings.
+
+## Version Control
+
+- Assume the worktree may contain other agents' changes. Do not overwrite, clean
+  up, stage, commit, or amend changes you did not make.
+- When asked to branch, commit, push, or open a PR, use the GitButler `but`
+  CLI/workflow when available.
+- When the user says "ship it", commit your changes on a session branch,
+  creating one if needed, then push and open or update the PR. Reuse the
+  existing branch/PR when it already fits the session.
+- For small cleanup or follow-up fixes on your own branch, amend the relevant
+  existing commit(s) when that is the cleaner history.
+- Keep commit messages and PR descriptions succinct: why, impact, and core
+  decisions. Do not list local validation commands in commit messages or add AI
+  co-author trailers or tool branding.
 
 ## Testing and Validation
 
