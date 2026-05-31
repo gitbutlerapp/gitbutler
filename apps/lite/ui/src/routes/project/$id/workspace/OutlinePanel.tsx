@@ -1194,7 +1194,11 @@ const CommitRow: FC<
 							</Toolbar.Button>
 						</Toolbar.Root>
 					)}
-					{isCommitTarget && <CommitTargetIndicator />}
+					{isCommitTarget && (
+						<div className={styles.commitTargetIndicatorWrapper}>
+							<CommitTargetIndicator />
+						</div>
+					)}
 				</>
 			)}
 		</ItemRow>
@@ -2149,7 +2153,11 @@ const BranchRow: FC<
 							</Toolbar.Button>
 						</Toolbar.Root>
 					)}
-					{isCommitTarget && <CommitTargetIndicator />}
+					{isCommitTarget && (
+						<div className={styles.commitTargetIndicatorWrapper}>
+							<CommitTargetIndicator />
+						</div>
+					)}
 				</>
 			)}
 		</ItemRow>
