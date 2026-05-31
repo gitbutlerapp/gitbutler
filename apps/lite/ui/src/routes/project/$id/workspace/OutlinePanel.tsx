@@ -1145,15 +1145,7 @@ const CommitRow: FC<
 	];
 
 	return (
-		<ItemRow
-			{...restProps}
-			projectId={projectId}
-			operand={operand}
-			className={classes(
-				restProps.className,
-				isHighlighted && workspaceItemRowStyles.itemRowHighlighted,
-			)}
-		>
+		<ItemRow {...restProps} projectId={projectId} operand={operand} isHighlighted={isHighlighted}>
 			{isRewording ? (
 				<InlineRewordCommit
 					message={optimisticMessage}
