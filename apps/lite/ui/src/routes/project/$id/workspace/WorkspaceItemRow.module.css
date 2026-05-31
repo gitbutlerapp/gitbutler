@@ -34,7 +34,7 @@
 	padding: 4px;
 	border-radius: 6px;
 
-	&:not(:disabled):hover {
+	&:not([data-disabled]):hover {
 		.itemRow:not(.itemRowSelected) & {
 			background-color: light-dark(var(--clr-gray-70), var(--clr-gray-20));
 		}
@@ -44,7 +44,7 @@
 		}
 	}
 
-	&:disabled {
+	&[data-disabled] {
 		opacity: 0.5;
 	}
 }

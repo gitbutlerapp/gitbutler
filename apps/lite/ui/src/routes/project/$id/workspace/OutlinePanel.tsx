@@ -2146,9 +2146,7 @@ const BranchRow: FC<
 							<Toolbar.Button
 								className={workspaceItemRowStyles.itemRowIconButton}
 								aria-label="Push branch"
-								// This is needed to ensure the `disabled` attribute is passed
-								// to the button element. Other props should be passed above.
-								render={<button type="button" disabled />}
+								disabled
 							>
 								<Icon name="arrow-line-up" />
 							</Toolbar.Button>
