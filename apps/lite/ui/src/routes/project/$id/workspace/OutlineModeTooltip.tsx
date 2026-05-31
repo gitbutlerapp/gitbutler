@@ -293,7 +293,7 @@ const TransferOperationControls: FC<{
 	]);
 
 	return (
-		<div className={styles.keyboardTooltipControls}>
+		<div className={styles.transferOperationControls}>
 			<Tooltip.Root disabled={!operation}>
 				<Tooltip.Trigger
 					className={getButtonClassName({})}
@@ -356,7 +356,7 @@ export const OutlineModeTooltip: FC<
 						Match.value(mode).pipe(
 							Match.tags({
 								Keyboard: (mode) => (
-									<div className={styles.keyboardTooltip}>
+									<div className={styles.transferOperation}>
 										{operandEquals(mode.source, target) && <>Select a target</>}
 										<TransferTypeToggleGroup
 											projectId={projectId}

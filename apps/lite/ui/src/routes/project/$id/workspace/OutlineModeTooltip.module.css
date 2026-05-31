@@ -1,10 +1,10 @@
-.keyboardTooltip {
+.transferOperation {
 	display: flex;
 	row-gap: 4px;
 	flex-direction: column;
 }
 
-.keyboardTooltipControls {
+.transferOperationControls {
 	display: flex;
 	column-gap: 4px;
 
