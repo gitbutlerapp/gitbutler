@@ -101,7 +101,11 @@ import {
 } from "react";
 import styles from "./OutlinePanel.module.css";
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
-import { WorkspaceItemRow, WorkspaceItemRowToolbar } from "./WorkspaceItemRow.tsx";
+import {
+	WorkspaceItemRow,
+	WorkspaceItemRowEmpty,
+	WorkspaceItemRowToolbar,
+} from "./WorkspaceItemRow.tsx";
 import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 import { defaultOutlineSelection } from "#ui/projects/workspace/state.ts";
@@ -2271,7 +2275,7 @@ const BranchSegment: FC<{
 			/>
 
 			{segment.commits.length === 0 ? (
-				<div className={classes(workspaceItemRowStyles.itemRowEmpty, "text-14")}>No commits.</div>
+				<WorkspaceItemRowEmpty>No commits.</WorkspaceItemRowEmpty>
 			) : (
 				<div role="group">
 					{segment.commits.map((commit) => (

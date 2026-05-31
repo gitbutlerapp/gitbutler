@@ -43,7 +43,11 @@ import { Array, Match } from "effect";
 import { ComponentProps, createContext, FC, ReactNode, Suspense, use, useEffect } from "react";
 import styles from "./FilesPanel.module.css";
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
-import { WorkspaceItemRow, WorkspaceItemRowToolbar } from "./WorkspaceItemRow.tsx";
+import {
+	WorkspaceItemRow,
+	WorkspaceItemRowEmpty,
+	WorkspaceItemRowToolbar,
+} from "./WorkspaceItemRow.tsx";
 import { decodeRefName } from "#ui/api/ref-name.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.ts";
@@ -184,11 +188,7 @@ const CommitFilesTreePanel: FC<
 		<FilesTreePanel {...panelProps} parent={parent} files={files}>
 			{(() => {
 				if (conflictedPaths.length === 0 && data.changes.length === 0)
-					return (
-						<div className={classes(workspaceItemRowStyles.itemRowEmpty, "text-14")}>
-							No changes.
-						</div>
-					);
+					return <WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>;
 
 				return (
 					<div role="group">
@@ -245,7 +245,7 @@ const ChangesFilesTreePanel: FC<
 	return (
 		<FilesTreePanel {...panelProps} parent={parent} files={files}>
 			{worktreeChanges.changes.length === 0 ? (
-				<div className={classes(workspaceItemRowStyles.itemRowEmpty, "text-14")}>No changes.</div>
+				<WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>
 			) : (
 				<div role="group">
 					{worktreeChanges.changes.map((change) => {
@@ -293,7 +293,7 @@ const BranchFilesTreePanel: FC<
 	return (
 		<FilesTreePanel {...panelProps} parent={parent} files={files}>
 			{branchDiff.changes.length === 0 ? (
-				<div className={classes(workspaceItemRowStyles.itemRowEmpty, "text-14")}>No changes.</div>
+				<WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>
 			) : (
 				<div role="group">
 					{branchDiff.changes.map((change) => (

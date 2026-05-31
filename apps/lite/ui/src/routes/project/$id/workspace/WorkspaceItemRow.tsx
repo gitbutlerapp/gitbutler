@@ -57,6 +57,10 @@ export const WorkspaceItemRow: FC<
 	);
 };
 
+export const WorkspaceItemRowEmpty: FC<ComponentProps<"div">> = (props) => (
+	<div {...props} className={classes(props.className, "text-14", styles.itemRowEmpty)} />
+);
+
 export const WorkspaceItemRowToolbar: FC<ComponentProps<"div">> = (props) => (
 	<div {...props} className={classes(props.className, styles.itemRowToolbar)} />
 );
