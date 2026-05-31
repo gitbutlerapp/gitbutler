@@ -403,14 +403,16 @@ Force push is enabled by default with protection checks. Use `-s` only when inte
 
 ### `but pull`
 
-Update all branches with target branch changes.
+Update applied branches onto the latest target branch changes (usually `main`).
+Use this for "get latest from main" in a GitButler workspace.
 
 ```bash
-but pull                      # Fetch and rebase all branches
+but pull                      # Fetch and rebase applied branches
 but pull --check              # Check if can merge cleanly (no changes)
 ```
 
-Run regularly to stay up to date with main development line.
+Run `but pull --check` first, then `but pull` if clean. Do not use raw
+`git pull` or `git rebase`.
 
 ### `but pr`
 
