@@ -813,9 +813,8 @@ const TreeItem: FC<
 	{
 		projectId: string;
 		operand: Operand;
-		expanded?: boolean;
 	} & useRender.ComponentProps<"div">
-> = ({ projectId, operand, expanded, render, ...props }) => {
+> = ({ projectId, operand, render, ...props }) => {
 	const isSelected = useIsSelected({ projectId, operand });
 
 	return useRender({
@@ -825,7 +824,6 @@ const TreeItem: FC<
 			id: treeItemId(operand),
 			role: "treeitem",
 			"aria-selected": isSelected,
-			"aria-expanded": expanded,
 		}),
 	});
 };
@@ -2250,7 +2248,7 @@ const BranchSegment: FC<{
 			projectId={projectId}
 			operand={operand}
 			aria-label={refName.displayName}
-			expanded
+			aria-expanded
 			className={classes(workspaceItemRowStyles.section, styles.segment)}
 		>
 			<OperandC
@@ -2350,7 +2348,7 @@ const StackC: FC<{
 			projectId={projectId}
 			operand={operand}
 			aria-label="Stack"
-			expanded
+			aria-expanded
 			className={classes(styles.stack, workspaceItemRowStyles.section)}
 			render={<OperandC projectId={projectId} operand={operand} />}
 		>
