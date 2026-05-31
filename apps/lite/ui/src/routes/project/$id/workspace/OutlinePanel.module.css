@@ -98,10 +98,10 @@
 }
 
 .rewordCommitInput {
+	resize: none;
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(2lh);
-	resize: none;
 }
 
 .operationSourcePreview {
@@ -155,28 +155,35 @@
 
 .commitControls {
 	display: flex;
+	row-gap: 2px;
 	flex-direction: column;
-	border: 1px solid var(--border-2);
-	border-radius: var(--item-row-border-radius);
-	background: var(--bg-1);
 }
 
 .commitTextarea {
-	padding: 12px;
-	resize: vertical;
+	resize: none;
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(2lh);
+	padding-inline: 8px;
+	padding-block: 6px;
+
+	&:focus {
+		outline: none;
+	}
 }
 
 .commitControlsFooter {
 	display: flex;
-	column-gap: 10px;
-	padding: 12px;
+	column-gap: 2px;
 }
 
 .commitDropdownButton {
 	display: flex;
+
+	& > * {
+		overflow: hidden;
+		background: var(--bg-1);
+	}
 
 	& > :first-child {
 		border-right: 0;
@@ -196,6 +203,7 @@
 	display: block;
 	flex-grow: 1;
 	overflow: hidden;
+	background: var(--bg-1);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
