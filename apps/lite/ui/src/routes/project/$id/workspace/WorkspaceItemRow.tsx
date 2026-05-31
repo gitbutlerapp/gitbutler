@@ -39,6 +39,7 @@ export const WorkspaceItemRow: FC<
 			ref={mergedRef}
 			className={classes(
 				className,
+				"text-14",
 				styles.itemRow,
 				isSelected && styles.itemRowSelected,
 				forceVisibleToolbar && styles.forceVisibleToolbar,

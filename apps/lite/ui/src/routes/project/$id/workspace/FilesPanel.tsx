@@ -33,7 +33,6 @@ import {
 } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Icon } from "#ui/components/Icon.tsx";
-import { getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, Toast, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
@@ -186,7 +185,7 @@ const CommitFilesTreePanel: FC<
 			{(() => {
 				if (conflictedPaths.length === 0 && data.changes.length === 0)
 					return (
-						<div className={classes(workspaceItemRowStyles.itemRowEmpty, styles.item)}>
+						<div className={classes(workspaceItemRowStyles.itemRowEmpty, "text-14")}>
 							No changes.
 						</div>
 					);
@@ -246,7 +245,7 @@ const ChangesFilesTreePanel: FC<
 	return (
 		<FilesTreePanel {...panelProps} parent={parent} files={files}>
 			{worktreeChanges.changes.length === 0 ? (
-				<div className={classes(workspaceItemRowStyles.itemRowEmpty, styles.item)}>No changes.</div>
+				<div className={classes(workspaceItemRowStyles.itemRowEmpty, "text-14")}>No changes.</div>
 			) : (
 				<div role="group">
 					{worktreeChanges.changes.map((change) => {
@@ -294,7 +293,7 @@ const BranchFilesTreePanel: FC<
 	return (
 		<FilesTreePanel {...panelProps} parent={parent} files={files}>
 			{branchDiff.changes.length === 0 ? (
-				<div className={classes(workspaceItemRowStyles.itemRowEmpty, styles.item)}>No changes.</div>
+				<div className={classes(workspaceItemRowStyles.itemRowEmpty, "text-14")}>No changes.</div>
 			) : (
 				<div role="group">
 					{branchDiff.changes.map((change) => (
@@ -324,7 +323,7 @@ export const FilesPanel: FC<ComponentProps<"div">> = (panelProps) => {
 	return (
 		<Suspense
 			fallback={
-				<div {...panelProps} className={classes(panelProps.className, styles.loading)}>
+				<div {...panelProps} className={classes(panelProps.className, "text-13")}>
 					Loading files…
 				</div>
 			}
@@ -385,12 +384,7 @@ const FilesTreePanel: FC<{ parent: Operand; files: Array<Operand> } & ComponentP
 					render={<OperationSourceC projectId={projectId} selectionScope="files" source={parent} />}
 				>
 					<ItemRow projectId={projectId} operand={parent}>
-						<div
-							className={classes(
-								workspaceItemRowStyles.itemRowLabel,
-								workspaceItemRowStyles.sectionLabel,
-							)}
-						>
+						<div className={classes("text-bold", workspaceItemRowStyles.itemRowLabel)}>
 							All changes
 						</div>
 					</ItemRow>
@@ -510,7 +504,6 @@ const ItemRow: FC<
 			inert={!navigationIndexIncludes(navigationIndex, operand)}
 			isSelected={isSelected}
 			onSelect={selectItem}
-			className={classes(props.className, styles.item)}
 		/>
 	);
 };
@@ -662,7 +655,6 @@ const ChangesFileRow: FC<{
 	projectId: string;
 }> = ({ change, dependencyCommitIds, projectId }) => {
 	const operand = fileOperand({ parent: changesFileParent, path: change.path });
-	const isSelected = useIsSelected({ projectId, operand });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const dispatch = useAppDispatch();
@@ -722,11 +714,7 @@ const ChangesFileRow: FC<{
 				<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
 					{dependencyCommitIds && (
 						<Toolbar.Button
-							className={getButtonClassName({
-								variant: isSelected ? "inverted" : "ghost",
-								size: "small",
-								iconOnly: true,
-							})}
+							className={workspaceItemRowStyles.itemRowIconButton}
 							render={<DependencyIndicator projectId={projectId} commitIds={dependencyCommitIds} />}
 						>
 							<Icon name="link" />
@@ -737,11 +725,7 @@ const ChangesFileRow: FC<{
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						className={getButtonClassName({
-							variant: isSelected ? "inverted" : "ghost",
-							size: "small",
-							iconOnly: true,
-						})}
+						className={workspaceItemRowStyles.itemRowIconButton}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>

@@ -9,11 +9,6 @@
 	}
 }
 
-.item,
-.loading {
-	font-size: 13px;
-}
-
 .fileStatusChar {
 	&[data-char="A"] {
 		color: #64d5a6;
