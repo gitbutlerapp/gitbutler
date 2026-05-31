@@ -1,17 +1,11 @@
 .tree {
 	display: flex;
-	row-gap: 24px;
 	flex-direction: column;
 
 	&:focus {
 		/* The focus state is displayed on the item row instead. */
 		outline: none;
 	}
-}
-
-.item,
-.loading {
-	font-size: 13px;
 }
 
 .fileStatusChar {

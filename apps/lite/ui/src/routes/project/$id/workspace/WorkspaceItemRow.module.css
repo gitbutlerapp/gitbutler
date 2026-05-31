@@ -1,7 +1,23 @@
-.itemRow {
+.section {
+	--padding: 6px;
+	--item-row-border-radius: 8px;
+	padding: var(--padding);
+	/* Concentric */
+	border-radius: calc(var(--item-row-border-radius) + var(--padding));
+	background-color: var(--bg-2);
+}
+
+.itemRow,
+.itemRowEmpty {
 	display: flex;
-	align-items: center;
-	border-radius: 8px;
+	column-gap: 8px;
+	min-height: 28px;
+	padding-inline: 8px;
+	padding-block: 6px;
+}
+
+.itemRow {
+	border-radius: var(--item-row-border-radius);
 
 	&:where(:hover) {
 		background-color: var(--button-ghost-hover-bg);
@@ -12,11 +28,29 @@
 	}
 }
 
+.itemRowIconButton {
+	display: grid;
+	margin: -4px;
+	padding: 4px;
+	border-radius: 6px;
+
+	&:not([data-disabled]):hover {
+		.itemRow:not(.itemRowSelected) & {
+			background-color: light-dark(var(--clr-gray-70), var(--clr-gray-20));
+		}
+
+		.itemRowSelected & {
+			background-color: light-dark(var(--clr-gray-30), var(--clr-gray-70));
+		}
+	}
+
+	&[data-disabled] {
+		opacity: 0.5;
+	}
+}
+
 .itemRowEmpty {
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
 	color: var(--text-2);
-	line-height: var(--row-line-height);
 }
 
 .itemRowSelected {
@@ -36,7 +70,7 @@
 
 .itemRowToolbar {
 	display: none;
-	align-items: stretch;
+	column-gap: 8px;
 
 	.itemRow:hover &,
 	.itemRow:focus-within &,
@@ -48,19 +82,7 @@
 
 .itemRowLabel {
 	flex-grow: 1;
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
 	overflow: hidden;
-	line-height: var(--row-line-height);
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-.section {
-	border-radius: 8px;
-	background-color: var(--bg-2);
-}
-
-.sectionLabel {
-	font-weight: bold;
 }

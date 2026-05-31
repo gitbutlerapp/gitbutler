@@ -1,9 +1,6 @@
 .workspaceControls {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	margin-block-end: 4px;
-	overflow: hidden;
 	gap: 6px;
 }
 
@@ -14,18 +11,14 @@
 	gap: 4px;
 }
 
-.workspaceName {
-	overflow: hidden;
-	font-weight: 700;
-	font-size: 15px;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+.workspaceControlsRight {
+	margin-inline-start: auto;
 }
 
-.branchBtn {
-	flex-shrink: 0;
-	font-weight: 550;
-	font-size: 13px;
+.workspaceName {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .panel {
@@ -55,14 +48,13 @@
 
 .segments {
 	display: flex;
-	row-gap: 24px;
+	/* The size of an item row. Eventually this should be a fixed/shared value,
+	somehow. */
+	row-gap: 28px;
 	flex-direction: column;
 }
 
 .segment {
-	--commit-row-left-spacing: 6px;
-	--commit-state-width: 8px;
-
 	display: flex;
 	flex-direction: column;
 }
@@ -72,35 +64,15 @@
 	flex-direction: column;
 }
 
-.stackRowLabel::before {
-	/* Don't shrink height with empty text content - relevant for context menu hitbox. */
-	content: "\00a0";
-}
-
-.branchRowLabel,
-.noCommits {
-	margin-inline-start: calc(var(--commit-row-left-spacing) + var(--commit-state-width));
-}
-
-.branchRowLabel,
-.renameBranchInput {
-	font-weight: 600;
-	font-size: 14px;
-}
-
 .editorForm {
 	display: flex;
-	row-gap: var(--row-block-padding);
 	flex-grow: 1;
 	flex-direction: column;
 	min-width: 0;
-	padding-block: var(--row-block-padding);
-	line-height: var(--row-line-height);
 }
 
 .editorInput {
 	flex-grow: 1;
-	padding-inline: var(--row-inline-padding);
 
 	&:focus {
 		outline: none;
@@ -108,7 +80,6 @@
 }
 
 .editorHelp {
-	padding-inline: var(--row-inline-padding);
 	font-size: 11px;
 	line-height: 1.3;
 	text-transform: lowercase;
@@ -124,10 +95,10 @@
 }
 
 .rewordCommitInput {
+	resize: none;
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(2lh);
-	resize: none;
 }
 
 .operationSourcePreview {
@@ -155,31 +126,23 @@
 	display: flex;
 	row-gap: 2px;
 	flex-direction: column;
-	padding: 6px;
-}
-
-.changesRowLabel {
-	display: flex;
-	align-items: center;
-	padding-inline: 12px;
-	padding-block: 9px;
-	font-weight: 600;
-	font-size: 14px;
 }
 
 .changesCountBubble {
-	display: flex;
+	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	min-width: 20px;
 	height: 16px;
 	margin-inline-start: 6px;
+	margin-block-start: -2px;
 	padding-inline: 4px;
 	padding-block: 2px;
 	border-radius: 10px;
 	background: var(--fill-gray-bg);
 	color: var(--fill-gray-fg);
 	font-size: 10px;
+	vertical-align: middle;
 
 	.selected & {
 		background: var(--fill-gray-fg);
@@ -189,29 +152,35 @@
 
 .commitControls {
 	display: flex;
+	row-gap: 2px;
 	flex-direction: column;
-	border: 1px solid var(--border-2);
-	border-radius: 8px;
-	background: var(--bg-1);
-	font-size: 13px;
 }
 
 .commitTextarea {
-	padding: 12px;
-	resize: vertical;
+	resize: none;
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(2lh);
+	padding-inline: 8px;
+	padding-block: 6px;
+
+	&:focus {
+		outline: none;
+	}
 }
 
 .commitControlsFooter {
 	display: flex;
-	column-gap: 10px;
-	padding: 12px;
+	column-gap: 2px;
 }
 
 .commitDropdownButton {
 	display: flex;
+
+	& > * {
+		overflow: hidden;
+		background: var(--bg-1);
+	}
 
 	& > :first-child {
 		border-right: 0;
@@ -231,6 +200,7 @@
 	display: block;
 	flex-grow: 1;
 	overflow: hidden;
+	background: var(--bg-1);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
@@ -242,8 +212,8 @@
 }
 
 .commitTargetComboboxInput {
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
+	padding-inline: 10px;
+	padding-block: 4px;
 	border-bottom: 1px solid var(--border-2);
 
 	&:focus {
@@ -257,13 +227,13 @@
 	overflow: auto;
 
 	&:not(:empty) {
-		padding-block: var(--row-block-padding);
+		padding-block: 4px;
 	}
 }
 
 .commitTargetComboboxItem {
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
+	padding-inline: 10px;
+	padding-block: 4px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -275,34 +245,9 @@
 }
 
 .commitTargetComboboxEmpty {
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
+	padding-inline: 10px;
+	padding-block: 4px;
 	color: var(--color-text-secondary);
-}
-
-.commitRowLabel,
-.rewordCommitInput,
-.noCommits {
-	font-size: 13px;
-}
-
-.commitRowLabel {
-	display: flex;
-	flex-grow: 1;
-	align-items: center;
-	margin-inline-start: var(--commit-row-left-spacing);
-	overflow: hidden;
-}
-
-.commitTargetIndicatorWrapper {
-	display: grid;
-	margin-inline-start: calc(var(--row-inline-padding) * -0.5);
-	padding-inline: var(--row-inline-padding);
-	padding-block: var(--row-block-padding);
-}
-
-.commitTargetIndicator {
-	display: grid;
 }
 
 [data-status="LocalOnly"] {
@@ -322,10 +267,11 @@
 }
 
 .commitState {
-	display: block;
 	flex-shrink: 0;
 	aspect-ratio: 1;
-	width: var(--commit-state-width);
+	inline-size: 8px;
+	block-size: 8px;
+	margin-block-start: 5px;
 	border: 1.5px solid var(--commit-status-color);
 	border-radius: 50%;
 }

@@ -10,7 +10,4 @@
 	--button-ghost-hover-bg: color-mix(var(--fill-gray-bg) 6%, transparent);
 	--button-border: 1px solid color-mix(var(--fill-gray-bg) 28%, transparent);
 	--panel-padding: 16px;
-	--row-block-padding: 4px;
-	--row-inline-padding: 8px;
-	--row-line-height: 22px;
 }

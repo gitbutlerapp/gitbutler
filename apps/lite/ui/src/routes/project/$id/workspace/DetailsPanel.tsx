@@ -43,7 +43,7 @@ import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { ComponentProps, FC, Suspense, useDeferredValue } from "react";
-import { DependencyIndicatorButton } from "./DependencyIndicatorButton.tsx";
+import { DependencyIndicator } from "./DependencyIndicator.tsx";
 import { FilesPanel } from "./FilesPanel.tsx";
 import styles from "./DetailsPanel.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
@@ -106,9 +106,9 @@ const Hunk: FC<{
 			<OperationSourceC projectId={projectId} selectionScope="files" source={operand}>
 				<div className={styles.hunkHeaderRow}>
 					{dependencyCommitIds && (
-						<DependencyIndicatorButton projectId={projectId} commitIds={dependencyCommitIds}>
+						<DependencyIndicator projectId={projectId} commitIds={dependencyCommitIds}>
 							<Icon name="link" />
-						</DependencyIndicatorButton>
+						</DependencyIndicator>
 					)}
 					<div className={classes("text-11", "text-monospace", styles.hunkHeader)}>
 						{formatHunkHeader(hunk)}
@@ -178,7 +178,7 @@ const ChangesFileDiffList: FC<{
 	const changesWithDiffs = pipe(changes, Array.zip(treeChangeDiffs));
 
 	return changesWithDiffs.length === 0 ? (
-		<p className={classes("text-13", styles.emptyChanges)}>No changes.</p>
+		<p className="text-13">No changes.</p>
 	) : (
 		<ul className={styles.fileDiffsList}>
 			{changesWithDiffs.map(([change, diff]) => {

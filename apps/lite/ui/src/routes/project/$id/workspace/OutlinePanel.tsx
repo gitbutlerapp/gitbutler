@@ -59,6 +59,7 @@ import {
 	AbsorptionTarget,
 	BranchReference,
 	Commit,
+	CommitState,
 	InsertSide,
 	RefInfo,
 	RelativeTo,
@@ -100,7 +101,11 @@ import {
 } from "react";
 import styles from "./OutlinePanel.module.css";
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
-import { WorkspaceItemRow, WorkspaceItemRowToolbar } from "./WorkspaceItemRow.tsx";
+import {
+	WorkspaceItemRow,
+	WorkspaceItemRowEmpty,
+	WorkspaceItemRowToolbar,
+} from "./WorkspaceItemRow.tsx";
 import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
 import { defaultOutlineSelection } from "#ui/projects/workspace/state.ts";
@@ -702,12 +707,17 @@ export const OutlinePanel: FC<ComponentProps<"div">> = (panelProps) => {
 					>
 						<header className={styles.workspaceControls}>
 							<div className={styles.workspaceControlsLeft}>
-								<h1 className={styles.workspaceName}>{selectedProject.title}</h1>
+								<h1 className={classes("text-15", "text-bold", styles.workspaceName)}>
+									{selectedProject.title}
+								</h1>
 								<ActivitySpinner />
 							</div>
 
 							<Tooltip.Root>
-								<Tooltip.Trigger className={getButtonClassName({})} onClick={openApplyBranchPicker}>
+								<Tooltip.Trigger
+									className={classes(styles.workspaceControlsRight, getButtonClassName({}))}
+									onClick={openApplyBranchPicker}
+								>
 									Apply branch
 								</Tooltip.Trigger>
 								<Tooltip.Portal>
@@ -767,7 +777,7 @@ const treeItemId = (operand: Operand): string =>
 const CommitTargetIndicator: FC = () => (
 	<Popover.Root>
 		<Popover.Trigger
-			className={styles.commitTargetIndicator}
+			className={workspaceItemRowStyles.itemRowIconButton}
 			aria-label="Commit target"
 			openOnHover
 		>
@@ -1149,11 +1159,25 @@ const CommitRow: FC<
 			{...restProps}
 			projectId={projectId}
 			operand={operand}
-			className={classes(
-				restProps.className,
-				isHighlighted && workspaceItemRowStyles.itemRowHighlighted,
-			)}
+			isHighlighted={isHighlighted}
+			onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
+			onContextMenu={
+				outlineMode._tag === "Default"
+					? (event) => {
+							void showNativeContextMenu(event, menuItems);
+						}
+					: undefined
+			}
 		>
+			<span
+				className={styles.commitState}
+				data-status={
+					(commitIsDiverged(commit) ? "Diverged" : commit.state.type) satisfies
+						| "Diverged"
+						| CommitState["type"]
+				}
+			/>
+
 			{isRewording ? (
 				<InlineRewordCommit
 					message={optimisticMessage}
@@ -1163,37 +1187,16 @@ const CommitRow: FC<
 				/>
 			) : (
 				<>
-					<div className={styles.commitRowLabel}>
-						<span
-							className={styles.commitState}
-							data-status={commitIsDiverged(commit) ? "Diverged" : commit.state.type}
-						/>
-
-						<div
-							className={workspaceItemRowStyles.itemRowLabel}
-							onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
-							onContextMenu={
-								outlineMode._tag === "Default"
-									? (event) => {
-											void showNativeContextMenu(event, menuItems);
-										}
-									: undefined
-							}
-						>
-							{commitTitle(commitWithOptimisticMessage.message)}
-							{hasConflicts && " ⚠️"}
-						</div>
+					<div className={workspaceItemRowStyles.itemRowLabel}>
+						{commitTitle(commitWithOptimisticMessage.message)}
+						{hasConflicts && " ⚠️"}
 					</div>
 
 					{outlineMode._tag === "Default" && (
 						<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
 							<Toolbar.Button
 								aria-label="Commit menu"
-								className={getButtonClassName({
-									variant: isSelected ? "inverted" : "ghost",
-									size: "small",
-									iconOnly: true,
-								})}
+								className={workspaceItemRowStyles.itemRowIconButton}
 								onClick={(event) => {
 									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 								}}
@@ -1202,11 +1205,7 @@ const CommitRow: FC<
 							</Toolbar.Button>
 						</Toolbar.Root>
 					)}
-					{isCommitTarget && (
-						<div className={styles.commitTargetIndicatorWrapper}>
-							<CommitTargetIndicator />
-						</div>
-					)}
+					{isCommitTarget && <CommitTargetIndicator />}
 				</>
 			)}
 		</ItemRow>
@@ -1266,16 +1265,20 @@ const ChangesSectionRow: FC<{
 	];
 
 	return (
-		<ItemRow projectId={projectId} operand={operand}>
+		<ItemRow
+			projectId={projectId}
+			operand={operand}
+			forceVisibleToolbar
+			onContextMenu={(event) => {
+				void showNativeContextMenu(event, menuItems);
+			}}
+		>
 			<div
 				className={classes(
+					"text-bold",
 					workspaceItemRowStyles.itemRowLabel,
-					styles.changesRowLabel,
 					isSelected && styles.selected,
 				)}
-				onContextMenu={(event) => {
-					void showNativeContextMenu(event, menuItems);
-				}}
 			>
 				Changes
 				<span className={styles.changesCountBubble}>{changes.length}</span>
@@ -1285,11 +1288,7 @@ const ChangesSectionRow: FC<{
 				<Toolbar.Root aria-label="Changes actions" render={<WorkspaceItemRowToolbar />}>
 					<Toolbar.Button
 						aria-label="Changes menu"
-						className={getButtonClassName({
-							variant: isSelected ? "inverted" : "ghost",
-							size: "small",
-							iconOnly: true,
-						})}
+						className={workspaceItemRowStyles.itemRowIconButton}
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
@@ -1374,7 +1373,7 @@ const selectCommitTargetComboboxItem = ({
 	null;
 
 const CommitTargetComboboxPopup: FC = () => (
-	<Combobox.Popup className={classes(uiStyles.popup, styles.commitTargetComboboxPopup)}>
+	<Combobox.Popup className={classes(uiStyles.popup, "text-13", styles.commitTargetComboboxPopup)}>
 		<Combobox.Input
 			aria-label="Search targets"
 			placeholder="Search targets…"
@@ -1678,7 +1677,7 @@ const Changes: FC<{
 					disabled={outlineMode._tag !== "Default"}
 					readOnly={isCommitOrAmendPending}
 					placeholder="Commit message..."
-					className={styles.commitTextarea}
+					className={classes("text-14", styles.commitTextarea)}
 					onFocus={selectChanges}
 					onKeyDown={(event) => {
 						if (event.key !== "Escape") return;
@@ -1819,7 +1818,7 @@ const InlineRenameBranch: FC<{
 				}}
 				name="branchName"
 				defaultValue={branchName}
-				className={classes(styles.editorInput, styles.renameBranchInput)}
+				className={classes("text-bold", styles.editorInput)}
 			/>
 			<EditorHelp
 				hotkeys={[
@@ -1976,6 +1975,7 @@ const BranchRow: FC<
 		isCommitTarget: boolean;
 		canTearOffBranch: boolean;
 		canRemoveBranch: boolean;
+		branchCommit?: Commit;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -1985,6 +1985,7 @@ const BranchRow: FC<
 	isCommitTarget,
 	canTearOffBranch,
 	canRemoveBranch,
+	branchCommit,
 	...restProps
 }) => {
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -1994,7 +1995,6 @@ const BranchRow: FC<
 		branchRef,
 	};
 	const operand = branchOperand(branchOperandV);
-	const isSelected = useIsSelected({ projectId, operand });
 	const isRenaming =
 		outlineMode._tag === "RenameBranch" &&
 		operandEquals(operand, branchOperand(outlineMode.operand));
@@ -2103,7 +2103,31 @@ const BranchRow: FC<
 	];
 
 	return (
-		<ItemRow {...restProps} projectId={projectId} operand={operand}>
+		<ItemRow
+			{...restProps}
+			projectId={projectId}
+			operand={operand}
+			onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
+			onContextMenu={
+				outlineMode._tag === "Default"
+					? (event) => {
+							void showNativeContextMenu(event, menuItems);
+						}
+					: undefined
+			}
+		>
+			{/* This will be replaced with a different icon. */}
+			<span
+				className={styles.commitState}
+				data-status={
+					(branchCommit
+						? commitIsDiverged(branchCommit)
+							? "Diverged"
+							: branchCommit.state.type
+						: "LocalOnly") satisfies "Diverged" | CommitState["type"]
+				}
+			/>
+
 			{isRenaming ? (
 				<InlineRenameBranch
 					branchName={optimisticBranchName}
@@ -2113,42 +2137,22 @@ const BranchRow: FC<
 				/>
 			) : (
 				<>
-					<div
-						className={classes(workspaceItemRowStyles.itemRowLabel, styles.branchRowLabel)}
-						onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
-						onContextMenu={
-							outlineMode._tag === "Default"
-								? (event) => {
-										void showNativeContextMenu(event, menuItems);
-									}
-								: undefined
-						}
-					>
+					<div className={classes("text-bold", workspaceItemRowStyles.itemRowLabel)}>
 						{optimisticBranchName}
 					</div>
 
 					{outlineMode._tag === "Default" && (
 						<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar />}>
 							<Toolbar.Button
-								className={getButtonClassName({
-									variant: isSelected ? "inverted" : "ghost",
-									size: "small",
-									iconOnly: true,
-								})}
+								className={workspaceItemRowStyles.itemRowIconButton}
 								aria-label="Push branch"
-								// This is needed to ensure the `disabled` attribute is passed
-								// to the button element. Other props should be passed above.
-								render={<button type="button" disabled />}
+								disabled
 							>
 								<Icon name="arrow-line-up" />
 							</Toolbar.Button>
 							<Toolbar.Button
 								aria-label="Branch menu"
-								className={getButtonClassName({
-									variant: isSelected ? "inverted" : "ghost",
-									size: "small",
-									iconOnly: true,
-								})}
+								className={workspaceItemRowStyles.itemRowIconButton}
 								onClick={(event) => {
 									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 								}}
@@ -2157,11 +2161,7 @@ const BranchRow: FC<
 							</Toolbar.Button>
 						</Toolbar.Root>
 					)}
-					{isCommitTarget && (
-						<div className={styles.commitTargetIndicatorWrapper}>
-							<CommitTargetIndicator />
-						</div>
-					)}
+					{isCommitTarget && <CommitTargetIndicator />}
 				</>
 			)}
 		</ItemRow>
@@ -2175,7 +2175,6 @@ const StackRow: FC<
 	} & ComponentProps<"div">
 > = ({ projectId, stackId, ...restProps }) => {
 	const operand = stackOperand({ stackId });
-	const isSelected = useIsSelected({ projectId, operand });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const unapplyStackMutation = useUnapplyStack();
@@ -2195,27 +2194,26 @@ const StackRow: FC<
 	];
 
 	return (
-		<ItemRow {...restProps} projectId={projectId} operand={operand} forceVisibleToolbar>
-			<div
-				className={classes(workspaceItemRowStyles.itemRowLabel, styles.stackRowLabel)}
-				onContextMenu={
-					outlineMode._tag === "Default"
-						? (event) => {
-								void showNativeContextMenu(event, menuItems);
-							}
-						: undefined
-				}
-			/>
+		<ItemRow
+			{...restProps}
+			projectId={projectId}
+			operand={operand}
+			forceVisibleToolbar
+			onContextMenu={
+				outlineMode._tag === "Default"
+					? (event) => {
+							void showNativeContextMenu(event, menuItems);
+						}
+					: undefined
+			}
+		>
+			<div className={workspaceItemRowStyles.itemRowLabel} />
 
 			{outlineMode._tag === "Default" && (
 				<Toolbar.Root aria-label="Stack actions" render={<WorkspaceItemRowToolbar />}>
 					<Toolbar.Button
 						aria-label="Stack menu"
-						className={getButtonClassName({
-							variant: isSelected ? "inverted" : "ghost",
-							size: "small",
-							iconOnly: true,
-						})}
+						className={workspaceItemRowStyles.itemRowIconButton}
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
@@ -2253,7 +2251,7 @@ const BranchSegment: FC<{
 			operand={operand}
 			aria-label={refName.displayName}
 			aria-expanded
-			className={classes(workspaceItemRowStyles.section, styles.segment)}
+			className={styles.segment}
 		>
 			<OperandC
 				projectId={projectId}
@@ -2274,14 +2272,13 @@ const BranchSegment: FC<{
 									})
 								: false
 						}
+						branchCommit={segment.commits[0]}
 					/>
 				}
 			/>
 
 			{segment.commits.length === 0 ? (
-				<div className={classes(workspaceItemRowStyles.itemRowEmpty, styles.noCommits)}>
-					No commits.
-				</div>
+				<WorkspaceItemRowEmpty>No commits.</WorkspaceItemRowEmpty>
 			) : (
 				<div role="group">
 					{segment.commits.map((commit) => (
@@ -2309,7 +2306,7 @@ const BranchlessSegment: FC<{
 	stackId: string;
 	commitTarget: RelativeTo | null;
 }> = ({ projectId, segment, stackId, commitTarget }) => (
-	<div className={classes(workspaceItemRowStyles.section, styles.segment)}>
+	<div className={styles.segment}>
 		{segment.commits.map((commit) => (
 			<CommitC
 				key={commit.id}
