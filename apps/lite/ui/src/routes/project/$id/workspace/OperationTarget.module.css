@@ -2,7 +2,6 @@
 	display: flex;
 	position: relative;
 	flex-direction: column;
-	min-width: 0;
 }
 
 .activeTarget {

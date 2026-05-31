@@ -42,7 +42,6 @@ import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Match } from "effect";
 import { ComponentProps, createContext, FC, ReactNode, Suspense, use, useEffect } from "react";
-import { Panel, PanelProps } from "react-resizable-panels";
 import styles from "./FilesPanel.module.css";
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import { WorkspaceItemRow, WorkspaceItemRowToolbar } from "./WorkspaceItemRow.tsx";
@@ -153,11 +152,9 @@ const useFilesTreeHotkeys = ({
 	});
 };
 
-const CommitFilesTreePanel: FC<{ projectId: string; commit: CommitOperand } & PanelProps> = ({
-	projectId,
-	commit,
-	...panelProps
-}) => {
+const CommitFilesTreePanel: FC<
+	{ projectId: string; commit: CommitOperand } & ComponentProps<"div">
+> = ({ projectId, commit, ...panelProps }) => {
 	const { data } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId: commit.commitId }),
 	);
@@ -232,7 +229,7 @@ const CommitFilesTreePanel: FC<{ projectId: string; commit: CommitOperand } & Pa
 const ChangesFilesTreePanel: FC<
 	{
 		projectId: string;
-	} & PanelProps
+	} & ComponentProps<"div">
 > = ({ projectId, ...panelProps }) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
@@ -278,7 +275,7 @@ const BranchFilesTreePanel: FC<
 		projectId: string;
 		stackId: string;
 		branchRef: Array<number>;
-	} & PanelProps
+	} & ComponentProps<"div">
 > = ({ projectId, stackId, branchRef, ...panelProps }) => {
 	const decodedBranchRef = decodeRefName(branchRef);
 	const { data: branchDiff } = useSuspenseQuery(
@@ -317,7 +314,7 @@ const BranchFilesTreePanel: FC<
 	);
 };
 
-export const FilesPanel: FC<PanelProps> = ({ ...panelProps }) => {
+export const FilesPanel: FC<ComponentProps<"div">> = (panelProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const outlineSelection = useAppSelector((state) =>
@@ -327,9 +324,9 @@ export const FilesPanel: FC<PanelProps> = ({ ...panelProps }) => {
 	return (
 		<Suspense
 			fallback={
-				<Panel {...panelProps} className={classes(panelProps.className, styles.loading)}>
+				<div {...panelProps} className={classes(panelProps.className, styles.loading)}>
 					Loading files…
-				</Panel>
+				</div>
 			}
 		>
 			{Match.value(outlineSelection).pipe(
@@ -347,13 +344,13 @@ export const FilesPanel: FC<PanelProps> = ({ ...panelProps }) => {
 						branchRef={branchRef}
 					/>
 				)),
-				Match.orElse(() => <Panel {...panelProps} />),
+				Match.orElse(() => <div {...panelProps} />),
 			)}
 		</Suspense>
 	);
 };
 
-const FilesTreePanel: FC<{ parent: Operand; files: Array<Operand> } & PanelProps> = ({
+const FilesTreePanel: FC<{ parent: Operand; files: Array<Operand> } & ComponentProps<"div">> = ({
 	className,
 	children,
 	parent,
@@ -372,7 +369,7 @@ const FilesTreePanel: FC<{ parent: Operand; files: Array<Operand> } & PanelProps
 
 	return (
 		<NavigationIndexContext value={navigationIndex}>
-			<Panel
+			<div
 				{...panelProps}
 				tabIndex={0}
 				role="tree"
@@ -400,7 +397,7 @@ const FilesTreePanel: FC<{ parent: Operand; files: Array<Operand> } & PanelProps
 
 					{children}
 				</TreeItem>
-			</Panel>
+			</div>
 		</NavigationIndexContext>
 	);
 };

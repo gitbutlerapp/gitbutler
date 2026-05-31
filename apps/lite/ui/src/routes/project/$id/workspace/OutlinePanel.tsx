@@ -98,7 +98,6 @@ import {
 	useState,
 	useTransition,
 } from "react";
-import { Panel, PanelProps } from "react-resizable-panels";
 import styles from "./OutlinePanel.module.css";
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import { WorkspaceItemRow, WorkspaceItemRowToolbar } from "./WorkspaceItemRow.tsx";
@@ -625,7 +624,7 @@ const ActivitySpinner: FC = () => {
 	return status !== null && <Icon name="spinner" aria-label={status} />;
 };
 
-export const OutlinePanel: FC<PanelProps> = ({ ...panelProps }) => {
+export const OutlinePanel: FC<ComponentProps<"div">> = (panelProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
@@ -693,7 +692,7 @@ export const OutlinePanel: FC<PanelProps> = ({ ...panelProps }) => {
 		<NavigationIndexContext value={navigationIndex}>
 			<AbsorptionTargetKeysContext value={absorptionTargetKeys}>
 				<DryRunWorkspaceContext value={dryRunWorkspace}>
-					<Panel
+					<div
 						{...panelProps}
 						tabIndex={0}
 						role="tree"
@@ -750,7 +749,7 @@ export const OutlinePanel: FC<PanelProps> = ({ ...panelProps }) => {
 								)}
 							</div>
 						)}
-					</Panel>
+					</div>
 				</DryRunWorkspaceContext>
 			</AbsorptionTargetKeysContext>
 		</NavigationIndexContext>
