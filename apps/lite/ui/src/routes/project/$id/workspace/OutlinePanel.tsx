@@ -1722,7 +1722,7 @@ const Changes: FC<{
 							</Tooltip.Portal>
 						</Tooltip.Root>
 						<Combobox.Portal>
-							<Combobox.Positioner align="start" sideOffset={8}>
+							<Combobox.Positioner align="start" sideOffset={4}>
 								<CommitTargetComboboxPopup />
 							</Combobox.Positioner>
 						</Combobox.Portal>
