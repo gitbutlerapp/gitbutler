@@ -294,10 +294,9 @@ const FilesToggle: FC = () => {
 				<Tooltip.Positioner sideOffset={4}>
 					<Tooltip.Popup
 						render={
-							<TooltipPopup
-								content={workspaceHotkeys.toggleFilesPanel.meta.name}
-								kbd={workspaceHotkeys.toggleFilesPanel.hotkey}
-							/>
+							<TooltipPopup kbd={workspaceHotkeys.toggleFilesPanel.hotkey}>
+								{workspaceHotkeys.toggleFilesPanel.meta.name}
+							</TooltipPopup>
 						}
 					/>
 				</Tooltip.Positioner>

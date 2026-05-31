@@ -56,7 +56,7 @@ export const DependencyIndicatorButton: FC<
 					// To match tooltips.
 					side="top"
 				>
-					<Popover.Popup render={<TooltipPopup content={tooltip} />} />
+					<Popover.Popup render={<TooltipPopup>{tooltip}</TooltipPopup>} />
 				</Popover.Positioner>
 			</Popover.Portal>
 		</Popover.Root>

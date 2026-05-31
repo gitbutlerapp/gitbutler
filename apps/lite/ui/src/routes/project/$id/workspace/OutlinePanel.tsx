@@ -713,10 +713,9 @@ export const OutlinePanel: FC<ComponentProps<"div">> = (panelProps) => {
 									<Tooltip.Positioner sideOffset={4}>
 										<Tooltip.Popup
 											render={
-												<TooltipPopup
-													content={workspaceHotkeys.applyBranch.meta.name}
-													kbd={workspaceHotkeys.applyBranch.hotkey}
-												/>
+												<TooltipPopup kbd={workspaceHotkeys.applyBranch.hotkey}>
+													{workspaceHotkeys.applyBranch.meta.name}
+												</TooltipPopup>
 											}
 										/>
 									</Tooltip.Positioner>
@@ -781,7 +780,7 @@ const CommitTargetIndicator: FC = () => (
 				// To match tooltips.
 				side="top"
 			>
-				<Popover.Popup render={<TooltipPopup content="Commit target" />} />
+				<Popover.Popup render={<TooltipPopup>Commit target</TooltipPopup>} />
 			</Popover.Positioner>
 		</Popover.Portal>
 	</Popover.Root>
@@ -1717,10 +1716,9 @@ const Changes: FC<{
 								<Tooltip.Positioner sideOffset={4}>
 									<Tooltip.Popup
 										render={
-											<TooltipPopup
-												content={changesHotkeys.selectCommitBranch.meta.name}
-												kbd={changesHotkeys.selectCommitBranch.hotkey}
-											/>
+											<TooltipPopup kbd={changesHotkeys.selectCommitBranch.hotkey}>
+												{changesHotkeys.selectCommitBranch.meta.name}
+											</TooltipPopup>
 										}
 									/>
 								</Tooltip.Positioner>
@@ -1748,17 +1746,16 @@ const Changes: FC<{
 									<Tooltip.Popup
 										render={
 											<TooltipPopup
-												content={
-													isAmendMode
-														? changesHotkeys.amendCommit.meta.name
-														: changesHotkeys.commit.meta.name
-												}
 												kbd={
 													isAmendMode
 														? changesHotkeys.amendCommit.hotkey
 														: changesHotkeys.commit.hotkey
 												}
-											/>
+											>
+												{isAmendMode
+													? changesHotkeys.amendCommit.meta.name
+													: changesHotkeys.commit.meta.name}
+											</TooltipPopup>
 										}
 									/>
 								</Tooltip.Positioner>

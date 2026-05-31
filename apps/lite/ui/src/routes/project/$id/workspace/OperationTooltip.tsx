@@ -101,10 +101,9 @@ const AbsorbControls: FC<{
 					<Tooltip.Positioner sideOffset={4}>
 						<Tooltip.Popup
 							render={
-								<TooltipPopup
-									content={operationHotkeys.confirm.meta.name}
-									kbd={operationHotkeys.confirm.hotkey}
-								/>
+								<TooltipPopup kbd={operationHotkeys.confirm.hotkey}>
+									{operationHotkeys.confirm.meta.name}
+								</TooltipPopup>
 							}
 						/>
 					</Tooltip.Positioner>
@@ -118,10 +117,9 @@ const AbsorbControls: FC<{
 					<Tooltip.Positioner sideOffset={4}>
 						<Tooltip.Popup
 							render={
-								<TooltipPopup
-									content={operationHotkeys.cancel.meta.name}
-									kbd={operationHotkeys.cancel.hotkey}
-								/>
+								<TooltipPopup kbd={operationHotkeys.cancel.hotkey}>
+									{operationHotkeys.cancel.meta.name}
+								</TooltipPopup>
 							}
 						/>
 					</Tooltip.Positioner>
@@ -194,10 +192,9 @@ const TransferTypeToggleGroup: FC<{
 					<Tooltip.Positioner sideOffset={4} side="right">
 						<Tooltip.Popup
 							render={
-								<TooltipPopup
-									content={operationHotkeys.selectMoveAbove.meta.name}
-									kbd={operationHotkeys.selectMoveAbove.hotkey}
-								/>
+								<TooltipPopup kbd={operationHotkeys.selectMoveAbove.hotkey}>
+									{operationHotkeys.selectMoveAbove.meta.name}
+								</TooltipPopup>
 							}
 						/>
 					</Tooltip.Positioner>
@@ -215,10 +212,9 @@ const TransferTypeToggleGroup: FC<{
 					<Tooltip.Positioner sideOffset={4} side="right">
 						<Tooltip.Popup
 							render={
-								<TooltipPopup
-									content={operationHotkeys.selectRub.meta.name}
-									kbd={operationHotkeys.selectRub.hotkey}
-								/>
+								<TooltipPopup kbd={operationHotkeys.selectRub.hotkey}>
+									{operationHotkeys.selectRub.meta.name}
+								</TooltipPopup>
 							}
 						/>
 					</Tooltip.Positioner>
@@ -236,10 +232,9 @@ const TransferTypeToggleGroup: FC<{
 					<Tooltip.Positioner sideOffset={4} side="right">
 						<Tooltip.Popup
 							render={
-								<TooltipPopup
-									content={operationHotkeys.selectMoveBelow.meta.name}
-									kbd={operationHotkeys.selectMoveBelow.hotkey}
-								/>
+								<TooltipPopup kbd={operationHotkeys.selectMoveBelow.hotkey}>
+									{operationHotkeys.selectMoveBelow.meta.name}
+								</TooltipPopup>
 							}
 						/>
 					</Tooltip.Positioner>
@@ -314,10 +309,9 @@ const TransferOperationControls: FC<{
 					<Tooltip.Positioner sideOffset={4}>
 						<Tooltip.Popup
 							render={
-								<TooltipPopup
-									content={operationHotkeys.confirm.meta.name}
-									kbd={operationHotkeys.confirm.hotkey}
-								/>
+								<TooltipPopup kbd={operationHotkeys.confirm.hotkey}>
+									{operationHotkeys.confirm.meta.name}
+								</TooltipPopup>
 							}
 						/>
 					</Tooltip.Positioner>
@@ -332,10 +326,9 @@ const TransferOperationControls: FC<{
 					<Tooltip.Positioner sideOffset={4}>
 						<Tooltip.Popup
 							render={
-								<TooltipPopup
-									content={operationHotkeys.cancel.meta.name}
-									kbd={operationHotkeys.cancel.hotkey}
-								/>
+								<TooltipPopup kbd={operationHotkeys.cancel.hotkey}>
+									{operationHotkeys.cancel.meta.name}
+								</TooltipPopup>
 							}
 						/>
 					</Tooltip.Positioner>
@@ -408,7 +401,7 @@ export const OperationTooltip: FC<
 			<Tooltip.Trigger render={trigger} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8} side="right">
-					<Tooltip.Popup render={<TooltipPopup content={tooltip ?? undefined} />} />
+					<Tooltip.Popup render={<TooltipPopup>{tooltip}</TooltipPopup>} />
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
 		</Tooltip.Root>
