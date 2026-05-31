@@ -51,6 +51,18 @@ but <mutation> ...
 
 ## Task Recipes
 
+### Update workspace from main
+
+For "get latest from main", "update/sync this workspace", or "pull main":
+
+1. `but status -fv`
+2. `but pull --check`
+3. If clean, `but pull`
+4. `but status -fv`
+
+`but pull` updates applied branches onto the latest target branch (usually
+`main`). Do not use raw `git pull` or `git rebase`.
+
 ### Commit files
 
 1. `but status -fv`
