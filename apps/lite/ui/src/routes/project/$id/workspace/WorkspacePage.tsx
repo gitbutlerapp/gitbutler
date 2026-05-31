@@ -42,14 +42,6 @@ import { errorMessageForToast } from "#ui/errors.ts";
 import { shortCommitId } from "#ui/commit.ts";
 import { useActiveElement } from "#ui/focus.ts";
 
-type CommandPaletteItem = {
-	group: CommandGroup;
-	id: string;
-	name: string;
-	hotkey: Hotkey | HotkeySequence;
-	type: "hotkey" | "sequence";
-};
-
 const toggleFilesPanel =
 	({ projectId, focusedPanel }: { projectId: string; focusedPanel: Panel | null }): AppThunk =>
 	(dispatch, getState) => {
@@ -59,6 +51,14 @@ const toggleFilesPanel =
 
 		dispatch(projectActions.toggleFilesPanel({ projectId }));
 	};
+
+type CommandPaletteItem = {
+	group: CommandGroup;
+	id: string;
+	name: string;
+	hotkey: Hotkey | HotkeySequence;
+	type: "hotkey" | "sequence";
+};
 
 const groupCommandPaletteItems = (
 	items: Array<CommandPaletteItem>,
