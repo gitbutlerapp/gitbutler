@@ -36,13 +36,13 @@
 
 .itemRowToolbar {
 	display: none;
-	align-items: stretch;
 
 	.itemRow:hover &,
 	.itemRow:focus-within &,
 	.itemRowSelected &,
 	.forceVisibleToolbar & {
 		display: flex;
+		align-items: stretch;
 	}
 }
 
