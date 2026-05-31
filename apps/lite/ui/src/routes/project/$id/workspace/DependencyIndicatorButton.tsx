@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Array, pipe } from "effect";
 import { ComponentProps, FC } from "react";
 
-export const DependencyIndicatorButton: FC<
+export const DependencyIndicator: FC<
 	{
 		projectId: string;
 		commitIds: Array.NonEmptyArray<string>;

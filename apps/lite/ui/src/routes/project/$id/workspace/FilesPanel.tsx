@@ -48,7 +48,7 @@ import { WorkspaceItemRow, WorkspaceItemRowToolbar } from "./WorkspaceItemRow.ts
 import { decodeRefName } from "#ui/api/ref-name.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.ts";
-import { DependencyIndicatorButton } from "#ui/routes/project/$id/workspace/DependencyIndicatorButton.tsx";
+import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicatorButton.tsx";
 import { focusPanel, useFocusedProjectPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
 import {
 	buildNavigationIndex,
@@ -727,9 +727,7 @@ const ChangesFileRow: FC<{
 								size: "small",
 								iconOnly: true,
 							})}
-							render={
-								<DependencyIndicatorButton projectId={projectId} commitIds={dependencyCommitIds} />
-							}
+							render={<DependencyIndicator projectId={projectId} commitIds={dependencyCommitIds} />}
 						>
 							<Icon name="link" />
 						</Toolbar.Button>
