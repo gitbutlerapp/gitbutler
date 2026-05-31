@@ -3,12 +3,7 @@ import {
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import {
-	focusAdjacentPanel,
-	focusPanel,
-	getFocusedProjectPanel,
-	Panel as PanelType,
-} from "#ui/panels.ts";
+import { focusAdjacentPanel, focusPanel, getFocusedProjectPanel, Panel } from "#ui/panels.ts";
 import {
 	projectActions,
 	selectProjectDialogState,
@@ -56,7 +51,7 @@ type CommandPaletteItem = {
 };
 
 const toggleFilesPanel =
-	({ projectId, focusedPanel }: { projectId: string; focusedPanel: PanelType | null }): AppThunk =>
+	({ projectId, focusedPanel }: { projectId: string; focusedPanel: Panel | null }): AppThunk =>
 	(dispatch, getState) => {
 		const panelsState = selectProjectPanelsState(getState(), projectId);
 
@@ -483,7 +478,7 @@ const WorkspacePage: FC = () => {
 		<>
 			<div className={styles.page}>
 				<OutlinePanel
-					id={"outline" satisfies PanelType}
+					id={"outline" satisfies Panel}
 					data-panel
 					tabIndex={0}
 					ref={(el) => el?.focus({ focusVisible: false })}
