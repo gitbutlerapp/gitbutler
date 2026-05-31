@@ -43,7 +43,7 @@ import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { ComponentProps, FC, Suspense, useDeferredValue } from "react";
-import { DependencyIndicator } from "./DependencyIndicatorButton.tsx";
+import { DependencyIndicator } from "./DependencyIndicator.tsx";
 import { FilesPanel } from "./FilesPanel.tsx";
 import styles from "./DetailsPanel.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
