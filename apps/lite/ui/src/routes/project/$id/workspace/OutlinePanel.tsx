@@ -1672,7 +1672,7 @@ const Changes: FC<{
 					disabled={outlineMode._tag !== "Default"}
 					readOnly={isCommitOrAmendPending}
 					placeholder="Commit message..."
-					className={styles.commitTextarea}
+					className={classes("text-13", styles.commitTextarea)}
 					onFocus={selectChanges}
 					onKeyDown={(event) => {
 						if (event.key !== "Escape") return;
