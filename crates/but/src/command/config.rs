@@ -356,18 +356,35 @@ pub(crate) fn load_app_settings_sync() -> Result<AppSettingsWithDiskSync> {
     AppSettingsWithDiskSync::new_with_customization(config_dir, None)
 }
 
+/// Get the comment character(s) from git config. Defaults to "#" if not set or set to "auto".
+pub(crate) fn get_comment_char(config: &gix::config::Snapshot<'_>) -> String {
+    if let Some(s) = config.string("core.commentChar") {
+        let s_str = s.to_str_lossy();
+        if s_str == "auto" || s_str.is_empty() {
+            "#".to_string()
+        } else {
+            s_str.to_string()
+        }
+    } else {
+        "#".to_string()
+    }
+}
+
 /// User configuration information
 #[derive(serde::Serialize)]
 struct UserConfigInfo {
     name: Option<String>,
     email: Option<String>,
     editor: Option<String>,
+    comment_char: Option<String>,
     #[serde(serialize_with = "serialize_config_source")]
     name_scope: Option<gix::config::Source>,
     #[serde(serialize_with = "serialize_config_source")]
     email_scope: Option<gix::config::Source>,
     #[serde(serialize_with = "serialize_config_source")]
     editor_scope: Option<gix::config::Source>,
+    #[serde(serialize_with = "serialize_config_source")]
+    comment_char_scope: Option<gix::config::Source>,
 }
 
 /// Get user configuration info from git config
@@ -375,15 +392,18 @@ fn get_user_config_info(config: &gix::config::Snapshot<'_>) -> UserConfigInfo {
     let (name, name_scope) = get_config_string_and_scope(config, "user.name");
     let (email, email_scope) = get_config_string_and_scope(config, "user.email");
     let (_editor, editor_scope) = get_config_string_and_scope(config, "core.editor");
+    let (comment_char, comment_char_scope) = get_config_string_and_scope(config, "core.commentChar");
     let editor = tui::get_text::get_editor_command();
 
     UserConfigInfo {
         name,
         email,
         editor,
+        comment_char,
         name_scope,
         email_scope,
         editor_scope,
+        comment_char_scope,
     }
 }
 
@@ -417,6 +437,16 @@ fn write_user_config_human(out: &mut dyn std::fmt::Write, info: &UserConfigInfo)
         t.config_value
             .paint(info.editor.as_deref().unwrap_or("(built-in)")),
         format_scope(info.editor_scope)
+    )?;
+    writeln!(
+        out,
+        "  {}: {} {}",
+        t.hint.paint("Comment char"),
+        info.comment_char
+            .as_deref()
+            .map(|c| t.config_value.paint(c))
+            .unwrap_or_else(|| t.config_value.paint("# (default)")),
+        format_scope(info.comment_char_scope)
     )?;
     writeln!(out)?;
     Ok(())

@@ -83,8 +83,13 @@ fn edit_branch_name(
         }
 
         if let Some(sid) = stack_entry.id {
+            let comment_char = {
+                let repo = ctx.repo.get()?;
+                let config = repo.config_snapshot();
+                crate::command::config::get_comment_char(&config)
+            };
             let new_name = prepare_provided_message(message, "branch name")
-                .unwrap_or_else(|| get_branch_name_from_editor(branch_name))?;
+                .unwrap_or_else(|| get_branch_name_from_editor(branch_name, &comment_char))?;
             but_api::legacy::stack::update_branch_name_with_perm(
                 ctx,
                 sid,
@@ -136,10 +141,17 @@ pub(crate) fn get_commit_message_from_editor(
         })
         .transpose()?;
 
+    let comment_char = {
+        let repo = ctx.repo.get()?;
+        let config = repo.config_snapshot();
+        crate::command::config::get_comment_char(&config)
+    };
+
     let new_message = actually_get_commit_message_from_editor(
         &editor_initial_message,
         &changed_files,
         diff.as_deref(),
+        &comment_char,
     )?;
 
     if should_update_commit_message(current_message_for_comparison, &new_message) {
@@ -242,6 +254,7 @@ fn actually_get_commit_message_from_editor(
     current_message: &str,
     changed_files: &[String],
     diff: Option<&[BString]>,
+    comment_char: &str,
 ) -> Result<String> {
     // Generate commit message template with current message
     let mut template = String::new();
@@ -249,15 +262,15 @@ fn actually_get_commit_message_from_editor(
     if !current_message.is_empty() && !current_message.ends_with('\n') {
         template.push('\n');
     }
-    template.push_str("\n# Please enter the commit message for your changes. Lines starting\n");
-    template.push_str("# with '#' will be ignored, and an empty message aborts the commit.\n");
-    template.push_str("#\n");
-    template.push_str("# Changes in this commit:\n");
+    template.push_str(&format!("\n{comment_char} Please enter the commit message for your changes. Lines starting\n"));
+    template.push_str(&format!("{comment_char} with '{comment_char}' will be ignored, and an empty message aborts the commit.\n"));
+    template.push_str(&format!("{comment_char}\n"));
+    template.push_str(&format!("{comment_char} Changes in this commit:\n"));
 
     for file in changed_files {
-        template.push_str(&format!("#\t{file}\n"));
+        template.push_str(&format!("{comment_char}\t{file}\n"));
     }
-    template.push_str("#\n");
+    template.push_str(&format!("{comment_char}\n"));
 
     let mut template_rest = String::new();
     if let Some(diff) = diff
@@ -273,6 +286,7 @@ fn actually_get_commit_message_from_editor(
         "commit_msg",
         &template,
         Some(template_rest.as_str()).filter(|s| !s.is_empty()),
+        comment_char,
     )?
     .to_string();
 
@@ -283,18 +297,18 @@ fn actually_get_commit_message_from_editor(
     Ok(lossy_message)
 }
 
-pub(crate) fn get_branch_name_from_editor(current_name: &str) -> Result<String> {
+pub(crate) fn get_branch_name_from_editor(current_name: &str, comment_char: &str) -> Result<String> {
     let mut template = String::new();
     template.push_str(current_name);
     if !current_name.is_empty() && !current_name.ends_with('\n') {
         template.push('\n');
     }
-    template.push_str("\n# Please enter the new branch name. Lines starting\n");
-    template.push_str("# with '#' will be ignored, and an empty name aborts the operation.\n");
-    template.push_str("#\n");
+    template.push_str(&format!("\n{comment_char} Please enter the new branch name. Lines starting\n"));
+    template.push_str(&format!("{comment_char} with '{comment_char}' will be ignored, and an empty name aborts the operation.\n"));
+    template.push_str(&format!("{comment_char}\n"));
 
     let branch_name_lossy =
-        tui::get_text::from_editor_no_comments("branch_name", &template)?.to_string();
+        tui::get_text::from_editor_no_comments("branch_name", &template, comment_char)?.to_string();
     let branch_name = branch_name_lossy.trim();
 
     if branch_name.is_empty() {
