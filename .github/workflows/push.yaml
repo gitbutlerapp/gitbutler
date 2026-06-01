@@ -300,6 +300,8 @@ jobs:
           rm cargo-nextest.tar.gz
       - name: Run workspace tests
         run: cargo nextest run --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests --profile ci
+      - name: Run experimental cli command tests
+        run: make test-but-2
       - name: Run doctests
         run: cargo test --doc --workspace --exclude gitbutler-tauri --exclude but-api-macros-tests
       - name: Upload results to Buildkite Test Engine

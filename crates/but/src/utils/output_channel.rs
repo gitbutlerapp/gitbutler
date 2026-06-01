@@ -11,6 +11,9 @@ use crate::{
     },
 };
 
+#[cfg(all(feature = "legacy", feature = "but-2"))]
+pub mod experimental;
+
 /// Default value for a confirmation prompt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfirmDefault {

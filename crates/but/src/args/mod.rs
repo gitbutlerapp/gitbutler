@@ -223,6 +223,11 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Commit(commit::Platform),
 
+    #[cfg(all(feature = "legacy", feature = "but-2"))]
+    #[clap(verbatim_doc_comment)]
+    #[clap(hide = true)]
+    Commit2(commit2::Platform),
+
     /// Stages a file or hunk to a specific branch.
     ///
     /// Without arguments, opens an interactive TUI for selecting files and hunks to stage.
@@ -1223,6 +1228,8 @@ pub enum Subcommands {
 pub mod alias;
 #[cfg(feature = "legacy")]
 pub mod commit;
+#[cfg(feature = "legacy")]
+pub mod commit2;
 pub mod config;
 pub mod skill;
 pub mod update;

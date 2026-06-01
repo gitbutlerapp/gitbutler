@@ -10,6 +10,8 @@ pub mod ai;
 pub mod branch;
 pub mod clean;
 pub mod commit;
+#[cfg(all(feature = "legacy", feature = "but-2"))]
+pub mod commit2;
 pub mod commit_message_prep;
 pub mod diff;
 pub mod discard;
