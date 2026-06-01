@@ -125,7 +125,11 @@ export const RootLayout: FC = () => (
 		<div className={styles.layout}>
 			<nav className={styles.sidebar}>
 				{isMac && <div className={styles.sidebarMacSpacer} />}
-				<div className={styles.sidebarScroll}>
+				<div
+					className={[styles.sidebarScroll, isMac ? styles.sidebarScrollMac : undefined]
+						.filter(Boolean)
+						.join(" ")}
+				>
 					<Projects />
 				</div>
 			</nav>
