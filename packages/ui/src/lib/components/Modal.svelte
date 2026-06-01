@@ -1,7 +1,7 @@
 <script lang="ts" module>
 	type T = any | unknown | undefined;
 
-	export type ModalSize = "medium" | "large" | "small" | "xsmall" | number;
+	export type ModalSize = "medium" | "large" | "small" | "xsmall" | "full-screen" | number;
 	export type ModalType = "info" | "warning" | "danger" | "success";
 
 	export type ModalProps = {
@@ -153,6 +153,7 @@
 			class:large={width === "large"}
 			class:small={width === "small"}
 			class:xsmall={width === "xsmall"}
+			class:full-screen={width === "full-screen"}
 			style:width={typeof width === "number" ? `${pxToRem(width)}rem` : undefined}
 			use:focusable={{
 				trap: true,
@@ -302,6 +303,10 @@
 
 	.modal-form.large {
 		width: 840px;
+	}
+
+	.modal-form.full-screen {
+		width: 100%;
 	}
 
 	.modal-form.small {
