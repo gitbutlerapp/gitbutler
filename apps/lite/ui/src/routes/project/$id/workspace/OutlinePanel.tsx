@@ -758,7 +758,7 @@ export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panel
 						</div>
 
 						{operationSource && headInfo && (
-							<div className={styles.operationSourcePreview}>
+							<div className={classes("text-14", styles.operationSourcePreview)}>
 								<OperationSourceLabel headInfo={headInfo} source={operationSource} />
 								{outlineMode._tag === "Absorb" && absorptionPlanQuery?.isPending && (
 									<Icon name="spinner" aria-label="Loading absorb plan" />
