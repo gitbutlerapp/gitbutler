@@ -31,7 +31,7 @@ import {
 	filterNavigationIndexForOutlineMode,
 	getTransferOperation,
 	keyboardTransferOperationMode,
-	getOperationSource,
+	getOperationSourcePreview,
 } from "#ui/outline/mode.ts";
 import { focusPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
 import {
@@ -683,9 +683,7 @@ export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panel
 		ref,
 	});
 
-	const _operationSource = getOperationSource(outlineMode);
-	const hasDragPreview = outlineMode._tag === "Transfer" && outlineMode.value._tag === "Pointer";
-	const operationSource = !hasDragPreview ? _operationSource : undefined;
+	const operationSourcePreview = getOperationSourcePreview(outlineMode);
 
 	const commitTargetState = useAppSelector((state) => selectProjectCommitTarget(state, projectId));
 	const targetComboboxItems = buildCommitTargetComboboxItems({ headInfo, commitTargetState });
@@ -759,9 +757,9 @@ export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panel
 							))}
 						</div>
 
-						{operationSource && headInfo && (
+						{operationSourcePreview && headInfo && (
 							<div className={classes("text-14", styles.operationSourcePreview)}>
-								<OperationSourceLabel headInfo={headInfo} source={operationSource} />
+								<OperationSourceLabel headInfo={headInfo} source={operationSourcePreview} />
 								{outlineMode._tag === "Absorb" && absorptionPlanQuery?.isPending && (
 									<Icon name="spinner" aria-label="Loading absorb plan" />
 								)}
