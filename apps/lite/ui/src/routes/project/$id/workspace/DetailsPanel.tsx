@@ -9,18 +9,11 @@ import {
 import { decodeRefName } from "#ui/api/ref-name.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
-	formatHunkHeader,
-	getDependencyCommitIds,
-	getHunkDependencyDiffsByPath,
-	type HunkDependencyDiff,
-} from "#ui/hunk.ts";
-import {
 	branchFileParent,
 	changesFileParent,
 	commitFileParent,
 	commitOperand,
 	fileOperand,
-	hunkOperand,
 	type FileParent,
 	type Operand,
 } from "#ui/operands.ts";
@@ -43,7 +36,6 @@ import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Match, pipe } from "effect";
 import { ComponentProps, FC, Suspense, useDeferredValue } from "react";
-import { DependencyIndicator } from "./DependencyIndicator.tsx";
 import { FilesPanel } from "./FilesPanel.tsx";
 import styles from "./DetailsPanel.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
@@ -76,65 +68,23 @@ const hunkKey = (hunk: HunkHeader): string =>
 	`${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`;
 
 const Hunk: FC<{
-	isResultOfBinaryToTextConversion: boolean;
-	projectId: string;
-	fileParent: FileParent;
 	change: TreeChange;
 	hunk: DiffHunk;
-	hunkDependencyDiffs?: Array<HunkDependencyDiff>;
-}> = ({
-	isResultOfBinaryToTextConversion,
-	projectId,
-	fileParent,
-	change,
-	hunk,
-	hunkDependencyDiffs,
-}) => {
-	const dependencyCommitIds =
-		fileParent._tag === "Changes" && hunkDependencyDiffs
-			? getDependencyCommitIds({ hunk, hunkDependencyDiffs })
-			: undefined;
-
-	const operand = hunkOperand({
-		parent: { parent: fileParent, path: change.path },
-		hunkHeader: hunk,
-		isResultOfBinaryToTextConversion,
-	});
-
-	return (
-		<div>
-			<OperationSourceC projectId={projectId} source={operand}>
-				<div className={styles.hunkHeaderRow}>
-					{dependencyCommitIds && (
-						<DependencyIndicator projectId={projectId} commitIds={dependencyCommitIds}>
-							<Icon name="link" />
-						</DependencyIndicator>
-					)}
-					<div className={classes("text-11", "text-monospace", styles.hunkHeader)}>
-						{formatHunkHeader(hunk)}
-					</div>
-				</div>
-			</OperationSourceC>
-
-			<PatchDiff
-				patch={`${patchHeaderForChange(change, lineEndingForDiff(hunk.diff))}${hunk.diff}`}
-				options={{
-					diffStyle: "unified",
-					themeType: "system",
-					disableFileHeader: true,
-				}}
-			/>
-		</div>
-	);
-};
+}> = ({ change, hunk }) => (
+	<PatchDiff
+		patch={`${patchHeaderForChange(change, lineEndingForDiff(hunk.diff))}${hunk.diff}`}
+		options={{
+			diffStyle: "unified",
+			themeType: "system",
+			disableFileHeader: true,
+		}}
+	/>
+);
 
 const FileDiff: FC<{
-	projectId: string;
 	change: TreeChange;
-	fileParent: FileParent;
-	hunkDependencyDiffs?: Array<HunkDependencyDiff>;
 	diff: UnifiedPatch | null;
-}> = ({ projectId, change, fileParent, hunkDependencyDiffs, diff }) =>
+}> = ({ change, diff }) =>
 	Match.value(diff).pipe(
 		Match.when(null, () => <div>No diff available for this file.</div>),
 		Match.when({ type: "Binary" }, () => <div>Binary file (diff not available).</div>),
@@ -150,14 +100,7 @@ const FileDiff: FC<{
 				<ul>
 					{hunks.map((hunk) => (
 						<li key={hunkKey(hunk)}>
-							<Hunk
-								isResultOfBinaryToTextConversion={patch.subject.isResultOfBinaryToTextConversion}
-								projectId={projectId}
-								fileParent={fileParent}
-								change={change}
-								hunk={hunk}
-								hunkDependencyDiffs={hunkDependencyDiffs}
-							/>
+							<Hunk change={change} hunk={hunk} />
 						</li>
 					))}
 				</ul>
@@ -170,8 +113,7 @@ const ChangesFileDiffList: FC<{
 	changes: Array<TreeChange>;
 	projectId: string;
 	fileParent: FileParent;
-	hunkDependencyDiffsByPath?: Map<string, Array<HunkDependencyDiff>>;
-}> = ({ changes, projectId, fileParent, hunkDependencyDiffsByPath }) => {
+}> = ({ changes, projectId, fileParent }) => {
 	const treeChangeDiffs = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 	}).map((result) => result.data);
@@ -198,13 +140,7 @@ const ChangesFileDiffList: FC<{
 								</h4>
 							</header>
 						</OperationSourceC>
-						<FileDiff
-							projectId={projectId}
-							change={change}
-							fileParent={fileParent}
-							hunkDependencyDiffs={hunkDependencyDiffsByPath?.get(change.path)}
-							diff={diff}
-						/>
+						<FileDiff change={change} diff={diff} />
 					</li>
 				);
 			})}
@@ -372,9 +308,6 @@ const DiffContents: FC<{
 						<ChangesFileDiffList
 							changes={worktreeChanges.changes}
 							fileParent={changesFileParent}
-							hunkDependencyDiffsByPath={getHunkDependencyDiffsByPath(
-								worktreeChanges.dependencies?.diffs ?? [],
-							)}
 							projectId={projectId}
 						/>
 					)}
@@ -395,9 +328,6 @@ const DiffContents: FC<{
 										<ChangesFileDiffList
 											changes={selectedChange ? [selectedChange] : worktreeChanges.changes}
 											fileParent={changesFileParent}
-											hunkDependencyDiffsByPath={getHunkDependencyDiffsByPath(
-												worktreeChanges.dependencies?.diffs ?? [],
-											)}
 											projectId={projectId}
 										/>
 									);
