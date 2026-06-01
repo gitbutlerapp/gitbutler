@@ -40,7 +40,16 @@ import { AbsorptionTarget, TreeChange } from "@gitbutler/but-sdk";
 import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Match } from "effect";
-import { ComponentProps, createContext, FC, ReactNode, Suspense, use, useEffect } from "react";
+import {
+	ComponentProps,
+	createContext,
+	FC,
+	ReactNode,
+	Suspense,
+	use,
+	useEffect,
+	useRef,
+} from "react";
 import styles from "./FilesPanel.module.css";
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import {
@@ -52,8 +61,7 @@ import { decodeRefName } from "#ui/api/ref-name.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.ts";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
-import { focusPanel, getFocusedProjectPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
-import { useActiveElement } from "#ui/focus.ts";
+import { focusPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
 import {
 	buildNavigationIndex,
 	NavigationIndex,
@@ -64,6 +72,7 @@ import { assert } from "#ui/assert.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
+import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 
 const NavigationIndexContext = createContext<NavigationIndex | null>(null);
 
@@ -94,14 +103,14 @@ const useNavigationIndex = (projectId: string, parent: Operand, files: Array<Ope
 const useFilesTreeHotkeys = ({
 	navigationIndex,
 	projectId,
+	ref,
 }: {
 	navigationIndex: NavigationIndex;
 	projectId: string;
+	ref: React.RefObject<HTMLElement | null>;
 }) => {
 	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-	const activeElement = useActiveElement();
-	const focusedPanel = getFocusedProjectPanel(activeElement);
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
 	const dispatch = useAppDispatch();
@@ -139,21 +148,21 @@ const useFilesTreeHotkeys = ({
 			callback: absorbSelectedFile,
 			options: {
 				conflictBehavior: "allow",
-				enabled:
-					isChangesFileSelected && focusedPanel === "files" && outlineMode._tag === "Default",
+				enabled: isChangesFileSelected && outlineMode._tag === "Default",
+				target: ref,
 				meta: changesFileHotkeys.absorb.meta,
 			},
 		},
 	]);
 
 	useNavigationIndexHotkeys({
-		focusedPanel,
 		navigationIndex,
 		projectId,
 		group: "Files",
 		panel: "files",
 		select,
 		selection,
+		ref,
 	});
 };
 
@@ -356,6 +365,7 @@ const FilesTreePanel: FC<{ parent: Operand; files: Array<Operand> } & ComponentP
 	children,
 	parent,
 	files,
+	ref: refProp,
 	...panelProps
 }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
@@ -363,9 +373,12 @@ const FilesTreePanel: FC<{ parent: Operand; files: Array<Operand> } & ComponentP
 	const navigationIndex = useNavigationIndex(projectId, parent, files);
 	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
 
+	const ref = useRef<HTMLDivElement>(null);
+
 	useFilesTreeHotkeys({
 		navigationIndex,
 		projectId,
+		ref,
 	});
 
 	return (
@@ -376,6 +389,7 @@ const FilesTreePanel: FC<{ parent: Operand; files: Array<Operand> } & ComponentP
 				role="tree"
 				aria-activedescendant={treeItemId(selection)}
 				className={classes(className, styles.tree)}
+				ref={useMergedRefs(refProp, ref)}
 			>
 				<TreeItem
 					projectId={projectId}

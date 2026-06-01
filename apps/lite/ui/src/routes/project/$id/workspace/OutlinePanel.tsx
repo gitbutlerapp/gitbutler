@@ -33,7 +33,7 @@ import {
 	keyboardTransferOperationMode,
 	getOperationSource,
 } from "#ui/outline/mode.ts";
-import { focusPanel, getFocusedProjectPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
+import { focusPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
 import {
 	projectActions,
 	selectProjectCommitTarget,
@@ -123,7 +123,6 @@ import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { OutlineModeTooltip } from "./OutlineModeTooltip.tsx";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { useActiveElement } from "#ui/focus.ts";
 
 const NavigationIndexContext = createContext<NavigationIndex | null>(null);
 
@@ -387,14 +386,14 @@ const useCommitReword = () => {
 const useOutlineTreeHotkeys = ({
 	navigationIndex,
 	projectId,
+	ref,
 }: {
 	navigationIndex: NavigationIndex;
 	projectId: string;
+	ref: React.RefObject<HTMLElement | null>;
 }) => {
 	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-	const activeElement = useActiveElement();
-	const focusedPanel = getFocusedProjectPanel(activeElement);
 
 	const dispatch = useAppDispatch();
 
@@ -460,12 +459,12 @@ const useOutlineTreeHotkeys = ({
 		});
 	};
 
-	const defaultOutlineHotkeysEnabled = focusedPanel === "outline" && outlineMode._tag === "Default";
+	const defaultOutlineHotkeysEnabled = outlineMode._tag === "Default";
 	const isSelectedCommit = selection._tag === "Commit";
 	const isSelectedChanges = selection._tag === "ChangesSection";
 
 	useNavigationIndexHotkeys({
-		focusedPanel,
+		ref,
 		navigationIndex,
 		projectId,
 		group: "Outline",
@@ -513,6 +512,7 @@ const useOutlineTreeHotkeys = ({
 					options: {
 						conflictBehavior: "allow",
 						enabled: defaultOutlineHotkeysEnabled,
+						target: ref,
 						meta: outlineHotkeys.rewordCommit.meta,
 					},
 				}),
@@ -527,6 +527,7 @@ const useOutlineTreeHotkeys = ({
 					options: {
 						conflictBehavior: "allow",
 						enabled: defaultOutlineHotkeysEnabled,
+						target: ref,
 						meta: outlineHotkeys.renameBranch.meta,
 					},
 				}),
@@ -539,6 +540,7 @@ const useOutlineTreeHotkeys = ({
 					options: {
 						conflictBehavior: "allow",
 						enabled: defaultOutlineHotkeysEnabled,
+						target: ref,
 						meta: outlineHotkeys.editChangesCommitMessage.meta,
 					},
 				}),
@@ -552,6 +554,7 @@ const useOutlineTreeHotkeys = ({
 			options: {
 				conflictBehavior: "allow",
 				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit,
+				target: ref,
 				meta: outlineHotkeys.amendCommit.meta,
 			},
 		},
@@ -561,6 +564,7 @@ const useOutlineTreeHotkeys = ({
 			options: {
 				conflictBehavior: "allow",
 				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && !commitMoveMutation.isPending,
+				target: ref,
 				meta: outlineHotkeys.moveCommitUp.meta,
 			},
 		},
@@ -570,6 +574,7 @@ const useOutlineTreeHotkeys = ({
 			options: {
 				conflictBehavior: "allow",
 				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && !commitMoveMutation.isPending,
+				target: ref,
 				meta: outlineHotkeys.moveCommitDown.meta,
 			},
 		},
@@ -591,6 +596,7 @@ const useOutlineTreeHotkeys = ({
 								options: {
 									conflictBehavior: "allow",
 									enabled: defaultOutlineHotkeysEnabled,
+									target: ref,
 									meta: outlineHotkeys.composeCommitHere.meta,
 								},
 							} satisfies UseHotkeyDefinition,
@@ -605,6 +611,7 @@ const useOutlineTreeHotkeys = ({
 			options: {
 				conflictBehavior: "allow",
 				enabled: defaultOutlineHotkeysEnabled && isSelectedChanges,
+				target: ref,
 				meta: outlineHotkeys.absorb.meta,
 			},
 		},
@@ -628,7 +635,7 @@ const ActivitySpinner: FC = () => {
 	return status !== null && <Icon name="spinner" aria-label={status} />;
 };
 
-export const OutlinePanel: FC<ComponentProps<"div">> = (panelProps) => {
+export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panelProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
@@ -669,9 +676,12 @@ export const OutlinePanel: FC<ComponentProps<"div">> = (panelProps) => {
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 
+	const ref = useRef<HTMLDivElement>(null);
+
 	useOutlineTreeHotkeys({
 		navigationIndex,
 		projectId,
+		ref,
 	});
 
 	const operationSource = getOperationSource(outlineMode);
@@ -702,6 +712,7 @@ export const OutlinePanel: FC<ComponentProps<"div">> = (panelProps) => {
 						role="tree"
 						aria-activedescendant={treeItemId(selection)}
 						className={classes(panelProps.className, styles.panel)}
+						ref={useMergedRefs(refProp, ref)}
 					>
 						<header className={styles.workspaceControls}>
 							<div className={styles.workspaceControlsLeft}>
