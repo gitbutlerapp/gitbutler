@@ -66,7 +66,7 @@
 
 .editorForm {
 	display: flex;
-	row-gap: 2px;
+	row-gap: 4px;
 	flex-grow: 1;
 	flex-direction: column;
 	min-width: 0;
@@ -81,9 +81,13 @@
 }
 
 .editorHelp {
+	margin-left: -6px;
 	font-size: 11px;
 	line-height: 1.3;
-	text-transform: lowercase;
+
+	& > button {
+		text-transform: lowercase;
+	}
 }
 
 .editorShortcut {

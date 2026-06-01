@@ -90,7 +90,6 @@ import {
 	ComponentProps,
 	createContext,
 	FC,
-	Fragment,
 	SubmitEventHandler,
 	use,
 	useEffect,
@@ -887,15 +886,19 @@ const OperandC: FC<
 };
 
 const EditorHelp: FC<{
-	hotkeys: Array<{ hotkey: string; name: string }>;
-}> = ({ hotkeys }) => (
+	buttons: Array<{ hotkey: string; name: string; callback: () => void }>;
+}> = ({ buttons }) => (
 	<div className={styles.editorHelp}>
-		{hotkeys.map((hotkey, index) => (
-			<Fragment key={hotkey.hotkey}>
-				{index > 0 && " • "}
-				<kbd className={styles.editorShortcut}>{formatForDisplay(hotkey.hotkey)}</kbd>
-				<span className={styles.editorShortcutLabel}> to {hotkey.name}</span>
-			</Fragment>
+		{buttons.map((button) => (
+			<button
+				type="button"
+				onClick={button.callback}
+				key={button.hotkey}
+				className={getButtonClassName({ size: "small", variant: "inverted" })}
+			>
+				<kbd className={styles.editorShortcut}>{formatForDisplay(button.hotkey)}</kbd>
+				<span className={styles.editorShortcutLabel}> to {button.name}</span>
+			</button>
 		))}
 	</div>
 );
@@ -942,9 +945,9 @@ const InlineRewordCommit: FC<{
 				className={classes(styles.editorInput, styles.rewordCommitInput)}
 			/>
 			<EditorHelp
-				hotkeys={[
-					{ hotkey: "Enter", name: "Save" },
-					{ hotkey: "Escape", name: "Cancel" },
+				buttons={[
+					{ hotkey: "Enter", name: "Save", callback: () => formRef.current?.requestSubmit() },
+					{ hotkey: "Escape", name: "Cancel", callback: onExit },
 				]}
 			/>
 		</form>
@@ -1829,9 +1832,9 @@ const InlineRenameBranch: FC<{
 				className={classes("text-bold", styles.editorInput)}
 			/>
 			<EditorHelp
-				hotkeys={[
-					{ hotkey: "Enter", name: "Save" },
-					{ hotkey: "Escape", name: "Cancel" },
+				buttons={[
+					{ hotkey: "Enter", name: "Save", callback: () => formRef.current?.requestSubmit() },
+					{ hotkey: "Escape", name: "Cancel", callback: onExit },
 				]}
 			/>
 		</form>
