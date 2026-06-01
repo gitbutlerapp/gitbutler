@@ -136,6 +136,37 @@ fn clap() {
     Args::command().debug_assert();
 }
 
+#[test]
+fn status_after_is_hidden_noop_compatibility_flag() {
+    use clap::Parser;
+
+    let args = Args::try_parse_from([
+        "but",
+        "move",
+        "source",
+        "target",
+        "--json",
+        "--status-after",
+    ])
+    .expect("parse legacy status-after flag");
+
+    assert!(args.json);
+    assert!(args.legacy_status_after);
+    assert!(!args.status_after);
+}
+
+#[test]
+fn status_after_is_not_shown_in_help() {
+    use clap::CommandFactory;
+
+    let help = Args::command().render_long_help().to_string();
+
+    assert!(
+        !help.contains("--status-after"),
+        "compatibility-only flag should stay hidden from help"
+    );
+}
+
 mod agentlog {
     use clap::Parser;
 

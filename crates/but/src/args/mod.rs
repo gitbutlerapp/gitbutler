@@ -53,6 +53,11 @@ pub struct Args {
     /// Whether mutation commands should append workspace status.
     #[clap(skip)]
     pub status_after: bool,
+    // Keep accepting the removed flag so agents with older skills do not start
+    // erroring after the `but` CLI is updated. It is intentionally ignored;
+    // agent detection controls the current status-after behavior.
+    #[clap(long = "status-after", global = true, hide = true)]
+    pub legacy_status_after: bool,
     /// Subcommand to run (`but <COMMAND>`).
     ///
     /// On UNIX, if `<COMMAND>` is not built in and `but-<COMMAND>` exists on the PATH, that program
