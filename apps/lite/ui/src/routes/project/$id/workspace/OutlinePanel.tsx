@@ -395,7 +395,6 @@ const useOutlineTreeHotkeys = ({
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 	const activeElement = useActiveElement();
 	const focusedPanel = getFocusedProjectPanel(activeElement);
-	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
 	const dispatch = useAppDispatch();
 
@@ -605,11 +604,7 @@ const useOutlineTreeHotkeys = ({
 			},
 			options: {
 				conflictBehavior: "allow",
-				enabled:
-					defaultOutlineHotkeysEnabled &&
-					isSelectedChanges &&
-					worktreeChanges &&
-					worktreeChanges.changes.length > 0,
+				enabled: defaultOutlineHotkeysEnabled && isSelectedChanges,
 				meta: outlineHotkeys.absorb.meta,
 			},
 		},
@@ -1255,7 +1250,6 @@ const ChangesSectionRow: FC<{
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: "Absorb",
-			enabled: changes.length > 0,
 			accelerator: toElectronAccelerator(outlineHotkeys.absorb.hotkey),
 			onSelect: absorb,
 		}),
