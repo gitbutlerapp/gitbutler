@@ -30,7 +30,7 @@ import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSour
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Tooltip } from "@base-ui/react";
-import { DiffHunk, HunkHeader, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
+import { HunkHeader, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
 import { PatchDiff, Virtualizer } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
@@ -64,23 +64,6 @@ const patchHeaderForChange = (change: TreeChange, lineEnding: string): string =>
 		Match.exhaustive,
 	);
 
-const hunkKey = (hunk: HunkHeader): string =>
-	`${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`;
-
-const Hunk: FC<{
-	change: TreeChange;
-	hunk: DiffHunk;
-}> = ({ change, hunk }) => (
-	<PatchDiff
-		patch={`${patchHeaderForChange(change, lineEndingForDiff(hunk.diff))}${hunk.diff}`}
-		options={{
-			diffStyle: "unified",
-			themeType: "system",
-			disableFileHeader: true,
-		}}
-	/>
-);
-
 const FileDiff: FC<{
 	change: TreeChange;
 	diff: UnifiedPatch | null;
@@ -99,8 +82,15 @@ const FileDiff: FC<{
 			return (
 				<ul>
 					{hunks.map((hunk) => (
-						<li key={hunkKey(hunk)}>
-							<Hunk change={change} hunk={hunk} />
+						<li key={`${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`}>
+							<PatchDiff
+								patch={`${patchHeaderForChange(change, lineEndingForDiff(hunk.diff))}${hunk.diff}`}
+								options={{
+									diffStyle: "unified",
+									themeType: "system",
+									disableFileHeader: true,
+								}}
+							/>
 						</li>
 					))}
 				</ul>
