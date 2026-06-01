@@ -20,6 +20,33 @@
       };
 
       rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+
+      # Pin cargo-flamegraph to upstream main for macOS xctrace fixes that have
+      # not been released yet.
+      cargoFlamegraph = pkgs.rustPlatform.buildRustPackage (finalAttrs: {
+        pname = "cargo-flamegraph";
+        version = "0.6.12-unstable-2026-05-19";
+
+        src = pkgs.fetchFromGitHub {
+          owner = "flamegraph-rs";
+          repo = "flamegraph";
+          rev = "91bb0488920687168e3ccbb525e520f709ebc5c9";
+          hash = "sha256-1yOYonN8douuiJQxtl2j2zBSlgdYVd46JGj7FJVSaHQ=";
+        };
+
+        cargoHash = "sha256-2T3nIhJt/npC2zr24HaAUvVCN04OFk1HSFoFk2lL+hI=";
+
+        nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+          pkgs.makeWrapper
+        ];
+
+        postFixup = pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isLinux ''
+          wrapProgram $out/bin/cargo-flamegraph \
+            --set-default PERF ${pkgs.perf}/bin/perf
+          wrapProgram $out/bin/flamegraph \
+            --set-default PERF ${pkgs.perf}/bin/perf
+        '';
+      });
     in {
       devShells.default = pkgs.mkShell {
         packages = [
@@ -36,7 +63,7 @@
           pkgs.nodejs_22
           pkgs.pnpm
           pkgs.playwright-driver.browsers
-          pkgs.cargo-flamegraph
+          cargoFlamegraph
           pkgs.cargo-insta
           pkgs.cargo-machete
         ];
