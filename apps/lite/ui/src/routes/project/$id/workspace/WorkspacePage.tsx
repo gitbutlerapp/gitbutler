@@ -380,7 +380,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			hotkey: globalHotkeys.commandPalette.hotkey,
 			callback: () => {
 				if (dialog._tag === "CommandPalette") dispatch(projectActions.closeDialog({ projectId }));
-				else dispatch(projectActions.openCommandPalette({ projectId, focusedPanel }));
+				else dispatch(projectActions.openCommandPalette({ projectId }));
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -459,18 +459,8 @@ const WorkspacePage: FC = () => {
 		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 
-	const activeElement = useActiveElement();
-	const focusedPanel = getFocusedProjectPanel(activeElement);
-	const focusedPanelForCommandPalette =
-		dialog._tag === "CommandPalette" ? dialog.focusedPanel : focusedPanel;
 	const setCommandPaletteOpen = (open: boolean) => {
-		if (open)
-			dispatch(
-				projectActions.openCommandPalette({
-					projectId,
-					focusedPanel: focusedPanelForCommandPalette,
-				}),
-			);
+		if (open) dispatch(projectActions.openCommandPalette({ projectId }));
 		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 

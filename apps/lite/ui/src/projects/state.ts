@@ -2,7 +2,6 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "#ui/store.ts";
 import { type AbsorptionTarget, type RefInfo, type RelativeTo } from "@gitbutler/but-sdk";
 import { type BranchOperand, type CommitOperand, type Operand } from "#ui/operands.ts";
-import { type Panel } from "#ui/panels.ts";
 import * as panels from "#ui/panels/state.ts";
 import * as workspace from "#ui/projects/workspace/state.ts";
 import { type OperationType } from "#ui/operations/operation.ts";
@@ -12,7 +11,7 @@ type Dialog =
 	| { _tag: "None" }
 	| { _tag: "ApplyBranchPicker" }
 	| { _tag: "BranchPicker" }
-	| { _tag: "CommandPalette"; focusedPanel: Panel | null };
+	| { _tag: "CommandPalette" };
 
 type ProjectState = {
 	dialog: Dialog;
@@ -176,13 +175,11 @@ const projectSlice = createSlice({
 			state,
 			action: PayloadAction<{
 				projectId: string;
-				focusedPanel: Panel | null;
 			}>,
 		) => {
-			const { projectId, focusedPanel } = action.payload;
+			const { projectId } = action.payload;
 			ensureProjectState(state, projectId).dialog = {
 				_tag: "CommandPalette",
-				focusedPanel,
 			};
 		},
 		openBranchPicker: (state, action: PayloadAction<{ projectId: string }>) => {

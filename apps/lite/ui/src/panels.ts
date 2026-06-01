@@ -51,21 +51,21 @@ export const focusAdjacentPanel = (panelsState: PanelsState, offset: -1 | 1) => 
 };
 
 export const useNavigationIndexHotkeys = ({
-	focusedPanel,
 	navigationIndex,
 	projectId,
 	group,
 	panel,
 	select,
 	selection,
+	ref,
 }: {
-	focusedPanel: Panel | null;
 	navigationIndex: NavigationIndex;
 	projectId: string;
 	group: CommandGroup;
 	panel: Panel;
 	select: (newItem: Operand) => void;
 	selection: Operand;
+	ref: React.RefObject<HTMLElement | null>;
 }) => {
 	const dispatch = useAppDispatch();
 
@@ -112,14 +112,13 @@ export const useNavigationIndexHotkeys = ({
 		selectAndFocus(newItem);
 	};
 
-	const navigationEnabled = focusedPanel === panel;
 	useHotkeys([
 		{
 			hotkey: "ArrowUp",
 			callback: selectPreviousItem,
 			options: {
 				conflictBehavior: "allow",
-				enabled: navigationEnabled,
+				target: ref,
 				meta: { group, name: "Select previous" },
 			},
 		},
@@ -128,7 +127,7 @@ export const useNavigationIndexHotkeys = ({
 			callback: selectPreviousItem,
 			options: {
 				conflictBehavior: "allow",
-				enabled: navigationEnabled,
+				target: ref,
 				meta: { group, name: "Select previous" },
 			},
 		},
@@ -137,7 +136,7 @@ export const useNavigationIndexHotkeys = ({
 			callback: selectNextItem,
 			options: {
 				conflictBehavior: "allow",
-				enabled: navigationEnabled,
+				target: ref,
 				meta: { group, name: "Select next" },
 			},
 		},
@@ -146,7 +145,7 @@ export const useNavigationIndexHotkeys = ({
 			callback: selectNextItem,
 			options: {
 				conflictBehavior: "allow",
-				enabled: navigationEnabled,
+				target: ref,
 				meta: { group, name: "Select next" },
 			},
 		},
@@ -155,7 +154,7 @@ export const useNavigationIndexHotkeys = ({
 			callback: selectPreviousSection,
 			options: {
 				conflictBehavior: "allow",
-				enabled: navigationEnabled,
+				target: ref,
 				meta: { group, name: "Select previous section" },
 			},
 		},
@@ -164,7 +163,7 @@ export const useNavigationIndexHotkeys = ({
 			callback: selectPreviousSection,
 			options: {
 				conflictBehavior: "allow",
-				enabled: navigationEnabled,
+				target: ref,
 				meta: { group, name: "Select previous section" },
 			},
 		},
@@ -173,7 +172,7 @@ export const useNavigationIndexHotkeys = ({
 			callback: selectNextSection,
 			options: {
 				conflictBehavior: "allow",
-				enabled: navigationEnabled,
+				target: ref,
 				meta: { group, name: "Select next section" },
 			},
 		},
@@ -182,7 +181,7 @@ export const useNavigationIndexHotkeys = ({
 			callback: selectNextSection,
 			options: {
 				conflictBehavior: "allow",
-				enabled: navigationEnabled,
+				target: ref,
 				meta: { group, name: "Select next section" },
 			},
 		},
@@ -191,7 +190,7 @@ export const useNavigationIndexHotkeys = ({
 			callback: selectFirstItem,
 			options: {
 				conflictBehavior: "allow",
-				enabled: navigationEnabled,
+				target: ref,
 				meta: { group, name: "Select first" },
 			},
 		},
@@ -200,7 +199,7 @@ export const useNavigationIndexHotkeys = ({
 			callback: selectFirstItem,
 			options: {
 				conflictBehavior: "allow",
-				enabled: navigationEnabled,
+				target: ref,
 				meta: { group, name: "Select first" },
 			},
 		},
@@ -209,7 +208,7 @@ export const useNavigationIndexHotkeys = ({
 			callback: selectLastItem,
 			options: {
 				conflictBehavior: "allow",
-				enabled: navigationEnabled,
+				target: ref,
 				meta: { group, name: "Select last" },
 			},
 		},
@@ -218,7 +217,7 @@ export const useNavigationIndexHotkeys = ({
 			callback: selectLastItem,
 			options: {
 				conflictBehavior: "allow",
-				enabled: navigationEnabled,
+				target: ref,
 				meta: { group, name: "Select last" },
 			},
 		},
@@ -227,7 +226,7 @@ export const useNavigationIndexHotkeys = ({
 			callback: selectLastItem,
 			options: {
 				conflictBehavior: "allow",
-				enabled: navigationEnabled,
+				target: ref,
 				meta: { group, name: "Select last" },
 			},
 		},
@@ -239,7 +238,7 @@ export const useNavigationIndexHotkeys = ({
 			callback: selectFirstItem,
 			options: {
 				conflictBehavior: "allow",
-				enabled: navigationEnabled,
+				target: ref,
 				meta: { group, name: "Select first" },
 			},
 		},
@@ -260,7 +259,7 @@ export const useNavigationIndexHotkeys = ({
 		focusPanel("outline");
 	};
 
-	const operationEnabled = focusedPanel === panel && outlineMode._tag === "Default";
+	const operationEnabled = outlineMode._tag === "Default";
 	useHotkeys([
 		{
 			hotkey: "M",
@@ -268,6 +267,7 @@ export const useNavigationIndexHotkeys = ({
 			options: {
 				conflictBehavior: "allow",
 				enabled: operationEnabled,
+				target: ref,
 				meta: { group, name: "Move" },
 			},
 		},
@@ -277,6 +277,7 @@ export const useNavigationIndexHotkeys = ({
 			options: {
 				conflictBehavior: "allow",
 				enabled: operationEnabled,
+				target: ref,
 				ignoreInputs: true,
 				meta: { group, name: "Cut" },
 			},
@@ -287,6 +288,7 @@ export const useNavigationIndexHotkeys = ({
 			options: {
 				conflictBehavior: "allow",
 				enabled: operationEnabled,
+				target: ref,
 				meta: { group, name: "Cut" },
 			},
 		},

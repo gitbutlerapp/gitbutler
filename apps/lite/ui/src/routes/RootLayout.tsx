@@ -45,7 +45,7 @@ const Projects: FC = () => {
 	};
 
 	return (
-		<div className={styles.projects}>
+		<div className={classes(styles.projects, isMac && styles.projectsMac)}>
 			{projects.map((project) => {
 				const isSelected = selectedProject?.id === project.id;
 				const hue = ((Hash.string(project.id) % 360) + 360) % 360;
@@ -125,9 +125,7 @@ export const RootLayout: FC = () => (
 		<div className={styles.layout}>
 			<nav className={styles.sidebar}>
 				{isMac && <div className={styles.sidebarMacSpacer} />}
-				<div className={styles.sidebarScroll}>
-					<Projects />
-				</div>
+				<Projects />
 			</nav>
 			<main className={styles.content}>
 				<Outlet />

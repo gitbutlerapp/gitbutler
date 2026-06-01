@@ -25,30 +25,34 @@
 }
 
 .sidebarMacSpacer {
-	height: 22px;
+	z-index: 1;
+	position: absolute;
+	top: 0;
+	right: 0;
+	left: 0;
+	height: 40px;
 	background: linear-gradient(to bottom, var(--bg-2) 70%, transparent);
-}
-
-.sidebarScroll {
-	display: flex;
-	flex: 1;
-	flex-direction: column;
-	align-items: center;
-	justify-content: space-between;
-	padding-block: 18px;
-	overflow-y: auto;
-	scrollbar-width: none;
-}
-
-/* Temporary fix. Design is being updated, so we can remove this once it's done. */
-.sidebarScroll::-webkit-scrollbar {
-	display: none;
 }
 
 .projects {
 	display: flex;
+	flex-grow: 1;
+	flex-basis: 0;
 	flex-direction: column;
+	align-items: center;
+	padding-block: 18px;
+	overflow-y: auto;
 	gap: 10px;
+	scrollbar-width: none;
+}
+
+.projectsMac {
+	padding-block-start: 38px;
+}
+
+/* Temporary fix. Design is being updated, so we can remove this once it's done. */
+.projects::-webkit-scrollbar {
+	display: none;
 }
 
 .project {
