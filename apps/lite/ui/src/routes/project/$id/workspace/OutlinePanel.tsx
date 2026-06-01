@@ -683,7 +683,9 @@ export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panel
 		ref,
 	});
 
-	const operationSource = getOperationSource(outlineMode);
+	const _operationSource = getOperationSource(outlineMode);
+	const hasDragPreview = outlineMode._tag === "Transfer" && outlineMode.value._tag === "Pointer";
+	const operationSource = !hasDragPreview ? _operationSource : undefined;
 
 	const commitTargetState = useAppSelector((state) => selectProjectCommitTarget(state, projectId));
 	const targetComboboxItems = buildCommitTargetComboboxItems({ headInfo, commitTargetState });
