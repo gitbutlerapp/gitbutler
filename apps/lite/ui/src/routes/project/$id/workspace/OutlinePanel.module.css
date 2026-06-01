@@ -24,8 +24,6 @@
 .panel {
 	display: grid;
 
-	/* `operationSourcePreview` is relative to this. */
-	position: relative;
 	grid-template-rows: auto auto minmax(0, 1fr);
 	grid-template-columns: minmax(0, 1fr);
 	padding: var(--panel-padding);
@@ -110,8 +108,7 @@
 .operationSourcePreview {
 	display: flex;
 	z-index: 1;
-	/* Relative to panel */
-	position: absolute;
+	position: fixed;
 	bottom: var(--panel-padding);
 	left: 50%;
 	column-gap: 8px;
