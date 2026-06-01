@@ -36,7 +36,8 @@
 
 .sidebarScroll {
 	display: flex;
-	flex: 1;
+	flex-grow: 1;
+	flex-basis: 0;
 	flex-direction: column;
 	align-items: center;
 	padding-block: 18px;
