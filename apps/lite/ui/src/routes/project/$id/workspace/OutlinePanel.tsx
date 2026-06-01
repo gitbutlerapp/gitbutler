@@ -760,7 +760,7 @@ export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panel
 									Default: () => null,
 									Absorb: (x) => (
 										<div className={classes("text-14", styles.operationSourcePreview)}>
-											<OperationSourceLabel headInfo={headInfo} source={x.source} />
+											Absorb source: <OperationSourceLabel headInfo={headInfo} source={x.source} />
 											{absorptionPlanQuery?.isPending && (
 												<Icon name="spinner" aria-label="Loading absorb plan" />
 											)}
@@ -768,6 +768,7 @@ export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panel
 									),
 									Transfer: (x) => (
 										<div className={classes("text-14", styles.operationSourcePreview)}>
+											Transfer source:{" "}
 											<OperationSourceLabel headInfo={headInfo} source={x.value.source} />
 										</div>
 									),
