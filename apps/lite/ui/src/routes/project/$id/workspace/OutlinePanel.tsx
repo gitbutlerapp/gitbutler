@@ -1228,15 +1228,21 @@ const CommitC: FC<{
 			projectId={projectId}
 			operand={operand}
 			aria-label={commitTitle(commit.message)}
-			render={<OperandC projectId={projectId} operand={operand} />}
-		>
-			<CommitRow
-				commit={commit}
-				projectId={projectId}
-				stackId={stackId}
-				isCommitTarget={isCommitTarget}
-			/>
-		</TreeItem>
+			render={
+				<OperandC
+					projectId={projectId}
+					operand={operand}
+					render={
+						<CommitRow
+							commit={commit}
+							projectId={projectId}
+							stackId={stackId}
+							isCommitTarget={isCommitTarget}
+						/>
+					}
+				/>
+			}
+		/>
 	);
 };
 
