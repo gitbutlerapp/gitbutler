@@ -40,30 +40,68 @@ const patchHeaderForChange = (change: TreeChange, lineEnding: string): string =>
 	Match.value(change.status).pipe(
 		Match.when(
 			{ type: "Addition" },
-			() => `--- /dev/null${lineEnding}+++ ${change.path}${lineEnding}`,
+			() =>
+				[
+					`diff --git a/${change.path} b/${change.path}`,
+					"new file mode 100644",
+					"--- /dev/null",
+					`+++ b/${change.path}`,
+				].join(lineEnding) + lineEnding,
 		),
+
 		Match.when(
 			{ type: "Deletion" },
-			() => `--- ${change.path}${lineEnding}+++ /dev/null${lineEnding}`,
+			() =>
+				[
+					`diff --git a/${change.path} b/${change.path}`,
+					"deleted file mode 100644",
+					`--- a/${change.path}`,
+					"+++ /dev/null",
+				].join(lineEnding) + lineEnding,
 		),
+
 		Match.when(
 			{ type: "Modification" },
-			() => `--- ${change.path}${lineEnding}+++ ${change.path}${lineEnding}`,
+			() =>
+				[
+					`diff --git a/${change.path} b/${change.path}`,
+					`--- a/${change.path}`,
+					`+++ b/${change.path}`,
+				].join(lineEnding) + lineEnding,
 		),
+
 		Match.when(
 			{ type: "Rename" },
-			({ subject }) => `--- ${subject.previousPath}${lineEnding}+++ ${change.path}${lineEnding}`,
+			({ subject }) =>
+				[
+					`diff --git a/${subject.previousPath} b/${change.path}`,
+					"similarity index 99%",
+					`rename from ${subject.previousPath}`,
+					`rename to ${change.path}`,
+					`--- a/${subject.previousPath}`,
+					`+++ b/${change.path}`,
+				].join(lineEnding) + lineEnding,
 		),
+
 		Match.exhaustive,
 	);
 
-const mkCodeViewItem = (change: TreeChange, hunk: DiffHunk): CodeViewDiffItem => {
-	const header = patchHeaderForChange(change, lineEndingForDiff(hunk.diff));
-	const parsed = parsePatchFiles(`${header}${hunk.diff}`);
+const mkCodeViewItem = (
+	change: TreeChange,
+	changesetKey: string,
+	hunks: Array<DiffHunk>,
+): CodeViewDiffItem | null => {
+	const fst = hunks[0];
+	if (!fst) return null;
+
+	const lineEnding = lineEndingForDiff(fst.diff);
+	const header = patchHeaderForChange(change, lineEnding);
+	const combinedFilePatch = [header, ...hunks.map((hunk) => hunk.diff)].join(lineEnding);
+	const parsed = parsePatchFiles(combinedFilePatch);
 
 	return {
 		type: "diff",
-		id: `${change.path}-${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`,
+		id: `${changesetKey}:${change.path}`,
 		// oxlint-disable-next-line typescript/no-non-null-assertion: There should always be exactly one result given our one parsed hunk.
 		fileDiff: parsed[0]!.files[0]!,
 	};
@@ -71,19 +109,17 @@ const mkCodeViewItem = (change: TreeChange, hunk: DiffHunk): CodeViewDiffItem =>
 
 const ChangesFileDiffList: FC<{
 	changes: Array<TreeChange>;
+	changesetKey: string;
 	projectId: string;
-}> = ({ changes, projectId }) => {
+}> = ({ changes, changesetKey, projectId }) => {
 	const treeChangeDiffs = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 	}).map((result) => result.data);
-	const items = Array.zip(changes, treeChangeDiffs).flatMap(([change, mdiff]) =>
-		Match.value(mdiff).pipe(
-			Match.when({ type: "Patch" }, (patch) =>
-				patch.subject.hunks.map((hunk) => mkCodeViewItem(change, hunk)),
-			),
-			Match.orElse(() => []),
-		),
-	);
+	const items = Array.zip(changes, treeChangeDiffs).flatMap(([change, mdiff]) => {
+		if (mdiff?.type !== "Patch") return [];
+
+		return mkCodeViewItem(change, changesetKey, mdiff.subject.hunks) ?? [];
+	});
 
 	return items.length === 0 ? (
 		<p className="text-13">No changes.</p>
@@ -250,18 +286,25 @@ const DiffContents: FC<{
 			Branch: ({ branchRef }) => (
 				<SuspenseQuery {...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}>
 					{({ data: branchDiff }) => (
-						<ChangesFileDiffList changes={branchDiff.changes} projectId={projectId} />
+						<ChangesFileDiffList
+							changes={branchDiff.changes}
+							changesetKey={decodeRefName(branchRef)}
+							projectId={projectId}
+						/>
 					)}
 				</SuspenseQuery>
 			),
 			ChangesSection: () => (
 				<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
 					{({ data: worktreeChanges }) => (
-						<ChangesFileDiffList changes={worktreeChanges.changes} projectId={projectId} />
+						<ChangesFileDiffList
+							changes={worktreeChanges.changes}
+							changesetKey="changes"
+							projectId={projectId}
+						/>
 					)}
 				</SuspenseQuery>
 			),
-
 			File: ({ parent, path }) =>
 				Match.value(parent).pipe(
 					Match.tagsExhaustive({
@@ -275,6 +318,7 @@ const DiffContents: FC<{
 									return (
 										<ChangesFileDiffList
 											changes={selectedChange ? [selectedChange] : worktreeChanges.changes}
+											changesetKey="changes"
 											projectId={projectId}
 										/>
 									);
@@ -297,6 +341,7 @@ const DiffContents: FC<{
 									return (
 										<ChangesFileDiffList
 											changes={selectedChange ? [selectedChange] : branchDiff.changes}
+											changesetKey={decodeRefName(branchRef)}
 											projectId={projectId}
 										/>
 									);
@@ -311,7 +356,13 @@ const DiffContents: FC<{
 									);
 									if (!selectedChange) return null;
 
-									return <ChangesFileDiffList changes={[selectedChange]} projectId={projectId} />;
+									return (
+										<ChangesFileDiffList
+											changes={[selectedChange]}
+											changesetKey={commitId}
+											projectId={projectId}
+										/>
+									);
 								}}
 							</SuspenseQuery>
 						),
@@ -320,7 +371,11 @@ const DiffContents: FC<{
 			Commit: ({ commitId }) => (
 				<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
 					{({ data: commitDetails }) => (
-						<ChangesFileDiffList changes={commitDetails.changes} projectId={projectId} />
+						<ChangesFileDiffList
+							changes={commitDetails.changes}
+							changesetKey={commitId}
+							projectId={projectId}
+						/>
 					)}
 				</SuspenseQuery>
 			),
