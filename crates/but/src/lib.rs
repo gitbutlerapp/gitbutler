@@ -718,7 +718,9 @@ async fn match_subcommand(
             #[cfg(feature = "tui-profiling")]
             skip_status_after,
             #[cfg(feature = "tui-profiling")]
-            diff,
+            show_diff,
+            #[cfg(feature = "tui-profiling")]
+            show_help,
             #[cfg(feature = "tui-profiling")]
             select_commit,
             #[cfg(feature = "tui-profiling")]
@@ -743,8 +745,9 @@ async fn match_subcommand(
                 show_diff: if quit_after_rendering_full_diff {
                     true
                 } else {
-                    diff
+                    show_diff
                 },
+                show_help,
                 select_commit,
                 quit_after_rendering_full_diff,
             };

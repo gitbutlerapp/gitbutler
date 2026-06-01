@@ -460,7 +460,18 @@ impl App {
         flags: StatusFlags,
         options: TuiLaunchOptions,
     ) -> Self {
-        let cursor = if let Some(object_id) = options.select_commit {
+        let TuiLaunchOptions {
+            show_diff,
+            select_commit,
+            show_help,
+            debug: _,
+            quit_after: _,
+            headless: _,
+            skip_status_after: _,
+            quit_after_rendering_full_diff: _,
+        } = options;
+
+        let cursor = if let Some(object_id) = select_commit {
             Cursor::select_commit(object_id, &status_lines)
                 .unwrap_or_else(|| Cursor::new(&status_lines))
         } else {
@@ -469,7 +480,7 @@ impl App {
 
         let theme = crate::theme::get();
 
-        let (mut details, is_details_visible) = (Details::new(theme), options.show_diff);
+        let (mut details, is_details_visible) = (Details::new(theme), show_diff);
         if is_details_visible {
             details.mark_dirty();
         }
@@ -479,7 +490,7 @@ impl App {
             normal_with_marks_key_binds: normal_with_marks_key_binds(),
         };
 
-        Self {
+        let mut app = Self {
             status_lines,
             flags,
             cursor,
@@ -505,7 +516,13 @@ impl App {
             status_width_percentage: 50,
             theme,
             has_focus: true,
+        };
+
+        if show_help {
+            app.handle_toggle_help();
         }
+
+        app
     }
 
     fn active_key_binds(&self) -> &KeyBinds {

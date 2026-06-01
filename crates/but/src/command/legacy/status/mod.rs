@@ -113,6 +113,7 @@ pub struct TuiLaunchOptions {
     pub headless: bool,
     pub skip_status_after: bool,
     pub show_diff: bool,
+    pub show_help: bool,
     pub select_commit: Option<gix::ObjectId>,
     pub quit_after_rendering_full_diff: bool,
 }

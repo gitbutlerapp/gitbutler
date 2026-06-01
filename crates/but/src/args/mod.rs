@@ -847,7 +847,13 @@ pub enum Subcommands {
         /// Requires `tui-profiling` feature.
         #[cfg(feature = "tui-profiling")]
         #[clap(long)]
-        diff: bool,
+        show_diff: bool,
+        /// Automatically show the help when opening the TUI.
+        ///
+        /// Requires `tui-profiling` feature.
+        #[cfg(feature = "tui-profiling")]
+        #[clap(long)]
+        show_help: bool,
         /// Automatically select this commit when opening the TUI.
         ///
         /// Requires `tui-profiling` feature.
