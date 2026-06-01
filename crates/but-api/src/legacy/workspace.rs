@@ -378,7 +378,7 @@ pub fn target_commits(
 }
 
 /// Push a branch and any parent references that lie within the current workspace projection.
-#[but_api(napi)]
+#[but_api(napi, crate::legacy::stack::json::PushResult)]
 #[instrument(err(Debug))]
 pub fn workspace_branch_and_ancestors_push(
     ctx: &mut Context,
@@ -387,7 +387,7 @@ pub fn workspace_branch_and_ancestors_push(
     branch: &gix::refs::FullNameRef,
     run_hooks: bool,
     push_opts: Vec<but_gerrit::PushFlag>,
-) -> Result<()> {
+) -> Result<gitbutler_git::PushResult> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.meta()?;
     let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
@@ -408,7 +408,7 @@ pub fn workspace_branch_and_ancestors_push(
     )?;
     let head_info = head_info.pruned_to_entrypoint();
 
-    but_workspace::legacy::push::workspace_branch_and_ancestors_push(
+    let result = but_workspace::legacy::push::workspace_branch_and_ancestors_push(
         &repo,
         &ws,
         &head_info,
@@ -423,5 +423,5 @@ pub fn workspace_branch_and_ancestors_push(
         push_opts,
     )?;
 
-    Ok(())
+    Ok(result)
 }

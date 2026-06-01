@@ -597,6 +597,10 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
             but_post(legacy::workspace::target_commits_cmd),
         )
         .route(
+            "/workspace_branch_and_ancestors_push",
+            but_post(legacy::workspace::workspace_branch_and_ancestors_push_cmd),
+        )
+        .route(
             "/secret_get_global",
             but_post(legacy::secret::secret_get_global_cmd),
         )

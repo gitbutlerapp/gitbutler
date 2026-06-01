@@ -298,10 +298,13 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			}
 		>({
 			extraOptions: {
-				command: "push_stack",
+				command: "workspace_branch_and_ancestors_push",
 				actionName: "Push",
 			},
-			query: (args) => args,
+			query: ({ stackId: _stackId, branch, ...args }) => ({
+				branch: branch.startsWith("refs/") ? branch : `refs/heads/${branch}`,
+				...args,
+			}),
 			invalidatesTags: (_result, _error, args) => [
 				invalidatesItem(ReduxTag.StackDetails, args.stackId), // Is this still needed?
 				invalidatesList(ReduxTag.BranchListing),

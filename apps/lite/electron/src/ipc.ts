@@ -164,7 +164,6 @@ export interface PeelRestoreSnapshotParams {
 
 export interface PushStackParams {
 	projectId: string;
-	stackId: string;
 	branch: string;
 	withForce: boolean;
 	skipForcePushProtection: boolean;

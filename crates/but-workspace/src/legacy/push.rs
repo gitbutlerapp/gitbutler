@@ -10,7 +10,7 @@ use anyhow::{Context as _, Result};
 use bstr::{BStr, BString, ByteSlice, ByteVec};
 use but_core::extract_remote_name_and_short_name;
 use but_db::DbHandle;
-use gitbutler_git::push_with_askpass;
+use gitbutler_git::{PushResult, push_with_askpass};
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::hooks;
 use gix::refs::Category;
@@ -33,7 +33,7 @@ pub fn workspace_branch_and_ancestors_push(
     run_hooks: bool,
     run_husky_hooks: bool,
     push_opts: Vec<but_gerrit::PushFlag>,
-) -> Result<()> {
+) -> Result<PushResult> {
     let graph = &ws.graph;
     let mut to_push = IndexMap::new();
 
@@ -54,6 +54,11 @@ pub fn workspace_branch_and_ancestors_push(
     };
     let target_branch_name =
         target_branch_name_from_ref_name(target_ref_name.as_ref(), &remote_names)?;
+    let mut result = PushResult {
+        remote: push_remote.clone(),
+        branch_to_remote: vec![],
+        branch_sha_updates: vec![],
+    };
 
     for stack in &ref_info.stacks {
         let mut refname_found = false;
@@ -98,6 +103,7 @@ pub fn workspace_branch_and_ancestors_push(
                 .with_context(|| {
                     format!("failed to determine remote name for `{remote_refname}`")
                 })?;
+        let before_sha = remote_before_sha(repo, remote_refname.as_ref())?;
         let remote = repo.find_remote(remote_name.as_str())?;
         let remote_url = remote
             .url(gix::remote::Direction::Push)
@@ -142,9 +148,18 @@ pub fn workspace_branch_and_ancestors_push(
         )?;
 
         maybe_record_gerrit_push_metadata(repo, db, gerrit_mode, segment, &push_output)?;
+        let branch_name = ref_name.shorten().to_str_lossy().to_string();
+        result
+            .branch_to_remote
+            .push((branch_name.clone(), remote_refname));
+        result.branch_sha_updates.push((
+            branch_name,
+            before_sha.to_string(),
+            local_sha.id.to_string(),
+        ));
     }
 
-    Ok(())
+    Ok(result)
 }
 
 struct GerritPushArgs {
@@ -220,4 +235,16 @@ fn format_remote_refname(
     out.push_str(reference.shorten());
 
     Ok(out.try_into()?)
+}
+
+fn remote_before_sha(
+    repo: &gix::Repository,
+    remote_refname: &gix::refs::FullNameRef,
+) -> Result<gix::ObjectId> {
+    Ok(repo
+        .try_find_reference(remote_refname)?
+        .map(|mut reference| reference.peel_to_commit())
+        .transpose()?
+        .map(|commit| commit.id)
+        .unwrap_or(repo.object_hash().null()))
 }
