@@ -8,15 +8,7 @@ import {
 } from "#ui/api/queries.ts";
 import { decodeRefName } from "#ui/api/ref-name.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
-import {
-	branchFileParent,
-	changesFileParent,
-	commitFileParent,
-	commitOperand,
-	fileOperand,
-	type FileParent,
-	type Operand,
-} from "#ui/operands.ts";
+import { commitOperand, type Operand } from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectPanelsState,
@@ -30,11 +22,12 @@ import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSour
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Tooltip } from "@base-ui/react";
-import { HunkHeader, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
-import { PatchDiff, Virtualizer } from "@pierre/diffs/react";
+import type { DiffHunk, TreeChange } from "@gitbutler/but-sdk";
+import { parsePatchFiles } from "@pierre/diffs";
+import { CodeView, type CodeViewDiffItem } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
-import { Array, Match, pipe } from "effect";
+import { Array, Match } from "effect";
 import { ComponentProps, FC, Suspense, useDeferredValue } from "react";
 import { FilesPanel } from "./FilesPanel.tsx";
 import styles from "./DetailsPanel.module.css";
@@ -64,77 +57,50 @@ const patchHeaderForChange = (change: TreeChange, lineEnding: string): string =>
 		Match.exhaustive,
 	);
 
-const FileDiff: FC<{
-	change: TreeChange;
-	diff: UnifiedPatch | null;
-}> = ({ change, diff }) =>
-	Match.value(diff).pipe(
-		Match.when(null, () => <div>No diff available for this file.</div>),
-		Match.when({ type: "Binary" }, () => <div>Binary file (diff not available).</div>),
-		Match.when({ type: "TooLarge" }, ({ subject }) => (
-			<div>Diff too large ({subject.sizeInBytes} bytes).</div>
-		)),
-		Match.when({ type: "Patch" }, (patch) => {
-			const { hunks } = patch.subject;
-			if (hunks.length === 0)
-				return <p className={classes("text-13", styles.emptyFileHunks)}>No hunks.</p>;
+const mkCodeViewItem = (change: TreeChange, hunk: DiffHunk): CodeViewDiffItem => {
+	const header = patchHeaderForChange(change, lineEndingForDiff(hunk.diff));
+	const parsed = parsePatchFiles(`${header}${hunk.diff}`);
 
-			return (
-				<ul>
-					{hunks.map((hunk) => (
-						<li key={`${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`}>
-							<PatchDiff
-								patch={`${patchHeaderForChange(change, lineEndingForDiff(hunk.diff))}${hunk.diff}`}
-								options={{
-									diffStyle: "unified",
-									themeType: "system",
-									disableFileHeader: true,
-								}}
-							/>
-						</li>
-					))}
-				</ul>
-			);
-		}),
-		Match.exhaustive,
-	);
+	return {
+		type: "diff",
+		id: `${change.path}-${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`,
+		// oxlint-disable-next-line typescript/no-non-null-assertion: There should always be exactly one result given our one parsed hunk.
+		fileDiff: parsed[0]!.files[0]!,
+	};
+};
 
 const ChangesFileDiffList: FC<{
 	changes: Array<TreeChange>;
 	projectId: string;
-	fileParent: FileParent;
-}> = ({ changes, projectId, fileParent }) => {
+}> = ({ changes, projectId }) => {
 	const treeChangeDiffs = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 	}).map((result) => result.data);
-	const changesWithDiffs = pipe(changes, Array.zip(treeChangeDiffs));
+	const items = Array.zip(changes, treeChangeDiffs).flatMap(([change, mdiff]) =>
+		Match.value(mdiff).pipe(
+			Match.when({ type: "Patch" }, (patch) =>
+				patch.subject.hunks.map((hunk) => mkCodeViewItem(change, hunk)),
+			),
+			Match.orElse(() => []),
+		),
+	);
 
-	return changesWithDiffs.length === 0 ? (
+	return items.length === 0 ? (
 		<p className="text-13">No changes.</p>
 	) : (
-		<ul className={styles.fileDiffsList}>
-			{changesWithDiffs.map(([change, diff]) => {
-				const source = fileOperand({ parent: fileParent, path: change.path });
-
-				const lastSepIdx = change.path.lastIndexOf("/");
-				const mpathInit = lastSepIdx !== -1 ? change.path.slice(0, lastSepIdx + 1) : null;
-				const pathLast = lastSepIdx !== -1 ? change.path.slice(lastSepIdx + 1) : change.path;
-
-				return (
-					<li key={change.path} className={styles.fileDiff}>
-						<OperationSourceC projectId={projectId} source={source}>
-							<header className={styles.fileHeader}>
-								<h4 className={classes("text-13", styles.filePath)}>
-									{mpathInit !== null && <span className={styles.pathInit}>{mpathInit}</span>}
-									<span className={styles.pathLast}>{pathLast}</span>
-								</h4>
-							</header>
-						</OperationSourceC>
-						<FileDiff change={change} diff={diff} />
-					</li>
-				);
-			})}
-		</ul>
+		<CodeView
+			className={styles.detailsVirtualizer}
+			items={items}
+			options={{
+				diffStyle: "unified",
+				themeType: "system",
+				layout: {
+					paddingTop: 0,
+					paddingBottom: 0,
+					gap: 10,
+				},
+			}}
+		/>
 	);
 };
 
@@ -281,25 +247,17 @@ const DiffContents: FC<{
 	Match.value(selection).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
-			Branch: ({ branchRef, stackId }) => (
+			Branch: ({ branchRef }) => (
 				<SuspenseQuery {...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}>
 					{({ data: branchDiff }) => (
-						<ChangesFileDiffList
-							changes={branchDiff.changes}
-							projectId={projectId}
-							fileParent={branchFileParent({ stackId, branchRef })}
-						/>
+						<ChangesFileDiffList changes={branchDiff.changes} projectId={projectId} />
 					)}
 				</SuspenseQuery>
 			),
 			ChangesSection: () => (
 				<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
 					{({ data: worktreeChanges }) => (
-						<ChangesFileDiffList
-							changes={worktreeChanges.changes}
-							fileParent={changesFileParent}
-							projectId={projectId}
-						/>
+						<ChangesFileDiffList changes={worktreeChanges.changes} projectId={projectId} />
 					)}
 				</SuspenseQuery>
 			),
@@ -317,7 +275,6 @@ const DiffContents: FC<{
 									return (
 										<ChangesFileDiffList
 											changes={selectedChange ? [selectedChange] : worktreeChanges.changes}
-											fileParent={changesFileParent}
 											projectId={projectId}
 										/>
 									);
@@ -325,7 +282,7 @@ const DiffContents: FC<{
 							</SuspenseQuery>
 						),
 
-						Branch: ({ branchRef, stackId }) => (
+						Branch: ({ branchRef }) => (
 							<SuspenseQuery
 								{...branchDiffQueryOptions({
 									projectId,
@@ -341,41 +298,29 @@ const DiffContents: FC<{
 										<ChangesFileDiffList
 											changes={selectedChange ? [selectedChange] : branchDiff.changes}
 											projectId={projectId}
-											fileParent={branchFileParent({ stackId, branchRef })}
 										/>
 									);
 								}}
 							</SuspenseQuery>
 						),
-						Commit: ({ commitId, stackId }) => (
+						Commit: ({ commitId }) => (
 							<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
 								{({ data: commitDetails }) => {
-									const fileParent = commitFileParent({ stackId, commitId });
 									const selectedChange = commitDetails.changes.find(
 										(candidate) => candidate.path === path,
 									);
 									if (!selectedChange) return null;
 
-									return (
-										<ChangesFileDiffList
-											changes={[selectedChange]}
-											fileParent={fileParent}
-											projectId={projectId}
-										/>
-									);
+									return <ChangesFileDiffList changes={[selectedChange]} projectId={projectId} />;
 								}}
 							</SuspenseQuery>
 						),
 					}),
 				),
-			Commit: ({ commitId, stackId }) => (
+			Commit: ({ commitId }) => (
 				<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
 					{({ data: commitDetails }) => (
-						<ChangesFileDiffList
-							changes={commitDetails.changes}
-							fileParent={commitFileParent({ stackId, commitId })}
-							projectId={projectId}
-						/>
+						<ChangesFileDiffList changes={commitDetails.changes} projectId={projectId} />
 					)}
 				</SuspenseQuery>
 			),
@@ -436,9 +381,7 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 					style={{ opacity: urgentFilesSelection !== filesSelection ? 0.5 : 1 }}
 				>
 					<Suspense fallback={<p className="text-13">Loading diff…</p>}>
-						<Virtualizer className={styles.detailsVirtualizer}>
-							<DiffContents projectId={projectId} selection={filesSelection} />
-						</Virtualizer>
+						<DiffContents projectId={projectId} selection={filesSelection} />
 					</Suspense>
 				</div>
 			</div>
