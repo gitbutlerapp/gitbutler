@@ -28,7 +28,18 @@ export function createBackendApi(ctx: HookContext) {
 		reducerPath: "backend",
 		tagTypes: Object.values(ReduxTag),
 		invalidationBehavior: "immediately",
-		keepUnusedDataFor: 0,
+		// Use RTK Query's default `keepUnusedDataFor` (60s). Setting it to
+		// `0` schedules an immediate `setTimeout(0)` cleanup on each
+		// query's fulfillment, which races with concurrent imperative
+		// `fetch()` callers awaiting the same in-flight query — the
+		// cleanup wins, the cache entry is gone before the second caller
+		// reads it via `selectFromState`, and `unwrap()` silently returns
+		// `undefined` instead of the data. This surfaced as
+		// `TypeError: undefined is not an object (evaluating 't.url')` in
+		// `UserService.getLoginUrl` (APP-JS-77K / APP-JS-77P). Freshness
+		// for subscribed queries is already guaranteed by tag invalidation;
+		// the default 60s eviction is purely a memory-hygiene fallback for
+		// entries with no remaining subscribers.
 		baseQuery: tauriBaseQuery,
 		endpoints: (build) => ({
 			...buildStackEndpoints(build),
