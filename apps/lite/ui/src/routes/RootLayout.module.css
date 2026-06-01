@@ -39,7 +39,6 @@
 	flex: 1;
 	flex-direction: column;
 	align-items: center;
-	justify-content: space-between;
 	padding-block: 18px;
 	overflow-y: auto;
 	scrollbar-width: none;
