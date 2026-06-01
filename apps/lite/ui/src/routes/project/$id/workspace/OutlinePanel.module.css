@@ -81,6 +81,7 @@
 }
 
 .editorHelp {
+	display: flex;
 	margin-left: -6px;
 	font-size: 11px;
 	line-height: 1.3;
