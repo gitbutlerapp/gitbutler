@@ -1,13 +1,16 @@
+use crossterm::event::Event;
 use indexmap::IndexMap;
 use ratatui::{
     Frame,
     layout::{Constraint, Flex, Layout, Rect},
+    style::Style,
     text::{Line, Span},
     widgets::{
-        Block, BorderType, Clear, List, ListItem, Padding, Scrollbar, ScrollbarOrientation,
-        ScrollbarState,
+        Block, BorderType, Clear, List, ListItem, Padding, Paragraph, Scrollbar,
+        ScrollbarOrientation, ScrollbarState,
     },
 };
+use ratatui_textarea::TextArea;
 use strum::IntoEnumIterator;
 use unicode_width::UnicodeWidthStr;
 
@@ -21,10 +24,21 @@ pub(super) struct Help {
     theme: &'static Theme,
     sections: Vec<HelpSection>,
     scroll_top: usize,
+    textarea: TextArea<'static>,
+    default_cursor_style: Style,
+    pub is_search_focused: bool,
+}
+
+struct HelpLayout {
+    centered_area: Rect,
+    fixed_header_area: Rect,
+    key_binds_area: Rect,
+    scrollbar_area: Rect,
 }
 
 impl Help {
     const HEIGHT_PERCENT: u16 = 80;
+    const FIXED_HEADER_HEIGHT: u16 = 1;
 
     pub(super) fn new<'a>(
         key_binds: impl IntoIterator<Item = &'a KeyBinds>,
@@ -64,40 +78,59 @@ impl Help {
             .filter(|section| !section.items.is_empty())
             .collect();
 
-        Self {
+        let textarea = TextArea::new(Default::default());
+        let default_cursor_style = textarea.cursor_style();
+
+        let mut help = Self {
             theme,
             sections,
             scroll_top: 0,
-        }
+            textarea,
+            is_search_focused: false,
+            default_cursor_style,
+        };
+
+        help.update_textarea_style();
+
+        help
     }
 
     pub(super) fn render(&self, area: Rect, frame: &mut Frame) {
-        let padding = Padding {
-            left: 1,
-            right: 1,
-            top: 0,
-            bottom: 0,
-        };
+        let layout = self.layout(area);
 
-        let width = 100;
+        frame.render_widget(Clear, layout.centered_area);
 
-        let horizontal_layout = Layout::horizontal([Constraint::Length(width)])
-            .flex(Flex::Center)
-            .split(area);
+        let outer_block = self.outer_block();
+        frame.render_widget(outer_block, layout.centered_area);
 
-        let centered_layout = Layout::vertical([Constraint::Length(self.height(area))])
-            .flex(Flex::Center)
-            .split(horizontal_layout[0]);
+        self.render_search(layout.fixed_header_area, frame);
+        self.render_key_binds_help(layout.key_binds_area, layout.scrollbar_area, frame);
+    }
 
-        frame.render_widget(Clear, centered_layout[0]);
+    fn render_search(&self, area: Rect, frame: &mut Frame) {
+        let showing_placeholder = self
+            .textarea
+            .lines()
+            .iter()
+            .map(|line| line.len())
+            .sum::<usize>()
+            > 0;
 
-        let outer_block = Block::bordered()
-            .padding(padding)
-            .border_type(BorderType::Rounded)
-            .border_style(self.theme.border);
-        let inner_area = outer_block.inner(centered_layout[0]);
-        frame.render_widget(outer_block, centered_layout[0]);
+        let layout = Layout::horizontal([
+            Constraint::Length(if self.is_search_focused || showing_placeholder {
+                2
+            } else {
+                1
+            }),
+            Constraint::Min(1),
+        ])
+        .split(area);
 
+        frame.render_widget(Span::styled(">", self.theme.hint), layout[0]);
+        frame.render_widget(&self.textarea, layout[1]);
+    }
+
+    fn render_key_binds_help(&self, area: Rect, scrollbar_area: Rect, frame: &mut Frame) {
         let longest_short_description = self
             .sections
             .iter()
@@ -113,16 +146,10 @@ impl Help {
             Constraint::Length(3),
             Constraint::Min(1),
         ])
-        .split(inner_area);
+        .split(area);
 
-        let scroll_top = self
-            .scroll_top
-            .min(self.max_scroll_for_height(inner_area.height));
-        let list_entries = || {
-            self.list_entries()
-                .skip(scroll_top)
-                .take(inner_area.height as _)
-        };
+        let scroll_top = self.scroll_top.min(self.max_scroll_for_height(area.height));
+        let list_entries = || self.list_entries().skip(scroll_top).take(area.height as _);
 
         // key bind
         frame.render_widget(
@@ -177,14 +204,55 @@ impl Help {
             .end_symbol(None)
             .style(self.theme.border);
         let mut scrollbar_state =
-            ScrollbarState::new(self.max_scroll_for_height(inner_area.height)).position(scroll_top);
-        let scrollbar_area = Rect {
-            x: centered_layout[0].right().saturating_sub(1),
-            y: centered_layout[0].y.saturating_add(1),
-            width: 1,
-            height: centered_layout[0].height.saturating_sub(2),
-        };
+            ScrollbarState::new(self.max_scroll_for_height(area.height)).position(scroll_top);
         frame.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+    }
+
+    fn layout(&self, area: Rect) -> HelpLayout {
+        let width = 100;
+
+        let horizontal_layout = Layout::horizontal([Constraint::Length(width)])
+            .flex(Flex::Center)
+            .split(area);
+
+        let centered_layout = Layout::vertical([Constraint::Length(self.height(area))])
+            .flex(Flex::Center)
+            .split(horizontal_layout[0]);
+        let centered_area = centered_layout[0];
+
+        let inner_area = self.outer_block().inner(centered_area);
+        let content_layout = Layout::vertical([
+            Constraint::Length(Self::FIXED_HEADER_HEIGHT),
+            Constraint::Min(1),
+        ])
+        .split(inner_area);
+        let fixed_header_area = content_layout[0];
+        let key_binds_area = content_layout[1];
+        let scrollbar_area = Rect {
+            x: centered_area.right().saturating_sub(1),
+            y: key_binds_area.y,
+            width: 1,
+            height: key_binds_area.height,
+        };
+
+        HelpLayout {
+            centered_area,
+            fixed_header_area,
+            key_binds_area,
+            scrollbar_area,
+        }
+    }
+
+    fn outer_block(&self) -> Block<'static> {
+        Block::bordered()
+            .padding(Padding {
+                left: 1,
+                right: 1,
+                top: 0,
+                bottom: 0,
+            })
+            .border_type(BorderType::Rounded)
+            .border_style(self.theme.border)
     }
 
     fn list_entries(&self) -> impl Iterator<Item = HelpLine<'_>> {
@@ -222,23 +290,73 @@ impl Help {
     }
 
     pub(super) fn handle_message(
-        self,
+        mut self,
         msg: HelpMessage,
         area: Rect,
     ) -> anyhow::Result<Option<Self>> {
-        match msg {
-            HelpMessage::Close => Ok(None),
-            HelpMessage::ScrollUp(n) => Ok(Some(Self {
-                scroll_top: self.scroll_top.saturating_sub(n),
+        let mut result = match msg {
+            HelpMessage::Close => {
+                if self.is_search_focused {
+                    Ok(Some(Self {
+                        is_search_focused: false,
+                        ..self
+                    }))
+                } else {
+                    Ok(None)
+                }
+            }
+            HelpMessage::ScrollUp(n) => {
+                if self.is_search_focused {
+                    Ok(Some(self))
+                } else {
+                    Ok(Some(Self {
+                        scroll_top: self.scroll_top.saturating_sub(n),
+                        ..self
+                    }))
+                }
+            }
+            HelpMessage::ScrollDown(n) => {
+                if self.is_search_focused {
+                    Ok(Some(self))
+                } else {
+                    let layout = self.layout(area);
+                    Ok(Some(Self {
+                        scroll_top: std::cmp::min(
+                            self.scroll_top.saturating_add(n),
+                            self.max_scroll_for_height(layout.key_binds_area.height),
+                        ),
+                        ..self
+                    }))
+                }
+            }
+            HelpMessage::FocusSearch => Ok(Some(Self {
+                is_search_focused: true,
                 ..self
             })),
-            HelpMessage::ScrollDown(n) => Ok(Some(Self {
-                scroll_top: std::cmp::min(
-                    self.scroll_top.saturating_add(n),
-                    self.max_scroll_for_height(self.height(area).saturating_sub(2)),
-                ),
-                ..self
-            })),
+            HelpMessage::SearchInput(event) => {
+                if self.is_search_focused {
+                    self.textarea.input(event);
+                }
+                Ok(Some(self))
+            }
+        };
+
+        if let Ok(Some(help)) = &mut result {
+            help.update_textarea_style();
+        }
+
+        result
+    }
+
+    fn update_textarea_style(&mut self) {
+        if self.is_search_focused {
+            self.textarea.set_cursor_style(self.default_cursor_style);
+            self.textarea.set_placeholder_text("");
+        } else {
+            self.textarea.set_placeholder_text("Press / to search");
+            self.textarea.set_cursor_style(Style::default());
+            self.textarea.set_placeholder_style(self.theme.hint);
+            self.textarea.set_cursor_line_style(self.theme.default);
         }
     }
 }
@@ -282,4 +400,6 @@ pub(super) enum HelpMessage {
     Close,
     ScrollUp(usize),
     ScrollDown(usize),
+    FocusSearch,
+    SearchInput(Event),
 }

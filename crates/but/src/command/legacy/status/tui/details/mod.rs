@@ -234,7 +234,11 @@ impl Details {
                 | DetailsMessage::ScrollDown(_) => false,
             },
             Message::Help(help_message) => match help_message {
-                HelpMessage::Close | HelpMessage::ScrollUp(_) | HelpMessage::ScrollDown(_) => false,
+                HelpMessage::Close
+                | HelpMessage::SearchInput(_)
+                | HelpMessage::ScrollUp(_)
+                | HelpMessage::ScrollDown(_)
+                | HelpMessage::FocusSearch => false,
             },
 
             Message::AndThen { .. } => true,

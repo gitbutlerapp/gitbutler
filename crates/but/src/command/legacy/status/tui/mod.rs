@@ -281,15 +281,11 @@ where
     };
     // poll terminal events
     for event in event_polling.poll(event_poll_timeout)? {
-        let branch_picker = match &app.modal {
-            Some(Modal::BranchPicker { branch_picker, .. }) => Some(&**branch_picker),
-            Some(Modal::Confirm { .. }) | Some(Modal::Help { .. }) | None => None,
-        };
         event_to_messages(
             event,
             app.active_key_binds(),
             &app.mode,
-            branch_picker,
+            app.modal.as_ref(),
             messages,
         );
     }
@@ -443,7 +439,7 @@ enum Modal {
         key_binds: KeyBinds,
     },
     Help {
-        help: Help,
+        help: Box<Help>,
         key_binds: KeyBinds,
     },
 }
@@ -797,7 +793,10 @@ impl App {
                 Some(Modal::Help { help, key_binds }) => {
                     self.modal = help
                         .handle_message(help_message, terminal_area)?
-                        .map(|help| Modal::Help { help, key_binds });
+                        .map(|help| Modal::Help {
+                            help: Box::new(help),
+                            key_binds,
+                        });
                 }
                 modal => self.modal = modal,
             },
@@ -2936,7 +2935,7 @@ impl App {
             self.modal = None;
         } else {
             self.modal = Some(Modal::Help {
-                help: Help::new([&self.app_key_binds.key_binds], self.theme),
+                help: Box::new(Help::new([&self.app_key_binds.key_binds], self.theme)),
                 key_binds: help_key_binds(),
             });
         }
@@ -3102,7 +3101,7 @@ fn event_to_messages(
     ev: Event,
     key_binds: &KeyBinds,
     mode: &Mode,
-    branch_picker: Option<&BranchPicker>,
+    modal: Option<&Modal>,
     messages: &mut Vec<Message>,
 ) {
     match ev {
@@ -3117,8 +3116,18 @@ fn event_to_messages(
             }
 
             if !handled {
-                if branch_picker.is_some() {
-                    messages.push(Message::BranchPicker(BranchPickerMessage::Input(ev)));
+                if let Some(modal) = modal {
+                    match modal {
+                        Modal::BranchPicker { .. } => {
+                            messages.push(Message::BranchPicker(BranchPickerMessage::Input(ev)));
+                        }
+                        Modal::Help { help, .. } => {
+                            if help.is_search_focused {
+                                messages.push(Message::Help(HelpMessage::SearchInput(ev)));
+                            }
+                        }
+                        Modal::Confirm { .. } => {}
+                    }
                 } else {
                     match mode {
                         Mode::InlineReword(..) => {
@@ -3139,21 +3148,37 @@ fn event_to_messages(
         Event::Resize(_, _) => {
             messages.push(Message::JustRender);
         }
-        Event::Paste(_) => match mode {
-            Mode::InlineReword(..) => {
-                messages.push(Message::Reword(RewordMessage::InlineInput(ev)));
+        Event::Paste(_) => {
+            if let Some(modal) = modal {
+                match modal {
+                    Modal::BranchPicker { .. } => {
+                        messages.push(Message::BranchPicker(BranchPickerMessage::Input(ev)));
+                    }
+                    Modal::Help { help, .. } => {
+                        if help.is_search_focused {
+                            messages.push(Message::Help(HelpMessage::SearchInput(ev)));
+                        }
+                    }
+                    Modal::Confirm { .. } => {}
+                }
+            } else {
+                match mode {
+                    Mode::InlineReword(..) => {
+                        messages.push(Message::Reword(RewordMessage::InlineInput(ev)));
+                    }
+                    Mode::Command(..) => {
+                        messages.push(Message::Command(CommandMessage::Input(ev)));
+                    }
+                    Mode::Normal(..)
+                    | Mode::Details(..)
+                    | Mode::Rub(..)
+                    | Mode::Commit(..)
+                    | Mode::Move(..) => {
+                        messages.push(Message::JustRender);
+                    }
+                }
             }
-            Mode::Command(..) => {
-                messages.push(Message::Command(CommandMessage::Input(ev)));
-            }
-            Mode::Normal(..)
-            | Mode::Details(..)
-            | Mode::Rub(..)
-            | Mode::Commit(..)
-            | Mode::Move(..) => {
-                messages.push(Message::JustRender);
-            }
-        },
+        }
         Event::FocusGained => {
             messages.push(Message::SetHasFocus(true));
         }
