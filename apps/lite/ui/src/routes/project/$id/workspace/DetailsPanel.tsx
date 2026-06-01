@@ -91,10 +91,7 @@ const mkCodeViewItem = (
 	changesetKey: string,
 	hunks: Array<DiffHunk>,
 ): CodeViewDiffItem | null => {
-	const fst = hunks[0];
-	if (!fst) return null;
-
-	const lineEnding = lineEndingForDiff(fst.diff);
+	const lineEnding = lineEndingForDiff(hunks[0]?.diff ?? "");
 	const header = patchHeaderForChange(change, lineEnding);
 	const combinedFilePatch = [header, ...hunks.map((hunk) => hunk.diff)].join(lineEnding);
 	const parsed = parsePatchFiles(combinedFilePatch);
