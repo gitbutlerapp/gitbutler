@@ -1053,7 +1053,7 @@ pub(super) fn details_viewport(app: &App, terminal_area: Rect) -> Rect {
     status_layout(app, content_area)
         .details_area
         .map(|details_area| details_content_area(app, details_area))
-        .unwrap_or(content_area)
+        .unwrap_or_else(|| pane_block(app, true, Borders::BOTTOM).inner(content_area))
 }
 
 /// Returns the number of terminal rows available for rendering the status list.
