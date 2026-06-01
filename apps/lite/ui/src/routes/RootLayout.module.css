@@ -32,6 +32,7 @@
 	left: 0;
 	height: 40px;
 	background: linear-gradient(to bottom, var(--bg-2) 70%, transparent);
+	pointer-events: none;
 }
 
 .projects {
