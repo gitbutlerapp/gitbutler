@@ -208,7 +208,7 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
 }
 
 #[test]
-fn cannot_discard_conflicted_commit() -> Result<()> {
+fn can_discard_conflicted_commit() -> Result<()> {
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph("with-conflict", |_| {})?;
 
@@ -221,17 +221,13 @@ fn cannot_discard_conflicted_commit() -> Result<()> {
 
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
-    let result = discard_commits(editor, [conflicted.detach()]);
+    let outcome = discard_commits(editor, [conflicted.detach()])?;
 
-    let err = result.expect_err("Discarding a conflicted commit must fail");
-    assert!(
-        err.to_string().contains("Cannot discard conflicted commit"),
-        "unexpected error: {err}"
-    );
+    outcome.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
-    * 8450331 (HEAD -> main, tag: conflicted) GitButler WIP Commit
-    * a047f81 (tag: normal) init
+    * 8450331 (tag: conflicted) GitButler WIP Commit
+    * a047f81 (HEAD -> main, tag: normal) init
     ");
 
     Ok(())

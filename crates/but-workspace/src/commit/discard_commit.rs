@@ -23,14 +23,7 @@ pub fn discard_commits<'ws, 'meta, M: RefMetadata>(
             continue;
         }
         count += 1;
-        let (selector, commit) = editor.find_selectable_commit(commit_id)?;
-
-        if commit.clone().attach(editor.repo()).is_conflicted() {
-            bail!(
-                "Cannot discard conflicted commit {}",
-                commit_id.to_hex_with_len(7)
-            )
-        }
+        let (selector, _commit) = editor.find_selectable_commit(commit_id)?;
 
         let delimiter = SegmentDelimiter {
             child: selector,
