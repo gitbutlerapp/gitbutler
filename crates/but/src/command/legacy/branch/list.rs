@@ -145,8 +145,9 @@ pub fn list(
     // Must happen _before any lazy filtering_
     branches.sort_by_key(|branch| std::cmp::Reverse(branch.updated_at));
 
-    let max_branches = if all { usize::MAX } else { 20 };
-    let num_branches_before_limits = branches.len();
+    let max_branches = if all { usize::MAX / 2 } else { 20 };
+    // Take one extra branch than we want to show to check if there's more to show
+    let num_branches_to_take = max_branches + 1;
 
     let branches_to_show: Vec<_> = if let Some(target_oid) = target_oid_for_filter {
         let repo = ctx.repo.get()?;
@@ -172,13 +173,14 @@ pub fn list(
                     .map(|merge_base| merge_base.detach() != branch.head)
                     .unwrap_or(true)
             })
-            .take(max_branches)
+            .take(num_branches_to_take)
             .collect()
     } else {
-        branches.into_iter().take(max_branches).collect()
+        branches.into_iter().take(num_branches_to_take).collect()
     };
 
-    let more_count = num_branches_before_limits - branches_to_show.len();
+    let has_more_branches = branches_to_show.len() > max_branches;
+    let branches_to_show: Vec<_> = branches_to_show.into_iter().take(max_branches).collect();
 
     // Calculate commits ahead if requested
     let commits_ahead_map: Option<HashMap<String, usize>> = if ahead {
@@ -207,7 +209,7 @@ pub fn list(
         output_json(
             &applied_stacks,
             &branches_to_show,
-            more_count,
+            has_more_branches,
             &branch_review_map,
             commits_ahead_map.as_ref(),
             merge_status_map.as_ref(),
@@ -243,10 +245,11 @@ pub fn list(
             )?;
         }
 
-        if more_count > 0 {
+        if has_more_branches {
             writeln!(
                 out,
-                "\n... and {more_count} more branches (use --all to show all)"
+                "\n... result truncated to {} matching branches (use --all to show all that match filters)",
+                branches_to_show.len()
             )?;
         }
     }
@@ -257,7 +260,7 @@ pub fn list(
 fn output_json(
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
     branches: &[gitbutler_branch_actions::BranchListing],
-    more_count: usize,
+    has_more_branches: bool,
     branch_review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
     commits_ahead_map: Option<&HashMap<String, usize>>,
     merge_status_map: Option<&HashMap<String, bool>>,
@@ -334,11 +337,7 @@ fn output_json(
     let output = BranchListOutput {
         applied_stacks: applied_stacks_output,
         branches: branches_output,
-        more_branches: if more_count > 0 {
-            Some(more_count)
-        } else {
-            None
-        },
+        has_more_branches,
     };
 
     out.write_value(output)?;
