@@ -31,7 +31,6 @@ import {
 	filterNavigationIndexForOutlineMode,
 	getTransferOperation,
 	keyboardTransferOperationMode,
-	getOperationSourcePreview,
 } from "#ui/outline/mode.ts";
 import { focusPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
 import {
@@ -683,8 +682,6 @@ export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panel
 		ref,
 	});
 
-	const operationSourcePreview = getOperationSourcePreview(outlineMode);
-
 	const commitTargetState = useAppSelector((state) => selectProjectCommitTarget(state, projectId));
 	const targetComboboxItems = buildCommitTargetComboboxItems({ headInfo, commitTargetState });
 	const commitTarget = selectCommitTargetComboboxItem({
@@ -757,14 +754,27 @@ export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panel
 							))}
 						</div>
 
-						{operationSourcePreview && headInfo && (
-							<div className={classes("text-14", styles.operationSourcePreview)}>
-								<OperationSourceLabel headInfo={headInfo} source={operationSourcePreview} />
-								{outlineMode._tag === "Absorb" && absorptionPlanQuery?.isPending && (
-									<Icon name="spinner" aria-label="Loading absorb plan" />
-								)}
-							</div>
-						)}
+						{headInfo &&
+							Match.value(outlineMode).pipe(
+								Match.tagsExhaustive({
+									Default: () => null,
+									Absorb: (x) => (
+										<div className={classes("text-14", styles.operationSourcePreview)}>
+											<OperationSourceLabel headInfo={headInfo} source={x.source} />
+											{absorptionPlanQuery?.isPending && (
+												<Icon name="spinner" aria-label="Loading absorb plan" />
+											)}
+										</div>
+									),
+									Transfer: (x) => (
+										<div className={classes("text-14", styles.operationSourcePreview)}>
+											<OperationSourceLabel headInfo={headInfo} source={x.value.source} />
+										</div>
+									),
+									RenameBranch: () => null,
+									RewordCommit: () => null,
+								}),
+							)}
 					</div>
 				</DryRunWorkspaceContext>
 			</AbsorptionTargetKeysContext>

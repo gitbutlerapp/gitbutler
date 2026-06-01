@@ -196,9 +196,3 @@ export const getOperationSource = (mode: OutlineMode): Operand | null =>
 			RewordCommit: () => null,
 		}),
 	);
-
-export const getOperationSourcePreview = (mode: OutlineMode) => {
-	const _operationSource = getOperationSource(mode);
-	const hasDragPreview = mode._tag === "Transfer" && mode.value._tag === "Pointer";
-	return !hasDragPreview ? _operationSource : undefined;
-};
