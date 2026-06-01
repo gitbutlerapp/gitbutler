@@ -27,7 +27,7 @@ import { parsePatchFiles } from "@pierre/diffs";
 import { CodeView, type CodeViewDiffItem } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
-import { Array, Match } from "effect";
+import { Array, Hash, Match } from "effect";
 import { ComponentProps, FC, Suspense, useDeferredValue } from "react";
 import { FilesPanel } from "./FilesPanel.tsx";
 import styles from "./DetailsPanel.module.css";
@@ -99,6 +99,7 @@ const mkCodeViewItem = (
 	return {
 		type: "diff",
 		id: `${changesetKey}:${change.path}`,
+		version: Hash.string(combinedFilePatch),
 		// oxlint-disable-next-line typescript/no-non-null-assertion: There should always be exactly one result given our one parsed hunk.
 		fileDiff: parsed[0]!.files[0]!,
 	};
