@@ -66,6 +66,7 @@
 
 .editorForm {
 	display: flex;
+	row-gap: 2px;
 	flex-grow: 1;
 	flex-direction: column;
 	min-width: 0;
