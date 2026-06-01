@@ -17,7 +17,6 @@
 
 .sidebar {
 	display: flex;
-	position: relative;
 	flex-direction: column;
 	width: 76px;
 	height: 100%;
