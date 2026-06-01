@@ -2,7 +2,7 @@
 	import signinSvg from "$lib/assets/token.svg?raw";
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, CardGroup, Textbox, Spacer } from "@gitbutler/ui";
+	import { CardGroup, Textbox, Spacer, AsyncButton } from "@gitbutler/ui";
 
 	const userService = inject(USER_SERVICE);
 
@@ -24,21 +24,25 @@
 				</p>
 
 				<div class="flex gap-8 m-t-12">
-					<Button
+					<AsyncButton
 						style="pop"
 						icon="login"
-						onclick={async () => {
+						action={async () => {
 							await userService.openLoginPage();
-						}}>Log in / Sign up</Button
+						}}
 					>
+						Log in / Sign up
+					</AsyncButton>
 
-					<Button
+					<AsyncButton
 						kind="outline"
 						icon="copy"
-						onclick={async () => {
+						action={async () => {
 							await userService.copyLoginPageLink();
-						}}>Copy login link</Button
+						}}
 					>
+						Copy login link
+					</AsyncButton>
 				</div>
 
 				<Spacer dotted margin={16} />
@@ -51,14 +55,16 @@
 						placeholder="•••••••••••••••••••••••••"
 						oninput={(value: string) => (accessToken = value)}
 					/>
-					<Button
+					<AsyncButton
 						style="pop"
 						disabled={accessToken.trim().length === 0}
-						onclick={async () => {
+						action={async () => {
 							await userService.setUserAccessToken(accessToken.trim(), true);
 							accessToken = "";
-						}}>Authorize access token</Button
+						}}
 					>
+						Authorize access token
+					</AsyncButton>
 				</div>
 
 				<p class="text-12 text-body clr-text-2 m-t-16">
