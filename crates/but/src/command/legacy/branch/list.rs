@@ -129,25 +129,6 @@ pub fn list(
         });
     }
 
-    // Filter out branches with no commits ahead of target unless --empty is requested.
-    // A branch has 0 commits ahead when its tip equals the target, or when it is an
-    // ancestor of the target (all its commits are already in the target).
-    if let Some(target_oid) = target_oid_for_filter {
-        let repo = ctx.repo.get()?;
-        let cache = repo.commit_graph_if_enabled()?;
-        let mut graph = repo.revision_graph(cache.as_ref());
-        branches.retain(|branch| {
-            if branch.head == target_oid {
-                return false;
-            }
-            // If the merge-base equals the branch head, the branch is already fully contained
-            // in the target and has no commits ahead to show.
-            repo.merge_base_with_graph(branch.head, target_oid, &mut graph)
-                .map(|merge_base| merge_base.detach() != branch.head)
-                .unwrap_or(true)
-        });
-    }
-
     // Filter out dependabot branches unless --all is specified
     if !all {
         branches.retain(|branch| {
@@ -160,20 +141,44 @@ pub fn list(
     }
 
     // Sort all branches by last commit date (most recent first)
+    //
+    // Must happen _before any lazy filtering_
     branches.sort_by_key(|branch| std::cmp::Reverse(branch.updated_at));
 
-    // Limit branches unless --all flag is set
-    let (branches_to_show, more_count) = if all {
-        (branches, 0)
+    let max_branches = if all { usize::MAX } else { 20 };
+    let num_branches_before_limits = branches.len();
+
+    let branches_to_show: Vec<_> = if let Some(target_oid) = target_oid_for_filter {
+        let repo = ctx.repo.get()?;
+        let cache = repo.commit_graph_if_enabled()?;
+        let mut graph = repo.revision_graph(cache.as_ref());
+
+        // Filter out branches with no commits ahead of target unless --empty is requested.
+        // A branch has 0 commits ahead when its tip equals the target, or when it is an
+        // ancestor of the target (all its commits are already in the target).
+        //
+        // This computation is _very heavy_ and can take minutes in repositories with thousands of
+        // branches (e.g. the VS Code repository), so we perform it lazily. It's therefore important
+        // that it happens after sorting.
+        branches
+            .into_iter()
+            .filter(|branch| {
+                if branch.head == target_oid {
+                    return false;
+                }
+                // If the merge-base equals the branch head, the branch is already fully contained
+                // in the target and has no commits ahead to show.
+                repo.merge_base_with_graph(branch.head, target_oid, &mut graph)
+                    .map(|merge_base| merge_base.detach() != branch.head)
+                    .unwrap_or(true)
+            })
+            .take(max_branches)
+            .collect()
     } else {
-        const MAX_BRANCHES: usize = 20;
-        if branches.len() > MAX_BRANCHES {
-            let remaining = branches.len() - MAX_BRANCHES;
-            (branches.into_iter().take(MAX_BRANCHES).collect(), remaining)
-        } else {
-            (branches, 0)
-        }
+        branches.into_iter().take(max_branches).collect()
     };
+
+    let more_count = num_branches_before_limits - branches_to_show.len();
 
     // Calculate commits ahead if requested
     let commits_ahead_map: Option<HashMap<String, usize>> = if ahead {
