@@ -31,7 +31,7 @@ const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (
 export const OperationSourceC: FC<
 	{
 		projectId: string;
-		selectionScope: "files" | "outline";
+		selectionScope?: "files" | "outline";
 		source: Operand;
 	} & useRender.ComponentProps<"div">
 > = ({ projectId, selectionScope, source, render, ...props }) => {
@@ -75,6 +75,7 @@ export const OperationSourceC: FC<
 			onGenerateDragPreview,
 			onDragStart: () => {
 				Match.value(selectionScope).pipe(
+					Match.when(undefined, () => {}),
 					Match.when("files", () =>
 						dispatch(projectActions.selectFiles({ projectId, selection: source })),
 					),

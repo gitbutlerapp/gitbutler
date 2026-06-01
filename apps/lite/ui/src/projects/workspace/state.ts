@@ -25,7 +25,7 @@ import {
 } from "#ui/outline/mode.ts";
 import { findCommitStackId } from "#ui/api/ref-info.ts";
 
-type SelectionState = {
+export type SelectionState = {
 	outline: Operand;
 	files: Operand;
 };
@@ -56,7 +56,10 @@ export const initialState: WorkspaceState = createInitialState();
 export const enterTransferMode = (state: WorkspaceState, mode: TransferOperationMode) => {
 	state.mode = transferOutlineMode({
 		value: mode,
-		restoreSelection: state.selection.outline,
+		restoreSelection: {
+			outline: state.selection.outline,
+			files: state.selection.files,
+		},
 	});
 };
 
@@ -67,7 +70,10 @@ export const enterAbsorbMode = (
 ) => {
 	state.mode = absorbOutlineMode({
 		source,
-		restoreSelection: state.selection.outline,
+		restoreSelection: {
+			outline: state.selection.outline,
+			files: state.selection.files,
+		},
 		sourceTarget,
 	});
 };
@@ -130,8 +136,7 @@ export const cancelMode = (state: WorkspaceState) => {
 
 	if (!restoreSelection) return;
 
-	state.selection.outline = restoreSelection;
-	state.selection.files = restoreSelection;
+	state.selection = restoreSelection;
 };
 
 export const selectOutline = (state: WorkspaceState, selection: Operand) => {

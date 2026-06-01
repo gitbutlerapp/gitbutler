@@ -85,7 +85,7 @@ const AbsorbControls: FC<{
 	]);
 
 	return (
-		<>
+		<div className={styles.controls}>
 			<Tooltip.Root disabled={!canAbsorb}>
 				<Tooltip.Trigger
 					className={getButtonClassName({})}
@@ -116,7 +116,7 @@ const AbsorbControls: FC<{
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
 			</Tooltip.Root>
-		</>
+		</div>
 	);
 };
 
@@ -273,7 +273,7 @@ const TransferOperationControls: FC<{
 	]);
 
 	return (
-		<div className={styles.transferOperationControls}>
+		<div className={styles.controls}>
 			<Tooltip.Root disabled={!operation}>
 				<Tooltip.Trigger
 					className={getButtonClassName({})}

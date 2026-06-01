@@ -31,7 +31,6 @@ import {
 	filterNavigationIndexForOutlineMode,
 	getTransferOperation,
 	keyboardTransferOperationMode,
-	getOperationSource,
 } from "#ui/outline/mode.ts";
 import { focusPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
 import {
@@ -683,8 +682,6 @@ export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panel
 		ref,
 	});
 
-	const operationSource = getOperationSource(outlineMode);
-
 	const commitTargetState = useAppSelector((state) => selectProjectCommitTarget(state, projectId));
 	const targetComboboxItems = buildCommitTargetComboboxItems({ headInfo, commitTargetState });
 	const commitTarget = selectCommitTargetComboboxItem({
@@ -757,14 +754,28 @@ export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panel
 							))}
 						</div>
 
-						{operationSource && headInfo && (
-							<div className={styles.operationSourcePreview}>
-								<OperationSourceLabel headInfo={headInfo} source={operationSource} />
-								{outlineMode._tag === "Absorb" && absorptionPlanQuery?.isPending && (
-									<Icon name="spinner" aria-label="Loading absorb plan" />
-								)}
-							</div>
-						)}
+						{headInfo &&
+							Match.value(outlineMode).pipe(
+								Match.tagsExhaustive({
+									Default: () => null,
+									Absorb: (x) => (
+										<div className={classes("text-14", styles.operationSourcePreview)}>
+											Absorb source: <OperationSourceLabel headInfo={headInfo} source={x.source} />
+											{absorptionPlanQuery?.isPending && (
+												<Icon name="spinner" aria-label="Loading absorb plan" />
+											)}
+										</div>
+									),
+									Transfer: (x) => (
+										<div className={classes("text-14", styles.operationSourcePreview)}>
+											Transfer source:{" "}
+											<OperationSourceLabel headInfo={headInfo} source={x.value.source} />
+										</div>
+									),
+									RenameBranch: () => null,
+									RewordCommit: () => null,
+								}),
+							)}
 					</div>
 				</DryRunWorkspaceContext>
 			</AbsorptionTargetKeysContext>

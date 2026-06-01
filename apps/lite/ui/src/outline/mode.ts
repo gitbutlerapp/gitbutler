@@ -12,18 +12,19 @@ import {
 import { getOperation, getOperations, OperationType } from "#ui/operations/operation.ts";
 import { filterNavigationIndex, NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { AbsorptionTarget } from "@gitbutler/but-sdk";
+import { SelectionState } from "#ui/projects/workspace/state.ts";
 
 /** @public */
 export type AbsorbMode = {
 	source: Operand;
 	sourceTarget: AbsorptionTarget;
-	restoreSelection: Operand;
+	restoreSelection: SelectionState;
 };
 
 /** @public */
 export type TransferMode = {
 	value: TransferOperationMode;
-	restoreSelection: Operand;
+	restoreSelection: SelectionState;
 };
 
 /** @public */
