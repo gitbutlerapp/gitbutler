@@ -107,7 +107,6 @@ fn check_can_create_branch_with_user_provided_name(
         but_core::branch::normalize_short_name(user_provided_branch_name).map_err(|err| {
             CliError::from(
                 bad_input(format!("Invalid branch name: {err}"))
-                    .arg_name("<BRANCH_NAME>")
                     .arg_value(user_provided_branch_name),
             )
         })?;
@@ -115,7 +114,6 @@ fn check_can_create_branch_with_user_provided_name(
     let user_name_bstr: &BStr = user_provided_branch_name.into();
     if normalized != user_name_bstr {
         return Err(bad_input("Invalid branch name")
-            .arg_name("<BRANCH_NAME>")
             .arg_value(user_provided_branch_name)
             .hint(format!("Try '{normalized}' instead"))
             .into());

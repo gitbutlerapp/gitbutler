@@ -111,9 +111,68 @@ fn reword_branch_rejects_head() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: Could not turn "HEAD" into a valid reference name
+Error: Bad input 'HEAD'
+
+Invalid branch name: Could not turn "HEAD" into a valid reference name
 
 "#]]);
+
+    Ok(())
+}
+
+#[test]
+fn reword_branch_rejects_non_normalized_name() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("reword A -m /B")
+        .assert()
+        .failure()
+        .stdout_eq(str![[]])
+        .stderr_eq(str![[r#"
+Error: Bad input '/B'
+
+Invalid branch name
+
+Hint: Try 'B' instead
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn reword_branch_rejects_branch_name_that_already_exists() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("branch new existing").assert().success();
+
+    env.but("reword A -m existing")
+        .assert()
+        .failure()
+        .stdout_eq(str![[]])
+        .stderr_eq(str![[r#"
+Error: A branch named 'existing' already exists
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn reword_branch_allows_rewording_to_same_name() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("reword A -m A")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Branch already named 'A' - nothing to do
+
+"#]])
+        .stderr_eq(str![[]]);
 
     Ok(())
 }

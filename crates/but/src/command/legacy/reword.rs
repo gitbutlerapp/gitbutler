@@ -15,7 +15,7 @@ use super::{
 use crate::{
     CliResult, IdMap,
     args::atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose},
-    tui,
+    bad_input, tui,
     utils::OutputChannel,
 };
 
@@ -70,7 +70,7 @@ fn edit_branch_name(
     out: &mut OutputChannel,
     message: Option<&str>,
     perm: &mut RepoExclusive,
-) -> Result<()> {
+) -> CliResult<()> {
     // Find which stack this branch belongs to
     let stacks = but_api::legacy::workspace::stacks(
         ctx,
@@ -83,23 +83,38 @@ fn edit_branch_name(
         }
 
         if let Some(sid) = stack_entry.id {
-            let new_name = prepare_provided_message(message, "branch name")
+            let non_validated_new_name = prepare_provided_message(message, "branch name")
                 .unwrap_or_else(|| get_branch_name_from_editor(branch_name))?;
+
+            if non_validated_new_name == branch_name {
+                if let Some(out) = out.for_human() {
+                    writeln!(out, "Branch already named '{branch_name}' - nothing to do")?;
+                };
+                return Ok(());
+            };
+
+            let new_branch_name = {
+                let repo = ctx.repo.get()?;
+                BranchArg(non_validated_new_name).resolve_for_creation(&repo)?
+            };
             but_api::legacy::stack::update_branch_name_with_perm(
                 ctx,
                 sid,
                 branch_name.to_owned(),
-                new_name.clone(),
+                new_branch_name.clone(),
                 perm,
             )?;
             if let Some(out) = out.for_human() {
-                writeln!(out, "Renamed branch '{branch_name}' to '{new_name}'")?;
+                writeln!(out, "Renamed branch '{branch_name}' to '{new_branch_name}'")?;
             }
             return Ok(());
         }
     }
 
-    bail!("Branch '{branch_name}' not found in any stack")
+    Err(bad_input("Branch not found in workspace")
+        .arg_value(branch_name)
+        .hint("You can only reword applied branches")
+        .into())
 }
 
 fn prepare_provided_message(msg: Option<&str>, entity: &str) -> Option<Result<String>> {
