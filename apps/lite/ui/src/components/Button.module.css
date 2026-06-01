@@ -18,10 +18,6 @@
 		background-color 0.08s ease,
 		color 0.08s ease;
 
-	&:not(:disabled) {
-		cursor: pointer;
-	}
-
 	&:disabled {
 		opacity: 0.5;
 	}
