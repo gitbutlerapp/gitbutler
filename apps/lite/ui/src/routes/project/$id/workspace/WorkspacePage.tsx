@@ -25,6 +25,8 @@ import {
 } from "@tanstack/react-hotkeys";
 import {
 	QueryErrorResetBoundary,
+	useIsFetching,
+	useIsMutating,
 	useMutation,
 	useQuery,
 	useSuspenseQuery,
@@ -37,10 +39,13 @@ import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialo
 import { DetailsPanel } from "./DetailsPanel.tsx";
 import styles from "./WorkspacePage.module.css";
 import { OutlinePanel } from "#ui/routes/project/$id/workspace/OutlinePanel.tsx";
-import { Toast } from "@base-ui/react";
+import { Toast, Tooltip } from "@base-ui/react";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { shortCommitId } from "#ui/commit.ts";
 import { useActiveElement } from "#ui/focus.ts";
+import { classes } from "#ui/components/classes.ts";
+import { Icon } from "#ui/components/Icon.tsx";
+import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 
 const toggleFilesPanel =
 	({ projectId, focusedPanel }: { projectId: string; focusedPanel: Panel | null }): AppThunk =>
@@ -430,6 +435,23 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	]);
 };
 
+const ActivitySpinner: FC = () => {
+	const fetchingCount = useIsFetching();
+	const mutatingCount = useIsMutating();
+
+	const isFetching = fetchingCount > 0;
+	const isMutating = mutatingCount > 0;
+
+	const status = Match.value({ isFetching, isMutating }).pipe(
+		Match.when({ isFetching: true, isMutating: true }, () => "Syncing"),
+		Match.when({ isFetching: true }, () => "Loading"),
+		Match.when({ isMutating: true }, () => "Saving"),
+		Match.orElse(() => null),
+	);
+
+	return status !== null && <Icon name="spinner" aria-label={status} />;
+};
+
 const WorkspacePage: FC = () => {
 	const dispatch = useAppDispatch();
 
@@ -464,15 +486,52 @@ const WorkspacePage: FC = () => {
 		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 
+	const openApplyBranchPicker = () => {
+		dispatch(projectActions.openApplyBranchPicker({ projectId }));
+	};
+
+	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
+	const selectedProject = projects.find((project) => project.id === projectId);
+	if (!selectedProject) throw new Error("Could not find selected project");
+
 	return (
 		<>
 			<div className={styles.page}>
-				<OutlinePanel
-					id={"outline" satisfies Panel}
-					data-panel
-					tabIndex={0}
-					ref={(el) => el?.focus({ focusVisible: false })}
-				/>
+				<div className={styles.outlinePanel}>
+					<header className={styles.workspaceControls}>
+						<div className={styles.workspaceControlsLeft}>
+							<h1 className={classes("text-15", "text-bold", styles.workspaceName)}>
+								{selectedProject.title}
+							</h1>
+							<ActivitySpinner />
+						</div>
+
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								className={classes(styles.workspaceControlsRight, getButtonClassName({}))}
+								onClick={openApplyBranchPicker}
+							>
+								Apply branch
+							</Tooltip.Trigger>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup
+										render={<TooltipPopup kbd={workspaceHotkeys.applyBranch.hotkey} />}
+									>
+										{workspaceHotkeys.applyBranch.meta.name}
+									</Tooltip.Popup>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
+					</header>
+
+					<OutlinePanel
+						id={"outline" satisfies Panel}
+						data-panel
+						tabIndex={0}
+						ref={(el) => el?.focus({ focusVisible: false })}
+					/>
+				</div>
 
 				<DetailsPanel />
 			</div>

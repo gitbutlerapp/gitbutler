@@ -75,8 +75,6 @@ import {
 	useKeyHold,
 } from "@tanstack/react-hotkeys";
 import {
-	useIsFetching,
-	useIsMutating,
 	useMutation,
 	useQueries,
 	useQuery,
@@ -111,12 +109,7 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { rejectedChangesToastOptions } from "#ui/operations/rejectedChangesToastOptions.tsx";
-import {
-	changesHotkeys,
-	outlineHotkeys,
-	toElectronAccelerator,
-	workspaceHotkeys,
-} from "#ui/hotkeys.ts";
+import { changesHotkeys, outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { OutlineModeTooltip } from "./OutlineModeTooltip.tsx";
@@ -616,23 +609,6 @@ const useOutlineTreeHotkeys = ({
 	]);
 };
 
-const ActivitySpinner: FC = () => {
-	const fetchingCount = useIsFetching();
-	const mutatingCount = useIsMutating();
-
-	const isFetching = fetchingCount > 0;
-	const isMutating = mutatingCount > 0;
-
-	const status = Match.value({ isFetching, isMutating }).pipe(
-		Match.when({ isFetching: true, isMutating: true }, () => "Syncing"),
-		Match.when({ isFetching: true }, () => "Loading"),
-		Match.when({ isMutating: true }, () => "Saving"),
-		Match.orElse(() => null),
-	);
-
-	return status !== null && <Icon name="spinner" aria-label={status} />;
-};
-
 export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panelProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
@@ -689,11 +665,6 @@ export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panel
 		commitTargetState,
 	});
 
-	const dispatch = useAppDispatch();
-	const openApplyBranchPicker = () => {
-		dispatch(projectActions.openApplyBranchPicker({ projectId }));
-	};
-
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
@@ -702,83 +673,53 @@ export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panel
 		<NavigationIndexContext value={navigationIndex}>
 			<AbsorptionTargetKeysContext value={absorptionTargetKeys}>
 				<DryRunWorkspaceContext value={dryRunWorkspace}>
-					<div className={styles.panel}>
-						<header className={styles.workspaceControls}>
-							<div className={styles.workspaceControlsLeft}>
-								<h1 className={classes("text-15", "text-bold", styles.workspaceName)}>
-									{selectedProject.title}
-								</h1>
-								<ActivitySpinner />
-							</div>
+					<div
+						{...panelProps}
+						tabIndex={0}
+						role="tree"
+						aria-activedescendant={treeItemId(selection)}
+						className={classes(panelProps.className, styles.tree)}
+						ref={useMergedRefs(refProp, ref)}
+					>
+						<Changes
+							projectId={projectId}
+							commitTarget={commitTarget}
+							targetComboboxItems={targetComboboxItems}
+						/>
 
-							<Tooltip.Root>
-								<Tooltip.Trigger
-									className={classes(styles.workspaceControlsRight, getButtonClassName({}))}
-									onClick={openApplyBranchPicker}
-								>
-									Apply branch
-								</Tooltip.Trigger>
-								<Tooltip.Portal>
-									<Tooltip.Positioner sideOffset={4}>
-										<Tooltip.Popup
-											render={<TooltipPopup kbd={workspaceHotkeys.applyBranch.hotkey} />}
-										>
-											{workspaceHotkeys.applyBranch.meta.name}
-										</Tooltip.Popup>
-									</Tooltip.Positioner>
-								</Tooltip.Portal>
-							</Tooltip.Root>
-						</header>
-
-						<div
-							{...panelProps}
-							tabIndex={0}
-							role="tree"
-							aria-activedescendant={treeItemId(selection)}
-							className={classes(panelProps.className, styles.tree)}
-							ref={useMergedRefs(refProp, ref)}
-						>
-							<Changes
-								projectId={projectId}
-								commitTarget={commitTarget}
-								targetComboboxItems={targetComboboxItems}
-							/>
-
-							<div className={styles.headInfo}>
-								{headInfo?.stacks.map((stack) => (
-									<StackC
-										key={stack.id}
-										projectId={projectId}
-										stack={stack}
-										commitTarget={commitTarget?.relativeTo ?? null}
-									/>
-								))}
-							</div>
-
-							{headInfo &&
-								Match.value(outlineMode).pipe(
-									Match.tagsExhaustive({
-										Default: () => null,
-										Absorb: (x) => (
-											<div className={classes("text-14", styles.operationSourcePreview)}>
-												Absorb source:{" "}
-												<OperationSourceLabel headInfo={headInfo} source={x.source} />
-												{absorptionPlanQuery?.isPending && (
-													<Icon name="spinner" aria-label="Loading absorb plan" />
-												)}
-											</div>
-										),
-										Transfer: (x) => (
-											<div className={classes("text-14", styles.operationSourcePreview)}>
-												Transfer source:{" "}
-												<OperationSourceLabel headInfo={headInfo} source={x.value.source} />
-											</div>
-										),
-										RenameBranch: () => null,
-										RewordCommit: () => null,
-									}),
-								)}
+						<div className={styles.headInfo}>
+							{headInfo?.stacks.map((stack) => (
+								<StackC
+									key={stack.id}
+									projectId={projectId}
+									stack={stack}
+									commitTarget={commitTarget?.relativeTo ?? null}
+								/>
+							))}
 						</div>
+
+						{headInfo &&
+							Match.value(outlineMode).pipe(
+								Match.tagsExhaustive({
+									Default: () => null,
+									Absorb: (x) => (
+										<div className={classes("text-14", styles.operationSourcePreview)}>
+											Absorb source: <OperationSourceLabel headInfo={headInfo} source={x.source} />
+											{absorptionPlanQuery?.isPending && (
+												<Icon name="spinner" aria-label="Loading absorb plan" />
+											)}
+										</div>
+									),
+									Transfer: (x) => (
+										<div className={classes("text-14", styles.operationSourcePreview)}>
+											Transfer source:{" "}
+											<OperationSourceLabel headInfo={headInfo} source={x.value.source} />
+										</div>
+									),
+									RenameBranch: () => null,
+									RewordCommit: () => null,
+								}),
+							)}
 					</div>
 				</DryRunWorkspaceContext>
 			</AbsorptionTargetKeysContext>

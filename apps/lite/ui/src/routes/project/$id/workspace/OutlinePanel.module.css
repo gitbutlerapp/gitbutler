@@ -1,34 +1,3 @@
-.workspaceControls {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-}
-
-.workspaceControlsLeft {
-	display: flex;
-	align-items: center;
-	overflow: hidden;
-	gap: 4px;
-}
-
-.workspaceControlsRight {
-	margin-inline-start: auto;
-}
-
-.workspaceName {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.panel {
-	display: grid;
-	grid-template-rows: auto minmax(0, 1fr);
-	padding: var(--panel-padding);
-	gap: 12px;
-	border-right: 1px solid var(--border-3);
-}
-
 .tree {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
