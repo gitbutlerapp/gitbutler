@@ -142,8 +142,15 @@ pub fn list(
 
     // Sort all branches by last commit date (most recent first)
     //
-    // Must happen _before any lazy filtering_
-    branches.sort_by_key(|branch| std::cmp::Reverse(branch.updated_at));
+    // Must happen _before any lazy filtering_.
+    //
+    // We use branch name as a tie breaker for stable output in tests as all timestamps are the
+    // same, but it should rarely matter in a realistic scenario.
+    branches.sort_by(|a, b| {
+        b.updated_at
+            .cmp(&a.updated_at)
+            .then_with(|| a.name.cmp(&b.name))
+    });
 
     let max_branches = if all { usize::MAX / 2 } else { 20 };
     // Take one extra branch than we want to show to check if there's more to show
