@@ -27,6 +27,8 @@ legacy = [
     "dep:gitbutler-repo",
     "dep:gitbutler-git",
     "dep:gitbutler-reference",
+    "dep:bitflags",
+    "dep:but-gerrit",
 ]
 export-schema = ["dep:schemars", "dep:but-schemars", "but-core/export-schema"]
 

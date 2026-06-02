@@ -1,4 +1,5 @@
 import { getBranchNameFromRef } from "$lib/branches/branchUtils";
+import { newPushFeature } from "$lib/config/uiFeatureFlags";
 import { sortLikeFileTree } from "$lib/files/filetreeV3";
 import { showToast } from "$lib/notifications/toasts";
 import {
@@ -10,6 +11,7 @@ import {
 	commitSelectors,
 	selectChangesByPaths,
 	stackSelectors,
+	type BranchPushResult,
 	upstreamCommitSelectors,
 } from "$lib/stacks/stackEndpoints";
 import {
@@ -23,6 +25,7 @@ import { type UiState } from "$lib/state/uiState.svelte";
 import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import { get } from "svelte/store";
 import type { ReduxError } from "$lib/error/reduxError";
 import type { DefaultForgeFactory } from "$lib/forge/forgeFactory.svelte";
 import type { BackendApi } from "$lib/state/backendApi";
@@ -383,8 +386,8 @@ export class StackService {
 	}
 
 	get pushStack() {
-		return this.backendApi.endpoints.pushStack.useMutation({
-			sideEffect: (result, _) => {
+		const options = {
+			sideEffect: (result: BranchPushResult) => {
 				// Timeout to accommodate eventual consistency.
 				setTimeout(() => {
 					const invalidations = [invalidatesList(ReduxTag.PullRequests)];
@@ -416,7 +419,13 @@ export class StackService {
 				});
 			},
 			throwSilentError: true,
-		});
+		};
+
+		if (get(newPushFeature)) {
+			return this.backendApi.endpoints.pushWorkspaceBranchAndAncestors.useMutation(options);
+		} else {
+			return this.backendApi.endpoints.pushStack.useMutation(options);
+		}
 	}
 
 	createCommit() {

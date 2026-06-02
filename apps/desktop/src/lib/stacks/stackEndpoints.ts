@@ -298,6 +298,28 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			}
 		>({
 			extraOptions: {
+				command: "push_stack",
+				actionName: "Push",
+			},
+			query: (args) => args,
+			invalidatesTags: (_result, _error, args) => [
+				invalidatesItem(ReduxTag.StackDetails, args.stackId), // Is this still needed?
+				invalidatesList(ReduxTag.BranchListing),
+			],
+		}),
+		pushWorkspaceBranchAndAncestors: build.mutation<
+			BranchPushResult,
+			{
+				projectId: string;
+				stackId: string;
+				withForce: boolean;
+				skipForcePushProtection: boolean;
+				branch: string;
+				runHooks: boolean;
+				pushOpts: GerritPushFlag[];
+			}
+		>({
+			extraOptions: {
 				command: "workspace_branch_and_ancestors_push",
 				actionName: "Push",
 			},
@@ -306,7 +328,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				...args,
 			}),
 			invalidatesTags: (_result, _error, args) => [
-				invalidatesItem(ReduxTag.StackDetails, args.stackId), // Is this still needed?
+				invalidatesItem(ReduxTag.StackDetails, args.stackId),
 				invalidatesList(ReduxTag.BranchListing),
 			],
 		}),
