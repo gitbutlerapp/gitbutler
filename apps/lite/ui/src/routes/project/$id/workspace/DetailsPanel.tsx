@@ -436,7 +436,7 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 					data-panel
 					// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 					tabIndex={0}
-					className={styles.detailsContentPanel}
+					className={styles.diffContentsPanel}
 					style={{ opacity: urgentFilesSelection !== filesSelection ? 0.5 : 1 }}
 				>
 					<Suspense fallback={<p className="text-13">Loading diff…</p>}>
