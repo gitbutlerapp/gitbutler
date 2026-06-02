@@ -1,7 +1,7 @@
 import { DiffHunk, HunkDependencies, HunkHeader } from "@gitbutler/but-sdk";
 import { Array } from "effect";
 
-export type HunkDependencyDiff = HunkDependencies["diffs"][number];
+type HunkDependencyDiff = HunkDependencies["diffs"][number];
 
 export const formatHunkHeader = (hunk: HunkHeader): string =>
 	`-${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines}`;

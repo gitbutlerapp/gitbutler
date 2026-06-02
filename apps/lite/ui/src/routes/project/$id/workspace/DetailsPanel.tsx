@@ -8,22 +8,7 @@ import {
 } from "#ui/api/queries.ts";
 import { decodeRefName } from "#ui/api/ref-name.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
-import {
-	formatHunkHeader,
-	getDependencyCommitIds,
-	getHunkDependencyDiffsByPath,
-	type HunkDependencyDiff,
-} from "#ui/hunk.ts";
-import {
-	branchFileParent,
-	changesFileParent,
-	commitFileParent,
-	commitOperand,
-	fileOperand,
-	hunkOperand,
-	type FileParent,
-	type Operand,
-} from "#ui/operands.ts";
+import { commitOperand, type Operand } from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectPanelsState,
@@ -37,13 +22,13 @@ import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSour
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Tooltip } from "@base-ui/react";
-import { DiffHunk, HunkHeader, TreeChange, UnifiedPatch } from "@gitbutler/but-sdk";
-import { PatchDiff, Virtualizer } from "@pierre/diffs/react";
+import type { DiffHunk, TreeChange } from "@gitbutler/but-sdk";
+import { parsePatchFiles } from "@pierre/diffs";
+import { CodeView, type CodeViewDiffItem } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
-import { Array, Match, pipe } from "effect";
+import { Array, Hash, Match } from "effect";
 import { ComponentProps, FC, Suspense, useDeferredValue } from "react";
-import { DependencyIndicator } from "./DependencyIndicator.tsx";
 import { FilesPanel } from "./FilesPanel.tsx";
 import styles from "./DetailsPanel.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
@@ -55,160 +40,107 @@ const patchHeaderForChange = (change: TreeChange, lineEnding: string): string =>
 	Match.value(change.status).pipe(
 		Match.when(
 			{ type: "Addition" },
-			() => `--- /dev/null${lineEnding}+++ ${change.path}${lineEnding}`,
+			() =>
+				[
+					`diff --git a/${change.path} b/${change.path}`,
+					"new file mode 100644",
+					"--- /dev/null",
+					`+++ b/${change.path}`,
+				].join(lineEnding) + lineEnding,
 		),
+
 		Match.when(
 			{ type: "Deletion" },
-			() => `--- ${change.path}${lineEnding}+++ /dev/null${lineEnding}`,
+			() =>
+				[
+					`diff --git a/${change.path} b/${change.path}`,
+					"deleted file mode 100644",
+					`--- a/${change.path}`,
+					"+++ /dev/null",
+				].join(lineEnding) + lineEnding,
 		),
+
 		Match.when(
 			{ type: "Modification" },
-			() => `--- ${change.path}${lineEnding}+++ ${change.path}${lineEnding}`,
+			() =>
+				[
+					`diff --git a/${change.path} b/${change.path}`,
+					`--- a/${change.path}`,
+					`+++ b/${change.path}`,
+				].join(lineEnding) + lineEnding,
 		),
+
 		Match.when(
 			{ type: "Rename" },
-			({ subject }) => `--- ${subject.previousPath}${lineEnding}+++ ${change.path}${lineEnding}`,
+			({ subject }) =>
+				[
+					`diff --git a/${subject.previousPath} b/${change.path}`,
+					"similarity index 99%",
+					`rename from ${subject.previousPath}`,
+					`rename to ${change.path}`,
+					`--- a/${subject.previousPath}`,
+					`+++ b/${change.path}`,
+				].join(lineEnding) + lineEnding,
 		),
+
 		Match.exhaustive,
 	);
 
-const hunkKey = (hunk: HunkHeader): string =>
-	`${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`;
+const mkCodeViewItem = (
+	change: TreeChange,
+	changesetKey: string,
+	hunks: Array<DiffHunk>,
+): CodeViewDiffItem | null => {
+	const lineEnding = lineEndingForDiff(hunks[0]?.diff ?? "");
+	const header = patchHeaderForChange(change, lineEnding);
+	const combinedFilePatch = [header, ...hunks.map((hunk) => hunk.diff)].join(lineEnding);
+	const parsed = parsePatchFiles(combinedFilePatch);
 
-const Hunk: FC<{
-	isResultOfBinaryToTextConversion: boolean;
-	projectId: string;
-	fileParent: FileParent;
-	change: TreeChange;
-	hunk: DiffHunk;
-	hunkDependencyDiffs?: Array<HunkDependencyDiff>;
-}> = ({
-	isResultOfBinaryToTextConversion,
-	projectId,
-	fileParent,
-	change,
-	hunk,
-	hunkDependencyDiffs,
-}) => {
-	const dependencyCommitIds =
-		fileParent._tag === "Changes" && hunkDependencyDiffs
-			? getDependencyCommitIds({ hunk, hunkDependencyDiffs })
-			: undefined;
-
-	const operand = hunkOperand({
-		parent: { parent: fileParent, path: change.path },
-		hunkHeader: hunk,
-		isResultOfBinaryToTextConversion,
-	});
-
-	return (
-		<div>
-			<OperationSourceC projectId={projectId} source={operand}>
-				<div className={styles.hunkHeaderRow}>
-					{dependencyCommitIds && (
-						<DependencyIndicator projectId={projectId} commitIds={dependencyCommitIds}>
-							<Icon name="link" />
-						</DependencyIndicator>
-					)}
-					<div className={classes("text-11", "text-monospace", styles.hunkHeader)}>
-						{formatHunkHeader(hunk)}
-					</div>
-				</div>
-			</OperationSourceC>
-
-			<PatchDiff
-				patch={`${patchHeaderForChange(change, lineEndingForDiff(hunk.diff))}${hunk.diff}`}
-				options={{
-					diffStyle: "unified",
-					themeType: "system",
-					disableFileHeader: true,
-				}}
-			/>
-		</div>
-	);
+	return {
+		type: "diff",
+		id: `${changesetKey}:${change.path}`,
+		version: Hash.string(combinedFilePatch),
+		// oxlint-disable-next-line typescript/no-non-null-assertion: There should always be exactly one result given our one parsed hunk.
+		fileDiff: parsed[0]!.files[0]!,
+	};
 };
-
-const FileDiff: FC<{
-	projectId: string;
-	change: TreeChange;
-	fileParent: FileParent;
-	hunkDependencyDiffs?: Array<HunkDependencyDiff>;
-	diff: UnifiedPatch | null;
-}> = ({ projectId, change, fileParent, hunkDependencyDiffs, diff }) =>
-	Match.value(diff).pipe(
-		Match.when(null, () => <div>No diff available for this file.</div>),
-		Match.when({ type: "Binary" }, () => <div>Binary file (diff not available).</div>),
-		Match.when({ type: "TooLarge" }, ({ subject }) => (
-			<div>Diff too large ({subject.sizeInBytes} bytes).</div>
-		)),
-		Match.when({ type: "Patch" }, (patch) => {
-			const { hunks } = patch.subject;
-			if (hunks.length === 0)
-				return <p className={classes("text-13", styles.emptyFileHunks)}>No hunks.</p>;
-
-			return (
-				<ul>
-					{hunks.map((hunk) => (
-						<li key={hunkKey(hunk)}>
-							<Hunk
-								isResultOfBinaryToTextConversion={patch.subject.isResultOfBinaryToTextConversion}
-								projectId={projectId}
-								fileParent={fileParent}
-								change={change}
-								hunk={hunk}
-								hunkDependencyDiffs={hunkDependencyDiffs}
-							/>
-						</li>
-					))}
-				</ul>
-			);
-		}),
-		Match.exhaustive,
-	);
 
 const ChangesFileDiffList: FC<{
 	changes: Array<TreeChange>;
+	changesetKey: string;
 	projectId: string;
-	fileParent: FileParent;
-	hunkDependencyDiffsByPath?: Map<string, Array<HunkDependencyDiff>>;
-}> = ({ changes, projectId, fileParent, hunkDependencyDiffsByPath }) => {
+}> = ({ changes, changesetKey, projectId }) => {
 	const treeChangeDiffs = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 	}).map((result) => result.data);
-	const changesWithDiffs = pipe(changes, Array.zip(treeChangeDiffs));
+	const items = Array.zip(changes, treeChangeDiffs).flatMap(
+		([change, mdiff]) =>
+			Match.value(mdiff).pipe(
+				Match.when(
+					{ type: "Patch" },
+					(patch) => mkCodeViewItem(change, changesetKey, patch.subject.hunks) ?? [],
+				),
+				Match.when({ type: "Binary" }, () => mkCodeViewItem(change, changesetKey, [])),
+				Match.orElse(() => []),
+			) ?? [],
+	);
 
-	return changesWithDiffs.length === 0 ? (
+	return items.length === 0 ? (
 		<p className="text-13">No changes.</p>
 	) : (
-		<ul className={styles.fileDiffsList}>
-			{changesWithDiffs.map(([change, diff]) => {
-				const source = fileOperand({ parent: fileParent, path: change.path });
-
-				const lastSepIdx = change.path.lastIndexOf("/");
-				const mpathInit = lastSepIdx !== -1 ? change.path.slice(0, lastSepIdx + 1) : null;
-				const pathLast = lastSepIdx !== -1 ? change.path.slice(lastSepIdx + 1) : change.path;
-
-				return (
-					<li key={change.path} className={styles.fileDiff}>
-						<OperationSourceC projectId={projectId} source={source}>
-							<header className={styles.fileHeader}>
-								<h4 className={classes("text-13", styles.filePath)}>
-									{mpathInit !== null && <span className={styles.pathInit}>{mpathInit}</span>}
-									<span className={styles.pathLast}>{pathLast}</span>
-								</h4>
-							</header>
-						</OperationSourceC>
-						<FileDiff
-							projectId={projectId}
-							change={change}
-							fileParent={fileParent}
-							hunkDependencyDiffs={hunkDependencyDiffsByPath?.get(change.path)}
-							diff={diff}
-						/>
-					</li>
-				);
-			})}
-		</ul>
+		<CodeView
+			className={styles.detailsVirtualizer}
+			items={items}
+			options={{
+				diffStyle: "unified",
+				themeType: "system",
+				layout: {
+					paddingTop: 0,
+					paddingBottom: 0,
+					gap: 10,
+				},
+			}}
+		/>
 	);
 };
 
@@ -355,13 +287,13 @@ const DiffContents: FC<{
 	Match.value(selection).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
-			Branch: ({ branchRef, stackId }) => (
+			Branch: ({ branchRef }) => (
 				<SuspenseQuery {...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}>
 					{({ data: branchDiff }) => (
 						<ChangesFileDiffList
 							changes={branchDiff.changes}
+							changesetKey={decodeRefName(branchRef)}
 							projectId={projectId}
-							fileParent={branchFileParent({ stackId, branchRef })}
 						/>
 					)}
 				</SuspenseQuery>
@@ -371,16 +303,12 @@ const DiffContents: FC<{
 					{({ data: worktreeChanges }) => (
 						<ChangesFileDiffList
 							changes={worktreeChanges.changes}
-							fileParent={changesFileParent}
-							hunkDependencyDiffsByPath={getHunkDependencyDiffsByPath(
-								worktreeChanges.dependencies?.diffs ?? [],
-							)}
+							changesetKey="changes"
 							projectId={projectId}
 						/>
 					)}
 				</SuspenseQuery>
 			),
-
 			File: ({ parent, path }) =>
 				Match.value(parent).pipe(
 					Match.tagsExhaustive({
@@ -394,10 +322,7 @@ const DiffContents: FC<{
 									return (
 										<ChangesFileDiffList
 											changes={selectedChange ? [selectedChange] : worktreeChanges.changes}
-											fileParent={changesFileParent}
-											hunkDependencyDiffsByPath={getHunkDependencyDiffsByPath(
-												worktreeChanges.dependencies?.diffs ?? [],
-											)}
+											changesetKey="changes"
 											projectId={projectId}
 										/>
 									);
@@ -405,7 +330,7 @@ const DiffContents: FC<{
 							</SuspenseQuery>
 						),
 
-						Branch: ({ branchRef, stackId }) => (
+						Branch: ({ branchRef }) => (
 							<SuspenseQuery
 								{...branchDiffQueryOptions({
 									projectId,
@@ -420,17 +345,16 @@ const DiffContents: FC<{
 									return (
 										<ChangesFileDiffList
 											changes={selectedChange ? [selectedChange] : branchDiff.changes}
+											changesetKey={decodeRefName(branchRef)}
 											projectId={projectId}
-											fileParent={branchFileParent({ stackId, branchRef })}
 										/>
 									);
 								}}
 							</SuspenseQuery>
 						),
-						Commit: ({ commitId, stackId }) => (
+						Commit: ({ commitId }) => (
 							<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
 								{({ data: commitDetails }) => {
-									const fileParent = commitFileParent({ stackId, commitId });
 									const selectedChange = commitDetails.changes.find(
 										(candidate) => candidate.path === path,
 									);
@@ -439,7 +363,7 @@ const DiffContents: FC<{
 									return (
 										<ChangesFileDiffList
 											changes={[selectedChange]}
-											fileParent={fileParent}
+											changesetKey={commitId}
 											projectId={projectId}
 										/>
 									);
@@ -448,12 +372,12 @@ const DiffContents: FC<{
 						),
 					}),
 				),
-			Commit: ({ commitId, stackId }) => (
+			Commit: ({ commitId }) => (
 				<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
 					{({ data: commitDetails }) => (
 						<ChangesFileDiffList
 							changes={commitDetails.changes}
-							fileParent={commitFileParent({ stackId, commitId })}
+							changesetKey={commitId}
 							projectId={projectId}
 						/>
 					)}
@@ -516,9 +440,7 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 					style={{ opacity: urgentFilesSelection !== filesSelection ? 0.5 : 1 }}
 				>
 					<Suspense fallback={<p className="text-13">Loading diff…</p>}>
-						<Virtualizer className={styles.detailsVirtualizer}>
-							<DiffContents projectId={projectId} selection={filesSelection} />
-						</Virtualizer>
+						<DiffContents projectId={projectId} selection={filesSelection} />
 					</Suspense>
 				</div>
 			</div>
