@@ -70,8 +70,8 @@
 		if (coldstartLinks !== undefined) {
 			backend.initDeepLinking(
 				{
-					open: (path: string) => {
-						projectsService.handleDeepLinkOpen(path);
+					open: (path: string, newWindow: boolean) => {
+						projectsService.handleDeepLinkOpen(path, newWindow);
 					},
 					login: (accessToken: string) => {
 						userService.setUserAccessToken(accessToken);

@@ -195,7 +195,11 @@ impl AppChannel {
     ///
     /// Note: On Linux, we don't have a good way of distinguishing between channels in the installed
     /// binaries, so we always just resolve `gitbutler-tauri`.
-    pub fn open(&self, possibly_project_dir: &std::path::Path) -> anyhow::Result<()> {
+    pub fn open(
+        &self,
+        possibly_project_dir: &std::path::Path,
+        new_window: bool,
+    ) -> anyhow::Result<()> {
         let scheme = match self {
             AppChannel::Nightly => "but-nightly",
             AppChannel::Release => "but",
@@ -210,10 +214,11 @@ impl AppChannel {
             .as_millis();
 
         let url = format!(
-            "{}://open?path={}&t={}",
+            "{}://open?path={}&t={}&new_window={}",
             scheme,
             possibly_project_dir.display(),
-            timestamp
+            timestamp,
+            if new_window { 1 } else { 0 }
         );
 
         let cleaned_vars: Vec<(&str, String)> = clean_env_vars(&[

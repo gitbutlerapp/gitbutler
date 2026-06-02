@@ -63,6 +63,14 @@ describe("parseDeepLinkUrl", () => {
 		expect(result![1].get("other")).toBe("value");
 	});
 
+	test("parses open URLs with new-window query parameter", () => {
+		const result = parseDeepLinkUrl("but://open?path=/some/path&new_window=1" as any);
+		expect(result).not.toBeNull();
+		expect(result![0]).toBe("open");
+		expect(result![1].get("path")).toBe("/some/path");
+		expect(result![1].get("new_window")).toBe("1");
+	});
+
 	test("handles URL-encoded query parameters", () => {
 		const result = parseDeepLinkUrl("but://open?path=%2Fsome%2Fpath" as any);
 		expect(result).not.toBeNull();

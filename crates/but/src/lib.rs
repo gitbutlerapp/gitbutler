@@ -368,12 +368,12 @@ async fn match_subcommand(
             utils::metrics::capture_event_blocking(&app_settings, event).await;
             Ok(())
         }
-        Subcommands::Gui { path } => {
+        Subcommands::Gui { new_window, path } => {
             let path = path
                 .as_ref()
                 .map(|path| args.current_dir.join(path))
                 .unwrap_or_else(|| args.current_dir.clone());
-            command::gui::open(&path)
+            command::gui::open(&path, new_window)
                 .emit_metrics(metrics_ctx)
                 .map_err(CliError::from)
         }
