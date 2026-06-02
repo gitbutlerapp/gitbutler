@@ -1,5 +1,6 @@
 import reactQueryPlugin from "@tanstack/eslint-plugin-query";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
+import reactYouMightNotNeedAnEffectPlugin from "eslint-plugin-react-you-might-not-need-an-effect";
 import { defineConfig } from "oxlint";
 
 const renameRulePrefixes = (
@@ -18,6 +19,10 @@ export default defineConfig({
 	jsPlugins: [
 		// The builtin plugin isn't 1:1 at time of writing.
 		{ name: "react-hooks-js", specifier: "eslint-plugin-react-hooks" },
+		{
+			name: "react-you-might-not-need-an-effect",
+			specifier: "eslint-plugin-react-you-might-not-need-an-effect",
+		},
 		{ name: "@tanstack/query", specifier: "@tanstack/eslint-plugin-query" },
 	],
 	plugins: ["eslint", "jsx-a11y", "oxc", "react", "typescript", "unicorn"],
@@ -109,6 +114,7 @@ export default defineConfig({
 			"react-hooks",
 			"react-hooks-js",
 		),
+		...reactYouMightNotNeedAnEffectPlugin.configs.recommended.rules,
 		...reactQueryPlugin.configs.recommended.rules,
 	},
 });

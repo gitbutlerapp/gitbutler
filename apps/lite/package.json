@@ -154,6 +154,7 @@
 		"cross-env": "^10.1.0",
 		"electron": "^41.1.0",
 		"electron-builder": "^26.9.0",
+		"eslint-plugin-react-you-might-not-need-an-effect": "^1.0.0",
 		"jsdom": "28.1.0",
 		"storybook": "^10.3.3",
 		"vite": "catalog:",
