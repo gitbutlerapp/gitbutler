@@ -802,6 +802,9 @@ pub enum Subcommands {
     #[clap(visible_alias = ".")]
     #[clap(verbatim_doc_comment)]
     Gui {
+        /// Open the project in a new application window.
+        #[clap(long, short = 'n', default_value_t = false)]
+        new_window: bool,
         /// Path to the directory to open as a GitButler project. Defaults to the current directory.
         path: Option<PathBuf>,
     },

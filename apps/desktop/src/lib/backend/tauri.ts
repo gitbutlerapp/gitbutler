@@ -125,7 +125,7 @@ function handleTopLevel(
 		case "open": {
 			const filePath = params.get("path");
 			if (filePath) {
-				handlers.open(filePath);
+				handlers.open(filePath, params.get("new_window") === "1");
 			}
 			return true;
 		}

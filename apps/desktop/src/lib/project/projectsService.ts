@@ -105,7 +105,6 @@ export class ProjectsService {
 		}
 	}
 
-	// TODO: Reinstate the ability to open a project in a new window.
 	async openProjectInNewWindow(projectId: string) {
 		await this.backendApi.endpoints.openProjectInWindow.mutate({ id: projectId });
 	}
@@ -141,13 +140,17 @@ export class ProjectsService {
 		return await this.backendApi.endpoints.addProject.mutate({ path });
 	}
 
-	async handleDeepLinkOpen(path: string) {
+	async handleDeepLinkOpen(path: string, newWindow = false) {
 		const outcome = await this.backendApi.endpoints.addProjectWithBestEffort.mutate({ path });
 		if (outcome) {
 			switch (outcome.type) {
 				case "added":
 				case "alreadyExists":
-					goto(projectPath(outcome.subject.id));
+					if (newWindow) {
+						await this.openProjectInNewWindow(outcome.subject.id);
+					} else {
+						goto(projectPath(outcome.subject.id));
+					}
 					break;
 				default:
 					handleAddProjectOutcome(outcome);

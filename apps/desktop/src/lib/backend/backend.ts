@@ -2,7 +2,7 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { Readable } from "svelte/store";
 
 export type DeepLinkHandlers = {
-	open: (path: string) => void;
+	open: (path: string, newWindow: boolean) => void;
 	login: (accesToken: string) => void;
 };
 export interface IBackend {
