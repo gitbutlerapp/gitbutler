@@ -2,10 +2,9 @@
 	--diffs-font-size: 12px;
 }
 
-.panel {
+.container {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
-
 	row-gap: 12px;
 }
 

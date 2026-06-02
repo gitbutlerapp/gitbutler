@@ -31,7 +31,7 @@ import { useParams } from "@tanstack/react-router";
 import { Array, Hash, Match } from "effect";
 import { ComponentProps, FC, Suspense, useDeferredValue } from "react";
 import { FilesTree } from "./FilesTree.tsx";
-import styles from "./DetailsPanel.module.css";
+import styles from "./Details.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import { SelectionScope } from "#ui/selection-scopes.ts";
 
@@ -388,7 +388,7 @@ const DiffContents: FC<{
 		}),
 	);
 
-export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
+export const Details: FC<ComponentProps<"div">> = (props) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
 	const urgentOutlineSelection = useAppSelector((state) =>
@@ -404,8 +404,8 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 
 	return (
 		<div
-			{...panelProps}
-			className={classes(panelProps.className, styles.panel)}
+			{...props}
+			className={classes(props.className, styles.container)}
 			style={{ opacity: urgentOutlineSelection !== outlineSelection ? 0.5 : 1 }}
 		>
 			<div className={styles.headerWrap}>

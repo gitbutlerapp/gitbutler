@@ -41,7 +41,7 @@ import { Match, Order } from "effect";
 import { type FC, Component, ReactNode } from "react";
 import { branchOperand, type BranchOperand } from "#ui/operands.ts";
 import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog.tsx";
-import { DetailsPanel } from "./DetailsPanel.tsx";
+import { Details } from "./Details.tsx";
 import styles from "./WorkspacePage.module.css";
 import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree.tsx";
 import { Toast, Tooltip } from "@base-ui/react";
@@ -544,7 +544,7 @@ const WorkspacePage: FC = () => {
 					/>
 				</div>
 
-				<DetailsPanel />
+				<Details />
 			</div>
 
 			{Match.value(dialog).pipe(
