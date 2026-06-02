@@ -544,6 +544,7 @@ mod push {
                 topic: None,
                 topic_from_branch: false,
                 private: false,
+                sign_commits: false,
                 dry_run: false,
             };
 
@@ -565,6 +566,7 @@ mod push {
                 topic: None,
                 topic_from_branch: false,
                 private: false,
+                sign_commits: false,
                 dry_run: false,
             };
 
@@ -591,6 +593,7 @@ mod push {
                 topic: None,
                 topic_from_branch: false,
                 private: false,
+                sign_commits: false,
                 dry_run: false,
             };
 
@@ -614,6 +617,7 @@ mod push {
                 topic: None,
                 topic_from_branch: false,
                 private: false,
+                sign_commits: false,
                 dry_run: false,
             };
 
@@ -637,6 +641,7 @@ mod push {
                 topic: None,
                 topic_from_branch: false,
                 private: false,
+                sign_commits: false,
                 dry_run: false,
             };
 
@@ -671,6 +676,7 @@ mod push {
                 topic: Some("custom-topic".to_string()),
                 topic_from_branch: false,
                 private: false,
+                sign_commits: false,
                 dry_run: false,
             };
 
@@ -702,6 +708,7 @@ mod push {
                 topic: None,
                 topic_from_branch: true,
                 private: false,
+                sign_commits: false,
                 dry_run: false,
             };
 
@@ -733,6 +740,7 @@ mod push {
                 topic: None,
                 topic_from_branch: false,
                 private: true,
+                sign_commits: false,
                 dry_run: false,
             };
 
@@ -761,6 +769,7 @@ mod push {
                 topic: Some("custom-topic".to_string()),
                 topic_from_branch: false,
                 private: true,
+                sign_commits: false,
                 dry_run: false,
             };
 
@@ -807,6 +816,7 @@ mod push {
                 topic: None,
                 topic_from_branch: false,
                 private: false,
+                sign_commits: false,
                 dry_run: false,
             };
 
@@ -833,6 +843,7 @@ mod push {
                 topic: Some("  ".to_string()),
                 topic_from_branch: false,
                 private: false,
+                sign_commits: false,
                 dry_run: false,
             };
 
