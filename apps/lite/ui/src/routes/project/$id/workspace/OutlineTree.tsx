@@ -689,15 +689,17 @@ export const OutlineTree: FC<ComponentProps<"div">> = ({ ref: refProp, ...props 
 							/>
 						</div>
 
-						<div className={styles.headInfo}>
-							{headInfo?.stacks.map((stack) => (
-								<StackC
-									key={stack.id}
-									projectId={projectId}
-									stack={stack}
-									commitTarget={commitTarget?.relativeTo ?? null}
-								/>
-							))}
+						<div className={classes(styles.headInfoScroller, uiStyles.scrollerWithSeparator)}>
+							<div className={styles.headInfo}>
+								{headInfo?.stacks.map((stack) => (
+									<StackC
+										key={stack.id}
+										projectId={projectId}
+										stack={stack}
+										commitTarget={commitTarget?.relativeTo ?? null}
+									/>
+								))}
+							</div>
 						</div>
 
 						{headInfo &&

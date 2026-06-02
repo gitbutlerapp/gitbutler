@@ -14,14 +14,16 @@
 	padding-inline: var(--panel-padding);
 }
 
+.headInfoScroller {
+	padding-inline: var(--panel-padding);
+	padding-bottom: var(--panel-padding);
+	scroll-padding: var(--panel-padding);
+}
+
 .headInfo {
 	display: flex;
 	row-gap: 12px;
 	flex-direction: column;
-	padding-inline: var(--panel-padding);
-	padding-bottom: var(--panel-padding);
-	overflow: auto;
-	scroll-padding: var(--panel-padding);
 }
 
 .segments {

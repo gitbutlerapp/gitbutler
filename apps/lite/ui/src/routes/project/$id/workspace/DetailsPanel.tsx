@@ -1,3 +1,4 @@
+import uiStyles from "#ui/components/ui.module.css";
 import { SuspenseQuery } from "@suspensive/react-query";
 import {
 	branchDetailsQueryOptions,
@@ -129,7 +130,7 @@ const ChangesFileDiffList: FC<{
 		<p className="text-13">No changes.</p>
 	) : (
 		<CodeView
-			className={styles.detailsVirtualizer}
+			className={classes(styles.detailsVirtualizer, uiStyles.scrollerWithSeparator)}
 			items={items}
 			options={{
 				diffStyle: "unified",
@@ -427,7 +428,7 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 						id={"files" satisfies SelectionScope}
 						data-selection-scope
 						tabIndex={0}
-						className={styles.diffFiles}
+						className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
 					/>
 				)}
 

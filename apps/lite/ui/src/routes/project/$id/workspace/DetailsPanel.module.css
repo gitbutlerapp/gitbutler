@@ -36,7 +36,6 @@
 .diffFiles {
 	padding-inline: var(--panel-padding);
 	padding-bottom: var(--panel-padding);
-	overflow: auto;
 }
 
 .diffContents {
