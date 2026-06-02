@@ -36,7 +36,14 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, Toast, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
-import { AbsorptionTarget, TreeChange } from "@gitbutler/but-sdk";
+import { SuspenseQuery } from "@suspensive/react-query";
+import type {
+	AbsorptionTarget,
+	CommitDetails,
+	TreeChange,
+	TreeChanges,
+	WorktreeChanges,
+} from "@gitbutler/but-sdk";
 import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Match } from "effect";
@@ -166,30 +173,24 @@ const useFilesTreeHotkeys = ({
 	});
 };
 
-const CommitFilesTree: FC<{ projectId: string; commit: CommitOperand } & ComponentProps<"div">> = ({
-	projectId,
-	commit,
-	...props
-}) => {
-	const { data } = useSuspenseQuery(
-		commitDetailsWithLineStatsQueryOptions({ projectId, commitId: commit.commitId }),
-	);
-
+const CommitFilesTree: FC<
+	{ projectId: string; commit: CommitOperand; commitDetails: CommitDetails } & ComponentProps<"div">
+> = ({ projectId, commit, commitDetails, ...props }) => {
 	const parent = commitOperand(commit);
 
-	const conflictedPaths = data.conflictEntries
+	const conflictedPaths = commitDetails.conflictEntries
 		? globalThis.Array.from(
 				new Set([
-					...data.conflictEntries.ancestorEntries,
-					...data.conflictEntries.ourEntries,
-					...data.conflictEntries.theirEntries,
+					...commitDetails.conflictEntries.ancestorEntries,
+					...commitDetails.conflictEntries.ourEntries,
+					...commitDetails.conflictEntries.theirEntries,
 				]),
 			).toSorted((a, b) => a.localeCompare(b))
 		: [];
 
 	const files = [
 		...conflictedPaths,
-		...data.changes.filter((x) => !conflictedPaths.includes(x.path)).map((x) => x.path),
+		...commitDetails.changes.filter((x) => !conflictedPaths.includes(x.path)).map((x) => x.path),
 	].map((path) =>
 		fileOperand({
 			parent: commitFileParent({ stackId: commit.stackId, commitId: commit.commitId }),
@@ -200,7 +201,7 @@ const CommitFilesTree: FC<{ projectId: string; commit: CommitOperand } & Compone
 	return (
 		<GenericFilesTree {...props} parent={parent} files={files}>
 			{(() => {
-				if (conflictedPaths.length === 0 && data.changes.length === 0)
+				if (conflictedPaths.length === 0 && commitDetails.changes.length === 0)
 					return <WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>;
 
 				return (
@@ -218,8 +219,8 @@ const CommitFilesTree: FC<{ projectId: string; commit: CommitOperand } & Compone
 								/>
 							))}
 
-						{data.changes.length > 0 &&
-							data.changes.map((change) => (
+						{commitDetails.changes.length > 0 &&
+							commitDetails.changes.map((change) => (
 								<CommitFileRow
 									commitId={commit.commitId}
 									operand={fileOperand({
@@ -241,10 +242,9 @@ const CommitFilesTree: FC<{ projectId: string; commit: CommitOperand } & Compone
 const ChangesFilesTree: FC<
 	{
 		projectId: string;
+		worktreeChanges: WorktreeChanges;
 	} & ComponentProps<"div">
-> = ({ projectId, ...props }) => {
-	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
-
+> = ({ projectId, worktreeChanges, ...props }) => {
 	const parent = changesSectionOperand;
 
 	const files = worktreeChanges.changes.map((change) =>
@@ -287,13 +287,9 @@ const BranchFilesTree: FC<
 		projectId: string;
 		stackId: string;
 		branchRef: Array<number>;
+		branchDiff: TreeChanges;
 	} & ComponentProps<"div">
-> = ({ projectId, stackId, branchRef, ...props }) => {
-	const decodedBranchRef = decodeRefName(branchRef);
-	const { data: branchDiff } = useSuspenseQuery(
-		branchDiffQueryOptions({ projectId, branch: decodedBranchRef }),
-	);
-
+> = ({ projectId, stackId, branchRef, branchDiff, ...props }) => {
 	const parent = branchOperand({ stackId, branchRef });
 
 	const files = branchDiff.changes.map((change) =>
@@ -343,16 +339,47 @@ export const FilesTree: FC<ComponentProps<"div">> = (props) => {
 		>
 			{Match.value(outlineSelection).pipe(
 				Match.tag("Commit", (commit) => (
-					<CommitFilesTree {...props} projectId={projectId} commit={commit} />
+					<SuspenseQuery
+						{...commitDetailsWithLineStatsQueryOptions({
+							projectId,
+							commitId: commit.commitId,
+						})}
+					>
+						{({ data: commitDetails }) => (
+							<CommitFilesTree
+								{...props}
+								projectId={projectId}
+								commit={commit}
+								commitDetails={commitDetails}
+							/>
+						)}
+					</SuspenseQuery>
 				)),
-				Match.tag("ChangesSection", () => <ChangesFilesTree {...props} projectId={projectId} />),
+				Match.tag("ChangesSection", () => (
+					<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
+						{({ data: worktreeChanges }) => (
+							<ChangesFilesTree
+								{...props}
+								projectId={projectId}
+								worktreeChanges={worktreeChanges}
+							/>
+						)}
+					</SuspenseQuery>
+				)),
 				Match.tag("Branch", ({ stackId, branchRef }) => (
-					<BranchFilesTree
-						{...props}
-						projectId={projectId}
-						stackId={stackId}
-						branchRef={branchRef}
-					/>
+					<SuspenseQuery
+						{...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}
+					>
+						{({ data: branchDiff }) => (
+							<BranchFilesTree
+								{...props}
+								projectId={projectId}
+								stackId={stackId}
+								branchRef={branchRef}
+								branchDiff={branchDiff}
+							/>
+						)}
+					</SuspenseQuery>
 				)),
 				Match.orElse(() => <div {...props} />),
 			)}
