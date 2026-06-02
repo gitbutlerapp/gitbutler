@@ -129,25 +129,6 @@ pub fn list(
         });
     }
 
-    // Filter out branches with no commits ahead of target unless --empty is requested.
-    // A branch has 0 commits ahead when its tip equals the target, or when it is an
-    // ancestor of the target (all its commits are already in the target).
-    if let Some(target_oid) = target_oid_for_filter {
-        let repo = ctx.repo.get()?;
-        let cache = repo.commit_graph_if_enabled()?;
-        let mut graph = repo.revision_graph(cache.as_ref());
-        branches.retain(|branch| {
-            if branch.head == target_oid {
-                return false;
-            }
-            // If the merge-base equals the branch head, the branch is already fully contained
-            // in the target and has no commits ahead to show.
-            repo.merge_base_with_graph(branch.head, target_oid, &mut graph)
-                .map(|merge_base| merge_base.detach() != branch.head)
-                .unwrap_or(true)
-        });
-    }
-
     // Filter out dependabot branches unless --all is specified
     if !all {
         branches.retain(|branch| {
@@ -160,20 +141,53 @@ pub fn list(
     }
 
     // Sort all branches by last commit date (most recent first)
-    branches.sort_by_key(|branch| std::cmp::Reverse(branch.updated_at));
+    //
+    // Must happen _before any lazy filtering_.
+    //
+    // We use branch name as a tie breaker for stable output in tests as all timestamps are the
+    // same, but it should rarely matter in a realistic scenario.
+    branches.sort_by(|a, b| {
+        b.updated_at
+            .cmp(&a.updated_at)
+            .then_with(|| a.name.cmp(&b.name))
+    });
 
-    // Limit branches unless --all flag is set
-    let (branches_to_show, more_count) = if all {
-        (branches, 0)
+    let max_branches = if all { usize::MAX / 2 } else { 20 };
+    // Take one extra branch than we want to show to check if there's more to show
+    let num_branches_to_take = max_branches + 1;
+
+    let branches_to_show: Vec<_> = if let Some(target_oid) = target_oid_for_filter {
+        let repo = ctx.repo.get()?;
+        let cache = repo.commit_graph_if_enabled()?;
+        let mut graph = repo.revision_graph(cache.as_ref());
+
+        // Filter out branches with no commits ahead of target unless --empty is requested.
+        // A branch has 0 commits ahead when its tip equals the target, or when it is an
+        // ancestor of the target (all its commits are already in the target).
+        //
+        // This computation is _very heavy_ and can take minutes in repositories with thousands of
+        // branches (e.g. the VS Code repository), so we perform it lazily. It's therefore important
+        // that it happens after sorting.
+        branches
+            .into_iter()
+            .filter(|branch| {
+                if branch.head == target_oid {
+                    return false;
+                }
+                // If the merge-base equals the branch head, the branch is already fully contained
+                // in the target and has no commits ahead to show.
+                repo.merge_base_with_graph(branch.head, target_oid, &mut graph)
+                    .map(|merge_base| merge_base.detach() != branch.head)
+                    .unwrap_or(true)
+            })
+            .take(num_branches_to_take)
+            .collect()
     } else {
-        const MAX_BRANCHES: usize = 20;
-        if branches.len() > MAX_BRANCHES {
-            let remaining = branches.len() - MAX_BRANCHES;
-            (branches.into_iter().take(MAX_BRANCHES).collect(), remaining)
-        } else {
-            (branches, 0)
-        }
+        branches.into_iter().take(num_branches_to_take).collect()
     };
+
+    let has_more_branches = branches_to_show.len() > max_branches;
+    let branches_to_show: Vec<_> = branches_to_show.into_iter().take(max_branches).collect();
 
     // Calculate commits ahead if requested
     let commits_ahead_map: Option<HashMap<String, usize>> = if ahead {
@@ -202,7 +216,7 @@ pub fn list(
         output_json(
             &applied_stacks,
             &branches_to_show,
-            more_count,
+            has_more_branches,
             &branch_review_map,
             commits_ahead_map.as_ref(),
             merge_status_map.as_ref(),
@@ -238,10 +252,11 @@ pub fn list(
             )?;
         }
 
-        if more_count > 0 {
+        if has_more_branches {
             writeln!(
                 out,
-                "\n... and {more_count} more branches (use --all to show all)"
+                "\n... result truncated to {} matching branches (use --all to show all that match filters)",
+                branches_to_show.len()
             )?;
         }
     }
@@ -252,7 +267,7 @@ pub fn list(
 fn output_json(
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
     branches: &[gitbutler_branch_actions::BranchListing],
-    more_count: usize,
+    has_more_branches: bool,
     branch_review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
     commits_ahead_map: Option<&HashMap<String, usize>>,
     merge_status_map: Option<&HashMap<String, bool>>,
@@ -329,11 +344,7 @@ fn output_json(
     let output = BranchListOutput {
         applied_stacks: applied_stacks_output,
         branches: branches_output,
-        more_branches: if more_count > 0 {
-            Some(more_count)
-        } else {
-            None
-        },
+        has_more_branches,
     };
 
     out.write_value(output)?;

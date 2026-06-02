@@ -45,3 +45,85 @@ fn list_hides_empty_applied_branches_by_default() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn list_truncates_results_if_they_exceed_default_limit() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+    let default_limit = 20;
+
+    for i in 0..default_limit {
+        env.invoke_git(&format!("branch branch-{i} A"));
+    }
+
+    env.but("branch list")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Applied branches
+active  ✓ *A          26y ago    author
+
+Unapplied Branches
+local   ✓ branch-0  ↑1     26y ago    author
+local   ✓ branch-1  ↑1     26y ago    author
+local   ✓ branch-10 ↑1     26y ago    author
+local   ✓ branch-11 ↑1     26y ago    author
+local   ✓ branch-12 ↑1     26y ago    author
+local   ✓ branch-13 ↑1     26y ago    author
+local   ✓ branch-14 ↑1     26y ago    author
+local   ✓ branch-15 ↑1     26y ago    author
+local   ✓ branch-16 ↑1     26y ago    author
+local   ✓ branch-17 ↑1     26y ago    author
+local   ✓ branch-18 ↑1     26y ago    author
+local   ✓ branch-19 ↑1     26y ago    author
+local   ✓ branch-2  ↑1     26y ago    author
+local   ✓ branch-3  ↑1     26y ago    author
+local   ✓ branch-4  ↑1     26y ago    author
+local   ✓ branch-5  ↑1     26y ago    author
+local   ✓ branch-6  ↑1     26y ago    author
+local   ✓ branch-7  ↑1     26y ago    author
+local   ✓ branch-8  ↑1     26y ago    author
+local   ✓ branch-9  ↑1     26y ago    author
+
+"#]])
+        .stderr_eq(snapbox::str![[]]);
+
+    // This should be the tipping point for truncating branch results
+    env.invoke_git("branch branch-20 A");
+
+    env.but("branch list")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Applied branches
+active  ✓ *A          26y ago    author
+
+Unapplied Branches
+local   ✓ branch-0  ↑1     26y ago    author
+local   ✓ branch-1  ↑1     26y ago    author
+local   ✓ branch-10 ↑1     26y ago    author
+local   ✓ branch-11 ↑1     26y ago    author
+local   ✓ branch-12 ↑1     26y ago    author
+local   ✓ branch-13 ↑1     26y ago    author
+local   ✓ branch-14 ↑1     26y ago    author
+local   ✓ branch-15 ↑1     26y ago    author
+local   ✓ branch-16 ↑1     26y ago    author
+local   ✓ branch-17 ↑1     26y ago    author
+local   ✓ branch-18 ↑1     26y ago    author
+local   ✓ branch-19 ↑1     26y ago    author
+local   ✓ branch-2  ↑1     26y ago    author
+local   ✓ branch-20 ↑1     26y ago    author
+local   ✓ branch-3  ↑1     26y ago    author
+local   ✓ branch-4  ↑1     26y ago    author
+local   ✓ branch-5  ↑1     26y ago    author
+local   ✓ branch-6  ↑1     26y ago    author
+local   ✓ branch-7  ↑1     26y ago    author
+local   ✓ branch-8  ↑1     26y ago    author
+
+... result truncated to 20 matching branches (use --all to show all that match filters)
+
+"#]])
+        .stderr_eq(snapbox::str![[]]);
+
+    Ok(())
+}

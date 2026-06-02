@@ -14,8 +14,7 @@ pub struct BranchNewOutput {
 pub struct BranchListOutput {
     pub applied_stacks: Vec<StackOutput>,
     pub branches: Vec<BranchOutput>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub more_branches: Option<usize>,
+    pub has_more_branches: bool,
 }
 
 #[derive(Debug, Serialize)]
