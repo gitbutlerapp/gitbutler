@@ -7,7 +7,6 @@
 use std::{
     borrow::Borrow,
     collections::{HashMap, HashSet, VecDeque, hash_map::Entry},
-    ops::Deref,
     time::Duration,
 };
 
@@ -723,7 +722,7 @@ fn id_for_tree_diff(
         ),
         gix::objs::TreeRefIter::from_bytes(&rhs_tree.data, repo.object_hash()),
         &mut state,
-        repo.objects.deref(),
+        &repo.objects,
         &mut delegate,
     )?;
     let Some(hasher) = delegate.hash.take() else {
