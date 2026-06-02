@@ -32,6 +32,7 @@ import {
 	type CommitUncommitParams,
 	type RestoreSnapshotWithKindParams,
 	type PeelRestoreSnapshotParams,
+	type WorkspaceIntegrateUpstreamParams,
 } from "./ipc.js";
 import {
 	absorb,
@@ -67,6 +68,7 @@ import {
 	getUndoTargetSnapshot,
 	getRedoTargetSnapshot,
 	peelRestoreSnapshot,
+	workspaceIntegrateUpstream,
 } from "@gitbutler/but-sdk";
 import {
 	app,
@@ -426,6 +428,11 @@ const registerIpcHandlers = (): void => {
 	senderValidatingHandle(
 		liteIpcChannels.unapplyStack,
 		(_e, { projectId, stackId }: UnapplyStackParams) => unapplyStack(projectId, stackId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.workspaceIntegrateUpstream,
+		(_e, { projectId, updates, dryRun }: WorkspaceIntegrateUpstreamParams) =>
+			workspaceIntegrateUpstream(projectId, updates, dryRun),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.watcherSubscribe,
