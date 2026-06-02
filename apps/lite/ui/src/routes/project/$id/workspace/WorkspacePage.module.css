@@ -55,8 +55,11 @@
 	gap: 4px;
 }
 
-.workspaceControlsRight {
+.workspaceControlsActions {
+	display: flex;
+	align-items: center;
 	margin-inline-start: auto;
+	gap: 4px;
 }
 
 .workspaceName {

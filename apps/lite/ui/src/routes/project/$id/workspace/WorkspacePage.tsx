@@ -19,7 +19,7 @@ import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import { globalHotkeys, workspaceHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { type AppThunk, useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { BranchListing, Segment, Snapshot, Stack } from "@gitbutler/but-sdk";
+import { BottomUpdate, BranchListing, Segment, Snapshot, Stack } from "@gitbutler/but-sdk";
 import {
 	getHotkeyManager,
 	getSequenceManager,
@@ -34,6 +34,7 @@ import {
 	useIsMutating,
 	useMutation,
 	useQuery,
+	useQueryClient,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
@@ -175,6 +176,27 @@ const stackToBranchPickerOptions = (stack: Stack): Array<BranchPickerOption> => 
 	});
 };
 
+const stackToBottomRebaseUpdate = (stack: Stack): BottomUpdate | null => {
+	const bottomSegment = stack.segments.at(-1);
+	if (!bottomSegment) return null;
+
+	const bottomCommit = bottomSegment.commits.at(-1);
+	if (bottomCommit)
+		return {
+			kind: "rebase",
+			selector: { type: "commit", subject: bottomCommit.id },
+		};
+
+	const bottomRef = bottomSegment.refName?.fullNameBytes;
+	if (bottomRef)
+		return {
+			kind: "rebase",
+			selector: { type: "referenceBytes", subject: bottomRef },
+		};
+
+	return null;
+};
+
 const BranchPicker: FC<{
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -247,6 +269,43 @@ const useApplyBranch = () => {
 			toastManager.add({
 				type: "error",
 				title: "Failed to apply branch",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+const useRebaseAllStacks = ({ projectId }: { projectId: string }) => {
+	const dispatch = useAppDispatch();
+	const queryClient = useQueryClient();
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: (updates: Array<BottomUpdate>) =>
+			window.lite.workspaceIntegrateUpstream({ projectId, updates, dryRun: false }),
+		onSuccess: (workspace) => {
+			queryClient.setQueryData(headInfoQueryOptions(projectId).queryKey, workspace.headInfo);
+			dispatch(
+				projectActions.updateRewrittenCommitReferences({
+					projectId,
+					replacedCommits: workspace.replacedCommits,
+					headInfo: workspace.headInfo,
+				}),
+			);
+
+			toastManager.add({
+				type: "success",
+				title: "Rebased all stacks",
+			});
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to rebase stacks",
 				description: errorMessageForToast(error),
 				priority: "high",
 			});
@@ -469,6 +528,7 @@ const WorkspacePage: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
+	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	useWorkspaceHotkeys(projectId);
 
@@ -501,6 +561,18 @@ const WorkspacePage: FC = () => {
 		dispatch(projectActions.openApplyBranchPicker({ projectId }));
 	};
 
+	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const rebaseUpdates =
+		headInfo?.stacks.flatMap((stack) => {
+			const update = stackToBottomRebaseUpdate(stack);
+			return update ? [update] : [];
+		}) ?? [];
+	const rebaseAllStacksMutation = useRebaseAllStacks({ projectId });
+	const rebaseAllStacks = () => {
+		rebaseAllStacksMutation.mutate(rebaseUpdates);
+	};
+	const canRebaseAllStacks = outlineMode._tag === "Default" && rebaseUpdates.length > 0;
+
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
@@ -517,23 +589,31 @@ const WorkspacePage: FC = () => {
 							<ActivitySpinner />
 						</div>
 
-						<Tooltip.Root>
-							<Tooltip.Trigger
-								className={classes(styles.workspaceControlsRight, getButtonClassName({}))}
-								onClick={openApplyBranchPicker}
+						<div className={styles.workspaceControlsActions}>
+							<button
+								type="button"
+								disabled={!canRebaseAllStacks}
+								className={getButtonClassName({})}
+								onClick={rebaseAllStacks}
 							>
-								Apply branch
-							</Tooltip.Trigger>
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup
-										render={<TooltipPopup kbd={workspaceHotkeys.applyBranch.hotkey} />}
-									>
-										{workspaceHotkeys.applyBranch.meta.name}
-									</Tooltip.Popup>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
+								Rebase all
+							</button>
+
+							<Tooltip.Root>
+								<Tooltip.Trigger className={getButtonClassName({})} onClick={openApplyBranchPicker}>
+									Apply branch
+								</Tooltip.Trigger>
+								<Tooltip.Portal>
+									<Tooltip.Positioner sideOffset={4}>
+										<Tooltip.Popup
+											render={<TooltipPopup kbd={workspaceHotkeys.applyBranch.hotkey} />}
+										>
+											{workspaceHotkeys.applyBranch.meta.name}
+										</Tooltip.Popup>
+									</Tooltip.Positioner>
+								</Tooltip.Portal>
+							</Tooltip.Root>
+						</div>
 					</header>
 
 					<OutlineTree

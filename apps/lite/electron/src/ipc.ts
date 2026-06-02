@@ -4,6 +4,7 @@ import type {
 	BranchDetails,
 	BranchListing,
 	BranchListingFilter,
+	BottomUpdate,
 	CommitAbsorption,
 	HunkAssignmentRequest,
 	CommitDetails,
@@ -26,6 +27,7 @@ import type {
 	UnifiedPatch,
 	WatcherEvent,
 	WorktreeChanges,
+	WorkspaceState,
 	UncommitResult,
 	RestoreKind,
 	Snapshot,
@@ -193,6 +195,12 @@ export interface UnapplyStackParams {
 	stackId: string;
 }
 
+export interface WorkspaceIntegrateUpstreamParams {
+	projectId: string;
+	updates: Array<BottomUpdate>;
+	dryRun: boolean;
+}
+
 export interface UpdateBranchNameParams {
 	projectId: string;
 	stackId: string;
@@ -275,6 +283,7 @@ export interface LiteElectronApi {
 	showNativeMenu: (params: ShowNativeMenuParams) => Promise<string | null>;
 	treeChangeDiffs: (params: TreeChangeDiffParams) => Promise<UnifiedPatch | null>;
 	unapplyStack: (params: UnapplyStackParams) => Promise<void>;
+	workspaceIntegrateUpstream: (params: WorkspaceIntegrateUpstreamParams) => Promise<WorkspaceState>;
 	watcherSubscribe: (projectId: string, callback: (event: WatcherEvent) => void) => Promise<string>;
 	watcherUnsubscribe: (subscriptionId: string) => Promise<boolean>;
 	watcherStopAll: () => Promise<number>;
@@ -320,6 +329,7 @@ export const liteIpcChannels = {
 	showNativeMenu: "lite:show-native-menu",
 	treeChangeDiffs: "workspace:tree-change-diffs",
 	unapplyStack: "workspace:unapply-stack",
+	workspaceIntegrateUpstream: "workspace:integrate-upstream",
 	watcherSubscribe: "workspace:watcher-subscribe",
 	watcherUnsubscribe: "workspace:watcher-unsubscribe",
 	watcherStopAll: "workspace:watcher-stop-all",

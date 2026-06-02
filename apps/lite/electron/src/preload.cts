@@ -22,6 +22,7 @@ import type {
 	UnifiedPatch,
 	WatcherEvent,
 	WorktreeChanges,
+	WorkspaceState,
 	UncommitResult,
 	Snapshot,
 } from "@gitbutler/but-sdk";
@@ -112,6 +113,8 @@ const api: LiteElectronApi = {
 	treeChangeDiffs: (params) =>
 		ipcRenderer.invoke("workspace:tree-change-diffs", params) as Promise<UnifiedPatch | null>,
 	unapplyStack: (params) => ipcRenderer.invoke("workspace:unapply-stack", params) as Promise<void>,
+	workspaceIntegrateUpstream: (params) =>
+		ipcRenderer.invoke("workspace:integrate-upstream", params) as Promise<WorkspaceState>,
 	/**
 	 * Subscribe to a project.
 	 *
