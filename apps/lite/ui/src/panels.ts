@@ -11,7 +11,6 @@ import {
 	NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
-import type { PanelsState } from "./panels/state.ts";
 
 export type Panel = "outline" | "files" | "details";
 const allPanels: Array<Panel> = ["outline", "files", "details"];
@@ -28,12 +27,12 @@ export const focusPanel = (panel: Panel) => {
 	document.getElementById(panel)?.focus({ focusVisible: false });
 };
 
-export const focusAdjacentPanel = (panelsState: PanelsState, offset: -1 | 1) => {
+export const focusAdjacentPanel = (filesVisible: boolean, offset: -1 | 1) => {
 	const currentPanel = getFocusedProjectPanel(document.activeElement);
 
 	const orderedPanels: Array<Panel> = [
 		"outline",
-		...(panelsState.filesVisible ? (["files"] satisfies Array<Panel>) : []),
+		...(filesVisible ? (["files"] satisfies Array<Panel>) : []),
 		"details",
 	];
 

@@ -11,7 +11,7 @@ import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
 import { commitOperand, type Operand } from "#ui/operands.ts";
 import {
 	projectActions,
-	selectProjectPanelsState,
+	selectProjectFilesVisible,
 	selectProjectSelectionFiles,
 	selectProjectSelectionOutline,
 } from "#ui/projects/state.ts";
@@ -211,13 +211,13 @@ const Header: FC<{
 const FilesToggle: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
-	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
+	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
 
 	return (
 		<Tooltip.Root>
 			<Tooltip.Trigger
 				className={getButtonClassName({})}
-				aria-pressed={panelsState.filesVisible}
+				aria-pressed={filesVisible}
 				onClick={() => dispatch(projectActions.toggleFilesPanel({ projectId }))}
 			>
 				Files
@@ -389,7 +389,7 @@ const DiffContents: FC<{
 
 export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
+	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
 	const urgentOutlineSelection = useAppSelector((state) =>
 		selectProjectSelectionOutline(state, projectId),
 	);
@@ -421,8 +421,8 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 				</div>
 			</div>
 
-			<div className={classes(styles.panels, panelsState.filesVisible && styles.panelsWithFiles)}>
-				{panelsState.filesVisible && (
+			<div className={classes(styles.panels, filesVisible && styles.panelsWithFiles)}>
+				{filesVisible && (
 					<FilesPanel
 						id={"files" satisfies Panel}
 						data-panel

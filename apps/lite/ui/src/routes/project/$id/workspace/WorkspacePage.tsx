@@ -7,8 +7,8 @@ import { focusAdjacentPanel, focusPanel, getFocusedProjectPanel, Panel } from "#
 import {
 	projectActions,
 	selectProjectDialogState,
+	selectProjectFilesVisible,
 	selectProjectOutlineModeState,
-	selectProjectPanelsState,
 } from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
@@ -45,9 +45,9 @@ import { useActiveElement } from "#ui/focus.ts";
 const toggleFilesPanel =
 	({ projectId, focusedPanel }: { projectId: string; focusedPanel: Panel | null }): AppThunk =>
 	(dispatch, getState) => {
-		const panelsState = selectProjectPanelsState(getState(), projectId);
+		const filesVisible = selectProjectFilesVisible(getState(), projectId);
 
-		if (focusedPanel === "files" && panelsState.filesVisible) focusPanel("outline");
+		if (focusedPanel === "files" && filesVisible) focusPanel("outline");
 
 		dispatch(projectActions.toggleFilesPanel({ projectId }));
 	};
@@ -350,7 +350,7 @@ const useRestoreSnapshot = ({ projectId }: { projectId: string }) => {
 const useWorkspaceHotkeys = (projectId: string) => {
 	const dispatch = useAppDispatch();
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
-	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
+	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
 	const activeElement = useActiveElement();
 	const focusedPanel = getFocusedProjectPanel(activeElement);
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -410,7 +410,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		{
 			hotkey: workspaceHotkeys.focusPreviousPanel.hotkey,
 			callback: () => {
-				focusAdjacentPanel(panelsState, -1);
+				focusAdjacentPanel(filesVisible, -1);
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -420,7 +420,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		{
 			hotkey: workspaceHotkeys.focusNextPanel.hotkey,
 			callback: () => {
-				focusAdjacentPanel(panelsState, 1);
+				focusAdjacentPanel(filesVisible, 1);
 			},
 			options: {
 				conflictBehavior: "allow",
