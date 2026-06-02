@@ -35,7 +35,6 @@ import { mergeProps, Toast, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
 import type { CommitDetails, TreeChange, TreeChanges, WorktreeChanges } from "@gitbutler/but-sdk";
 import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
 import { Array, Match } from "effect";
 import { ComponentProps, createContext, FC, ReactNode, use, useEffect, useRef } from "react";
 import styles from "./FilesTree.module.css";
@@ -357,31 +356,6 @@ const useIsSelected = ({ projectId, operand }: { projectId: string; operand: Ope
 const treeItemId = (operand: Operand): string =>
 	`files-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
 
-const useCopyPathMenuItem = (relativePath: string): NativeMenuItem => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
-
-	const selectedProject = projects.find((project) => project.id === projectId);
-	if (!selectedProject) throw new Error("Could not find selected project");
-
-	return nativeMenuItem({
-		label: "Copy Path",
-		submenu: [
-			nativeMenuItem({
-				label: "Absolute Path",
-				onSelect: async () => {
-					const absolutePath = await window.lite.pathJoin(selectedProject.path, relativePath);
-					await window.lite.clipboardWriteText(absolutePath);
-				},
-			}),
-			nativeMenuItem({
-				label: "Relative Path",
-				onSelect: () => window.lite.clipboardWriteText(relativePath),
-			}),
-		],
-	});
-};
-
 const useCommitUncommitChanges = () => {
 	const dispatch = useAppDispatch();
 
@@ -482,17 +456,37 @@ const FileTreeRow: FC<{
 	item: FileTreeItem;
 	projectId: string;
 }> = ({ item, projectId }) => {
-	const path = item._tag === "Change" ? item.change.path : item.path;
+	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 	const [label, strLabel] =
 		item._tag === "Change" ? changeLabel(item.change) : [`C ${item.path}`, `C ${item.path}`];
 
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 	const dispatch = useAppDispatch();
-	const copyPathMenuItem = useCopyPathMenuItem(path);
+
+	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
+
+	const selectedProject = projects.find((project) => project.id === projectId);
+	if (!selectedProject) throw new Error("Could not find selected project");
+
 	const commitUncommitChanges = useCommitUncommitChanges();
 
 	const menuItems: Array<NativeMenuItem> = [
-		copyPathMenuItem,
+		nativeMenuItem({
+			label: "Copy Path",
+			submenu: [
+				nativeMenuItem({
+					label: "Absolute Path",
+					onSelect: async () => {
+						const absolutePath = await window.lite.pathJoin(selectedProject.path, relativePath);
+						await window.lite.clipboardWriteText(absolutePath);
+					},
+				}),
+				nativeMenuItem({
+					label: "Relative Path",
+					onSelect: () => window.lite.clipboardWriteText(relativePath),
+				}),
+			],
+		}),
 		...Match.value(item).pipe(
 			Match.when(
 				{ _tag: "Change", operand: { _tag: "File", parent: { _tag: "Commit" } } },
