@@ -9,7 +9,7 @@ import {
 } from "#ui/api/queries.ts";
 import { decodeRefName } from "#ui/api/ref-name.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
-import { commitOperand, type Operand } from "#ui/operands.ts";
+import { branchOperand, changesSectionOperand, commitOperand, type Operand } from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectFilesVisible,
@@ -152,7 +152,7 @@ const Header: FC<{
 	Match.value(selection).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
-			Branch: ({ branchRef }) => {
+			Branch: ({ stackId, branchRef }) => {
 				const decodedBranchRef = decodeRefName(branchRef);
 
 				return (
@@ -165,22 +165,34 @@ const Header: FC<{
 						})}
 					>
 						{({ data: branchDetails }) => (
-							<header className={styles.header}>
-								<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
-								{branchDetails.prNumber != null && (
-									<h4 className={classes("text-13", "text-bold", styles.pr)}>
-										PR #{branchDetails.prNumber}
-									</h4>
-								)}
-							</header>
+							<OperationSourceC
+								projectId={projectId}
+								selectionScope="outline"
+								source={branchOperand({ stackId, branchRef })}
+							>
+								<header className={styles.header}>
+									<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
+									{branchDetails.prNumber != null && (
+										<h4 className={classes("text-13", "text-bold", styles.pr)}>
+											PR #{branchDetails.prNumber}
+										</h4>
+									)}
+								</header>
+							</OperationSourceC>
 						)}
 					</SuspenseQuery>
 				);
 			},
 			ChangesSection: () => (
-				<header className={styles.header}>
-					<h3 className={classes("text-14", "text-semibold")}>Changes</h3>
-				</header>
+				<OperationSourceC
+					projectId={projectId}
+					selectionScope="outline"
+					source={changesSectionOperand}
+				>
+					<header className={styles.header}>
+						<h3 className={classes("text-14", "text-semibold")}>Changes</h3>
+					</header>
+				</OperationSourceC>
 			),
 			File: () => null,
 			Commit: ({ commitId, stackId }) => {
