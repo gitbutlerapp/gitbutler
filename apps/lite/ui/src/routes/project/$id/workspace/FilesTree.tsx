@@ -33,13 +33,7 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, Toast, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
-import type {
-	AbsorptionTarget,
-	CommitDetails,
-	TreeChange,
-	TreeChanges,
-	WorktreeChanges,
-} from "@gitbutler/but-sdk";
+import type { CommitDetails, TreeChange, TreeChanges, WorktreeChanges } from "@gitbutler/but-sdk";
 import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Match } from "effect";
@@ -162,8 +156,6 @@ const useFilesTreeHotkeys = ({
 export const CommitFilesTree: FC<
 	{ projectId: string; commit: CommitOperand; commitDetails: CommitDetails } & ComponentProps<"div">
 > = ({ projectId, commit, commitDetails, ...props }) => {
-	const parent = commitOperand(commit);
-
 	const conflictedPaths = commitDetails.conflictEntries
 		? globalThis.Array.from(
 				new Set([
@@ -173,55 +165,36 @@ export const CommitFilesTree: FC<
 				]),
 			).toSorted((a, b) => a.localeCompare(b))
 		: [];
-
-	const files = [
-		...conflictedPaths,
-		...commitDetails.changes.filter((x) => !conflictedPaths.includes(x.path)).map((x) => x.path),
-	].map((path) =>
-		fileOperand({
-			parent: commitFileParent({ stackId: commit.stackId, commitId: commit.commitId }),
-			path,
-		}),
-	);
+	const conflictedPathSet = new Set(conflictedPaths);
 
 	return (
-		<FilesTree {...props} parent={parent} files={files}>
-			{(() => {
-				if (conflictedPaths.length === 0 && commitDetails.changes.length === 0)
-					return <WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>;
-
-				return (
-					<div role="group">
-						{conflictedPaths.length > 0 &&
-							conflictedPaths.map((path) => (
-								<ConflictedFileRow
-									operand={fileOperand({
-										parent: commitFileParent(commit),
-										path,
-									})}
-									key={path}
-									path={path}
-									projectId={projectId}
-								/>
-							))}
-
-						{commitDetails.changes.length > 0 &&
-							commitDetails.changes.map((change) => (
-								<CommitFileRow
-									commitId={commit.commitId}
-									operand={fileOperand({
-										parent: commitFileParent(commit),
-										path: change.path,
-									})}
-									key={change.path}
-									change={change}
-									projectId={projectId}
-								/>
-							))}
-					</div>
-				);
-			})()}
-		</FilesTree>
+		<FilesTree
+			{...props}
+			projectId={projectId}
+			parent={commitOperand(commit)}
+			items={[
+				...conflictedPaths.map((path) =>
+					conflictFileTreeItem({
+						operand: fileOperand({
+							parent: commitFileParent(commit),
+							path,
+						}),
+						path,
+					}),
+				),
+				...commitDetails.changes
+					.filter((change) => !conflictedPathSet.has(change.path))
+					.map((change) =>
+						changeFileTreeItem({
+							change,
+							operand: fileOperand({
+								parent: commitFileParent(commit),
+								path: change.path,
+							}),
+						}),
+					),
+			]}
+		/>
 	);
 };
 
@@ -231,40 +204,31 @@ export const ChangesFilesTree: FC<
 		worktreeChanges: WorktreeChanges;
 	} & ComponentProps<"div">
 > = ({ projectId, worktreeChanges, ...props }) => {
-	const parent = changesSectionOperand;
-
-	const files = worktreeChanges.changes.map((change) =>
-		fileOperand({ parent: changesFileParent, path: change.path }),
-	);
-
 	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
 		worktreeChanges.dependencies?.diffs ?? [],
 	);
 
 	return (
-		<FilesTree {...props} parent={parent} files={files}>
-			{worktreeChanges.changes.length === 0 ? (
-				<WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>
-			) : (
-				<div role="group">
-					{worktreeChanges.changes.map((change) => {
-						const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
-						const dependencyCommitIds = hunkDependencyDiffs
-							? getDependencyCommitIds({ hunkDependencyDiffs })
-							: undefined;
+		<FilesTree
+			{...props}
+			projectId={projectId}
+			parent={changesSectionOperand}
+			items={worktreeChanges.changes.map((change) => {
+				const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
+				const dependencyCommitIds = hunkDependencyDiffs
+					? getDependencyCommitIds({ hunkDependencyDiffs })
+					: undefined;
 
-						return (
-							<ChangesFileRow
-								key={change.path}
-								change={change}
-								dependencyCommitIds={dependencyCommitIds}
-								projectId={projectId}
-							/>
-						);
-					})}
-				</div>
-			)}
-		</FilesTree>
+				return changeFileTreeItem({
+					change,
+					dependencyCommitIds,
+					operand: fileOperand({
+						parent: changesFileParent,
+						path: change.path,
+					}),
+				});
+			})}
+		/>
 	);
 };
 
@@ -275,48 +239,59 @@ export const BranchFilesTree: FC<
 		branchRef: Array<number>;
 		branchDiff: TreeChanges;
 	} & ComponentProps<"div">
-> = ({ projectId, stackId, branchRef, branchDiff, ...props }) => {
-	const parent = branchOperand({ stackId, branchRef });
+> = ({ projectId, stackId, branchRef, branchDiff, ...props }) => (
+	<FilesTree
+		{...props}
+		projectId={projectId}
+		parent={branchOperand({ stackId, branchRef })}
+		items={branchDiff.changes.map((change) =>
+			changeFileTreeItem({
+				change,
+				operand: fileOperand({
+					parent: branchFileParent({ stackId, branchRef }),
+					path: change.path,
+				}),
+			}),
+		)}
+	/>
+);
 
-	const files = branchDiff.changes.map((change) =>
-		fileOperand({
-			parent: branchFileParent({ stackId, branchRef }),
-			path: change.path,
-		}),
-	);
-
-	return (
-		<FilesTree {...props} parent={parent} files={files}>
-			{branchDiff.changes.length === 0 ? (
-				<WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>
-			) : (
-				<div role="group">
-					{branchDiff.changes.map((change) => (
-						<BranchFileRow
-							operand={fileOperand({
-								parent: branchFileParent({ stackId, branchRef }),
-								path: change.path,
-							})}
-							key={change.path}
-							change={change}
-							projectId={projectId}
-						/>
-					))}
-				</div>
-			)}
-		</FilesTree>
-	);
+type ChangeFileTreeItem = {
+	change: TreeChange;
+	dependencyCommitIds?: Array.NonEmptyArray<string>;
+	operand: Operand;
 };
 
-const FilesTree: FC<{ parent: Operand; files: Array<Operand> } & ComponentProps<"div">> = ({
-	className,
-	children,
-	parent,
-	files,
-	ref: refProp,
-	...props
-}) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+const changeFileTreeItem = ({
+	change,
+	dependencyCommitIds,
+	operand,
+}: ChangeFileTreeItem): FileTreeItem => ({
+	_tag: "Change",
+	change,
+	dependencyCommitIds,
+	operand,
+});
+
+type ConflictFileTreeItem = {
+	operand: Operand;
+	path: string;
+};
+
+const conflictFileTreeItem = ({ operand, path }: ConflictFileTreeItem): FileTreeItem => ({
+	_tag: "Conflict",
+	operand,
+	path,
+});
+
+type FileTreeItem =
+	| ({ _tag: "Change" } & ChangeFileTreeItem)
+	| ({ _tag: "Conflict" } & ConflictFileTreeItem);
+
+const FilesTree: FC<
+	{ projectId: string; parent: Operand; items: Array<FileTreeItem> } & ComponentProps<"div">
+> = ({ className, items, parent, projectId, ref: refProp, ...props }) => {
+	const files = items.map((item) => item.operand);
 
 	const navigationIndex = useNavigationIndex(projectId, parent, files);
 	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
@@ -353,7 +328,19 @@ const FilesTree: FC<{ parent: Operand; files: Array<Operand> } & ComponentProps<
 						</div>
 					</ItemRow>
 
-					{children}
+					{items.length === 0 ? (
+						<WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>
+					) : (
+						<div role="group">
+							{items.map((item) => (
+								<FileTreeRow
+									key={operandIdentityKey(item.operand)}
+									item={item}
+									projectId={projectId}
+								/>
+							))}
+						</div>
+					)}
 				</TreeItem>
 			</div>
 		</NavigationIndexContext>
@@ -491,176 +478,85 @@ const TreeItem: FC<
 	});
 };
 
-const CommitFileRow: FC<{
-	commitId: string;
-	change: TreeChange;
-	operand: Operand;
+const FileTreeRow: FC<{
+	item: FileTreeItem;
 	projectId: string;
-}> = ({ commitId, change, operand, projectId }) => {
-	const [label, strLabel] = changeLabel(change);
-	const copyPathMenuItem = useCopyPathMenuItem(change.path);
-	const commitUncommitChanges = useCommitUncommitChanges();
-	const menuItems: Array<NativeMenuItem> = [
-		copyPathMenuItem,
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Uncommit",
-			enabled: !commitUncommitChanges.isPending,
-			onSelect: () =>
-				commitUncommitChanges.mutate({
-					projectId,
-					commitId,
-					assignTo: null,
-					changes: [createDiffSpec(change, [])],
-					dryRun: false,
-				}),
-		}),
-	];
+}> = ({ item, projectId }) => {
+	const path = item._tag === "Change" ? item.change.path : item.path;
+	const [label, strLabel] =
+		item._tag === "Change" ? changeLabel(item.change) : [`C ${item.path}`, `C ${item.path}`];
 
-	return (
-		<TreeItem
-			projectId={projectId}
-			operand={operand}
-			aria-label={strLabel}
-			render={
-				<OperationSourceC
-					projectId={projectId}
-					selectionScope="files"
-					source={operand}
-					render={<ItemRow projectId={projectId} operand={operand} />}
-				/>
-			}
-		>
-			<div
-				className={workspaceItemRowStyles.itemRowLabel}
-				onContextMenu={(event) => {
-					void showNativeContextMenu(event, menuItems);
-				}}
-			>
-				{label}
-			</div>
-		</TreeItem>
-	);
-};
-
-const BranchFileRow: FC<{
-	change: TreeChange;
-	operand: Operand;
-	projectId: string;
-}> = ({ change, operand, projectId }) => {
-	const [label, strLabel] = changeLabel(change);
-	const copyPathMenuItem = useCopyPathMenuItem(change.path);
-	const menuItems: Array<NativeMenuItem> = [copyPathMenuItem];
-
-	return (
-		<TreeItem
-			projectId={projectId}
-			operand={operand}
-			aria-label={strLabel}
-			render={
-				<OperationSourceC
-					projectId={projectId}
-					selectionScope="files"
-					source={operand}
-					render={<ItemRow projectId={projectId} operand={operand} />}
-				/>
-			}
-		>
-			<div
-				className={workspaceItemRowStyles.itemRowLabel}
-				onContextMenu={(event) => {
-					void showNativeContextMenu(event, menuItems);
-				}}
-			>
-				{label}
-			</div>
-		</TreeItem>
-	);
-};
-
-const ConflictedFileRow: FC<{
-	path: string;
-	operand: Operand;
-	projectId: string;
-}> = ({ path, operand, projectId }) => {
-	const label = `C ${path}`;
-	const copyPathMenuItem = useCopyPathMenuItem(path);
-	const menuItems: Array<NativeMenuItem> = [copyPathMenuItem];
-
-	return (
-		<TreeItem
-			projectId={projectId}
-			operand={operand}
-			aria-label={label}
-			render={
-				<OperationSourceC
-					projectId={projectId}
-					selectionScope="files"
-					source={operand}
-					render={<ItemRow projectId={projectId} operand={operand} />}
-				/>
-			}
-		>
-			<div
-				className={workspaceItemRowStyles.itemRowLabel}
-				onContextMenu={(event) => {
-					void showNativeContextMenu(event, menuItems);
-				}}
-			>
-				{label}
-			</div>
-		</TreeItem>
-	);
-};
-
-const ChangesFileRow: FC<{
-	change: TreeChange;
-	dependencyCommitIds: Array.NonEmptyArray<string> | undefined;
-	projectId: string;
-}> = ({ change, dependencyCommitIds, projectId }) => {
-	const operand = fileOperand({ parent: changesFileParent, path: change.path });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-
 	const dispatch = useAppDispatch();
-	const enterAbsorbMode = (source: Operand, sourceTarget: AbsorptionTarget) => {
-		dispatch(projectActions.enterAbsorbMode({ projectId, source, sourceTarget }));
-		focusSelectionScope("outline");
-	};
+	const copyPathMenuItem = useCopyPathMenuItem(path);
+	const commitUncommitChanges = useCommitUncommitChanges();
 
-	const absorb = () => {
-		enterAbsorbMode(operand, {
-			type: "treeChanges",
-			subject: {
-				changes: [change],
-				assignedStackId: null,
-			},
-		});
-	};
+		const menuItems: Array<NativeMenuItem> = [
+			copyPathMenuItem,
+			...Match.value(item).pipe(
+				Match.when(
+					{ _tag: "Change", operand: { _tag: "File", parent: { _tag: "Commit" } } },
+					({ change, operand }) => [
+						nativeMenuSeparator,
+						nativeMenuItem({
+							label: "Uncommit",
+							enabled: !commitUncommitChanges.isPending,
+							onSelect: () =>
+								commitUncommitChanges.mutate({
+									projectId,
+									commitId: operand.parent.commitId,
+									assignTo: null,
+									changes: [createDiffSpec(change, [])],
+									dryRun: false,
+								}),
+						}),
+					],
+				),
+				Match.when(
+					{ _tag: "Change", operand: { _tag: "File", parent: { _tag: "Changes" } } },
+					({ change, operand }) => {
+						const absorb = () => {
+							dispatch(
+								projectActions.enterAbsorbMode({
+									projectId,
+									source: operand,
+									sourceTarget: {
+										type: "treeChanges",
+										subject: {
+											changes: [change],
+											assignedStackId: null,
+										},
+									},
+								}),
+							);
+							focusSelectionScope("outline");
+						};
 
-	const copyPathMenuItem = useCopyPathMenuItem(change.path);
-	const menuItems: Array<NativeMenuItem> = [
-		copyPathMenuItem,
-		nativeMenuSeparator,
-		nativeMenuItem({
-			label: "Absorb",
-			accelerator: toElectronAccelerator(changesFileHotkeys.absorb.hotkey),
-			onSelect: absorb,
-		}),
-	];
-
-	const [label, strLabel] = changeLabel(change);
+						return [
+							nativeMenuSeparator,
+							nativeMenuItem({
+								label: "Absorb",
+								accelerator: toElectronAccelerator(changesFileHotkeys.absorb.hotkey),
+								onSelect: absorb,
+							}),
+						];
+					},
+				),
+				Match.orElse(() => []),
+			),
+		];
 
 	return (
 		<TreeItem
 			projectId={projectId}
-			operand={operand}
+			operand={item.operand}
 			aria-label={strLabel}
 			render={
 				<OperationSourceC
 					projectId={projectId}
 					selectionScope="files"
-					source={operand}
-					render={<ItemRow projectId={projectId} operand={operand} />}
+					source={item.operand}
+					render={<ItemRow projectId={projectId} operand={item.operand} />}
 				/>
 			}
 		>
@@ -673,30 +569,37 @@ const ChangesFileRow: FC<{
 				{label}
 			</div>
 
-			{outlineMode._tag === "Default" && (
-				<>
-					<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
-						<Toolbar.Button
-							aria-label="File menu"
-							onClick={(event) => {
-								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-							}}
-							className={workspaceItemRowStyles.itemRowIconButton}
-						>
-							<Icon name="kebab" />
-						</Toolbar.Button>
-					</Toolbar.Root>
-					{dependencyCommitIds && (
-						<DependencyIndicator
-							projectId={projectId}
-							commitIds={dependencyCommitIds}
-							className={workspaceItemRowStyles.itemRowIconButton}
-						>
-							<Icon name="link" />
-						</DependencyIndicator>
-					)}
-				</>
-			)}
+			{outlineMode._tag === "Default" &&
+				Match.value(item).pipe(
+					Match.when(
+						{ _tag: "Change", operand: { _tag: "File", parent: { _tag: "Changes" } } },
+						(item) => (
+							<>
+								<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
+									<Toolbar.Button
+										aria-label="File menu"
+										onClick={(event) => {
+											void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+										}}
+										className={workspaceItemRowStyles.itemRowIconButton}
+									>
+										<Icon name="kebab" />
+									</Toolbar.Button>
+								</Toolbar.Root>
+								{item.dependencyCommitIds && (
+									<DependencyIndicator
+										projectId={projectId}
+										commitIds={item.dependencyCommitIds}
+										className={workspaceItemRowStyles.itemRowIconButton}
+									>
+										<Icon name="link" />
+									</DependencyIndicator>
+								)}
+							</>
+						),
+					),
+					Match.orElse(() => null),
+				)}
 		</TreeItem>
 	);
 };
