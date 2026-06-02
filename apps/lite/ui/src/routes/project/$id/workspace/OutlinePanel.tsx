@@ -702,14 +702,7 @@ export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panel
 		<NavigationIndexContext value={navigationIndex}>
 			<AbsorptionTargetKeysContext value={absorptionTargetKeys}>
 				<DryRunWorkspaceContext value={dryRunWorkspace}>
-					<div
-						{...panelProps}
-						tabIndex={0}
-						role="tree"
-						aria-activedescendant={treeItemId(selection)}
-						className={classes(panelProps.className, styles.panel)}
-						ref={useMergedRefs(refProp, ref)}
-					>
+					<div className={styles.panel}>
 						<header className={styles.workspaceControls}>
 							<div className={styles.workspaceControlsLeft}>
 								<h1 className={classes("text-15", "text-bold", styles.workspaceName)}>
@@ -737,45 +730,55 @@ export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panel
 							</Tooltip.Root>
 						</header>
 
-						<Changes
-							projectId={projectId}
-							commitTarget={commitTarget}
-							targetComboboxItems={targetComboboxItems}
-						/>
+						<div
+							{...panelProps}
+							tabIndex={0}
+							role="tree"
+							aria-activedescendant={treeItemId(selection)}
+							className={classes(panelProps.className, styles.tree)}
+							ref={useMergedRefs(refProp, ref)}
+						>
+							<Changes
+								projectId={projectId}
+								commitTarget={commitTarget}
+								targetComboboxItems={targetComboboxItems}
+							/>
 
-						<div className={styles.headInfo}>
-							{headInfo?.stacks.map((stack) => (
-								<StackC
-									key={stack.id}
-									projectId={projectId}
-									stack={stack}
-									commitTarget={commitTarget?.relativeTo ?? null}
-								/>
-							))}
+							<div className={styles.headInfo}>
+								{headInfo?.stacks.map((stack) => (
+									<StackC
+										key={stack.id}
+										projectId={projectId}
+										stack={stack}
+										commitTarget={commitTarget?.relativeTo ?? null}
+									/>
+								))}
+							</div>
+
+							{headInfo &&
+								Match.value(outlineMode).pipe(
+									Match.tagsExhaustive({
+										Default: () => null,
+										Absorb: (x) => (
+											<div className={classes("text-14", styles.operationSourcePreview)}>
+												Absorb source:{" "}
+												<OperationSourceLabel headInfo={headInfo} source={x.source} />
+												{absorptionPlanQuery?.isPending && (
+													<Icon name="spinner" aria-label="Loading absorb plan" />
+												)}
+											</div>
+										),
+										Transfer: (x) => (
+											<div className={classes("text-14", styles.operationSourcePreview)}>
+												Transfer source:{" "}
+												<OperationSourceLabel headInfo={headInfo} source={x.value.source} />
+											</div>
+										),
+										RenameBranch: () => null,
+										RewordCommit: () => null,
+									}),
+								)}
 						</div>
-
-						{headInfo &&
-							Match.value(outlineMode).pipe(
-								Match.tagsExhaustive({
-									Default: () => null,
-									Absorb: (x) => (
-										<div className={classes("text-14", styles.operationSourcePreview)}>
-											Absorb source: <OperationSourceLabel headInfo={headInfo} source={x.source} />
-											{absorptionPlanQuery?.isPending && (
-												<Icon name="spinner" aria-label="Loading absorb plan" />
-											)}
-										</div>
-									),
-									Transfer: (x) => (
-										<div className={classes("text-14", styles.operationSourcePreview)}>
-											Transfer source:{" "}
-											<OperationSourceLabel headInfo={headInfo} source={x.value.source} />
-										</div>
-									),
-									RenameBranch: () => null,
-									RewordCommit: () => null,
-								}),
-							)}
 					</div>
 				</DryRunWorkspaceContext>
 			</AbsorptionTargetKeysContext>
