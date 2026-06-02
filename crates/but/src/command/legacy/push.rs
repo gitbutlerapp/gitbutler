@@ -669,7 +669,7 @@ fn push_single_branch_impl(
     // Convert CLI args to gerrit flags with validation
     let gerrit_flags = get_gerrit_flags(args, branch_name, gerrit_mode)?;
 
-    {
+    if args.sign_commits {
         let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
         let mut meta = ctx.meta()?;
         let ref_name: gix::refs::FullName = format!("refs/heads/{branch_name}").try_into()?;
