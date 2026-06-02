@@ -185,7 +185,7 @@ export const CommitFilesTree: FC<
 	);
 
 	return (
-		<GenericFilesTree {...props} parent={parent} files={files}>
+		<FilesTree {...props} parent={parent} files={files}>
 			{(() => {
 				if (conflictedPaths.length === 0 && commitDetails.changes.length === 0)
 					return <WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>;
@@ -221,7 +221,7 @@ export const CommitFilesTree: FC<
 					</div>
 				);
 			})()}
-		</GenericFilesTree>
+		</FilesTree>
 	);
 };
 
@@ -242,7 +242,7 @@ export const ChangesFilesTree: FC<
 	);
 
 	return (
-		<GenericFilesTree {...props} parent={parent} files={files}>
+		<FilesTree {...props} parent={parent} files={files}>
 			{worktreeChanges.changes.length === 0 ? (
 				<WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>
 			) : (
@@ -264,7 +264,7 @@ export const ChangesFilesTree: FC<
 					})}
 				</div>
 			)}
-		</GenericFilesTree>
+		</FilesTree>
 	);
 };
 
@@ -286,7 +286,7 @@ export const BranchFilesTree: FC<
 	);
 
 	return (
-		<GenericFilesTree {...props} parent={parent} files={files}>
+		<FilesTree {...props} parent={parent} files={files}>
 			{branchDiff.changes.length === 0 ? (
 				<WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>
 			) : (
@@ -304,11 +304,11 @@ export const BranchFilesTree: FC<
 					))}
 				</div>
 			)}
-		</GenericFilesTree>
+		</FilesTree>
 	);
 };
 
-const GenericFilesTree: FC<{ parent: Operand; files: Array<Operand> } & ComponentProps<"div">> = ({
+const FilesTree: FC<{ parent: Operand; files: Array<Operand> } & ComponentProps<"div">> = ({
 	className,
 	children,
 	parent,
