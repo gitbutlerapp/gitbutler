@@ -15,3 +15,25 @@
 	padding: 16px;
 	transform: translate(-50%, -50%);
 }
+
+.scrollerWithSeparator {
+	container-type: scroll-state;
+	display: flex;
+	flex-direction: column;
+	overflow: auto;
+
+	&:before {
+		z-index: 1;
+		position: sticky;
+		top: 0;
+		margin-top: -1px;
+		border-top: 1px solid light-dark(hsl(0 0% 83.9% / 0.45), hsl(0 0% 0% / 0.5));
+		content: "";
+		opacity: 0;
+		transition: opacity 120ms ease;
+
+		@container scroll-state(scrollable: top) {
+			opacity: 1;
+		}
+	}
+}

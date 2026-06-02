@@ -3,12 +3,17 @@ import {
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import { focusAdjacentPanel, focusPanel, getFocusedProjectPanel, Panel } from "#ui/panels.ts";
+import {
+	focusAdjacentSelectionScope,
+	focusSelectionScope,
+	getFocusedSelectionScope,
+	SelectionScope,
+} from "#ui/selection-scopes.ts";
 import {
 	projectActions,
 	selectProjectDialogState,
+	selectProjectFilesVisible,
 	selectProjectOutlineModeState,
-	selectProjectPanelsState,
 } from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
@@ -25,6 +30,8 @@ import {
 } from "@tanstack/react-hotkeys";
 import {
 	QueryErrorResetBoundary,
+	useIsFetching,
+	useIsMutating,
 	useMutation,
 	useQuery,
 	useSuspenseQuery,
@@ -34,22 +41,31 @@ import { Match, Order } from "effect";
 import { type FC, Component, ReactNode } from "react";
 import { branchOperand, type BranchOperand } from "#ui/operands.ts";
 import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog.tsx";
-import { DetailsPanel } from "./DetailsPanel.tsx";
+import { Details } from "./Details.tsx";
 import styles from "./WorkspacePage.module.css";
-import { OutlinePanel } from "#ui/routes/project/$id/workspace/OutlinePanel.tsx";
-import { Toast } from "@base-ui/react";
+import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree.tsx";
+import { Toast, Tooltip } from "@base-ui/react";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { shortCommitId } from "#ui/commit.ts";
 import { useActiveElement } from "#ui/focus.ts";
+import { classes } from "#ui/components/classes.ts";
+import { Icon } from "#ui/components/Icon.tsx";
+import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 
-const toggleFilesPanel =
-	({ projectId, focusedPanel }: { projectId: string; focusedPanel: Panel | null }): AppThunk =>
+const toggleFiles =
+	({
+		projectId,
+		focusedSelectionScope,
+	}: {
+		projectId: string;
+		focusedSelectionScope: SelectionScope | null;
+	}): AppThunk =>
 	(dispatch, getState) => {
-		const panelsState = selectProjectPanelsState(getState(), projectId);
+		const filesVisible = selectProjectFilesVisible(getState(), projectId);
 
-		if (focusedPanel === "files" && panelsState.filesVisible) focusPanel("outline");
+		if (focusedSelectionScope === "files" && filesVisible) focusSelectionScope("outline");
 
-		dispatch(projectActions.toggleFilesPanel({ projectId }));
+		dispatch(projectActions.toggleFiles({ projectId }));
 	};
 
 type CommandPaletteItem = {
@@ -350,9 +366,9 @@ const useRestoreSnapshot = ({ projectId }: { projectId: string }) => {
 const useWorkspaceHotkeys = (projectId: string) => {
 	const dispatch = useAppDispatch();
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
-	const panelsState = useAppSelector((state) => selectProjectPanelsState(state, projectId));
+	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
 	const activeElement = useActiveElement();
-	const focusedPanel = getFocusedProjectPanel(activeElement);
+	const focusedSelectionScope = getFocusedSelectionScope(activeElement);
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const restoreSnapshotMutation = useRestoreSnapshot({ projectId });
@@ -398,36 +414,53 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			},
 		},
 		{
-			hotkey: workspaceHotkeys.toggleFilesPanel.hotkey,
+			hotkey: workspaceHotkeys.toggleFiles.hotkey,
 			callback: () => {
-				dispatch(toggleFilesPanel({ projectId, focusedPanel }));
+				dispatch(toggleFiles({ projectId, focusedSelectionScope }));
 			},
 			options: {
 				conflictBehavior: "allow",
-				meta: workspaceHotkeys.toggleFilesPanel.meta,
+				meta: workspaceHotkeys.toggleFiles.meta,
 			},
 		},
 		{
-			hotkey: workspaceHotkeys.focusPreviousPanel.hotkey,
+			hotkey: workspaceHotkeys.focusPreviousSelectionScope.hotkey,
 			callback: () => {
-				focusAdjacentPanel(panelsState, -1);
+				focusAdjacentSelectionScope(filesVisible, -1);
 			},
 			options: {
 				conflictBehavior: "allow",
-				meta: workspaceHotkeys.focusPreviousPanel.meta,
+				meta: workspaceHotkeys.focusPreviousSelectionScope.meta,
 			},
 		},
 		{
-			hotkey: workspaceHotkeys.focusNextPanel.hotkey,
+			hotkey: workspaceHotkeys.focusNextSelectionScope.hotkey,
 			callback: () => {
-				focusAdjacentPanel(panelsState, 1);
+				focusAdjacentSelectionScope(filesVisible, 1);
 			},
 			options: {
 				conflictBehavior: "allow",
-				meta: workspaceHotkeys.focusNextPanel.meta,
+				meta: workspaceHotkeys.focusNextSelectionScope.meta,
 			},
 		},
 	]);
+};
+
+const ActivitySpinner: FC = () => {
+	const fetchingCount = useIsFetching();
+	const mutatingCount = useIsMutating();
+
+	const isFetching = fetchingCount > 0;
+	const isMutating = mutatingCount > 0;
+
+	const status = Match.value({ isFetching, isMutating }).pipe(
+		Match.when({ isFetching: true, isMutating: true }, () => "Syncing"),
+		Match.when({ isFetching: true }, () => "Loading"),
+		Match.when({ isMutating: true }, () => "Saving"),
+		Match.orElse(() => null),
+	);
+
+	return status !== null && <Icon name="spinner" aria-label={status} />;
 };
 
 const WorkspacePage: FC = () => {
@@ -446,7 +479,7 @@ const WorkspacePage: FC = () => {
 				selection: branchOperand(branch),
 			}),
 		);
-		focusPanel("outline");
+		focusSelectionScope("outline");
 	};
 
 	const setBranchPickerOpen = (open: boolean) => {
@@ -464,17 +497,54 @@ const WorkspacePage: FC = () => {
 		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 
+	const openApplyBranchPicker = () => {
+		dispatch(projectActions.openApplyBranchPicker({ projectId }));
+	};
+
+	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
+	const selectedProject = projects.find((project) => project.id === projectId);
+	if (!selectedProject) throw new Error("Could not find selected project");
+
 	return (
 		<>
 			<div className={styles.page}>
-				<OutlinePanel
-					id={"outline" satisfies Panel}
-					data-panel
-					tabIndex={0}
-					ref={(el) => el?.focus({ focusVisible: false })}
-				/>
+				<div className={styles.outlinePanel}>
+					<header className={styles.workspaceControls}>
+						<div className={styles.workspaceControlsLeft}>
+							<h1 className={classes("text-15", "text-bold", styles.workspaceName)}>
+								{selectedProject.title}
+							</h1>
+							<ActivitySpinner />
+						</div>
 
-				<DetailsPanel />
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								className={classes(styles.workspaceControlsRight, getButtonClassName({}))}
+								onClick={openApplyBranchPicker}
+							>
+								Apply branch
+							</Tooltip.Trigger>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup
+										render={<TooltipPopup kbd={workspaceHotkeys.applyBranch.hotkey} />}
+									>
+										{workspaceHotkeys.applyBranch.meta.name}
+									</Tooltip.Popup>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
+					</header>
+
+					<OutlineTree
+						id={"outline" satisfies SelectionScope}
+						data-selection-scope
+						tabIndex={0}
+						ref={(el) => el?.focus({ focusVisible: false })}
+					/>
+				</div>
+
+				<Details />
 			</div>
 
 			{Match.value(dialog).pipe(

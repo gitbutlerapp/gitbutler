@@ -11,42 +11,47 @@ import {
 	NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
-import type { PanelsState } from "./panels/state.ts";
 
-export type Panel = "outline" | "files" | "details";
-const allPanels: Array<Panel> = ["outline", "files", "details"];
+export type SelectionScope = "outline" | "files" | "diff";
+const allSelectionScopes: Array<SelectionScope> = ["outline", "files", "diff"];
 
-const isProjectPanel = (id: string): id is Panel => allPanels.includes(id as Panel);
+const isSelectionScope = (id: string): id is SelectionScope =>
+	allSelectionScopes.includes(id as SelectionScope);
 
-export const getFocusedProjectPanel = (activeElement: Element | null): Panel | null => {
-	const panelId = activeElement?.matches("[data-panel]") ? activeElement.id : undefined;
-	if (panelId === undefined) return null;
-	return isProjectPanel(panelId) ? panelId : null;
+export const getFocusedSelectionScope = (activeElement: Element | null): SelectionScope | null => {
+	const selectionScopeId = activeElement?.matches("[data-selection-scope]")
+		? activeElement.id
+		: undefined;
+	if (selectionScopeId === undefined) return null;
+	return isSelectionScope(selectionScopeId) ? selectionScopeId : null;
 };
 
-export const focusPanel = (panel: Panel) => {
-	document.getElementById(panel)?.focus({ focusVisible: false });
+export const focusSelectionScope = (selectionScope: SelectionScope) => {
+	document.getElementById(selectionScope)?.focus({ focusVisible: false });
 };
 
-export const focusAdjacentPanel = (panelsState: PanelsState, offset: -1 | 1) => {
-	const currentPanel = getFocusedProjectPanel(document.activeElement);
+export const focusAdjacentSelectionScope = (filesVisible: boolean, offset: -1 | 1) => {
+	const currentSelectionScope = getFocusedSelectionScope(document.activeElement);
 
-	const orderedPanels: Array<Panel> = [
+	const orderedSelectionScopes: Array<SelectionScope> = [
 		"outline",
-		...(panelsState.filesVisible ? (["files"] satisfies Array<Panel>) : []),
-		"details",
+		...(filesVisible ? (["files"] satisfies Array<SelectionScope>) : []),
+		"diff",
 	];
 
-	if (currentPanel === null) {
-		const nextPanel: Panel | undefined = offset === 1 ? orderedPanels.at(0) : orderedPanels.at(-1);
+	if (currentSelectionScope === null) {
+		const nextSelectionScope: SelectionScope | undefined =
+			offset === 1 ? orderedSelectionScopes.at(0) : orderedSelectionScopes.at(-1);
 
-		if (nextPanel !== undefined) focusPanel(nextPanel);
+		if (nextSelectionScope !== undefined) focusSelectionScope(nextSelectionScope);
 	} else {
-		const curr = orderedPanels.indexOf(currentPanel);
+		const curr = orderedSelectionScopes.indexOf(currentSelectionScope);
 		// oxlint-disable-next-line typescript/no-non-null-assertion: This shouldn't ever fail.
-		const nextPanel = orderedPanels.at((curr + offset) % orderedPanels.length)!;
+		const nextSelectionScope = orderedSelectionScopes.at(
+			(curr + offset) % orderedSelectionScopes.length,
+		)!;
 
-		focusPanel(nextPanel);
+		focusSelectionScope(nextSelectionScope);
 	}
 };
 
@@ -54,7 +59,7 @@ export const useNavigationIndexHotkeys = ({
 	navigationIndex,
 	projectId,
 	group,
-	panel,
+	selectionScope,
 	select,
 	selection,
 	ref,
@@ -62,7 +67,7 @@ export const useNavigationIndexHotkeys = ({
 	navigationIndex: NavigationIndex;
 	projectId: string;
 	group: CommandGroup;
-	panel: Panel;
+	selectionScope: SelectionScope;
 	select: (newItem: Operand) => void;
 	selection: Operand;
 	ref: React.RefObject<HTMLElement | null>;
@@ -71,7 +76,7 @@ export const useNavigationIndexHotkeys = ({
 
 	const selectAndFocus = (newItem: Operand) => {
 		select(newItem);
-		focusPanel(panel);
+		focusSelectionScope(selectionScope);
 	};
 
 	const moveSelection = (offset: -1 | 1) => {
@@ -256,7 +261,7 @@ export const useNavigationIndexHotkeys = ({
 				}),
 			}),
 		);
-		focusPanel("outline");
+		focusSelectionScope("outline");
 	};
 
 	const operationEnabled = outlineMode._tag === "Default";

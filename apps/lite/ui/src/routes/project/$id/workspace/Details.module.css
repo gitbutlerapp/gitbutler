@@ -2,43 +2,41 @@
 	--diffs-font-size: 12px;
 }
 
-.panel {
+.container {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
-
 	row-gap: 12px;
-
-	padding: var(--panel-padding);
 }
 
 .headerWrap {
 	display: flex;
 	row-gap: 12px;
 	flex-direction: column;
+	padding-inline: var(--panel-padding);
+	padding-top: var(--panel-padding);
 }
 
 .header {
 	display: flex;
-	align-items: center;
 	gap: 8px;
 }
 
-.panels {
+.diff {
 	display: grid;
 	grid-template-rows: minmax(0, 1fr);
 	grid-template-columns: 1fr;
-	column-gap: 12px;
 }
 
-.panelsWithFiles {
+.diffWithFiles {
 	grid-template-columns: 300px 1fr;
 }
 
-.filesPanel {
-	overflow: auto;
+.diffFiles {
+	padding-inline: var(--panel-padding);
+	padding-bottom: var(--panel-padding);
 }
 
-.detailsContentPanel {
+.diffContents {
 	display: grid;
 }
 

@@ -2,7 +2,6 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "#ui/store.ts";
 import { type AbsorptionTarget, type RefInfo, type RelativeTo } from "@gitbutler/but-sdk";
 import { type BranchOperand, type CommitOperand, type Operand } from "#ui/operands.ts";
-import * as panels from "#ui/panels/state.ts";
 import * as workspace from "#ui/projects/workspace/state.ts";
 import { type OperationType } from "#ui/operations/operation.ts";
 import { type TransferOperationMode } from "#ui/outline/mode.ts";
@@ -15,7 +14,7 @@ type Dialog =
 
 type ProjectState = {
 	dialog: Dialog;
-	panels: panels.PanelsState;
+	filesVisible: boolean;
 	workspace: workspace.WorkspaceState;
 };
 
@@ -25,7 +24,7 @@ type ProjectSliceState = {
 
 const initialProjectState: ProjectState = {
 	dialog: { _tag: "None" },
-	panels: panels.initialState,
+	filesVisible: true,
 	workspace: workspace.initialState,
 };
 
@@ -35,7 +34,7 @@ const initialState: ProjectSliceState = {
 
 const createProjectState = (): ProjectState => ({
 	dialog: { _tag: "None" },
-	panels: panels.createInitialState(),
+	filesVisible: true,
 	workspace: workspace.createInitialState(),
 });
 
@@ -168,8 +167,9 @@ const projectSlice = createSlice({
 				headInfo,
 			);
 		},
-		toggleFilesPanel: (state, action: PayloadAction<{ projectId: string }>) => {
-			panels.toggleFilesPanel(ensureProjectState(state, action.payload.projectId).panels);
+		toggleFiles: (state, action: PayloadAction<{ projectId: string }>) => {
+			const projectState = ensureProjectState(state, action.payload.projectId);
+			projectState.filesVisible = !projectState.filesVisible;
 		},
 		openCommandPalette: (
 			state,
@@ -204,8 +204,8 @@ export const projectReducer = projectSlice.reducer;
 const selectProjectState = (state: RootState, projectId: string): ProjectState =>
 	state.project.byProjectId[projectId] ?? initialProjectState;
 
-export const selectProjectPanelsState = (state: RootState, projectId: string) =>
-	selectProjectState(state, projectId).panels;
+export const selectProjectFilesVisible = (state: RootState, projectId: string) =>
+	selectProjectState(state, projectId).filesVisible;
 
 export const selectProjectDialogState = (state: RootState, projectId: string) =>
 	selectProjectState(state, projectId).dialog;

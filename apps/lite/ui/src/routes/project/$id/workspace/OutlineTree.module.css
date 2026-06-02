@@ -1,34 +1,8 @@
-.workspaceControls {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-}
-
-.workspaceControlsLeft {
-	display: flex;
-	align-items: center;
-	overflow: hidden;
-	gap: 4px;
-}
-
-.workspaceControlsRight {
-	margin-inline-start: auto;
-}
-
-.workspaceName {
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.panel {
+.tree {
 	display: grid;
-
-	grid-template-rows: auto auto minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr);
 	grid-template-columns: minmax(0, 1fr);
-	padding: var(--panel-padding);
 	gap: 12px;
-	border-right: 1px solid var(--border-3);
 
 	&:focus {
 		/* The focus state is displayed on the item row instead. */
@@ -36,12 +10,20 @@
 	}
 }
 
+.changesContainer {
+	padding-inline: var(--panel-padding);
+}
+
+.headInfoScroller {
+	padding-inline: var(--panel-padding);
+	padding-bottom: var(--panel-padding);
+	scroll-padding: var(--panel-padding);
+}
+
 .headInfo {
 	display: flex;
 	row-gap: 12px;
 	flex-direction: column;
-	overflow: auto;
-	scroll-padding: var(--panel-padding);
 }
 
 .segments {

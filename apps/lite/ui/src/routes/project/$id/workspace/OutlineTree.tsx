@@ -32,7 +32,7 @@ import {
 	getTransferOperation,
 	keyboardTransferOperationMode,
 } from "#ui/outline/mode.ts";
-import { focusPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
+import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
 import {
 	projectActions,
 	selectProjectCommitTarget,
@@ -75,8 +75,6 @@ import {
 	useKeyHold,
 } from "@tanstack/react-hotkeys";
 import {
-	useIsFetching,
-	useIsMutating,
 	useMutation,
 	useQueries,
 	useQuery,
@@ -97,7 +95,7 @@ import {
 	useState,
 	useTransition,
 } from "react";
-import styles from "./OutlinePanel.module.css";
+import styles from "./OutlineTree.module.css";
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import {
 	WorkspaceItemRow,
@@ -111,12 +109,7 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { rejectedChangesToastOptions } from "#ui/operations/rejectedChangesToastOptions.tsx";
-import {
-	changesHotkeys,
-	outlineHotkeys,
-	toElectronAccelerator,
-	workspaceHotkeys,
-} from "#ui/hotkeys.ts";
+import { changesHotkeys, outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { OutlineModeTooltip } from "./OutlineModeTooltip.tsx";
@@ -418,7 +411,7 @@ const useOutlineTreeHotkeys = ({
 				}),
 			}),
 		);
-		focusPanel("outline");
+		focusSelectionScope("outline");
 	};
 
 	const composeCommitHere = (relativeTo: RelativeTo) => {
@@ -466,7 +459,7 @@ const useOutlineTreeHotkeys = ({
 		navigationIndex,
 		projectId,
 		group: "Outline",
-		panel: "outline",
+		selectionScope: "outline",
 		select,
 		selection,
 	});
@@ -484,7 +477,7 @@ const useOutlineTreeHotkeys = ({
 			hotkey: outlineHotkeys.selectChanges.hotkey,
 			callback: () => {
 				dispatch(projectActions.selectOutline({ projectId, selection: changesSectionOperand }));
-				focusPanel("outline");
+				focusSelectionScope("outline");
 			},
 			options: { conflictBehavior: "allow", meta: outlineHotkeys.selectChanges.meta },
 		},
@@ -616,24 +609,7 @@ const useOutlineTreeHotkeys = ({
 	]);
 };
 
-const ActivitySpinner: FC = () => {
-	const fetchingCount = useIsFetching();
-	const mutatingCount = useIsMutating();
-
-	const isFetching = fetchingCount > 0;
-	const isMutating = mutatingCount > 0;
-
-	const status = Match.value({ isFetching, isMutating }).pipe(
-		Match.when({ isFetching: true, isMutating: true }, () => "Syncing"),
-		Match.when({ isFetching: true }, () => "Loading"),
-		Match.when({ isMutating: true }, () => "Saving"),
-		Match.orElse(() => null),
-	);
-
-	return status !== null && <Icon name="spinner" aria-label={status} />;
-};
-
-export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panelProps }) => {
+export const OutlineTree: FC<ComponentProps<"div">> = ({ ref: refProp, ...props }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
@@ -689,11 +665,6 @@ export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panel
 		commitTargetState,
 	});
 
-	const dispatch = useAppDispatch();
-	const openApplyBranchPicker = () => {
-		dispatch(projectActions.openApplyBranchPicker({ projectId }));
-	};
-
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
@@ -703,55 +674,32 @@ export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panel
 			<AbsorptionTargetKeysContext value={absorptionTargetKeys}>
 				<DryRunWorkspaceContext value={dryRunWorkspace}>
 					<div
-						{...panelProps}
+						{...props}
 						tabIndex={0}
 						role="tree"
 						aria-activedescendant={treeItemId(selection)}
-						className={classes(panelProps.className, styles.panel)}
+						className={classes(props.className, styles.tree)}
 						ref={useMergedRefs(refProp, ref)}
 					>
-						<header className={styles.workspaceControls}>
-							<div className={styles.workspaceControlsLeft}>
-								<h1 className={classes("text-15", "text-bold", styles.workspaceName)}>
-									{selectedProject.title}
-								</h1>
-								<ActivitySpinner />
+						<div className={styles.changesContainer}>
+							<Changes
+								projectId={projectId}
+								commitTarget={commitTarget}
+								targetComboboxItems={targetComboboxItems}
+							/>
+						</div>
+
+						<div className={classes(styles.headInfoScroller, uiStyles.scrollerWithSeparator)}>
+							<div className={styles.headInfo}>
+								{headInfo?.stacks.map((stack) => (
+									<StackC
+										key={stack.id}
+										projectId={projectId}
+										stack={stack}
+										commitTarget={commitTarget?.relativeTo ?? null}
+									/>
+								))}
 							</div>
-
-							<Tooltip.Root>
-								<Tooltip.Trigger
-									className={classes(styles.workspaceControlsRight, getButtonClassName({}))}
-									onClick={openApplyBranchPicker}
-								>
-									Apply branch
-								</Tooltip.Trigger>
-								<Tooltip.Portal>
-									<Tooltip.Positioner sideOffset={4}>
-										<Tooltip.Popup
-											render={<TooltipPopup kbd={workspaceHotkeys.applyBranch.hotkey} />}
-										>
-											{workspaceHotkeys.applyBranch.meta.name}
-										</Tooltip.Popup>
-									</Tooltip.Positioner>
-								</Tooltip.Portal>
-							</Tooltip.Root>
-						</header>
-
-						<Changes
-							projectId={projectId}
-							commitTarget={commitTarget}
-							targetComboboxItems={targetComboboxItems}
-						/>
-
-						<div className={styles.headInfo}>
-							{headInfo?.stacks.map((stack) => (
-								<StackC
-									key={stack.id}
-									projectId={projectId}
-									stack={stack}
-									commitTarget={commitTarget?.relativeTo ?? null}
-								/>
-							))}
 						</div>
 
 						{headInfo &&
@@ -1053,7 +1001,7 @@ const CommitRow: FC<
 	const endEditing = () => {
 		dispatch(projectActions.exitMode({ projectId }));
 		dispatch(projectActions.selectOutline({ projectId, selection: operand }));
-		focusPanel("outline");
+		focusSelectionScope("outline");
 	};
 
 	const toastManager = Toast.useToastManager();
@@ -1095,7 +1043,7 @@ const CommitRow: FC<
 				}),
 			}),
 		);
-		focusPanel("outline");
+		focusSelectionScope("outline");
 	};
 
 	const relativeTo: RelativeTo = { type: "commit", subject: commit.id };
@@ -1705,7 +1653,7 @@ const Changes: FC<{
 					onKeyDown={(event) => {
 						if (event.key !== "Escape") return;
 						event.preventDefault();
-						focusPanel("outline");
+						focusSelectionScope("outline");
 					}}
 				/>
 
@@ -2041,7 +1989,7 @@ const BranchRow: FC<
 	const endEditing = () => {
 		dispatch(projectActions.exitMode({ projectId }));
 		dispatch(projectActions.selectOutline({ projectId, selection: operand }));
-		focusPanel("outline");
+		focusSelectionScope("outline");
 	};
 
 	const toastManager = Toast.useToastManager();

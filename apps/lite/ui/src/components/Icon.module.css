@@ -1,5 +1,6 @@
 .icon {
 	display: inline-flex;
+	flex-shrink: 0;
 	width: var(--icon-size, 16px);
 	height: var(--icon-size, 16px);
 

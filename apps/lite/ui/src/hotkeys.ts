@@ -17,7 +17,7 @@ export type CommandGroup =
 	| "Global"
 	| "Outline"
 	| "Operation mode"
-	| "Panels"
+	| "Selection scopes"
 	| "Rename branch"
 	| "Reword commit"
 	| "Stack";
@@ -92,15 +92,15 @@ export const workspaceHotkeys = {
 		hotkey: "Mod+Shift+A",
 		meta: { group: "Branches", name: "Apply branch" },
 	},
-	focusPreviousPanel: {
+	focusPreviousSelectionScope: {
 		hotkey: "H",
-		meta: { group: "Panels", name: "Focus previous panel" },
+		meta: { group: "Selection scopes", name: "Focus previous selection scope" },
 	},
-	focusNextPanel: {
+	focusNextSelectionScope: {
 		hotkey: "L",
-		meta: { group: "Panels", name: "Focus next panel" },
+		meta: { group: "Selection scopes", name: "Focus next selection scope" },
 	},
-	toggleFilesPanel: {
+	toggleFiles: {
 		hotkey: "F",
 		meta: { group: "Files", name: "Toggle files" },
 	},

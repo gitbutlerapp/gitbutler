@@ -14,6 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { FC, type ReactNode, useEffect, useEffectEvent, useRef } from "react";
 import { createRoot } from "react-dom/client";
+import { SelectionScope } from "#ui/selection-scopes.ts";
 
 type DragData = {
 	source: Operand;
@@ -31,7 +32,7 @@ const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (
 export const OperationSourceC: FC<
 	{
 		projectId: string;
-		selectionScope?: "files" | "outline";
+		selectionScope: SelectionScope;
 		source: Operand;
 	} & useRender.ComponentProps<"div">
 > = ({ projectId, selectionScope, source, render, ...props }) => {
@@ -75,7 +76,7 @@ export const OperationSourceC: FC<
 			onGenerateDragPreview,
 			onDragStart: () => {
 				Match.value(selectionScope).pipe(
-					Match.when(undefined, () => {}),
+					Match.when("diff", () => {}),
 					Match.when("files", () =>
 						dispatch(projectActions.selectFiles({ projectId, selection: source })),
 					),
