@@ -491,60 +491,64 @@ const FileTreeRow: FC<{
 	const copyPathMenuItem = useCopyPathMenuItem(path);
 	const commitUncommitChanges = useCommitUncommitChanges();
 
-		const menuItems: Array<NativeMenuItem> = [
-			copyPathMenuItem,
-			...Match.value(item).pipe(
-				Match.when(
-					{ _tag: "Change", operand: { _tag: "File", parent: { _tag: "Commit" } } },
-					({ change, operand }) => [
+	const menuItems: Array<NativeMenuItem> = [
+		copyPathMenuItem,
+		...Match.value(item).pipe(
+			Match.when(
+				{ _tag: "Change", operand: { _tag: "File", parent: { _tag: "Commit" } } },
+				({ change, operand }) => {
+					const uncommit = () =>
+						commitUncommitChanges.mutate({
+							projectId,
+							commitId: operand.parent.commitId,
+							assignTo: null,
+							changes: [createDiffSpec(change, [])],
+							dryRun: false,
+						});
+
+					return [
 						nativeMenuSeparator,
 						nativeMenuItem({
 							label: "Uncommit",
 							enabled: !commitUncommitChanges.isPending,
-							onSelect: () =>
-								commitUncommitChanges.mutate({
-									projectId,
-									commitId: operand.parent.commitId,
-									assignTo: null,
-									changes: [createDiffSpec(change, [])],
-									dryRun: false,
-								}),
+							onSelect: uncommit,
 						}),
-					],
-				),
-				Match.when(
-					{ _tag: "Change", operand: { _tag: "File", parent: { _tag: "Changes" } } },
-					({ change, operand }) => {
-						const absorb = () => {
-							dispatch(
-								projectActions.enterAbsorbMode({
-									projectId,
-									source: operand,
-									sourceTarget: {
-										type: "treeChanges",
-										subject: {
-											changes: [change],
-											assignedStackId: null,
-										},
-									},
-								}),
-							);
-							focusSelectionScope("outline");
-						};
-
-						return [
-							nativeMenuSeparator,
-							nativeMenuItem({
-								label: "Absorb",
-								accelerator: toElectronAccelerator(changesFileHotkeys.absorb.hotkey),
-								onSelect: absorb,
-							}),
-						];
-					},
-				),
-				Match.orElse(() => []),
+					];
+				},
 			),
-		];
+			Match.when(
+				{ _tag: "Change", operand: { _tag: "File", parent: { _tag: "Changes" } } },
+				({ change, operand }) => {
+					const absorb = () => {
+						dispatch(
+							projectActions.enterAbsorbMode({
+								projectId,
+								source: operand,
+								sourceTarget: {
+									type: "treeChanges",
+									subject: {
+										changes: [change],
+										assignedStackId: null,
+									},
+								},
+							}),
+						);
+						focusSelectionScope("outline");
+					};
+
+					return [
+						nativeMenuSeparator,
+						nativeMenuItem({
+							label: "Absorb",
+							accelerator: toElectronAccelerator(changesFileHotkeys.absorb.hotkey),
+							onSelect: absorb,
+						}),
+					];
+				},
+			),
+			Match.orElse(() => []),
+		),
+	];
 
 	return (
 		<TreeItem
