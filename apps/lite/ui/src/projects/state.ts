@@ -167,7 +167,7 @@ const projectSlice = createSlice({
 				headInfo,
 			);
 		},
-		toggleFilesPanel: (state, action: PayloadAction<{ projectId: string }>) => {
+		toggleFiles: (state, action: PayloadAction<{ projectId: string }>) => {
 			const projectState = ensureProjectState(state, action.payload.projectId);
 			projectState.filesVisible = !projectState.filesVisible;
 		},

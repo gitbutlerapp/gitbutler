@@ -43,7 +43,7 @@ import { branchOperand, type BranchOperand } from "#ui/operands.ts";
 import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog.tsx";
 import { DetailsPanel } from "./DetailsPanel.tsx";
 import styles from "./WorkspacePage.module.css";
-import { OutlinePanel } from "#ui/routes/project/$id/workspace/OutlinePanel.tsx";
+import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlinePanel.tsx";
 import { Toast, Tooltip } from "@base-ui/react";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { shortCommitId } from "#ui/commit.ts";
@@ -52,7 +52,7 @@ import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 
-const toggleFilesPanel =
+const toggleFiles =
 	({
 		projectId,
 		focusedSelectionScope,
@@ -65,7 +65,7 @@ const toggleFilesPanel =
 
 		if (focusedSelectionScope === "files" && filesVisible) focusSelectionScope("outline");
 
-		dispatch(projectActions.toggleFilesPanel({ projectId }));
+		dispatch(projectActions.toggleFiles({ projectId }));
 	};
 
 type CommandPaletteItem = {
@@ -414,13 +414,13 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			},
 		},
 		{
-			hotkey: workspaceHotkeys.toggleFilesPanel.hotkey,
+			hotkey: workspaceHotkeys.toggleFiles.hotkey,
 			callback: () => {
-				dispatch(toggleFilesPanel({ projectId, focusedSelectionScope }));
+				dispatch(toggleFiles({ projectId, focusedSelectionScope }));
 			},
 			options: {
 				conflictBehavior: "allow",
-				meta: workspaceHotkeys.toggleFilesPanel.meta,
+				meta: workspaceHotkeys.toggleFiles.meta,
 			},
 		},
 		{
@@ -536,7 +536,7 @@ const WorkspacePage: FC = () => {
 						</Tooltip.Root>
 					</header>
 
-					<OutlinePanel
+					<OutlineTree
 						id={"outline" satisfies SelectionScope}
 						data-selection-scope
 						tabIndex={0}

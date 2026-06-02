@@ -609,7 +609,7 @@ const useOutlineTreeHotkeys = ({
 	]);
 };
 
-export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panelProps }) => {
+export const OutlineTree: FC<ComponentProps<"div">> = ({ ref: refProp, ...props }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
@@ -674,11 +674,11 @@ export const OutlinePanel: FC<ComponentProps<"div">> = ({ ref: refProp, ...panel
 			<AbsorptionTargetKeysContext value={absorptionTargetKeys}>
 				<DryRunWorkspaceContext value={dryRunWorkspace}>
 					<div
-						{...panelProps}
+						{...props}
 						tabIndex={0}
 						role="tree"
 						aria-activedescendant={treeItemId(selection)}
-						className={classes(panelProps.className, styles.tree)}
+						className={classes(props.className, styles.tree)}
 						ref={useMergedRefs(refProp, ref)}
 					>
 						<Changes

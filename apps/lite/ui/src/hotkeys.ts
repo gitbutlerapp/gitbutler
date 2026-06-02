@@ -100,7 +100,7 @@ export const workspaceHotkeys = {
 		hotkey: "L",
 		meta: { group: "Selection scopes", name: "Focus next selection scope" },
 	},
-	toggleFilesPanel: {
+	toggleFiles: {
 		hotkey: "F",
 		meta: { group: "Files", name: "Toggle files" },
 	},

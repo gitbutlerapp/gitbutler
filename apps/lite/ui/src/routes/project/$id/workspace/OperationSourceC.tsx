@@ -76,7 +76,7 @@ export const OperationSourceC: FC<
 			onGenerateDragPreview,
 			onDragStart: () => {
 				Match.value(selectionScope).pipe(
-					Match.when("details", () => {}),
+					Match.when("diff", () => {}),
 					Match.when("files", () =>
 						dispatch(projectActions.selectFiles({ projectId, selection: source })),
 					),

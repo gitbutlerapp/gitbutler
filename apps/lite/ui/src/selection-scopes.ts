@@ -12,8 +12,8 @@ import {
 } from "#ui/workspace/navigation-index.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
 
-export type SelectionScope = "outline" | "files" | "details";
-const allSelectionScopes: Array<SelectionScope> = ["outline", "files", "details"];
+export type SelectionScope = "outline" | "files" | "diff";
+const allSelectionScopes: Array<SelectionScope> = ["outline", "files", "diff"];
 
 const isSelectionScope = (id: string): id is SelectionScope =>
 	allSelectionScopes.includes(id as SelectionScope);
@@ -36,7 +36,7 @@ export const focusAdjacentSelectionScope = (filesVisible: boolean, offset: -1 | 
 	const orderedSelectionScopes: Array<SelectionScope> = [
 		"outline",
 		...(filesVisible ? (["files"] satisfies Array<SelectionScope>) : []),
-		"details",
+		"diff",
 	];
 
 	if (currentSelectionScope === null) {

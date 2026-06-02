@@ -166,9 +166,11 @@ const useFilesTreeHotkeys = ({
 	});
 };
 
-const CommitFilesTreePanel: FC<
-	{ projectId: string; commit: CommitOperand } & ComponentProps<"div">
-> = ({ projectId, commit, ...panelProps }) => {
+const CommitFilesTree: FC<{ projectId: string; commit: CommitOperand } & ComponentProps<"div">> = ({
+	projectId,
+	commit,
+	...props
+}) => {
 	const { data } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId: commit.commitId }),
 	);
@@ -196,7 +198,7 @@ const CommitFilesTreePanel: FC<
 	);
 
 	return (
-		<FilesTreePanel {...panelProps} parent={parent} files={files}>
+		<GenericFilesTree {...props} parent={parent} files={files}>
 			{(() => {
 				if (conflictedPaths.length === 0 && data.changes.length === 0)
 					return <WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>;
@@ -232,15 +234,15 @@ const CommitFilesTreePanel: FC<
 					</div>
 				);
 			})()}
-		</FilesTreePanel>
+		</GenericFilesTree>
 	);
 };
 
-const ChangesFilesTreePanel: FC<
+const ChangesFilesTree: FC<
 	{
 		projectId: string;
 	} & ComponentProps<"div">
-> = ({ projectId, ...panelProps }) => {
+> = ({ projectId, ...props }) => {
 	const { data: worktreeChanges } = useSuspenseQuery(changesInWorktreeQueryOptions(projectId));
 
 	const parent = changesSectionOperand;
@@ -254,7 +256,7 @@ const ChangesFilesTreePanel: FC<
 	);
 
 	return (
-		<FilesTreePanel {...panelProps} parent={parent} files={files}>
+		<GenericFilesTree {...props} parent={parent} files={files}>
 			{worktreeChanges.changes.length === 0 ? (
 				<WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>
 			) : (
@@ -276,17 +278,17 @@ const ChangesFilesTreePanel: FC<
 					})}
 				</div>
 			)}
-		</FilesTreePanel>
+		</GenericFilesTree>
 	);
 };
 
-const BranchFilesTreePanel: FC<
+const BranchFilesTree: FC<
 	{
 		projectId: string;
 		stackId: string;
 		branchRef: Array<number>;
 	} & ComponentProps<"div">
-> = ({ projectId, stackId, branchRef, ...panelProps }) => {
+> = ({ projectId, stackId, branchRef, ...props }) => {
 	const decodedBranchRef = decodeRefName(branchRef);
 	const { data: branchDiff } = useSuspenseQuery(
 		branchDiffQueryOptions({ projectId, branch: decodedBranchRef }),
@@ -302,7 +304,7 @@ const BranchFilesTreePanel: FC<
 	);
 
 	return (
-		<FilesTreePanel {...panelProps} parent={parent} files={files}>
+		<GenericFilesTree {...props} parent={parent} files={files}>
 			{branchDiff.changes.length === 0 ? (
 				<WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>
 			) : (
@@ -320,11 +322,11 @@ const BranchFilesTreePanel: FC<
 					))}
 				</div>
 			)}
-		</FilesTreePanel>
+		</GenericFilesTree>
 	);
 };
 
-export const FilesPanel: FC<ComponentProps<"div">> = (panelProps) => {
+export const FilesTree: FC<ComponentProps<"div">> = (props) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const outlineSelection = useAppSelector((state) =>
@@ -334,39 +336,37 @@ export const FilesPanel: FC<ComponentProps<"div">> = (panelProps) => {
 	return (
 		<Suspense
 			fallback={
-				<div {...panelProps} className={classes(panelProps.className, "text-13")}>
+				<div {...props} className={classes(props.className, "text-13")}>
 					Loading files…
 				</div>
 			}
 		>
 			{Match.value(outlineSelection).pipe(
 				Match.tag("Commit", (commit) => (
-					<CommitFilesTreePanel {...panelProps} projectId={projectId} commit={commit} />
+					<CommitFilesTree {...props} projectId={projectId} commit={commit} />
 				)),
-				Match.tag("ChangesSection", () => (
-					<ChangesFilesTreePanel {...panelProps} projectId={projectId} />
-				)),
+				Match.tag("ChangesSection", () => <ChangesFilesTree {...props} projectId={projectId} />),
 				Match.tag("Branch", ({ stackId, branchRef }) => (
-					<BranchFilesTreePanel
-						{...panelProps}
+					<BranchFilesTree
+						{...props}
 						projectId={projectId}
 						stackId={stackId}
 						branchRef={branchRef}
 					/>
 				)),
-				Match.orElse(() => <div {...panelProps} />),
+				Match.orElse(() => <div {...props} />),
 			)}
 		</Suspense>
 	);
 };
 
-const FilesTreePanel: FC<{ parent: Operand; files: Array<Operand> } & ComponentProps<"div">> = ({
+const GenericFilesTree: FC<{ parent: Operand; files: Array<Operand> } & ComponentProps<"div">> = ({
 	className,
 	children,
 	parent,
 	files,
 	ref: refProp,
-	...panelProps
+	...props
 }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
@@ -384,7 +384,7 @@ const FilesTreePanel: FC<{ parent: Operand; files: Array<Operand> } & ComponentP
 	return (
 		<NavigationIndexContext value={navigationIndex}>
 			<div
-				{...panelProps}
+				{...props}
 				tabIndex={0}
 				role="tree"
 				aria-activedescendant={treeItemId(selection)}

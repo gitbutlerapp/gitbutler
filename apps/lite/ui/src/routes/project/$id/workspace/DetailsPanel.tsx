@@ -29,7 +29,7 @@ import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Hash, Match } from "effect";
 import { ComponentProps, FC, Suspense, useDeferredValue } from "react";
-import { FilesPanel } from "./FilesPanel.tsx";
+import { FilesTree } from "./FilesPanel.tsx";
 import styles from "./DetailsPanel.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import { SelectionScope } from "#ui/selection-scopes.ts";
@@ -218,14 +218,14 @@ const FilesToggle: FC = () => {
 			<Tooltip.Trigger
 				className={getButtonClassName({})}
 				aria-pressed={filesVisible}
-				onClick={() => dispatch(projectActions.toggleFilesPanel({ projectId }))}
+				onClick={() => dispatch(projectActions.toggleFiles({ projectId }))}
 			>
 				Files
 			</Tooltip.Trigger>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
-					<Tooltip.Popup render={<TooltipPopup kbd={workspaceHotkeys.toggleFilesPanel.hotkey} />}>
-						{workspaceHotkeys.toggleFilesPanel.meta.name}
+					<Tooltip.Popup render={<TooltipPopup kbd={workspaceHotkeys.toggleFiles.hotkey} />}>
+						{workspaceHotkeys.toggleFiles.meta.name}
 					</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
@@ -421,22 +421,22 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 				</div>
 			</div>
 
-			<div className={classes(styles.panels, filesVisible && styles.panelsWithFiles)}>
+			<div className={classes(styles.diff, filesVisible && styles.diffWithFiles)}>
 				{filesVisible && (
-					<FilesPanel
+					<FilesTree
 						id={"files" satisfies SelectionScope}
 						data-selection-scope
 						tabIndex={0}
-						className={styles.filesPanel}
+						className={styles.diffFiles}
 					/>
 				)}
 
 				<div
-					id={"details" satisfies SelectionScope}
+					id={"diff" satisfies SelectionScope}
 					data-selection-scope
 					// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 					tabIndex={0}
-					className={styles.diffContentsPanel}
+					className={styles.diffContents}
 					style={{ opacity: urgentFilesSelection !== filesSelection ? 0.5 : 1 }}
 				>
 					<Suspense fallback={<p className="text-13">Loading diff…</p>}>

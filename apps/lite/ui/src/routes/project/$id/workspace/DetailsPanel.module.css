@@ -23,22 +23,22 @@
 	gap: 8px;
 }
 
-.panels {
+.diff {
 	display: grid;
 	grid-template-rows: minmax(0, 1fr);
 	grid-template-columns: 1fr;
 	column-gap: 12px;
 }
 
-.panelsWithFiles {
+.diffWithFiles {
 	grid-template-columns: 300px 1fr;
 }
 
-.filesPanel {
+.diffFiles {
 	overflow: auto;
 }
 
-.diffContentsPanel {
+.diffContents {
 	display: grid;
 }
 
