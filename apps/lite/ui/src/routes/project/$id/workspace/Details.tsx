@@ -173,9 +173,9 @@ const Header: FC<{
 							>
 								<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
 								{branchDetails.prNumber != null && (
-									<h4 className={classes("text-13", "text-bold", styles.pr)}>
+									<div className={classes("text-13", "text-bold", styles.pr)}>
 										PR #{branchDetails.prNumber}
-									</h4>
+									</div>
 								)}
 							</OperationSourceC>
 						)}
