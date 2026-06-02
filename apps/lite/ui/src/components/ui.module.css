@@ -18,11 +18,10 @@
 
 .scrollerWithSeparator {
 	container-type: scroll-state;
-	display: flex;
-	flex-direction: column;
 	overflow: auto;
 
 	&:before {
+		display: block;
 		z-index: 1;
 		position: sticky;
 		top: 0;
