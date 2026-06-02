@@ -1,0 +1,14 @@
+{
+	"languages": {
+		"TypeScript": {
+			"tasks": {
+				"enabled": false
+			}
+		},
+		"TSX": {
+			"tasks": {
+				"enabled": false
+			}
+		}
+	}
+}
