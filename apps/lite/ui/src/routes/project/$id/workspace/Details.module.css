@@ -25,6 +25,8 @@
 	display: grid;
 	grid-template-rows: minmax(0, 1fr);
 	grid-template-columns: 1fr;
+	column-gap: 12px;
+	padding-inline-start: var(--panel-padding);
 }
 
 .diffWithFiles {
@@ -32,12 +34,15 @@
 }
 
 .diffFiles {
-	padding-inline: var(--panel-padding);
 	padding-bottom: var(--panel-padding);
 }
 
 .diffContents {
 	display: grid;
+}
+
+.diffContentsVirtualizer {
+	overflow: auto;
 }
 
 .avatar {
@@ -59,10 +64,6 @@
 	color: var(--text-3);
 }
 
-.detailsVirtualizer {
-	overflow: auto;
-}
-
 .heading {
 	margin-block-end: 14px;
 }
@@ -78,6 +79,8 @@
 }
 
 .commitMessageBody {
+	max-height: 10lh;
+	overflow: auto;
 	font-size: 13px;
 	/* text pre */
 	white-space: pre-line;
