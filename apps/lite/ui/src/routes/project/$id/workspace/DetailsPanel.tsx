@@ -32,7 +32,7 @@ import { ComponentProps, FC, Suspense, useDeferredValue } from "react";
 import { FilesPanel } from "./FilesPanel.tsx";
 import styles from "./DetailsPanel.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
-import { Panel } from "#ui/panels.ts";
+import { SelectionScope } from "#ui/selection-scopes.ts";
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
@@ -424,16 +424,16 @@ export const DetailsPanel: FC<ComponentProps<"div">> = (panelProps) => {
 			<div className={classes(styles.panels, filesVisible && styles.panelsWithFiles)}>
 				{filesVisible && (
 					<FilesPanel
-						id={"files" satisfies Panel}
-						data-panel
+						id={"files" satisfies SelectionScope}
+						data-selection-scope
 						tabIndex={0}
 						className={styles.filesPanel}
 					/>
 				)}
 
 				<div
-					id={"details" satisfies Panel}
-					data-panel
+					id={"details" satisfies SelectionScope}
+					data-selection-scope
 					// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 					tabIndex={0}
 					className={styles.diffContentsPanel}

@@ -32,7 +32,7 @@ import {
 	getTransferOperation,
 	keyboardTransferOperationMode,
 } from "#ui/outline/mode.ts";
-import { focusPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
+import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
 import {
 	projectActions,
 	selectProjectCommitTarget,
@@ -411,7 +411,7 @@ const useOutlineTreeHotkeys = ({
 				}),
 			}),
 		);
-		focusPanel("outline");
+		focusSelectionScope("outline");
 	};
 
 	const composeCommitHere = (relativeTo: RelativeTo) => {
@@ -459,7 +459,7 @@ const useOutlineTreeHotkeys = ({
 		navigationIndex,
 		projectId,
 		group: "Outline",
-		panel: "outline",
+		selectionScope: "outline",
 		select,
 		selection,
 	});
@@ -477,7 +477,7 @@ const useOutlineTreeHotkeys = ({
 			hotkey: outlineHotkeys.selectChanges.hotkey,
 			callback: () => {
 				dispatch(projectActions.selectOutline({ projectId, selection: changesSectionOperand }));
-				focusPanel("outline");
+				focusSelectionScope("outline");
 			},
 			options: { conflictBehavior: "allow", meta: outlineHotkeys.selectChanges.meta },
 		},
@@ -997,7 +997,7 @@ const CommitRow: FC<
 	const endEditing = () => {
 		dispatch(projectActions.exitMode({ projectId }));
 		dispatch(projectActions.selectOutline({ projectId, selection: operand }));
-		focusPanel("outline");
+		focusSelectionScope("outline");
 	};
 
 	const toastManager = Toast.useToastManager();
@@ -1039,7 +1039,7 @@ const CommitRow: FC<
 				}),
 			}),
 		);
-		focusPanel("outline");
+		focusSelectionScope("outline");
 	};
 
 	const relativeTo: RelativeTo = { type: "commit", subject: commit.id };
@@ -1649,7 +1649,7 @@ const Changes: FC<{
 					onKeyDown={(event) => {
 						if (event.key !== "Escape") return;
 						event.preventDefault();
-						focusPanel("outline");
+						focusSelectionScope("outline");
 					}}
 				/>
 
@@ -1985,7 +1985,7 @@ const BranchRow: FC<
 	const endEditing = () => {
 		dispatch(projectActions.exitMode({ projectId }));
 		dispatch(projectActions.selectOutline({ projectId, selection: operand }));
-		focusPanel("outline");
+		focusSelectionScope("outline");
 	};
 
 	const toastManager = Toast.useToastManager();

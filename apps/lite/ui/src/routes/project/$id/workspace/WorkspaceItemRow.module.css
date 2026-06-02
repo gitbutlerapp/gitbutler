@@ -58,7 +58,7 @@
 	color: var(--fill-gray-fg);
 
 	&:has(:where(textarea, input):focus),
-	:where([data-panel]:focus) & {
+	:where([data-selection-scope]:focus) & {
 		background-color: var(--fill-gray-bg);
 	}
 }

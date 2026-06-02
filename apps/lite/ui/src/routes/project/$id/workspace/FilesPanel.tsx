@@ -61,7 +61,7 @@ import { decodeRefName } from "#ui/api/ref-name.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.ts";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
-import { focusPanel, useNavigationIndexHotkeys } from "#ui/panels.ts";
+import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
 import {
 	buildNavigationIndex,
 	NavigationIndex,
@@ -139,7 +139,7 @@ const useFilesTreeHotkeys = ({
 				},
 			}),
 		);
-		focusPanel("outline");
+		focusSelectionScope("outline");
 	};
 
 	useHotkeys([
@@ -159,7 +159,7 @@ const useFilesTreeHotkeys = ({
 		navigationIndex,
 		projectId,
 		group: "Files",
-		panel: "files",
+		selectionScope: "files",
 		select,
 		selection,
 		ref,
@@ -676,7 +676,7 @@ const ChangesFileRow: FC<{
 	const dispatch = useAppDispatch();
 	const enterAbsorbMode = (source: Operand, sourceTarget: AbsorptionTarget) => {
 		dispatch(projectActions.enterAbsorbMode({ projectId, source, sourceTarget }));
-		focusPanel("outline");
+		focusSelectionScope("outline");
 	};
 
 	const absorb = () => {
