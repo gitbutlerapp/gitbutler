@@ -29,7 +29,7 @@ import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Hash, Match } from "effect";
 import { ComponentProps, FC, Suspense, useDeferredValue } from "react";
-import { FilesTree } from "./FilesPanel.tsx";
+import { FilesTree } from "./FilesTree.tsx";
 import styles from "./DetailsPanel.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import { SelectionScope } from "#ui/selection-scopes.ts";

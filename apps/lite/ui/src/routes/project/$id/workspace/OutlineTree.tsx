@@ -95,7 +95,7 @@ import {
 	useState,
 	useTransition,
 } from "react";
-import styles from "./OutlinePanel.module.css";
+import styles from "./OutlineTree.module.css";
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import {
 	WorkspaceItemRow,

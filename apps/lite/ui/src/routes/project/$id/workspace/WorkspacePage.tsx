@@ -43,7 +43,7 @@ import { branchOperand, type BranchOperand } from "#ui/operands.ts";
 import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog.tsx";
 import { DetailsPanel } from "./DetailsPanel.tsx";
 import styles from "./WorkspacePage.module.css";
-import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlinePanel.tsx";
+import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree.tsx";
 import { Toast, Tooltip } from "@base-ui/react";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { shortCommitId } from "#ui/commit.ts";

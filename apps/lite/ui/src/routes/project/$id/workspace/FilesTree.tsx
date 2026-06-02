@@ -50,7 +50,7 @@ import {
 	useEffect,
 	useRef,
 } from "react";
-import styles from "./FilesPanel.module.css";
+import styles from "./FilesTree.module.css";
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import {
 	WorkspaceItemRow,
