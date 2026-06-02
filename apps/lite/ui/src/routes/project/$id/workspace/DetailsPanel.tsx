@@ -113,11 +113,17 @@ const ChangesFileDiffList: FC<{
 	const treeChangeDiffs = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 	}).map((result) => result.data);
-	const items = Array.zip(changes, treeChangeDiffs).flatMap(([change, mdiff]) => {
-		if (mdiff?.type !== "Patch") return [];
-
-		return mkCodeViewItem(change, changesetKey, mdiff.subject.hunks) ?? [];
-	});
+	const items = Array.zip(changes, treeChangeDiffs).flatMap(
+		([change, mdiff]) =>
+			Match.value(mdiff).pipe(
+				Match.when(
+					{ type: "Patch" },
+					(patch) => mkCodeViewItem(change, changesetKey, patch.subject.hunks) ?? [],
+				),
+				Match.when({ type: "Binary" }, () => mkCodeViewItem(change, changesetKey, [])),
+				Match.orElse(() => []),
+			) ?? [],
+	);
 
 	return items.length === 0 ? (
 		<p className="text-13">No changes.</p>
