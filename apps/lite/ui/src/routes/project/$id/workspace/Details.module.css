@@ -25,6 +25,8 @@
 	display: grid;
 	grid-template-rows: minmax(0, 1fr);
 	grid-template-columns: 1fr;
+	column-gap: 12px;
+	padding-inline-start: var(--panel-padding);
 }
 
 .diffWithFiles {
@@ -32,7 +34,6 @@
 }
 
 .diffFiles {
-	padding-inline: var(--panel-padding);
 	padding-bottom: var(--panel-padding);
 }
 
