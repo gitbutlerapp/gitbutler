@@ -108,6 +108,7 @@
 }
 
 .addProjectButton {
-	width: 100%;
+	/* Unset styles from design system's button class. */
+	width: unset;
 	padding-block: 16px;
 }
