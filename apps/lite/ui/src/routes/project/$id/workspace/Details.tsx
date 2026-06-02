@@ -169,15 +169,14 @@ const Header: FC<{
 								projectId={projectId}
 								selectionScope="outline"
 								source={branchOperand({ stackId, branchRef })}
+								render={<header className={styles.header} />}
 							>
-								<header className={styles.header}>
-									<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
-									{branchDetails.prNumber != null && (
-										<h4 className={classes("text-13", "text-bold", styles.pr)}>
-											PR #{branchDetails.prNumber}
-										</h4>
-									)}
-								</header>
+								<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
+								{branchDetails.prNumber != null && (
+									<h4 className={classes("text-13", "text-bold", styles.pr)}>
+										PR #{branchDetails.prNumber}
+									</h4>
+								)}
 							</OperationSourceC>
 						)}
 					</SuspenseQuery>
@@ -188,10 +187,9 @@ const Header: FC<{
 					projectId={projectId}
 					selectionScope="outline"
 					source={changesSectionOperand}
+					render={<header className={styles.header} />}
 				>
-					<header className={styles.header}>
-						<h3 className={classes("text-14", "text-semibold")}>Changes</h3>
-					</header>
+					<h3 className={classes("text-14", "text-semibold")}>Changes</h3>
 				</OperationSourceC>
 			),
 			File: () => null,
@@ -201,17 +199,20 @@ const Header: FC<{
 				return (
 					<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
 						{({ data: commitDetails }) => (
-							<OperationSourceC projectId={projectId} selectionScope="outline" source={source}>
-								<header className={styles.header}>
-									<Icon name="commit" />
-									<h3 className={classes("text-14", "text-semibold")}>
-										{commitTitle(commitDetails.commit.message)}
-										{commitDetails.commit.hasConflicts && " ⚠️"}
-									</h3>
-									<span className={classes("text-13", styles.commitMeta)}>
-										#{shortCommitId(commitDetails.commit.id)}
-									</span>
-								</header>
+							<OperationSourceC
+								projectId={projectId}
+								selectionScope="outline"
+								source={source}
+								render={<header className={styles.header} />}
+							>
+								<Icon name="commit" />
+								<h3 className={classes("text-14", "text-semibold")}>
+									{commitTitle(commitDetails.commit.message)}
+									{commitDetails.commit.hasConflicts && " ⚠️"}
+								</h3>
+								<span className={classes("text-13", styles.commitMeta)}>
+									#{shortCommitId(commitDetails.commit.id)}
+								</span>
 							</OperationSourceC>
 						)}
 					</SuspenseQuery>
