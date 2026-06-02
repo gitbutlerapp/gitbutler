@@ -681,11 +681,13 @@ export const OutlineTree: FC<ComponentProps<"div">> = ({ ref: refProp, ...props 
 						className={classes(props.className, styles.tree)}
 						ref={useMergedRefs(refProp, ref)}
 					>
-						<Changes
-							projectId={projectId}
-							commitTarget={commitTarget}
-							targetComboboxItems={targetComboboxItems}
-						/>
+						<div className={styles.changesContainer}>
+							<Changes
+								projectId={projectId}
+								commitTarget={commitTarget}
+								targetComboboxItems={targetComboboxItems}
+							/>
+						</div>
 
 						<div className={styles.headInfo}>
 							{headInfo?.stacks.map((stack) => (

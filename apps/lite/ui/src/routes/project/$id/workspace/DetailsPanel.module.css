@@ -7,14 +7,14 @@
 	grid-template-rows: auto minmax(0, 1fr);
 
 	row-gap: 12px;
-
-	padding: var(--panel-padding);
 }
 
 .headerWrap {
 	display: flex;
 	row-gap: 12px;
 	flex-direction: column;
+	padding-inline: var(--panel-padding);
+	padding-top: var(--panel-padding);
 }
 
 .header {
@@ -27,7 +27,6 @@
 	display: grid;
 	grid-template-rows: minmax(0, 1fr);
 	grid-template-columns: 1fr;
-	column-gap: 12px;
 }
 
 .diffWithFiles {
@@ -35,6 +34,8 @@
 }
 
 .diffFiles {
+	padding-inline: var(--panel-padding);
+	padding-bottom: var(--panel-padding);
 	overflow: auto;
 }
 
