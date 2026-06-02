@@ -40,6 +40,10 @@
 	display: grid;
 }
 
+.diffContentsVirtualizer {
+	overflow: auto;
+}
+
 .avatar {
 	width: 16px;
 	height: 16px;
@@ -57,10 +61,6 @@
 .author,
 .commitMeta {
 	color: var(--text-3);
-}
-
-.detailsVirtualizer {
-	overflow: auto;
 }
 
 .heading {

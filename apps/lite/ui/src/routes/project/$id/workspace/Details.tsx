@@ -134,7 +134,7 @@ const ChangesFileDiffList: FC<{
 		<p className="text-13">No changes.</p>
 	) : (
 		<CodeView
-			className={classes(styles.detailsVirtualizer, uiStyles.scrollerWithSeparator)}
+			className={classes(styles.diffContentsVirtualizer, uiStyles.scrollerWithSeparator)}
 			items={items}
 			options={{
 				diffStyle: "unified",
