@@ -30,10 +30,14 @@ import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Hash, Match } from "effect";
 import { ComponentProps, FC, Suspense, useDeferredValue } from "react";
-import { FilesTree } from "./FilesTree.tsx";
 import styles from "./Details.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import { SelectionScope } from "#ui/selection-scopes.ts";
+import {
+	BranchFilesTree,
+	ChangesFilesTree,
+	CommitFilesTree,
+} from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
@@ -400,6 +404,71 @@ const DiffContents: FC<{
 			Hunk: () => null,
 		}),
 	);
+
+const FilesTree: FC<ComponentProps<"div">> = (props) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+
+	const outlineSelection = useAppSelector((state) =>
+		selectProjectSelectionOutline(state, projectId),
+	);
+
+	return (
+		<Suspense
+			fallback={
+				<div {...props} className={classes(props.className, "text-13")}>
+					Loading files…
+				</div>
+			}
+		>
+			{Match.value(outlineSelection).pipe(
+				Match.tag("Commit", (commit) => (
+					<SuspenseQuery
+						{...commitDetailsWithLineStatsQueryOptions({
+							projectId,
+							commitId: commit.commitId,
+						})}
+					>
+						{({ data: commitDetails }) => (
+							<CommitFilesTree
+								{...props}
+								projectId={projectId}
+								commit={commit}
+								commitDetails={commitDetails}
+							/>
+						)}
+					</SuspenseQuery>
+				)),
+				Match.tag("ChangesSection", () => (
+					<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
+						{({ data: worktreeChanges }) => (
+							<ChangesFilesTree
+								{...props}
+								projectId={projectId}
+								worktreeChanges={worktreeChanges}
+							/>
+						)}
+					</SuspenseQuery>
+				)),
+				Match.tag("Branch", ({ stackId, branchRef }) => (
+					<SuspenseQuery
+						{...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}
+					>
+						{({ data: branchDiff }) => (
+							<BranchFilesTree
+								{...props}
+								projectId={projectId}
+								stackId={stackId}
+								branchRef={branchRef}
+								branchDiff={branchDiff}
+							/>
+						)}
+					</SuspenseQuery>
+				)),
+				Match.orElse(() => <div {...props} />),
+			)}
+		</Suspense>
+	);
+};
 
 export const Details: FC<ComponentProps<"div">> = (props) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });

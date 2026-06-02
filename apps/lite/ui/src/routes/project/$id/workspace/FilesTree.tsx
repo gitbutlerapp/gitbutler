@@ -1,7 +1,5 @@
 import {
-	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
-	commitDetailsWithLineStatsQueryOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
@@ -29,14 +27,12 @@ import {
 	projectActions,
 	selectProjectOutlineModeState,
 	selectProjectSelectionFiles,
-	selectProjectSelectionOutline,
 } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, Toast, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
-import { SuspenseQuery } from "@suspensive/react-query";
 import type {
 	AbsorptionTarget,
 	CommitDetails,
@@ -47,16 +43,7 @@ import type {
 import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Match } from "effect";
-import {
-	ComponentProps,
-	createContext,
-	FC,
-	ReactNode,
-	Suspense,
-	use,
-	useEffect,
-	useRef,
-} from "react";
+import { ComponentProps, createContext, FC, ReactNode, use, useEffect, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import {
@@ -64,7 +51,6 @@ import {
 	WorkspaceItemRowEmpty,
 	WorkspaceItemRowToolbar,
 } from "./WorkspaceItemRow.tsx";
-import { decodeRefName } from "#ui/api/ref-name.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.ts";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
@@ -173,7 +159,7 @@ const useFilesTreeHotkeys = ({
 	});
 };
 
-const CommitFilesTree: FC<
+export const CommitFilesTree: FC<
 	{ projectId: string; commit: CommitOperand; commitDetails: CommitDetails } & ComponentProps<"div">
 > = ({ projectId, commit, commitDetails, ...props }) => {
 	const parent = commitOperand(commit);
@@ -239,7 +225,7 @@ const CommitFilesTree: FC<
 	);
 };
 
-const ChangesFilesTree: FC<
+export const ChangesFilesTree: FC<
 	{
 		projectId: string;
 		worktreeChanges: WorktreeChanges;
@@ -282,7 +268,7 @@ const ChangesFilesTree: FC<
 	);
 };
 
-const BranchFilesTree: FC<
+export const BranchFilesTree: FC<
 	{
 		projectId: string;
 		stackId: string;
@@ -319,71 +305,6 @@ const BranchFilesTree: FC<
 				</div>
 			)}
 		</GenericFilesTree>
-	);
-};
-
-export const FilesTree: FC<ComponentProps<"div">> = (props) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-
-	const outlineSelection = useAppSelector((state) =>
-		selectProjectSelectionOutline(state, projectId),
-	);
-
-	return (
-		<Suspense
-			fallback={
-				<div {...props} className={classes(props.className, "text-13")}>
-					Loading files…
-				</div>
-			}
-		>
-			{Match.value(outlineSelection).pipe(
-				Match.tag("Commit", (commit) => (
-					<SuspenseQuery
-						{...commitDetailsWithLineStatsQueryOptions({
-							projectId,
-							commitId: commit.commitId,
-						})}
-					>
-						{({ data: commitDetails }) => (
-							<CommitFilesTree
-								{...props}
-								projectId={projectId}
-								commit={commit}
-								commitDetails={commitDetails}
-							/>
-						)}
-					</SuspenseQuery>
-				)),
-				Match.tag("ChangesSection", () => (
-					<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
-						{({ data: worktreeChanges }) => (
-							<ChangesFilesTree
-								{...props}
-								projectId={projectId}
-								worktreeChanges={worktreeChanges}
-							/>
-						)}
-					</SuspenseQuery>
-				)),
-				Match.tag("Branch", ({ stackId, branchRef }) => (
-					<SuspenseQuery
-						{...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}
-					>
-						{({ data: branchDiff }) => (
-							<BranchFilesTree
-								{...props}
-								projectId={projectId}
-								stackId={stackId}
-								branchRef={branchRef}
-								branchDiff={branchDiff}
-							/>
-						)}
-					</SuspenseQuery>
-				)),
-				Match.orElse(() => <div {...props} />),
-			)}
-		</Suspense>
 	);
 };
 
