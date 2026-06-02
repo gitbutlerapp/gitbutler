@@ -1,4 +1,5 @@
 use anyhow::{Result, bail};
+use bstr::ByteSlice;
 use but_core::commit::SignCommit;
 use but_rebase::graph_rebase::cherry_pick::{
     CherryPickOutcome, PickMode, TreeMergeMode, cherry_pick,
@@ -257,6 +258,132 @@ fn single_parent_to_multiple_parents_parents_conflict() -> Result<()> {
         ),
     }
     ");
+
+    Ok(())
+}
+
+#[test]
+fn synthetic_empty_merge_template_with_conflicting_new_parents_materializes_conflicted_merge_commit()
+-> Result<()> {
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
+
+    let template_source = repo.rev_parse_single("base")?.object()?.peel_to_commit()?;
+    let mut template_commit: gix::objs::Commit = template_source.decode()?.try_into()?;
+    template_commit.tree = gix::ObjectId::empty_tree(repo.object_hash());
+    template_commit.parents.clear();
+    template_commit.message = b"synthetic merge template".into();
+    let target = repo.write_object(template_commit)?.detach();
+
+    let onto = repo.rev_parse_single("single-target")?.detach();
+    let onto2 = repo.rev_parse_single("second-conflicting-target")?.detach();
+
+    let result = cherry_pick(
+        &repo,
+        target,
+        &[onto, onto2],
+        PickMode::IfChanged,
+        TreeMergeMode::WithRenames,
+        SignCommit::IfSignCommitsEnabled,
+    )?;
+
+    insta::assert_debug_snapshot!(result, @"
+    ConflictedCommit(
+        Sha1(009287dffe7bc486ed6e08ce70ac55f291b15354),
+    )
+    ");
+
+    let CherryPickOutcome::ConflictedCommit(id) = result else {
+        bail!("synthetic merge template should materialize a conflicted merge commit");
+    };
+
+    assert_eq!(
+        &get_parents(&id.attach(&repo))?,
+        &[onto, onto2],
+        "synthetic merge template should keep the conflicting new parents",
+    );
+
+    let commit = id.attach(&repo).object()?.peel_to_commit()?;
+    insta::assert_snapshot!(commit.message_raw()?.as_bstr(), @r#"
+    [conflict] synthetic merge template
+
+    GitButler-Conflict: This is a GitButler-managed conflicted commit. Files are auto-resolved
+       using the "ours" side. The commit tree contains additional directories:
+         .conflict-side-0  — our tree
+         .conflict-side-1  — their tree
+         .conflict-base-0  — the merge base tree
+         .auto-resolution  — the auto-resolved tree
+         .conflict-files   — metadata about conflicted files
+       To manually resolve, check out this commit, remove the directories
+       listed above, resolve the conflicts, and amend the commit.
+    "#);
+
+    insta::assert_snapshot!(visualize_tree(id.attach(&repo)), @r#"
+    7e70098
+    ├── .auto-resolution:aa3d213 
+    │   ├── base-f:100644:7898192 "a\n"
+    │   └── target-f:100644:eb5a316 "target\n"
+    ├── .conflict-base-0:964aa4d 
+    │   └── base-f:100644:7898192 "a\n"
+    ├── .conflict-files:100644:68fb397 "ancestorEntries = []\nourEntries = [\"target-f\"]\ntheirEntries = [\"target-f\"]\n"
+    ├── .conflict-side-0:aa3d213 
+    │   ├── base-f:100644:7898192 "a\n"
+    │   └── target-f:100644:eb5a316 "target\n"
+    ├── .conflict-side-1:e6ffce2 
+    │   ├── base-f:100644:7898192 "a\n"
+    │   └── target-f:100644:caac8f9 "target 2\n"
+    ├── base-f:100644:7898192 "a\n"
+    └── target-f:100644:eb5a316 "target\n"
+    "#);
+
+    Ok(())
+}
+
+#[test]
+fn synthetic_empty_merge_template_with_unrelated_new_parents_uses_empty_base_tree() -> Result<()> {
+    let (repo, _tmpdir, _meta) = fixture_writable("disjoint-orphan-branches")?;
+
+    let template_source = repo.rev_parse_single("main")?.object()?.peel_to_commit()?;
+    let mut template_commit: gix::objs::Commit = template_source.decode()?.try_into()?;
+    template_commit.tree = gix::ObjectId::empty_tree(repo.object_hash());
+    template_commit.parents.clear();
+    template_commit.message = b"synthetic unrelated merge template".into();
+    let target = repo.write_object(template_commit)?.detach();
+
+    let onto = repo.rev_parse_single("main")?.detach();
+    let onto2 = repo.rev_parse_single("orphan")?.detach();
+
+    let result = cherry_pick(
+        &repo,
+        target,
+        &[onto, onto2],
+        PickMode::IfChanged,
+        TreeMergeMode::WithRenames,
+        SignCommit::IfSignCommitsEnabled,
+    )?;
+
+    insta::assert_debug_snapshot!(result, @"
+    Commit(
+        Sha1(8deb9d849412560636bc9dce3a82392324467c0b),
+    )
+    ");
+
+    let CherryPickOutcome::Commit(id) = result else {
+        bail!("unrelated synthetic merge template should merge from the empty tree base");
+    };
+
+    assert_eq!(
+        &get_parents(&id.attach(&repo))?,
+        &[onto, onto2],
+        "unrelated synthetic merge template should keep both new parents",
+    );
+
+    insta::assert_snapshot!(visualize_tree(id.attach(&repo)), @r#"
+    9418a9b
+    ├── base:100644:df967b9 "base\n"
+    ├── main-1:100644:114be18 "main-1\n"
+    ├── orphan-base:100644:0b12d02 "orphan-base\n"
+    └── orphan-tip:100644:1647ebd "orphan-tip\n"
+    "#);
 
     Ok(())
 }

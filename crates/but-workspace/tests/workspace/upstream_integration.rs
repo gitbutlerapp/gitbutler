@@ -1,9 +1,11 @@
 use anyhow::Result;
+use but_core::Commit;
 use but_graph::init::Options;
 use but_meta::virtual_branches_legacy_types::Target;
 use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
 use but_workspace::{BottomUpdate, BottomUpdateKind, integrate_upstream};
+use gix::prelude::ObjectIdExt;
 
 use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack, named_writable_scenario_with_description,
@@ -318,6 +320,94 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
     |/  
     * 85aa44b (o1) o1
     ");
+
+    Ok(())
+}
+
+#[test]
+fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("remote-diverged-with-workspace-conflicting")?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "A"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * 8fd8fb6 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 61c4a24 (A) local change in A 1
+    | * f03fc2c (origin/A, new-origin) remote change in A 1
+    |/  
+    * 2b73dee (origin/main, main) init-integration
+    ");
+
+    let mut workspace = graph.into_workspace()?;
+    let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Merge,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
+        }],
+    )?;
+
+    rebase.materialize()?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 379fa91 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   9b4efdf (A) [conflict] Merge refs/remotes/origin/A into merge
+    |\  
+    | * f03fc2c (origin/A, new-origin) remote change in A 1
+    * | 61c4a24 local change in A 1
+    |/  
+    * 2b73dee (origin/main, main) init-integration
+    ");
+
+    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?.detach())?;
+    assert!(
+        Commit::from_id(branch_tip.id.attach(&repo))?.is_conflicted(),
+        "upstream integration merge should materialize a conflicted commit when target and stack changes conflict",
+    );
+
+    let parents = branch_tip.parent_ids().collect::<Vec<_>>();
+    assert_eq!(
+        parents.len(),
+        2,
+        "upstream integration merge should preserve merge ancestry in conflicted cases",
+    );
+    assert_eq!(
+        parents[1].detach(),
+        repo.rev_parse_single("origin/A")?.detach(),
+        "upstream integration merge should keep the target branch tip as second parent",
+    );
+
+    insta::assert_snapshot!(branch_tip.message_raw()?, @r#"
+    [conflict] Merge refs/remotes/origin/A into merge
+
+    GitButler-Conflict: This is a GitButler-managed conflicted commit. Files are auto-resolved
+       using the "ours" side. The commit tree contains additional directories:
+         .conflict-side-0  — our tree
+         .conflict-side-1  — their tree
+         .conflict-base-0  — the merge base tree
+         .auto-resolution  — the auto-resolved tree
+         .conflict-files   — metadata about conflicted files
+       To manually resolve, check out this commit, remove the directories
+       listed above, resolve the conflicts, and amend the commit.
+    "#);
 
     Ok(())
 }

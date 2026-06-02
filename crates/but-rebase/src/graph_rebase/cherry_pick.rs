@@ -80,9 +80,28 @@ pub enum PickMode {
 /// Except in the case where X is conflicted. In that case we then make use of
 /// X's "base" sub-tree as the base.
 ///
-/// `pick_mode` - controls how to determine if a commit should be cherry-picked.
-/// `tree_merge_mode` - controls how parent trees are merged for merge commits.
-/// `sign_commit` - controls how the resulting commit is signed.
+/// Special case: when a synthetic merge template has no original parents, an
+/// empty tree, and exactly two new parents whose trees conflict with each
+/// other, we materialize that conflict as a GitButler conflicted merge commit
+/// instead of returning [`CherryPickOutcome::FailedToMergeBases`].
+///
+/// `repo`
+/// The repository that owns `target`, `ontos`, and any newly written commit or tree objects.
+///
+/// `target`
+/// The commit to cherry-pick, possibly including conflicted-tree metadata or a synthetic merge template.
+///
+/// `ontos`
+/// The parent commits that `target` should be replayed onto in the result graph.
+///
+/// `pick_mode`
+/// Controls whether the cherry-pick may short-circuit to identity or must recreate the commit.
+///
+/// `tree_merge_mode`
+/// Controls how parent trees are merged while constructing merge-commit bases and ontos.
+///
+/// `sign_commit`
+/// Controls whether the newly written commit should be signed.
 pub fn cherry_pick(
     repo: &gix::Repository,
     target: gix::ObjectId,
@@ -123,11 +142,6 @@ pub fn cherry_pick(
             // by the ontos & parents comparison or the PickMode::Force case.
             Ok(CherryPickOutcome::Identity(target.id.detach()))
         }
-        // TODO(cto): We can handle the specific case where (the base is
-        // _not_ conflicted & the ontos _is_ conflicted & the target == base
-        // & ontos.len() == 2) by writing out the ontos conflict as a
-        // conflicted merge commit, without expanding our conflict
-        // representation.
         (MergeOutcome::Conflict { commits: bases }, MergeOutcome::Conflict { commits: ontos }) => {
             Ok(CherryPickOutcome::FailedToMergeBases {
                 base_merge_failed: true,
@@ -142,12 +156,26 @@ pub fn cherry_pick(
             onto_merge_failed: false,
             ontos: None,
         }),
-        (_, MergeOutcome::Conflict { commits }) => Ok(CherryPickOutcome::FailedToMergeBases {
-            base_merge_failed: false,
-            bases: None,
-            onto_merge_failed: true,
-            ontos: Some(commits.to_vec()),
-        }),
+        (_, MergeOutcome::Conflict { commits }) => {
+            if let Some(outcome) = maybe_materialize_conflicted_onto_merge(
+                repo,
+                &target,
+                ontos,
+                &base_t,
+                target_t.detach(),
+                tree_merge_mode,
+                sign_commit,
+            )? {
+                Ok(outcome)
+            } else {
+                Ok(CherryPickOutcome::FailedToMergeBases {
+                    base_merge_failed: false,
+                    bases: None,
+                    onto_merge_failed: true,
+                    ontos: Some(commits.to_vec()),
+                })
+            }
+        }
         (
             MergeOutcome::Success(_) | MergeOutcome::NoCommit,
             MergeOutcome::Success(_) | MergeOutcome::NoCommit,
@@ -188,6 +216,93 @@ pub fn cherry_pick(
             }
         }
     }
+}
+
+/// Materialize the narrow synthetic-merge case where building the merged
+/// `onto` tree conflicts before the normal final cherry-pick merge can run.
+///
+/// This helper only handles parentless, non-conflicted, empty-tree templates
+/// that are being replayed onto exactly two commits with rename detection
+/// enabled. In that situation we can treat the conflicting `onto` merge itself
+/// as the desired result and wrap it in GitButler's conflicted-commit format.
+///
+/// `repo`
+/// The repository that owns all commits and trees involved in the merge attempt.
+///
+/// `target`
+/// The synthetic merge template commit that is being replayed onto `ontos`.
+///
+/// `ontos`
+/// The two commits whose full trees should become the merge parents of the result.
+///
+/// `base_t`
+/// The already-computed original-base merge outcome for `target`, used to confirm this is the parentless template case.
+///
+/// `target_tree_id`
+/// The resolved tree of `target`, used to confirm the template starts from the empty tree.
+///
+/// `tree_merge_mode`
+/// The merge mode requested by the caller; only `TreeMergeMode::WithRenames` is handled here.
+///
+/// `sign_commit`
+/// Controls whether the conflicted or clean merge commit written by this helper should be signed.
+fn maybe_materialize_conflicted_onto_merge(
+    repo: &gix::Repository,
+    target: &but_core::Commit<'_>,
+    ontos: &[gix::ObjectId],
+    base_t: &MergeOutcome,
+    target_tree_id: gix::ObjectId,
+    tree_merge_mode: TreeMergeMode,
+    sign_commit: SignCommit,
+) -> Result<Option<CherryPickOutcome>> {
+    let empty_tree = gix::ObjectId::empty_tree(repo.object_hash());
+    if !matches!(base_t, MergeOutcome::NoCommit)
+        || target.is_conflicted()
+        || !target.parents.is_empty()
+        || target_tree_id != empty_tree
+        || ontos.len() != 2
+        || tree_merge_mode != TreeMergeMode::WithRenames
+    {
+        return Ok(None);
+    }
+
+    let base_tree_id = peel_to_tree_or_empty(repo, merge_base(repo, ontos[0], ontos[1])?)?.detach();
+    let ours_tree_id = but_core::Commit::from_id(ontos[0].attach(repo))?
+        .tree_id_or_auto_resolution()?
+        .detach();
+    let theirs_tree_id = but_core::Commit::from_id(ontos[1].attach(repo))?
+        .tree_id_or_auto_resolution()?
+        .detach();
+
+    let mut outcome = repo.merge_trees(
+        base_tree_id,
+        ours_tree_id,
+        theirs_tree_id,
+        repo.default_merge_labels(),
+        repo.merge_options_force_ours()?,
+    )?;
+    let tree_id = outcome.tree.write()?;
+    let conflict_kind = gix::merge::tree::TreatAsUnresolved::forced_resolution();
+    if !outcome.has_unresolved_conflicts(conflict_kind) {
+        return Ok(Some(CherryPickOutcome::Commit(
+            commit_from_unconflicted_tree(ontos, target.clone(), tree_id, sign_commit)?.detach(),
+        )));
+    }
+
+    let conflicted_commit = commit_from_conflicted_tree(
+        ontos,
+        target.clone(),
+        tree_id,
+        outcome,
+        conflict_kind,
+        base_tree_id,
+        ours_tree_id,
+        theirs_tree_id,
+        sign_commit,
+    )?;
+    Ok(Some(CherryPickOutcome::ConflictedCommit(
+        conflicted_commit.detach(),
+    )))
 }
 
 #[derive(Debug, Clone)]
@@ -295,7 +410,8 @@ fn merge_base(
         // It's very possible we'll see scenarios where there are two parents
         // that have no common ancestor. We should handle that well by using the
         // empty tree as the base.
-        Err(gix::repository::merge_base::Error::FindMergeBase(_)) => Ok(None),
+        Err(gix::repository::merge_base::Error::FindMergeBase(_))
+        | Err(gix::repository::merge_base::Error::NotFound { .. }) => Ok(None),
         Err(e) => bail!(e),
     }
 }
