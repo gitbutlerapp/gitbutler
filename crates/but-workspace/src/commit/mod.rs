@@ -63,6 +63,8 @@ pub mod discard_commit;
 pub use discard_commit::discard_commits;
 pub mod squash_commits;
 pub use squash_commits::{SquashCommitsOutcome, squash_commits};
+pub mod sign_commits;
+pub use sign_commits::SignCommitsOutcome;
 
 /// A minimal stack for use by [WorkspaceCommit::new_from_stacks()].
 #[derive(Clone)]

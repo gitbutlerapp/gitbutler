@@ -1,6 +1,10 @@
 use std::fmt::Write;
 
-use but_core::{RepositoryExt, ref_metadata::StackId, sync::RepoShared};
+use but_core::{
+    RepositoryExt,
+    ref_metadata::StackId,
+    sync::{RepoExclusive, RepoShared},
+};
 use but_ctx::Context;
 use cli_prompts::DisplayPrompt;
 use gitbutler_git::PushResult;
@@ -57,9 +61,9 @@ pub async fn handle(
         return handle_dry_run(ctx, &args.branch_id, out);
     }
 
-    let guard = ctx.shared_worktree_access();
-    let perm = guard.read_permission();
-    let id_map = IdMap::new_from_context(ctx, None, perm)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    let id_map = IdMap::new_from_context(ctx, None, perm.read_permission())?;
 
     // If no branch_id is provided, show all branches and prompt or push all
     let branch_selection = if let Some(ref branch_id) = args.branch_id {
@@ -81,7 +85,9 @@ pub async fn handle(
     };
 
     // Best-effort: update PR/MR target branches to match the current stack structure.
-    if had_successful_push && let Err(err) = update_review_targets_for_stacks(ctx, perm).await {
+    if had_successful_push
+        && let Err(err) = update_review_targets_for_stacks(ctx, perm.read_permission()).await
+    {
         tracing::warn!(?err, "Failed to update review target branches after push");
     }
 
@@ -598,7 +604,7 @@ fn dry_run_push_details(
 
 fn push_single_branch(
     ctx: &mut Context,
-    perm: &RepoShared,
+    perm: &RepoExclusive,
     branch_name: &str,
     args: &Command,
     gerrit_mode: bool,
@@ -618,7 +624,7 @@ fn push_single_branch(
     if !result.branch_sha_updates.is_empty() {
         let repo = ctx.repo.get()?.clone().for_commit_shortening();
         let gerrit_review_ref = if gerrit_mode {
-            Some(gerrit_review_ref(ctx, perm, &repo)?)
+            Some(gerrit_review_ref(ctx, perm.read_permission(), &repo)?)
         } else {
             None
         };
@@ -649,7 +655,7 @@ fn push_single_branch(
 // Shared implementation for pushing a single branch
 fn push_single_branch_impl(
     ctx: &mut Context,
-    perm: &RepoShared,
+    perm: &RepoExclusive,
     branch_name: &str,
     args: &Command,
     gerrit_mode: bool,
@@ -663,6 +669,16 @@ fn push_single_branch_impl(
     // Convert CLI args to gerrit flags with validation
     let gerrit_flags = get_gerrit_flags(args, branch_name, gerrit_mode)?;
 
+    {
+        let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let mut meta = ctx.meta()?;
+        let ref_name: gix::refs::FullName = format!("refs/heads/{branch_name}").try_into()?;
+        let outcome =
+            but_workspace::commit::sign_commits::sign_commits(ref_name, &repo, &mut ws, &mut meta)?;
+
+        outcome.rebase.materialize()?;
+    }
+
     // Call push_stack
     let result: PushResult = but_api::legacy::stack::push_stack_with_perm(
         ctx,
@@ -672,7 +688,7 @@ fn push_single_branch_impl(
         branch_name.to_string(),
         !args.no_hooks,
         gerrit_flags,
-        perm,
+        perm.read_permission(),
     )?;
 
     Ok(result)
@@ -681,7 +697,7 @@ fn push_single_branch_impl(
 /// Returns `true` if at least one branch was pushed successfully.
 fn push_all_branches(
     ctx: &mut Context,
-    perm: &RepoShared,
+    perm: &RepoExclusive,
     args: &Command,
     gerrit_mode: bool,
     out: &mut OutputChannel,
@@ -786,7 +802,7 @@ fn push_all_branches(
         // Print combined branch, remote, and SHA information for all pushed branches
         let repo = ctx.repo.get()?.clone().for_commit_shortening();
         let gerrit_review_ref = if gerrit_mode {
-            Some(gerrit_review_ref(ctx, perm, &repo)?)
+            Some(gerrit_review_ref(ctx, perm.read_permission(), &repo)?)
         } else {
             None
         };
