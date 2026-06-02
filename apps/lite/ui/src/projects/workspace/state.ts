@@ -203,6 +203,15 @@ export const updateRewrittenCommitReferences = (
 		const commitId = replacedCommits[state.commitTarget.subject];
 		if (commitId !== undefined) state.commitTarget = { type: "commit", subject: commitId };
 	}
+
+	if (state.mode._tag === "RewordCommit") {
+		const commit = rewrittenCommitOperand({
+			commit: state.mode.operand,
+			replacedCommits,
+			headInfo,
+		});
+		if (commit) state.mode = rewordCommitOutlineMode({ operand: commit });
+	}
 };
 
 export const startRenameBranch = (state: WorkspaceState, branch: BranchOperand) => {
@@ -235,6 +244,12 @@ export const updateRewrittenBranchReferences = (
 		refNamesEqual(state.commitTarget.subject, oldBranch.branchRef)
 	)
 		state.commitTarget = { type: "referenceBytes", subject: newBranch.branchRef };
+
+	if (
+		state.mode._tag === "RenameBranch" &&
+		operandEquals(branchOperand(state.mode.operand), oldBranchOperand)
+	)
+		state.mode = renameBranchOutlineMode({ operand: newBranch });
 };
 
 export const startRewordCommit = (state: WorkspaceState, commit: CommitOperand) => {

@@ -29,7 +29,7 @@ const useAbsorb = ({ projectId }: { projectId: string }) => {
 
 	return useMutation({
 		mutationFn: (absorptionPlan: Array<CommitAbsorption> | undefined) => {
-			if (!absorptionPlan) return Promise.resolve(0);
+			if (!absorptionPlan) return Promise.resolve(null);
 			return window.lite.absorb({ projectId, absorptionPlan });
 		},
 		onError: (error) => {

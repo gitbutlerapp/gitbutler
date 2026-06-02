@@ -9,7 +9,7 @@ import {
 } from "#ui/api/queries.ts";
 import { decodeRefName } from "#ui/api/ref-name.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
-import { commitOperand, type Operand } from "#ui/operands.ts";
+import { branchOperand, changesSectionOperand, commitOperand, type Operand } from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectFilesVisible,
@@ -30,10 +30,14 @@ import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Hash, Match } from "effect";
 import { ComponentProps, FC, Suspense, useDeferredValue } from "react";
-import { FilesTree } from "./FilesTree.tsx";
 import styles from "./Details.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import { SelectionScope } from "#ui/selection-scopes.ts";
+import {
+	BranchFilesTree,
+	ChangesFilesTree,
+	CommitFilesTree,
+} from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
@@ -152,7 +156,7 @@ const Header: FC<{
 	Match.value(selection).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
-			Branch: ({ branchRef }) => {
+			Branch: ({ stackId, branchRef }) => {
 				const decodedBranchRef = decodeRefName(branchRef);
 
 				return (
@@ -165,22 +169,32 @@ const Header: FC<{
 						})}
 					>
 						{({ data: branchDetails }) => (
-							<header className={styles.header}>
+							<OperationSourceC
+								projectId={projectId}
+								selectionScope="outline"
+								source={branchOperand({ stackId, branchRef })}
+								render={<header className={styles.header} />}
+							>
 								<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
 								{branchDetails.prNumber != null && (
-									<h4 className={classes("text-13", "text-bold", styles.pr)}>
+									<div className={classes("text-13", "text-bold", styles.pr)}>
 										PR #{branchDetails.prNumber}
-									</h4>
+									</div>
 								)}
-							</header>
+							</OperationSourceC>
 						)}
 					</SuspenseQuery>
 				);
 			},
 			ChangesSection: () => (
-				<header className={styles.header}>
+				<OperationSourceC
+					projectId={projectId}
+					selectionScope="outline"
+					source={changesSectionOperand}
+					render={<header className={styles.header} />}
+				>
 					<h3 className={classes("text-14", "text-semibold")}>Changes</h3>
-				</header>
+				</OperationSourceC>
 			),
 			File: () => null,
 			Commit: ({ commitId, stackId }) => {
@@ -189,17 +203,20 @@ const Header: FC<{
 				return (
 					<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
 						{({ data: commitDetails }) => (
-							<OperationSourceC projectId={projectId} selectionScope="outline" source={source}>
-								<header className={styles.header}>
-									<Icon name="commit" />
-									<h3 className={classes("text-14", "text-semibold")}>
-										{commitTitle(commitDetails.commit.message)}
-										{commitDetails.commit.hasConflicts && " ⚠️"}
-									</h3>
-									<span className={classes("text-13", styles.commitMeta)}>
-										#{shortCommitId(commitDetails.commit.id)}
-									</span>
-								</header>
+							<OperationSourceC
+								projectId={projectId}
+								selectionScope="outline"
+								source={source}
+								render={<header className={styles.header} />}
+							>
+								<Icon name="commit" />
+								<h3 className={classes("text-14", "text-semibold")}>
+									{commitTitle(commitDetails.commit.message)}
+									{commitDetails.commit.hasConflicts && " ⚠️"}
+								</h3>
+								<span className={classes("text-13", styles.commitMeta)}>
+									#{shortCommitId(commitDetails.commit.id)}
+								</span>
 							</OperationSourceC>
 						)}
 					</SuspenseQuery>
@@ -387,6 +404,71 @@ const DiffContents: FC<{
 			Hunk: () => null,
 		}),
 	);
+
+const FilesTree: FC<ComponentProps<"div">> = (props) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+
+	const outlineSelection = useAppSelector((state) =>
+		selectProjectSelectionOutline(state, projectId),
+	);
+
+	return (
+		<Suspense
+			fallback={
+				<div {...props} className={classes(props.className, "text-13")}>
+					Loading files…
+				</div>
+			}
+		>
+			{Match.value(outlineSelection).pipe(
+				Match.tag("Commit", (commit) => (
+					<SuspenseQuery
+						{...commitDetailsWithLineStatsQueryOptions({
+							projectId,
+							commitId: commit.commitId,
+						})}
+					>
+						{({ data: commitDetails }) => (
+							<CommitFilesTree
+								{...props}
+								projectId={projectId}
+								commit={commit}
+								commitDetails={commitDetails}
+							/>
+						)}
+					</SuspenseQuery>
+				)),
+				Match.tag("ChangesSection", () => (
+					<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
+						{({ data: worktreeChanges }) => (
+							<ChangesFilesTree
+								{...props}
+								projectId={projectId}
+								worktreeChanges={worktreeChanges}
+							/>
+						)}
+					</SuspenseQuery>
+				)),
+				Match.tag("Branch", ({ stackId, branchRef }) => (
+					<SuspenseQuery
+						{...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}
+					>
+						{({ data: branchDiff }) => (
+							<BranchFilesTree
+								{...props}
+								projectId={projectId}
+								stackId={stackId}
+								branchRef={branchRef}
+								branchDiff={branchDiff}
+							/>
+						)}
+					</SuspenseQuery>
+				)),
+				Match.orElse(() => <div {...props} />),
+			)}
+		</Suspense>
+	);
+};
 
 export const Details: FC<ComponentProps<"div">> = (props) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
