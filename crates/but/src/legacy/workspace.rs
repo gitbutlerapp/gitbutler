@@ -103,9 +103,7 @@ pub fn applied_stacks(ctx: &Context) -> anyhow::Result<Vec<HeadInfoStack>> {
     applied_stacks_with_options(ctx, false)
 }
 
-pub fn applied_stacks_with_expensive_commit_info(
-    ctx: &Context,
-) -> anyhow::Result<Vec<HeadInfoStack>> {
+pub fn applied_stacks_detailed(ctx: &Context) -> anyhow::Result<Vec<HeadInfoStack>> {
     applied_stacks_with_options(ctx, true)
 }
 
@@ -127,11 +125,11 @@ pub fn applied_stack(ctx: &Context, stack_id: Option<StackId>) -> anyhow::Result
     applied_stack_from_stacks(stacks, stack_id)
 }
 
-pub fn applied_stack_with_expensive_commit_info(
+pub fn applied_stack_detailed(
     ctx: &Context,
     stack_id: Option<StackId>,
 ) -> anyhow::Result<HeadInfoStack> {
-    let stacks = applied_stacks_with_expensive_commit_info(ctx)?;
+    let stacks = applied_stacks_detailed(ctx)?;
     applied_stack_from_stacks(stacks, stack_id)
 }
 

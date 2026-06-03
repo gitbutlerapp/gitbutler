@@ -2,7 +2,7 @@ use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 
 pub(crate) fn stack_id_by_commit_id(ctx: &Context, oid: gix::ObjectId) -> anyhow::Result<StackId> {
-    for stack in crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx)? {
+    for stack in crate::legacy::workspace::applied_stacks_detailed(ctx)? {
         let Some(id) = stack.id else {
             continue;
         };

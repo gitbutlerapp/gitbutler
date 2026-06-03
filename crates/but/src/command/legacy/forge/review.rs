@@ -956,9 +956,9 @@ fn branch_commits(
     branch_name: &str,
 ) -> anyhow::Result<Vec<Commit>> {
     let stacks = stack_id.map_or_else(
-        || crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx),
+        || crate::legacy::workspace::applied_stacks_detailed(ctx),
         |stack_id| {
-            crate::legacy::workspace::applied_stack_with_expensive_commit_info(ctx, Some(stack_id))
+            crate::legacy::workspace::applied_stack_detailed(ctx, Some(stack_id))
                 .map(|stack| vec![stack])
         },
     )?;

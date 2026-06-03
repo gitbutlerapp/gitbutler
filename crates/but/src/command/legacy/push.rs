@@ -186,7 +186,7 @@ fn handle_dry_run(
     // Get detailed information for each branch
     let mut dry_run_infos = Vec::new();
 
-    let stacks = crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx)?;
+    let stacks = crate::legacy::workspace::applied_stacks_detailed(ctx)?;
 
     // Limit the shared lock to target resolution before continuing with dry-run analysis.
     let remote = {
@@ -868,7 +868,7 @@ fn handle_no_branch_specified(
 }
 
 fn get_branches_with_unpushed_info(ctx: &Context) -> anyhow::Result<Vec<(String, usize, String)>> {
-    let stacks = crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx)?;
+    let stacks = crate::legacy::workspace::applied_stacks_detailed(ctx)?;
 
     let mut branches_info = Vec::new();
 
@@ -1147,7 +1147,7 @@ async fn update_review_targets_for_stacks(ctx: &Context, perm: &RepoShared) -> a
 /// Check if a branch contains any conflicted commits
 /// Returns an error if conflicted commits are found
 fn check_for_conflicted_commits(ctx: &Context, branch_name: &str) -> anyhow::Result<()> {
-    let stacks = crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx)?;
+    let stacks = crate::legacy::workspace::applied_stacks_detailed(ctx)?;
 
     let repo = ctx.repo.get()?.clone().for_commit_shortening();
     // Find the stack containing this branch.

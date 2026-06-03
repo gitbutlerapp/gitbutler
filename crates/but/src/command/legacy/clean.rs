@@ -182,7 +182,7 @@ fn find_empty_branches(
     // Get the set of stack IDs that have worktree changes assigned to them.
     let stacks_with_changes = stacks_with_assigned_changes(ctx)?;
 
-    let stacks = crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx)?;
+    let stacks = crate::legacy::workspace::applied_stacks_detailed(ctx)?;
 
     let mut empty_branches = Vec::new();
 

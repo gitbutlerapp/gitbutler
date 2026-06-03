@@ -524,18 +524,15 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
 
                                 // Also check if any commits in the branch have conflicts
                                 let has_conflicted_commits =
-                                    crate::legacy::workspace::applied_stack_with_expensive_commit_info(
+                                    crate::legacy::workspace::applied_stack_detailed(
                                         ctx,
                                         Some(*stack_id),
                                     )
                                     .ok()
                                     .map(|stack| {
-                                            stack.branches.iter().any(|branch| {
-                                                branch
-                                                    .commits
-                                                    .iter()
-                                                    .any(|commit| commit.has_conflicts)
-                                            })
+                                        stack.branches.iter().any(|branch| {
+                                            branch.commits.iter().any(|commit| commit.has_conflicts)
+                                        })
                                     })
                                     .unwrap_or(false);
 
