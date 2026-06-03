@@ -2359,9 +2359,14 @@ const StackC: FC<{
 	const operand = stackOperand({ stackId });
 	const canTearOffBranch = stack.segments.length > 1;
 
-	const hasAnyCommits = stack.segments.some((segment) => segment.commits.length > 0);
-	const numBranches = stack.segments.filter((segment) => segment.refName !== null).length;
-	const canRemoveBranches = !hasAnyCommits || numBranches > 1;
+	const stackState = stack.segments.reduce(
+		(state, segment) => ({
+			commitsCount: state.commitsCount + segment.commits.length,
+			branchCount: segment.refName ? state.branchCount + 1 : state.branchCount,
+		}),
+		{ commitsCount: 0, branchCount: 0 },
+	);
+	const canRemoveBranches = stackState.commitsCount === 0 || stackState.branchCount > 1;
 
 	return (
 		<TreeItem
