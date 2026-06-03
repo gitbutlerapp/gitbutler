@@ -114,7 +114,12 @@ pub fn set_application_namespace(identifier: impl Into<String>) {
     // hence the specific condition.
     // HACK: we do this here because it's always called by client binaries, and we want it to work
     //       equally there and automatically.
-    if cfg!(debug_assertions) && cfg!(target_os = "macos") {
+    //
+    // In E2E test environments (E2E_TEST_APP_DATA_DIR set), always use git-credentials
+    // regardless of platform — CI containers typically lack a system keychain.
+    if (cfg!(debug_assertions) && cfg!(target_os = "macos"))
+        || std::env::var_os("E2E_TEST_APP_DATA_DIR").is_some()
+    {
         git_credentials::setup().ok();
     }
 }
