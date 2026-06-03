@@ -13,7 +13,7 @@ use crate::{
     utils::{ResultMetricsExt, binary_path},
 };
 
-const RUB_ERROR_MESSAGE_MAX_CHARS: usize = 1024;
+const ERROR_MESSAGE_MAX_CHARS: usize = 1024;
 
 pub(super) mod types {
     use crate::{args::metrics::CommandName, utils::metrics::Event};
@@ -22,6 +22,7 @@ pub(super) mod types {
     pub struct OneshotMetricsContext {
         pub(super) start: std::time::Instant,
         pub command: CommandName,
+        pub(super) extra_props: Vec<(String, serde_json::Value)>,
     }
 
     /// A metrics implementation to run in the background, receiving metrics to send through a channel.
@@ -33,11 +34,12 @@ pub(super) mod types {
 use types::{BackgroundMetrics, OneshotMetricsContext};
 
 impl OneshotMetricsContext {
-    pub fn new_if_enabled(settings: &AppSettings, cmd: CommandName) -> Option<Self> {
-        settings.telemetry.app_metrics_enabled.then(|| Self {
+    pub fn new(cmd: CommandName, extra_props: Vec<(String, serde_json::Value)>) -> Self {
+        Self {
             start: std::time::Instant::now(),
             command: cmd,
-        })
+            extra_props,
+        }
     }
 }
 
@@ -66,15 +68,19 @@ impl EventKind {
 impl Subcommands {
     /// Create all context that is needed to emit metrics for `self` once, if `settings` permit.
     pub fn to_metrics_context(&self, settings: &AppSettings) -> Option<OneshotMetricsContext> {
+        if !settings.telemetry.app_metrics_enabled {
+            return None;
+        }
         let cmd = self.to_metrics_command();
-        OneshotMetricsContext::new_if_enabled(settings, cmd)
+        let extra_props = self.to_metrics_extra_props();
+        Some(OneshotMetricsContext::new(cmd, extra_props))
     }
 
     /// Turn `self` into a `CommandName` that serves as metric identifier.
     pub(crate) fn to_metrics_command(&self) -> CommandName {
         use CommandName::*;
 
-        use crate::args::{alias as alias_args, branch, forge, skill, worktree};
+        use crate::args::{alias as alias_args, branch, forge, skill, update, worktree};
         match self {
             #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
@@ -178,21 +184,26 @@ impl Subcommands {
                 Some(alias_args::Subcommands::Remove { .. }) => AliasRemove,
             },
             Subcommands::Metrics { .. } => Unknown,
-            Subcommands::Update { .. } => Update,
+            Subcommands::Update(update::Platform { cmd }) => match cmd {
+                update::Subcommands::Check => UpdateCheck,
+                update::Subcommands::Suppress { .. } => UpdateSuppress,
+                #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
+                update::Subcommands::Install { .. } => UpdateInstall,
+            },
             #[cfg(feature = "legacy")]
             Subcommands::RefreshRemoteData { .. } => RefreshRemoteData,
             #[cfg(feature = "legacy")]
             Subcommands::Resolve { .. } => Resolve,
             #[cfg(feature = "legacy")]
-            Subcommands::Uncommit { .. } => Rub,
+            Subcommands::Uncommit { .. } => Uncommit,
             #[cfg(feature = "legacy")]
-            Subcommands::Amend { .. } => Rub,
+            Subcommands::Amend { .. } => Amend,
             #[cfg(feature = "legacy")]
-            Subcommands::Stage { .. } => Rub,
+            Subcommands::Stage { .. } => Stage,
             #[cfg(feature = "legacy")]
-            Subcommands::Unstage { .. } => Rub,
+            Subcommands::Unstage { .. } => Unstage,
             #[cfg(feature = "legacy")]
-            Subcommands::Squash { .. } => Rub,
+            Subcommands::Squash { .. } => Squash,
             #[cfg(feature = "legacy")]
             Subcommands::Merge { .. } => Merge,
             Subcommands::Move { .. } => Move,
@@ -209,6 +220,75 @@ impl Subcommands {
             Subcommands::AgentLog { .. } => Unknown,
             Subcommands::External(_) => External,
         }
+    }
+
+    /// Additional low-cardinality dimensions for command modifiers.
+    ///
+    /// `sourceKind` and `targetKind` describe the kind a command expects, not a
+    /// resolved runtime ID.
+    pub(crate) fn to_metrics_extra_props(&self) -> Vec<(String, serde_json::Value)> {
+        use crate::args::skill;
+
+        let mut props = Vec::new();
+        match self {
+            #[cfg(feature = "legacy")]
+            Subcommands::Uncommit { discard, .. } => {
+                push_prop(&mut props, "uncommitDiscard", *discard);
+                push_prop(&mut props, "sourceKind", "commitOrCommittedFile");
+                if !*discard {
+                    push_prop(&mut props, "targetKind", "unassigned");
+                }
+            }
+            #[cfg(feature = "legacy")]
+            Subcommands::Amend { .. } => {
+                push_prop(&mut props, "sourceKind", "fileOrHunk");
+                push_prop(&mut props, "targetKind", "commit");
+            }
+            #[cfg(feature = "legacy")]
+            Subcommands::Stage { file_or_hunk, .. } => {
+                push_prop(
+                    &mut props,
+                    "stageMode",
+                    if file_or_hunk.is_some() {
+                        "direct"
+                    } else {
+                        "interactive"
+                    },
+                );
+                if file_or_hunk.is_some() {
+                    push_prop(&mut props, "sourceKind", "fileOrHunk");
+                }
+                push_prop(&mut props, "targetKind", "branch");
+            }
+            #[cfg(feature = "legacy")]
+            Subcommands::Unstage { .. } => {
+                push_prop(&mut props, "sourceKind", "fileOrHunk");
+                push_prop(&mut props, "targetKind", "branch");
+            }
+            #[cfg(feature = "legacy")]
+            Subcommands::Squash { .. } => {
+                push_prop(&mut props, "sourceKind", "commitOrBranch");
+                push_prop(&mut props, "targetKind", "commit");
+            }
+            Subcommands::Move { .. } => {
+                push_prop(&mut props, "sourceKind", "commitOrBranch");
+                push_prop(&mut props, "targetKind", "commitOrBranchOrUnassigned");
+            }
+            Subcommands::Skill(skill::Platform { cmd }) => match cmd {
+                skill::Subcommands::Install { .. } => {}
+                skill::Subcommands::Check { update, .. } => {
+                    push_prop(&mut props, "skillCheckUpdate", *update);
+                }
+            },
+            _ => {}
+        }
+        props
+    }
+}
+
+fn push_prop<T: Serialize>(props: &mut Vec<(String, serde_json::Value)>, key: &str, value: T) {
+    if let Ok(value) = serde_json::to_value(value) {
+        props.push((key.to_string(), value));
     }
 }
 
@@ -229,42 +309,75 @@ impl Props {
         }
     }
 
-    fn from_result<E, T>(start: std::time::Instant, result: &Result<T, E>) -> Props
-    where
-        E: std::fmt::Display,
-    {
-        let error = result.as_ref().err();
-        let mut props = Props::new();
-        props.insert("durationMs", start.elapsed().as_millis());
-        props.insert("error", error.map(|e| e.to_string()));
-        props
-    }
-
     fn from_anyhow_result<T>(
         start: std::time::Instant,
         result: &anyhow::Result<T>,
         command: CommandName,
     ) -> Props {
-        let mut props = Self::from_result(start, result);
+        let mut props = Props::new();
+        props.insert("durationMs", start.elapsed().as_millis());
         let Some(error) = result.as_ref().err() else {
+            props.insert("error", Option::<String>::None);
             return props;
         };
-        if !matches!(command, CommandName::Rub) {
-            return props;
-        }
 
-        let error_message = rub_error_message(error);
-        props.insert("errorMessage", &error_message);
-        props.insert(
-            "errorRoot",
-            rub_error_message(error.root_cause()).trim().to_string(),
-        );
+        props.insert_internal_error_details(error, command);
+        props
+    }
+
+    fn from_cli_error_result<T>(
+        start: std::time::Instant,
+        result: &Result<T, CliError>,
+        command: CommandName,
+    ) -> Props {
+        let mut props = Props::new();
+        props.insert("durationMs", start.elapsed().as_millis());
+        let Some(error) = result.as_ref().err() else {
+            props.insert("error", Option::<String>::None);
+            return props;
+        };
+
+        match error {
+            CliError::BadInput(bad_input) => {
+                props.insert("error", "Bad input");
+                props.insert("errorKind", "badInput");
+                if let Some(arg_name) = bad_input.argument_name() {
+                    props.insert("badInputArgName", arg_name);
+                }
+                props.insert("badInputHasHint", bad_input.has_hint());
+            }
+            CliError::ExternalCommandNotFound(_) => {
+                props.insert("error", "Unrecognized subcommand");
+                props.insert("errorKind", "externalCommandNotFound");
+            }
+            CliError::Internal(error) => {
+                props.insert_internal_error_details(error, command);
+            }
+        }
         props
     }
 
     pub fn insert<K: Into<String>, V: Serialize>(&mut self, key: K, value: V) {
         if let Ok(value) = serde_json::to_value(value) {
             self.values.insert(key.into(), value);
+        }
+    }
+
+    fn extend(&mut self, props: Vec<(String, serde_json::Value)>) {
+        for (key, value) in props {
+            self.values.insert(key, value);
+        }
+    }
+
+    fn insert_internal_error_details(&mut self, error: &anyhow::Error, command: CommandName) {
+        self.insert("error", "Internal error");
+        self.insert("errorKind", "internal");
+        if captures_detailed_error_message(command) {
+            self.insert("errorMessage", error_message(error));
+            self.insert(
+                "errorRoot",
+                error_message(error.root_cause()).trim().to_string(),
+            );
         }
     }
 
@@ -284,7 +397,7 @@ impl Props {
     }
 }
 
-fn rub_error_message(error: &(impl std::fmt::Display + ?Sized)) -> String {
+fn error_message(error: &(impl std::fmt::Display + ?Sized)) -> String {
     let error_message = format!("{error:#}");
     let mut message = error_message.as_str();
 
@@ -304,11 +417,23 @@ fn rub_error_message(error: &(impl std::fmt::Display + ?Sized)) -> String {
         .filter(|line| !line.is_empty())
         .collect::<Vec<_>>()
         .join(" ");
-    truncate_rub_error_message(message)
+    truncate_error_message(message)
 }
 
-fn truncate_rub_error_message(message: String) -> String {
-    message.chars().take(RUB_ERROR_MESSAGE_MAX_CHARS).collect()
+fn captures_detailed_error_message(command: CommandName) -> bool {
+    matches!(
+        command,
+        CommandName::Rub
+            | CommandName::Uncommit
+            | CommandName::Amend
+            | CommandName::Stage
+            | CommandName::Unstage
+            | CommandName::Squash
+    )
+}
+
+fn truncate_error_message(message: String) -> String {
+    message.chars().take(ERROR_MESSAGE_MAX_CHARS).collect()
 }
 
 #[derive(Debug, Clone)]
@@ -452,11 +577,17 @@ fn posthog_client(app_settings: AppSettings) -> Option<impl Future<Output = post
 
 impl<T> ResultMetricsExt<T, anyhow::Error> for anyhow::Result<T> {
     fn emit_metrics(self, ctx: Option<OneshotMetricsContext>) -> anyhow::Result<T> {
-        let Some(OneshotMetricsContext { start, command }) = ctx else {
+        let Some(OneshotMetricsContext {
+            start,
+            command,
+            extra_props,
+        }) = ctx
+        else {
             return self;
         };
 
-        let props = Props::from_anyhow_result(start, &self, command);
+        let mut props = Props::from_anyhow_result(start, &self, command);
+        props.extend(extra_props);
         emit_metrics(command, &props);
         self
     }
@@ -464,11 +595,17 @@ impl<T> ResultMetricsExt<T, anyhow::Error> for anyhow::Result<T> {
 
 impl<T> ResultMetricsExt<T, CliError> for Result<T, CliError> {
     fn emit_metrics(self, ctx: Option<OneshotMetricsContext>) -> Result<T, CliError> {
-        let Some(OneshotMetricsContext { start, command }) = ctx else {
+        let Some(OneshotMetricsContext {
+            start,
+            command,
+            extra_props,
+        }) = ctx
+        else {
             return self;
         };
 
-        let props = Props::from_result(start, &self);
+        let mut props = Props::from_cli_error_result(start, &self, command);
+        props.extend(extra_props);
         emit_metrics(command, &props);
         self
     }
@@ -507,66 +644,234 @@ fn emit_metrics(command: CommandName, props: &Props) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        args::{Subcommands, update},
+        bad_input,
+    };
 
-    #[test]
-    fn rub_metrics_include_detailed_error_properties() {
-        let result = Err::<(), _>(
-            anyhow::anyhow!(
-                "Source 'old-id' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state."
-            )
-            .context("Failed to stage."),
-        );
+    fn prop<'a>(
+        props: &'a [(String, serde_json::Value)],
+        key: &str,
+    ) -> Option<&'a serde_json::Value> {
+        props
+            .iter()
+            .find_map(|(prop_key, value)| (prop_key.as_str() == key).then_some(value))
+    }
 
-        let props = Props::from_anyhow_result(std::time::Instant::now(), &result, CommandName::Rub);
-
-        assert_eq!(props.values["error"], "Failed to stage.");
+    fn assert_command(subcommand: Subcommands, expected: &str) {
         assert_eq!(
-            props.values["errorMessage"],
-            "Failed to stage.: Source 'old-id' not found."
+            Event::new(EventKind::Cli(subcommand.to_metrics_command())).props["command"],
+            serde_json::json!(expected)
         );
-        assert_eq!(props.values["errorRoot"], "Source 'old-id' not found.");
     }
 
     #[test]
-    fn non_rub_metrics_do_not_include_detailed_error_properties() {
-        let result =
-            Err::<(), _>(anyhow::anyhow!("Source 'old-id' not found.").context("Failed to stage."));
+    fn metrics_use_invoked_command_names() {
+        assert_command(
+            Subcommands::Update(update::Platform {
+                cmd: update::Subcommands::Check,
+            }),
+            "updateCheck",
+        );
+        assert_command(
+            Subcommands::Update(update::Platform {
+                cmd: update::Subcommands::Suppress { days: 7 },
+            }),
+            "updateSuppress",
+        );
+        assert_command(
+            Subcommands::Move {
+                source: "c1".into(),
+                target: "main".into(),
+                after: false,
+            },
+            "move",
+        );
+
+        #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
+        assert_command(
+            Subcommands::Update(update::Platform {
+                cmd: update::Subcommands::Install {
+                    target: Some("0.20.0".into()),
+                },
+            }),
+            "updateInstall",
+        );
+
+        #[cfg(feature = "legacy")]
+        {
+            assert_command(
+                Subcommands::Amend {
+                    file: "a1".into(),
+                    commit: "c1".into(),
+                },
+                "amend",
+            );
+            assert_command(
+                Subcommands::Stage {
+                    file_or_hunk: Some("a1".into()),
+                    branch_pos: Some("main".into()),
+                    branch: None,
+                },
+                "stage",
+            );
+        }
+    }
+
+    #[test]
+    fn extra_props_keep_useful_source_and_target_kinds() {
+        let moved = Subcommands::Move {
+            source: "c1".into(),
+            target: "main".into(),
+            after: false,
+        };
+        let props = moved.to_metrics_extra_props();
+        assert_eq!(
+            prop(&props, "sourceKind"),
+            Some(&serde_json::json!("commitOrBranch"))
+        );
+        assert_eq!(
+            prop(&props, "targetKind"),
+            Some(&serde_json::json!("commitOrBranchOrUnassigned"))
+        );
+
+        #[cfg(feature = "legacy")]
+        {
+            let direct_stage = Subcommands::Stage {
+                file_or_hunk: Some("a1".into()),
+                branch_pos: Some("main".into()),
+                branch: None,
+            };
+            let props = direct_stage.to_metrics_extra_props();
+            assert_eq!(
+                prop(&props, "stageMode"),
+                Some(&serde_json::json!("direct"))
+            );
+            assert_eq!(
+                prop(&props, "sourceKind"),
+                Some(&serde_json::json!("fileOrHunk"))
+            );
+            assert_eq!(
+                prop(&props, "targetKind"),
+                Some(&serde_json::json!("branch"))
+            );
+
+            let discard = Subcommands::Uncommit {
+                source: "c1".into(),
+                discard: true,
+            };
+            let props = discard.to_metrics_extra_props();
+            assert_eq!(
+                prop(&props, "sourceKind"),
+                Some(&serde_json::json!("commitOrCommittedFile"))
+            );
+            assert_eq!(prop(&props, "targetKind"), None);
+        }
+    }
+
+    #[test]
+    fn internal_error_details_are_allowlisted() {
+        let anyhow_result = Err::<(), _>(
+            anyhow::anyhow!("stale id. If you just performed a Git operation, refresh")
+                .context("Failed to stage."),
+        );
+
+        let props = Props::from_anyhow_result(
+            std::time::Instant::now(),
+            &anyhow_result,
+            CommandName::Stage,
+        );
+
+        assert_eq!(props.values["error"], "Internal error");
+        assert_eq!(props.values["errorKind"], "internal");
+        assert_eq!(props.values["errorMessage"], "Failed to stage.: stale id.");
+        assert_eq!(props.values["errorRoot"], "stale id.");
+
+        let result = Err::<(), _>(
+            anyhow::anyhow!("private-branch-name failed").context("private-path failed"),
+        );
 
         let props =
             Props::from_anyhow_result(std::time::Instant::now(), &result, CommandName::Commit);
 
-        assert_eq!(props.values["error"], "Failed to stage.");
+        assert_eq!(props.values["error"], "Internal error");
+        assert_eq!(props.values["errorKind"], "internal");
         assert!(!props.values.contains_key("errorMessage"));
         assert!(!props.values.contains_key("errorRoot"));
+        assert!(!props.as_json_string().contains("private-branch-name"));
+        assert!(!props.as_json_string().contains("private-path"));
     }
 
     #[test]
-    fn rub_metrics_normalize_multiline_error_properties() {
-        let result =
+    fn cli_error_metrics_use_low_cardinality_failure_details() {
+        let bad_input_result = Err::<(), _>(
+            bad_input("Branch 'branch-with-private-name' not found")
+                .arg_name("<BRANCH>")
+                .arg_value("another-private-branch-name")
+                .hint("Use a branch name")
+                .into(),
+        );
+
+        let props = Props::from_cli_error_result(
+            std::time::Instant::now(),
+            &bad_input_result,
+            CommandName::Stage,
+        );
+
+        assert_eq!(props.values["errorKind"], "badInput");
+        assert_eq!(props.values["error"], "Bad input");
+        assert!(!props.values.contains_key("errorMessage"));
+        assert_eq!(props.values["badInputArgName"], "<BRANCH>");
+        assert_eq!(props.values["badInputHasHint"], true);
+        assert!(!props.as_json_string().contains("branch-with-private-name"));
+        assert!(
+            !props
+                .as_json_string()
+                .contains("another-private-branch-name")
+        );
+
+        let external_result = Err::<(), _>(CliError::ExternalCommandNotFound("typo".into()));
+        let props = Props::from_cli_error_result(
+            std::time::Instant::now(),
+            &external_result,
+            CommandName::External,
+        );
+
+        assert_eq!(props.values["error"], "Unrecognized subcommand");
+        assert_eq!(props.values["errorKind"], "externalCommandNotFound");
+        assert!(!props.values.contains_key("errorMessage"));
+        assert!(!props.as_json_string().contains("typo"));
+    }
+
+    #[test]
+    fn detailed_error_messages_are_normalized_and_capped() {
+        let multiline_result =
             Err::<(), _>(anyhow::anyhow!("first line\nsecond line").context("Failed to stage."));
 
-        let props = Props::from_anyhow_result(std::time::Instant::now(), &result, CommandName::Rub);
+        let props = Props::from_anyhow_result(
+            std::time::Instant::now(),
+            &multiline_result,
+            CommandName::Stage,
+        );
 
         assert_eq!(
             props.values["errorMessage"],
             "Failed to stage.: first line second line"
         );
         assert_eq!(props.values["errorRoot"], "first line second line");
-    }
 
-    #[test]
-    fn rub_metrics_cap_detailed_error_properties() {
-        let result = Err::<(), _>(anyhow::anyhow!("{}", "a".repeat(1100)));
+        let long_result = Err::<(), _>(anyhow::anyhow!("{}", "a".repeat(1100)));
 
-        let props = Props::from_anyhow_result(std::time::Instant::now(), &result, CommandName::Rub);
+        let props =
+            Props::from_anyhow_result(std::time::Instant::now(), &long_result, CommandName::Stage);
 
         assert_eq!(
             props.values["errorMessage"].as_str().unwrap().len(),
-            RUB_ERROR_MESSAGE_MAX_CHARS
+            ERROR_MESSAGE_MAX_CHARS
         );
         assert_eq!(
             props.values["errorRoot"].as_str().unwrap().len(),
-            RUB_ERROR_MESSAGE_MAX_CHARS
+            ERROR_MESSAGE_MAX_CHARS
         );
     }
 }

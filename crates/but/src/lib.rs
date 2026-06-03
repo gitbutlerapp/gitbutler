@@ -181,8 +181,12 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
 
     let result = match args.cmd.take() {
-        Some(Subcommands::External(extra)) => {
-            command::external::dispatch(&args.current_dir, &extra)
+        Some(cmd @ Subcommands::External(_)) => {
+            let metrics_ctx = cmd.to_metrics_context(&app_settings);
+            let Subcommands::External(extra) = cmd else {
+                unreachable!("external command was matched above")
+            };
+            command::external::dispatch(&args.current_dir, &extra).emit_metrics(metrics_ctx)
         }
         None => {
             // No arguments means run the default alias
@@ -1346,6 +1350,7 @@ async fn match_subcommand(
                 })?;
                 command::legacy::rub::handle_stage(&mut ctx, out, file_or_hunk, branch)
                     .context("Failed to stage.")
+                    .map_err(command::legacy::rub::stage_cli_error)
                     .emit_metrics(metrics_ctx)
             } else {
                 // Interactive mode: but stage [--branch <branch>]
@@ -1357,10 +1362,11 @@ async fn match_subcommand(
                 }
                 command::legacy::rub::handle_stage_tui(&mut ctx, out, branch.as_deref())
                     .context("Failed to stage.")
+                    .map_err(command::legacy::rub::stage_cli_error)
                     .emit_metrics(metrics_ctx)
             };
             maybe_run_status_after(status_after, &result, &mut ctx, out).await;
-            result.map_err(command::legacy::rub::stage_cli_error)
+            result
         }
         #[cfg(feature = "legacy")]
         Subcommands::Unstage {

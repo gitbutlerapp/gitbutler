@@ -49,6 +49,14 @@ impl BadInput {
         self.hint = Some(hint.as_ref().to_string());
         self
     }
+
+    pub(crate) fn argument_name(&self) -> Option<&str> {
+        self.arg_name.as_deref()
+    }
+
+    pub(crate) fn has_hint(&self) -> bool {
+        self.hint.is_some()
+    }
 }
 
 /// Convenience wrapper around [`BadInput::new`].
