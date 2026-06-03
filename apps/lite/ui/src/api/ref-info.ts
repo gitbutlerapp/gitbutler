@@ -47,11 +47,12 @@ export const findSegmentByBranchRef = ({
 	branchRef,
 }: {
 	headInfo: RefInfo;
-	branchRef: Array<number> | null;
+	branchRef: Array<number>;
 }): Segment | null => {
 	for (const stack of headInfo.stacks)
 		for (const segment of stack.segments)
-			if (refNamesEqual(segment.refName?.fullNameBytes ?? null, branchRef)) return segment;
+			if (segment.refName && refNamesEqual(segment.refName.fullNameBytes, branchRef))
+				return segment;
 
 	return null;
 };
