@@ -135,6 +135,10 @@ export const outlineHotkeys = {
 		hotkey: "Alt+ArrowUp",
 		meta: { group: "Commit", name: "Move commit up" },
 	},
+	pushStack: {
+		hotkey: "Shift+P",
+		meta: { group: "Branch", name: "Push branch" },
+	},
 	renameBranch: {
 		hotkey: "Enter",
 		meta: { group: "Branch", name: "Rename branch" },
