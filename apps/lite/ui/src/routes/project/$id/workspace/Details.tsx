@@ -13,7 +13,6 @@ import { branchOperand, changesSectionOperand, commitOperand, type Operand } fro
 import {
 	projectActions,
 	selectProjectFilesVisible,
-	selectProjectSelectionFiles,
 	selectProjectSelectionOutline,
 } from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -327,69 +326,7 @@ const DiffContents: FC<{
 					)}
 				</SuspenseQuery>
 			),
-			File: ({ parent, path }) =>
-				Match.value(parent).pipe(
-					Match.tagsExhaustive({
-						Changes: () => (
-							<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
-								{({ data: worktreeChanges }) => {
-									const selectedChange = worktreeChanges.changes.find(
-										(candidate) => candidate.path === path,
-									);
-
-									return (
-										<ChangesFileDiffList
-											changes={selectedChange ? [selectedChange] : worktreeChanges.changes}
-											changesetKey="changes"
-											projectId={projectId}
-										/>
-									);
-								}}
-							</SuspenseQuery>
-						),
-
-						Branch: ({ branchRef }) => (
-							<SuspenseQuery
-								{...branchDiffQueryOptions({
-									projectId,
-									branch: decodeRefName(branchRef),
-								})}
-							>
-								{({ data: branchDiff }) => {
-									const selectedChange = branchDiff.changes.find(
-										(candidate) => candidate.path === path,
-									);
-
-									return (
-										<ChangesFileDiffList
-											changes={selectedChange ? [selectedChange] : branchDiff.changes}
-											changesetKey={decodeRefName(branchRef)}
-											projectId={projectId}
-										/>
-									);
-								}}
-							</SuspenseQuery>
-						),
-						Commit: ({ commitId }) => (
-							<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
-								{({ data: commitDetails }) => {
-									const selectedChange = commitDetails.changes.find(
-										(candidate) => candidate.path === path,
-									);
-									if (!selectedChange) return null;
-
-									return (
-										<ChangesFileDiffList
-											changes={[selectedChange]}
-											changesetKey={commitId}
-											projectId={projectId}
-										/>
-									);
-								}}
-							</SuspenseQuery>
-						),
-					}),
-				),
+			File: () => null,
 			Commit: ({ commitId }) => (
 				<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
 					{({ data: commitDetails }) => (
@@ -477,10 +414,6 @@ export const Details: FC<ComponentProps<"div">> = (props) => {
 		selectProjectSelectionOutline(state, projectId),
 	);
 	const outlineSelection = useDeferredValue(urgentOutlineSelection);
-	const urgentFilesSelection = useAppSelector((state) =>
-		selectProjectSelectionFiles(state, projectId),
-	);
-	const filesSelection = useDeferredValue(urgentFilesSelection);
 
 	if (outlineSelection._tag === "Stack") return;
 
@@ -520,10 +453,9 @@ export const Details: FC<ComponentProps<"div">> = (props) => {
 					// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 					tabIndex={0}
 					className={styles.diffContents}
-					style={{ opacity: urgentFilesSelection !== filesSelection ? 0.5 : 1 }}
 				>
 					<Suspense fallback={<p className="text-13">Loading diff…</p>}>
-						<DiffContents projectId={projectId} selection={filesSelection} />
+						<DiffContents selection={outlineSelection} projectId={projectId} />
 					</Suspense>
 				</div>
 			</div>
