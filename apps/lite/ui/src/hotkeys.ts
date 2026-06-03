@@ -73,17 +73,9 @@ export const globalHotkeys = {
 		hotkey: "Mod+K",
 		meta: { group: "Global", name: "Command palette" },
 	},
-	redo: {
-		hotkey: "Mod+Shift+Z",
-		meta: { group: "Outline", name: "Redo" },
-	},
 	selectProject: {
 		hotkey: "Mod+Shift+P",
 		meta: { group: "Global", name: "Select project" },
-	},
-	undo: {
-		hotkey: "Mod+Z",
-		meta: { group: "Outline", name: "Undo" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 

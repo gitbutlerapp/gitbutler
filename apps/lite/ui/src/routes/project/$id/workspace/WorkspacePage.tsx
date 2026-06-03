@@ -456,24 +456,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 
 	useHotkeys([
 		{
-			hotkey: globalHotkeys.redo.hotkey,
-			callback: () => restoreSnapshotMutation.mutate("redo"),
-			options: {
-				enabled: outlineMode._tag === "Default" && !restoreSnapshotMutation.isPending,
-				meta: globalHotkeys.redo.meta,
-				ignoreInputs: true,
-			},
-		},
-		{
-			hotkey: globalHotkeys.undo.hotkey,
-			callback: () => restoreSnapshotMutation.mutate("undo"),
-			options: {
-				enabled: outlineMode._tag === "Default" && !restoreSnapshotMutation.isPending,
-				meta: globalHotkeys.undo.meta,
-				ignoreInputs: true,
-			},
-		},
-		{
 			hotkey: globalHotkeys.commandPalette.hotkey,
 			callback: () => {
 				if (dialog._tag === "CommandPalette") dispatch(projectActions.closeDialog({ projectId }));
