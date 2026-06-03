@@ -27,14 +27,14 @@ import { findCommitStackId } from "#ui/api/ref-info.ts";
 
 export type SelectionState = {
 	outline: Operand;
-	files: Operand;
+	files: Operand | null;
 };
 
 export const defaultOutlineSelection = changesSectionOperand;
 
 const createInitialSelectionState = (): SelectionState => ({
 	outline: defaultOutlineSelection,
-	files: defaultOutlineSelection,
+	files: null,
 });
 
 export type WorkspaceState = {
@@ -141,12 +141,12 @@ export const cancelMode = (state: WorkspaceState) => {
 
 export const selectOutline = (state: WorkspaceState, selection: Operand) => {
 	state.selection.outline = selection;
-	state.selection.files = selection;
+	state.selection.files = null;
 
 	if (!isValidOutlineModeForSelection({ mode: state.mode, selection })) exitMode(state);
 };
 
-export const selectFiles = (state: WorkspaceState, selection: Operand) => {
+export const selectFiles = (state: WorkspaceState, selection: Operand | null) => {
 	state.selection.files = selection;
 };
 
@@ -190,7 +190,7 @@ export const updateRewrittenCommitReferences = (
 		if (commit) state.selection.outline = commitOperand(commit);
 	}
 
-	if (state.selection.files._tag === "Commit") {
+	if (state.selection.files?._tag === "Commit") {
 		const commit = rewrittenCommitOperand({
 			commit: state.selection.files,
 			replacedCommits,
@@ -234,7 +234,7 @@ export const updateRewrittenBranchReferences = (
 		state.selection.outline = newBranchOperand;
 
 	if (
-		state.selection.files._tag === "Branch" &&
+		state.selection.files?._tag === "Branch" &&
 		operandEquals(state.selection.files, oldBranchOperand)
 	)
 		state.selection.files = newBranchOperand;
@@ -260,7 +260,8 @@ export const startRewordCommit = (state: WorkspaceState, commit: CommitOperand) 
 export const selectSelectionOutlineState = (state: WorkspaceState): Operand =>
 	state.selection.outline;
 
-export const selectSelectionFilesState = (state: WorkspaceState): Operand => state.selection.files;
+export const selectSelectionFilesState = (state: WorkspaceState): Operand | null =>
+	state.selection.files;
 
 export const selectMode = (state: WorkspaceState): OutlineMode => state.mode;
 

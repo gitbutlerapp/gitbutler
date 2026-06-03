@@ -69,7 +69,7 @@ export const useNavigationIndexHotkeys = ({
 	group: CommandGroup;
 	selectionScope: SelectionScope;
 	select: (newItem: Operand) => void;
-	selection: Operand;
+	selection: Operand | null;
 	ref: React.RefObject<HTMLElement | null>;
 }) => {
 	const dispatch = useAppDispatch();
@@ -80,7 +80,10 @@ export const useNavigationIndexHotkeys = ({
 	};
 
 	const moveSelection = (offset: -1 | 1) => {
-		const newItem = getAdjacent({ navigationIndex, selection, offset });
+		const newItem =
+			selection === null
+				? navigationIndex.items.at(offset === 1 ? 0 : -1)
+				: getAdjacent({ navigationIndex, selection, offset });
 		if (!newItem) return;
 		selectAndFocus(newItem);
 	};
@@ -94,12 +97,16 @@ export const useNavigationIndexHotkeys = ({
 	};
 
 	const selectNextSection = () => {
+		if (!selection) return;
+
 		const newItem = getNextSection({ navigationIndex, selection });
 		if (!newItem) return;
 		selectAndFocus(newItem);
 	};
 
 	const selectPreviousSection = () => {
+		if (!selection) return;
+
 		const newItem = getPreviousSection({ navigationIndex, selection });
 		if (!newItem) return;
 		selectAndFocus(newItem);
@@ -264,11 +271,18 @@ export const useNavigationIndexHotkeys = ({
 		focusSelectionScope("outline");
 	};
 
-	const operationEnabled = outlineMode._tag === "Default";
+	const operationEnabled = outlineMode._tag === "Default" && selection !== null;
+
+	const enterTransferModeForSelection = (operationType: OperationType) => {
+		if (!selection) return;
+
+		enterTransferMode(selection, operationType);
+	};
+
 	useHotkeys([
 		{
 			hotkey: "M",
-			callback: () => enterTransferMode(selection, "moveAbove"),
+			callback: () => enterTransferModeForSelection("moveAbove"),
 			options: {
 				conflictBehavior: "allow",
 				enabled: operationEnabled,
@@ -278,7 +292,7 @@ export const useNavigationIndexHotkeys = ({
 		},
 		{
 			hotkey: "Mod+X",
-			callback: () => enterTransferMode(selection, "rub"),
+			callback: () => enterTransferModeForSelection("rub"),
 			options: {
 				conflictBehavior: "allow",
 				enabled: operationEnabled,
@@ -289,7 +303,7 @@ export const useNavigationIndexHotkeys = ({
 		},
 		{
 			hotkey: "R",
-			callback: () => enterTransferMode(selection, "rub"),
+			callback: () => enterTransferModeForSelection("rub"),
 			options: {
 				conflictBehavior: "allow",
 				enabled: operationEnabled,

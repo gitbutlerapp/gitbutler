@@ -12,11 +12,8 @@ import {
 } from "#ui/native-menu.ts";
 import {
 	branchFileParent,
-	branchOperand,
 	changesFileParent,
-	changesSectionOperand,
 	commitFileParent,
-	commitOperand,
 	fileOperand,
 	operandEquals,
 	operandIdentityKey,
@@ -62,36 +59,43 @@ import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 
 const NavigationIndexContext = createContext<NavigationIndex | null>(null);
 
-const useNavigationIndex = (projectId: string, parent: Operand, files: Array<Operand>) => {
+const useNavigationIndex = (projectId: string, files: Array<Operand>) => {
 	const dispatch = useAppDispatch();
 
-	const navigationIndex = buildNavigationIndex([{ section: parent, children: files }]);
+	const navigationIndex = buildNavigationIndex([{ section: null, children: files }]);
 
 	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
 
-	// Reset selection when it's no longer part of the files list.
+	// Reset selection when it's no longer part of the files list if there's a viable alternative i.e.
+	// there are any files.
 	//
 	// React allows state updates on render, but not for external stores.
 	// https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
 	useEffect(() => {
-		if (!navigationIndexIncludes(navigationIndex, selection))
-			dispatch(
-				projectActions.selectFiles({
-					projectId,
-					selection: parent,
-				}),
-			);
-	}, [navigationIndex, selection, projectId, dispatch, parent]);
+		if (selection && navigationIndexIncludes(navigationIndex, selection)) return;
+
+		const next = files[0] ?? null;
+		if (next === null && selection === null) return;
+
+		dispatch(
+			projectActions.selectFiles({
+				projectId,
+				selection: next,
+			}),
+		);
+	}, [navigationIndex, selection, projectId, dispatch, files]);
 
 	return navigationIndex;
 };
 
 const useFilesTreeHotkeys = ({
 	navigationIndex,
+	onFileSelection,
 	projectId,
 	ref,
 }: {
 	navigationIndex: NavigationIndex;
+	onFileSelection: (selection: Operand) => void;
 	projectId: string;
 	ref: React.RefObject<HTMLElement | null>;
 }) => {
@@ -101,21 +105,21 @@ const useFilesTreeHotkeys = ({
 
 	const dispatch = useAppDispatch();
 
-	const select = (newItem: Operand) =>
-		dispatch(projectActions.selectFiles({ projectId, selection: newItem }));
-
-	const isChangesFileSelected = selection._tag === "File" && selection.parent._tag === "Changes";
+	const selectedChangesFile =
+		selection?._tag === "File" && selection.parent._tag === "Changes" ? selection : null;
 
 	const absorbSelectedFile = () => {
-		if (!isChangesFileSelected) return;
+		if (selectedChangesFile === null) return;
 
-		const change = worktreeChanges?.changes.find((change) => change.path === selection.path);
+		const change = worktreeChanges?.changes.find(
+			(change) => change.path === selectedChangesFile.path,
+		);
 		if (!change) return;
 
 		dispatch(
 			projectActions.enterAbsorbMode({
 				projectId,
-				source: selection,
+				source: selectedChangesFile,
 				sourceTarget: {
 					type: "treeChanges",
 					subject: {
@@ -134,7 +138,7 @@ const useFilesTreeHotkeys = ({
 			callback: absorbSelectedFile,
 			options: {
 				conflictBehavior: "allow",
-				enabled: isChangesFileSelected && outlineMode._tag === "Default",
+				enabled: selectedChangesFile !== null && outlineMode._tag === "Default",
 				target: ref,
 				meta: changesFileHotkeys.absorb.meta,
 			},
@@ -146,15 +150,20 @@ const useFilesTreeHotkeys = ({
 		projectId,
 		group: "Files",
 		selectionScope: "files",
-		select,
+		select: onFileSelection,
 		selection,
 		ref,
 	});
 };
 
 export const CommitFilesTree: FC<
-	{ projectId: string; commit: CommitOperand; commitDetails: CommitDetails } & ComponentProps<"div">
-> = ({ projectId, commit, commitDetails, ...props }) => {
+	{
+		projectId: string;
+		commit: CommitOperand;
+		commitDetails: CommitDetails;
+		onFileSelection: (selection: Operand) => void;
+	} & ComponentProps<"div">
+> = ({ projectId, commit, commitDetails, onFileSelection, ...props }) => {
 	const conflictedPaths = commitDetails.conflictEntries
 		? globalThis.Array.from(
 				new Set([
@@ -170,7 +179,6 @@ export const CommitFilesTree: FC<
 		<FilesTree
 			{...props}
 			projectId={projectId}
-			parent={commitOperand(commit)}
 			items={[
 				...conflictedPaths.map((path) =>
 					conflictFileTreeItem({
@@ -193,6 +201,7 @@ export const CommitFilesTree: FC<
 						}),
 					),
 			]}
+			onFileSelection={onFileSelection}
 		/>
 	);
 };
@@ -201,8 +210,9 @@ export const ChangesFilesTree: FC<
 	{
 		projectId: string;
 		worktreeChanges: WorktreeChanges;
+		onFileSelection: (selection: Operand) => void;
 	} & ComponentProps<"div">
-> = ({ projectId, worktreeChanges, ...props }) => {
+> = ({ projectId, worktreeChanges, onFileSelection, ...props }) => {
 	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
 		worktreeChanges.dependencies?.diffs ?? [],
 	);
@@ -211,7 +221,6 @@ export const ChangesFilesTree: FC<
 		<FilesTree
 			{...props}
 			projectId={projectId}
-			parent={changesSectionOperand}
 			items={worktreeChanges.changes.map((change) => {
 				const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
 				const dependencyCommitIds = hunkDependencyDiffs
@@ -227,6 +236,7 @@ export const ChangesFilesTree: FC<
 					}),
 				});
 			})}
+			onFileSelection={onFileSelection}
 		/>
 	);
 };
@@ -237,12 +247,13 @@ export const BranchFilesTree: FC<
 		stackId: string;
 		branchRef: Array<number>;
 		branchDiff: TreeChanges;
+		onFileSelection: (selection: Operand) => void;
 	} & ComponentProps<"div">
-> = ({ projectId, stackId, branchRef, branchDiff, ...props }) => (
+> = ({ projectId, stackId, branchRef, branchDiff, onFileSelection, ...props }) => (
 	<FilesTree
 		{...props}
 		projectId={projectId}
-		parent={branchOperand({ stackId, branchRef })}
+		onFileSelection={onFileSelection}
 		items={branchDiff.changes.map((change) =>
 			changeFileTreeItem({
 				change,
@@ -288,17 +299,22 @@ type FileTreeItem =
 	| ({ _tag: "Conflict" } & ConflictFileTreeItem);
 
 const FilesTree: FC<
-	{ projectId: string; parent: Operand; items: Array<FileTreeItem> } & ComponentProps<"div">
-> = ({ className, items, parent, projectId, ref: refProp, ...props }) => {
+	{
+		projectId: string;
+		items: Array<FileTreeItem>;
+		onFileSelection: (selection: Operand) => void;
+	} & ComponentProps<"div">
+> = ({ className, items, onFileSelection, projectId, ref: refProp, ...props }) => {
 	const files = items.map((item) => item.operand);
 
-	const navigationIndex = useNavigationIndex(projectId, parent, files);
+	const navigationIndex = useNavigationIndex(projectId, files);
 	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
 
 	const ref = useRef<HTMLDivElement>(null);
 
 	useFilesTreeHotkeys({
 		navigationIndex,
+		onFileSelection,
 		projectId,
 		ref,
 	});
@@ -309,24 +325,11 @@ const FilesTree: FC<
 				{...props}
 				tabIndex={0}
 				role="tree"
-				aria-activedescendant={treeItemId(selection)}
+				aria-activedescendant={selection ? treeItemId(selection) : undefined}
 				className={classes(className, styles.tree)}
 				ref={useMergedRefs(refProp, ref)}
 			>
-				<TreeItem
-					projectId={projectId}
-					operand={parent}
-					aria-label="All changes"
-					aria-expanded
-					className={workspaceItemRowStyles.section}
-					render={<OperationSourceC projectId={projectId} selectionScope="files" source={parent} />}
-				>
-					<ItemRow projectId={projectId} operand={parent}>
-						<div className={classes("text-bold", workspaceItemRowStyles.itemRowLabel)}>
-							All changes
-						</div>
-					</ItemRow>
-
+				<div className={workspaceItemRowStyles.section}>
 					{items.length === 0 ? (
 						<WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>
 					) : (
@@ -335,12 +338,13 @@ const FilesTree: FC<
 								<FileTreeRow
 									key={operandIdentityKey(item.operand)}
 									item={item}
+									onFileSelection={onFileSelection}
 									projectId={projectId}
 								/>
 							))}
 						</div>
 					)}
-				</TreeItem>
+				</div>
 			</div>
 		</NavigationIndexContext>
 	);
@@ -350,7 +354,7 @@ const useIsSelected = ({ projectId, operand }: { projectId: string; operand: Ope
 	useAppSelector((state) => {
 		const selection = selectProjectSelectionFiles(state, projectId);
 
-		return operandEquals(selection, operand);
+		return selection !== null && operandEquals(selection, operand);
 	});
 
 const treeItemId = (operand: Operand): string =>
@@ -412,23 +416,20 @@ const changeLabel = (change: TreeChange): [enhancedLabel: ReactNode, rawLabel: s
 
 const ItemRow: FC<
 	{
+		onFileSelection: (selection: Operand) => void;
 		projectId: string;
 		operand: Operand;
 	} & Omit<ComponentProps<typeof WorkspaceItemRow>, "inert" | "isSelected" | "onSelect">
-> = ({ projectId, operand, ...props }) => {
-	const dispatch = useAppDispatch();
+> = ({ onFileSelection, projectId, operand, ...props }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const isSelected = useIsSelected({ projectId, operand });
-	const selectItem = () => {
-		dispatch(projectActions.selectFiles({ projectId, selection: operand }));
-	};
 
 	return (
 		<WorkspaceItemRow
 			{...props}
 			inert={!navigationIndexIncludes(navigationIndex, operand)}
 			isSelected={isSelected}
-			onSelect={selectItem}
+			onSelect={() => onFileSelection(operand)}
 		/>
 	);
 };
@@ -454,8 +455,9 @@ const TreeItem: FC<
 
 const FileTreeRow: FC<{
 	item: FileTreeItem;
+	onFileSelection: (selection: Operand) => void;
 	projectId: string;
-}> = ({ item, projectId }) => {
+}> = ({ item, onFileSelection, projectId }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 	const [label, strLabel] =
 		item._tag === "Change" ? changeLabel(item.change) : [`C ${item.path}`, `C ${item.path}`];
@@ -554,7 +556,13 @@ const FileTreeRow: FC<{
 					projectId={projectId}
 					selectionScope="files"
 					source={item.operand}
-					render={<ItemRow projectId={projectId} operand={item.operand} />}
+					render={
+						<ItemRow
+							projectId={projectId}
+							operand={item.operand}
+							onFileSelection={onFileSelection}
+						/>
+					}
 				/>
 			}
 		>
