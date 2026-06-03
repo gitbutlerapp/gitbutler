@@ -243,7 +243,7 @@ pub fn remove_branch_only(
 /// This acquires exclusive worktree access from `ctx` before creating the
 /// removal snapshot and detaching the branch.
 ///
-/// This can only be called on a branch that's inside of a stack of multiple branches and is not the top branch,
+/// This can only be called on a branch that's inside of a stack of multiple branches,
 /// or on a branch that's empty.
 #[but_api(napi)]
 #[instrument(err(Debug))]
