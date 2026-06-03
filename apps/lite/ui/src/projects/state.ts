@@ -56,7 +56,10 @@ const projectSlice = createSlice({
 			const projectState = ensureProjectState(state, projectId);
 			workspace.selectOutline(projectState.workspace, selection);
 		},
-		selectFiles: (state, action: PayloadAction<{ projectId: string; selection: Operand }>) => {
+		selectFiles: (
+			state,
+			action: PayloadAction<{ projectId: string; selection: Operand | null }>,
+		) => {
 			const { projectId, selection } = action.payload;
 			const projectState = ensureProjectState(state, projectId);
 			workspace.selectFiles(projectState.workspace, selection);
