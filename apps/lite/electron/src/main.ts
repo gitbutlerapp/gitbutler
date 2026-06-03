@@ -29,6 +29,7 @@ import {
 	type WatcherSubscribeParams,
 	type WatcherUnsubscribeParams,
 	type NativeMenuPopupItem,
+	type NativeMenuCommand,
 	type CommitUncommitParams,
 	type RestoreSnapshotWithKindParams,
 	type PeelRestoreSnapshotParams,
@@ -73,6 +74,7 @@ import {
 import {
 	app,
 	BrowserWindow,
+	type BaseWindow,
 	clipboard,
 	ipcMain,
 	Menu,
@@ -199,6 +201,82 @@ function getMacDockIcon(): string | undefined {
 
 	return candidates.find((c) => fs.existsSync(c));
 }
+
+const sendNativeMenuCommand = (
+	window: BaseWindow | undefined,
+	command: NativeMenuCommand,
+): void => {
+	const targetWindow = window instanceof BrowserWindow ? window : BrowserWindow.getFocusedWindow();
+	targetWindow?.webContents.send(liteIpcChannels.nativeMenuCommand, command);
+};
+
+const createApplicationMenu = (): void => {
+	const customUndoRedoItems: Array<MenuItemConstructorOptions> = [
+		{
+			label: "Undo",
+			accelerator: "CommandOrControl+Z",
+			click: (_item, window) => sendNativeMenuCommand(window, "undo"),
+		},
+		{
+			label: "Redo",
+			accelerator: "Shift+CommandOrControl+Z",
+			click: (_item, window) => sendNativeMenuCommand(window, "redo"),
+		},
+	];
+
+	const defaultEditItems: Array<MenuItemConstructorOptions> = [
+		{ role: "cut" },
+		{ role: "copy" },
+		{ role: "paste" },
+		{ role: "pasteAndMatchStyle" },
+		{ role: "delete" },
+		{ role: "selectAll" },
+	];
+
+	const editSubmenu: Array<MenuItemConstructorOptions> = [
+		...customUndoRedoItems,
+		{ type: "separator" },
+		...defaultEditItems,
+	];
+
+	const defaultAppMenu: Array<MenuItemConstructorOptions> =
+		process.platform === "darwin"
+			? [
+					{
+						label: app.name,
+						submenu: [
+							{ role: "about" },
+							{ type: "separator" },
+							{ role: "services" },
+							{ type: "separator" },
+							{ role: "hide" },
+							{ role: "hideOthers" },
+							{ role: "unhide" },
+							{ type: "separator" },
+							{ role: "quit" },
+						],
+					},
+				]
+			: [];
+
+	const defaultFileMenu: MenuItemConstructorOptions = {
+		label: "File",
+		submenu: [process.platform === "darwin" ? { role: "close" } : { role: "quit" }],
+	};
+
+	const template: Array<MenuItemConstructorOptions> = [
+		...defaultAppMenu,
+		defaultFileMenu,
+		{
+			label: "Edit",
+			submenu: editSubmenu,
+		},
+		{ role: "viewMenu" },
+		{ role: "windowMenu" },
+	];
+
+	Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+};
 
 const buildNativeMenuTemplate = (
 	items: Array<NativeMenuPopupItem>,
@@ -556,6 +634,7 @@ void app.whenReady().then(async () => {
 		return callback(false);
 	});
 
+	createApplicationMenu();
 	registerIpcHandlers();
 	await createMainWindow();
 
