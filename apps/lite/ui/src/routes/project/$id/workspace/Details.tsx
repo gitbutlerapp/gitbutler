@@ -9,7 +9,16 @@ import {
 } from "#ui/api/queries.ts";
 import { decodeRefName } from "#ui/api/ref-name.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
-import { branchOperand, changesSectionOperand, commitOperand, type Operand } from "#ui/operands.ts";
+import {
+	branchFileParent,
+	branchOperand,
+	changesFileParent,
+	changesSectionOperand,
+	commitFileParent,
+	commitOperand,
+	fileOperand,
+	type Operand,
+} from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectFilesVisible,
@@ -24,6 +33,7 @@ import { classes } from "#ui/components/classes.ts";
 import { Tooltip } from "@base-ui/react";
 import type { DiffHunk, TreeChange } from "@gitbutler/but-sdk";
 import { parsePatchFiles } from "@pierre/diffs";
+import { type CodeView as CodeViewClass } from "@pierre/diffs";
 import { CodeView, type CodeViewDiffItem, type CodeViewHandle } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
@@ -42,6 +52,9 @@ const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r
 
 const codeViewItemId = ({ changesetKey, path }: { changesetKey: string; path: string }): string =>
 	`${changesetKey}:${path}`;
+
+const codeViewItemIdPath = ({ changesetKey, id }: { changesetKey: string; id: string }): string =>
+	id.slice(changesetKey.length + 1);
 
 const getScrollTargetId = ({
 	changesetKey,
@@ -133,15 +146,24 @@ const mkCodeViewItem = (
 
 const ChangesFileDiffList: FC<{
 	changes: Array<TreeChange>;
+	onViewerFileSelection: (selection: Operand) => void;
 	outlineSelection: Operand;
 	projectId: string;
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
-}> = ({ changes, outlineSelection, projectId, viewerRef }) => {
+}> = ({ changes, onViewerFileSelection, outlineSelection, projectId, viewerRef }) => {
 	const treeChangeDiffs = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 	}).map((result) => result.data);
 
 	const changesetKey = getChangesetKey(outlineSelection);
+	const fileParent = Match.value(outlineSelection).pipe(
+		Match.tags({
+			Branch: ({ branchRef, stackId }) => branchFileParent({ branchRef, stackId }),
+			ChangesSection: () => changesFileParent,
+			Commit: ({ commitId, stackId }) => commitFileParent({ commitId, stackId }),
+		}),
+		Match.orElseAbsurd,
+	);
 
 	const items = Array.zip(changes, treeChangeDiffs).flatMap(
 		([change, mdiff]) =>
@@ -155,11 +177,29 @@ const ChangesFileDiffList: FC<{
 			) ?? [],
 	);
 
+	const selectFileAtViewportTop = (scrollTop: number, viewer: CodeViewClass<undefined>) => {
+		const activeItem = viewer
+			.getRenderedItems()
+			// oxlint-disable-next-line typescript/no-non-null-assertion: It can only be undefined if the item ID is invalid.
+			.findLast((item) => viewer.getTopForItem(item.id)! <= scrollTop);
+
+		// This can happen on very fast scroll.
+		if (activeItem === undefined) return;
+
+		onViewerFileSelection(
+			fileOperand({
+				parent: fileParent,
+				path: codeViewItemIdPath({ changesetKey, id: activeItem.id }),
+			}),
+		);
+	};
+
 	return items.length === 0 ? (
 		<p className="text-13">No changes.</p>
 	) : (
 		<CodeView
 			ref={viewerRef}
+			onScroll={selectFileAtViewportTop}
 			className={classes(styles.diffContentsVirtualizer, uiStyles.scrollerWithSeparator)}
 			items={items}
 			options={{
@@ -325,10 +365,11 @@ const CommitDetailsContent: FC<{
 );
 
 const DiffContents: FC<{
+	onViewerFileSelection: (selection: Operand) => void;
 	outlineSelection: Operand;
 	projectId: string;
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
-}> = ({ outlineSelection, projectId, viewerRef }) =>
+}> = ({ onViewerFileSelection, outlineSelection, projectId, viewerRef }) =>
 	Match.value(outlineSelection).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
@@ -337,6 +378,7 @@ const DiffContents: FC<{
 					{({ data: branchDiff }) => (
 						<ChangesFileDiffList
 							changes={branchDiff.changes}
+							onViewerFileSelection={onViewerFileSelection}
 							outlineSelection={outlineSelection}
 							projectId={projectId}
 							viewerRef={viewerRef}
@@ -349,6 +391,7 @@ const DiffContents: FC<{
 					{({ data: worktreeChanges }) => (
 						<ChangesFileDiffList
 							changes={worktreeChanges.changes}
+							onViewerFileSelection={onViewerFileSelection}
 							outlineSelection={outlineSelection}
 							projectId={projectId}
 							viewerRef={viewerRef}
@@ -362,6 +405,7 @@ const DiffContents: FC<{
 					{({ data: commitDetails }) => (
 						<ChangesFileDiffList
 							changes={commitDetails.changes}
+							onViewerFileSelection={onViewerFileSelection}
 							outlineSelection={outlineSelection}
 							projectId={projectId}
 							viewerRef={viewerRef}
@@ -456,6 +500,10 @@ export const Details: FC<ComponentProps<"div">> = (props) => {
 
 	const selectFile = (selection: Operand) => {
 		dispatch(projectActions.selectFiles({ projectId, selection }));
+	};
+
+	const selectFileAndScrollDiff = (selection: Operand) => {
+		selectFile(selection);
 
 		const scrollTargetId = getScrollTargetId({
 			changesetKey: getChangesetKey(outlineSelection),
@@ -495,7 +543,7 @@ export const Details: FC<ComponentProps<"div">> = (props) => {
 						data-selection-scope
 						tabIndex={0}
 						className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
-						onFileSelection={selectFile}
+						onFileSelection={selectFileAndScrollDiff}
 					/>
 				)}
 
@@ -508,6 +556,7 @@ export const Details: FC<ComponentProps<"div">> = (props) => {
 				>
 					<Suspense fallback={<p className="text-13">Loading diff…</p>}>
 						<DiffContents
+							onViewerFileSelection={selectFile}
 							outlineSelection={outlineSelection}
 							projectId={projectId}
 							viewerRef={viewerRef}
