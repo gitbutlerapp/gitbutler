@@ -2178,19 +2178,19 @@ const BranchRow: FC<
 const StackRow: FC<
 	{
 		projectId: string;
-		stackId: string;
 		stack: Stack;
 	} & ComponentProps<"div">
-> = ({ projectId, stackId, stack, ...restProps }) => {
+> = ({ projectId, stack, ...restProps }) => {
 	const rebaseUpdate = stackToBottomRebaseUpdate(stack);
-
-	const operand = stackOperand({ stackId });
+	// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
+	const operand = stackOperand({ stackId: stack.id! });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const unapplyStackMutation = useUnapplyStack();
 	const rebaseStackMutation = useRebaseStack({ projectId });
 	const unapply = () => {
-		unapplyStackMutation.mutate({ projectId, stackId });
+		// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
+		unapplyStackMutation.mutate({ projectId, stackId: stack.id! });
 	};
 	const rebase = () => {
 		if (rebaseUpdate) rebaseStackMutation.mutate(rebaseUpdate);
@@ -2372,7 +2372,7 @@ const StackC: FC<{
 			className={classes(styles.stack, workspaceItemRowStyles.section)}
 			render={<OperandC projectId={projectId} operand={operand} />}
 		>
-			<StackRow projectId={projectId} stackId={stackId} stack={stack} />
+			<StackRow projectId={projectId} stack={stack} />
 
 			<div role="group" className={styles.segments}>
 				{stack.segments.map((segment) =>
