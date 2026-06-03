@@ -22,6 +22,23 @@ pub struct Verification {
     pub device_code: String,
 }
 
+/// Detect GitHub's OAuth error shape (e.g. `device_flow_disabled`, `authorization_pending`) before falling back to the expected payload, so the real cause surfaces instead of a generic "missing field" serde error.
+fn parse_github_oauth_response<T: serde::de::DeserializeOwned>(body: &str) -> Result<T> {
+    let value: serde_json::Value =
+        serde_json::from_str(body).context("Response body was not valid JSON")?;
+    if let Some(error) = value.get("error").and_then(serde_json::Value::as_str) {
+        let description = value
+            .get("error_description")
+            .and_then(serde_json::Value::as_str);
+        anyhow::bail!(
+            "GitHub returned an error: {} ({})",
+            error,
+            description.unwrap_or("no description"),
+        );
+    }
+    serde_json::from_value(value).context("Response body did not match expected schema")
+}
+
 pub async fn init_github_device_oauth() -> Result<Verification> {
     let mut req_body = HashMap::new();
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
@@ -46,7 +63,7 @@ pub async fn init_github_device_oauth() -> Result<Verification> {
 
     let rsp_body = res.text().await.context("Failed to get response body")?;
 
-    serde_json::from_str(&rsp_body).context("Failed to parse response body")
+    parse_github_oauth_response(&rsp_body)
 }
 
 #[derive(Debug, Clone)]
@@ -94,11 +111,8 @@ pub async fn check_github_auth_status(
 
     let rsp_body = res.text().await.context("Failed to get response body")?;
 
-    let access_token = Sensitive(
-        serde_json::from_str::<AccessTokenContainer>(&rsp_body)
-            .map(|rsp_body| rsp_body.access_token)
-            .context("Failed to parse response body")?,
-    );
+    let access_token =
+        Sensitive(parse_github_oauth_response::<AccessTokenContainer>(&rsp_body)?.access_token);
 
     let user = fetch_and_persist_oauth_user_data(&access_token, storage).await?;
 
