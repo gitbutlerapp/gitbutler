@@ -1,4 +1,4 @@
-import { partialStackRequestsForcePush } from "$lib/stacks/stack";
+import { branchRequiresForcePush } from "$lib/stacks/stack";
 import type { Segment } from "@gitbutler/but-sdk";
 
 /**
@@ -14,13 +14,46 @@ export interface SegmentContext {
 	stackPrNumbers: (number | undefined)[];
 }
 
-export function segmentContext(segments: Segment[], index: number): SegmentContext {
-	const branchName = segments[index]?.refName?.displayName;
+/**
+ * Stack-wide data shared by every SegmentContext in a stack. Compute
+ * this ONCE per stack (e.g. via `$derived`) and pass it to
+ * `segmentContext(...)` for each index — that keeps the per-segment work
+ * O(1) instead of O(N) per call.
+ */
+export interface StackPrecomputed {
+	stackPrNumbers: (number | undefined)[];
+	/**
+	 * `withForceFromIndex[i]` is true when *any* segment at index `>= i`
+	 * needs a force push. Pre-computed via a single suffix-OR pass over
+	 * the stack so per-segment lookup is O(1).
+	 */
+	withForceFromIndex: boolean[];
+}
+
+export function precomputeStack(segments: Segment[]): StackPrecomputed {
+	const stackPrNumbers = segments.map((s) => s.metadata?.review.pullRequest ?? undefined);
+
+	const withForceFromIndex = new Array<boolean>(segments.length);
+	let anyForceFromHere = false;
+	for (let i = segments.length - 1; i >= 0; i--) {
+		const s = segments[i];
+		if (s && branchRequiresForcePush(s)) anyForceFromHere = true;
+		withForceFromIndex[i] = anyForceFromHere;
+	}
+
+	return { stackPrNumbers, withForceFromIndex };
+}
+
+export function segmentContext(
+	segments: Segment[],
+	index: number,
+	precomputed: StackPrecomputed,
+): SegmentContext {
 	return {
 		branchIndex: index,
 		parent: segments[index + 1],
 		child: segments[index - 1],
-		withForce: branchName ? partialStackRequestsForcePush(branchName, segments) : false,
-		stackPrNumbers: segments.map((s) => s.metadata?.review.pullRequest ?? undefined),
+		withForce: precomputed.withForceFromIndex[index] ?? false,
+		stackPrNumbers: precomputed.stackPrNumbers,
 	};
 }

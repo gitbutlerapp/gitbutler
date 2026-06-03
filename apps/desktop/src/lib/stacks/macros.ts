@@ -1,4 +1,3 @@
-import { ensureValue } from "$lib/utils/validation";
 import type { CreateCommitRequestWorktreeChanges } from "$lib/stacks/stackEndpoints";
 import type { StackService } from "$lib/stacks/stackService.svelte";
 import type { RejectionReason } from "$lib/state/uiState.svelte";
@@ -33,7 +32,6 @@ export default class StackMacros {
 			params.branchName,
 			params.commitMessage,
 		);
-		if (!stack.id) return;
 		if (outcome.newCommit) {
 			this.uiState.lane(stack.id).selection.set({
 				branchName,
@@ -55,7 +53,10 @@ export default class StackMacros {
 			projectId: this.projectId,
 			branch: { name },
 		});
-		const branchName = ensureValue(stack.heads.at(0)?.name);
+		// The backend guarantees a non-empty heads array on freshly-created
+		// stacks (see StackEntryNoOpt + the "list is never empty" invariant
+		// on legacy ui::StackEntry).
+		const branchName = stack.heads[0]!.name;
 		const outcome = await this.stackService.createCommitMutation({
 			projectId: this.projectId,
 			stackBranchName: branchName,

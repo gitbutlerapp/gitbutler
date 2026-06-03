@@ -1898,6 +1898,27 @@ export type StackEntry = {
   isCheckedOut: boolean;
 };
 
+/**
+ * **Temporary type to help transitioning to the optional version of stack-entry** and ultimately, to [`crate::RefInfo`].
+ * WARNING: for use by parts in the code that can rely on having a non-optional `stack_id`. The goal is to have none of these.
+ */
+export type StackEntryNoOpt = {
+  /** The ID of the stack. */
+  id: string;
+  /**
+   * The list of the branch information that are part of the stack.
+   * The list is never empty.
+   * The first entry in the list is always the most recent branch on top the stack.
+   */
+  heads: Array<StackHeadInfo>;
+  /** The tip of the top-most branch, i.e., the most recent commit that would become the parent of new commits of the topmost stack branch. */
+  tip: string;
+  /** The zero-based index for sorting stacks. */
+  order: number | null;
+  /** If `true`, then any head in this stack is checked directly so `HEAD` points to it, and this is only ever `true` for a single stack. */
+  isCheckedOut: boolean;
+};
+
 /** The information about the branch inside a stack */
 export type StackHeadInfo = {
   /** The name of the branch. */

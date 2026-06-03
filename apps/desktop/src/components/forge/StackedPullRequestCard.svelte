@@ -20,7 +20,7 @@
 		prNumber: number;
 	}
 
-	const { projectId, branchName, parent, child, isPushed, prNumber }: Props = $props();
+	const { projectId, branchName, parent, child, isPushed, poll, prNumber }: Props = $props();
 
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
@@ -87,7 +87,7 @@
 	{hasParent}
 	{parentIsPushed}
 	{baseIsTargetBranch}
-	poll
+	{poll}
 >
 	{#snippet button({ pr, mergeStatus, reopenStatus, setDraft })}
 		{#if pr.state === "open"}
