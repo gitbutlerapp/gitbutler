@@ -1,6 +1,20 @@
 #[cfg(feature = "legacy")]
 use crate::args::atoms::{BranchArg, CliIdArg};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum, Default)]
+pub enum IntegrationStrategy {
+    /// Rebuilds the branch picking first the commits on the remote, and then the commits on the local branch.
+    #[default]
+    PullRebase,
+    /// Tries to fold matching remote work into related local commits.
+    /// This is done through matching Change IDs, and falling back to pull-rebase ordering otherwise.
+    SmartSquash,
+    /// Keeps your local history and merges the remote tip into it.
+    Merge,
+    /// Rebuilds the branch picking only the commits on the remote.
+    PickRemote,
+}
+
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
     #[clap(subcommand)]
@@ -140,5 +154,29 @@ pub enum Subcommands {
     Apply {
         /// Name of the branch to apply
         branch_name: String,
+    },
+
+    /// Update your local branch with the content of its remote counterpart.
+    ///
+    /// This allows you to resolve the divergence between your local branch and its
+    /// tracked remote in different ways.
+    #[clap(short_flag = 'u')]
+    #[clap(verbatim_doc_comment)]
+    Update {
+        /// Name of the local branch to integrate
+        branch: String,
+        /// Strategy to use for the integration. If no strategy is specified, we default
+        /// to pull-rebase.
+        #[clap(long, short = 's', value_enum, default_value_t)]
+        strategy: IntegrationStrategy,
+        /// Preview the resulting branch state without persisting changes
+        #[clap(long)]
+        dry_run: bool,
+        /// Show additional dry-run details like the current divergence
+        #[clap(long, short = 'v')]
+        verbose: bool,
+        /// Open the generated integration script in an editor
+        #[clap(long, short = 'i')]
+        interactive: bool,
     },
 }

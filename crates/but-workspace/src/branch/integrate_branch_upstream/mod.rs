@@ -22,12 +22,14 @@ use crate::{
 };
 
 mod display;
+mod parsing;
 mod plan;
 
 pub use display::{
     IntegrationDivergenceCommit, IntegrationDivergenceDisplay, IntegrationDivergenceTargetRelation,
 };
 use display::{add_ref_label, divergence_commit, relation_for};
+pub use parsing::{parse_integration_steps_script, render_integration_steps_script};
 pub use plan::BranchIntegrationStrategy;
 use plan::prepare_integration_steps_for_editor;
 /// The steps to be followed when integrating upstream changes into the local one.

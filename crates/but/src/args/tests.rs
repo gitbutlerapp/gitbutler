@@ -130,6 +130,152 @@ mod config_ai {
     }
 }
 
+mod branch_update {
+    use clap::Parser;
+
+    use crate::args::{
+        Args, Subcommands,
+        branch::{IntegrationStrategy, Platform, Subcommands as BranchSubcommands},
+    };
+
+    #[test]
+    fn parses_branch_update_with_defaults() {
+        let args =
+            Args::try_parse_from(["but", "branch", "update", "feature"]).expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd:
+                    Some(BranchSubcommands::Update {
+                        branch,
+                        strategy,
+                        dry_run,
+                        verbose,
+                        interactive,
+                    }),
+            }) => {
+                assert_eq!(branch, "feature");
+                assert_eq!(strategy, IntegrationStrategy::PullRebase);
+                assert!(!dry_run);
+                assert!(!verbose);
+                assert!(!interactive);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_branch_update_pull_rebase_strategy() {
+        let args = Args::try_parse_from([
+            "but",
+            "branch",
+            "update",
+            "feature",
+            "--strategy",
+            "pull-rebase",
+        ])
+        .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd:
+                    Some(BranchSubcommands::Update {
+                        strategy: IntegrationStrategy::PullRebase,
+                        ..
+                    }),
+            }) => {}
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_branch_update_smart_squash_strategy() {
+        let args =
+            Args::try_parse_from(["but", "branch", "update", "feature", "-s", "smart-squash"])
+                .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd:
+                    Some(BranchSubcommands::Update {
+                        strategy: IntegrationStrategy::SmartSquash,
+                        ..
+                    }),
+            }) => {}
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_branch_update_interactive_with_other_flags() {
+        let args = Args::try_parse_from([
+            "but",
+            "branch",
+            "update",
+            "feature",
+            "--dry-run",
+            "--interactive",
+            "--strategy",
+            "merge",
+        ])
+        .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd:
+                    Some(BranchSubcommands::Update {
+                        strategy: IntegrationStrategy::Merge,
+                        dry_run,
+                        verbose,
+                        interactive,
+                        ..
+                    }),
+            }) => {
+                assert!(dry_run);
+                assert!(!verbose);
+                assert!(interactive);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_branch_update_verbose_short_flag() {
+        let args =
+            Args::try_parse_from(["but", "branch", "update", "feature", "-v"]).expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd: Some(BranchSubcommands::Update { verbose, .. }),
+            }) => {
+                assert!(verbose);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_branch_update_interactive() {
+        let args = Args::try_parse_from(["but", "branch", "update", "feature", "--interactive"])
+            .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd: Some(BranchSubcommands::Update { interactive, .. }),
+            }) => {
+                assert!(interactive);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+}
+
 #[test]
 fn clap() {
     use clap::CommandFactory;
