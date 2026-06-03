@@ -44,8 +44,8 @@ import { DependencyIndicator } from "#ui/routes/project/$id/workspace/Dependency
 import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
 import {
 	buildNavigationIndex,
-	NavigationIndex,
 	navigationIndexIncludes,
+	type NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
 import { changesFileHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { assert } from "#ui/assert.ts";
@@ -58,7 +58,7 @@ const NavigationIndexContext = createContext<NavigationIndex | null>(null);
 const useNavigationIndex = (projectId: string, files: Array<Operand>) => {
 	const dispatch = useAppDispatch();
 
-	const navigationIndex = buildNavigationIndex([{ section: null, children: files }]);
+	const navigationIndex = buildNavigationIndex(files);
 
 	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
 

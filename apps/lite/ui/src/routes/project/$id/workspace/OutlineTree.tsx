@@ -63,7 +63,6 @@ import { classes } from "#ui/components/classes.ts";
 import {
 	buildNavigationIndex,
 	navigationIndexIncludes,
-	Section,
 	type NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
 import { mergeProps, Popover, Toast, Tooltip, useRender } from "@base-ui/react";
@@ -112,7 +111,7 @@ import {
 	WorkspaceItemRowToolbar,
 } from "./WorkspaceItemRow.tsx";
 import { useDryRunOperation } from "#ui/operations/operation.ts";
-import { initNonEmpty, isNonEmptyArray, NonEmptyArray, scanRight } from "effect/Array";
+import { initNonEmpty, isNonEmptyArray, scanRight } from "effect/Array";
 import { defaultOutlineSelection } from "#ui/projects/workspace/state.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -137,43 +136,23 @@ const useDryRunCommit = (commitId: string) => {
 	return findCommit({ headInfo: dryRunWorkspace.headInfo, commitId: dryRunCommitId });
 };
 
-const sections = (headInfo: RefInfo | undefined): NonEmptyArray<Section> => {
-	const changesSection: Section = {
-		section: changesSectionOperand,
-		children: [],
-	};
-
-	const segmentChildren = (stackId: string, segment: Segment): Array<Operand> =>
-		segment.commits.map((commit) => commitOperand({ stackId, commitId: commit.id }));
-
-	const segmentSection = (stackId: string, segment: Segment): Section | null => {
-		const children = segmentChildren(stackId, segment);
-		if (!segment.refName && children.length === 0) return null;
-
-		return {
-			section: segment.refName
-				? branchOperand({ stackId, branchRef: segment.refName.fullNameBytes })
-				: null,
-			children,
-		};
-	};
+const navigationItems = (headInfo: RefInfo | undefined): Array<Operand> => {
+	const segmentItems = (stackId: string, segment: Segment): Array<Operand> => [
+		...(segment.refName
+			? [branchOperand({ stackId, branchRef: segment.refName.fullNameBytes })]
+			: []),
+		...segment.commits.map((commit) => commitOperand({ stackId, commitId: commit.id })),
+	];
 
 	return [
-		changesSection,
+		changesSectionOperand,
 
 		...(headInfo?.stacks.flatMap((stack) => {
 			// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
 			const stackId = stack.id!;
-			const stackOperandSection: Section = {
-				section: stackOperand({ stackId }),
-				children: [],
-			};
 			return [
-				stackOperandSection,
-				...stack.segments.flatMap((segment) => {
-					const section = segmentSection(stackId, segment);
-					return section ? [section] : [];
-				}),
+				stackOperand({ stackId }),
+				...stack.segments.flatMap((segment) => segmentItems(stackId, segment)),
 			];
 		}) ?? []),
 	];
@@ -190,7 +169,7 @@ const useNavigationIndex = ({
 
 	const dispatch = useAppDispatch();
 
-	const navigationIndexUnfiltered = buildNavigationIndex(sections(headInfo));
+	const navigationIndexUnfiltered = buildNavigationIndex(navigationItems(headInfo));
 
 	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
 
@@ -334,6 +313,8 @@ const useOutlineTreeHotkeys = ({
 		selectionScope: "outline",
 		select,
 		selection,
+		selectSectionPredicate: (operand) =>
+			operand._tag === "Branch" || operand._tag === "ChangesSection" || operand._tag === "Stack",
 	});
 
 	useHotkeys([

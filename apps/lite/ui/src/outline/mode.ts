@@ -10,7 +10,7 @@ import {
 	type Operand,
 } from "#ui/operands.ts";
 import { getOperation, getOperations, OperationType } from "#ui/operations/operation.ts";
-import { filterNavigationIndex, NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { buildNavigationIndex, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { AbsorptionTarget } from "@gitbutler/but-sdk";
 import { SelectionState } from "#ui/projects/workspace/state.ts";
 
@@ -162,26 +162,32 @@ export const filterNavigationIndexForOutlineMode = ({
 		Match.tagsExhaustive({
 			Default: () => navigationIndexUnfiltered,
 			Absorb: (activeMode) =>
-				filterNavigationIndex(
-					navigationIndexUnfiltered,
-					(operand) =>
-						operandContains(operand, activeMode.source) ||
-						absorptionTargetKeys.has(operandIdentityKey(operand)),
+				buildNavigationIndex(
+					navigationIndexUnfiltered.items.filter(
+						(operand) =>
+							operandContains(operand, activeMode.source) ||
+							absorptionTargetKeys.has(operandIdentityKey(operand)),
+					),
 				),
 			Transfer: (activeMode) =>
-				filterNavigationIndex(
-					navigationIndexUnfiltered,
-					(operand) =>
-						operandContains(operand, activeMode.value.source) ||
-						hasAnyOperation(activeMode.value.source, operand),
+				buildNavigationIndex(
+					navigationIndexUnfiltered.items.filter(
+						(operand) =>
+							operandContains(operand, activeMode.value.source) ||
+							hasAnyOperation(activeMode.value.source, operand),
+					),
 				),
 			RenameBranch: (x) =>
-				filterNavigationIndex(navigationIndexUnfiltered, (operand) =>
-					operandEquals(operand, branchOperand(x.operand)),
+				buildNavigationIndex(
+					navigationIndexUnfiltered.items.filter((operand) =>
+						operandEquals(operand, branchOperand(x.operand)),
+					),
 				),
 			RewordCommit: (x) =>
-				filterNavigationIndex(navigationIndexUnfiltered, (operand) =>
-					operandEquals(operand, commitOperand(x.operand)),
+				buildNavigationIndex(
+					navigationIndexUnfiltered.items.filter((operand) =>
+						operandEquals(operand, commitOperand(x.operand)),
+					),
 				),
 		}),
 	);

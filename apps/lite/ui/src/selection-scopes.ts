@@ -1,15 +1,10 @@
 import type { CommandGroup } from "#ui/hotkeys.ts";
 import { type OperationType } from "#ui/operations/operation.ts";
 import { keyboardTransferOperationMode } from "#ui/outline/mode.ts";
-import { type Operand } from "#ui/operands.ts";
+import { operandIdentityKey, type Operand } from "#ui/operands.ts";
 import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import {
-	getAdjacent,
-	getNextSection,
-	getPreviousSection,
-	NavigationIndex,
-} from "#ui/workspace/navigation-index.ts";
+import { getAdjacent, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
 
 export type SelectionScope = "outline" | "files" | "diff";
@@ -63,6 +58,7 @@ export const useNavigationIndexHotkeys = ({
 	select,
 	selection,
 	ref,
+	selectSectionPredicate,
 }: {
 	navigationIndex: NavigationIndex;
 	projectId: string;
@@ -71,6 +67,7 @@ export const useNavigationIndexHotkeys = ({
 	select: (newItem: Operand) => void;
 	selection: Operand | null;
 	ref: React.RefObject<HTMLElement | null>;
+	selectSectionPredicate?: (operand: Operand) => boolean;
 }) => {
 	const dispatch = useAppDispatch();
 
@@ -96,20 +93,34 @@ export const useNavigationIndexHotkeys = ({
 		moveSelection(1);
 	};
 
-	const selectNextSection = () => {
+	const moveToMatchingItem = (offset: -1 | 1, predicate: (operand: Operand) => boolean) => {
 		if (!selection) return;
 
-		const newItem = getNextSection({ navigationIndex, selection });
-		if (!newItem) return;
-		selectAndFocus(newItem);
+		const selectionIndex = navigationIndex.indexByKey.get(operandIdentityKey(selection));
+		if (selectionIndex === undefined) return;
+
+		const currentItem = navigationIndex.items[selectionIndex];
+		const startsOnMatch = currentItem !== undefined && predicate(currentItem);
+		let itemIndex = selectionIndex + (offset === -1 && !startsOnMatch ? 0 : offset);
+
+		while (itemIndex >= 0 && itemIndex < navigationIndex.items.length) {
+			const item = navigationIndex.items[itemIndex];
+			if (item && predicate(item)) {
+				selectAndFocus(item);
+				return;
+			}
+			itemIndex += offset;
+		}
+	};
+
+	const selectNextSection = () => {
+		if (!selectSectionPredicate) return;
+		moveToMatchingItem(1, selectSectionPredicate);
 	};
 
 	const selectPreviousSection = () => {
-		if (!selection) return;
-
-		const newItem = getPreviousSection({ navigationIndex, selection });
-		if (!newItem) return;
-		selectAndFocus(newItem);
+		if (!selectSectionPredicate) return;
+		moveToMatchingItem(-1, selectSectionPredicate);
 	};
 
 	const selectFirstItem = () => {
