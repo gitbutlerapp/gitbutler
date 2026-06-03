@@ -1,8 +1,8 @@
+import { useAbsorb } from "#ui/api/mutations.ts";
 import { absorptionPlanQueryOptions } from "#ui/api/queries.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { errorMessageForToast } from "#ui/errors.ts";
 import { operationHotkeys } from "#ui/hotkeys.ts";
 import { Operand, operandEquals } from "#ui/operands.ts";
 import {
@@ -14,37 +14,15 @@ import {
 } from "#ui/operations/operation.ts";
 import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { Toast, Tooltip, useRender } from "@base-ui/react";
+import { Tooltip, useRender } from "@base-ui/react";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
-import { type AbsorptionTarget, type CommitAbsorption } from "@gitbutler/but-sdk";
+import { type AbsorptionTarget } from "@gitbutler/but-sdk";
 import { useHotkeys } from "@tanstack/react-hotkeys";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { FC } from "react";
 import styles from "./OutlineModeTooltip.module.css";
-
-const useAbsorb = ({ projectId }: { projectId: string }) => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: (absorptionPlan: Array<CommitAbsorption> | undefined) => {
-			if (!absorptionPlan) return Promise.resolve(null);
-			return window.lite.absorb({ projectId, absorptionPlan });
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to absorb",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
 
 const AbsorbControls: FC<{
 	projectId: string;

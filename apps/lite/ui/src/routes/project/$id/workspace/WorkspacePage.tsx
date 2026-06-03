@@ -3,6 +3,7 @@ import {
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
+import { useApplyBranch, useRebaseAllStacks, useRestoreSnapshot } from "#ui/api/mutations.ts";
 import {
 	focusAdjacentSelectionScope,
 	focusSelectionScope,
@@ -20,7 +21,7 @@ import { Kbd } from "#ui/components/Kbd.tsx";
 import { globalHotkeys, workspaceHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { stackToBottomRebaseUpdate } from "#ui/api/stack.ts";
 import { type AppThunk, useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { BottomUpdate, BranchListing, Segment, Snapshot, Stack } from "@gitbutler/but-sdk";
+import { BranchListing, Segment, Stack } from "@gitbutler/but-sdk";
 import {
 	getHotkeyManager,
 	getSequenceManager,
@@ -33,9 +34,7 @@ import {
 	QueryErrorResetBoundary,
 	useIsFetching,
 	useIsMutating,
-	useMutation,
 	useQuery,
-	useQueryClient,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
@@ -46,9 +45,7 @@ import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialo
 import { Details } from "./Details.tsx";
 import styles from "./WorkspacePage.module.css";
 import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree.tsx";
-import { Toast, Tooltip } from "@base-ui/react";
-import { errorMessageForToast } from "#ui/errors.ts";
-import { shortCommitId } from "#ui/commit.ts";
+import { Tooltip } from "@base-ui/react";
 import { useActiveElement } from "#ui/focus.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -237,62 +234,6 @@ const branchListingToApplyBranchPickerOptions = (
 	}));
 };
 
-const useApplyBranch = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: window.lite.apply,
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to apply branch",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
-
-const useRebaseAllStacks = ({ projectId }: { projectId: string }) => {
-	const dispatch = useAppDispatch();
-	const queryClient = useQueryClient();
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: (updates: Array<BottomUpdate>) =>
-			window.lite.workspaceIntegrateUpstream({ projectId, updates, dryRun: false }),
-		onSuccess: (workspace) => {
-			queryClient.setQueryData(headInfoQueryOptions(projectId).queryKey, workspace.headInfo);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId,
-					replacedCommits: workspace.replacedCommits,
-					headInfo: workspace.headInfo,
-				}),
-			);
-
-			toastManager.add({
-				type: "success",
-				title: "Rebased all stacks",
-			});
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to rebase stacks",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
-
 const ApplyBranchPicker: FC<{
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -339,67 +280,6 @@ const ApplyBranchPicker: FC<{
 			statusLabel={statusLabel}
 		/>
 	);
-};
-
-const useRestoreSnapshot = ({ projectId }: { projectId: string }) => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: async (direction: "redo" | "undo"): Promise<Snapshot | null> => {
-			const snapshot =
-				direction === "redo"
-					? await window.lite.getRedoTargetSnapshot(projectId)
-					: await window.lite.getUndoTargetSnapshot(projectId);
-			if (!snapshot) return null;
-
-			const [peeled] = await Promise.all([
-				window.lite.peelRestoreSnapshot({ projectId, sha: snapshot.commitId }),
-
-				window.lite.restoreSnapshotWithKind({
-					projectId,
-					restoreKind:
-						direction === "redo" ? "RestoreFromSnapshotViaRedo" : "RestoreFromSnapshotViaUndo",
-					sha: snapshot.commitId,
-				}),
-			]);
-
-			return peeled ?? snapshot;
-		},
-		onSuccess: (snapshot, direction) => {
-			const title = direction === "redo" ? "Redo" : "Undo";
-
-			if (!snapshot) {
-				toastManager.add({ type: "warning", title, description: `Nothing to ${direction}` });
-				return;
-			}
-
-			// TODO: We should map this to something user-friendly.
-			const op = snapshot.details?.operation;
-
-			// TODO: We should use dynamic units.
-			const minsAgo = new Intl.RelativeTimeFormat(undefined, { style: "short" }).format(
-				Math.ceil((snapshot.createdAt - Date.now()) / 1000 / 60),
-				"minutes",
-			);
-
-			toastManager.add({
-				type: "info",
-				title,
-				description: `Restored to ${shortCommitId(snapshot.commitId)} (${op !== undefined ? `${op}, ` : ""}${minsAgo})`,
-			});
-		},
-		onError: (error, direction) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: `Failed to ${direction}`,
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
 };
 
 const useWorkspaceHotkeys = (projectId: string) => {

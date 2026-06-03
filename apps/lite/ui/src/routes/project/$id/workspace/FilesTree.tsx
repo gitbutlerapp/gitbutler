@@ -1,8 +1,5 @@
-import {
-	changesInWorktreeQueryOptions,
-	headInfoQueryOptions,
-	listProjectsQueryOptions,
-} from "#ui/api/queries.ts";
+import { changesInWorktreeQueryOptions, listProjectsQueryOptions } from "#ui/api/queries.ts";
+import { useCommitUncommitChanges } from "#ui/api/mutations.ts";
 import {
 	nativeMenuItem,
 	nativeMenuSeparator,
@@ -28,10 +25,10 @@ import {
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { classes } from "#ui/components/classes.ts";
-import { mergeProps, Toast, useRender } from "@base-ui/react";
+import { mergeProps, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
 import type { CommitDetails, TreeChange, TreeChanges, WorktreeChanges } from "@gitbutler/but-sdk";
-import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Array, Match } from "effect";
 import { ComponentProps, createContext, FC, ReactNode, use, useEffect, useRef } from "react";
 import styles from "./FilesTree.module.css";
@@ -53,7 +50,6 @@ import {
 import { changesFileHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { assert } from "#ui/assert.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
-import { errorMessageForToast } from "#ui/errors.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 
@@ -359,40 +355,6 @@ const useIsSelected = ({ projectId, operand }: { projectId: string; operand: Ope
 
 const treeItemId = (operand: Operand): string =>
 	`files-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
-
-const useCommitUncommitChanges = () => {
-	const dispatch = useAppDispatch();
-
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: window.lite.commitUncommitChanges,
-		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to uncommit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
 
 const changeLabel = (change: TreeChange): [enhancedLabel: ReactNode, rawLabel: string] => {
 	const status = Match.value(change.status).pipe(
