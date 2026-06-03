@@ -88,10 +88,12 @@ const useNavigationIndex = (projectId: string, parent: Operand, files: Array<Ope
 
 const useFilesTreeHotkeys = ({
 	navigationIndex,
+	onFileSelection,
 	projectId,
 	ref,
 }: {
 	navigationIndex: NavigationIndex;
+	onFileSelection: (selection: Operand) => void;
 	projectId: string;
 	ref: React.RefObject<HTMLElement | null>;
 }) => {
@@ -100,9 +102,6 @@ const useFilesTreeHotkeys = ({
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
 	const dispatch = useAppDispatch();
-
-	const select = (newItem: Operand) =>
-		dispatch(projectActions.selectFiles({ projectId, selection: newItem }));
 
 	const isChangesFileSelected = selection._tag === "File" && selection.parent._tag === "Changes";
 
@@ -146,15 +145,20 @@ const useFilesTreeHotkeys = ({
 		projectId,
 		group: "Files",
 		selectionScope: "files",
-		select,
+		select: onFileSelection,
 		selection,
 		ref,
 	});
 };
 
 export const CommitFilesTree: FC<
-	{ projectId: string; commit: CommitOperand; commitDetails: CommitDetails } & ComponentProps<"div">
-> = ({ projectId, commit, commitDetails, ...props }) => {
+	{
+		projectId: string;
+		commit: CommitOperand;
+		commitDetails: CommitDetails;
+		onFileSelection: (selection: Operand) => void;
+	} & ComponentProps<"div">
+> = ({ projectId, commit, commitDetails, onFileSelection, ...props }) => {
 	const conflictedPaths = commitDetails.conflictEntries
 		? globalThis.Array.from(
 				new Set([
@@ -193,6 +197,7 @@ export const CommitFilesTree: FC<
 						}),
 					),
 			]}
+			onFileSelection={onFileSelection}
 		/>
 	);
 };
@@ -201,8 +206,9 @@ export const ChangesFilesTree: FC<
 	{
 		projectId: string;
 		worktreeChanges: WorktreeChanges;
+		onFileSelection: (selection: Operand) => void;
 	} & ComponentProps<"div">
-> = ({ projectId, worktreeChanges, ...props }) => {
+> = ({ projectId, worktreeChanges, onFileSelection, ...props }) => {
 	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
 		worktreeChanges.dependencies?.diffs ?? [],
 	);
@@ -227,6 +233,7 @@ export const ChangesFilesTree: FC<
 					}),
 				});
 			})}
+			onFileSelection={onFileSelection}
 		/>
 	);
 };
@@ -237,12 +244,14 @@ export const BranchFilesTree: FC<
 		stackId: string;
 		branchRef: Array<number>;
 		branchDiff: TreeChanges;
+		onFileSelection: (selection: Operand) => void;
 	} & ComponentProps<"div">
-> = ({ projectId, stackId, branchRef, branchDiff, ...props }) => (
+> = ({ projectId, stackId, branchRef, branchDiff, onFileSelection, ...props }) => (
 	<FilesTree
 		{...props}
 		projectId={projectId}
 		parent={branchOperand({ stackId, branchRef })}
+		onFileSelection={onFileSelection}
 		items={branchDiff.changes.map((change) =>
 			changeFileTreeItem({
 				change,
@@ -288,8 +297,13 @@ type FileTreeItem =
 	| ({ _tag: "Conflict" } & ConflictFileTreeItem);
 
 const FilesTree: FC<
-	{ projectId: string; parent: Operand; items: Array<FileTreeItem> } & ComponentProps<"div">
-> = ({ className, items, parent, projectId, ref: refProp, ...props }) => {
+	{
+		projectId: string;
+		parent: Operand;
+		items: Array<FileTreeItem>;
+		onFileSelection: (selection: Operand) => void;
+	} & ComponentProps<"div">
+> = ({ className, items, onFileSelection, parent, projectId, ref: refProp, ...props }) => {
 	const files = items.map((item) => item.operand);
 
 	const navigationIndex = useNavigationIndex(projectId, parent, files);
@@ -299,6 +313,7 @@ const FilesTree: FC<
 
 	useFilesTreeHotkeys({
 		navigationIndex,
+		onFileSelection,
 		projectId,
 		ref,
 	});
@@ -321,7 +336,7 @@ const FilesTree: FC<
 					className={workspaceItemRowStyles.section}
 					render={<OperationSourceC projectId={projectId} selectionScope="files" source={parent} />}
 				>
-					<ItemRow projectId={projectId} operand={parent}>
+					<ItemRow projectId={projectId} operand={parent} onFileSelection={onFileSelection}>
 						<div className={classes("text-bold", workspaceItemRowStyles.itemRowLabel)}>
 							All changes
 						</div>
@@ -335,6 +350,7 @@ const FilesTree: FC<
 								<FileTreeRow
 									key={operandIdentityKey(item.operand)}
 									item={item}
+									onFileSelection={onFileSelection}
 									projectId={projectId}
 								/>
 							))}
@@ -412,23 +428,20 @@ const changeLabel = (change: TreeChange): [enhancedLabel: ReactNode, rawLabel: s
 
 const ItemRow: FC<
 	{
+		onFileSelection: (selection: Operand) => void;
 		projectId: string;
 		operand: Operand;
 	} & Omit<ComponentProps<typeof WorkspaceItemRow>, "inert" | "isSelected" | "onSelect">
-> = ({ projectId, operand, ...props }) => {
-	const dispatch = useAppDispatch();
+> = ({ onFileSelection, projectId, operand, ...props }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
 	const isSelected = useIsSelected({ projectId, operand });
-	const selectItem = () => {
-		dispatch(projectActions.selectFiles({ projectId, selection: operand }));
-	};
 
 	return (
 		<WorkspaceItemRow
 			{...props}
 			inert={!navigationIndexIncludes(navigationIndex, operand)}
 			isSelected={isSelected}
-			onSelect={selectItem}
+			onSelect={() => onFileSelection(operand)}
 		/>
 	);
 };
@@ -454,8 +467,9 @@ const TreeItem: FC<
 
 const FileTreeRow: FC<{
 	item: FileTreeItem;
+	onFileSelection: (selection: Operand) => void;
 	projectId: string;
-}> = ({ item, projectId }) => {
+}> = ({ item, onFileSelection, projectId }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 	const [label, strLabel] =
 		item._tag === "Change" ? changeLabel(item.change) : [`C ${item.path}`, `C ${item.path}`];
@@ -554,7 +568,13 @@ const FileTreeRow: FC<{
 					projectId={projectId}
 					selectionScope="files"
 					source={item.operand}
-					render={<ItemRow projectId={projectId} operand={item.operand} />}
+					render={
+						<ItemRow
+							projectId={projectId}
+							operand={item.operand}
+							onFileSelection={onFileSelection}
+						/>
+					}
 				/>
 			}
 		>
