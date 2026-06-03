@@ -31,7 +31,7 @@ pub enum RepositoryError<
     #[error("i/o error communicating with askpass utility: {0}")]
     AskpassIo(Esocket),
     #[error(
-        "git command exited with non-zero exit code {status}: {args:?}\n\nSTDOUT:\n{stdout}\n\nSTDERR:\n{stderr}"
+        "git command exited with non-zero exit code {status}:\n\nARGS:\n{args:?}\n\nSTDOUT:\n{stdout}\n\nSTDERR:\n{stderr}"
     )]
     Failed {
         status: usize,
