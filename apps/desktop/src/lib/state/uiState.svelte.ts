@@ -63,7 +63,7 @@ export type ExclusiveAction =
 	| {
 			type: "edit-commit-message";
 			stackId: string | undefined;
-			branchName: string;
+			branchName: string | undefined;
 			commitId: string;
 	  }
 	| {

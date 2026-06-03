@@ -59,7 +59,6 @@
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
-	import { ensureValue } from "$lib/utils/validation";
 	import { inject, injectOptional } from "@gitbutler/core/context";
 	import {
 		ContextMenuItem,
@@ -108,11 +107,7 @@
 			: false,
 	);
 
-	async function insertBlankCommit(
-		stackId: string,
-		commitId: string,
-		location: "above" | "below" = "below",
-	) {
+	async function insertBlankCommit(commitId: string, location: "above" | "below" = "below") {
 		await insertBlankCommitInBranch({
 			projectId,
 			relativeTo: { type: "commit", subject: commitId },
@@ -121,7 +116,11 @@
 		});
 	}
 
-	async function handleCreateNewRef(stackId: string, commitId: string, position: AnchorPosition) {
+	async function handleCreateNewRef(
+		stackId: string | undefined,
+		commitId: string,
+		position: AnchorPosition,
+	) {
 		const newName = await stackService.fetchNewBranchName(projectId);
 		await createRef({
 			projectId,
@@ -320,7 +319,7 @@
 										label="Add empty commit above"
 										disabled={isReadOnly || commitInsertion.current.isLoading}
 										onclick={() => {
-											insertBlankCommit(ensureValue(stackId), commitId, "above");
+											insertBlankCommit(commitId, "above");
 											closeSubmenu();
 											close();
 										}}
@@ -329,7 +328,7 @@
 										label="Add empty commit below"
 										disabled={isReadOnly || commitInsertion.current.isLoading}
 										onclick={() => {
-											insertBlankCommit(ensureValue(stackId), commitId, "below");
+											insertBlankCommit(commitId, "below");
 											closeSubmenu();
 											close();
 										}}
@@ -345,7 +344,7 @@
 										disabled={isReadOnly || refCreation.current.isLoading}
 										onclick={async () => {
 											if (!isReadOnly) {
-												await handleCreateNewRef(ensureValue(stackId), commitId, "Above");
+												await handleCreateNewRef(stackId, commitId, "Above");
 												closeSubmenu();
 												close();
 											}
@@ -356,7 +355,7 @@
 										disabled={isReadOnly || refCreation.current.isLoading}
 										onclick={async () => {
 											if (!isReadOnly) {
-												await handleCreateNewRef(ensureValue(stackId), commitId, "Below");
+												await handleCreateNewRef(stackId, commitId, "Below");
 												closeSubmenu();
 												close();
 											}

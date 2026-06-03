@@ -497,12 +497,11 @@ export class StackService {
 	/**
 	 * Gets the changes for a given branch.
 	 */
-	branchChanges(args: { projectId: string; stackId?: string; branch: string }) {
+	branchChanges(args: { projectId: string; branch: string }) {
 		return this.backendApi.endpoints.branchChanges.useQuery(
 			{
 				projectId: args.projectId,
 				branch: args.branch,
-				stackId: args.stackId,
 			},
 			{
 				transform: (result) => ({
@@ -513,27 +512,20 @@ export class StackService {
 		);
 	}
 
-	branchChange(args: { projectId: string; stackId?: string; branch: string; path: string }) {
+	branchChange(args: { projectId: string; branch: string; path: string }) {
 		return this.backendApi.endpoints.branchChanges.useQuery(
 			{
 				projectId: args.projectId,
-				stackId: args.stackId,
 				branch: args.branch,
 			},
 			{ transform: (result) => changesSelectors.selectById(result.changes, args.path) },
 		);
 	}
 
-	async branchChangesByPaths(args: {
-		projectId: string;
-		stackId?: string;
-		branch: string;
-		paths: string[];
-	}) {
+	async branchChangesByPaths(args: { projectId: string; branch: string; paths: string[] }) {
 		const result = await this.backendApi.endpoints.branchChanges.fetch(
 			{
 				projectId: args.projectId,
-				stackId: args.stackId,
 				branch: args.branch,
 			},
 			{ transform: (result) => selectChangesByPaths(result.changes, args.paths) },
@@ -549,11 +541,13 @@ export class StackService {
 		return this.backendApi.endpoints.newBranch.useMutation();
 	}
 
-	async uncommit(args: { projectId: string; stackId: string; commitIds: string[] }) {
+	async uncommit(args: { projectId: string; stackId?: string; commitIds: string[] }) {
 		const result = await this.backendApi.endpoints.uncommit.mutate(args);
-		const selection = this.uiState.lane(args.stackId).selection;
-		if (selection.current?.commitId && args.commitIds.includes(selection.current.commitId)) {
-			selection.set(undefined);
+		if (args.stackId) {
+			const selection = this.uiState.lane(args.stackId).selection;
+			if (selection.current?.commitId && args.commitIds.includes(selection.current.commitId)) {
+				selection.set(undefined);
+			}
 		}
 		return result;
 	}
@@ -750,7 +744,6 @@ export class StackService {
 
 		await this.squashCommits({
 			projectId,
-			stackId,
 			sourceCommitIds: squashCommits.map((commit) => commit.id),
 			targetCommitId: targetCommit.id,
 		});

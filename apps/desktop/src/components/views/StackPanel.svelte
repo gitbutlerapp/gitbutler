@@ -5,7 +5,7 @@
 
 	Usage:
 	```svelte
-	<StackPanel {branches} {topBranchName} {onFoldStack} {ircEnabled} {ircChannel} />
+	<StackPanel {segments} {topBranchName} {onFoldStack} {ircEnabled} {ircChannel} />
 	```
 -->
 <script lang="ts">
@@ -21,32 +21,26 @@
 	import { createWorktreeSelection, type SelectionId } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { getStackContext } from "$lib/stacks/stackController.svelte";
-	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, TestId } from "@gitbutler/ui";
 	import type { Segment } from "@gitbutler/but-sdk";
 
 	type Props = {
-		branches: Segment[];
+		segments: Segment[];
 		topBranchName?: string;
 		onFoldStack?: () => void;
 		ircEnabled: boolean;
 		ircChannel?: string;
 	};
 
-	const { branches, topBranchName, onFoldStack, ircEnabled, ircChannel }: Props = $props();
+	const { segments, topBranchName, onFoldStack, ircEnabled, ircChannel }: Props = $props();
 
 	const controller = getStackContext();
-	const stackService = inject(STACK_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 
 	const changes = $derived(uncommittedService.changesByStackId(controller.stackId || null));
 	const startCommitVisible = $derived(uncommittedService.startCommitVisible(controller.stackId));
-	const defaultBranchQuery = $derived(
-		stackService.defaultBranch(controller.projectId, controller.stackId),
-	);
-	const defaultBranch = $derived(defaultBranchQuery?.response);
 
 	let dropzoneActivated = $state(false);
 	let dropzoneHovered = $state(false);
@@ -215,12 +209,10 @@
 						style={changes.current.length > 0 ? "pop" : "gray"}
 						type="button"
 						wide
-						disabled={controller.isReadOnly ||
-							defaultBranch === null ||
-							!!controller.exclusiveAction}
+						disabled={controller.isReadOnly || !topBranchName || !!controller.exclusiveAction}
 						tooltip={controller.isReadOnly ? "Read-only mode" : undefined}
 						onclick={() => {
-							if (defaultBranch) startCommit(defaultBranch);
+							if (topBranchName) startCommit(topBranchName);
 						}}
 					>
 						Start a commit…
@@ -236,7 +228,7 @@
 		<IrcRow stackId={controller.stackId} channel={ircChannel} selected={controller.ircPanelOpen} />
 	{/if}
 
-	<BranchList {branches} />
+	<BranchList {segments} />
 </div>
 
 <style lang="postcss">

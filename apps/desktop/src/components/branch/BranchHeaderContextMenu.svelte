@@ -2,7 +2,7 @@
 	import type { Segment } from "@gitbutler/but-sdk";
 
 	export type BranchHeaderContextData = {
-		branch: Segment;
+		segment: Segment;
 		prNumber?: number;
 		first?: boolean;
 		stackLength: number;
@@ -68,34 +68,18 @@
 	const isReadOnly = $derived(!stackId);
 
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
-	const branchName = $derived(contextData.branch.refName?.displayName);
+	const branchName = $derived(contextData.segment.refName?.displayName);
 	const branchReference = $derived(
-		contextData.branch.refName
-			? new TextDecoder().decode(new Uint8Array(contextData.branch.refName.fullNameBytes))
+		contextData.segment.refName
+			? new TextDecoder().decode(new Uint8Array(contextData.segment.refName.fullNameBytes))
 			: undefined,
 	);
-	const remoteTrackingBranch = $derived(contextData.branch.remoteTrackingRefName);
-	const branchCommits = $derived(contextData.branch.commits);
+	const remoteTrackingBranch = $derived(contextData.segment.remoteTrackingRefName);
+	const branchCommits = $derived(contextData.segment.commits);
 
-	const allCommits = $derived.by(() => {
-		if (!branchName) return;
-		return stackId
-			? stackService.commits(projectId, stackId, branchName)
-			: stackService.unstackedCommits(projectId, branchName);
-	});
-
-	async function getAllCommits() {
-		if (!branchName) return [];
-		if (stackId) {
-			return stackService.fetchCommits(projectId, stackId, branchName);
-		}
-		return stackService.fetchUnstackedCommits(projectId, branchName);
-	}
-
-	const commits = $derived(allCommits?.response);
-	const branchType = $derived(commits?.at(0)?.state.type || "LocalOnly");
-	const isConflicted = $derived(commits?.some((commit) => commit.hasConflicts) ?? false);
-	const hasCommits = $derived((commits?.length ?? 0) > 0);
+	const branchType = $derived(branchCommits.at(0)?.state.type || "LocalOnly");
+	const isConflicted = $derived(branchCommits.some((commit) => commit.hasConflicts));
+	const hasCommits = $derived(branchCommits.length > 0);
 
 	let aiConfigurationValid = $state(false);
 
@@ -111,12 +95,10 @@
 	async function generateBranchName(stackId: string, branchName: string) {
 		if (!$aiGenEnabled || !aiConfigurationValid) return;
 
-		const commits = await getAllCommits();
-		const commitMessages = commits?.map((commit) => commit.message) ?? [];
+		const commitMessages = branchCommits.map((commit) => commit.message);
 		// The context-menu entry is disabled via `hasCommits` when there are
-		// no commits yet. Guard defensively against a race (freshly-fetched
-		// commits may lag the reactive query) — silently no-op rather than
-		// raising an error toast.
+		// no commits yet. Guard defensively against an empty list — silently
+		// no-op rather than raising an error toast.
 		if (commitMessages.length === 0) return;
 
 		const prompt = promptService.selectedBranchPrompt(projectId);

@@ -17,6 +17,7 @@
 	import { REORDER_DROPZONE_FACTORY } from "$lib/dragging/stackingReorderDropzoneManager";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { createBranchSelection } from "$lib/selection/key";
+	import { segmentContext } from "$lib/stacks/segmentContext";
 	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { ensureValue } from "$lib/utils/validation";
@@ -27,10 +28,10 @@
 	import type { Segment } from "@gitbutler/but-sdk";
 
 	type Props = {
-		branches: Segment[];
+		segments: Segment[];
 	};
 
-	const { branches }: Props = $props();
+	const { segments }: Props = $props();
 
 	const controller = getStackContext();
 	const stackService = inject(STACK_SERVICE);
@@ -64,7 +65,7 @@
 		stackingReorderDropzoneManagerFactory.build(
 			projectId,
 			laneId,
-			branches
+			segments
 				.map((s) =>
 					s.refName
 						? { name: s.refName.displayName, commitIds: s.commits.map((p) => p.id) }
@@ -80,21 +81,22 @@
 </script>
 
 <div class="branches-wrapper">
-	{#each branches as branch, i}
-		{@const branchName = branch.refName?.displayName}
+	{#each segments as segment, i}
+		{@const ctx = segmentContext(segments, i)}
+		{@const branchName = segment.refName?.displayName}
 		{@const branchLabel = branchName ?? "Unnamed segment"}
-		{@const remoteTrackingBranch = branch.remoteTrackingRefName
-			? new TextDecoder().decode(new Uint8Array(branch.remoteTrackingRefName.fullNameBytes))
+		{@const remoteTrackingBranch = segment.remoteTrackingRefName
+			? new TextDecoder().decode(new Uint8Array(segment.remoteTrackingRefName.fullNameBytes))
 			: undefined}
-		{@const prNumber = branch.metadata?.review.pullRequest ?? undefined}
-		{@const reviewId = branch.metadata?.review.reviewId ?? undefined}
+		{@const prNumber = segment.metadata?.review.pullRequest ?? undefined}
+		{@const reviewId = segment.metadata?.review.reviewId ?? undefined}
 		{@const prQuery = prNumber ? forge.current.prService?.get(prNumber) : undefined}
-		{@const commit = branch.commits.at(0)}
+		{@const commit = segment.commits.at(0)}
 
 		{@const first = i === 0}
 
 		{@const firstBranch = i === 0}
-		{@const lastBranch = i === branches.length - 1}
+		{@const lastBranch = i === segments.length - 1}
 		{@const iconName = getIconFromCommitState(commit?.id, commit?.state)}
 		{@const lineColor = commit
 			? getColorFromCommitState(
@@ -102,14 +104,14 @@
 					commit.state.type === "LocalAndRemote" && commit.id !== commit.state.subject,
 				)
 			: "var(--commit-local)"}
-		{@const isNewBranch = branch.commitsOnRemote.length === 0 && branch.commits.length === 0}
+		{@const isNewBranch = segment.commitsOnRemote.length === 0 && segment.commits.length === 0}
 		{@const selected =
 			selection?.current?.branchName === branchName && selection?.current?.commitId === undefined}
-		{@const allOtherPrNumbersInStack = branches
-			.filter((b) => b.refName?.displayName !== branchName)
-			.map((b) => b.metadata?.review.pullRequest)
+		{@const allOtherPrNumbersInStack = segments
+			.filter((s) => s.refName?.displayName !== branchName)
+			.map((s) => s.metadata?.review.pullRequest)
 			.filter((n): n is number => n !== undefined && n !== null)}
-		{@const isConflicted = branch.commits.some((commit) => commit.hasConflicts)}
+		{@const isConflicted = segment.commits.some((commit) => commit.hasConflicts)}
 		{@const startCommittingDz = branchName
 			? new StartCommitDzHandler(projectId, stackId, branchName)
 			: undefined}
@@ -137,7 +139,6 @@
 			{#if selected && branchName}
 				{@const changesQuery = stackService.branchChanges({
 					projectId,
-					stackId,
 					branch: branchName,
 				})}
 				<ReduxResult {projectId} {stackId} result={changesQuery.result}>
@@ -239,7 +240,9 @@
 					{branchName}
 					{projectId}
 					{stackId}
-					multipleBranches={branches.length > 1}
+					{segment}
+					withForce={ctx.withForce}
+					multipleBranches={segments.length > 1}
 					isFirstBranchInStack={firstBranch}
 					isLastBranchInStack={lastBranch}
 				/>
@@ -249,10 +252,10 @@
 		{#snippet menu({ rightClickTrigger }: { rightClickTrigger?: HTMLElement })}
 			{#if branchName}
 				{@const data = {
-					branch,
+					segment,
 					prNumber,
 					first,
-					stackLength: branches.length,
+					stackLength: segments.length,
 				}}
 				<BranchHeaderContextMenu
 					{projectId}
@@ -276,15 +279,20 @@
 			{iconName}
 			{selected}
 			{isNewBranch}
-			pushStatus={branch.pushStatus}
+			pushStatus={segment.pushStatus}
 			{isConflicted}
 			{reviewId}
 			{prNumber}
 			{allOtherPrNumbersInStack}
-			numberOfCommits={branch.commits.length}
-			numberOfUpstreamCommits={branch.commitsOnRemote.length}
-			numberOfBranchesInStack={branches.length}
-			baseCommit={branch.base ?? undefined}
+			numberOfCommits={segment.commits.length}
+			numberOfUpstreamCommits={segment.commitsOnRemote.length}
+			numberOfBranchesInStack={segments.length}
+			{segment}
+			branchIndex={ctx.branchIndex}
+			parent={ctx.parent}
+			withForce={ctx.withForce}
+			stackPrNumbers={ctx.stackPrNumbers}
+			baseCommit={segment.base ?? undefined}
 			dropzones={branchName && startCommittingDz
 				? [stackingReorderDropzoneManager.top(branchName), startCommittingDz]
 				: []}
@@ -302,17 +310,12 @@
 				}
 				controller.clearWorktreeSelection();
 			}}
-			changedFiles={branch.refName ? changedFiles : undefined}
-			buttons={branch.refName ? buttons : undefined}
-			menu={branch.refName ? menu : undefined}
+			changedFiles={segment.refName ? changedFiles : undefined}
+			buttons={segment.refName ? buttons : undefined}
+			menu={segment.refName ? menu : undefined}
 		>
 			{#snippet branchContent()}
-				<BranchCommitList
-					{lastBranch}
-					{branchName}
-					segment={branch}
-					{stackingReorderDropzoneManager}
-				/>
+				<BranchCommitList {lastBranch} {branchName} {segment} {stackingReorderDropzoneManager} />
 			{/snippet}
 		</BranchCard>
 	{/each}

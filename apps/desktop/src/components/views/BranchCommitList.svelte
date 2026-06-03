@@ -36,7 +36,6 @@
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 
 	import { UI_STATE, withStackBusy } from "$lib/state/uiState.svelte";
-	import { ensureValue } from "$lib/utils/validation";
 	import { inject } from "@gitbutler/core/context";
 	import { TestId } from "@gitbutler/ui";
 	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
@@ -177,18 +176,21 @@
 	}
 
 	async function handleUncommit(commitId: string) {
-		const targetStackId = ensureValue(stackId);
-		await withStackBusy(uiState, projectId, { commitId, stackIds: [targetStackId] }, async () => {
-			await stackService.uncommit({
-				projectId,
-				stackId: targetStackId,
-				commitIds: [commitId],
-			});
-		});
+		await withStackBusy(
+			uiState,
+			projectId,
+			{ commitId, stackIds: stackId ? [stackId] : undefined },
+			async () => {
+				await stackService.uncommit({
+					projectId,
+					stackId,
+					commitIds: [commitId],
+				});
+			},
+		);
 	}
 
 	async function handleUncommitSelected(selectedIds?: string[]) {
-		const targetStackId = ensureValue(stackId);
 		const commitIds = selectedIds ?? controller.selectedCommitIds;
 		if (commitIds.length === 0) return;
 
@@ -197,18 +199,22 @@
 		const filtered = commitIds.filter((id) => allIds.includes(id));
 		if (filtered.length === 0) return;
 
-		await withStackBusy(uiState, projectId, { stackIds: [targetStackId] }, async () => {
-			await stackService.uncommit({
-				projectId,
-				stackId: targetStackId,
-				commitIds: filtered,
-			});
-		});
+		await withStackBusy(
+			uiState,
+			projectId,
+			{ stackIds: stackId ? [stackId] : undefined },
+			async () => {
+				await stackService.uncommit({
+					projectId,
+					stackId,
+					commitIds: filtered,
+				});
+			},
+		);
 		controller.selection.set(undefined);
 	}
 
 	async function handleSquashSelected(selectedIds?: string[]) {
-		const targetStackId = ensureValue(stackId);
 		const commitIds = selectedIds ?? controller.selectedCommitIds;
 
 		// Filter to only IDs present in this branch to avoid invalid operations.
@@ -220,14 +226,18 @@
 		const targetCommitId = sorted[sorted.length - 1]!;
 		const sourceCommitIds = sorted.slice(0, -1);
 
-		await withStackBusy(uiState, projectId, { stackIds: [targetStackId] }, async () => {
-			await stackService.squashCommits({
-				projectId,
-				stackId: targetStackId,
-				sourceCommitIds,
-				targetCommitId,
-			});
-		});
+		await withStackBusy(
+			uiState,
+			projectId,
+			{ stackIds: stackId ? [stackId] : undefined },
+			async () => {
+				await stackService.squashCommits({
+					projectId,
+					sourceCommitIds,
+					targetCommitId,
+				});
+			},
+		);
 		controller.selection.set(undefined);
 	}
 

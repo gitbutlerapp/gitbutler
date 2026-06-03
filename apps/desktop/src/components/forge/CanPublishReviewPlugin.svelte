@@ -1,25 +1,19 @@
 <script lang="ts">
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
-	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
+	import type { Commit } from "@gitbutler/but-sdk";
 
 	type Props = {
-		projectId: string;
-		stackId?: string;
-		branchName: string | undefined;
+		commits: Commit[];
 		prNumber: number | undefined;
 		reviewId: string | undefined;
 	};
 
-	const { projectId, stackId, branchName, prNumber, reviewId }: Props = $props();
+	const { commits, prNumber, reviewId }: Props = $props();
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const stackService = inject(STACK_SERVICE);
 
-	const commits = $derived(
-		stackId && branchName ? stackService.commits(projectId, stackId, branchName) : undefined,
-	);
-	const branchEmpty = $derived(commits?.response ? commits.response.length === 0 : false);
+	const branchEmpty = $derived(commits.length === 0);
 	const prService = $derived(forge.current.prService);
 	const prQuery = $derived(prNumber ? prService?.get(prNumber) : undefined);
 	const pr = $derived(prQuery?.response);
@@ -36,7 +30,7 @@
 			return branchEmpty;
 		},
 		get branchIsConflicted() {
-			return commits?.response?.some((commit) => commit.hasConflicts) || false;
+			return commits.some((commit) => commit.hasConflicts);
 		},
 		get prNumber() {
 			return prNumber;

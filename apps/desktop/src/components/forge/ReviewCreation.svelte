@@ -29,7 +29,7 @@
 	import { REMOTES_SERVICE } from "$lib/git/remotesService";
 	import { showToast } from "$lib/notifications/toasts";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
-	import { partialStackRequestsForcePush, requiresPush } from "$lib/stacks/stack";
+	import { requiresPush } from "$lib/stacks/stack";
 	import { type BranchPushResult } from "$lib/stacks/stackEndpoints";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
@@ -40,17 +40,32 @@
 	import { IME_COMPOSITION_HANDLER } from "@gitbutler/ui/utils/imeHandling";
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
 	import { tick, untrack } from "svelte";
-	import type { Commit } from "@gitbutler/but-sdk";
+	import type { Commit, Segment } from "@gitbutler/but-sdk";
 
 	type Props = {
 		projectId: string;
 		stackId?: string;
 		branchName: string;
+		segment: Segment;
+		branchIndex: number;
+		parent: Segment | undefined;
+		withForce: boolean;
+		stackPrNumbers: (number | undefined)[];
 		reviewId?: string;
 		onClose: () => void;
 	};
 
-	const { projectId, stackId, branchName, onClose }: Props = $props();
+	const {
+		projectId,
+		stackId,
+		branchName,
+		segment,
+		branchIndex,
+		parent,
+		withForce,
+		stackPrNumbers,
+		onClose,
+	}: Props = $props();
 
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
@@ -67,22 +82,11 @@
 
 	const [pushStack, stackPush] = stackService.pushStack;
 
-	const branchesQuery = $derived(stackService.branches(projectId, stackId));
-	const branches = $derived(branchesQuery.response || []);
-	const branchParentQuery = $derived(
-		stackService.branchParentByName(projectId, stackId, branchName),
-	);
-	const branchParent = $derived(branchParentQuery.response);
-	const branchParentName = $derived(branchParent?.refName?.displayName);
-	const branchParentPrNumber = $derived(branchParent?.metadata?.review.pullRequest);
-	const branchParentDetailsQuery = $derived(
-		branchParentName ? stackService.branchDetails(projectId, stackId, branchParentName) : undefined,
-	);
-	const branchParentDetails = $derived(branchParentDetailsQuery?.response);
-	const branchDetailsQuery = $derived(stackService.branchDetails(projectId, stackId, branchName));
-	const branchDetails = $derived(branchDetailsQuery.response);
-	const commitsQuery = $derived(stackService.commits(projectId, stackId, branchName));
-	const commits = $derived(commitsQuery.response || []);
+	const branchParentName = $derived(parent?.refName?.displayName);
+	const branchParentPrNumber = $derived(parent?.metadata?.review.pullRequest);
+	const branchParentDetails = $derived(parent);
+	const branchDetails = $derived(segment);
+	const commits = $derived(segment.commits);
 	const runHooks = $derived(projectRunCommitHooks(projectId));
 
 	const forgeBranch = $derived(branchName ? forge.current.branch(branchName) : undefined);
@@ -168,7 +172,6 @@
 
 		if (pushBeforeCreate) {
 			const firstPush = branchDetails?.pushStatus === "completelyUnpushed";
-			const withForce = partialStackRequestsForcePush(branchName, branches);
 			const pushQuery = await pushStack({
 				projectId,
 				stackId,
@@ -246,8 +249,9 @@
 			return;
 		}
 
-		// All ids that existed prior to creating a new one (including archived).
-		const prNumbers = branches.map((branch) => branch.metadata?.review.pullRequest);
+		// Local mutable copy of pre-computed pr numbers so we can splice in
+		// the newly-created pr number below.
+		const prNumbers = [...stackPrNumbers];
 
 		try {
 			if (!baseBranchName) {
@@ -265,8 +269,7 @@
 				return;
 			}
 
-			// Find the index of the current branch so we know where we want to point the pr.
-			const currentIndex = branches.findIndex((b) => b.refName?.displayName === params.branchName);
+			const currentIndex = branchIndex;
 			if (currentIndex === -1) {
 				throw new Error("Branch index not found.");
 			}

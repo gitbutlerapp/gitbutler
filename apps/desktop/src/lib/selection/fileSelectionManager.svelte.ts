@@ -182,7 +182,6 @@ export class FileSelectionManager {
 				const branch = createBranchRef(branchName, remote);
 				return await this.stackService.branchChangesByPaths({
 					projectId,
-					stackId: params.stackId,
 					branch,
 					paths: paths,
 				});
@@ -283,7 +282,6 @@ export class FileSelectionManager {
 				const branch = createBranchRef(branchName, remote);
 				return this.stackService.branchChange({
 					projectId,
-					stackId: selectedFile.stackId,
 					branch,
 					path: selectedFile.path,
 				});

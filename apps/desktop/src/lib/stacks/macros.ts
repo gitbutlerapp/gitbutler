@@ -58,7 +58,6 @@ export default class StackMacros {
 		const branchName = ensureValue(stack.heads.at(0)?.name);
 		const outcome = await this.stackService.createCommitMutation({
 			projectId: this.projectId,
-			stackId: ensureValue(stack.id),
 			stackBranchName: branchName,
 			parentId: undefined,
 			message: message ?? STUB_COMMIT_MESSAGE,
