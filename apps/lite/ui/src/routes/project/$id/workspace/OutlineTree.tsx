@@ -6,7 +6,7 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import { findCommit, renameBranchInHeadInfo, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { decodeRefName, encodeRefName } from "#ui/api/ref-name.ts";
+import { decodeRefName, encodeRefName, refNamesEqual } from "#ui/api/ref-name.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
 	nativeMenuItem,
@@ -65,6 +65,7 @@ import {
 	RelativeTo,
 	Segment,
 	Stack,
+	PushStatus,
 	TreeChange,
 	WorkspaceState,
 } from "@gitbutler/but-sdk";
@@ -104,7 +105,7 @@ import {
 	WorkspaceItemRowToolbar,
 } from "./WorkspaceItemRow.tsx";
 import { useDryRunOperation } from "#ui/operations/operation.ts";
-import { isNonEmptyArray, NonEmptyArray } from "effect/Array";
+import { initNonEmpty, isNonEmptyArray, NonEmptyArray, scanRight } from "effect/Array";
 import { defaultOutlineSelection } from "#ui/projects/workspace/state.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -385,6 +386,7 @@ const useOutlineTreeHotkeys = ({
 	projectId: string;
 	ref: React.RefObject<HTMLElement | null>;
 }) => {
+	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
@@ -394,6 +396,7 @@ const useOutlineTreeHotkeys = ({
 		dispatch(projectActions.selectOutline({ projectId, selection: newItem }));
 
 	const commitMoveMutation = useCommitMove();
+	const pushStackMutation = usePushStack();
 
 	const openBranchPicker = () => {
 		dispatch(projectActions.openBranchPicker({ projectId }));
@@ -452,9 +455,35 @@ const useOutlineTreeHotkeys = ({
 		});
 	};
 
+	const selectedPushContext = pushContextForSelection({ headInfo, selection });
+
+	const pushSelectedBranch = () => {
+		if (!selectedPushContext) return;
+
+		const partialStackState = partialStackStateFromSegments(
+			selectedPushContext.partialStackSegments,
+		);
+
+		pushStackMutation.mutate({
+			projectId,
+			stackId: selectedPushContext.stackId,
+			branch: selectedPushContext.refName.displayName,
+			withForce: partialStackState.pushWithForce,
+			skipForcePushProtection: false,
+			runHooks: true,
+			pushOpts: [],
+		});
+	};
+
 	const defaultOutlineHotkeysEnabled = outlineMode._tag === "Default";
 	const isSelectedCommit = selection._tag === "Commit";
 	const isSelectedChanges = selection._tag === "ChangesSection";
+	const canPushSelectedBranch =
+		!!selectedPushContext &&
+		!pushStackMutation.isPending &&
+		partialStackPushDisabledReason(
+			partialStackStateFromSegments(selectedPushContext.partialStackSegments),
+		) === null;
 
 	useNavigationIndexHotkeys({
 		ref,
@@ -569,6 +598,16 @@ const useOutlineTreeHotkeys = ({
 				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && !commitMoveMutation.isPending,
 				target: ref,
 				meta: outlineHotkeys.moveCommitDown.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.pushStack.hotkey,
+			callback: pushSelectedBranch,
+			options: {
+				conflictBehavior: "allow",
+				enabled: defaultOutlineHotkeysEnabled && canPushSelectedBranch,
+				target: ref,
+				meta: outlineHotkeys.pushStack.meta,
 			},
 		},
 		...Match.value(selection).pipe(
@@ -1802,6 +1841,146 @@ const InlineRenameBranch: FC<{
 	);
 };
 
+const pushStatusRequiresPush = (pushStatus: PushStatus): boolean =>
+	pushStatus === "unpushedCommits" ||
+	pushStatus === "unpushedCommitsRequiringForce" ||
+	pushStatus === "completelyUnpushed";
+
+type PartialStackState = {
+	requiresPush: boolean;
+	pushWithForce: boolean;
+	hasConflicts: boolean;
+	commitsCount: number;
+	branchCount: number;
+};
+
+const emptyPartialStackState: PartialStackState = {
+	requiresPush: false,
+	pushWithForce: false,
+	hasConflicts: false,
+	commitsCount: 0,
+	branchCount: 0,
+};
+
+const addSegmentToPartialStackState = (
+	state: PartialStackState,
+	segment: Segment,
+): PartialStackState => ({
+	requiresPush: state.requiresPush || pushStatusRequiresPush(segment.pushStatus),
+	pushWithForce: state.pushWithForce || segment.pushStatus === "unpushedCommitsRequiringForce",
+	hasConflicts: state.hasConflicts || segment.commits.some((commit) => commit.hasConflicts),
+	commitsCount: state.commitsCount + segment.commits.length,
+	branchCount: segment.refName ? state.branchCount + 1 : state.branchCount,
+});
+
+const partialStackPushDisabledReason = (partialStackState: PartialStackState): string | null =>
+	partialStackState.hasConflicts
+		? "Resolve conflicts before pushing"
+		: !partialStackState.requiresPush || partialStackState.commitsCount === 0
+			? "Nothing to push"
+			: null;
+
+const partialStackStateFromSegments = (segments: Array<Segment>): PartialStackState =>
+	segments.reduce(addSegmentToPartialStackState, emptyPartialStackState);
+
+const partialStackStatesFromSegments = (segments: Array<Segment>): Array<PartialStackState> =>
+	initNonEmpty(scanRight(segments, emptyPartialStackState, addSegmentToPartialStackState));
+
+type PushContext = {
+	stackId: string;
+	refName: BranchReference;
+	partialStackSegments: Array<Segment>;
+};
+
+const pushContextForSegment = ({
+	stackId,
+	segments,
+	segmentIndex,
+}: {
+	stackId: string;
+	segments: Array<Segment>;
+	segmentIndex: number;
+}): PushContext | null => {
+	const segment = segments[segmentIndex];
+	if (!segment?.refName) return null;
+
+	const partialStackSegments = segments.slice(segmentIndex);
+
+	return {
+		stackId,
+		refName: segment.refName,
+		partialStackSegments,
+	};
+};
+
+const pushContextForSelection = ({
+	headInfo,
+	selection,
+}: {
+	headInfo: RefInfo | undefined;
+	selection: Operand;
+}): PushContext | null =>
+	Match.value(selection).pipe(
+		Match.tags({
+			Branch: (selection) => {
+				const stack = headInfo?.stacks.find((stack) => stack.id === selection.stackId);
+				if (!stack || stack.id === null) return null;
+
+				const segmentIndex = stack.segments.findIndex(
+					(segment) =>
+						!!segment.refName && refNamesEqual(segment.refName.fullNameBytes, selection.branchRef),
+				);
+				if (segmentIndex === -1) return null;
+
+				return pushContextForSegment({ stackId: stack.id, segments: stack.segments, segmentIndex });
+			},
+			Commit: (selection) => {
+				const stack = headInfo?.stacks.find((stack) => stack.id === selection.stackId);
+				if (!stack || stack.id === null) return null;
+
+				const segmentIndex = stack.segments.findIndex((segment) =>
+					segment.commits.some((commit) => commit.id === selection.commitId),
+				);
+				if (segmentIndex === -1) return null;
+
+				return pushContextForSegment({ stackId: stack.id, segments: stack.segments, segmentIndex });
+			},
+		}),
+		Match.orElse(() => null),
+	);
+
+const usePushStack = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.pushStack,
+		onSuccess: async (response, input, _context, mutation) => {
+			await mutation.client.invalidateQueries({
+				queryKey: headInfoQueryOptions(input.projectId).queryKey,
+			});
+
+			if (response.branchToRemote.length === 0) return;
+
+			toastManager.add({
+				type: "success",
+				title: "Pushed",
+				description: input.branch,
+			});
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to push",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
 const useTearOffBranch = () => {
 	const dispatch = useAppDispatch();
 	const toastManager = Toast.useToastManager();
@@ -1983,6 +2162,7 @@ const BranchRow: FC<
 		isCommitTarget: boolean;
 		canTearOffBranch: boolean;
 		canRemoveBranch: boolean;
+		partialStackState: PartialStackState;
 		branchCommit?: Commit;
 	} & ComponentProps<"div">
 > = ({
@@ -1993,6 +2173,7 @@ const BranchRow: FC<
 	isCommitTarget,
 	canTearOffBranch,
 	canRemoveBranch,
+	partialStackState,
 	branchCommit,
 	...restProps
 }) => {
@@ -2032,8 +2213,11 @@ const BranchRow: FC<
 
 	const toastManager = Toast.useToastManager();
 
+	const pushStackMutation = usePushStack();
 	const tearOffBranchMutation = useTearOffBranch();
 	const removeBranchMutation = useRemoveBranch();
+
+	const pushesMultipleBranches = partialStackState.branchCount > 1;
 
 	const saveBranchName = (newBranchName: string) => {
 		const trimmed = newBranchName.trim();
@@ -2076,7 +2260,45 @@ const BranchRow: FC<
 		});
 	};
 
+	const pushStack = () => {
+		pushStackMutation.mutate({
+			projectId,
+			stackId,
+			branch: branchName,
+			withForce: partialStackState.pushWithForce,
+			skipForcePushProtection: false,
+			runHooks: true,
+			pushOpts: [],
+		});
+	};
+
+	const pushStackDisabledReason = pushStackMutation.isPending
+		? "Pushing"
+		: partialStackPushDisabledReason(partialStackState);
+	const canPushStack = pushStackDisabledReason === null;
+	const pushButtonLabel = pushesMultipleBranches
+		? partialStackState.pushWithForce
+			? "Force push this and all branches below"
+			: "Push this and all branches below"
+		: partialStackState.pushWithForce
+			? "Force push branch"
+			: "Push branch";
+	const pushMenuLabel = pushesMultipleBranches
+		? partialStackState.pushWithForce
+			? "Force Push With Branches Below"
+			: "Push With Branches Below"
+		: partialStackState.pushWithForce
+			? "Force Push Branch"
+			: "Push Branch";
+
 	const menuItems: Array<NativeMenuItem> = [
+		nativeMenuItem({
+			label: pushMenuLabel,
+			enabled: canPushStack,
+			accelerator: toElectronAccelerator(outlineHotkeys.pushStack.hotkey),
+			onSelect: pushStack,
+		}),
+		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Rename Branch",
 			enabled: !isRenamePending,
@@ -2150,13 +2372,35 @@ const BranchRow: FC<
 
 					{outlineMode._tag === "Default" && (
 						<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar />}>
-							<Toolbar.Button
-								className={workspaceItemRowStyles.itemRowIconButton}
-								aria-label="Push branch"
-								disabled
-							>
-								<Icon name="arrow-line-up" />
-							</Toolbar.Button>
+							<Tooltip.Root>
+								<Tooltip.Trigger
+									render={
+										<Toolbar.Button
+											className={workspaceItemRowStyles.itemRowIconButton}
+											aria-label={pushButtonLabel}
+											onClick={pushStack}
+											// Note this prevents the tooltip from showing, but it
+											// shouldn't: https://github.com/mui/base-ui/issues/4966
+											disabled={!canPushStack}
+										/>
+									}
+								>
+									{pushStackMutation.isPending ? (
+										<Icon name="spinner" />
+									) : pushesMultipleBranches ? (
+										<Icon name="push-all" />
+									) : (
+										<Icon name="push" />
+									)}
+								</Tooltip.Trigger>
+								<Tooltip.Portal>
+									<Tooltip.Positioner sideOffset={4}>
+										<Tooltip.Popup render={<TooltipPopup />}>
+											{pushStackDisabledReason ?? pushButtonLabel}
+										</Tooltip.Popup>
+									</Tooltip.Positioner>
+								</Tooltip.Portal>
+							</Tooltip.Root>
 							<Toolbar.Button
 								aria-label="Branch menu"
 								className={workspaceItemRowStyles.itemRowIconButton}
@@ -2253,6 +2497,7 @@ const BranchSegment: FC<{
 	commitTarget: RelativeTo | null;
 	canTearOffBranch: boolean;
 	canRemoveBranch: boolean;
+	partialStackState: PartialStackState;
 }> = ({
 	projectId,
 	segment,
@@ -2261,6 +2506,7 @@ const BranchSegment: FC<{
 	commitTarget,
 	canTearOffBranch,
 	canRemoveBranch,
+	partialStackState,
 }) => {
 	const operand = branchOperand({ stackId, branchRef: refName.fullNameBytes });
 
@@ -2283,6 +2529,7 @@ const BranchSegment: FC<{
 						stackId={stackId}
 						canTearOffBranch={canTearOffBranch}
 						canRemoveBranch={canRemoveBranch}
+						partialStackState={partialStackState}
 						isCommitTarget={
 							commitTarget
 								? relativeToEquals(commitTarget, {
@@ -2359,9 +2606,10 @@ const StackC: FC<{
 	const operand = stackOperand({ stackId });
 	const canTearOffBranch = stack.segments.length > 1;
 
-	const hasAnyCommits = stack.segments.some((segment) => segment.commits.length > 0);
-	const numBranches = stack.segments.filter((segment) => segment.refName !== null).length;
-	const canRemoveBranches = !hasAnyCommits || numBranches > 1;
+	const partialStackStates = partialStackStatesFromSegments(stack.segments);
+	// This should never fail because we always have at least one segment.
+	const stackState = assert(partialStackStates[0]);
+	const canRemoveBranches = stackState.commitsCount === 0 || stackState.branchCount > 1;
 
 	return (
 		<TreeItem
@@ -2375,8 +2623,10 @@ const StackC: FC<{
 			<StackRow projectId={projectId} stack={stack} />
 
 			<div role="group" className={styles.segments}>
-				{stack.segments.map((segment) =>
-					segment.refName ? (
+				{stack.segments.map((segment, index) => {
+					const partialStackState = assert(partialStackStates[index]);
+
+					return segment.refName ? (
 						<BranchSegment
 							key={JSON.stringify(segment.refName.fullNameBytes)}
 							projectId={projectId}
@@ -2386,6 +2636,7 @@ const StackC: FC<{
 							commitTarget={commitTarget}
 							canTearOffBranch={canTearOffBranch}
 							canRemoveBranch={canRemoveBranches}
+							partialStackState={partialStackState}
 						/>
 					) : (
 						// A segment should always either have a branch reference or at
@@ -2399,8 +2650,8 @@ const StackC: FC<{
 								commitTarget={commitTarget}
 							/>
 						)
-					),
-				)}
+					);
+				})}
 			</div>
 		</TreeItem>
 	);

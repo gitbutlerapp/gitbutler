@@ -24,6 +24,7 @@ import type {
 	CommitSquashResult,
 	MoveBranchResult,
 	MoveChangesResult,
+	PushFlag,
 	UnifiedPatch,
 	WatcherEvent,
 	WorktreeChanges,
@@ -165,6 +166,10 @@ export interface PushStackParams {
 	projectId: string;
 	stackId: string;
 	branch: string;
+	withForce: boolean;
+	skipForcePushProtection: boolean;
+	runHooks: boolean;
+	pushOpts: Array<PushFlag>;
 }
 
 export interface RemoveBranchParams {
