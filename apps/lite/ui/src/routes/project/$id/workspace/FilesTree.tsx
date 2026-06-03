@@ -72,17 +72,15 @@ const useNavigationIndex = (projectId: string, files: Array<Operand>) => {
 	// React allows state updates on render, but not for external stores.
 	// https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
 	useEffect(() => {
-		// There's already a valid selection.
-		if (selection !== null && navigationIndexIncludes(navigationIndex, selection)) return;
+		if (selection && navigationIndexIncludes(navigationIndex, selection)) return;
 
-		// There's no alternative to move to, let the state remain invalid.
-		const firstFile = files[0];
-		if (!firstFile || !navigationIndexIncludes(navigationIndex, firstFile)) return;
+		const next = files[0] ?? null;
+		if (next === null && selection === null) return;
 
 		dispatch(
 			projectActions.selectFiles({
 				projectId,
-				selection: firstFile,
+				selection: next,
 			}),
 		);
 	}, [navigationIndex, selection, projectId, dispatch, files]);
