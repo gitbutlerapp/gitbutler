@@ -21,8 +21,6 @@
 	"featureFlags": {
 		// Enables the v3 safe checkout.
 		"cv3": false,
-		/// Enable the V3 unapply implementation.
-		"unapplyV3": true,
 		/// Use the V3 unapply compatibility mode that keeps workspace commits unless deleting the workspace ref.
 		"unapplyV3Pgm": false,
 		/// Enable undo/redo support.

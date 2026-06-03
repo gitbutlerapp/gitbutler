@@ -21,35 +21,6 @@ mod load {
             settings.github_oauth_app.oauth_client_id, "cd51880daa675d9e6452",
             "default"
         );
-        assert_eq!(settings.feature_flags.unapply_v3, true, "default");
-    }
-
-    #[test]
-    fn unapply_v3_defaults_on_but_can_be_disabled() {
-        let temp_dir = tempfile::TempDir::new().unwrap();
-        let config_path = temp_dir.path().join("settings.json");
-
-        std::fs::write(&config_path, "{}").unwrap();
-        let settings = AppSettings::load(&config_path, None).unwrap();
-        assert!(
-            settings.feature_flags.unapply_v3,
-            "Unapply v3 should be enabled when the user has no explicit setting"
-        );
-
-        std::fs::write(
-            &config_path,
-            r#"{
-                "featureFlags": {
-                    "unapplyV3": false
-                }
-            }"#,
-        )
-        .unwrap();
-        let settings = AppSettings::load(&config_path, None).unwrap();
-        assert!(
-            !settings.feature_flags.unapply_v3,
-            "An explicit user setting should still disable Unapply v3"
-        );
     }
 
     #[test]

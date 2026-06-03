@@ -17,7 +17,6 @@ pub struct TelemetryUpdate {
 /// Update request for [`crate::app_settings::FeatureFlags`].
 pub struct FeatureFlagsUpdate {
     pub cv3: Option<bool>,
-    pub unapply_v3: Option<bool>,
     pub unapply_v3_pgm: Option<bool>,
     pub rules: Option<bool>,
     pub single_branch: Option<bool>,
@@ -118,7 +117,6 @@ impl AppSettingsWithDiskSync {
         &self,
         FeatureFlagsUpdate {
             cv3,
-            unapply_v3,
             unapply_v3_pgm,
             rules,
             single_branch,
@@ -128,9 +126,6 @@ impl AppSettingsWithDiskSync {
         let mut settings = self.get_mut_enforce_save()?;
         if let Some(cv3) = cv3 {
             settings.feature_flags.cv3 = cv3;
-        }
-        if let Some(unapply_v3) = unapply_v3 {
-            settings.feature_flags.unapply_v3 = unapply_v3;
         }
         if let Some(unapply_v3_pgm) = unapply_v3_pgm {
             settings.feature_flags.unapply_v3_pgm = unapply_v3_pgm;
@@ -370,15 +365,14 @@ mod tests {
     }
 
     #[test]
-    fn update_feature_flags_updates_unapply_v3_and_persists() {
+    fn update_feature_flags_updates_unapply_v3_pgm_and_persists() {
         let (dir, settings) = create_test_settings();
         let original_irc = settings.get().unwrap().feature_flags.irc;
 
         settings
             .update_feature_flags(FeatureFlagsUpdate {
                 cv3: None,
-                unapply_v3: Some(true),
-                unapply_v3_pgm: None,
+                unapply_v3_pgm: Some(true),
                 rules: None,
                 single_branch: None,
                 irc: None,
@@ -387,8 +381,8 @@ mod tests {
 
         let s = settings.get().unwrap();
         assert!(
-            s.feature_flags.unapply_v3,
-            "the API should be able to enable the Unapply v3 flag"
+            s.feature_flags.unapply_v3_pgm,
+            "the API should be able to enable the Unapply v3 PGM flag"
         );
         assert_eq!(
             s.feature_flags.irc, original_irc,
@@ -398,24 +392,20 @@ mod tests {
 
         let reloaded = AppSettingsWithDiskSync::new_with_customization(dir.path(), None).unwrap();
         assert!(
-            reloaded.get().unwrap().feature_flags.unapply_v3,
-            "the Unapply v3 flag should be readable after reload"
+            reloaded.get().unwrap().feature_flags.unapply_v3_pgm,
+            "the Unapply v3 PGM flag should be readable after reload"
         );
     }
 
     #[test]
-    fn feature_flags_update_deserializes_unapply_v3_from_api_payload() {
+    fn feature_flags_update_deserializes_unapply_v3_pgm_from_api_payload() {
         let update: FeatureFlagsUpdate =
-            serde_json::from_value(serde_json::json!({ "unapplyV3": true })).unwrap();
+            serde_json::from_value(serde_json::json!({ "unapplyV3Pgm": true })).unwrap();
 
         assert_eq!(
-            update.unapply_v3,
+            update.unapply_v3_pgm,
             Some(true),
-            "the API payload should map unapplyV3 to the settings update"
-        );
-        assert_eq!(
-            update.unapply_v3_pgm, None,
-            "omitted feature flags should remain untouched"
+            "the API payload should map unapplyV3Pgm to the settings update"
         );
     }
 

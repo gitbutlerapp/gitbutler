@@ -481,7 +481,6 @@ impl Sandbox {
             },
             feature_flags: FeatureFlags {
                 cv3: true,
-                unapply_v3: true,
                 unapply_v3_pgm: false,
                 undo: true,
                 rules: true,

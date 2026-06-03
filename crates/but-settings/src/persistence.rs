@@ -26,6 +26,9 @@ fn remove_deprecated_settings(customizations: &mut serde_json::Value) -> bool {
         if feature_flags.remove("apply3").is_some() {
             removed = true;
         }
+        if feature_flags.remove("unapplyV3").is_some() {
+            removed = true;
+        }
         if feature_flags.is_empty() {
             root.remove("featureFlags");
         }
@@ -199,14 +202,18 @@ mod tests {
     }
 
     #[test]
-    fn save_prunes_deprecated_apply3_flag() {
+    fn save_prunes_deprecated_feature_flags() {
         let (_temp_dir, config_path, _legacy_path) = create_test_env();
 
         std::fs::write(
             &config_path,
             r#"{
+                "telemetry": {
+                    "migratedFromLegacy": true
+                },
                 "featureFlags": {
                     "apply3": true,
+                    "unapplyV3": false,
                     "cv3": true
                 }
             }"#,
@@ -221,6 +228,7 @@ mod tests {
 
         assert_eq!(saved["featureFlags"]["cv3"], json!(true));
         assert_eq!(saved["featureFlags"].get("apply3"), None);
+        assert_eq!(saved["featureFlags"].get("unapplyV3"), None);
     }
 
     #[test]
@@ -231,6 +239,7 @@ mod tests {
             &config_path,
             r#"{
                 "telemetry": {
+                    "migratedFromLegacy": true,
                     "appNonAnonMetricsEnabled": true,
                     "appMetricsEnabled": false
                 }

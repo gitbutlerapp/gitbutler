@@ -578,19 +578,13 @@ pub fn unapply_stack(ctx: &mut Context, stack_id: StackId) -> Result<()> {
 /// caller-held exclusive access.
 ///
 /// This computes the currently assigned diffspecs for `stack_id` from the
-/// workspace and then delegates to [`gitbutler_branch_actions::unapply_stack()`].
+/// workspace and then delegates to the workspace metadata unapply implementation.
 pub fn unapply_stack_with_perm(
     ctx: &mut Context,
     stack_id: StackId,
     perm: &mut RepoExclusive,
 ) -> Result<()> {
-    if ctx.settings.feature_flags.unapply_v3 {
-        return unapply_stack_v3_with_perm(ctx, stack_id, perm);
-    }
-
-    let assigned_diffspec = assigned_diffspec_for_stack(ctx, stack_id, perm.read_permission())?;
-    gitbutler_branch_actions::unapply_stack(ctx, perm, stack_id, assigned_diffspec)?;
-    Ok(())
+    unapply_stack_v3_with_perm(ctx, stack_id, perm)
 }
 
 /// Return the worktree diffspecs currently assigned to `stack_id`.
@@ -625,8 +619,8 @@ fn assigned_diffspec_for_stack(
 /// Unapply a stack through the newer workspace metadata implementation.
 ///
 /// This deliberately keeps the workspace reference and workspace merge commit in
-/// place for compatibility with the legacy API surface while trying the new
-/// unapply implementation behind `feature_flags.unapply_v3`.
+/// place for compatibility with the legacy API surface while using the workspace
+/// metadata unapply implementation.
 /// We implement plumbing here, particularly relative to assignment handling,
 /// to facilitate the eventual removal of `gitbutler-branch-actions`.
 ///
