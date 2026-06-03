@@ -107,13 +107,13 @@ mod util {
 
     /// Return `but status` JSON output as a parsed value.
     pub fn status_json(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
-        let output = env.but("--json status").allow_json().output()?;
+        let output = env.but("--format json status").allow_json().output()?;
         serde_json::from_slice(&output.stdout).context("status output should be valid JSON")
     }
 
     /// Return `but status -f` JSON output as a parsed value.
     pub fn status_json_with_files(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
-        let output = env.but("--json status -f").allow_json().output()?;
+        let output = env.but("--format json status -f").allow_json().output()?;
         serde_json::from_slice(&output.stdout).context("status output should be valid JSON")
     }
 
@@ -168,7 +168,6 @@ mod util {
         cmd.current_dir(env.projects_root());
         cmd.env("E2E_TEST_APP_DATA_DIR", env.app_data_dir());
         cmd.env("GITBUTLER_CHANGE_ID", "42");
-        cmd.env("BUT_OUTPUT_FORMAT", "human");
         cmd.env("NOPAGER", "1");
         cmd.stdin(std::process::Stdio::null());
         cmd.stdout(std::process::Stdio::piped());

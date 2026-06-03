@@ -52,9 +52,9 @@ Evaluation structure they suggest:
   "query": "Commit the auth changes to the feature branch",
   "files": ["src/auth.rs"],
   "expected_behavior": [
-    "Runs but status --json to check workspace state",
+    "Runs but status --format json to check workspace state",
     "Uses but commit with --changes flag for specific files",
-    "Includes --json and --status-after flags"
+    "Includes --format json and --status-after flags"
   ]
 }
 ```
@@ -101,7 +101,7 @@ tests:
       - type: javascript
         value: |
           const text = String(output).toLowerCase();
-          return text.includes('--json') && text.includes('--status-after');
+          return text.includes('--format json') && text.includes('--status-after');
 ```
 
 ## Metrics That Matter
@@ -113,10 +113,10 @@ Based on industry standards and our specific skill file, here are the metrics to
 | Metric | What It Measures | Target | How to Score |
 |--------|-----------------|--------|-------------|
 | **Tool routing accuracy** | Uses `but` instead of `git` for write ops | 100% | Binary per command |
-| **`--json` compliance** | All `but` commands include `--json` | 100% | Count across all commands in response |
+| **`--format json` compliance** | All `but` commands include `--format json` | 100% | Count across all commands in response |
 | **`--status-after` compliance** | Mutation commands include `--status-after` | 100% | Check commit/absorb/rub/stage/squash/move/uncommit |
 | **`--changes` specificity** | `but commit` uses `--changes` with explicit IDs (`a1,b2` or repeated flag), not bare commit | >90% | Binary per commit command |
-| **Workflow ordering** | Runs `but status --json` before mutations | 100% | Check command sequence |
+| **Workflow ordering** | Runs `but status --format json` before mutations | 100% | Check command sequence |
 | **Unnecessary round-trips** | No `but status` after commands with `--status-after` | 0 | Count redundant status calls |
 | **Task completion** | End-to-end task succeeds | >80% | Binary per scenario |
 
@@ -149,7 +149,7 @@ Validate skill file structure without calling any LLM. Run as part of `cargo tes
 **What to check:**
 - YAML frontmatter is valid and meets Anthropic's constraints (name <=64 chars, description <=1024 chars)
 - All referenced files exist (`references/reference.md`, etc.)
-- Code examples are internally consistent (every mutation command example includes `--json --status-after`)
+- Code examples are internally consistent (every mutation command example includes `--format json --status-after`)
 - No contradictions between SKILL.md and reference files
 - Translation table covers all commands mentioned in reference.md
 - Line count stays under 250 (our budget)
@@ -171,13 +171,13 @@ Score: Does the tool call match expectations?
 
 | User Prompt | Expected First Command | Assertions |
 |------------|----------------------|------------|
-| "What files have I changed?" | `but status --json` | contains `but status`, contains `--json` |
-| "Commit my auth changes" | `but status --json` | status first, then commit with `--changes` |
+| "What files have I changed?" | `but status --format json` | contains `but status`, contains `--format json` |
+| "Commit my auth changes" | `but status --format json` | status first, then commit with `--changes` |
 | "Create a new branch for auth" | `but branch new auth` | contains `but branch new` |
 | "Push my changes" | `but push` | NOT `git push` |
 | "Squash my last 3 commits" | `but squash` | NOT `git rebase -i` |
 | "Can you do a git push?" | `but push` | uses `but` not `git` |
-| "Check what's changed" | `but status --json` | NOT `git status`, NOT `git diff` |
+| "Check what's changed" | `but status --format json` | NOT `git status`, NOT `git diff` |
 | "Undo my last commit" | some `but` command | NOT `git reset` |
 
 **Implementation options:**
@@ -206,12 +206,12 @@ Test complete workflows with mock tool execution. This is the highest-signal tie
 ```
 User: "I just finished implementing auth. Commit it."
 Expected sequence:
-  1. but status --json           (check state)
-  2. but commit <branch> -m "..." --changes <id>,<id> --json --status-after  (commit)
+  1. but status --format json           (check state)
+  2. but commit <branch> -m "..." --changes <id>,<id> --format json --status-after  (commit)
 Assertions:
   - Step 1 happens before step 2
   - Commit includes --changes (not bare commit)
-  - Commit includes --json --status-after
+  - Commit includes --format json --status-after
   - No git commands used
 ```
 
@@ -219,10 +219,10 @@ Assertions:
 ```
 User: "Add a dark mode feature"
 Expected sequence:
-  1. but status --json           (check state)
+  1. but status --format json           (check state)
   2. but branch new dark-mode    (create branch)
   3. [file edits happen]
-  4. but commit ... --changes ... --json --status-after
+  4. but commit ... --changes ... --format json --status-after
 Assertions:
   - Branch created before any commits
   - Commit targets the new branch
@@ -243,7 +243,7 @@ The key insight from the research: you don't need to run real commands. Mock the
 
 ```python
 def mock_bash(command: str) -> str:
-    if "but status --json" in command:
+    if "but status --format json" in command:
         return json.dumps({
             "unassignedChanges": [
                 {"cliId": "a1", "filePath": "src/auth.rs", "changeType": "modified"}
@@ -261,20 +261,20 @@ This gives full control, deterministic scoring, and low cost (can use Sonnet/Hai
 
 #### Tier 3 Implementation Notes
 
-**Key insight: Tier 3 tests the skill file, not the `but` CLI.** No `but` binary runs. No git repo exists. The mock handlers return canned JSON that looks like `but status --json` output. You're measuring whether SKILL.md *teaches the model correctly* — complementary to Tier 1's structural validation.
+**Key insight: Tier 3 tests the skill file, not the `but` CLI.** No `but` binary runs. No git repo exists. The mock handlers return canned JSON that looks like `but status --format json` output. You're measuring whether SKILL.md *teaches the model correctly* — complementary to Tier 1's structural validation.
 
 ```
                     ┌─────────────┐
   SKILL.md ───────► │  LLM (API)  │ ◄──── user prompt
   (system context)  └──────┬──────┘
                            │
-                      tool_use: "but status --json"
+                      tool_use: "but status --format json"
                            │
                     ┌──────▼──────┐
                     │ Mock handler │ ──► canned JSON
                     └──────┬──────┘
                            │
-                      tool_use: "but commit ... --changes a1 --json --status-after"
+                      tool_use: "but commit ... --changes a1 --format json --status-after"
                            │
                     Score: did the command sequence follow SKILL.md rules?
 ```
@@ -285,13 +285,13 @@ Tier 3 remains useful for cheap, deterministic diagnostics, but this project gat
 
 | # | Scenario | Key assertions |
 |---|----------|----------------|
-| 1 | Basic commit flow | `status --json` before `commit`; commit has `--changes`, `--json`, `--status-after`; no git write commands |
+| 1 | Basic commit flow | `status --format json` before `commit`; commit has `--changes`, `--format json`, `--status-after`; no git write commands |
 | 2 | Branch workflow | Create branch (`but branch new` or `but commit <branch> -c`) before committing |
 | 3 | Git synonym redirect | User says "git push", model uses `but push` and not `git push` |
-| 4 | Ordering flow | `but status --json` occurs before `but commit` |
+| 4 | Ordering flow | `but status --format json` occurs before `but commit` |
 | 5 | Specificity flow | Single-file commit uses `--changes`; non-target file remains unassigned in repo state |
-| 6 | Amend flow | Use `but amend` with `--json --status-after`; no git write fallback |
-| 7 | Reorder flow | Use `but move`/`but rub` with `--json --status-after`; no `git rebase`/checkout fallback; repo reflects target order |
+| 6 | Amend flow | Use `but amend` with `--format json --status-after`; no git write fallback |
+| 7 | Reorder flow | Use `but move`/`but rub` with `--format json --status-after`; no `git rebase`/checkout fallback; repo reflects target order |
 
 ### Tier 4: Integration (High-cost, realistic)
 
@@ -304,7 +304,7 @@ Run Claude Code against a real test repository with the latest `but` binary and 
 | Runs `but` binary | No | Yes — freshly built from source |
 | Real git repo | No | Yes — disposable fixture |
 | Command trace | From mock loop | From SDK hooks or output parsing |
-| Asserts on repo state | No | Yes — `but status --json` after |
+| Asserts on repo state | No | Yes — `but status --format json` after |
 | Cost per scenario | ~$0.02 | ~$0.10-0.50 |
 | Speed | ~5 sec | ~30-120 sec |
 | Catches real bugs | Skill file only | Skill + CLI interaction |
@@ -361,7 +361,7 @@ Running the real Tier 4 harness surfaced a few practical issues that are not obv
    - Fix: normalize fixture path with `pwd -P` in `setup-fixture.sh`.
 
 4. **Keep fixture support files out of Git status.**
-   - `.but-data/` and installed `.claude/skills/` content polluted `but status --json` and changed CLI IDs.
+   - `.but-data/` and installed `.claude/skills/` content polluted `but status --format json` and changed CLI IDs.
    - Fix: add `.but-data/`, `.claude/`, `.tmp/` to `.git/info/exclude` in each fixture.
 
 5. **Fixture cleanup should be best-effort.**
@@ -398,7 +398,7 @@ For **Tier 3** (mock tool execution), Rust is viable since it just calls the Ant
 1. **Keep Tier 4 as the default evaluator** for skill changes.
 2. **Treat a 7-scenario Tier 4 smoke run (`--repeat 1`) as the PR gate** for changes under `crates/but/skill/`.
 3. **Run repeated Tier 4 (`--repeat 3+`) nightly or pre-release** to catch stochastic regressions.
-4. **Track the key Tier 4 metrics over time**: pass rate, git-command leakage rate, `--json` and `--status-after` compliance, and cost per scenario.
+4. **Track the key Tier 4 metrics over time**: pass rate, git-command leakage rate, `--format json` and `--status-after` compliance, and cost per scenario.
 
 ### Supplemental Layers (Optional)
 

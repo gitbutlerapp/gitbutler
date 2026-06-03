@@ -248,8 +248,11 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
             "  -C, --current-dir <PATH>",
             "Run as if but was started in PATH instead of the current working directory [default: .]",
         ),
-        ("  -j, --json", "Whether to use JSON output format"),
-        ("  -h, --help", "Print help"),
+        (
+            "      --format <FORMAT>",
+            "   Explicitly control how output should be formatted [possible values: human, shell, json, none]",
+        ),
+        ("  -h, --help", "              Print help"),
     ];
 
     for (flag, desc) in option_descriptions {
@@ -352,8 +355,8 @@ To use the GitButler CLI with coding agents (Claude Code hooks, Cursor hooks, MC
 
 Options:
   -C, --current-dir <PATH>  Run as if but was started in PATH instead of the cu…
-  -j, --json  Whether to use JSON output format
-  -h, --help  Print help
+      --format <FORMAT>     Explicitly control how output should be formatted […
+  -h, --help                Print help
 
 Environment variables:
   BUT_PAGER  Sets the pager for large outputs. [default: less]
@@ -404,8 +407,8 @@ To use the GitButler CLI with coding agents (Claude Code hooks, Cursor hooks, MC
 
 Options:
   -C, --current-dir <PATH>  Run as if but was started in PATH instead of the cu…
-  -j, --json  Whether to use JSON output format
-  -h, --help  Print help
+      --format <FORMAT>     Explicitly control how output should be formatted […
+  -h, --help                Print help
 
 Environment variables:
   BUT_PAGER  Sets the pager for large outputs. [default: less]

@@ -325,7 +325,7 @@ Reword commit message or rename branch.
 ```bash
 but reword <id>               # Interactive editor
 but reword <id> -m "new"      # Non-interactive
-but reword <id> --format      # Format to 72-char wrapping
+but reword <id> --fix-formatting  # Format to 72-char wrapping
 ```
 
 ### `but discard <id>`

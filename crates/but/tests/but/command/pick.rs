@@ -9,7 +9,7 @@ fn get_commit_sha(env: &Sandbox, git_ref: &str) -> String {
 
 /// Check if a branch contains a commit with the given message substring
 fn branch_has_commit_message(env: &Sandbox, branch_name: &str, message_contains: &str) -> bool {
-    let result = env.but("status --json").assert().success();
+    let result = env.but("status --format json").assert().success();
     let stdout = String::from_utf8_lossy(&result.get_output().stdout);
     let status: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
 
@@ -119,7 +119,7 @@ fn pick_json_output() -> anyhow::Result<()> {
 
     let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
     let result = env
-        .but(format!("--json pick {sha} applied-branch"))
+        .but(format!("--format json pick {sha} applied-branch"))
         .allow_json()
         .output()?;
 

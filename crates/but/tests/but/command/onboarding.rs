@@ -56,7 +56,7 @@ fn json_mode_is_silent_but_marks_complete() -> anyhow::Result<()> {
     std::fs::remove_file(&settings_path)?;
 
     // JSON mode should produce no output even on first run
-    env.but("--json onboarding")
+    env.but("--format json onboarding")
         .allow_json()
         .assert()
         .success()

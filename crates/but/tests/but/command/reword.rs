@@ -212,7 +212,7 @@ fn reword_commit_with_json_flag() -> anyhow::Result<()> {
     env.setup_metadata(&["A"])?;
 
     // Use reword with -m flag to change commit message (using commit ID)
-    env.but("reword 9477ae7 -m 'Updated commit message' --json")
+    env.but("reword 9477ae7 -m 'Updated commit message' --format json")
         .assert()
         .success()
         .stdout_eq(str![[r#"{

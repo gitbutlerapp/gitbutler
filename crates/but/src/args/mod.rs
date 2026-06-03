@@ -36,20 +36,8 @@ pub struct Args {
     /// Run as if but was started in PATH instead of the current working directory.
     #[clap(short = 'C', long, default_value = ".", value_name = "PATH")]
     pub current_dir: PathBuf,
-    /// Explicitly control how output should be formatted.
-    ///
-    /// If unset and from a terminal, it defaults to human output, when redirected it's for shells.
-    #[clap(
-        long,
-        short = 'f',
-        env = "BUT_OUTPUT_FORMAT",
-        conflicts_with = "json",
-        default_value = "human"
-    )]
-    pub format: OutputFormat,
-    /// Whether to use JSON output format.
-    #[clap(long, short = 'j', global = true)]
-    pub json: bool,
+    #[clap(flatten)]
+    pub format: OutputFormatArg,
     /// Whether mutation commands should append workspace status.
     #[clap(skip)]
     pub status_after: bool,
@@ -64,6 +52,20 @@ pub struct Args {
     /// is executed with the remaining arguments (`but <COMMAND> [ARGS]`).
     #[clap(subcommand)]
     pub cmd: Option<Subcommands>,
+}
+
+#[derive(Debug, clap::Args)]
+pub struct OutputFormatArg {
+    /// Explicitly control how output should be formatted.
+    ///
+    /// If unset and from a terminal, it defaults to human output, when redirected it's for shells.
+    #[clap(
+        long,
+        env = "BUT_OUTPUT_FORMAT",
+        default_value = "human",
+        global = true
+    )]
+    pub format: OutputFormat,
 }
 
 /// How we should format anything written to [`std::io::stdout()`].
@@ -573,19 +575,24 @@ pub enum Subcommands {
         /// Commit ID to edit the message for, or branch ID to rename
         target: CliIdArg,
         /// The new commit message or branch name. If not provided, opens an editor.
-        #[clap(short = 'm', long = "message", conflicts_with = "format")]
+        #[clap(short = 'm', long = "message", conflicts_with = "fix_formatting")]
         message: Option<String>,
         /// Format the existing commit message to 72-char line wrapping without opening an editor
-        #[clap(short = 'f', long = "format", conflicts_with = "message")]
+        #[clap(
+            id = "fix_formatting",
+            short = 'f',
+            long = "fix-formatting",
+            conflicts_with = "message"
+        )]
         format: bool,
         /// Always show diff inside the editor.
         ///
         /// By default the diff will be shown unless it's large. The diff will always be shown if
         /// `--diff` is passed, regardless of the size of the diff.
-        #[clap(long = "diff", default_value_t, conflicts_with_all = &["no_diff", "format"])]
+        #[clap(long = "diff", default_value_t, conflicts_with_all = &["no_diff", "fix_formatting"])]
         diff: bool,
         /// Never show the diff inside the editor.
-        #[clap(long = "no-diff", default_value_t, conflicts_with_all = &["diff", "format"])]
+        #[clap(long = "no-diff", default_value_t, conflicts_with_all = &["diff", "fix_formatting"])]
         no_diff: bool,
     },
 

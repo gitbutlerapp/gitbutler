@@ -1554,8 +1554,9 @@ pub(crate) fn stage_cli_error(err: anyhow::Error) -> CliError {
     }
 }
 
-const STAGE_FILE_OR_HUNK_HINT: &str = "Run `but status --json -f` to refresh CLI IDs, then retry with a file or hunk cliId from the output";
-const STAGE_BRANCH_HINT: &str = "Use a branch name or branch cliId from `but status --json -f`";
+const STAGE_FILE_OR_HUNK_HINT: &str = "Run `but status --format json -f` to refresh CLI IDs, then retry with a file or hunk cliId from the output";
+const STAGE_BRANCH_HINT: &str =
+    "Use a branch name or branch cliId from `but status --format json -f`";
 
 #[derive(Debug)]
 struct StageBadInput {

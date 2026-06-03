@@ -133,11 +133,6 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     let mut args: Args = Args::parse_from(args);
     args.status_after = utils::detect_agent::detect().is_some();
-    let output_format = if args.json {
-        OutputFormat::Json
-    } else {
-        args.format
-    };
     // Determine if pager should be used based on the command
     let use_pager = match args.cmd {
         #[cfg(feature = "legacy")]
@@ -162,7 +157,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let namespace = option_env!("IDENTIFIER").unwrap_or("com.gitbutler.app");
     but_secret::secret::set_application_namespace(namespace);
 
-    let mut out = OutputChannel::new_with_optional_pager(output_format, use_pager);
+    let mut out = OutputChannel::new_with_optional_pager(args.format.format, use_pager);
 
     if let (Err(theme_preset_err), Some(out)) = (theme_preset_from_env, out.for_human()) {
         writeln!(
@@ -204,15 +199,8 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             if args.current_dir != std::path::Path::new(".") {
                 default_alias_args.current_dir = args.current_dir.clone();
             }
-            if !matches!(args.format, OutputFormat::Human) {
-                default_alias_args.format = args.format;
-            }
-            if args.json {
-                default_alias_args.json = true;
-            }
-            if args.status_after {
-                default_alias_args.status_after = true;
-            }
+            default_alias_args.format = args.format;
+            default_alias_args.status_after = args.status_after;
 
             match default_alias_args.cmd.take() {
                 Some(cmd) => match_subcommand(cmd, default_alias_args, app_settings, out).await,
@@ -950,7 +938,7 @@ async fn match_subcommand(
                     // Handle the regular `but commit` command
 
                     // In JSON mode, require either -m, --message-file, or --ai to be specified
-                    if args.json
+                    if matches!(args.format.format, OutputFormat::Json)
                         && commit_args.message.is_none()
                         && commit_args.message_file.is_none()
                         && commit_args.ai.is_none()

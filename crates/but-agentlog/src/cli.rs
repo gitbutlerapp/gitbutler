@@ -33,7 +33,7 @@ pub enum Command {
     /// Show a session, or one turn in detail.
     #[clap(name = "show")]
     Show {
-        /// Session key from `skim --json`.
+        /// Session key from `skim --format json`.
         #[clap(value_name = "SESSION", value_parser = non_empty_value)]
         session_key: String,
         /// Show detailed records for this turn key.

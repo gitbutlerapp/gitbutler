@@ -752,7 +752,7 @@ fn commit_json_mode_requires_message_or_file() -> anyhow::Result<()> {
     env.file("new-file.txt", "test content");
 
     // Try to commit in JSON mode without -m or --message-file
-    env.but("commit --json")
+    env.but("commit --format json")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
@@ -772,7 +772,10 @@ fn commit_json_mode_with_message_succeeds() -> anyhow::Result<()> {
     env.file("new-file.txt", "test content");
 
     // Commit in JSON mode with -m
-    let output = env.but("commit --json -m 'Test commit'").assert().success();
+    let output = env
+        .but("commit --format json -m 'Test commit'")
+        .assert()
+        .success();
 
     // Parse JSON output
     let stdout = std::str::from_utf8(&output.get_output().stdout)?;
@@ -802,7 +805,7 @@ fn commit_json_mode_with_file_succeeds() -> anyhow::Result<()> {
 
     // Commit in JSON mode with --message-file
     let output = env
-        .but("commit --json --message-file commit-msg.txt")
+        .but("commit --format json --message-file commit-msg.txt")
         .assert()
         .success();
 
@@ -830,7 +833,7 @@ fn commit_json_mode_multiple_branches_requires_branch() -> anyhow::Result<()> {
     env.file("new-file.txt", "test content");
 
     // Try to commit in JSON mode without specifying a branch
-    env.but("commit --json -m 'Test commit'")
+    env.but("commit --format json -m 'Test commit'")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
@@ -851,7 +854,7 @@ fn commit_json_mode_multiple_branches_with_branch_succeeds() -> anyhow::Result<(
 
     // Commit in JSON mode with branch specified
     let output = env
-        .but("commit --json -m 'Test commit' B")
+        .but("commit --format json -m 'Test commit' B")
         .assert()
         .success();
 
@@ -880,7 +883,7 @@ fn commit_with_specific_file_ids() -> anyhow::Result<()> {
     env.file("file2.txt", "content 2");
 
     // Get file IDs from status
-    let status_output = env.but("status --json").assert().success();
+    let status_output = env.but("status --format json").assert().success();
     let stdout = std::str::from_utf8(&status_output.get_output().stdout)?;
     let status: serde_json::Value = serde_json::from_str(stdout)?;
 
@@ -912,7 +915,7 @@ fn commit_with_specific_file_ids() -> anyhow::Result<()> {
     assert!(log.contains("Add file1 only"));
 
     // Verify file2 is still uncommitted
-    let status_after = env.but("status --json").assert().success();
+    let status_after = env.but("status --format json").assert().success();
     let stdout_after = std::str::from_utf8(&status_after.get_output().stdout)?;
     let status_after: serde_json::Value = serde_json::from_str(stdout_after)?;
 
@@ -940,7 +943,7 @@ fn commit_with_multiple_file_ids() -> anyhow::Result<()> {
     env.file("file3.txt", "content 3");
 
     // Get file IDs from status
-    let status_output = env.but("status --json").assert().success();
+    let status_output = env.but("status --format json").assert().success();
     let stdout = std::str::from_utf8(&status_output.get_output().stdout)?;
     let status: serde_json::Value = serde_json::from_str(stdout)?;
 
@@ -967,7 +970,7 @@ fn commit_with_multiple_file_ids() -> anyhow::Result<()> {
     .success();
 
     // Verify file3 is still uncommitted
-    let status_after = env.but("status --json").assert().success();
+    let status_after = env.but("status --format json").assert().success();
     let stdout_after = std::str::from_utf8(&status_after.get_output().stdout)?;
     let status_after: serde_json::Value = serde_json::from_str(stdout_after)?;
 
@@ -1000,7 +1003,7 @@ fn commit_with_short_changes_flag() -> anyhow::Result<()> {
     env.file("file2.txt", "content 2");
 
     // Get file ID from status
-    let status_output = env.but("status --json").assert().success();
+    let status_output = env.but("status --format json").assert().success();
     let stdout = std::str::from_utf8(&status_output.get_output().stdout)?;
     let status: serde_json::Value = serde_json::from_str(stdout)?;
 
@@ -1027,7 +1030,7 @@ fn commit_with_short_changes_flag() -> anyhow::Result<()> {
 "#]]);
 
     // Verify file2 is still uncommitted
-    let status_after = env.but("status --json").assert().success();
+    let status_after = env.but("status --format json").assert().success();
     let stdout_after = std::str::from_utf8(&status_after.get_output().stdout)?;
     let status_after: serde_json::Value = serde_json::from_str(stdout_after)?;
 
@@ -1139,7 +1142,7 @@ fn commit_with_empty_file_list_uses_all_files() -> anyhow::Result<()> {
 "#]]);
 
     // Verify both files were committed (no uncommitted files left)
-    let status_after = env.but("status --json").assert().success();
+    let status_after = env.but("status --format json").assert().success();
     let stdout_after = std::str::from_utf8(&status_after.get_output().stdout)?;
     let status_after: serde_json::Value = serde_json::from_str(stdout_after)?;
 
@@ -1173,7 +1176,7 @@ fn commit_with_multiple_hunk_ids_from_same_file() -> anyhow::Result<()> {
     );
 
     // Get hunk IDs from status
-    let status_output = env.but("status --json -f").assert().success();
+    let status_output = env.but("status --format json -f").assert().success();
     let stdout = std::str::from_utf8(&status_output.get_output().stdout)?;
     let status: serde_json::Value = serde_json::from_str(stdout)?;
 
@@ -1197,7 +1200,7 @@ fn commit_with_multiple_hunk_ids_from_same_file() -> anyhow::Result<()> {
             .success();
 
         // Verify no uncommitted changes left
-        let status_after = env.but("status --json").assert().success();
+        let status_after = env.but("status --format json").assert().success();
         let stdout_after = std::str::from_utf8(&status_after.get_output().stdout)?;
         let status_after: serde_json::Value = serde_json::from_str(stdout_after)?;
 
@@ -1247,7 +1250,7 @@ fn commit_single_hunk_leaves_other_hunks_uncommitted() -> anyhow::Result<()> {
     );
 
     // Get hunk IDs from diff (which shows individual hunks)
-    let diff_output = env.but("diff --json").assert().success();
+    let diff_output = env.but("diff --format json").assert().success();
     let stdout = std::str::from_utf8(&diff_output.get_output().stdout)?;
     let diff: serde_json::Value = serde_json::from_str(stdout)?;
 
@@ -1274,7 +1277,7 @@ fn commit_single_hunk_leaves_other_hunks_uncommitted() -> anyhow::Result<()> {
         .success();
 
         // Verify there are still uncommitted changes (the second hunk)
-        let diff_after = env.but("diff --json").assert().success();
+        let diff_after = env.but("diff --format json").assert().success();
         let stdout_after = std::str::from_utf8(&diff_after.get_output().stdout)?;
         let diff_after: serde_json::Value = serde_json::from_str(stdout_after)?;
 
@@ -1354,7 +1357,6 @@ fn but_std_cmd(env: &Sandbox, args: &str) -> std::process::Command {
     cmd.current_dir(env.projects_root());
     cmd.env("E2E_TEST_APP_DATA_DIR", env.app_data_dir());
     cmd.env("GITBUTLER_CHANGE_ID", "42");
-    cmd.env("BUT_OUTPUT_FORMAT", "human");
     cmd.env("NOPAGER", "1");
     cmd.stdin(std::process::Stdio::null());
     cmd.stdout(std::process::Stdio::piped());
@@ -1377,7 +1379,7 @@ fn find_unassigned_cli_id(status: &serde_json::Value, path_contains: &str) -> Op
         .and_then(|c| c["cliId"].as_str().map(|s| s.to_string()))
 }
 
-/// Helper: parse `--json status` and find a branch by name, returning its commit messages.
+/// Helper: parse `--format json status` and find a branch by name, returning its commit messages.
 fn branch_commit_messages(env: &Sandbox, branch_name: &str) -> Vec<String> {
     let status = util::status_json(env).expect("status should be valid JSON");
     let branch = util::find_branch(&status, branch_name).expect("branch should exist in status");
@@ -1389,7 +1391,7 @@ fn branch_commit_messages(env: &Sandbox, branch_name: &str) -> Vec<String> {
         .collect()
 }
 
-/// Helper: count unassigned (uncommitted) changes in `--json status`.
+/// Helper: count unassigned (uncommitted) changes in `--format json status`.
 fn unassigned_file_count(env: &Sandbox) -> usize {
     util::status_json(env).expect("status should be valid JSON")["unassignedChanges"]
         .as_array()

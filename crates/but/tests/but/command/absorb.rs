@@ -21,7 +21,7 @@ fn uncommitted_file() -> anyhow::Result<()> {
     env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
-    env.but("--json status -f")
+    env.but("--format json status -f")
         .allow_json()
         .assert()
         .success()
@@ -71,7 +71,7 @@ Hint: you can run `but undo` to undo these changes
     ");
 
     // Status is clean
-    env.but("--json status -f")
+    env.but("--format json status -f")
         .allow_json()
         .assert()
         .success()
@@ -149,7 +149,7 @@ Hint: you can run `but undo` to undo these changes
     ");
 
     // Status is not clean
-    env.but("--json status -f")
+    env.but("--format json status -f")
         .allow_json()
         .assert()
         .success()
@@ -444,7 +444,11 @@ fn dry_run_shows_plan_without_changes() -> anyhow::Result<()> {
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Get initial status
-    let initial_status = env.but("--json status -f").allow_json().output()?.stdout;
+    let initial_status = env
+        .but("--format json status -f")
+        .allow_json()
+        .output()?
+        .stdout;
 
     // Run absorb with dry-run flag
     env.but("absorb i0 --dry-run")
@@ -464,7 +468,11 @@ Dry run complete. No changes were made.
         .stderr_eq(str![""]);
 
     // Verify that no changes were actually made - status should be unchanged
-    let post_dry_run_status = env.but("--json status -f").allow_json().output()?.stdout;
+    let post_dry_run_status = env
+        .but("--format json status -f")
+        .allow_json()
+        .output()?
+        .stdout;
     assert_eq!(
         initial_status, post_dry_run_status,
         "Status should be unchanged after dry-run"
@@ -494,7 +502,7 @@ Dry run complete. No changes were made.
     ");
 
     // Verify there are still uncommitted changes
-    env.but("--json status -f")
+    env.but("--format json status -f")
         .allow_json()
         .assert()
         .success()

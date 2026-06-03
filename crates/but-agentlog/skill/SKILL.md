@@ -54,7 +54,7 @@ Pass an explicit target only when the user gives one.
 Use JSON only when you need exact handles for drill-down:
 
 ```sh
-but --json agentlog skim
+but --format json agentlog skim
 ```
 
 1. Start with `skim` for a clean orientation.
@@ -63,8 +63,8 @@ but --json agentlog skim
 3. If `skim` is enough for a lightweight status answer, summarize it and stop.
 4. Drill down only when `skim` is ambiguous, misses the rationale, or you need
    exact evidence.
-5. To drill down, rerun `skim` with `--json` to get the relevant `session_key`
-   and `turn_key`, then use `show`.
+5. To drill down, rerun `skim` with `--format json` to get the relevant
+   `session_key` and `turn_key`, then use `show`.
 6. Use `show <session-key>` for turn-level context.
 7. Use `show <session-key> --turn <turn-key>` only for turns that need exact detail.
 
@@ -91,8 +91,8 @@ Do not use plain Git's `gitbutler/workspace` branch as an agentlog target.
 - Prefer `skim` for turn-history recovery.
 - Treat `skim` as complete but abbreviated. It includes every related session
   and every turn in those sessions, not every record or the full transcript.
-- Prefer human `skim` output first. Use `--json` only for drill-down handles
-  or exact evidence.
+- Prefer human `skim` output first. Use `--format json` only for drill-down
+  handles or exact evidence.
 - Run `show` when `skim` is thin, ambiguous, missing the why, or when the user
   is asking you to make or verify a consequential claim.
 - Do not dump records for every candidate session.

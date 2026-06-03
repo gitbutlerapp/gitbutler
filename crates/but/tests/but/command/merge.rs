@@ -91,7 +91,7 @@ To undo this operation:
 
     // Verify that only the second branch remains in the workspace
     let status_after = env
-        .but("status --json")
+        .but("status --format json")
         .allow_json()
         .assert()
         .success()
@@ -183,7 +183,7 @@ To undo this operation:
     );
 
     let status_after = env
-        .but("status --json")
+        .but("status --format json")
         .allow_json()
         .assert()
         .success()

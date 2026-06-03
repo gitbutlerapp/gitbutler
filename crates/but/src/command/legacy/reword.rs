@@ -36,7 +36,7 @@ pub(crate) fn reword_target(
         BranchOrCommit::Branch(BranchArg(name)) => {
             if format {
                 return Err(anyhow::anyhow!(
-                    "--format flag can only be used with commits, not branches"
+                    "--fix-formatting flag can only be used with commits, not branches"
                 )
                 .into());
             }
@@ -177,7 +177,7 @@ fn edit_commit_message_by_id_and_reword_commit(
     // Get new message from provided argument, format flag, or editor
     let new_message = if format {
         if message.is_some() {
-            bail!("Cannot use both --format and --message flags together");
+            bail!("Cannot use both --fix-formatting and --message flags together");
         }
         // Format the current message without opening an editor
         Some(but_action::commit_format::format_commit_message(

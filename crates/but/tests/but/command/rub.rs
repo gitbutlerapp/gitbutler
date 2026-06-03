@@ -192,7 +192,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "second commit");
 
-    env.but("--json status -f")
+    env.but("--format json status -f")
         .allow_json()
         .assert()
         .success()
@@ -264,7 +264,7 @@ Uncommitted changes
         .stderr_eq(str![""]);
 
     // Verify that `status` reflects the move.
-    env.but("--json status -f")
+    env.but("--format json status -f")
         .allow_json()
         .assert()
         .success()
@@ -387,7 +387,7 @@ Unstaged a hunk in a.txt in a stack
 
     // Verify that only one hunk moved back to unassigned ("a.txt" appears both in the
     // unassigned area and in a stack).
-    env.but("--json status -f")
+    env.but("--format json status -f")
         .allow_json()
         .assert()
         .success()
@@ -466,7 +466,7 @@ Staged a hunk in a.txt in the unassigned area → [A].
 
     // Verify that only one hunk was assigned ("a.txt" appears both in the
     // unassigned area and in a stack).
-    env.but("--json status -f")
+    env.but("--format json status -f")
         .allow_json()
         .assert()
         .success()
@@ -534,7 +534,7 @@ fn uncommit_command_on_commit() -> anyhow::Result<()> {
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
     // Get the commit ID from status
-    let status_output = env.but("--json status").allow_json().output()?;
+    let status_output = env.but("--format json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commit_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
         .as_str()
@@ -544,7 +544,7 @@ fn uncommit_command_on_commit() -> anyhow::Result<()> {
     env.but(format!("uncommit {commit_id}")).assert().success();
 
     // Verify the files are now unassigned
-    env.but("--json status -f")
+    env.but("--format json status -f")
         .allow_json()
         .assert()
         .success()
@@ -799,7 +799,7 @@ fn agent_uncommit_discard_multiple_sources_writes_single_json_with_status() -> a
     let sources = format!("{},{}", commits_before[0], commits_before[1]);
 
     let output = env
-        .but(format!("--json uncommit {sources} --discard"))
+        .but(format!("--format json uncommit {sources} --discard"))
         .env("AI_AGENT", "codex")
         .allow_json()
         .output()?;
@@ -839,7 +839,7 @@ fn stage_command() -> anyhow::Result<()> {
     env.but("stage a.txt A").assert().success();
 
     // Verify the file is assigned to A
-    env.but("--json status -f")
+    env.but("--format json status -f")
         .allow_json()
         .assert()
         .success()
@@ -893,7 +893,7 @@ Error: Bad input 'missing-file' for '<FILE_OR_HUNK>'
 
 Source 'missing-file' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.
 
-Hint: Run `but status --json -f` to refresh CLI IDs, then retry with a file or hunk cliId from the output
+Hint: Run `but status --format json -f` to refresh CLI IDs, then retry with a file or hunk cliId from the output
 
 "#]]);
 
@@ -915,7 +915,7 @@ Error: Bad input 'missing-branch' for '<BRANCH>'
 
 Branch 'missing-branch' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.
 
-Hint: Use a branch name or branch cliId from `but status --json -f`
+Hint: Use a branch name or branch cliId from `but status --format json -f`
 
 "#]]);
 
@@ -937,7 +937,7 @@ Error: Bad input 'zz' for '<BRANCH>'
 
 Cannot stage to zz - it is the unassigned area. Target must be a branch.
 
-Hint: Use a branch name or branch cliId from `but status --json -f`
+Hint: Use a branch name or branch cliId from `but status --format json -f`
 
 "#]]);
 
@@ -955,7 +955,7 @@ fn unstage_command() -> anyhow::Result<()> {
     env.but("stage a.txt A").assert().success();
 
     // Verify it's assigned
-    env.but("--json status -f")
+    env.but("--format json status -f")
         .allow_json()
         .assert()
         .success()
@@ -980,7 +980,7 @@ fn unstage_command() -> anyhow::Result<()> {
     env.but("unstage A@{stack}:a.txt").assert().success();
 
     // Verify it's now unassigned
-    env.but("--json status -f")
+    env.but("--format json status -f")
         .allow_json()
         .assert()
         .success()
@@ -1040,7 +1040,7 @@ fn unstage_command_with_branch() -> anyhow::Result<()> {
     env.but("unstage A@{stack}:a.txt A").assert().success();
 
     // Verify it's unassigned
-    env.but("--json status -f")
+    env.but("--format json status -f")
         .allow_json()
         .assert()
         .success()
@@ -1068,7 +1068,7 @@ fn unstage_command_validation() -> anyhow::Result<()> {
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
     // Get the commit ID from status
-    let status_output = env.but("--json status").allow_json().output()?;
+    let status_output = env.but("--format json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commit_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
         .as_str()
@@ -2022,7 +2022,7 @@ fn agent_json_wraps_mutation_and_status() -> anyhow::Result<()> {
     env.file("a.txt", "arbitrary text\n");
 
     let output = env
-        .but("--json stage a.txt A")
+        .but("--format json stage a.txt A")
         .env("AI_AGENT", "codex")
         .allow_json()
         .output()?;
@@ -2067,7 +2067,7 @@ fn agent_invocation_enables_status_after_for_mutations() -> anyhow::Result<()> {
     env.file("agent.txt", "content\n");
 
     let output = env
-        .but("--json stage agent.txt A")
+        .but("--format json stage agent.txt A")
         .env("AI_AGENT", "codex")
         .allow_json()
         .output()?;
@@ -2096,7 +2096,7 @@ fn agent_json_success_has_no_status_error_field() -> anyhow::Result<()> {
     env.file("b.txt", "content\n");
 
     let output = env
-        .but("--json stage b.txt A")
+        .but("--format json stage b.txt A")
         .env("AI_AGENT", "codex")
         .allow_json()
         .output()?;
