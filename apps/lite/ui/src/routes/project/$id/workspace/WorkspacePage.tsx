@@ -39,7 +39,7 @@ import {
 } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match, Order } from "effect";
-import { type FC, Component, ReactNode } from "react";
+import { type FC, Component, ReactNode, useEffect } from "react";
 import { branchOperand, type BranchOperand } from "#ui/operands.ts";
 import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog.tsx";
 import { Details } from "./Details.tsx";
@@ -361,6 +361,13 @@ const ApplyBranchPicker: FC<{
 	);
 };
 
+const isEditableElement = (element: Element | null): boolean => {
+	if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)
+		return !element.disabled && !element.readOnly;
+
+	return element instanceof HTMLElement && element.isContentEditable;
+};
+
 const useRestoreSnapshot = ({ projectId }: { projectId: string }) => {
 	const toastManager = Toast.useToastManager();
 
@@ -431,6 +438,21 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const restoreSnapshotMutation = useRestoreSnapshot({ projectId });
+
+	useEffect(
+		() =>
+			window.lite.onNativeMenuCommand((command) => {
+				if (isEditableElement(document.activeElement)) {
+					document.execCommand(command);
+					return;
+				}
+
+				if (outlineMode._tag !== "Default" || restoreSnapshotMutation.isPending) return;
+
+				restoreSnapshotMutation.mutate(command);
+			}),
+		[outlineMode._tag, restoreSnapshotMutation],
+	);
 
 	useHotkeys([
 		{

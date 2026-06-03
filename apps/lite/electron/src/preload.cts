@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { LiteElectronApi, WatcherSubscribeResult } from "./ipc";
+import type { LiteElectronApi, NativeMenuCommand, WatcherSubscribeResult } from "./ipc";
 import type { UpdateDownloadedEvent } from "electron-updater";
 import type {
 	CommitAbsorption,
@@ -171,6 +171,12 @@ const api: LiteElectronApi = {
 
 		watcherListenerBySubscription.clear();
 		return ipcRenderer.invoke("workspace:watcher-stop-all") as Promise<number>;
+	},
+	onNativeMenuCommand: (callback) => {
+		const listener = (_event: Electron.IpcRendererEvent, command: NativeMenuCommand) =>
+			callback(command);
+		ipcRenderer.on("lite:native-menu-command", listener);
+		return () => ipcRenderer.removeListener("lite:native-menu-command", listener);
 	},
 	onUpdateDownloaded: (callback) => {
 		const listener = (_event: Electron.IpcRendererEvent, info: UpdateDownloadedEvent) =>

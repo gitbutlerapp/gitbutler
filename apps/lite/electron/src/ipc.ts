@@ -243,6 +243,8 @@ export interface ShowNativeMenuParams {
 	position: NativeMenuPosition;
 }
 
+export type NativeMenuCommand = "redo" | "undo";
+
 export interface LiteElectronApi {
 	absorptionPlan: (params: AbsorptionPlanParams) => Promise<Array<CommitAbsorption>>;
 	absorb: (params: AbsorbParams) => Promise<number>;
@@ -287,6 +289,7 @@ export interface LiteElectronApi {
 	watcherSubscribe: (projectId: string, callback: (event: WatcherEvent) => void) => Promise<string>;
 	watcherUnsubscribe: (subscriptionId: string) => Promise<boolean>;
 	watcherStopAll: () => Promise<number>;
+	onNativeMenuCommand: (callback: (command: NativeMenuCommand) => void) => () => void;
 	onUpdateDownloaded: (callback: (info: UpdateDownloadedEvent) => void) => () => void;
 	quitAndInstallUpdate: () => Promise<void>;
 	platform: string;
@@ -327,6 +330,7 @@ export const liteIpcChannels = {
 	removeBranch: "workspace:remove-branch",
 	restoreSnapshotWithKind: "workspace:restore-snapshot-with-kind",
 	showNativeMenu: "lite:show-native-menu",
+	nativeMenuCommand: "lite:native-menu-command",
 	treeChangeDiffs: "workspace:tree-change-diffs",
 	unapplyStack: "workspace:unapply-stack",
 	workspaceIntegrateUpstream: "workspace:integrate-upstream",
