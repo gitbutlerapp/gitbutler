@@ -148,11 +148,12 @@ const sections = (headInfo: RefInfo | undefined): NonEmptyArray<Section> => {
 
 	const segmentSection = (stackId: string, segment: Segment): Section | null => {
 		const children = segmentChildren(stackId, segment);
-		const branchRef = segment.refName?.fullNameBytes;
-		if (!branchRef && children.length === 0) return null;
+		if (!segment.refName && children.length === 0) return null;
 
 		return {
-			section: branchRef ? branchOperand({ stackId, branchRef }) : null,
+			section: segment.refName
+				? branchOperand({ stackId, branchRef: segment.refName.fullNameBytes })
+				: null,
 			children,
 		};
 	};
