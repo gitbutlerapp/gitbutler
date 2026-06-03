@@ -11,7 +11,6 @@ use but_testsupport::{
     gix_testtools::{Creation, scripted_fixture_writable_with_args},
     open_repo,
 };
-use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::GITBUTLER_WORKSPACE_COMMIT_TITLE;
 use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_reference::{LocalRefname, Refname};
@@ -197,22 +196,6 @@ impl TestRepo {
         update_current_head(&repo, commit_id, "commit");
         commit_id
     }
-
-    pub fn references(&self) -> Vec<String> {
-        let repo = self.open();
-        repo.references()
-            .expect("references can be read")
-            .all()
-            .expect("all references can be listed")
-            .map(|reference| {
-                reference
-                    .expect("reference can be read")
-                    .name()
-                    .as_bstr()
-                    .to_string()
-            })
-            .collect()
-    }
 }
 
 struct Test {
@@ -333,9 +316,7 @@ mod init;
 mod list;
 mod list_details;
 mod oplog;
-mod save_and_unapply_virtual_branch;
 mod set_base_branch;
-mod unapply_without_saving_virtual_branch;
 mod workspace_migration;
 
 pub fn list_commit_files(

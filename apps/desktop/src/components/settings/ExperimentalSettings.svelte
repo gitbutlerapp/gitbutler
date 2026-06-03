@@ -55,25 +55,6 @@
 		</CardGroup.Item>
 	{/if}
 
-	<CardGroup.Item labelFor="unapply-v3">
-		{#snippet title()}
-			Unapply v3
-		{/snippet}
-		{#snippet caption()}
-			Use the V3 unapply implementation when taking stacks out of the workspace.
-		{/snippet}
-		{#snippet actions()}
-			<Toggle
-				id="unapply-v3"
-				checked={$settingsStore?.featureFlags.unapplyV3}
-				onclick={() =>
-					settingsService.updateFeatureFlags({
-						unapplyV3: !$settingsStore?.featureFlags.unapplyV3,
-					})}
-			/>
-		{/snippet}
-	</CardGroup.Item>
-
 	<CardGroup.Item labelFor="irc">
 		{#snippet title()}
 			IRC integration

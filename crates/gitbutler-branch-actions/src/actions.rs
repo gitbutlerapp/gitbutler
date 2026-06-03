@@ -1,5 +1,5 @@
 use anyhow::{Context as _, Result};
-use but_core::{DiffSpec, ref_metadata::StackId};
+use but_core::ref_metadata::StackId;
 use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
@@ -9,12 +9,12 @@ use gitbutler_branch::BranchCreateRequest;
 use gitbutler_operating_modes::ensure_open_workspace_mode;
 use gitbutler_oplog::{
     OplogExt,
-    entry::{OperationKind, SnapshotDetails, Trailer},
+    entry::{OperationKind, SnapshotDetails},
 };
 use gitbutler_reference::{Refname, RemoteRefname};
 
 use crate::{
-    VirtualBranchesExt, base,
+    base,
     base::BaseBranch,
     branch_manager::BranchManagerExt,
     branch_upstream_integration,
@@ -121,40 +121,6 @@ pub fn integrate_branch_with_steps(
         steps,
         guard.write_permission(),
     )
-}
-
-/// Unapplies a virtual branch and deletes the branch entry from the virtual branch state.
-pub fn unapply_stack(
-    ctx: &mut Context,
-    perm: &mut RepoExclusive,
-    stack_id: StackId,
-    assigned_diffspec: Vec<DiffSpec>,
-) -> Result<String> {
-    ctx.verify(perm)?;
-    ensure_open_workspace_mode(ctx, perm.read_permission())
-        .context("Unapplying a stack requires open workspace mode")?;
-    let stack = ctx.virtual_branches().get_stack_in_workspace(stack_id)?;
-
-    let trailers = stack
-        .heads
-        .iter()
-        .map(|head| Trailer::Branch(head.name.clone()));
-
-    let details = SnapshotDetails::new(OperationKind::UnapplyBranch).with_trailers(trailers);
-    let _snapshot = ctx.create_snapshot(details, perm).ok();
-    let branch_manager = ctx.branch_manager();
-    // NB: unapply_without_saving is also called from save_and_unapply
-    let branch_name = branch_manager.unapply(
-        stack_id,
-        perm,
-        false,
-        assigned_diffspec,
-        ctx.settings.feature_flags.cv3,
-    )?;
-    let meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    ws.refresh_from_head(&repo, &meta)?;
-    Ok(branch_name)
 }
 
 pub fn create_virtual_branch_from_branch_with_perm(

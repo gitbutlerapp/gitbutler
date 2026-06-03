@@ -38,8 +38,6 @@ but_schemars::register_sdk_type!(GitHubOAuthAppSettings);
 pub struct FeatureFlags {
     /// Turn on the set a v3 version of checkout
     pub cv3: bool,
-    /// Enable the V3 unapply implementation.
-    pub unapply_v3: bool,
     /// Use the V3 unapply compatibility mode that keeps workspace commits unless deleting the workspace ref.
     pub unapply_v3_pgm: bool,
     /// Enable undo/redo support.

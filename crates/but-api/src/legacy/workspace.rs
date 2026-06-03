@@ -343,13 +343,7 @@ pub fn stash_into_branch(
     gitbutler_branch_actions::update_workspace_commit(ctx, false)
         .context("failed to update gitbutler workspace")?;
 
-    ctx.branch_manager().unapply(
-        stack.id,
-        perm,
-        false,
-        Vec::new(),
-        ctx.settings.feature_flags.cv3,
-    )?;
+    super::virtual_branches::unapply_stack_with_perm(ctx, stack.id, perm)?;
 
     outcome
 }
