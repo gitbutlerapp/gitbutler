@@ -133,12 +133,13 @@ const mkCodeViewItem = (
 	const lineEnding = lineEndingForDiff(hunks[0]?.diff ?? "");
 	const header = patchHeaderForChange(change, lineEnding);
 	const combinedFilePatch = [header, ...hunks.map((hunk) => hunk.diff)].join(lineEnding);
-	const parsed = parsePatchFiles(combinedFilePatch);
+	const version = Hash.string(combinedFilePatch);
+	const parsed = parsePatchFiles(combinedFilePatch, String(version));
 
 	return {
 		type: "diff",
 		id: codeViewItemId({ changesetKey, path: change.path }),
-		version: Hash.string(combinedFilePatch),
+		version,
 		// oxlint-disable-next-line typescript/no-non-null-assertion: There should always be exactly one result given our one parsed hunk.
 		fileDiff: parsed[0]!.files[0]!,
 	};
