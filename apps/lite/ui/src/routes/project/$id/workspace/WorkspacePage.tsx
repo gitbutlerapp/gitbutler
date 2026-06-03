@@ -443,7 +443,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		() =>
 			window.lite.onNativeMenuCommand((command) => {
 				if (isEditableElement(document.activeElement)) {
-					document.execCommand(command);
+					void window.lite.performNativeEditCommand(command);
 					return;
 				}
 

@@ -446,6 +446,12 @@ const registerIpcHandlers = (): void => {
 		path.join(...paths),
 	);
 	senderValidatingHandle(
+		liteIpcChannels.performNativeEditCommand,
+		(event, command: NativeMenuCommand) => {
+			event.sender[command]();
+		},
+	);
+	senderValidatingHandle(
 		liteIpcChannels.updateBranchName,
 		(_e, { projectId, stackId, branchName, newName }: UpdateBranchNameParams) =>
 			updateBranchName(projectId, stackId, branchName, newName),

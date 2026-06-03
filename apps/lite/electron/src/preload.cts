@@ -98,6 +98,8 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:move-branch", params) as Promise<MoveBranchResult>,
 	pathJoin: (path, ...paths) =>
 		ipcRenderer.invoke("lite:path-join", path, ...paths) as Promise<string>,
+	performNativeEditCommand: (command) =>
+		ipcRenderer.invoke("lite:perform-native-edit-command", command) as Promise<void>,
 	updateBranchName: (params) =>
 		ipcRenderer.invoke("workspace:update-branch-name", params) as Promise<void>,
 	tearOffBranch: (params) =>
