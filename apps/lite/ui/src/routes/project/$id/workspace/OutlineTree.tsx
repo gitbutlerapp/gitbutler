@@ -1,12 +1,27 @@
 import uiStyles from "#ui/components/ui.module.css";
 import {
+	useCommitAmend,
+	useCommitCreate,
+	useCommitDiscard,
+	useCommitInsertBlank,
+	useCommitMove,
+	useCommitReword,
+	useCommitUncommit,
+	usePushStack,
+	useRebaseStack,
+	useRemoveBranch,
+	useTearOffBranch,
+	useUnapplyStack,
+	useUpdateBranchName,
+} from "#ui/api/mutations.ts";
+import {
 	absorptionPlanQueryOptions,
 	changesInWorktreeQueryOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import { findCommit, renameBranchInHeadInfo, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { decodeRefName, encodeRefName, refNamesEqual } from "#ui/api/ref-name.ts";
+import { findCommit, resolveRelativeTo } from "#ui/api/ref-info.ts";
+import { decodeRefName, refNamesEqual } from "#ui/api/ref-name.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
 	nativeMenuItem,
@@ -56,11 +71,9 @@ import { Combobox } from "@base-ui/react/combobox";
 import { Toolbar } from "@base-ui/react/toolbar";
 import {
 	AbsorptionTarget,
-	BottomUpdate,
 	BranchReference,
 	Commit,
 	CommitState,
-	InsertSide,
 	RefInfo,
 	RelativeTo,
 	Segment,
@@ -76,13 +89,7 @@ import {
 	useHotkeys,
 	useKeyHold,
 } from "@tanstack/react-hotkeys";
-import {
-	useMutation,
-	useQueries,
-	useQuery,
-	useQueryClient,
-	useSuspenseQuery,
-} from "@tanstack/react-query";
+import { useQueries, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import {
@@ -109,8 +116,6 @@ import { initNonEmpty, isNonEmptyArray, NonEmptyArray, scanRight } from "effect/
 import { defaultOutlineSelection } from "#ui/projects/workspace/state.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
-import { createDiffSpec } from "#ui/operations/diff-specs.ts";
-import { rejectedChangesToastOptions } from "#ui/operations/rejectedChangesToastOptions.tsx";
 import { changesHotkeys, outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { stackToBottomRebaseUpdate } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
@@ -209,171 +214,6 @@ const useNavigationIndex = ({
 		navigationIndex: navigationIndexUnfiltered,
 		outlineMode,
 		absorptionTargetKeys,
-	});
-};
-
-const useCommitMove = () => {
-	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: window.lite.commitMove,
-		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to move commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
-
-const useCommitInsertBlank = () => {
-	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: window.lite.commitInsertBlank,
-		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to insert commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
-
-const useCommitDiscard = () => {
-	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: window.lite.commitDiscard,
-		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to discard commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
-
-const useCommitUncommit = () => {
-	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: window.lite.commitUncommit,
-		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to uncommit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
-
-const useCommitReword = () => {
-	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: window.lite.commitReword,
-		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to reword commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
 	});
 };
 
@@ -1312,11 +1152,6 @@ const ChangesSectionRow: FC<{
 	);
 };
 
-type CommitTargetComboboxItem = {
-	label: string;
-	relativeTo: RelativeTo;
-};
-
 const relativeToKey = (relativeTo: RelativeTo): string => {
 	switch (relativeTo.type) {
 		case "reference":
@@ -1330,6 +1165,11 @@ const relativeToKey = (relativeTo: RelativeTo): string => {
 
 const relativeToEquals = (a: RelativeTo, b: RelativeTo): boolean =>
 	relativeToKey(a) === relativeToKey(b);
+
+type CommitTargetComboboxItem = {
+	label: string;
+	relativeTo: RelativeTo;
+};
 
 const buildCommitTargetComboboxItems = ({
 	headInfo,
@@ -1412,137 +1252,6 @@ const focusCommitMessageInput = () => {
 	document.getElementById(commitMessageInputId)?.focus();
 };
 
-const useCommitCreate = ({ projectId }: { projectId: string }) => {
-	const toastManager = Toast.useToastManager();
-	const queryClient = useQueryClient();
-	const dispatch = useAppDispatch();
-
-	return useMutation({
-		mutationFn: async ({
-			commitTarget,
-			message,
-		}: {
-			commitTarget: CommitTargetComboboxItem;
-			message: string;
-		}) => {
-			const worktreeChanges = await queryClient.fetchQuery(
-				changesInWorktreeQueryOptions(projectId),
-			);
-			const changes = worktreeChanges.changes.map((change) => createDiffSpec(change, []));
-
-			return await window.lite.commitCreate({
-				projectId,
-				relativeTo: commitTarget.relativeTo,
-				changes,
-				side: Match.value(commitTarget.relativeTo).pipe(
-					Match.withReturnType<InsertSide>(),
-					Match.when({ type: "commit" }, () => "above"),
-					Match.when({ type: "reference" }, () => "below"),
-					Match.when({ type: "referenceBytes" }, () => "below"),
-					Match.exhaustive,
-				),
-				message,
-				dryRun: false,
-			});
-		},
-		onSuccess: async (response, input) => {
-			if (input.commitTarget.relativeTo.type === "commit" && response.newCommit !== null)
-				dispatch(
-					projectActions.setCommitTarget({
-						projectId,
-						commitTarget: { type: "commit", subject: response.newCommit },
-					}),
-				);
-
-			if (response.rejectedChanges.length > 0)
-				toastManager.add(
-					rejectedChangesToastOptions({
-						newCommit: response.newCommit,
-						rejectedChanges: response.rejectedChanges,
-					}),
-				);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
-
-const useCommitAmend = ({ projectId }: { projectId: string }) => {
-	const toastManager = Toast.useToastManager();
-	const queryClient = useQueryClient();
-	const dispatch = useAppDispatch();
-
-	return useMutation({
-		mutationFn: async ({ commitTarget }: { commitTarget: CommitTargetComboboxItem }) => {
-			const headInfo = await queryClient.fetchQuery(headInfoQueryOptions(projectId));
-
-			const commitId = resolveRelativeTo({
-				headInfo,
-				relativeTo: commitTarget.relativeTo,
-			});
-			if (commitId === null) throw new Error("No commit to amend.");
-
-			const worktreeChanges = await queryClient.fetchQuery(
-				changesInWorktreeQueryOptions(projectId),
-			);
-			const changes = worktreeChanges.changes.map((change) => createDiffSpec(change, []));
-
-			return await window.lite.commitAmend({
-				projectId,
-				commitId,
-				changes,
-				dryRun: false,
-			});
-		},
-		onSuccess: async (response, input, _ctx, { client }) => {
-			client.setQueryData(headInfoQueryOptions(projectId).queryKey, response.workspace.headInfo);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-
-			if (input.commitTarget.relativeTo.type === "commit" && response.newCommit !== null)
-				dispatch(
-					projectActions.setCommitTarget({
-						projectId,
-						commitTarget: { type: "commit", subject: response.newCommit },
-					}),
-				);
-
-			if (response.rejectedChanges.length > 0)
-				toastManager.add(
-					rejectedChangesToastOptions({
-						newCommit: response.newCommit,
-						rejectedChanges: response.rejectedChanges,
-					}),
-				);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to amend commit",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
-
 const Changes: FC<{
 	projectId: string;
 	commitTarget: CommitTargetComboboxItem | null;
@@ -1595,8 +1304,8 @@ const Changes: FC<{
 
 		commitCreateMutation.mutate(
 			{
-				commitTarget,
 				message: commitTextareaRef.current?.value ?? "",
+				relativeTo: commitTarget.relativeTo,
 			},
 			{
 				onSuccess: (response) => {
@@ -1609,7 +1318,7 @@ const Changes: FC<{
 	const amendCommit = () => {
 		if (!commitTarget) return;
 
-		commitAmendMutation.mutate({ commitTarget });
+		commitAmendMutation.mutate({ relativeTo: commitTarget.relativeTo });
 	};
 	const submit: SubmitEventHandler = (event) => {
 		event.preventDefault();
@@ -1948,210 +1657,6 @@ const pushContextForSelection = ({
 		}),
 		Match.orElse(() => null),
 	);
-
-const usePushStack = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: window.lite.pushStack,
-		onSuccess: async (response, input, _context, mutation) => {
-			await mutation.client.invalidateQueries({
-				queryKey: headInfoQueryOptions(input.projectId).queryKey,
-			});
-
-			if (response.branchToRemote.length === 0) return;
-
-			toastManager.add({
-				type: "success",
-				title: "Pushed",
-				description: input.branch,
-			});
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to push",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
-
-const useTearOffBranch = () => {
-	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: window.lite.tearOffBranch,
-		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to tear off branch",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
-
-const useRemoveBranch = () => {
-	const toastManager = Toast.useToastManager();
-
-	// TODO: This mutation doesn't trigger any watcher events, hence the manual invalidation.
-	return useMutation({
-		mutationFn: window.lite.removeBranch,
-		onSuccess: async (_response, input, _context, mutation) => {
-			await mutation.client.invalidateQueries({
-				queryKey: headInfoQueryOptions(input.projectId).queryKey,
-			});
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to delete branch reference",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
-
-const useUnapplyStack = () => {
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: window.lite.unapplyStack,
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to unapply stack",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
-
-const useRebaseStack = ({ projectId }: { projectId: string }) => {
-	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: (update: BottomUpdate) =>
-			window.lite.workspaceIntegrateUpstream({ projectId, updates: [update], dryRun: false }),
-		onSuccess: (workspace, _input, _context, mutation) => {
-			mutation.client.setQueryData(headInfoQueryOptions(projectId).queryKey, workspace.headInfo);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId,
-					replacedCommits: workspace.replacedCommits,
-					headInfo: workspace.headInfo,
-				}),
-			);
-
-			toastManager.add({
-				type: "success",
-				title: "Rebased stack",
-			});
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to rebase stack",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
-
-const useUpdateBranchName = ({
-	projectId,
-	stackId,
-	branchRef,
-	oldBranch,
-}: {
-	projectId: string;
-	stackId: string;
-	branchRef: Array<number>;
-	oldBranch: BranchOperand;
-}) => {
-	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: window.lite.updateBranchName,
-		onSuccess: async (_response, input, _context, mutation) => {
-			const newBranchRef = encodeRefName(`refs/heads/${input.newName}`);
-			const newBranch: BranchOperand = {
-				stackId,
-				// TODO: ideally the API would return the new ref?
-				branchRef: newBranchRef,
-			};
-
-			mutation.client.setQueryData(headInfoQueryOptions(projectId).queryKey, (headInfo) => {
-				if (!headInfo) return headInfo;
-
-				return renameBranchInHeadInfo({
-					headInfo,
-					stackId,
-					branchRef,
-					newName: input.newName,
-					newBranchRef,
-				});
-			});
-
-			dispatch(
-				projectActions.updateRewrittenBranchReferences({
-					projectId,
-					oldBranch,
-					newBranch,
-				}),
-			);
-			dispatch(projectActions.exitMode({ projectId }));
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to rename branch",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
 
 const BranchRow: FC<
 	{
