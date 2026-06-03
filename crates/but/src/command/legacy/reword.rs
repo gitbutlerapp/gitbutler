@@ -72,12 +72,9 @@ fn edit_branch_name(
     perm: &mut RepoExclusive,
 ) -> CliResult<()> {
     // Find which stack this branch belongs to
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
     for stack_entry in &stacks {
-        if stack_entry.heads.iter().all(|b| b.name != branch_name) {
+        if !stack_entry.contains_branch(branch_name) {
             // Not found in this stack,
             continue;
         }

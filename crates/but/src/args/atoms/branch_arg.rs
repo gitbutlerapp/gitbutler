@@ -1,5 +1,4 @@
 use bstr::BStr;
-use but_workspace::legacy::ui::StackEntry;
 use gix::refs::{Category, FullName};
 
 use crate::{CliError, CliResult, bad_input};
@@ -75,15 +74,13 @@ impl BranchArg {
     /// Try to resolve the branch to a stack that exists in the workspace.
     ///
     /// Returns `None` if the branch can't be found which might be caused it not being applied.
-    pub fn try_resolve_stack(&self, ctx: &but_ctx::Context) -> anyhow::Result<Option<StackEntry>> {
-        let stacks = but_api::legacy::workspace::stacks(
-            ctx,
-            Some(but_workspace::legacy::StacksFilter::InWorkspace),
-        )?;
+    pub fn try_resolve_stack(
+        &self,
+        ctx: &but_ctx::Context,
+    ) -> anyhow::Result<Option<crate::legacy::workspace::HeadInfoStack>> {
+        let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
-        let stack = stacks
-            .iter()
-            .find(|stack| stack.heads.iter().any(|head| head.name == self.0));
+        let stack = stacks.iter().find(|stack| stack.contains_branch(&self.0));
 
         Ok(stack.cloned())
     }

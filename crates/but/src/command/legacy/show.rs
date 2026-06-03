@@ -31,14 +31,11 @@ pub(crate) fn show_commit(
     }
 
     // Also check stacks to find branches within stacks
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
     for stack in &stacks {
-        for head in &stack.heads {
-            let head_name = head.name.to_str_lossy().to_string();
+        for branch in &stack.branches {
+            let head_name = branch.name.clone();
             if head_name == commit_id_str
                 || head_name.to_lowercase() == commit_id_str.to_lowercase()
             {
@@ -464,15 +461,12 @@ fn find_branch_oid(ctx: &Context, branch_name: &str) -> Result<gix::ObjectId> {
     }
 
     // Not found in list_branches, check stacks
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
     for stack in &stacks {
-        for head in &stack.heads {
-            if head.name.to_str_lossy() == branch_name {
-                return Ok(head.tip);
+        for branch in &stack.branches {
+            if branch.name == branch_name {
+                return Ok(branch.tip);
             }
         }
     }
@@ -688,15 +682,12 @@ fn show_branch_summary(out: &mut dyn std::fmt::Write, commits: &[BranchCommitInf
 
 fn get_stack_chain(ctx: &Context, branch_name: &str) -> Result<Vec<StackChainBranch>> {
     // Get all stacks
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
     // Find the stack containing this branch
     let stack = stacks
         .iter()
-        .find(|s| s.heads.iter().any(|h| h.name.to_str_lossy() == branch_name));
+        .find(|stack| stack.contains_branch(branch_name));
 
     let Some(stack) = stack else {
         // Branch not in a stack or is the only branch
@@ -705,9 +696,9 @@ fn get_stack_chain(ctx: &Context, branch_name: &str) -> Result<Vec<StackChainBra
 
     // Find the position of this branch in the stack
     let branch_index = stack
-        .heads
+        .branches
         .iter()
-        .position(|h| h.name.to_str_lossy() == branch_name);
+        .position(|branch| branch.name == branch_name);
 
     let Some(branch_index) = branch_index else {
         return Ok(vec![]);
@@ -723,8 +714,7 @@ fn get_stack_chain(ctx: &Context, branch_name: &str) -> Result<Vec<StackChainBra
 
     // Iterate from the branch above this one (branch_index - 1) down to 0
     for i in (0..branch_index).rev() {
-        let head = &stack.heads[i];
-        let head_name = head.name.to_str_lossy().to_string();
+        let head_name = stack.branches[i].name.clone();
 
         // Count commits for this branch
         let commit_count = get_branch_commit_count(ctx, &head_name)?;

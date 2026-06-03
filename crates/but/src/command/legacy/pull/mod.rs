@@ -524,14 +524,20 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
 
                                 // Also check if any commits in the branch have conflicts
                                 let has_conflicted_commits =
-                                    but_api::legacy::workspace::stack_details(ctx, Some(*stack_id))
-                                        .ok()
-                                        .map(|details| {
-                                            details.branch_details.iter().any(|bd| {
-                                                bd.commits.iter().any(|c| c.has_conflicts)
+                                    crate::legacy::workspace::applied_stack_with_expensive_commit_info(
+                                        ctx,
+                                        Some(*stack_id),
+                                    )
+                                    .ok()
+                                    .map(|stack| {
+                                            stack.branches.iter().any(|branch| {
+                                                branch
+                                                    .commits
+                                                    .iter()
+                                                    .any(|commit| commit.has_conflicts)
                                             })
-                                        })
-                                        .unwrap_or(false);
+                                    })
+                                    .unwrap_or(false);
 
                                 if still_conflicted || has_conflicted_commits {
                                     conflicted_rebases.push(branch_name.to_string());

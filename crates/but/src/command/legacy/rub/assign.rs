@@ -18,9 +18,9 @@ pub(crate) fn branch_name_to_stack_id(
     branch_name: Option<&str>,
 ) -> anyhow::Result<Option<StackId>> {
     let stack_id = if let Some(branch_name) = branch_name {
-        crate::legacy::commits::stacks(ctx)?
+        crate::legacy::workspace::applied_stacks(ctx)?
             .iter()
-            .find(|s| s.heads.iter().any(|h| h.name == branch_name))
+            .find(|s| s.contains_branch(branch_name))
             .and_then(|s| s.id)
     } else {
         None
@@ -29,11 +29,11 @@ pub(crate) fn branch_name_to_stack_id(
 }
 
 pub(crate) fn stack_id_to_branch_name(ctx: &Context, stack_id: StackId) -> Option<String> {
-    crate::legacy::commits::stacks(ctx)
+    crate::legacy::workspace::applied_stacks(ctx)
         .ok()?
         .into_iter()
         .find(|s| s.id.as_ref() == Some(&stack_id))
-        .and_then(|s| s.heads.first().map(|h| h.name.to_string()))
+        .and_then(|s| s.top_branch_name().map(ToOwned::to_owned))
 }
 
 /// Normalize a branch name to a full ref name (e.g. "foo" → "refs/heads/foo").

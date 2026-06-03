@@ -2,12 +2,8 @@ use std::{collections::BTreeMap, fmt::Write as _};
 
 use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
-use but_api::{
-    commit::create::commit_create,
-    diff,
-    legacy::{repo, workspace},
-};
-use but_core::{DiffSpec, DryRun, sync::RepoExclusive, ui::TreeChange};
+use but_api::{commit::create::commit_create, diff, legacy::repo};
+use but_core::{DiffSpec, DryRun, ref_metadata::StackId, sync::RepoExclusive, ui::TreeChange};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use gitbutler_repo::hooks;
 
@@ -17,10 +13,13 @@ use crate::{
     args::atoms::{BranchArg, BranchOrCommit, CliIdArg, Priority, Purpose, ResolvedCliIdArg},
     bad_input,
     command::legacy::status::assignment::{CLIHunkAssignment, FileAssignment},
+    legacy::workspace::HeadInfoStack,
     theme::{self, Paint},
     tui,
     utils::{InputOutputChannel, OutputChannel},
 };
+
+type TargetStack = (StackId, HeadInfoStack);
 
 pub(crate) fn insert_blank_commit(
     ctx: &mut but_ctx::Context,
@@ -54,30 +53,13 @@ pub(crate) fn insert_blank_commit(
     } else {
         // No arguments provided - default to inserting at top of first branch
 
-        let stack_entries = workspace::stacks(ctx, None)?;
-        let stacks: Vec<(
-            but_core::ref_metadata::StackId,
-            but_workspace::ui::StackDetails,
-        )> = stack_entries
-            .iter()
-            .filter_map(|s| {
-                s.id.and_then(|id| {
-                    workspace::stack_details(ctx, Some(id))
-                        .ok()
-                        .map(|details| (id, details))
-                })
-            })
-            .collect();
+        let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
         // Find the first stack with branches and convert BString to String
         let branch_name = stacks
             .iter()
-            .find_map(|(_, stack_details)| {
-                stack_details
-                    .branch_details
-                    .first()
-                    .map(|b| b.name.to_string())
-            })
+            .filter(|stack| stack.id.is_some())
+            .find_map(|stack| stack.top_branch_name().map(ToOwned::to_owned))
             .ok_or_else(|| {
                 anyhow::anyhow!(
                     "No branches found. Create a branch first or specify a target explicitly."
@@ -388,20 +370,9 @@ pub(crate) fn commit(
         writeln!(out, "no need for -a here my friend...")?;
     }
 
-    // Get all stacks using but-api
-    let stack_entries = workspace::stacks(ctx, None)?;
-    let stacks: Vec<(
-        but_core::ref_metadata::StackId,
-        but_workspace::ui::StackDetails,
-    )> = stack_entries
-        .iter()
-        .filter_map(|s| {
-            s.id.and_then(|id| {
-                workspace::stack_details(ctx, Some(id))
-                    .ok()
-                    .map(|details| (id, details))
-            })
-        })
+    let stacks: Vec<TargetStack> = crate::legacy::workspace::applied_stacks(ctx)?
+        .into_iter()
+        .filter_map(|stack| stack.id.map(|id| (id, stack)))
         .collect();
 
     // In JSON mode with multiple branches, require branch specification
@@ -536,16 +507,13 @@ pub(crate) fn commit(
     let target_branch = if let Some(branch_hint) = branch_hint.as_deref() {
         // First try exact name match
         target_stack
-            .branch_details
-            .iter()
-            .find(|branch| branch.name == branch_hint)
+            .branch(branch_hint)
             .or_else(|| {
                 // If no exact match, try to parse as CLI ID and match
                 if let Ok(cli_ids) = id_map.parse_using_context(branch_hint, ctx) {
                     for cli_id in cli_ids {
                         if let CliId::Branch { name, .. } = cli_id
-                            && let Some(branch) =
-                                target_stack.branch_details.iter().find(|b| b.name == name)
+                            && let Some(branch) = target_stack.branch(&name)
                         {
                             return Some(branch);
                         }
@@ -557,7 +525,7 @@ pub(crate) fn commit(
     } else {
         // No branch hint, use first branch (HEAD of stack)
         target_stack
-            .branch_details
+            .branches
             .first()
             .ok_or_else(|| anyhow::anyhow!("No branches found in target stack"))?
     };
@@ -597,12 +565,12 @@ pub(crate) fn commit(
             "{} Created commit {} on branch {}",
             t.sym().success,
             t.commit_id.paint(commit_short),
-            t.local_branch.paint(target_branch.name.to_str_lossy()),
+            t.local_branch.paint(&target_branch.name),
         )?;
     } else if let Some(json_out) = out.for_json() {
         let commit_data = serde_json::json!({
             "commit_id": outcome.new_commit.map(|id| id.to_string()),
-            "branch": target_branch.name.to_str_lossy(),
+            "branch": &target_branch.name,
             "branch_tip": outcome.new_commit.map(|id| id.to_string()),
         });
         json_out.write_value(commit_data)?;
@@ -638,10 +606,7 @@ fn create_independent_branch(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     perm: &mut RepoExclusive,
-) -> anyhow::Result<(
-    but_core::ref_metadata::StackId,
-    but_workspace::ui::StackDetails,
-)> {
+) -> anyhow::Result<TargetStack> {
     // Create a new independent stack with the given branch name
     let (new_stack_id_opt, _new_ref) = but_api::legacy::stack::create_reference_with_perm(
         ctx,
@@ -658,7 +623,7 @@ fn create_independent_branch(
         }
         Ok((
             new_stack_id,
-            workspace::stack_details(ctx, Some(new_stack_id))?,
+            crate::legacy::workspace::applied_stack(ctx, Some(new_stack_id))?,
         ))
     } else {
         bail!("Failed to create new branch '{branch_name}'");
@@ -668,18 +633,12 @@ fn create_independent_branch(
 fn select_stack(
     id_map: &IdMap,
     ctx: &mut but_ctx::Context,
-    stacks: &[(
-        but_core::ref_metadata::StackId,
-        but_workspace::ui::StackDetails,
-    )],
+    stacks: &[TargetStack],
     branch_hint: Option<&str>,
     create_branch: bool,
     out: &mut OutputChannel,
     perm: &mut RepoExclusive,
-) -> anyhow::Result<(
-    but_core::ref_metadata::StackId,
-    but_workspace::ui::StackDetails,
-)> {
+) -> anyhow::Result<TargetStack> {
     // Handle empty stacks case - automatically create a branch
     if stacks.is_empty() {
         let branch_name = match branch_hint {
@@ -723,21 +682,11 @@ fn select_stack(
     }
 }
 
-fn find_stack_by_hint(
-    id_map: &IdMap,
-    stacks: &[(
-        but_core::ref_metadata::StackId,
-        but_workspace::ui::StackDetails,
-    )],
-    hint: &str,
-) -> Option<(
-    but_core::ref_metadata::StackId,
-    but_workspace::ui::StackDetails,
-)> {
+fn find_stack_by_hint(id_map: &IdMap, stacks: &[TargetStack], hint: &str) -> Option<TargetStack> {
     // Try exact branch name match
-    for (stack_id, stack_details) in stacks {
-        if stack_details.branch_details.iter().any(|b| b.name == hint) {
-            return Some((*stack_id, stack_details.clone()));
+    for (stack_id, stack) in stacks {
+        if stack.contains_branch(hint) {
+            return Some((*stack_id, stack.clone()));
         }
     }
 
@@ -747,9 +696,9 @@ fn find_stack_by_hint(
         .ok()?;
     for cli_id in cli_ids {
         if let CliId::Branch { name, .. } = cli_id {
-            for (stack_id, stack_details) in stacks {
-                if stack_details.branch_details.iter().any(|b| b.name == name) {
-                    return Some((*stack_id, stack_details.clone()));
+            for (stack_id, stack) in stacks {
+                if stack.contains_branch(&name) {
+                    return Some((*stack_id, stack.clone()));
                 }
             }
         }
@@ -759,26 +708,21 @@ fn find_stack_by_hint(
 }
 
 fn prompt_for_stack_selection(
-    stacks: &[(
-        but_core::ref_metadata::StackId,
-        but_workspace::ui::StackDetails,
-    )],
+    stacks: &[TargetStack],
     mut inout: InputOutputChannel,
-) -> Result<(
-    but_core::ref_metadata::StackId,
-    but_workspace::ui::StackDetails,
-)> {
+) -> Result<TargetStack> {
     use std::fmt::Write;
 
     let t = theme::get();
     writeln!(inout, "Multiple stacks found. Choose one to commit to:")?;
 
-    for (i, (_stack_id, stack_details)) in stacks.iter().enumerate() {
+    for (i, (_stack_id, stack)) in stacks.iter().enumerate() {
         writeln!(
             inout,
             "  {}. {}",
             i + 1,
-            t.local_branch.paint(&stack_details.derived_name)
+            t.local_branch
+                .paint(stack.top_branch_name().unwrap_or("unnamed"))
         )?;
     }
 

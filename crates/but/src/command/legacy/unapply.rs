@@ -3,7 +3,7 @@
 use anyhow::{Context as _, bail};
 use but_core::ref_metadata::StackId;
 
-use crate::{CliId, IdMap, utils::OutputChannel};
+use crate::{CliId, IdMap, legacy::workspace::HeadInfoStack, utils::OutputChannel};
 
 /// Handle the unapply command.
 ///
@@ -20,10 +20,7 @@ pub fn handle(
 ) -> anyhow::Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     // Fetch stacks once at the start
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
     let parsed_ids = id_map.parse_using_context(identifier, ctx)?;
@@ -71,7 +68,7 @@ pub fn handle(
 
 /// Get branches for a stack by ID, validating the stack exists.
 fn get_stack_branches(
-    stacks: &[but_workspace::legacy::ui::StackEntry],
+    stacks: &[HeadInfoStack],
     stack_id: StackId,
     identifier: &str,
 ) -> anyhow::Result<(StackId, Vec<String>)> {
@@ -80,7 +77,7 @@ fn get_stack_branches(
         .find(|s| s.id == Some(stack_id))
         .with_context(|| format!("Stack for '{identifier}' not found in workspace"))?;
 
-    let branches: Vec<String> = stack.heads.iter().map(|h| h.name.to_string()).collect();
+    let branches: Vec<String> = stack.branch_names().map(ToOwned::to_owned).collect();
 
     if branches.is_empty() {
         bail!("Stack for '{identifier}' has no branches");
@@ -91,18 +88,14 @@ fn get_stack_branches(
 
 /// Find a stack by branch name and return the stack ID and branches.
 fn find_stack_by_branch_name(
-    stacks: &[but_workspace::legacy::ui::StackEntry],
+    stacks: &[HeadInfoStack],
     branch_name: &str,
 ) -> anyhow::Result<(StackId, Vec<String>)> {
     for stack_entry in stacks {
-        if stack_entry.heads.iter().any(|b| b.name == branch_name)
+        if stack_entry.contains_branch(branch_name)
             && let Some(sid) = stack_entry.id
         {
-            let branches: Vec<String> = stack_entry
-                .heads
-                .iter()
-                .map(|h| h.name.to_string())
-                .collect();
+            let branches: Vec<String> = stack_entry.branch_names().map(ToOwned::to_owned).collect();
             return Ok((sid, branches));
         }
     }

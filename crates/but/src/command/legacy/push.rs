@@ -106,7 +106,7 @@ struct DryRunBranchInfo {
     commits: Vec<DryRunCommit>,
     /// Upstream commits that would be overwritten (requires force push)
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    upstream_commits: Vec<DryRunUpstreamCommit>,
+    upstream_commits: Vec<DryRunCommit>,
     /// Whether this push requires force
     requires_force: bool,
     /// Warning message if push cannot proceed safely
@@ -126,24 +126,6 @@ struct DryRunCommit {
     sha: String,
     /// Commit message (first line)
     message: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct DryRunUpstreamCommit {
-    /// Short SHA
-    sha_short: String,
-    /// Full SHA
-    sha: String,
-    /// Commit message (first line)
-    message: String,
-}
-
-/// Dry-run push destination details derived from branch metadata.
-#[derive(Debug, Clone)]
-struct DryRunPushDetails {
-    /// The remote-tracking reference that would be updated.
-    remote_ref: gix::refs::FullName,
 }
 
 /// Batch dry-run result for JSON output
@@ -204,10 +186,7 @@ fn handle_dry_run(
     // Get detailed information for each branch
     let mut dry_run_infos = Vec::new();
 
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stacks = crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx)?;
 
     // Limit the shared lock to target resolution before continuing with dry-run analysis.
     let remote = {
@@ -226,111 +205,72 @@ fn handle_dry_run(
     for (branch_name, unpushed_count, stack_name) in &branches_to_show {
         // Find the stack containing this branch
         for stack_entry in &stacks {
-            if let Some(stack_id) = stack_entry.id {
-                let stack_details = but_api::legacy::workspace::stack_details(ctx, Some(stack_id))?;
+            if stack_entry.id.is_some()
+                && let Some(branch_detail) = stack_entry.branch(branch_name)
+            {
+                let remote_ref = dry_run_remote_ref(&branch_detail.name, &remote)?;
 
-                // Find the branch details
-                if let Some(branch_detail) = stack_details
-                    .branch_details
+                // Collect commit information
+                let commits: Vec<DryRunCommit> = branch_detail
+                    .commits
                     .iter()
-                    .find(|b| b.name == branch_name.as_str())
-                {
-                    let push_details = dry_run_push_details(branch_detail, &remote)?;
+                    .filter(|c| matches!(c.state, but_workspace::ui::CommitState::LocalOnly))
+                    .take(10) // Limit to first 10 commits for display
+                    .map(|c| dry_run_commit(&repo, c.id, &c.message))
+                    .collect();
 
-                    // Collect commit information
-                    let commits: Vec<DryRunCommit> = branch_detail
-                        .commits
-                        .iter()
-                        .filter(|c| matches!(c.state, but_workspace::ui::CommitState::LocalOnly))
-                        .take(10) // Limit to first 10 commits for display
-                        .map(|c| {
-                            let sha = c.id.to_string();
-                            let sha_short = shorten_object_id(&repo, c.id);
-                            let message = c
-                                .message
-                                .to_string()
-                                .lines()
-                                .next()
-                                .unwrap_or("")
-                                .to_string();
-                            DryRunCommit {
-                                sha_short,
-                                sha,
-                                message,
-                            }
-                        })
-                        .collect();
+                // Collect upstream commits (commits on remote but not local)
+                let upstream_commits: Vec<DryRunCommit> = branch_detail
+                    .upstream_commits
+                    .iter()
+                    .take(10) // Limit to first 10 commits for display
+                    .map(|c| dry_run_commit(&repo, c.id, &c.message))
+                    .collect();
 
-                    // Collect upstream commits (commits on remote but not local)
-                    let upstream_commits: Vec<DryRunUpstreamCommit> = branch_detail
-                        .upstream_commits
-                        .iter()
-                        .take(10) // Limit to first 10 commits for display
-                        .map(|c| {
-                            let sha = c.id.to_string();
-                            let sha_short = shorten_object_id(&repo, c.id);
-                            let message = c
-                                .message
-                                .to_string()
-                                .lines()
-                                .next()
-                                .unwrap_or("")
-                                .to_string();
-                            DryRunUpstreamCommit {
-                                sha_short,
-                                sha,
-                                message,
-                            }
-                        })
-                        .collect();
+                // Determine if force push is required and generate warning
+                let requires_force = matches!(
+                    branch_detail.push_status,
+                    but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce
+                );
 
-                    // Determine if force push is required and generate warning
-                    let requires_force = matches!(
-                        branch_detail.push_status,
-                        but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce
-                    );
+                let warning = if !upstream_commits.is_empty() && !requires_force {
+                    Some(format!(
+                        "Cannot push: {} upstream commit{} would be overwritten. Use force push to proceed.",
+                        upstream_commits.len(),
+                        if upstream_commits.len() == 1 { "" } else { "s" }
+                    ))
+                } else if !upstream_commits.is_empty() && requires_force {
+                    Some(format!(
+                        "Force push required: {} upstream commit{} will be overwritten.",
+                        upstream_commits.len(),
+                        if upstream_commits.len() == 1 { "" } else { "s" }
+                    ))
+                } else {
+                    None
+                };
 
-                    let warning = if !upstream_commits.is_empty() && !requires_force {
-                        Some(format!(
-                            "Cannot push: {} upstream commit{} would be overwritten. Use force push to proceed.",
-                            upstream_commits.len(),
-                            if upstream_commits.len() == 1 { "" } else { "s" }
-                        ))
-                    } else if !upstream_commits.is_empty() && requires_force {
-                        Some(format!(
-                            "Force push required: {} upstream commit{} will be overwritten.",
-                            upstream_commits.len(),
-                            if upstream_commits.len() == 1 { "" } else { "s" }
-                        ))
-                    } else {
-                        None
-                    };
+                // Determine if this branch is stacked on another branch
+                // by finding a branch whose tip matches this branch's base_commit
+                let stacked_on = stack_entry
+                    .branches
+                    .iter()
+                    .find(|b| b.tip == branch_detail.base_commit && b.name != branch_detail.name)
+                    .map(|b| b.name.clone());
 
-                    // Determine if this branch is stacked on another branch
-                    // by finding a branch whose tip matches this branch's base_commit
-                    let stacked_on = stack_details
-                        .branch_details
-                        .iter()
-                        .find(|b| {
-                            b.tip == branch_detail.base_commit && b.name != branch_detail.name
-                        })
-                        .map(|b| b.name.to_string());
+                dry_run_infos.push(DryRunBranchInfo {
+                    branch_name: branch_name.clone(),
+                    stack_name: stack_name.clone(),
+                    unpushed_commits: *unpushed_count,
+                    remote: remote.clone(),
+                    remote_ref,
+                    commits,
+                    upstream_commits,
+                    requires_force,
+                    warning,
+                    stacked_on,
+                });
 
-                    dry_run_infos.push(DryRunBranchInfo {
-                        branch_name: branch_name.clone(),
-                        stack_name: stack_name.clone(),
-                        unpushed_commits: *unpushed_count,
-                        remote: remote.clone(),
-                        remote_ref: push_details.remote_ref,
-                        commits,
-                        upstream_commits,
-                        requires_force,
-                        warning,
-                        stacked_on,
-                    });
-
-                    break;
-                }
+                break;
             }
         }
     }
@@ -586,14 +526,20 @@ fn handle_dry_run(
     Ok(())
 }
 
-/// Build dry-run push destination details from branch metadata.
-fn dry_run_push_details(
-    branch_detail: &but_workspace::ui::BranchDetails,
-    remote: &str,
-) -> anyhow::Result<DryRunPushDetails> {
-    let remote_ref: gix::refs::FullName =
-        format!("refs/remotes/{remote}/{}", branch_detail.name).try_into()?;
-    Ok(DryRunPushDetails { remote_ref })
+fn dry_run_commit(
+    repo: &gix::Repository,
+    id: gix::ObjectId,
+    message: &bstr::BString,
+) -> DryRunCommit {
+    DryRunCommit {
+        sha_short: shorten_object_id(repo, id),
+        sha: id.to_string(),
+        message: message.to_string().lines().next().unwrap_or("").to_string(),
+    }
+}
+
+fn dry_run_remote_ref(branch_name: &str, remote: &str) -> anyhow::Result<gix::refs::FullName> {
+    Ok(format!("refs/remotes/{remote}/{branch_name}").try_into()?)
 }
 
 fn push_single_branch(
@@ -922,56 +868,42 @@ fn handle_no_branch_specified(
 }
 
 fn get_branches_with_unpushed_info(ctx: &Context) -> anyhow::Result<Vec<(String, usize, String)>> {
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stacks = crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx)?;
 
     let mut branches_info = Vec::new();
 
     for stack in stacks {
-        if let Some(stack_id) = stack.id {
-            let stack_details = but_api::legacy::workspace::stack_details(ctx, Some(stack_id))?;
+        if stack.id.is_some() {
             let stack_name = stack
-                .name()
-                .map(|n| n.to_string())
+                .top_branch_name()
+                .map(ToOwned::to_owned)
                 .unwrap_or_else(|| "unnamed".to_string());
 
             // Get branch names from the heads
-            for head in &stack.heads {
-                let branch_name = head.name.to_string();
+            for branch in &stack.branches {
+                let branch_name = branch.name.clone();
 
-                // Find the corresponding branch details to count unpushed commits
-                let unpushed_count = if let Some(branch_detail) = stack_details
-                    .branch_details
+                // Count only commits that are LocalOnly (not pushed to remote).
+                // LocalAndRemote means it exists on both, Integrated means it's already in base.
+                let local_only_count = branch
+                    .commits
                     .iter()
-                    .find(|b| b.name == head.name)
-                {
-                    // Count only commits that are LocalOnly (not pushed to remote)
-                    // LocalAndRemote means it exists on both, Integrated means it's already in base
-                    let local_only_count = branch_detail
-                        .commits
-                        .iter()
-                        .filter(|c| matches!(c.state, but_workspace::ui::CommitState::LocalOnly))
-                        .count();
+                    .filter(|c| matches!(c.state, but_workspace::ui::CommitState::LocalOnly))
+                    .count();
 
-                    // Additionally check if push_status indicates there are unpushed commits
-                    // even if we don't find any LocalOnly commits (e.g., for new branches)
-                    match branch_detail.push_status {
-                        but_workspace::ui::PushStatus::CompletelyUnpushed => {
-                            // All commits on the branch need to be pushed
-                            branch_detail.commits.len().max(local_only_count)
-                        }
-                        but_workspace::ui::PushStatus::UnpushedCommits
-                        | but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce => {
-                            // There are commits to push
-                            local_only_count.max(1) // At least 1 if push_status says so
-                        }
-                        _ => local_only_count,
+                // Additionally check if push_status indicates there are unpushed commits
+                // even if we don't find any LocalOnly commits (e.g., for new branches).
+                let unpushed_count = match branch.push_status {
+                    but_workspace::ui::PushStatus::CompletelyUnpushed => {
+                        // All commits on the branch need to be pushed
+                        branch.commits.len().max(local_only_count)
                     }
-                } else {
-                    // If no detailed branch info found, assume no unpushed commits
-                    0
+                    but_workspace::ui::PushStatus::UnpushedCommits
+                    | but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce => {
+                        // There are commits to push
+                        local_only_count.max(1) // At least 1 if push_status says so
+                    }
+                    _ => local_only_count,
                 };
 
                 branches_info.push((branch_name, unpushed_count, stack_name.clone()));
@@ -1096,12 +1028,12 @@ fn resolve_branch_name(
 }
 
 fn get_available_branch_names(ctx: &Context) -> anyhow::Result<Vec<String>> {
-    let stacks = crate::legacy::commits::stacks(ctx)?;
+    let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
     let mut branch_names = Vec::new();
 
     for stack in stacks {
-        for head in &stack.heads {
-            branch_names.push(head.name.to_string());
+        for branch in &stack.branches {
+            branch_names.push(branch.name.clone());
         }
     }
 
@@ -1158,14 +1090,11 @@ fn gerrit_review_ref(
 }
 
 fn find_stack_id_by_branch_name(ctx: &Context, branch_name: &str) -> anyhow::Result<StackId> {
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
     // Find which stack this branch belongs to
     for stack_entry in &stacks {
-        if stack_entry.heads.iter().any(|b| b.name == branch_name)
+        if stack_entry.contains_branch(branch_name)
             && let Some(id) = stack_entry.id
         {
             return Ok(id);
@@ -1176,7 +1105,7 @@ fn find_stack_id_by_branch_name(ctx: &Context, branch_name: &str) -> anyhow::Res
     // but provide a helpful error just in case
     let available_branches: Vec<String> = stacks
         .iter()
-        .flat_map(|s| s.heads.iter().map(|h| h.name.to_string()))
+        .flat_map(|stack| stack.branch_names().map(ToOwned::to_owned))
         .collect();
 
     Err(anyhow::anyhow!(
@@ -1189,19 +1118,16 @@ fn find_stack_id_by_branch_name(ctx: &Context, branch_name: &str) -> anyhow::Res
 /// Update PR/MR target branches to match the current stack structure.
 async fn update_review_targets_for_stacks(ctx: &Context, perm: &RepoShared) -> anyhow::Result<()> {
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx, perm)?;
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
     let mut target_updates = Vec::new();
     for stack in &stacks {
         // heads are ordered top-first, so iterate in reverse for bottom-to-top
         let heads: Vec<(String, Option<i64>)> = stack
-            .heads
+            .branches
             .iter()
             .rev()
-            .map(|h| (h.name.to_string(), h.review_id.map(|id| id as i64)))
+            .map(|branch| (branch.name.clone(), branch.review_id.map(|id| id as i64)))
             .collect();
         target_updates.extend(but_forge::compute_review_target_updates(
             &heads,
@@ -1221,52 +1147,38 @@ async fn update_review_targets_for_stacks(ctx: &Context, perm: &RepoShared) -> a
 /// Check if a branch contains any conflicted commits
 /// Returns an error if conflicted commits are found
 fn check_for_conflicted_commits(ctx: &Context, branch_name: &str) -> anyhow::Result<()> {
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stacks = crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx)?;
 
     let repo = ctx.repo.get()?.clone().for_commit_shortening();
-    // Find the stack containing this branch and get its details
+    // Find the stack containing this branch.
     for stack in &stacks {
-        if let Some(stack_id) = stack.id {
-            // Check if this stack contains the branch we're looking for
-            if stack.heads.iter().any(|h| h.name == branch_name) {
-                let stack_details = but_api::legacy::workspace::stack_details(ctx, Some(stack_id))?;
+        if stack.id.is_some()
+            && let Some(branch) = stack.branch(branch_name)
+        {
+            let conflicted_commits: Vec<String> = branch
+                .commits
+                .iter()
+                .filter(|c| c.has_conflicts)
+                .map(|c| shorten_object_id(&repo, c.id))
+                .collect();
 
-                // Find the branch details
-                if let Some(branch_detail) = stack_details
-                    .branch_details
-                    .iter()
-                    .find(|b| b.name == branch_name)
-                {
-                    // Check for conflicted commits
-                    let conflicted_commits: Vec<String> = branch_detail
-                        .commits
-                        .iter()
-                        .filter(|c| c.has_conflicts)
-                        .map(|c| shorten_object_id(&repo, c.id))
-                        .collect();
-
-                    if !conflicted_commits.is_empty() {
-                        return Err(anyhow::anyhow!(
-                            "Cannot push branch '{}': the branch contains {} conflicted commit{}.\n\
-                             Conflicted commits: {}\n\
-                             Please resolve conflicts before pushing using 'but resolve <commit>'.",
-                            branch_name,
-                            conflicted_commits.len(),
-                            if conflicted_commits.len() == 1 {
-                                ""
-                            } else {
-                                "s"
-                            },
-                            conflicted_commits.join(", ")
-                        ));
-                    }
-
-                    return Ok(());
-                }
+            if !conflicted_commits.is_empty() {
+                return Err(anyhow::anyhow!(
+                    "Cannot push branch '{}': the branch contains {} conflicted commit{}.\n\
+                         Conflicted commits: {}\n\
+                         Please resolve conflicts before pushing using 'but resolve <commit>'.",
+                    branch_name,
+                    conflicted_commits.len(),
+                    if conflicted_commits.len() == 1 {
+                        ""
+                    } else {
+                        "s"
+                    },
+                    conflicted_commits.join(", ")
+                ));
             }
+
+            return Ok(());
         }
     }
 
