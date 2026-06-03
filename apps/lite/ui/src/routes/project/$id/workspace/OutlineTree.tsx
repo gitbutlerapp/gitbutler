@@ -56,6 +56,7 @@ import { Combobox } from "@base-ui/react/combobox";
 import { Toolbar } from "@base-ui/react/toolbar";
 import {
 	AbsorptionTarget,
+	BottomUpdate,
 	BranchReference,
 	Commit,
 	CommitState,
@@ -110,6 +111,7 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { rejectedChangesToastOptions } from "#ui/operations/rejectedChangesToastOptions.tsx";
 import { changesHotkeys, outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
+import { stackToBottomRebaseUpdate } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { OutlineModeTooltip } from "./OutlineModeTooltip.tsx";
@@ -1877,6 +1879,42 @@ const useUnapplyStack = () => {
 	});
 };
 
+const useRebaseStack = ({ projectId }: { projectId: string }) => {
+	const dispatch = useAppDispatch();
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: (update: BottomUpdate) =>
+			window.lite.workspaceIntegrateUpstream({ projectId, updates: [update], dryRun: false }),
+		onSuccess: (workspace, _input, _context, mutation) => {
+			mutation.client.setQueryData(headInfoQueryOptions(projectId).queryKey, workspace.headInfo);
+			dispatch(
+				projectActions.updateRewrittenCommitReferences({
+					projectId,
+					replacedCommits: workspace.replacedCommits,
+					headInfo: workspace.headInfo,
+				}),
+			);
+
+			toastManager.add({
+				type: "success",
+				title: "Rebased stack",
+			});
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to rebase stack",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
 const useUpdateBranchName = ({
 	projectId,
 	stackId,
@@ -2140,21 +2178,33 @@ const BranchRow: FC<
 const StackRow: FC<
 	{
 		projectId: string;
-		stackId: string;
+		stack: Stack;
 	} & ComponentProps<"div">
-> = ({ projectId, stackId, ...restProps }) => {
-	const operand = stackOperand({ stackId });
+> = ({ projectId, stack, ...restProps }) => {
+	const rebaseUpdate = stackToBottomRebaseUpdate(stack);
+	// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
+	const operand = stackOperand({ stackId: stack.id! });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const unapplyStackMutation = useUnapplyStack();
+	const rebaseStackMutation = useRebaseStack({ projectId });
 	const unapply = () => {
-		unapplyStackMutation.mutate({ projectId, stackId });
+		// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
+		unapplyStackMutation.mutate({ projectId, stackId: stack.id! });
+	};
+	const rebase = () => {
+		if (rebaseUpdate) rebaseStackMutation.mutate(rebaseUpdate);
 	};
 
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({ label: "Move Up", enabled: false }),
 		nativeMenuItem({ label: "Move Down", enabled: false }),
 		nativeMenuSeparator,
+		nativeMenuItem({
+			label: "Rebase Stack",
+			enabled: !!rebaseUpdate,
+			onSelect: rebase,
+		}),
 		nativeMenuItem({
 			label: "Unapply Stack",
 			enabled: !unapplyStackMutation.isPending,
@@ -2322,7 +2372,7 @@ const StackC: FC<{
 			className={classes(styles.stack, workspaceItemRowStyles.section)}
 			render={<OperandC projectId={projectId} operand={operand} />}
 		>
-			<StackRow projectId={projectId} stackId={stackId} />
+			<StackRow projectId={projectId} stack={stack} />
 
 			<div role="group" className={styles.segments}>
 				{stack.segments.map((segment) =>
