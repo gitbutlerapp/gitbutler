@@ -1714,10 +1714,10 @@ pub(crate) fn handle_stage_tui(
         }
     } else {
         // Get available stacks, use top branch of each as the staging target
-        let stacks = crate::legacy::commits::stacks(ctx)?;
+        let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
         let stack_top_branches: Vec<String> = stacks
             .iter()
-            .filter_map(|s| s.heads.first().map(|h| h.name.to_string()))
+            .filter_map(|s| s.top_branch_name().map(ToOwned::to_owned))
             .collect();
 
         if stack_top_branches.is_empty() {

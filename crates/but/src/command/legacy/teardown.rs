@@ -1,7 +1,6 @@
 use anyhow::Context as _;
 use but_core::WORKSPACE_REF_NAME;
 use but_ctx::Context;
-use but_workspace::legacy::StacksFilter;
 use gix::refs::{Category, transaction::PreviousValue};
 use serde::Serialize;
 
@@ -122,13 +121,11 @@ pub(crate) fn teardown(
         )?;
     }
 
-    // Get stacks filtered to only those in workspace, sorted by order to find the leftmost
-    let mut stacks = match but_api::legacy::workspace::stacks(ctx, Some(StacksFilter::InWorkspace))
-    {
+    let stacks = match crate::legacy::workspace::applied_stacks(ctx) {
         Ok(stacks) => stacks,
         Err(_e) => {
             try_stack_fixes(ctx, out)?;
-            but_api::legacy::workspace::stacks(ctx, Some(StacksFilter::InWorkspace))
+            crate::legacy::workspace::applied_stacks(ctx)
                 .context("Failed to retrieve stacks after attempting fixes")?
         }
     };
@@ -136,14 +133,11 @@ pub(crate) fn teardown(
     let target_branch_name = if let Some(checkout_to) = checkout_to {
         checkout_to
     } else {
-        // Sort by order to ensure we get the leftmost (lowest order) stack first
-        stacks.sort_by_key(|s| s.order.unwrap_or(usize::MAX));
-
         if let Some(target_stack) = stacks.first() {
             target_stack
-                .heads
+                .branches
                 .first()
-                .map(|h| h.name.to_string())
+                .map(|branch| branch.name.clone())
                 .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?
         } else {
             return Err(bad_input(

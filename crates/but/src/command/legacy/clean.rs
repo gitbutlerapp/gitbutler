@@ -182,10 +182,7 @@ fn find_empty_branches(
     // Get the set of stack IDs that have worktree changes assigned to them.
     let stacks_with_changes = stacks_with_assigned_changes(ctx)?;
 
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stacks = crate::legacy::workspace::applied_stacks_with_expensive_commit_info(ctx)?;
 
     let mut empty_branches = Vec::new();
 
@@ -199,9 +196,7 @@ fn find_empty_branches(
             continue;
         }
 
-        let details = but_api::legacy::workspace::stack_details(ctx, Some(stack_id))?;
-
-        for branch in &details.branch_details {
+        for branch in &stack_entry.branches {
             let has_local_commits = !branch.commits.is_empty();
             let has_upstream_commits = !branch.upstream_commits.is_empty();
 
@@ -213,7 +208,7 @@ fn find_empty_branches(
                 continue;
             }
 
-            empty_branches.push((stack_id, branch.name.to_string()));
+            empty_branches.push((stack_id, branch.name.clone()));
         }
     }
 

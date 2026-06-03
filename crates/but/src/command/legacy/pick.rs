@@ -1,13 +1,12 @@
 //! Cherry-pick commits from unapplied branches into applied virtual branches.
 
+use crate::legacy::workspace::HeadInfoStack;
 use crate::theme::{self, Paint};
 use anyhow::{Context as _, Result, bail};
-use bstr::ByteSlice;
-use but_api::legacy::{cherry_apply, virtual_branches, workspace};
+use but_api::legacy::{cherry_apply, virtual_branches};
 use but_cherry_apply::CherryApplyStatus;
 use but_core::{RepositoryExt, ref_metadata::StackId, sync::RepoShared};
 use but_ctx::Context;
-use but_workspace::legacy::{StacksFilter, ui::StackEntry};
 use cli_prompts::DisplayPrompt;
 use gitbutler_branch_actions::BranchListingFilter;
 use gitbutler_oplog::{
@@ -35,8 +34,7 @@ pub fn handle(
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
     // Get applied stacks first - we'll need them for target resolution
-    let stacks =
-        workspace::stacks(ctx, Some(StacksFilter::InWorkspace)).context("Failed to list stacks")?;
+    let stacks = crate::legacy::workspace::applied_stacks(ctx).context("Failed to list stacks")?;
 
     if stacks.is_empty() {
         bail!("No applied stacks in workspace. Apply a branch first with 'but branch apply'.");
@@ -312,7 +310,7 @@ fn resolve_target_stack(
     ctx: &Context,
     out: &mut OutputChannel,
     id_map: &IdMap,
-    stacks: &[StackEntry],
+    stacks: &[HeadInfoStack],
     target_branch: Option<&str>,
     status: &CherryApplyStatus,
     commit_hex: &str,
@@ -364,27 +362,27 @@ Available stacks: {}",
 /// Handle the case where a commit is locked to a specific stack.
 fn handle_locked_to_stack(
     out: &mut OutputChannel,
-    stacks: &[StackEntry],
+    stacks: &[HeadInfoStack],
     target_branch: Option<&str>,
     locked_stack_id: StackId,
 ) -> Result<(StackId, String)> {
     let locked_stack = stacks
         .iter()
-        .find(|s| s.id == Some(locked_stack_id))
+        .find(|stack| stack.id == Some(locked_stack_id))
         .context("Locked stack not found in workspace")?;
 
     let locked_branch_name = locked_stack
-        .heads
-        .first()
-        .map(|h| h.name.to_string())
+        .top_branch_name()
+        .map(ToOwned::to_owned)
         .unwrap_or_else(|| locked_stack_id.to_string());
 
     // Warn if user specified a different target
     if let Some(target) = target_branch {
         let target_lower = target.to_lowercase();
-        let target_matches = locked_stack.heads.iter().any(|h| {
-            h.name.to_str_lossy() == target || h.name.to_string().to_lowercase() == target_lower
-        });
+        let target_matches = locked_stack
+            .branches
+            .iter()
+            .any(|branch| branch.name == target || branch.name.to_lowercase() == target_lower);
 
         let t = theme::get();
         if !target_matches && let Some(out) = out.for_human() {
@@ -404,7 +402,7 @@ fn handle_locked_to_stack(
 fn find_stack_by_target(
     ctx: &Context,
     id_map: &IdMap,
-    stacks: &[StackEntry],
+    stacks: &[HeadInfoStack],
     target: &str,
 ) -> Result<(StackId, String)> {
     // Try parsing as CLI ID first
@@ -417,7 +415,7 @@ fn find_stack_by_target(
             } = cli_id
             {
                 // Verify the stack is in our list of applied stacks
-                if stacks.iter().any(|s| s.id == Some(*stack_id)) {
+                if stacks.iter().any(|stack| stack.id == Some(*stack_id)) {
                     return Ok((*stack_id, name.clone()));
                 }
             }
@@ -427,10 +425,8 @@ fn find_stack_by_target(
     // Fall back to name-based matching (case-insensitive)
     let target_lower = target.to_lowercase();
     for stack in stacks {
-        for head in &stack.heads {
-            if head.name.to_str_lossy() == target
-                || head.name.to_string().to_lowercase() == target_lower
-            {
+        for branch in &stack.branches {
+            if branch.name == target || branch.name.to_lowercase() == target_lower {
                 return get_stack_info(stack);
             }
         }
@@ -445,30 +441,29 @@ Available stacks: {}",
 }
 
 /// Extract stack ID and branch name from a stack entry.
-fn get_stack_info(stack: &StackEntry) -> Result<(StackId, String)> {
+fn get_stack_info(stack: &HeadInfoStack) -> Result<(StackId, String)> {
     let stack_id = stack.id.context("Stack has no ID")?;
     let branch_name = stack
-        .heads
-        .first()
-        .map(|h| h.name.to_string())
+        .top_branch_name()
+        .map(ToOwned::to_owned)
         .unwrap_or_else(|| stack_id.to_string());
     Ok((stack_id, branch_name))
 }
 
 /// Format stack names for display in error messages.
-fn format_stack_names(stacks: &[StackEntry]) -> String {
+fn format_stack_names(stacks: &[HeadInfoStack]) -> String {
     stacks
         .iter()
-        .filter_map(|s| s.heads.first().map(|h| h.name.to_string()))
+        .filter_map(|stack| stack.top_branch_name().map(ToOwned::to_owned))
         .collect::<Vec<_>>()
         .join(", ")
 }
 
 /// Interactive selection of target stack.
-fn select_target_interactively(stacks: &[StackEntry]) -> Result<(StackId, String)> {
+fn select_target_interactively(stacks: &[HeadInfoStack]) -> Result<(StackId, String)> {
     let options: Vec<String> = stacks
         .iter()
-        .filter_map(|s| s.heads.first().map(|h| h.name.to_string()))
+        .filter_map(|stack| stack.top_branch_name().map(ToOwned::to_owned))
         .collect();
 
     if options.is_empty() {
@@ -484,10 +479,10 @@ fn select_target_interactively(stacks: &[StackEntry]) -> Result<(StackId, String
 
     // Find the selected stack
     for stack in stacks {
-        for head in &stack.heads {
-            if head.name.to_str_lossy() == selection {
+        for branch in &stack.branches {
+            if branch.name == selection {
                 let stack_id = stack.id.context("Stack has no ID")?;
-                return Ok((stack_id, head.name.to_string()));
+                return Ok((stack_id, branch.name.clone()));
             }
         }
     }

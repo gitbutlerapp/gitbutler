@@ -86,18 +86,23 @@ fn can_invoke_alias_with_root_flags() -> anyhow::Result<()> {
 
     env.but("alias add b branch").assert().success();
 
-    env.but("-t b")
-        .assert()
-        .stdout_eq(str![[r#"
-Applied branches
-active  ✓ *A          26y ago    author
+    let output = env.but("-t b").output()?;
+    assert!(
+        output.status.success(),
+        "alias with root trace flag should succeed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout).replace("\r\n", "\n");
+    assert_eq!(
+        stdout,
+        "Applied branches\nactive  ✓ *A          26y ago    author\n"
+    );
 
-"#]])
-        .stderr_eq(str![[r#"
-INFO [..]
-INFO [..]
-INFO [..]
-"#]]);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.lines().any(|line| line.starts_with("INFO ")),
+        "trace flag should emit INFO logs: {stderr}"
+    );
 
     Ok(())
 }

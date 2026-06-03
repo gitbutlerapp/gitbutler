@@ -93,13 +93,13 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
     }
 
     // Find which stack this commit belongs to
-    let stacks = but_api::legacy::workspace::stacks(ctx, None)?;
+    let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
     let mut found_stack_id = None;
     'outer: for stack in &stacks {
         // Check if this commit is in any of the stack's heads
         // TODO(ctx): use `ws` for that.
         // TODO(perf): This is likely to walk the whole graph.
-        for head in &stack.heads {
+        for head in &stack.branches {
             // Walk the commit history to see if our commit is in this stack
             let traversal = head
                 .tip
@@ -488,14 +488,14 @@ fn check_for_new_conflicts_after_rebase(
 fn find_conflicted_commits(ctx: &mut Context) -> Result<BTreeMap<String, Vec<ConflictedCommit>>> {
     use gix::{prelude::ObjectIdExt as _, revision::walk::Sorting};
 
-    let stacks = but_api::legacy::workspace::stacks(ctx, None)?;
+    let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
     let repo = ctx.repo.get()?;
     let mut conflicts_by_branch: BTreeMap<String, Vec<ConflictedCommit>> = BTreeMap::new();
 
     for stack in &stacks {
         // Check commits in each head of the stack
-        for head in &stack.heads {
-            let branch_name = head.name.to_str_lossy().to_string();
+        for head in &stack.branches {
+            let branch_name = head.name.clone();
 
             // Walk the commit history to find conflicted commits
             // We use BreadthFirst (topological) and then reverse the results

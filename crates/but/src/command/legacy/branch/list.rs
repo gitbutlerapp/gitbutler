@@ -5,6 +5,7 @@ use gitbutler_branch_actions::BranchListingFilter;
 
 use crate::{
     command::legacy::workspace_target,
+    legacy::workspace::HeadInfoStack,
     theme::{self, Paint},
     utils::OutputChannel,
 };
@@ -40,10 +41,7 @@ pub fn list(
         HashMap::new()
     };
 
-    let mut applied_stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let mut applied_stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
     // Resolve the target once for all target-based filtering and calculations we may perform.
     let target_oid: Option<gix::ObjectId> = if !show_empty || ahead || check_merge {
@@ -62,7 +60,7 @@ pub fn list(
         // heads[0] is topmost; head[i] is empty if its tip == heads[i+1].tip (non-last)
         // or tip == target_oid (last/bottommost head).
         for stack in &mut applied_stacks {
-            let tips: Vec<gix::ObjectId> = stack.heads.iter().map(|h| h.tip).collect();
+            let tips: Vec<gix::ObjectId> = stack.branches.iter().map(|branch| branch.tip).collect();
             let non_empty: Vec<bool> = tips
                 .iter()
                 .enumerate()
@@ -72,13 +70,13 @@ pub fn list(
                 })
                 .collect();
             let mut i = 0;
-            stack.heads.retain(|_| {
+            stack.branches.retain(|_| {
                 let keep = non_empty[i];
                 i += 1;
                 keep
             });
         }
-        applied_stacks.retain(|stack| !stack.heads.is_empty());
+        applied_stacks.retain(|stack| !stack.branches.is_empty());
     }
 
     // Apply name filter to applied stacks if provided
@@ -86,15 +84,15 @@ pub fn list(
         let filter_lower = filter_str.to_lowercase();
         applied_stacks.retain(|stack| {
             stack
-                .heads
+                .branches
                 .iter()
-                .any(|head| head.name.to_string().to_lowercase().contains(&filter_lower))
+                .any(|branch| branch.name.to_lowercase().contains(&filter_lower))
         });
         // Also filter the heads within each stack
         for stack in &mut applied_stacks {
             stack
-                .heads
-                .retain(|head| head.name.to_string().to_lowercase().contains(&filter_lower));
+                .branches
+                .retain(|branch| branch.name.to_lowercase().contains(&filter_lower));
         }
     }
 
@@ -265,7 +263,7 @@ pub fn list(
 
 #[expect(clippy::too_many_arguments)]
 fn output_json(
-    applied_stacks: &[but_workspace::legacy::ui::StackEntry],
+    applied_stacks: &[HeadInfoStack],
     branches: &[gitbutler_branch_actions::BranchListing],
     has_more_branches: bool,
     branch_review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
@@ -283,25 +281,25 @@ fn output_json(
         .iter()
         .map(|stack| {
             let heads: Vec<BranchHeadOutput> = stack
-                .heads
+                .branches
                 .iter()
-                .map(|head| {
-                    let reviews = get_reviews_json(&head.name.to_string(), branch_review_map);
+                .map(|branch| {
+                    let reviews = get_reviews_json(&branch.name, branch_review_map);
                     let commits_ahead =
-                        commits_ahead_map.and_then(|map| map.get(&head.name.to_string()).copied());
+                        commits_ahead_map.and_then(|map| map.get(&branch.name).copied());
                     let merges_cleanly =
-                        merge_status_map.and_then(|map| map.get(&head.name.to_string()).copied());
+                        merge_status_map.and_then(|map| map.get(&branch.name).copied());
 
                     // Get commit information
                     let (last_commit_at, author_name, author_email) =
-                        applied_head_commit_info(repo, head.tip);
+                        applied_head_commit_info(repo, branch.tip);
                     let last_author = AuthorOutput {
                         name: author_name,
                         email: author_email,
                     };
 
                     BranchHeadOutput {
-                        name: head.name.to_string(),
+                        name: branch.name.clone(),
                         reviews,
                         last_commit_at,
                         commits_ahead,
@@ -393,7 +391,7 @@ fn get_reviews_json(
 fn check_branches_merge_cleanly(
     ctx: &Context,
     target_commit_id: gix::ObjectId,
-    applied_stacks: &[but_workspace::legacy::ui::StackEntry],
+    applied_stacks: &[HeadInfoStack],
     branches: &[gitbutler_branch_actions::BranchListing],
 ) -> Result<HashMap<String, bool>, anyhow::Error> {
     use but_core::RepositoryExt;
@@ -407,12 +405,12 @@ fn check_branches_merge_cleanly(
 
     // Check applied stacks
     for stack_entry in applied_stacks {
-        for head in &stack_entry.heads {
-            let branch_name = head.name.to_string();
-            match repo.find_commit(head.tip) {
+        for branch in &stack_entry.branches {
+            let branch_name = branch.name.clone();
+            match repo.find_commit(branch.tip) {
                 Ok(branch_commit) => {
                     // Find merge base
-                    match repo.merge_base_with_graph(target_commit_id, head.tip, &mut graph) {
+                    match repo.merge_base_with_graph(target_commit_id, branch.tip, &mut graph) {
                         Ok(merge_base) => {
                             let merge_base_tree_id =
                                 repo.find_commit(merge_base.detach())?.tree_id()?.detach();
@@ -549,7 +547,7 @@ fn format_date_for_display(timestamp_ms: u128) -> String {
 }
 
 fn print_applied_branches_table(
-    applied_stacks: &[but_workspace::legacy::ui::StackEntry],
+    applied_stacks: &[HeadInfoStack],
     branch_review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
     ctx: &Context,
     commits_ahead_map: Option<&HashMap<String, usize>>,
@@ -581,10 +579,10 @@ fn print_applied_branches_table(
     let mut table = Table::new(headers);
 
     for stack in applied_stacks {
-        let first_branch = stack.heads.first();
-        let last_branch = stack.heads.last();
-        for branch in &stack.heads {
-            let is_single_branch = stack.heads.len() == 1;
+        let first_branch = stack.branches.first();
+        let last_branch = stack.branches.last();
+        for branch in &stack.branches {
+            let is_single_branch = stack.branches.len() == 1;
 
             // Get commit information
             let (timestamp_ms, author_name, author_email) =
@@ -603,13 +601,13 @@ fn print_applied_branches_table(
 
             // Ahead column
             let ahead_str = commits_ahead_map
-                .and_then(|map| map.get(&branch.name.to_string()))
+                .and_then(|map| map.get(&branch.name))
                 .map(|count| t.info.paint(format!("↑{count}")))
                 .unwrap_or_default();
 
             // Merge status indicator
             let merge_status_str = if let Some(map) = merge_status_map {
-                match map.get(&branch.name.to_string()) {
+                match map.get(&branch.name) {
                     Some(true) => format!("{} ", t.sym().success),
                     Some(false) => format!("{} ", t.sym().error),
                     None => String::new(),
@@ -618,7 +616,7 @@ fn print_applied_branches_table(
                 String::new()
             };
 
-            let painted_branch_name = t.local_branch.paint(branch.name.to_string());
+            let painted_branch_name = t.local_branch.paint(&branch.name);
 
             // Branch name with tree prefix and merge status
             let branch_with_prefix = if is_single_branch {
@@ -656,8 +654,7 @@ fn print_applied_branches_table(
             };
 
             // Get PR/review info
-            let reviews_str = if let Some(reviews) = branch_review_map.get(&branch.name.to_string())
-            {
+            let reviews_str = if let Some(reviews) = branch_review_map.get(&branch.name) {
                 let review_numbers = reviews
                     .iter()
                     .map(|r| format!("{}{}", r.unit_symbol, r.number))
