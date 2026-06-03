@@ -130,6 +130,164 @@ mod config_ai {
     }
 }
 
+mod branch_integrate {
+    use clap::Parser;
+
+    use crate::args::{
+        Args, Subcommands,
+        branch::{IntegrationStrategy, Platform, Subcommands as BranchSubcommands},
+    };
+
+    #[test]
+    fn parses_branch_integrate_with_defaults() {
+        let args =
+            Args::try_parse_from(["but", "branch", "integrate", "feature"]).expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd:
+                    Some(BranchSubcommands::Integrate {
+                        branch,
+                        strategy,
+                        all,
+                        dry_run,
+                        interactive,
+                        view,
+                    }),
+            }) => {
+                assert_eq!(branch, "feature");
+                assert_eq!(strategy, IntegrationStrategy::PullRebase);
+                assert!(!all);
+                assert!(!dry_run);
+                assert!(!interactive);
+                assert!(!view);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_branch_integrate_pull_rebase_strategy() {
+        let args = Args::try_parse_from([
+            "but",
+            "branch",
+            "integrate",
+            "feature",
+            "--strategy",
+            "pull-rebase",
+        ])
+        .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd:
+                    Some(BranchSubcommands::Integrate {
+                        strategy: IntegrationStrategy::PullRebase,
+                        ..
+                    }),
+            }) => {}
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_branch_integrate_smart_squash_strategy() {
+        let args = Args::try_parse_from([
+            "but",
+            "branch",
+            "integrate",
+            "feature",
+            "-s",
+            "smart-squash",
+        ])
+        .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd:
+                    Some(BranchSubcommands::Integrate {
+                        strategy: IntegrationStrategy::SmartSquash,
+                        ..
+                    }),
+            }) => {}
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_branch_integrate_view_with_other_flags() {
+        let args = Args::try_parse_from([
+            "but",
+            "branch",
+            "integrate",
+            "feature",
+            "--all",
+            "--view",
+            "--dry-run",
+            "--interactive",
+            "--strategy",
+            "merge",
+        ])
+        .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd:
+                    Some(BranchSubcommands::Integrate {
+                        strategy: IntegrationStrategy::Merge,
+                        all,
+                        dry_run,
+                        interactive,
+                        view,
+                        ..
+                    }),
+            }) => {
+                assert!(all);
+                assert!(dry_run);
+                assert!(interactive);
+                assert!(view);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_branch_integrate_all_short_flag() {
+        let args = Args::try_parse_from(["but", "branch", "integrate", "feature", "-a"])
+            .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd: Some(BranchSubcommands::Integrate { all, .. }),
+            }) => {
+                assert!(all);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_branch_integrate_interactive() {
+        let args = Args::try_parse_from(["but", "branch", "integrate", "feature", "--interactive"])
+            .expect("parse args");
+
+        let cmd = args.cmd.expect("subcommand");
+        match cmd {
+            Subcommands::Branch(Platform {
+                cmd: Some(BranchSubcommands::Integrate { interactive, .. }),
+            }) => {
+                assert!(interactive);
+            }
+            _ => panic!("unexpected command shape"),
+        }
+    }
+}
+
 #[test]
 fn clap() {
     use clap::CommandFactory;

@@ -1,6 +1,15 @@
 #[cfg(feature = "legacy")]
 use crate::args::atoms::{BranchArg, CliIdArg};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum, Default)]
+pub enum IntegrationStrategy {
+    #[default]
+    PullRebase,
+    SmartSquash,
+    Merge,
+    PickRemote,
+}
+
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
     #[clap(subcommand)]
@@ -140,5 +149,29 @@ pub enum Subcommands {
     Apply {
         /// Name of the branch to apply
         branch_name: String,
+    },
+
+    /// Integrate changes from the remote branch into the local
+    ///
+    /// This generates integration steps for the selected strategy and either
+    /// previews or applies them to the branch.
+    Integrate {
+        /// Name of the local branch to integrate
+        branch: String,
+        /// Strategy to use for the integration
+        #[clap(long, short = 's', value_enum, default_value_t)]
+        strategy: IntegrationStrategy,
+        /// Show the full divergence or preview without collapsing integrated local commits
+        #[clap(long, short = 'a')]
+        all: bool,
+        /// Preview the resulting branch state without persisting changes
+        #[clap(long)]
+        dry_run: bool,
+        /// Open the generated integration script in an editor
+        #[clap(long, short = 'i')]
+        interactive: bool,
+        /// Show only the current branch/upstream divergence
+        #[clap(long, short = 'v')]
+        view: bool,
     },
 }

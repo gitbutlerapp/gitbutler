@@ -563,6 +563,31 @@ async fn match_subcommand(
                     let ctx = but_ctx::Context::discover(&args.current_dir)?;
                     command::branch::apply(ctx, &branch_name, out).map_err(CliError::from)
                 }
+                Some(branch::Subcommands::Integrate {
+                    branch,
+                    strategy,
+                    all,
+                    dry_run,
+                    interactive,
+                    view,
+                }) => {
+                    let status_after = args.status_after && !dry_run && !view && !interactive;
+                    let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
+                    out.begin_status_after(status_after);
+                    let result = command::branch::integrate(
+                        &mut ctx,
+                        &branch,
+                        strategy,
+                        all,
+                        dry_run,
+                        interactive,
+                        view,
+                        out,
+                    )
+                    .map_err(CliError::from);
+                    maybe_run_status_after(status_after, &result, &mut ctx, out).await;
+                    result
+                }
                 Some(branch::Subcommands::Move { .. }) => Err(bad_input(
                     "`but branch move` has been removed. Use `but move` instead.",
                 )

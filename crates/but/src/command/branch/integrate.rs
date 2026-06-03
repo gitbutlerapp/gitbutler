@@ -1,0 +1,568 @@
+use anyhow::bail;
+use bstr::ByteSlice;
+use but_api::branch::{
+    self, IntegrateBranchResult,
+    json::{
+        self, BranchIntegrationStrategy as JsonBranchIntegrationStrategy,
+        IntegrationDivergenceCommit, IntegrationDivergenceDisplay,
+    },
+};
+use but_api::json as api_json;
+use but_core::DryRun;
+use gix::refs::{Category, FullName, FullNameRef};
+use std::collections::HashSet;
+
+use crate::{
+    args::branch::IntegrationStrategy,
+    theme::{self, Paint},
+    tui::get_text,
+    tui::text::strip_ansi_codes,
+    utils::OutputChannel,
+};
+
+#[allow(clippy::too_many_arguments)]
+pub fn integrate(
+    ctx: &mut but_ctx::Context,
+    branch: &str,
+    strategy: IntegrationStrategy,
+    all: bool,
+    dry_run: bool,
+    interactive: bool,
+    view: bool,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
+    let branch_ref = resolve_local_branch(ctx, branch)?;
+
+    if view {
+        let initial = branch::get_initial_branch_integration(
+            ctx,
+            branch_ref.as_ref(),
+            Some(strategy.into()),
+        )?;
+        return output_view(initial, all, out);
+    }
+
+    let initial =
+        branch::get_initial_branch_integration(ctx, branch_ref.as_ref(), Some(strategy.into()))?;
+    let integration = if interactive {
+        integration_from_editor(&initial)?
+    } else {
+        workspace_integration_to_json(initial.integration)
+    };
+    let result = branch::apply_branch_integration(
+        ctx,
+        branch_ref.as_ref(),
+        integration,
+        if dry_run { DryRun::Yes } else { DryRun::No },
+    )?;
+
+    output_apply_result(branch_ref.as_ref(), strategy, dry_run, result, out)
+}
+
+fn integration_from_editor(
+    initial: &but_workspace::branch::InitialBranchIntegration,
+) -> anyhow::Result<json::InteractiveIntegration> {
+    let script = build_integration_editor_script(initial);
+    let edited = get_text::from_editor("branch-integration", &script, None, ".txt")?;
+    let steps = but_workspace::branch::parse_integration_steps_script(
+        edited.as_slice(),
+        &initial.divergence,
+    )?;
+
+    Ok(workspace_integration_to_json(
+        but_workspace::branch::integrate_branch_upstream::InteractiveIntegration {
+            steps,
+            merge_base: initial.integration.merge_base,
+            first_local_not_integrated: initial.integration.first_local_not_integrated,
+        },
+    ))
+}
+
+fn build_integration_editor_script(
+    initial: &but_workspace::branch::InitialBranchIntegration,
+) -> String {
+    let divergence = strip_ansi_codes(&format_divergence(&initial.divergence, false)).into_owned();
+    let mut lines = vec!["# Edit the integration steps below.".to_owned()];
+    lines.extend(
+        but_workspace::branch::render_integration_steps_script(&initial.integration.steps)
+            .lines()
+            .map(ToOwned::to_owned),
+    );
+    lines.extend(vec![
+        "#".to_owned(),
+        "# Blank lines and comment lines are ignored.".to_owned(),
+        "# Available commands:".to_owned(),
+        "#   pick <commit>".to_owned(),
+        "#   merge <commit>".to_owned(),
+        "#   squash <commit> <commit>... | message=\"...\"".to_owned(),
+        "# Only non-integrated local commits and upstream commits may be referenced.".to_owned(),
+        "#".to_owned(),
+    ]);
+    lines.push("#".to_owned());
+    lines.extend(divergence.lines().map(|line| format!("# {line}")));
+    lines.push(String::new());
+    lines.join("\n")
+}
+
+fn workspace_integration_to_json(
+    integration: but_workspace::branch::integrate_branch_upstream::InteractiveIntegration,
+) -> json::InteractiveIntegration {
+    json::InteractiveIntegration {
+        merge_base: integration.merge_base.into(),
+        first_local_not_integrated: integration.first_local_not_integrated.map(Into::into),
+        steps: integration
+            .steps
+            .into_iter()
+            .map(|step| match step {
+                but_workspace::branch::InteractiveIntegrationStep::Pick { commit_id } => {
+                    json::InteractiveIntegrationStep::Pick {
+                        commit_id: commit_id.into(),
+                    }
+                }
+                but_workspace::branch::InteractiveIntegrationStep::Squash { commits, message } => {
+                    json::InteractiveIntegrationStep::Squash {
+                        commits: commits.into_iter().map(Into::into).collect(),
+                        message,
+                    }
+                }
+                but_workspace::branch::InteractiveIntegrationStep::Merge { commit_id } => {
+                    json::InteractiveIntegrationStep::Merge {
+                        commit_id: commit_id.into(),
+                    }
+                }
+            })
+            .collect(),
+    }
+}
+
+fn resolve_local_branch(ctx: &but_ctx::Context, branch: &str) -> anyhow::Result<FullName> {
+    let candidate = normalize_local_branch_ref(branch)?;
+    let repo = ctx.repo.get()?;
+    let Some(reference) = repo.try_find_reference(candidate.as_ref())? else {
+        bail!("Local branch '{}' not found", candidate.shorten());
+    };
+    let reference = reference.detach();
+    match reference.name.category() {
+        Some(Category::LocalBranch) => Ok(reference.name),
+        Some(Category::RemoteBranch) => {
+            bail!(
+                "Expected a local branch, but '{}' is a remote-tracking branch",
+                reference.name.shorten()
+            )
+        }
+        _ => bail!(
+            "Expected a local branch, but '{}' is not under refs/heads/",
+            reference.name.shorten()
+        ),
+    }
+}
+
+fn normalize_local_branch_ref(branch: &str) -> anyhow::Result<FullName> {
+    let full = if branch.starts_with("refs/heads/") {
+        branch.to_owned()
+    } else if branch.starts_with("refs/") {
+        bail!("Only local branches under refs/heads/ are supported");
+    } else {
+        format!("refs/heads/{branch}")
+    };
+    FullName::try_from(full).map_err(|err| anyhow::anyhow!("Invalid branch name: {err}"))
+}
+
+fn output_view(
+    initial: but_workspace::branch::InitialBranchIntegration,
+    all: bool,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
+    if let Some(out) = out.for_human() {
+        write!(out, "{}", format_divergence(&initial.divergence, all))?;
+    } else if let Some(out) = out.for_shell() {
+        writeln!(
+            out,
+            "{} {}",
+            shorten_full_ref_name(&api_json::FullRefName::from(
+                initial.divergence.branch_ref_name
+            )),
+            shorten_full_ref_name(&api_json::FullRefName::from(
+                initial.divergence.upstream_ref_name
+            )),
+        )?;
+    } else if let Some(out) = out.for_json() {
+        out.write_value(json::InitialBranchIntegration::try_from(initial)?)?;
+    }
+    Ok(())
+}
+
+fn output_apply_result(
+    branch_ref: &FullNameRef,
+    strategy: IntegrationStrategy,
+    dry_run: bool,
+    result: IntegrateBranchResult,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
+    if let Some(out) = out.for_human() {
+        if dry_run {
+            write!(out, "{}", format_preview(branch_ref, &result))?;
+        } else {
+            let t = theme::get();
+            writeln!(
+                out,
+                "Integrated branch {} with {}.",
+                t.local_branch.paint(branch_ref.shorten().to_string()),
+                strategy.name()
+            )?;
+        }
+    } else if let Some(out) = out.for_shell() {
+        if dry_run {
+            writeln!(out, "preview {branch_ref}")?;
+        } else {
+            writeln!(out, "integrated {branch_ref}")?;
+        }
+    } else if let Some(out) = out.for_json() {
+        out.write_value(json::IntegrateBranchResult::try_from(result)?)?;
+    }
+    Ok(())
+}
+
+fn format_divergence(
+    divergence: &but_workspace::branch::IntegrationDivergenceDisplay,
+    all: bool,
+) -> String {
+    let t = theme::get();
+    let branch_ref_name = api_json::FullRefName::from(divergence.branch_ref_name.clone());
+    let upstream_ref_name = api_json::FullRefName::from(divergence.upstream_ref_name.clone());
+    let short_branch_name = shorten_full_ref_name(&branch_ref_name);
+    let short_upstream_name = shorten_full_ref_name(&upstream_ref_name);
+    let divergence: IntegrationDivergenceDisplay = divergence.clone().into();
+    let (hidden_integrated_count, local_non_integrated_count) = if all {
+        (0, divergence.local_only.len())
+    } else {
+        contiguos_integrated_divergence_count(&divergence.local_only)
+    };
+    let mut lines = Vec::new();
+    lines.push(format!(
+        "Divergence: {} <- {}",
+        t.local_branch.paint(short_branch_name),
+        t.remote_branch.paint(short_upstream_name)
+    ));
+    lines.push(String::new());
+    lines.extend(
+        divergence
+            .local_only
+            .iter()
+            .take(local_non_integrated_count)
+            .map(|commit| {
+                let style = match commit.target_relation {
+                    json::IntegrationDivergenceTargetRelation::HistoricallyIntegrated {
+                        ..
+                    } => CommitRenderStyle::Integrated,
+                    json::IntegrationDivergenceTargetRelation::NotIntegrated => {
+                        CommitRenderStyle::LocalOnly
+                    }
+                };
+                format_divergence_commit("", commit, short_branch_name, short_upstream_name, style)
+            }),
+    );
+    if hidden_integrated_count > 0 {
+        lines.push(format_collapsed_integrated_summary(hidden_integrated_count));
+    }
+    let upstream_connector = if divergence.local_only.is_empty() {
+        ""
+    } else {
+        "┊"
+    };
+    lines.extend(divergence.upstream_only.iter().map(|commit| {
+        let style = match commit.target_relation {
+            json::IntegrationDivergenceTargetRelation::HistoricallyIntegrated { .. } => {
+                CommitRenderStyle::Integrated
+            }
+            json::IntegrationDivergenceTargetRelation::NotIntegrated => CommitRenderStyle::Upstream,
+        };
+        format_divergence_commit(
+            upstream_connector,
+            commit,
+            short_branch_name,
+            short_upstream_name,
+            style,
+        )
+    }));
+    if !divergence.local_only.is_empty() && !divergence.upstream_only.is_empty() {
+        lines.push("├╯".into());
+    }
+    lines.push(format_divergence_base("", &divergence.merge_base));
+    lines.push(String::new());
+    lines.join("\n")
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CommitRenderStyle {
+    LocalOnly,
+    Upstream,
+    Integrated,
+}
+
+fn format_divergence_commit(
+    connector: &str,
+    commit: &IntegrationDivergenceCommit,
+    short_branch_name: &str,
+    short_upstream_name: &str,
+    style: CommitRenderStyle,
+) -> String {
+    let refs = if commit.refs.is_empty() {
+        None
+    } else {
+        let t = theme::get();
+        let refs = commit
+            .refs
+            .iter()
+            .map(|ref_name| match ref_name.as_str() {
+                name if name == short_branch_name => t.local_branch.paint(name).to_string(),
+                name if name == short_upstream_name => t.remote_branch.paint(name).to_string(),
+                name => name.to_owned(),
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        Some(refs)
+    };
+    format_commit_row(
+        connector,
+        style,
+        short_hex_json(&commit.id),
+        refs.as_deref(),
+        Some(commit.subject.as_str()),
+    )
+}
+
+fn format_divergence_base(connector: &str, commit: &IntegrationDivergenceCommit) -> String {
+    format_base_row(
+        connector,
+        short_hex_json(&commit.id),
+        Some(commit.subject.as_str()),
+    )
+}
+
+fn format_preview(branch_ref: &FullNameRef, result: &IntegrateBranchResult) -> String {
+    let t = theme::get();
+    let target_branch = branch_ref.as_bstr().to_owned();
+    let mut lines = Vec::new();
+    lines.push(format!(
+        "Preview: {}",
+        t.local_branch.paint(branch_ref.shorten().to_string())
+    ));
+    lines.push(String::new());
+
+    let matching_segment = result
+        .workspace
+        .head_info
+        .stacks
+        .iter()
+        .flat_map(|stack| stack.segments.iter())
+        .find(|segment| {
+            segment
+                .ref_info
+                .as_ref()
+                .map(|reference| reference.ref_name.as_ref().to_owned().into_inner())
+                .is_some_and(|ref_name| ref_name == target_branch)
+        });
+
+    let Some(segment) = matching_segment else {
+        lines.push("(branch not present in preview workspace)".into());
+        lines.push(String::new());
+        return lines.join("\n");
+    };
+
+    let branch_name = segment
+        .ref_info
+        .as_ref()
+        .map(|reference| reference.ref_name.shorten().to_string())
+        .unwrap_or_else(|| branch_ref.shorten().to_string());
+    lines.push(format!("* {}", t.local_branch.paint(branch_name)));
+    let represented_remote_ids: HashSet<_> = segment
+        .commits
+        .iter()
+        .filter_map(|commit| match commit.relation {
+            but_workspace::ref_info::LocalCommitRelation::LocalOnly => None,
+            but_workspace::ref_info::LocalCommitRelation::LocalAndRemote(remote_id)
+            | but_workspace::ref_info::LocalCommitRelation::Integrated(remote_id) => {
+                Some(remote_id)
+            }
+        })
+        .collect();
+    let local_commit_rows = segment
+        .commits
+        .iter()
+        .map(|commit| {
+            let style = match commit.relation {
+                but_workspace::ref_info::LocalCommitRelation::Integrated(_) => {
+                    CommitRenderStyle::Integrated
+                }
+                but_workspace::ref_info::LocalCommitRelation::LocalOnly
+                | but_workspace::ref_info::LocalCommitRelation::LocalAndRemote(_) => {
+                    CommitRenderStyle::LocalOnly
+                }
+            };
+            let message = commit
+                .inner
+                .message
+                .lines()
+                .next()
+                .map(|line| line.to_str_lossy().into_owned())
+                .unwrap_or_default();
+            PreviewCommitRow {
+                style,
+                short_id: commit.inner.id.to_hex_with_len(7).to_string(),
+                subject: message,
+            }
+        })
+        .collect::<Vec<_>>();
+    for row in local_commit_rows.iter() {
+        lines.push(format_commit_row(
+            "",
+            row.style,
+            row.short_id.clone(),
+            None,
+            Some(row.subject.as_str()),
+        ));
+    }
+    for commit in &segment.commits_on_remote {
+        if represented_remote_ids.contains(&commit.id) {
+            continue;
+        }
+        let message = commit
+            .message
+            .lines()
+            .next()
+            .map(|line| line.to_str_lossy().into_owned())
+            .unwrap_or_default();
+        lines.push(format_commit_row(
+            "┊",
+            CommitRenderStyle::Upstream,
+            commit.id.to_hex_with_len(7).to_string(),
+            None,
+            Some(message.as_str()),
+        ));
+    }
+    if let Some(base) = segment.base {
+        lines.push(format_base_row(
+            "",
+            base.to_hex_with_len(7).to_string(),
+            None,
+        ));
+    }
+    lines.push(String::new());
+    lines.push(format!(
+        "Replaced commits: {}",
+        result.workspace.replaced_commits.len()
+    ));
+    lines.push(String::new());
+    lines.join("\n")
+}
+
+struct PreviewCommitRow {
+    style: CommitRenderStyle,
+    short_id: String,
+    subject: String,
+}
+
+fn contiguos_integrated_divergence_count(
+    commits: &[IntegrationDivergenceCommit],
+) -> (usize, usize) {
+    let total = commits.len();
+    let count = commits
+        .iter()
+        .rev()
+        .take_while(|commit| {
+            matches!(
+                commit.target_relation,
+                json::IntegrationDivergenceTargetRelation::HistoricallyIntegrated { .. }
+            )
+        })
+        .count();
+    let count = if count >= 2 { count } else { 0 };
+    let rest = total - count;
+    (count, rest)
+}
+
+fn format_collapsed_integrated_summary(hidden_count: usize) -> String {
+    let t = theme::get();
+    let noun = if hidden_count == 1 {
+        "commit"
+    } else {
+        "commits"
+    };
+    t.hint
+        .paint(format!(
+            "~\n... {hidden_count} integrated local {noun} hidden (use --all to show)\n~"
+        ))
+        .to_string()
+}
+
+fn format_commit_row(
+    connector: &str,
+    style: CommitRenderStyle,
+    short_id: String,
+    refs: Option<&str>,
+    subject: Option<&str>,
+) -> String {
+    let t = theme::get();
+    let dot = match style {
+        CommitRenderStyle::LocalOnly => "●".to_string(),
+        CommitRenderStyle::Upstream => t.attention.paint("●").to_string(),
+        CommitRenderStyle::Integrated => t.remote_branch.paint("●").to_string(),
+    };
+    let refs = refs.map(|refs| format!(" ({refs})")).unwrap_or_default();
+    let subject = subject
+        .filter(|subject| !subject.is_empty())
+        .map(|subject| format!(" {subject}"))
+        .unwrap_or_default();
+    format!(
+        "{connector}{dot} {}{refs}{subject}",
+        t.commit_id.paint(short_id),
+    )
+}
+
+fn format_base_row(connector: &str, short_id: String, subject: Option<&str>) -> String {
+    let t = theme::get();
+    let subject = subject
+        .filter(|subject| !subject.is_empty())
+        .map(|subject| format!(" {subject}"))
+        .unwrap_or_default();
+    format!("{connector}o {}{subject}", t.commit_id.paint(short_id),)
+}
+
+fn shorten_full_ref_name(ref_name: &api_json::FullRefName) -> &str {
+    ref_name
+        .full
+        .strip_prefix("refs/heads/")
+        .or_else(|| ref_name.full.strip_prefix("refs/remotes/"))
+        .unwrap_or(ref_name.full.as_str())
+}
+
+fn short_hex_json(hex: &impl serde::Serialize) -> String {
+    serde_json::to_value(hex)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_owned))
+        .map(|hex| hex[..7].to_owned())
+        .unwrap_or_else(|| "<invalid>".into())
+}
+
+impl IntegrationStrategy {
+    fn name(self) -> &'static str {
+        match self {
+            IntegrationStrategy::PullRebase => "pull-rebase",
+            IntegrationStrategy::SmartSquash => "smart-squash",
+            IntegrationStrategy::Merge => "merge",
+            IntegrationStrategy::PickRemote => "pick-remote",
+        }
+    }
+}
+
+impl From<IntegrationStrategy> for JsonBranchIntegrationStrategy {
+    fn from(value: IntegrationStrategy) -> Self {
+        match value {
+            IntegrationStrategy::PullRebase => Self::PullRebase,
+            IntegrationStrategy::SmartSquash => Self::SmartSquash,
+            IntegrationStrategy::Merge => Self::Merge,
+            IntegrationStrategy::PickRemote => Self::PickRemote,
+        }
+    }
+}
