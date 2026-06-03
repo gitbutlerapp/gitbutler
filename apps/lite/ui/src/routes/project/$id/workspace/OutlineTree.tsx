@@ -1790,7 +1790,7 @@ const BranchRow: FC<
 								</Tooltip.Trigger>
 								<Tooltip.Portal>
 									<Tooltip.Positioner sideOffset={4}>
-										<Tooltip.Popup render={<TooltipPopup />}>
+										<Tooltip.Popup render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}>
 											{pushStackDisabledReason ?? pushButtonLabel}
 										</Tooltip.Popup>
 									</Tooltip.Positioner>
