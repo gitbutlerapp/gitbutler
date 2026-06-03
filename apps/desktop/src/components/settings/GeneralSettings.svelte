@@ -5,7 +5,6 @@
 	import { BACKEND } from "$lib/backend";
 	import { getUserErrorCode } from "$lib/backend/ipc";
 	import { CLI_MANAGER } from "$lib/config/cli";
-	import { showError } from "$lib/error/showError";
 	import { showToast } from "$lib/notifications/toasts";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
@@ -131,11 +130,9 @@
 			userService.setUser(updatedUser);
 			chipToasts.success("Profile updated");
 			selectedPictureFile = undefined;
-		} catch (err: any) {
-			console.error(err);
-			showError("Failed to update user", err);
+		} finally {
+			saving = false;
 		}
-		saving = false;
 	}
 
 	function onPictureChange(file: File) {
@@ -151,9 +148,6 @@
 			await userService.forgetUserCredentials();
 			chipToasts.success("All data deleted");
 			goto("/", { replaceState: true, invalidateAll: true });
-		} catch (err: any) {
-			console.error(err);
-			showError("Failed to delete project", err);
 		} finally {
 			deleteConfirmationModal?.close();
 			isDeleting = false;

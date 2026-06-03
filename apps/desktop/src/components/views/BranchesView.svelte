@@ -18,7 +18,7 @@
 	import TargetCommitList from "$components/views/TargetCommitList.svelte";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
-	import { isParsedError } from "$lib/error/parser";
+	import { isNormalizedError } from "$lib/error/normalizedError";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { useGitHubForgeUser } from "$lib/forge/github/hooks.svelte";
 	import { useGitLabForgeUser } from "$lib/forge/gitlab/hooks.svelte";
@@ -143,7 +143,7 @@
 
 	function onerror(err: unknown) {
 		// Clear selection if branch not found.
-		if (isParsedError(err) && err.code === "BranchNotFound") {
+		if (isNormalizedError(err) && err.code === "BranchNotFound") {
 			selection = { type: "target" };
 			console.warn("Branches selection cleared");
 		}

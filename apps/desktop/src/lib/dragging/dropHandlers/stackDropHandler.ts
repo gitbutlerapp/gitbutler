@@ -7,7 +7,7 @@ import {
 } from "$lib/dragging/draggables";
 import { BranchDropData } from "$lib/dragging/dropHandlers/branchDropHandler";
 import { CommitDropData } from "$lib/dragging/dropHandlers/commitDropHandler";
-import { parseError } from "$lib/error/parser";
+import { classify } from "$lib/error/errorClassification";
 import { unstackPRs, updateStackPrs } from "$lib/forge/shared/prFooter";
 import { toCommitMovePlacement } from "$lib/stacks/commitMovePlacement";
 import StackMacros from "$lib/stacks/macros";
@@ -245,11 +245,11 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 						dryRun: false,
 					});
 				} catch (error) {
-					const { description, message } = parseError(error);
+					const classified = classify(error);
 					result = {
 						type: "warning",
 						title: "Cannot move commits",
-						message: description ?? message,
+						message: classified.userMessage ?? classified.message,
 					};
 				}
 			},

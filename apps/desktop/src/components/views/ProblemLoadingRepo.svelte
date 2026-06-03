@@ -6,7 +6,6 @@
 	import ProjectSwitcher from "$components/shared/ProjectSwitcher.svelte";
 	import AppLayout from "$components/views/AppLayout.svelte";
 	import loadErrorSvg from "$lib/assets/illustrations/load-error.svg?raw";
-	import { showError } from "$lib/error/showError";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { POSTHOG_WRAPPER } from "$lib/telemetry/posthog";
 	import { inject } from "@gitbutler/core/context";
@@ -36,9 +35,6 @@
 			await projectsService.deleteProject(projectId);
 			chipToasts.success("Project deleted");
 			goto("/");
-		} catch (err: any) {
-			console.error(err);
-			showError("Failed to delete project", err);
 		} finally {
 			loading = false;
 		}

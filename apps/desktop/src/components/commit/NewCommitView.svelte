@@ -2,9 +2,8 @@
 	import CommitMessageEditor from "$components/commit/CommitMessageEditor.svelte";
 	import { COMMIT_ANALYTICS } from "$lib/analytics/commitAnalytics";
 	import { projectRunCommitHooks } from "$lib/config/config";
-	import { showError } from "$lib/error/showError";
-	import { HookFailedError, HOOKS_SERVICE } from "$lib/git/hooksService";
-	import { showToast } from "$lib/notifications/toasts";
+	import { HOOKS_SERVICE } from "$lib/git/hooksService";
+	import { showToast, showWarning } from "$lib/notifications/toasts";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { createWorktreeSelection } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
@@ -91,7 +90,7 @@
 			if ($runCommitHooks) {
 				const messageHookResult = await runMessageHook({ projectId, message });
 				if (messageHookResult?.status === "failure") {
-					showError("Commit message hook failed", messageHookResult.error);
+					showWarning("Commit message hook failed", messageHookResult.error);
 					return;
 				} else if (messageHookResult?.status === "message") {
 					finalMessage = messageHookResult.message;
@@ -182,13 +181,10 @@
 			return;
 		}
 
-		try {
-			await createCommit(message);
-		} catch (err: unknown) {
-			if (!(err instanceof HookFailedError)) {
-				showError("Failed to commit", err);
-			}
-		}
+		// HookFailedError extends SilentError, so any toast it would
+		// otherwise produce is suppressed by the classifier; every other
+		// failure bubbles to the global handler.
+		await createCommit(message);
 	}
 
 	function handleMessageUpdate(title?: string, description?: string) {

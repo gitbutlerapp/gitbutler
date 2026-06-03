@@ -1,5 +1,5 @@
 import { emitQueryError, parseQueryError, SilentError } from "$lib/error/error";
-import { isReduxError, type ReduxError } from "$lib/error/reduxError";
+import { isNormalizedError, type NormalizedError } from "$lib/error/normalizedError";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { type Reactive } from "@gitbutler/shared/storeUtils";
 import { isErrorlike } from "@gitbutler/ui/utils/typeguards";
@@ -252,7 +252,7 @@ export type UseMutationHookParams<Definition extends MutationDefinition<any, any
 	 *
 	 * This does not stop the error from being thrown, but allows you to add a side effect depending on the error.
 	 */
-	onError?: (error: ReduxError, queryArgs: QueryArgFrom<Definition>) => void;
+	onError?: (error: NormalizedError, queryArgs: QueryArgFrom<Definition>) => void;
 	/**
 	 * If true, wraps the error in a `SilentError`. This is useful if you are
 	 * providing error messages through `onError` and don't want the global
@@ -405,7 +405,7 @@ export function buildMutationHook<
 			return result;
 		} catch (error: unknown) {
 			track({ failure: true, properties: options.properties, startTime, error });
-			if (options.onError && isReduxError(error)) {
+			if (options.onError && isNormalizedError(error)) {
 				options.onError(error, queryArg);
 			}
 			throwError(error, options.throwSilentError ?? false);

@@ -1,51 +1,50 @@
-import { persistSwallowGitHubOrgAuthErrors } from "$lib/config/config";
-import {
-	getTitleFromCommonErrorMessage,
-	isBundlingError,
-	isGitHubOrgAuthError,
-	parseError,
-	shouldIgnoreThisError,
-} from "$lib/error/parser";
-import { showToast, type Toast } from "$lib/notifications/toasts";
+import { classify } from "$lib/error/errorClassification";
+import { isNormalizedError, normalizedErrorToException } from "$lib/error/normalizedError";
+import { shouldCaptureToast, showToast, type Toast } from "$lib/notifications/toasts";
+import { captureException } from "@sentry/sveltekit";
+import posthog from "posthog-js";
 
 type ExtraAction = NonNullable<Toast["extraAction"]>;
 
 export function showError(title: string, error: unknown, extraAction?: ExtraAction, id?: string) {
-	const { name, message, code, description, ignored } = parseError(error);
-	if (isBundlingError(message)) {
-		console.warn(
-			"You are likely experiencing a dev mode bundling error, " +
-				"try disabling the cache from the network tab and " +
-				"reload the page.",
-		);
+	const classified = classify(error, title);
+	if (classified.severity === "silent") {
 		return;
 	}
-	const commonErrorTitle = getTitleFromCommonErrorMessage(message);
-	const actualTitle = name || commonErrorTitle || title;
-	const shouldIgnoreThisSpecificError = shouldIgnoreThisError(actualTitle);
 
-	if (!ignored && !shouldIgnoreThisSpecificError) {
-		const offerToIgnore = isGitHubOrgAuthError(actualTitle);
-		const actualExtraAction =
-			extraAction ??
-			(offerToIgnore
-				? {
-						label: "Don't show this again",
-						onClick: () => {
-							persistSwallowGitHubOrgAuthErrors(true);
-						},
-					}
-				: undefined);
+	if (shouldCaptureToast()) {
+		posthog.capture("toast:show_error", {
+			error_test_id: id,
+			error_title: classified.title,
+			error_message: classified.message,
+		});
 
-		const isWarn = code === "PreconditionFailed";
-
-		showToast({
-			id,
-			title: actualTitle,
-			message: description,
-			error: message,
-			style: isWarn ? "warning" : "danger",
-			extraAction: actualExtraAction,
+		// Tauri rejections arrive as plain `{name, message, code}` objects
+		// rather than `Error` instances. Sentry can't extract a stack from
+		// those, so it buckets every variant under generic "Object captured
+		// as promise rejection" groups. Wrap them in a proper Error so
+		// Sentry groups by name + message.
+		const forSentry =
+			isNormalizedError(error) && !(error instanceof Error)
+				? normalizedErrorToException(error)
+				: error;
+		captureException(forSentry, {
+			mechanism: {
+				// Surface the producer ("ipc" / "http" / "frontend") to
+				// Sentry so triage can filter by where the error came from
+				// without re-deriving it from the stack.
+				type: isNormalizedError(error) ? (error.origin ?? "ui") : "ui",
+				handled: true,
+			},
 		});
 	}
+
+	showToast({
+		id,
+		title: classified.title,
+		message: classified.userMessage,
+		error: classified.message,
+		style: classified.severity === "warning" ? "warning" : "danger",
+		extraAction: extraAction ?? classified.actionHint,
+	});
 }

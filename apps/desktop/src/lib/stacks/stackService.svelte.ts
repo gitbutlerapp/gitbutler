@@ -1,7 +1,7 @@
 import { getBranchNameFromRef } from "$lib/branches/branchUtils";
 import { newPushFeature } from "$lib/config/uiFeatureFlags";
 import { sortLikeFileTree } from "$lib/files/filetreeV3";
-import { showToast } from "$lib/notifications/toasts";
+import { showWarning } from "$lib/notifications/toasts";
 import {
 	selectWorkspaceStackById,
 	selectWorkspaceStackDetails,
@@ -26,7 +26,7 @@ import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import { get } from "svelte/store";
-import type { ReduxError } from "$lib/error/reduxError";
+import type { NormalizedError } from "$lib/error/normalizedError";
 import type { BackendApi } from "$lib/state/backendApi";
 import type { AppDispatch } from "$lib/state/clientState.svelte";
 import type { AbsorptionTarget, DiffSpec, Stack } from "@gitbutler/but-sdk";
@@ -402,19 +402,17 @@ export class StackService {
 					this.dispatch(this.backendApi.util.invalidateTags(invalidations));
 				}, 2000);
 			},
-			onError: (commandError: ReduxError) => {
+			onError: (commandError: NormalizedError) => {
 				const { code, message } = commandError;
 				if (code === "GitForcePushProtection") {
 					throw commandError;
 				}
 				const reason =
 					code === "ProjectGitAuth" ? "an authentication failure" : "an unforeseen error";
-				showToast({
-					title: "Git push failed",
-					message: `Your branch cannot be pushed due to ${reason}.\n\nPlease check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)\non fetching and pushing for ways to resolve the problem.`,
-					error: message,
-					style: "warning",
-				});
+				showWarning(
+					"Git push failed",
+					`Your branch cannot be pushed due to ${reason}: ${message}\n\nPlease check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)\non fetching and pushing for ways to resolve the problem.`,
+				);
 			},
 			throwSilentError: true,
 		};

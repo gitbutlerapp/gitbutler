@@ -26,7 +26,13 @@ const TOAST_CAPTURE_LIMIT = 60;
 const TOAST_CAPTURE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const toastCaptureTimestamps: number[] = [];
 
-function shouldCaptureToast(): boolean {
+/**
+ * Per-renderer rate limit (60/hour) shared across all toast telemetry —
+ * `toast:show_error` from `showError`, `toast:show_warning` from
+ * `showWarning`. Used so a runaway error loop can't flood PostHog or
+ * Sentry from a single user.
+ */
+export function shouldCaptureToast(): boolean {
 	const now = Date.now();
 	const cutoff = now - TOAST_CAPTURE_WINDOW_MS;
 	while (toastCaptureTimestamps.length > 0 && toastCaptureTimestamps[0]! <= cutoff) {
@@ -40,22 +46,11 @@ function shouldCaptureToast(): boolean {
 }
 
 export function showToast(toast: Toast) {
-	if (toast.error && shouldCaptureToast()) {
-		posthog.capture("toast:show_error", {
-			error_test_id: toast.testId,
-			error_title: toast.title,
-			error_message: String(toast.error),
-		});
-	}
-
-	if (toast.style === "warning" && shouldCaptureToast()) {
-		posthog.capture("toast:show_warning", {
-			warning_test_id: toast.testId,
-			warning_title: toast.title,
-			warning_message: toast.message,
-		});
-	}
-
+	// `toast:show_error` and `toast:show_warning` are captured by
+	// `showError` and `showWarning` respectively — telemetry lives next
+	// to the semantic call, not in this low-level UI primitive. Callers
+	// of `showToast` directly don't emit telemetry; convert them to
+	// `showWarning` / `showError` if telemetry is wanted.
 	toast.message = toast.message?.replace(/^ */gm, "");
 	if (!toast.id) {
 		toast = { ...toast, id: `${idCounter++}` };
@@ -70,8 +65,20 @@ export function showInfo(title: string, message: string, extraAction?: ExtraActi
 	showToast({ title, message, style: "info", extraAction });
 }
 
-export function showWarning(title: string, message: string, extraAction?: ExtraAction) {
-	showToast({ title, message, style: "warning", extraAction });
+export function showWarning(
+	title: string,
+	message: string,
+	extraAction?: ExtraAction,
+	testId?: string,
+) {
+	if (shouldCaptureToast()) {
+		posthog.capture("toast:show_warning", {
+			warning_test_id: testId,
+			warning_title: title,
+			warning_message: message,
+		});
+	}
+	showToast({ title, message, style: "warning", extraAction, testId });
 }
 
 export function dismissToast(messageId: string | undefined) {

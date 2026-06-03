@@ -1,4 +1,4 @@
-import { IpcError, isReduxError } from "$lib/error/reduxError";
+import { IpcError, isNormalizedError } from "$lib/error/normalizedError";
 import { getCookie } from "$lib/utils/cookies";
 import ReconnectingWebSocket from "reconnecting-websocket";
 import { readable } from "svelte/store";
@@ -196,7 +196,7 @@ async function webInvoke<T>(command: string, params: Record<string, unknown> = {
 		if (out.type === "success") {
 			return out.subject;
 		} else {
-			if (isReduxError(out.subject)) {
+			if (isNormalizedError(out.subject)) {
 				console.error(`ipc->${command}: ${JSON.stringify(params)}`, out.subject);
 				throw new IpcError(out.subject, command);
 			}
@@ -205,7 +205,7 @@ async function webInvoke<T>(command: string, params: Record<string, unknown> = {
 	} catch (error: unknown) {
 		// Already wrapped on the explicit-throw path above; only the network
 		// / parse failure path lands here with a raw redux-shaped error.
-		if (isReduxError(error) && !(error instanceof IpcError)) {
+		if (isNormalizedError(error) && !(error instanceof IpcError)) {
 			console.error(`ipc->${command}: ${JSON.stringify(params)}`, error);
 			throw new IpcError(error, command);
 		}

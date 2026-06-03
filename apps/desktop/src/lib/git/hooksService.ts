@@ -1,3 +1,4 @@
+import { SilentError } from "$lib/error/error";
 import { showWarning } from "$lib/notifications/toasts";
 import { InjectionToken } from "@gitbutler/core/context";
 import { chipToasts } from "@gitbutler/ui";
@@ -62,9 +63,10 @@ export class HooksService {
 
 /**
  * Thrown after a hook failure warning has already been shown.
- * Callers should catch this to abort the operation without showing a second toast.
+ * Extends `SilentError` so the classifier suppresses any toast that
+ * would otherwise reach the user a second time.
  */
-export class HookFailedError extends Error {
+export class HookFailedError extends SilentError {
 	constructor() {
 		super("Git hook failed");
 		this.name = "HookFailedError";

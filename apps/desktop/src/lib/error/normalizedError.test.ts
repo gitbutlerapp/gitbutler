@@ -1,4 +1,4 @@
-import { IpcError } from "$lib/error/reduxError";
+import { IpcError } from "$lib/error/normalizedError";
 import { describe, expect, test } from "vitest";
 
 /**

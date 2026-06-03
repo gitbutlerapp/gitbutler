@@ -1,5 +1,5 @@
 import { dev } from "$app/environment";
-import { applyIpcFingerprint } from "$lib/error/reduxError";
+import { applyIpcFingerprint } from "$lib/error/normalizedError";
 import * as Sentry from "@sentry/sveltekit";
 import { PUBLIC_SENTRY_ENVIRONMENT } from "$env/static/public";
 

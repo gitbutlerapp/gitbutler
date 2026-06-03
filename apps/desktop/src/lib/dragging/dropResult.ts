@@ -1,5 +1,5 @@
 import { showError } from "$lib/error/showError";
-import { showToast } from "$lib/notifications/toasts";
+import { showWarning } from "$lib/notifications/toasts";
 import type { UiState } from "$lib/state/uiState.svelte";
 import type { RejectionReason } from "@gitbutler/but-sdk";
 
@@ -29,12 +29,7 @@ export function handleDropResult(result: DropResult, uiState: UiState): void {
 		case "ok":
 			break;
 		case "warning":
-			showToast({
-				style: "warning",
-				title: result.title,
-				message: result.message,
-				testId: result.testId,
-			});
+			showWarning(result.title, result.message, undefined, result.testId);
 			break;
 		case "error":
 			showError(result.title, result.error);

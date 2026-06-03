@@ -1,7 +1,17 @@
 import type { Code } from "@gitbutler/but-sdk";
 import type { ErrorEvent, EventHint } from "@sentry/sveltekit";
 
-export type ReduxError = {
+/**
+ * Canonical shape any error takes once it has crossed a boundary
+ * (IPC, HTTP, frontend exception). Producers — `IpcError`,
+ * `tauriBaseQuery`, the frontend's `parseError` — set `origin` so
+ * downstream code (Sentry mechanism, classification rules, future
+ * per-source telemetry) can branch on the source without re-parsing.
+ * `origin` is optional because a tiny set of test inputs construct
+ * the shape directly; every producer in app code sets it.
+ */
+export type NormalizedError = {
+	origin?: "ipc" | "http" | "frontend" | "unknown";
 	name?: string;
 	message: string;
 	code?: Code;
@@ -22,7 +32,7 @@ export type ReduxError = {
  * Tweak with care: this function is what makes distinct backend failures
  * inside one IPC command land in distinct Sentry issues. Loosening a rule
  * shatters previously-merged buckets; tightening one collapses unrelated
- * errors. Pair every change with a test in `reduxError.test.ts` that
+ * errors. Pair every change with a test in `normalizedError.test.ts` that
  * pins the resulting fingerprint against a representative real message.
  */
 function normalizeForFingerprint(text: string): string {
@@ -45,9 +55,9 @@ function normalizeForFingerprint(text: string): string {
 		.trim();
 }
 
-export function isReduxError(something: unknown): something is ReduxError {
+export function isNormalizedError(something: unknown): something is NormalizedError {
 	if (!something || typeof something !== "object") return false;
-	const r = something as ReduxError;
+	const r = something as NormalizedError;
 	return (
 		typeof r.message === "string" &&
 		(r.name === undefined || typeof r.name === "string") &&
@@ -65,13 +75,14 @@ export function isReduxError(something: unknown): something is ReduxError {
  *
  * Wrapping at the IPC boundary gives us a real Error instance with a
  * stack pointing at the actual caller, while still satisfying the
- * `ReduxError` duck-typed shape that downstream consumers (parser,
- * customHooks, backendQuery, baseBranchService) rely on.
+ * `NormalizedError` duck-typed shape that downstream consumers
+ * (parser, customHooks, backendQuery, baseBranchService) rely on.
  */
-export class IpcError extends Error implements ReduxError {
+export class IpcError extends Error implements NormalizedError {
 	override readonly name: string;
 	override readonly message: string;
 	readonly code?: Code;
+	readonly origin = "ipc" as const;
 	/**
 	 * Stable Sentry fingerprint, applied by `beforeSend` in
 	 * `analytics/sentry.ts`. Combines the command (so unrelated endpoints
@@ -82,18 +93,46 @@ export class IpcError extends Error implements ReduxError {
 	 */
 	readonly fingerprint: readonly string[];
 
-	constructor(raw: ReduxError, command: string) {
+	constructor(raw: NormalizedError, command: string) {
 		super(raw.message);
 		this.name = raw.name ?? `API error: (${command})`;
 		// `Error.prototype.message` set via `super()` is a non-enumerable own
 		// property, so `JSON.stringify(err)` would drop it — and any consumer
 		// that captures `{error: ipcError}` to PostHog or similar would lose
 		// the message. Redefine as enumerable to match the plain-object
-		// `ReduxError` shape callers used to see.
+		// shape callers used to see.
 		this.message = raw.message;
 		this.code = raw.code;
 		this.fingerprint = ["ipc", command, normalizeForFingerprint(raw.message)];
 	}
+}
+
+/**
+ * Wrap a Tauri-shaped `{name, message, code, fingerprint}` rejection in a
+ * real `Error` so Sentry can produce a stack and bucket by name + message
+ * instead of collapsing every variant into "Object captured as promise
+ * rejection". Used by both `logError` and `showError` before capture.
+ */
+export function normalizedErrorToException(error: {
+	name?: string;
+	message: string;
+	code?: string;
+	fingerprint?: readonly string[];
+}): Error {
+	const err = new Error(error.message);
+	// Prefer the backend-provided name (e.g. "API error: (push_stack)") over
+	// the default "Error" so Sentry's title grouping matches the PostHog
+	// taxonomy we already filter by.
+	err.name = error.name || "Error";
+	if (error.code) {
+		(err as Error & { code?: string }).code = error.code;
+	}
+	if (error.fingerprint) {
+		// `applyIpcFingerprint` (Sentry `beforeSend`) reads from this field
+		// to apply the precomputed IpcError fingerprint to outgoing events.
+		(err as Error & { fingerprint?: readonly string[] }).fingerprint = error.fingerprint;
+	}
+	return err;
 }
 
 /**
@@ -108,8 +147,8 @@ export class IpcError extends Error implements ReduxError {
  *      (e.g. an unhandled rejection that didn't go through RTK Query).
  *   2. The RTK Query path — `tauriBaseQuery` flattens the `IpcError`
  *      into a plain `{name, message, code, fingerprint}` object and
- *      `reduxErrorToException` in `logError.ts` wraps it back into a
- *      generic `Error` with `fingerprint` copied across.
+ *      `normalizedErrorToException` (above) wraps it back into a generic
+ *      `Error` with `fingerprint` copied across.
  *
  * Lives here (rather than next to `initSentry` in `analytics/sentry.ts`)
  * so the unit test can import it without pulling `@sentry/sveltekit`'s
