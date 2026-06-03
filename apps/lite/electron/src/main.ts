@@ -383,8 +383,19 @@ const registerIpcHandlers = (): void => {
 	);
 	senderValidatingHandle(
 		liteIpcChannels.pushStack,
-		(_e, { projectId, stackId, branch }: PushStackParams) =>
-			pushStack(projectId, stackId, false, false, branch, true, []),
+		(
+			_e,
+			{
+				projectId,
+				stackId,
+				branch,
+				withForce,
+				skipForcePushProtection,
+				runHooks,
+				pushOpts,
+			}: PushStackParams,
+		) =>
+			pushStack(projectId, stackId, withForce, skipForcePushProtection, branch, runHooks, pushOpts),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.removeBranch,
