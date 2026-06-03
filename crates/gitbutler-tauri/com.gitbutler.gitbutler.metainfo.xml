@@ -37,6 +37,9 @@
   </screenshots>
 
   <releases>
+    <release version="0.20.0" date="2026-06-03">
+      <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.20.0</url>
+    </release>
     <release version="0.19.13" date="2026-05-19">
       <url>https://github.com/gitbutlerapp/gitbutler/releases/tag/release%2F0.19.13</url>
     </release>
