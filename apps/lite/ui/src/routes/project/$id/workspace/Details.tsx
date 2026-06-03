@@ -13,6 +13,7 @@ import { branchOperand, changesSectionOperand, commitOperand, type Operand } fro
 import {
 	projectActions,
 	selectProjectFilesVisible,
+	selectProjectSelectionFiles,
 	selectProjectSelectionOutline,
 } from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
@@ -24,11 +25,11 @@ import { classes } from "#ui/components/classes.ts";
 import { Tooltip } from "@base-ui/react";
 import type { DiffHunk, TreeChange } from "@gitbutler/but-sdk";
 import { parsePatchFiles } from "@pierre/diffs";
-import { CodeView, type CodeViewDiffItem } from "@pierre/diffs/react";
+import { CodeView, type CodeViewDiffItem, type CodeViewHandle } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Hash, Match } from "effect";
-import { ComponentProps, FC, Suspense, useDeferredValue } from "react";
+import { ComponentProps, FC, Suspense, useDeferredValue, useEffect, useRef } from "react";
 import styles from "./Details.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import { SelectionScope } from "#ui/selection-scopes.ts";
@@ -39,6 +40,18 @@ import {
 } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
+
+const codeViewItemId = ({ changesetKey, path }: { changesetKey: string; path: string }): string =>
+	`${changesetKey}:${path}`;
+
+const getScrollTargetId = ({
+	changesetKey,
+	selection,
+}: {
+	changesetKey: string;
+	selection: Operand | null;
+}): string | null =>
+	selection?._tag === "File" ? codeViewItemId({ changesetKey, path: selection.path }) : null;
 
 const patchHeaderForChange = (change: TreeChange, lineEnding: string): string =>
 	Match.value(change.status).pipe(
@@ -102,7 +115,7 @@ const mkCodeViewItem = (
 
 	return {
 		type: "diff",
-		id: `${changesetKey}:${change.path}`,
+		id: codeViewItemId({ changesetKey, path: change.path }),
 		version: Hash.string(combinedFilePatch),
 		// oxlint-disable-next-line typescript/no-non-null-assertion: There should always be exactly one result given our one parsed hunk.
 		fileDiff: parsed[0]!.files[0]!,
@@ -113,7 +126,10 @@ const ChangesFileDiffList: FC<{
 	changes: Array<TreeChange>;
 	changesetKey: string;
 	projectId: string;
-}> = ({ changes, changesetKey, projectId }) => {
+	getScrollTargetId?: (changesetKey: string) => string | null;
+}> = ({ changes, changesetKey, projectId, getScrollTargetId }) => {
+	const viewerRef = useRef<CodeViewHandle<undefined>>(null);
+	const previousScrollTargetIdRef = useRef<string | null>(null);
 	const treeChangeDiffs = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 	}).map((result) => result.data);
@@ -129,10 +145,25 @@ const ChangesFileDiffList: FC<{
 			) ?? [],
 	);
 
+	useEffect(() => {
+		const scrollTargetId = getScrollTargetId?.(changesetKey);
+
+		if (scrollTargetId == null) {
+			previousScrollTargetIdRef.current = null;
+			return;
+		}
+
+		if (previousScrollTargetIdRef.current === scrollTargetId) return;
+		previousScrollTargetIdRef.current = scrollTargetId;
+
+		viewerRef.current?.scrollTo({ type: "item", id: scrollTargetId });
+	}, [getScrollTargetId, changesetKey]);
+
 	return items.length === 0 ? (
 		<p className="text-13">No changes.</p>
 	) : (
 		<CodeView
+			ref={viewerRef}
 			className={classes(styles.diffContentsVirtualizer, uiStyles.scrollerWithSeparator)}
 			items={items}
 			options={{
@@ -298,10 +329,11 @@ const CommitDetailsContent: FC<{
 );
 
 const DiffContents: FC<{
+	filesSelection: Operand | null;
+	outlineSelection: Operand;
 	projectId: string;
-	selection: Operand;
-}> = ({ projectId, selection }) =>
-	Match.value(selection).pipe(
+}> = ({ filesSelection, outlineSelection, projectId }) =>
+	Match.value(outlineSelection).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
 			Branch: ({ branchRef }) => (
@@ -311,6 +343,12 @@ const DiffContents: FC<{
 							changes={branchDiff.changes}
 							changesetKey={decodeRefName(branchRef)}
 							projectId={projectId}
+							getScrollTargetId={(changesetKey) =>
+								getScrollTargetId({
+									changesetKey,
+									selection: filesSelection,
+								})
+							}
 						/>
 					)}
 				</SuspenseQuery>
@@ -322,6 +360,12 @@ const DiffContents: FC<{
 							changes={worktreeChanges.changes}
 							changesetKey="changes"
 							projectId={projectId}
+							getScrollTargetId={(changesetKey) =>
+								getScrollTargetId({
+									changesetKey,
+									selection: filesSelection,
+								})
+							}
 						/>
 					)}
 				</SuspenseQuery>
@@ -334,6 +378,12 @@ const DiffContents: FC<{
 							changes={commitDetails.changes}
 							changesetKey={commitId}
 							projectId={projectId}
+							getScrollTargetId={(changesetKey) =>
+								getScrollTargetId({
+									changesetKey,
+									selection: filesSelection,
+								})
+							}
 						/>
 					)}
 				</SuspenseQuery>
@@ -414,6 +464,7 @@ export const Details: FC<ComponentProps<"div">> = (props) => {
 		selectProjectSelectionOutline(state, projectId),
 	);
 	const outlineSelection = useDeferredValue(urgentOutlineSelection);
+	const filesSelection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
 
 	if (outlineSelection._tag === "Stack") return;
 
@@ -455,7 +506,11 @@ export const Details: FC<ComponentProps<"div">> = (props) => {
 					className={styles.diffContents}
 				>
 					<Suspense fallback={<p className="text-13">Loading diff…</p>}>
-						<DiffContents selection={outlineSelection} projectId={projectId} />
+						<DiffContents
+							filesSelection={filesSelection}
+							outlineSelection={outlineSelection}
+							projectId={projectId}
+						/>
 					</Suspense>
 				</div>
 			</div>
