@@ -59,7 +59,7 @@ import { OperationTarget } from "#ui/routes/project/$id/workspace/OperationTarge
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
-import { mergeProps, Popover, Toast, Tooltip, useRender } from "@base-ui/react";
+import { Button, mergeProps, Popover, Toast, Tooltip, useRender } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
 import { Toolbar } from "@base-ui/react/toolbar";
 import {
@@ -1327,14 +1327,7 @@ const Changes: FC<{
 							<Combobox.Trigger
 								className={classes(getButtonClassName({}), styles.commitTargetComboboxTrigger)}
 								aria-label="Select branch"
-								render={(props, state) => (
-									<Tooltip.Trigger
-										{...props}
-										// We pass `disabled` here because we want to disable the button, not
-										// the tooltip. Other props should be passed above.
-										render={<button type="button" disabled={state.disabled} />}
-									/>
-								)}
+								render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
 							>
 								<Combobox.Value placeholder="Select branch" />
 							</Combobox.Trigger>
@@ -1361,7 +1354,7 @@ const Changes: FC<{
 								className={getButtonClassName({})}
 								// We pass `disabled` here because we want to disable the button, not
 								// the tooltip. Other props should be passed above.
-								render={<button type="submit" disabled={!canCommitOrAmend} />}
+								render={<Button focusableWhenDisabled type="submit" disabled={!canCommitOrAmend} />}
 							>
 								{isAmendMode ? "Amend" : "Commit"}
 							</Tooltip.Trigger>
