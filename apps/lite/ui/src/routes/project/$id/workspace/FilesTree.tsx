@@ -158,48 +158,14 @@ export const CommitFilesTree: FC<
 		commitDetails: CommitDetails;
 		onFileSelection: (selection: Operand) => void;
 	} & ComponentProps<"div">
-> = ({ projectId, commit, commitDetails, onFileSelection, ...props }) => {
-	const conflictedPaths = commitDetails.conflictEntries
-		? globalThis.Array.from(
-				new Set([
-					...commitDetails.conflictEntries.ancestorEntries,
-					...commitDetails.conflictEntries.ourEntries,
-					...commitDetails.conflictEntries.theirEntries,
-				]),
-			).toSorted((a, b) => a.localeCompare(b))
-		: [];
-	const conflictedPathSet = new Set(conflictedPaths);
-
-	return (
-		<FilesTree
-			{...props}
-			projectId={projectId}
-			items={[
-				...conflictedPaths.map((path) =>
-					conflictFileTreeItem({
-						operand: fileOperand({
-							parent: commitFileParent(commit),
-							path,
-						}),
-						path,
-					}),
-				),
-				...commitDetails.changes
-					.filter((change) => !conflictedPathSet.has(change.path))
-					.map((change) =>
-						changeFileTreeItem({
-							change,
-							operand: fileOperand({
-								parent: commitFileParent(commit),
-								path: change.path,
-							}),
-						}),
-					),
-			]}
-			onFileSelection={onFileSelection}
-		/>
-	);
-};
+> = ({ projectId, commit, commitDetails, onFileSelection, ...props }) => (
+	<FilesTree
+		{...props}
+		projectId={projectId}
+		items={getCommitFileTreeItems({ commit, commitDetails })}
+		onFileSelection={onFileSelection}
+	/>
+);
 
 export const ChangesFilesTree: FC<
 	{
@@ -207,34 +173,14 @@ export const ChangesFilesTree: FC<
 		worktreeChanges: WorktreeChanges;
 		onFileSelection: (selection: Operand) => void;
 	} & ComponentProps<"div">
-> = ({ projectId, worktreeChanges, onFileSelection, ...props }) => {
-	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
-		worktreeChanges.dependencies?.diffs ?? [],
-	);
-
-	return (
-		<FilesTree
-			{...props}
-			projectId={projectId}
-			items={worktreeChanges.changes.map((change) => {
-				const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
-				const dependencyCommitIds = hunkDependencyDiffs
-					? getDependencyCommitIds({ hunkDependencyDiffs })
-					: undefined;
-
-				return changeFileTreeItem({
-					change,
-					dependencyCommitIds,
-					operand: fileOperand({
-						parent: changesFileParent,
-						path: change.path,
-					}),
-				});
-			})}
-			onFileSelection={onFileSelection}
-		/>
-	);
-};
+> = ({ projectId, worktreeChanges, onFileSelection, ...props }) => (
+	<FilesTree
+		{...props}
+		projectId={projectId}
+		items={getChangesFileTreeItems(worktreeChanges)}
+		onFileSelection={onFileSelection}
+	/>
+);
 
 export const BranchFilesTree: FC<
 	{
@@ -249,15 +195,7 @@ export const BranchFilesTree: FC<
 		{...props}
 		projectId={projectId}
 		onFileSelection={onFileSelection}
-		items={branchDiff.changes.map((change) =>
-			changeFileTreeItem({
-				change,
-				operand: fileOperand({
-					parent: branchFileParent({ stackId, branchRef }),
-					path: change.path,
-				}),
-			}),
-		)}
+		items={getBranchFileTreeItems({ stackId, branchRef, branchDiff })}
 	/>
 );
 
@@ -277,6 +215,89 @@ const changeFileTreeItem = ({
 	dependencyCommitIds,
 	operand,
 });
+
+const getCommitFileTreeItems = ({
+	commit,
+	commitDetails,
+}: {
+	commit: CommitOperand;
+	commitDetails: CommitDetails;
+}): Array<FileTreeItem> => {
+	const conflictedPaths = commitDetails.conflictEntries
+		? globalThis.Array.from(
+				new Set([
+					...commitDetails.conflictEntries.ancestorEntries,
+					...commitDetails.conflictEntries.ourEntries,
+					...commitDetails.conflictEntries.theirEntries,
+				]),
+			).toSorted((a, b) => a.localeCompare(b))
+		: [];
+	const conflictedPathSet = new Set(conflictedPaths);
+
+	return [
+		...conflictedPaths.map((path) =>
+			conflictFileTreeItem({
+				operand: fileOperand({
+					parent: commitFileParent(commit),
+					path,
+				}),
+				path,
+			}),
+		),
+		...commitDetails.changes
+			.filter((change) => !conflictedPathSet.has(change.path))
+			.map((change) =>
+				changeFileTreeItem({
+					change,
+					operand: fileOperand({
+						parent: commitFileParent(commit),
+						path: change.path,
+					}),
+				}),
+			),
+	];
+};
+
+const getChangesFileTreeItems = (worktreeChanges: WorktreeChanges): Array<FileTreeItem> => {
+	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
+		worktreeChanges.dependencies?.diffs ?? [],
+	);
+
+	return worktreeChanges.changes.map((change) => {
+		const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
+		const dependencyCommitIds = hunkDependencyDiffs
+			? getDependencyCommitIds({ hunkDependencyDiffs })
+			: undefined;
+
+		return changeFileTreeItem({
+			change,
+			dependencyCommitIds,
+			operand: fileOperand({
+				parent: changesFileParent,
+				path: change.path,
+			}),
+		});
+	});
+};
+
+const getBranchFileTreeItems = ({
+	stackId,
+	branchRef,
+	branchDiff,
+}: {
+	stackId: string;
+	branchRef: Array<number>;
+	branchDiff: TreeChanges;
+}): Array<FileTreeItem> =>
+	branchDiff.changes.map((change) =>
+		changeFileTreeItem({
+			change,
+			operand: fileOperand({
+				parent: branchFileParent({ stackId, branchRef }),
+				path: change.path,
+			}),
+		}),
+	);
 
 type ConflictFileTreeItem = {
 	operand: Operand;
