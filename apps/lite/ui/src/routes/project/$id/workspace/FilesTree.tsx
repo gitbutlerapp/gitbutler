@@ -27,14 +27,17 @@ import {
 } from "./WorkspaceItemRow.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
-import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
+import {
+	focusSelectionScope,
+	useFilesSelection,
+	useNavigationIndexHotkeys,
+} from "#ui/selection-scopes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { changesFileHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { assert } from "#ui/assert.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { useFilesSelection } from "#ui/routes/project/$id/workspace/Details.tsx";
 
 const NavigationIndexContext = createContext<NavigationIndex | null>(null);
 

@@ -10,13 +10,13 @@ import {
 	focusSelectionScope,
 	getFocusedSelectionScope,
 	SelectionScope,
+	useOutlineSelection,
 } from "#ui/selection-scopes.ts";
 import {
 	projectActions,
 	selectProjectDialogState,
 	selectProjectFilesVisible,
 	selectProjectOutlineModeState,
-	selectProjectSelectionOutline,
 } from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
@@ -62,11 +62,7 @@ import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { filterNavigationItemsForOutlineMode } from "#ui/outline/mode.ts";
-import {
-	buildNavigationIndex,
-	NavigationIndex,
-	navigationIndexIncludes,
-} from "#ui/workspace/navigation-index.ts";
+import { buildNavigationIndex } from "#ui/workspace/navigation-index.ts";
 
 const toggleFiles =
 	({
@@ -419,24 +415,6 @@ const outlineNavigationItems = (headInfo: RefInfo | undefined): Array<Operand> =
 			];
 		}) ?? []),
 	];
-};
-
-// TODO: move
-export const useOutlineSelection = ({
-	projectId,
-	navigationIndex,
-}: {
-	projectId: string;
-	navigationIndex: NavigationIndex;
-}) => {
-	const selectionState = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
-
-	const selection =
-		selectionState && navigationIndexIncludes(navigationIndex, selectionState)
-			? selectionState
-			: (navigationIndex.items[0] ?? null);
-
-	return selection;
 };
 
 const useOutlineNavigationIndex = ({

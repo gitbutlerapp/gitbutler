@@ -42,7 +42,11 @@ import {
 } from "#ui/operands.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { getTransferOperation, keyboardTransferOperationMode } from "#ui/outline/mode.ts";
-import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
+import {
+	focusSelectionScope,
+	useNavigationIndexHotkeys,
+	useOutlineSelection,
+} from "#ui/selection-scopes.ts";
 import {
 	projectActions,
 	selectProjectCommitTarget,
@@ -110,7 +114,6 @@ import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { OutlineModeTooltip } from "./OutlineModeTooltip.tsx";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { useOutlineSelection } from "#ui/routes/project/$id/workspace/WorkspacePage.tsx";
 
 const NavigationIndexContext = createContext<NavigationIndex | null>(null);
 

@@ -2,9 +2,18 @@ import type { CommandGroup } from "#ui/hotkeys.ts";
 import { type OperationType } from "#ui/operations/operation.ts";
 import { keyboardTransferOperationMode } from "#ui/outline/mode.ts";
 import { operandIdentityKey, type Operand } from "#ui/operands.ts";
-import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
+import {
+	projectActions,
+	selectProjectOutlineModeState,
+	selectProjectSelectionFiles,
+	selectProjectSelectionOutline,
+} from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { getAdjacent, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import {
+	getAdjacent,
+	navigationIndexIncludes,
+	type NavigationIndex,
+} from "#ui/workspace/navigation-index.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
 
 export type SelectionScope = "outline" | "files" | "diff";
@@ -48,6 +57,31 @@ export const focusAdjacentSelectionScope = (filesVisible: boolean, offset: -1 | 
 
 		focusSelectionScope(nextSelectionScope);
 	}
+};
+
+export const useFilesSelection = (projectId: string, navigationIndex: NavigationIndex) => {
+	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
+
+	return selection && navigationIndexIncludes(navigationIndex, selection)
+		? selection
+		: (navigationIndex.items[0] ?? null);
+};
+
+export const useOutlineSelection = ({
+	projectId,
+	navigationIndex,
+}: {
+	projectId: string;
+	navigationIndex: NavigationIndex;
+}) => {
+	const selectionState = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
+
+	const selection =
+		selectionState && navigationIndexIncludes(navigationIndex, selectionState)
+			? selectionState
+			: (navigationIndex.items[0] ?? null);
+
+	return selection;
 };
 
 export const useNavigationIndexHotkeys = ({

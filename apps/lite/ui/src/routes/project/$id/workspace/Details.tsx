@@ -20,11 +20,7 @@ import {
 	type CommitOperand,
 	type Operand,
 } from "#ui/operands.ts";
-import {
-	projectActions,
-	selectProjectFilesVisible,
-	selectProjectSelectionFiles,
-} from "#ui/projects/state.ts";
+import { projectActions, selectProjectFilesVisible } from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
@@ -56,11 +52,7 @@ import {
 	type FileTreeItem,
 } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.ts";
-import {
-	buildNavigationIndex,
-	NavigationIndex,
-	navigationIndexIncludes,
-} from "#ui/workspace/navigation-index.ts";
+import { buildNavigationIndex } from "#ui/workspace/navigation-index.ts";
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
@@ -514,15 +506,6 @@ const DiffContents: FC<{
 			Hunk: () => null,
 		}),
 	);
-
-// TODO: move
-export const useFilesSelection = (projectId: string, navigationIndex: NavigationIndex) => {
-	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
-
-	return selection && navigationIndexIncludes(navigationIndex, selection)
-		? selection
-		: (navigationIndex.items[0] ?? null);
-};
 
 const Diff: FC<{
 	filesVisible: boolean;
