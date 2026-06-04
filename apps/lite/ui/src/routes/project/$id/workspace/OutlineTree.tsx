@@ -174,6 +174,14 @@ const useNavigationIndex = ({
 
 	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
 
+	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+
+	const navigationIndex = filterNavigationIndexForOutlineMode({
+		navigationIndex: navigationIndexUnfiltered,
+		outlineMode,
+		absorptionTargetKeys,
+	});
+
 	// React allows state updates on render, but not for external stores.
 	// https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
 	useEffect(() => {
@@ -188,14 +196,6 @@ const useNavigationIndex = ({
 				}),
 			);
 	}, [navigationIndexUnfiltered, selection, projectId, dispatch]);
-
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-
-	const navigationIndex = filterNavigationIndexForOutlineMode({
-		navigationIndex: navigationIndexUnfiltered,
-		outlineMode,
-		absorptionTargetKeys,
-	});
 
 	return navigationIndex;
 };
