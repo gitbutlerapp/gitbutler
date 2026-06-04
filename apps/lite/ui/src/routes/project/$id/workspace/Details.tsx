@@ -454,45 +454,6 @@ const CommitDetailsContent: FC<{
 	</SuspenseQuery>
 );
 
-const DiffContents: FC<{
-	onViewerFileSelection: (selection: Operand) => void;
-	outlineSelection: Operand;
-	projectId: string;
-	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
-}> = ({ onViewerFileSelection, outlineSelection, projectId, viewerRef }) => {
-	const render = (changes: Array<TreeChange>) => (
-		<ChangesFileDiffList
-			changes={changes}
-			onViewerFileSelection={onViewerFileSelection}
-			outlineSelection={outlineSelection}
-			projectId={projectId}
-			viewerRef={viewerRef}
-		/>
-	);
-	return Match.value(outlineSelection).pipe(
-		Match.tagsExhaustive({
-			Stack: () => null,
-			Branch: ({ branchRef }) => (
-				<SuspenseQuery {...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}>
-					{({ data: branchDiff }) => render(branchDiff.changes)}
-				</SuspenseQuery>
-			),
-			ChangesSection: () => (
-				<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
-					{({ data: worktreeChanges }) => render(worktreeChanges.changes)}
-				</SuspenseQuery>
-			),
-			File: () => null,
-			Commit: ({ commitId }) => (
-				<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
-					{({ data: commitDetails }) => render(commitDetails.changes)}
-				</SuspenseQuery>
-			),
-			Hunk: () => null,
-		}),
-	);
-};
-
 const Diff: FC<{
 	filesVisible: boolean;
 	onFileSelection: (selection: Operand) => void;
@@ -537,12 +498,43 @@ const Diff: FC<{
 				className={styles.diffContents}
 			>
 				<Suspense fallback={<p className="text-13">Loading diff…</p>}>
-					<DiffContents
-						onViewerFileSelection={onViewerFileSelection}
-						outlineSelection={outlineSelection}
-						projectId={projectId}
-						viewerRef={viewerRef}
-					/>
+					{(() => {
+						const render = (changes: Array<TreeChange>) => (
+							<ChangesFileDiffList
+								changes={changes}
+								onViewerFileSelection={onViewerFileSelection}
+								outlineSelection={outlineSelection}
+								projectId={projectId}
+								viewerRef={viewerRef}
+							/>
+						);
+						return Match.value(outlineSelection).pipe(
+							Match.tagsExhaustive({
+								Stack: () => null,
+								Branch: ({ branchRef }) => (
+									<SuspenseQuery
+										{...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}
+									>
+										{({ data: branchDiff }) => render(branchDiff.changes)}
+									</SuspenseQuery>
+								),
+								ChangesSection: () => (
+									<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
+										{({ data: worktreeChanges }) => render(worktreeChanges.changes)}
+									</SuspenseQuery>
+								),
+								File: () => null,
+								Commit: ({ commitId }) => (
+									<SuspenseQuery
+										{...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}
+									>
+										{({ data: commitDetails }) => render(commitDetails.changes)}
+									</SuspenseQuery>
+								),
+								Hunk: () => null,
+							}),
+						);
+					})()}
 				</Suspense>
 			</div>
 		</div>
