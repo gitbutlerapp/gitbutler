@@ -2114,7 +2114,7 @@ const StackC: FC<{
 	const partialStackStates = partialStackStatesFromSegments(stack.segments);
 	// This should never fail because we always have at least one segment.
 	const stackState = assert(partialStackStates[0]);
-	const canRemoveBranches = stackState.commitsCount === 0 || stackState.branchCount > 1;
+	const topBranchIndex = stack.segments.findIndex((segment) => segment.refName);
 
 	return (
 		<TreeItem
@@ -2130,6 +2130,14 @@ const StackC: FC<{
 			<div role="group" className={styles.segments}>
 				{stack.segments.map((segment, index) => {
 					const partialStackState = assert(partialStackStates[index]);
+					const canRemoveBranch =
+						segment.commits.length === 0 ||
+						// We disallow deleting the top branch reference inside a stack of
+						// multiple branches because (1) the backend misbehaves (2) and we
+						// want to discourage users from creating branchless segments. See
+						// discussion in
+						// https://github.com/gitbutlerapp/gitbutler/pull/14059.
+						(stackState.branchCount > 1 && index !== topBranchIndex);
 
 					return segment.refName ? (
 						<BranchSegment
@@ -2140,7 +2148,7 @@ const StackC: FC<{
 							stackId={stackId}
 							commitTarget={commitTarget}
 							canTearOffBranch={canTearOffBranch}
-							canRemoveBranch={canRemoveBranches}
+							canRemoveBranch={canRemoveBranch}
 							partialStackState={partialStackState}
 						/>
 					) : (
