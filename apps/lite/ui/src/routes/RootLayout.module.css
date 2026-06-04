@@ -77,6 +77,28 @@
 	}
 }
 
+.projectShortcut {
+	display: flex;
+	position: absolute;
+	top: 50%;
+	right: -8px;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	transform: translateY(-50%);
+	border: 1px solid var(--border-2);
+	border-radius: 4px;
+	background: var(--bg-1);
+	color: var(--text-2);
+	font-size: 11px;
+	line-height: 1;
+
+	&:not(.visible) {
+		display: none;
+	}
+}
+
 .folderFront {
 	position: relative;
 	width: 44px;

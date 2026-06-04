@@ -7,18 +7,29 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { globalHotkeys } from "#ui/hotkeys.ts";
 import { Button, Tooltip } from "@base-ui/react";
-import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
+import {
+	HotkeysProvider,
+	useHotkey,
+	UseHotkeyDefinition,
+	useHotkeys,
+	useKeyHold,
+} from "@tanstack/react-hotkeys";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Outlet, useMatch, useNavigate } from "@tanstack/react-router";
-import { FC, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import styles from "./RootLayout.module.css";
 import { ProjectForFrontend } from "@gitbutler/but-sdk";
 import { Hash } from "effect";
+
+const projectShortcutSlots = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
+const projectShortcutRevealDelayMs = 500;
 
 const Projects: FC = () => {
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const navigate = useNavigate();
 	const [pickerOpen, setPickerOpen] = useState(false);
+	const [projectShortcutsVisible, setProjectShortcutsVisible] = useState(false);
+	const isModHeld = useKeyHold(isMac ? "Meta" : "Control");
 	const projectMatch = useMatch({
 		from: "/project/$id",
 		shouldThrow: false,
@@ -44,11 +55,46 @@ const Projects: FC = () => {
 		window.localStorage.setItem(lastOpenedProjectKey, project.id);
 	};
 
+	useEffect(() => {
+		if (!isModHeld) return;
+
+		const timeout = window.setTimeout(() => {
+			setProjectShortcutsVisible(true);
+		}, projectShortcutRevealDelayMs);
+
+		return () => {
+			window.clearTimeout(timeout);
+			setProjectShortcutsVisible(false);
+		};
+	}, [isModHeld]);
+
+	useHotkeys(
+		projectShortcutSlots.flatMap((slot): Array<UseHotkeyDefinition> => {
+			const project = projects[slot - 1];
+
+			if (!project) return [];
+
+			return [
+				{
+					hotkey: `Mod+${slot}`,
+					callback: () => selectProject(project),
+					options: {
+						meta: {
+							group: "Global",
+							name: `Switch to ${project.title}`,
+						},
+					},
+				},
+			];
+		}),
+	);
+
 	return (
 		<div className={classes(styles.projects, isMac && styles.projectsMac)}>
-			{projects.map((project) => {
+			{projects.map((project, index) => {
 				const isSelected = selectedProject?.id === project.id;
 				const hue = ((Hash.string(project.id) % 360) + 360) % 360;
+				const shortcutSlot = projectShortcutSlots[index];
 
 				return (
 					<Tooltip.Root key={project.id}>
@@ -66,6 +112,17 @@ const Projects: FC = () => {
 									{project.title.slice(0, 2)}
 								</span>
 							</div>
+							{shortcutSlot !== undefined && (
+								<span
+									aria-hidden
+									className={classes(
+										styles.projectShortcut,
+										isModHeld && projectShortcutsVisible && styles.visible,
+									)}
+								>
+									{shortcutSlot}
+								</span>
+							)}
 						</Tooltip.Trigger>
 						<Tooltip.Portal>
 							<Tooltip.Positioner sideOffset={4} side="right">
