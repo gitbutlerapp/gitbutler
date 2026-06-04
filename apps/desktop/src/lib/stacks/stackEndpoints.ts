@@ -307,6 +307,31 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				invalidatesList(ReduxTag.BranchListing),
 			],
 		}),
+		pushWorkspaceBranchAndAncestors: build.mutation<
+			BranchPushResult,
+			{
+				projectId: string;
+				stackId: string;
+				withForce: boolean;
+				skipForcePushProtection: boolean;
+				branch: string;
+				runHooks: boolean;
+				pushOpts: GerritPushFlag[];
+			}
+		>({
+			extraOptions: {
+				command: "workspace_branch_and_ancestors_push",
+				actionName: "Push",
+			},
+			query: ({ stackId: _stackId, branch, ...args }) => ({
+				branch: branch.startsWith("refs/") ? branch : `refs/heads/${branch}`,
+				...args,
+			}),
+			invalidatesTags: (_result, _error, args) => [
+				invalidatesItem(ReduxTag.StackDetails, args.stackId),
+				invalidatesList(ReduxTag.BranchListing),
+			],
+		}),
 		commitCreate: build.mutation<CreateCommitOutcome, { projectId: string } & CreateCommitRequest>({
 			extraOptions: {
 				command: "commit_create",

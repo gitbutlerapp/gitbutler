@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { fModeEnabled } from "$lib/config/uiFeatureFlags";
+	import { fModeEnabled, newPushFeature } from "$lib/config/uiFeatureFlags";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -54,6 +54,22 @@
 			{/snippet}
 		</CardGroup.Item>
 	{/if}
+
+	<CardGroup.Item labelFor="new-push">
+		{#snippet title()}
+			New push
+		{/snippet}
+		{#snippet caption()}
+			Use the workspace-based push implementation.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="new-push"
+				checked={$newPushFeature}
+				onclick={() => newPushFeature.set(!$newPushFeature)}
+			/>
+		{/snippet}
+	</CardGroup.Item>
 
 	<CardGroup.Item labelFor="irc">
 		{#snippet title()}

@@ -410,6 +410,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::workspace::tauri_stash_into_branch::stash_into_branch,
                 legacy::workspace::tauri_canned_branch_name::canned_branch_name,
                 legacy::workspace::tauri_target_commits::target_commits,
+                legacy::workspace::tauri_workspace_branch_and_ancestors_push::workspace_branch_and_ancestors_push,
                 legacy::absorb::tauri_absorb::absorb,
                 legacy::absorb::tauri_absorption_plan::absorption_plan,
                 diff::tauri_changes_in_worktree::changes_in_worktree,

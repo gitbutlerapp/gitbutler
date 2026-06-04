@@ -29,9 +29,10 @@ fn record_push_metadata_fallback_url() -> anyhow::Result<()> {
         .change_id
         .expect("commit has change id");
     let ctx = but_ctx::Context::from_repo(repo)?;
-    record_push_metadata(&ctx, candidate_ids, push_output)?;
+    let repo = ctx.repo.get()?;
+    let mut db = ctx.db.get_cache_mut()?;
+    record_push_metadata(&repo, &mut db, candidate_ids, push_output)?;
 
-    let db = ctx.db.get_cache_mut()?;
     let db = db.gerrit_metadata();
     let meta = db
         .get(&change_id.to_string())?

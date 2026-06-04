@@ -218,7 +218,6 @@ const useOutlineTreeHotkeys = ({
 
 		pushStackMutation.mutate({
 			projectId,
-			stackId: selectedPushContext.stackId,
 			branch: selectedPushContext.refName.displayName,
 			withForce: partialStackState.pushWithForce,
 			skipForcePushProtection: false,
@@ -1499,17 +1498,14 @@ const partialStackStatesFromSegments = (segments: Array<Segment>): Array<Partial
 	initNonEmpty(scanRight(segments, emptyPartialStackState, addSegmentToPartialStackState));
 
 type PushContext = {
-	stackId: string;
 	refName: BranchReference;
 	partialStackSegments: Array<Segment>;
 };
 
 const pushContextForSegment = ({
-	stackId,
 	segments,
 	segmentIndex,
 }: {
-	stackId: string;
 	segments: Array<Segment>;
 	segmentIndex: number;
 }): PushContext | null => {
@@ -1519,7 +1515,6 @@ const pushContextForSegment = ({
 	const partialStackSegments = segments.slice(segmentIndex);
 
 	return {
-		stackId,
 		refName: segment.refName,
 		partialStackSegments,
 	};
@@ -1544,7 +1539,7 @@ const pushContextForSelection = ({
 				);
 				if (segmentIndex === -1) return null;
 
-				return pushContextForSegment({ stackId: stack.id, segments: stack.segments, segmentIndex });
+				return pushContextForSegment({ segments: stack.segments, segmentIndex });
 			},
 			Commit: (selection) => {
 				const stack = headInfo?.stacks.find((stack) => stack.id === selection.stackId);
@@ -1555,7 +1550,7 @@ const pushContextForSelection = ({
 				);
 				if (segmentIndex === -1) return null;
 
-				return pushContextForSegment({ stackId: stack.id, segments: stack.segments, segmentIndex });
+				return pushContextForSegment({ segments: stack.segments, segmentIndex });
 			},
 		}),
 		Match.orElse(() => null),
@@ -1671,7 +1666,6 @@ const BranchRow: FC<
 	const pushStack = () => {
 		pushStackMutation.mutate({
 			projectId,
-			stackId,
 			branch: branchName,
 			withForce: partialStackState.pushWithForce,
 			skipForcePushProtection: false,

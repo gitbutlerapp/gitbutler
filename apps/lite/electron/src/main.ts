@@ -56,12 +56,12 @@ import {
 	listBranches,
 	listProjectsStateless,
 	moveBranch,
-	pushStack,
 	removeBranch,
 	tearOffBranch,
 	treeChangeDiffs,
 	unapplyStack,
 	updateBranchName,
+	workspaceBranchAndAncestorsPush,
 	BranchListingFilter,
 	commitUncommit,
 	restoreSnapshotWithKind,
@@ -387,7 +387,6 @@ const registerIpcHandlers = (): void => {
 			_e,
 			{
 				projectId,
-				stackId,
 				branch,
 				withForce,
 				skipForcePushProtection,
@@ -395,7 +394,14 @@ const registerIpcHandlers = (): void => {
 				pushOpts,
 			}: PushStackParams,
 		) =>
-			pushStack(projectId, stackId, withForce, skipForcePushProtection, branch, runHooks, pushOpts),
+			workspaceBranchAndAncestorsPush(
+				projectId,
+				withForce,
+				skipForcePushProtection,
+				branch,
+				runHooks,
+				pushOpts,
+			),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.removeBranch,

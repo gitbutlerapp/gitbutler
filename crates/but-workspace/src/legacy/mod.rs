@@ -28,6 +28,9 @@ pub mod ui;
 /// High level Stack functions that use primitives from this crate (`but-workspace`)
 pub mod stack_ext;
 
+pub mod push;
+pub use push::workspace_branch_and_ancestors_push;
+
 /// Return a list of commits on the target branch
 /// Starts either from the target branch or from the provided commit id, up to the limit provided.
 ///

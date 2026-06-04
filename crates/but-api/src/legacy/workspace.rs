@@ -376,3 +376,52 @@ pub fn target_commits(
         page_size.unwrap_or(30),
     )
 }
+
+/// Push a branch and any parent references that lie within the current workspace projection.
+#[but_api(napi, crate::legacy::stack::json::PushResult)]
+#[instrument(err(Debug))]
+pub fn workspace_branch_and_ancestors_push(
+    ctx: &mut Context,
+    with_force: bool,
+    skip_force_push_protection: bool,
+    branch: &gix::refs::FullNameRef,
+    run_hooks: bool,
+    push_opts: Vec<but_gerrit::PushFlag>,
+) -> Result<gitbutler_git::PushResult> {
+    let repo = ctx.clone_repo_for_merging_non_persisting()?;
+    let meta = ctx.meta()?;
+    let gerrit_mode_enabled = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
+    let mut db = ctx.db.get_cache_mut()?;
+    let gerrit_mode = if gerrit_mode_enabled {
+        but_workspace::ref_info::GerritMode::Enabled(db.gerrit_metadata())
+    } else {
+        but_workspace::ref_info::GerritMode::Disabled
+    };
+    let (head_info, ws) = but_workspace::head_info_and_workspace(
+        &repo,
+        &meta,
+        but_workspace::ref_info::Options {
+            traversal: but_graph::init::Options::limited(),
+            expensive_commit_info: true,
+            gerrit_mode,
+        },
+    )?;
+    let head_info = head_info.pruned_to_entrypoint();
+
+    let result = but_workspace::legacy::push::workspace_branch_and_ancestors_push(
+        &repo,
+        &ws,
+        &head_info,
+        &mut db,
+        gerrit_mode_enabled,
+        with_force,
+        skip_force_push_protection,
+        ctx.legacy_project.force_push_protection,
+        branch,
+        run_hooks,
+        ctx.legacy_project.husky_hooks_enabled,
+        push_opts,
+    )?;
+
+    Ok(result)
+}
