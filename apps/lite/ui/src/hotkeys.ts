@@ -137,7 +137,7 @@ export const outlineHotkeys = {
 	},
 	pushStack: {
 		hotkey: "Shift+P",
-		meta: { group: "Branch", name: "Push branch" },
+		meta: { group: "Branch", name: "Push with branches below" },
 	},
 	renameBranch: {
 		hotkey: "Enter",
