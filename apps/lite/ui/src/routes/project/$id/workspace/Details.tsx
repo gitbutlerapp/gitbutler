@@ -46,7 +46,7 @@ import styles from "./Details.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import { SelectionScope } from "#ui/selection-scopes.ts";
 import {
-	FilesTree as GenericFilesTree,
+	FilesTree,
 	changeFileTreeItem,
 	conflictFileTreeItem,
 	type FileTreeItem,
@@ -478,7 +478,7 @@ const Diff: FC<{
 	return (
 		<div className={classes(styles.diff, filesVisible && styles.diffWithFiles)}>
 			{filesVisible && (
-				<GenericFilesTree
+				<FilesTree
 					id={"files" satisfies SelectionScope}
 					data-selection-scope
 					tabIndex={0}
