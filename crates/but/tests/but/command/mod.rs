@@ -22,7 +22,7 @@ mod format;
 mod gui;
 mod help;
 #[cfg(feature = "legacy")]
-mod merge;
+mod integrate;
 #[cfg(feature = "legacy")]
 mod r#move;
 mod onboarding;

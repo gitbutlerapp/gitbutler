@@ -340,7 +340,39 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
         writeln!(progress, "   Checking integration statuses...")?;
     }
 
-    // Step 2: Check integration status
+    finish_active_branch_integration(ctx, out, pull_result).await
+}
+
+pub(crate) async fn integrate_active_branches_after_target_update(
+    ctx: &Context,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
+    let pull_result = PullResult {
+        status: String::new(),
+        upstream_url: None,
+        upstream_commits_found: 0,
+        recent_commits: vec![],
+        branches_to_update: vec![],
+        integrated_branches: vec![],
+        conflicts: vec![],
+        summary: PullSummary {
+            branches_updated: 0,
+            branches_conflicted: 0,
+            branches_integrated: 0,
+            branches_unchanged: 0,
+        },
+        undo_command: None,
+    };
+    finish_active_branch_integration(ctx, out, pull_result).await
+}
+
+async fn finish_active_branch_integration(
+    ctx: &Context,
+    out: &mut OutputChannel,
+    mut pull_result: PullResult,
+) -> anyhow::Result<()> {
+    let t = theme::get();
+
     let status =
         but_api::legacy::virtual_branches::upstream_integration_statuses(ctx.to_sync(), None)
             .await?;
@@ -382,7 +414,6 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
             } else {
                 pull_result.status = "updating".to_string();
 
-                // Analyze branches to update
                 let mut branches_to_update = 0;
                 let mut integrated_branches = vec![];
                 let mut resolutions = vec![];
@@ -406,7 +437,7 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                         let branch_info = BranchUpdateInfo {
                             name: branch_status.name.clone(),
                             status: format_branch_status(&branch_status.status),
-                            commit_count: 0, // TODO: Get actual commit count
+                            commit_count: 0,
                             conflicts: vec![],
                         };
 
@@ -438,12 +469,11 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                         ResolutionApproach::Rebase
                     };
 
-                    let resolution = Resolution {
+                    resolutions.push(Resolution {
                         stack_id: *stack_id,
                         approach,
                         delete_integrated_branches: true,
-                    };
-                    resolutions.push(resolution);
+                    });
                 }
 
                 if let Some(out) = out.for_human()
@@ -457,16 +487,14 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                     )?;
                 }
 
-                pull_result.integrated_branches = integrated_branches.clone();
+                pull_result.integrated_branches = integrated_branches;
 
                 Some((resolutions, statuses))
             }
         }
     };
 
-    // Step 3: Actually perform the integration
     if let Some((resolutions, statuses)) = resolutions {
-        // Store branch information before integration, along with resolution approaches
         let mut branch_info_map: HashMap<StackId, (String, String)> = HashMap::new();
         let mut resolution_map: HashMap<StackId, ResolutionApproach> = HashMap::new();
 
@@ -479,7 +507,6 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
             }
         }
 
-        // Store resolution approaches before moving resolutions
         for resolution in &resolutions {
             resolution_map.insert(resolution.stack_id, resolution.approach);
         }
@@ -490,14 +517,12 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
 
         match integration_result {
             Ok(_outcome) => {
-                // Re-fetch status to check for any remaining conflicts
                 let post_status = but_api::legacy::virtual_branches::upstream_integration_statuses(
                     ctx.to_sync(),
                     None,
                 )
                 .await?;
 
-                // Report detailed results for each resolution
                 let mut successful_rebases: Vec<String> = Vec::new();
                 let mut conflicted_rebases: Vec<String> = Vec::new();
 
@@ -505,7 +530,6 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                     if let Some((branch_name, _original_status)) = branch_info_map.get(stack_id) {
                         match approach {
                             ResolutionApproach::Rebase => {
-                                // Check if this branch still has conflicts in post_status
                                 let still_conflicted = if let UpdatesRequired {
                                     statuses: post_statuses,
                                     ..
@@ -522,7 +546,6 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                                     false
                                 };
 
-                                // Also check if any commits in the branch have conflicts
                                 let has_conflicted_commits =
                                     crate::legacy::workspace::applied_stack_with_expensive_commit_info(
                                         ctx,
@@ -545,15 +568,12 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                                     successful_rebases.push(branch_name.to_string());
                                 }
                             }
-                            ResolutionApproach::Delete => {
-                                // Already handled in integrated_branches
-                            }
+                            ResolutionApproach::Delete => {}
                             _ => {}
                         }
                     }
                 }
 
-                // Check if there are any conflicted files
                 let has_conflicts = !conflicted_rebases.is_empty()
                     || (if let UpdatesRequired {
                         statuses: post_statuses,
@@ -571,35 +591,28 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                         false
                     });
 
-                // Update final status
                 pull_result.status = if has_conflicts {
                     "completed_with_conflicts".to_string()
                 } else {
                     "completed".to_string()
                 };
 
-                // Update summary counts
                 pull_result.summary.branches_updated = successful_rebases.len();
                 pull_result.summary.branches_conflicted = conflicted_rebases.len();
                 pull_result.summary.branches_integrated = pull_result.integrated_branches.len();
-
-                // Set undo command
                 pull_result.undo_command = Some("but undo".to_string());
 
-                // Populate conflicts info
                 for branch_name in &conflicted_rebases {
                     pull_result.conflicts.push(ConflictInfo {
                         branch: branch_name.clone(),
-                        files: vec![], // TODO: Get actual conflicted files
+                        files: vec![],
                         upstream_commit: None,
                     });
                 }
 
-                // Show results for each branch
                 if let Some(out) = out.for_human() {
                     writeln!(out)?;
 
-                    // Show successful rebases
                     for branch_name in &successful_rebases {
                         writeln!(
                             out,
@@ -610,7 +623,6 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                         )?;
                     }
 
-                    // Show conflicted rebases
                     for branch_name in &conflicted_rebases {
                         writeln!(
                             out,
@@ -621,7 +633,6 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                         )?;
                     }
 
-                    // Report on integrated branches
                     if !pull_result.integrated_branches.is_empty() {
                         writeln!(out)?;
                         for branch in &pull_result.integrated_branches {
@@ -634,11 +645,9 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                         }
                     }
 
-                    // Final summary
                     writeln!(out, "\n{}", t.important.paint("Summary"))?;
                     writeln!(out, "────────")?;
 
-                    // List each branch with color-coded status
                     for branch in &successful_rebases {
                         writeln!(
                             out,
@@ -666,7 +675,6 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                         )?;
                     }
 
-                    // Conflict resolution instructions
                     if has_conflicts {
                         writeln!(out)?;
                         writeln!(out, "{}", t.important.paint("To resolve conflicts:"))?;
@@ -688,13 +696,11 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                         )?;
                     }
 
-                    // Undo instructions
                     writeln!(out)?;
                     writeln!(out, "{}", t.important.paint("To undo this operation:"))?;
                     writeln!(out, "  Run `but undo`")?;
                 }
 
-                // Output JSON result
                 if let Some(out) = out.for_json() {
                     out.write_value(&pull_result)?;
                 }

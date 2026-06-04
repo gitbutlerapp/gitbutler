@@ -3,10 +3,18 @@ use snapbox::str;
 use crate::utils::{CommandExt, Sandbox};
 
 #[test]
-fn merge_first_branch_into_gb_local_and_verify_rebase() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches")?;
+fn integrate_first_branch_into_origin_and_verify_rebase() -> anyhow::Result<()> {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head")?;
 
-    // Run setup to create gb-local remote
+    let remote = env.projects_root().with_extension("origin.git");
+    env.invoke_git(&format!("init --bare {}", remote.display()));
+    env.invoke_git(&format!(
+        "--git-dir={} symbolic-ref HEAD refs/heads/main",
+        remote.display()
+    ));
+    env.invoke_git(&format!("remote set-url origin {}", remote.display()));
+    env.invoke_git("push origin main:main");
+    env.invoke_git("fetch origin");
     env.but("setup").assert().success();
 
     // Verify we're on gitbutler/workspace
@@ -32,56 +40,46 @@ fn merge_first_branch_into_gb_local_and_verify_rebase() -> anyhow::Result<()> {
         .assert()
         .success();
 
-    // Verify git log shows both branches before merge
-    insta::assert_snapshot!(env.git_log()?, @r"
-    *   71ae247 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
-    | * edca1cd (second-branch) second commit on branch B
-    * | 549e10c (first-branch) first commit on branch A
-    |/  
-    * 85efbe4 (gb-local/main, gb-local/HEAD, main, gitbutler/target) M
-    ");
-
-    // Get the current main branch commit (should be the initial commit M)
     let main_before_hash = env.invoke_git("rev-parse main");
+    let origin_main_before_hash = env.invoke_git("rev-parse origin/main");
 
-    // Merge the first branch
-    env.but(format!("merge {first_branch}"))
+    // Integrate the first branch
+    let output = env
+        .but(format!("integrate {first_branch} --yes"))
         .assert()
         .success()
-        .stdout_eq(str![[r#"
+        .get_output()
+        .stdout
+        .clone();
+    let stdout = String::from_utf8_lossy(&output);
+    assert!(
+        stdout.contains("This will directly push to origin/main. Are you sure?"),
+        "integrate should warn before directly pushing the target branch"
+    );
+    assert!(
+        stdout.contains("Branch first-branch has been integrated upstream and removed locally"),
+        "integrate should use pull's active-branch cleanup after pushing"
+    );
+    assert!(
+        stdout.contains("Integration complete!"),
+        "integrate should report completion after cleanup"
+    );
 
-Found 2 upstream commits on gb-local/main
-   61888c9 Merge branch 'first-branch'
-   549e10c first commit on branch A
-
-Updating 2 active branches...
-
-Rebase of second-branch successful
-
-Branch first-branch has been integrated upstream and removed locally
-
-Summary
-────────
-  second-branch - rebased
-  first-branch - integrated
-
-To undo this operation:
-  Run `but undo`
-
-"#]]);
-
-    // Verify that main has been updated with the merge commit
+    // Verify that only the remote target was updated directly.
     let main_after_hash = env.invoke_git("rev-parse main");
+    let origin_main_after_hash = env.invoke_git("rev-parse origin/main");
 
-    // Main should have changed
-    assert_ne!(
+    assert_eq!(
         main_before_hash, main_after_hash,
-        "main branch should have been updated"
+        "integrate should directly update the remote target, not the local main ref"
+    );
+    assert_ne!(
+        origin_main_before_hash, origin_main_after_hash,
+        "origin/main should advance after integrate pushes the merge commit"
     );
 
     // Verify the merge commit has both parents
-    let parents = env.invoke_git("rev-list --parents -n 1 main");
+    let parents = env.invoke_git("rev-list --parents -n 1 origin/main");
     let parent_count = parents.split_whitespace().count() - 1; // Subtract 1 for the commit itself
     assert_eq!(parent_count, 2, "Merge commit should have 2 parents");
 
@@ -105,33 +103,45 @@ To undo this operation:
     assert_eq!(
         status_after_json["stacks"].as_array().unwrap().len(),
         1,
-        "Only second-branch should remain after merge"
+        "Only second-branch should remain after integrate"
     );
 
     // Verify the second branch is rebased on top of the updated main
-    let second_branch_base_hash = env.invoke_git("merge-base main second-branch");
+    let second_branch_base_hash = env.invoke_git("merge-base origin/main second-branch");
 
-    // The merge base should be the new main (the second branch was rebased)
+    // The merge base should be the new target (the second branch was rebased)
     assert_eq!(
-        second_branch_base_hash, main_after_hash,
-        "second-branch should be rebased on top of the merged main"
+        second_branch_base_hash, origin_main_after_hash,
+        "second-branch should be rebased on top of the merged target"
     );
 
-    // Verify git log shows the rebased structure
-    insta::assert_snapshot!(env.git_log()?, @r"
-    * c7f0f9d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * e8d7818 (second-branch) second commit on branch B
-    *   61888c9 (gb-local/main, gb-local/HEAD, main) Merge branch 'first-branch'
-    |\  
-    | | * 71ae247 (gb-local/gitbutler/workspace) GitButler Workspace Commit
-    | |/| 
-    |/| | 
-    | | * edca1cd (gb-local/second-branch) second commit on branch B
-    | |/  
-    * / 549e10c (gb-local/first-branch) first commit on branch A
-    |/  
-    * 85efbe4 (gb-local/gitbutler/target, gitbutler/target) M
-    ");
+    Ok(())
+}
+
+#[test]
+fn integrate_refuses_to_direct_push_to_self_remote() -> anyhow::Result<()> {
+    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches")?;
+
+    env.but("setup").assert().success();
+    env.but("branch new first-branch").assert().success();
+
+    env.file("file1.txt", "content1");
+    env.but("commit first-branch -m 'first commit on branch A'")
+        .assert()
+        .success();
+
+    let output = env
+        .but("integrate first-branch --yes")
+        .assert()
+        .failure()
+        .get_output()
+        .stderr
+        .clone();
+    let stderr = String::from_utf8_lossy(&output);
+    assert!(
+        stderr.contains("configured push remote points at this working repository"),
+        "integrate should refuse legacy gb-local-style self remotes"
+    );
 
     Ok(())
 }

@@ -1417,11 +1417,11 @@ async fn match_subcommand(
             result.show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Merge { branch } => {
+        Subcommands::Integrate { branch, yes } => {
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::merge::handle(&mut ctx, out, &branch)
+            command::legacy::integrate::handle(&mut ctx, out, &branch, yes)
                 .await
-                .context("Failed to merge branch.")
+                .context("Failed to integrate branch.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
