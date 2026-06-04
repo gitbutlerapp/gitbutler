@@ -169,15 +169,12 @@ const useNavigationIndex = ({
 
 	const dispatch = useAppDispatch();
 
-	const items = navigationItems(headInfo);
-	const navigationIndexUnfiltered = buildNavigationIndex(items);
-
 	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
-
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
+	const items = navigationItems(headInfo);
 	const navigationIndex = filterNavigationIndexForOutlineMode({
-		navigationIndex: navigationIndexUnfiltered,
+		navigationIndex: buildNavigationIndex(items),
 		outlineMode,
 		absorptionTargetKeys,
 	});
