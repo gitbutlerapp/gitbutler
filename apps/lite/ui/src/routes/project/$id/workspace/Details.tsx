@@ -17,6 +17,7 @@ import {
 	commitFileParent,
 	commitOperand,
 	fileOperand,
+	type CommitOperand,
 	type Operand,
 } from "#ui/operands.ts";
 import { projectActions, selectProjectFilesVisible } from "#ui/projects/state.ts";
@@ -27,7 +28,13 @@ import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSour
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Tooltip } from "@base-ui/react";
-import type { DiffHunk, TreeChange } from "@gitbutler/but-sdk";
+import type {
+	CommitDetails,
+	DiffHunk,
+	TreeChange,
+	TreeChanges,
+	WorktreeChanges,
+} from "@gitbutler/but-sdk";
 import { parsePatchFiles } from "@pierre/diffs";
 import { type CodeView as CodeViewClass } from "@pierre/diffs";
 import { CodeView, type CodeViewDiffItem, type CodeViewHandle } from "@pierre/diffs/react";
@@ -40,10 +47,11 @@ import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import { SelectionScope } from "#ui/selection-scopes.ts";
 import {
 	FilesTree as GenericFilesTree,
-	getBranchFileTreeItems,
-	getChangesFileTreeItems,
-	getCommitFileTreeItems,
+	changeFileTreeItem,
+	conflictFileTreeItem,
+	type FileTreeItem,
 } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
+import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.ts";
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
@@ -70,6 +78,89 @@ const getChangesetKey = (selection: Operand): string =>
 			Commit: ({ commitId }) => commitId,
 		}),
 		Match.orElseAbsurd,
+	);
+
+const getCommitFileTreeItems = ({
+	commit,
+	commitDetails,
+}: {
+	commit: CommitOperand;
+	commitDetails: CommitDetails;
+}): Array<FileTreeItem> => {
+	const conflictedPaths = commitDetails.conflictEntries
+		? globalThis.Array.from(
+				new Set([
+					...commitDetails.conflictEntries.ancestorEntries,
+					...commitDetails.conflictEntries.ourEntries,
+					...commitDetails.conflictEntries.theirEntries,
+				]),
+			).toSorted((a, b) => a.localeCompare(b))
+		: [];
+	const conflictedPathSet = new Set(conflictedPaths);
+
+	return [
+		...conflictedPaths.map((path) =>
+			conflictFileTreeItem({
+				operand: fileOperand({
+					parent: commitFileParent(commit),
+					path,
+				}),
+				path,
+			}),
+		),
+		...commitDetails.changes
+			.filter((change) => !conflictedPathSet.has(change.path))
+			.map((change) =>
+				changeFileTreeItem({
+					change,
+					operand: fileOperand({
+						parent: commitFileParent(commit),
+						path: change.path,
+					}),
+				}),
+			),
+	];
+};
+
+const getChangesFileTreeItems = (worktreeChanges: WorktreeChanges): Array<FileTreeItem> => {
+	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
+		worktreeChanges.dependencies?.diffs ?? [],
+	);
+
+	return worktreeChanges.changes.map((change) => {
+		const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
+		const dependencyCommitIds = hunkDependencyDiffs
+			? getDependencyCommitIds({ hunkDependencyDiffs })
+			: undefined;
+
+		return changeFileTreeItem({
+			change,
+			dependencyCommitIds,
+			operand: fileOperand({
+				parent: changesFileParent,
+				path: change.path,
+			}),
+		});
+	});
+};
+
+const getBranchFileTreeItems = ({
+	stackId,
+	branchRef,
+	branchDiff,
+}: {
+	stackId: string;
+	branchRef: Array<number>;
+	branchDiff: TreeChanges;
+}): Array<FileTreeItem> =>
+	branchDiff.changes.map((change) =>
+		changeFileTreeItem({
+			change,
+			operand: fileOperand({
+				parent: branchFileParent({ stackId, branchRef }),
+				path: change.path,
+			}),
+		}),
 	);
 
 const patchHeaderForChange = (change: TreeChange, lineEnding: string): string =>

@@ -7,16 +7,7 @@ import {
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
-import {
-	branchFileParent,
-	changesFileParent,
-	commitFileParent,
-	fileOperand,
-	operandEquals,
-	operandIdentityKey,
-	type CommitOperand,
-	type Operand,
-} from "#ui/operands.ts";
+import { operandEquals, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectOutlineModeState,
@@ -27,7 +18,7 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
-import type { CommitDetails, TreeChange, TreeChanges, WorktreeChanges } from "@gitbutler/but-sdk";
+import type { TreeChange } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Array, Match } from "effect";
 import { ComponentProps, createContext, FC, ReactNode, use, useEffect, useRef } from "react";
@@ -39,7 +30,6 @@ import {
 	WorkspaceItemRowToolbar,
 } from "./WorkspaceItemRow.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
-import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.ts";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
 import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
 import {
@@ -157,7 +147,7 @@ type ChangeFileTreeItem = {
 	operand: Operand;
 };
 
-const changeFileTreeItem = ({
+export const changeFileTreeItem = ({
 	change,
 	dependencyCommitIds,
 	operand,
@@ -168,101 +158,18 @@ const changeFileTreeItem = ({
 	operand,
 });
 
-export const getCommitFileTreeItems = ({
-	commit,
-	commitDetails,
-}: {
-	commit: CommitOperand;
-	commitDetails: CommitDetails;
-}): Array<FileTreeItem> => {
-	const conflictedPaths = commitDetails.conflictEntries
-		? globalThis.Array.from(
-				new Set([
-					...commitDetails.conflictEntries.ancestorEntries,
-					...commitDetails.conflictEntries.ourEntries,
-					...commitDetails.conflictEntries.theirEntries,
-				]),
-			).toSorted((a, b) => a.localeCompare(b))
-		: [];
-	const conflictedPathSet = new Set(conflictedPaths);
-
-	return [
-		...conflictedPaths.map((path) =>
-			conflictFileTreeItem({
-				operand: fileOperand({
-					parent: commitFileParent(commit),
-					path,
-				}),
-				path,
-			}),
-		),
-		...commitDetails.changes
-			.filter((change) => !conflictedPathSet.has(change.path))
-			.map((change) =>
-				changeFileTreeItem({
-					change,
-					operand: fileOperand({
-						parent: commitFileParent(commit),
-						path: change.path,
-					}),
-				}),
-			),
-	];
-};
-
-export const getChangesFileTreeItems = (worktreeChanges: WorktreeChanges): Array<FileTreeItem> => {
-	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
-		worktreeChanges.dependencies?.diffs ?? [],
-	);
-
-	return worktreeChanges.changes.map((change) => {
-		const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
-		const dependencyCommitIds = hunkDependencyDiffs
-			? getDependencyCommitIds({ hunkDependencyDiffs })
-			: undefined;
-
-		return changeFileTreeItem({
-			change,
-			dependencyCommitIds,
-			operand: fileOperand({
-				parent: changesFileParent,
-				path: change.path,
-			}),
-		});
-	});
-};
-
-export const getBranchFileTreeItems = ({
-	stackId,
-	branchRef,
-	branchDiff,
-}: {
-	stackId: string;
-	branchRef: Array<number>;
-	branchDiff: TreeChanges;
-}): Array<FileTreeItem> =>
-	branchDiff.changes.map((change) =>
-		changeFileTreeItem({
-			change,
-			operand: fileOperand({
-				parent: branchFileParent({ stackId, branchRef }),
-				path: change.path,
-			}),
-		}),
-	);
-
 type ConflictFileTreeItem = {
 	operand: Operand;
 	path: string;
 };
 
-const conflictFileTreeItem = ({ operand, path }: ConflictFileTreeItem): FileTreeItem => ({
+export const conflictFileTreeItem = ({ operand, path }: ConflictFileTreeItem): FileTreeItem => ({
 	_tag: "Conflict",
 	operand,
 	path,
 });
 
-type FileTreeItem =
+export type FileTreeItem =
 	| ({ _tag: "Change" } & ChangeFileTreeItem)
 	| ({ _tag: "Conflict" } & ConflictFileTreeItem);
 
