@@ -20,11 +20,13 @@ import {
 } from "$lib/dragging/stackingReorderDropzoneManager";
 import { FILE_SERVICE, FileService } from "$lib/files/fileService";
 import { ResizeSync, RESIZE_SYNC } from "$lib/floating/resizeSync";
-import { DefaultForgeFactory, DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
-import { GITHUB_CLIENT, GitHubClient } from "$lib/forge/github/githubClient";
+import { CHECKS_MONITOR, ChecksMonitor } from "$lib/forge/checksMonitor.svelte";
+import { FORGE_INFO_SERVICE, ForgeInfoService } from "$lib/forge/forgeInfo.svelte";
 import { GitHubUserService, GITHUB_USER_SERVICE } from "$lib/forge/github/githubUserService.svelte";
-import { GITLAB_CLIENT, GitLabClient } from "$lib/forge/gitlab/gitlabClient.svelte";
 import { GITLAB_USER_SERVICE, GitLabUserService } from "$lib/forge/gitlab/gitlabUserService.svelte";
+import { LISTING_SERVICE, ListingService } from "$lib/forge/listingService.svelte";
+import { PR_SERVICE, PrService } from "$lib/forge/prService.svelte";
+import { REPO_SERVICE, RepoService } from "$lib/forge/repoService.svelte";
 import { CherryApplyService, CHERRY_APPLY_SERVICE } from "$lib/git/cherryApplyService";
 import { GitService, GIT_SERVICE } from "$lib/git/gitService";
 import { HOOKS_SERVICE, HooksService } from "$lib/git/hooksService";
@@ -118,17 +120,10 @@ export function initDependencies(args: {
 	const httpClient = new HttpClient(window.fetch, PUBLIC_API_BASE_URL, tokenMemoryService.token);
 
 	// ============================================================================
-	// FORGE CLIENTS & INTEGRATIONS
-	// ============================================================================
-
-	const gitHubClient = new GitHubClient();
-	const gitLabClient = new GitLabClient();
-
-	// ============================================================================
 	// STATE MANAGEMENT
 	// ============================================================================
 
-	const clientState = new ClientState(backend, gitHubClient, gitLabClient, posthog);
+	const clientState = new ClientState(backend, posthog);
 	const githubUserService = new GitHubUserService(clientState.backendApi);
 	const gitlabUserService = new GitLabUserService(clientState.backendApi, secretsService);
 
@@ -162,18 +157,14 @@ export function initDependencies(args: {
 	const workingFilesBroadcast = new WorkingFilesBroadcast(backend);
 
 	// ============================================================================
-	// FORGE FACTORY
+	// FORGE SERVICES
 	// ============================================================================
 
-	const forgeFactory = new DefaultForgeFactory({
-		gitHubClient,
-		gitLabClient,
-		backendApi: clientState.backendApi,
-		gitHubApi: clientState.githubApi,
-		gitLabApi: clientState.gitlabApi,
-		dispatch: clientState.dispatch,
-		posthog,
-	});
+	const forgeInfoService = new ForgeInfoService(clientState.backendApi);
+	const prService = new PrService(clientState.backendApi, posthog);
+	const listingService = new ListingService(clientState.backendApi, clientState.dispatch);
+	const repoService = new RepoService(clientState.backendApi);
+	const checksMonitor = new ChecksMonitor(clientState.backendApi);
 
 	// ============================================================================
 	// GIT & VERSION CONTROL
@@ -190,12 +181,7 @@ export function initDependencies(args: {
 	// STACKS & WORKSPACE MANAGEMENT
 	// ============================================================================
 
-	const stackService = new StackService(
-		clientState.backendApi,
-		clientState.dispatch,
-		forgeFactory,
-		uiState,
-	);
+	const stackService = new StackService(clientState.backendApi, clientState.dispatch, uiState);
 	const modeService = new ModeService(clientState.backendApi);
 	const rulesService = new RulesService(clientState.backendApi);
 	const worktreeService = new WorktreeService(clientState.backendApi);
@@ -319,7 +305,6 @@ export function initDependencies(args: {
 		[CLOUD_USER_SERVICE, cloudUserService],
 		[COMMIT_ANALYTICS, commitAnalytics],
 		[DATA_SHARING_SERVICE, dataSharingService],
-		[DEFAULT_FORGE_FACTORY, forgeFactory],
 		[DEPENDENCY_SERVICE, dependencyService],
 		[DIFF_SERVICE, diffService],
 		[DRAG_STATE_SERVICE, dragStateService],
@@ -328,10 +313,13 @@ export function initDependencies(args: {
 		[FEED_SERVICE, feedService],
 		[FILE_SERVICE, fileService],
 		[FOCUS_MANAGER, focusManager],
-		[GITHUB_CLIENT, gitHubClient],
+		[CHECKS_MONITOR, checksMonitor],
+		[FORGE_INFO_SERVICE, forgeInfoService],
+		[LISTING_SERVICE, listingService],
+		[PR_SERVICE, prService],
+		[REPO_SERVICE, repoService],
 		[GITHUB_USER_SERVICE, githubUserService],
 		[GITLAB_USER_SERVICE, gitlabUserService],
-		[GITLAB_CLIENT, gitLabClient],
 		[GIT_CONFIG_SERVICE, gitConfig],
 		[GIT_SERVICE, gitService],
 		[HISTORY_SERVICE, historyService],

@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { showError } from "$lib/error/showError";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { MergeMethod } from "$lib/forge/interface/types";
 	import { inject } from "@gitbutler/core/context";
 	import { persisted, type Persisted } from "@gitbutler/shared/persisted";
 
-	import { ContextMenuItem, ContextMenuSection, DropdownButton } from "@gitbutler/ui";
+	import { ContextMenuItem, ContextMenuSection, DropdownButton, TestId } from "@gitbutler/ui";
 	import { untrack } from "svelte";
 	import type { ButtonProps } from "@gitbutler/ui";
 
@@ -33,8 +33,9 @@
 		onSetDraft,
 	}: Props = $props();
 
-	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const isGitLab = $derived(forge.current.name === "gitlab");
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const isGitLab = $derived(forgeInfoQuery.response?.name === "gitlab");
 
 	function persistedAction(projectId: string): Persisted<MergeMethod> {
 		const key = "projectMergeMethod";
@@ -69,6 +70,7 @@
 
 <DropdownButton
 	bind:this={dropDown}
+	testId={TestId.PRMergeButton}
 	onclick={async () => {
 		loading = true;
 		try {

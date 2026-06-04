@@ -6,9 +6,10 @@
 		status?: "open" | "closed" | "draft" | "merged" | "unknown";
 		number: number;
 		title?: string;
+		testId?: string;
 	}
 
-	const { type, status, number, title }: Props = $props();
+	const { type, status, number, title, testId }: Props = $props();
 
 	const reviewUnit = $derived(type === "MR" ? "MR" : "PR");
 	const reviewSymbol = $derived(reviewUnit === "MR" ? "!" : "#");
@@ -48,6 +49,7 @@
 </script>
 
 <Badge
+	{testId}
 	tooltip={badgeDetails}
 	style={getBadgeStyle(status)}
 	kind="soft"

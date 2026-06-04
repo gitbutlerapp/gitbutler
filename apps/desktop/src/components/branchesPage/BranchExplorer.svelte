@@ -11,9 +11,12 @@
 		type SidebarEntrySubject,
 	} from "$lib/branches/branchListing";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { useForgeAuth } from "$lib/forge/forgeAuth.svelte";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import { LISTING_SERVICE } from "$lib/forge/listingService.svelte";
 	import { debounce } from "$lib/utils/debounce";
 	import { inject } from "@gitbutler/core/context";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import { Badge, Button, EmptyStatePlaceholder, SegmentControl } from "@gitbutler/ui";
 	import Fuse from "fuse.js";
 	import type { ForgeUser } from "$lib/forge/interface/types";
@@ -66,10 +69,19 @@
 	let searchEl: HTMLInputElement | undefined = $state();
 	let searching = $state(false);
 
-	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const listingService = inject(LISTING_SERVICE);
 	const branchService = inject(BRANCH_SERVICE);
+	const auth = useForgeAuth(reactive(() => projectId));
 
-	const prs = $derived(forge.current.listService?.list(projectId, 15 * 60 * 1000));
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
+	const listServiceEnabled = $derived(!!forgeInfo?.capabilities.listService);
+	const reviewUnitAbbr = $derived(forgeInfo?.unit.abbr ?? "PR");
+
+	const prs = $derived(
+		listServiceEnabled ? listingService.list(projectId, 15 * 60 * 1000) : undefined,
+	);
 
 	const branchesQuery = $derived(branchService.list(projectId));
 	const combined = $derived(
@@ -112,7 +124,7 @@
 	}
 
 	const filterOptions = $derived.by<Partial<Record<BranchFilterOption, string>>>(() => {
-		if (forge.current.listService) {
+		if (listServiceEnabled) {
 			return {
 				all: "All",
 				pullRequest: "PRs",
@@ -148,14 +160,14 @@
 	const EMPTY_STATE_WIDTH = 280;
 
 	// Helper to get a user-friendly forge name
-	const forgeName = $derived(FORGE_NAME_MAP[forge.determinedForgeType] ?? "your forge");
+	const forgeName = $derived(FORGE_NAME_MAP[forgeInfo?.name ?? "default"] ?? "your forge");
 
 	// Helper to determine if authentication message should be shown
 	// Show auth message when:
 	// 1. User is not authenticated, AND
 	// 2. Either viewing PRs filter OR forge has PR listing capability
 	const shouldShowAuthMessage = $derived(
-		!forge.current.authenticated && (selectedOption === "pullRequest" || forge.current.listService),
+		!auth.authenticated.current && (selectedOption === "pullRequest" || listServiceEnabled),
 	);
 </script>
 
@@ -246,22 +258,22 @@
 					{#if selectedOption === "local"}
 						No local branches found
 					{:else}
-						No branches or {forge.reviewUnitAbbr}s found
+						No branches or {reviewUnitAbbr}s found
 					{/if}
 				{/snippet}
 				{#snippet caption()}
 					{#if selectedOption === "pullRequest"}
-						No {forge.reviewUnitAbbr}s found {#if baseBranch}
+						No {reviewUnitAbbr}s found {#if baseBranch}
 							from <strong>{baseBranch.remoteName}</strong>{/if}.
 					{:else if selectedOption === "local"}
 						Create a new branch or fetch from your remote.
 					{:else if baseBranch}
-						Branches and {forge.reviewUnitAbbr}s from
+						Branches and {reviewUnitAbbr}s from
 						<strong>{baseBranch.remoteName}/{baseBranch.shortName}</strong>
 						will appear here.
 					{/if}
 					{#if shouldShowAuthMessage}
-						Authenticate with {forgeName} to see {forge.reviewUnitAbbr}s.
+						Authenticate with {forgeName} to see {reviewUnitAbbr}s.
 					{/if}
 				{/snippet}
 			</EmptyStatePlaceholder>

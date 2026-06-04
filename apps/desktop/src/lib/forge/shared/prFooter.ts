@@ -1,5 +1,5 @@
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
-import type { ForgePrService } from "$lib/forge/interface/forgePrService";
+import type { PrService } from "$lib/forge/prService.svelte";
 import type { Segment } from "@gitbutler/but-sdk";
 
 export const STACKING_FOOTER_BOUNDARY_TOP = "<!-- GitButler Footer Boundary Top -->";
@@ -16,16 +16,23 @@ export function unixifyNewlines(target: string): string {
  * Updates a pull request description with a table pointing to other pull
  * requests in the same stack.
  */
-export async function updatePrDescriptionTables(prService: ForgePrService, prNumbers: number[]) {
+export async function updatePrDescriptionTables(
+	prService: PrService,
+	projectId: string,
+	prNumbers: number[],
+	unitSymbol = "#",
+) {
 	if (prService && prNumbers.length > 1) {
-		const prs = await Promise.all(prNumbers.map(async (id) => await prService.fetch(id)));
+		const prs = await Promise.all(
+			prNumbers.map(async (id) => await prService.fetch(projectId, id)),
+		);
 		const updates = prs.filter(isDefined).map((pr) => ({
 			prNumber: pr.number,
-			description: updateBody(pr.body, pr.number, prNumbers, prService.unit.symbol),
+			description: updateBody(pr.body, pr.number, prNumbers, unitSymbol),
 		}));
 		await Promise.all(
 			updates.map(async ({ prNumber, description }) => {
-				await prService.update(prNumber, { description });
+				await prService.update(projectId, prNumber, { description });
 			}),
 		);
 	}
@@ -38,9 +45,11 @@ type PrUpdate = {
 };
 
 export async function updateStackPrs(
-	prService: ForgePrService,
+	prService: PrService,
+	projectId: string,
 	branchDetails: Segment[],
 	baseBranchName: string,
+	unitSymbol = "#",
 ) {
 	if (branchDetails.length <= 1) return;
 	const allPrNumbers = branchDetails.map((b) => b.metadata?.review.pullRequest).filter(isDefined);
@@ -57,7 +66,7 @@ export async function updateStackPrs(
 			prevBranch = branchName;
 			continue;
 		}
-		const pr = await prService.fetch(prNumber);
+		const pr = await prService.fetch(projectId, prNumber);
 
 		if (!isDefined(pr)) {
 			prevBranch = branchName;
@@ -66,7 +75,7 @@ export async function updateStackPrs(
 
 		updates.push({
 			prNumber,
-			description: updateBody(pr.body, pr.number, allPrNumbers, prService.unit.symbol),
+			description: updateBody(pr.body, pr.number, allPrNumbers, unitSymbol),
 			targetBase: prevBranch ?? baseBranchName,
 		});
 		prevBranch = branchName;
@@ -75,7 +84,7 @@ export async function updateStackPrs(
 	if (updates.length > 0) {
 		await Promise.all(
 			updates.map(async ({ prNumber, targetBase, description }) => {
-				await prService.update(prNumber, { description, targetBase });
+				await prService.update(projectId, prNumber, { description, targetBase });
 			}),
 		);
 	}
@@ -85,12 +94,15 @@ export async function updateStackPrs(
  * Remove the PR description footer from the given PR numbers.
  */
 export async function unstackPRs(
-	prService: ForgePrService,
+	prService: PrService,
+	projectId: string,
 	prNumbers: number[],
 	baseBranchName: string,
 ) {
 	if (prService && prNumbers.length > 0) {
-		const prs = await Promise.all(prNumbers.map(async (id) => await prService.fetch(id)));
+		const prs = await Promise.all(
+			prNumbers.map(async (id) => await prService.fetch(projectId, id)),
+		);
 		const updates = prs.filter(isDefined).map((pr) => ({
 			prNumber: pr.number,
 			description: clearFooter(pr.body),
@@ -98,7 +110,10 @@ export async function unstackPRs(
 
 		await Promise.all(
 			updates.map(async ({ prNumber, description }) => {
-				await prService.update(prNumber, { description, targetBase: baseBranchName });
+				await prService.update(projectId, prNumber, {
+					description,
+					targetBase: baseBranchName,
+				});
 			}),
 		);
 	}

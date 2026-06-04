@@ -4,7 +4,7 @@
 	import ReviewCreation from "$components/forge/ReviewCreation.svelte";
 	import ReviewCreationControls from "$components/forge/ReviewCreationControls.svelte";
 	import StackedPullRequestCard from "$components/forge/StackedPullRequestCard.svelte";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, Modal } from "@gitbutler/ui";
 	import type { Segment } from "@gitbutler/but-sdk";
@@ -45,9 +45,11 @@
 
 	let canPublishReviewPlugin = $state<ReturnType<typeof CanPublishReviewPlugin>>();
 
-	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const prService = $derived(forge.current.prService);
-	const reviewUnit = $derived(prService?.unit.abbr);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
+	const reviewUnit = $derived(forgeInfo?.unit.abbr);
+	const reviewUnitName = $derived(forgeInfo?.unit.name ?? "Pull request");
 
 	const canPublishPR = $derived(!!canPublishReviewPlugin?.imports.canPublishPR);
 
@@ -58,6 +60,7 @@
 
 <CanPublishReviewPlugin
 	bind:this={canPublishReviewPlugin}
+	{projectId}
 	commits={segment.commits}
 	{prNumber}
 	{reviewId}
@@ -67,21 +70,21 @@
 	<Modal
 		width="small"
 		type="warning"
-		title="Create {forge.reviewUnitName}"
+		title="Create {reviewUnitName}"
 		bind:this={confirmCreatePrModal}
 		onSubmit={() => {
 			modal?.show();
 		}}
 	>
 		<p class="text-13 text-body helper-text">
-			It's strongly recommended to create {forge.reviewUnitName.toLowerCase()}s starting with the
-			branch at the base of the stack.
+			It's strongly recommended to create {reviewUnitName.toLowerCase()}s starting with the branch
+			at the base of the stack.
 			<br />
-			Do you still want to create this {forge.reviewUnitName.toLowerCase()}?
+			Do you still want to create this {reviewUnitName.toLowerCase()}?
 		</p>
 		{#snippet controls(close)}
 			<Button kind="outline" onclick={close}>Cancel</Button>
-			<Button style="warning" type="submit">Create {forge.reviewUnitName}</Button>
+			<Button style="warning" type="submit">Create {reviewUnitName}</Button>
 		{/snippet}
 	</Modal>
 

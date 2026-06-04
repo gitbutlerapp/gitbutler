@@ -53,6 +53,37 @@ pub fn forge_provider(ctx: &Context) -> Result<Option<ForgeName>> {
     Ok(forge_repo_info.map(|info| info.forge))
 }
 
+/// Per-project forge display + URL config. Lets the renderer build
+/// commit/PR URLs and pick labels without branching on forge name.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub fn forge_info(ctx: &Context) -> Result<Option<but_forge::ForgeInfo>> {
+    let meta = ctx.meta()?;
+    let repo = ctx.repo.get()?;
+    Ok(but_forge::forge_info(&remote_url(&meta, &repo)?))
+}
+
+/// Web compare URL for a branch — drives the "Open in browser"
+/// affordances without making the renderer hold per-forge URL
+/// templates. `fork` is the owner namespace for fork compares.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub fn forge_compare_branch_url(
+    ctx: &Context,
+    base: String,
+    branch: String,
+    fork: Option<String>,
+) -> Result<Option<String>> {
+    let meta = ctx.meta()?;
+    let repo = ctx.repo.get()?;
+    Ok(but_forge::compare_branch_url(
+        &remote_url(&meta, &repo)?,
+        &base,
+        &branch,
+        fork.as_deref(),
+    ))
+}
+
 /// Get the list of review template paths for the given project.
 #[but_api(napi)]
 #[instrument(err(Debug))]
@@ -237,6 +268,58 @@ mod tests {
 
 #[but_api(napi)]
 #[instrument(err(Debug))]
+pub async fn get_review_base_repo_url(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+) -> Result<Option<String>> {
+    let (storage, forge_repo_info, preferred_forge_user) = {
+        let ctx = ctx.into_thread_local();
+        let meta = ctx.meta()?;
+        let repo = ctx.repo.get()?;
+        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&meta, &repo)?);
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            forge_repo_info,
+            ctx.legacy_project.preferred_forge_user.clone(),
+        )
+    };
+    but_forge::get_review_base_repo_url(
+        &preferred_forge_user,
+        &forge_repo_info.context("No forge could be determined for this repository branch")?,
+        review_id,
+        &storage,
+    )
+    .await
+}
+
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn get_review_merge_status(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+) -> Result<but_forge::ReviewMergeStatus> {
+    let (storage, forge_repo_info, preferred_forge_user) = {
+        let ctx = ctx.into_thread_local();
+        let meta = ctx.meta()?;
+        let repo = ctx.repo.get()?;
+        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&meta, &repo)?);
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            forge_repo_info,
+            ctx.legacy_project.preferred_forge_user.clone(),
+        )
+    };
+    but_forge::get_review_merge_status(
+        &preferred_forge_user,
+        &forge_repo_info.context("No forge could be determined for this repository branch")?,
+        review_id,
+        &storage,
+    )
+    .await
+}
+
+#[but_api(napi)]
+#[instrument(err(Debug))]
 pub fn get_review(ctx: &Context, review_id: usize) -> Result<but_forge::ForgeReview> {
     let (storage, forge_repo_info, preferred_forge_user) = {
         let meta = ctx.meta()?;
@@ -262,8 +345,30 @@ pub fn get_review(ctx: &Context, review_id: usize) -> Result<but_forge::ForgeRev
 }
 
 #[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn get_repo_info(ctx: ThreadSafeContext) -> Result<but_forge::RepoInfo> {
+    let (storage, forge_repo_info, preferred_forge_user) = {
+        let ctx = ctx.into_thread_local();
+        let meta = ctx.meta()?;
+        let repo_ = ctx.repo.get()?;
+        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&meta, &repo_)?);
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            forge_repo_info,
+            ctx.legacy_project.preferred_forge_user.clone(),
+        )
+    };
+    but_forge::get_repo_info(
+        &preferred_forge_user,
+        &forge_repo_info.context("No forge could be determined for this repository branch")?,
+        &storage,
+    )
+    .await
+}
+
+#[but_api(napi)]
 #[instrument(skip(ctx), err(Debug))]
-pub fn list_ci_checks_and_update_cache(
+pub fn list_ci_checks(
     ctx: &Context,
     reference: String,
     cache_config: Option<but_forge::CacheConfig>,
@@ -335,7 +440,11 @@ pub async fn publish_review(
 /// Merge a review on the forge.
 #[but_api(napi)]
 #[instrument(err(Debug))]
-pub async fn merge_review(ctx: ThreadSafeContext, review_id: usize) -> Result<()> {
+pub async fn merge_review(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+    merge_method: Option<but_forge::ReviewMergeMethod>,
+) -> Result<()> {
     let (storage, forge_repo_info, preferred_forge_user) = {
         let ctx = ctx.into_thread_local();
         let meta = ctx.meta()?;
@@ -353,6 +462,7 @@ pub async fn merge_review(ctx: ThreadSafeContext, review_id: usize) -> Result<()
         &preferred_forge_user,
         &forge_repo_info.context("No forge could be determined for this repository branch")?,
         review_id,
+        merge_method,
         &storage,
     )
     .await
@@ -415,6 +525,41 @@ pub async fn set_review_draftiness(
         &forge_repo_info.context("No forge could be determined for this repository branch")?,
         review_id,
         draft,
+        &storage,
+    )
+    .await
+}
+
+/// Update arbitrary fields of a single review (body, state, target base).
+/// Each `None` leaves that field unchanged on the forge.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn update_review(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+    body: Option<String>,
+    state: Option<but_forge::ReviewState>,
+    target_base: Option<String>,
+) -> Result<()> {
+    let (storage, forge_repo_info, preferred_forge_user) = {
+        let ctx = ctx.into_thread_local();
+        let meta = ctx.meta()?;
+        let repo = ctx.repo.get()?;
+        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&meta, &repo)?);
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            forge_repo_info,
+            ctx.legacy_project.preferred_forge_user.clone(),
+        )
+    };
+
+    but_forge::update_review(
+        &preferred_forge_user,
+        &forge_repo_info.context("No forge could be determined for this repository branch")?,
+        review_id,
+        body,
+        state,
+        target_base,
         &storage,
     )
     .await
@@ -501,7 +646,7 @@ pub fn warm_ci_checks_cache(ctx: &Context) -> Result<()> {
             for branch in &details.branch_details {
                 if branch.pr_number.is_some() {
                     // Fetch CI checks with NoCache to force refresh
-                    let _ = list_ci_checks_and_update_cache(
+                    let _ = list_ci_checks(
                         ctx,
                         branch.name.to_string(),
                         Some(but_forge::CacheConfig::NoCache),

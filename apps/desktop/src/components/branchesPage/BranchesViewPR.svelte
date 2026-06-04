@@ -4,7 +4,8 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { showError } from "$lib/error/showError";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import { PR_SERVICE } from "$lib/forge/prService.svelte";
 	import { REMOTES_SERVICE } from "$lib/git/remotesService";
 	import { workspacePath } from "$lib/routes/routes.svelte";
 	import { handleCreateBranchFromBranchOutcome } from "$lib/stacks/stack";
@@ -12,7 +13,7 @@
 
 	import { inject } from "@gitbutler/core/context";
 	import { Button, Modal, TestId, Textbox } from "@gitbutler/ui";
-	import type { DetailedPullRequest } from "$lib/forge/interface/types";
+	import type { PullRequest } from "$lib/forge/interface/types";
 
 	type Props = {
 		projectId: string;
@@ -22,10 +23,13 @@
 
 	const { projectId, prNumber, onerror }: Props = $props();
 
-	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const prService = $derived(forge.current.prService);
-	const prQuery = $derived(prService?.get(prNumber, { forceRefetch: true }));
-	const prUnit = $derived(prService?.unit);
+	const prService = inject(PR_SERVICE);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
+	const reviewUnitName = $derived(forgeInfo?.unit.name ?? "Pull request");
+	const prQuery = $derived(prService.get(projectId, prNumber, { forceRefetch: true }));
+	const prUnit = $derived(forgeInfo?.unit);
 
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const baseRepoQuery = $derived(baseBranchService.repo(projectId));
@@ -38,7 +42,7 @@
 	let inputRemoteName = $state<string>();
 	let loading = $state(false);
 
-	function getRemoteUrl(pr: DetailedPullRequest) {
+	function getRemoteUrl(pr: PullRequest) {
 		if (!baseRepo) return;
 
 		if (baseRepo.protocol?.startsWith("http")) {
@@ -48,7 +52,7 @@
 		}
 	}
 
-	async function handleConfirmRemote(pr: DetailedPullRequest) {
+	async function handleConfirmRemote(pr: PullRequest) {
 		const remoteUrl = getRemoteUrl(pr);
 
 		if (!remoteUrl) {
@@ -86,7 +90,7 @@
 	}
 </script>
 
-<ReduxResult result={prQuery?.result} {projectId} {onerror}>
+<ReduxResult result={prQuery.result} {projectId} {onerror}>
 	{#snippet children(pr)}
 		<div class="pr-card">
 			<PRListCard
@@ -103,7 +107,7 @@
 
 		<Modal
 			testId={TestId.BranchesView_CreateRemoteModal}
-			title="Apply {forge.reviewUnitName}"
+			title="Apply {reviewUnitName}"
 			width="small"
 			bind:this={createRemoteModal}
 			onSubmit={async () => await handleConfirmRemote(pr)}

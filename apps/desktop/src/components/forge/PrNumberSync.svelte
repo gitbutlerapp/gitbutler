@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import { LISTING_SERVICE } from "$lib/forge/listingService.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 
@@ -11,19 +12,23 @@
 
 	const { projectId, stackId, branchName }: Props = $props();
 	const stackService = inject(STACK_SERVICE);
-	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const listingService = inject(LISTING_SERVICE);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	// Gate on the listService capability rather than a forge name: any
+	// forge that can list reviews can have its number persisted to the
+	// branch (GitHub + GitLab today).
+	const canListReviews = $derived(!!forgeInfoQuery.response?.capabilities.listService);
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
-	const forgeListing = $derived(forge.current.listService);
-	const forgeName = $derived(forge.current.name);
-	const listedPrQuery = $derived(forgeListing?.getByBranch(projectId, branchName));
-
-	const listedPrNumber = $derived(listedPrQuery?.response?.number);
+	const listedPrQuery = $derived(listingService.getByBranch(projectId, branchName));
+	const listedPrNumber = $derived(listedPrQuery.response?.number);
 
 	let hasRun = false;
 	$effect(() => {
-		if (forgeName === "github" && listedPrNumber && !hasRun) {
+		if (canListReviews && listedPrNumber && !hasRun) {
 			hasRun = true;
 			stackService.updateBranchPrNumber({
 				projectId: projectId,

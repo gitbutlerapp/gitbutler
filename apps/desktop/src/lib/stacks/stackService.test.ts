@@ -51,7 +51,7 @@ describe("StackService.uncommit", () => {
 				},
 			},
 		} as unknown as BackendApi;
-		const service = new StackService(backendApi, {} as never, {} as never, uiState);
+		const service = new StackService(backendApi, {} as never, uiState);
 
 		await service.uncommit({
 			projectId: "project-1",

@@ -814,6 +814,106 @@ async fn get_forge_review_inner(
     }
 }
 
+/// Forge-agnostic runtime merge state for a review. Always fetched
+/// fresh from the forge; not cached. Used by the UI to render the
+/// merge-button hint and comment count without forcing every review
+/// consumer to subscribe to those expensive fields.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewMergeStatus {
+    /// Forge-reported merge state. GitHub strings: `clean`, `dirty`,
+    /// `unknown`, `blocked`, `behind`, `unstable`, `has_hooks`,
+    /// `draft`. GitLab strings: `can_be_merged`, `cannot_be_merged`,
+    /// `checking`, etc. `None` when the forge hasn't computed it.
+    /// Used by the UI only to surface a specific reason tooltip.
+    pub mergeable_state: Option<String>,
+    pub comments_count: i64,
+    /// Forge-normalized: whether merging is allowed. Drives the merge
+    /// button without forcing the UI to know per-forge state strings.
+    pub is_mergeable: bool,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ReviewMergeStatus);
+
+/// Canonical clone URL for a review's base repo (the repo the PR
+/// targets). `None` for forges without a URL-based fork model.
+pub async fn get_review_base_repo_url(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    storage: &but_forge_storage::Controller,
+) -> Result<Option<String>> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let pr_number = review_number
+                .try_into()
+                .context("PR: Failed to cast usize to i64, somehow")?;
+            but_github::GitHubClient::from_storage(storage, preferred_account)?
+                .get_pull_request_base_repo_url(owner, repo, pr_number)
+                .await
+                .context("Failed to fetch PR base repo URL")
+        }
+        // None tells the UI to fall back to a branch-name-only check.
+        ForgeName::GitLab | ForgeName::Bitbucket | ForgeName::Azure => Ok(None),
+    }
+}
+
+/// Fetch the runtime merge state for a review. Each call hits the
+/// forge fresh (no DB cache) so the UI can render up-to-date hints
+/// without paying for the rest of the review payload.
+pub async fn get_review_merge_status(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    storage: &but_forge_storage::Controller,
+) -> Result<ReviewMergeStatus> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let pr_number = review_number
+                .try_into()
+                .context("PR: Failed to cast usize to i64, somehow")?;
+            let status = but_github::GitHubClient::from_storage(storage, preferred_account)?
+                .get_pull_request_merge_status(owner, repo, pr_number)
+                .await
+                .context("Failed to fetch PR merge status")?;
+            Ok(ReviewMergeStatus {
+                mergeable_state: status.mergeable_state,
+                comments_count: status.comments_count,
+                is_mergeable: status.is_mergeable,
+            })
+        }
+        ForgeName::GitLab => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab());
+            let project_id = GitLabProjectId::new(owner, repo);
+            let mr_iid = review_number
+                .try_into()
+                .context("MR: Failed to cast usize to i64, somehow")?;
+            let status = but_gitlab::GitLabClient::from_storage(storage, preferred_account)?
+                .get_merge_request_merge_status(project_id, mr_iid)
+                .await
+                .context("Failed to fetch MR merge status")?;
+            Ok(ReviewMergeStatus {
+                mergeable_state: status.mergeable_state,
+                comments_count: status.comments_count,
+                is_mergeable: status.is_mergeable,
+            })
+        }
+        _ => Err(anyhow::anyhow!(
+            "Merge status for forge {forge:?} is not implemented yet."
+        )),
+    }
+}
+
 /// Get a specific review (e.g. pull request) for a given forge repository
 ///
 /// The resulting review will be cached.
@@ -852,11 +952,127 @@ pub fn get_forge_review(
     Ok(review)
 }
 
+/// How to merge a review on the forge. GitHub honours all three;
+/// other forges fall back to their default merge strategy when the
+/// caller asks for `Squash`/`Rebase`.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "lowercase")]
+pub enum ReviewMergeMethod {
+    #[default]
+    Merge,
+    Squash,
+    Rebase,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ReviewMergeMethod);
+
+impl From<&ReviewMergeMethod> for but_github::MergeMethod {
+    fn from(value: &ReviewMergeMethod) -> Self {
+        match value {
+            ReviewMergeMethod::Merge => but_github::MergeMethod::Merge,
+            ReviewMergeMethod::Squash => but_github::MergeMethod::Squash,
+            ReviewMergeMethod::Rebase => but_github::MergeMethod::Rebase,
+        }
+    }
+}
+
+/// Update arbitrary fields of a single review. Each `Some` is applied;
+/// `None` leaves the field unchanged on the forge.
+pub async fn update_review(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    body: Option<String>,
+    state: Option<ReviewState>,
+    target_base: Option<String>,
+    storage: &but_forge_storage::Controller,
+) -> Result<()> {
+    let crate::forge::ForgeRepoInfo {
+        forge, owner, repo, ..
+    } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let pr_number = review_number
+                .try_into()
+                .context("PR: Failed to cast usize to i64, somehow")?;
+            let state_str = state.as_ref().map(|s| s.as_github_str());
+            let params = but_github::UpdatePullRequestParams {
+                owner,
+                repo,
+                pr_number,
+                title: None,
+                body: body.as_deref(),
+                base: target_base.as_deref(),
+                state: state_str,
+            };
+            but_github::GitHubClient::from_storage(storage, preferred_account)?
+                .update_pull_request(&params)
+                .await
+                .context("Failed to update PR")?;
+            Ok(())
+        }
+        ForgeName::GitLab => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab());
+            let project_id = GitLabProjectId::new(owner, repo);
+            let mr_iid = review_number
+                .try_into()
+                .context("MR: Failed to cast usize to i64, somehow")?;
+            // GitLab uses `state_event` ("close" / "reopen") rather than
+            // a `state` field. Map the forge-agnostic ReviewState onto that.
+            let state_event = state.as_ref().map(|s| s.as_gitlab_state_event());
+            let params = but_gitlab::UpdateMergeRequestParams {
+                project_id,
+                mr_iid,
+                title: None,
+                description: body.as_deref(),
+                target_branch: target_base.as_deref(),
+                state_event,
+            };
+            but_gitlab::mr::update(preferred_account, params, storage).await?;
+            Ok(())
+        }
+        _ => Err(anyhow::anyhow!(
+            "Updating pull requests for forge {forge:?} is not implemented yet."
+        )),
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "lowercase")]
+pub enum ReviewState {
+    Open,
+    Closed,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(ReviewState);
+
+impl ReviewState {
+    fn as_github_str(&self) -> &'static str {
+        match self {
+            ReviewState::Open => "open",
+            ReviewState::Closed => "closed",
+        }
+    }
+
+    fn as_gitlab_state_event(&self) -> &'static str {
+        match self {
+            ReviewState::Open => "reopen",
+            ReviewState::Closed => "close",
+        }
+    }
+}
+
 /// Merge a review to it's target branch
 pub async fn merge_review(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     review_number: usize,
+    merge_method: Option<ReviewMergeMethod>,
     storage: &but_forge_storage::Controller,
 ) -> Result<()> {
     let crate::forge::ForgeRepoInfo {
@@ -874,7 +1090,7 @@ pub async fn merge_review(
                 pr_number,
                 commit_message: None,
                 commit_title: None,
-                merge_method: None,
+                merge_method: merge_method.as_ref().map(Into::into),
             };
             but_github::pr::merge(preferred_account, params, storage).await
         }

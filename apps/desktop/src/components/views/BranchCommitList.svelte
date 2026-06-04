@@ -28,7 +28,7 @@
 		ReorderCommitDzFactory,
 		ReorderCommitDzHandler,
 	} from "$lib/dragging/stackingReorderDropzoneManager";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { commitUrl, FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { createCommitSelection } from "$lib/selection/key";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
@@ -57,7 +57,7 @@
 
 	const controller = getStackContext();
 	const stackService = inject(STACK_SERVICE);
-	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
 	const ircApiService = inject(IRC_API_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
@@ -66,6 +66,8 @@
 
 	const projectId = $derived(controller.projectId);
 	const stackId = $derived(controller.stackId);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
 
 	const settingsStore = settingsService.appSettings;
 	const ircEnabled = $derived(
@@ -461,7 +463,7 @@
 									commitId,
 									commitMessage: commit.message,
 									commitStatus: commit.state.type,
-									commitUrl: forge.current.commitUrl(commitId),
+									commitUrl: forgeInfo ? commitUrl(forgeInfo, commitId) : undefined,
 									onUncommitClick: () => handleUncommit(commit.id),
 									onEditMessageClick: () => startEditingCommitMessage(commit.id),
 									multiSelect: isMultiSelect
