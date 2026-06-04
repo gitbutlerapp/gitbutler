@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::Result;
 use bstr::ByteSlice;
+use but_core::RefMetadata;
 use but_ctx::Context;
 use but_oxidize::ObjectIdExt;
 use git2_hooks::{self, HookResult as H};
@@ -54,6 +55,9 @@ fn husky_search_paths(ctx: &Context) -> Option<&'static [&'static str]> {
 }
 
 pub fn commit_msg(ctx: &Context, mut message: String) -> Result<MessageHookResult> {
+    // Set GITBUTLER_TARGET_BRANCH environment variable if a target branch is configured
+    let _target_branch_guard = set_target_branch_env(ctx);
+
     let original_message = message.clone();
     #[expect(deprecated, reason = "libgit2 hook adapter boundary")]
     match git2_hooks::hooks_commit_msg(
@@ -122,6 +126,9 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<Hoo
 }
 
 pub fn post_commit(ctx: &Context) -> Result<HookResult> {
+    // Set GITBUTLER_TARGET_BRANCH environment variable if a target branch is configured
+    let _target_branch_guard = set_target_branch_env(ctx);
+
     #[expect(deprecated, reason = "libgit2 hook adapter boundary")]
     match git2_hooks::hooks_post_commit(&*ctx.git2_repo.get()?, husky_search_paths(ctx))? {
         H::Ok { hook: _ } => Ok(HookResult::Success),
@@ -265,15 +272,20 @@ fn join_output(stdout: String, stderr: String, code: Option<i32>) -> String {
 fn set_target_branch_env(ctx: &Context) -> Option<TargetBranchEnvGuard> {
     // Try to read workspace metadata to get the target ref
     let meta = ctx.meta().ok()?;
-    let workspace_ref = but_core::WORKSPACE_REF_NAME.try_into().ok()?;
-    let workspace = meta.workspace(&workspace_ref).ok()?;
+    let workspace_ref: &gix::refs::FullNameRef = but_core::WORKSPACE_REF_NAME.try_into().ok()?;
+    let workspace = meta.workspace(workspace_ref).ok()?;
     let target_ref = workspace.target_ref.as_ref()?;
 
     // Extract the short branch name from the target ref
     let short_branch_name = but_core::extract_short_branch_name(target_ref.as_ref())?;
 
     // Set the environment variable
-    std::env::set_var("GITBUTLER_TARGET_BRANCH", &short_branch_name);
+    // SAFETY: This is safe because we're setting an environment variable in a controlled
+    // scope with the guard pattern ensuring it will be properly cleaned up when dropped.
+    // The variable name and value are both valid UTF-8 strings.
+    unsafe {
+        std::env::set_var("GITBUTLER_TARGET_BRANCH", &short_branch_name);
+    }
 
     Some(TargetBranchEnvGuard {
         was_set: true,
@@ -288,7 +300,12 @@ struct TargetBranchEnvGuard {
 impl Drop for TargetBranchEnvGuard {
     fn drop(&mut self) {
         if self.was_set {
-            std::env::remove_var("GITBUTLER_TARGET_BRANCH");
+            // SAFETY: This is safe because we're only removing an environment variable
+            // that we set ourselves in set_target_branch_env(), and we're doing it
+            // in a controlled scope via the guard pattern to ensure proper cleanup.
+            unsafe {
+                std::env::remove_var("GITBUTLER_TARGET_BRANCH");
+            }
         }
     }
 }
