@@ -491,7 +491,23 @@ const WorkspacePage: FC = () => {
 	// This should be false if all stacks are up-to-date, but we're currently
 	// lacking this information:
 	// https://linear.app/gitbutler/issue/GB-1560/add-information-about-the-relation-to-the-upstream-to-the-head-info
-	const canRebaseAllStacks = outlineMode._tag === "Default" && rebaseUpdates.length > 0;
+	const canRebaseAllStacks =
+		outlineMode._tag === "Default" &&
+		rebaseUpdates.length > 0 &&
+		!rebaseAllStacksMutation.isPending;
+
+	useHotkeys([
+		{
+			hotkey: workspaceHotkeys.rebaseAllStacks.hotkey,
+			callback: rebaseAllStacks,
+			options: {
+				conflictBehavior: "allow",
+				enabled: canRebaseAllStacks,
+				meta: workspaceHotkeys.rebaseAllStacks.meta,
+				ignoreInputs: true,
+			},
+		},
+	]);
 
 	const absorptionPlanTarget = Match.value(outlineMode).pipe(
 		Match.tag("Absorb", ({ sourceTarget }) => sourceTarget),
@@ -522,6 +538,8 @@ const WorkspacePage: FC = () => {
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
 
+	const rebaseAllLabel = "Integrate upstream changes by rebasing all stacks";
+
 	return (
 		<>
 			<div className={styles.page}>
@@ -537,7 +555,7 @@ const WorkspacePage: FC = () => {
 						<div className={styles.workspaceControlsActions}>
 							<Tooltip.Root>
 								<Tooltip.Trigger
-									aria-label="Rebase all"
+									aria-label={rebaseAllLabel}
 									className={getButtonClassName({ iconOnly: true })}
 									onClick={rebaseAllStacks}
 									// We pass `disabled` here because we want to disable the button, not
@@ -548,7 +566,11 @@ const WorkspacePage: FC = () => {
 								</Tooltip.Trigger>
 								<Tooltip.Portal>
 									<Tooltip.Positioner sideOffset={4}>
-										<Tooltip.Popup render={<TooltipPopup />}>Rebase all</Tooltip.Popup>
+										<Tooltip.Popup
+											render={<TooltipPopup kbd={workspaceHotkeys.rebaseAllStacks.hotkey} />}
+										>
+											{rebaseAllLabel}
+										</Tooltip.Popup>
 									</Tooltip.Positioner>
 								</Tooltip.Portal>
 							</Tooltip.Root>
