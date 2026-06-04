@@ -2,7 +2,7 @@
 	import Dropzone from "$components/shared/Dropzone.svelte";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { OutsideLaneDzHandler } from "$lib/dragging/dropHandlers/stackDropHandler";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { PR_SERVICE } from "$lib/forge/prService.svelte";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -27,8 +27,7 @@
 	const uiState = inject(UI_STATE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const diffService = inject(DIFF_SERVICE);
-	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const prService = $derived(forge.current.prService);
+	const prService = inject(PR_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const baseBranchNameResponse = $derived(baseBranchService.baseBranchShortName(projectId));
 	const baseBranchName = $derived(baseBranchNameResponse.response);

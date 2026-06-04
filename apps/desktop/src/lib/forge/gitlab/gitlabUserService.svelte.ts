@@ -2,6 +2,7 @@ import { providesItem, providesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { SecretsService } from "$lib/secrets/secretsService";
 import type { BackendApi } from "$lib/state/backendApi";
+import type { ReactiveQuery } from "$lib/state/butlerModule";
 import type {
 	GitlabAccountIdentifier,
 	GitlabAuthStatusResponseSensitive,
@@ -127,8 +128,11 @@ export class GitLabUserService {
 		return this.backendApi.endpoints.forgetGitLabAccount.useMutation();
 	}
 
-	authenticatedUser(account: GitlabAccountIdentifier) {
-		return this.backendApi.endpoints.getGitLabUser.useQuery({ account });
+	authenticatedUser<T = GitlabAuthenticatedUserSensitive | null>(
+		account: GitlabAccountIdentifier,
+		options?: { transform?: (result: GitlabAuthenticatedUserSensitive | null) => T },
+	): ReactiveQuery<T> {
+		return this.backendApi.endpoints.getGitLabUser.useQuery({ account }, options);
 	}
 
 	accounts() {

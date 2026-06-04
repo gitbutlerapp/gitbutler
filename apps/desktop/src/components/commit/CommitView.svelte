@@ -7,7 +7,7 @@
 	import Drawer from "$components/shared/Drawer.svelte";
 	import { splitMessage } from "$lib/commits/commitMessage";
 	import { rewrapCommitMessage } from "$lib/config/uiFeatureFlags";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { commitUrl, FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { showToast } from "$lib/notifications/toasts";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -50,7 +50,9 @@
 	// Component is read-only when stackId is undefined
 	const isReadOnly = $derived(!stackId);
 
-	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
 	const modeService = injectOptional(MODE_SERVICE, undefined);
 	const laneState = $derived(uiState.lane(laneId));
 	const projectState = $derived(uiState.project(projectId));
@@ -203,7 +205,7 @@
 					commitId: commit.id,
 					commitMessage: commit.message,
 					commitStatus: commit.state.type,
-					commitUrl: forge.current.commitUrl(commit.id),
+					commitUrl: forgeInfo ? commitUrl(forgeInfo, commit.id) : undefined,
 					onUncommitClick: () => handleUncommit(),
 					onEditMessageClick: () => {
 						drawer?.open();

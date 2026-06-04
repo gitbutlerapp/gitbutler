@@ -6,7 +6,7 @@
 	import { commitCreatedAtDate } from "$lib/branches/v3";
 	import { splitMessage } from "$lib/commits/commitMessage";
 	import { projectRunCommitHooks } from "$lib/config/config";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { commitUrl, FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { branchHasConflicts, branchHasUnpushedCommits } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -51,7 +51,9 @@
 	const stackService = inject(STACK_SERVICE);
 	const projectsService = inject(PROJECTS_SERVICE);
 	const uiState = inject(UI_STATE);
-	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 
@@ -259,13 +261,13 @@
 		<div class="scroll-wrap">
 			<ScrollableContainer maxHeight="16.5rem">
 				{#each upstreamCommits as commit}
-					{@const commitUrl = forge.current.commitUrl(commit.id)}
+					{@const url = forgeInfo ? commitUrl(forgeInfo, commit.id) : undefined}
 					<SimpleCommitRow
 						title={splitMessage(commit.message).title ?? ""}
 						sha={commit.id}
 						date={commitCreatedAtDate(commit)}
 						author={commit.author.name}
-						url={commitUrl}
+						{url}
 						onOpen={(url) => urlService.openExternalUrl(url)}
 						onCopy={() => clipboardService.write(commit.id, { message: "Commit hash copied" })}
 					/>

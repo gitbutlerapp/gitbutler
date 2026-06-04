@@ -3,7 +3,7 @@
 	import BranchDropIndicator from "$components/branch/BranchDropIndicator.svelte";
 	import Dropzone from "$components/shared/Dropzone.svelte";
 	import { MoveBranchDzHandler } from "$lib/dragging/dropHandlers/branchDropHandler";
-	import type { ForgePrService } from "$lib/forge/interface/forgePrService";
+	import type { PrService } from "$lib/forge/prService.svelte";
 
 	interface Props {
 		projectId: string;
@@ -12,7 +12,7 @@
 		lineColor: string;
 		isCommitting: boolean;
 		baseBranchName: string | undefined;
-		prService: ForgePrService | undefined;
+		prService: PrService | undefined;
 		isFirst?: boolean;
 	}
 

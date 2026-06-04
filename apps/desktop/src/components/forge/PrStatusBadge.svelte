@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { PrStatusBadge, type PrStatusInfoType } from "@gitbutler/ui";
 
-	import type { DetailedPullRequest } from "$lib/forge/interface/types";
+	import type { PullRequest } from "$lib/forge/interface/types";
 
 	interface Props {
 		testId?: string;
-		pr: DetailedPullRequest | undefined;
+		pr: PullRequest | undefined;
 	}
 
 	const { testId, pr }: Props = $props();

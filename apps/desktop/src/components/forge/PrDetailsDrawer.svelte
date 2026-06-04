@@ -2,7 +2,8 @@
 	import PrStatusBadge from "$components/forge/PrStatusBadge.svelte";
 	import Drawer from "$components/shared/Drawer.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import { PR_SERVICE } from "$lib/forge/prService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Avatar, Link, Markdown, TestId } from "@gitbutler/ui";
 
@@ -13,18 +14,21 @@
 	};
 	const { projectId, prNumber, onerror }: Props = $props();
 
-	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const prService = $derived(forge.current.prService);
-	const prQuery = $derived(prService?.get(prNumber, { forceRefetch: true }));
+	const prService = inject(PR_SERVICE);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
+	const abbr = $derived(forgeInfo?.unit.abbr ?? "PR");
+	const symbol = $derived(forgeInfo?.unit.symbol ?? "#");
+	const prQuery = $derived(prService.get(projectId, prNumber, { forceRefetch: true }));
 </script>
 
-<ReduxResult result={prQuery?.result} {projectId} {onerror}>
+<ReduxResult result={prQuery.result} {projectId} {onerror}>
 	{#snippet children(pr)}
 		<Drawer testId={TestId.PRBranchDrawer} rounded>
 			{#snippet header()}
 				<h3 class="text-14 text-semibold truncate">
-					<span class="clr-text-2">{forge.reviewUnitAbbr} {forge.reviewUnitSymbol}{pr.number}:</span
-					>
+					<span class="clr-text-2">{abbr} {symbol}{pr.number}:</span>
 					<span> {pr.title}</span>
 				</h3>
 			{/snippet}
@@ -43,7 +47,7 @@
 							</span>
 							wants to merge into
 							<span class="code-string text-semibold">
-								{pr.baseBranch}
+								{pr.targetBranch}
 							</span>
 							from
 							<span class="code-string text-semibold">

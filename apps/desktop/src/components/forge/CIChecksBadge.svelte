@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { CHECKS_MONITOR } from "$lib/forge/checksMonitor.svelte";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { getPollingInterval } from "$lib/forge/shared/progressivePolling";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -38,10 +39,13 @@
 		onrefetch,
 	}: Props = $props();
 
-	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const checksMonitor = inject(CHECKS_MONITOR);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
 	const uiState = inject(UI_STATE);
 
-	const checksService = $derived(forge.current.checks);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
+	const checksService = $derived(forgeInfo?.capabilities.checks ? checksMonitor : undefined);
 	let elapsedMs = $state<number>(0);
 	let loadedOnce = $state(false);
 
@@ -58,7 +62,7 @@
 
 	const checksQuery = $derived(
 		enabled
-			? checksService?.get(branchName, { subscriptionOptions: { pollingInterval } })
+			? checksService?.get(projectId, branchName, { subscriptionOptions: { pollingInterval } })
 			: undefined,
 	);
 

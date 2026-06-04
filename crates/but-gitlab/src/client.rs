@@ -250,6 +250,39 @@ impl GitLabClient {
         Ok(mr.into())
     }
 
+    /// Focused fetch returning just GitLab's `merge_status` and the
+    /// MR comment count. Mirrors the corresponding GitHub endpoint so
+    /// the UI only subscribes to these fields where it displays them.
+    pub async fn get_merge_request_merge_status(
+        &self,
+        project_id: GitLabProjectId,
+        mr_iid: i64,
+    ) -> Result<MergeRequestMergeStatus> {
+        #[derive(Debug, Deserialize)]
+        struct MrMergeStatusResponse {
+            #[serde(default)]
+            merge_status: Option<String>,
+            #[serde(default)]
+            user_notes_count: i64,
+        }
+
+        let url = format!(
+            "{}/projects/{}/merge_requests/{}",
+            self.base_url, project_id, mr_iid
+        );
+        let response = self.client.get(&url).send().await?;
+        if !response.status().is_success() {
+            bail!("Failed to get MR merge status: {}", response.status());
+        }
+        let body: MrMergeStatusResponse = response.json().await?;
+        let is_mergeable = matches!(body.merge_status.as_deref(), Some("can_be_merged"));
+        Ok(MergeRequestMergeStatus {
+            mergeable_state: body.merge_status,
+            comments_count: body.user_notes_count,
+            is_mergeable,
+        })
+    }
+
     pub async fn update_merge_request(
         &self,
         params: &UpdateMergeRequestParams<'_>,
@@ -411,11 +444,28 @@ impl GitLabClient {
             default_branch: Option<String>,
             #[serde(default)]
             forked_from_project: Option<GitLabApiProjectRef>,
+            #[serde(default)]
+            remove_source_branch_after_merge: Option<bool>,
+            #[serde(default)]
+            permissions: Option<GitLabApiPermissions>,
         }
 
         #[derive(Deserialize)]
         struct GitLabApiProjectRef {
             id: i64,
+        }
+
+        #[derive(Deserialize)]
+        struct GitLabApiPermissions {
+            #[serde(default)]
+            project_access: Option<GitLabApiAccess>,
+            #[serde(default)]
+            group_access: Option<GitLabApiAccess>,
+        }
+
+        #[derive(Deserialize)]
+        struct GitLabApiAccess {
+            access_level: i64,
         }
 
         let url = format!("{}/projects/{}", self.base_url, project_id);
@@ -429,11 +479,23 @@ impl GitLabClient {
 
         let project: GitLabApiProject = response.json().await?;
 
+        let access_level = project.permissions.and_then(|p| {
+            let project_level = p.project_access.map(|a| a.access_level);
+            let group_level = p.group_access.map(|a| a.access_level);
+            match (project_level, group_level) {
+                (Some(a), Some(b)) => Some(a.max(b)),
+                (Some(a), None) | (None, Some(a)) => Some(a),
+                (None, None) => None,
+            }
+        });
+
         Ok(GitLabProject {
             id: project.id,
             path_with_namespace: project.path_with_namespace,
             default_branch: project.default_branch,
             forked_from_project_id: project.forked_from_project.map(|fork| fork.id),
+            remove_source_branch_after_merge: project.remove_source_branch_after_merge,
+            access_level,
         })
     }
 }
@@ -518,6 +580,19 @@ fn split_draft_prefix(title: &str) -> Option<&str> {
     None
 }
 
+/// Focused subset of GitLab's MR-get response covering only the
+/// runtime-computed merge status. Mirrors `PullRequestMergeStatus`
+/// on the GitHub side so `but_forge` can expose a forge-agnostic
+/// `MergeStatus`.
+#[derive(Debug, Clone, Serialize)]
+pub struct MergeRequestMergeStatus {
+    pub mergeable_state: Option<String>,
+    pub comments_count: i64,
+    /// Whether GitLab considers the MR mergeable. True for
+    /// `can_be_merged`.
+    pub is_mergeable: bool,
+}
+
 #[derive(Debug, Serialize)]
 pub struct AuthenticatedUser {
     pub username: String,
@@ -578,6 +653,11 @@ pub struct GitLabProject {
     pub path_with_namespace: String,
     pub default_branch: Option<String>,
     pub forked_from_project_id: Option<i64>,
+    pub remove_source_branch_after_merge: Option<bool>,
+    /// Higher of project-level and group-level access for the caller.
+    /// GitLab levels: 10=Guest, 20=Reporter, 30=Developer,
+    /// 40=Maintainer, 50=Owner.
+    pub access_level: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]

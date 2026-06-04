@@ -27,7 +27,6 @@
 		"@gitbutler/shared": "workspace:*",
 		"@gitbutler/svelte-comment-injector": "workspace:*",
 		"@gitbutler/ui": "workspace:*",
-		"@octokit/rest": "^20.1.2",
 		"@reduxjs/toolkit": "catalog:redux",
 		"@sentry/sveltekit": "catalog:svelte",
 		"@sveltejs/adapter-static": "catalog:svelte",
@@ -79,7 +78,6 @@
 		"vitest": "catalog:"
 	},
 	"dependencies": {
-		"@gitbeaker/rest": "^42.5.0",
 		"@tauri-apps/plugin-clipboard-manager": "^2.3.2",
 		"@tauri-apps/plugin-deep-link": "~2.4.9",
 		"dayjs": "^1.11.20",

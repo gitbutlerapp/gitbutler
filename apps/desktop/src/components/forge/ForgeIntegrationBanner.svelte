@@ -2,14 +2,11 @@
 	import githubLogoSvg from "$lib/assets/unsized-logos/github.svg?raw";
 	import gitlabLogoSvg from "$lib/assets/unsized-logos/gitlab.svg?raw";
 	import { persistedDismissedForgeIntegrationPrompt } from "$lib/config/config";
-	import {
-		availableForgeDocsLink,
-		availableForgeLabel,
-		availableForgeReviewUnit,
-		DEFAULT_FORGE_FACTORY,
-	} from "$lib/forge/forgeFactory.svelte";
+	import { useForgeAuth } from "$lib/forge/forgeAuth.svelte";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { inject } from "@gitbutler/core/context";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import { Button, Link } from "@gitbutler/ui";
 
 	type Props = {
@@ -19,7 +16,17 @@
 	const { projectId }: Props = $props();
 
 	const { openGeneralSettings } = useSettingsModal();
-	const forgeFactory = inject(DEFAULT_FORGE_FACTORY);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
+	const auth = useForgeAuth(reactive(() => projectId));
+	const canSetupIntegration = $derived(
+		forgeInfo &&
+			!auth.authenticated.current &&
+			(forgeInfo.name === "github" || forgeInfo.name === "gitlab")
+			? forgeInfo.name
+			: undefined,
+	);
 	const dismissedTheIntegrationPrompt = $derived(
 		persistedDismissedForgeIntegrationPrompt(projectId),
 	);
@@ -32,10 +39,10 @@
 		clearTimeout(timeoutId);
 
 		const shouldShow =
-			forgeFactory.determinedForgeType !== "default" &&
-			!forgeFactory.current.isLoading &&
-			!forgeFactory.current.authenticated &&
-			forgeFactory.canSetupIntegration &&
+			(forgeInfo?.name ?? "default") !== "default" &&
+			!auth.isLoading.current &&
+			!auth.authenticated.current &&
+			canSetupIntegration &&
 			!$dismissedTheIntegrationPrompt;
 
 		if (shouldShow) {
@@ -54,13 +61,27 @@
 	function dismissPrompt() {
 		dismissedTheIntegrationPrompt.set(true);
 	}
+
+	function forgeLabelFor(name: "github" | "gitlab"): string {
+		return name === "github" ? "GitHub" : "GitLab";
+	}
+
+	function forgeUnitFor(name: "github" | "gitlab"): string {
+		return name === "github" ? "Pull Requests" : "Merge Requests";
+	}
+
+	function forgeDocsLinkFor(name: "github" | "gitlab"): string {
+		return name === "github"
+			? "https://docs.gitbutler.com/features/forge-integration/github-integration"
+			: "https://docs.gitbutler.com/features/forge-integration/gitlab-integration";
+	}
 </script>
 
 {#if canShowPrompt}
-	{@const forgeName = forgeFactory.canSetupIntegration!}
-	{@const forgeLabel = availableForgeLabel(forgeName)}
-	{@const forgeUnit = availableForgeReviewUnit(forgeName)}
-	{@const integrationDocs = availableForgeDocsLink(forgeName)}
+	{@const forgeName = canSetupIntegration!}
+	{@const forgeLabel = forgeLabelFor(forgeName)}
+	{@const forgeUnit = forgeUnitFor(forgeName)}
+	{@const integrationDocs = forgeDocsLinkFor(forgeName)}
 
 	<div class="forge-prompt">
 		<div class="forge-prompt__logo">
