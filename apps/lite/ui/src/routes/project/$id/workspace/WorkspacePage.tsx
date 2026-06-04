@@ -522,6 +522,8 @@ const WorkspacePage: FC = () => {
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
 
+	const rebaseAllLabel = "Integrate upstream changes by rebasing all stacks";
+
 	return (
 		<>
 			<div className={styles.page}>
@@ -537,7 +539,7 @@ const WorkspacePage: FC = () => {
 						<div className={styles.workspaceControlsActions}>
 							<Tooltip.Root>
 								<Tooltip.Trigger
-									aria-label="Rebase all"
+									aria-label={rebaseAllLabel}
 									className={getButtonClassName({ iconOnly: true })}
 									onClick={rebaseAllStacks}
 									// We pass `disabled` here because we want to disable the button, not
@@ -548,7 +550,7 @@ const WorkspacePage: FC = () => {
 								</Tooltip.Trigger>
 								<Tooltip.Portal>
 									<Tooltip.Positioner sideOffset={4}>
-										<Tooltip.Popup render={<TooltipPopup />}>Rebase all</Tooltip.Popup>
+										<Tooltip.Popup render={<TooltipPopup />}>{rebaseAllLabel}</Tooltip.Popup>
 									</Tooltip.Positioner>
 								</Tooltip.Portal>
 							</Tooltip.Root>
