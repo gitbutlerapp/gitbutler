@@ -202,6 +202,7 @@ const useIsSelected = ({
 	const selection = useFilesSelection(projectId, navigationIndex);
 	return selection !== null && operandEquals(selection, operand);
 };
+
 const treeItemId = (operand: Operand): string =>
 	`files-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
 
