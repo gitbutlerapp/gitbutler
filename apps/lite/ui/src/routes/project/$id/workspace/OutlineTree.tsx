@@ -44,6 +44,7 @@ import { getButtonClassName } from "#ui/components/Button.tsx";
 import { getTransferOperation, keyboardTransferOperationMode } from "#ui/outline/mode.ts";
 import {
 	focusSelectionScope,
+	resolveNavigationIndexSelection,
 	useNavigationIndexHotkeys,
 	useOutlineSelection,
 } from "#ui/selection-scopes.ts";
@@ -52,6 +53,7 @@ import {
 	selectProjectCommitTarget,
 	selectProjectHighlightedCommitIds,
 	selectProjectOutlineModeState,
+	selectProjectSelectionOutline,
 } from "#ui/projects/state.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { OperationSourceLabel } from "#ui/routes/project/$id/workspace/OperationSourceLabel.tsx";
@@ -540,8 +542,12 @@ const useIsSelected = ({
 	operand: Operand;
 }): boolean => {
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const selection = useOutlineSelection({ projectId, navigationIndex });
-	return selection ? operandEquals(selection, operand) : false;
+	return useAppSelector((state) => {
+		const selectionState = selectProjectSelectionOutline(state, projectId);
+		const selection = resolveNavigationIndexSelection(navigationIndex, selectionState);
+
+		return selection ? operandEquals(selection, operand) : false;
+	});
 };
 
 const treeItemId = (operand: Operand): string =>
