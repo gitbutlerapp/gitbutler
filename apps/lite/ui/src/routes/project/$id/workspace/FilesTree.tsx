@@ -21,7 +21,7 @@ import { Toolbar } from "@base-ui/react/toolbar";
 import type { TreeChange } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Array, Match } from "effect";
-import { ComponentProps, createContext, FC, ReactNode, use, useEffect, useRef } from "react";
+import { ComponentProps, createContext, FC, ReactNode, use, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import {
@@ -32,11 +32,7 @@ import {
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
 import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
-import {
-	buildNavigationIndex,
-	navigationIndexIncludes,
-	type NavigationIndex,
-} from "#ui/workspace/navigation-index.ts";
+import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { changesFileHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { assert } from "#ui/assert.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
@@ -44,34 +40,6 @@ import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 
 const NavigationIndexContext = createContext<NavigationIndex | null>(null);
-
-const useNavigationIndex = (projectId: string, files: Array<Operand>) => {
-	const dispatch = useAppDispatch();
-
-	const navigationIndex = buildNavigationIndex(files);
-
-	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
-
-	// Reset selection when it's no longer part of the files list.
-	//
-	// React allows state updates on render, but not for external stores.
-	// https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
-	useEffect(() => {
-		if (selection && navigationIndexIncludes(navigationIndex, selection)) return;
-
-		const next = files[0] ?? null;
-		if (next === null && selection === null) return;
-
-		dispatch(
-			projectActions.selectFiles({
-				projectId,
-				selection: next,
-			}),
-		);
-	}, [navigationIndex, selection, projectId, dispatch, files]);
-
-	return navigationIndex;
-};
 
 const useFilesTreeHotkeys = ({
 	navigationIndex,
@@ -178,11 +146,9 @@ export const FilesTree: FC<
 		projectId: string;
 		items: Array<FileTreeItem>;
 		onFileSelection: (selection: Operand) => void;
+		navigationIndex: NavigationIndex;
 	} & ComponentProps<"div">
-> = ({ className, items, onFileSelection, projectId, ref: refProp, ...props }) => {
-	const files = items.map((item) => item.operand);
-
-	const navigationIndex = useNavigationIndex(projectId, files);
+> = ({ className, items, onFileSelection, projectId, navigationIndex, ref: refProp, ...props }) => {
 	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
 
 	const ref = useRef<HTMLDivElement>(null);
