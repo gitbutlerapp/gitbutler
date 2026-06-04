@@ -17,13 +17,10 @@ import {
 	commitFileParent,
 	commitOperand,
 	fileOperand,
+	type CommitOperand,
 	type Operand,
 } from "#ui/operands.ts";
-import {
-	projectActions,
-	selectProjectFilesVisible,
-	selectProjectSelectionOutline,
-} from "#ui/projects/state.ts";
+import { projectActions, selectProjectFilesVisible } from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
@@ -31,7 +28,13 @@ import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSour
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Tooltip } from "@base-ui/react";
-import type { DiffHunk, TreeChange } from "@gitbutler/but-sdk";
+import type {
+	CommitDetails,
+	DiffHunk,
+	TreeChange,
+	TreeChanges,
+	WorktreeChanges,
+} from "@gitbutler/but-sdk";
 import { parsePatchFiles } from "@pierre/diffs";
 import { type CodeView as CodeViewClass } from "@pierre/diffs";
 import { CodeView, type CodeViewDiffItem, type CodeViewHandle } from "@pierre/diffs/react";
@@ -43,10 +46,13 @@ import styles from "./Details.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import { SelectionScope } from "#ui/selection-scopes.ts";
 import {
-	BranchFilesTree,
-	ChangesFilesTree,
-	CommitFilesTree,
+	FilesTree as GenericFilesTree,
+	changeFileTreeItem,
+	conflictFileTreeItem,
+	type FileTreeItem,
 } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
+import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.ts";
+import { buildNavigationIndex } from "#ui/workspace/navigation-index.ts";
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
@@ -73,6 +79,89 @@ const getChangesetKey = (selection: Operand): string =>
 			Commit: ({ commitId }) => commitId,
 		}),
 		Match.orElseAbsurd,
+	);
+
+const getCommitFileTreeItems = ({
+	commit,
+	commitDetails,
+}: {
+	commit: CommitOperand;
+	commitDetails: CommitDetails;
+}): Array<FileTreeItem> => {
+	const conflictedPaths = commitDetails.conflictEntries
+		? globalThis.Array.from(
+				new Set([
+					...commitDetails.conflictEntries.ancestorEntries,
+					...commitDetails.conflictEntries.ourEntries,
+					...commitDetails.conflictEntries.theirEntries,
+				]),
+			).toSorted((a, b) => a.localeCompare(b))
+		: [];
+	const conflictedPathSet = new Set(conflictedPaths);
+
+	return [
+		...conflictedPaths.map((path) =>
+			conflictFileTreeItem({
+				operand: fileOperand({
+					parent: commitFileParent(commit),
+					path,
+				}),
+				path,
+			}),
+		),
+		...commitDetails.changes
+			.filter((change) => !conflictedPathSet.has(change.path))
+			.map((change) =>
+				changeFileTreeItem({
+					change,
+					operand: fileOperand({
+						parent: commitFileParent(commit),
+						path: change.path,
+					}),
+				}),
+			),
+	];
+};
+
+const getChangesFileTreeItems = (worktreeChanges: WorktreeChanges): Array<FileTreeItem> => {
+	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
+		worktreeChanges.dependencies?.diffs ?? [],
+	);
+
+	return worktreeChanges.changes.map((change) => {
+		const hunkDependencyDiffs = hunkDependencyDiffsByPath.get(change.path);
+		const dependencyCommitIds = hunkDependencyDiffs
+			? getDependencyCommitIds({ hunkDependencyDiffs })
+			: undefined;
+
+		return changeFileTreeItem({
+			change,
+			dependencyCommitIds,
+			operand: fileOperand({
+				parent: changesFileParent,
+				path: change.path,
+			}),
+		});
+	});
+};
+
+const getBranchFileTreeItems = ({
+	stackId,
+	branchRef,
+	branchDiff,
+}: {
+	stackId: string;
+	branchRef: Array<number>;
+	branchDiff: TreeChanges;
+}): Array<FileTreeItem> =>
+	branchDiff.changes.map((change) =>
+		changeFileTreeItem({
+			change,
+			operand: fileOperand({
+				parent: branchFileParent({ stackId, branchRef }),
+				path: change.path,
+			}),
+		}),
 	);
 
 const patchHeaderForChange = (change: TreeChange, lineEnding: string): string =>
@@ -418,85 +507,70 @@ const DiffContents: FC<{
 		}),
 	);
 
-const FilesTree: FC<{ onFileSelection: (selection: Operand) => void } & ComponentProps<"div">> = ({
+const Diff: FC<{
+	filesVisible: boolean;
+	onFileSelection: (selection: Operand) => void;
+	onViewerFileSelection: (selection: Operand) => void;
+	outlineSelection: Operand;
+	projectId: string;
+	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
+	filesItems: Array<FileTreeItem>;
+}> = ({
+	filesVisible,
 	onFileSelection,
-	...props
+	onViewerFileSelection,
+	outlineSelection,
+	projectId,
+	viewerRef,
+	filesItems,
 }) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const files = filesItems.map((item) => item.operand);
 
-	const outlineSelection = useAppSelector((state) =>
-		selectProjectSelectionOutline(state, projectId),
-	);
+	const navigationIndex = buildNavigationIndex(files);
 
 	return (
-		<Suspense
-			fallback={
-				<div {...props} className={classes(props.className, "text-13")}>
-					Loading files…
-				</div>
-			}
-		>
-			{Match.value(outlineSelection).pipe(
-				Match.tag("Commit", (commit) => (
-					<SuspenseQuery
-						{...commitDetailsWithLineStatsQueryOptions({
-							projectId,
-							commitId: commit.commitId,
-						})}
-					>
-						{({ data: commitDetails }) => (
-							<CommitFilesTree
-								{...props}
-								projectId={projectId}
-								commit={commit}
-								commitDetails={commitDetails}
-								onFileSelection={onFileSelection}
-							/>
-						)}
-					</SuspenseQuery>
-				)),
-				Match.tag("ChangesSection", () => (
-					<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
-						{({ data: worktreeChanges }) => (
-							<ChangesFilesTree
-								{...props}
-								projectId={projectId}
-								worktreeChanges={worktreeChanges}
-								onFileSelection={onFileSelection}
-							/>
-						)}
-					</SuspenseQuery>
-				)),
-				Match.tag("Branch", ({ stackId, branchRef }) => (
-					<SuspenseQuery
-						{...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}
-					>
-						{({ data: branchDiff }) => (
-							<BranchFilesTree
-								{...props}
-								projectId={projectId}
-								stackId={stackId}
-								branchRef={branchRef}
-								branchDiff={branchDiff}
-								onFileSelection={onFileSelection}
-							/>
-						)}
-					</SuspenseQuery>
-				)),
-				Match.orElse(() => <div {...props} />),
+		<div className={classes(styles.diff, filesVisible && styles.diffWithFiles)}>
+			{filesVisible && (
+				<GenericFilesTree
+					id={"files" satisfies SelectionScope}
+					data-selection-scope
+					tabIndex={0}
+					className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
+					onFileSelection={onFileSelection}
+					projectId={projectId}
+					items={filesItems}
+					navigationIndex={navigationIndex}
+				/>
 			)}
-		</Suspense>
+
+			<div
+				id={"diff" satisfies SelectionScope}
+				data-selection-scope
+				// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
+				tabIndex={0}
+				className={styles.diffContents}
+			>
+				<Suspense fallback={<p className="text-13">Loading diff…</p>}>
+					<DiffContents
+						onViewerFileSelection={onViewerFileSelection}
+						outlineSelection={outlineSelection}
+						projectId={projectId}
+						viewerRef={viewerRef}
+					/>
+				</Suspense>
+			</div>
+		</div>
 	);
 };
 
-export const Details: FC<ComponentProps<"div">> = (props) => {
+export const Details: FC<{ outlineSelection: Operand | null } & ComponentProps<"div">> = ({
+	outlineSelection: urgentOutlineSelection,
+	...restProps
+}) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const viewerRef = useRef<CodeViewHandle<undefined>>(null);
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
-	const urgentOutlineSelection = useAppSelector((state) =>
-		selectProjectSelectionOutline(state, projectId),
-	);
 	const outlineSelection = useDeferredValue(urgentOutlineSelection);
 
 	const selectFile = (selection: Operand) => {
@@ -504,6 +578,8 @@ export const Details: FC<ComponentProps<"div">> = (props) => {
 	};
 
 	const selectFileAndScrollDiff = (selection: Operand) => {
+		if (!outlineSelection) return;
+
 		selectFile(selection);
 
 		const scrollTargetId = getScrollTargetId({
@@ -515,12 +591,12 @@ export const Details: FC<ComponentProps<"div">> = (props) => {
 		viewerRef.current?.scrollTo({ type: "item", id: scrollTargetId });
 	};
 
-	if (outlineSelection._tag === "Stack") return;
+	if (!outlineSelection || outlineSelection._tag === "Stack") return;
 
 	return (
 		<div
-			{...props}
-			className={classes(props.className, styles.container)}
+			{...restProps}
+			className={classes(restProps.className, styles.container)}
 			style={{ opacity: urgentOutlineSelection !== outlineSelection ? 0.5 : 1 }}
 		>
 			<div className={styles.headerWrap}>
@@ -537,34 +613,52 @@ export const Details: FC<ComponentProps<"div">> = (props) => {
 				</div>
 			</div>
 
-			<div className={classes(styles.diff, filesVisible && styles.diffWithFiles)}>
-				{filesVisible && (
-					<FilesTree
-						id={"files" satisfies SelectionScope}
-						data-selection-scope
-						tabIndex={0}
-						className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
-						onFileSelection={selectFileAndScrollDiff}
-					/>
-				)}
-
-				<div
-					id={"diff" satisfies SelectionScope}
-					data-selection-scope
-					// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
-					tabIndex={0}
-					className={styles.diffContents}
-				>
-					<Suspense fallback={<p className="text-13">Loading diff…</p>}>
-						<DiffContents
+			<Suspense
+				fallback={<div className={classes(styles.loadingDiff, "text-13")}>Loading diff…</div>}
+			>
+				{(() => {
+					const render = (filesItems: Array<FileTreeItem>) => (
+						<Diff
+							filesVisible={filesVisible}
+							onFileSelection={selectFileAndScrollDiff}
 							onViewerFileSelection={selectFile}
 							outlineSelection={outlineSelection}
 							projectId={projectId}
 							viewerRef={viewerRef}
+							filesItems={filesItems}
 						/>
-					</Suspense>
-				</div>
-			</div>
+					);
+					return Match.value(outlineSelection).pipe(
+						Match.tag("Commit", (commit) => (
+							<SuspenseQuery
+								{...commitDetailsWithLineStatsQueryOptions({
+									projectId,
+									commitId: commit.commitId,
+								})}
+							>
+								{({ data: commitDetails }) =>
+									render(getCommitFileTreeItems({ commit, commitDetails }))
+								}
+							</SuspenseQuery>
+						)),
+						Match.tag("ChangesSection", () => (
+							<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
+								{({ data: worktreeChanges }) => render(getChangesFileTreeItems(worktreeChanges))}
+							</SuspenseQuery>
+						)),
+						Match.tag("Branch", ({ stackId, branchRef }) => (
+							<SuspenseQuery
+								{...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}
+							>
+								{({ data: branchDiff }) =>
+									render(getBranchFileTreeItems({ stackId, branchRef, branchDiff }))
+								}
+							</SuspenseQuery>
+						)),
+						Match.orElse(() => null),
+					);
+				})()}
+			</Suspense>
 		</div>
 	);
 };

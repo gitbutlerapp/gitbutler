@@ -21,6 +21,11 @@
 	gap: 8px;
 }
 
+.loadingDiff {
+	padding-inline-start: var(--panel-padding);
+	padding-block-end: var(--panel-padding);
+}
+
 .diff {
 	display: grid;
 	grid-template-rows: minmax(0, 1fr);

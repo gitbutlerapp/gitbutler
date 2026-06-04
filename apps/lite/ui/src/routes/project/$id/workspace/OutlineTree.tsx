@@ -15,7 +15,6 @@ import {
 	useUpdateBranchName,
 } from "#ui/api/mutations.ts";
 import {
-	absorptionPlanQueryOptions,
 	changesInWorktreeQueryOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
@@ -42,29 +41,24 @@ import {
 	type Operand,
 } from "#ui/operands.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
+import { getTransferOperation, keyboardTransferOperationMode } from "#ui/outline/mode.ts";
 import {
-	filterNavigationIndexForOutlineMode,
-	getTransferOperation,
-	keyboardTransferOperationMode,
-} from "#ui/outline/mode.ts";
-import { focusSelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
+	focusSelectionScope,
+	useNavigationIndexHotkeys,
+	useOutlineSelection,
+} from "#ui/selection-scopes.ts";
 import {
 	projectActions,
 	selectProjectCommitTarget,
 	selectProjectHighlightedCommitIds,
 	selectProjectOutlineModeState,
-	selectProjectSelectionOutline,
 } from "#ui/projects/state.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { OperationSourceLabel } from "#ui/routes/project/$id/workspace/OperationSourceLabel.tsx";
 import { OperationTarget } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
-import {
-	buildNavigationIndex,
-	navigationIndexIncludes,
-	type NavigationIndex,
-} from "#ui/workspace/navigation-index.ts";
+import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { mergeProps, Popover, Toast, Tooltip, useRender } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
 import { Toolbar } from "@base-ui/react/toolbar";
@@ -80,6 +74,7 @@ import {
 	PushStatus,
 	TreeChange,
 	WorkspaceState,
+	CommitAbsorption,
 } from "@gitbutler/but-sdk";
 import {
 	formatForDisplay,
@@ -88,7 +83,7 @@ import {
 	useHotkeys,
 	useKeyHold,
 } from "@tanstack/react-hotkeys";
-import { useQueries, useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, UseQueryResult, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import {
@@ -97,7 +92,6 @@ import {
 	FC,
 	SubmitEventHandler,
 	use,
-	useEffect,
 	useOptimistic,
 	useRef,
 	useState,
@@ -112,7 +106,6 @@ import {
 } from "./WorkspaceItemRow.tsx";
 import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { initNonEmpty, isNonEmptyArray, scanRight } from "effect/Array";
-import { defaultOutlineSelection } from "#ui/projects/workspace/state.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { changesHotkeys, outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
@@ -136,67 +129,6 @@ const useDryRunCommit = (commitId: string) => {
 	return findCommit({ headInfo: dryRunWorkspace.headInfo, commitId: dryRunCommitId });
 };
 
-const navigationItems = (headInfo: RefInfo | undefined): Array<Operand> => {
-	const segmentItems = (stackId: string, segment: Segment): Array<Operand> => [
-		...(segment.refName
-			? [branchOperand({ stackId, branchRef: segment.refName.fullNameBytes })]
-			: []),
-		...segment.commits.map((commit) => commitOperand({ stackId, commitId: commit.id })),
-	];
-
-	return [
-		changesSectionOperand,
-
-		...(headInfo?.stacks.flatMap((stack) => {
-			// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
-			const stackId = stack.id!;
-			return [
-				stackOperand({ stackId }),
-				...stack.segments.flatMap((segment) => segmentItems(stackId, segment)),
-			];
-		}) ?? []),
-	];
-};
-
-const useNavigationIndex = ({
-	projectId,
-	absorptionTargetKeys,
-}: {
-	projectId: string;
-	absorptionTargetKeys: ReadonlySet<string>;
-}) => {
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-
-	const dispatch = useAppDispatch();
-
-	const navigationIndexUnfiltered = buildNavigationIndex(navigationItems(headInfo));
-
-	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
-
-	// React allows state updates on render, but not for external stores.
-	// https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
-	useEffect(() => {
-		//
-		// Reset selection when it's no longer part of the workspace.
-		//
-		if (!navigationIndexIncludes(navigationIndexUnfiltered, selection))
-			dispatch(
-				projectActions.selectOutline({
-					projectId,
-					selection: defaultOutlineSelection,
-				}),
-			);
-	}, [navigationIndexUnfiltered, selection, projectId, dispatch]);
-
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-
-	return filterNavigationIndexForOutlineMode({
-		navigationIndex: navigationIndexUnfiltered,
-		outlineMode,
-		absorptionTargetKeys,
-	});
-};
-
 const useOutlineTreeHotkeys = ({
 	navigationIndex,
 	projectId,
@@ -207,7 +139,7 @@ const useOutlineTreeHotkeys = ({
 	ref: React.RefObject<HTMLElement | null>;
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
+	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const dispatch = useAppDispatch();
@@ -245,7 +177,7 @@ const useOutlineTreeHotkeys = ({
 	};
 
 	const moveSelectedCommit = (offset: -1 | 1) => {
-		if (selection._tag !== "Commit") return;
+		if (!selection || selection._tag !== "Commit") return;
 
 		const source = commitOperand(selection);
 		const selectionIdx = navigationIndex.indexByKey.get(operandIdentityKey(source));
@@ -296,8 +228,8 @@ const useOutlineTreeHotkeys = ({
 	};
 
 	const defaultOutlineHotkeysEnabled = outlineMode._tag === "Default";
-	const isSelectedCommit = selection._tag === "Commit";
-	const isSelectedChanges = selection._tag === "ChangesSection";
+	const isSelectedCommit = selection?._tag === "Commit";
+	const isSelectedChanges = selection?._tag === "ChangesSection";
 	const canPushSelectedBranch =
 		!!selectedPushContext &&
 		!pushStackMutation.isPending &&
@@ -472,37 +404,21 @@ const useOutlineTreeHotkeys = ({
 	]);
 };
 
-export const OutlineTree: FC<ComponentProps<"div">> = ({ ref: refProp, ...props }) => {
+export const OutlineTree: FC<
+	{
+		navigationIndex: NavigationIndex;
+		absorptionTargetKeys: ReadonlySet<string>;
+		absorptionPlanQuery: UseQueryResult<Array<CommitAbsorption>> | undefined;
+	} & ComponentProps<"div">
+> = ({ navigationIndex, absorptionTargetKeys, absorptionPlanQuery, ref: refProp, ...props }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
-	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
-
+	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
-	const absorptionPlanTarget = Match.value(outlineMode).pipe(
-		Match.tag("Absorb", ({ sourceTarget }) => sourceTarget),
-		Match.orElse(() => null),
-	);
-	const [absorptionPlanQuery] = useQueries({
-		queries: (absorptionPlanTarget ? [absorptionPlanTarget] : []).map((target) =>
-			absorptionPlanQueryOptions({ projectId, target }),
-		),
-	});
-	const absorptionTargetKeys = new Set(
-		absorptionPlanQuery?.data?.map(({ stackId, commitId }) =>
-			operandIdentityKey(commitOperand({ stackId, commitId })),
-		),
-	);
-
-	const navigationIndex = useNavigationIndex({
-		projectId,
-		absorptionTargetKeys,
-	});
-
 	const dryRunOperation = Match.value(outlineMode).pipe(
-		Match.tag(
-			"Transfer",
-			({ value: mode }) => getTransferOperation({ mode, target: selection }) ?? undefined,
+		Match.tag("Transfer", ({ value: mode }) =>
+			selection ? (getTransferOperation({ mode, target: selection }) ?? undefined) : undefined,
 		),
 		Match.orElse(() => undefined),
 	);
@@ -540,7 +456,7 @@ export const OutlineTree: FC<ComponentProps<"div">> = ({ ref: refProp, ...props 
 						{...props}
 						tabIndex={0}
 						role="tree"
-						aria-activedescendant={treeItemId(selection)}
+						aria-activedescendant={selection ? treeItemId(selection) : undefined}
 						className={classes(props.className, styles.tree)}
 						ref={useMergedRefs(refProp, ref)}
 					>
@@ -594,12 +510,17 @@ export const OutlineTree: FC<ComponentProps<"div">> = ({ ref: refProp, ...props 
 	);
 };
 
-const useIsSelected = ({ projectId, operand }: { projectId: string; operand: Operand }): boolean =>
-	useAppSelector((state) => {
-		const selection = selectProjectSelectionOutline(state, projectId);
-
-		return operandEquals(selection, operand);
-	});
+const useIsSelected = ({
+	projectId,
+	operand,
+}: {
+	projectId: string;
+	operand: Operand;
+}): boolean => {
+	const navigationIndex = assert(use(NavigationIndexContext));
+	const selection = useOutlineSelection({ projectId, navigationIndex });
+	return selection ? operandEquals(selection, operand) : false;
+};
 
 const treeItemId = (operand: Operand): string =>
 	`outline-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
@@ -1609,7 +1530,7 @@ const pushContextForSelection = ({
 	selection,
 }: {
 	headInfo: RefInfo | undefined;
-	selection: Operand;
+	selection: Operand | null;
 }): PushContext | null =>
 	Match.value(selection).pipe(
 		Match.tags({

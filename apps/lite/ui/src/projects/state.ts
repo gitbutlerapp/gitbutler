@@ -51,7 +51,10 @@ const projectSlice = createSlice({
 	name: "project",
 	initialState,
 	reducers: {
-		selectOutline: (state, action: PayloadAction<{ projectId: string; selection: Operand }>) => {
+		selectOutline: (
+			state,
+			action: PayloadAction<{ projectId: string; selection: Operand | null }>,
+		) => {
 			const { projectId, selection } = action.payload;
 			const projectState = ensureProjectState(state, projectId);
 			workspace.selectOutline(projectState.workspace, selection);
