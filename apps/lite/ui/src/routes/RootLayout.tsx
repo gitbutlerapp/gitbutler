@@ -57,7 +57,9 @@ const Projects: FC = () => {
 							className={classes(styles.project, isSelected && styles.selected)}
 							onClick={() => selectProject(project)}
 							style={{ "--hue": hue }}
-							disabled={isSelected}
+							// We pass `disabled` here because we want to disable the button, not
+							// the tooltip. Other props should be passed above.
+							render={<button type="button" disabled={isSelected} />}
 						>
 							<div className={styles.folderFront}>
 								<span className={classes("text-bold", styles.folderFrontText)}>
