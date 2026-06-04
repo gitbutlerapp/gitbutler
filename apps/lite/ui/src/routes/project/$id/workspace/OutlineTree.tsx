@@ -1356,7 +1356,7 @@ const Changes: FC<{
 					</Combobox.Root>
 
 					<div role="group" className={styles.commitDropdownButton}>
-						<Tooltip.Root disabled={!canCommitOrAmend}>
+						<Tooltip.Root>
 							<Tooltip.Trigger
 								className={getButtonClassName({})}
 								// We pass `disabled` here because we want to disable the button, not
