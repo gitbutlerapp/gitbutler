@@ -818,6 +818,52 @@ fn status_upstream_merge_status_conflicted() -> anyhow::Result<()> {
 }
 
 #[test]
+fn status_upstream_lists_conflicting_uncommitted_files() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("upstream-conflicted")?;
+    env.setup_metadata_at_target(&["A"], "refs/heads/base")?;
+    env.file("file.txt", "worktree-change\n");
+
+    env.but("status --upstream")
+        .env("NO_BG_TASKS", "1")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes]
+┊   uv M file.txt
+┊
+┊╭┄g0 [A] [⚠ upstream conflicts]
+┊●   9283fc1 A-change
+├╯
+┊
+┊╭┄(upstream) ⏫ 1 commit
+┊● bdfcf28 main-change
+┊┊
+┊conflicting uncommitted files (1)
+┊│● file.txt
+├╯ efc9211 (common base) 2000-01-02 base
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+
+    let output = env
+        .but("--json status --upstream")
+        .allow_json()
+        .env("NO_BG_TASKS", "1")
+        .output()?;
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+
+    assert_eq!(
+        json["upstreamState"]["worktreeConflicts"],
+        serde_json::json!(["file.txt"]),
+        "json status should surface upstream worktree conflicts"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn status_shows_pushed_commit_marker() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("status-pushed")?;
     env.setup_metadata(&["A"])?;

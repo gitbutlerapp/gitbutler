@@ -12,6 +12,7 @@
 use std::collections::HashMap;
 
 use anyhow::Context as _;
+use bstr::ByteSlice;
 use but_graph::SegmentIndex;
 use but_workspace::ref_info::LocalCommit;
 use chrono::{DateTime, Utc};
@@ -52,6 +53,9 @@ pub(crate) struct UpstreamState {
     /// List of upstream commits (only populated when requested with --upstream flag)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub upstream_commits: Option<Vec<Commit>>,
+    /// Files whose uncommitted worktree changes would receive conflict markers during upstream integration.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub worktree_conflicts: Option<Vec<String>>,
 }
 
 impl WorkspaceStatus {
@@ -689,6 +693,13 @@ pub(super) fn build_workspace_status_json(
             latest_commit,
             last_fetched,
             upstream_commits,
+            worktree_conflicts: (!status_ctx.worktree_conflicts.is_empty()).then(|| {
+                status_ctx
+                    .worktree_conflicts
+                    .iter()
+                    .map(|path| path.to_str_lossy().into_owned())
+                    .collect()
+            }),
         }
     } else {
         // When up to date, use the merge base as the latest commit
@@ -701,6 +712,7 @@ pub(super) fn build_workspace_status_json(
             latest_commit: merge_base_commit.clone(),
             last_fetched,
             upstream_commits: None,
+            worktree_conflicts: None,
         }
     };
 
