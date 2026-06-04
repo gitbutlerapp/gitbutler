@@ -455,21 +455,23 @@ const CommitDetailsContent: FC<{
 );
 
 const Diff: FC<{
+	changes: Array<TreeChange>;
 	filesVisible: boolean;
+	filesItems: Array<FileTreeItem>;
 	onFileSelection: (selection: Operand) => void;
 	onViewerFileSelection: (selection: Operand) => void;
 	outlineSelection: Operand;
 	projectId: string;
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
-	filesItems: Array<FileTreeItem>;
 }> = ({
+	changes,
 	filesVisible,
+	filesItems,
 	onFileSelection,
 	onViewerFileSelection,
 	outlineSelection,
 	projectId,
 	viewerRef,
-	filesItems,
 }) => {
 	const files = filesItems.map((item) => item.operand);
 
@@ -498,43 +500,13 @@ const Diff: FC<{
 				className={styles.diffContentsContainer}
 			>
 				<Suspense fallback={<p className="text-13">Loading diff…</p>}>
-					{(() => {
-						const render = (changes: Array<TreeChange>) => (
-							<DiffContents
-								changes={changes}
-								onViewerFileSelection={onViewerFileSelection}
-								outlineSelection={outlineSelection}
-								projectId={projectId}
-								viewerRef={viewerRef}
-							/>
-						);
-						return Match.value(outlineSelection).pipe(
-							Match.tagsExhaustive({
-								Stack: () => null,
-								Branch: ({ branchRef }) => (
-									<SuspenseQuery
-										{...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}
-									>
-										{({ data: branchDiff }) => render(branchDiff.changes)}
-									</SuspenseQuery>
-								),
-								ChangesSection: () => (
-									<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
-										{({ data: worktreeChanges }) => render(worktreeChanges.changes)}
-									</SuspenseQuery>
-								),
-								File: () => null,
-								Commit: ({ commitId }) => (
-									<SuspenseQuery
-										{...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}
-									>
-										{({ data: commitDetails }) => render(commitDetails.changes)}
-									</SuspenseQuery>
-								),
-								Hunk: () => null,
-							}),
-						);
-					})()}
+					<DiffContents
+						changes={changes}
+						onViewerFileSelection={onViewerFileSelection}
+						outlineSelection={outlineSelection}
+						projectId={projectId}
+						viewerRef={viewerRef}
+					/>
 				</Suspense>
 			</div>
 		</div>
@@ -595,15 +567,22 @@ export const Details: FC<{ outlineSelection: Operand | null } & ComponentProps<"
 				fallback={<div className={classes(styles.loadingDiff, "text-13")}>Loading diff…</div>}
 			>
 				{(() => {
-					const render = (filesItems: Array<FileTreeItem>) => (
+					const render = ({
+						changes,
+						filesItems,
+					}: {
+						changes: Array<TreeChange>;
+						filesItems: Array<FileTreeItem>;
+					}) => (
 						<Diff
+							changes={changes}
 							filesVisible={filesVisible}
+							filesItems={filesItems}
 							onFileSelection={selectFileAndScrollDiff}
 							onViewerFileSelection={selectFile}
 							outlineSelection={outlineSelection}
 							projectId={projectId}
 							viewerRef={viewerRef}
-							filesItems={filesItems}
 						/>
 					);
 					return Match.value(outlineSelection).pipe(
@@ -615,13 +594,21 @@ export const Details: FC<{ outlineSelection: Operand | null } & ComponentProps<"
 								})}
 							>
 								{({ data: commitDetails }) =>
-									render(getCommitFileTreeItems({ commit, commitDetails }))
+									render({
+										changes: commitDetails.changes,
+										filesItems: getCommitFileTreeItems({ commit, commitDetails }),
+									})
 								}
 							</SuspenseQuery>
 						)),
 						Match.tag("ChangesSection", () => (
 							<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
-								{({ data: worktreeChanges }) => render(getChangesFileTreeItems(worktreeChanges))}
+								{({ data: worktreeChanges }) =>
+									render({
+										changes: worktreeChanges.changes,
+										filesItems: getChangesFileTreeItems(worktreeChanges),
+									})
+								}
 							</SuspenseQuery>
 						)),
 						Match.tag("Branch", ({ stackId, branchRef }) => (
@@ -629,7 +616,10 @@ export const Details: FC<{ outlineSelection: Operand | null } & ComponentProps<"
 								{...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}
 							>
 								{({ data: branchDiff }) =>
-									render(getBranchFileTreeItems({ stackId, branchRef, branchDiff }))
+									render({
+										changes: branchDiff.changes,
+										filesItems: getBranchFileTreeItems({ stackId, branchRef, branchDiff }),
+									})
 								}
 							</SuspenseQuery>
 						)),
