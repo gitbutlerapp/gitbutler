@@ -169,7 +169,8 @@ const useNavigationIndex = ({
 
 	const dispatch = useAppDispatch();
 
-	const navigationIndexUnfiltered = buildNavigationIndex(navigationItems(headInfo));
+	const items = navigationItems(headInfo);
+	const navigationIndexUnfiltered = buildNavigationIndex(items);
 
 	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
 
