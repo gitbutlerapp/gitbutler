@@ -63,7 +63,6 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { filterNavigationItemsForOutlineMode } from "#ui/outline/mode.ts";
 import { buildNavigationIndex, navigationIndexIncludes } from "#ui/workspace/navigation-index.ts";
-import { defaultOutlineSelection } from "#ui/projects/workspace/state.ts";
 
 const toggleFiles =
 	({
@@ -448,13 +447,16 @@ const useOutlineNavigationIndex = ({
 	useEffect(() => {
 		if (selection && navigationIndexIncludes(navigationIndex, selection)) return;
 
+		const next = navigationIndex.items[0] ?? null;
+		if (next === null && selection === null) return;
+
 		dispatch(
 			projectActions.selectOutline({
 				projectId,
-				selection: defaultOutlineSelection,
+				selection: next,
 			}),
 		);
-	}, [navigationIndex, selection, projectId, dispatch]);
+	}, [navigationIndex, selection, projectId, dispatch, navigationIndex.items]);
 
 	return navigationIndex;
 };

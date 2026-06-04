@@ -4,7 +4,6 @@ import { AbsorptionTarget, type RefInfo, type RelativeTo } from "@gitbutler/but-
 import { Match } from "effect";
 import {
 	branchOperand,
-	changesSectionOperand,
 	commitOperand,
 	operandEquals,
 	type BranchOperand,
@@ -30,10 +29,8 @@ export type SelectionState = {
 	files: Operand | null;
 };
 
-export const defaultOutlineSelection = changesSectionOperand;
-
 const createInitialSelectionState = (): SelectionState => ({
-	outline: defaultOutlineSelection,
+	outline: null,
 	files: null,
 });
 
