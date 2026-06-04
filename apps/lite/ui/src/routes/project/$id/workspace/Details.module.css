@@ -34,7 +34,7 @@
 }
 
 .diffWithFiles {
-	grid-template-columns: 300px 1fr;
+	grid-template-columns: 300px minmax(300px, 1fr);
 	padding-inline-start: var(--panel-padding);
 }
 
