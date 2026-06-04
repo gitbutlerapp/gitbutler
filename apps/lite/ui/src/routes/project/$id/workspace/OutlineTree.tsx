@@ -43,7 +43,7 @@ import {
 } from "#ui/operands.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import {
-	filterNavigationIndexForOutlineMode,
+	filterNavigationItemsForOutlineMode,
 	getTransferOperation,
 	keyboardTransferOperationMode,
 } from "#ui/outline/mode.ts";
@@ -173,11 +173,12 @@ const useNavigationIndex = ({
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const items = navigationItems(headInfo);
-	const navigationIndex = filterNavigationIndexForOutlineMode({
-		navigationIndex: buildNavigationIndex(items),
+	const filteredItems = filterNavigationItemsForOutlineMode({
+		items,
 		outlineMode,
 		absorptionTargetKeys,
 	});
+	const navigationIndex = buildNavigationIndex(filteredItems);
 
 	// React allows state updates on render, but not for external stores.
 	// https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
