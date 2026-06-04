@@ -186,16 +186,16 @@ const useNavigationIndex = ({
 	// https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
 	useEffect(() => {
 		//
-		// Reset selection when it's no longer part of the workspace.
+		// Reset selection when it's no longer part of the filtered workspace.
 		//
-		if (!navigationIndexIncludes(navigationIndexUnfiltered, selection))
+		if (!navigationIndexIncludes(navigationIndex, selection))
 			dispatch(
 				projectActions.selectOutline({
 					projectId,
 					selection: defaultOutlineSelection,
 				}),
 			);
-	}, [navigationIndexUnfiltered, selection, projectId, dispatch]);
+	}, [navigationIndex, selection, projectId, dispatch]);
 
 	return navigationIndex;
 };
