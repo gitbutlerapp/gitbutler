@@ -608,61 +608,48 @@ export const Details: FC<{ outlineSelection: Operand | null } & ComponentProps<"
 			<Suspense
 				fallback={<div className={classes(styles.loadingDiff, "text-13")}>Loading diff…</div>}
 			>
-				{Match.value(outlineSelection).pipe(
-					Match.tag("Commit", (commit) => (
-						<SuspenseQuery
-							{...commitDetailsWithLineStatsQueryOptions({
-								projectId,
-								commitId: commit.commitId,
-							})}
-						>
-							{({ data: commitDetails }) => (
-								<Diff
-									filesVisible={filesVisible}
-									onFileSelection={selectFileAndScrollDiff}
-									onViewerFileSelection={selectFile}
-									outlineSelection={outlineSelection}
-									projectId={projectId}
-									viewerRef={viewerRef}
-									filesItems={getCommitFileTreeItems({ commit, commitDetails })}
-								/>
-							)}
-						</SuspenseQuery>
-					)),
-					Match.tag("ChangesSection", () => (
-						<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
-							{({ data: worktreeChanges }) => (
-								<Diff
-									filesVisible={filesVisible}
-									onFileSelection={selectFileAndScrollDiff}
-									onViewerFileSelection={selectFile}
-									outlineSelection={outlineSelection}
-									projectId={projectId}
-									viewerRef={viewerRef}
-									filesItems={getChangesFileTreeItems(worktreeChanges)}
-								/>
-							)}
-						</SuspenseQuery>
-					)),
-					Match.tag("Branch", ({ stackId, branchRef }) => (
-						<SuspenseQuery
-							{...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}
-						>
-							{({ data: branchDiff }) => (
-								<Diff
-									filesVisible={filesVisible}
-									onFileSelection={selectFileAndScrollDiff}
-									onViewerFileSelection={selectFile}
-									outlineSelection={outlineSelection}
-									projectId={projectId}
-									viewerRef={viewerRef}
-									filesItems={getBranchFileTreeItems({ stackId, branchRef, branchDiff })}
-								/>
-							)}
-						</SuspenseQuery>
-					)),
-					Match.orElse(() => null),
-				)}
+				{(() => {
+					const render = (filesItems: Array<FileTreeItem>) => (
+						<Diff
+							filesVisible={filesVisible}
+							onFileSelection={selectFileAndScrollDiff}
+							onViewerFileSelection={selectFile}
+							outlineSelection={outlineSelection}
+							projectId={projectId}
+							viewerRef={viewerRef}
+							filesItems={filesItems}
+						/>
+					);
+					return Match.value(outlineSelection).pipe(
+						Match.tag("Commit", (commit) => (
+							<SuspenseQuery
+								{...commitDetailsWithLineStatsQueryOptions({
+									projectId,
+									commitId: commit.commitId,
+								})}
+							>
+								{({ data: commitDetails }) =>
+									render(getCommitFileTreeItems({ commit, commitDetails }))
+								}
+							</SuspenseQuery>
+						)),
+						Match.tag("ChangesSection", () => (
+							<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
+								{({ data: worktreeChanges }) => render(getChangesFileTreeItems(worktreeChanges))}
+							</SuspenseQuery>
+						)),
+						Match.tag("Branch", ({ stackId, branchRef }) => (
+							<SuspenseQuery
+								{...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}
+							>
+								{({ data: branchDiff }) =>
+									render(getBranchFileTreeItems({ stackId, branchRef, branchDiff }))
+								}
+							</SuspenseQuery>
+						)),
+						Match.orElse(() => null),
+					);
+				})()}
 			</Suspense>
 		</div>
 	);
