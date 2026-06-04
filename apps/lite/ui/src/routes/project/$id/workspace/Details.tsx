@@ -533,7 +533,7 @@ const useFilesNavigationIndex = (projectId: string, files: Array<Operand>) => {
 	useEffect(() => {
 		if (selection && navigationIndexIncludes(navigationIndex, selection)) return;
 
-		const next = files[0] ?? null;
+		const next = navigationIndex.items[0] ?? null;
 		if (next === null && selection === null) return;
 
 		dispatch(
