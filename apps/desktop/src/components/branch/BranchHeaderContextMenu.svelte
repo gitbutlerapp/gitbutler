@@ -291,7 +291,7 @@
 						}}
 					/>
 				{/if}
-				{#if branchName && stackLength && (stackLength > 1 || (stackLength === 1 && branchCommits.length === 0))}
+				{#if branchName && stackLength && ((stackLength > 1 && (!first || !hasCommits)) || (stackLength === 1 && branchCommits.length === 0))}
 					<ContextMenuItem
 						label="Delete"
 						icon="bin"
