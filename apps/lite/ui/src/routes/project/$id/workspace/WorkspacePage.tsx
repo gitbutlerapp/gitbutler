@@ -488,6 +488,9 @@ const WorkspacePage: FC = () => {
 	const rebaseAllStacks = () => {
 		rebaseAllStacksMutation.mutate(rebaseUpdates);
 	};
+	// This should be false if all stacks are up-to-date, but we're currently
+	// lacking this information:
+	// https://linear.app/gitbutler/issue/GB-1560/add-information-about-the-relation-to-the-upstream-to-the-head-info
 	const canRebaseAllStacks = outlineMode._tag === "Default" && rebaseUpdates.length > 0;
 
 	const absorptionPlanTarget = Match.value(outlineMode).pipe(
@@ -534,13 +537,12 @@ const WorkspacePage: FC = () => {
 						<div className={styles.workspaceControlsActions}>
 							<Tooltip.Root>
 								<Tooltip.Trigger
-									type="button"
 									aria-label="Rebase all"
 									className={getButtonClassName({ iconOnly: true })}
 									onClick={rebaseAllStacks}
-									// This is needed to ensure the `disabled` attribute is passed
-									// to the button element. Other props should be passed above.
-									render={<button type="submit" disabled={!canRebaseAllStacks} />}
+									// We pass `disabled` here because we want to disable the button, not
+									// the tooltip. Other props should be passed above.
+									render={<button type="button" disabled={!canRebaseAllStacks} />}
 								>
 									<Icon name="arrow-line-down" />
 								</Tooltip.Trigger>
