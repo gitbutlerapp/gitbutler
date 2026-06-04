@@ -172,7 +172,13 @@ fn assure_repo_ownership(repo: &gix::Repository) -> Result<()> {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn is_gerrit(ctx: &but_ctx::Context) -> Result<bool> {
-    gitbutler_project::gerrit::is_used_by_default_remote(&*ctx.repo.get()?)
+    let repo = ctx.repo.get()?;
+    Ok(
+        gitbutler_project::gerrit::is_used_by_default_remote(&repo).unwrap_or_else(|err| {
+            tracing::debug!(?err, "Gerrit detection failed");
+            false
+        }),
+    )
 }
 
 #[derive(serde::Serialize)]
