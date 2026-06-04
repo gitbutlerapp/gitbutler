@@ -488,6 +488,9 @@ const WorkspacePage: FC = () => {
 	const rebaseAllStacks = () => {
 		rebaseAllStacksMutation.mutate(rebaseUpdates);
 	};
+	// This should be false if all stacks are up-to-date, but we're currently
+	// lacking this information:
+	// https://linear.app/gitbutler/issue/GB-1560/add-information-about-the-relation-to-the-upstream-to-the-head-info
 	const canRebaseAllStacks = outlineMode._tag === "Default" && rebaseUpdates.length > 0;
 
 	const absorptionPlanTarget = Match.value(outlineMode).pipe(
