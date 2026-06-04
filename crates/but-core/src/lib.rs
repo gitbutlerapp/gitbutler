@@ -131,6 +131,30 @@ pub fn is_workspace_ref_name(ref_name: &FullNameRef) -> bool {
         || ref_name.as_bstr() == "refs/heads/gitbutler/integration"
 }
 
+/// Extract the short branch name from a full reference name.
+///
+/// For remote tracking branches like `refs/remotes/origin/main`, this returns `main`.
+/// For local branches like `refs/heads/develop`, this returns `develop`.
+/// Returns `None` if the ref_name cannot be categorized or doesn't have a short name.
+pub fn extract_short_branch_name(ref_name: &gix::refs::FullNameRef) -> Option<String> {
+    let (category, shorthand_name) = ref_name.category_and_short_name()?;
+
+    match category {
+        gix::refs::Category::RemoteBranch => {
+            // For remote tracking branches like refs/remotes/origin/main, we need to strip the remote name
+            let shorthand = shorthand_name.to_str().ok()?;
+            // Find the first slash to separate remote name from branch name
+            let pos = shorthand.find('/')?;
+            Some(shorthand[pos + 1..].to_string())
+        }
+        gix::refs::Category::LocalBranch => {
+            // For local branches, the shorthand name is already the branch name
+            Some(shorthand_name.to_str().ok()?.to_string())
+        }
+        _ => None,
+    }
+}
+
 /// A utility to extract the name of the remote from a remote tracking ref with `ref_name`,
 /// along with the short name of the branch that remains after stripping the remote name.
 /// If it's not a remote tracking ref, or no remote in `remote_names` (like `origin`) matches,

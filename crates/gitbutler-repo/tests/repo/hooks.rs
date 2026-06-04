@@ -4,7 +4,7 @@ use std::os::unix::fs::PermissionsExt;
 
 use crate::support::RepoWithOrigin;
 use but_testsupport::open_repo;
-use gitbutler_repo::hooks::{HookResult, pre_push};
+use gitbutler_repo::hooks::{HookResult, pre_commit_with_tree, pre_push};
 
 #[test]
 fn pre_push_hook_not_configured() -> anyhow::Result<()> {
@@ -174,5 +174,68 @@ fn pre_push_resolves_relative_core_hooks_path_against_workdir() -> anyhow::Resul
     )?;
     assert_eq!(result, HookResult::Success);
     assert!(workdir.join("relative-pre-push-ran").exists());
+    Ok(())
+}
+
+#[test]
+fn pre_commit_sets_target_branch_env_var() -> anyhow::Result<()> {
+    use but_ctx::Context;
+    use but_path;
+
+    let test_project = RepoWithOrigin::default();
+    let repo = test_project.local_repo;
+    let workdir = repo.workdir().expect("non-bare").to_path_buf();
+
+    // Create a context for the repository
+    let app_config_dir = but_path::app_config_dir()?;
+    let app_cache_dir = but_path::app_cache_dir().ok();
+    let ctx = Context::new(repo.git_dir(), app_config_dir, app_cache_dir)?;
+
+    // Set up workspace metadata with a target ref
+    let workspace_ref: gix::refs::FullNameRef = but_core::WORKSPACE_REF_NAME.try_into()?;
+    let target_ref: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
+
+    {
+        let mut meta = ctx.meta()?;
+        let mut workspace = meta.workspace(&workspace_ref)?;
+        workspace.target_ref = Some(target_ref.clone());
+        meta.set_workspace(&workspace)?;
+    }
+
+    // Create a pre-commit hook that captures the environment variable
+    let hooks_dir = repo.path().join("hooks");
+    fs::create_dir_all(&hooks_dir)?;
+    let hook_path = hooks_dir.join("pre-commit");
+
+    #[cfg(unix)]
+    fs::write(
+        &hook_path,
+        "#!/bin/sh\necho \"$GITBUTLER_TARGET_BRANCH\" > target_branch.txt\n",
+    )?;
+
+    #[cfg(windows)]
+    fs::write(
+        &hook_path,
+        "@echo off\necho %GITBUTLER_TARGET_BRANCH% > target_branch.txt\n",
+    )?;
+
+    #[cfg(unix)]
+    fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o755))?;
+
+    // Get the current tree to use for the pre-commit hook
+    let tree_id = repo.head_commit()?.tree_id()?.detach();
+
+    // Run the pre-commit hook
+    let result = pre_commit_with_tree(&ctx, tree_id)?;
+    assert_eq!(result, HookResult::Success, "hook should succeed");
+
+    // Verify the environment variable was set correctly
+    let target_branch_content = fs::read_to_string(workdir.join("target_branch.txt"))?;
+    assert_eq!(
+        target_branch_content.trim(),
+        "main",
+        "GITBUTLER_TARGET_BRANCH should be set to 'main'"
+    );
+
     Ok(())
 }

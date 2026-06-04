@@ -95,6 +95,9 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<Hoo
     index.read_tree(&repo.find_tree(tree_id.to_git2())?)?;
     index.write()?;
 
+    // Set GITBUTLER_TARGET_BRANCH environment variable if a target branch is configured
+    let _target_branch_guard = set_target_branch_env(ctx);
+
     Ok(
         match git2_hooks::hooks_pre_commit(repo, husky_search_paths(ctx))? {
             H::Ok { hook: _ } => HookResult::Success,
@@ -252,4 +255,40 @@ fn join_output(stdout: String, stderr: String, code: Option<i32>) -> String {
         return stdout;
     }
     format!("stdout:\n{stdout}\n\nstderr:\n{stderr}{code}")
+}
+
+/// Set the GITBUTLER_TARGET_BRANCH environment variable based on the workspace's target ref.
+/// Returns a guard that will unset the environment variable when dropped.
+///
+/// This allows hooks to know which branch commits are targeting, which is useful for
+/// hooks that need context about the target integration branch.
+fn set_target_branch_env(ctx: &Context) -> Option<TargetBranchEnvGuard> {
+    // Try to read workspace metadata to get the target ref
+    let meta = ctx.meta().ok()?;
+    let workspace_ref = but_core::WORKSPACE_REF_NAME.try_into().ok()?;
+    let workspace = meta.workspace(&workspace_ref).ok()?;
+    let target_ref = workspace.target_ref.as_ref()?;
+
+    // Extract the short branch name from the target ref
+    let short_branch_name = but_core::extract_short_branch_name(target_ref.as_ref())?;
+
+    // Set the environment variable
+    std::env::set_var("GITBUTLER_TARGET_BRANCH", &short_branch_name);
+
+    Some(TargetBranchEnvGuard {
+        was_set: true,
+    })
+}
+
+/// Guard that unsets the GITBUTLER_TARGET_BRANCH environment variable when dropped.
+struct TargetBranchEnvGuard {
+    was_set: bool,
+}
+
+impl Drop for TargetBranchEnvGuard {
+    fn drop(&mut self) {
+        if self.was_set {
+            std::env::remove_var("GITBUTLER_TARGET_BRANCH");
+        }
+    }
 }
