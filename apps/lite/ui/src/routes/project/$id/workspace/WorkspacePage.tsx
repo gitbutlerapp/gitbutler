@@ -537,13 +537,12 @@ const WorkspacePage: FC = () => {
 						<div className={styles.workspaceControlsActions}>
 							<Tooltip.Root>
 								<Tooltip.Trigger
-									type="button"
 									aria-label="Rebase all"
 									className={getButtonClassName({ iconOnly: true })}
 									onClick={rebaseAllStacks}
 									// This is needed to ensure the `disabled` attribute is passed
 									// to the button element. Other props should be passed above.
-									render={<button type="submit" disabled={!canRebaseAllStacks} />}
+									render={<button type="button" disabled={!canRebaseAllStacks} />}
 								>
 									<Icon name="arrow-line-down" />
 								</Tooltip.Trigger>
