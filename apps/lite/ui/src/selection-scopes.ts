@@ -59,12 +59,17 @@ export const focusAdjacentSelectionScope = (filesVisible: boolean, offset: -1 | 
 	}
 };
 
-export const useFilesSelection = (projectId: string, navigationIndex: NavigationIndex) => {
-	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
-
-	return selection && navigationIndexIncludes(navigationIndex, selection)
+export const resolveNavigationIndexSelection = (
+	navigationIndex: NavigationIndex,
+	selection: Operand | null,
+): Operand | null =>
+	selection && navigationIndexIncludes(navigationIndex, selection)
 		? selection
 		: (navigationIndex.items[0] ?? null);
+
+export const useFilesSelection = (projectId: string, navigationIndex: NavigationIndex) => {
+	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
+	return resolveNavigationIndexSelection(navigationIndex, selection);
 };
 
 export const useOutlineSelection = ({
@@ -75,13 +80,7 @@ export const useOutlineSelection = ({
 	navigationIndex: NavigationIndex;
 }) => {
 	const selectionState = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
-
-	const selection =
-		selectionState && navigationIndexIncludes(navigationIndex, selectionState)
-			? selectionState
-			: (navigationIndex.items[0] ?? null);
-
-	return selection;
+	return resolveNavigationIndexSelection(navigationIndex, selectionState);
 };
 
 export const useNavigationIndexHotkeys = ({

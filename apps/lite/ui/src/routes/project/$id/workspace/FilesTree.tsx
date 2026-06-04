@@ -8,7 +8,11 @@ import {
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
 import { operandEquals, operandIdentityKey, type Operand } from "#ui/operands.ts";
-import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
+import {
+	projectActions,
+	selectProjectOutlineModeState,
+	selectProjectSelectionFiles,
+} from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { classes } from "#ui/components/classes.ts";
@@ -29,6 +33,7 @@ import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSour
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
 import {
 	focusSelectionScope,
+	resolveNavigationIndexSelection,
 	useFilesSelection,
 	useNavigationIndexHotkeys,
 } from "#ui/selection-scopes.ts";
@@ -199,8 +204,12 @@ const useIsSelected = ({
 	operand: Operand;
 }): boolean => {
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const selection = useFilesSelection(projectId, navigationIndex);
-	return selection !== null && operandEquals(selection, operand);
+	return useAppSelector((state) => {
+		const selectionState = selectProjectSelectionFiles(state, projectId);
+		const selection = resolveNavigationIndexSelection(navigationIndex, selectionState);
+
+		return selection !== null && operandEquals(selection, operand);
+	});
 };
 
 const treeItemId = (operand: Operand): string =>
