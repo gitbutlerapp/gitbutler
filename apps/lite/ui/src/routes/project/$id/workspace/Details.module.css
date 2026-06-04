@@ -46,7 +46,7 @@
 	display: grid;
 }
 
-.diffContentsVirtualizer {
+.diffContents {
 	overflow: auto;
 }
 

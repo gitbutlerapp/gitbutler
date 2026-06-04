@@ -290,7 +290,7 @@ const ChangesFileDiffList: FC<{
 		<CodeView
 			ref={viewerRef}
 			onScroll={selectFileAtViewportTop}
-			className={classes(styles.diffContentsVirtualizer, uiStyles.scrollerWithSeparator)}
+			className={classes(styles.diffContents, uiStyles.scrollerWithSeparator)}
 			items={items}
 			options={{
 				diffStyle: "unified",
