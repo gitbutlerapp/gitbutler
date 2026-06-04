@@ -1,4 +1,5 @@
 import {
+	absorptionPlanQueryOptions,
 	headInfoQueryOptions,
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
@@ -15,13 +16,14 @@ import {
 	selectProjectDialogState,
 	selectProjectFilesVisible,
 	selectProjectOutlineModeState,
+	selectProjectSelectionOutline,
 } from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import { globalHotkeys, workspaceHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { stackToBottomRebaseUpdate } from "#ui/api/stack.ts";
 import { type AppThunk, useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { BranchListing, Segment, Stack } from "@gitbutler/but-sdk";
+import { BranchListing, RefInfo, Segment, Stack } from "@gitbutler/but-sdk";
 import {
 	getHotkeyManager,
 	getSequenceManager,
@@ -34,13 +36,22 @@ import {
 	QueryErrorResetBoundary,
 	useIsFetching,
 	useIsMutating,
+	useQueries,
 	useQuery,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match, Order } from "effect";
-import { type FC, Component, ReactNode } from "react";
-import { branchOperand, type BranchOperand } from "#ui/operands.ts";
+import { type FC, Component, ReactNode, useEffect } from "react";
+import {
+	branchOperand,
+	changesSectionOperand,
+	commitOperand,
+	Operand,
+	operandIdentityKey,
+	stackOperand,
+	type BranchOperand,
+} from "#ui/operands.ts";
 import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialog.tsx";
 import { Details } from "./Details.tsx";
 import styles from "./WorkspacePage.module.css";
@@ -50,6 +61,9 @@ import { useActiveElement } from "#ui/focus.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { filterNavigationItemsForOutlineMode } from "#ui/outline/mode.ts";
+import { buildNavigationIndex, navigationIndexIncludes } from "#ui/workspace/navigation-index.ts";
+import { defaultOutlineSelection } from "#ui/projects/workspace/state.ts";
 
 const toggleFiles =
 	({
@@ -382,6 +396,68 @@ const ActivitySpinner: FC = () => {
 	return status !== null && <Icon name="spinner" aria-label={status} />;
 };
 
+const outlineNavigationItems = (headInfo: RefInfo | undefined): Array<Operand> => {
+	const segmentItems = (stackId: string, segment: Segment): Array<Operand> => [
+		...(segment.refName
+			? [branchOperand({ stackId, branchRef: segment.refName.fullNameBytes })]
+			: []),
+		...segment.commits.map((commit) => commitOperand({ stackId, commitId: commit.id })),
+	];
+
+	return [
+		changesSectionOperand,
+
+		...(headInfo?.stacks.flatMap((stack) => {
+			// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
+			const stackId = stack.id!;
+			return [
+				stackOperand({ stackId }),
+				...stack.segments.flatMap((segment) => segmentItems(stackId, segment)),
+			];
+		}) ?? []),
+	];
+};
+
+const useOutlineNavigationIndex = ({
+	projectId,
+	absorptionTargetKeys,
+}: {
+	projectId: string;
+	absorptionTargetKeys: ReadonlySet<string>;
+}) => {
+	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+
+	const dispatch = useAppDispatch();
+
+	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
+	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+
+	const items = outlineNavigationItems(headInfo);
+	const filteredItems = filterNavigationItemsForOutlineMode({
+		items,
+		outlineMode,
+		absorptionTargetKeys,
+	});
+	const navigationIndex = buildNavigationIndex(filteredItems);
+
+	//
+	// Reset selection when it's no longer part of the filtered workspace.
+	//
+	// React allows state updates on render, but not for external stores.
+	// https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+	useEffect(() => {
+		if (!navigationIndexIncludes(navigationIndex, selection))
+			dispatch(
+				projectActions.selectOutline({
+					projectId,
+					selection: defaultOutlineSelection,
+				}),
+			);
+	}, [navigationIndex, selection, projectId, dispatch]);
+
+	return navigationIndex;
+};
+
 const WorkspacePage: FC = () => {
 	const dispatch = useAppDispatch();
 
@@ -432,6 +508,26 @@ const WorkspacePage: FC = () => {
 		rebaseAllStacksMutation.mutate(rebaseUpdates);
 	};
 	const canRebaseAllStacks = outlineMode._tag === "Default" && rebaseUpdates.length > 0;
+
+	const absorptionPlanTarget = Match.value(outlineMode).pipe(
+		Match.tag("Absorb", ({ sourceTarget }) => sourceTarget),
+		Match.orElse(() => null),
+	);
+	const [absorptionPlanQuery] = useQueries({
+		queries: (absorptionPlanTarget ? [absorptionPlanTarget] : []).map((target) =>
+			absorptionPlanQueryOptions({ projectId, target }),
+		),
+	});
+	const absorptionTargetKeys = new Set(
+		absorptionPlanQuery?.data?.map(({ stackId, commitId }) =>
+			operandIdentityKey(commitOperand({ stackId, commitId })),
+		),
+	);
+
+	const outlineNavigationIndex = useOutlineNavigationIndex({
+		projectId,
+		absorptionTargetKeys,
+	});
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const selectedProject = projects.find((project) => project.id === projectId);
@@ -490,6 +586,9 @@ const WorkspacePage: FC = () => {
 						id={"outline" satisfies SelectionScope}
 						data-selection-scope
 						tabIndex={0}
+						navigationIndex={outlineNavigationIndex}
+						absorptionTargetKeys={absorptionTargetKeys}
+						absorptionPlanQuery={absorptionPlanQuery}
 						ref={(el) => el?.focus({ focusVisible: false })}
 					/>
 				</div>
