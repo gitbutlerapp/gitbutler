@@ -210,13 +210,13 @@ fn pre_commit_sets_target_branch_env_var() -> anyhow::Result<()> {
     #[cfg(unix)]
     fs::write(
         &hook_path,
-        "#!/bin/sh\necho \"$GITBUTLER_TARGET_BRANCH\" > target_branch.txt\n",
+        "#!/bin/sh\necho \"$GITBUTLER_TARGET_STACK\" > target_branch.txt\n",
     )?;
 
     #[cfg(windows)]
     fs::write(
         &hook_path,
-        "@echo off\necho %GITBUTLER_TARGET_BRANCH% > target_branch.txt\n",
+        "@echo off\necho %GITBUTLER_TARGET_STACK% > target_branch.txt\n",
     )?;
 
     #[cfg(unix)]
@@ -234,7 +234,7 @@ fn pre_commit_sets_target_branch_env_var() -> anyhow::Result<()> {
     assert_eq!(
         target_branch_content.trim(),
         "main",
-        "GITBUTLER_TARGET_BRANCH should be set to 'main'"
+        "GITBUTLER_TARGET_STACK should be set to 'main'"
     );
 
     Ok(())
