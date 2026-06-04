@@ -1,6 +1,7 @@
 use crate::WorkspaceState;
 use but_api_macros::but_api;
 use but_core::{DiffSpec, DryRun, sync::RepoExclusive};
+use but_graph::Workspace;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_rebase::graph_rebase::{
     Editor, LookupStep as _,
@@ -9,6 +10,34 @@ use but_rebase::graph_rebase::{
 use tracing::instrument;
 
 use super::types::CommitCreateResult;
+
+/// Helper to find which branch contains a given commit by checking the workspace graph
+fn find_branch_for_commit(ws: &Workspace, commit_id: gix::ObjectId) -> Option<gix::refs::FullName> {
+    tracing::debug!("find_branch_for_commit: Searching for commit {} in {} stacks", commit_id, ws.stacks.len());
+
+    // Iterate through all stacks and their segments
+    for (stack_idx, stack) in ws.stacks.iter().enumerate() {
+        tracing::debug!("find_branch_for_commit: Stack {}: {} segments", stack_idx, stack.segments.len());
+
+        for (seg_idx, segment) in stack.segments.iter().enumerate() {
+            let ref_name = segment.ref_info.as_ref().map(|i| i.ref_name.as_ref().to_string()).unwrap_or_else(|| "no-ref".to_string());
+            tracing::debug!("find_branch_for_commit:   Segment {}: ref={}, commits={}", seg_idx, ref_name, segment.commits.len());
+
+            // Check if any commit in this segment matches our target commit
+            for commit in &segment.commits {
+                if commit.id == commit_id {
+                    // Found it! Return the branch reference for this segment
+                    let result = segment.ref_info.as_ref().map(|info| info.ref_name.clone());
+                    tracing::info!("find_branch_for_commit: FOUND! commit {} in segment with ref={:?}", commit_id, result);
+                    return result;
+                }
+            }
+        }
+    }
+
+    tracing::warn!("find_branch_for_commit: Commit {} not found in any branch", commit_id);
+    None
+}
 
 /// Creates a commit from `changes` with `message`, inserted on `side` of
 /// `relative_to`.
@@ -106,22 +135,53 @@ pub fn commit_create(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCreateResult> {
-    // Run commit-msg hook with branch context if we're committing relative to a reference
-    let final_message = if let RelativeTo::Reference(ref branch_ref) = relative_to {
-        match gitbutler_repo::hooks::commit_msg_with_branch(ctx, message.clone(), Some(branch_ref.as_ref())) {
+    // First, determine which branch we're committing to by examining the workspace
+    let branch_for_hook: Option<gix::refs::FullName> = {
+        let mut meta = ctx.meta()?;
+        let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
+
+        let result = match &relative_to {
+            RelativeTo::Reference(r) => {
+                tracing::info!("commit_create: RelativeTo::Reference({})", r);
+                Some(r.clone())
+            }
+            RelativeTo::Commit(commit_id) => {
+                tracing::info!("commit_create: RelativeTo::Commit({}), searching for branch...", commit_id);
+                let found = find_branch_for_commit(&ws, *commit_id);
+                if let Some(ref branch) = found {
+                    tracing::info!("commit_create: Found branch: {}", branch);
+                } else {
+                    tracing::warn!("commit_create: No branch found for commit {}", commit_id);
+                }
+                found
+            }
+        };
+
+        tracing::info!("commit_create: Final branch_for_hook: {:?}", result);
+        result
+    };
+
+    // Run commit-msg hook with the determined branch context
+    let final_message = {
+        let branch_ref_opt = branch_for_hook.as_ref().map(|r| r.as_ref());
+
+        if let Some(branch_ref) = branch_ref_opt {
+            tracing::debug!("Running commit-msg hook with branch reference: {}", branch_ref);
+        } else {
+            tracing::debug!("Running commit-msg hook with workspace target branch (no branch found)");
+        }
+
+        match gitbutler_repo::hooks::commit_msg_with_branch(ctx, message.clone(), branch_ref_opt) {
             Ok(gitbutler_repo::hooks::MessageHookResult::Message(data)) => data.message,
             Ok(gitbutler_repo::hooks::MessageHookResult::Failure(data)) => {
                 anyhow::bail!("commit-msg hook failed: {}", data.error);
             }
             Ok(_) => message,
             Err(e) => {
-                // Log hook errors but don't block the commit
                 tracing::warn!("commit-msg hook error: {}", e);
                 message
             }
         }
-    } else {
-        message
     };
 
     let context_lines = ctx.settings.context_lines;
