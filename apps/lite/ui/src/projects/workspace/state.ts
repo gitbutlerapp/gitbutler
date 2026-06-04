@@ -26,7 +26,7 @@ import {
 import { findCommitStackId } from "#ui/api/ref-info.ts";
 
 export type SelectionState = {
-	outline: Operand;
+	outline: Operand | null;
 	files: Operand | null;
 };
 
@@ -85,7 +85,10 @@ export const updatePointerTransfer = (
 ) => {
 	Match.value(state.mode).pipe(
 		Match.when({ _tag: "Transfer", value: { _tag: "Pointer" } }, (mode) => {
-			if (target !== null && !operandEquals(state.selection.outline, target))
+			if (
+				target !== null &&
+				(!state.selection.outline || !operandEquals(state.selection.outline, target))
+			)
 				selectOutline(state, target);
 
 			if (mode.value.operationType === operationType) return;
@@ -139,11 +142,12 @@ export const cancelMode = (state: WorkspaceState) => {
 	state.selection = restoreSelection;
 };
 
-export const selectOutline = (state: WorkspaceState, selection: Operand) => {
+export const selectOutline = (state: WorkspaceState, selection: Operand | null) => {
 	state.selection.outline = selection;
 	state.selection.files = null;
 
-	if (!isValidOutlineModeForSelection({ mode: state.mode, selection })) exitMode(state);
+	if (!selection || !isValidOutlineModeForSelection({ mode: state.mode, selection }))
+		exitMode(state);
 };
 
 export const selectFiles = (state: WorkspaceState, selection: Operand | null) => {
@@ -181,7 +185,7 @@ export const updateRewrittenCommitReferences = (
 	replacedCommits: Record<string, string>,
 	headInfo: RefInfo,
 ) => {
-	if (state.selection.outline._tag === "Commit") {
+	if (state.selection.outline?._tag === "Commit") {
 		const commit = rewrittenCommitOperand({
 			commit: state.selection.outline,
 			replacedCommits,
@@ -228,7 +232,7 @@ export const updateRewrittenBranchReferences = (
 	const newBranchOperand = branchOperand(newBranch);
 
 	if (
-		state.selection.outline._tag === "Branch" &&
+		state.selection.outline?._tag === "Branch" &&
 		operandEquals(state.selection.outline, oldBranchOperand)
 	)
 		state.selection.outline = newBranchOperand;
@@ -257,7 +261,7 @@ export const startRewordCommit = (state: WorkspaceState, commit: CommitOperand) 
 	state.mode = rewordCommitOutlineMode({ operand: commit });
 };
 
-export const selectSelectionOutlineState = (state: WorkspaceState): Operand =>
+export const selectSelectionOutlineState = (state: WorkspaceState): Operand | null =>
 	state.selection.outline;
 
 export const selectSelectionFilesState = (state: WorkspaceState): Operand | null =>

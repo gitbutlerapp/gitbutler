@@ -174,7 +174,7 @@ const useOutlineTreeHotkeys = ({
 	};
 
 	const moveSelectedCommit = (offset: -1 | 1) => {
-		if (selection._tag !== "Commit") return;
+		if (!selection || selection._tag !== "Commit") return;
 
 		const source = commitOperand(selection);
 		const selectionIdx = navigationIndex.indexByKey.get(operandIdentityKey(source));
@@ -225,8 +225,8 @@ const useOutlineTreeHotkeys = ({
 	};
 
 	const defaultOutlineHotkeysEnabled = outlineMode._tag === "Default";
-	const isSelectedCommit = selection._tag === "Commit";
-	const isSelectedChanges = selection._tag === "ChangesSection";
+	const isSelectedCommit = selection?._tag === "Commit";
+	const isSelectedChanges = selection?._tag === "ChangesSection";
 	const canPushSelectedBranch =
 		!!selectedPushContext &&
 		!pushStackMutation.isPending &&
@@ -414,9 +414,8 @@ export const OutlineTree: FC<
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const dryRunOperation = Match.value(outlineMode).pipe(
-		Match.tag(
-			"Transfer",
-			({ value: mode }) => getTransferOperation({ mode, target: selection }) ?? undefined,
+		Match.tag("Transfer", ({ value: mode }) =>
+			selection ? (getTransferOperation({ mode, target: selection }) ?? undefined) : undefined,
 		),
 		Match.orElse(() => undefined),
 	);
@@ -454,7 +453,7 @@ export const OutlineTree: FC<
 						{...props}
 						tabIndex={0}
 						role="tree"
-						aria-activedescendant={treeItemId(selection)}
+						aria-activedescendant={selection ? treeItemId(selection) : undefined}
 						className={classes(props.className, styles.tree)}
 						ref={useMergedRefs(refProp, ref)}
 					>
@@ -512,7 +511,7 @@ const useIsSelected = ({ projectId, operand }: { projectId: string; operand: Ope
 	useAppSelector((state) => {
 		const selection = selectProjectSelectionOutline(state, projectId);
 
-		return operandEquals(selection, operand);
+		return selection ? operandEquals(selection, operand) : false;
 	});
 
 const treeItemId = (operand: Operand): string =>
@@ -1523,7 +1522,7 @@ const pushContextForSelection = ({
 	selection,
 }: {
 	headInfo: RefInfo | undefined;
-	selection: Operand;
+	selection: Operand | null;
 }): PushContext | null =>
 	Match.value(selection).pipe(
 		Match.tags({

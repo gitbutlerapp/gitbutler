@@ -446,7 +446,7 @@ const useOutlineNavigationIndex = ({
 	// React allows state updates on render, but not for external stores.
 	// https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
 	useEffect(() => {
-		if (navigationIndexIncludes(navigationIndex, selection)) return;
+		if (selection && navigationIndexIncludes(navigationIndex, selection)) return;
 
 		dispatch(
 			projectActions.selectOutline({

@@ -504,6 +504,8 @@ export const Details: FC<ComponentProps<"div">> = (props) => {
 	};
 
 	const selectFileAndScrollDiff = (selection: Operand) => {
+		if (!outlineSelection) return;
+
 		selectFile(selection);
 
 		const scrollTargetId = getScrollTargetId({
@@ -515,7 +517,7 @@ export const Details: FC<ComponentProps<"div">> = (props) => {
 		viewerRef.current?.scrollTo({ type: "item", id: scrollTargetId });
 	};
 
-	if (outlineSelection._tag === "Stack") return;
+	if (!outlineSelection || outlineSelection._tag === "Stack") return;
 
 	return (
 		<div
