@@ -459,53 +459,39 @@ const DiffContents: FC<{
 	outlineSelection: Operand;
 	projectId: string;
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
-}> = ({ onViewerFileSelection, outlineSelection, projectId, viewerRef }) =>
-	Match.value(outlineSelection).pipe(
+}> = ({ onViewerFileSelection, outlineSelection, projectId, viewerRef }) => {
+	const render = (changes: Array<TreeChange>) => (
+		<ChangesFileDiffList
+			changes={changes}
+			onViewerFileSelection={onViewerFileSelection}
+			outlineSelection={outlineSelection}
+			projectId={projectId}
+			viewerRef={viewerRef}
+		/>
+	);
+	return Match.value(outlineSelection).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
 			Branch: ({ branchRef }) => (
 				<SuspenseQuery {...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}>
-					{({ data: branchDiff }) => (
-						<ChangesFileDiffList
-							changes={branchDiff.changes}
-							onViewerFileSelection={onViewerFileSelection}
-							outlineSelection={outlineSelection}
-							projectId={projectId}
-							viewerRef={viewerRef}
-						/>
-					)}
+					{({ data: branchDiff }) => render(branchDiff.changes)}
 				</SuspenseQuery>
 			),
 			ChangesSection: () => (
 				<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
-					{({ data: worktreeChanges }) => (
-						<ChangesFileDiffList
-							changes={worktreeChanges.changes}
-							onViewerFileSelection={onViewerFileSelection}
-							outlineSelection={outlineSelection}
-							projectId={projectId}
-							viewerRef={viewerRef}
-						/>
-					)}
+					{({ data: worktreeChanges }) => render(worktreeChanges.changes)}
 				</SuspenseQuery>
 			),
 			File: () => null,
 			Commit: ({ commitId }) => (
 				<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
-					{({ data: commitDetails }) => (
-						<ChangesFileDiffList
-							changes={commitDetails.changes}
-							onViewerFileSelection={onViewerFileSelection}
-							outlineSelection={outlineSelection}
-							projectId={projectId}
-							viewerRef={viewerRef}
-						/>
-					)}
+					{({ data: commitDetails }) => render(commitDetails.changes)}
 				</SuspenseQuery>
 			),
 			Hunk: () => null,
 		}),
 	);
+};
 
 const Diff: FC<{
 	filesVisible: boolean;
