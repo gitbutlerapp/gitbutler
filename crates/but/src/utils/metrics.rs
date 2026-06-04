@@ -205,7 +205,7 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Squash { .. } => Squash,
             #[cfg(feature = "legacy")]
-            Subcommands::Merge { .. } => Merge,
+            Subcommands::Integrate { .. } => Merge,
             Subcommands::Move { .. } => Move,
             #[cfg(feature = "legacy")]
             Subcommands::Pick { .. } => Pick,

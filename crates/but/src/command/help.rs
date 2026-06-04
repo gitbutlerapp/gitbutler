@@ -80,7 +80,7 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Unstage => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
-                SubcommandDiscriminant::Merge => Group::BranchingAndCommitting,
+                SubcommandDiscriminant::Integrate => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Discard => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]

@@ -253,31 +253,33 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Branch(branch::Platform),
 
-    /// Merge a branch into your local target branch.
+    /// Integrate a branch into the configured target branch.
     ///
-    /// If the target branch is local (`gb-local`), finds the local branch that the target
-    /// references (e.g., `gb-local/master` becomes `master`) and merges the specified
-    /// branch into that local branch. After merging, runs the equivalent of `but pull`
-    /// to update all branches.
+    /// Fetches the configured target branch, merges the specified branch into it in memory,
+    /// and pushes the resulting merge commit directly to the target branch. After pushing,
+    /// runs the equivalent branch integration cleanup of `but pull`.
     ///
     /// ## Examples
     ///
-    /// Merge a branch by its CLI ID:
+    /// Integrate a branch by its CLI ID:
     ///
     /// ```text
-    /// but merge bu
+    /// but integrate bu
     /// ```
     ///
-    /// Merge a branch by name:
+    /// Integrate a branch by name:
     ///
     /// ```text
-    /// but merge my-feature-branch
+    /// but integrate my-feature-branch
     /// ```
     #[cfg(feature = "legacy")]
     #[clap(verbatim_doc_comment)]
-    Merge {
-        /// Branch ID or name to merge
+    Integrate {
+        /// Branch ID or name to integrate
         branch: String,
+        /// Skip confirmation prompts.
+        #[clap(long, short = 'y')]
+        yes: bool,
     },
 
     /// Discard uncommitted changes from the worktree.
