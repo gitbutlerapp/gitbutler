@@ -397,7 +397,11 @@ export const usePushStack = () => {
 
 			toastManager.add({
 				type: "success",
-				title: "Pushed",
+				title: `Pushed ${response.branchToRemote.length} ${
+					new Intl.PluralRules(undefined).select(response.branchToRemote.length) === "one"
+						? "branch"
+						: "branches"
+				}`,
 				description: input.branch,
 			});
 		},
