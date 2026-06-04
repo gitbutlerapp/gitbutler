@@ -48,7 +48,6 @@ import {
 	selectProjectCommitTarget,
 	selectProjectHighlightedCommitIds,
 	selectProjectOutlineModeState,
-	selectProjectSelectionOutline,
 } from "#ui/projects/state.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { OperationSourceLabel } from "#ui/routes/project/$id/workspace/OperationSourceLabel.tsx";
@@ -111,6 +110,7 @@ import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { OutlineModeTooltip } from "./OutlineModeTooltip.tsx";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
+import { useOutlineSelection } from "#ui/routes/project/$id/workspace/WorkspacePage.tsx";
 
 const NavigationIndexContext = createContext<NavigationIndex | null>(null);
 
@@ -136,7 +136,7 @@ const useOutlineTreeHotkeys = ({
 	ref: React.RefObject<HTMLElement | null>;
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
+	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const dispatch = useAppDispatch();
@@ -410,7 +410,7 @@ export const OutlineTree: FC<
 > = ({ navigationIndex, absorptionTargetKeys, absorptionPlanQuery, ref: refProp, ...props }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
-	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
+	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const dryRunOperation = Match.value(outlineMode).pipe(
@@ -507,12 +507,17 @@ export const OutlineTree: FC<
 	);
 };
 
-const useIsSelected = ({ projectId, operand }: { projectId: string; operand: Operand }): boolean =>
-	useAppSelector((state) => {
-		const selection = selectProjectSelectionOutline(state, projectId);
-
-		return selection ? operandEquals(selection, operand) : false;
-	});
+const useIsSelected = ({
+	projectId,
+	operand,
+}: {
+	projectId: string;
+	operand: Operand;
+}): boolean => {
+	const navigationIndex = assert(use(NavigationIndexContext));
+	const selection = useOutlineSelection({ projectId, navigationIndex });
+	return selection ? operandEquals(selection, operand) : false;
+};
 
 const treeItemId = (operand: Operand): string =>
 	`outline-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;

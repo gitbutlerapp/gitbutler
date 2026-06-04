@@ -42,7 +42,7 @@ import {
 } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match, Order } from "effect";
-import { type FC, Component, ReactNode, useEffect } from "react";
+import { type FC, Component, ReactNode } from "react";
 import {
 	branchOperand,
 	changesSectionOperand,
@@ -62,7 +62,11 @@ import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { filterNavigationItemsForOutlineMode } from "#ui/outline/mode.ts";
-import { buildNavigationIndex, navigationIndexIncludes } from "#ui/workspace/navigation-index.ts";
+import {
+	buildNavigationIndex,
+	NavigationIndex,
+	navigationIndexIncludes,
+} from "#ui/workspace/navigation-index.ts";
 
 const toggleFiles =
 	({
@@ -417,6 +421,24 @@ const outlineNavigationItems = (headInfo: RefInfo | undefined): Array<Operand> =
 	];
 };
 
+// TODO: move
+export const useOutlineSelection = ({
+	projectId,
+	navigationIndex,
+}: {
+	projectId: string;
+	navigationIndex: NavigationIndex;
+}) => {
+	const selectionState = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
+
+	const selection =
+		selectionState && navigationIndexIncludes(navigationIndex, selectionState)
+			? selectionState
+			: (navigationIndex.items[0] ?? null);
+
+	return selection;
+};
+
 const useOutlineNavigationIndex = ({
 	projectId,
 	absorptionTargetKeys,
@@ -426,9 +448,6 @@ const useOutlineNavigationIndex = ({
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 
-	const dispatch = useAppDispatch();
-
-	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const items = outlineNavigationItems(headInfo);
@@ -438,25 +457,6 @@ const useOutlineNavigationIndex = ({
 		absorptionTargetKeys,
 	});
 	const navigationIndex = buildNavigationIndex(filteredItems);
-
-	//
-	// Reset selection when it's no longer part of the filtered items list.
-	//
-	// React allows state updates on render, but not for external stores.
-	// https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
-	useEffect(() => {
-		if (selection && navigationIndexIncludes(navigationIndex, selection)) return;
-
-		const next = navigationIndex.items[0] ?? null;
-		if (next === null && selection === null) return;
-
-		dispatch(
-			projectActions.selectOutline({
-				projectId,
-				selection: next,
-			}),
-		);
-	}, [navigationIndex, selection, projectId, dispatch, navigationIndex.items]);
 
 	return navigationIndex;
 };
@@ -596,7 +596,7 @@ const WorkspacePage: FC = () => {
 					/>
 				</div>
 
-				<Details />
+				<Details outlineNavigationIndex={outlineNavigationIndex} />
 			</div>
 
 			{Match.value(dialog).pipe(

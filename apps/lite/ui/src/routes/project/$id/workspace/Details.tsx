@@ -19,11 +19,7 @@ import {
 	fileOperand,
 	type Operand,
 } from "#ui/operands.ts";
-import {
-	projectActions,
-	selectProjectFilesVisible,
-	selectProjectSelectionOutline,
-} from "#ui/projects/state.ts";
+import { projectActions, selectProjectFilesVisible } from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
@@ -47,6 +43,8 @@ import {
 	ChangesFilesTree,
 	CommitFilesTree,
 } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
+import { useOutlineSelection } from "#ui/routes/project/$id/workspace/WorkspacePage.tsx";
+import { NavigationIndex } from "#ui/workspace/navigation-index.ts";
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
@@ -418,15 +416,18 @@ const DiffContents: FC<{
 		}),
 	);
 
-const FilesTree: FC<{ onFileSelection: (selection: Operand) => void } & ComponentProps<"div">> = ({
-	onFileSelection,
-	...props
-}) => {
+const FilesTree: FC<
+	{
+		outlineNavigationIndex: NavigationIndex;
+		onFileSelection: (selection: Operand) => void;
+	} & ComponentProps<"div">
+> = ({ outlineNavigationIndex, onFileSelection, ...props }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
-	const outlineSelection = useAppSelector((state) =>
-		selectProjectSelectionOutline(state, projectId),
-	);
+	const outlineSelection = useOutlineSelection({
+		projectId,
+		navigationIndex: outlineNavigationIndex,
+	});
 
 	return (
 		<Suspense
@@ -489,14 +490,18 @@ const FilesTree: FC<{ onFileSelection: (selection: Operand) => void } & Componen
 	);
 };
 
-export const Details: FC<ComponentProps<"div">> = (props) => {
+export const Details: FC<{ outlineNavigationIndex: NavigationIndex } & ComponentProps<"div">> = ({
+	outlineNavigationIndex,
+	...restProps
+}) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const viewerRef = useRef<CodeViewHandle<undefined>>(null);
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
-	const urgentOutlineSelection = useAppSelector((state) =>
-		selectProjectSelectionOutline(state, projectId),
-	);
+	const urgentOutlineSelection = useOutlineSelection({
+		projectId,
+		navigationIndex: outlineNavigationIndex,
+	});
 	const outlineSelection = useDeferredValue(urgentOutlineSelection);
 
 	const selectFile = (selection: Operand) => {
@@ -521,8 +526,8 @@ export const Details: FC<ComponentProps<"div">> = (props) => {
 
 	return (
 		<div
-			{...props}
-			className={classes(props.className, styles.container)}
+			{...restProps}
+			className={classes(restProps.className, styles.container)}
 			style={{ opacity: urgentOutlineSelection !== outlineSelection ? 0.5 : 1 }}
 		>
 			<div className={styles.headerWrap}>
@@ -547,6 +552,7 @@ export const Details: FC<ComponentProps<"div">> = (props) => {
 						tabIndex={0}
 						className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
 						onFileSelection={selectFileAndScrollDiff}
+						outlineNavigationIndex={outlineNavigationIndex}
 					/>
 				)}
 
