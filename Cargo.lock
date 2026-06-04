@@ -1713,6 +1713,7 @@ dependencies = [
  "anyhow",
  "bitflags 2.11.1",
  "bstr",
+ "but-askpass",
  "but-core",
  "but-ctx",
  "but-db",

@@ -4,6 +4,7 @@ mod branch;
 mod branch_details;
 mod commit;
 mod flatten_diff_specs;
+mod push;
 mod ref_info;
 mod shallow_clone;
 mod target_history;
