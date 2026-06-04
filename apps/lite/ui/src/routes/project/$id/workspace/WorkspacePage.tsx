@@ -532,6 +532,11 @@ const WorkspacePage: FC = () => {
 		absorptionTargetKeys,
 	});
 
+	const outlineSelection = useOutlineSelection({
+		projectId,
+		navigationIndex: outlineNavigationIndex,
+	});
+
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
@@ -596,7 +601,7 @@ const WorkspacePage: FC = () => {
 					/>
 				</div>
 
-				<Details outlineNavigationIndex={outlineNavigationIndex} />
+				<Details outlineSelection={outlineSelection} />
 			</div>
 
 			{Match.value(dialog).pipe(

@@ -43,8 +43,6 @@ import {
 	ChangesFilesTree,
 	CommitFilesTree,
 } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
-import { useOutlineSelection } from "#ui/routes/project/$id/workspace/WorkspacePage.tsx";
-import { NavigationIndex } from "#ui/workspace/navigation-index.ts";
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
@@ -418,16 +416,11 @@ const DiffContents: FC<{
 
 const FilesTree: FC<
 	{
-		outlineNavigationIndex: NavigationIndex;
+		outlineSelection: Operand;
 		onFileSelection: (selection: Operand) => void;
 	} & ComponentProps<"div">
-> = ({ outlineNavigationIndex, onFileSelection, ...props }) => {
+> = ({ outlineSelection, onFileSelection, ...props }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-
-	const outlineSelection = useOutlineSelection({
-		projectId,
-		navigationIndex: outlineNavigationIndex,
-	});
 
 	return (
 		<Suspense
@@ -490,18 +483,14 @@ const FilesTree: FC<
 	);
 };
 
-export const Details: FC<{ outlineNavigationIndex: NavigationIndex } & ComponentProps<"div">> = ({
-	outlineNavigationIndex,
+export const Details: FC<{ outlineSelection: Operand | null } & ComponentProps<"div">> = ({
+	outlineSelection: urgentOutlineSelection,
 	...restProps
 }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const viewerRef = useRef<CodeViewHandle<undefined>>(null);
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
-	const urgentOutlineSelection = useOutlineSelection({
-		projectId,
-		navigationIndex: outlineNavigationIndex,
-	});
 	const outlineSelection = useDeferredValue(urgentOutlineSelection);
 
 	const selectFile = (selection: Operand) => {
@@ -552,7 +541,7 @@ export const Details: FC<{ outlineNavigationIndex: NavigationIndex } & Component
 						tabIndex={0}
 						className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
 						onFileSelection={selectFileAndScrollDiff}
-						outlineNavigationIndex={outlineNavigationIndex}
+						outlineSelection={outlineSelection}
 					/>
 				)}
 
