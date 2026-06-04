@@ -149,6 +149,7 @@ const useOutlineTreeHotkeys = ({
 
 	const commitMoveMutation = useCommitMove();
 	const pushStackMutation = usePushStack();
+	const rebaseStackMutation = useRebaseStack({ projectId });
 
 	const openBranchPicker = () => {
 		dispatch(projectActions.openBranchPicker({ projectId }));
@@ -208,6 +209,11 @@ const useOutlineTreeHotkeys = ({
 	};
 
 	const selectedPushContext = pushContextForSelection({ headInfo, selection });
+	const selectedStack =
+		selection && "stackId" in selection
+			? headInfo?.stacks.find((stack) => stack.id === selection.stackId)
+			: undefined;
+	const selectedStackRebaseUpdate = selectedStack ? stackToBottomRebaseUpdate(selectedStack) : null;
 
 	const pushSelectedBranch = () => {
 		if (!selectedPushContext) return;
@@ -224,6 +230,10 @@ const useOutlineTreeHotkeys = ({
 			runHooks: true,
 			pushOpts: [],
 		});
+	};
+
+	const rebaseSelectedStack = () => {
+		if (selectedStackRebaseUpdate) rebaseStackMutation.mutate(selectedStackRebaseUpdate);
 	};
 
 	const defaultOutlineHotkeysEnabled = outlineMode._tag === "Default";
@@ -361,6 +371,19 @@ const useOutlineTreeHotkeys = ({
 				enabled: defaultOutlineHotkeysEnabled && canPushSelectedBranch,
 				target: ref,
 				meta: outlineHotkeys.pushStack.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.rebaseStack.hotkey,
+			callback: rebaseSelectedStack,
+			options: {
+				conflictBehavior: "allow",
+				enabled:
+					defaultOutlineHotkeysEnabled &&
+					!!selectedStackRebaseUpdate &&
+					!rebaseStackMutation.isPending,
+				target: ref,
+				meta: outlineHotkeys.rebaseStack.meta,
 			},
 		},
 		...Match.value(selection).pipe(
@@ -1842,6 +1865,7 @@ const StackRow: FC<
 		nativeMenuItem({
 			label: "Rebase Stack",
 			enabled: !!rebaseUpdate,
+			accelerator: toElectronAccelerator(outlineHotkeys.rebaseStack.hotkey),
 			onSelect: rebase,
 		}),
 		nativeMenuItem({

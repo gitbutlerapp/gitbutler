@@ -139,6 +139,10 @@ export const outlineHotkeys = {
 		hotkey: "Shift+P",
 		meta: { group: "Branch", name: "Push with branches below" },
 	},
+	rebaseStack: {
+		hotkey: "Alt+R",
+		meta: { group: "Stack", name: "Rebase stack" },
+	},
 	renameBranch: {
 		hotkey: "Enter",
 		meta: { group: "Branch", name: "Rename branch" },
