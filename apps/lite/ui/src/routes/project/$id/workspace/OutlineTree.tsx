@@ -477,7 +477,6 @@ export const OutlineTree: FC<ComponentProps<"div">> = ({ ref: refProp, ...props 
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const selection = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
-
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const absorptionPlanTarget = Match.value(outlineMode).pipe(
