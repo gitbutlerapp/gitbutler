@@ -191,11 +191,13 @@ const useNavigationIndex = ({
 
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
-	return filterNavigationIndexForOutlineMode({
+	const navigationIndex = filterNavigationIndexForOutlineMode({
 		navigationIndex: navigationIndexUnfiltered,
 		outlineMode,
 		absorptionTargetKeys,
 	});
+
+	return navigationIndex;
 };
 
 const useOutlineTreeHotkeys = ({
