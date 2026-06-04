@@ -17,6 +17,7 @@ import {
 	commitFileParent,
 	commitOperand,
 	fileOperand,
+	operandIdentityKey,
 	type CommitOperand,
 	type Operand,
 } from "#ui/operands.ts";
@@ -575,6 +576,7 @@ export const Details: FC<{ outlineSelection: Operand | null } & ComponentProps<"
 						filesItems: Array<FileTreeItem>;
 					}) => (
 						<Diff
+							key={operandIdentityKey(outlineSelection)}
 							changes={changes}
 							filesVisible={filesVisible}
 							filesItems={filesItems}
