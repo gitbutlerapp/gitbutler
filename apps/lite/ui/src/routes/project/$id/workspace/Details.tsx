@@ -39,9 +39,10 @@ import styles from "./Details.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import { SelectionScope } from "#ui/selection-scopes.ts";
 import {
-	BranchFilesTree,
-	ChangesFilesTree,
-	CommitFilesTree,
+	FilesTree as GenericFilesTree,
+	getBranchFileTreeItems,
+	getChangesFileTreeItems,
+	getCommitFileTreeItems,
 } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
@@ -439,11 +440,10 @@ const FilesTree: FC<
 						})}
 					>
 						{({ data: commitDetails }) => (
-							<CommitFilesTree
+							<GenericFilesTree
 								{...props}
 								projectId={projectId}
-								commit={commit}
-								commitDetails={commitDetails}
+								items={getCommitFileTreeItems({ commit, commitDetails })}
 								onFileSelection={onFileSelection}
 							/>
 						)}
@@ -452,10 +452,10 @@ const FilesTree: FC<
 				Match.tag("ChangesSection", () => (
 					<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
 						{({ data: worktreeChanges }) => (
-							<ChangesFilesTree
+							<GenericFilesTree
 								{...props}
 								projectId={projectId}
-								worktreeChanges={worktreeChanges}
+								items={getChangesFileTreeItems(worktreeChanges)}
 								onFileSelection={onFileSelection}
 							/>
 						)}
@@ -466,12 +466,10 @@ const FilesTree: FC<
 						{...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}
 					>
 						{({ data: branchDiff }) => (
-							<BranchFilesTree
+							<GenericFilesTree
 								{...props}
 								projectId={projectId}
-								stackId={stackId}
-								branchRef={branchRef}
-								branchDiff={branchDiff}
+								items={getBranchFileTreeItems({ stackId, branchRef, branchDiff })}
 								onFileSelection={onFileSelection}
 							/>
 						)}

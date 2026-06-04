@@ -151,54 +151,6 @@ const useFilesTreeHotkeys = ({
 	});
 };
 
-export const CommitFilesTree: FC<
-	{
-		projectId: string;
-		commit: CommitOperand;
-		commitDetails: CommitDetails;
-		onFileSelection: (selection: Operand) => void;
-	} & ComponentProps<"div">
-> = ({ projectId, commit, commitDetails, onFileSelection, ...props }) => (
-	<FilesTree
-		{...props}
-		projectId={projectId}
-		items={getCommitFileTreeItems({ commit, commitDetails })}
-		onFileSelection={onFileSelection}
-	/>
-);
-
-export const ChangesFilesTree: FC<
-	{
-		projectId: string;
-		worktreeChanges: WorktreeChanges;
-		onFileSelection: (selection: Operand) => void;
-	} & ComponentProps<"div">
-> = ({ projectId, worktreeChanges, onFileSelection, ...props }) => (
-	<FilesTree
-		{...props}
-		projectId={projectId}
-		items={getChangesFileTreeItems(worktreeChanges)}
-		onFileSelection={onFileSelection}
-	/>
-);
-
-export const BranchFilesTree: FC<
-	{
-		projectId: string;
-		stackId: string;
-		branchRef: Array<number>;
-		branchDiff: TreeChanges;
-		onFileSelection: (selection: Operand) => void;
-	} & ComponentProps<"div">
-> = ({ projectId, stackId, branchRef, branchDiff, onFileSelection, ...props }) => (
-	<FilesTree
-		{...props}
-		projectId={projectId}
-		onFileSelection={onFileSelection}
-		items={getBranchFileTreeItems({ stackId, branchRef, branchDiff })}
-	/>
-);
-
 type ChangeFileTreeItem = {
 	change: TreeChange;
 	dependencyCommitIds?: Array.NonEmptyArray<string>;
@@ -216,7 +168,7 @@ const changeFileTreeItem = ({
 	operand,
 });
 
-const getCommitFileTreeItems = ({
+export const getCommitFileTreeItems = ({
 	commit,
 	commitDetails,
 }: {
@@ -258,7 +210,7 @@ const getCommitFileTreeItems = ({
 	];
 };
 
-const getChangesFileTreeItems = (worktreeChanges: WorktreeChanges): Array<FileTreeItem> => {
+export const getChangesFileTreeItems = (worktreeChanges: WorktreeChanges): Array<FileTreeItem> => {
 	const hunkDependencyDiffsByPath = getHunkDependencyDiffsByPath(
 		worktreeChanges.dependencies?.diffs ?? [],
 	);
@@ -280,7 +232,7 @@ const getChangesFileTreeItems = (worktreeChanges: WorktreeChanges): Array<FileTr
 	});
 };
 
-const getBranchFileTreeItems = ({
+export const getBranchFileTreeItems = ({
 	stackId,
 	branchRef,
 	branchDiff,
@@ -314,7 +266,7 @@ type FileTreeItem =
 	| ({ _tag: "Change" } & ChangeFileTreeItem)
 	| ({ _tag: "Conflict" } & ConflictFileTreeItem);
 
-const FilesTree: FC<
+export const FilesTree: FC<
 	{
 		projectId: string;
 		items: Array<FileTreeItem>;
