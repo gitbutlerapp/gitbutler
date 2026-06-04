@@ -134,10 +134,7 @@ impl GitHubClient {
         })
     }
 
-    /// Fetch the CI checks for a given branch reference
-    ///
-    /// Will fetch max 100 CI checks, and if the actual total checks
-    /// excede that, it will paginate until all checks are fetched
+    /// Fetch CI checks for a branch ref, paginated and deduped by name.
     pub async fn list_checks_for_ref(
         &self,
         owner: &str,
@@ -175,7 +172,7 @@ impl GitHubClient {
             check_runs.extend(result.check_runs);
         }
 
-        Ok(check_runs)
+        Ok(dedupe_latest_by_name(check_runs))
     }
 
     /// The actual REST API call to fetch a page of the checks.
@@ -911,6 +908,34 @@ pub struct CheckRun {
     pub details_url: Option<String>,
 }
 
+/// GitHub returns check runs from every suite attached to a commit —
+/// including superseded suites from force-push-cancelled runs — so an
+/// orphaned `failure` (e.g. an aggregator that detects its deps got
+/// cancelled) or a `cancelled` run can contaminate the rolled-up
+/// status. `?filter=latest` does not help.
+///
+/// Drop `cancelled` runs (a transitional state, not a CI signal — and
+/// the only thing left of a superseded run whose job name changed in
+/// the next run, e.g. via matrix-shape changes), then keep the latest
+/// `started_at` per remaining name; `None` is treated as oldest, ties
+/// go to the later iteration.
+fn dedupe_latest_by_name(runs: Vec<CheckRun>) -> Vec<CheckRun> {
+    use std::collections::HashMap;
+    let mut latest: HashMap<String, CheckRun> = HashMap::with_capacity(runs.len());
+    for run in runs {
+        if run.conclusion.as_deref() == Some("cancelled") {
+            continue;
+        }
+        let keep = latest
+            .get(&run.name)
+            .is_none_or(|existing| run.started_at >= existing.started_at);
+        if keep {
+            latest.insert(run.name.clone(), run);
+        }
+    }
+    latest.into_values().collect()
+}
+
 #[derive(Debug, Serialize)]
 pub struct GitHubUser {
     pub id: i64,
@@ -1121,5 +1146,86 @@ mod tests {
         assert_eq!(merge, serde_json::json!("MERGE"));
         assert_eq!(squash, serde_json::json!("SQUASH"));
         assert_eq!(rebase, serde_json::json!("REBASE"));
+    }
+
+    fn check_run(name: &str, started_at: Option<&str>, conclusion: Option<&str>) -> CheckRun {
+        CheckRun {
+            id: 0,
+            name: name.into(),
+            status: "completed".into(),
+            conclusion: conclusion.map(Into::into),
+            html_url: None,
+            head_sha: None,
+            started_at: started_at.map(Into::into),
+            completed_at: None,
+            url: None,
+            details_url: None,
+        }
+    }
+
+    #[test]
+    fn dedupe_supersedes_orphaned_failure_with_later_success() {
+        // A cancelled prior run's `check-rust` lands as `failure`; the
+        // newer run's `check-rust` ran to `success`. Latest wins.
+        let deduped = dedupe_latest_by_name(vec![
+            check_run("check-rust", Some("2026-06-04T18:53:48Z"), Some("failure")),
+            check_run("check-rust", Some("2026-06-04T19:10:00Z"), Some("success")),
+        ]);
+
+        assert_eq!(deduped.len(), 1, "duplicate name collapses to one entry");
+        assert_eq!(
+            deduped[0].conclusion.as_deref(),
+            Some("success"),
+            "the later started_at run supersedes the earlier failure"
+        );
+    }
+
+    #[test]
+    fn dedupe_preserves_distinct_names() {
+        let deduped = dedupe_latest_by_name(vec![
+            check_run("rust-test", Some("2026-06-04T18:00:00Z"), Some("success")),
+            check_run("rust-lint", Some("2026-06-04T18:00:00Z"), Some("success")),
+        ]);
+
+        assert_eq!(deduped.len(), 2, "distinct names are not collapsed");
+    }
+
+    #[test]
+    fn dedupe_treats_missing_started_at_as_oldest() {
+        let deduped = dedupe_latest_by_name(vec![
+            check_run("check-rust", None, Some("failure")),
+            check_run("check-rust", Some("2026-06-04T19:10:00Z"), Some("success")),
+        ]);
+
+        assert_eq!(deduped.len(), 1);
+        assert_eq!(
+            deduped[0].conclusion.as_deref(),
+            Some("success"),
+            "any Some(timestamp) is preferred over a None started_at"
+        );
+    }
+
+    #[test]
+    fn dedupe_drops_cancelled_runs_with_no_named_successor() {
+        // A force-push cancelled the prior workflow run's
+        // `rust-test-but-api-macros` job, and the new run reshapes
+        // the matrix into `rust-test-but-api-macros (default)` etc.
+        // The bare-name cancelled run has no later same-name peer to
+        // dedupe against — drop it so it can't contaminate the rollup.
+        let deduped = dedupe_latest_by_name(vec![
+            check_run(
+                "rust-test-but-api-macros",
+                Some("2026-06-04T18:53:46Z"),
+                Some("cancelled"),
+            ),
+            check_run(
+                "rust-test-but-api-macros (default)",
+                Some("2026-06-04T18:54:03Z"),
+                Some("success"),
+            ),
+        ]);
+
+        assert_eq!(deduped.len(), 1, "the orphaned cancelled run is dropped");
+        assert_eq!(deduped[0].name, "rust-test-but-api-macros (default)");
     }
 }
