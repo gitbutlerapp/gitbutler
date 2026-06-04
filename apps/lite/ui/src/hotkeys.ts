@@ -92,6 +92,10 @@ export const workspaceHotkeys = {
 		hotkey: "Mod+Shift+A",
 		meta: { group: "Branches", name: "Apply branch" },
 	},
+	rebaseAllStacks: {
+		hotkey: "Alt+Shift+R",
+		meta: { group: "Stack", name: "Rebase all stacks" },
+	},
 	focusPreviousSelectionScope: {
 		hotkey: "H",
 		meta: { group: "Selection scopes", name: "Focus previous selection scope" },
