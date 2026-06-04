@@ -106,6 +106,24 @@ pub fn commit_create(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitCreateResult> {
+    // Run commit-msg hook with branch context if we're committing relative to a reference
+    let final_message = if let RelativeTo::Reference(ref branch_ref) = relative_to {
+        match gitbutler_repo::hooks::commit_msg_with_branch(ctx, message.clone(), Some(branch_ref.as_ref())) {
+            Ok(gitbutler_repo::hooks::MessageHookResult::Message(data)) => data.message,
+            Ok(gitbutler_repo::hooks::MessageHookResult::Failure(data)) => {
+                anyhow::bail!("commit-msg hook failed: {}", data.error);
+            }
+            Ok(_) => message,
+            Err(e) => {
+                // Log hook errors but don't block the commit
+                tracing::warn!("commit-msg hook error: {}", e);
+                message
+            }
+        }
+    } else {
+        message
+    };
+
     let context_lines = ctx.settings.context_lines;
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
         ctx,
@@ -119,7 +137,7 @@ pub fn commit_create(
         relative_to,
         side,
         changes,
-        message,
+        final_message,
         dry_run,
         context_lines,
         perm,

@@ -54,9 +54,22 @@ fn husky_search_paths(ctx: &Context) -> Option<&'static [&'static str]> {
     }
 }
 
-pub fn commit_msg(ctx: &Context, mut message: String) -> Result<MessageHookResult> {
-    // Set GITBUTLER_TARGET_BRANCH environment variable if a target branch is configured
-    let _target_branch_guard = set_target_branch_env(ctx);
+pub fn commit_msg(ctx: &Context, message: String) -> Result<MessageHookResult> {
+    commit_msg_with_branch(ctx, message, None)
+}
+
+pub fn commit_msg_with_branch(
+    ctx: &Context,
+    mut message: String,
+    branch_ref: Option<&gix::refs::FullNameRef>,
+) -> Result<MessageHookResult> {
+    // Set GITBUTLER_TARGET_BRANCH environment variable
+    // If a specific branch is provided, use that; otherwise fall back to workspace target
+    let _target_branch_guard = if let Some(branch_ref) = branch_ref {
+        set_branch_env(branch_ref)
+    } else {
+        set_target_branch_env(ctx)
+    };
 
     let original_message = message.clone();
     #[expect(deprecated, reason = "libgit2 hook adapter boundary")]
@@ -264,6 +277,23 @@ fn join_output(stdout: String, stderr: String, code: Option<i32>) -> String {
     format!("stdout:\n{stdout}\n\nstderr:\n{stderr}{code}")
 }
 
+/// Set the GITBUTLER_TARGET_BRANCH environment variable from a specific branch reference.
+/// Returns a guard that will unset the environment variable when dropped.
+fn set_branch_env(branch_ref: &gix::refs::FullNameRef) -> Option<TargetBranchEnvGuard> {
+    // Extract the short branch name from the branch ref
+    let short_branch_name = but_core::extract_short_branch_name(branch_ref)?;
+
+    // Set the environment variable
+    // SAFETY: This is safe because we're setting an environment variable in a controlled
+    // scope with the guard pattern ensuring it will be properly cleaned up when dropped.
+    // The variable name and value are both valid UTF-8 strings.
+    unsafe {
+        std::env::set_var("GITBUTLER_TARGET_BRANCH", &short_branch_name);
+    }
+
+    Some(TargetBranchEnvGuard { was_set: true })
+}
+
 /// Set the GITBUTLER_TARGET_BRANCH environment variable based on the workspace's target ref.
 /// Returns a guard that will unset the environment variable when dropped.
 ///
@@ -276,20 +306,7 @@ fn set_target_branch_env(ctx: &Context) -> Option<TargetBranchEnvGuard> {
     let workspace = meta.workspace(workspace_ref).ok()?;
     let target_ref = workspace.target_ref.as_ref()?;
 
-    // Extract the short branch name from the target ref
-    let short_branch_name = but_core::extract_short_branch_name(target_ref.as_ref())?;
-
-    // Set the environment variable
-    // SAFETY: This is safe because we're setting an environment variable in a controlled
-    // scope with the guard pattern ensuring it will be properly cleaned up when dropped.
-    // The variable name and value are both valid UTF-8 strings.
-    unsafe {
-        std::env::set_var("GITBUTLER_TARGET_BRANCH", &short_branch_name);
-    }
-
-    Some(TargetBranchEnvGuard {
-        was_set: true,
-    })
+    set_branch_env(target_ref.as_ref())
 }
 
 /// Guard that unsets the GITBUTLER_TARGET_BRANCH environment variable when dropped.

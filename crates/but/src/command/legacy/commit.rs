@@ -477,7 +477,7 @@ pub(crate) fn commit(
     // Run commit-msg hook unless --no-hooks was specified
     // This hook can validate and optionally modify the commit message
     let final_commit_message = if !no_hooks {
-        let hook_result = repo::message_hook(ctx, commit_message.clone())?;
+        let hook_result = repo::message_hook(ctx, commit_message.clone(), None)?;
         match hook_result {
             gitbutler_repo::hooks::MessageHookResult::Success => {
                 // Hook passed without modification
