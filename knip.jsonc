@@ -23,6 +23,7 @@
 				"babel-plugin-react-compiler",
 				"@gitbutler/design-core",
 				"@tanstack/eslint-plugin-query",
+				"eslint-plugin-react-you-might-not-need-an-effect",
 				"electron",
 				"@types/semver",
 			],
