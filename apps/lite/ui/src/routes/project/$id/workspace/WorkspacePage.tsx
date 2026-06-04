@@ -441,7 +441,7 @@ const useOutlineNavigationIndex = ({
 	const navigationIndex = buildNavigationIndex(filteredItems);
 
 	//
-	// Reset selection when it's no longer part of the filtered workspace.
+	// Reset selection when it's no longer part of the filtered items list.
 	//
 	// React allows state updates on render, but not for external stores.
 	// https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
