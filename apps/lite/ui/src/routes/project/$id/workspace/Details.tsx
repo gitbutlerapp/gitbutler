@@ -234,7 +234,7 @@ const mkCodeViewItem = (
 	};
 };
 
-const ChangesFileDiffList: FC<{
+const DiffContents: FC<{
 	changes: Array<TreeChange>;
 	onViewerFileSelection: (selection: Operand) => void;
 	outlineSelection: Operand;
@@ -500,7 +500,7 @@ const Diff: FC<{
 				<Suspense fallback={<p className="text-13">Loading diff…</p>}>
 					{(() => {
 						const render = (changes: Array<TreeChange>) => (
-							<ChangesFileDiffList
+							<DiffContents
 								changes={changes}
 								onViewerFileSelection={onViewerFileSelection}
 								outlineSelection={outlineSelection}
