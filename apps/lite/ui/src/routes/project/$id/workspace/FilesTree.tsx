@@ -8,11 +8,7 @@ import {
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
 import { operandEquals, operandIdentityKey, type Operand } from "#ui/operands.ts";
-import {
-	projectActions,
-	selectProjectOutlineModeState,
-	selectProjectSelectionFiles,
-} from "#ui/projects/state.ts";
+import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { classes } from "#ui/components/classes.ts";
@@ -38,6 +34,7 @@ import { assert } from "#ui/assert.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
+import { useFilesSelection } from "#ui/routes/project/$id/workspace/Details.tsx";
 
 const NavigationIndexContext = createContext<NavigationIndex | null>(null);
 
@@ -52,7 +49,7 @@ const useFilesTreeHotkeys = ({
 	projectId: string;
 	ref: React.RefObject<HTMLElement | null>;
 }) => {
-	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
+	const selection = useFilesSelection(projectId, navigationIndex);
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
 
@@ -149,7 +146,7 @@ export const FilesTree: FC<
 		navigationIndex: NavigationIndex;
 	} & ComponentProps<"div">
 > = ({ className, items, onFileSelection, projectId, navigationIndex, ref: refProp, ...props }) => {
-	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
+	const selection = useFilesSelection(projectId, navigationIndex);
 
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -191,13 +188,17 @@ export const FilesTree: FC<
 	);
 };
 
-const useIsSelected = ({ projectId, operand }: { projectId: string; operand: Operand }): boolean =>
-	useAppSelector((state) => {
-		const selection = selectProjectSelectionFiles(state, projectId);
-
-		return selection !== null && operandEquals(selection, operand);
-	});
-
+const useIsSelected = ({
+	projectId,
+	operand,
+}: {
+	projectId: string;
+	operand: Operand;
+}): boolean => {
+	const navigationIndex = assert(use(NavigationIndexContext));
+	const selection = useFilesSelection(projectId, navigationIndex);
+	return selection !== null && operandEquals(selection, operand);
+};
 const treeItemId = (operand: Operand): string =>
 	`files-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
 

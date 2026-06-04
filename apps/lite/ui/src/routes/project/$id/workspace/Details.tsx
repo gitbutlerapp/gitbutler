@@ -45,15 +45,7 @@ import { CodeView, type CodeViewDiffItem, type CodeViewHandle } from "@pierre/di
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Hash, Match } from "effect";
-import {
-	ComponentProps,
-	FC,
-	type RefObject,
-	Suspense,
-	useDeferredValue,
-	useEffect,
-	useRef,
-} from "react";
+import { ComponentProps, FC, type RefObject, Suspense, useDeferredValue, useRef } from "react";
 import styles from "./Details.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import { SelectionScope } from "#ui/selection-scopes.ts";
@@ -64,7 +56,11 @@ import {
 	type FileTreeItem,
 } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.ts";
-import { buildNavigationIndex, navigationIndexIncludes } from "#ui/workspace/navigation-index.ts";
+import {
+	buildNavigationIndex,
+	NavigationIndex,
+	navigationIndexIncludes,
+} from "#ui/workspace/navigation-index.ts";
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
@@ -519,32 +515,13 @@ const DiffContents: FC<{
 		}),
 	);
 
-const useFilesNavigationIndex = (projectId: string, files: Array<Operand>) => {
-	const dispatch = useAppDispatch();
-
-	const navigationIndex = buildNavigationIndex(files);
-
+// TODO: move
+export const useFilesSelection = (projectId: string, navigationIndex: NavigationIndex) => {
 	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
 
-	// Reset selection when it's no longer part of the files list.
-	//
-	// React allows state updates on render, but not for external stores.
-	// https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
-	useEffect(() => {
-		if (selection && navigationIndexIncludes(navigationIndex, selection)) return;
-
-		const next = navigationIndex.items[0] ?? null;
-		if (next === null && selection === null) return;
-
-		dispatch(
-			projectActions.selectFiles({
-				projectId,
-				selection: next,
-			}),
-		);
-	}, [navigationIndex, selection, projectId, dispatch, files]);
-
-	return navigationIndex;
+	return selection && navigationIndexIncludes(navigationIndex, selection)
+		? selection
+		: (navigationIndex.items[0] ?? null);
 };
 
 const Diff: FC<{
@@ -566,7 +543,7 @@ const Diff: FC<{
 }) => {
 	const files = filesItems.map((item) => item.operand);
 
-	const navigationIndex = useFilesNavigationIndex(projectId, files);
+	const navigationIndex = buildNavigationIndex(files);
 
 	return (
 		<div className={classes(styles.diff, filesVisible && styles.diffWithFiles)}>
