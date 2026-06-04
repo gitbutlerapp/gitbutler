@@ -42,7 +42,7 @@
 	padding-bottom: var(--panel-padding);
 }
 
-.diffContents {
+.diffContentsContainer {
 	display: grid;
 }
 

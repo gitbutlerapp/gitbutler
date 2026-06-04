@@ -495,7 +495,7 @@ const Diff: FC<{
 				data-selection-scope
 				// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 				tabIndex={0}
-				className={styles.diffContents}
+				className={styles.diffContentsContainer}
 			>
 				<Suspense fallback={<p className="text-13">Loading diff…</p>}>
 					{(() => {
