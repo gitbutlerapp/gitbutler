@@ -1,13 +1,6 @@
 import { splitMessage } from "$lib/commits/commitMessage";
 import type { RemoteCommit } from "@gitbutler/but-sdk";
 
-export type CommitKey = {
-	stackId?: string;
-	branchName: string;
-	commitId: string;
-	upstream: boolean;
-};
-
 export function descriptionTitle(commit: { description: string }): string | undefined {
 	return splitMessage(commit.description).title || undefined;
 }

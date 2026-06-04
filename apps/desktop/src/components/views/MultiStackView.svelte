@@ -270,10 +270,9 @@
 						<ErrorBoundary title="Something went wrong in this stack">
 							<StackView
 								{projectId}
+								{stack}
 								laneId={stack.id || "banana"}
-								stackId={stack.id ?? undefined}
 								onFoldStack={() => foldStack(stack.id)}
-								topBranchName={stack.segments.at(0)?.refName?.displayName}
 								bind:clientWidth={laneWidths[i]}
 								bind:clientHeight={lineHeights[i]}
 								onVisible={(visible) => {

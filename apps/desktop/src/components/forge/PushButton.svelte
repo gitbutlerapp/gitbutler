@@ -1,6 +1,5 @@
 <script lang="ts">
 	import GerritPushModal from "$components/forge/GerritPushModal.svelte";
-	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { getBranchNameFromRef } from "$lib/branches/branchUtils";
@@ -9,13 +8,8 @@
 	import { projectRunCommitHooks } from "$lib/config/config";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
-	import {
-		branchHasConflicts,
-		branchHasUnpushedCommits,
-		partialStackRequestsForcePush,
-	} from "$lib/stacks/stack";
+	import { branchHasConflicts, branchHasUnpushedCommits } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
-	import { combineResults } from "$lib/state/helpers";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { persisted } from "@gitbutler/shared/persisted";
@@ -30,11 +24,14 @@
 	} from "@gitbutler/ui";
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
 	import type { GerritPushFlag } from "$lib/stacks/stack";
+	import type { Segment } from "@gitbutler/but-sdk";
 
 	type Props = {
 		projectId: string;
 		stackId?: string;
 		branchName: string;
+		segment: Segment;
+		withForce: boolean;
 		multipleBranches: boolean;
 		isLastBranchInStack?: boolean;
 		isFirstBranchInStack?: boolean;
@@ -44,6 +41,8 @@
 		projectId,
 		branchName,
 		stackId,
+		segment,
+		withForce,
 		multipleBranches,
 		isFirstBranchInStack,
 		isLastBranchInStack,
@@ -64,9 +63,17 @@
 	// Component is read-only when stackId is undefined
 	const isReadOnly = $derived(!stackId);
 
-	const branchDetails = $derived(stackService.branchDetails(projectId, stackId, branchName));
-	const branchesQuery = $derived(stackService.branches(projectId, stackId));
 	const [pushStack, pushQuery] = stackService.pushStack;
+
+	const hasThingsToPush = $derived(branchHasUnpushedCommits(segment));
+	const hasConflicts = $derived(branchHasConflicts(segment));
+	const upstreamCommits = $derived(segment.commitsOnRemote);
+	const remoteTrackingBranch = $derived(
+		segment.remoteTrackingRefName
+			? new TextDecoder().decode(new Uint8Array(segment.remoteTrackingRefName.fullNameBytes))
+			: null,
+	);
+	const buttonDisabled = $derived(isReadOnly || !hasThingsToPush || hasConflicts);
 
 	function handleClick(args: {
 		withForce: boolean;
@@ -168,144 +175,131 @@
 	let pendingGerritFlags = $state<GerritPushFlag[]>([]);
 </script>
 
-<ReduxResult {projectId} result={combineResults(branchDetails.result, branchesQuery.result)}>
-	{#snippet children([branchDetails, branches])}
-		{@const withForce = partialStackRequestsForcePush(branchName, branches)}
-		{@const hasThingsToPush = branchHasUnpushedCommits(branchDetails)}
-		{@const hasConflicts = branchHasConflicts(branchDetails)}
-		{@const upstreamCommits = branchDetails.commitsOnRemote}
-		{@const remoteTrackingBranch = branchDetails.remoteTrackingRefName
-			? new TextDecoder().decode(new Uint8Array(branchDetails.remoteTrackingRefName.fullNameBytes))
-			: null}
-		{@const buttonDisabled = isReadOnly || !hasThingsToPush || hasConflicts}
+<Button
+	testId={TestId.StackPushButton}
+	kind={isFirstBranchInStack ? "solid" : "outline"}
+	size="tag"
+	style="gray"
+	{loading}
+	disabled={buttonDisabled}
+	tooltip={getButtonTooltip(hasThingsToPush, hasConflicts, withForce, remoteTrackingBranch)}
+	onclick={() => handleClick({ withForce, skipForcePushProtection: false, gerritFlags: [] })}
+	icon={multipleBranches && !isLastBranchInStack ? "push-all" : "push"}
+>
+	{isGerritMode ? "Push" : withForce ? "Force push" : "Push"}
+</Button>
 
-		<Button
-			testId={TestId.StackPushButton}
-			kind={isFirstBranchInStack ? "solid" : "outline"}
-			size="tag"
-			style="gray"
-			{loading}
-			disabled={buttonDisabled}
-			tooltip={getButtonTooltip(hasThingsToPush, hasConflicts, withForce, remoteTrackingBranch)}
-			onclick={() => handleClick({ withForce, skipForcePushProtection: false, gerritFlags: [] })}
-			icon={multipleBranches && !isLastBranchInStack ? "push-all" : "push"}
-		>
-			{isGerritMode ? "Push" : withForce ? "Force push" : "Push"}
-		</Button>
+<Modal
+	title="Push with dependencies"
+	width="small"
+	bind:this={confirmationModal}
+	onSubmit={async (close) => {
+		close();
+		push({
+			withForce,
+			skipForcePushProtection: false,
+			gerritFlags: pendingGerritFlags,
+		});
+		pendingGerritFlags = [];
+	}}
+>
+	<p>
+		You're about to push <span class="text-bold">{branchName}</span>. To maintain the correct
+		history, GitButler will also push all branches below this branch in the stack.
+	</p>
 
-		<Modal
-			title="Push with dependencies"
-			width="small"
-			bind:this={confirmationModal}
-			onSubmit={async (close) => {
-				close();
-				push({
-					withForce,
-					skipForcePushProtection: false,
-					gerritFlags: pendingGerritFlags,
-				});
-				pendingGerritFlags = [];
-			}}
-		>
-			<p>
-				You're about to push <span class="text-bold">{branchName}</span>. To maintain the correct
-				history, GitButler will also push all branches below this branch in the stack.
-			</p>
-
-			{#snippet controls(close)}
-				<div class="modal-footer">
-					<div class="flex flex-1">
-						<label for="dont-show-again" class="modal-footer__checkbox">
-							<Checkbox name="dont-show-again" small bind:checked={$doNotShowPushBelowWarning} />
-							<span class="text-12"> Don’t show again</span>
-						</label>
-					</div>
-					<Button
-						kind="outline"
-						onclick={() => {
-							$doNotShowPushBelowWarning = false;
-							close();
-						}}
-					>
-						Cancel
-					</Button>
-					<Button testId={TestId.StackConfirmPushModalButton} style="pop" type="submit" width={90}>
-						Push
-					</Button>
-				</div>
-			{/snippet}
-		</Modal>
-
-		<Modal
-			title="Protected force push"
-			width={480}
-			type="warning"
-			bind:this={forcePushProtectionModal}
-			onSubmit={async (close) => {
-				close();
-				push({
-					withForce,
-					skipForcePushProtection: true,
-					gerritFlags: pendingGerritFlags,
-				});
-				pendingGerritFlags = [];
-			}}
-		>
-			<p class="description">
-				Your force push was blocked because the remote branch contains <span
-					class="text-bold text-nowrap"
-					>{upstreamCommits?.length === 1 ? "1 commit" : `${upstreamCommits?.length} commits`}</span
-				>
-				your local branch doesn’t include. To prevent overwriting history,
-				<span class="text-bold">cancel and pull & integrate</span> the changes.
-			</p>
-			{#if upstreamCommits}
-				<div class="scroll-wrap">
-					<ScrollableContainer maxHeight="16.5rem">
-						{#each upstreamCommits as commit}
-							{@const commitUrl = forge.current.commitUrl(commit.id)}
-							<SimpleCommitRow
-								title={splitMessage(commit.message).title ?? ""}
-								sha={commit.id}
-								date={commitCreatedAtDate(commit)}
-								author={commit.author.name}
-								url={commitUrl}
-								onOpen={(url) => urlService.openExternalUrl(url)}
-								onCopy={() => clipboardService.write(commit.id, { message: "Commit hash copied" })}
-							/>
-						{/each}
-					</ScrollableContainer>
-				</div>
-			{/if}
-
-			{#snippet controls(close)}
-				<div class="controls">
-					<Button kind="outline" type="submit">Force push anyway</Button>
-					<Button wide style="pop" onclick={close}>Cancel</Button>
-				</div>
-			{/snippet}
-		</Modal>
-
-		<GerritPushModal
-			bind:this={gerritModal}
-			{projectId}
-			{stackId}
-			{branchName}
-			{multipleBranches}
-			{isFirstBranchInStack}
-			{isLastBranchInStack}
-			onPush={(gerritFlags) => {
-				if (multipleBranches && !isLastBranchInStack && !$doNotShowPushBelowWarning) {
-					// Store all gerrit flags for later use when confirmation modal completes
-					pendingGerritFlags = gerritFlags;
-					confirmationModal?.show();
-				} else {
-					push({ withForce, skipForcePushProtection: false, gerritFlags });
-				}
-			}}
-		/>
+	{#snippet controls(close)}
+		<div class="modal-footer">
+			<div class="flex flex-1">
+				<label for="dont-show-again" class="modal-footer__checkbox">
+					<Checkbox name="dont-show-again" small bind:checked={$doNotShowPushBelowWarning} />
+					<span class="text-12"> Don’t show again</span>
+				</label>
+			</div>
+			<Button
+				kind="outline"
+				onclick={() => {
+					$doNotShowPushBelowWarning = false;
+					close();
+				}}
+			>
+				Cancel
+			</Button>
+			<Button testId={TestId.StackConfirmPushModalButton} style="pop" type="submit" width={90}>
+				Push
+			</Button>
+		</div>
 	{/snippet}
-</ReduxResult>
+</Modal>
+
+<Modal
+	title="Protected force push"
+	width={480}
+	type="warning"
+	bind:this={forcePushProtectionModal}
+	onSubmit={async (close) => {
+		close();
+		push({
+			withForce,
+			skipForcePushProtection: true,
+			gerritFlags: pendingGerritFlags,
+		});
+		pendingGerritFlags = [];
+	}}
+>
+	<p class="description">
+		Your force push was blocked because the remote branch contains <span
+			class="text-bold text-nowrap"
+			>{upstreamCommits?.length === 1 ? "1 commit" : `${upstreamCommits?.length} commits`}</span
+		>
+		your local branch doesn’t include. To prevent overwriting history,
+		<span class="text-bold">cancel and pull & integrate</span> the changes.
+	</p>
+	{#if upstreamCommits}
+		<div class="scroll-wrap">
+			<ScrollableContainer maxHeight="16.5rem">
+				{#each upstreamCommits as commit}
+					{@const commitUrl = forge.current.commitUrl(commit.id)}
+					<SimpleCommitRow
+						title={splitMessage(commit.message).title ?? ""}
+						sha={commit.id}
+						date={commitCreatedAtDate(commit)}
+						author={commit.author.name}
+						url={commitUrl}
+						onOpen={(url) => urlService.openExternalUrl(url)}
+						onCopy={() => clipboardService.write(commit.id, { message: "Commit hash copied" })}
+					/>
+				{/each}
+			</ScrollableContainer>
+		</div>
+	{/if}
+
+	{#snippet controls(close)}
+		<div class="controls">
+			<Button kind="outline" type="submit">Force push anyway</Button>
+			<Button wide style="pop" onclick={close}>Cancel</Button>
+		</div>
+	{/snippet}
+</Modal>
+
+<GerritPushModal
+	bind:this={gerritModal}
+	{projectId}
+	{stackId}
+	{branchName}
+	{multipleBranches}
+	{isFirstBranchInStack}
+	{isLastBranchInStack}
+	onPush={(gerritFlags) => {
+		if (multipleBranches && !isLastBranchInStack && !$doNotShowPushBelowWarning) {
+			// Store all gerrit flags for later use when confirmation modal completes
+			pendingGerritFlags = gerritFlags;
+			confirmationModal?.show();
+		} else {
+			push({ withForce, skipForcePushProtection: false, gerritFlags });
+		}
+	}}
+/>
 
 <style>
 	/* MODAL */

@@ -7,6 +7,7 @@
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, Modal } from "@gitbutler/ui";
+	import type { Segment } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
 
 	// TODO: This and the SeriesHeader should have a wholistic refactor to
@@ -17,11 +18,30 @@
 		projectId: string;
 		stackId?: string;
 		branchName: string;
+		segment: Segment;
+		branchIndex: number;
+		parent: Segment | undefined;
+		child: Segment | undefined;
+		withForce: boolean;
+		stackPrNumbers: (number | undefined)[];
 		prNumber?: number;
 		reviewId?: string;
 	};
 
-	const { branchStatus, projectId, stackId, branchName, prNumber, reviewId }: Props = $props();
+	const {
+		branchStatus,
+		projectId,
+		stackId,
+		branchName,
+		segment,
+		branchIndex,
+		parent,
+		child,
+		withForce,
+		stackPrNumbers,
+		prNumber,
+		reviewId,
+	}: Props = $props();
 
 	let canPublishReviewPlugin = $state<ReturnType<typeof CanPublishReviewPlugin>>();
 
@@ -38,9 +58,7 @@
 
 <CanPublishReviewPlugin
 	bind:this={canPublishReviewPlugin}
-	{projectId}
-	{stackId}
-	{branchName}
+	commits={segment.commits}
 	{prNumber}
 	{reviewId}
 />
@@ -73,6 +91,11 @@
 			{projectId}
 			{stackId}
 			{branchName}
+			{segment}
+			{branchIndex}
+			{parent}
+			{withForce}
+			{stackPrNumbers}
 			onClose={() => modal?.close()}
 		/>
 
@@ -96,7 +119,16 @@
 		{#if prNumber}
 			<div class="status-cards">
 				{#if prNumber && stackId}
-					<StackedPullRequestCard {projectId} {stackId} {branchName} {prNumber} poll />
+					<StackedPullRequestCard
+						{projectId}
+						{stackId}
+						{branchName}
+						{parent}
+						{child}
+						isPushed={segment.pushStatus !== "completelyUnpushed"}
+						{prNumber}
+						poll
+					/>
 				{:else if prNumber}
 					<PullRequestCard {projectId} {branchName} {prNumber} poll />
 				{/if}

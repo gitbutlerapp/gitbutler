@@ -484,7 +484,6 @@ export class SquashCommitDzHandler implements DropzoneHandler {
 				async () => {
 					await this.stackService.squashCommits({
 						projectId,
-						stackId,
 						sourceCommitIds,
 						targetCommitId: commit.id,
 					});

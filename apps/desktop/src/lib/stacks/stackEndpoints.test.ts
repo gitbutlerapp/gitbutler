@@ -46,7 +46,6 @@ describe("buildStackEndpoints", () => {
 		expect(
 			query?.({
 				projectId: "project-1",
-				stackId: "stack-1",
 				sourceCommitIds: ["commit-1", "commit-2"],
 				targetCommitId: "commit-3",
 			}),
@@ -152,8 +151,8 @@ describe("buildStackEndpoints", () => {
 			invalidatesList(ReduxTag.HeadSha),
 			invalidatesList(ReduxTag.WorktreeChanges),
 			invalidatesList(ReduxTag.Stacks),
+			invalidatesList(ReduxTag.BranchChanges),
 			invalidatesItem(ReduxTag.StackDetails, "stack-1"),
-			invalidatesItem(ReduxTag.BranchChanges, "stack-1"),
 		]);
 	});
 });

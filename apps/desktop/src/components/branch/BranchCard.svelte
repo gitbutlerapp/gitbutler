@@ -21,7 +21,7 @@
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
 	import type { BranchIconName } from "$lib/branches/branchIcon";
 	import type { DropzoneHandler } from "$lib/dragging/handler";
-	import type { PushStatus } from "@gitbutler/but-sdk";
+	import type { PushStatus, Segment } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
 
 	interface BranchCardProps {
@@ -67,6 +67,11 @@
 		numberOfCommits: number;
 		numberOfUpstreamCommits: number;
 		numberOfBranchesInStack: number;
+		segment: Segment;
+		branchIndex: number;
+		parent: Segment | undefined;
+		withForce: boolean;
+		stackPrNumbers: (number | undefined)[];
 		baseCommit?: string;
 		onclick: () => void;
 		disableClick?: boolean;
@@ -277,6 +282,12 @@
 							{projectId}
 							{branchName}
 							stackId={args.stackId}
+							segment={args.segment}
+							branchIndex={args.branchIndex}
+							parent={args.parent}
+							withForce={args.withForce}
+							stackPrNumbers={args.stackPrNumbers}
+							prNumber={args.prNumber}
 							oncancel={() => {
 								projectState.exclusiveAction.set(undefined);
 							}}

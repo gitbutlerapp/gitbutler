@@ -1,16 +1,13 @@
 <script lang="ts">
 	import AppScrollableContainer from "$components/shared/AppScrollableContainer.svelte";
-	import FullviewLoading from "$components/shared/FullviewLoading.svelte";
-	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import Resizer from "$components/shared/Resizer.svelte";
 	import StackDetails from "$components/views/StackDetails.svelte";
 	import StackPanel from "$components/views/StackPanel.svelte";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { sessionChannel } from "$lib/irc/protocol";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
+	import { type Stack } from "$lib/stacks/stack";
 	import { StackController, setStackContext } from "$lib/stacks/stackController.svelte";
-	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
-	import { combineResults } from "$lib/state/helpers";
 	import { inject } from "@gitbutler/core/context";
 	import { persistWithExpiration } from "@gitbutler/shared/persisted";
 	import { TestId } from "@gitbutler/ui";
@@ -19,10 +16,9 @@
 
 	type Props = {
 		projectId: string;
-		stackId: string | undefined;
+		stack: Stack;
 		laneId: string;
 		onFoldStack?: () => void;
-		topBranchName?: string;
 		onVisible: (visible: boolean) => void;
 		clientWidth?: number;
 		clientHeight?: number;
@@ -30,14 +26,17 @@
 
 	let {
 		projectId,
-		stackId,
+		stack,
 		laneId,
 		onFoldStack,
-		topBranchName,
 		clientHeight = $bindable(),
 		clientWidth = $bindable(),
 		onVisible,
 	}: Props = $props();
+
+	const stackId = $derived(stack.id ?? undefined);
+	const topBranchName = $derived(stack.segments.at(0)?.refName?.displayName);
+	const segments = $derived(stack.segments);
 
 	const controller = new StackController({
 		projectId: () => projectId,
@@ -46,11 +45,9 @@
 	});
 	setStackContext(controller);
 
-	const stackService = inject(STACK_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const ircApiService = inject(IRC_API_SERVICE);
 
-	const branchesQuery = $derived(stackService.branches(controller.projectId, controller.stackId));
 	const PANEL1_RESIZER = {
 		minWidth: 20,
 		maxWidth: 64,
@@ -140,52 +137,43 @@
 		},
 	}}
 >
-	<ReduxResult projectId={controller.projectId} result={combineResults(branchesQuery.result)}>
-		{#snippet loading()}
-			<div style:width="{$persistedStackWidth}rem" class="lane-skeleton">
-				<FullviewLoading />
-			</div>
-		{/snippet}
-		{#snippet children([branches])}
-			<AppScrollableContainer childrenWrapHeight="100%" enableDragScroll>
-				<div
-					class="stack-view"
-					class:details-open={isDetailsOpen}
-					style:width="{$persistedStackWidth}rem"
-					data-fade-on-reorder
-					use:focusable={{
-						vertical: true,
-						onActive: (value) => (controller.active = value),
+	<AppScrollableContainer childrenWrapHeight="100%" enableDragScroll>
+		<div
+			class="stack-view"
+			class:details-open={isDetailsOpen}
+			style:width="{$persistedStackWidth}rem"
+			data-fade-on-reorder
+			use:focusable={{
+				vertical: true,
+				onActive: (value) => (controller.active = value),
+			}}
+			bind:this={stackViewEl}
+		>
+			<StackPanel {segments} {topBranchName} {onFoldStack} {ircEnabled} {ircChannel} />
+
+			<!-- RESIZE PANEL 1 -->
+			{#if stackViewEl}
+				<Resizer
+					persistId="ui-stack-width-${controller.stackId}"
+					viewport={stackViewEl}
+					zIndex="var(--z-lifted)"
+					direction="right"
+					minWidth={PANEL1_RESIZER.minWidth}
+					maxWidth={PANEL1_RESIZER.maxWidth}
+					defaultValue={$persistedStackWidth ?? PANEL1_RESIZER.defaultValue}
+					syncName="panel1"
+					onWidth={(newWidth) => {
+						persistedStackWidth.set(newWidth);
 					}}
-					bind:this={stackViewEl}
-				>
-					<StackPanel {branches} {topBranchName} {onFoldStack} {ircEnabled} {ircChannel} />
-
-					<!-- RESIZE PANEL 1 -->
-					{#if stackViewEl}
-						<Resizer
-							persistId="ui-stack-width-${controller.stackId}"
-							viewport={stackViewEl}
-							zIndex="var(--z-lifted)"
-							direction="right"
-							minWidth={PANEL1_RESIZER.minWidth}
-							maxWidth={PANEL1_RESIZER.maxWidth}
-							defaultValue={$persistedStackWidth ?? PANEL1_RESIZER.defaultValue}
-							syncName="panel1"
-							onWidth={(newWidth) => {
-								persistedStackWidth.set(newWidth);
-							}}
-						/>
-					{/if}
-				</div>
-			</AppScrollableContainer>
-
-			<!-- DETAILS PANEL -->
-			{#if isDetailsOpen}
-				<StackDetails {ircChannel} onWidthChange={updateDetailsViewWidth} />
+				/>
 			{/if}
-		{/snippet}
-	</ReduxResult>
+		</div>
+	</AppScrollableContainer>
+
+	<!-- DETAILS PANEL -->
+	{#if isDetailsOpen}
+		<StackDetails {ircChannel} {segments} onWidthChange={updateDetailsViewWidth} />
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -223,11 +211,5 @@
 	.dimmed .stack-view,
 	.stack-busy .stack-view {
 		pointer-events: none;
-	}
-
-	.lane-skeleton {
-		display: flex;
-		flex-direction: column;
-		height: 100%;
 	}
 </style>

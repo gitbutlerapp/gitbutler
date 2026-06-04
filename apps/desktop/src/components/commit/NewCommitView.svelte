@@ -122,7 +122,6 @@
 					projectId,
 					parentId,
 					insertBelow,
-					stackId: finalStackId,
 					message: finalMessage,
 					stackBranchName: finalBranchName,
 					worktreeChanges,

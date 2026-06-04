@@ -5,8 +5,6 @@
 	import CommitTitle from "$components/commit/CommitTitle.svelte";
 	import { isLocalAndRemoteCommit } from "$components/lib";
 	import Drawer from "$components/shared/Drawer.svelte";
-	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import { type CommitKey } from "$lib/commits/commit";
 	import { splitMessage } from "$lib/commits/commitMessage";
 	import { rewrapCommitMessage } from "$lib/config/uiFeatureFlags";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
@@ -14,22 +12,21 @@
 	import { showToast } from "$lib/notifications/toasts";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE, withStackBusy } from "$lib/state/uiState.svelte";
-	import { ensureValue } from "$lib/utils/validation";
 	import { inject, injectOptional } from "@gitbutler/core/context";
 	import { Button, TestId } from "@gitbutler/ui";
+	import type { Commit, UpstreamCommit } from "@gitbutler/but-sdk";
 
 	type Props = {
 		projectId: string;
 		stackId?: string;
 		laneId: string;
-		commitKey: CommitKey;
+		commit: Commit | UpstreamCommit;
 		active?: boolean;
 		draggableFiles: boolean;
 		grow?: boolean;
 		clientHeight?: number;
 		rounded?: boolean;
 		ontoggle?: (collapsed: boolean) => void;
-		onerror: (err: unknown) => void;
 		onclose?: () => void;
 		onpopout?: () => void;
 	};
@@ -38,12 +35,11 @@
 		projectId,
 		stackId,
 		laneId,
-		commitKey,
+		commit,
 		grow,
 		clientHeight = $bindable(),
 		rounded,
 		ontoggle,
-		onerror,
 		onclose,
 		onpopout,
 	}: Props & { isInEditMessageMode?: boolean } = $props();
@@ -61,10 +57,6 @@
 	const selected = $derived(laneState.selection);
 	const branchName = $derived(selected.current?.branchName);
 
-	const commitQuery = $derived(
-		stackService.commitById(projectId, commitKey.stackId, commitKey.commitId),
-	);
-
 	const [updateCommitMessage, messageUpdateQuery] = stackService.updateCommitMessage;
 
 	type Mode = "view" | "edit";
@@ -75,8 +67,8 @@
 				projectState.exclusiveAction.set({
 					type: "edit-commit-message",
 					stackId,
-					branchName: commitKey.branchName,
-					commitId: commitKey.commitId,
+					branchName,
+					commitId: commit.id,
 				});
 				break;
 			case "view":
@@ -85,9 +77,7 @@
 		}
 	}
 
-	const parsedMessage = $derived(
-		commitQuery.response ? splitMessage(commitQuery.response.message) : undefined,
-	);
+	const parsedMessage = $derived(splitMessage(commit.message));
 
 	function combineParts(title?: string, description?: string): string {
 		if (!title) {
@@ -111,30 +101,29 @@
 
 		const newCommitId = await updateCommitMessage({
 			projectId,
-			stackId: ensureValue(stackId),
-			commitId: commitKey.commitId,
+			stackId,
+			commitId: commit.id,
 			message: commitMessage,
 			dryRun: false,
 		});
 
-		uiState
-			.lane(ensureValue(stackId))
-			.selection.set({ branchName, commitId: newCommitId, previewOpen: true });
+		if (stackId) {
+			uiState.lane(stackId).selection.set({ branchName, commitId: newCommitId, previewOpen: true });
+		}
 		setMode("view");
 	}
 
 	async function handleUncommit() {
 		if (!branchName) return;
-		const targetStackId = ensureValue(stackId);
 		await withStackBusy(
 			uiState,
 			projectId,
-			{ commitId: commitKey.commitId, stackIds: [targetStackId] },
+			{ commitId: commit.id, stackIds: stackId ? [stackId] : undefined },
 			async () => {
 				await stackService.uncommit({
 					projectId,
-					stackId: targetStackId,
-					commitIds: [commitKey.commitId],
+					stackId,
+					commitIds: [commit.id],
 				});
 			},
 		);
@@ -151,112 +140,108 @@
 	}
 </script>
 
-<ReduxResult {stackId} {projectId} result={commitQuery.result} {onerror}>
-	{#snippet children(commit, env)}
-		<Drawer
-			bind:this={drawer}
-			bind:clientHeight
-			testId={TestId.CommitDrawer}
-			persistId="commit-view-drawer-{projectId}-{stackId}-{commitKey.commitId}"
-			{grow}
-			{rounded}
-			{ontoggle}
-			onclose={() => {
-				// When the commit view is closed, we also want to unset the
-				// relevant uiState so things like commit buttons are usable.
+<Drawer
+	bind:this={drawer}
+	bind:clientHeight
+	testId={TestId.CommitDrawer}
+	persistId="commit-view-drawer-{projectId}-{stackId}-{commit.id}"
+	{grow}
+	{rounded}
+	{ontoggle}
+	onclose={() => {
+		// When the commit view is closed, we also want to unset the
+		// relevant uiState so things like commit buttons are usable.
 
-				// TODO: We should consider having a modal to confirm the cancel
-				cancelEdit();
-				onclose?.();
-			}}
-			bottomBorder={false}
-			noshrink
-		>
-			{#snippet closeActions()}
-				{#if onpopout}
-					<Button
-						kind="ghost"
-						icon="pop-out-bottom-right"
-						size="tag"
-						tooltip="Pop out diff view"
-						onclick={onpopout}
-					/>
-				{/if}
-			{/snippet}
-			{#snippet header()}
-				<CommitTitle
-					truncate
-					commitMessage={commit.message}
-					className="text-14 text-semibold text-body"
-					editable={!isReadOnly}
-				/>
-			{/snippet}
-
-			{#snippet actions()}
-				{#if canEdit()}
-					{@const isEditingMessage =
-						projectState.exclusiveAction.current?.type === "edit-commit-message" &&
-						projectState.exclusiveAction.current.commitId === commit.id}
-					<Button
-						testId={TestId.CommitDrawerActionEditMessage}
-						size="tag"
-						kind="ghost"
-						icon="edit"
-						onclick={() => {
-							drawer?.open();
-							setMode("edit");
-						}}
-						tooltip={isReadOnly ? "Read-only mode" : "Reword commit"}
-						disabled={isReadOnly || isEditingMessage}
-					/>
-				{/if}
-				{@const data = isLocalAndRemoteCommit(commit)
-					? {
-							stackId,
-							commitId: commit.id,
-							commitMessage: commit.message,
-							commitStatus: commit.state.type,
-							commitUrl: forge.current.commitUrl(commit.id),
-							onUncommitClick: () => handleUncommit(),
-							onEditMessageClick: () => {
-								drawer?.open();
-								setMode("edit");
-							},
-						}
-					: undefined}
-				{#if data}
-					<CommitContextMenu {projectId} contextData={data} />
-				{/if}
-			{/snippet}
-
-			<div class="commit-view">
-				{#if projectState.exclusiveAction.current?.type === "edit-commit-message" && projectState.exclusiveAction.current.commitId === commit.id}
-					<div
-						class="edit-commit-view"
-						data-testid={TestId.EditCommitMessageBox}
-						class:no-paddings={uiState.global.useFloatingBox.current}
-					>
-						<CommitMessageEditor
-							noPadding
-							projectId={env.projectId}
-							stackId={env.stackId}
-							action={({ title, description }) => saveCommitMessage(title, description)}
-							actionLabel="Save changes"
-							onCancel={cancelEdit}
-							floatingBoxHeader="Reword commit"
-							loading={messageUpdateQuery.current.isLoading}
-							existingCommitId={commit.id}
-							title={parsedMessage?.title || ""}
-							description={parsedMessage?.description || ""}
-						/>
-					</div>
-				{:else}
-					<CommitDetails {commit} rewrap={$rewrapCommitMessage} />
-				{/if}
-			</div>
-		</Drawer>
+		// TODO: We should consider having a modal to confirm the cancel
+		cancelEdit();
+		onclose?.();
+	}}
+	bottomBorder={false}
+	noshrink
+>
+	{#snippet closeActions()}
+		{#if onpopout}
+			<Button
+				kind="ghost"
+				icon="pop-out-bottom-right"
+				size="tag"
+				tooltip="Pop out diff view"
+				onclick={onpopout}
+			/>
+		{/if}
 	{/snippet}
-</ReduxResult>
+	{#snippet header()}
+		<CommitTitle
+			truncate
+			commitMessage={commit.message}
+			className="text-14 text-semibold text-body"
+			editable={!isReadOnly}
+		/>
+	{/snippet}
+
+	{#snippet actions()}
+		{#if canEdit()}
+			{@const isEditingMessage =
+				projectState.exclusiveAction.current?.type === "edit-commit-message" &&
+				projectState.exclusiveAction.current.commitId === commit.id}
+			<Button
+				testId={TestId.CommitDrawerActionEditMessage}
+				size="tag"
+				kind="ghost"
+				icon="edit"
+				onclick={() => {
+					drawer?.open();
+					setMode("edit");
+				}}
+				tooltip={isReadOnly ? "Read-only mode" : "Reword commit"}
+				disabled={isReadOnly || isEditingMessage}
+			/>
+		{/if}
+		{@const data = isLocalAndRemoteCommit(commit)
+			? {
+					stackId,
+					commitId: commit.id,
+					commitMessage: commit.message,
+					commitStatus: commit.state.type,
+					commitUrl: forge.current.commitUrl(commit.id),
+					onUncommitClick: () => handleUncommit(),
+					onEditMessageClick: () => {
+						drawer?.open();
+						setMode("edit");
+					},
+				}
+			: undefined}
+		{#if data}
+			<CommitContextMenu {projectId} contextData={data} />
+		{/if}
+	{/snippet}
+
+	<div class="commit-view">
+		{#if projectState.exclusiveAction.current?.type === "edit-commit-message" && projectState.exclusiveAction.current.commitId === commit.id}
+			<div
+				class="edit-commit-view"
+				data-testid={TestId.EditCommitMessageBox}
+				class:no-paddings={uiState.global.useFloatingBox.current}
+			>
+				<CommitMessageEditor
+					noPadding
+					{projectId}
+					{stackId}
+					action={({ title, description }) => saveCommitMessage(title, description)}
+					actionLabel="Save changes"
+					onCancel={cancelEdit}
+					floatingBoxHeader="Reword commit"
+					loading={messageUpdateQuery.current.isLoading}
+					existingCommitId={commit.id}
+					title={parsedMessage?.title || ""}
+					description={parsedMessage?.description || ""}
+				/>
+			</div>
+		{:else}
+			<CommitDetails {commit} rewrap={$rewrapCommitMessage} />
+		{/if}
+	</div>
+</Drawer>
 
 <style>
 	.commit-view {

@@ -3,51 +3,37 @@
 	import PullRequestCard from "$components/forge/PullRequestCard.svelte";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
-	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { AsyncButton, TestId } from "@gitbutler/ui";
 
 	import type { MergeMethod } from "$lib/forge/interface/types";
+	import type { Segment } from "@gitbutler/but-sdk";
 
 	interface Props {
 		projectId: string;
 		stackId: string;
 		branchName: string;
+		parent: Segment | undefined;
+		child: Segment | undefined;
+		isPushed: boolean;
 		poll: boolean;
 		prNumber: number;
 	}
 
-	const { projectId, stackId, branchName, prNumber }: Props = $props();
+	const { projectId, branchName, parent, child, isPushed, prNumber }: Props = $props();
 
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const stackService = inject(STACK_SERVICE);
 
 	// TODO: Make these props so we don't need `!`.
 	const repoService = $derived(forge.current.repoService);
 	const prService = $derived(forge.current.prService);
 
-	const branchDetailsQuery = $derived(stackService.branchDetails(projectId, stackId, branchName));
-	const branchDetails = $derived(branchDetailsQuery.response);
-	const isPushed = $derived(branchDetails?.pushStatus !== "completelyUnpushed");
-	const prQuery = $derived(
-		branchDetails?.metadata?.review.pullRequest
-			? prService?.get(branchDetails.metadata.review.pullRequest)
-			: undefined,
-	);
+	const prQuery = $derived(prNumber ? prService?.get(prNumber) : undefined);
 	const pr = $derived(prQuery?.response);
 
-	const parentQuery = $derived(stackService.branchParentByName(projectId, stackId, branchName));
-	const parent = $derived(parentQuery.response);
 	const hasParent = $derived(!!parent);
-	const parentName = $derived(parent?.refName?.displayName);
-	const parentBranchDetailsQuery = $derived(
-		parentName ? stackService.branchDetails(projectId, stackId, parentName) : undefined,
-	);
-	const parentBranchDetails = $derived(parentBranchDetailsQuery?.response);
-	const parentIsPushed = $derived(parentBranchDetails?.pushStatus !== "completelyUnpushed");
-	const childQuery = $derived(stackService.branchChildByName(projectId, stackId, branchName));
-	const child = $derived(childQuery.response);
+	const parentIsPushed = $derived(parent?.pushStatus !== "completelyUnpushed");
 	const childPrNumber = $derived(child?.metadata?.review.pullRequest);
 
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));

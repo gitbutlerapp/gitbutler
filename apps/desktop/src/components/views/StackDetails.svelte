@@ -29,9 +29,9 @@
 		createCommitDropHandlers,
 		type DzCommitData,
 	} from "$lib/dragging/dropHandlers/commitDropHandler";
-	import { isParsedError } from "$lib/error/parser";
 
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { segmentContext } from "$lib/stacks/segmentContext";
 	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -40,12 +40,14 @@
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
 	import { get } from "svelte/store";
 	import { fly } from "svelte/transition";
+	import type { Segment } from "@gitbutler/but-sdk";
 	type Props = {
 		ircChannel?: string;
+		segments: Segment[];
 		onWidthChange: (width: number) => void;
 	};
 
-	const { ircChannel, onWidthChange }: Props = $props();
+	const { ircChannel, segments, onWidthChange }: Props = $props();
 
 	const controller = getStackContext();
 
@@ -60,11 +62,17 @@
 	};
 	const DETAILS_RIGHT_PADDING_REM = 1;
 
-	const commitQuery = $derived(
-		controller.commitId
-			? stackService.commitById(controller.projectId, controller.stackId, controller.commitId)
-			: undefined,
-	);
+	const selectedCommit = $derived.by(() => {
+		const id = controller.commitId;
+		if (!id) return undefined;
+		for (const segment of segments) {
+			const c = segment.commits.find((c) => c.id === id);
+			if (c) return c;
+			const uc = segment.commitsOnRemote.find((c) => c.id === id);
+			if (uc) return uc;
+		}
+		return undefined;
+	});
 	const runHooks = $derived(projectRunCommitHooks(controller.projectId));
 	const commitFiles = $derived(
 		controller.commitId
@@ -74,13 +82,6 @@
 	const assignedFiles = $derived(
 		uncommittedService.getChangesByStackId(controller.stackId || null),
 	);
-
-	function onerror(err: unknown) {
-		if (isParsedError(err) && err.code === "BranchNotFound") {
-			controller.selection.set(undefined);
-			console.warn("Workspace selection cleared");
-		}
-	}
 
 	let multiDiffView = $state<MultiDiffView>();
 
@@ -105,9 +106,24 @@
 	const laneId = $derived(controller.laneId);
 	const branchName = $derived(controller.branchName);
 	const commitId = $derived(controller.commitId);
-	const upstream = $derived(controller.upstream);
 	const focusedFileStore = $derived(controller.focusedFileStore);
 	const selection = $derived(controller.laneState.selection.current);
+	const selectedIndex = $derived(
+		branchName ? segments.findIndex((s) => s.refName?.displayName === branchName) : -1,
+	);
+	const selectedSegment = $derived(selectedIndex >= 0 ? segments[selectedIndex] : undefined);
+	const selectedContext = $derived(
+		selectedIndex >= 0 ? segmentContext(segments, selectedIndex) : undefined,
+	);
+
+	// If the selected branch is no longer in the stack (e.g. it was renamed
+	// or deleted), clear the selection. This replaces the BranchNotFound
+	// handling that used to live in BranchView's ReduxResult onerror.
+	$effect(() => {
+		if (branchName && !selectedSegment) {
+			controller.selection.set(undefined);
+		}
+	});
 </script>
 
 <div
@@ -123,7 +139,7 @@
 	{#if stackId && selection?.irc && ircChannel}
 		<IrcChannel projectId={controller.projectId} type="group" channel={ircChannel} autojoin />
 	{:else}
-		{@const commit = commitQuery?.response}
+		{@const commit = selectedCommit}
 		{@const dzCommit: DzCommitData | undefined = commit
 			? {
 					id: commit.id,
@@ -153,7 +169,7 @@
 						},
 					})
 				: { amendHandler: undefined, squashHandler: undefined, hunkHandler: undefined }}
-		{#if branchName && commitId}
+		{#if commitId}
 			<Dropzone
 				handlers={[amendHandler, squashHandler, hunkHandler].filter(isDefined)}
 				fillHeight
@@ -168,22 +184,18 @@
 					<DropzoneOverlay {hovered} {activated} {label} />
 				{/snippet}
 				<div class="details-view__inner">
-					<CommitView
-						{projectId}
-						{stackId}
-						{laneId}
-						commitKey={{
-							stackId,
-							branchName,
-							commitId,
-							upstream: !!upstream,
-						}}
-						draggableFiles
-						rounded
-						{onerror}
-						onclose={() => controller.closePreview()}
-						onpopout={() => controller.openFloatingDiff()}
-					/>
+					{#if commit}
+						<CommitView
+							{projectId}
+							{stackId}
+							{laneId}
+							{commit}
+							draggableFiles
+							rounded
+							onclose={() => controller.closePreview()}
+							onpopout={() => controller.openFloatingDiff()}
+						/>
+					{/if}
 					{#if commitFiles}
 						{@const commitResult = commitFiles?.result}
 						{#if commitResult}
@@ -206,10 +218,9 @@
 					{/if}
 				</div>
 			</Dropzone>
-		{:else if branchName}
+		{:else if branchName && selectedSegment && selectedContext}
 			{@const changesQuery = stackService.branchChanges({
 				projectId: controller.projectId,
-				stackId: controller.stackId,
 				branch: branchName,
 			})}
 			<div class="details-view__inner">
@@ -218,7 +229,13 @@
 					{laneId}
 					{projectId}
 					{branchName}
-					{onerror}
+					segment={selectedSegment}
+					branchIndex={selectedContext.branchIndex}
+					parent={selectedContext.parent}
+					child={selectedContext.child}
+					withForce={selectedContext.withForce}
+					stackPrNumbers={selectedContext.stackPrNumbers}
+					stackLength={segments.length}
 					onclose={() => controller.closePreview()}
 					rounded
 					onpopout={() => controller.openFloatingDiff()}

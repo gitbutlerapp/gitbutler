@@ -141,7 +141,7 @@ export class StackController {
 	}
 
 	get isCommitView(): boolean {
-		return !!(this.branchName && this.commitId);
+		return !!this.commitId;
 	}
 
 	get projectState() {

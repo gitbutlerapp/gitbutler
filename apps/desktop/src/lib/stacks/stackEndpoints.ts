@@ -54,7 +54,6 @@ export type BranchParams = {
 };
 
 export type CreateCommitRequest = {
-	stackId: string;
 	message: string;
 	/** Undefined means that the backend will infer the parent to be the current head of stackBranchName */
 	parentId: string | undefined;
@@ -389,12 +388,11 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 		}),
 		branchChanges: build.query<
 			{ changes: EntityState<TreeChange, string>; stats: TreeStats },
-			{ projectId: string; stackId?: string; branch: string }
+			{ projectId: string; branch: string }
 		>({
 			extraOptions: { command: "branch_diff" },
 			query: (args) => args,
-			providesTags: (_result, _error, { stackId }) =>
-				stackId ? providesItem(ReduxTag.BranchChanges, stackId) : [],
+			providesTags: (_result, _error, { branch }) => providesItem(ReduxTag.BranchChanges, branch),
 			transformResponse(rsp: TreeChanges) {
 				return {
 					changes: changesAdapter.addMany(changesAdapter.getInitialState(), rsp.changes),
@@ -404,15 +402,14 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 		}),
 		updateCommitMessage: build.mutation<
 			string,
-			{ projectId: string; stackId: string; commitId: string; message: string; dryRun: boolean }
+			{ projectId: string; stackId?: string; commitId: string; message: string; dryRun: boolean }
 		>({
 			extraOptions: {
 				command: "commit_reword",
 				actionName: "Update Commit Message",
 			},
-			query: ({ projectId, stackId, commitId, message, dryRun }) => ({
+			query: ({ projectId, commitId, message, dryRun }) => ({
 				projectId,
-				stackId,
 				commitId,
 				message,
 				dryRun,
@@ -420,7 +417,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			transformResponse: (response: CommitRewordResult) => response.newCommit,
 			invalidatesTags: (_result, _error, { stackId }) => [
 				invalidatesList(ReduxTag.HeadSha),
-				invalidatesItem(ReduxTag.StackDetails, stackId),
+				...(stackId ? [invalidatesItem(ReduxTag.StackDetails, stackId)] : []),
 			],
 		}),
 		newBranch: build.mutation<
@@ -440,7 +437,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 		}),
 		uncommit: build.mutation<
 			UncommitResult,
-			{ projectId: string; stackId: string; commitIds: string[] }
+			{ projectId: string; stackId?: string; commitIds: string[] }
 		>({
 			extraOptions: {
 				command: "commit_uncommit",
@@ -449,11 +446,11 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			query: ({ projectId, stackId, commitIds }) => ({
 				projectId,
 				subjectCommitIds: commitIds,
-				assignTo: stackId,
+				assignTo: stackId ?? null,
 				dryRun: false,
 			}),
-			invalidatesTags: (_result, _error, args) => [
-				invalidatesItem(ReduxTag.BranchChanges, args.stackId),
+			invalidatesTags: [
+				invalidatesList(ReduxTag.BranchChanges),
 				invalidatesList(ReduxTag.WorktreeChanges),
 				invalidatesList(ReduxTag.HeadSha),
 			],
@@ -732,7 +729,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			MoveBranchResult,
 			{
 				projectId: string;
-				sourceStackId: string;
+				sourceStackId?: string;
 				subjectBranchName: string;
 			}
 		>({
@@ -745,15 +742,13 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				subjectBranch: normalizeReferenceSubject(subjectBranchName),
 				dryRun: false,
 			}),
-			invalidatesTags: (_result, _error, args) => {
-				return [
-					invalidatesList(ReduxTag.HeadSha),
-					invalidatesList(ReduxTag.WorktreeChanges), // Moving commits can cause conflicts
-					invalidatesList(ReduxTag.Stacks),
-					invalidatesItem(ReduxTag.StackDetails, args.sourceStackId),
-					invalidatesItem(ReduxTag.BranchChanges, args.sourceStackId), // Affects source stack, new stack is new
-				];
-			},
+			invalidatesTags: (_result, _error, args) => [
+				invalidatesList(ReduxTag.HeadSha),
+				invalidatesList(ReduxTag.WorktreeChanges), // Moving commits can cause conflicts
+				invalidatesList(ReduxTag.Stacks),
+				invalidatesList(ReduxTag.BranchChanges),
+				...(args.sourceStackId ? [invalidatesItem(ReduxTag.StackDetails, args.sourceStackId)] : []),
+			],
 		}),
 		integrateUpstreamCommits: build.mutation<
 			void,
@@ -773,7 +768,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				invalidatesList(ReduxTag.HeadSha),
 				invalidatesList(ReduxTag.WorktreeChanges),
 				invalidatesItem(ReduxTag.StackDetails, args.stackId),
-				invalidatesItem(ReduxTag.BranchChanges, args.stackId),
+				invalidatesItem(ReduxTag.BranchChanges, args.seriesName),
 			],
 		}),
 		getInitialIntegrationSteps: build.query<
@@ -804,7 +799,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				invalidatesItem(ReduxTag.StackDetails, args.stackId),
 				invalidatesItem(ReduxTag.IntegrationSteps, args.stackId + args.branchName),
 				invalidatesItem(ReduxTag.BranchDetails, args.branchName),
-				invalidatesItem(ReduxTag.BranchChanges, args.stackId),
+				invalidatesItem(ReduxTag.BranchChanges, args.branchName),
 			],
 		}),
 		createVirtualBranchFromBranch: build.mutation<
@@ -834,7 +829,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 		}),
 		squashCommits: build.mutation<
 			CommitSquashResult,
-			{ projectId: string; stackId: string; sourceCommitIds: string[]; targetCommitId: string }
+			{ projectId: string; sourceCommitIds: string[]; targetCommitId: string }
 		>({
 			extraOptions: {
 				command: "commit_squash",
@@ -885,22 +880,15 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 		}),
 		createReference: build.mutation<
 			void,
-			{ projectId: string; stackId: string; request: CreateRefRequest }
+			{ projectId: string; stackId?: string; request: CreateRefRequest }
 		>({
 			extraOptions: {
 				command: "create_reference",
 				actionName: "Create Reference",
 			},
-			query: (args) => {
-				// TODO: Remove the stack ID from the request args.
-				// The backend doesn't need it, but the frontend does to invalidate the right tags.
-				// We should move away from using the stack ID as the cache key, an move towards some form of branch name instead.
-
-				return { projectId: args.projectId, request: args.request };
-			},
-			invalidatesTags: (_result, _error, args) => [
-				invalidatesItem(ReduxTag.StackDetails, args.stackId), // This is probably still needed. Adding a ref won't change the workspace commit, right?
-			],
+			query: (args) => ({ projectId: args.projectId, request: args.request }),
+			invalidatesTags: (_result, _error, args) =>
+				args.stackId ? [invalidatesItem(ReduxTag.StackDetails, args.stackId)] : [],
 		}),
 		templates: build.query<string[], { projectId: string; forge: string }>({
 			extraOptions: { command: "pr_templates" },
