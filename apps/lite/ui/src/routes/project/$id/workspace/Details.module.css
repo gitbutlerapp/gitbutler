@@ -42,11 +42,11 @@
 	padding-bottom: var(--panel-padding);
 }
 
-.diffContents {
+.diffContentsContainer {
 	display: grid;
 }
 
-.diffContentsVirtualizer {
+.diffContents {
 	overflow: auto;
 }
 

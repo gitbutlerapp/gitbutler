@@ -46,7 +46,7 @@ import styles from "./Details.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import { SelectionScope } from "#ui/selection-scopes.ts";
 import {
-	FilesTree as GenericFilesTree,
+	FilesTree,
 	changeFileTreeItem,
 	conflictFileTreeItem,
 	type FileTreeItem,
@@ -234,7 +234,7 @@ const mkCodeViewItem = (
 	};
 };
 
-const ChangesFileDiffList: FC<{
+const DiffContents: FC<{
 	changes: Array<TreeChange>;
 	onViewerFileSelection: (selection: Operand) => void;
 	outlineSelection: Operand;
@@ -290,7 +290,7 @@ const ChangesFileDiffList: FC<{
 		<CodeView
 			ref={viewerRef}
 			onScroll={selectFileAtViewportTop}
-			className={classes(styles.diffContentsVirtualizer, uiStyles.scrollerWithSeparator)}
+			className={classes(styles.diffContents, uiStyles.scrollerWithSeparator)}
 			items={items}
 			options={{
 				diffStyle: "unified",
@@ -454,75 +454,24 @@ const CommitDetailsContent: FC<{
 	</SuspenseQuery>
 );
 
-const DiffContents: FC<{
-	onViewerFileSelection: (selection: Operand) => void;
-	outlineSelection: Operand;
-	projectId: string;
-	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
-}> = ({ onViewerFileSelection, outlineSelection, projectId, viewerRef }) =>
-	Match.value(outlineSelection).pipe(
-		Match.tagsExhaustive({
-			Stack: () => null,
-			Branch: ({ branchRef }) => (
-				<SuspenseQuery {...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}>
-					{({ data: branchDiff }) => (
-						<ChangesFileDiffList
-							changes={branchDiff.changes}
-							onViewerFileSelection={onViewerFileSelection}
-							outlineSelection={outlineSelection}
-							projectId={projectId}
-							viewerRef={viewerRef}
-						/>
-					)}
-				</SuspenseQuery>
-			),
-			ChangesSection: () => (
-				<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
-					{({ data: worktreeChanges }) => (
-						<ChangesFileDiffList
-							changes={worktreeChanges.changes}
-							onViewerFileSelection={onViewerFileSelection}
-							outlineSelection={outlineSelection}
-							projectId={projectId}
-							viewerRef={viewerRef}
-						/>
-					)}
-				</SuspenseQuery>
-			),
-			File: () => null,
-			Commit: ({ commitId }) => (
-				<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
-					{({ data: commitDetails }) => (
-						<ChangesFileDiffList
-							changes={commitDetails.changes}
-							onViewerFileSelection={onViewerFileSelection}
-							outlineSelection={outlineSelection}
-							projectId={projectId}
-							viewerRef={viewerRef}
-						/>
-					)}
-				</SuspenseQuery>
-			),
-			Hunk: () => null,
-		}),
-	);
-
 const Diff: FC<{
+	changes: Array<TreeChange>;
 	filesVisible: boolean;
+	filesItems: Array<FileTreeItem>;
 	onFileSelection: (selection: Operand) => void;
 	onViewerFileSelection: (selection: Operand) => void;
 	outlineSelection: Operand;
 	projectId: string;
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
-	filesItems: Array<FileTreeItem>;
 }> = ({
+	changes,
 	filesVisible,
+	filesItems,
 	onFileSelection,
 	onViewerFileSelection,
 	outlineSelection,
 	projectId,
 	viewerRef,
-	filesItems,
 }) => {
 	const files = filesItems.map((item) => item.operand);
 
@@ -531,7 +480,7 @@ const Diff: FC<{
 	return (
 		<div className={classes(styles.diff, filesVisible && styles.diffWithFiles)}>
 			{filesVisible && (
-				<GenericFilesTree
+				<FilesTree
 					id={"files" satisfies SelectionScope}
 					data-selection-scope
 					tabIndex={0}
@@ -548,10 +497,11 @@ const Diff: FC<{
 				data-selection-scope
 				// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 				tabIndex={0}
-				className={styles.diffContents}
+				className={styles.diffContentsContainer}
 			>
 				<Suspense fallback={<p className="text-13">Loading diff…</p>}>
 					<DiffContents
+						changes={changes}
 						onViewerFileSelection={onViewerFileSelection}
 						outlineSelection={outlineSelection}
 						projectId={projectId}
@@ -617,15 +567,22 @@ export const Details: FC<{ outlineSelection: Operand | null } & ComponentProps<"
 				fallback={<div className={classes(styles.loadingDiff, "text-13")}>Loading diff…</div>}
 			>
 				{(() => {
-					const render = (filesItems: Array<FileTreeItem>) => (
+					const render = ({
+						changes,
+						filesItems,
+					}: {
+						changes: Array<TreeChange>;
+						filesItems: Array<FileTreeItem>;
+					}) => (
 						<Diff
+							changes={changes}
 							filesVisible={filesVisible}
+							filesItems={filesItems}
 							onFileSelection={selectFileAndScrollDiff}
 							onViewerFileSelection={selectFile}
 							outlineSelection={outlineSelection}
 							projectId={projectId}
 							viewerRef={viewerRef}
-							filesItems={filesItems}
 						/>
 					);
 					return Match.value(outlineSelection).pipe(
@@ -637,13 +594,21 @@ export const Details: FC<{ outlineSelection: Operand | null } & ComponentProps<"
 								})}
 							>
 								{({ data: commitDetails }) =>
-									render(getCommitFileTreeItems({ commit, commitDetails }))
+									render({
+										changes: commitDetails.changes,
+										filesItems: getCommitFileTreeItems({ commit, commitDetails }),
+									})
 								}
 							</SuspenseQuery>
 						)),
 						Match.tag("ChangesSection", () => (
 							<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
-								{({ data: worktreeChanges }) => render(getChangesFileTreeItems(worktreeChanges))}
+								{({ data: worktreeChanges }) =>
+									render({
+										changes: worktreeChanges.changes,
+										filesItems: getChangesFileTreeItems(worktreeChanges),
+									})
+								}
 							</SuspenseQuery>
 						)),
 						Match.tag("Branch", ({ stackId, branchRef }) => (
@@ -651,7 +616,10 @@ export const Details: FC<{ outlineSelection: Operand | null } & ComponentProps<"
 								{...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}
 							>
 								{({ data: branchDiff }) =>
-									render(getBranchFileTreeItems({ stackId, branchRef, branchDiff }))
+									render({
+										changes: branchDiff.changes,
+										filesItems: getBranchFileTreeItems({ stackId, branchRef, branchDiff }),
+									})
 								}
 							</SuspenseQuery>
 						)),

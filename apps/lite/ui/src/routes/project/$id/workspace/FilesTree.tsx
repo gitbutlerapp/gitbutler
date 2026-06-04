@@ -14,10 +14,10 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
-import type { TreeChange } from "@gitbutler/but-sdk";
+import type { TreeChange, TreeStatus } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Array, Match } from "effect";
-import { ComponentProps, createContext, FC, ReactNode, use, useRef } from "react";
+import { ComponentProps, createContext, FC, use, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import {
@@ -202,28 +202,9 @@ const useIsSelected = ({
 	const selection = useFilesSelection(projectId, navigationIndex);
 	return selection !== null && operandEquals(selection, operand);
 };
+
 const treeItemId = (operand: Operand): string =>
 	`files-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
-
-const changeLabel = (change: TreeChange): [enhancedLabel: ReactNode, rawLabel: string] => {
-	const status = Match.value(change.status).pipe(
-		Match.when({ type: "Addition" }, () => "A"),
-		Match.when({ type: "Deletion" }, () => "D"),
-		Match.when({ type: "Modification" }, () => "M"),
-		Match.when({ type: "Rename" }, () => "R"),
-		Match.exhaustive,
-	);
-
-	return [
-		<>
-			<span className={styles.fileStatusChar} data-char={status}>
-				{status}
-			</span>{" "}
-			{change.path}
-		</>,
-		`${status} ${change.path}`,
-	];
-};
 
 const ItemRow: FC<
 	{
@@ -264,14 +245,21 @@ const TreeItem: FC<
 	});
 };
 
+const statusLabel = (status: TreeStatus): string =>
+	Match.value(status).pipe(
+		Match.when({ type: "Addition" }, () => "A"),
+		Match.when({ type: "Deletion" }, () => "D"),
+		Match.when({ type: "Modification" }, () => "M"),
+		Match.when({ type: "Rename" }, () => "R"),
+		Match.exhaustive,
+	);
+
 const FileTreeRow: FC<{
 	item: FileTreeItem;
 	onFileSelection: (selection: Operand) => void;
 	projectId: string;
 }> = ({ item, onFileSelection, projectId }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
-	const [label, strLabel] =
-		item._tag === "Change" ? changeLabel(item.change) : [`C ${item.path}`, `C ${item.path}`];
 
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 	const dispatch = useAppDispatch();
@@ -361,7 +349,11 @@ const FileTreeRow: FC<{
 		<TreeItem
 			projectId={projectId}
 			operand={item.operand}
-			aria-label={strLabel}
+			aria-label={
+				item._tag === "Change"
+					? `${statusLabel(item.change.status)} ${item.change.path}`
+					: `C ${item.path}`
+			}
 			render={
 				<OperationSourceC
 					projectId={projectId}
@@ -383,7 +375,14 @@ const FileTreeRow: FC<{
 					void showNativeContextMenu(event, menuItems);
 				}}
 			>
-				{label}
+				{item._tag === "Change" ? (
+					<span className={styles.fileStatusChar} data-char={statusLabel(item.change.status)}>
+						{statusLabel(item.change.status)}
+					</span>
+				) : (
+					"C"
+				)}{" "}
+				{item._tag === "Change" ? item.change.path : item.path}
 			</div>
 
 			{outlineMode._tag === "Default" &&
