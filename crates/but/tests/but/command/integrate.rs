@@ -119,7 +119,7 @@ fn integrate_first_branch_into_origin_and_verify_rebase() -> anyhow::Result<()> 
 }
 
 #[test]
-fn integrate_refuses_to_direct_push_to_self_remote() -> anyhow::Result<()> {
+fn integrate_updates_local_target_for_self_remote() -> anyhow::Result<()> {
     let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches")?;
 
     env.but("setup").assert().success();
@@ -130,17 +130,56 @@ fn integrate_refuses_to_direct_push_to_self_remote() -> anyhow::Result<()> {
         .assert()
         .success();
 
+    let main_before = env.invoke_git("rev-parse main");
+    let gb_local_main_before = env.invoke_git("rev-parse gb-local/main");
+    assert_eq!(main_before, gb_local_main_before);
+
     let output = env
         .but("integrate first-branch --yes")
         .assert()
-        .failure()
+        .success()
         .get_output()
-        .stderr
+        .stdout
         .clone();
-    let stderr = String::from_utf8_lossy(&output);
+    let stdout = String::from_utf8_lossy(&output);
     assert!(
-        stderr.contains("configured push remote points at this working repository"),
-        "integrate should refuse legacy gb-local-style self remotes"
+        stdout.contains("Integration complete!"),
+        "integrate should report completion after updating gb-local targets locally"
+    );
+    assert!(
+        stdout.contains("Branch first-branch has been integrated upstream and removed locally"),
+        "integrate should use pull's active-branch cleanup after updating the target"
+    );
+
+    let main_after = env.invoke_git("rev-parse main");
+    let gb_local_main_after = env.invoke_git("rev-parse gb-local/main");
+    assert_ne!(
+        main_before, main_after,
+        "main should advance after integrate"
+    );
+    assert_eq!(
+        main_after, gb_local_main_after,
+        "gb-local/main should track the updated local target"
+    );
+
+    let parents = env.invoke_git("rev-list --parents -n 1 main");
+    let parent_count = parents.split_whitespace().count() - 1;
+    assert_eq!(parent_count, 2, "Merge commit should have 2 parents");
+
+    let status_after = env
+        .but("status --json")
+        .allow_json()
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let status_after_str = String::from_utf8_lossy(&status_after);
+    let status_after_json: serde_json::Value = serde_json::from_str(&status_after_str)?;
+    assert_eq!(
+        status_after_json["stacks"].as_array().unwrap().len(),
+        0,
+        "the branch should be removed from the workspace after local target integration"
     );
 
     Ok(())

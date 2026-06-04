@@ -3,6 +3,10 @@ use std::{fmt::Write, path::Path};
 use anyhow::bail;
 use but_ctx::Context;
 use gitbutler_git::GitContextExt;
+use gix::refs::{
+    Target,
+    transaction::{Change, LogChange, PreviousValue, RefEdit, RefLog},
+};
 
 use crate::{
     CliId, IdMap,
@@ -61,11 +65,7 @@ pub async fn handle(
     } else {
         &base_branch.push_remote_url
     };
-    if remote_points_at_current_repo(ctx, push_remote_url)? {
-        bail!(
-            "Refusing to directly push to {target_display}: the configured push remote points at this working repository"
-        );
-    }
+    let update_target_locally = remote_points_at_current_repo(ctx, push_remote_url)?;
 
     let pr_number = pr_number_for_branch(ctx, &branch_name)?;
     confirm_direct_target_update(out, &branch_name, pr_number, &target_display, yes)?;
@@ -89,29 +89,47 @@ pub async fn handle(
                 &target_branch_name,
             )
         }?;
-        let merge_commit = match merge_outcome {
+        let (merge_commit, target_oid) = match &merge_outcome {
             MergeOutcome::AlreadyIntegrated { target_oid } => {
                 writeln!(
                     progress,
                     "{} is already reachable from {} ({})",
                     t.local_branch.paint(&branch_name),
                     t.remote_branch.paint(&target_display),
-                    t.hint.paint(short_id(ctx, target_oid)?)
+                    t.hint.paint(short_id(ctx, *target_oid)?)
                 )?;
                 break;
             }
-            MergeOutcome::MergeCommit { oid } => oid,
+            MergeOutcome::MergeCommit { oid, target_oid } => (*oid, *target_oid),
         };
 
-        writeln!(
-            progress,
-            "Pushing merge commit {} to {}...",
-            t.hint.paint(short_id(ctx, merge_commit)?),
-            t.remote_branch.paint(&target_display)
-        )?;
+        if update_target_locally {
+            writeln!(
+                progress,
+                "Updating local target {} to merge commit {}...",
+                t.remote_branch.paint(&target_display),
+                t.hint.paint(short_id(ctx, merge_commit)?)
+            )?;
+        } else {
+            writeln!(
+                progress,
+                "Pushing merge commit {} to {}...",
+                t.hint.paint(short_id(ctx, merge_commit)?),
+                t.remote_branch.paint(&target_display)
+            )?;
+        }
 
-        let push_result =
-            push_merge_commit(ctx, merge_commit, &push_remote_name, &target_branch_name);
+        let push_result = if update_target_locally {
+            update_local_target_refs(
+                ctx,
+                merge_commit,
+                target_oid,
+                &push_remote_name,
+                &target_branch_name,
+            )
+        } else {
+            push_merge_commit(ctx, merge_commit, &push_remote_name, &target_branch_name)
+        };
         match push_result {
             Ok(()) => {
                 pushed_merge_commit = Some(merge_commit);
@@ -131,6 +149,9 @@ pub async fn handle(
             }
             Err(err) if is_non_fast_forward_push_error(&err) => {
                 bail!("Target branch kept moving; fetched and retried {MAX_PUSH_ATTEMPTS} times");
+            }
+            Err(err) if update_target_locally => {
+                return Err(err.context("Failed to update local target branch"));
             }
             Err(err) => return Err(err.context("Failed to push merge commit to target branch")),
         }
@@ -158,8 +179,13 @@ pub async fn handle(
 }
 
 enum MergeOutcome {
-    AlreadyIntegrated { target_oid: gix::ObjectId },
-    MergeCommit { oid: gix::ObjectId },
+    AlreadyIntegrated {
+        target_oid: gix::ObjectId,
+    },
+    MergeCommit {
+        oid: gix::ObjectId,
+        target_oid: gix::ObjectId,
+    },
 }
 
 fn merge_branch_into_target(
@@ -220,7 +246,47 @@ fn merge_branch_into_target(
 
     Ok(MergeOutcome::MergeCommit {
         oid: merge_commit.id().detach(),
+        target_oid,
     })
+}
+
+fn update_local_target_refs(
+    ctx: &Context,
+    merge_commit: gix::ObjectId,
+    expected_target_oid: gix::ObjectId,
+    push_remote_name: &str,
+    target_branch_name: &str,
+) -> anyhow::Result<()> {
+    let repo = ctx.repo.get()?;
+    let target_ref_name: gix::refs::FullName =
+        format!("refs/heads/{target_branch_name}").try_into()?;
+    let remote_tracking_ref_name: gix::refs::FullName =
+        format!("refs/remotes/{push_remote_name}/{target_branch_name}").try_into()?;
+
+    let change = |message: &'static str| Change::Update {
+        log: LogChange {
+            mode: RefLog::AndReference,
+            force_create_reflog: false,
+            message: message.into(),
+        },
+        expected: PreviousValue::ExistingMustMatch(expected_target_oid.into()),
+        new: Target::Object(merge_commit),
+    };
+
+    repo.edit_references([
+        RefEdit {
+            change: change("GitButler integrate target branch"),
+            name: target_ref_name,
+            deref: false,
+        },
+        RefEdit {
+            change: change("GitButler integrate local remote tracking branch"),
+            name: remote_tracking_ref_name,
+            deref: false,
+        },
+    ])?;
+
+    Ok(())
 }
 
 fn push_merge_commit(
