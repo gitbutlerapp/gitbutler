@@ -14,7 +14,7 @@ import {
 } from "#ui/operations/operation.ts";
 import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { Tooltip, useRender } from "@base-ui/react";
+import { Button, Tooltip, useRender } from "@base-ui/react";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { type AbsorptionTarget } from "@gitbutler/but-sdk";
@@ -70,7 +70,7 @@ const AbsorbControls: FC<{
 					onClick={confirm}
 					// We pass `disabled` here because we want to disable the button, not
 					// the tooltip. Other props should be passed above.
-					render={<button type="button" disabled={!canAbsorb} />}
+					render={<Button focusableWhenDisabled disabled={!canAbsorb} />}
 				>
 					Absorb
 				</Tooltip.Trigger>
@@ -258,7 +258,7 @@ const TransferOperationControls: FC<{
 					onClick={run}
 					// We pass `disabled` here because we want to disable the button, not
 					// the tooltip. Other props should be passed above.
-					render={<button type="button" disabled={!operation} />}
+					render={<Button focusableWhenDisabled disabled={!operation} />}
 				>
 					Confirm
 				</Tooltip.Trigger>

@@ -56,7 +56,7 @@ import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialo
 import { Details } from "./Details.tsx";
 import styles from "./WorkspacePage.module.css";
 import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree.tsx";
-import { Tooltip } from "@base-ui/react";
+import { Button, Tooltip } from "@base-ui/react";
 import { useActiveElement } from "#ui/focus.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -542,7 +542,7 @@ const WorkspacePage: FC = () => {
 									onClick={rebaseAllStacks}
 									// We pass `disabled` here because we want to disable the button, not
 									// the tooltip. Other props should be passed above.
-									render={<button type="button" disabled={!canRebaseAllStacks} />}
+									render={<Button focusableWhenDisabled disabled={!canRebaseAllStacks} />}
 								>
 									<Icon name="arrow-line-down" />
 								</Tooltip.Trigger>
