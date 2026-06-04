@@ -572,6 +572,52 @@ const FilesTree: FC<
 	);
 };
 
+const Diff: FC<{
+	filesVisible: boolean;
+	onFileSelection: (selection: Operand) => void;
+	onViewerFileSelection: (selection: Operand) => void;
+	outlineSelection: Operand;
+	projectId: string;
+	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
+}> = ({
+	filesVisible,
+	onFileSelection,
+	onViewerFileSelection,
+	outlineSelection,
+	projectId,
+	viewerRef,
+}) => (
+	<div className={classes(styles.diff, filesVisible && styles.diffWithFiles)}>
+		{filesVisible && (
+			<FilesTree
+				id={"files" satisfies SelectionScope}
+				data-selection-scope
+				tabIndex={0}
+				className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
+				onFileSelection={onFileSelection}
+				outlineSelection={outlineSelection}
+			/>
+		)}
+
+		<div
+			id={"diff" satisfies SelectionScope}
+			data-selection-scope
+			// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
+			tabIndex={0}
+			className={styles.diffContents}
+		>
+			<Suspense fallback={<p className="text-13">Loading diff…</p>}>
+				<DiffContents
+					onViewerFileSelection={onViewerFileSelection}
+					outlineSelection={outlineSelection}
+					projectId={projectId}
+					viewerRef={viewerRef}
+				/>
+			</Suspense>
+		</div>
+	</div>
+);
+
 export const Details: FC<{ outlineSelection: Operand | null } & ComponentProps<"div">> = ({
 	outlineSelection: urgentOutlineSelection,
 	...restProps
@@ -622,35 +668,14 @@ export const Details: FC<{ outlineSelection: Operand | null } & ComponentProps<"
 				</div>
 			</div>
 
-			<div className={classes(styles.diff, filesVisible && styles.diffWithFiles)}>
-				{filesVisible && (
-					<FilesTree
-						id={"files" satisfies SelectionScope}
-						data-selection-scope
-						tabIndex={0}
-						className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
-						onFileSelection={selectFileAndScrollDiff}
-						outlineSelection={outlineSelection}
-					/>
-				)}
-
-				<div
-					id={"diff" satisfies SelectionScope}
-					data-selection-scope
-					// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
-					tabIndex={0}
-					className={styles.diffContents}
-				>
-					<Suspense fallback={<p className="text-13">Loading diff…</p>}>
-						<DiffContents
-							onViewerFileSelection={selectFile}
-							outlineSelection={outlineSelection}
-							projectId={projectId}
-							viewerRef={viewerRef}
-						/>
-					</Suspense>
-				</div>
-			</div>
+			<Diff
+				filesVisible={filesVisible}
+				onFileSelection={selectFileAndScrollDiff}
+				onViewerFileSelection={selectFile}
+				outlineSelection={outlineSelection}
+				projectId={projectId}
+				viewerRef={viewerRef}
+			/>
 		</div>
 	);
 };
