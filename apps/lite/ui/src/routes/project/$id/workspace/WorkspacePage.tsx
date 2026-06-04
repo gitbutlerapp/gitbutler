@@ -540,8 +540,8 @@ const WorkspacePage: FC = () => {
 									aria-label="Rebase all"
 									className={getButtonClassName({ iconOnly: true })}
 									onClick={rebaseAllStacks}
-									// This is needed to ensure the `disabled` attribute is passed
-									// to the button element. Other props should be passed above.
+									// We pass `disabled` here because we want to disable the button, not
+									// the tooltip. Other props should be passed above.
 									render={<button type="button" disabled={!canRebaseAllStacks} />}
 								>
 									<Icon name="arrow-line-down" />

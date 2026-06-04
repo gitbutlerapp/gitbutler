@@ -1330,8 +1330,8 @@ const Changes: FC<{
 								render={(props, state) => (
 									<Tooltip.Trigger
 										{...props}
-										// This is needed to ensure the `disabled` attribute is passed
-										// to the button element. Other props should be passed above.
+										// We pass `disabled` here because we want to disable the button, not
+										// the tooltip. Other props should be passed above.
 										render={<button type="button" disabled={state.disabled} />}
 									/>
 								)}
@@ -1359,8 +1359,8 @@ const Changes: FC<{
 						<Tooltip.Root disabled={!canCommitOrAmend}>
 							<Tooltip.Trigger
 								className={getButtonClassName({})}
-								// This is needed to ensure the `disabled` attribute is passed
-								// to the button element. Other props should be passed above.
+								// We pass `disabled` here because we want to disable the button, not
+								// the tooltip. Other props should be passed above.
 								render={<button type="submit" disabled={!canCommitOrAmend} />}
 							>
 								{isAmendMode ? "Amend" : "Commit"}
