@@ -110,6 +110,7 @@ import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { initNonEmpty, isNonEmptyArray, scanRight } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import { Kbd } from "#ui/components/Kbd.tsx";
 import { changesHotkeys, outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { stackToBottomRebaseUpdate } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
@@ -886,6 +887,7 @@ const CommitRow: FC<
 			label: "Compose Commit Here",
 			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
 			onSelect: composeCommitHere,
+			enabled: outlineMode._tag === "Default",
 		}),
 		nativeMenuItem({
 			label: "Copy",
@@ -939,13 +941,9 @@ const CommitRow: FC<
 			operand={operand}
 			isHighlighted={isHighlighted}
 			onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
-			onContextMenu={
-				outlineMode._tag === "Default"
-					? (event) => {
-							void showNativeContextMenu(event, menuItems);
-						}
-					: undefined
-			}
+			onContextMenu={(event) => {
+				void showNativeContextMenu(event, menuItems);
+			}}
 		>
 			<span
 				className={styles.commitState}
@@ -1038,7 +1036,19 @@ const ChangesSectionRow: FC<{
 		enterAbsorbMode(operand, { type: "all" });
 	};
 
+	const composeCommitMessage = () => {
+		dispatch(projectActions.selectOutline({ projectId, selection: changesSectionOperand }));
+		focusCommitMessageInput();
+	};
+
 	const menuItems: Array<NativeMenuItem> = [
+		nativeMenuItem({
+			label: "Compose Commit Message",
+			accelerator: toElectronAccelerator(outlineHotkeys.editChangesCommitMessage.hotkey),
+			onSelect: composeCommitMessage,
+			enabled: outlineMode._tag === "Default",
+		}),
+		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Absorb",
 			accelerator: toElectronAccelerator(outlineHotkeys.absorb.hotkey),
@@ -1309,6 +1319,10 @@ const Changes: FC<{
 		},
 	]);
 
+	const focusCommitMessageHotkeyLabel = formatForDisplay(
+		outlineHotkeys.composeCommitMessage.hotkey,
+	);
+
 	return (
 		<TreeItem
 			projectId={projectId}
@@ -1328,7 +1342,7 @@ const Changes: FC<{
 					aria-label="Compose commit message"
 					disabled={outlineMode._tag !== "Default"}
 					readOnly={isCommitOrAmendPending}
-					placeholder="Commit message..."
+					placeholder={`Compose commit message ${focusCommitMessageHotkeyLabel}`}
 					className={classes("text-14", styles.commitTextarea)}
 					onFocus={selectChanges}
 					onKeyDown={(event) => {
@@ -1386,6 +1400,11 @@ const Changes: FC<{
 								render={<Button focusableWhenDisabled type="submit" disabled={!canCommitOrAmend} />}
 							>
 								{isAmendMode ? "Amend" : "Commit"}
+								<Kbd
+									hotkey={
+										isAmendMode ? changesHotkeys.amendCommit.hotkey : changesHotkeys.commit.hotkey
+									}
+								/>
 							</Tooltip.Trigger>
 							<Tooltip.Portal>
 								<Tooltip.Positioner sideOffset={4}>
@@ -1762,13 +1781,9 @@ const BranchRow: FC<
 			projectId={projectId}
 			operand={operand}
 			onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
-			onContextMenu={
-				outlineMode._tag === "Default"
-					? (event) => {
-							void showNativeContextMenu(event, menuItems);
-						}
-					: undefined
-			}
+			onContextMenu={(event) => {
+				void showNativeContextMenu(event, menuItems);
+			}}
 		>
 			{/* This will be replaced with a different icon. */}
 			<span
@@ -1887,13 +1902,9 @@ const StackRow: FC<
 			projectId={projectId}
 			operand={operand}
 			forceVisibleToolbar
-			onContextMenu={
-				outlineMode._tag === "Default"
-					? (event) => {
-							void showNativeContextMenu(event, menuItems);
-						}
-					: undefined
-			}
+			onContextMenu={(event) => {
+				void showNativeContextMenu(event, menuItems);
+			}}
 		>
 			<div className={workspaceItemRowStyles.itemRowLabel} />
 
