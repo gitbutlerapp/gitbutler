@@ -1039,7 +1039,19 @@ const ChangesSectionRow: FC<{
 		enterAbsorbMode(operand, { type: "all" });
 	};
 
+	const composeCommitMessage = () => {
+		dispatch(projectActions.selectOutline({ projectId, selection: changesSectionOperand }));
+		focusCommitMessageInput();
+	};
+
 	const menuItems: Array<NativeMenuItem> = [
+		nativeMenuItem({
+			label: "Compose Commit Message",
+			accelerator: toElectronAccelerator(outlineHotkeys.editChangesCommitMessage.hotkey),
+			onSelect: composeCommitMessage,
+			enabled: outlineMode._tag === "Default",
+		}),
+		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Absorb",
 			accelerator: toElectronAccelerator(outlineHotkeys.absorb.hotkey),
