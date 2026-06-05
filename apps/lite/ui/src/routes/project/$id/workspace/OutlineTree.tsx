@@ -55,6 +55,7 @@ import {
 	selectProjectOutlineModeState,
 	selectProjectSelectionOutline,
 } from "#ui/projects/state.ts";
+import { rewrittenCommitSelection } from "#ui/projects/workspace/state.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { OperationSourceLabel } from "#ui/routes/project/$id/workspace/OperationSourceLabel.tsx";
 import { OperationTarget } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
@@ -124,6 +125,35 @@ const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
 const AbsorptionTargetKeysContext = createContext<ReadonlySet<string> | null>(null);
 
+const isCommitDiscardBoundary = (operand: Operand): boolean =>
+	operand._tag === "Branch" || operand._tag === "Stack" || operand._tag === "ChangesSection";
+
+const selectAfterDiscardedCommit = ({
+	navigationIndex,
+	commit,
+}: {
+	navigationIndex: NavigationIndex<Operand>;
+	commit: CommitOperand;
+}): Operand | null => {
+	const commitIndex = navigationIndex.indexByKey.get(operandIdentityKey(commitOperand(commit)));
+	if (commitIndex === undefined) return null;
+
+	for (const item of navigationIndex.items.slice(commitIndex + 1)) {
+		if (isCommitDiscardBoundary(item)) break;
+		if (item._tag === "Commit" && item.commitId !== commit.commitId) return item;
+	}
+
+	for (const item of navigationIndex.items.slice(0, commitIndex).reverse()) {
+		if (isCommitDiscardBoundary(item)) break;
+		if (item._tag === "Commit" && item.commitId !== commit.commitId) return item;
+	}
+
+	for (const item of navigationIndex.items.slice(0, commitIndex + 1).reverse())
+		if (isCommitDiscardBoundary(item)) return item;
+
+	return null;
+};
+
 const useDryRunCommit = (commitId: string) => {
 	const dryRunWorkspace = use(DryRunWorkspaceContext);
 	if (!dryRunWorkspace) return null;
@@ -151,6 +181,7 @@ const useOutlineTreeHotkeys = ({
 		dispatch(projectActions.selectOutline({ projectId, selection: newItem }));
 
 	const commitMoveMutation = useCommitMove();
+	const commitDiscardMutation = useCommitDiscard();
 	const pushStackMutation = usePushStack();
 	const rebaseStackMutation = useRebaseStack({ projectId });
 
@@ -209,6 +240,37 @@ const useOutlineTreeHotkeys = ({
 			side: offset === -1 ? "above" : "below",
 			dryRun: false,
 		});
+	};
+
+	const deleteSelectedCommit = () => {
+		if (!selection || selection._tag !== "Commit") return;
+
+		const selectionAfterDiscard = selectAfterDiscardedCommit({
+			navigationIndex,
+			commit: { stackId: selection.stackId, commitId: selection.commitId },
+		});
+
+		commitDiscardMutation.mutate(
+			{
+				projectId,
+				subjectCommitId: selection.commitId,
+				dryRun: false,
+			},
+			{
+				onSuccess: (response) => {
+					dispatch(
+						projectActions.selectOutline({
+							projectId,
+							selection: rewrittenCommitSelection({
+								selection: selectionAfterDiscard,
+								replacedCommits: response.workspace.replacedCommits,
+								headInfo: response.workspace.headInfo,
+							}),
+						}),
+					);
+				},
+			},
+		);
 	};
 
 	const selectedPushContext = pushContextForSelection({ headInfo, selection });
@@ -346,6 +408,17 @@ const useOutlineTreeHotkeys = ({
 				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit,
 				target: ref,
 				meta: outlineHotkeys.amendCommit.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.deleteCommit.hotkey,
+			callback: deleteSelectedCommit,
+			options: {
+				conflictBehavior: "allow",
+				enabled:
+					defaultOutlineHotkeysEnabled && isSelectedCommit && !commitDiscardMutation.isPending,
+				target: ref,
+				meta: outlineHotkeys.deleteCommit.meta,
 			},
 		},
 		{
@@ -747,6 +820,7 @@ const CommitRow: FC<
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const dispatch = useAppDispatch();
+	const navigationIndex = assert(use(NavigationIndexContext));
 	const commitOperandV: CommitOperand = {
 		stackId,
 		commitId: commit.id,
@@ -793,11 +867,32 @@ const CommitRow: FC<
 	};
 
 	const deleteCommit = () => {
-		commitDiscardMutation.mutate({
-			projectId,
-			subjectCommitId: commit.id,
-			dryRun: false,
+		const selectionAfterDiscard = selectAfterDiscardedCommit({
+			navigationIndex,
+			commit: commitOperandV,
 		});
+
+		commitDiscardMutation.mutate(
+			{
+				projectId,
+				subjectCommitId: commit.id,
+				dryRun: false,
+			},
+			{
+				onSuccess: (response) => {
+					dispatch(
+						projectActions.selectOutline({
+							projectId,
+							selection: rewrittenCommitSelection({
+								selection: selectionAfterDiscard,
+								replacedCommits: response.workspace.replacedCommits,
+								headInfo: response.workspace.headInfo,
+							}),
+						}),
+					);
+				},
+			},
+		);
 	};
 
 	const cutCommit = () => {
@@ -925,6 +1020,7 @@ const CommitRow: FC<
 		nativeMenuItem({
 			label: "Delete Commit",
 			enabled: !commitDiscardMutation.isPending,
+			accelerator: toElectronAccelerator(outlineHotkeys.deleteCommit.hotkey),
 			onSelect: deleteCommit,
 		}),
 		nativeMenuItem({

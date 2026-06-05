@@ -180,19 +180,38 @@ const rewrittenCommitOperand = ({
 	return { stackId, commitId };
 };
 
+export const rewrittenCommitSelection = ({
+	selection,
+	replacedCommits,
+	headInfo,
+}: {
+	selection: Operand | null;
+	replacedCommits: Record<string, string>;
+	headInfo: RefInfo;
+}): Operand | null => {
+	if (selection?._tag !== "Commit") return selection;
+
+	const commit = rewrittenCommitOperand({
+		commit: selection,
+		replacedCommits,
+		headInfo,
+	});
+	if (!commit) return selection;
+
+	return commitOperand(commit);
+};
+
 export const updateRewrittenCommitReferences = (
 	state: WorkspaceState,
 	replacedCommits: Record<string, string>,
 	headInfo: RefInfo,
 ) => {
-	if (state.selection.outline?._tag === "Commit") {
-		const commit = rewrittenCommitOperand({
-			commit: state.selection.outline,
-			replacedCommits,
-			headInfo,
-		});
-		if (commit) state.selection.outline = commitOperand(commit);
-	}
+	const commit = rewrittenCommitSelection({
+		selection: state.selection.outline,
+		replacedCommits,
+		headInfo,
+	});
+	if (commit) state.selection.outline = commit;
 
 	if (state.selection.files?.parent._tag === "Commit") {
 		const commit = rewrittenCommitOperand({
