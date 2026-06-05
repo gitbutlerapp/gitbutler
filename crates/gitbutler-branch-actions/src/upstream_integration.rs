@@ -297,6 +297,7 @@ fn stacks(
     but_workspace::legacy::stacks_v3(
         repo,
         &meta,
+        &ctx.project_meta()?,
         but_workspace::legacy::StacksFilter::InWorkspace,
         None,
     )

@@ -23,6 +23,7 @@ fn can_create_worktree_from_feature_a() -> anyhow::Result<()> {
         let stacks = stacks_v3(
             &*test_ctx.ctx.repo.get()?,
             &meta,
+            &test_ctx.ctx.project_meta()?,
             StacksFilter::InWorkspace,
             None,
         )?;
@@ -77,6 +78,7 @@ fn can_create_worktree_from_feature_b() -> anyhow::Result<()> {
         let stacks = stacks_v3(
             &*test_ctx.ctx.repo.get()?,
             &meta,
+            &test_ctx.ctx.project_meta()?,
             StacksFilter::InWorkspace,
             None,
         )?;
@@ -131,6 +133,7 @@ fn can_create_worktree_from_feature_c() -> anyhow::Result<()> {
         let stacks = stacks_v3(
             &*test_ctx.ctx.repo.get()?,
             &meta,
+            &test_ctx.ctx.project_meta()?,
             StacksFilter::InWorkspace,
             None,
         )?;

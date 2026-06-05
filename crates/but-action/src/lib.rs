@@ -190,6 +190,7 @@ fn stacks(ctx: &Context, repo: &gix::Repository) -> anyhow::Result<Vec<StackEntr
     but_workspace::legacy::stacks_v3(
         repo,
         &meta,
+        &ctx.project_meta()?,
         but_workspace::legacy::StacksFilter::InWorkspace,
         None,
     )

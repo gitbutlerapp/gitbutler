@@ -170,6 +170,7 @@ fn try_from_stack_v3(
 pub fn stacks_v3(
     repo: &gix::Repository,
     meta: &impl RefMetadata,
+    project_meta: &ProjectMeta,
     filter: StacksFilter,
     ref_name_override: Option<&gix::refs::FullNameRef>,
 ) -> anyhow::Result<Vec<StackEntry>> {
@@ -227,6 +228,7 @@ pub fn stacks_v3(
     }
 
     let options = ref_info::Options {
+        project_meta: project_meta.clone(),
         expensive_commit_info: false,
         traversal: but_graph::init::Options::limited(),
         ..Default::default()

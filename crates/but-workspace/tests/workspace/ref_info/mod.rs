@@ -34,7 +34,15 @@ pub fn stacks_v3(
     filter: StacksFilter,
     ref_name_override: Option<&gix::refs::FullNameRef>,
 ) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
-    but_workspace::legacy::stacks_v3(repo, meta, filter, ref_name_override)
+    but_workspace::legacy::stacks_v3(
+        repo,
+        meta,
+        &meta
+            .workspace(WORKSPACE_REF_NAME.try_into()?)?
+            .project_meta(),
+        filter,
+        ref_name_override,
+    )
 }
 
 #[deprecated(

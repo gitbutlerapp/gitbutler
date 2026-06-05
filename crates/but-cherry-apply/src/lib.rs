@@ -27,10 +27,7 @@
 )]
 
 use anyhow::{Context as _, Result, bail};
-use but_core::{
-    RefMetadata as _, RepositoryExt, WORKSPACE_REF_NAME,
-    ref_metadata::{StackId, StackKind},
-};
+use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
@@ -65,17 +62,13 @@ pub fn cherry_apply_status(
         .with_object_memory();
 
     let meta = ctx.legacy_meta()?;
-    let workspace_ref_name = WORKSPACE_REF_NAME.try_into()?;
-    let has_applied_stacks = meta
-        .workspace(workspace_ref_name)?
-        .stacks(StackKind::Applied)
-        .next()
-        .is_some();
-    if !has_applied_stacks {
-        return Ok(CherryApplyStatus::NoStacks);
-    }
-
-    let stacks = stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)?;
+    let stacks = stacks_v3(
+        &repo,
+        &meta,
+        &ctx.project_meta()?,
+        StacksFilter::InWorkspace,
+        None,
+    )?;
 
     if stacks.is_empty() {
         return Ok(CherryApplyStatus::NoStacks);

@@ -90,7 +90,7 @@ pub(crate) fn stacks_v3_from_ctx(
     // Only prefer a workspace-like ref during edit mode. When HEAD points at
     // `gitbutler/edit`, querying stacks from HEAD would produce entries without stack IDs
     // because the edit branch itself is not part of the workspace metadata.
-    but_workspace::legacy::stacks_v3(&repo, &meta, filter, workspace_ref)
+    but_workspace::legacy::stacks_v3(&repo, &meta, &ctx.project_meta()?, filter, workspace_ref)
 }
 
 #[cfg(unix)]

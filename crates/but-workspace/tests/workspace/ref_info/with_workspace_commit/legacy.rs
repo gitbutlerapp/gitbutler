@@ -57,6 +57,12 @@ mod stacks {
                         review_id: None,
                         is_checked_out: false,
                     },
+                    StackHeadInfo {
+                        name: "A",
+                        tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                        review_id: None,
+                        is_checked_out: false,
+                    },
                 ],
                 tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
                 order: None,
@@ -70,6 +76,12 @@ mod stacks {
                     StackHeadInfo {
                         name: "B-on-A",
                         tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                        review_id: None,
+                        is_checked_out: false,
+                    },
+                    StackHeadInfo {
+                        name: "A",
+                        tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
                         review_id: None,
                         is_checked_out: false,
                     },
@@ -96,6 +108,12 @@ mod stacks {
                         review_id: None,
                         is_checked_out: false,
                     },
+                    StackHeadInfo {
+                        name: "A",
+                        tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                        review_id: None,
+                        is_checked_out: false,
+                    },
                 ],
                 tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
                 order: None,
@@ -109,6 +127,12 @@ mod stacks {
                     StackHeadInfo {
                         name: "B-on-A",
                         tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                        review_id: None,
+                        is_checked_out: false,
+                    },
+                    StackHeadInfo {
+                        name: "A",
+                        tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
                         review_id: None,
                         is_checked_out: false,
                     },
@@ -135,31 +159,15 @@ mod stacks {
                 ),
                 heads: [
                     StackHeadInfo {
-                        name: "C-on-A",
-                        tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                        name: "A",
+                        tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
                         review_id: None,
-                        is_checked_out: false,
+                        is_checked_out: true,
                     },
                 ],
                 tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
                 order: None,
-                is_checked_out: false,
-            },
-            StackEntry {
-                id: Some(
-                    00000000-0000-0000-0000-000000000001,
-                ),
-                heads: [
-                    StackHeadInfo {
-                        name: "B-on-A",
-                        tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
-                        review_id: None,
-                        is_checked_out: false,
-                    },
-                ],
-                tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
-                order: None,
-                is_checked_out: false,
+                is_checked_out: true,
             },
         ]
         "#);
