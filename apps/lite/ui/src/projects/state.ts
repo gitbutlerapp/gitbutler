@@ -163,6 +163,17 @@ const projectSlice = createSlice({
 			const { projectId, commitId, checked } = action.payload;
 			workspace.setCommitChecked(ensureProjectState(state, projectId).workspace, commitId, checked);
 		},
+		setCommitsChecked: (
+			state,
+			action: PayloadAction<{ projectId: string; commitIds: Array<string>; checked: boolean }>,
+		) => {
+			const { projectId, commitIds, checked } = action.payload;
+			workspace.setCommitsChecked(
+				ensureProjectState(state, projectId).workspace,
+				commitIds,
+				checked,
+			);
+		},
 		clearCheckedCommits: (state, action: PayloadAction<{ projectId: string }>) => {
 			workspace.clearCheckedCommits(ensureProjectState(state, action.payload.projectId).workspace);
 		},

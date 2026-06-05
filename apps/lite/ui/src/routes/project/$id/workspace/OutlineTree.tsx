@@ -230,6 +230,18 @@ const useOutlineTreeHotkeys = ({
 		);
 	};
 
+	const toggleSelectedBranchChecked = () => {
+		if (!selectedBranchSegment) return;
+
+		dispatch(
+			projectActions.setCommitsChecked({
+				projectId,
+				commitIds: selectedBranchSegment.commits.map((commit) => commit.id),
+				checked: !selectedBranchChecked,
+			}),
+		);
+	};
+
 	const clearCheckedCommits = () => {
 		dispatch(projectActions.clearCheckedCommits({ projectId }));
 	};
@@ -301,6 +313,20 @@ const useOutlineTreeHotkeys = ({
 		selection && "stackId" in selection
 			? headInfo?.stacks.find((stack) => stack.id === selection.stackId)
 			: undefined;
+	const selectedBranchSegment =
+		selection?._tag === "Branch"
+			? selectedStack?.segments.find(
+					(segment) =>
+						!!segment.refName && refNamesEqual(segment.refName.fullNameBytes, selection.branchRef),
+				)
+			: undefined;
+	const selectedBranchChecked = useAppSelector((state) =>
+		selectedBranchSegment && selectedBranchSegment.commits.length > 0
+			? selectedBranchSegment.commits.every((commit) =>
+					selectProjectCommitChecked(state, projectId, commit.id),
+				)
+			: false,
+	);
 	const selectedStackRebaseUpdate = selectedStack ? stackToBottomRebaseUpdate(selectedStack) : null;
 
 	const pushSelectedBranch = () => {
@@ -326,6 +352,7 @@ const useOutlineTreeHotkeys = ({
 
 	const defaultOutlineHotkeysEnabled = outlineMode._tag === "Default";
 	const isSelectedCommit = selection?._tag === "Commit";
+	const isSelectedBranch = selection?._tag === "Branch";
 	const isSelectedChanges = selection?._tag === "ChangesSection";
 	const canPushSelectedBranch =
 		!!selectedPushContext &&
@@ -441,6 +468,16 @@ const useOutlineTreeHotkeys = ({
 				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit,
 				target: ref,
 				meta: outlineHotkeys.checkCommit.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.checkBranchCommits.hotkey,
+			callback: toggleSelectedBranchChecked,
+			options: {
+				conflictBehavior: "allow",
+				enabled: defaultOutlineHotkeysEnabled && isSelectedBranch,
+				target: ref,
+				meta: outlineHotkeys.checkBranchCommits.meta,
 			},
 		},
 		{
