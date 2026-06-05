@@ -1332,7 +1332,7 @@ const Changes: FC<{
 					aria-label="Compose commit message"
 					disabled={outlineMode._tag !== "Default"}
 					readOnly={isCommitOrAmendPending}
-					placeholder={`Commit message… ${focusCommitMessageHotkeyLabel}`}
+					placeholder={`Compose commit message ${focusCommitMessageHotkeyLabel}`}
 					className={classes("text-14", styles.commitTextarea)}
 					onFocus={selectChanges}
 					onKeyDown={(event) => {
