@@ -35,11 +35,15 @@ import type {
 	DiffHunk,
 	TreeChange,
 	TreeChanges,
+	UnifiedPatch,
 	WorktreeChanges,
 } from "@gitbutler/but-sdk";
-import { parsePatchFiles } from "@pierre/diffs";
-import { type CodeView as CodeViewClass } from "@pierre/diffs";
-import { CodeView, type CodeViewDiffItem, type CodeViewHandle } from "@pierre/diffs/react";
+import {
+	type CodeViewDiffItem,
+	type CodeView as CodeViewClass,
+	parsePatchFiles,
+} from "@pierre/diffs";
+import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Hash, Match } from "effect";
@@ -256,16 +260,26 @@ const DiffContents: FC<{
 		Match.orElseAbsurd,
 	);
 
-	const items = Array.zip(changes, treeChangeDiffs).flatMap(
-		([change, mdiff]) =>
-			Match.value(mdiff).pipe(
-				Match.when({ type: "Patch" }, (patch) =>
-					mkCodeViewItem(change, changesetKey, patch.subject.hunks),
-				),
-				Match.when({ type: "Binary" }, () => mkCodeViewItem(change, changesetKey, [])),
-				Match.orElse(() => null),
-			) ?? [],
-	);
+	// CodeView only gives us back the CodeViewItem in custom renders, however we need this prior data
+	// hence a reverse map by ID.
+	const itemsMetadataMap = new Map<string, [TreeChange, UnifiedPatch]>();
+
+	const items = Array.zip(changes, treeChangeDiffs).flatMap(([change, mdiff]) => {
+		if (!mdiff) return [];
+
+		const mitem = Match.value(mdiff).pipe(
+			Match.when({ type: "Patch" }, (patch) =>
+				mkCodeViewItem(change, changesetKey, patch.subject.hunks),
+			),
+			Match.when({ type: "Binary" }, () => mkCodeViewItem(change, changesetKey, [])),
+			Match.orElse(() => null),
+		);
+		if (!mitem) return [];
+
+		itemsMetadataMap.set(mitem.id, [change, mdiff]);
+
+		return mitem;
+	});
 
 	const selectFileAtViewportTop = (scrollTop: number, viewer: CodeViewClass<undefined>) => {
 		const activeItem = viewer
@@ -287,8 +301,27 @@ const DiffContents: FC<{
 	) : (
 		<CodeView
 			ref={viewerRef}
+			renderCustomHeader={(item) => {
+				if (item.type === "file") throw new Error("Only diff items may be rendered");
+
+				const path = itemsMetadataMap.get(item.id)?.[0].path;
+				if (path === undefined) throw new Error("Missing item ID in metadata map");
+
+				return (
+					<DiffFileHeader
+						projectId={projectId}
+						item={item}
+						operand={fileOperand({
+							parent: fileParent,
+							path,
+						})}
+						path={path}
+						hasDiff={item.fileDiff.hunks.length !== 0}
+					/>
+				);
+			}}
 			onScroll={selectFileAtViewportTop}
-			className={classes(styles.diffContents, uiStyles.scrollerWithSeparator)}
+			className={styles.diffContents}
 			items={items}
 			options={{
 				diffStyle: "unified",
@@ -299,8 +332,55 @@ const DiffContents: FC<{
 					paddingBottom: 0,
 					gap: 10,
 				},
+				// This appears to validate before our custom header has been slotted, in which case - if
+				// our metrics are correct - we should see deltas in multiples of our custom header height
+				// as defined in the metrics. We'll see an additional set of logs if there are other issues
+				// with our metrics.
+				__devOnlyValidateItemHeights: false,
+				itemMetrics: {
+					// Computed custom header height.
+					diffHeaderHeight: 38,
+				},
 			}}
 		/>
+	);
+};
+
+type DiffFileHeaderProps = {
+	projectId: string;
+	item: CodeViewDiffItem;
+	operand: Operand;
+	path: string;
+	hasDiff: boolean;
+};
+
+const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
+	const lastSepIdx = p.path.lastIndexOf("/");
+	const mpathInit = lastSepIdx !== -1 ? p.path.slice(0, lastSepIdx + 1) : null;
+	const pathLast = lastSepIdx !== -1 ? p.path.slice(lastSepIdx + 1) : p.path;
+
+	const changeType = Match.value(p.item.fileDiff.type).pipe(
+		Match.when("new", () => "Added"),
+		Match.whenOr("change", "rename-changed", () => "Modified"),
+		Match.when("rename-pure", () => "Renamed"),
+		Match.when("deleted", () => "Deleted"),
+		Match.exhaustive,
+	);
+
+	return (
+		<OperationSourceC projectId={p.projectId} source={p.operand} selectionScope="diff">
+			<header className={classes(styles.fileHeader, !p.hasDiff && styles.lone)}>
+				<h4 className={classes("text-13", styles.filePath)}>
+					{mpathInit}
+					<span className={styles.pathLast}>{pathLast}</span>
+				</h4>
+				<span>{changeType}</span>
+				<span>
+					<span className={styles.fileDiffAdded}>+{p.item.fileDiff.additionLines.length}</span>{" "}
+					<span className={styles.fileDiffDeleted}>-{p.item.fileDiff.deletionLines.length}</span>
+				</span>
+			</header>
+		</OperationSourceC>
 	);
 };
 
