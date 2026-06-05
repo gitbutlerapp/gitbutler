@@ -327,13 +327,13 @@
 	display: grid;
 	justify-content: center;
 	inline-size: 14px;
-	margin-block-start: 5px;
+	margin-block-start: 3px;
 }
 
 .commitStateIcon {
 	aspect-ratio: 1;
-	inline-size: 8px;
-	block-size: 8px;
+	inline-size: 10px;
+	block-size: 10px;
 	border: 1.5px solid var(--commit-status-color);
 	border-radius: 50%;
 }
