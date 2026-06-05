@@ -110,6 +110,7 @@ import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { initNonEmpty, isNonEmptyArray, scanRight } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import { Kbd } from "#ui/components/Kbd.tsx";
 import { changesHotkeys, outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
 import { stackToBottomRebaseUpdate } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
@@ -1390,6 +1391,11 @@ const Changes: FC<{
 								render={<Button focusableWhenDisabled type="submit" disabled={!canCommitOrAmend} />}
 							>
 								{isAmendMode ? "Amend" : "Commit"}
+								<Kbd
+									hotkey={
+										isAmendMode ? changesHotkeys.amendCommit.hotkey : changesHotkeys.commit.hotkey
+									}
+								/>
 							</Tooltip.Trigger>
 							<Tooltip.Portal>
 								<Tooltip.Positioner sideOffset={4}>
