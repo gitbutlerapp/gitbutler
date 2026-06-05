@@ -14,7 +14,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, bail};
-use but_api::{commit, diff, github, gitlab, legacy, open, platform, workspace};
+use but_api::{branch, commit, diff, github, gitlab, legacy, open, platform, workspace};
 #[cfg(feature = "irc")]
 use but_irc::IrcManager;
 use but_settings::AppSettingsWithDiskSync;
@@ -358,6 +358,8 @@ fn main() -> anyhow::Result<()> {
                 legacy::virtual_branches::tauri_upstream_integration_statuses::upstream_integration_statuses,
                 legacy::virtual_branches::tauri_integrate_upstream::integrate_upstream,
                 legacy::virtual_branches::tauri_resolve_upstream_integration::resolve_upstream_integration,
+                branch::tauri_get_initial_branch_integration::get_initial_branch_integration,
+                branch::tauri_apply_branch_integration::apply_branch_integration,
                 legacy::stack::tauri_create_reference::create_reference,
                 legacy::stack::tauri_create_branch::create_branch,
                 legacy::stack::tauri_remove_branch::remove_branch,

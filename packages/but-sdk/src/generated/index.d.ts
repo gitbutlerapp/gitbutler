@@ -28,6 +28,16 @@ export declare function absorptionPlan(projectId: string, target: AbsorptionTarg
 export declare function apply(projectId: string, existingBranch: string): Promise<ApplyOutcome>
 
 /**
+ * Apply `integration` to `branch`.
+ *
+ * This acquires exclusive worktree access from `ctx`, applies the integration
+ * steps to the branch, and records an oplog snapshot on success. When
+ * `dry_run` is enabled, the returned workspace previews the integration
+ * result and no oplog entry is persisted.
+ */
+export declare function applyBranchIntegration(projectId: string, branch: string, integration: InteractiveIntegration, dryRun: boolean): Promise<IntegrateBranchResult>
+
+/**
  * Persists `assignments` for the current workspace and records an oplog
  * snapshot on success.
  *
@@ -200,6 +210,9 @@ export declare function commitUncommitChanges(projectId: string, commitId: strin
  * This is determined by the forge the base branch is pointing to.
  */
 export declare function forgeProvider(projectId: string): Promise<ForgeName | null>
+
+/** Get the initial upstream integration script for `branch`. */
+export declare function getInitialBranchIntegration(projectId: string, branch: string, strategy: BranchIntegrationStrategy | null): Promise<InitialBranchIntegration>
 
 /**
  * Get the snapshot that a redo operation should restore to.
@@ -602,6 +615,9 @@ export type BranchDetails = {
  *   name of the virtual branch.
  */
 export type BranchIdentity = string;
+
+/** JSON transport type for the preset used to generate initial branch integration steps. */
+export type BranchIntegrationStrategy = "pullRebase" | "merge" | "pickRemote" | "smartSquash";
 
 /**
  * Represents a branch that exists for the repository
@@ -1306,6 +1322,12 @@ export type HeadSha = {
   headSha: string;
 };
 
+/**
+ * A type that deserializes a hexadecimal hash into a string, unchanged.
+ * This is to workaround `schemars` which doesn't (always) work with transformations.
+ */
+export type HexHashString = string;
+
 export type HunkAssignment = {
   /**
    * A stable identifier for the hunk assignment.
@@ -1432,12 +1454,94 @@ export type IgnoredWorktreeChange = {
 /** The status we can't handle, which always originated in the worktree. */
 export type IgnoredWorktreeTreeChangeStatus = "Conflict" | "TreeIndex" | "TreeIndexWorktreeChangeIneffective";
 
+/** JSON transport type for the initial branch integration proposal. */
+export type InitialBranchIntegration = {
+  /** The editable execution plan for integrating the branch upstream. */
+  integration: InteractiveIntegration;
+  /** The current divergence between local branch and upstream for display. */
+  divergence: IntegrationDivergenceDisplay;
+};
+
 /** Describes where relative to the selector a step should be inserted */
 export type InsertSide = "above" | "below";
+
+/** JSON transport type for integrating a branch. */
+export type IntegrateBranchResult = {
+  /** Workspace state after applying or previewing the integration. */
+  workspace: WorkspaceState;
+};
+
+/** JSON transport type for a divergence commit row. */
+export type IntegrationDivergenceCommit = {
+  /** The commit shown in the graph row. */
+  id: HexHashString;
+  /** The first-line subject shown for the commit. */
+  subject: string;
+  /** The explicit GitButler Change-Id stored in the commit headers, if present. */
+  changeId: string | null;
+  /** Commit creation time in Epoch milliseconds. */
+  createdAt: number;
+  /** The author of the commit. */
+  author: Author;
+  /** Human-facing ref labels rendered inline on the commit row. */
+  refs: Array<string>;
+  /** How this commit relates to the configured target branch. */
+  targetRelation: IntegrationDivergenceTargetRelation;
+};
+
+/** JSON transport type for current branch/upstream divergence information. */
+export type IntegrationDivergenceDisplay = {
+  /** The local branch being integrated. */
+  branchRefName: FullRefName;
+  /** The upstream branch this local branch integrates with. */
+  upstreamRefName: FullRefName;
+  /** Commits only reachable from the local branch tip down to the shared section. */
+  localOnly: Array<IntegrationDivergenceCommit>;
+  /** Commits only reachable from the upstream branch tip down to the shared section. */
+  upstreamOnly: Array<IntegrationDivergenceCommit>;
+  /** The merge-base row shown once at the bottom. */
+  mergeBase: IntegrationDivergenceCommit;
+};
+
+/** JSON transport type for a divergence commit row. */
+export type IntegrationDivergenceTargetRelation = {
+  kind: "notIntegrated";
+} | {
+  /** The target branch commit that establishes the relation. */
+  targetCommitId: HexHashString;
+  kind: "historicallyIntegrated";
+};
 
 export type IntegrationOutcome = {
   /** The list of branches that have been deleted as a result of the upstream integration */
   deletedBranches: Array<string>;
+};
+
+/** JSON transport type describing an interactive branch integration plan. */
+export type InteractiveIntegration = {
+  /** Merge base between the upstream and the local reference. */
+  mergeBase: HexHashString;
+  /** The first parent-to-child local commit that is not historically integrated into target. */
+  firstLocalNotIntegrated: HexHashString | null;
+  /** The ordered integration steps to apply. */
+  steps: Array<InteractiveIntegrationStep>;
+};
+
+/** JSON transport type for a branch integration step. */
+export type InteractiveIntegrationStep = {
+  /** The local commit to keep in the rewritten branch. */
+  commitId: HexHashString;
+  kind: "pick";
+} | {
+  /** The ordered commits to squash together. */
+  commits: Array<HexHashString>;
+  /** Optional replacement message for the squash commit. */
+  message: string | null;
+  kind: "squash";
+} | {
+  /** The commit whose change range should be merged. */
+  commitId: HexHashString;
+  kind: "merge";
 };
 
 export type IrcConnectionSettings = {

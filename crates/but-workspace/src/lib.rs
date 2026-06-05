@@ -44,6 +44,8 @@ pub use tree_manipulation::discard_worktree_changes::discard_workspace_changes;
 pub mod branch;
 
 mod changeset;
+mod divergence;
+pub use divergence::resolve_tracking_branch_ref_name;
 mod graph_manipulation;
 
 /// Utility types for the [`WorkspaceCommit`].

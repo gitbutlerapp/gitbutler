@@ -16,6 +16,7 @@ use but_rebase::{
 };
 
 use crate::changeset::compute_similarity_by_commit_ids;
+use crate::graph_manipulation::traverse_nodes;
 
 /// Whether a bottom most commit should be rebased, or a merge commit should be
 /// created at the top of the commit run.
@@ -461,23 +462,4 @@ fn commit_ids<'ws, 'meta, M: RefMetadata>(
                 .transpose()
         })
         .collect()
-}
-
-/// Find all the parent nodes from and including the provided tip.
-fn traverse_nodes<'ws, 'meta, M: RefMetadata>(
-    editor: &Editor<'ws, 'meta, M>,
-    tip: Selector,
-) -> Result<HashSet<Selector>> {
-    let mut seen = HashSet::from([tip]);
-    let mut tips = vec![tip];
-
-    while let Some(tip) = tips.pop() {
-        for (parent, _) in editor.direct_parents(tip)? {
-            if seen.insert(parent) {
-                tips.push(parent);
-            }
-        }
-    }
-
-    Ok(seen)
 }
