@@ -325,13 +325,13 @@ const useOutlineTreeHotkeys = ({
 			Match.tag(
 				"ChangesSection",
 				(): UseHotkeyDefinition => ({
-					hotkey: outlineHotkeys.editChangesCommitMessage.hotkey,
+					hotkey: outlineHotkeys.composeCommitMessageFromChanges.hotkey,
 					callback: focusCommitMessageInput,
 					options: {
 						conflictBehavior: "allow",
 						enabled: defaultOutlineHotkeysEnabled,
 						target: ref,
-						meta: outlineHotkeys.editChangesCommitMessage.meta,
+						meta: outlineHotkeys.composeCommitMessageFromChanges.meta,
 					},
 				}),
 			),
@@ -1050,7 +1050,7 @@ const ChangesSectionRow: FC<{
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: "Compose Commit Message",
-			accelerator: toElectronAccelerator(outlineHotkeys.editChangesCommitMessage.hotkey),
+			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitMessageFromChanges.hotkey),
 			onSelect: composeCommitMessage,
 			enabled: outlineMode._tag === "Default",
 		}),
