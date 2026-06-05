@@ -257,6 +257,8 @@ const useOutlineTreeHotkeys = ({
 		selectionScope: "outline",
 		select,
 		selection,
+		getKey: operandIdentityKey,
+		operationSourceForItem: (operand) => operand,
 		selectSectionPredicate: (operand) =>
 			operand._tag === "Branch" || operand._tag === "ChangesSection" || operand._tag === "Stack",
 	});
@@ -545,7 +547,11 @@ const useIsSelected = ({
 	const navigationIndex = assert(use(NavigationIndexContext));
 	return useAppSelector((state) => {
 		const selectionState = selectProjectSelectionOutline(state, projectId);
-		const selection = resolveNavigationIndexSelection(navigationIndex, selectionState);
+		const selection = resolveNavigationIndexSelection(
+			navigationIndex,
+			selectionState,
+			operandIdentityKey,
+		);
 
 		return selection ? operandEquals(selection, operand) : false;
 	});

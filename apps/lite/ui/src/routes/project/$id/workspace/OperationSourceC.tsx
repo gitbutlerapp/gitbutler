@@ -77,9 +77,15 @@ export const OperationSourceC: FC<
 			onDragStart: () => {
 				Match.value(selectionScope).pipe(
 					Match.when("diff", () => {}),
-					Match.when("files", () =>
-						dispatch(projectActions.selectFiles({ projectId, selection: source })),
-					),
+					Match.when("files", () => {
+						if (source._tag !== "File") return;
+						dispatch(
+							projectActions.selectFiles({
+								projectId,
+								selection: { parent: source.parent, path: source.path },
+							}),
+						);
+					}),
 					Match.when("outline", () =>
 						dispatch(projectActions.selectOutline({ projectId, selection: source })),
 					),

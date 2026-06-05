@@ -3,11 +3,14 @@ import { refNamesEqual } from "#ui/api/ref-name.ts";
 import { AbsorptionTarget, type RefInfo, type RelativeTo } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import {
+	branchFileParent,
 	branchOperand,
+	commitFileParent,
 	commitOperand,
 	operandEquals,
 	type BranchOperand,
 	type CommitOperand,
+	type FileOperand,
 	type Operand,
 } from "#ui/operands.ts";
 import {
@@ -26,7 +29,7 @@ import { findCommitStackId } from "#ui/api/ref-info.ts";
 
 export type SelectionState = {
 	outline: Operand | null;
-	files: Operand | null;
+	files: FileOperand | null;
 };
 
 const createInitialSelectionState = (): SelectionState => ({
@@ -147,7 +150,7 @@ export const selectOutline = (state: WorkspaceState, selection: Operand | null) 
 		exitMode(state);
 };
 
-export const selectFiles = (state: WorkspaceState, selection: Operand | null) => {
+export const selectFiles = (state: WorkspaceState, selection: FileOperand | null) => {
 	state.selection.files = selection;
 };
 
@@ -191,13 +194,17 @@ export const updateRewrittenCommitReferences = (
 		if (commit) state.selection.outline = commitOperand(commit);
 	}
 
-	if (state.selection.files?._tag === "Commit") {
+	if (state.selection.files?.parent._tag === "Commit") {
 		const commit = rewrittenCommitOperand({
-			commit: state.selection.files,
+			commit: state.selection.files.parent,
 			replacedCommits,
 			headInfo,
 		});
-		if (commit) state.selection.files = commitOperand(commit);
+		if (commit)
+			state.selection.files = {
+				parent: commitFileParent(commit),
+				path: state.selection.files.path,
+			};
 	}
 
 	if (state.commitTarget?.type === "commit") {
@@ -235,10 +242,13 @@ export const updateRewrittenBranchReferences = (
 		state.selection.outline = newBranchOperand;
 
 	if (
-		state.selection.files?._tag === "Branch" &&
-		operandEquals(state.selection.files, oldBranchOperand)
+		state.selection.files?.parent._tag === "Branch" &&
+		operandEquals(branchOperand(state.selection.files.parent), oldBranchOperand)
 	)
-		state.selection.files = newBranchOperand;
+		state.selection.files = {
+			parent: branchFileParent(newBranch),
+			path: state.selection.files.path,
+		};
 
 	if (
 		state.commitTarget?.type === "referenceBytes" &&
@@ -261,7 +271,7 @@ export const startRewordCommit = (state: WorkspaceState, commit: CommitOperand) 
 export const selectSelectionOutlineState = (state: WorkspaceState): Operand | null =>
 	state.selection.outline;
 
-export const selectSelectionFilesState = (state: WorkspaceState): Operand | null =>
+export const selectSelectionFilesState = (state: WorkspaceState): FileOperand | null =>
 	state.selection.files;
 
 export const selectMode = (state: WorkspaceState): OutlineMode => state.mode;
