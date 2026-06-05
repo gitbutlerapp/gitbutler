@@ -156,6 +156,13 @@ const projectSlice = createSlice({
 			const { projectId, commitIds } = action.payload;
 			workspace.setHighlightedCommitIds(ensureProjectState(state, projectId).workspace, commitIds);
 		},
+		setCommitChecked: (
+			state,
+			action: PayloadAction<{ projectId: string; commitId: string; checked: boolean }>,
+		) => {
+			const { projectId, commitId, checked } = action.payload;
+			workspace.setCommitChecked(ensureProjectState(state, projectId).workspace, commitId, checked);
+		},
 		setCommitTarget: (
 			state,
 			action: PayloadAction<{ projectId: string; commitTarget: RelativeTo | null }>,
@@ -235,6 +242,9 @@ export const selectProjectOutlineModeState = (state: RootState, projectId: strin
 
 export const selectProjectHighlightedCommitIds = (state: RootState, projectId: string) =>
 	workspace.selectHighlightedCommitIds(selectProjectWorkspaceState(state, projectId));
+
+export const selectProjectCommitChecked = (state: RootState, projectId: string, commitId: string) =>
+	workspace.selectCommitChecked(selectProjectWorkspaceState(state, projectId), commitId);
 
 export const selectProjectCommitTarget = (state: RootState, projectId: string) =>
 	workspace.selectCommitTarget(selectProjectWorkspaceState(state, projectId));

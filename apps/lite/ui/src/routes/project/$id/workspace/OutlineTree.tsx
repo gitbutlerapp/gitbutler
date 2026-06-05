@@ -50,6 +50,7 @@ import {
 } from "#ui/selection-scopes.ts";
 import {
 	projectActions,
+	selectProjectCommitChecked,
 	selectProjectCommitTarget,
 	selectProjectHighlightedCommitIds,
 	selectProjectOutlineModeState,
@@ -847,6 +848,9 @@ const CommitRow: FC<
 	const isHighlighted = useAppSelector((state) =>
 		selectProjectHighlightedCommitIds(state, projectId).includes(commit.id),
 	);
+	const isChecked = useAppSelector((state) =>
+		selectProjectCommitChecked(state, projectId, commit.id),
+	);
 	const dryRunCommit = useDryRunCommit(commit.id);
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
@@ -1081,9 +1085,13 @@ const CommitRow: FC<
 			<Checkbox
 				disabled={outlineMode._tag !== "Default"}
 				aria-label={`Check commit ${commitTitle(commitWithOptimisticMessage.message)}`}
+				checked={isChecked}
 				className={styles.commitCheckbox}
 				nativeButton
 				render={<button type="button" />}
+				onCheckedChange={(checked) => {
+					dispatch(projectActions.setCommitChecked({ projectId, commitId: commit.id, checked }));
+				}}
 			/>
 
 			<span
