@@ -4,18 +4,19 @@
 	import type { Commit } from "@gitbutler/but-sdk";
 
 	type Props = {
+		projectId: string;
 		commits: Commit[];
 		prNumber: number | undefined;
 		reviewId: string | undefined;
 	};
 
-	const { commits, prNumber, reviewId }: Props = $props();
+	const { projectId, commits, prNumber, reviewId }: Props = $props();
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 
 	const branchEmpty = $derived(commits.length === 0);
 	const prService = $derived(forge.current.prService);
-	const prQuery = $derived(prNumber ? prService?.get(prNumber) : undefined);
+	const prQuery = $derived(prNumber ? prService?.get(projectId, prNumber) : undefined);
 	const pr = $derived(prQuery?.response);
 
 	const canPublishPR = $derived(forge.current.authenticated && !pr);

@@ -294,7 +294,7 @@
 			</ContextMenuSection>
 		{/if}
 		{#if prNumber}
-			{@const prQuery = forge.current.prService?.get(prNumber)}
+			{@const prQuery = forge.current.prService?.get(projectId, prNumber)}
 			<ReduxResult {projectId} {stackId} result={prQuery?.result}>
 				{#snippet children(pr)}
 					<ContextMenuSection>

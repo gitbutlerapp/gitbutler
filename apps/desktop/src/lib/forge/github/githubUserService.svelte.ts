@@ -1,6 +1,7 @@
 import { providesItem, providesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { BackendApi } from "$lib/state/backendApi";
+import type { ReactiveQuery } from "$lib/state/butlerModule";
 import type {
 	GithubAccountIdentifier,
 	GithubAuthStatusResponseSensitive,
@@ -133,8 +134,11 @@ export class GitHubUserService {
 		return this.backendApi.endpoints.forgetGitHubAccount.useMutation();
 	}
 
-	authenticatedUser(account: GithubAccountIdentifier) {
-		return this.backendApi.endpoints.getGitHubUser.useQuery({ account });
+	authenticatedUser<T = GithubAuthenticatedUserSensitive | null>(
+		account: GithubAccountIdentifier,
+		options?: { transform?: (result: GithubAuthenticatedUserSensitive | null) => T },
+	): ReactiveQuery<T> {
+		return this.backendApi.endpoints.getGitHubUser.useQuery({ account }, options);
 	}
 
 	accounts() {

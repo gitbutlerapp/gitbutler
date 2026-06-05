@@ -5,6 +5,8 @@ import {
 import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 import { inject } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+import type { ForgeUser } from "$lib/forge/interface/types";
+import type { ReactiveQuery } from "$lib/state/butlerModule";
 import type { GitlabAccountIdentifier } from "@gitbutler/but-sdk";
 import type { Reactive } from "@gitbutler/shared/storeUtils";
 
@@ -60,6 +62,30 @@ type GitLabAccess = {
 	error: Reactive<{ code: string; message: string } | undefined>;
 	isError: Reactive<boolean>;
 };
+
+/**
+ * Resolve the project's preferred GitLab account and fetch it as a
+ * display-ready `ForgeUser`. Returns `undefined` when no GitLab
+ * account is configured.
+ */
+export function useGitLabForgeUser(
+	projectId: Reactive<string>,
+): ReactiveQuery<ForgeUser | undefined> | undefined {
+	const gitlabUserService = inject(GITLAB_USER_SERVICE);
+	const { preferredGitLabAccount } = usePreferredGitLabUsername(projectId);
+	const account = $derived(preferredGitLabAccount.current);
+	if (account === undefined) return undefined;
+	return gitlabUserService.authenticatedUser(account, {
+		transform: (result) =>
+			result
+				? {
+						login: result.username,
+						name: result.name ?? result.username,
+						srcUrl: result.avatarUrl ?? "",
+					}
+				: undefined,
+	});
+}
 
 /**
  * Return the GitLab access token for the given project ID, based on the preferred GitLab username.

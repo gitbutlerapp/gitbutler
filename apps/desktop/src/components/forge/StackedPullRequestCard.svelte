@@ -3,6 +3,7 @@
 	import PullRequestCard from "$components/forge/PullRequestCard.svelte";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { pullRequestTargetsBaseBranch } from "$lib/forge/shared/pullRequestTargets";
 	import { inject } from "@gitbutler/core/context";
 	import { AsyncButton, TestId } from "@gitbutler/ui";
 
@@ -29,7 +30,7 @@
 	const repoService = $derived(forge.current.repoService);
 	const prService = $derived(forge.current.prService);
 
-	const prQuery = $derived(prNumber ? prService?.get(prNumber) : undefined);
+	const prQuery = $derived(prNumber ? prService?.get(projectId, prNumber) : undefined);
 	const pr = $derived(prQuery?.response);
 
 	const hasParent = $derived(!!parent);
@@ -38,37 +39,45 @@
 
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
 	const baseBranch = $derived(baseBranchQuery.response);
-	const baseBranchRepoQuery = $derived(baseBranchService.repo(projectId));
-	const baseBranchRepo = $derived(baseBranchRepoQuery.response);
-	const repoQuery = $derived(repoService?.getInfo());
+	const baseRepoQuery = $derived(baseBranchService.repo(projectId));
+	const baseRepo = $derived(baseRepoQuery.response);
+	const repoQuery = $derived(repoService?.getInfo(projectId));
 	const repoInfo = $derived(repoQuery?.response);
+
+	const prBaseRepoUrlQuery = $derived(
+		prNumber ? prService?.getBaseRepoUrl(projectId, prNumber) : undefined,
+	);
+	const prBaseRepoUrl = $derived(prBaseRepoUrlQuery?.response);
 
 	let shouldUpdateTargetBaseBranch = $derived(
 		repoInfo?.deleteBranchAfterMerge === false && !!childPrNumber,
 	);
-	const baseIsTargetBranch = $derived.by(() => {
-		if (forge.current.name === "gitlab") return true;
-		return pr
-			? baseBranch?.shortName === pr.baseBranch && baseBranchRepo?.hash === pr.baseRepo?.hash
-			: false;
-	});
+	const baseIsTargetBranch = $derived(
+		pullRequestTargetsBaseBranch({
+			pr,
+			baseBranchShortName: baseBranch?.shortName,
+			baseBranchRepoHash: baseRepo?.hash,
+			prBaseRepoUrl,
+			forgeName: forge.current.name,
+		}),
+	);
 
 	const prUnit = $derived(prService?.unit.abbr);
 
 	async function handleReopen() {
 		if (!pr) return;
-		await prService?.reopen(pr.number);
+		await prService?.reopen(projectId, pr.number);
 	}
 
 	async function handleMerge(method: MergeMethod) {
 		if (!pr) return;
-		await prService?.merge(method, pr.number);
+		await prService?.merge(projectId, method, pr.number);
 
 		// In a stack, after merging, update the new bottom PR target
 		// base branch to master if necessary
 		if (baseBranch && shouldUpdateTargetBaseBranch && prService && childPrNumber) {
 			const targetBase = baseBranch.branchName.replace(`${baseBranch.remoteName}/`, "");
-			await prService.update(childPrNumber, { targetBase });
+			await prService.update(projectId, childPrNumber, { targetBase });
 		}
 
 		await Promise.all([
@@ -90,7 +99,7 @@
 	{poll}
 >
 	{#snippet button({ pr, mergeStatus, reopenStatus, setDraft })}
-		{#if pr.state === "open"}
+		{#if !pr.closedAt && !pr.mergedAt}
 			{#if pr.draft}
 				<AsyncButton wide kind="outline" action={() => setDraft(false)}
 					>Ready for review</AsyncButton
@@ -106,7 +115,7 @@
 					onclick={handleMerge}
 				/>
 			{/if}
-		{:else if !pr.merged}
+		{:else if !pr.mergedAt}
 			<AsyncButton
 				kind="outline"
 				disabled={reopenStatus.disabled}

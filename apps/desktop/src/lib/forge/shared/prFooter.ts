@@ -16,16 +16,22 @@ export function unixifyNewlines(target: string): string {
  * Updates a pull request description with a table pointing to other pull
  * requests in the same stack.
  */
-export async function updatePrDescriptionTables(prService: ForgePrService, prNumbers: number[]) {
+export async function updatePrDescriptionTables(
+	prService: ForgePrService,
+	projectId: string,
+	prNumbers: number[],
+) {
 	if (prService && prNumbers.length > 1) {
-		const prs = await Promise.all(prNumbers.map(async (id) => await prService.fetch(id)));
+		const prs = await Promise.all(
+			prNumbers.map(async (id) => await prService.fetch(projectId, id)),
+		);
 		const updates = prs.filter(isDefined).map((pr) => ({
 			prNumber: pr.number,
 			description: updateBody(pr.body, pr.number, prNumbers, prService.unit.symbol),
 		}));
 		await Promise.all(
 			updates.map(async ({ prNumber, description }) => {
-				await prService.update(prNumber, { description });
+				await prService.update(projectId, prNumber, { description });
 			}),
 		);
 	}
@@ -39,6 +45,7 @@ type PrUpdate = {
 
 export async function updateStackPrs(
 	prService: ForgePrService,
+	projectId: string,
 	branchDetails: Segment[],
 	baseBranchName: string,
 ) {
@@ -57,7 +64,7 @@ export async function updateStackPrs(
 			prevBranch = branchName;
 			continue;
 		}
-		const pr = await prService.fetch(prNumber);
+		const pr = await prService.fetch(projectId, prNumber);
 
 		if (!isDefined(pr)) {
 			prevBranch = branchName;
@@ -75,7 +82,7 @@ export async function updateStackPrs(
 	if (updates.length > 0) {
 		await Promise.all(
 			updates.map(async ({ prNumber, targetBase, description }) => {
-				await prService.update(prNumber, { description, targetBase });
+				await prService.update(projectId, prNumber, { description, targetBase });
 			}),
 		);
 	}
@@ -86,11 +93,14 @@ export async function updateStackPrs(
  */
 export async function unstackPRs(
 	prService: ForgePrService,
+	projectId: string,
 	prNumbers: number[],
 	baseBranchName: string,
 ) {
 	if (prService && prNumbers.length > 0) {
-		const prs = await Promise.all(prNumbers.map(async (id) => await prService.fetch(id)));
+		const prs = await Promise.all(
+			prNumbers.map(async (id) => await prService.fetch(projectId, id)),
+		);
 		const updates = prs.filter(isDefined).map((pr) => ({
 			prNumber: pr.number,
 			description: clearFooter(pr.body),
@@ -98,7 +108,10 @@ export async function unstackPRs(
 
 		await Promise.all(
 			updates.map(async ({ prNumber, description }) => {
-				await prService.update(prNumber, { description, targetBase: baseBranchName });
+				await prService.update(projectId, prNumber, {
+					description,
+					targetBase: baseBranchName,
+				});
 			}),
 		);
 	}

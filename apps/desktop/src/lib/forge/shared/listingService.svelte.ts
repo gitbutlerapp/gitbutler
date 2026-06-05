@@ -1,5 +1,3 @@
-import { ghQuery } from "$lib/forge/github/ghQuery";
-import { ghResponseToInstance } from "$lib/forge/github/types";
 import {
 	mapForgeReviewToPullRequest,
 	type ForgeReview,
@@ -11,18 +9,15 @@ import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
 import type { ForgeListingService } from "$lib/forge/interface/forgeListingService";
 import type { BackendApi } from "$lib/state/backendApi";
-import type { AppDispatch, GitHubApi } from "$lib/state/clientState.svelte";
+import type { AppDispatch } from "$lib/state/clientState.svelte";
 
-export class GitHubListingService implements ForgeListingService {
-	private api: ReturnType<typeof injectEndpoints>;
+export class ListingService implements ForgeListingService {
 	private backendApi: ReturnType<typeof injectBackendEndpoints>;
 
 	constructor(
-		gitHubApi: GitHubApi,
 		backendApi: BackendApi,
 		private readonly dispatch: AppDispatch,
 	) {
-		this.api = injectEndpoints(gitHubApi);
 		this.backendApi = injectBackendEndpoints(backendApi);
 	}
 
@@ -35,9 +30,7 @@ export class GitHubListingService implements ForgeListingService {
 
 	getByBranch(projectId: string, branchName: string) {
 		return this.backendApi.endpoints.listPrs.useQuery(projectId, {
-			transform: (result) => {
-				return prSelectors.selectById(result, branchName);
-			},
+			transform: (result) => prSelectors.selectById(result, branchName),
 		});
 	}
 
@@ -48,13 +41,9 @@ export class GitHubListingService implements ForgeListingService {
 	}
 
 	async fetchByBranch(projectId: string, branchNames: string[]) {
-		const results = await Promise.all(
-			branchNames.map((branch) =>
-				this.api.endpoints.listPrsByBranch.fetch({ projectId, branchName: branch }),
-			),
-		);
-
-		return results.filter(isDefined) ?? [];
+		const result = await this.backendApi.endpoints.listPrs.fetch(projectId);
+		if (!result) return [];
+		return branchNames.map((branch) => prSelectors.selectById(result, branch)).filter(isDefined);
 	}
 
 	async refresh(_projectId: string): Promise<void> {
@@ -80,50 +69,8 @@ function injectBackendEndpoints(api: BackendApi) {
 	});
 }
 
-function injectEndpoints(api: GitHubApi) {
-	return api.injectEndpoints({
-		endpoints: (build) => ({
-			listPrsByBranch: build.query<PullRequest | null, { projectId: string; branchName: string }>({
-				queryFn: async ({ branchName }, api) => {
-					const result = await ghQuery<"pulls", "list", "required">(
-						async (octokit, repository) => ({
-							data: await octokit.paginate(octokit.rest.pulls.list, {
-								...repository,
-								head: `${repository.owner}:${branchName}`,
-							}),
-						}),
-						api.extra,
-						"required",
-					);
-
-					if (result.error) {
-						return { error: result.error };
-					}
-
-					if (result.data.length === 0) {
-						return { data: null };
-					}
-
-					if (result.data.length > 1) {
-						return { error: new Error(`Multiple pull requests found for branch ${branchName}`) };
-					}
-
-					const prData = result.data[0]!;
-
-					const pr = ghResponseToInstance(prData);
-					return { data: pr };
-				},
-			}),
-		}),
-	});
-}
-
 const prAdapter = createEntityAdapter<PullRequest, string>({
 	selectId: (pr) => pr.sourceBranch,
 });
 
 const prSelectors = { ...prAdapter.getSelectors(), selectByIds: createSelectByIds<PullRequest>() };
-
-// if (err.message.includes('you appear to have the correct authorization credentials')) {
-// 	this.disabled = true;
-// }

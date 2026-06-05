@@ -1,18 +1,15 @@
-import { ghQuery } from "$lib/forge/github/ghQuery";
 import { GitHubBranch } from "$lib/forge/github/githubBranch";
 import { GitHubChecksMonitor } from "$lib/forge/github/githubChecksMonitor.svelte";
-import { GitHubListingService } from "$lib/forge/github/githubListingService.svelte";
-import { GitHubPrService } from "$lib/forge/github/githubPrService.svelte";
-import { GitHubRepoService } from "$lib/forge/github/githubRepoService.svelte";
-import { GitHubIssueService } from "$lib/forge/github/issueService";
-import { providesList, ReduxTag } from "$lib/state/tags";
+import { ListingService } from "$lib/forge/shared/listingService.svelte";
+import { PrService } from "$lib/forge/shared/prService.svelte";
+import { RepoService } from "$lib/forge/shared/repoService.svelte";
+import { ReduxTag } from "$lib/state/tags";
 import type { GitHubClient } from "$lib/forge/github/githubClient";
 import type { Forge, ForgeName } from "$lib/forge/interface/forge";
 import type { ForgeArguments } from "$lib/forge/interface/types";
 import type { BackendApi } from "$lib/state/backendApi";
 import type { AppDispatch, GitHubApi } from "$lib/state/clientState.svelte";
 import type { PostHogWrapper } from "$lib/telemetry/posthog";
-import type { RestEndpointMethodTypes } from "@octokit/rest";
 import type { TagDescription } from "@reduxjs/toolkit/query";
 
 export const GITHUB_DOMAIN = "github.com";
@@ -22,8 +19,6 @@ export class GitHub implements Forge {
 	readonly authenticated: boolean;
 	readonly isLoading: boolean;
 	private baseUrl: string;
-
-	private api: ReturnType<typeof injectEndpoints>;
 
 	constructor(
 		private params: ForgeArguments & {
@@ -53,47 +48,36 @@ export class GitHub implements Forge {
 
 		this.baseUrl = `${protocol}://${repo.domain}/${owner}/${name}`;
 
-		this.api = injectEndpoints(api);
-
 		// Reset the API when the token changes.
 		client.onReset(() => api.util.resetApiState());
 	}
 
 	get listService() {
 		if (!this.authenticated) return;
-		const { api: gitHubApi, backendApi, dispatch } = this.params;
-		return new GitHubListingService(gitHubApi, backendApi, dispatch);
+		const { backendApi, dispatch } = this.params;
+		return new ListingService(backendApi, dispatch);
 	}
 
 	get prService() {
 		if (!this.authenticated) return;
-		const { api: gitHubApi, posthog, backendApi } = this.params;
-		return new GitHubPrService(gitHubApi, backendApi, posthog);
+		const { posthog, backendApi } = this.params;
+		return new PrService(
+			{ name: "Pull request", abbr: "PR", symbol: "#" },
+			"PR",
+			backendApi,
+			posthog,
+		);
 	}
 
 	get repoService() {
 		if (!this.authenticated) return;
-		return new GitHubRepoService(this.params.api);
-	}
-
-	get issueService() {
-		if (!this.authenticated) return;
-		return new GitHubIssueService(this.params.api);
+		const { backendApi, repo } = this.params;
+		return new RepoService(backendApi, repo.owner, repo.name);
 	}
 
 	get checks() {
 		if (!this.authenticated) return;
-		return new GitHubChecksMonitor(this.params.api);
-	}
-
-	get user() {
-		return this.api.endpoints.getGitHubUser.useQuery(null, {
-			transform: (result) => ({
-				id: result.id,
-				name: result.name || result.login,
-				srcUrl: result.avatar_url,
-			}),
-		});
+		return new GitHubChecksMonitor(this.params.backendApi);
 	}
 
 	branch(name: string) {
@@ -108,25 +92,11 @@ export class GitHub implements Forge {
 		return `${this.baseUrl}/commit/${id}`;
 	}
 
+	prUrl(number: number): string {
+		return `${this.baseUrl}/pull/${number}`;
+	}
+
 	invalidate(tags: TagDescription<ReduxTag>[]) {
 		return this.params.api.util.invalidateTags(tags);
 	}
-}
-
-type IsAuthenticated = RestEndpointMethodTypes["users"]["getAuthenticated"]["response"]["data"];
-
-function injectEndpoints(api: GitHubApi) {
-	return api.injectEndpoints({
-		endpoints: (build) => ({
-			getGitHubUser: build.query<IsAuthenticated, null>({
-				queryFn: async (_, api) =>
-					await ghQuery({
-						domain: "users",
-						action: "getAuthenticated",
-						extra: api.extra,
-					}),
-				providesTags: [providesList(ReduxTag.ForgeUser)],
-			}),
-		}),
-	});
 }

@@ -58,7 +58,7 @@
 
 	const checksQuery = $derived(
 		enabled
-			? checksService?.get(branchName, { subscriptionOptions: { pollingInterval } })
+			? checksService?.get(projectId, branchName, { subscriptionOptions: { pollingInterval } })
 			: undefined,
 	);
 

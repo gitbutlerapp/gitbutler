@@ -134,6 +134,18 @@ impl GitHubClient {
         })
     }
 
+    /// Fetch repo-level metadata (currently just the caller's permissions
+    /// and whether the repo is a fork). Used by the desktop to decide
+    /// whether the authenticated user can merge a given PR.
+    pub async fn get_repo(&self, owner: &str, repo: &str) -> Result<GitHubRepository> {
+        let url = format!("{}/repos/{}/{}", self.base_url, owner, repo);
+        let response = self.client.get(&url).send().await?;
+        if !response.status().is_success() {
+            bail!("Failed to get repo: {}", response.status());
+        }
+        Ok(response.json().await?)
+    }
+
     /// Fetch CI checks for a branch ref, paginated and deduped by name.
     pub async fn list_checks_for_ref(
         &self,
@@ -287,6 +299,78 @@ impl GitHubClient {
 
         let pr: GitHubPullRequest = response.json().await?;
         Ok(pr.into())
+    }
+
+    /// PR's base-repo URL. `None` if GitHub omits it (deleted forks).
+    pub async fn get_pull_request_base_repo_url(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+    ) -> Result<Option<String>> {
+        #[derive(Debug, Deserialize)]
+        struct BaseRepoResponse {
+            base: Base,
+        }
+        #[derive(Debug, Deserialize)]
+        struct Base {
+            #[serde(default)]
+            repo: Option<Repo>,
+        }
+        #[derive(Debug, Deserialize)]
+        struct Repo {
+            #[serde(default)]
+            git_url: Option<String>,
+            #[serde(default)]
+            clone_url: Option<String>,
+        }
+
+        let url = format!(
+            "{}/repos/{}/{}/pulls/{}",
+            self.base_url, owner, repo, pr_number
+        );
+        let response = self.client.get(&url).send().await?;
+        if !response.status().is_success() {
+            bail!("Failed to get PR base repo: {}", response.status());
+        }
+        let body: BaseRepoResponse = response.json().await?;
+        // git_url matches what TS's parseRemoteUrl sees for the
+        // project's own base remote.
+        Ok(body.base.repo.and_then(|r| r.git_url.or(r.clone_url)))
+    }
+
+    /// Fetch just the GitHub-computed merge status for a PR
+    /// (`mergeable_state` and the comment count). These fields are
+    /// expensive enough that GitHub recomputes them per call, so we
+    /// expose them through a focused endpoint that the UI only
+    /// subscribes to where it actually displays them.
+    pub async fn get_pull_request_merge_status(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+    ) -> Result<PullRequestMergeStatus> {
+        #[derive(Debug, Deserialize)]
+        struct PrMergeStatusResponse {
+            #[serde(default)]
+            mergeable_state: Option<String>,
+            #[serde(default)]
+            comments: i64,
+        }
+
+        let url = format!(
+            "{}/repos/{}/{}/pulls/{}",
+            self.base_url, owner, repo, pr_number
+        );
+        let response = self.client.get(&url).send().await?;
+        if !response.status().is_success() {
+            bail!("Failed to get PR merge status: {}", response.status());
+        }
+        let body: PrMergeStatusResponse = response.json().await?;
+        Ok(PullRequestMergeStatus {
+            mergeable_state: body.mergeable_state,
+            comments_count: body.comments,
+        })
     }
 
     /// Fetch the information of a given PR.
@@ -887,6 +971,32 @@ pub struct AuthenticatedUser {
     pub email: Option<String>,
 }
 
+/// Subset of GitHub's repo response we care about. The `permissions`
+/// field is only populated when the caller is authenticated.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitHubRepository {
+    #[serde(default)]
+    pub permissions: Option<GitHubRepoPermissions>,
+    #[serde(default)]
+    pub fork: bool,
+    #[serde(default)]
+    pub delete_branch_on_merge: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitHubRepoPermissions {
+    #[serde(default)]
+    pub admin: bool,
+    #[serde(default)]
+    pub maintain: bool,
+    #[serde(default)]
+    pub push: bool,
+    #[serde(default)]
+    pub triage: bool,
+    #[serde(default)]
+    pub pull: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheckRun {
     pub id: i64,
@@ -979,6 +1089,20 @@ pub struct GitHubPrLabel {
     pub name: String,
     pub description: Option<String>,
     pub color: Option<String>,
+}
+
+/// Focused subset of GitHub's PR-get response covering only the
+/// runtime-computed merge status. Kept separate from the full
+/// `PullRequest` so consumers that need just this signal don't pull
+/// in the rest.
+#[derive(Debug, Clone, Serialize)]
+pub struct PullRequestMergeStatus {
+    /// GitHub's merge-state computation result. Returned strings
+    /// include `clean`, `dirty`, `unknown`, `blocked`, `behind`,
+    /// `unstable`, `has_hooks`, `draft`. `None` when GitHub hasn't
+    /// computed yet.
+    pub mergeable_state: Option<String>,
+    pub comments_count: i64,
 }
 
 #[derive(Debug, Serialize)]

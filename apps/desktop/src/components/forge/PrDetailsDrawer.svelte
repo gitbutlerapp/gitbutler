@@ -15,7 +15,7 @@
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
-	const prQuery = $derived(prService?.get(prNumber, { forceRefetch: true }));
+	const prQuery = $derived(prService?.get(projectId, prNumber, { forceRefetch: true }));
 </script>
 
 <ReduxResult result={prQuery?.result} {projectId} {onerror}>
@@ -43,7 +43,7 @@
 							</span>
 							wants to merge into
 							<span class="code-string text-semibold">
-								{pr.baseBranch}
+								{pr.targetBranch}
 							</span>
 							from
 							<span class="code-string text-semibold">

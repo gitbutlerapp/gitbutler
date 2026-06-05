@@ -94,7 +94,6 @@
 			: undefined}
 		{@const prNumber = segment.metadata?.review.pullRequest ?? undefined}
 		{@const reviewId = segment.metadata?.review.reviewId ?? undefined}
-		{@const prQuery = prNumber ? forge.current.prService?.get(prNumber) : undefined}
 		{@const commit = segment.commits.at(0)}
 
 		{@const first = i === 0}
@@ -222,7 +221,7 @@
 						{`Create ${forge.current.name === "gitlab" ? "MR" : "PR"}`}
 					</Button>
 				{:else}
-					{@const prUrl = prQuery?.response?.htmlUrl}
+					{@const prUrl = forge.current.prUrl(prNumber)}
 					<Button
 						size="tag"
 						kind="outline"

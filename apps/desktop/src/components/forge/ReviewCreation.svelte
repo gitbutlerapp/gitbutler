@@ -21,7 +21,6 @@
 	import { showError } from "$lib/error/showError";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { mapErrorToToast } from "$lib/forge/github/errorMap";
-	import { GitHubPrService } from "$lib/forge/github/githubPrService.svelte";
 	import { type PullRequest } from "$lib/forge/interface/types";
 	import { PrPersistedStore } from "$lib/forge/prContents";
 	import { updatePrDescriptionTables as updatePrStackInfo } from "$lib/forge/shared/prFooter";
@@ -299,14 +298,14 @@
 
 			const repoInfo = parseRemoteUrl(pushRemoteUrl);
 
+			// GitHub's PR API expects `owner:branch` when the source branch
+			// lives on a fork. GitLab's MR API doesn't use this prefix.
 			const upstreamName =
-				prService instanceof GitHubPrService
-					? repoInfo?.owner
-						? `${repoInfo.owner}:${params.upstreamBranchName}`
-						: params.upstreamBranchName
+				forge.current.name === "github" && repoInfo?.owner
+					? `${repoInfo.owner}:${params.upstreamBranchName}`
 					: params.upstreamBranchName;
 
-			const pr = await prService.createPr({
+			const pr = await prService.createPr(projectId, {
 				title: params.title,
 				body: params.body,
 				draft: params.draft,
@@ -328,7 +327,7 @@
 			prNumbers[currentIndex] = pr.number;
 			const definedPrNumbers = prNumbers.filter(isDefined);
 			if (definedPrNumbers.length > 0) {
-				updatePrStackInfo(prService, definedPrNumbers);
+				updatePrStackInfo(prService, projectId, definedPrNumbers);
 			}
 
 			// Show success notification

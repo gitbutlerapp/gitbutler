@@ -12,7 +12,7 @@
 
 	import { inject } from "@gitbutler/core/context";
 	import { Button, Modal, TestId, Textbox } from "@gitbutler/ui";
-	import type { DetailedPullRequest } from "$lib/forge/interface/types";
+	import type { PullRequest } from "$lib/forge/interface/types";
 
 	type Props = {
 		projectId: string;
@@ -24,7 +24,7 @@
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const prService = $derived(forge.current.prService);
-	const prQuery = $derived(prService?.get(prNumber, { forceRefetch: true }));
+	const prQuery = $derived(prService?.get(projectId, prNumber, { forceRefetch: true }));
 	const prUnit = $derived(prService?.unit);
 
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
@@ -38,7 +38,7 @@
 	let inputRemoteName = $state<string>();
 	let loading = $state(false);
 
-	function getRemoteUrl(pr: DetailedPullRequest) {
+	function getRemoteUrl(pr: PullRequest) {
 		if (!baseRepo) return;
 
 		if (baseRepo.protocol?.startsWith("http")) {
@@ -48,7 +48,7 @@
 		}
 	}
 
-	async function handleConfirmRemote(pr: DetailedPullRequest) {
+	async function handleConfirmRemote(pr: PullRequest) {
 		const remoteUrl = getRemoteUrl(pr);
 
 		if (!remoteUrl) {

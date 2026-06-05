@@ -47,7 +47,7 @@
 
 	const prService = $derived(forge.current.prService);
 	const reviewUnit = $derived(prService?.unit.abbr ?? "PR");
-	const prQuery = $derived(prNumber ? prService?.get(prNumber) : undefined);
+	const prQuery = $derived(prNumber ? prService?.get(projectId, prNumber) : undefined);
 	const pr = $derived(prQuery?.response);
 
 	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));

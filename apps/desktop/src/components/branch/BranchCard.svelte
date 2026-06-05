@@ -97,6 +97,7 @@
 
 	const prService = $derived(forge.current.prService);
 	const prUnit = $derived(prService?.unit);
+	const repoService = $derived(forge.current.repoService);
 
 	const [updateName, nameUpdate] = stackService.updateBranchName;
 
@@ -248,8 +249,10 @@
 						<span class="branch-header__divider">•</span>
 						<div class="branch-header__review-badges">
 							{#if args.prNumber}
-								{@const prQuery = prService?.get(args.prNumber, { forceRefetch: true })}
+								{@const prQuery = prService?.get(projectId, args.prNumber, { forceRefetch: true })}
 								{@const pr = prQuery?.response}
+								{@const mergeStatusQuery = prService?.getMergeStatus(projectId, args.prNumber)}
+								{@const repoQuery = repoService?.getInfo(projectId)}
 								{@const prStatus = (() => {
 									if (!pr) return "unknown";
 									if (pr.mergedAt) return "merged";
@@ -258,16 +261,17 @@
 									return "open";
 								})()}
 								<ReviewBadge type={prUnit?.abbr} number={args.prNumber} status={prStatus} />
-								{#if pr && !pr.closedAt && forge.current.checks && pr.state === "open"}
+								{#if pr && !pr.closedAt && forge.current.checks && !pr.mergedAt}
 									<CIChecksBadge
 										{projectId}
 										branchName={pr.sourceBranch}
-										prUpdatedAt={pr.updatedAt}
-										mergeableState={pr.mergeableState}
-										isFork={pr.fork}
-										isMerged={pr.merged}
+										prUpdatedAt={pr.modifiedAt}
+										mergeableState={mergeStatusQuery?.response?.mergeableState ?? undefined}
+										isFork={repoQuery?.response?.fork ?? false}
+										isMerged={!!pr.mergedAt}
 										onrefetch={() => {
-											if (args.prNumber) prService?.fetch(args.prNumber, { forceRefetch: true });
+											if (args.prNumber)
+												prService?.fetch(projectId, args.prNumber, { forceRefetch: true });
 										}}
 									/>
 								{/if}

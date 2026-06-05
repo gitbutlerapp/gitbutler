@@ -221,7 +221,13 @@ export declare function getInitialBranchIntegration(projectId: string, branch: s
  */
 export declare function getRedoTargetSnapshot(projectId: string): Promise<Snapshot | null>
 
+export declare function getRepoInfo(projectId: string, owner: string, repo: string): Promise<RepoInfo>
+
 export declare function getReview(projectId: string, reviewId: number): Promise<ForgeReview>
+
+export declare function getReviewBaseRepoUrl(projectId: string, reviewId: number): Promise<string | null>
+
+export declare function getReviewMergeStatus(projectId: string, reviewId: number): Promise<ReviewMergeStatus>
 
 /**
  * Get the snapshot that an undo operation should restore to.
@@ -246,7 +252,7 @@ export declare function listReviews(projectId: string, cacheConfig: CacheConfig 
 export declare function listReviewsForBranch(projectId: string, branch: string, filter: ForgeReviewFilter | null): Promise<Array<ForgeReview>>
 
 /** Merge a review on the forge. */
-export declare function mergeReview(projectId: string, reviewId: number): Promise<void>
+export declare function mergeReview(projectId: string, reviewId: number, mergeMethod: ReviewMergeMethod | null): Promise<void>
 
 /**
  * Moves a branch using the behavior described by [`move_branch_with_perm()`].
@@ -355,6 +361,12 @@ export declare function unapplyStack(projectId: string, stackId: string): Promis
  * See [`update_branch_name_with_perm()`] for the underlying mutation.
  */
 export declare function updateBranchName(projectId: string, stackId: string, branchName: string, newName: string): Promise<void>
+
+/**
+ * Update arbitrary fields of a single review (body, state, target base).
+ * Each `None` leaves that field unchanged on the forge.
+ */
+export declare function updatePullRequest(projectId: string, reviewId: number, body: string | null, state: ReviewState | null, targetBase: string | null): Promise<void>
 
 /** Update stacked reviews: description footers and, optionally, target branches. */
 export declare function updateReviewFooters(projectId: string, reviews: Array<ForgeReviewUpdate>): Promise<void>
@@ -1826,6 +1838,25 @@ export type RemoteTrackingReference = {
   remoteName: string;
 };
 
+export type RepoInfo = {
+  permissions: RepoPermissions | null;
+  fork: boolean;
+  /**
+   * Whether the repo deletes the source branch after a PR is merged
+   * (GitHub's per-repo "Automatically delete head branches" setting).
+   * `None` when the field wasn't returned by the forge.
+   */
+  deleteBranchOnMerge: boolean | null;
+};
+
+export type RepoPermissions = {
+  admin: boolean;
+  maintain: boolean;
+  push: boolean;
+  triage: boolean;
+  pull: boolean;
+};
+
 export type Resolution = {
   stackId: string;
   approach: ResolutionApproach;
@@ -1852,6 +1883,32 @@ export type Review = {
   /** A handle to the review created with the GitButler review system. */
   reviewId: string | null;
 };
+
+/**
+ * How to merge a review on the forge. GitHub honours all three;
+ * other forges fall back to their default merge strategy when the
+ * caller asks for `Squash`/`Rebase`.
+ */
+export type ReviewMergeMethod = "merge" | "squash" | "rebase";
+
+/**
+ * Forge-agnostic runtime merge state for a review. Always fetched
+ * fresh from the forge; not cached. Used by the UI to render the
+ * merge-button hint and comment count without forcing every review
+ * consumer to subscribe to those expensive fields.
+ */
+export type ReviewMergeStatus = {
+  /**
+   * Forge-reported merge state. GitHub strings: `clean`, `dirty`,
+   * `unknown`, `blocked`, `behind`, `unstable`, `has_hooks`,
+   * `draft`. GitLab strings: `can_be_merged`, `cannot_be_merged`,
+   * `checking`, etc. `None` when the forge hasn't computed it.
+   */
+  mergeableState: string | null;
+  commentsCount: number;
+};
+
+export type ReviewState = "open" | "closed";
 
 /** Information about the project's review template. */
 export type ReviewTemplateInfo = {

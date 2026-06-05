@@ -1,9 +1,8 @@
 import { AzureBranch } from "$lib/forge/azure/azureBranch";
 import type { Forge, ForgeName } from "$lib/forge/interface/forge";
 import type { ForgeRepoService } from "$lib/forge/interface/forgeRepoService";
-import type { ForgeArguments, ForgeUser } from "$lib/forge/interface/types";
+import type { ForgeArguments } from "$lib/forge/interface/types";
 import type { RepoInfo } from "$lib/git/gitUrl";
-import type { ReactiveQuery } from "$lib/state/butlerModule";
 import type { ReduxTag } from "$lib/state/tags";
 import type { TagDescription } from "@reduxjs/toolkit/query";
 
@@ -51,17 +50,11 @@ export class AzureDevOps implements Forge {
 		return `${this.baseUrl}/commit/${id}`;
 	}
 
-	get user() {
-		return {
-			result: { status: "uninitialized" as const, data: undefined },
-		} as ReactiveQuery<ForgeUser>;
+	prUrl(number: number): string {
+		return `${this.baseUrl}/pullrequest/${number}`;
 	}
 
 	get listService() {
-		return undefined;
-	}
-
-	get issueService() {
 		return undefined;
 	}
 

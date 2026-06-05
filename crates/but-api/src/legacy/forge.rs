@@ -237,6 +237,58 @@ mod tests {
 
 #[but_api(napi)]
 #[instrument(err(Debug))]
+pub async fn get_review_base_repo_url(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+) -> Result<Option<String>> {
+    let (storage, forge_repo_info, preferred_forge_user) = {
+        let ctx = ctx.into_thread_local();
+        let meta = ctx.meta()?;
+        let repo = ctx.repo.get()?;
+        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&meta, &repo)?);
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            forge_repo_info,
+            ctx.legacy_project.preferred_forge_user.clone(),
+        )
+    };
+    but_forge::get_review_base_repo_url(
+        &preferred_forge_user,
+        &forge_repo_info.context("No forge could be determined for this repository branch")?,
+        review_id,
+        &storage,
+    )
+    .await
+}
+
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn get_review_merge_status(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+) -> Result<but_forge::ReviewMergeStatus> {
+    let (storage, forge_repo_info, preferred_forge_user) = {
+        let ctx = ctx.into_thread_local();
+        let meta = ctx.meta()?;
+        let repo = ctx.repo.get()?;
+        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&meta, &repo)?);
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            forge_repo_info,
+            ctx.legacy_project.preferred_forge_user.clone(),
+        )
+    };
+    but_forge::get_review_merge_status(
+        &preferred_forge_user,
+        &forge_repo_info.context("No forge could be determined for this repository branch")?,
+        review_id,
+        &storage,
+    )
+    .await
+}
+
+#[but_api(napi)]
+#[instrument(err(Debug))]
 pub fn get_review(ctx: &Context, review_id: usize) -> Result<but_forge::ForgeReview> {
     let (storage, forge_repo_info, preferred_forge_user) = {
         let meta = ctx.meta()?;
@@ -259,6 +311,34 @@ pub fn get_review(ctx: &Context, review_id: usize) -> Result<but_forge::ForgeRev
         db,
         &storage,
     )
+}
+
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn get_repo_info(
+    ctx: ThreadSafeContext,
+    owner: String,
+    repo: String,
+) -> Result<but_forge::RepoInfo> {
+    let (storage, forge_repo_info, preferred_forge_user) = {
+        let ctx = ctx.into_thread_local();
+        let meta = ctx.meta()?;
+        let repo_ = ctx.repo.get()?;
+        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&meta, &repo_)?);
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            forge_repo_info,
+            ctx.legacy_project.preferred_forge_user.clone(),
+        )
+    };
+    but_forge::get_repo_info(
+        &preferred_forge_user,
+        &forge_repo_info.context("No forge could be determined for this repository branch")?,
+        &storage,
+        &owner,
+        &repo,
+    )
+    .await
 }
 
 #[but_api(napi)]
@@ -335,7 +415,11 @@ pub async fn publish_review(
 /// Merge a review on the forge.
 #[but_api(napi)]
 #[instrument(err(Debug))]
-pub async fn merge_review(ctx: ThreadSafeContext, review_id: usize) -> Result<()> {
+pub async fn merge_review(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+    merge_method: Option<but_forge::ReviewMergeMethod>,
+) -> Result<()> {
     let (storage, forge_repo_info, preferred_forge_user) = {
         let ctx = ctx.into_thread_local();
         let meta = ctx.meta()?;
@@ -353,6 +437,7 @@ pub async fn merge_review(ctx: ThreadSafeContext, review_id: usize) -> Result<()
         &preferred_forge_user,
         &forge_repo_info.context("No forge could be determined for this repository branch")?,
         review_id,
+        merge_method,
         &storage,
     )
     .await
@@ -415,6 +500,41 @@ pub async fn set_review_draftiness(
         &forge_repo_info.context("No forge could be determined for this repository branch")?,
         review_id,
         draft,
+        &storage,
+    )
+    .await
+}
+
+/// Update arbitrary fields of a single review (body, state, target base).
+/// Each `None` leaves that field unchanged on the forge.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub async fn update_pull_request(
+    ctx: ThreadSafeContext,
+    review_id: usize,
+    body: Option<String>,
+    state: Option<but_forge::ReviewState>,
+    target_base: Option<String>,
+) -> Result<()> {
+    let (storage, forge_repo_info, preferred_forge_user) = {
+        let ctx = ctx.into_thread_local();
+        let meta = ctx.meta()?;
+        let repo = ctx.repo.get()?;
+        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&meta, &repo)?);
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            forge_repo_info,
+            ctx.legacy_project.preferred_forge_user.clone(),
+        )
+    };
+
+    but_forge::update_pull_request(
+        &preferred_forge_user,
+        &forge_repo_info.context("No forge could be determined for this repository branch")?,
+        review_id,
+        body,
+        state,
+        target_base,
         &storage,
     )
     .await

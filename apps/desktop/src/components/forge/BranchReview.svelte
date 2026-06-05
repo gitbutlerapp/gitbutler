@@ -58,6 +58,7 @@
 
 <CanPublishReviewPlugin
 	bind:this={canPublishReviewPlugin}
+	{projectId}
 	commits={segment.commits}
 	{prNumber}
 	{reviewId}

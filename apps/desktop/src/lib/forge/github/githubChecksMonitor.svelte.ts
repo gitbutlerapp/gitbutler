@@ -1,22 +1,20 @@
-import { ghQuery } from "$lib/forge/github/ghQuery";
-import { type ChecksResult } from "$lib/forge/github/types";
-import { eventualConsistencyCheck } from "$lib/forge/shared/progressivePolling";
 import { providesItem, ReduxTag } from "$lib/state/tags";
 import type { ChecksService } from "$lib/forge/interface/forgeChecksMonitor";
 import type { ChecksStatus } from "$lib/forge/interface/types";
+import type { BackendApi } from "$lib/state/backendApi";
 import type { QueryOptions } from "$lib/state/butlerModule";
-import type { GitHubApi } from "$lib/state/clientState.svelte";
+import type { CiCheck } from "@gitbutler/but-sdk";
 
 export class GitHubChecksMonitor implements ChecksService {
 	private api: ReturnType<typeof injectEndpoints>;
 
-	constructor(gitHubApi: GitHubApi) {
-		this.api = injectEndpoints(gitHubApi);
+	constructor(backendApi: BackendApi) {
+		this.api = injectEndpoints(backendApi);
 	}
 
-	get(branchName: string, options?: QueryOptions) {
-		return this.api.endpoints.listChecks.useQuery(
-			{ ref: branchName },
+	get(projectId: string, branchName: string, options?: QueryOptions) {
+		return this.api.endpoints.listCiChecks.useQuery(
+			{ projectId, reference: branchName },
 			{
 				transform: (result) => parseChecks(result),
 				...options,
@@ -24,9 +22,9 @@ export class GitHubChecksMonitor implements ChecksService {
 		);
 	}
 
-	async fetch(branchName: string, options?: QueryOptions) {
-		return await this.api.endpoints.listChecks.fetch(
-			{ ref: branchName },
+	async fetch(projectId: string, branchName: string, options?: QueryOptions) {
+		return await this.api.endpoints.listCiChecks.fetch(
+			{ projectId, reference: branchName },
 			{
 				transform: (result) => parseChecks(result),
 				...options,
@@ -35,68 +33,57 @@ export class GitHubChecksMonitor implements ChecksService {
 	}
 }
 
-function hasChecks(data: ChecksResult): boolean {
-	return data.check_runs.length > 0;
+// `cancelled` runs are dropped upstream in the Rust client.
+function parseChecks(checks: CiCheck[]): ChecksStatus | null {
+	if (checks.length === 0) return null;
+
+	let failedCount = 0;
+	let actionRequiredCount = 0;
+	let allCompleted = true;
+	const failedNames: string[] = [];
+	const startTimestamps: number[] = [];
+
+	for (const check of checks) {
+		if (check.startedAt) {
+			startTimestamps.push(new Date(check.startedAt).getTime());
+		}
+
+		if (typeof check.status === "string") {
+			allCompleted = false;
+		} else {
+			const conclusion = check.status.complete.conclusion;
+			if (conclusion === "failure") {
+				failedCount++;
+				failedNames.push(check.name);
+			} else if (conclusion === "actionRequired") {
+				actionRequiredCount++;
+			}
+		}
+	}
+
+	// Any failure short-circuits the badge to "done".
+	const completed = failedCount > 0 || allCompleted;
+	const success = failedCount === 0 && actionRequiredCount === 0 && completed;
+	const startedAt =
+		startTimestamps.length > 0 ? new Date(Math.min(...startTimestamps)).toISOString() : null;
+
+	return { startedAt, completed, success, failedChecks: failedNames };
 }
 
-function parseChecks(data: ChecksResult): ChecksStatus | null {
-	// Fetch with retries since checks might not be available _right_ after
-	// the pull request has been created.
-
-	// If there are no checks then there is no status to report
-	if (!hasChecks(data)) return null;
-
-	const checkRuns = data.check_runs;
-
-	// Establish when the first check started running, useful for showing
-	// how long something has been running.
-	const starts = checkRuns
-		.map((run) => run.started_at)
-		.filter((startedAt) => startedAt !== null) as string[];
-	const startTimes = starts.map((startedAt) => new Date(startedAt));
-
-	const failedChecks = checkRuns.filter((c) => c.conclusion === "failure");
-	const failed = failedChecks.length;
-	const actionRequired = checkRuns.filter((c) => c.conclusion === "action_required").length;
-
-	const firstStart = new Date(Math.min(...startTimes.map((date) => date.getTime())));
-	const completed = failed !== 0 || checkRuns.every((check) => !!check.completed_at);
-
-	const success = failed === 0 && completed && actionRequired === 0;
-
-	return {
-		startedAt: firstStart.toISOString(),
-		success,
-		completed,
-		failedChecks: failedChecks.map((check) => check.name),
-	};
-}
-
-function injectEndpoints(api: GitHubApi) {
+function injectEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
-			listChecks: build.query<ChecksResult, { ref: string }>({
-				queryFn: async ({ ref }, api) => {
-					async function listChecksForRef() {
-						return await ghQuery({
-							domain: "checks",
-							action: "listForRef",
-							extra: api.extra,
-							parameters: {
-								ref,
-								per_page: 100,
-							},
-						});
-					}
-
-					return eventualConsistencyCheck(listChecksForRef, (response) => {
-						if (response.error) {
-							return true; // Stop if there's an error
-						}
-						return hasChecks(response.data);
-					});
-				},
-				providesTags: (_result, _error, args) => [...providesItem(ReduxTag.Checks, args.ref)],
+			listCiChecks: build.query<CiCheck[], { projectId: string; reference: string }>({
+				extraOptions: { command: "list_ci_checks_and_update_cache" },
+				query: ({ projectId, reference }) => ({
+					projectId,
+					reference,
+					// Polling drives freshness; bypass the DB cache so we always
+					// see the latest GitHub state. The cache stays useful for
+					// read-only consumers (e.g. `but status` without `-r`).
+					cacheConfig: "noCache",
+				}),
+				providesTags: (_result, _error, args) => [...providesItem(ReduxTag.Checks, args.reference)],
 			}),
 		}),
 	});

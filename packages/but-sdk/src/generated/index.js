@@ -579,7 +579,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { absorb, absorptionPlan, apply, applyBranchIntegration, assignHunk, branchDetails, branchDiff, changesInWorktree, changesInWorktreeWithPerm, commitAmend, commitCreate, commitDetailsWithLineStats, commitDiscard, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitSquash, commitUncommit, commitUncommitChanges, forgeProvider, getInitialBranchIntegration, getRedoTargetSnapshot, getReview, getUndoTargetSnapshot, headInfo, listAvailableReviewTemplates, listBranches, listCiChecksAndUpdateCache, listProjectsStateless, listReviews, listReviewsForBranch, mergeReview, moveBranch, peelRestoreSnapshot, publishReview, pushStack, removeBranch, restoreSnapshotWithKind, reviewTemplate, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, tearOffBranch, treeChangeDiffs, unapplyStack, updateBranchName, updateReviewFooters, warmCiChecksCache, workspaceBranchAndAncestorsPush, workspaceIntegrateUpstream, WatcherHandle, watcherStart } = nativeBinding
+const { absorb, absorptionPlan, apply, applyBranchIntegration, assignHunk, branchDetails, branchDiff, changesInWorktree, changesInWorktreeWithPerm, commitAmend, commitCreate, commitDetailsWithLineStats, commitDiscard, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitSquash, commitUncommit, commitUncommitChanges, forgeProvider, getInitialBranchIntegration, getRedoTargetSnapshot, getRepoInfo, getReview, getReviewBaseRepoUrl, getReviewMergeStatus, getUndoTargetSnapshot, headInfo, listAvailableReviewTemplates, listBranches, listCiChecksAndUpdateCache, listProjectsStateless, listReviews, listReviewsForBranch, mergeReview, moveBranch, peelRestoreSnapshot, publishReview, pushStack, removeBranch, restoreSnapshotWithKind, reviewTemplate, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, tearOffBranch, treeChangeDiffs, unapplyStack, updateBranchName, updatePullRequest, updateReviewFooters, warmCiChecksCache, workspaceBranchAndAncestorsPush, workspaceIntegrateUpstream, WatcherHandle, watcherStart } = nativeBinding
 export { absorb }
 export { absorptionPlan }
 export { apply }
@@ -603,7 +603,10 @@ export { commitUncommitChanges }
 export { forgeProvider }
 export { getInitialBranchIntegration }
 export { getRedoTargetSnapshot }
+export { getRepoInfo }
 export { getReview }
+export { getReviewBaseRepoUrl }
+export { getReviewMergeStatus }
 export { getUndoTargetSnapshot }
 export { headInfo }
 export { listAvailableReviewTemplates }
@@ -627,6 +630,7 @@ export { tearOffBranch }
 export { treeChangeDiffs }
 export { unapplyStack }
 export { updateBranchName }
+export { updatePullRequest }
 export { updateReviewFooters }
 export { warmCiChecksCache }
 export { workspaceBranchAndAncestorsPush }

@@ -276,13 +276,13 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 		const prs = [data.prNumber, ...data.allOtherPrNumbersInStack];
 
 		if (data.allOtherPrNumbersInStack.length === 1) {
-			await unstackPRs(this.prService, prs, this.baseBranchName);
+			await unstackPRs(this.prService, this.projectId, prs, this.baseBranchName);
 			return;
 		}
 
-		await unstackPRs(this.prService, [data.prNumber], this.baseBranchName);
+		await unstackPRs(this.prService, this.projectId, [data.prNumber], this.baseBranchName);
 		const branchDetails = await this.stackService.fetchBranches(this.projectId, data.stackId);
-		await updateStackPrs(this.prService, branchDetails, this.baseBranchName);
+		await updateStackPrs(this.prService, this.projectId, branchDetails, this.baseBranchName);
 	}
 
 	async ondrop(data: unknown): Promise<DropResult | void> {

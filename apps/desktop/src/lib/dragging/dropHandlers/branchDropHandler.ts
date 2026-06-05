@@ -60,11 +60,11 @@ export class MoveBranchDzHandler implements DropzoneHandler {
 		if (this.prService && this.baseBranchName) {
 			if (!sourceStackDeleted) {
 				const branchDetails = await this.stackService.fetchBranches(this.projectId, data.stackId);
-				await updateStackPrs(this.prService, branchDetails, this.baseBranchName);
+				await updateStackPrs(this.prService, this.projectId, branchDetails, this.baseBranchName);
 			}
 
 			const branchDetails = await this.stackService.fetchBranches(this.projectId, this.stackId);
-			await updateStackPrs(this.prService, branchDetails, this.baseBranchName);
+			await updateStackPrs(this.prService, this.projectId, branchDetails, this.baseBranchName);
 		}
 	}
 }

@@ -1,11 +1,11 @@
 import { GitLabBranch } from "$lib/forge/gitlab/gitlabBranch";
-import { gitlab, type GitLabClient } from "$lib/forge/gitlab/gitlabClient.svelte";
-import { GitLabListingService } from "$lib/forge/gitlab/gitlabListingService.svelte";
-import { GitLabPrService } from "$lib/forge/gitlab/gitlabPrService.svelte";
-import { providesList, ReduxTag } from "$lib/state/tags";
-import { toSerializable } from "@gitbutler/shared/network/types";
+import { type GitLabClient } from "$lib/forge/gitlab/gitlabClient.svelte";
+import { ListingService } from "$lib/forge/shared/listingService.svelte";
+import { PrService } from "$lib/forge/shared/prService.svelte";
+import { RepoService } from "$lib/forge/shared/repoService.svelte";
+import { ReduxTag } from "$lib/state/tags";
 import type { Forge, ForgeName } from "$lib/forge/interface/forge";
-import type { ForgeArguments, ForgeUser } from "$lib/forge/interface/types";
+import type { ForgeArguments } from "$lib/forge/interface/types";
 import type { BackendApi } from "$lib/state/backendApi";
 import type { AppDispatch, GitLabApi } from "$lib/state/clientState.svelte";
 import type { PostHogWrapper } from "$lib/telemetry/posthog";
@@ -28,7 +28,6 @@ export class GitLab implements Forge {
 	private baseUrl: string;
 	private baseBranch: string;
 	private forkStr?: string;
-	private api: ReturnType<typeof injectEndpoints>;
 
 	constructor(
 		private params: ForgeArguments & {
@@ -40,7 +39,7 @@ export class GitLab implements Forge {
 			isLoading: boolean;
 		},
 	) {
-		const { api, baseBranch, forkStr, authenticated, repo, isLoading } = this.params;
+		const { baseBranch, forkStr, authenticated, repo, isLoading } = this.params;
 		// Use the protocol from repo if available, otherwise default to https
 		// For SSH remote URLs, always use HTTPS for browser compatibility
 		let protocol = repo.protocol?.endsWith(":")
@@ -57,8 +56,6 @@ export class GitLab implements Forge {
 		this.forkStr = forkStr;
 		this.authenticated = authenticated;
 		this.isLoading = isLoading;
-
-		this.api = injectEndpoints(api);
 	}
 
 	branch(name: string) {
@@ -69,28 +66,31 @@ export class GitLab implements Forge {
 		return `${this.baseUrl}/-/commit/${id}`;
 	}
 
-	get user() {
-		return this.api.endpoints.getGitLabUser.useQuery();
+	prUrl(number: number): string {
+		return `${this.baseUrl}/-/merge_requests/${number}`;
 	}
 
 	get listService() {
 		if (!this.authenticated) return;
-		const { api: gitLabApi, dispatch } = this.params;
-		return new GitLabListingService(gitLabApi, dispatch);
-	}
-
-	get issueService() {
-		return undefined;
+		const { backendApi, dispatch } = this.params;
+		return new ListingService(backendApi, dispatch);
 	}
 
 	get prService() {
 		if (!this.authenticated) return;
-		const { api: gitLabApi, posthog, backendApi } = this.params;
-		return new GitLabPrService(gitLabApi, backendApi, posthog);
+		const { posthog, backendApi } = this.params;
+		return new PrService(
+			{ name: "Merge request", abbr: "MR", symbol: "!" },
+			"Gitlab MR",
+			backendApi,
+			posthog,
+		);
 	}
 
 	get repoService() {
-		return undefined;
+		if (!this.authenticated) return;
+		const { backendApi, repo } = this.params;
+		return new RepoService(backendApi, repo.owner, repo.name);
 	}
 
 	get checks() {
@@ -104,29 +104,6 @@ export class GitLab implements Forge {
 	invalidate(tags: TagDescription<ReduxTag>[]) {
 		return this.params.api.util.invalidateTags(tags);
 	}
-}
-function injectEndpoints(api: GitLabApi) {
-	return api.injectEndpoints({
-		endpoints: (build) => ({
-			getGitLabUser: build.query<ForgeUser, void>({
-				queryFn: async (args, query) => {
-					try {
-						const { api } = gitlab(query.extra);
-						const user = await api.Users.showCurrentUser();
-						const data = {
-							id: user.id,
-							name: user.name,
-							srcUrl: user.avatar_url,
-						};
-						return { data };
-					} catch (e: unknown) {
-						return { error: toSerializable(e) };
-					}
-				},
-				providesTags: [providesList(ReduxTag.ForgeUser)],
-			}),
-		}),
-	});
 }
 
 export type GitLabProjectId = Branded<string, "GitLabProjectId">;

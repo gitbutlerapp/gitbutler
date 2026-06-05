@@ -7,8 +7,12 @@ export interface RepoDetailedInfo {
 	 * `undefined` if unknown.
 	 */
 	deleteBranchAfterMerge: boolean | undefined;
+	/** Whether this repository is a fork of another. */
+	fork: boolean;
+	/** Caller's write permission on the repo (used to gate the merge button). */
+	canMerge: boolean;
 }
 
 export type ForgeRepoService = {
-	getInfo(): ReactiveQuery<RepoDetailedInfo>;
+	getInfo(projectId: string): ReactiveQuery<RepoDetailedInfo>;
 };

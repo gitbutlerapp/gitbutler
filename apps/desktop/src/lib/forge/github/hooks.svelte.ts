@@ -5,6 +5,8 @@ import {
 import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 import { inject } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+import type { ForgeUser } from "$lib/forge/interface/types";
+import type { ReactiveQuery } from "$lib/state/butlerModule";
 import type { Code, GithubAccountIdentifier } from "@gitbutler/but-sdk";
 import type { Reactive } from "@gitbutler/shared/storeUtils";
 
@@ -87,4 +89,28 @@ export function useGitHubAccessToken(projectId: Reactive<string>): GitHubAccess 
 		),
 		isError: reactive(() => ghUserResponse?.result.isError ?? false),
 	};
+}
+
+/**
+ * Resolve the project's preferred GitHub account and fetch it as a
+ * display-ready `ForgeUser`. Returns `undefined` when no GitHub
+ * account is configured.
+ */
+export function useGitHubForgeUser(
+	projectId: Reactive<string>,
+): ReactiveQuery<ForgeUser | undefined> | undefined {
+	const githubUserService = inject(GITHUB_USER_SERVICE);
+	const { preferredGitHubAccount } = usePreferredGitHubUsername(projectId);
+	const account = $derived(preferredGitHubAccount.current);
+	if (account === undefined) return undefined;
+	return githubUserService.authenticatedUser(account, {
+		transform: (result) =>
+			result
+				? {
+						login: result.login,
+						name: result.name ?? result.login,
+						srcUrl: result.avatarUrl ?? "",
+					}
+				: undefined,
+	});
 }
