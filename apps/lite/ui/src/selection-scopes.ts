@@ -1,7 +1,7 @@
 import type { CommandGroup } from "#ui/hotkeys.ts";
 import { type OperationType } from "#ui/operations/operation.ts";
 import { keyboardTransferOperationMode } from "#ui/outline/mode.ts";
-import { operandIdentityKey, type Operand } from "#ui/operands.ts";
+import { fileOperand, operandIdentityKey, type FileOperand, type Operand } from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectOutlineModeState,
@@ -59,17 +59,24 @@ export const focusAdjacentSelectionScope = (filesVisible: boolean, offset: -1 | 
 	}
 };
 
-export const resolveNavigationIndexSelection = (
-	navigationIndex: NavigationIndex,
-	selection: Operand | null,
-): Operand | null =>
-	selection && navigationIndexIncludes(navigationIndex, selection)
+export const resolveNavigationIndexSelection = <T>(
+	navigationIndex: NavigationIndex<T>,
+	selection: T | null,
+	getKey: (item: T) => string,
+): T | null =>
+	selection !== null && navigationIndexIncludes(navigationIndex, selection, getKey)
 		? selection
 		: (navigationIndex.items[0] ?? null);
 
-export const useFilesSelection = (projectId: string, navigationIndex: NavigationIndex) => {
+const fileOperandIdentityKey = (operand: FileOperand): string =>
+	operandIdentityKey(fileOperand(operand));
+
+export const useFilesSelection = (
+	projectId: string,
+	navigationIndex: NavigationIndex<FileOperand>,
+) => {
 	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
-	return resolveNavigationIndexSelection(navigationIndex, selection);
+	return resolveNavigationIndexSelection(navigationIndex, selection, fileOperandIdentityKey);
 };
 
 export const useOutlineSelection = ({
@@ -77,13 +84,13 @@ export const useOutlineSelection = ({
 	navigationIndex,
 }: {
 	projectId: string;
-	navigationIndex: NavigationIndex;
+	navigationIndex: NavigationIndex<Operand>;
 }) => {
 	const selectionState = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
-	return resolveNavigationIndexSelection(navigationIndex, selectionState);
+	return resolveNavigationIndexSelection(navigationIndex, selectionState, operandIdentityKey);
 };
 
-export const useNavigationIndexHotkeys = ({
+export const useNavigationIndexHotkeys = <T>({
 	navigationIndex,
 	projectId,
 	group,
@@ -92,19 +99,23 @@ export const useNavigationIndexHotkeys = ({
 	selection,
 	ref,
 	selectSectionPredicate,
+	operationSourceForItem,
+	getKey,
 }: {
-	navigationIndex: NavigationIndex;
+	navigationIndex: NavigationIndex<T>;
 	projectId: string;
 	group: CommandGroup;
 	selectionScope: SelectionScope;
-	select: (newItem: Operand) => void;
-	selection: Operand | null;
+	select: (newItem: T) => void;
+	selection: T | null;
 	ref: React.RefObject<HTMLElement | null>;
-	selectSectionPredicate?: (operand: Operand) => boolean;
+	selectSectionPredicate?: (item: T) => boolean;
+	operationSourceForItem: (item: T) => Operand;
+	getKey: (item: T) => string;
 }) => {
 	const dispatch = useAppDispatch();
 
-	const selectAndFocus = (newItem: Operand) => {
+	const selectAndFocus = (newItem: T) => {
 		select(newItem);
 		focusSelectionScope(selectionScope);
 	};
@@ -113,8 +124,8 @@ export const useNavigationIndexHotkeys = ({
 		const newItem =
 			selection === null
 				? navigationIndex.items.at(offset === 1 ? 0 : -1)
-				: getAdjacent({ navigationIndex, selection, offset });
-		if (!newItem) return;
+				: getAdjacent({ navigationIndex, selection, offset, getKey });
+		if (newItem === null || newItem === undefined) return;
 		selectAndFocus(newItem);
 	};
 
@@ -126,10 +137,10 @@ export const useNavigationIndexHotkeys = ({
 		moveSelection(1);
 	};
 
-	const moveToMatchingItem = (offset: -1 | 1, predicate: (operand: Operand) => boolean) => {
-		if (!selection) return;
+	const moveToMatchingItem = (offset: -1 | 1, predicate: (item: T) => boolean) => {
+		if (selection === null) return;
 
-		const selectionIndex = navigationIndex.indexByKey.get(operandIdentityKey(selection));
+		const selectionIndex = navigationIndex.indexByKey.get(getKey(selection));
 		if (selectionIndex === undefined) return;
 
 		const currentItem = navigationIndex.items[selectionIndex];
@@ -138,7 +149,7 @@ export const useNavigationIndexHotkeys = ({
 
 		while (itemIndex >= 0 && itemIndex < navigationIndex.items.length) {
 			const item = navigationIndex.items[itemIndex];
-			if (item && predicate(item)) {
+			if (item !== undefined && predicate(item)) {
 				selectAndFocus(item);
 				return;
 			}
@@ -158,13 +169,13 @@ export const useNavigationIndexHotkeys = ({
 
 	const selectFirstItem = () => {
 		const newItem = navigationIndex.items[0];
-		if (!newItem) return;
+		if (newItem === undefined) return;
 		selectAndFocus(newItem);
 	};
 
 	const selectLastItem = () => {
 		const newItem = navigationIndex.items.at(-1);
-		if (!newItem) return;
+		if (newItem === undefined) return;
 		selectAndFocus(newItem);
 	};
 
@@ -318,9 +329,9 @@ export const useNavigationIndexHotkeys = ({
 	const operationEnabled = outlineMode._tag === "Default" && selection !== null;
 
 	const enterTransferModeForSelection = (operationType: OperationType) => {
-		if (!selection) return;
+		if (selection === null) return;
 
-		enterTransferMode(selection, operationType);
+		enterTransferMode(operationSourceForItem(selection), operationType);
 	};
 
 	useHotkeys([

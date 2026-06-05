@@ -118,7 +118,7 @@ import { errorMessageForToast } from "#ui/errors.ts";
 import { OutlineModeTooltip } from "./OutlineModeTooltip.tsx";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 
-const NavigationIndexContext = createContext<NavigationIndex | null>(null);
+const NavigationIndexContext = createContext<NavigationIndex<Operand> | null>(null);
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
@@ -137,7 +137,7 @@ const useOutlineTreeHotkeys = ({
 	projectId,
 	ref,
 }: {
-	navigationIndex: NavigationIndex;
+	navigationIndex: NavigationIndex<Operand>;
 	projectId: string;
 	ref: React.RefObject<HTMLElement | null>;
 }) => {
@@ -257,6 +257,8 @@ const useOutlineTreeHotkeys = ({
 		selectionScope: "outline",
 		select,
 		selection,
+		getKey: operandIdentityKey,
+		operationSourceForItem: (operand) => operand,
 		selectSectionPredicate: (operand) =>
 			operand._tag === "Branch" || operand._tag === "ChangesSection" || operand._tag === "Stack",
 	});
@@ -323,13 +325,13 @@ const useOutlineTreeHotkeys = ({
 			Match.tag(
 				"ChangesSection",
 				(): UseHotkeyDefinition => ({
-					hotkey: outlineHotkeys.editChangesCommitMessage.hotkey,
+					hotkey: outlineHotkeys.composeCommitMessageFromChanges.hotkey,
 					callback: focusCommitMessageInput,
 					options: {
 						conflictBehavior: "allow",
 						enabled: defaultOutlineHotkeysEnabled,
 						target: ref,
-						meta: outlineHotkeys.editChangesCommitMessage.meta,
+						meta: outlineHotkeys.composeCommitMessageFromChanges.meta,
 					},
 				}),
 			),
@@ -431,7 +433,7 @@ const useOutlineTreeHotkeys = ({
 
 export const OutlineTree: FC<
 	{
-		navigationIndex: NavigationIndex;
+		navigationIndex: NavigationIndex<Operand>;
 		absorptionTargetKeys: ReadonlySet<string>;
 		absorptionPlanQuery: UseQueryResult<Array<CommitAbsorption>> | undefined;
 	} & ComponentProps<"div">
@@ -545,7 +547,11 @@ const useIsSelected = ({
 	const navigationIndex = assert(use(NavigationIndexContext));
 	return useAppSelector((state) => {
 		const selectionState = selectProjectSelectionOutline(state, projectId);
-		const selection = resolveNavigationIndexSelection(navigationIndex, selectionState);
+		const selection = resolveNavigationIndexSelection(
+			navigationIndex,
+			selectionState,
+			operandIdentityKey,
+		);
 
 		return selection ? operandEquals(selection, operand) : false;
 	});
@@ -596,7 +602,7 @@ const ItemRow: FC<
 			render={
 				<WorkspaceItemRow
 					{...props}
-					inert={!navigationIndexIncludes(navigationIndex, operand)}
+					inert={!navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
 					isSelected={isSelected}
 					onSelect={selectItem}
 				/>
@@ -642,7 +648,7 @@ const OperandC: FC<
 				source={operand}
 				render={
 					<OperationTarget
-						enabled={navigationIndexIncludes(navigationIndex, operand)}
+						enabled={navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
 						projectId={projectId}
 						target={operand}
 						isSelected={isSelected}
@@ -1044,7 +1050,7 @@ const ChangesSectionRow: FC<{
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: "Compose Commit Message",
-			accelerator: toElectronAccelerator(outlineHotkeys.editChangesCommitMessage.hotkey),
+			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitMessageFromChanges.hotkey),
 			onSelect: composeCommitMessage,
 			enabled: outlineMode._tag === "Default",
 		}),

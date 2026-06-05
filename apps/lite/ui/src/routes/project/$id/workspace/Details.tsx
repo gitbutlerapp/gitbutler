@@ -19,6 +19,7 @@ import {
 	fileOperand,
 	operandIdentityKey,
 	type CommitOperand,
+	type FileOperand,
 	type Operand,
 } from "#ui/operands.ts";
 import { projectActions, selectProjectFilesVisible } from "#ui/projects/state.ts";
@@ -68,9 +69,8 @@ const getScrollTargetId = ({
 	selection,
 }: {
 	changesetKey: string;
-	selection: Operand | null;
-}): string | null =>
-	selection?._tag === "File" ? codeViewItemId({ changesetKey, path: selection.path }) : null;
+	selection: FileOperand | null;
+}): string | null => (selection ? codeViewItemId({ changesetKey, path: selection.path }) : null);
 
 const getChangesetKey = (selection: Operand): string =>
 	Match.value(selection).pipe(
@@ -103,10 +103,10 @@ const getCommitFileTreeItems = ({
 	return [
 		...conflictedPaths.map((path) =>
 			conflictFileTreeItem({
-				operand: fileOperand({
+				operand: {
 					parent: commitFileParent(commit),
 					path,
-				}),
+				},
 				path,
 			}),
 		),
@@ -115,10 +115,10 @@ const getCommitFileTreeItems = ({
 			.map((change) =>
 				changeFileTreeItem({
 					change,
-					operand: fileOperand({
+					operand: {
 						parent: commitFileParent(commit),
 						path: change.path,
-					}),
+					},
 				}),
 			),
 	];
@@ -138,10 +138,10 @@ const getChangesFileTreeItems = (worktreeChanges: WorktreeChanges): Array<FileTr
 		return changeFileTreeItem({
 			change,
 			dependencyCommitIds,
-			operand: fileOperand({
+			operand: {
 				parent: changesFileParent,
 				path: change.path,
-			}),
+			},
 		});
 	});
 };
@@ -158,10 +158,10 @@ const getBranchFileTreeItems = ({
 	branchDiff.changes.map((change) =>
 		changeFileTreeItem({
 			change,
-			operand: fileOperand({
+			operand: {
 				parent: branchFileParent({ stackId, branchRef }),
 				path: change.path,
-			}),
+			},
 		}),
 	);
 
@@ -237,7 +237,7 @@ const mkCodeViewItem = (
 
 const DiffContents: FC<{
 	changes: Array<TreeChange>;
-	onViewerFileSelection: (selection: Operand) => void;
+	onViewerFileSelection: (selection: FileOperand) => void;
 	outlineSelection: Operand;
 	projectId: string;
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
@@ -277,12 +277,10 @@ const DiffContents: FC<{
 		// This can happen on very fast scroll.
 		if (activeItem === undefined) return;
 
-		onViewerFileSelection(
-			fileOperand({
-				parent: fileParent,
-				path: codeViewItemIdPath({ changesetKey, id: activeItem.id }),
-			}),
-		);
+		onViewerFileSelection({
+			parent: fileParent,
+			path: codeViewItemIdPath({ changesetKey, id: activeItem.id }),
+		});
 	};
 
 	return items.length === 0 ? (
@@ -460,8 +458,8 @@ const Diff: FC<{
 	changes: Array<TreeChange>;
 	filesVisible: boolean;
 	filesItems: Array<FileTreeItem>;
-	onFileSelection: (selection: Operand) => void;
-	onViewerFileSelection: (selection: Operand) => void;
+	onFileSelection: (selection: FileOperand) => void;
+	onViewerFileSelection: (selection: FileOperand) => void;
 	outlineSelection: Operand;
 	projectId: string;
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
@@ -477,7 +475,9 @@ const Diff: FC<{
 }) => {
 	const files = filesItems.map((item) => item.operand);
 
-	const navigationIndex = buildNavigationIndex(files);
+	const navigationIndex = buildNavigationIndex(files, (file) =>
+		operandIdentityKey(fileOperand(file)),
+	);
 
 	return (
 		<div className={classes(styles.diff, filesVisible && styles.diffWithFiles)}>
@@ -525,11 +525,11 @@ export const Details: FC<{ outlineSelection: Operand | null } & ComponentProps<"
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
 	const outlineSelection = useDeferredValue(urgentOutlineSelection);
 
-	const selectFile = (selection: Operand) => {
+	const selectFile = (selection: FileOperand) => {
 		dispatch(projectActions.selectFiles({ projectId, selection }));
 	};
 
-	const selectFileAndScrollDiff = (selection: Operand) => {
+	const selectFileAndScrollDiff = (selection: FileOperand) => {
 		if (!outlineSelection) return;
 
 		selectFile(selection);

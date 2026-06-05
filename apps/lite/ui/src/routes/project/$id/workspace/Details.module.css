@@ -31,11 +31,11 @@
 	grid-template-rows: minmax(0, 1fr);
 	grid-template-columns: 1fr;
 	column-gap: 12px;
-	padding-inline-start: var(--panel-padding);
 }
 
 .diffWithFiles {
-	grid-template-columns: 300px 1fr;
+	grid-template-columns: 300px minmax(300px, 1fr);
+	padding-inline-start: var(--panel-padding);
 }
 
 .diffFiles {

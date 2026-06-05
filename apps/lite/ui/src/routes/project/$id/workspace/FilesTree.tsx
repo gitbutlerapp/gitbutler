@@ -7,7 +7,7 @@ import {
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
 } from "#ui/native-menu.ts";
-import { operandEquals, operandIdentityKey, type Operand } from "#ui/operands.ts";
+import { fileOperand, operandIdentityKey, type FileOperand } from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectOutlineModeState,
@@ -44,7 +44,10 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 
-const NavigationIndexContext = createContext<NavigationIndex | null>(null);
+const fileOperandIdentityKey = (operand: FileOperand): string =>
+	operandIdentityKey(fileOperand(operand));
+
+const NavigationIndexContext = createContext<NavigationIndex<FileOperand> | null>(null);
 
 const useFilesTreeHotkeys = ({
 	navigationIndex,
@@ -52,8 +55,8 @@ const useFilesTreeHotkeys = ({
 	projectId,
 	ref,
 }: {
-	navigationIndex: NavigationIndex;
-	onFileSelection: (selection: Operand) => void;
+	navigationIndex: NavigationIndex<FileOperand>;
+	onFileSelection: (selection: FileOperand) => void;
 	projectId: string;
 	ref: React.RefObject<HTMLElement | null>;
 }) => {
@@ -63,8 +66,7 @@ const useFilesTreeHotkeys = ({
 
 	const dispatch = useAppDispatch();
 
-	const selectedChangesFile =
-		selection?._tag === "File" && selection.parent._tag === "Changes" ? selection : null;
+	const selectedChangesFile = selection?.parent._tag === "Changes" ? selection : null;
 
 	const absorbSelectedFile = () => {
 		if (selectedChangesFile === null) return;
@@ -77,7 +79,7 @@ const useFilesTreeHotkeys = ({
 		dispatch(
 			projectActions.enterAbsorbMode({
 				projectId,
-				source: selectedChangesFile,
+				source: fileOperand(selectedChangesFile),
 				sourceTarget: {
 					type: "treeChanges",
 					subject: {
@@ -111,13 +113,15 @@ const useFilesTreeHotkeys = ({
 		select: onFileSelection,
 		selection,
 		ref,
+		getKey: fileOperandIdentityKey,
+		operationSourceForItem: fileOperand,
 	});
 };
 
 type ChangeFileTreeItem = {
 	change: TreeChange;
 	dependencyCommitIds?: Array.NonEmptyArray<string>;
-	operand: Operand;
+	operand: FileOperand;
 };
 
 export const changeFileTreeItem = ({
@@ -132,7 +136,7 @@ export const changeFileTreeItem = ({
 });
 
 type ConflictFileTreeItem = {
-	operand: Operand;
+	operand: FileOperand;
 	path: string;
 };
 
@@ -150,8 +154,8 @@ export const FilesTree: FC<
 	{
 		projectId: string;
 		items: Array<FileTreeItem>;
-		onFileSelection: (selection: Operand) => void;
-		navigationIndex: NavigationIndex;
+		onFileSelection: (selection: FileOperand) => void;
+		navigationIndex: NavigationIndex<FileOperand>;
 	} & ComponentProps<"div">
 > = ({ className, items, onFileSelection, projectId, navigationIndex, ref: refProp, ...props }) => {
 	const selection = useFilesSelection(projectId, navigationIndex);
@@ -182,7 +186,7 @@ export const FilesTree: FC<
 						<div role="group">
 							{items.map((item) => (
 								<FileTreeRow
-									key={operandIdentityKey(item.operand)}
+									key={fileOperandIdentityKey(item.operand)}
 									item={item}
 									onFileSelection={onFileSelection}
 									projectId={projectId}
@@ -201,25 +205,31 @@ const useIsSelected = ({
 	operand,
 }: {
 	projectId: string;
-	operand: Operand;
+	operand: FileOperand;
 }): boolean => {
 	const navigationIndex = assert(use(NavigationIndexContext));
 	return useAppSelector((state) => {
 		const selectionState = selectProjectSelectionFiles(state, projectId);
-		const selection = resolveNavigationIndexSelection(navigationIndex, selectionState);
+		const selection = resolveNavigationIndexSelection(
+			navigationIndex,
+			selectionState,
+			fileOperandIdentityKey,
+		);
 
-		return selection !== null && operandEquals(selection, operand);
+		return (
+			selection !== null && fileOperandIdentityKey(selection) === fileOperandIdentityKey(operand)
+		);
 	});
 };
 
-const treeItemId = (operand: Operand): string =>
-	`files-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
+const treeItemId = (operand: FileOperand): string =>
+	`files-treeitem-${encodeURIComponent(fileOperandIdentityKey(operand))}`;
 
 const ItemRow: FC<
 	{
-		onFileSelection: (selection: Operand) => void;
+		onFileSelection: (selection: FileOperand) => void;
 		projectId: string;
-		operand: Operand;
+		operand: FileOperand;
 	} & Omit<ComponentProps<typeof WorkspaceItemRow>, "inert" | "isSelected" | "onSelect">
 > = ({ onFileSelection, projectId, operand, ...props }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
@@ -228,7 +238,7 @@ const ItemRow: FC<
 	return (
 		<WorkspaceItemRow
 			{...props}
-			inert={!navigationIndexIncludes(navigationIndex, operand)}
+			inert={!navigationIndexIncludes(navigationIndex, operand, fileOperandIdentityKey)}
 			isSelected={isSelected}
 			onSelect={() => onFileSelection(operand)}
 		/>
@@ -238,7 +248,7 @@ const ItemRow: FC<
 const TreeItem: FC<
 	{
 		projectId: string;
-		operand: Operand;
+		operand: FileOperand;
 	} & useRender.ComponentProps<"div">
 > = ({ projectId, operand, render, ...props }) => {
 	const isSelected = useIsSelected({ projectId, operand });
@@ -265,7 +275,7 @@ const statusLabel = (status: TreeStatus): string =>
 
 const FileTreeRow: FC<{
 	item: FileTreeItem;
-	onFileSelection: (selection: Operand) => void;
+	onFileSelection: (selection: FileOperand) => void;
 	projectId: string;
 }> = ({ item, onFileSelection, projectId }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
@@ -299,7 +309,7 @@ const FileTreeRow: FC<{
 		}),
 		...Match.value(item).pipe(
 			Match.when(
-				{ _tag: "Change", operand: { _tag: "File", parent: { _tag: "Commit" } } },
+				{ _tag: "Change", operand: { parent: { _tag: "Commit" } } },
 				({ change, operand }) => {
 					const uncommit = () =>
 						commitUncommitChanges.mutate({
@@ -321,13 +331,13 @@ const FileTreeRow: FC<{
 				},
 			),
 			Match.when(
-				{ _tag: "Change", operand: { _tag: "File", parent: { _tag: "Changes" } } },
+				{ _tag: "Change", operand: { parent: { _tag: "Changes" } } },
 				({ change, operand }) => {
 					const absorb = () => {
 						dispatch(
 							projectActions.enterAbsorbMode({
 								projectId,
-								source: operand,
+								source: fileOperand(operand),
 								sourceTarget: {
 									type: "treeChanges",
 									subject: {
@@ -367,7 +377,7 @@ const FileTreeRow: FC<{
 				<OperationSourceC
 					projectId={projectId}
 					selectionScope="files"
-					source={item.operand}
+					source={fileOperand(item.operand)}
 					render={
 						<ItemRow
 							projectId={projectId}
@@ -396,33 +406,30 @@ const FileTreeRow: FC<{
 
 			{outlineMode._tag === "Default" &&
 				Match.value(item).pipe(
-					Match.when(
-						{ _tag: "Change", operand: { _tag: "File", parent: { _tag: "Changes" } } },
-						(item) => (
-							<>
-								<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
-									<Toolbar.Button
-										aria-label="File menu"
-										onClick={(event) => {
-											void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-										}}
-										className={workspaceItemRowStyles.itemRowIconButton}
-									>
-										<Icon name="kebab" />
-									</Toolbar.Button>
-								</Toolbar.Root>
-								{item.dependencyCommitIds && (
-									<DependencyIndicator
-										projectId={projectId}
-										commitIds={item.dependencyCommitIds}
-										className={workspaceItemRowStyles.itemRowIconButton}
-									>
-										<Icon name="link" />
-									</DependencyIndicator>
-								)}
-							</>
-						),
-					),
+					Match.when({ _tag: "Change", operand: { parent: { _tag: "Changes" } } }, (item) => (
+						<>
+							<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
+								<Toolbar.Button
+									aria-label="File menu"
+									onClick={(event) => {
+										void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+									}}
+									className={workspaceItemRowStyles.itemRowIconButton}
+								>
+									<Icon name="kebab" />
+								</Toolbar.Button>
+							</Toolbar.Root>
+							{item.dependencyCommitIds && (
+								<DependencyIndicator
+									projectId={projectId}
+									commitIds={item.dependencyCommitIds}
+									className={workspaceItemRowStyles.itemRowIconButton}
+								>
+									<Icon name="link" />
+								</DependencyIndicator>
+							)}
+						</>
+					)),
 					Match.orElse(() => null),
 				)}
 		</TreeItem>
