@@ -1,14 +1,18 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    ops::{Deref, DerefMut},
+};
 
 use bstr::BStr;
 use but_api::WorkspaceState;
 use but_core::{
-    DiffSpec, DryRun, RefMetadata, sync::RepoExclusive, tree::create_tree::RejectionReason,
+    DiffSpec, DryRun, RefMetadata, ref_metadata, sync::RepoExclusive,
+    tree::create_tree::RejectionReason,
 };
 use but_ctx::Context;
 use but_oplog::legacy::SnapshotDetails;
 use but_rebase::graph_rebase::{
-    Editor, LookupStep as _, SuccessfulRebase,
+    Editor, LookupStep as _, Step, SuccessfulRebase,
     mutate::{InsertSide, RelativeTo},
 };
 use but_workspace::commit::{
@@ -16,7 +20,10 @@ use but_workspace::commit::{
 };
 use gix::{
     ObjectId,
-    refs::{FullName, FullNameRef},
+    refs::{
+        FullName, FullNameRef,
+        transaction::{Change, PreviousValue, RefEdit},
+    },
 };
 
 #[cfg(test)]
@@ -114,12 +121,23 @@ where
             db_tx,
             commit_mappings: CommitMappings::default(),
             pending_metadata_removals: Vec::new(),
+            pending_metadata_updates: Vec::new(),
+            pending_created_independent_refs: Vec::new(),
+            pending_ref_changes: PendingRefChanges::default(),
             context_lines,
         };
 
         let callback_outcome = {
             let tx = Transaction { inner: &mut inner };
-            f(tx)?
+            f(tx)
+        };
+
+        let callback_outcome = match callback_outcome {
+            Ok(outcome) => outcome,
+            Err(err) => {
+                inner.pending_ref_changes.rollback(&repo)?;
+                return Err(err);
+            }
         };
 
         let Inner {
@@ -127,20 +145,37 @@ where
             db_tx,
             commit_mappings: _,
             pending_metadata_removals,
+            pending_metadata_updates,
+            pending_created_independent_refs,
+            mut pending_ref_changes,
             context_lines: _,
         } = inner;
         let rebase = rebase.take().expect("rebase is always Some(_)");
 
-        (
-            callback_outcome.should_rollback(),
-            callback_outcome.maybe_commit(
-                &repo,
-                rebase,
-                db_tx,
-                pending_metadata_removals,
-                dry_run,
-            )?,
-        )
+        let should_rollback = callback_outcome.should_rollback();
+        let outcome = callback_outcome.maybe_commit(
+            &repo,
+            rebase,
+            db_tx,
+            pending_metadata_removals,
+            pending_metadata_updates,
+            pending_created_independent_refs,
+            dry_run,
+        );
+
+        let outcome = match outcome {
+            Ok(outcome) => outcome,
+            Err(err) => {
+                pending_ref_changes.rollback(&repo)?;
+                return Err(err);
+            }
+        };
+
+        if should_rollback || dry_run.into() {
+            pending_ref_changes.rollback(&repo)?;
+        }
+
+        (should_rollback, outcome)
     };
 
     if !should_rollback && let Some(snapshot) = maybe_oplog_entry {
@@ -172,12 +207,10 @@ where
     // and put the result back.
     rebase: Option<SuccessfulRebase<'rebase, 'rebase, M>>,
     db_tx: but_db::Transaction<'rebase>,
-    // Metadata removals to apply only if the transaction commits. Applying them immediately would
-    // leak through dry-runs and rollbacks because the current metadata backend writes on drop.
-    //
-    // HACK: When all the meta data is backed by the database we should be able to remove this and
-    // instead use `db_tx`.
     pending_metadata_removals: Vec<FullName>,
+    pending_metadata_updates: Vec<PendingMetadataUpdate>,
+    pending_created_independent_refs: Vec<FullName>,
+    pending_ref_changes: PendingRefChanges,
     // Commits given to `squash_commits`, `reword_commit`, etc are allowed to be the original
     // commits from live repo. This is used to map those to the rebased in-memory commits.
     //
@@ -254,10 +287,82 @@ where
             let rebase = editor.rebase()?;
             Ok(((), rebase))
         })?;
+        let repo = self.repo().clone();
+        self.inner
+            .pending_ref_changes
+            .remove_eagerly_created_ref(&repo, ref_name)?;
         self.inner
             .pending_metadata_removals
             .push(ref_name.to_owned());
         Ok(())
+    }
+
+    pub fn create_reference<'name>(
+        &mut self,
+        ref_name: &FullNameRef,
+        anchor: impl Into<Option<but_workspace::branch::create_reference::Anchor<'name>>>,
+        new_stack_id: impl FnOnce(&FullNameRef) -> ref_metadata::StackId,
+        order: impl Into<Option<usize>>,
+    ) -> anyhow::Result<()> {
+        let anchor = anchor.into();
+        let creates_independent_branch = anchor.is_none();
+        let previous = self
+            .repo()
+            .try_find_reference(ref_name)?
+            .map(|reference| reference.target().into());
+
+        let graph = self
+            .inner
+            .rebase
+            .as_ref()
+            .expect("rebase is always Some(_)")
+            .overlayed_graph()?;
+        let workspace = graph.into_workspace()?;
+        let mut meta = RecordingMetadata {
+            workspace_name: workspace.ref_name().map(ToOwned::to_owned),
+            workspace: workspace.metadata.clone(),
+            updates: Vec::new(),
+        };
+
+        but_workspace::branch::create_reference(
+            ref_name,
+            anchor,
+            self.repo(),
+            &workspace,
+            &mut meta,
+            new_stack_id,
+            order,
+        )?;
+
+        self.inner
+            .pending_metadata_updates
+            .append(&mut meta.updates);
+        if creates_independent_branch {
+            self.inner
+                .pending_created_independent_refs
+                .push(ref_name.to_owned());
+        }
+        self.inner
+            .pending_ref_changes
+            .record_eager_create(ref_name, previous);
+
+        self.rebase(|mut editor, _, _| {
+            if editor.try_select_reference(ref_name).is_some() {
+                return Ok(((), editor.rebase()?));
+            }
+
+            let target_id = editor
+                .repo()
+                .find_reference(ref_name)?
+                .peel_to_id()?
+                .detach();
+            let target = editor.select_commit(target_id)?;
+            let reference = editor.add_step(Step::Reference {
+                refname: ref_name.to_owned(),
+            })?;
+            editor.add_edge(reference, target, 0)?;
+            Ok(((), editor.rebase()?))
+        })
     }
 
     pub fn create_commit(
@@ -418,6 +523,183 @@ where
 }
 
 #[derive(Debug, Default)]
+struct PendingRefChanges {
+    eagerly_created_refs: Vec<EagerlyCreatedRef>,
+}
+
+impl PendingRefChanges {
+    fn record_eager_create(&mut self, ref_name: &FullNameRef, previous: Option<gix::refs::Target>) {
+        self.eagerly_created_refs.push(EagerlyCreatedRef {
+            name: ref_name.to_owned(),
+            previous,
+        });
+    }
+
+    fn remove_eagerly_created_ref(
+        &mut self,
+        repo: &gix::Repository,
+        ref_name: &FullNameRef,
+    ) -> anyhow::Result<()> {
+        if let Some(created_ref_index) = self.eagerly_created_refs.iter().position(|created_ref| {
+            created_ref.name.as_ref() == ref_name && created_ref.previous.is_none()
+        }) {
+            let created_ref = self.eagerly_created_refs.remove(created_ref_index);
+            Self::restore_one(repo, created_ref)?;
+        }
+        Ok(())
+    }
+
+    fn rollback(&mut self, repo: &gix::Repository) -> anyhow::Result<()> {
+        for created_ref in self.eagerly_created_refs.drain(..).rev() {
+            Self::restore_one(repo, created_ref)?;
+        }
+        Ok(())
+    }
+
+    fn restore_one(repo: &gix::Repository, created_ref: EagerlyCreatedRef) -> anyhow::Result<()> {
+        let EagerlyCreatedRef { name, previous } = created_ref;
+        match previous {
+            Some(target) => {
+                repo.edit_references([RefEdit {
+                    name,
+                    change: Change::Update {
+                        log: Default::default(),
+                        expected: PreviousValue::Any,
+                        new: target,
+                    },
+                    deref: false,
+                }])?;
+            }
+            None => {
+                if repo.try_find_reference(name.as_ref())?.is_some() {
+                    repo.edit_references([RefEdit {
+                        name,
+                        change: Change::Delete {
+                            log: gix::refs::transaction::RefLog::AndReference,
+                            expected: PreviousValue::MustExist,
+                        },
+                        deref: false,
+                    }])?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct EagerlyCreatedRef {
+    name: FullName,
+    previous: Option<gix::refs::Target>,
+}
+
+#[derive(Clone)]
+enum PendingMetadataUpdate {
+    Workspace(RecordingMetadataHandle<ref_metadata::Workspace>),
+    Branch(RecordingMetadataHandle<ref_metadata::Branch>),
+}
+
+#[derive(Default)]
+struct RecordingMetadata {
+    workspace_name: Option<FullName>,
+    workspace: Option<ref_metadata::Workspace>,
+    updates: Vec<PendingMetadataUpdate>,
+}
+
+#[derive(Clone)]
+struct RecordingMetadataHandle<T> {
+    name: FullName,
+    value: T,
+    is_default: bool,
+}
+
+impl<T> Deref for RecordingMetadataHandle<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+impl<T> DerefMut for RecordingMetadataHandle<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.value
+    }
+}
+
+impl<T> AsRef<FullNameRef> for RecordingMetadataHandle<T> {
+    fn as_ref(&self) -> &FullNameRef {
+        self.name.as_ref()
+    }
+}
+
+impl<T> ref_metadata::ValueInfo for RecordingMetadataHandle<T> {
+    fn is_default(&self) -> bool {
+        self.is_default
+    }
+}
+
+impl RefMetadata for RecordingMetadata {
+    type Handle<T> = RecordingMetadataHandle<T>;
+
+    fn iter(&self) -> impl Iterator<Item = anyhow::Result<(FullName, Box<dyn std::any::Any>)>> {
+        std::iter::empty()
+    }
+
+    fn workspace(
+        &self,
+        ref_name: &FullNameRef,
+    ) -> anyhow::Result<Self::Handle<ref_metadata::Workspace>> {
+        let value = self
+            .workspace_name
+            .as_ref()
+            .filter(|name| name.as_ref() == ref_name)
+            .and_then(|_| self.workspace.clone());
+        let is_default = value.is_none();
+        Ok(RecordingMetadataHandle {
+            name: ref_name.to_owned(),
+            value: value.unwrap_or_default(),
+            is_default,
+        })
+    }
+
+    fn branch(&self, ref_name: &FullNameRef) -> anyhow::Result<Self::Handle<ref_metadata::Branch>> {
+        Ok(RecordingMetadataHandle {
+            name: ref_name.to_owned(),
+            value: ref_metadata::Branch::default(),
+            is_default: true,
+        })
+    }
+
+    fn set_workspace(
+        &mut self,
+        value: &Self::Handle<ref_metadata::Workspace>,
+    ) -> anyhow::Result<()> {
+        self.updates
+            .push(PendingMetadataUpdate::Workspace(RecordingMetadataHandle {
+                name: value.name.clone(),
+                value: value.value.clone(),
+                is_default: value.is_default,
+            }));
+        Ok(())
+    }
+
+    fn set_branch(&mut self, value: &Self::Handle<ref_metadata::Branch>) -> anyhow::Result<()> {
+        self.updates
+            .push(PendingMetadataUpdate::Branch(RecordingMetadataHandle {
+                name: value.name.clone(),
+                value: value.value.clone(),
+                is_default: value.is_default,
+            }));
+        Ok(())
+    }
+
+    fn remove(&mut self, _ref_name: &FullNameRef) -> anyhow::Result<bool> {
+        Ok(false)
+    }
+}
+
+#[derive(Debug, Default)]
 struct CommitMappings(BTreeMap<gix::ObjectId, gix::ObjectId>);
 
 impl CommitMappings {
@@ -442,12 +724,15 @@ pub trait TransactionOutcome: sealed::Sealed {
 
     fn should_rollback(&self) -> bool;
 
+    #[expect(private_interfaces, clippy::too_many_arguments)]
     fn maybe_commit<M: RefMetadata>(
         self,
         repo: &gix::Repository,
         rebase: SuccessfulRebase<'_, '_, M>,
         db_tx: but_db::Transaction<'_>,
         pending_metadata_removals: Vec<FullName>,
+        pending_metadata_updates: Vec<PendingMetadataUpdate>,
+        pending_created_independent_refs: Vec<FullName>,
         dry_run: DryRun,
     ) -> anyhow::Result<Self::Outcome>;
 }
@@ -459,15 +744,25 @@ impl TransactionOutcome for () {
         false
     }
 
+    #[expect(private_interfaces)]
     fn maybe_commit<M: RefMetadata>(
         self,
         repo: &gix::Repository,
         rebase: SuccessfulRebase<'_, '_, M>,
         db_tx: but_db::Transaction<'_>,
         pending_metadata_removals: Vec<FullName>,
+        pending_metadata_updates: Vec<PendingMetadataUpdate>,
+        pending_created_independent_refs: Vec<FullName>,
         dry_run: DryRun,
     ) -> anyhow::Result<Self::Outcome> {
-        let ws = workspace_state_from_rebase(rebase, repo, pending_metadata_removals, dry_run)?;
+        let ws = workspace_state_from_rebase(
+            rebase,
+            repo,
+            pending_metadata_removals,
+            pending_metadata_updates,
+            pending_created_independent_refs,
+            dry_run,
+        )?;
         if dry_run == DryRun::No {
             db_tx.commit()?;
         }
@@ -486,12 +781,15 @@ impl<T> TransactionOutcome for Rollback<T> {
         true
     }
 
+    #[expect(private_interfaces)]
     fn maybe_commit<M: RefMetadata>(
         self,
         _repo: &gix::Repository,
         _rebase: SuccessfulRebase<'_, '_, M>,
         _db_tx: but_db::Transaction<'_>,
         _pending_metadata_removals: Vec<FullName>,
+        _pending_metadata_updates: Vec<PendingMetadataUpdate>,
+        _pending_created_independent_refs: Vec<FullName>,
         _dry_run: DryRun,
     ) -> anyhow::Result<Self::Outcome> {
         Ok(self.0)
@@ -512,18 +810,27 @@ impl<T, K> TransactionOutcome for DynamicOutcome<T, K> {
         matches!(self, Self::Rollback(_))
     }
 
+    #[expect(private_interfaces)]
     fn maybe_commit<M: RefMetadata>(
         self,
         repo: &gix::Repository,
         rebase: SuccessfulRebase<'_, '_, M>,
         db_tx: but_db::Transaction<'_>,
         pending_metadata_removals: Vec<FullName>,
+        pending_metadata_updates: Vec<PendingMetadataUpdate>,
+        pending_created_independent_refs: Vec<FullName>,
         dry_run: DryRun,
     ) -> anyhow::Result<Self::Outcome> {
         match self {
             DynamicOutcome::Commit(value) => {
-                let workspace =
-                    workspace_state_from_rebase(rebase, repo, pending_metadata_removals, dry_run)?;
+                let workspace = workspace_state_from_rebase(
+                    rebase,
+                    repo,
+                    pending_metadata_removals,
+                    pending_metadata_updates,
+                    pending_created_independent_refs,
+                    dry_run,
+                )?;
                 if dry_run == DryRun::No {
                     db_tx.commit()?;
                 }
@@ -538,6 +845,8 @@ fn workspace_state_from_rebase<M: RefMetadata>(
     rebase: SuccessfulRebase<'_, '_, M>,
     repo: &gix::Repository,
     pending_metadata_removals: Vec<FullName>,
+    pending_metadata_updates: Vec<PendingMetadataUpdate>,
+    pending_created_independent_refs: Vec<FullName>,
     dry_run: DryRun,
 ) -> anyhow::Result<WorkspaceState> {
     if dry_run.into() {
@@ -545,6 +854,37 @@ fn workspace_state_from_rebase<M: RefMetadata>(
     }
 
     let materialized = rebase.materialize()?;
+    for branch in pending_created_independent_refs {
+        if materialized
+            .workspace
+            .find_segment_and_stack_by_refname(branch.as_ref())
+            .is_some()
+        {
+            continue;
+        }
+        let outcome = but_workspace::branch::apply(
+            branch.as_ref(),
+            materialized.workspace,
+            repo,
+            materialized.meta,
+            Default::default(),
+        )?;
+        *materialized.workspace = outcome.workspace.into_owned();
+    }
+    for update in pending_metadata_updates {
+        match update {
+            PendingMetadataUpdate::Workspace(workspace) => {
+                let mut handle = materialized.meta.workspace(workspace.as_ref())?;
+                *handle = workspace.value;
+                materialized.meta.set_workspace(&handle)?;
+            }
+            PendingMetadataUpdate::Branch(branch) => {
+                let mut handle = materialized.meta.branch(branch.as_ref())?;
+                *handle = branch.value;
+                materialized.meta.set_branch(&handle)?;
+            }
+        }
+    }
     for ref_name in pending_metadata_removals {
         materialized.meta.remove(ref_name.as_ref())?;
     }
