@@ -13,6 +13,7 @@ import {
 	type OperationsByType,
 } from "#ui/operations/operation.ts";
 import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
+import { focusSelectionScope } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Button, Tooltip, useRender } from "@base-ui/react";
 import { Toggle } from "@base-ui/react/toggle";
@@ -36,11 +37,15 @@ const AbsorbControls: FC<{
 
 	const confirm = () => {
 		dispatch(projectActions.exitMode({ projectId }));
+		focusSelectionScope("outline");
 
 		absorbMutation.mutate(absorptionPlan.data);
 	};
 
-	const cancel = () => dispatch(projectActions.cancelMode({ projectId }));
+	const cancel = () => {
+		dispatch(projectActions.cancelMode({ projectId }));
+		focusSelectionScope("outline");
+	};
 
 	useHotkeys([
 		{
@@ -140,6 +145,7 @@ const TransferTypeToggleGroup: FC<{
 		const nextOperationType = value[0] as OperationType;
 
 		setOperationType(nextOperationType);
+		focusSelectionScope("outline");
 	};
 
 	return (
@@ -212,13 +218,17 @@ const TransferOperationControls: FC<{
 
 	const run = () => {
 		dispatch(projectActions.exitMode({ projectId }));
+		focusSelectionScope("outline");
 
 		if (!operation) return;
 
 		runOperation(operation);
 	};
 
-	const cancel = () => dispatch(projectActions.cancelMode({ projectId }));
+	const cancel = () => {
+		dispatch(projectActions.cancelMode({ projectId }));
+		focusSelectionScope("outline");
+	};
 
 	useHotkeys([
 		{
