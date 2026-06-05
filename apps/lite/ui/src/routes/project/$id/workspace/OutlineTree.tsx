@@ -176,6 +176,11 @@ const useOutlineTreeHotkeys = ({
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const selectedCommitChecked = useAppSelector((state) =>
+		selection?._tag === "Commit"
+			? selectProjectCommitChecked(state, projectId, selection.commitId)
+			: false,
+	);
 
 	const dispatch = useAppDispatch();
 
@@ -211,6 +216,18 @@ const useOutlineTreeHotkeys = ({
 	const composeCommitHere = (relativeTo: RelativeTo) => {
 		dispatch(projectActions.setCommitTarget({ projectId, commitTarget: relativeTo }));
 		focusCommitMessageInput();
+	};
+
+	const toggleSelectedCommitChecked = () => {
+		if (!selection || selection._tag !== "Commit") return;
+
+		dispatch(
+			projectActions.setCommitChecked({
+				projectId,
+				commitId: selection.commitId,
+				checked: !selectedCommitChecked,
+			}),
+		);
 	};
 
 	const moveSelectedCommit = (offset: -1 | 1) => {
@@ -410,6 +427,16 @@ const useOutlineTreeHotkeys = ({
 				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit,
 				target: ref,
 				meta: outlineHotkeys.amendCommit.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.checkCommit.hotkey,
+			callback: toggleSelectedCommitChecked,
+			options: {
+				conflictBehavior: "allow",
+				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit,
+				target: ref,
+				meta: outlineHotkeys.checkCommit.meta,
 			},
 		},
 		{
