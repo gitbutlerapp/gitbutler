@@ -63,6 +63,7 @@ import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { Button, mergeProps, Popover, Toast, Tooltip, useRender } from "@base-ui/react";
+import { Checkbox as BaseCheckbox } from "@base-ui/react/checkbox";
 import { Combobox } from "@base-ui/react/combobox";
 import { Toolbar } from "@base-ui/react/toolbar";
 import {
@@ -654,6 +655,36 @@ const CommitTargetIndicator: FC = () => (
 	</Popover.Root>
 );
 
+const Checkbox: FC<Omit<ComponentProps<typeof BaseCheckbox.Root>, "children">> = (props) => (
+	<BaseCheckbox.Root
+		{...props}
+		className={(x) =>
+			classes(
+				styles.checkbox,
+				typeof props.className === "function" ? props.className(x) : props.className,
+			)
+		}
+		onClick={(event) => {
+			event.stopPropagation();
+			props.onClick?.(event);
+		}}
+		onDoubleClick={(event) => {
+			event.stopPropagation();
+			props.onDoubleClick?.(event);
+		}}
+	>
+		<BaseCheckbox.Indicator keepMounted className={styles.checkboxIndicator}>
+			<svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+				<path
+					d="M9 2.5L4.92139 6.74855C4.52783 7.15851 3.87217 7.15851 3.47861 6.74856L1 4.16667"
+					stroke="currentColor"
+					strokeWidth="1.5"
+				/>
+			</svg>
+		</BaseCheckbox.Indicator>
+	</BaseCheckbox.Root>
+);
+
 const ItemRow: FC<
 	{
 		projectId: string;
@@ -1047,6 +1078,14 @@ const CommitRow: FC<
 				void showNativeContextMenu(event, menuItems);
 			}}
 		>
+			<Checkbox
+				disabled={outlineMode._tag !== "Default"}
+				aria-label={`Check commit ${commitTitle(commitWithOptimisticMessage.message)}`}
+				className={styles.commitCheckbox}
+				nativeButton
+				render={<button type="button" />}
+			/>
+
 			<span
 				className={styles.commitState}
 				data-status={

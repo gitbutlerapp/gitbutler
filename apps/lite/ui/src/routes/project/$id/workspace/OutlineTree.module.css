@@ -235,6 +235,96 @@
 	color: var(--color-text-secondary);
 }
 
+.checkbox {
+	--border-width: 1px;
+	--disabled-opacity: 50%;
+
+	display: flex;
+	position: relative;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	inline-size: 14px;
+	block-size: 14px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-s, 4px);
+	background-color: var(--bg-1);
+	box-shadow: inset 0 0 0 var(--border-width) var(--border-2);
+	color: var(--text-2);
+	transition:
+		background-color 0.08s ease,
+		box-shadow 0.08s ease;
+
+	&:where(:hover):not([data-checked], [data-disabled], :disabled) {
+		box-shadow: inset 0 0 0 var(--border-width) var(--border-1);
+
+		& .checkboxIndicator {
+			opacity: 1;
+		}
+	}
+
+	&:focus-visible:not([data-checked]) {
+		outline: 2px solid var(--fill-pop-bg);
+		outline-offset: -2px;
+	}
+
+	&[data-checked] {
+		background-color: var(--fill-pop-bg);
+		box-shadow: inset 0 0 0 var(--border-width) var(--fill-pop-bg);
+		color: var(--text-1-invert);
+
+		& .checkboxIndicator {
+			transform: scale(1);
+			opacity: 1;
+		}
+
+		&:hover:not([data-disabled], :disabled) {
+			background-color: color-mix(in srgb, var(--fill-pop-bg) 86%, var(--text-1));
+			box-shadow: inset 0 0 0 var(--border-width)
+				color-mix(in srgb, var(--fill-pop-bg) 86%, var(--text-1));
+		}
+
+		&:focus-visible {
+			outline: 2px solid color-mix(in srgb, var(--fill-pop-bg) 80%, var(--text-1));
+			outline-offset: -2px;
+		}
+	}
+
+	&:where([data-disabled], :disabled) {
+		color: var(--text-2);
+		cursor: not-allowed;
+	}
+
+	&:where([data-disabled], :disabled):not([data-checked]) {
+		background-color: color-mix(in srgb, var(--border-2) var(--disabled-opacity), var(--bg-1));
+		box-shadow: inset 0 0 0 var(--border-width)
+			color-mix(in srgb, var(--border-2) var(--disabled-opacity), var(--bg-1));
+	}
+
+	&:where([data-disabled], :disabled)[data-checked] {
+		background-color: color-mix(in srgb, var(--fill-pop-bg) var(--disabled-opacity), var(--bg-1));
+		box-shadow: inset 0 0 0 var(--border-width)
+			color-mix(in srgb, var(--fill-pop-bg) var(--disabled-opacity), var(--bg-1));
+
+		& .checkboxIndicator {
+			transform: scale(1);
+			opacity: 1;
+		}
+	}
+}
+
+.checkboxIndicator {
+	display: flex;
+	transform: scale(0.8);
+	opacity: 0;
+	pointer-events: none;
+	transition:
+		opacity 0.08s ease,
+		transform 0.08s ease;
+}
+
 [data-status="LocalOnly"] {
 	--commit-status-color: var(--commit-local);
 }
@@ -258,4 +348,8 @@
 	margin-block-start: 5px;
 	border: 1.5px solid var(--commit-status-color);
 	border-radius: 50%;
+}
+
+.commitCheckbox {
+	margin-block-start: 2px;
 }
