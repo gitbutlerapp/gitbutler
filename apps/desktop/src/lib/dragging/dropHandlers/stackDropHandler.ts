@@ -13,7 +13,6 @@ import { toCommitMovePlacement } from "$lib/stacks/commitMovePlacement";
 import StackMacros from "$lib/stacks/macros";
 import { toMoveBranchWarning } from "$lib/stacks/stack";
 import { withStackBusy } from "$lib/state/uiState.svelte";
-import { ensureValue } from "$lib/utils/validation";
 import { untrack } from "svelte";
 import type { DropResult } from "$lib/dragging/dropResult";
 import type { DropzoneHandler } from "$lib/dragging/handler";
@@ -95,7 +94,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 				if (sourceStackId) {
 					const diffSpec = changesToDiffSpec(await data.treeChanges());
 					await this.macros.moveChangesToNewCommit(
-						ensureValue(stack.id),
+						stack.id,
 						outcome.newCommit,
 						sourceStackId,
 						sourceCommitId,
@@ -122,7 +121,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 					.map((h) => ({
 						hunkHeader: h.hunkHeader,
 						pathBytes: h.pathBytes,
-						target: this.stackTarget(ensureValue(stack.id)),
+						target: this.stackTarget(stack.id),
 					}));
 				await this.diffService.assignHunk({
 					projectId: this.projectId,
@@ -151,7 +150,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 						: null;
 
 				await this.macros.moveChangesToNewCommit(
-					ensureValue(stack.id),
+					stack.id,
 					outcome.newCommit,
 					data.stackId,
 					data.commitId,
@@ -195,7 +194,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 						{
 							hunkHeader: assignment.hunkHeader,
 							pathBytes: assignment.pathBytes,
-							target: this.stackTarget(ensureValue(stack.id)),
+							target: this.stackTarget(stack.id),
 						},
 					],
 				});
@@ -219,8 +218,10 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 			branch: { name: undefined },
 		});
 
-		const stackId = ensureValue(stack.id);
-		const branchName = ensureValue(stack.heads.at(0)?.name);
+		const stackId = stack.id;
+		// Freshly-created stacks always have at least one head per the
+		// StackEntryNoOpt invariant ("list is never empty").
+		const branchName = stack.heads[0]!.name;
 
 		const { relativeTo, side } = toCommitMovePlacement({
 			targetBranchName: branchName,

@@ -17,7 +17,7 @@
 	import { REORDER_DROPZONE_FACTORY } from "$lib/dragging/stackingReorderDropzoneManager";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { createBranchSelection } from "$lib/selection/key";
-	import { segmentContext } from "$lib/stacks/segmentContext";
+	import { precomputeStack, segmentContext } from "$lib/stacks/segmentContext";
 	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { ensureValue } from "$lib/utils/validation";
@@ -78,11 +78,15 @@
 	const canPublishPR = $derived(forge.current.authenticated);
 	const baseBranchNameResponse = $derived(baseBranchService.baseBranchShortName(projectId));
 	const baseBranchName = $derived(baseBranchNameResponse.response);
+
+	// Compute stack-wide derived values once per render so the per-iteration
+	// segmentContext() call below stays O(1) instead of O(n) per index.
+	const stackPrecomputed = $derived(precomputeStack(segments));
 </script>
 
 <div class="branches-wrapper">
 	{#each segments as segment, i}
-		{@const ctx = segmentContext(segments, i)}
+		{@const ctx = segmentContext(segments, i, stackPrecomputed)}
 		{@const branchName = segment.refName?.displayName}
 		{@const branchLabel = branchName ?? "Unnamed segment"}
 		{@const remoteTrackingBranch = segment.remoteTrackingRefName

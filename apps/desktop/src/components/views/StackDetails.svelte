@@ -31,7 +31,7 @@
 	} from "$lib/dragging/dropHandlers/commitDropHandler";
 
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
-	import { segmentContext } from "$lib/stacks/segmentContext";
+	import { precomputeStack, segmentContext } from "$lib/stacks/segmentContext";
 	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -112,8 +112,9 @@
 		branchName ? segments.findIndex((s) => s.refName?.displayName === branchName) : -1,
 	);
 	const selectedSegment = $derived(selectedIndex >= 0 ? segments[selectedIndex] : undefined);
+	const stackPrecomputed = $derived(precomputeStack(segments));
 	const selectedContext = $derived(
-		selectedIndex >= 0 ? segmentContext(segments, selectedIndex) : undefined,
+		selectedIndex >= 0 ? segmentContext(segments, selectedIndex, stackPrecomputed) : undefined,
 	);
 
 	// If the selected branch is no longer in the stack (e.g. it was renamed
@@ -158,7 +159,9 @@
 						runHooks: $runHooks,
 						okWithForce: true,
 						onCommitIdChange: (newId) => {
-							if (stackId && branchName && selection) {
+							// branchName may be undefined for commits in anonymous segments
+							// (refName === null); the selection state already tolerates that.
+							if (selection) {
 								const previewOpen = selection.previewOpen ?? true;
 								controller.laneState.selection.set({
 									branchName,

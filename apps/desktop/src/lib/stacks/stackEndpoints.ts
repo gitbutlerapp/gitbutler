@@ -45,7 +45,7 @@ import type {
 	InsertSide,
 	RelativeTo,
 	RefInfo,
-	StackEntry,
+	StackEntryNoOpt,
 } from "@gitbutler/but-sdk";
 
 export type BranchParams = {
@@ -215,7 +215,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 				return transformWorkspaceDetails(response);
 			},
 		}),
-		createStack: build.mutation<StackEntry, { projectId: string; branch: BranchParams }>({
+		createStack: build.mutation<StackEntryNoOpt, { projectId: string; branch: BranchParams }>({
 			extraOptions: {
 				command: "create_virtual_branch",
 				actionName: "Create Stack",
