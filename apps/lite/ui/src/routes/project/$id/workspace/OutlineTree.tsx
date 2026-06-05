@@ -765,6 +765,12 @@ const Checkbox: FC<Omit<ComponentProps<typeof BaseCheckbox.Root>, "children">> =
 	</BaseCheckbox.Root>
 );
 
+type CommitStatusType = "Diverged" | CommitState["type"];
+
+const CommitStateIndicator: FC<{
+	status: CommitStatusType;
+}> = ({ status }) => <span className={styles.commitState} data-status={status} />;
+
 const ItemRow: FC<
 	{
 		projectId: string;
@@ -1173,9 +1179,8 @@ const CommitRow: FC<
 				}}
 			/>
 
-			<span
-				className={styles.commitState}
-				data-status={
+			<CommitStateIndicator
+				status={
 					(commitIsDiverged(commit) ? "Diverged" : commit.state.type) satisfies
 						| "Diverged"
 						| CommitState["type"]
@@ -2014,14 +2019,13 @@ const BranchRow: FC<
 			}}
 		>
 			{/* This will be replaced with a different icon. */}
-			<span
-				className={styles.commitState}
-				data-status={
-					(branchCommit
+			<CommitStateIndicator
+				status={
+					branchCommit
 						? commitIsDiverged(branchCommit)
 							? "Diverged"
 							: branchCommit.state.type
-						: "LocalOnly") satisfies "Diverged" | CommitState["type"]
+						: "LocalOnly"
 				}
 			/>
 
