@@ -27,7 +27,8 @@ pub fn delete(
         branch_arg.resolve_branch_in_workspace(ctx, &id_map)?
     };
 
-    let segment = branch_arg.resolve_segment(ctx)?;
+    let head_info = but_api::legacy::workspace::head_info(ctx)?;
+    let segment = branch_arg.resolve_segment(&head_info)?;
 
     let ref_name = &segment
         .ref_info
@@ -58,9 +59,10 @@ pub fn new(
     anchor_arg: Option<CliIdArg>,
 ) -> CliResult<()> {
     let t = theme::get();
+    let head_info = but_api::legacy::workspace::head_info(ctx)?;
 
     let branch_name = if let Some(branch_name_arg) = branch_name_arg {
-        branch_name_arg.resolve_for_creation(&*ctx.repo.get()?)?
+        branch_name_arg.resolve_for_creation(&*ctx.repo.get()?, &head_info)?
     } else {
         but_api::legacy::workspace::canned_branch_name(ctx)?
     };

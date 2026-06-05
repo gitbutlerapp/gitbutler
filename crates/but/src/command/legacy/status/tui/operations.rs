@@ -24,7 +24,7 @@ use crate::{
         rub::RubOperation,
         status::{
             StatusFlags, StatusOutput, StatusOutputLine, StatusRenderMode, TuiLaunchOptions,
-            tui::{CommitSource, SelectAfterReload, mode::StackCommitSource},
+            tui::SelectAfterReload,
         },
     },
     utils::OutputChannel,
@@ -87,58 +87,6 @@ pub(super) fn create_empty_commit_relative_to_commit(
         InsertSide::Above,
         DryRun::No,
     )
-}
-
-pub(super) fn prepare_changes_to_commit(
-    db: &mut but_db::DbHandle,
-    repo: &gix::Repository,
-    workspace: &but_graph::Workspace,
-    context_lines: u32,
-    source: &CommitSource,
-    scope_to_stack: Option<StackId>,
-) -> anyhow::Result<Option<Vec<DiffSpec>>> {
-    // find what to commit
-    let changes_to_commit = match source {
-        CommitSource::Unassigned(..) => {
-            let changes = but_core::diff::ui::worktree_changes(repo)?.changes;
-            let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-                db.hunk_assignments_mut()?,
-                repo,
-                workspace,
-                Some(changes.clone()),
-                context_lines,
-            )?;
-            let assignments = assignments
-                .into_iter()
-                .filter(|assignment| assignment.stack_id.is_none());
-            but_hunk_assignment::diff_specs_from_assignments_with_changes(assignments, &changes)
-        }
-        CommitSource::Uncommitted(uncommitted_cli_id) => {
-            let changes = but_core::diff::ui::worktree_changes(repo)?.changes;
-            let assignments = uncommitted_cli_id
-                .hunk_assignments
-                .iter()
-                .filter(|assignment| assignment.stack_id == scope_to_stack)
-                .cloned();
-            but_hunk_assignment::diff_specs_from_assignments_with_changes(assignments, &changes)
-        }
-        CommitSource::Stack(StackCommitSource { stack_id, .. }) => {
-            let changes = but_core::diff::ui::worktree_changes(repo)?.changes;
-            let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-                db.hunk_assignments_mut()?,
-                repo,
-                workspace,
-                Some(changes.clone()),
-                context_lines,
-            )?;
-            let assignments = assignments
-                .into_iter()
-                .filter(|assignment| assignment.stack_id.is_some_and(|id| &id == stack_id));
-            but_hunk_assignment::diff_specs_from_assignments_with_changes(assignments, &changes)
-        }
-    };
-
-    Ok(Some(but_workspace::flatten_diff_specs(changes_to_commit)))
 }
 
 pub(super) fn where_to_place_commit(

@@ -153,7 +153,7 @@ fn reword_branch_rejects_branch_name_that_already_exists() -> anyhow::Result<()>
         .failure()
         .stdout_eq(str![[]])
         .stderr_eq(str![[r#"
-Error: A branch named 'existing' already exists
+Error: A branch named 'existing' is already applied
 
 "#]]);
 

@@ -813,6 +813,7 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-db",
+ "but-error",
  "but-forge",
  "but-forge-storage",
  "but-gerrit",

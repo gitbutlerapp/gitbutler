@@ -131,6 +131,17 @@ impl CliError {
             Self::Internal(value) => Self::Internal(value.context(context)),
         }
     }
+
+    /// Add a hint if the error is a [`Self::BadInput`]
+    pub fn hint<S: AsRef<str>>(self, hint: S) -> Self {
+        match self {
+            Self::BadInput(value) => Self::BadInput(value.hint(hint)),
+            Self::ExternalCommandNotFound(command_name) => {
+                Self::ExternalCommandNotFound(command_name)
+            }
+            Self::Internal(value) => Self::Internal(value),
+        }
+    }
 }
 
 impl Display for CliError {
@@ -160,3 +171,18 @@ pub enum CliError {
 }
 
 pub type CliResult<T> = Result<T, CliError>;
+
+#[cfg_attr(not(feature = "but-2"), expect(dead_code))]
+pub trait CliResultExt<T> {
+    /// Add a hint if the result is a [`CliError::BadInput`].
+    fn hint<S: AsRef<str>>(self, hint: S) -> Self;
+}
+
+impl<T> CliResultExt<T> for CliResult<T> {
+    fn hint<S: AsRef<str>>(self, hint: S) -> Self {
+        match self {
+            Ok(_) => self,
+            Err(err) => Err(err.hint(hint)),
+        }
+    }
+}

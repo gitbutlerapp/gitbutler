@@ -358,7 +358,8 @@ pub(crate) fn commit(
             Some(branch)
         } else {
             let repo = ctx.repo.get()?;
-            Some(BranchArg(branch_arg.0).resolve_for_creation(&repo)?)
+            let head_info = but_api::legacy::workspace::head_info(ctx)?;
+            Some(BranchArg(branch_arg.0).resolve_for_creation(&repo, &head_info)?)
         }
     } else {
         None

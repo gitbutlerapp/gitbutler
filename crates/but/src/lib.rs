@@ -46,6 +46,8 @@ use crate::{
 };
 
 mod error;
+#[cfg(feature = "but-2")]
+pub(crate) use error::CliResultExt;
 pub(crate) use error::{CliError, CliResult, bad_input};
 
 mod id;

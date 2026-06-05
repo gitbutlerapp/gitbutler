@@ -98,7 +98,7 @@ fn rejects_branch_name_already_applied_in_workspace() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: A branch named 'A' already exists
+Error: A branch named 'A' is already applied
 
 "#]]);
 
@@ -115,7 +115,7 @@ fn rejects_name_that_exists_outside_workspace() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: A branch named 'A' already exists
+Error: A branch named 'A' exists but is not applied
 
 "#]]);
 
