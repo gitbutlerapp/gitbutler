@@ -166,6 +166,10 @@ export const setCommitChecked = (state: WorkspaceState, commitId: string, checke
 	else delete state.checkedCommitIds[commitId];
 };
 
+export const clearCheckedCommits = (state: WorkspaceState) => {
+	state.checkedCommitIds = {};
+};
+
 export const setCommitTarget = (state: WorkspaceState, commitTarget: RelativeTo | null) => {
 	state.commitTarget = commitTarget;
 };
