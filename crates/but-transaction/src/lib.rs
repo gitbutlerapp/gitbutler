@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 
 use bstr::BStr;
 use but_api::WorkspaceState;
-use but_core::{DiffSpec, DryRun, RefMetadata, tree::create_tree::RejectionReason};
+use but_core::{
+    DiffSpec, DryRun, RefMetadata, sync::RepoExclusive, tree::create_tree::RejectionReason,
+};
 use but_ctx::Context;
 use but_oplog::legacy::SnapshotDetails;
 use but_rebase::graph_rebase::{
@@ -74,7 +76,23 @@ where
 {
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
+    with_transaction_with_perm(ctx, meta, perm, snapshot_details, dry_run, f)
+}
 
+/// Like [`with_transaction`] but allows the caller to provide the lock.
+pub fn with_transaction_with_perm<M, F, T>(
+    ctx: &mut Context,
+    meta: &mut M,
+    perm: &mut RepoExclusive,
+    snapshot_details: SnapshotDetails,
+    dry_run: DryRun,
+    f: F,
+) -> anyhow::Result<T::Outcome>
+where
+    F: FnOnce(Transaction<'_, '_, M>) -> anyhow::Result<T>,
+    M: RefMetadata,
+    T: TransactionOutcome,
+{
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
         ctx,
         snapshot_details,
