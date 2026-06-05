@@ -592,6 +592,12 @@ app.on("window-all-closed", () => {
 
 app.on("web-contents-created", (_, contents) => {
 	contents.on("will-navigate", (event, navigationUrl) => {
+		const currentUrl = newUrlOrNull(contents.getURL());
+		const targetUrl = newUrlOrNull(navigationUrl);
+		// Allow HMR page reloads.
+		if (!app.isPackaged && currentUrl?.href === targetUrl?.href && isTrustedLocalOrigin(targetUrl))
+			return;
+
 		// oxlint-disable-next-line no-console
 		console.error(`Blocked navigation to ${navigationUrl}`);
 		event.preventDefault();
