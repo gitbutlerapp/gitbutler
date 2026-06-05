@@ -1,8 +1,25 @@
 use anyhow::{Context as _, Result, bail};
+use bstr::ByteVec;
 use gix::refs::FullNameRef;
 use uuid::Uuid;
 
-use crate::{Id, extract_remote_name_and_short_name};
+use crate::{Id, extract_remote_name_and_short_name, git_config};
+
+const PROJECT_TARGET_REF: &str = "gitbutler.project.targetRef";
+const PROJECT_TARGET_COMMIT_ID: &str = "gitbutler.project.targetCommitId";
+const PROJECT_PUSH_REMOTE: &str = "gitbutler.project.pushRemote";
+const PROJECT_PORTED_META: &str = "gitbutler.project.portedMeta";
+
+/// Project-wide metadata stored in repository-local Git configuration.
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+pub struct ProjectMeta {
+    /// The name of the reference to integrate with, if present.
+    pub target_ref: Option<gix::refs::FullName>,
+    /// A stable target commit that should be included in the workspace.
+    pub target_commit_id: Option<gix::ObjectId>,
+    /// The symbolic name of the remote to push branches to.
+    pub push_remote: Option<String>,
+}
 
 /// Metadata about workspaces, associated with references that are designated to a workspace,
 /// i.e. `refs/heads/gitbutler/workspaces/<name>`.
@@ -33,7 +50,7 @@ pub struct Workspace {
     ///
     /// If there is no target name, this is a local workspace (and if no global target is set).
     /// Note that even though this is per workspace, the implementation can fill in global information at will.
-    pub target_ref: Option<gix::refs::FullName>,
+    target_ref: Option<gix::refs::FullName>,
 
     /// The commit id of a commit that was reachable by [`Self::target_ref`] and that should be included in the workspace.
     /// This is useful to make workspaces appear stable in relationship to the target reference, which may be updated each
@@ -41,11 +58,11 @@ pub struct Workspace {
     ///
     /// This commit id has the same effect as the commit that the [`Self::target_ref`] is pointing to, and they are cumulative,
     /// to include up to two commits of the target in the workspace.
-    pub target_commit_id: Option<gix::ObjectId>,
+    target_commit_id: Option<gix::ObjectId>,
     /// The symbolic name of the remote to push branches to.
     ///
     /// This is useful when there are no push permissions for the remote behind `target_ref`.
-    pub push_remote: Option<String>,
+    push_remote: Option<String>,
 }
 
 /// A projected workspace stack used to reconcile persisted workspace metadata.
@@ -91,6 +108,47 @@ impl std::fmt::Debug for Workspace {
 
 /// Mutations
 impl Workspace {
+    /// Create workspace metadata from its parts.
+    pub fn new(
+        ref_info: RefInfo,
+        stacks: Vec<WorkspaceStack>,
+        project_meta: ProjectMeta,
+    ) -> Workspace {
+        let ProjectMeta {
+            target_ref,
+            target_commit_id,
+            push_remote,
+        } = project_meta;
+        Workspace {
+            ref_info,
+            stacks,
+            target_ref,
+            target_commit_id,
+            push_remote,
+        }
+    }
+
+    /// Return metadata that is moving to project-local Git configuration.
+    pub fn project_meta(&self) -> ProjectMeta {
+        ProjectMeta {
+            target_ref: self.target_ref.clone(),
+            target_commit_id: self.target_commit_id,
+            push_remote: self.push_remote.clone(),
+        }
+    }
+
+    /// Back-fill the legacy workspace metadata fields.
+    pub fn set_project_meta(&mut self, project_meta: ProjectMeta) {
+        let ProjectMeta {
+            target_ref,
+            target_commit_id,
+            push_remote,
+        } = project_meta;
+        self.target_ref = target_ref;
+        self.target_commit_id = target_commit_id;
+        self.push_remote = push_remote;
+    }
+
     /// Add missing metadata for stacks visible in the current workspace projection.
     ///
     /// This is additive with respect to branch names: projected branches are
@@ -332,6 +390,75 @@ impl Workspace {
     }
 }
 
+impl ProjectMeta {
+    /// Read project metadata from the given repository's Git configuration.
+    pub fn try_from_config(config: &gix::config::Snapshot<'_>) -> anyhow::Result<Self> {
+        let target_ref = config
+            .string(PROJECT_TARGET_REF)
+            .map(|value| {
+                gix::refs::FullName::try_from(value.as_ref()).with_context(|| {
+                    format!("failed to parse {PROJECT_TARGET_REF} as a full ref name")
+                })
+            })
+            .transpose()?;
+        let target_commit_id = config
+            .string(PROJECT_TARGET_COMMIT_ID)
+            .map(|value| {
+                gix::ObjectId::from_hex(value.as_ref()).with_context(|| {
+                    format!("failed to parse {PROJECT_TARGET_COMMIT_ID} as an object id")
+                })
+            })
+            .transpose()?;
+        let push_remote = config
+            .string(PROJECT_PUSH_REMOTE)
+            .map(|value| value.to_string());
+        Ok(ProjectMeta {
+            target_ref,
+            target_commit_id,
+            push_remote,
+        })
+    }
+
+    /// Return whether project metadata has already been ported to Git config.
+    pub fn is_ported(config: &gix::config::Snapshot<'_>) -> bool {
+        config.boolean(PROJECT_PORTED_META).unwrap_or(false)
+    }
+
+    /// Persist project metadata to repository-local Git config and mark it as ported.
+    pub fn persist_to_local_config(&self, repo: &gix::Repository) -> anyhow::Result<()> {
+        git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
+            set_or_remove(
+                config,
+                PROJECT_TARGET_REF,
+                self.target_ref.as_ref().map(ToString::to_string),
+            )?;
+            set_or_remove(
+                config,
+                PROJECT_TARGET_COMMIT_ID,
+                self.target_commit_id.as_ref().map(|v| v.to_string()),
+            )?;
+            set_or_remove(config, PROJECT_PUSH_REMOTE, self.push_remote.as_deref())?;
+            config.set_raw_value(PROJECT_PORTED_META, "true")?;
+            Ok(())
+        })?;
+        Ok(())
+    }
+}
+
+fn set_or_remove(
+    config: &mut gix::config::File<'static>,
+    key: &str,
+    value: Option<impl AsRef<str>>,
+) -> anyhow::Result<()> {
+    match value {
+        Some(value) => {
+            config.set_raw_value(key, value.as_ref())?;
+        }
+        None => git_config::remove_config_value(config, key)?,
+    }
+    Ok(())
+}
+
 fn ensure_unique_branch_names<'a>(
     names: impl IntoIterator<Item = &'a gix::refs::FullNameRef>,
     source: &str,
@@ -380,6 +507,21 @@ pub enum StackKind {
 
 /// Access
 impl Workspace {
+    /// The name of the reference to integrate with, if present.
+    pub fn target_ref(&self) -> Option<&gix::refs::FullName> {
+        self.target_ref.as_ref()
+    }
+
+    /// The stable target commit that should be included in the workspace.
+    pub fn target_commit_id(&self) -> Option<gix::ObjectId> {
+        self.target_commit_id
+    }
+
+    /// The symbolic name of the remote to push branches to.
+    pub fn push_remote(&self) -> Option<&str> {
+        self.push_remote.as_deref()
+    }
+
     /// Return all stacks that are supposed to be inside the workspace, i.e. applied.
     /// Use `kind` for filtering.
     pub fn stacks(&self, kind: StackKind) -> impl Iterator<Item = &WorkspaceStack> {

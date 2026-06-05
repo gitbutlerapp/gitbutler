@@ -8,9 +8,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::anyhow;
+use anyhow::{Context as _, anyhow};
 use but_core::{
-    RepositoryExt,
+    RefMetadata as _, RepositoryExt, WORKSPACE_REF_NAME,
+    ref_metadata::ProjectMeta,
     sync::{RepoExclusive, RepoExclusiveGuard, RepoShared, RepoSharedGuard},
 };
 use but_path::AppChannel;
@@ -787,6 +788,37 @@ impl Context {
 
 /// Utilities
 impl Context {
+    /// Return project metadata from Git config, porting the legacy workspace metadata on first access.
+    pub fn project_meta(&self) -> anyhow::Result<ProjectMeta> {
+        let repo = self.repo.get()?;
+        if ProjectMeta::is_ported(&repo.config_snapshot()) {
+            return ProjectMeta::try_from_config(&repo.config_snapshot());
+        }
+
+        let project_meta = self
+            .meta_inner_read_only()?
+            .workspace(WORKSPACE_REF_NAME.try_into()?)?
+            .project_meta();
+        project_meta.persist_to_local_config(&repo)?;
+        Ok(project_meta)
+    }
+
+    /// Store project metadata in Git config and back-fill the legacy workspace metadata.
+    pub fn set_project_meta(&mut self, project_meta: ProjectMeta) -> anyhow::Result<()> {
+        {
+            let repo = self.repo.get()?;
+            project_meta.persist_to_local_config(&repo)?;
+        }
+        self.repo.get_mut()?.reload()?;
+
+        let mut meta = self.meta()?;
+        let mut workspace = meta.workspace(WORKSPACE_REF_NAME.try_into()?)?;
+        workspace.set_project_meta(project_meta);
+        meta.set_workspace(&workspace)?;
+        self.invalidate_workspace_cache()?;
+        Ok(())
+    }
+
     /// Reload the cached repository handle and drop the cached workspace projection.
     ///
     /// Call this after taking exclusive repository access when earlier read-only setup may have
