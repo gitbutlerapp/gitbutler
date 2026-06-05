@@ -259,12 +259,11 @@ const DiffContents: FC<{
 	const items = Array.zip(changes, treeChangeDiffs).flatMap(
 		([change, mdiff]) =>
 			Match.value(mdiff).pipe(
-				Match.when(
-					{ type: "Patch" },
-					(patch) => mkCodeViewItem(change, changesetKey, patch.subject.hunks) ?? [],
+				Match.when({ type: "Patch" }, (patch) =>
+					mkCodeViewItem(change, changesetKey, patch.subject.hunks),
 				),
 				Match.when({ type: "Binary" }, () => mkCodeViewItem(change, changesetKey, [])),
-				Match.orElse(() => []),
+				Match.orElse(() => null),
 			) ?? [],
 	);
 
