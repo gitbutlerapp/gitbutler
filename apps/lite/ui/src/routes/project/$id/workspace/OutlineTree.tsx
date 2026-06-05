@@ -151,6 +151,7 @@ const useOutlineTreeHotkeys = ({
 		dispatch(projectActions.selectOutline({ projectId, selection: newItem }));
 
 	const commitMoveMutation = useCommitMove();
+	const commitDiscardMutation = useCommitDiscard();
 	const pushStackMutation = usePushStack();
 	const rebaseStackMutation = useRebaseStack({ projectId });
 
@@ -207,6 +208,16 @@ const useOutlineTreeHotkeys = ({
 			subjectCommitIds: [selection.commitId],
 			relativeTo,
 			side: offset === -1 ? "above" : "below",
+			dryRun: false,
+		});
+	};
+
+	const deleteSelectedCommit = () => {
+		if (!selection || selection._tag !== "Commit") return;
+
+		commitDiscardMutation.mutate({
+			projectId,
+			subjectCommitId: selection.commitId,
 			dryRun: false,
 		});
 	};
@@ -346,6 +357,17 @@ const useOutlineTreeHotkeys = ({
 				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit,
 				target: ref,
 				meta: outlineHotkeys.amendCommit.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.deleteCommit.hotkey,
+			callback: deleteSelectedCommit,
+			options: {
+				conflictBehavior: "allow",
+				enabled:
+					defaultOutlineHotkeysEnabled && isSelectedCommit && !commitDiscardMutation.isPending,
+				target: ref,
+				meta: outlineHotkeys.deleteCommit.meta,
 			},
 		},
 		{
@@ -925,6 +947,7 @@ const CommitRow: FC<
 		nativeMenuItem({
 			label: "Delete Commit",
 			enabled: !commitDiscardMutation.isPending,
+			accelerator: toElectronAccelerator(outlineHotkeys.deleteCommit.hotkey),
 			onSelect: deleteCommit,
 		}),
 		nativeMenuItem({
