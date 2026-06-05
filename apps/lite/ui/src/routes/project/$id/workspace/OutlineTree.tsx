@@ -887,6 +887,7 @@ const CommitRow: FC<
 			label: "Compose Commit Here",
 			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
 			onSelect: composeCommitHere,
+			enabled: outlineMode._tag === "Default",
 		}),
 		nativeMenuItem({
 			label: "Copy",
@@ -940,13 +941,9 @@ const CommitRow: FC<
 			operand={operand}
 			isHighlighted={isHighlighted}
 			onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
-			onContextMenu={
-				outlineMode._tag === "Default"
-					? (event) => {
-							void showNativeContextMenu(event, menuItems);
-						}
-					: undefined
-			}
+			onContextMenu={(event) => {
+				void showNativeContextMenu(event, menuItems);
+			}}
 		>
 			<span
 				className={styles.commitState}
@@ -1784,13 +1781,9 @@ const BranchRow: FC<
 			projectId={projectId}
 			operand={operand}
 			onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
-			onContextMenu={
-				outlineMode._tag === "Default"
-					? (event) => {
-							void showNativeContextMenu(event, menuItems);
-						}
-					: undefined
-			}
+			onContextMenu={(event) => {
+				void showNativeContextMenu(event, menuItems);
+			}}
 		>
 			{/* This will be replaced with a different icon. */}
 			<span
@@ -1909,13 +1902,9 @@ const StackRow: FC<
 			projectId={projectId}
 			operand={operand}
 			forceVisibleToolbar
-			onContextMenu={
-				outlineMode._tag === "Default"
-					? (event) => {
-							void showNativeContextMenu(event, menuItems);
-						}
-					: undefined
-			}
+			onContextMenu={(event) => {
+				void showNativeContextMenu(event, menuItems);
+			}}
 		>
 			<div className={workspaceItemRowStyles.itemRowLabel} />
 
