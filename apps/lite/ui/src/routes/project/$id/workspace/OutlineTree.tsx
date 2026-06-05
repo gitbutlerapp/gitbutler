@@ -1309,6 +1309,10 @@ const Changes: FC<{
 		},
 	]);
 
+	const focusCommitMessageHotkeyLabel = formatForDisplay(
+		outlineHotkeys.composeCommitMessage.hotkey,
+	);
+
 	return (
 		<TreeItem
 			projectId={projectId}
@@ -1328,7 +1332,7 @@ const Changes: FC<{
 					aria-label="Compose commit message"
 					disabled={outlineMode._tag !== "Default"}
 					readOnly={isCommitOrAmendPending}
-					placeholder="Commit message…"
+					placeholder={`Commit message… ${focusCommitMessageHotkeyLabel}`}
 					className={classes("text-14", styles.commitTextarea)}
 					onFocus={selectChanges}
 					onKeyDown={(event) => {
