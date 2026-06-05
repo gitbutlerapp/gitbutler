@@ -296,6 +296,7 @@ const DiffContents: FC<{
 			options={{
 				diffStyle: "unified",
 				themeType: "system",
+				stickyHeaders: true,
 				layout: {
 					paddingTop: 0,
 					paddingBottom: 0,
