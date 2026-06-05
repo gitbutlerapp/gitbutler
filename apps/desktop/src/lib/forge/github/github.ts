@@ -61,8 +61,8 @@ export class GitHub implements Forge {
 
 	get listService() {
 		if (!this.authenticated) return;
-		const { api: gitHubApi, backendApi, dispatch } = this.params;
-		return new GitHubListingService(gitHubApi, backendApi, dispatch);
+		const { backendApi, dispatch } = this.params;
+		return new GitHubListingService(backendApi, dispatch);
 	}
 
 	get prService() {
