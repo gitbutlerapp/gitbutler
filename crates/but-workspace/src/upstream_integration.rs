@@ -128,7 +128,7 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
     repo: &gix::Repository,
     updates: Vec<BottomUpdate>,
 ) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
-    let ws_meta = workspace
+    let mut ws_meta = workspace
         .metadata
         .clone()
         .context("Cannot update a workspace with no metadata")?;
