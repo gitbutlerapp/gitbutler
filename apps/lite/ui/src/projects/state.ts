@@ -260,5 +260,8 @@ export const selectProjectHighlightedCommitIds = (state: RootState, projectId: s
 export const selectProjectCommitChecked = (state: RootState, projectId: string, commitId: string) =>
 	workspace.selectCommitChecked(selectProjectWorkspaceState(state, projectId), commitId);
 
+export const selectProjectHasCheckedCommits = (state: RootState, projectId: string) =>
+	workspace.selectHasCheckedCommits(selectProjectWorkspaceState(state, projectId));
+
 export const selectProjectCommitTarget = (state: RootState, projectId: string) =>
 	workspace.selectCommitTarget(selectProjectWorkspaceState(state, projectId));

@@ -52,6 +52,7 @@ import {
 	projectActions,
 	selectProjectCommitChecked,
 	selectProjectCommitTarget,
+	selectProjectHasCheckedCommits,
 	selectProjectHighlightedCommitIds,
 	selectProjectOutlineModeState,
 	selectProjectSelectionOutline,
@@ -596,6 +597,9 @@ export const OutlineTree: FC<
 
 	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const hasCheckedCommits = useAppSelector((state) =>
+		selectProjectHasCheckedCommits(state, projectId),
+	);
 
 	const dryRunOperation = Match.value(outlineMode).pipe(
 		Match.tag("Transfer", ({ value: mode }) =>
@@ -638,7 +642,11 @@ export const OutlineTree: FC<
 						tabIndex={0}
 						role="tree"
 						aria-activedescendant={selection ? treeItemId(selection) : undefined}
-						className={classes(props.className, styles.tree)}
+						className={classes(
+							props.className,
+							styles.tree,
+							hasCheckedCommits && styles.treeWithCheckedCommits,
+						)}
 						ref={useMergedRefs(refProp, ref)}
 					>
 						<div className={styles.changesContainer}>
@@ -769,7 +777,11 @@ type CommitStatusType = "Diverged" | CommitState["type"];
 
 const CommitStateIndicator: FC<{
 	status: CommitStatusType;
-}> = ({ status }) => <span className={styles.commitState} data-status={status} />;
+}> = ({ status }) => (
+	<div className={styles.commitState}>
+		<span className={styles.commitStateIcon} data-status={status} />
+	</div>
+);
 
 const ItemRow: FC<
 	{
@@ -1167,25 +1179,20 @@ const CommitRow: FC<
 				void showNativeContextMenu(event, menuItems);
 			}}
 		>
-			<Checkbox
-				disabled={outlineMode._tag !== "Default"}
-				aria-label={`Check commit ${commitTitle(commitWithOptimisticMessage.message)}`}
-				checked={isChecked}
-				className={styles.commitCheckbox}
-				nativeButton
-				render={<button type="button" />}
-				onCheckedChange={(checked) => {
-					dispatch(projectActions.setCommitChecked({ projectId, commitId: commit.id, checked }));
-				}}
-			/>
-
-			<CommitStateIndicator
-				status={
-					(commitIsDiverged(commit) ? "Diverged" : commit.state.type) satisfies
-						| "Diverged"
-						| CommitState["type"]
-				}
-			/>
+			<div className={styles.commitStateWithCheckbox}>
+				<CommitStateIndicator status={commitIsDiverged(commit) ? "Diverged" : commit.state.type} />
+				<Checkbox
+					disabled={outlineMode._tag !== "Default"}
+					aria-label={`Check commit ${commitTitle(commitWithOptimisticMessage.message)}`}
+					checked={isChecked}
+					className={styles.commitCheckbox}
+					nativeButton
+					render={<button type="button" />}
+					onCheckedChange={(checked) => {
+						dispatch(projectActions.setCommitChecked({ projectId, commitId: commit.id, checked }));
+					}}
+				/>
+			</div>
 
 			{isRewording ? (
 				<InlineRewordCommit

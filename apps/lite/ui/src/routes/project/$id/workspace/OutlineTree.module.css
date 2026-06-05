@@ -324,14 +324,35 @@
 }
 
 .commitState {
+	display: grid;
+	justify-content: center;
+	inline-size: 14px;
+	margin-block-start: 5px;
+}
+
+.commitStateIcon {
 	aspect-ratio: 1;
 	inline-size: 8px;
 	block-size: 8px;
-	margin-block-start: 5px;
 	border: 1.5px solid var(--commit-status-color);
 	border-radius: 50%;
 }
 
 .commitCheckbox {
-	margin-block-start: 2px;
+	margin-block-start: 1px;
+	opacity: 0;
+
+	.treeWithCheckedCommits &,
+	.commitStateWithCheckbox:where(:hover, :focus-within) & {
+		opacity: 1;
+	}
+}
+
+.commitStateWithCheckbox {
+	display: grid;
+	justify-items: center;
+
+	& > * {
+		grid-area: 1 / 1;
+	}
 }
