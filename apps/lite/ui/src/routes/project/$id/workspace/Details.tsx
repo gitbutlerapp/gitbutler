@@ -329,7 +329,8 @@ const DiffContents: FC<{
 				stickyHeaders: true,
 				layout: {
 					paddingTop: 0,
-					paddingBottom: 0,
+					// Match --panel-padding.
+					paddingBottom: 16,
 					gap: 10,
 				},
 				// This appears to validate before our custom header has been slotted, in which case - if
@@ -340,7 +341,17 @@ const DiffContents: FC<{
 				itemMetrics: {
 					// Computed custom header height.
 					diffHeaderHeight: 38,
+					// Default spacing plus our 1px border.
+					paddingBottom: 9,
 				},
+				unsafeCSS: `
+          [data-code] {
+            border-width: 0 1px 1px 1px;
+            border-style: solid;
+            border-color: var(--border-3);
+            border-radius: 0 0 10px 10px;
+          }
+        `,
 			}}
 		/>
 	);
