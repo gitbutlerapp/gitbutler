@@ -391,21 +391,6 @@ impl ProjectMeta {
     }
 }
 
-impl Workspace {
-    /// Get the fetch URL of the remote behind [`Self::target_ref`].
-    pub fn remote_url_with_fallback(&self, repo: &gix::Repository) -> Result<String> {
-        self.project_meta().remote_url_with_fallback(repo)
-    }
-
-    /// The URL to push to, inferred by the [`Self::push_remote`] property.
-    ///
-    /// Falls back to the fetch URL of the remote behind [`Self::target_ref`] if
-    /// the push remote is not set.
-    pub fn push_remote_url(&self, repo: &gix::Repository) -> Result<String> {
-        self.project_meta().push_remote_url(repo)
-    }
-}
-
 impl ProjectMeta {
     /// Read project metadata from the given repository's Git configuration.
     pub fn try_from_config(config: &gix::config::Snapshot<'_>) -> anyhow::Result<Self> {
