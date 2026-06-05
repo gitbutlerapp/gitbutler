@@ -4,6 +4,7 @@ import { keyboardTransferOperationMode } from "#ui/outline/mode.ts";
 import { fileOperand, operandIdentityKey, type FileOperand, type Operand } from "#ui/operands.ts";
 import {
 	projectActions,
+	selectProjectFilesVisible,
 	selectProjectOutlineModeState,
 	selectProjectSelectionFiles,
 	selectProjectSelectionOutline,
@@ -114,6 +115,7 @@ export const useNavigationIndexHotkeys = <T>({
 	getKey: (item: T) => string;
 }) => {
 	const dispatch = useAppDispatch();
+	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
 
 	const selectAndFocus = (newItem: T) => {
 		select(newItem);
@@ -180,6 +182,28 @@ export const useNavigationIndexHotkeys = <T>({
 	};
 
 	useHotkeys([
+		{
+			hotkey: "ArrowLeft",
+			callback: () => {
+				focusAdjacentSelectionScope(filesVisible, -1);
+			},
+			options: {
+				conflictBehavior: "allow",
+				target: ref,
+				meta: { group: "Selection scopes", name: "Focus previous selection scope" },
+			},
+		},
+		{
+			hotkey: "ArrowRight",
+			callback: () => {
+				focusAdjacentSelectionScope(filesVisible, 1);
+			},
+			options: {
+				conflictBehavior: "allow",
+				target: ref,
+				meta: { group: "Selection scopes", name: "Focus next selection scope" },
+			},
+		},
 		{
 			hotkey: "ArrowUp",
 			callback: selectPreviousItem,
