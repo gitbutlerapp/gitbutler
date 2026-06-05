@@ -126,6 +126,8 @@ impl Subcommands {
                 None => Commit,
                 Some(crate::args::commit::Subcommands::Empty { .. }) => CommitEmpty,
             },
+            #[cfg(all(feature = "legacy", feature = "but-2"))]
+            Subcommands::Commit2(..) => Commit2,
             #[cfg(feature = "legacy")]
             Subcommands::Push(_) => Push,
             #[cfg(feature = "legacy")]

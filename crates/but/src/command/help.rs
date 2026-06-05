@@ -74,6 +74,8 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
 
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Commit => Group::BranchingAndCommitting,
+                #[cfg(all(feature = "legacy", feature = "but-2"))]
+                SubcommandDiscriminant::Commit2 => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Stage => Group::BranchingAndCommitting,
                 SubcommandDiscriminant::Branch => Group::BranchingAndCommitting,

@@ -1,6 +1,8 @@
 use std::io::Write;
 
 mod output_channel;
+#[cfg(all(feature = "legacy", feature = "but-2"))]
+pub use output_channel::experimental::*;
 pub use output_channel::{
     Confirm, ConfirmDefault, ConfirmOrEmpty, InputOutputChannel, OutputChannel, WriteWithUtils,
 };

@@ -42,6 +42,16 @@ check-modern-but:
 test-modern-but:
 	cargo test -p but --no-default-features
 
+# Lint: `but` with new experimental commands.
+.PHONY: clippy-but-2
+clippy-but-2:
+	cargo clippy -p but --features but-2 -- -D warnings
+
+# CI executes this to test a version of `but` with new experimental commands.
+.PHONY: test-but-2
+test-but-2:
+	cargo test -p but --features but-2
+
 # Run all tests in the entire workspace and show all failures in the end.
 .PHONY: nextest
 nextest:

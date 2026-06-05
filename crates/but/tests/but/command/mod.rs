@@ -11,6 +11,8 @@ mod branch;
 mod clean;
 #[cfg(feature = "legacy")]
 mod commit;
+#[cfg(all(feature = "legacy", feature = "but-2"))]
+mod commit2;
 mod config;
 #[cfg(feature = "legacy")]
 mod diff;

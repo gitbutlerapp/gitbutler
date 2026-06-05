@@ -41,6 +41,8 @@ legacy = [
 ]
 # Feature that enables profiling related features of the TUI.
 tui-profiling = []
+# Enables new experimental CLI commands that'll eventually replace old commands
+but-2 = []
 
 [dependencies]
 but-core.workspace = true
