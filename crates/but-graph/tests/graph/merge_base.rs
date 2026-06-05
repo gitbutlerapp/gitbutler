@@ -9,7 +9,13 @@ use crate::init::{read_only_in_memory_scenario, standard_options};
 #[test]
 fn find_git_merge_base_handles_duplicate_queue_entries_and_redundant_bases() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
 
     let merged = segment_id_by_ref_name(&graph, "refs/heads/merged")?;
     let a = segment_id_by_ref_name(&graph, "refs/heads/A")?;
@@ -56,7 +62,13 @@ fn find_git_merge_base_handles_duplicate_queue_entries_and_redundant_bases() -> 
 #[test]
 fn relation_between_matches_merge_base_in_redundant_ancestor_case() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
 
     let merged = segment_id_by_ref_name(&graph, "refs/heads/merged")?;
     let a = segment_id_by_ref_name(&graph, "refs/heads/A")?;
@@ -114,7 +126,13 @@ fn reachable_difference_returns_commits_in_traversal_order() -> anyhow::Result<(
     * 965998b (main) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
 
     let merged_id = repo.rev_parse_single("merged")?.detach();
     let a_id = repo.rev_parse_single("A")?.detach();
@@ -168,6 +186,7 @@ fn explicit_traversal_tips_include_unnamed_revisions() -> anyhow::Result<()> {
             Tip::reachable(c_id, None),
         ],
         &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
@@ -223,6 +242,7 @@ fn explicit_traversal_prioritizes_integrated_tips_independent_of_input_order() -
             Tip::integrated(main_id, None),
         ],
         &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
@@ -269,7 +289,13 @@ fn explicit_traversal_prioritizes_integrated_tips_independent_of_input_order() -
 #[test]
 fn relation_between_handles_identity_and_disjoint_segments() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
-    let mut graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let mut graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
 
     let main = segment_id_by_ref_name(&graph, "refs/heads/main")?;
     let a = segment_id_by_ref_name(&graph, "refs/heads/A")?;
@@ -295,7 +321,13 @@ fn relation_between_handles_identity_and_disjoint_segments() -> anyhow::Result<(
 #[test]
 fn merge_base_apis_can_resolve_segments_by_first_commit_id() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("four-diamond")?;
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
 
     let merged = segment_id_by_ref_name(&graph, "refs/heads/merged")?;
     let a = segment_id_by_ref_name(&graph, "refs/heads/A")?;

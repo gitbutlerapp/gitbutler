@@ -209,5 +209,11 @@ fn graph_for_revisions(
         )
         .chain(graph_tips);
 
-    but_graph::Graph::from_commit_traversal_tips(repo, tips, meta, options)
+    but_graph::Graph::from_commit_traversal_tips(
+        repo,
+        tips,
+        meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        options,
+    )
 }

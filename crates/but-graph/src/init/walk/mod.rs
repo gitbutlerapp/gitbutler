@@ -787,27 +787,11 @@ pub fn obtain_workspace_infos<T: RefMetadata>(
         meta.iter_workspaces().collect()
     };
 
-    let (mut out, mut target_refs) = (Vec::new(), Vec::new());
+    let mut out = Vec::new();
     for (rn, data) in workspaces {
         if rn.category() != Some(Category::LocalBranch) {
             tracing::warn!(
                 "Skipped workspace at ref {rn} as workspaces can only ever be on normal branches",
-            );
-            continue;
-        }
-        if target_refs.contains(&rn) {
-            tracing::warn!(
-                "Skipped workspace at ref {rn} as it was also a target ref for another workspace (or for itself)",
-            );
-            continue;
-        }
-        if let Some(invalid_target_ref) = data
-            .target_ref
-            .as_ref()
-            .filter(|trn| trn.category() != Some(Category::RemoteBranch))
-        {
-            tracing::warn!(
-                "Skipped workspace at ref {rn} as its target reference {invalid_target_ref} was not a remote tracking branch",
             );
             continue;
         }
@@ -818,7 +802,6 @@ pub fn obtain_workspace_infos<T: RefMetadata>(
             continue;
         };
 
-        target_refs.extend(data.target_ref.clone());
         out.push((ws_tip, rn, data))
     }
 

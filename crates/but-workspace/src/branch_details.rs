@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use anyhow::Context as _;
-use but_core::RefMetadata;
+use but_core::{RefMetadata, ref_metadata::ProjectMeta};
 use gix::{
     date::parse::TimeBuf, prelude::ObjectIdExt as _, reference::Category, remote::Direction,
 };
@@ -31,13 +31,15 @@ pub fn branch_details(
     repo: &gix::Repository,
     name: &gix::refs::FullNameRef,
     meta: &impl RefMetadata,
+    project_meta: &ProjectMeta,
 ) -> anyhow::Result<ui::BranchDetails> {
-    let integration_branch_name = workspace_data_of_default_workspace_branch(meta)?
-        .context(
-            "TODO: cannot run in non-workspace mode yet.\
+    workspace_data_of_default_workspace_branch(meta)?.context(
+        "TODO: cannot run in non-workspace mode yet.\
         It would need a way to deal with limiting the commit traversal",
-        )?
+    )?;
+    let integration_branch_name = project_meta
         .target_ref
+        .clone()
         .context("TODO: a target to integrate with is currently needed for a workspace commit")?;
     let mut integration_branch = repo
         .find_reference(&integration_branch_name)

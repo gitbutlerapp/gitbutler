@@ -13,6 +13,12 @@ use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack, add_stack_with_segments, named_writable_scenario_with_description,
 };
 
+fn project_meta(meta: &impl RefMetadata) -> Result<but_core::ref_metadata::ProjectMeta> {
+    Ok(meta
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
+        .project_meta())
+}
+
 #[test]
 fn diamond_partially_historically_integrated_rebase() -> Result<()> {
     let (_tmp, repo, mut meta, _description) =
@@ -29,6 +35,7 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(o1_id),
             ..Options::limited()
@@ -56,9 +63,11 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
 
     let mut workspace = graph.into_workspace()?;
     let remote_tip_before = repo.rev_parse_single("origin/master")?.detach();
+    let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
+        project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -109,6 +118,7 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(o1_id),
             ..Options::limited()
@@ -135,9 +145,11 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
     ");
 
     let mut workspace = graph.into_workspace()?;
+    let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
+        project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Merge,
@@ -187,6 +199,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(o1_id),
             ..Options::limited()
@@ -223,9 +236,11 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
         └── :9:A
             └── ·f5b02d3 (🏘️)
     ");
+    let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
+        project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -268,6 +283,7 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(o1_id),
             ..Options::limited()
@@ -292,9 +308,11 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
     ");
 
     let mut workspace = graph.into_workspace()?;
+    let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
+        project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Merge,
@@ -342,6 +360,7 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -357,9 +376,11 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
     ");
 
     let mut workspace = graph.into_workspace()?;
+    let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
+        project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Merge,

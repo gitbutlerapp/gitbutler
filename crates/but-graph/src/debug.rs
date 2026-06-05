@@ -108,9 +108,6 @@ impl Graph {
                 anon(&mut ri.ref_name)?;
             }
             if let Some(SegmentMetadata::Workspace(md)) = node.metadata.as_mut() {
-                if let Some(rn) = md.target_ref.as_mut() {
-                    anon(rn)?;
-                }
                 for rn in md
                     .stacks
                     .iter_mut()

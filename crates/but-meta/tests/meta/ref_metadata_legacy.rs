@@ -1013,10 +1013,12 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     let toml_path = store.path().to_owned();
     let mut ws = store.workspace(workspace_name.as_ref())?;
 
-    ws.push_remote = Some("push-remote".into());
-    ws.target_ref = Some(gix::refs::FullName::try_from(
+    let mut project_meta = ws.project_meta();
+    project_meta.push_remote = Some("push-remote".into());
+    project_meta.target_ref = Some(gix::refs::FullName::try_from(
         "refs/remotes/new-origin/new-target",
     )?);
+    ws.set_project_meta(project_meta);
     store.set_workspace(&ws)?;
 
     drop(store);
@@ -1044,32 +1046,39 @@ fn target_journey() -> anyhow::Result<()> {
     let ws_name = "refs/heads/gitbutler/workspace".try_into()?;
     let mut ws = store.workspace(ws_name)?;
     assert_eq!(
-        ws.target_ref,
+        ws.project_meta().target_ref,
         Some("refs/remotes/origin/sub-name/main".try_into()?)
     );
 
     let expected_target: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
-    ws.target_ref = Some(expected_target.clone());
+    let mut project_meta = ws.project_meta();
+    project_meta.target_ref = Some(expected_target.clone());
+    ws.set_project_meta(project_meta);
     store.set_workspace(&ws)?;
 
     let mut ws = store.workspace(ws_name)?;
     assert_eq!(
-        ws.target_ref,
+        ws.project_meta().target_ref,
         Some(expected_target.clone()),
         "can change the name as well"
     );
 
-    ws.target_ref = None;
+    let mut project_meta = ws.project_meta();
+    project_meta.target_ref = None;
+    ws.set_project_meta(project_meta);
     store.set_workspace(&ws)?;
 
     let mut ws = store.workspace(ws_name)?;
-    ws.target_ref = Some(expected_target);
+    let mut project_meta = ws.project_meta();
+    project_meta.target_ref = Some(expected_target);
+    ws.set_project_meta(project_meta);
 
-    let err = store.set_workspace(&ws).unwrap_err();
+    store.set_workspace(&ws)?;
+    let ws = store.workspace(ws_name)?;
     assert_eq!(
-        err.to_string(),
-        "Cannot reasonably set a target in the old data structure as we don't have repo access here",
-        "cannot do that as the data structures are too incompatible, can't set all values and certainly shouldn't make it up"
+        ws.project_meta().target_ref,
+        Some("refs/remotes/origin/main".try_into()?),
+        "can set a target again through project metadata"
     );
 
     Ok(())
@@ -1347,6 +1356,7 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
         repo.find_reference(ws_ref_name)?.peel_to_id()?,
         Some(ws_ref_name.to_owned()),
         &store,
+        store.workspace(ws_ref_name)?.project_meta(),
         but_graph::init::Options::limited(),
     )?;
     // It looks very empty without reconciliation, as if it had not found any metadata (even though it's there).
@@ -1386,6 +1396,7 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
         repo.find_reference(ws_ref_name)?.peel_to_id()?,
         Some(ws_ref_name.to_owned()),
         &store,
+        store.workspace(ws_ref_name)?.project_meta(),
         but_graph::init::Options::limited(),
     )?;
     insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?), @"📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e");

@@ -51,16 +51,19 @@ pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
 
     stacks
         .into_iter()
-        .map(|stack| {
-            let stack_id = stack
-                .id
-                .expect("BUG(opt-stack-id): test code shouldn't trigger this");
+        .filter_map(|stack| {
+            let stack_id = stack.id?;
             let details = {
                 let meta = ctx.legacy_meta().unwrap();
-                but_workspace::legacy::stack_details_v3(stack_id.into(), &repo, &meta)
+                but_workspace::legacy::stack_details_v3(
+                    stack_id.into(),
+                    &repo,
+                    &meta,
+                    &ctx.project_meta().unwrap(),
+                )
             }
             .unwrap();
-            (stack_id, details)
+            Some((stack_id, details))
         })
         .collect()
 }

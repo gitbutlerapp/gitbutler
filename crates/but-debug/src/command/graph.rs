@@ -73,11 +73,22 @@ pub(crate) fn run(
     };
 
     let graph = match graph_args.ref_name.as_deref() {
-        None => but_graph::Graph::from_head(&repo, &meta, opts),
+        None => but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            but_core::ref_metadata::ProjectMeta::default(),
+            opts,
+        ),
         Some(ref_name) => {
             let mut reference = repo.find_reference(ref_name)?;
             let id = reference.peel_to_id()?;
-            but_graph::Graph::from_commit_traversal(id, reference.name().to_owned(), &meta, opts)
+            but_graph::Graph::from_commit_traversal(
+                id,
+                reference.name().to_owned(),
+                &meta,
+                but_core::ref_metadata::ProjectMeta::default(),
+                opts,
+            )
         }
     }?;
 

@@ -268,6 +268,8 @@ impl std::fmt::Debug for GerritMode<'_> {
 /// Options for the [`ref_info()`](crate::ref_info()) call.
 #[derive(Default, Debug)]
 pub struct Options<'db> {
+    /// Project-scoped metadata used to resolve target refs and push remotes.
+    pub project_meta: but_core::ref_metadata::ProjectMeta,
     /// Control how to traverse the commit-graph as the basis for the workspace conversion.
     pub traversal: but_graph::init::Options,
     /// Perform expensive computations on a per-commit basis.
@@ -436,7 +438,12 @@ pub fn head_info_and_workspace(
     meta: &impl but_core::RefMetadata,
     opts: Options<'_>,
 ) -> anyhow::Result<(RefInfo, but_graph::Workspace)> {
-    let graph = Graph::from_head(repo, meta, opts.traversal.clone())?;
+    let graph = Graph::from_head(
+        repo,
+        meta,
+        opts.project_meta.clone(),
+        opts.traversal.clone(),
+    )?;
     let ws = graph.into_workspace()?;
     Ok((graph_to_ref_info(&ws, repo, opts)?, ws))
 }
@@ -457,8 +464,13 @@ pub fn ref_info(
 ) -> anyhow::Result<RefInfo> {
     let id = existing_ref.peel_to_id()?;
     let repo = id.repo;
-    let graph =
-        Graph::from_commit_traversal(id, existing_ref.inner.name, meta, opts.traversal.clone())?;
+    let graph = Graph::from_commit_traversal(
+        id,
+        existing_ref.inner.name,
+        meta,
+        opts.project_meta.clone(),
+        opts.traversal.clone(),
+    )?;
     graph_to_ref_info(&graph.into_workspace()?, repo, opts)
 }
 

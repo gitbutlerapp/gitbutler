@@ -1,6 +1,4 @@
-use but_core::{
-    RefMetadata as _, RepositoryExt as _, WORKSPACE_REF_NAME, ref_metadata::ProjectMeta,
-};
+use but_core::{RefMetadata as _, WORKSPACE_REF_NAME, ref_metadata::ProjectMeta};
 use but_ctx::{Context, ProjectHandle};
 use but_meta::VirtualBranchesTomlMetadata;
 use but_path::AppChannel;
@@ -155,7 +153,7 @@ fn set_project_meta_updates_git_config_toml_and_database() -> anyhow::Result<()>
 
     ctx.set_project_meta(project_meta.clone())?;
 
-    insta::assert_debug_snapshot!(storage_state(&ctx)?, @r#"
+    insta::assert_debug_snapshot!(storage_state_with_db(&ctx)?, @r#"
     StorageState {
         config_ported: true,
         config: ProjectMetaView {
@@ -401,6 +399,10 @@ fn project_meta(
 }
 
 #[derive(Debug)]
+#[allow(
+    dead_code,
+    reason = "fields are asserted through insta debug snapshots"
+)]
 struct StorageState {
     config_ported: bool,
     config: ProjectMetaView,
@@ -416,6 +418,10 @@ struct ProjectMetaView {
 }
 
 #[derive(Debug)]
+#[allow(
+    dead_code,
+    reason = "fields are asserted through insta debug snapshots"
+)]
 struct DbStateView {
     initialized: bool,
     default_target_remote_name: Option<String>,
@@ -425,30 +431,41 @@ struct DbStateView {
 }
 
 fn storage_state(ctx: &Context) -> anyhow::Result<StorageState> {
-    storage_state_with_repo(ctx, ctx.repo.get()?.clone())
+    storage_state_with_repo(ctx, ctx.repo.get()?.clone(), false)
+}
+
+fn storage_state_with_db(ctx: &Context) -> anyhow::Result<StorageState> {
+    storage_state_with_repo(ctx, ctx.repo.get()?.clone(), true)
 }
 
 fn storage_state_reopen_config(ctx: &Context) -> anyhow::Result<StorageState> {
-    storage_state_with_repo(ctx, open_repo(&ctx.gitdir)?)
+    storage_state_with_repo(ctx, open_repo(&ctx.gitdir)?, false)
 }
 
-fn storage_state_with_repo(ctx: &Context, repo: gix::Repository) -> anyhow::Result<StorageState> {
+fn storage_state_with_repo(
+    ctx: &Context,
+    repo: gix::Repository,
+    include_db: bool,
+) -> anyhow::Result<StorageState> {
     let toml_meta = VirtualBranchesTomlMetadata::from_path_read_only(
         ctx.project_data_dir().join("virtual_branches.toml"),
     )?;
     let toml = toml_meta.workspace(WORKSPACE_REF_NAME.try_into()?)?;
-    let db = ctx
-        .db
-        .get_cache()?
-        .virtual_branches()
-        .get_snapshot()?
-        .map(|snapshot| DbStateView {
-            initialized: snapshot.state.initialized,
-            default_target_remote_name: snapshot.state.default_target_remote_name,
-            default_target_branch_name: snapshot.state.default_target_branch_name,
-            default_target_sha: snapshot.state.default_target_sha.as_ref().map(|_| "[OID]"),
-            default_target_push_remote_name: snapshot.state.default_target_push_remote_name,
-        });
+    let db = if include_db {
+        ctx.db
+            .get_cache()?
+            .virtual_branches()
+            .get_snapshot()?
+            .map(|snapshot| DbStateView {
+                initialized: snapshot.state.initialized,
+                default_target_remote_name: snapshot.state.default_target_remote_name,
+                default_target_branch_name: snapshot.state.default_target_branch_name,
+                default_target_sha: snapshot.state.default_target_sha.as_ref().map(|_| "[OID]"),
+                default_target_push_remote_name: snapshot.state.default_target_push_remote_name,
+            })
+    } else {
+        None
+    };
 
     Ok(StorageState {
         config_ported: ProjectMeta::is_ported(&repo.config_snapshot()),

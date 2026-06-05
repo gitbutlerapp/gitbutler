@@ -85,7 +85,9 @@ pub fn remove_target(meta: &mut VirtualBranchesTomlMetadata) {
                 .expect("statically known to be valid"),
         )
         .unwrap();
-    ws_md.target_ref = None;
+    let mut project_meta = ws_md.project_meta();
+    project_meta.target_ref = None;
+    ws_md.set_project_meta(project_meta);
     meta.set_workspace(&ws_md).unwrap();
 }
 

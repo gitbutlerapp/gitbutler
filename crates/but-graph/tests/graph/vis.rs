@@ -24,13 +24,11 @@ fn post_graph_traversal() -> anyhow::Result<()> {
             worktree: None,
         }),
         remote_tracking_ref_name: Some("refs/remotes/origin/main".try_into()?),
-        metadata: Some(SegmentMetadata::Workspace(ref_metadata::Workspace {
-            ref_info: Default::default(),
-            stacks: vec![],
-            target_ref: None,
-            target_commit_id: None,
-            push_remote: None,
-        })),
+        metadata: Some(SegmentMetadata::Workspace(ref_metadata::Workspace::new(
+            Default::default(),
+            vec![],
+            ref_metadata::ProjectMeta::default(),
+        ))),
         ..Default::default()
     };
 
@@ -102,7 +100,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
     };
     graph.connect_new_segment(branch, 1, remote_to_root_branch, 0, None, 0);
 
-    insta::assert_snapshot!(graph_tree(&graph), @r"
+    insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉📕►►►:0[0]:main <> origin/main
         ├── ►:1[0]:new-stack

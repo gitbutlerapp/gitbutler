@@ -19,7 +19,13 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
     * b6e2f57 (base) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -63,7 +69,13 @@ fn commits_are_signed_by_default() -> Result<()> {
     * b6e2f57 (base) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -131,7 +143,13 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     * b6e2f57 (base) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -195,7 +213,13 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
     * 7a5aacf (base) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create_with_opts(
         &mut ws,
@@ -263,7 +287,13 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
     * 7a5aacf (base) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create_with_opts(
         &mut ws,
@@ -350,7 +380,13 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
     * 7a5aacf (base) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create_with_opts(
         &mut ws,
@@ -434,7 +470,13 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
     * 7a5aacf (base) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
 
     let mut editor = Editor::create_with_opts(
@@ -502,7 +544,13 @@ fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
     * 7a5aacf (base) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
 
     let mut editor = Editor::create_with_opts(

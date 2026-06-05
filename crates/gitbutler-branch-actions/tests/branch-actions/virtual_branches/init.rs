@@ -3,7 +3,7 @@
     reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
 )]
 
-use but_core::git_config::{edit_config, set_config_value};
+use but_core::git_config::{edit_config, remove_config_value, set_config_value};
 
 use super::*;
 
@@ -260,6 +260,9 @@ fn bootstrap_missing_target_preserves_existing_workspace_ref() -> anyhow::Result
             but_project_handle::storage_path_config_key(),
             "gitbutler-alt",
         )?;
+        remove_config_value(config, "gitbutler.project.targetRef")?;
+        remove_config_value(config, "gitbutler.project.targetCommitId")?;
+        remove_config_value(config, "gitbutler.project.pushRemote")?;
         Ok(())
     })?;
     drop(repo);

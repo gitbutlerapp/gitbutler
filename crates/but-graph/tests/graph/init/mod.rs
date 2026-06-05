@@ -8,8 +8,13 @@ use but_testsupport::{
 fn unborn() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("unborn")?;
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?;
-    insta::assert_snapshot!(graph_tree(&graph), @r"
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?;
+    insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:main[🌳]
     ");
@@ -52,6 +57,11 @@ fn unborn() -> anyhow::Result<()> {
             extra_target_commit_id: None,
             dangerously_skip_postprocessing_for_debugging: false,
         },
+        project_meta: ProjectMeta {
+            target_ref: None,
+            target_commit_id: None,
+            push_remote: None,
+        },
         symbolic_remote_names: [],
     }
     "#);
@@ -72,14 +82,19 @@ fn unborn() -> anyhow::Result<()> {
 #[test]
 fn detached() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("detached")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 541396b (HEAD, tag: release/v1, tag: annotated, main) first
     * fafd9d0 (other) init
     ");
 
     // Detached branches are forcefully made anonymous, and it's something
     // we only know by examining `HEAD`.
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── ►:0[0]:anon:
@@ -168,6 +183,11 @@ fn detached() -> anyhow::Result<()> {
             extra_target_commit_id: None,
             dangerously_skip_postprocessing_for_debugging: false,
         },
+        project_meta: ProjectMeta {
+            target_ref: None,
+            target_commit_id: None,
+            push_remote: None,
+        },
         symbolic_remote_names: [],
     }
     "#);
@@ -221,7 +241,13 @@ fn shallow_clone_stops_at_shallow_boundary() -> anyhow::Result<()> {
         "the linear depth-2 clone should have exactly one shallow boundary"
     );
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── ►:1[0]:origin/main →:0:
@@ -292,7 +318,13 @@ fn merge_first_parent_older_non_workspace_maintains_graph_order() -> anyhow::Res
     * 793a434 (tag: base, main) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:first-parent[🌳]
@@ -326,7 +358,7 @@ fn merge_first_parent_older_non_workspace_maintains_graph_order() -> anyhow::Res
 #[test]
 fn main_advanced_remote_advanced() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("main-advanced-remote-advanced-two-shared")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 971953d (HEAD -> main) M2
     | * 5d29d62 (origin/main) RM1
     |/  
@@ -334,7 +366,12 @@ fn main_advanced_remote_advanced() -> anyhow::Result<()> {
     * fafd9d0 init
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     ├── 👉►:0[0]:main[🌳] <> origin/main →:1:
@@ -361,7 +398,7 @@ fn main_advanced_remote_advanced() -> anyhow::Result<()> {
 #[test]
 fn only_remote_advanced() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("only-remote-advanced")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 085535d (origin/main) RM2
     * dd9f8d9 (origin/split-segment) RM1
     * 971953d (HEAD -> main) M2
@@ -369,7 +406,12 @@ fn only_remote_advanced() -> anyhow::Result<()> {
     * fafd9d0 init
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── ►:1[0]:origin/main →:0:
@@ -399,7 +441,7 @@ fn only_remote_advanced() -> anyhow::Result<()> {
 fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
     let (repo, meta) =
         read_only_in_memory_scenario("only-remote-advanced-with-special-branch-name")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 085535d (origin/main) RM2
     * dd9f8d9 (origin/split-segment) RM1
     * 971953d (HEAD -> main) M2
@@ -407,7 +449,12 @@ fn only_remote_advanced_with_special_branch_name() -> anyhow::Result<()> {
     * fafd9d0 init
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── ►:1[0]:origin/main →:0:
@@ -450,7 +497,12 @@ fn multi_root() -> anyhow::Result<()> {
     * e5d0542 A
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:main[🌳]
@@ -509,7 +561,12 @@ fn four_diamond() -> anyhow::Result<()> {
     * 965998b (main) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:merged[🌳]
@@ -574,6 +631,7 @@ fn explicit_traversal_tips_reject_duplicate_traversal_seeds() -> anyhow::Result<
             Tip::reachable(a_id, Some(a_ref)),
         ],
         &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )
     .expect_err("duplicate traversal seeds must be rejected");
@@ -600,11 +658,12 @@ fn explicit_traversal_tips_allow_overlapping_commit_ids() -> anyhow::Result<()> 
             Tip::reachable(main_id, Some(release_tag)),
         ],
         &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
 
-    insta::assert_snapshot!(graph_tree(&graph), @r"
+    insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── ►:0[0]:tags/release/v1
         └── 👉►:1[1]:main
@@ -647,11 +706,12 @@ fn explicit_traversal_tips_allow_named_and_anonymous_integrated_targets_on_same_
             Tip::integrated(main_id, None),
         ],
         &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
 
-    insta::assert_snapshot!(graph_tree(&graph), "anonymous target context with the same commit collapses into the named target ref", @r"
+    insta::assert_snapshot!(graph_tree(&graph), "anonymous target context with the same commit collapses into the named target ref", @"
 
     └── 👉►:1[0]:merged[🌳]
         └── ·8a6c109 (⌂|1)
@@ -689,6 +749,7 @@ fn explicit_traversal_tips_reject_multiple_entrypoints() -> anyhow::Result<()> {
             Tip::entrypoint(a_id, None),
         ],
         &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )
     .expect_err("multiple entrypoints must be rejected");
@@ -714,6 +775,7 @@ fn explicit_traversal_tips_reject_duplicate_ref_names() -> anyhow::Result<()> {
             Tip::reachable(c_id, Some(a_ref.clone())),
         ],
         &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )
     .expect_err("duplicate ref names must be rejected");
@@ -737,6 +799,7 @@ fn explicit_traversal_tips_reject_detached_entrypoint_with_ref_name() -> anyhow:
             .with_entrypoint()
             .with_is_detached(true)],
         &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )
     .expect_err("detached entrypoints must not be named");
@@ -759,6 +822,7 @@ fn explicit_traversal_tips_reject_ref_names_that_point_elsewhere() -> anyhow::Re
         &repo,
         [Tip::entrypoint(merged_id, Some(a_ref.clone()))],
         &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )
     .expect_err("ref names must resolve to their tip id");
@@ -781,6 +845,7 @@ fn traversal_entrypoint_ref_override_must_point_to_entrypoint() -> anyhow::Resul
         id_by_rev(&repo, "merged"),
         Some(a_ref.clone()),
         &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )
     .expect_err("entrypoint ref override must resolve to the entrypoint id");
@@ -824,10 +889,11 @@ fn explicit_traversal_tips_use_integrated_tip_as_workspace_target_commit() -> an
             Tip::integrated(target_commit_id, None),
         ],
         &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r"
+    insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:2[0]:merged[🌳]
         └── ·8a6c109 (⌂|1)
@@ -858,7 +924,7 @@ fn explicit_traversal_tips_use_integrated_tip_as_workspace_target_commit() -> an
     );
 
     let ws = graph.into_workspace()?;
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:2:merged[🌳] <> ✓refs/heads/A⇣3 on 965998b
     └── ≡:2:merged[🌳] on 965998b {1}
         ├── :2:merged[🌳]
@@ -885,7 +951,7 @@ fn explicit_traversal_tips_use_integrated_tip_as_workspace_target_commit() -> an
 #[test]
 fn stacked_rebased_remotes() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("remote-includes-another-remote")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 682be32 (origin/B) B
     * e29c23d (origin/A) A
     | * 312f819 (HEAD -> B) B
@@ -895,8 +961,13 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     ");
 
     // A remote will always be able to find their non-remotes so they don't seem cut-off.
-    let graph =
-        Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(1))?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options().with_limit_hint(1),
+    )?
+    .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     ├── 👉►:0[0]:B[🌳] <> origin/B →:1:
@@ -926,8 +997,13 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
 
     // The hard limit stops queueing deeper commits, but queued commits are still processed
     // so existing work can complete its graph connections.
-    let graph =
-        Graph::from_head(&repo, &*meta, standard_options().with_hard_limit(5))?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options().with_hard_limit(5),
+    )?
+    .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     ├── 👉►:0[0]:B[🌳] <> origin/B →:1:
@@ -954,7 +1030,13 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
     ");
 
     // Everything we encounter is checked for remotes (no limit)
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     ├── 👉►:0[0]:B[🌳] <> origin/B →:1:
@@ -972,7 +1054,14 @@ fn stacked_rebased_remotes() -> anyhow::Result<()> {
 
     // With a lower entrypoint, we don't see part of the graph.
     let (id, name) = id_at(&repo, "A");
-    let graph = Graph::from_commit_traversal(id, name, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_commit_traversal(
+        id,
+        name,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     ├── 👉►:0[0]:A <> origin/A →:1:
@@ -1018,7 +1107,13 @@ fn with_limits() -> anyhow::Result<()> {
     ");
 
     // Without limits
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:C[🌳]
@@ -1063,9 +1158,14 @@ fn with_limits() -> anyhow::Result<()> {
 
     // There is no empty starting points, we always traverse the first commit as we really want
     // to get to remote processing there.
-    let graph =
-        Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(0))?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r"
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options().with_limit_hint(0),
+    )?
+    .validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:C[🌳]
         └── ✂·2a95729 (⌂|1)
@@ -1079,9 +1179,14 @@ fn with_limits() -> anyhow::Result<()> {
     ");
 
     // A single commit, the merge commit.
-    let graph =
-        Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(1))?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r"
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options().with_limit_hint(1),
+    )?
+    .validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:C[🌳]
         └── ·2a95729 (⌂|1)
@@ -1102,8 +1207,13 @@ fn with_limits() -> anyhow::Result<()> {
 
     // Hitting the hard limit while queueing merge parents still queues the
     // complete parent set. The hard limit only prevents traversal beyond them.
-    let graph =
-        Graph::from_head(&repo, &*meta, standard_options().with_hard_limit(2))?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options().with_hard_limit(2),
+    )?
+    .validated()?;
     assert!(
         graph.hard_limit_hit(),
         "graph should record that traversal stopped queueing after hitting the hard limit"
@@ -1121,9 +1231,14 @@ fn with_limits() -> anyhow::Result<()> {
     ");
 
     // The merge commit, then we witness lane-duplication of the limit so we get more than requested.
-    let graph =
-        Graph::from_head(&repo, &*meta, standard_options().with_limit_hint(2))?.validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r"
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options().with_limit_hint(2),
+    )?
+    .validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:C[🌳]
         └── ·2a95729 (⌂|1)
@@ -1151,12 +1266,13 @@ fn with_limits() -> anyhow::Result<()> {
     let graph = Graph::from_head(
         &repo,
         &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
         standard_options()
             .with_limit_hint(2)
             .with_limit_extension_at(Some(id_by_rev(&repo, ":/A3").detach())),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r"
+    insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:C[🌳]
         └── ·2a95729 (⌂|1)
@@ -1185,12 +1301,13 @@ fn with_limits() -> anyhow::Result<()> {
     let graph = Graph::from_head(
         &repo,
         &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
         standard_options()
             .with_limit_hint(2)
             .with_limit_extension_at([id(":/A3"), id(":/A1"), id(":/B3"), id(":/C3")]),
     )?
     .validated()?;
-    insta::assert_snapshot!(graph_tree(&graph), @r"
+    insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:C[🌳]
         └── ·2a95729 (⌂|1)
@@ -1272,6 +1389,7 @@ fn with_limits() -> anyhow::Result<()> {
     let graph = Graph::from_head(
         &repo,
         &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
         standard_options_with_extra_target(&repo, "main"),
     )?
     .validated()?;
@@ -1318,13 +1436,19 @@ fn with_limits() -> anyhow::Result<()> {
 #[test]
 fn special_branch_names_do_not_end_up_in_segment() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("special-branches")?;
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 3686017 (HEAD -> main) top
     * 9725482 (gitbutler/edit) middle
     * fafd9d0 (gitbutler/target) init
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     // Standard handling after travrsal and post-processing.
     insta::assert_snapshot!(graph_tree(&graph), @"
 
@@ -1353,7 +1477,13 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("ambiguous-worktrees")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 85efbe4 (HEAD -> main, wt-outside-ambiguous-worktree, wt-inside-ambiguous-worktree) M");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:main[🌳@repo]
@@ -1375,7 +1505,13 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
         gix::open::Options::isolated(),
     )?
     .with_object_memory();
-    let graph = Graph::from_head(&linked_repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &linked_repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     insta::assert_snapshot!(graph_tree(&graph), "when the graph is built from the linked worktree repository, it can't see anything else without metadata", @"
 
     └── 👉►:0[0]:wt-inside-ambiguous-worktree[📁@repo]
@@ -1429,7 +1565,13 @@ fn commit_with_two_parents() -> anyhow::Result<()> {
     ");
 
     let meta = in_memory_meta(tmp.path())?;
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     // Duplicate parent commits are kept verbatim.
     insta::assert_snapshot!(graph_tree(&graph), @"
 

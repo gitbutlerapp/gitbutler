@@ -190,8 +190,12 @@ pub fn workspace_integrate_upstream_only_with_perm(
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let IntegrateUpstreamOutcome { rebase, ws_meta } =
-        but_workspace::integrate_upstream(&mut ws, &mut meta, &repo, updates)?;
+    let project_meta = ctx.project_meta()?;
+    let IntegrateUpstreamOutcome {
+        rebase,
+        ws_meta,
+        project_meta,
+    } = but_workspace::integrate_upstream(&mut ws, &mut meta, project_meta, &repo, updates)?;
     let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&rebase)?;
 
     if dry_run.into() {
@@ -204,12 +208,15 @@ pub fn workspace_integrate_upstream_only_with_perm(
     }
 
     let materialized = rebase.materialize()?;
+    project_meta.persist_to_local_config(&repo)?;
 
     if let Some(ref_name) = materialized.workspace.ref_name() {
         let mut md = materialized.meta.workspace(ref_name)?;
         *md = ws_meta;
+        md.set_project_meta(project_meta);
         materialized.meta.set_workspace(&md)?;
     }
+    ctx.invalidate_workspace_cache()?;
 
     let workspace_state = WorkspaceState::from_workspace(
         materialized.workspace,

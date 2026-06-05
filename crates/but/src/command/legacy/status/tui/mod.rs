@@ -2941,7 +2941,10 @@ impl App {
             but_workspace::head_info(
                 &*ctx.repo.get()?,
                 &meta,
-                but_workspace::ref_info::Options::default(),
+                but_workspace::ref_info::Options {
+                    project_meta: ctx.project_meta()?,
+                    ..Default::default()
+                },
             )?
         };
 

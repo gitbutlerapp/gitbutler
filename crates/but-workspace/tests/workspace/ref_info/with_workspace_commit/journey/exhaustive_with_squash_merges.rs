@@ -111,9 +111,7 @@ fn j02_first_commit() -> anyhow::Result<()> {
                             id: NodeIndex(0),
                             ref_name: "►main[🌳]",
                             remote_tracking_ref_name: "None",
-                            commits: [
-                                LocalCommit(fafd9d0, "init\n", local),
-                            ],
+                            commits: [],
                             commits_on_remote: [],
                             commits_outside: None,
                             metadata: "None",
@@ -124,8 +122,15 @@ fn j02_first_commit() -> anyhow::Result<()> {
                 },
             ],
             target_ref: None,
-            target_commit: None,
-            lower_bound: None,
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(0),
+                },
+            ),
+            lower_bound: Some(
+                NodeIndex(0),
+            ),
             is_managed_ref: false,
             is_managed_commit: false,
             ancestor_workspace_commit: None,
@@ -179,22 +184,35 @@ fn j03_main_pushed() -> anyhow::Result<()> {
                         ref_info::ui::Segment {
                             id: NodeIndex(0),
                             ref_name: "►main[🌳]",
-                            remote_tracking_ref_name: "None",
-                            commits: [
-                                LocalCommit(fafd9d0, "init\n", local),
-                            ],
+                            remote_tracking_ref_name: "refs/remotes/origin/main",
+                            commits: [],
                             commits_on_remote: [],
                             commits_outside: None,
                             metadata: "None",
-                            push_status: CompletelyUnpushed,
+                            push_status: NothingToPush,
                             base: "None",
                         },
                     ],
                 },
             ],
-            target_ref: None,
-            target_commit: None,
-            lower_bound: None,
+            target_ref: Some(
+                TargetRef {
+                    ref_name: FullName(
+                        "refs/remotes/origin/main",
+                    ),
+                    segment_index: NodeIndex(1),
+                    commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(0),
+                },
+            ),
+            lower_bound: Some(
+                NodeIndex(0),
+            ),
             is_managed_ref: false,
             is_managed_commit: false,
             ancestor_workspace_commit: None,
@@ -241,18 +259,26 @@ fn j03_main_pushed() -> anyhow::Result<()> {
                         ref_info::ui::Segment {
                             id: NodeIndex(0),
                             ref_name: "►main[🌳]",
-                            remote_tracking_ref_name: "None",
+                            remote_tracking_ref_name: "refs/remotes/origin/main",
                             commits: [],
                             commits_on_remote: [],
                             commits_outside: None,
                             metadata: "None",
-                            push_status: CompletelyUnpushed,
+                            push_status: NothingToPush,
                             base: "None",
                         },
                     ],
                 },
             ],
-            target_ref: None,
+            target_ref: Some(
+                TargetRef {
+                    ref_name: FullName(
+                        "refs/remotes/origin/main",
+                    ),
+                    segment_index: NodeIndex(1),
+                    commits_ahead: 0,
+                },
+            ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),

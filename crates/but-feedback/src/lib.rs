@@ -38,18 +38,24 @@ impl Archival {
         repo: &gix::Repository,
         meta: &impl RefMetadata,
     ) -> Result<PathBuf> {
-        let mut graph =
-            but_graph::Graph::from_head(repo, meta, Default::default()).or_else(|_| {
-                but_graph::Graph::from_head(
-                    repo,
-                    meta,
-                    but_graph::init::Options {
-                        // Assume it fails because of post-processing, try again without.
-                        dangerously_skip_postprocessing_for_debugging: true,
-                        ..Default::default()
-                    },
-                )
-            })?;
+        let mut graph = but_graph::Graph::from_head(
+            repo,
+            meta,
+            but_core::ref_metadata::ProjectMeta::default(),
+            Default::default(),
+        )
+        .or_else(|_| {
+            but_graph::Graph::from_head(
+                repo,
+                meta,
+                but_core::ref_metadata::ProjectMeta::default(),
+                but_graph::init::Options {
+                    // Assume it fails because of post-processing, try again without.
+                    dangerously_skip_postprocessing_for_debugging: true,
+                    ..Default::default()
+                },
+            )
+        })?;
         let dot_file_contents = graph.anonymize(&repo.remote_names())?.dot_graph_pruned();
         let output_file = self.cache_dir.join(format!(
             "commit-graph-anon-{date}.zip",

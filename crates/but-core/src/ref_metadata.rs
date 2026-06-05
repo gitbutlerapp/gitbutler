@@ -1,5 +1,4 @@
 use anyhow::{Context as _, Result, bail};
-use bstr::ByteVec;
 use gix::refs::FullNameRef;
 use uuid::Uuid;
 
@@ -349,7 +348,9 @@ impl Workspace {
         );
         Some(true)
     }
+}
 
+impl ProjectMeta {
     /// Get the fetch URL of the remote behind [`Self::target_ref`].
     pub fn remote_url_with_fallback(&self, repo: &gix::Repository) -> Result<String> {
         let Some(target_ref) = self.target_ref.as_ref() else {
@@ -387,6 +388,21 @@ impl Workspace {
         push_remote_url
             .map(Ok)
             .unwrap_or_else(|| self.remote_url_with_fallback(repo))
+    }
+}
+
+impl Workspace {
+    /// Get the fetch URL of the remote behind [`Self::target_ref`].
+    pub fn remote_url_with_fallback(&self, repo: &gix::Repository) -> Result<String> {
+        self.project_meta().remote_url_with_fallback(repo)
+    }
+
+    /// The URL to push to, inferred by the [`Self::push_remote`] property.
+    ///
+    /// Falls back to the fetch URL of the remote behind [`Self::target_ref`] if
+    /// the push remote is not set.
+    pub fn push_remote_url(&self, repo: &gix::Repository) -> Result<String> {
+        self.project_meta().push_remote_url(repo)
     }
 }
 

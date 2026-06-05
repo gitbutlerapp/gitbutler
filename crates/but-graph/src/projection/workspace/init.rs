@@ -200,15 +200,15 @@ impl Graph {
             }
         };
 
-        let mut target_ref = metadata
+        let mut target_ref = self
+            .project_meta
+            .target_ref
             .as_ref()
-            .and_then(|md| {
-                TargetRef::from_ref_name_without_commits_ahead(md.target_ref.as_ref()?, self)
-            })
+            .and_then(|target_ref| TargetRef::from_ref_name_without_commits_ahead(target_ref, self))
             .or_else(|| self.integrated_tip_target_ref());
-        let mut target_commit = metadata
-            .as_ref()
-            .and_then(|md| md.target_commit_id)
+        let mut target_commit = self
+            .project_meta
+            .target_commit_id
             .and_then(|target_commit_id| TargetCommit::from_commit(target_commit_id, self))
             .or_else(|| self.integrated_tip_target_commit(target_ref.as_ref()));
         let integrated_tip_segments =

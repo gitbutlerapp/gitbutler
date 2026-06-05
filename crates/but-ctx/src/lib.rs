@@ -8,7 +8,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context as _, anyhow};
+use anyhow::anyhow;
 use but_core::{
     RefMetadata as _, RepositoryExt, WORKSPACE_REF_NAME,
     ref_metadata::ProjectMeta,
@@ -763,7 +763,12 @@ impl Context {
     fn workspace_from_head(&self) -> anyhow::Result<but_graph::Workspace> {
         let repo = self.repo.get()?;
         let meta = self.meta_inner_read_only()?;
-        let graph = but_graph::Graph::from_head(&repo, &meta, but_graph::init::Options::limited())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            self.project_meta()?,
+            but_graph::init::Options::limited(),
+        )?;
         graph.into_workspace()
     }
 

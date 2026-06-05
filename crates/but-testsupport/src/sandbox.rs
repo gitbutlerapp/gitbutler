@@ -2,7 +2,7 @@ use std::{io::Write, ops::DerefMut, path::Path};
 
 use but_core::{
     RefMetadata, RepositoryExt, WORKSPACE_REF_NAME,
-    ref_metadata::{StackId, WorkspaceCommitRelation},
+    ref_metadata::{ProjectMeta, StackId, WorkspaceCommitRelation},
 };
 use but_meta::VirtualBranchesTomlMetadata;
 #[cfg(feature = "sandbox-but-api")]
@@ -247,6 +247,18 @@ impl Sandbox {
         )
     }
 
+    /// Read project-scoped metadata, falling back to legacy workspace metadata.
+    pub fn project_meta(&self) -> anyhow::Result<ProjectMeta> {
+        let repo = self.open_repo()?;
+        if ProjectMeta::is_ported(&repo.config_snapshot()) {
+            return ProjectMeta::try_from_config(&repo.config_snapshot());
+        }
+
+        let meta = self.meta()?;
+        let workspace_ref = WORKSPACE_REF_NAME.try_into()?;
+        Ok(meta.workspace(workspace_ref)?.project_meta())
+    }
+
     /// Return a fully isolated context configured to interact with this repository.
     ///
     /// ### Not for plumbing
@@ -267,7 +279,12 @@ impl Sandbox {
     )> {
         let repo = self.open_repo()?;
         let meta = self.meta()?;
-        let graph = but_graph::Graph::from_head(&repo, &meta, Default::default())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            self.project_meta()?,
+            but_graph::init::Options::default(),
+        )?;
         Ok((graph, repo, meta))
     }
 
@@ -436,7 +453,9 @@ impl Sandbox {
             );
         }
         let out = ws_data.stacks.iter().map(|s| s.id).collect();
+        let project_meta = ws.project_meta();
         meta.set_workspace(&ws)?;
+        project_meta.persist_to_local_config(&self.open_repo()?)?;
 
         Ok(out)
     }
@@ -447,11 +466,14 @@ impl Sandbox {
     pub fn set_target_sha(&self, spec: &str) -> anyhow::Result<gix::ObjectId> {
         let mut meta = self.meta()?;
         let mut ws = meta.workspace(r(WORKSPACE_REF_NAME))?;
-        let ws_data: &mut but_core::ref_metadata::Workspace = ws.deref_mut();
         let repo = self.open_repo()?;
         let target_sha = repo.rev_parse_single(spec)?;
-        ws_data.target_commit_id = Some(target_sha.detach());
+        let mut project_meta = ws.project_meta();
+        project_meta.target_commit_id = Some(target_sha.detach());
+        ws.set_project_meta(project_meta);
+        let project_meta = ws.project_meta();
         meta.set_workspace(&ws)?;
+        project_meta.persist_to_local_config(&repo)?;
 
         Ok(target_sha.detach())
     }

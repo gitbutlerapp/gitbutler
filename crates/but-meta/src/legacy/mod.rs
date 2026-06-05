@@ -26,7 +26,7 @@ use gix::{
 use itertools::Itertools;
 use tracing::instrument;
 
-use crate::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
+use crate::virtual_branches_legacy_types::{Stack, StackBranch, Target, VirtualBranches};
 
 #[cfg(feature = "legacy")]
 pub mod storage;
@@ -269,6 +269,9 @@ impl Snapshot {
             commit_id,
             reference.name().to_owned(),
             &*sideeffect_free_meta,
+            sideeffect_free_meta
+                .workspace(reference.name())?
+                .project_meta(),
             but_graph::init::Options::limited(),
         )?;
         graph.into_workspace()

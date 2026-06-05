@@ -742,6 +742,7 @@ fn set_workspace_metadata(
     if let Some((ws_meta, ref_name)) = ws_meta.zip(ws.ref_name()) {
         let mut md = meta.workspace(ref_name)?;
         *md = ws_meta;
+        md.set_project_meta(ws.graph.project_meta.clone());
         meta.set_workspace(&md)?;
     }
     Ok(())

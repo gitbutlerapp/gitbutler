@@ -2,7 +2,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context as _, bail, ensure};
 use bstr::ByteSlice;
-use but_core::{RefMetadata, extract_remote_name_and_short_name, ref_metadata};
+use but_core::{
+    RefMetadata, extract_remote_name_and_short_name,
+    ref_metadata::{self, ProjectMeta},
+};
 use gix::{
     hashtable::hash_map::Entry,
     prelude::{ObjectIdExt, ReferenceExt},
@@ -550,6 +553,7 @@ impl Graph {
     pub fn from_head(
         repo: &gix::Repository,
         meta: &impl RefMetadata,
+        project_meta: ProjectMeta,
         options: Options,
     ) -> anyhow::Result<Self> {
         let head = repo.head()?;
@@ -557,6 +561,7 @@ impl Graph {
         let (tip, maybe_name) = match head.kind {
             gix::head::Kind::Unborn(ref_name) => {
                 let mut graph = Graph::default();
+                graph.project_meta = project_meta;
                 // It's OK to default-initialise this here as overlays are only used when redoing
                 // the traversal.
                 let (_repo, meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
@@ -591,7 +596,7 @@ impl Graph {
             }
         };
 
-        let mut graph = Self::from_commit_traversal(tip, maybe_name, meta, options)?;
+        let mut graph = Self::from_commit_traversal(tip, maybe_name, meta, project_meta, options)?;
         if is_detached {
             graph.detach_entrypoint_segment()?;
         }
@@ -668,6 +673,7 @@ impl Graph {
         tip: gix::Id<'_>,
         ref_name: impl Into<Option<gix::refs::FullName>>,
         meta: &impl RefMetadata,
+        project_meta: ProjectMeta,
         options: Options,
     ) -> anyhow::Result<Self> {
         let repo = tip.repo;
@@ -679,9 +685,17 @@ impl Graph {
             &overlay_meta,
             tip,
             ref_name.as_ref(),
+            &project_meta,
             options.extra_target_commit_id,
         )?;
-        Graph::traverse_tips_with_overlay(&overlay_repo, tips, &overlay_meta, options, ref_name)
+        Graph::traverse_tips_with_overlay(
+            &overlay_repo,
+            tips,
+            &overlay_meta,
+            project_meta,
+            options,
+            ref_name,
+        )
     }
 
     /// Produce a graph from already resolved tips and their traversal roles.
@@ -701,17 +715,26 @@ impl Graph {
         repo: &gix::Repository,
         tips: impl IntoIterator<Item = Tip>,
         meta: &impl RefMetadata,
+        project_meta: ProjectMeta,
         options: Options,
     ) -> anyhow::Result<Self> {
         let tips: Vec<_> = tips.into_iter().collect();
         let (overlay_repo, overlay_meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
-        Graph::traverse_tips_with_overlay(&overlay_repo, tips, &overlay_meta, options, None)
+        Graph::traverse_tips_with_overlay(
+            &overlay_repo,
+            tips,
+            &overlay_meta,
+            project_meta,
+            options,
+            None,
+        )
     }
 
     fn traverse_tips_with_overlay<T: RefMetadata>(
         repo: &OverlayRepo<'_>,
         tips: Vec<Tip>,
         meta: &OverlayMetadata<'_, T>,
+        project_meta: ProjectMeta,
         options: Options,
         entrypoint_ref_override: Option<gix::refs::FullName>,
     ) -> anyhow::Result<Self> {
@@ -733,6 +756,7 @@ impl Graph {
         let mut graph = Graph {
             options: options.clone(),
             entrypoint_ref: ref_name.clone(),
+            project_meta,
             ..Graph::default()
         };
         let Options {
@@ -759,7 +783,8 @@ impl Graph {
 
         let configured_remote_tracking_branches =
             remotes::configured_remote_tracking_branches(repo)?;
-        let initial_tips = initial_tips_from_tips(repo, tips, extra_target_commit_id);
+        let initial_tips =
+            initial_tips_from_tips(repo, tips, &graph.project_meta, extra_target_commit_id);
         graph.traversal_tips = initial_tips.tips.clone();
         let refs_by_id = repo.collect_ref_mapping_by_prefix(
             [
@@ -1063,9 +1088,17 @@ impl Graph {
             &meta,
             tip,
             ref_name.as_ref(),
+            &self.project_meta,
             self.options.extra_target_commit_id,
         )?;
-        Graph::traverse_tips_with_overlay(&repo, tips, &meta, self.options.clone(), ref_name)
+        Graph::traverse_tips_with_overlay(
+            &repo,
+            tips,
+            &meta,
+            self.project_meta.clone(),
+            self.options.clone(),
+            ref_name,
+        )
     }
 
     /// Like [`Self::redo_traversal_with_overlay()`], but replaces this instance, without overlay, and returns
@@ -1204,6 +1237,7 @@ fn tips_have_same_seed_role(previous: &Tip, tip: &Tip) -> bool {
 fn initial_tips_from_tips(
     repo: &OverlayRepo<'_>,
     mut tips: Vec<Tip>,
+    project_meta: &ProjectMeta,
     extra_target_commit_id: Option<gix::ObjectId>,
 ) -> InitialTips {
     let mut auxiliary_integrated_tip_ids = BTreeSet::new();
@@ -1234,7 +1268,8 @@ fn initial_tips_from_tips(
         .iter()
         .any(|tip| matches!(tip.metadata, Some(SegmentMetadata::Workspace(_))));
     let target_refs = target_refs_from_tips(&tips, include_tip_refs);
-    let symbolic_remote_names = symbolic_remote_names_from_tips(repo, &tips, include_tip_refs);
+    let symbolic_remote_names =
+        symbolic_remote_names_from_tips(repo, &tips, project_meta, include_tip_refs);
     let target_local_links = target_local_links_from_tips(repo, &tips);
 
     InitialTips {
@@ -1489,6 +1524,7 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
     meta: &OverlayMetadata<'_, T>,
     entrypoint: gix::ObjectId,
     entrypoint_ref: Option<&gix::refs::FullName>,
+    project_meta: &ProjectMeta,
     extra_target_commit_id: Option<gix::ObjectId>,
 ) -> anyhow::Result<Vec<Tip>> {
     let workspaces = obtain_workspace_infos(repo, entrypoint_ref.map(|rn| rn.as_ref()), meta)?;
@@ -1520,7 +1556,7 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
 
     for (ws_tip, ws_ref, ws_meta) in workspaces {
         workspace_metas.push(ws_meta.clone());
-        additional_target_commits.extend(ws_meta.target_commit_id);
+        additional_target_commits.extend(project_meta.target_commit_id);
         tips.push(
             Tip::new(ws_tip)
                 .with_ref_name(Some(ws_ref.clone()))
@@ -1530,7 +1566,7 @@ fn initial_tips_from_workspace_metadata<T: RefMetadata>(
         );
 
         let target = if let Some((target_ref, target_ref_id, local_info)) =
-            workspace_target_tip(repo, ws_meta.target_ref.as_ref())?
+            workspace_target_tip(repo, project_meta.target_ref.as_ref())?
         {
             let local_info =
                 local_info.filter(|(_local_ref_name, local_tip)| !queued_ids.contains(local_tip));
@@ -1663,7 +1699,7 @@ fn target_refs_from_tips(
         .filter(|tip| include_integrated_tip_refs && tip.role.is_integrated())
         .filter_map(|tip| tip.ref_name.clone())
         .chain(tips.iter().filter_map(|tip| match tip.metadata.as_ref() {
-            Some(SegmentMetadata::Workspace(data)) => data.target_ref.clone(),
+            Some(SegmentMetadata::Workspace(_data)) => None,
             Some(SegmentMetadata::Branch(_)) | None => None,
         }))
         .collect();
@@ -1722,6 +1758,7 @@ fn target_local_links_from_tips(repo: &OverlayRepo<'_>, tips: &[Tip]) -> TargetL
 fn symbolic_remote_names_from_tips(
     repo: &OverlayRepo<'_>,
     tips: &[Tip],
+    project_meta: &ProjectMeta,
     include_tip_refs: bool,
 ) -> Vec<String> {
     let remote_names = repo.remote_names();
@@ -1742,37 +1779,38 @@ fn symbolic_remote_names_from_tips(
             Some(SegmentMetadata::Branch(_)) | None => None,
         })
         .flat_map(|data| {
-            data.target_ref
-                .as_ref()
-                .and_then(|target| {
-                    extract_remote_name_and_short_name(target.as_ref(), &remote_names)
+            data.stacks.iter().flat_map(|s| {
+                s.branches.iter().flat_map(|b| {
+                    extract_remote_name_and_short_name(b.ref_name.as_ref(), &remote_names)
                         .map(|(remote, _short_name)| (1, remote))
                 })
-                .into_iter()
-                .chain(data.push_remote.clone().map(|push_remote| (0, push_remote)))
-                .chain(data.stacks.iter().flat_map(|s| {
-                    s.branches.iter().flat_map(|b| {
-                        extract_remote_name_and_short_name(b.ref_name.as_ref(), &remote_names)
-                            .map(|(remote, _short_name)| (1, remote))
-                    })
-                }))
+            })
         });
-    let desired_refs = tips.iter().filter_map(|tip| {
-        if !include_tip_refs {
-            return None;
+    let desired_refs = tips.iter().filter_map(|tip| match &tip.role {
+        _ if !include_tip_refs => None,
+        TipRole::WorkspaceStackBranch { desired_ref_name } => {
+            extract_remote_name_and_short_name(desired_ref_name.as_ref(), &remote_names)
+                .map(|(remote, _short_name)| (1, remote))
         }
-        match &tip.role {
-            TipRole::WorkspaceStackBranch { desired_ref_name } => {
-                extract_remote_name_and_short_name(desired_ref_name.as_ref(), &remote_names)
-                    .map(|(remote, _short_name)| (1, remote))
-            }
-            TipRole::Reachable
-            | TipRole::Workspace
-            | TipRole::TargetRemote
-            | TipRole::TargetLocal { .. } => None,
-        }
+        TipRole::Reachable
+        | TipRole::Workspace
+        | TipRole::TargetLocal { .. }
+        | TipRole::TargetRemote => None,
     });
-    sorted_symbolic_remote_names(refs.chain(workspace_metadata_names).chain(desired_refs))
+    let target_ref = project_meta.target_ref.as_ref().and_then(|target_ref| {
+        extract_remote_name_and_short_name(target_ref.as_ref(), &remote_names)
+            .map(|(remote, _short_name)| (1, remote))
+    });
+    let push_remote = project_meta
+        .push_remote
+        .as_ref()
+        .map(|push_remote| (0, push_remote.clone()));
+    sorted_symbolic_remote_names(
+        refs.chain(workspace_metadata_names)
+            .chain(desired_refs)
+            .chain(target_ref)
+            .chain(push_remote),
+    )
 }
 
 /// Sort and deduplicate remote names, preserving explicit push remotes before

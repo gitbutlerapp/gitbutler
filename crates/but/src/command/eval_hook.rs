@@ -117,6 +117,7 @@ fn collect_stacks(
         repo,
         &meta,
         but_workspace::ref_info::Options {
+            project_meta: ctx.project_meta()?,
             expensive_commit_info: false,
             ..Default::default()
         },

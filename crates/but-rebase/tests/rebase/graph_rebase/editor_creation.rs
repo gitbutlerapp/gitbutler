@@ -8,6 +8,16 @@ use crate::{
     utils::{fixture, fixture_writable, standard_options},
 };
 
+fn project_meta(meta: &impl but_core::RefMetadata) -> but_core::ref_metadata::ProjectMeta {
+    meta.workspace(
+        but_core::WORKSPACE_REF_NAME
+            .try_into()
+            .expect("valid workspace ref"),
+    )
+    .map(|workspace| workspace.project_meta())
+    .unwrap_or_default()
+}
+
 #[test]
 fn four_commits() -> Result<()> {
     let (repo, mut meta) = fixture("four-commits")?;
@@ -19,7 +29,8 @@ fn four_commits() -> Result<()> {
     * 35b8235 base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
 
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -50,7 +61,8 @@ fn merge_in_the_middle() -> Result<()> {
     * 8f0d338 (tag: base, main) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
 
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -92,7 +104,8 @@ fn three_branches_merged() -> Result<()> {
     * 8f0d338 (tag: base) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
 
     let mut ws = graph.into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -130,7 +143,8 @@ fn many_references() -> Result<()> {
     * 35b8235 base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
 
     insta::assert_snapshot!(graph_tree(&graph), @"
 
@@ -175,7 +189,8 @@ fn first_parent_leg_long() -> Result<()> {
     * 8f0d338 (tag: base, main) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
 
     insta::assert_snapshot!(graph_tree(&graph), @"
 
@@ -234,7 +249,8 @@ fn second_parent_leg_long() -> Result<()> {
     * 8f0d338 (tag: base, main) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
 
     insta::assert_snapshot!(graph_tree(&graph), @"
 
@@ -297,7 +313,8 @@ fn workspace_with_empty_stack() -> Result<()> {
     * fafd9d0 init
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
 
     insta::assert_snapshot!(graph_tree(&graph), @"
 
@@ -354,7 +371,8 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
     * fafd9d0 (stack-3, stack-2, stack-1) init
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
 
     insta::assert_snapshot!(graph_tree(&graph), @"
 
@@ -405,7 +423,8 @@ fn commit_with_two_parents() -> Result<()> {
     * 35b8235 base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
 
     insta::assert_snapshot!(graph_tree(&graph), @"
 
@@ -439,7 +458,8 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
 
     {
-        let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+        let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+            .validated()?;
         let mut ws = graph.into_workspace()?;
         let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -460,7 +480,8 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
     }
 
     {
-        let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+        let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+            .validated()?;
         let mut ws = graph.into_workspace()?;
         let editor = Editor::create_with_opts(
             &mut ws,
@@ -513,7 +534,8 @@ fn merge_first_parent_older_than_second() -> Result<()> {
     * 793a434 (tag: base, main) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
 
     insta::assert_snapshot!(graph_tree(&graph), @"
 
@@ -589,6 +611,7 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
             ),
         ],
         &*meta,
+        project_meta(&*meta),
         standard_options(),
     )?
     .validated()?;

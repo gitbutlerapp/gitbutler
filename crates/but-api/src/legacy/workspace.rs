@@ -42,6 +42,7 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
         &repo,
         &meta,
         but_workspace::ref_info::Options {
+            project_meta: ctx.project_meta()?,
             traversal: but_graph::init::Options::limited(),
             expensive_commit_info: true,
             gerrit_mode,
@@ -101,6 +102,7 @@ pub fn show_graph_svg(ctx: &Context) -> Result<()> {
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        ctx.project_meta()?,
         but_graph::init::Options {
             collect_tags: true,
             ..but_graph::init::Options::limited()
@@ -120,7 +122,7 @@ pub fn stack_details(
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
         let meta = ctx.meta()?;
-        but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
+        but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta, &ctx.project_meta()?)
     }?;
     let repo = ctx.repo.get()?;
     let gerrit_mode = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
@@ -217,7 +219,8 @@ pub fn branch_details(
         }
         .try_into()
         .map_err(anyhow::Error::from)?;
-        but_workspace::branch_details(&repo, ref_name.as_ref(), &meta)
+        let project_meta = ctx.project_meta()?;
+        but_workspace::branch_details(&repo, ref_name.as_ref(), &meta, &project_meta)
     }?;
     let repo = ctx.repo.get()?;
     let db = ctx.db.get_cache()?;
@@ -401,6 +404,7 @@ pub fn workspace_branch_and_ancestors_push(
         &repo,
         &meta,
         but_workspace::ref_info::Options {
+            project_meta: ctx.project_meta()?,
             traversal: but_graph::init::Options::limited(),
             expensive_commit_info: true,
             gerrit_mode,
@@ -411,6 +415,7 @@ pub fn workspace_branch_and_ancestors_push(
     let result = but_workspace::legacy::push::workspace_branch_and_ancestors_push(
         &repo,
         &ws,
+        &ctx.project_meta()?,
         &head_info,
         &mut db,
         gerrit_mode_enabled,

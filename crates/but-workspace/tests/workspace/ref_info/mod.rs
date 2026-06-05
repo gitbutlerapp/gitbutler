@@ -5,7 +5,7 @@
 
 use std::borrow::Cow;
 
-use but_core::ref_metadata::StackId;
+use but_core::{RefMetadata, WORKSPACE_REF_NAME, ref_metadata::StackId};
 use but_workspace::{legacy::StacksFilter, ref_info};
 use gix::prelude::ObjectIdExt;
 
@@ -17,8 +17,11 @@ pub(crate) mod with_workspace_commit;
 pub fn head_info(
     repo: &gix::Repository,
     meta: &but_meta::VirtualBranchesTomlMetadata,
-    opts: but_workspace::ref_info::Options,
+    mut opts: but_workspace::ref_info::Options,
 ) -> anyhow::Result<but_workspace::RefInfo> {
+    opts.project_meta = meta
+        .workspace(WORKSPACE_REF_NAME.try_into()?)?
+        .project_meta();
     but_workspace::head_info(repo, meta, opts)
 }
 
@@ -42,7 +45,14 @@ pub fn stack_details_v3(
     repo: &gix::Repository,
     meta: &but_meta::VirtualBranchesTomlMetadata,
 ) -> anyhow::Result<but_workspace::ui::StackDetails> {
-    but_workspace::legacy::stack_details_v3(stack_id, repo, meta)
+    but_workspace::legacy::stack_details_v3(
+        stack_id,
+        repo,
+        meta,
+        &meta
+            .workspace(WORKSPACE_REF_NAME.try_into()?)?
+            .project_meta(),
+    )
 }
 
 fn first_commit(info: &but_workspace::RefInfo) -> &but_workspace::ref_info::LocalCommit {

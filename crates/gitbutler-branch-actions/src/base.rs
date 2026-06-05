@@ -4,6 +4,7 @@ use anyhow::{Context as _, Result, anyhow};
 use but_core::{
     RefMetadata, WORKSPACE_REF_NAME,
     git_config::{edit_repo_config, ensure_config_value},
+    ref_metadata::ProjectMeta,
     sync::RepoShared,
     worktree::checkout::UncommitedWorktreeChanges,
 };
@@ -88,7 +89,14 @@ pub fn get_base_branch_data(ctx: &Context, perm: &RepoShared) -> Result<BaseBran
     let target = default_target(ctx)?;
     let meta = ctx.meta()?;
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
-    let base = target_to_base_branch(&repo, &ctx.legacy_project, &ws, &meta, &target)?;
+    let base = target_to_base_branch(
+        &repo,
+        &ctx.legacy_project,
+        &ws,
+        &meta,
+        &ctx.project_meta()?,
+        &target,
+    )?;
     Ok(base)
 }
 
@@ -109,10 +117,7 @@ pub fn bootstrap_default_target_if_missing(ctx: &Context) -> Result<bool> {
         return Ok(false);
     }
 
-    let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
-    let meta = ctx.legacy_meta()?;
-    let workspace = meta.workspace(workspace_ref.as_ref())?;
-    if workspace.target_ref.is_some() {
+    if ctx.project_meta()?.target_ref.is_some() {
         return Ok(false);
     }
 
@@ -133,8 +138,10 @@ pub fn bootstrap_default_target_if_missing(ctx: &Context) -> Result<bool> {
             return Ok(false);
         }
     };
-    let mut meta = ctx.legacy_meta()?;
-    meta.set_default_target(target)?;
+    let mut project_meta = ctx.project_meta()?;
+    set_project_meta_from_target(&mut project_meta, &target)?;
+    project_meta.persist_to_local_config(&repo)?;
+    ctx.legacy_meta()?.set_default_target(target)?;
     ctx.invalidate_workspace_cache()?;
     set_exclude_decoration(ctx)?;
     Ok(true)
@@ -253,8 +260,10 @@ pub(crate) fn set_base_branch(
         push_remote_name: None,
     };
 
-    let mut meta = ctx.legacy_meta()?;
-    meta.set_default_target(target.clone())?;
+    let mut project_meta = ctx.project_meta()?;
+    set_project_meta_from_target(&mut project_meta, &target)?;
+    project_meta.persist_to_local_config(&repo)?;
+    ctx.legacy_meta()?.set_default_target(target.clone())?;
     ctx.invalidate_workspace_cache()?;
     let mut vb_state = ctx.virtual_branches();
 
@@ -317,25 +326,28 @@ pub(crate) fn set_base_branch(
     get_base_branch_data(ctx, perm)
 }
 
-pub(crate) fn set_target_push_remote(ctx: &Context, push_remote_name: &str) -> Result<()> {
+pub(crate) fn set_target_push_remote(ctx: &mut Context, push_remote_name: &str) -> Result<()> {
     ctx.repo
         .get()?
         .find_remote(push_remote_name)
         .context(format!("failed to find remote {push_remote_name}"))?;
 
-    let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
-    let mut meta = ctx.legacy_meta()?;
-    let mut workspace = meta.workspace(workspace_ref.as_ref())?;
-    workspace
+    let mut project_meta = ctx.project_meta()?;
+    project_meta
         .target_ref
         .as_ref()
         .context(Code::DefaultTargetNotFound)
         .context("there is no default target")?;
-    workspace.push_remote = Some(push_remote_name.to_owned());
-    meta.set_workspace(&workspace)?;
-    meta.write_unreconciled()?;
-    ctx.invalidate_workspace_cache()?;
+    project_meta.push_remote = Some(push_remote_name.to_owned());
+    ctx.set_project_meta(project_meta)?;
 
+    Ok(())
+}
+
+fn set_project_meta_from_target(project_meta: &mut ProjectMeta, target: &Target) -> Result<()> {
+    project_meta.target_ref = Some(target.branch.to_string().try_into()?);
+    project_meta.target_commit_id = Some(target.sha);
+    project_meta.push_remote = target.push_remote_name.clone();
     Ok(())
 }
 
@@ -354,10 +366,11 @@ pub(crate) fn target_to_base_branch(
     project: &Project,
     ws: &but_graph::Workspace,
     meta: &impl RefMetadata,
+    project_meta: &but_core::ref_metadata::ProjectMeta,
     target: &Target,
 ) -> Result<BaseBranch> {
     // This function is presuming a workspace ref name.
-    let ws_meta = meta.workspace(WORKSPACE_REF_NAME.try_into()?)?;
+    let _ws_meta = meta.workspace(WORKSPACE_REF_NAME.try_into()?)?;
     let target_ref_name: gix::refs::FullName = target.branch.clone().try_into()?;
     let target_ref = repo
         .find_reference(&target_ref_name)
@@ -407,8 +420,8 @@ pub(crate) fn target_to_base_branch(
     // we assume that only local commits can be conflicted
     let conflicted = recent_commits.iter().any(|commit| commit.conflicted);
 
-    let push_remote_url = ws_meta.push_remote_url(repo)?;
-    let remote_url = ws_meta.remote_url_with_fallback(repo)?;
+    let push_remote_url = project_meta.push_remote_url(repo)?;
+    let remote_url = project_meta.remote_url_with_fallback(repo)?;
 
     let branch_name = target_ref_name.shorten().to_string();
     let remote_name = target_ref
@@ -417,7 +430,7 @@ pub(crate) fn target_to_base_branch(
         .to_owned()
         .as_bstr()
         .to_string();
-    let push_remote_name = ws_meta
+    let push_remote_name = project_meta
         .push_remote
         .clone()
         .unwrap_or_else(|| remote_name.clone());

@@ -220,6 +220,7 @@ fn workspace_from_workspace_ref(ctx: &Context) -> Result<but_graph::Workspace> {
         workspace_ref.peel_to_id()?,
         Some(workspace_ref.inner.name.clone()),
         &meta,
+        ctx.project_meta()?,
         but_graph::init::Options::limited(),
     )?;
     graph.into_workspace()
@@ -328,6 +329,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         workspace_commit.id(),
         Some(gix::refs::FullName::try_from(WORKSPACE_BRANCH_REF)?),
         &meta,
+        ctx.project_meta()?,
         but_graph::init::Options::limited(),
     )?
     .into_workspace()?;

@@ -10,8 +10,7 @@ use std::{
 use anyhow::{Context as _, Result, bail};
 use bstr::{BStr, BString, ByteSlice};
 use but_core::{
-    RefMetadata, RepositoryExt, WORKSPACE_REF_NAME, extract_remote_name_and_short_name,
-    ref_metadata::StackId,
+    RepositoryExt, WORKSPACE_REF_NAME, extract_remote_name_and_short_name, ref_metadata::StackId,
 };
 use but_ctx::Context;
 use but_serde::BStringForFrontend;
@@ -78,6 +77,7 @@ pub fn list_branches(
         &repo,
         &meta,
         but_workspace::ref_info::Options {
+            project_meta: ctx.project_meta()?,
             traversal: but_graph::init::Options::limited(),
             expensive_commit_info: false,
             gerrit_mode,
@@ -167,12 +167,14 @@ fn configured_workspace_target(
     ctx: &Context,
     repo: &gix::Repository,
 ) -> Result<Option<(gix::refs::FullName, gix::ObjectId)>> {
-    let Some(workspace_ref) = repo.try_find_reference(WORKSPACE_REF_NAME)? else {
+    let Some(_workspace_ref) = repo.try_find_reference(WORKSPACE_REF_NAME)? else {
         return Ok(None);
     };
-    let meta = ctx.meta()?;
-    let workspace = meta.workspace(workspace_ref.name())?;
-    Ok(workspace.target_ref.clone().zip(workspace.target_commit_id))
+    let project_meta = ctx.project_meta()?;
+    Ok(project_meta
+        .target_ref
+        .clone()
+        .zip(project_meta.target_commit_id))
 }
 
 fn matches_all(branch: &BranchListing, filter: BranchListingFilter) -> bool {

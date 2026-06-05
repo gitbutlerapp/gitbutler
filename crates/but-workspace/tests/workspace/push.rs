@@ -1,4 +1,5 @@
 use bstr::ByteSlice;
+use but_core::RefMetadata;
 use but_meta::virtual_branches_legacy_types::Target;
 use but_workspace::{
     RefInfo,
@@ -50,6 +51,9 @@ fn head_info(
         repo,
         meta,
         Options {
+            project_meta: meta
+                .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
+                .project_meta(),
             expensive_commit_info: true,
             ..Default::default()
         },
@@ -69,6 +73,9 @@ fn push(
     but_workspace::legacy::workspace_branch_and_ancestors_push(
         repo,
         &workspace,
+        &meta
+            .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
+            .project_meta(),
         &info,
         &mut db,
         false,

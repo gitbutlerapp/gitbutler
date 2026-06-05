@@ -19,7 +19,13 @@ fn four_commits() -> Result<()> {
     * 35b8235 base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
 
     let mut ws = graph.clone().into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -55,7 +61,13 @@ fn four_commits_with_short_traversal() -> Result<()> {
     ");
 
     let options = standard_options().with_hard_limit(4);
-    let graph = Graph::from_head(&repo, &*meta, options)?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        options,
+    )?
+    .validated()?;
     let mut ws = graph.clone().into_workspace()?;
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
@@ -103,7 +115,13 @@ fn merge_in_the_middle() -> Result<()> {
     * 8f0d338 (tag: base, main) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
 
     let mut ws = graph.clone().into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -151,7 +169,13 @@ fn three_branches_merged() -> Result<()> {
     * 8f0d338 (tag: base) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
 
     let mut ws = graph.clone().into_workspace()?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;

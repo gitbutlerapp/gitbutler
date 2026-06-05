@@ -71,6 +71,9 @@ pub(super) mod function {
         };
 
         let mut ws_meta = workspace.metadata.clone();
+        if let Some(ws_meta) = ws_meta.as_mut() {
+            ws_meta.set_project_meta(workspace.graph.project_meta.clone());
+        }
 
         let (source_stack, subject_segment) = source;
 
@@ -191,6 +194,9 @@ pub(super) mod function {
         };
 
         let mut ws_meta = workspace.metadata.clone();
+        if let Some(ws_meta) = ws_meta.as_mut() {
+            ws_meta.set_project_meta(workspace.graph.project_meta.clone());
+        }
 
         let (source_stack, subject_segment) = source;
         let (_, target_segment) = destination;
