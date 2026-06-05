@@ -44,7 +44,7 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 
-const NavigationIndexContext = createContext<NavigationIndex | null>(null);
+const NavigationIndexContext = createContext<NavigationIndex<Operand> | null>(null);
 
 const useFilesTreeHotkeys = ({
 	navigationIndex,
@@ -52,7 +52,7 @@ const useFilesTreeHotkeys = ({
 	projectId,
 	ref,
 }: {
-	navigationIndex: NavigationIndex;
+	navigationIndex: NavigationIndex<Operand>;
 	onFileSelection: (selection: Operand) => void;
 	projectId: string;
 	ref: React.RefObject<HTMLElement | null>;
@@ -151,7 +151,7 @@ export const FilesTree: FC<
 		projectId: string;
 		items: Array<FileTreeItem>;
 		onFileSelection: (selection: Operand) => void;
-		navigationIndex: NavigationIndex;
+		navigationIndex: NavigationIndex<Operand>;
 	} & ComponentProps<"div">
 > = ({ className, items, onFileSelection, projectId, navigationIndex, ref: refProp, ...props }) => {
 	const selection = useFilesSelection(projectId, navigationIndex);
@@ -228,7 +228,7 @@ const ItemRow: FC<
 	return (
 		<WorkspaceItemRow
 			{...props}
-			inert={!navigationIndexIncludes(navigationIndex, operand)}
+			inert={!navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
 			isSelected={isSelected}
 			onSelect={() => onFileSelection(operand)}
 		/>

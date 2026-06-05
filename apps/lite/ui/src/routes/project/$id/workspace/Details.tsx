@@ -477,7 +477,7 @@ const Diff: FC<{
 }) => {
 	const files = filesItems.map((item) => item.operand);
 
-	const navigationIndex = buildNavigationIndex(files);
+	const navigationIndex = buildNavigationIndex(files, operandIdentityKey);
 
 	return (
 		<div className={classes(styles.diff, filesVisible && styles.diffWithFiles)}>

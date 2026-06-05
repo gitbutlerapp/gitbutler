@@ -118,7 +118,7 @@ import { errorMessageForToast } from "#ui/errors.ts";
 import { OutlineModeTooltip } from "./OutlineModeTooltip.tsx";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 
-const NavigationIndexContext = createContext<NavigationIndex | null>(null);
+const NavigationIndexContext = createContext<NavigationIndex<Operand> | null>(null);
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
@@ -137,7 +137,7 @@ const useOutlineTreeHotkeys = ({
 	projectId,
 	ref,
 }: {
-	navigationIndex: NavigationIndex;
+	navigationIndex: NavigationIndex<Operand>;
 	projectId: string;
 	ref: React.RefObject<HTMLElement | null>;
 }) => {
@@ -431,7 +431,7 @@ const useOutlineTreeHotkeys = ({
 
 export const OutlineTree: FC<
 	{
-		navigationIndex: NavigationIndex;
+		navigationIndex: NavigationIndex<Operand>;
 		absorptionTargetKeys: ReadonlySet<string>;
 		absorptionPlanQuery: UseQueryResult<Array<CommitAbsorption>> | undefined;
 	} & ComponentProps<"div">
@@ -596,7 +596,7 @@ const ItemRow: FC<
 			render={
 				<WorkspaceItemRow
 					{...props}
-					inert={!navigationIndexIncludes(navigationIndex, operand)}
+					inert={!navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
 					isSelected={isSelected}
 					onSelect={selectItem}
 				/>
@@ -642,7 +642,7 @@ const OperandC: FC<
 				source={operand}
 				render={
 					<OperationTarget
-						enabled={navigationIndexIncludes(navigationIndex, operand)}
+						enabled={navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
 						projectId={projectId}
 						target={operand}
 						isSelected={isSelected}

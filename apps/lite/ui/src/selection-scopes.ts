@@ -60,14 +60,14 @@ export const focusAdjacentSelectionScope = (filesVisible: boolean, offset: -1 | 
 };
 
 export const resolveNavigationIndexSelection = (
-	navigationIndex: NavigationIndex,
+	navigationIndex: NavigationIndex<Operand>,
 	selection: Operand | null,
 ): Operand | null =>
-	selection && navigationIndexIncludes(navigationIndex, selection)
+	selection && navigationIndexIncludes(navigationIndex, selection, operandIdentityKey)
 		? selection
 		: (navigationIndex.items[0] ?? null);
 
-export const useFilesSelection = (projectId: string, navigationIndex: NavigationIndex) => {
+export const useFilesSelection = (projectId: string, navigationIndex: NavigationIndex<Operand>) => {
 	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
 	return resolveNavigationIndexSelection(navigationIndex, selection);
 };
@@ -77,7 +77,7 @@ export const useOutlineSelection = ({
 	navigationIndex,
 }: {
 	projectId: string;
-	navigationIndex: NavigationIndex;
+	navigationIndex: NavigationIndex<Operand>;
 }) => {
 	const selectionState = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
 	return resolveNavigationIndexSelection(navigationIndex, selectionState);
@@ -93,7 +93,7 @@ export const useNavigationIndexHotkeys = ({
 	ref,
 	selectSectionPredicate,
 }: {
-	navigationIndex: NavigationIndex;
+	navigationIndex: NavigationIndex<Operand>;
 	projectId: string;
 	group: CommandGroup;
 	selectionScope: SelectionScope;
@@ -113,7 +113,7 @@ export const useNavigationIndexHotkeys = ({
 		const newItem =
 			selection === null
 				? navigationIndex.items.at(offset === 1 ? 0 : -1)
-				: getAdjacent({ navigationIndex, selection, offset });
+				: getAdjacent({ navigationIndex, selection, offset, getKey: operandIdentityKey });
 		if (!newItem) return;
 		selectAndFocus(newItem);
 	};

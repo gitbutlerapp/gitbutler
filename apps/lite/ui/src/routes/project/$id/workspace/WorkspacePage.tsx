@@ -434,7 +434,7 @@ const useOutlineNavigationIndex = ({
 		outlineMode,
 		absorptionTargetKeys,
 	});
-	const navigationIndex = buildNavigationIndex(filteredItems);
+	const navigationIndex = buildNavigationIndex(filteredItems, operandIdentityKey);
 
 	return navigationIndex;
 };
