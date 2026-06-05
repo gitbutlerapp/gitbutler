@@ -70,8 +70,22 @@ Arguments:
           The target entity to combine with the source
 
 Options:
-  -j, --json
-          Whether to use JSON output format
+      --format <FORMAT>
+          Explicitly control how output should be formatted.
+          
+          If unset and from a terminal, it defaults to human output, when redirected it's for
+          shells.
+
+          Possible values:
+          - human: The output to write is supposed to be for human consumption, and can be more
+            verbose
+          - shell: The output should be suitable for shells, and assigning the major result to
+            variables so that it can be reused in subsequent CLI invocations
+          - json:  Output detailed information as JSON for tool consumption
+          - none:  Do not output anything, like redirecting to /dev/null
+          
+          [env: BUT_OUTPUT_FORMAT=]
+          [default: human]
 
   -h, --help
           Print help (see a summary with '-h')
@@ -87,8 +101,9 @@ Arguments:
   <TARGET>  The target entity to combine with the source
 
 Options:
-  -j, --json  Whether to use JSON output format
-  -h, --help  Print help (see more with '--help')
+      --format <FORMAT>  Explicitly control how output should be formatted [env: BUT_OUTPUT_FORMAT=]
+                         [default: human] [possible values: human, shell, json, none]
+  -h, --help             Print help (see more with '--help')
 
 "#]]);
     Ok(())

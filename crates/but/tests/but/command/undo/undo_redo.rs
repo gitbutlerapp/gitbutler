@@ -11,7 +11,7 @@ fn reword(env: &Sandbox, commit_before: &str, new_message: &str) -> (std::proces
 
     let reword_output = env
         .but("reword")
-        .args([commit_before, "-m", new_message, "--json"])
+        .args([commit_before, "-m", new_message, "--format", "json"])
         .assert()
         .success();
 

@@ -105,7 +105,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
     // Create a new file to ensure we have file assignments
     env.file("test-file.txt", "test content");
 
-    env.but("--json status")
+    env.but("--format json status")
         .allow_json()
         .assert()
         .success()
@@ -228,7 +228,7 @@ fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
     env.file("a.txt", format!("firstb\n{}lastb\n", "line\n".repeat(100)));
     env.file("b.txt", "onlyb\n");
 
-    env.but("--json status -f")
+    env.but("--format json status -f")
         .allow_json()
         .assert()
         .success()
@@ -339,7 +339,7 @@ fn long_cli_ids_json() -> anyhow::Result<()> {
 
     // Assert a handful of commits to show that the commit CLI IDs become longer
     // if a short ID would be ambiguous, but remain at 2 characters otherwise.
-    env.but("--json status -f")
+    env.but("--format json status -f")
         .allow_json()
         .with_assert(env.assert_with_uuid_and_timestamp_redactions())
         .assert()

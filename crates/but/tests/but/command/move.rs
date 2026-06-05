@@ -18,7 +18,7 @@ fn move_commit_before_another_commit() -> anyhow::Result<()> {
     commit_two_files_as_two_hunks_each(&env, "A", "e.txt", "f.txt", "third commit");
 
     // Get commit IDs from status
-    let status_output = env.but("--json status").allow_json().output()?;
+    let status_output = env.but("--format json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commits = &status_json["stacks"][0]["branches"][0]["commits"];
 
@@ -42,7 +42,7 @@ Moved 23e1bf8 → before fce8ecc
 
     // Verify the move was successful by checking that we still have the right number of commits
     // (The actual reordering is tested in unit tests, here we just verify the command executed)
-    let status_output = env.but("--json status").allow_json().output()?;
+    let status_output = env.but("--format json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commits_after = &status_json["stacks"][0]["branches"][0]["commits"];
 
@@ -64,7 +64,7 @@ fn move_commit_after_another_commit() -> anyhow::Result<()> {
     commit_two_files_as_two_hunks_each(&env, "A", "e.txt", "f.txt", "third commit");
 
     // Get commit IDs
-    let status_output = env.but("--json status").allow_json().output()?;
+    let status_output = env.but("--format json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commits = &status_json["stacks"][0]["branches"][0]["commits"];
 
@@ -81,7 +81,7 @@ Moved fce8ecc → after 23e1bf8
 "#]]);
 
     // Verify the move was successful by checking that we still have the right number of commits
-    let status_output = env.but("--json status").allow_json().output()?;
+    let status_output = env.but("--format json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commits_after = &status_json["stacks"][0]["branches"][0]["commits"];
 
@@ -122,7 +122,7 @@ Hint: run `but help` for all commands
 
 "#]]);
     // Commits are ordered newest first.
-    let status_output = env.but("--json status").allow_json().output()?;
+    let status_output = env.but("--format json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commits = &status_json["stacks"][0]["branches"][0]["commits"];
 
@@ -140,7 +140,7 @@ Moved 2 commits → before fce8ecc
 
 "#]]);
 
-    let status_output = env.but("--json status").allow_json().output()?;
+    let status_output = env.but("--format json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commits_after = &status_json["stacks"][0]["branches"][0]["commits"];
 
@@ -200,7 +200,7 @@ Hint: run `but help` for all commands
 
 "#]]);
     // Commits are ordered newest first.
-    let status_output = env.but("--json status").allow_json().output()?;
+    let status_output = env.but("--format json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commits = &status_json["stacks"][0]["branches"][0]["commits"];
 
@@ -218,7 +218,7 @@ Moved 2 commits → after 23e1bf8
 
 "#]]);
 
-    let status_output = env.but("--json status").allow_json().output()?;
+    let status_output = env.but("--format json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commits_after = &status_json["stacks"][0]["branches"][0]["commits"];
 
@@ -545,7 +545,7 @@ fn move_commit_to_branch() -> anyhow::Result<()> {
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "commit on A");
 
     // Get commit ID
-    let status_output = env.but("--json status").allow_json().output()?;
+    let status_output = env.but("--format json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commit_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
         .as_str()
@@ -561,7 +561,7 @@ Moved [..] → [B]
 "#]]);
 
     // Verify commit is now on branch B
-    let status_output = env.but("--json status").allow_json().output()?;
+    let status_output = env.but("--format json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
 
     // Branch A should have no commits (except the initial one)
@@ -603,7 +603,7 @@ fn move_commit_with_after_flag_and_branch_target() -> anyhow::Result<()> {
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "commit on A");
 
     // Get commit ID
-    let status_output = env.but("--json status").allow_json().output()?;
+    let status_output = env.but("--format json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commit_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
         .as_str()
@@ -631,7 +631,7 @@ fn move_same_commit_to_itself() -> anyhow::Result<()> {
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
     // Get commit ID
-    let status_output = env.but("--json status").allow_json().output()?;
+    let status_output = env.but("--format json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commit_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
         .as_str()
@@ -658,7 +658,7 @@ fn move_commit_with_invalid_target() -> anyhow::Result<()> {
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
     // Get commit ID
-    let status_output = env.but("--json status").allow_json().output()?;
+    let status_output = env.but("--format json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commit_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
         .as_str()
@@ -686,7 +686,7 @@ fn move_cross_stack_works_yay() -> anyhow::Result<()> {
     commit_two_files_as_two_hunks_each(&env, "B", "c.txt", "d.txt", "commit on B");
 
     // Get commit IDs
-    let status_output = env.but("--json status").allow_json().output()?;
+    let status_output = env.but("--format json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
 
     let commit_a_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
@@ -719,7 +719,7 @@ fn move_committed_file_to_another_commit() -> anyhow::Result<()> {
     commit_two_files_as_two_hunks_each(&env, "A", "c.txt", "d.txt", "second commit");
 
     // Get commit IDs and file IDs from status with files (-f flag)
-    let status_output = env.but("--json status -f").allow_json().output()?;
+    let status_output = env.but("--format json status -f").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commits = &status_json["stacks"][0]["branches"][0]["commits"];
 
@@ -749,7 +749,7 @@ Moved files between commits!
 "#]]);
 
     // Verify the file was moved by checking status again
-    let status_output = env.but("--json status -f").allow_json().output()?;
+    let status_output = env.but("--format json status -f").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commits = &status_json["stacks"][0]["branches"][0]["commits"];
 
@@ -1075,7 +1075,7 @@ Hint: run `but help` for all commands
 }
 
 fn status_json(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
-    let output = env.but("--json status").allow_json().output()?;
+    let output = env.but("--format json status").allow_json().output()?;
     Ok(serde_json::from_slice(&output.stdout)?)
 }
 

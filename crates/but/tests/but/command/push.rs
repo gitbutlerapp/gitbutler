@@ -23,12 +23,12 @@ fn push_dry_run_json_reports_remote_and_remote_ref() -> anyhow::Result<()> {
         .success();
 
     let output = env
-        .but("push --dry-run --json branchB")
+        .but("push --dry-run --format json branchB")
         .allow_json()
         .output()?;
     assert!(
         output.status.success(),
-        "push --dry-run --json branchB failed: {}",
+        "push --dry-run --format json branchB failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
     let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
@@ -91,7 +91,7 @@ fn push_refuses_conflicted_commits() -> anyhow::Result<()> {
 
     // Make origin a writable local repository for the push attempt.
     // Get the first commit's CLI ID from status
-    let status_output = env.but("--json status").allow_json().output()?;
+    let status_output = env.but("--format json status").allow_json().output()?;
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let branch = find_branch(&status_json, "branchB")?;
     let first_commit_id = branch["commits"]

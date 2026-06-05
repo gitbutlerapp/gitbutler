@@ -354,7 +354,7 @@ fn json_output_single_branch() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     env.setup_metadata(&["A"])?;
 
-    env.but("--json teardown")
+    env.but("--format json teardown")
         .allow_json()
         .assert()
         .success()
@@ -381,7 +381,7 @@ fn json_output_with_dangling_commits() -> anyhow::Result<()> {
         Sandbox::init_scenario_with_target_and_default_settings("teardown-dangling-single-commit")?;
     env.setup_metadata(&["A"])?;
 
-    env.but("--json teardown")
+    env.but("--format json teardown")
         .allow_json()
         .assert()
         .success()
@@ -424,7 +424,7 @@ fn teardown_checks_out_to_branch_override() -> anyhow::Result<()> {
     env.setup_metadata(&["A"])?;
     env.but("unapply A").assert().success();
 
-    env.but("--json teardown")
+    env.but("--format json teardown")
         .arg("--checkout-to")
         .arg("A")
         .allow_json()
@@ -457,7 +457,7 @@ fn teardown_checks_out_to_branch_override_with_qualified_ref_name() -> anyhow::R
     env.setup_metadata(&["A"])?;
     env.but("unapply A").assert().success();
 
-    env.but("--json teardown")
+    env.but("--format json teardown")
         .arg("--checkout-to")
         .arg("refs/heads/A")
         .allow_json()

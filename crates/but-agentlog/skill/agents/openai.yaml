@@ -1,4 +1,4 @@
 interface:
   display_name: "But Agentlog"
   short_description: "Get context for a GitButler branch from prior agent work"
-  default_prompt: "Use $but-agentlog for requests like \"get context for branch\", \"catch up on this branch\", or \"recover branch context\". Do not start with generic git branch/diff inspection; run `but agentlog skim` first. Use `but --json agentlog skim` plus `but agentlog show` only if exact drill-down is needed."
+  default_prompt: "Use $but-agentlog for requests like \"get context for branch\", \"catch up on this branch\", or \"recover branch context\". Do not start with generic git branch/diff inspection; run `but agentlog skim` first. Use `but --format json agentlog skim` plus `but agentlog show` only if exact drill-down is needed."

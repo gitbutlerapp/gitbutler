@@ -7,7 +7,7 @@ fn show_lists_commits_ahead_for_applied_branch() -> anyhow::Result<()> {
     env.setup_metadata(&["applied-branch"])?;
 
     let result = env
-        .but("--json branch show applied-branch")
+        .but("--format json branch show applied-branch")
         .allow_json()
         .output()?;
 
@@ -30,7 +30,7 @@ fn show_check_reports_clean_merge_for_applied_branch() -> anyhow::Result<()> {
     env.setup_metadata(&["applied-branch"])?;
 
     let result = env
-        .but("--json branch show applied-branch --check")
+        .but("--format json branch show applied-branch --check")
         .allow_json()
         .output()?;
 

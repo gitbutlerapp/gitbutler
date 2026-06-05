@@ -37,7 +37,7 @@ fn skill_check_json_output_is_valid() -> anyhow::Result<()> {
     // Check with --global to avoid needing a repo context
     // The JSON output should always be valid even if no skills are found
     let output = env
-        .but("skill check --global --json")
+        .but("skill check --global --format json")
         .allow_json()
         .assert()
         .success()
@@ -63,7 +63,7 @@ fn skill_check_json_output_is_valid() -> anyhow::Result<()> {
 fn skill_install_json_outside_repo_requires_path_instead_of_repo_context() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
 
-    env.but("skill install --json")
+    env.but("skill install --format json")
         .allow_json()
         .assert()
         .failure()
@@ -84,7 +84,7 @@ fn skill_install_path_outside_repo_requires_global() -> anyhow::Result<()> {
     env.but("")
         .arg("skill")
         .arg("install")
-        .arg("--json")
+        .args(["--format", "json"])
         .arg("--path")
         .arg(&install_path)
         .allow_json()
@@ -109,7 +109,7 @@ fn skill_install_absolute_path_outside_repo_does_not_require_global() -> anyhow:
         .but("")
         .arg("skill")
         .arg("install")
-        .arg("--json")
+        .args(["--format", "json"])
         .arg("--path")
         .arg(&install_dir)
         .allow_json()
@@ -138,7 +138,7 @@ fn skill_check_detects_agent_skills_installation_in_repo() -> anyhow::Result<()>
     env.but("")
         .arg("skill")
         .arg("install")
-        .arg("--json")
+        .args(["--format", "json"])
         .arg("--path")
         .arg(&install_path)
         .allow_json()
@@ -146,7 +146,7 @@ fn skill_check_detects_agent_skills_installation_in_repo() -> anyhow::Result<()>
         .success();
 
     let output = env
-        .but("skill check --local --json")
+        .but("skill check --local --format json")
         .allow_json()
         .assert()
         .success()
@@ -183,7 +183,7 @@ fn skill_install_detect_finds_agent_skills_installation_in_repo() -> anyhow::Res
     env.but("")
         .arg("skill")
         .arg("install")
-        .arg("--json")
+        .args(["--format", "json"])
         .arg("--path")
         .arg(&install_path)
         .allow_json()
@@ -191,7 +191,7 @@ fn skill_install_detect_finds_agent_skills_installation_in_repo() -> anyhow::Res
         .success();
 
     let output = env
-        .but("skill install --json --detect")
+        .but("skill install --format json --detect")
         .allow_json()
         .assert()
         .success()
@@ -222,7 +222,7 @@ fn skill_install_surfaces_non_repo_discovery_errors() -> anyhow::Result<()> {
         .arg(&invalid_dir)
         .arg("skill")
         .arg("install")
-        .arg("--json")
+        .args(["--format", "json"])
         .allow_json()
         .assert()
         .failure();

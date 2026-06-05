@@ -134,7 +134,7 @@ fn with_json_output() -> anyhow::Result<()> {
     env.setup_metadata(&["A"])?;
 
     // Test JSON output without anchor
-    env.but("--json branch new my-feature")
+    env.but("--format json branch new my-feature")
         .allow_json()
         .assert()
         .success()
@@ -147,7 +147,7 @@ fn with_json_output() -> anyhow::Result<()> {
 "#]]);
 
     // Test JSON output with anchor
-    env.but("branch new --json --anchor 9477ae7 my-anchored-feature")
+    env.but("branch new --format json --anchor 9477ae7 my-anchored-feature")
         .allow_json()
         .assert()
         .success()

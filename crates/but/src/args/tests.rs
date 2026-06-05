@@ -145,12 +145,13 @@ fn status_after_is_hidden_noop_compatibility_flag() {
         "move",
         "source",
         "target",
-        "--json",
+        "--format",
+        "json",
         "--status-after",
     ])
     .expect("parse legacy status-after flag");
 
-    assert!(args.json);
+    assert!(matches!(dbg!(args.format.format), OutputFormat::Json));
     assert!(args.legacy_status_after);
     assert!(!args.status_after);
 }

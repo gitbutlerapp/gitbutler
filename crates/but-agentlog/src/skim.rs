@@ -346,16 +346,18 @@ fn applied_gitbutler_branch(workdir: &Path) -> anyhow::Result<String> {
     let output = ProcessCommand::new(&but_path)
         .arg("-C")
         .arg(workdir)
-        .args(["--json", "status"])
+        .args(["--format", "json", "status"])
         .stdin(Stdio::null())
         .output()
-        .context("failed to run 'but --json status' for agentlog skim target discovery")?;
+        .context("failed to run 'but --format json status' for agentlog skim target discovery")?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("failed to discover GitButler branch with 'but --json status': {stderr}");
+        anyhow::bail!(
+            "failed to discover GitButler branch with 'but --format json status': {stderr}"
+        );
     }
-    let status: StatusReport =
-        serde_json::from_slice(&output.stdout).context("failed to parse 'but --json status'")?;
+    let status: StatusReport = serde_json::from_slice(&output.stdout)
+        .context("failed to parse 'but --format json status'")?;
     status
         .stacks
         .into_iter()

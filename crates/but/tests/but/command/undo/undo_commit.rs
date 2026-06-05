@@ -12,7 +12,7 @@ pub(super) fn commit_empty_with_message(env: &Sandbox, message: &str) -> String 
         new_commit_id: String,
     }
 
-    let output = env.but("commit empty A --json").assert().success();
+    let output = env.but("commit empty A --format json").assert().success();
     let output = output.get_output();
     let commit_id = serde_json::from_slice::<CommitEmptyJson>(&output.stdout)
         .unwrap()
@@ -20,7 +20,7 @@ pub(super) fn commit_empty_with_message(env: &Sandbox, message: &str) -> String 
 
     let output = env
         .but("reword")
-        .args([&commit_id, "-m", message, "--json"])
+        .args([&commit_id, "-m", message, "--format", "json"])
         .assert()
         .success();
     let output = output.get_output();

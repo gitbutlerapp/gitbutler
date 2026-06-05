@@ -131,7 +131,6 @@ impl Sandbox {
         }
         self.with_updated_env(cmd)
             .env("GITBUTLER_CHANGE_ID", "42")
-            .env("BUT_OUTPUT_FORMAT", "human")
             .env("NOPAGER", "1")
     }
 
@@ -147,7 +146,7 @@ pub trait CommandExt {
     /// asserting with [snapbox::cmd::OutputAssert::stdout_eq] against an SVG
     /// file.
     fn with_color_for_svg(self) -> Self;
-    /// Change the environment to allow passing `--json`.
+    /// Change the environment to allow passing `--format json`.
     fn allow_json(self) -> Self;
 }
 

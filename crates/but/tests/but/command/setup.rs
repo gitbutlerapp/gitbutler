@@ -342,7 +342,7 @@ Learn more at https://docs.gitbutler.com/cli-overview
 fn json_output_new_setup() -> anyhow::Result<()> {
     let env = Sandbox::open_with_default_settings("repo-with-remote-and-head")?;
 
-    env.but("--json setup")
+    env.but("--format json setup")
         .allow_json()
         .assert()
         .success()
@@ -371,7 +371,7 @@ fn json_output_already_setup() -> anyhow::Result<()> {
     env.but("setup").assert().success();
 
     // Run again with JSON output
-    env.but("--json setup")
+    env.but("--format json setup")
         .allow_json()
         .assert()
         .success()
@@ -396,7 +396,7 @@ fn json_output_already_setup() -> anyhow::Result<()> {
 fn json_output_gb_local() -> anyhow::Result<()> {
     let env = Sandbox::open_with_default_settings("repo-no-remote")?;
 
-    env.but("--json setup")
+    env.but("--format json setup")
         .allow_json()
         .assert()
         .success()
@@ -421,7 +421,7 @@ fn json_output_gb_local() -> anyhow::Result<()> {
 fn json_output_non_standard_branch() -> anyhow::Result<()> {
     let env = Sandbox::open_with_default_settings("repo-no-remote-no-main-or-master")?;
 
-    env.but("--json setup")
+    env.but("--format json setup")
         .allow_json()
         .assert()
         .success()
@@ -446,7 +446,7 @@ fn json_output_non_standard_branch() -> anyhow::Result<()> {
 fn json_output_remote_no_head_fallback() -> anyhow::Result<()> {
     let env = Sandbox::open_with_default_settings("repo-with-remote-no-head")?;
 
-    env.but("--json setup")
+    env.but("--format json setup")
         .allow_json()
         .assert()
         .success()
@@ -471,7 +471,7 @@ fn json_output_remote_no_head_fallback() -> anyhow::Result<()> {
 fn json_output_not_a_git_repo() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
 
-    env.but("--json setup")
+    env.but("--format json setup")
         .allow_json()
         .assert()
         .failure()
@@ -568,7 +568,7 @@ Learn more at https://docs.gitbutler.com/cli-overview
 fn init_flag_json_output() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
 
-    env.but("--json setup --init")
+    env.but("--format json setup --init")
         .allow_json()
         .assert()
         .success()
