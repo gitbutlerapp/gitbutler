@@ -2,9 +2,12 @@
 	import FloatingCommitBox from "$components/commit/FloatingCommitBox.svelte";
 	import ReviewCreation from "$components/forge/ReviewCreation.svelte";
 	import ReviewCreationControls from "$components/forge/ReviewCreationControls.svelte";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { useForgeAuth } from "$lib/forge/forgeAuth.svelte";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import { PR_SERVICE } from "$lib/forge/prService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import { TestId } from "@gitbutler/ui";
 	import type { Segment } from "@gitbutler/but-sdk";
 
@@ -43,14 +46,14 @@
 		uiState.project(projectId).exclusiveAction.set(undefined);
 	}
 
-	const forge = inject(DEFAULT_FORGE_FACTORY);
-
-	const prService = $derived(forge.current.prService);
-	const reviewUnit = $derived(prService?.unit.abbr ?? "PR");
-	const prQuery = $derived(prNumber ? prService?.get(prNumber) : undefined);
+	const prService = inject(PR_SERVICE);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const reviewUnit = $derived(forgeInfoQuery.response?.unit.abbr ?? "PR");
+	const prQuery = $derived(prNumber ? prService.get(projectId, prNumber) : undefined);
 	const pr = $derived(prQuery?.response);
-
-	const canPublishPR = $derived(!!(forge.current.authenticated && !pr));
+	const auth = useForgeAuth(reactive(() => projectId));
+	const canPublishPR = $derived(auth.authenticated.current && !pr);
 </script>
 
 {#snippet editor()}

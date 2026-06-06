@@ -1,5 +1,3 @@
-import { ghQuery } from "$lib/forge/github/ghQuery";
-import { ghResponseToInstance } from "$lib/forge/github/types";
 import {
 	mapForgeReviewToPullRequest,
 	type ForgeReview,
@@ -7,22 +5,28 @@ import {
 } from "$lib/forge/interface/types";
 import { createSelectByIds } from "$lib/state/customSelectors";
 import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
+import { InjectionToken } from "@gitbutler/core/context";
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
-import type { ForgeListingService } from "$lib/forge/interface/forgeListingService";
 import type { BackendApi } from "$lib/state/backendApi";
-import type { AppDispatch, GitHubApi } from "$lib/state/clientState.svelte";
+import type { AppDispatch } from "$lib/state/clientState.svelte";
+import type { CacheConfig } from "@gitbutler/but-sdk";
 
-export class GitHubListingService implements ForgeListingService {
-	private api: ReturnType<typeof injectEndpoints>;
+export const LISTING_SERVICE = new InjectionToken<ListingService>("ListingService");
+
+// Serve a brief cache window so repeated/cold reads of the review list are
+// snappy instead of waiting on a forge round-trip every time. The periodic
+// poll and the Sync button (via `refresh()`, which forces `noCache`) still
+// pull live data past this window.
+const REVIEWS_CACHE: CacheConfig = { cacheWithFallback: { max_age_seconds: 300 } };
+
+export class ListingService {
 	private backendApi: ReturnType<typeof injectBackendEndpoints>;
 
 	constructor(
-		gitHubApi: GitHubApi,
 		backendApi: BackendApi,
 		private readonly dispatch: AppDispatch,
 	) {
-		this.api = injectEndpoints(gitHubApi);
 		this.backendApi = injectBackendEndpoints(backendApi);
 	}
 
@@ -35,9 +39,7 @@ export class GitHubListingService implements ForgeListingService {
 
 	getByBranch(projectId: string, branchName: string) {
 		return this.backendApi.endpoints.listPrs.useQuery(projectId, {
-			transform: (result) => {
-				return prSelectors.selectById(result, branchName);
-			},
+			transform: (result) => prSelectors.selectById(result, branchName),
 		});
 	}
 
@@ -48,16 +50,15 @@ export class GitHubListingService implements ForgeListingService {
 	}
 
 	async fetchByBranch(projectId: string, branchNames: string[]) {
-		const results = await Promise.all(
-			branchNames.map((branch) =>
-				this.api.endpoints.listPrsByBranch.fetch({ projectId, branchName: branch }),
-			),
-		);
-
-		return results.filter(isDefined) ?? [];
+		const result = await this.backendApi.endpoints.listPrs.fetch(projectId);
+		if (!result) return [];
+		return branchNames.map((branch) => prSelectors.selectById(result, branch)).filter(isDefined);
 	}
 
-	async refresh(_projectId: string): Promise<void> {
+	async refresh(projectId: string): Promise<void> {
+		// Force a live fetch so the DB cache is refreshed, then invalidate the
+		// cached listing so its subscribers re-read the just-updated data.
+		await this.backendApi.endpoints.listPrsLive.fetch(projectId);
 		this.dispatch(this.backendApi.util.invalidateTags([invalidatesList(ReduxTag.PullRequests)]));
 	}
 }
@@ -69,50 +70,20 @@ function injectBackendEndpoints(api: BackendApi) {
 				extraOptions: {
 					command: "list_reviews",
 				},
-				query: (projectId) => ({ projectId }),
+				query: (projectId) => ({ projectId, cacheConfig: REVIEWS_CACHE }),
 				transformResponse: (response: ForgeReview[]) => {
 					const prs = response.map((pr) => mapForgeReviewToPullRequest(pr));
 					return prAdapter.addMany(prAdapter.getInitialState(), prs);
 				},
 				providesTags: [providesList(ReduxTag.PullRequests)],
 			}),
-		}),
-	});
-}
-
-function injectEndpoints(api: GitHubApi) {
-	return api.injectEndpoints({
-		endpoints: (build) => ({
-			listPrsByBranch: build.query<PullRequest | null, { projectId: string; branchName: string }>({
-				queryFn: async ({ branchName }, api) => {
-					const result = await ghQuery<"pulls", "list", "required">(
-						async (octokit, repository) => ({
-							data: await octokit.paginate(octokit.rest.pulls.list, {
-								...repository,
-								head: `${repository.owner}:${branchName}`,
-							}),
-						}),
-						api.extra,
-						"required",
-					);
-
-					if (result.error) {
-						return { error: result.error };
-					}
-
-					if (result.data.length === 0) {
-						return { data: null };
-					}
-
-					if (result.data.length > 1) {
-						return { error: new Error(`Multiple pull requests found for branch ${branchName}`) };
-					}
-
-					const prData = result.data[0]!;
-
-					const pr = ghResponseToInstance(prData);
-					return { data: pr };
+			// One-shot live fetch used by `refresh()` to repopulate the DB
+			// cache; subscribers read through `listPrs` after invalidation.
+			listPrsLive: build.query<ForgeReview[], string>({
+				extraOptions: {
+					command: "list_reviews",
 				},
+				query: (projectId) => ({ projectId, cacheConfig: "noCache" }),
 			}),
 		}),
 	});
@@ -123,7 +94,3 @@ const prAdapter = createEntityAdapter<PullRequest, string>({
 });
 
 const prSelectors = { ...prAdapter.getSelectors(), selectByIds: createSelectByIds<PullRequest>() };
-
-// if (err.message.includes('you appear to have the correct authorization credentials')) {
-// 	this.disabled = true;
-// }

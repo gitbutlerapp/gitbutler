@@ -205,6 +205,19 @@ export declare function commitUncommit(projectId: string, subjectCommitIds: Arra
 export declare function commitUncommitChanges(projectId: string, commitId: string, changes: Array<DiffSpec>, assignTo: string | null, dryRun: boolean): Promise<MoveChangesResult>
 
 /**
+ * Web compare URL for a branch — drives the "Open in browser"
+ * affordances without making the renderer hold per-forge URL
+ * templates. `fork` is the owner namespace for fork compares.
+ */
+export declare function forgeCompareBranchUrl(projectId: string, base: string, branch: string, fork: string | null): Promise<string | null>
+
+/**
+ * Per-project forge display + URL config. Lets the renderer build
+ * commit/PR URLs and pick labels without branching on forge name.
+ */
+export declare function forgeInfo(projectId: string): Promise<ForgeInfo | null>
+
+/**
  * Get the forge provider name.
  *
  * This is determined by the forge the base branch is pointing to.
@@ -221,7 +234,13 @@ export declare function getInitialBranchIntegration(projectId: string, branch: s
  */
 export declare function getRedoTargetSnapshot(projectId: string): Promise<Snapshot | null>
 
+export declare function getRepoInfo(projectId: string): Promise<RepoInfo>
+
 export declare function getReview(projectId: string, reviewId: number): Promise<ForgeReview>
+
+export declare function getReviewBaseRepoUrl(projectId: string, reviewId: number): Promise<string | null>
+
+export declare function getReviewMergeStatus(projectId: string, reviewId: number): Promise<ReviewMergeStatus>
 
 /**
  * Get the snapshot that an undo operation should restore to.
@@ -237,7 +256,7 @@ export declare function listAvailableReviewTemplates(projectId: string): Promise
 
 export declare function listBranches(projectId: string, filter: BranchListingFilter | null): Promise<Array<BranchListing>>
 
-export declare function listCiChecksAndUpdateCache(projectId: string, reference: string, cacheConfig: CacheConfig | null): Promise<Array<CiCheck>>
+export declare function listCiChecks(projectId: string, reference: string, cacheConfig: CacheConfig | null): Promise<Array<CiCheck>>
 
 export declare function listProjectsStateless(): Promise<Array<ProjectForFrontend>>
 
@@ -246,7 +265,7 @@ export declare function listReviews(projectId: string, cacheConfig: CacheConfig 
 export declare function listReviewsForBranch(projectId: string, branch: string, filter: ForgeReviewFilter | null): Promise<Array<ForgeReview>>
 
 /** Merge a review on the forge. */
-export declare function mergeReview(projectId: string, reviewId: number): Promise<void>
+export declare function mergeReview(projectId: string, reviewId: number, mergeMethod: ReviewMergeMethod | null): Promise<void>
 
 /**
  * Moves a branch using the behavior described by [`move_branch_with_perm()`].
@@ -355,6 +374,12 @@ export declare function unapplyStack(projectId: string, stackId: string): Promis
  * See [`update_branch_name_with_perm()`] for the underlying mutation.
  */
 export declare function updateBranchName(projectId: string, stackId: string, branchName: string, newName: string): Promise<void>
+
+/**
+ * Update arbitrary fields of a single review (body, state, target base).
+ * Each `None` leaves that field unchanged on the forge.
+ */
+export declare function updateReview(projectId: string, reviewId: number, body: string | null, state: ReviewState | null, targetBase: string | null): Promise<void>
 
 /** Update stacked reviews: description footers and, optionally, target branches. */
 export declare function updateReviewFooters(projectId: string, reviews: Array<ForgeReviewUpdate>): Promise<void>
@@ -1062,6 +1087,38 @@ export type FileAbsorption = {
   assignment: HunkAssignment;
 };
 
+export type ForgeCapabilities = {
+  checks: boolean;
+  repoInfo: boolean;
+  prService: boolean;
+  listService: boolean;
+};
+
+/**
+ * Per-forge display + URL config delivered to the frontend so it
+ * doesn't need to branch on forge name. Computed from the project's
+ * own remote URL plus a forge-name lookup for the rest.
+ */
+export type ForgeInfo = {
+  name: ForgeName;
+  /**
+   * Already SSH→HTTPS converted and includes Azure's organization
+   * segment when applicable. Append the *Path values below to build
+   * the various web URLs.
+   */
+  baseUrl: string;
+  /** Format: `{baseUrl}{commitUrlPath}{commitId}`. */
+  commitUrlPath: string;
+  /** Format: `{baseUrl}{prUrlPath}{number}`. */
+  prUrlPath: string;
+  /** Display labels for PR/MR. */
+  unit: ForgeUnitInfo;
+  /** PostHog event prefix ("PR Successful", "Gitlab MR Successful"). */
+  posthogLabel: string;
+  /** Which Rust-backed services the forge supports today. */
+  capabilities: ForgeCapabilities;
+};
+
 /** Supported git forge types */
 export type ForgeName = "github" | "gitlab" | "bitbucket" | "azure";
 
@@ -1164,6 +1221,12 @@ export type ForgeReviewUser = {
   avatarUrl: string | null;
   /** Indicates whether this account is a bot account */
   isBot: boolean;
+};
+
+export type ForgeUnitInfo = {
+  name: string;
+  abbr: string;
+  symbol: string;
 };
 
 export type ForgeUser = {
@@ -1826,6 +1889,25 @@ export type RemoteTrackingReference = {
   remoteName: string;
 };
 
+export type RepoInfo = {
+  permissions: RepoPermissions | null;
+  fork: boolean;
+  /**
+   * Whether the repo deletes the source branch after a PR is merged
+   * (GitHub's per-repo "Automatically delete head branches" setting).
+   * `None` when the field wasn't returned by the forge.
+   */
+  deleteBranchOnMerge: boolean | null;
+};
+
+export type RepoPermissions = {
+  admin: boolean;
+  maintain: boolean;
+  push: boolean;
+  triage: boolean;
+  pull: boolean;
+};
+
 export type Resolution = {
   stackId: string;
   approach: ResolutionApproach;
@@ -1852,6 +1934,38 @@ export type Review = {
   /** A handle to the review created with the GitButler review system. */
   reviewId: string | null;
 };
+
+/**
+ * How to merge a review on the forge. GitHub honours all three;
+ * other forges fall back to their default merge strategy when the
+ * caller asks for `Squash`/`Rebase`.
+ */
+export type ReviewMergeMethod = "merge" | "squash" | "rebase";
+
+/**
+ * Forge-agnostic runtime merge state for a review. Always fetched
+ * fresh from the forge; not cached. Used by the UI to render the
+ * merge-button hint and comment count without forcing every review
+ * consumer to subscribe to those expensive fields.
+ */
+export type ReviewMergeStatus = {
+  /**
+   * Forge-reported merge state. GitHub strings: `clean`, `dirty`,
+   * `unknown`, `blocked`, `behind`, `unstable`, `has_hooks`,
+   * `draft`. GitLab strings: `can_be_merged`, `cannot_be_merged`,
+   * `checking`, etc. `None` when the forge hasn't computed it.
+   * Used by the UI only to surface a specific reason tooltip.
+   */
+  mergeableState: string | null;
+  commentsCount: number;
+  /**
+   * Forge-normalized: whether merging is allowed. Drives the merge
+   * button without forcing the UI to know per-forge state strings.
+   */
+  isMergeable: boolean;
+};
+
+export type ReviewState = "open" | "closed";
 
 /** Information about the project's review template. */
 export type ReviewTemplateInfo = {

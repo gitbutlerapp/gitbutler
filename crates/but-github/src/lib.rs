@@ -10,8 +10,9 @@ mod graphql;
 pub mod pr;
 pub use client::{
     AutoMergeEnableParams, AutoMergeState, CheckRun, CreatePullRequestParams, GitHubClient,
-    GitHubPrLabel, GitHubUser, MergeMethod, MergePullRequestParams, PullRequest,
-    SetPullRequestAutoMergeParams, SetPullRequestDraftStateParams, UpdatePullRequestParams,
+    GitHubPrLabel, GitHubRepoPermissions, GitHubRepository, GitHubUser, MergeMethod,
+    MergePullRequestParams, PullRequest, PullRequestMergeStatus, SetPullRequestAutoMergeParams,
+    SetPullRequestDraftStateParams, UpdatePullRequestParams,
 };
 mod token;
 pub use token::GithubAccountIdentifier;

@@ -21,8 +21,10 @@
 	import { AI_SERVICE } from "$lib/ai/service";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { URL_SERVICE } from "$lib/backend/url";
+	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { projectAiGenEnabled } from "$lib/config/config";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import { PR_SERVICE } from "$lib/forge/prService.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import {
@@ -56,10 +58,19 @@
 
 	const aiService = inject(AI_SERVICE);
 	const stackService = inject(STACK_SERVICE);
-	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const prService = inject(PR_SERVICE);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const promptService = inject(PROMPT_SERVICE);
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
+
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
+	const reviewUnitName = $derived(forgeInfo?.unit.name ?? "Pull request");
+	const reviewUnitAbbr = $derived(forgeInfo?.unit.abbr ?? "PR");
+	const baseBranchNameQuery = $derived(baseBranchService.baseBranchShortName(projectId));
+	const baseBranchName = $derived(baseBranchNameQuery.response);
 	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit.useMutation();
 	const [updateBranchNameMutation] = stackService.updateBranchName;
 	const [createRef, refCreation] = stackService.createReference;
@@ -76,6 +87,21 @@
 	);
 	const remoteTrackingBranch = $derived(contextData.segment.remoteTrackingRefName);
 	const branchCommits = $derived(contextData.segment.commits);
+	// Fork namespace for cross-fork compare URLs (GitHub `owner:branch`),
+	// set only when the branch is pushed to a different repo than the base.
+	const repoQuery = $derived(baseBranchService.repo(projectId));
+	const pushRepoQuery = $derived(baseBranchService.pushRepo(projectId));
+	const fork = $derived.by(() => {
+		const repo = repoQuery.response;
+		const pushRepo = pushRepoQuery.response;
+		return pushRepo && repo && pushRepo.hash !== repo.hash ? pushRepo.owner : null;
+	});
+	const compareBranchUrlQuery = $derived(
+		branchName && baseBranchName
+			? forgeInfoService.compareBranchUrl(projectId, baseBranchName, branchName, fork)
+			: undefined,
+	);
+	const branchUrl = $derived(compareBranchUrlQuery?.response);
 
 	const branchType = $derived(branchCommits.at(0)?.state.type || "LocalOnly");
 	const isConflicted = $derived(branchCommits.some((commit) => commit.hasConflicts));
@@ -157,8 +183,7 @@
 					icon="open-in-browser"
 					testId={TestId.BranchHeaderContextMenu_OpenInBrowser}
 					onclick={() => {
-						const url = forge.current.branch(branchName)?.url;
-						if (url) urlService.openExternalUrl(url);
+						if (branchUrl) urlService.openExternalUrl(branchUrl);
 						close();
 					}}
 				/>
@@ -294,15 +319,15 @@
 			</ContextMenuSection>
 		{/if}
 		{#if prNumber}
-			{@const prQuery = forge.current.prService?.get(prNumber)}
-			<ReduxResult {projectId} {stackId} result={prQuery?.result}>
+			{@const prQuery = prService.get(projectId, prNumber)}
+			<ReduxResult {projectId} {stackId} result={prQuery.result}>
 				{#snippet children(pr)}
 					<ContextMenuSection>
-						<ContextMenuItemSubmenu label={forge.reviewUnitName} icon="pr">
+						<ContextMenuItemSubmenu label={reviewUnitName} icon="pr">
 							{#snippet submenu({ close: closeSubmenu })}
 								<ContextMenuSection>
 									<ContextMenuItem
-										label="Open {forge.reviewUnitAbbr} in browser"
+										label="Open {reviewUnitAbbr} in browser"
 										testId={TestId.BranchHeaderContextMenu_OpenPRInBrowser}
 										onclick={() => {
 											urlService.openExternalUrl(pr.htmlUrl);
@@ -311,11 +336,11 @@
 										}}
 									/>
 									<ContextMenuItem
-										label="Copy {forge.reviewUnitAbbr} link"
+										label="Copy {reviewUnitAbbr} link"
 										testId={TestId.BranchHeaderContextMenu_CopyPRLink}
 										onclick={() => {
 											clipboardService.write(pr.htmlUrl, {
-												message: `${forge.reviewUnitAbbr} link copied`,
+												message: `${reviewUnitAbbr} link copied`,
 											});
 											closeSubmenu();
 											close();

@@ -3,7 +3,7 @@
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { descriptionTitle } from "$lib/commits/commit";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { commitUrl, FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { getStackBranchNames } from "$lib/stacks/stack";
 	import {
 		getBaseBranchResolution,
@@ -54,8 +54,9 @@
 	const { projectId, onClose }: Props = $props();
 
 	const upstreamIntegrationService = inject(UPSTREAM_INTEGRATION_SERVICE);
-	const forge = inject(DEFAULT_FORGE_FACTORY);
-	// const forgeListingService = $derived(forge.current.listService);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
 	const base = $derived(baseBranchQuery.response);
@@ -354,13 +355,13 @@
 				<div class="scroll-wrap">
 					<ScrollableContainer maxHeight="16.5rem">
 						{#each base.upstreamCommits as commit}
-							{@const commitUrl = forge.current.commitUrl(commit.id)}
+							{@const url = forgeInfo ? commitUrl(forgeInfo, commit.id) : undefined}
 							<SimpleCommitRow
 								title={descriptionTitle(commit) ?? ""}
 								sha={commit.id}
 								date={new Date(commit.createdAt)}
 								author={commit.author.name}
-								url={commitUrl}
+								{url}
 								onOpen={(url) => urlService.openExternalUrl(url)}
 								onCopy={() => clipboardService.write(commit.id, { message: "Commit hash copied" })}
 							/>

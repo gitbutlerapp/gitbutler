@@ -5,6 +5,7 @@ import {
 import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 import { inject } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+import type { ForgeUserQuery } from "$lib/forge/interface/types";
 import type { Code, GithubAccountIdentifier } from "@gitbutler/but-sdk";
 import type { Reactive } from "@gitbutler/shared/storeUtils";
 
@@ -86,5 +87,38 @@ export function useGitHubAccessToken(projectId: Reactive<string>): GitHubAccess 
 			() => ghUserResponse?.result.error as { code?: Code; message: string } | undefined,
 		),
 		isError: reactive(() => ghUserResponse?.result.isError ?? false),
+	};
+}
+
+/**
+ * Resolve the project's preferred GitHub account and fetch it as a
+ * display-ready `ForgeUser`. `user` is `undefined` when no GitHub
+ * account is configured.
+ *
+ * `inject()` runs once at call time, so this must be invoked during
+ * component init — not inside a `$derived`. The account lookup and the
+ * user query are built reactively inside, so the result still updates
+ * when the preferred account resolves.
+ */
+export function useGitHubForgeUser(projectId: Reactive<string>): ForgeUserQuery {
+	const githubUserService = inject(GITHUB_USER_SERVICE);
+	const { preferredGitHubAccount } = usePreferredGitHubUsername(projectId);
+	const userQuery = $derived.by(() => {
+		const account = preferredGitHubAccount.current;
+		if (account === undefined) return undefined;
+		return githubUserService.authenticatedUser(account, {
+			transform: (result) =>
+				result
+					? {
+							login: result.login,
+							name: result.name ?? result.login,
+							srcUrl: result.avatarUrl ?? "",
+						}
+					: undefined,
+		});
+	});
+	return {
+		user: reactive(() => userQuery?.response),
+		isLoading: reactive(() => userQuery?.result.isLoading ?? false),
 	};
 }

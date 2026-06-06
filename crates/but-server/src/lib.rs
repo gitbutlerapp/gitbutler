@@ -1353,6 +1353,86 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
+        "get_review" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::get_review_cmd(params);
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "get_review_merge_status" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::get_review_merge_status_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "get_review_base_repo_url" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::get_review_base_repo_url_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "update_review" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::update_review_cmd(params).await;
+                    result.map(|_| json!({"result": "success"}))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "get_repo_info" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::get_repo_info_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "forge_info" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::forge_info_cmd(params);
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "forge_compare_branch_url" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::forge_compare_branch_url_cmd(params);
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "list_ci_checks" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::list_ci_checks_cmd(params);
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
         // Askpass commands (async)
         "submit_prompt_response" => {
             let params = deserialize_json(request.params);

@@ -5,7 +5,10 @@
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { showError } from "$lib/error/showError";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { CHECKS_MONITOR } from "$lib/forge/checksMonitor.svelte";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import { PR_SERVICE } from "$lib/forge/prService.svelte";
+	import { REPO_SERVICE } from "$lib/forge/repoService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import {
 		Button,
@@ -17,7 +20,7 @@
 		TestId,
 	} from "@gitbutler/ui";
 	import { getForgeLogo } from "@gitbutler/ui/utils/getForgeLogo";
-	import type { DetailedPullRequest } from "$lib/forge/interface/types";
+	import type { PullRequest } from "$lib/forge/interface/types";
 	import type { Snippet } from "svelte";
 
 	type ButtonStatus = {
@@ -38,7 +41,7 @@
 		button?: Snippet<
 			[
 				{
-					pr: DetailedPullRequest;
+					pr: PullRequest;
 					mergeStatus: ButtonStatus;
 					reopenStatus: ButtonStatus;
 					setDraft: (draft: boolean) => Promise<void>;
@@ -64,27 +67,38 @@
 	let container = $state<HTMLElement>();
 	let hasChecks = $state(false);
 
-	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const forgeName = $derived(forge.current.name);
-	const prService = $derived(forge.current.prService);
-	const checksService = $derived(forge.current.checks);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const prService = inject(PR_SERVICE);
+	const repoService = inject(REPO_SERVICE);
+	const checksMonitor = inject(CHECKS_MONITOR);
 	const urlService = inject(URL_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 
-	const prQuery = $derived(prService?.get(prNumber, { forceRefetch: true }));
-	const pr = $derived(prQuery?.response);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
+	const forgeName = $derived(forgeInfo?.name ?? "default");
+	const repoInfoEnabled = $derived(!!forgeInfo?.capabilities.repoInfo);
+	const checksEnabled = $derived(!!forgeInfo?.capabilities.checks);
 
-	const { name, abbr, symbol } = $derived(prService!.unit);
+	const prQuery = $derived(prService.get(projectId, prNumber, { forceRefetch: true }));
+	const pr = $derived(prQuery.response);
+	const mergeStatusQuery = $derived(prService.getMergeStatus(projectId, prNumber));
+	const prMergeStatus = $derived(mergeStatusQuery.response);
+	const repoQuery = $derived(repoInfoEnabled ? repoService.getInfo(projectId) : undefined);
+	const repoInfo = $derived(repoQuery?.response);
 
-	const prLoading = $state(false);
+	const name = $derived(forgeInfo?.unit.name ?? "Pull request");
+	const abbr = $derived(forgeInfo?.unit.abbr ?? "PR");
+	const symbol = $derived(forgeInfo?.unit.symbol ?? "#");
+
 	let draftToggling = $state(false);
 
 	async function handleSetDraft(draft: boolean) {
-		if (!prService || draftToggling) return;
+		if (draftToggling) return;
 		draftToggling = true;
 		try {
 			await prService.setDraft(projectId, prNumber, draft);
-			await prService.fetch(prNumber, { forceRefetch: true });
+			await prService.fetch(projectId, prNumber, { forceRefetch: true });
 		} catch (err: unknown) {
 			showError("Failed to update draft status", err);
 		} finally {
@@ -99,21 +113,21 @@
 			tooltip = "Remote parent branch seems to have been deleted";
 		} else if (!baseIsTargetBranch) {
 			tooltip = name + " is not next in stack";
-		} else if (prLoading) {
-			tooltip = "Reloading pull request data";
-		} else if (!pr?.permissions?.canMerge) {
+		} else if (repoInfoEnabled && !repoInfo?.canMerge) {
+			// Forges without a repoService (e.g. Bitbucket, Azure) rely
+			// on the server-side merge button to refuse.
 			tooltip = name + " requires push permissions";
 		} else if (pr?.draft) {
 			tooltip = name + " is a draft";
-		} else if (pr?.mergeableState === "blocked") {
+		} else if (prMergeStatus?.mergeableState === "blocked") {
 			tooltip = name + " needs approval";
-		} else if (pr?.mergeableState === "unknown") {
+		} else if (prMergeStatus?.mergeableState === "unknown") {
 			tooltip = name + " mergeability is unknown";
-		} else if (pr?.mergeableState === "behind") {
+		} else if (prMergeStatus?.mergeableState === "behind") {
 			tooltip = name + " base is too far behind";
-		} else if (pr?.mergeableState === "dirty") {
+		} else if (prMergeStatus?.mergeableState === "dirty") {
 			tooltip = name + " has conflicts";
-		} else if (!pr?.mergeable) {
+		} else if (!prMergeStatus?.isMergeable) {
 			tooltip = name + " is not mergeable";
 		} else {
 			disabled = false;
@@ -136,7 +150,7 @@
 <ReduxResult result={prQuery?.result} projectId="dummy">
 	{#snippet children(pr)}
 		{#if poll}
-			<PrStatusPoller number={pr.number} />
+			<PrStatusPoller {projectId} number={pr.number} />
 		{/if}
 
 		{#if contextMenuOpen}
@@ -165,13 +179,13 @@
 						label="Refetch status"
 						onclick={() => {
 							contextMenuOpen = false;
-							prService?.fetch(pr.number, { forceRefetch: true });
-							if (hasChecks) {
-								checksService?.fetch(pr.sourceBranch, { forceRefetch: true });
+							prService.fetch(projectId, pr.number, { forceRefetch: true });
+							if (hasChecks && checksEnabled) {
+								checksMonitor.fetch(projectId, pr.sourceBranch, { forceRefetch: true });
 							}
 						}}
 					/>
-					{#if pr.state === "open" && !pr.mergedAt}
+					{#if !pr.closedAt && !pr.mergedAt}
 						<ContextMenuItem
 							label={pr.draft ? "Ready for review" : "Convert to draft"}
 							disabled={draftToggling}
@@ -249,7 +263,12 @@
 					{#if pr.reviewers.length > 0}
 						<span class="label">Reviewers:</span>
 						<div class="avatar-group-container">
-							<AvatarGroup avatars={pr.reviewers} />
+							<AvatarGroup
+								avatars={pr.reviewers.map((r) => ({
+									srcUrl: r.srcUrl,
+									username: r.name,
+								}))}
+							/>
 						</div>
 					{:else}
 						<span class="label italic">No reviewers</span>
@@ -260,7 +279,7 @@
 					<span class="label">
 						<Icon name="chat" size={14} />
 					</span>
-					<span>{pr.commentsCount}</span>
+					<span>{prMergeStatus?.commentsCount ?? 0}</span>
 				</div>
 			</div>
 

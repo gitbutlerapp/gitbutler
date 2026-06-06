@@ -15,13 +15,16 @@
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { StartCommitDzHandler } from "$lib/dragging/dropHandlers/branchDropHandler";
 	import { REORDER_DROPZONE_FACTORY } from "$lib/dragging/stackingReorderDropzoneManager";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { useForgeAuth } from "$lib/forge/forgeAuth.svelte";
+	import { FORGE_INFO_SERVICE, prUrl } from "$lib/forge/forgeInfo.svelte";
+	import { PR_SERVICE } from "$lib/forge/prService.svelte";
 	import { createBranchSelection } from "$lib/selection/key";
 	import { precomputeStack, segmentContext } from "$lib/stacks/segmentContext";
 	import { getStackContext } from "$lib/stacks/stackController.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { ensureValue } from "$lib/utils/validation";
 	import { inject } from "@gitbutler/core/context";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import { Button, TestId } from "@gitbutler/ui";
 	import { QueryStatus } from "@reduxjs/toolkit/query";
 	import { tick } from "svelte";
@@ -35,12 +38,16 @@
 
 	const controller = getStackContext();
 	const stackService = inject(STACK_SERVICE);
-	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const prService = inject(PR_SERVICE);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
 	const urlService = inject(URL_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const projectId = $derived(controller.projectId);
 	const stackId = $derived(controller.stackId);
 	const laneId = $derived(controller.laneId);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
+	const auth = useForgeAuth(reactive(() => projectId));
 
 	let addDependentBranchModalContext = $state<AddDependentBranchModalProps>();
 	let addDependentBranchModal = $state<AddDependentBranchModal>();
@@ -75,7 +82,7 @@
 		),
 	);
 
-	const canPublishPR = $derived(forge.current.authenticated);
+	const canPublishPR = $derived(auth.authenticated.current);
 	const baseBranchNameResponse = $derived(baseBranchService.baseBranchShortName(projectId));
 	const baseBranchName = $derived(baseBranchNameResponse.response);
 
@@ -94,7 +101,6 @@
 			: undefined}
 		{@const prNumber = segment.metadata?.review.pullRequest ?? undefined}
 		{@const reviewId = segment.metadata?.review.reviewId ?? undefined}
-		{@const prQuery = prNumber ? forge.current.prService?.get(prNumber) : undefined}
 		{@const commit = segment.commits.at(0)}
 
 		{@const first = i === 0}
@@ -127,7 +133,7 @@
 				{lineColor}
 				isCommitting={controller.isCommitting}
 				{baseBranchName}
-				prService={forge.current.prService}
+				{prService}
 				isFirst={firstBranch}
 			/>
 		{:else if !firstBranch}
@@ -219,23 +225,23 @@
 						disabled={!!controller.exclusiveAction}
 						icon="pr-plus"
 					>
-						{`Create ${forge.current.name === "gitlab" ? "MR" : "PR"}`}
+						{`Create ${forgeInfo?.unit.abbr ?? "PR"}`}
 					</Button>
 				{:else}
-					{@const prUrl = prQuery?.response?.htmlUrl}
+					{@const externalPrUrl = forgeInfo ? prUrl(forgeInfo, prNumber) : undefined}
 					<Button
 						size="tag"
 						kind="outline"
 						shrinkable
-						disabled={!prUrl}
+						disabled={!externalPrUrl}
 						onclick={() => {
-							if (prUrl) {
-								urlService.openExternalUrl(prUrl);
+							if (externalPrUrl) {
+								urlService.openExternalUrl(externalPrUrl);
 							}
 						}}
 						icon="arrow-up-righ"
 					>
-						{`View ${forge.current.name === "gitlab" ? "MR" : "PR"}`}
+						{`View ${forgeInfo?.unit.abbr ?? "PR"}`}
 					</Button>
 				{/if}
 			{/if}

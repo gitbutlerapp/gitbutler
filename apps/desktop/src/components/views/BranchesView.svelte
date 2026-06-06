@@ -19,13 +19,16 @@
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
 	import { isParsedError } from "$lib/error/parser";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import { useGitHubForgeUser } from "$lib/forge/github/hooks.svelte";
+	import { useGitLabForgeUser } from "$lib/forge/gitlab/hooks.svelte";
 	import { workspacePath } from "$lib/routes/routes.svelte";
 	import { handleCreateBranchFromBranchOutcome } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { combineResults } from "$lib/state/helpers";
 	import { inject } from "@gitbutler/core/context";
 	import { persisted } from "@gitbutler/shared/persisted";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import { AsyncButton, Button, Modal, TestId } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { getTimeAgo } from "@gitbutler/ui/utils/timeAgo";
@@ -50,10 +53,26 @@
 
 	const stackService = inject(STACK_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
-	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const forgeUserQuery = $derived(forge.current.user);
-	const prService = $derived(forge.current.prService);
-	const prUnit = $derived(prService?.unit);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
+	const reviewUnitAbbr = $derived(forgeInfo?.unit.abbr ?? "PR");
+	// Call both hooks at init (they inject()/getContext(), which must not
+	// run inside a $derived re-computation); select reactively by forge.
+	const projectIdRef = reactive(() => projectId);
+	const githubUser = useGitHubForgeUser(projectIdRef);
+	const gitlabUser = useGitLabForgeUser(projectIdRef);
+	const forgeUser = $derived.by(() => {
+		switch (forgeInfo?.name) {
+			case "github":
+				return githubUser.user.current;
+			case "gitlab":
+				return gitlabUser.user.current;
+			default:
+				return undefined;
+		}
+	});
+	const prUnit = $derived(forgeInfo?.unit);
 	const branchService = inject(BRANCH_SERVICE);
 
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
@@ -198,7 +217,7 @@
 						<BranchExplorer
 							{projectId}
 							bind:selectedOption={$selectedOption}
-							forgeUser={forgeUserQuery.response}
+							{forgeUser}
 							{baseBranch}
 						>
 							{#snippet sidebarEntry(sidebarEntrySubject: SidebarEntrySubject)}
@@ -377,7 +396,7 @@
 										icon="workbench"
 										onclick={applyFromFork}
 									>
-										Apply {forge.reviewUnitAbbr} to workspace
+										Apply {reviewUnitAbbr} to workspace
 									</Button>
 								</div>
 								<BranchesViewPr bind:this={prBranch} {projectId} {prNumber} {onerror} />

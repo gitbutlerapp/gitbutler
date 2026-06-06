@@ -45,20 +45,20 @@ function getEntryWorkspaceStatus(entry: SidebarEntrySubject) {
 	return entry.type === "branchListing" ? entry.subject.stack?.inWorkspace : undefined;
 }
 
-function isReviewerOfEntry(userId: number | undefined, entry: SidebarEntrySubject): boolean {
-	if (userId === undefined) return false;
+function isReviewerOfEntry(login: string | undefined, entry: SidebarEntrySubject): boolean {
+	if (login === undefined) return false;
 	if (entry.type === "pullRequest") {
-		return entry.subject.reviewers.some((r) => r.id === userId);
+		return entry.subject.reviewers.some((r) => r.login === login);
 	}
-	return entry.prs.some((pr) => pr.reviewers.some((r) => r.id === userId));
+	return entry.prs.some((pr) => pr.reviewers.some((r) => r.login === login));
 }
 
-function isAuthoreOfEntry(userId: number | undefined, entry: SidebarEntrySubject): boolean {
-	if (userId === undefined) return false;
+function isAuthorOfEntry(login: string | undefined, entry: SidebarEntrySubject): boolean {
+	if (login === undefined) return false;
 	if (entry.type === "pullRequest") {
-		return entry.subject.author?.id === userId;
+		return entry.subject.author?.login === login;
 	}
-	return entry.prs.some((pr) => pr.author?.id === userId);
+	return entry.prs.some((pr) => pr.author?.login === login);
 }
 
 export function combineBranchesAndPrs(
@@ -162,12 +162,12 @@ export function groupBranches(branches: SidebarEntrySubject[], user: ForgeUser |
 			continue;
 		}
 
-		if (isAuthoreOfEntry(user?.id, b)) {
+		if (isAuthorOfEntry(user?.login, b)) {
 			grouped.authored.push(b);
 			continue;
 		}
 
-		if (isReviewerOfEntry(user?.id, b)) {
+		if (isReviewerOfEntry(user?.login, b)) {
 			grouped.review.push(b);
 			continue;
 		}

@@ -16,7 +16,7 @@ import { withStackBusy } from "$lib/state/uiState.svelte";
 import { untrack } from "svelte";
 import type { DropResult } from "$lib/dragging/dropResult";
 import type { DropzoneHandler } from "$lib/dragging/handler";
-import type { ForgePrService } from "$lib/forge/interface/forgePrService";
+import type { PrService } from "$lib/forge/prService.svelte";
 import type { DiffService } from "$lib/hunks/diffService.svelte";
 import type { UncommittedService } from "$lib/selection/uncommittedService.svelte";
 import type { StackService } from "$lib/stacks/stackService.svelte";
@@ -29,12 +29,13 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 
 	constructor(
 		private stackService: StackService,
-		private prService: ForgePrService | undefined,
+		private prService: PrService | undefined,
 		private projectId: string,
 		private readonly uiState: UiState,
 		private readonly uncommittedService: UncommittedService,
 		private readonly diffService: DiffService,
 		private readonly baseBranchName: string | undefined,
+		private readonly unitSymbol: string | undefined,
 	) {
 		this.macros = new StackMacros(this.projectId, this.stackService, this.uiState);
 	}
@@ -276,13 +277,19 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 		const prs = [data.prNumber, ...data.allOtherPrNumbersInStack];
 
 		if (data.allOtherPrNumbersInStack.length === 1) {
-			await unstackPRs(this.prService, prs, this.baseBranchName);
+			await unstackPRs(this.prService, this.projectId, prs, this.baseBranchName);
 			return;
 		}
 
-		await unstackPRs(this.prService, [data.prNumber], this.baseBranchName);
+		await unstackPRs(this.prService, this.projectId, [data.prNumber], this.baseBranchName);
 		const branchDetails = await this.stackService.fetchBranches(this.projectId, data.stackId);
-		await updateStackPrs(this.prService, branchDetails, this.baseBranchName);
+		await updateStackPrs(
+			this.prService,
+			this.projectId,
+			branchDetails,
+			this.baseBranchName,
+			this.unitSymbol,
+		);
 	}
 
 	async ondrop(data: unknown): Promise<DropResult | void> {

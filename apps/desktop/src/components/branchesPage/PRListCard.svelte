@@ -2,7 +2,7 @@
 	import BranchesCardLayout from "$components/branchesPage/BranchesCardLayout.svelte";
 	import { getPrStatus } from "$lib/forge/interface/prUtils";
 	import { Avatar, ReviewBadge, SeriesIcon, TestId, TimeAgo } from "@gitbutler/ui";
-	import type { ReviewUnitInfo } from "$lib/forge/interface/forgePrService";
+	import type { ForgeUnitInfo } from "@gitbutler/but-sdk";
 	type basePrData = {
 		number: number;
 		isDraft: boolean;
@@ -20,7 +20,7 @@
 	};
 
 	interface Props extends basePrData {
-		reviewUnit: ReviewUnitInfo | undefined;
+		reviewUnit: ForgeUnitInfo | undefined;
 		onclick?: (prData: basePrData) => void;
 		selected?: boolean;
 		noRemote?: boolean;

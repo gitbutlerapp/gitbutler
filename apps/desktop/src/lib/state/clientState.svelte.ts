@@ -1,42 +1,14 @@
 import { createBackendApi, type BackendApi } from "$lib/state/backendApi";
-import { butlerModule } from "$lib/state/butlerModule";
-import { ReduxTag } from "$lib/state/tags";
 import { uiStateSlice } from "$lib/state/uiState.svelte";
 import { InjectionToken } from "@gitbutler/core/context";
 import { mergeUnlisten } from "@gitbutler/ui/utils/mergeUnlisten";
 import { combineSlices, configureStore, type Slice } from "@reduxjs/toolkit";
-import {
-	buildCreateApi,
-	coreModule,
-	setupListeners,
-	type BaseQueryFn,
-	type QueryReturnValue,
-	type RootState,
-} from "@reduxjs/toolkit/query";
+import { setupListeners, type RootState } from "@reduxjs/toolkit/query";
 import { FLUSH, PAUSE, PERSIST, persistReducer, PURGE, REGISTER, REHYDRATE } from "redux-persist";
 import persistStore from "redux-persist/lib/persistStore";
 import storage from "redux-persist/lib/storage";
 import type { IBackend } from "$lib/backend";
-// Forge client types are opaque here to avoid circular imports.
-// Concrete types are provided at construction time via bootstrap/deps.ts.
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-type GitHubClient = {};
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-type GitLabClient = {};
-import type { ReduxError } from "$lib/error/reduxError";
 import type { PostHogWrapper } from "$lib/telemetry/posthog";
-
-/**
- * GitHub API object that enables the declaration and usage of endpoints
- * colocated with the feature they support.
- */
-export type GitHubApi = ReturnType<typeof createGitHubApi>;
-
-/**
- * GitLab API object that enables the declaration and usage of endpoints
- * colocated with the feature they support.
- */
-export type GitLabApi = ReturnType<typeof createGitLabApi>;
 
 export const CLIENT_STATE = new InjectionToken<ClientState>("ClientState");
 
@@ -53,29 +25,13 @@ export class ClientState {
 	private reducer: StoreResult["reducer"];
 	readonly dispatch: typeof this.store.dispatch;
 
-	// $state requires field declaration, but we have to assign the initial
-	// value in the constructor such that we can inject dependencies. The
-	// incorrect casting `as` seems difficult to avoid.
 	rootState = $state.raw<AppState | undefined>(undefined);
 	readonly uiState = $derived(this.rootState?.uiState);
 
 	/** rtk-query api for communicating with the back end. */
 	readonly backendApi: BackendApi;
 
-	/** rtk-query api for communicating with GitHub. */
-	readonly githubApi: GitHubApi;
-
-	/** rtk-query api for communicating with GitLab. */
-	readonly gitlabApi: GitLabApi;
-
-	constructor(
-		backend: IBackend,
-		gitHubClient: GitHubClient,
-		gitLabClient: GitLabClient,
-		posthog: PostHogWrapper,
-	) {
-		// Cast required: store state has non-RTKQ slices (uiState)
-		// that don't satisfy RootState's CombinedState index signature.
+	constructor(backend: IBackend, posthog: PostHogWrapper) {
 		const ctx = {
 			getState: () => this.rootState as unknown as RootState<any, any, any>,
 			getDispatch: () => this.dispatch,
@@ -83,17 +39,9 @@ export class ClientState {
 		};
 		this.backendApi = createBackendApi(ctx);
 
-		const butlerMod = butlerModule(ctx);
-		this.githubApi = createGitHubApi(butlerMod);
-		this.gitlabApi = createGitLabApi(butlerMod);
-
 		const { store, reducer } = createStore({
 			backend,
-			gitHubClient,
-			gitLabClient,
 			backendApi: this.backendApi,
-			githubApi: this.githubApi,
-			gitlabApi: this.gitlabApi,
 		});
 
 		this.store = store;
@@ -117,11 +65,6 @@ export class ClientState {
 		});
 	}
 
-	/**
-	 * Inject a persisted slice into the store and return a reactive getter
-	 * for the slice state. Consumers should use this in an `$effect` to
-	 * keep a local `$state.raw` field in sync.
-	 */
 	injectPersistedSlice<S>(slice: Slice<S>): () => S | undefined {
 		this.reducer.inject(
 			{
@@ -140,35 +83,12 @@ export class ClientState {
 	}
 }
 
-/**
- * We need this function in order to declare the store type in `DesktopState`
- * and then assign the value in the constructor.
- */
-function createStore(params: {
-	backend: IBackend;
-	gitHubClient: GitHubClient;
-	gitLabClient: GitLabClient;
-	backendApi: BackendApi;
-	githubApi: GitHubApi;
-	gitlabApi: GitLabApi;
-}) {
-	const { backend, gitHubClient, gitLabClient, backendApi, githubApi, gitlabApi } = params;
-
-	// We can't use the `persistStore` function because it doesn't work
-	// with injected reducers. We should inject all reduces so we don't
-	// need to know about them in this file.
-	const reducer = combineSlices(
-		// RTK Query API for the back end.
-		backendApi,
-		githubApi,
-		gitlabApi,
-	).inject({
+function createStore(params: { backend: IBackend; backendApi: BackendApi }) {
+	const { backend, backendApi } = params;
+	const reducer = combineSlices(backendApi).inject({
 		reducerPath: uiStateSlice.reducerPath,
 		reducer: persistReducer(
-			{
-				key: uiStateSlice.reducerPath,
-				storage: storage,
-			},
+			{ key: uiStateSlice.reducerPath, storage: storage },
 			uiStateSlice.reducer,
 		),
 	});
@@ -176,66 +96,14 @@ function createStore(params: {
 		reducer,
 		middleware: (getDefaultMiddleware) => {
 			return getDefaultMiddleware({
-				thunk: {
-					extraArgument: {
-						backend,
-						gitHubClient,
-						gitLabClient,
-					},
-				},
+				thunk: { extraArgument: { backend } },
 				serializableCheck: {
 					ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
-					// skip the serializable check for rtk-query cache (contains only serializable data)
-					ignoredPaths: ["backend", "github", "gitlab"],
+					ignoredPaths: ["backend"],
 				},
-			}).concat(backendApi.middleware, githubApi.middleware, gitlabApi.middleware);
+			}).concat(backendApi.middleware);
 		},
 	});
 
 	return { store, reducer };
-}
-
-// Default cache expiration for unused items is 60 seconds. This is too little
-// for forge data, so we keep forge data cached for 24 hours.
-const FORGE_CACHE_TTL_SECONDS = 24 * 60 * 60; // 24 hours
-
-// Fake base query that allows us to use the same error type when the query
-// definitions only use `queryFn` instead of `query`. Intentionally typed as
-// bare BaseQueryFn for compatibility with the butlerModule type augmentation.
-// eslint-disable-next-line func-style
-const fakeBaseQuery: BaseQueryFn = () => {
-	return { data: undefined } as QueryReturnValue<never, ReduxError, any>;
-};
-
-// Common API configuration for forge APIs
-const FORGE_API_CONFIG = {
-	tagTypes: Object.values(ReduxTag),
-	invalidationBehavior: "immediately" as const,
-	baseQuery: fakeBaseQuery,
-	refetchOnFocus: true,
-	refetchOnReconnect: true,
-	keepUnusedDataFor: FORGE_CACHE_TTL_SECONDS,
-	endpoints: () => ({}),
-};
-
-export function createGitHubApi(butlerMod: ReturnType<typeof butlerModule>) {
-	return buildCreateApi(
-		coreModule(),
-		butlerMod,
-	)({
-		reducerPath: "github",
-		// Using fake base query for forge APIs (GitHub/GitLab) since they use queryFn
-		...FORGE_API_CONFIG,
-	});
-}
-
-export function createGitLabApi(butlerMod: ReturnType<typeof butlerModule>) {
-	return buildCreateApi(
-		coreModule(),
-		butlerMod,
-	)({
-		reducerPath: "gitlab",
-		// Using fake base query for forge APIs (GitHub/GitLab) since they use queryFn
-		...FORGE_API_CONFIG,
-	});
 }

@@ -27,7 +27,6 @@ import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import { get } from "svelte/store";
 import type { ReduxError } from "$lib/error/reduxError";
-import type { DefaultForgeFactory } from "$lib/forge/forgeFactory.svelte";
 import type { BackendApi } from "$lib/state/backendApi";
 import type { AppDispatch } from "$lib/state/clientState.svelte";
 import type { AbsorptionTarget, DiffSpec, Stack } from "@gitbutler/but-sdk";
@@ -48,7 +47,6 @@ export class StackService {
 	constructor(
 		private backendApi: BackendApi,
 		private dispatch: AppDispatch,
-		private forgeFactory: DefaultForgeFactory,
 		private uiState: UiState,
 	) {}
 
@@ -401,7 +399,7 @@ export class StackService {
 						}
 					}
 
-					this.forgeFactory.invalidate(invalidations);
+					this.dispatch(this.backendApi.util.invalidateTags(invalidations));
 				}, 2000);
 			},
 			onError: (commandError: ReduxError) => {

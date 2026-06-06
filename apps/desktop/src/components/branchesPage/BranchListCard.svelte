@@ -8,12 +8,11 @@
 
 	import { AvatarGroup, ReviewBadge, SeriesLabelsRow, TestId, TimeAgo } from "@gitbutler/ui";
 	import { gravatarUrlFromEmail } from "@gitbutler/ui/components/avatar/gravatar";
-	import type { ReviewUnitInfo } from "$lib/forge/interface/forgePrService";
 	import type { PullRequest } from "$lib/forge/interface/types";
-	import type { BranchListing, BranchListingDetails } from "@gitbutler/but-sdk";
+	import type { BranchListing, BranchListingDetails, ForgeUnitInfo } from "@gitbutler/but-sdk";
 
 	interface Props {
-		reviewUnit: ReviewUnitInfo | undefined;
+		reviewUnit: ForgeUnitInfo | undefined;
 		projectId: string;
 		branchListing: BranchListing;
 		prs: PullRequest[];

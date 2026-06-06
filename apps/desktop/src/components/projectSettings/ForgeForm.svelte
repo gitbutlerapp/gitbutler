@@ -2,7 +2,7 @@
 	import GitHubAccountBadge from "$components/forge/GitHubAccountBadge.svelte";
 	import GitLabAccountBadge from "$components/forge/GitLabAccountBadge.svelte";
 	import ForgeAccountConfig from "$components/projectSettings/ForgeAccountConfig.svelte";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import {
 		githubAccountIdentifierToString,
 		stringToGitHubAccountIdentifier,
@@ -18,11 +18,16 @@
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import { CardGroup, Select, SelectItem } from "@gitbutler/ui";
 
-	import type { ForgeName } from "$lib/forge/interface/forge";
 	import type { Project } from "$lib/project/project";
-	import type { GithubAccountIdentifier, GitlabAccountIdentifier } from "@gitbutler/but-sdk";
+	import type {
+		ForgeName,
+		GithubAccountIdentifier,
+		GitlabAccountIdentifier,
+	} from "@gitbutler/but-sdk";
 
-	const FORGE_OPTIONS: { label: string; value: ForgeName }[] = [
+	type ForgeSelection = ForgeName | "default";
+
+	const FORGE_OPTIONS: { label: string; value: ForgeSelection }[] = [
 		{ label: "None", value: "default" },
 		{ label: "GitHub", value: "github" },
 		{ label: "GitLab", value: "gitlab" },
@@ -32,7 +37,10 @@
 
 	const { projectId }: { projectId: string } = $props();
 
-	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
+	const determinedForgeType = $derived(forgeInfo?.name ?? "default");
 	const projectsService = inject(PROJECTS_SERVICE);
 	const projectQuery = $derived(projectsService.getProject(projectId));
 	const project = $derived(projectQuery.response);
@@ -49,7 +57,7 @@
 		reactive(() => projectId),
 	);
 
-	function handleSelectionChange(selectedOption: ForgeName) {
+	function handleSelectionChange(selectedOption: ForgeSelection) {
 		if (!project) return;
 
 		const mutableProject: Project & { unset_forge_override?: boolean } = structuredClone(project);
@@ -84,7 +92,7 @@
 		{/snippet}
 
 		{#snippet caption()}
-			{#if forge.determinedForgeType === "default"}
+			{#if determinedForgeType === "default"}
 				We couldn't detect which Forge you're using.
 				<br />
 				To enable Forge integration, please select your Forge from the dropdown below.
@@ -92,19 +100,19 @@
 				<span class="text-bold">Note:</span> Currently, only GitHub and GitLab support pull request creation.
 			{:else}
 				We’ve detected that you’re using <span class="text-bold"
-					>{forge.determinedForgeType.toUpperCase()}</span
+					>{determinedForgeType.toUpperCase()}</span
 				>.
 				<br />
 				At the moment, it’s not possible to manually override the detected forge type.
 			{/if}
 		{/snippet}
 
-		{#if forge.determinedForgeType === "default"}
+		{#if determinedForgeType === "default"}
 			<Select
 				value={selectedOption}
 				options={FORGE_OPTIONS}
 				wide
-				onselect={(value) => handleSelectionChange(value as ForgeName)}
+				onselect={(value) => handleSelectionChange(value as ForgeSelection)}
 			>
 				{#snippet itemSnippet({ item, highlighted })}
 					<SelectItem selected={item.value === selectedOption} {highlighted}>
@@ -115,7 +123,7 @@
 		{/if}
 	</CardGroup.Item>
 
-	{#if forge.current.name === "github"}
+	{#if forgeInfo?.name === "github"}
 		<ForgeAccountConfig
 			{projectId}
 			displayName="GitHub"
@@ -131,7 +139,7 @@
 		/>
 	{/if}
 
-	{#if forge.current.name === "gitlab"}
+	{#if forgeInfo?.name === "gitlab"}
 		<ForgeAccountConfig
 			{projectId}
 			displayName="GitLab"

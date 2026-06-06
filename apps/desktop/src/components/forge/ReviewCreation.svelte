@@ -19,14 +19,12 @@
 	import { splitMessage } from "$lib/commits/commitMessage";
 	import { projectAiGenEnabled, projectRunCommitHooks } from "$lib/config/config";
 	import { showError } from "$lib/error/showError";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { mapErrorToToast } from "$lib/forge/github/errorMap";
-	import { GitHubPrService } from "$lib/forge/github/githubPrService.svelte";
 	import { type PullRequest } from "$lib/forge/interface/types";
 	import { PrPersistedStore } from "$lib/forge/prContents";
+	import { PR_SERVICE } from "$lib/forge/prService.svelte";
 	import { updatePrDescriptionTables as updatePrStackInfo } from "$lib/forge/shared/prFooter";
-	import { parseRemoteUrl } from "$lib/git/gitUrl";
-	import { REMOTES_SERVICE } from "$lib/git/remotesService";
 	import { showToast } from "$lib/notifications/toasts";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { requiresPush } from "$lib/stacks/stack";
@@ -71,11 +69,13 @@
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
 	const baseBranch = $derived(baseBranchQuery.response);
 	const baseBranchName = $derived(baseBranch?.shortName);
-	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const prService = $derived(forge.current.prService);
+	const prService = inject(PR_SERVICE);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
+	const reviewUnitAbbr = $derived(forgeInfo?.unit.abbr ?? "PR");
 	const stackService = inject(STACK_SERVICE);
 	const aiService = inject(AI_SERVICE);
-	const remotesService = inject(REMOTES_SERVICE);
 	const uiState = inject(UI_STATE);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const appSettings = settingsService.appSettings;
@@ -89,7 +89,10 @@
 	const commits = $derived(segment.commits);
 	const runHooks = $derived(projectRunCommitHooks(projectId));
 
-	const forgeBranch = $derived(branchName ? forge.current.branch(branchName) : undefined);
+	// `forgeBranch` originally returned a Forge.branch handle; it was only
+	// used as a truthy check that the forge knows about this branch. With the
+	// new architecture we treat it as known whenever we have forge info.
+	const forgeBranch = $derived(branchName ? !!forgeInfo : undefined);
 
 	const createDraft = persisted<boolean>(false, "createDraftPr");
 
@@ -135,7 +138,7 @@
 
 	async function getDefaultBody(commits: Commit[]): Promise<string> {
 		if ($templateEnabled && $templatePath) {
-			return await stackService.template(projectId, forge.current.name, $templatePath);
+			return await stackService.template(projectId, forgeInfo?.name ?? "default", $templatePath);
 		}
 		const autoFill = $appSettings?.reviews.autoFillPrDescriptionFromCommit ?? true;
 		if (autoFill && commits.length === 1) {
@@ -244,11 +247,6 @@
 	}
 
 	async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
-		if (!forge) {
-			chipToasts.error("Pull request service not available");
-			return;
-		}
-
 		// Local mutable copy of pre-computed pr numbers so we can splice in
 		// the newly-created pr number below.
 		const prNumbers = [...stackPrNumbers];
@@ -261,11 +259,6 @@
 
 			if (!params.upstreamBranchName) {
 				chipToasts.error("No upstream branch name determined");
-				return;
-			}
-
-			if (!prService) {
-				chipToasts.error("Pull request service not available");
 				return;
 			}
 
@@ -287,31 +280,13 @@
 				base = branchParentName;
 			}
 
-			const pushRemoteName = baseBranch?.pushRemoteName;
-			if (!pushRemoteName) {
-				chipToasts.error("No push remote name determined");
-				return;
-			}
-
-			const allRemotes = await remotesService.remotes(projectId);
-			const pushRemote = allRemotes.find((r) => r.name === pushRemoteName);
-			const pushRemoteUrl = pushRemote?.url;
-
-			const repoInfo = parseRemoteUrl(pushRemoteUrl);
-
-			const upstreamName =
-				prService instanceof GitHubPrService
-					? repoInfo?.owner
-						? `${repoInfo.owner}:${params.upstreamBranchName}`
-						: params.upstreamBranchName
-					: params.upstreamBranchName;
-
-			const pr = await prService.createPr({
+			const pr = await prService.createPr(projectId, {
 				title: params.title,
 				body: params.body,
 				draft: params.draft,
 				baseBranchName: base,
-				upstreamName,
+				upstreamName: params.upstreamBranchName,
+				posthogLabel: forgeInfo?.posthogLabel,
 			});
 
 			// Store the new pull request number with the branch data.
@@ -328,12 +303,13 @@
 			prNumbers[currentIndex] = pr.number;
 			const definedPrNumbers = prNumbers.filter(isDefined);
 			if (definedPrNumbers.length > 0) {
-				updatePrStackInfo(prService, definedPrNumbers);
+				updatePrStackInfo(prService, projectId, definedPrNumbers, forgeInfo?.unit.symbol);
 			}
 
 			// Show success notification
-			const unit = prService.unit.abbr || "PR";
-			chipToasts.success(`${unit} #${pr.number} created successfully`);
+			const unit = forgeInfo?.unit.abbr || "PR";
+			const symbol = forgeInfo?.unit.symbol || "#";
+			chipToasts.success(`${unit} ${symbol}${pr.number} created successfully`);
 
 			return pr;
 		} catch (err: any) {
@@ -392,7 +368,7 @@
 	<PrTemplateSection
 		{projectId}
 		template={{ enabled: templateEnabled, path: templatePath }}
-		forgeName={forge.current.name}
+		forgeName={forgeInfo?.name ?? "default"}
 		disabled={isExecuting}
 		onselect={(value) => {
 			prBody.set(value);
@@ -424,7 +400,7 @@
 					onClose();
 				}
 			})}
-			placeholder="{forge.reviewUnitAbbr} title"
+			placeholder="{reviewUnitAbbr} title"
 			showCount={false}
 			oninput={imeHandler.handleInput((e: Event) => {
 				const target = e.target as HTMLInputElement;
@@ -440,9 +416,9 @@
 			initialValue={$prBody}
 			enableFileUpload
 			enableSmiles
-			placeholder="{forge.reviewUnitAbbr} Description"
+			placeholder="{reviewUnitAbbr} Description"
 			messageType="pr"
-			reviewUnitAbbr={forge.reviewUnitAbbr}
+			{reviewUnitAbbr}
 			{onAiButtonClick}
 			{canUseAI}
 			{aiIsLoading}

@@ -13,7 +13,9 @@
 	} from "$lib/dragging/dropHandlers/branchDropHandler";
 	import { MoveCommitDzHandler } from "$lib/dragging/dropHandlers/commitDropHandler";
 	import { ReorderCommitDzHandler } from "$lib/dragging/stackingReorderDropzoneManager";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import { PR_SERVICE } from "$lib/forge/prService.svelte";
+	import { REPO_SERVICE } from "$lib/forge/repoService.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -93,10 +95,15 @@
 
 	const uiState = inject(UI_STATE);
 	const stackService = inject(STACK_SERVICE);
-	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const prService = inject(PR_SERVICE);
+	const repoService = inject(REPO_SERVICE);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
 
-	const prService = $derived(forge.current.prService);
-	const prUnit = $derived(prService?.unit);
+	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
+	const forgeInfo = $derived(forgeInfoQuery.response);
+	const prUnit = $derived(forgeInfo?.unit);
+	const repoInfoEnabled = $derived(!!forgeInfo?.capabilities.repoInfo);
+	const checksEnabled = $derived(!!forgeInfo?.capabilities.checks);
 
 	const [updateName, nameUpdate] = stackService.updateBranchName;
 
@@ -248,8 +255,10 @@
 						<span class="branch-header__divider">•</span>
 						<div class="branch-header__review-badges">
 							{#if args.prNumber}
-								{@const prQuery = prService?.get(args.prNumber, { forceRefetch: true })}
-								{@const pr = prQuery?.response}
+								{@const prQuery = prService.get(projectId, args.prNumber, { forceRefetch: true })}
+								{@const pr = prQuery.response}
+								{@const mergeStatusQuery = prService.getMergeStatus(projectId, args.prNumber)}
+								{@const repoQuery = repoInfoEnabled ? repoService.getInfo(projectId) : undefined}
 								{@const prStatus = (() => {
 									if (!pr) return "unknown";
 									if (pr.mergedAt) return "merged";
@@ -257,17 +266,23 @@
 									if (pr.draft) return "draft";
 									return "open";
 								})()}
-								<ReviewBadge type={prUnit?.abbr} number={args.prNumber} status={prStatus} />
-								{#if pr && !pr.closedAt && forge.current.checks && pr.state === "open"}
+								<ReviewBadge
+									testId={TestId.PRReviewBadge}
+									type={prUnit?.abbr}
+									number={args.prNumber}
+									status={prStatus}
+								/>
+								{#if pr && !pr.closedAt && checksEnabled && !pr.mergedAt}
 									<CIChecksBadge
 										{projectId}
 										branchName={pr.sourceBranch}
-										prUpdatedAt={pr.updatedAt}
-										mergeableState={pr.mergeableState}
-										isFork={pr.fork}
-										isMerged={pr.merged}
+										prUpdatedAt={pr.modifiedAt}
+										mergeableState={mergeStatusQuery?.response?.mergeableState ?? undefined}
+										isFork={repoQuery?.response?.fork ?? false}
+										isMerged={!!pr.mergedAt}
 										onrefetch={() => {
-											if (args.prNumber) prService?.fetch(args.prNumber, { forceRefetch: true });
+											if (args.prNumber)
+												prService.fetch(projectId, args.prNumber, { forceRefetch: true });
 										}}
 									/>
 								{/if}

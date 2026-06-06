@@ -2,7 +2,8 @@
 	import { lastFetched as getLastFetched } from "$lib/baseBranch/baseBranch";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
+	import { LISTING_SERVICE } from "$lib/forge/listingService.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, TimeAgo, Icon, TestId } from "@gitbutler/ui";
 
@@ -17,8 +18,15 @@
 	const branchService = inject(BRANCH_SERVICE);
 	const baseBranch = $derived(baseBranchService.baseBranch(projectId));
 
-	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const listingService = $derived(forge.current.listService);
+	const listingService = inject(LISTING_SERVICE);
+	const forgeInfoService = inject(FORGE_INFO_SERVICE);
+
+	// `list_reviews` errors for forges without listing support (Bitbucket/
+	// Azure) or when no forge can be derived, so only refresh the listing
+	// when the forge actually supports it.
+	const canListReviews = $derived(
+		forgeInfoService.get(projectId).response?.capabilities.listService ?? false,
+	);
 
 	const lastFetched = $derived(
 		baseBranch.result.data ? getLastFetched(baseBranch.result.data) : undefined,
@@ -43,7 +51,7 @@
 		try {
 			await baseBranchService.fetchFromRemotes(projectId, "modal");
 			await Promise.all([
-				listingService?.refresh(projectId),
+				...(canListReviews ? [listingService.refresh(projectId)] : []),
 				baseBranch.result?.refetch(),
 				branchService.refresh(),
 			]);

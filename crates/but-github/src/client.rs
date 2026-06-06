@@ -134,10 +134,19 @@ impl GitHubClient {
         })
     }
 
-    /// Fetch the CI checks for a given branch reference
-    ///
-    /// Will fetch max 100 CI checks, and if the actual total checks
-    /// excede that, it will paginate until all checks are fetched
+    /// Fetch repo-level metadata (currently just the caller's permissions
+    /// and whether the repo is a fork). Used by the desktop to decide
+    /// whether the authenticated user can merge a given PR.
+    pub async fn get_repo(&self, owner: &str, repo: &str) -> Result<GitHubRepository> {
+        let url = format!("{}/repos/{}/{}", self.base_url, owner, repo);
+        let response = self.client.get(&url).send().await?;
+        if !response.status().is_success() {
+            bail!("Failed to get repo: {}", response.status());
+        }
+        Ok(response.json().await?)
+    }
+
+    /// Fetch CI checks for a branch ref, paginated and deduped by name.
     pub async fn list_checks_for_ref(
         &self,
         owner: &str,
@@ -175,7 +184,7 @@ impl GitHubClient {
             check_runs.extend(result.check_runs);
         }
 
-        Ok(check_runs)
+        Ok(dedupe_latest_by_name(check_runs))
     }
 
     /// The actual REST API call to fetch a page of the checks.
@@ -290,6 +299,83 @@ impl GitHubClient {
 
         let pr: GitHubPullRequest = response.json().await?;
         Ok(pr.into())
+    }
+
+    /// PR's base-repo URL. `None` if GitHub omits it (deleted forks).
+    pub async fn get_pull_request_base_repo_url(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+    ) -> Result<Option<String>> {
+        #[derive(Debug, Deserialize)]
+        struct BaseRepoResponse {
+            base: Base,
+        }
+        #[derive(Debug, Deserialize)]
+        struct Base {
+            #[serde(default)]
+            repo: Option<Repo>,
+        }
+        #[derive(Debug, Deserialize)]
+        struct Repo {
+            #[serde(default)]
+            git_url: Option<String>,
+            #[serde(default)]
+            clone_url: Option<String>,
+        }
+
+        let url = format!(
+            "{}/repos/{}/{}/pulls/{}",
+            self.base_url, owner, repo, pr_number
+        );
+        let response = self.client.get(&url).send().await?;
+        if !response.status().is_success() {
+            bail!("Failed to get PR base repo: {}", response.status());
+        }
+        let body: BaseRepoResponse = response.json().await?;
+        // git_url matches what TS's parseRemoteUrl sees for the
+        // project's own base remote.
+        Ok(body.base.repo.and_then(|r| r.git_url.or(r.clone_url)))
+    }
+
+    /// Fetch just the GitHub-computed merge status for a PR
+    /// (`mergeable_state` and the comment count). These fields are
+    /// expensive enough that GitHub recomputes them per call, so we
+    /// expose them through a focused endpoint that the UI only
+    /// subscribes to where it actually displays them.
+    pub async fn get_pull_request_merge_status(
+        &self,
+        owner: &str,
+        repo: &str,
+        pr_number: i64,
+    ) -> Result<PullRequestMergeStatus> {
+        #[derive(Debug, Deserialize)]
+        struct PrMergeStatusResponse {
+            #[serde(default)]
+            mergeable_state: Option<String>,
+            #[serde(default)]
+            comments: i64,
+        }
+
+        let url = format!(
+            "{}/repos/{}/{}/pulls/{}",
+            self.base_url, owner, repo, pr_number
+        );
+        let response = self.client.get(&url).send().await?;
+        if !response.status().is_success() {
+            bail!("Failed to get PR merge status: {}", response.status());
+        }
+        let body: PrMergeStatusResponse = response.json().await?;
+        let is_mergeable = matches!(
+            body.mergeable_state.as_deref(),
+            Some("clean") | Some("unstable") | Some("has_hooks")
+        );
+        Ok(PullRequestMergeStatus {
+            mergeable_state: body.mergeable_state,
+            comments_count: body.comments,
+            is_mergeable,
+        })
     }
 
     /// Fetch the information of a given PR.
@@ -890,6 +976,32 @@ pub struct AuthenticatedUser {
     pub email: Option<String>,
 }
 
+/// Subset of GitHub's repo response we care about. The `permissions`
+/// field is only populated when the caller is authenticated.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitHubRepository {
+    #[serde(default)]
+    pub permissions: Option<GitHubRepoPermissions>,
+    #[serde(default)]
+    pub fork: bool,
+    #[serde(default)]
+    pub delete_branch_on_merge: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitHubRepoPermissions {
+    #[serde(default)]
+    pub admin: bool,
+    #[serde(default)]
+    pub maintain: bool,
+    #[serde(default)]
+    pub push: bool,
+    #[serde(default)]
+    pub triage: bool,
+    #[serde(default)]
+    pub pull: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheckRun {
     pub id: i64,
@@ -909,6 +1021,47 @@ pub struct CheckRun {
     pub url: Option<String>,
     #[serde(default)]
     pub details_url: Option<String>,
+}
+
+/// GitHub returns check runs from every suite attached to a commit —
+/// including superseded suites from force-push-cancelled runs — so an
+/// orphaned `failure` (e.g. an aggregator that detects its deps got
+/// cancelled) or a `cancelled` run can contaminate the rolled-up
+/// status. `?filter=latest` does not help.
+///
+/// Drop `cancelled` runs (a transitional state, not a CI signal — and
+/// the only thing left of a superseded run whose job name changed in
+/// the next run, e.g. via matrix-shape changes), then keep the latest
+/// `started_at` per remaining name; `None` is treated as oldest, ties
+/// go to the later iteration.
+fn dedupe_latest_by_name(runs: Vec<CheckRun>) -> Vec<CheckRun> {
+    use std::collections::HashMap;
+    // Preserve first-occurrence order so the result is deterministic
+    // (HashMap iteration order is randomized) and matches GitHub's API
+    // order — downstream consumers (UI ordering, cache payloads) would
+    // otherwise churn between calls even when the checks are unchanged.
+    let mut order: Vec<String> = Vec::new();
+    let mut latest: HashMap<String, CheckRun> = HashMap::with_capacity(runs.len());
+    for run in runs {
+        if run.conclusion.as_deref() == Some("cancelled") {
+            continue;
+        }
+        match latest.get_mut(&run.name) {
+            Some(existing) => {
+                if run.started_at >= existing.started_at {
+                    *existing = run;
+                }
+            }
+            None => {
+                order.push(run.name.clone());
+                latest.insert(run.name.clone(), run);
+            }
+        }
+    }
+    order
+        .into_iter()
+        .filter_map(|name| latest.remove(&name))
+        .collect()
 }
 
 #[derive(Debug, Serialize)]
@@ -954,6 +1107,23 @@ pub struct GitHubPrLabel {
     pub name: String,
     pub description: Option<String>,
     pub color: Option<String>,
+}
+
+/// Focused subset of GitHub's PR-get response covering only the
+/// runtime-computed merge status. Kept separate from the full
+/// `PullRequest` so consumers that need just this signal don't pull
+/// in the rest.
+#[derive(Debug, Clone, Serialize)]
+pub struct PullRequestMergeStatus {
+    /// GitHub's merge-state computation result. Returned strings
+    /// include `clean`, `dirty`, `unknown`, `blocked`, `behind`,
+    /// `unstable`, `has_hooks`, `draft`. `None` when GitHub hasn't
+    /// computed yet.
+    pub mergeable_state: Option<String>,
+    pub comments_count: i64,
+    /// Whether GitHub considers the PR mergeable. True for `clean`,
+    /// `unstable` (failing CI but no conflicts), and `has_hooks`.
+    pub is_mergeable: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -1121,5 +1291,104 @@ mod tests {
         assert_eq!(merge, serde_json::json!("MERGE"));
         assert_eq!(squash, serde_json::json!("SQUASH"));
         assert_eq!(rebase, serde_json::json!("REBASE"));
+    }
+
+    fn check_run(name: &str, started_at: Option<&str>, conclusion: Option<&str>) -> CheckRun {
+        CheckRun {
+            id: 0,
+            name: name.into(),
+            status: "completed".into(),
+            conclusion: conclusion.map(Into::into),
+            html_url: None,
+            head_sha: None,
+            started_at: started_at.map(Into::into),
+            completed_at: None,
+            url: None,
+            details_url: None,
+        }
+    }
+
+    #[test]
+    fn dedupe_supersedes_orphaned_failure_with_later_success() {
+        // A cancelled prior run's `check-rust` lands as `failure`; the
+        // newer run's `check-rust` ran to `success`. Latest wins.
+        let deduped = dedupe_latest_by_name(vec![
+            check_run("check-rust", Some("2026-06-04T18:53:48Z"), Some("failure")),
+            check_run("check-rust", Some("2026-06-04T19:10:00Z"), Some("success")),
+        ]);
+
+        assert_eq!(deduped.len(), 1, "duplicate name collapses to one entry");
+        assert_eq!(
+            deduped[0].conclusion.as_deref(),
+            Some("success"),
+            "the later started_at run supersedes the earlier failure"
+        );
+    }
+
+    #[test]
+    fn dedupe_preserves_distinct_names() {
+        let deduped = dedupe_latest_by_name(vec![
+            check_run("rust-test", Some("2026-06-04T18:00:00Z"), Some("success")),
+            check_run("rust-lint", Some("2026-06-04T18:00:00Z"), Some("success")),
+        ]);
+
+        assert_eq!(deduped.len(), 2, "distinct names are not collapsed");
+    }
+
+    #[test]
+    fn dedupe_treats_missing_started_at_as_oldest() {
+        let deduped = dedupe_latest_by_name(vec![
+            check_run("check-rust", None, Some("failure")),
+            check_run("check-rust", Some("2026-06-04T19:10:00Z"), Some("success")),
+        ]);
+
+        assert_eq!(deduped.len(), 1);
+        assert_eq!(
+            deduped[0].conclusion.as_deref(),
+            Some("success"),
+            "any Some(timestamp) is preferred over a None started_at"
+        );
+    }
+
+    #[test]
+    fn dedupe_drops_cancelled_runs_with_no_named_successor() {
+        // A force-push cancelled the prior workflow run's
+        // `rust-test-but-api-macros` job, and the new run reshapes
+        // the matrix into `rust-test-but-api-macros (default)` etc.
+        // The bare-name cancelled run has no later same-name peer to
+        // dedupe against — drop it so it can't contaminate the rollup.
+        let deduped = dedupe_latest_by_name(vec![
+            check_run(
+                "rust-test-but-api-macros",
+                Some("2026-06-04T18:53:46Z"),
+                Some("cancelled"),
+            ),
+            check_run(
+                "rust-test-but-api-macros (default)",
+                Some("2026-06-04T18:54:03Z"),
+                Some("success"),
+            ),
+        ]);
+
+        assert_eq!(deduped.len(), 1, "the orphaned cancelled run is dropped");
+        assert_eq!(deduped[0].name, "rust-test-but-api-macros (default)");
+    }
+
+    #[test]
+    fn dedupe_preserves_first_occurrence_order() {
+        // The returned order must be stable across calls (not HashMap
+        // iteration order), and follow each name's first appearance.
+        let deduped = dedupe_latest_by_name(vec![
+            check_run("zebra", Some("2026-06-04T18:00:00Z"), Some("success")),
+            check_run("alpha", Some("2026-06-04T18:00:00Z"), Some("success")),
+            check_run("zebra", Some("2026-06-04T19:00:00Z"), Some("success")),
+        ]);
+
+        let names: Vec<&str> = deduped.iter().map(|r| r.name.as_str()).collect();
+        assert_eq!(
+            names,
+            vec!["zebra", "alpha"],
+            "first-occurrence order is preserved even when a later run supersedes"
+        );
     }
 }

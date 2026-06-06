@@ -14,13 +14,7 @@
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
 	import { showError } from "$lib/error/showError";
-	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
-	import { GITHUB_CLIENT } from "$lib/forge/github/githubClient";
-	import { useGitHubAccessToken } from "$lib/forge/github/hooks.svelte";
-	import { createGitLabProjectId } from "$lib/forge/gitlab/gitlab";
-	import { GITLAB_CLIENT } from "$lib/forge/gitlab/gitlabClient.svelte";
 	import { GITLAB_USER_SERVICE } from "$lib/forge/gitlab/gitlabUserService.svelte";
-	import { useGitLabAccessToken } from "$lib/forge/gitlab/hooks.svelte";
 	import { GIT_SERVICE } from "$lib/git/gitService";
 	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { projectChannel } from "$lib/irc/protocol";
@@ -39,7 +33,6 @@
 	import { debounce } from "$lib/utils/debounce";
 	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import { mergeUnlisten } from "@gitbutler/ui/utils/mergeUnlisten";
 	import { onDestroy, untrack, type Snippet } from "svelte";
 	import type { LayoutData } from "./$types";
@@ -73,17 +66,11 @@
 	const gitService = inject(GIT_SERVICE);
 
 	const repoInfoQuery = $derived(baseBranchService.repo(projectId));
-	const pushRepoQuery = $derived(baseBranchService.pushRepo(projectId));
 
 	const repoInfo = $derived(repoInfoQuery.response);
-	const forkInfo = $derived(pushRepoQuery.response);
 
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
 	const baseBranch = $derived(baseBranchQuery.response);
-	const baseBranchName = $derived(baseBranch?.shortName);
-	const forgeProviderQuery = $derived(baseBranchService.forgeProvider(projectId));
-	const detectedForgeProvider = $derived(forgeProviderQuery.response);
-	const detectedForgeProviderIsLoading = $derived(detectedForgeProvider === undefined);
 
 	// =============================================================================
 	// WORKSPACE & MODE MANAGEMENT
@@ -99,75 +86,14 @@
 	// FORGE INTEGRATION (GitHub & GitLab)
 	// =============================================================================
 
-	const gitHubClient = inject(GITHUB_CLIENT);
-	const gitLabClient = inject(GITLAB_CLIENT);
 	const gitlabUserService = inject(GITLAB_USER_SERVICE);
-	const forgeFactory = inject(DEFAULT_FORGE_FACTORY);
 
-	const githubAccessToken = useGitHubAccessToken(reactive(() => projectId));
-	const gitlabAccessToken = useGitLabAccessToken(reactive(() => projectId));
-
-	// GitHub setup
-	$effect.pre(() => gitHubClient.setToken(githubAccessToken.accessToken.current));
-	$effect.pre(() => gitHubClient.setHost(githubAccessToken.host.current));
-	$effect.pre(() => gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name }));
-
-	const forkInfoOwner = $derived(forkInfo?.owner);
-	const forkInfoName = $derived(forkInfo?.name);
-	const gitlabForkProjectId = $derived(
-		forkInfoOwner !== undefined && forkInfoName !== undefined
-			? createGitLabProjectId(forkInfoOwner, forkInfoName)
-			: undefined,
-	);
-	const repoInfoOwner = $derived(repoInfo?.owner);
-	const repoInfoName = $derived(repoInfo?.name);
-	const gitlabUpstreamProjectId = $derived(
-		repoInfoOwner !== undefined && repoInfoName !== undefined
-			? createGitLabProjectId(repoInfoOwner, repoInfoName)
-			: undefined,
-	);
-
-	const gitlabTokenIsLoading = $derived(gitlabAccessToken.isLoading.current);
-
-	const gitlabIsLoading = $derived(
-		gitlabTokenIsLoading && !gitlabForkProjectId && !gitlabUpstreamProjectId,
-	);
-
-	// GitLab setup
-	$effect.pre(() => {
-		const accessToken = gitlabAccessToken.accessToken.current;
-		if (accessToken && gitlabForkProjectId && gitlabUpstreamProjectId) {
-			gitLabClient.set(
-				gitlabAccessToken.host.current,
-				accessToken,
-				gitlabForkProjectId,
-				gitlabUpstreamProjectId,
-			);
-		}
-	});
-
-	// GitLab migration
-	// Migrate the stored access token from the old location to the new one on app load
+	// Migrate stored GitLab access token from the legacy location to the
+	// per-account secrets entry on app load. Safe no-op when already done.
 	$effect(() => {
 		if (projectId) {
 			gitlabUserService.migrate(projectId);
 		}
-	});
-
-	// Forge factory configuration
-	$effect(() => {
-		forgeFactory.setConfig({
-			repo: repoInfo,
-			pushRepo: forkInfo,
-			baseBranch: baseBranchName,
-			githubAuthenticated: !!githubAccessToken.accessToken.current,
-			forgeIsLoading:
-				githubAccessToken.isLoading.current || gitlabIsLoading || detectedForgeProviderIsLoading,
-			githubError: githubAccessToken.error.current,
-			gitlabAuthenticated: !!gitlabAccessToken.accessToken.current,
-			detectedForgeProvider: detectedForgeProvider ?? undefined,
-			forgeOverride: projects?.find((project) => project.id === projectId)?.forge_override,
-		});
 	});
 
 	// =============================================================================
