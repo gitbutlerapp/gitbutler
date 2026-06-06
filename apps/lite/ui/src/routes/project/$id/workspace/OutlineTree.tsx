@@ -313,7 +313,6 @@ const useOutlineTreeHotkeys = ({
 		);
 	};
 
-	const selectedPushContext = pushContextForSelection({ headInfo, selection });
 	const selectedStack =
 		selection && "stackId" in selection
 			? headInfo?.stacks.find((stack) => stack.id === selection.stackId)
@@ -325,6 +324,7 @@ const useOutlineTreeHotkeys = ({
 						!!segment.refName && refNamesEqual(segment.refName.fullNameBytes, selection.branchRef),
 				)
 			: undefined;
+	const selectedPushContext = pushContextForSelection({ headInfo, selection });
 	const selectedBranchChecked = useAppSelector((state) =>
 		selectedBranchSegment && selectedBranchSegment.commits.length > 0
 			? selectedBranchSegment.commits.every((commit) =>
