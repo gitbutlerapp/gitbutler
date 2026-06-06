@@ -177,6 +177,26 @@ const useOutlineTreeHotkeys = ({
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+
+	const selectedStack =
+		selection && "stackId" in selection
+			? headInfo?.stacks.find((stack) => stack.id === selection.stackId)
+			: undefined;
+	const selectedBranchSegment =
+		selection?._tag === "Branch"
+			? selectedStack?.segments.find(
+					(segment) =>
+						!!segment.refName && refNamesEqual(segment.refName.fullNameBytes, selection.branchRef),
+				)
+			: undefined;
+
+	const selectedBranchChecked = useAppSelector((state) =>
+		selectedBranchSegment && selectedBranchSegment.commits.length > 0
+			? selectedBranchSegment.commits.every((commit) =>
+					selectProjectCommitChecked(state, projectId, commit.id),
+				)
+			: false,
+	);
 	const selectedCommitChecked = useAppSelector((state) =>
 		selection?._tag === "Commit"
 			? selectProjectCommitChecked(state, projectId, selection.commitId)
@@ -310,17 +330,6 @@ const useOutlineTreeHotkeys = ({
 		);
 	};
 
-	const selectedStack =
-		selection && "stackId" in selection
-			? headInfo?.stacks.find((stack) => stack.id === selection.stackId)
-			: undefined;
-	const selectedBranchSegment =
-		selection?._tag === "Branch"
-			? selectedStack?.segments.find(
-					(segment) =>
-						!!segment.refName && refNamesEqual(segment.refName.fullNameBytes, selection.branchRef),
-				)
-			: undefined;
 	const selectedPushContext = Match.value(selection).pipe(
 		Match.tags({
 			Branch: (selection) => {
@@ -346,13 +355,6 @@ const useOutlineTreeHotkeys = ({
 			},
 		}),
 		Match.orElse(() => null),
-	);
-	const selectedBranchChecked = useAppSelector((state) =>
-		selectedBranchSegment && selectedBranchSegment.commits.length > 0
-			? selectedBranchSegment.commits.every((commit) =>
-					selectProjectCommitChecked(state, projectId, commit.id),
-				)
-			: false,
 	);
 	const selectedStackRebaseUpdate = selectedStack ? stackToBottomRebaseUpdate(selectedStack) : null;
 
