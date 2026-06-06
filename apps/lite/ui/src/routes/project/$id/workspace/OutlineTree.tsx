@@ -143,12 +143,12 @@ const selectAfterDiscardedCommit = ({
 
 	for (const item of navigationIndex.items.slice(commitIndex + 1)) {
 		if (isCommitDiscardBoundary(item)) break;
-		if (item._tag === "Commit" && item.commitId !== commit.commitId) return item;
+		if (item._tag === "Commit") return item;
 	}
 
 	for (const item of navigationIndex.items.slice(0, commitIndex).reverse()) {
 		if (isCommitDiscardBoundary(item)) break;
-		if (item._tag === "Commit" && item.commitId !== commit.commitId) return item;
+		if (item._tag === "Commit") return item;
 	}
 
 	for (const item of navigationIndex.items.slice(0, commitIndex + 1).reverse())
