@@ -185,9 +185,6 @@ const useOutlineTreeHotkeys = ({
 
 	const dispatch = useAppDispatch();
 
-	const select = (newItem: Operand) =>
-		dispatch(projectActions.selectOutline({ projectId, selection: newItem }));
-
 	const commitMoveMutation = useCommitMove();
 	const commitDiscardMutation = useCommitDiscard();
 	const pushStackMutation = usePushStack();
@@ -397,7 +394,7 @@ const useOutlineTreeHotkeys = ({
 		projectId,
 		group: "Outline",
 		selectionScope: "outline",
-		select,
+		select: (newItem) => dispatch(projectActions.selectOutline({ projectId, selection: newItem })),
 		selection,
 		getKey: operandIdentityKey,
 		operationSourceForItem: (operand) => operand,
