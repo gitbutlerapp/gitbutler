@@ -146,6 +146,7 @@
 	field-sizing: content;
 	box-sizing: content-box;
 	min-height: calc(2lh);
+	max-height: calc(10lh);
 	padding-inline: 8px;
 	padding-block: 6px;
 
