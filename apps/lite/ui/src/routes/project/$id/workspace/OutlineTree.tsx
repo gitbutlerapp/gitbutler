@@ -327,27 +327,25 @@ const useOutlineTreeHotkeys = ({
 	const selectedPushContext = Match.value(selection).pipe(
 		Match.tags({
 			Branch: (selection) => {
-				const stack = headInfo?.stacks.find((stack) => stack.id === selection.stackId);
-				if (!stack || stack.id === null) return null;
+				if (!selectedStack || selectedStack.id === null) return null;
 
-				const segmentIndex = stack.segments.findIndex(
+				const segmentIndex = selectedStack.segments.findIndex(
 					(segment) =>
 						!!segment.refName && refNamesEqual(segment.refName.fullNameBytes, selection.branchRef),
 				);
 				if (segmentIndex === -1) return null;
 
-				return pushContextForSegment({ segments: stack.segments, segmentIndex });
+				return pushContextForSegment({ segments: selectedStack.segments, segmentIndex });
 			},
 			Commit: (selection) => {
-				const stack = headInfo?.stacks.find((stack) => stack.id === selection.stackId);
-				if (!stack || stack.id === null) return null;
+				if (!selectedStack || selectedStack.id === null) return null;
 
-				const segmentIndex = stack.segments.findIndex((segment) =>
+				const segmentIndex = selectedStack.segments.findIndex((segment) =>
 					segment.commits.some((commit) => commit.id === selection.commitId),
 				);
 				if (segmentIndex === -1) return null;
 
-				return pushContextForSegment({ segments: stack.segments, segmentIndex });
+				return pushContextForSegment({ segments: selectedStack.segments, segmentIndex });
 			},
 		}),
 		Match.orElse(() => null),
