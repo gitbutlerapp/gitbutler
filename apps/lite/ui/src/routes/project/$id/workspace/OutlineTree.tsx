@@ -324,7 +324,34 @@ const useOutlineTreeHotkeys = ({
 						!!segment.refName && refNamesEqual(segment.refName.fullNameBytes, selection.branchRef),
 				)
 			: undefined;
-	const selectedPushContext = pushContextForSelection({ headInfo, selection });
+	const selectedPushContext = Match.value(selection).pipe(
+		Match.tags({
+			Branch: (selection) => {
+				const stack = headInfo?.stacks.find((stack) => stack.id === selection.stackId);
+				if (!stack || stack.id === null) return null;
+
+				const segmentIndex = stack.segments.findIndex(
+					(segment) =>
+						!!segment.refName && refNamesEqual(segment.refName.fullNameBytes, selection.branchRef),
+				);
+				if (segmentIndex === -1) return null;
+
+				return pushContextForSegment({ segments: stack.segments, segmentIndex });
+			},
+			Commit: (selection) => {
+				const stack = headInfo?.stacks.find((stack) => stack.id === selection.stackId);
+				if (!stack || stack.id === null) return null;
+
+				const segmentIndex = stack.segments.findIndex((segment) =>
+					segment.commits.some((commit) => commit.id === selection.commitId),
+				);
+				if (segmentIndex === -1) return null;
+
+				return pushContextForSegment({ segments: stack.segments, segmentIndex });
+			},
+		}),
+		Match.orElse(() => null),
+	);
 	const selectedBranchChecked = useAppSelector((state) =>
 		selectedBranchSegment && selectedBranchSegment.commits.length > 0
 			? selectedBranchSegment.commits.every((commit) =>
@@ -1840,42 +1867,6 @@ const pushContextForSegment = ({
 		partialStackSegments,
 	};
 };
-
-const pushContextForSelection = ({
-	headInfo,
-	selection,
-}: {
-	headInfo: RefInfo | undefined;
-	selection: Operand | null;
-}): PushContext | null =>
-	Match.value(selection).pipe(
-		Match.tags({
-			Branch: (selection) => {
-				const stack = headInfo?.stacks.find((stack) => stack.id === selection.stackId);
-				if (!stack || stack.id === null) return null;
-
-				const segmentIndex = stack.segments.findIndex(
-					(segment) =>
-						!!segment.refName && refNamesEqual(segment.refName.fullNameBytes, selection.branchRef),
-				);
-				if (segmentIndex === -1) return null;
-
-				return pushContextForSegment({ segments: stack.segments, segmentIndex });
-			},
-			Commit: (selection) => {
-				const stack = headInfo?.stacks.find((stack) => stack.id === selection.stackId);
-				if (!stack || stack.id === null) return null;
-
-				const segmentIndex = stack.segments.findIndex((segment) =>
-					segment.commits.some((commit) => commit.id === selection.commitId),
-				);
-				if (segmentIndex === -1) return null;
-
-				return pushContextForSegment({ segments: stack.segments, segmentIndex });
-			},
-		}),
-		Match.orElse(() => null),
-	);
 
 const BranchRow: FC<
 	{
