@@ -190,7 +190,7 @@ const useOutlineTreeHotkeys = ({
 				)
 			: undefined;
 
-	const selectedBranchChecked = useAppSelector((state) =>
+	const selectedBranchCommitsChecked = useAppSelector((state) =>
 		selectedBranchSegment && selectedBranchSegment.commits.length > 0
 			? selectedBranchSegment.commits.every((commit) =>
 					selectProjectCommitChecked(state, projectId, commit.id),
@@ -259,7 +259,7 @@ const useOutlineTreeHotkeys = ({
 			projectActions.setCommitsChecked({
 				projectId,
 				commitIds: selectedBranchSegment.commits.map((commit) => commit.id),
-				checked: !selectedBranchChecked,
+				checked: !selectedBranchCommitsChecked,
 			}),
 		);
 	};
