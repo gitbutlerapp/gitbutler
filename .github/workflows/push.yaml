@@ -614,7 +614,11 @@ jobs:
           destination_dir: "installers/latest"
 
   check-rust:
-    if: always()
+    # Skip the aggregator when the run itself is cancelled: a concurrency-
+    # cancelled twin run has `cancelled` needs, which alls-green scores as
+    # failure — a phantom red required check on the same commit as the live
+    # (green) run.
+    if: ${{ !cancelled() }}
     needs:
       - changes
       - check-rust-windows
