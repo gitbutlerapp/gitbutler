@@ -2,7 +2,6 @@
 	import { goto } from "$app/navigation";
 	import RemoveProjectButton from "$components/projectSettings/RemoveProjectButton.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import { showError } from "$lib/error/showError";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -46,9 +45,6 @@
 			}
 
 			chipToasts.success("Project deleted");
-		} catch (err: any) {
-			console.error(err);
-			showError("Failed to delete project", err);
 		} finally {
 			isDeleting = false;
 		}

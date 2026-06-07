@@ -1,6 +1,6 @@
 import { SilentError } from "$lib/error/error";
+import { isNormalizedError, normalizedErrorToException } from "$lib/error/normalizedError";
 import { parseError } from "$lib/error/parser";
-import { isReduxError } from "$lib/error/reduxError";
 import { showError } from "$lib/error/showError";
 import { captureException } from "@sentry/sveltekit";
 
@@ -73,23 +73,26 @@ export function logError(error: unknown, options?: LogErrorOptions) {
 		const silent = error instanceof SilentError;
 
 		if (!silent) {
-			// Tauri rejections arrive as plain `{name, message, code}` objects
-			// rather than `Error` instances. Sentry can't extract a stack from
-			// those, so it buckets every variant under generic
-			// "Object captured as promise rejection" groups. Wrap them in a
-			// proper Error so Sentry groups by name + message.
-			const forSentry =
-				isReduxError(error) && !(error instanceof Error) ? reduxErrorToException(error) : error;
-			captureException(forSentry, {
-				mechanism: {
-					type: "sveltekit",
-					handled: false,
-				},
-			});
-		}
-
-		if (!options?.skipToast && !silent) {
-			showError("Unhandled exception", error);
+			if (options?.skipToast) {
+				// Sentry-only path (e.g. Svelte `<ErrorBoundary>`): no toast
+				// will be shown, so capture directly here. `showError`
+				// handles the same wrapping in the toast-bearing path
+				// below.
+				const forSentry =
+					isNormalizedError(error) && !(error instanceof Error)
+						? normalizedErrorToException(error)
+						: error;
+				captureException(forSentry, {
+					mechanism: {
+						type: "sveltekit",
+						handled: false,
+					},
+				});
+			} else {
+				// `showError` captures to PostHog and Sentry itself, so the
+				// toast pipeline and the telemetry stay in sync.
+				showError("Unhandled exception", error);
+			}
 		}
 
 		const logMessage = loggableError(error);
@@ -99,26 +102,4 @@ export function logError(error: unknown, options?: LogErrorOptions) {
 	} catch (err: unknown) {
 		console.error("Error while trying to log error.", err);
 	}
-}
-
-function reduxErrorToException(error: {
-	name?: string;
-	message: string;
-	code?: string;
-	fingerprint?: readonly string[];
-}): Error {
-	const err = new Error(error.message);
-	// Prefer the backend-provided name (e.g. "API error: (push_stack)") over
-	// the default "Error" so Sentry's title grouping matches the PostHog
-	// taxonomy we already filter by.
-	err.name = error.name || "Error";
-	if (error.code) {
-		(err as Error & { code?: string }).code = error.code;
-	}
-	if (error.fingerprint) {
-		// `applyIpcFingerprint` (Sentry `beforeSend`) reads from this field
-		// to apply the precomputed IpcError fingerprint to outgoing events.
-		(err as Error & { fingerprint?: readonly string[] }).fingerprint = error.fingerprint;
-	}
-	return err;
 }

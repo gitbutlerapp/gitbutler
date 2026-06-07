@@ -1,5 +1,4 @@
 import { goto } from "$app/navigation";
-import { showError } from "$lib/error/showError";
 import { showToast } from "$lib/notifications/toasts";
 import { handleAddProjectOutcome, type Project } from "$lib/project/project";
 import { projectPath } from "$lib/routes/routes.svelte";
@@ -113,14 +112,10 @@ export class ProjectsService {
 		const path = await this.getValidPath();
 		if (!path) return;
 
-		try {
-			const project = await this.fetchProject(projectId, true);
-			await this.updateProject({ ...project, path });
-			chipToasts.success(`Project ${project.title} relocated`);
-			window.location.reload();
-		} catch (error: any) {
-			showError("Failed to relocate project:", error.message);
-		}
+		const project = await this.fetchProject(projectId, true);
+		await this.updateProject({ ...project, path });
+		chipToasts.success(`Project ${project.title} relocated`);
+		window.location.reload();
 	}
 
 	async addProject(path?: string) {

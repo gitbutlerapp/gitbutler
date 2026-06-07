@@ -4,7 +4,6 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { URL_SERVICE } from "$lib/backend/url";
-	import { showError } from "$lib/error/showError";
 	import { CHECKS_MONITOR } from "$lib/forge/checksMonitor.svelte";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { PR_SERVICE } from "$lib/forge/prService.svelte";
@@ -99,8 +98,6 @@
 		try {
 			await prService.setDraft(projectId, prNumber, draft);
 			await prService.fetch(projectId, prNumber, { forceRefetch: true });
-		} catch (err: unknown) {
-			showError("Failed to update draft status", err);
 		} finally {
 			draftToggling = false;
 		}

@@ -5,7 +5,7 @@ import {
 	HunkDropDataV3,
 	type ChangeDropData,
 } from "$lib/dragging/draggables";
-import { parseError } from "$lib/error/parser";
+import { classify } from "$lib/error/errorClassification";
 import { HookFailedError, HOOKS_SERVICE } from "$lib/git/hooksService";
 import { toCommitMovePlacement } from "$lib/stacks/commitMovePlacement";
 import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -95,11 +95,11 @@ export class MoveCommitDzHandler implements DropzoneHandler {
 						dryRun: false,
 					});
 				} catch (error) {
-					const { description, message } = parseError(error);
+					const classified = classify(error);
 					result = {
 						type: "warning",
 						title: "Cannot move commits",
-						message: description ?? message,
+						message: classified.userMessage ?? classified.message,
 					};
 				}
 			},

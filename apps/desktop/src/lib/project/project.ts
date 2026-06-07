@@ -1,5 +1,5 @@
 import { goto } from "$app/navigation";
-import { showToast } from "$lib/notifications/toasts";
+import { showToast, showWarning } from "$lib/notifications/toasts";
 import { projectPath } from "$lib/routes/routes.svelte";
 import { TestId } from "@gitbutler/ui";
 // Inlined to avoid circular import with forge/.
@@ -82,12 +82,10 @@ export function handleAddProjectOutcome(
 			onAdded?.(outcome.subject);
 			return true;
 		case "alreadyExists":
-			showToast({
-				testId: TestId.AddProjectAlreadyExistsModal,
-				style: "warning",
-				title: `Project '${outcome.subject.title}' already exists`,
-				message: `The project at "${outcome.subject.path}" is already added`,
-				extraAction: {
+			showWarning(
+				`Project '${outcome.subject.title}' already exists`,
+				`The project at "${outcome.subject.path}" is already added`,
+				{
 					label: "Open project",
 					testId: TestId.AddProjectAlreadyExistsModalOpenProjectButton,
 					onClick: (dismiss) => {
@@ -95,21 +93,14 @@ export function handleAddProjectOutcome(
 						dismiss();
 					},
 				},
-			});
+				TestId.AddProjectAlreadyExistsModal,
+			);
 			return true;
 		case "pathNotFound":
-			showToast({
-				style: "warning",
-				title: "Path not found",
-				message: "The specified path does not exist on the filesystem.",
-			});
+			showWarning("Path not found", "The specified path does not exist on the filesystem.");
 			return true;
 		case "notADirectory":
-			showToast({
-				style: "warning",
-				title: "Not a directory",
-				message: "The specified path is not a directory.",
-			});
+			showWarning("Not a directory", "The specified path is not a directory.");
 			return true;
 		case "bareRepository":
 			showToast({
@@ -120,34 +111,29 @@ export function handleAddProjectOutcome(
 			});
 			return true;
 		case "nonMainWorktree":
-			showToast({
-				style: "warning",
-				title: "Non-main worktree",
-				message: "The specified path is not the main worktree of the repository.",
-			});
+			showWarning(
+				"Non-main worktree",
+				"The specified path is not the main worktree of the repository.",
+			);
 			return true;
 		case "noWorkdir":
-			showToast({
-				style: "warning",
-				title: "No workdir",
-				message: "The specified repository does not have a working directory.",
-			});
+			showWarning("No workdir", "The specified repository does not have a working directory.");
 			return true;
 		case "noDotGitDirectory":
-			showToast({
-				testId: TestId.AddProjectNoDotGitDirectoryModal,
-				style: "warning",
-				title: "No .git directory",
-				message: "The specified path does not contain a .git directory.",
-			});
+			showWarning(
+				"No .git directory",
+				"The specified path does not contain a .git directory.",
+				undefined,
+				TestId.AddProjectNoDotGitDirectoryModal,
+			);
 			return true;
 		case "notAGitRepository":
-			showToast({
-				testId: TestId.AddProjectNotAGitRepoModal,
-				style: "warning",
-				title: "Not a Git repository",
-				message: `Unable to add project: ${outcome.subject}`,
-			});
+			showWarning(
+				"Not a Git repository",
+				`Unable to add project: ${outcome.subject}`,
+				undefined,
+				TestId.AddProjectNotAGitRepoModal,
+			);
 			return true;
 	}
 }

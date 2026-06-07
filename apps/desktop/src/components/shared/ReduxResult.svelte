@@ -5,7 +5,7 @@
 </script>
 
 <script lang="ts" generics="A, B extends string | undefined, C extends string | undefined">
-	import { isParsedError } from "$lib/error/parser";
+	import { isNormalizedError } from "$lib/error/normalizedError";
 
 	import { Icon, InfoMessage } from "@gitbutler/ui";
 	import { QueryStatus } from "@reduxjs/toolkit/query";
@@ -70,7 +70,7 @@
 {#snippet errorComponent(error: unknown)}
 	{#if props.error}
 		{@render props.error(error)}
-	{:else if isParsedError(error)}
+	{:else if isNormalizedError(error)}
 		<div class="redux-result__error-wrapper">
 			<InfoMessage error={error.message} style="danger">
 				{#snippet title()}

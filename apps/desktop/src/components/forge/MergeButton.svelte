@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { showError } from "$lib/error/showError";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { MergeMethod } from "$lib/forge/interface/types";
 	import { inject } from "@gitbutler/core/context";
@@ -108,8 +107,6 @@
 						loading = true;
 						try {
 							await onSetDraft(!isDraft);
-						} catch (err: unknown) {
-							showError("Failed to update draft status", err);
 						} finally {
 							loading = false;
 						}

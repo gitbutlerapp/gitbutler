@@ -3,10 +3,10 @@
 	import PRListCard from "$components/branchesPage/PRListCard.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
-	import { showError } from "$lib/error/showError";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { PR_SERVICE } from "$lib/forge/prService.svelte";
 	import { REMOTES_SERVICE } from "$lib/git/remotesService";
+	import { showWarning } from "$lib/notifications/toasts";
 	import { workspacePath } from "$lib/routes/routes.svelte";
 	import { handleCreateBranchFromBranchOutcome } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -60,12 +60,11 @@
 		}
 
 		if (!inputRemoteName) {
-			showError("Cannot create a remote", "Please provide a remote name.");
+			showWarning("Cannot create a remote", "Please provide a remote name.");
 			return;
 		}
 
 		loading = true;
-
 		try {
 			const remoteRef = "refs/remotes/" + inputRemoteName + "/" + pr.sourceBranch;
 			await remotesService.addRemote(projectId, inputRemoteName, remoteUrl);
@@ -75,11 +74,8 @@
 				branch: remoteRef,
 				prNumber,
 			});
-
 			handleCreateBranchFromBranchOutcome(outcome);
 			goto(workspacePath(projectId));
-		} catch (err: unknown) {
-			showError("Failed to apply forked branch", err);
 		} finally {
 			loading = false;
 		}

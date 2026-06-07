@@ -1,4 +1,4 @@
-import { IpcError, isReduxError } from "$lib/error/reduxError";
+import { IpcError, isNormalizedError } from "$lib/error/normalizedError";
 import { getName, getVersion, getVersion as tauriGetVersion } from "@tauri-apps/api/app";
 import { invoke as invokeTauri } from "@tauri-apps/api/core";
 import { documentDir as documentDirTauri } from "@tauri-apps/api/path";
@@ -237,7 +237,7 @@ async function tauriInvoke<T>(command: string, params: Record<string, unknown> =
 	try {
 		return await invokeTauri<T>(command, params);
 	} catch (error: unknown) {
-		if (isReduxError(error)) {
+		if (isNormalizedError(error)) {
 			console.error(`ipc->${command}: ${JSON.stringify(params)}`, error);
 			// Re-throw as a proper Error subclass so the stack points at the
 			// caller and Sentry can fingerprint by name + message instead of

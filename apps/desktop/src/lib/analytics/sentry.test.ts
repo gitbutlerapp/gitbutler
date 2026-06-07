@@ -1,4 +1,4 @@
-import { IpcError, applyIpcFingerprint } from "$lib/error/reduxError";
+import { IpcError, applyIpcFingerprint } from "$lib/error/normalizedError";
 import { describe, expect, test } from "vitest";
 import type { ErrorEvent, EventHint } from "@sentry/sveltekit";
 
@@ -7,7 +7,7 @@ import type { ErrorEvent, EventHint } from "@sentry/sveltekit";
  * hook must copy the precomputed fingerprint onto the outgoing event;
  * for any other shape it must be a no-op.
  *
- * Together with `reduxError.test.ts` (which pins the normaliser itself)
+ * Together with `normalizedError.test.ts` (which pins the normaliser itself)
  * this covers the JS-side path end to end. The "does Sentry's SDK
  * actually invoke `beforeSend` with this hint shape" question is the
  * SDK contract — verify once manually against the development Sentry
@@ -87,10 +87,10 @@ describe("applyIpcFingerprint", () => {
 	test("reads `fingerprint` off a plain Error too (RTK Query rebuild path)", () => {
 		// Errors that go through RTK's `tauriBaseQuery` get flattened into a
 		// plain `{name, message, code, fingerprint}` object and then rebuilt
-		// in `reduxErrorToException` (logError.ts) as a generic `Error` with
-		// `fingerprint` copied across. `applyIpcFingerprint` must still
-		// detect that fingerprint even though the value is no longer an
-		// `IpcError` instance.
+		// in `normalizedErrorToException` (normalizedError.ts) as a generic `Error`
+		// with `fingerprint` copied across. `applyIpcFingerprint` must
+		// still detect that fingerprint even though the value is no longer
+		// an `IpcError` instance.
 		const rebuilt = Object.assign(new Error("Worktree changes would be overwritten"), {
 			fingerprint: [
 				"ipc",

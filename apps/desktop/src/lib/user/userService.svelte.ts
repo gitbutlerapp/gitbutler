@@ -1,5 +1,5 @@
 import { resetSentry, setSentryUser } from "$lib/analytics/sentry";
-import { showError } from "$lib/error/showError";
+import { showWarning } from "$lib/notifications/toasts";
 import { type UiState } from "$lib/state/uiState.svelte";
 import { InjectionToken } from "@gitbutler/core/context";
 import { chipToasts } from "@gitbutler/ui";
@@ -62,34 +62,29 @@ export class UserService {
 	}
 
 	async setUserAccessToken(token: string, bypassConfirmationToast = false) {
-		try {
-			const currentUser = await this.backendApi.endpoints.getUser.fetch(undefined, {
-				forceRefetch: true,
-			});
-			if (currentUser) {
-				showError(
-					"Error: Attempting to log in before logging out first",
-					"There's already an account logged in, please log out before attempting to log in to another account.",
-				);
-				return;
-			}
-
-			const user = await this.backendApi.endpoints.loginWithToken.mutate({ token });
-
-			if (bypassConfirmationToast) {
-				await this.setUser(user);
-				return;
-			}
-
-			this._incomingUserLogin = user;
-			// Display a login confirmation modal
-			this.uiState.global.modal.set({
-				type: "login-confirmation",
-			});
-		} catch (error) {
-			console.error("Error setting user access token", error);
-			showError("Error occurred while logging in", error);
+		const currentUser = await this.backendApi.endpoints.getUser.fetch(undefined, {
+			forceRefetch: true,
+		});
+		if (currentUser) {
+			showWarning(
+				"Already logged in",
+				"There's already an account logged in, please log out before attempting to log in to another account.",
+			);
+			return;
 		}
+
+		const user = await this.backendApi.endpoints.loginWithToken.mutate({ token });
+
+		if (bypassConfirmationToast) {
+			await this.setUser(user);
+			return;
+		}
+
+		this._incomingUserLogin = user;
+		// Display a login confirmation modal
+		this.uiState.global.modal.set({
+			type: "login-confirmation",
+		});
 	}
 
 	async acceptIncomingUser(incomingUser: User) {
@@ -120,21 +115,15 @@ export class UserService {
 		if (this.user) {
 			await this.forgetUserCredentials();
 		}
-		try {
-			const loginToken = await this.backendApi.endpoints.getLoginToken.fetch(undefined, {
-				forceRefetch: true,
-			});
-			const url = new URL(loginToken.url);
-			const buildType = await this.backend.invoke<string>("build_type").catch(() => undefined);
-			if (buildType !== undefined && buildType !== "development")
-				url.searchParams.set("bt", buildType);
+		const loginToken = await this.backendApi.endpoints.getLoginToken.fetch(undefined, {
+			forceRefetch: true,
+		});
+		const url = new URL(loginToken.url);
+		const buildType = await this.backend.invoke<string>("build_type").catch(() => undefined);
+		if (buildType !== undefined && buildType !== "development")
+			url.searchParams.set("bt", buildType);
 
-			return url.toString();
-		} catch (err) {
-			console.error(err);
-			showError("Error occurred while fetching the login URL", err);
-			throw err;
-		}
+		return url.toString();
 	}
 
 	async openLoginPage(): Promise<void> {
@@ -144,15 +133,8 @@ export class UserService {
 
 	async copyLoginPageLink(): Promise<void> {
 		const url = await this.getLoginUrl();
-		await this.backend
-			.writeTextToClipboard(url)
-			.then(() => {
-				chipToasts.success("Login URL copied to clipboard");
-			})
-			.catch((err) => {
-				showError("Error copying login URL to clipboard", err);
-				throw err;
-			});
+		await this.backend.writeTextToClipboard(url);
+		chipToasts.success("Login URL copied to clipboard");
 	}
 
 	async getUser(): Promise<ApiUser> {
