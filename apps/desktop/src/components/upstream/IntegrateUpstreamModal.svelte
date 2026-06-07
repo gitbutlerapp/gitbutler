@@ -4,45 +4,24 @@
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { descriptionTitle } from "$lib/commits/commit";
 	import { commitUrl, FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
-	import { getStackBranchNames } from "$lib/stacks/stack";
 	import {
-		getBaseBranchResolution,
-		stackFullyIntegrated,
-		sortStatusInfoV3,
-		getResolutionApproachV3,
-		type StackStatusInfoV3,
-		type StackStatusesWithBranchesV3,
+		sortUpstreamIntegrationStatus,
+		type UpstreamIntegrationStackStatus,
+		type UpstreamIntegrationStatuses,
 	} from "$lib/upstream/types";
 	import { UPSTREAM_INTEGRATION_SERVICE } from "$lib/upstream/upstreamIntegrationService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import {
-		getBooleanStorageItem,
-		removeStorageItem,
-		setBooleanStorageItem,
-	} from "@gitbutler/shared/persisted";
 	import {
 		Badge,
 		Button,
 		IntegrationSeriesRow,
 		Modal,
 		SimpleCommitRow,
-		FileListItem,
-		Select,
-		SelectItem,
 		ScrollableContainer,
-		type BranchShouldBeDeletedMap,
 		TestId,
 		AsyncButton,
 	} from "@gitbutler/ui";
 	import { tick } from "svelte";
-	import { SvelteMap } from "svelte/reactivity";
-	import type { PullRequest } from "$lib/forge/interface/types";
-	import type {
-		BaseBranchResolutionApproach,
-		BranchStatus,
-		Resolution,
-		StackStatus,
-	} from "@gitbutler/but-sdk";
 
 	type OperationState = "inert" | "loading" | "completed";
 
@@ -65,159 +44,77 @@
 
 	let modal = $state<Modal>();
 	let integratingUpstream = $state<OperationState>("inert");
-	const results = new SvelteMap<string, Resolution>();
-	let statuses = $state<StackStatusInfoV3[]>([]);
-	const baseResolutionOptions = [
-		{ label: "Rebase", value: "rebase" as const },
-		{ label: "Merge", value: "merge" as const },
-		{ label: "Hard reset", value: "hardReset" as const },
-	];
-	let baseResolutionApproach = $state<BaseBranchResolutionApproach | undefined>();
-	let targetCommitOid = $state<string | undefined>(undefined);
-	let branchStatuses = $state<StackStatusesWithBranchesV3 | undefined>();
-	// const stackService = getContext(StackService);
-	// let appliedBranches = $state<string[]>();
-	// Any PRs belonging to applied branches that have been merged
-	let filteredReviews = $state<PullRequest[]>([]);
-	const reviewMap = $derived(new Map(filteredReviews?.map((r) => [r.sourceBranch, r])));
+	let statuses = $state<UpstreamIntegrationStackStatus[]>([]);
+	let integrationStatuses = $state<UpstreamIntegrationStatuses | undefined>();
+	let statusRequest = 0;
 
-	const isDivergedResolved = $derived(base?.targetShaAheadOfRef && !baseResolutionApproach);
+	const baseLoaded = $derived(!!base);
+	const isBaseDiverged = $derived(!!base?.targetShaAheadOfRef);
+	const canIntegrate = $derived(
+		baseLoaded &&
+			!isBaseDiverged &&
+			!!integrationStatuses &&
+			integrationStatuses.updates.length > 0,
+	);
 	const [integrateUpstream] = $derived(upstreamIntegrationService.integrateUpstream());
 
-	function someBranchesShouldNotBeDeleted(branchNames: string[]): boolean {
-		for (const branchName of branchNames) {
-			const key = getDontDeleteBranchStorageKey(branchName);
-			const dontDelete = getBooleanStorageItem(key);
-			if (dontDelete) {
-				return true;
-			}
-		}
-		return false;
+	async function loadStatuses() {
+		const request = ++statusRequest;
+		integrationStatuses = undefined;
+		statuses = [];
+
+		const nextStatuses = await upstreamIntegrationService.upstreamStatuses(projectId);
+		if (request !== statusRequest || isBaseDiverged) return;
+
+		const statusesTmp = [...nextStatuses.subject];
+		statusesTmp.sort(sortUpstreamIntegrationStatus);
+
+		integrationStatuses = nextStatuses;
+		statuses = statusesTmp;
 	}
 
 	$effect(() => {
 		if (!modal?.imports.open) return;
-		if (branchStatuses?.type !== "updatesRequired") {
+
+		if (!baseLoaded) {
+			statusRequest++;
+			integrationStatuses = undefined;
 			statuses = [];
 			return;
 		}
 
-		const statusesTmp = [...branchStatuses.subject];
-		statusesTmp.sort(sortStatusInfoV3);
-
-		// Side effect, refresh results
-		results.clear();
-		for (const status of statusesTmp) {
-			if (status.stack.id) {
-				const dontDelete = someBranchesShouldNotBeDeleted(getStackBranchNames(status.stack));
-
-				results.set(status.stack.id, {
-					stackId: status.stack.id,
-					approach: getResolutionApproachV3(status),
-					deleteIntegratedBranches: !dontDelete,
-				});
-			}
+		if (isBaseDiverged) {
+			statusRequest++;
+			integrationStatuses = undefined;
+			statuses = [];
+			return;
 		}
 
-		statuses = statusesTmp;
+		void loadStatuses();
 	});
-
-	// Re-fetch upstream statuses if the target commit oid changes
-	$effect(() => {
-		if (!modal?.imports.open) return;
-		if (targetCommitOid) {
-			upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid).then((statuses) => {
-				branchStatuses = statuses;
-			});
-		}
-	});
-
-	// Resolve the target commit oid if the base branch diverged and the the resolution
-	// approach is changed
-	$effect(() => {
-		if (!modal?.imports.open) return;
-		if (base?.targetShaAheadOfRef && baseResolutionApproach) {
-			upstreamIntegrationService
-				.resolveUpstreamIntegrationMutation({
-					projectId,
-					resolutionApproach: baseResolutionApproach,
-				})
-				.then((result) => {
-					targetCommitOid = result;
-				});
-		} else {
-			// If there is no divergence we should set this to undefined.
-			targetCommitOid = undefined;
-		}
-	});
-
-	// async function setFilteredBranches(appliedBranches: string[]) {
-	// 	if (!forgeListingService) return;
-
-	// 	try {
-	// 		// Fetch the base branch and the forge info to ensure we have the
-	// 		// latest data We only need to (and want to) do this if we are also
-	// 		// looking at the reviews.
-	// 		//
-	// 		// This is to handle the case where the reviews might dictacte that
-	// 		// we should remove a branch, but we don't have the have the merge
-	// 		// commit yet. If we were to handle a branch as "integrated" without
-	// 		// the merge commit, files might disappear for a users working tree
-	// 		// in a supprising way.
-	// 		//
-	// 		// We could query both of these simultaneously using Promise.all,
-	// 		// but that is extra complexity that is not needed for now.
-	// 		await baseBranchService.fetchFromRemotes(projectId);
-	// 		const reviews = await forgeListingService.fetchByBranch(projectId, appliedBranches);
-
-	// 		// Find the reviews that have a "mergedAt" timestamp
-	// 		filteredReviews = reviews.filter((r) => !!r.mergedAt);
-	// 	} catch (_e) {
-	// 		// We don't really mind if this fails as additional bonus
-	// 		// information.
-	// 	}
-	// }
-
-	function getDontDeleteBranchStorageKey(branchName: string): string {
-		return `integrate-upstream-modal:dont-delete-branch:${projectId}:${branchName}`;
-	}
-
-	function handleBaseResolutionSelection(value: BaseBranchResolutionApproach["type"]) {
-		baseResolutionApproach = { type: value };
-	}
 
 	async function integrate() {
+		if (!canIntegrate || !integrationStatuses) return;
+
 		integratingUpstream = "loading";
 		await tick();
-		const baseResolution = getBaseBranchResolution(
-			targetCommitOid,
-			baseResolutionApproach ?? { type: "hardReset" },
-		);
 
 		await integrateUpstream({
 			projectId,
-			resolutions: Array.from(results.values()),
-			baseBranchResolution: baseResolution,
+			updates: integrationStatuses.updates,
+			dryRun: false,
 		});
 		await baseBranchService.refreshBaseBranch(projectId);
 		integratingUpstream = "completed";
 		modal?.close();
 	}
 
-	// async function fetchAppliedBranches() {
-	// 	const stacksResponse = await stackService.fetchStacks(projectId);
-	// 	return stacksResponse.data?.flatMap((stack) => stack.heads.map((head) => head.name)) ?? [];
-	// }
-
 	export async function show() {
 		integratingUpstream = "inert";
-		branchStatuses = undefined;
-		filteredReviews = [];
+		integrationStatuses = undefined;
+		statuses = [];
 		await tick();
 		modal?.show();
-		// appliedBranches = await fetchAppliedBranches();
-		// await setFilteredBranches(untrack(() => appliedBranches) ?? []); // TODO: Some day this will be made good
-		branchStatuses = await upstreamIntegrationService.upstreamStatuses(projectId, targetCommitOid);
 	}
 
 	export const imports = {
@@ -226,114 +123,21 @@
 		},
 	};
 
-	function branchStatusToRowEntry(
-		associatedeReview: PullRequest | undefined,
-		branchStatus: BranchStatus,
-	): "integrated" | "conflicted" | "clear" {
-		if (associatedeReview?.mergedAt !== undefined) {
-			return "integrated";
-		}
-
-		if (branchStatus.type === "integrated") {
-			return "integrated";
-		}
-
-		if (branchStatus.type === "conflicted") {
-			return "conflicted";
-		}
-
-		return "clear";
-	}
-
 	function integrationRowSeries(
-		stackStatus: StackStatus,
+		statusInfo: UpstreamIntegrationStackStatus,
 	): { name: string; status: "integrated" | "conflicted" | "clear" }[] {
-		const statuses = stackStatus.branchStatuses.map((series) => {
-			const associatedeReview = reviewMap.get(series.name);
-			return {
-				name: series.name,
-				status: branchStatusToRowEntry(associatedeReview, series.status),
-			};
-		});
-
-		statuses.reverse();
-
-		return statuses;
-	}
-	function getBranchShouldBeDeletedMap(
-		stackId: string,
-		stackStatus: StackStatus,
-	): BranchShouldBeDeletedMap {
-		const branchShouldBeDeletedMap: BranchShouldBeDeletedMap = {};
-		stackStatus.branchStatuses.forEach((branch) => {
-			branchShouldBeDeletedMap[branch.name] = !!results.get(stackId)?.deleteIntegratedBranches;
-		});
-		return branchShouldBeDeletedMap;
-	}
-
-	function updateBranchShouldBeDeletedMap(
-		stackId: string,
-		branchNames: string[],
-		shouldBeDeleted: boolean,
-	): void {
-		const result = results.get(stackId);
-		if (!result) return;
-		for (const branchName of branchNames) {
-			const key = getDontDeleteBranchStorageKey(branchName);
-			if (!shouldBeDeleted) {
-				setBooleanStorageItem(key, true);
-			} else {
-				removeStorageItem(key);
-			}
-		}
-		results.set(stackId, { ...result, deleteIntegratedBranches: shouldBeDeleted });
-	}
-
-	function integrationOptions(
-		stackStatus: StackStatus,
-	): { label: string; value: "rebase" | "unapply" | "merge" }[] {
-		if (stackStatus.branchStatuses.length > 1) {
-			return [
-				{ label: "Rebase", value: "rebase" },
-				{ label: "Stash", value: "unapply" },
-			];
-		} else {
-			return [
-				{ label: "Rebase", value: "rebase" },
-				{ label: "Merge", value: "merge" },
-				{ label: "Stash", value: "unapply" },
-			];
-		}
+		return [...statusInfo.branchStatuses].reverse();
 	}
 </script>
 
-{#snippet stackStatus(stackId: string, stackStatus: StackStatus)}
-	{@const branchShouldBeDeletedMap = getBranchShouldBeDeletedMap(stackId, stackStatus)}
+{#snippet stackStatus(statusInfo: UpstreamIntegrationStackStatus)}
 	<IntegrationSeriesRow
 		testId={TestId.IntegrateUpstreamSeriesRow}
-		series={integrationRowSeries(stackStatus)}
-		{branchShouldBeDeletedMap}
-		updateBranchShouldBeDeletedMap={(branchNames, shouldBeDeleted) =>
-			updateBranchShouldBeDeletedMap(stackId, branchNames, shouldBeDeleted)}
-	>
-		{#if !stackFullyIntegrated(stackStatus) && results.get(stackId)}
-			<Select
-				value={results.get(stackId)!.approach.type}
-				maxWidth={130}
-				onselect={(value) => {
-					const result = results.get(stackId)!;
-					results.set(stackId, { ...result, approach: { type: value } });
-				}}
-				options={integrationOptions(stackStatus)}
-			>
-				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={highlighted} {highlighted}>
-						{item.label}
-					</SelectItem>
-				{/snippet}
-			</Select>
-		{/if}
-	</IntegrationSeriesRow>
+		series={integrationRowSeries(statusInfo)}
+		branchShouldBeDeletedMap={{}}
+		updateBranchShouldBeDeletedMap={() => {}}
+		showDeleteControls={false}
+	/>
 {/snippet}
 
 <Modal
@@ -370,73 +174,30 @@
 				</div>
 			</div>
 		{/if}
-		<!-- CONFLICTED FILES -->
-		{#if branchStatuses?.type === "updatesRequired" && branchStatuses?.worktreeConflicts.length > 0}
-			<div class="section">
-				<h3 class="text-14 text-semibold section-title">
-					<span>Conflicting uncommitted files</span>
-
-					<Badge>{branchStatuses?.worktreeConflicts.length}</Badge>
-				</h3>
-				<p class="text-12 clr-text-2">
-					Updating the workspace will add conflict markers to the following files.
-				</p>
-				<div class="scroll-wrap">
-					<ScrollableContainer maxHeight="15rem">
-						{@const conflicts = branchStatuses?.worktreeConflicts}
-						{#each conflicts as file, i}
-							<FileListItem
-								listMode="list"
-								filePath={file}
-								clickable={false}
-								conflicted
-								isLast={i === conflicts.length - 1}
-							/>
-						{/each}
-					</ScrollableContainer>
-				</div>
-			</div>
-		{/if}
 		<!-- DIVERGED -->
-		{#if base?.targetShaAheadOfRef}
+		{#if isBaseDiverged}
 			<div class="target-divergence">
 				<img class="target-icon" src="/images/domain-icons/trunk.svg" alt="" />
 
 				<div class="target-divergence-about">
 					<h3 class="text-14 text-semibold">Target branch divergence</h3>
 					<p class="text-12 text-body target-divergence-description">
-						<span class="text-bold">target/main</span> has diverged from the workspace.
+						<span class="text-bold">{base?.branchName ?? "The target branch"}</span> has diverged
+						from the workspace.
 						<br />
-						Select an action to proceed with updating.
+						Resolve target branch divergence before updating the workspace.
 					</p>
-				</div>
-
-				<div class="target-divergence-action">
-					<Select
-						value={baseResolutionApproach?.type}
-						placeholder="Choose…"
-						onselect={handleBaseResolutionSelection}
-						options={baseResolutionOptions}
-					>
-						{#snippet itemSnippet({ item, highlighted })}
-							<SelectItem selected={highlighted} {highlighted}>
-								{item.label}
-							</SelectItem>
-						{/snippet}
-					</Select>
 				</div>
 			</div>
 		{/if}
 		<!-- STACKS AND BRANCHES TO UPDATE -->
 		{#if statuses.length > 0}
-			<div class="section" class:section-disabled={isDivergedResolved}>
+			<div class="section">
 				<h3 class="text-14 text-semibold">To be updated:</h3>
 				<div class="scroll-wrap">
 					<ScrollableContainer maxHeight="15rem">
-						{#each statuses as { stack, status }}
-							{#if stack.id}
-								{@render stackStatus(stack.id, status)}
-							{/if}
+						{#each statuses as status}
+							{@render stackStatus(status)}
 						{/each}
 					</ScrollableContainer>
 				</div>
@@ -451,8 +212,8 @@
 				testId={TestId.IntegrateUpstreamActionButton}
 				wide
 				style="pop"
-				disabled={isDivergedResolved || !branchStatuses}
-				loading={integratingUpstream === "loading" || !branchStatuses}
+				disabled={!canIntegrate}
+				loading={integratingUpstream === "loading" || (!integrationStatuses && !isBaseDiverged)}
 				action={async () => {
 					await integrate();
 				}}
@@ -515,22 +276,10 @@
 		color: var(--text-2);
 	}
 
-	.target-divergence-action {
-		display: flex;
-		flex-direction: column;
-		max-width: 230px;
-	}
-
 	/* CONTROLS */
 	.controls {
 		display: flex;
 		width: 100%;
 		gap: 6px;
-	}
-
-	/* MODIFIERS */
-	.section-disabled {
-		opacity: 0.5;
-		pointer-events: none;
 	}
 </style>

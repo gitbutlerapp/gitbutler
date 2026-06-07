@@ -1,5 +1,5 @@
 use anyhow::Result;
-use but_core::Commit;
+use but_core::{Commit, RefMetadata};
 use but_graph::init::Options;
 use but_meta::virtual_branches_legacy_types::Target;
 use but_rebase::graph_rebase::mutate::RelativeTo;
@@ -8,7 +8,7 @@ use but_workspace::{BottomUpdate, BottomUpdateKind, integrate_upstream};
 use gix::prelude::ObjectIdExt;
 
 use crate::ref_info::with_workspace_commit::utils::{
-    StackState, add_stack, named_writable_scenario_with_description,
+    StackState, add_stack, add_stack_with_segments, named_writable_scenario_with_description,
 };
 
 #[test]
@@ -408,6 +408,340 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
        To manually resolve, check out this commit, remove the directories
        listed above, resolve the conflicts, and amend the commit.
     "#);
+
+    Ok(())
+}
+
+#[test]
+fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("fully-integrated-branch")?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   9d7da88 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * 905d6e5 (origin/main, A) add A1
+    * | b38b04b (B) add B1
+    |/  
+    * 3183e43 (main) M1
+    ");
+
+    let mut workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @r"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+    ├── ≡📙:4:A on 3183e43 {1}
+    │   └── 📙:4:A
+    │       └── ·905d6e5 (🏘️|✓)
+    └── ≡📙:3:B on 3183e43 {2}
+        └── 📙:3:B
+            └── ·b38b04b (🏘️)
+    ");
+
+    let but_workspace::IntegrateUpstreamOutcome { rebase, ws_meta } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![
+            BottomUpdate {
+                kind: BottomUpdateKind::Rebase,
+                selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
+            },
+            BottomUpdate {
+                kind: BottomUpdateKind::Rebase,
+                selector: RelativeTo::Commit(repo.rev_parse_single("B")?.detach()),
+            },
+        ],
+    )?;
+
+    let materialized = rebase.materialize()?;
+    if let Some(ref_name) = materialized.workspace.ref_name() {
+        let mut md = materialized.meta.workspace(ref_name)?;
+        *md = ws_meta;
+        materialized.meta.set_workspace(&md)?;
+    }
+    drop(materialized);
+
+    let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+    let workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 905d6e5
+    └── ≡📙:3:B on 905d6e5 {2}
+        └── 📙:3:B
+            └── ·c932222 (🏘️)
+    ");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * eaf66d4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * c932222 (B) add B1
+    * 905d6e5 (origin/main) add A1
+    * 3183e43 (main) M1
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("fully-integrated-single-branch")?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * f88e9ce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 905d6e5 (origin/main, A) add A1
+    * 3183e43 (main) M1
+    ");
+
+    let mut workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+    └── ≡📙:3:A on 3183e43 {1}
+        └── 📙:3:A
+            └── ·905d6e5 (🏘️|✓)
+    ");
+
+    let but_workspace::IntegrateUpstreamOutcome { rebase, ws_meta } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
+        }],
+    )?;
+
+    let materialized = rebase.materialize()?;
+    if let Some(ref_name) = materialized.workspace.ref_name() {
+        let mut md = materialized.meta.workspace(ref_name)?;
+        *md = ws_meta;
+        materialized.meta.set_workspace(&md)?;
+    }
+    drop(materialized);
+
+    let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+    let workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 905d6e5");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * be76b24 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 905d6e5 (origin/main) add A1
+    * 3183e43 (main) M1
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("partially-integrated-multi-branch-stack")?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["C"]);
+    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   cf53402 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * 44c9428 (A) add A1
+    | * f1e7451 (origin/main, C) add C1
+    * | b38b04b (B) add B1
+    |/  
+    * 3183e43 (main) M1
+    ");
+
+    let mut workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+    ├── ≡📙:3:A on 3183e43 {1}
+    │   ├── 📙:3:A
+    │   │   └── ·44c9428 (🏘️)
+    │   └── 📙:5:C
+    │       └── ·f1e7451 (🏘️|✓)
+    └── ≡📙:4:B on 3183e43 {2}
+        └── 📙:4:B
+            └── ·b38b04b (🏘️)
+    ");
+
+    let but_workspace::IntegrateUpstreamOutcome { rebase, ws_meta } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![
+            BottomUpdate {
+                kind: BottomUpdateKind::Rebase,
+                selector: RelativeTo::Commit(repo.rev_parse_single("C")?.detach()),
+            },
+            BottomUpdate {
+                kind: BottomUpdateKind::Rebase,
+                selector: RelativeTo::Commit(repo.rev_parse_single("B")?.detach()),
+            },
+        ],
+    )?;
+
+    let materialized = rebase.materialize()?;
+    if let Some(ref_name) = materialized.workspace.ref_name() {
+        let mut md = materialized.meta.workspace(ref_name)?;
+        *md = ws_meta;
+        materialized.meta.set_workspace(&md)?;
+    }
+    drop(materialized);
+
+    let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+    let workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on f1e7451
+    ├── ≡📙:3:A on f1e7451 {1}
+    │   └── 📙:3:A
+    │       └── ·44c9428 (🏘️)
+    └── ≡📙:4:B on f1e7451 {2}
+        └── 📙:4:B
+            └── ·a27415e (🏘️)
+    ");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   780946b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * 44c9428 (A) add A1
+    * | a27415e (B) add B1
+    |/  
+    * f1e7451 (origin/main) add C1
+    * 3183e43 (main) M1
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("fully-integrated-multi-branch-stack")?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &["C"]);
+    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   cf53402 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * 44c9428 (origin/main, A) add A1
+    | * f1e7451 (C) add C1
+    * | b38b04b (B) add B1
+    |/  
+    * 3183e43 (main) M1
+    ");
+
+    let mut workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 3183e43
+    ├── ≡📙:5:A on 3183e43 {1}
+    │   ├── 📙:5:A
+    │   │   └── ·44c9428 (🏘️|✓)
+    │   └── 📙:3:C
+    │       └── ·f1e7451 (🏘️|✓)
+    └── ≡📙:4:B on 3183e43 {2}
+        └── 📙:4:B
+            └── ·b38b04b (🏘️)
+    ");
+
+    let but_workspace::IntegrateUpstreamOutcome { rebase, ws_meta } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![
+            BottomUpdate {
+                kind: BottomUpdateKind::Rebase,
+                selector: RelativeTo::Commit(repo.rev_parse_single("C")?.detach()),
+            },
+            BottomUpdate {
+                kind: BottomUpdateKind::Rebase,
+                selector: RelativeTo::Commit(repo.rev_parse_single("B")?.detach()),
+            },
+        ],
+    )?;
+
+    let materialized = rebase.materialize()?;
+    if let Some(ref_name) = materialized.workspace.ref_name() {
+        let mut md = materialized.meta.workspace(ref_name)?;
+        *md = ws_meta;
+        materialized.meta.set_workspace(&md)?;
+    }
+    drop(materialized);
+
+    let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+    let workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 44c9428
+    └── ≡📙:3:B on 44c9428 {2}
+        └── 📙:3:B
+            └── ·f59d71f (🏘️)
+    ");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * 55ce8ae (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * f59d71f (B) add B1
+    * 44c9428 (origin/main) add A1
+    * f1e7451 add C1
+    * 3183e43 (main) M1
+    ");
 
     Ok(())
 }

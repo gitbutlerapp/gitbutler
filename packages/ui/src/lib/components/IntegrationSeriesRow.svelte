@@ -17,6 +17,7 @@
 		series: Branch[];
 		branchShouldBeDeletedMap: BranchShouldBeDeletedMap;
 		updateBranchShouldBeDeletedMap: (branchName: string[], shouldBeDeleted: boolean) => void;
+		showDeleteControls?: boolean;
 		children?: Snippet;
 	}
 </script>
@@ -32,6 +33,7 @@
 		children,
 		updateBranchShouldBeDeletedMap,
 		branchShouldBeDeletedMap,
+		showDeleteControls = true,
 	}: Props = $props();
 
 	const allSeriesAreIntegrated = $derived(series.every((branch) => branch.status === "integrated"));
@@ -78,7 +80,7 @@
 					<span class="series-label text-12 text-semibold truncate"> Stack branches </span>
 				</div>
 
-				{#if allSeriesAreIntegrated}
+				{#if allSeriesAreIntegrated && showDeleteControls}
 					{@const atLeastSomeWillBeDeleted = series.some(
 						(branch) => branchShouldBeDeletedMap[branch.name],
 					)}
@@ -130,7 +132,7 @@
 							{/if}
 						</span>
 
-						{#if branch.status === "integrated"}
+						{#if branch.status === "integrated" && showDeleteControls}
 							<div class="integrated-label-wrap">
 								<span class="integrated-label text-12">Delete local branch</span>
 								<Checkbox
