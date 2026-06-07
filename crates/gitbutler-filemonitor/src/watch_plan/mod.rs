@@ -127,6 +127,16 @@ fn emit_git_dir_watches(
     {
         return Ok(ControlFlow::Break(()));
     }
+    // Watch the default GitButler storage dir so external sentinel writes (e.g.
+    // the `but` CLI) reach the UI. A custom `gitbutler.storagePath` isn't watched:
+    // the override relocates storage off the git dir (e.g. onto local disk when
+    // the repo's on NFS), so a configured path would typically sit outside any
+    // git-dir watch anyway — such setups fall back to other refresh signals.
+    let gitbutler_dir = git_dir.join(but_project_handle::DEFAULT_STORAGE_DIR_NAME);
+    if gitbutler_dir.is_dir() && visit_dir(&gitbutler_dir, RecursiveMode::NonRecursive)?.is_break()
+    {
+        return Ok(ControlFlow::Break(()));
+    }
     Ok(ControlFlow::Continue(()))
 }
 

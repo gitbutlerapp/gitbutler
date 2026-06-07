@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, anyhow};
-use but_project_handle::ProjectHandleOrLegacyProjectId;
+use but_project_handle::{ProjectHandleOrLegacyProjectId, REFRESH_SENTINEL_PATH};
 use gitbutler_notify_debouncer::{Debouncer, NoCache, new_debouncer};
 use gix::bstr::BStr;
 use notify::{RecommendedWatcher, Watcher};
@@ -617,6 +617,7 @@ fn classify_file(git_dir: &Path, file_path: &Path) -> FileKind {
             || check_file_path == Path::new(HEAD)
             || check_file_path == Path::new(GB_FLUSH)
             || check_file_path == Path::new(INDEX)
+            || check_file_path == Path::new(REFRESH_SENTINEL_PATH)
             || check_file_path.starts_with(LOCAL_REFS_DIR)
             || check_file_path.starts_with(REMOTE_REFS_DIR)
         {
@@ -686,6 +687,26 @@ mod tests {
         assert_eq!(
             classify_file(git_dir(), Path::new("/repo/src/main.rs")),
             FileKind::Project
+        );
+    }
+
+    #[test]
+    fn classify_refresh_sentinel() {
+        assert_eq!(
+            classify_file(git_dir(), Path::new("/repo/.git/gitbutler/REFRESH")),
+            FileKind::Git
+        );
+    }
+
+    #[test]
+    fn classify_metadata_store_as_uninteresting() {
+        // The metadata store is uninteresting — the sentinel is what signals refreshes.
+        assert_eq!(
+            classify_file(
+                git_dir(),
+                Path::new("/repo/.git/gitbutler/virtual_branches.toml")
+            ),
+            FileKind::GitUninteresting
         );
     }
 }

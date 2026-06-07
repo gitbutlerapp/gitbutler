@@ -6,6 +6,7 @@ use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_db::HunkAssignmentsHandleMut;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
+use but_project_handle::{REFRESH_SENTINEL_PATH, process_sentinel_token};
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
 use gitbutler_filemonitor::{
     FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR, REMOTE_REFS_DIR,
@@ -171,7 +172,7 @@ impl Handler {
         perm: &mut RepoExclusive,
     ) -> Result<()> {
         let (head_ref_name, head_sha) = head_info(ctx)?;
-        let mut saw_remote_activity = false;
+        let mut saw_workspace_activity = false;
         for path in paths {
             let Some(file_name) = path.to_str() else {
                 continue;
@@ -187,9 +188,21 @@ impl Handler {
                         head_sha: head_sha.clone(),
                     })?;
                 }
-                // Track remote ref changes to emit a single event after the loop.
+                // Remote-ref updates and the refresh sentinel both mean "re-read
+                // workspace state"; coalesce into one emission after the loop.
                 _ if file_name.starts_with(REMOTE_REFS_DIR) => {
-                    saw_remote_activity = true;
+                    saw_workspace_activity = true;
+                }
+                REFRESH_SENTINEL_PATH => {
+                    // Skip the echo of our own write (its pid is already handled
+                    // in-process); a different pid, or a read error, means refresh.
+                    let sentinel = ctx.repo.get()?.path().join(file_name);
+                    let wrote_by_us = std::fs::read_to_string(sentinel)
+                        .map(|content| content.trim() == process_sentinel_token())
+                        .unwrap_or(false);
+                    if !wrote_by_us {
+                        saw_workspace_activity = true;
+                    }
                 }
                 HEAD_ACTIVITY => {
                     self.emit_app_event(Change::GitActivity {
@@ -214,8 +227,8 @@ impl Handler {
                 _ => { /* Ignore other files */ }
             }
         }
-        if saw_remote_activity {
-            self.emit_app_event(Change::GitRemoteActivity { project_id })?;
+        if saw_workspace_activity {
+            self.emit_app_event(Change::WorkspaceActivity { project_id })?;
         }
         Ok(())
     }
