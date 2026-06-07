@@ -21,7 +21,7 @@ export type IntegrationStepDraft =
 	| {
 			id: string;
 			kind: "squash";
-			commitIds: [string, string];
+			commitIds: string[];
 			message: string;
 	  };
 
@@ -81,7 +81,7 @@ export function buildIntegrationStepDrafts(
 				return {
 					id: createStepId(),
 					kind: "squash",
-					commitIds: [step.commits[0] ?? "", step.commits[1] ?? step.commits[0] ?? ""],
+					commitIds: [...step.commits],
 					message: step.message ?? "",
 				};
 		}
@@ -112,7 +112,9 @@ export function changeIntegrationStepDraftKind({
 	if (kind === "squash") {
 		const selectedCommitId = step.kind === "squash" ? step.commitIds[0] : step.commitId;
 		const primaryCommitId =
-			selectedCommitId !== "" ? selectedCommitId : firstCommitId(commitOptions);
+			selectedCommitId !== undefined && selectedCommitId !== ""
+				? selectedCommitId
+				: firstCommitId(commitOptions);
 		return {
 			id: step.id,
 			kind: "squash",
@@ -125,7 +127,7 @@ export function changeIntegrationStepDraftKind({
 	return {
 		id: step.id,
 		kind,
-		commitId: commitId !== "" ? commitId : firstCommitId(commitOptions),
+		commitId: commitId !== undefined && commitId !== "" ? commitId : firstCommitId(commitOptions),
 	};
 }
 
@@ -137,12 +139,12 @@ export function updateIntegrationStepDraftCommit({
 }: {
 	step: IntegrationStepDraft;
 	commitId: string;
-	index?: 0 | 1;
+	index?: number;
 	commitOptions: CommitPickerOption[];
 }): IntegrationStepDraft {
 	if (step.kind !== "squash") return { ...step, commitId };
 
-	const nextCommitIds: [string, string] = [...step.commitIds];
+	const nextCommitIds = [...step.commitIds];
 	const targetIndex = index ?? 0;
 	nextCommitIds[targetIndex] = commitId;
 	if (targetIndex === 0 && nextCommitIds[1] === commitId)

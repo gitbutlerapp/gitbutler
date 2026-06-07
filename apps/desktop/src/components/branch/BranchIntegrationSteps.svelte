@@ -100,6 +100,7 @@
 				<div class="branch-integration__step-fields">
 					<label class="branch-integration__field">
 						<select
+							aria-label="Integration step type"
 							value={step.kind}
 							onchange={(event) =>
 								(stepDrafts = stepDrafts.map((candidate) =>
@@ -119,44 +120,33 @@
 					</label>
 
 					{#if step.kind === "squash"}
-						<label class="branch-integration__field">
-							<select
-								value={step.commitIds[0]}
-								onchange={(event) =>
-									(stepDrafts = stepDrafts.map((candidate) =>
-										candidate.id === step.id
-											? updateIntegrationStepDraftCommit({
-													step: candidate,
-													commitId: event.currentTarget.value,
-													index: 0,
-													commitOptions,
-												})
-											: candidate,
-									))}
-							>
-								{@render commitOptionsMarkup(commitOptions)}
-							</select>
-						</label>
-						<label class="branch-integration__field">
-							<select
-								value={step.commitIds[1]}
-								onchange={(event) =>
-									(stepDrafts = stepDrafts.map((candidate) =>
-										candidate.id === step.id
-											? updateIntegrationStepDraftCommit({
-													step: candidate,
-													commitId: event.currentTarget.value,
-													index: 1,
-													commitOptions,
-												})
-											: candidate,
-									))}
-							>
-								{@render commitOptionsMarkup(commitOptions, step.commitIds[0])}
-							</select>
-						</label>
+						{#each step.commitIds as commitId, commitIndex}
+							<label class="branch-integration__field">
+								<select
+									aria-label={`Squash commit ${commitIndex + 1}`}
+									value={commitId}
+									onchange={(event) =>
+										(stepDrafts = stepDrafts.map((candidate) =>
+											candidate.id === step.id
+												? updateIntegrationStepDraftCommit({
+														step: candidate,
+														commitId: event.currentTarget.value,
+														index: commitIndex,
+														commitOptions,
+													})
+												: candidate,
+										))}
+								>
+									{@render commitOptionsMarkup(
+										commitOptions,
+										step.commitIds.filter((_, index) => index !== commitIndex),
+									)}
+								</select>
+							</label>
+						{/each}
 						<label class="branch-integration__field branch-integration__field--full">
 							<textarea
+								aria-label="Squash commit message"
 								rows="3"
 								value={step.message}
 								oninput={(event) =>
@@ -173,6 +163,7 @@
 					{:else}
 						<label class="branch-integration__field branch-integration__field--full">
 							<select
+								aria-label="Integration commit"
 								value={step.commitId}
 								onchange={(event) =>
 									(stepDrafts = stepDrafts.map((candidate) =>
@@ -195,12 +186,9 @@
 	{/if}
 </div>
 
-{#snippet commitOptionsMarkup(
-	commitOptions: CommitPickerOption[],
-	excludeCommitId: string | undefined = undefined,
-)}
+{#snippet commitOptionsMarkup(commitOptions: CommitPickerOption[], excludeCommitIds: string[] = [])}
 	{@const groups = ["Local", "Upstream", "Shared"] as const}
-	{@const filteredOptions = commitOptions.filter((option) => option.id !== excludeCommitId)}
+	{@const filteredOptions = commitOptions.filter((option) => !excludeCommitIds.includes(option.id))}
 	{#each groups as group}
 		{@const options = filteredOptions.filter((option) => option.group === group)}
 		{#if options.length > 0}

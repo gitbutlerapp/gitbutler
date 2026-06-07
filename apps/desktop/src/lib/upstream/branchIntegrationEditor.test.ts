@@ -40,6 +40,7 @@ const INITIAL_INTEGRATION: InitialBranchIntegration = {
 				commits: [
 					"dddddddddddddddddddddddddddddddddddddddd",
 					"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+					"ffffffffffffffffffffffffffffffffffffffff",
 				],
 				message: "combined",
 			},

@@ -16,8 +16,7 @@
 		type IntegrationGraphRow,
 	} from "$lib/upstream/branchIntegrationView";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, Modal, ModalFooter, SegmentControl } from "@gitbutler/ui";
-	import { TestId } from "@gitbutler/ui/utils/testIds";
+	import { Button, Modal, ModalFooter, SegmentControl, TestId } from "@gitbutler/ui";
 	import type { BranchIntegrationStrategy } from "@gitbutler/but-sdk";
 
 	type Props = {
