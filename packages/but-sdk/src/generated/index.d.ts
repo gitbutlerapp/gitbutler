@@ -406,7 +406,7 @@ export declare function workspaceBranchAndAncestorsPush(projectId: string, withF
  * workspace previews the integration and no oplog entry is persisted. See
  * [`workspace_integrate_upstream_with_perm()`] for lower-level details.
  */
-export declare function workspaceIntegrateUpstream(projectId: string, updates: Array<BottomUpdate>, dryRun: boolean): Promise<WorkspaceState>
+export declare function workspaceIntegrateUpstream(projectId: string, updates: Array<BottomUpdate>, dryRun: boolean): Promise<WorkspaceIntegrateUpstreamOutcome>
 export declare class WatcherHandle {
   /** Stop the underlying watcher if it is still active. */
   stop(): boolean
@@ -2392,6 +2392,14 @@ export type WatcherPayload = {
 export type WatcherWorktreeChangesPayload = {
   /** The file changes in the repository. */
   changes: WorktreeChanges;
+};
+
+/** JSON transport type returned by upstream integration. */
+export type WorkspaceIntegrateUpstreamOutcome = {
+  /** The post-operation or preview workspace state. */
+  workspaceState: WorkspaceState;
+  /** Dirty worktree paths that would conflict when applied onto the resulting workspace head. */
+  worktreeConflicts: Array<string>;
 };
 
 /** Shared JSON transport type for mutation workspace results. */

@@ -18,6 +18,7 @@ export type UpstreamIntegrationStackStatus = {
 export type UpstreamIntegrationStatuses = {
 	subject: UpstreamIntegrationStackStatus[];
 	updates: BottomUpdate[];
+	worktreeConflicts: string[];
 };
 
 const textDecoder = new TextDecoder();
