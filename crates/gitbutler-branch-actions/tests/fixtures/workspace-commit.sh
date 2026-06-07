@@ -98,91 +98,43 @@ git clone remote adjacent-stacks
   git commit --allow-empty -m "GitButler Workspace Commit"
 )
 
-# Reproduces a merge-base mismatch between merge_workspace and remerged_workspace_tree_v2.
-#
-# Three stacks based on different upstream commits, so their trees inherit
-# different versions of shared.txt. Neither stack modifies shared.txt itself.
-#
-# Remote history: init -> v1 -> v2 -> v3 (target)
-# v1 and v2 each modify a DIFFERENT section of shared.txt relative to v3.
-# v3 has the "canonical" content (target version).
-#
-# merge_base_octopus(stack_a, stack_b, stack_c, v3) = init ("base content").
-# With init as base, stacks replace "base content" with different multi-line
-# content → conflict.
-# With target (v3) as base, stack_a changes section A only, stack_b changes
-# section B only → non-overlapping → clean merge.
-#
-# The test advances origin/main to v4 to trigger integrate_upstream.
-(cd remote
-  git config user.name "Author"
-  git config user.email "author@example.com"
-
-  # v1: section A differs from v3, sections B and C match v3.
-  printf '%s\n' \
-    "--- section A ---" "ALPHA ONE" "ALPHA TWO" "ALPHA THREE" \
-    "--- section B ---" "line b1" "line b2" "line b3" \
-    "--- section C ---" "line c1" "line c2" "line c3" > shared.txt
-  git add . && git commit -m "upstream: shared.txt v1"
-
-  # v2: section A matches v3, section B differs from v3, section C matches v3.
-  printf '%s\n' \
-    "--- section A ---" "line a1" "line a2" "line a3" \
-    "--- section B ---" "BRAVO ONE" "BRAVO TWO" "BRAVO THREE" \
-    "--- section C ---" "line c1" "line c2" "line c3" > shared.txt
-  git add . && git commit -m "upstream: shared.txt v2"
-
-  # v3 (target): canonical content — all sections in their "final" form.
-  printf '%s\n' \
-    "--- section A ---" "line a1" "line a2" "line a3" \
-    "--- section B ---" "line b1" "line b2" "line b3" \
-    "--- section C ---" "line c1" "line c2" "line c3" > shared.txt
-  git add . && git commit -m "upstream: shared.txt v3"
-)
-
 git clone remote diverged-stacks
 (cd diverged-stacks
   git config user.name "Author"
   git config user.email "author@example.com"
 
-  # v3 is the current target; v4 will be the new upstream the test advances to.
-  git tag current-target origin/main
+  # A: {a, b, c}
+  git rm -q file shared.txt
+  echo "a" > a
+  echo "b" > b
+  echo "c" > c
+  commit_with_tick "A: base set"
+  git tag base-a
 
-  # Create v4 on remote (the commit the test will advance origin/main to).
-  (cd ../remote
-    echo "unrelated new file" > new_upstream.txt
-    git add . && git commit -m "upstream: add new_upstream.txt"
-  )
-  git fetch origin
+  # B: {x, b, c}; this is the target.
+  rm a
+  echo "x" > x
+  commit_with_tick "B: target replaces a with x"
+  git tag target-b
 
-  git tag upstream-target origin/main
+  # C: {x, y, c}
+  rm b
+  echo "y" > y
+  commit_with_tick "C: stack replaces b with y"
+  git branch stack_c
 
-  # stack_a: child of v1, only adds file_a.txt (inherits shared.txt = "v1")
-  git checkout -b stack_a current-target~2
-  echo "stack a work" > file_a.txt
-  commit_with_tick "stack_a: add file_a"
+  # D: {a, b, z}
+  git checkout -b stack_d base-a
+  rm c
+  echo "z" > z
+  commit_with_tick "D: stack replaces c with z"
 
-  # stack_b: child of v2, only adds file_b.txt (inherits shared.txt = "v2 ...")
-  git checkout -b stack_b current-target~1
-  echo "stack b work" > file_b.txt
-  commit_with_tick "stack_b: add file_b"
+  git update-ref refs/remotes/origin/main target-b
 
-  # stack_c: child of v3, only adds file_c.txt (inherits shared.txt = "v3 ...")
-  git checkout -b stack_c current-target
-  echo "stack c work" > file_c.txt
-  commit_with_tick "stack_c: add file_c"
-
-  # Target metadata points to v3 (= current-target).
-  # origin/main still points to v4; the test will set it to upstream-target.
-  git update-ref refs/remotes/origin/main current-target
-
-  # Build a workspace commit with all three stacks as parents so that
-  # stacks_v3 can discover them from the commit graph.
-  stack_a_oid=$(git rev-parse stack_a)
-  stack_b_oid=$(git rev-parse stack_b)
   stack_c_oid=$(git rev-parse stack_c)
+  stack_d_oid=$(git rev-parse stack_d)
   tree=$(git rev-parse stack_c^{tree})
-  ws_commit=$(echo "GitButler Workspace Commit" | git commit-tree "$tree" -p "$stack_a_oid" -p "$stack_b_oid" -p "$stack_c_oid")
+  ws_commit=$(echo "GitButler Workspace Commit" | git commit-tree "$tree" -p "$stack_c_oid" -p "$stack_d_oid")
   git checkout -b gitbutler/workspace
   git reset --hard "$ws_commit"
 )

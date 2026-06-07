@@ -40,9 +40,25 @@ impl WorkspaceState {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        // Use the target's tree directly as the merge base, matching
-        // `remerged_workspace_tree_v2`.
-        let base_tree_id = repo.find_commit(target_base_oid)?.tree_id()?.detach();
+        let base_tree_id = if head_oids.is_empty() {
+            repo.find_real_tree(&repo.find_commit(target_base_oid)?, Default::default())?
+                .detach()
+        } else if head_oids.len() == 1 {
+            repo.find_real_tree(
+                &repo.find_commit(*head_oids.first().expect("Head oids is len 1"))?,
+                Default::default(),
+            )?
+            .detach()
+        } else {
+            repo.find_real_tree(
+                &repo
+                    .merge_base_octopus(head_oids.iter().cloned())?
+                    .object()?
+                    .into_commit(),
+                Default::default(),
+            )?
+            .detach()
+        };
 
         Ok(WorkspaceState {
             heads,
@@ -168,6 +184,12 @@ pub fn merge_workspace(
     repo: &gix::Repository,
     workspace: &WorkspaceState,
 ) -> Result<gix::ObjectId> {
+    if workspace.heads.is_empty() {
+        return Ok(workspace.base);
+    } else if workspace.heads.len() == 1 {
+        return Ok(*workspace.heads.first().expect("List is length 1"));
+    }
+
     let mut output = workspace.base;
     let base = workspace.base;
 
