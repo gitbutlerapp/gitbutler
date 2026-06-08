@@ -214,8 +214,12 @@ const useOutlineTreeHotkeys = ({
 		focusSelectionScope("outline");
 	};
 
-	const composeCommitHere = (relativeTo: RelativeTo) => {
+	const setCommitTarget = (relativeTo: RelativeTo) => {
 		dispatch(projectActions.setCommitTarget({ projectId, commitTarget: relativeTo }));
+	};
+
+	const composeCommitHere = (relativeTo: RelativeTo) => {
+		setCommitTarget(relativeTo);
 		focusCommitMessageInput();
 	};
 
@@ -566,6 +570,16 @@ const useOutlineTreeHotkeys = ({
 									enabled: defaultOutlineHotkeysEnabled,
 									target: ref,
 									meta: outlineHotkeys.composeCommitHere.meta,
+								},
+							} satisfies UseHotkeyDefinition,
+							{
+								hotkey: outlineHotkeys.setCommitTarget.hotkey,
+								callback: () => setCommitTarget(relativeTo),
+								options: {
+									conflictBehavior: "allow",
+									enabled: defaultOutlineHotkeysEnabled,
+									target: ref,
+									meta: outlineHotkeys.setCommitTarget.meta,
 								},
 							} satisfies UseHotkeyDefinition,
 						]
@@ -1094,8 +1108,12 @@ const CommitRow: FC<
 
 	const relativeTo: RelativeTo = { type: "commit", subject: commit.id };
 
-	const composeCommitHere = () => {
+	const setCommitTarget = () => {
 		dispatch(projectActions.setCommitTarget({ projectId, commitTarget: relativeTo }));
+	};
+
+	const composeCommitHere = () => {
+		setCommitTarget();
 		focusCommitMessageInput();
 	};
 
@@ -1120,6 +1138,12 @@ const CommitRow: FC<
 			label: "Compose Commit Here",
 			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
 			onSelect: composeCommitHere,
+			enabled: outlineMode._tag === "Default",
+		}),
+		nativeMenuItem({
+			label: "Set Commit Target",
+			accelerator: toElectronAccelerator(outlineHotkeys.setCommitTarget.hotkey),
+			onSelect: setCommitTarget,
 			enabled: outlineMode._tag === "Default",
 		}),
 		nativeMenuItem({
@@ -1931,8 +1955,12 @@ const BranchRow: FC<
 
 	const relativeTo: RelativeTo = { type: "referenceBytes", subject: branchRef };
 
-	const composeCommitHere = () => {
+	const setCommitTarget = () => {
 		dispatch(projectActions.setCommitTarget({ projectId, commitTarget: relativeTo }));
+	};
+
+	const composeCommitHere = () => {
+		setCommitTarget();
 		focusCommitMessageInput();
 	};
 
@@ -1996,6 +2024,13 @@ const BranchRow: FC<
 			label: "Compose Commit Here",
 			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
 			onSelect: composeCommitHere,
+			enabled: outlineMode._tag === "Default",
+		}),
+		nativeMenuItem({
+			label: "Set Commit Target",
+			accelerator: toElectronAccelerator(outlineHotkeys.setCommitTarget.hotkey),
+			onSelect: setCommitTarget,
+			enabled: outlineMode._tag === "Default",
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
