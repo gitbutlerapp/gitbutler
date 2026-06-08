@@ -155,7 +155,8 @@ const CheckedCommitControls: FC<{ checkedCommitCount: number; projectId: string 
 	return (
 		<Container>
 			<ControlsRow>
-				<Label>{new Intl.NumberFormat().format(checkedCommitCount)}{" "}
+				<Label>
+					{new Intl.NumberFormat().format(checkedCommitCount)}{" "}
 					{new Intl.PluralRules().select(checkedCommitCount) === "one" ? "commit" : "commits"}{" "}
 					checked
 				</Label>
