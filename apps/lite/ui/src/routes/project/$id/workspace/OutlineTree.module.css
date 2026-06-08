@@ -325,7 +325,7 @@
 	opacity: 0;
 
 	.treeWithCheckedCommits &,
-	.treeWithDefaultOutlineMode .itemRow:where(:hover) &,
+	.treeWithDefaultOutlineMode .itemRow:hover &,
 	&:focus {
 		opacity: 1;
 	}
