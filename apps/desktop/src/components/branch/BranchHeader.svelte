@@ -34,9 +34,9 @@
 		commitId?: string;
 		onCommitGoesHereClick?: () => void;
 		isPushed: boolean;
-		lineColor: string;
 		conflicts?: boolean;
 		iconName: ComponentProps<typeof BranchHeaderIcon>["iconName"];
+		branchColor: string;
 		roundedBottom?: boolean;
 		onclick?: () => void;
 		disableClick?: boolean;
@@ -66,7 +66,7 @@
 		failedMisserablyToUpdateBranchName,
 		readonly,
 		isPushed,
-		lineColor,
+		branchColor,
 		conflicts,
 		iconName,
 		roundedBottom,
@@ -156,7 +156,7 @@
 
 			<div class="branch-header__title text-14 text-bold">
 				<div class="branch-header__title-content">
-					<BranchHeaderIcon color={lineColor} {iconName} />
+					<BranchHeaderIcon color={branchColor} {iconName} />
 					<BranchLabel
 						name={branchName}
 						fontSize="15"

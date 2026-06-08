@@ -1,6 +1,6 @@
 import type { BranchIconName } from "$lib/branches/branchIcon";
 import type { CommitStatusType } from "$lib/commits/commit";
-import type { Commit, CommitState, PushStatus, UpstreamCommit } from "@gitbutler/but-sdk";
+import type { Commit, PushStatus, UpstreamCommit } from "@gitbutler/but-sdk";
 
 const colorMap: Record<CommitStatusType, string> & { Error: string } = {
 	LocalOnly: "var(--commit-local)",
@@ -11,22 +11,33 @@ const colorMap: Record<CommitStatusType, string> & { Error: string } = {
 	Error: "var(--fill-danger-bg)",
 };
 
-export function getIconFromCommitState(
-	commitId?: string,
-	commitState?: CommitState,
-): BranchIconName {
-	if (!commitId || !commitState) {
-		return "branch-local";
-	}
-	switch (commitState.type) {
-		case "LocalOnly":
+export function getIconFromBranchPushStatus(pushStatus: PushStatus): BranchIconName {
+	switch (pushStatus) {
+		case "nothingToPush":
+			return "branch";
+		case "unpushedCommits":
+			return "branch-double-commit";
+		case "unpushedCommitsRequiringForce":
+			return "branch-double-commit";
+		case "completelyUnpushed":
 			return "branch-local";
-		case "LocalAndRemote":
-			return commitState.subject !== commitId ? "branch-double-commit" : "branch";
-		case "Integrated":
+		case "integrated":
 			return "branch-merge";
-		default:
-			return "branch-local";
+	}
+}
+
+export function getColorFromBranchPushStatus(pushStatus: PushStatus): string {
+	switch (pushStatus) {
+		case "nothingToPush":
+			return colorMap.LocalAndRemote;
+		case "unpushedCommits":
+			return colorMap.LocalAndRemote;
+		case "unpushedCommitsRequiringForce":
+			return colorMap.LocalAndRemote;
+		case "completelyUnpushed":
+			return colorMap.LocalOnly;
+		case "integrated":
+			return colorMap.Integrated;
 	}
 }
 

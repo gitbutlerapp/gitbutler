@@ -52,6 +52,7 @@
 
 	interface StackBranchProps extends BranchCardProps {
 		type: "stack-branch";
+		branchColor: string;
 		iconName: BranchIconName;
 		stackId?: string;
 		laneId: string;
@@ -197,7 +198,8 @@
 				isEmpty={args.isNewBranch}
 				selected={args.selected}
 				draft={false}
-				{lineColor}
+				branchColor={args.branchColor}
+				iconName={args.iconName}
 				isCommitting={args.isCommitting}
 				{isCommitTarget}
 				commitId={args.baseCommit}
@@ -209,7 +211,6 @@
 						branchName,
 					});
 				}}
-				iconName={args.iconName}
 				{updateBranchName}
 				isUpdatingName={nameUpdate.current.isLoading}
 				failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
@@ -317,7 +318,7 @@
 			isEmpty={args.isNewBranch}
 			selected={args.selected}
 			draft={false}
-			{lineColor}
+			branchColor={lineColor}
 			iconName={args.iconName}
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
@@ -339,7 +340,7 @@
 			isEmpty
 			selected={args.selected}
 			draft={false}
-			{lineColor}
+			branchColor={lineColor}
 			iconName="branch"
 			{updateBranchName}
 			isUpdatingName={nameUpdate.current.isLoading}
