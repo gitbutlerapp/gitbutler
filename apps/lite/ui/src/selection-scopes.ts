@@ -1,4 +1,4 @@
-import type { CommandGroup } from "#ui/hotkeys.ts";
+import { selectionOperationHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { type OperationType } from "#ui/operations/operation.ts";
 import { keyboardTransferOperationMode } from "#ui/outline/mode.ts";
 import { fileOperand, operandIdentityKey, type FileOperand, type Operand } from "#ui/operands.ts";
@@ -344,34 +344,34 @@ export const useNavigationIndexHotkeys = <T>({
 
 	useHotkeys([
 		{
-			hotkey: "M",
+			hotkey: selectionOperationHotkeys.move.hotkey,
 			callback: () => enterTransferModeForSelection("moveAbove"),
 			options: {
 				conflictBehavior: "allow",
 				enabled: operationEnabled,
 				target: ref,
-				meta: { group, name: "Move" },
+				meta: { ...selectionOperationHotkeys.move.meta, group },
 			},
 		},
 		{
-			hotkey: "Mod+X",
-			callback: () => enterTransferModeForSelection("rub"),
+			hotkey: selectionOperationHotkeys.cut.hotkey,
+			callback: () => enterTransferModeForSelection("squash"),
 			options: {
 				conflictBehavior: "allow",
 				enabled: operationEnabled,
 				target: ref,
 				ignoreInputs: true,
-				meta: { group, name: "Cut" },
+				meta: { ...selectionOperationHotkeys.cut.meta, group },
 			},
 		},
 		{
-			hotkey: "R",
-			callback: () => enterTransferModeForSelection("rub"),
+			hotkey: selectionOperationHotkeys.squash.hotkey,
+			callback: () => enterTransferModeForSelection("squash"),
 			options: {
 				conflictBehavior: "allow",
 				enabled: operationEnabled,
 				target: ref,
-				meta: { group, name: "Cut" },
+				meta: { ...selectionOperationHotkeys.squash.meta, group },
 			},
 		},
 	]);

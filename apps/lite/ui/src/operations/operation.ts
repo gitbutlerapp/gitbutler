@@ -150,14 +150,14 @@ export const operationLabel = (operation: Operation): string =>
 			CommitAmend: () => "Amend",
 			CommitCreate: ({ side }) =>
 				Match.value(side).pipe(
-					Match.when("above", () => "Create commit above"),
-					Match.when("below", () => "Create commit below"),
+					Match.when("above", () => "Commit above"),
+					Match.when("below", () => "Commit below"),
 					Match.exhaustive,
 				),
 			CommitSplit: ({ side }) =>
 				Match.value(side).pipe(
-					Match.when("above", () => "Create commit above"),
-					Match.when("below", () => "Create commit below"),
+					Match.when("above", () => "Commit above"),
+					Match.when("below", () => "Commit below"),
 					Match.exhaustive,
 				),
 			CommitMove: ({ side }) =>
@@ -378,12 +378,14 @@ export const useRunOperation = () => {
  * | File/hunk from changes | No-op    | Amend  |
  * | File/hunk from commit  | Uncommit | Amend  |
  * | Commit                 | Uncommit | Squash |
- *
- * Note this is currently different from the CLI's definition of "rubbing",
- * which also includes move operations.
- * https://linear.app/gitbutler/issue/GB-1160/what-should-rubbing-a-branch-into-another-branch-do#comment-db2abdb7
  */
-const rubOperation = ({ source, target }: { source: Operand; target: Operand }): Operation | null =>
+const squashOperation = ({
+	source,
+	target,
+}: {
+	source: Operand;
+	target: Operand;
+}): Operation | null =>
 	Match.value({ source, sourceFileParent: operandFileParent(source), target }).pipe(
 		Match.when(
 			{
@@ -521,7 +523,7 @@ const moveOperation = ({
 	);
 };
 
-export type OperationType = "rub" | "moveAbove" | "moveBelow";
+export type OperationType = "squash" | "moveAbove" | "moveBelow";
 
 const isOperationSourceEnabled = (source: Operand): boolean =>
 	Match.value(source).pipe(
@@ -534,12 +536,12 @@ export type OperationsByType = Record<OperationType, Operation | null>;
 export const getOperations = (source: Operand, target: Operand): OperationsByType => {
 	if (operandEquals(source, target) || !isOperationSourceEnabled(source))
 		return {
-			rub: null,
+			squash: null,
 			moveAbove: null,
 			moveBelow: null,
 		};
 	return {
-		rub: rubOperation({ source, target }),
+		squash: squashOperation({ source, target }),
 		moveAbove: moveOperation({ source, target, side: "above" }),
 		moveBelow: moveOperation({ source, target, side: "below" }),
 	};
@@ -550,9 +552,9 @@ export const getOperation = (x: {
 	target: Operand;
 	operationType: OperationType;
 }): Operation | null => {
-	const { rub, moveAbove, moveBelow } = getOperations(x.source, x.target);
+	const { squash, moveAbove, moveBelow } = getOperations(x.source, x.target);
 	return Match.value(x.operationType).pipe(
-		Match.when("rub", () => rub),
+		Match.when("squash", () => squash),
 		Match.when("moveAbove", () => moveAbove),
 		Match.when("moveBelow", () => moveBelow),
 		Match.exhaustive,

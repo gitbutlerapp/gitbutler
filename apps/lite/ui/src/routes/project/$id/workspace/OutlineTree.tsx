@@ -114,7 +114,12 @@ import { initNonEmpty, isNonEmptyArray, scanRight } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
-import { changesHotkeys, outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
+import {
+	changesHotkeys,
+	outlineHotkeys,
+	selectionOperationHotkeys,
+	toElectronAccelerator,
+} from "#ui/hotkeys.ts";
 import { stackToBottomRebaseUpdate } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
@@ -221,7 +226,7 @@ const useOutlineTreeHotkeys = ({
 				projectId,
 				mode: keyboardTransferOperationMode({
 					source: changesSectionOperand,
-					operationType: "rub",
+					operationType: "squash",
 				}),
 			}),
 		);
@@ -665,6 +670,7 @@ export const OutlineTree: FC<
 							props.className,
 							styles.tree,
 							hasCheckedCommits && styles.treeWithCheckedCommits,
+							outlineMode._tag === "Default" && styles.treeWithDefaultOutlineMode,
 						)}
 						ref={useMergedRefs(refProp, ref)}
 					>
@@ -1027,7 +1033,7 @@ const CommitRow: FC<
 				projectId,
 				mode: keyboardTransferOperationMode({
 					source: operand,
-					operationType: "rub",
+					operationType: "squash",
 				}),
 			}),
 		);
@@ -1079,7 +1085,7 @@ const CommitRow: FC<
 				projectId,
 				mode: keyboardTransferOperationMode({
 					source: changesSectionOperand,
-					operationType: "rub",
+					operationType: "squash",
 				}),
 			}),
 		);
@@ -1112,6 +1118,7 @@ const CommitRow: FC<
 		nativeMenuItem({
 			label: "Cut Commit",
 			onSelect: cutCommit,
+			accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
@@ -1831,7 +1838,7 @@ const BranchRow: FC<
 		canTearOffBranch: boolean;
 		canRemoveBranch: boolean;
 		partialStackState: PartialStackState;
-		branchCommit?: Commit;
+		pushStatus: PushStatus;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -1842,7 +1849,7 @@ const BranchRow: FC<
 	canTearOffBranch,
 	canRemoveBranch,
 	partialStackState,
-	branchCommit,
+	pushStatus,
 	...restProps
 }) => {
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -2022,13 +2029,19 @@ const BranchRow: FC<
 		>
 			{/* This will be replaced with a different icon. */}
 			<CommitStateIndicator
-				status={
-					branchCommit
-						? commitIsDiverged(branchCommit)
-							? "Diverged"
-							: branchCommit.state.type
-						: "LocalOnly"
-				}
+				status={(() => {
+					switch (pushStatus) {
+						case "nothingToPush":
+							return "LocalAndRemote";
+						case "unpushedCommits":
+						case "completelyUnpushed":
+							return "LocalOnly";
+						case "unpushedCommitsRequiringForce":
+							return "Diverged";
+						case "integrated":
+							return "Integrated";
+					}
+				})()}
 			/>
 
 			{isRenaming ? (
@@ -2208,7 +2221,7 @@ const BranchSegment: FC<{
 									})
 								: false
 						}
-						branchCommit={segment.commits[0]}
+						pushStatus={segment.pushStatus}
 					/>
 				}
 			/>

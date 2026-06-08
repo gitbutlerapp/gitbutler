@@ -145,7 +145,7 @@ export const getTransferOperation = ({
 
 const hasAnyOperation = (source: Operand, target: Operand) => {
 	const operations = getOperations(source, target);
-	return !!operations.rub || !!operations.moveAbove || !!operations.moveBelow;
+	return !!operations.squash || !!operations.moveAbove || !!operations.moveBelow;
 };
 
 export const filterNavigationItemsForOutlineMode = ({

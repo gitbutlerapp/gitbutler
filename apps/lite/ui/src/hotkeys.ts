@@ -207,6 +207,21 @@ export const changesFileHotkeys = {
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
+export const selectionOperationHotkeys = {
+	move: {
+		hotkey: "M",
+		meta: { group: "Selection scopes", name: "Move" },
+	},
+	cut: {
+		hotkey: "Mod+X",
+		meta: { group: "Selection scopes", name: "Cut" },
+	},
+	squash: {
+		hotkey: "S",
+		meta: { group: "Selection scopes", name: "Squash" },
+	},
+} satisfies Record<string, HotkeyWithMeta>;
+
 export const operationHotkeys = {
 	cancel: {
 		hotkey: "Escape",
@@ -228,8 +243,8 @@ export const operationHotkeys = {
 		hotkey: "B",
 		meta: { group: "Operation mode", name: "Select move below" },
 	},
-	selectRub: {
-		hotkey: "R",
-		meta: { group: "Operation mode", name: "Select rub" },
+	selectSquash: {
+		hotkey: "S",
+		meta: { group: "Operation mode", name: "Select squash" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;

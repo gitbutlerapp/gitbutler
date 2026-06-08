@@ -199,11 +199,11 @@ const TransferTypeToggleGroup: FC<{
 			},
 		},
 		{
-			hotkey: operationHotkeys.selectRub.hotkey,
-			callback: () => setOperationType("rub"),
+			hotkey: operationHotkeys.selectSquash.hotkey,
+			callback: () => setOperationType("squash"),
 			options: {
 				conflictBehavior: "allow",
-				meta: operationHotkeys.selectRub.meta,
+				meta: operationHotkeys.selectSquash.meta,
 			},
 		},
 		{
@@ -250,15 +250,15 @@ const TransferTypeToggleGroup: FC<{
 
 			<Tooltip.Root>
 				<Toggle
-					value={"rub" satisfies OperationType}
+					value={"squash" satisfies OperationType}
 					render={<Tooltip.Trigger render={<ToggleStyles />} />}
 				>
-					{operations.rub ? operationLabel(operations.rub) : "Rub"}
+					{operations.squash ? operationLabel(operations.squash) : "Squash"}
 				</Toggle>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectRub.hotkey} />}>
-							{operationHotkeys.selectRub.meta.name}
+						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectSquash.hotkey} />}>
+							{operationHotkeys.selectSquash.meta.name}
 						</Tooltip.Popup>
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
