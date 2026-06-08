@@ -17,9 +17,11 @@ import {
 	commitFileParent,
 	commitOperand,
 	fileOperand,
+	hunkOperand,
 	operandIdentityKey,
 	type CommitOperand,
 	type FileOperand,
+	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
 import { projectActions, selectProjectFilesVisible } from "#ui/projects/state.ts";
@@ -51,18 +53,10 @@ import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Hash, Match } from "effect";
-import {
-	ComponentProps,
-	FC,
-	type RefObject,
-	Suspense,
-	useDeferredValue,
-	useRef,
-	useState,
-} from "react";
+import { ComponentProps, FC, type RefObject, Suspense, useDeferredValue, useRef } from "react";
 import styles from "./Details.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
-import { SelectionScope } from "#ui/selection-scopes.ts";
+import { type SelectionScope, useDiffSelection } from "#ui/selection-scopes.ts";
 import {
 	FilesTree,
 	changeFileTreeItem,
@@ -97,6 +91,9 @@ const getChangesetKey = (selection: Operand): string =>
 		}),
 		Match.orElseAbsurd,
 	);
+
+const hunkOperandIdentityKey = (operand: HunkOperand): string =>
+	operandIdentityKey(hunkOperand(operand));
 
 const getCommitFileTreeItems = ({
 	commit,
@@ -289,6 +286,25 @@ const selectEntireHunk = (hunk: Hunk): SelectedLineRange => {
 	};
 };
 
+const hunkSelectionFromHunk = ({
+	file,
+	hunk,
+	isResultOfBinaryToTextConversion,
+}: {
+	file: FileOperand;
+	hunk: Hunk;
+	isResultOfBinaryToTextConversion: boolean;
+}): HunkOperand => ({
+	parent: file,
+	hunkHeader: {
+		oldStart: hunk.deletionStart,
+		oldLines: hunk.deletionCount,
+		newStart: hunk.additionStart,
+		newLines: hunk.additionCount,
+	},
+	isResultOfBinaryToTextConversion,
+});
+
 const DiffContents: FC<{
 	changes: Array<TreeChange>;
 	onViewerFileSelection: (selection: FileOperand) => void;
@@ -296,7 +312,7 @@ const DiffContents: FC<{
 	projectId: string;
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
 }> = ({ changes, onViewerFileSelection, outlineSelection, projectId, viewerRef }) => {
-	const [selectedRange, setSelectedRange] = useState<CodeViewLineSelection | null>(null);
+	const dispatch = useAppDispatch();
 	const treeChangeDiffs = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 	}).map((result) => result.data);
@@ -318,6 +334,10 @@ const DiffContents: FC<{
 		{ item: CodeViewDiffItem; change: TreeChange; patch: UnifiedPatch | null }
 	>();
 
+	// Hunk selections for our flat navigation index and mapping between the two.
+	const hunkSelections: Array<HunkOperand> = [];
+	const selectedRangeByHunk = new Map<string, CodeViewLineSelection>();
+
 	const items = Array.zip(changes, treeChangeDiffs).map(([change, mdiff]) => {
 		const item = mkCodeViewItem(
 			change,
@@ -327,8 +347,33 @@ const DiffContents: FC<{
 
 		itemsMetadataMap.set(item.id, { item, change, patch: mdiff });
 
+		if (mdiff?.type === "Patch")
+			for (const hunk of item.fileDiff.hunks) {
+				const selection = hunkSelectionFromHunk({
+					file: {
+						parent: fileParent,
+						path: change.path,
+					},
+					hunk,
+					isResultOfBinaryToTextConversion: mdiff.subject.isResultOfBinaryToTextConversion,
+				});
+
+				hunkSelections.push(selection);
+				selectedRangeByHunk.set(hunkOperandIdentityKey(selection), {
+					id: item.id,
+					range: selectEntireHunk(hunk),
+				});
+			}
+
 		return item;
 	});
+	const diffSelection = useDiffSelection(
+		projectId,
+		buildNavigationIndex(hunkSelections, hunkOperandIdentityKey),
+	);
+	const selectedRange = diffSelection
+		? (selectedRangeByHunk.get(hunkOperandIdentityKey(diffSelection)) ?? null)
+		: null;
 
 	const selectFileAtViewportTop = (scrollTop: number, viewer: CodeViewClass<undefined>) => {
 		const activeItem = viewer
@@ -347,10 +392,11 @@ const DiffContents: FC<{
 
 	// We currently only support selecting entire hunks in a unified view.
 	const handleLinesSelected = (sel: CodeViewLineSelection | null): void => {
-		if (!sel) return setSelectedRange(null);
+		if (!sel) return void dispatch(projectActions.selectDiff({ projectId, selection: null }));
 
 		const itemBySel = itemsMetadataMap.get(sel.id);
 		if (!itemBySel) throw new Error("Missing item ID in metadata map");
+		if (itemBySel.patch?.type !== "Patch") throw new Error("Selected hunk has no patch metadata");
 
 		const hunk = itemBySel.item.fileDiff.hunks.find((hunk) =>
 			hunkContainsLine(
@@ -362,10 +408,20 @@ const DiffContents: FC<{
 		);
 		if (!hunk) throw new Error("No hunk found for selected range");
 
-		setSelectedRange({
-			id: sel.id,
-			range: selectEntireHunk(hunk),
-		});
+		dispatch(
+			projectActions.selectDiff({
+				projectId,
+				selection: hunkSelectionFromHunk({
+					file: {
+						parent: fileParent,
+						path: itemBySel.change.path,
+					},
+					hunk,
+					isResultOfBinaryToTextConversion:
+						itemBySel.patch.subject.isResultOfBinaryToTextConversion,
+				}),
+			}),
+		);
 	};
 
 	return items.length === 0 ? (
