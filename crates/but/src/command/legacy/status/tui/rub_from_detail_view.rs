@@ -8,6 +8,7 @@ use crate::{
     CliId,
     command::legacy::status::tui::{SelectAfterReload, mode::CommittedHunk},
     id::ShortId,
+    utils::diff_specs::DiffSpecBuilder,
 };
 
 pub(super) fn route_operation<'a>(
@@ -56,11 +57,8 @@ impl<'a> Operation<'a> {
                     path,
                 } = source;
 
-                let changes = Vec::from([but_core::DiffSpec {
-                    previous_path: None,
-                    path: Arc::unwrap_or_clone(Arc::clone(path)),
-                    hunk_headers: Vec::from([*header]),
-                }]);
+                let changes =
+                    single_hunk_changes(ctx, Arc::unwrap_or_clone(Arc::clone(path)), *header)?;
 
                 let move_result = but_api::commit::move_changes::commit_move_changes_between(
                     ctx,
@@ -88,11 +86,8 @@ impl<'a> Operation<'a> {
                     path,
                 } = source;
 
-                let changes = Vec::from([but_core::DiffSpec {
-                    previous_path: None,
-                    path: Arc::unwrap_or_clone(Arc::clone(path)),
-                    hunk_headers: Vec::from([*header]),
-                }]);
+                let changes =
+                    single_hunk_changes(ctx, Arc::unwrap_or_clone(Arc::clone(path)), *header)?;
 
                 but_api::commit::uncommit::commit_uncommit_changes(
                     ctx,
@@ -111,11 +106,8 @@ impl<'a> Operation<'a> {
                     path,
                 } = source;
 
-                let changes = Vec::from([but_core::DiffSpec {
-                    previous_path: None,
-                    path: Arc::unwrap_or_clone(Arc::clone(path)),
-                    hunk_headers: Vec::from([*header]),
-                }]);
+                let changes =
+                    single_hunk_changes(ctx, Arc::unwrap_or_clone(Arc::clone(path)), *header)?;
 
                 but_api::commit::uncommit::commit_uncommit_changes(
                     ctx,
@@ -129,6 +121,18 @@ impl<'a> Operation<'a> {
             }
         }
     }
+}
+
+fn single_hunk_changes(
+    ctx: &Context,
+    path: bstr::BString,
+    header: but_core::HunkHeader,
+) -> anyhow::Result<Vec<but_core::DiffSpec>> {
+    let context_lines = ctx.settings.context_lines;
+    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+    let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+    builder.push_changes_from_single_hunk(path, header);
+    Ok(builder.into_diff_specs())
 }
 
 pub(super) fn rub_operation_display(
