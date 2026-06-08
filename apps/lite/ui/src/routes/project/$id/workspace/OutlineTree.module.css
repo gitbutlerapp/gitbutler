@@ -233,7 +233,7 @@
 		background-color 0.08s ease,
 		box-shadow 0.08s ease;
 
-	&:not([data-checked], :disabled) {
+	&:not([data-checked], :disabled, [data-disabled]) {
 		&:hover {
 			box-shadow: inset 0 0 0 var(--border-width) var(--border-1);
 
@@ -253,14 +253,15 @@
 			opacity: 1;
 		}
 
-		&:not(:disabled):hover {
+		&:not(:disabled, [data-disabled]):hover {
 			background-color: color-mix(in srgb, var(--fill-pop-bg) 86%, var(--text-1));
 			box-shadow: inset 0 0 0 var(--border-width)
 				color-mix(in srgb, var(--fill-pop-bg) 86%, var(--text-1));
 		}
 	}
 
-	&:disabled {
+	&:disabled,
+	&[data-disabled] {
 		color: var(--text-2);
 		cursor: not-allowed;
 
