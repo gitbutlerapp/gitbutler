@@ -114,7 +114,12 @@ import { initNonEmpty, isNonEmptyArray, scanRight } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
-import { changesHotkeys, outlineHotkeys, toElectronAccelerator } from "#ui/hotkeys.ts";
+import {
+	changesHotkeys,
+	outlineHotkeys,
+	selectionOperationHotkeys,
+	toElectronAccelerator,
+} from "#ui/hotkeys.ts";
 import { stackToBottomRebaseUpdate } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
@@ -1112,6 +1117,7 @@ const CommitRow: FC<
 		nativeMenuItem({
 			label: "Cut Commit",
 			onSelect: cutCommit,
+			accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
