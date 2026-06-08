@@ -108,6 +108,10 @@ export const workspaceHotkeys = {
 		hotkey: "F",
 		meta: { group: "Files", name: "Toggle files" },
 	},
+	toggleDetailsFullscreen: {
+		hotkey: ".",
+		meta: { group: "Details", name: "Toggle fullscreen details" },
+	},
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const outlineHotkeys = {
