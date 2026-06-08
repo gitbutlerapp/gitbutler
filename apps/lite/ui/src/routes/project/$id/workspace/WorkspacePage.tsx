@@ -536,6 +536,14 @@ const WorkspacePage: FC = () => {
 				ignoreInputs: true,
 			},
 		},
+		{
+			hotkey: "Escape",
+			callback: toggleDetailsFullscreen,
+			options: {
+				conflictBehavior: "allow",
+				enabled: detailsFullscreen,
+			},
+		},
 	]);
 
 	const absorptionPlanTarget = Match.value(outlineMode).pipe(
