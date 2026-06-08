@@ -63,6 +63,33 @@ export const OperationSourceC: FC<
 	const canDrag = useEffectEvent(
 		() => outlineMode._tag !== "RenameBranch" && outlineMode._tag !== "RewordCommit",
 	);
+	const onDragStart = useEffectEvent(() => {
+		Match.value(selectionScope).pipe(
+			Match.when("diff", () => {}),
+			Match.when("files", () => {
+				if (source._tag !== "File") return;
+				dispatch(
+					projectActions.selectFiles({
+						projectId,
+						selection: { parent: source.parent, path: source.path },
+					}),
+				);
+			}),
+			Match.when("outline", () =>
+				dispatch(projectActions.selectOutline({ projectId, selection: source })),
+			),
+			Match.exhaustive,
+		);
+		dispatch(
+			projectActions.enterTransferMode({
+				projectId,
+				mode: pointerTransferOperationMode({
+					source,
+					operationType: null,
+				}),
+			}),
+		);
+	});
 
 	useEffect(() => {
 		const element = dragRef.current;
@@ -74,40 +101,14 @@ export const OperationSourceC: FC<
 			canDrag,
 			getInitialData: (): DragData => ({ source }),
 			onGenerateDragPreview,
-			onDragStart: () => {
-				Match.value(selectionScope).pipe(
-					Match.when("diff", () => {}),
-					Match.when("files", () => {
-						if (source._tag !== "File") return;
-						dispatch(
-							projectActions.selectFiles({
-								projectId,
-								selection: { parent: source.parent, path: source.path },
-							}),
-						);
-					}),
-					Match.when("outline", () =>
-						dispatch(projectActions.selectOutline({ projectId, selection: source })),
-					),
-					Match.exhaustive,
-				);
-				dispatch(
-					projectActions.enterTransferMode({
-						projectId,
-						mode: pointerTransferOperationMode({
-							source,
-							operationType: null,
-						}),
-					}),
-				);
-			},
+			onDragStart,
 			onDrop: ({ location }) => {
 				if (location.current.dropTargets.length > 0) return;
 
 				dispatch(projectActions.cancelMode({ projectId }));
 			},
 		});
-	}, [dispatch, projectId, selectionScope, source]);
+	}, [dispatch, projectId, source]);
 
 	const operationSource = getOperationSource(outlineMode);
 	const isActiveSource = operationSource ? operandEquals(operationSource, source) : false;
