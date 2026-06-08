@@ -378,10 +378,6 @@ export const useRunOperation = () => {
  * | File/hunk from changes | No-op    | Amend  |
  * | File/hunk from commit  | Uncommit | Amend  |
  * | Commit                 | Uncommit | Squash |
- *
- * Note this is currently different from the CLI's definition of "squashing",
- * which also includes move operations.
- * https://linear.app/gitbutler/issue/GB-1160/what-should-rubbing-a-branch-into-another-branch-do#comment-db2abdb7
  */
 const squashOperation = ({
 	source,
