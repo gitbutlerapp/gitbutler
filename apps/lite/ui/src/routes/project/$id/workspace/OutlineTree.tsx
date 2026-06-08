@@ -1206,17 +1206,32 @@ const CommitRow: FC<
 		>
 			<div className={styles.commitStateWithCheckbox}>
 				<CommitStateIndicator status={commitIsDiverged(commit) ? "Diverged" : commit.state.type} />
-				<Checkbox
-					disabled={outlineMode._tag !== "Default"}
-					aria-label={`Check commit ${commitTitle(commitWithOptimisticMessage.message)}`}
-					checked={isChecked}
-					className={styles.commitCheckbox}
-					nativeButton
-					render={<button type="button" />}
-					onCheckedChange={(checked) => {
-						dispatch(projectActions.setCommitChecked({ projectId, commitId: commit.id, checked }));
-					}}
-				/>
+				<Tooltip.Root
+					// This gets in the way when the user tries to move their hover to a
+					// sibling row.
+					disableHoverablePopup
+				>
+					<Checkbox
+						disabled={outlineMode._tag !== "Default"}
+						aria-label={`Check commit ${commitTitle(commitWithOptimisticMessage.message)}`}
+						checked={isChecked}
+						className={styles.commitCheckbox}
+						nativeButton
+						render={<Tooltip.Trigger />}
+						onCheckedChange={(checked) => {
+							dispatch(
+								projectActions.setCommitChecked({ projectId, commitId: commit.id, checked }),
+							);
+						}}
+					/>
+					<Tooltip.Portal>
+						<Tooltip.Positioner sideOffset={4}>
+							<Tooltip.Popup render={<TooltipPopup kbd={outlineHotkeys.checkCommit.hotkey} />}>
+								{outlineHotkeys.checkCommit.meta.name}
+							</Tooltip.Popup>
+						</Tooltip.Positioner>
+					</Tooltip.Portal>
+				</Tooltip.Root>
 			</div>
 
 			{isRewording ? (
