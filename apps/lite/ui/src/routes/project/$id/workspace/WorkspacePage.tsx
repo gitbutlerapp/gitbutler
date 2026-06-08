@@ -68,14 +68,17 @@ const toggleFiles =
 	({
 		projectId,
 		focusedSelectionScope,
+		outlineVisible,
 	}: {
 		projectId: string;
 		focusedSelectionScope: SelectionScope | null;
+		outlineVisible: boolean;
 	}): AppThunk =>
 	(dispatch, getState) => {
 		const filesVisible = selectProjectFilesVisible(getState(), projectId);
 
-		if (focusedSelectionScope === "files" && filesVisible) focusSelectionScope("outline");
+		if (focusedSelectionScope === "files" && filesVisible)
+			focusSelectionScope(outlineVisible ? "outline" : "diff");
 
 		dispatch(projectActions.toggleFiles({ projectId }));
 	};
@@ -295,13 +298,20 @@ const ApplyBranchPicker: FC<{
 	);
 };
 
-const useWorkspaceHotkeys = (projectId: string) => {
+const useWorkspaceHotkeys = ({
+	detailsFullscreen,
+	projectId,
+}: {
+	detailsFullscreen: boolean;
+	projectId: string;
+}) => {
 	const dispatch = useAppDispatch();
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
 	const activeElement = useActiveElement();
 	const focusedSelectionScope = getFocusedSelectionScope(activeElement);
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const outlineVisible = !detailsFullscreen;
 
 	const restoreSnapshotMutation = useRestoreSnapshot({ projectId });
 
@@ -348,7 +358,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		{
 			hotkey: workspaceHotkeys.toggleFiles.hotkey,
 			callback: () => {
-				dispatch(toggleFiles({ projectId, focusedSelectionScope }));
+				dispatch(toggleFiles({ projectId, focusedSelectionScope, outlineVisible }));
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -358,7 +368,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		{
 			hotkey: workspaceHotkeys.focusPreviousSelectionScope.hotkey,
 			callback: () => {
-				focusAdjacentSelectionScope(filesVisible, -1);
+				focusAdjacentSelectionScope({ filesVisible, offset: -1, outlineVisible });
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -368,7 +378,7 @@ const useWorkspaceHotkeys = (projectId: string) => {
 		{
 			hotkey: workspaceHotkeys.focusNextSelectionScope.hotkey,
 			callback: () => {
-				focusAdjacentSelectionScope(filesVisible, 1);
+				focusAdjacentSelectionScope({ filesVisible, offset: 1, outlineVisible });
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -448,7 +458,7 @@ const WorkspacePage: FC = () => {
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
-	useWorkspaceHotkeys(projectId);
+	useWorkspaceHotkeys({ detailsFullscreen, projectId });
 
 	const selectBranch = (branch: BranchOperand) => {
 		dispatch(

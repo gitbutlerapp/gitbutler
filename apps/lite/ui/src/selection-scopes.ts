@@ -34,16 +34,24 @@ export const focusSelectionScope = (selectionScope: SelectionScope) => {
 	document.getElementById(selectionScope)?.focus({ focusVisible: false });
 };
 
-export const focusAdjacentSelectionScope = (filesVisible: boolean, offset: -1 | 1) => {
+export const focusAdjacentSelectionScope = ({
+	filesVisible,
+	offset,
+	outlineVisible,
+}: {
+	filesVisible: boolean;
+	offset: -1 | 1;
+	outlineVisible: boolean;
+}) => {
 	const currentSelectionScope = getFocusedSelectionScope(document.activeElement);
 
 	const orderedSelectionScopes: Array<SelectionScope> = [
-		"outline",
+		...(outlineVisible ? (["outline"] satisfies Array<SelectionScope>) : []),
 		...(filesVisible ? (["files"] satisfies Array<SelectionScope>) : []),
 		"diff",
 	];
 
-	if (currentSelectionScope === null) {
+	if (currentSelectionScope === null || !orderedSelectionScopes.includes(currentSelectionScope)) {
 		const nextSelectionScope: SelectionScope | undefined =
 			offset === 1 ? orderedSelectionScopes.at(0) : orderedSelectionScopes.at(-1);
 
