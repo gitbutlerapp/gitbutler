@@ -720,11 +720,17 @@ export const OutlineTree: FC<
 											)}
 										</div>
 									),
-									Transfer: (x) => (
-										<div className={classes("text-14", styles.operationSourcePreview)}>
-											Transfer source: {operationSourceLabel({ headInfo, source: x.value.source })}
-										</div>
-									),
+									Transfer: ({ value: mode }) =>
+										Match.value(mode).pipe(
+											Match.tags({
+												Keyboard: (mode) => (
+													<div className={classes("text-14", styles.operationSourcePreview)}>
+														Transfer source: {operationSourceLabel({ headInfo, source: mode.source })}
+													</div>
+												),
+											}),
+											Match.orElse(() => null),
+										),
 									RenameBranch: () => null,
 									RewordCommit: () => null,
 								}),
