@@ -1837,7 +1837,7 @@ const BranchRow: FC<
 		canTearOffBranch: boolean;
 		canRemoveBranch: boolean;
 		partialStackState: PartialStackState;
-		branchCommit?: Commit;
+		pushStatus: PushStatus;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -1848,7 +1848,7 @@ const BranchRow: FC<
 	canTearOffBranch,
 	canRemoveBranch,
 	partialStackState,
-	branchCommit,
+	pushStatus,
 	...restProps
 }) => {
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -2028,13 +2028,19 @@ const BranchRow: FC<
 		>
 			{/* This will be replaced with a different icon. */}
 			<CommitStateIndicator
-				status={
-					branchCommit
-						? commitIsDiverged(branchCommit)
-							? "Diverged"
-							: branchCommit.state.type
-						: "LocalOnly"
-				}
+				status={(() => {
+					switch (pushStatus) {
+						case "nothingToPush":
+							return "LocalAndRemote";
+						case "unpushedCommits":
+						case "completelyUnpushed":
+							return "LocalOnly";
+						case "unpushedCommitsRequiringForce":
+							return "Diverged";
+						case "integrated":
+							return "Integrated";
+					}
+				})()}
 			/>
 
 			{isRenaming ? (
@@ -2214,7 +2220,7 @@ const BranchSegment: FC<{
 									})
 								: false
 						}
-						branchCommit={segment.commits[0]}
+						pushStatus={segment.pushStatus}
 					/>
 				}
 			/>
