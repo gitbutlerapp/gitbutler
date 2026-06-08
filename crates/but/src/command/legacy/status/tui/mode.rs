@@ -9,8 +9,9 @@ use ratatui_textarea::TextArea;
 use crate::{
     CliId,
     command::legacy::status::tui::{Markable, Marks, MessageOnDrop},
-    id::{ShortId, UncommittedCliId},
+    id::ShortId,
     theme::Theme,
+    utils::diff_specs::CommitSource,
 };
 
 #[derive(Debug, strum::EnumDiscriminants)]
@@ -190,14 +191,6 @@ pub(super) struct CommitMode {
     pub(super) message_composer: CommitMessageComposer,
 }
 
-/// A subset of [`CliId`] that supports being committed
-#[derive(Debug)]
-pub(super) enum CommitSource {
-    Unassigned(UnassignedCommitSource),
-    Uncommitted(Box<UncommittedCliId>),
-    Stack(StackCommitSource),
-}
-
 #[derive(Debug, Copy, Clone, Default)]
 pub(super) enum CommitMessageComposer {
     /// Open an editor to compose the commit message.
@@ -207,66 +200,6 @@ pub(super) enum CommitMessageComposer {
     Inline,
     /// Create the commit with an empty message.
     Empty,
-}
-
-#[derive(Debug)]
-pub(super) struct UnassignedCommitSource {
-    pub(super) id: ShortId,
-}
-
-#[derive(Debug)]
-pub(super) struct StackCommitSource {
-    pub(super) stack_id: StackId,
-}
-
-impl CommitSource {
-    pub(super) fn try_new(id: CliId) -> Option<Self> {
-        match id {
-            CliId::Unassigned { id } => Some(Self::Unassigned(UnassignedCommitSource { id })),
-            CliId::Uncommitted(uncommitted_cli_id) => {
-                Some(Self::Uncommitted(Box::new(uncommitted_cli_id)))
-            }
-            CliId::Stack { stack_id, .. } => Some(Self::Stack(StackCommitSource { stack_id })),
-            CliId::PathPrefix { .. }
-            | CliId::CommittedFile { .. }
-            | CliId::Branch { .. }
-            | CliId::Commit { .. } => None,
-        }
-    }
-}
-
-impl PartialEq<CliId> for CommitSource {
-    fn eq(&self, other: &CliId) -> bool {
-        match self {
-            CommitSource::Unassigned(UnassignedCommitSource { id: lhs_id }) => {
-                if let CliId::Unassigned { id: rhs_id } = other {
-                    lhs_id == rhs_id
-                } else {
-                    false
-                }
-            }
-            CommitSource::Uncommitted(lhs) => {
-                if let CliId::Uncommitted(rhs) = other {
-                    &**lhs == rhs
-                } else {
-                    false
-                }
-            }
-            CommitSource::Stack(StackCommitSource {
-                stack_id: stack_id_lhs,
-            }) => {
-                if let CliId::Stack {
-                    stack_id: stack_id_rhs,
-                    ..
-                } = other
-                {
-                    stack_id_lhs == stack_id_rhs
-                } else {
-                    false
-                }
-            }
-        }
-    }
 }
 
 #[derive(Debug)]

@@ -7,9 +7,7 @@ use gix::prelude::ObjectIdExt;
 
 use super::{
     ShowDiffInEditor,
-    commit_message_prep::{
-        normalize_commit_message, prepare_provided_commit_message, should_update_commit_message,
-    },
+    commit_message_prep::{normalize_commit_message, should_update_commit_message},
     estimate_diff_blob_size,
 };
 use crate::{
@@ -92,7 +90,8 @@ fn edit_branch_name(
 
             let new_branch_name = {
                 let repo = ctx.repo.get()?;
-                BranchArg(non_validated_new_name).resolve_for_creation(&repo)?
+                let head_info = but_api::legacy::workspace::head_info(ctx)?;
+                BranchArg(non_validated_new_name).resolve_for_creation(&repo, &head_info)?
             };
             but_api::legacy::stack::update_branch_name_with_perm(
                 ctx,
@@ -184,7 +183,7 @@ fn edit_commit_message_by_id_and_reword_commit(
             &current_message,
         ))
     } else if let Some(message) = message {
-        Some(prepare_provided_commit_message(message)?)
+        Some(normalize_commit_message(message).to_owned())
     } else {
         get_commit_message_from_editor(
             &*ctx.repo.get()?,
@@ -287,10 +286,6 @@ fn actually_get_commit_message_from_editor(
         Some(template_rest.as_str()).filter(|s| !s.is_empty()),
     )?
     .to_string();
-
-    if lossy_message.is_empty() {
-        bail!("Aborting due to empty commit message");
-    }
 
     Ok(lossy_message)
 }

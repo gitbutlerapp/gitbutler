@@ -172,6 +172,10 @@ pub enum Code {
     /// Not a bug — the user's request simply can't be fulfilled right now.
     /// The frontend should present this as a warning rather than an error.
     PreconditionFailed,
+    /// Used when we run an external editor, for example to write a commit message, and that editor
+    /// exists with a non-zero status code. Allows callers to detect that and show a different
+    /// error message.
+    EditorExitedWithNonZeroStatus,
 }
 
 #[cfg(feature = "export-schema")]

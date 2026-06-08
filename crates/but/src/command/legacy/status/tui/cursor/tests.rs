@@ -11,11 +11,11 @@ use crate::{
         CommitClassification, FilesStatusFlag,
         output::{StatusOutputContent, StatusOutputLine, StatusOutputLineData},
         tui::{
-            CommitMessageComposer, CommitMode, CommitSource, InlineRewordMode, Mode, MoveMode,
-            MoveSource, NormalMode, RubMode, RubSource, SelectAfterReload,
-            mode::UnassignedCommitSource,
+            CommitMessageComposer, CommitMode, InlineRewordMode, Mode, MoveMode, MoveSource,
+            NormalMode, RubMode, RubSource, SelectAfterReload,
         },
     },
+    utils::diff_specs::{CommitSource, UnassignedCommitSource},
 };
 
 fn line(data: StatusOutputLineData) -> StatusOutputLine {

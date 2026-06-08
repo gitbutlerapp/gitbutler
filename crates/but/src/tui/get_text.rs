@@ -5,6 +5,7 @@ use std::{ffi::OsStr, io::Write as _};
 
 use anyhow::{Context as _, Result, bail};
 use bstr::{BStr, BString, ByteSlice};
+use but_error::Code;
 
 const REST_TEXT_MARKER: &str = "# --- ignore-rest ---";
 
@@ -116,7 +117,8 @@ fn from_external_editor(
         .wait()?;
 
     if !status.success() {
-        bail!("Editor exited with non-zero status");
+        return Err(anyhow::anyhow!("Editor exited with non-zero status")
+            .context(Code::EditorExitedWithNonZeroStatus));
     }
 
     Ok(std::fs::read(&tempfile)

@@ -55,9 +55,9 @@ use crate::{
                 marking::{MarkClasses, Markable, Marks},
                 message_on_drop::MessageOnDrop,
                 mode::{
-                    CommandMode, CommandModeKind, CommitMessageComposer, CommitMode, CommitSource,
-                    DetailsMode, InlineRewordMode, Mode, ModeDiscriminant, MoveMode, MoveSource,
-                    NormalMode, RubMode, RubSource, StackCommitSource, UnassignedCommitSource,
+                    CommandMode, CommandModeKind, CommitMessageComposer, CommitMode, DetailsMode,
+                    InlineRewordMode, Mode, ModeDiscriminant, MoveMode, MoveSource, NormalMode,
+                    RubMode, RubSource,
                 },
                 operations::stack_has_assigned_changes,
                 toast::{ToastKind, Toasts},
@@ -67,7 +67,13 @@ use crate::{
     id::UNASSIGNED,
     theme::Theme,
     tui::{CrosstermTerminalGuard, HeadlessTerminalGuard, TerminalGuard},
-    utils::{DebugAsType, OutputChannel, binary_path::current_exe_for_but_exec},
+    utils::{
+        DebugAsType, OutputChannel,
+        binary_path::current_exe_for_but_exec,
+        diff_specs::{
+            CommitSource, StackCommitSource, UnassignedCommitSource, prepare_changes_to_commit,
+        },
+    },
 };
 
 use super::{FilesStatusFlag, output::StatusOutputLineData};
@@ -2055,17 +2061,7 @@ impl App {
             let context_lines = ctx.settings.context_lines;
             let guard = ctx.shared_worktree_access();
             let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
-            operations::prepare_changes_to_commit(
-                &mut db,
-                &repo,
-                &ws,
-                context_lines,
-                source,
-                *scope_to_stack,
-            )?
-        };
-        let Some(changes_to_commit) = changes_to_commit else {
-            return Ok(());
+            prepare_changes_to_commit(&mut db, &repo, &ws, context_lines, source, *scope_to_stack)?
         };
 
         let mut meta = ctx.meta()?;
