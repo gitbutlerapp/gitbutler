@@ -223,7 +223,7 @@ const mkCodeViewItem = (
 	change: TreeChange,
 	changesetKey: string,
 	hunks: Array<DiffHunk>,
-): CodeViewDiffItem | null => {
+): CodeViewDiffItem => {
 	const lineEnding = lineEndingForDiff(hunks[0]?.diff ?? "");
 	const header = patchHeaderForChange(change, lineEnding);
 	const combinedFilePatch = [header, ...hunks.map((hunk) => hunk.diff)].join(lineEnding);
@@ -262,19 +262,14 @@ const DiffContents: FC<{
 
 	// CodeView only gives us back the CodeViewItem in custom renders, however we need this prior data
 	// hence a reverse map by ID.
-	const itemsMetadataMap = new Map<string, [TreeChange, UnifiedPatch]>();
+	const itemsMetadataMap = new Map<string, [TreeChange, UnifiedPatch | null]>();
 
-	const items = Array.zip(changes, treeChangeDiffs).flatMap(([change, mdiff]) => {
-		if (!mdiff) return [];
-
-		const mitem = Match.value(mdiff).pipe(
-			Match.when({ type: "Patch" }, (patch) =>
-				mkCodeViewItem(change, changesetKey, patch.subject.hunks),
-			),
-			Match.when({ type: "Binary" }, () => mkCodeViewItem(change, changesetKey, [])),
-			Match.orElse(() => null),
+	const items = Array.zip(changes, treeChangeDiffs).map(([change, mdiff]) => {
+		const mitem = mkCodeViewItem(
+			change,
+			changesetKey,
+			mdiff && "subject" in mdiff && "hunks" in mdiff.subject ? mdiff.subject.hunks : [],
 		);
-		if (!mitem) return [];
 
 		itemsMetadataMap.set(mitem.id, [change, mdiff]);
 
