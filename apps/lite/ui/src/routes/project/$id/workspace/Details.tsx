@@ -56,7 +56,11 @@ import { Array, Hash, Match } from "effect";
 import { ComponentProps, FC, type RefObject, Suspense, useDeferredValue, useRef } from "react";
 import styles from "./Details.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
-import { type SelectionScope, useDiffSelection } from "#ui/selection-scopes.ts";
+import {
+	type SelectionScope,
+	useDiffSelection,
+	useNavigationIndexHotkeys,
+} from "#ui/selection-scopes.ts";
 import {
 	FilesTree,
 	changeFileTreeItem,
@@ -307,11 +311,19 @@ const hunkSelectionFromHunk = ({
 
 const DiffContents: FC<{
 	changes: Array<TreeChange>;
+	selectionScopeRef: RefObject<HTMLDivElement | null>;
 	onViewerFileSelection: (selection: FileOperand) => void;
 	outlineSelection: Operand;
 	projectId: string;
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
-}> = ({ changes, onViewerFileSelection, outlineSelection, projectId, viewerRef }) => {
+}> = ({
+	changes,
+	selectionScopeRef,
+	onViewerFileSelection,
+	outlineSelection,
+	projectId,
+	viewerRef,
+}) => {
 	const dispatch = useAppDispatch();
 	const treeChangeDiffs = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
@@ -367,13 +379,37 @@ const DiffContents: FC<{
 
 		return item;
 	});
-	const diffSelection = useDiffSelection(
-		projectId,
-		buildNavigationIndex(hunkSelections, hunkOperandIdentityKey),
-	);
+	const hunkNavigationIndex = buildNavigationIndex(hunkSelections, hunkOperandIdentityKey);
+	const diffSelection = useDiffSelection(projectId, hunkNavigationIndex);
 	const selectedRange = diffSelection
 		? (selectedRangeByHunk.get(hunkOperandIdentityKey(diffSelection)) ?? null)
 		: null;
+
+	const selectDiff = (selection: HunkOperand) => {
+		dispatch(projectActions.selectDiff({ projectId, selection }));
+
+		const selectedRange = selectedRangeByHunk.get(hunkOperandIdentityKey(selection));
+		if (!selectedRange) return;
+
+		viewerRef.current?.scrollTo({
+			type: "range",
+			id: selectedRange.id,
+			range: selectedRange.range,
+			align: "nearest",
+		});
+	};
+
+	useNavigationIndexHotkeys({
+		navigationIndex: hunkNavigationIndex,
+		projectId,
+		group: "Diff",
+		selectionScope: "diff",
+		select: selectDiff,
+		selection: diffSelection,
+		ref: selectionScopeRef,
+		getKey: hunkOperandIdentityKey,
+		operationSourceForItem: hunkOperand,
+	});
 
 	const selectFileAtViewportTop = (scrollTop: number, viewer: CodeViewClass<undefined>) => {
 		const activeItem = viewer
@@ -733,6 +769,7 @@ const Diff: FC<{
 	projectId,
 	viewerRef,
 }) => {
+	const selectionScopeRef = useRef<HTMLDivElement>(null);
 	const files = filesItems.map((item) => item.operand);
 
 	const navigationIndex = buildNavigationIndex(files, (file) =>
@@ -760,6 +797,7 @@ const Diff: FC<{
 				// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 				tabIndex={0}
 				className={styles.diffContentsContainer}
+				ref={selectionScopeRef}
 			>
 				<Suspense fallback={<p className="text-13">Loading diff…</p>}>
 					<DiffContents
@@ -767,6 +805,7 @@ const Diff: FC<{
 						onViewerFileSelection={onViewerFileSelection}
 						outlineSelection={outlineSelection}
 						projectId={projectId}
+						selectionScopeRef={selectionScopeRef}
 						viewerRef={viewerRef}
 					/>
 				</Suspense>
