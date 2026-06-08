@@ -491,7 +491,10 @@ const WorkspacePage: FC = () => {
 	};
 	const toggleDetailsFullscreen = () => {
 		setDetailsFullscreen((fullscreen) => {
-			if (!fullscreen && getFocusedSelectionScope(document.activeElement) === "outline")
+			if (
+				!fullscreen &&
+				getFocusedSelectionScope(document.activeElement) === ("outline" satisfies SelectionScope)
+			)
 				requestAnimationFrame(() => focusSelectionScope("diff"));
 
 			return !fullscreen;
