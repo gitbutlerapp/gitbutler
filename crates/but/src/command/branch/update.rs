@@ -581,6 +581,8 @@ mod tests {
             true,
         );
 
+        let row = strip_ansi_codes(&row);
+
         assert!(
             row.contains("subject {conflicted}"),
             "conflicted commit rows should carry the same marker used by status output"
