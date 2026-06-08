@@ -26,7 +26,7 @@ export const parseDragData = (data: unknown): DragData | null => {
 };
 
 const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (
-	<div className={styles.dragPreview}>{children}</div>
+	<div className={classes(styles.dragPreview, "text-14")}>{children}</div>
 );
 
 export const OperationSourceC: FC<
