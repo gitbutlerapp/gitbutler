@@ -12,7 +12,11 @@ import {
 	type OperationType,
 	type OperationsByType,
 } from "#ui/operations/operation.ts";
-import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
+import {
+	projectActions,
+	selectProjectCheckedCommitCount,
+	selectProjectOutlineModeState,
+} from "#ui/projects/state.ts";
 import { NavigationIndexContext } from "#ui/routes/project/$id/workspace/OutlineNavigationIndexContext.ts";
 import { operationSourceLabel } from "#ui/routes/project/$id/workspace/operationSourceLabel.ts";
 import { focusSelectionScope, useOutlineSelection } from "#ui/selection-scopes.ts";
@@ -111,6 +115,55 @@ const AbsorbControls: FC<{
 				</Tooltip.Portal>
 			</Tooltip.Root>
 		</div>
+	);
+};
+
+const CheckedCommitControls: FC<{ checkedCommitCount: number; projectId: string }> = ({
+	checkedCommitCount,
+	projectId,
+}) => {
+	const dispatch = useAppDispatch();
+
+	const cancel = () => {
+		dispatch(projectActions.clearCheckedCommits({ projectId }));
+		focusSelectionScope("outline");
+	};
+
+	useHotkeys([
+		{
+			hotkey: operationHotkeys.cancel.hotkey,
+			callback: cancel,
+			options: {
+				conflictBehavior: "allow",
+				meta: operationHotkeys.cancel.meta,
+			},
+		},
+	]);
+
+	return (
+		<Container>
+			<div className={styles.controlsRow}>
+				<div className={classes("text-bold", "text-13")}>
+					{new Intl.NumberFormat().format(checkedCommitCount)}{" "}
+					{new Intl.PluralRules().select(checkedCommitCount) === "one" ? "commit" : "commits"}{" "}
+					checked
+				</div>
+				<div className={styles.controls}>
+					<Tooltip.Root>
+						<Tooltip.Trigger className={getButtonClassName({})} onClick={cancel}>
+							Cancel
+						</Tooltip.Trigger>
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.cancel.hotkey} />}>
+									{operationHotkeys.cancel.meta.name}
+								</Tooltip.Popup>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
+				</div>
+			</div>
+		</Container>
 	);
 };
 
@@ -323,14 +376,19 @@ export const OperationControls: FC = () => {
 			absorptionPlanQueryOptions({ projectId, target }),
 		),
 	});
-
-	if (!headInfo) return null;
+	const checkedCommitCount = useAppSelector((state) =>
+		selectProjectCheckedCommitCount(state, projectId),
+	);
 
 	return Match.value(outlineMode).pipe(
 		Match.tagsExhaustive({
-			Default: () => null,
+			Default: () =>
+				checkedCommitCount > 0 && (
+					<CheckedCommitControls checkedCommitCount={checkedCommitCount} projectId={projectId} />
+				),
 			Absorb: (x) =>
-				absorptionPlanQuery && (
+				absorptionPlanQuery &&
+				headInfo && (
 					<Container>
 						<div className={styles.controlsRow}>
 							<div className={classes("text-bold", "text-13")}>
@@ -347,7 +405,8 @@ export const OperationControls: FC = () => {
 				Match.value(mode).pipe(
 					Match.tags({
 						Keyboard: (mode) =>
-							selection && (
+							selection &&
+							headInfo && (
 								<Container>
 									<TransferTypeToggleGroup
 										projectId={projectId}

@@ -135,10 +135,6 @@ export const outlineHotkeys = {
 		hotkey: "Space",
 		meta: { group: "Branch", name: "Check branch commits" },
 	},
-	clearCheckedCommits: {
-		hotkey: "Escape",
-		meta: { group: "Commit", name: "Clear checked commits" },
-	},
 	setCommitTarget: {
 		hotkey: "Shift+C",
 		meta: { group: "Commit", name: "Set commit target" },

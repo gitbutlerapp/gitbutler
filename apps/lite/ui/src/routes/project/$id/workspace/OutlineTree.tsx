@@ -261,10 +261,6 @@ const useOutlineTreeHotkeys = ({
 		);
 	};
 
-	const clearCheckedCommits = () => {
-		dispatch(projectActions.clearCheckedCommits({ projectId }));
-	};
-
 	const moveSelectedCommit = (offset: -1 | 1) => {
 		if (!selection || selection._tag !== "Commit") return;
 
@@ -504,17 +500,6 @@ const useOutlineTreeHotkeys = ({
 				enabled: defaultOutlineHotkeysEnabled && isSelectedBranch,
 				target: ref,
 				meta: outlineHotkeys.checkBranchCommits.meta,
-			},
-		},
-		{
-			hotkey: outlineHotkeys.clearCheckedCommits.hotkey,
-			callback: clearCheckedCommits,
-			options: {
-				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled,
-				ignoreInputs: true,
-				target: ref,
-				meta: outlineHotkeys.clearCheckedCommits.meta,
 			},
 		},
 		{
