@@ -305,7 +305,9 @@ const DiffContents: FC<{
 				if (item.type === "file") throw new Error("Only diff items may be rendered");
 
 				const path = itemsMetadataMap.get(item.id)?.[0].path;
-				if (path === undefined) throw new Error("Missing item ID in metadata map");
+
+				// CodeView may briefly hold onto stale snapshots of our data.
+				if (path === undefined) return <div style={{ height: 38 }} />;
 
 				return (
 					<DiffFileHeader
