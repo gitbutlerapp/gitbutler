@@ -563,6 +563,29 @@ async fn match_subcommand(
                     let ctx = but_ctx::Context::discover(&args.current_dir)?;
                     command::branch::apply(ctx, &branch_name, out).map_err(CliError::from)
                 }
+                Some(branch::Subcommands::Update {
+                    branch,
+                    strategy,
+                    dry_run,
+                    verbose,
+                    interactive,
+                }) => {
+                    let status_after = args.status_after && !dry_run && !interactive;
+                    let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
+                    out.begin_status_after(status_after);
+                    let result = command::branch::update(
+                        &mut ctx,
+                        &branch,
+                        strategy,
+                        dry_run,
+                        verbose,
+                        interactive,
+                        out,
+                    )
+                    .map_err(CliError::from);
+                    maybe_run_status_after(status_after, &result, &mut ctx, out).await;
+                    result
+                }
                 Some(branch::Subcommands::Move { .. }) => Err(bad_input(
                     "`but branch move` has been removed. Use `but move` instead.",
                 )
@@ -1619,9 +1642,9 @@ async fn maybe_run_status_after<T, E>(
 
 /// Ignore mutation status output in non-legacy builds until a non-legacy status command exists.
 #[cfg(not(feature = "legacy"))]
-async fn maybe_run_status_after(
+async fn maybe_run_status_after<T, E>(
     _status_after: bool,
-    _result: &anyhow::Result<()>,
+    _result: &Result<T, E>,
     _ctx: &mut but_ctx::Context,
     _out: &mut OutputChannel,
 ) {

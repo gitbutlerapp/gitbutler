@@ -39,6 +39,7 @@ pub enum CommandName {
     BranchShow,
     BranchUnapply,
     BranchApply,
+    BranchUpdate,
     BranchMove,
     BranchTearOff,
     Worktree,
