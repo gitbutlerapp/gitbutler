@@ -6,6 +6,9 @@ on:
   push:
     branches:
       - mg-test-branch
+  pull_request:
+    branches:
+      - master
 
 jobs:
   probe:
