@@ -291,11 +291,6 @@
 			background-color: color-mix(in srgb, var(--fill-pop-bg) var(--disabled-opacity), var(--bg-1));
 			box-shadow: inset 0 0 0 var(--border-width)
 				color-mix(in srgb, var(--fill-pop-bg) var(--disabled-opacity), var(--bg-1));
-
-			& .checkboxIndicator {
-				transform: scale(1);
-				opacity: 1;
-			}
 		}
 	}
 }
