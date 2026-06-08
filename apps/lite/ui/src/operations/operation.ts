@@ -150,14 +150,14 @@ export const operationLabel = (operation: Operation): string =>
 			CommitAmend: () => "Amend",
 			CommitCreate: ({ side }) =>
 				Match.value(side).pipe(
-					Match.when("above", () => "Create commit above"),
-					Match.when("below", () => "Create commit below"),
+					Match.when("above", () => "Commit above"),
+					Match.when("below", () => "Commit below"),
 					Match.exhaustive,
 				),
 			CommitSplit: ({ side }) =>
 				Match.value(side).pipe(
-					Match.when("above", () => "Create commit above"),
-					Match.when("below", () => "Create commit below"),
+					Match.when("above", () => "Commit above"),
+					Match.when("below", () => "Commit below"),
 					Match.exhaustive,
 				),
 			CommitMove: ({ side }) =>
