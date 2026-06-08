@@ -14,6 +14,7 @@ import {
 } from "#ui/selection-scopes.ts";
 import {
 	projectActions,
+	selectProjectDetailsFullscreen,
 	selectProjectDialogState,
 	selectProjectFilesVisible,
 	selectProjectOutlineModeState,
@@ -42,7 +43,7 @@ import {
 } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match, Order } from "effect";
-import { type FC, Component, ReactNode, useState } from "react";
+import { type FC, Component, ReactNode } from "react";
 import {
 	branchOperand,
 	changesSectionOperand,
@@ -298,14 +299,11 @@ const ApplyBranchPicker: FC<{
 	);
 };
 
-const useWorkspaceHotkeys = ({
-	detailsFullscreen,
-	projectId,
-}: {
-	detailsFullscreen: boolean;
-	projectId: string;
-}) => {
+const useWorkspaceHotkeys = (projectId: string) => {
 	const dispatch = useAppDispatch();
+	const detailsFullscreen = useAppSelector((state) =>
+		selectProjectDetailsFullscreen(state, projectId),
+	);
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
 	const activeElement = useActiveElement();
@@ -451,14 +449,16 @@ const useOutlineNavigationIndex = ({
 
 const WorkspacePage: FC = () => {
 	const dispatch = useAppDispatch();
-	const [detailsFullscreen, setDetailsFullscreen] = useState(false);
 
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
+	const detailsFullscreen = useAppSelector((state) =>
+		selectProjectDetailsFullscreen(state, projectId),
+	);
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
-	useWorkspaceHotkeys({ detailsFullscreen, projectId });
+	useWorkspaceHotkeys(projectId);
 
 	const selectBranch = (branch: BranchOperand) => {
 		dispatch(
@@ -500,15 +500,13 @@ const WorkspacePage: FC = () => {
 		rebaseAllStacksMutation.mutate(rebaseUpdates);
 	};
 	const toggleDetailsFullscreen = () => {
-		setDetailsFullscreen((fullscreen) => {
-			if (
-				!fullscreen &&
-				getFocusedSelectionScope(document.activeElement) === ("outline" satisfies SelectionScope)
-			)
-				requestAnimationFrame(() => focusSelectionScope("diff"));
+		if (
+			!detailsFullscreen &&
+			getFocusedSelectionScope(document.activeElement) === ("outline" satisfies SelectionScope)
+		)
+			requestAnimationFrame(() => focusSelectionScope("diff"));
 
-			return !fullscreen;
-		});
+		dispatch(projectActions.toggleDetailsFullscreen({ projectId }));
 	};
 	// This should be false if all stacks are up-to-date, but we're currently
 	// lacking this information:
@@ -648,7 +646,9 @@ const WorkspacePage: FC = () => {
 				<Details
 					outlineSelection={outlineSelection}
 					detailsFullscreen={detailsFullscreen}
-					onDetailsFullscreenChange={setDetailsFullscreen}
+					onDetailsFullscreenChange={(fullscreen) =>
+						dispatch(projectActions.setDetailsFullscreen({ projectId, fullscreen }))
+					}
 				/>
 			</div>
 
