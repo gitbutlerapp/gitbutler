@@ -262,18 +262,21 @@ const DiffContents: FC<{
 
 	// CodeView only gives us back the CodeViewItem in custom renders, however we need this prior data
 	// hence a reverse map by ID.
-	const itemsMetadataMap = new Map<string, [TreeChange, UnifiedPatch | null]>();
+	const itemsMetadataMap = new Map<
+		string,
+		{ item: CodeViewDiffItem; change: TreeChange; patch: UnifiedPatch | null }
+	>();
 
 	const items = Array.zip(changes, treeChangeDiffs).map(([change, mdiff]) => {
-		const mitem = mkCodeViewItem(
+		const item = mkCodeViewItem(
 			change,
 			changesetKey,
 			mdiff && "subject" in mdiff && "hunks" in mdiff.subject ? mdiff.subject.hunks : [],
 		);
 
-		itemsMetadataMap.set(mitem.id, [change, mdiff]);
+		itemsMetadataMap.set(item.id, { item, change, patch: mdiff });
 
-		return mitem;
+		return item;
 	});
 
 	const selectFileAtViewportTop = (scrollTop: number, viewer: CodeViewClass<undefined>) => {
@@ -299,7 +302,7 @@ const DiffContents: FC<{
 			renderCustomHeader={(item) => {
 				if (item.type === "file") throw new Error("Only diff items may be rendered");
 
-				const path = itemsMetadataMap.get(item.id)?.[0].path;
+				const path = itemsMetadataMap.get(item.id)?.change.path;
 
 				// CodeView may briefly hold onto stale snapshots of our data.
 				if (path === undefined) return <div style={{ height: 38 }} />;
