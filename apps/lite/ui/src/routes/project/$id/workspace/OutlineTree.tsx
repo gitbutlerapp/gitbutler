@@ -50,7 +50,9 @@ import {
 } from "#ui/selection-scopes.ts";
 import {
 	projectActions,
+	selectProjectCommitChecked,
 	selectProjectCommitTarget,
+	selectProjectHasCheckedCommits,
 	selectProjectHighlightedCommitIds,
 	selectProjectOutlineModeState,
 	selectProjectSelectionOutline,
@@ -63,6 +65,7 @@ import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { Button, mergeProps, Popover, Toast, Tooltip, useRender } from "@base-ui/react";
+import { Checkbox as BaseCheckbox } from "@base-ui/react/checkbox";
 import { Combobox } from "@base-ui/react/combobox";
 import { Toolbar } from "@base-ui/react/toolbar";
 import {
@@ -174,6 +177,11 @@ const useOutlineTreeHotkeys = ({
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const selectedCommitChecked = useAppSelector((state) =>
+		selection?._tag === "Commit"
+			? selectProjectCommitChecked(state, projectId, selection.commitId)
+			: false,
+	);
 
 	const dispatch = useAppDispatch();
 
@@ -209,6 +217,34 @@ const useOutlineTreeHotkeys = ({
 	const composeCommitHere = (relativeTo: RelativeTo) => {
 		dispatch(projectActions.setCommitTarget({ projectId, commitTarget: relativeTo }));
 		focusCommitMessageInput();
+	};
+
+	const toggleSelectedCommitChecked = () => {
+		if (!selection || selection._tag !== "Commit") return;
+
+		dispatch(
+			projectActions.setCommitChecked({
+				projectId,
+				commitId: selection.commitId,
+				checked: !selectedCommitChecked,
+			}),
+		);
+	};
+
+	const toggleSelectedBranchChecked = () => {
+		if (!selectedBranchSegment) return;
+
+		dispatch(
+			projectActions.setCommitsChecked({
+				projectId,
+				commitIds: selectedBranchSegment.commits.map((commit) => commit.id),
+				checked: !selectedBranchChecked,
+			}),
+		);
+	};
+
+	const clearCheckedCommits = () => {
+		dispatch(projectActions.clearCheckedCommits({ projectId }));
 	};
 
 	const moveSelectedCommit = (offset: -1 | 1) => {
@@ -278,6 +314,20 @@ const useOutlineTreeHotkeys = ({
 		selection && "stackId" in selection
 			? headInfo?.stacks.find((stack) => stack.id === selection.stackId)
 			: undefined;
+	const selectedBranchSegment =
+		selection?._tag === "Branch"
+			? selectedStack?.segments.find(
+					(segment) =>
+						!!segment.refName && refNamesEqual(segment.refName.fullNameBytes, selection.branchRef),
+				)
+			: undefined;
+	const selectedBranchChecked = useAppSelector((state) =>
+		selectedBranchSegment && selectedBranchSegment.commits.length > 0
+			? selectedBranchSegment.commits.every((commit) =>
+					selectProjectCommitChecked(state, projectId, commit.id),
+				)
+			: false,
+	);
 	const selectedStackRebaseUpdate = selectedStack ? stackToBottomRebaseUpdate(selectedStack) : null;
 
 	const pushSelectedBranch = () => {
@@ -303,6 +353,7 @@ const useOutlineTreeHotkeys = ({
 
 	const defaultOutlineHotkeysEnabled = outlineMode._tag === "Default";
 	const isSelectedCommit = selection?._tag === "Commit";
+	const isSelectedBranch = selection?._tag === "Branch";
 	const isSelectedChanges = selection?._tag === "ChangesSection";
 	const canPushSelectedBranch =
 		!!selectedPushContext &&
@@ -411,6 +462,37 @@ const useOutlineTreeHotkeys = ({
 			},
 		},
 		{
+			hotkey: outlineHotkeys.checkCommit.hotkey,
+			callback: toggleSelectedCommitChecked,
+			options: {
+				conflictBehavior: "allow",
+				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit,
+				target: ref,
+				meta: outlineHotkeys.checkCommit.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.checkBranchCommits.hotkey,
+			callback: toggleSelectedBranchChecked,
+			options: {
+				conflictBehavior: "allow",
+				enabled: defaultOutlineHotkeysEnabled && isSelectedBranch,
+				target: ref,
+				meta: outlineHotkeys.checkBranchCommits.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.clearCheckedCommits.hotkey,
+			callback: clearCheckedCommits,
+			options: {
+				conflictBehavior: "allow",
+				enabled: defaultOutlineHotkeysEnabled,
+				ignoreInputs: true,
+				target: ref,
+				meta: outlineHotkeys.clearCheckedCommits.meta,
+			},
+		},
+		{
 			hotkey: outlineHotkeys.deleteCommit.hotkey,
 			callback: deleteSelectedCommit,
 			options: {
@@ -515,6 +597,9 @@ export const OutlineTree: FC<
 
 	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const hasCheckedCommits = useAppSelector((state) =>
+		selectProjectHasCheckedCommits(state, projectId),
+	);
 
 	const dryRunOperation = Match.value(outlineMode).pipe(
 		Match.tag("Transfer", ({ value: mode }) =>
@@ -557,7 +642,11 @@ export const OutlineTree: FC<
 						tabIndex={0}
 						role="tree"
 						aria-activedescendant={selection ? treeItemId(selection) : undefined}
-						className={classes(props.className, styles.tree)}
+						className={classes(
+							props.className,
+							styles.tree,
+							hasCheckedCommits && styles.treeWithCheckedCommits,
+						)}
 						ref={useMergedRefs(refProp, ref)}
 					>
 						<div className={styles.changesContainer}>
@@ -652,6 +741,46 @@ const CommitTargetIndicator: FC = () => (
 			</Popover.Positioner>
 		</Popover.Portal>
 	</Popover.Root>
+);
+
+const Checkbox: FC<Omit<ComponentProps<typeof BaseCheckbox.Root>, "children">> = (props) => (
+	<BaseCheckbox.Root
+		{...props}
+		className={(x) =>
+			classes(
+				styles.checkbox,
+				typeof props.className === "function" ? props.className(x) : props.className,
+			)
+		}
+		onClick={(event) => {
+			event.stopPropagation();
+			props.onClick?.(event);
+		}}
+		onDoubleClick={(event) => {
+			event.stopPropagation();
+			props.onDoubleClick?.(event);
+		}}
+	>
+		<BaseCheckbox.Indicator keepMounted className={styles.checkboxIndicator}>
+			<svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+				<path
+					d="M9 2.5L4.92139 6.74855C4.52783 7.15851 3.87217 7.15851 3.47861 6.74856L1 4.16667"
+					stroke="currentColor"
+					strokeWidth="1.5"
+				/>
+			</svg>
+		</BaseCheckbox.Indicator>
+	</BaseCheckbox.Root>
+);
+
+type CommitStatusType = "Diverged" | CommitState["type"];
+
+const CommitStateIndicator: FC<{
+	status: CommitStatusType;
+}> = ({ status }) => (
+	<div className={styles.commitState}>
+		<span className={styles.commitStateIcon} data-status={status} />
+	</div>
 );
 
 const ItemRow: FC<
@@ -815,6 +944,9 @@ const CommitRow: FC<
 > = ({ commit, projectId, stackId, isCommitTarget, ...restProps }) => {
 	const isHighlighted = useAppSelector((state) =>
 		selectProjectHighlightedCommitIds(state, projectId).includes(commit.id),
+	);
+	const isChecked = useAppSelector((state) =>
+		selectProjectCommitChecked(state, projectId, commit.id),
 	);
 	const dryRunCommit = useDryRunCommit(commit.id);
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -1047,14 +1179,20 @@ const CommitRow: FC<
 				void showNativeContextMenu(event, menuItems);
 			}}
 		>
-			<span
-				className={styles.commitState}
-				data-status={
-					(commitIsDiverged(commit) ? "Diverged" : commit.state.type) satisfies
-						| "Diverged"
-						| CommitState["type"]
-				}
-			/>
+			<div className={styles.commitStateWithCheckbox}>
+				<CommitStateIndicator status={commitIsDiverged(commit) ? "Diverged" : commit.state.type} />
+				<Checkbox
+					disabled={outlineMode._tag !== "Default"}
+					aria-label={`Check commit ${commitTitle(commitWithOptimisticMessage.message)}`}
+					checked={isChecked}
+					className={styles.commitCheckbox}
+					nativeButton
+					render={<button type="button" />}
+					onCheckedChange={(checked) => {
+						dispatch(projectActions.setCommitChecked({ projectId, commitId: commit.id, checked }));
+					}}
+				/>
+			</div>
 
 			{isRewording ? (
 				<InlineRewordCommit
@@ -1888,14 +2026,13 @@ const BranchRow: FC<
 			}}
 		>
 			{/* This will be replaced with a different icon. */}
-			<span
-				className={styles.commitState}
-				data-status={
-					(branchCommit
+			<CommitStateIndicator
+				status={
+					branchCommit
 						? commitIsDiverged(branchCommit)
 							? "Diverged"
 							: branchCommit.state.type
-						: "LocalOnly") satisfies "Diverged" | CommitState["type"]
+						: "LocalOnly"
 				}
 			/>
 

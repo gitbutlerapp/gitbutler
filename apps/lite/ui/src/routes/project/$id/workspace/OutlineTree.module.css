@@ -235,6 +235,78 @@
 	color: var(--color-text-secondary);
 }
 
+.checkbox {
+	--border-width: 1px;
+	--disabled-opacity: 50%;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	inline-size: 14px;
+	block-size: 14px;
+	border-radius: var(--radius-s);
+	background-color: var(--bg-1);
+	box-shadow: inset 0 0 0 var(--border-width) var(--border-2);
+	color: var(--text-2);
+	transition:
+		background-color 0.08s ease,
+		box-shadow 0.08s ease;
+
+	&:not([data-checked], :disabled) {
+		&:hover {
+			box-shadow: inset 0 0 0 var(--border-width) var(--border-1);
+
+			& .checkboxIndicator {
+				opacity: 1;
+			}
+		}
+	}
+
+	&[data-checked] {
+		background-color: var(--fill-pop-bg);
+		box-shadow: inset 0 0 0 var(--border-width) var(--fill-pop-bg);
+		color: var(--text-1-invert);
+
+		& .checkboxIndicator {
+			transform: scale(1);
+			opacity: 1;
+		}
+
+		&:not(:disabled):hover {
+			background-color: color-mix(in srgb, var(--fill-pop-bg) 86%, var(--text-1));
+			box-shadow: inset 0 0 0 var(--border-width)
+				color-mix(in srgb, var(--fill-pop-bg) 86%, var(--text-1));
+		}
+	}
+
+	&:disabled {
+		color: var(--text-2);
+		cursor: not-allowed;
+
+		&:not([data-checked]) {
+			background-color: color-mix(in srgb, var(--border-2) var(--disabled-opacity), var(--bg-1));
+			box-shadow: inset 0 0 0 var(--border-width)
+				color-mix(in srgb, var(--border-2) var(--disabled-opacity), var(--bg-1));
+		}
+
+		&[data-checked] {
+			background-color: color-mix(in srgb, var(--fill-pop-bg) var(--disabled-opacity), var(--bg-1));
+			box-shadow: inset 0 0 0 var(--border-width)
+				color-mix(in srgb, var(--fill-pop-bg) var(--disabled-opacity), var(--bg-1));
+		}
+	}
+}
+
+.checkboxIndicator {
+	display: flex;
+	transform: scale(0.8);
+	opacity: 0;
+	pointer-events: none;
+	transition:
+		opacity 0.08s ease,
+		transform 0.08s ease;
+}
+
 [data-status="LocalOnly"] {
 	--commit-status-color: var(--commit-local);
 }
@@ -252,11 +324,35 @@
 }
 
 .commitState {
-	flex-shrink: 0;
+	display: grid;
+	justify-content: center;
+	inline-size: 14px;
+	margin-block-start: 3px;
+}
+
+.commitStateIcon {
 	aspect-ratio: 1;
-	inline-size: 8px;
-	block-size: 8px;
-	margin-block-start: 5px;
+	inline-size: 10px;
+	block-size: 10px;
 	border: 1.5px solid var(--commit-status-color);
 	border-radius: 50%;
+}
+
+.commitCheckbox {
+	margin-block-start: 1px;
+	opacity: 0;
+
+	.treeWithCheckedCommits &,
+	.commitStateWithCheckbox:where(:hover, :focus-within) & {
+		opacity: 1;
+	}
+}
+
+.commitStateWithCheckbox {
+	display: grid;
+	justify-items: center;
+
+	& > * {
+		grid-area: 1 / 1;
+	}
 }

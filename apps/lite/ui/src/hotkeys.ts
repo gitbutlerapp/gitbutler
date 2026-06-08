@@ -123,6 +123,18 @@ export const outlineHotkeys = {
 		hotkey: "C",
 		meta: { group: "Commit", name: "Compose commit here" },
 	},
+	checkCommit: {
+		hotkey: "Space",
+		meta: { group: "Commit", name: "Check commit" },
+	},
+	checkBranchCommits: {
+		hotkey: "Space",
+		meta: { group: "Branch", name: "Check branch commits" },
+	},
+	clearCheckedCommits: {
+		hotkey: "Escape",
+		meta: { group: "Commit", name: "Clear checked commits" },
+	},
 	composeCommitMessage: {
 		hotkey: "Shift+Z",
 		meta: { group: "Outline", name: "Compose commit message" },

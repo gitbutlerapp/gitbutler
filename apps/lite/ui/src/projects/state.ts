@@ -156,6 +156,27 @@ const projectSlice = createSlice({
 			const { projectId, commitIds } = action.payload;
 			workspace.setHighlightedCommitIds(ensureProjectState(state, projectId).workspace, commitIds);
 		},
+		setCommitChecked: (
+			state,
+			action: PayloadAction<{ projectId: string; commitId: string; checked: boolean }>,
+		) => {
+			const { projectId, commitId, checked } = action.payload;
+			workspace.setCommitChecked(ensureProjectState(state, projectId).workspace, commitId, checked);
+		},
+		setCommitsChecked: (
+			state,
+			action: PayloadAction<{ projectId: string; commitIds: Array<string>; checked: boolean }>,
+		) => {
+			const { projectId, commitIds, checked } = action.payload;
+			workspace.setCommitsChecked(
+				ensureProjectState(state, projectId).workspace,
+				commitIds,
+				checked,
+			);
+		},
+		clearCheckedCommits: (state, action: PayloadAction<{ projectId: string }>) => {
+			workspace.clearCheckedCommits(ensureProjectState(state, action.payload.projectId).workspace);
+		},
 		setCommitTarget: (
 			state,
 			action: PayloadAction<{ projectId: string; commitTarget: RelativeTo | null }>,
@@ -235,6 +256,12 @@ export const selectProjectOutlineModeState = (state: RootState, projectId: strin
 
 export const selectProjectHighlightedCommitIds = (state: RootState, projectId: string) =>
 	workspace.selectHighlightedCommitIds(selectProjectWorkspaceState(state, projectId));
+
+export const selectProjectCommitChecked = (state: RootState, projectId: string, commitId: string) =>
+	workspace.selectCommitChecked(selectProjectWorkspaceState(state, projectId), commitId);
+
+export const selectProjectHasCheckedCommits = (state: RootState, projectId: string) =>
+	workspace.selectHasCheckedCommits(selectProjectWorkspaceState(state, projectId));
 
 export const selectProjectCommitTarget = (state: RootState, projectId: string) =>
 	workspace.selectCommitTarget(selectProjectWorkspaceState(state, projectId));

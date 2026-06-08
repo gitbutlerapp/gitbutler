@@ -26,6 +26,7 @@ import {
 	type TransferOperationMode,
 } from "#ui/outline/mode.ts";
 import { findCommitStackId } from "#ui/api/ref-info.ts";
+import { mapKeys } from "effect/Record";
 
 export type SelectionState = {
 	outline: Operand | null;
@@ -38,6 +39,7 @@ const createInitialSelectionState = (): SelectionState => ({
 });
 
 export type WorkspaceState = {
+	checkedCommitIds: Record<string, true>;
 	commitTarget: RelativeTo | null;
 	highlightedCommitIds: Array<string>;
 	mode: OutlineMode;
@@ -45,6 +47,7 @@ export type WorkspaceState = {
 };
 
 export const createInitialState = (): WorkspaceState => ({
+	checkedCommitIds: {},
 	commitTarget: null,
 	highlightedCommitIds: [],
 	mode: defaultOutlineMode,
@@ -158,6 +161,25 @@ export const setHighlightedCommitIds = (state: WorkspaceState, commitIds: Array<
 	state.highlightedCommitIds = commitIds ?? [];
 };
 
+export const setCommitChecked = (state: WorkspaceState, commitId: string, checked: boolean) => {
+	if (checked) state.checkedCommitIds[commitId] = true;
+	else delete state.checkedCommitIds[commitId];
+};
+
+export const setCommitsChecked = (
+	state: WorkspaceState,
+	commitIds: Array<string>,
+	checked: boolean,
+) => {
+	for (const commitId of commitIds)
+		if (checked) state.checkedCommitIds[commitId] = true;
+		else delete state.checkedCommitIds[commitId];
+};
+
+export const clearCheckedCommits = (state: WorkspaceState) => {
+	state.checkedCommitIds = {};
+};
+
 export const setCommitTarget = (state: WorkspaceState, commitTarget: RelativeTo | null) => {
 	state.commitTarget = commitTarget;
 };
@@ -231,6 +253,11 @@ export const updateRewrittenCommitReferences = (
 		if (commitId !== undefined) state.commitTarget = { type: "commit", subject: commitId };
 	}
 
+	state.checkedCommitIds = mapKeys(
+		state.checkedCommitIds,
+		(checkedCommitId) => replacedCommits[checkedCommitId] ?? checkedCommitId,
+	);
+
 	if (state.mode._tag === "RewordCommit") {
 		const commit = rewrittenCommitOperand({
 			commit: state.mode.operand,
@@ -297,5 +324,11 @@ export const selectMode = (state: WorkspaceState): OutlineMode => state.mode;
 
 export const selectHighlightedCommitIds = (state: WorkspaceState): Array<string> =>
 	state.highlightedCommitIds;
+
+export const selectCommitChecked = (state: WorkspaceState, commitId: string): boolean =>
+	state.checkedCommitIds[commitId] === true;
+
+export const selectHasCheckedCommits = (state: WorkspaceState): boolean =>
+	Object.keys(state.checkedCommitIds).length > 0;
 
 export const selectCommitTarget = (state: WorkspaceState): RelativeTo | null => state.commitTarget;
