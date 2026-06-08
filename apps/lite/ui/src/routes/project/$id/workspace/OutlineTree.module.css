@@ -325,9 +325,13 @@
 	opacity: 0;
 
 	.treeWithCheckedCommits &,
-	.treeWithDefaultOutlineMode .itemRow:hover &,
+	.itemRow:hover &,
 	&:focus {
 		opacity: 1;
+	}
+
+	.tree:not(.treeWithDefaultOutlineMode):not(.treeWithCheckedCommits) & {
+		display: none;
 	}
 }
 
