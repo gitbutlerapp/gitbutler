@@ -38,6 +38,18 @@ const Container: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={classes("text-14", styles.container)}>{children}</div>
 );
 
+const ControlsRow: FC<{ children: ReactNode }> = ({ children }) => (
+	<div className={styles.controlsRow}>{children}</div>
+);
+
+const Label: FC<{ children: ReactNode }> = ({ children }) => (
+	<div className={classes("text-bold", "text-13")}>{children}</div>
+);
+
+const Controls: FC<{ children: ReactNode }> = ({ children }) => (
+	<div className={styles.controls}>{children}</div>
+);
+
 const Separator: FC = () => <div className={styles.separator} />;
 
 const AbsorbControls: FC<{
@@ -83,7 +95,7 @@ const AbsorbControls: FC<{
 	]);
 
 	return (
-		<div className={styles.controls}>
+		<Controls>
 			<Tooltip.Root>
 				<Tooltip.Trigger
 					className={getButtonClassName({})}
@@ -114,7 +126,7 @@ const AbsorbControls: FC<{
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
 			</Tooltip.Root>
-		</div>
+		</Controls>
 	);
 };
 
@@ -142,13 +154,12 @@ const CheckedCommitControls: FC<{ checkedCommitCount: number; projectId: string 
 
 	return (
 		<Container>
-			<div className={styles.controlsRow}>
-				<div className={classes("text-bold", "text-13")}>
-					{new Intl.NumberFormat().format(checkedCommitCount)}{" "}
+			<ControlsRow>
+				<Label>{new Intl.NumberFormat().format(checkedCommitCount)}{" "}
 					{new Intl.PluralRules().select(checkedCommitCount) === "one" ? "commit" : "commits"}{" "}
 					checked
-				</div>
-				<div className={styles.controls}>
+				</Label>
+				<Controls>
 					<Tooltip.Root>
 						<Tooltip.Trigger className={getButtonClassName({})} onClick={cancel}>
 							Cancel
@@ -161,8 +172,8 @@ const CheckedCommitControls: FC<{ checkedCommitCount: number; projectId: string 
 							</Tooltip.Positioner>
 						</Tooltip.Portal>
 					</Tooltip.Root>
-				</div>
-			</div>
+				</Controls>
+			</ControlsRow>
 		</Container>
 	);
 };
@@ -325,7 +336,7 @@ const TransferOperationControls: FC<{
 	]);
 
 	return (
-		<div className={styles.controls}>
+		<Controls>
 			<Tooltip.Root>
 				<Tooltip.Trigger
 					className={getButtonClassName({})}
@@ -357,7 +368,7 @@ const TransferOperationControls: FC<{
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
 			</Tooltip.Root>
-		</div>
+		</Controls>
 	);
 };
 
@@ -390,15 +401,13 @@ export const OperationControls: FC = () => {
 				absorptionPlanQuery &&
 				headInfo && (
 					<Container>
-						<div className={styles.controlsRow}>
-							<div className={classes("text-bold", "text-13")}>
-								{operationSourceLabel({ headInfo, source: x.source })}
-							</div>
+						<ControlsRow>
+							<Label>{operationSourceLabel({ headInfo, source: x.source })}</Label>
 							{absorptionPlanQuery.isPending && (
 								<Icon name="spinner" aria-label="Loading absorb plan" />
 							)}
 							<AbsorbControls projectId={projectId} sourceTarget={x.sourceTarget} />
-						</div>
+						</ControlsRow>
 					</Container>
 				),
 			Transfer: ({ value: mode }) =>
@@ -414,16 +423,14 @@ export const OperationControls: FC = () => {
 										operationType={mode.operationType}
 									/>
 									<Separator />
-									<div className={styles.controlsRow}>
-										<div className={classes("text-bold", "text-13")}>
-											{operationSourceLabel({ headInfo, source: mode.source })}
-										</div>
+									<ControlsRow>
+										<Label>{operationSourceLabel({ headInfo, source: mode.source })}</Label>
 										<TransferOperationControls
 											projectId={projectId}
 											operations={getOperations(mode.source, selection)}
 											operationType={mode.operationType}
 										/>
-									</div>
+									</ControlsRow>
 								</Container>
 							),
 					}),
