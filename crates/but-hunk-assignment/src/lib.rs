@@ -790,27 +790,32 @@ pub fn assignments_to_requests(assignments: Vec<HunkAssignment>) -> Vec<HunkAssi
         .collect()
 }
 
-/// Convert a hunk assignment to a diff spec and populate rename metadata from matching worktree changes.
+/// Convert a hunk assignment to a diff spec and populate metadata from matching worktree changes.
 pub fn diff_spec_from_assignment_with_changes(
     assignment: HunkAssignment,
     changes: &[but_core::ui::TreeChange],
 ) -> DiffSpec {
     let path_bytes = assignment.path_bytes.clone();
     let mut spec = DiffSpec::from(assignment);
-    spec.previous_path = changes.iter().find_map(|change| {
+    for change in changes {
         if change.path_bytes != path_bytes {
-            return None;
+            continue;
         }
         match &change.status {
             but_core::ui::TreeStatus::Rename {
                 previous_path_bytes,
                 ..
-            } => Some(previous_path_bytes.clone()),
+            } => {
+                spec.previous_path = Some(previous_path_bytes.clone());
+            }
             but_core::ui::TreeStatus::Addition { .. }
-            | but_core::ui::TreeStatus::Deletion { .. }
-            | but_core::ui::TreeStatus::Modification { .. } => None,
+            | but_core::ui::TreeStatus::Deletion { .. } => {
+                spec.hunk_headers.clear();
+            }
+            but_core::ui::TreeStatus::Modification { .. } => {}
         }
-    });
+        break;
+    }
     spec
 }
 
