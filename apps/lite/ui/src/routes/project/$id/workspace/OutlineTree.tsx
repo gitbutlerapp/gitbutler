@@ -1202,6 +1202,7 @@ const CommitRow: FC<
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
+			className={classes(restProps.className, styles.itemRow)}
 		>
 			<div className={styles.commitStateWithCheckbox}>
 				<CommitStateIndicator status={commitIsDiverged(commit) ? "Diverged" : commit.state.type} />

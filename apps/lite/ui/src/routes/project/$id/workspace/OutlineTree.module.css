@@ -344,7 +344,7 @@
 	opacity: 0;
 
 	.treeWithCheckedCommits &,
-	.commitStateWithCheckbox:where(:hover, :focus-within) & {
+	.itemRow:where(:hover, :focus-within) & {
 		opacity: 1;
 	}
 }
