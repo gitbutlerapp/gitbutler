@@ -4,7 +4,6 @@ import { getButtonClassName } from "#ui/components/Button.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { operationHotkeys } from "#ui/hotkeys.ts";
-import { Operand, operandEquals } from "#ui/operands.ts";
 import {
 	getOperations,
 	operationLabel,
@@ -12,18 +11,29 @@ import {
 	type OperationType,
 	type OperationsByType,
 } from "#ui/operations/operation.ts";
-import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
+import { type OutlineMode } from "#ui/outline/mode.ts";
+import { type Operand } from "#ui/operands.ts";
+import { projectActions } from "#ui/projects/state.ts";
+import { operationSourceLabel } from "#ui/routes/project/$id/workspace/operationSourceLabel.ts";
 import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { Button, Tooltip, useRender } from "@base-ui/react";
+import { useAppDispatch } from "#ui/store.ts";
+import { classes } from "#ui/components/classes.ts";
+import { Icon } from "#ui/components/Icon.tsx";
+import { Button, Tooltip } from "@base-ui/react";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
-import { type AbsorptionTarget } from "@gitbutler/but-sdk";
+import { type AbsorptionTarget, type RefInfo } from "@gitbutler/but-sdk";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
-import { FC } from "react";
+import { FC, type ReactNode } from "react";
 import styles from "./OutlineModeTooltip.module.css";
+
+const Container: FC<{ children: ReactNode }> = ({ children }) => (
+	<div className={classes("text-14", styles.container)}>{children}</div>
+);
+
+const Separator: FC = () => <div className={styles.separator} />;
 
 const AbsorbControls: FC<{
 	projectId: string;
@@ -154,7 +164,7 @@ const TransferTypeToggleGroup: FC<{
 			aria-label="Operation type"
 			value={[operationType]}
 			onValueChange={onValueChange}
-			orientation="vertical"
+			className={styles.toggleGroupRow}
 		>
 			<Tooltip.Root>
 				<Toggle
@@ -164,7 +174,7 @@ const TransferTypeToggleGroup: FC<{
 					{operations.moveAbove ? operationLabel(operations.moveAbove) : "Move above"}
 				</Toggle>
 				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4} side="right">
+					<Tooltip.Positioner sideOffset={4}>
 						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectMoveAbove.hotkey} />}>
 							{operationHotkeys.selectMoveAbove.meta.name}
 						</Tooltip.Popup>
@@ -180,7 +190,7 @@ const TransferTypeToggleGroup: FC<{
 					{operations.rub ? operationLabel(operations.rub) : "Rub"}
 				</Toggle>
 				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4} side="right">
+					<Tooltip.Positioner sideOffset={4}>
 						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectRub.hotkey} />}>
 							{operationHotkeys.selectRub.meta.name}
 						</Tooltip.Popup>
@@ -196,7 +206,7 @@ const TransferTypeToggleGroup: FC<{
 					{operations.moveBelow ? operationLabel(operations.moveBelow) : "Move below"}
 				</Toggle>
 				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4} side="right">
+					<Tooltip.Positioner sideOffset={4}>
 						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectMoveBelow.hotkey} />}>
 							{operationHotkeys.selectMoveBelow.meta.name}
 						</Tooltip.Popup>
@@ -297,57 +307,55 @@ const TransferOperationControls: FC<{
 	);
 };
 
-export const OutlineModeTooltip: FC<
-	{
-		projectId: string;
-		target: Operand;
-		isActive: boolean;
-	} & useRender.ComponentProps<"div">
-> = ({ projectId, target, isActive, render, ...props }) => {
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-
-	const tooltip = isActive
-		? Match.value(outlineMode).pipe(
-				Match.tags({
-					Absorb: ({ sourceTarget }) => (
-						<AbsorbControls projectId={projectId} sourceTarget={sourceTarget} />
-					),
-					Transfer: ({ value: mode }) =>
-						Match.value(mode).pipe(
-							Match.tags({
-								Keyboard: (mode) => (
-									<div className={styles.transferOperation}>
-										{operandEquals(mode.source, target) && <>Select a target</>}
-										<TransferTypeToggleGroup
-											projectId={projectId}
-											operations={getOperations(mode.source, target)}
-											operationType={mode.operationType}
-										/>
+export const OutlineModeControls: FC<{
+	projectId: string;
+	headInfo: RefInfo;
+	outlineMode: OutlineMode;
+	selection: Operand | null;
+	isAbsorptionPlanPending: boolean;
+}> = ({ projectId, headInfo, outlineMode, selection, isAbsorptionPlanPending }) =>
+	Match.value(outlineMode).pipe(
+		Match.tagsExhaustive({
+			Default: () => null,
+			Absorb: (x) => (
+				<Container>
+					<div className={styles.controlsRow}>
+						<div className={classes("text-bold", "text-13")}>
+							{operationSourceLabel({ headInfo, source: x.source })}
+						</div>
+						{isAbsorptionPlanPending && <Icon name="spinner" aria-label="Loading absorb plan" />}
+						<AbsorbControls projectId={projectId} sourceTarget={x.sourceTarget} />
+					</div>
+				</Container>
+			),
+			Transfer: ({ value: mode }) =>
+				Match.value(mode).pipe(
+					Match.tags({
+						Keyboard: (mode) =>
+							selection && (
+								<Container>
+									<TransferTypeToggleGroup
+										projectId={projectId}
+										operations={getOperations(mode.source, selection)}
+										operationType={mode.operationType}
+									/>
+									<Separator />
+									<div className={styles.controlsRow}>
+										<div className={classes("text-bold", "text-13")}>
+											{operationSourceLabel({ headInfo, source: mode.source })}
+										</div>
 										<TransferOperationControls
 											projectId={projectId}
-											operations={getOperations(mode.source, target)}
+											operations={getOperations(mode.source, selection)}
 											operationType={mode.operationType}
 										/>
 									</div>
-								),
-							}),
-							Match.orElse(() => null),
-						),
-				}),
-				Match.orElse(() => null),
-			)
-		: null;
-
-	const trigger = useRender({ render, props });
-
-	return (
-		<Tooltip.Root open={!!tooltip}>
-			<Tooltip.Trigger render={trigger} />
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={8} side="right">
-					<Tooltip.Popup render={<TooltipPopup>{tooltip}</TooltipPopup>} />
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+								</Container>
+							),
+					}),
+					Match.orElse(() => null),
+				),
+			RenameBranch: () => null,
+			RewordCommit: () => null,
+		}),
 	);
-};

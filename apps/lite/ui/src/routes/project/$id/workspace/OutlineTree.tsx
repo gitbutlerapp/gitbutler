@@ -59,7 +59,6 @@ import {
 } from "#ui/projects/state.ts";
 import { rewrittenCommitSelection } from "#ui/projects/workspace/state.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
-import { operationSourceLabel } from "#ui/routes/project/$id/workspace/operationSourceLabel.ts";
 import { OperationTarget } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
@@ -119,8 +118,8 @@ import { changesHotkeys, outlineHotkeys, toElectronAccelerator } from "#ui/hotke
 import { stackToBottomRebaseUpdate } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
-import { OutlineModeTooltip } from "./OutlineModeTooltip.tsx";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
+import { OutlineModeControls } from "#ui/routes/project/$id/workspace/OutlineModeTooltip.tsx";
 
 const NavigationIndexContext = createContext<NavigationIndex<Operand> | null>(null);
 
@@ -708,33 +707,15 @@ export const OutlineTree: FC<
 							</div>
 						</div>
 
-						{headInfo &&
-							Match.value(outlineMode).pipe(
-								Match.tagsExhaustive({
-									Default: () => null,
-									Absorb: (x) => (
-										<div className={classes("text-14", styles.operationSourcePreview)}>
-											Absorb source: {operationSourceLabel({ headInfo, source: x.source })}
-											{absorptionPlanQuery?.isPending && (
-												<Icon name="spinner" aria-label="Loading absorb plan" />
-											)}
-										</div>
-									),
-									Transfer: ({ value: mode }) =>
-										Match.value(mode).pipe(
-											Match.tags({
-												Keyboard: (mode) => (
-													<div className={classes("text-14", styles.operationSourcePreview)}>
-														Transfer source: {operationSourceLabel({ headInfo, source: mode.source })}
-													</div>
-												),
-											}),
-											Match.orElse(() => null),
-										),
-									RenameBranch: () => null,
-									RewordCommit: () => null,
-								}),
-							)}
+						{headInfo && (
+							<OutlineModeControls
+								projectId={projectId}
+								headInfo={headInfo}
+								outlineMode={outlineMode}
+								selection={selection}
+								isAbsorptionPlanPending={absorptionPlanQuery?.isPending ?? false}
+							/>
+						)}
 					</div>
 				</DryRunWorkspaceContext>
 			</AbsorptionTargetKeysContext>
@@ -840,18 +821,11 @@ const ItemRow: FC<
 	};
 
 	return (
-		<OutlineModeTooltip
-			projectId={projectId}
-			target={operand}
-			isActive={isSelected}
-			render={
-				<WorkspaceItemRow
-					{...props}
-					inert={!navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
-					isSelected={isSelected}
-					onSelect={selectItem}
-				/>
-			}
+		<WorkspaceItemRow
+			{...props}
+			inert={!navigationIndexIncludes(navigationIndex, operand, operandIdentityKey)}
+			isSelected={isSelected}
+			onSelect={selectItem}
 		/>
 	);
 };
