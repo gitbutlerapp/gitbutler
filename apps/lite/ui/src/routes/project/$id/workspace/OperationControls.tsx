@@ -27,7 +27,7 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { FC, type ReactNode } from "react";
-import styles from "./OutlineModeControls.module.css";
+import styles from "./OperationControls.module.css";
 
 const Container: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={classes("text-14", styles.container)}>{children}</div>
@@ -307,7 +307,7 @@ const TransferOperationControls: FC<{
 	);
 };
 
-export const OutlineModeControls: FC<{
+export const OperationControls: FC<{
 	projectId: string;
 	headInfo: RefInfo;
 	outlineMode: OutlineMode;

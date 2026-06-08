@@ -119,7 +119,7 @@ import { stackToBottomRebaseUpdate } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { OutlineModeControls } from "#ui/routes/project/$id/workspace/OutlineModeControls.tsx";
+import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 
 const NavigationIndexContext = createContext<NavigationIndex<Operand> | null>(null);
 
@@ -708,7 +708,7 @@ export const OutlineTree: FC<
 						</div>
 
 						{headInfo && (
-							<OutlineModeControls
+							<OperationControls
 								projectId={projectId}
 								headInfo={headInfo}
 								outlineMode={outlineMode}
