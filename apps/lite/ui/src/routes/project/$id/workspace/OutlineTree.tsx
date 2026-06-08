@@ -670,6 +670,7 @@ export const OutlineTree: FC<
 							props.className,
 							styles.tree,
 							hasCheckedCommits && styles.treeWithCheckedCommits,
+							outlineMode._tag === "Default" && styles.treeWithDefaultOutlineMode,
 						)}
 						ref={useMergedRefs(refProp, ref)}
 					>
