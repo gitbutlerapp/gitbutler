@@ -11,10 +11,8 @@ import { centerUnderPointer } from "@atlaskit/pragmatic-drag-and-drop/element/ce
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview";
 import { mergeProps, useRender } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
-import { Match } from "effect";
 import { FC, type ReactNode, useEffect, useEffectEvent, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import { SelectionScope } from "#ui/selection-scopes.ts";
 
 type DragData = {
 	source: Operand;
@@ -31,11 +29,11 @@ const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (
 
 export const OperationSourceC: FC<
 	{
+		onDragStart?: () => void;
 		projectId: string;
-		selectionScope: SelectionScope;
 		source: Operand;
-	} & useRender.ComponentProps<"div">
-> = ({ projectId, selectionScope, source, render, ...props }) => {
+	} & Omit<useRender.ComponentProps<"div">, "onDragStart">
+> = ({ onDragStart: onDragStartProp, projectId, source, render, ...props }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
@@ -64,22 +62,7 @@ export const OperationSourceC: FC<
 		() => outlineMode._tag !== "RenameBranch" && outlineMode._tag !== "RewordCommit",
 	);
 	const onDragStart = useEffectEvent(() => {
-		Match.value(selectionScope).pipe(
-			Match.when("diff", () => {}),
-			Match.when("files", () => {
-				if (source._tag !== "File") return;
-				dispatch(
-					projectActions.selectFiles({
-						projectId,
-						selection: { parent: source.parent, path: source.path },
-					}),
-				);
-			}),
-			Match.when("outline", () =>
-				dispatch(projectActions.selectOutline({ projectId, selection: source })),
-			),
-			Match.exhaustive,
-		);
+		onDragStartProp?.();
 		dispatch(
 			projectActions.enterTransferMode({
 				projectId,
