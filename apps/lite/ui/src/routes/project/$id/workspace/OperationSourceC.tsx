@@ -1,7 +1,7 @@
 import { Operand, operandEquals } from "#ui/operands.ts";
 import { getOperationSource, pointerTransferOperationMode } from "#ui/outline/mode.ts";
 import styles from "./OperationSourceC.module.css";
-import { OperationSourceLabel } from "./OperationSourceLabel.tsx";
+import { operationSourceLabel } from "./operationSourceLabel.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { classes } from "#ui/components/classes.ts";
 import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
@@ -47,11 +47,7 @@ export const OperationSourceC: FC<
 				render: ({ container }) => {
 					if (!headInfo) return;
 					const root = createRoot(container);
-					root.render(
-						<DragPreview>
-							<OperationSourceLabel source={source} headInfo={headInfo} />
-						</DragPreview>,
-					);
+					root.render(<DragPreview>{operationSourceLabel({ source, headInfo })}</DragPreview>);
 					return () => {
 						root.unmount();
 					};

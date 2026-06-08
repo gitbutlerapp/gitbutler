@@ -1,16 +1,18 @@
 import { findCommit, findSegmentByBranchRef } from "#ui/api/ref-info.ts";
 import { commitTitle, shortCommitId } from "#ui/commit.ts";
 import { Match } from "effect";
-import { type FC } from "react";
 import { type RefInfo } from "@gitbutler/but-sdk";
 import { Operand } from "#ui/operands.ts";
 import { formatHunkHeader } from "#ui/hunk.ts";
 import { assert } from "#ui/assert.ts";
 
-export const OperationSourceLabel: FC<{
+export const operationSourceLabel = ({
+	source,
+	headInfo,
+}: {
 	source: Operand;
 	headInfo: RefInfo;
-}> = ({ source, headInfo }) =>
+}) =>
 	Match.value(source).pipe(
 		Match.tagsExhaustive({
 			Branch: ({ branchRef }) => {
@@ -21,14 +23,9 @@ export const OperationSourceLabel: FC<{
 			ChangesSection: () => "Changes",
 			Commit: ({ commitId }) => {
 				const commit = findCommit({ headInfo, commitId });
-				return commit ? (
-					<>
-						{commitTitle(commit.message)}
-						{commit.hasConflicts && " ⚠️"}
-					</>
-				) : (
-					shortCommitId(commitId)
-				);
+				return commit
+					? `${commitTitle(commit.message)}${commit.hasConflicts ? " ⚠️" : ""}`
+					: shortCommitId(commitId);
 			},
 			Stack: () => "Stack",
 			Hunk: ({ hunkHeader }) => `Hunk ${formatHunkHeader(hunkHeader)}`,

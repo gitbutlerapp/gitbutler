@@ -59,7 +59,7 @@ import {
 } from "#ui/projects/state.ts";
 import { rewrittenCommitSelection } from "#ui/projects/workspace/state.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
-import { OperationSourceLabel } from "#ui/routes/project/$id/workspace/OperationSourceLabel.tsx";
+import { operationSourceLabel } from "#ui/routes/project/$id/workspace/operationSourceLabel.ts";
 import { OperationTarget } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
@@ -714,7 +714,7 @@ export const OutlineTree: FC<
 									Default: () => null,
 									Absorb: (x) => (
 										<div className={classes("text-14", styles.operationSourcePreview)}>
-											Absorb source: <OperationSourceLabel headInfo={headInfo} source={x.source} />
+											Absorb source: {operationSourceLabel({ headInfo, source: x.source })}
 											{absorptionPlanQuery?.isPending && (
 												<Icon name="spinner" aria-label="Loading absorb plan" />
 											)}
@@ -722,8 +722,7 @@ export const OutlineTree: FC<
 									),
 									Transfer: (x) => (
 										<div className={classes("text-14", styles.operationSourcePreview)}>
-											Transfer source:{" "}
-											<OperationSourceLabel headInfo={headInfo} source={x.value.source} />
+											Transfer source: {operationSourceLabel({ headInfo, source: x.value.source })}
 										</div>
 									),
 									RenameBranch: () => null,
