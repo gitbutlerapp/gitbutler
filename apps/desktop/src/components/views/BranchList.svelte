@@ -8,7 +8,11 @@
 	import BranchReorderDropzone from "$components/branch/BranchReorderDropzone.svelte";
 	import ChangedFilesPanel from "$components/files/ChangedFilesPanel.svelte";
 	import PushButton from "$components/forge/PushButton.svelte";
-	import { getColorFromCommitState, getIconFromCommitState } from "$components/lib";
+	import {
+		getColorFromBranchPushStatus,
+		getColorFromCommitState,
+		getIconFromBranchPushStatus,
+	} from "$components/lib";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import BranchCommitList from "$components/views/BranchCommitList.svelte";
 	import { URL_SERVICE } from "$lib/backend/url";
@@ -107,7 +111,8 @@
 
 		{@const firstBranch = i === 0}
 		{@const lastBranch = i === segments.length - 1}
-		{@const iconName = getIconFromCommitState(commit?.id, commit?.state)}
+		{@const iconName = getIconFromBranchPushStatus(segment.pushStatus)}
+		{@const branchColor = getColorFromBranchPushStatus(segment.pushStatus)}
 		{@const lineColor = commit
 			? getColorFromCommitState(
 					commit.state.type,
@@ -280,6 +285,7 @@
 		<BranchCard
 			type="stack-branch"
 			{projectId}
+			{branchColor}
 			stackId={branchName ? stackId : undefined}
 			{laneId}
 			branchName={branchLabel}
