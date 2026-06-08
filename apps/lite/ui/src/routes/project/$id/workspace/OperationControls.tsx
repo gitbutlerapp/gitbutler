@@ -1,10 +1,10 @@
 import { useAbsorb } from "#ui/api/mutations.ts";
-import { absorptionPlanQueryOptions } from "#ui/api/queries.ts";
+import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
+import { assert } from "#ui/assert.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { operationHotkeys } from "#ui/hotkeys.ts";
-import { Operand, operandEquals } from "#ui/operands.ts";
 import {
 	getOperations,
 	operationLabel,
@@ -12,18 +12,45 @@ import {
 	type OperationType,
 	type OperationsByType,
 } from "#ui/operations/operation.ts";
-import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
-import { focusSelectionScope } from "#ui/selection-scopes.ts";
+import {
+	projectActions,
+	selectProjectCheckedCommitCount,
+	selectProjectOutlineModeState,
+} from "#ui/projects/state.ts";
+import { NavigationIndexContext } from "#ui/routes/project/$id/workspace/OutlineNavigationIndexContext.ts";
+import { operationSourceLabel } from "#ui/routes/project/$id/workspace/operationSourceLabel.ts";
+import { focusSelectionScope, useOutlineSelection } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { Button, Tooltip, useRender } from "@base-ui/react";
+import { classes } from "#ui/components/classes.ts";
+import { Icon } from "#ui/components/Icon.tsx";
+import { Button, Tooltip } from "@base-ui/react";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { type AbsorptionTarget } from "@gitbutler/but-sdk";
 import { useHotkeys } from "@tanstack/react-hotkeys";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
+import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
-import { FC } from "react";
-import styles from "./OutlineModeTooltip.module.css";
+import { FC, type ReactNode, use } from "react";
+import styles from "./OperationControls.module.css";
+
+const Container: FC<{ children: ReactNode }> = ({ children }) => (
+	<div className={classes("text-14", styles.container)}>{children}</div>
+);
+
+const ControlsRow: FC<{ children: ReactNode }> = ({ children }) => (
+	<div className={styles.controlsRow}>{children}</div>
+);
+
+const Label: FC<{ children: ReactNode }> = ({ children }) => (
+	<div className={classes("text-bold", "text-13")}>{children}</div>
+);
+
+const Controls: FC<{ children: ReactNode }> = ({ children }) => (
+	<div className={styles.controls}>{children}</div>
+);
+
+const Separator: FC = () => <div className={styles.separator} />;
 
 const AbsorbControls: FC<{
 	projectId: string;
@@ -68,7 +95,7 @@ const AbsorbControls: FC<{
 	]);
 
 	return (
-		<div className={styles.controls}>
+		<Controls>
 			<Tooltip.Root>
 				<Tooltip.Trigger
 					className={getButtonClassName({})}
@@ -99,7 +126,56 @@ const AbsorbControls: FC<{
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
 			</Tooltip.Root>
-		</div>
+		</Controls>
+	);
+};
+
+const CheckedCommitControls: FC<{ checkedCommitCount: number; projectId: string }> = ({
+	checkedCommitCount,
+	projectId,
+}) => {
+	const dispatch = useAppDispatch();
+
+	const cancel = () => {
+		dispatch(projectActions.clearCheckedCommits({ projectId }));
+		focusSelectionScope("outline");
+	};
+
+	useHotkeys([
+		{
+			hotkey: operationHotkeys.cancel.hotkey,
+			callback: cancel,
+			options: {
+				conflictBehavior: "allow",
+				meta: operationHotkeys.cancel.meta,
+			},
+		},
+	]);
+
+	return (
+		<Container>
+			<ControlsRow>
+				<Label>
+					{new Intl.NumberFormat().format(checkedCommitCount)}{" "}
+					{new Intl.PluralRules().select(checkedCommitCount) === "one" ? "commit" : "commits"}{" "}
+					checked
+				</Label>
+				<Controls>
+					<Tooltip.Root>
+						<Tooltip.Trigger className={getButtonClassName({})} onClick={cancel}>
+							Cancel
+						</Tooltip.Trigger>
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.cancel.hotkey} />}>
+									{operationHotkeys.cancel.meta.name}
+								</Tooltip.Popup>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
+				</Controls>
+			</ControlsRow>
+		</Container>
 	);
 };
 
@@ -154,7 +230,7 @@ const TransferTypeToggleGroup: FC<{
 			aria-label="Operation type"
 			value={[operationType]}
 			onValueChange={onValueChange}
-			orientation="vertical"
+			className={styles.toggleGroupRow}
 		>
 			<Tooltip.Root>
 				<Toggle
@@ -164,7 +240,7 @@ const TransferTypeToggleGroup: FC<{
 					{operations.moveAbove ? operationLabel(operations.moveAbove) : "Move above"}
 				</Toggle>
 				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4} side="right">
+					<Tooltip.Positioner sideOffset={4}>
 						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectMoveAbove.hotkey} />}>
 							{operationHotkeys.selectMoveAbove.meta.name}
 						</Tooltip.Popup>
@@ -180,7 +256,7 @@ const TransferTypeToggleGroup: FC<{
 					{operations.rub ? operationLabel(operations.rub) : "Rub"}
 				</Toggle>
 				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4} side="right">
+					<Tooltip.Positioner sideOffset={4}>
 						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectRub.hotkey} />}>
 							{operationHotkeys.selectRub.meta.name}
 						</Tooltip.Popup>
@@ -196,7 +272,7 @@ const TransferTypeToggleGroup: FC<{
 					{operations.moveBelow ? operationLabel(operations.moveBelow) : "Move below"}
 				</Toggle>
 				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4} side="right">
+					<Tooltip.Positioner sideOffset={4}>
 						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectMoveBelow.hotkey} />}>
 							{operationHotkeys.selectMoveBelow.meta.name}
 						</Tooltip.Popup>
@@ -261,7 +337,7 @@ const TransferOperationControls: FC<{
 	]);
 
 	return (
-		<div className={styles.controls}>
+		<Controls>
 			<Tooltip.Root>
 				<Tooltip.Trigger
 					className={getButtonClassName({})}
@@ -293,61 +369,76 @@ const TransferOperationControls: FC<{
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
 			</Tooltip.Root>
-		</div>
+		</Controls>
 	);
 };
 
-export const OutlineModeTooltip: FC<
-	{
-		projectId: string;
-		target: Operand;
-		isActive: boolean;
-	} & useRender.ComponentProps<"div">
-> = ({ projectId, target, isActive, render, ...props }) => {
+export const OperationControls: FC = () => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const navigationIndex = assert(use(NavigationIndexContext));
+	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const absorptionPlanTarget = Match.value(outlineMode).pipe(
+		Match.tag("Absorb", ({ sourceTarget }) => sourceTarget),
+		Match.orElse(() => null),
+	);
+	const [absorptionPlanQuery] = useQueries({
+		queries: (absorptionPlanTarget ? [absorptionPlanTarget] : []).map((target) =>
+			absorptionPlanQueryOptions({ projectId, target }),
+		),
+	});
+	const checkedCommitCount = useAppSelector((state) =>
+		selectProjectCheckedCommitCount(state, projectId),
+	);
 
-	const tooltip = isActive
-		? Match.value(outlineMode).pipe(
-				Match.tags({
-					Absorb: ({ sourceTarget }) => (
-						<AbsorbControls projectId={projectId} sourceTarget={sourceTarget} />
-					),
-					Transfer: ({ value: mode }) =>
-						Match.value(mode).pipe(
-							Match.tags({
-								Keyboard: (mode) => (
-									<div className={styles.transferOperation}>
-										{operandEquals(mode.source, target) && <>Select a target</>}
-										<TransferTypeToggleGroup
-											projectId={projectId}
-											operations={getOperations(mode.source, target)}
-											operationType={mode.operationType}
-										/>
+	return Match.value(outlineMode).pipe(
+		Match.tagsExhaustive({
+			Default: () =>
+				checkedCommitCount > 0 && (
+					<CheckedCommitControls checkedCommitCount={checkedCommitCount} projectId={projectId} />
+				),
+			Absorb: (x) =>
+				absorptionPlanQuery &&
+				headInfo && (
+					<Container>
+						<ControlsRow>
+							<Label>{operationSourceLabel({ headInfo, source: x.source })}</Label>
+							{absorptionPlanQuery.isPending && (
+								<Icon name="spinner" aria-label="Loading absorb plan" />
+							)}
+							<AbsorbControls projectId={projectId} sourceTarget={x.sourceTarget} />
+						</ControlsRow>
+					</Container>
+				),
+			Transfer: ({ value: mode }) =>
+				Match.value(mode).pipe(
+					Match.tags({
+						Keyboard: (mode) =>
+							selection &&
+							headInfo && (
+								<Container>
+									<TransferTypeToggleGroup
+										projectId={projectId}
+										operations={getOperations(mode.source, selection)}
+										operationType={mode.operationType}
+									/>
+									<Separator />
+									<ControlsRow>
+										<Label>{operationSourceLabel({ headInfo, source: mode.source })}</Label>
 										<TransferOperationControls
 											projectId={projectId}
-											operations={getOperations(mode.source, target)}
+											operations={getOperations(mode.source, selection)}
 											operationType={mode.operationType}
 										/>
-									</div>
-								),
-							}),
-							Match.orElse(() => null),
-						),
-				}),
-				Match.orElse(() => null),
-			)
-		: null;
-
-	const trigger = useRender({ render, props });
-
-	return (
-		<Tooltip.Root open={!!tooltip}>
-			<Tooltip.Trigger render={trigger} />
-			<Tooltip.Portal>
-				<Tooltip.Positioner sideOffset={8} side="right">
-					<Tooltip.Popup render={<TooltipPopup>{tooltip}</TooltipPopup>} />
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+									</ControlsRow>
+								</Container>
+							),
+					}),
+					Match.orElse(() => null),
+				),
+			RenameBranch: () => null,
+			RewordCommit: () => null,
+		}),
 	);
 };

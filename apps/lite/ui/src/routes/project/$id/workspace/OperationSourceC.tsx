@@ -1,7 +1,7 @@
 import { Operand, operandEquals } from "#ui/operands.ts";
 import { getOperationSource, pointerTransferOperationMode } from "#ui/outline/mode.ts";
 import styles from "./OperationSourceC.module.css";
-import { OperationSourceLabel } from "./OperationSourceLabel.tsx";
+import { operationSourceLabel } from "./operationSourceLabel.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { classes } from "#ui/components/classes.ts";
 import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
@@ -11,10 +11,8 @@ import { centerUnderPointer } from "@atlaskit/pragmatic-drag-and-drop/element/ce
 import { setCustomNativeDragPreview } from "@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview";
 import { mergeProps, useRender } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
-import { Match } from "effect";
 import { FC, type ReactNode, useEffect, useEffectEvent, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import { SelectionScope } from "#ui/selection-scopes.ts";
 
 type DragData = {
 	source: Operand;
@@ -26,16 +24,16 @@ export const parseDragData = (data: unknown): DragData | null => {
 };
 
 const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (
-	<div className={styles.dragPreview}>{children}</div>
+	<div className={classes(styles.dragPreview, "text-14")}>{children}</div>
 );
 
 export const OperationSourceC: FC<
 	{
+		onDragStart?: () => void;
 		projectId: string;
-		selectionScope: SelectionScope;
 		source: Operand;
-	} & useRender.ComponentProps<"div">
-> = ({ projectId, selectionScope, source, render, ...props }) => {
+	} & Omit<useRender.ComponentProps<"div">, "onDragStart">
+> = ({ onDragStart: onDragStartProp, projectId, source, render, ...props }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
@@ -49,11 +47,7 @@ export const OperationSourceC: FC<
 				render: ({ container }) => {
 					if (!headInfo) return;
 					const root = createRoot(container);
-					root.render(
-						<DragPreview>
-							<OperationSourceLabel source={source} headInfo={headInfo} />
-						</DragPreview>,
-					);
+					root.render(<DragPreview>{operationSourceLabel({ source, headInfo })}</DragPreview>);
 					return () => {
 						root.unmount();
 					};
@@ -63,6 +57,18 @@ export const OperationSourceC: FC<
 	const canDrag = useEffectEvent(
 		() => outlineMode._tag !== "RenameBranch" && outlineMode._tag !== "RewordCommit",
 	);
+	const onDragStart = useEffectEvent(() => {
+		onDragStartProp?.();
+		dispatch(
+			projectActions.enterTransferMode({
+				projectId,
+				mode: pointerTransferOperationMode({
+					source,
+					operationType: null,
+				}),
+			}),
+		);
+	});
 
 	useEffect(() => {
 		const element = dragRef.current;
@@ -74,40 +80,14 @@ export const OperationSourceC: FC<
 			canDrag,
 			getInitialData: (): DragData => ({ source }),
 			onGenerateDragPreview,
-			onDragStart: () => {
-				Match.value(selectionScope).pipe(
-					Match.when("diff", () => {}),
-					Match.when("files", () => {
-						if (source._tag !== "File") return;
-						dispatch(
-							projectActions.selectFiles({
-								projectId,
-								selection: { parent: source.parent, path: source.path },
-							}),
-						);
-					}),
-					Match.when("outline", () =>
-						dispatch(projectActions.selectOutline({ projectId, selection: source })),
-					),
-					Match.exhaustive,
-				);
-				dispatch(
-					projectActions.enterTransferMode({
-						projectId,
-						mode: pointerTransferOperationMode({
-							source,
-							operationType: null,
-						}),
-					}),
-				);
-			},
+			onDragStart,
 			onDrop: ({ location }) => {
 				if (location.current.dropTargets.length > 0) return;
 
 				dispatch(projectActions.cancelMode({ projectId }));
 			},
 		});
-	}, [dispatch, projectId, selectionScope, source]);
+	}, [dispatch, projectId, source]);
 
 	const operationSource = getOperationSource(outlineMode);
 	const isActiveSource = operationSource ? operandEquals(operationSource, source) : false;

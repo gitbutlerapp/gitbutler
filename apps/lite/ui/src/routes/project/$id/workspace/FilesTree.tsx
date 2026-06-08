@@ -376,8 +376,8 @@ const FileTreeRow: FC<{
 			render={
 				<OperationSourceC
 					projectId={projectId}
-					selectionScope="files"
 					source={fileOperand(item.operand)}
+					onDragStart={() => onFileSelection(item.operand)}
 					render={
 						<ItemRow
 							projectId={projectId}

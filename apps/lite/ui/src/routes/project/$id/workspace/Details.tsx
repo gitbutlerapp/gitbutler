@@ -381,7 +381,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	);
 
 	return (
-		<OperationSourceC projectId={p.projectId} source={p.operand} selectionScope="diff">
+		<OperationSourceC projectId={p.projectId} source={p.operand}>
 			<header className={classes(styles.fileHeader, !p.hasDiff && styles.lone)}>
 				<h4 className={classes("text-13", styles.filePath)}>
 					{mpathInit}
@@ -400,12 +400,18 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 const Header: FC<{
 	projectId: string;
 	selection: Operand;
-}> = ({ projectId, selection }) =>
-	Match.value(selection).pipe(
+}> = ({ projectId, selection }) => {
+	const dispatch = useAppDispatch();
+	const selectOutlineSource = (source: Operand) => {
+		dispatch(projectActions.selectOutline({ projectId, selection: source }));
+	};
+
+	return Match.value(selection).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
 			Branch: ({ stackId, branchRef }) => {
 				const decodedBranchRef = decodeRefName(branchRef);
+				const source = branchOperand({ stackId, branchRef });
 
 				return (
 					<SuspenseQuery
@@ -419,8 +425,8 @@ const Header: FC<{
 						{({ data: branchDetails }) => (
 							<OperationSourceC
 								projectId={projectId}
-								selectionScope="outline"
-								source={branchOperand({ stackId, branchRef })}
+								source={source}
+								onDragStart={() => selectOutlineSource(source)}
 								render={<header className={styles.header} />}
 							>
 								<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
@@ -437,8 +443,8 @@ const Header: FC<{
 			ChangesSection: () => (
 				<OperationSourceC
 					projectId={projectId}
-					selectionScope="outline"
 					source={changesSectionOperand}
+					onDragStart={() => selectOutlineSource(changesSectionOperand)}
 					render={<header className={styles.header} />}
 				>
 					<h3 className={classes("text-14", "text-semibold")}>Changes</h3>
@@ -453,8 +459,8 @@ const Header: FC<{
 						{({ data: commitDetails }) => (
 							<OperationSourceC
 								projectId={projectId}
-								selectionScope="outline"
 								source={source}
+								onDragStart={() => selectOutlineSource(source)}
 								render={<header className={styles.header} />}
 							>
 								<Icon name="commit" />
@@ -473,6 +479,7 @@ const Header: FC<{
 			Hunk: () => null,
 		}),
 	);
+};
 
 const FilesToggle: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });

@@ -328,7 +328,10 @@ export const selectHighlightedCommitIds = (state: WorkspaceState): Array<string>
 export const selectCommitChecked = (state: WorkspaceState, commitId: string): boolean =>
 	state.checkedCommitIds[commitId] === true;
 
+export const selectCheckedCommitCount = (state: WorkspaceState): number =>
+	Object.keys(state.checkedCommitIds).length;
+
 export const selectHasCheckedCommits = (state: WorkspaceState): boolean =>
-	Object.keys(state.checkedCommitIds).length > 0;
+	selectCheckedCommitCount(state) > 0;
 
 export const selectCommitTarget = (state: WorkspaceState): RelativeTo | null => state.commitTarget;

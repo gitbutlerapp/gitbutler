@@ -1,0 +1,43 @@
+.container {
+	display: flex;
+	z-index: 1;
+	position: fixed;
+	bottom: var(--panel-padding);
+	left: 50%;
+	row-gap: 12px;
+	flex-direction: column;
+	max-width: min(calc(100% - (2 * var(--panel-padding))), 500px);
+	padding: 12px;
+	overflow: hidden;
+	transform: translateX(-50%);
+	border: 1px solid light-dark(rgb(0 0 0 / 0.2), rgb(255 255 255 / 0.16));
+	border-radius: var(--radius-l);
+	background-color: var(--bg-1);
+	box-shadow: var(--shadow-m);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.toggleGroupRow {
+	align-self: center;
+}
+
+.separator {
+	border-top: 1px solid var(--border-2);
+}
+
+.controlsRow {
+	display: flex;
+	column-gap: 12px;
+	align-items: center;
+}
+
+.controls {
+	display: flex;
+	column-gap: 4px;
+	margin-left: auto;
+
+	& > * {
+		flex: 1;
+	}
+}
