@@ -221,7 +221,7 @@ const useOutlineTreeHotkeys = ({
 				projectId,
 				mode: keyboardTransferOperationMode({
 					source: changesSectionOperand,
-					operationType: "rub",
+					operationType: "squash",
 				}),
 			}),
 		);
@@ -1027,7 +1027,7 @@ const CommitRow: FC<
 				projectId,
 				mode: keyboardTransferOperationMode({
 					source: operand,
-					operationType: "rub",
+					operationType: "squash",
 				}),
 			}),
 		);
@@ -1079,7 +1079,7 @@ const CommitRow: FC<
 				projectId,
 				mode: keyboardTransferOperationMode({
 					source: changesSectionOperand,
-					operationType: "rub",
+					operationType: "squash",
 				}),
 			}),
 		);

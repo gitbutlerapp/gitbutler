@@ -32,7 +32,7 @@ const getOperationTypeFromData = (data: DropData): OperationType | null => {
 
 	return Match.value(instruction.operation).pipe(
 		Match.withReturnType<OperationType>(),
-		Match.when("combine", () => "rub"),
+		Match.when("combine", () => "squash"),
 		Match.when("reorder-before", () => "moveAbove"),
 		Match.when("reorder-after", () => "moveBelow"),
 		Match.exhaustive,
@@ -56,7 +56,7 @@ const useOperationDropTarget = ({
 		const dragData = parseDragData(source.data);
 		if (!dragData) return {};
 
-		const { rub, moveAbove, moveBelow } = getOperations(dragData.source, target);
+		const { squash, moveAbove, moveBelow } = getOperations(dragData.source, target);
 		return attachInstruction(
 			{},
 			{
@@ -65,7 +65,7 @@ const useOperationDropTarget = ({
 				operations: {
 					"reorder-before": moveAbove ? "available" : "not-available",
 					"reorder-after": moveBelow ? "available" : "not-available",
-					combine: rub ? "available" : "not-available",
+					combine: squash ? "available" : "not-available",
 				},
 			},
 		);
@@ -161,7 +161,7 @@ export const OperationTarget: FC<
 	const isMainTargetActive = Match.value(outlineMode).pipe(
 		Match.tags({
 			Absorb: () => isAbsorptionTarget,
-			Transfer: ({ value: mode }) => isSelected && mode.operationType === "rub",
+			Transfer: ({ value: mode }) => isSelected && mode.operationType === "squash",
 		}),
 		Match.orElse(() => false),
 	);

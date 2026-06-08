@@ -228,8 +228,8 @@ export const operationHotkeys = {
 		hotkey: "B",
 		meta: { group: "Operation mode", name: "Select move below" },
 	},
-	selectRub: {
-		hotkey: "R",
-		meta: { group: "Operation mode", name: "Select rub" },
+	selectSquash: {
+		hotkey: "S",
+		meta: { group: "Operation mode", name: "Select squash" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;

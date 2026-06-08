@@ -355,7 +355,7 @@ export const useNavigationIndexHotkeys = <T>({
 		},
 		{
 			hotkey: "Mod+X",
-			callback: () => enterTransferModeForSelection("rub"),
+			callback: () => enterTransferModeForSelection("squash"),
 			options: {
 				conflictBehavior: "allow",
 				enabled: operationEnabled,
@@ -365,8 +365,8 @@ export const useNavigationIndexHotkeys = <T>({
 			},
 		},
 		{
-			hotkey: "R",
-			callback: () => enterTransferModeForSelection("rub"),
+			hotkey: "S",
+			callback: () => enterTransferModeForSelection("squash"),
 			options: {
 				conflictBehavior: "allow",
 				enabled: operationEnabled,
