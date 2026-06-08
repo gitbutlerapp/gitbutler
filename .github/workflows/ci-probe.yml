@@ -1,0 +1,25 @@
+name: ci-probe
+# Diagnostic workflow for the duplicate-CI-run investigation.
+# Scoped to mg-test-branch and deliberately has NO concurrency group, so that
+# if one push produces two webhook events both runs survive and can be counted.
+on:
+  push:
+    branches:
+      - mg-test-branch
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: report push event
+        run: |
+          echo "event=${{ github.event_name }}"
+          echo "ref=${{ github.ref }}"
+          echo "before=${{ github.event.before }}"
+          echo "after=${{ github.event.after }}"
+          echo "head_commit=${{ github.event.head_commit.id }}"
+          echo "run_id=${{ github.run_id }} run_attempt=${{ github.run_attempt }}"
+          echo "actor=${{ github.actor }}"
+          echo "pusher_name=${{ github.event.pusher.name }}"
+          echo "forced=${{ github.event.forced }}"
+          echo "created=${{ github.event.created }}"
