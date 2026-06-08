@@ -41,13 +41,25 @@ import type {
 import {
 	type CodeViewDiffItem,
 	type CodeView as CodeViewClass,
+	type CodeViewLineSelection,
+	type Hunk,
+	type SelectedLineRange,
+	type SelectionSide,
 	parsePatchFiles,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Hash, Match } from "effect";
-import { ComponentProps, FC, type RefObject, Suspense, useDeferredValue, useRef } from "react";
+import {
+	ComponentProps,
+	FC,
+	type RefObject,
+	Suspense,
+	useDeferredValue,
+	useRef,
+	useState,
+} from "react";
 import styles from "./Details.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import { SelectionScope } from "#ui/selection-scopes.ts";
@@ -239,6 +251,44 @@ const mkCodeViewItem = (
 	};
 };
 
+const hunkContainsLine = (hunk: Hunk, line: number, side: SelectionSide): boolean => {
+	const start = side === "deletions" ? hunk.deletionStart : hunk.additionStart;
+	const count = side === "deletions" ? hunk.deletionCount : hunk.additionCount;
+
+	return line >= start && line < start + count;
+};
+
+const selectEntireHunk = (hunk: Hunk): SelectedLineRange => {
+	if (hunk.deletionCount > 0 && hunk.additionCount > 0) {
+		const lastContent = hunk.hunkContent.at(-1);
+		const startsWithAddition =
+			hunk.hunkContent[0]?.type === "change" && hunk.hunkContent[0].deletions === 0;
+		const endsWithDeletion = lastContent?.type === "change" && lastContent.additions === 0;
+
+		return {
+			start: startsWithAddition ? hunk.additionStart : hunk.deletionStart,
+			side: startsWithAddition ? "additions" : "deletions",
+			end: endsWithDeletion
+				? hunk.deletionStart + hunk.deletionCount - 1
+				: hunk.additionStart + hunk.additionCount - 1,
+			endSide: endsWithDeletion ? "deletions" : "additions",
+		};
+	}
+
+	if (hunk.deletionCount > 0)
+		return {
+			start: hunk.deletionStart,
+			side: "deletions",
+			end: hunk.deletionStart + hunk.deletionCount - 1,
+		};
+
+	return {
+		start: hunk.additionStart,
+		side: "additions",
+		end: hunk.additionStart + hunk.additionCount - 1,
+	};
+};
+
 const DiffContents: FC<{
 	changes: Array<TreeChange>;
 	onViewerFileSelection: (selection: FileOperand) => void;
@@ -246,6 +296,7 @@ const DiffContents: FC<{
 	projectId: string;
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
 }> = ({ changes, onViewerFileSelection, outlineSelection, projectId, viewerRef }) => {
+	const [selectedRange, setSelectedRange] = useState<CodeViewLineSelection | null>(null);
 	const treeChangeDiffs = useSuspenseQueries({
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 	}).map((result) => result.data);
@@ -294,6 +345,29 @@ const DiffContents: FC<{
 		});
 	};
 
+	// We currently only support selecting entire hunks in a unified view.
+	const handleLinesSelected = (sel: CodeViewLineSelection | null): void => {
+		if (!sel) return setSelectedRange(null);
+
+		const itemBySel = itemsMetadataMap.get(sel.id);
+		if (!itemBySel) throw new Error("Missing item ID in metadata map");
+
+		const hunk = itemBySel.item.fileDiff.hunks.find((hunk) =>
+			hunkContainsLine(
+				hunk,
+				// The end range is more reliable in shift+click with preexisting selection scenarios.
+				sel.range.end,
+				sel.range.endSide ?? sel.range.side ?? "additions",
+			),
+		);
+		if (!hunk) throw new Error("No hunk found for selected range");
+
+		setSelectedRange({
+			id: sel.id,
+			range: selectEntireHunk(hunk),
+		});
+	};
+
 	return items.length === 0 ? (
 		<p className="text-13">No changes.</p>
 	) : (
@@ -323,10 +397,13 @@ const DiffContents: FC<{
 			onScroll={selectFileAtViewportTop}
 			className={styles.diffContents}
 			items={items}
+			selectedLines={selectedRange}
+			onSelectedLinesChange={handleLinesSelected}
 			options={{
 				diffStyle: "unified",
 				themeType: "system",
 				stickyHeaders: true,
+				enableLineSelection: true,
 				layout: {
 					paddingTop: 0,
 					// Match --panel-padding.
