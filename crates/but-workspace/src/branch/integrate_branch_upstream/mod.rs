@@ -1,4 +1,7 @@
-use std::{collections::HashMap, fmt};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+};
 
 use anyhow::{Result, bail};
 use but_core::{RefMetadata, commit::Headers};
@@ -157,12 +160,31 @@ pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
         &children_to_disconnect,
         EdgeSelection::Children,
     )?;
+    let integration_commit_ids = integration_step_commit_ids(&integration.steps);
+    let children_to_reconnect = children_to_reconnect
+        .into_iter()
+        .filter(|(selector, _)| match editor.lookup_pick(*selector) {
+            Ok(commit_id) => !integration_commit_ids.contains(&commit_id),
+            Err(_) => true,
+        })
+        .collect::<Vec<_>>();
     let parents_to_reconnect = selected_edges_from_set(
         &editor,
         segment_delimiter.parent,
         &parents_to_disconnect,
         EdgeSelection::Parents,
-    )?;
+    )?
+    .into_iter()
+    .map(|(selector, order)| {
+        if selector == delimiter_child {
+            editor
+                .select_commit(integration.merge_base)
+                .map(|merge_base| (merge_base, order))
+        } else {
+            Ok((selector, order))
+        }
+    })
+    .collect::<Result<Vec<_>>>()?;
 
     // Step 3: Disconnect the segment, isolating it so that we can freely manipulate it.
     editor.disconnect_segment_from(
@@ -184,6 +206,22 @@ pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
     )?;
 
     editor.rebase()
+}
+
+fn integration_step_commit_ids(steps: &[InteractiveIntegrationStep]) -> HashSet<gix::ObjectId> {
+    let mut out = HashSet::new();
+    for step in steps {
+        match step {
+            InteractiveIntegrationStep::Pick { commit_id }
+            | InteractiveIntegrationStep::Merge { commit_id } => {
+                out.insert(*commit_id);
+            }
+            InteractiveIntegrationStep::Squash { commits, .. } => {
+                out.extend(commits.iter().copied());
+            }
+        }
+    }
+    out
 }
 
 /// Get the initial integration steps for a branch.
@@ -317,8 +355,16 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
             relation_for(&target_relations, merge_base),
         )?,
     };
-    let local_tip = divergence.local_only.first().map(|commit| commit.id);
-    let upstream_tip = divergence.upstream_only.first().map(|commit| commit.id);
+    let local_tip = divergence
+        .local_only
+        .first()
+        .map(|commit| commit.id)
+        .or(Some(merge_base));
+    let upstream_tip = divergence
+        .upstream_only
+        .first()
+        .map(|commit| commit.id)
+        .or(Some(merge_base));
     add_ref_label(
         &mut divergence.local_only,
         &mut divergence.merge_base,

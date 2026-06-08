@@ -118,6 +118,10 @@ export function getStackServiceMock() {
 	StackServiceMock.prototype.reorderStack = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.reorderStackMutation = vi.fn();
 	StackServiceMock.prototype.integrateUpstreamCommits = vi.fn();
+	StackServiceMock.prototype.initialBranchIntegration = vi.fn();
+	StackServiceMock.prototype.applyBranchIntegration = vi.fn();
+	StackServiceMock.prototype.previewBranchIntegration = vi.fn();
+	StackServiceMock.prototype.fetchInitialBranchIntegration = vi.fn();
 	StackServiceMock.prototype.legacyUnapplyLines = vi.fn();
 	StackServiceMock.prototype.legacyUnapplyHunk = vi.fn();
 	StackServiceMock.prototype.legacyUnapplyFiles = vi.fn();

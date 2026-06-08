@@ -1661,6 +1661,243 @@ fn integrate_upstream_commits_into_local_with_only_remote_commits() -> Result<()
 }
 
 #[test]
+fn integrate_upstream_commits_when_remote_is_ahead_of_local() -> Result<()> {
+    let (_tmp, graph, mut repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "remote-advanced-with-workspace",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+            },
+        )?;
+
+    insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @"
+    * 2e72271 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * f15e6ab (origin/A) remote change in A 3
+    |/
+    * 220cc98 (A) local change in A 2
+    * f01c4f5 local change in A 1
+    * cfbcc20 (origin/main, main) init-integration
+    ");
+
+    let mut ws = graph.into_workspace()?;
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let initial = get_initial_integration_steps_for_branch(
+        r("refs/heads/A"),
+        BranchIntegrationStrategy::PullRebase,
+        &mut ws,
+        &mut meta,
+        &repo,
+    )?;
+
+    let remote_commit = repo.rev_parse_single("origin/A")?.detach();
+    let local_commit_2 = repo.rev_parse_single("A")?.detach();
+    let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
+    let base = repo.rev_parse_single("main")?.detach();
+    let labels = [
+        (remote_commit, "remote-commit"),
+        (local_commit_2, "local-commit-2"),
+        (local_commit_1, "local-commit-1"),
+        (base, "base"),
+    ];
+
+    insta::assert_snapshot!(
+        labeled_divergence_snapshot(&initial, &labels),
+        @"
+    * remote-commit (origin/A) remote change in A 3
+    * local-commit-2 (A) local change in A 2
+    "
+    );
+
+    insta::assert_snapshot!(
+        labeled_integration_snapshot(&initial.integration, &labels),
+        @"
+    merge-base local-commit-2
+    pick remote-commit
+    "
+    );
+
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        initial.integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+    )?;
+    rebase.materialize()?;
+
+    insta::assert_snapshot!(
+        labeled_graph_snapshot(&repo, &labels)?,
+        @"
+    * 59a02cd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * remote-commit (origin/A, A) remote change in A 3
+    * local-commit-2 local change in A 2
+    * local-commit-1 local change in A 1
+    * base (origin/main, main) init-integration
+    "
+    );
+
+    Ok(())
+}
+
+#[test]
+fn initial_pull_rebase_plan_includes_workspace_local_commits_above_branch_ref() -> Result<()> {
+    let (_tmp, graph, mut repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "remote-advanced-with-local-workspace-commit",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+            },
+        )?;
+
+    insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @"
+    * ea0ece6 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 5ea7c50 local change in A 3
+    | * f15e6ab (origin/A) remote change in A 3
+    |/
+    * 220cc98 (A) local change in A 2
+    * f01c4f5 local change in A 1
+    * cfbcc20 (origin/main, main) init-integration
+    ");
+
+    let mut ws = graph.into_workspace()?;
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let initial = get_initial_integration_steps_for_branch(
+        r("refs/heads/A"),
+        BranchIntegrationStrategy::PullRebase,
+        &mut ws,
+        &mut meta,
+        &repo,
+    )?;
+
+    let remote_commit = repo.rev_parse_single("origin/A")?.detach();
+    let local_commit_3 = repo.rev_parse_single("gitbutler/workspace~1")?.detach();
+    let local_commit_2 = repo.rev_parse_single("A")?.detach();
+    let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
+    let base = repo.rev_parse_single("main")?.detach();
+    let labels = [
+        (remote_commit, "remote-commit"),
+        (local_commit_3, "local-commit-3"),
+        (local_commit_2, "local-commit-2"),
+        (local_commit_1, "local-commit-1"),
+        (base, "base"),
+    ];
+
+    insta::assert_snapshot!(
+        labeled_divergence_snapshot(&initial, &labels),
+        @"
+    * local-commit-3 (A) local change in A 3
+    | * remote-commit (origin/A) remote change in A 3
+    |/
+    * local-commit-2 local change in A 2
+    "
+    );
+
+    insta::assert_snapshot!(
+        labeled_integration_snapshot(&initial.integration, &labels),
+        @"
+    merge-base local-commit-2
+    pick remote-commit
+    pick local-commit-3
+    "
+    );
+
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        initial.integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+    )?;
+    rebase.materialize()?;
+
+    insta::assert_snapshot!(
+        labeled_graph_snapshot(&repo, &labels)?,
+        @"
+    * bf6f03c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 705502a (A) local change in A 3
+    * remote-commit (origin/A) remote change in A 3
+    * local-commit-2 local change in A 2
+    * local-commit-1 local change in A 1
+    * base (origin/main, main) init-integration
+    "
+    );
+
+    Ok(())
+}
+
+#[test]
+fn integrate_initial_pull_rebase_plan_for_one_local_and_one_remote_commit() -> Result<()> {
+    let (_tmp, graph, mut repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "remote-diverged-with-workspace",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+            },
+        )?;
+
+    let mut ws = graph.into_workspace()?;
+    configure_tracking_for_branch_a(&mut repo)?;
+
+    let initial = get_initial_integration_steps_for_branch(
+        r("refs/heads/A"),
+        BranchIntegrationStrategy::PullRebase,
+        &mut ws,
+        &mut meta,
+        &repo,
+    )?;
+
+    let local_tip = repo.rev_parse_single("A")?.detach();
+    let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
+    let remote_tip = repo.rev_parse_single("origin/A")?.detach();
+    let remote_commit_1 = repo.rev_parse_single("origin/A~1")?.detach();
+    let base = repo.rev_parse_single("A~2")?.detach();
+    let labels = [
+        (local_tip, "local-tip"),
+        (local_commit_1, "local-commit-1"),
+        (remote_tip, "remote-tip"),
+        (remote_commit_1, "remote-commit-1"),
+        (base, "base"),
+    ];
+
+    insta::assert_snapshot!(
+        labeled_integration_snapshot(&initial.integration, &labels),
+        @"
+    merge-base base
+    pick remote-commit-1
+    pick remote-tip
+    pick local-commit-1
+    pick local-tip
+    "
+    );
+
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/A"),
+        initial.integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+    )?;
+    rebase.materialize()?;
+
+    insta::assert_snapshot!(
+        labeled_graph_snapshot(&repo, &labels)?,
+        @"
+    * 455d393 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 298d472 (A) local change in A 2
+    * 422a07d local change in A 1
+    * remote-tip (origin/A) remote change in A 2
+    * remote-commit-1 remote change in A 1
+    * base shared local/remote
+    * cfbcc20 (origin/main, main) init-integration
+    "
+    );
+
+    Ok(())
+}
+
+#[test]
 fn integrate_upstream_commits_into_local_with_squashed_local_commits() -> Result<()> {
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(

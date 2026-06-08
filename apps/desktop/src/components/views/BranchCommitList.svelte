@@ -84,6 +84,11 @@
 
 	const selectedBranchName = $derived(selection.current?.branchName);
 	const selectedCommitId = $derived(selection.current?.commitId);
+	const branchRef = $derived(
+		segment.refName
+			? new TextDecoder().decode(new Uint8Array(segment.refName.fullNameBytes))
+			: null,
+	);
 
 	const localAndRemoteCommits = $derived(segment.commits);
 	const upstreamOnlyCommits = $derived(segment.commitsOnRemote);
@@ -297,39 +302,10 @@
 		use:focusable={{ vertical: true }}
 	>
 		{#if hasRemoteCommits}
-			{#each upstreamOnlyCommits as commit, i (commit.id)}
-				{@const first = i === 0}
-				{@const lastCommit = i === upstreamOnlyCommits.length - 1}
-				{@const selected =
-					controller.isCommitSelected(commit.id) && branchName === selectedBranchName}
-				{@const commitId = commit.id}
-				{#if !controller.isCommitting}
-					<CommitListItem
-						type="Remote"
-						{stackId}
-						{commitId}
-						commitMessage={commit.message}
-						createdAt={commitCreatedAt(commit)}
-						tooltip="Upstream"
-						{branchName}
-						{first}
-						{lastCommit}
-						{selected}
-						active={controller.active && commit.id === selectedCommitId}
-						reactions={commitReactions[commit.id]}
-						onclick={(e) => handleCommitClick(commit.id, true, e)}
-						disableCommitActions={false}
-						editable={!!stackId}
-					/>
-				{/if}
-			{/each}
-
 			<UpstreamActionRow testId={TestId.UpstreamCommitsCommitAction} isLast={!hasCommits}>
 				{#snippet action()}
-					<h3 class="text-13 text-semibold m-b-4">Upstream has new commits</h3>
-					<p class="text-12 text-body clr-text-2 m-b-14">Update your branch to stay current.</p>
-					{#if branchName}
-						<UpstreamIntegrationActions {projectId} {stackId} {branchName} />
+					{#if branchName && branchRef}
+						<UpstreamIntegrationActions {projectId} {stackId} {branchName} {branchRef} />
 					{/if}
 				{/snippet}
 			</UpstreamActionRow>

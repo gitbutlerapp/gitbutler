@@ -26,7 +26,6 @@
 		position: relative;
 		overflow: hidden;
 		border-top: 1px solid var(--border-3);
-		background-color: var(--bg-warn);
 		--commit-color: var(--commit-upstream);
 
 		&:not(.is-last) {

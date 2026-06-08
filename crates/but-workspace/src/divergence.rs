@@ -215,10 +215,37 @@ fn tip_for_ref<M: RefMetadata>(
     repo: &gix::Repository,
 ) -> Result<Selector> {
     let reference_selector = ref_name.to_selector(editor)?;
+    let head_id = repo.head_id()?.detach();
+    if let Some(child_on_head_path) =
+        child_on_head_first_parent_path(editor, reference_selector, head_id)?
+    {
+        return Ok(child_on_head_path);
+    }
     first_pick_parent(editor, reference_selector).or_else(|_| {
         let tip = repo.find_reference(ref_name)?.id().detach();
         editor.select_commit(tip)
     })
+}
+
+fn child_on_head_first_parent_path<M: RefMetadata>(
+    editor: &Editor<'_, '_, M>,
+    reference_selector: Selector,
+    head_id: gix::ObjectId,
+) -> Result<Option<Selector>> {
+    let head_selector = editor.select_commit(head_id)?;
+    let mut current = Some(head_selector);
+    while let Some(selector) = current {
+        let mut parents = editor.direct_parents(selector)?;
+        parents.sort_by_key(|(_, order)| *order);
+        if parents
+            .iter()
+            .any(|(parent, _)| *parent == reference_selector)
+        {
+            return Ok((selector != head_selector).then_some(selector));
+        }
+        current = first_parent(editor, selector)?;
+    }
+    Ok(None)
 }
 
 fn find_first_parent_merge_base<M: RefMetadata>(

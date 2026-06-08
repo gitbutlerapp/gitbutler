@@ -1,470 +1,455 @@
 <script lang="ts">
-	import CommitTimelineNode from "$components/commit/CommitTimelineNode.svelte";
+	import BranchIntegrationGraph from "$components/branch/BranchIntegrationGraph.svelte";
+	import BranchIntegrationSteps from "$components/branch/BranchIntegrationSteps.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
-	import { commitCreatedAtDate, extractUpstreamCommitId, isCommit } from "$lib/branches/v3";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { buildCurrentStateDisplayRows } from "$lib/upstream/branchIntegrationCurrentStateDisplay";
 	import {
-		canShiftStepDown,
-		canShiftStepUp,
-		getStepCommitInfo,
-		pickLocalStep,
-		pickUpstreamStep,
-		shiftStepDown,
-		shiftStepUp,
-		splitStepAtCommit,
-		squashStepInto,
-		updateStepType,
-	} from "$lib/upstream/integrationStepUtils";
+		buildCommitPickerOptions,
+		buildIntegrationStepDrafts,
+		buildInteractiveIntegration,
+		type IntegrationStepDraft,
+	} from "$lib/upstream/branchIntegrationEditor";
+	import {
+		buildCurrentStateGraphRows,
+		buildNextStateGraphRows,
+		type IntegrationGraphRow,
+	} from "$lib/upstream/branchIntegrationView";
 	import { inject } from "@gitbutler/core/context";
-	import { Modal, ModalFooter, Button, ScrollableContainer, SimpleCommitRow } from "@gitbutler/ui";
-	import { untrack } from "svelte";
-	import { flip } from "svelte/animate";
-	import type { InteractiveIntegrationStep } from "$lib/stacks/stack";
-	import type { Commit, UpstreamCommit } from "@gitbutler/but-sdk";
+	import { Button, Modal, ModalFooter, SegmentControl, TestId } from "@gitbutler/ui";
+	import type { BranchIntegrationStrategy } from "@gitbutler/but-sdk";
 
 	type Props = {
 		modalRef: Modal | undefined;
 		projectId: string;
-		stackId: string | undefined;
 		branchName: string;
+		branchRef: string;
 	};
 
-	let { modalRef = $bindable(), projectId, stackId, branchName }: Props = $props();
+	let { modalRef = $bindable(), projectId, branchName, branchRef }: Props = $props();
+
+	const stackService = inject(STACK_SERVICE);
+	const DEFAULT_TEMPLATE: BranchIntegrationStrategy = "pullRebase";
+	const integrationTemplates: Array<{ id: BranchIntegrationStrategy; label: string }> = [
+		{ id: "pullRebase", label: "Pull rebase" },
+		{ id: "smartSquash", label: "Smart squash" },
+		{ id: "merge", label: "Merge" },
+		{ id: "pickRemote", label: "Pick remote" },
+	];
+	const integrationTemplateDescriptions: Record<BranchIntegrationStrategy, string> = {
+		pullRebase:
+			"Rebuilds the branch picking first the commits on the remote, and then the commits on the local branch.",
+		smartSquash:
+			"Tries to fold matching remote work into related local commits. This is done through matching Change IDs, and falling back to pull-rebase ordering otherwise.",
+		merge: "Keeps your local history and merges the remote tip into it.",
+		pickRemote: "Rebuilds the branch picking only the commits on the remote.",
+	};
+	let selectedTemplate = $state<BranchIntegrationStrategy>(DEFAULT_TEMPLATE);
+	const initialBranchIntegration = $derived(
+		stackService.initialBranchIntegration(projectId, branchRef, selectedTemplate),
+	);
+	const [applyBranchIntegration, integrationMutation] = stackService.applyBranchIntegration;
+
+	let stepDrafts = $state<IntegrationStepDraft[]>([]);
+	let previewRows = $state<IntegrationGraphRow[] | null>(null);
+	let previewError = $state<string | null>(null);
+	let previewEmpty = $state(true);
+	let activeAction = $state<"preview" | "apply" | null>(null);
+	let initializedForOpen = $state(false);
+	let showSteps = $state(false);
+	let showIntegratedLocalCommits = $state(false);
+	let templateSelectionVersion = 0;
 
 	function closeModal() {
 		modalRef?.close();
 	}
 
-	const clipboardService = inject(CLIPBOARD_SERVICE);
-	const stackService = inject(STACK_SERVICE);
-	const [integrate, integrating] = stackService.integrateBranchWithSteps;
-	const initialIntegrationSteps = stackService.initialIntegrationSteps(
-		untrack(() => projectId),
-		untrack(() => stackId),
-		untrack(() => branchName),
-	);
-
-	let editableSteps = $derived(initialIntegrationSteps.response ?? []);
-
-	const FLIP_ANIMATION_DURATION = 150;
-	const MAX_SCROLL_HEIGHT = "50vh";
-
-	function skipStepById(stepId: string, commitId: string) {
-		editableSteps = updateStepType(editableSteps, stepId, commitId, "skip");
-	}
-	function pickStepById(stepId: string, commitId: string) {
-		editableSteps = updateStepType(editableSteps, stepId, commitId, "pick");
-	}
-	function pickUpstreamFromStep(stepId: string, commitId: string, upstreamCommitId: string) {
-		editableSteps = pickUpstreamStep(editableSteps, stepId, commitId, upstreamCommitId);
-	}
-	function pickLocalFromStep(stepId: string, commitId: string) {
-		editableSteps = pickLocalStep(editableSteps, stepId, commitId);
+	function formatError(error: unknown): string {
+		return error instanceof Error ? error.message : JSON.stringify(error);
 	}
 
-	async function getCommitMessage(commitIds: string[]): Promise<string> {
-		if (stackId === undefined) return "";
-		const commitDetails = await stackService.fetchCommitsByIds(projectId, stackId, commitIds);
-		return commitDetails.map((c) => c.message).join("\n\n");
-	}
-	async function squashStepById(stepId: string, commitIds: string[]) {
-		const stepIndex = editableSteps.findIndex((s) => s.subject.id === stepId);
-		if (stepIndex === -1 || stepIndex >= editableSteps.length - 1) return;
-		const targetStepInfo = getStepCommitInfo(editableSteps[stepIndex + 1]!);
-		const combinedCommits = [...commitIds, ...targetStepInfo.commitIds];
-		const squashMessage = await getCommitMessage(combinedCommits);
-		editableSteps = squashStepInto(editableSteps, stepId, commitIds, squashMessage);
-	}
-	async function splitOffCommitFromStep(stepId: string, commitId: string) {
-		const step = editableSteps.find((s) => s.subject.id === stepId);
-		if (!step || step.type !== "squash") return;
-		const { commits } = step.subject;
-		const commitIndex = commits.indexOf(commitId);
-		if (commitIndex <= 0 || !commits.includes(commitId)) return;
-		const firstGroup = commits.slice(0, commitIndex);
-		const secondGroup = commits.slice(commitIndex);
-		const firstGroupMessage = firstGroup.length > 1 ? await getCommitMessage(firstGroup) : "";
-		const secondGroupMessage = secondGroup.length > 1 ? await getCommitMessage(secondGroup) : "";
-		editableSteps = splitStepAtCommit(
-			editableSteps,
-			stepId,
-			commitId,
-			firstGroupMessage,
-			secondGroupMessage,
-		);
-	}
-	async function handleIntegrate() {
-		if (stackId === undefined) {
-			throw new Error("Stack ID is undefined");
+	async function previewIntegrationWithSteps(
+		mergeBase: string,
+		firstLocalNotIntegrated: string | null,
+		steps: IntegrationStepDraft[],
+		expectedTemplateSelectionVersion: number | undefined = undefined,
+	) {
+		activeAction = "preview";
+		previewError = null;
+		try {
+			const integration = buildInteractiveIntegration({
+				mergeBase,
+				firstLocalNotIntegrated,
+				steps,
+			});
+			const result = await applyBranchIntegration({
+				projectId,
+				branchRef,
+				integration,
+				dryRun: true,
+			});
+			const nextPreviewRows = buildNextStateGraphRows({
+				workspace: result.workspace,
+				branchRef,
+			});
+			if (
+				expectedTemplateSelectionVersion !== undefined &&
+				expectedTemplateSelectionVersion !== templateSelectionVersion
+			) {
+				return;
+			}
+			previewRows = nextPreviewRows;
+			previewEmpty = false;
+		} catch (error) {
+			if (
+				expectedTemplateSelectionVersion !== undefined &&
+				expectedTemplateSelectionVersion !== templateSelectionVersion
+			) {
+				return;
+			}
+			previewRows = null;
+			previewError = formatError(error);
+			previewEmpty = false;
+		} finally {
+			if (
+				expectedTemplateSelectionVersion === undefined ||
+				expectedTemplateSelectionVersion === templateSelectionVersion
+			) {
+				activeAction = null;
+			}
 		}
-		await integrate({
-			projectId,
-			stackId,
-			branchName,
-			steps: editableSteps,
-		});
-		closeModal();
 	}
+
+	async function previewIntegration(mergeBase: string, firstLocalNotIntegrated: string | null) {
+		await previewIntegrationWithSteps(mergeBase, firstLocalNotIntegrated, stepDrafts);
+	}
+
+	async function selectTemplate(template: BranchIntegrationStrategy) {
+		if (template === selectedTemplate) return;
+
+		selectedTemplate = template;
+		const version = ++templateSelectionVersion;
+		previewRows = null;
+		previewError = null;
+		previewEmpty = true;
+
+		try {
+			const initial = await stackService.fetchInitialBranchIntegration(
+				projectId,
+				branchRef,
+				template,
+			);
+			if (version !== templateSelectionVersion) return;
+
+			const nextStepDrafts = buildIntegrationStepDrafts(initial.integration);
+			stepDrafts = nextStepDrafts;
+			if (nextStepDrafts.length > 0) {
+				await previewIntegrationWithSteps(
+					initial.integration.mergeBase,
+					initial.integration.firstLocalNotIntegrated,
+					nextStepDrafts,
+					version,
+				);
+			}
+		} catch (error) {
+			if (version !== templateSelectionVersion) return;
+			previewRows = null;
+			previewError = formatError(error);
+			previewEmpty = false;
+		}
+	}
+
+	async function applyIntegration(mergeBase: string, firstLocalNotIntegrated: string | null) {
+		activeAction = "apply";
+		previewError = null;
+		try {
+			const integration = buildInteractiveIntegration({
+				mergeBase,
+				firstLocalNotIntegrated,
+				steps: stepDrafts,
+			});
+			await applyBranchIntegration({
+				projectId,
+				branchRef,
+				integration,
+				dryRun: false,
+			});
+			closeModal();
+		} catch (error) {
+			previewError = formatError(error);
+		} finally {
+			activeAction = null;
+		}
+	}
+
+	$effect(() => {
+		const modalOpen = modalRef?.imports.open ?? false;
+		if (!modalOpen) {
+			selectedTemplate = DEFAULT_TEMPLATE;
+			templateSelectionVersion++;
+			initializedForOpen = false;
+			showSteps = false;
+			showIntegratedLocalCommits = false;
+			previewRows = null;
+			previewError = null;
+			previewEmpty = true;
+		}
+	});
+
+	$effect(() => {
+		const modalOpen = modalRef?.imports.open ?? false;
+		const initial = initialBranchIntegration.response;
+		if (!modalOpen || !initial || initializedForOpen) return;
+
+		const nextStepDrafts = buildIntegrationStepDrafts(initial.integration);
+		const version = templateSelectionVersion;
+		stepDrafts = nextStepDrafts;
+		previewRows = null;
+		previewError = null;
+		previewEmpty = true;
+		initializedForOpen = true;
+		if (nextStepDrafts.length > 0) {
+			void previewIntegrationWithSteps(
+				initial.integration.mergeBase,
+				initial.integration.firstLocalNotIntegrated,
+				nextStepDrafts,
+				version,
+			);
+		}
+	});
 </script>
 
-<Modal bind:this={modalRef} title="Integrate the upstream changes" noPadding width={500}>
-	<div class="branch-integration__content">
-		<p class="text=13">
-			Review and adjust the integration if needed.<br />
-			This is what the outcome of the integration will look like.
-		</p>
-		<div class="branch-integration__steps">
-			<ScrollableContainer maxHeight={MAX_SCROLL_HEIGHT}>
-				{#each editableSteps as step (step.subject.id)}
-					<div
-						class="branch-integration__commit-wrap"
-						animate:flip={{ duration: FLIP_ANIMATION_DURATION }}
+<Modal
+	bind:this={modalRef}
+	title={`Update ${branchName}`}
+	noPadding
+	width="full-screen"
+	testId={TestId.BranchIntegrationModal}
+>
+	<ReduxResult {projectId} result={initialBranchIntegration.result}>
+		{#snippet children(initialIntegration)}
+			{@const commitOptions = buildCommitPickerOptions(initialIntegration)}
+			{@const currentRows = buildCurrentStateGraphRows(initialIntegration)}
+			{@const currentDisplayRows = buildCurrentStateDisplayRows({
+				initialIntegration,
+				currentRows,
+				showIntegratedLocalCommits,
+			})}
+			<div class="branch-integration">
+				<div class="branch-integration__intro">
+					<p class="text-13">The local branch and its remote counterpart have diverged.</p>
+					<p class="text-13">
+						You can review the divergence between them, decide if and how to integrate the changes
+						into your local branch, preview and apply the changes.
+					</p>
+				</div>
+
+				<div class="branch-integration__sections">
+					<section
+						class="branch-integration__section"
+						data-testid="branch-integration-current-state"
 					>
-						{@render genericStep(step)}
-					</div>
-				{/each}
-			</ScrollableContainer>
-		</div>
-	</div>
-	<ModalFooter>
-		<Button kind="outline" type="reset" onclick={closeModal}>Cancel</Button>
-		<Button
-			style="pop"
-			type="submit"
-			onclick={handleIntegrate}
-			loading={integrating.current.isLoading}>Integrate changes</Button
-		>
-	</ModalFooter>
+						<div class="branch-integration__section-header">
+							<h3 class="text-13 text-semibold">Current state</h3>
+						</div>
+						<BranchIntegrationGraph
+							isPreview={false}
+							rows={currentDisplayRows}
+							testId="branch-integration-current-state-row"
+							{showIntegratedLocalCommits}
+							toggleIntegratedLocalCommits={() =>
+								(showIntegratedLocalCommits = !showIntegratedLocalCommits)}
+						/>
+					</section>
+
+					<section class="branch-integration__section" data-testid="branch-integration-steps">
+						<div class="branch-integration__section-header">
+							<h3 class="text-13 text-semibold">Integration strategy</h3>
+							<div class="branch-integration__section-actions">
+								<SegmentControl
+									size="small"
+									selected={selectedTemplate}
+									onselect={(id) => selectTemplate(id as BranchIntegrationStrategy)}
+								>
+									{#each integrationTemplates as template (template.id)}
+										<SegmentControl.Item
+											id={template.id}
+											testId={`branch-integration-template-${template.id}`}
+										>
+											{template.label}
+										</SegmentControl.Item>
+									{/each}
+								</SegmentControl>
+								<Button
+									kind="outline"
+									size="tag"
+									icon={showSteps ? "chevron-up" : "chevron-down"}
+									testId={TestId.BranchIntegrationToggleStepsButton}
+									onclick={() => (showSteps = !showSteps)}
+								>
+									{showSteps ? "Hide steps" : "Show steps"}
+								</Button>
+							</div>
+						</div>
+						{#if showSteps}
+							<BranchIntegrationSteps bind:stepDrafts {commitOptions} />
+						{:else}
+							<div class="branch-integration__collapsed-note text-12 clr-text-2">
+								Using the selected strategy steps. Expand to inspect or edit them.
+								<ul class="branch-integration__strategy-descriptions">
+									{#each integrationTemplates as template (template.id)}
+										<li>
+											<span class="text-semibold">{template.label}:</span>
+											{integrationTemplateDescriptions[template.id]}
+										</li>
+									{/each}
+								</ul>
+							</div>
+						{/if}
+					</section>
+
+					<section class="branch-integration__section" data-testid="branch-integration-preview">
+						<div class="branch-integration__section-header">
+							<h3 class="text-13 text-semibold">Preview</h3>
+						</div>
+						{#if previewEmpty}
+							<div class="branch-integration__empty" data-testid="branch-integration-empty-state">
+								Run preview to inspect the resulting branch shape.
+							</div>
+						{:else if previewError}
+							<div class="branch-integration__error" data-testid="branch-integration-error">
+								{previewError}
+							</div>
+						{:else if previewRows === null}
+							<div class="branch-integration__empty" data-testid="branch-integration-empty-state">
+								Preview produced no branch segment for this ref.
+							</div>
+						{:else if previewRows.length === 0}
+							<div class="branch-integration__empty" data-testid="branch-integration-empty-state">
+								The resulting branch would be empty.
+							</div>
+						{:else}
+							<BranchIntegrationGraph
+								isPreview={true}
+								rows={previewRows}
+								testId="branch-integration-preview-row"
+							/>
+						{/if}
+					</section>
+				</div>
+			</div>
+
+			<ModalFooter>
+				<Button kind="outline" type="reset" onclick={closeModal}>Cancel</Button>
+				<Button
+					kind="outline"
+					type="button"
+					testId={TestId.BranchIntegrationPreviewButton}
+					onclick={() =>
+						previewIntegration(
+							initialIntegration.integration.mergeBase,
+							initialIntegration.integration.firstLocalNotIntegrated,
+						)}
+					disabled={stepDrafts.length === 0 || integrationMutation.current.isLoading}
+					loading={integrationMutation.current.isLoading && activeAction === "preview"}
+				>
+					Preview
+				</Button>
+				<Button
+					style="pop"
+					type="button"
+					testId={TestId.BranchIntegrationApplyButton}
+					onclick={() =>
+						applyIntegration(
+							initialIntegration.integration.mergeBase,
+							initialIntegration.integration.firstLocalNotIntegrated,
+						)}
+					disabled={stepDrafts.length === 0 || integrationMutation.current.isLoading}
+					loading={integrationMutation.current.isLoading && activeAction === "apply"}
+				>
+					Apply integration
+				</Button>
+			</ModalFooter>
+		{/snippet}
+	</ReduxResult>
 </Modal>
 
-<!-- Snippets from InteractiveBranchIntegration.svelte -->
-{#snippet commitItemTemplate(
-	commit: Commit | UpstreamCommit,
-	stepId: string,
-	commitId: string,
-	stepType: "pick" | "skip" | "squash" | "pickUpstream",
-	isLastInSquash: boolean = false,
-	isFirstInSquash: boolean = false,
-	squashCommits: string[] = [],
-)}
-	{@const isSkipStep = stepType === "skip"}
-	{@const hideCommitDot = stepType === "squash" && !isFirstInSquash}
-	{@const upstreamSha = stepType !== "pickUpstream" ? extractUpstreamCommitId(commit) : undefined}
-	{@render commitLine(commit, hideCommitDot, stepType === "pickUpstream")}
-	<div class="branch-integration__commit-content">
-		<SimpleCommitRow
-			author={commit.author.name}
-			date={commitCreatedAtDate(commit)}
-			title={commit.message}
-			sha={commit.id}
-			{upstreamSha}
-			onCopy={() => {
-				clipboardService.write(commit.id, {
-					message: "Commit SHA copied",
-				});
-			}}
-			onCopyUpstream={() => {
-				clipboardService.write(upstreamSha ?? "", {
-					message: "Upstream commit SHA copied",
-				});
-			}}
-			onlyContent
-		/>
-		{#if stepType === "squash" && !isFirstInSquash}
-			<div class="branch-integration__split-off-button">
-				<Button
-					icon="cut"
-					kind="outline"
-					size="tag"
-					reversedDirection
-					tooltip="Split squashed commits at this point"
-					onclick={() => splitOffCommitFromStep(stepId, commit.id)}
-					disabled={isSkipStep}
-				>
-					Split off
-				</Button>
-			</div>
-		{/if}
-		<div class="branch-integration__commit-actions">
-			{#if stepType === "squash" && isLastInSquash}
-				<Button
-					kind="outline"
-					size="tag"
-					tooltip="Squash these commits into below"
-					icon="commit-arrow-down"
-					onclick={() => squashStepById(stepId, squashCommits)}
-					disabled={isSkipStep}
-				>
-					Squash down
-				</Button>
-				{@render shiftActions(stepId, isSkipStep)}
-			{/if}
-			{#if stepType === "skip"}
-				<Button
-					kind="outline"
-					size="tag"
-					tooltip="Pick this commit"
-					icon="eye"
-					onclick={() => pickStepById(stepId, commitId)}
-					disabled={false}
-				>
-					Pick
-				</Button>
-				{@render commitActions(stepId, commitId, true)}
-				{@render shiftActions(stepId, true)}
-			{:else if stepType === "pick"}
-				{#if upstreamSha}
-					<Button
-						kind="outline"
-						size="tag"
-						icon="target"
-						tooltip="Pick the upstream commit instead"
-						onclick={() => pickUpstreamFromStep(stepId, commitId, upstreamSha)}
-					>
-						Pick upstream
-					</Button>
-				{/if}
-				{@render commitActions(stepId, commitId, false)}
-				{@render shiftActions(stepId, false)}
-			{:else if stepType === "pickUpstream"}
-				<Button
-					kind="outline"
-					size="tag"
-					icon="target"
-					tooltip="Pick the local commit instead"
-					onclick={() => pickLocalFromStep(stepId, commitId)}
-				>
-					Pick local
-				</Button>
-				{@render commitActions(stepId, commit.id, false)}
-				{@render shiftActions(stepId, false)}
-			{/if}
-		</div>
-	</div>
-{/snippet}
-
-{#snippet genericStep(step: InteractiveIntegrationStep)}
-	{@const isSquashStep = step.type === "squash"}
-	{@const isIndividualStep = step.type === "pick" || step.type === "skip"}
-	{#if isSquashStep}
-		{@const commitsQuery = stackService.commitsByIds(projectId, stackId, step.subject.commits)}
-		<ReduxResult {projectId} result={commitsQuery.result}>
-			{#snippet children(commits)}
-				{#each commits as commit, commitIndex (commit.id)}
-					{@const isLastCommit = commitIndex === commits.length - 1}
-					{@const isFirstCommit = commitIndex === 0}
-					<div class="branch-integration__commit">
-						{@render commitItemTemplate(
-							commit,
-							step.subject.id,
-							commit.id,
-							"squash",
-							isLastCommit,
-							isFirstCommit,
-							step.subject.commits,
-						)}
-					</div>
-					{#if !isLastCommit}
-						<div class="branch-integration__commit-divider dotted"></div>
-					{/if}
-				{/each}
-			{/snippet}
-		</ReduxResult>
-	{:else if isIndividualStep}
-		{@const commitDetails = stackService.commitById(projectId, stackId, step.subject.commitId)}
-		<ReduxResult {projectId} result={commitDetails.result}>
-			{#snippet children(commit)}
-				{@const isSkipStep = step.type === "skip"}
-				<div class="branch-integration__commit" class:skipped={isSkipStep}>
-					{@render commitItemTemplate(
-						commit,
-						step.subject.id,
-						step.subject.commitId,
-						step.type,
-						false,
-						false,
-					)}
-				</div>
-			{/snippet}
-		</ReduxResult>
-	{:else if step.type === "pickUpstream"}
-		{@const commitDetails = stackService.commitDetails(projectId, step.subject.upstreamCommitId)}
-		{@const localCommitDetails = stackService.commitById(projectId, stackId, step.subject.commitId)}
-		<ReduxResult {projectId} result={commitDetails.result}>
-			{#snippet loading()}
-				<!-- Show local commit data while loading upstream commit to prevent flickering -->
-				<ReduxResult {projectId} result={localCommitDetails.result}>
-					{#snippet children(localCommit)}
-						<div class="branch-integration__commit">
-							{@render commitItemTemplate(
-								localCommit,
-								step.subject.id,
-								step.subject.commitId,
-								step.type,
-								false,
-								false,
-							)}
-						</div>
-					{/snippet}
-				</ReduxResult>
-			{/snippet}
-			{#snippet children(commit)}
-				<div class="branch-integration__commit">
-					{@render commitItemTemplate(
-						commit,
-						step.subject.id,
-						step.subject.commitId,
-						step.type,
-						false,
-						false,
-					)}
-				</div>
-			{/snippet}
-		</ReduxResult>
-	{/if}
-{/snippet}
-
-{#snippet commitActions(stepId: string, commitId: string, disabled: boolean = false)}
-	{#if !disabled}
-		<Button
-			kind="outline"
-			size="tag"
-			icon="eye-closed"
-			tooltip="Don't pick this commit"
-			onclick={() => skipStepById(stepId, commitId)}
-			{disabled}
-		>
-			Skip
-		</Button>
-	{/if}
-	<Button
-		kind="outline"
-		size="tag"
-		icon="commit-arrow-down"
-		tooltip="Squash this commit into the one below"
-		onclick={() => squashStepById(stepId, [commitId])}
-		{disabled}
-	>
-		Squash down
-	</Button>
-{/snippet}
-
-{#snippet shiftActions(stepId: string, disabled: boolean = false)}
-	<div class="branch-integration__move-buttons">
-		<Button
-			kind="outline"
-			tooltip="Move this commit up"
-			class="branch-integration__move-buttons__up"
-			size="tag"
-			icon="arrow-up"
-			disabled={!canShiftStepUp(editableSteps, stepId) || disabled}
-			onclick={() => (editableSteps = shiftStepUp(editableSteps, stepId))}
-		/>
-		<Button
-			kind="outline"
-			tooltip="Move this commit down"
-			class="branch-integration__move-buttons__down"
-			size="tag"
-			icon="arrow-down"
-			disabled={!canShiftStepDown(editableSteps, stepId) || disabled}
-			onclick={() => (editableSteps = shiftStepDown(editableSteps, stepId))}
-		/>
-	</div>
-{/snippet}
-
-{#snippet commitLine(
-	commit: Commit | UpstreamCommit,
-	hideCommitDot: boolean = true,
-	overrideIsRemote: boolean = false,
-)}
-	{#if isCommit(commit) && !overrideIsRemote}
-		<CommitTimelineNode
-			commitStatus={commit.state.type}
-			dotOnTop
-			hideDot={hideCommitDot}
-			diverged={commit.state.type === "LocalAndRemote" && commit.state.subject !== commit.id}
-		/>
-	{:else}
-		<CommitTimelineNode hideDot={hideCommitDot} dotOnTop commitStatus="Remote" diverged={false} />
-	{/if}
-{/snippet}
-
 <style lang="postcss">
-	.branch-integration__content {
+	.branch-integration {
 		display: flex;
 		flex-direction: column;
+		justify-content: start;
+		height: 70vh;
 		padding: 0 16px 16px 16px;
 		gap: 12px;
 	}
-	.branch-integration__steps {
+
+	.branch-integration__intro {
 		display: flex;
 		flex-direction: column;
-		overflow: hidden;
-		border: 1px solid var(--border-2);
-		border-radius: var(--radius-ml);
+		padding-top: 16px;
+		gap: 4px;
 	}
-	.branch-integration__commit-wrap {
-		border-bottom: 1px solid var(--border-2);
-		&:last-child {
-			border-bottom: none;
-		}
-	}
-	.branch-integration__commit {
+
+	.branch-integration__sections {
 		display: flex;
-		z-index: var(--z-ground);
-		position: relative;
-		&.skipped {
-			background-color: var(--bg-2);
-		}
-	}
-	.branch-integration__commit-divider {
-		height: 0;
-		border-bottom: 1px solid var(--border-2);
-		&.dotted {
-			height: 1px;
-			border-bottom: none;
-			background: repeating-linear-gradient(
-				to right,
-				var(--border-2) 0px,
-				var(--border-2) 2px,
-				transparent 2px,
-				transparent 4px
-			);
-		}
-	}
-	.branch-integration__split-off-button {
-		z-index: var(--z-lifted);
-		position: absolute;
-		top: 0;
-		right: 20px;
-		transform: translateY(-50%);
-		border-radius: var(--radius-button);
-		background-color: var(--bg-1);
-	}
-	.branch-integration__commit-content {
-		display: flex;
-		flex-direction: column;
-		padding: 14px;
-		padding-left: 0;
+		justify-content: stretch;
+		width: 100%;
+		height: 100%;
 		overflow: hidden;
 		gap: 12px;
 	}
-	.branch-integration__commit-actions {
+
+	.branch-integration__section {
+		box-sizing: border-box;
 		display: flex;
+		flex-direction: column;
+		width: 100%;
+		height: 100%;
+		overflow: hidden;
+		border: 1px solid var(--border-2);
+		border-radius: var(--radius-ml);
+		background: var(--bg-1);
+	}
+
+	.branch-integration__section-header {
+		display: flex;
+		flex-direction: column;
 		align-items: center;
-		gap: 4px;
+		justify-content: space-between;
+		padding: 12px 14px;
+		gap: 10px;
+		border-bottom: 1px solid var(--border-2);
 	}
-	.branch-integration__move-buttons {
+
+	.branch-integration__section-actions {
 		display: flex;
+		flex-direction: column;
+		align-items: center;
+		min-width: 0;
+		gap: 8px;
 	}
-	:global(.branch-integration__move-buttons__up) {
-		border-top-right-radius: 0;
-		border-bottom-right-radius: 0;
+
+	.branch-integration__empty,
+	.branch-integration__error {
+		padding: 16px 14px;
+		color: var(--text-2);
+		font-size: 12px;
 	}
-	:global(.branch-integration__move-buttons__down) {
-		border-left: none !important;
-		border-top-left-radius: 0;
-		border-bottom-left-radius: 0;
+
+	.branch-integration__collapsed-note {
+		padding: 16px 14px;
+	}
+
+	.branch-integration__strategy-descriptions {
+		margin: 8px 0 0;
+	}
+
+	.branch-integration__strategy-descriptions li + li {
+		margin-top: 8px;
+	}
+
+	.branch-integration__error {
+		color: var(--text-warn);
 	}
 </style>
