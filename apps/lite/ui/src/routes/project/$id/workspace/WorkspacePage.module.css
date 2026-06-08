@@ -6,6 +6,10 @@
 	min-height: 0;
 }
 
+.pageDetailsFullscreen {
+	grid-template-columns: 1fr;
+}
+
 .notFound {
 	display: grid;
 	align-items: center;

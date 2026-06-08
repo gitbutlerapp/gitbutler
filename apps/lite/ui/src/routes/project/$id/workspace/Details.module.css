@@ -21,6 +21,12 @@
 	gap: 8px;
 }
 
+.actions {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
 .loadingDiff {
 	padding-inline-start: var(--panel-padding);
 	padding-block-end: var(--panel-padding);

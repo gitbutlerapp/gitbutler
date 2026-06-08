@@ -407,6 +407,36 @@ const FilesToggle: FC = () => {
 	);
 };
 
+const FullscreenToggle: FC<{
+	className?: string;
+	fullscreen: boolean;
+	onFullscreenChange: (fullscreen: boolean) => void;
+}> = ({ className, fullscreen, onFullscreenChange }) => {
+	const label = fullscreen ? "Exit fullscreen details" : "Fullscreen details";
+
+	return (
+		<Tooltip.Root>
+			<Tooltip.Trigger
+				aria-label={label}
+				aria-pressed={fullscreen}
+				className={className}
+				onClick={() => onFullscreenChange(!fullscreen)}
+			>
+				<Icon name={fullscreen ? "fullscreen-exit" : "fullscreen-enter"} />
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup
+						render={<TooltipPopup kbd={workspaceHotkeys.toggleDetailsFullscreen.hotkey} />}
+					>
+						{workspaceHotkeys.toggleDetailsFullscreen.meta.name}
+					</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
+
 const CommitDetailsContent: FC<{
 	projectId: string;
 	commitId: string;
@@ -515,7 +545,15 @@ const Diff: FC<{
 	);
 };
 
-export const Details: FC<{ outlineSelection: Operand | null } & ComponentProps<"div">> = ({
+export const Details: FC<
+	{
+		detailsFullscreen: boolean;
+		onDetailsFullscreenChange: (fullscreen: boolean) => void;
+		outlineSelection: Operand | null;
+	} & ComponentProps<"div">
+> = ({
+	detailsFullscreen,
+	onDetailsFullscreenChange,
 	outlineSelection: urgentOutlineSelection,
 	...restProps
 }) => {
@@ -560,8 +598,13 @@ export const Details: FC<{ outlineSelection: Operand | null } & ComponentProps<"
 					)}
 				</Suspense>
 
-				<div>
+				<div className={styles.actions}>
 					<FilesToggle />
+					<FullscreenToggle
+						className={getButtonClassName({ iconOnly: true })}
+						fullscreen={detailsFullscreen}
+						onFullscreenChange={onDetailsFullscreenChange}
+					/>
 				</div>
 			</div>
 
