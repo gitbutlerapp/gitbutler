@@ -11,6 +11,7 @@ import {
 	type BranchOperand,
 	type CommitOperand,
 	type FileOperand,
+	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
 import {
@@ -31,11 +32,13 @@ import { mapKeys } from "effect/Record";
 export type SelectionState = {
 	outline: Operand | null;
 	files: FileOperand | null;
+	diff: HunkOperand | null;
 };
 
 const createInitialSelectionState = (): SelectionState => ({
 	outline: null,
 	files: null,
+	diff: null,
 });
 
 export type WorkspaceState = {
@@ -62,6 +65,7 @@ export const enterTransferMode = (state: WorkspaceState, mode: TransferOperation
 		restoreSelection: {
 			outline: state.selection.outline,
 			files: state.selection.files,
+			diff: state.selection.diff,
 		},
 	});
 };
@@ -76,6 +80,7 @@ export const enterAbsorbMode = (
 		restoreSelection: {
 			outline: state.selection.outline,
 			files: state.selection.files,
+			diff: state.selection.diff,
 		},
 		sourceTarget,
 	});
@@ -148,6 +153,7 @@ export const cancelMode = (state: WorkspaceState) => {
 export const selectOutline = (state: WorkspaceState, selection: Operand | null) => {
 	state.selection.outline = selection;
 	state.selection.files = null;
+	state.selection.diff = null;
 
 	if (!selection || !isValidOutlineModeForSelection({ mode: state.mode, selection }))
 		exitMode(state);
@@ -155,6 +161,10 @@ export const selectOutline = (state: WorkspaceState, selection: Operand | null) 
 
 export const selectFiles = (state: WorkspaceState, selection: FileOperand | null) => {
 	state.selection.files = selection;
+};
+
+export const selectDiff = (state: WorkspaceState, selection: HunkOperand | null) => {
+	state.selection.diff = selection;
 };
 
 export const setHighlightedCommitIds = (state: WorkspaceState, commitIds: Array<string> | null) => {
@@ -319,6 +329,9 @@ export const selectSelectionOutlineState = (state: WorkspaceState): Operand | nu
 
 export const selectSelectionFilesState = (state: WorkspaceState): FileOperand | null =>
 	state.selection.files;
+
+export const selectSelectionDiffState = (state: WorkspaceState): HunkOperand | null =>
+	state.selection.diff;
 
 export const selectMode = (state: WorkspaceState): OutlineMode => state.mode;
 

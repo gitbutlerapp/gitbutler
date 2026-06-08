@@ -5,6 +5,7 @@ import {
 	type BranchOperand,
 	type CommitOperand,
 	type FileOperand,
+	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
 import * as workspace from "#ui/projects/workspace/state.ts";
@@ -74,6 +75,14 @@ const projectSlice = createSlice({
 			const { projectId, selection } = action.payload;
 			const projectState = ensureProjectState(state, projectId);
 			workspace.selectFiles(projectState.workspace, selection);
+		},
+		selectDiff: (
+			state,
+			action: PayloadAction<{ projectId: string; selection: HunkOperand | null }>,
+		) => {
+			const { projectId, selection } = action.payload;
+			const projectState = ensureProjectState(state, projectId);
+			workspace.selectDiff(projectState.workspace, selection);
 		},
 		startRewordCommit: (
 			state,
@@ -267,6 +276,9 @@ export const selectProjectSelectionOutline = (state: RootState, projectId: strin
 
 export const selectProjectSelectionFiles = (state: RootState, projectId: string) =>
 	workspace.selectSelectionFilesState(selectProjectWorkspaceState(state, projectId));
+
+export const selectProjectSelectionDiff = (state: RootState, projectId: string) =>
+	workspace.selectSelectionDiffState(selectProjectWorkspaceState(state, projectId));
 
 export const selectProjectOutlineModeState = (state: RootState, projectId: string) =>
 	workspace.selectMode(selectProjectWorkspaceState(state, projectId));
