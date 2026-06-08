@@ -27,7 +27,7 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { Match } from "effect";
 import { FC, type ReactNode } from "react";
-import styles from "./OutlineModeTooltip.module.css";
+import styles from "./OutlineModeControls.module.css";
 
 const Container: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={classes("text-14", styles.container)}>{children}</div>

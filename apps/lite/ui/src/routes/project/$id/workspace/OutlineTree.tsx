@@ -119,7 +119,7 @@ import { stackToBottomRebaseUpdate } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { OutlineModeControls } from "#ui/routes/project/$id/workspace/OutlineModeTooltip.tsx";
+import { OutlineModeControls } from "#ui/routes/project/$id/workspace/OutlineModeControls.tsx";
 
 const NavigationIndexContext = createContext<NavigationIndex<Operand> | null>(null);
 
