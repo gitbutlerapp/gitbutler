@@ -8,7 +8,7 @@ use nonempty::NonEmpty;
 
 use crate::{
     theme::{self, Paint},
-    utils::{OutputChannel, shorten_object_id, split_short_id},
+    utils::{OutputChannel, diff_specs::DiffSpecBuilder, shorten_object_id, split_short_id},
 };
 
 pub(crate) fn uncommitted_to_commit_with_perm(
@@ -19,10 +19,13 @@ pub(crate) fn uncommitted_to_commit_with_perm(
     out: &mut OutputChannel,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<()> {
-    let diff_specs: Vec<DiffSpec> = hunk_assignments
-        .into_iter()
-        .map(|assignment| assignment.to_owned().into())
-        .collect();
+    let diff_specs = {
+        let context_lines = ctx.settings.context_lines;
+        let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+        builder.push_hunk_assignments(hunk_assignments.into_iter().map(ToOwned::to_owned))?;
+        builder.into_diff_specs()
+    };
 
     let new_commit = amend_diff_specs(ctx, diff_specs, oid, perm)?;
     update_workspace_commit(ctx, false)?;

@@ -55,9 +55,9 @@ use crate::{
                 marking::{MarkClasses, Markable, Marks},
                 message_on_drop::MessageOnDrop,
                 mode::{
-                    CommandMode, CommandModeKind, CommitMessageComposer, CommitMode, DetailsMode,
-                    InlineRewordMode, Mode, ModeDiscriminant, MoveMode, MoveSource, NormalMode,
-                    RubMode, RubSource,
+                    CommandMode, CommandModeKind, CommitMessageComposer, CommitMode, CommitSource,
+                    DetailsMode, InlineRewordMode, Mode, ModeDiscriminant, MoveMode, MoveSource,
+                    NormalMode, RubMode, RubSource, StackCommitSource, UnassignedCommitSource,
                 },
                 operations::stack_has_assigned_changes,
                 toast::{ToastKind, Toasts},
@@ -68,11 +68,8 @@ use crate::{
     theme::Theme,
     tui::{CrosstermTerminalGuard, HeadlessTerminalGuard, TerminalGuard},
     utils::{
-        DebugAsType, OutputChannel,
-        binary_path::current_exe_for_but_exec,
-        diff_specs::{
-            CommitSource, StackCommitSource, UnassignedCommitSource, prepare_changes_to_commit,
-        },
+        DebugAsType, OutputChannel, binary_path::current_exe_for_but_exec,
+        diff_specs::DiffSpecBuilder,
     },
 };
 
@@ -2061,7 +2058,20 @@ impl App {
             let context_lines = ctx.settings.context_lines;
             let guard = ctx.shared_worktree_access();
             let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
-            prepare_changes_to_commit(&mut db, &repo, &ws, context_lines, source, *scope_to_stack)?
+            let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines)
+                .with_scope_to_stack(*scope_to_stack);
+            match &**source {
+                CommitSource::Unassigned(UnassignedCommitSource { id }) => {
+                    builder.push_changes_from_unassigned(id)?;
+                }
+                CommitSource::Uncommitted(uncommitted_cli_id) => {
+                    builder.push_changes_from_uncommitted(uncommitted_cli_id)?;
+                }
+                CommitSource::Stack(StackCommitSource { stack_id }) => {
+                    builder.push_changes_from_stack(*stack_id)?;
+                }
+            }
+            builder.into_diff_specs()
         };
 
         let mut meta = ctx.meta()?;

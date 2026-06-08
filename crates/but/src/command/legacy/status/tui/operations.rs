@@ -11,7 +11,7 @@ use but_api::{
     diff::ComputeLineStats,
     legacy::oplog::RestoreKind,
 };
-use but_core::{DiffSpec, DryRun, diff::CommitDetails, ref_metadata::StackId};
+use but_core::{DryRun, diff::CommitDetails, ref_metadata::StackId};
 use but_ctx::Context;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use gitbutler_operating_modes::OperatingMode;
@@ -27,7 +27,7 @@ use crate::{
             tui::SelectAfterReload,
         },
     },
-    utils::OutputChannel,
+    utils::{OutputChannel, diff_specs},
 };
 
 pub(super) async fn reload_legacy(
@@ -357,59 +357,17 @@ pub(super) fn reword_branch_legacy(
     gitbutler_branch_actions::stack::update_branch_name(ctx, stack_id, branch_name, new_name)
 }
 
-/// Collect paths whose worktree status is either addition or deletion.
-fn addition_or_deletion_paths(
-    changes: &[but_core::ui::TreeChange],
-) -> std::collections::HashSet<Vec<u8>> {
-    changes
-        .iter()
-        .filter_map(|change| {
-            if matches!(
-                change.status,
-                but_core::ui::TreeStatus::Addition { .. }
-                    | but_core::ui::TreeStatus::Deletion { .. }
-            ) {
-                let path: &bstr::BStr = change.path.as_ref();
-                Some(path.to_vec())
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-
-/// Convert hunk assignments to diff specs, using whole-file mode for additions/deletions.
-fn diff_specs_from_assignments(
-    assignments: impl IntoIterator<Item = but_hunk_assignment::HunkAssignment>,
-    addition_or_deletion_paths: &std::collections::HashSet<Vec<u8>>,
-) -> Vec<DiffSpec> {
-    assignments
-        .into_iter()
-        .map(|assignment| {
-            let is_addition_or_deletion =
-                addition_or_deletion_paths.contains(&assignment.path_bytes.to_vec());
-
-            DiffSpec {
-                previous_path: None,
-                path: assignment.path_bytes,
-                hunk_headers: if is_addition_or_deletion {
-                    Vec::new()
-                } else {
-                    assignment.hunk_header.into_iter().collect()
-                },
-            }
-        })
-        .collect()
-}
-
-/// Discard uncommitted assignments with precomputed addition/deletion paths.
-fn discard_uncommitted_legacy_with_paths(
+fn discard_uncommitted_legacy_with_assignments(
     ctx: &mut Context,
     hunk_assignments: Vec<but_hunk_assignment::HunkAssignment>,
-    addition_or_deletion_paths: &std::collections::HashSet<Vec<u8>>,
 ) -> anyhow::Result<()> {
-    let changes_to_discard =
-        diff_specs_from_assignments(hunk_assignments, addition_or_deletion_paths);
+    let changes_to_discard = {
+        let context_lines = ctx.settings.context_lines;
+        let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+        let mut builder = diff_specs::DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+        builder.push_hunk_assignments(hunk_assignments)?;
+        builder.into_diff_specs()
+    };
 
     if changes_to_discard.is_empty() {
         return Ok(());
@@ -424,37 +382,16 @@ pub(super) fn discard_uncommitted_legacy(
     ctx: &mut Context,
     hunk_assignments: Vec<but_hunk_assignment::HunkAssignment>,
 ) -> anyhow::Result<()> {
-    let addition_or_deletion_paths = {
-        let repo = ctx.repo.get()?;
-        let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
-        addition_or_deletion_paths(&changes)
-    };
-
-    discard_uncommitted_legacy_with_paths(ctx, hunk_assignments, &addition_or_deletion_paths)
+    discard_uncommitted_legacy_with_assignments(ctx, hunk_assignments)
 }
 
 pub(super) fn discard_unassigned_legacy(ctx: &mut Context) -> anyhow::Result<()> {
-    let context_lines = ctx.settings.context_lines;
     let unassigned_changes = {
+        let context_lines = ctx.settings.context_lines;
         let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-        let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
-
-        let addition_or_deletion_paths = addition_or_deletion_paths(&changes);
-
-        let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-            db.hunk_assignments_mut()?,
-            &repo,
-            &ws,
-            Some(changes),
-            context_lines,
-        )?;
-
-        let unassigned_assignments = assignments
-            .into_iter()
-            .filter(|assignment| assignment.stack_id.is_none())
-            .collect::<Vec<_>>();
-
-        diff_specs_from_assignments(unassigned_assignments, &addition_or_deletion_paths)
+        let mut builder = diff_specs::DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+        builder.push_changes_from_unassigned(&crate::id::UNASSIGNED.to_string())?;
+        builder.into_diff_specs()
     };
 
     if unassigned_changes.is_empty() {
@@ -467,29 +404,21 @@ pub(super) fn discard_unassigned_legacy(ctx: &mut Context) -> anyhow::Result<()>
 }
 
 pub(super) fn discard_stack(ctx: &mut Context, stack_id: StackId) -> anyhow::Result<()> {
-    let context_lines = ctx.settings.context_lines;
-    let (stack_changes, addition_or_deletion_paths) = {
+    let stack_changes = {
+        let context_lines = ctx.settings.context_lines;
         let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
-        let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
-        let addition_or_deletion_paths = addition_or_deletion_paths(&changes);
-
-        let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-            db.hunk_assignments_mut()?,
-            &repo,
-            &ws,
-            Some(changes),
-            context_lines,
-        )?;
-
-        let stack_changes = assignments
-            .into_iter()
-            .filter(|assignment| assignment.stack_id == Some(stack_id))
-            .collect::<Vec<_>>();
-
-        (stack_changes, addition_or_deletion_paths)
+        let mut builder = diff_specs::DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+        builder.push_changes_from_stack(stack_id)?;
+        builder.into_diff_specs()
     };
 
-    discard_uncommitted_legacy_with_paths(ctx, stack_changes, &addition_or_deletion_paths)
+    if stack_changes.is_empty() {
+        return Ok(());
+    }
+
+    but_api::legacy::workspace::discard_worktree_changes(ctx, stack_changes)?;
+
+    Ok(())
 }
 
 pub(super) fn commit_discard(

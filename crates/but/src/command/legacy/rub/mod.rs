@@ -1,17 +1,14 @@
 use std::fmt;
 
 use crate::theme::{self, Paint};
-use anyhow::{Context as _, bail};
+use anyhow::bail;
 use bstr::BStr;
 use but_api::commit::types::{
     CommitCreateResult, CommitMoveResult, CommitSquashResult, MoveChangesResult, UncommitResult,
 };
 use but_core::{DiffSpec, DryRun, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
-use but_hunk_assignment::{
-    HunkAssignment, HunkAssignmentRequest, HunkAssignmentTarget,
-    diff_specs_from_assignments_with_changes,
-};
+use but_hunk_assignment::{HunkAssignment, HunkAssignmentRequest, HunkAssignmentTarget};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 mod amend;
 mod assign;
@@ -30,7 +27,7 @@ use crate::{
     CliError, CliId, IdMap, bad_input,
     command::legacy::rub::assign::stack_id_to_branch_name,
     id::parser::{IdResolutionError, parse_sources_with_disambiguation, prompt_for_disambiguation},
-    utils::{OutputChannel, shorten_object_id, split_short_id},
+    utils::{OutputChannel, diff_specs::DiffSpecBuilder, shorten_object_id, split_short_id},
 };
 
 /// A description of a set of hunks.
@@ -311,12 +308,13 @@ impl<'a> UncommittedToCommitOperation<'a> {
 
     /// Executes this operation without writing any output.
     pub(crate) fn execute_inner(&self, ctx: &mut Context) -> anyhow::Result<CommitCreateResult> {
-        let worktree_changes = but_api::diff::changes_in_worktree(ctx)?;
-        let changes = diff_specs_from_assignments_with_changes(
-            self.hunk_assignments.iter().copied().cloned(),
-            &worktree_changes.worktree_changes.changes,
-        );
-        let changes = but_workspace::flatten_diff_specs(changes);
+        let changes = {
+            let context_lines = ctx.settings.context_lines;
+            let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+            let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+            builder.push_hunk_assignments(self.hunk_assignments.iter().copied().cloned())?;
+            builder.into_diff_specs()
+        };
         but_api::commit::amend::commit_amend(ctx, self.oid, changes, DryRun::No)
     }
 }
@@ -1906,15 +1904,15 @@ fn changes_for_stack_assignment(
     ctx: &mut Context,
     stack_id: Option<StackId>,
 ) -> anyhow::Result<Vec<DiffSpec>> {
-    let worktree_changes = but_api::diff::changes_in_worktree(ctx)?;
-    let changes = diff_specs_from_assignments_with_changes(
-        worktree_changes
-            .assignments
-            .into_iter()
-            .filter(|assignment| assignment.stack_id == stack_id),
-        &worktree_changes.worktree_changes.changes,
-    );
-    Ok(but_workspace::flatten_diff_specs(changes))
+    let assignments = but_api::diff::changes_in_worktree(ctx)?
+        .assignments
+        .into_iter()
+        .filter(|assignment| assignment.stack_id == stack_id);
+    let context_lines = ctx.settings.context_lines;
+    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+    let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+    builder.push_hunk_assignments(assignments)?;
+    Ok(builder.into_diff_specs())
 }
 
 /// Computes diff specs for changes to `path` in `commit_oid` relative to its first parent.
@@ -1923,17 +1921,11 @@ fn file_changes_from_commit(
     commit_oid: gix::ObjectId,
     path: &bstr::BStr,
 ) -> anyhow::Result<Vec<DiffSpec>> {
-    let repo = ctx.repo.get()?;
-    let source_commit = repo.find_commit(commit_oid)?;
-    let source_commit_parent_id = source_commit.parent_ids().next().context("no parents")?;
-
-    let tree_changes =
-        but_core::diff::tree_changes(&repo, Some(source_commit_parent_id.detach()), commit_oid)?;
-    Ok(tree_changes
-        .into_iter()
-        .filter(|tc| tc.path == path)
-        .map(DiffSpec::from)
-        .collect::<Vec<_>>())
+    let context_lines = ctx.settings.context_lines;
+    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
+    let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+    builder.push_changes_from_path_in_commit(path, commit_oid, "no parents")?;
+    Ok(builder.into_diff_specs())
 }
 
 #[cfg(test)]

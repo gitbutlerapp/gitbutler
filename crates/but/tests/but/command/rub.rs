@@ -2183,3 +2183,78 @@ Hint: run `but help` for all commands
 
 "#]]);
 }
+
+#[test]
+fn committing_modified_and_renamed_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    env.file("file", "content");
+    env.file("file-2", "content-2");
+
+    env.but("commit -m 'add files'").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄br [a-branch-1]
+┊●   e3f869d add files
+┊│     e3:qs A file
+┊│     e3:kw A file-2
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.file("file-2", "new content");
+    env.rename_file("file-2", "file");
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes]
+┊   qs M file
+┊   kw D file-2
+┊
+┊╭┄br [a-branch-1]
+┊●   e3f869d add files
+┊│     e3:qs A file
+┊│     e3:kw A file-2
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+
+    env.but("commit -m 'change file'").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄br [a-branch-1]
+┊●   e419886 change file
+┊│     e4:qs M file
+┊│     e4:kw D file-2
+┊●   e3f869d add files
+┊│     e3:qs A file
+┊│     e3:kw A file-2
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}

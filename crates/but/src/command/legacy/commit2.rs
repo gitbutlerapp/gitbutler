@@ -20,8 +20,7 @@ use crate::{
     id::UNASSIGNED,
     theme::{Paint, Theme},
     utils::{
-        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils,
-        diff_specs::{CommitSource, UnassignedCommitSource, prepare_changes_to_commit},
+        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, diff_specs::DiffSpecBuilder,
     },
 };
 
@@ -91,10 +90,9 @@ pub fn commit(
 
         let operation = route_operation(&repo, &head_info, branch)?;
 
-        let source = CommitSource::Unassigned(UnassignedCommitSource {
-            id: UNASSIGNED.to_string(),
-        });
-        let changes = prepare_changes_to_commit(&mut db, &repo, &ws, context_lines, &source, None)?;
+        let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+        builder.push_changes_from_unassigned(&UNASSIGNED.to_string())?;
+        let changes = builder.into_diff_specs();
 
         (changes, operation)
     };
