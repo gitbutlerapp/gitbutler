@@ -1,5 +1,6 @@
 import { useAbsorb } from "#ui/api/mutations.ts";
-import { absorptionPlanQueryOptions } from "#ui/api/queries.ts";
+import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
+import { assert } from "#ui/assert.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
@@ -11,22 +12,22 @@ import {
 	type OperationType,
 	type OperationsByType,
 } from "#ui/operations/operation.ts";
-import { type OutlineMode } from "#ui/outline/mode.ts";
-import { type Operand } from "#ui/operands.ts";
-import { projectActions } from "#ui/projects/state.ts";
+import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
+import { NavigationIndexContext } from "#ui/routes/project/$id/workspace/OutlineNavigationIndexContext.ts";
 import { operationSourceLabel } from "#ui/routes/project/$id/workspace/operationSourceLabel.ts";
-import { focusSelectionScope } from "#ui/selection-scopes.ts";
-import { useAppDispatch } from "#ui/store.ts";
+import { focusSelectionScope, useOutlineSelection } from "#ui/selection-scopes.ts";
+import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Button, Tooltip } from "@base-ui/react";
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
-import { type AbsorptionTarget, type RefInfo } from "@gitbutler/but-sdk";
+import { type AbsorptionTarget } from "@gitbutler/but-sdk";
 import { useHotkeys } from "@tanstack/react-hotkeys";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
+import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
-import { FC, type ReactNode } from "react";
+import { FC, type ReactNode, use } from "react";
 import styles from "./OperationControls.module.css";
 
 const Container: FC<{ children: ReactNode }> = ({ children }) => (
@@ -307,27 +308,41 @@ const TransferOperationControls: FC<{
 	);
 };
 
-export const OperationControls: FC<{
-	projectId: string;
-	headInfo: RefInfo;
-	outlineMode: OutlineMode;
-	selection: Operand | null;
-	isAbsorptionPlanPending: boolean;
-}> = ({ projectId, headInfo, outlineMode, selection, isAbsorptionPlanPending }) =>
-	Match.value(outlineMode).pipe(
+export const OperationControls: FC = () => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const navigationIndex = assert(use(NavigationIndexContext));
+	const selection = useOutlineSelection({ projectId, navigationIndex });
+	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const absorptionPlanTarget = Match.value(outlineMode).pipe(
+		Match.tag("Absorb", ({ sourceTarget }) => sourceTarget),
+		Match.orElse(() => null),
+	);
+	const [absorptionPlanQuery] = useQueries({
+		queries: (absorptionPlanTarget ? [absorptionPlanTarget] : []).map((target) =>
+			absorptionPlanQueryOptions({ projectId, target }),
+		),
+	});
+
+	if (!headInfo) return null;
+
+	return Match.value(outlineMode).pipe(
 		Match.tagsExhaustive({
 			Default: () => null,
-			Absorb: (x) => (
-				<Container>
-					<div className={styles.controlsRow}>
-						<div className={classes("text-bold", "text-13")}>
-							{operationSourceLabel({ headInfo, source: x.source })}
+			Absorb: (x) =>
+				absorptionPlanQuery && (
+					<Container>
+						<div className={styles.controlsRow}>
+							<div className={classes("text-bold", "text-13")}>
+								{operationSourceLabel({ headInfo, source: x.source })}
+							</div>
+							{absorptionPlanQuery.isPending && (
+								<Icon name="spinner" aria-label="Loading absorb plan" />
+							)}
+							<AbsorbControls projectId={projectId} sourceTarget={x.sourceTarget} />
 						</div>
-						{isAbsorptionPlanPending && <Icon name="spinner" aria-label="Loading absorb plan" />}
-						<AbsorbControls projectId={projectId} sourceTarget={x.sourceTarget} />
-					</div>
-				</Container>
-			),
+					</Container>
+				),
 			Transfer: ({ value: mode }) =>
 				Match.value(mode).pipe(
 					Match.tags({
@@ -359,3 +374,4 @@ export const OperationControls: FC<{
 			RewordCommit: () => null,
 		}),
 	);
+};

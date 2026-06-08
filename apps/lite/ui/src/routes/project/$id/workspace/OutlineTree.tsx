@@ -60,6 +60,7 @@ import {
 import { rewrittenCommitSelection } from "#ui/projects/workspace/state.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { OperationTarget } from "#ui/routes/project/$id/workspace/OperationTarget.tsx";
+import { NavigationIndexContext } from "#ui/routes/project/$id/workspace/OutlineNavigationIndexContext.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
@@ -79,7 +80,6 @@ import {
 	PushStatus,
 	TreeChange,
 	WorkspaceState,
-	CommitAbsorption,
 } from "@gitbutler/but-sdk";
 import {
 	formatForDisplay,
@@ -88,7 +88,7 @@ import {
 	useHotkeys,
 	useKeyHold,
 } from "@tanstack/react-hotkeys";
-import { useQuery, UseQueryResult, useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import {
@@ -120,8 +120,6 @@ import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
-
-const NavigationIndexContext = createContext<NavigationIndex<Operand> | null>(null);
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
@@ -627,9 +625,8 @@ export const OutlineTree: FC<
 	{
 		navigationIndex: NavigationIndex<Operand>;
 		absorptionTargetKeys: ReadonlySet<string>;
-		absorptionPlanQuery: UseQueryResult<Array<CommitAbsorption>> | undefined;
 	} & ComponentProps<"div">
-> = ({ navigationIndex, absorptionTargetKeys, absorptionPlanQuery, ref: refProp, ...props }) => {
+> = ({ navigationIndex, absorptionTargetKeys, ref: refProp, ...props }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
 	const selection = useOutlineSelection({ projectId, navigationIndex });
@@ -707,15 +704,7 @@ export const OutlineTree: FC<
 							</div>
 						</div>
 
-						{headInfo && (
-							<OperationControls
-								projectId={projectId}
-								headInfo={headInfo}
-								outlineMode={outlineMode}
-								selection={selection}
-								isAbsorptionPlanPending={absorptionPlanQuery?.isPending ?? false}
-							/>
-						)}
+						<OperationControls />
 					</div>
 				</DryRunWorkspaceContext>
 			</AbsorptionTargetKeysContext>

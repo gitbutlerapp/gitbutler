@@ -639,7 +639,6 @@ const WorkspacePage: FC = () => {
 							tabIndex={0}
 							navigationIndex={outlineNavigationIndex}
 							absorptionTargetKeys={absorptionTargetKeys}
-							absorptionPlanQuery={absorptionPlanQuery}
 							// Focus on page load.
 							ref={(el) => {
 								// Don't steal focus if this component is mounted later on.
