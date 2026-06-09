@@ -9,7 +9,6 @@ import {
 	type CommitMoveChangesBetweenParams,
 	type CommitUncommitChangesParams,
 	type MoveBranchParams,
-	type TearOffBranchParams,
 	CommitSquashParams,
 	CommitUncommitParams,
 } from "#electron/ipc.ts";
@@ -55,8 +54,6 @@ export type CommitUncommitChangesOperation = Omit<
 > & { source: Operand };
 /** @public */
 export type MoveBranchOperation = Omit<MoveBranchParams, "dryRun" | "projectId">;
-/** @public */
-export type TearOffBranchOperation = Omit<TearOffBranchParams, "dryRun" | "projectId">;
 
 export type Operation =
 	| ({ _tag: "CommitAmend" } & CommitAmendOperation)
@@ -67,8 +64,7 @@ export type Operation =
 	| ({ _tag: "CommitSquash" } & CommitSquashOperation)
 	| ({ _tag: "CommitUncommit" } & CommitUncommitOperation)
 	| ({ _tag: "CommitUncommitChanges" } & CommitUncommitChangesOperation)
-	| ({ _tag: "MoveBranch" } & MoveBranchOperation)
-	| ({ _tag: "TearOffBranch" } & TearOffBranchOperation);
+	| ({ _tag: "MoveBranch" } & MoveBranchOperation);
 
 /** @public */
 export const commitAmendOperation = (operation: CommitAmendOperation): Operation => ({
@@ -128,12 +124,6 @@ export const moveBranchOperation = (operation: MoveBranchOperation): Operation =
 	...operation,
 });
 
-/** @public */
-export const tearOffBranchOperation = (operation: TearOffBranchOperation): Operation => ({
-	_tag: "TearOffBranch",
-	...operation,
-});
-
 export const operationLabel = (operation: Operation): string =>
 	Match.value(operation).pipe(
 		Match.tagsExhaustive({
@@ -161,7 +151,6 @@ export const operationLabel = (operation: Operation): string =>
 			CommitUncommit: () => "Uncommit",
 			CommitUncommitChanges: () => "Uncommit",
 			MoveBranch: () => "Move above",
-			TearOffBranch: () => "Tear off branch",
 		}),
 	);
 
@@ -274,12 +263,6 @@ const runOperation = async ({
 					projectId,
 					subjectBranch: operation.subjectBranch,
 					targetBranch: operation.targetBranch,
-					dryRun,
-				}),
-			TearOffBranch: (operation) =>
-				window.lite.tearOffBranch({
-					projectId,
-					subjectBranch: operation.subjectBranch,
 					dryRun,
 				}),
 		}),
