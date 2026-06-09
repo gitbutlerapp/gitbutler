@@ -54,15 +54,7 @@ import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Hash, Match } from "effect";
-import {
-	ComponentProps,
-	FC,
-	type RefObject,
-	Suspense,
-	useDeferredValue,
-	useLayoutEffect,
-	useRef,
-} from "react";
+import { ComponentProps, FC, type RefObject, Suspense, useDeferredValue, useRef } from "react";
 import styles from "./Details.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import {
@@ -418,45 +410,32 @@ const build = ({ fileParent, changes, treeChangeDiffs, changesetKey }: BuildIn):
 };
 
 const DiffContents: FC<{
-	changes: Array<TreeChange>;
-	getInitialFileHunkRef: RefObject<((file: FileOperand) => HunkOperand | undefined) | null>;
 	selectionScopeRef: RefObject<HTMLDivElement | null>;
 	onViewerFileSelection: (selection: FileOperand) => void;
-	outlineSelection: Operand;
+	fileParent: FileParent;
+	changesetKey: string;
 	projectId: string;
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
+	navigationIndex: NavigationIndex<HunkOperand>;
+	items: Array<CodeViewDiffItem>;
+	itemsMetadataMap: Map<
+		string,
+		{ item: CodeViewDiffItem; change: TreeChange; patch: UnifiedPatch | null }
+	>;
+	selectedRangeByHunk: Map<string, CodeViewLineSelection>;
 }> = ({
-	changes,
-	getInitialFileHunkRef,
 	selectionScopeRef,
 	onViewerFileSelection,
-	outlineSelection,
+	fileParent,
+	changesetKey,
 	projectId,
 	viewerRef,
+	navigationIndex,
+	items,
+	itemsMetadataMap,
+	selectedRangeByHunk,
 }) => {
 	const dispatch = useAppDispatch();
-	const treeChangeDiffs = useSuspenseQueries({
-		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
-	}).map((result) => result.data);
-
-	const changesetKey = getChangesetKey(outlineSelection);
-	const fileParent = Match.value(outlineSelection).pipe(
-		Match.tags({
-			Branch: ({ branchRef, stackId }) => branchFileParent({ branchRef, stackId }),
-			ChangesSection: () => changesFileParent,
-			Commit: ({ commitId, stackId }) => commitFileParent({ commitId, stackId }),
-		}),
-		Match.orElseAbsurd,
-	);
-
-	const { items, itemsMetadataMap, initialFileHunks, navigationIndex, selectedRangeByHunk } = build(
-		{
-			fileParent,
-			changes,
-			treeChangeDiffs,
-			changesetKey,
-		},
-	);
 
 	const diffSelection = useDiffSelection(projectId, navigationIndex);
 	const selectedRange = diffSelection
@@ -476,13 +455,6 @@ const DiffContents: FC<{
 			align: "nearest",
 		});
 	};
-
-	useLayoutEffect(() => {
-		getInitialFileHunkRef.current = (file) => initialFileHunks.get(fileOperandIdentityKey(file));
-		return () => {
-			getInitialFileHunkRef.current = null;
-		};
-	});
 
 	useNavigationIndexHotkeys({
 		navigationIndex,
@@ -855,15 +827,33 @@ const Diff: FC<{
 	viewerRef,
 }) => {
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
-	const getInitialFileHunkRef = useRef<((file: FileOperand) => HunkOperand | undefined) | null>(
-		null,
-	);
 	const files = filesItems.map((item) => item.operand);
 
 	const navigationIndex = buildNavigationIndex(files, fileOperandIdentityKey);
 
+	const changesetKey = getChangesetKey(outlineSelection);
+	const fileParent = Match.value(outlineSelection).pipe(
+		Match.tags({
+			Branch: ({ branchRef, stackId }) => branchFileParent({ branchRef, stackId }),
+			ChangesSection: () => changesFileParent,
+			Commit: ({ commitId, stackId }) => commitFileParent({ commitId, stackId }),
+		}),
+		Match.orElseAbsurd,
+	);
+
+	const treeChangeDiffs = useSuspenseQueries({
+		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
+	}).map((result) => result.data);
+
+	const { initialFileHunks, ...data } = build({
+		fileParent,
+		changes,
+		treeChangeDiffs,
+		changesetKey,
+	});
+
 	const selectFileAndFirstHunk = (selection: FileOperand) => {
-		onFileSelection(selection, getInitialFileHunkRef.current?.(selection));
+		onFileSelection(selection, initialFileHunks.get(fileOperandIdentityKey(selection)));
 	};
 
 	return (
@@ -889,17 +879,15 @@ const Diff: FC<{
 				className={styles.diffContentsContainer}
 				ref={selectionScopeRef}
 			>
-				<Suspense fallback={<p className="text-13">Loading diff…</p>}>
-					<DiffContents
-						changes={changes}
-						getInitialFileHunkRef={getInitialFileHunkRef}
-						onViewerFileSelection={onViewerFileSelection}
-						outlineSelection={outlineSelection}
-						projectId={projectId}
-						selectionScopeRef={selectionScopeRef}
-						viewerRef={viewerRef}
-					/>
-				</Suspense>
+				<DiffContents
+					onViewerFileSelection={onViewerFileSelection}
+					fileParent={fileParent}
+					changesetKey={changesetKey}
+					projectId={projectId}
+					selectionScopeRef={selectionScopeRef}
+					viewerRef={viewerRef}
+					{...data}
+				/>
 			</div>
 		</div>
 	);
