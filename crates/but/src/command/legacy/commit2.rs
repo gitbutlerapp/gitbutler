@@ -27,20 +27,32 @@ use crate::{
 #[must_use]
 pub struct CommitOutcome {
     new_commit: gix::ObjectId,
-    ref_name: gix::refs::FullName,
+    branch_name: BranchNameTarget,
+}
+
+/// `--format json` should only include newly created things. So if the branch already existed it
+/// wont be included in the JSON output.
+enum BranchNameTarget {
+    Existing(FullName),
+    New(FullName),
 }
 
 impl CliOutputHuman for CommitOutcome {
     fn on_human(self, out: &mut dyn WriteWithUtils, _theme: &Theme) -> anyhow::Result<()> {
         let Self {
             new_commit,
-            ref_name,
+            branch_name,
         } = self;
+        let branch_name = match branch_name {
+            BranchNameTarget::Existing(branch_name) | BranchNameTarget::New(branch_name) => {
+                branch_name
+            }
+        };
         writeln!(
             out,
             "Created commit {} on {}",
             Commit(new_commit),
-            Branch(ref_name.shorten()),
+            Branch(branch_name.shorten()),
         )?;
         Ok(())
     }
@@ -50,7 +62,7 @@ impl CliOutput for CommitOutcome {
     fn on_shell(self, out: &mut dyn WriteWithUtils) -> anyhow::Result<()> {
         let Self {
             new_commit,
-            ref_name: _,
+            branch_name: _,
         } = self;
         writeln!(out, "{}", new_commit.to_hex_with_len(7))?;
         Ok(())
@@ -60,10 +72,25 @@ impl CliOutput for CommitOutcome {
         #[derive(Serialize)]
         struct Output {
             commit: HexHash,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            branch: Option<String>,
         }
 
+        let Self {
+            new_commit,
+            branch_name,
+        } = self;
+
+        let branch_name = match branch_name {
+            BranchNameTarget::Existing(_) => None,
+            BranchNameTarget::New(full_name) => {
+                Some(full_name.shorten().to_str_lossy().to_string())
+            }
+        };
+
         Output {
-            commit: self.new_commit.into(),
+            commit: new_commit.into(),
+            branch: branch_name,
         }
     }
 }
@@ -110,7 +137,7 @@ pub fn commit(
                     new_commit,
                     rejected_specs,
                 },
-                ref_name,
+                branch_name,
             ) = operation.execute(&mut tx, changes)?;
 
             anyhow::ensure!(rejected_specs.is_empty(), "Couldn't commit all changes");
@@ -147,12 +174,12 @@ pub fn commit(
 
             Ok(DynamicOutcome::<_, std::convert::Infallible>::Commit((
                 reworded_commit,
-                ref_name,
+                branch_name,
             )))
         },
     );
 
-    let DynamicOutcome::Commit(((new_commit, ref_name), _ws)) = match result {
+    let DynamicOutcome::Commit(((new_commit, branch_name), _ws)) = match result {
         Ok(outcome) => outcome,
         Err(err) => {
             return Err(
@@ -169,7 +196,7 @@ pub fn commit(
 
     Ok(CommitOutcome {
         new_commit,
-        ref_name,
+        branch_name,
     })
 }
 
@@ -236,7 +263,7 @@ impl CommitOperation {
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
-    ) -> anyhow::Result<(IntermediateCommitCreateResult, FullName)> {
+    ) -> anyhow::Result<(IntermediateCommitCreateResult, BranchNameTarget)> {
         match self {
             CommitOperation::CommitToExistingBranch(op) => op.execute(tx, changes),
             CommitOperation::CommitToNewBranch(op) => op.execute(tx, changes),
@@ -245,7 +272,7 @@ impl CommitOperation {
 }
 
 struct CommitToExistingBranchOperation {
-    branch_name: gix::refs::FullName,
+    branch_name: FullName,
 }
 
 impl CommitToExistingBranchOperation {
@@ -253,19 +280,20 @@ impl CommitToExistingBranchOperation {
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
-    ) -> anyhow::Result<(IntermediateCommitCreateResult, FullName)> {
-        let Self {
-            branch_name: ref_name,
-        } = self;
+    ) -> anyhow::Result<(IntermediateCommitCreateResult, BranchNameTarget)> {
+        let Self { branch_name } = self;
 
         let commit_create_result = tx.create_commit(
-            RelativeTo::Reference(ref_name.clone()),
+            RelativeTo::Reference(branch_name.clone()),
             InsertSide::Below,
             changes,
             String::new(),
         )?;
 
-        Ok((commit_create_result, ref_name))
+        Ok((
+            commit_create_result,
+            BranchNameTarget::Existing(branch_name),
+        ))
     }
 }
 
@@ -278,7 +306,7 @@ impl CommitToNewBranchOperation {
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
-    ) -> anyhow::Result<(IntermediateCommitCreateResult, FullName)> {
+    ) -> anyhow::Result<(IntermediateCommitCreateResult, BranchNameTarget)> {
         let Self { branch_name } = self;
 
         let branch_name = if let Some(branch_name) = branch_name {
@@ -296,7 +324,7 @@ impl CommitToNewBranchOperation {
             String::new(),
         )?;
 
-        Ok((commit_create_result, branch_name))
+        Ok((commit_create_result, BranchNameTarget::New(branch_name)))
     }
 }
 
