@@ -23,37 +23,28 @@ import { useAppDispatch } from "#ui/store.ts";
 import { useParams } from "@tanstack/react-router";
 import { errorMessageForToast } from "#ui/errors.ts";
 
-/** @public */
-export type CommitAmendOperation = Omit<CommitAmendParams, "dryRun" | "projectId" | "changes"> & {
+type CommitAmendOperation = Omit<CommitAmendParams, "dryRun" | "projectId" | "changes"> & {
 	source: Operand;
 };
-/** @public */
-export type CommitCreateOperation = Omit<CommitCreateParams, "dryRun" | "projectId" | "changes"> & {
+type CommitCreateOperation = Omit<CommitCreateParams, "dryRun" | "projectId" | "changes"> & {
 	source: Operand;
 };
-/** @public */
-export type CommitSplitOperation = Omit<CommitInsertBlankParams, "dryRun" | "projectId"> &
+type CommitSplitOperation = Omit<CommitInsertBlankParams, "dryRun" | "projectId"> &
 	Pick<CommitMoveChangesBetweenParams, "sourceCommitId"> & {
 		source: Operand;
 	};
-/** @public */
-export type CommitMoveOperation = Omit<CommitMoveParams, "dryRun" | "projectId">;
-/** @public */
-export type CommitMoveChangesBetweenOperation = Omit<
+type CommitMoveOperation = Omit<CommitMoveParams, "dryRun" | "projectId">;
+type CommitMoveChangesBetweenOperation = Omit<
 	CommitMoveChangesBetweenParams,
 	"dryRun" | "projectId" | "changes"
 > & { source: Operand };
-/** @public */
-export type CommitSquashOperation = Omit<CommitSquashParams, "dryRun" | "projectId">;
-/** @public */
-export type CommitUncommitOperation = Omit<CommitUncommitParams, "dryRun" | "projectId">;
-/** @public */
-export type CommitUncommitChangesOperation = Omit<
+type CommitSquashOperation = Omit<CommitSquashParams, "dryRun" | "projectId">;
+type CommitUncommitOperation = Omit<CommitUncommitParams, "dryRun" | "projectId">;
+type CommitUncommitChangesOperation = Omit<
 	CommitUncommitChangesParams,
 	"dryRun" | "projectId" | "changes"
 > & { source: Operand };
-/** @public */
-export type MoveBranchOperation = Omit<MoveBranchParams, "dryRun" | "projectId">;
+type MoveBranchOperation = Omit<MoveBranchParams, "dryRun" | "projectId">;
 
 export type Operation =
 	| ({ _tag: "CommitAmend" } & CommitAmendOperation)
@@ -66,60 +57,49 @@ export type Operation =
 	| ({ _tag: "CommitUncommitChanges" } & CommitUncommitChangesOperation)
 	| ({ _tag: "MoveBranch" } & MoveBranchOperation);
 
-/** @public */
-export const commitAmendOperation = (operation: CommitAmendOperation): Operation => ({
+const commitAmendOperation = (operation: CommitAmendOperation): Operation => ({
 	_tag: "CommitAmend",
 	...operation,
 });
 
-/** @public */
-export const commitCreateOperation = (operation: CommitCreateOperation): Operation => ({
+const commitCreateOperation = (operation: CommitCreateOperation): Operation => ({
 	_tag: "CommitCreate",
 	...operation,
 });
 
-/** @public */
-export const commitSplitOperation = (operation: CommitSplitOperation): Operation => ({
+const commitSplitOperation = (operation: CommitSplitOperation): Operation => ({
 	_tag: "CommitSplit",
 	...operation,
 });
 
-/** @public */
-export const commitMoveOperation = (operation: CommitMoveOperation): Operation => ({
+const commitMoveOperation = (operation: CommitMoveOperation): Operation => ({
 	_tag: "CommitMove",
 	...operation,
 });
 
-/** @public */
-export const commitMoveChangesBetweenOperation = (
+const commitMoveChangesBetweenOperation = (
 	operation: CommitMoveChangesBetweenOperation,
 ): Operation => ({
 	_tag: "CommitMoveChangesBetween",
 	...operation,
 });
 
-/** @public */
-export const commitSquashOperation = (operation: CommitSquashOperation): Operation => ({
+const commitSquashOperation = (operation: CommitSquashOperation): Operation => ({
 	_tag: "CommitSquash",
 	...operation,
 });
 
-/** @public */
-export const commitUncommitOperation = (operation: CommitUncommitOperation): Operation => ({
+const commitUncommitOperation = (operation: CommitUncommitOperation): Operation => ({
 	_tag: "CommitUncommit",
 	...operation,
 });
 
-/** @public */
-export const commitUncommitChangesOperation = (
-	operation: CommitUncommitChangesOperation,
-): Operation => ({
+const commitUncommitChangesOperation = (operation: CommitUncommitChangesOperation): Operation => ({
 	_tag: "CommitUncommitChanges",
 	...operation,
 });
 
-/** @public */
-export const moveBranchOperation = (operation: MoveBranchOperation): Operation => ({
+const moveBranchOperation = (operation: MoveBranchOperation): Operation => ({
 	_tag: "MoveBranch",
 	...operation,
 });
