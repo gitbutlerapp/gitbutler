@@ -726,10 +726,16 @@ const useIsSelected = ({
 const treeItemId = (operand: Operand): string =>
 	`outline-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
 
-const CommitTargetIndicator: FC = () => (
+const CommitTargetIndicator: FC<{ isSelected: boolean }> = ({ isSelected }) => (
 	<Popover.Root>
 		<Popover.Trigger
-			className={workspaceItemRowStyles.itemRowIconButton}
+			className={classes(
+				workspaceItemRowStyles.itemRowIconButton,
+				getButtonClassName({
+					variant: isSelected ? "inverted" : "ghost",
+					size: "small",
+				}),
+			)}
 			aria-label="Commit target"
 			openOnHover
 		>
@@ -1234,20 +1240,28 @@ const CommitRow: FC<
 						{hasConflicts && " ⚠️"}
 					</div>
 
-					{outlineMode._tag === "Default" && (
-						<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
-							<Toolbar.Button
-								aria-label="Commit menu"
-								className={workspaceItemRowStyles.itemRowIconButton}
-								onClick={(event) => {
-									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-								}}
-							>
-								<Icon name="kebab" />
-							</Toolbar.Button>
-						</Toolbar.Root>
-					)}
-					{isCommitTarget && <CommitTargetIndicator />}
+					<WorkspaceItemRowToolbar forceVisibleToolbar>
+						{outlineMode._tag === "Default" && (
+							<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
+								<Toolbar.Button
+									aria-label="Commit menu"
+									className={classes(
+										workspaceItemRowStyles.itemRowIconButton,
+										getButtonClassName({
+											variant: isSelected ? "inverted" : "ghost",
+											size: "small",
+										}),
+									)}
+									onClick={(event) => {
+										void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+									}}
+								>
+									<Icon name="kebab" />
+								</Toolbar.Button>
+							</Toolbar.Root>
+						)}
+						{isCommitTarget && <CommitTargetIndicator isSelected={isSelected} />}
+					</WorkspaceItemRowToolbar>
 				</>
 			)}
 		</ItemRow>
@@ -1327,7 +1341,6 @@ const ChangesSectionRow: FC<{
 		<ItemRow
 			projectId={projectId}
 			operand={operand}
-			forceVisibleToolbar
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
@@ -1344,10 +1357,19 @@ const ChangesSectionRow: FC<{
 			</div>
 
 			{outlineMode._tag === "Default" && (
-				<Toolbar.Root aria-label="Changes actions" render={<WorkspaceItemRowToolbar />}>
+				<Toolbar.Root
+					aria-label="Changes actions"
+					render={<WorkspaceItemRowToolbar forceVisibleToolbar />}
+				>
 					<Toolbar.Button
 						aria-label="Changes menu"
-						className={workspaceItemRowStyles.itemRowIconButton}
+						className={classes(
+							workspaceItemRowStyles.itemRowIconButton,
+							getButtonClassName({
+								variant: isSelected ? "inverted" : "ghost",
+								size: "small",
+							}),
+						)}
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
@@ -2017,6 +2039,8 @@ const BranchRow: FC<
 		}),
 	];
 
+	const isSelected = useIsSelected({ projectId, operand });
+
 	return (
 		<ItemRow
 			{...restProps}
@@ -2056,49 +2080,65 @@ const BranchRow: FC<
 						{optimisticBranchName}
 					</div>
 
-					{outlineMode._tag === "Default" && (
-						<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar />}>
-							<Tooltip.Root>
-								<Tooltip.Trigger
-									render={
-										<Toolbar.Button
-											className={workspaceItemRowStyles.itemRowIconButton}
-											aria-label={pushButtonLabel}
-											onClick={pushStack}
-											// Note this prevents the tooltip from showing, but it
-											// shouldn't: https://github.com/mui/base-ui/issues/4966
-											disabled={!canPushStack}
-										/>
-									}
-								>
-									{pushStackMutation.isPending ? (
-										<Icon name="spinner" />
-									) : pushesMultipleBranches ? (
-										<Icon name="arrow-double-line-up" />
-									) : (
-										<Icon name="arrow-line-up" />
+					<WorkspaceItemRowToolbar forceVisibleToolbar>
+						{outlineMode._tag === "Default" && (
+							<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar />}>
+								<Tooltip.Root>
+									<Tooltip.Trigger
+										render={
+											<Toolbar.Button
+												className={classes(
+													workspaceItemRowStyles.itemRowIconButton,
+													getButtonClassName({
+														variant: isSelected ? "inverted" : "ghost",
+														size: "small",
+													}),
+												)}
+												aria-label={pushButtonLabel}
+												onClick={pushStack}
+												// Note this prevents the tooltip from showing, but it
+												// shouldn't: https://github.com/mui/base-ui/issues/4966
+												disabled={!canPushStack}
+											/>
+										}
+									>
+										{pushStackMutation.isPending ? (
+											<Icon name="spinner" />
+										) : pushesMultipleBranches ? (
+											<Icon name="arrow-double-line-up" />
+										) : (
+											<Icon name="arrow-line-up" />
+										)}
+									</Tooltip.Trigger>
+									<Tooltip.Portal>
+										<Tooltip.Positioner sideOffset={4}>
+											<Tooltip.Popup
+												render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}
+											>
+												{pushStackDisabledReason ?? pushButtonLabel}
+											</Tooltip.Popup>
+										</Tooltip.Positioner>
+									</Tooltip.Portal>
+								</Tooltip.Root>
+								<Toolbar.Button
+									aria-label="Branch menu"
+									className={classes(
+										workspaceItemRowStyles.itemRowIconButton,
+										getButtonClassName({
+											variant: isSelected ? "inverted" : "ghost",
+											size: "small",
+										}),
 									)}
-								</Tooltip.Trigger>
-								<Tooltip.Portal>
-									<Tooltip.Positioner sideOffset={4}>
-										<Tooltip.Popup render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}>
-											{pushStackDisabledReason ?? pushButtonLabel}
-										</Tooltip.Popup>
-									</Tooltip.Positioner>
-								</Tooltip.Portal>
-							</Tooltip.Root>
-							<Toolbar.Button
-								aria-label="Branch menu"
-								className={workspaceItemRowStyles.itemRowIconButton}
-								onClick={(event) => {
-									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-								}}
-							>
-								<Icon name="kebab" />
-							</Toolbar.Button>
-						</Toolbar.Root>
-					)}
-					{isCommitTarget && <CommitTargetIndicator />}
+									onClick={(event) => {
+										void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+									}}
+								>
+									<Icon name="kebab" />
+								</Toolbar.Button>
+							</Toolbar.Root>
+						)}
+						{isCommitTarget && <CommitTargetIndicator isSelected={isSelected} />}
+					</WorkspaceItemRowToolbar>
 				</>
 			)}
 		</ItemRow>
@@ -2143,12 +2183,13 @@ const StackRow: FC<
 		}),
 	];
 
+	const isSelected = useIsSelected({ projectId, operand });
+
 	return (
 		<ItemRow
 			{...restProps}
 			projectId={projectId}
 			operand={operand}
-			forceVisibleToolbar
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
@@ -2156,10 +2197,19 @@ const StackRow: FC<
 			<div className={workspaceItemRowStyles.itemRowLabel} />
 
 			{outlineMode._tag === "Default" && (
-				<Toolbar.Root aria-label="Stack actions" render={<WorkspaceItemRowToolbar />}>
+				<Toolbar.Root
+					aria-label="Stack actions"
+					render={<WorkspaceItemRowToolbar forceVisibleToolbar />}
+				>
 					<Toolbar.Button
 						aria-label="Stack menu"
-						className={workspaceItemRowStyles.itemRowIconButton}
+						className={classes(
+							workspaceItemRowStyles.itemRowIconButton,
+							getButtonClassName({
+								variant: isSelected ? "inverted" : "ghost",
+								size: "small",
+							}),
+						)}
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
