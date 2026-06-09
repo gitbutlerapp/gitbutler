@@ -13,7 +13,6 @@
 	line-height: 1;
 	white-space: nowrap;
 	--icon-size: 16px;
-	--button-group-divider-color: transparent;
 	transition:
 		background-color 0.08s ease,
 		color 0.08s ease;
@@ -60,7 +59,6 @@
 
 .pop {
 	background-color: color-mix(in srgb, var(--scale-pop-60) 50%, transparent);
-	--button-group-divider-color: color-mix(in srgb, var(--scale-pop-40) 20%, transparent);
 }
 
 .pop:not(:disabled, [data-disabled]):hover {
@@ -70,7 +68,6 @@
 .gray {
 	background-color: var(--fill-gray-bg);
 	color: var(--fill-gray-fg);
-	--button-group-divider-color: color-mix(in srgb, var(--fill-gray-fg) 18%, transparent);
 }
 
 .gray:not(:disabled, [data-disabled]):hover {
@@ -80,7 +77,6 @@
 .inverted {
 	background-color: transparent;
 	color: var(--text-1-invert);
-	--button-group-divider-color: color-mix(in srgb, var(--text-1-invert) 18%, transparent);
 }
 
 .inverted:not(:disabled, [data-disabled]):hover {
@@ -89,7 +85,6 @@
 
 .outline {
 	border: 1px solid color-mix(in srgb, var(--fill-gray-bg) 30%, transparent);
-	--button-group-divider-color: color-mix(in srgb, var(--fill-gray-bg) 30%, transparent);
 }
 
 .outline:not(:disabled, [data-disabled]):hover {
@@ -99,7 +94,6 @@
 .danger {
 	background-color: color-mix(in srgb, var(--scale-danger-50) 14%, transparent);
 	color: var(--text-danger);
-	--button-group-divider-color: color-mix(in srgb, var(--scale-danger-50) 20%, transparent);
 }
 
 .danger:not(:disabled, [data-disabled]):hover {
@@ -107,7 +101,6 @@
 }
 
 .ghost {
-	--button-group-divider-color: color-mix(in srgb, var(--scale-gray-0) 14%, transparent);
 }
 
 .ghost:not(:disabled, [data-disabled]):hover {
