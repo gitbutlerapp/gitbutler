@@ -1,6 +1,5 @@
 import {
 	buildUpstreamIntegrationUpdates,
-	clearUpstreamIntegrationStatuses,
 	deriveUpstreamIntegrationStatuses,
 	type UpstreamIntegrationStatuses,
 } from "$lib/upstream/types";
@@ -21,14 +20,6 @@ export class UpstreamIntegrationService {
 	async upstreamStatuses(projectId: string): Promise<UpstreamIntegrationStatuses> {
 		const stacks = await this.stackService.fetchStacks(projectId);
 		const updates = buildUpstreamIntegrationUpdates(stacks);
-
-		if (updates.length === 0) {
-			return {
-				subject: clearUpstreamIntegrationStatuses(stacks),
-				updates,
-				worktreeConflicts: [],
-			};
-		}
 
 		const preview = await this.backendApi.endpoints.workspaceIntegrateUpstream.mutate({
 			projectId,
