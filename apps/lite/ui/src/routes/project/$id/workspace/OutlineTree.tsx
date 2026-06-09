@@ -1685,8 +1685,8 @@ const Changes: FC<{
 								</Tooltip.Positioner>
 							</Tooltip.Portal>
 						</Tooltip.Root>
-						<button
-							type="button"
+						<Button
+							focusableWhenDisabled
 							disabled={!canCommitOrAmend}
 							aria-label="Commit options"
 							className={getButtonClassName({ iconOnly: true })}
@@ -1695,7 +1695,7 @@ const Changes: FC<{
 							}}
 						>
 							<Icon name="chevron-down" />
-						</button>
+						</Button>
 					</div>
 				</div>
 			</div>
