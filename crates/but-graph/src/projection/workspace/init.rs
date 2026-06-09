@@ -1061,18 +1061,20 @@ impl WorkspaceState {
     /// stack, but only those at or below the workspace's target commit.
     /// Integrated commits above the target commit are kept until the user advances
     /// the target via upstream integration.
-    // TODO: we need per-stack target commits/stored-forkpoint to be able to apply
-    //       branches from the future onto workspaces from the past without showing
-    //       too many integrated commits.
-    //       Also, this implementation doesn't adjust the base yet, which leaves the
-    //       workspace inconcistent. This can have repercussions for reference creation
-    //       which currently uses the lowest bound, but this may change.
+    // TODO: the per-stack fork point is recomputed on every projection rather than
+    //       stored; persisting it would avoid re-deriving the target trunk each build.
     fn prune_integrated_segments(&mut self, graph: &Graph) {
-        if !graph
+        // Integrated-commit pruning only applies to workspaces tracking an upstream
+        // target ref; without one, leave the stacks untouched.
+        if self.target_ref.is_none() {
+            return;
+        }
+        // Extra integrated tips mean upstream advanced past the stored target. Bail only
+        // if there's no stored target *commit* to bound pruning against.
+        let upstream_advanced_past_target = !graph
             .integrated_tip_segments_excluding_target_ref_tip(self.target_ref.as_ref())
-            .is_empty()
-            || self.target_ref.is_none()
-        {
+            .is_empty();
+        if self.target_commit.is_none() && upstream_advanced_past_target {
             return;
         }
         // TODO: it seems like we assume this is the lowest commit,
@@ -1085,23 +1087,46 @@ impl WorkspaceState {
             return;
         };
 
-        // Collect all segments that are the target segment itself or ancestors
-        // of it by walking the graph toward its ancestors (Direction::Outgoing).
-        let mut target_or_below_segments = HashSet::new();
-        graph.visit_all_segments_excluding_start_until(
-            target_segment_index,
-            Direction::Outgoing,
-            |s| {
-                target_or_below_segments.insert(s.id);
-                false
-            },
-        );
-        target_or_below_segments.insert(target_segment_index);
+        // Only build the segment set the chosen branch actually uses.
+        let prune_segments = if upstream_advanced_past_target {
+            // The target's first-parent trunk. Commits reaching the target only via a merge's
+            // second parent are off it, so a branch's own work is preserved; only shared trunk
+            // on a stack's first-parent spine is pruned.
+            let mut segments = HashSet::new();
+            graph.visit_segments_downward_along_first_parent_include_start(
+                target_segment_index,
+                |s| {
+                    segments.insert(s.id);
+                    false
+                },
+            );
+            segments
+        } else {
+            // The target segment itself plus all its ancestors (walk toward ancestors).
+            let mut segments = HashSet::new();
+            graph.visit_all_segments_excluding_start_until(
+                target_segment_index,
+                Direction::Outgoing,
+                |s| {
+                    segments.insert(s.id);
+                    false
+                },
+            );
+            segments.insert(target_segment_index);
+            segments
+        };
 
         let metadata = self.metadata.as_ref();
         for stack in &mut self.stacks {
-            prune_integrated_stack_segments(stack, &target_or_below_segments);
+            // Upstream advanced: floor the stack at its fork point but keep a fully-integrated
+            // tip so it survives for `integrate_upstream`. Up to date: prune everything at or
+            // below the target.
+            prune_integrated_stack_segments(stack, &prune_segments, upstream_advanced_past_target);
             remove_empty_branches(stack, metadata);
+            if upstream_advanced_past_target {
+                // Pruning moved the stack's bottom; refresh its base to the new fork point.
+                stack.recompute_last_segment_base(&graph.inner);
+            }
         }
         self.stacks.retain(|stack| !stack.segments.is_empty());
     }
@@ -1294,17 +1319,22 @@ impl WorkspaceState {
     }
 }
 
-/// Prune whole integrated graph segments at the bottom, but only those that are
-/// at or below the target segment. Integrated segments above the target are kept
-/// until the user advances the target via upstream integration.
+/// Prune the integrated tail whose graph segment is in `prune_segments`; commits in other
+/// segments are kept (e.g. above the target, or reaching it only via a merge's 2nd parent).
+///
+/// With `keep_if_fully_integrated`, a stack whose every commit would be pruned is left
+/// untouched, keeping a fully-integrated branch's tip visible for `integrate_upstream`.
 fn prune_integrated_stack_segments(
     stack: &mut Stack,
-    target_or_below_segments: &HashSet<SegmentIndex>,
+    prune_segments: &HashSet<SegmentIndex>,
+    keep_if_fully_integrated: bool,
 ) {
     // Walk stack segments bottom-up, then graph-segment blocks bottom-up within
     // each stack segment. Stop at the first graph segment block that is either
-    // not fully integrated or not at or below the target.
+    // not fully integrated or not in `prune_segments`.
     let mut cut: Option<(usize, usize)> = None;
+    // Whether any commit would survive the cut (not integrated, or not in `prune_segments`).
+    let mut has_surviving_commit = false;
     'outer: for seg_idx in (0..stack.segments.len()).rev() {
         let seg = &stack.segments[seg_idx];
 
@@ -1313,10 +1343,11 @@ fn prune_integrated_stack_segments(
         }
 
         if seg.commits_by_segment.is_empty() {
-            if commits_are_integrated(&seg.commits) && target_or_below_segments.contains(&seg.id) {
+            if commits_are_integrated(&seg.commits) && prune_segments.contains(&seg.id) {
                 cut = Some((seg_idx, 0));
                 continue;
             }
+            has_surviving_commit = true;
             break 'outer;
         }
 
@@ -1328,9 +1359,10 @@ fn prune_integrated_stack_segments(
                 .map_or(seg.commits.len(), |(_, offset)| *offset);
             let commits = &seg.commits[start_offset..end_offset];
 
-            if target_or_below_segments.contains(&segment_id) && commits_are_integrated(commits) {
+            if prune_segments.contains(&segment_id) && commits_are_integrated(commits) {
                 cut = Some((seg_idx, start_offset));
             } else {
+                has_surviving_commit = true;
                 break 'outer;
             }
         }
@@ -1339,6 +1371,12 @@ fn prune_integrated_stack_segments(
     let Some((cut_seg_idx, cut_offset)) = cut else {
         return;
     };
+
+    // The whole stack is integrated trunk. While upstream is ahead, keep it (e.g. a
+    // fully-integrated branch behind its remote) rather than pruning it out of existence.
+    if keep_if_fully_integrated && !has_surviving_commit {
+        return;
+    }
 
     stack.segments[cut_seg_idx].commits.truncate(cut_offset);
     stack.segments[cut_seg_idx]
