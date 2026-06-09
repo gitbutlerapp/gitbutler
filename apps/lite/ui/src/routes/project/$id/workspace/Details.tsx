@@ -808,8 +808,7 @@ const Diff: FC<{
 	const viewerRef = useRef<CodeViewHandle<undefined>>(null);
 	const dispatch = useAppDispatch();
 	const files = filesItems.map((item) => item.operand);
-
-	const navigationIndex = buildNavigationIndex(files, fileOperandIdentityKey);
+	const filesNavigationIndex = buildNavigationIndex(files, fileOperandIdentityKey);
 
 	const changesetKey = getChangesetKey(outlineSelection);
 	const fileParent = Match.value(outlineSelection).pipe(
@@ -862,7 +861,7 @@ const Diff: FC<{
 					onFileSelection={selectFileAndNavigateDiff}
 					projectId={projectId}
 					items={filesItems}
-					navigationIndex={navigationIndex}
+					navigationIndex={filesNavigationIndex}
 				/>
 			)}
 
