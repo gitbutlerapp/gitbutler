@@ -1,9 +1,6 @@
 .section {
-	--padding: 6px;
-	--item-row-border-radius: 8px;
-	padding: var(--padding);
-	/* Concentric */
-	border-radius: calc(var(--item-row-border-radius) + var(--padding));
+	padding: 6px;
+	border-radius: var(--radius-l);
 	background-color: var(--bg-2);
 }
 
@@ -17,34 +14,13 @@
 }
 
 .itemRow {
-	border-radius: var(--item-row-border-radius);
+	border-radius: var(--radius-m);
 
 	&:where(:hover) {
 		background-color: var(--button-ghost-hover-bg);
 	}
 
 	&[inert] {
-		opacity: 0.5;
-	}
-}
-
-.itemRowIconButton {
-	display: grid;
-	margin: -4px;
-	padding: 4px;
-	border-radius: 6px;
-
-	&:not([data-disabled]):hover {
-		.itemRow:not(.itemRowSelected) & {
-			background-color: light-dark(var(--clr-gray-70), var(--clr-gray-20));
-		}
-
-		.itemRowSelected & {
-			background-color: light-dark(var(--clr-gray-30), var(--clr-gray-70));
-		}
-	}
-
-	&[data-disabled] {
 		opacity: 0.5;
 	}
 }
@@ -70,12 +46,12 @@
 
 .itemRowToolbar {
 	display: none;
-	column-gap: 8px;
+	column-gap: 2px;
 
 	.itemRow:hover &,
 	.itemRow:focus-within &,
 	.itemRowSelected &,
-	.forceVisibleToolbar & {
+	&.forceVisibleToolbar {
 		display: flex;
 	}
 }
@@ -85,4 +61,8 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.itemRowIconButton {
+	margin: -2px;
 }

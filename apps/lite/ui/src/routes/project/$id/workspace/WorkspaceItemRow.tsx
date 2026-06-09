@@ -8,10 +8,9 @@ export const WorkspaceItemRow: FC<
 		isSelected?: boolean;
 		onSelect?: () => void;
 		/** @default false */
-		forceVisibleToolbar?: boolean;
 		isHighlighted?: boolean;
 	} & Omit<ComponentProps<"div">, "onSelect">
-> = ({ isSelected, forceVisibleToolbar, onSelect, isHighlighted, ref: refProp, ...props }) => {
+> = ({ isSelected, onSelect, isHighlighted, ref: refProp, ...props }) => {
 	const rowRef = useRef<HTMLDivElement | null>(null);
 	const mergedRef = useMergedRefs(rowRef, refProp);
 
@@ -31,10 +30,9 @@ export const WorkspaceItemRow: FC<
 			ref={mergedRef}
 			className={classes(
 				props.className,
-				"text-14",
+				"text-13",
 				styles.itemRow,
 				isSelected && styles.itemRowSelected,
-				forceVisibleToolbar && styles.forceVisibleToolbar,
 				isHighlighted && styles.itemRowHighlighted,
 			)}
 			onClick={(event) => {
@@ -50,9 +48,18 @@ export const WorkspaceItemRow: FC<
 };
 
 export const WorkspaceItemRowEmpty: FC<ComponentProps<"div">> = (props) => (
-	<div {...props} className={classes(props.className, "text-14", styles.itemRowEmpty)} />
+	<div {...props} className={classes(props.className, "text-13", styles.itemRowEmpty)} />
 );
 
-export const WorkspaceItemRowToolbar: FC<ComponentProps<"div">> = (props) => (
-	<div {...props} className={classes(props.className, styles.itemRowToolbar)} />
+export const WorkspaceItemRowToolbar: FC<
+	{ forceVisibleToolbar?: boolean } & ComponentProps<"div">
+> = ({ forceVisibleToolbar, ...props }) => (
+	<div
+		{...props}
+		className={classes(
+			props.className,
+			styles.itemRowToolbar,
+			forceVisibleToolbar && styles.forceVisibleToolbar,
+		)}
+	/>
 );

@@ -43,6 +43,7 @@ import { assert } from "#ui/assert.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
+import { getButtonClassName } from "#ui/components/Button.tsx";
 
 const fileOperandIdentityKey = (operand: FileOperand): string =>
 	operandIdentityKey(fileOperand(operand));
@@ -364,6 +365,8 @@ const FileTreeRow: FC<{
 		),
 	];
 
+	const isSelected = useIsSelected({ projectId, operand: item.operand });
+
 	return (
 		<TreeItem
 			projectId={projectId}
@@ -407,28 +410,42 @@ const FileTreeRow: FC<{
 			{outlineMode._tag === "Default" &&
 				Match.value(item).pipe(
 					Match.when({ _tag: "Change", operand: { parent: { _tag: "Changes" } } }, (item) => (
-						<>
-							<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
-								<Toolbar.Button
-									aria-label="File menu"
-									onClick={(event) => {
-										void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-									}}
-									className={workspaceItemRowStyles.itemRowIconButton}
-								>
-									<Icon name="kebab" />
-								</Toolbar.Button>
-							</Toolbar.Root>
+						<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
+							<Toolbar.Button
+								aria-label="File menu"
+								onClick={(event) => {
+									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+								}}
+								className={classes(
+									workspaceItemRowStyles.itemRowIconButton,
+									getButtonClassName({
+										variant: isSelected ? "inverted" : "ghost",
+										size: "small",
+									}),
+								)}
+							>
+								<Icon name="kebab" />
+							</Toolbar.Button>
 							{item.dependencyCommitIds && (
-								<DependencyIndicator
-									projectId={projectId}
-									commitIds={item.dependencyCommitIds}
-									className={workspaceItemRowStyles.itemRowIconButton}
+								<Toolbar.Button
+									className={classes(
+										workspaceItemRowStyles.itemRowIconButton,
+										getButtonClassName({
+											variant: isSelected ? "inverted" : "ghost",
+											size: "small",
+										}),
+									)}
+									render={
+										<DependencyIndicator
+											projectId={projectId}
+											commitIds={item.dependencyCommitIds}
+										/>
+									}
 								>
 									<Icon name="link" />
-								</DependencyIndicator>
+								</Toolbar.Button>
 							)}
-						</>
+						</Toolbar.Root>
 					)),
 					Match.orElse(() => null),
 				)}
