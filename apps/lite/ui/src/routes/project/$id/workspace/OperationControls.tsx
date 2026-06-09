@@ -403,7 +403,7 @@ export const OperationControls: FC = () => {
 				headInfo && (
 					<Container>
 						<ControlsRow>
-							<Label>{operationSourceLabel({ headInfo, source: x.source })}</Label>
+							<Label>{operationSourceLabel({ headInfo, sources: [x.source] })}</Label>
 							{absorptionPlanQuery.isPending && (
 								<Icon name="spinner" aria-label="Loading absorb plan" />
 							)}
@@ -420,15 +420,15 @@ export const OperationControls: FC = () => {
 								<Container>
 									<TransferTypeToggleGroup
 										projectId={projectId}
-										operations={getOperations(mode.source, selection)}
+										operations={getOperations(mode.sources, selection)}
 										operationType={mode.operationType}
 									/>
 									<Separator />
 									<ControlsRow>
-										<Label>{operationSourceLabel({ headInfo, source: mode.source })}</Label>
+										<Label>{operationSourceLabel({ headInfo, sources: mode.sources })}</Label>
 										<TransferOperationControls
 											projectId={projectId}
-											operations={getOperations(mode.source, selection)}
+											operations={getOperations(mode.sources, selection)}
 											operationType={mode.operationType}
 										/>
 									</ControlsRow>

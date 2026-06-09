@@ -28,13 +28,13 @@ export type TransferMode = {
 
 /** @public */
 export type KeyboardTransferOperationMode = {
-	source: Operand;
+	sources: Array<Operand>;
 	operationType: OperationType;
 };
 
 /** @public */
 export type PointerTransferOperationMode = {
-	source: Operand;
+	sources: Array<Operand>;
 	operationType: OperationType | null;
 };
 
@@ -45,21 +45,21 @@ export type TransferOperationMode =
 
 /** @public */
 export const keyboardTransferOperationMode = ({
-	source,
+	sources: source,
 	operationType,
 }: KeyboardTransferOperationMode): TransferOperationMode => ({
 	_tag: "Keyboard",
-	source,
+	sources: source,
 	operationType,
 });
 
 /** @public */
 export const pointerTransferOperationMode = ({
-	source,
+	sources: source,
 	operationType,
 }: PointerTransferOperationMode): TransferOperationMode => ({
 	_tag: "Pointer",
-	source,
+	sources: source,
 	operationType,
 });
 
@@ -137,14 +137,14 @@ export const getTransferOperation = ({
 	const { operationType } = mode;
 	if (operationType === null) return null;
 	return getOperation({
-		source: mode.source,
+		sources: mode.sources,
 		target,
 		operationType,
 	});
 };
 
-const hasAnyOperation = (source: Operand, target: Operand) => {
-	const operations = getOperations(source, target);
+const hasAnyOperation = (sources: Array<Operand>, target: Operand) => {
+	const operations = getOperations(sources, target);
 	return !!operations.squash || !!operations.moveAbove || !!operations.moveBelow;
 };
 
@@ -169,8 +169,8 @@ export const filterNavigationItemsForOutlineMode = ({
 			Transfer: (activeMode) =>
 				items.filter(
 					(operand) =>
-						operandContains(operand, activeMode.value.source) ||
-						hasAnyOperation(activeMode.value.source, operand),
+						activeMode.value.sources.some((source) => operandContains(operand, source)) ||
+						hasAnyOperation(activeMode.value.sources, operand),
 				),
 			RenameBranch: (x) =>
 				items.filter((operand) => operandEquals(operand, branchOperand(x.operand))),
@@ -179,12 +179,12 @@ export const filterNavigationItemsForOutlineMode = ({
 		}),
 	);
 
-export const getOperationSource = (mode: OutlineMode): Operand | null =>
+export const getOperationSources = (mode: OutlineMode): Array<Operand> | null =>
 	Match.value(mode).pipe(
 		Match.tagsExhaustive({
 			Default: () => null,
-			Absorb: (x) => x.source,
-			Transfer: (x) => x.value.source,
+			Absorb: (x) => [x.source],
+			Transfer: (x) => x.value.sources,
 			RenameBranch: () => null,
 			RewordCommit: () => null,
 		}),

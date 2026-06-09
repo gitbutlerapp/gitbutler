@@ -333,35 +333,30 @@ export const useRunOperation = () => {
  * | Commit                 | Uncommit | Squash |
  */
 const squashOperation = ({
-	source,
+	sources,
 	target,
 }: {
-	source: Operand;
+	sources: Array<Operand>;
 	target: Operand;
-}): Operation | null =>
-	Match.value({ source, sourceFileParent: operandFileParent(source), target }).pipe(
-		Match.when(
-			{
-				source: { _tag: "Commit" },
-				target: { _tag: "Commit" },
-			},
-			({ source, target }) =>
-				commitSquashOperation({
-					sourceCommitIds: [source.commitId],
-					destinationCommitId: target.commitId,
-				}),
-		),
-		Match.when(
-			{
-				source: { _tag: "Commit" },
-				target: { _tag: "ChangesSection" },
-			},
-			({ source }) =>
-				commitUncommitOperation({
-					subjectCommitIds: [source.commitId],
-					assignTo: null,
-				}),
-		),
+}): Operation | null => {
+	if (target._tag === "Commit" && sources.every((x) => x._tag === "Commit"))
+		return commitSquashOperation({
+			sourceCommitIds: sources.map((x) => x.commitId),
+			destinationCommitId: target.commitId,
+		});
+
+	if (target._tag === "ChangesSection" && sources.every((x) => x._tag === "Commit"))
+		return commitUncommitOperation({
+			subjectCommitIds: sources.map((x) => x.commitId),
+			assignTo: null,
+		});
+
+	if (sources.length !== 1) return null;
+
+	// oxlint-disable-next-line typescript/no-non-null-assertion
+	const source = sources[0]!;
+
+	return Match.value({ source, sourceFileParent: operandFileParent(source), target }).pipe(
 		Match.when(
 			{
 				sourceFileParent: { _tag: "Changes" },
@@ -399,16 +394,42 @@ const squashOperation = ({
 		),
 		Match.orElse(() => null),
 	);
+};
 
 const moveOperation = ({
-	source,
+	sources,
 	target,
 	side,
 }: {
-	source: Operand;
+	sources: Array<Operand>;
 	target: Operand;
 	side: InsertSide;
-}) => {
+}): Operation | null => {
+	const relativeTo: RelativeTo | null = Match.value(target).pipe(
+		Match.tags({
+			Commit: ({ commitId }): RelativeTo | null => ({ type: "commit", subject: commitId }),
+			Branch: ({ branchRef }): RelativeTo | null => ({
+				type: "referenceBytes",
+				subject: branchRef,
+			}),
+		}),
+		Match.orElse((): RelativeTo | null => null),
+	);
+
+	if (!relativeTo) return null;
+
+	if (sources.every((x) => x._tag === "Commit"))
+		return commitMoveOperation({
+			subjectCommitIds: sources.map((x) => x.commitId),
+			relativeTo,
+			side,
+		});
+
+	if (sources.length !== 1) return null;
+
+	// oxlint-disable-next-line typescript/no-non-null-assertion
+	const source = sources[0]!;
+
 	const branchMoveOperation = Match.value({ source, target, side }).pipe(
 		// This should support `relativeTo`:
 		// https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
@@ -431,27 +452,7 @@ const moveOperation = ({
 
 	if (branchMoveOperation) return branchMoveOperation;
 
-	const relativeTo: RelativeTo | null = Match.value(target).pipe(
-		Match.tags({
-			Commit: ({ commitId }): RelativeTo | null => ({ type: "commit", subject: commitId }),
-			Branch: ({ branchRef }): RelativeTo | null => ({
-				type: "referenceBytes",
-				subject: branchRef,
-			}),
-		}),
-		Match.orElse((): RelativeTo | null => null),
-	);
-
-	if (!relativeTo) return null;
-
 	return Match.value({ source, sourceFileParent: operandFileParent(source) }).pipe(
-		Match.when({ source: { _tag: "Commit" } }, ({ source }) =>
-			commitMoveOperation({
-				subjectCommitIds: [source.commitId],
-				relativeTo,
-				side,
-			}),
-		),
 		Match.when({ sourceFileParent: { _tag: "Changes" } }, ({ source }) =>
 			commitCreateOperation({
 				relativeTo,
@@ -482,26 +483,29 @@ const isOperationSourceEnabled = (source: Operand): boolean =>
 
 export type OperationsByType = Record<OperationType, Operation | null>;
 
-export const getOperations = (source: Operand, target: Operand): OperationsByType => {
-	if (operandEquals(source, target) || !isOperationSourceEnabled(source))
+export const getOperations = (sources: Array<Operand>, target: Operand): OperationsByType => {
+	if (
+		sources.some((source) => operandEquals(source, target)) ||
+		!sources.every(isOperationSourceEnabled)
+	)
 		return {
 			squash: null,
 			moveAbove: null,
 			moveBelow: null,
 		};
 	return {
-		squash: squashOperation({ source, target }),
-		moveAbove: moveOperation({ source, target, side: "above" }),
-		moveBelow: moveOperation({ source, target, side: "below" }),
+		squash: squashOperation({ sources, target }),
+		moveAbove: moveOperation({ sources, target, side: "above" }),
+		moveBelow: moveOperation({ sources, target, side: "below" }),
 	};
 };
 
 export const getOperation = (x: {
-	source: Operand;
+	sources: Array<Operand>;
 	target: Operand;
 	operationType: OperationType;
 }): Operation | null => {
-	const { squash, moveAbove, moveBelow } = getOperations(x.source, x.target);
+	const { squash, moveAbove, moveBelow } = getOperations(x.sources, x.target);
 	return Match.value(x.operationType).pipe(
 		Match.when("squash", () => squash),
 		Match.when("moveAbove", () => moveAbove),

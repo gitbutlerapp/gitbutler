@@ -233,7 +233,7 @@ const useOutlineTreeHotkeys = ({
 			projectActions.enterTransferMode({
 				projectId,
 				mode: keyboardTransferOperationMode({
-					source: changesSectionOperand,
+					sources: [changesSectionOperand],
 					operationType: "squash",
 				}),
 			}),
@@ -1013,7 +1013,7 @@ const CommitRow: FC<
 			projectActions.enterTransferMode({
 				projectId,
 				mode: keyboardTransferOperationMode({
-					source: operand,
+					sources: [operand],
 					operationType: "squash",
 				}),
 			}),
@@ -1065,7 +1065,7 @@ const CommitRow: FC<
 			projectActions.enterTransferMode({
 				projectId,
 				mode: keyboardTransferOperationMode({
-					source: changesSectionOperand,
+					sources: [changesSectionOperand],
 					operationType: "squash",
 				}),
 			}),

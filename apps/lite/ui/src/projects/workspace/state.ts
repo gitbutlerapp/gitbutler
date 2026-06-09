@@ -104,7 +104,7 @@ export const updatePointerTransfer = (
 
 			state.mode = transferOutlineMode({
 				value: pointerTransferOperationMode({
-					source: mode.value.source,
+					sources: mode.value.sources,
 					operationType,
 				}),
 				restoreSelection: mode.restoreSelection,
@@ -122,7 +122,7 @@ export const updateTransferOperationType = (
 		Match.when({ _tag: "Transfer", value: { _tag: "Keyboard" } }, (mode) => {
 			state.mode = transferOutlineMode({
 				value: keyboardTransferOperationMode({
-					source: mode.value.source,
+					sources: mode.value.sources,
 					operationType,
 				}),
 				restoreSelection: mode.restoreSelection,
