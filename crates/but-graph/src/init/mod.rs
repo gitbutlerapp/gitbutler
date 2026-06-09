@@ -560,8 +560,10 @@ impl Graph {
         let mut is_detached = false;
         let (tip, maybe_name) = match head.kind {
             gix::head::Kind::Unborn(ref_name) => {
-                let mut graph = Graph::default();
-                graph.project_meta = project_meta;
+                let mut graph = Graph {
+                    project_meta,
+                    ..Default::default()
+                };
                 // It's OK to default-initialise this here as overlays are only used when redoing
                 // the traversal.
                 let (_repo, meta, _entrypoint) = Overlay::default().into_parts(repo, meta);
