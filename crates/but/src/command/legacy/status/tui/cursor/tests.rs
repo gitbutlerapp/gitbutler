@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
-use but_core::ref_metadata::StackId;
+use bstr::BString;
+use but_core::{HunkHeader, ref_metadata::StackId};
+use but_hunk_assignment::HunkAssignment;
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
+use nonempty::NonEmpty;
 use ratatui_textarea::TextArea;
 
 use super::{Cursor, is_selectable_in_mode};
@@ -13,8 +16,10 @@ use crate::{
         tui::{
             CommitMessageComposer, CommitMode, CommitSource, InlineRewordMode, Mode, MoveMode,
             MoveSource, NormalMode, RubMode, RubSource, SelectAfterReload, UnassignedCommitSource,
+            marking::{Markable, Marks},
         },
     },
+    id::UncommittedCliId,
 };
 
 fn line(data: StatusOutputLineData) -> StatusOutputLine {
@@ -60,6 +65,51 @@ fn branch_line(name: &str, id: &str) -> StatusOutputLine {
     line(StatusOutputLineData::Branch {
         cli_id: branch_cli_id(name, id, None),
     })
+}
+
+fn hunk_assignment(path: &str, old_start: u32) -> HunkAssignment {
+    HunkAssignment {
+        id: None,
+        hunk_header: Some(HunkHeader {
+            old_start,
+            old_lines: 1,
+            new_start: old_start,
+            new_lines: 1,
+        }),
+        path: path.to_owned(),
+        path_bytes: BString::from(path),
+        stack_id: None,
+        branch_ref_bytes: None,
+        line_nums_added: None,
+        line_nums_removed: None,
+        diff: None,
+    }
+}
+
+fn uncommitted_cli_id(path: &str, id: &str) -> Arc<CliId> {
+    Arc::new(CliId::Uncommitted(UncommittedCliId {
+        id: id.to_owned(),
+        hunk_assignments: NonEmpty::new(hunk_assignment(path, 1)),
+        is_entire_file: true,
+    }))
+}
+
+fn uncommitted_file_line(path: &str, id: &str) -> StatusOutputLine {
+    line(StatusOutputLineData::UnassignedFile {
+        cli_id: uncommitted_cli_id(path, id),
+    })
+}
+
+fn marks(markables: impl IntoIterator<Item = Markable>) -> Marks {
+    let mut marks = Marks::default();
+    for markable in markables {
+        marks.insert(markable);
+    }
+    marks
+}
+
+fn markable(cli_id: &Arc<CliId>) -> Markable {
+    Markable::try_from_cli_id(cli_id).expect("test cli ID should be markable")
 }
 
 fn commit_line(hex: &str, id: &str) -> StatusOutputLine {
@@ -465,6 +515,130 @@ fn select_after_discarded_commits_selects_branch_when_all_commits_in_section_are
         Cursor(1).select_after_discarded_commits(&lines, &[commit_id(top), commit_id(bottom)]),
         Some(SelectAfterReload::CliId(cli_id))
             if matches!(&*cli_id, CliId::Branch { id, .. } if id == "b0")
+    ));
+}
+
+#[test]
+fn select_after_discarded_marks_keeps_unmarked_current_commit_selected() {
+    let marked = "1111111111111111111111111111111111111111";
+    let current = "2222222222222222222222222222222222222222";
+    let lines = vec![
+        branch_line("main", "b0"),
+        commit_line(marked, "c0"),
+        commit_line(current, "c1"),
+    ];
+    let discarded_marks = marks([markable(lines[1].data.cli_id().unwrap())]);
+
+    assert!(matches!(
+        Cursor(2).select_after_discarded_marks(&lines, &discarded_marks),
+        Some(SelectAfterReload::Commit(target_commit_id)) if target_commit_id == commit_id(current)
+    ));
+}
+
+#[test]
+fn select_after_discarded_marks_keeps_unmarked_current_uncommitted_selected() {
+    let lines = vec![
+        line(StatusOutputLineData::UnassignedChanges {
+            cli_id: unassigned("u0"),
+        }),
+        uncommitted_file_line("marked.txt", "f0"),
+        uncommitted_file_line("current.txt", "f1"),
+    ];
+    let discarded_marks = marks([markable(lines[1].data.cli_id().unwrap())]);
+    let current_cli_id = lines[2].data.cli_id().unwrap();
+
+    assert!(matches!(
+        Cursor(2).select_after_discarded_marks(&lines, &discarded_marks),
+        Some(SelectAfterReload::CliId(cli_id)) if *cli_id == **current_cli_id
+    ));
+}
+
+#[test]
+fn select_after_discarded_marks_selects_unmarked_uncommitted_below_marked_top_uncommitted() {
+    let lines = vec![
+        line(StatusOutputLineData::UnassignedChanges {
+            cli_id: unassigned("u0"),
+        }),
+        uncommitted_file_line("marked.txt", "f0"),
+        uncommitted_file_line("below.txt", "f1"),
+    ];
+    let discarded_marks = marks([markable(lines[1].data.cli_id().unwrap())]);
+    let below_cli_id = lines[2].data.cli_id().unwrap();
+
+    assert!(matches!(
+        Cursor(1).select_after_discarded_marks(&lines, &discarded_marks),
+        Some(SelectAfterReload::CliId(cli_id)) if *cli_id == **below_cli_id
+    ));
+}
+
+#[test]
+fn select_after_discarded_marks_selects_unmarked_uncommitted_below_marked_middle_uncommitted() {
+    let lines = vec![
+        line(StatusOutputLineData::UnassignedChanges {
+            cli_id: unassigned("u0"),
+        }),
+        uncommitted_file_line("above.txt", "f0"),
+        uncommitted_file_line("marked.txt", "f1"),
+        uncommitted_file_line("below.txt", "f2"),
+    ];
+    let discarded_marks = marks([markable(lines[2].data.cli_id().unwrap())]);
+    let below_cli_id = lines[3].data.cli_id().unwrap();
+
+    assert!(matches!(
+        Cursor(2).select_after_discarded_marks(&lines, &discarded_marks),
+        Some(SelectAfterReload::CliId(cli_id)) if *cli_id == **below_cli_id
+    ));
+}
+
+#[test]
+fn select_after_discarded_marks_selects_unmarked_uncommitted_above_marked_bottom_uncommitted() {
+    let lines = vec![
+        line(StatusOutputLineData::UnassignedChanges {
+            cli_id: unassigned("u0"),
+        }),
+        uncommitted_file_line("above.txt", "f0"),
+        uncommitted_file_line("marked.txt", "f1"),
+    ];
+    let discarded_marks = marks([markable(lines[2].data.cli_id().unwrap())]);
+    let above_cli_id = lines[1].data.cli_id().unwrap();
+
+    assert!(matches!(
+        Cursor(2).select_after_discarded_marks(&lines, &discarded_marks),
+        Some(SelectAfterReload::CliId(cli_id)) if *cli_id == **above_cli_id
+    ));
+}
+
+#[test]
+fn select_after_discarded_marks_selects_header_above_marked_uncommitted() {
+    let lines = vec![
+        line(StatusOutputLineData::UnassignedChanges {
+            cli_id: unassigned("u0"),
+        }),
+        uncommitted_file_line("marked.txt", "f0"),
+    ];
+    let discarded_marks = marks([markable(lines[1].data.cli_id().unwrap())]);
+    let header_cli_id = lines[0].data.cli_id().unwrap();
+
+    assert!(matches!(
+        Cursor(1).select_after_discarded_marks(&lines, &discarded_marks),
+        Some(SelectAfterReload::CliId(cli_id)) if *cli_id == **header_cli_id
+    ));
+}
+
+#[test]
+fn select_after_discarded_marks_selects_commit_below_marked_commit() {
+    let marked = "1111111111111111111111111111111111111111";
+    let below = "2222222222222222222222222222222222222222";
+    let lines = vec![
+        branch_line("main", "b0"),
+        commit_line(marked, "c0"),
+        commit_line(below, "c1"),
+    ];
+    let discarded_marks = marks([markable(lines[1].data.cli_id().unwrap())]);
+
+    assert!(matches!(
+        Cursor(1).select_after_discarded_marks(&lines, &discarded_marks),
+        Some(SelectAfterReload::Commit(target_commit_id)) if target_commit_id == commit_id(below)
     ));
 }
 

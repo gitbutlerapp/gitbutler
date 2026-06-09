@@ -37,35 +37,36 @@ impl Confirm {
 
         let space_taken_up_by_border: u16 = 2;
 
+        let button_line = Line::from_iter([
+            style_button(
+                Span::raw("  Yes  "),
+                self.yes_selected,
+                has_focus,
+                self.theme,
+            ),
+            style_button(
+                Span::raw("  No  "),
+                !self.yes_selected,
+                has_focus,
+                self.theme,
+            ),
+        ]);
+        let button_width = button_line.width() as u16;
+
         let items = self
             .lines
             .iter()
             .map(|line| ListItem::new(line.clone()))
-            .chain([
-                ListItem::new(""),
-                ListItem::new(Line::from_iter([
-                    style_button(
-                        Span::raw("  Yes  "),
-                        self.yes_selected,
-                        has_focus,
-                        self.theme,
-                    ),
-                    style_button(
-                        Span::raw("  No  "),
-                        !self.yes_selected,
-                        has_focus,
-                        self.theme,
-                    ),
-                ])),
-            ])
+            .chain([ListItem::new(""), ListItem::new(button_line)])
             .collect::<Vec<_>>();
 
         let line_width = self
             .lines
             .iter()
-            .map(|line| line.width())
+            .map(|line| line.width() as u16)
             .max()
-            .unwrap_or(0) as u16;
+            .unwrap_or(0)
+            .max(button_width);
         let horizontal_layout = Layout::horizontal([Constraint::Length(
             line_width + space_taken_up_by_border + horizontal_padding,
         )])

@@ -10,7 +10,7 @@ use crate::{
         output::StatusOutputLineData,
         tui::{
             Mode, MoveSource, SelectAfterReload,
-            marking::MarkClasses,
+            marking::{MarkClasses, Markable, Marks},
             render::{commit_operation_display, move_operation_display},
         },
     },
@@ -85,6 +85,83 @@ impl Cursor {
         } else {
             self.select_after_discarded_commits(lines, &[])
         }
+    }
+
+    /// Selects what should be focused after discarding marked items.
+    pub(super) fn select_after_discarded_marks(
+        self,
+        lines: &[StatusOutputLine],
+        discarded_marks: &Marks,
+    ) -> Option<SelectAfterReload> {
+        if self.0 >= lines.len() {
+            return None;
+        }
+
+        if let Some(cli_id) = lines[self.0].data.cli_id() {
+            let selected_is_discarded = Markable::try_from_cli_id(cli_id)
+                .as_ref()
+                .is_some_and(|markable| discarded_marks.contains(markable));
+
+            if !selected_is_discarded {
+                return Some(select_after_reload_for_cli_id(cli_id));
+            }
+        }
+
+        for line in lines.iter().skip(self.0 + 1) {
+            if is_discard_commit_boundary(line) {
+                break;
+            }
+
+            let Some(cli_id) = line.data.cli_id() else {
+                continue;
+            };
+            if !line.is_selectable() {
+                continue;
+            }
+            if Markable::try_from_cli_id(cli_id)
+                .as_ref()
+                .is_some_and(|markable| discarded_marks.contains(markable))
+            {
+                continue;
+            }
+
+            return Some(select_after_reload_for_cli_id(cli_id));
+        }
+
+        for line in lines.iter().take(self.0).rev() {
+            if is_discard_commit_boundary(line) {
+                break;
+            }
+
+            let Some(cli_id) = line.data.cli_id() else {
+                continue;
+            };
+            if !line.is_selectable() {
+                continue;
+            }
+            if Markable::try_from_cli_id(cli_id)
+                .as_ref()
+                .is_some_and(|markable| discarded_marks.contains(markable))
+            {
+                continue;
+            }
+
+            return Some(select_after_reload_for_cli_id(cli_id));
+        }
+
+        for line in lines.iter().take(self.0 + 1).rev() {
+            if let Some(cli_id) = line.data.cli_id()
+                && is_discard_commit_boundary(line)
+            {
+                return Some(select_after_reload_for_cli_id(cli_id));
+            }
+        }
+
+        if Self::select_unassigned(lines).is_some() {
+            return Some(SelectAfterReload::Unassigned);
+        }
+
+        None
     }
 
     /// Selects what should be focused after discarding marked commits.
@@ -516,6 +593,18 @@ fn first_selectable_in_section(
         .map(|(idx, _)| idx)
 }
 
+fn select_after_reload_for_cli_id(cli_id: &Arc<CliId>) -> SelectAfterReload {
+    match &**cli_id {
+        CliId::Commit { commit_id, .. } => SelectAfterReload::Commit(*commit_id),
+        CliId::Unassigned { .. }
+        | CliId::Uncommitted(..)
+        | CliId::PathPrefix { .. }
+        | CliId::CommittedFile { .. }
+        | CliId::Branch { .. }
+        | CliId::Stack { .. } => SelectAfterReload::CliId(Arc::clone(cli_id)),
+    }
+}
+
 /// Returns true if a line marks the boundary of a commit list within a branch section.
 fn is_discard_commit_boundary(line: &StatusOutputLine) -> bool {
     match &line.data {
@@ -699,35 +788,30 @@ pub(super) fn is_selectable_in_mode(
         Mode::Command(..) | Mode::InlineReword(..) | Mode::Normal(..) | Mode::Details(..) => {}
     }
 
+    // don't allow mixing marks
     if let Mode::Normal(normal_mode) = mode
         && !normal_mode.marks.is_empty()
     {
-        let MarkClasses { marked_commits } = normal_mode.marks.classify();
-
-        match &line.data {
-            StatusOutputLineData::Branch { .. } | StatusOutputLineData::Commit { .. } => {
-                // you're allowed to select branches and commits regardless of markings
-            }
-            StatusOutputLineData::UpdateNotice
-            | StatusOutputLineData::Connector
-            | StatusOutputLineData::StagedChanges { .. }
-            | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnassignedChanges { .. }
-            | StatusOutputLineData::UnassignedFile { .. }
-            | StatusOutputLineData::CommitMessage
-            | StatusOutputLineData::EmptyCommitMessage
-            | StatusOutputLineData::File { .. }
-            | StatusOutputLineData::MergeBase
-            | StatusOutputLineData::UpstreamChanges
-            | StatusOutputLineData::Warning
-            | StatusOutputLineData::Hint
-            | StatusOutputLineData::NoAssignmentsUnstaged => {
-                // we currently don't allow mixing marks, i.e., you cannot mark both commits and
-                // files, so don't allow selecting them
-                if marked_commits {
-                    return false;
-                }
-            }
+        let MarkClasses {
+            marked_commits,
+            marked_uncommitted,
+        } = normal_mode.marks.classify();
+        if marked_commits
+            && !matches!(
+                &line.data,
+                StatusOutputLineData::Branch { .. } | StatusOutputLineData::Commit { .. }
+            )
+        {
+            return false;
+        }
+        if marked_uncommitted
+            && !matches!(
+                &line.data,
+                StatusOutputLineData::UnassignedChanges { .. }
+                    | StatusOutputLineData::UnassignedFile { .. },
+            )
+        {
+            return false;
         }
     }
 

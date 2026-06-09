@@ -872,7 +872,11 @@ fn print_assignments(
         };
 
         if unstaged {
-            output.unassigned_file(Vec::from([Span::raw("┊   ")]), file_line, file_cli_id)?;
+            output.unassigned_file(
+                Vec::from([Span::raw("┊"), Span::raw(" "), Span::raw("  ")]),
+                file_line,
+                file_cli_id,
+            )?;
         } else {
             output.staged_file(Vec::from([Span::raw("┊  │ ")]), file_line, file_cli_id)?;
         }
