@@ -19,7 +19,7 @@ The command prompts you to choose local (repository) or global (home directory) 
 In non-interactive mode, use `--path` or `--detect`.
 
 **Requirements:**
-- **GitButler CLI** installed: `curl -sSL https://gitbutler.com/install.sh | sh`
+- **GitButler CLI** installed (refer to the docs for installation instructions)
 - **An AI assistant with skills support** such as Agent Skills / `.agents/skills`, Claude Code, OpenCode, Codex, GitHub Copilot, Cursor, or Windsurf
 - Repository initialized with GitButler: `but setup` (only for local installs)
 
