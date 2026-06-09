@@ -53,7 +53,15 @@ import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Array, Hash, Match } from "effect";
-import { ComponentProps, FC, type RefObject, Suspense, useDeferredValue, useRef } from "react";
+import {
+	ComponentProps,
+	FC,
+	type RefObject,
+	Suspense,
+	useDeferredValue,
+	useLayoutEffect,
+	useRef,
+} from "react";
 import styles from "./Details.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import {
@@ -95,6 +103,9 @@ const getChangesetKey = (selection: Operand): string =>
 		}),
 		Match.orElseAbsurd,
 	);
+
+const fileOperandIdentityKey = (operand: FileOperand): string =>
+	operandIdentityKey(fileOperand(operand));
 
 const hunkOperandIdentityKey = (operand: HunkOperand): string =>
 	operandIdentityKey(hunkOperand(operand));
@@ -311,6 +322,7 @@ const hunkSelectionFromHunk = ({
 
 const DiffContents: FC<{
 	changes: Array<TreeChange>;
+	getInitialFileHunkRef: RefObject<((file: FileOperand) => HunkOperand | undefined) | null>;
 	selectionScopeRef: RefObject<HTMLDivElement | null>;
 	onViewerFileSelection: (selection: FileOperand) => void;
 	outlineSelection: Operand;
@@ -318,6 +330,7 @@ const DiffContents: FC<{
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
 }> = ({
 	changes,
+	getInitialFileHunkRef,
 	selectionScopeRef,
 	onViewerFileSelection,
 	outlineSelection,
@@ -346,6 +359,10 @@ const DiffContents: FC<{
 		{ item: CodeViewDiffItem; change: TreeChange; patch: UnifiedPatch | null }
 	>();
 
+	// Share the first hunk of each file with this component's parents for syncing hunk selection on
+	// file selection.
+	const initialFileHunks = new Map<string, HunkOperand>();
+
 	// Hunk selections for our flat navigation index and mapping between the two.
 	const hunkSelections: Array<HunkOperand> = [];
 	const selectedRangeByHunk = new Map<string, CodeViewLineSelection>();
@@ -360,15 +377,18 @@ const DiffContents: FC<{
 		itemsMetadataMap.set(item.id, { item, change, patch: mdiff });
 
 		if (mdiff?.type === "Patch")
-			for (const hunk of item.fileDiff.hunks) {
+			for (const [i, hunk] of item.fileDiff.hunks.entries()) {
+				const file = {
+					parent: fileParent,
+					path: change.path,
+				};
 				const selection = hunkSelectionFromHunk({
-					file: {
-						parent: fileParent,
-						path: change.path,
-					},
+					file,
 					hunk,
 					isResultOfBinaryToTextConversion: mdiff.subject.isResultOfBinaryToTextConversion,
 				});
+
+				if (i === 0) initialFileHunks.set(fileOperandIdentityKey(file), selection);
 
 				hunkSelections.push(selection);
 				selectedRangeByHunk.set(hunkOperandIdentityKey(selection), {
@@ -379,6 +399,14 @@ const DiffContents: FC<{
 
 		return item;
 	});
+
+	useLayoutEffect(() => {
+		getInitialFileHunkRef.current = (file) => initialFileHunks.get(fileOperandIdentityKey(file));
+		return () => {
+			getInitialFileHunkRef.current = null;
+		};
+	});
+
 	const hunkNavigationIndex = buildNavigationIndex(hunkSelections, hunkOperandIdentityKey);
 	const diffSelection = useDiffSelection(projectId, hunkNavigationIndex);
 	const selectedRange = diffSelection
@@ -754,7 +782,7 @@ const Diff: FC<{
 	changes: Array<TreeChange>;
 	filesVisible: boolean;
 	filesItems: Array<FileTreeItem>;
-	onFileSelection: (selection: FileOperand) => void;
+	onFileSelection: (selection: FileOperand, firstHunk?: HunkOperand) => void;
 	onViewerFileSelection: (selection: FileOperand) => void;
 	outlineSelection: Operand;
 	projectId: string;
@@ -770,11 +798,16 @@ const Diff: FC<{
 	viewerRef,
 }) => {
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
+	const getInitialFileHunkRef = useRef<((file: FileOperand) => HunkOperand | undefined) | null>(
+		null,
+	);
 	const files = filesItems.map((item) => item.operand);
 
-	const navigationIndex = buildNavigationIndex(files, (file) =>
-		operandIdentityKey(fileOperand(file)),
-	);
+	const navigationIndex = buildNavigationIndex(files, fileOperandIdentityKey);
+
+	const selectFileAndFirstHunk = (selection: FileOperand) => {
+		onFileSelection(selection, getInitialFileHunkRef.current?.(selection));
+	};
 
 	return (
 		<div className={classes(styles.diff, filesVisible && styles.diffWithFiles)}>
@@ -784,7 +817,7 @@ const Diff: FC<{
 					data-selection-scope
 					tabIndex={0}
 					className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
-					onFileSelection={onFileSelection}
+					onFileSelection={selectFileAndFirstHunk}
 					projectId={projectId}
 					items={filesItems}
 					navigationIndex={navigationIndex}
@@ -802,6 +835,7 @@ const Diff: FC<{
 				<Suspense fallback={<p className="text-13">Loading diff…</p>}>
 					<DiffContents
 						changes={changes}
+						getInitialFileHunkRef={getInitialFileHunkRef}
 						onViewerFileSelection={onViewerFileSelection}
 						outlineSelection={outlineSelection}
 						projectId={projectId}
@@ -836,10 +870,16 @@ export const Details: FC<
 		dispatch(projectActions.selectFiles({ projectId, selection }));
 	};
 
-	const selectFileAndScrollDiff = (selection: FileOperand) => {
+	const selectFileAndNavigateDiff = (selection: FileOperand, firstHunk?: HunkOperand) => {
 		if (!outlineSelection) return;
 
 		selectFile(selection);
+		dispatch(
+			projectActions.selectDiff({
+				projectId,
+				selection: firstHunk ?? null,
+			}),
+		);
 
 		const scrollTargetId = getScrollTargetId({
 			changesetKey: getChangesetKey(outlineSelection),
@@ -893,7 +933,7 @@ export const Details: FC<
 							changes={changes}
 							filesVisible={filesVisible}
 							filesItems={filesItems}
-							onFileSelection={selectFileAndScrollDiff}
+							onFileSelection={selectFileAndNavigateDiff}
 							onViewerFileSelection={selectFile}
 							outlineSelection={outlineSelection}
 							projectId={projectId}
