@@ -69,6 +69,7 @@ export const OperationSourceC: FC<
 			}),
 		);
 	});
+	const getInitialData = useEffectEvent((): DragData => ({ source }));
 
 	useEffect(() => {
 		const element = dragRef.current;
@@ -78,7 +79,7 @@ export const OperationSourceC: FC<
 			element,
 			// Prevent false positives when users drag to select text in the input field.
 			canDrag,
-			getInitialData: (): DragData => ({ source }),
+			getInitialData,
 			onGenerateDragPreview,
 			onDragStart,
 			onDrop: ({ location }) => {
@@ -87,7 +88,7 @@ export const OperationSourceC: FC<
 				dispatch(projectActions.cancelMode({ projectId }));
 			},
 		});
-	}, [dispatch, projectId, source]);
+	}, [dispatch, projectId]);
 
 	const operationSource = getOperationSource(outlineMode);
 	const isActiveSource = operationSource ? operandEquals(operationSource, source) : false;
