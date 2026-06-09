@@ -996,7 +996,7 @@ pub(super) fn move_operation_display(
             | StatusOutputLineData::NoAssignmentsUnstaged => None,
         },
         MoveSource::Branch { .. } => match data {
-            StatusOutputLineData::Branch { .. } => Some("move branch"),
+            StatusOutputLineData::Branch { .. } => Some("stack branch"),
             StatusOutputLineData::MergeBase => Some("unstack branch"),
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Commit { .. }

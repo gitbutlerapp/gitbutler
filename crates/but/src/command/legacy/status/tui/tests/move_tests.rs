@@ -170,7 +170,7 @@ fn move_branch_onto_other_branch_reorders_stacks() {
         .assert_current_line_eq(str!["┊╭┄<< source >> << noop >> g0 [A]"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊│ << move branch >>"]);
+        .assert_current_line_eq(str!["┊│ << stack branch >>"]);
 
     tui.input_then_render(KeyCode::Enter)
         .assert_current_line_eq(str!["┊├┄[..] [A]"]);
