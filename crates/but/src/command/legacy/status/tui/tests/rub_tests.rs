@@ -122,6 +122,34 @@ fn rub_api_uncommitted_to_commit_operation() {
         .assert_current_line_eq(str!["┊●   << amend >> [..] add [..]"]);
 }
 
+#[test]
+fn mark_and_rub_multiple_uncommitted_files() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.env().file("one", "content");
+    tui.env().file("two", "content");
+    tui.env().file("three", "content");
+
+    tui.input_then_render('j');
+    tui.input_then_render(' ');
+    tui.input_then_render(' ');
+
+    tui.input_then_render('r')
+        .assert_current_line_eq(str!["┊●   << amend >> 9477ae7 add A"]);
+
+    tui.input_then_render(KeyCode::Enter)
+        .assert_current_line_eq(str!["┊●   [..] add A"]);
+
+    let status = tui.env().invoke_git("status --porcelain");
+    assert_eq!(
+        status, "?? two",
+        "expected only unmarked file to remain uncommitted after rubbing marked files"
+    );
+}
+
 // Ensure rub mode does not offer branch destinations.
 #[test]
 fn rub_api_cannot_rub_into_branches() {

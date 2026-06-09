@@ -945,6 +945,19 @@ impl<'a> RubOperation<'a> {
     }
 }
 
+fn hunk_assignments_from_uncommitted_sources<'a>(
+    sources: &NonEmpty<&'a CliId>,
+) -> Option<NonEmpty<&'a HunkAssignment>> {
+    let mut hunk_assignments = Vec::new();
+    for source in sources {
+        let CliId::Uncommitted(uncommitted) = source else {
+            return None;
+        };
+        hunk_assignments.extend(uncommitted.hunk_assignments.iter());
+    }
+    NonEmpty::from_vec(hunk_assignments)
+}
+
 /// Determines the operation to perform for a given source and target combination.
 /// Returns `Some(operation)` if the combination is valid, `None` otherwise.
 ///
@@ -1205,32 +1218,54 @@ pub(crate) fn route_operation<'a>(
             Commit {
                 commit_id: target_commit_id,
                 id: _,
-            } => sources
-                .iter()
-                .map(|source| match source {
-                    Commit { commit_id, id: _ } => Some(*commit_id),
-                    Uncommitted(..)
-                    | PathPrefix { .. }
-                    | CommittedFile { .. }
-                    | Branch { .. }
-                    | Unassigned { .. }
-                    | Stack { .. } => None,
-                })
-                .collect::<Option<Vec<_>>>()
-                .and_then(NonEmpty::from_vec)
-                .map(|commits| {
-                    RubOperation::SquashCommits(SquashCommitsOperation {
+            } => {
+                if let Some(commits) = sources
+                    .iter()
+                    .map(|source| match source {
+                        Commit { commit_id, id: _ } => Some(*commit_id),
+                        Uncommitted(..)
+                        | PathPrefix { .. }
+                        | CommittedFile { .. }
+                        | Branch { .. }
+                        | Unassigned { .. }
+                        | Stack { .. } => None,
+                    })
+                    .collect::<Option<Vec<_>>>()
+                    .and_then(NonEmpty::from_vec)
+                {
+                    Some(RubOperation::SquashCommits(SquashCommitsOperation {
                         sources: commits,
                         destination: *target_commit_id,
                         how_to_combine_messages,
+                    }))
+                } else {
+                    hunk_assignments_from_uncommitted_sources(&sources).map(|hunk_assignments| {
+                        RubOperation::UncommittedToCommit(UncommittedToCommitOperation {
+                            hunk_assignments,
+                            description: "hunk(s)".to_string(),
+                            oid: *target_commit_id,
+                        })
                     })
-                }),
-            Uncommitted(..)
-            | PathPrefix { .. }
-            | CommittedFile { .. }
-            | Branch { .. }
-            | Unassigned { .. }
-            | Stack { .. } => None,
+                }
+            }
+            Unassigned { .. } => {
+                hunk_assignments_from_uncommitted_sources(&sources).map(|hunk_assignments| {
+                    RubOperation::UnassignUncommitted(UnassignUncommittedOperation {
+                        hunk_assignments,
+                        description: "hunk(s)".to_string(),
+                    })
+                })
+            }
+            Stack { stack_id, .. } => {
+                hunk_assignments_from_uncommitted_sources(&sources).map(|hunk_assignments| {
+                    RubOperation::UncommittedToStack(UncommittedToStackOperation {
+                        hunk_assignments,
+                        description: "hunk(s)".to_string(),
+                        stack_id: *stack_id,
+                    })
+                })
+            }
+            Uncommitted(..) | PathPrefix { .. } | CommittedFile { .. } | Branch { .. } => None,
         }
     }
 }

@@ -9,7 +9,7 @@ use crate::{
         FilesStatusFlag, StatusOutputLine,
         output::StatusOutputLineData,
         tui::{
-            CommitSource, Mode, MoveSource, SelectAfterReload,
+            CommitSource, Mode, MoveSource, RubSource, SelectAfterReload,
             marking::{MarkClasses, Markable, Marks},
             render::{commit_operation_display, move_operation_display},
         },
@@ -830,6 +830,16 @@ pub(super) fn is_selectable_in_mode(
         {
             return false;
         }
+    }
+
+    // TODO(david): you can currently only squash multiple commits into other commits, not into zz.
+    // That should be possible to implement though
+    if let Mode::Rub(rub_mode) = mode
+        && let RubSource::Marks(marks) = &rub_mode.source
+        && marks.classify().marked_commits
+        && !matches!(&line.data, StatusOutputLineData::Commit { .. })
+    {
+        return false;
     }
 
     match mode {

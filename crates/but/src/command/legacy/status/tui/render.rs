@@ -14,7 +14,7 @@ use crate::{
     command::legacy::status::{
         CommitLineContent, FileLineContent, StatusOutputLine,
         output::{BranchLineContent, StatusOutputContent, StatusOutputLineData},
-        tui::{Markable, rub::squash_operation_display},
+        tui::Markable,
     },
     theme::Theme,
 };
@@ -28,7 +28,7 @@ use super::{
         CommandMode, CommandModeKind, CommitMessageComposer, CommitMode, InlineRewordMode, Mode,
         ModeDiscriminant, MoveMode, MoveSource, RubMode, RubSource,
     },
-    rub, rub_from_detail_view, toast,
+    nonempty_from_refs, rub, rub_from_detail_view, toast,
 };
 
 pub(super) fn render_app(app: &App, frame: &mut Frame) {
@@ -547,9 +547,28 @@ fn render_rub_inline_labels_for_selected_line(
         RubSource::CommittedHunk(hunk) => Cow::Borrowed(
             rub_from_detail_view::rub_operation_display(hunk, target).unwrap_or("invalid"),
         ),
-        RubSource::Marks(_) => {
-            // squashing is currently the only operation that supports multiple sources
-            Cow::Borrowed(squash_operation_display(how_to_combine_messages))
+        RubSource::Marks(marks) => {
+            let sources = marks
+                .iter()
+                .cloned()
+                .map(Markable::into_cli_id)
+                .collect::<Vec<_>>();
+            let mut sources = sources.iter();
+            let Some(sources) = sources
+                .next()
+                .map(|first| nonempty_from_refs(first, sources))
+            else {
+                return;
+            };
+            Cow::Borrowed(
+                rub::rub_operation_display(sources, target, how_to_combine_messages).unwrap_or({
+                    if source.contains(target) {
+                        NOOP
+                    } else {
+                        "invalid"
+                    }
+                }),
+            )
         }
     };
     line.extend([

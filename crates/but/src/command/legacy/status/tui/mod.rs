@@ -1174,6 +1174,14 @@ impl App {
                 }
             }
             RubSource::Marks(marks) => {
+                let MarkClasses {
+                    marked_commits,
+                    marked_uncommitted,
+                } = marks.classify();
+                if marked_commits && marked_uncommitted {
+                    return;
+                }
+
                 for mark in marks {
                     if !rub::mark_supports_rubbing(mark) {
                         return;
