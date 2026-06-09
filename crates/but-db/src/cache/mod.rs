@@ -16,6 +16,7 @@ mod table;
 
 #[rustfmt::skip]
 pub use table::{
+    agent_skill_notice::AgentSkillNotice,
     update::{CachedCheckResult, CheckUpdateStatus},
 };
 
