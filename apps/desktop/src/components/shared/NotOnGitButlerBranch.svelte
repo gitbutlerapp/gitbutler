@@ -7,7 +7,7 @@
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { AsyncButton, RadioButton, FileListItem, Link } from "@gitbutler/ui";
+	import { AsyncButton, RadioButton, FileListItem, Link, TestId } from "@gitbutler/ui";
 	import type { BaseBranch } from "@gitbutler/but-sdk";
 	import type { Snippet } from "svelte";
 
@@ -76,7 +76,7 @@
 		<IllustrationSplitLayout img={directionDoubtSvg} hideDetails>
 			{@const uncommittedChanges = changes.response || []}
 
-			<div class="switchrepo__content">
+			<div class="switchrepo__content" data-testid={TestId.NotOnGitButlerBranchView}>
 				<p class="switchrepo__title text-18 text-body text-bold">
 					You've switched away from <span class="code-string"> gitbutler/workspace </span>
 				</p>
