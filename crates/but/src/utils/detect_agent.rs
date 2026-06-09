@@ -15,12 +15,14 @@ pub enum Agent {
     Cursor,
     CursorCli,
     Codex,
+    Devin,
     GeminiCli,
     GitHubCopilot,
     OpenCode,
     Augment,
     Antigravity,
     Replit,
+    V0,
 }
 
 impl Agent {
@@ -32,12 +34,14 @@ impl Agent {
             Self::Cursor => "cursor",
             Self::CursorCli => "cursor-cli",
             Self::Codex => "codex",
+            Self::Devin => "devin",
             Self::GeminiCli => "gemini-cli",
             Self::GitHubCopilot => "github-copilot",
             Self::OpenCode => "opencode",
             Self::Augment => "augment",
             Self::Antigravity => "antigravity",
             Self::Replit => "replit",
+            Self::V0 => "v0",
         }
     }
 }
@@ -60,6 +64,8 @@ pub fn detect() -> Option<Agent> {
 /// Core detection logic, parameterised over an env-var lookup function for testability.
 fn detect_with(lookup: impl Fn(&str) -> Option<OsString>) -> Option<Agent> {
     let is_set = |var: &str| lookup(var).is_some_and(|v| !v.is_empty());
+    let is_value =
+        |var: &str, expected: &str| lookup(var).is_some_and(|v| v.to_str() == Some(expected));
 
     // Generic AI_AGENT standard (see https://github.com/anthropics/agent-env).
     if let Some(agent) = parse_ai_agent_var(&lookup) {
@@ -73,7 +79,7 @@ fn detect_with(lookup: impl Fn(&str) -> Option<OsString>) -> Option<Agent> {
     if is_set("CLAUDE_CODE") || is_set("CLAUDECODE") {
         return Some(Agent::ClaudeCode);
     }
-    if is_set("CURSOR_AGENT") {
+    if is_set("CURSOR_AGENT") || is_value("CURSOR_EXTENSION_HOST_ROLE", "agent-exec") {
         return Some(Agent::CursorCli);
     }
     if is_set("CURSOR_TRACE_ID") {
@@ -113,17 +119,19 @@ fn parse_ai_agent_var(lookup: &impl Fn(&str) -> Option<OsString>) -> Option<Agen
     let val = lookup("AI_AGENT")?;
     let val = val.to_str()?.trim().to_ascii_lowercase();
     match val.as_str() {
-        "claude-code" => Some(Agent::ClaudeCode),
-        "claude-code-cowork" => Some(Agent::ClaudeCodeCowork),
+        "claude" | "claude-code" => Some(Agent::ClaudeCode),
+        "cowork" | "claude-code-cowork" => Some(Agent::ClaudeCodeCowork),
         "cursor" => Some(Agent::Cursor),
         "cursor-cli" => Some(Agent::CursorCli),
         "codex" => Some(Agent::Codex),
-        "gemini-cli" => Some(Agent::GeminiCli),
-        "github-copilot" => Some(Agent::GitHubCopilot),
+        "devin" => Some(Agent::Devin),
+        "gemini" | "gemini-cli" => Some(Agent::GeminiCli),
+        "github-copilot" | "github-copilot-cli" => Some(Agent::GitHubCopilot),
         "opencode" => Some(Agent::OpenCode),
-        "augment" => Some(Agent::Augment),
+        "augment" | "augment-cli" => Some(Agent::Augment),
         "antigravity" => Some(Agent::Antigravity),
         "replit" => Some(Agent::Replit),
+        "v0" => Some(Agent::V0),
         _ => None,
     }
 }
@@ -181,6 +189,25 @@ mod tests {
         assert_eq!(
             detect_with(env_from(&[("CURSOR_AGENT", "1")])),
             Some(Agent::CursorCli),
+        );
+    }
+
+    #[test]
+    fn detect_cursor_cli_extension_host() {
+        assert_eq!(
+            detect_with(env_from(&[("CURSOR_EXTENSION_HOST_ROLE", "agent-exec")])),
+            Some(Agent::CursorCli),
+        );
+    }
+
+    #[test]
+    fn ignores_cursor_extension_host_non_agent_role() {
+        assert_eq!(
+            detect_with(env_from(&[(
+                "CURSOR_EXTENSION_HOST_ROLE",
+                "extension-host"
+            )])),
+            None,
         );
     }
 
@@ -276,6 +303,28 @@ mod tests {
     }
 
     #[test]
+    fn ai_agent_accepts_vercel_aliases() {
+        let cases = [
+            ("claude", Agent::ClaudeCode),
+            ("cowork", Agent::ClaudeCodeCowork),
+            ("gemini", Agent::GeminiCli),
+            ("augment-cli", Agent::Augment),
+            ("github-copilot-cli", Agent::GitHubCopilot),
+            ("devin", Agent::Devin),
+            ("v0", Agent::V0),
+        ];
+
+        for (name, agent) in cases {
+            assert_eq!(
+                detect_with(env_from(&[("AI_AGENT", name)])),
+                Some(agent),
+                "AI_AGENT alias {name} should resolve to {}",
+                agent.name(),
+            );
+        }
+    }
+
+    #[test]
     fn agent_name_roundtrip() {
         let agents = [
             Agent::ClaudeCode,
@@ -283,12 +332,14 @@ mod tests {
             Agent::Cursor,
             Agent::CursorCli,
             Agent::Codex,
+            Agent::Devin,
             Agent::GeminiCli,
             Agent::GitHubCopilot,
             Agent::OpenCode,
             Agent::Augment,
             Agent::Antigravity,
             Agent::Replit,
+            Agent::V0,
         ];
         for agent in agents {
             let lookup = env_from(&[("AI_AGENT", agent.name())]);
