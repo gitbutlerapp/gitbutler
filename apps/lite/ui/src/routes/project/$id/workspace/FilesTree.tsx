@@ -1,6 +1,6 @@
 import { changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
-import { changesFileParent, fileOperand, FileParent, type FileOperand } from "#ui/operands.ts";
+import { changesFileParent, fileOperand, FileParent } from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectHasCheckedCommits,
@@ -114,28 +114,26 @@ const useFilesTreeHotkeys = ({
 type ChangeFileTreeItem = {
 	change: TreeChange;
 	dependencyCommitIds?: Array.NonEmptyArray<string>;
-	operand: FileOperand;
+	path: string;
 };
 
 export const changeFileTreeItem = ({
 	change,
 	dependencyCommitIds,
-	operand,
+	path,
 }: ChangeFileTreeItem): FileTreeItem => ({
 	_tag: "Change",
 	change,
 	dependencyCommitIds,
-	operand,
+	path,
 });
 
 type ConflictFileTreeItem = {
-	operand: FileOperand;
 	path: string;
 };
 
-export const conflictFileTreeItem = ({ operand, path }: ConflictFileTreeItem): FileTreeItem => ({
+export const conflictFileTreeItem = ({ path }: ConflictFileTreeItem): FileTreeItem => ({
 	_tag: "Conflict",
-	operand,
 	path,
 });
 
@@ -191,9 +189,9 @@ export const FilesTree: FC<
 						<div role="group">
 							{items.map((item) => (
 								<TreeItem
-									key={item.operand.path}
+									key={item.path}
 									projectId={projectId}
-									path={item.operand.path}
+									path={item.path}
 									aria-label={
 										item._tag === "Change"
 											? `${statusLabel(item.change.status)} ${item.change.path}`
@@ -202,14 +200,15 @@ export const FilesTree: FC<
 									render={
 										<OperationSourceC
 											projectId={projectId}
-											source={fileOperand(item.operand)}
-											onDragStart={() => onFileSelection(item.operand.path)}
+											source={fileOperand({ parent: fileParent, path: item.path })}
+											onDragStart={() => onFileSelection(item.path)}
 											render={
 												<FileRow
 													item={item}
-													path={item.operand.path}
+													path={item.path}
 													onFileSelection={onFileSelection}
 													projectId={projectId}
+													fileParent={fileParent}
 												/>
 											}
 										/>
@@ -288,14 +287,15 @@ const FileRow: FC<
 	{
 		item: FileTreeItem;
 		projectId: string;
+		fileParent: FileParent;
 	} & Omit<ComponentProps<typeof ItemRow>, "projectId" | "operand">
-> = ({ item, projectId, ...restProps }) => {
+> = ({ item, projectId, fileParent, ...restProps }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 	const menuItems = useFileMenuItems({
 		projectId,
-		operand: item.operand,
+		operand: { parent: fileParent, path: relativePath },
 		path: relativePath,
 		change: item._tag === "Change" ? item.change : undefined,
 	});
@@ -308,7 +308,7 @@ const FileRow: FC<
 		<ItemRow
 			{...restProps}
 			projectId={projectId}
-			path={item.operand.path}
+			path={item.path}
 			className={classes(restProps.className, styles.fileRow)}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
@@ -341,10 +341,10 @@ const FileRow: FC<
 
 			{outlineMode._tag === "Default" && (
 				<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
-					{Match.value(item).pipe(
+					{Match.value({ item, fileParent }).pipe(
 						Match.when(
-							{ _tag: "Change", operand: { parent: { _tag: "Changes" } } },
-							(item) =>
+							{ item: { _tag: "Change" }, fileParent: { _tag: "Changes" } },
+							({ item }) =>
 								item.dependencyCommitIds && (
 									<Toolbar.Button
 										render={
