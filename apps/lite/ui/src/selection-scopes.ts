@@ -2,6 +2,7 @@ import { selectionOperationHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { type OperationType } from "#ui/operations/operation.ts";
 import { keyboardTransferOperationMode } from "#ui/outline/mode.ts";
 import {
+	commitOperand,
 	fileOperand,
 	hunkOperand,
 	HunkOperand,
@@ -11,6 +12,7 @@ import {
 } from "#ui/operands.ts";
 import {
 	projectActions,
+	selectProjectCheckedCommits,
 	selectProjectOutlineModeState,
 	selectProjectSelectionDiff,
 	selectProjectSelectionFiles,
@@ -342,6 +344,8 @@ export const useNavigationIndexHotkeys = <T>({
 
 	const operationEnabled = outlineMode._tag === "Default" && selection !== null;
 
+	const checkedCommits = useAppSelector((state) => selectProjectCheckedCommits(state, projectId));
+
 	const enterTransferModeForSelection = (operationType: OperationType) => {
 		if (selection === null) return;
 
@@ -351,7 +355,10 @@ export const useNavigationIndexHotkeys = <T>({
 			projectActions.enterTransferMode({
 				projectId,
 				mode: keyboardTransferOperationMode({
-					sources: [source],
+					sources:
+						selectionScope === "outline" && checkedCommits.length > 0
+							? checkedCommits.map(commitOperand)
+							: [source],
 					operationType,
 				}),
 			}),

@@ -29,6 +29,7 @@ import {
 } from "#ui/outline/mode.ts";
 import { findCommitStackId } from "#ui/api/ref-info.ts";
 import { mapEntries } from "effect/Record";
+import { createSelector } from "@reduxjs/toolkit";
 
 export type SelectionState = {
 	outline: Operand | null;
@@ -353,6 +354,16 @@ export const selectHighlightedCommitIds = (state: WorkspaceState): Array<string>
 
 export const selectCommitChecked = (state: WorkspaceState, commit: CommitOperand): boolean =>
 	state.checkedCommits[operandIdentityKey(commitOperand(commit))] !== undefined;
+
+const selectCheckedCommitsRecord = (state: WorkspaceState) => state.checkedCommits;
+
+export const selectCheckedCommits = createSelector(selectCheckedCommitsRecord, (checkedCommits) =>
+	Object.values(checkedCommits),
+);
+
+export const selectCheckedCommitOperands = createSelector(selectCheckedCommits, (xs) =>
+	xs.map(commitOperand),
+);
 
 export const selectCheckedCommitCount = (state: WorkspaceState): number =>
 	Object.keys(state.checkedCommits).length;

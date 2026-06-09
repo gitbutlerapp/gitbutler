@@ -4,7 +4,12 @@ import styles from "./OperationSourceC.module.css";
 import { operationSourceLabel } from "./operationSourceLabel.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { classes } from "#ui/components/classes.ts";
-import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
+import {
+	projectActions,
+	selectProjectCheckedCommitOperands,
+	selectProjectCommitChecked,
+	selectProjectOutlineModeState,
+} from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { centerUnderPointer } from "@atlaskit/pragmatic-drag-and-drop/element/center-under-pointer";
@@ -13,6 +18,7 @@ import { mergeProps, useRender } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { FC, type ReactNode, useEffect, useEffectEvent, useRef } from "react";
 import { createRoot } from "react-dom/client";
+import { ensure } from "effect/Array";
 
 type DragData = {
 	sources: Array<Operand>;
@@ -37,6 +43,17 @@ export const OperationSourceC: FC<
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
+	const _dragSource = useAppSelector((state) => {
+		const checkedCommits = selectProjectCheckedCommitOperands(state, projectId);
+		const isCheckedCommit =
+			source._tag === "Commit" ? selectProjectCommitChecked(state, projectId, source) : false;
+		return isCheckedCommit
+			? checkedCommits
+			: // We don't create an array here in order to preserve reference identity.
+				source;
+	});
+	const dragSource = ensure(_dragSource);
+
 	const dispatch = useAppDispatch();
 	const dragRef = useRef<HTMLElement>(null);
 	const onGenerateDragPreview: Parameters<typeof draggable>[0]["onGenerateDragPreview"] =
@@ -48,7 +65,7 @@ export const OperationSourceC: FC<
 					if (!headInfo) return;
 					const root = createRoot(container);
 					root.render(
-						<DragPreview>{operationSourceLabel({ sources: [source], headInfo })}</DragPreview>,
+						<DragPreview>{operationSourceLabel({ sources: dragSource, headInfo })}</DragPreview>,
 					);
 					return () => {
 						root.unmount();
@@ -65,13 +82,13 @@ export const OperationSourceC: FC<
 			projectActions.enterTransferMode({
 				projectId,
 				mode: pointerTransferOperationMode({
-					sources: [source],
+					sources: dragSource,
 					operationType: null,
 				}),
 			}),
 		);
 	});
-	const getInitialData = useEffectEvent((): DragData => ({ sources: [source] }));
+	const getInitialData = useEffectEvent((): DragData => ({ sources: dragSource }));
 
 	useEffect(() => {
 		const element = dragRef.current;

@@ -292,6 +292,12 @@ export const selectProjectCommitChecked = (
 	commit: CommitOperand,
 ) => workspace.selectCommitChecked(selectProjectWorkspaceState(state, projectId), commit);
 
+export const selectProjectCheckedCommits = (state: RootState, projectId: string) =>
+	workspace.selectCheckedCommits(selectProjectWorkspaceState(state, projectId));
+
+export const selectProjectCheckedCommitOperands = (state: RootState, projectId: string) =>
+	workspace.selectCheckedCommitOperands(selectProjectWorkspaceState(state, projectId));
+
 export const selectProjectCheckedCommitCount = (state: RootState, projectId: string) =>
 	workspace.selectCheckedCommitCount(selectProjectWorkspaceState(state, projectId));
 
