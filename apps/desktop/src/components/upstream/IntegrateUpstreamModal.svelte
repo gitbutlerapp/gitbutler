@@ -51,12 +51,7 @@
 
 	const baseLoaded = $derived(!!base);
 	const isBaseDiverged = $derived(!!base?.targetShaAheadOfRef);
-	const canIntegrate = $derived(
-		baseLoaded &&
-			!isBaseDiverged &&
-			!!integrationStatuses &&
-			integrationStatuses.updates.length > 0,
-	);
+	const canIntegrate = $derived(baseLoaded && !isBaseDiverged && !!integrationStatuses);
 	const worktreeConflicts = $derived(integrationStatuses?.worktreeConflicts ?? []);
 	const [integrateUpstream] = $derived(upstreamIntegrationService.integrateUpstream());
 

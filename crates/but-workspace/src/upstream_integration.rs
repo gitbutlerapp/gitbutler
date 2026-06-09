@@ -292,6 +292,11 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
         for selector in &fully_integrated_workspace_parents {
             editor.remove_edges(workspace_commit_selector, *selector)?;
         }
+        if !fully_integrated_workspace_parents.is_empty()
+            && editor.direct_parents(workspace_commit_selector)?.is_empty()
+        {
+            editor.add_edge(workspace_commit_selector, target_ref_selector, 0)?;
+        }
     }
 
     for stack in &stacks {
