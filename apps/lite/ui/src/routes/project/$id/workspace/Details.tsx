@@ -21,6 +21,7 @@ import {
 	operandIdentityKey,
 	type CommitOperand,
 	type FileOperand,
+	type FileParent,
 	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
@@ -76,7 +77,7 @@ import {
 	type FileTreeItem,
 } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.ts";
-import { buildNavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { buildNavigationIndex, NavigationIndex } from "#ui/workspace/navigation-index.ts";
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
@@ -320,50 +321,44 @@ const hunkSelectionFromHunk = ({
 	isResultOfBinaryToTextConversion,
 });
 
-const DiffContents: FC<{
+type BuildIn = {
+	fileParent: FileParent;
 	changes: Array<TreeChange>;
-	getInitialFileHunkRef: RefObject<((file: FileOperand) => HunkOperand | undefined) | null>;
-	selectionScopeRef: RefObject<HTMLDivElement | null>;
-	onViewerFileSelection: (selection: FileOperand) => void;
-	outlineSelection: Operand;
-	projectId: string;
-	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
-}> = ({
-	changes,
-	getInitialFileHunkRef,
-	selectionScopeRef,
-	onViewerFileSelection,
-	outlineSelection,
-	projectId,
-	viewerRef,
-}) => {
-	const dispatch = useAppDispatch();
-	const treeChangeDiffs = useSuspenseQueries({
-		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
-	}).map((result) => result.data);
+	treeChangeDiffs: Array<UnifiedPatch | null>;
+	changesetKey: string;
+};
 
-	const changesetKey = getChangesetKey(outlineSelection);
-	const fileParent = Match.value(outlineSelection).pipe(
-		Match.tags({
-			Branch: ({ branchRef, stackId }) => branchFileParent({ branchRef, stackId }),
-			ChangesSection: () => changesFileParent,
-			Commit: ({ commitId, stackId }) => commitFileParent({ commitId, stackId }),
-		}),
-		Match.orElseAbsurd,
-	);
+type BuildOut = {
+	navigationIndex: NavigationIndex<HunkOperand>;
+	items: Array<CodeViewDiffItem>;
+	/**
+	 * Map from CodeView item ID to the full CodeView item and the data whence it came.
+	 *
+	 * CodeView's API give us either CodeView item IDs or full CodeView items.
+	 */
+	itemsMetadataMap: Map<
+		string,
+		{ item: CodeViewDiffItem; change: TreeChange; patch: UnifiedPatch | null }
+	>;
+	/**
+	 * Map from file operand identity key to the file's first hunk.
+	 */
+	initialFileHunks: Map<string, HunkOperand>;
+	/**
+	 * Map from hunk operand identity key to the hunk's computed selection range.
+	 */
+	selectedRangeByHunk: Map<string, CodeViewLineSelection>;
+};
 
-	// CodeView only gives us back the CodeViewItem in custom renders, however we need this prior data
-	// hence a reverse map by ID.
+/** Build relationships between our SDK data and Pierre's view. */
+const build = ({ fileParent, changes, treeChangeDiffs, changesetKey }: BuildIn): BuildOut => {
 	const itemsMetadataMap = new Map<
 		string,
 		{ item: CodeViewDiffItem; change: TreeChange; patch: UnifiedPatch | null }
 	>();
 
-	// Share the first hunk of each file with this component's parents for syncing hunk selection on
-	// file selection.
 	const initialFileHunks = new Map<string, HunkOperand>();
 
-	// Hunk selections for our flat navigation index and mapping between the two.
 	const hunkSelections: Array<HunkOperand> = [];
 	const selectedRangeByHunk = new Map<string, CodeViewLineSelection>();
 
@@ -400,15 +395,59 @@ const DiffContents: FC<{
 		return item;
 	});
 
-	useLayoutEffect(() => {
-		getInitialFileHunkRef.current = (file) => initialFileHunks.get(fileOperandIdentityKey(file));
-		return () => {
-			getInitialFileHunkRef.current = null;
-		};
-	});
+	const navigationIndex = buildNavigationIndex(hunkSelections, hunkOperandIdentityKey);
 
-	const hunkNavigationIndex = buildNavigationIndex(hunkSelections, hunkOperandIdentityKey);
-	const diffSelection = useDiffSelection(projectId, hunkNavigationIndex);
+	return {
+		items,
+		itemsMetadataMap,
+		initialFileHunks,
+		navigationIndex,
+		selectedRangeByHunk,
+	};
+};
+
+const DiffContents: FC<{
+	changes: Array<TreeChange>;
+	getInitialFileHunkRef: RefObject<((file: FileOperand) => HunkOperand | undefined) | null>;
+	selectionScopeRef: RefObject<HTMLDivElement | null>;
+	onViewerFileSelection: (selection: FileOperand) => void;
+	outlineSelection: Operand;
+	projectId: string;
+	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
+}> = ({
+	changes,
+	getInitialFileHunkRef,
+	selectionScopeRef,
+	onViewerFileSelection,
+	outlineSelection,
+	projectId,
+	viewerRef,
+}) => {
+	const dispatch = useAppDispatch();
+	const treeChangeDiffs = useSuspenseQueries({
+		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
+	}).map((result) => result.data);
+
+	const changesetKey = getChangesetKey(outlineSelection);
+	const fileParent = Match.value(outlineSelection).pipe(
+		Match.tags({
+			Branch: ({ branchRef, stackId }) => branchFileParent({ branchRef, stackId }),
+			ChangesSection: () => changesFileParent,
+			Commit: ({ commitId, stackId }) => commitFileParent({ commitId, stackId }),
+		}),
+		Match.orElseAbsurd,
+	);
+
+	const { items, itemsMetadataMap, initialFileHunks, navigationIndex, selectedRangeByHunk } = build(
+		{
+			fileParent,
+			changes,
+			treeChangeDiffs,
+			changesetKey,
+		},
+	);
+
+	const diffSelection = useDiffSelection(projectId, navigationIndex);
 	const selectedRange = diffSelection
 		? (selectedRangeByHunk.get(hunkOperandIdentityKey(diffSelection)) ?? null)
 		: null;
@@ -427,8 +466,15 @@ const DiffContents: FC<{
 		});
 	};
 
+	useLayoutEffect(() => {
+		getInitialFileHunkRef.current = (file) => initialFileHunks.get(fileOperandIdentityKey(file));
+		return () => {
+			getInitialFileHunkRef.current = null;
+		};
+	});
+
 	useNavigationIndexHotkeys({
-		navigationIndex: hunkNavigationIndex,
+		navigationIndex,
 		projectId,
 		group: "Diff",
 		selectionScope: "diff",
