@@ -105,9 +105,8 @@ pub fn commit(
     let mut meta = ctx.meta()?;
 
     let (commit_op, reword_op) = {
+        let head_info = but_api::legacy::workspace::head_info(ctx)?;
         let repo = ctx.repo.get()?;
-        // TODO(david): use but_api::legacy::workspace::head_info
-        let head_info = but_workspace::head_info(&repo, &meta, Default::default())?;
         resolve(&repo, args, &head_info)?
     };
     run(ctx, &mut meta, perm, commit_op, reword_op)
