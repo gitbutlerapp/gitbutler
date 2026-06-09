@@ -2,6 +2,7 @@ use std::{fmt::Write as _, path::PathBuf};
 
 use anyhow::{Context as _, Result};
 use but_ctx::Context;
+use chrono::{DateTime, Duration, Utc};
 use cli_prompts::{DisplayPrompt, prompts::AbortReason};
 use serde::Serialize;
 
@@ -28,6 +29,7 @@ const SKILL_MD: &[u8] = include_bytes!("../../skill/SKILL.md");
 const CONCEPTS_MD: &[u8] = include_bytes!("../../skill/references/concepts.md");
 const EXAMPLES_MD: &[u8] = include_bytes!("../../skill/references/examples.md");
 const REFERENCE_MD: &[u8] = include_bytes!("../../skill/references/reference.md");
+const AGENT_SKILL_NOTICE_DEBOUNCE_MINUTES: i64 = 15;
 
 /// Metadata for a skill file to be installed
 struct SkillFile {
@@ -486,6 +488,118 @@ pub fn check_skill_status(
         skills,
         outdated_count,
     })
+}
+
+pub fn agent_skill_freshness_notice_for_context(ctx: Option<&mut Context>) -> Option<String> {
+    let now = Utc::now();
+    match ctx {
+        Some(ctx) => {
+            {
+                let cache = ctx.app_cache.get_cache().ok()?;
+                if !should_show_agent_skill_notice(cache.agent_skill_notice().get().as_ref(), now) {
+                    return None;
+                }
+            }
+
+            let notice = agent_skill_freshness_notice_for_result(check_skill_status(
+                Some(&mut *ctx),
+                true,
+                true,
+            ))?;
+            let mut cache = ctx.app_cache.get_cache_mut().ok()?;
+            record_agent_skill_notice(&mut cache, now).then_some(notice)
+        }
+        None => {
+            let mut cache = Context::app_cache();
+
+            if !should_show_agent_skill_notice(cache.agent_skill_notice().get().as_ref(), now) {
+                return None;
+            }
+
+            let notice =
+                agent_skill_freshness_notice_for_result(check_skill_status(None, true, true))?;
+            record_agent_skill_notice(&mut cache, now).then_some(notice)
+        }
+    }
+}
+
+fn agent_skill_freshness_notice_for_result(result: Result<SkillCheckResult>) -> Option<String> {
+    let result = match result {
+        Ok(result) => result,
+        Err(err) => {
+            tracing::debug!(?err, "failed to check agent skill freshness");
+            return None;
+        }
+    };
+
+    agent_skill_freshness_notice(&result)
+}
+
+fn record_agent_skill_notice(cache: &mut but_db::AppCacheHandle, now: DateTime<Utc>) -> bool {
+    match cache.immediate_transaction_nonblocking() {
+        Ok(Some(mut transaction)) => {
+            let cached = transaction.agent_skill_notice().get();
+
+            if !should_show_agent_skill_notice(cached.as_ref(), now) {
+                false
+            } else {
+                let save_result = transaction.agent_skill_notice_mut().and_then(|handle| {
+                    handle.save(&but_db::cache::AgentSkillNotice { shown_at: now })
+                });
+                match save_result.and_then(|_| transaction.commit()) {
+                    Ok(()) => true,
+                    Err(err) => {
+                        tracing::debug!(?err, "failed to debounce agent skill notice");
+                        false
+                    }
+                }
+            }
+        }
+        Ok(None) => {
+            tracing::debug!("agent skill notice debounce cache is locked");
+            false
+        }
+        Err(err) => {
+            tracing::debug!(?err, "failed to access agent skill notice debounce cache");
+            false
+        }
+    }
+}
+
+fn should_show_agent_skill_notice(
+    cached: Option<&but_db::cache::AgentSkillNotice>,
+    now: DateTime<Utc>,
+) -> bool {
+    let Some(cached) = cached else {
+        return true;
+    };
+
+    now.signed_duration_since(cached.shown_at)
+        >= Duration::minutes(AGENT_SKILL_NOTICE_DEBOUNCE_MINUTES)
+}
+
+fn agent_skill_freshness_notice(result: &SkillCheckResult) -> Option<String> {
+    let t = theme::get();
+    if result.skills.is_empty() {
+        return Some(format!(
+            "{} AGENT ACTION REQUIRED: The GitButler skill is not installed.\n\
+             Install it once for this agent, then reload/use the GitButler skill.\n\
+             If this warning repeats, report it instead of retrying.",
+            t.sym().warning,
+        ));
+    }
+
+    if result.outdated_count == 0 {
+        return None;
+    }
+
+    Some(format!(
+        "{} AGENT ACTION REQUIRED: The GitButler skill is out of date.\n\
+             Run once: but skill check --update\n\
+             Then reload/use the updated skill.\n\
+             If this warning repeats, report it instead of retrying.",
+        t.sym().warning,
+    ))
 }
 
 /// Check if installed skills are up to date
@@ -1427,6 +1541,93 @@ mod tests {
         assert!(json.contains("2.0.0"));
         assert!(json.contains("outdated_count"));
         assert!(json.contains("Cursor"));
+    }
+
+    #[test]
+    fn agent_skill_notice_handles_current_stale_missing_and_check_errors() {
+        let status = |installed_version: &str, up_to_date: bool| SkillStatus {
+            path: PathBuf::from("/test/path"),
+            format_name: "Codex".to_string(),
+            scope: "global".to_string(),
+            installed_version: installed_version.to_string(),
+            up_to_date,
+        };
+
+        let current = SkillCheckResult {
+            cli_version: "2.0.0".to_string(),
+            skills: vec![status("2.0.0", true)],
+            outdated_count: 0,
+        };
+        assert!(agent_skill_freshness_notice(&current).is_none());
+
+        let stale = SkillCheckResult {
+            cli_version: "2.0.0".to_string(),
+            skills: vec![status("1.0.0", false)],
+            outdated_count: 1,
+        };
+        let stale_notice = agent_skill_freshness_notice(&stale).expect("stale skill should warn");
+        assert!(stale_notice.contains("AGENT ACTION REQUIRED"));
+        assert!(stale_notice.contains("but skill check --update"));
+        assert!(stale_notice.contains("report it instead of retrying"));
+
+        let missing = SkillCheckResult {
+            cli_version: "2.0.0".to_string(),
+            skills: vec![],
+            outdated_count: 0,
+        };
+        let missing_notice =
+            agent_skill_freshness_notice(&missing).expect("missing skill should warn");
+        assert!(missing_notice.contains("AGENT ACTION REQUIRED"));
+        assert!(missing_notice.contains("not installed"));
+        assert!(missing_notice.contains("report it instead of retrying"));
+
+        assert!(
+            agent_skill_freshness_notice_for_result(Err(anyhow::anyhow!("check failed"))).is_none()
+        );
+    }
+
+    #[test]
+    fn agent_skill_notice_debounce_is_15_minutes() {
+        let now = DateTime::from_timestamp(2_000_000, 0).unwrap();
+        assert!(should_show_agent_skill_notice(None, now));
+
+        let recent = but_db::cache::AgentSkillNotice {
+            shown_at: now - Duration::minutes(14),
+        };
+        assert!(!should_show_agent_skill_notice(Some(&recent), now));
+
+        let old = but_db::cache::AgentSkillNotice {
+            shown_at: now - Duration::minutes(15),
+        };
+        assert!(should_show_agent_skill_notice(Some(&old), now));
+    }
+
+    #[test]
+    fn agent_skill_notice_records_only_when_cache_write_succeeds() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("app-cache.sqlite");
+        let now = DateTime::from_timestamp(2_000_000, 0).unwrap();
+        let mut cache = but_db::AppCacheHandle::new_at_path(&path);
+
+        assert!(record_agent_skill_notice(&mut cache, now));
+        assert!(!record_agent_skill_notice(
+            &mut cache,
+            now + Duration::minutes(14)
+        ));
+        assert!(record_agent_skill_notice(
+            &mut cache,
+            now + Duration::minutes(15)
+        ));
+
+        let mut locked_cache = but_db::AppCacheHandle::new_at_path(&path);
+        let _lock = cache
+            .immediate_transaction_nonblocking()
+            .unwrap()
+            .expect("write lock should be available");
+        assert!(!record_agent_skill_notice(
+            &mut locked_cache,
+            now + Duration::minutes(30)
+        ));
     }
 
     #[test]
