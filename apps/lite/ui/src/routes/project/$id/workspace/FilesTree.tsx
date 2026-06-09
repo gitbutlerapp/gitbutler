@@ -410,28 +410,24 @@ const FileTreeRow: FC<{
 			{outlineMode._tag === "Default" &&
 				Match.value(item).pipe(
 					Match.when({ _tag: "Change", operand: { parent: { _tag: "Changes" } } }, (item) => (
-						<WorkspaceItemRowToolbar>
-							<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
-								<Toolbar.Button
-									aria-label="File menu"
-									onClick={(event) => {
-										void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-									}}
-									className={classes(
-										workspaceItemRowStyles.itemRowIconButton,
-										getButtonClassName({
-											variant: isSelected ? "inverted" : "ghost",
-											size: "small",
-										}),
-									)}
-								>
-									<Icon name="kebab" />
-								</Toolbar.Button>
-							</Toolbar.Root>
+						<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
+							<Toolbar.Button
+								aria-label="File menu"
+								onClick={(event) => {
+									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+								}}
+								className={classes(
+									workspaceItemRowStyles.itemRowIconButton,
+									getButtonClassName({
+										variant: isSelected ? "inverted" : "ghost",
+										size: "small",
+									}),
+								)}
+							>
+								<Icon name="kebab" />
+							</Toolbar.Button>
 							{item.dependencyCommitIds && (
-								<DependencyIndicator
-									projectId={projectId}
-									commitIds={item.dependencyCommitIds}
+								<Toolbar.Button
 									className={classes(
 										workspaceItemRowStyles.itemRowIconButton,
 										getButtonClassName({
@@ -439,11 +435,17 @@ const FileTreeRow: FC<{
 											size: "small",
 										}),
 									)}
+									render={
+										<DependencyIndicator
+											projectId={projectId}
+											commitIds={item.dependencyCommitIds}
+										/>
+									}
 								>
 									<Icon name="link" />
-								</DependencyIndicator>
+								</Toolbar.Button>
 							)}
-						</WorkspaceItemRowToolbar>
+						</Toolbar.Root>
 					)),
 					Match.orElse(() => null),
 				)}
