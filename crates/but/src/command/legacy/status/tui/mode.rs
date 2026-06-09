@@ -3,7 +3,6 @@ use std::sync::Arc;
 use bstr::BString;
 use but_core::{HunkHeader, ref_metadata::StackId};
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
-use nonempty::NonEmpty;
 use ratatui::style::Color;
 use ratatui_textarea::TextArea;
 
@@ -50,11 +49,13 @@ impl Mode {
                 RubSource::Marks(marks) => Some(marks),
                 RubSource::CliId(..) | RubSource::CommittedHunk(..) => None,
             },
-            Mode::InlineReword(..)
-            | Mode::Command(..)
-            | Mode::Commit(..)
-            | Mode::Move(..)
-            | Mode::Details(..) => None,
+            Mode::Commit(commit_mode) => match &*commit_mode.source {
+                CommitSource::Marks(marks) => Some(marks),
+                CommitSource::Unassigned(..)
+                | CommitSource::Uncommitted(..)
+                | CommitSource::Stack(..) => None,
+            },
+            Mode::InlineReword(..) | Mode::Command(..) | Mode::Move(..) | Mode::Details(..) => None,
         }
     }
 }
@@ -211,8 +212,9 @@ pub(super) struct MoveMode {
 #[derive(Debug)]
 #[expect(clippy::large_enum_variant)]
 pub(super) enum CommitSource {
+    Marks(Marks),
     Unassigned(UnassignedCommitSource),
-    Uncommitted(NonEmpty<UncommittedCliId>),
+    Uncommitted(UncommittedCliId),
     Stack(StackCommitSource),
 }
 
@@ -230,9 +232,7 @@ impl CommitSource {
     pub fn try_new(id: CliId) -> Option<Self> {
         match id {
             CliId::Unassigned { id } => Some(Self::Unassigned(UnassignedCommitSource { id })),
-            CliId::Uncommitted(uncommitted_cli_id) => {
-                Some(Self::Uncommitted(NonEmpty::new(uncommitted_cli_id)))
-            }
+            CliId::Uncommitted(uncommitted_cli_id) => Some(Self::Uncommitted(uncommitted_cli_id)),
             CliId::Stack { stack_id, .. } => Some(Self::Stack(StackCommitSource { stack_id })),
             CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
@@ -243,6 +243,9 @@ impl CommitSource {
 
     pub(super) fn contains(&self, other: &CliId) -> bool {
         match self {
+            CommitSource::Marks(marks) => {
+                Markable::try_from_cli_id(other).is_some_and(|markable| marks.contains(&markable))
+            }
             CommitSource::Unassigned(UnassignedCommitSource { id: lhs_id }) => {
                 if let CliId::Unassigned { id: rhs_id } = other {
                     lhs_id == rhs_id
@@ -252,7 +255,7 @@ impl CommitSource {
             }
             CommitSource::Uncommitted(lhs) => {
                 if let CliId::Uncommitted(rhs) = other {
-                    lhs.contains(rhs)
+                    lhs == rhs
                 } else {
                     false
                 }
@@ -273,40 +276,6 @@ impl CommitSource {
         }
     }
 }
-
-// impl PartialEq<CliId> for CommitSource {
-//     fn eq(&self, other: &CliId) -> bool {
-//         match self {
-//             CommitSource::Unassigned(UnassignedCommitSource { id: lhs_id }) => {
-//                 if let CliId::Unassigned { id: rhs_id } = other {
-//                     lhs_id == rhs_id
-//                 } else {
-//                     false
-//                 }
-//             }
-//             CommitSource::Uncommitted(lhs) => {
-//                 if let CliId::Uncommitted(rhs) = other {
-//                     &**lhs == rhs
-//                 } else {
-//                     false
-//                 }
-//             }
-//             CommitSource::Stack(StackCommitSource {
-//                 stack_id: stack_id_lhs,
-//             }) => {
-//                 if let CliId::Stack {
-//                     stack_id: stack_id_rhs,
-//                     ..
-//                 } = other
-//                 {
-//                     stack_id_lhs == stack_id_rhs
-//                 } else {
-//                     false
-//                 }
-//             }
-//         }
-//     }
-// }
 
 /// A subset of [`CliId`] that supports being moved
 #[derive(Debug)]

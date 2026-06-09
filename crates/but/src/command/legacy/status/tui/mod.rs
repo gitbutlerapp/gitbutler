@@ -1174,6 +1174,14 @@ impl App {
                 }
             }
             RubSource::Marks(marks) => {
+                let MarkClasses {
+                    marked_commits,
+                    marked_uncommitted,
+                } = marks.classify();
+                if marked_commits && marked_uncommitted {
+                    return;
+                }
+
                 for mark in marks {
                     if !rub::mark_supports_rubbing(mark) {
                         return;
@@ -2046,11 +2054,11 @@ impl App {
             return;
         };
 
-        let Some(uncommitted) = NonEmpty::from_vec(uncommitted) else {
+        if uncommitted.is_empty() {
             return;
-        };
+        }
 
-        let source = Arc::new(CommitSource::Uncommitted(uncommitted));
+        let source = Arc::new(CommitSource::Marks(normal_mode.marks.clone()));
 
         if let Some(cursor) = self
             .cursor
@@ -2135,13 +2143,21 @@ impl App {
             let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines)
                 .with_scope_to_stack(*scope_to_stack);
             match &**source {
+                CommitSource::Marks(marks) => {
+                    for mark in marks {
+                        let Markable::Uncommitted(uncommitted) = mark else {
+                            unreachable!(
+                                "commit marks were validated to contain only uncommitted files"
+                            );
+                        };
+                        builder.push_changes_from_uncommitted(uncommitted)?;
+                    }
+                }
                 CommitSource::Unassigned(UnassignedCommitSource { id }) => {
                     builder.push_changes_from_unassigned(id)?;
                 }
                 CommitSource::Uncommitted(uncommitted) => {
-                    for id in uncommitted {
-                        builder.push_changes_from_uncommitted(id)?;
-                    }
+                    builder.push_changes_from_uncommitted(uncommitted)?;
                 }
                 CommitSource::Stack(StackCommitSource { stack_id }) => {
                     builder.push_changes_from_stack(*stack_id)?;

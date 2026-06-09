@@ -101,22 +101,21 @@ fn uncommitted_file_line(path: &str, id: &str) -> StatusOutputLine {
 }
 
 fn uncommitted_source(cli_ids: &[Arc<CliId>]) -> CommitSource {
-    let uncommitted = cli_ids
-        .iter()
-        .map(|cli_id| match &**cli_id {
-            CliId::Uncommitted(uncommitted) => uncommitted.clone(),
+    let mut cli_ids = cli_ids.iter();
+    let first = cli_ids.next().expect("test source should not be empty");
+    if cli_ids.len() == 0 {
+        match &**first {
+            CliId::Uncommitted(uncommitted) => CommitSource::Uncommitted(uncommitted.clone()),
             CliId::Unassigned { .. }
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Branch { .. }
             | CliId::Stack { .. }
             | CliId::Commit { .. } => panic!("test cli ID should be uncommitted"),
-        })
-        .collect::<Vec<_>>();
-
-    CommitSource::Uncommitted(
-        NonEmpty::from_vec(uncommitted).expect("test source should not be empty"),
-    )
+        }
+    } else {
+        CommitSource::Marks(marks(std::iter::once(first).chain(cli_ids).map(markable)))
+    }
 }
 
 fn marks(markables: impl IntoIterator<Item = Markable>) -> Marks {

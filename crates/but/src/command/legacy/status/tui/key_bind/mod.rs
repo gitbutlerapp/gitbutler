@@ -476,7 +476,7 @@ impl KeyBindsBuilder<'_> {
     fn mark(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("mark", press().code(KeyCode::Char(' ')), Message::Mark)
             .show_only_in_normal_mode_help_section()
-            .long_description("Mark and rub multiple commits")
+            .long_description("Mark and rub multiple items")
     }
 
     fn quit(&mut self) -> KeyBindsInModesBuilder<'_> {

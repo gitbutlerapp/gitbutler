@@ -607,6 +607,25 @@ fn cannot_select_committed_files_from_global_listing_with_commits_marked() {
 }
 
 #[test]
+fn escape_from_commit_mode_preserves_marks() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.env().file("one", "content");
+    tui.env().file("two", "content");
+
+    tui.input_then_render('j');
+    tui.input_then_render(' ').assert_rendered_contains("✔︎");
+
+    tui.input_then_render('c').assert_rendered_contains("✔︎");
+
+    tui.input_then_render(KeyCode::Esc)
+        .assert_rendered_contains("✔︎");
+}
+
+#[test]
 fn mark_and_commit_multiple_uncommitted_files() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
