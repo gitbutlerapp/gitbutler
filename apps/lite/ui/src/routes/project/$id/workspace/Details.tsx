@@ -521,7 +521,7 @@ const FullscreenToggle: FC<{
 				className={className}
 				onClick={() => onFullscreenChange(!fullscreen)}
 			>
-				<Icon name={fullscreen ? "fullscreen-exit" : "fullscreen-enter"} />
+				<Icon name={fullscreen ? "unfold-less-horizontal" : "unfold-more-horizontal"} />
 			</Tooltip.Trigger>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>

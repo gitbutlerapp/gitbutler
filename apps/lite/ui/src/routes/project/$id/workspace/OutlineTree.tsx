@@ -2074,9 +2074,9 @@ const BranchRow: FC<
 									{pushStackMutation.isPending ? (
 										<Icon name="spinner" />
 									) : pushesMultipleBranches ? (
-										<Icon name="push-all" />
+										<Icon name="arrow-double-line-up" />
 									) : (
-										<Icon name="push" />
+										<Icon name="arrow-line-up" />
 									)}
 								</Tooltip.Trigger>
 								<Tooltip.Portal>
