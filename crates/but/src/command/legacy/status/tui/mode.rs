@@ -112,7 +112,7 @@ pub(super) struct RubMode {
     pub(super) _unlock_details: Option<MessageOnDrop>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(super) enum RubSource {
     Marks(Marks),
     CliId(Arc<CliId>),

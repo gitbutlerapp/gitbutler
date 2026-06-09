@@ -297,10 +297,35 @@ fn discard_multiple_commits() {
     tui.input_then_render(' ');
 
     tui.input_then_render('x')
-        .assert_rendered_contains("Discard 2 commits?");
+        .assert_rendered_contains("Discard?");
 
     tui.input_then_render('y');
 
     tui.input_then_render(None)
         .assert_rendered_term_svg_eq(file!["snapshots/discard_multiple_commits_final.svg"]);
+}
+
+#[test]
+fn mark_and_discard_uncommitted_files() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    env.file("one", "");
+    env.file("two", "");
+    env.file("three", "");
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('j');
+    tui.input_then_render(' ');
+    tui.input_then_render('j');
+    tui.input_then_render(' ');
+
+    tui.input_then_render('x');
+    tui.input_then_render('y');
+
+    tui.input_then_render(None)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/mark_and_discard_uncommitted_files_final.svg"
+        ]);
 }

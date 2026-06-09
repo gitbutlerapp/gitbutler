@@ -45,6 +45,33 @@ fn marking_branch_toggles_all_commits_in_that_branch() {
 }
 
 #[test]
+fn marking_unassigned_toggles_all_unassigned_files() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.file("a.txt", "content");
+    env.file("b.txt", "content");
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render(None)
+        .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
+
+    tui.input_then_render(' ')
+        .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊✔︎  [..] A a.txt"]);
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊✔︎  [..] A b.txt"]);
+
+    tui.input_then_render('g');
+    tui.input_then_render(' ');
+
+    tui.input_then_render(KeyCode::Down)
+        .assert_current_line_eq(str!["┊   [..] A a.txt"]);
+}
+
+#[test]
 fn multi_squash_marked_commits_into_selected_marked_target() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
     env.setup_metadata(&["A", "B"]).unwrap();
