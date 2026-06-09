@@ -1,7 +1,9 @@
 use anyhow::Context;
 use bstr::{BString, ByteSlice};
 use but_api::{diff::ComputeLineStats, json::HexHash};
-use but_core::{DiffSpec, DryRun, RefMetadata, diff::CommitDetails, ref_metadata::StackId};
+use but_core::{
+    DiffSpec, DryRun, RefMetadata, diff::CommitDetails, ref_metadata::StackId, sync::RepoExclusive,
+};
 use but_error::Code;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_transaction::{DynamicOutcome, IntermediateCommitCreateResult, Transaction};
@@ -98,34 +100,64 @@ pub fn commit(
     _out: IntermediateChannel<'_>,
     args: Platform,
 ) -> CliResult<CommitOutcome> {
+    let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    let mut meta = ctx.meta()?;
+
+    let (commit_op, reword_op) = {
+        let repo = ctx.repo.get()?;
+        // TODO(david): use but_api::legacy::workspace::head_info
+        let head_info = but_workspace::head_info(&repo, &meta, Default::default())?;
+        resolve(&repo, args, &head_info)?
+    };
+    run(ctx, &mut meta, perm, commit_op, reword_op)
+}
+
+fn resolve(
+    repo: &gix::Repository,
+    args: Platform,
+    head_info: &RefInfo,
+) -> CliResult<(CommitOperation, RewordCommitOperation)> {
     let Platform {
         no_message,
         message,
         branch,
     } = args;
 
-    let mut guard = ctx.exclusive_worktree_access();
-    let perm = guard.write_permission();
+    let commit_op = route_commit_operation(repo, head_info, branch)?;
 
-    let mut meta = ctx.meta()?;
-    let (changes, operation) = {
+    let reword_op = match (no_message, message) {
+        (true, None) => RewordCommitOperation::NoMessage,
+        (false, None) => RewordCommitOperation::UseEditor,
+        (false, Some(message)) => RewordCommitOperation::Message(message),
+        (true, Some(_)) => {
+            unreachable!("--no-message and --message are mutually exclusive")
+        }
+    };
+
+    Ok((commit_op, reword_op))
+}
+
+fn run(
+    ctx: &mut but_ctx::Context,
+    meta: &mut impl RefMetadata,
+    perm: &mut RepoExclusive,
+    commit_op: CommitOperation,
+    reword_op: RewordCommitOperation,
+) -> CliResult<CommitOutcome> {
+    let changes = {
         let context_lines = ctx.settings.context_lines;
         let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-        let head_info = but_workspace::head_info(&repo, &meta, Default::default())?;
-
-        let operation = route_operation(&repo, &head_info, branch)?;
 
         let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
         builder.push_changes_from_unassigned(&UNASSIGNED.to_string())?;
-        let changes = builder.into_diff_specs();
-
-        (changes, operation)
+        builder.into_diff_specs()
     };
 
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
     let result = but_transaction::with_transaction_with_perm(
         ctx,
-        &mut meta,
+        meta,
         perm,
         snapshot_details,
         DryRun::No,
@@ -136,39 +168,14 @@ pub fn commit(
                     rejected_specs,
                 },
                 branch_name,
-            ) = operation.execute(&mut tx, changes)?;
+            ) = commit_op.execute(&mut tx, changes)?;
 
             anyhow::ensure!(rejected_specs.is_empty(), "Couldn't commit all changes");
 
             let new_commit =
                 new_commit.context("BUG: rejected_specs is empty yet nothing was committed")?;
 
-            let message = match (no_message, message) {
-                (true, None) => String::new(),
-                (false, None) => {
-                    let repo = tx.repo();
-                    let commit_details = CommitDetails::from_commit_id(
-                        new_commit.attach(repo),
-                        ComputeLineStats::No.into(),
-                    )?;
-
-                    get_commit_message_from_editor(
-                        tx.repo(),
-                        tx.context_lines(),
-                        commit_details,
-                        String::new(),
-                        "",
-                        ShowDiffInEditor::Unspecified,
-                    )?
-                    .unwrap_or_default()
-                }
-                (false, Some(message)) => message,
-                (true, Some(_)) => {
-                    unreachable!("--no-message and --message are mutually exclusive")
-                }
-            };
-
-            let reworded_commit = tx.reword_commit(new_commit, BString::from(message).as_ref())?;
+            let reworded_commit = reword_op.execute(new_commit, &mut tx)?;
 
             Ok(DynamicOutcome::<_, std::convert::Infallible>::Commit((
                 reworded_commit,
@@ -198,7 +205,7 @@ pub fn commit(
     })
 }
 
-fn route_operation(
+fn route_commit_operation(
     repo: &gix::Repository,
     head_info: &RefInfo,
     branch: Option<BranchArg>,
@@ -323,5 +330,47 @@ impl CommitToNewBranchOperation {
         )?;
 
         Ok((commit_create_result, BranchNameTarget::New(branch_name)))
+    }
+}
+
+enum RewordCommitOperation {
+    NoMessage,
+    Message(String),
+    UseEditor,
+}
+
+impl RewordCommitOperation {
+    fn execute(
+        self,
+        new_commit: gix::ObjectId,
+        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+    ) -> anyhow::Result<gix::ObjectId> {
+        let message = match self {
+            RewordCommitOperation::NoMessage => String::new(),
+            RewordCommitOperation::Message(message) => message,
+            RewordCommitOperation::UseEditor => {
+                let repo = tx.repo();
+                let commit_details = CommitDetails::from_commit_id(
+                    new_commit.attach(repo),
+                    ComputeLineStats::No.into(),
+                )?;
+
+                let editor_initial_message = String::new();
+                let current_message_for_comparison = "";
+                get_commit_message_from_editor(
+                    tx.repo(),
+                    tx.context_lines(),
+                    commit_details,
+                    editor_initial_message,
+                    current_message_for_comparison,
+                    ShowDiffInEditor::Unspecified,
+                )?
+                .unwrap_or_default()
+            }
+        };
+
+        let reworded_commit = tx.reword_commit(new_commit, BString::from(message).as_ref())?;
+
+        Ok(reworded_commit)
     }
 }
