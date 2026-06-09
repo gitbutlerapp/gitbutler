@@ -811,22 +811,13 @@ const Diff: FC<{
 	changes: Array<TreeChange>;
 	filesVisible: boolean;
 	filesItems: Array<FileTreeItem>;
-	onFileSelection: (selection: FileOperand, firstHunk?: HunkOperand) => void;
-	onViewerFileSelection: (selection: FileOperand) => void;
+	onFileSelection: (selection: FileOperand) => void;
 	outlineSelection: Operand;
 	projectId: string;
-	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
-}> = ({
-	changes,
-	filesVisible,
-	filesItems,
-	onFileSelection,
-	onViewerFileSelection,
-	outlineSelection,
-	projectId,
-	viewerRef,
-}) => {
+}> = ({ changes, filesVisible, filesItems, onFileSelection, outlineSelection, projectId }) => {
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
+	const viewerRef = useRef<CodeViewHandle<undefined>>(null);
+	const dispatch = useAppDispatch();
 	const files = filesItems.map((item) => item.operand);
 
 	const navigationIndex = buildNavigationIndex(files, fileOperandIdentityKey);
@@ -852,8 +843,23 @@ const Diff: FC<{
 		changesetKey,
 	});
 
-	const selectFileAndFirstHunk = (selection: FileOperand) => {
-		onFileSelection(selection, initialFileHunks.get(fileOperandIdentityKey(selection)));
+	const selectFileAndNavigateDiff = (selection: FileOperand) => {
+		onFileSelection(selection);
+
+		dispatch(
+			projectActions.selectDiff({
+				projectId,
+				selection: initialFileHunks.get(fileOperandIdentityKey(selection)) ?? null,
+			}),
+		);
+
+		const scrollTargetId = getScrollTargetId({
+			changesetKey: getChangesetKey(outlineSelection),
+			selection,
+		});
+		if (scrollTargetId === null) return;
+
+		viewerRef.current?.scrollTo({ type: "item", id: scrollTargetId });
 	};
 
 	return (
@@ -864,7 +870,7 @@ const Diff: FC<{
 					data-selection-scope
 					tabIndex={0}
 					className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
-					onFileSelection={selectFileAndFirstHunk}
+					onFileSelection={selectFileAndNavigateDiff}
 					projectId={projectId}
 					items={filesItems}
 					navigationIndex={navigationIndex}
@@ -880,7 +886,7 @@ const Diff: FC<{
 				ref={selectionScopeRef}
 			>
 				<DiffContents
-					onViewerFileSelection={onViewerFileSelection}
+					onViewerFileSelection={onFileSelection}
 					fileParent={fileParent}
 					changesetKey={changesetKey}
 					projectId={projectId}
@@ -907,32 +913,11 @@ export const Details: FC<
 }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
-	const viewerRef = useRef<CodeViewHandle<undefined>>(null);
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
 	const outlineSelection = useDeferredValue(urgentOutlineSelection);
 
 	const selectFile = (selection: FileOperand) => {
 		dispatch(projectActions.selectFiles({ projectId, selection }));
-	};
-
-	const selectFileAndNavigateDiff = (selection: FileOperand, firstHunk?: HunkOperand) => {
-		if (!outlineSelection) return;
-
-		selectFile(selection);
-		dispatch(
-			projectActions.selectDiff({
-				projectId,
-				selection: firstHunk ?? null,
-			}),
-		);
-
-		const scrollTargetId = getScrollTargetId({
-			changesetKey: getChangesetKey(outlineSelection),
-			selection,
-		});
-		if (scrollTargetId === null) return;
-
-		viewerRef.current?.scrollTo({ type: "item", id: scrollTargetId });
 	};
 
 	if (!outlineSelection || outlineSelection._tag === "Stack") return;
@@ -978,11 +963,9 @@ export const Details: FC<
 							changes={changes}
 							filesVisible={filesVisible}
 							filesItems={filesItems}
-							onFileSelection={selectFileAndNavigateDiff}
-							onViewerFileSelection={selectFile}
+							onFileSelection={selectFile}
 							outlineSelection={outlineSelection}
 							projectId={projectId}
-							viewerRef={viewerRef}
 						/>
 					);
 					return Match.value(outlineSelection).pipe(
