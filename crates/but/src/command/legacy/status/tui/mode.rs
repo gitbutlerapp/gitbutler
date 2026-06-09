@@ -3,6 +3,7 @@ use std::sync::Arc;
 use bstr::BString;
 use but_core::{HunkHeader, ref_metadata::StackId};
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
+use gix::refs::FullName;
 use ratatui::style::Color;
 use ratatui_textarea::TextArea;
 
@@ -24,6 +25,7 @@ pub(super) enum Mode {
     Commit(CommitMode),
     Move(MoveMode),
     Details(DetailsMode),
+    Stack(StackMode),
 }
 
 impl Default for Mode {
@@ -55,7 +57,11 @@ impl Mode {
                 | CommitSource::Uncommitted(..)
                 | CommitSource::Stack(..) => None,
             },
-            Mode::InlineReword(..) | Mode::Command(..) | Mode::Move(..) | Mode::Details(..) => None,
+            Mode::InlineReword(..)
+            | Mode::Command(..)
+            | Mode::Move(..)
+            | Mode::Details(..)
+            | Mode::Stack(..) => None,
         }
     }
 }
@@ -66,7 +72,9 @@ impl ModeDiscriminant {
             Self::Normal => theme.tui_mode_normal.bg.unwrap_or(Color::DarkGray),
             Self::Commit => theme.tui_mode_commit.bg.unwrap_or(Color::Green),
             Self::Rub => theme.tui_mode_rub.bg.unwrap_or(Color::Blue),
-            Self::InlineReword => theme.tui_mode_inline_reword.bg.unwrap_or(Color::Magenta),
+            Self::InlineReword | Self::Stack => {
+                theme.tui_mode_inline_reword.bg.unwrap_or(Color::Magenta)
+            }
             Self::Command => theme.tui_mode_command.bg.unwrap_or(Color::Yellow),
             Self::Move => theme.tui_mode_move.bg.unwrap_or(Color::Cyan),
             Self::Details => theme
@@ -81,7 +89,9 @@ impl ModeDiscriminant {
             Self::Normal => theme.tui_mode_normal.fg.unwrap_or(Color::White),
             Self::Commit => theme.tui_mode_commit.fg.unwrap_or(Color::Black),
             Self::Rub => theme.tui_mode_rub.fg.unwrap_or(Color::Black),
-            Self::InlineReword => theme.tui_mode_inline_reword.fg.unwrap_or(Color::Black),
+            Self::InlineReword | Self::Stack => {
+                theme.tui_mode_inline_reword.fg.unwrap_or(Color::Black)
+            }
             Self::Command => theme.tui_mode_command.fg.unwrap_or(Color::Black),
             Self::Move => theme.tui_mode_move.fg.unwrap_or(Color::Black),
             Self::Details => theme.tui_mode_details.fg.unwrap_or(Color::Black),
@@ -90,13 +100,14 @@ impl ModeDiscriminant {
 
     pub(super) fn hotbar_string(self) -> &'static str {
         match self {
-            ModeDiscriminant::Normal => "normal",
-            ModeDiscriminant::Rub => "rub",
-            ModeDiscriminant::InlineReword => "reword",
-            ModeDiscriminant::Command => "command",
-            ModeDiscriminant::Commit => "commit",
-            ModeDiscriminant::Move => "move",
-            ModeDiscriminant::Details => "details",
+            Self::Normal => "normal",
+            Self::Rub => "rub",
+            Self::InlineReword => "reword",
+            Self::Command => "command",
+            Self::Commit => "commit",
+            Self::Move => "move",
+            Self::Details => "details",
+            Self::Stack => "stack",
         }
     }
 }
@@ -357,4 +368,9 @@ impl PartialEq<CliId> for MoveSource {
 #[derive(Debug)]
 pub(super) struct DetailsMode {
     pub(super) full_screen: bool,
+}
+
+#[derive(Debug)]
+pub(super) struct StackMode {
+    pub(super) stack_heads: Vec<FullName>,
 }

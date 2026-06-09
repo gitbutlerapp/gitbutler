@@ -57,7 +57,8 @@ use crate::{
                 mode::{
                     CommandMode, CommandModeKind, CommitMessageComposer, CommitMode, CommitSource,
                     DetailsMode, InlineRewordMode, Mode, ModeDiscriminant, MoveMode, MoveSource,
-                    NormalMode, RubMode, RubSource, StackCommitSource, UnassignedCommitSource,
+                    NormalMode, RubMode, RubSource, StackCommitSource, StackMode,
+                    UnassignedCommitSource,
                 },
                 operations::stack_has_assigned_changes,
                 toast::{ToastKind, Toasts},
@@ -853,6 +854,10 @@ impl App {
             Message::Redo => {
                 self.handle_redo(ctx)?;
             }
+            Message::Stack(stack_message) => match stack_message {
+                StackMessage::Enter => self.handle_stack_enter(ctx)?,
+                StackMessage::Unapply => self.handle_stack_unapply(),
+            },
         }
 
         ensure_cursor_visible(self, visible_height);
@@ -900,7 +905,11 @@ impl App {
         let mut entries_to_handle = Vec::new();
         self.mode.update(&mut self.backstack, |backstack, mode| {
             backstack.retain(|entry| match entry {
-                BackstackEntry::ShowFileList => true,
+                BackstackEntry::ShowFileList => {
+                    // this keeps the global file list open after performing operations such as
+                    // committing or rubbing
+                    true
+                }
                 BackstackEntry::LeaveNormalMode | BackstackEntry::Mark => {
                     entries_to_handle.push(entry);
                     false
@@ -974,6 +983,7 @@ impl App {
                 | Mode::Command(..)
                 | Mode::Commit(..)
                 | Mode::Move(..)
+                | Mode::Stack(..)
                 | Mode::Details(..) => {}
             },
             BackstackEntry::OpenSplitDetailsView | BackstackEntry::OpenFullScreenDetailsView => {
@@ -1057,6 +1067,7 @@ impl App {
             | Mode::InlineReword(..)
             | Mode::Command(..)
             | Mode::Commit(..)
+            | Mode::Stack(..)
             | Mode::Move(..) => {}
         }
     }
@@ -3110,6 +3121,101 @@ impl App {
         self.restore_to_target_snapshot(UndoOrRedo::Redo, ctx)
     }
 
+    fn selected_stack_id(&self) -> Option<StackId> {
+        let selected_line = self.cursor.selected_line(&self.status_lines)?;
+        stack_id_for_line(selected_line, &self.status_lines)
+    }
+
+    fn selected_line_uses_top_stack_for_stack_mode(&self) -> bool {
+        self.cursor
+            .selected_line(&self.status_lines)
+            .is_some_and(line_uses_top_stack_for_stack_mode)
+    }
+
+    fn handle_stack_enter(&mut self, ctx: &Context) -> anyhow::Result<()> {
+        match self.flags.show_files {
+            FilesStatusFlag::Commit(..) => return Ok(()),
+            FilesStatusFlag::None | FilesStatusFlag::All => {}
+        }
+
+        let head_info = but_api::legacy::workspace::head_info(ctx)?;
+
+        let stack_heads = head_info
+            .stacks
+            .iter()
+            .filter_map(|stack| stack.ref_name().cloned())
+            .collect::<Vec<_>>();
+        let Some(top_stack_head) = stack_heads.first().cloned() else {
+            return Ok(());
+        };
+
+        let selected_stack_head = if self.selected_line_uses_top_stack_for_stack_mode() {
+            Some(top_stack_head)
+        } else {
+            self.selected_stack_id().and_then(|selected_stack_id| {
+                head_info
+                    .stacks
+                    .iter()
+                    .find(|stack| stack.id == Some(selected_stack_id))
+                    .and_then(|stack| stack.ref_name().cloned())
+            })
+        };
+
+        self.mode
+            .update_and_push_leave_normal_mode(&mut self.backstack, |mode| {
+                *mode = Mode::Stack(StackMode { stack_heads });
+            });
+
+        if let Some(selected_stack_head) = selected_stack_head {
+            let branch_name = selected_stack_head.shorten().to_str_lossy();
+            if let Some(cursor) = Cursor::select_branch(&branch_name, &self.status_lines) {
+                self.cursor = cursor;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn handle_stack_unapply(&mut self) {
+        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+            return;
+        };
+        let Some(selection) = selection.data.cli_id() else {
+            return;
+        };
+
+        let (stack_id, name) = match &**selection {
+            CliId::Branch {
+                stack_id: Some(stack_id),
+                name,
+                ..
+            } => (*stack_id, name),
+            CliId::Branch { .. }
+            | CliId::Uncommitted(..)
+            | CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Commit { .. }
+            | CliId::Unassigned { .. }
+            | CliId::Stack { .. } => return,
+        };
+
+        self.modal = Some(Modal::Confirm {
+            confirm: Confirm::new(
+                NonEmpty::new(format!("Unapply '{name}'?").into()),
+                self.theme,
+                move |ctx, messages| {
+                    but_api::legacy::virtual_branches::unapply_stack(ctx, stack_id)?;
+                    messages.extend([
+                        Message::EnterNormalModeAfterConfirmingOperation,
+                        Message::Reload(None, ReloadCause::Mutation),
+                    ]);
+                    Ok(())
+                },
+            ),
+            key_binds: confirm_key_binds(),
+        });
+    }
+
     fn restore_to_target_snapshot(
         &mut self,
         kind: UndoOrRedo,
@@ -3220,6 +3326,7 @@ fn event_to_messages(
                         | Mode::Details(..)
                         | Mode::Rub(..)
                         | Mode::Commit(..)
+                        | Mode::Stack(..)
                         | Mode::Move(..) => {}
                     }
                 }
@@ -3239,6 +3346,7 @@ fn event_to_messages(
             | Mode::Details(..)
             | Mode::Rub(..)
             | Mode::Commit(..)
+            | Mode::Stack(..)
             | Mode::Move(..) => {
                 messages.push(Message::JustRender);
             }
@@ -3311,6 +3419,7 @@ fn handle_mark_commit(commit: &CliId, mode: &mut Mode) -> bool {
         | Mode::Command(..)
         | Mode::Commit(..)
         | Mode::Move(..)
+        | Mode::Stack(..)
         | Mode::Details(..) => {
             return false;
         }
@@ -3341,6 +3450,99 @@ fn handle_mark_branch(
     toggle_markables(marks, commits);
 
     Ok(())
+}
+
+fn line_uses_top_stack_for_stack_mode(line: &StatusOutputLine) -> bool {
+    match &line.data {
+        StatusOutputLineData::UnassignedChanges { .. } => true,
+        StatusOutputLineData::UnassignedFile { cli_id }
+        | StatusOutputLineData::StagedFile { cli_id }
+        | StatusOutputLineData::File { cli_id } => {
+            matches!(&**cli_id, CliId::Uncommitted(..) | CliId::PathPrefix { .. })
+        }
+        StatusOutputLineData::UpdateNotice
+        | StatusOutputLineData::Connector
+        | StatusOutputLineData::StagedChanges { .. }
+        | StatusOutputLineData::Branch { .. }
+        | StatusOutputLineData::Commit { .. }
+        | StatusOutputLineData::CommitMessage
+        | StatusOutputLineData::EmptyCommitMessage
+        | StatusOutputLineData::MergeBase
+        | StatusOutputLineData::UpstreamChanges
+        | StatusOutputLineData::Warning
+        | StatusOutputLineData::Hint
+        | StatusOutputLineData::NoAssignmentsUnstaged => false,
+    }
+}
+
+fn stack_id_for_line(
+    line: &StatusOutputLine,
+    status_lines: &[StatusOutputLine],
+) -> Option<StackId> {
+    match &line.data {
+        StatusOutputLineData::Branch { cli_id }
+        | StatusOutputLineData::StagedChanges { cli_id }
+        | StatusOutputLineData::StagedFile { cli_id }
+        | StatusOutputLineData::UnassignedFile { cli_id }
+        | StatusOutputLineData::File { cli_id } => stack_id_for_cli_id(cli_id, status_lines),
+        StatusOutputLineData::Commit { stack_id, .. } => *stack_id,
+        StatusOutputLineData::UpdateNotice
+        | StatusOutputLineData::Connector
+        | StatusOutputLineData::UnassignedChanges { .. }
+        | StatusOutputLineData::CommitMessage
+        | StatusOutputLineData::EmptyCommitMessage
+        | StatusOutputLineData::MergeBase
+        | StatusOutputLineData::UpstreamChanges
+        | StatusOutputLineData::Warning
+        | StatusOutputLineData::Hint
+        | StatusOutputLineData::NoAssignmentsUnstaged => None,
+    }
+}
+
+fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Option<StackId> {
+    match cli_id {
+        CliId::Uncommitted(uncommitted) => uncommitted.hunk_assignments.first().stack_id,
+        CliId::PathPrefix {
+            hunk_assignments, ..
+        } => hunk_assignments.first().1.stack_id,
+        CliId::CommittedFile { commit_id, .. } | CliId::Commit { commit_id, .. } => {
+            status_lines.iter().find_map(|line| match &line.data {
+                StatusOutputLineData::Commit {
+                    cli_id, stack_id, ..
+                } => match &**cli_id {
+                    CliId::Commit {
+                        commit_id: line_commit_id,
+                        ..
+                    } if line_commit_id == commit_id => *stack_id,
+                    CliId::Uncommitted(..)
+                    | CliId::PathPrefix { .. }
+                    | CliId::CommittedFile { .. }
+                    | CliId::Branch { .. }
+                    | CliId::Commit { .. }
+                    | CliId::Unassigned { .. }
+                    | CliId::Stack { .. } => None,
+                },
+                StatusOutputLineData::UpdateNotice
+                | StatusOutputLineData::Connector
+                | StatusOutputLineData::StagedChanges { .. }
+                | StatusOutputLineData::StagedFile { .. }
+                | StatusOutputLineData::UnassignedChanges { .. }
+                | StatusOutputLineData::UnassignedFile { .. }
+                | StatusOutputLineData::Branch { .. }
+                | StatusOutputLineData::CommitMessage
+                | StatusOutputLineData::EmptyCommitMessage
+                | StatusOutputLineData::File { .. }
+                | StatusOutputLineData::MergeBase
+                | StatusOutputLineData::UpstreamChanges
+                | StatusOutputLineData::Warning
+                | StatusOutputLineData::Hint
+                | StatusOutputLineData::NoAssignmentsUnstaged => None,
+            })
+        }
+        CliId::Branch { stack_id, .. } => *stack_id,
+        CliId::Stack { stack_id, .. } => Some(*stack_id),
+        CliId::Unassigned { .. } => None,
+    }
 }
 
 fn handle_mark_unassigned(marks: &mut Marks, status_lines: &[StatusOutputLine]) {
@@ -3458,6 +3660,7 @@ enum Message {
     Command(CommandMessage),
     Files(FilesMessage),
     Move(MoveMessage),
+    Stack(StackMessage),
     Details(DetailsMessage),
     DetailsLayout(DetailsLayoutMessage),
     BranchPicker(BranchPickerMessage),
@@ -3571,6 +3774,12 @@ enum CommitMessage {
 enum MoveMessage {
     Start,
     Confirm,
+}
+
+#[derive(Debug, Clone)]
+enum StackMessage {
+    Enter,
+    Unapply,
 }
 
 #[derive(Debug, Clone)]

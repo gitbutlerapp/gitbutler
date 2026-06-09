@@ -11,7 +11,7 @@ use crate::{
         tui::{
             CommitSource, Mode, MoveSource, RubSource, SelectAfterReload,
             marking::{MarkClasses, Markable, Marks},
-            render::{commit_operation_display, move_operation_display},
+            render::{commit_operation_display, move_operation_display, stack_operation_display},
         },
     },
 };
@@ -652,6 +652,7 @@ fn is_section_header(line: &StatusOutputLine, mode: &Mode) -> bool {
         | Mode::Command(..)
         | Mode::Commit(..)
         | Mode::Move(..)
+        | Mode::Stack(..)
         | Mode::Details(..) => {
             matches!(
                 line.data,
@@ -802,7 +803,11 @@ pub(super) fn is_selectable_in_mode(
                 return true;
             }
         }
-        Mode::Command(..) | Mode::InlineReword(..) | Mode::Normal(..) | Mode::Details(..) => {}
+        Mode::Command(..)
+        | Mode::InlineReword(..)
+        | Mode::Normal(..)
+        | Mode::Details(..)
+        | Mode::Stack(..) => {}
     }
 
     // don't allow mixing marks
@@ -861,6 +866,7 @@ pub(super) fn is_selectable_in_mode(
             .is_some_and(|cli_id| rub_mode.available_targets.contains(cli_id)),
         Mode::Commit(commit_mode) => commit_operation_display(&line.data, commit_mode).is_some(),
         Mode::Move(move_mode) => move_operation_display(&line.data, move_mode).is_some(),
+        Mode::Stack(stack_mode) => stack_operation_display(&line.data, stack_mode).is_some(),
         Mode::InlineReword(..) | Mode::Command(..) => {
             // you can't actually move the selection in these modes
             // but returning `false` would dim every line which hurts UX

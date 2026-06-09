@@ -44,7 +44,7 @@ use crate::{
     theme::Theme,
 };
 
-use super::{HelpMessage, RubSource};
+use super::{HelpMessage, RubSource, StackMessage};
 
 mod details_cursor;
 
@@ -235,6 +235,13 @@ impl Details {
             },
             Message::Help(help_message) => match help_message {
                 HelpMessage::Close | HelpMessage::ScrollUp(_) | HelpMessage::ScrollDown(_) => false,
+            },
+            Message::Stack(stack_message) => match stack_message {
+                StackMessage::Enter => {
+                    // entering stack mode might move the cursor which will require an update
+                    true
+                }
+                StackMessage::Unapply => true,
             },
 
             Message::AndThen { .. } => true,
