@@ -177,17 +177,12 @@ fn seed_fixture(repo: &gix::Repository, script_name: &str, repo_name: &str) -> R
         ("workspace-commit.sh", "diverged-stacks") => vec![
             StackSpec {
                 id: 1,
-                branches_base_to_top: &["stack_a"],
+                branches_base_to_top: &["stack_c"],
                 in_workspace: true,
             },
             StackSpec {
                 id: 2,
-                branches_base_to_top: &["stack_b"],
-                in_workspace: true,
-            },
-            StackSpec {
-                id: 3,
-                branches_base_to_top: &["stack_c"],
+                branches_base_to_top: &["stack_d"],
                 in_workspace: true,
             },
         ],

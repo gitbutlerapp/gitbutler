@@ -52,36 +52,54 @@ pub fn remerged_workspace_tree_v2(
     let target_base_oid = ctx.persisted_default_target()?.sha;
     let mut stacks: Vec<Stack> = vb_state.list_stacks_in_workspace()?;
 
-    let target_commit = repo.find_commit(target_base_oid)?;
-    let mut workspace_tree_id = repo
-        .find_real_tree(&target_commit, Default::default())?
-        .detach();
-
-    let (merge_options_fail_fast, conflict_kind) = repo.merge_options_fail_fast()?;
-    let merge_tree_id = target_commit.tree_id()?.detach();
-    for stack in stacks.iter_mut() {
-        let stack_head = repo.find_commit(stack.head_oid(ctx)?)?;
-        let branch_tree_id = repo
-            .find_real_tree(&stack_head, Default::default())?
+    let heads = stacks
+        .iter()
+        .map(|s| s.head_oid(ctx))
+        .collect::<Result<Vec<_>>>()?;
+    let workspace_tree_id = if heads.is_empty() {
+        repo.find_real_tree(&repo.find_commit(target_base_oid)?, Default::default())?
+            .detach()
+    } else if heads.len() == 1 {
+        let commit = repo.find_commit(*heads.first().expect("Heads is length 1"))?;
+        let first_head = repo.find_real_tree(&commit, Default::default())?;
+        first_head.detach()
+    } else {
+        let base_tree_id = repo
+            .find_real_tree(
+                &repo.find_commit(repo.merge_base_octopus(heads)?)?,
+                Default::default(),
+            )?
             .detach();
+        let mut workspace_tree_id = base_tree_id;
 
-        let mut merge = repo.merge_trees(
-            merge_tree_id,
-            workspace_tree_id,
-            branch_tree_id,
-            repo.default_merge_labels(),
-            merge_options_fail_fast.clone(),
-        )?;
+        let (merge_options_fail_fast, conflict_kind) = repo.merge_options_fail_fast()?;
+        for stack in stacks.iter_mut() {
+            let stack_head = repo.find_commit(stack.head_oid(ctx)?)?;
+            let branch_tree_id = repo
+                .find_real_tree(&stack_head, Default::default())?
+                .detach();
 
-        if !merge.has_unresolved_conflicts(conflict_kind) {
-            workspace_tree_id = merge.tree.write()?.detach();
-        } else {
-            // This branch should have already been unapplied during the "update" command but for some reason that failed
-            tracing::warn!("Merge conflict between base and {:?}", stack.name());
-            stack.in_workspace = false;
-            vb_state.set_stack(stack.clone())?;
+            let mut merge = repo.merge_trees(
+                base_tree_id,
+                workspace_tree_id,
+                branch_tree_id,
+                repo.default_merge_labels(),
+                merge_options_fail_fast.clone(),
+            )?;
+
+            if !merge.has_unresolved_conflicts(conflict_kind) {
+                workspace_tree_id = merge.tree.write()?.detach();
+            } else {
+                // This branch should have already been unapplied during the "update" command but for some reason that failed
+                tracing::warn!("Merge conflict between base and {:?}", stack.name());
+                stack.in_workspace = false;
+                vb_state.set_stack(stack.clone())?;
+            }
         }
-    }
+
+        workspace_tree_id
+    };
+
     Ok((workspace_tree_id, stacks, target_base_oid))
 }
 
