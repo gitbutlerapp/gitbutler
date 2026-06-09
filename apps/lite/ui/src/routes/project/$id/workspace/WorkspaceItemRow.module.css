@@ -28,12 +28,12 @@
 }
 
 .itemRowSelected {
-	background-color: color-mix(var(--fill-gray-bg) 60%, transparent);
-	color: var(--fill-gray-fg);
+	background-color: color-mix(var(--fill-gray-bg) 13%, transparent);
 
 	&:has(:where(textarea, input):focus),
 	:where([data-selection-scope]:focus) & {
 		background-color: var(--fill-gray-bg);
+		color: var(--fill-gray-fg);
 	}
 }
 
