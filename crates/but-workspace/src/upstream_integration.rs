@@ -292,10 +292,27 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
         for selector in &fully_integrated_workspace_parents {
             editor.remove_edges(workspace_commit_selector, *selector)?;
         }
-        if !fully_integrated_workspace_parents.is_empty()
-            && editor.direct_parents(workspace_commit_selector)?.is_empty()
-        {
-            editor.add_edge(workspace_commit_selector, target_ref_selector, 0)?;
+        let direct_parents = editor.direct_parents(workspace_commit_selector)?;
+        match direct_parents.as_slice() {
+            [(parent_selector, parent_order)]
+                if fully_integrated_workspace_parents.is_empty()
+                    && selector_commit_id(&editor, *parent_selector)? == Some(target_sha)
+                    && target_sha != target_ref_commit.detach() =>
+            {
+                // Only parent is the old target sha, and that's not the latest tip of the target ref.
+                // We need to reparent it onto the latest target ref.
+                editor.remove_edges(workspace_commit_selector, *parent_selector)?;
+                editor.add_edge(
+                    workspace_commit_selector,
+                    target_ref_selector,
+                    *parent_order,
+                )?;
+            }
+            [] if !fully_integrated_workspace_parents.is_empty() => {
+                // Orphaned workspace, reparent onto the target ref.
+                editor.add_edge(workspace_commit_selector, target_ref_selector, 0)?;
+            }
+            _ => {}
         }
     }
 
@@ -544,4 +561,21 @@ fn commit_ids<'ws, 'meta, M: RefMetadata>(
                 .transpose()
         })
         .collect()
+}
+
+fn selector_commit_id<M: RefMetadata>(
+    editor: &Editor<'_, '_, M>,
+    selector: Selector,
+) -> Result<Option<gix::ObjectId>> {
+    Ok(match editor.lookup_step(selector)? {
+        Step::Pick(Pick { id, .. }) => Some(id),
+        Step::Reference { refname } => Some(
+            editor
+                .repo()
+                .find_reference(refname.as_ref())?
+                .id()
+                .detach(),
+        ),
+        Step::None => None,
+    })
 }
