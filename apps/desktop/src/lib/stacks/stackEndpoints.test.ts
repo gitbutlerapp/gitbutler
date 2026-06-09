@@ -231,4 +231,47 @@ describe("buildStackEndpoints", () => {
 			invalidatesItem(ReduxTag.IntegrationSteps, "refs/heads/feature"),
 		]);
 	});
+
+	test("uses workspace_integrate_upstream for dry-run previews and execution", () => {
+		const endpoints = buildStackEndpoints(createEndpointBuilder());
+		const query = endpoints.workspaceIntegrateUpstream.query;
+		const invalidatesTags = endpoints.workspaceIntegrateUpstream.invalidatesTags;
+		const previewArgs = {
+			projectId: "project-1",
+			updates: [
+				{
+					kind: "rebase" as const,
+					selector: {
+						type: "commit" as const,
+						subject: "1111111111111111111111111111111111111111",
+					},
+				},
+			],
+			dryRun: true,
+		};
+		const executeArgs = { ...previewArgs, dryRun: false };
+
+		expect(endpoints.workspaceIntegrateUpstream.extraOptions).toEqual({
+			command: "workspace_integrate_upstream",
+			actionName: "Update Workspace",
+		});
+		expect(query).toBeDefined();
+		expect(query?.(previewArgs)).toEqual(previewArgs);
+
+		if (typeof invalidatesTags !== "function") {
+			throw new Error("Expected workspaceIntegrateUpstream.invalidatesTags to be callable");
+		}
+
+		expect(invalidatesTags(undefined, undefined, previewArgs, undefined)).toEqual([]);
+		expect(invalidatesTags(undefined, undefined, executeArgs, undefined)).toEqual([
+			invalidatesList(ReduxTag.HeadSha),
+			invalidatesList(ReduxTag.WorktreeChanges),
+			invalidatesList(ReduxTag.Stacks),
+			invalidatesList(ReduxTag.StackDetails),
+			invalidatesList(ReduxTag.BranchChanges),
+			invalidatesList(ReduxTag.BranchListing),
+			invalidatesList(ReduxTag.BaseBranchData),
+			invalidatesList(ReduxTag.UpstreamIntegrationStatus),
+		]);
+	});
 });

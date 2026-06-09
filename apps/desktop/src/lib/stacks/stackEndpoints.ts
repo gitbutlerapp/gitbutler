@@ -49,6 +49,8 @@ import type {
 	RelativeTo,
 	RefInfo,
 	StackEntryNoOpt,
+	BottomUpdate,
+	WorkspaceState,
 } from "@gitbutler/but-sdk";
 
 export type BranchParams = {
@@ -216,6 +218,30 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			},
 			transformResponse(response: RefInfo) {
 				return transformWorkspaceDetails(response);
+			},
+		}),
+		workspaceIntegrateUpstream: build.mutation<
+			WorkspaceState,
+			{ projectId: string; updates: BottomUpdate[]; dryRun: boolean }
+		>({
+			extraOptions: {
+				command: "workspace_integrate_upstream",
+				actionName: "Update Workspace",
+			},
+			query: (args) => args,
+			invalidatesTags: (_result, _error, args) => {
+				if (args.dryRun) return [];
+
+				return [
+					invalidatesList(ReduxTag.HeadSha),
+					invalidatesList(ReduxTag.WorktreeChanges),
+					invalidatesList(ReduxTag.Stacks),
+					invalidatesList(ReduxTag.StackDetails),
+					invalidatesList(ReduxTag.BranchChanges),
+					invalidatesList(ReduxTag.BranchListing),
+					invalidatesList(ReduxTag.BaseBranchData),
+					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
+				];
 			},
 		}),
 		createStack: build.mutation<StackEntryNoOpt, { projectId: string; branch: BranchParams }>({

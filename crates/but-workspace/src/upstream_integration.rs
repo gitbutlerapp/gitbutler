@@ -143,6 +143,7 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
         .commit()
         .context("Cannot update workspace without head commit")?;
     let head_commit = repo.find_commit(head_commit.id)?;
+    let head_commit_id = head_commit.id;
     let head_is_workspace_commit = is_managed_workspace_by_message(head_commit.message_raw()?);
 
     let editor_options = GraphEditorOptions {
@@ -214,6 +215,82 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
                     attrs.to_rebase = true;
                 }
             }
+        }
+    }
+
+    // Handle integrated stacks.
+    // Determine which stacks (or branches) are integrated, and remove them from the workspace
+    // if any.
+    let workspace_commit_selector = head_is_workspace_commit
+        .then(|| editor.select_commit(head_commit_id))
+        .transpose()?;
+    let mut integrated_branch_refs = HashSet::new();
+    let mut fully_integrated_workspace_parents = HashSet::new();
+    for stack in &stacks {
+        let is_selected = stack.nodes.values().any(|attrs| attrs.to_rebase) || stack.to_merge;
+        let is_fully_integrated = stack
+            .nodes
+            .values()
+            .all(|attrs| attrs.historically_integrated || attrs.content_integrated);
+        if !is_selected {
+            continue;
+        }
+
+        for ws_stack in ws_meta
+            .stacks
+            .iter()
+            .filter(|stack| stack.workspacecommit_relation.is_in_workspace())
+        {
+            for branch in &ws_stack.branches {
+                if branch.ref_name.as_ref() == target_ref.ref_name.as_ref() {
+                    continue;
+                }
+
+                let ref_selector = match branch.ref_name.to_selector(&editor) {
+                    Ok(selector) => selector,
+                    Err(_) => continue,
+                };
+                let direct_parents = editor.direct_parents(ref_selector)?;
+                if !direct_parents.is_empty()
+                    && direct_parents.iter().all(|(parent, _)| {
+                        stack.nodes.get(parent).is_some_and(|attrs| {
+                            attrs.historically_integrated || attrs.content_integrated
+                        })
+                    })
+                {
+                    integrated_branch_refs.insert(branch.ref_name.clone());
+                }
+            }
+        }
+
+        if !is_fully_integrated {
+            continue;
+        }
+
+        for head in &stack.heads {
+            let Step::Reference { refname } = editor.lookup_step(*head)? else {
+                continue;
+            };
+            if refname.as_ref() == target_ref.ref_name.as_ref() {
+                continue;
+            }
+            fully_integrated_workspace_parents.insert(*head);
+        }
+    }
+
+    // Remove integrated refs from the workspace and from git.
+    // TODO: allow to keep some references.
+    for ref_name in &integrated_branch_refs {
+        if let Ok(ref_selector) = ref_name.to_selector(&editor) {
+            editor.replace(ref_selector, Step::None)?;
+        }
+        ws_meta.remove_segment(ref_name.as_ref());
+    }
+
+    // Disconnect all stack heads from the workspace commit, if any.
+    if let Some(workspace_commit_selector) = workspace_commit_selector {
+        for selector in &fully_integrated_workspace_parents {
+            editor.remove_edges(workspace_commit_selector, *selector)?;
         }
     }
 

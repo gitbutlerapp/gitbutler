@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { fModeEnabled, newPushFeature } from "$lib/config/uiFeatureFlags";
+	import {
+		fModeEnabled,
+		newIntegrateUpstreamModalFeature,
+		newPushFeature,
+	} from "$lib/config/uiFeatureFlags";
 	import { SETTINGS_SERVICE } from "$lib/settings/appSettings";
 	import { USER_SERVICE } from "$lib/user/userService.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -67,6 +71,22 @@
 				id="new-push"
 				checked={$newPushFeature}
 				onclick={() => newPushFeature.set(!$newPushFeature)}
+			/>
+		{/snippet}
+	</CardGroup.Item>
+
+	<CardGroup.Item labelFor="new-integrate-upstream-modal">
+		{#snippet title()}
+			New integrate upstream modal
+		{/snippet}
+		{#snippet caption()}
+			Use the newer upstream integration flow. Disable to use the deprecated modal.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="new-integrate-upstream-modal"
+				checked={$newIntegrateUpstreamModalFeature}
+				onclick={() => newIntegrateUpstreamModalFeature.set(!$newIntegrateUpstreamModalFeature)}
 			/>
 		{/snippet}
 	</CardGroup.Item>

@@ -63,6 +63,10 @@ import {
 	UpstreamIntegrationService,
 	UPSTREAM_INTEGRATION_SERVICE,
 } from "$lib/upstream/upstreamIntegrationService.svelte";
+import {
+	UpstreamIntegrationServiceDeprecated,
+	UPSTREAM_INTEGRATION_SERVICE_DEPRECATED,
+} from "$lib/upstream/upstreamIntegrationServiceDeprecated.svelte";
 import { TokenMemoryService } from "$lib/user/tokenMemoryService";
 import { USER_SERVICE, UserService } from "$lib/user/userService.svelte";
 import { WorktreeService, WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
@@ -232,6 +236,10 @@ export function initDependencies(args: {
 	// WORKFLOWS
 	// ============================================================================
 
+	const upstreamIntegrationServiceDeprecated = new UpstreamIntegrationServiceDeprecated(
+		clientState.backendApi,
+		stackService,
+	);
 	const upstreamIntegrationService = new UpstreamIntegrationService(
 		clientState.backendApi,
 		stackService,
@@ -347,6 +355,7 @@ export function initDependencies(args: {
 		[UNCOMMITTED_SERVICE, uncommittedService],
 		[UPDATER_SERVICE, updaterService],
 		[UPLOADS_SERVICE, uploadsService],
+		[UPSTREAM_INTEGRATION_SERVICE_DEPRECATED, upstreamIntegrationServiceDeprecated],
 		[UPSTREAM_INTEGRATION_SERVICE, upstreamIntegrationService],
 		[URL_SERVICE, urlService],
 		[USER_SERVICE, userService],
