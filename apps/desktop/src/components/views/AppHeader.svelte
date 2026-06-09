@@ -215,7 +215,7 @@
 			</Select>
 			{#if singleBranchMode}
 				<Tooltip text="Current branch">
-					<div class="chrome-current-branch">
+					<div class="chrome-current-branch" data-testid={TestId.ChromeHeaderCurrentBranch}>
 						<div class="chrome-current-branch__content">
 							<Icon name="branch" color="var(--text-2)" />
 							<span class="text-12 text-bold clr-text-2 truncate">{currentBranchName}</span>
