@@ -53,7 +53,7 @@ import {
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
-import { Array, Hash, Match } from "effect";
+import { Hash, Match } from "effect";
 import {
 	ComponentProps,
 	FC,
@@ -352,6 +352,13 @@ type BuildOut = {
 
 /** Build relationships between our SDK data and Pierre's view. */
 const build = ({ fileParent, changes, treeChangeDiffs, changesetKey }: BuildIn): BuildOut => {
+	const navigationIndex: NavigationIndex<HunkOperand> = {
+		items: [],
+		indexByKey: new Map(),
+	};
+
+	const items: Array<CodeViewDiffItem> = [];
+
 	const itemsMetadataMap = new Map<
 		string,
 		{ item: CodeViewDiffItem; change: TreeChange; patch: UnifiedPatch | null }
@@ -359,43 +366,47 @@ const build = ({ fileParent, changes, treeChangeDiffs, changesetKey }: BuildIn):
 
 	const initialFileHunks = new Map<string, HunkOperand>();
 
-	const hunkSelections: Array<HunkOperand> = [];
 	const selectedRangeByHunk = new Map<string, CodeViewLineSelection>();
 
-	const items = Array.zip(changes, treeChangeDiffs).map(([change, mdiff]) => {
+	for (const [ci, change] of changes.entries()) {
+		const mdiff = treeChangeDiffs[ci];
+
 		const item = mkCodeViewItem(
 			change,
 			changesetKey,
 			mdiff && "subject" in mdiff && "hunks" in mdiff.subject ? mdiff.subject.hunks : [],
 		);
 
-		itemsMetadataMap.set(item.id, { item, change, patch: mdiff });
+		items.push(item);
+
+		itemsMetadataMap.set(item.id, { item, change, patch: mdiff ?? null });
 
 		if (mdiff?.type === "Patch")
-			for (const [i, hunk] of item.fileDiff.hunks.entries()) {
-				const file = {
+			for (const [hi, hunk] of item.fileDiff.hunks.entries()) {
+				const file: FileOperand = {
 					parent: fileParent,
 					path: change.path,
 				};
-				const selection = hunkSelectionFromHunk({
+				const fileKey = fileOperandIdentityKey(file);
+
+				const hunkOperand = hunkSelectionFromHunk({
 					file,
 					hunk,
 					isResultOfBinaryToTextConversion: mdiff.subject.isResultOfBinaryToTextConversion,
 				});
+				const hunkKey = hunkOperandIdentityKey(hunkOperand);
 
-				if (i === 0) initialFileHunks.set(fileOperandIdentityKey(file), selection);
+				const len = navigationIndex.items.push(hunkOperand);
+				navigationIndex.indexByKey.set(hunkKey, len - 1);
 
-				hunkSelections.push(selection);
-				selectedRangeByHunk.set(hunkOperandIdentityKey(selection), {
+				if (hi === 0) initialFileHunks.set(fileKey, hunkOperand);
+
+				selectedRangeByHunk.set(hunkKey, {
 					id: item.id,
 					range: selectEntireHunk(hunk),
 				});
 			}
-
-		return item;
-	});
-
-	const navigationIndex = buildNavigationIndex(hunkSelections, hunkOperandIdentityKey);
+	}
 
 	return {
 		items,
