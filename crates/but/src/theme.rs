@@ -29,6 +29,7 @@
 
 use std::{fmt::Display, path::Path, str::FromStr, sync::OnceLock};
 
+use bstr::{BStr, ByteSlice as _};
 use colored::{ColoredString, Colorize as _};
 use ratatui::{
     palette::Hsl,
@@ -608,6 +609,28 @@ where
     fn patch_style(self, new_style: Style) -> Self::Item {
         let style = self.style();
         self.set_style(new_style.patch(style))
+    }
+}
+
+pub struct Commit(pub gix::ObjectId);
+
+impl Display for Commit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let t = get();
+        write!(
+            f,
+            "{}",
+            t.commit_id.paint(self.0.to_hex_with_len(7).to_string())
+        )
+    }
+}
+
+pub struct Branch<'a>(pub &'a BStr);
+
+impl Display for Branch<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let t = get();
+        write!(f, "'{}'", t.local_branch.paint(self.0.to_str_lossy()))
     }
 }
 

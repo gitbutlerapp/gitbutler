@@ -381,5 +381,24 @@ Error: Couldn't commit all changes
 "#]]);
 }
 
+#[test]
+fn newly_created_branches_are_included_in_json_output() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    env.file("first", "Some text");
+
+    env.but("commit2 -m 'add first' -b foo --format json")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+{
+  "commit": "5a6fc56305c69edc974a5ed2d100c525db8fd288",
+  "branch": "foo"
+}
+
+"#]]);
+}
+
 // -b without branch name
 // commit2 -m 'add file.txt' -b

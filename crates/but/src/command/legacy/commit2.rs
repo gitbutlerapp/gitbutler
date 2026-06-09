@@ -1,9 +1,9 @@
-use std::fmt::Display;
-
 use anyhow::Context;
-use bstr::{BStr, BString, ByteSlice};
+use bstr::{BString, ByteSlice};
 use but_api::{diff::ComputeLineStats, json::HexHash};
-use but_core::{DiffSpec, DryRun, RefMetadata, diff::CommitDetails, ref_metadata::StackId};
+use but_core::{
+    DiffSpec, DryRun, RefMetadata, diff::CommitDetails, ref_metadata::StackId, sync::RepoExclusive,
+};
 use but_error::Code;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_transaction::{DynamicOutcome, IntermediateCommitCreateResult, Transaction};
@@ -18,7 +18,7 @@ use crate::{
     bad_input,
     command::legacy::{ShowDiffInEditor, reword::get_commit_message_from_editor},
     id::UNASSIGNED,
-    theme::{Paint, Theme},
+    theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, diff_specs::DiffSpecBuilder,
     },
@@ -27,20 +27,32 @@ use crate::{
 #[must_use]
 pub struct CommitOutcome {
     new_commit: gix::ObjectId,
-    ref_name: gix::refs::FullName,
+    branch_name: BranchNameTarget,
+}
+
+/// `--format json` should only include newly created things. So if the branch already existed it
+/// wont be included in the JSON output.
+enum BranchNameTarget {
+    Existing(FullName),
+    New(FullName),
 }
 
 impl CliOutputHuman for CommitOutcome {
     fn on_human(self, out: &mut dyn WriteWithUtils, _theme: &Theme) -> anyhow::Result<()> {
         let Self {
             new_commit,
-            ref_name,
+            branch_name,
         } = self;
+        let branch_name = match branch_name {
+            BranchNameTarget::Existing(branch_name) | BranchNameTarget::New(branch_name) => {
+                branch_name
+            }
+        };
         writeln!(
             out,
             "Created commit {} on {}",
-            Commit(new_commit),
-            Branch(ref_name.shorten()),
+            theme::Commit(new_commit),
+            theme::Branch(branch_name.shorten()),
         )?;
         Ok(())
     }
@@ -50,7 +62,7 @@ impl CliOutput for CommitOutcome {
     fn on_shell(self, out: &mut dyn WriteWithUtils) -> anyhow::Result<()> {
         let Self {
             new_commit,
-            ref_name: _,
+            branch_name: _,
         } = self;
         writeln!(out, "{}", new_commit.to_hex_with_len(7))?;
         Ok(())
@@ -60,10 +72,25 @@ impl CliOutput for CommitOutcome {
         #[derive(Serialize)]
         struct Output {
             commit: HexHash,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            branch: Option<String>,
         }
 
+        let Self {
+            new_commit,
+            branch_name,
+        } = self;
+
+        let branch_name = match branch_name {
+            BranchNameTarget::Existing(_) => None,
+            BranchNameTarget::New(full_name) => {
+                Some(full_name.shorten().to_str_lossy().to_string())
+            }
+        };
+
         Output {
-            commit: self.new_commit.into(),
+            commit: new_commit.into(),
+            branch: branch_name,
         }
     }
 }
@@ -73,34 +100,63 @@ pub fn commit(
     _out: IntermediateChannel<'_>,
     args: Platform,
 ) -> CliResult<CommitOutcome> {
+    let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    let mut meta = ctx.meta()?;
+
+    let (commit_op, reword_op) = {
+        let head_info = but_api::legacy::workspace::head_info(ctx)?;
+        let repo = ctx.repo.get()?;
+        resolve(&repo, args, &head_info)?
+    };
+    run(ctx, &mut meta, perm, commit_op, reword_op)
+}
+
+fn resolve(
+    repo: &gix::Repository,
+    args: Platform,
+    head_info: &RefInfo,
+) -> CliResult<(CommitOperation, RewordCommitOperation)> {
     let Platform {
         no_message,
         message,
         branch,
     } = args;
 
-    let mut guard = ctx.exclusive_worktree_access();
-    let perm = guard.write_permission();
+    let commit_op = route_commit_operation(repo, head_info, branch)?;
 
-    let mut meta = ctx.meta()?;
-    let (changes, operation) = {
+    let reword_op = match (no_message, message) {
+        (true, None) => RewordCommitOperation::NoMessage,
+        (false, None) => RewordCommitOperation::UseEditor,
+        (false, Some(message)) => RewordCommitOperation::Message(message),
+        (true, Some(_)) => {
+            unreachable!("--no-message and --message are mutually exclusive")
+        }
+    };
+
+    Ok((commit_op, reword_op))
+}
+
+fn run(
+    ctx: &mut but_ctx::Context,
+    meta: &mut impl RefMetadata,
+    perm: &mut RepoExclusive,
+    commit_op: CommitOperation,
+    reword_op: RewordCommitOperation,
+) -> CliResult<CommitOutcome> {
+    let changes = {
         let context_lines = ctx.settings.context_lines;
         let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
-        let head_info = but_workspace::head_info(&repo, &meta, Default::default())?;
-
-        let operation = route_operation(&repo, &head_info, branch)?;
 
         let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
         builder.push_changes_from_unassigned(&UNASSIGNED.to_string())?;
-        let changes = builder.into_diff_specs();
-
-        (changes, operation)
+        builder.into_diff_specs()
     };
 
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
     let result = but_transaction::with_transaction_with_perm(
         ctx,
-        &mut meta,
+        meta,
         perm,
         snapshot_details,
         DryRun::No,
@@ -110,49 +166,24 @@ pub fn commit(
                     new_commit,
                     rejected_specs,
                 },
-                ref_name,
-            ) = operation.execute(&mut tx, changes)?;
+                branch_name,
+            ) = commit_op.execute(&mut tx, changes)?;
 
             anyhow::ensure!(rejected_specs.is_empty(), "Couldn't commit all changes");
 
             let new_commit =
                 new_commit.context("BUG: rejected_specs is empty yet nothing was committed")?;
 
-            let message = match (no_message, message) {
-                (true, None) => String::new(),
-                (false, None) => {
-                    let repo = tx.repo();
-                    let commit_details = CommitDetails::from_commit_id(
-                        new_commit.attach(repo),
-                        ComputeLineStats::No.into(),
-                    )?;
-
-                    get_commit_message_from_editor(
-                        tx.repo(),
-                        tx.context_lines(),
-                        commit_details,
-                        String::new(),
-                        "",
-                        ShowDiffInEditor::Unspecified,
-                    )?
-                    .unwrap_or_default()
-                }
-                (false, Some(message)) => message,
-                (true, Some(_)) => {
-                    unreachable!("--no-message and --message are mutually exclusive")
-                }
-            };
-
-            let reworded_commit = tx.reword_commit(new_commit, BString::from(message).as_ref())?;
+            let reworded_commit = reword_op.execute(new_commit, &mut tx)?;
 
             Ok(DynamicOutcome::<_, std::convert::Infallible>::Commit((
                 reworded_commit,
-                ref_name,
+                branch_name,
             )))
         },
     );
 
-    let DynamicOutcome::Commit(((new_commit, ref_name), _ws)) = match result {
+    let DynamicOutcome::Commit(((new_commit, branch_name), _ws)) = match result {
         Ok(outcome) => outcome,
         Err(err) => {
             return Err(
@@ -169,11 +200,11 @@ pub fn commit(
 
     Ok(CommitOutcome {
         new_commit,
-        ref_name,
+        branch_name,
     })
 }
 
-fn route_operation(
+fn route_commit_operation(
     repo: &gix::Repository,
     head_info: &RefInfo,
     branch: Option<BranchArg>,
@@ -236,7 +267,7 @@ impl CommitOperation {
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
-    ) -> anyhow::Result<(IntermediateCommitCreateResult, FullName)> {
+    ) -> anyhow::Result<(IntermediateCommitCreateResult, BranchNameTarget)> {
         match self {
             CommitOperation::CommitToExistingBranch(op) => op.execute(tx, changes),
             CommitOperation::CommitToNewBranch(op) => op.execute(tx, changes),
@@ -245,7 +276,7 @@ impl CommitOperation {
 }
 
 struct CommitToExistingBranchOperation {
-    branch_name: gix::refs::FullName,
+    branch_name: FullName,
 }
 
 impl CommitToExistingBranchOperation {
@@ -253,19 +284,20 @@ impl CommitToExistingBranchOperation {
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
-    ) -> anyhow::Result<(IntermediateCommitCreateResult, FullName)> {
-        let Self {
-            branch_name: ref_name,
-        } = self;
+    ) -> anyhow::Result<(IntermediateCommitCreateResult, BranchNameTarget)> {
+        let Self { branch_name } = self;
 
         let commit_create_result = tx.create_commit(
-            RelativeTo::Reference(ref_name.clone()),
+            RelativeTo::Reference(branch_name.clone()),
             InsertSide::Below,
             changes,
             String::new(),
         )?;
 
-        Ok((commit_create_result, ref_name))
+        Ok((
+            commit_create_result,
+            BranchNameTarget::Existing(branch_name),
+        ))
     }
 }
 
@@ -278,7 +310,7 @@ impl CommitToNewBranchOperation {
         self,
         tx: &mut Transaction<'_, '_, impl RefMetadata>,
         changes: Vec<DiffSpec>,
-    ) -> anyhow::Result<(IntermediateCommitCreateResult, FullName)> {
+    ) -> anyhow::Result<(IntermediateCommitCreateResult, BranchNameTarget)> {
         let Self { branch_name } = self;
 
         let branch_name = if let Some(branch_name) = branch_name {
@@ -296,28 +328,48 @@ impl CommitToNewBranchOperation {
             String::new(),
         )?;
 
-        Ok((commit_create_result, branch_name))
+        Ok((commit_create_result, BranchNameTarget::New(branch_name)))
     }
 }
 
-struct Commit(gix::ObjectId);
-
-impl Display for Commit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let t = crate::theme::get();
-        write!(
-            f,
-            "{}",
-            t.commit_id.paint(self.0.to_hex_with_len(7).to_string())
-        )
-    }
+enum RewordCommitOperation {
+    NoMessage,
+    Message(String),
+    UseEditor,
 }
 
-struct Branch<'a>(&'a BStr);
+impl RewordCommitOperation {
+    fn execute(
+        self,
+        new_commit: gix::ObjectId,
+        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+    ) -> anyhow::Result<gix::ObjectId> {
+        let message = match self {
+            RewordCommitOperation::NoMessage => String::new(),
+            RewordCommitOperation::Message(message) => message,
+            RewordCommitOperation::UseEditor => {
+                let repo = tx.repo();
+                let commit_details = CommitDetails::from_commit_id(
+                    new_commit.attach(repo),
+                    ComputeLineStats::No.into(),
+                )?;
 
-impl Display for Branch<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let t = crate::theme::get();
-        write!(f, "'{}'", t.local_branch.paint(self.0.to_str_lossy()))
+                let editor_initial_message = String::new();
+                let current_message_for_comparison = "";
+                get_commit_message_from_editor(
+                    tx.repo(),
+                    tx.context_lines(),
+                    commit_details,
+                    editor_initial_message,
+                    current_message_for_comparison,
+                    ShowDiffInEditor::Unspecified,
+                )?
+                .unwrap_or_default()
+            }
+        };
+
+        let reworded_commit = tx.reword_commit(new_commit, BString::from(message).as_ref())?;
+
+        Ok(reworded_commit)
     }
 }
