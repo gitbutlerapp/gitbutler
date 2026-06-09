@@ -365,10 +365,14 @@ export const selectCheckedCommitOperands = createSelector(selectCheckedCommits, 
 	xs.map(commitOperand),
 );
 
-export const selectCheckedCommitCount = (state: WorkspaceState): number =>
-	Object.keys(state.checkedCommits).length;
+export const selectCheckedCommitCount = createSelector(
+	selectCheckedCommits,
+	(checkedCommits) => checkedCommits.length,
+);
 
-export const selectHasCheckedCommits = (state: WorkspaceState): boolean =>
-	selectCheckedCommitCount(state) > 0;
+export const selectHasCheckedCommits = createSelector(
+	selectCheckedCommitCount,
+	(count) => count > 0,
+);
 
 export const selectCommitTarget = (state: WorkspaceState): RelativeTo | null => state.commitTarget;
