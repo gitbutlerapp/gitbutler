@@ -11,7 +11,7 @@ catalog:
   rxjs: 7.8.2
   typescript: 5.9.3
   vite: 6.4.2
-  vitest: 3.2.4
+  vitest: 3.2.6
 
 catalogs:
   postcss:
