@@ -268,7 +268,7 @@ pub(super) fn render_status_list_item(
             Mode::Commit(commit_mode) => {
                 if data
                     .cli_id()
-                    .is_some_and(|target| *commit_mode.source == **target)
+                    .is_some_and(|target| commit_mode.source.contains(target))
                 {
                     render_commit_labels_for_selected_line(app, data, commit_mode, &mut line);
                 }
@@ -300,7 +300,7 @@ pub(super) fn render_status_list_item(
             }
             Mode::Commit(CommitMode { source, .. }) => {
                 if let Some(cli_id) = data.cli_id()
-                    && **source == **cli_id
+                    && source.contains(cli_id)
                 {
                     line.extend([source_span(app.theme), Span::raw(" ")]);
                 }
@@ -570,7 +570,7 @@ fn render_commit_labels_for_selected_line(
         return;
     };
 
-    if *mode.source == **target {
+    if mode.source.contains(target) {
         line.extend([source_span(app.theme), Span::raw(" ")]);
         line.extend(
             [

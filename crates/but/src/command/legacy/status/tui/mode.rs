@@ -3,6 +3,7 @@ use std::sync::Arc;
 use bstr::BString;
 use but_core::{HunkHeader, ref_metadata::StackId};
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
+use nonempty::NonEmpty;
 use ratatui::style::Color;
 use ratatui_textarea::TextArea;
 
@@ -208,9 +209,10 @@ pub(super) struct MoveMode {
 
 /// A subset of [`CliId`] that supports being committed
 #[derive(Debug)]
+#[expect(clippy::large_enum_variant)]
 pub(super) enum CommitSource {
     Unassigned(UnassignedCommitSource),
-    Uncommitted(Box<UncommittedCliId>),
+    Uncommitted(NonEmpty<UncommittedCliId>),
     Stack(StackCommitSource),
 }
 
@@ -229,7 +231,7 @@ impl CommitSource {
         match id {
             CliId::Unassigned { id } => Some(Self::Unassigned(UnassignedCommitSource { id })),
             CliId::Uncommitted(uncommitted_cli_id) => {
-                Some(Self::Uncommitted(Box::new(uncommitted_cli_id)))
+                Some(Self::Uncommitted(NonEmpty::new(uncommitted_cli_id)))
             }
             CliId::Stack { stack_id, .. } => Some(Self::Stack(StackCommitSource { stack_id })),
             CliId::PathPrefix { .. }
@@ -238,10 +240,8 @@ impl CommitSource {
             | CliId::Commit { .. } => None,
         }
     }
-}
 
-impl PartialEq<CliId> for CommitSource {
-    fn eq(&self, other: &CliId) -> bool {
+    pub(super) fn contains(&self, other: &CliId) -> bool {
         match self {
             CommitSource::Unassigned(UnassignedCommitSource { id: lhs_id }) => {
                 if let CliId::Unassigned { id: rhs_id } = other {
@@ -252,7 +252,7 @@ impl PartialEq<CliId> for CommitSource {
             }
             CommitSource::Uncommitted(lhs) => {
                 if let CliId::Uncommitted(rhs) = other {
-                    &**lhs == rhs
+                    lhs.contains(rhs)
                 } else {
                     false
                 }
@@ -273,6 +273,40 @@ impl PartialEq<CliId> for CommitSource {
         }
     }
 }
+
+// impl PartialEq<CliId> for CommitSource {
+//     fn eq(&self, other: &CliId) -> bool {
+//         match self {
+//             CommitSource::Unassigned(UnassignedCommitSource { id: lhs_id }) => {
+//                 if let CliId::Unassigned { id: rhs_id } = other {
+//                     lhs_id == rhs_id
+//                 } else {
+//                     false
+//                 }
+//             }
+//             CommitSource::Uncommitted(lhs) => {
+//                 if let CliId::Uncommitted(rhs) = other {
+//                     &**lhs == rhs
+//                 } else {
+//                     false
+//                 }
+//             }
+//             CommitSource::Stack(StackCommitSource {
+//                 stack_id: stack_id_lhs,
+//             }) => {
+//                 if let CliId::Stack {
+//                     stack_id: stack_id_rhs,
+//                     ..
+//                 } = other
+//                 {
+//                     stack_id_lhs == stack_id_rhs
+//                 } else {
+//                     false
+//                 }
+//             }
+//         }
+//     }
+// }
 
 /// A subset of [`CliId`] that supports being moved
 #[derive(Debug)]

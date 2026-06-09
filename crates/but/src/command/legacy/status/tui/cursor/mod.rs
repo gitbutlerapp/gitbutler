@@ -9,7 +9,7 @@ use crate::{
         FilesStatusFlag, StatusOutputLine,
         output::StatusOutputLineData,
         tui::{
-            Mode, MoveSource, SelectAfterReload,
+            CommitSource, Mode, MoveSource, SelectAfterReload,
             marking::{MarkClasses, Markable, Marks},
             render::{commit_operation_display, move_operation_display},
         },
@@ -53,6 +53,23 @@ impl Cursor {
                 }
             })?;
         Some(Self(idx))
+    }
+
+    pub(super) fn select_closest_commit_source(
+        self,
+        lines: &[StatusOutputLine],
+        source: &CommitSource,
+    ) -> Option<Self> {
+        lines
+            .iter()
+            .enumerate()
+            .filter(|(_, line)| {
+                line.data
+                    .cli_id()
+                    .is_some_and(|cli_id| source.contains(cli_id))
+            })
+            .min_by_key(|(idx, _)| idx.abs_diff(self.0))
+            .map(|(idx, _)| Self(idx))
     }
 
     pub(super) fn select_commit(
@@ -773,7 +790,7 @@ pub(super) fn is_selectable_in_mode(
         }
         Mode::Commit(commit_mode) => {
             if let Some(cli_id) = line.data.cli_id()
-                && *commit_mode.source == **cli_id
+                && commit_mode.source.contains(cli_id)
             {
                 return true;
             }
