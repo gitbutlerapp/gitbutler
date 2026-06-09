@@ -197,16 +197,20 @@ const useOutlineTreeHotkeys = ({
 			: undefined;
 
 	const selectedBranchCommitsChecked = useAppSelector((state) =>
-		selectedBranchSegment && selectedBranchSegment.commits.length > 0
+		selection &&
+		"stackId" in selection &&
+		selectedBranchSegment &&
+		selectedBranchSegment.commits.length > 0
 			? selectedBranchSegment.commits.every((commit) =>
-					selectProjectCommitChecked(state, projectId, commit.id),
+					selectProjectCommitChecked(state, projectId, {
+						commitId: commit.id,
+						stackId: selection.stackId,
+					}),
 				)
 			: false,
 	);
 	const selectedCommitChecked = useAppSelector((state) =>
-		selection?._tag === "Commit"
-			? selectProjectCommitChecked(state, projectId, selection.commitId)
-			: false,
+		selection?._tag === "Commit" ? selectProjectCommitChecked(state, projectId, selection) : false,
 	);
 
 	const dispatch = useAppDispatch();
@@ -252,19 +256,22 @@ const useOutlineTreeHotkeys = ({
 		dispatch(
 			projectActions.setCommitChecked({
 				projectId,
-				commitId: selection.commitId,
+				commit: selection,
 				checked: !selectedCommitChecked,
 			}),
 		);
 	};
 
 	const toggleSelectedBranchChecked = () => {
+		if (!selection || !("stackId" in selection)) return;
 		if (!selectedBranchSegment) return;
 
 		dispatch(
 			projectActions.setCommitsChecked({
 				projectId,
-				commitIds: selectedBranchSegment.commits.map((commit) => commit.id),
+				commits: selectedBranchSegment.commits.map(
+					(commit): CommitOperand => ({ commitId: commit.id, stackId: selection.stackId }),
+				),
 				checked: !selectedBranchCommitsChecked,
 			}),
 		);
@@ -920,7 +927,7 @@ const CommitRow: FC<
 		selectProjectHighlightedCommitIds(state, projectId).includes(commit.id),
 	);
 	const isChecked = useAppSelector((state) =>
-		selectProjectCommitChecked(state, projectId, commit.id),
+		selectProjectCommitChecked(state, projectId, { commitId: commit.id, stackId }),
 	);
 	const dryRunCommit = useDryRunCommit(commit.id);
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -1181,7 +1188,11 @@ const CommitRow: FC<
 						render={<Tooltip.Trigger />}
 						onCheckedChange={(checked) => {
 							dispatch(
-								projectActions.setCommitChecked({ projectId, commitId: commit.id, checked }),
+								projectActions.setCommitChecked({
+									projectId,
+									commit: { commitId: commit.id, stackId },
+									checked,
+								}),
 							);
 						}}
 					/>

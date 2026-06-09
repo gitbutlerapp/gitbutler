@@ -170,21 +170,21 @@ const projectSlice = createSlice({
 		},
 		setCommitChecked: (
 			state,
-			action: PayloadAction<{ projectId: string; commitId: string; checked: boolean }>,
+			action: PayloadAction<{ projectId: string; commit: CommitOperand; checked: boolean }>,
 		) => {
-			const { projectId, commitId, checked } = action.payload;
-			workspace.setCommitChecked(ensureProjectState(state, projectId).workspace, commitId, checked);
+			const { projectId, commit, checked } = action.payload;
+			workspace.setCommitChecked(ensureProjectState(state, projectId).workspace, commit, checked);
 		},
 		setCommitsChecked: (
 			state,
-			action: PayloadAction<{ projectId: string; commitIds: Array<string>; checked: boolean }>,
+			action: PayloadAction<{
+				projectId: string;
+				commits: Array<CommitOperand>;
+				checked: boolean;
+			}>,
 		) => {
-			const { projectId, commitIds, checked } = action.payload;
-			workspace.setCommitsChecked(
-				ensureProjectState(state, projectId).workspace,
-				commitIds,
-				checked,
-			);
+			const { projectId, commits, checked } = action.payload;
+			workspace.setCommitsChecked(ensureProjectState(state, projectId).workspace, commits, checked);
 		},
 		clearCheckedCommits: (state, action: PayloadAction<{ projectId: string }>) => {
 			workspace.clearCheckedCommits(ensureProjectState(state, action.payload.projectId).workspace);
@@ -286,8 +286,11 @@ export const selectProjectOutlineModeState = (state: RootState, projectId: strin
 export const selectProjectHighlightedCommitIds = (state: RootState, projectId: string) =>
 	workspace.selectHighlightedCommitIds(selectProjectWorkspaceState(state, projectId));
 
-export const selectProjectCommitChecked = (state: RootState, projectId: string, commitId: string) =>
-	workspace.selectCommitChecked(selectProjectWorkspaceState(state, projectId), commitId);
+export const selectProjectCommitChecked = (
+	state: RootState,
+	projectId: string,
+	commit: CommitOperand,
+) => workspace.selectCommitChecked(selectProjectWorkspaceState(state, projectId), commit);
 
 export const selectProjectCheckedCommitCount = (state: RootState, projectId: string) =>
 	workspace.selectCheckedCommitCount(selectProjectWorkspaceState(state, projectId));
