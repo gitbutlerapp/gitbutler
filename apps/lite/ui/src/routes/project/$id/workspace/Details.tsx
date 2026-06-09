@@ -20,7 +20,6 @@ import {
 	fileOperand,
 	hunkOperand,
 	operandIdentityKey,
-	type CommitOperand,
 	type FileParent,
 	type HunkOperand,
 	type Operand,
@@ -85,10 +84,8 @@ const hunkOperandIdentityKey = (operand: HunkOperand): string =>
 	operandIdentityKey(hunkOperand(operand));
 
 const getCommitFileTreeItems = ({
-	commit,
 	commitDetails,
 }: {
-	commit: CommitOperand;
 	commitDetails: CommitDetails;
 }): Array<FileTreeItem> => {
 	const conflictedPaths = commitDetails.conflictEntries
@@ -105,10 +102,6 @@ const getCommitFileTreeItems = ({
 	return [
 		...conflictedPaths.map((path) =>
 			conflictFileTreeItem({
-				operand: {
-					parent: commitFileParent(commit),
-					path,
-				},
 				path,
 			}),
 		),
@@ -117,10 +110,7 @@ const getCommitFileTreeItems = ({
 			.map((change) =>
 				changeFileTreeItem({
 					change,
-					operand: {
-						parent: commitFileParent(commit),
-						path: change.path,
-					},
+					path: change.path,
 				}),
 			),
 	];
@@ -140,30 +130,16 @@ const getChangesFileTreeItems = (worktreeChanges: WorktreeChanges): Array<FileTr
 		return changeFileTreeItem({
 			change,
 			dependencyCommitIds,
-			operand: {
-				parent: changesFileParent,
-				path: change.path,
-			},
+			path: change.path,
 		});
 	});
 };
 
-const getBranchFileTreeItems = ({
-	stackId,
-	branchRef,
-	branchDiff,
-}: {
-	stackId: string;
-	branchRef: Array<number>;
-	branchDiff: TreeChanges;
-}): Array<FileTreeItem> =>
+const getBranchFileTreeItems = ({ branchDiff }: { branchDiff: TreeChanges }): Array<FileTreeItem> =>
 	branchDiff.changes.map((change) =>
 		changeFileTreeItem({
 			change,
-			operand: {
-				parent: branchFileParent({ stackId, branchRef }),
-				path: change.path,
-			},
+			path: change.path,
 		}),
 	);
 
@@ -686,7 +662,7 @@ const Diff: FC<{
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
 	const viewerRef = useRef<CodeViewHandle<undefined>>(null);
 	const dispatch = useAppDispatch();
-	const files = filesItems.map((item) => item.operand.path);
+	const files = filesItems.map((item) => item.path);
 	const filesNavigationIndex = buildNavigationIndex(files, identity);
 
 	const changesetKey = Match.value(outlineSelection).pipe(
@@ -851,7 +827,7 @@ export const Details: FC<
 								{({ data: commitDetails }) =>
 									render({
 										changes: commitDetails.changes,
-										filesItems: getCommitFileTreeItems({ commit, commitDetails }),
+										filesItems: getCommitFileTreeItems({ commitDetails }),
 									})
 								}
 							</SuspenseQuery>
@@ -866,14 +842,14 @@ export const Details: FC<
 								}
 							</SuspenseQuery>
 						)),
-						Match.tag("Branch", ({ stackId, branchRef }) => (
+						Match.tag("Branch", ({ branchRef }) => (
 							<SuspenseQuery
 								{...branchDiffQueryOptions({ projectId, branch: decodeBytes(branchRef) })}
 							>
 								{({ data: branchDiff }) =>
 									render({
 										changes: branchDiff.changes,
-										filesItems: getBranchFileTreeItems({ stackId, branchRef, branchDiff }),
+										filesItems: getBranchFileTreeItems({ branchDiff }),
 									})
 								}
 							</SuspenseQuery>
