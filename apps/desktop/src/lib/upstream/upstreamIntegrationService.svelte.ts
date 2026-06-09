@@ -26,6 +26,7 @@ export class UpstreamIntegrationService {
 			return {
 				subject: clearUpstreamIntegrationStatuses(stacks),
 				updates,
+				worktreeConflicts: [],
 			};
 		}
 
@@ -36,8 +37,9 @@ export class UpstreamIntegrationService {
 		});
 
 		return {
-			subject: deriveUpstreamIntegrationStatuses(stacks, preview.headInfo),
+			subject: deriveUpstreamIntegrationStatuses(stacks, preview.workspaceState.headInfo),
 			updates,
+			worktreeConflicts: preview.worktreeConflicts,
 		};
 	}
 

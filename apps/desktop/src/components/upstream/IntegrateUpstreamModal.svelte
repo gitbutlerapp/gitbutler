@@ -14,6 +14,7 @@
 	import {
 		Badge,
 		Button,
+		FileListItem,
 		IntegrationSeriesRow,
 		Modal,
 		SimpleCommitRow,
@@ -56,6 +57,7 @@
 			!!integrationStatuses &&
 			integrationStatuses.updates.length > 0,
 	);
+	const worktreeConflicts = $derived(integrationStatuses?.worktreeConflicts ?? []);
 	const [integrateUpstream] = $derived(upstreamIntegrationService.integrateUpstream());
 
 	async function loadStatuses() {
@@ -203,6 +205,30 @@
 				</div>
 			</div>
 		{/if}
+		{#if worktreeConflicts.length > 0}
+			<div class="worktree-conflicts" data-testid={TestId.IntegrateUpstreamWorktreeConflicts}>
+				<h3 class="text-14 text-semibold">Uncommitted changes conflict</h3>
+				<p class="text-12 text-body worktree-conflicts-description">
+					These files will conflict when your current uncommitted changes are applied onto the
+					updated workspace.
+					<br />
+					You're free to proceed, but conflict markers will be added to your uncommitted work.
+				</p>
+				<div class="scroll-wrap">
+					<ScrollableContainer maxHeight="10rem">
+						{#each worktreeConflicts as path, i}
+							<FileListItem
+								filePath={path}
+								clickable={false}
+								conflicted
+								conflictHint="May conflict"
+								isLast={i === worktreeConflicts.length - 1}
+							/>
+						{/each}
+					</ScrollableContainer>
+				</div>
+			</div>
+		{/if}
 	</ScrollableContainer>
 
 	{#snippet controls()}
@@ -273,6 +299,26 @@
 	}
 
 	.target-divergence-description {
+		color: var(--text-2);
+	}
+
+	.worktree-conflicts {
+		display: flex;
+		flex-direction: column;
+		padding: 16px;
+		gap: 10px;
+		border-bottom: 1px solid var(--border-2);
+		background-color: var(--bg-warn);
+
+		.scroll-wrap {
+			overflow: hidden;
+			border: 1px solid var(--border-2);
+			border-radius: var(--radius-m);
+			background-color: var(--bg-1);
+		}
+	}
+
+	.worktree-conflicts-description {
 		color: var(--text-2);
 	}
 

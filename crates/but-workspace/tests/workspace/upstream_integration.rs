@@ -1,10 +1,12 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use but_core::{Commit, RefMetadata};
 use but_graph::init::Options;
 use but_meta::virtual_branches_legacy_types::Target;
 use but_rebase::graph_rebase::mutate::RelativeTo;
-use but_testsupport::{graph_workspace, visualize_commit_graph_all};
-use but_workspace::{BottomUpdate, BottomUpdateKind, integrate_upstream};
+use but_testsupport::{CommandExt, git, graph_workspace, visualize_commit_graph_all};
+use but_workspace::{
+    BottomUpdate, BottomUpdateKind, integrate_upstream, worktree_conflicts_for_rebase,
+};
 use gix::prelude::ObjectIdExt;
 
 use crate::ref_info::with_workspace_commit::utils::{
@@ -559,6 +561,105 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
     * 905d6e5 (origin/main) add A1
     * 3183e43 (main) M1
     ");
+
+    Ok(())
+}
+
+#[test]
+fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -> Result<()> {
+    let (tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("upstream-integration-worktree-conflict")?;
+    let target_sha = repo.rev_parse_single("main^")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+
+    std::fs::write(tmp.path().join("shared.txt"), "dirty\n")?;
+    let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
+        }],
+    )?;
+
+    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    assert_eq!(
+        conflicts,
+        vec![but_serde::BStringForFrontend::from("shared.txt")],
+        "dirty worktree conflict preview should report paths that would conflict on the resulting workspace head"
+    );
+    assert_eq!(
+        repo.head()?
+            .id()
+            .context("HEAD should point to gitbutler/workspace")?
+            .detach(),
+        repo.rev_parse_single("gitbutler/workspace")?.detach(),
+        "dry-run conflict preview must not materialize the rebase"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Result<()> {
+    let (tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("upstream-integration-worktree-conflict")?;
+    let target_sha = repo.rev_parse_single("main^")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+
+    std::fs::write(tmp.path().join("shared.txt"), "dirty\n")?;
+    git(&repo).args(["add", "shared.txt"]).run();
+    std::fs::write(tmp.path().join("shared.txt"), "base\n")?;
+
+    let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A")?.detach()),
+        }],
+    )?;
+
+    let conflicts = worktree_conflicts_for_rebase(&rebase)?;
+    assert_eq!(
+        conflicts,
+        vec![but_serde::BStringForFrontend::from("shared.txt")],
+        "index-only conflict preview should report staged paths that would conflict on the resulting workspace head"
+    );
 
     Ok(())
 }

@@ -4,11 +4,22 @@ use crate::WorkspaceState;
 use but_api_macros::but_api;
 use but_core::{DryRun, RefMetadata, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
+use but_serde::BStringForFrontend;
 use but_workspace::IntegrateUpstreamOutcome;
 use tracing::instrument;
 
+/// Result of integrating upstream changes into the current workspace.
+#[derive(Debug, Clone)]
+pub struct WorkspaceIntegrateUpstreamOutcome {
+    /// The post-operation or preview workspace state.
+    pub workspace_state: WorkspaceState,
+    /// Dirty worktree paths that would conflict when applied onto the resulting workspace head.
+    pub worktree_conflicts: Vec<BStringForFrontend>,
+}
+
 /// JSON transport types for workspace APIs.
 pub mod json {
+    use but_serde::BStringForFrontend;
     use serde::{Deserialize, Serialize};
 
     /// JSON transport type for how a stack bottom should be updated.
@@ -57,23 +68,50 @@ pub mod json {
             }
         }
     }
+
+    /// JSON transport type returned by upstream integration.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct WorkspaceIntegrateUpstreamOutcome {
+        /// The post-operation or preview workspace state.
+        pub workspace_state: crate::json::WorkspaceState,
+        /// Dirty worktree paths that would conflict when applied onto the resulting workspace head.
+        #[cfg_attr(feature = "export-schema", schemars(with = "Vec<String>"))]
+        pub worktree_conflicts: Vec<BStringForFrontend>,
+    }
+
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(WorkspaceIntegrateUpstreamOutcome);
+
+    impl TryFrom<super::WorkspaceIntegrateUpstreamOutcome> for WorkspaceIntegrateUpstreamOutcome {
+        type Error = anyhow::Error;
+
+        fn try_from(value: super::WorkspaceIntegrateUpstreamOutcome) -> Result<Self, Self::Error> {
+            Ok(Self {
+                workspace_state: value.workspace_state.try_into()?,
+                worktree_conflicts: value.worktree_conflicts,
+            })
+        }
+    }
 }
 
 /// Integrate upstream changes into the current workspace without recording an
 /// oplog entry.
 ///
 /// This acquires exclusive worktree access from `ctx`, applies the requested
-/// upstream updates, and returns the resulting workspace state. When `dry_run`
+/// upstream updates, and returns the resulting workspace state plus information about
+/// worktree conflicts. When `dry_run`
 /// is enabled, the returned workspace previews the integration without
 /// materializing the rebase. See
 /// [`workspace_integrate_upstream_only_with_perm()`] for lower-level details.
-#[but_api(try_from = crate::json::WorkspaceState)]
+#[but_api(try_from = json::WorkspaceIntegrateUpstreamOutcome)]
 #[instrument(err(Debug))]
 pub fn workspace_integrate_upstream_only(
     ctx: &mut but_ctx::Context,
     updates: Vec<json::BottomUpdate>,
     dry_run: DryRun,
-) -> anyhow::Result<WorkspaceState> {
+) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
     workspace_integrate_upstream_only_with_perm(
         ctx,
@@ -91,13 +129,13 @@ pub fn workspace_integrate_upstream_only(
 /// when the integration succeeds. When `dry_run` is enabled, the returned
 /// workspace previews the integration and no oplog entry is persisted. See
 /// [`workspace_integrate_upstream_with_perm()`] for lower-level details.
-#[but_api(napi, try_from = crate::json::WorkspaceState)]
+#[but_api(napi, try_from = json::WorkspaceIntegrateUpstreamOutcome)]
 #[instrument(err(Debug))]
 pub fn workspace_integrate_upstream(
     ctx: &mut but_ctx::Context,
     updates: Vec<json::BottomUpdate>,
     dry_run: DryRun,
-) -> anyhow::Result<WorkspaceState> {
+) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let mut guard = ctx.exclusive_worktree_access();
     workspace_integrate_upstream_with_perm(
         ctx,
@@ -113,14 +151,14 @@ pub fn workspace_integrate_upstream(
 /// It prepares a best-effort `MergeUpstream` oplog snapshot, performs the
 /// integration, and commits the snapshot only if the mutation succeeds. When
 /// `dry_run` is enabled, it returns a preview of the resulting workspace state
-/// and skips oplog persistence. For lower-level implementation details, see
-/// [`but_workspace::integrate_upstream()`].
+/// plus worktree conflicts and skips oplog persistence.
+/// For lower-level implementation details, see [`but_workspace::integrate_upstream()`].
 pub fn workspace_integrate_upstream_with_perm(
     ctx: &mut but_ctx::Context,
     updates: Vec<but_workspace::BottomUpdate>,
     dry_run: DryRun,
     perm: &mut RepoExclusive,
-) -> anyhow::Result<WorkspaceState> {
+) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
         ctx,
         SnapshotDetails::new(OperationKind::MergeUpstream),
@@ -141,21 +179,28 @@ pub fn workspace_integrate_upstream_with_perm(
 /// Integrate upstream changes under caller-held exclusive repository access.
 ///
 /// This delegates to [`but_workspace::integrate_upstream()`] and returns the
-/// resulting workspace state. When `dry_run` is enabled, it returns a preview
-/// of the resulting workspace without materializing the rebase.
+/// resulting workspace state plus worktree conflicts info.
+/// When `dry_run` is enabled, it returns a preview of the resulting workspace
+/// without materializing the rebase.
 pub fn workspace_integrate_upstream_only_with_perm(
     ctx: &mut but_ctx::Context,
     updates: Vec<but_workspace::BottomUpdate>,
     dry_run: DryRun,
     perm: &mut RepoExclusive,
-) -> anyhow::Result<WorkspaceState> {
+) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let IntegrateUpstreamOutcome { rebase, ws_meta } =
         but_workspace::integrate_upstream(&mut ws, &mut meta, &repo, updates)?;
+    let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&rebase)?;
 
     if dry_run.into() {
-        return WorkspaceState::from_rebase_preview(&rebase, rebase.history.commit_mappings());
+        let workspace_state =
+            WorkspaceState::from_rebase_preview(&rebase, rebase.history.commit_mappings())?;
+        return Ok(WorkspaceIntegrateUpstreamOutcome {
+            workspace_state,
+            worktree_conflicts,
+        });
     }
 
     let materialized = rebase.materialize()?;
@@ -166,9 +211,14 @@ pub fn workspace_integrate_upstream_only_with_perm(
         materialized.meta.set_workspace(&md)?;
     }
 
-    WorkspaceState::from_workspace(
+    let workspace_state = WorkspaceState::from_workspace(
         materialized.workspace,
         &repo,
         materialized.history.commit_mappings(),
-    )
+    )?;
+
+    Ok(WorkspaceIntegrateUpstreamOutcome {
+        workspace_state,
+        worktree_conflicts,
+    })
 }

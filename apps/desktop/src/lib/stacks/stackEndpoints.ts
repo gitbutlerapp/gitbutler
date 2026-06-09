@@ -50,7 +50,7 @@ import type {
 	RefInfo,
 	StackEntryNoOpt,
 	BottomUpdate,
-	WorkspaceState,
+	WorkspaceIntegrateUpstreamOutcome,
 } from "@gitbutler/but-sdk";
 
 export type BranchParams = {
@@ -221,7 +221,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			},
 		}),
 		workspaceIntegrateUpstream: build.mutation<
-			WorkspaceState,
+			WorkspaceIntegrateUpstreamOutcome,
 			{ projectId: string; updates: BottomUpdate[]; dryRun: boolean }
 		>({
 			extraOptions: {

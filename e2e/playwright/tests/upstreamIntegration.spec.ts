@@ -31,6 +31,21 @@ test("should handle the update of workspace with one conflicting branch graceful
 	await expect(stack(page)).toHaveCount(1);
 });
 
+test("should show incoming conflicts with uncommitted files", async ({ page, gitbutler }) => {
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await applyUpstream(gitbutler, "branch3");
+	await openWorkspace(page);
+
+	await gitbutler.runScript(
+		"project-with-remote-branches__add-conflicting-base-and-dirty-worktree.sh",
+	);
+	await clickByTestId(page, "sync-button");
+	await clickByTestId(page, "integrate-upstream-commits-button");
+
+	const worktreeConflicts = await waitForTestId(page, "integrate-upstream-worktree-conflicts");
+	await expect(worktreeConflicts).toContainText("a_file");
+});
+
 test("should handle the update of workspace with integrated branch gracefully", async ({
 	page,
 	gitbutler,
