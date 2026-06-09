@@ -100,6 +100,25 @@ fn uncommitted_file_line(path: &str, id: &str) -> StatusOutputLine {
     })
 }
 
+fn uncommitted_source(cli_ids: &[Arc<CliId>]) -> CommitSource {
+    let uncommitted = cli_ids
+        .iter()
+        .map(|cli_id| match &**cli_id {
+            CliId::Uncommitted(uncommitted) => uncommitted.clone(),
+            CliId::Unassigned { .. }
+            | CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Branch { .. }
+            | CliId::Stack { .. }
+            | CliId::Commit { .. } => panic!("test cli ID should be uncommitted"),
+        })
+        .collect::<Vec<_>>();
+
+    CommitSource::Uncommitted(
+        NonEmpty::from_vec(uncommitted).expect("test source should not be empty"),
+    )
+}
+
 fn marks(markables: impl IntoIterator<Item = Markable>) -> Marks {
     let mut marks = Marks::default();
     for markable in markables {
@@ -707,6 +726,73 @@ fn select_after_discarded_branch_returns_none_if_selection_is_not_a_branch() {
     })];
 
     assert!(Cursor(0).select_after_discarded_branch(&lines).is_none());
+}
+
+#[test]
+fn select_closest_commit_source_selects_current_line_when_it_is_source() {
+    let source_cli_id = uncommitted_cli_id("source.txt", "u0");
+    let source = uncommitted_source(&[Arc::clone(&source_cli_id)]);
+    let lines = vec![
+        uncommitted_file_line("other.txt", "u1"),
+        line(StatusOutputLineData::UnassignedFile {
+            cli_id: source_cli_id,
+        }),
+        line(StatusOutputLineData::Connector),
+    ];
+
+    assert_eq!(
+        Cursor(1).select_closest_commit_source(&lines, &source),
+        Some(Cursor(1))
+    );
+}
+
+#[test]
+fn select_closest_commit_source_selects_nearest_source_when_current_line_is_not_source() {
+    let farther_source_cli_id = uncommitted_cli_id("farther.txt", "u0");
+    let nearest_source_cli_id = uncommitted_cli_id("nearest.txt", "u1");
+    let source = uncommitted_source(&[
+        Arc::clone(&farther_source_cli_id),
+        Arc::clone(&nearest_source_cli_id),
+    ]);
+    let lines = vec![
+        line(StatusOutputLineData::UnassignedFile {
+            cli_id: farther_source_cli_id,
+        }),
+        uncommitted_file_line("other.txt", "u2"),
+        line(StatusOutputLineData::Connector),
+        line(StatusOutputLineData::UnassignedFile {
+            cli_id: nearest_source_cli_id,
+        }),
+    ];
+
+    assert_eq!(
+        Cursor(2).select_closest_commit_source(&lines, &source),
+        Some(Cursor(3))
+    );
+}
+
+#[test]
+fn select_closest_commit_source_prefers_source_above_on_tie() {
+    let above_source_cli_id = uncommitted_cli_id("above.txt", "u0");
+    let below_source_cli_id = uncommitted_cli_id("below.txt", "u1");
+    let source = uncommitted_source(&[
+        Arc::clone(&above_source_cli_id),
+        Arc::clone(&below_source_cli_id),
+    ]);
+    let lines = vec![
+        line(StatusOutputLineData::UnassignedFile {
+            cli_id: above_source_cli_id,
+        }),
+        line(StatusOutputLineData::Connector),
+        line(StatusOutputLineData::UnassignedFile {
+            cli_id: below_source_cli_id,
+        }),
+    ];
+
+    assert_eq!(
+        Cursor(1).select_closest_commit_source(&lines, &source),
+        Some(Cursor(0))
+    );
 }
 
 #[test]

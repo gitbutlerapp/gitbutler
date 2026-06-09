@@ -1919,6 +1919,15 @@ impl App {
     }
 
     fn handle_commit_start(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
+        if self.marks().is_none_or(|marks| marks.is_empty()) {
+            self.handle_commit_start_selection(ctx)?;
+        } else {
+            self.handle_commit_start_marks();
+        }
+        Ok(())
+    }
+
+    fn handle_commit_start_selection(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
         let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
             return Ok(());
         };
@@ -2015,6 +2024,51 @@ impl App {
         Ok(())
     }
 
+    fn handle_commit_start_marks(&mut self) {
+        let Mode::Normal(normal_mode) = &*self.mode else {
+            return;
+        };
+
+        if normal_mode.marks.is_empty() {
+            return;
+        }
+
+        let uncommitted = normal_mode
+            .marks
+            .iter()
+            .cloned()
+            .map(|mark| match mark {
+                Markable::Uncommitted(uncommitted_cli_id) => Some(uncommitted_cli_id),
+                Markable::Commit { .. } => None,
+            })
+            .collect::<Option<Vec<_>>>();
+        let Some(uncommitted) = uncommitted else {
+            return;
+        };
+
+        let Some(uncommitted) = NonEmpty::from_vec(uncommitted) else {
+            return;
+        };
+
+        let source = Arc::new(CommitSource::Uncommitted(uncommitted));
+
+        if let Some(cursor) = self
+            .cursor
+            .select_closest_commit_source(&self.status_lines, &source)
+        {
+            self.cursor = cursor;
+        }
+
+        self.mode
+            .update_and_push_leave_normal_mode(&mut self.backstack, |mode| {
+                *mode = Mode::Commit(CommitMode {
+                    source,
+                    scope_to_stack: None,
+                    message_composer: CommitMessageComposer::default(),
+                });
+            });
+    }
+
     fn handle_commit_confirm<T>(
         &mut self,
         ctx: &mut Context,
@@ -2041,7 +2095,7 @@ impl App {
         if selection
             .data
             .cli_id()
-            .is_some_and(|target| **source == **target)
+            .is_some_and(|target| source.contains(target))
         {
             messages.push(Message::EnterNormalModeAfterConfirmingOperation);
             return Ok(());
@@ -2084,8 +2138,10 @@ impl App {
                 CommitSource::Unassigned(UnassignedCommitSource { id }) => {
                     builder.push_changes_from_unassigned(id)?;
                 }
-                CommitSource::Uncommitted(uncommitted_cli_id) => {
-                    builder.push_changes_from_uncommitted(uncommitted_cli_id)?;
+                CommitSource::Uncommitted(uncommitted) => {
+                    for id in uncommitted {
+                        builder.push_changes_from_uncommitted(id)?;
+                    }
                 }
                 CommitSource::Stack(StackCommitSource { stack_id }) => {
                     builder.push_changes_from_stack(*stack_id)?;

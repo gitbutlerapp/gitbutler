@@ -605,3 +605,31 @@ fn cannot_select_committed_files_from_global_listing_with_commits_marked() {
     tui.input_then_render('f')
         .assert_rendered_term_svg_eq(file!["snapshots/cannot_select_committed_files_from_global_listing_with_commits_marked_final.svg"]);
 }
+
+#[test]
+fn mark_and_commit_multiple_uncommitted_files() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.env().file("one", "content");
+    tui.env().file("two", "content");
+    tui.env().file("three", "content");
+
+    tui.input_then_render('j');
+    tui.input_then_render(' ');
+    tui.input_then_render(' ');
+    tui.input_then_render('c')
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/mark_and_commit_multiple_uncommitted_files_001.svg"
+        ]);
+
+    tui.input_then_render('j');
+    tui.input_then_render('e');
+    tui.input_then_render(KeyCode::Enter);
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/mark_and_commit_multiple_uncommitted_files_final.svg"
+        ]);
+}

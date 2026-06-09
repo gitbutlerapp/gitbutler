@@ -862,7 +862,11 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
 
     if without_marks {
         builder.reverse_rub().register();
-        builder.commit().register();
+    }
+
+    builder.commit().register();
+
+    if without_marks {
         builder.new_commit().register();
         builder.move_mode().register();
         builder.branch().register();
