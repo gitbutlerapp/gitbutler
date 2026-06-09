@@ -1,7 +1,5 @@
-use std::fmt::Display;
-
 use anyhow::Context;
-use bstr::{BStr, BString, ByteSlice};
+use bstr::{BString, ByteSlice};
 use but_api::{diff::ComputeLineStats, json::HexHash};
 use but_core::{DiffSpec, DryRun, RefMetadata, diff::CommitDetails, ref_metadata::StackId};
 use but_error::Code;
@@ -18,7 +16,7 @@ use crate::{
     bad_input,
     command::legacy::{ShowDiffInEditor, reword::get_commit_message_from_editor},
     id::UNASSIGNED,
-    theme::{Paint, Theme},
+    theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, diff_specs::DiffSpecBuilder,
     },
@@ -51,8 +49,8 @@ impl CliOutputHuman for CommitOutcome {
         writeln!(
             out,
             "Created commit {} on {}",
-            Commit(new_commit),
-            Branch(branch_name.shorten()),
+            theme::Commit(new_commit),
+            theme::Branch(branch_name.shorten()),
         )?;
         Ok(())
     }
@@ -325,27 +323,5 @@ impl CommitToNewBranchOperation {
         )?;
 
         Ok((commit_create_result, BranchNameTarget::New(branch_name)))
-    }
-}
-
-struct Commit(gix::ObjectId);
-
-impl Display for Commit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let t = crate::theme::get();
-        write!(
-            f,
-            "{}",
-            t.commit_id.paint(self.0.to_hex_with_len(7).to_string())
-        )
-    }
-}
-
-struct Branch<'a>(&'a BStr);
-
-impl Display for Branch<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let t = crate::theme::get();
-        write!(f, "'{}'", t.local_branch.paint(self.0.to_str_lossy()))
     }
 }
