@@ -1,14 +1,7 @@
 import { selectionOperationHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { type OperationType } from "#ui/operations/operation.ts";
 import { keyboardTransferOperationMode } from "#ui/outline/mode.ts";
-import {
-	fileOperand,
-	hunkOperand,
-	HunkOperand,
-	operandIdentityKey,
-	type FileOperand,
-	type Operand,
-} from "#ui/operands.ts";
+import { hunkOperand, HunkOperand, operandIdentityKey, type Operand } from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectOutlineModeState,
@@ -23,6 +16,7 @@ import {
 	type NavigationIndex,
 } from "#ui/workspace/navigation-index.ts";
 import { useHotkeySequences, useHotkeys } from "@tanstack/react-hotkeys";
+import { identity } from "effect";
 
 export type SelectionScope = "outline" | "files" | "diff";
 const allSelectionScopes: Array<SelectionScope> = ["outline", "files", "diff"];
@@ -84,15 +78,9 @@ export const resolveNavigationIndexSelection = <T>(
 		? selection
 		: (navigationIndex.items[0] ?? null);
 
-const fileOperandIdentityKey = (operand: FileOperand): string =>
-	operandIdentityKey(fileOperand(operand));
-
-export const useFilesSelection = (
-	projectId: string,
-	navigationIndex: NavigationIndex<FileOperand>,
-) => {
+export const useFilesSelection = (projectId: string, navigationIndex: NavigationIndex<string>) => {
 	const selection = useAppSelector((state) => selectProjectSelectionFiles(state, projectId));
-	return resolveNavigationIndexSelection(navigationIndex, selection, fileOperandIdentityKey);
+	return resolveNavigationIndexSelection(navigationIndex, selection, identity);
 };
 
 export const useOutlineSelection = ({
