@@ -27,6 +27,27 @@ async function expectWorkspaceCommitParentToBeOriginMaster(pathToRepo: string) {
 		.toBe(git(pathToRepo, ["rev-parse", "origin/master"]));
 }
 
+async function expectWorkspaceCommitToStayParentedToRemainingStack(pathToRepo: string) {
+	await expect
+		.poll(() => git(pathToRepo, ["rev-parse", "gitbutler/workspace^@"]).split("\n").length, {
+			message: "Expected the workspace commit to have only the remaining stack as parent",
+			intervals: [100, 200, 500, 1000],
+		})
+		.toBe(1);
+
+	await expect
+		.poll(
+			() =>
+				git(pathToRepo, ["rev-parse", "gitbutler/workspace^"]) ===
+				git(pathToRepo, ["rev-parse", "origin/master"]),
+			{
+				message: "Expected the workspace commit not to be reparented to origin/master",
+				intervals: [100, 200, 500, 1000],
+			},
+		)
+		.toBe(false);
+}
+
 function git(pathToRepo: string, args: string[]): string {
 	return execFileSync("git", args, {
 		cwd: pathToRepo,
@@ -163,6 +184,27 @@ test("should handle the update of the workspace with multiple stacks gracefully"
 	await expect(stack(page)).toHaveCount(1);
 });
 
+test("should keep the remaining stack when only one of two stacks is integrated", async ({
+	page,
+	gitbutler,
+}) => {
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+
+	await gitbutler.runScript("project-with-stacks.sh");
+	await applyUpstream(gitbutler, "branch1", "branch2");
+	await openWorkspace(page);
+
+	await expect(stack(page)).toHaveCount(2);
+
+	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
+	await syncAndIntegrate(page);
+
+	await expect(stack(page)).toHaveCount(1);
+	await expect(getByTestId(page, "branch-card")).toHaveCount(1);
+	await expect(getByTestId(page, "branch-card")).toContainText("branch2");
+	await expectWorkspaceCommitToStayParentedToRemainingStack(localClone);
+});
+
 test("should handle the update of the workspace with two integrated stacks gracefully", async ({
 	page,
 	gitbutler,
@@ -178,6 +220,25 @@ test("should handle the update of the workspace with two integrated stacks grace
 	await syncAndIntegrate(page);
 
 	await expect(stack(page)).toHaveCount(0);
+	await waitForTestIdToNotExist(page, "integrate-upstream-commits-button");
+});
+
+test("should update an empty workspace when the target ref advances", async ({
+	page,
+	gitbutler,
+}) => {
+	const localClone = gitbutler.pathInWorkdir("local-clone");
+
+	await gitbutler.runScript("project-with-stacks.sh");
+	await openWorkspace(page);
+
+	await expect(stack(page)).toHaveCount(0);
+
+	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
+	await syncAndIntegrate(page);
+
+	await expect(stack(page)).toHaveCount(0);
+	await expectWorkspaceCommitParentToBeOriginMaster(localClone);
 	await waitForTestIdToNotExist(page, "integrate-upstream-commits-button");
 });
 
