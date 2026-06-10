@@ -7,7 +7,7 @@ import {
 	commitDetailsWithLineStatsQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
-import { decodeRefName } from "#ui/api/ref-name.ts";
+import { decodeBytes } from "#ui/api/ref-name.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
 	branchFileParent,
@@ -91,7 +91,7 @@ const getScrollTargetId = ({
 const getChangesetKey = (selection: Operand): string =>
 	Match.value(selection).pipe(
 		Match.tags({
-			Branch: ({ branchRef }) => decodeRefName(branchRef),
+			Branch: ({ branchRef }) => decodeBytes(branchRef),
 			ChangesSection: () => "changes",
 			Commit: ({ commitId }) => commitId,
 		}),
@@ -623,7 +623,7 @@ const Header: FC<{
 		Match.tagsExhaustive({
 			Stack: () => null,
 			Branch: ({ stackId, branchRef }) => {
-				const decodedBranchRef = decodeRefName(branchRef);
+				const decodedBranchRef = decodeBytes(branchRef);
 				const source = branchOperand({ stackId, branchRef });
 
 				return (
@@ -985,7 +985,7 @@ export const Details: FC<
 						)),
 						Match.tag("Branch", ({ stackId, branchRef }) => (
 							<SuspenseQuery
-								{...branchDiffQueryOptions({ projectId, branch: decodeRefName(branchRef) })}
+								{...branchDiffQueryOptions({ projectId, branch: decodeBytes(branchRef) })}
 							>
 								{({ data: branchDiff }) =>
 									render({

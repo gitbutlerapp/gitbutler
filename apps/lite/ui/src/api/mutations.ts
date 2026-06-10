@@ -1,5 +1,5 @@
 import { renameBranchInHeadInfo, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { encodeRefName } from "#ui/api/ref-name.ts";
+import { encodeBytes } from "#ui/api/ref-name.ts";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { shortCommitId } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
@@ -647,7 +647,7 @@ export const useUpdateBranchName = ({
 	return useMutation({
 		mutationFn: window.lite.updateBranchName,
 		onSuccess: async (_response, input, _context, mutation) => {
-			const newBranchRef = encodeRefName(`refs/heads/${input.newName}`);
+			const newBranchRef = encodeBytes(`refs/heads/${input.newName}`);
 			const newBranch: BranchOperand = {
 				stackId,
 				// TODO: ideally the API would return the new ref?

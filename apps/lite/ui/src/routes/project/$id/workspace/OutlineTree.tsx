@@ -20,7 +20,7 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import { findCommit, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { decodeRefName, refNamesEqual } from "#ui/api/ref-name.ts";
+import { decodeBytes, refNamesEqual } from "#ui/api/ref-name.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
 	nativeMenuItem,
@@ -365,7 +365,7 @@ const useOutlineTreeHotkeys = ({
 
 		pushStackMutation.mutate({
 			projectId,
-			branch: decodeRefName(selectedPushContext.refName.fullNameBytes),
+			branch: decodeBytes(selectedPushContext.refName.fullNameBytes),
 			withForce: partialStackState.pushWithForce,
 			skipForcePushProtection: false,
 			runHooks: true,
@@ -1923,7 +1923,7 @@ const BranchRow: FC<
 	const tearOffBranch = () => {
 		tearOffBranchMutation.mutate({
 			projectId,
-			subjectBranch: decodeRefName(branchRef),
+			subjectBranch: decodeBytes(branchRef),
 			dryRun: false,
 		});
 	};
@@ -1931,7 +1931,7 @@ const BranchRow: FC<
 	const pushStack = () => {
 		pushStackMutation.mutate({
 			projectId,
-			branch: decodeRefName(branchRef),
+			branch: decodeBytes(branchRef),
 			withForce: partialStackState.pushWithForce,
 			skipForcePushProtection: false,
 			runHooks: true,
@@ -2001,7 +2001,7 @@ const BranchRow: FC<
 				removeBranchMutation.mutate({
 					projectId,
 					stackId,
-					branchName: decodeRefName(branchRef),
+					branchName: decodeBytes(branchRef),
 				}),
 		}),
 	];
