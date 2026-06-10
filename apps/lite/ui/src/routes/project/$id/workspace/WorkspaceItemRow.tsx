@@ -54,15 +54,16 @@ export const WorkspaceItemRowEmpty: FC<ComponentProps<"div">> = (props) => (
 	<div {...props} className={classes(props.className, "text-13", styles.itemRowEmpty)} />
 );
 
-export const WorkspaceItemRowToolbar: FC<
-	{ forceVisibleToolbar?: boolean } & ComponentProps<"div">
-> = ({ forceVisibleToolbar, ...props }) => (
+export const WorkspaceItemRowToolbar: FC<{ forceVisible?: boolean } & ComponentProps<"div">> = ({
+	forceVisible,
+	...props
+}) => (
 	<div
 		{...props}
 		className={classes(
 			props.className,
 			styles.itemRowToolbar,
-			forceVisibleToolbar && styles.forceVisibleToolbar,
+			forceVisible && styles.forceVisibleToolbar,
 		)}
 	/>
 );

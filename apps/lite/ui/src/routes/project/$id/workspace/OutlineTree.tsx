@@ -1212,7 +1212,7 @@ const CommitRow: FC<
 						{hasConflicts && " ⚠️"}
 					</div>
 
-					<WorkspaceItemRowToolbar forceVisibleToolbar>
+					<WorkspaceItemRowToolbar forceVisible>
 						{outlineMode._tag === "Default" && (
 							<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
 								<Toolbar.Button
@@ -1341,7 +1341,7 @@ const ChangesSectionRow: FC<{
 			{outlineMode._tag === "Default" && (
 				<Toolbar.Root
 					aria-label="Changes actions"
-					render={<WorkspaceItemRowToolbar forceVisibleToolbar />}
+					render={<WorkspaceItemRowToolbar forceVisible />}
 				>
 					<Toolbar.Button
 						aria-label="Changes menu"
@@ -2059,7 +2059,7 @@ const BranchRow: FC<
 				<>
 					<div className={workspaceItemRowStyles.itemRowLabel}>{optimisticBranchDisplayName}</div>
 
-					<WorkspaceItemRowToolbar forceVisibleToolbar>
+					<WorkspaceItemRowToolbar forceVisible>
 						{outlineMode._tag === "Default" && (
 							<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar />}>
 								<Tooltip.Root>
@@ -2177,10 +2177,7 @@ const StackRow: FC<
 			<div className={workspaceItemRowStyles.itemRowLabel} />
 
 			{outlineMode._tag === "Default" && (
-				<Toolbar.Root
-					aria-label="Stack actions"
-					render={<WorkspaceItemRowToolbar forceVisibleToolbar />}
-				>
+				<Toolbar.Root aria-label="Stack actions" render={<WorkspaceItemRowToolbar forceVisible />}>
 					<Toolbar.Button
 						aria-label="Stack menu"
 						className={classes(

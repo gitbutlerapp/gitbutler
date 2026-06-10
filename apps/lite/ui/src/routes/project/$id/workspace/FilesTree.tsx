@@ -467,7 +467,7 @@ const FileRow: FC<
 			</div>
 
 			{outlineMode._tag === "Default" && (
-				<WorkspaceItemRowToolbar forceVisibleToolbar>
+				<WorkspaceItemRowToolbar forceVisible>
 					<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
 						<Toolbar.Button
 							aria-label="File menu"
