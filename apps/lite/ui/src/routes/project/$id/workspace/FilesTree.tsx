@@ -163,7 +163,7 @@ export const FilesTree: FC<
 		onFileSelection: (selection: FileOperand) => void;
 		navigationIndex: NavigationIndex<FileOperand>;
 	} & ComponentProps<"div">
-> = ({ className, items, onFileSelection, projectId, navigationIndex, ref: refProp, ...props }) => {
+> = ({ items, onFileSelection, projectId, navigationIndex, ref: refProp, ...props }) => {
 	const selection = useFilesSelection(projectId, navigationIndex);
 
 	const ref = useRef<HTMLDivElement>(null);
@@ -182,7 +182,7 @@ export const FilesTree: FC<
 				tabIndex={0}
 				role="tree"
 				aria-activedescendant={selection ? treeItemId(selection) : undefined}
-				className={classes(className, styles.tree)}
+				className={classes(props.className, styles.tree)}
 				ref={useMergedRefs(refProp, ref)}
 			>
 				<div className={workspaceItemRowStyles.section}>
