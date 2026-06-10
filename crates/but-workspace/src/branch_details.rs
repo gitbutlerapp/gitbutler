@@ -197,7 +197,8 @@ fn upstream_commits_gix(
         out.push(UpstreamCommit {
             id: info.id,
             message: commit.message.into(),
-            created_at: i128::from(commit.time()?.seconds) * 1000,
+            authored_at: i128::from(commit.author()?.time()?.seconds) * 1000,
+            committed_at: i128::from(commit.time()?.seconds) * 1000,
             author,
             change_id,
         });
@@ -236,7 +237,8 @@ fn local_commits_gix(
             message,
             has_conflicts: is_conflicted,
             state: CommitState::LocalAndRemote(info.id),
-            created_at: i128::from(commit.committer.time.seconds) * 1000,
+            authored_at: i128::from(commit.author.time.seconds) * 1000,
+            committed_at: i128::from(commit.committer.time.seconds) * 1000,
             author,
             change_id: commit.change_id().to_string(),
             gerrit_review_url: None,

@@ -2,14 +2,14 @@ import type { Commit, UpstreamCommit } from "@gitbutler/but-sdk";
 
 /** Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.*/
 
-/** Safely extract the creation time in milliseconds */
-export function commitCreatedAt(commit: Commit | UpstreamCommit): number {
-	return Number(commit.createdAt);
+/** Safely extract the committed time in milliseconds */
+export function commitCommittedAt(commit: Commit | UpstreamCommit): number {
+	return Number(commit.committedAt);
 }
 
-/** Safely extract the creation date from the commit */
-export function commitCreatedAtDate(commit: Commit | UpstreamCommit): Date {
-	return new Date(commitCreatedAt(commit));
+/** Safely extract the committed date from the commit */
+export function commitCommittedAtDate(commit: Commit | UpstreamCommit): Date {
+	return new Date(commitCommittedAt(commit));
 }
 
 /** If the commit is in `LocalAndRemote` state, extract the subject (the remote commit ID) */

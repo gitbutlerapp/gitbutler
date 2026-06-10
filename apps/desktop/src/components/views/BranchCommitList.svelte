@@ -11,7 +11,7 @@
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import UpstreamActionRow from "$components/upstream/UpstreamActionRow.svelte";
 	import UpstreamIntegrationActions from "$components/upstream/UpstreamIntegrationActions.svelte";
-	import { commitCreatedAt } from "$lib/branches/v3";
+	import { commitCommittedAt } from "$lib/branches/v3";
 	import { commitStatusLabel } from "$lib/commits/commit";
 	import { findEarliestConflict } from "$lib/commits/utils";
 	import { projectRunCommitHooks } from "$lib/config/config";
@@ -379,7 +379,7 @@
 							disabled: false,
 							label: commit.message.split("\n")[0],
 							sha: commit.id.slice(0, 7),
-							date: getTimeAgo(commitCreatedAt(commit)),
+							date: getTimeAgo(commitCommittedAt(commit)),
 							authorImgUrl: undefined,
 							commitType: commit.state.type,
 							data:
@@ -410,7 +410,7 @@
 							busy={controller.busyCommitId === commit.id}
 							diverged={commit.state.type === "LocalAndRemote" &&
 								commit.id !== commit.state.subject}
-							createdAt={commitCreatedAt(commit)}
+							committedAt={commitCommittedAt(commit)}
 							gerritReviewUrl={commit.gerritReviewUrl ?? undefined}
 							{stackId}
 							{branchName}

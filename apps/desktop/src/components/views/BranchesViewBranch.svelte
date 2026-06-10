@@ -5,7 +5,7 @@
 	import CommitListItem from "$components/commit/CommitListItem.svelte";
 	import ChangedFilesPanel from "$components/files/ChangedFilesPanel.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
-	import { commitCreatedAt } from "$lib/branches/v3";
+	import { commitCommittedAt } from "$lib/branches/v3";
 	import { createCommitSelection } from "$lib/selection/key";
 	import { getColorFromPushStatus, pushStatusToIcon } from "$lib/stacks/stack";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -88,7 +88,7 @@
 		diverged={isDiverged}
 		commitMessage={commit.message}
 		gerritReviewUrl={commit?.gerritReviewUrl ?? undefined}
-		createdAt={commitCreatedAt(commit)}
+		committedAt={commitCommittedAt(commit)}
 		commitId={commit.id}
 		{branchName}
 		selected={commit.id === selectedCommitId}

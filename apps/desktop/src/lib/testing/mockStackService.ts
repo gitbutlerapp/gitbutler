@@ -15,7 +15,8 @@ const MOCK_COMMIT_A: Commit = {
 	message: "Initial commit message",
 	hasConflicts: false,
 	state: { type: "LocalOnly" },
-	createdAt: 1672531200000, // Example timestamp
+	authoredAt: 1672531200000, // Example timestamp
+	committedAt: 1672531200000, // Example timestamp
 	author: MOCK_AUTHOR_A,
 	changeId: "Icommit-a-id",
 	gerritReviewUrl: null,
@@ -24,7 +25,8 @@ const MOCK_COMMIT_A: Commit = {
 const MOCK_UPSTREAM_COMMIT_A: UpstreamCommit = {
 	id: "upstream-commit-a-id",
 	message: "Upstream commit message",
-	createdAt: 1672531200000, // Example timestamp
+	authoredAt: 1672531200000, // Example timestamp
+	committedAt: 1672531200000, // Example timestamp
 	author: MOCK_AUTHOR_A,
 	changeId: null,
 };

@@ -97,8 +97,10 @@ pub struct Commit {
     /// or local and remote with respect to the branch it belongs to.
     /// Note that remote only commits in the context of a branch are expressed with the [`UpstreamCommit`] struct instead of this.
     pub state: CommitState,
-    /// Commit creation time in Epoch milliseconds.
-    pub created_at: i128,
+    /// Time at which the commit was authored, in Epoch milliseconds.
+    pub authored_at: i128,
+    /// Time at which the commit was committed, in Epoch milliseconds.
+    pub committed_at: i128,
     /// The author of the commit.
     pub author: Author,
     /// The GitButler change-id associated with this commit.
@@ -132,7 +134,8 @@ impl TryFrom<gix::Commit<'_>> for Commit {
             message,
             has_conflicts,
             state: CommitState::LocalAndRemote(commit_id),
-            created_at: i128::from(commit.time()?.seconds) * 1000,
+            authored_at: i128::from(commit.author()?.time()?.seconds) * 1000,
+            committed_at: i128::from(commit.time()?.seconds) * 1000,
             author: commit.author()?.into(),
             change_id,
             gerrit_review_url: None,
@@ -167,7 +170,8 @@ impl From<but_core::CommitOwned> for Commit {
             message,
             has_conflicts,
             state: CommitState::LocalAndRemote(id),
-            created_at: committer.time.seconds as i128 * 1000,
+            authored_at: author.time.seconds as i128 * 1000,
+            committed_at: committer.time.seconds as i128 * 1000,
             author: author.to_ref(&mut TimeBuf::default()).into(),
             change_id,
             gerrit_review_url: None,
@@ -207,8 +211,10 @@ pub struct UpstreamCommit {
         schemars(schema_with = "but_schemars::bstring_lossy")
     )]
     pub message: BString,
-    /// Commit creation time in Epoch milliseconds.
-    pub created_at: i128,
+    /// Time at which the commit was authored, in Epoch milliseconds.
+    pub authored_at: i128,
+    /// Time at which the commit was committed, in Epoch milliseconds.
+    pub committed_at: i128,
     /// The author of the commit.
     pub author: Author,
     /// The GitButler change-id associated with this commit, if available.
@@ -380,6 +386,7 @@ impl From<&crate::ref_info::Commit> for ui::UpstreamCommit {
             tree_id: _,
             message,
             author,
+            committer,
             // TODO: also pass refs for the frontend.
             refs: _,
             // TODO: also pass flags for the frontend.
@@ -393,7 +400,8 @@ impl From<&crate::ref_info::Commit> for ui::UpstreamCommit {
         ui::UpstreamCommit {
             id: *id,
             message: message.clone(),
-            created_at: author.time.seconds as i128 * 1000,
+            authored_at: author.time.seconds as i128 * 1000,
+            committed_at: committer.time.seconds as i128 * 1000,
             author: author
                 .to_ref(&mut gix::date::parse::TimeBuf::default())
                 .into(),
@@ -412,6 +420,7 @@ impl From<&LocalCommit> for ui::Commit {
                     parent_ids,
                     message,
                     author,
+                    committer,
                     // TODO: also pass refs
                     refs: _,
                     // TODO: also flags refs
@@ -429,7 +438,8 @@ impl From<&LocalCommit> for ui::Commit {
             message: message.clone(),
             has_conflicts: *has_conflicts,
             state: (*relation).into(),
-            created_at: author.time.seconds as i128 * 1000,
+            authored_at: author.time.seconds as i128 * 1000,
+            committed_at: committer.time.seconds as i128 * 1000,
             author: author
                 .to_ref(&mut gix::date::parse::TimeBuf::default())
                 .into(),

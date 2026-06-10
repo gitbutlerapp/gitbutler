@@ -7,7 +7,7 @@
 	import BranchReview from "$components/forge/BranchReview.svelte";
 	import Drawer from "$components/shared/Drawer.svelte";
 	import newBranchSmolSVG from "$lib/assets/empty-state/new-branch-smol.svg?raw";
-	import { commitCreatedAt, commitStateSubject } from "$lib/branches/v3";
+	import { commitCommittedAt, commitStateSubject } from "$lib/branches/v3";
 	import { findEarliestConflict } from "$lib/commits/utils";
 	import { editPatch } from "$lib/mode/editPatchUtils";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
@@ -185,7 +185,7 @@
 								commitId={commit.id}
 								commitMessage={commit.message}
 								gerritReviewUrl={commit.gerritReviewUrl ?? undefined}
-								createdAt={commitCreatedAt(commit)}
+								committedAt={commitCommittedAt(commit)}
 								hasConflicts={true}
 								disableCommitActions={true}
 								diverged={isLocalAndRemote && commit.id !== commitStateSubject(commit)}

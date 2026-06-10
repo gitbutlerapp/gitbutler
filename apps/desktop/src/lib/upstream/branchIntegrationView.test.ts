@@ -197,7 +197,8 @@ describe("branchIntegrationView", () => {
 										message: "Preview title\n\nbody",
 										hasConflicts: false,
 										state: { type: "LocalOnly" },
-										createdAt: 0,
+										authoredAt: 0,
+										committedAt: 0,
 										author: {
 											name: "A",
 											email: "a@example.com",
@@ -224,7 +225,8 @@ describe("branchIntegrationView", () => {
 										message: "Base title",
 										hasConflicts: false,
 										state: { type: "Integrated" },
-										createdAt: 0,
+										authoredAt: 0,
+										committedAt: 0,
 										author: {
 											name: "B",
 											email: "b@example.com",

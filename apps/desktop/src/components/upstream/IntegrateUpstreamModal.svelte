@@ -160,7 +160,7 @@
 							<SimpleCommitRow
 								title={descriptionTitle(commit) ?? ""}
 								sha={commit.id}
-								date={new Date(commit.createdAt)}
+								date={new Date(commit.committedAt)}
 								author={commit.author.name}
 								{url}
 								onOpen={(url) => urlService.openExternalUrl(url)}

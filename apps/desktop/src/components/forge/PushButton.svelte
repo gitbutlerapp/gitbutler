@@ -3,7 +3,7 @@
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import { URL_SERVICE } from "$lib/backend/url";
 	import { getBranchNameFromRef } from "$lib/branches/branchUtils";
-	import { commitCreatedAtDate } from "$lib/branches/v3";
+	import { commitCommittedAtDate } from "$lib/branches/v3";
 	import { splitMessage } from "$lib/commits/commitMessage";
 	import { projectRunCommitHooks } from "$lib/config/config";
 	import { commitUrl, FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
@@ -265,7 +265,7 @@
 					<SimpleCommitRow
 						title={splitMessage(commit.message).title ?? ""}
 						sha={commit.id}
-						date={commitCreatedAtDate(commit)}
+						date={commitCommittedAtDate(commit)}
 						author={commit.author.name}
 						{url}
 						onOpen={(url) => urlService.openExternalUrl(url)}

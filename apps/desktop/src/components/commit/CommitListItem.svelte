@@ -16,7 +16,7 @@
 		branchName?: string;
 		commitId: string;
 		commitMessage: string;
-		createdAt: number;
+		committedAt: number;
 		author?: { name: string; email: string; gravatarUrl: string };
 		tooltip?: string;
 		first?: boolean;

@@ -136,7 +136,8 @@ struct CommonMergeBase {
     message: String,
     commit_date: String,
     commit_id: gix::ObjectId,
-    created_at: i128,
+    authored_at: i128,
+    committed_at: i128,
     author_name: String,
     author_email: String,
 }
@@ -150,7 +151,8 @@ struct UpstreamState {
     commit_date: String,
     last_fetched_ms: Option<u128>,
     commit_id: gix::ObjectId,
-    created_at: i128,
+    authored_at: i128,
+    committed_at: i128,
     author_name: String,
     author_email: String,
 }
@@ -374,7 +376,8 @@ async fn build_status_context<'a>(
             message: full_message,
             commit_date: formatted_date,
             commit_id: target_commit_id,
-            created_at: base_commit_decoded.committer()?.time()?.seconds as i128 * 1000,
+            authored_at: base_commit_decoded.author()?.time()?.seconds as i128 * 1000,
+            committed_at: base_commit_decoded.committer()?.time()?.seconds as i128 * 1000,
             author_name: author.name.to_string(),
             author_email: author.email.to_string(),
         };
@@ -411,7 +414,8 @@ async fn build_status_context<'a>(
                             commit_date: formatted_date,
                             last_fetched_ms: last_fetched,
                             commit_id,
-                            created_at: commit.committer().ok()?.time().ok()?.seconds as i128
+                            authored_at: author.time().ok()?.seconds as i128 * 1000,
+                            committed_at: commit.committer().ok()?.time().ok()?.seconds as i128
                                 * 1000,
                             author_name: author.name.to_string(),
                             author_email: author.email.to_string(),

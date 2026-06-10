@@ -28,6 +28,8 @@ pub struct Commit {
     pub message: BString,
     /// The signature at which the commit was authored.
     pub author: gix::actor::Signature,
+    /// The signature at which the commit was committed.
+    pub committer: gix::actor::Signature,
     /// The references pointing to this commit, even after dereferencing tag objects, along with workspace information.
     /// These can be names of tags and branches.
     pub refs: Vec<but_graph::RefInfo>,
@@ -70,7 +72,10 @@ impl From<but_core::Commit<'_>> for Commit {
         let tree_id = value.tree;
         let parent_ids = value.parents.iter().cloned().collect();
         let gix::objs::Commit {
-            message, author, ..
+            message,
+            author,
+            committer,
+            ..
         } = value.inner;
         let message = but_core::commit::strip_conflict_markers(message.as_ref());
         Commit {
@@ -79,6 +84,7 @@ impl From<but_core::Commit<'_>> for Commit {
             parent_ids,
             message,
             author,
+            committer,
             has_conflicts,
             change_id,
             refs: Vec::new(),
@@ -113,6 +119,10 @@ impl Commit {
             has_conflicts,
             author: commit
                 .author
+                .to_ref(&mut gix::date::parse::TimeBuf::default())
+                .into(),
+            committer: commit
+                .committer
                 .to_ref(&mut gix::date::parse::TimeBuf::default())
                 .into(),
             refs: graph_commit.refs.clone(),
