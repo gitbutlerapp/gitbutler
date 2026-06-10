@@ -1,4 +1,5 @@
 use bstr::ByteSlice;
+use but_core::RefMetadata;
 use but_testsupport::{visualize_commit_graph, visualize_commit_graph_all};
 use but_workspace::RefInfo;
 
@@ -7,6 +8,9 @@ pub fn head_info(
     meta: &but_meta::VirtualBranchesTomlMetadata,
     mut opts: but_workspace::ref_info::Options,
 ) -> anyhow::Result<RefInfo> {
+    opts.project_meta = meta
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
+        .project_meta();
     if opts.traversal.extra_target_commit_id.is_none() {
         opts.traversal.extra_target_commit_id = meta.data().default_target.as_ref().map(|t| t.sha);
     }
@@ -18,6 +22,9 @@ pub fn ref_info(
     meta: &but_meta::VirtualBranchesTomlMetadata,
     mut opts: but_workspace::ref_info::Options,
 ) -> anyhow::Result<RefInfo> {
+    opts.project_meta = meta
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
+        .project_meta();
     if opts.traversal.extra_target_commit_id.is_none() {
         opts.traversal.extra_target_commit_id = meta.data().default_target.as_ref().map(|t| t.sha);
     }
@@ -3176,7 +3183,15 @@ fn disjoint() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target_ref: None,
+        target_ref: Some(
+            TargetRef {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(2),
+                commits_ahead: 0,
+            },
+        ),
         target_commit: Some(
             TargetCommit {
                 commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
@@ -4042,7 +4057,7 @@ mod journey;
 mod legacy;
 
 pub(crate) mod utils {
-    use but_core::ref_metadata::StackId;
+    use but_core::{RefMetadata, ref_metadata::StackId};
     use but_graph::init::Options;
     use but_meta::{
         VirtualBranchesTomlMetadata,
@@ -4154,9 +4169,17 @@ pub(crate) mod utils {
             named_writable_scenario_with_args_and_description(name, args)?;
 
         init_meta(&mut meta);
+        let project_meta = meta
+            .workspace(
+                but_core::WORKSPACE_REF_NAME
+                    .try_into()
+                    .expect("valid workspace ref"),
+            )?
+            .project_meta();
         let graph = but_graph::Graph::from_head(
             &repo,
             &meta,
+            project_meta,
             Options {
                 extra_target_commit_id: repo.rev_parse_single("main").ok().map(|id| id.detach()),
                 ..Options::limited()

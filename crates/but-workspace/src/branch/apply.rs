@@ -228,7 +228,7 @@ pub fn apply<'ws>(
         let workspace_ref_created = false;
         // When exiting early, don't try to adjust the ws commit.
         return Ok(Outcome {
-            workspace: Cow::Borrowed(ws),
+            workspace: Cow::Borrowed(workspace),
             workspace_ref_created,
             workspace_merge: None,
             conflicting_stack_ids,

@@ -5,7 +5,7 @@ use std::{
     str::FromStr,
 };
 
-use but_core::{RefMetadata, WORKSPACE_REF_NAME, sync::RepoExclusive};
+use but_core::sync::RepoExclusive;
 use but_ctx::Context;
 use but_meta::virtual_branches_legacy_types::Target;
 use but_workspace::legacy::ui::StackEntry;
@@ -135,17 +135,18 @@ fn prepare_handle_changes(ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow
             "Cannot handle changes while in edit mode. Please exit edit mode first."
         )),
         OperatingMode::OutsideWorkspace(_) => {
-            let default_target = ctx.persisted_default_target()?;
-            gitbutler_branch_actions::set_base_branch(ctx, &default_target.branch, perm).map(|_| ())
+            let target_ref: gitbutler_reference::RemoteRefname = ctx
+                .project_meta()?
+                .target_ref_or_err()?
+                .to_string()
+                .parse()?;
+            gitbutler_branch_actions::set_base_branch(ctx, &target_ref, perm).map(|_| ())
         }
     }
 }
 
 fn default_target_setting_if_none(ctx: &Context) -> anyhow::Result<()> {
-    let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
-    let mut meta = ctx.legacy_meta()?;
-    let workspace = meta.workspace(workspace_ref.as_ref())?;
-    if workspace.target_ref.is_some() {
+    if ctx.project_meta()?.target_ref.is_some() {
         return Ok(());
     }
     // Lets do the equivalent of `git symbolic-ref refs/remotes/origin/HEAD --short` to guess the default target.
@@ -171,14 +172,13 @@ fn default_target_setting_if_none(ctx: &Context) -> anyhow::Result<()> {
         gitbutler_reference::RemoteRefname::from_str(&target_ref_name.as_bstr().to_string())?;
 
     let target = Target {
-        branch: remote_refname,
+        branch: remote_refname.clone(),
         remote_url: "".to_string(),
         sha: head_commit.id,
         push_remote_name: None,
     };
 
-    meta.set_default_target(target)?;
-    ctx.invalidate_workspace_cache()?;
+    ctx.set_default_target(target)?;
     Ok(())
 }
 
@@ -188,6 +188,7 @@ fn stacks(ctx: &Context, repo: &gix::Repository) -> anyhow::Result<Vec<StackEntr
     but_workspace::legacy::stacks_v3(
         repo,
         &meta,
+        &ctx.project_meta()?,
         but_workspace::legacy::StacksFilter::InWorkspace,
         None,
     )

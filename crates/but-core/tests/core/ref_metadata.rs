@@ -64,13 +64,10 @@ mod workspace {
 
     #[test]
     fn unapply_branch_returns_false_if_absent() {
-        let mut ws = Workspace {
-            stacks: vec![
-                stack(1, Merged, ["refs/heads/A"]),
-                stack(2, Outside, ["refs/heads/outside"]),
-            ],
-            ..Workspace::default()
-        };
+        let mut ws = workspace(vec![
+            stack(1, Merged, ["refs/heads/A"]),
+            stack(2, Outside, ["refs/heads/outside"]),
+        ]);
 
         assert!(
             !ws.unapply_branch(r("refs/heads/missing")),
@@ -118,13 +115,10 @@ mod workspace {
 
     #[test]
     fn unapply_branch_removes_single_branch_stack() {
-        let mut ws = Workspace {
-            stacks: vec![
-                stack(1, Merged, ["refs/heads/A"]),
-                stack(2, Merged, ["refs/heads/B"]),
-            ],
-            ..Workspace::default()
-        };
+        let mut ws = workspace(vec![
+            stack(1, Merged, ["refs/heads/A"]),
+            stack(2, Merged, ["refs/heads/B"]),
+        ]);
 
         assert!(
             ws.unapply_branch(r("refs/heads/A")),
@@ -158,14 +152,11 @@ mod workspace {
 
     #[test]
     fn unapply_branch_marks_multi_segment_stack_outside_when_tip_is_removed() {
-        let mut ws = Workspace {
-            stacks: vec![stack(
-                1,
-                Merged,
-                ["refs/heads/A", "refs/heads/B", "refs/heads/C"],
-            )],
-            ..Workspace::default()
-        };
+        let mut ws = workspace(vec![stack(
+            1,
+            Merged,
+            ["refs/heads/A", "refs/heads/B", "refs/heads/C"],
+        )]);
 
         assert!(
             ws.unapply_branch(r("refs/heads/A")),
@@ -207,14 +198,11 @@ mod workspace {
 
     #[test]
     fn unapply_branch_removes_middle_segment_metadata() {
-        let mut ws = Workspace {
-            stacks: vec![stack(
-                1,
-                Merged,
-                ["refs/heads/A", "refs/heads/B", "refs/heads/C"],
-            )],
-            ..Workspace::default()
-        };
+        let mut ws = workspace(vec![stack(
+            1,
+            Merged,
+            ["refs/heads/A", "refs/heads/B", "refs/heads/C"],
+        )]);
 
         assert!(
             ws.unapply_branch(r("refs/heads/B")),
@@ -338,27 +326,24 @@ mod workspace {
     fn find_owner_indexes_by_name_returns_original_stack_index_after_filtering() {
         let outside_ref = r("refs/heads/outside");
         let applied_ref = r("refs/heads/applied");
-        let ws = Workspace {
-            stacks: vec![
-                WorkspaceStack {
-                    id: StackId::from_number_for_testing(1),
-                    branches: vec![WorkspaceStackBranch {
-                        ref_name: outside_ref.to_owned(),
-                        archived: false,
-                    }],
-                    workspacecommit_relation: Outside,
-                },
-                WorkspaceStack {
-                    id: StackId::from_number_for_testing(2),
-                    branches: vec![WorkspaceStackBranch {
-                        ref_name: applied_ref.to_owned(),
-                        archived: false,
-                    }],
-                    workspacecommit_relation: Merged,
-                },
-            ],
-            ..Workspace::default()
-        };
+        let ws = workspace(vec![
+            WorkspaceStack {
+                id: StackId::from_number_for_testing(1),
+                branches: vec![WorkspaceStackBranch {
+                    ref_name: outside_ref.to_owned(),
+                    archived: false,
+                }],
+                workspacecommit_relation: Outside,
+            },
+            WorkspaceStack {
+                id: StackId::from_number_for_testing(2),
+                branches: vec![WorkspaceStackBranch {
+                    ref_name: applied_ref.to_owned(),
+                    archived: false,
+                }],
+                workspacecommit_relation: Merged,
+            },
+        ]);
 
         assert_eq!(
             ws.find_owner_indexes_by_name(applied_ref, Applied),
@@ -430,23 +415,20 @@ mod workspace {
     fn reconcile_projected_stacks_is_additive_and_preserves_existing_branch_metadata()
     -> anyhow::Result<()> {
         let archived_extra_ref = r("refs/heads/old-extra");
-        let mut ws = Workspace {
-            stacks: vec![WorkspaceStack {
-                id: StackId::from_number_for_testing(1),
-                branches: vec![
-                    WorkspaceStackBranch {
-                        ref_name: r("refs/heads/B").to_owned(),
-                        archived: false,
-                    },
-                    WorkspaceStackBranch {
-                        ref_name: archived_extra_ref.to_owned(),
-                        archived: true,
-                    },
-                ],
-                workspacecommit_relation: Outside,
-            }],
-            ..Workspace::default()
-        };
+        let mut ws = workspace(vec![WorkspaceStack {
+            id: StackId::from_number_for_testing(1),
+            branches: vec![
+                WorkspaceStackBranch {
+                    ref_name: r("refs/heads/B").to_owned(),
+                    archived: false,
+                },
+                WorkspaceStackBranch {
+                    ref_name: archived_extra_ref.to_owned(),
+                    archived: true,
+                },
+            ],
+            workspacecommit_relation: Outside,
+        }]);
 
         ws.reconcile_projected_stacks(
             [projected_stack(None, ["refs/heads/C", "refs/heads/B"])],
@@ -517,27 +499,24 @@ mod workspace {
     fn reconcile_projected_stacks_tolerates_duplicate_existing_metadata_names() -> anyhow::Result<()>
     {
         let matching_stack_id = StackId::from_number_for_testing(2);
-        let mut ws = Workspace {
-            stacks: vec![
-                WorkspaceStack {
-                    id: StackId::from_number_for_testing(1),
-                    branches: vec![WorkspaceStackBranch {
-                        ref_name: r("refs/heads/A").to_owned(),
-                        archived: false,
-                    }],
-                    workspacecommit_relation: Merged,
-                },
-                WorkspaceStack {
-                    id: matching_stack_id,
-                    branches: vec![WorkspaceStackBranch {
-                        ref_name: r("refs/heads/A").to_owned(),
-                        archived: true,
-                    }],
-                    workspacecommit_relation: Outside,
-                },
-            ],
-            ..Workspace::default()
-        };
+        let mut ws = workspace(vec![
+            WorkspaceStack {
+                id: StackId::from_number_for_testing(1),
+                branches: vec![WorkspaceStackBranch {
+                    ref_name: r("refs/heads/A").to_owned(),
+                    archived: false,
+                }],
+                workspacecommit_relation: Merged,
+            },
+            WorkspaceStack {
+                id: matching_stack_id,
+                branches: vec![WorkspaceStackBranch {
+                    ref_name: r("refs/heads/A").to_owned(),
+                    archived: true,
+                }],
+                workspacecommit_relation: Outside,
+            },
+        ]);
 
         ws.reconcile_projected_stacks(
             [projected_stack(Some(matching_stack_id), ["refs/heads/A"])],
@@ -592,47 +571,44 @@ mod workspace {
     #[test]
     fn reconcile_projected_stacks_moves_existing_branch_names_between_metadata_stacks()
     -> anyhow::Result<()> {
-        let mut ws = Workspace {
-            stacks: vec![
-                WorkspaceStack {
-                    id: StackId::from_number_for_testing(1),
-                    branches: vec![
-                        WorkspaceStackBranch {
-                            ref_name: r("refs/heads/B").to_owned(),
-                            archived: false,
-                        },
-                        WorkspaceStackBranch {
-                            ref_name: r("refs/heads/E").to_owned(),
-                            archived: false,
-                        },
-                    ],
-                    workspacecommit_relation: Merged,
-                },
-                WorkspaceStack {
-                    id: StackId::from_number_for_testing(2),
-                    branches: vec![
-                        WorkspaceStackBranch {
-                            ref_name: r("refs/heads/C").to_owned(),
-                            archived: false,
-                        },
-                        WorkspaceStackBranch {
-                            ref_name: r("refs/heads/D").to_owned(),
-                            archived: true,
-                        },
-                    ],
-                    workspacecommit_relation: Outside,
-                },
-                WorkspaceStack {
-                    id: StackId::from_number_for_testing(3),
-                    branches: vec![WorkspaceStackBranch {
-                        ref_name: r("refs/heads/unrelated").to_owned(),
+        let mut ws = workspace(vec![
+            WorkspaceStack {
+                id: StackId::from_number_for_testing(1),
+                branches: vec![
+                    WorkspaceStackBranch {
+                        ref_name: r("refs/heads/B").to_owned(),
                         archived: false,
-                    }],
-                    workspacecommit_relation: Merged,
-                },
-            ],
-            ..Workspace::default()
-        };
+                    },
+                    WorkspaceStackBranch {
+                        ref_name: r("refs/heads/E").to_owned(),
+                        archived: false,
+                    },
+                ],
+                workspacecommit_relation: Merged,
+            },
+            WorkspaceStack {
+                id: StackId::from_number_for_testing(2),
+                branches: vec![
+                    WorkspaceStackBranch {
+                        ref_name: r("refs/heads/C").to_owned(),
+                        archived: false,
+                    },
+                    WorkspaceStackBranch {
+                        ref_name: r("refs/heads/D").to_owned(),
+                        archived: true,
+                    },
+                ],
+                workspacecommit_relation: Outside,
+            },
+            WorkspaceStack {
+                id: StackId::from_number_for_testing(3),
+                branches: vec![WorkspaceStackBranch {
+                    ref_name: r("refs/heads/unrelated").to_owned(),
+                    archived: false,
+                }],
+                workspacecommit_relation: Merged,
+            },
+        ]);
 
         ws.reconcile_projected_stacks(
             [projected_stack(
@@ -695,27 +671,24 @@ mod workspace {
 
     #[test]
     fn reconcile_projected_stacks_removes_stacks_emptied_by_moves() -> anyhow::Result<()> {
-        let mut ws = Workspace {
-            stacks: vec![
-                WorkspaceStack {
-                    id: StackId::from_number_for_testing(1),
-                    branches: vec![WorkspaceStackBranch {
-                        ref_name: r("refs/heads/B").to_owned(),
-                        archived: false,
-                    }],
-                    workspacecommit_relation: Merged,
-                },
-                WorkspaceStack {
-                    id: StackId::from_number_for_testing(2),
-                    branches: vec![WorkspaceStackBranch {
-                        ref_name: r("refs/heads/C").to_owned(),
-                        archived: false,
-                    }],
-                    workspacecommit_relation: Merged,
-                },
-            ],
-            ..Workspace::default()
-        };
+        let mut ws = workspace(vec![
+            WorkspaceStack {
+                id: StackId::from_number_for_testing(1),
+                branches: vec![WorkspaceStackBranch {
+                    ref_name: r("refs/heads/B").to_owned(),
+                    archived: false,
+                }],
+                workspacecommit_relation: Merged,
+            },
+            WorkspaceStack {
+                id: StackId::from_number_for_testing(2),
+                branches: vec![WorkspaceStackBranch {
+                    ref_name: r("refs/heads/C").to_owned(),
+                    archived: false,
+                }],
+                workspacecommit_relation: Merged,
+            },
+        ]);
 
         ws.reconcile_projected_stacks(
             [projected_stack(None, ["refs/heads/C", "refs/heads/B"])],
@@ -732,6 +705,12 @@ mod workspace {
             ["refs/heads/C", "refs/heads/B"]
         );
         Ok(())
+    }
+
+    fn workspace(stacks: Vec<WorkspaceStack>) -> Workspace {
+        let mut ws = Workspace::default();
+        ws.stacks = stacks;
+        ws
     }
 
     fn r(name: &str) -> &gix::refs::FullNameRef {
@@ -778,5 +757,105 @@ mod workspace {
             .iter()
             .map(|branch| branch.ref_name.as_bstr().to_str().expect("utf8"))
             .collect()
+    }
+}
+
+mod project_meta {
+    use but_core::ref_metadata::ProjectMeta;
+    use but_testsupport::read_only_in_memory_scenario;
+
+    #[test]
+    fn malformed_target_ref_and_commit_id_read_as_none() -> anyhow::Result<()> {
+        let config = gix::config::File::try_from(
+            "[gitbutler \"project\"]\n\
+             \ttargetRef = origin/master\n\
+             \ttargetCommitId = not-a-commit-id\n\
+             \tpushRemote = upstream\n",
+        )?;
+
+        let actual = ProjectMeta::try_from_config(&config)?;
+        assert_eq!(
+            actual.target_ref, None,
+            "a target ref that isn't a full ref name is ignored instead of failing the whole read"
+        );
+        assert_eq!(
+            actual.target_commit_id, None,
+            "a target commit id that isn't a hexadecimal object id is ignored as well"
+        );
+        assert_eq!(
+            actual.push_remote.as_deref(),
+            Some("upstream"),
+            "well-formed values are still read despite malformed siblings"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn non_remote_target_ref_reads_as_none() -> anyhow::Result<()> {
+        let config = gix::config::File::try_from(
+            "[gitbutler \"project\"]\n\
+             \ttargetRef = refs/heads/main\n",
+        )?;
+
+        let actual = ProjectMeta::try_from_config(&config)?;
+        assert_eq!(
+            actual.target_ref, None,
+            "a target ref that isn't a remote tracking branch would wrongly be seeded as remote \
+             target tip, so it's ignored"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn push_remote_name_falls_back_to_textual_remote_name() -> anyhow::Result<()> {
+        let repo = read_only_in_memory_scenario("multiple-remotes-with-tracking-branches")?;
+
+        let meta = ProjectMeta {
+            target_ref: Some(gix::refs::FullName::try_from(
+                "refs/remotes/gone/release/1.x".to_owned(),
+            )?),
+            target_commit_id: None,
+            push_remote: None,
+        };
+        assert_eq!(
+            meta.push_remote_name(&repo)?,
+            "gone",
+            "with no matching configured remote and a slash in the branch name, \
+             the first path component after refs/remotes/ is used, like legacy metadata stored"
+        );
+
+        let meta = ProjectMeta {
+            target_ref: Some(gix::refs::FullName::try_from(
+                "refs/remotes/nested/remote/feature/a".to_owned(),
+            )?),
+            target_commit_id: None,
+            push_remote: None,
+        };
+        assert_eq!(
+            meta.push_remote_name(&repo)?,
+            "nested/remote",
+            "configured remotes remain the primary path so remote names containing '/' still work"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn null_target_commit_id_reads_as_none() -> anyhow::Result<()> {
+        let config = gix::config::File::try_from(
+            "[gitbutler \"project\"]\n\
+             \ttargetRef = refs/remotes/origin/main\n\
+             \ttargetCommitId = 0000000000000000000000000000000000000000\n",
+        )?;
+
+        let actual = ProjectMeta::try_from_config(&config)?;
+        assert_eq!(
+            actual.target_ref.map(|name| name.to_string()),
+            Some("refs/remotes/origin/main".to_string())
+        );
+        assert_eq!(
+            actual.target_commit_id, None,
+            "the null id is a placeholder for an unknown commit and must read as absent"
+        );
+        Ok(())
     }
 }

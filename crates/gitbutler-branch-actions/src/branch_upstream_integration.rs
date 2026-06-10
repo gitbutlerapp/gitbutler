@@ -54,7 +54,8 @@ pub fn get_initial_integration_steps_for_branch(
 ) -> Result<Vec<InteractiveIntegrationStep>> {
     let repo = ctx.repo.get()?;
     let meta = ctx.legacy_meta()?;
-    let stack_details = but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)?;
+    let stack_details =
+        but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta, &ctx.project_meta()?)?;
 
     let branch_details = stack_details
         .branch_details

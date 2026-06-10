@@ -24,8 +24,12 @@ pub use queries::legacy::HeadStatus;
 /// Lifecycle
 impl Workspace {
     /// Redo the graph traversal with the same settings as before, but use the latest
-    /// data from `repo` and `meta` to do it.
+    /// data from `repo`, `meta` and `project_meta` to do it.
     /// This is useful to make this instance represent changes to `repo` or `meta`.
+    ///
+    /// Pass a freshly read `project_meta` to pick up target changes as well, or
+    /// `self.graph.project_meta.clone()` to deliberately keep the current one,
+    /// e.g. in the middle of an operation.
     #[instrument(
         name = "Workspace::refresh_from_head",
         level = "debug",
@@ -36,8 +40,9 @@ impl Workspace {
         &mut self,
         repo: &gix::Repository,
         meta: &impl RefMetadata,
+        project_meta: but_core::ref_metadata::ProjectMeta,
     ) -> anyhow::Result<()> {
-        let graph = Graph::from_head(repo, meta, self.graph.options.clone())?;
+        let graph = Graph::from_head(repo, meta, project_meta, self.graph.options.clone())?;
         *self = graph.into_workspace()?;
         Ok(())
     }
@@ -89,10 +94,8 @@ impl Workspace {
                 .collect();
             extract_remote_name_and_short_name(tr.ref_name.as_ref(), &remote_names)
                 .map(|(remote_name, _)| remote_name)
-        } else if let Some(md) = self.metadata.as_ref() {
-            md.push_remote.clone()
         } else {
-            None
+            self.graph.project_meta.push_remote.clone()
         }
     }
 

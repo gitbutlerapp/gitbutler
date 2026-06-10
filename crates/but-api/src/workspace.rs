@@ -189,33 +189,43 @@ pub fn workspace_integrate_upstream_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let mut meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let IntegrateUpstreamOutcome { rebase, ws_meta } =
-        but_workspace::integrate_upstream(&mut ws, &mut meta, &repo, updates)?;
-    let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&rebase)?;
+    let (workspace_state, worktree_conflicts) = {
+        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        let project_meta = ctx.project_meta()?;
+        let IntegrateUpstreamOutcome {
+            rebase,
+            ws_meta,
+            project_meta,
+        } = but_workspace::integrate_upstream(&mut ws, &mut meta, project_meta, &repo, updates)?;
+        let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&rebase)?;
 
-    if dry_run.into() {
-        let workspace_state =
-            WorkspaceState::from_rebase_preview(&rebase, rebase.history.commit_mappings())?;
-        return Ok(WorkspaceIntegrateUpstreamOutcome {
-            workspace_state,
-            worktree_conflicts,
-        });
-    }
+        if dry_run.into() {
+            let workspace_state =
+                WorkspaceState::from_rebase_preview(&rebase, rebase.history.commit_mappings())?;
+            return Ok(WorkspaceIntegrateUpstreamOutcome {
+                workspace_state,
+                worktree_conflicts,
+            });
+        }
 
-    let materialized = rebase.materialize()?;
+        let materialized = rebase.materialize()?;
+        project_meta.persist_to_local_config(&repo)?;
 
-    if let Some(ref_name) = materialized.workspace.ref_name() {
-        let mut md = materialized.meta.workspace(ref_name)?;
-        *md = ws_meta;
-        materialized.meta.set_workspace(&md)?;
-    }
+        if let Some(ref_name) = materialized.workspace.ref_name() {
+            let mut md = materialized.meta.workspace(ref_name)?;
+            *md = ws_meta;
+            md.set_project_meta(project_meta);
+            materialized.meta.set_workspace(&md)?;
+        }
 
-    let workspace_state = WorkspaceState::from_workspace(
-        materialized.workspace,
-        &repo,
-        materialized.history.commit_mappings(),
-    )?;
+        let workspace_state = WorkspaceState::from_workspace(
+            materialized.workspace,
+            &repo,
+            materialized.history.commit_mappings(),
+        )?;
+        (workspace_state, worktree_conflicts)
+    };
+    ctx.invalidate_workspace_cache()?;
 
     Ok(WorkspaceIntegrateUpstreamOutcome {
         workspace_state,

@@ -264,6 +264,8 @@ pub struct Graph {
     /// possibly changed. This can also be used to simulate changes by injecting would-be information.
     /// Public to be able to change it before calling [Graph::redo_traversal_with_overlay()].
     pub options: init::Options,
+    /// Project-wide metadata used for target ref, target commit, and push remote resolution.
+    pub project_meta: but_core::ref_metadata::ProjectMeta,
     /// All remote names that aren't URLs and that were retrieved during the traversal.
     ///
     /// They are useful to extract remote names from remote tracking refs like `refs/remotes/origin/master`,

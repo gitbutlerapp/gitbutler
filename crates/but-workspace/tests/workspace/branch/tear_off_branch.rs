@@ -51,7 +51,8 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *-.   efd284c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -125,7 +126,8 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *-.   a3c9e85 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -199,7 +201,8 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   f3e1bf2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -262,7 +265,8 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   e2d89a5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -322,7 +326,8 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   828af37 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -382,7 +387,8 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   d744692 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -440,7 +446,8 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   b1314f4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit

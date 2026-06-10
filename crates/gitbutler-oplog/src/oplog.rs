@@ -155,7 +155,7 @@ impl OplogExt for Context {
         details: SnapshotDetails,
         perm: &mut RepoExclusive,
     ) -> Result<gix::ObjectId> {
-        let target = self.persisted_default_target()?.sha;
+        let target = self.project_meta()?.target_commit_id_or_err()?;
         let repo = self.repo.get()?;
         commit_snapshot(self, &repo, snapshot_tree_id, details, perm, target)
     }
@@ -502,7 +502,7 @@ fn prepare_snapshot_with_target(
     let empty_tree_id = repo.empty_tree().id;
 
     // grab the target commit
-    let default_target_commit_id = ctx.persisted_default_target()?.sha;
+    let default_target_commit_id = ctx.project_meta()?.target_commit_id_or_err()?;
     let target_tree_id = repo
         .find_commit(default_target_commit_id)?
         .tree_id()?
@@ -805,6 +805,9 @@ fn restore_snapshot(
             legacy_virtual_branches::set_reference_to_stored_head(branch, &gix_repo).ok();
         }
     }
+    // The restored TOML is the source of truth for the target as well - bring the project
+    // metadata in Git config back in line with it so the restore isn't partial.
+    ctx.resync_project_meta_from_legacy()?;
     ctx.invalidate_workspace_cache()?;
 
     // reset the repo index to our index tree
@@ -841,7 +844,7 @@ fn restore_snapshot(
         ]),
     };
     let repo = ctx.repo.get()?;
-    let target = ctx.persisted_default_target()?.sha;
+    let target = ctx.project_meta()?.target_commit_id_or_err()?;
     commit_snapshot(
         ctx,
         &repo,
@@ -963,7 +966,7 @@ fn tree_from_applied_vbranches(
         .context("failed to convert virtual_branches tree entry to blob")?;
 
     let vbs_from_toml: VirtualBranches = toml::from_str(from_utf8(&vb_toml_blob.data)?)?;
-    let default_target_oid = ctx.persisted_default_target()?.sha;
+    let default_target_oid = ctx.project_meta()?.target_commit_id_or_err()?;
     let applied_branch_trees: Vec<_> = legacy_virtual_branches::in_workspace_stacks(&vbs_from_toml)
         .map(|stack| {
             let head_oid =

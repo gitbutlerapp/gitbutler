@@ -18,7 +18,6 @@ legacy = ["dep:gitbutler-project", "but-project-handle/legacy"]
 [dependencies]
 but-path.workspace = true
 but-core.workspace = true
-but-error.workspace = true
 but-settings.workspace = true
 # Legacy is needed here for our only RefMetadata implementation that adapts `virtual-branches.toml`.
 but-meta = { workspace = true, features = ["legacy"] }
@@ -36,8 +35,11 @@ gix.workspace = true
 git2.workspace = true
 
 [dev-dependencies]
+# Enable `legacy` so tests can exercise the feature-gated legacy lifecycle.
+but-ctx = { path = ".", features = ["legacy"] }
 but-testsupport.workspace = true
 serde_json.workspace = true
+insta.workspace = true
 
 [lints]
 workspace = true

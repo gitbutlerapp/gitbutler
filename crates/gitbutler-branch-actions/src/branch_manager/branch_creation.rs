@@ -48,7 +48,7 @@ impl BranchManager<'_> {
         perm: &mut RepoExclusive,
     ) -> Result<Stack> {
         let mut vb_state = self.ctx.virtual_branches();
-        let target_base_oid = self.ctx.persisted_default_target()?.sha;
+        let target_base_oid = self.ctx.project_meta()?.target_commit_id_or_err()?;
 
         let mut all_stacks = vb_state
             .list_stacks_in_workspace()

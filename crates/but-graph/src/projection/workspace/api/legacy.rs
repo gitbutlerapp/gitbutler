@@ -107,9 +107,11 @@ impl Workspace {
             .as_ref()
             .map(|target| target.ref_name.as_ref())
             .or_else(|| {
-                self.metadata
+                self.graph
+                    .project_meta
+                    .target_ref
                     .as_ref()
-                    .and_then(|metadata| metadata.target_ref.as_ref().map(|name| name.as_ref()))
+                    .map(|name| name.as_ref())
             })
     }
 
@@ -128,9 +130,9 @@ impl Workspace {
     /// I think it's important to nail this semantically, and if in doubt, I'd rather make `metadata`
     /// inaccessible to provide only a single-source of truth and remove ambiguity.
     pub fn target_base_commit_id(&self) -> Option<gix::ObjectId> {
-        self.metadata
-            .as_ref()
-            .and_then(|metadata| metadata.target_commit_id)
+        self.graph
+            .project_meta
+            .target_commit_id
             .or_else(|| self.target_commit.as_ref().map(|target| target.commit_id))
     }
 }

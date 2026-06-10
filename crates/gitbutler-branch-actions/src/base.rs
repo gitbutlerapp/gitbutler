@@ -2,7 +2,7 @@ use std::time;
 
 use anyhow::{Context as _, Result, anyhow};
 use but_core::{
-    RefMetadata, WORKSPACE_REF_NAME,
+    WORKSPACE_REF_NAME,
     git_config::{edit_repo_config, ensure_config_value},
     sync::RepoShared,
     worktree::checkout::UncommitedWorktreeChanges,
@@ -85,10 +85,8 @@ impl BaseBranch {
 
 #[instrument(skip(ctx, perm), err(Debug))]
 pub fn get_base_branch_data(ctx: &Context, perm: &RepoShared) -> Result<BaseBranch> {
-    let target = default_target(ctx)?;
-    let meta = ctx.meta()?;
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
-    let base = target_to_base_branch(&repo, &ctx.legacy_project, &ws, &meta, &target)?;
+    let base = target_to_base_branch(&repo, &ctx.legacy_project, &ws, &ctx.project_meta()?)?;
     Ok(base)
 }
 
@@ -109,10 +107,7 @@ pub fn bootstrap_default_target_if_missing(ctx: &Context) -> Result<bool> {
         return Ok(false);
     }
 
-    let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
-    let meta = ctx.legacy_meta()?;
-    let workspace = meta.workspace(workspace_ref.as_ref())?;
-    if workspace.target_ref.is_some() {
+    if ctx.project_meta()?.target_ref.is_some() {
         return Ok(false);
     }
 
@@ -133,19 +128,13 @@ pub fn bootstrap_default_target_if_missing(ctx: &Context) -> Result<bool> {
             return Ok(false);
         }
     };
-    let mut meta = ctx.legacy_meta()?;
-    meta.set_default_target(target)?;
-    ctx.invalidate_workspace_cache()?;
+    ctx.set_default_target(target.into())?;
     set_exclude_decoration(ctx)?;
     Ok(true)
 }
 
 #[instrument(skip(ctx, perm), err(Debug))]
-fn go_back_to_integration(
-    ctx: &Context,
-    perm: &RepoShared,
-    default_target: &Target,
-) -> Result<BaseBranch> {
+fn go_back_to_integration(ctx: &Context, perm: &RepoShared) -> Result<BaseBranch> {
     if ctx.settings.feature_flags.cv3 {
         {
             let repo = ctx.repo.get()?;
@@ -201,10 +190,13 @@ pub(crate) fn set_base_branch(
     let repo = ctx.repo.get()?;
 
     // if target exists, and it is the same as the requested branch, we should go back
-    if let Ok(target) = default_target(ctx)
-        && target.branch.eq(target_branch_ref)
+    if ctx
+        .project_meta()
+        .ok()
+        .and_then(|project_meta| project_meta.target_ref)
+        .is_some_and(|target_ref| target_ref.to_string() == target_branch_ref.to_string())
     {
-        return go_back_to_integration(ctx, perm, &target);
+        return go_back_to_integration(ctx, perm);
     }
 
     // lookup a branch by name
@@ -253,9 +245,7 @@ pub(crate) fn set_base_branch(
         push_remote_name: None,
     };
 
-    let mut meta = ctx.legacy_meta()?;
-    meta.set_default_target(target.clone())?;
-    ctx.invalidate_workspace_cache()?;
+    ctx.set_default_target(target.clone().into())?;
     let mut vb_state = ctx.virtual_branches();
 
     // TODO: make sure this is a real branch
@@ -317,24 +307,20 @@ pub(crate) fn set_base_branch(
     get_base_branch_data(ctx, perm)
 }
 
-pub(crate) fn set_target_push_remote(ctx: &Context, push_remote_name: &str) -> Result<()> {
+pub(crate) fn set_target_push_remote(ctx: &mut Context, push_remote_name: &str) -> Result<()> {
     ctx.repo
         .get()?
         .find_remote(push_remote_name)
         .context(format!("failed to find remote {push_remote_name}"))?;
 
-    let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
-    let mut meta = ctx.legacy_meta()?;
-    let mut workspace = meta.workspace(workspace_ref.as_ref())?;
-    workspace
+    let mut project_meta = ctx.project_meta()?;
+    project_meta
         .target_ref
         .as_ref()
         .context(Code::DefaultTargetNotFound)
         .context("there is no default target")?;
-    workspace.push_remote = Some(push_remote_name.to_owned());
-    meta.set_workspace(&workspace)?;
-    meta.write_unreconciled()?;
-    ctx.invalidate_workspace_cache()?;
+    project_meta.push_remote = Some(push_remote_name.to_owned());
+    ctx.set_project_meta(project_meta)?;
 
     Ok(())
 }
@@ -353,12 +339,10 @@ pub(crate) fn target_to_base_branch(
     repo: &gix::Repository,
     project: &Project,
     ws: &but_graph::Workspace,
-    meta: &impl RefMetadata,
-    target: &Target,
+    project_meta: &but_core::ref_metadata::ProjectMeta,
 ) -> Result<BaseBranch> {
-    // This function is presuming a workspace ref name.
-    let ws_meta = meta.workspace(WORKSPACE_REF_NAME.try_into()?)?;
-    let target_ref_name: gix::refs::FullName = target.branch.clone().try_into()?;
+    let target_ref_name = project_meta.target_ref_or_err()?.clone();
+    let target_sha = project_meta.target_commit_id_or_err()?;
     let target_ref = repo
         .find_reference(&target_ref_name)
         .context(Code::DefaultTargetNotFound)?;
@@ -368,7 +352,7 @@ pub(crate) fn target_to_base_branch(
     // is ahead of the target ref.
     //
     // The old function provided some options for how to resolve this.
-    let target_sha_not_ref = first_parent_commit_ids_until(repo, target.sha, target_ref_commit_id)
+    let target_sha_not_ref = first_parent_commit_ids_until(repo, target_sha, target_ref_commit_id)
         .context("failed to get fork point")?;
     let target_sha_ahead_of_ref = !target_sha_not_ref.is_empty();
 
@@ -379,8 +363,8 @@ pub(crate) fn target_to_base_branch(
         .map(|h| h.upstream_commits)
         .max_by_key(|us| us.len())
         .unwrap_or_default();
-    if upstream_commit_ids.is_empty() && target_ref_commit_id != target.sha {
-        upstream_commit_ids = first_parent_commit_ids_until(repo, target_ref_commit_id, target.sha)
+    if upstream_commit_ids.is_empty() && target_ref_commit_id != target_sha {
+        upstream_commit_ids = first_parent_commit_ids_until(repo, target_ref_commit_id, target_sha)
             .context("failed to get target commits since stored base")?;
     }
 
@@ -395,7 +379,7 @@ pub(crate) fn target_to_base_branch(
     let behind = upstream_commits.len();
 
     // get some recent commits
-    let recent_commits = first_parent_commit_ids_with_limit(repo, target.sha, 20)
+    let recent_commits = first_parent_commit_ids_with_limit(repo, target_sha, 20)
         .context("failed to get recent commits")?
         .iter()
         .map(|id| {
@@ -407,8 +391,8 @@ pub(crate) fn target_to_base_branch(
     // we assume that only local commits can be conflicted
     let conflicted = recent_commits.iter().any(|commit| commit.conflicted);
 
-    let push_remote_url = ws_meta.push_remote_url(repo)?;
-    let remote_url = ws_meta.remote_url_with_fallback(repo)?;
+    let push_remote_url = project_meta.push_remote_url(repo)?;
+    let remote_url = project_meta.remote_url_with_fallback(repo)?;
 
     let branch_name = target_ref_name.shorten().to_string();
     let remote_name = target_ref
@@ -417,7 +401,7 @@ pub(crate) fn target_to_base_branch(
         .to_owned()
         .as_bstr()
         .to_string();
-    let push_remote_name = ws_meta
+    let push_remote_name = project_meta
         .push_remote
         .clone()
         .unwrap_or_else(|| remote_name.clone());
@@ -428,7 +412,7 @@ pub(crate) fn target_to_base_branch(
         remote_url,
         push_remote_name,
         push_remote_url,
-        base_sha: target.sha,
+        base_sha: target_sha,
         current_sha: target_ref_commit_id,
         behind,
         upstream_commits,
@@ -443,10 +427,6 @@ pub(crate) fn target_to_base_branch(
         short_name,
     };
     Ok(base)
-}
-
-fn default_target(ctx: &Context) -> Result<Target> {
-    Ok(ctx.persisted_default_target()?.into())
 }
 
 /// Infer the default target from the Git repository without mutating workspace refs.
@@ -527,10 +507,11 @@ fn first_parent_commit_ids_with_limit(
 }
 
 pub(crate) fn push(ctx: &Context, with_force: bool) -> Result<()> {
-    let target = default_target(ctx)?;
+    let project_meta = ctx.project_meta()?;
+    let target_ref: RemoteRefname = project_meta.target_ref_or_err()?.to_string().parse()?;
     let _ = ctx.push(
-        target.sha,
-        &target.branch,
+        project_meta.target_commit_id_or_err()?,
+        &target_ref,
         with_force,
         ctx.legacy_project.force_push_protection,
         None,

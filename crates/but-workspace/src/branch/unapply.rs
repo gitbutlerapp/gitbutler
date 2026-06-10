@@ -132,7 +132,7 @@ pub(crate) mod function {
 
     use but_core::{
         ObjectStorageExt as _, RefMetadata, RepositoryExt as _,
-        ref_metadata::{ProjectedWorkspaceStack, StackId},
+        ref_metadata::{ProjectMeta, ProjectedWorkspaceStack, StackId},
     };
     use but_graph::init::Overlay;
     use gix::{
@@ -203,7 +203,11 @@ pub(crate) mod function {
         }: Options,
     ) -> anyhow::Result<Outcome<'ws>> {
         let ws = workspace;
-        let branch_ref = try_find_validated_ref(repo, branch, "unapply")?;
+        let mut branch_ref = try_find_validated_ref(repo, branch, "unapply")?;
+        let branch_commit_id = branch_ref
+            .as_mut()
+            .map(|reference| reference.peel_to_id().map(|id| id.detach()))
+            .transpose()?;
 
         if ws.has_workspace_commit_in_ancestry(repo) {
             bail!("Refusing to work on workspace whose workspace commit isn't at the top");
@@ -246,8 +250,10 @@ pub(crate) mod function {
                 );
             }
             // The branch exists in Git, but does not in the workspace: Nothing to do.
-            return Ok(Outcome::new(Cow::Borrowed(ws)));
+            return Ok(Outcome::new(Cow::Borrowed(workspace)));
         }
+        let branch_stack_was_entrypoint = branch_in_ws
+            .is_some_and(|(stack, _)| stack.segments.iter().any(|segment| segment.is_entrypoint));
         let workspace_tip_was_entrypoint = ws.is_entrypoint();
 
         let Some(workspace_ref_name) = workspace_ref_name else {
@@ -296,10 +302,12 @@ pub(crate) mod function {
             .redo_traversal_with_overlay(
                 repo,
                 meta,
-                Overlay::default().with_workspace_metadata_override(Some((
-                    workspace_ref_name.to_owned(),
-                    ws_md.clone(),
-                ))),
+                Overlay::default()
+                    .with_dropped_references([branch.to_owned()])
+                    .with_workspace_metadata_override(Some((
+                        workspace_ref_name.to_owned(),
+                        ws_md.clone(),
+                    ))),
             )?
             .into_workspace()?;
         // Normal unapply first:
@@ -316,21 +324,26 @@ pub(crate) mod function {
             &ws_md,
             workspace_disposition,
             uncommitted_changes,
+            branch_commit_id,
         )?;
         meta.set_workspace(&ws_md)?;
         // Update the workspace *only* after a successful workspace commit merge.
         let overlay = Overlay::default()
+            .with_dropped_references([branch.to_owned()])
             .with_workspace_metadata_override(Some((workspace_ref_name.to_owned(), ws_md.clone())));
         let mut ws = ws
             .graph
             .redo_traversal_with_overlay(repo, meta, overlay)?
             .into_workspace()?;
-        let checked_out = if !workspace_tip_was_entrypoint && ws.is_entrypoint() {
+        let checked_out = if !workspace_tip_was_entrypoint
+            && (ws.is_entrypoint() || branch_stack_was_entrypoint)
+        {
             // The workspace tip never was the entrypoint, meaning something inside
             // was the entrypoint, and now it's not visible anymore as that stack was unapplied.
             // Now we checkout the enclosing workspace instead.
             switch_head_to_workspace_ref(repo, workspace_ref_name.as_ref(), entrypoint_id)?;
             let overlay = Overlay::default()
+                .with_dropped_references([branch.to_owned()])
                 .with_entrypoint(entrypoint_id, Some(workspace_ref_name.to_owned()));
             ws = ws
                 .graph
@@ -340,9 +353,15 @@ pub(crate) mod function {
         } else {
             None
         };
-        if ws.refname_is_segment(branch) {
+        if ws_md.stacks.iter().any(|stack| {
+            stack.workspacecommit_relation.is_in_workspace()
+                && stack
+                    .branches
+                    .iter()
+                    .any(|stack_branch| stack_branch.ref_name.as_ref() == branch)
+        }) {
             bail!(
-                "BUG: branch '{}' is still present in rebuilt workspace after unapply",
+                "BUG: branch '{}' is still present in rebuilt workspace metadata after unapply",
                 branch.shorten()
             );
         }
@@ -371,10 +390,12 @@ pub(crate) mod function {
                 // Keep the workspace metadata or we lose the target branch.
                 // Currently that's a problem, so deal with it later.
 
-                let overlay = Overlay::default().with_entrypoint(
-                    ref_to_switch_to.commit_id,
-                    Some(ref_to_switch_to.ref_name.clone()),
-                );
+                let overlay = Overlay::default()
+                    .with_entrypoint(
+                        ref_to_switch_to.commit_id,
+                        Some(ref_to_switch_to.ref_name.clone()),
+                    )
+                    .with_dropped_references([branch.to_owned()]);
                 let ws = ws
                     .graph
                     .redo_traversal_with_overlay(repo, meta, overlay)?
@@ -458,6 +479,7 @@ pub(crate) mod function {
         ws_md: &but_core::ref_metadata::Workspace,
         disposition: WorkspaceDisposition,
         uncommitted_changes: but_core::worktree::checkout::UncommitedWorktreeChanges,
+        excluded_anonymous_tip_id: Option<gix::ObjectId>,
     ) -> anyhow::Result<WorkspaceRefUpdateAfterUnapply> {
         let prev_head_id = ws
             .graph
@@ -466,7 +488,7 @@ pub(crate) mod function {
             .context("BUG: unborn was skipped, why no entrypoint")?
             .id;
 
-        let future_workspace_tips = future_workspace_tips(ws_md, ws)?;
+        let future_workspace_tips = future_workspace_tips(ws_md, ws, excluded_anonymous_tip_id)?;
         let remaining_tip_count = future_workspace_tips.len();
         let keep_workspace_commit = match disposition {
             WorkspaceDisposition::KeepWorkspaceCommit
@@ -538,13 +560,14 @@ pub(crate) mod function {
     fn future_workspace_tips(
         ws_md: &but_core::ref_metadata::Workspace,
         ws: &but_graph::Workspace,
+        excluded_anonymous_tip_id: Option<gix::ObjectId>,
     ) -> anyhow::Result<Vec<crate::commit::merge::Tip>> {
         let crate::commit::merge::ResolvedTips {
             tips,
             missing_stacks,
         } = WorkspaceCommit::tips_from_metadata(
             ws_md.stacks.iter(),
-            anon_stacks_to_preserve(ws),
+            anon_stacks_to_preserve(ws, excluded_anonymous_tip_id),
             &ws.graph,
         );
         ensure!(
@@ -563,14 +586,14 @@ pub(crate) mod function {
     /// - Safely checkout the target commit, then switch `HEAD` to the target ref.
     /// - Optionally delete the managed workspace ref and metadata.
     /// - Retraverse from the target ref so the returned workspace matches the new `HEAD`.
-    fn unapply_workspace_reference<'ws>(
-        ws: &'ws but_graph::Workspace,
+    fn unapply_workspace_reference(
+        ws: &but_graph::Workspace,
         repo: &gix::Repository,
         meta: &mut impl RefMetadata,
         workspace_ref_name: &FullNameRef,
         disposition: WorkspaceDisposition,
         uncommitted_changes: but_core::worktree::checkout::UncommitedWorktreeChanges,
-    ) -> anyhow::Result<Outcome<'ws>> {
+    ) -> anyhow::Result<Outcome<'static>> {
         if !disposition.may_switch_away_from_workspace() {
             bail!(
                 "Cannot unapply workspace reference '{}' without switching away from it",
@@ -604,6 +627,9 @@ pub(crate) mod function {
         // For this we will need more flexibility, on-demand inference or
         // git-configuration based configuration, so there is always a fallback.
         meta.remove(workspace_ref_name)?;
+        // The project metadata ported to repo-local Git config mirrors the just-removed
+        // workspace metadata, so clear it as well or the deleted target would keep resolving.
+        ProjectMeta::remove_from_local_config(repo)?;
 
         let overlay = Overlay::default().with_entrypoint(
             ref_to_checkout.commit_id,
@@ -699,9 +725,11 @@ pub(crate) mod function {
     /// and feeding it back into the merge would preserve the removed stack.
     fn anon_stacks_to_preserve<'a>(
         ws: &'a but_graph::Workspace,
+        excluded_tip_id: Option<gix::ObjectId>,
     ) -> impl Iterator<Item = (usize, crate::commit::merge::Tip)> + 'a {
         anon_stacks(&ws.stacks)
             .filter(move |(idx, _)| ws.stacks.get(*idx).is_none_or(|stack| stack.id.is_none()))
+            .filter(move |(_, tip)| excluded_tip_id.is_none_or(|id| tip.commit_id != id))
     }
 
     /// Local tracking branch of target ref or the most recent named stack tip.

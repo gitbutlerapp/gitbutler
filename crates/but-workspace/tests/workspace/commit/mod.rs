@@ -37,7 +37,12 @@ mod from_new_merge_with_metadata {
 
         let stacks = ["add-A"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &*meta,
+            but_core::ref_metadata::ProjectMeta::default(),
+            Options::limited(),
+        )?;
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
@@ -87,7 +92,12 @@ mod from_new_merge_with_metadata {
 
         let stacks = ["add-D", "add-A", "add-C", "add-B"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &*meta,
+            but_core::ref_metadata::ProjectMeta::default(),
+            Options::limited(),
+        )?;
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
@@ -169,7 +179,12 @@ mod from_new_merge_with_metadata {
         * 85efbe4 (main, gitbutler/workspace) M
         ");
         add_stacks(&mut meta, ["add-A", "add-B", "add-C"]);
-        let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &*meta,
+            but_core::ref_metadata::ProjectMeta::default(),
+            Options::limited(),
+        )?;
 
         let add_c_ref = "refs/heads/add-C".try_into()?;
         let (segment, commit) = graph
@@ -240,7 +255,12 @@ mod from_new_merge_with_metadata {
             "clean-A",
         ];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &*meta,
+            but_core::ref_metadata::ProjectMeta::default(),
+            Options::limited(),
+        )?;
 
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
@@ -410,7 +430,12 @@ mod from_new_merge_with_metadata {
         // NOTE: the caller would be expected to have prepared a graph that contains these branches.
         let stacks = ["clean-A", "conflict-C1", "clean-B", "conflict-C2"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &*meta,
+            but_core::ref_metadata::ProjectMeta::default(),
+            Options::limited(),
+        )?;
 
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),

@@ -1,7 +1,7 @@
 pub mod branch_trees;
 
 use anyhow::Result;
-use but_ctx::{Context, access::RepoShared, legacy::persisted_default_target_from_meta};
+use but_ctx::{Context, access::RepoShared};
 use but_meta::VirtualBranchesTomlMetadata;
 
 /// Returns the oid of the base of the workspace
@@ -9,7 +9,7 @@ use but_meta::VirtualBranchesTomlMetadata;
 pub fn workspace_base(ctx: &Context, _perm: &RepoShared) -> Result<gix::ObjectId> {
     let repo = ctx.clone_repo_for_merging()?;
     let meta = ctx.legacy_meta()?;
-    let target_base_oid = legacy_target_base_oid_from_meta(&meta)?;
+    let target_base_oid = ctx.project_meta()?.target_commit_id_or_err()?;
     let stack_heads = legacy_workspace_stack_heads_from_meta(&meta, &repo, target_base_oid)?;
     workspace_base_from_heads_and_target(&repo, &stack_heads, target_base_oid)
 }
@@ -20,8 +20,7 @@ pub fn workspace_base_from_heads(
     heads: &[gix::ObjectId],
 ) -> Result<gix::ObjectId> {
     let repo = ctx.clone_repo_for_merging()?;
-    let meta = ctx.legacy_meta()?;
-    let target_base_oid = legacy_target_base_oid_from_meta(&meta)?;
+    let target_base_oid = ctx.project_meta()?.target_commit_id_or_err()?;
     workspace_base_from_heads_and_target(&repo, heads, target_base_oid)
 }
 
@@ -60,12 +59,7 @@ fn legacy_workspace_stack_heads_from_meta(
 }
 
 pub(crate) fn legacy_target_base_oid(ctx: &Context) -> Result<gix::ObjectId> {
-    let meta = ctx.legacy_meta()?;
-    legacy_target_base_oid_from_meta(&meta)
-}
-
-fn legacy_target_base_oid_from_meta(meta: &VirtualBranchesTomlMetadata) -> Result<gix::ObjectId> {
-    Ok(persisted_default_target_from_meta(meta)?.sha)
+    ctx.project_meta()?.target_commit_id_or_err()
 }
 
 pub(crate) fn workspace_base_from_heads_and_target(

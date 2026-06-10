@@ -348,6 +348,7 @@ pub fn create_commit(
         but_workspace::legacy::stacks_v3(
             &repo,
             &meta,
+            &ctx.project_meta()?,
             but_workspace::legacy::StacksFilter::InWorkspace,
             None,
         )?

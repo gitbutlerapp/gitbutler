@@ -11,6 +11,16 @@ use crate::{
     utils::{fixture_writable, standard_options},
 };
 
+fn project_meta(meta: &impl but_core::RefMetadata) -> but_core::ref_metadata::ProjectMeta {
+    meta.workspace(
+        but_core::WORKSPACE_REF_NAME
+            .try_into()
+            .expect("valid workspace ref"),
+    )
+    .map(|workspace| workspace.project_meta())
+    .unwrap_or_default()
+}
+
 #[test]
 fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
     let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
@@ -32,7 +42,8 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
     └── c:100644
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -92,7 +103,8 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
     └── c:100644
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -139,7 +151,8 @@ fn both_methods_update_references_identically() -> Result<()> {
     let (ref_after_materialize, overlayed_materialize) = {
         let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
-        let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+        let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+            .validated()?;
         let mut ws = graph.into_workspace()?;
         let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -162,7 +175,8 @@ fn both_methods_update_references_identically() -> Result<()> {
     let (ref_after_materialize_without_checkout, overlayed_without_checkout) = {
         let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
-        let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+        let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
+            .validated()?;
         let mut ws = graph.into_workspace()?;
         let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -222,7 +236,8 @@ fn materialize_keeps_immutable_extra_refs_unchanged_while_updating_local_refs() 
     * fafd9d0 init
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create_with_opts(
         &mut ws,
@@ -267,7 +282,8 @@ fn materialize_does_not_delete_immutable_extra_refs_removed_from_graph() -> Resu
     let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
     let main_before = repo.rev_parse_single("main")?.detach();
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create_with_opts(
         &mut ws,

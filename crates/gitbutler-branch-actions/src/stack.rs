@@ -189,11 +189,7 @@ pub fn push_stack_with_perm(
         let remote_names = repo.remote_names();
         let target_branch_name =
             target_branch_name_from_ref_name(target_ref_name.as_ref(), &remote_names)?;
-        let target_push_remote_name = match ws
-            .metadata
-            .as_ref()
-            .and_then(|metadata| metadata.push_remote.clone())
-        {
+        let target_push_remote_name = match ctx.project_meta()?.push_remote {
             Some(push_remote) => push_remote,
             None => extract_remote_name_and_short_name(target_ref_name.as_ref(), &remote_names)
                 .map(|(remote, _)| remote)

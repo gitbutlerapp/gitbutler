@@ -49,11 +49,9 @@ pub fn log_target_first_parent(
             commit.parent_ids().next()
         }
         None => {
-            let default_target = ctx.persisted_default_target()?;
-            let target_ref_name: gix::refs::FullName =
-                default_target.branch.to_string().try_into()?;
+            let project_meta = ctx.project_meta()?;
             Some(
-                repo.find_reference(target_ref_name.as_ref())?
+                repo.find_reference(project_meta.target_ref_or_err()?.as_ref())?
                     .peel_to_commit()?
                     .id(),
             )

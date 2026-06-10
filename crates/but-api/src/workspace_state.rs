@@ -36,6 +36,7 @@ impl WorkspaceState {
             workspace,
             repo,
             but_workspace::ref_info::Options {
+                project_meta: workspace.graph.project_meta.clone(),
                 traversal: but_graph::init::Options::limited(),
                 expensive_commit_info: true,
                 ..Default::default()

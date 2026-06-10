@@ -26,7 +26,13 @@ fn inserting_a_step_rewrites_sha256_commits() -> Result<()> {
     * 8dcf66f (tag: base, main) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -94,7 +100,13 @@ fn replacing_a_step_rewrites_sha256_descendants() -> Result<()> {
     * 8dcf66f (tag: base, main) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
@@ -160,7 +172,13 @@ fn changing_edges_rewrites_sha256_parentage() -> Result<()> {
     * 8dcf66f (tag: base, main) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 

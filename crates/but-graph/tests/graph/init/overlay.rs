@@ -25,7 +25,12 @@ fn drop_and_add_regular_refs() -> anyhow::Result<()> {
     * 965998b (main) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:merged[🌳]
@@ -107,7 +112,12 @@ fn drop_head_ref() -> anyhow::Result<()> {
     * 965998b (main) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:merged[🌳]
@@ -181,7 +191,12 @@ fn overriding_references() -> anyhow::Result<()> {
     * 965998b (main) base
     ");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:merged[🌳]

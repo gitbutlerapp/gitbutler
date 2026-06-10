@@ -10,6 +10,12 @@ use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack, named_writable_scenario_with_description,
 };
 
+fn project_meta(meta: &impl but_core::RefMetadata) -> Result<but_core::ref_metadata::ProjectMeta> {
+    Ok(meta
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
+        .project_meta())
+}
+
 #[test]
 fn conflict_preview_reports_dirty_worktree_paths() -> Result<()> {
     let (_tmp, repo, mut meta, _description) = upstream_conflict_fixture()?;
@@ -19,9 +25,11 @@ fn conflict_preview_reports_dirty_worktree_paths() -> Result<()> {
     )?;
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
+    let project_meta = project_meta(&meta)?;
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
+        project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -54,9 +62,11 @@ fn conflict_preview_includes_index_conflicts_when_worktree_is_dirty() -> Result<
     )?;
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
+    let project_meta = project_meta(&meta)?;
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
+        project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -84,9 +94,11 @@ fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
     )?;
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
+    let project_meta = project_meta(&meta)?;
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
+        project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -126,9 +138,11 @@ fn conflict_preview_returns_empty_for_non_conflicting_dirty_worktree() -> Result
     )?;
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
+    let project_meta = project_meta(&meta)?;
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
+        project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -156,9 +170,11 @@ fn conflict_preview_returns_empty_for_ignored_only_worktree_changes() -> Result<
     )?;
     let mut workspace = workspace_for_stack(&repo, &meta)?;
 
+    let project_meta = project_meta(&meta)?;
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
+        project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -205,6 +221,7 @@ fn workspace_for_stack(
     let ws = but_graph::Graph::from_head(
         repo,
         meta,
+        project_meta(meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()

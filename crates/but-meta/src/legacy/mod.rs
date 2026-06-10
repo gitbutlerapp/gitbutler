@@ -26,7 +26,7 @@ use gix::{
 use itertools::Itertools;
 use tracing::instrument;
 
-use crate::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
+use crate::virtual_branches_legacy_types::{Stack, StackBranch, Target, VirtualBranches};
 
 #[cfg(feature = "legacy")]
 pub mod storage;
@@ -269,6 +269,9 @@ impl Snapshot {
             commit_id,
             reference.name().to_owned(),
             &*sideeffect_free_meta,
+            sideeffect_free_meta
+                .workspace(reference.name())?
+                .project_meta(),
             but_graph::init::Options::limited(),
         )?;
         graph.into_workspace()
@@ -838,7 +841,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
         }
 
         let new_target_branch = value
-            .target_ref
+            .target_ref()
             .as_ref()
             .map(|rn| branch_from_ref_name(rn.as_ref()))
             .transpose()?;
@@ -850,17 +853,35 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 *existing = None;
                 changed_target = true;
             }
-            (None, Some(_new)) => {
-                bail!(
-                    "Cannot reasonably set a target in the old data structure as we don't have repo access here"
-                )
+            (target @ None, Some(new)) => {
+                // Without a commit id the null id would be the only representable placeholder,
+                // but legacy consumers that resolve `default_target.sha` cannot handle it.
+                // Leave the target unset until a writer provides a commit id.
+                match value.target_commit_id().filter(|id| !id.is_null()) {
+                    Some(sha) => {
+                        *target = Some(Target {
+                            branch: new,
+                            remote_url: String::new(),
+                            sha,
+                            push_remote_name: value.push_remote().map(ToOwned::to_owned),
+                        });
+                        changed_target = true;
+                    }
+                    None => {
+                        tracing::warn!(
+                            target_ref = %new,
+                            "Not persisting the default target without a commit id \
+                            to avoid a null sha in virtual_branches.toml"
+                        );
+                    }
+                }
             }
             (Some(existing), Some(new)) => {
                 if existing.branch != new {
                     existing.branch = new;
                     changed_target = true;
                 }
-                if let Some(new_id) = value.target_commit_id
+                if let Some(new_id) = value.target_commit_id().filter(|id| !id.is_null())
                     && new_id != existing.sha
                 {
                     existing.sha = new_id;
@@ -871,9 +892,9 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
         }
 
         if let Some(target) = self.data_mut().default_target.as_mut()
-            && target.push_remote_name != value.push_remote
+            && target.push_remote_name.as_deref() != value.push_remote()
         {
-            target.push_remote_name = value.push_remote.clone();
+            target.push_remote_name = value.push_remote().map(ToOwned::to_owned);
             changed_target = true;
         }
 
@@ -994,9 +1015,9 @@ impl VirtualBranchesTomlMetadata {
             .cloned()
             .collect();
 
-        Workspace {
-            ref_info: managed_ref_info(),
-            stacks: stacks
+        Workspace::new(
+            managed_ref_info(),
+            stacks
                 .iter()
                 // We aren't able to handle these well, so let's ignore them.
                 .filter(|stack| !stack.heads.is_empty())
@@ -1023,10 +1044,12 @@ impl VirtualBranchesTomlMetadata {
                         .collect(),
                 })
                 .collect(),
-            target_ref: target_branch,
-            target_commit_id,
-            push_remote,
-        }
+            but_core::ref_metadata::ProjectMeta {
+                target_ref: target_branch,
+                target_commit_id,
+                push_remote,
+            },
+        )
     }
 
     fn remove_branch(&mut self, ref_name: &FullNameRef) -> anyhow::Result<Option<StackBranch>> {
@@ -1117,13 +1140,14 @@ fn standard_time() -> gix::date::Time {
 }
 
 fn default_workspace() -> Workspace {
-    Workspace {
-        ref_info: RefInfo {
+    Workspace::new(
+        RefInfo {
             created_at: Some(standard_time()),
             updated_at: None,
         },
-        ..Default::default()
-    }
+        Vec::new(),
+        Default::default(),
+    )
 }
 
 fn full_branch_name(name: &str) -> Option<gix::refs::FullName> {

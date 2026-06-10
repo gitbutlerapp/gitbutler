@@ -1,5 +1,4 @@
-use but_core::{RepositoryExt, sync::RepoExclusive};
-use but_error::Code;
+use but_core::{RefMetadata as _, RepositoryExt, sync::RepoExclusive};
 use but_settings::AppSettings;
 use tracing::instrument;
 
@@ -128,11 +127,42 @@ impl Context {
         Ok((self.meta()?, ws))
     }
 
-    /// Return the configured GitButler default target from persisted project metadata.
-    pub fn persisted_default_target(
+    /// Make `target` the project's default target, persisting it both as project metadata
+    /// in Git config and as the legacy `default_target`, which keeps fields that don't
+    /// exist in project metadata, like the remote URL.
+    pub fn set_default_target(
         &self,
-    ) -> anyhow::Result<but_meta::virtual_branches_legacy_types::Target> {
-        persisted_default_target_from_meta(&self.meta_inner_read_only()?)
+        target: but_meta::virtual_branches_legacy_types::Target,
+    ) -> anyhow::Result<()> {
+        let project_meta = but_core::ref_metadata::ProjectMeta::try_from(&target)?;
+        {
+            let repo = self.repo.get()?;
+            project_meta.persist_to_local_config(&repo)?;
+        }
+        self.legacy_meta()?.set_default_target(target)?;
+        self.invalidate_workspace_cache()?;
+        Ok(())
+    }
+
+    /// Re-port project metadata from the legacy `virtual_branches.toml` to Git config.
+    ///
+    /// Use this after the TOML was restored from a snapshot and is the source of truth,
+    /// so ported repositories don't keep reading outdated values from Git config.
+    ///
+    /// Repositories that weren't ported yet are left alone: their TOML is still the only
+    /// source of truth, and porting here would hide future TOML-only writes by older
+    /// binaries behind the one-way ported marker.
+    pub fn resync_project_meta_from_legacy(&self) -> anyhow::Result<()> {
+        let repo = self.repo.get()?;
+        if !but_core::ref_metadata::ProjectMeta::is_ported_repo(&repo)? {
+            return Ok(());
+        }
+        let project_meta = self
+            .meta_inner_read_only()?
+            .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
+            .project_meta();
+        project_meta.persist_to_local_config(&repo)?;
+        Ok(())
     }
 
     /// Return a wrapper for metadata that only supports read-only access when presented with the project wide permission
@@ -163,20 +193,4 @@ impl Context {
             self.project_data_dir().join("virtual_branches.toml"),
         )
     }
-}
-
-/// Return the configured GitButler default target from persisted project metadata.
-///
-/// This is deliberately not derived from the current-`HEAD` workspace projection. When
-/// `HEAD` is outside the GitButler workspace, projection may produce an ad-hoc workspace,
-/// infer its target from the checked-out branch's upstream, or clear target metadata when
-/// the checked-out branch is outside the managed workspace bounds. Legacy compatibility
-/// flows that re-enter the workspace or operate from outside-workspace states need the
-/// configured GitButler target instead.
-pub fn persisted_default_target_from_meta(
-    meta: &but_meta::VirtualBranchesTomlMetadata,
-) -> anyhow::Result<but_meta::virtual_branches_legacy_types::Target> {
-    meta.data().default_target.clone().ok_or_else(|| {
-        anyhow::anyhow!("there is no default target").context(Code::DefaultTargetNotFound)
-    })
 }

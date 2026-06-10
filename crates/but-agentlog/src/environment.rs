@@ -421,6 +421,7 @@ fn workspace_snapshot_with_meta(
         meta,
         but_workspace::ref_info::Options {
             expensive_commit_info: false,
+            project_meta: but_core::ref_metadata::ProjectMeta::resolve(repo, meta)?,
             ..Default::default()
         },
     )?;

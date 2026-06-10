@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context, Result, bail};
 
-use but_core::RefMetadata;
+use but_core::{RefMetadata, ref_metadata::ProjectMeta};
 use but_graph::workspace::commit::is_managed_workspace_by_message;
 use but_rebase::{
     commit::DateMode,
@@ -40,6 +40,8 @@ pub struct BottomUpdate {
 pub struct IntegrateUpstreamOutcome<'ws, 'meta, M: RefMetadata> {
     /// The updated workspace metadata.
     pub ws_meta: but_core::ref_metadata::Workspace,
+    /// The updated project metadata.
+    pub project_meta: ProjectMeta,
     /// The rebased outcome.
     pub rebase: SuccessfulRebase<'ws, 'meta, M>,
 }
@@ -122,6 +124,7 @@ struct Stack {
 pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
     workspace: &'ws mut but_graph::Workspace,
     meta: &'meta mut M,
+    project_meta: ProjectMeta,
     repo: &gix::Repository,
     updates: Vec<BottomUpdate>,
 ) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
@@ -129,7 +132,7 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
         .metadata
         .clone()
         .context("Cannot update a workspace with no metadata")?;
-    let target_sha = ws_meta
+    let target_sha = project_meta
         .target_commit_id
         .context("Cannot update a workspace without a target sha")?;
     let target_ref = workspace
@@ -389,9 +392,11 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
         }
     }
 
-    ws_meta.target_commit_id = Some(target_ref_commit.detach());
+    let mut project_meta = project_meta;
+    project_meta.target_commit_id = Some(target_ref_commit.detach());
     Ok(IntegrateUpstreamOutcome {
         ws_meta,
+        project_meta,
         rebase: editor.rebase()?,
     })
 }

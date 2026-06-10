@@ -527,22 +527,25 @@ mod stack_details {
         let graph = but_graph::Graph::from_head(
             &repo,
             &meta,
+            but_core::ref_metadata::ProjectMeta::default(),
             but_graph::init::Options {
                 ..standard_options().traversal
             },
         )?;
         let ws = graph.into_workspace()?;
         insta::assert_snapshot!(graph_workspace(&ws), @"
-        📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-        └── ≡📙:5:B →:3: on 85efbe4 {1}
-            ├── 📙:5:B →:3:
+        📕🏘️:0:gitbutler/workspace[🌳] <> ✓!
+        └── ≡📙:4:B →:1: {1}
+            ├── 📙:4:B →:1:
             │   ├── ·cc0bf57*
             │   └── ·d69fe94 (🏘️)
-            └── 📙:4:A
-                └── ·09d8e52 (🏘️)
+            ├── 📙:2:A
+            │   └── ·09d8e52 (🏘️)
+            └── :3:main
+                └── ·85efbe4 (🏘️)
         ");
         insta::assert_debug_snapshot!(ws, @r#"
-        Workspace(📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4) {
+        Workspace(📕🏘️:0:gitbutler/workspace[🌳] <> ✓!) {
             id: 0,
             kind: Managed {
                 ref_info: RefInfo {
@@ -561,9 +564,9 @@ mod stack_details {
                 },
             },
             stacks: [
-                Stack(≡📙:5:B →:3: on 85efbe4 {1}) {
+                Stack(≡📙:4:B →:1: {1}) {
                     segments: [
-                        StackSegment(📙:5:B →:3:) {
+                        StackSegment(📙:4:B →:1:) {
                             commits: [
                                 "·d69fe94 (🏘\u{fe0f})",
                             ],
@@ -574,9 +577,16 @@ mod stack_details {
                                 ],
                             ),
                         },
-                        StackSegment(📙:4:A) {
+                        StackSegment(📙:2:A) {
                             commits: [
                                 "·09d8e52 (🏘\u{fe0f})",
+                            ],
+                            commits_on_remote: [],
+                            commits_outside: None,
+                        },
+                        StackSegment(:3:main) {
+                            commits: [
+                                "·85efbe4 (🏘\u{fe0f})",
                             ],
                             commits_on_remote: [],
                             commits_outside: None,
@@ -609,21 +619,8 @@ mod stack_details {
                     push_remote: None,
                 },
             ),
-            target_ref: Some(
-                TargetRef {
-                    ref_name: FullName(
-                        "refs/remotes/origin/main",
-                    ),
-                    segment_index: NodeIndex(1),
-                    commits_ahead: 0,
-                },
-            ),
-            target_commit: Some(
-                TargetCommit {
-                    commit_id: Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
-                    segment_index: NodeIndex(2),
-                },
-            ),
+            target_ref: None,
+            target_commit: None,
         }
         "#);
 

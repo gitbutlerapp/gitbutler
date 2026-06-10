@@ -48,6 +48,25 @@ pub fn open_config_for_editing(
     Ok((config, lock))
 }
 
+/// Open the repository-local Git config of `repo` for reading without acquiring a write lock,
+/// re-reading it from disk so changes made through other repository handles or by other
+/// processes are observed.
+///
+/// If the config file doesn't exist yet, an empty in-memory config is returned.
+pub fn open_repo_local_config_for_reading(
+    repo: &gix::Repository,
+) -> Result<gix::config::File<'static>> {
+    let source = gix::config::Source::Local;
+    let path = config_path(Some(repo), source)?;
+    if !path.exists() {
+        return Ok(gix::config::File::new(gix::config::file::Metadata::from(
+            source,
+        )));
+    }
+    gix::config::File::from_path_no_includes(path.clone(), source)
+        .with_context(|| format!("failed to open {source:?} git config at {}", path.display()))
+}
+
 /// Open the user-global Git config for reading without acquiring a write lock.
 ///
 /// If the config file doesn't exist yet, an empty in-memory config is returned.

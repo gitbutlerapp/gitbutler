@@ -22,7 +22,13 @@ fn insert_below_merge_commit() -> Result<()> {
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
 
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -100,7 +106,13 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
 
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -181,7 +193,13 @@ fn insert_above_commit_with_two_children() -> Result<()> {
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
 
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;

@@ -230,6 +230,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
                 &repo,
                 &meta,
                 Options {
+                    project_meta: ctx.project_meta()?,
                     expensive_commit_info: true,
                     traversal: but_graph::init::Options::limited(),
                     ..Default::default()
@@ -296,6 +297,7 @@ fn stacks(
     but_workspace::legacy::stacks_v3(
         repo,
         &meta,
+        &ctx.project_meta()?,
         but_workspace::legacy::StacksFilter::InWorkspace,
         None,
     )
@@ -361,25 +363,57 @@ fn check_workspace_stacks_mergeable(
 fn stack_details(
     ctx: &Context,
     stack_id: Option<StackId>,
+    project_meta: &but_core::ref_metadata::ProjectMeta,
 ) -> anyhow::Result<but_workspace::ui::StackDetails> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.legacy_meta()?;
-    but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
+    but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta, project_meta)
 }
 
 /// Returns the status of a stack.
 fn get_stack_status(
     gix_repo: &gix::Repository,
     new_target_commit_id: gix::ObjectId,
-    stack_id: Option<StackId>,
+    stack: &but_workspace::legacy::ui::StackEntry,
     review_map: &HashMap<String, but_forge::ForgeReview>,
     ctx: &Context,
+    project_meta: &but_core::ref_metadata::ProjectMeta,
+    upstream_commits: &[gix::ObjectId],
 ) -> Result<StackStatus> {
     let mut last_head = new_target_commit_id;
 
     let mut branch_statuses: Vec<NameAndStatus> = vec![];
 
-    let details = stack_details(ctx, stack_id)?;
+    let details = match stack_details(ctx, stack.id, project_meta) {
+        Ok(details) => details,
+        // The stack may have vanished from the workspace projection, typically because all of
+        // its commits have already landed upstream. If every head tip is contained in the
+        // upstream commits, infer that the stack is integrated instead of failing.
+        Err(err)
+            if !stack.heads.is_empty()
+                && stack
+                    .heads
+                    .iter()
+                    .all(|head| upstream_commits.contains(&head.tip)) =>
+        {
+            tracing::warn!(
+                ?err,
+                stack_id = ?stack.id,
+                "failed to get stack details; inferring Integrated status as all stack heads \
+                 are contained in the upstream commits"
+            );
+            let branch_statuses = stack
+                .heads
+                .iter()
+                .map(|head| NameAndStatus {
+                    name: head.name.to_string(),
+                    status: BranchStatus::Integrated,
+                })
+                .collect();
+            return StackStatus::create(UpstreamTreeStatus::Empty, branch_statuses);
+        }
+        Err(err) => return Err(err),
+    };
 
     let branches = details.branch_details;
     for branch in branches.into_iter().rev() {
@@ -475,6 +509,7 @@ pub fn upstream_integration_statuses(
         ..
     } = context;
 
+    let project_meta = ctx.project_meta()?;
     let repo = ctx.clone_repo_for_merging()?;
     let repo_in_memory = repo.clone().with_object_memory();
 
@@ -541,9 +576,11 @@ pub fn upstream_integration_statuses(
                 get_stack_status(
                     &repo_in_memory,
                     *new_target,
-                    stack.id,
+                    stack,
                     review_map,
                     context.ctx,
+                    &project_meta,
+                    upstream_commits,
                 )?,
             ))
         })
@@ -556,7 +593,7 @@ pub fn upstream_integration_statuses(
 }
 
 pub(crate) fn integrate_upstream(
-    ctx: &Context,
+    ctx: &mut Context,
     resolutions: &[Resolution],
     base_branch_resolution: Option<BaseBranchResolution>,
     review_map: &HashMap<String, but_forge::ForgeReview>,
@@ -691,10 +728,13 @@ pub(crate) fn integrate_upstream(
         let mut stacks = virtual_branches_state.list_stacks_in_workspace()?;
 
         {
+            let mut project_meta = ctx.project_meta()?;
+            project_meta.target_commit_id = Some(context.new_target);
+            project_meta.persist_to_local_config(&repo)?;
             let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
             let mut meta = ctx.legacy_meta()?;
             let mut workspace = meta.workspace(workspace_ref.as_ref())?;
-            workspace.target_commit_id = Some(context.new_target);
+            workspace.set_project_meta(project_meta);
             meta.set_workspace(&workspace)?;
             meta.write_unreconciled()?;
             ctx.invalidate_workspace_cache()?;
@@ -840,6 +880,7 @@ fn compute_resolutions(
         ..
     } = context;
 
+    let project_meta = context.ctx.project_meta()?;
     let results = resolutions
         .iter()
         .map(|resolution| {
@@ -889,7 +930,7 @@ fn compute_resolutions(
                         *new_target
                     };
 
-                    let details = stack_details(context.ctx, stack.id)?;
+                    let details = stack_details(context.ctx, stack.id, &project_meta)?;
                     let mut commit_map = HashMap::new();
                     for branch in &details.branch_details {
                         for commit in &branch.commits {

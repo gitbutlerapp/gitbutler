@@ -23,7 +23,13 @@ fn reword_a_commit() -> Result<()> {
 
     let head_tree = repo.head_tree()?.id;
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
 
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
@@ -108,7 +114,13 @@ fn amend_a_commit() -> Result<()> {
     └── new-file:100644:f00c965 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"
     "#);
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph = Graph::from_head(
+        &repo,
+        &*meta,
+        but_core::ref_metadata::ProjectMeta::default(),
+        standard_options(),
+    )?
+    .validated()?;
 
     let mut ws = graph.into_workspace()?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;

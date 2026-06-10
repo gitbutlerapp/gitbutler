@@ -49,7 +49,7 @@ pub fn remerged_workspace_tree_v2(
     repo: &gix::Repository,
 ) -> Result<(gix::ObjectId, Vec<Stack>, gix::ObjectId)> {
     let mut vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let target_base_oid = ctx.persisted_default_target()?.sha;
+    let target_base_oid = ctx.project_meta()?.target_commit_id_or_err()?;
     let mut stacks: Vec<Stack> = vb_state.list_stacks_in_workspace()?;
 
     let heads = stacks

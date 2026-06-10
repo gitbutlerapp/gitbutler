@@ -37,7 +37,13 @@ mod with_workspace {
             .with_target("B")
             .with_named_branch("A");
         insta::assert_debug_snapshot!(
-            but_workspace::branch_details(&repo, refname("A").as_ref(), &store).unwrap(),
+            but_workspace::branch_details(
+                &repo,
+                refname("A").as_ref(),
+                &store,
+                &store.workspace.project_meta(),
+            )
+            .unwrap(),
             @r#"
         BranchDetails {
             name: "A",
@@ -87,7 +93,7 @@ mod with_workspace {
         let store = WorkspaceRefMetadataStore::default()
             .with_target("main")
             .with_named_branch("A");
-        insta::assert_debug_snapshot!(but_workspace::branch_details(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
+        insta::assert_debug_snapshot!(but_workspace::branch_details(&repo, refname("A").as_ref(), &store, &store.workspace.project_meta()).unwrap(), @r#"
         BranchDetails {
             name: "A",
             reference: FullName(
@@ -140,7 +146,7 @@ mod with_workspace {
         let store = WorkspaceRefMetadataStore::default()
             .with_target("main")
             .with_named_branch("A");
-        insta::assert_debug_snapshot!(but_workspace::branch_details(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
+        insta::assert_debug_snapshot!(but_workspace::branch_details(&repo, refname("A").as_ref(), &store, &store.workspace.project_meta()).unwrap(), @r#"
         BranchDetails {
             name: "A",
             reference: FullName(
@@ -178,7 +184,7 @@ mod with_workspace {
         "#);
 
         // Remote tracking branches are OK to use as well.
-        insta::assert_debug_snapshot!(but_workspace::branch_details(&repo, refname("origin/A").as_ref(), &store).unwrap(), @r#"
+        insta::assert_debug_snapshot!(but_workspace::branch_details(&repo, refname("origin/A").as_ref(), &store, &store.workspace.project_meta()).unwrap(), @r#"
         BranchDetails {
             name: "origin/A",
             reference: FullName(
@@ -223,7 +229,7 @@ mod with_workspace {
         let store = WorkspaceRefMetadataStore::default()
             .with_target("main")
             .with_named_branch("A");
-        insta::assert_debug_snapshot!(but_workspace::branch_details(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
+        insta::assert_debug_snapshot!(but_workspace::branch_details(&repo, refname("A").as_ref(), &store, &store.workspace.project_meta()).unwrap(), @r#"
         BranchDetails {
             name: "A",
             reference: FullName(
@@ -272,13 +278,15 @@ mod with_workspace {
 
     impl WorkspaceRefMetadataStore {
         pub fn with_target(mut self, short_name: &str) -> Self {
-            self.workspace = Workspace {
-                ref_info: Default::default(),
-                stacks: vec![],
-                target_ref: Some(refname(short_name)),
-                target_commit_id: None,
-                push_remote: None,
-            };
+            self.workspace = Workspace::new(
+                Default::default(),
+                vec![],
+                but_core::ref_metadata::ProjectMeta {
+                    target_ref: Some(refname(short_name)),
+                    target_commit_id: None,
+                    push_remote: None,
+                },
+            );
             self
         }
 

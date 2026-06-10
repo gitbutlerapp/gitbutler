@@ -64,6 +64,7 @@ fn head_info(
         None => ref_info::GerritMode::Disabled,
     };
     let options = ref_info::Options {
+        project_meta: ctx.project_meta()?,
         traversal: but_graph::init::Options::limited(),
         expensive_commit_info,
         gerrit_mode,

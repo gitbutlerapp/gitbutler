@@ -10,7 +10,8 @@ use std::{
 
 use anyhow::anyhow;
 use but_core::{
-    RepositoryExt,
+    RefMetadata as _, RepositoryExt, WORKSPACE_REF_NAME,
+    ref_metadata::ProjectMeta,
     sync::{RepoExclusive, RepoExclusiveGuard, RepoShared, RepoSharedGuard},
 };
 use but_path::AppChannel;
@@ -762,7 +763,12 @@ impl Context {
     fn workspace_from_head(&self) -> anyhow::Result<but_graph::Workspace> {
         let repo = self.repo.get()?;
         let meta = self.meta_inner_read_only()?;
-        let graph = but_graph::Graph::from_head(&repo, &meta, but_graph::init::Options::limited())?;
+        let graph = but_graph::Graph::from_head(
+            &repo,
+            &meta,
+            self.project_meta()?,
+            but_graph::init::Options::limited(),
+        )?;
         graph.into_workspace()
     }
 
@@ -787,6 +793,37 @@ impl Context {
 
 /// Utilities
 impl Context {
+    /// Return project metadata from Git config, falling back to the legacy workspace metadata
+    /// if it wasn't ported yet.
+    ///
+    /// This always reads the current on-disk state, so target changes made by other processes
+    /// or through other repository handles are observed even by long-lived instances.
+    /// It never writes - porting happens on the first [`Self::set_project_meta()`] or
+    /// [`Self::set_default_target()`](Self::set_default_target).
+    pub fn project_meta(&self) -> anyhow::Result<ProjectMeta> {
+        let repo = self.repo.get()?;
+        // The legacy fallback opens a database and parses TOML - only pay for that
+        // when the repository wasn't ported to Git configuration yet.
+        ProjectMeta::resolve_with(&repo, || self.meta_inner_read_only())
+    }
+
+    /// Store project metadata in Git config and back-fill the legacy workspace metadata.
+    ///
+    /// Note that the cached repository handle needs no reload: [`Self::project_meta()`]
+    /// re-reads the on-disk configuration on every call.
+    pub fn set_project_meta(&self, project_meta: ProjectMeta) -> anyhow::Result<()> {
+        {
+            let repo = self.repo.get()?;
+            project_meta.persist_to_local_config(&repo)?;
+        }
+        let mut meta = self.meta()?;
+        let mut workspace = meta.workspace(WORKSPACE_REF_NAME.try_into()?)?;
+        workspace.set_project_meta(project_meta);
+        meta.set_workspace(&workspace)?;
+        self.invalidate_workspace_cache()?;
+        Ok(())
+    }
+
     /// Reload the cached repository handle and drop the cached workspace projection.
     ///
     /// Call this after taking exclusive repository access when earlier read-only setup may have

@@ -1,3 +1,4 @@
+use but_core::RefMetadata;
 use but_testsupport::visualize_commit_graph_all;
 use but_workspace::branch_details;
 
@@ -11,7 +12,15 @@ fn disjoint() -> anyhow::Result<()> {
     * fafd9d0 (origin/main, main) init
     ");
 
-    let actual = branch_details(&repo, "refs/heads/disjoint".try_into()?, &*meta)?;
+    let project_meta = meta
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
+        .project_meta();
+    let actual = branch_details(
+        &repo,
+        "refs/heads/disjoint".try_into()?,
+        &*meta,
+        &project_meta,
+    )?;
     insta::assert_debug_snapshot!(actual, @r#"
     BranchDetails {
         name: "disjoint",
@@ -39,7 +48,7 @@ fn disjoint() -> anyhow::Result<()> {
     }
     "#);
 
-    let actual = branch_details(&repo, "refs/heads/main".try_into()?, &*meta)?;
+    let actual = branch_details(&repo, "refs/heads/main".try_into()?, &*meta, &project_meta)?;
     insta::assert_debug_snapshot!(actual, @r#"
     BranchDetails {
         name: "main",

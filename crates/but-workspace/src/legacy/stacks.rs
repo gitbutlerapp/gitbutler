@@ -6,7 +6,7 @@ use anyhow::{Context as _, bail};
 use bstr::BString;
 use but_core::{
     RefMetadata,
-    ref_metadata::{StackId, StackKind, Workspace},
+    ref_metadata::{ProjectMeta, StackId, StackKind, Workspace},
 };
 use but_ctx::Context;
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
@@ -170,6 +170,7 @@ fn try_from_stack_v3(
 pub fn stacks_v3(
     repo: &gix::Repository,
     meta: &impl RefMetadata,
+    project_meta: &ProjectMeta,
     filter: StacksFilter,
     ref_name_override: Option<&gix::refs::FullNameRef>,
 ) -> anyhow::Result<Vec<StackEntry>> {
@@ -227,6 +228,7 @@ pub fn stacks_v3(
     }
 
     let options = ref_info::Options {
+        project_meta: project_meta.clone(),
         expensive_commit_info: false,
         traversal: but_graph::init::Options::limited(),
         ..Default::default()
@@ -296,6 +298,7 @@ pub fn stack_details_v3(
     stack_id: Option<StackId>,
     repo: &gix::Repository,
     meta: &impl RefMetadata,
+    project_meta: &ProjectMeta,
 ) -> anyhow::Result<ui::StackDetails> {
     // Prefer the current `HEAD` projection if it can still see the requested stack, and only fall
     // back to resolving from a surviving ref when that stack is no longer reachable from `HEAD`.
@@ -305,14 +308,15 @@ pub fn stack_details_v3(
             .into_iter()
             .find(|stack| stack.id == Some(stack_id))
     }
-    fn new_ref_info_options() -> ref_info::Options<'static> {
+    fn new_ref_info_options(project_meta: &ProjectMeta) -> ref_info::Options<'static> {
         ref_info::Options {
+            project_meta: project_meta.clone(),
             expensive_commit_info: true,
             traversal: but_graph::init::Options::limited(),
             ..Default::default()
         }
     }
-    let mut ref_info_options = new_ref_info_options();
+    let mut ref_info_options = new_ref_info_options(project_meta);
     let mut stack = match stack_id {
         None => {
             // assume single-branch mode.
@@ -338,9 +342,10 @@ pub fn stack_details_v3(
             }
         }
         Some(stack_id) => {
-            if let Some(stack) =
-                stack_by_id(head_info(repo, meta, new_ref_info_options())?, stack_id)
-            {
+            if let Some(stack) = stack_by_id(
+                head_info(repo, meta, new_ref_info_options(project_meta))?,
+                stack_id,
+            ) {
                 stack
             } else {
                 let branch_names_by_stack_id = branch_names_by_stack_id(meta)?;
@@ -353,7 +358,7 @@ pub fn stack_details_v3(
                     .with_context(|| {
                         format!("Couldn't find any refs for stack {stack_id} in the repository")
                     })?;
-                let ref_info = ref_info(existing_ref, meta, new_ref_info_options())?;
+                let ref_info = ref_info(existing_ref, meta, new_ref_info_options(project_meta))?;
                 stack_by_id(ref_info, stack_id).with_context(|| {
                     format!("Really couldn't find {stack_id} in the current workspace projection")
                 })?
@@ -498,10 +503,7 @@ impl ui::BranchDetails {
 pub fn stack_branches(stack_id: StackId, ctx: &Context) -> anyhow::Result<Vec<ui::Branch>> {
     let state = state_handle(&ctx.project_data_dir());
     let repo = ctx.repo.get()?;
-    let target = ctx.persisted_default_target()?;
-    let remote = target
-        .push_remote_name
-        .unwrap_or_else(|| target.branch.remote().to_owned());
+    let remote = ctx.project_meta()?.push_remote_name(&repo)?;
 
     let mut stack_branches = vec![];
     let stack = state.get_stack(stack_id)?;
@@ -566,15 +568,13 @@ pub fn local_and_remote_commits(
     stack: &Stack,
 ) -> anyhow::Result<Vec<ui::Commit>> {
     let (target_ref_name, target_base_oid) = {
-        let meta = ctx.meta()?;
-        let workspace =
-            default_workspace_metadata(&meta)?.context("failed to get workspace metadata")?;
+        let project_meta = ctx.project_meta()?;
         (
-            workspace
+            project_meta
                 .target_ref
                 .context("failed to get target reference")?
                 .clone(),
-            workspace
+            project_meta
                 .target_commit_id
                 .context("failed to get target base oid")?,
         )

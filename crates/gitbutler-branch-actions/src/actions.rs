@@ -54,7 +54,7 @@ pub fn set_base_branch(
     base::set_base_branch(ctx, perm.read_permission(), target_branch)
 }
 
-pub fn set_target_push_remote(ctx: &Context, push_remote: &str) -> Result<()> {
+pub fn set_target_push_remote(ctx: &mut Context, push_remote: &str) -> Result<()> {
     base::set_target_push_remote(ctx, push_remote)
 }
 

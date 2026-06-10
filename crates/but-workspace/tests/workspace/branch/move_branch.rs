@@ -52,7 +52,8 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   0ffeac6 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -158,7 +159,8 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   9c6a201 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -230,7 +232,8 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 4c58dd4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -299,7 +302,8 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   c6b8b22 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -371,7 +375,8 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 0c5cde5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -432,7 +437,8 @@ fn move_empty_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 2c820f0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -487,7 +493,8 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 2c820f0 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -574,7 +581,8 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
         └── 📙:3:A
             └── ·09d8e52 (🏘️)
     ");
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
     insta::assert_snapshot!(graph_workspace(&ws), "after the refresh the workspace is finally uptodate (this will probably be an issue unless callers know that)", @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     ├── ≡📙:3:C on 85efbe4 {1}
@@ -651,7 +659,8 @@ fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> 
 
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     let after_display_order = stack_display_order(&ws);
 
@@ -721,7 +730,8 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
 
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 148c87a (origin/main) M2
@@ -777,6 +787,7 @@ fn set_workspace_metadata(
     if let Some((ws_meta, ref_name)) = ws_meta.zip(ws.ref_name()) {
         let mut md = meta.workspace(ref_name)?;
         *md = ws_meta;
+        md.set_project_meta(ws.graph.project_meta.clone());
         meta.set_workspace(&md)?;
     }
     Ok(())
