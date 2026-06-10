@@ -351,6 +351,37 @@ impl Workspace {
 }
 
 impl ProjectMeta {
+    /// Return [`Self::target_ref`], or a [`DefaultTargetNotFound`](but_error::Code::DefaultTargetNotFound)
+    /// error if no target is configured.
+    pub fn target_ref_or_err(&self) -> Result<&gix::refs::FullName> {
+        self.target_ref.as_ref().ok_or_else(|| {
+            anyhow::anyhow!("there is no default target")
+                .context(but_error::Code::DefaultTargetNotFound)
+        })
+    }
+
+    /// Return [`Self::target_commit_id`], or a [`DefaultTargetNotFound`](but_error::Code::DefaultTargetNotFound)
+    /// error if no target commit is known.
+    pub fn target_commit_id_or_err(&self) -> Result<gix::ObjectId> {
+        self.target_commit_id.ok_or_else(|| {
+            anyhow::anyhow!("there is no default target commit")
+                .context(but_error::Code::DefaultTargetNotFound)
+        })
+    }
+
+    /// The name of the remote to push to: [`Self::push_remote`], falling back to the
+    /// remote behind [`Self::target_ref`].
+    pub fn push_remote_name(&self, repo: &gix::Repository) -> Result<String> {
+        if let Some(name) = self.push_remote.clone() {
+            return Ok(name);
+        }
+        let target_ref = self.target_ref_or_err()?;
+        let (remote_name, _short_name) =
+            extract_remote_name_and_short_name(target_ref.as_ref(), &repo.remote_names())
+                .with_context(|| format!("failed to determine remote for branch {target_ref}"))?;
+        Ok(remote_name)
+    }
+
     /// Get the fetch URL of the remote behind [`Self::target_ref`].
     pub fn remote_url_with_fallback(&self, repo: &gix::Repository) -> Result<String> {
         let Some(target_ref) = self.target_ref.as_ref() else {

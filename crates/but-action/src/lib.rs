@@ -135,8 +135,12 @@ fn prepare_handle_changes(ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow
             "Cannot handle changes while in edit mode. Please exit edit mode first."
         )),
         OperatingMode::OutsideWorkspace(_) => {
-            let default_target = ctx.persisted_default_target()?;
-            gitbutler_branch_actions::set_base_branch(ctx, &default_target.branch, perm).map(|_| ())
+            let target_ref: gitbutler_reference::RemoteRefname = ctx
+                .project_meta()?
+                .target_ref_or_err()?
+                .to_string()
+                .parse()?;
+            gitbutler_branch_actions::set_base_branch(ctx, &target_ref, perm).map(|_| ())
         }
     }
 }

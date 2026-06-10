@@ -94,10 +94,7 @@ pub fn list_branches(
     let target_ref_name = if let Some(target_ref_name) = workspace_target_ref_name {
         target_ref_name
     } else {
-        ctx.persisted_default_target()?
-            .branch
-            .to_string()
-            .try_into()?
+        ctx.project_meta()?.target_ref_or_err()?.clone()
     };
     let mut branches = combine_branches(branches, &repo, target_ref_name.as_ref())?;
 
@@ -690,12 +687,12 @@ pub fn get_branch_listing_details(
                 target_base_oid,
             )
         } else {
-            let default_target = ctx.persisted_default_target()?;
+            let project_meta = ctx.project_meta()?;
             (
-                repo.find_reference(&default_target.branch.to_string())?
+                repo.find_reference(project_meta.target_ref_or_err()?.as_ref())?
                     .peel_to_commit()?
                     .id,
-                default_target.sha,
+                project_meta.target_commit_id_or_err()?,
             )
         }
     };

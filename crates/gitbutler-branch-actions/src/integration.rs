@@ -76,7 +76,7 @@ pub fn update_workspace_commit_with_vb_state(
     ctx: &Context,
     checkout_new_worktree: bool,
 ) -> Result<gix::ObjectId> {
-    let target_base_oid = ctx.persisted_default_target()?.sha;
+    let target_base_oid = ctx.project_meta()?.target_commit_id_or_err()?;
 
     #[expect(deprecated, reason = "workspace checkout/index boundary")]
     let repo = &*ctx.git2_repo.get()?;
@@ -270,7 +270,7 @@ fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     let gix_repo = ctx.repo.get()?.clone();
     let head_commit_id = gix_repo.head_id()?.detach();
 
-    let target_base_oid = ctx.persisted_default_target()?.sha;
+    let target_base_oid = ctx.project_meta()?.target_commit_id_or_err()?;
 
     let commit_ids = first_parent_commit_ids_until(&gix_repo, head_commit_id, target_base_oid)
         .context("failed to get log")?;

@@ -503,10 +503,7 @@ impl ui::BranchDetails {
 pub fn stack_branches(stack_id: StackId, ctx: &Context) -> anyhow::Result<Vec<ui::Branch>> {
     let state = state_handle(&ctx.project_data_dir());
     let repo = ctx.repo.get()?;
-    let target = ctx.persisted_default_target()?;
-    let remote = target
-        .push_remote_name
-        .unwrap_or_else(|| target.branch.remote().to_owned());
+    let remote = ctx.project_meta()?.push_remote_name(&repo)?;
 
     let mut stack_branches = vec![];
     let stack = state.get_stack(stack_id)?;

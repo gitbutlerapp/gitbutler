@@ -85,15 +85,8 @@ impl BaseBranch {
 
 #[instrument(skip(ctx, perm), err(Debug))]
 pub fn get_base_branch_data(ctx: &Context, perm: &RepoShared) -> Result<BaseBranch> {
-    let target = default_target(ctx)?;
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
-    let base = target_to_base_branch(
-        &repo,
-        &ctx.legacy_project,
-        &ws,
-        &ctx.project_meta()?,
-        &target,
-    )?;
+    let base = target_to_base_branch(&repo, &ctx.legacy_project, &ws, &ctx.project_meta()?)?;
     Ok(base)
 }
 
@@ -141,11 +134,7 @@ pub fn bootstrap_default_target_if_missing(ctx: &Context) -> Result<bool> {
 }
 
 #[instrument(skip(ctx, perm), err(Debug))]
-fn go_back_to_integration(
-    ctx: &Context,
-    perm: &RepoShared,
-    default_target: &Target,
-) -> Result<BaseBranch> {
+fn go_back_to_integration(ctx: &Context, perm: &RepoShared) -> Result<BaseBranch> {
     if ctx.settings.feature_flags.cv3 {
         {
             let repo = ctx.repo.get()?;
@@ -201,10 +190,13 @@ pub(crate) fn set_base_branch(
     let repo = ctx.repo.get()?;
 
     // if target exists, and it is the same as the requested branch, we should go back
-    if let Ok(target) = default_target(ctx)
-        && target.branch.eq(target_branch_ref)
+    if ctx
+        .project_meta()
+        .ok()
+        .and_then(|project_meta| project_meta.target_ref)
+        .is_some_and(|target_ref| target_ref.to_string() == target_branch_ref.to_string())
     {
-        return go_back_to_integration(ctx, perm, &target);
+        return go_back_to_integration(ctx, perm);
     }
 
     // lookup a branch by name
@@ -348,9 +340,9 @@ pub(crate) fn target_to_base_branch(
     project: &Project,
     ws: &but_graph::Workspace,
     project_meta: &but_core::ref_metadata::ProjectMeta,
-    target: &Target,
 ) -> Result<BaseBranch> {
-    let target_ref_name: gix::refs::FullName = target.branch.clone().try_into()?;
+    let target_ref_name = project_meta.target_ref_or_err()?.clone();
+    let target_sha = project_meta.target_commit_id_or_err()?;
     let target_ref = repo
         .find_reference(&target_ref_name)
         .context(Code::DefaultTargetNotFound)?;
@@ -360,7 +352,7 @@ pub(crate) fn target_to_base_branch(
     // is ahead of the target ref.
     //
     // The old function provided some options for how to resolve this.
-    let target_sha_not_ref = first_parent_commit_ids_until(repo, target.sha, target_ref_commit_id)
+    let target_sha_not_ref = first_parent_commit_ids_until(repo, target_sha, target_ref_commit_id)
         .context("failed to get fork point")?;
     let target_sha_ahead_of_ref = !target_sha_not_ref.is_empty();
 
@@ -371,8 +363,8 @@ pub(crate) fn target_to_base_branch(
         .map(|h| h.upstream_commits)
         .max_by_key(|us| us.len())
         .unwrap_or_default();
-    if upstream_commit_ids.is_empty() && target_ref_commit_id != target.sha {
-        upstream_commit_ids = first_parent_commit_ids_until(repo, target_ref_commit_id, target.sha)
+    if upstream_commit_ids.is_empty() && target_ref_commit_id != target_sha {
+        upstream_commit_ids = first_parent_commit_ids_until(repo, target_ref_commit_id, target_sha)
             .context("failed to get target commits since stored base")?;
     }
 
@@ -387,7 +379,7 @@ pub(crate) fn target_to_base_branch(
     let behind = upstream_commits.len();
 
     // get some recent commits
-    let recent_commits = first_parent_commit_ids_with_limit(repo, target.sha, 20)
+    let recent_commits = first_parent_commit_ids_with_limit(repo, target_sha, 20)
         .context("failed to get recent commits")?
         .iter()
         .map(|id| {
@@ -420,7 +412,7 @@ pub(crate) fn target_to_base_branch(
         remote_url,
         push_remote_name,
         push_remote_url,
-        base_sha: target.sha,
+        base_sha: target_sha,
         current_sha: target_ref_commit_id,
         behind,
         upstream_commits,
@@ -435,10 +427,6 @@ pub(crate) fn target_to_base_branch(
         short_name,
     };
     Ok(base)
-}
-
-fn default_target(ctx: &Context) -> Result<Target> {
-    Ok(ctx.persisted_default_target()?.into())
 }
 
 /// Infer the default target from the Git repository without mutating workspace refs.
@@ -519,10 +507,11 @@ fn first_parent_commit_ids_with_limit(
 }
 
 pub(crate) fn push(ctx: &Context, with_force: bool) -> Result<()> {
-    let target = default_target(ctx)?;
+    let project_meta = ctx.project_meta()?;
+    let target_ref: RemoteRefname = project_meta.target_ref_or_err()?.to_string().parse()?;
     let _ = ctx.push(
-        target.sha,
-        &target.branch,
+        project_meta.target_commit_id_or_err()?,
+        &target_ref,
         with_force,
         ctx.legacy_project.force_push_protection,
         None,

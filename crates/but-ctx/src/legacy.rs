@@ -1,5 +1,4 @@
 use but_core::{RefMetadata as _, RepositoryExt, sync::RepoExclusive};
-use but_error::Code;
 use but_settings::AppSettings;
 use tracing::instrument;
 
@@ -128,13 +127,6 @@ impl Context {
         Ok((self.meta()?, ws))
     }
 
-    /// Return the configured GitButler default target from persisted project metadata.
-    pub fn persisted_default_target(
-        &self,
-    ) -> anyhow::Result<but_meta::virtual_branches_legacy_types::Target> {
-        persisted_default_target_from_meta(&self.meta_inner_read_only()?)
-    }
-
     /// Make `target` the project's default target, persisting it both as project metadata
     /// in Git config and as the legacy `default_target`, which keeps fields that don't
     /// exist in project metadata, like the remote URL.
@@ -194,20 +186,4 @@ impl Context {
             self.project_data_dir().join("virtual_branches.toml"),
         )
     }
-}
-
-/// Return the configured GitButler default target from persisted project metadata.
-///
-/// This is deliberately not derived from the current-`HEAD` workspace projection. When
-/// `HEAD` is outside the GitButler workspace, projection may produce an ad-hoc workspace,
-/// infer its target from the checked-out branch's upstream, or clear target metadata when
-/// the checked-out branch is outside the managed workspace bounds. Legacy compatibility
-/// flows that re-enter the workspace or operate from outside-workspace states need the
-/// configured GitButler target instead.
-pub fn persisted_default_target_from_meta(
-    meta: &but_meta::VirtualBranchesTomlMetadata,
-) -> anyhow::Result<but_meta::virtual_branches_legacy_types::Target> {
-    meta.data().default_target.clone().ok_or_else(|| {
-        anyhow::anyhow!("there is no default target").context(Code::DefaultTargetNotFound)
-    })
 }

@@ -62,12 +62,10 @@ impl From<Target> for virtual_branches_legacy_types::Target {
 }
 
 pub(crate) fn default_target_base_oid(ctx: &Context) -> Result<gix::ObjectId> {
-    Ok(ctx.persisted_default_target()?.sha)
+    ctx.project_meta()?.target_commit_id_or_err()
 }
 
 pub(crate) fn default_target_push_remote_name(ctx: &Context) -> Result<String> {
-    let target = ctx.persisted_default_target()?;
-    Ok(target
-        .push_remote_name
-        .unwrap_or_else(|| target.branch.remote().to_owned()))
+    let repo = ctx.repo.get()?;
+    ctx.project_meta()?.push_remote_name(&repo)
 }
