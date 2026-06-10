@@ -25,3 +25,27 @@
 		color: #a855f7;
 	}
 }
+
+.fileIconWithCheckbox {
+	display: grid;
+	justify-items: center;
+
+	& > * {
+		grid-area: 1 / 1;
+	}
+}
+
+.fileCheckbox {
+	margin-block-start: 1px;
+	opacity: 0;
+
+	&[data-checked],
+	.fileRow:hover &,
+	&:focus {
+		opacity: 1;
+	}
+
+	&[data-disabled] {
+		display: none;
+	}
+}

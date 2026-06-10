@@ -14,13 +14,15 @@ import {
 import { fileOperand, operandIdentityKey, type FileOperand } from "#ui/operands.ts";
 import {
 	projectActions,
+	selectProjectHasCheckedCommits,
 	selectProjectOutlineModeState,
 	selectProjectSelectionFiles,
 } from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { Icon } from "#ui/components/Icon.tsx";
+import { Checkbox } from "#ui/components/Checkbox.tsx";
 import { classes } from "#ui/components/classes.ts";
-import { mergeProps, useRender } from "@base-ui/react";
+import { mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
 import type { TreeChange, TreeStatus } from "@gitbutler/but-sdk";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
@@ -49,6 +51,7 @@ import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { NonEmptyArray } from "effect/Array";
+import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 
 const fileOperandIdentityKey = (operand: FileOperand): string =>
 	operandIdentityKey(fileOperand(operand));
@@ -421,6 +424,9 @@ const FileRow: FC<
 	const menuItems = nativeMenuItemsFromGroups(menuItemGroups);
 
 	const isSelected = useIsSelected({ projectId, operand: item.operand });
+	const hasCheckedCommits = useAppSelector((state) =>
+		selectProjectHasCheckedCommits(state, projectId),
+	);
 
 	return (
 		<ItemRow
@@ -428,8 +434,29 @@ const FileRow: FC<
 			projectId={projectId}
 			operand={item.operand}
 			onFileSelection={onFileSelection}
+			className={classes(restProps.className, styles.fileRow)}
 		>
-			<Icon name="file" />
+			<div className={styles.fileIconWithCheckbox}>
+				<Icon name="file" />
+				<Tooltip.Root
+					// This gets in the way when the user tries to move their hover to a
+					// sibling row.
+					disableHoverablePopup
+				>
+					<Checkbox
+						disabled={hasCheckedCommits || outlineMode._tag !== "Default"}
+						aria-label={`Check file ${relativePath}`}
+						className={styles.fileCheckbox}
+						nativeButton
+						render={<Tooltip.Trigger />}
+					/>
+					<Tooltip.Portal>
+						<Tooltip.Positioner sideOffset={4}>
+							<Tooltip.Popup render={<TooltipPopup />}>Check file</Tooltip.Popup>
+						</Tooltip.Positioner>
+					</Tooltip.Portal>
+				</Tooltip.Root>
+			</div>
 			<div
 				className={workspaceItemRowStyles.itemRowLabel}
 				onContextMenu={(event) => {
