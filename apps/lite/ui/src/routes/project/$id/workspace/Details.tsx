@@ -36,6 +36,7 @@ import { Tooltip } from "@base-ui/react";
 import type {
 	CommitDetails,
 	DiffHunk,
+	HunkHeader,
 	TreeChange,
 	TreeChanges,
 	UnifiedPatch,
@@ -294,6 +295,13 @@ const selectEntireHunk = (hunk: Hunk): SelectedLineRange => {
 	};
 };
 
+const hunkHeaderFromHunk = (hunk: Hunk): HunkHeader => ({
+	oldStart: hunk.deletionStart,
+	oldLines: hunk.deletionCount,
+	newStart: hunk.additionStart,
+	newLines: hunk.additionCount,
+});
+
 const hunkSelectionFromHunk = ({
 	file,
 	hunk,
@@ -304,12 +312,7 @@ const hunkSelectionFromHunk = ({
 	isResultOfBinaryToTextConversion: boolean;
 }): HunkOperand => ({
 	parent: file,
-	hunkHeader: {
-		oldStart: hunk.deletionStart,
-		oldLines: hunk.deletionCount,
-		newStart: hunk.additionStart,
-		newLines: hunk.additionCount,
-	},
+	hunkHeader: hunkHeaderFromHunk(hunk),
 	isResultOfBinaryToTextConversion,
 });
 
