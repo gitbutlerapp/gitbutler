@@ -10,7 +10,7 @@ use nonempty::NonEmpty;
 use crate::{
     CliId,
     command::legacy::{
-        rub::{RubOperation, SquashCommitsOperation},
+        rub::{CommitToUnassignedOperation, RubOperation, SquashCommitsOperation},
         status::tui::{Markable, SelectAfterReload},
     },
 };
@@ -94,7 +94,13 @@ pub(super) fn rub_operation_display(
         RubOperation::UnassignedToCommit(..) => "amend",
         RubOperation::UnassignedToBranch(..) => "assign hunks",
         RubOperation::UnassignedToStack(..) => "assign hunks",
-        RubOperation::CommitToUnassigned(..) => "undo commit",
+        RubOperation::CommitToUnassigned(CommitToUnassignedOperation { commits }) => {
+            if commits.len() == 1 {
+                "undo commit"
+            } else {
+                "undo commits"
+            }
+        }
         RubOperation::CommitToStack(..) => "undo commit",
         RubOperation::SquashCommits(SquashCommitsOperation {
             sources: _,
