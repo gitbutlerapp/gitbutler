@@ -108,6 +108,7 @@ import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import {
 	WorkspaceItemRow,
 	WorkspaceItemRowEmpty,
+	WorkspaceItemRowLabel,
 	WorkspaceItemRowToolbar,
 } from "./WorkspaceItemRow.tsx";
 import { useDryRunOperation } from "#ui/operations/operation.ts";
@@ -1207,10 +1208,10 @@ const CommitRow: FC<
 				/>
 			) : (
 				<>
-					<div className={workspaceItemRowStyles.itemRowLabel}>
+					<WorkspaceItemRowLabel>
 						{commitTitle(commitWithOptimisticMessage.message)}
 						{hasConflicts && " ⚠️"}
-					</div>
+					</WorkspaceItemRowLabel>
 
 					<WorkspaceItemRowToolbar forceVisible>
 						{outlineMode._tag === "Default" && (
@@ -1331,12 +1332,12 @@ const ChangesSectionRow: FC<{
 			}}
 			heading
 		>
-			<div className={classes(workspaceItemRowStyles.itemRowLabel, isSelected && styles.selected)}>
+			<WorkspaceItemRowLabel className={isSelected ? styles.selected : undefined}>
 				Changes
 				<span className={classes("text-11", "text-semibold", styles.changesCountBubble)}>
 					{changes.length}
 				</span>
-			</div>
+			</WorkspaceItemRowLabel>
 
 			{outlineMode._tag === "Default" && (
 				<Toolbar.Root
@@ -2057,7 +2058,7 @@ const BranchRow: FC<
 				/>
 			) : (
 				<>
-					<div className={workspaceItemRowStyles.itemRowLabel}>{optimisticBranchDisplayName}</div>
+					<WorkspaceItemRowLabel>{optimisticBranchDisplayName}</WorkspaceItemRowLabel>
 
 					<WorkspaceItemRowToolbar forceVisible>
 						{outlineMode._tag === "Default" && (
@@ -2174,7 +2175,7 @@ const StackRow: FC<
 				void showNativeContextMenu(event, menuItems);
 			}}
 		>
-			<div className={workspaceItemRowStyles.itemRowLabel} />
+			<WorkspaceItemRowLabel />
 
 			{outlineMode._tag === "Default" && (
 				<Toolbar.Root aria-label="Stack actions" render={<WorkspaceItemRowToolbar forceVisible />}>

@@ -31,6 +31,7 @@ import { ComponentProps, createContext, FC, use, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import {
+	WorkspaceItemRowLabel,
 	WorkspaceItemRow,
 	WorkspaceItemRowEmpty,
 	WorkspaceItemRowToolbar,
@@ -457,14 +458,13 @@ const FileRow: FC<
 					</Tooltip.Portal>
 				</Tooltip.Root>
 			</div>
-			<div
-				className={workspaceItemRowStyles.itemRowLabel}
+			<WorkspaceItemRowLabel
 				onContextMenu={(event) => {
 					void showNativeContextMenu(event, menuItems);
 				}}
 			>
 				{item._tag === "Change" ? item.change.path : item.path}
-			</div>
+			</WorkspaceItemRowLabel>
 
 			{outlineMode._tag === "Default" && (
 				<WorkspaceItemRowToolbar forceVisible>
