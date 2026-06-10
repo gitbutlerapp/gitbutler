@@ -3,6 +3,7 @@ import {
 	useCommitAmend,
 	useCommitCreate,
 	useCommitDiscard,
+	useDiscardWorktreeChanges,
 	useCommitInsertBlank,
 	useCommitMove,
 	useCommitReword,
@@ -110,6 +111,7 @@ import {
 	WorkspaceItemRowToolbar,
 } from "./WorkspaceItemRow.tsx";
 import { useDryRunOperation } from "#ui/operations/operation.ts";
+import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { initNonEmpty, isNonEmptyArray, scanRight } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -1277,6 +1279,7 @@ const ChangesSectionRow: FC<{
 	const operand = changesSectionOperand;
 	const isSelected = useIsSelected({ projectId, operand });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const discardWorktreeChanges = useDiscardWorktreeChanges();
 
 	const dispatch = useAppDispatch();
 	const enterAbsorbMode = (source: Operand, sourceTarget: AbsorptionTarget) => {
@@ -1292,6 +1295,13 @@ const ChangesSectionRow: FC<{
 		focusCommitMessageInput();
 	};
 
+	const discardChanges = () => {
+		discardWorktreeChanges.mutate({
+			projectId,
+			changes: changes.map((change) => createDiffSpec(change, [])),
+		});
+	};
+
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: "Compose Commit Message",
@@ -1304,6 +1314,11 @@ const ChangesSectionRow: FC<{
 			label: "Absorb",
 			accelerator: toElectronAccelerator(outlineHotkeys.absorb.hotkey),
 			onSelect: absorb,
+		}),
+		nativeMenuItem({
+			label: "Discard Changes",
+			enabled: changes.length > 0 && !discardWorktreeChanges.isPending,
+			onSelect: discardChanges,
 		}),
 	];
 
