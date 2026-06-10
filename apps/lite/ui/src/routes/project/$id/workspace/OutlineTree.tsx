@@ -2001,7 +2001,7 @@ const BranchRow: FC<
 				removeBranchMutation.mutate({
 					projectId,
 					stackId,
-					branchName,
+					branchName: decodeRefName(branchRef),
 				}),
 		}),
 	];
