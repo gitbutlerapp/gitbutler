@@ -12,7 +12,7 @@ Use GitButler CLI (`but`) as the default version-control interface.
 ## Non-Negotiable Rules
 
 1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`. If the user says a `git` write command, translate it to `but` and run that.
-2. After mutations, read the returned output for the updated workspace state.
+2. After mutations, read the returned output for the updated workspace state — it replaces a follow-up `but status -fv`.
 3. Never chain `but` mutations with `&&` or `;`. Each mutation can reassign CLI IDs, so the second command may silently target the wrong file or commit. Run one mutation, read the returned workspace state, and take fresh IDs from it.
 4. Use CLI IDs from `but status -fv` / `but diff` / `but show`; never hardcode IDs.
 5. Start with `but status -fv` before mutations so IDs and stack state are current.
@@ -153,7 +153,7 @@ If `but move` causes conflicts (conflicted commits in status):
 - Prefer explicit IDs over file paths for mutations.
 - `--changes` accepts comma-separated values (`--changes a1,b2`) or repeated flags (`--changes a1 --changes b2`), not space-separated.
 - Read-only git inspection (`git log`, `git blame`, `git show --stat`) is allowed.
-- After a mutation returns status, don't run a redundant `but status -fv` unless you need new IDs.
+- After a successful mutation, trust the workspace state it printed. Re-run `but status -fv` only if that output lacks the ID you need or files changed since.
 - Use `but show <branch-id>` to see commit details for a branch, including per-commit file changes and line counts.
 - **Per-commit file counts**: `but status` does NOT include per-commit file counts. Use `but show <branch-id>` or `git show --stat <commit-hash>` to get them.
 - Avoid `--help` probes; use this skill and `references/reference.md` first. Only use `--help` after a failed attempt.
