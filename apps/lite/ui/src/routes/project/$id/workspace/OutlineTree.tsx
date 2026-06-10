@@ -806,6 +806,7 @@ const TreeItem: FC<
 		}),
 	});
 };
+
 const OperandC: FC<
 	{
 		projectId: string;
@@ -1835,8 +1836,7 @@ const pushContextForSegment = ({
 const BranchRow: FC<
 	{
 		projectId: string;
-		branchDisplayName: string;
-		branchRef: Array<number>;
+		refName: BranchReference;
 		stackId: string;
 		isCommitTarget: boolean;
 		canTearOffBranch: boolean;
@@ -1846,8 +1846,7 @@ const BranchRow: FC<
 	} & ComponentProps<"div">
 > = ({
 	projectId,
-	branchDisplayName,
-	branchRef,
+	refName,
 	stackId,
 	isCommitTarget,
 	canTearOffBranch,
@@ -1860,14 +1859,14 @@ const BranchRow: FC<
 	const dispatch = useAppDispatch();
 	const branchOperandV: BranchOperand = {
 		stackId,
-		branchRef,
+		branchRef: refName.fullNameBytes,
 	};
 	const operand = branchOperand(branchOperandV);
 	const isRenaming =
 		outlineMode._tag === "RenameBranch" &&
 		operandEquals(operand, branchOperand(outlineMode.operand));
 	const [optimisticBranchDisplayName, setOptimisticBranchDisplayName] = useOptimistic(
-		branchDisplayName,
+		refName.displayName,
 		(_currentBranchName, nextBranchName: string) => nextBranchName,
 	);
 	const [isRenamePending, startRenameTransition] = useTransition();
@@ -1875,7 +1874,7 @@ const BranchRow: FC<
 	const updateBranchNameMutation = useUpdateBranchName({
 		projectId,
 		stackId,
-		branchRef,
+		branchRef: refName.fullNameBytes,
 		oldBranch: branchOperandV,
 	});
 
@@ -1900,14 +1899,14 @@ const BranchRow: FC<
 
 	const saveBranchName = (newBranchName: string) => {
 		const trimmed = newBranchName.trim();
-		if (trimmed === "" || trimmed === branchDisplayName) return;
+		if (trimmed === "" || trimmed === refName.displayName) return;
 		startRenameTransition(async () => {
 			setOptimisticBranchDisplayName(trimmed);
 			try {
 				await updateBranchNameMutation.mutateAsync({
 					projectId,
 					stackId,
-					branchName: branchDisplayName,
+					branchName: refName.displayName,
 					newName: trimmed,
 				});
 			} catch (error) {
@@ -1924,7 +1923,7 @@ const BranchRow: FC<
 		});
 	};
 
-	const relativeTo: RelativeTo = { type: "referenceBytes", subject: branchRef };
+	const relativeTo: RelativeTo = { type: "referenceBytes", subject: refName.fullNameBytes };
 
 	const setCommitTarget = () => {
 		dispatch(projectActions.setCommitTarget({ projectId, commitTarget: relativeTo }));
@@ -1938,7 +1937,7 @@ const BranchRow: FC<
 	const tearOffBranch = () => {
 		tearOffBranchMutation.mutate({
 			projectId,
-			subjectBranch: decodeBytes(branchRef),
+			subjectBranch: decodeBytes(refName.fullNameBytes),
 			dryRun: false,
 		});
 	};
@@ -1946,7 +1945,7 @@ const BranchRow: FC<
 	const pushStack = () => {
 		pushStackMutation.mutate({
 			projectId,
-			branch: decodeBytes(branchRef),
+			branch: decodeBytes(refName.fullNameBytes),
 			withForce: partialStackState.pushWithForce,
 			skipForcePushProtection: false,
 			runHooks: true,
@@ -2016,7 +2015,7 @@ const BranchRow: FC<
 				removeBranchMutation.mutate({
 					projectId,
 					stackId,
-					branchName: decodeBytes(branchRef),
+					branchName: decodeBytes(refName.fullNameBytes),
 				}),
 		}),
 	];
@@ -2239,8 +2238,7 @@ const BranchSegment: FC<{
 				render={
 					<BranchRow
 						projectId={projectId}
-						branchDisplayName={refName.displayName}
-						branchRef={refName.fullNameBytes}
+						refName={refName}
 						stackId={stackId}
 						canTearOffBranch={canTearOffBranch}
 						canRemoveBranch={canRemoveBranch}

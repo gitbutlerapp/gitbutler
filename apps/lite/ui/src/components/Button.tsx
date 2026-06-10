@@ -22,7 +22,13 @@ export const getButtonClassName = ({
 		"text-semibold",
 		styles.button,
 		styles[variant],
-		size === "small" && styles.small,
-		size === "small" ? "text-12" : "text-13",
+		(() => {
+			switch (size) {
+				case "small":
+					return classes(styles.small, "text-12");
+				case "regular":
+					return classes(styles.regular, "text-13");
+			}
+		})(),
 		iconOnly && styles.iconOnly,
 	);
