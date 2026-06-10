@@ -13,6 +13,49 @@ fn success() {
     .unwrap();
 }
 
+#[test]
+fn switching_the_target_is_observed_within_the_same_context() {
+    let Test { repo, ctx, .. } = &mut Test::default();
+
+    // A second remote branch to switch to.
+    {
+        let gix_repo = repo.open();
+        let head_id = gix_repo.head_id().unwrap().detach();
+        gix_repo
+            .reference(
+                "refs/remotes/origin/other",
+                head_id,
+                gix::refs::transaction::PreviousValue::Any,
+                "test",
+            )
+            .unwrap();
+    }
+
+    let mut guard = ctx.exclusive_worktree_access();
+    // The first call ports project metadata into Git config.
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap();
+
+    // Once ported, switching again must be observed by reads through the same context.
+    let base = gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/other".parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap();
+    assert_eq!(base.branch_name, "origin/other");
+
+    let project_meta = ctx.project_meta().unwrap();
+    assert_eq!(
+        project_meta.target_ref.map(|name| name.to_string()),
+        Some("refs/remotes/origin/other".to_string())
+    );
+}
+
 mod error {
     use gitbutler_reference::RemoteRefname;
 

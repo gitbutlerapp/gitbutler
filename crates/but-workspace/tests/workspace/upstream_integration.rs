@@ -452,6 +452,7 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -494,7 +495,8 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
         ],
     )?;
 
-    let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 905d6e5
@@ -528,6 +530,7 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -558,7 +561,8 @@ fn fully_integrated_single_branch_leaves_workspace_shape() -> Result<()> {
         }],
     )?;
 
-    let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 905d6e5");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -586,6 +590,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -620,7 +625,8 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
         }],
     )?;
 
-    let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 6b20716");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -652,6 +658,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -690,7 +697,8 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
         }],
     )?;
 
-    let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on f27db86");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -722,6 +730,7 @@ fn empty_workspace_reparents_workspace_commit_to_advanced_target() -> Result<()>
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -754,6 +763,7 @@ fn empty_workspace_reparents_workspace_commit_to_merge_advanced_target() -> Resu
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -790,6 +800,7 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -826,7 +837,8 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
         }],
     )?;
 
-    let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on fe9ae6e
@@ -871,6 +883,7 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -879,9 +892,11 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
     let mut workspace = graph.into_workspace()?;
 
     std::fs::write(tmp.path().join("shared.txt"), "dirty\n")?;
+    let project_meta = project_meta(&meta)?;
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
+        project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -923,6 +938,7 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -934,9 +950,11 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
     git(&repo).args(["add", "shared.txt"]).run();
     std::fs::write(tmp.path().join("shared.txt"), "base\n")?;
 
+    let project_meta = project_meta(&meta)?;
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
+        project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -971,6 +989,7 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1016,7 +1035,8 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
         ],
     )?;
 
-    let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on f1e7451
@@ -1057,6 +1077,7 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1102,7 +1123,8 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
         ],
     )?;
 
-    let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 44c9428
@@ -1138,6 +1160,7 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1187,7 +1210,8 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
         ],
     )?;
 
-    let graph = but_graph::Graph::from_head(&repo, &meta, Options::limited())?;
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
     let workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 5f7d45e");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -1224,6 +1248,7 @@ fn orphan_reparent_content_integrated_stack_to_target_tip() -> Result<()> {
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1268,6 +1293,7 @@ fn content_integrated_stack_does_not_reparent_while_stack_parent_remains() -> Re
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1311,6 +1337,7 @@ fn orphan_reparent_does_not_run_when_parent_remains() -> Result<()> {
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1358,6 +1385,7 @@ fn orphan_reparent_empty_stack_to_target_tip() -> Result<()> {
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1400,6 +1428,7 @@ fn orphan_reparent_same_target_tip_keeps_single_parent() -> Result<()> {
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1449,6 +1478,7 @@ fn orphan_reparent_two_stacks_through_merge_target() -> Result<()> {
     let graph = but_graph::Graph::from_head(
         &repo,
         &meta,
+        project_meta(&meta)?,
         Options {
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
@@ -1487,12 +1517,16 @@ fn integrate_and_materialize<M: RefMetadata>(
     repo: &gix::Repository,
     updates: Vec<BottomUpdate>,
 ) -> Result<()> {
-    let but_workspace::IntegrateUpstreamOutcome { rebase, ws_meta } =
-        integrate_upstream(workspace, meta, repo, updates)?;
+    let but_workspace::IntegrateUpstreamOutcome {
+        rebase,
+        ws_meta,
+        project_meta,
+    } = integrate_upstream(workspace, meta, project_meta(&*meta)?, repo, updates)?;
     let materialized = rebase.materialize()?;
     if let Some(ref_name) = materialized.workspace.ref_name() {
         let mut md = materialized.meta.workspace(ref_name)?;
         *md = ws_meta;
+        md.set_project_meta(project_meta);
         materialized.meta.set_workspace(&md)?;
     }
     drop(materialized);

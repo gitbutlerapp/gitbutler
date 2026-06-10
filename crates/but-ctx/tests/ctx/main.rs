@@ -131,7 +131,7 @@ fn discover_with_app_channel_uses_requested_project_data_dir() -> anyhow::Result
 #[test]
 fn set_project_meta_updates_git_config_toml_and_database() -> anyhow::Result<()> {
     let (_tmp, repo, target_commit_id) = run_fixture("project-meta-base")?;
-    let mut ctx = Context::from_repo(repo)?;
+    let ctx = Context::from_repo(repo)?;
     let project_meta = project_meta(target_commit_id, "refs/remotes/origin/main", "fork")?;
 
     insta::assert_debug_snapshot!(storage_state(&ctx)?, @r#"
@@ -225,9 +225,9 @@ fn project_meta_defaults_when_config_and_toml_are_unset() -> anyhow::Result<()> 
     let actual = ctx.project_meta()?;
     insta::assert_snapshot!(project_meta_summary(actual), @"target_ref=<unset>; target_commit_id=<unset>; push_remote=<unset>");
 
-    insta::assert_debug_snapshot!(storage_state_reopen_config(&ctx)?, @r#"
+    insta::assert_debug_snapshot!(storage_state(&ctx)?, @r#"
     StorageState {
-        config_ported: true,
+        config_ported: false,
         config: ProjectMetaView {
             target_ref: None,
             target_commit_id: None,
@@ -245,7 +245,29 @@ fn project_meta_defaults_when_config_and_toml_are_unset() -> anyhow::Result<()> 
 }
 
 #[test]
-fn project_meta_ports_from_toml_when_config_is_unset() -> anyhow::Result<()> {
+fn project_meta_observes_changes_made_through_other_repository_handles() -> anyhow::Result<()> {
+    let (_tmp, repo, target_commit_id) = run_fixture("project-meta-base")?;
+    let ctx = Context::from_repo(repo)?;
+    assert_eq!(ctx.project_meta()?.target_ref, None);
+
+    // Write through an independent handle, like another process would.
+    let other_ctx = Context::from_repo(open_repo(&ctx.gitdir)?)?;
+    other_ctx.set_project_meta(project_meta(
+        target_commit_id,
+        "refs/remotes/origin/main",
+        "fork",
+    )?)?;
+
+    assert_eq!(
+        ctx.project_meta()?.target_ref.map(|name| name.to_string()),
+        Some("refs/remotes/origin/main".to_string()),
+        "a long-lived context observes target changes made elsewhere"
+    );
+    Ok(())
+}
+
+#[test]
+fn project_meta_falls_back_to_toml_and_ports_on_first_write() -> anyhow::Result<()> {
     let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-toml")?;
     let ctx = Context::from_repo(repo)?;
 
@@ -274,11 +296,37 @@ fn project_meta_ports_from_toml_when_config_is_unset() -> anyhow::Result<()> {
 
     let actual = ctx.project_meta()?;
     insta::assert_snapshot!(
-        project_meta_summary(actual),
+        project_meta_summary(actual.clone()),
         @"target_ref=refs/remotes/origin/main; target_commit_id=[OID]; push_remote=fork"
     );
 
-    insta::assert_debug_snapshot!(storage_state_reopen_config(&ctx)?, @r#"
+    // Reading is pure - nothing was ported yet.
+    insta::assert_debug_snapshot!(storage_state(&ctx)?, @r#"
+    StorageState {
+        config_ported: false,
+        config: ProjectMetaView {
+            target_ref: None,
+            target_commit_id: None,
+            push_remote: None,
+        },
+        toml: ProjectMetaView {
+            target_ref: Some(
+                "refs/remotes/origin/main",
+            ),
+            target_commit_id: Some(
+                "[OID]",
+            ),
+            push_remote: Some(
+                "fork",
+            ),
+        },
+        db: None,
+    }
+    "#);
+
+    // The first write ports the metadata to Git config.
+    ctx.set_project_meta(actual)?;
+    insta::assert_debug_snapshot!(storage_state(&ctx)?, @r#"
     StorageState {
         config_ported: true,
         config: ProjectMetaView {
@@ -430,16 +478,13 @@ struct DbStateView {
     default_target_push_remote_name: Option<String>,
 }
 
+/// Read the storage state as it is on disk, like production reads do.
 fn storage_state(ctx: &Context) -> anyhow::Result<StorageState> {
-    storage_state_with_repo(ctx, ctx.repo.get()?.clone(), false)
+    storage_state_with_repo(ctx, open_repo(&ctx.gitdir)?, false)
 }
 
 fn storage_state_with_db(ctx: &Context) -> anyhow::Result<StorageState> {
-    storage_state_with_repo(ctx, ctx.repo.get()?.clone(), true)
-}
-
-fn storage_state_reopen_config(ctx: &Context) -> anyhow::Result<StorageState> {
-    storage_state_with_repo(ctx, open_repo(&ctx.gitdir)?, false)
+    storage_state_with_repo(ctx, open_repo(&ctx.gitdir)?, true)
 }
 
 fn storage_state_with_repo(

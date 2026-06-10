@@ -2,9 +2,8 @@ use std::time;
 
 use anyhow::{Context as _, Result, anyhow};
 use but_core::{
-    RefMetadata, WORKSPACE_REF_NAME,
+    WORKSPACE_REF_NAME,
     git_config::{edit_repo_config, ensure_config_value},
-    ref_metadata::ProjectMeta,
     sync::RepoShared,
     worktree::checkout::UncommitedWorktreeChanges,
 };
@@ -87,13 +86,11 @@ impl BaseBranch {
 #[instrument(skip(ctx, perm), err(Debug))]
 pub fn get_base_branch_data(ctx: &Context, perm: &RepoShared) -> Result<BaseBranch> {
     let target = default_target(ctx)?;
-    let meta = ctx.meta()?;
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
     let base = target_to_base_branch(
         &repo,
         &ctx.legacy_project,
         &ws,
-        &meta,
         &ctx.project_meta()?,
         &target,
     )?;
@@ -138,11 +135,7 @@ pub fn bootstrap_default_target_if_missing(ctx: &Context) -> Result<bool> {
             return Ok(false);
         }
     };
-    let mut project_meta = ctx.project_meta()?;
-    set_project_meta_from_target(&mut project_meta, &target)?;
-    project_meta.persist_to_local_config(&repo)?;
-    ctx.legacy_meta()?.set_default_target(target)?;
-    ctx.invalidate_workspace_cache()?;
+    ctx.set_default_target(target.into())?;
     set_exclude_decoration(ctx)?;
     Ok(true)
 }
@@ -260,11 +253,7 @@ pub(crate) fn set_base_branch(
         push_remote_name: None,
     };
 
-    let mut project_meta = ctx.project_meta()?;
-    set_project_meta_from_target(&mut project_meta, &target)?;
-    project_meta.persist_to_local_config(&repo)?;
-    ctx.legacy_meta()?.set_default_target(target.clone())?;
-    ctx.invalidate_workspace_cache()?;
+    ctx.set_default_target(target.clone().into())?;
     let mut vb_state = ctx.virtual_branches();
 
     // TODO: make sure this is a real branch
@@ -344,13 +333,6 @@ pub(crate) fn set_target_push_remote(ctx: &mut Context, push_remote_name: &str) 
     Ok(())
 }
 
-fn set_project_meta_from_target(project_meta: &mut ProjectMeta, target: &Target) -> Result<()> {
-    project_meta.target_ref = Some(target.branch.to_string().try_into()?);
-    project_meta.target_commit_id = Some(target.sha);
-    project_meta.push_remote = target.push_remote_name.clone();
-    Ok(())
-}
-
 fn set_exclude_decoration(ctx: &Context) -> Result<()> {
     let repo = ctx.repo.get()?;
     edit_repo_config(&repo, gix::config::Source::Local, |config| {
@@ -365,12 +347,9 @@ pub(crate) fn target_to_base_branch(
     repo: &gix::Repository,
     project: &Project,
     ws: &but_graph::Workspace,
-    meta: &impl RefMetadata,
     project_meta: &but_core::ref_metadata::ProjectMeta,
     target: &Target,
 ) -> Result<BaseBranch> {
-    // This function is presuming a workspace ref name.
-    let _ws_meta = meta.workspace(WORKSPACE_REF_NAME.try_into()?)?;
     let target_ref_name: gix::refs::FullName = target.branch.clone().try_into()?;
     let target_ref = repo
         .find_reference(&target_ref_name)

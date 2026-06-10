@@ -174,13 +174,7 @@ fn default_target_setting_if_none(ctx: &Context) -> anyhow::Result<()> {
         push_remote_name: None,
     };
 
-    let mut project_meta = ctx.project_meta()?;
-    project_meta.target_ref = Some(remote_refname.to_string().try_into()?);
-    project_meta.target_commit_id = Some(head_commit.id);
-    project_meta.push_remote = None;
-    project_meta.persist_to_local_config(&repo)?;
-    ctx.legacy_meta()?.set_default_target(target)?;
-    ctx.invalidate_workspace_cache()?;
+    ctx.set_default_target(target)?;
     Ok(())
 }
 

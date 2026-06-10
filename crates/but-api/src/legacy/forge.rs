@@ -52,9 +52,9 @@ pub fn forge_provider(ctx: &Context) -> Result<Option<ForgeName>> {
 #[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn forge_info(ctx: &Context) -> Result<Option<but_forge::ForgeInfo>> {
-    let meta = ctx.meta()?;
+    let project_meta = ctx.project_meta()?;
     let repo = ctx.repo.get()?;
-    Ok(but_forge::forge_info(&remote_url(&meta, &repo)?))
+    Ok(but_forge::forge_info(&remote_url(&project_meta, &repo)?))
 }
 
 /// Web compare URL for a branch — drives the "Open in browser"
@@ -68,10 +68,10 @@ pub fn forge_compare_branch_url(
     branch: String,
     fork: Option<String>,
 ) -> Result<Option<String>> {
-    let meta = ctx.meta()?;
+    let project_meta = ctx.project_meta()?;
     let repo = ctx.repo.get()?;
     Ok(but_forge::compare_branch_url(
-        &remote_url(&meta, &repo)?,
+        &remote_url(&project_meta, &repo)?,
         &base,
         &branch,
         fork.as_deref(),
@@ -268,9 +268,9 @@ pub async fn get_review_base_repo_url(
 ) -> Result<Option<String>> {
     let (storage, forge_repo_info, preferred_forge_user) = {
         let ctx = ctx.into_thread_local();
-        let meta = ctx.meta()?;
+        let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&meta, &repo)?);
+        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             forge_repo_info,
@@ -294,9 +294,9 @@ pub async fn get_review_merge_status(
 ) -> Result<but_forge::ReviewMergeStatus> {
     let (storage, forge_repo_info, preferred_forge_user) = {
         let ctx = ctx.into_thread_local();
-        let meta = ctx.meta()?;
+        let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&meta, &repo)?);
+        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             forge_repo_info,
@@ -343,9 +343,10 @@ pub fn get_review(ctx: &Context, review_id: usize) -> Result<but_forge::ForgeRev
 pub async fn get_repo_info(ctx: ThreadSafeContext) -> Result<but_forge::RepoInfo> {
     let (storage, forge_repo_info, preferred_forge_user) = {
         let ctx = ctx.into_thread_local();
-        let meta = ctx.meta()?;
+        let project_meta = ctx.project_meta()?;
         let repo_ = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&meta, &repo_)?);
+        let forge_repo_info =
+            but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo_)?);
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             forge_repo_info,
@@ -537,9 +538,9 @@ pub async fn update_review(
 ) -> Result<()> {
     let (storage, forge_repo_info, preferred_forge_user) = {
         let ctx = ctx.into_thread_local();
-        let meta = ctx.meta()?;
+        let project_meta = ctx.project_meta()?;
         let repo = ctx.repo.get()?;
-        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&meta, &repo)?);
+        let forge_repo_info = but_forge::derive_forge_repo_info(&remote_url(&project_meta, &repo)?);
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             forge_repo_info,

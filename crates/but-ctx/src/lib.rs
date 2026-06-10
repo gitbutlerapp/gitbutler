@@ -793,29 +793,27 @@ impl Context {
 
 /// Utilities
 impl Context {
-    /// Return project metadata from Git config, porting the legacy workspace metadata on first access.
+    /// Return project metadata from Git config, falling back to the legacy workspace metadata
+    /// if it wasn't ported yet.
+    ///
+    /// This always reads the current on-disk state, so target changes made by other processes
+    /// or through other repository handles are observed even by long-lived instances.
+    /// It never writes - porting happens on the first [`Self::set_project_meta()`] or
+    /// [`Self::set_default_target()`](Self::set_default_target).
     pub fn project_meta(&self) -> anyhow::Result<ProjectMeta> {
         let repo = self.repo.get()?;
-        if ProjectMeta::is_ported(&repo.config_snapshot()) {
-            return ProjectMeta::try_from_config(&repo.config_snapshot());
-        }
-
-        let project_meta = self
-            .meta_inner_read_only()?
-            .workspace(WORKSPACE_REF_NAME.try_into()?)?
-            .project_meta();
-        project_meta.persist_to_local_config(&repo)?;
-        Ok(project_meta)
+        ProjectMeta::resolve(&repo, &self.meta_inner_read_only()?)
     }
 
     /// Store project metadata in Git config and back-fill the legacy workspace metadata.
-    pub fn set_project_meta(&mut self, project_meta: ProjectMeta) -> anyhow::Result<()> {
+    ///
+    /// Note that the cached repository handle needs no reload: [`Self::project_meta()`]
+    /// re-reads the on-disk configuration on every call.
+    pub fn set_project_meta(&self, project_meta: ProjectMeta) -> anyhow::Result<()> {
         {
             let repo = self.repo.get()?;
             project_meta.persist_to_local_config(&repo)?;
         }
-        self.repo.get_mut()?.reload()?;
-
         let mut meta = self.meta()?;
         let mut workspace = meta.workspace(WORKSPACE_REF_NAME.try_into()?)?;
         workspace.set_project_meta(project_meta);

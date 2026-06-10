@@ -189,7 +189,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceIntegrateUpstreamOutcome> {
     let mut meta = ctx.meta()?;
-    let (repo, materialized_workspace, commit_mappings, worktree_conflicts) = {
+    let (workspace_state, worktree_conflicts) = {
         let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
         let project_meta = ctx.project_meta()?;
         let IntegrateUpstreamOutcome {
@@ -218,17 +218,14 @@ pub fn workspace_integrate_upstream_only_with_perm(
             materialized.meta.set_workspace(&md)?;
         }
 
-        (
-            repo,
-            materialized.workspace.clone(),
+        let workspace_state = WorkspaceState::from_workspace(
+            materialized.workspace,
+            &repo,
             materialized.history.commit_mappings(),
-            worktree_conflicts,
-        )
+        )?;
+        (workspace_state, worktree_conflicts)
     };
     ctx.invalidate_workspace_cache()?;
-
-    let workspace_state =
-        WorkspaceState::from_workspace(&materialized_workspace, &repo, commit_mappings)?;
 
     Ok(WorkspaceIntegrateUpstreamOutcome {
         workspace_state,

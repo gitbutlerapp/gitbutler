@@ -355,11 +355,10 @@ struct InitialTips {
     /// Remote target refs that were already scheduled as initial integrated
     /// tips.
     ///
-    /// Workspace metadata seeds this list from `data.target_ref` while
-    /// discovering workspaces. Explicit traversal seeds the same list from
-    /// integrated tip ref names. During traversal,
-    /// `try_queue_remote_tracking_branches()` uses it to avoid queueing those
-    /// target refs again when local branch refs point at them as upstreams.
+    /// Explicit traversal seeds this list from integrated tip ref names.
+    /// During traversal, `try_queue_remote_tracking_branches()` uses it to
+    /// avoid queueing those target refs again when local branch refs point
+    /// at them as upstreams.
     // TODO: could this be removed in favor os using `Graph::traversal_tips`?
     target_refs: Vec<gix::refs::FullName>,
     /// Remote names to try when a local branch has no configured upstream.
@@ -1688,10 +1687,10 @@ fn workspace_target_tip(
 /// Return remote target refs that are already represented by initial tips.
 ///
 /// The result is passed to remote-tracking discovery so it does not queue a
-/// target ref a second time when walking a local branch that tracks it. Metadata
-/// traversals get this list from workspace metadata. Explicit traversals have
-/// no workspace discovery source, so named integrated tips may also act as
-/// target refs when `include_integrated_tip_refs` is set.
+/// target ref a second time when walking a local branch that tracks it.
+/// Only explicit traversals have entries here: named integrated tips may act
+/// as target refs when `include_integrated_tip_refs` is set. Metadata
+/// traversals don't, as their target lives in project metadata, not in tips.
 fn target_refs_from_tips(
     tips: &[Tip],
     include_integrated_tip_refs: bool,
@@ -1700,10 +1699,6 @@ fn target_refs_from_tips(
         .iter()
         .filter(|tip| include_integrated_tip_refs && tip.role.is_integrated())
         .filter_map(|tip| tip.ref_name.clone())
-        .chain(tips.iter().filter_map(|tip| match tip.metadata.as_ref() {
-            Some(SegmentMetadata::Workspace(_data)) => None,
-            Some(SegmentMetadata::Branch(_)) | None => None,
-        }))
         .collect();
     target_refs.sort();
     target_refs.dedup();

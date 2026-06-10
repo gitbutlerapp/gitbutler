@@ -854,6 +854,9 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 changed_target = true;
             }
             (target @ None, Some(new)) => {
+                // Without a commit id the null id is the only representable placeholder.
+                // Legacy consumers that resolve `default_target.sha` cannot handle it,
+                // so writers should provide a commit id whenever they have one.
                 *target = Some(Target {
                     branch: new,
                     remote_url: String::new(),

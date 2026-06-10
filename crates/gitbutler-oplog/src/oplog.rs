@@ -805,6 +805,9 @@ fn restore_snapshot(
             legacy_virtual_branches::set_reference_to_stored_head(branch, &gix_repo).ok();
         }
     }
+    // The restored TOML is the source of truth for the target as well - bring the project
+    // metadata in Git config back in line with it so the restore isn't partial.
+    ctx.resync_project_meta_from_legacy()?;
     ctx.invalidate_workspace_cache()?;
 
     // reset the repo index to our index tree

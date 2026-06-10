@@ -61,7 +61,9 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
 
         repo.edit_references(self.ref_edits.clone())?;
 
-        self.workspace.refresh_from_head(&repo, &*self.meta)?;
+        let project_meta = self.workspace.graph.project_meta.clone();
+        self.workspace
+            .refresh_from_head(&repo, &*self.meta, project_meta)?;
 
         Ok(MaterializeOutcome {
             graph: self.graph,
@@ -94,7 +96,9 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
 
         repo.edit_references(self.ref_edits.clone())?;
 
-        self.workspace.refresh_from_head(&repo, &*self.meta)?;
+        let project_meta = self.workspace.graph.project_meta.clone();
+        self.workspace
+            .refresh_from_head(&repo, &*self.meta, project_meta)?;
 
         Ok(MaterializeOutcome {
             graph: self.graph,

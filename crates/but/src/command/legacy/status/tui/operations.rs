@@ -39,8 +39,9 @@ pub(super) async fn reload_legacy(
 ) -> anyhow::Result<Vec<StatusOutputLine>> {
     {
         let meta = ctx.meta()?;
+        let project_meta = ctx.project_meta()?;
         let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
-        ws.refresh_from_head(&repo, &meta)?;
+        ws.refresh_from_head(&repo, &meta, project_meta)?;
     }
 
     let mut new_lines = Vec::new();

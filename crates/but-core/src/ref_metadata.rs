@@ -392,8 +392,24 @@ impl ProjectMeta {
 }
 
 impl ProjectMeta {
-    /// Read project metadata from the given repository's Git configuration.
-    pub fn try_from_config(config: &gix::config::Snapshot<'_>) -> anyhow::Result<Self> {
+    /// Read project metadata for `repo`, falling back to the legacy workspace metadata in `meta`
+    /// when it wasn't ported to Git configuration yet.
+    ///
+    /// This re-reads the repository-local configuration file from disk so that changes made
+    /// through other repository handles or by other processes are always observed.
+    /// It never writes - porting happens when project metadata is persisted.
+    pub fn resolve(repo: &gix::Repository, meta: &impl crate::RefMetadata) -> anyhow::Result<Self> {
+        let config = git_config::open_repo_local_config_for_reading(repo)?;
+        if Self::is_ported(&config) {
+            return Self::try_from_config(&config);
+        }
+        Ok(meta
+            .workspace(crate::WORKSPACE_REF_NAME.try_into()?)?
+            .project_meta())
+    }
+
+    /// Read project metadata from the given repository-local Git configuration.
+    pub fn try_from_config(config: &gix::config::File<'_>) -> anyhow::Result<Self> {
         let target_ref = config
             .string(PROJECT_TARGET_REF)
             .map(|value| {
@@ -409,7 +425,10 @@ impl ProjectMeta {
                     format!("failed to parse {PROJECT_TARGET_COMMIT_ID} as an object id")
                 })
             })
-            .transpose()?;
+            .transpose()?
+            // The null id is a placeholder for an unknown commit in storage that
+            // cannot represent absence - interpret it as such.
+            .filter(|id| !id.is_null());
         let push_remote = config
             .string(PROJECT_PUSH_REMOTE)
             .map(|value| value.to_string());
@@ -421,8 +440,8 @@ impl ProjectMeta {
     }
 
     /// Return whether project metadata has already been ported to Git config.
-    pub fn is_ported(config: &gix::config::Snapshot<'_>) -> bool {
-        config.boolean(PROJECT_PORTED_META).unwrap_or(false)
+    pub fn is_ported(config: &gix::config::File<'_>) -> bool {
+        matches!(config.boolean(PROJECT_PORTED_META), Some(Ok(true)))
     }
 
     /// Persist project metadata to repository-local Git config and mark it as ported.
@@ -436,10 +455,12 @@ impl ProjectMeta {
             set_or_remove(
                 config,
                 PROJECT_TARGET_COMMIT_ID,
-                self.target_commit_id.as_ref().map(|v| v.to_string()),
+                self.target_commit_id
+                    .filter(|id| !id.is_null())
+                    .map(|id| id.to_string()),
             )?;
             set_or_remove(config, PROJECT_PUSH_REMOTE, self.push_remote.as_deref())?;
-            config.set_raw_value(PROJECT_PORTED_META, "true")?;
+            git_config::set_config_value(config, PROJECT_PORTED_META, "true")?;
             Ok(())
         })?;
         Ok(())
@@ -452,9 +473,7 @@ fn set_or_remove(
     value: Option<impl AsRef<str>>,
 ) -> anyhow::Result<()> {
     match value {
-        Some(value) => {
-            config.set_raw_value(key, value.as_ref())?;
-        }
+        Some(value) => git_config::set_config_value(config, key, value.as_ref())?,
         None => git_config::remove_config_value(config, key)?,
     }
     Ok(())

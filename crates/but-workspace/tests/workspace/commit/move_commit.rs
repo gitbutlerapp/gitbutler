@@ -56,7 +56,8 @@ fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize()?;
     let commit_mapping = materialization.history.commit_mappings();
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     let new_c_commit = commit_mapping.get(&c_commit);
     let tip_of_a_branch = repo.rev_parse_single("A")?.detach();
@@ -149,7 +150,8 @@ fn move_bottom_commit_to_top_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize()?;
     let commit_mapping = materialization.history.commit_mappings();
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     let new_b_commit = commit_mapping.get(&b_commit);
     let new_c_commit = commit_mapping.get(&c_commit);
@@ -244,7 +246,8 @@ fn move_top_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize()?;
     let commit_mapping = materialization.history.commit_mappings();
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     let new_a_commit = commit_mapping.get(&a_commit);
     let tip_of_a_branch = repo.rev_parse_single("A")?.detach();
@@ -337,7 +340,8 @@ fn move_bottom_commit_to_bottom_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize()?;
     let commit_mapping = materialization.history.commit_mappings();
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     let new_a_commit = commit_mapping.get(&a_commit);
     let new_c_commit = commit_mapping.get(&c_commit);
@@ -431,7 +435,8 @@ fn move_single_commit_to_the_top_of_another_branch() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize()?;
     let commit_mapping = materialization.history.commit_mappings();
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     let new_a_commit = commit_mapping.get(&a_commit);
     let tip_of_c_branch = repo.rev_parse_single("C")?.detach();
@@ -518,7 +523,8 @@ fn move_single_commit_to_the_bottom_of_another_branch() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize()?;
     let commit_mapping = materialization.history.commit_mappings();
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     let new_b_commit = commit_mapping.get(&b_commit);
     let new_c_commit = commit_mapping.get(&c_commit);
@@ -603,7 +609,8 @@ fn move_commit_to_empty_branch() -> anyhow::Result<()> {
 
     // Materialize the operation
     rebase.materialize()?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     let tip_of_b_branch = repo.rev_parse_single("B")?.detach();
 
@@ -671,7 +678,8 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
 
     // Materialize the operation
     rebase.materialize()?;
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     let tip_of_three_branch = repo.rev_parse_single("three")?.detach();
     let tip_of_two_branch = repo.rev_parse_single("two")?.detach();
@@ -745,7 +753,8 @@ fn reorder_commit_in_non_managed_workspace() -> anyhow::Result<()> {
     // Materialize the operation
     let materialization = rebase.materialize()?;
     let commit_mappings = materialization.history.commit_mappings();
-    ws.refresh_from_head(&repo, &meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     let new_commit_two = commit_mappings.get(&two_commit);
     let tip_of_three_branch = repo.rev_parse_single("three")?.detach();

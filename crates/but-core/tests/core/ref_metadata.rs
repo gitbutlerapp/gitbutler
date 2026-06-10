@@ -759,3 +759,27 @@ mod workspace {
             .collect()
     }
 }
+
+mod project_meta {
+    use but_core::ref_metadata::ProjectMeta;
+
+    #[test]
+    fn null_target_commit_id_reads_as_none() -> anyhow::Result<()> {
+        let config = gix::config::File::try_from(
+            "[gitbutler \"project\"]\n\
+             \ttargetRef = refs/remotes/origin/main\n\
+             \ttargetCommitId = 0000000000000000000000000000000000000000\n",
+        )?;
+
+        let actual = ProjectMeta::try_from_config(&config)?;
+        assert_eq!(
+            actual.target_ref.map(|name| name.to_string()),
+            Some("refs/remotes/origin/main".to_string())
+        );
+        assert_eq!(
+            actual.target_commit_id, None,
+            "the null id is a placeholder for an unknown commit and must read as absent"
+        );
+        Ok(())
+    }
+}

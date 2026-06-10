@@ -203,10 +203,10 @@ pub(crate) mod function {
         }: Options,
     ) -> anyhow::Result<Outcome<'ws>> {
         let ws = workspace;
-        let branch_ref = try_find_validated_ref(repo, branch, "unapply")?;
-        let branch_commit_id = repo
-            .try_find_reference(branch)?
-            .map(|mut reference| reference.peel_to_id().map(|id| id.detach()))
+        let mut branch_ref = try_find_validated_ref(repo, branch, "unapply")?;
+        let branch_commit_id = branch_ref
+            .as_mut()
+            .map(|reference| reference.peel_to_id().map(|id| id.detach()))
             .transpose()?;
 
         if ws.has_workspace_commit_in_ancestry(repo) {

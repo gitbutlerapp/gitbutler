@@ -97,6 +97,52 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn restore_snapshot_reverts_the_target() -> anyhow::Result<()> {
+    let Test { repo, ctx, .. } = &mut Test::default();
+
+    // A second remote branch to switch to.
+    {
+        let gix_repo = repo.open();
+        let head_id = gix_repo.head_id()?.detach();
+        gix_repo.reference(
+            "refs/remotes/origin/other",
+            head_id,
+            gix::refs::transaction::PreviousValue::Any,
+            "test",
+        )?;
+    }
+
+    configure_default_target(ctx)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let snapshot_id = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::OnDemandSnapshot),
+        guard.write_permission(),
+    )?;
+
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/other".parse()?,
+        guard.write_permission(),
+    )?;
+    assert_eq!(
+        ctx.project_meta()?.target_ref.map(|name| name.to_string()),
+        Some("refs/remotes/origin/other".to_string())
+    );
+
+    ctx.restore_snapshot(
+        snapshot_id,
+        RestoreKind::RestoreFromSnapshotViaUndo,
+        guard.write_permission(),
+    )?;
+    assert_eq!(
+        ctx.project_meta()?.target_ref.map(|name| name.to_string()),
+        Some("refs/remotes/origin/master".to_string()),
+        "undoing a base-branch switch reverts the target everywhere, not just in the TOML"
+    );
+    Ok(())
+}
+
 fn wd_file_count(worktree_dir: &&Path) -> anyhow::Result<usize> {
     Ok(glob::glob(&worktree_dir.join("file*").to_string_lossy())?.count())
 }

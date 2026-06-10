@@ -363,10 +363,11 @@ fn check_workspace_stacks_mergeable(
 fn stack_details(
     ctx: &Context,
     stack_id: Option<StackId>,
+    project_meta: &but_core::ref_metadata::ProjectMeta,
 ) -> anyhow::Result<but_workspace::ui::StackDetails> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.legacy_meta()?;
-    but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta, &ctx.project_meta()?)
+    but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta, project_meta)
 }
 
 /// Returns the status of a stack.
@@ -376,13 +377,14 @@ fn get_stack_status(
     stack: &but_workspace::legacy::ui::StackEntry,
     review_map: &HashMap<String, but_forge::ForgeReview>,
     ctx: &Context,
+    project_meta: &but_core::ref_metadata::ProjectMeta,
     upstream_commits: &[gix::ObjectId],
 ) -> Result<StackStatus> {
     let mut last_head = new_target_commit_id;
 
     let mut branch_statuses: Vec<NameAndStatus> = vec![];
 
-    let details = match stack_details(ctx, stack.id) {
+    let details = match stack_details(ctx, stack.id, project_meta) {
         Ok(details) => details,
         Err(_)
             if stack
@@ -497,6 +499,7 @@ pub fn upstream_integration_statuses(
         ..
     } = context;
 
+    let project_meta = ctx.project_meta()?;
     let repo = ctx.clone_repo_for_merging()?;
     let repo_in_memory = repo.clone().with_object_memory();
 
@@ -566,6 +569,7 @@ pub fn upstream_integration_statuses(
                     stack,
                     review_map,
                     context.ctx,
+                    &project_meta,
                     upstream_commits,
                 )?,
             ))
@@ -866,6 +870,7 @@ fn compute_resolutions(
         ..
     } = context;
 
+    let project_meta = context.ctx.project_meta()?;
     let results = resolutions
         .iter()
         .map(|resolution| {
@@ -915,7 +920,7 @@ fn compute_resolutions(
                         *new_target
                     };
 
-                    let details = stack_details(context.ctx, stack.id)?;
+                    let details = stack_details(context.ctx, stack.id, &project_meta)?;
                     let mut commit_map = HashMap::new();
                     for branch in &details.branch_details {
                         for commit in &branch.commits {

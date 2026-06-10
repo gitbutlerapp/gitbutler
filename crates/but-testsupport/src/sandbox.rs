@@ -249,14 +249,7 @@ impl Sandbox {
 
     /// Read project-scoped metadata, falling back to legacy workspace metadata.
     pub fn project_meta(&self) -> anyhow::Result<ProjectMeta> {
-        let repo = self.open_repo()?;
-        if ProjectMeta::is_ported(&repo.config_snapshot()) {
-            return ProjectMeta::try_from_config(&repo.config_snapshot());
-        }
-
-        let meta = self.meta()?;
-        let workspace_ref = WORKSPACE_REF_NAME.try_into()?;
-        Ok(meta.workspace(workspace_ref)?.project_meta())
+        ProjectMeta::resolve(&self.open_repo()?, &self.meta()?)
     }
 
     /// Return a fully isolated context configured to interact with this repository.
