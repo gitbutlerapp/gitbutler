@@ -1701,10 +1701,10 @@ const Changes: FC<{
 };
 
 const InlineRenameBranch: FC<{
-	branchName: string;
+	branchDisplayName: string;
 	onSubmit: (value: string) => void;
 	onExit: () => void;
-}> = ({ branchName, onSubmit, onExit }) => {
+}> = ({ branchDisplayName, onSubmit, onExit }) => {
 	const formRef = useRef<HTMLFormElement | null>(null);
 	const textareaRef = useRef<HTMLInputElement>(null);
 	const submitAction = (formData: FormData) => {
@@ -1736,7 +1736,7 @@ const InlineRenameBranch: FC<{
 					el.select();
 				})}
 				name="branchName"
-				defaultValue={branchName}
+				defaultValue={branchDisplayName}
 				className={styles.editorInput}
 			/>
 			<EditorHelp
@@ -1820,7 +1820,7 @@ const pushContextForSegment = ({
 const BranchRow: FC<
 	{
 		projectId: string;
-		branchName: string;
+		branchDisplayName: string;
 		branchRef: Array<number>;
 		stackId: string;
 		isCommitTarget: boolean;
@@ -1831,7 +1831,7 @@ const BranchRow: FC<
 	} & ComponentProps<"div">
 > = ({
 	projectId,
-	branchName,
+	branchDisplayName,
 	branchRef,
 	stackId,
 	isCommitTarget,
@@ -1851,8 +1851,8 @@ const BranchRow: FC<
 	const isRenaming =
 		outlineMode._tag === "RenameBranch" &&
 		operandEquals(operand, branchOperand(outlineMode.operand));
-	const [optimisticBranchName, setOptimisticBranchName] = useOptimistic(
-		branchName,
+	const [optimisticBranchDisplayName, setOptimisticBranchDisplayName] = useOptimistic(
+		branchDisplayName,
 		(_currentBranchName, nextBranchName: string) => nextBranchName,
 	);
 	const [isRenamePending, startRenameTransition] = useTransition();
@@ -1885,14 +1885,14 @@ const BranchRow: FC<
 
 	const saveBranchName = (newBranchName: string) => {
 		const trimmed = newBranchName.trim();
-		if (trimmed === "" || trimmed === branchName) return;
+		if (trimmed === "" || trimmed === branchDisplayName) return;
 		startRenameTransition(async () => {
-			setOptimisticBranchName(trimmed);
+			setOptimisticBranchDisplayName(trimmed);
 			try {
 				await updateBranchNameMutation.mutateAsync({
 					projectId,
 					stackId,
-					branchName,
+					branchName: branchDisplayName,
 					newName: trimmed,
 				});
 			} catch (error) {
@@ -1974,7 +1974,7 @@ const BranchRow: FC<
 		}),
 		nativeMenuItem({
 			label: "Copy Branch Name",
-			onSelect: () => window.lite.clipboardWriteText(optimisticBranchName),
+			onSelect: () => window.lite.clipboardWriteText(optimisticBranchDisplayName),
 		}),
 		nativeMenuItem({
 			label: "Compose Commit Here",
@@ -2038,13 +2038,13 @@ const BranchRow: FC<
 
 			{isRenaming ? (
 				<InlineRenameBranch
-					branchName={optimisticBranchName}
+					branchDisplayName={optimisticBranchDisplayName}
 					onSubmit={saveBranchName}
 					onExit={endEditing}
 				/>
 			) : (
 				<>
-					<div className={workspaceItemRowStyles.itemRowLabel}>{optimisticBranchName}</div>
+					<div className={workspaceItemRowStyles.itemRowLabel}>{optimisticBranchDisplayName}</div>
 
 					<WorkspaceItemRowToolbar forceVisibleToolbar>
 						{outlineMode._tag === "Default" && (
@@ -2223,7 +2223,7 @@ const BranchSegment: FC<{
 				render={
 					<BranchRow
 						projectId={projectId}
-						branchName={refName.displayName}
+						branchDisplayName={refName.displayName}
 						branchRef={refName.fullNameBytes}
 						stackId={stackId}
 						canTearOffBranch={canTearOffBranch}
