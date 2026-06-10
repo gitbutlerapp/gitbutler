@@ -1,4 +1,4 @@
-use bstr::BStr;
+use bstr::{BStr, ByteSlice};
 use gix::refs::{Category, FullName};
 
 use crate::{CliError, CliResult, bad_input};
@@ -106,15 +106,28 @@ impl BranchArg {
     }
 
     /// Resolve the argument to a branch that exists in the repository.
-    pub fn resolve_branch(
-        &self,
-        ctx: &but_ctx::Context,
-    ) -> CliResult<gitbutler_branch_actions::BranchListing> {
-        let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
-        let Some(branch) = branches.iter().find(|b| b.name.to_string() == self.0) else {
-            return Err(bad_input(format!("Branch '{self}' not found")).into());
-        };
-        Ok(branch.clone())
+    pub fn resolve_branch(&self, ctx: &but_ctx::Context) -> CliResult<ResolvedBranchRef> {
+        let repo = ctx.repo.get()?;
+
+        for category in [Category::LocalBranch, Category::RemoteBranch] {
+            let branch_name = category.to_full_name(&*self.0)?;
+            if let Some(resolved) = resolve_branch_ref(&repo, &branch_name)? {
+                return Ok(resolved);
+            }
+        }
+
+        for remote_name in repo.remote_names() {
+            let branch_name = Category::RemoteBranch.to_full_name(&*format!(
+                "{}/{}",
+                remote_name.as_bstr().to_str_lossy(),
+                self.0
+            ))?;
+            if let Some(resolved) = resolve_branch_ref(&repo, &branch_name)? {
+                return Ok(resolved);
+            }
+        }
+
+        Err(bad_input(format!("Branch '{self}' not found")).into())
     }
 
     /// Try to resolve the branch to a stack that exists in the workspace.
@@ -136,4 +149,26 @@ impl AsRef<str> for BranchArg {
     fn as_ref(&self) -> &str {
         self.0.as_ref()
     }
+}
+
+fn resolve_branch_ref(
+    repo: &gix::Repository,
+    branch_name: &FullName,
+) -> CliResult<Option<ResolvedBranchRef>> {
+    let Some(mut ref_info) = repo.try_find_reference(branch_name)? else {
+        return Ok(None);
+    };
+
+    let Ok(commit) = ref_info.peel_to_id() else {
+        return Ok(None);
+    };
+
+    Ok(Some(ResolvedBranchRef {
+        head: commit.detach(),
+    }))
+}
+
+#[expect(missing_docs, reason = "only used internally by CLI command helpers")]
+pub struct ResolvedBranchRef {
+    pub head: gix::ObjectId,
 }

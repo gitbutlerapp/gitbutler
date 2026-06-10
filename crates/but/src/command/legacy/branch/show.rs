@@ -115,15 +115,10 @@ struct CommitRef {
 // TODO(perf): re-write with `gix`, just avoid duplicate work there (get_merge_conflict_paths) isn't needed.
 // TODO(perf): re-write this to use a graph that includes all branches from the listing, needs a listing that uses
 //             the graph.
-fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck, anyhow::Error> {
+fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> CliResult<MergeCheck> {
     use but_core::RepositoryExt;
 
-    // Find the branch by name
-    let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
-    let branch = branches
-        .iter()
-        .find(|b| b.name.to_string() == branch_name)
-        .ok_or_else(|| anyhow::anyhow!("Branch '{branch_name}' not found"))?;
+    let branch = BranchArg(branch_name.to_owned()).resolve_branch(ctx)?;
 
     // Find merge base
     let guard = ctx.shared_worktree_access();
