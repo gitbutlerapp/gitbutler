@@ -1437,6 +1437,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-api",
+ "but-askpass",
  "but-ctx",
  "but-path",
  "but-settings",

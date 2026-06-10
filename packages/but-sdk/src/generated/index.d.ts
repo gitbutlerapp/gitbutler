@@ -434,6 +434,29 @@ export declare class WatcherHandle {
   get active(): boolean
 }
 
+/** Additional context sent alongside a credential prompt. */
+export type AskpassContext =
+  | { type: 'Push', /** The stack being pushed, if one is associated with the prompt. */
+branchId?: string }
+| { type: 'Fetch', /** The user-visible action associated with the fetch. */
+action: string }
+| { type: 'SignedCommit', /** The stack being signed, if one is associated with the prompt. */
+branchId?: string }
+| { type: 'Clone', /** The URL being cloned. */
+url: string }
+
+/** Initialize the process-global askpass broker and forward prompt events to JavaScript. */
+export declare function askpassInit(callback: ((err: Error | null, arg: AskpassPromptEvent) => any)): void
+
+export interface AskpassPromptEvent {
+  id: string
+  prompt: string
+  context: AskpassContext
+}
+
+/** Submit a response for a pending askpass prompt. */
+export declare function askpassSubmitPromptResponse(id: string, response?: string | undefined | null): Promise<void>
+
 export interface WatcherEvent {
   name: string
   payload: WatcherPayload

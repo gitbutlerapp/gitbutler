@@ -8,6 +8,7 @@ import { Provider } from "react-redux";
 import { store } from "#ui/store.ts";
 import { Toasts } from "#ui/components/Toasts.tsx";
 import { Updater } from "#ui/Updater.tsx";
+import { AskpassPromptDialog } from "#ui/AskpassPromptDialog.tsx";
 
 const workerFactory = (): Worker =>
 	new Worker(new URL("@pierre/diffs/worker/worker.js", import.meta.url), {
@@ -29,6 +30,7 @@ export const App: React.FC<{
 							highlighterOptions={{ preferredHighlighter: "shiki-wasm" }}
 						>
 							<RouterProvider router={router} />
+							<AskpassPromptDialog />
 							<Updater />
 							<Toasts />
 						</WorkerPoolContextProvider>

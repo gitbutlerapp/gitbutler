@@ -18,17 +18,18 @@
 	"scripts": {
 		"dev": "concurrently -k \"pnpm dev:ui\" \"pnpm dev:electron\"",
 		"dev:ui": "vite dev --config ui/vite.config.ts --host 0.0.0.0",
-		"dev:electron": "pnpm build:electron && wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron dist/electron/main.js --inspect=9229 --remote-debugging-port=9222",
+		"dev:electron": "pnpm prepare-askpass && pnpm build:electron && wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron dist/electron/main.js --inspect=9229 --remote-debugging-port=9222",
 		"build": "pnpm build:ui && pnpm build:electron",
 		"build:ui": "vite build --config ui/vite.config.ts",
 		"build:electron": "tsgo -p electron/tsconfig.json",
 		"check": "tsgo -p ui/tsconfig.json --noEmit && tsgo -p electron/tsconfig.json --noEmit",
 		"test": "vitest run --config ui/vitest.config.ts --passWithNoTests",
-		"bundle": "pnpm build && electron-builder",
+		"bundle": "pnpm build && pnpm prepare-askpass && electron-builder",
 		"bundle-local": "CHANNEL=${CHANNEL:-} pnpm -F @gitbutler/but-sdk build && CHANNEL=${CHANNEL:-} pnpm bundle -c.mac.entitlements=resources/entitlements.mac.local.plist -c.mac.entitlementsInherit=resources/entitlements.mac.local.plist",
 		"bundle-local-nightly": "CHANNEL=nightly pnpm -F @gitbutler/but-sdk build:release && CHANNEL=nightly pnpm bundle -c.mac.entitlements=resources/entitlements.mac.local.plist -c.mac.entitlementsInherit=resources/entitlements.mac.local.plist",
 		"demos": "storybook dev --no-open -p 6007",
-		"optimize-icons": "node scripts/optimize-icons.mjs"
+		"optimize-icons": "node scripts/optimize-icons.mjs",
+		"prepare-askpass": "node scripts/prepare-askpass.mjs"
 	},
 	"build": {
 		"appId": "com.gitbutler.lite",
@@ -52,10 +53,12 @@
 		"extraFiles": [
 			{
 				"from": "resources/bin",
-				"to": ".",
+				"to": "bin",
 				"filter": [
 					"but",
-					"but.exe"
+					"but.exe",
+					"gitbutler-git-askpass",
+					"gitbutler-git-askpass.exe"
 				]
 			}
 		],

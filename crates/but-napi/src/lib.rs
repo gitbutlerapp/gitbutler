@@ -69,6 +69,92 @@ impl WatcherHandle {
 fn to_napi_err(err: anyhow::Error) -> napi::Error {
     napi::Error::from_reason(format!("{err:#}"))
 }
+/// Additional context sent alongside a credential prompt.
+#[napi]
+pub enum AskpassContext {
+    /// A prompt encountered while pushing a stack.
+    Push {
+        /// The stack being pushed, if one is associated with the prompt.
+        branch_id: Option<String>,
+    },
+    /// A prompt encountered while fetching.
+    Fetch {
+        /// The user-visible action associated with the fetch.
+        action: String,
+    },
+    /// A prompt encountered while signing a commit.
+    SignedCommit {
+        /// The stack being signed, if one is associated with the prompt.
+        branch_id: Option<String>,
+    },
+    /// A prompt encountered while cloning.
+    Clone {
+        /// The URL being cloned.
+        url: String,
+    },
+}
+
+impl From<but_askpass::Context> for AskpassContext {
+    fn from(value: but_askpass::Context) -> Self {
+        match value {
+            but_askpass::Context::Clone { url } => Self::Clone { url },
+            but_askpass::Context::Fetch { action } => Self::Fetch { action },
+            but_askpass::Context::Push { branch_id } => Self::Push {
+                branch_id: branch_id.map(|stack_id| stack_id.to_string()),
+            },
+            but_askpass::Context::SignedCommit { branch_id } => Self::SignedCommit {
+                branch_id: branch_id.map(|stack_id| stack_id.to_string()),
+            },
+        }
+    }
+}
+
+#[napi(object)]
+pub struct AskpassPromptEvent {
+    pub id: String,
+    pub prompt: String,
+    pub context: AskpassContext,
+}
+
+impl From<but_askpass::PromptEvent<but_askpass::Context>> for AskpassPromptEvent {
+    fn from(value: but_askpass::PromptEvent<but_askpass::Context>) -> Self {
+        AskpassPromptEvent {
+            id: value.id.to_string(),
+            prompt: value.prompt,
+            context: value.context.into(),
+        }
+    }
+}
+
+/// Initialize the process-global askpass broker and forward prompt events to JavaScript.
+#[napi]
+pub fn askpass_init(callback: ThreadsafeFunction<AskpassPromptEvent>) -> napi::Result<()> {
+    but_askpass::try_init(move |event| {
+        let event = event.into();
+        let status = callback.call(Ok(event), ThreadsafeFunctionCallMode::NonBlocking);
+        if status != Status::Ok {
+            tracing::warn!(%status, "askpass prompt callback call failed");
+        }
+    })
+    .map_err(|err| napi::Error::from_reason(err.to_string()))
+}
+
+/// Submit a response for a pending askpass prompt.
+#[napi]
+pub async fn askpass_submit_prompt_response(
+    id: String,
+    response: Option<String>,
+) -> napi::Result<()> {
+    let id: but_askpass::AskpassRequestId = id
+        .parse()
+        .map_err(|err| napi::Error::from_reason(format!("invalid askpass prompt id: {err}")))?;
+
+    let broker = but_askpass::try_get_broker()
+        .ok_or_else(|| napi::Error::from_reason("askpass broker has not been configured"))?
+        .ok_or_else(|| napi::Error::from_reason("askpass broker has been disabled"))?;
+    broker.handle_response(id, response).await;
+    Ok(())
+}
 
 fn app_settings_sync() -> anyhow::Result<AppSettingsWithDiskSync> {
     let config_dir = but_path::app_config_dir().context("missing app config dir")?;
