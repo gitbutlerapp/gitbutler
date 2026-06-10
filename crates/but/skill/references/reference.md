@@ -6,12 +6,10 @@ Agent-focused reference for useful `but` commands.
 
 - [Inspection](#inspection-understanding-state) - `status`, `show`, `diff`
 - [Branching](#branching) - `branch new`, `apply`, `unapply`, `branch delete`, `pick`
-- [Staging](#staging-multiple-staging-areas) - `stage`, `rub`
 - [Committing](#committing) - `commit`, `absorb`
 - [Editing History](#editing-history) - `rub`, `squash`, `amend`, `move`, `uncommit`, `reword`, `discard`
 - [Conflict Resolution](#conflict-resolution) - `resolve`
 - [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `merge`
-- [Automation](#automation) - `mark`, `unmark`
 - [Workspace Maintenance](#workspace-maintenance) - `clean`
 - [History & Undo](#history--undo) - `undo`, `oplog`
 - [Setup & Configuration](#setup--configuration) - `setup`, `teardown`, `config`, `update`, `skill`, `gui`
@@ -148,28 +146,6 @@ The source can be:
 
 If no target is specified and multiple branches exist, prompts for selection interactively.
 
-## Staging (Multiple Staging Areas)
-
-GitButler has multiple staging areas - one per stack.
-
-### `but stage <file-or-hunk> <branch>`
-
-Stage file or hunk to a specific branch.
-
-```bash
-but stage <file-or-hunk-id> <branch-id>
-```
-
-Alias for `but rub <file-or-hunk> <branch>`. You can't stage changes that depend on branch A to branch B.
-
-### `but rub <file> <branch>`
-
-Core primitive for staging (see Editing History for other `but rub` uses).
-
-```bash
-but rub <file-id> <branch-id>    # Stage file to branch
-```
-
 ## Committing
 
 ### `but commit [branch]`
@@ -177,7 +153,6 @@ but rub <file-id> <branch-id>    # Stage file to branch
 Commit changes to a branch.
 
 ```bash
-but commit <branch> --only -m "message"  # Commit ONLY staged changes (recommended)
 but commit <branch> -m "message"         # Commit ALL uncommitted changes to branch
 but commit <branch> -am "message"        # Accepted Git muscle-memory form; -a is a no-op
 but commit <branch> -m "message" --changes <id>,<id>  # Commit specific files or hunks by CLI ID
@@ -191,14 +166,12 @@ but commit empty --before <target>       # Insert empty commit before target
 but commit empty --after <target>        # Insert empty commit after target
 ```
 
-**Important:** Without `--only`, ALL uncommitted changes are committed to the branch, not just staged files. Use `--only` when you've staged specific files and want to commit only those.
+**Important:** Plain `but commit <branch> -m` commits ALL uncommitted changes to the branch. Use `--changes` to commit only specific files or hunks.
 
 **Committing specific files or hunks:** Use `--changes` (or `-p`) with comma-separated CLI IDs to commit only those files or hunks:
 - **File IDs** from `but status`: commits entire files
 - **Hunk IDs** from `but diff`: commits individual hunks
 - `--changes` takes one argument per flag. Use `--changes a1,b2` or `--changes a1 --changes b2`, not `--changes a1 b2`.
-
-**Note:** `--changes` and `--only` are mutually exclusive.
 
 **Creating branches on commit:** Use `-c` / `--create` to create a new branch for the commit. If the branch name matches an existing branch, that branch is used instead.
 
@@ -214,7 +187,7 @@ Automatically amend uncommitted changes into existing commits.
 
 ```bash
 but absorb <file-id>          # Absorb specific file (recommended)
-but absorb <branch-id>        # Absorb all changes staged to this branch
+but absorb <branch-id>        # Absorb all changes assigned to this branch
 but absorb                    # Absorb ALL uncommitted changes (use with caution)
 but absorb --dry-run          # Preview without making changes
 but absorb <file-id> --dry-run  # Preview specific file absorption
@@ -235,35 +208,16 @@ Logic:
 Universal editing primitive that does different operations based on types.
 
 ```bash
-but rub <file> <branch>      # Stage file to branch
 but rub <file> <commit>      # Amend file into commit
 but rub <commit> <commit>    # Squash commits together
 but rub <commit> <branch>    # Move commit to branch
-but rub <file> zz            # Move file back to unassigned
 but rub <commit> zz          # Undo commit to unassigned
-but rub zz <branch>          # Stage all unassigned changes to branch
 but rub zz <commit>          # Amend all unassigned changes into commit
 but rub <file-in-commit> zz  # Uncommit specific file from its commit
 but rub <file-in-commit> <commit>  # Move file from one commit to another
-but rub <branch> <branch>    # Reassign all uncommitted changes between branches
 ```
 
-The core "rub two things together" operation.
-
-**Full operations matrix:**
-
-```
-SOURCE ↓ / TARGET →  │ zz (unassigned) │ Commit     │ Branch      │ Stack
-─────────────────────┼─────────────────┼────────────┼─────────────┼────────────
-File/Hunk            │ Unstage         │ Amend      │ Stage       │ Stage
-Commit               │ Undo            │ Squash     │ Move        │ -
-Branch (all changes) │ Unstage all     │ Amend all  │ Reassign    │ Reassign
-Stack (all changes)  │ Unstage all     │ -          │ Reassign    │ Reassign
-Unassigned (zz)      │ -               │ Amend all  │ Stage all   │ Stage all
-File-in-Commit       │ Uncommit        │ Move       │ Uncommit to │ -
-```
-
-`zz` is a special target meaning "unassigned" (no branch).
+The core "rub two things together" operation. `zz` is a special target meaning "unassigned" (no branch).
 
 ### `but squash <commits>`
 
@@ -387,16 +341,15 @@ but resolve cancel --force
 
 ## Remote Operations
 
-### `but push [branch]`
+### `but push <branch>`
 
-Push branches to remote.
+Push a branch to remote. Always specify which branch to push: without one, `but push` prompts for a selection in interactive terminals and pushes ALL branches with unpushed commits otherwise. Accepts a full branch name or a branch CLI ID — prefer the name; it stays valid across mutations.
 
 ```bash
-but push                      # Push all branches with unpushed commits
-but push <branch-id>          # Push specific branch
-but push --dry-run            # Preview what would be pushed
-but push -s                   # Skip force push protection checks
-but push --no-hooks           # Bypass pre-push hooks (--no-verify also works)
+but push <branch-name>             # Push specific branch
+but push <branch-name> --dry-run   # Preview what would be pushed
+but push <branch-name> -s          # Skip force push protection checks
+but push <branch-name> --no-hooks  # Bypass pre-push hooks (--no-verify also works)
 ```
 
 Force push is enabled by default with protection checks. Use `-s` only when intentionally skipping those checks.
@@ -452,28 +405,6 @@ but merge <branch-id>
 ```
 
 Merges into local target branch, then runs `but pull` to update.
-
-## Automation
-
-### `but mark <target>`
-
-Auto-stage or auto-commit new changes.
-
-```bash
-but mark <branch-id>          # New unassigned changes auto-stage to this branch
-but mark <commit-id>          # New changes auto-amend into this commit
-but mark <id> --delete        # Remove the mark
-```
-
-### `but unmark`
-
-Remove all marks.
-
-```bash
-but unmark
-```
-
-Use marks when working on a focused area to automatically organize changes.
 
 ## Workspace Maintenance
 

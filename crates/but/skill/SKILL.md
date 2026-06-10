@@ -12,10 +12,11 @@ Use GitButler CLI (`but`) as the default version-control interface.
 ## Non-Negotiable Rules
 
 1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`. If the user says a `git` write command, translate it to `but` and run that.
-2. After mutations, read the returned output for the updated workspace state.
-3. Use CLI IDs from `but status -fv` / `but diff` / `but show`; never hardcode IDs.
-4. Start with `but status -fv` before mutations so IDs and stack state are current.
-5. Create a branch for new work with `but branch new <name>` when needed.
+2. After mutations, read the returned output for the updated workspace state — it replaces a follow-up `but status -fv`.
+3. Never chain `but` mutations with `&&` or `;`. Each mutation can reassign CLI IDs, so the second command may silently target the wrong file or commit. Run one mutation, read the returned workspace state, and take fresh IDs from it.
+4. Use CLI IDs from `but status -fv` / `but diff` / `but show`; never hardcode IDs.
+5. Start with `but status -fv` before mutations so IDs and stack state are current.
+6. Create a branch for new work with `but branch new <name>` when needed.
 
 ## Core Flow
 
@@ -46,7 +47,7 @@ but <mutation> ...
 - Reorder commits: `but move <source-commit-id> <target-commit-id>` (**commit IDs**, not branch names)
 - Stack branches: `but move <branch-name-or-id> <target-branch-name-or-id>` (**branch names or branch CLI IDs**)
 - Tear off a branch: `but move <branch-name-or-id> zz` (`zz` = unassigned; branch name or branch CLI ID)
-- Push: `but push` or `but push <branch-id>`
+- Push: `but push <branch-name>` — always specify the branch; bare `but push` pushes ALL branches when run non-interactively
 - Pull: `but pull --check` then `but pull`
 
 ## Task Recipes
@@ -109,13 +110,13 @@ but move feature/logging zz
 
 A **dependency lock** occurs when a file was originally committed on branch A, but you're trying to commit changes to it on branch B. Symptoms:
 - `but commit` succeeds but the file still appears in `unassignedChanges` in the returned status
-- The file shows as "unassigned" instead of being staged to any branch
+- The file still shows as "unassigned" in the status output
 
 **Recovery:** Stack your branch on the dependency branch, then commit:
 
 1. `but status -fv` — identify which branch originally owns the file (check commit history).
 2. `but move <your-branch-name> <dependency-branch-name>` — stack your branch on the dependency. Uses full branch **names**, not CLI IDs.
-3. `but status -fv` — the file should now be assignable. Commit it.
+3. `but status -fv` — the file should now be committable. Commit it.
 4. `but commit <branch> -m "<msg>" --changes <id>`
 
 **If `but move <branch> <target-branch>` fails:** Do NOT try `uncommit`, `squash`, or `undo` to work around it — these will leave the workspace in a worse state. Instead, re-run `but status -fv` to confirm both branches still exist and are applied, then retry with exact branch names from the status output.
@@ -142,7 +143,7 @@ If `but move` causes conflicts (conflicted commits in status):
 | `git status` | `but status -fv` |
 | `git add` + `git commit` | `but commit ... --changes ...` |
 | `git checkout -b` | `but branch new <name>` |
-| `git push` | `but push` |
+| `git push` | `but push <branch-name>` |
 | `git rebase -i` | `but move`, `but squash`, `but reword` |
 | `git rebase --onto` | `but move <branch> <new-base>` |
 | `git cherry-pick` | `but pick` |
@@ -152,7 +153,7 @@ If `but move` causes conflicts (conflicted commits in status):
 - Prefer explicit IDs over file paths for mutations.
 - `--changes` accepts comma-separated values (`--changes a1,b2`) or repeated flags (`--changes a1 --changes b2`), not space-separated.
 - Read-only git inspection (`git log`, `git blame`, `git show --stat`) is allowed.
-- After a mutation returns status, don't run a redundant `but status -fv` unless you need new IDs.
+- After a successful mutation, trust the workspace state it printed. Re-run `but status -fv` only if that output lacks the ID you need or files changed since.
 - Use `but show <branch-id>` to see commit details for a branch, including per-commit file changes and line counts.
 - **Per-commit file counts**: `but status` does NOT include per-commit file counts. Use `but show <branch-id>` or `git show --stat <commit-hash>` to get them.
 - Avoid `--help` probes; use this skill and `references/reference.md` first. Only use `--help` after a failed attempt.

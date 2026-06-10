@@ -32,11 +32,9 @@ workspace (gitbutler/workspace)
 
 1. **No `git checkout`**: You don't switch between branches. All applied branches exist simultaneously in your workspace.
 
-2. **Multiple staging areas**: Each branch is like having its own `git add` staging area. You stage files to specific branches.
+2. **The `gitbutler/workspace` branch**: A merge commit containing all applied stacks. Don't interact with it directly - use `but` commands.
 
-3. **The `gitbutler/workspace` branch**: A merge commit containing all applied stacks. Don't interact with it directly - use `but` commands.
-
-4. **Applied vs Unapplied**: Control which branches are active:
+3. **Applied vs Unapplied**: Control which branches are active:
    - Applied branches: In your working directory
    - Unapplied branches: Exist but not active
    - Use `but apply`/`but unapply` to control
@@ -60,7 +58,7 @@ Stacks:     m0, n0          (auto-generated, 2–3 chars)
 
 ```bash
 but commit <branch-id> -m "message"      # Commit to branch
-but stage <file-or-hunk-id> <branch-id>  # Stage file or hunk to branch
+but amend <file-or-hunk-id> <commit-id>  # Amend file or hunk into commit
 but rub <commit-id> <commit-id>          # Squash commits
 ```
 
@@ -114,30 +112,7 @@ To tear off a branch from a stack:
 but move feature/frontend zz
 ```
 
-**Dependency tracking:** GitButler automatically tracks which changes depend on which commits. You can't stage dependent changes to the wrong branch.
-
-## Multiple Staging Areas
-
-Traditional git has ONE staging area:
-
-```bash
-git add file1.js    # Stage to THE staging area
-git add file2.js    # Stage to THE staging area
-git commit          # Commit from THE staging area
-```
-
-GitButler has MULTIPLE staging areas (one per branch):
-
-```bash
-but stage file1.js api-branch    # Stage to api-branch's staging area
-but stage file2.js ui-branch     # Stage to ui-branch's staging area
-but commit api-branch -m "..."   # Commit from api-branch's staging area
-but commit ui-branch -m "..."    # Commit from ui-branch's staging area
-```
-
-**Unassigned changes:** Files not assigned to any branch yet. Use `but status` to see them, then `but stage` to assign them.
-
-**Auto-assignment:** If only one branch is applied, changes may auto-assign to it.
+**Dependency tracking:** GitButler automatically tracks which changes depend on which commits. A dependent change can only be committed to the stack that contains the commits it depends on.
 
 ## The `but rub` Philosophy
 
@@ -147,36 +122,19 @@ but commit ui-branch -m "..."    # Commit from ui-branch's staging area
 
 The operation performed depends on what you combine:
 
-```
-SOURCE ↓ / TARGET →  │ zz (unassigned) │ Commit     │ Branch      │ Stack
-─────────────────────┼─────────────────┼────────────┼─────────────┼────────────
-File/Hunk            │ Unstage         │ Amend      │ Stage       │ Stage
-Commit               │ Undo            │ Squash     │ Move        │ -
-Branch (all changes) │ Unstage all     │ Amend all  │ Reassign    │ Reassign
-Stack (all changes)  │ Unstage all     │ -          │ Reassign    │ Reassign
-Unassigned (zz)      │ -               │ Amend all  │ Stage all   │ Stage all
-File-in-Commit       │ Uncommit        │ Move       │ Uncommit & assign │ -
-```
-
-`zz` is a special target meaning "unassigned" (no branch).
-
-**Common examples:**
-
 | Source | Target | Operation              | Example         |
 | ------ | ------ | ---------------------- | --------------- |
-| File   | Branch | Stage file to branch   | `but rub a1 bu` |
 | File   | Commit | Amend file into commit | `but rub a1 c3` |
 | Commit | Commit | Squash commits         | `but rub c2 c3` |
 | Commit | Branch | Move commit to branch  | `but rub c2 bu` |
-| File   | `zz`   | Unstage file           | `but rub a1 zz` |
 | Commit | `zz`   | Undo commit            | `but rub c2 zz` |
-| `zz`   | Branch | Stage all unassigned   | `but rub zz bu` |
+
+`zz` is a special target meaning "unassigned" (no branch).
 
 ### Higher-Level Conveniences
 
 These commands are wrappers around `but rub`:
 
-- `but stage <file-or-hunk> <branch>` = `but rub <file-or-hunk> <branch>`
 - `but amend <file> <commit>` = `but rub <file> <commit>`
 - `but squash` = Multiple `but rub <commit> <commit>` operations
 - `but move` = commit move/reorder with position control, plus branch stack/tear-off (`<branch> <target-branch>` and `<branch> zz`)
@@ -199,7 +157,7 @@ The uncommitted change **depends on** C1 (because it calls `foo()`).
 
 **Implications:**
 
-1. Can't stage this change to a branch that doesn't have C1
+1. Can't commit this change to a stack that doesn't contain C1
 2. `but absorb` will automatically amend it into C1 (or a commit after C1)
 3. If you try to move the change, GitButler prevents invalid operations
 
@@ -208,7 +166,7 @@ The uncommitted change **depends on** C1 (because it calls `foo()`).
 Prevents you from creating broken states:
 
 - Can't move dependent code away from its dependencies
-- Can't stage changes to wrong branches
+- Can't commit changes to the wrong stack
 - Ensures each branch remains independently functional
 
 ## Empty Commits as Placeholders
@@ -223,52 +181,15 @@ but commit empty --after c3
 **Use cases:**
 
 1. **Mark future work:** Create empty commit as placeholder for changes you'll make
-2. **Mark targets:** Use with `but mark <empty-commit-id>` so future changes auto-amend into it
-3. **Organize history:** Add semantic markers in commit history
+2. **Organize history:** Add semantic markers in commit history
 
 Example workflow:
 
 ```bash
 but commit empty --before c5
 but reword <empty-commit-id> -m "TODO: Add error handling"
-but mark <empty-commit-id>
-# Now work on error handling, changes auto-amend into the placeholder
-```
-
-## Auto-Staging and Auto-Commit (Marks)
-
-Set a "mark" on a branch or commit to automatically organize new changes.
-
-### Mark a Branch
-
-```bash
-but mark <branch-id>
-```
-
-New unassigned changes automatically stage to this branch. Useful when focused on one feature.
-
-### Mark a Commit
-
-```bash
-but mark <commit-id>
-```
-
-New changes automatically amend into this commit. Useful for iterative refinement.
-
-### Remove Marks
-
-```bash
-but mark <id> --delete    # Remove specific mark
-but unmark                # Remove all marks
-```
-
-**Example workflow:**
-
-```bash
-but branch new refactor
-but mark <refactor-branch-id>
-# Make lots of changes - they all auto-stage to refactor branch
-but unmark
+# Later, amend the error handling changes into the placeholder
+but amend <file-id> <empty-commit-id>
 ```
 
 ## Operation History (Oplog)
@@ -279,7 +200,6 @@ Every operation in GitButler is recorded in the oplog (operation log).
 
 - Branch creation/deletion
 - Commits
-- Stage operations
 - Rub/squash/move operations
 - Push/pull operations
 
@@ -308,7 +228,7 @@ Branches can be in two states:
 - Active in your workspace
 - Merged into `gitbutler/workspace`
 - Changes visible in working directory
-- Can make changes, commit, stage files
+- Can make changes and commit
 
 ### Unapplied Branches
 
@@ -364,7 +284,7 @@ Git commands that don't modify state are safe to use:
 **Don't use in a GitButler workspace:**
 
 - `git status` - Misleading: shows merged workspace state, not individual stacks; missing CLI IDs that agents need
-- `git commit` - Commits to wrong place (bypasses branch assignment)
+- `git commit` - Commits to the workspace merge commit, not your branch
 - `git checkout` - Breaks workspace model
 - `git rebase` - Conflicts with GitButler's management
 - `git merge` - Use `but merge` instead

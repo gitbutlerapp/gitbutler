@@ -28,16 +28,14 @@ but status -fv
 but commit <api-branch-id> -m "Add user details endpoint" --changes <api-file-id>
 but commit <ui-branch-id> -m "Update button hover styles" --changes <ui-file-id>
 
-# Alternative: stage first, then commit with --only
-# but stage <api-file-id> <api-branch-id> && but stage <ui-file-id> <ui-branch-id>
-# but commit <api-branch-id> --only -m "Add user details endpoint"
-# but commit <ui-branch-id> --only -m "Update button hover styles"
+# Follow-up fix that belongs in a commit you just made? Amend it in.
+# Run each mutation separately; IDs can change after every mutation.
+# Each command returns the updated workspace state — read it and take
+# fresh IDs from it for the next command.
+# but amend <api-fix-file-id> <api-commit-id>
+# but amend <ui-fix-file-id> <ui-commit-id>
 
-# 6. Push branches independently (optional, can skip if using pr new)
-but push <api-branch-id>
-but push <ui-branch-id>
-
-# 7. Create pull requests (auto-pushes if not already pushed)
+# 6. Create pull requests (auto-pushes the branches)
 but pr new <api-branch-id>
 but pr new <ui-branch-id>
 ```
@@ -59,8 +57,7 @@ but branch new add-authentication
 # 3. Implement auth and commit
 # (edit auth/login.js, auth/middleware.js)
 but status -fv
-but stage <file-ids> bu  # Stage changes to auth branch
-but commit bu --only -m "Add JWT authentication"
+but commit bu -m "Add JWT authentication" --changes <file-ids>
 
 # 4. Create stacked branch anchored on authentication
 but branch new user-profile -a bu
@@ -68,11 +65,11 @@ but branch new user-profile -a bu
 # 5. Implement profile page (depends on auth)
 # (edit pages/profile.js)
 but status -fv
-but stage <file-ids> bv  # Stage changes to profile branch
-but commit bv --only -m "Add user profile page"
+but commit bv -m "Add user profile page" --changes <file-ids>
 
-# 6. Push both branches (maintains stack relationship)
-but push
+# 6. Push both branches explicitly (maintains stack relationship)
+but push add-authentication
+but push user-profile
 ```
 
 **Result:** Two PRs where user-profile PR depends on authentication PR. GitHub/GitLab shows the dependency.
@@ -90,8 +87,8 @@ but status -fv
 # Commits:
 #   c3: Implement feature logic
 #   c2: Add feature tests
-# Unstaged:
-#   a1: fix-typo.js (staged to bu)
+# Uncommitted:
+#   a1: fix-typo.js
 
 # 2. Preview what absorb would do (recommended first step)
 but absorb a1 --dry-run    # Shows where a1 would be absorbed
@@ -107,7 +104,7 @@ but absorb a1    # Absorb just this file + get updated status
 
 ```bash
 but absorb a1    # Absorb specific file (recommended)
-but absorb bu    # Absorb all changes staged to branch bu
+but absorb bu    # Absorb all changes assigned to branch bu
 but absorb       # Absorb ALL uncommitted changes (use with caution)
 ```
 
@@ -200,51 +197,7 @@ but commit bv -m "Add dialog component" --changes <id> # To frontend
 
 **Key point:** branch stack moves use branch **names** (like `feature/frontend`) or branch CLI IDs. Commit reordering still uses commit IDs.
 
-## Example 6: Using Marks for Focused Work
-
-**Scenario:** Working on a large refactor, want all changes to automatically stage to that branch.
-
-```bash
-# 1. Create refactor branch
-but branch new refactor
-
-# 2. Mark it for auto-staging
-but mark bu    # Branch bu (refactor) is now marked
-
-# 3. Make changes across many files
-# (edit 20 different files)
-
-# 4. All changes automatically staged to refactor branch
-but status -fv  # Shows all changes staged to bu
-
-# 5. Commit the staged changes
-but commit bu --only -m "Refactor error handling across app"
-
-# 6. Remove mark
-but unmark
-```
-
-**Alternative: Mark a commit for auto-amend**
-
-```bash
-# 1. Create empty commit as placeholder
-but commit empty
-but reword <empty-commit-id> -m "TODO: Add error handling"
-
-# 2. Mark it
-but mark c5    # Commit c5 is now marked
-
-# 3. Make changes - they auto-amend into c5
-# (edit files)
-
-# 4. Check result
-but show c5    # Shows accumulated changes
-
-# 5. Remove mark when done
-but unmark
-```
-
-## Example 7: Conflict Resolution
+## Example 6: Conflict Resolution
 
 **Scenario:** After `but pull`, conflicts appear in a commit.
 
@@ -291,7 +244,7 @@ but resolve finish
 # Back to normal workspace mode
 ```
 
-## Example 8: Complete Feature Development Workflow
+## Example 7: Complete Feature Development Workflow
 
 **Scenario:** Building a complete feature from start to finish.
 
@@ -305,19 +258,16 @@ but branch new user-dashboard
 # 3. Make initial changes
 # (create dashboard.js, add routes)
 
-# 4. Check and stage
+# 4. Check status and gather file IDs
 but status -fv
-but stage <file-ids> bu  # Stage changes to dashboard branch
 
 # 5. First commit
-but commit bu --only -m "Add dashboard route and basic layout"
+but commit bu -m "Add dashboard route and basic layout" --changes <file-ids>
 
 # 6. Continue iterating
 # (add widgets, styling)
-but stage <file-ids> bu
-but commit bu --only -m "Add dashboard widgets"
-but stage <file-ids> bu
-but commit bu --only -m "Style dashboard components"
+but commit bu -m "Add dashboard widgets" --changes <file-ids>
+but commit bu -m "Style dashboard components" --changes <file-ids>
 
 # 7. Make small fix
 # (fix typo in widget)
@@ -326,20 +276,17 @@ but absorb a1    # Absorb specific file into appropriate commit
 # 8. Clean up if needed
 but squash bu    # Combine all commits (optional)
 
-# 9. Push to remote (can also skip - pr new auto-pushes)
-but push bu
-
-# 10. Create pull request
+# 9. Create pull request (auto-pushes the branch)
 but pr new bu
 
 # Output:
 # Created PR #123: https://github.com/org/repo/pull/123
 
-# 11. After PR is merged, update
+# 10. After PR is merged, update
 but pull
 ```
 
-## Example 9: Working with Applied/Unapplied Branches
+## Example 8: Working with Applied/Unapplied Branches
 
 **Scenario:** Have 3 branches, but two are causing conflicts. Temporarily unapply them.
 
@@ -359,9 +306,8 @@ but unapply bv
 but unapply bw
 
 # 3. Focus on feature-a
-# (make changes, stage, commit)
-but stage <file-ids> bu
-but commit bu --only -m "Complete feature-a"
+# (make changes, commit)
+but commit bu -m "Complete feature-a" --changes <file-ids>
 
 # 4. Create PR for feature-a (auto-pushes)
 but pr new bu
@@ -374,7 +320,7 @@ but apply feature-c
 but resolve ...
 ```
 
-## Example 10: Fixing History Before Pushing
+## Example 9: Fixing History Before Pushing
 
 **Scenario:** Made several commits, realized you need to reword messages and reorder.
 
@@ -409,10 +355,10 @@ but squash c2 c3    # Combine error handling commits
 #   c1: Initial
 
 # 5. Push clean history
-but push bu
+but push feature-x
 ```
 
-## Example 11: Daily Development Workflow
+## Example 10: Daily Development Workflow
 
 **Typical day working with GitButler:**
 
@@ -426,25 +372,21 @@ but branch new fix-auth-bug  # Create branch for today's work
 # Work and commit iteratively
 # (make changes)
 but status -fv              # Check changes
-but stage <file-ids> bu    # Stage to branch
-but commit bu --only -m "Identify auth bug source"
+but commit bu -m "Identify auth bug source" --changes <file-ids>
 # (make more changes)
-but stage <file-ids> bu    # Stage to branch
-but commit bu --only -m "Fix token expiration handling"
+but commit bu -m "Fix token expiration handling" --changes <file-ids>
 # (small fix to existing code)
 but absorb a1              # Absorb specific fix into appropriate commit
 
 # Mid-day: Start urgent fix on different branch
 but branch new hotfix-login  # Parallel branch for urgent work
 # (make fix)
-but stage <file-ids> bv    # Stage to hotfix branch
-but commit bv --only -m "Fix login redirect loop"
+but commit bv -m "Fix login redirect loop" --changes <file-ids>
 but pr new bv      # Push and create PR immediately
 
 # Back to original work
 # (continue working on bu, auth bug fix)
-but stage <file-ids> bu    # Stage to auth branch
-but commit bu --only -m "Add tests for token handling"
+but commit bu -m "Add tests for token handling" --changes <file-ids>
 
 # End of day: Clean up and create PR
 but squash bu    # Combine into clean history
@@ -454,11 +396,11 @@ but pr new bu      # Push and create PR
 # (make changes based on feedback)
 but absorb <file-id>    # Absorb specific changes into commits
 # Or absorb all changes for this branch:
-but absorb bu          # Absorb all changes staged to bu
-but push bu        # Push updated history
+but absorb bu          # Absorb all changes assigned to bu
+but push fix-auth-bug   # Push updated history
 ```
 
-## Example 12: Recovering from Mistakes
+## Example 11: Recovering from Mistakes
 
 **Scenario:** Made changes you didn't mean to, need to undo.
 
@@ -481,7 +423,7 @@ but oplog
 # Output:
 # s5: squash branch bu
 # s4: commit bu "message"
-# s3: stage files to bu
+# s3: amend a1 into c2
 # s2: create branch bu
 # s1: pull from remote
 
@@ -515,7 +457,7 @@ but status -fv    # File-centric view for quick overview
 
 ```bash
 but absorb <file-id> --dry-run  # See where specific file would be absorbed
-but push --dry-run              # See what would be pushed
+but push my-feature --dry-run   # See what would be pushed
 ```
 
 

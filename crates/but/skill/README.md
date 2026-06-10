@@ -72,7 +72,7 @@ Claude automatically invokes this skill when:
 
 - Checking version control state (status, diffs, commits)
 - Starting new work (should create branch/stack for each task)
-- After making code changes (should stage files to branches)
+- After making code changes (should commit them to the right branches)
 - Committing work (when logical units complete)
 - Editing history (amend, squash, move changes)
 - Any git-like operation
@@ -142,9 +142,8 @@ Test that Claude:
 
 1. Invokes skill when starting new work
 2. Creates branches before making changes
-3. Stages changes after edits
-4. Commits at logical points
-5. Uses `but` commands instead of `git`
+3. Commits changes to the right branches at logical points
+4. Uses `but` commands instead of `git`
 
 For automated integration testing against real disposable repositories, use the Tier 4 harness in `eval/`:
 Node must satisfy the `promptfoo` engine range documented in `eval/README.md` (repo baseline: `lts/jod`).
