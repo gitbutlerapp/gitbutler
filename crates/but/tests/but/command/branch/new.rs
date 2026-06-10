@@ -165,3 +165,18 @@ fn with_json_output() -> anyhow::Result<()> {
     // so tools would be able to detect it that way.
     Ok(())
 }
+
+#[test]
+fn handles_path_prefix_collision() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    // As ref A already exists, A/new collides with A due to the need to create a directory called A
+    env.but("branch new A/new/branch")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Branch name 'A/new/branch' collides with existing branch 'A'
+
+"#]]);
+}
