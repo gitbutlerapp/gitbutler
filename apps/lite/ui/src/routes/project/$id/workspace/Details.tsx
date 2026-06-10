@@ -88,16 +88,6 @@ const getScrollTargetId = ({
 	selection: FileOperand | null;
 }): string | null => (selection ? codeViewItemId({ changesetKey, path: selection.path }) : null);
 
-const getChangesetKey = (selection: Operand): string =>
-	Match.value(selection).pipe(
-		Match.tags({
-			Branch: ({ branchRef }) => decodeBytes(branchRef),
-			ChangesSection: () => "changes",
-			Commit: ({ commitId }) => commitId,
-		}),
-		Match.orElseAbsurd,
-	);
-
 const fileOperandIdentityKey = (operand: FileOperand): string =>
 	operandIdentityKey(fileOperand(operand));
 
@@ -810,7 +800,14 @@ const Diff: FC<{
 	const files = filesItems.map((item) => item.operand);
 	const filesNavigationIndex = buildNavigationIndex(files, fileOperandIdentityKey);
 
-	const changesetKey = getChangesetKey(outlineSelection);
+	const changesetKey = Match.value(outlineSelection).pipe(
+		Match.tags({
+			Branch: ({ branchRef }) => decodeBytes(branchRef),
+			ChangesSection: () => "changes",
+			Commit: ({ commitId }) => commitId,
+		}),
+		Match.orElseAbsurd,
+	);
 	const fileParent = Match.value(outlineSelection).pipe(
 		Match.tags({
 			Branch: ({ branchRef, stackId }) => branchFileParent({ branchRef, stackId }),
@@ -842,7 +839,7 @@ const Diff: FC<{
 		);
 
 		const scrollTargetId = getScrollTargetId({
-			changesetKey: getChangesetKey(outlineSelection),
+			changesetKey,
 			selection,
 		});
 		if (scrollTargetId === null) return;
