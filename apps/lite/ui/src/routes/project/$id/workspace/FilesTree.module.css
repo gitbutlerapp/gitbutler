@@ -8,7 +8,7 @@
 	}
 }
 
-.fileStatusChar {
+.fileStatusIcon {
 	&[data-char="A"] {
 		color: #64d5a6;
 	}

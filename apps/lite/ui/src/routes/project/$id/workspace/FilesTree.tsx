@@ -429,6 +429,7 @@ const FileRow: FC<
 			operand={item.operand}
 			onFileSelection={onFileSelection}
 		>
+			<Icon name="file" />
 			<div
 				className={workspaceItemRowStyles.itemRowLabel}
 				onContextMenu={(event) => {
@@ -484,9 +485,11 @@ const FileRow: FC<
 						)}
 					</Toolbar.Root>
 					{item._tag === "Change" ? (
-						<span className={styles.fileStatusChar} data-char={statusLabel(item.change.status)}>
-							{statusLabel(item.change.status)}
-						</span>
+						<Icon
+							name="file"
+							className={styles.fileStatusIcon}
+							data-char={statusLabel(item.change.status)}
+						/>
 					) : (
 						"C"
 					)}
