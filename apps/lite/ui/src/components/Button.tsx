@@ -22,7 +22,7 @@ export const getButtonClassName = ({
 		"text-semibold",
 		styles.button,
 		styles[variant],
-		size === "small" && styles.small,
+		size === "small" ? styles.small : styles.regular,
 		size === "small" ? "text-12" : "text-13",
 		iconOnly && styles.iconOnly,
 	);

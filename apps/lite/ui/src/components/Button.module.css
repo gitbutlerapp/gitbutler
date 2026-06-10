@@ -1,18 +1,14 @@
 .button {
 	display: inline-flex;
 	position: relative;
-	column-gap: 6px;
 	align-items: center;
 	justify-content: center;
-	height: 28px;
-	padding-inline: 10px;
 	border: 0;
 	border-radius: 8px;
 	background: transparent;
 	color: var(--text-1);
 	line-height: 1;
 	white-space: nowrap;
-	--icon-size: 16px;
 	transition:
 		background-color 0.08s ease,
 		color 0.08s ease;
@@ -28,6 +24,13 @@
 	height: 20px;
 	padding-inline: 6px;
 	--icon-size: 14px;
+}
+
+.regular {
+	column-gap: 6px;
+	height: 28px;
+	padding-inline: 10px;
+	--icon-size: 16px;
 }
 
 .iconOnly {
