@@ -53,15 +53,6 @@ import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { NonEmptyArray } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 
-const Section: FC<useRender.ComponentProps<"div">> = ({ render, ...props }) =>
-	useRender({
-		render,
-		defaultTagName: "div",
-		props: mergeProps<"div">(props, {
-			className: styles.section,
-		}),
-	});
-
 const fileOperandIdentityKey = (operand: FileOperand): string =>
 	operandIdentityKey(fileOperand(operand));
 
@@ -197,7 +188,7 @@ export const FilesTree: FC<
 				className={classes(props.className, styles.tree)}
 				ref={useMergedRefs(refProp, ref)}
 			>
-				<Section>
+				<div className={styles.section}>
 					{items.length === 0 ? (
 						<WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>
 					) : (
@@ -230,7 +221,7 @@ export const FilesTree: FC<
 							))}
 						</div>
 					)}
-				</Section>
+				</div>
 			</div>
 		</NavigationIndexContext>
 	);

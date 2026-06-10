@@ -129,15 +129,6 @@ import { errorMessageForToast } from "#ui/errors.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
 
-const Section: FC<useRender.ComponentProps<"div">> = ({ render, ...props }) =>
-	useRender({
-		render,
-		defaultTagName: "div",
-		props: mergeProps<"div">(props, {
-			className: styles.section,
-		}),
-	});
-
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
 const AbsorptionTargetKeysContext = createContext<ReadonlySet<string> | null>(null);
@@ -1585,12 +1576,9 @@ const Changes: FC<{
 			projectId={projectId}
 			operand={operand}
 			aria-label={`Changes (${worktreeChanges?.changes.length ?? 0})`}
+			className={classes(styles.section, styles.changesSection)}
 			render={
-				<OperandC
-					projectId={projectId}
-					operand={operand}
-					render={<Section className={styles.changesSection} render={<form onSubmit={submit} />} />}
-				/>
+				<OperandC projectId={projectId} operand={operand} render={<form onSubmit={submit} />} />
 			}
 		>
 			<ChangesSectionRow changes={worktreeChanges?.changes ?? []} projectId={projectId} />
@@ -2308,13 +2296,8 @@ const StackC: FC<{
 			operand={operand}
 			aria-label="Stack"
 			aria-expanded
-			render={
-				<OperandC
-					projectId={projectId}
-					operand={operand}
-					render={<Section className={styles.stack} />}
-				/>
-			}
+			className={classes(styles.section, styles.stack)}
+			render={<OperandC projectId={projectId} operand={operand} />}
 		>
 			<StackRow projectId={projectId} stack={stack} />
 
