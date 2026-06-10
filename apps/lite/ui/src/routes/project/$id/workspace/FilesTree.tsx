@@ -435,60 +435,62 @@ const FileRow: FC<
 					void showNativeContextMenu(event, menuItems);
 				}}
 			>
-				{item._tag === "Change" ? (
-					<span className={styles.fileStatusChar} data-char={statusLabel(item.change.status)}>
-						{statusLabel(item.change.status)}
-					</span>
-				) : (
-					"C"
-				)}{" "}
 				{item._tag === "Change" ? item.change.path : item.path}
 			</div>
 
 			{outlineMode._tag === "Default" && (
-				<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
-					<Toolbar.Button
-						aria-label="File menu"
-						onClick={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-						}}
-						className={classes(
-							workspaceItemRowStyles.itemRowIconButton,
-							getButtonClassName({
-								variant: isSelected ? "inverted" : "ghost",
-								size: "small",
-							}),
+				<WorkspaceItemRowToolbar forceVisibleToolbar>
+					<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
+						<Toolbar.Button
+							aria-label="File menu"
+							onClick={(event) => {
+								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+							}}
+							className={classes(
+								workspaceItemRowStyles.itemRowIconButton,
+								getButtonClassName({
+									variant: isSelected ? "inverted" : "ghost",
+									size: "small",
+								}),
+							)}
+						>
+							<Icon name="kebab" />
+						</Toolbar.Button>
+						{Match.value(item).pipe(
+							Match.when(
+								{ _tag: "Change", operand: { parent: { _tag: "Changes" } } },
+								(item) =>
+									item.dependencyCommitIds && (
+										<Toolbar.Button
+											className={classes(
+												workspaceItemRowStyles.itemRowIconButton,
+												getButtonClassName({
+													variant: isSelected ? "inverted" : "ghost",
+													size: "small",
+												}),
+											)}
+											render={
+												<DependencyIndicator
+													projectId={projectId}
+													commitIds={item.dependencyCommitIds}
+												/>
+											}
+										>
+											<Icon name="link" />
+										</Toolbar.Button>
+									),
+							),
+							Match.orElse(() => null),
 						)}
-					>
-						<Icon name="kebab" />
-					</Toolbar.Button>
-					{Match.value(item).pipe(
-						Match.when(
-							{ _tag: "Change", operand: { parent: { _tag: "Changes" } } },
-							(item) =>
-								item.dependencyCommitIds && (
-									<Toolbar.Button
-										className={classes(
-											workspaceItemRowStyles.itemRowIconButton,
-											getButtonClassName({
-												variant: isSelected ? "inverted" : "ghost",
-												size: "small",
-											}),
-										)}
-										render={
-											<DependencyIndicator
-												projectId={projectId}
-												commitIds={item.dependencyCommitIds}
-											/>
-										}
-									>
-										<Icon name="link" />
-									</Toolbar.Button>
-								),
-						),
-						Match.orElse(() => null),
+					</Toolbar.Root>
+					{item._tag === "Change" ? (
+						<span className={styles.fileStatusChar} data-char={statusLabel(item.change.status)}>
+							{statusLabel(item.change.status)}
+						</span>
+					) : (
+						"C"
 					)}
-				</Toolbar.Root>
+				</WorkspaceItemRowToolbar>
 			)}
 		</ItemRow>
 	);
