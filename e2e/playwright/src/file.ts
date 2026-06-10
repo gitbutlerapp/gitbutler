@@ -30,8 +30,7 @@ export function writeFiles(files: Record<string, string>): void {
 }
 
 export async function assertFileContent(filePath: string, expectedContent: string): Promise<void> {
-	const actualContent = fs.readFileSync(filePath, "utf-8");
-	await expect.poll(() => actualContent).toBe(expectedContent);
+	await expect.poll(() => fs.readFileSync(filePath, "utf-8")).toBe(expectedContent);
 }
 
 /**

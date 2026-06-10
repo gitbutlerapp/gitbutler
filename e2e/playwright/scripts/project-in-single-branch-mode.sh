@@ -27,11 +27,13 @@ pushd local-clone
   "$BUT" config target "$target_branch"
 
   git checkout -b single-branch-fixture master
-  echo "single branch commit 1" >> a_file
-  git commit -am "single-branch: first commit"
+  echo "single branch commit 1" > single_branch_first.txt
+  git add single_branch_first.txt
+  git commit -m "single-branch: first commit"
 
-  echo "single branch commit 2" >> a_file
-  git commit -am "single-branch: second commit"
+  echo "single branch commit 2" > single_branch_second.txt
+  git add single_branch_second.txt
+  git commit -m "single-branch: second commit"
 
   echo "single branch file" > single_branch_file.txt
   git add single_branch_file.txt
