@@ -246,6 +246,15 @@
 	border-radius: 50%;
 }
 
+.commitStateWithCheckbox {
+	display: grid;
+	justify-items: center;
+
+	& > * {
+		grid-area: 1 / 1;
+	}
+}
+
 .commitCheckbox {
 	margin-block-start: 1px;
 	opacity: 0;
@@ -258,14 +267,5 @@
 
 	.tree:not(.treeWithDefaultOutlineMode):not(.treeWithCheckedCommits) & {
 		display: none;
-	}
-}
-
-.commitStateWithCheckbox {
-	display: grid;
-	justify-items: center;
-
-	& > * {
-		grid-area: 1 / 1;
 	}
 }
