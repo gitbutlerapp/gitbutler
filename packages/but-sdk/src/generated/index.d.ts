@@ -205,6 +205,15 @@ export declare function commitUncommit(projectId: string, subjectCommitIds: Arra
 export declare function commitUncommitChanges(projectId: string, commitId: string, changes: Array<DiffSpec>, assignTo: string | null, dryRun: boolean): Promise<MoveChangesResult>
 
 /**
+ * Discard all worktree changes that match the specs in `worktree_changes`.
+ *
+ * If whole files should be discarded, be sure to not pass any hunks
+ *
+ * Returns the `worktree_changes` that couldn't be applied,
+ */
+export declare function discardWorktreeChanges(projectId: string, worktreeChanges: Array<DiffSpec>): Promise<Array<DiffSpec>>
+
+/**
  * Web compare URL for a branch — drives the "Open in browser"
  * affordances without making the renderer hold per-forge URL
  * templates. `fork` is the owner namespace for fork compares.

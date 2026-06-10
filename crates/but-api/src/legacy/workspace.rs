@@ -239,7 +239,7 @@ pub fn branch_details(
 /// If whole files should be discarded, be sure to not pass any hunks
 ///
 /// Returns the `worktree_changes` that couldn't be applied,
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn discard_worktree_changes(
     ctx: &mut but_ctx::Context,
