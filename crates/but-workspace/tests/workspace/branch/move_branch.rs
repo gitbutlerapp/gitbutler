@@ -80,6 +80,41 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 }
 
 #[test]
+fn moving_branch_onto_itself_fails_without_changing_workspace() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "ws-ref-ws-commit-single-stack-double-stack",
+            |meta| {
+                add_stack_with_segments(meta, 1, "A", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "C", StackState::InWorkspace, &["B"]);
+            },
+        )?;
+
+    let mut ws = graph.into_workspace()?;
+    let before = graph_workspace(&ws).to_string();
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+
+    let err = but_workspace::branch::move_branch(
+        editor,
+        "refs/heads/C".try_into()?,
+        "refs/heads/C".try_into()?,
+    )
+    .expect_err("moving a branch onto itself should fail before graph mutation");
+
+    assert_eq!(
+        err.to_string(),
+        "Cannot move branch refs/heads/C onto itself"
+    );
+    assert_eq!(
+        graph_workspace(&ws).to_string(),
+        before,
+        "workspace projection should stay unchanged after rejected self-move"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     let (_tmp, graph, repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(

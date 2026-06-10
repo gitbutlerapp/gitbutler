@@ -166,6 +166,10 @@ pub(super) mod function {
         subject_branch_name: &FullNameRef,
         target_branch_name: &FullNameRef,
     ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
+        if subject_branch_name == target_branch_name {
+            bail!("Cannot move branch {subject_branch_name} onto itself");
+        }
+
         let successful_rebase = editor.rebase()?;
         let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
         let mut editor = successful_rebase.into_editor();

@@ -844,6 +844,33 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn move_branch_onto_itself_fails_without_deleting_branch() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings(
+        "two-stacks-one-single-and-ready-to-mingle-one-double",
+    )?;
+
+    env.setup_metadata(&["A", "B"])?;
+
+    env.but("move C C").assert().failure().stderr_eq(str![[r#"
+Failed to move branch. Cannot move branch refs/heads/C onto itself
+
+"#]]);
+
+    let status_json = status_json(&env)?;
+    let layout = stack_branch_layout(&status_json)?;
+    assert_eq!(
+        layout,
+        vec![
+            vec!["A".to_string()],
+            vec!["C".to_string(), "B".to_string()]
+        ],
+        "self-move failure should leave all branches in their original stacks"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn move_branch_by_cli_id_from_top_level_move() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
