@@ -1,5 +1,6 @@
-use std::{borrow::Cow, iter::once};
+use std::{borrow::Cow, collections::HashMap, iter::once};
 
+use but_core::ref_metadata::StackId;
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use itertools::{Either, Itertools, Position};
 use nonempty::NonEmpty;
@@ -11,10 +12,11 @@ use ratatui::{
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
+    CliId,
     command::legacy::status::{
         CommitLineContent, FileLineContent, StatusOutputLine,
         output::{BranchLineContent, StatusOutputContent, StatusOutputLineData},
-        tui::Markable,
+        tui::{Markable, mode::StackMode},
     },
     theme::Theme,
 };
@@ -182,12 +184,18 @@ pub(super) fn status_layout(app: &App, area: Rect) -> StatusLayout {
 
 fn render_status(app: &App, content_area: Rect, frame: &mut Frame) {
     let visible_height = content_area.height as usize;
+    let stack_highlight_rows = stack_highlight_rows(app);
     let items = app
         .status_lines
         .iter()
         .enumerate()
         .flat_map(|(idx, tui_line)| {
-            render_status_list_item(app, tui_line, app.cursor.index() == idx)
+            render_status_list_item_with_stack_highlight(
+                app,
+                tui_line,
+                app.cursor.index() == idx,
+                stack_highlight_rows.get(idx).copied().unwrap_or_default(),
+            )
         })
         .skip(app.scroll_top)
         .take(visible_height);
@@ -198,10 +206,134 @@ fn render_status(app: &App, content_area: Rect, frame: &mut Frame) {
     render_inline_reword(app, content_area, frame);
 }
 
+fn stack_highlight_rows(app: &App) -> Vec<bool> {
+    let Mode::Stack(..) = &*app.mode else {
+        return vec![false; app.status_lines.len()];
+    };
+
+    let row_stack_ids = row_stack_ids(&app.status_lines);
+    let Some(selected_stack_id) = row_stack_ids.get(app.cursor.index()).copied().flatten() else {
+        return vec![false; app.status_lines.len()];
+    };
+
+    row_stack_ids
+        .into_iter()
+        .map(|stack_id| stack_id == Some(selected_stack_id))
+        .collect()
+}
+
+fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
+    let mut current_stack_id = None;
+    let mut commit_stack_ids = HashMap::new();
+
+    for line in lines {
+        if let StatusOutputLineData::Commit {
+            cli_id,
+            stack_id: Some(stack_id),
+            ..
+        } = &line.data
+            && let CliId::Commit { commit_id, .. } = &**cli_id
+        {
+            commit_stack_ids.insert(*commit_id, *stack_id);
+        }
+    }
+
+    let mut row_stack_ids = lines
+        .iter()
+        .map(|line| match &line.data {
+            StatusOutputLineData::Branch { cli_id } => {
+                let stack_id = stack_id_from_cli_id(cli_id.as_ref());
+                current_stack_id = stack_id;
+                stack_id
+            }
+            StatusOutputLineData::Commit { stack_id, .. } => {
+                current_stack_id = *stack_id;
+                *stack_id
+            }
+            StatusOutputLineData::StagedChanges { cli_id } => {
+                let stack_id = stack_id_from_cli_id(cli_id.as_ref());
+                current_stack_id = stack_id;
+                stack_id
+            }
+            StatusOutputLineData::StagedFile { .. }
+            | StatusOutputLineData::CommitMessage
+            | StatusOutputLineData::EmptyCommitMessage => current_stack_id,
+            StatusOutputLineData::Connector => None,
+            StatusOutputLineData::File { cli_id } => match &**cli_id {
+                CliId::CommittedFile { commit_id, .. } => {
+                    let stack_id = commit_stack_ids
+                        .get(commit_id)
+                        .copied()
+                        .or(current_stack_id);
+                    current_stack_id = stack_id;
+                    stack_id
+                }
+                CliId::Uncommitted(..) | CliId::PathPrefix { .. } => current_stack_id,
+                CliId::Branch { .. }
+                | CliId::Commit { .. }
+                | CliId::Unassigned { .. }
+                | CliId::Stack { .. } => None,
+            },
+            StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
+            | StatusOutputLineData::MergeBase
+            | StatusOutputLineData::UpstreamChanges
+            | StatusOutputLineData::Warning
+            | StatusOutputLineData::Hint
+            | StatusOutputLineData::NoAssignmentsUnstaged => {
+                current_stack_id = None;
+                None
+            }
+        })
+        .collect::<Vec<_>>();
+
+    for idx in 0..lines.len() {
+        if !matches!(lines[idx].data, StatusOutputLineData::Connector) {
+            continue;
+        }
+
+        let stack_id_before = row_stack_ids[..idx]
+            .iter()
+            .rev()
+            .find_map(|stack_id| *stack_id);
+        let stack_id_after = row_stack_ids[idx + 1..]
+            .iter()
+            .find_map(|stack_id| *stack_id);
+
+        if stack_id_before == stack_id_after {
+            row_stack_ids[idx] = stack_id_before;
+        }
+    }
+
+    row_stack_ids
+}
+
+fn stack_id_from_cli_id(cli_id: &CliId) -> Option<StackId> {
+    match cli_id {
+        CliId::Branch { stack_id, .. } => *stack_id,
+        CliId::Stack { stack_id, .. } => Some(*stack_id),
+        CliId::Uncommitted(..)
+        | CliId::PathPrefix { .. }
+        | CliId::CommittedFile { .. }
+        | CliId::Commit { .. }
+        | CliId::Unassigned { .. } => None,
+    }
+}
+
 pub(super) fn render_status_list_item(
     app: &App,
     tui_line: &StatusOutputLine,
     is_selected: bool,
+) -> StatusListItem {
+    render_status_list_item_with_stack_highlight(app, tui_line, is_selected, false)
+}
+
+fn render_status_list_item_with_stack_highlight(
+    app: &App,
+    tui_line: &StatusOutputLine,
+    is_selected: bool,
+    stack_highlight: bool,
 ) -> StatusListItem {
     let StatusOutputLine {
         connector,
@@ -282,10 +414,24 @@ pub(super) fn render_status_list_item(
                     render_move_labels_for_selected_line(app, data, move_mode, &mut line);
                 }
             }
+            Mode::Stack(stack_mode) => {
+                if let Some(display) = stack_operation_display(data, stack_mode) {
+                    line.extend([
+                        Span::raw("<< ").mode_colors(&*app.mode, app.theme),
+                        Span::raw(display).mode_colors(&*app.mode, app.theme),
+                        Span::raw(" >>").mode_colors(&*app.mode, app.theme),
+                        Span::raw(" "),
+                    ]);
+                }
+            }
         }
     } else {
         match &*app.mode {
-            Mode::Normal(..) | Mode::InlineReword(..) | Mode::Command(..) | Mode::Details(..) => {}
+            Mode::Normal(..)
+            | Mode::InlineReword(..)
+            | Mode::Command(..)
+            | Mode::Details(..)
+            | Mode::Stack(..) => {}
             Mode::Rub(RubMode {
                 source,
                 how_to_combine_messages: _,
@@ -413,6 +559,7 @@ pub(super) fn render_status_list_item(
         Mode::Normal(..)
         | Mode::Details(..)
         | Mode::Move(..)
+        | Mode::Stack(..)
         | Mode::Command(..)
         | Mode::Rub(..)
         | Mode::Commit(..) => {
@@ -502,6 +649,7 @@ pub(super) fn render_status_list_item(
             Mode::Normal(..)
             | Mode::Details(..)
             | Mode::Rub(..)
+            | Mode::Stack(..)
             | Mode::InlineReword(..)
             | Mode::Command(..) => {}
         }
@@ -509,7 +657,9 @@ pub(super) fn render_status_list_item(
 
     line = highlight_line_if(
         line,
-        is_selected && !matches!(app.modal, Some(Modal::Help { .. })) && app.has_focus,
+        (is_selected || stack_highlight)
+            && !matches!(app.modal, Some(Modal::Help { .. }))
+            && app.has_focus,
         app.theme,
     );
 
@@ -683,6 +833,7 @@ fn render_hotbar(app: &App, area: Rect, frame: &mut Frame) {
         | Mode::Rub(..)
         | Mode::Commit(..)
         | Mode::Move(..)
+        | Mode::Stack(..)
         | Mode::InlineReword(..) => {
             let separator = Span::styled(" • ", app.theme.hint);
             let area = layout[2];
@@ -1013,6 +1164,40 @@ pub(super) fn move_operation_display(
             | StatusOutputLineData::Hint
             | StatusOutputLineData::NoAssignmentsUnstaged => None,
         },
+    }
+}
+
+pub(super) fn stack_operation_display(
+    data: &StatusOutputLineData,
+    mode: &StackMode,
+) -> Option<&'static str> {
+    let StackMode { stack_heads } = mode;
+    match data {
+        StatusOutputLineData::Branch { cli_id } => {
+            let CliId::Branch { name, .. } = &**cli_id else {
+                return None;
+            };
+            if stack_heads.iter().any(|head| head.shorten() == name) {
+                Some("stack")
+            } else {
+                None
+            }
+        }
+        StatusOutputLineData::UpdateNotice
+        | StatusOutputLineData::Connector
+        | StatusOutputLineData::StagedChanges { .. }
+        | StatusOutputLineData::StagedFile { .. }
+        | StatusOutputLineData::UnassignedChanges { .. }
+        | StatusOutputLineData::UnassignedFile { .. }
+        | StatusOutputLineData::Commit { .. }
+        | StatusOutputLineData::CommitMessage
+        | StatusOutputLineData::EmptyCommitMessage
+        | StatusOutputLineData::File { .. }
+        | StatusOutputLineData::MergeBase
+        | StatusOutputLineData::UpstreamChanges
+        | StatusOutputLineData::Warning
+        | StatusOutputLineData::Hint
+        | StatusOutputLineData::NoAssignmentsUnstaged => None,
     }
 }
 

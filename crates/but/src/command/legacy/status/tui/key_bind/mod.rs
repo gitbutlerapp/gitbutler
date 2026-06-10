@@ -5,7 +5,7 @@ use strum::IntoEnumIterator;
 
 use crate::command::legacy::status::tui::{
     BranchPickerMessage, CommandMessage, CommitMessageComposer, ConfirmMessage,
-    DetailsLayoutMessage, Message, RewordMessage, RubMessage, help::HelpMessage,
+    DetailsLayoutMessage, Message, RewordMessage, RubMessage, StackMessage, help::HelpMessage,
     mode::ModeDiscriminant,
 };
 
@@ -41,6 +41,10 @@ pub(super) fn default_key_binds() -> KeyBinds {
             }
             ModeDiscriminant::Move => {
                 builder.move_confirm().register();
+                register_non_mode_specific_key_binds(&mut builder);
+            }
+            ModeDiscriminant::Stack => {
+                builder.unapply().register();
                 register_non_mode_specific_key_binds(&mut builder);
             }
             ModeDiscriminant::Details => {
@@ -458,7 +462,6 @@ impl KeyBindsBuilder<'_> {
     fn undo(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("undo", press().code(KeyCode::Char('u')), Message::Undo)
             .show_only_in_normal_mode_help_section()
-            .hide_from_hotbar()
             .long_description("Undo the last operation")
     }
 
@@ -581,6 +584,15 @@ impl KeyBindsBuilder<'_> {
             Message::NewBranch,
         )
         .long_description("Create a new branch")
+    }
+
+    fn stack(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "stack",
+            press().code(KeyCode::Char('s')),
+            Message::Stack(StackMessage::Enter),
+        )
+        .long_description("Enter stack mode")
     }
 
     fn focus_details(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -783,6 +795,15 @@ impl KeyBindsBuilder<'_> {
         )
     }
 
+    fn unapply(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "unapply",
+            press().code(KeyCode::Char('u')),
+            Message::Stack(StackMessage::Unapply),
+        )
+        .long_description("Unapply stack")
+    }
+
     fn details_next_hunk(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.down_with(Message::Details(DetailsMessage::SelectNextSection))
             .short_description("next hunk")
@@ -870,6 +891,7 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
         builder.new_commit().register();
         builder.move_mode().register();
         builder.branch().register();
+        builder.stack().register();
     }
 
     builder.toggle_details().register();

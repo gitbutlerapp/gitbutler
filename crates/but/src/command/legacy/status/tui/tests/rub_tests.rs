@@ -545,3 +545,40 @@ fn rub_api_stack_to_stack_operation() {
     tui.input_then_render('r')
         .assert_current_line_eq(str!["┊╭┄h0 [B]"]);
 }
+
+#[test]
+fn rub_multiple_commits_into_unassigned() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.env().file("A", "content");
+    tui.env().file("B", "content");
+
+    tui.input_then_render('j');
+    tui.input_then_render('c');
+    tui.input_then_render('e');
+    tui.input_then_render('b');
+
+    tui.input_then_render('g');
+    tui.input_then_render('j');
+    tui.input_then_render('c');
+    tui.input_then_render('e');
+    tui.input_then_render('j');
+    tui.input_then_render(KeyCode::Enter);
+
+    tui.input_then_render(' ');
+    tui.input_then_render(' ');
+
+    tui.input_then_render('r');
+    tui.input_then_render('g')
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/rub_multiple_commits_into_unassigned_001.svg"
+        ]);
+
+    tui.input_then_render(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/rub_multiple_commits_into_unassigned_final.svg"
+        ]);
+}

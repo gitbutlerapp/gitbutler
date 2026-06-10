@@ -18,6 +18,7 @@ mod discard_tests;
 mod marking_tests;
 mod move_tests;
 mod rub_tests;
+mod stack_tests;
 mod utils;
 
 fn assert_cursor_context_rows(
