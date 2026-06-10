@@ -265,7 +265,7 @@
 		opacity: 1;
 	}
 
-	.tree:not(.treeWithDefaultOutlineMode):not(.treeWithCheckedCommits) & {
+	.tree:not(.treeWithCheckedCommits) &[data-disabled] {
 		display: none;
 	}
 }
