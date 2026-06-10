@@ -1,10 +1,13 @@
 import { renameBranchInHeadInfo, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { decodeBytes, encodeBytes } from "#ui/api/ref-name.ts";
+import { encodeBytes } from "#ui/api/ref-name.ts";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { shortCommitId } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
-import { formatPaths, rejectedChangesToastOptions } from "#ui/operations/toastOptions.tsx";
+import {
+	discardChangesToastOptions,
+	rejectedChangesToastOptions,
+} from "#ui/operations/toastOptions.tsx";
 import { type BranchOperand } from "#ui/operands.ts";
 import { projectActions } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
@@ -258,14 +261,7 @@ export const useDiscardWorktreeChanges = () => {
 		mutationFn: window.lite.discardWorktreeChanges,
 		onSuccess: (rejectedChanges) => {
 			if (rejectedChanges.length > 0)
-				toastManager.add({
-					type: "warning",
-					title: "Some changes were not discarded",
-					description: formatPaths(
-						rejectedChanges.map((diffSpec) => decodeBytes(diffSpec.pathBytes)),
-					),
-					priority: "high",
-				});
+				toastManager.add(discardChangesToastOptions({ rejectedChanges }));
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
