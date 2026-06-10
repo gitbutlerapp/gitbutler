@@ -35,6 +35,7 @@ import {
 	WorkspaceItemRow,
 	WorkspaceItemRowEmpty,
 	WorkspaceItemRowToolbar,
+	WorkspaceSection,
 } from "./WorkspaceItemRow.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
@@ -189,7 +190,7 @@ export const FilesTree: FC<
 				className={classes(props.className, styles.tree)}
 				ref={useMergedRefs(refProp, ref)}
 			>
-				<div className={workspaceItemRowStyles.section}>
+				<WorkspaceSection>
 					{items.length === 0 ? (
 						<WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>
 					) : (
@@ -222,7 +223,7 @@ export const FilesTree: FC<
 							))}
 						</div>
 					)}
-				</div>
+				</WorkspaceSection>
 			</div>
 		</NavigationIndexContext>
 	);

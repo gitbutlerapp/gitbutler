@@ -110,6 +110,7 @@ import {
 	WorkspaceItemRowEmpty,
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowToolbar,
+	WorkspaceSection,
 } from "./WorkspaceItemRow.tsx";
 import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
@@ -1600,9 +1601,17 @@ const Changes: FC<{
 			projectId={projectId}
 			operand={operand}
 			aria-label={`Changes (${worktreeChanges?.changes.length ?? 0})`}
-			className={classes(workspaceItemRowStyles.section, styles.changesSection)}
 			render={
-				<OperandC projectId={projectId} operand={operand} render={<form onSubmit={submit} />} />
+				<OperandC
+					projectId={projectId}
+					operand={operand}
+					render={
+						<WorkspaceSection
+							className={styles.changesSection}
+							render={<form onSubmit={submit} />}
+						/>
+					}
+				/>
 			}
 		>
 			<ChangesSectionRow changes={worktreeChanges?.changes ?? []} projectId={projectId} />
@@ -2327,8 +2336,13 @@ const StackC: FC<{
 			operand={operand}
 			aria-label="Stack"
 			aria-expanded
-			className={classes(styles.stack, workspaceItemRowStyles.section)}
-			render={<OperandC projectId={projectId} operand={operand} />}
+			render={
+				<OperandC
+					projectId={projectId}
+					operand={operand}
+					render={<WorkspaceSection className={styles.stack} />}
+				/>
+			}
 		>
 			<StackRow projectId={projectId} stack={stack} />
 

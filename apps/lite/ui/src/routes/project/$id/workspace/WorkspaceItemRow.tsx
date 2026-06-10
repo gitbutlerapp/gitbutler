@@ -2,6 +2,16 @@ import { classes } from "#ui/components/classes.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { ComponentProps, FC, useLayoutEffect, useRef } from "react";
 import styles from "./WorkspaceItemRow.module.css";
+import { mergeProps, useRender } from "@base-ui/react";
+
+export const WorkspaceSection: FC<useRender.ComponentProps<"div">> = ({ render, ...props }) =>
+	useRender({
+		render,
+		defaultTagName: "div",
+		props: mergeProps<"div">(props, {
+			className: styles.section,
+		}),
+	});
 
 export const WorkspaceItemRow: FC<
 	{
