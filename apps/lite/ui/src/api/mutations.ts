@@ -604,7 +604,7 @@ export const useRestoreSnapshot = ({ projectId }: { projectId: string }) => {
 			const title = direction === "redo" ? "Redo" : "Undo";
 
 			if (!snapshot) {
-				toastManager.add({ type: "warning", title, description: `Nothing to ${direction}` });
+				toastManager.add({ title, description: `Nothing to ${direction}` });
 				return;
 			}
 

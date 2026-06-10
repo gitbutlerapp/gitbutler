@@ -84,7 +84,6 @@ export const discardChangesToastOptions = ({
 }: {
 	rejectedChanges: Array<DiffSpec>;
 }): ToastManagerAddOptions<never> => ({
-	type: "warning",
 	title: "Some changes were not discarded",
 	description: formatPaths(rejectedChanges.map((diffSpec) => decodeBytes(diffSpec.pathBytes))),
 	priority: "high",
