@@ -110,7 +110,6 @@ import {
 	WorkspaceItemRowIconButton,
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowToolbar,
-	WorkspaceSection,
 } from "./WorkspaceItemRow.tsx";
 import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
@@ -129,6 +128,15 @@ import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
+
+const Section: FC<useRender.ComponentProps<"div">> = ({ render, ...props }) =>
+	useRender({
+		render,
+		defaultTagName: "div",
+		props: mergeProps<"div">(props, {
+			className: styles.section,
+		}),
+	});
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
@@ -1581,12 +1589,7 @@ const Changes: FC<{
 				<OperandC
 					projectId={projectId}
 					operand={operand}
-					render={
-						<WorkspaceSection
-							className={styles.changesSection}
-							render={<form onSubmit={submit} />}
-						/>
-					}
+					render={<Section className={styles.changesSection} render={<form onSubmit={submit} />} />}
 				/>
 			}
 		>
@@ -2309,7 +2312,7 @@ const StackC: FC<{
 				<OperandC
 					projectId={projectId}
 					operand={operand}
-					render={<WorkspaceSection className={styles.stack} />}
+					render={<Section className={styles.stack} />}
 				/>
 			}
 		>

@@ -1,9 +1,3 @@
-.section {
-	padding: 6px;
-	border-radius: var(--radius-l);
-	background-color: var(--bg-2);
-}
-
 .itemRow,
 .itemRowEmpty {
 	display: flex;
