@@ -2608,28 +2608,27 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-    │   └── ·4077353 (⌂|🏘|001)
+    │   └── ·4077353 (⌂|🏘|1)
     │       └── 📙►:2[1]:B
-    │           ├── ·6b1a13b (⌂|🏘|001)
-    │           └── ·03ad472 (⌂|🏘|001)
-    │               └── 📙►:3[3]:A
-    │                   ├── ·79bbb29 (⌂|🏘|✓|101)
-    │                   ├── ·fc98174 (⌂|🏘|✓|101)
-    │                   ├── ·a381df5 (⌂|🏘|✓|101)
-    │                   └── ·777b552 (⌂|🏘|✓|101)
-    │                       └── ►:7[4]:anon:
-    │                           └── ✂·ce4a760 (⌂|🏘|✓|101)
-    └── ►:6[0]:origin/main →:5:
-        └── ►:1[1]:origin/main
-            ├── 🟣d0df794 (✓|100)
-            └── 🟣09c6e08 (✓|100)
-                └── ►:4[2]:anon:
-                    └── 🟣7b9f260 (✓|100)
-                        ├── ►:5[3]:main <> origin/main →:6:
-                        │   ├── 🟣4b3e5a8 (✓|110)
-                        │   ├── 🟣34d0715 (✓|110)
-                        │   └── 🏁🟣eb5f731 (✓|110)
-                        └── →:3: (A)
+    │           ├── ·6b1a13b (⌂|🏘|1)
+    │           └── ·03ad472 (⌂|🏘|1)
+    │               └── 📙►:3[2]:A
+    │                   ├── ·79bbb29 (⌂|🏘|✓|1)
+    │                   ├── ·fc98174 (⌂|🏘|✓|1)
+    │                   ├── ·a381df5 (⌂|🏘|✓|1)
+    │                   └── ·777b552 (⌂|🏘|✓|1)
+    │                       └── ►:6[3]:anon:
+    │                           └── ✂·ce4a760 (⌂|🏘|✓|1)
+    └── ►:1[0]:origin/main →:5:
+        ├── 🟣d0df794 (✓)
+        └── 🟣09c6e08 (✓)
+            └── ►:4[1]:anon:
+                └── 🟣7b9f260 (✓)
+                    ├── ►:5[2]:main <> origin/main →:1:
+                    │   ├── 🟣4b3e5a8 (✓)
+                    │   ├── 🟣34d0715 (✓)
+                    │   └── 🏁🟣eb5f731 (✓)
+                    └── →:3: (A)
     ");
     // `A` is integrated, hence it's not shown.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
@@ -2652,26 +2651,25 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-    │   └── ·4077353 (⌂|🏘|001)
+    │   └── ·4077353 (⌂|🏘|1)
     │       └── 📙►:2[1]:B
-    │           ├── ·6b1a13b (⌂|🏘|001)
-    │           └── ·03ad472 (⌂|🏘|001)
-    │               └── 📙►:3[3]:A
-    │                   ├── ·79bbb29 (⌂|🏘|✓|101)
-    │                   ├── ·fc98174 (⌂|🏘|✓|101)
-    │                   ├── ·a381df5 (⌂|🏘|✓|101)
-    │                   └── ✂·777b552 (⌂|🏘|✓|101)
-    └── ►:6[0]:origin/main →:5:
-        └── ►:1[1]:origin/main
-            ├── 🟣d0df794 (✓|100)
-            └── 🟣09c6e08 (✓|100)
-                └── ►:4[2]:anon:
-                    └── 🟣7b9f260 (✓|100)
-                        ├── ►:5[3]:main <> origin/main →:6:
-                        │   ├── 🟣4b3e5a8 (✓|110)
-                        │   ├── 🟣34d0715 (✓|110)
-                        │   └── 🏁🟣eb5f731 (✓|110)
-                        └── →:3: (A)
+    │           ├── ·6b1a13b (⌂|🏘|1)
+    │           └── ·03ad472 (⌂|🏘|1)
+    │               └── 📙►:3[2]:A
+    │                   ├── ·79bbb29 (⌂|🏘|✓|1)
+    │                   ├── ·fc98174 (⌂|🏘|✓|1)
+    │                   ├── ·a381df5 (⌂|🏘|✓|1)
+    │                   └── ✂·777b552 (⌂|🏘|✓|1)
+    └── ►:1[0]:origin/main →:5:
+        ├── 🟣d0df794 (✓)
+        └── 🟣09c6e08 (✓)
+            └── ►:4[1]:anon:
+                └── 🟣7b9f260 (✓)
+                    ├── ►:5[2]:main <> origin/main →:1:
+                    │   ├── 🟣4b3e5a8 (✓)
+                    │   ├── 🟣34d0715 (✓)
+                    │   └── 🏁🟣eb5f731 (✓)
+                    └── →:3: (A)
     ");
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣6 on 79bbb29
@@ -2703,31 +2701,30 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     │       └── ►:4[1]:B
     │           ├── ·6b1a13b (⌂|🏘)
     │           └── ·03ad472 (⌂|🏘)
-    │               └── 👉►:0[3]:A
-    │                   ├── ·79bbb29 (⌂|🏘|✓|101)
-    │                   ├── ·fc98174 (⌂|🏘|✓|101)
-    │                   ├── ·a381df5 (⌂|🏘|✓|101)
-    │                   └── ·777b552 (⌂|🏘|✓|101)
-    │                       └── ►:7[4]:anon:
-    │                           └── ·ce4a760 (⌂|🏘|✓|101)
-    │                               ├── ►:8[6]:anon:
-    │                               │   └── ·01d0e1e (⌂|🏘|✓|101)
-    │                               │       └── ►:5[7]:main <> origin/main →:6:
-    │                               │           ├── ·4b3e5a8 (⌂|🏘|✓|111)
-    │                               │           ├── ·34d0715 (⌂|🏘|✓|111)
-    │                               │           └── 🏁·eb5f731 (⌂|🏘|✓|111)
-    │                               └── ►:9[5]:A-feat
-    │                                   ├── ·fea59b5 (⌂|🏘|✓|101)
-    │                                   └── ·4deea74 (⌂|🏘|✓|101)
-    │                                       └── →:8:
-    └── ►:6[0]:origin/main →:5:
-        └── ►:2[1]:origin/main
-            ├── 🟣d0df794 (✓|100)
-            └── 🟣09c6e08 (✓|100)
-                └── ►:3[2]:anon:
-                    └── 🟣7b9f260 (✓|100)
-                        ├── →:5: (main →:6:)
-                        └── →:0: (A)
+    │               └── 👉►:0[2]:A
+    │                   ├── ·79bbb29 (⌂|🏘|✓|1)
+    │                   ├── ·fc98174 (⌂|🏘|✓|1)
+    │                   ├── ·a381df5 (⌂|🏘|✓|1)
+    │                   └── ·777b552 (⌂|🏘|✓|1)
+    │                       └── ►:6[3]:anon:
+    │                           └── ·ce4a760 (⌂|🏘|✓|1)
+    │                               ├── ►:7[5]:anon:
+    │                               │   └── ·01d0e1e (⌂|🏘|✓|1)
+    │                               │       └── ►:5[6]:main <> origin/main →:2:
+    │                               │           ├── ·4b3e5a8 (⌂|🏘|✓|1)
+    │                               │           ├── ·34d0715 (⌂|🏘|✓|1)
+    │                               │           └── 🏁·eb5f731 (⌂|🏘|✓|1)
+    │                               └── ►:8[4]:A-feat
+    │                                   ├── ·fea59b5 (⌂|🏘|✓|1)
+    │                                   └── ·4deea74 (⌂|🏘|✓|1)
+    │                                       └── →:7:
+    └── ►:2[0]:origin/main →:5:
+        ├── 🟣d0df794 (✓)
+        └── 🟣09c6e08 (✓)
+            └── ►:3[1]:anon:
+                └── 🟣7b9f260 (✓)
+                    ├── →:5: (main →:2:)
+                    └── →:0: (A)
     ");
     // It looks like some commits are missing, but it's a first-parent traversal.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
@@ -2740,7 +2737,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         │   ├── ❄777b552 (🏘️|✓)
         │   ├── ❄ce4a760 (🏘️|✓)
         │   └── ❄01d0e1e (🏘️|✓)
-        └── :5:main <> origin/main →:6:⇣3
+        └── :5:main <> origin/main →:2:⇣3
             ├── 🟣d0df794 (✓)
             ├── 🟣09c6e08 (✓)
             ├── 🟣7b9f260 (✓)
@@ -2766,22 +2763,21 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     │       └── ►:4[1]:B
     │           ├── ·6b1a13b (⌂|🏘)
     │           └── ·03ad472 (⌂|🏘)
-    │               └── 👉►:0[3]:A
-    │                   ├── ·79bbb29 (⌂|🏘|✓|101)
-    │                   ├── ·fc98174 (⌂|🏘|✓|101)
-    │                   ├── ·a381df5 (⌂|🏘|✓|101)
-    │                   └── ✂·777b552 (⌂|🏘|✓|101)
-    └── ►:6[0]:origin/main →:5:
-        └── ►:2[1]:origin/main
-            ├── 🟣d0df794 (✓|100)
-            └── 🟣09c6e08 (✓|100)
-                └── ►:3[2]:anon:
-                    └── 🟣7b9f260 (✓|100)
-                        ├── ►:5[3]:main <> origin/main →:6:
-                        │   ├── 🟣4b3e5a8 (✓|110)
-                        │   ├── 🟣34d0715 (✓|110)
-                        │   └── 🏁🟣eb5f731 (✓|110)
-                        └── →:0: (A)
+    │               └── 👉►:0[2]:A
+    │                   ├── ·79bbb29 (⌂|🏘|✓|1)
+    │                   ├── ·fc98174 (⌂|🏘|✓|1)
+    │                   ├── ·a381df5 (⌂|🏘|✓|1)
+    │                   └── ✂·777b552 (⌂|🏘|✓|1)
+    └── ►:2[0]:origin/main →:5:
+        ├── 🟣d0df794 (✓)
+        └── 🟣09c6e08 (✓)
+            └── ►:3[1]:anon:
+                └── 🟣7b9f260 (✓)
+                    ├── ►:5[2]:main <> origin/main →:2:
+                    │   ├── 🟣4b3e5a8 (✓)
+                    │   ├── 🟣34d0715 (✓)
+                    │   └── 🏁🟣eb5f731 (✓)
+                    └── →:0: (A)
     ");
     // Because the branch is integrated, the surrounding workspace isn't shown.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
@@ -2813,33 +2809,31 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     │       └── ►:4[1]:B
     │           ├── ·6b1a13b (⌂|🏘)
     │           └── ·03ad472 (⌂|🏘)
-    │               └── ►:7[3]:A
-    │                   ├── ·79bbb29 (⌂|🏘|✓|01)
-    │                   ├── ·fc98174 (⌂|🏘|✓|01)
-    │                   ├── ·a381df5 (⌂|🏘|✓|01)
-    │                   └── ·777b552 (⌂|🏘|✓|01)
-    │                       └── ►:8[4]:anon:
-    │                           └── ·ce4a760 (⌂|🏘|✓|01)
-    │                               ├── ►:9[6]:anon:
-    │                               │   └── ·01d0e1e (⌂|🏘|✓|01)
-    │                               │       └── ►:5[7]:main <> origin/main →:6:
-    │                               │           ├── ·4b3e5a8 (⌂|🏘|✓|11)
-    │                               │           ├── ·34d0715 (⌂|🏘|✓|11)
-    │                               │           └── 🏁·eb5f731 (⌂|🏘|✓|11)
-    │                               └── ►:10[5]:A-feat
-    │                                   ├── ·fea59b5 (⌂|🏘|✓|01)
-    │                                   └── ·4deea74 (⌂|🏘|✓|01)
-    │                                       └── →:9:
-    ├── ►:2[0]:origin/main
-    │   └── ►:0[1]:anon:
-    │       ├── 👉·d0df794 (⌂|✓|01)
-    │       └── ·09c6e08 (⌂|✓|01)
-    │           └── ►:3[2]:anon:
-    │               └── ·7b9f260 (⌂|✓|01)
-    │                   ├── →:5: (main →:6:)
-    │                   └── →:7: (A)
-    └── ►:6[0]:origin/main →:5:
-        └── →:0:
+    │               └── ►:6[3]:A
+    │                   ├── ·79bbb29 (⌂|🏘|✓|1)
+    │                   ├── ·fc98174 (⌂|🏘|✓|1)
+    │                   ├── ·a381df5 (⌂|🏘|✓|1)
+    │                   └── ·777b552 (⌂|🏘|✓|1)
+    │                       └── ►:7[4]:anon:
+    │                           └── ·ce4a760 (⌂|🏘|✓|1)
+    │                               ├── ►:8[6]:anon:
+    │                               │   └── ·01d0e1e (⌂|🏘|✓|1)
+    │                               │       └── ►:5[7]:main <> origin/main →:2:
+    │                               │           ├── ·4b3e5a8 (⌂|🏘|✓|1)
+    │                               │           ├── ·34d0715 (⌂|🏘|✓|1)
+    │                               │           └── 🏁·eb5f731 (⌂|🏘|✓|1)
+    │                               └── ►:9[5]:A-feat
+    │                                   ├── ·fea59b5 (⌂|🏘|✓|1)
+    │                                   └── ·4deea74 (⌂|🏘|✓|1)
+    │                                       └── →:8:
+    └── ►:2[0]:origin/main →:5:
+        └── ►:0[1]:anon:
+            ├── 👉·d0df794 (⌂|✓|1)
+            └── ·09c6e08 (⌂|✓|1)
+                └── ►:3[2]:anon:
+                    └── ·7b9f260 (⌂|✓|1)
+                        ├── →:5: (main →:2:)
+                        └── →:6: (A)
     ");
 
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
@@ -2849,7 +2843,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         │   ├── ❄d0df794 (✓)
         │   ├── ❄09c6e08 (✓)
         │   └── ❄7b9f260 (✓)
-        └── :5:main <> origin/main →:6:
+        └── :5:main <> origin/main →:2:
             ├── ❄️4b3e5a8 (🏘️|✓)
             ├── ❄️34d0715 (🏘️|✓)
             └── ❄️eb5f731 (🏘️|✓)
@@ -2875,33 +2869,31 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
     │       └── ►:3[1]:B
     │           ├── ·6b1a13b (⌂|🏘|✓)
     │           └── ·03ad472 (⌂|🏘|✓)
-    │               └── ►:7[3]:A
-    │                   ├── ·79bbb29 (⌂|🏘|✓|01)
-    │                   ├── ·fc98174 (⌂|🏘|✓|01)
-    │                   ├── ·a381df5 (⌂|🏘|✓|01)
-    │                   └── ·777b552 (⌂|🏘|✓|01)
-    │                       └── ►:8[4]:anon:
-    │                           └── ·ce4a760 (⌂|🏘|✓|01)
-    │                               ├── ►:9[6]:anon:
-    │                               │   └── ·01d0e1e (⌂|🏘|✓|01)
-    │                               │       └── ►:5[7]:main <> origin/main →:6:
-    │                               │           ├── ·4b3e5a8 (⌂|🏘|✓|11)
-    │                               │           ├── ·34d0715 (⌂|🏘|✓|11)
-    │                               │           └── 🏁·eb5f731 (⌂|🏘|✓|11)
-    │                               └── ►:10[5]:A-feat
-    │                                   ├── ·fea59b5 (⌂|🏘|✓|01)
-    │                                   └── ·4deea74 (⌂|🏘|✓|01)
-    │                                       └── →:9:
-    ├── ►:2[0]:origin/main
-    │   └── ►:0[1]:anon:
-    │       ├── 👉·d0df794 (⌂|✓|01)
-    │       └── ·09c6e08 (⌂|✓|01)
-    │           └── ►:4[2]:anon:
-    │               └── ·7b9f260 (⌂|✓|01)
-    │                   ├── →:5: (main →:6:)
-    │                   └── →:7: (A)
-    └── ►:6[0]:origin/main →:5:
-        └── →:0:
+    │               └── ►:6[3]:A
+    │                   ├── ·79bbb29 (⌂|🏘|✓|1)
+    │                   ├── ·fc98174 (⌂|🏘|✓|1)
+    │                   ├── ·a381df5 (⌂|🏘|✓|1)
+    │                   └── ·777b552 (⌂|🏘|✓|1)
+    │                       └── ►:7[4]:anon:
+    │                           └── ·ce4a760 (⌂|🏘|✓|1)
+    │                               ├── ►:8[6]:anon:
+    │                               │   └── ·01d0e1e (⌂|🏘|✓|1)
+    │                               │       └── ►:5[7]:main <> origin/main →:2:
+    │                               │           ├── ·4b3e5a8 (⌂|🏘|✓|1)
+    │                               │           ├── ·34d0715 (⌂|🏘|✓|1)
+    │                               │           └── 🏁·eb5f731 (⌂|🏘|✓|1)
+    │                               └── ►:9[5]:A-feat
+    │                                   ├── ·fea59b5 (⌂|🏘|✓|1)
+    │                                   └── ·4deea74 (⌂|🏘|✓|1)
+    │                                       └── →:8:
+    └── ►:2[0]:origin/main →:5:
+        └── ►:0[1]:anon:
+            ├── 👉·d0df794 (⌂|✓|1)
+            └── ·09c6e08 (⌂|✓|1)
+                └── ►:4[2]:anon:
+                    └── ·7b9f260 (⌂|✓|1)
+                        ├── →:5: (main →:2:)
+                        └── →:6: (A)
     ");
 
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
@@ -2911,7 +2903,7 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
         │   ├── ❄d0df794 (✓)
         │   ├── ❄09c6e08 (✓)
         │   └── ❄7b9f260 (✓)
-        └── :5:main <> origin/main →:6:
+        └── :5:main <> origin/main →:2:
             ├── ❄️4b3e5a8 (🏘️|✓)
             ├── ❄️34d0715 (🏘️|✓)
             └── ❄️eb5f731 (🏘️|✓)
@@ -3290,25 +3282,24 @@ fn workspace_obeys_limit_when_target_branch_is_missing() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-    │   └── ·4077353 (⌂|🏘|001)
+    │   └── ·4077353 (⌂|🏘|1)
     │       └── ►:3[1]:B
-    │           ├── ·6b1a13b (⌂|🏘|001)
-    │           └── ·03ad472 (⌂|🏘|001)
-    │               └── ►:6[3]:A
-    │                   ├── ·79bbb29 (⌂|🏘|✓|101)
-    │                   ├── ·fc98174 (⌂|🏘|✓|101)
-    │                   └── ✂·a381df5 (⌂|🏘|✓|101)
-    └── ►:5[0]:origin/main →:4:
-        └── ►:1[1]:origin/main
-            ├── 🟣d0df794 (✓|100)
-            └── 🟣09c6e08 (✓|100)
-                └── ►:2[2]:anon:
-                    └── 🟣7b9f260 (✓|100)
-                        ├── ►:4[3]:main <> origin/main →:5:
-                        │   ├── 🟣4b3e5a8 (✓|110)
-                        │   ├── 🟣34d0715 (✓|110)
-                        │   └── 🏁🟣eb5f731 (✓|110)
-                        └── →:6: (A)
+    │           ├── ·6b1a13b (⌂|🏘|1)
+    │           └── ·03ad472 (⌂|🏘|1)
+    │               └── ►:5[2]:A
+    │                   ├── ·79bbb29 (⌂|🏘|✓|1)
+    │                   ├── ·fc98174 (⌂|🏘|✓|1)
+    │                   └── ✂·a381df5 (⌂|🏘|✓|1)
+    └── ►:1[0]:origin/main →:4:
+        ├── 🟣d0df794 (✓)
+        └── 🟣09c6e08 (✓)
+            └── ►:2[1]:anon:
+                └── 🟣7b9f260 (✓)
+                    ├── ►:4[2]:main <> origin/main →:1:
+                    │   ├── 🟣4b3e5a8 (✓)
+                    │   ├── 🟣34d0715 (✓)
+                    │   └── 🏁🟣eb5f731 (✓)
+                    └── →:5: (A)
     ");
 
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
@@ -3706,45 +3697,44 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-    │   └── ·41ed0e4 (⌂|🏘|001)
-    │       └── ►:2[3]:workspace
-    │           └── ·9730cbf (⌂|🏘|✓|101)
-    │               ├── ►:5[4]:main-to-workspace
-    │               │   └── ·dc7ab57 (⌂|🏘|✓|101)
-    │               │       └── ►:9[6]:anon:
-    │               │           ├── ·c056b75 (⌂|🏘|✓|111)
-    │               │           ├── ·f49c977 (⌂|🏘|✓|111)
-    │               │           ├── ·7b7ebb2 (⌂|🏘|✓|111)
-    │               │           ├── ·dca4960 (⌂|🏘|✓|111)
-    │               │           ├── ·11c29b8 (⌂|🏘|✓|111)
-    │               │           ├── ·c32dd03 (⌂|🏘|✓|111)
-    │               │           ├── ·b625665 (⌂|🏘|✓|111)
-    │               │           └── ✂·a821094 (⌂|🏘|✓|111)
-    │               └── ►:6[4]:long-main-to-workspace
-    │                   ├── ·77f31a0 (⌂|🏘|✓|101)
-    │                   ├── ·eb17e31 (⌂|🏘|✓|101)
-    │                   ├── ·fe2046b (⌂|🏘|✓|101)
-    │                   └── ·5532ef5 (⌂|🏘|✓|101)
-    │                       └── ►:7[5]:main <> origin/main →:8:
-    │                           └── ·2438292 (⌂|🏘|✓|111)
-    │                               └── →:9:
-    └── ►:8[0]:origin/main →:7:
-        └── ►:1[1]:origin/main
-            └── 🟣232ed06 (✓|100)
-                ├── ►:3[2]:workspace-to-target
-                │   ├── 🟣abcfd9a (✓|100)
-                │   ├── 🟣bc86eba (✓|100)
-                │   └── 🟣c7ae303 (✓|100)
-                │       └── →:2: (workspace)
-                └── ►:4[2]:long-workspace-to-target
-                    ├── 🟣9e2a79e (✓|100)
-                    ├── 🟣fdeaa43 (✓|100)
-                    ├── 🟣30565ee (✓|100)
-                    ├── 🟣0c1c23a (✓|100)
-                    ├── 🟣56d152c (✓|100)
-                    ├── 🟣e6e1360 (✓|100)
-                    └── 🟣1a22a39 (✓|100)
-                        └── →:2: (workspace)
+    │   └── ·41ed0e4 (⌂|🏘|1)
+    │       └── ►:2[2]:workspace
+    │           └── ·9730cbf (⌂|🏘|✓|1)
+    │               ├── ►:5[3]:main-to-workspace
+    │               │   └── ·dc7ab57 (⌂|🏘|✓|1)
+    │               │       └── ►:8[5]:anon:
+    │               │           ├── ·c056b75 (⌂|🏘|✓|1)
+    │               │           ├── ·f49c977 (⌂|🏘|✓|1)
+    │               │           ├── ·7b7ebb2 (⌂|🏘|✓|1)
+    │               │           ├── ·dca4960 (⌂|🏘|✓|1)
+    │               │           ├── ·11c29b8 (⌂|🏘|✓|1)
+    │               │           ├── ·c32dd03 (⌂|🏘|✓|1)
+    │               │           ├── ·b625665 (⌂|🏘|✓|1)
+    │               │           └── ✂·a821094 (⌂|🏘|✓|1)
+    │               └── ►:6[3]:long-main-to-workspace
+    │                   ├── ·77f31a0 (⌂|🏘|✓|1)
+    │                   ├── ·eb17e31 (⌂|🏘|✓|1)
+    │                   ├── ·fe2046b (⌂|🏘|✓|1)
+    │                   └── ·5532ef5 (⌂|🏘|✓|1)
+    │                       └── ►:7[4]:main <> origin/main →:1:
+    │                           └── ·2438292 (⌂|🏘|✓|1)
+    │                               └── →:8:
+    └── ►:1[0]:origin/main →:7:
+        └── 🟣232ed06 (✓)
+            ├── ►:3[1]:workspace-to-target
+            │   ├── 🟣abcfd9a (✓)
+            │   ├── 🟣bc86eba (✓)
+            │   └── 🟣c7ae303 (✓)
+            │       └── →:2: (workspace)
+            └── ►:4[1]:long-workspace-to-target
+                ├── 🟣9e2a79e (✓)
+                ├── 🟣fdeaa43 (✓)
+                ├── 🟣30565ee (✓)
+                ├── 🟣0c1c23a (✓)
+                ├── 🟣56d152c (✓)
+                ├── 🟣e6e1360 (✓)
+                └── 🟣1a22a39 (✓)
+                    └── →:2: (workspace)
     ");
 
     // Everything is integrated, nothing to see here.
@@ -3955,45 +3945,44 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-    │   └── ·f514495 (⌂|🏘|001)
-    │       └── ►:2[4]:workspace
-    │           └── ·c9120f1 (⌂|🏘|✓|101)
-    │               ├── ►:3[5]:main-to-workspace
-    │               │   └── ·1126587 (⌂|🏘|✓|101)
-    │               │       └── ►:7[7]:anon:
-    │               │           └── 🏁·3183e43 (⌂|🏘|✓|111) ►A, ►B
-    │               └── ►:4[5]:long-main-to-workspace
-    │                   ├── ·b39c7ec (⌂|🏘|✓|101)
-    │                   ├── ·2983a97 (⌂|🏘|✓|101)
-    │                   ├── ·144ea85 (⌂|🏘|✓|101)
-    │                   └── ·5aecfd2 (⌂|🏘|✓|101)
-    │                       └── ►:5[6]:main <> origin/main →:6:
-    │                           └── ·bce0c5e (⌂|🏘|✓|111)
-    │                               └── →:7:
-    └── ►:6[0]:origin/main →:5:
-        └── ►:1[1]:origin/main
-            ├── 🟣024f837 (✓|100) ►long-workspace-to-target
-            ├── 🟣64a8284 (✓|100)
-            ├── 🟣b72938c (✓|100)
-            ├── 🟣9ccbf6f (✓|100)
-            ├── 🟣5fa4905 (✓|100)
-            ├── 🟣43074d3 (✓|100)
-            ├── 🟣800d4a9 (✓|100)
-            ├── 🟣742c068 (✓|100)
-            └── 🟣fe06afd (✓|100)
-                └── ►:8[2]:anon:
-                    └── 🟣3027746 (✓|100)
-                        ├── ►:9[3]:anon:
-                        │   └── 🟣f0d2a35 (✓|100)
-                        │       └── →:2: (workspace)
-                        └── ►:10[3]:longer-workspace-to-target
-                            ├── 🟣edf041f (✓|100)
-                            ├── 🟣d9f03f6 (✓|100)
-                            ├── 🟣8d1d264 (✓|100)
-                            ├── 🟣fa7ceae (✓|100)
-                            ├── 🟣95bdbf1 (✓|100)
-                            └── 🟣5bac978 (✓|100)
-                                └── →:3: (main-to-workspace)
+    │   └── ·f514495 (⌂|🏘|1)
+    │       └── ►:2[3]:workspace
+    │           └── ·c9120f1 (⌂|🏘|✓|1)
+    │               ├── ►:3[4]:main-to-workspace
+    │               │   └── ·1126587 (⌂|🏘|✓|1)
+    │               │       └── ►:6[6]:anon:
+    │               │           └── 🏁·3183e43 (⌂|🏘|✓|1) ►A, ►B
+    │               └── ►:4[4]:long-main-to-workspace
+    │                   ├── ·b39c7ec (⌂|🏘|✓|1)
+    │                   ├── ·2983a97 (⌂|🏘|✓|1)
+    │                   ├── ·144ea85 (⌂|🏘|✓|1)
+    │                   └── ·5aecfd2 (⌂|🏘|✓|1)
+    │                       └── ►:5[5]:main <> origin/main →:1:
+    │                           └── ·bce0c5e (⌂|🏘|✓|1)
+    │                               └── →:6:
+    └── ►:1[0]:origin/main →:5:
+        ├── 🟣024f837 (✓) ►long-workspace-to-target
+        ├── 🟣64a8284 (✓)
+        ├── 🟣b72938c (✓)
+        ├── 🟣9ccbf6f (✓)
+        ├── 🟣5fa4905 (✓)
+        ├── 🟣43074d3 (✓)
+        ├── 🟣800d4a9 (✓)
+        ├── 🟣742c068 (✓)
+        └── 🟣fe06afd (✓)
+            └── ►:7[1]:anon:
+                └── 🟣3027746 (✓)
+                    ├── ►:8[2]:anon:
+                    │   └── 🟣f0d2a35 (✓)
+                    │       └── →:2: (workspace)
+                    └── ►:9[2]:longer-workspace-to-target
+                        ├── 🟣edf041f (✓)
+                        ├── 🟣d9f03f6 (✓)
+                        ├── 🟣8d1d264 (✓)
+                        ├── 🟣fa7ceae (✓)
+                        ├── 🟣95bdbf1 (✓)
+                        └── 🟣5bac978 (✓)
+                            └── →:3: (main-to-workspace)
     ");
 
     let ws = graph.into_workspace()?;
@@ -4179,30 +4168,29 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-    │   └── ·2b30d94 (⌂|🏘|001)
+    │   └── ·2b30d94 (⌂|🏘|1)
     │       ├── ►:2[1]:D
-    │       │   └── ·9895054 (⌂|🏘|001)
-    │       │       └── ►:7[2]:C
-    │       │           ├── ·de625cc (⌂|🏘|001)
-    │       │           ├── ·23419f8 (⌂|🏘|001)
-    │       │           └── ·5dc4389 (⌂|🏘|001)
-    │       │               └── ►:8[3]:shared
-    │       │                   ├── ·d4f537e (⌂|🏘|001)
-    │       │                   ├── ·b448757 (⌂|🏘|001)
-    │       │                   └── ·e9a378d (⌂|🏘|001)
-    │       │                       └── ►:5[4]:main <> origin/main →:6:
-    │       │                           └── 🏁·3183e43 (⌂|🏘|✓|111)
+    │       │   └── ·9895054 (⌂|🏘|1)
+    │       │       └── ►:6[2]:C
+    │       │           ├── ·de625cc (⌂|🏘|1)
+    │       │           ├── ·23419f8 (⌂|🏘|1)
+    │       │           └── ·5dc4389 (⌂|🏘|1)
+    │       │               └── ►:7[3]:shared
+    │       │                   ├── ·d4f537e (⌂|🏘|1)
+    │       │                   ├── ·b448757 (⌂|🏘|1)
+    │       │                   └── ·e9a378d (⌂|🏘|1)
+    │       │                       └── ►:5[4]:main <> origin/main →:1:
+    │       │                           └── 🏁·3183e43 (⌂|🏘|✓|1)
     │       ├── ►:3[1]:A
-    │       │   └── ·0bad3af (⌂|🏘|001)
-    │       │       └── →:8: (shared)
+    │       │   └── ·0bad3af (⌂|🏘|1)
+    │       │       └── →:7: (shared)
     │       └── ►:4[1]:B
-    │           ├── ·acdc49a (⌂|🏘|001)
-    │           └── ·f0117e0 (⌂|🏘|001)
-    │               └── →:8: (shared)
-    └── ►:6[0]:origin/main →:5:
-        └── ►:1[1]:origin/main
-            └── 🟣bce0c5e (✓|100)
-                └── →:5: (main →:6:)
+    │           ├── ·acdc49a (⌂|🏘|1)
+    │           └── ·f0117e0 (⌂|🏘|1)
+    │               └── →:7: (shared)
+    └── ►:1[0]:origin/main →:5:
+        └── 🟣bce0c5e (✓)
+            └── →:5: (main →:1:)
     ");
 
     // Segments can definitely repeat
@@ -4211,18 +4199,18 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
     ├── ≡:2:D on 3183e43
     │   ├── :2:D
     │   │   └── ·9895054 (🏘️)
-    │   ├── :7:C
+    │   ├── :6:C
     │   │   ├── ·de625cc (🏘️)
     │   │   ├── ·23419f8 (🏘️)
     │   │   └── ·5dc4389 (🏘️)
-    │   └── :8:shared
+    │   └── :7:shared
     │       ├── ·d4f537e (🏘️)
     │       ├── ·b448757 (🏘️)
     │       └── ·e9a378d (🏘️)
     ├── ≡:3:A on 3183e43
     │   ├── :3:A
     │   │   └── ·0bad3af (🏘️)
-    │   └── :8:shared
+    │   └── :7:shared
     │       ├── ·d4f537e (🏘️)
     │       ├── ·b448757 (🏘️)
     │       └── ·e9a378d (🏘️)
@@ -4230,7 +4218,7 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
         ├── :4:B
         │   ├── ·acdc49a (🏘️)
         │   └── ·f0117e0 (🏘️)
-        └── :8:shared
+        └── :7:shared
             ├── ·d4f537e (🏘️)
             ├── ·b448757 (🏘️)
             └── ·e9a378d (🏘️)
@@ -4251,7 +4239,7 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
     ├── ≡:4:D on 3183e43
     │   ├── :4:D
     │   │   └── ·9895054 (🏘️)
-    │   ├── :8:C
+    │   ├── :7:C
     │   │   ├── ·de625cc (🏘️)
     │   │   ├── ·23419f8 (🏘️)
     │   │   └── ·5dc4389 (🏘️)
@@ -4275,6 +4263,31 @@ fn multi_lane_with_shared_segment() -> anyhow::Result<()> {
             ├── ·b448757 (🏘️)
             └── ·e9a378d (🏘️)
     ");
+    Ok(())
+}
+
+#[test]
+fn local_branch_tracking_the_target_does_not_duplicate_the_target_segment() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/multi-lane-with-shared-segment")?;
+    add_workspace(&mut meta);
+
+    // `main` tracks the target `origin/main`. Remote-tracking discovery at `main` must
+    // recognize the project-metadata target ref as already queued instead of inserting
+    // a second `origin/main` segment, which can leave disconnected segments behind.
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let target_segments = graph
+        .segments()
+        .filter(|sidx| {
+            graph[*sidx]
+                .ref_name()
+                .is_some_and(|rn| rn.as_bstr() == "refs/remotes/origin/main")
+        })
+        .count();
+    assert_eq!(
+        target_segments, 1,
+        "the initial target tip owns the only segment for the target ref"
+    );
     Ok(())
 }
 
@@ -5302,15 +5315,13 @@ fn workspace_commit_pushed_to_target() -> anyhow::Result<()> {
         Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
     insta::assert_snapshot!(graph_tree(&graph), @"
 
-    ├── ►:1[0]:origin/main
-    │   └── 👉📕►►►:0[1]:gitbutler/workspace[🌳]
-    │       └── ·8ee08de (⌂|🏘|✓|01)
-    │           └── ►:2[2]:A
-    │               └── ·120a217 (⌂|🏘|✓|01)
-    │                   └── ►:3[3]:main <> origin/main →:4:
-    │                       └── 🏁·fafd9d0 (⌂|🏘|✓|11)
-    └── ►:4[0]:origin/main →:3:
-        └── →:0: (gitbutler/workspace[🌳])
+    └── ►:1[0]:origin/main →:3:
+        └── 👉📕►►►:0[1]:gitbutler/workspace[🌳]
+            └── ·8ee08de (⌂|🏘|✓|1)
+                └── ►:2[2]:A
+                    └── ·120a217 (⌂|🏘|✓|1)
+                        └── ►:3[3]:main <> origin/main →:1:
+                            └── 🏁·fafd9d0 (⌂|🏘|✓|1)
     ");
     // Everything is integrated, so nothing is shown.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 120a217");

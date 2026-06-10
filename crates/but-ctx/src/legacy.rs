@@ -148,12 +148,19 @@ impl Context {
     ///
     /// Use this after the TOML was restored from a snapshot and is the source of truth,
     /// so ported repositories don't keep reading outdated values from Git config.
+    ///
+    /// Repositories that weren't ported yet are left alone: their TOML is still the only
+    /// source of truth, and porting here would hide future TOML-only writes by older
+    /// binaries behind the one-way ported marker.
     pub fn resync_project_meta_from_legacy(&self) -> anyhow::Result<()> {
+        let repo = self.repo.get()?;
+        if !but_core::ref_metadata::ProjectMeta::is_ported_repo(&repo)? {
+            return Ok(());
+        }
         let project_meta = self
             .meta_inner_read_only()?
             .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
             .project_meta();
-        let repo = self.repo.get()?;
         project_meta.persist_to_local_config(&repo)?;
         Ok(())
     }

@@ -355,10 +355,11 @@ struct InitialTips {
     /// Remote target refs that were already scheduled as initial integrated
     /// tips.
     ///
-    /// Explicit traversal seeds this list from integrated tip ref names.
-    /// During traversal, `try_queue_remote_tracking_branches()` uses it to
-    /// avoid queueing those target refs again when local branch refs point
-    /// at them as upstreams.
+    /// Workspace traversals seed this list from the project metadata target
+    /// ref. Explicit traversal seeds the same list from integrated tip ref
+    /// names. During traversal, `try_queue_remote_tracking_branches()` uses
+    /// it to avoid queueing those target refs again when local branch refs
+    /// point at them as upstreams.
     // TODO: could this be removed in favor os using `Graph::traversal_tips`?
     target_refs: Vec<gix::refs::FullName>,
     /// Remote names to try when a local branch has no configured upstream.
@@ -1268,7 +1269,7 @@ fn initial_tips_from_tips(
     let include_tip_refs = !tips
         .iter()
         .any(|tip| matches!(tip.metadata, Some(SegmentMetadata::Workspace(_))));
-    let target_refs = target_refs_from_tips(&tips, include_tip_refs);
+    let target_refs = target_refs_from_tips(&tips, project_meta, include_tip_refs);
     let symbolic_remote_names =
         symbolic_remote_names_from_tips(repo, &tips, project_meta, include_tip_refs);
     let target_local_links = target_local_links_from_tips(repo, &tips);
@@ -1688,17 +1689,27 @@ fn workspace_target_tip(
 ///
 /// The result is passed to remote-tracking discovery so it does not queue a
 /// target ref a second time when walking a local branch that tracks it.
-/// Only explicit traversals have entries here: named integrated tips may act
-/// as target refs when `include_integrated_tip_refs` is set. Metadata
-/// traversals don't, as their target lives in project metadata, not in tips.
+/// Workspace traversals get this from the project metadata target ref, which
+/// is where their target lives now. Explicit traversals have no workspace
+/// discovery source, so named integrated tips may also act as target refs
+/// when `include_integrated_tip_refs` is set.
 fn target_refs_from_tips(
     tips: &[Tip],
+    project_meta: &ProjectMeta,
     include_integrated_tip_refs: bool,
 ) -> Vec<gix::refs::FullName> {
+    let has_workspace_metadata_tip = tips
+        .iter()
+        .any(|tip| matches!(tip.metadata, Some(SegmentMetadata::Workspace(_))));
     let mut target_refs: Vec<_> = tips
         .iter()
         .filter(|tip| include_integrated_tip_refs && tip.role.is_integrated())
         .filter_map(|tip| tip.ref_name.clone())
+        .chain(
+            has_workspace_metadata_tip
+                .then(|| project_meta.target_ref.clone())
+                .flatten(),
+        )
         .collect();
     target_refs.sort();
     target_refs.dedup();

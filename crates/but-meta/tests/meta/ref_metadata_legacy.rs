@@ -1070,15 +1070,51 @@ fn target_journey() -> anyhow::Result<()> {
 
     let mut ws = store.workspace(ws_name)?;
     let mut project_meta = ws.project_meta();
-    project_meta.target_ref = Some(expected_target);
-    ws.set_project_meta(project_meta);
+    project_meta.target_ref = Some(expected_target.clone());
+    ws.set_project_meta(project_meta.clone());
 
     store.set_workspace(&ws)?;
-    let ws = store.workspace(ws_name)?;
+    let mut ws = store.workspace(ws_name)?;
+    assert_eq!(
+        ws.project_meta().target_ref,
+        None,
+        "a target without a commit id is not persisted - legacy consumers \
+        can't handle the null sha it would need"
+    );
+    assert!(
+        store.data().default_target.is_none(),
+        "the TOML data keeps the default target absent instead of writing a null sha"
+    );
+
+    let expected_target_id = gix::ObjectId::from_hex(b"e69de29bb2d1d6434b8b29ae775ad8c2e48c5391")?;
+    project_meta.target_commit_id = Some(expected_target_id);
+    ws.set_project_meta(project_meta.clone());
+
+    store.set_workspace(&ws)?;
+    let mut ws = store.workspace(ws_name)?;
     assert_eq!(
         ws.project_meta().target_ref,
         Some("refs/remotes/origin/main".try_into()?),
-        "can set a target again through project metadata"
+        "can set a target again through project metadata once a commit id is available"
+    );
+    assert_eq!(
+        ws.project_meta().target_commit_id,
+        Some(expected_target_id),
+        "the commit id is persisted along with the target"
+    );
+
+    // An update without a commit id must not clobber the existing sha with a null one.
+    project_meta.target_commit_id = None;
+    ws.set_project_meta(project_meta);
+    store.set_workspace(&ws)?;
+    assert_eq!(
+        store
+            .data()
+            .default_target
+            .as_ref()
+            .map(|target| target.sha),
+        Some(expected_target_id),
+        "updates without a commit id leave the existing sha alone"
     );
 
     Ok(())

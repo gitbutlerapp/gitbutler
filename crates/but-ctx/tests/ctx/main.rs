@@ -428,6 +428,81 @@ fn project_meta_reads_git_config_when_ported_even_if_toml_differs() -> anyhow::R
     Ok(())
 }
 
+#[test]
+fn resync_project_meta_from_legacy_leaves_unported_repos_alone() -> anyhow::Result<()> {
+    let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-toml")?;
+    let ctx = Context::from_repo(repo)?;
+
+    ctx.resync_project_meta_from_legacy()?;
+
+    // The TOML is still the only source of truth - a snapshot restore must not
+    // perform the initial port, as the ported marker is never unset and would hide
+    // future TOML-only writes by older binaries.
+    insta::assert_debug_snapshot!(storage_state(&ctx)?, @r#"
+    StorageState {
+        config_ported: false,
+        config: ProjectMetaView {
+            target_ref: None,
+            target_commit_id: None,
+            push_remote: None,
+        },
+        toml: ProjectMetaView {
+            target_ref: Some(
+                "refs/remotes/origin/main",
+            ),
+            target_commit_id: Some(
+                "[OID]",
+            ),
+            push_remote: Some(
+                "fork",
+            ),
+        },
+        db: None,
+    }
+    "#);
+    Ok(())
+}
+
+#[test]
+fn resync_project_meta_from_legacy_rewrites_config_from_toml_when_ported() -> anyhow::Result<()> {
+    let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-ported")?;
+    let ctx = Context::from_repo(repo)?;
+
+    ctx.resync_project_meta_from_legacy()?;
+
+    // The repository was already ported, so the restored TOML wins over the
+    // outdated Git config values, and the repository stays ported.
+    insta::assert_debug_snapshot!(storage_state(&ctx)?, @r#"
+    StorageState {
+        config_ported: true,
+        config: ProjectMetaView {
+            target_ref: Some(
+                "refs/remotes/origin/main",
+            ),
+            target_commit_id: Some(
+                "[OID]",
+            ),
+            push_remote: Some(
+                "fork",
+            ),
+        },
+        toml: ProjectMetaView {
+            target_ref: Some(
+                "refs/remotes/origin/main",
+            ),
+            target_commit_id: Some(
+                "[OID]",
+            ),
+            push_remote: Some(
+                "fork",
+            ),
+        },
+        db: None,
+    }
+    "#);
+    Ok(())
+}
+
 fn run_fixture(name: &str) -> anyhow::Result<(TempDir, gix::Repository, gix::ObjectId)> {
     let (repo, repo_dir) = but_testsupport::writable_scenario(name);
     let target_commit_id = repo.rev_parse_single("HEAD")?.detach();

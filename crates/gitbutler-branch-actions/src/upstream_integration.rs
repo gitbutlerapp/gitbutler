@@ -386,12 +386,22 @@ fn get_stack_status(
 
     let details = match stack_details(ctx, stack.id, project_meta) {
         Ok(details) => details,
-        Err(_)
-            if stack
-                .heads
-                .iter()
-                .all(|head| upstream_commits.contains(&head.tip)) =>
+        // The stack may have vanished from the workspace projection, typically because all of
+        // its commits have already landed upstream. If every head tip is contained in the
+        // upstream commits, infer that the stack is integrated instead of failing.
+        Err(err)
+            if !stack.heads.is_empty()
+                && stack
+                    .heads
+                    .iter()
+                    .all(|head| upstream_commits.contains(&head.tip)) =>
         {
+            tracing::warn!(
+                ?err,
+                stack_id = ?stack.id,
+                "failed to get stack details; inferring Integrated status as all stack heads \
+                 are contained in the upstream commits"
+            );
             let branch_statuses = stack
                 .heads
                 .iter()

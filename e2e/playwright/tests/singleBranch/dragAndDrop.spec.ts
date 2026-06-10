@@ -17,7 +17,7 @@ test("can squash commits by dragging one commit onto another", async ({ page, gi
 	const localClone = await setupSingleBranchProject(gitbutler, page);
 	await assertCleanWorktree(localClone);
 
-	await expect(commitRow(page)).toHaveCount(4);
+	await expect(commitRow(page)).toHaveCount(3);
 
 	await dragAndDropByLocator(
 		page,

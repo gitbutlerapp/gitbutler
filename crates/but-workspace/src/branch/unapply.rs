@@ -132,7 +132,7 @@ pub(crate) mod function {
 
     use but_core::{
         ObjectStorageExt as _, RefMetadata, RepositoryExt as _,
-        ref_metadata::{ProjectedWorkspaceStack, StackId},
+        ref_metadata::{ProjectMeta, ProjectedWorkspaceStack, StackId},
     };
     use but_graph::init::Overlay;
     use gix::{
@@ -502,11 +502,8 @@ pub(crate) mod function {
         };
 
         if !keep_workspace_commit {
-            let new_head_id = commit_to_point_workspace_ref_to_after_unapply(
-                ws,
-                &future_workspace_tips,
-                excluded_anonymous_tip_id,
-            )?;
+            let new_head_id =
+                commit_to_point_workspace_ref_to_after_unapply(ws, &future_workspace_tips)?;
             checkout_and_update_workspace_ref(
                 repo,
                 prev_head_id,
@@ -521,12 +518,7 @@ pub(crate) mod function {
         }
 
         let mut in_memory_repo = repo.clone().for_tree_diffing()?.with_object_memory();
-        let merge = merge_workspace_after_unapply(
-            ws,
-            &future_workspace_tips,
-            &in_memory_repo,
-            excluded_anonymous_tip_id,
-        )?;
+        let merge = merge_workspace_after_unapply(ws, &future_workspace_tips, &in_memory_repo)?;
 
         // materialize the merged objects.
         let new_head_id = merge.workspace_commit_id;
@@ -635,6 +627,9 @@ pub(crate) mod function {
         // For this we will need more flexibility, on-demand inference or
         // git-configuration based configuration, so there is always a fallback.
         meta.remove(workspace_ref_name)?;
+        // The project metadata ported to repo-local Git config mirrors the just-removed
+        // workspace metadata, so clear it as well or the deleted target would keep resolving.
+        ProjectMeta::remove_from_local_config(repo)?;
 
         let overlay = Overlay::default().with_entrypoint(
             ref_to_checkout.commit_id,
@@ -661,16 +656,11 @@ pub(crate) mod function {
         ws: &but_graph::Workspace,
         future_workspace_tips: &[crate::commit::merge::Tip],
         repo: &gix::Repository,
-        fallback_tip_id: Option<gix::ObjectId>,
     ) -> anyhow::Result<WorkspaceMergeAfterUnapply> {
         let mut tips = future_workspace_tips.to_vec();
         let report_workspace_merge = !tips.is_empty();
         if tips.is_empty() {
-            tips.push(base_tip_after_unapply(
-                ws,
-                future_workspace_tips,
-                fallback_tip_id,
-            )?);
+            tips.push(base_tip_after_unapply(ws, future_workspace_tips)?);
         }
         let outcome = WorkspaceCommit::from_new_merge_with_tips(tips, &ws.graph, repo, None)?;
         ensure_workspace_merge_has_no_conflicts(&outcome)?;
@@ -711,13 +701,8 @@ pub(crate) mod function {
     fn base_tip_after_unapply(
         ws: &but_graph::Workspace,
         future_workspace_tips: &[crate::commit::merge::Tip],
-        fallback_tip_id: Option<gix::ObjectId>,
     ) -> anyhow::Result<crate::commit::merge::Tip> {
-        let commit_id = commit_to_point_workspace_ref_to_after_unapply(
-            ws,
-            future_workspace_tips,
-            fallback_tip_id,
-        )?;
+        let commit_id = commit_to_point_workspace_ref_to_after_unapply(ws, future_workspace_tips)?;
         let segment_idx = ws
             .graph
             .segment_by_commit_id(commit_id)
@@ -838,14 +823,12 @@ pub(crate) mod function {
     fn commit_to_point_workspace_ref_to_after_unapply(
         ws: &but_graph::Workspace,
         future_workspace_tips: &[crate::commit::merge::Tip],
-        fallback_tip_id: Option<gix::ObjectId>,
     ) -> anyhow::Result<gix::ObjectId> {
         if let Some(tip) = future_workspace_tips.first() {
             return Ok(tip.commit_id);
         }
         ws.resolved_target_commit_id()
             .or(ws.lower_bound)
-            .or(fallback_tip_id)
             .context("Cannot determine commit for empty workspace after unapply")
     }
 

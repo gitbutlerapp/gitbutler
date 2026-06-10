@@ -802,7 +802,9 @@ impl Context {
     /// [`Self::set_default_target()`](Self::set_default_target).
     pub fn project_meta(&self) -> anyhow::Result<ProjectMeta> {
         let repo = self.repo.get()?;
-        ProjectMeta::resolve(&repo, &self.meta_inner_read_only()?)
+        // The legacy fallback opens a database and parses TOML - only pay for that
+        // when the repository wasn't ported to Git configuration yet.
+        ProjectMeta::resolve_with(&repo, || self.meta_inner_read_only())
     }
 
     /// Store project metadata in Git config and back-fill the legacy workspace metadata.

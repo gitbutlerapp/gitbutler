@@ -762,6 +762,82 @@ mod workspace {
 
 mod project_meta {
     use but_core::ref_metadata::ProjectMeta;
+    use but_testsupport::read_only_in_memory_scenario;
+
+    #[test]
+    fn malformed_target_ref_and_commit_id_read_as_none() -> anyhow::Result<()> {
+        let config = gix::config::File::try_from(
+            "[gitbutler \"project\"]\n\
+             \ttargetRef = origin/master\n\
+             \ttargetCommitId = not-a-commit-id\n\
+             \tpushRemote = upstream\n",
+        )?;
+
+        let actual = ProjectMeta::try_from_config(&config)?;
+        assert_eq!(
+            actual.target_ref, None,
+            "a target ref that isn't a full ref name is ignored instead of failing the whole read"
+        );
+        assert_eq!(
+            actual.target_commit_id, None,
+            "a target commit id that isn't a hexadecimal object id is ignored as well"
+        );
+        assert_eq!(
+            actual.push_remote.as_deref(),
+            Some("upstream"),
+            "well-formed values are still read despite malformed siblings"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn non_remote_target_ref_reads_as_none() -> anyhow::Result<()> {
+        let config = gix::config::File::try_from(
+            "[gitbutler \"project\"]\n\
+             \ttargetRef = refs/heads/main\n",
+        )?;
+
+        let actual = ProjectMeta::try_from_config(&config)?;
+        assert_eq!(
+            actual.target_ref, None,
+            "a target ref that isn't a remote tracking branch would wrongly be seeded as remote \
+             target tip, so it's ignored"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn push_remote_name_falls_back_to_textual_remote_name() -> anyhow::Result<()> {
+        let repo = read_only_in_memory_scenario("multiple-remotes-with-tracking-branches")?;
+
+        let meta = ProjectMeta {
+            target_ref: Some(gix::refs::FullName::try_from(
+                "refs/remotes/gone/release/1.x".to_owned(),
+            )?),
+            target_commit_id: None,
+            push_remote: None,
+        };
+        assert_eq!(
+            meta.push_remote_name(&repo)?,
+            "gone",
+            "with no matching configured remote and a slash in the branch name, \
+             the first path component after refs/remotes/ is used, like legacy metadata stored"
+        );
+
+        let meta = ProjectMeta {
+            target_ref: Some(gix::refs::FullName::try_from(
+                "refs/remotes/nested/remote/feature/a".to_owned(),
+            )?),
+            target_commit_id: None,
+            push_remote: None,
+        };
+        assert_eq!(
+            meta.push_remote_name(&repo)?,
+            "nested/remote",
+            "configured remotes remain the primary path so remote names containing '/' still work"
+        );
+        Ok(())
+    }
 
     #[test]
     fn null_target_commit_id_reads_as_none() -> anyhow::Result<()> {

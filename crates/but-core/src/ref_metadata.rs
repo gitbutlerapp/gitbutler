@@ -1,4 +1,5 @@
 use anyhow::{Context as _, Result, bail};
+use bstr::ByteSlice as _;
 use gix::refs::FullNameRef;
 use uuid::Uuid;
 
@@ -371,14 +372,32 @@ impl ProjectMeta {
 
     /// The name of the remote to push to: [`Self::push_remote`], falling back to the
     /// remote behind [`Self::target_ref`].
+    ///
+    /// If no configured remote matches the target ref, fall back to the first path component
+    /// after `refs/remotes/`, the textual remote name that legacy metadata stored verbatim.
     pub fn push_remote_name(&self, repo: &gix::Repository) -> Result<String> {
         if let Some(name) = self.push_remote.clone() {
             return Ok(name);
         }
         let target_ref = self.target_ref_or_err()?;
-        let (remote_name, _short_name) =
+        if let Some((remote_name, _short_name)) =
             extract_remote_name_and_short_name(target_ref.as_ref(), &repo.remote_names())
-                .with_context(|| format!("failed to determine remote for branch {target_ref}"))?;
+        {
+            return Ok(remote_name);
+        }
+        let (category, short_name) = target_ref
+            .category_and_short_name()
+            .with_context(|| format!("failed to determine remote for branch {target_ref}"))?;
+        if category != gix::refs::Category::RemoteBranch {
+            bail!("failed to determine remote for non remote-tracking branch {target_ref}");
+        }
+        let slash_pos = short_name.find_byte(b'/').with_context(|| {
+            format!("remote tracking branch {target_ref} didn't have '/' in its short name")
+        })?;
+        let remote_name = short_name[..slash_pos].to_str_lossy().into_owned();
+        tracing::warn!(
+            "remote '{remote_name}' of target ref {target_ref} is not configured in git config"
+        );
         Ok(remote_name)
     }
 
@@ -434,29 +453,69 @@ impl ProjectMeta {
         if Self::is_ported(&config) {
             return Self::try_from_config(&config);
         }
+        Self::from_legacy_meta(meta)
+    }
+
+    /// Like [`Self::resolve()`], but obtain the legacy metadata through `legacy_fallback` so it
+    /// is only constructed when the repository wasn't ported to Git configuration yet.
+    ///
+    /// Prefer this over [`Self::resolve()`] when creating the legacy metadata is costly.
+    pub fn resolve_with<M: crate::RefMetadata>(
+        repo: &gix::Repository,
+        legacy_fallback: impl FnOnce() -> anyhow::Result<M>,
+    ) -> anyhow::Result<Self> {
+        let config = git_config::open_repo_local_config_for_reading(repo)?;
+        if Self::is_ported(&config) {
+            return Self::try_from_config(&config);
+        }
+        Self::from_legacy_meta(&legacy_fallback()?)
+    }
+
+    fn from_legacy_meta(meta: &impl crate::RefMetadata) -> anyhow::Result<Self> {
         Ok(meta
             .workspace(crate::WORKSPACE_REF_NAME.try_into()?)?
             .project_meta())
     }
 
     /// Read project metadata from the given repository-local Git configuration.
+    ///
+    /// Malformed values are tolerated: a target ref that doesn't parse as a full ref name or
+    /// isn't a remote tracking branch, or a target commit id that isn't a valid object id, are
+    /// ignored with a warning so one bad hand-edited value doesn't make the project unusable.
+    /// Errors only surface where a target is actually required, like [`Self::target_ref_or_err()`].
     pub fn try_from_config(config: &gix::config::File<'_>) -> anyhow::Result<Self> {
-        let target_ref = config
-            .string(PROJECT_TARGET_REF)
-            .map(|value| {
-                gix::refs::FullName::try_from(value.as_ref()).with_context(|| {
-                    format!("failed to parse {PROJECT_TARGET_REF} as a full ref name")
-                })
-            })
-            .transpose()?;
+        let target_ref = config.string(PROJECT_TARGET_REF).and_then(|value| {
+            match gix::refs::FullName::try_from(value.as_ref()) {
+                Ok(name) if name.category() == Some(gix::refs::Category::RemoteBranch) => {
+                    Some(name)
+                }
+                Ok(name) => {
+                    tracing::warn!(
+                        "ignoring {PROJECT_TARGET_REF}: target ref {name} is not a remote tracking branch"
+                    );
+                    None
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        "ignoring {PROJECT_TARGET_REF} '{value}' that failed to parse as a full ref name: {err}"
+                    );
+                    None
+                }
+            }
+        });
         let target_commit_id = config
             .string(PROJECT_TARGET_COMMIT_ID)
-            .map(|value| {
-                gix::ObjectId::from_hex(value.as_ref()).with_context(|| {
-                    format!("failed to parse {PROJECT_TARGET_COMMIT_ID} as an object id")
-                })
-            })
-            .transpose()?
+            .and_then(
+                |value| match gix::ObjectId::from_hex(value.as_ref()) {
+                    Ok(id) => Some(id),
+                    Err(err) => {
+                        tracing::warn!(
+                            "ignoring {PROJECT_TARGET_COMMIT_ID} '{value}' that failed to parse as an object id: {err}"
+                        );
+                        None
+                    }
+                },
+            )
             // The null id is a placeholder for an unknown commit in storage that
             // cannot represent absence - interpret it as such.
             .filter(|id| !id.is_null());
@@ -473,6 +532,15 @@ impl ProjectMeta {
     /// Return whether project metadata has already been ported to Git config.
     pub fn is_ported(config: &gix::config::File<'_>) -> bool {
         matches!(config.boolean(PROJECT_PORTED_META), Some(Ok(true)))
+    }
+
+    /// Return whether project metadata has already been ported to the repository-local
+    /// Git configuration of `repo`, re-reading it from disk.
+    ///
+    /// This is the cheap way to check the ported marker without resolving any metadata.
+    pub fn is_ported_repo(repo: &gix::Repository) -> anyhow::Result<bool> {
+        let config = git_config::open_repo_local_config_for_reading(repo)?;
+        Ok(Self::is_ported(&config))
     }
 
     /// Persist project metadata to repository-local Git config and mark it as ported.
@@ -492,6 +560,25 @@ impl ProjectMeta {
             )?;
             set_or_remove(config, PROJECT_PUSH_REMOTE, self.push_remote.as_deref())?;
             git_config::set_config_value(config, PROJECT_PORTED_META, "true")?;
+            Ok(())
+        })?;
+        Ok(())
+    }
+
+    /// Remove all project metadata keys, including the ported marker, from the
+    /// repository-local Git configuration of `repo`.
+    ///
+    /// Afterwards [`Self::resolve()`] falls back to the legacy workspace metadata again.
+    pub fn remove_from_local_config(repo: &gix::Repository) -> anyhow::Result<()> {
+        git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
+            for key in [
+                PROJECT_TARGET_REF,
+                PROJECT_TARGET_COMMIT_ID,
+                PROJECT_PUSH_REMOTE,
+                PROJECT_PORTED_META,
+            ] {
+                git_config::remove_config_value(config, key)?;
+            }
             Ok(())
         })?;
         Ok(())

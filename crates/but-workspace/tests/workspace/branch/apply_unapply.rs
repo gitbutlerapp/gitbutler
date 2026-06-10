@@ -2689,6 +2689,19 @@ fn unapply_workspace_ref_without_target_checks_out_named_stack() -> anyhow::Resu
             └── ·f57c528 (🏘️)
     ");
 
+    // Simulate project metadata previously ported to repo-local Git config. Unapplying the
+    // workspace reference removes the workspace metadata and must clear this copy as well.
+    ref_metadata::ProjectMeta {
+        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_commit_id: Some(id_by_rev(&repo, "main").detach()),
+        push_remote: Some("origin".into()),
+    }
+    .persist_to_local_config(&repo)?;
+    assert!(
+        ref_metadata::ProjectMeta::is_ported_repo(&repo)?,
+        "the ported marker was just written to repo-local config"
+    );
+
     let out = but_workspace::branch::unapply(
         r("refs/heads/gitbutler/workspace"),
         &ws,
@@ -2721,6 +2734,17 @@ fn unapply_workspace_ref_without_target_checks_out_named_stack() -> anyhow::Resu
     |/  
     * 3183e43 (main) M1
     ");
+
+    let config = but_core::git_config::open_repo_local_config_for_reading(&repo)?;
+    assert_eq!(
+        ref_metadata::ProjectMeta::try_from_config(&config)?,
+        ref_metadata::ProjectMeta::default(),
+        "unapplying the workspace reference clears the ported project metadata copy"
+    );
+    assert!(
+        !ref_metadata::ProjectMeta::is_ported_repo(&repo)?,
+        "the ported marker is removed along with the other gitbutler.project.* keys"
+    );
     Ok(())
 }
 

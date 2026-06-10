@@ -854,25 +854,34 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 changed_target = true;
             }
             (target @ None, Some(new)) => {
-                // Without a commit id the null id is the only representable placeholder.
-                // Legacy consumers that resolve `default_target.sha` cannot handle it,
-                // so writers should provide a commit id whenever they have one.
-                *target = Some(Target {
-                    branch: new,
-                    remote_url: String::new(),
-                    sha: value
-                        .target_commit_id()
-                        .unwrap_or_else(|| gix::hash::Kind::Sha1.null()),
-                    push_remote_name: value.push_remote().map(ToOwned::to_owned),
-                });
-                changed_target = true;
+                // Without a commit id the null id would be the only representable placeholder,
+                // but legacy consumers that resolve `default_target.sha` cannot handle it.
+                // Leave the target unset until a writer provides a commit id.
+                match value.target_commit_id().filter(|id| !id.is_null()) {
+                    Some(sha) => {
+                        *target = Some(Target {
+                            branch: new,
+                            remote_url: String::new(),
+                            sha,
+                            push_remote_name: value.push_remote().map(ToOwned::to_owned),
+                        });
+                        changed_target = true;
+                    }
+                    None => {
+                        tracing::warn!(
+                            target_ref = %new,
+                            "Not persisting the default target without a commit id \
+                            to avoid a null sha in virtual_branches.toml"
+                        );
+                    }
+                }
             }
             (Some(existing), Some(new)) => {
                 if existing.branch != new {
                     existing.branch = new;
                     changed_target = true;
                 }
-                if let Some(new_id) = value.target_commit_id()
+                if let Some(new_id) = value.target_commit_id().filter(|id| !id.is_null())
                     && new_id != existing.sha
                 {
                     existing.sha = new_id;
