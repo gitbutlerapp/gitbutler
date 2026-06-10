@@ -1523,7 +1523,10 @@ fn generate_footer(for_pr_number: i64, all_pr_numbers: &[i64], symbol: &str) -> 
         .iter()
         .position(|&n| n == for_pr_number)
         .unwrap_or(0);
-    let nth = stack_length - stack_index;
+    // `all_pr_numbers` is ordered base-to-top, and the `<kbd>` labels below number
+    // the base as 1 and the top as `stack_length`. Number "part N" the same way so
+    // the two indicators agree (see #13362).
+    let nth = stack_index + 1;
 
     let mut footer = String::new();
     footer.push_str(STACKING_FOOTER_BOUNDARY_TOP);
@@ -1844,6 +1847,8 @@ mod tests {
 
         assert!(pr_100_line.contains("👈"));
         assert!(pr_100_line.contains("<kbd>&nbsp;1&nbsp;</kbd>"));
+        // The base PR is "part 1", agreeing with its `<kbd>&nbsp;1&nbsp;</kbd>` label.
+        assert!(footer.contains("part 1 of 3 in a stack"));
     }
 
     #[test]
@@ -1856,6 +1861,8 @@ mod tests {
 
         assert!(pr_102_line.contains("👈"));
         assert!(pr_102_line.contains("<kbd>&nbsp;3&nbsp;</kbd>"));
+        // The top PR is "part 3", agreeing with its `<kbd>&nbsp;3&nbsp;</kbd>` label.
+        assert!(footer.contains("part 3 of 3 in a stack"));
     }
 
     #[test]
@@ -1885,7 +1892,8 @@ mod tests {
         let all_prs: Vec<i64> = (1..=10).collect();
         let footer = generate_footer(5, &all_prs, "#");
 
-        assert!(footer.contains("part 6 of 10 in a stack"));
+        // #5 is the 5th from the base, so it is "part 5" (matching its `<kbd>` label).
+        assert!(footer.contains("part 5 of 10 in a stack"));
 
         // Verify all PRs are listed
         for pr in &all_prs {
