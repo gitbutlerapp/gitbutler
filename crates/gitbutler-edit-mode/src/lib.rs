@@ -19,7 +19,7 @@ use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt as _};
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr};
 use gitbutler_operating_modes::{
     EDIT_BRANCH_REF, EditModeMetadata, INTEGRATION_BRANCH_REF, OperatingMode, WORKSPACE_BRANCH_REF,
-    operating_mode, read_edit_mode_metadata, write_edit_mode_metadata,
+    delete_edit_mode_metadata, operating_mode, read_edit_mode_metadata, write_edit_mode_metadata,
 };
 use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
 use gix::prelude::ObjectIdExt as _;
@@ -252,6 +252,23 @@ pub(crate) fn enter_edit_mode(
     Ok(edit_mode_metadata)
 }
 
+/// Remove the references and metadata that [`enter_edit_mode`] created.
+///
+/// `HEAD` must already point back at the workspace branch before this is called, otherwise
+/// deleting [`EDIT_BRANCH_REF`] would leave `HEAD` dangling.
+fn cleanup_edit_mode(ctx: &Context, repo: &gix::Repository) -> Result<()> {
+    for ref_name in [EDIT_BRANCH_REF, UNCOMMITTED_CHANGES_REF] {
+        // Tolerate an already-absent ref, but surface real lookup failures.
+        if let Some(reference) = repo.try_find_reference(ref_name)? {
+            reference
+                .delete()
+                .with_context(|| format!("Failed to delete reference {ref_name}"))?;
+        }
+    }
+    delete_edit_mode_metadata(ctx)?;
+    Ok(())
+}
+
 pub(crate) fn abort_and_return_to_workspace(
     ctx: &Context,
     force: bool,
@@ -277,6 +294,8 @@ pub(crate) fn abort_and_return_to_workspace(
         uncommited_changes.as_object(),
         Some(CheckoutBuilder::new().force().remove_untracked(true)),
     )?;
+
+    cleanup_edit_mode(ctx, &*ctx.repo.get()?)?;
 
     Ok(())
 }
@@ -384,6 +403,8 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
             "evolution-parent",
             &edit_mode_metadata.commit_oid.to_hex().to_string(),
         )?;
+
+    cleanup_edit_mode(ctx, repo)?;
 
     Ok(())
 }

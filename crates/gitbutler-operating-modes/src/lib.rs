@@ -59,6 +59,16 @@ pub fn write_edit_mode_metadata(
     Ok(())
 }
 
+#[doc(hidden)]
+pub fn delete_edit_mode_metadata(ctx: &Context) -> Result<()> {
+    match fs::remove_file(edit_mode_metadata_path(ctx).as_path()) {
+        Ok(()) => Ok(()),
+        // Already gone - nothing to clean up.
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(err).context("Failed to delete edit mode metadata"),
+    }
+}
+
 /// Holds relevant state required to switch to and from edit mode
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
