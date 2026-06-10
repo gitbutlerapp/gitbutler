@@ -112,10 +112,7 @@
 	& :where([data-icon]) {
 		opacity: 0.6;
 	}
-}
 
-.ghost,
-.outline {
 	&:not(:disabled, [data-disabled]):hover :where([data-icon]) {
 		opacity: 0.8;
 	}
@@ -128,12 +125,7 @@
 	& :where([data-icon]) {
 		opacity: 0.7;
 	}
-}
 
-.pop,
-.gray,
-.inverted,
-.danger {
 	&:not(:disabled, [data-disabled]):hover :where([data-icon]) {
 		opacity: 0.9;
 	}
