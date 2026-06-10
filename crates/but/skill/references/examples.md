@@ -200,51 +200,7 @@ but commit bv -m "Add dialog component" --changes <id> # To frontend
 
 **Key point:** branch stack moves use branch **names** (like `feature/frontend`) or branch CLI IDs. Commit reordering still uses commit IDs.
 
-## Example 6: Using Marks for Focused Work
-
-**Scenario:** Working on a large refactor, want all changes to automatically assign to that branch.
-
-```bash
-# 1. Create refactor branch
-but branch new refactor
-
-# 2. Mark it for auto-assignment
-but mark bu    # Branch bu (refactor) is now marked
-
-# 3. Make changes across many files
-# (edit 20 different files)
-
-# 4. All changes automatically assigned to refactor branch
-but status -fv  # Shows all changes assigned to bu
-
-# 5. Commit the changes assigned to the branch
-but commit bu --only -m "Refactor error handling across app"
-
-# 6. Remove mark
-but unmark
-```
-
-**Alternative: Mark a commit for auto-amend**
-
-```bash
-# 1. Create empty commit as placeholder
-but commit empty
-but reword <empty-commit-id> -m "TODO: Add error handling"
-
-# 2. Mark it
-but mark c5    # Commit c5 is now marked
-
-# 3. Make changes - they auto-amend into c5
-# (edit files)
-
-# 4. Check result
-but show c5    # Shows accumulated changes
-
-# 5. Remove mark when done
-but unmark
-```
-
-## Example 7: Conflict Resolution
+## Example 6: Conflict Resolution
 
 **Scenario:** After `but pull`, conflicts appear in a commit.
 
@@ -291,7 +247,7 @@ but resolve finish
 # Back to normal workspace mode
 ```
 
-## Example 8: Complete Feature Development Workflow
+## Example 7: Complete Feature Development Workflow
 
 **Scenario:** Building a complete feature from start to finish.
 
@@ -336,7 +292,7 @@ but pr new bu
 but pull
 ```
 
-## Example 9: Working with Applied/Unapplied Branches
+## Example 8: Working with Applied/Unapplied Branches
 
 **Scenario:** Have 3 branches, but two are causing conflicts. Temporarily unapply them.
 
@@ -370,7 +326,7 @@ but apply feature-c
 but resolve ...
 ```
 
-## Example 10: Fixing History Before Pushing
+## Example 9: Fixing History Before Pushing
 
 **Scenario:** Made several commits, realized you need to reword messages and reorder.
 
@@ -408,7 +364,7 @@ but squash c2 c3    # Combine error handling commits
 but push bu
 ```
 
-## Example 11: Daily Development Workflow
+## Example 10: Daily Development Workflow
 
 **Typical day working with GitButler:**
 
@@ -450,7 +406,7 @@ but absorb bu          # Absorb all changes assigned to bu
 but push bu        # Push updated history
 ```
 
-## Example 12: Recovering from Mistakes
+## Example 11: Recovering from Mistakes
 
 **Scenario:** Made changes you didn't mean to, need to undo.
 

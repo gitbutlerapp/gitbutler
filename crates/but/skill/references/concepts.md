@@ -194,52 +194,15 @@ but commit empty --after c3
 **Use cases:**
 
 1. **Mark future work:** Create empty commit as placeholder for changes you'll make
-2. **Mark targets:** Use with `but mark <empty-commit-id>` so future changes auto-amend into it
-3. **Organize history:** Add semantic markers in commit history
+2. **Organize history:** Add semantic markers in commit history
 
 Example workflow:
 
 ```bash
 but commit empty --before c5
 but reword <empty-commit-id> -m "TODO: Add error handling"
-but mark <empty-commit-id>
-# Now work on error handling, changes auto-amend into the placeholder
-```
-
-## Auto-Assignment and Auto-Commit (Marks)
-
-Set a "mark" on a branch or commit to automatically organize new changes.
-
-### Mark a Branch
-
-```bash
-but mark <branch-id>
-```
-
-New unassigned changes automatically assign to this branch. Useful when focused on one feature.
-
-### Mark a Commit
-
-```bash
-but mark <commit-id>
-```
-
-New changes automatically amend into this commit. Useful for iterative refinement.
-
-### Remove Marks
-
-```bash
-but mark <id> --delete    # Remove specific mark
-but unmark                # Remove all marks
-```
-
-**Example workflow:**
-
-```bash
-but branch new refactor
-but mark <refactor-branch-id>
-# Make lots of changes - they all auto-assign to refactor branch
-but unmark
+# Later, amend the error handling changes into the placeholder
+but amend <file-id> <empty-commit-id>
 ```
 
 ## Operation History (Oplog)

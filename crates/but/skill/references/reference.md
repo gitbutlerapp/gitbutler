@@ -10,7 +10,6 @@ Agent-focused reference for useful `but` commands.
 - [Editing History](#editing-history) - `rub`, `squash`, `amend`, `move`, `uncommit`, `reword`, `discard`
 - [Conflict Resolution](#conflict-resolution) - `resolve`
 - [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `merge`
-- [Automation](#automation) - `mark`, `unmark`
 - [Workspace Maintenance](#workspace-maintenance) - `clean`
 - [History & Undo](#history--undo) - `undo`, `oplog`
 - [Setup & Configuration](#setup--configuration) - `setup`, `teardown`, `config`, `update`, `skill`, `gui`
@@ -425,28 +424,6 @@ but merge <branch-id>
 ```
 
 Merges into local target branch, then runs `but pull` to update.
-
-## Automation
-
-### `but mark <target>`
-
-Auto-assign or auto-commit new changes.
-
-```bash
-but mark <branch-id>          # New unassigned changes auto-assign to this branch
-but mark <commit-id>          # New changes auto-amend into this commit
-but mark <id> --delete        # Remove the mark
-```
-
-### `but unmark`
-
-Remove all marks.
-
-```bash
-but unmark
-```
-
-Use marks when working on a focused area to automatically organize changes.
 
 ## Workspace Maintenance
 
