@@ -124,6 +124,17 @@ export declare function commitDetailsWithLineStats(projectId: string, commitId: 
 export declare function commitDiscard(projectId: string, subjectCommitId: string, dryRun: boolean): Promise<CommitDiscardResult>
 
 /**
+ * Discard specific changes from `commit_id`, removing them from the commit
+ * and the workspace.
+ *
+ * Unlike [`super::uncommit::commit_uncommit_changes()`], the selected changes
+ * are not surfaced as uncommitted workspace modifications. When `dry_run` is
+ * enabled, the returned workspace previews the discard and no oplog entry is
+ * persisted. See [`commit_discard_changes_with_perm()`] for details.
+ */
+export declare function commitDiscardChanges(projectId: string, commitId: string, changes: Array<DiffSpec>, dryRun: boolean): Promise<MoveChangesResult>
+
+/**
  * Inserts a blank commit on `side` of `relative_to` and records an oplog
  * snapshot on success.
  *
