@@ -2123,11 +2123,12 @@ const StackRow: FC<
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const unapplyStackMutation = useUnapplyStack();
-	const rebaseStackMutation = useRebaseStack({ projectId });
 	const unapply = () => {
 		// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
 		unapplyStackMutation.mutate({ projectId, stackId: stack.id! });
 	};
+
+	const rebaseStackMutation = useRebaseStack({ projectId });
 	const rebase = () => {
 		if (rebaseUpdate) rebaseStackMutation.mutate([rebaseUpdate]);
 	};
