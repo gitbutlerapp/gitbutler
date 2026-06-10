@@ -1523,7 +1523,7 @@ fn generate_footer(for_pr_number: i64, all_pr_numbers: &[i64], symbol: &str) -> 
         .iter()
         .position(|&n| n == for_pr_number)
         .unwrap_or(0);
-    let nth = stack_length - stack_index;
+    let nth = stack_index + 1;
 
     let mut footer = String::new();
     footer.push_str(STACKING_FOOTER_BOUNDARY_TOP);
@@ -1885,11 +1885,34 @@ mod tests {
         let all_prs: Vec<i64> = (1..=10).collect();
         let footer = generate_footer(5, &all_prs, "#");
 
-        assert!(footer.contains("part 6 of 10 in a stack"));
+        assert!(footer.contains("part 5 of 10 in a stack"));
 
         // Verify all PRs are listed
         for pr in &all_prs {
             assert!(footer.contains(&format!("#{pr}")));
+        }
+    }
+
+    #[test]
+    fn test_footer_part_number_matches_position_badge() {
+        let all_prs = vec![100, 101, 102, 103, 104];
+        for (idx, &pr) in all_prs.iter().enumerate() {
+            let footer = generate_footer(pr, &all_prs, "#");
+            let position = idx + 1;
+
+            assert!(
+                footer.contains(&format!("part {position} of {}", all_prs.len())),
+                "PR #{pr} (base position {position}) should be \"part {position}\":\n{footer}"
+            );
+
+            let current_line = footer
+                .lines()
+                .find(|l| l.contains(&format!("#{pr}")) && l.contains("👈"))
+                .unwrap_or_else(|| panic!("no current line for #{pr}:\n{footer}"));
+            assert!(
+                current_line.contains(&format!("<kbd>&nbsp;{position}&nbsp;</kbd>")),
+                "PR #{pr} badge should be {position}:\n{current_line}"
+            );
         }
     }
 

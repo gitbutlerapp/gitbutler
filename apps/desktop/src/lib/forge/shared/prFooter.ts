@@ -152,7 +152,7 @@ function clearFooter(body: string | undefined) {
 /**
  * Generates a footer for use in pull request descriptions when part of a stack.
  */
-function generateFooter(forPrNumber: number, allPrNumbers: number[], symbol: string) {
+export function generateFooter(forPrNumber: number, allPrNumbers: number[], symbol: string) {
 	const stackLength = allPrNumbers.length;
 	const stackIndex = allPrNumbers.findIndex((number) => number === forPrNumber);
 	const nth = stackLength - stackIndex;
