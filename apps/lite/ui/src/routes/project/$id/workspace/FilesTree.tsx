@@ -191,7 +191,7 @@ export const FilesTree: FC<
 					) : (
 						<div role="group">
 							{items.map((item) => (
-								<FileTreeRow
+								<FileRow
 									key={fileOperandIdentityKey(item.operand)}
 									item={item}
 									onFileSelection={onFileSelection}
@@ -279,7 +279,7 @@ const statusLabel = (status: TreeStatus): string =>
 		Match.exhaustive,
 	);
 
-const FileTreeRow: FC<{
+const FileRow: FC<{
 	item: FileTreeItem;
 	onFileSelection: (selection: FileOperand) => void;
 	projectId: string;
