@@ -24,11 +24,12 @@
 		"build:electron": "tsgo -p electron/tsconfig.json",
 		"check": "tsgo -p ui/tsconfig.json --noEmit && tsgo -p electron/tsconfig.json --noEmit",
 		"test": "vitest run --config ui/vitest.config.ts --passWithNoTests",
-		"bundle": "pnpm build && electron-builder",
+		"bundle": "pnpm build && pnpm prepare-askpass && electron-builder",
 		"bundle-local": "CHANNEL=${CHANNEL:-} pnpm -F @gitbutler/but-sdk build && CHANNEL=${CHANNEL:-} pnpm bundle -c.mac.entitlements=resources/entitlements.mac.local.plist -c.mac.entitlementsInherit=resources/entitlements.mac.local.plist",
 		"bundle-local-nightly": "CHANNEL=nightly pnpm -F @gitbutler/but-sdk build:release && CHANNEL=nightly pnpm bundle -c.mac.entitlements=resources/entitlements.mac.local.plist -c.mac.entitlementsInherit=resources/entitlements.mac.local.plist",
 		"demos": "storybook dev --no-open -p 6007",
-		"optimize-icons": "node scripts/optimize-icons.mjs"
+		"optimize-icons": "node scripts/optimize-icons.mjs",
+		"prepare-askpass": "node scripts/prepare-askpass.mjs"
 	},
 	"build": {
 		"appId": "com.gitbutler.lite",
@@ -52,10 +53,12 @@
 		"extraFiles": [
 			{
 				"from": "resources/bin",
-				"to": ".",
+				"to": "bin",
 				"filter": [
 					"but",
-					"but.exe"
+					"but.exe",
+					"gitbutler-git-askpass",
+					"gitbutler-git-askpass.exe"
 				]
 			}
 		],

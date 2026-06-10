@@ -32,6 +32,7 @@ import type {
 	UncommitResult,
 	RestoreKind,
 	Snapshot,
+	AskpassPromptEvent,
 } from "@gitbutler/but-sdk";
 import type { UpdateDownloadedEvent } from "electron-updater";
 
@@ -48,6 +49,11 @@ export interface AbsorptionPlanParams {
 export interface ApplyParams {
 	projectId: string;
 	existingBranch: string;
+}
+
+export interface AskpassSubmitPromptResponseParams {
+	id: string;
+	response: string | null;
 }
 
 export interface AssignHunkParams {
@@ -263,6 +269,8 @@ export interface LiteElectronApi {
 	absorptionPlan: (params: AbsorptionPlanParams) => Promise<Array<CommitAbsorption>>;
 	absorb: (params: AbsorbParams) => Promise<number>;
 	apply: (params: ApplyParams) => Promise<ApplyOutcome>;
+	onAskpassPrompt: (callback: (event: AskpassPromptEvent) => void) => () => void;
+	submitAskpassPromptResponse: (params: AskpassSubmitPromptResponseParams) => Promise<void>;
 	assignHunk: (params: AssignHunkParams) => Promise<void>;
 	branchDetails: (params: BranchDetailsParams) => Promise<BranchDetails>;
 	branchDiff: (params: BranchDiffParams) => Promise<TreeChanges>;
@@ -314,6 +322,8 @@ export const liteIpcChannels = {
 	absorptionPlan: "workspace:absorption-plan",
 	absorb: "workspace:absorb",
 	apply: "workspace:apply",
+	askpassPrompt: "askpass:prompt",
+	askpassSubmitResponse: "askpass:submit-response",
 	assignHunk: "workspace:assign-hunk",
 	branchDetails: "workspace:branch-details",
 	branchDiff: "workspace:branch-diff",

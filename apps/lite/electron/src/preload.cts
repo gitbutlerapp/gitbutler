@@ -26,6 +26,7 @@ import type {
 	WorkspaceState,
 	UncommitResult,
 	Snapshot,
+	AskpassPromptEvent,
 } from "@gitbutler/but-sdk";
 
 /**
@@ -47,6 +48,15 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:absorption-plan", params) as Promise<Array<CommitAbsorption>>,
 	absorb: (params) => ipcRenderer.invoke("workspace:absorb", params) as Promise<number>,
 	apply: (params) => ipcRenderer.invoke("workspace:apply", params) as Promise<ApplyOutcome>,
+	onAskpassPrompt: (callback) => {
+		const listener = (_event: Electron.IpcRendererEvent, payload: AskpassPromptEvent) => {
+			callback(payload);
+		};
+		ipcRenderer.on("askpass:prompt", listener);
+		return () => ipcRenderer.removeListener("askpass:prompt", listener);
+	},
+	submitAskpassPromptResponse: (params) =>
+		ipcRenderer.invoke("askpass:submit-response", params) as Promise<void>,
 	assignHunk: (params) => ipcRenderer.invoke("workspace:assign-hunk", params) as Promise<void>,
 	branchDetails: (params) =>
 		ipcRenderer.invoke("workspace:branch-details", params) as Promise<BranchDetails>,

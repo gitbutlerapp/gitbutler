@@ -14,6 +14,8 @@
 
 use std::{
     collections::HashMap,
+    error::Error,
+    fmt,
     sync::{Arc, OnceLock},
 };
 
@@ -30,9 +32,31 @@ static GLOBAL_ASKPASS_BROKER: OnceLock<Option<AskpassBroker>> = OnceLock::new();
 /// needs to be used (currently only needed for GUI functionality). Otherwise, call [`disable`] at
 /// startup instead.
 pub fn init(submit_prompt: impl Fn(PromptEvent<Context>) + Send + Sync + 'static) {
+    try_init(submit_prompt).unwrap_or_else(|_| panic!("broker already configured"));
+}
+
+/// The askpass broker has already been explicitly initialized or disabled.
+#[derive(Debug, Clone, Copy)]
+pub struct BrokerAlreadyConfigured;
+
+impl fmt::Display for BrokerAlreadyConfigured {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("broker already configured")
+    }
+}
+
+impl Error for BrokerAlreadyConfigured {}
+
+/// Fallibly initialize the global askpass broker.
+///
+/// This is useful for runtime bindings that need to report startup errors to their host instead of
+/// panicking across an FFI boundary.
+pub fn try_init(
+    submit_prompt: impl Fn(PromptEvent<Context>) + Send + Sync + 'static,
+) -> Result<(), BrokerAlreadyConfigured> {
     GLOBAL_ASKPASS_BROKER
         .set(Some(AskpassBroker::init(submit_prompt)))
-        .unwrap_or_else(|_| panic!("broker already configured"))
+        .map_err(|_| BrokerAlreadyConfigured)
 }
 
 /// Explicitly disable the global askpass broker.
@@ -56,10 +80,14 @@ pub fn disable() {
 /// as a consequence. For example, if not initialized for the GUI, the prompt may show up in the
 /// terminal that started the GUI.
 pub fn get_broker() -> Option<AskpassBroker> {
-    match GLOBAL_ASKPASS_BROKER.get() {
-        Some(broker_state) => broker_state.to_owned(),
-        None => panic!("broker has not been configured"),
-    }
+    try_get_broker().unwrap_or_else(|| panic!("broker has not been configured"))
+}
+
+/// Fallibly get the global askpass broker state.
+///
+/// Returns `None` if neither [`init`], [`try_init`], nor [`disable`] has configured the broker.
+pub fn try_get_broker() -> Option<Option<AskpassBroker>> {
+    GLOBAL_ASKPASS_BROKER.get().cloned()
 }
 
 struct AskpassRequest {
@@ -105,9 +133,9 @@ pub struct AskpassBroker {
 /// A prompt emitted to the application so it can provide a response.
 #[derive(Debug, Clone, Serialize)]
 pub struct PromptEvent<C: Serialize + Clone> {
-    id: AskpassRequestId,
-    prompt: String,
-    context: C,
+    pub id: AskpassRequestId,
+    pub prompt: String,
+    pub context: C,
 }
 
 impl AskpassBroker {
@@ -141,5 +169,20 @@ impl AskpassBroker {
         } else {
             tracing::warn!("received response for unknown askpass request: {id}");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn try_init_reports_duplicate_configuration() {
+        super::try_init(|_| {}).expect("first broker init should succeed");
+
+        let err = super::try_init(|_| {}).expect_err("second broker init should fail");
+        assert_eq!(
+            err.to_string(),
+            "broker already configured",
+            "duplicate init should be reported without panicking"
+        );
     }
 }

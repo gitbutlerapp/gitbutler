@@ -72,9 +72,11 @@ Electron + React (Vite) + TanStack Router scaffold.
 - `pnpm --filter @gitbutler/lite dev`: run Vite + Electron
 - `pnpm --filter @gitbutler/lite build`: build renderer and Electron code
 - `pnpm --filter @gitbutler/lite check`: TypeScript checks for both targets
+- `pnpm --filter @gitbutler/lite prepare-askpass`: build `gitbutler-git-askpass` and copy it to `resources/bin` for credential prompts
 - `pnpm --filter @gitbutler/lite bundle-local`: build and package with Electron Builder locally
   - On macOS, this is ad-hoc signed and not notarized, so you may need to jump through some hoops to actually run the app.
   - To test the auto-updater, the `-dev` suffix on the version in `package.json` must be removed
+  - The `gitbutler-git-askpass` helper is built and bundled automatically so Git credentials can be requested inside Lite.
   - The `but` CLI is _not_ bundled automatically with this script as there's no known case where it needs to be tested. For it to be bundled, you must manually place a `but` binary in `./resources/bin/but`.
 - `pnpm --filter @gitbutler/lite bundle-local-nightly`: build and package with Electron Builder locally, using production-like settings
   - Same as `bundle-local`, but slower to build as it builds with release optimizations
@@ -99,6 +101,8 @@ No app-local ESLint config is added. The monorepo root flat config in `eslint.co
 4. **Renderer** calls `window.lite.*` and never imports or calls native bindings directly.
 
 This keeps native module access in privileged code while preserving end-to-end TypeScript safety in the renderer.
+
+Lite initializes the Rust askpass broker in Electron main and forwards prompts through the preload bridge to a renderer dialog. Local development that exercises authenticated Git operations requires `pnpm --filter @gitbutler/lite prepare-askpass` before `pnpm --filter @gitbutler/lite dev`. Bundle/package scripts run this automatically.
 
 ## Future evolution points
 
