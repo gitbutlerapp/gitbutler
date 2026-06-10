@@ -29,11 +29,11 @@ import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Array, Match } from "effect";
 import { ComponentProps, createContext, FC, use, useRef } from "react";
 import styles from "./FilesTree.module.css";
-import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import {
-	WorkspaceItemRowLabel,
 	WorkspaceItemRow,
 	WorkspaceItemRowEmpty,
+	WorkspaceItemRowIconButton,
+	WorkspaceItemRowLabel,
 	WorkspaceItemRowToolbar,
 	WorkspaceSection,
 } from "./WorkspaceItemRow.tsx";
@@ -475,13 +475,11 @@ const FileRow: FC<
 							onClick={(event) => {
 								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 							}}
-							className={classes(
-								workspaceItemRowStyles.itemRowIconButton,
-								getButtonClassName({
-									variant: isSelected ? "inverted" : "ghost",
-									size: "small",
-								}),
-							)}
+							className={getButtonClassName({
+								variant: isSelected ? "inverted" : "ghost",
+								size: "small",
+							})}
+							render={<WorkspaceItemRowIconButton />}
 						>
 							<Icon name="kebab" />
 						</Toolbar.Button>
@@ -491,17 +489,18 @@ const FileRow: FC<
 								(item) =>
 									item.dependencyCommitIds && (
 										<Toolbar.Button
-											className={classes(
-												workspaceItemRowStyles.itemRowIconButton,
-												getButtonClassName({
-													variant: isSelected ? "inverted" : "ghost",
-													size: "small",
-												}),
-											)}
+											className={getButtonClassName({
+												variant: isSelected ? "inverted" : "ghost",
+												size: "small",
+											})}
 											render={
-												<DependencyIndicator
-													projectId={projectId}
-													commitIds={item.dependencyCommitIds}
+												<WorkspaceItemRowIconButton
+													render={
+														<DependencyIndicator
+															projectId={projectId}
+															commitIds={item.dependencyCommitIds}
+														/>
+													}
 												/>
 											}
 										>

@@ -81,3 +81,15 @@ export const WorkspaceItemRowToolbar: FC<{ forceVisible?: boolean } & ComponentP
 		)}
 	/>
 );
+
+export const WorkspaceItemRowIconButton: FC<useRender.ComponentProps<"button">> = ({
+	render,
+	...props
+}) =>
+	useRender({
+		render,
+		defaultTagName: "button",
+		props: mergeProps<"button">(props, {
+			className: styles.itemRowIconButton,
+		}),
+	});
