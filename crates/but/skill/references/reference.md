@@ -153,7 +153,6 @@ If no target is specified and multiple branches exist, prompts for selection int
 Commit changes to a branch.
 
 ```bash
-but commit <branch> --only -m "message"  # Commit ONLY changes assigned to the branch
 but commit <branch> -m "message"         # Commit ALL uncommitted changes to branch
 but commit <branch> -am "message"        # Accepted Git muscle-memory form; -a is a no-op
 but commit <branch> -m "message" --changes <id>,<id>  # Commit specific files or hunks by CLI ID
@@ -167,14 +166,12 @@ but commit empty --before <target>       # Insert empty commit before target
 but commit empty --after <target>        # Insert empty commit after target
 ```
 
-**Important:** Without `--only`, ALL uncommitted changes are committed to the branch, not just the changes assigned to it. Use `--only` when specific changes are assigned to the branch and you want to commit only those.
+**Important:** Plain `but commit <branch> -m` commits ALL uncommitted changes to the branch. Use `--changes` to commit only specific files or hunks.
 
 **Committing specific files or hunks:** Use `--changes` (or `-p`) with comma-separated CLI IDs to commit only those files or hunks:
 - **File IDs** from `but status`: commits entire files
 - **Hunk IDs** from `but diff`: commits individual hunks
 - `--changes` takes one argument per flag. Use `--changes a1,b2` or `--changes a1 --changes b2`, not `--changes a1 b2`.
-
-**Note:** `--changes` and `--only` are mutually exclusive.
 
 **Creating branches on commit:** Use `-c` / `--create` to create a new branch for the commit. If the branch name matches an existing branch, that branch is used instead.
 
@@ -220,22 +217,7 @@ but rub <file-in-commit> zz  # Uncommit specific file from its commit
 but rub <file-in-commit> <commit>  # Move file from one commit to another
 ```
 
-The core "rub two things together" operation.
-
-**Full operations matrix:**
-
-```
-SOURCE ↓ / TARGET →  │ zz (unassigned) │ Commit     │ Branch      │ Stack
-─────────────────────┼─────────────────┼────────────┼─────────────┼────────────
-File/Hunk            │ Unassign        │ Amend      │ Assign      │ Assign
-Commit               │ Undo            │ Squash     │ Move        │ -
-Branch (all changes) │ Unassign all    │ Amend all  │ Reassign    │ Reassign
-Stack (all changes)  │ Unassign all    │ -          │ Reassign    │ Reassign
-Unassigned (zz)      │ -               │ Amend all  │ Assign all  │ Assign all
-File-in-Commit       │ Uncommit        │ Move       │ Uncommit to │ -
-```
-
-`zz` is a special target meaning "unassigned" (no branch).
+The core "rub two things together" operation. `zz` is a special target meaning "unassigned" (no branch).
 
 ### `but squash <commits>`
 

@@ -110,13 +110,13 @@ but move feature/logging zz
 
 A **dependency lock** occurs when a file was originally committed on branch A, but you're trying to commit changes to it on branch B. Symptoms:
 - `but commit` succeeds but the file still appears in `unassignedChanges` in the returned status
-- The file shows as "unassigned" instead of being assigned to any branch
+- The file still shows as "unassigned" in the status output
 
 **Recovery:** Stack your branch on the dependency branch, then commit:
 
 1. `but status -fv` — identify which branch originally owns the file (check commit history).
 2. `but move <your-branch-name> <dependency-branch-name>` — stack your branch on the dependency. Uses full branch **names**, not CLI IDs.
-3. `but status -fv` — the file should now be assignable. Commit it.
+3. `but status -fv` — the file should now be committable. Commit it.
 4. `but commit <branch> -m "<msg>" --changes <id>`
 
 **If `but move <branch> <target-branch>` fails:** Do NOT try `uncommit`, `squash`, or `undo` to work around it — these will leave the workspace in a worse state. Instead, re-run `but status -fv` to confirm both branches still exist and are applied, then retry with exact branch names from the status output.

@@ -91,7 +91,7 @@ but status -fv
 #   c3: Implement feature logic
 #   c2: Add feature tests
 # Uncommitted:
-#   a1: fix-typo.js (assigned to bu)
+#   a1: fix-typo.js
 
 # 2. Preview what absorb would do (recommended first step)
 but absorb a1 --dry-run    # Shows where a1 would be absorbed
@@ -429,7 +429,7 @@ but oplog
 # Output:
 # s5: squash branch bu
 # s4: commit bu "message"
-# s3: assign files to bu
+# s3: amend a1 into c2
 # s2: create branch bu
 # s1: pull from remote
 

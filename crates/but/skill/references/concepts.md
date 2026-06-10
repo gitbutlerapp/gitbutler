@@ -122,27 +122,14 @@ but move feature/frontend zz
 
 The operation performed depends on what you combine:
 
-```
-SOURCE ↓ / TARGET →  │ zz (unassigned) │ Commit     │ Branch      │ Stack
-─────────────────────┼─────────────────┼────────────┼─────────────┼────────────
-File/Hunk            │ Unassign        │ Amend      │ Assign      │ Assign
-Commit               │ Undo            │ Squash     │ Move        │ -
-Branch (all changes) │ Unassign all    │ Amend all  │ Reassign    │ Reassign
-Stack (all changes)  │ Unassign all    │ -          │ Reassign    │ Reassign
-Unassigned (zz)      │ -               │ Amend all  │ Assign all  │ Assign all
-File-in-Commit       │ Uncommit        │ Move       │ Uncommit & assign │ -
-```
-
-`zz` is a special target meaning "unassigned" (no branch).
-
-**Common examples:**
-
 | Source | Target | Operation              | Example         |
 | ------ | ------ | ---------------------- | --------------- |
 | File   | Commit | Amend file into commit | `but rub a1 c3` |
 | Commit | Commit | Squash commits         | `but rub c2 c3` |
 | Commit | Branch | Move commit to branch  | `but rub c2 bu` |
 | Commit | `zz`   | Undo commit            | `but rub c2 zz` |
+
+`zz` is a special target meaning "unassigned" (no branch).
 
 ### Higher-Level Conveniences
 
@@ -213,7 +200,6 @@ Every operation in GitButler is recorded in the oplog (operation log).
 
 - Branch creation/deletion
 - Commits
-- Assignment operations
 - Rub/squash/move operations
 - Push/pull operations
 
@@ -298,7 +284,7 @@ Git commands that don't modify state are safe to use:
 **Don't use in a GitButler workspace:**
 
 - `git status` - Misleading: shows merged workspace state, not individual stacks; missing CLI IDs that agents need
-- `git commit` - Commits to wrong place (bypasses branch assignment)
+- `git commit` - Commits to the workspace merge commit, not your branch
 - `git checkout` - Breaks workspace model
 - `git rebase` - Conflicts with GitButler's management
 - `git merge` - Use `but merge` instead
