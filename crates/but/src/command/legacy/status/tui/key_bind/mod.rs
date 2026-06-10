@@ -462,7 +462,6 @@ impl KeyBindsBuilder<'_> {
     fn undo(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind("undo", press().code(KeyCode::Char('u')), Message::Undo)
             .show_only_in_normal_mode_help_section()
-            .hide_from_hotbar()
             .long_description("Undo the last operation")
     }
 
