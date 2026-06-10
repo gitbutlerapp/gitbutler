@@ -20,6 +20,12 @@ export class ChecksMonitor {
 			{
 				transform: (result) => parseChecks(result),
 				...options,
+				// Refresh checks when the user refocuses the window or reconnects.
+				subscriptionOptions: {
+					refetchOnFocus: true,
+					refetchOnReconnect: true,
+					...options?.subscriptionOptions,
+				},
 			},
 		);
 	}
