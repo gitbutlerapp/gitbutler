@@ -51,7 +51,6 @@ import { assert } from "#ui/assert.ts";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
-import { getButtonClassName } from "#ui/components/Button.tsx";
 import { NonEmptyArray } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 
@@ -475,11 +474,7 @@ const FileRow: FC<
 							onClick={(event) => {
 								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 							}}
-							className={getButtonClassName({
-								variant: isSelected ? "inverted" : "ghost",
-								size: "small",
-							})}
-							render={<WorkspaceItemRowIconButton />}
+							render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
 						>
 							<Icon name="kebab" />
 						</Toolbar.Button>
@@ -489,12 +484,9 @@ const FileRow: FC<
 								(item) =>
 									item.dependencyCommitIds && (
 										<Toolbar.Button
-											className={getButtonClassName({
-												variant: isSelected ? "inverted" : "ghost",
-												size: "small",
-											})}
 											render={
 												<WorkspaceItemRowIconButton
+													isSelected={isSelected}
 													render={
 														<DependencyIndicator
 															projectId={projectId}

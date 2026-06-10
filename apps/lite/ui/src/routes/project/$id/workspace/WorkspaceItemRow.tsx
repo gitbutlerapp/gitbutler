@@ -1,4 +1,5 @@
 import { classes } from "#ui/components/classes.ts";
+import { getButtonClassName } from "#ui/components/Button.tsx";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { ComponentProps, FC, useLayoutEffect, useRef } from "react";
 import styles from "./WorkspaceItemRow.module.css";
@@ -82,14 +83,19 @@ export const WorkspaceItemRowToolbar: FC<{ forceVisible?: boolean } & ComponentP
 	/>
 );
 
-export const WorkspaceItemRowIconButton: FC<useRender.ComponentProps<"button">> = ({
-	render,
-	...props
-}) =>
+export const WorkspaceItemRowIconButton: FC<
+	{ isSelected: boolean } & useRender.ComponentProps<"button">
+> = ({ isSelected, render, ...props }) =>
 	useRender({
 		render,
 		defaultTagName: "button",
 		props: mergeProps<"button">(props, {
-			className: styles.itemRowIconButton,
+			className: classes(
+				styles.itemRowIconButton,
+				getButtonClassName({
+					variant: isSelected ? "inverted" : "ghost",
+					size: "small",
+				}),
+			),
 		}),
 	});
