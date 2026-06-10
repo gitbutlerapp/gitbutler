@@ -374,7 +374,7 @@ const useOutlineTreeHotkeys = ({
 	};
 
 	const rebaseSelectedStack = () => {
-		if (selectedStackRebaseUpdate) rebaseStackMutation.mutate(selectedStackRebaseUpdate);
+		if (selectedStackRebaseUpdate) rebaseStackMutation.mutate([selectedStackRebaseUpdate]);
 	};
 
 	const defaultOutlineHotkeysEnabled = outlineMode._tag === "Default";
@@ -2129,7 +2129,7 @@ const StackRow: FC<
 		unapplyStackMutation.mutate({ projectId, stackId: stack.id! });
 	};
 	const rebase = () => {
-		if (rebaseUpdate) rebaseStackMutation.mutate(rebaseUpdate);
+		if (rebaseUpdate) rebaseStackMutation.mutate([rebaseUpdate]);
 	};
 
 	const menuItems: Array<NativeMenuItem> = [

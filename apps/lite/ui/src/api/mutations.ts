@@ -461,8 +461,8 @@ export const useRebaseStack = ({ projectId }: { projectId: string }) => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: (update: BottomUpdate) =>
-			window.lite.workspaceIntegrateUpstream({ projectId, updates: [update], dryRun: false }),
+		mutationFn: (updates: Array<BottomUpdate>) =>
+			window.lite.workspaceIntegrateUpstream({ projectId, updates, dryRun: false }),
 		onSuccess: (workspace, _input, _context, mutation) => {
 			mutation.client.setQueryData(headInfoQueryOptions(projectId).queryKey, workspace.headInfo);
 			dispatch(
