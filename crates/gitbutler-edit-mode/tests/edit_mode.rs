@@ -11,7 +11,7 @@ use gitbutler_edit_mode::commands::{
     abort_and_return_to_workspace, enter_edit_mode, save_and_return_to_workspace,
 };
 use gitbutler_operating_modes::{
-    EditModeMetadata, INTEGRATION_BRANCH_REF, write_edit_mode_metadata,
+    EditModeMetadata, INTEGRATION_BRANCH_REF, read_edit_mode_metadata, write_edit_mode_metadata,
 };
 use tempfile::TempDir;
 
@@ -90,6 +90,27 @@ fn seed_edit_mode_metadata(ctx: &Context, edit_commit_id: &str) -> Result<()> {
     };
     drop(repo);
     write_edit_mode_metadata(ctx, &edit_mode_metadata)?;
+    Ok(())
+}
+
+/// Assert that every artifact [`enter_edit_mode`] creates has been removed, so leaving edit
+/// mode never leaves a dangling ref or stale metadata behind.
+fn assert_edit_mode_cleaned_up(ctx: &Context) -> Result<()> {
+    let repo = ctx.repo.get()?;
+    for ref_name in [
+        "refs/heads/gitbutler/edit",
+        "refs/gitbutler/edit-uncommitted-changes",
+    ] {
+        assert!(
+            repo.try_find_reference(ref_name)?.is_none(),
+            "{ref_name} should be removed when leaving edit mode"
+        );
+    }
+    drop(repo);
+    assert!(
+        read_edit_mode_metadata(ctx).is_err(),
+        "edit mode metadata should be removed when leaving edit mode"
+    );
     Ok(())
 }
 
@@ -272,13 +293,14 @@ fn apply_commit_on_itself() -> Result<()> {
     save_and_return_to_workspace(&mut ctx, guard.write_permission())?;
 
     let repo = &*ctx.repo.get()?;
-    // It works.
+    // It works, and the gitbutler/edit ref is cleaned up on the way out.
     insta::assert_snapshot!(visualize_commit_graph(repo, "refs/heads/gitbutler/workspace")?, @"
-    * 16b549b (HEAD -> gitbutler/workspace, gitbutler/edit) GitButler Workspace Commit
+    * 16b549b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 6eb9642 (branchy) GitButler Workspace Commit
     * 26804c3 foobar
     * 7950f06 (origin/main, origin/HEAD, main, gitbutler/target) init
     ");
+    assert_edit_mode_cleaned_up(&ctx)?;
 
     Ok(())
 }
@@ -380,6 +402,8 @@ fn abort_requires_force_when_changes_were_made() -> Result<()> {
     )
     "#
     );
+    // Leaving edit mode cleans up every edit-mode artifact instead of leaving them dangling.
+    assert_edit_mode_cleaned_up(&ctx)?;
 
     Ok(())
 }
@@ -464,6 +488,8 @@ fn enter_edit_mode_checks_out_conflicted_commit() -> Result<()> {
     )
     "#
     );
+    // Leaving edit mode cleans up every edit-mode artifact instead of leaving them dangling.
+    assert_edit_mode_cleaned_up(&ctx)?;
 
     Ok(())
 }
