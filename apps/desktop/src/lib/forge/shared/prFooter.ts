@@ -152,18 +152,17 @@ function clearFooter(body: string | undefined) {
 /**
  * Generates a footer for use in pull request descriptions when part of a stack.
  */
-function generateFooter(forPrNumber: number, allPrNumbers: number[], symbol: string) {
+export function generateFooter(forPrNumber: number, allPrNumbers: number[], symbol: string) {
 	const stackLength = allPrNumbers.length;
 	const stackIndex = allPrNumbers.findIndex((number) => number === forPrNumber);
-	const nth = stackIndex + 1;
+	const nth = stackLength - stackIndex;
 	let footer = "";
 	footer += STACKING_FOOTER_BOUNDARY_TOP + "\n";
 	footer += "---\n";
 	footer += `This is **part ${nth} of ${stackLength} in a stack** made with GitButler:\n`;
-	[...allPrNumbers].reverse().forEach((prNumber, i) => {
-		const position = stackLength - i;
-		const current = prNumber === forPrNumber;
-		footer += `- <kbd>&nbsp;${position}&nbsp;</kbd> ${symbol}${prNumber}${current ? " 👈 " : ""}\n`;
+	allPrNumbers.forEach((prNumber, i) => {
+		const current = i === stackIndex;
+		footer += `- <kbd>&nbsp;${stackLength - i}&nbsp;</kbd> ${symbol}${prNumber} ${current ? "👈 " : ""}\n`;
 	});
 	footer += STACKING_FOOTER_BOUNDARY_BOTTOM;
 	return footer;
