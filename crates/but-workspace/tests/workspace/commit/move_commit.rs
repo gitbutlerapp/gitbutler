@@ -1,9 +1,21 @@
+use bstr::ByteSlice;
 use but_rebase::graph_rebase::{Editor, mutate::InsertSide};
 use but_testsupport::{graph_workspace, visualize_commit_graph_all};
 
 use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack_with_segments, named_writable_scenario_with_description_and_graph,
 };
+
+fn parent_subjects(repo: &gix::Repository, rev: &str) -> anyhow::Result<Vec<String>> {
+    let commit = repo.find_commit(repo.rev_parse_single(rev)?.detach())?;
+    commit
+        .parent_ids()
+        .map(|parent_id| {
+            let parent = repo.find_commit(parent_id.detach())?;
+            Ok(parent.message_raw()?.trim_end().to_str_lossy().to_string())
+        })
+        .collect()
+}
 
 #[test]
 fn move_top_commit_to_top_of_another_stack() -> anyhow::Result<()> {
@@ -708,6 +720,149 @@ fn move_commit_in_non_managed_workspace() -> anyhow::Result<()> {
         │   └── ·16fd221
         └── :3:one
             └── ·8b426d0
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn reorder_merge_commit_above_keeps_child_commits_visible() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph("gb-1525-reorder-merge-commit", |_| {})?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 32c8bda (HEAD -> child-stack, C2) C2: add other.txt
+    * 64dace5 (C1) C1: add child-1.txt
+    *   197bdf1 (M) M: merge feature-parent
+    |\  
+    | * b54108c (feature-parent) update parent.txt (2)
+    | * 1b1a64f update parent.txt (1)
+    | * 40bcd70 add parent.txt
+    * | aa67ae0 (origin/main, main-advanced, main) update main.txt (1)
+    |/  
+    * 7674a5e (tag: base) base
+    ");
+
+    let mut ws = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @"
+    ⌂:0:child-stack[🌳] <> ✓refs/remotes/origin/main on aa67ae0
+    └── ≡:0:child-stack[🌳] on aa67ae0 {1}
+        ├── :0:child-stack[🌳]
+        │   └── ·32c8bda ►C2
+        ├── :3:C1
+        │   └── ·64dace5
+        └── :4:M
+            └── ·197bdf1
+    ");
+
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let merge_commit = repo.rev_parse_single("M")?.detach();
+    let merge_commit_selector = editor.select_commit(merge_commit)?;
+    let c1_commit = repo.rev_parse_single("C1")?.detach();
+    let c1_commit_selector = editor.select_commit(c1_commit)?;
+
+    let rebase = but_workspace::commit::move_commit(
+        editor,
+        merge_commit_selector,
+        c1_commit_selector,
+        InsertSide::Above,
+    )?;
+
+    rebase.materialize()?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
+
+    let post_move_graph = visualize_commit_graph_all(&repo)?;
+    assert_eq!(
+        parent_subjects(&repo, "C1")?,
+        vec![
+            "C1: add child-1.txt".to_string(),
+            "update parent.txt (2)".to_string()
+        ],
+        "moving the merge commit above C1 should preserve the visible first-parent lane"
+    );
+    insta::assert_snapshot!(post_move_graph, @r"
+    * 1fa67f9 (HEAD -> child-stack, C2) C2: add other.txt
+    *   88f8bb5 (C1) M: merge feature-parent
+    |\  
+    | * b54108c (feature-parent) update parent.txt (2)
+    | * 1b1a64f update parent.txt (1)
+    | * 40bcd70 add parent.txt
+    * | 40eca7d C1: add child-1.txt
+    * | aa67ae0 (origin/main, main-advanced, main, M) update main.txt (1)
+    |/  
+    * 7674a5e (tag: base) base
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn reorder_merge_commit_below_keeps_child_commits_visible() -> anyhow::Result<()> {
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph("gb-1525-reorder-merge-commit", |_| {})?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 32c8bda (HEAD -> child-stack, C2) C2: add other.txt
+    * 64dace5 (C1) C1: add child-1.txt
+    *   197bdf1 (M) M: merge feature-parent
+    |\  
+    | * b54108c (feature-parent) update parent.txt (2)
+    | * 1b1a64f update parent.txt (1)
+    | * 40bcd70 add parent.txt
+    * | aa67ae0 (origin/main, main-advanced, main) update main.txt (1)
+    |/  
+    * 7674a5e (tag: base) base
+    ");
+
+    let mut ws = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @"
+    ⌂:0:child-stack[🌳] <> ✓refs/remotes/origin/main on aa67ae0
+    └── ≡:0:child-stack[🌳] on aa67ae0 {1}
+        ├── :0:child-stack[🌳]
+        │   └── ·32c8bda ►C2
+        ├── :3:C1
+        │   └── ·64dace5
+        └── :4:M
+            └── ·197bdf1
+    ");
+
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let merge_commit = repo.rev_parse_single("M")?.detach();
+    let merge_commit_selector = editor.select_commit(merge_commit)?;
+    let main_commit = repo.rev_parse_single("main")?.detach();
+    let main_commit_selector = editor.select_commit(main_commit)?;
+
+    let rebase = but_workspace::commit::move_commit(
+        editor,
+        merge_commit_selector,
+        main_commit_selector,
+        InsertSide::Below,
+    )?;
+
+    rebase.materialize()?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
+
+    let post_move_graph = visualize_commit_graph_all(&repo)?;
+    assert_eq!(
+        parent_subjects(&repo, "HEAD~3")?,
+        vec!["base".to_string(), "update parent.txt (2)".to_string()],
+        "moving the merge commit below main should make main's first parent the merge commit's first parent"
+    );
+    insta::assert_snapshot!(post_move_graph, @r"
+    * 3cf4ba4 (HEAD -> child-stack, C2) C2: add other.txt
+    * 7673ad4 (C1) C1: add child-1.txt
+    * 8a192c0 (main-advanced, main, M) update main.txt (1)
+    *   ed12786 M: merge feature-parent
+    |\  
+    | * b54108c (feature-parent) update parent.txt (2)
+    | * 1b1a64f update parent.txt (1)
+    | * 40bcd70 add parent.txt
+    |/  
+    | * aa67ae0 (origin/main) update main.txt (1)
+    |/  
+    * 7674a5e (tag: base) base
     ");
 
     Ok(())
