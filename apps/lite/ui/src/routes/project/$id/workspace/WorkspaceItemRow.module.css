@@ -55,7 +55,7 @@
 	.itemRow:hover &,
 	.itemRow:focus-within &,
 	.itemRowSelected &,
-	&.forceVisibleToolbar {
+	&.itemRowToolbarForceVisible {
 		display: flex;
 	}
 }

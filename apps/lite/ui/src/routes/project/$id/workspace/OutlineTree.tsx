@@ -104,11 +104,13 @@ import {
 } from "react";
 import styles from "./OutlineTree.module.css";
 import { Checkbox } from "#ui/components/Checkbox.tsx";
-import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import {
 	WorkspaceItemRow,
 	WorkspaceItemRowEmpty,
+	WorkspaceItemRowIconButton,
+	WorkspaceItemRowLabel,
 	WorkspaceItemRowToolbar,
+	WorkspaceSection,
 } from "./WorkspaceItemRow.tsx";
 import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
@@ -672,7 +674,6 @@ export const OutlineTree: FC<
 							props.className,
 							styles.tree,
 							hasCheckedCommits && styles.treeWithCheckedCommits,
-							outlineMode._tag === "Default" && styles.treeWithDefaultOutlineMode,
 						)}
 						ref={useMergedRefs(refProp, ref)}
 					>
@@ -731,15 +732,9 @@ const treeItemId = (operand: Operand): string =>
 const CommitTargetIndicator: FC<{ isSelected: boolean }> = ({ isSelected }) => (
 	<Popover.Root>
 		<Popover.Trigger
-			className={classes(
-				workspaceItemRowStyles.itemRowIconButton,
-				getButtonClassName({
-					variant: isSelected ? "inverted" : "ghost",
-					size: "small",
-				}),
-			)}
 			aria-label="Commit target"
 			openOnHover
+			render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
 		>
 			<Icon name="bullseye" />
 		</Popover.Trigger>
@@ -1208,26 +1203,20 @@ const CommitRow: FC<
 				/>
 			) : (
 				<>
-					<div className={workspaceItemRowStyles.itemRowLabel}>
+					<WorkspaceItemRowLabel>
 						{commitTitle(commitWithOptimisticMessage.message)}
 						{hasConflicts && " ⚠️"}
-					</div>
+					</WorkspaceItemRowLabel>
 
-					<WorkspaceItemRowToolbar forceVisibleToolbar>
+					<WorkspaceItemRowToolbar forceVisible>
 						{outlineMode._tag === "Default" && (
 							<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
 								<Toolbar.Button
 									aria-label="Commit menu"
-									className={classes(
-										workspaceItemRowStyles.itemRowIconButton,
-										getButtonClassName({
-											variant: isSelected ? "inverted" : "ghost",
-											size: "small",
-										}),
-									)}
 									onClick={(event) => {
 										void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 									}}
+									render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
 								>
 									<Icon name="kebab" />
 								</Toolbar.Button>
@@ -1332,30 +1321,24 @@ const ChangesSectionRow: FC<{
 			}}
 			heading
 		>
-			<div className={classes(workspaceItemRowStyles.itemRowLabel, isSelected && styles.selected)}>
+			<WorkspaceItemRowLabel className={classes(isSelected && styles.selected)}>
 				Changes
 				<span className={classes("text-11", "text-semibold", styles.changesCountBubble)}>
 					{changes.length}
 				</span>
-			</div>
+			</WorkspaceItemRowLabel>
 
 			{outlineMode._tag === "Default" && (
 				<Toolbar.Root
 					aria-label="Changes actions"
-					render={<WorkspaceItemRowToolbar forceVisibleToolbar />}
+					render={<WorkspaceItemRowToolbar forceVisible />}
 				>
 					<Toolbar.Button
 						aria-label="Changes menu"
-						className={classes(
-							workspaceItemRowStyles.itemRowIconButton,
-							getButtonClassName({
-								variant: isSelected ? "inverted" : "ghost",
-								size: "small",
-							}),
-						)}
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
+						render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
@@ -1600,9 +1583,17 @@ const Changes: FC<{
 			projectId={projectId}
 			operand={operand}
 			aria-label={`Changes (${worktreeChanges?.changes.length ?? 0})`}
-			className={classes(workspaceItemRowStyles.section, styles.changesSection)}
 			render={
-				<OperandC projectId={projectId} operand={operand} render={<form onSubmit={submit} />} />
+				<OperandC
+					projectId={projectId}
+					operand={operand}
+					render={
+						<WorkspaceSection
+							className={styles.changesSection}
+							render={<form onSubmit={submit} />}
+						/>
+					}
+				/>
 			}
 		>
 			<ChangesSectionRow changes={worktreeChanges?.changes ?? []} projectId={projectId} />
@@ -2058,27 +2049,21 @@ const BranchRow: FC<
 				/>
 			) : (
 				<>
-					<div className={workspaceItemRowStyles.itemRowLabel}>{optimisticBranchDisplayName}</div>
+					<WorkspaceItemRowLabel>{optimisticBranchDisplayName}</WorkspaceItemRowLabel>
 
-					<WorkspaceItemRowToolbar forceVisibleToolbar>
+					<WorkspaceItemRowToolbar forceVisible>
 						{outlineMode._tag === "Default" && (
 							<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar />}>
 								<Tooltip.Root>
 									<Tooltip.Trigger
 										render={
 											<Toolbar.Button
-												className={classes(
-													workspaceItemRowStyles.itemRowIconButton,
-													getButtonClassName({
-														variant: isSelected ? "inverted" : "ghost",
-														size: "small",
-													}),
-												)}
 												aria-label={pushButtonLabel}
 												onClick={pushStack}
 												// Note this prevents the tooltip from showing, but it
 												// shouldn't: https://github.com/mui/base-ui/issues/4966
 												disabled={!canPushStack}
+												render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
 											/>
 										}
 									>
@@ -2102,16 +2087,10 @@ const BranchRow: FC<
 								</Tooltip.Root>
 								<Toolbar.Button
 									aria-label="Branch menu"
-									className={classes(
-										workspaceItemRowStyles.itemRowIconButton,
-										getButtonClassName({
-											variant: isSelected ? "inverted" : "ghost",
-											size: "small",
-										}),
-									)}
 									onClick={(event) => {
 										void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 									}}
+									render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
 								>
 									<Icon name="kebab" />
 								</Toolbar.Button>
@@ -2175,25 +2154,16 @@ const StackRow: FC<
 				void showNativeContextMenu(event, menuItems);
 			}}
 		>
-			<div className={workspaceItemRowStyles.itemRowLabel} />
+			<WorkspaceItemRowLabel />
 
 			{outlineMode._tag === "Default" && (
-				<Toolbar.Root
-					aria-label="Stack actions"
-					render={<WorkspaceItemRowToolbar forceVisibleToolbar />}
-				>
+				<Toolbar.Root aria-label="Stack actions" render={<WorkspaceItemRowToolbar forceVisible />}>
 					<Toolbar.Button
 						aria-label="Stack menu"
-						className={classes(
-							workspaceItemRowStyles.itemRowIconButton,
-							getButtonClassName({
-								variant: isSelected ? "inverted" : "ghost",
-								size: "small",
-							}),
-						)}
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
+						render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
@@ -2330,8 +2300,13 @@ const StackC: FC<{
 			operand={operand}
 			aria-label="Stack"
 			aria-expanded
-			className={classes(styles.stack, workspaceItemRowStyles.section)}
-			render={<OperandC projectId={projectId} operand={operand} />}
+			render={
+				<OperandC
+					projectId={projectId}
+					operand={operand}
+					render={<WorkspaceSection className={styles.stack} />}
+				/>
+			}
 		>
 			<StackRow projectId={projectId} stack={stack} />
 

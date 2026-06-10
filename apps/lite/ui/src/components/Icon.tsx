@@ -1,5 +1,5 @@
 import styles from "./Icon.module.css";
-import { FC } from "react";
+import { ComponentProps, FC } from "react";
 import type { IconName } from "./iconNames";
 import { classes } from "#ui/components/classes.ts";
 import { assert } from "#ui/assert.ts";
@@ -20,11 +20,12 @@ for (const [path, svg] of Object.entries(svgModules)) {
 type Props = {
 	name: IconName;
 	size?: number;
-};
+} & ComponentProps<"i">;
 
-export const Icon: FC<Props> = ({ name, size }) => (
+export const Icon: FC<Props> = ({ name, size, ...props }) => (
 	<i
-		className={classes(styles.icon, name === "spinner" && styles.spinning)}
+		{...props}
+		className={classes(props.className, styles.icon, name === "spinner" && styles.spinning)}
 		data-icon
 		aria-hidden
 		style={size !== undefined ? { "--icon-size": `${size}px` } : undefined}
