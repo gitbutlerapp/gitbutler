@@ -123,7 +123,7 @@
 	function integrationRowSeries(
 		statusInfo: UpstreamIntegrationStackStatus,
 	): { name: string; status: "integrated" | "conflicted" | "clear" }[] {
-		return [...statusInfo.branchStatuses].reverse();
+		return [...statusInfo.branchStatuses];
 	}
 </script>
 
