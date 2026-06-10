@@ -9,8 +9,9 @@ export const WorkspaceItemRow: FC<
 		onSelect?: () => void;
 		/** @default false */
 		isHighlighted?: boolean;
+		heading?: boolean;
 	} & Omit<ComponentProps<"div">, "onSelect">
-> = ({ isSelected, onSelect, isHighlighted, ref: refProp, ...props }) => {
+> = ({ isSelected, onSelect, isHighlighted, heading, ref: refProp, ...props }) => {
 	const rowRef = useRef<HTMLDivElement | null>(null);
 	const mergedRef = useMergedRefs(rowRef, refProp);
 
@@ -30,8 +31,10 @@ export const WorkspaceItemRow: FC<
 			ref={mergedRef}
 			className={classes(
 				props.className,
-				"text-13",
+				heading ? "text-14" : "text-13",
+				heading && "text-bold",
 				styles.itemRow,
+				heading && styles.itemRowHeading,
 				isSelected && styles.itemRowSelected,
 				isHighlighted && styles.itemRowHighlighted,
 			)}

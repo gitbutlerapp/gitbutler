@@ -36,6 +36,7 @@ import { Tooltip } from "@base-ui/react";
 import type {
 	CommitDetails,
 	DiffHunk,
+	HunkHeader,
 	TreeChange,
 	TreeChanges,
 	UnifiedPatch,
@@ -294,23 +295,11 @@ const selectEntireHunk = (hunk: Hunk): SelectedLineRange => {
 	};
 };
 
-const hunkSelectionFromHunk = ({
-	file,
-	hunk,
-	isResultOfBinaryToTextConversion,
-}: {
-	file: FileOperand;
-	hunk: Hunk;
-	isResultOfBinaryToTextConversion: boolean;
-}): HunkOperand => ({
-	parent: file,
-	hunkHeader: {
-		oldStart: hunk.deletionStart,
-		oldLines: hunk.deletionCount,
-		newStart: hunk.additionStart,
-		newLines: hunk.additionCount,
-	},
-	isResultOfBinaryToTextConversion,
+const hunkHeaderFromHunk = (hunk: Hunk): HunkHeader => ({
+	oldStart: hunk.deletionStart,
+	oldLines: hunk.deletionCount,
+	newStart: hunk.additionStart,
+	newLines: hunk.additionCount,
 });
 
 type BuildIn = {
@@ -381,11 +370,11 @@ const build = ({ fileParent, changes, treeChangeDiffs, changesetKey }: BuildIn):
 				};
 				const fileKey = fileOperandIdentityKey(file);
 
-				const hunkOperand = hunkSelectionFromHunk({
-					file,
-					hunk,
+				const hunkOperand: HunkOperand = {
+					parent: file,
+					hunkHeader: hunkHeaderFromHunk(hunk),
 					isResultOfBinaryToTextConversion: mdiff.subject.isResultOfBinaryToTextConversion,
-				});
+				};
 				const hunkKey = hunkOperandIdentityKey(hunkOperand);
 
 				const len = navigationIndex.items.push(hunkOperand);
@@ -504,15 +493,15 @@ const DiffContents: FC<{
 		dispatch(
 			projectActions.selectDiff({
 				projectId,
-				selection: hunkSelectionFromHunk({
-					file: {
+				selection: {
+					parent: {
 						parent: fileParent,
 						path: itemBySel.change.path,
 					},
-					hunk,
+					hunkHeader: hunkHeaderFromHunk(hunk),
 					isResultOfBinaryToTextConversion:
 						itemBySel.patch.subject.isResultOfBinaryToTextConversion,
-				}),
+				},
 			}),
 		);
 	};

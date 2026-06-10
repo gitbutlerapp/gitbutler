@@ -38,35 +38,25 @@ export type CommitSplitOperation = Omit<CommitInsertBlankParams, "dryRun" | "pro
 		source: Operand;
 	};
 /** @public */
-export type CommitMoveOperation = Omit<CommitMoveParams, "dryRun" | "projectId"> & {
-	source: Operand;
-};
+export type CommitMoveOperation = Omit<CommitMoveParams, "dryRun" | "projectId">;
 /** @public */
 export type CommitMoveChangesBetweenOperation = Omit<
 	CommitMoveChangesBetweenParams,
 	"dryRun" | "projectId" | "changes"
 > & { source: Operand };
 /** @public */
-export type CommitSquashOperation = Omit<CommitSquashParams, "dryRun" | "projectId"> & {
-	source: Operand;
-};
+export type CommitSquashOperation = Omit<CommitSquashParams, "dryRun" | "projectId">;
 /** @public */
-export type CommitUncommitOperation = Omit<CommitUncommitParams, "dryRun" | "projectId"> & {
-	source: Operand;
-};
+export type CommitUncommitOperation = Omit<CommitUncommitParams, "dryRun" | "projectId">;
 /** @public */
 export type CommitUncommitChangesOperation = Omit<
 	CommitUncommitChangesParams,
 	"dryRun" | "projectId" | "changes"
 > & { source: Operand };
 /** @public */
-export type MoveBranchOperation = Omit<MoveBranchParams, "dryRun" | "projectId"> & {
-	source: Operand;
-};
+export type MoveBranchOperation = Omit<MoveBranchParams, "dryRun" | "projectId">;
 /** @public */
-export type TearOffBranchOperation = Omit<TearOffBranchParams, "dryRun" | "projectId"> & {
-	source: Operand;
-};
+export type TearOffBranchOperation = Omit<TearOffBranchParams, "dryRun" | "projectId">;
 
 export type Operation =
 	| ({ _tag: "CommitAmend" } & CommitAmendOperation)
@@ -304,7 +294,7 @@ export const useDryRunOperation = ({
 }) => {
 	const changes = useResolveDiffSpecs({
 		projectId,
-		operand: operation ? operation.source : undefined,
+		operand: operation && "source" in operation ? operation.source : undefined,
 	});
 
 	return useQuery({
@@ -394,7 +384,6 @@ const squashOperation = ({
 			},
 			({ source, target }) =>
 				commitSquashOperation({
-					source,
 					sourceCommitIds: [source.commitId],
 					destinationCommitId: target.commitId,
 				}),
@@ -406,7 +395,6 @@ const squashOperation = ({
 			},
 			({ source }) =>
 				commitUncommitOperation({
-					source,
 					subjectCommitIds: [source.commitId],
 					assignTo: null,
 				}),
@@ -471,7 +459,6 @@ const moveOperation = ({
 			},
 			({ source, target }) =>
 				moveBranchOperation({
-					source,
 					subjectBranch: decodeRefName(source.branchRef),
 					targetBranch: decodeRefName(target.branchRef),
 				}),
@@ -497,7 +484,6 @@ const moveOperation = ({
 	return Match.value({ source, sourceFileParent: operandFileParent(source) }).pipe(
 		Match.when({ source: { _tag: "Commit" } }, ({ source }) =>
 			commitMoveOperation({
-				source,
 				subjectCommitIds: [source.commitId],
 				relativeTo,
 				side,

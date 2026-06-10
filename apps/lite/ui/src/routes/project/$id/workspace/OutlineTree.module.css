@@ -100,13 +100,12 @@
 	min-width: 20px;
 	height: 16px;
 	margin-inline-start: 6px;
-	margin-block-start: -2px;
+	margin-block-start: -1px;
 	padding-inline: 4px;
 	padding-block: 2px;
 	border-radius: 10px;
 	background: var(--fill-gray-bg);
 	color: var(--fill-gray-fg);
-	font-size: 10px;
 	vertical-align: middle;
 
 	.selected & {

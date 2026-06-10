@@ -365,7 +365,7 @@ const useOutlineTreeHotkeys = ({
 
 		pushStackMutation.mutate({
 			projectId,
-			branch: selectedPushContext.refName.displayName,
+			branch: `refs/heads/${selectedPushContext.refName.displayName}`,
 			withForce: partialStackState.pushWithForce,
 			skipForcePushProtection: false,
 			runHooks: true,
@@ -1314,16 +1314,13 @@ const ChangesSectionRow: FC<{
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
+			heading
 		>
-			<div
-				className={classes(
-					"text-bold",
-					workspaceItemRowStyles.itemRowLabel,
-					isSelected && styles.selected,
-				)}
-			>
+			<div className={classes(workspaceItemRowStyles.itemRowLabel, isSelected && styles.selected)}>
 				Changes
-				<span className={styles.changesCountBubble}>{changes.length}</span>
+				<span className={classes("text-11", "text-semibold", styles.changesCountBubble)}>
+					{changes.length}
+				</span>
 			</div>
 
 			{outlineMode._tag === "Default" && (
@@ -1685,8 +1682,8 @@ const Changes: FC<{
 								</Tooltip.Positioner>
 							</Tooltip.Portal>
 						</Tooltip.Root>
-						<button
-							type="button"
+						<Button
+							focusableWhenDisabled
 							disabled={!canCommitOrAmend}
 							aria-label="Commit options"
 							className={getButtonClassName({ iconOnly: true })}
@@ -1695,7 +1692,7 @@ const Changes: FC<{
 							}}
 						>
 							<Icon name="chevron-down" />
-						</button>
+						</Button>
 					</div>
 				</div>
 			</div>
@@ -1740,7 +1737,7 @@ const InlineRenameBranch: FC<{
 				})}
 				name="branchName"
 				defaultValue={branchName}
-				className={classes("text-bold", styles.editorInput)}
+				className={styles.editorInput}
 			/>
 			<EditorHelp
 				buttons={[
@@ -1934,7 +1931,7 @@ const BranchRow: FC<
 	const pushStack = () => {
 		pushStackMutation.mutate({
 			projectId,
-			branch: branchName,
+			branch: `refs/heads/${branchName}`,
 			withForce: partialStackState.pushWithForce,
 			skipForcePushProtection: false,
 			runHooks: true,
@@ -2020,6 +2017,7 @@ const BranchRow: FC<
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
+			heading
 		>
 			{/* This will be replaced with a different icon. */}
 			<CommitStateIndicator
@@ -2046,9 +2044,7 @@ const BranchRow: FC<
 				/>
 			) : (
 				<>
-					<div className={classes("text-bold", workspaceItemRowStyles.itemRowLabel)}>
-						{optimisticBranchName}
-					</div>
+					<div className={workspaceItemRowStyles.itemRowLabel}>{optimisticBranchName}</div>
 
 					<WorkspaceItemRowToolbar forceVisibleToolbar>
 						{outlineMode._tag === "Default" && (

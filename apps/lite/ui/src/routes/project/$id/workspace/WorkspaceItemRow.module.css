@@ -13,6 +13,10 @@
 	padding-block: 6px;
 }
 
+.itemRowHeading {
+	padding-block: 5.5px;
+}
+
 .itemRow {
 	border-radius: var(--radius-m);
 
