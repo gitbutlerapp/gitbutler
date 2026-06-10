@@ -8,7 +8,7 @@ const listFormatter = new Intl.ListFormat(undefined, {
 	type: "conjunction",
 });
 
-const formatRejectedPaths = (paths: Array<string>): string => {
+export const formatPaths = (paths: Array<string>): string => {
 	if (paths.length === 0) return "";
 	if (paths.length <= 3) return listFormatter.format(paths);
 
@@ -58,7 +58,7 @@ const RejectedChanges: FC<{
 				Array.fromIterable,
 				Array.map(([reason, paths]) => (
 					<li key={reason}>
-						<strong>{readableRejectionReason(reason)}:</strong> {formatRejectedPaths(paths)}
+						<strong>{readableRejectionReason(reason)}:</strong> {formatPaths(paths)}
 					</li>
 				)),
 			)}
