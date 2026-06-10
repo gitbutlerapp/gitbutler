@@ -80,14 +80,6 @@ const codeViewItemId = ({ changesetKey, path }: { changesetKey: string; path: st
 const codeViewItemIdPath = ({ changesetKey, id }: { changesetKey: string; id: string }): string =>
 	id.slice(changesetKey.length + 1);
 
-const getScrollTargetId = ({
-	changesetKey,
-	selection,
-}: {
-	changesetKey: string;
-	selection: FileOperand | null;
-}): string | null => (selection ? codeViewItemId({ changesetKey, path: selection.path }) : null);
-
 const fileOperandIdentityKey = (operand: FileOperand): string =>
 	operandIdentityKey(fileOperand(operand));
 
@@ -838,13 +830,10 @@ const Diff: FC<{
 			}),
 		);
 
-		const scrollTargetId = getScrollTargetId({
-			changesetKey,
-			selection,
+		viewerRef.current?.scrollTo({
+			type: "item",
+			id: codeViewItemId({ changesetKey, path: selection.path }),
 		});
-		if (scrollTargetId === null) return;
-
-		viewerRef.current?.scrollTo({ type: "item", id: scrollTargetId });
 	};
 
 	return (
