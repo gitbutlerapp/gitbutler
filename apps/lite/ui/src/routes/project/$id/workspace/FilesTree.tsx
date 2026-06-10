@@ -469,15 +469,6 @@ const FileRow: FC<
 			{outlineMode._tag === "Default" && (
 				<WorkspaceItemRowToolbar forceVisible>
 					<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
-						<Toolbar.Button
-							aria-label="File menu"
-							onClick={(event) => {
-								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-							}}
-							render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
-						>
-							<Icon name="kebab" />
-						</Toolbar.Button>
 						{Match.value(item).pipe(
 							Match.when(
 								{ _tag: "Change", operand: { parent: { _tag: "Changes" } } },
@@ -502,6 +493,15 @@ const FileRow: FC<
 							),
 							Match.orElse(() => null),
 						)}
+						<Toolbar.Button
+							aria-label="File menu"
+							onClick={(event) => {
+								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+							}}
+							render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
+						>
+							<Icon name="kebab" />
+						</Toolbar.Button>
 					</Toolbar.Root>
 					{item._tag === "Change" ? (
 						<Icon
