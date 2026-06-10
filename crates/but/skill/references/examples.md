@@ -35,11 +35,7 @@ but commit <ui-branch-id> -m "Update button hover styles" --changes <ui-file-id>
 # but amend <api-fix-file-id> <api-commit-id>
 # but amend <ui-fix-file-id> <ui-commit-id>
 
-# 6. Push branches independently (optional, can skip if using pr new)
-but push <api-branch-id>
-but push <ui-branch-id>
-
-# 7. Create pull requests (auto-pushes if not already pushed)
+# 6. Create pull requests (auto-pushes the branches)
 but pr new <api-branch-id>
 but pr new <ui-branch-id>
 ```
@@ -279,16 +275,13 @@ but absorb a1    # Absorb specific file into appropriate commit
 # 8. Clean up if needed
 but squash bu    # Combine all commits (optional)
 
-# 9. Push to remote (can also skip - pr new auto-pushes)
-but push bu
-
-# 10. Create pull request
+# 9. Create pull request (auto-pushes the branch)
 but pr new bu
 
 # Output:
 # Created PR #123: https://github.com/org/repo/pull/123
 
-# 11. After PR is merged, update
+# 10. After PR is merged, update
 but pull
 ```
 
