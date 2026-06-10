@@ -9,8 +9,10 @@ import {
 	type BranchDiffParams,
 	type CommitAmendParams,
 	type CommitCreateParams,
+	type CommitDiscardChangesParams,
 	type CommitDiscardParams,
 	type CommitDetailsWithLineStatsParams,
+	type DiscardWorktreeChangesParams,
 	type CommitInsertBlankParams,
 	type CommitMoveParams,
 	type CommitSquashParams,
@@ -45,6 +47,8 @@ import {
 	commitAmend,
 	commitCreate,
 	commitDiscard,
+	commitDiscardChanges,
+	discardWorktreeChanges,
 	commitInsertBlank,
 	commitSquash,
 	commitReword,
@@ -299,9 +303,19 @@ const registerIpcHandlers = (): void => {
 			commitDiscard(projectId, subjectCommitId, dryRun),
 	);
 	senderValidatingHandle(
+		liteIpcChannels.commitDiscardChanges,
+		(_e, { projectId, commitId, changes, dryRun }: CommitDiscardChangesParams) =>
+			commitDiscardChanges(projectId, commitId, changes, dryRun),
+	);
+	senderValidatingHandle(
 		liteIpcChannels.commitDetailsWithLineStats,
 		(_e, { projectId, commitId }: CommitDetailsWithLineStatsParams) =>
 			commitDetailsWithLineStats(projectId, commitId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.discardWorktreeChanges,
+		(_e, { projectId, changes }: DiscardWorktreeChangesParams) =>
+			discardWorktreeChanges(projectId, changes),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.commitInsertBlank,

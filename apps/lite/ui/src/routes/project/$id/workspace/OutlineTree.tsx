@@ -3,6 +3,7 @@ import {
 	useCommitAmend,
 	useCommitCreate,
 	useCommitDiscard,
+	useDiscardWorktreeChanges,
 	useCommitInsertBlank,
 	useCommitMove,
 	useCommitReword,
@@ -20,7 +21,7 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import { findCommit, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { decodeRefName, refNamesEqual } from "#ui/api/ref-name.ts";
+import { decodeBytes, refNamesEqual } from "#ui/api/ref-name.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
 	nativeMenuItem,
@@ -110,6 +111,7 @@ import {
 	WorkspaceItemRowToolbar,
 } from "./WorkspaceItemRow.tsx";
 import { useDryRunOperation } from "#ui/operations/operation.ts";
+import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { initNonEmpty, isNonEmptyArray, scanRight } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -365,7 +367,7 @@ const useOutlineTreeHotkeys = ({
 
 		pushStackMutation.mutate({
 			projectId,
-			branch: `refs/heads/${selectedPushContext.refName.displayName}`,
+			branch: decodeBytes(selectedPushContext.refName.fullNameBytes),
 			withForce: partialStackState.pushWithForce,
 			skipForcePushProtection: false,
 			runHooks: true,
@@ -374,7 +376,7 @@ const useOutlineTreeHotkeys = ({
 	};
 
 	const rebaseSelectedStack = () => {
-		if (selectedStackRebaseUpdate) rebaseStackMutation.mutate(selectedStackRebaseUpdate);
+		if (selectedStackRebaseUpdate) rebaseStackMutation.mutate([selectedStackRebaseUpdate]);
 	};
 
 	const defaultOutlineHotkeysEnabled = outlineMode._tag === "Default";
@@ -1277,6 +1279,7 @@ const ChangesSectionRow: FC<{
 	const operand = changesSectionOperand;
 	const isSelected = useIsSelected({ projectId, operand });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const discardWorktreeChanges = useDiscardWorktreeChanges();
 
 	const dispatch = useAppDispatch();
 	const enterAbsorbMode = (source: Operand, sourceTarget: AbsorptionTarget) => {
@@ -1292,6 +1295,13 @@ const ChangesSectionRow: FC<{
 		focusCommitMessageInput();
 	};
 
+	const discardChanges = () => {
+		discardWorktreeChanges.mutate({
+			projectId,
+			changes: changes.map((change) => createDiffSpec(change, [])),
+		});
+	};
+
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: "Compose Commit Message",
@@ -1304,6 +1314,11 @@ const ChangesSectionRow: FC<{
 			label: "Absorb",
 			accelerator: toElectronAccelerator(outlineHotkeys.absorb.hotkey),
 			onSelect: absorb,
+		}),
+		nativeMenuItem({
+			label: "Discard Changes",
+			enabled: changes.length > 0 && !discardWorktreeChanges.isPending,
+			onSelect: discardChanges,
 		}),
 	];
 
@@ -1701,10 +1716,10 @@ const Changes: FC<{
 };
 
 const InlineRenameBranch: FC<{
-	branchName: string;
+	branchDisplayName: string;
 	onSubmit: (value: string) => void;
 	onExit: () => void;
-}> = ({ branchName, onSubmit, onExit }) => {
+}> = ({ branchDisplayName, onSubmit, onExit }) => {
 	const formRef = useRef<HTMLFormElement | null>(null);
 	const textareaRef = useRef<HTMLInputElement>(null);
 	const submitAction = (formData: FormData) => {
@@ -1736,7 +1751,7 @@ const InlineRenameBranch: FC<{
 					el.select();
 				})}
 				name="branchName"
-				defaultValue={branchName}
+				defaultValue={branchDisplayName}
 				className={styles.editorInput}
 			/>
 			<EditorHelp
@@ -1820,7 +1835,7 @@ const pushContextForSegment = ({
 const BranchRow: FC<
 	{
 		projectId: string;
-		branchName: string;
+		branchDisplayName: string;
 		branchRef: Array<number>;
 		stackId: string;
 		isCommitTarget: boolean;
@@ -1831,7 +1846,7 @@ const BranchRow: FC<
 	} & ComponentProps<"div">
 > = ({
 	projectId,
-	branchName,
+	branchDisplayName,
 	branchRef,
 	stackId,
 	isCommitTarget,
@@ -1851,8 +1866,8 @@ const BranchRow: FC<
 	const isRenaming =
 		outlineMode._tag === "RenameBranch" &&
 		operandEquals(operand, branchOperand(outlineMode.operand));
-	const [optimisticBranchName, setOptimisticBranchName] = useOptimistic(
-		branchName,
+	const [optimisticBranchDisplayName, setOptimisticBranchDisplayName] = useOptimistic(
+		branchDisplayName,
 		(_currentBranchName, nextBranchName: string) => nextBranchName,
 	);
 	const [isRenamePending, startRenameTransition] = useTransition();
@@ -1885,14 +1900,14 @@ const BranchRow: FC<
 
 	const saveBranchName = (newBranchName: string) => {
 		const trimmed = newBranchName.trim();
-		if (trimmed === "" || trimmed === branchName) return;
+		if (trimmed === "" || trimmed === branchDisplayName) return;
 		startRenameTransition(async () => {
-			setOptimisticBranchName(trimmed);
+			setOptimisticBranchDisplayName(trimmed);
 			try {
 				await updateBranchNameMutation.mutateAsync({
 					projectId,
 					stackId,
-					branchName,
+					branchName: branchDisplayName,
 					newName: trimmed,
 				});
 			} catch (error) {
@@ -1923,7 +1938,7 @@ const BranchRow: FC<
 	const tearOffBranch = () => {
 		tearOffBranchMutation.mutate({
 			projectId,
-			subjectBranch: decodeRefName(branchRef),
+			subjectBranch: decodeBytes(branchRef),
 			dryRun: false,
 		});
 	};
@@ -1931,7 +1946,7 @@ const BranchRow: FC<
 	const pushStack = () => {
 		pushStackMutation.mutate({
 			projectId,
-			branch: `refs/heads/${branchName}`,
+			branch: decodeBytes(branchRef),
 			withForce: partialStackState.pushWithForce,
 			skipForcePushProtection: false,
 			runHooks: true,
@@ -1974,7 +1989,7 @@ const BranchRow: FC<
 		}),
 		nativeMenuItem({
 			label: "Copy Branch Name",
-			onSelect: () => window.lite.clipboardWriteText(optimisticBranchName),
+			onSelect: () => window.lite.clipboardWriteText(optimisticBranchDisplayName),
 		}),
 		nativeMenuItem({
 			label: "Compose Commit Here",
@@ -2001,7 +2016,7 @@ const BranchRow: FC<
 				removeBranchMutation.mutate({
 					projectId,
 					stackId,
-					branchName,
+					branchName: decodeBytes(branchRef),
 				}),
 		}),
 	];
@@ -2038,13 +2053,13 @@ const BranchRow: FC<
 
 			{isRenaming ? (
 				<InlineRenameBranch
-					branchName={optimisticBranchName}
+					branchDisplayName={optimisticBranchDisplayName}
 					onSubmit={saveBranchName}
 					onExit={endEditing}
 				/>
 			) : (
 				<>
-					<div className={workspaceItemRowStyles.itemRowLabel}>{optimisticBranchName}</div>
+					<div className={workspaceItemRowStyles.itemRowLabel}>{optimisticBranchDisplayName}</div>
 
 					<WorkspaceItemRowToolbar forceVisibleToolbar>
 						{outlineMode._tag === "Default" && (
@@ -2123,13 +2138,14 @@ const StackRow: FC<
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const unapplyStackMutation = useUnapplyStack();
-	const rebaseStackMutation = useRebaseStack({ projectId });
 	const unapply = () => {
 		// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
 		unapplyStackMutation.mutate({ projectId, stackId: stack.id! });
 	};
+
+	const rebaseStackMutation = useRebaseStack({ projectId });
 	const rebase = () => {
-		if (rebaseUpdate) rebaseStackMutation.mutate(rebaseUpdate);
+		if (rebaseUpdate) rebaseStackMutation.mutate([rebaseUpdate]);
 	};
 
 	const menuItems: Array<NativeMenuItem> = [
@@ -2223,7 +2239,7 @@ const BranchSegment: FC<{
 				render={
 					<BranchRow
 						projectId={projectId}
-						branchName={refName.displayName}
+						branchDisplayName={refName.displayName}
 						branchRef={refName.fullNameBytes}
 						stackId={stackId}
 						canTearOffBranch={canTearOffBranch}

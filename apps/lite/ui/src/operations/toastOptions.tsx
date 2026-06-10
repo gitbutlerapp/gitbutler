@@ -1,4 +1,5 @@
-import type { RejectionReason, RejectedChange } from "@gitbutler/but-sdk";
+import { decodeBytes } from "#ui/api/ref-name.ts";
+import type { DiffSpec, RejectionReason, RejectedChange } from "@gitbutler/but-sdk";
 import { type ToastManagerAddOptions } from "@base-ui/react";
 import { Array, pipe } from "effect";
 import { FC } from "react";
@@ -8,7 +9,7 @@ const listFormatter = new Intl.ListFormat(undefined, {
 	type: "conjunction",
 });
 
-const formatRejectedPaths = (paths: Array<string>): string => {
+const formatPaths = (paths: Array<string>): string => {
 	if (paths.length === 0) return "";
 	if (paths.length <= 3) return listFormatter.format(paths);
 
@@ -58,7 +59,7 @@ const RejectedChanges: FC<{
 				Array.fromIterable,
 				Array.map(([reason, paths]) => (
 					<li key={reason}>
-						<strong>{readableRejectionReason(reason)}:</strong> {formatRejectedPaths(paths)}
+						<strong>{readableRejectionReason(reason)}:</strong> {formatPaths(paths)}
 					</li>
 				)),
 			)}
@@ -75,5 +76,15 @@ export const rejectedChangesToastOptions = ({
 }): ToastManagerAddOptions<never> => ({
 	title: newCommit != null ? "Some changes were not committed" : "Failed to create commit",
 	description: <RejectedChanges rejectedChanges={rejectedChanges} />,
+	priority: "high",
+});
+
+export const discardChangesToastOptions = ({
+	rejectedChanges,
+}: {
+	rejectedChanges: Array<DiffSpec>;
+}): ToastManagerAddOptions<never> => ({
+	title: "Some changes were not discarded",
+	description: formatPaths(rejectedChanges.map((diffSpec) => decodeBytes(diffSpec.pathBytes))),
 	priority: "high",
 });

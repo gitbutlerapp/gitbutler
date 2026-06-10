@@ -1,4 +1,4 @@
-import { encodeRefName, refNamesEqual } from "#ui/api/ref-name.ts";
+import { encodeBytes, refNamesEqual } from "#ui/api/ref-name.ts";
 import { type Commit, type RefInfo, type RelativeTo, type Segment } from "@gitbutler/but-sdk";
 
 export const getBranchNameByCommitId = (headInfo: RefInfo): Map<string, string | undefined> => {
@@ -109,8 +109,8 @@ export const resolveRelativeTo = ({
 			);
 		case "reference":
 			return (
-				findSegmentByBranchRef({ headInfo, branchRef: encodeRefName(relativeTo.subject) })
-					?.commits[0]?.id ?? null
+				findSegmentByBranchRef({ headInfo, branchRef: encodeBytes(relativeTo.subject) })?.commits[0]
+					?.id ?? null
 			);
 	}
 };
