@@ -303,10 +303,9 @@ const statusLabel = (status: TreeStatus): string =>
 const FileRow: FC<
 	{
 		item: FileTreeItem;
-		onFileSelection: (selection: FileOperand) => void;
 		projectId: string;
-	} & Omit<ComponentProps<typeof ItemRow>, "onFileSelection" | "projectId" | "operand">
-> = ({ item, onFileSelection, projectId, ...restProps }) => {
+	} & Omit<ComponentProps<typeof ItemRow>, "projectId" | "operand">
+> = ({ item, projectId, ...restProps }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -432,7 +431,6 @@ const FileRow: FC<
 			{...restProps}
 			projectId={projectId}
 			operand={item.operand}
-			onFileSelection={onFileSelection}
 			className={classes(restProps.className, styles.fileRow)}
 		>
 			<div className={styles.fileIconWithCheckbox}>
