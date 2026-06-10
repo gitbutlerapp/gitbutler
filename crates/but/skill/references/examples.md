@@ -28,10 +28,12 @@ but status -fv
 but commit <api-branch-id> -m "Add user details endpoint" --changes <api-file-id>
 but commit <ui-branch-id> -m "Update button hover styles" --changes <ui-file-id>
 
-# Alternative: stage first, then commit with --only
-# but stage <api-file-id> <api-branch-id> && but stage <ui-file-id> <ui-branch-id>
-# but commit <api-branch-id> --only -m "Add user details endpoint"
-# but commit <ui-branch-id> --only -m "Update button hover styles"
+# Follow-up fix that belongs in a commit you just made? Amend it in.
+# Run each mutation separately; IDs can change after every mutation.
+# Each command returns the updated workspace state — read it and take
+# fresh IDs from it for the next command.
+# but amend <api-fix-file-id> <api-commit-id>
+# but amend <ui-fix-file-id> <ui-commit-id>
 
 # 6. Push branches independently (optional, can skip if using pr new)
 but push <api-branch-id>
@@ -59,8 +61,7 @@ but branch new add-authentication
 # 3. Implement auth and commit
 # (edit auth/login.js, auth/middleware.js)
 but status -fv
-but stage <file-ids> bu  # Stage changes to auth branch
-but commit bu --only -m "Add JWT authentication"
+but commit bu -m "Add JWT authentication" --changes <file-ids>
 
 # 4. Create stacked branch anchored on authentication
 but branch new user-profile -a bu
@@ -68,8 +69,7 @@ but branch new user-profile -a bu
 # 5. Implement profile page (depends on auth)
 # (edit pages/profile.js)
 but status -fv
-but stage <file-ids> bv  # Stage changes to profile branch
-but commit bv --only -m "Add user profile page"
+but commit bv -m "Add user profile page" --changes <file-ids>
 
 # 6. Push both branches (maintains stack relationship)
 but push
@@ -90,8 +90,8 @@ but status -fv
 # Commits:
 #   c3: Implement feature logic
 #   c2: Add feature tests
-# Unstaged:
-#   a1: fix-typo.js (staged to bu)
+# Uncommitted:
+#   a1: fix-typo.js (assigned to bu)
 
 # 2. Preview what absorb would do (recommended first step)
 but absorb a1 --dry-run    # Shows where a1 would be absorbed
@@ -107,7 +107,7 @@ but absorb a1    # Absorb just this file + get updated status
 
 ```bash
 but absorb a1    # Absorb specific file (recommended)
-but absorb bu    # Absorb all changes staged to branch bu
+but absorb bu    # Absorb all changes assigned to branch bu
 but absorb       # Absorb ALL uncommitted changes (use with caution)
 ```
 
@@ -202,22 +202,22 @@ but commit bv -m "Add dialog component" --changes <id> # To frontend
 
 ## Example 6: Using Marks for Focused Work
 
-**Scenario:** Working on a large refactor, want all changes to automatically stage to that branch.
+**Scenario:** Working on a large refactor, want all changes to automatically assign to that branch.
 
 ```bash
 # 1. Create refactor branch
 but branch new refactor
 
-# 2. Mark it for auto-staging
+# 2. Mark it for auto-assignment
 but mark bu    # Branch bu (refactor) is now marked
 
 # 3. Make changes across many files
 # (edit 20 different files)
 
-# 4. All changes automatically staged to refactor branch
-but status -fv  # Shows all changes staged to bu
+# 4. All changes automatically assigned to refactor branch
+but status -fv  # Shows all changes assigned to bu
 
-# 5. Commit the staged changes
+# 5. Commit the changes assigned to the branch
 but commit bu --only -m "Refactor error handling across app"
 
 # 6. Remove mark
@@ -305,19 +305,16 @@ but branch new user-dashboard
 # 3. Make initial changes
 # (create dashboard.js, add routes)
 
-# 4. Check and stage
+# 4. Check status and gather file IDs
 but status -fv
-but stage <file-ids> bu  # Stage changes to dashboard branch
 
 # 5. First commit
-but commit bu --only -m "Add dashboard route and basic layout"
+but commit bu -m "Add dashboard route and basic layout" --changes <file-ids>
 
 # 6. Continue iterating
 # (add widgets, styling)
-but stage <file-ids> bu
-but commit bu --only -m "Add dashboard widgets"
-but stage <file-ids> bu
-but commit bu --only -m "Style dashboard components"
+but commit bu -m "Add dashboard widgets" --changes <file-ids>
+but commit bu -m "Style dashboard components" --changes <file-ids>
 
 # 7. Make small fix
 # (fix typo in widget)
@@ -359,9 +356,8 @@ but unapply bv
 but unapply bw
 
 # 3. Focus on feature-a
-# (make changes, stage, commit)
-but stage <file-ids> bu
-but commit bu --only -m "Complete feature-a"
+# (make changes, commit)
+but commit bu -m "Complete feature-a" --changes <file-ids>
 
 # 4. Create PR for feature-a (auto-pushes)
 but pr new bu
@@ -426,25 +422,21 @@ but branch new fix-auth-bug  # Create branch for today's work
 # Work and commit iteratively
 # (make changes)
 but status -fv              # Check changes
-but stage <file-ids> bu    # Stage to branch
-but commit bu --only -m "Identify auth bug source"
+but commit bu -m "Identify auth bug source" --changes <file-ids>
 # (make more changes)
-but stage <file-ids> bu    # Stage to branch
-but commit bu --only -m "Fix token expiration handling"
+but commit bu -m "Fix token expiration handling" --changes <file-ids>
 # (small fix to existing code)
 but absorb a1              # Absorb specific fix into appropriate commit
 
 # Mid-day: Start urgent fix on different branch
 but branch new hotfix-login  # Parallel branch for urgent work
 # (make fix)
-but stage <file-ids> bv    # Stage to hotfix branch
-but commit bv --only -m "Fix login redirect loop"
+but commit bv -m "Fix login redirect loop" --changes <file-ids>
 but pr new bv      # Push and create PR immediately
 
 # Back to original work
 # (continue working on bu, auth bug fix)
-but stage <file-ids> bu    # Stage to auth branch
-but commit bu --only -m "Add tests for token handling"
+but commit bu -m "Add tests for token handling" --changes <file-ids>
 
 # End of day: Clean up and create PR
 but squash bu    # Combine into clean history
@@ -454,7 +446,7 @@ but pr new bu      # Push and create PR
 # (make changes based on feedback)
 but absorb <file-id>    # Absorb specific changes into commits
 # Or absorb all changes for this branch:
-but absorb bu          # Absorb all changes staged to bu
+but absorb bu          # Absorb all changes assigned to bu
 but push bu        # Push updated history
 ```
 
@@ -481,7 +473,7 @@ but oplog
 # Output:
 # s5: squash branch bu
 # s4: commit bu "message"
-# s3: stage files to bu
+# s3: assign files to bu
 # s2: create branch bu
 # s1: pull from remote
 

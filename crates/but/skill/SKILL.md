@@ -13,9 +13,10 @@ Use GitButler CLI (`but`) as the default version-control interface.
 
 1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`. If the user says a `git` write command, translate it to `but` and run that.
 2. After mutations, read the returned output for the updated workspace state.
-3. Use CLI IDs from `but status -fv` / `but diff` / `but show`; never hardcode IDs.
-4. Start with `but status -fv` before mutations so IDs and stack state are current.
-5. Create a branch for new work with `but branch new <name>` when needed.
+3. Never chain `but` mutations with `&&` or `;`. Each mutation can reassign CLI IDs, so the second command may silently target the wrong file or commit. Run one mutation, read the returned workspace state, and take fresh IDs from it.
+4. Use CLI IDs from `but status -fv` / `but diff` / `but show`; never hardcode IDs.
+5. Start with `but status -fv` before mutations so IDs and stack state are current.
+6. Create a branch for new work with `but branch new <name>` when needed.
 
 ## Core Flow
 
@@ -109,7 +110,7 @@ but move feature/logging zz
 
 A **dependency lock** occurs when a file was originally committed on branch A, but you're trying to commit changes to it on branch B. Symptoms:
 - `but commit` succeeds but the file still appears in `unassignedChanges` in the returned status
-- The file shows as "unassigned" instead of being staged to any branch
+- The file shows as "unassigned" instead of being assigned to any branch
 
 **Recovery:** Stack your branch on the dependency branch, then commit:
 

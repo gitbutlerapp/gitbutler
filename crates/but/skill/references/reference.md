@@ -6,7 +6,6 @@ Agent-focused reference for useful `but` commands.
 
 - [Inspection](#inspection-understanding-state) - `status`, `show`, `diff`
 - [Branching](#branching) - `branch new`, `apply`, `unapply`, `branch delete`, `pick`
-- [Staging](#staging-multiple-staging-areas) - `stage`, `rub`
 - [Committing](#committing) - `commit`, `absorb`
 - [Editing History](#editing-history) - `rub`, `squash`, `amend`, `move`, `uncommit`, `reword`, `discard`
 - [Conflict Resolution](#conflict-resolution) - `resolve`
@@ -148,28 +147,6 @@ The source can be:
 
 If no target is specified and multiple branches exist, prompts for selection interactively.
 
-## Staging (Multiple Staging Areas)
-
-GitButler has multiple staging areas - one per stack.
-
-### `but stage <file-or-hunk> <branch>`
-
-Stage file or hunk to a specific branch.
-
-```bash
-but stage <file-or-hunk-id> <branch-id>
-```
-
-Alias for `but rub <file-or-hunk> <branch>`. You can't stage changes that depend on branch A to branch B.
-
-### `but rub <file> <branch>`
-
-Core primitive for staging (see Editing History for other `but rub` uses).
-
-```bash
-but rub <file-id> <branch-id>    # Stage file to branch
-```
-
 ## Committing
 
 ### `but commit [branch]`
@@ -177,7 +154,7 @@ but rub <file-id> <branch-id>    # Stage file to branch
 Commit changes to a branch.
 
 ```bash
-but commit <branch> --only -m "message"  # Commit ONLY staged changes (recommended)
+but commit <branch> --only -m "message"  # Commit ONLY changes assigned to the branch
 but commit <branch> -m "message"         # Commit ALL uncommitted changes to branch
 but commit <branch> -am "message"        # Accepted Git muscle-memory form; -a is a no-op
 but commit <branch> -m "message" --changes <id>,<id>  # Commit specific files or hunks by CLI ID
@@ -191,7 +168,7 @@ but commit empty --before <target>       # Insert empty commit before target
 but commit empty --after <target>        # Insert empty commit after target
 ```
 
-**Important:** Without `--only`, ALL uncommitted changes are committed to the branch, not just staged files. Use `--only` when you've staged specific files and want to commit only those.
+**Important:** Without `--only`, ALL uncommitted changes are committed to the branch, not just the changes assigned to it. Use `--only` when specific changes are assigned to the branch and you want to commit only those.
 
 **Committing specific files or hunks:** Use `--changes` (or `-p`) with comma-separated CLI IDs to commit only those files or hunks:
 - **File IDs** from `but status`: commits entire files
@@ -214,7 +191,7 @@ Automatically amend uncommitted changes into existing commits.
 
 ```bash
 but absorb <file-id>          # Absorb specific file (recommended)
-but absorb <branch-id>        # Absorb all changes staged to this branch
+but absorb <branch-id>        # Absorb all changes assigned to this branch
 but absorb                    # Absorb ALL uncommitted changes (use with caution)
 but absorb --dry-run          # Preview without making changes
 but absorb <file-id> --dry-run  # Preview specific file absorption
@@ -235,17 +212,13 @@ Logic:
 Universal editing primitive that does different operations based on types.
 
 ```bash
-but rub <file> <branch>      # Stage file to branch
 but rub <file> <commit>      # Amend file into commit
 but rub <commit> <commit>    # Squash commits together
 but rub <commit> <branch>    # Move commit to branch
-but rub <file> zz            # Move file back to unassigned
 but rub <commit> zz          # Undo commit to unassigned
-but rub zz <branch>          # Stage all unassigned changes to branch
 but rub zz <commit>          # Amend all unassigned changes into commit
 but rub <file-in-commit> zz  # Uncommit specific file from its commit
 but rub <file-in-commit> <commit>  # Move file from one commit to another
-but rub <branch> <branch>    # Reassign all uncommitted changes between branches
 ```
 
 The core "rub two things together" operation.
@@ -255,11 +228,11 @@ The core "rub two things together" operation.
 ```
 SOURCE ↓ / TARGET →  │ zz (unassigned) │ Commit     │ Branch      │ Stack
 ─────────────────────┼─────────────────┼────────────┼─────────────┼────────────
-File/Hunk            │ Unstage         │ Amend      │ Stage       │ Stage
+File/Hunk            │ Unassign        │ Amend      │ Assign      │ Assign
 Commit               │ Undo            │ Squash     │ Move        │ -
-Branch (all changes) │ Unstage all     │ Amend all  │ Reassign    │ Reassign
-Stack (all changes)  │ Unstage all     │ -          │ Reassign    │ Reassign
-Unassigned (zz)      │ -               │ Amend all  │ Stage all   │ Stage all
+Branch (all changes) │ Unassign all    │ Amend all  │ Reassign    │ Reassign
+Stack (all changes)  │ Unassign all    │ -          │ Reassign    │ Reassign
+Unassigned (zz)      │ -               │ Amend all  │ Assign all  │ Assign all
 File-in-Commit       │ Uncommit        │ Move       │ Uncommit to │ -
 ```
 
@@ -457,10 +430,10 @@ Merges into local target branch, then runs `but pull` to update.
 
 ### `but mark <target>`
 
-Auto-stage or auto-commit new changes.
+Auto-assign or auto-commit new changes.
 
 ```bash
-but mark <branch-id>          # New unassigned changes auto-stage to this branch
+but mark <branch-id>          # New unassigned changes auto-assign to this branch
 but mark <commit-id>          # New changes auto-amend into this commit
 but mark <id> --delete        # Remove the mark
 ```
