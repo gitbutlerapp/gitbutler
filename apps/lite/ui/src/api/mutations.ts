@@ -4,10 +4,7 @@ import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/que
 import { shortCommitId } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
-import {
-	formatPaths,
-	rejectedChangesToastOptions,
-} from "#ui/operations/rejectedChangesToastOptions.tsx";
+import { formatPaths, rejectedChangesToastOptions } from "#ui/operations/toastOptions.tsx";
 import { type BranchOperand } from "#ui/operands.ts";
 import { projectActions } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";

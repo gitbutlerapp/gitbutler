@@ -14,7 +14,7 @@ import {
 	CommitUncommitParams,
 } from "#electron/ipc.ts";
 import { headInfoQueryOptions, QueryKey } from "#ui/api/queries.ts";
-import { rejectedChangesToastOptions } from "#ui/operations/rejectedChangesToastOptions.tsx";
+import { rejectedChangesToastOptions } from "#ui/operations/toastOptions.tsx";
 import { DiffSpec, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 import { Operand, operandEquals, operandFileParent } from "#ui/operands.ts";
 import { resolveDiffSpecs, useResolveDiffSpecs } from "#ui/operations/diff-specs.ts";
