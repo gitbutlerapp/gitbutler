@@ -191,11 +191,29 @@ export const FilesTree: FC<
 					) : (
 						<div role="group">
 							{items.map((item) => (
-								<FileRow
+								<TreeItem
 									key={fileOperandIdentityKey(item.operand)}
-									item={item}
-									onFileSelection={onFileSelection}
 									projectId={projectId}
+									operand={item.operand}
+									aria-label={
+										item._tag === "Change"
+											? `${statusLabel(item.change.status)} ${item.change.path}`
+											: `C ${item.path}`
+									}
+									render={
+										<OperationSourceC
+											projectId={projectId}
+											source={fileOperand(item.operand)}
+											onDragStart={() => onFileSelection(item.operand)}
+											render={
+												<FileRow
+													item={item}
+													onFileSelection={onFileSelection}
+													projectId={projectId}
+												/>
+											}
+										/>
+									}
 								/>
 							))}
 						</div>
@@ -279,11 +297,13 @@ const statusLabel = (status: TreeStatus): string =>
 		Match.exhaustive,
 	);
 
-const FileRow: FC<{
-	item: FileTreeItem;
-	onFileSelection: (selection: FileOperand) => void;
-	projectId: string;
-}> = ({ item, onFileSelection, projectId }) => {
+const FileRow: FC<
+	{
+		item: FileTreeItem;
+		onFileSelection: (selection: FileOperand) => void;
+		projectId: string;
+	} & Omit<ComponentProps<typeof ItemRow>, "onFileSelection" | "projectId" | "operand">
+> = ({ item, onFileSelection, projectId, ...restProps }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -403,28 +423,11 @@ const FileRow: FC<{
 	const isSelected = useIsSelected({ projectId, operand: item.operand });
 
 	return (
-		<TreeItem
+		<ItemRow
+			{...restProps}
 			projectId={projectId}
 			operand={item.operand}
-			aria-label={
-				item._tag === "Change"
-					? `${statusLabel(item.change.status)} ${item.change.path}`
-					: `C ${item.path}`
-			}
-			render={
-				<OperationSourceC
-					projectId={projectId}
-					source={fileOperand(item.operand)}
-					onDragStart={() => onFileSelection(item.operand)}
-					render={
-						<ItemRow
-							projectId={projectId}
-							operand={item.operand}
-							onFileSelection={onFileSelection}
-						/>
-					}
-				/>
-			}
+			onFileSelection={onFileSelection}
 		>
 			<div
 				className={workspaceItemRowStyles.itemRowLabel}
@@ -487,6 +490,6 @@ const FileRow: FC<{
 					)}
 				</Toolbar.Root>
 			)}
-		</TreeItem>
+		</ItemRow>
 	);
 };
