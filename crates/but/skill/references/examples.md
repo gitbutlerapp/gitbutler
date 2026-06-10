@@ -67,8 +67,9 @@ but branch new user-profile -a bu
 but status -fv
 but commit bv -m "Add user profile page" --changes <file-ids>
 
-# 6. Push both branches (maintains stack relationship)
-but push
+# 6. Push both branches explicitly (maintains stack relationship)
+but push add-authentication
+but push user-profile
 ```
 
 **Result:** Two PRs where user-profile PR depends on authentication PR. GitHub/GitLab shows the dependency.
@@ -354,7 +355,7 @@ but squash c2 c3    # Combine error handling commits
 #   c1: Initial
 
 # 5. Push clean history
-but push bu
+but push feature-x
 ```
 
 ## Example 10: Daily Development Workflow
@@ -396,7 +397,7 @@ but pr new bu      # Push and create PR
 but absorb <file-id>    # Absorb specific changes into commits
 # Or absorb all changes for this branch:
 but absorb bu          # Absorb all changes assigned to bu
-but push bu        # Push updated history
+but push fix-auth-bug   # Push updated history
 ```
 
 ## Example 11: Recovering from Mistakes
@@ -456,7 +457,7 @@ but status -fv    # File-centric view for quick overview
 
 ```bash
 but absorb <file-id> --dry-run  # See where specific file would be absorbed
-but push --dry-run              # See what would be pushed
+but push my-feature --dry-run   # See what would be pushed
 ```
 
 

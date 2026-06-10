@@ -47,7 +47,7 @@ but <mutation> ...
 - Reorder commits: `but move <source-commit-id> <target-commit-id>` (**commit IDs**, not branch names)
 - Stack branches: `but move <branch-name-or-id> <target-branch-name-or-id>` (**branch names or branch CLI IDs**)
 - Tear off a branch: `but move <branch-name-or-id> zz` (`zz` = unassigned; branch name or branch CLI ID)
-- Push: `but push` or `but push <branch-id>`
+- Push: `but push <branch-name>` — always specify the branch; bare `but push` pushes ALL branches when run non-interactively
 - Pull: `but pull --check` then `but pull`
 
 ## Task Recipes
@@ -143,7 +143,7 @@ If `but move` causes conflicts (conflicted commits in status):
 | `git status` | `but status -fv` |
 | `git add` + `git commit` | `but commit ... --changes ...` |
 | `git checkout -b` | `but branch new <name>` |
-| `git push` | `but push` |
+| `git push` | `but push <branch-name>` |
 | `git rebase -i` | `but move`, `but squash`, `but reword` |
 | `git rebase --onto` | `but move <branch> <new-base>` |
 | `git cherry-pick` | `but pick` |

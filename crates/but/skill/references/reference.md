@@ -341,16 +341,15 @@ but resolve cancel --force
 
 ## Remote Operations
 
-### `but push [branch]`
+### `but push <branch>`
 
-Push branches to remote.
+Push a branch to remote. Always specify which branch to push: without one, `but push` prompts for a selection in interactive terminals and pushes ALL branches with unpushed commits otherwise. Accepts a full branch name or a branch CLI ID — prefer the name; it stays valid across mutations.
 
 ```bash
-but push                      # Push all branches with unpushed commits
-but push <branch-id>          # Push specific branch
-but push --dry-run            # Preview what would be pushed
-but push -s                   # Skip force push protection checks
-but push --no-hooks           # Bypass pre-push hooks (--no-verify also works)
+but push <branch-name>             # Push specific branch
+but push <branch-name> --dry-run   # Preview what would be pushed
+but push <branch-name> -s          # Skip force push protection checks
+but push <branch-name> --no-hooks  # Bypass pre-push hooks (--no-verify also works)
 ```
 
 Force push is enabled by default with protection checks. Use `-s` only when intentionally skipping those checks.
