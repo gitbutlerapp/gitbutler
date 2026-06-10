@@ -20,7 +20,8 @@ const localCommit: Commit = {
 	message: "Local commit",
 	hasConflicts: true,
 	state: { type: "LocalOnly" },
-	createdAt: 1000,
+	authoredAt: 1000,
+	committedAt: 1000,
 	author,
 	changeId: "I111",
 	gerritReviewUrl: null,
@@ -29,7 +30,8 @@ const localCommit: Commit = {
 const upstreamCommit: UpstreamCommit = {
 	id: "2222222222222222222222222222222222222222",
 	message: "Remote commit",
-	createdAt: 2000,
+	authoredAt: 2000,
+	committedAt: 2000,
 	author,
 	changeId: "I222",
 };

@@ -113,7 +113,7 @@
 							<ReduxResult projectId={data.projectId} result={commit.result}>
 								{#snippet children(commit)}
 									{@const commitTitle = commit.message.split("\n")[0] ?? "No commit message"}
-									{@const date = new Date(Number(commit.createdAt))}
+									{@const date = new Date(Number(commit.committedAt))}
 
 									<SimpleCommitRow
 										title={commitTitle}

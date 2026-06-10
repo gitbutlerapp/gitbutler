@@ -892,8 +892,10 @@ export type Commit = {
    * Note that remote only commits in the context of a branch are expressed with the [`UpstreamCommit`] struct instead of this.
    */
   state: CommitState;
-  /** Commit creation time in Epoch milliseconds. */
-  createdAt: number;
+  /** Time at which the commit was authored, in Epoch milliseconds. */
+  authoredAt: number;
+  /** Time at which the commit was committed, in Epoch milliseconds. */
+  committedAt: number;
   /** The author of the commit. */
   author: Author;
   /**
@@ -1915,7 +1917,8 @@ export type RelativeTo = {
 export type RemoteCommit = {
   id: string;
   description: string;
-  createdAt: number;
+  authoredAt: number;
+  committedAt: number;
   author: Author;
   changeId: string | null;
   parentIds: Array<string>;
@@ -2377,8 +2380,10 @@ export type UpstreamCommit = {
   id: string;
   /** The message of the commit. */
   message: string;
-  /** Commit creation time in Epoch milliseconds. */
-  createdAt: number;
+  /** Time at which the commit was authored, in Epoch milliseconds. */
+  authoredAt: number;
+  /** Time at which the commit was committed, in Epoch milliseconds. */
+  committedAt: number;
   /** The author of the commit. */
   author: Author;
   /** The GitButler change-id associated with this commit, if available. */

@@ -4,7 +4,7 @@
 	import ChangedFilesPanel from "$components/files/ChangedFilesPanel.svelte";
 	import ReduxResult from "$components/shared/ReduxResult.svelte";
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
-	import { commitCreatedAt } from "$lib/branches/v3";
+	import { commitCommittedAt } from "$lib/branches/v3";
 	import { createCommitSelection } from "$lib/selection/key";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
@@ -109,7 +109,7 @@
 								branchName={branch.branchName}
 								commitMessage={commit.message}
 								gerritReviewUrl={commit.gerritReviewUrl ?? undefined}
-								createdAt={commitCreatedAt(commit)}
+								committedAt={commitCommittedAt(commit)}
 								author={commit.author}
 								selected={commit.id === selectedCommitId}
 								lastCommit={index === commits.length - 1}

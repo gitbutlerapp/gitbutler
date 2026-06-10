@@ -15,7 +15,8 @@ pub struct RemoteCommit {
         schemars(schema_with = "but_schemars::bstring_lossy")
     )]
     pub description: BStringForFrontend,
-    pub created_at: u128,
+    pub authored_at: u128,
+    pub committed_at: u128,
     pub author: Author,
     pub change_id: Option<String>,
     #[serde(with = "but_serde::object_id_vec")]
@@ -34,7 +35,8 @@ pub(crate) fn commit_to_remote_commit(commit: &gix::Commit) -> Result<RemoteComm
     Ok(RemoteCommit {
         id: commit.id().to_string(),
         description: commit.message_bstr().into(),
-        created_at: u128::try_from(commit.time()?.seconds).unwrap() * 1000,
+        authored_at: u128::try_from(commit.author()?.time()?.seconds).unwrap() * 1000,
+        committed_at: u128::try_from(commit.time()?.seconds).unwrap() * 1000,
         author: commit.author()?.into(),
         change_id: commit.change_id().map(|c| c.to_string()),
         parent_ids,

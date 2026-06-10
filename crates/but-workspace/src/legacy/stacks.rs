@@ -644,7 +644,8 @@ pub fn local_and_remote_commits(
             }
         };
 
-        let created_at = i128::from(gix_commit.time()?.seconds) * 1000;
+        let authored_at = i128::from(gix_commit.author()?.time()?.seconds) * 1000;
+        let committed_at = i128::from(gix_commit.time()?.seconds) * 1000;
 
         let api_commit = ui::Commit {
             id: *commit_id,
@@ -652,7 +653,8 @@ pub fn local_and_remote_commits(
             message: gix_commit.message_bstr().into(),
             has_conflicts: gix_commit.is_conflicted(),
             state,
-            created_at,
+            authored_at,
+            committed_at,
             author: gix_commit.author()?.into(),
             change_id: change_id
                 .unwrap_or_else(|| {

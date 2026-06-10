@@ -42,7 +42,7 @@ fn integrate_pull_rebase_applies_and_snapshots_before_and_after() -> anyhow::Res
       "mergeBase": {
         "cliId": "",
         "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
-        "createdAt": "2000-01-02T00:00:00+00:00",
+        "createdAt": "2000-01-01T00:00:00+00:00",
         "message": "add M\n",
         "authorName": "author",
         "authorEmail": "author@example.com",
@@ -55,7 +55,7 @@ fn integrate_pull_rebase_applies_and_snapshots_before_and_after() -> anyhow::Res
         "latestCommit": {
           "cliId": "",
           "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
-          "createdAt": "2000-01-02T00:00:00+00:00",
+          "createdAt": "2000-01-01T00:00:00+00:00",
           "message": "add M\n",
           "authorName": "author",
           "authorEmail": "author@example.com",
@@ -92,7 +92,7 @@ Updated branch A.
       "mergeBase": {
         "cliId": "",
         "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
-        "createdAt": "2000-01-02T00:00:00+00:00",
+        "createdAt": "2000-01-01T00:00:00+00:00",
         "message": "add M\n",
         "authorName": "author",
         "authorEmail": "author@example.com",
@@ -105,7 +105,7 @@ Updated branch A.
         "latestCommit": {
           "cliId": "",
           "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
-          "createdAt": "2000-01-02T00:00:00+00:00",
+          "createdAt": "2000-01-01T00:00:00+00:00",
           "message": "add M\n",
           "authorName": "author",
           "authorEmail": "author@example.com",
@@ -195,14 +195,14 @@ o 0dc3733
     |/  
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
-    insta::assert_snapshot!(before_status, @r###"
+    insta::assert_snapshot!(before_status, @r#"
     {
       "unassignedChanges": [],
       "stacks": [],
       "mergeBase": {
         "cliId": "",
         "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
-        "createdAt": "2000-01-02T00:00:00+00:00",
+        "createdAt": "2000-01-01T00:00:00+00:00",
         "message": "add M\n",
         "authorName": "author",
         "authorEmail": "author@example.com",
@@ -215,7 +215,7 @@ o 0dc3733
         "latestCommit": {
           "cliId": "",
           "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
-          "createdAt": "2000-01-02T00:00:00+00:00",
+          "createdAt": "2000-01-01T00:00:00+00:00",
           "message": "add M\n",
           "authorName": "author",
           "authorEmail": "author@example.com",
@@ -226,7 +226,7 @@ o 0dc3733
         "lastFetched": null
       }
     }
-    "###);
+    "#);
     assert_eq!(env.git_log()?, before_log, "dry-run must not rewrite refs");
     assert_eq!(
         pretty_status(&env)?,
@@ -477,7 +477,7 @@ fn integrate_errors_cleanly_without_tracking_branch() -> anyhow::Result<()> {
       "mergeBase": {
         "cliId": "",
         "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
-        "createdAt": "2000-01-02T00:00:00+00:00",
+        "createdAt": "2000-01-01T00:00:00+00:00",
         "message": "add M\n",
         "authorName": "author",
         "authorEmail": "author@example.com",
@@ -490,7 +490,7 @@ fn integrate_errors_cleanly_without_tracking_branch() -> anyhow::Result<()> {
         "latestCommit": {
           "cliId": "",
           "commitId": "0dc37334a458df421bf67ea806103bf5004845dd",
-          "createdAt": "2000-01-02T00:00:00+00:00",
+          "createdAt": "2000-01-01T00:00:00+00:00",
           "message": "add M\n",
           "authorName": "author",
           "authorEmail": "author@example.com",

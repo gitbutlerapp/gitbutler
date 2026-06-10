@@ -255,7 +255,8 @@ mod changes_in_branch {
                         "type": "LocalAndRemote",
                         "subject": "d79bba960b112dbd25d45921c47eeda22288022b"
                       },
-                      "createdAt": 946684800000,
+                      "authoredAt": 946684800000,
+                      "committedAt": 946771200000,
                       "author": {
                         "name": "author",
                         "email": "author@example.com",
@@ -269,7 +270,8 @@ mod changes_in_branch {
                     {
                       "id": "89cc2d303514654e9cab2d05b9af08b420a740c1",
                       "message": "change in A\n",
-                      "createdAt": 946684800000,
+                      "authoredAt": 946684800000,
+                      "committedAt": 946771200000,
                       "author": {
                         "name": "author",
                         "email": "author@example.com",
@@ -440,7 +442,8 @@ mod changes_in_branch {
                         "type": "LocalAndRemote",
                         "subject": "d79bba960b112dbd25d45921c47eeda22288022b"
                       },
-                      "createdAt": 946684800000,
+                      "authoredAt": 946684800000,
+                      "committedAt": 946771200000,
                       "author": {
                         "name": "author",
                         "email": "author@example.com",
@@ -454,7 +457,8 @@ mod changes_in_branch {
                     {
                       "id": "89cc2d303514654e9cab2d05b9af08b420a740c1",
                       "message": "change in A\n",
-                      "createdAt": 946684800000,
+                      "authoredAt": 946684800000,
+                      "committedAt": 946771200000,
                       "author": {
                         "name": "author",
                         "email": "author@example.com",

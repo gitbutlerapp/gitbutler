@@ -440,7 +440,7 @@ impl Commit {
         Commit {
             cli_id: String::new(),
             commit_id: commit.id.to_string(),
-            created_at: i128_to_rfc3339(commit.created_at),
+            created_at: i128_to_rfc3339(commit.authored_at),
             message: commit.message.to_string(),
             author_name: commit.author.name,
             author_email: commit.author.email,
@@ -609,7 +609,8 @@ pub(super) fn build_workspace_status_json(
     let merge_base_commit = Commit::from_upstream_commit(
         but_workspace::ui::UpstreamCommit {
             id: status_ctx.common_merge_base_data.commit_id,
-            created_at: status_ctx.common_merge_base_data.created_at,
+            authored_at: status_ctx.common_merge_base_data.authored_at,
+            committed_at: status_ctx.common_merge_base_data.committed_at,
             message: status_ctx.common_merge_base_data.message.clone().into(),
             author,
             // This is a synthetic upstream commit used only to reuse
@@ -629,7 +630,8 @@ pub(super) fn build_workspace_status_json(
         let latest_commit = Commit::from_upstream_commit(
             but_workspace::ui::UpstreamCommit {
                 id: upstream.commit_id,
-                created_at: upstream.created_at,
+                authored_at: upstream.authored_at,
+                committed_at: upstream.committed_at,
                 message: upstream.message.clone().into(),
                 author: upstream_author,
                 // This is a synthetic upstream commit used only to reuse
@@ -664,7 +666,8 @@ pub(super) fn build_workspace_status_json(
                             Ok(Commit::from_upstream_commit(
                                 but_workspace::ui::UpstreamCommit {
                                     id: commit_oid,
-                                    created_at: remote_commit.created_at as i128,
+                                    authored_at: remote_commit.authored_at as i128,
+                                    committed_at: remote_commit.committed_at as i128,
                                     message: remote_commit.description.clone().into(),
                                     author,
                                     // This is a synthetic upstream commit used

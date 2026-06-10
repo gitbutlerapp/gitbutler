@@ -71,7 +71,7 @@ export async function buildSharedCommitPayload(
 			commitMeta = {
 				message: found.message,
 				author: { name: found.author.name, email: found.author.email },
-				createdAt: Number(found.createdAt),
+				createdAt: Number(found.committedAt),
 			};
 			break;
 		}

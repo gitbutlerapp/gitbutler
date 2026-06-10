@@ -281,7 +281,7 @@ export function buildNextStateGraphRows({
 				refs: [],
 				subject: baseCommit ? commitTitle(baseCommit.message) : "(base commit)",
 				changeId: null,
-				createdAt: baseCommit ? Number(baseCommit.createdAt) : 0,
+				createdAt: baseCommit ? Number(baseCommit.committedAt) : 0,
 				author: baseCommit?.author ?? null,
 				hasConflicts: baseCommit?.hasConflicts ?? null,
 			}),

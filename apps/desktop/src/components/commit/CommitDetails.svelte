@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
-	import { commitCreatedAtDate } from "$lib/branches/v3";
+	import { commitCommittedAtDate } from "$lib/branches/v3";
 	import { splitMessage } from "$lib/commits/commitMessage";
 	import { rewrapCommitMessage } from "$lib/config/uiFeatureFlags";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
@@ -52,7 +52,7 @@
 			srcUrl={userAvatarUrl(commit.author.email) ?? commit.author.gravatarUrl}
 		/>
 		<span class="divider">•</span>
-		<TimeAgo date={commitCreatedAtDate(commit)} />
+		<TimeAgo date={commitCommittedAtDate(commit)} />
 		<span class="divider">•</span>
 		<Tooltip text="Copy commit SHA">
 			<CopyButton
