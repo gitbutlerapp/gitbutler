@@ -407,48 +407,51 @@ const FileTreeRow: FC<{
 				{item._tag === "Change" ? item.change.path : item.path}
 			</div>
 
-			{outlineMode._tag === "Default" &&
-				Match.value(item).pipe(
-					Match.when({ _tag: "Change", operand: { parent: { _tag: "Changes" } } }, (item) => (
-						<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
-							<Toolbar.Button
-								aria-label="File menu"
-								onClick={(event) => {
-									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-								}}
-								className={classes(
-									workspaceItemRowStyles.itemRowIconButton,
-									getButtonClassName({
-										variant: isSelected ? "inverted" : "ghost",
-										size: "small",
-									}),
-								)}
-							>
-								<Icon name="kebab" />
-							</Toolbar.Button>
-							{item.dependencyCommitIds && (
-								<Toolbar.Button
-									className={classes(
-										workspaceItemRowStyles.itemRowIconButton,
-										getButtonClassName({
-											variant: isSelected ? "inverted" : "ghost",
-											size: "small",
-										}),
-									)}
-									render={
-										<DependencyIndicator
-											projectId={projectId}
-											commitIds={item.dependencyCommitIds}
-										/>
-									}
-								>
-									<Icon name="link" />
-								</Toolbar.Button>
-							)}
-						</Toolbar.Root>
-					)),
-					Match.orElse(() => null),
-				)}
+			{outlineMode._tag === "Default" && (
+				<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
+					<Toolbar.Button
+						aria-label="File menu"
+						onClick={(event) => {
+							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+						}}
+						className={classes(
+							workspaceItemRowStyles.itemRowIconButton,
+							getButtonClassName({
+								variant: isSelected ? "inverted" : "ghost",
+								size: "small",
+							}),
+						)}
+					>
+						<Icon name="kebab" />
+					</Toolbar.Button>
+					{Match.value(item).pipe(
+						Match.when(
+							{ _tag: "Change", operand: { parent: { _tag: "Changes" } } },
+							(item) =>
+								item.dependencyCommitIds && (
+									<Toolbar.Button
+										className={classes(
+											workspaceItemRowStyles.itemRowIconButton,
+											getButtonClassName({
+												variant: isSelected ? "inverted" : "ghost",
+												size: "small",
+											}),
+										)}
+										render={
+											<DependencyIndicator
+												projectId={projectId}
+												commitIds={item.dependencyCommitIds}
+											/>
+										}
+									>
+										<Icon name="link" />
+									</Toolbar.Button>
+								),
+						),
+						Match.orElse(() => null),
+					)}
+				</Toolbar.Root>
+			)}
 		</TreeItem>
 	);
 };
