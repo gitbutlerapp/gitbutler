@@ -7,6 +7,7 @@ import type {
 	BranchDetails,
 	BranchListing,
 	CommitDetails,
+	DiffSpec,
 	ProjectForFrontend,
 	PushResult,
 	RefInfo,
@@ -61,11 +62,15 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:commit-create", params) as Promise<CommitCreateResult>,
 	commitDiscard: (params) =>
 		ipcRenderer.invoke("workspace:commit-discard", params) as Promise<CommitDiscardResult>,
+	commitDiscardChanges: (params) =>
+		ipcRenderer.invoke("workspace:commit-discard-changes", params) as Promise<MoveChangesResult>,
 	commitDetailsWithLineStats: (params) =>
 		ipcRenderer.invoke(
 			"workspace:commit-details-with-line-stats",
 			params,
 		) as Promise<CommitDetails>,
+	discardWorktreeChanges: (params) =>
+		ipcRenderer.invoke("workspace:discard-worktree-changes", params) as Promise<Array<DiffSpec>>,
 	commitInsertBlank: (params) =>
 		ipcRenderer.invoke("workspace:commit-insert-blank", params) as Promise<CommitInsertBlankResult>,
 	commitMove: (params) =>

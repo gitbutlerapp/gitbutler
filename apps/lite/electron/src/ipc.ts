@@ -93,6 +93,18 @@ export interface CommitDiscardParams {
 	dryRun: boolean;
 }
 
+export interface CommitDiscardChangesParams {
+	projectId: string;
+	commitId: string;
+	changes: Array<DiffSpec>;
+	dryRun: boolean;
+}
+
+export interface DiscardWorktreeChangesParams {
+	projectId: string;
+	changes: Array<DiffSpec>;
+}
+
 export interface CommitInsertBlankParams {
 	projectId: string;
 	relativeTo: RelativeTo;
@@ -259,7 +271,9 @@ export interface LiteElectronApi {
 	commitAmend: (params: CommitAmendParams) => Promise<CommitCreateResult>;
 	commitCreate: (params: CommitCreateParams) => Promise<CommitCreateResult>;
 	commitDiscard: (params: CommitDiscardParams) => Promise<CommitDiscardResult>;
+	commitDiscardChanges: (params: CommitDiscardChangesParams) => Promise<MoveChangesResult>;
 	commitDetailsWithLineStats: (params: CommitDetailsWithLineStatsParams) => Promise<CommitDetails>;
+	discardWorktreeChanges: (params: DiscardWorktreeChangesParams) => Promise<Array<DiffSpec>>;
 	commitInsertBlank: (params: CommitInsertBlankParams) => Promise<CommitInsertBlankResult>;
 	commitMove: (params: CommitMoveParams) => Promise<CommitMoveResult>;
 	commitSquash: (params: CommitSquashParams) => Promise<CommitSquashResult>;
@@ -308,7 +322,9 @@ export const liteIpcChannels = {
 	commitAmend: "workspace:commit-amend",
 	commitCreate: "workspace:commit-create",
 	commitDiscard: "workspace:commit-discard",
+	commitDiscardChanges: "workspace:commit-discard-changes",
 	commitDetailsWithLineStats: "workspace:commit-details-with-line-stats",
+	discardWorktreeChanges: "workspace:discard-worktree-changes",
 	commitInsertBlank: "workspace:commit-insert-blank",
 	commitMove: "workspace:commit-move",
 	commitSquash: "workspace:commit-squash",

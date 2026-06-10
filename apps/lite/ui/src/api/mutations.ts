@@ -218,6 +218,58 @@ export const useCommitDiscard = () => {
 	});
 };
 
+export const useCommitDiscardChanges = () => {
+	const dispatch = useAppDispatch();
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.commitDiscardChanges,
+		onSuccess: async (response, input, _context, mutation) => {
+			mutation.client.setQueryData(
+				headInfoQueryOptions(input.projectId).queryKey,
+				response.workspace.headInfo,
+			);
+			dispatch(
+				projectActions.updateRewrittenCommitReferences({
+					projectId: input.projectId,
+					replacedCommits: response.workspace.replacedCommits,
+					headInfo: response.workspace.headInfo,
+				}),
+			);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to discard changes",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useDiscardWorktreeChanges = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.discardWorktreeChanges,
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to discard changes",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
 export const useCommitInsertBlank = () => {
 	const dispatch = useAppDispatch();
 	const toastManager = Toast.useToastManager();

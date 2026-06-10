@@ -1,5 +1,9 @@
 import { changesInWorktreeQueryOptions, listProjectsQueryOptions } from "#ui/api/queries.ts";
-import { useCommitUncommitChanges } from "#ui/api/mutations.ts";
+import {
+	useCommitDiscardChanges,
+	useCommitUncommitChanges,
+	useDiscardWorktreeChanges,
+} from "#ui/api/mutations.ts";
 import {
 	nativeMenuItem,
 	nativeMenuSeparator,
@@ -290,6 +294,8 @@ const FileTreeRow: FC<{
 	if (!selectedProject) throw new Error("Could not find selected project");
 
 	const commitUncommitChanges = useCommitUncommitChanges();
+	const commitDiscardChanges = useCommitDiscardChanges();
+	const discardWorktreeChanges = useDiscardWorktreeChanges();
 
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
@@ -320,6 +326,13 @@ const FileTreeRow: FC<{
 							changes: [createDiffSpec(change, [])],
 							dryRun: false,
 						});
+					const discard = () =>
+						commitDiscardChanges.mutate({
+							projectId,
+							commitId: operand.parent.commitId,
+							changes: [createDiffSpec(change, [])],
+							dryRun: false,
+						});
 
 					return [
 						nativeMenuSeparator,
@@ -327,6 +340,11 @@ const FileTreeRow: FC<{
 							label: "Uncommit",
 							enabled: !commitUncommitChanges.isPending,
 							onSelect: uncommit,
+						}),
+						nativeMenuItem({
+							label: "Discard Changes",
+							enabled: !commitDiscardChanges.isPending,
+							onSelect: discard,
 						}),
 					];
 				},
@@ -350,6 +368,11 @@ const FileTreeRow: FC<{
 						);
 						focusSelectionScope("outline");
 					};
+					const discard = () =>
+						discardWorktreeChanges.mutate({
+							projectId,
+							changes: [createDiffSpec(change, [])],
+						});
 
 					return [
 						nativeMenuSeparator,
@@ -357,6 +380,11 @@ const FileTreeRow: FC<{
 							label: "Absorb",
 							accelerator: toElectronAccelerator(changesFileHotkeys.absorb.hotkey),
 							onSelect: absorb,
+						}),
+						nativeMenuItem({
+							label: "Discard Changes",
+							enabled: !discardWorktreeChanges.isPending,
+							onSelect: discard,
 						}),
 					];
 				},
