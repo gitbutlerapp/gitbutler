@@ -1,10 +1,18 @@
 import { selectionOperationHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { type OperationType } from "#ui/operations/operation.ts";
 import { keyboardTransferOperationMode } from "#ui/outline/mode.ts";
-import { fileOperand, operandIdentityKey, type FileOperand, type Operand } from "#ui/operands.ts";
+import {
+	fileOperand,
+	hunkOperand,
+	HunkOperand,
+	operandIdentityKey,
+	type FileOperand,
+	type Operand,
+} from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectOutlineModeState,
+	selectProjectSelectionDiff,
 	selectProjectSelectionFiles,
 	selectProjectSelectionOutline,
 } from "#ui/projects/state.ts";
@@ -96,6 +104,17 @@ export const useOutlineSelection = ({
 }) => {
 	const selectionState = useAppSelector((state) => selectProjectSelectionOutline(state, projectId));
 	return resolveNavigationIndexSelection(navigationIndex, selectionState, operandIdentityKey);
+};
+
+const hunkOperandIdentityKey = (operand: HunkOperand): string =>
+	operandIdentityKey(hunkOperand(operand));
+
+export const useDiffSelection = (
+	projectId: string,
+	navigationIndex: NavigationIndex<HunkOperand>,
+) => {
+	const selection = useAppSelector((state) => selectProjectSelectionDiff(state, projectId));
+	return resolveNavigationIndexSelection(navigationIndex, selection, hunkOperandIdentityKey);
 };
 
 export const useNavigationIndexHotkeys = <T>({

@@ -13,6 +13,7 @@ export type CommandGroup =
 	| "Commit file"
 	| "Commit"
 	| "Details"
+	| "Diff"
 	| "Files"
 	| "Global"
 	| "Outline"

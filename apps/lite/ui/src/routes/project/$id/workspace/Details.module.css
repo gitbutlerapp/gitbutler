@@ -53,7 +53,14 @@
 }
 
 .diffContents {
+	--diffs-bg-selection-number-override: color-mix(var(--fill-gray-bg) 60%, transparent);
+	--diffs-bg-selection-override: transparent;
+
 	overflow: auto;
+
+	[data-selection-scope]:focus-within & {
+		--diffs-bg-selection-number-override: var(--fill-gray-bg);
+	}
 }
 
 .avatar {
