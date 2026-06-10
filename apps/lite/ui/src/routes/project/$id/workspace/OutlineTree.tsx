@@ -365,7 +365,7 @@ const useOutlineTreeHotkeys = ({
 
 		pushStackMutation.mutate({
 			projectId,
-			branch: selectedPushContext.refName.displayName,
+			branch: `refs/heads/${selectedPushContext.refName.displayName}`,
 			withForce: partialStackState.pushWithForce,
 			skipForcePushProtection: false,
 			runHooks: true,
@@ -1934,7 +1934,7 @@ const BranchRow: FC<
 	const pushStack = () => {
 		pushStackMutation.mutate({
 			projectId,
-			branch: branchName,
+			branch: `refs/heads/${branchName}`,
 			withForce: partialStackState.pushWithForce,
 			skipForcePushProtection: false,
 			runHooks: true,
