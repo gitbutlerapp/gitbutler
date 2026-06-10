@@ -18,7 +18,7 @@
 	"scripts": {
 		"dev": "concurrently -k \"pnpm dev:ui\" \"pnpm dev:electron\"",
 		"dev:ui": "vite dev --config ui/vite.config.ts --host 0.0.0.0",
-		"dev:electron": "pnpm build:electron && wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron dist/electron/main.js --inspect=9229 --remote-debugging-port=9222",
+		"dev:electron": "pnpm prepare-askpass && pnpm build:electron && wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron dist/electron/main.js --inspect=9229 --remote-debugging-port=9222",
 		"build": "pnpm build:ui && pnpm build:electron",
 		"build:ui": "vite build --config ui/vite.config.ts",
 		"build:electron": "tsgo -p electron/tsconfig.json",
