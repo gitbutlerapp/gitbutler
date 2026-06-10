@@ -6,7 +6,7 @@ import {
 } from "#ui/api/mutations.ts";
 import {
 	nativeMenuItem,
-	nativeMenuSeparator,
+	nativeMenuItemsFromGroups,
 	showNativeContextMenu,
 	showNativeMenuFromTrigger,
 	type NativeMenuItem,
@@ -48,6 +48,7 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { getButtonClassName } from "#ui/components/Button.tsx";
+import { NonEmptyArray } from "effect/Array";
 
 const fileOperandIdentityKey = (operand: FileOperand): string =>
 	operandIdentityKey(fileOperand(operand));
@@ -297,24 +298,27 @@ const FileTreeRow: FC<{
 	const commitDiscardChanges = useCommitDiscardChanges();
 	const discardWorktreeChanges = useDiscardWorktreeChanges();
 
-	const menuItems: Array<NativeMenuItem> = [
-		nativeMenuItem({
-			label: "Copy Path",
-			submenu: [
-				nativeMenuItem({
-					label: "Absolute Path",
-					onSelect: async () => {
-						const absolutePath = await window.lite.pathJoin(selectedProject.path, relativePath);
-						await window.lite.clipboardWriteText(absolutePath);
-					},
-				}),
-				nativeMenuItem({
-					label: "Relative Path",
-					onSelect: () => window.lite.clipboardWriteText(relativePath),
-				}),
-			],
-		}),
+	const menuItemGroups: Array<NonEmptyArray<NativeMenuItem>> = [
+		[
+			nativeMenuItem({
+				label: "Copy Path",
+				submenu: [
+					nativeMenuItem({
+						label: "Absolute Path",
+						onSelect: async () => {
+							const absolutePath = await window.lite.pathJoin(selectedProject.path, relativePath);
+							await window.lite.clipboardWriteText(absolutePath);
+						},
+					}),
+					nativeMenuItem({
+						label: "Relative Path",
+						onSelect: () => window.lite.clipboardWriteText(relativePath),
+					}),
+				],
+			}),
+		],
 		...Match.value(item).pipe(
+			Match.withReturnType<Array<NonEmptyArray<NativeMenuItem>>>(),
 			Match.when(
 				{ _tag: "Change", operand: { parent: { _tag: "Commit" } } },
 				({ change, operand }) => {
@@ -335,17 +339,18 @@ const FileTreeRow: FC<{
 						});
 
 					return [
-						nativeMenuSeparator,
-						nativeMenuItem({
-							label: "Uncommit",
-							enabled: !commitUncommitChanges.isPending,
-							onSelect: uncommit,
-						}),
-						nativeMenuItem({
-							label: "Discard Changes",
-							enabled: !commitDiscardChanges.isPending,
-							onSelect: discard,
-						}),
+						[
+							nativeMenuItem({
+								label: "Uncommit",
+								enabled: !commitUncommitChanges.isPending,
+								onSelect: uncommit,
+							}),
+							nativeMenuItem({
+								label: "Discard Changes",
+								enabled: !commitDiscardChanges.isPending,
+								onSelect: discard,
+							}),
+						],
 					];
 				},
 			),
@@ -375,23 +380,25 @@ const FileTreeRow: FC<{
 						});
 
 					return [
-						nativeMenuSeparator,
-						nativeMenuItem({
-							label: "Absorb",
-							accelerator: toElectronAccelerator(changesFileHotkeys.absorb.hotkey),
-							onSelect: absorb,
-						}),
-						nativeMenuItem({
-							label: "Discard Changes",
-							enabled: !discardWorktreeChanges.isPending,
-							onSelect: discard,
-						}),
+						[
+							nativeMenuItem({
+								label: "Absorb",
+								accelerator: toElectronAccelerator(changesFileHotkeys.absorb.hotkey),
+								onSelect: absorb,
+							}),
+							nativeMenuItem({
+								label: "Discard Changes",
+								enabled: !discardWorktreeChanges.isPending,
+								onSelect: discard,
+							}),
+						],
 					];
 				},
 			),
 			Match.orElse(() => []),
 		),
 	];
+	const menuItems = nativeMenuItemsFromGroups(menuItemGroups);
 
 	const isSelected = useIsSelected({ projectId, operand: item.operand });
 

@@ -1,4 +1,6 @@
 import type { NativeMenuPopupItem, NativeMenuPosition } from "#electron/ipc.ts";
+import { Array } from "effect";
+import { NonEmptyArray } from "effect/Array";
 import { MouseEvent } from "react";
 
 type NativeMenuAction = () => void | Promise<void>;
@@ -23,6 +25,11 @@ export const nativeMenuItem = (item: NativeMenuItemData): NativeMenuItem => ({
 	_tag: "Item",
 	...item,
 });
+
+/** @public */
+export const nativeMenuItemsFromGroups = (
+	groups: Array<NonEmptyArray<NativeMenuItem>>,
+): Array<NativeMenuItem> => Array.flatten(Array.intersperse(groups, [nativeMenuSeparator]));
 
 const serializeNativeMenuItems = (
 	items: Array<NativeMenuItem>,
