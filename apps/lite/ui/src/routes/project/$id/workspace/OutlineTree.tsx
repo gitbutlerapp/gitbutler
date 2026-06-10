@@ -1332,7 +1332,7 @@ const ChangesSectionRow: FC<{
 			}}
 			heading
 		>
-			<WorkspaceItemRowLabel className={isSelected ? styles.selected : undefined}>
+			<WorkspaceItemRowLabel className={classes(isSelected && styles.selected)}>
 				Changes
 				<span className={classes("text-11", "text-semibold", styles.changesCountBubble)}>
 					{changes.length}
