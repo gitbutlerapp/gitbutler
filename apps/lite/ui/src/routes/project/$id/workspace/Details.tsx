@@ -302,20 +302,6 @@ const hunkHeaderFromHunk = (hunk: Hunk): HunkHeader => ({
 	newLines: hunk.additionCount,
 });
 
-const hunkSelectionFromHunk = ({
-	file,
-	hunk,
-	isResultOfBinaryToTextConversion,
-}: {
-	file: FileOperand;
-	hunk: Hunk;
-	isResultOfBinaryToTextConversion: boolean;
-}): HunkOperand => ({
-	parent: file,
-	hunkHeader: hunkHeaderFromHunk(hunk),
-	isResultOfBinaryToTextConversion,
-});
-
 type BuildIn = {
 	fileParent: FileParent;
 	changes: Array<TreeChange>;
@@ -384,11 +370,11 @@ const build = ({ fileParent, changes, treeChangeDiffs, changesetKey }: BuildIn):
 				};
 				const fileKey = fileOperandIdentityKey(file);
 
-				const hunkOperand = hunkSelectionFromHunk({
-					file,
-					hunk,
+				const hunkOperand: HunkOperand = {
+					parent: file,
+					hunkHeader: hunkHeaderFromHunk(hunk),
 					isResultOfBinaryToTextConversion: mdiff.subject.isResultOfBinaryToTextConversion,
-				});
+				};
 				const hunkKey = hunkOperandIdentityKey(hunkOperand);
 
 				const len = navigationIndex.items.push(hunkOperand);
@@ -507,15 +493,15 @@ const DiffContents: FC<{
 		dispatch(
 			projectActions.selectDiff({
 				projectId,
-				selection: hunkSelectionFromHunk({
-					file: {
+				selection: {
+					parent: {
 						parent: fileParent,
 						path: itemBySel.change.path,
 					},
-					hunk,
+					hunkHeader: hunkHeaderFromHunk(hunk),
 					isResultOfBinaryToTextConversion:
 						itemBySel.patch.subject.isResultOfBinaryToTextConversion,
-				}),
+				},
 			}),
 		);
 	};
