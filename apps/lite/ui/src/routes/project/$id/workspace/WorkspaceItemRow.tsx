@@ -63,7 +63,7 @@ export const WorkspaceItemRowToolbar: FC<{ forceVisible?: boolean } & ComponentP
 		className={classes(
 			props.className,
 			styles.itemRowToolbar,
-			forceVisible && styles.forceVisibleToolbar,
+			forceVisible && styles.itemRowToolbarForceVisible,
 		)}
 	/>
 );
