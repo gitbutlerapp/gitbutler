@@ -1193,8 +1193,8 @@ const CommitRow: FC<
 						{hasConflicts && " ⚠️"}
 					</WorkspaceItemRowLabel>
 
-					<WorkspaceItemRowToolbar forceVisible>
-						{outlineMode._tag === "Default" && (
+					{outlineMode._tag === "Default" && (
+						<WorkspaceItemRowToolbar forceVisible>
 							<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
 								<Toolbar.Button
 									aria-label="Commit menu"
@@ -1206,9 +1206,9 @@ const CommitRow: FC<
 									<Icon name="kebab" />
 								</Toolbar.Button>
 							</Toolbar.Root>
-						)}
-						{isCommitTarget && <CommitTargetIndicator isSelected={isSelected} />}
-					</WorkspaceItemRowToolbar>
+							{isCommitTarget && <CommitTargetIndicator isSelected={isSelected} />}
+						</WorkspaceItemRowToolbar>
+					)}
 				</>
 			)}
 		</ItemRow>
@@ -2039,8 +2039,8 @@ const BranchRow: FC<
 				<>
 					<WorkspaceItemRowLabel>{optimisticBranchDisplayName}</WorkspaceItemRowLabel>
 
-					<WorkspaceItemRowToolbar forceVisible>
-						{outlineMode._tag === "Default" && (
+					{outlineMode._tag === "Default" && (
+						<WorkspaceItemRowToolbar forceVisible>
 							<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar />}>
 								<Tooltip.Root>
 									<Tooltip.Trigger
@@ -2083,9 +2083,9 @@ const BranchRow: FC<
 									<Icon name="kebab" />
 								</Toolbar.Button>
 							</Toolbar.Root>
-						)}
-						{isCommitTarget && <CommitTargetIndicator isSelected={isSelected} />}
-					</WorkspaceItemRowToolbar>
+							{isCommitTarget && <CommitTargetIndicator isSelected={isSelected} />}
+						</WorkspaceItemRowToolbar>
+					)}
 				</>
 			)}
 		</ItemRow>
