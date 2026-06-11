@@ -1,4 +1,5 @@
 import { encodeBytes, refNamesEqual } from "#ui/api/ref-name.ts";
+import { BranchOperand } from "#ui/operands.ts";
 import { type Commit, type RefInfo, type RelativeTo, type Segment } from "@gitbutler/but-sdk";
 
 export const getBranchNameByCommitId = (headInfo: RefInfo): Map<string, string | undefined> => {
@@ -53,6 +54,24 @@ export const findSegmentByBranchRef = ({
 		for (const segment of stack.segments)
 			if (segment.refName && refNamesEqual(segment.refName.fullNameBytes, branchRef))
 				return segment;
+
+	return null;
+};
+
+export const findBranchOperandByRef = ({
+	headInfo,
+	branchRef,
+}: {
+	headInfo: RefInfo;
+	branchRef: Array<number>;
+}): BranchOperand | null => {
+	for (const stack of headInfo.stacks) {
+		if (stack.id === null) continue;
+
+		for (const segment of stack.segments)
+			if (segment.refName && refNamesEqual(segment.refName.fullNameBytes, branchRef))
+				return { stackId: stack.id, branchRef };
+	}
 
 	return null;
 };

@@ -136,6 +136,10 @@ export const outlineHotkeys = {
 		hotkey: "Space",
 		meta: { group: "Branch", name: "Check branch commits" },
 	},
+	createDependentBranchAbove: {
+		hotkey: "N", // like lazygit
+		meta: { group: "Branch", name: "Create dependent branch above" },
+	},
 	setCommitTarget: {
 		hotkey: "Shift+C",
 		meta: { group: "Commit", name: "Set commit target" },
