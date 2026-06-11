@@ -25,7 +25,7 @@ export declare function absorptionPlan(projectId: string, target: AbsorptionTarg
  * This acquires exclusive worktree access from `ctx`, applies
  * `existing_branch`, and records an oplog snapshot on success.
  */
-export declare function apply(projectId: string, existingBranch: string): Promise<ApplyOutcome>
+export declare function apply(projectId: string, existingBranch: FullRefNameBytes): Promise<ApplyOutcome>
 
 /**
  * Apply `integration` to `branch`.
@@ -35,7 +35,7 @@ export declare function apply(projectId: string, existingBranch: string): Promis
  * `dry_run` is enabled, the returned workspace previews the integration
  * result and no oplog entry is persisted.
  */
-export declare function applyBranchIntegration(projectId: string, branch: string, integration: InteractiveIntegration, dryRun: boolean): Promise<IntegrateBranchResult>
+export declare function applyBranchIntegration(projectId: string, branch: FullRefNameBytes, integration: InteractiveIntegration, dryRun: boolean): Promise<IntegrateBranchResult>
 
 /**
  * Persists `assignments` for the current workspace and records an oplog
@@ -48,7 +48,7 @@ export declare function applyBranchIntegration(projectId: string, branch: string
  */
 export declare function assignHunk(projectId: string, assignments: Array<HunkAssignmentRequest>): Promise<void>
 
-export declare function branchDetails(projectId: string, branchName: string, remote: string | null): Promise<BranchDetails>
+export declare function branchDetails(projectId: string, branch: FullRefNameBytes): Promise<BranchDetails>
 
 /**
  * Computes the worktree-visible diff for `branch` in the current workspace.
@@ -57,7 +57,7 @@ export declare function branchDetails(projectId: string, branchName: string, rem
  * diff is computed against the current workspace state. For lower-level
  * implementation details, see [`but_workspace::ui::diff::changes_in_branch()`].
  */
-export declare function branchDiff(projectId: string, branch: string): Promise<TreeChanges>
+export declare function branchDiff(projectId: string, branch: FullRefNameBytes): Promise<TreeChanges>
 
 /** See [`changes_in_worktree_with_perm()`]. */
 export declare function changesInWorktree(projectId: string): Promise<WorktreeChanges>
@@ -229,7 +229,7 @@ export declare function discardWorktreeChanges(projectId: string, worktreeChange
  * affordances without making the renderer hold per-forge URL
  * templates. `fork` is the owner namespace for fork compares.
  */
-export declare function forgeCompareBranchUrl(projectId: string, base: string, branch: string, fork: string | null): Promise<string | null>
+export declare function forgeCompareBranchUrl(projectId: string, base: FullRefNameBytes, branch: FullRefNameBytes, fork: string | null): Promise<string | null>
 
 /**
  * Per-project forge display + URL config. Lets the renderer build
@@ -245,7 +245,7 @@ export declare function forgeInfo(projectId: string): Promise<ForgeInfo | null>
 export declare function forgeProvider(projectId: string): Promise<ForgeName | null>
 
 /** Get the initial upstream integration script for `branch`. */
-export declare function getInitialBranchIntegration(projectId: string, branch: string, strategy: BranchIntegrationStrategy | null): Promise<InitialBranchIntegration>
+export declare function getInitialBranchIntegration(projectId: string, branch: FullRefNameBytes, strategy: BranchIntegrationStrategy | null): Promise<InitialBranchIntegration>
 
 /**
  * Get the snapshot that a redo operation should restore to.
@@ -276,13 +276,13 @@ export declare function listAvailableReviewTemplates(projectId: string): Promise
 
 export declare function listBranches(projectId: string, filter: BranchListingFilter | null): Promise<Array<BranchListing>>
 
-export declare function listCiChecks(projectId: string, reference: string, cacheConfig: CacheConfig | null): Promise<Array<CiCheck>>
+export declare function listCiChecks(projectId: string, reference: FullRefNameBytes, cacheConfig: CacheConfig | null): Promise<Array<CiCheck>>
 
 export declare function listProjectsStateless(): Promise<Array<ProjectForFrontend>>
 
 export declare function listReviews(projectId: string, cacheConfig: CacheConfig | null): Promise<Array<ForgeReview>>
 
-export declare function listReviewsForBranch(projectId: string, branch: string, filter: ForgeReviewFilter | null): Promise<Array<ForgeReview>>
+export declare function listReviewsForBranch(projectId: string, branch: FullRefNameBytes, filter: ForgeReviewFilter | null): Promise<Array<ForgeReview>>
 
 /** Merge a review on the forge. */
 export declare function mergeReview(projectId: string, reviewId: number, mergeMethod: ReviewMergeMethod | null): Promise<void>
@@ -295,7 +295,7 @@ export declare function mergeReview(projectId: string, reviewId: number, mergeMe
  * `dry_run` is enabled, the returned workspace previews the move and no oplog
  * entry is persisted.
  */
-export declare function moveBranch(projectId: string, subjectBranch: string, targetBranch: string, dryRun: boolean): Promise<MoveBranchResult>
+export declare function moveBranch(projectId: string, subjectBranch: FullRefNameBytes, targetBranch: FullRefNameBytes, dryRun: boolean): Promise<MoveBranchResult>
 
 /**
  * Find the final snapshot that a restore snapshot will restore from.
@@ -316,7 +316,7 @@ export declare function peelRestoreSnapshot(projectId: string, sha: string): Pro
 
 export declare function publishReview(projectId: string, params: CreateForgeReviewParams): Promise<ForgeReview>
 
-export declare function pushStack(projectId: string, stackId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
+export declare function pushStack(projectId: string, stackId: string, withForce: boolean, skipForcePushProtection: boolean, branch: FullRefNameBytes, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
 
 /**
  * Remove a branch from a stack.
@@ -327,7 +327,7 @@ export declare function pushStack(projectId: string, stackId: string, withForce:
  * This can only be called on a branch that's inside of a stack of multiple branches and is not the top branch,
  * or on a branch that's empty.
  */
-export declare function removeBranch(projectId: string, stackId: string, branchName: string): Promise<void>
+export declare function removeBranch(projectId: string, stackId: string, branchName: FullRefNameBytes): Promise<void>
 
 /**
  * Restores the project to a specific snapshot using a specific kind of restore. This operation
@@ -363,7 +363,7 @@ export declare function setReviewTemplate(projectId: string, templatePath: strin
  * `dry_run` is enabled, the returned workspace previews the tear-off and no
  * oplog entry is persisted.
  */
-export declare function tearOffBranch(projectId: string, subjectBranch: string, dryRun: boolean): Promise<MoveBranchResult>
+export declare function tearOffBranch(projectId: string, subjectBranch: FullRefNameBytes, dryRun: boolean): Promise<MoveBranchResult>
 
 /**
  * Produces a unified patch for `change`.
@@ -393,7 +393,7 @@ export declare function unapplyStack(projectId: string, stackId: string): Promis
  *
  * See [`update_branch_name_with_perm()`] for the underlying mutation.
  */
-export declare function updateBranchName(projectId: string, stackId: string, branchName: string, newName: string): Promise<void>
+export declare function updateBranchName(projectId: string, stackId: string, branchName: FullRefNameBytes, newName: FullRefNameBytes): Promise<void>
 
 /**
  * Update arbitrary fields of a single review (body, state, target base).
@@ -414,7 +414,7 @@ export declare function updateReviewFooters(projectId: string, reviews: Array<Fo
 export declare function warmCiChecksCache(projectId: string): Promise<void>
 
 /** Push a branch and any parent references that lie within the current workspace projection. */
-export declare function workspaceBranchAndAncestorsPush(projectId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
+export declare function workspaceBranchAndAncestorsPush(projectId: string, withForce: boolean, skipForcePushProtection: boolean, branch: FullRefNameBytes, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
 
 /**
  * Integrate upstream changes into the current workspace and record an oplog
@@ -1289,6 +1289,12 @@ export type FullRefName = {
    * Note that it might be degenerated if it can't be represented in Unicode.
    */
   full: string;
+};
+
+/** The full name of a Git reference, transported losslessly as bytes. */
+export type FullRefNameBytes = {
+  /** The full ref name, like `refs/heads/feat`, without UTF-8 loss. */
+  fullNameBytes: Array<number>;
 };
 
 /** See [`GitConfigSettings`](crate::GitConfigSettings) for the docs. */

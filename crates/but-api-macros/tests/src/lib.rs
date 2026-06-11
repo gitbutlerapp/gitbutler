@@ -26,6 +26,28 @@ pub mod json {
     use std::str::FromStr;
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+    #[serde(rename_all = "camelCase")]
+    pub struct FullRefNameBytes {
+        pub full_name_bytes: Vec<u8>,
+    }
+
+    impl TryFrom<FullRefNameBytes> for gix::refs::FullName {
+        type Error = gix::refs::name::Error;
+
+        fn try_from(value: FullRefNameBytes) -> Result<Self, Self::Error> {
+            gix::refs::FullName::try_from(bstr::BString::from(value.full_name_bytes))
+        }
+    }
+
+    impl From<FullRefNameBytes> for String {
+        fn from(value: FullRefNameBytes) -> Self {
+            gix::refs::FullName::try_from(value)
+                .map(|name| name.shorten().to_string())
+                .unwrap()
+        }
+    }
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
     #[serde(transparent)]
     pub struct HexHash(pub String);
 

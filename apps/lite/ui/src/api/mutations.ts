@@ -1,5 +1,5 @@
 import { renameBranchInHeadInfo, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { encodeBytes } from "#ui/api/ref-name.ts";
+import { decodeBytes } from "#ui/api/ref-name.ts";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { shortCommitId } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
@@ -461,7 +461,7 @@ export const usePushStack = () => {
 						? "branch"
 						: "branches"
 				}`,
-				description: input.branch,
+				description: decodeBytes(input.branch.fullNameBytes),
 			});
 		},
 		onError: (error) => {
@@ -706,7 +706,8 @@ export const useUpdateBranchName = ({
 	return useMutation({
 		mutationFn: window.lite.updateBranchName,
 		onSuccess: async (_response, input, _context, mutation) => {
-			const newBranchRef = encodeBytes(`refs/heads/${input.newName}`);
+			const newBranchRef = input.newName.fullNameBytes;
+			const newName = decodeBytes(newBranchRef).replace(/^refs\/heads\//, "");
 			const newBranch: BranchOperand = {
 				stackId,
 				// TODO: ideally the API would return the new ref?
@@ -720,7 +721,7 @@ export const useUpdateBranchName = ({
 					headInfo,
 					stackId,
 					branchRef,
-					newName: input.newName,
+					newName,
 					newBranchRef,
 				});
 			});

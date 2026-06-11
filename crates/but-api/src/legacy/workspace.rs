@@ -199,28 +199,43 @@ fn handle_gerrit(
     Ok(())
 }
 
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn branch_details(
     ctx: &but_ctx::Context,
     branch_name: String,
     remote: Option<String>,
 ) -> Result<but_workspace::ui::BranchDetails> {
+    let ref_name: gix::refs::FullName = match remote.as_deref() {
+        None => {
+            format!("refs/heads/{branch_name}")
+        }
+        Some(remote) => {
+            format!("refs/remotes/{remote}/{branch_name}")
+        }
+    }
+    .try_into()
+    .map_err(anyhow::Error::from)?;
+    branch_details_by_ref(ctx, ref_name.as_ref())
+}
+
+#[but_api(napi, napi_name = "branchDetails")]
+#[instrument(err(Debug))]
+pub fn branch_details_napi(
+    ctx: &but_ctx::Context,
+    branch: &gix::refs::FullNameRef,
+) -> Result<but_workspace::ui::BranchDetails> {
+    branch_details_by_ref(ctx, branch)
+}
+
+pub fn branch_details_by_ref(
+    ctx: &but_ctx::Context,
+    branch: &gix::refs::FullNameRef,
+) -> Result<but_workspace::ui::BranchDetails> {
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
         let meta = ctx.meta()?;
-        let ref_name: gix::refs::FullName = match remote.as_deref() {
-            None => {
-                format!("refs/heads/{branch_name}")
-            }
-            Some(remote) => {
-                format!("refs/remotes/{remote}/{branch_name}")
-            }
-        }
-        .try_into()
-        .map_err(anyhow::Error::from)?;
-        let project_meta = ctx.project_meta()?;
-        but_workspace::branch_details(&repo, ref_name.as_ref(), &meta, &project_meta)
+        but_workspace::branch_details(&repo, branch, &meta)
     }?;
     let repo = ctx.repo.get()?;
     let db = ctx.db.get_cache()?;

@@ -60,7 +60,11 @@ pub fn forge_info(ctx: &Context) -> Result<Option<but_forge::ForgeInfo>> {
 /// Web compare URL for a branch — drives the "Open in browser"
 /// affordances without making the renderer hold per-forge URL
 /// templates. `fork` is the owner namespace for fork compares.
-#[but_api(napi)]
+#[but_api(
+    napi,
+    napi_param(base = crate::json::FullRefNameBytes),
+    napi_param(branch = crate::json::FullRefNameBytes)
+)]
 #[instrument(err(Debug))]
 pub fn forge_compare_branch_url(
     ctx: &Context,
@@ -361,7 +365,7 @@ pub async fn get_repo_info(ctx: ThreadSafeContext) -> Result<but_forge::RepoInfo
     .await
 }
 
-#[but_api(napi)]
+#[but_api(napi, napi_param(reference = crate::json::FullRefNameBytes))]
 #[instrument(skip(ctx), err(Debug))]
 pub fn list_ci_checks(
     ctx: &Context,
@@ -589,7 +593,7 @@ pub async fn update_review_footers(
     .await
 }
 
-#[but_api(napi)]
+#[but_api(napi, napi_param(branch = crate::json::FullRefNameBytes))]
 #[instrument(err(Debug))]
 pub async fn list_reviews_for_branch(
     ctx: ThreadSafeContext,

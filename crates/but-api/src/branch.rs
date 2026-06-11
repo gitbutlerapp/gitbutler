@@ -512,9 +512,9 @@ pub fn apply_with_perm(
 /// implementation details, see [`but_workspace::ui::diff::changes_in_branch()`].
 #[but_api(napi)]
 #[instrument(err(Debug))]
-pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges> {
+pub fn branch_diff(ctx: &Context, branch: &gix::refs::FullNameRef) -> anyhow::Result<TreeChanges> {
     let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
-    let branch = repo.find_reference(&branch)?;
+    let branch = repo.find_reference(branch.as_bstr())?;
     but_workspace::ui::diff::changes_in_branch(&repo, &ws, branch.name())
 }
 

@@ -7,7 +7,7 @@ import {
 	commitDetailsWithLineStatsQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
-import { decodeBytes } from "#ui/api/ref-name.ts";
+import { decodeBytes, fullRefNameBytes } from "#ui/api/ref-name.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
 	branchFileParent,
@@ -509,16 +509,13 @@ const Header: FC<{
 		Match.tagsExhaustive({
 			Stack: () => null,
 			Branch: ({ stackId, branchRef }) => {
-				const decodedBranchRef = decodeBytes(branchRef);
 				const source = branchOperand({ stackId, branchRef });
 
 				return (
 					<SuspenseQuery
 						{...branchDetailsQueryOptions({
 							projectId,
-							// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
-							branchName: decodedBranchRef.replace(/^refs\/heads\//, ""),
-							remote: null,
+							branch: fullRefNameBytes(branchRef),
 						})}
 					>
 						{({ data: branchDetails }) => (
@@ -874,7 +871,7 @@ export const Details: FC<
 						)),
 						Match.tag("Branch", ({ stackId, branchRef }) => (
 							<SuspenseQuery
-								{...branchDiffQueryOptions({ projectId, branch: decodeBytes(branchRef) })}
+								{...branchDiffQueryOptions({ projectId, branch: fullRefNameBytes(branchRef) })}
 							>
 								{({ data: branchDiff }) =>
 									render({

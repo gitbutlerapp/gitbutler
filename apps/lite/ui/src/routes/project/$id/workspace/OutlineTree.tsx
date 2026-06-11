@@ -21,7 +21,7 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import { findCommit, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { decodeBytes, refNamesEqual } from "#ui/api/ref-name.ts";
+import { encodeBytes, fullRefNameBytes, refNamesEqual } from "#ui/api/ref-name.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
 	nativeMenuItem,
@@ -368,7 +368,7 @@ const useOutlineTreeHotkeys = ({
 
 		pushStackMutation.mutate({
 			projectId,
-			branch: decodeBytes(selectedPushContext.refName.fullNameBytes),
+			branch: fullRefNameBytes(selectedPushContext.refName.fullNameBytes),
 			withForce: partialStackState.pushWithForce,
 			skipForcePushProtection: false,
 			runHooks: true,
@@ -1876,8 +1876,8 @@ const BranchRow: FC<
 				await updateBranchNameMutation.mutateAsync({
 					projectId,
 					stackId,
-					branchName: refName.displayName,
-					newName: trimmed,
+					branchName: fullRefNameBytes(branchRef),
+					newName: fullRefNameBytes(encodeBytes(`refs/heads/${trimmed}`)),
 				});
 			} catch (error) {
 				// oxlint-disable-next-line no-console
@@ -1916,7 +1916,7 @@ const BranchRow: FC<
 	const tearOffBranch = () => {
 		tearOffBranchMutation.mutate({
 			projectId,
-			subjectBranch: decodeBytes(refName.fullNameBytes),
+			subjectBranch: fullRefNameBytes(branchRef),
 			dryRun: false,
 		});
 	};
@@ -1924,7 +1924,7 @@ const BranchRow: FC<
 	const pushStack = () => {
 		pushStackMutation.mutate({
 			projectId,
-			branch: decodeBytes(refName.fullNameBytes),
+			branch: fullRefNameBytes(branchRef),
 			withForce: partialStackState.pushWithForce,
 			skipForcePushProtection: false,
 			runHooks: true,
@@ -1995,7 +1995,7 @@ const BranchRow: FC<
 				removeBranchMutation.mutate({
 					projectId,
 					stackId,
-					branchName: decodeBytes(refName.fullNameBytes),
+					branchName: fullRefNameBytes(branchRef),
 				}),
 		}),
 	];

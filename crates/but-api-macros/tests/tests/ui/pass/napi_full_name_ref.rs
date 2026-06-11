@@ -1,4 +1,4 @@
-// Case: `#[but_api(napi)]` maps `&gix::refs::FullNameRef` parameters to `String`.
+// Case: `#[but_api(napi)]` maps `&gix::refs::FullNameRef` parameters to byte ref transport.
 
 use but_api_macros::but_api;
 

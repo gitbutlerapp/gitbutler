@@ -62,7 +62,7 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 ///         - `Context`/`&Context`/`&mut Context`/`ThreadSafeContext` → `String` named `project_id`
 ///         - Owned `gix::ObjectId` and `crate::json::HexHash` → `String` (hex-encoded)
 ///         - Owned `Vec<gix::ObjectId>` → `Vec<String>` (hex-encoded)
-///         - `&gix::refs::FullNameRef` → `String`
+///         - `&gix::refs::FullNameRef` → `crate::json::FullRefNameBytes`
 ///         - `BString` → `String`
 ///         - `&mut RepoExclusive` and `&RepoShared` stay internal and are derived from the context
 ///           parameter by acquiring the matching lock in the generated wrapper
@@ -134,14 +134,14 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     // Build napi-specific parameter list and conversions.
     // For napi, Context → String (project_id), ObjectId/HexHash → String,
-    // Vec<ObjectId> → Vec<String>, FullNameRef → String,
+    // Vec<ObjectId> → Vec<String>, FullNameRef → FullRefNameBytes,
     // BString → String, other serde types → serde_json::Value.
     let napi_info = if opts.napi {
         let json_ty_by_name = match build_json_type_mapping(input.iter()) {
             Ok(m) => m,
             Err(err) => return err.into_compile_error().into(),
         };
-        match build_napi_params(input.iter(), &json_ty_by_name) {
+        match build_napi_params(input.iter(), &json_ty_by_name, &opts.napi_param_transports) {
             Ok(info) => info,
             Err(err) => return err.into_compile_error().into(),
         }
@@ -290,20 +290,23 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! {}
     };
 
-    let js_name = fn_name
-        .to_string()
-        .split("_")
-        .enumerate()
-        .map(|(idx, word)| {
-            if idx == 0 {
-                word.into()
-            } else if let Some((head, tail)) = word.split_at_checked(1) {
-                [head.to_uppercase(), tail.to_string()].concat()
-            } else {
-                word.into()
-            }
-        })
-        .reduce(|a, b| format!("{a}{b}"));
+    let js_name = opts.napi_name.clone().unwrap_or_else(|| {
+        fn_name
+            .to_string()
+            .split("_")
+            .enumerate()
+            .map(|(idx, word)| {
+                if idx == 0 {
+                    word.into()
+                } else if let Some((head, tail)) = word.split_at_checked(1) {
+                    [head.to_uppercase(), tail.to_string()].concat()
+                } else {
+                    word.into()
+                }
+            })
+            .reduce(|a, b| format!("{a}{b}"))
+            .unwrap_or_default()
+    });
 
     let napi_fn_block = if opts.napi {
         quote! {
@@ -441,7 +444,8 @@ enum WrapperCallArgKind {
 /// A custom wrapper-surface transport type declared on a function parameter via
 /// `#[but_api(TransportType)]`.
 struct ParamTransportMapping {
-    transport_ty: syn::Type,
+    wrapper_transport_ty: Option<syn::Type>,
+    napi_transport_ty: Option<syn::Type>,
 }
 
 fn build_wrapper_params<'a>(
@@ -478,8 +482,9 @@ fn build_wrapper_params<'a>(
             });
         }
 
-        if let Some(custom_transport) = parse_param_transport_mapping(pat_ty)? {
-            let transport_ty = &custom_transport.transport_ty;
+        if let Some(custom_transport) = parse_param_transport_mapping(pat_ty)?
+            && let Some(transport_ty) = custom_transport.wrapper_transport_ty.as_ref()
+        {
             let binding_ty = &pat_ty.ty;
             param_field_names.push(ident.clone());
             struct_fields_with_json_types.push(quote! { pub #ident: #transport_ty });
@@ -611,44 +616,54 @@ fn strip_param_but_api_attrs(input_fn: &ItemFn) -> ItemFn {
     stripped
 }
 
-/// Parse an optional parameter-local transport override from `#[but_api(TransportType)]`.
+/// Parse optional parameter-local transport overrides from `#[but_api(TransportType)]`
+/// and `#[but_api(napi = TransportType)]`.
 ///
 /// This mirrors the top-level `#[but_api(Type)]` shorthand by treating the provided type as the
 /// wrapper-facing transport type and assuming `impl From<TransportType> for ParamType`.
-/// The override is intentionally limited to owned parameters and cannot overlap with built-in
-/// remappings like `Context` or `gix::ObjectId`.
+/// A `napi = Type` override only affects the N-API wrapper. Overrides are intentionally limited to
+/// owned parameters and wrapper-facing overrides cannot overlap with built-in remappings like
+/// `Context` or `gix::ObjectId`.
 fn parse_param_transport_mapping(
     pat_ty: &syn::PatType,
 ) -> Result<Option<ParamTransportMapping>, syn::Error> {
-    let mut transport_ty = None;
+    let mut wrapper_transport_ty = None;
+    let mut napi_transport_ty = None;
 
     for attr in &pat_ty.attrs {
         if !attr.path().is_ident("but_api") {
             continue;
         }
 
-        let parsed: syn::Type = attr.parse_args_with(|input: syn::parse::ParseStream| {
-            if input.peek(syn::Ident) && input.peek2(syn::Token![=]) {
-                let ident: syn::Ident = input.parse()?;
-                return Err(syn::Error::new_spanned(
-                    ident,
-                    "Expected `Type`; use `#[but_api(Type)]` instead of `#[but_api(transport = Type)]` for parameter attributes",
-                ));
-            }
-
-            let ty: syn::Type = input.parse()?;
-            if !input.is_empty() {
-                return Err(input.error("Unexpected tokens after parameter transport type"));
-            }
-            Ok(ty)
-        })?;
-
-        if transport_ty.is_some() {
-            return Err(syn::Error::new_spanned(
-                attr,
-                "Only one `#[but_api(Type)]` attribute may be specified per parameter",
-            ));
+        enum ParsedParamTransport {
+            Wrapper(syn::Type),
+            Napi(syn::Type),
         }
+
+        let parsed: ParsedParamTransport =
+            attr.parse_args_with(|input: syn::parse::ParseStream| {
+                if input.peek(syn::Ident) && input.peek2(syn::Token![=]) {
+                    let ident: syn::Ident = input.parse()?;
+                    input.parse::<syn::Token![=]>()?;
+                    if ident != "napi" {
+                        return Err(syn::Error::new_spanned(
+                            ident,
+                            "Expected `Type` or `napi = Type` for parameter attributes",
+                        ));
+                    }
+                    let ty: syn::Type = input.parse()?;
+                    if !input.is_empty() {
+                        return Err(input.error("Unexpected tokens after parameter transport type"));
+                    }
+                    return Ok(ParsedParamTransport::Napi(ty));
+                }
+
+                let ty: syn::Type = input.parse()?;
+                if !input.is_empty() {
+                    return Err(input.error("Unexpected tokens after parameter transport type"));
+                }
+                Ok(ParsedParamTransport::Wrapper(ty))
+            })?;
 
         if matches!(&*pat_ty.ty, syn::Type::Reference(_)) {
             return Err(syn::Error::new_spanned(
@@ -657,17 +672,43 @@ fn parse_param_transport_mapping(
             ));
         }
 
-        if build_wrapper_parameter_mapping(&pat_ty.ty)?.is_some() {
-            return Err(syn::Error::new_spanned(
-                &pat_ty.ty,
-                "`#[but_api(Type)]` cannot be combined with built-in parameter remapping",
-            ));
-        }
+        match parsed {
+            ParsedParamTransport::Wrapper(ty) => {
+                if wrapper_transport_ty.is_some() {
+                    return Err(syn::Error::new_spanned(
+                        attr,
+                        "Only one `#[but_api(Type)]` attribute may be specified per parameter",
+                    ));
+                }
 
-        transport_ty = Some(parsed);
+                if build_wrapper_parameter_mapping(&pat_ty.ty)?.is_some() {
+                    return Err(syn::Error::new_spanned(
+                        &pat_ty.ty,
+                        "`#[but_api(Type)]` cannot be combined with built-in parameter remapping",
+                    ));
+                }
+                wrapper_transport_ty = Some(ty);
+            }
+            ParsedParamTransport::Napi(ty) => {
+                if napi_transport_ty.is_some() {
+                    return Err(syn::Error::new_spanned(
+                        attr,
+                        "Only one `#[but_api(napi = Type)]` attribute may be specified per parameter",
+                    ));
+                }
+                napi_transport_ty = Some(ty);
+            }
+        }
     }
 
-    Ok(transport_ty.map(|transport_ty| ParamTransportMapping { transport_ty }))
+    Ok(
+        (wrapper_transport_ty.is_some() || napi_transport_ty.is_some()).then_some(
+            ParamTransportMapping {
+                wrapper_transport_ty,
+                napi_transport_ty,
+            },
+        ),
+    )
 }
 
 fn build_wrapper_parameter_mapping(
@@ -1073,6 +1114,10 @@ struct Options {
     /// If `true`, generate a `_napi` function for Node.js bindings.
     /// Enabled by writing `#[but_api(napi)]` or `#[but_api(napi, try_from = Foo)]`.
     napi: bool,
+    /// Override the JavaScript export name for the generated N-API function.
+    napi_name: Option<String>,
+    /// Parameter-specific transport overrides for generated N-API wrappers.
+    napi_param_transports: HashMap<String, syn::Type>,
 }
 
 struct ResultConversion {
@@ -1088,27 +1133,62 @@ struct ResultConversion {
 
 fn parse_options(input: syn::parse::ParseStream, is_result_option: bool) -> syn::Result<Options> {
     let mut napi = false;
+    let mut napi_name = None;
+    let mut napi_param_transports = HashMap::new();
     let mut conversion_path: Option<(FromMode, syn::Path)> = None;
 
     while !input.is_empty() {
-        if input.peek(syn::Ident) && input.peek2(syn::Token![=]) {
-            // try_from = Path
+        if input.peek(syn::Ident) && input.peek2(syn::token::Paren) {
             let ident: syn::Ident = input.parse()?;
-            if ident != "try_from" {
+            if ident != "napi_param" {
                 return Err(syn::Error::new_spanned(
                     ident,
-                    "Expected `try_from = Type`; only `try_from` is supported as a key",
+                    "Expected `napi_param(name = Type)`",
                 ));
             }
-            input.parse::<syn::Token![=]>()?;
-            let path: syn::Path = input.parse()?;
-            if conversion_path.is_some() {
+            let content;
+            syn::parenthesized!(content in input);
+            let param_ident: syn::Ident = content.parse()?;
+            content.parse::<syn::Token![=]>()?;
+            let transport_ty: syn::Type = content.parse()?;
+            if !content.is_empty() {
+                return Err(content.error("Unexpected tokens after N-API parameter transport type"));
+            }
+            if napi_param_transports
+                .insert(param_ident.to_string(), transport_ty)
+                .is_some()
+            {
                 return Err(syn::Error::new_spanned(
-                    path,
-                    "Only one conversion type may be specified",
+                    param_ident,
+                    "Only one N-API transport may be specified for a parameter",
                 ));
             }
-            conversion_path = Some((FromMode::TryFrom, path));
+        } else if input.peek(syn::Ident) && input.peek2(syn::Token![=]) {
+            let ident: syn::Ident = input.parse()?;
+            input.parse::<syn::Token![=]>()?;
+            if ident == "try_from" {
+                let path: syn::Path = input.parse()?;
+                if conversion_path.is_some() {
+                    return Err(syn::Error::new_spanned(
+                        path,
+                        "Only one conversion type may be specified",
+                    ));
+                }
+                conversion_path = Some((FromMode::TryFrom, path));
+            } else if ident == "napi_name" {
+                let name: syn::LitStr = input.parse()?;
+                if napi_name.replace(name.value()).is_some() {
+                    return Err(syn::Error::new_spanned(
+                        ident,
+                        "Only one `napi_name` may be specified",
+                    ));
+                }
+            } else {
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "Expected `try_from = Type` or `napi_name = \"name\"`",
+                ));
+            }
         } else {
             let path: syn::Path = input.parse()?;
             if path.is_ident("napi") {
@@ -1150,6 +1230,8 @@ fn parse_options(input: syn::parse::ParseStream, is_result_option: bool) -> syn:
     Ok(Options {
         result_conversion,
         napi,
+        napi_name,
+        napi_param_transports,
     })
 }
 
@@ -1188,12 +1270,13 @@ struct NapiParamsInfo {
 /// - Owned `gix::ObjectId` → `String` (hex-encoded)
 /// - Owned `Vec<gix::ObjectId>` → `Vec<String>` (hex-encoded)
 /// - `json::HexHash` → `String` (hex-encoded)
-/// - `&gix::refs::FullNameRef` → `String`
+/// - `&gix::refs::FullNameRef` → `crate::json::FullRefNameBytes`
 /// - `BString` → `String`
 /// - Other types that implement Serialize/Deserialize → `serde_json::Value`
 fn build_napi_params<'a>(
     input: impl IntoIterator<Item = &'a syn::FnArg>,
     json_ty_by_name: &HashMap<String, JsonParameterMapping>,
+    napi_transport_by_name: &HashMap<String, syn::Type>,
 ) -> Result<NapiParamsInfo, syn::Error> {
     let mut params = Vec::new();
     let mut conversions = Vec::new();
@@ -1220,8 +1303,26 @@ fn build_napi_params<'a>(
             });
         }
 
-        if let Some(custom_transport) = parse_param_transport_mapping(pat_ty)? {
-            let transport_ty = &custom_transport.transport_ty;
+        if let Some(transport_ty) = napi_transport_by_name.get(&ident.to_string()) {
+            let ts_type_str = type_to_ts_name(transport_ty);
+            let transport_ident = format_ident!("__{}_transport", ident);
+            let actual_ty = &pat_ty.ty;
+            params.push(quote! { #[napi(ts_arg_type = #ts_type_str)] #ident: ::serde_json::Value });
+            conversions.push(quote! {
+                let #transport_ident: #transport_ty = ::serde_json::from_value(#ident)
+                    .map_err(|e| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
+                let #ident: #actual_ty = <#actual_ty>::from(#transport_ident);
+            });
+            call_arg_idents.push(quote! { #ident });
+            continue;
+        }
+
+        if let Some(custom_transport) = parse_param_transport_mapping(pat_ty)?
+            && let Some(transport_ty) = custom_transport
+                .napi_transport_ty
+                .as_ref()
+                .or(custom_transport.wrapper_transport_ty.as_ref())
+        {
             let ts_type_str = type_to_ts_name(transport_ty);
             let transport_ident = format_ident!("__{}_transport", ident);
             let actual_ty = &pat_ty.ty;
@@ -1297,10 +1398,12 @@ fn build_napi_params<'a>(
                 };
                 call_arg_idents.push(call_ident);
             } else if *last_ident == "FullName" {
-                // FullNameRef via FullName transport → String, then parse
-                params.push(quote! { #param_name: String });
+                // FullNameRef via FullNameBytes transport → owned FullName, then pass as ref.
+                params.push(quote! { #[napi(ts_arg_type = "FullRefNameBytes")] #param_name: ::serde_json::Value });
                 conversions.push(quote! {
-                    let #ident: gix::refs::FullName = gix::refs::FullName::try_from(#param_name)
+                    let #ident: crate::json::FullRefNameBytes = ::serde_json::from_value(#param_name)
+                        .map_err(|e| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
+                    let #ident: gix::refs::FullName = <gix::refs::FullName as ::std::convert::TryFrom<crate::json::FullRefNameBytes>>::try_from(#ident)
                         .map_err(|e: gix::refs::name::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
                 });
                 let call_ident = match &*pat_ty.ty {
@@ -1610,6 +1713,8 @@ fn type_to_ts_name(ty: &syn::Type) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use quote::quote;
     use syn::{FnArg, ItemFn, parse_quote};
 
@@ -1713,7 +1818,7 @@ mod tests {
     fn maps_vec_object_id_to_vec_string_napi_param_and_parser() {
         let arg: FnArg = parse_quote!(commit_ids: Vec<gix::ObjectId>);
         let json_mapping = build_json_type_mapping([&arg]).unwrap();
-        let napi_info = build_napi_params([&arg], &json_mapping).unwrap();
+        let napi_info = build_napi_params([&arg], &json_mapping, &HashMap::new()).unwrap();
         let params = &napi_info.params;
         let call_arg_idents = &napi_info.call_arg_idents;
         let conversions = &napi_info.conversions;

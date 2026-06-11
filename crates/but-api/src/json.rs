@@ -9,7 +9,7 @@
 pub use error::{Error, ToJsonError, UnmarkedError};
 use gix::refs::Target;
 use schemars::{self, JsonSchema};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 mod hex_hash {
     use std::{ops::Deref, str::FromStr};
@@ -439,6 +439,64 @@ impl From<gix::refs::FullName> for FullRefName {
             #[cfg(feature = "path-bytes")]
             full_bytes: value.as_bstr().into(),
         }
+    }
+}
+
+/// The full name of a Git reference, transported losslessly as bytes.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FullRefNameBytes {
+    /// The full ref name, like `refs/heads/feat`, without UTF-8 loss.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::bstring_bytes")
+    )]
+    pub full_name_bytes: bstr::BString,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(FullRefNameBytes);
+
+impl<'de> Deserialize<'de> for FullRefNameBytes {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct De {
+            full_name_bytes: bstr::BString,
+        }
+
+        let value = De::deserialize(deserializer)?;
+        gix::refs::FullName::try_from(value.full_name_bytes.clone())
+            .map_err(serde::de::Error::custom)?;
+        Ok(FullRefNameBytes {
+            full_name_bytes: value.full_name_bytes,
+        })
+    }
+}
+
+impl TryFrom<FullRefNameBytes> for gix::refs::FullName {
+    type Error = gix::refs::name::Error;
+
+    fn try_from(value: FullRefNameBytes) -> Result<Self, Self::Error> {
+        gix::refs::FullName::try_from(value.full_name_bytes)
+    }
+}
+
+impl From<gix::refs::FullName> for FullRefNameBytes {
+    fn from(value: gix::refs::FullName) -> Self {
+        FullRefNameBytes {
+            full_name_bytes: value.into_inner(),
+        }
+    }
+}
+
+impl From<FullRefNameBytes> for String {
+    fn from(value: FullRefNameBytes) -> Self {
+        gix::refs::FullName::try_from(value)
+            .map(|name| name.shorten().to_string())
+            .expect("FullRefNameBytes deserialization validates ref names")
     }
 }
 

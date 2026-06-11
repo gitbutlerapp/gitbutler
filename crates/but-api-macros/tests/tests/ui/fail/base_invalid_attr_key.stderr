@@ -1,4 +1,4 @@
-error: Expected `try_from = Type`; only `try_from` is supported as a key
+error: Expected `try_from = Type` or `napi_name = "name"`
  --> tests/ui/fail/base_invalid_attr_key.rs:8:11
   |
 8 | #[but_api(from = json::HexHash)]
