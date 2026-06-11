@@ -15,7 +15,11 @@ name = "but-ts"
 path = "src/main.rs"
 
 [dependencies]
-but-api = { workspace = true, features = ["legacy", "export-schema"] }
+but-api = { workspace = true, features = [
+  "legacy",
+  "export-schema",
+  "path-bytes",
+] }
 serde_json.workspace = true
 anyhow.workspace = true
 inventory.workspace = true

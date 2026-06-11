@@ -9,7 +9,7 @@
 pub use error::{Error, ToJsonError, UnmarkedError};
 use gix::refs::Target;
 use schemars::{self, JsonSchema};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 mod hex_hash {
     use std::{ops::Deref, str::FromStr};
@@ -426,7 +426,7 @@ pub struct FullRefName {
     pub full: String,
     /// `full` without degeneration, as plain bytes.
     #[cfg(feature = "path-bytes")]
-    #[schemars(schema_with = "bstring_schema")]
+    #[schemars(schema_with = "but_schemars::bstring_bytes")]
     pub full_bytes: bstr::BString,
 }
 #[cfg(feature = "export-schema")]
@@ -439,6 +439,78 @@ impl From<gix::refs::FullName> for FullRefName {
             #[cfg(feature = "path-bytes")]
             full_bytes: value.as_bstr().into(),
         }
+    }
+}
+
+impl From<&gix::refs::FullNameRef> for FullRefName {
+    fn from(value: &gix::refs::FullNameRef) -> Self {
+        FullRefName {
+            full: value.as_bstr().to_string(),
+            #[cfg(feature = "path-bytes")]
+            full_bytes: value.as_bstr().into(),
+        }
+    }
+}
+
+fn full_ref_from_bstring(value: bstr::BString) -> anyhow::Result<FullRefName> {
+    Ok(gix::refs::FullName::try_from(value)?.into())
+}
+
+/// The full name of a Git reference, transported losslessly as bytes.
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FullRefNameBytes {
+    /// The full ref name, like `refs/heads/feat`, without UTF-8 loss.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::bstring_bytes")
+    )]
+    pub full_name_bytes: bstr::BString,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(FullRefNameBytes);
+
+impl<'de> Deserialize<'de> for FullRefNameBytes {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct De {
+            full_name_bytes: bstr::BString,
+        }
+
+        let value = De::deserialize(deserializer)?;
+        gix::refs::FullName::try_from(value.full_name_bytes.clone())
+            .map_err(serde::de::Error::custom)?;
+        Ok(FullRefNameBytes {
+            full_name_bytes: value.full_name_bytes,
+        })
+    }
+}
+
+impl TryFrom<FullRefNameBytes> for gix::refs::FullName {
+    type Error = gix::refs::name::Error;
+
+    fn try_from(value: FullRefNameBytes) -> Result<Self, Self::Error> {
+        gix::refs::FullName::try_from(value.full_name_bytes)
+    }
+}
+
+impl From<gix::refs::FullName> for FullRefNameBytes {
+    fn from(value: gix::refs::FullName) -> Self {
+        FullRefNameBytes {
+            full_name_bytes: value.into_inner(),
+        }
+    }
+}
+
+impl From<FullRefNameBytes> for String {
+    fn from(value: FullRefNameBytes) -> Self {
+        gix::refs::FullName::try_from(value)
+            .map(|name| name.shorten().to_string())
+            .expect("FullRefNameBytes deserialization validates ref names")
     }
 }
 
@@ -475,5 +547,254 @@ impl From<gix::refs::Reference> for Reference {
                 Target::Symbolic(rn) => Some(rn.into()),
             },
         }
+    }
+}
+
+/// A reference in `refs/heads`, with its full name for API use and short name for display.
+#[derive(Serialize, Debug, Clone, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FullBranchReference {
+    /// The full ref name, like `refs/heads/feat`, for usage with the backend.
+    pub full_name: FullRefName,
+    /// The short version of `full_name` for display.
+    pub display_name: String,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(FullBranchReference);
+
+impl From<but_workspace::ui::ref_info::BranchReference> for FullBranchReference {
+    fn from(value: but_workspace::ui::ref_info::BranchReference) -> Self {
+        FullBranchReference {
+            full_name: full_ref_from_bstring(value.full_name_bytes)
+                .expect("BranchReference stores a validated full ref name"),
+            display_name: value.display_name,
+        }
+    }
+}
+
+/// A reference in `refs/remotes`, with its full name for API use and short name for display.
+#[derive(Serialize, Debug, Clone, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FullRemoteTrackingReference {
+    /// The full ref name, like `refs/remotes/origin/on-remote`, for usage with the backend.
+    pub full_name: FullRefName,
+    /// The short version of `full_name` for display, like `on-remote`, without the remote name.
+    pub display_name: String,
+    /// The symbolic name of the remote, like `origin`, or `origin/other`.
+    pub remote_name: String,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(FullRemoteTrackingReference);
+
+impl From<but_workspace::ui::ref_info::RemoteTrackingReference> for FullRemoteTrackingReference {
+    fn from(value: but_workspace::ui::ref_info::RemoteTrackingReference) -> Self {
+        FullRemoteTrackingReference {
+            full_name: full_ref_from_bstring(value.full_name_bytes)
+                .expect("RemoteTrackingReference stores a validated full ref name"),
+            display_name: value.display_name,
+            remote_name: value.remote_name,
+        }
+    }
+}
+
+/// Information about the target reference, the one we want to integrate with.
+#[derive(Serialize, Debug, Clone, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TargetRefInfo {
+    /// The remote tracking branch of the target to integrate with, like `refs/remotes/origin/main`.
+    pub remote_tracking_ref: FullRemoteTrackingReference,
+    /// The amount of commits that aren't reachable by any segment in the workspace, they are in its future.
+    pub commits_ahead: usize,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(TargetRefInfo);
+
+impl From<but_workspace::ui::ref_info::Target> for TargetRefInfo {
+    fn from(value: but_workspace::ui::ref_info::Target) -> Self {
+        TargetRefInfo {
+            remote_tracking_ref: value.remote_tracking_ref.into(),
+            commits_ahead: value.commits_ahead,
+        }
+    }
+}
+
+/// A segment of a commit graph, representing a set of commits exclusively.
+#[derive(Serialize, Debug, Clone, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RefInfoSegment {
+    /// The name of the branch that denotes this segment, if available.
+    pub ref_name: Option<FullBranchReference>,
+    /// The name of the remote tracking branch of this segment, if present.
+    pub remote_tracking_ref_name: Option<FullRemoteTrackingReference>,
+    /// The portion of commits that can be reached from the tip of the branch downwards.
+    pub commits: Vec<but_workspace::ui::Commit>,
+    /// Commits that are reachable from the remote-tracking branch associated with this branch.
+    pub commits_on_remote: Vec<but_workspace::ui::UpstreamCommit>,
+    /// All commits that are not workspace commits reachable by this segment.
+    pub commits_outside: Option<Vec<but_workspace::ui::Commit>>,
+    /// Read-only metadata with additional information about the branch naming the segment.
+    pub metadata: Option<but_core::ref_metadata::Branch>,
+    /// Whether this segment is the traversal entrypoint.
+    pub is_entrypoint: bool,
+    /// A derived value to help the UI decide which functions to make available.
+    pub push_status: but_workspace::ui::PushStatus,
+    /// The base commit that this segment rests on, if available.
+    #[serde(with = "but_serde::object_id_opt")]
+    #[schemars(schema_with = "but_schemars::object_id_opt")]
+    pub base: Option<gix::ObjectId>,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(RefInfoSegment);
+
+impl From<but_workspace::ui::ref_info::Segment> for RefInfoSegment {
+    fn from(value: but_workspace::ui::ref_info::Segment) -> Self {
+        RefInfoSegment {
+            ref_name: value.ref_name.map(Into::into),
+            remote_tracking_ref_name: value.remote_tracking_ref_name.map(Into::into),
+            commits: value.commits,
+            commits_on_remote: value.commits_on_remote,
+            commits_outside: value.commits_outside,
+            metadata: value.metadata,
+            is_entrypoint: value.is_entrypoint,
+            push_status: value.push_status,
+            base: value.base,
+        }
+    }
+}
+
+/// The UI-clone of `branch::Stack`.
+#[derive(Serialize, Debug, Clone, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RefInfoStack {
+    /// The stack identifier if this segment belongs to GitButler stack metadata.
+    #[schemars(schema_with = "but_schemars::stack_id_opt")]
+    pub id: Option<but_core::ref_metadata::StackId>,
+    /// The base commit shared by the stack, if available.
+    #[serde(with = "but_serde::object_id_opt")]
+    #[schemars(schema_with = "but_schemars::object_id_opt")]
+    pub base: Option<gix::ObjectId>,
+    /// The branch-name denoted segments of the stack from its tip to the point of reference.
+    pub segments: Vec<RefInfoSegment>,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(RefInfoStack);
+
+impl From<but_workspace::ui::ref_info::Stack> for RefInfoStack {
+    fn from(value: but_workspace::ui::ref_info::Stack) -> Self {
+        RefInfoStack {
+            id: value.id,
+            base: value.base,
+            segments: value.segments.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+/// The current workspace ref information returned to N-API callers.
+#[derive(Serialize, Debug, Clone, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HeadInfo {
+    /// The ref that points to a workspace commit, or the first stack segment ref.
+    pub workspace_ref: Option<FullBranchReference>,
+    /// The stacks visible in the current workspace.
+    pub stacks: Vec<RefInfoStack>,
+    /// The target to integrate workspace stacks into.
+    pub target: Option<TargetRefInfo>,
+    /// Whether the workspace ref belongs to GitButler metadata.
+    pub is_managed_ref: bool,
+    /// Whether the workspace points to a GitButler-created workspace commit.
+    pub is_managed_commit: bool,
+    /// Whether the workspace represents what `HEAD` is pointing to.
+    pub is_entrypoint: bool,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HeadInfo);
+
+impl TryFrom<but_workspace::RefInfo> for HeadInfo {
+    type Error = anyhow::Error;
+
+    fn try_from(value: but_workspace::RefInfo) -> Result<Self, Self::Error> {
+        but_workspace::ui::RefInfo::try_from(value).map(Into::into)
+    }
+}
+
+impl From<but_workspace::ui::RefInfo> for HeadInfo {
+    fn from(value: but_workspace::ui::RefInfo) -> Self {
+        HeadInfo {
+            workspace_ref: value.workspace_ref.map(Into::into),
+            stacks: value.stacks.into_iter().map(Into::into).collect(),
+            target: value.target.map(Into::into),
+            is_managed_ref: value.is_managed_ref,
+            is_managed_commit: value.is_managed_commit,
+            is_entrypoint: value.is_entrypoint,
+        }
+    }
+}
+
+/// Information about the current state of a branch.
+#[derive(Serialize, Debug, Clone, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BranchDetailsWithFullRefName {
+    /// The short name of the branch, like `foo` for `refs/heads/foo`.
+    pub name: String,
+    /// The full reference of the branch.
+    pub reference: FullRefName,
+    /// The id of the linked worktree that has the branch checked out.
+    pub linked_worktree_id: Option<String>,
+    /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`.
+    pub remote_tracking_branch: Option<FullRefName>,
+    /// The pull request associated with the branch.
+    pub pr_number: Option<usize>,
+    /// A unique identifier for the GitButler review associated with the branch, if any.
+    pub review_id: Option<String>,
+    /// The tip commit of the branch.
+    #[serde(with = "but_serde::object_id")]
+    #[schemars(schema_with = "but_schemars::object_id")]
+    pub tip: gix::ObjectId,
+    /// The base commit from the perspective of this branch.
+    #[serde(with = "but_serde::object_id")]
+    #[schemars(schema_with = "but_schemars::object_id")]
+    pub base_commit: gix::ObjectId,
+    /// The pushable status for the branch.
+    pub push_status: but_workspace::ui::PushStatus,
+    /// Last time the branch was updated in Epoch milliseconds.
+    pub last_updated_at: Option<i128>,
+    /// All authors of the commits in the branch.
+    pub authors: Vec<but_workspace::ui::Author>,
+    /// Whether the branch is conflicted.
+    pub is_conflicted: bool,
+    /// The commits contained in the branch, excluding the upstream commits.
+    pub commits: Vec<but_workspace::ui::Commit>,
+    /// The commits that are only at the remote.
+    pub upstream_commits: Vec<but_workspace::ui::UpstreamCommit>,
+    /// Whether this branch details view represents a remote head.
+    pub is_remote_head: bool,
+}
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(BranchDetailsWithFullRefName);
+
+impl TryFrom<but_workspace::ui::BranchDetails> for BranchDetailsWithFullRefName {
+    type Error = anyhow::Error;
+
+    fn try_from(value: but_workspace::ui::BranchDetails) -> Result<Self, Self::Error> {
+        Ok(BranchDetailsWithFullRefName {
+            name: value.name.to_string(),
+            reference: value.reference.into(),
+            linked_worktree_id: value.linked_worktree_id.map(|id| id.to_string()),
+            remote_tracking_branch: value
+                .remote_tracking_branch
+                .map(full_ref_from_bstring)
+                .transpose()?,
+            pr_number: value.pr_number,
+            review_id: value.review_id,
+            tip: value.tip,
+            base_commit: value.base_commit,
+            push_status: value.push_status,
+            last_updated_at: value.last_updated_at,
+            authors: value.authors,
+            is_conflicted: value.is_conflicted,
+            commits: value.commits,
+            upstream_commits: value.upstream_commits,
+            is_remote_head: value.is_remote_head,
+        })
     }
 }

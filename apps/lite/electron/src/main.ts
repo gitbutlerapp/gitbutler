@@ -314,8 +314,7 @@ const registerIpcHandlers = (): void => {
 	);
 	senderValidatingHandle(
 		liteIpcChannels.branchDetails,
-		(_e, { projectId, branchName, remote }: BranchDetailsParams) =>
-			branchDetails(projectId, branchName, remote),
+		(_e, { projectId, branch }: BranchDetailsParams) => branchDetails(projectId, branch),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.branchDiff,

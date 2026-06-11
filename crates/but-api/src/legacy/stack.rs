@@ -245,7 +245,7 @@ pub fn remove_branch_only(
 ///
 /// This can only be called on a branch that's inside of a stack of multiple branches and is not the top branch,
 /// or on a branch that's empty.
-#[but_api(napi)]
+#[but_api(napi, napi_param(branch_name = crate::json::FullRefNameBytes))]
 #[instrument(err(Debug))]
 pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: String) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -275,7 +275,11 @@ pub fn remove_branch_with_perm(
 /// rename.
 ///
 /// See [`update_branch_name_with_perm()`] for the underlying mutation.
-#[but_api(napi)]
+#[but_api(
+    napi,
+    napi_param(branch_name = crate::json::FullRefNameBytes),
+    napi_param(new_name = crate::json::FullRefNameBytes)
+)]
 #[instrument(err(Debug))]
 pub fn update_branch_name(
     ctx: &mut Context,
@@ -367,7 +371,11 @@ pub mod json {
     }
 }
 
-#[but_api(napi, json::PushResult)]
+#[but_api(
+    napi,
+    json::PushResult,
+    napi_param(branch = crate::json::FullRefNameBytes)
+)]
 #[instrument(err(Debug))]
 pub fn push_stack(
     ctx: &mut Context,

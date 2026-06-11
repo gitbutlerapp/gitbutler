@@ -33,6 +33,7 @@ import type {
 	RestoreKind,
 	Snapshot,
 	AskpassPromptEvent,
+	FullRefNameBytes,
 } from "@gitbutler/but-sdk";
 import type { UpdateDownloadedEvent } from "electron-updater";
 
@@ -48,7 +49,7 @@ export interface AbsorptionPlanParams {
 
 export interface ApplyParams {
 	projectId: string;
-	existingBranch: string;
+	existingBranch: FullRefNameBytes;
 }
 
 export interface AskpassSubmitPromptResponseParams {
@@ -63,13 +64,12 @@ export interface AssignHunkParams {
 
 export interface BranchDetailsParams {
 	projectId: string;
-	branchName: string;
-	remote: string | null;
+	branch: FullRefNameBytes;
 }
 
 export interface BranchDiffParams {
 	projectId: string;
-	branch: string;
+	branch: FullRefNameBytes;
 }
 
 export interface CommitAmendParams {
@@ -170,8 +170,8 @@ export interface ListBranchesParams {
 
 export interface MoveBranchParams {
 	projectId: string;
-	subjectBranch: string;
-	targetBranch: string;
+	subjectBranch: FullRefNameBytes;
+	targetBranch: FullRefNameBytes;
 	dryRun: boolean;
 }
 
@@ -182,7 +182,7 @@ export interface PeelRestoreSnapshotParams {
 
 export interface PushStackParams {
 	projectId: string;
-	branch: string;
+	branch: FullRefNameBytes;
 	withForce: boolean;
 	skipForcePushProtection: boolean;
 	runHooks: boolean;
@@ -192,7 +192,7 @@ export interface PushStackParams {
 export interface RemoveBranchParams {
 	projectId: string;
 	stackId: string;
-	branchName: string;
+	branchName: FullRefNameBytes;
 }
 
 export interface RestoreSnapshotWithKindParams {
@@ -203,7 +203,7 @@ export interface RestoreSnapshotWithKindParams {
 
 export interface TearOffBranchParams {
 	projectId: string;
-	subjectBranch: string;
+	subjectBranch: FullRefNameBytes;
 	dryRun: boolean;
 }
 
@@ -226,8 +226,8 @@ export interface WorkspaceIntegrateUpstreamParams {
 export interface UpdateBranchNameParams {
 	projectId: string;
 	stackId: string;
-	branchName: string;
-	newName: string;
+	branchName: FullRefNameBytes;
+	newName: FullRefNameBytes;
 }
 
 export interface WatcherSubscribeParams {

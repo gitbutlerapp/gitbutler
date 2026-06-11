@@ -4,6 +4,7 @@ import {
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
+import { encodeBytes, fullRefNameBytes } from "#ui/api/ref-name.ts";
 import { useApplyBranch, useRebaseAllStacks, useRestoreSnapshot } from "#ui/api/mutations.ts";
 import {
 	focusAdjacentSelectionScope,
@@ -227,7 +228,7 @@ const BranchPicker: FC<{
 };
 
 type ApplyBranchPickerOption = {
-	branchRef: string;
+	branchRef: Array<number>;
 	label: string;
 	type: string;
 };
@@ -238,14 +239,14 @@ const branchListingToApplyBranchPickerOptions = (
 	if (branch.hasLocal)
 		return [
 			{
-				branchRef: `refs/heads/${branch.name}`,
+				branchRef: encodeBytes(`refs/heads/${branch.name}`),
 				label: branch.name,
 				type: "Local",
 			},
 		];
 
 	return branch.remotes.map((remote) => ({
-		branchRef: `refs/remotes/${remote}/${branch.name}`,
+		branchRef: encodeBytes(`refs/remotes/${remote}/${branch.name}`),
 		label: branch.name,
 		type: remote,
 	}));
@@ -272,7 +273,7 @@ const ApplyBranchPicker: FC<{
 
 	const selectBranch = (option: ApplyBranchPickerOption) => {
 		onOpenChange(false);
-		applyBranch.mutate({ projectId, existingBranch: option.branchRef });
+		applyBranch.mutate({ projectId, existingBranch: fullRefNameBytes(option.branchRef) });
 	};
 
 	return (
@@ -280,7 +281,7 @@ const ApplyBranchPicker: FC<{
 			ariaLabel="Apply branch"
 			closeLabel="Close apply branch picker"
 			emptyLabel="No available branches found."
-			getItemKey={(x) => x.branchRef}
+			getItemKey={(x) => JSON.stringify(x.branchRef)}
 			getItemLabel={(x) => x.label}
 			getItemType={(x) => x.type}
 			itemToStringValue={(x) => x.label}

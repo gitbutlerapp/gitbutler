@@ -25,7 +25,7 @@ export declare function absorptionPlan(projectId: string, target: AbsorptionTarg
  * This acquires exclusive worktree access from `ctx`, applies
  * `existing_branch`, and records an oplog snapshot on success.
  */
-export declare function apply(projectId: string, existingBranch: string): Promise<ApplyOutcome>
+export declare function apply(projectId: string, existingBranch: FullRefNameBytes): Promise<ApplyOutcome>
 
 /**
  * Apply `integration` to `branch`.
@@ -35,7 +35,7 @@ export declare function apply(projectId: string, existingBranch: string): Promis
  * `dry_run` is enabled, the returned workspace previews the integration
  * result and no oplog entry is persisted.
  */
-export declare function applyBranchIntegration(projectId: string, branch: string, integration: InteractiveIntegration, dryRun: boolean): Promise<IntegrateBranchResult>
+export declare function applyBranchIntegration(projectId: string, branch: FullRefNameBytes, integration: InteractiveIntegration, dryRun: boolean): Promise<IntegrateBranchResult>
 
 /**
  * Persists `assignments` for the current workspace and records an oplog
@@ -48,7 +48,7 @@ export declare function applyBranchIntegration(projectId: string, branch: string
  */
 export declare function assignHunk(projectId: string, assignments: Array<HunkAssignmentRequest>): Promise<void>
 
-export declare function branchDetails(projectId: string, branchName: string, remote: string | null): Promise<BranchDetails>
+export declare function branchDetails(projectId: string, branch: FullRefNameBytes): Promise<BranchDetailsWithFullRefName>
 
 /**
  * Computes the worktree-visible diff for `branch` in the current workspace.
@@ -57,7 +57,7 @@ export declare function branchDetails(projectId: string, branchName: string, rem
  * diff is computed against the current workspace state. For lower-level
  * implementation details, see [`but_workspace::ui::diff::changes_in_branch()`].
  */
-export declare function branchDiff(projectId: string, branch: string): Promise<TreeChanges>
+export declare function branchDiff(projectId: string, branch: FullRefNameBytes): Promise<TreeChanges>
 
 /** See [`changes_in_worktree_with_perm()`]. */
 export declare function changesInWorktree(projectId: string): Promise<WorktreeChanges>
@@ -229,7 +229,7 @@ export declare function discardWorktreeChanges(projectId: string, worktreeChange
  * affordances without making the renderer hold per-forge URL
  * templates. `fork` is the owner namespace for fork compares.
  */
-export declare function forgeCompareBranchUrl(projectId: string, base: string, branch: string, fork: string | null): Promise<string | null>
+export declare function forgeCompareBranchUrl(projectId: string, base: FullRefNameBytes, branch: FullRefNameBytes, fork: string | null): Promise<string | null>
 
 /**
  * Per-project forge display + URL config. Lets the renderer build
@@ -245,7 +245,7 @@ export declare function forgeInfo(projectId: string): Promise<ForgeInfo | null>
 export declare function forgeProvider(projectId: string): Promise<ForgeName | null>
 
 /** Get the initial upstream integration script for `branch`. */
-export declare function getInitialBranchIntegration(projectId: string, branch: string, strategy: BranchIntegrationStrategy | null): Promise<InitialBranchIntegration>
+export declare function getInitialBranchIntegration(projectId: string, branch: FullRefNameBytes, strategy: BranchIntegrationStrategy | null): Promise<InitialBranchIntegration>
 
 /**
  * Get the snapshot that a redo operation should restore to.
@@ -269,20 +269,20 @@ export declare function getReviewMergeStatus(projectId: string, reviewId: number
  */
 export declare function getUndoTargetSnapshot(projectId: string): Promise<Snapshot | null>
 
-export declare function headInfo(projectId: string): Promise<RefInfo>
+export declare function headInfo(projectId: string): Promise<HeadInfo>
 
 /** Get the list of review template paths for the given project. */
 export declare function listAvailableReviewTemplates(projectId: string): Promise<Array<string>>
 
 export declare function listBranches(projectId: string, filter: BranchListingFilter | null): Promise<Array<BranchListing>>
 
-export declare function listCiChecks(projectId: string, reference: string, cacheConfig: CacheConfig | null): Promise<Array<CiCheck>>
+export declare function listCiChecks(projectId: string, reference: FullRefNameBytes, cacheConfig: CacheConfig | null): Promise<Array<CiCheck>>
 
 export declare function listProjectsStateless(): Promise<Array<ProjectForFrontend>>
 
 export declare function listReviews(projectId: string, cacheConfig: CacheConfig | null): Promise<Array<ForgeReview>>
 
-export declare function listReviewsForBranch(projectId: string, branch: string, filter: ForgeReviewFilter | null): Promise<Array<ForgeReview>>
+export declare function listReviewsForBranch(projectId: string, branch: FullRefNameBytes, filter: ForgeReviewFilter | null): Promise<Array<ForgeReview>>
 
 /** Merge a review on the forge. */
 export declare function mergeReview(projectId: string, reviewId: number, mergeMethod: ReviewMergeMethod | null): Promise<void>
@@ -295,7 +295,7 @@ export declare function mergeReview(projectId: string, reviewId: number, mergeMe
  * `dry_run` is enabled, the returned workspace previews the move and no oplog
  * entry is persisted.
  */
-export declare function moveBranch(projectId: string, subjectBranch: string, targetBranch: string, dryRun: boolean): Promise<MoveBranchResult>
+export declare function moveBranch(projectId: string, subjectBranch: FullRefNameBytes, targetBranch: FullRefNameBytes, dryRun: boolean): Promise<MoveBranchResult>
 
 /**
  * Find the final snapshot that a restore snapshot will restore from.
@@ -316,7 +316,7 @@ export declare function peelRestoreSnapshot(projectId: string, sha: string): Pro
 
 export declare function publishReview(projectId: string, params: CreateForgeReviewParams): Promise<ForgeReview>
 
-export declare function pushStack(projectId: string, stackId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
+export declare function pushStack(projectId: string, stackId: string, withForce: boolean, skipForcePushProtection: boolean, branch: FullRefNameBytes, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
 
 /**
  * Remove a branch from a stack.
@@ -327,7 +327,7 @@ export declare function pushStack(projectId: string, stackId: string, withForce:
  * This can only be called on a branch that's inside of a stack of multiple branches and is not the top branch,
  * or on a branch that's empty.
  */
-export declare function removeBranch(projectId: string, stackId: string, branchName: string): Promise<void>
+export declare function removeBranch(projectId: string, stackId: string, branchName: FullRefNameBytes): Promise<void>
 
 /**
  * Restores the project to a specific snapshot using a specific kind of restore. This operation
@@ -363,7 +363,7 @@ export declare function setReviewTemplate(projectId: string, templatePath: strin
  * `dry_run` is enabled, the returned workspace previews the tear-off and no
  * oplog entry is persisted.
  */
-export declare function tearOffBranch(projectId: string, subjectBranch: string, dryRun: boolean): Promise<MoveBranchResult>
+export declare function tearOffBranch(projectId: string, subjectBranch: FullRefNameBytes, dryRun: boolean): Promise<MoveBranchResult>
 
 /**
  * Produces a unified patch for `change`.
@@ -393,7 +393,7 @@ export declare function unapplyStack(projectId: string, stackId: string): Promis
  *
  * See [`update_branch_name_with_perm()`] for the underlying mutation.
  */
-export declare function updateBranchName(projectId: string, stackId: string, branchName: string, newName: string): Promise<void>
+export declare function updateBranchName(projectId: string, stackId: string, branchName: FullRefNameBytes, newName: FullRefNameBytes): Promise<void>
 
 /**
  * Update arbitrary fields of a single review (body, state, target base).
@@ -414,7 +414,7 @@ export declare function updateReviewFooters(projectId: string, reviews: Array<Fo
 export declare function warmCiChecksCache(projectId: string): Promise<void>
 
 /** Push a branch and any parent references that lie within the current workspace projection. */
-export declare function workspaceBranchAndAncestorsPush(projectId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
+export declare function workspaceBranchAndAncestorsPush(projectId: string, withForce: boolean, skipForcePushProtection: boolean, branch: FullRefNameBytes, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
 
 /**
  * Integrate upstream changes into the current workspace and record an oplog
@@ -669,6 +669,40 @@ export type BranchDetails = {
   /** The commits that are only at the remote. */
   upstreamCommits: Array<UpstreamCommit>;
   /** Whether it's representing a remote head */
+  isRemoteHead: boolean;
+};
+
+/** Information about the current state of a branch. */
+export type BranchDetailsWithFullRefName = {
+  /** The short name of the branch, like `foo` for `refs/heads/foo`. */
+  name: string;
+  /** The full reference of the branch. */
+  reference: FullRefName;
+  /** The id of the linked worktree that has the branch checked out. */
+  linkedWorktreeId: string | null;
+  /** Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`. */
+  remoteTrackingBranch: FullRefName | null;
+  /** The pull request associated with the branch. */
+  prNumber: number | null;
+  /** A unique identifier for the GitButler review associated with the branch, if any. */
+  reviewId: string | null;
+  /** The tip commit of the branch. */
+  tip: string;
+  /** The base commit from the perspective of this branch. */
+  baseCommit: string;
+  /** The pushable status for the branch. */
+  pushStatus: PushStatus;
+  /** Last time the branch was updated in Epoch milliseconds. */
+  lastUpdatedAt: number | null;
+  /** All authors of the commits in the branch. */
+  authors: Array<Author>;
+  /** Whether the branch is conflicted. */
+  isConflicted: boolean;
+  /** The commits contained in the branch, excluding the upstream commits. */
+  commits: Array<Commit>;
+  /** The commits that are only at the remote. */
+  upstreamCommits: Array<UpstreamCommit>;
+  /** Whether this branch details view represents a remote head. */
   isRemoteHead: boolean;
 };
 
@@ -1282,6 +1316,14 @@ export type ForgeUser = {
   details: GitlabAccountIdentifier;
 };
 
+/** A reference in `refs/heads`, with its full name for API use and short name for display. */
+export type FullBranchReference = {
+  /** The full ref name, like `refs/heads/feat`, for usage with the backend. */
+  fullName: FullRefName;
+  /** The short version of `full_name` for display. */
+  displayName: string;
+};
+
 /** The full name of a Git reference. */
 export type FullRefName = {
   /**
@@ -1289,6 +1331,24 @@ export type FullRefName = {
    * Note that it might be degenerated if it can't be represented in Unicode.
    */
   full: string;
+  /** `full` without degeneration, as plain bytes. */
+  full_bytes: Array<number>;
+};
+
+/** The full name of a Git reference, transported losslessly as bytes. */
+export type FullRefNameBytes = {
+  /** The full ref name, like `refs/heads/feat`, without UTF-8 loss. */
+  fullNameBytes: Array<number>;
+};
+
+/** A reference in `refs/remotes`, with its full name for API use and short name for display. */
+export type FullRemoteTrackingReference = {
+  /** The full ref name, like `refs/remotes/origin/on-remote`, for usage with the backend. */
+  fullName: FullRefName;
+  /** The short version of `full_name` for display, like `on-remote`, without the remote name. */
+  displayName: string;
+  /** The symbolic name of the remote, like `origin`, or `origin/other`. */
+  remoteName: string;
 };
 
 /** See [`GitConfigSettings`](crate::GitConfigSettings) for the docs. */
@@ -1424,6 +1484,22 @@ export type GixTime = {
 export type HeadAndMode = {
   head: string | null;
   operatingMode: OperatingMode;
+};
+
+/** The current workspace ref information returned to N-API callers. */
+export type HeadInfo = {
+  /** The ref that points to a workspace commit, or the first stack segment ref. */
+  workspaceRef: FullBranchReference | null;
+  /** The stacks visible in the current workspace. */
+  stacks: Array<RefInfoStack>;
+  /** The target to integrate workspace stacks into. */
+  target: TargetRefInfo | null;
+  /** Whether the workspace ref belongs to GitButler metadata. */
+  isManagedRef: boolean;
+  /** Whether the workspace points to a GitButler-created workspace commit. */
+  isManagedCommit: boolean;
+  /** Whether the workspace represents what `HEAD` is pointing to. */
+  isEntrypoint: boolean;
 };
 
 export type HeadSha = {
@@ -1886,6 +1962,38 @@ export type RefInfo = {
   isEntrypoint: boolean;
 };
 
+/** A segment of a commit graph, representing a set of commits exclusively. */
+export type RefInfoSegment = {
+  /** The name of the branch that denotes this segment, if available. */
+  refName: FullBranchReference | null;
+  /** The name of the remote tracking branch of this segment, if present. */
+  remoteTrackingRefName: FullRemoteTrackingReference | null;
+  /** The portion of commits that can be reached from the tip of the branch downwards. */
+  commits: Array<Commit>;
+  /** Commits that are reachable from the remote-tracking branch associated with this branch. */
+  commitsOnRemote: Array<UpstreamCommit>;
+  /** All commits that are not workspace commits reachable by this segment. */
+  commitsOutside: Array<Commit> | null;
+  /** Read-only metadata with additional information about the branch naming the segment. */
+  metadata: Branch | null;
+  /** Whether this segment is the traversal entrypoint. */
+  isEntrypoint: boolean;
+  /** A derived value to help the UI decide which functions to make available. */
+  pushStatus: PushStatus;
+  /** The base commit that this segment rests on, if available. */
+  base: string | null;
+};
+
+/** The UI-clone of `branch::Stack`. */
+export type RefInfoStack = {
+  /** The stack identifier if this segment belongs to GitButler stack metadata. */
+  id: string | null;
+  /** The base commit shared by the stack, if available. */
+  base: string | null;
+  /** The branch-name denoted segments of the stack from its tip to the point of reference. */
+  segments: Array<RefInfoSegment>;
+};
+
 /** A change that was rejected during commit creation, with the reason for rejection. */
 export type RejectedChange = {
   /** The reason the change was rejected. */
@@ -2234,6 +2342,14 @@ export type StackStatuses = {
 export type Target = {
   /** The remote tracking branch of the target to integrate with, like `refs/remotes/origin/main`. */
   remoteTrackingRef: RemoteTrackingReference;
+  /** The amount of commits that aren't reachable by any segment in the workspace, they are in its future. */
+  commitsAhead: number;
+};
+
+/** Information about the target reference, the one we want to integrate with. */
+export type TargetRefInfo = {
+  /** The remote tracking branch of the target to integrate with, like `refs/remotes/origin/main`. */
+  remoteTrackingRef: FullRemoteTrackingReference;
   /** The amount of commits that aren't reachable by any segment in the workspace, they are in its future. */
   commitsAhead: number;
 };
