@@ -49,6 +49,8 @@ mod status;
 mod teardown;
 #[cfg(feature = "legacy")]
 mod undo;
+#[cfg(feature = "legacy")]
+mod worktree;
 
 #[cfg(feature = "legacy")]
 mod util {

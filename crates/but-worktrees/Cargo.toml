@@ -10,25 +10,20 @@ rust-version.workspace = true
 doctest = false
 
 [dependencies]
-but-workspace.workspace = true
-but-meta = { workspace = true, features = ["legacy"] }
 but-rebase.workspace = true
 but-core.workspace = true
-but-ctx.workspace = true
-
-gitbutler-stack.workspace = true
-gitbutler-workspace.workspace = true
-gitbutler-branch-actions.workspace = true
+but-graph.workspace = true
 
 anyhow.workspace = true
 gix.workspace = true
 serde.workspace = true
+but-serde.workspace = true
 uuid.workspace = true
 bstr.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-but-oxidize.workspace = true
+but-ctx.workspace = true
 but-testsupport.workspace = true
 
 insta.workspace = true

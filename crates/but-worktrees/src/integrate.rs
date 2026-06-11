@@ -1,20 +1,8 @@
 use anyhow::{Context as _, Result, bail};
-use bstr::{BString, ByteSlice};
-use but_core::RepositoryExt;
-use but_ctx::{
-    Context,
-    access::{RepoExclusive, RepoShared},
-};
-use but_rebase::{Rebase, RebaseOutput, RebaseStep};
-use but_workspace::legacy::stack_ext::StackExt;
-use gitbutler_branch_actions::update_workspace_commit;
-#[expect(
-    deprecated,
-    reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
-)]
-use gitbutler_stack::{Stack, VirtualBranchesHandle};
-use gitbutler_workspace::branch_trees::{
-    WorkspaceState, merge_workspace, move_tree_has_conflicts, update_uncommitted_changes,
+use bstr::BString;
+use but_core::{RefMetadata, RepositoryExt as _};
+use but_rebase::graph_rebase::{
+    Editor, LookupStep as _, Step, SuccessfulRebase, mutate::InsertSide,
 };
 use gix::prelude::ObjectIdExt as _;
 use serde::{Deserialize, Serialize};
@@ -22,11 +10,19 @@ use serde::{Deserialize, Serialize};
 use crate::{WorktreeId, db::get_worktree_meta, git::git_worktree_remove};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "type", content = "data", rename_all = "camelCase")]
+#[serde(
+    tag = "type",
+    content = "data",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 /// This gets used as a public API in the CLI so be careful when modifying.
 pub enum WorktreeIntegrationStatus {
     NoMergeBaseFound,
     WorktreeIsBare,
+    /// The worktree's tree is identical to its base; there are no changes to
+    /// bring back into the workspace.
+    NothingToIntegrate,
     /// If we were to integrate this worktree back into the project, it would
     /// cause the workspace to conflict.
     ///
@@ -38,83 +34,88 @@ pub enum WorktreeIntegrationStatus {
         /// Commits above where this worktree will be cherry-picked are going to
         /// end up conflicted.
         commits_above_conflict: bool,
-        /// Whether the uncommitted changes in the main checkout will end up
-        /// conflicted
+        /// Whether the uncommitted changes in the main checkout would conflict
+        /// with the integration result. If this is true, integration aborts to
+        /// keep those changes intact.
         working_dir_conflicts: bool,
     },
 }
 
-/// Determines whether a worktree is integrated
-///
-/// This function makes use of older APIs because there is not yet an
-/// alternative to the rebase engine.
-pub fn worktree_integration_status(
-    ctx: &mut Context,
-    perm: &RepoShared,
+/// Determines whether a worktree can be integrated into `target`.
+pub fn worktree_integration_status<M: RefMetadata>(
+    repo: &gix::Repository,
+    ws: &mut but_graph::Workspace,
+    meta: &mut M,
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
 ) -> Result<WorktreeIntegrationStatus> {
-    Ok(worktree_integration_inner(ctx, perm, id, target)?.0)
+    Ok(worktree_integration_inner(repo, ws, meta, id, target)?.0)
 }
 
-/// Integrates a worktree if it's integratable
-///
-/// This function makes use of older APIs because there is not yet an
-/// alternative to the rebase engine.
-pub fn worktree_integrate(
-    ctx: &mut Context,
-    perm: &mut RepoExclusive,
+/// Integrates a worktree if it's integratable: the worktree's state is
+/// squashed into a single commit which becomes the new tip of `target`,
+/// then the linked worktree checkout is removed.
+pub fn worktree_integrate<M: RefMetadata>(
+    repo: &gix::Repository,
+    ws: &mut but_graph::Workspace,
+    meta: &mut M,
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
 ) -> Result<()> {
-    let before = WorkspaceState::create(ctx, perm.read_permission())?;
-
-    let result = worktree_integration_inner(ctx, perm.read_permission(), id, target)?;
-    let (WorktreeIntegrationStatus::Integratable { .. }, Some(mut status)) = result else {
-        bail!("Worktree failed integration checks");
+    let result = worktree_integration_inner(repo, ws, meta, id, target)?;
+    let (WorktreeIntegrationStatus::Integratable { .. }, Some(rebase)) = result else {
+        match result.0 {
+            WorktreeIntegrationStatus::NoMergeBaseFound => {
+                bail!("Cannot integrate worktree: no merge base found with {target}")
+            }
+            WorktreeIntegrationStatus::WorktreeIsBare => {
+                bail!("Cannot integrate worktree: it is bare")
+            }
+            WorktreeIntegrationStatus::NothingToIntegrate => bail!(
+                "Worktree has no changes to integrate. Use `but worktree destroy` to remove it"
+            ),
+            WorktreeIntegrationStatus::CausesWorkspaceConflicts => {
+                bail!("Cannot integrate worktree: it would cause conflicts in the workspace")
+            }
+            WorktreeIntegrationStatus::Integratable { .. } => {
+                bail!("Worktree failed integration checks")
+            }
+        }
     };
 
-    status
-        .stack
-        .set_heads_from_rebase_output(ctx, status.rebase_output.references)?;
-    ctx.invalidate_workspace_cache()?;
-    let after =
-        WorkspaceState::create_from_heads(ctx, perm.read_permission(), &status.after_heads)?;
-    update_uncommitted_changes(ctx, before, after, perm)?;
-    update_workspace_commit(ctx, false)?;
+    // Persists the new commits, updates refs, and safely updates the main
+    // checkout. Uncommitted changes that would conflict abort the operation
+    // before any ref is touched.
+    rebase
+        .materialize()
+        .context("Failed to integrate worktree into the workspace")?;
 
-    git_worktree_remove(ctx.repo.get()?.common_dir(), id, true)?;
+    git_worktree_remove(repo.common_dir(), id, true)?;
 
     Ok(())
 }
 
-struct IntegrationResult {
-    rebase_output: RebaseOutput,
-    stack: Stack,
-    after_heads: Vec<gix::ObjectId>,
-}
-
-/// Performs the workspace integration operations in memory, returning the
-/// status, and output if it's integratable
-#[expect(
-    deprecated,
-    reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
-)]
-fn worktree_integration_inner(
-    ctx: &mut Context,
-    perm: &RepoShared,
+/// Performs the workspace integration in-memory using the graph editor,
+/// returning the status, and the un-materialized rebase if it's integratable.
+fn worktree_integration_inner<'ws, 'meta, M: RefMetadata>(
+    repo: &gix::Repository,
+    ws: &'ws mut but_graph::Workspace,
+    meta: &'meta mut M,
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
-) -> Result<(WorktreeIntegrationStatus, Option<IntegrationResult>)> {
-    let repo = ctx.repo.get()?.clone().for_tree_diffing()?;
-
-    let target_ref = repo.find_reference(target)?;
+) -> Result<(
+    WorktreeIntegrationStatus,
+    Option<SuccessfulRebase<'ws, 'meta, M>>,
+)> {
+    if !ws.refname_is_segment(target) {
+        bail!("Branch {} not found in workspace", target.shorten());
+    }
 
     let git_worktree = repo
         .worktrees()?
         .into_iter()
         .find(|w| w.id() == id.as_bstr())
-        .expect("Health dictates this exists");
+        .with_context(|| format!("Worktree '{id}' not found"))?;
     let worktree_repo = git_worktree.into_repo()?;
     let worktree_head = worktree_repo.head()?;
     let Some(worktree_head_id) = worktree_head.id() else {
@@ -122,7 +123,8 @@ fn worktree_integration_inner(
     };
 
     // Find the base which we will use for the "cherry pick".
-    let wt_meta = get_worktree_meta(&repo, id)?;
+    let target_tip = repo.find_reference(target)?.id().detach();
+    let wt_meta = get_worktree_meta(repo, id)?;
     let base = {
         // If we have worktree metadata and the base hasn't been dropped entirely
         // from history, we will use that.
@@ -131,26 +133,46 @@ fn worktree_integration_inner(
         {
             wt_meta.base
         } else {
-            let Ok(merge_base) = repo.merge_base(target_ref.id(), worktree_head_id) else {
+            let Ok(merge_base) = repo.merge_base(target_tip, worktree_head_id.detach()) else {
                 return Ok((WorktreeIntegrationStatus::NoMergeBaseFound, None));
             };
             merge_base.detach()
         }
     };
 
-    // Create a squash commit which we will then cherry pick into the
-    // target branch
-    #[expect(deprecated)]
+    // The squashed state of the worktree, including its uncommitted changes.
+    #[expect(
+        deprecated,
+        reason = "no alternative yet for snapshotting a worktree into a tree"
+    )]
     let wd_tree = worktree_repo.create_wd_tree(0)?;
+    if wd_tree == repo.find_commit(base)?.tree_id()? {
+        return Ok((WorktreeIntegrationStatus::NothingToIntegrate, None));
+    }
+
+    // State needed later which can't be read while the editor borrows `ws`.
+    let ws_commit_id = ws.graph.managed_entrypoint_commit(repo)?.map(|c| c.id);
+    let head_id = repo.head_id().ok().map(|id| id.detach());
+    let head_tree_id = repo.head_tree_id_or_empty()?.detach();
+    #[expect(
+        deprecated,
+        reason = "no alternative yet for snapshotting a worktree into a tree"
+    )]
+    let main_wd_tree = repo.create_wd_tree(0)?;
+
     let author = repo
         .author()
         .transpose()
         .ok()
         .flatten()
-        .context("Failed to find author signautre")?
+        .context("Failed to find author signature")?
         .to_owned()?;
 
-    let commit = gix::objs::Commit {
+    let mut editor = Editor::create(ws, meta, repo)?;
+
+    // Create the squash commit in the editor's in-memory repository; it is
+    // only persisted if the result gets materialized.
+    let squash_commit = gix::objs::Commit {
         tree: wd_tree,
         parents: [base].into(),
         author: author.clone(),
@@ -159,117 +181,54 @@ fn worktree_integration_inner(
         message: BString::from("Integrated worktree"),
         extra_headers: vec![],
     };
-    let commit_id = repo.write_object(commit)?;
+    let squash_id = editor.repo().write_object(&squash_commit)?.detach();
 
-    let vb_handle = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let stacks = vb_handle.list_stacks_in_workspace()?;
-    let stack = stacks
-        .iter()
-        .find(|s| {
-            s.branches()
-                .iter()
-                .any(|b| b.name.as_bytes() == target.shorten())
-        })
-        .context("Failed to find branch in vb state")?
-        .clone();
+    // The squash commit becomes the new tip of `target`; everything that
+    // pointed at the old tip (including the workspace commit) follows.
+    let squash_selector = editor.insert(
+        target,
+        Step::new_untracked_pick(squash_id),
+        InsertSide::Below,
+    )?;
 
-    let mut steps = stack.as_rebase_steps(ctx)?;
-    let Some(to_insert_at) = steps.iter().enumerate().find_map(|(i, entry)| {
-        if let RebaseStep::Reference(reference) = entry {
-            let matches_target = match reference {
-                but_core::Reference::Git(reference) => reference.as_ref() == target,
-                but_core::Reference::Virtual(vref) => {
-                    target.shorten() == BString::from(vref.clone()).as_bstr()
-                }
-            };
-
-            if matches_target {
-                return Some(i);
-            }
-        }
-
-        None
-    }) else {
-        bail!("Failed to find point to insert at");
-    };
-
-    steps.insert(
-        to_insert_at,
-        RebaseStep::Pick {
-            commit_id: commit_id.detach(),
-            new_message: None,
-        },
-    );
-
-    let mut rebase = Rebase::new(&repo, stack.merge_base(ctx)?, None)?;
-    rebase.steps(steps)?;
-    rebase.rebase_noops(false);
-    let output = rebase.rebase()?;
-
-    // Does the new stack tip conflict with any of the other stacks.
-    let tip_tree = repo.find_commit(output.top_commit)?.tree_id()?;
-    let cache = repo.commit_graph_if_enabled()?;
-    let mut graph = repo.revision_graph(cache.as_ref());
-    for stack in stacks.iter().filter(|s| s.id != stack.id) {
-        let head_id = stack.head_oid(ctx)?;
-        let head_tree = repo.find_commit(head_id)?.tree_id()?;
-        let merge_base = repo.merge_base_with_graph(head_id, output.top_commit, &mut graph)?;
-        let merge_base_tree = repo.find_commit(merge_base)?.tree_id()?;
-
-        if !repo.merges_cleanly(
-            merge_base_tree.detach(),
-            head_tree.detach(),
-            tip_tree.detach(),
-        )? {
+    let rebase = match editor.rebase() {
+        Ok(rebase) => rebase,
+        Err(err) => {
+            // The workspace commit is the only non-conflictable pick in the
+            // graph, so failing to rebuild the workspace with the squash
+            // inserted means the workspace would conflict.
+            tracing::debug!("worktree integration rebase failed: {err:#}");
             return Ok((WorktreeIntegrationStatus::CausesWorkspaceConflicts, None));
         }
-    }
-
-    let cherry_pick_conflicts = {
-        let Some(row) = output
-            .commit_mapping
-            .iter()
-            .find(|m| m.1 == commit_id.detach())
-        else {
-            bail!("Cherry-pick did not end up in rebase output");
-        };
-
-        let commit = but_core::Commit::from_id(row.2.attach(&repo))?;
-        commit.is_conflicted()
     };
 
-    let commits_above_conflict = output
-        .commit_mapping
-        .iter()
-        .filter(|r| r.1 != commit_id.detach())
-        .any(|row| {
-            if let Ok(commit) = but_core::Commit::from_id(row.2.attach(&repo)) {
-                commit.is_conflicted()
-            } else {
-                false
+    // Inspect the in-memory result for conflicts.
+    let in_memory_repo = rebase.repo();
+    let new_squash_id = rebase.lookup_pick(squash_selector)?;
+    let cherry_pick_conflicts =
+        but_core::Commit::from_id(new_squash_id.attach(in_memory_repo))?.is_conflicted();
+
+    let mappings = rebase.history.commit_mappings();
+    let commits_above_conflict = mappings.iter().any(|(old, new)| {
+        Some(*old) != ws_commit_id
+            && *new != new_squash_id
+            && but_core::Commit::from_id(new.attach(in_memory_repo))
+                .is_ok_and(|c| c.is_conflicted())
+    });
+
+    // Predict whether the safe checkout of the new workspace state would
+    // conflict with uncommitted changes in the main worktree.
+    let working_dir_conflicts = if main_wd_tree == head_tree_id {
+        false
+    } else {
+        match head_id.and_then(|head| mappings.get(&head).copied()) {
+            // HEAD is not rewritten, the checkout won't touch anything.
+            None => false,
+            Some(new_head_id) => {
+                let new_head_tree = in_memory_repo.find_commit(new_head_id)?.tree_id()?.detach();
+                !in_memory_repo.merges_cleanly(head_tree_id, main_wd_tree, new_head_tree)?
             }
-        });
-
-    #[expect(deprecated)]
-    let wd_tree = repo.create_wd_tree(0)?;
-
-    let before_heads = stacks
-        .iter()
-        .map(|s| s.head_oid(ctx))
-        .collect::<Result<Vec<_>>>()?;
-    let mut after_heads = stacks
-        .iter()
-        .filter(|s| s.id != stack.id)
-        .map(|s| s.head_oid(ctx))
-        .collect::<Result<Vec<_>>>()?;
-    after_heads.push(output.top_commit);
-
-    let working_dir_conflicts = {
-        let before = WorkspaceState::create_from_heads(ctx, perm, &before_heads)?;
-        let before = merge_workspace(&repo, &before)?;
-        let after = WorkspaceState::create_from_heads(ctx, perm, &after_heads)?;
-        let after = merge_workspace(&repo, &after)?;
-        move_tree_has_conflicts(ctx, wd_tree, before, after)?
+        }
     };
 
     Ok((
@@ -278,10 +237,6 @@ fn worktree_integration_inner(
             commits_above_conflict,
             working_dir_conflicts,
         },
-        Some(IntegrationResult {
-            rebase_output: output,
-            stack,
-            after_heads,
-        }),
+        Some(rebase),
     ))
 }

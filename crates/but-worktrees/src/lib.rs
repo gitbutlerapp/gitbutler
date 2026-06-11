@@ -18,7 +18,7 @@ pub mod new;
 
 /// A worktree name.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct WorktreeId(BString);
+pub struct WorktreeId(#[serde(with = "but_serde::bstring_lossy")] BString);
 
 impl WorktreeId {
     /// Create a new worktree ID using a random UUID.
@@ -81,7 +81,9 @@ pub struct Worktree {
     /// The canonicalized filesystem path to the worktree.
     pub path: PathBuf,
     /// The git reference this worktree was created from.
+    #[serde(with = "but_serde::fullname_lossy_opt")]
     pub created_from_ref: Option<gix::refs::FullName>,
     /// The base which we will use in a cherry-pick.
+    #[serde(with = "but_serde::object_id_opt")]
     pub base: Option<gix::ObjectId>,
 }
