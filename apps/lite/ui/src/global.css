@@ -4,6 +4,5 @@
 	color-scheme: light dark;
 
 	--button-ghost-hover-bg: color-mix(var(--fill-gray-bg) 6%, transparent);
-	--button-border: 1px solid color-mix(var(--fill-gray-bg) 28%, transparent);
 	--panel-padding: 16px;
 }
