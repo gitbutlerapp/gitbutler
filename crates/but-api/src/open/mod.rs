@@ -3,11 +3,23 @@ use std::env;
 
 use anyhow::{Context as _, Result, bail};
 use but_api_macros::but_api;
+use but_error::bail_precondition;
 use tracing::instrument;
 use url::Url;
 
+use crate::open::{
+    editor::{EDITORS, Editor, open_in_editor_unchecked},
+    spawn::spawn_and_reap,
+};
+
 /// Terminal configuration and detection.
 pub mod terminal;
+
+/// Editor configuration.
+pub mod editor;
+
+/// Spawn helpers.
+pub(crate) mod spawn;
 
 /// Opens a supported URL or file path with the platform's default handler.
 ///
@@ -338,34 +350,6 @@ pub fn open_url(url: String) -> Result<()> {
 pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
     use std::process::Command;
 
-    /// Spawn a terminal process and reap it on a background thread.
-    ///
-    /// Terminal launches are fire-and-forget from the caller perspective, but we still
-    /// wait on the child process asynchronously to avoid leaving zombie processes behind.
-    fn spawn_and_reap(mut cmd: Command, terminal_name: &str, path: &str) -> Result<()> {
-        tracing::info!(?cmd, "terminal command");
-        let mut child = cmd
-            .spawn()
-            .with_context(|| format!("Failed to launch {terminal_name} at '{path}'"))?;
-
-        let terminal_name = terminal_name.to_owned();
-        let thread_terminal_name = terminal_name.clone();
-        std::thread::Builder::new()
-            .name(format!("reap-{terminal_name}"))
-            .stack_size(512 * 1024)
-            .spawn(move || match child.wait() {
-                Ok(stat) => if !stat.success() {
-                    tracing::warn!(terminal = %thread_terminal_name, status = ?stat, "Terminal process exited with error");
-                },
-                Err(err) => {
-                    tracing::warn!(terminal = %thread_terminal_name, error = %err, "Failed to reap terminal process")
-                }
-            })
-            .ok();
-
-        Ok(())
-    }
-
     if cfg!(target_os = "macos") {
         use std::process::Stdio;
 
@@ -637,4 +621,44 @@ pub fn show_in_finder(path: String) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// List all supported editors.
+#[but_api(napi)]
+#[instrument(err(Debug))]
+pub fn list_editors() -> anyhow::Result<Vec<Editor>> {
+    Ok(EDITORS.iter().map(Into::into).collect())
+}
+
+/// Open `path` within the given project's workdir.
+///
+/// `path` must be relative to the workdir of the repository and must resolve to a file or directory
+/// within the workdir, including the workdir root itself. Otherwise an error is returned.
+///
+/// [`list_editors`] provides the available `editor_id`s.
+#[but_api(napi)]
+#[instrument(skip(ctx), err(Debug))]
+pub fn open_in_editor(
+    ctx: &mut but_ctx::Context,
+    editor_id: String,
+    path: String,
+) -> anyhow::Result<()> {
+    let repo = ctx.repo.get()?;
+    let workdir_path = gix::path::realpath(repo.workdir().context("project must have a workdir")?)?;
+    let git_dir_path = gix::path::realpath(repo.path())?;
+    let resolved_path = gix::path::realpath(workdir_path.join(&path))?;
+
+    if resolved_path.strip_prefix(&workdir_path).is_err() {
+        bail_precondition!("{path:?} is outside repository workdir at {workdir_path:?}");
+    }
+
+    if resolved_path.strip_prefix(&git_dir_path).is_ok() {
+        bail_precondition!("{path:?} is inside repository .git directory at {git_dir_path:?}");
+    }
+
+    let Some(editor) = EDITORS.iter().find(|editor| editor.id == editor_id) else {
+        bail_precondition!("editor_id '{editor_id}' does not exist");
+    };
+
+    open_in_editor_unchecked(&resolved_path, editor)
 }

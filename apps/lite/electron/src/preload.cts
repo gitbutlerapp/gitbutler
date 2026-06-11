@@ -9,6 +9,7 @@ import type {
 	BranchListing,
 	CommitDetails,
 	DiffSpec,
+	Editor,
 	ProjectForFrontend,
 	PushResult,
 	RefInfo,
@@ -111,9 +112,11 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:list-branches", projectId, filter) as Promise<
 			Array<BranchListing>
 		>,
+	listEditors: () => ipcRenderer.invoke("workspace:list-editors") as Promise<Array<Editor>>,
 	listProjects: () => ipcRenderer.invoke("projects:list") as Promise<Array<ProjectForFrontend>>,
 	moveBranch: (params) =>
 		ipcRenderer.invoke("workspace:move-branch", params) as Promise<MoveBranchResult>,
+	openInEditor: (params) => ipcRenderer.invoke("workspace:open-in-editor", params) as Promise<void>,
 	pathJoin: (path, ...paths) =>
 		ipcRenderer.invoke("lite:path-join", path, ...paths) as Promise<string>,
 	updateBranchName: (params) =>
