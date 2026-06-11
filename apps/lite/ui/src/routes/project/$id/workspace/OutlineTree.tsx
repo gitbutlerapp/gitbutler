@@ -1201,13 +1201,13 @@ const CommitRow: FC<
 									onClick={(event) => {
 										void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 									}}
-									render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
+									render={<WorkspaceItemRowIconButton />}
 								>
 									<Icon name="kebab" />
 								</Toolbar.Button>
 							</Toolbar.Root>
 
-							{isCommitTarget && <CommitTargetIndicator isSelected={isSelected} />}
+							{isCommitTarget && <CommitTargetIndicator />}
 						</WorkspaceItemRowToolbar>
 					)}
 				</>
@@ -1324,7 +1324,7 @@ const ChangesSectionRow: FC<{
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
+						render={<WorkspaceItemRowIconButton />}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
@@ -2000,8 +2000,6 @@ const BranchRow: FC<
 		}),
 	];
 
-	const isSelected = useIsSelected({ projectId, operand });
-
 	return (
 		<ItemRow
 			{...restProps}
@@ -2052,7 +2050,7 @@ const BranchRow: FC<
 												// Note this prevents the tooltip from showing, but it
 												// shouldn't: https://github.com/mui/base-ui/issues/4966
 												disabled={!canPushStack}
-												render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
+												render={<WorkspaceItemRowIconButton />}
 											/>
 										}
 									>
@@ -2079,13 +2077,13 @@ const BranchRow: FC<
 									onClick={(event) => {
 										void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 									}}
-									render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
+									render={<WorkspaceItemRowIconButton />}
 								>
 									<Icon name="kebab" />
 								</Toolbar.Button>
 							</Toolbar.Root>
 
-							{isCommitTarget && <CommitTargetIndicator isSelected={isSelected} />}
+							{isCommitTarget && <CommitTargetIndicator />}
 						</WorkspaceItemRowToolbar>
 					)}
 				</>
@@ -2133,8 +2131,6 @@ const StackRow: FC<
 		}),
 	];
 
-	const isSelected = useIsSelected({ projectId, operand });
-
 	return (
 		<ItemRow
 			{...restProps}
@@ -2153,7 +2149,7 @@ const StackRow: FC<
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
+						render={<WorkspaceItemRowIconButton />}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
