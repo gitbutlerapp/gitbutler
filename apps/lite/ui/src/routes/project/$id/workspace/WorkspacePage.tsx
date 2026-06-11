@@ -4,7 +4,14 @@ import {
 	listBranchesQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import { useApplyBranch, useRebaseAllStacks, useRestoreSnapshot } from "#ui/api/mutations.ts";
+import {
+	useApplyBranch,
+	useBranchCreate,
+	useRebaseAllStacks,
+	useRestoreSnapshot,
+} from "#ui/api/mutations.ts";
+import { findBranchOperandByRef } from "#ui/api/ref-info.ts";
+import { encodeBytes } from "#ui/api/ref-name.ts";
 import {
 	focusAdjacentSelectionScope,
 	focusSelectionScope,
@@ -64,6 +71,7 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { filterNavigationItemsForOutlineMode } from "#ui/outline/mode.ts";
 import { buildNavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { randomBranchRef } from "#ui/routes/project/$id/workspace/branchRef.ts";
 
 const toggleFiles =
 	({
@@ -344,16 +352,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			},
 		},
 		{
-			hotkey: workspaceHotkeys.applyBranch.hotkey,
-			callback: () => {
-				dispatch(projectActions.openApplyBranchPicker({ projectId }));
-			},
-			options: {
-				conflictBehavior: "allow",
-				meta: workspaceHotkeys.applyBranch.meta,
-			},
-		},
-		{
 			hotkey: workspaceHotkeys.toggleFiles.hotkey,
 			callback: () => {
 				dispatch(toggleFiles({ projectId, focusedSelectionScope, outlineVisible }));
@@ -489,6 +487,27 @@ const WorkspacePage: FC = () => {
 		dispatch(projectActions.openApplyBranchPicker({ projectId }));
 	};
 
+	const branchCreateMutation = useBranchCreate();
+	const createIndependentBranch = () => {
+		const newRef = randomBranchRef();
+		branchCreateMutation.mutate(
+			{
+				projectId,
+				newRef,
+				placement: { type: "independent" },
+			},
+			{
+				onSuccess: (response) => {
+					const newBranch = findBranchOperandByRef({
+						headInfo: response.workspace.headInfo,
+						branchRef: encodeBytes(newRef),
+					});
+					if (newBranch) selectBranch(newBranch);
+				},
+			},
+		);
+	};
+
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const rebaseUpdates =
 		headInfo?.stacks.flatMap((stack) => {
@@ -516,7 +535,32 @@ const WorkspacePage: FC = () => {
 		rebaseUpdates.length > 0 &&
 		!rebaseAllStacksMutation.isPending;
 
+	const canCreateIndependentBranch =
+		outlineMode._tag === "Default" && !branchCreateMutation.isPending;
+
+	const canApplyBranch = outlineMode._tag === "Default";
+
 	useHotkeys([
+		{
+			hotkey: workspaceHotkeys.applyBranch.hotkey,
+			callback: openApplyBranchPicker,
+			options: {
+				conflictBehavior: "allow",
+				meta: workspaceHotkeys.applyBranch.meta,
+				enabled: canApplyBranch,
+			},
+		},
+		{
+			hotkey: workspaceHotkeys.createIndependentBranch.hotkey,
+			callback: createIndependentBranch,
+			options: {
+				conflictBehavior: "allow",
+				enabled: canCreateIndependentBranch,
+				meta: workspaceHotkeys.createIndependentBranch.meta,
+				ignoreInputs: true,
+				requireReset: true,
+			},
+		},
 		{
 			hotkey: workspaceHotkeys.rebaseAllStacks.hotkey,
 			callback: rebaseAllStacks,
@@ -617,6 +661,9 @@ const WorkspacePage: FC = () => {
 									<Tooltip.Trigger
 										className={getButtonClassName({})}
 										onClick={openApplyBranchPicker}
+										// We pass `disabled` here because we want to disable the button, not
+										// the tooltip. Other props should be passed above.
+										render={<Button focusableWhenDisabled disabled={!canApplyBranch} />}
 									>
 										Apply branch
 									</Tooltip.Trigger>
@@ -626,6 +673,32 @@ const WorkspacePage: FC = () => {
 												render={<TooltipPopup kbd={workspaceHotkeys.applyBranch.hotkey} />}
 											>
 												{workspaceHotkeys.applyBranch.meta.name}
+											</Tooltip.Popup>
+										</Tooltip.Positioner>
+									</Tooltip.Portal>
+								</Tooltip.Root>
+
+								<Tooltip.Root>
+									<Tooltip.Trigger
+										aria-label="Create independent branch"
+										className={getButtonClassName({ iconOnly: true })}
+										onClick={createIndependentBranch}
+										render={<Button focusableWhenDisabled disabled={!canCreateIndependentBranch} />}
+									>
+										{branchCreateMutation.isPending ? (
+											<Icon name="spinner" />
+										) : (
+											<Icon name="plus" />
+										)}
+									</Tooltip.Trigger>
+									<Tooltip.Portal>
+										<Tooltip.Positioner sideOffset={4}>
+											<Tooltip.Popup
+												render={
+													<TooltipPopup kbd={workspaceHotkeys.createIndependentBranch.hotkey} />
+												}
+											>
+												{workspaceHotkeys.createIndependentBranch.meta.name}
 											</Tooltip.Popup>
 										</Tooltip.Positioner>
 									</Tooltip.Portal>

@@ -131,13 +131,11 @@ import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
+import { randomBranchRef } from "#ui/routes/project/$id/workspace/branchRef.ts";
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
 const AbsorptionTargetKeysContext = createContext<ReadonlySet<string> | null>(null);
-
-// To be removed when this PR lands: https://github.com/gitbutlerapp/gitbutler/pull/14191
-const randomBranchRef = (): string => `refs/heads/${crypto.randomUUID().slice(0, 8)}`;
 
 const isCommitDiscardBoundary = (operand: Operand): boolean =>
 	operand._tag === "Branch" || operand._tag === "Stack" || operand._tag === "ChangesSection";
@@ -623,6 +621,7 @@ const useOutlineTreeHotkeys = ({
 									enabled: defaultOutlineHotkeysEnabled,
 									target: ref,
 									meta: outlineHotkeys.createDependentBranchAbove.meta,
+									requireReset: true,
 								},
 							} satisfies UseHotkeyDefinition,
 							{
