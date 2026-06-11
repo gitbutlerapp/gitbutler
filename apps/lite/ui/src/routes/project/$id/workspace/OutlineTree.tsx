@@ -2042,7 +2042,10 @@ const BranchRow: FC<
 
 					{outlineMode._tag === "Default" && (
 						<WorkspaceItemRowToolbar forceVisible>
-							<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar />}>
+							<Toolbar.Root
+								aria-label="Branch actions"
+								render={<WorkspaceItemRowToolbar forceVisible />}
+							>
 								<Tooltip.Root>
 									<Tooltip.Trigger
 										render={
