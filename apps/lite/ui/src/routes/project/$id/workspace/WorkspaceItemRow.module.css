@@ -68,7 +68,7 @@
 	justify-content: center;
 	width: 22px;
 	height: 20px;
-	margin: -2px;
+	margin-block: -2px;
 	padding-inline: 3px;
 	border-radius: 8px;
 	color: var(--text-1);
