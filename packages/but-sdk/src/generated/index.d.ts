@@ -48,7 +48,7 @@ export declare function applyBranchIntegration(projectId: string, branch: FullRe
  */
 export declare function assignHunk(projectId: string, assignments: Array<HunkAssignmentRequest>): Promise<void>
 
-export declare function branchDetails(projectId: string, branch: FullRefNameBytes): Promise<BranchDetails>
+export declare function branchDetails(projectId: string, branch: FullRefNameBytes): Promise<BranchDetailsWithFullRefName>
 
 /**
  * Computes the worktree-visible diff for `branch` in the current workspace.
@@ -269,7 +269,7 @@ export declare function getReviewMergeStatus(projectId: string, reviewId: number
  */
 export declare function getUndoTargetSnapshot(projectId: string): Promise<Snapshot | null>
 
-export declare function headInfo(projectId: string): Promise<RefInfo>
+export declare function headInfo(projectId: string): Promise<HeadInfo>
 
 /** Get the list of review template paths for the given project. */
 export declare function listAvailableReviewTemplates(projectId: string): Promise<Array<string>>
@@ -669,6 +669,40 @@ export type BranchDetails = {
   /** The commits that are only at the remote. */
   upstreamCommits: Array<UpstreamCommit>;
   /** Whether it's representing a remote head */
+  isRemoteHead: boolean;
+};
+
+/** Information about the current state of a branch. */
+export type BranchDetailsWithFullRefName = {
+  /** The short name of the branch, like `foo` for `refs/heads/foo`. */
+  name: string;
+  /** The full reference of the branch. */
+  reference: FullRefName;
+  /** The id of the linked worktree that has the branch checked out. */
+  linkedWorktreeId: string | null;
+  /** Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`. */
+  remoteTrackingBranch: FullRefName | null;
+  /** The pull request associated with the branch. */
+  prNumber: number | null;
+  /** A unique identifier for the GitButler review associated with the branch, if any. */
+  reviewId: string | null;
+  /** The tip commit of the branch. */
+  tip: string;
+  /** The base commit from the perspective of this branch. */
+  baseCommit: string;
+  /** The pushable status for the branch. */
+  pushStatus: PushStatus;
+  /** Last time the branch was updated in Epoch milliseconds. */
+  lastUpdatedAt: number | null;
+  /** All authors of the commits in the branch. */
+  authors: Array<Author>;
+  /** Whether the branch is conflicted. */
+  isConflicted: boolean;
+  /** The commits contained in the branch, excluding the upstream commits. */
+  commits: Array<Commit>;
+  /** The commits that are only at the remote. */
+  upstreamCommits: Array<UpstreamCommit>;
+  /** Whether this branch details view represents a remote head. */
   isRemoteHead: boolean;
 };
 
@@ -1282,6 +1316,14 @@ export type ForgeUser = {
   details: GitlabAccountIdentifier;
 };
 
+/** A reference in `refs/heads`, with its full name for API use and short name for display. */
+export type FullBranchReference = {
+  /** The full ref name, like `refs/heads/feat`, for usage with the backend. */
+  fullName: FullRefName;
+  /** The short version of `full_name` for display. */
+  displayName: string;
+};
+
 /** The full name of a Git reference. */
 export type FullRefName = {
   /**
@@ -1290,13 +1332,23 @@ export type FullRefName = {
    */
   full: string;
   /** `full` without degeneration, as plain bytes. */
-  full_bytes: string;
+  full_bytes: Array<number>;
 };
 
 /** The full name of a Git reference, transported losslessly as bytes. */
 export type FullRefNameBytes = {
   /** The full ref name, like `refs/heads/feat`, without UTF-8 loss. */
   fullNameBytes: Array<number>;
+};
+
+/** A reference in `refs/remotes`, with its full name for API use and short name for display. */
+export type FullRemoteTrackingReference = {
+  /** The full ref name, like `refs/remotes/origin/on-remote`, for usage with the backend. */
+  fullName: FullRefName;
+  /** The short version of `full_name` for display, like `on-remote`, without the remote name. */
+  displayName: string;
+  /** The symbolic name of the remote, like `origin`, or `origin/other`. */
+  remoteName: string;
 };
 
 /** See [`GitConfigSettings`](crate::GitConfigSettings) for the docs. */
@@ -1432,6 +1484,22 @@ export type GixTime = {
 export type HeadAndMode = {
   head: string | null;
   operatingMode: OperatingMode;
+};
+
+/** The current workspace ref information returned to N-API callers. */
+export type HeadInfo = {
+  /** The ref that points to a workspace commit, or the first stack segment ref. */
+  workspaceRef: FullBranchReference | null;
+  /** The stacks visible in the current workspace. */
+  stacks: Array<RefInfoStack>;
+  /** The target to integrate workspace stacks into. */
+  target: TargetRefInfo | null;
+  /** Whether the workspace ref belongs to GitButler metadata. */
+  isManagedRef: boolean;
+  /** Whether the workspace points to a GitButler-created workspace commit. */
+  isManagedCommit: boolean;
+  /** Whether the workspace represents what `HEAD` is pointing to. */
+  isEntrypoint: boolean;
 };
 
 export type HeadSha = {
@@ -1894,6 +1962,38 @@ export type RefInfo = {
   isEntrypoint: boolean;
 };
 
+/** A segment of a commit graph, representing a set of commits exclusively. */
+export type RefInfoSegment = {
+  /** The name of the branch that denotes this segment, if available. */
+  refName: FullBranchReference | null;
+  /** The name of the remote tracking branch of this segment, if present. */
+  remoteTrackingRefName: FullRemoteTrackingReference | null;
+  /** The portion of commits that can be reached from the tip of the branch downwards. */
+  commits: Array<Commit>;
+  /** Commits that are reachable from the remote-tracking branch associated with this branch. */
+  commitsOnRemote: Array<UpstreamCommit>;
+  /** All commits that are not workspace commits reachable by this segment. */
+  commitsOutside: Array<Commit> | null;
+  /** Read-only metadata with additional information about the branch naming the segment. */
+  metadata: Branch | null;
+  /** Whether this segment is the traversal entrypoint. */
+  isEntrypoint: boolean;
+  /** A derived value to help the UI decide which functions to make available. */
+  pushStatus: PushStatus;
+  /** The base commit that this segment rests on, if available. */
+  base: string | null;
+};
+
+/** The UI-clone of `branch::Stack`. */
+export type RefInfoStack = {
+  /** The stack identifier if this segment belongs to GitButler stack metadata. */
+  id: string | null;
+  /** The base commit shared by the stack, if available. */
+  base: string | null;
+  /** The branch-name denoted segments of the stack from its tip to the point of reference. */
+  segments: Array<RefInfoSegment>;
+};
+
 /** A change that was rejected during commit creation, with the reason for rejection. */
 export type RejectedChange = {
   /** The reason the change was rejected. */
@@ -2242,6 +2342,14 @@ export type StackStatuses = {
 export type Target = {
   /** The remote tracking branch of the target to integrate with, like `refs/remotes/origin/main`. */
   remoteTrackingRef: RemoteTrackingReference;
+  /** The amount of commits that aren't reachable by any segment in the workspace, they are in its future. */
+  commitsAhead: number;
+};
+
+/** Information about the target reference, the one we want to integrate with. */
+export type TargetRefInfo = {
+  /** The remote tracking branch of the target to integrate with, like `refs/remotes/origin/main`. */
+  remoteTrackingRef: FullRemoteTrackingReference;
   /** The amount of commits that aren't reachable by any segment in the workspace, they are in its future. */
   commitsAhead: number;
 };

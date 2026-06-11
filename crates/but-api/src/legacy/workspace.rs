@@ -25,7 +25,7 @@ use tracing::instrument;
 
 use crate::json::HexHash;
 
-#[but_api(napi, try_from = but_workspace::ui::RefInfo)]
+#[but_api(napi, try_from = crate::json::HeadInfo)]
 #[instrument(err(Debug))]
 pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::RefInfo> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
@@ -219,7 +219,11 @@ pub fn branch_details(
     branch_details_by_ref(ctx, ref_name.as_ref())
 }
 
-#[but_api(napi, napi_name = "branchDetails")]
+#[but_api(
+    napi,
+    napi_name = "branchDetails",
+    try_from = crate::json::BranchDetailsWithFullRefName
+)]
 #[instrument(err(Debug))]
 pub fn branch_details_napi(
     ctx: &but_ctx::Context,
