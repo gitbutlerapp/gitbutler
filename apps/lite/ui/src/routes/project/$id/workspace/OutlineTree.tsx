@@ -728,12 +728,9 @@ const useIsSelected = ({
 const treeItemId = (operand: Operand): string =>
 	`outline-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
 
-const CommitTargetIndicator: FC<{ isSelected: boolean }> = ({ isSelected }) => (
+const CommitTargetIndicator: FC<ComponentProps<typeof WorkspaceItemRowIconButton>> = (props) => (
 	<Tooltip.Root>
-		<Tooltip.Trigger
-			aria-label="Commit target"
-			render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
-		>
+		<Tooltip.Trigger aria-label="Commit target" render={<WorkspaceItemRowIconButton {...props} />}>
 			<Icon name="bullseye" />
 		</Tooltip.Trigger>
 		<Tooltip.Portal>
