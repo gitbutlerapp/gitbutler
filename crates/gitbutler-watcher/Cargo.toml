@@ -18,6 +18,7 @@ but-rules.workspace = true
 but-settings.workspace = true
 but-hunk-assignment.workspace = true
 but-hunk-dependency.workspace = true
+but-project-handle.workspace = true
 
 gitbutler-filemonitor.workspace = true
 gitbutler-operating-modes.workspace = true

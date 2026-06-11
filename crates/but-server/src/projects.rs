@@ -79,8 +79,8 @@ impl ActiveProjects {
                             "headSha": head_sha,
                         }),
                     },
-                    Change::GitRemoteActivity { project_id } => FrontendEvent {
-                        name: format!("project://{project_id}/git/remote-activity"),
+                    Change::WorkspaceActivity { project_id } => FrontendEvent {
+                        name: format!("project://{project_id}/workspace-activity"),
                         payload: serde_json::json!({}),
                     },
                     Change::WorktreeChanges {

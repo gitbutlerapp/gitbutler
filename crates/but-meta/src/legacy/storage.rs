@@ -43,6 +43,10 @@ pub fn write_virtual_branches_and_sync(path: &Path, vb: &VirtualBranches) -> any
     info.update_last_seen_metadata_on(&mut snapshot.state);
     persist_snapshot(&mut tx, snapshot)?;
     tx.commit()?;
+    // The single choke point for metadata writes (legacy `gitbutler-stack` and
+    // newer `but-ctx` paths alike), so touching the sentinel here surfaces
+    // out-of-process writes. Read-only syncs don't route through here.
+    but_project_handle::write_refresh_sentinel(path);
     Ok(())
 }
 

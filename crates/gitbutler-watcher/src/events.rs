@@ -15,7 +15,7 @@ pub enum Change {
         project_id: ProjectHandleOrLegacyProjectId,
         head_sha: String,
     },
-    GitRemoteActivity {
+    WorkspaceActivity {
         project_id: ProjectHandleOrLegacyProjectId,
     },
     WorktreeChanges {

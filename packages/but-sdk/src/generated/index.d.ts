@@ -2415,9 +2415,6 @@ export type WatcherGitHeadPayload = {
   operatingMode: OperatingMode;
 };
 
-/** Remote tracking refs changed (e.g. after a push or external git operation). */
-export type WatcherGitRemoteActivityPayload = null;
-
 /** The type of payloads a watcher event can have */
 export type WatcherPayload = {
   type: "gitFetch";
@@ -2429,12 +2426,15 @@ export type WatcherPayload = {
   type: "gitActivity";
   subject: WatcherGitActivityPayload;
 } | {
-  type: "gitRemoteActivity";
-  subject: WatcherGitRemoteActivityPayload;
-} | {
   type: "worktreeChanges";
   subject: WatcherWorktreeChangesPayload;
+} | {
+  type: "workspaceActivity";
+  subject: WatcherWorkspaceActivityPayload;
 };
+
+/** Workspace activity that requires the UI to re-read branch/stack state. */
+export type WatcherWorkspaceActivityPayload = null;
 
 /** Worktree files changes. */
 export type WatcherWorktreeChangesPayload = {

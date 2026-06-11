@@ -14,6 +14,7 @@ test = false
 [features]
 legacy = [
     "dep:but-db",
+    "dep:but-project-handle",
     "dep:but-utils",
     "dep:but-serde",
     "dep:but-graph",
@@ -32,6 +33,7 @@ legacy = [
 but-core.workspace = true
 but-error.workspace = true
 but-db = { workspace = true, optional = true }
+but-project-handle = { workspace = true, optional = true }
 but-serde = { workspace = true, optional = true }
 but-graph = { workspace = true, optional = true }
 but-utils = { workspace = true, optional = true }
