@@ -1,6 +1,8 @@
 import type {
 	AbsorptionTarget,
 	ApplyOutcome,
+	BranchCreatePlacement,
+	BranchCreateResult,
 	BranchDetails,
 	BranchListing,
 	BranchListingFilter,
@@ -59,6 +61,12 @@ export interface AskpassSubmitPromptResponseParams {
 export interface AssignHunkParams {
 	projectId: string;
 	assignments: Array<HunkAssignmentRequest>;
+}
+
+export interface BranchCreateParams {
+	projectId: string;
+	newRef: string;
+	placement: BranchCreatePlacement;
 }
 
 export interface BranchDetailsParams {
@@ -272,6 +280,7 @@ export interface LiteElectronApi {
 	onAskpassPrompt: (callback: (event: AskpassPromptEvent) => void) => () => void;
 	submitAskpassPromptResponse: (params: AskpassSubmitPromptResponseParams) => Promise<void>;
 	assignHunk: (params: AssignHunkParams) => Promise<void>;
+	branchCreate: (params: BranchCreateParams) => Promise<BranchCreateResult>;
 	branchDetails: (params: BranchDetailsParams) => Promise<BranchDetails>;
 	branchDiff: (params: BranchDiffParams) => Promise<TreeChanges>;
 	changesInWorktree: (projectId: string) => Promise<WorktreeChanges>;
@@ -325,6 +334,7 @@ export const liteIpcChannels = {
 	askpassPrompt: "askpass:prompt",
 	askpassSubmitResponse: "askpass:submit-response",
 	assignHunk: "workspace:assign-hunk",
+	branchCreate: "workspace:branch-create",
 	branchDetails: "workspace:branch-details",
 	branchDiff: "workspace:branch-diff",
 	changesInWorktree: "workspace:changes-in-worktree",

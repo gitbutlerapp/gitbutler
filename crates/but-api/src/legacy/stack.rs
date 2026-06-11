@@ -36,6 +36,12 @@ pub mod create_reference {
             commit_id: HexHash,
             position: but_workspace::branch::create_reference::Position,
         },
+        AtSegment {
+            short_name: String,
+            position: but_workspace::branch::create_reference::Position,
+        },
+        /// Unlike `AtSegment`, the new reference always points at the same commit
+        /// as the anchor reference - `position` only determines their ordering.
         AtReference {
             short_name: String,
             position: but_workspace::branch::create_reference::Position,
@@ -92,10 +98,21 @@ pub fn create_reference_with_perm(
                     commit_id: commit_id.into(),
                     position,
                 },
-                create_reference::Anchor::AtReference {
+                create_reference::Anchor::AtSegment {
                     short_name,
                     position,
                 } => but_workspace::branch::create_reference::Anchor::AtSegment {
+                    ref_name: Cow::Owned(
+                        Category::LocalBranch
+                            .to_full_name(short_name.as_str())
+                            .map_err(anyhow::Error::from)?,
+                    ),
+                    position,
+                },
+                create_reference::Anchor::AtReference {
+                    short_name,
+                    position,
+                } => but_workspace::branch::create_reference::Anchor::AtReference {
                     ref_name: Cow::Owned(
                         Category::LocalBranch
                             .to_full_name(short_name.as_str())

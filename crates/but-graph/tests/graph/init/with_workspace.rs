@@ -2838,15 +2838,11 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
 
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
     ⌂:0:DETACHED <> ✓refs/remotes/origin/main⇣3 on 79bbb29
-    └── ≡:0:anon: {1}
-        ├── :0:anon:
-        │   ├── ❄d0df794 (✓)
-        │   ├── ❄09c6e08 (✓)
-        │   └── ❄7b9f260 (✓)
-        └── :5:main <> origin/main →:2:
-            ├── ❄️4b3e5a8 (🏘️|✓)
-            ├── ❄️34d0715 (🏘️|✓)
-            └── ❄️eb5f731 (🏘️|✓)
+    └── ≡:0:anon: on 4b3e5a8 {1}
+        └── :0:anon:
+            ├── ·d0df794 (✓)
+            ├── ·09c6e08 (✓)
+            └── ·7b9f260 (✓)
     ");
 
     // However, when choosing an initially unknown branch, it will get the extra target tip settings.
@@ -2898,15 +2894,11 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
 
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
     ⌂:0:DETACHED <> ✓refs/remotes/origin/main⇣3 on 79bbb29
-    └── ≡:0:anon: {1}
-        ├── :0:anon:
-        │   ├── ❄d0df794 (✓)
-        │   ├── ❄09c6e08 (✓)
-        │   └── ❄7b9f260 (✓)
-        └── :5:main <> origin/main →:2:
-            ├── ❄️4b3e5a8 (🏘️|✓)
-            ├── ❄️34d0715 (🏘️|✓)
-            └── ❄️eb5f731 (🏘️|✓)
+    └── ≡:0:anon: on 4b3e5a8 {1}
+        └── :0:anon:
+            ├── ·d0df794 (✓)
+            ├── ·09c6e08 (✓)
+            └── ·7b9f260 (✓)
     ");
 
     Ok(())
@@ -7516,7 +7508,8 @@ fn integrated_commits_below_target_pruned_when_upstream_ahead() -> anyhow::Resul
     // 'W' and 'O' are above/beside the target and kept; 'target' and 'base' are
     // integrated and at or below the target, so they are pruned from both stacks
     // even though origin/main has advanced past the target.
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 322cb14
     ├── ≡📙:4:my-branch on 2121f9c {0}
@@ -7556,7 +7549,8 @@ fn catchup_merge_below_target_floors_at_fork() -> anyhow::Result<()> {
     add_workspace_with_target(&mut meta, target_id);
     add_stack_with_segments(&mut meta, 0, "X", StackState::InWorkspace, &[]);
 
-    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on d263f88
     └── ≡📙:4:X on b4bd43f {0}

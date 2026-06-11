@@ -152,6 +152,18 @@ export type AtCommitAnchor = {
 	};
 };
 
+export type AtSegmentAnchor = {
+	type: "atSegment";
+	subject: {
+		readonly short_name: string;
+		readonly position: AnchorPosition;
+	};
+};
+
+/**
+ * Unlike `AtSegmentAnchor`, the new reference always points at the same commit
+ * as the anchor reference - `position` only determines their ordering.
+ */
 export type AtReferenceAnchor = {
 	type: "atReference";
 	subject: {
@@ -160,7 +172,7 @@ export type AtReferenceAnchor = {
 	};
 };
 
-export type CreateRefAnchor = AtCommitAnchor | AtReferenceAnchor;
+export type CreateRefAnchor = AtCommitAnchor | AtSegmentAnchor | AtReferenceAnchor;
 
 export type CreateRefRequest = {
 	newName: string;

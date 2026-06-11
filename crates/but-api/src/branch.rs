@@ -1,11 +1,14 @@
+use std::{borrow::Cow, collections::BTreeMap};
+
 use crate::WorkspaceState;
 use but_api_macros::but_api;
 use but_core::{
-    DryRun, sync::RepoExclusive, ui::TreeChanges, worktree::checkout::UncommitedWorktreeChanges,
+    DryRun, ref_metadata::StackId, sync::RepoExclusive, ui::TreeChanges,
+    worktree::checkout::UncommitedWorktreeChanges,
 };
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
-use but_rebase::graph_rebase::{Editor, SuccessfulRebase};
+use but_rebase::graph_rebase::{Editor, SuccessfulRebase, mutate::InsertSide};
 use but_workspace::branch::{
     BranchIntegrationStrategy, InitialBranchIntegration, OnWorkspaceMergeConflict,
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
@@ -16,6 +19,12 @@ use tracing::instrument;
 /// Outcome after moving a branch.
 pub struct MoveBranchResult {
     /// Workspace state after moving or tearing off a branch.
+    pub workspace: WorkspaceState,
+}
+
+/// Outcome after creating a branch.
+pub struct BranchCreateResult {
+    /// Workspace state after creating the branch.
     pub workspace: WorkspaceState,
 }
 
@@ -30,6 +39,7 @@ pub mod json {
     use serde::{Deserialize, Serialize};
 
     use crate::branch::{
+        BranchCreateResult as InternalBranchCreateResult,
         IntegrateBranchResult as InternalIntegrateBranchResult,
         MoveBranchResult as InternalMoveBranchResult,
     };
@@ -65,6 +75,52 @@ pub mod json {
                 applied_branches: applied_branches.into_iter().map(Into::into).collect(),
                 workspace_ref_created,
             }
+        }
+    }
+
+    /// JSON transport type describing where to create a new branch.
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
+    pub enum BranchCreatePlacement {
+        /// Create the branch as a new independent stack at the workspace base.
+        Independent,
+        /// Create the branch relative to an existing commit or reference.
+        ///
+        /// When relative to a reference, the new branch points at the same commit
+        /// as that reference and `side` only determines their ordering.
+        /// When relative to a commit, `side` determines whether the branch points
+        /// at the commit itself or at its parent.
+        Dependent {
+            /// The commit or reference to place the new branch next to.
+            #[serde(rename = "relativeTo")]
+            #[cfg_attr(feature = "export-schema", schemars(rename = "relativeTo"))]
+            relative_to: crate::commit::json::RelativeTo,
+            /// Which side of `relative_to` the new branch should be placed on.
+            side: but_rebase::graph_rebase::mutate::InsertSide,
+        },
+    }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(BranchCreatePlacement);
+
+    /// JSON transport type for creating a branch.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct BranchCreateResult {
+        /// Workspace state after creating the branch.
+        pub workspace: crate::json::WorkspaceState,
+    }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(BranchCreateResult);
+
+    impl TryFrom<InternalBranchCreateResult> for BranchCreateResult {
+        type Error = anyhow::Error;
+
+        fn try_from(value: InternalBranchCreateResult) -> Result<Self, Self::Error> {
+            Ok(Self {
+                workspace: value.workspace.try_into()?,
+            })
         }
     }
 
@@ -503,6 +559,89 @@ pub fn apply_with_perm(
         snapshot.commit(ctx, perm).ok();
     }
     res
+}
+
+/// Creates a new branch named `new_ref` at `placement`.
+///
+/// This acquires exclusive worktree access from `ctx`, creates the branch,
+/// and records an oplog snapshot on success. For lower-level implementation
+/// details, see [`but_workspace::branch::create_reference()`].
+#[but_api(napi, try_from = json::BranchCreateResult)]
+#[instrument(err(Debug))]
+pub fn branch_create(
+    ctx: &mut but_ctx::Context,
+    new_ref: &gix::refs::FullNameRef,
+    placement: json::BranchCreatePlacement,
+) -> anyhow::Result<BranchCreateResult> {
+    let mut guard = ctx.exclusive_worktree_access();
+    branch_create_with_perm(ctx, new_ref, placement, guard.write_permission())
+}
+
+/// Create a new branch named `new_ref` at `placement` under caller-held
+/// exclusive repository access and record an oplog snapshot on success.
+///
+/// It prepares a best-effort create-branch oplog snapshot, creates the
+/// reference along with its workspace metadata, and commits the snapshot only
+/// if the creation succeeds. The returned [`BranchCreateResult`] contains the
+/// post-operation workspace view. For lower-level implementation details, see
+/// [`but_workspace::branch::create_reference()`].
+pub fn branch_create_with_perm(
+    ctx: &mut but_ctx::Context,
+    new_ref: &gix::refs::FullNameRef,
+    placement: json::BranchCreatePlacement,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<BranchCreateResult> {
+    use but_workspace::branch::create_reference::{Anchor, Position};
+
+    let anchor = match placement {
+        json::BranchCreatePlacement::Independent => None,
+        json::BranchCreatePlacement::Dependent { relative_to, side } => {
+            let position = match side {
+                InsertSide::Above => Position::Above,
+                InsertSide::Below => Position::Below,
+            };
+            Some(match relative_to {
+                crate::commit::json::RelativeTo::Commit(commit_id) => Anchor::AtCommit {
+                    commit_id,
+                    position,
+                },
+                crate::commit::json::RelativeTo::Reference(ref_name)
+                | crate::commit::json::RelativeTo::ReferenceBytes(ref_name) => {
+                    Anchor::AtReference {
+                        ref_name: Cow::Owned(ref_name),
+                        position,
+                    }
+                }
+            })
+        }
+    };
+
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
+        ctx,
+        SnapshotDetails::new(OperationKind::CreateBranch)
+            .with_trailers([Trailer::Name(new_ref.to_string())]),
+        perm.read_permission(),
+        DryRun::No,
+    );
+
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let new_ws = but_workspace::branch::create_reference(
+        new_ref,
+        anchor,
+        &repo,
+        &ws,
+        &mut meta,
+        |_| StackId::generate(),
+        None,
+    )?;
+    if let Some(snapshot) = maybe_oplog_entry {
+        snapshot.commit(ctx, perm).ok();
+    }
+
+    let workspace = WorkspaceState::from_workspace(&new_ws, &repo, BTreeMap::new())?;
+    *ws = new_ws.into_owned();
+    Ok(BranchCreateResult { workspace })
 }
 
 /// Computes the worktree-visible diff for `branch` in the current workspace.

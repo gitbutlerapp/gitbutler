@@ -84,6 +84,20 @@ pub enum Anchor<'a> {
         /// if it points to the same commit.
         position: Position,
     },
+    /// Use another reference for positioning the new reference, which will point to the
+    /// same commit as the reference named `ref_name`.
+    /// Unlike [`Anchor::AtSegment`], `position` never affects which commit is used - it only
+    /// determines the ordering of the two references.
+    /// This requires a managed workspace, as only its metadata can order multiple references
+    /// on the same commit.
+    AtReference {
+        /// The name of the reference to use as reference point for `position`.
+        ref_name: Cow<'a, gix::refs::FullNameRef>,
+        /// `Above` means the new reference will be right above `ref_name` as empty segment.
+        /// `Below` means the new reference will be right below `ref_name`, taking ownership
+        /// of its commits and leaving `ref_name` as empty segment.
+        position: Position,
+    },
 }
 
 impl<'a> Anchor<'a> {
@@ -98,6 +112,14 @@ impl<'a> Anchor<'a> {
     /// Create a new instance with a segment name as anchor.
     pub fn at_segment(ref_name: &'a gix::refs::FullNameRef, position: Position) -> Self {
         Anchor::AtSegment {
+            ref_name: Cow::Borrowed(ref_name),
+            position,
+        }
+    }
+
+    /// Create a new instance with a reference name as anchor.
+    pub fn at_reference(ref_name: &'a gix::refs::FullNameRef, position: Position) -> Self {
+        Anchor::AtReference {
             ref_name: Cow::Borrowed(ref_name),
             position,
         }
@@ -299,6 +321,35 @@ pub(super) mod function {
                         validate_id,
                         ref_target_id,
                         Some(Instruction::Dependent { ref_name, position }),
+                    )
+                }
+                Some(Anchor::AtReference {
+                    ref_name: anchor_ref,
+                    position,
+                }) => {
+                    if !workspace.has_metadata() {
+                        bail_precondition!(
+                            "Cannot position '{new}' relative to reference '{anchor}' without a managed workspace",
+                            new = ref_name.shorten(),
+                            anchor = anchor_ref.shorten()
+                        );
+                    }
+                    let (stack_idx, seg_idx) =
+                        workspace.try_find_segment_owner_indexes_by_refname(anchor_ref.as_ref())?;
+                    let segment = &workspace.stacks[stack_idx].segments[seg_idx];
+                    let ref_target_id = workspace
+                        .tip_commit_by_segment_id(segment.id)
+                        .map(|commit| commit.id)
+                        .context(
+                            "BUG: we should always see through to the base or eligible commits",
+                        )?;
+                    (
+                        Some(ref_target_id) != ws_base,
+                        ref_target_id,
+                        Some(Instruction::Dependent {
+                            ref_name: anchor_ref,
+                            position,
+                        }),
                     )
                 }
             }
