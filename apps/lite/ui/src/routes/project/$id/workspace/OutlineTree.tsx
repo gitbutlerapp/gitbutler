@@ -65,7 +65,7 @@ import { NavigationIndexContext } from "#ui/routes/project/$id/workspace/Outline
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
-import { Button, mergeProps, Popover, Toast, Tooltip, useRender } from "@base-ui/react";
+import { Button, mergeProps, Toast, Tooltip, useRender } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
 import { Toolbar } from "@base-ui/react/toolbar";
 import {
@@ -729,24 +729,19 @@ const treeItemId = (operand: Operand): string =>
 	`outline-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
 
 const CommitTargetIndicator: FC<{ isSelected: boolean }> = ({ isSelected }) => (
-	<Popover.Root>
-		<Popover.Trigger
+	<Tooltip.Root>
+		<Tooltip.Trigger
 			aria-label="Commit target"
-			openOnHover
 			render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
 		>
 			<Icon name="bullseye" />
-		</Popover.Trigger>
-		<Popover.Portal>
-			<Popover.Positioner
-				sideOffset={4}
-				// To match tooltips.
-				side="top"
-			>
-				<Popover.Popup render={<TooltipPopup />}>Commit target</Popover.Popup>
-			</Popover.Positioner>
-		</Popover.Portal>
-	</Popover.Root>
+		</Tooltip.Trigger>
+		<Tooltip.Portal>
+			<Tooltip.Positioner sideOffset={4}>
+				<Tooltip.Popup render={<TooltipPopup />}>Commit target</Tooltip.Popup>
+			</Tooltip.Positioner>
+		</Tooltip.Portal>
+	</Tooltip.Root>
 );
 
 type CommitStatusType = "Diverged" | CommitState["type"];

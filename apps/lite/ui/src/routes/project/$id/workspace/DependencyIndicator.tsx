@@ -3,7 +3,7 @@ import { getBranchNameByCommitId } from "#ui/api/ref-info.ts";
 import { projectActions } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { Popover } from "@base-ui/react";
+import { Tooltip } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { Array, pipe } from "effect";
 import { ComponentProps, FC } from "react";
@@ -40,8 +40,8 @@ export const DependencyIndicator: FC<
 	};
 
 	return (
-		<Popover.Root>
-			<Popover.Trigger
+		<Tooltip.Root>
+			<Tooltip.Trigger
 				{...restProps}
 				onMouseEnter={highlightCommitIds}
 				// TODO: we should also clear if the element unmounts
@@ -49,17 +49,12 @@ export const DependencyIndicator: FC<
 				onFocus={highlightCommitIds}
 				onBlur={clearHighlightedCommitIds}
 				aria-label={tooltip}
-				openOnHover
 			/>
-			<Popover.Portal>
-				<Popover.Positioner
-					sideOffset={4}
-					// To match tooltips.
-					side="top"
-				>
-					<Popover.Popup render={<TooltipPopup />}>{tooltip}</Popover.Popup>
-				</Popover.Positioner>
-			</Popover.Portal>
-		</Popover.Root>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup render={<TooltipPopup />}>{tooltip}</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
 	);
 };
