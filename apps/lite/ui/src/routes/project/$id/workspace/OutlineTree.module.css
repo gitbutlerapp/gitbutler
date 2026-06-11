@@ -114,7 +114,7 @@
 	color: var(--fill-gray-fg);
 	vertical-align: middle;
 
-	:where([data-selection-scope]:focus) .selected & {
+	[data-selection-scope]:focus .selected & {
 		background: var(--fill-gray-fg);
 		color: var(--fill-gray-bg);
 	}
