@@ -254,3 +254,19 @@
 		display: none;
 	}
 }
+
+.itemRowContainer {
+	display: grid;
+
+	& > * {
+		grid-area: 1 / 1;
+		min-width: 0;
+	}
+}
+
+.commitTargetIndicator {
+	align-self: start;
+	justify-self: start;
+	margin-left: -15px;
+	margin-block-start: 5px;
+}
