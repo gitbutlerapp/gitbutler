@@ -546,6 +546,14 @@ pub fn disambiguate_refs_by_branch_metadata<'a, T: RefMetadata>(
     branches: impl Iterator<Item = &'a gix::refs::FullName>,
     meta: &OverlayMetadata<'_, T>,
 ) -> Option<(gix::refs::FullName, Option<SegmentMetadata>)> {
+    // Branches auto-created for GitButler-managed worktrees are implementation
+    // details; they must neither name user-visible segments nor make naming
+    // ambiguous when sharing a commit with a real branch.
+    let branches = branches.filter(|rn| {
+        use bstr::ByteSlice;
+        !rn.as_bstr()
+            .starts_with_str("refs/heads/gitbutler/worktree/")
+    });
     let branches = branches
         .map(|rn| {
             (
