@@ -36,7 +36,6 @@ import { Tooltip } from "@base-ui/react";
 import type {
 	CommitDetails,
 	DiffHunk,
-	HunkHeader,
 	TreeChange,
 	TreeChanges,
 	UnifiedPatch,
@@ -46,9 +45,6 @@ import {
 	type CodeViewDiffItem,
 	type CodeView as CodeViewClass,
 	type CodeViewLineSelection,
-	type Hunk,
-	type SelectedLineRange,
-	type SelectionSide,
 	parsePatchFiles,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
@@ -69,34 +65,21 @@ import {
 	conflictFileTreeItem,
 	type FileTreeItem,
 } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
-import { getDependencyCommitIds, getHunkDependencyDiffsByPath } from "#ui/hunk.ts";
+import {
+	getDependencyCommitIds,
+	getHunkDependencyDiffsByPath,
+	hunkContainsLine,
+	hunkHeaderFromHunk,
+	selectEntireHunk,
+	synthesizeFilePatch,
+} from "#ui/hunk.ts";
 import { buildNavigationIndex, NavigationIndex } from "#ui/workspace/navigation-index.ts";
-
-const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
 const codeViewItemId = ({ changesetKey, path }: { changesetKey: string; path: string }): string =>
 	`${changesetKey}:${path}`;
 
 const codeViewItemIdPath = ({ changesetKey, id }: { changesetKey: string; id: string }): string =>
 	id.slice(changesetKey.length + 1);
-
-const getScrollTargetId = ({
-	changesetKey,
-	selection,
-}: {
-	changesetKey: string;
-	selection: FileOperand | null;
-}): string | null => (selection ? codeViewItemId({ changesetKey, path: selection.path }) : null);
-
-const getChangesetKey = (selection: Operand): string =>
-	Match.value(selection).pipe(
-		Match.tags({
-			Branch: ({ branchRef }) => decodeBytes(branchRef),
-			ChangesSection: () => "changes",
-			Commit: ({ commitId }) => commitId,
-		}),
-		Match.orElseAbsurd,
-	);
 
 const fileOperandIdentityKey = (operand: FileOperand): string =>
 	operandIdentityKey(fileOperand(operand));
@@ -187,64 +170,12 @@ const getBranchFileTreeItems = ({
 		}),
 	);
 
-const patchHeaderForChange = (change: TreeChange, lineEnding: string): string =>
-	Match.value(change.status).pipe(
-		Match.when(
-			{ type: "Addition" },
-			() =>
-				[
-					`diff --git a/${change.path} b/${change.path}`,
-					"new file mode 100644",
-					"--- /dev/null",
-					`+++ b/${change.path}`,
-				].join(lineEnding) + lineEnding,
-		),
-
-		Match.when(
-			{ type: "Deletion" },
-			() =>
-				[
-					`diff --git a/${change.path} b/${change.path}`,
-					"deleted file mode 100644",
-					`--- a/${change.path}`,
-					"+++ /dev/null",
-				].join(lineEnding) + lineEnding,
-		),
-
-		Match.when(
-			{ type: "Modification" },
-			() =>
-				[
-					`diff --git a/${change.path} b/${change.path}`,
-					`--- a/${change.path}`,
-					`+++ b/${change.path}`,
-				].join(lineEnding) + lineEnding,
-		),
-
-		Match.when(
-			{ type: "Rename" },
-			({ subject }) =>
-				[
-					`diff --git a/${subject.previousPath} b/${change.path}`,
-					"similarity index 99%",
-					`rename from ${subject.previousPath}`,
-					`rename to ${change.path}`,
-					`--- a/${subject.previousPath}`,
-					`+++ b/${change.path}`,
-				].join(lineEnding) + lineEnding,
-		),
-
-		Match.exhaustive,
-	);
-
 const mkCodeViewItem = (
 	change: TreeChange,
 	changesetKey: string,
 	hunks: Array<DiffHunk>,
 ): CodeViewDiffItem => {
-	const lineEnding = lineEndingForDiff(hunks[0]?.diff ?? "");
-	const header = patchHeaderForChange(change, lineEnding);
-	const combinedFilePatch = [header, ...hunks.map((hunk) => hunk.diff)].join(lineEnding);
+	const combinedFilePatch = synthesizeFilePatch(change, hunks);
 	const version = Hash.string(combinedFilePatch);
 	const parsed = parsePatchFiles(combinedFilePatch, String(version));
 
@@ -256,51 +187,6 @@ const mkCodeViewItem = (
 		fileDiff: parsed[0]!.files[0]!,
 	};
 };
-
-const hunkContainsLine = (hunk: Hunk, line: number, side: SelectionSide): boolean => {
-	const start = side === "deletions" ? hunk.deletionStart : hunk.additionStart;
-	const count = side === "deletions" ? hunk.deletionCount : hunk.additionCount;
-
-	return line >= start && line < start + count;
-};
-
-const selectEntireHunk = (hunk: Hunk): SelectedLineRange => {
-	if (hunk.deletionCount > 0 && hunk.additionCount > 0) {
-		const lastContent = hunk.hunkContent.at(-1);
-		const startsWithAddition =
-			hunk.hunkContent[0]?.type === "change" && hunk.hunkContent[0].deletions === 0;
-		const endsWithDeletion = lastContent?.type === "change" && lastContent.additions === 0;
-
-		return {
-			start: startsWithAddition ? hunk.additionStart : hunk.deletionStart,
-			side: startsWithAddition ? "additions" : "deletions",
-			end: endsWithDeletion
-				? hunk.deletionStart + hunk.deletionCount - 1
-				: hunk.additionStart + hunk.additionCount - 1,
-			endSide: endsWithDeletion ? "deletions" : "additions",
-		};
-	}
-
-	if (hunk.deletionCount > 0)
-		return {
-			start: hunk.deletionStart,
-			side: "deletions",
-			end: hunk.deletionStart + hunk.deletionCount - 1,
-		};
-
-	return {
-		start: hunk.additionStart,
-		side: "additions",
-		end: hunk.additionStart + hunk.additionCount - 1,
-	};
-};
-
-const hunkHeaderFromHunk = (hunk: Hunk): HunkHeader => ({
-	oldStart: hunk.deletionStart,
-	oldLines: hunk.deletionCount,
-	newStart: hunk.additionStart,
-	newLines: hunk.additionCount,
-});
 
 type BuildIn = {
 	fileParent: FileParent;
@@ -810,7 +696,14 @@ const Diff: FC<{
 	const files = filesItems.map((item) => item.operand);
 	const filesNavigationIndex = buildNavigationIndex(files, fileOperandIdentityKey);
 
-	const changesetKey = getChangesetKey(outlineSelection);
+	const changesetKey = Match.value(outlineSelection).pipe(
+		Match.tags({
+			Branch: ({ branchRef }) => decodeBytes(branchRef),
+			ChangesSection: () => "changes",
+			Commit: ({ commitId }) => commitId,
+		}),
+		Match.orElseAbsurd,
+	);
 	const fileParent = Match.value(outlineSelection).pipe(
 		Match.tags({
 			Branch: ({ branchRef, stackId }) => branchFileParent({ branchRef, stackId }),
@@ -841,13 +734,10 @@ const Diff: FC<{
 			}),
 		);
 
-		const scrollTargetId = getScrollTargetId({
-			changesetKey: getChangesetKey(outlineSelection),
-			selection,
+		viewerRef.current?.scrollTo({
+			type: "item",
+			id: codeViewItemId({ changesetKey, path: selection.path }),
 		});
-		if (scrollTargetId === null) return;
-
-		viewerRef.current?.scrollTo({ type: "item", id: scrollTargetId });
 	};
 
 	return (
