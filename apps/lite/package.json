@@ -126,7 +126,7 @@
 		"@base-ui/react": "^1.5.0",
 		"@base-ui/utils": "^0.2.9",
 		"@gitbutler/but-sdk": "workspace:*",
-		"@gitbutler/design-core": "3.4.3",
+		"@gitbutler/design-core": "3.5.1",
 		"@pierre/diffs": "^1.2.4",
 		"@reduxjs/toolkit": "catalog:redux",
 		"@suspensive/react-query": "npm:@suspensive/react-query-5@^3.21.2",
