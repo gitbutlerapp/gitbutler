@@ -58,15 +58,15 @@
 		color: var(--text-1);
 	}
 
-	& :where([data-icon]) {
+	& [data-icon] {
 		color: var(--text-3);
 	}
 
-	&:hover :where([data-icon]) {
+	&:hover [data-icon] {
 		color: var(--text-2);
 	}
 
-	&[data-pressed] :where([data-icon]) {
+	&[data-pressed] [data-icon] {
 		color: var(--text-2);
 	}
 }
