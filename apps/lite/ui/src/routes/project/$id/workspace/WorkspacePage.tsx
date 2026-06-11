@@ -352,16 +352,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 			},
 		},
 		{
-			hotkey: workspaceHotkeys.applyBranch.hotkey,
-			callback: () => {
-				dispatch(projectActions.openApplyBranchPicker({ projectId }));
-			},
-			options: {
-				conflictBehavior: "allow",
-				meta: workspaceHotkeys.applyBranch.meta,
-			},
-		},
-		{
 			hotkey: workspaceHotkeys.toggleFiles.hotkey,
 			callback: () => {
 				dispatch(toggleFiles({ projectId, focusedSelectionScope, outlineVisible }));
@@ -549,6 +539,14 @@ const WorkspacePage: FC = () => {
 		outlineMode._tag === "Default" && !branchCreateMutation.isPending;
 
 	useHotkeys([
+		{
+			hotkey: workspaceHotkeys.applyBranch.hotkey,
+			callback: openApplyBranchPicker,
+			options: {
+				conflictBehavior: "allow",
+				meta: workspaceHotkeys.applyBranch.meta,
+			},
+		},
 		{
 			hotkey: workspaceHotkeys.createIndependentBranch.hotkey,
 			callback: createIndependentBranch,
