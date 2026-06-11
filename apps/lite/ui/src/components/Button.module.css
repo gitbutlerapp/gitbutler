@@ -1,11 +1,8 @@
 .button {
 	display: inline-flex;
-	position: relative;
 	align-items: center;
 	justify-content: center;
-	border: 0;
 	border-radius: 8px;
-	background: transparent;
 	color: var(--text-1);
 	line-height: 1;
 	white-space: nowrap;
@@ -80,7 +77,6 @@
 }
 
 .inverted {
-	background-color: transparent;
 	color: var(--text-1-invert);
 
 	&:not(:disabled, [data-disabled]):hover {
