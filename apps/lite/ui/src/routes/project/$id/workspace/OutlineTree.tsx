@@ -908,6 +908,21 @@ const InlineRewordCommit: FC<{
 	);
 };
 
+const insertBlankCommitMenuItem = (insertBlankCommit: (side: "above" | "below") => void) =>
+	nativeMenuItem({
+		label: "Add Empty Commit",
+		submenu: [
+			nativeMenuItem({
+				label: "Above",
+				onSelect: () => insertBlankCommit("above"),
+			}),
+			nativeMenuItem({
+				label: "Below",
+				onSelect: () => insertBlankCommit("below"),
+			}),
+		],
+	});
+
 const CommitRow: FC<
 	{
 		commit: Commit;
@@ -954,20 +969,11 @@ const CommitRow: FC<
 	const commitUncommitMutation = useCommitUncommit();
 	const commitRewordMutation = useCommitReword();
 
-	const insertBlankCommitAbove = () => {
+	const insertBlankCommit = (side: "above" | "below") => {
 		commitInsertBlankMutation.mutate({
 			projectId,
 			relativeTo: { type: "commit", subject: commit.id },
-			side: "above",
-			dryRun: false,
-		});
-	};
-
-	const insertBlankCommitBelow = () => {
-		commitInsertBlankMutation.mutate({
-			projectId,
-			relativeTo: { type: "commit", subject: commit.id },
-			side: "below",
+			side,
 			dryRun: false,
 		});
 	};
@@ -1120,19 +1126,7 @@ const CommitRow: FC<
 				}),
 			],
 		}),
-		nativeMenuItem({
-			label: "Add Empty Commit",
-			submenu: [
-				nativeMenuItem({
-					label: "Above",
-					onSelect: insertBlankCommitAbove,
-				}),
-				nativeMenuItem({
-					label: "Below",
-					onSelect: insertBlankCommitBelow,
-				}),
-			],
-		}),
+		insertBlankCommitMenuItem(insertBlankCommit),
 		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Delete Commit",
@@ -1883,6 +1877,7 @@ const BranchRow: FC<
 	const toastManager = Toast.useToastManager();
 
 	const pushStackMutation = usePushStack();
+	const commitInsertBlankMutation = useCommitInsertBlank();
 	const tearOffBranchMutation = useTearOffBranch();
 	const removeBranchMutation = useRemoveBranch();
 
@@ -1923,6 +1918,15 @@ const BranchRow: FC<
 	const composeCommitHere = () => {
 		setCommitTarget();
 		focusCommitMessageInput();
+	};
+
+	const insertBlankCommit = (side: "above" | "below") => {
+		commitInsertBlankMutation.mutate({
+			projectId,
+			relativeTo,
+			side,
+			dryRun: false,
+		});
 	};
 
 	const tearOffBranch = () => {
@@ -1993,6 +1997,7 @@ const BranchRow: FC<
 			onSelect: setCommitTarget,
 			enabled: outlineMode._tag === "Default",
 		}),
+		insertBlankCommitMenuItem(insertBlankCommit),
 		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Tear Off Branch",
