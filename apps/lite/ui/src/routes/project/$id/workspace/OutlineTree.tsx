@@ -1971,6 +1971,7 @@ const BranchRow: FC<
 			label: "Copy Branch Name",
 			onSelect: () => window.lite.clipboardWriteText(optimisticBranchDisplayName),
 		}),
+		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Compose Commit Here",
 			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
