@@ -1657,8 +1657,11 @@ async fn maybe_run_status_after<T, E>(
 /// In human mode, prints a blank line then full status.
 /// In JSON mode, combines the mutation's buffered JSON with status JSON into
 /// `{"result": <mutation_output>, "status": <workspace_status>}`.
-/// If the GitButler skill is missing or stale, includes an agent-facing notice
-/// after the status output or under `agent_skill_notice` in JSON.
+/// Periodically reconciles skill installations: stale skills are auto-updated
+/// in the background, and an agent-facing line (update announcement, or an
+/// action notice when the skill is missing or the update could not start) is
+/// included between the mutation output and the status (so output-trimming
+/// pipes like `head` still deliver it), or under `agent_skill_notice` in JSON.
 ///
 /// Status errors are handled gracefully: in JSON mode the mutation result is
 /// always emitted (with a `"status_error"` field on failure); in human mode
@@ -1672,7 +1675,7 @@ async fn run_status_after(
     use crate::command::legacy::status::StatusFlags;
 
     let agent_skill_notice = if matches!(out.format(), OutputFormat::Human | OutputFormat::Json) {
-        command::skill::agent_skill_freshness_notice_for_context(Some(&mut *ctx))
+        command::skill::agent_skill_freshness_check_for_context(Some(&mut *ctx))
     } else {
         None
     };
@@ -1718,6 +1721,15 @@ async fn run_status_after(
         if let Some(human) = out.for_human() {
             writeln!(human).ok();
         }
+        // The notice must precede the status dump: agents routinely pipe
+        // `but` output through `head`/`grep`, which keeps leading lines and
+        // drops trailing ones.
+        if let Some(notice) = agent_skill_notice
+            && let Some(human) = out.for_human()
+        {
+            writeln!(human, "{notice}").ok();
+            writeln!(human).ok();
+        }
         if let Err(err) = command::legacy::status::worktree(
             ctx,
             out,
@@ -1734,12 +1746,6 @@ async fn run_status_after(
             eprintln!(
                 "warning: status after mutation failed: {err:#}. Run 'but status' separately to check workspace state."
             );
-        }
-        if let Some(notice) = agent_skill_notice
-            && let Some(human) = out.for_human()
-        {
-            writeln!(human).ok();
-            writeln!(human, "{notice}").ok();
         }
     }
 }
