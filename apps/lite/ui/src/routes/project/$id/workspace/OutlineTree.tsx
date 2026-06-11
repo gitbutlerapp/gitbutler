@@ -623,6 +623,7 @@ const useOutlineTreeHotkeys = ({
 									enabled: defaultOutlineHotkeysEnabled,
 									target: ref,
 									meta: outlineHotkeys.createDependentBranchAbove.meta,
+									requireReset: true,
 								},
 							} satisfies UseHotkeyDefinition,
 							{
