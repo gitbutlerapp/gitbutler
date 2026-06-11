@@ -598,6 +598,10 @@ pub(crate) fn try_find_validated_ref<'repo>(
 pub mod apply;
 pub use apply::apply;
 
+/// Tearing down the managed workspace so it can be rebuilt from scratch.
+pub mod discard;
+pub use discard::discard_managed_workspace;
+
 /// Functions and types related to removing a branch from the workspace.
 pub mod unapply;
 pub use unapply::function::unapply;

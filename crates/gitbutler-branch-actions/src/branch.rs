@@ -82,7 +82,12 @@ pub fn list_branches(
             expensive_commit_info: false,
             gerrit_mode,
         },
-    )?;
+    )?
+    // Like the but-api/CLI `head_info` and the workspace view: when HEAD is outside the
+    // managed workspace (e.g. a stack branch was checked out directly), only the
+    // checked-out stack counts as in-workspace. The others then list as plain branches
+    // and can be applied again, rebuilding the workspace from scratch.
+    .pruned_to_entrypoint();
     let stacks = info
         .stacks
         .into_iter()
