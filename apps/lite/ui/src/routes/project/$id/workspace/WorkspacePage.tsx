@@ -538,6 +538,8 @@ const WorkspacePage: FC = () => {
 	const canCreateIndependentBranch =
 		outlineMode._tag === "Default" && !branchCreateMutation.isPending;
 
+	const canApplyBranch = outlineMode._tag === "Default";
+
 	useHotkeys([
 		{
 			hotkey: workspaceHotkeys.applyBranch.hotkey,
@@ -545,6 +547,7 @@ const WorkspacePage: FC = () => {
 			options: {
 				conflictBehavior: "allow",
 				meta: workspaceHotkeys.applyBranch.meta,
+				enabled: canApplyBranch,
 			},
 		},
 		{
@@ -658,6 +661,9 @@ const WorkspacePage: FC = () => {
 									<Tooltip.Trigger
 										className={getButtonClassName({})}
 										onClick={openApplyBranchPicker}
+										// We pass `disabled` here because we want to disable the button, not
+										// the tooltip. Other props should be passed above.
+										render={<Button focusableWhenDisabled disabled={!canApplyBranch} />}
 									>
 										Apply branch
 									</Tooltip.Trigger>
