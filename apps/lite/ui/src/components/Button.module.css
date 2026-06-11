@@ -30,7 +30,7 @@
 	--icon-size: 16px;
 }
 
-.iconOnly {
+.regular.iconOnly {
 	width: 28px;
 	padding-inline: 8px;
 }
