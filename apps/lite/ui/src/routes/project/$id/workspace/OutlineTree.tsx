@@ -1206,6 +1206,7 @@ const CommitRow: FC<
 									<Icon name="kebab" />
 								</Toolbar.Button>
 							</Toolbar.Root>
+
 							{isCommitTarget && <CommitTargetIndicator isSelected={isSelected} />}
 						</WorkspaceItemRowToolbar>
 					)}
@@ -2083,6 +2084,7 @@ const BranchRow: FC<
 									<Icon name="kebab" />
 								</Toolbar.Button>
 							</Toolbar.Root>
+
 							{isCommitTarget && <CommitTargetIndicator isSelected={isSelected} />}
 						</WorkspaceItemRowToolbar>
 					)}

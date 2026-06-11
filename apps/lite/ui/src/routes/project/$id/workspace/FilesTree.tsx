@@ -502,6 +502,7 @@ const FileRow: FC<
 							<Icon name="kebab" />
 						</Toolbar.Button>
 					</Toolbar.Root>
+
 					{item._tag === "Change" ? (
 						<Icon
 							name="file"
