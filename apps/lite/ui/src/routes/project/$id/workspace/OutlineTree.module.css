@@ -99,27 +99,6 @@
 	flex-direction: column;
 }
 
-.changesCountBubble {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	min-width: 20px;
-	height: 16px;
-	margin-inline-start: 6px;
-	margin-block-start: -1px;
-	padding-inline: 4px;
-	padding-block: 2px;
-	border-radius: 10px;
-	background-color: var(--fill-gray-bg);
-	color: var(--fill-gray-fg);
-	vertical-align: middle;
-
-	[data-selection-scope]:focus .selected & {
-		background-color: var(--fill-gray-fg);
-		color: var(--fill-gray-bg);
-	}
-}
-
 .commitControls {
 	display: flex;
 	row-gap: 2px;
@@ -150,7 +129,7 @@
 
 	& > * {
 		overflow: hidden;
-		background: var(--bg-1);
+		background-color: var(--bg-1);
 	}
 
 	& > :first-child {
@@ -171,7 +150,7 @@
 	display: block;
 	flex-grow: 1;
 	overflow: hidden;
-	background: var(--bg-1);
+	background-color: var(--bg-1);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
@@ -266,7 +245,7 @@
 	opacity: 0;
 
 	.treeWithCheckedCommits &,
-	.itemRow:hover &,
+	.commitRow:hover &,
 	&:focus {
 		opacity: 1;
 	}
@@ -274,4 +253,20 @@
 	.tree:not(.treeWithCheckedCommits) &[data-disabled] {
 		display: none;
 	}
+}
+
+.itemRowContainer {
+	display: grid;
+
+	& > * {
+		grid-area: 1 / 1;
+		min-width: 0;
+	}
+}
+
+.commitTargetIndicator {
+	align-self: start;
+	justify-self: start;
+	margin-left: -15px;
+	margin-block-start: 5px;
 }

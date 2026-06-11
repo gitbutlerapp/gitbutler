@@ -11,7 +11,7 @@
 	justify-content: center;
 	padding: 2px 4px;
 	border-radius: var(--radius-s);
-	background: var(--bg-2);
+	background-color: var(--bg-2);
 	color: var(--text-1);
 	font-size: 11px;
 	line-height: 1;

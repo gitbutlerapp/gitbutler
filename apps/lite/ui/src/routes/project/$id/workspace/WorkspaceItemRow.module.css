@@ -30,7 +30,7 @@
 .itemRowSelected {
 	background-color: color-mix(var(--fill-gray-bg) 13%, transparent);
 
-	&:has(:where(textarea, input):focus),
+	&:has(:is(textarea, input):focus),
 	[data-selection-scope]:focus & {
 		background-color: var(--fill-gray-bg);
 		color: var(--fill-gray-fg);
@@ -68,7 +68,7 @@
 	justify-content: center;
 	width: 22px;
 	height: 20px;
-	margin: -2px;
+	margin-block: -2px;
 	padding-inline: 3px;
 	border-radius: 8px;
 	color: var(--text-1);
@@ -81,16 +81,15 @@
 		opacity: 0.5;
 	}
 
-	[data-selection-scope]:not(:focus) &,
-	.itemRow:not(.itemRowSelected) & {
-		& :where([data-icon]) {
+	&:not([data-selection-scope]:focus .itemRowSelected &) {
+		& [data-icon] {
 			opacity: 0.6;
 		}
 
 		&:not(:disabled, [data-disabled]):hover {
 			background-color: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
 
-			& :where([data-icon]) {
+			& [data-icon] {
 				opacity: 0.8;
 			}
 		}
@@ -99,16 +98,37 @@
 	[data-selection-scope]:focus .itemRowSelected & {
 		color: var(--text-1-invert);
 
-		& :where([data-icon]) {
+		& [data-icon] {
 			opacity: 0.7;
 		}
 
 		&:not(:disabled, [data-disabled]):hover {
 			background-color: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
 
-			& :where([data-icon]) {
+			& [data-icon] {
 				opacity: 0.9;
 			}
 		}
+	}
+}
+
+.changesCountBubble {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 20px;
+	height: 16px;
+	margin-inline-start: 6px;
+	margin-block-start: -1px;
+	padding-inline: 4px;
+	padding-block: 2px;
+	border-radius: 10px;
+	background-color: var(--fill-gray-bg);
+	color: var(--fill-gray-fg);
+	vertical-align: middle;
+
+	[data-selection-scope]:focus .itemRowSelected & {
+		background-color: var(--fill-gray-fg);
+		color: var(--fill-gray-bg);
 	}
 }
