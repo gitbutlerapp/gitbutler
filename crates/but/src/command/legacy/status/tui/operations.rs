@@ -259,7 +259,7 @@ pub(super) fn create_branch_anchored_legacy(
 ) -> anyhow::Result<String> {
     let new_name = but_api::legacy::workspace::canned_branch_name(ctx)
         .context("failed to generate branch name")?;
-    let anchor = but_api::legacy::stack::create_reference::Anchor::AtReference {
+    let anchor = but_api::legacy::stack::create_reference::Anchor::AtSegment {
         short_name,
         position: but_workspace::branch::create_reference::Position::Above,
     };

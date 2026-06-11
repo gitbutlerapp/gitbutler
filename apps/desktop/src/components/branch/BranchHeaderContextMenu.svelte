@@ -154,7 +154,7 @@
 			request: {
 				newName,
 				anchor: {
-					type: "atReference",
+					type: "atSegment",
 					subject: {
 						short_name: branchName,
 						position,

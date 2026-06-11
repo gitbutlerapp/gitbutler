@@ -90,7 +90,7 @@ pub fn new(
                     })
                 }
                 BranchOrCommit::Branch(BranchArg(name)) => Ok(
-                    but_api::legacy::stack::create_reference::Anchor::AtReference {
+                    but_api::legacy::stack::create_reference::Anchor::AtSegment {
                         short_name: name.clone(),
                         position: but_workspace::branch::create_reference::Position::Above,
                     },
