@@ -134,19 +134,24 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     }
 
     let mut args: Args = Args::parse_from(args);
-    args.status_after = utils::detect_agent::detect().is_some();
-    // Determine if pager should be used based on the command
-    let use_pager = match args.cmd {
-        #[cfg(feature = "legacy")]
-        Some(Subcommands::Status { .. }) => true,
-        #[cfg(feature = "legacy")]
-        Some(Subcommands::Diff { tui, .. }) => !tui,
-        #[cfg(feature = "legacy")]
-        Some(Subcommands::Stage {
-            ref file_or_hunk, ..
-        }) => file_or_hunk.is_some(),
-        _ => false,
-    };
+    let agent = utils::detect_agent::detect();
+    args.status_after = agent.is_some();
+    // Determine if pager should be used based on the command. Agents never get
+    // a pager: harnesses like Codex run commands in a real PTY (so a TTY check
+    // can't tell them apart from humans), where `less` blocks the agent until
+    // it notices and pokes stdin.
+    let use_pager = agent.is_none()
+        && match args.cmd {
+            #[cfg(feature = "legacy")]
+            Some(Subcommands::Status { .. }) => true,
+            #[cfg(feature = "legacy")]
+            Some(Subcommands::Diff { tui, .. }) => !tui,
+            #[cfg(feature = "legacy")]
+            Some(Subcommands::Stage {
+                ref file_or_hunk, ..
+            }) => file_or_hunk.is_some(),
+            _ => false,
+        };
     let _tracing_appender_worker_guard = if args.trace > 0 {
         trace::init(args.trace, args.log_file.as_deref())?
     } else {
