@@ -81,8 +81,7 @@
 		opacity: 0.5;
 	}
 
-	[data-selection-scope]:not(:focus) &,
-	.itemRow:not(.itemRowSelected) & {
+	&:not([data-selection-scope]:focus .itemRowSelected &) {
 		& :where([data-icon]) {
 			opacity: 0.6;
 		}
