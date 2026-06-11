@@ -1,4 +1,5 @@
 import styles from "./GraphSegment.module.css";
+import { classes } from "#ui/components/classes.ts";
 import { ComponentProps, FC } from "react";
 
 const glyphPaths = {
@@ -45,6 +46,8 @@ type GlyphType = keyof typeof glyphPaths | "commit" | "group";
 
 const stretchableGlyphs = new Set<GlyphType>([
 	"parent",
+	"commit",
+	"group",
 	"forkLeft",
 	"forkRight",
 	"forkBoth",
@@ -58,13 +61,20 @@ interface GraphSegmentProps extends ComponentProps<"div"> {
 	stretch?: boolean;
 }
 
-export const GraphSegment: FC<GraphSegmentProps> = ({ glyph = "parent", stretch, ...props }) => (
-	<div {...props} className={styles.graphSegment} data-stretch={stretch}>
+export const GraphSegment: FC<GraphSegmentProps> = ({
+	glyph = "parent",
+	stretch = false,
+	className,
+	...props
+}) => (
+	<div {...props} className={classes(className, styles.graphSegment)} data-stretch={stretch}>
 		<svg
 			className={styles.graphSegmentSvg}
 			viewBox="0 0 16 28"
 			fill="none"
 			xmlns="http://www.w3.org/2000/svg"
+			aria-hidden="true"
+			focusable="false"
 		>
 			{glyph === "commit" ? (
 				commitGlyph
@@ -75,7 +85,6 @@ export const GraphSegment: FC<GraphSegmentProps> = ({ glyph = "parent", stretch,
 			)}
 		</svg>
 
-		{/* if stretch */}
 		{stretch && stretchableGlyphs.has(glyph) && (
 			<svg
 				viewBox="0 0 16 28"
@@ -83,6 +92,8 @@ export const GraphSegment: FC<GraphSegmentProps> = ({ glyph = "parent", stretch,
 				fill="none"
 				xmlns="http://www.w3.org/2000/svg"
 				className={styles.stretchSegment}
+				aria-hidden="true"
+				focusable="false"
 			>
 				<path d={glyphPaths.parent} opacity="0.5" stroke="currentColor" strokeWidth="1.5" />
 			</svg>

@@ -4,12 +4,8 @@
 	column-gap: 8px;
 	align-items: center;
 	min-height: 28px;
-	padding-right: 6px;
+	padding-right: 4px;
 	padding-left: 8px;
-}
-
-.itemRowHeading {
-	padding-block: 5.5px;
 }
 
 .itemRow {

@@ -118,6 +118,7 @@ import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { initNonEmpty, isNonEmptyArray, scanRight } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import {
@@ -807,10 +808,15 @@ type CommitStatusType = "Diverged" | CommitState["type"];
 
 const CommitStateIndicator: FC<{
 	status: CommitStatusType;
-}> = ({ status }) => (
-	<div className={styles.commitState}>
-		<span className={styles.commitStateIcon} data-status={status} />
-	</div>
+	glyph?: ComponentProps<typeof GraphSegment>["glyph"];
+	stretch?: boolean;
+}> = ({ status, glyph = "commit", stretch = false }) => (
+	<GraphSegment
+		glyph={glyph}
+		stretch={stretch}
+		className={styles.commitState}
+		data-status={status}
+	/>
 );
 
 const ItemRow: FC<
@@ -1266,7 +1272,10 @@ const CommitRow: FC<
 			isCommitTarget={isCommitTarget}
 		>
 			<div className={styles.commitStateWithCheckbox}>
-				<CommitStateIndicator status={commitIsDiverged(commit) ? "Diverged" : commit.state.type} />
+				<CommitStateIndicator
+					status={commitIsDiverged(commit) ? "Diverged" : commit.state.type}
+					stretch={isRewording}
+				/>
 				<Tooltip.Root
 					// This gets in the way when the user tries to move their hover to a
 					// sibling row.
@@ -2181,6 +2190,7 @@ const BranchRow: FC<
 		>
 			{/* This will be replaced with a different icon. */}
 			<CommitStateIndicator
+				glyph="forkRight"
 				status={(() => {
 					switch (pushStatus) {
 						case "nothingToPush":

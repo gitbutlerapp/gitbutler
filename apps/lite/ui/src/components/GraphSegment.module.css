@@ -3,10 +3,15 @@
 	display: flex;
 	flex-direction: column;
 	width: var(--width);
+	height: 100%;
 
 	&[data-stretch="false"] {
 		justify-content: center;
 		height: fit-content;
+	}
+
+	&[data-stretch="true"] {
+		align-self: stretch;
 	}
 }
 

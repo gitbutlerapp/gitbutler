@@ -7,7 +7,7 @@ const meta = preview.meta({
 		glyph: {
 			control: { type: "select" },
 			options: [
-				"parant",
+				"parent",
 				"horizontal",
 				"space",
 				"forkLeft",
@@ -28,7 +28,7 @@ const meta = preview.meta({
 
 export const Default = meta.story({
 	args: {
-		glyph: "parant",
+		glyph: "parent",
 		stretch: false,
 	},
 	render: (args) => (
@@ -49,7 +49,7 @@ export const AllGlyphs = meta.story({
 		<div style={{ display: "flex", gap: 16 }}>
 			{(
 				[
-					"parant",
+					"parent",
 					"horizontal",
 					"forkLeft",
 					"forkRight",

@@ -35,7 +35,6 @@ export const WorkspaceItemRow: FC<
 				heading ? "text-14" : "text-13",
 				heading && "text-bold",
 				styles.itemRow,
-				heading && styles.itemRowHeading,
 				isSelected && styles.itemRowSelected,
 				isHighlighted && styles.itemRowHighlighted,
 			)}
