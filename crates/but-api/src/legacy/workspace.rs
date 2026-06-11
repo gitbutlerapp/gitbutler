@@ -235,7 +235,8 @@ pub fn branch_details_by_ref(
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
         let meta = ctx.meta()?;
-        but_workspace::branch_details(&repo, branch, &meta)
+        let project_meta = ctx.project_meta()?;
+        but_workspace::branch_details(&repo, branch, &meta, &project_meta)
     }?;
     let repo = ctx.repo.get()?;
     let db = ctx.db.get_cache()?;

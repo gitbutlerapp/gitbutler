@@ -31,7 +31,7 @@ napi-auto = ["but-api/napi"]
 [dependencies]
 anyhow.workspace = true
 but-askpass.workspace = true
-but-api.workspace = true
+but-api = { workspace = true, features = ["path-bytes"] }
 but-ctx.workspace = true
 but-path.workspace = true
 but-settings.workspace = true

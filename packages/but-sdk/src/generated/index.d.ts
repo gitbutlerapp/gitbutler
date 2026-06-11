@@ -1289,6 +1289,8 @@ export type FullRefName = {
    * Note that it might be degenerated if it can't be represented in Unicode.
    */
   full: string;
+  /** `full` without degeneration, as plain bytes. */
+  full_bytes: string;
 };
 
 /** The full name of a Git reference, transported losslessly as bytes. */
