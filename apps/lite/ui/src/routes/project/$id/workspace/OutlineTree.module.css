@@ -245,7 +245,7 @@
 	opacity: 0;
 
 	.treeWithCheckedCommits &,
-	.itemRow:hover &,
+	.commitRow:hover &,
 	&:focus {
 		opacity: 1;
 	}
