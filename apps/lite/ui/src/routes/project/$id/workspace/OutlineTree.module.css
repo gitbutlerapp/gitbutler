@@ -110,12 +110,12 @@
 	padding-inline: 4px;
 	padding-block: 2px;
 	border-radius: 10px;
-	background: var(--fill-gray-bg);
+	background-color: var(--fill-gray-bg);
 	color: var(--fill-gray-fg);
 	vertical-align: middle;
 
 	[data-selection-scope]:focus .selected & {
-		background: var(--fill-gray-fg);
+		background-color: var(--fill-gray-fg);
 		color: var(--fill-gray-bg);
 	}
 }
