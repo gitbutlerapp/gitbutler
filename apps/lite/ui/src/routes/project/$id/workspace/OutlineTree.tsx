@@ -172,8 +172,10 @@ const useDryRunCommit = (commitId: string) => {
 	const dryRunWorkspace = use(DryRunWorkspaceContext);
 	if (!dryRunWorkspace) return null;
 
-	const dryRunCommitId = dryRunWorkspace.replacedCommits[commitId] ?? commitId;
-	return findCommit({ headInfo: dryRunWorkspace.headInfo, commitId: dryRunCommitId });
+	const dryRunCommitId = dryRunWorkspace.replacedCommits[commitId];
+	return dryRunCommitId !== undefined
+		? findCommit({ headInfo: dryRunWorkspace.headInfo, commitId: dryRunCommitId })
+		: null;
 };
 
 const useOutlineTreeHotkeys = ({
