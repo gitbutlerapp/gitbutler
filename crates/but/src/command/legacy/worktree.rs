@@ -116,6 +116,12 @@ pub fn handle(cmd: Subcommands, ctx: &mut Context, out: &mut OutputChannel) -> R
                         IntegrationStatus::WorktreeIsBare => {
                             writeln!(out, "Status: Cannot integrate - worktree is bare")?;
                         }
+                        IntegrationStatus::NothingToIntegrate => {
+                            writeln!(
+                                out,
+                                "Status: Nothing to integrate - the worktree has no changes"
+                            )?;
+                        }
                         IntegrationStatus::CausesWorkspaceConflicts => {
                             writeln!(
                                 out,

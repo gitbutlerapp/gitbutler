@@ -681,7 +681,7 @@ async fn match_subcommand(
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             command::legacy::worktree::handle(cmd, &mut ctx, out)
                 .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
+                .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Status {

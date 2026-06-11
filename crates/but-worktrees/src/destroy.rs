@@ -1,8 +1,11 @@
 use anyhow::Result;
-use but_ctx::{Context, access::RepoExclusive};
 use serde::Serialize;
 
-use crate::{WorktreeId, git::git_worktree_remove, list::worktree_list};
+use crate::{
+    WorktreeId,
+    git::{delete_worktree_branch, git_worktree_remove},
+    list::worktree_list,
+};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -13,12 +16,12 @@ pub struct DestroyWorktreeOutcome {
 
 /// Destroys a worktree by its ID.
 pub fn worktree_destroy_by_id(
-    ctx: &mut Context,
-    _perm: &RepoExclusive,
+    repo: &gix::Repository,
     id: &WorktreeId,
 ) -> Result<DestroyWorktreeOutcome> {
     // Remove the git worktree (force=true to handle uncommitted changes)
-    git_worktree_remove(ctx.repo.get()?.common_dir(), id, true)?;
+    git_worktree_remove(repo.common_dir(), id, true)?;
+    delete_worktree_branch(repo, id)?;
 
     Ok(DestroyWorktreeOutcome {
         destroyed_ids: vec![id.clone()],
@@ -27,12 +30,11 @@ pub fn worktree_destroy_by_id(
 
 /// Destroys all worktrees created from a given reference.
 pub fn worktree_destroy_by_reference(
-    ctx: &mut Context,
-    perm: &RepoExclusive,
+    repo: &gix::Repository,
     reference: &gix::refs::FullNameRef,
 ) -> Result<DestroyWorktreeOutcome> {
     // Use the existing list function to get all worktrees
-    let list_outcome = worktree_list(ctx, perm.read_permission())?;
+    let list_outcome = worktree_list(repo)?;
 
     // Filter for worktrees created from the specified reference
     let worktrees_to_destroy: Vec<_> = list_outcome
@@ -51,7 +53,8 @@ pub fn worktree_destroy_by_reference(
     // Destroy each matching worktree
     for worktree in worktrees_to_destroy {
         // Remove the git worktree (force=true to handle uncommitted changes)
-        git_worktree_remove(ctx.repo.get()?.common_dir(), &worktree.id, true)?;
+        git_worktree_remove(repo.common_dir(), &worktree.id, true)?;
+        delete_worktree_branch(repo, &worktree.id)?;
 
         destroyed_ids.push(worktree.id);
     }

@@ -1,10 +1,12 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Result, bail};
-use but_ctx::{Context, access::RepoShared};
 use serde::Serialize;
 
-use crate::{Worktree, WorktreeId, WorktreeMeta, db::save_worktree_meta, git::git_worktree_add};
+use crate::{
+    WORKTREE_BRANCH_NAMESPACE, Worktree, WorktreeId, WorktreeMeta, db::save_worktree_meta,
+    git::git_worktree_add,
+};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -13,14 +15,14 @@ pub struct NewWorktreeOutcome {
     pub created: Worktree,
 }
 
-/// Creates a new worktree off of workspace branch with given `refname`.
-// TODO: make this plumbing to take the `but_graph::Workspace` directly.
+/// Creates a new worktree off of workspace branch with given `refname`,
+/// checked out under `data_dir`.
 pub fn worktree_new(
-    ctx: &mut Context,
-    perm: &RepoShared,
+    repo: &gix::Repository,
+    ws: &but_graph::Workspace,
+    data_dir: &Path,
     refname: &gix::refs::FullNameRef,
 ) -> Result<NewWorktreeOutcome> {
-    let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
     if !ws.refname_is_segment(refname) {
         bail!("Branch not found in workspace");
     }
@@ -30,9 +32,9 @@ pub fn worktree_new(
     // Generate a new worktree ID
     let id = WorktreeId::generate();
 
-    let path = worktree_workdir(&ctx.project_data_dir(), &id);
+    let path = worktree_workdir(data_dir, &id);
     let branch_name =
-        gix::refs::PartialName::try_from(format!("gitbutler/worktree/{}", id.as_bstr()))?;
+        gix::refs::PartialName::try_from(format!("{WORKTREE_BRANCH_NAMESPACE}{}", id.as_bstr()))?;
 
     git_worktree_add(
         repo.common_dir(),
@@ -49,7 +51,7 @@ pub fn worktree_new(
         base: to_checkout.detach(),
     };
 
-    save_worktree_meta(&repo, meta)?;
+    save_worktree_meta(repo, meta)?;
 
     Ok(NewWorktreeOutcome {
         created: Worktree {

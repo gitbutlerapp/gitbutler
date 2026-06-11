@@ -3,7 +3,7 @@ use std::path::Path;
 use anyhow::{Result, bail};
 use bstr::BString;
 
-use crate::WorktreeId;
+use crate::{WORKTREE_BRANCH_NAMESPACE, WorktreeId};
 
 /// Creates a git worktree.
 ///
@@ -25,10 +25,14 @@ pub(crate) fn git_worktree_add(
             .args(["-B", &branch_name.to_string()])
             .arg(path.as_os_str())
             .arg(commit.to_string())
+            .stderr(std::process::Stdio::piped())
             .output()?;
 
-    tracing::info!("{}", str::from_utf8(&output.stdout)?);
-    tracing::error!("{}", str::from_utf8(&output.stderr)?);
+    tracing::debug!(
+        stdout = %String::from_utf8_lossy(&output.stdout),
+        stderr = %String::from_utf8_lossy(&output.stderr),
+        "git worktree add"
+    );
 
     if output.status.success() {
         let mut out = BString::from(b"refs/heads/");
@@ -37,7 +41,7 @@ pub(crate) fn git_worktree_add(
     } else {
         bail!(
             "Failed to create worktree\n\n{}",
-            str::from_utf8(&output.stderr).unwrap_or("")
+            String::from_utf8_lossy(&output.stderr)
         )
     }
 }
@@ -55,17 +59,33 @@ pub(crate) fn git_worktree_remove(project_path: &Path, id: &WorktreeId, force: b
         command.arg("--force");
     }
 
-    let output = command.output()?;
+    let output = command.stderr(std::process::Stdio::piped()).output()?;
 
-    tracing::info!("{}", str::from_utf8(&output.stdout)?);
-    tracing::error!("{}", str::from_utf8(&output.stderr)?);
+    tracing::debug!(
+        stdout = %String::from_utf8_lossy(&output.stdout),
+        stderr = %String::from_utf8_lossy(&output.stderr),
+        "git worktree remove"
+    );
 
     if output.status.success() {
         Ok(())
     } else {
         bail!(
-            "Failed to create worktree\n\n{}",
-            str::from_utf8(&output.stderr).unwrap_or("")
+            "Failed to remove worktree\n\n{}",
+            String::from_utf8_lossy(&output.stderr)
         )
     }
+}
+
+/// Deletes the `refs/heads/gitbutler/worktree/<id>` branch that was created
+/// alongside the worktree, if it still exists.
+///
+/// Branches outside that namespace are never touched, so anything the user
+/// checked out in the worktree themselves survives.
+pub(crate) fn delete_worktree_branch(repo: &gix::Repository, id: &WorktreeId) -> Result<()> {
+    let branch_name = format!("refs/heads/{WORKTREE_BRANCH_NAMESPACE}{}", id.as_bstr());
+    if let Some(reference) = repo.try_find_reference(&*branch_name)? {
+        reference.delete()?;
+    }
+    Ok(())
 }

@@ -33,13 +33,20 @@ pub use bstring::BStringForFrontend;
 /// ```
 pub mod bstring_lossy {
     use bstr::{BString, ByteSlice};
-    use serde::Serialize;
+    use serde::{Deserialize, Deserializer, Serialize};
 
     pub fn serialize<S>(v: &BString, s: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         v.to_str_lossy().serialize(s)
+    }
+
+    pub fn deserialize<'de, D>(d: D) -> Result<BString, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(String::deserialize(d)?.into())
     }
 }
 
