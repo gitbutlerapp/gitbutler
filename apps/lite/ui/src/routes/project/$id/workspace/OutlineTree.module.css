@@ -129,7 +129,7 @@
 
 	& > * {
 		overflow: hidden;
-		background: var(--bg-1);
+		background-color: var(--bg-1);
 	}
 
 	& > :first-child {
@@ -150,7 +150,7 @@
 	display: block;
 	flex-grow: 1;
 	overflow: hidden;
-	background: var(--bg-1);
+	background-color: var(--bg-1);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
