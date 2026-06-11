@@ -1,0 +1,23 @@
+.graphSegment {
+	--width: 16px;
+	display: flex;
+	flex-direction: column;
+	width: var(--width);
+
+	&[data-stretch="false"] {
+		justify-content: center;
+		height: fit-content;
+	}
+}
+
+.graphSegmentSvg {
+	flex-shrink: 0;
+	width: var(--width);
+	height: 28px;
+}
+
+.stretchSegment {
+	flex-grow: 1;
+	width: var(--width);
+	height: 100%;
+}

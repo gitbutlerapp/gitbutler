@@ -1,0 +1,85 @@
+import preview from "#storybook/preview";
+import { GraphSegment } from "./GraphSegment.tsx";
+
+const meta = preview.meta({
+	component: GraphSegment,
+	argTypes: {
+		glyph: {
+			control: { type: "select" },
+			options: [
+				"parant",
+				"horizontal",
+				"space",
+				"forkLeft",
+				"forkRight",
+				"forkBoth",
+				"mergeLeft",
+				"mergeRight",
+				"mergeBoth",
+				"joinLeft",
+				"joinRight",
+				"joinBoth",
+				"commit",
+				"group",
+			],
+		},
+	},
+});
+
+export const Default = meta.story({
+	args: {
+		glyph: "parant",
+		stretch: false,
+	},
+	render: (args) => (
+		<div
+			style={{
+				height: 100,
+				backgroundColor: "var(--bg-2)",
+				display: "flex",
+			}}
+		>
+			<GraphSegment {...args} />
+		</div>
+	),
+});
+
+export const AllGlyphs = meta.story({
+	render: () => (
+		<div style={{ display: "flex", gap: 16 }}>
+			{(
+				[
+					"parant",
+					"horizontal",
+					"forkLeft",
+					"forkRight",
+					"forkBoth",
+					"mergeLeft",
+					"mergeRight",
+					"mergeBoth",
+					"joinLeft",
+					"joinRight",
+					"joinBoth",
+					"commit",
+					"group",
+					"space",
+				] as const
+			).map((glyph) => (
+				<div
+					key={glyph}
+					style={{
+						display: "flex",
+						alignItems: "flex-start",
+						flexDirection: "column",
+						gap: 12,
+					}}
+				>
+					<div style={{ backgroundColor: "var(--bg-2)", display: "flex" }}>
+						<GraphSegment glyph={glyph} />
+					</div>
+					<div style={{ fontSize: 10 }}>{glyph}</div>
+				</div>
+			))}
+		</div>
+	),
+});
