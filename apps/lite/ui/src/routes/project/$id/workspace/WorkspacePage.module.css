@@ -40,6 +40,7 @@
 .outlinePanel {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
+	grid-template-columns: minmax(0, 1fr);
 	gap: 12px;
 	border-right: 1px solid var(--border-3);
 }
@@ -55,7 +56,7 @@
 .workspaceControlsLeft {
 	display: flex;
 	align-items: center;
-	overflow: hidden;
+	min-width: 0;
 	gap: 4px;
 }
 
@@ -67,6 +68,7 @@
 }
 
 .workspaceName {
+	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;

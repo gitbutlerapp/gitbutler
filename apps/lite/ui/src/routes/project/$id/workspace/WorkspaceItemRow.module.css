@@ -1,9 +1,3 @@
-.section {
-	padding: 6px;
-	border-radius: var(--radius-l);
-	background-color: var(--bg-2);
-}
-
 .itemRow,
 .itemRowEmpty {
 	display: flex;
@@ -34,12 +28,12 @@
 }
 
 .itemRowSelected {
-	background-color: color-mix(var(--fill-gray-bg) 60%, transparent);
-	color: var(--fill-gray-fg);
+	background-color: color-mix(var(--fill-gray-bg) 13%, transparent);
 
 	&:has(:where(textarea, input):focus),
-	:where([data-selection-scope]:focus) & {
+	[data-selection-scope]:focus & {
 		background-color: var(--fill-gray-bg);
+		color: var(--fill-gray-fg);
 	}
 }
 
@@ -68,5 +62,53 @@
 }
 
 .itemRowIconButton {
+	display: flex;
+	column-gap: 4px;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 20px;
 	margin: -2px;
+	padding-inline: 3px;
+	border-radius: 8px;
+	color: var(--text-1);
+	line-height: 1;
+	white-space: nowrap;
+	--icon-size: 14px;
+
+	&:disabled,
+	&[data-disabled] {
+		opacity: 0.5;
+	}
+
+	[data-selection-scope]:not(:focus) &,
+	.itemRow:not(.itemRowSelected) & {
+		& :where([data-icon]) {
+			opacity: 0.6;
+		}
+
+		&:not(:disabled, [data-disabled]):hover {
+			background-color: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
+
+			& :where([data-icon]) {
+				opacity: 0.8;
+			}
+		}
+	}
+
+	[data-selection-scope]:focus .itemRowSelected & {
+		color: var(--text-1-invert);
+
+		& :where([data-icon]) {
+			opacity: 0.7;
+		}
+
+		&:not(:disabled, [data-disabled]):hover {
+			background-color: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
+
+			& :where([data-icon]) {
+				opacity: 0.9;
+			}
+		}
+	}
 }

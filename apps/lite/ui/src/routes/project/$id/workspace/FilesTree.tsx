@@ -35,7 +35,6 @@ import {
 	WorkspaceItemRowIconButton,
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowToolbar,
-	WorkspaceSection,
 } from "./WorkspaceItemRow.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
@@ -189,7 +188,7 @@ export const FilesTree: FC<
 				className={classes(props.className, styles.tree)}
 				ref={useMergedRefs(refProp, ref)}
 			>
-				<WorkspaceSection>
+				<div className={styles.section}>
 					{items.length === 0 ? (
 						<WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>
 					) : (
@@ -222,7 +221,7 @@ export const FilesTree: FC<
 							))}
 						</div>
 					)}
-				</WorkspaceSection>
+				</div>
 			</div>
 		</NavigationIndexContext>
 	);
@@ -424,7 +423,6 @@ const FileRow: FC<
 	];
 	const menuItems = nativeMenuItemsFromGroups(menuItemGroups);
 
-	const isSelected = useIsSelected({ projectId, operand: item.operand });
 	const hasCheckedCommits = useAppSelector((state) =>
 		selectProjectHasCheckedCommits(state, projectId),
 	);
@@ -477,7 +475,6 @@ const FileRow: FC<
 										<Toolbar.Button
 											render={
 												<WorkspaceItemRowIconButton
-													isSelected={isSelected}
 													render={
 														<DependencyIndicator
 															projectId={projectId}
@@ -498,11 +495,12 @@ const FileRow: FC<
 							onClick={(event) => {
 								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 							}}
-							render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
+							render={<WorkspaceItemRowIconButton />}
 						>
 							<Icon name="kebab" />
 						</Toolbar.Button>
 					</Toolbar.Root>
+
 					{item._tag === "Change" ? (
 						<Icon
 							name="file"

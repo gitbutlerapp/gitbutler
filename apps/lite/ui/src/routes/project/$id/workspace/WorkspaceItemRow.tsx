@@ -1,18 +1,8 @@
 import { classes } from "#ui/components/classes.ts";
-import { getButtonClassName } from "#ui/components/Button.tsx";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { ComponentProps, FC, useLayoutEffect, useRef } from "react";
 import styles from "./WorkspaceItemRow.module.css";
 import { mergeProps, useRender } from "@base-ui/react";
-
-export const WorkspaceSection: FC<useRender.ComponentProps<"div">> = ({ render, ...props }) =>
-	useRender({
-		render,
-		defaultTagName: "div",
-		props: mergeProps<"div">(props, {
-			className: styles.section,
-		}),
-	});
 
 export const WorkspaceItemRow: FC<
 	{
@@ -83,19 +73,14 @@ export const WorkspaceItemRowToolbar: FC<{ forceVisible?: boolean } & ComponentP
 	/>
 );
 
-export const WorkspaceItemRowIconButton: FC<
-	{ isSelected: boolean } & useRender.ComponentProps<"button">
-> = ({ isSelected, render, ...props }) =>
+export const WorkspaceItemRowIconButton: FC<useRender.ComponentProps<"button">> = ({
+	render,
+	...props
+}) =>
 	useRender({
 		render,
 		defaultTagName: "button",
 		props: mergeProps<"button">(props, {
-			className: classes(
-				styles.itemRowIconButton,
-				getButtonClassName({
-					variant: isSelected ? "inverted" : "ghost",
-					size: "small",
-				}),
-			),
+			className: styles.itemRowIconButton,
 		}),
 	});

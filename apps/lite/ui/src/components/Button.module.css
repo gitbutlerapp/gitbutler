@@ -1,11 +1,8 @@
 .button {
 	display: inline-flex;
-	position: relative;
 	align-items: center;
 	justify-content: center;
-	border: 0;
 	border-radius: 8px;
-	background: transparent;
 	color: var(--text-1);
 	line-height: 1;
 	white-space: nowrap;
@@ -24,6 +21,11 @@
 	height: 20px;
 	padding-inline: 6px;
 	--icon-size: 14px;
+
+	&.iconOnly {
+		width: 22px;
+		padding-inline: 3px;
+	}
 }
 
 .regular {
@@ -31,16 +33,11 @@
 	height: 28px;
 	padding-inline: 10px;
 	--icon-size: 16px;
-}
 
-.iconOnly {
-	width: 28px;
-	padding-inline: 8px;
-}
-
-.small.iconOnly {
-	width: 22px;
-	padding-inline: 3px;
+	&.iconOnly {
+		width: 28px;
+		padding-inline: 8px;
+	}
 }
 
 .button {
@@ -80,7 +77,6 @@
 }
 
 .inverted {
-	background-color: transparent;
 	color: var(--text-1-invert);
 
 	&:not(:disabled, [data-disabled]):hover {

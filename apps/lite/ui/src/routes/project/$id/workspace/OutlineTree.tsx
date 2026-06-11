@@ -65,7 +65,7 @@ import { NavigationIndexContext } from "#ui/routes/project/$id/workspace/Outline
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
 import { navigationIndexIncludes, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
-import { Button, mergeProps, Popover, Toast, Tooltip, useRender } from "@base-ui/react";
+import { Button, mergeProps, Toast, Tooltip, useRender } from "@base-ui/react";
 import { Combobox } from "@base-ui/react/combobox";
 import { Toolbar } from "@base-ui/react/toolbar";
 import {
@@ -110,7 +110,6 @@ import {
 	WorkspaceItemRowIconButton,
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowToolbar,
-	WorkspaceSection,
 } from "./WorkspaceItemRow.tsx";
 import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
@@ -729,25 +728,17 @@ const useIsSelected = ({
 const treeItemId = (operand: Operand): string =>
 	`outline-treeitem-${encodeURIComponent(operandIdentityKey(operand))}`;
 
-const CommitTargetIndicator: FC<{ isSelected: boolean }> = ({ isSelected }) => (
-	<Popover.Root>
-		<Popover.Trigger
-			aria-label="Commit target"
-			openOnHover
-			render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
-		>
+const CommitTargetIndicator: FC<ComponentProps<typeof WorkspaceItemRowIconButton>> = (props) => (
+	<Tooltip.Root>
+		<Tooltip.Trigger aria-label="Commit target" render={<WorkspaceItemRowIconButton {...props} />}>
 			<Icon name="bullseye" />
-		</Popover.Trigger>
-		<Popover.Portal>
-			<Popover.Positioner
-				sideOffset={4}
-				// To match tooltips.
-				side="top"
-			>
-				<Popover.Popup render={<TooltipPopup />}>Commit target</Popover.Popup>
-			</Popover.Positioner>
-		</Popover.Portal>
-	</Popover.Root>
+		</Tooltip.Trigger>
+		<Tooltip.Portal>
+			<Tooltip.Positioner sideOffset={4}>
+				<Tooltip.Popup render={<TooltipPopup />}>Commit target</Tooltip.Popup>
+			</Tooltip.Positioner>
+		</Tooltip.Portal>
+	</Tooltip.Root>
 );
 
 type CommitStatusType = "Diverged" | CommitState["type"];
@@ -908,6 +899,21 @@ const InlineRewordCommit: FC<{
 	);
 };
 
+const insertBlankCommitMenuItem = (insertBlankCommit: (side: "above" | "below") => void) =>
+	nativeMenuItem({
+		label: "Add Empty Commit",
+		submenu: [
+			nativeMenuItem({
+				label: "Above",
+				onSelect: () => insertBlankCommit("above"),
+			}),
+			nativeMenuItem({
+				label: "Below",
+				onSelect: () => insertBlankCommit("below"),
+			}),
+		],
+	});
+
 const CommitRow: FC<
 	{
 		commit: Commit;
@@ -954,20 +960,11 @@ const CommitRow: FC<
 	const commitUncommitMutation = useCommitUncommit();
 	const commitRewordMutation = useCommitReword();
 
-	const insertBlankCommitAbove = () => {
+	const insertBlankCommit = (side: "above" | "below") => {
 		commitInsertBlankMutation.mutate({
 			projectId,
 			relativeTo: { type: "commit", subject: commit.id },
-			side: "above",
-			dryRun: false,
-		});
-	};
-
-	const insertBlankCommitBelow = () => {
-		commitInsertBlankMutation.mutate({
-			projectId,
-			relativeTo: { type: "commit", subject: commit.id },
-			side: "below",
+			side,
 			dryRun: false,
 		});
 	};
@@ -1120,19 +1117,7 @@ const CommitRow: FC<
 				}),
 			],
 		}),
-		nativeMenuItem({
-			label: "Add Empty Commit",
-			submenu: [
-				nativeMenuItem({
-					label: "Above",
-					onSelect: insertBlankCommitAbove,
-				}),
-				nativeMenuItem({
-					label: "Below",
-					onSelect: insertBlankCommitBelow,
-				}),
-			],
-		}),
+		insertBlankCommitMenuItem(insertBlankCommit),
 		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Delete Commit",
@@ -1208,22 +1193,23 @@ const CommitRow: FC<
 						{hasConflicts && " ⚠️"}
 					</WorkspaceItemRowLabel>
 
-					<WorkspaceItemRowToolbar forceVisible>
-						{outlineMode._tag === "Default" && (
+					{outlineMode._tag === "Default" && (
+						<WorkspaceItemRowToolbar forceVisible>
 							<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
 								<Toolbar.Button
 									aria-label="Commit menu"
 									onClick={(event) => {
 										void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 									}}
-									render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
+									render={<WorkspaceItemRowIconButton />}
 								>
 									<Icon name="kebab" />
 								</Toolbar.Button>
 							</Toolbar.Root>
-						)}
-						{isCommitTarget && <CommitTargetIndicator isSelected={isSelected} />}
-					</WorkspaceItemRowToolbar>
+
+							{isCommitTarget && <CommitTargetIndicator />}
+						</WorkspaceItemRowToolbar>
+					)}
 				</>
 			)}
 		</ItemRow>
@@ -1338,7 +1324,7 @@ const ChangesSectionRow: FC<{
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
+						render={<WorkspaceItemRowIconButton />}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
@@ -1583,17 +1569,9 @@ const Changes: FC<{
 			projectId={projectId}
 			operand={operand}
 			aria-label={`Changes (${worktreeChanges?.changes.length ?? 0})`}
+			className={classes(styles.section, styles.changesSection)}
 			render={
-				<OperandC
-					projectId={projectId}
-					operand={operand}
-					render={
-						<WorkspaceSection
-							className={styles.changesSection}
-							render={<form onSubmit={submit} />}
-						/>
-					}
-				/>
+				<OperandC projectId={projectId} operand={operand} render={<form onSubmit={submit} />} />
 			}
 		>
 			<ChangesSectionRow changes={worktreeChanges?.changes ?? []} projectId={projectId} />
@@ -1883,6 +1861,7 @@ const BranchRow: FC<
 	const toastManager = Toast.useToastManager();
 
 	const pushStackMutation = usePushStack();
+	const commitInsertBlankMutation = useCommitInsertBlank();
 	const tearOffBranchMutation = useTearOffBranch();
 	const removeBranchMutation = useRemoveBranch();
 
@@ -1923,6 +1902,15 @@ const BranchRow: FC<
 	const composeCommitHere = () => {
 		setCommitTarget();
 		focusCommitMessageInput();
+	};
+
+	const insertBlankCommit = (side: "above" | "below") => {
+		commitInsertBlankMutation.mutate({
+			projectId,
+			relativeTo,
+			side,
+			dryRun: false,
+		});
 	};
 
 	const tearOffBranch = () => {
@@ -1993,6 +1981,7 @@ const BranchRow: FC<
 			onSelect: setCommitTarget,
 			enabled: outlineMode._tag === "Default",
 		}),
+		insertBlankCommitMenuItem(insertBlankCommit),
 		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Tear Off Branch",
@@ -2010,8 +1999,6 @@ const BranchRow: FC<
 				}),
 		}),
 	];
-
-	const isSelected = useIsSelected({ projectId, operand });
 
 	return (
 		<ItemRow
@@ -2051,8 +2038,8 @@ const BranchRow: FC<
 				<>
 					<WorkspaceItemRowLabel>{optimisticBranchDisplayName}</WorkspaceItemRowLabel>
 
-					<WorkspaceItemRowToolbar forceVisible>
-						{outlineMode._tag === "Default" && (
+					{outlineMode._tag === "Default" && (
+						<WorkspaceItemRowToolbar forceVisible>
 							<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar />}>
 								<Tooltip.Root>
 									<Tooltip.Trigger
@@ -2063,7 +2050,7 @@ const BranchRow: FC<
 												// Note this prevents the tooltip from showing, but it
 												// shouldn't: https://github.com/mui/base-ui/issues/4966
 												disabled={!canPushStack}
-												render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
+												render={<WorkspaceItemRowIconButton />}
 											/>
 										}
 									>
@@ -2090,14 +2077,15 @@ const BranchRow: FC<
 									onClick={(event) => {
 										void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 									}}
-									render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
+									render={<WorkspaceItemRowIconButton />}
 								>
 									<Icon name="kebab" />
 								</Toolbar.Button>
 							</Toolbar.Root>
-						)}
-						{isCommitTarget && <CommitTargetIndicator isSelected={isSelected} />}
-					</WorkspaceItemRowToolbar>
+
+							{isCommitTarget && <CommitTargetIndicator />}
+						</WorkspaceItemRowToolbar>
+					)}
 				</>
 			)}
 		</ItemRow>
@@ -2143,8 +2131,6 @@ const StackRow: FC<
 		}),
 	];
 
-	const isSelected = useIsSelected({ projectId, operand });
-
 	return (
 		<ItemRow
 			{...restProps}
@@ -2163,7 +2149,7 @@ const StackRow: FC<
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						render={<WorkspaceItemRowIconButton isSelected={isSelected} />}
+						render={<WorkspaceItemRowIconButton />}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
@@ -2300,13 +2286,8 @@ const StackC: FC<{
 			operand={operand}
 			aria-label="Stack"
 			aria-expanded
-			render={
-				<OperandC
-					projectId={projectId}
-					operand={operand}
-					render={<WorkspaceSection className={styles.stack} />}
-				/>
-			}
+			className={classes(styles.section, styles.stack)}
+			render={<OperandC projectId={projectId} operand={operand} />}
 		>
 			<StackRow projectId={projectId} stack={stack} />
 

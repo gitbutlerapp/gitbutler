@@ -1,3 +1,9 @@
+.section {
+	padding: 6px;
+	border-radius: var(--radius-l);
+	background-color: var(--bg-2);
+}
+
 .tree {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
@@ -104,12 +110,12 @@
 	padding-inline: 4px;
 	padding-block: 2px;
 	border-radius: 10px;
-	background: var(--fill-gray-bg);
+	background-color: var(--fill-gray-bg);
 	color: var(--fill-gray-fg);
 	vertical-align: middle;
 
-	.selected & {
-		background: var(--fill-gray-fg);
+	[data-selection-scope]:focus .selected & {
+		background-color: var(--fill-gray-fg);
 		color: var(--fill-gray-bg);
 	}
 }
