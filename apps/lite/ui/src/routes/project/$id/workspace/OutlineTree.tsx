@@ -1,3 +1,4 @@
+import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import uiStyles from "#ui/components/ui.module.css";
 import {
 	useCommitAmend,
@@ -1253,7 +1254,6 @@ const ChangesSectionRow: FC<{
 	projectId: string;
 }> = ({ changes, projectId }) => {
 	const operand = changesSectionOperand;
-	const isSelected = useIsSelected({ projectId, operand });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 	const discardWorktreeChanges = useDiscardWorktreeChanges();
 
@@ -1307,9 +1307,11 @@ const ChangesSectionRow: FC<{
 			}}
 			heading
 		>
-			<WorkspaceItemRowLabel className={classes(isSelected && styles.selected)}>
+			<WorkspaceItemRowLabel>
 				Changes
-				<span className={classes("text-11", "text-semibold", styles.changesCountBubble)}>
+				<span
+					className={classes("text-11", "text-semibold", workspaceItemRowStyles.changesCountBubble)}
+				>
 					{changes.length}
 				</span>
 			</WorkspaceItemRowLabel>

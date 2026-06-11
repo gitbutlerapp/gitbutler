@@ -112,3 +112,24 @@
 		}
 	}
 }
+
+.changesCountBubble {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 20px;
+	height: 16px;
+	margin-inline-start: 6px;
+	margin-block-start: -1px;
+	padding-inline: 4px;
+	padding-block: 2px;
+	border-radius: 10px;
+	background-color: var(--fill-gray-bg);
+	color: var(--fill-gray-fg);
+	vertical-align: middle;
+
+	[data-selection-scope]:focus .itemRowSelected & {
+		background-color: var(--fill-gray-fg);
+		color: var(--fill-gray-bg);
+	}
+}
