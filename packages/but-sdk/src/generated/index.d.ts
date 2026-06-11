@@ -55,7 +55,7 @@ export declare function assignHunk(projectId: string, assignments: Array<HunkAss
  * and records an oplog snapshot on success. For lower-level implementation
  * details, see [`but_workspace::branch::create_reference()`].
  */
-export declare function branchCreate(projectId: string, newRef: string, placement: BranchCreatePlacement): Promise<BranchCreateResult>
+export declare function branchCreate(projectId: string, newRef: FullName | null, placement: BranchCreatePlacement): Promise<BranchCreateResult>
 
 export declare function branchDetails(projectId: string, branchName: string, remote: string | null): Promise<BranchDetails>
 

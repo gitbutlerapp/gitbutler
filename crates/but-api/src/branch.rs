@@ -3,8 +3,8 @@ use std::{borrow::Cow, collections::BTreeMap};
 use crate::WorkspaceState;
 use but_api_macros::but_api;
 use but_core::{
-    DryRun, ref_metadata::StackId, sync::RepoExclusive, ui::TreeChanges,
-    worktree::checkout::UncommitedWorktreeChanges,
+    DryRun, branch::unique_canned_refname, ref_metadata::StackId, sync::RepoExclusive,
+    ui::TreeChanges, worktree::checkout::UncommitedWorktreeChanges,
 };
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
@@ -570,7 +570,7 @@ pub fn apply_with_perm(
 #[instrument(err(Debug))]
 pub fn branch_create(
     ctx: &mut but_ctx::Context,
-    new_ref: &gix::refs::FullNameRef,
+    new_ref: Option<gix::refs::FullName>,
     placement: json::BranchCreatePlacement,
 ) -> anyhow::Result<BranchCreateResult> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -587,7 +587,7 @@ pub fn branch_create(
 /// [`but_workspace::branch::create_reference()`].
 pub fn branch_create_with_perm(
     ctx: &mut but_ctx::Context,
-    new_ref: &gix::refs::FullNameRef,
+    new_ref: Option<gix::refs::FullName>,
     placement: json::BranchCreatePlacement,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BranchCreateResult> {
@@ -614,6 +614,13 @@ pub fn branch_create_with_perm(
                 }
             })
         }
+    };
+
+    let new_ref = if let Some(new_ref) = new_ref {
+        new_ref
+    } else {
+        let repo = ctx.repo.get()?;
+        unique_canned_refname(&repo)?
     };
 
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
