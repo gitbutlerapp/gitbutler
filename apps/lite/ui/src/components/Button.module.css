@@ -21,6 +21,11 @@
 	height: 20px;
 	padding-inline: 6px;
 	--icon-size: 14px;
+
+	&.iconOnly {
+		width: 22px;
+		padding-inline: 3px;
+	}
 }
 
 .regular {
@@ -28,16 +33,11 @@
 	height: 28px;
 	padding-inline: 10px;
 	--icon-size: 16px;
-}
 
-.regular.iconOnly {
-	width: 28px;
-	padding-inline: 8px;
-}
-
-.small.iconOnly {
-	width: 22px;
-	padding-inline: 3px;
+	&.iconOnly {
+		width: 28px;
+		padding-inline: 8px;
+	}
 }
 
 .button {
