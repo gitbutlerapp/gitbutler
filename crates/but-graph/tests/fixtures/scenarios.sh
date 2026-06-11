@@ -1632,4 +1632,43 @@ EOF
      git checkout my-branch
      create_workspace_commit_once my-branch
   )
+
+  # origin/main has advanced past the stored target, and an old branch forks below
+  # the target - dragging the workspace base below it so the integrated commits
+  # between base and target are exposed in every stack.
+  git init integrated-below-target-upstream-ahead
+  (cd integrated-below-target-upstream-ahead
+     commit init
+     commit base
+     commit target
+     commit upstream
+     setup_target_to_match_main
+
+     # Old branch forks at 'base', below the (later) stored target.
+     git checkout -b old-branch main~2
+       commit O
+     # Real work on top of the stored target.
+     git checkout -b my-branch main~1
+       commit W
+     create_workspace_commit_once my-branch old-branch
+  )
+
+  # X forks below the target (at 'c1') and catches up via `merge origin/main`, so the
+  # target enters X only through the merge's second parent. The trunk below the fork
+  # ('c1', 'init') must be pruned, leaving X's own commits; origin/main stays ahead.
+  git init catchup-merge-leak
+  (cd catchup-merge-leak
+     commit init
+     commit c1
+     commit c2
+     commit T
+     commit B
+     commit U
+     setup_target_to_match_main
+     git checkout -b X main~4
+       commit x1
+       git merge --no-ff main -m "catch up to origin/main"
+       commit x2
+     create_workspace_commit_once X
+  )
 )

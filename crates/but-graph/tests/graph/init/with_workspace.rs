@@ -6305,17 +6305,17 @@ fn applied_stack_below_explicit_lower_bound() -> anyhow::Result<()> {
                 └── →:3:
     ");
 
-    // The base is still adjusted so it matches the actual stacks.
-    // Note how it shows more of the base of `B` due to `A` having a lower base with the target branch.
+    // The base is still adjusted so it matches the actual stacks. With the extra-target
+    // resolved as the target commit, the integrated `f52fcec` is at the target and is
+    // pruned - consistent with the no-extra-target case above.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on bce0c5e
     ├── ≡📙:4:A on bce0c5e {0}
     │   └── 📙:4:A
     │       └── ·6fdab32 (🏘️)
-    └── ≡📙:5:B on bce0c5e {1}
+    └── ≡📙:5:B on f52fcec {1}
         └── 📙:5:B
-            ├── ·78b1b59 (🏘️)
-            └── ·f52fcec (🏘️|✓)
+            └── ·78b1b59 (🏘️)
     ");
 
     Ok(())
@@ -7482,6 +7482,89 @@ fn integrated_commits_above_target_are_kept() -> anyhow::Result<()> {
         "pruning integrated tips should not report a hard-limit traversal stop"
     );
 
+    Ok(())
+}
+
+/// Regression: an old branch applied below the stored target drags the workspace base
+/// below it, exposing the integrated trunk between base and target. Those commits must be
+/// pruned even though `origin/main` has advanced past the target - which previously
+/// disabled integrated-commit pruning entirely.
+#[test]
+fn integrated_commits_below_target_pruned_when_upstream_ahead() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("ws/integrated-below-target-upstream-ahead")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   aca392b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * f458f7d (old-branch) O
+    * | f5055a1 (my-branch) W
+    | | * 7282cb5 (origin/main, main) upstream
+    | |/  
+    |/|   
+    * | 2121f9c target
+    |/  
+    * 322cb14 base
+    * fafd9d0 init
+    ");
+
+    // Stored target is 'target' (main~1); origin/main is one commit ahead at 'upstream'.
+    let target_id = repo.rev_parse_single("main~1")?.detach();
+    add_workspace_with_target(&mut meta, target_id);
+    add_stack_with_segments(&mut meta, 0, "my-branch", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 1, "old-branch", StackState::InWorkspace, &[]);
+
+    // 'W' and 'O' are above/beside the target and kept; 'target' and 'base' are
+    // integrated and at or below the target, so they are pruned from both stacks
+    // even though origin/main has advanced past the target.
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 322cb14
+    ├── ≡📙:4:my-branch on 2121f9c {0}
+    │   └── 📙:4:my-branch
+    │       └── ·f5055a1 (🏘️)
+    └── ≡📙:5:old-branch on 322cb14 {1}
+        └── 📙:5:old-branch
+            └── ·f458f7d (🏘️)
+    ");
+    Ok(())
+}
+
+/// A branch that forks below the target and catches up via `merge origin/main`, so the
+/// target enters X only through the merge's second parent (off X's first-parent spine).
+/// X is floored at its fork point - where its own first-parent work meets the trunk - so
+/// the trunk below the fork (`c1`, `init`) is pruned, leaving X's own commits.
+#[test]
+fn catchup_merge_below_target_floors_at_fork() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/catchup-merge-leak")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 254106a (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * f210f41 (X) x2
+    *   f8cd0ce catch up to origin/main
+    |\  
+    | * 0975125 (origin/main, main) U
+    | * a7db886 B
+    | * d263f88 T
+    | * 8bd7dc1 c2
+    * | 4eec82a x1
+    |/  
+    * b4bd43f c1
+    * fafd9d0 init
+    ");
+
+    // Stored target is 'T' (main~2); origin/main is two commits ahead at 'U'.
+    let target_id = repo.rev_parse_single("main~2")?.detach();
+    add_workspace_with_target(&mut meta, target_id);
+    add_stack_with_segments(&mut meta, 0, "X", StackState::InWorkspace, &[]);
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on d263f88
+    └── ≡📙:4:X on b4bd43f {0}
+        └── 📙:4:X
+            ├── ·f210f41 (🏘️)
+            ├── ·f8cd0ce (🏘️)
+            └── ·4eec82a (🏘️)
+    ");
     Ok(())
 }
 

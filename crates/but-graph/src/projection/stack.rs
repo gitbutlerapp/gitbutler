@@ -67,30 +67,38 @@ impl Stack {
             a.base_segment_id = b.id.into();
             cur = Some(b);
         }
-        if let Some((last_segment, last_aggregated_sidx)) = segments.last_mut().and_then(|s| {
+        let mut stack = Stack { id, segments };
+        stack.recompute_last_segment_base(graph);
+        stack
+    }
+
+    /// Recompute the last segment's base from its bottom commit's first-parent neighbour.
+    ///
+    /// Needed after the stack's bottom is truncated (e.g. by integrated-trunk pruning),
+    /// which leaves the collection-time base pointing at a segment no longer in the stack.
+    pub(crate) fn recompute_last_segment_base(&mut self, graph: &PetGraph) {
+        let Some((last_segment, last_aggregated_sidx)) = self.segments.last_mut().and_then(|s| {
             let sidx = s.commits_by_segment.last().map(|t| t.0)?;
             Some((s, sidx))
-        }) {
-            let first_parent_sidx = graph
-                .neighbors_directed(last_aggregated_sidx, Direction::Outgoing)
-                .next();
-            last_segment.base = first_parent_sidx.and_then(|sidx| {
-                graph[sidx].commits.first().and_then(|c| {
-                    if c.parent_ids.is_empty() || graph[sidx].commits.get(1).is_some() {
-                        return c.id.into();
-                    }
-                    graph
-                        .neighbors_directed(sidx, Direction::Outgoing)
-                        .next()
-                        .is_some()
-                        .then_some(c.id)
-                })
-            });
-            last_segment.base_segment_id =
-                first_parent_sidx.filter(|_| last_segment.base.is_some());
-        }
-
-        Stack { id, segments }
+        }) else {
+            return;
+        };
+        let first_parent_sidx = graph
+            .neighbors_directed(last_aggregated_sidx, Direction::Outgoing)
+            .next();
+        last_segment.base = first_parent_sidx.and_then(|sidx| {
+            graph[sidx].commits.first().and_then(|c| {
+                if c.parent_ids.is_empty() || graph[sidx].commits.get(1).is_some() {
+                    return c.id.into();
+                }
+                graph
+                    .neighbors_directed(sidx, Direction::Outgoing)
+                    .next()
+                    .is_some()
+                    .then_some(c.id)
+            })
+        });
+        last_segment.base_segment_id = first_parent_sidx.filter(|_| last_segment.base.is_some());
     }
 }
 
