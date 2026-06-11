@@ -5,6 +5,7 @@ import {
 	type AbsorbParams,
 	type AbsorptionPlanParams,
 	type AssignHunkParams,
+	type BranchCreateParams,
 	type BranchDetailsParams,
 	type BranchDiffParams,
 	type CommitAmendParams,
@@ -42,6 +43,7 @@ import {
 	absorptionPlan,
 	apply,
 	assignHunk,
+	branchCreate,
 	branchDetails,
 	branchDiff,
 	changesInWorktree,
@@ -311,6 +313,11 @@ const registerIpcHandlers = (): void => {
 	senderValidatingHandle(
 		liteIpcChannels.assignHunk,
 		(_e, { projectId, assignments }: AssignHunkParams) => assignHunk(projectId, assignments),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.branchCreate,
+		(_e, { projectId, newRef, placement }: BranchCreateParams) =>
+			branchCreate(projectId, newRef, placement),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.branchDetails,

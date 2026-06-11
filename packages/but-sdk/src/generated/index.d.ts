@@ -48,6 +48,15 @@ export declare function applyBranchIntegration(projectId: string, branch: string
  */
 export declare function assignHunk(projectId: string, assignments: Array<HunkAssignmentRequest>): Promise<void>
 
+/**
+ * Creates a new branch named `new_ref` at `placement`.
+ *
+ * This acquires exclusive worktree access from `ctx`, creates the branch,
+ * and records an oplog snapshot on success. For lower-level implementation
+ * details, see [`but_workspace::branch::create_reference()`].
+ */
+export declare function branchCreate(projectId: string, newRef: string, placement: BranchCreatePlacement): Promise<BranchCreateResult>
+
 export declare function branchDetails(projectId: string, branchName: string, remote: string | null): Promise<BranchDetails>
 
 /**
@@ -619,6 +628,25 @@ export type BranchAuthor = {
   /** The email of the author as configured in the git config */
   email: string | null;
   gravatarUrl: string | null;
+};
+
+/** JSON transport type describing where to create a new branch. */
+export type BranchCreatePlacement = {
+  type: "independent";
+} | {
+  type: "dependent";
+  subject: {
+    /** The commit or reference to place the new branch next to. */
+    relativeTo: RelativeTo;
+    /** Which side of `relative_to` the new branch should be placed on. */
+    side: InsertSide;
+  };
+};
+
+/** JSON transport type for creating a branch. */
+export type BranchCreateResult = {
+  /** Workspace state after creating the branch. */
+  workspace: WorkspaceState;
 };
 
 /** Information about the current state of a branch. */
