@@ -97,9 +97,12 @@ export const workspaceHotkeys = {
 		hotkey: "Mod+N",
 		meta: { group: "Branches", name: "Create branch" },
 	},
-	rebaseAllStacks: {
+	updateWorkspace: {
 		hotkey: "Alt+Shift+R",
-		meta: { group: "Stack", name: "Rebase all stacks" },
+		meta: {
+			group: "Global",
+			name: "Update workspace (rebases all stacks)",
+		},
 	},
 	focusPreviousSelectionScope: {
 		hotkey: "H",
@@ -172,9 +175,9 @@ export const outlineHotkeys = {
 		hotkey: "Shift+P",
 		meta: { group: "Branch", name: "Push with branches below" },
 	},
-	rebaseStack: {
+	updateStack: {
 		hotkey: "Alt+R",
-		meta: { group: "Stack", name: "Rebase stack" },
+		meta: { group: "Stack", name: "Update stack (rebases)" },
 	},
 	renameBranch: {
 		hotkey: "Enter",

@@ -11,7 +11,7 @@ import {
 	useCommitReword,
 	useCommitUncommit,
 	usePushStack,
-	useRebaseStack,
+	useWorkspaceIntegrateUpstream,
 	useRemoveBranch,
 	useTearOffBranch,
 	useUnapplyStack,
@@ -216,7 +216,7 @@ const useOutlineTreeHotkeys = ({
 	const commitMoveMutation = useCommitMove();
 	const commitDiscardMutation = useCommitDiscard();
 	const pushStackMutation = usePushStack();
-	const rebaseStackMutation = useRebaseStack({ projectId });
+	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream({ projectId });
 	const branchCreateMutation = useBranchCreate();
 
 	const openBranchPicker = () => {
@@ -411,8 +411,9 @@ const useOutlineTreeHotkeys = ({
 		});
 	};
 
-	const rebaseSelectedStack = () => {
-		if (selectedStackRebaseUpdate) rebaseStackMutation.mutate([selectedStackRebaseUpdate]);
+	const updateSelectedStack = () => {
+		if (selectedStackRebaseUpdate)
+			workspaceIntegrateUpstreamMutation.mutate([selectedStackRebaseUpdate]);
 	};
 
 	const defaultOutlineHotkeysEnabled = outlineMode._tag === "Default";
@@ -587,16 +588,16 @@ const useOutlineTreeHotkeys = ({
 			},
 		},
 		{
-			hotkey: outlineHotkeys.rebaseStack.hotkey,
-			callback: rebaseSelectedStack,
+			hotkey: outlineHotkeys.updateStack.hotkey,
+			callback: updateSelectedStack,
 			options: {
 				conflictBehavior: "allow",
 				enabled:
 					defaultOutlineHotkeysEnabled &&
 					!!selectedStackRebaseUpdate &&
-					!rebaseStackMutation.isPending,
+					!workspaceIntegrateUpstreamMutation.isPending,
 				target: ref,
-				meta: outlineHotkeys.rebaseStack.meta,
+				meta: outlineHotkeys.updateStack.meta,
 			},
 		},
 		...Match.value(selection).pipe(
@@ -2263,9 +2264,9 @@ const StackRow: FC<
 		unapplyStackMutation.mutate({ projectId, stackId: stack.id! });
 	};
 
-	const rebaseStackMutation = useRebaseStack({ projectId });
-	const rebase = () => {
-		if (rebaseUpdate) rebaseStackMutation.mutate([rebaseUpdate]);
+	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream({ projectId });
+	const updateStack = () => {
+		if (rebaseUpdate) workspaceIntegrateUpstreamMutation.mutate([rebaseUpdate]);
 	};
 
 	const menuItems: Array<NativeMenuItem> = [
@@ -2273,10 +2274,10 @@ const StackRow: FC<
 		nativeMenuItem({ label: "Move Down", enabled: false }),
 		nativeMenuSeparator,
 		nativeMenuItem({
-			label: "Rebase Stack",
+			label: "Update Stack (Rebases)",
 			enabled: !!rebaseUpdate,
-			accelerator: toElectronAccelerator(outlineHotkeys.rebaseStack.hotkey),
-			onSelect: rebase,
+			accelerator: toElectronAccelerator(outlineHotkeys.updateStack.hotkey),
+			onSelect: updateStack,
 		}),
 		nativeMenuItem({
 			label: "Unapply Stack",

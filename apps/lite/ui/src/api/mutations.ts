@@ -512,7 +512,7 @@ export const usePushStack = () => {
 	});
 };
 
-export const useRebaseAllStacks = ({ projectId }: { projectId: string }) => {
+export const useWorkspaceIntegrateUpstream = ({ projectId }: { projectId: string }) => {
 	const dispatch = useAppDispatch();
 	const queryClient = useQueryClient();
 	const toastManager = Toast.useToastManager();
@@ -520,7 +520,7 @@ export const useRebaseAllStacks = ({ projectId }: { projectId: string }) => {
 	return useMutation({
 		mutationFn: (updates: Array<BottomUpdate>) =>
 			window.lite.workspaceIntegrateUpstream({ projectId, updates, dryRun: false }),
-		onSuccess: (workspace) => {
+		onSuccess: (workspace, updates) => {
 			queryClient.setQueryData(headInfoQueryOptions(projectId).queryKey, workspace.headInfo);
 			dispatch(
 				projectActions.updateRewrittenCommitReferences({
@@ -532,52 +532,16 @@ export const useRebaseAllStacks = ({ projectId }: { projectId: string }) => {
 
 			toastManager.add({
 				type: "success",
-				title: "Rebased all stacks",
+				title: updates.length === 1 ? "Updated stack" : "Updated stacks",
 			});
 		},
-		onError: (error) => {
+		onError: (error, updates) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
 
 			toastManager.add({
 				type: "error",
-				title: "Failed to rebase stacks",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
-
-export const useRebaseStack = ({ projectId }: { projectId: string }) => {
-	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: (updates: Array<BottomUpdate>) =>
-			window.lite.workspaceIntegrateUpstream({ projectId, updates, dryRun: false }),
-		onSuccess: (workspace, _input, _context, mutation) => {
-			mutation.client.setQueryData(headInfoQueryOptions(projectId).queryKey, workspace.headInfo);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId,
-					replacedCommits: workspace.replacedCommits,
-					headInfo: workspace.headInfo,
-				}),
-			);
-
-			toastManager.add({
-				type: "success",
-				title: "Rebased stack",
-			});
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to rebase stack",
+				title: updates.length === 1 ? "Failed to update stack" : "Failed to update stacks",
 				description: errorMessageForToast(error),
 				priority: "high",
 			});

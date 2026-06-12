@@ -7,7 +7,7 @@ import {
 import {
 	useApplyBranch,
 	useBranchCreate,
-	useRebaseAllStacks,
+	useWorkspaceIntegrateUpstream,
 	useRestoreSnapshot,
 } from "#ui/api/mutations.ts";
 import { findBranchOperandByRef } from "#ui/api/ref-info.ts";
@@ -511,9 +511,9 @@ const WorkspacePage: FC = () => {
 			const update = stackToBottomRebaseUpdate(stack);
 			return update ? [update] : [];
 		}) ?? [];
-	const rebaseAllStacksMutation = useRebaseAllStacks({ projectId });
-	const rebaseAllStacks = () => {
-		rebaseAllStacksMutation.mutate(rebaseUpdates);
+	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream({ projectId });
+	const updateWorkspace = () => {
+		workspaceIntegrateUpstreamMutation.mutate(rebaseUpdates);
 	};
 	const toggleDetailsFullscreen = () => {
 		if (
@@ -527,10 +527,10 @@ const WorkspacePage: FC = () => {
 	// This should be false if all stacks are up-to-date, but we're currently
 	// lacking this information:
 	// https://linear.app/gitbutler/issue/GB-1560/add-information-about-the-relation-to-the-upstream-to-the-head-info
-	const canRebaseAllStacks =
+	const canUpdateWorkspace =
 		outlineMode._tag === "Default" &&
 		rebaseUpdates.length > 0 &&
-		!rebaseAllStacksMutation.isPending;
+		!workspaceIntegrateUpstreamMutation.isPending;
 
 	const canCreateIndependentBranch =
 		outlineMode._tag === "Default" && !branchCreateMutation.isPending;
@@ -559,12 +559,12 @@ const WorkspacePage: FC = () => {
 			},
 		},
 		{
-			hotkey: workspaceHotkeys.rebaseAllStacks.hotkey,
-			callback: rebaseAllStacks,
+			hotkey: workspaceHotkeys.updateWorkspace.hotkey,
+			callback: updateWorkspace,
 			options: {
 				conflictBehavior: "allow",
-				enabled: canRebaseAllStacks,
-				meta: workspaceHotkeys.rebaseAllStacks.meta,
+				enabled: canUpdateWorkspace,
+				meta: workspaceHotkeys.updateWorkspace.meta,
 				ignoreInputs: true,
 			},
 		},
@@ -616,7 +616,7 @@ const WorkspacePage: FC = () => {
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
 
-	const rebaseAllLabel = "Integrate upstream changes by rebasing all stacks";
+	const updateWorkspaceLabel = "Update workspace (rebases all stacks)";
 
 	return (
 		<>
@@ -634,21 +634,21 @@ const WorkspacePage: FC = () => {
 							<div className={styles.workspaceControlsActions}>
 								<Tooltip.Root>
 									<Tooltip.Trigger
-										aria-label={rebaseAllLabel}
+										aria-label={updateWorkspaceLabel}
 										className={getButtonClassName({ iconOnly: true })}
-										onClick={rebaseAllStacks}
+										onClick={updateWorkspace}
 										// We pass `disabled` here because we want to disable the button, not
 										// the tooltip. Other props should be passed above.
-										render={<Button focusableWhenDisabled disabled={!canRebaseAllStacks} />}
+										render={<Button focusableWhenDisabled disabled={!canUpdateWorkspace} />}
 									>
 										<Icon name="arrow-line-down" />
 									</Tooltip.Trigger>
 									<Tooltip.Portal>
 										<Tooltip.Positioner sideOffset={4}>
 											<Tooltip.Popup
-												render={<TooltipPopup kbd={workspaceHotkeys.rebaseAllStacks.hotkey} />}
+												render={<TooltipPopup kbd={workspaceHotkeys.updateWorkspace.hotkey} />}
 											>
-												{rebaseAllLabel}
+												{updateWorkspaceLabel}
 											</Tooltip.Popup>
 										</Tooltip.Positioner>
 									</Tooltip.Portal>
