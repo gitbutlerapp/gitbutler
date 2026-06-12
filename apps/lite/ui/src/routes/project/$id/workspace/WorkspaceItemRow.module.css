@@ -3,7 +3,7 @@
 	display: flex;
 	column-gap: 8px;
 	min-height: 28px;
-	padding-inline: 6px;
+	padding-inline: 8px;
 }
 
 .itemRow {
@@ -40,7 +40,8 @@
 .itemRowToolbar {
 	display: none;
 	column-gap: 2px;
-	margin: -2px;
+	margin-inline: -4px;
+	margin-block: -2px;
 	padding-block: 6px;
 
 	.itemRow:hover &,
