@@ -697,13 +697,14 @@ const WorkspacePage: FC = () => {
 
 								<Tooltip.Root>
 									<Tooltip.Trigger
-										className={getButtonClassName({})}
+										aria-label={workspaceHotkeys.applyBranch.meta.name}
+										className={getButtonClassName({ iconOnly: true })}
 										onClick={openApplyBranchPicker}
 										// We pass `disabled` here because we want to disable the button, not
 										// the tooltip. Other props should be passed above.
 										render={<Button focusableWhenDisabled disabled={!canApplyBranch} />}
 									>
-										Apply branch
+										<Icon name="plus" />
 									</Tooltip.Trigger>
 									<Tooltip.Portal>
 										<Tooltip.Positioner sideOffset={4}>
