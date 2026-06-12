@@ -58,6 +58,15 @@
 	white-space: nowrap;
 }
 
+/*
+This duplicates the design system button styles so we can change variant on
+selection/focus change purely with CSS.
+
+Size: small
+Variant: inverted when selected + focused, otherwise inverted ghost
+The transition has been removed otherwise it would clash with other
+selection/focus style changes which are instant.
+*/
 .itemRowIconButton {
 	display: flex;
 	column-gap: 4px;
@@ -78,6 +87,7 @@
 		opacity: 0.5;
 	}
 
+	/* Ghost */
 	&:not([data-selection-scope]:focus .itemRowSelected &) {
 		& [data-icon] {
 			opacity: 0.6;
@@ -92,6 +102,7 @@
 		}
 	}
 
+	/* Inverted */
 	[data-selection-scope]:focus .itemRowSelected & {
 		color: var(--text-1-invert);
 
