@@ -82,6 +82,7 @@ import {
 	TreeChange,
 	WorkspaceState,
 	InsertSide,
+	BottomUpdate,
 } from "@gitbutler/but-sdk";
 import {
 	formatForDisplay,
@@ -126,7 +127,7 @@ import {
 	selectionOperationHotkeys,
 	toElectronAccelerator,
 } from "#ui/hotkeys.ts";
-import { segmentBottomRelativeTo, stackBottomRebaseUpdate } from "#ui/api/stack.ts";
+import { segmentBottomRelativeTo, stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
@@ -392,7 +393,10 @@ const useOutlineTreeHotkeys = ({
 		}),
 		Match.orElse(() => null),
 	);
-	const selectedStackRebaseUpdate = selectedStack ? stackBottomRebaseUpdate(selectedStack) : null;
+	const selectedStackRelativeTo = selectedStack ? stackBottomRelativeTo(selectedStack) : null;
+	const selectedStackRebaseUpdate: BottomUpdate | null = selectedStackRelativeTo
+		? { kind: "rebase", selector: selectedStackRelativeTo }
+		: null;
 
 	const pushSelectedBranch = () => {
 		if (!selectedPushContext) return;
@@ -2251,7 +2255,10 @@ const StackRow: FC<
 		stack: Stack;
 	} & ComponentProps<"div">
 > = ({ projectId, stack, ...restProps }) => {
-	const rebaseUpdate = stackBottomRebaseUpdate(stack);
+	const relativeTo = stackBottomRelativeTo(stack);
+	const rebaseUpdate: BottomUpdate | null = relativeTo
+		? { kind: "rebase", selector: relativeTo }
+		: null;
 	// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
 	const operand = stackOperand({ stackId: stack.id! });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));

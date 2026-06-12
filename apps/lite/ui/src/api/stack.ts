@@ -1,4 +1,4 @@
-import type { BottomUpdate, RelativeTo, Segment, Stack } from "@gitbutler/but-sdk";
+import type { RelativeTo, Segment, Stack } from "@gitbutler/but-sdk";
 
 export const segmentBottomRelativeTo = (segment: Segment): RelativeTo | null => {
 	const bottomCommit = segment.commits.at(-1);
@@ -16,13 +16,6 @@ export const stackBottomRelativeTo = (stack: Stack): RelativeTo | null => {
 
 	const relativeTo = segmentBottomRelativeTo(bottomSegment);
 	if (relativeTo) return relativeTo;
-
-	return null;
-};
-
-export const stackBottomRebaseUpdate = (stack: Stack): BottomUpdate | null => {
-	const relativeTo = stackBottomRelativeTo(stack);
-	if (relativeTo) return { kind: "rebase", selector: relativeTo };
 
 	return null;
 };

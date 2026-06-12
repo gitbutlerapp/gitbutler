@@ -28,9 +28,9 @@ import {
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import { globalHotkeys, workspaceHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
-import { stackBottomRebaseUpdate } from "#ui/api/stack.ts";
+import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { type AppThunk, useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { BranchListing, RefInfo, Segment, Stack } from "@gitbutler/but-sdk";
+import { BottomUpdate, BranchListing, RefInfo, Segment, Stack } from "@gitbutler/but-sdk";
 import {
 	getHotkeyManager,
 	getSequenceManager,
@@ -507,9 +507,9 @@ const WorkspacePage: FC = () => {
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const rebaseUpdates =
-		headInfo?.stacks.flatMap((stack) => {
-			const update = stackBottomRebaseUpdate(stack);
-			return update ? [update] : [];
+		headInfo?.stacks.flatMap((stack): Array<BottomUpdate> => {
+			const relativeTo = stackBottomRelativeTo(stack);
+			return relativeTo ? [{ kind: "rebase", selector: relativeTo }] : [];
 		}) ?? [];
 	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream({ projectId });
 	const updateWorkspace = () => {
