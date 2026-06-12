@@ -202,7 +202,6 @@
 	display: flex;
 	height: 8px;
 	padding-left: 6px;
-	overflow: hidden;
 
 	& svg path {
 		vector-effect: non-scaling-stroke;
