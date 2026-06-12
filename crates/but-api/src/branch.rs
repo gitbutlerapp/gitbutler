@@ -3,8 +3,8 @@ use std::{borrow::Cow, collections::BTreeMap};
 use crate::WorkspaceState;
 use but_api_macros::but_api;
 use but_core::{
-    DryRun, ref_metadata::StackId, sync::RepoExclusive, ui::TreeChanges,
-    worktree::checkout::UncommitedWorktreeChanges,
+    DryRun, branch::unique_canned_refname, ref_metadata::StackId, sync::RepoExclusive,
+    ui::TreeChanges, worktree::checkout::UncommitedWorktreeChanges,
 };
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
@@ -26,6 +26,8 @@ pub struct MoveBranchResult {
 pub struct BranchCreateResult {
     /// Workspace state after creating the branch.
     pub workspace: WorkspaceState,
+    /// The name of the crated reference
+    pub new_ref: gix::refs::FullName,
 }
 
 /// Outcome after integrating a branch with an interactive integration plan.
@@ -36,6 +38,7 @@ pub struct IntegrateBranchResult {
 
 /// JSON transport types for branch APIs.
 pub mod json {
+    use but_workspace::ui::ref_info::BranchReference;
     use serde::{Deserialize, Serialize};
 
     use crate::branch::{
@@ -110,6 +113,8 @@ pub mod json {
     pub struct BranchCreateResult {
         /// Workspace state after creating the branch.
         pub workspace: crate::json::WorkspaceState,
+        /// The name of the crated reference
+        pub new_ref: BranchReference,
     }
     #[cfg(feature = "export-schema")]
     but_schemars::register_sdk_type!(BranchCreateResult);
@@ -120,6 +125,7 @@ pub mod json {
         fn try_from(value: InternalBranchCreateResult) -> Result<Self, Self::Error> {
             Ok(Self {
                 workspace: value.workspace.try_into()?,
+                new_ref: value.new_ref.into(),
             })
         }
     }
@@ -570,7 +576,7 @@ pub fn apply_with_perm(
 #[instrument(err(Debug))]
 pub fn branch_create(
     ctx: &mut but_ctx::Context,
-    new_ref: &gix::refs::FullNameRef,
+    #[but_api(crate::json::MaybeLossyFullNameRef)] new_ref: Option<gix::refs::FullName>,
     placement: json::BranchCreatePlacement,
 ) -> anyhow::Result<BranchCreateResult> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -587,7 +593,7 @@ pub fn branch_create(
 /// [`but_workspace::branch::create_reference()`].
 pub fn branch_create_with_perm(
     ctx: &mut but_ctx::Context,
-    new_ref: &gix::refs::FullNameRef,
+    new_ref: Option<gix::refs::FullName>,
     placement: json::BranchCreatePlacement,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<BranchCreateResult> {
@@ -616,6 +622,13 @@ pub fn branch_create_with_perm(
         }
     };
 
+    let new_ref = if let Some(new_ref) = new_ref {
+        new_ref
+    } else {
+        let repo = ctx.repo.get()?;
+        unique_canned_refname(&repo)?
+    };
+
     let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details_with_perm(
         ctx,
         SnapshotDetails::new(OperationKind::CreateBranch)
@@ -627,7 +640,7 @@ pub fn branch_create_with_perm(
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let new_ws = but_workspace::branch::create_reference(
-        new_ref,
+        new_ref.as_ref(),
         anchor,
         &repo,
         &ws,
@@ -641,7 +654,7 @@ pub fn branch_create_with_perm(
 
     let workspace = WorkspaceState::from_workspace(&new_ws, &repo, BTreeMap::new())?;
     *ws = new_ws.into_owned();
-    Ok(BranchCreateResult { workspace })
+    Ok(BranchCreateResult { workspace, new_ref })
 }
 
 /// Computes the worktree-visible diff for `branch` in the current workspace.

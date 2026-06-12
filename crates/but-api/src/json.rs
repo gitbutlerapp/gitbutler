@@ -9,7 +9,7 @@
 pub use error::{Error, ToJsonError, UnmarkedError};
 use gix::refs::Target;
 use schemars::{self, JsonSchema};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 mod hex_hash {
     use std::{ops::Deref, str::FromStr};
@@ -439,6 +439,56 @@ impl From<gix::refs::FullName> for FullRefName {
             #[cfg(feature = "path-bytes")]
             full_bytes: value.as_bstr().into(),
         }
+    }
+}
+
+/// An optional full reference name accepted as a string like `refs/heads/main`,
+/// for use as a parameter transport via `#[but_api(...)]`.
+///
+/// The name is validated during deserialization. Note that it is lossy: a name
+/// that can't be represented in Unicode can't be passed through this type.
+#[derive(Debug, Clone, schemars::JsonSchema, Deserialize)]
+#[serde(try_from = "Option<String>")]
+pub struct MaybeLossyFullNameRef(
+    #[schemars(schema_with = "but_schemars::fullname_lossy_opt")] Option<gix::refs::FullName>,
+);
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(MaybeLossyFullNameRef);
+
+impl TryFrom<Option<String>> for MaybeLossyFullNameRef {
+    type Error = gix::refs::name::Error;
+
+    fn try_from(value: Option<String>) -> Result<Self, Self::Error> {
+        Ok(Self(value.map(gix::refs::FullName::try_from).transpose()?))
+    }
+}
+
+impl From<MaybeLossyFullNameRef> for Option<gix::refs::FullName> {
+    fn from(value: MaybeLossyFullNameRef) -> Self {
+        value.0
+    }
+}
+
+#[cfg(test)]
+mod maybe_lossy_full_name_ref_tests {
+    use super::MaybeLossyFullNameRef;
+
+    #[test]
+    fn maybe_lossy_full_name_ref() {
+        let actual: Option<gix::refs::FullName> =
+            serde_json::from_str::<MaybeLossyFullNameRef>("\"refs/heads/main\"")
+                .expect("valid full ref name")
+                .into();
+        assert_eq!(actual.expect("present").as_bstr(), "refs/heads/main");
+
+        let actual: Option<gix::refs::FullName> =
+            serde_json::from_str::<MaybeLossyFullNameRef>("null")
+                .expect("null is a valid absent name")
+                .into();
+        assert_eq!(actual, None);
+
+        serde_json::from_str::<MaybeLossyFullNameRef>("\"not-a-full-name\"")
+            .expect_err("partial ref names are rejected");
     }
 }
 

@@ -55,7 +55,7 @@ export declare function assignHunk(projectId: string, assignments: Array<HunkAss
  * and records an oplog snapshot on success. For lower-level implementation
  * details, see [`but_workspace::branch::create_reference()`].
  */
-export declare function branchCreate(projectId: string, newRef: string, placement: BranchCreatePlacement): Promise<BranchCreateResult>
+export declare function branchCreate(projectId: string, newRef: MaybeLossyFullNameRef, placement: BranchCreatePlacement): Promise<BranchCreateResult>
 
 export declare function branchDetails(projectId: string, branchName: string, remote: string | null): Promise<BranchDetails>
 
@@ -647,6 +647,8 @@ export type BranchCreatePlacement = {
 export type BranchCreateResult = {
   /** Workspace state after creating the branch. */
   workspace: WorkspaceState;
+  /** The name of the crated reference */
+  newRef: BranchReference;
 };
 
 /** Information about the current state of a branch. */
@@ -1735,6 +1737,15 @@ export type LineStats = {
   /** The number of files that contributed to these statistics as they were added, removed or modified. */
   filesChanged: number;
 };
+
+/**
+ * An optional full reference name accepted as a string like `refs/heads/main`,
+ * for use as a parameter transport via `#[but_api(...)]`.
+ *
+ * The name is validated during deserialization. Note that it is lossy: a name
+ * that can't be represented in Unicode can't be passed through this type.
+ */
+export type MaybeLossyFullNameRef = string | null;
 
 /** How to combine messages of commits being squashed. */
 export type MessageCombinationStrategy = "KeepBoth" | "KeepSubject" | "KeepTarget";
