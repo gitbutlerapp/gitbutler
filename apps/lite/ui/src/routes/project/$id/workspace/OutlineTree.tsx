@@ -11,7 +11,7 @@ import {
 	useCommitReword,
 	useCommitUncommit,
 	usePushStack,
-	useRebaseStack,
+	useRebaseStacks,
 	useRemoveBranch,
 	useTearOffBranch,
 	useUnapplyStack,
@@ -216,7 +216,7 @@ const useOutlineTreeHotkeys = ({
 	const commitMoveMutation = useCommitMove();
 	const commitDiscardMutation = useCommitDiscard();
 	const pushStackMutation = usePushStack();
-	const rebaseStackMutation = useRebaseStack({ projectId });
+	const rebaseStackMutation = useRebaseStacks({ projectId });
 	const branchCreateMutation = useBranchCreate();
 
 	const openBranchPicker = () => {
@@ -2263,7 +2263,7 @@ const StackRow: FC<
 		unapplyStackMutation.mutate({ projectId, stackId: stack.id! });
 	};
 
-	const rebaseStackMutation = useRebaseStack({ projectId });
+	const rebaseStackMutation = useRebaseStacks({ projectId });
 	const rebase = () => {
 		if (rebaseUpdate) rebaseStackMutation.mutate([rebaseUpdate]);
 	};
