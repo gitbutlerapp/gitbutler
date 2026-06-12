@@ -2457,7 +2457,7 @@ const BranchSegment: FC<{
 				</div>
 			)}
 
-			<div className={styles.branchTail} aria-hidden="true">
+			<div className={styles.branchTail}>
 				<GraphSegment
 					glyph="parent"
 					status={
