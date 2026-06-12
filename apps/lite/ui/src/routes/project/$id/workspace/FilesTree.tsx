@@ -178,7 +178,9 @@ export const FilesTree: FC<
 			>
 				<div className={styles.section}>
 					{items.length === 0 ? (
-						<WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>
+						<WorkspaceItemRowEmpty>
+							<WorkspaceItemRowLabel>No changes.</WorkspaceItemRowLabel>
+						</WorkspaceItemRowEmpty>
 					) : (
 						<div role="group">
 							{items.map((item) => (
