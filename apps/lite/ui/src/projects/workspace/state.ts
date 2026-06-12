@@ -3,14 +3,11 @@ import { refNamesEqual } from "#ui/api/ref-name.ts";
 import { AbsorptionTarget, type RefInfo, type RelativeTo } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import {
-	branchFileParent,
 	branchOperand,
-	commitFileParent,
 	commitOperand,
 	operandEquals,
 	type BranchOperand,
 	type CommitOperand,
-	type FileOperand,
 	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
@@ -31,7 +28,7 @@ import { mapKeys } from "effect/Record";
 
 export type SelectionState = {
 	outline: Operand | null;
-	files: FileOperand | null;
+	files: string | null;
 	diff: HunkOperand | null;
 };
 
@@ -159,7 +156,7 @@ export const selectOutline = (state: WorkspaceState, selection: Operand | null) 
 		exitMode(state);
 };
 
-export const selectFiles = (state: WorkspaceState, selection: FileOperand | null) => {
+export const selectFiles = (state: WorkspaceState, selection: string | null) => {
 	state.selection.files = selection;
 };
 
@@ -245,19 +242,6 @@ export const updateRewrittenCommitReferences = (
 	});
 	if (commit) state.selection.outline = commit;
 
-	if (state.selection.files?.parent._tag === "Commit") {
-		const commit = rewrittenCommitOperand({
-			commit: state.selection.files.parent,
-			replacedCommits,
-			headInfo,
-		});
-		if (commit)
-			state.selection.files = {
-				parent: commitFileParent(commit),
-				path: state.selection.files.path,
-			};
-	}
-
 	if (state.commitTarget?.type === "commit") {
 		const commitId = replacedCommits[state.commitTarget.subject];
 		if (commitId !== undefined) state.commitTarget = { type: "commit", subject: commitId };
@@ -298,15 +282,6 @@ export const updateRewrittenBranchReferences = (
 		state.selection.outline = newBranchOperand;
 
 	if (
-		state.selection.files?.parent._tag === "Branch" &&
-		operandEquals(branchOperand(state.selection.files.parent), oldBranchOperand)
-	)
-		state.selection.files = {
-			parent: branchFileParent(newBranch),
-			path: state.selection.files.path,
-		};
-
-	if (
 		state.commitTarget?.type === "referenceBytes" &&
 		refNamesEqual(state.commitTarget.subject, oldBranch.branchRef)
 	)
@@ -327,7 +302,7 @@ export const startRewordCommit = (state: WorkspaceState, commit: CommitOperand) 
 export const selectSelectionOutlineState = (state: WorkspaceState): Operand | null =>
 	state.selection.outline;
 
-export const selectSelectionFilesState = (state: WorkspaceState): FileOperand | null =>
+export const selectSelectionFilesState = (state: WorkspaceState): string | null =>
 	state.selection.files;
 
 export const selectSelectionDiffState = (state: WorkspaceState): HunkOperand | null =>
