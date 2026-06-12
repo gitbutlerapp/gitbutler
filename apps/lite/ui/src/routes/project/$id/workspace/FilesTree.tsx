@@ -37,9 +37,9 @@ import styles from "./FilesTree.module.css";
 import {
 	WorkspaceItemRow,
 	WorkspaceItemRowEmpty,
-	WorkspaceItemRowIconButton,
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowToolbar,
+	getWorkspaceItemRowButtonClassName,
 } from "./WorkspaceItemRow.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
@@ -496,13 +496,10 @@ const FileRow: FC<
 									item.dependencyCommitIds && (
 										<Toolbar.Button
 											render={
-												<WorkspaceItemRowIconButton
-													render={
-														<DependencyIndicator
-															projectId={projectId}
-															commitIds={item.dependencyCommitIds}
-														/>
-													}
+												<DependencyIndicator
+													projectId={projectId}
+													commitIds={item.dependencyCommitIds}
+													className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
 												/>
 											}
 										>
@@ -517,7 +514,7 @@ const FileRow: FC<
 							onClick={(event) => {
 								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 							}}
-							render={<WorkspaceItemRowIconButton />}
+							className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
 						>
 							<Icon name="kebab" />
 						</Toolbar.Button>

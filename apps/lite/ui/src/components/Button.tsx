@@ -11,12 +11,14 @@ export type ButtonStyleProps = {
 	variant?: ButtonVariant;
 	size?: ButtonSize;
 	iconOnly?: boolean;
+	disableTransition?: boolean;
 };
 
 export const getButtonClassName = ({
 	variant = "outline",
 	size = "regular",
 	iconOnly = false,
+	disableTransition = false,
 }: ButtonStyleProps) =>
 	classes(
 		"text-semibold",
@@ -31,4 +33,5 @@ export const getButtonClassName = ({
 			}
 		})(),
 		iconOnly && styles.iconOnly,
+		disableTransition && styles.disableTransition,
 	);

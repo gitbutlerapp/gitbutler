@@ -58,54 +58,18 @@
 	white-space: nowrap;
 }
 
-.itemRowIconButton {
-	display: flex;
-	column-gap: 4px;
-	align-items: center;
-	justify-content: center;
-	width: 22px;
-	height: 20px;
-	margin-block: -2px;
-	padding-inline: 3px;
-	border-radius: 8px;
-	color: var(--text-1);
-	line-height: 1;
-	white-space: nowrap;
-	--icon-size: 14px;
+.itemRowButton {
+	[data-selection-scope]:focus .itemRowSelected &,
+	.itemRowSelected:has(:is(textarea, input):focus) & {
+		/* Duplicated styles for inverted button variant. This is necessary to make
+		the variant responsive to selection/focus changes purely with CSS. */
 
-	&:disabled,
-	&[data-disabled] {
-		opacity: 0.5;
-	}
-
-	&:not([data-selection-scope]:focus .itemRowSelected &) {
-		& [data-icon] {
-			opacity: 0.6;
-		}
-
-		&:not(:disabled, [data-disabled]):hover {
-			background-color: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
-
-			& [data-icon] {
-				opacity: 0.8;
-			}
-		}
-	}
-
-	[data-selection-scope]:focus .itemRowSelected & {
-		color: var(--text-1-invert);
-
-		& [data-icon] {
-			opacity: 0.7;
-		}
-
-		&:not(:disabled, [data-disabled]):hover {
-			background-color: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
-
-			& [data-icon] {
-				opacity: 0.9;
-			}
-		}
+		--button-border: none;
+		--button-bg: transparent;
+		--button-fg: var(--text-1-invert);
+		--button-icon-opacity: 0.7;
+		--button-hover-bg: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
+		--button-hover-icon-opacity: 0.9;
 	}
 }
 
