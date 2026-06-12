@@ -4,6 +4,7 @@
 	flex-direction: column;
 	width: var(--width);
 	height: 100%;
+	color: var(--commit-status-color);
 
 	&[data-stretch="false"] {
 		justify-content: center;
@@ -12,6 +13,22 @@
 
 	&[data-stretch="true"] {
 		align-self: stretch;
+	}
+
+	&[data-status="LocalOnly"] {
+		--commit-status-color: var(--commit-local);
+	}
+
+	&[data-status="LocalAndRemote"] {
+		--commit-status-color: var(--commit-remote);
+	}
+
+	&[data-status="Integrated"] {
+		--commit-status-color: var(--commit-integrated);
+	}
+
+	&[data-status="Diverged"] {
+		--commit-status-color: var(--commit-local);
 	}
 }
 

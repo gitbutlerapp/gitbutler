@@ -74,7 +74,6 @@ import {
 	AbsorptionTarget,
 	BranchReference,
 	Commit,
-	CommitState,
 	RefInfo,
 	RelativeTo,
 	Segment,
@@ -118,7 +117,7 @@ import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { initNonEmpty, isNonEmptyArray, scanRight } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { GraphSegment } from "#ui/components/GraphSegment.tsx";
+import { CommitStatusType, GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import {
@@ -804,19 +803,12 @@ const CommitTargetIndicator: FC = () => (
 	</Tooltip.Root>
 );
 
-type CommitStatusType = "Diverged" | CommitState["type"];
-
 const CommitStateIndicator: FC<{
 	status: CommitStatusType;
 	glyph?: ComponentProps<typeof GraphSegment>["glyph"];
 	stretch?: boolean;
 }> = ({ status, glyph = "commit", stretch = false }) => (
-	<GraphSegment
-		glyph={glyph}
-		stretch={stretch}
-		className={styles.commitState}
-		data-status={status}
-	/>
+	<GraphSegment glyph={glyph} stretch={stretch} status={status} />
 );
 
 const ItemRow: FC<

@@ -1,6 +1,7 @@
 import styles from "./GraphSegment.module.css";
 import { classes } from "#ui/components/classes.ts";
 import { ComponentProps, FC } from "react";
+import { CommitState } from "@gitbutler/but-sdk";
 
 const glyphPaths = {
 	parent: "M8 0V28",
@@ -56,18 +57,27 @@ const stretchableGlyphs = new Set<GlyphType>([
 	"joinBoth",
 ]);
 
+export type CommitStatusType = "Diverged" | CommitState["type"];
+
 interface GraphSegmentProps extends ComponentProps<"div"> {
 	glyph?: GlyphType;
 	stretch?: boolean;
+	status: CommitStatusType;
 }
 
 export const GraphSegment: FC<GraphSegmentProps> = ({
 	glyph = "parent",
 	stretch = false,
 	className,
+	status,
 	...props
 }) => (
-	<div {...props} className={classes(className, styles.graphSegment)} data-stretch={stretch}>
+	<div
+		{...props}
+		className={classes(className, styles.graphSegment)}
+		data-stretch={stretch}
+		data-status={status}
+	>
 		<svg
 			className={styles.graphSegmentSvg}
 			viewBox="0 0 16 28"

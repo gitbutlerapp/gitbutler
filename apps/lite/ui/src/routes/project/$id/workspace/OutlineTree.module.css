@@ -202,26 +202,6 @@
 	color: var(--color-text-secondary);
 }
 
-[data-status="LocalOnly"] {
-	--commit-status-color: var(--commit-local);
-}
-
-[data-status="LocalAndRemote"] {
-	--commit-status-color: var(--commit-remote);
-}
-
-[data-status="Integrated"] {
-	--commit-status-color: var(--commit-integrated);
-}
-
-[data-status="Diverged"] {
-	--commit-status-color: var(--commit-local);
-}
-
-.commitState {
-	color: var(--commit-status-color);
-}
-
 .commitStateWithCheckbox {
 	display: grid;
 	justify-items: center;
