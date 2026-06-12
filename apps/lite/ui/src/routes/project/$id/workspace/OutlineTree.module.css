@@ -48,6 +48,7 @@
 .stack {
 	display: flex;
 	flex-direction: column;
+	padding-bottom: 0;
 }
 
 .editorForm {
@@ -200,6 +201,17 @@
 	padding-inline: 10px;
 	padding-block: 4px;
 	color: var(--color-text-secondary);
+}
+
+.branchTail {
+	display: flex;
+	height: 8px;
+	padding-left: 6px;
+	overflow: hidden;
+
+	& svg path {
+		vector-effect: non-scaling-stroke;
+	}
 }
 
 .commitStateWithCheckbox {

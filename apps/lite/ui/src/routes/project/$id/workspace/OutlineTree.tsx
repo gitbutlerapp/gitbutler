@@ -2317,6 +2317,15 @@ const StackRow: FC<
 	);
 };
 
+const BranchTail: FC<{ commit?: Commit }> = ({ commit }) => (
+	<div className={styles.branchTail} aria-hidden="true">
+		<GraphSegment
+			glyph="parent"
+			status={commit ? (commitIsDiverged(commit) ? "Diverged" : commit.state.type) : "LocalOnly"}
+		/>
+	</div>
+);
+
 const BranchSegment: FC<{
 	projectId: string;
 	segment: Segment;
@@ -2372,10 +2381,13 @@ const BranchSegment: FC<{
 			/>
 
 			{segment.commits.length === 0 ? (
-				<WorkspaceItemRowEmpty>
-					<GraphSegment glyph="parent" status="LocalOnly" />
-					<WorkspaceItemRowLabel>No commits.</WorkspaceItemRowLabel>
-				</WorkspaceItemRowEmpty>
+				<>
+					<WorkspaceItemRowEmpty>
+						<GraphSegment glyph="parent" status="LocalOnly" />
+						<WorkspaceItemRowLabel>No commits.</WorkspaceItemRowLabel>
+					</WorkspaceItemRowEmpty>
+					<BranchTail />
+				</>
 			) : (
 				<div role="group">
 					{segment.commits.map((commit) => (
@@ -2391,6 +2403,7 @@ const BranchSegment: FC<{
 							}
 						/>
 					))}
+					<BranchTail commit={assert(segment.commits.at(-1))} />
 				</div>
 			)}
 		</TreeItem>
