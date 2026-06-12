@@ -1,5 +1,7 @@
+use std::error::Error;
+
 use bstr::{BStr, ByteSlice};
-use gix::refs::{Category, FullName};
+use gix::refs::{Category, FullName, FullNameRef};
 
 use crate::{CliError, CliResult, bad_input};
 
@@ -95,14 +97,55 @@ impl BranchArg {
             );
         }
 
-        if repo.try_find_reference(&local_name)?.is_some() {
-            return Err(bad_input(format!(
+        match repo.try_find_reference(&local_name) {
+            Ok(None) => Ok(self.0.clone()),
+            Ok(Some(_)) => Err(bad_input(format!(
                 "A branch named '{branch_name}' exists but is not applied"
             ))
-            .into());
+            .into()),
+            Err(gix::reference::find::Error::Find(err)) => {
+                match err
+                    .source()
+                    .and_then(|err| err.downcast_ref::<std::io::Error>())
+                {
+                    Some(io_err) if io_err.kind() == std::io::ErrorKind::NotADirectory => {
+                        // This happens when there is a prefix path collision with the name you're
+                        // looking for (e.g. 'branch' exists, and you look for 'branch/new').
+                        let prefix_branch_name =
+                            self.find_prefix_branch_for_display(repo, &local_name)?;
+                        Err(bad_input(format!("Branch name '{branch_name}' collides with existing branch '{prefix_branch_name}'")).into())
+                    }
+                    _ => Err(gix::reference::find::Error::Find(err).into()),
+                }
+            }
+        }
+    }
+
+    /// Find a prefix branch of the given branch, specifically to display it to the user. May entail
+    /// lossy conversion so don't use this for programmatic needs.
+    ///
+    /// This should only be called if you're certain a prefix branch exists.
+    fn find_prefix_branch_for_display(
+        &self,
+        repo: &gix::Repository,
+        branch_name: &FullName,
+    ) -> CliResult<String> {
+        let ancestors = std::iter::successors(Some(branch_name.as_bstr()), |name| {
+            name.rsplit_once_str(b"/")
+                .map(|(parent, _)| BStr::new(parent))
+        });
+
+        for ancestor in ancestors {
+            if let Ok(Some(_)) = repo.try_find_reference(ancestor) {
+                let prefix_branch_name = <&FullNameRef>::try_from(ancestor)?.shorten().to_string();
+                return Ok(prefix_branch_name);
+            }
         }
 
-        Ok(self.0.clone())
+        Err(anyhow::anyhow!(
+            "BUG: Expected to find prefix branch of '{branch_name}', but none was found",
+        )
+        .into())
     }
 
     /// Resolve the argument to a branch that exists in the repository.
