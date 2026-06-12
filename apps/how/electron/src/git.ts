@@ -11,6 +11,11 @@ export type GitCommit = {
 	createdAt: number;
 };
 
+export type GitRepository = {
+	gitDir: string;
+	worktreePath: string;
+};
+
 export function encodeProjectHandle(gitDir: string): string {
 	return Buffer.from(gitDir).toString("base64url");
 }
@@ -31,19 +36,32 @@ export async function discoverGitDir(directory: string): Promise<string> {
 	return await fs.realpath(gitDir);
 }
 
-export async function ensureGitRepository(directory: string): Promise<string> {
-	await fs.mkdir(directory, { recursive: true });
+export async function discoverRepository(directory: string): Promise<GitRepository> {
+	const [gitDir, worktreePath] = await Promise.all([
+		discoverGitDir(directory),
+		runGit(["rev-parse", "--show-toplevel"], { cwd: directory }),
+	]);
+	return {
+		gitDir,
+		worktreePath: await fs.realpath(worktreePath),
+	};
+}
+
+async function hasOwnGitDirectory(directory: string): Promise<boolean> {
 	try {
-		return await discoverGitDir(directory);
+		await fs.lstat(path.join(directory, ".git"));
+		return true;
 	} catch {
-		await runGit(["init"], { cwd: directory });
-		return await discoverGitDir(directory);
+		return false;
 	}
 }
 
-export async function worktreeFromGitDir(gitDir: string): Promise<string> {
-	const worktree = await runGit(["--git-dir", gitDir, "rev-parse", "--show-toplevel"]);
-	return await fs.realpath(worktree);
+export async function ensureGitRepository(directory: string): Promise<GitRepository> {
+	await fs.mkdir(directory, { recursive: true });
+	if (!(await hasOwnGitDirectory(directory))) {
+		await runGit(["init"], { cwd: directory });
+	}
+	return await discoverRepository(directory);
 }
 
 export function projectTitleFromPath(worktreePath: string): string {

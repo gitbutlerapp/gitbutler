@@ -1,5 +1,6 @@
 import { HowService } from "./how-service.js";
 import { howIpcChannels, type OpenProjectResult } from "./ipc.js";
+import { createLogger, type Logger } from "./logger.js";
 import {
 	app,
 	BrowserWindow,
@@ -36,6 +37,7 @@ protocol.registerSchemesAsPrivileged([
 
 let mainWindow: BrowserWindow | null = null;
 let service: HowService | null = null;
+let logger: Logger | null = null;
 
 function windows(): Array<BrowserWindow> {
 	return BrowserWindow.getAllWindows();
@@ -44,6 +46,11 @@ function windows(): Array<BrowserWindow> {
 function getService(): HowService {
 	if (!service) throw new Error("How is not ready yet.");
 	return service;
+}
+
+function getLogger(): Logger {
+	if (!logger) throw new Error("How logging is not ready yet.");
+	return logger;
 }
 
 function registerProtocolHandler(): void {
@@ -84,7 +91,6 @@ async function createMainWindow(): Promise<void> {
 		height: 680,
 		minWidth: 720,
 		minHeight: 520,
-		title: "How",
 		backgroundColor: "#f8f7f2",
 		icon: getWindowIcon(),
 		webPreferences: {
@@ -122,6 +128,7 @@ function handle<Args extends Array<unknown>, Return>(
 }
 
 async function selectProjectDirectory(mode: "open" | "start"): Promise<string | null> {
+	getLogger().info("Opening project directory picker", { mode });
 	const options: Electron.OpenDialogOptions = {
 		title: mode === "open" ? "Open project" : "Start project",
 		properties: mode === "start" ? ["openDirectory", "createDirectory"] : ["openDirectory"],
@@ -129,8 +136,13 @@ async function selectProjectDirectory(mode: "open" | "start"): Promise<string | 
 	const result = mainWindow
 		? await dialog.showOpenDialog(mainWindow, options)
 		: await dialog.showOpenDialog(options);
-	if (result.canceled) return null;
-	return result.filePaths[0] ?? null;
+	if (result.canceled) {
+		getLogger().info("Project directory picker cancelled", { mode });
+		return null;
+	}
+	const selectedPath = result.filePaths[0] ?? null;
+	getLogger().info("Project directory picker selected path", { mode, selectedPath });
+	return selectedPath;
 }
 
 function registerIpc(): void {
@@ -138,23 +150,40 @@ function registerIpc(): void {
 	handle(howIpcChannels.openProject, async (): Promise<OpenProjectResult> => {
 		const selectedPath = await selectProjectDirectory("open");
 		if (!selectedPath) return { type: "cancelled" };
-		const status = await getService().openProjectFromPath(selectedPath);
-		return { type: "opened", status };
+		try {
+			const status = await getService().openProjectFromPath(selectedPath);
+			return { type: "opened", status };
+		} catch (error) {
+			getLogger().error("Open project failed", error, { selectedPath });
+			throw error;
+		}
 	});
 	handle(howIpcChannels.startProject, async (): Promise<OpenProjectResult> => {
 		const selectedPath = await selectProjectDirectory("start");
 		if (!selectedPath) return { type: "cancelled" };
-		const status = await getService().startProjectAtPath(selectedPath);
-		return { type: "opened", status };
+		try {
+			const status = await getService().startProjectAtPath(selectedPath);
+			return { type: "opened", status };
+		} catch (error) {
+			getLogger().error("Start project failed", error, { selectedPath });
+			throw error;
+		}
 	});
+	handle(howIpcChannels.deleteProject, async () => await getService().deleteProject());
 	handle(howIpcChannels.createCheckpointNow, async () => await getService().createCheckpointNow());
 }
 
 app.whenReady().then(async () => {
+	logger = createLogger(path.join(app.getPath("userData"), "how.log"));
+	logger.info("How app ready", {
+		userData: app.getPath("userData"),
+		devServerUrl: process.env.VITE_DEV_SERVER_URL ?? null,
+		cwd: process.cwd(),
+	});
 	registerProtocolHandler();
 	registerIpc();
 
-	service = new HowService(path.join(app.getPath("userData"), "state.json"), windows);
+	service = new HowService(path.join(app.getPath("userData"), "state.json"), windows, logger);
 	await service.initialize();
 	await createMainWindow();
 

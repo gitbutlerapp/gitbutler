@@ -1,5 +1,5 @@
 import { Button } from "#ui/components/ui/button.tsx";
-import { AlertCircle, Check, Clock, FolderOpen, Plus, RefreshCw } from "lucide-react";
+import { AlertCircle, Check, Clock, FolderOpen, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Checkpoint, HowStatus, SaveState } from "../../../electron/src/ipc";
 
@@ -76,10 +76,7 @@ function EmptyState({
 		<main className="flex min-h-screen items-center justify-center px-6 py-10">
 			<section className="w-full max-w-xl">
 				<div className="mb-10">
-					<p className="mb-3 text-sm font-medium text-stone-500">How</p>
-					<h1 className="text-4xl font-semibold tracking-normal text-stone-950">
-						Manage changes.
-					</h1>
+					<h1 className="text-4xl font-semibold tracking-normal text-stone-950">Manage changes.</h1>
 					<p className="mt-4 max-w-md text-base leading-7 text-stone-600">
 						Open a project and How will keep a simple timeline of saved moments while you build.
 					</p>
@@ -139,11 +136,13 @@ function ProjectScreen({
 	status,
 	onOpen,
 	onStart,
+	onDelete,
 	busy,
 }: {
 	status: HowStatus;
 	onOpen: () => Promise<void>;
 	onStart: () => Promise<void>;
+	onDelete: () => Promise<void>;
 	busy: boolean;
 }) {
 	const project = status.project;
@@ -151,14 +150,26 @@ function ProjectScreen({
 
 	return (
 		<main className="min-h-screen px-6 py-6">
-			<div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
-				<header className="flex flex-wrap items-start justify-between gap-4 border-b border-stone-200 pb-5">
+			<div className="mx-auto flex w-full h-full max-w-5xl flex-col justify-start gap-8">
+				<nav>
+					<Button variant="ghost" size="sm" onClick={() => void onOpen()} disabled={busy}>
+						<FolderOpen className="h-4 w-4" aria-hidden />
+						Open
+					</Button>
+					<Button variant="ghost" size="sm" onClick={() => void onStart()} disabled={busy}>
+						<Plus className="h-4 w-4" aria-hidden />
+						Start
+					</Button>
+					<Button variant="ghost" size="sm" onClick={() => void onDelete()} disabled={busy}>
+						<Trash2 className="h-4 w-4" aria-hidden />
+						Delete
+					</Button>
+				</nav>
+				<header className="flex flex-wrap items-start justify-between gap-4 pb-5">
 					<div className="min-w-0">
-						<p className="mb-2 text-sm font-medium text-stone-500">How</p>
-						<h1 className="truncate text-3xl font-semibold tracking-normal text-stone-950">
+						<h1 className="truncate text-xl font-semibold tracking-normal text-stone-700">
 							{project.title}
 						</h1>
-						<p className="mt-2 truncate text-sm text-stone-500">{project.path}</p>
 					</div>
 					<div className="flex items-center gap-2">
 						<span
@@ -169,24 +180,10 @@ function ProjectScreen({
 							{iconForState(status.saveState)}
 							{statusLabel(status)}
 						</span>
-						<Button variant="ghost" size="sm" onClick={() => void onOpen()} disabled={busy}>
-							<FolderOpen className="h-4 w-4" aria-hidden />
-							Open
-						</Button>
-						<Button variant="ghost" size="sm" onClick={() => void onStart()} disabled={busy}>
-							<Plus className="h-4 w-4" aria-hidden />
-							Start
-						</Button>
 					</div>
 				</header>
 
 				<section>
-					<div className="mb-4 flex items-end justify-between gap-4">
-						<div>
-							<h2 className="text-lg font-semibold text-stone-950">Checkpoints</h2>
-							<p className="mt-1 text-sm text-stone-500">Saved moments in this project.</p>
-						</div>
-					</div>
 					<Timeline checkpoints={status.checkpoints} />
 				</section>
 			</div>
@@ -236,8 +233,32 @@ export function HowHome() {
 		await runProjectAction(async () => await window.how.startProject());
 	}
 
+	async function deleteProject() {
+		const confirmed = window.confirm(
+			"Remove this project from How? Your project folder and files will stay where they are.",
+		);
+		if (!confirmed) return;
+		setBusy(true);
+		setError(null);
+		try {
+			setStatus(await window.how.deleteProject());
+		} catch {
+			setError("How could not delete that project.");
+		} finally {
+			setBusy(false);
+		}
+	}
+
 	if (!status.project)
 		return <EmptyState onOpen={openProject} onStart={startProject} busy={busy} error={error} />;
 
-	return <ProjectScreen status={status} onOpen={openProject} onStart={startProject} busy={busy} />;
+	return (
+		<ProjectScreen
+			status={status}
+			onOpen={openProject}
+			onStart={startProject}
+			onDelete={deleteProject}
+			busy={busy}
+		/>
+	);
 }

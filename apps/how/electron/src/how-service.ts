@@ -1,12 +1,11 @@
 import { checkpointMessage, createDiffSpec } from "./checkpoints.js";
 import {
 	createInitialCheckpointCommit,
-	discoverGitDir,
+	discoverRepository,
 	encodeProjectHandle,
 	ensureGitRepository,
 	listCheckpointCommits,
 	projectTitleFromPath,
-	worktreeFromGitDir,
 } from "./git.js";
 import { howIpcChannels, type Checkpoint, type HowStatus, type ProjectSummary } from "./ipc.js";
 import { plainErrorMessage } from "./plain-error.js";
@@ -22,6 +21,7 @@ import {
 } from "@gitbutler/but-sdk";
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { Logger } from "./logger.js";
 import type { BrowserWindow } from "electron";
 
 const checkpointLimit = 50;
@@ -55,19 +55,27 @@ export class HowService {
 	constructor(
 		private readonly statePath: string,
 		private readonly getWindows: () => Array<BrowserWindow>,
+		private readonly logger: Logger,
 	) {}
 
 	async initialize(): Promise<HowStatus> {
+		this.logger.info("Initializing How service", { statePath: this.statePath });
 		const stored = await this.#readStoredState();
 		if (stored.activeProject) {
+			this.logger.info("Resuming active project", stored.activeProject);
 			this.#status = {
 				...this.#status,
 				project: stored.activeProject,
 				saveState: "watching",
 				message: "Watching for changes",
 			};
-			await this.#refreshTimeline();
-			await this.#startWatching(stored.activeProject);
+			try {
+				await this.#refreshTimeline();
+				await this.#startWatching(stored.activeProject);
+			} catch (error) {
+				this.logger.error("Failed to resume active project", error, stored.activeProject);
+				this.#setError(error);
+			}
 		}
 		this.#emit();
 		return this.getStatus();
@@ -78,19 +86,36 @@ export class HowService {
 	}
 
 	async openProjectFromPath(selectedPath: string): Promise<HowStatus> {
-		const gitDir = await discoverGitDir(selectedPath);
-		const worktreePath = await worktreeFromGitDir(gitDir);
+		this.logger.info("Opening selected project", { selectedPath });
+		const { gitDir, worktreePath } = await discoverRepository(selectedPath);
+		this.logger.info("Resolved selected project", { selectedPath, gitDir, worktreePath });
 		return await this.#activateProject({ gitDir, worktreePath });
 	}
 
 	async startProjectAtPath(selectedPath: string): Promise<HowStatus> {
-		const gitDir = await ensureGitRepository(selectedPath);
-		const worktreePath = await worktreeFromGitDir(gitDir);
+		this.logger.info("Starting selected project", { selectedPath });
+		const { gitDir, worktreePath } = await ensureGitRepository(selectedPath);
+		this.logger.info("Resolved started project", { selectedPath, gitDir, worktreePath });
 		return await this.#activateProject({ gitDir, worktreePath });
 	}
 
 	async createCheckpointNow(): Promise<HowStatus> {
 		await this.#createCheckpoint();
+		return this.getStatus();
+	}
+
+	async deleteProject(): Promise<HowStatus> {
+		this.logger.info("Deleting active project from How", this.#status.project);
+		await this.stop();
+		this.#status = {
+			project: null,
+			saveState: "idle",
+			message: null,
+			lastSavedAt: null,
+			checkpoints: [],
+		};
+		await this.#writeStoredState({ activeProject: null });
+		this.#emit();
 		return this.getStatus();
 	}
 
@@ -115,6 +140,7 @@ export class HowService {
 			gitDir,
 		};
 
+		this.logger.info("Activating project", project);
 		await this.stop();
 		this.#status = {
 			project,
@@ -131,11 +157,14 @@ export class HowService {
 	}
 
 	async #startWatching(project: ProjectSummary): Promise<void> {
+		this.logger.info("Starting watcher", project);
 		this.#watcher = await watcherStart(project.id, (err: Error | null, event: WatcherEvent) => {
 			if (err) {
+				this.logger.error("Watcher callback error", err, project);
 				this.#setError(err);
 				return;
 			}
+			this.logger.info("Watcher event", { projectId: project.id, name: event.name });
 			if (this.#eventShouldScheduleCheckpoint(event)) this.#scheduleCheckpoint();
 		});
 	}
@@ -173,6 +202,7 @@ export class HowService {
 		}
 
 		this.#saving = true;
+		this.logger.info("Creating checkpoint", project);
 		this.#status = {
 			...this.#status,
 			saveState: "saving",
@@ -182,6 +212,13 @@ export class HowService {
 
 		try {
 			const worktreeChanges = await changesInWorktree(project.id);
+			this.logger.info("Loaded worktree changes for checkpoint", {
+				projectId: project.id,
+				changeCount: worktreeChanges.changes.length,
+				ignoredChangeCount: worktreeChanges.ignoredChanges.length,
+				assignmentsError: worktreeChanges.assignmentsError,
+				dependenciesError: worktreeChanges.dependenciesError,
+			});
 			if (worktreeChanges.changes.length === 0) {
 				this.#status = {
 					...this.#status,
@@ -197,6 +234,12 @@ export class HowService {
 			const placement = await this.#checkpointPlacement(project.id);
 
 			if (placement) {
+				this.logger.info("Creating checkpoint via but-sdk commitCreate", {
+					projectId: project.id,
+					message,
+					changeCount: changes.length,
+					placement,
+				});
 				const result = await commitCreate(
 					project.id,
 					placement.relativeTo,
@@ -205,10 +248,21 @@ export class HowService {
 					message,
 					false,
 				);
+				this.logger.info("Checkpoint commitCreate result", {
+					projectId: project.id,
+					newCommit: result.newCommit,
+					rejectedChangeCount: result.rejectedChanges.length,
+				});
 				if (result.rejectedChanges.length > 0 || result.newCommit === null)
 					throw new Error("Some project changes could not be saved.");
 			} else {
+				this.logger.info("Creating initial checkpoint via git commit", {
+					projectId: project.id,
+					message,
+					changeCount: changes.length,
+				});
 				const commitId = await createInitialCheckpointCommit(project.path, message);
+				this.logger.info("Initial checkpoint result", { projectId: project.id, commitId });
 				if (commitId === null) return;
 			}
 
@@ -221,6 +275,7 @@ export class HowService {
 			};
 			this.#emit();
 		} catch (error) {
+			this.logger.error("Failed to create checkpoint", error, project);
 			this.#setError(error);
 		} finally {
 			this.#saving = false;
@@ -258,6 +313,7 @@ export class HowService {
 		const project = this.#status.project;
 		if (!project) return;
 
+		this.logger.info("Refreshing checkpoint timeline", project);
 		const commits = await listCheckpointCommits(project.path, checkpointLimit);
 		const checkpoints: Array<Checkpoint> = commits.map((commit) => ({
 			id: commit.id,
@@ -271,6 +327,10 @@ export class HowService {
 	}
 
 	#setError(error: unknown): void {
+		this.logger.error("Setting user-visible error", error, {
+			project: this.#status.project,
+			message: plainErrorMessage(error),
+		});
 		this.#status = {
 			...this.#status,
 			saveState: "error",
