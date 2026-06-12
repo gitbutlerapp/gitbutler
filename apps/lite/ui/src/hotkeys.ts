@@ -95,7 +95,7 @@ export const workspaceHotkeys = {
 	},
 	createIndependentBranch: {
 		hotkey: "Mod+N",
-		meta: { group: "Branches", name: "Create branch" },
+		meta: { group: "Branches", name: "Add new branch" },
 	},
 	updateWorkspace: {
 		hotkey: "Alt+Shift+R",
