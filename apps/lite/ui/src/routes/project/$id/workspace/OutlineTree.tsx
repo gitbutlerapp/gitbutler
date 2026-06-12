@@ -2378,15 +2378,6 @@ const StackRow: FC<
 	);
 };
 
-const BranchTail: FC<{ commit?: Commit }> = ({ commit }) => (
-	<div className={styles.branchTail} aria-hidden="true">
-		<GraphSegment
-			glyph="parent"
-			status={commit ? (commitIsDiverged(commit) ? "Diverged" : commit.state.type) : "LocalOnly"}
-		/>
-	</div>
-);
-
 const BranchSegment: FC<{
 	projectId: string;
 	segment: Segment;
@@ -2407,6 +2398,8 @@ const BranchSegment: FC<{
 	partialStackState,
 }) => {
 	const operand = branchOperand({ stackId, branchRef: refName.fullNameBytes });
+
+	const bottomCommit = segment.commits.at(-1);
 
 	return (
 		<TreeItem
@@ -2464,7 +2457,18 @@ const BranchSegment: FC<{
 				</div>
 			)}
 
-			<BranchTail commit={segment.commits.at(-1)} />
+			<div className={styles.branchTail} aria-hidden="true">
+				<GraphSegment
+					glyph="parent"
+					status={
+						bottomCommit
+							? commitIsDiverged(bottomCommit)
+								? "Diverged"
+								: bottomCommit.state.type
+							: "LocalOnly"
+					}
+				/>
+			</div>
 		</TreeItem>
 	);
 };
