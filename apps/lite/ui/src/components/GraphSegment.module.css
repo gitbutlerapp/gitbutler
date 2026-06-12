@@ -1,19 +1,9 @@
 .graphSegment {
-	--width: 16px;
 	display: flex;
 	flex-direction: column;
-	width: var(--width);
-	height: 100%;
+	align-self: stretch;
+
 	color: var(--commit-status-color);
-
-	&[data-stretch="false"] {
-		justify-content: center;
-		height: fit-content;
-	}
-
-	&[data-stretch="true"] {
-		align-self: stretch;
-	}
 
 	&[data-status="LocalOnly"] {
 		--commit-status-color: var(--commit-local);
@@ -33,13 +23,9 @@
 }
 
 .graphSegmentSvg {
-	flex-shrink: 0;
-	width: var(--width);
 	height: 28px;
 }
 
 .stretchSegment {
 	flex-grow: 1;
-	width: var(--width);
-	height: 100%;
 }

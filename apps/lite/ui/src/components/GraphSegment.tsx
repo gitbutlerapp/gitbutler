@@ -72,12 +72,7 @@ export const GraphSegment: FC<GraphSegmentProps> = ({
 	status,
 	...props
 }) => (
-	<div
-		{...props}
-		className={classes(className, styles.graphSegment)}
-		data-stretch={stretch}
-		data-status={status}
-	>
+	<div {...props} className={classes(className, styles.graphSegment)} data-status={status}>
 		<svg
 			className={styles.graphSegmentSvg}
 			viewBox="0 0 16 28"
