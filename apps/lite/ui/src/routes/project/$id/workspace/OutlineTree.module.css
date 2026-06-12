@@ -198,7 +198,7 @@
 	color: var(--color-text-secondary);
 }
 
-.branchTail {
+.segmentTail {
 	height: 8px;
 	min-height: auto;
 	overflow: hidden;

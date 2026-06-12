@@ -2457,7 +2457,7 @@ const BranchSegment: FC<{
 				</div>
 			)}
 
-			<WorkspaceItemRowEmpty className={styles.branchTail}>
+			<WorkspaceItemRowEmpty className={styles.segmentTail}>
 				<GraphSegment
 					glyph="parent"
 					status={
@@ -2497,7 +2497,7 @@ const BranchlessSegment: FC<{
 					}
 				/>
 			))}
-			<WorkspaceItemRowEmpty className={styles.branchTail}>
+			<WorkspaceItemRowEmpty className={styles.segmentTail}>
 				<GraphSegment
 					glyph="parent"
 					status={commitIsDiverged(bottomCommit) ? "Diverged" : bottomCommit.state.type}
