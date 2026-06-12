@@ -175,11 +175,13 @@ fn handle_dry_run(
             out.write_value(&DryRunResult { branches: vec![] })?;
         }
 
-        writeln!(
-            progress,
-            "{}",
-            t.hint.paint("No branches have unpushed commits.")
-        )?;
+        if let Some(human) = out.for_human() {
+            writeln!(
+                human,
+                "{}",
+                t.hint.paint("No branches have unpushed commits.")
+            )?;
+        }
         return Ok(());
     }
 
@@ -282,15 +284,18 @@ fn handle_dry_run(
         })?;
     }
 
-    // Output human-readable format
-    writeln!(progress)?;
+    let Some(human) = out.for_human() else {
+        return Ok(());
+    };
+
+    writeln!(human)?;
     writeln!(
-        progress,
+        human,
         "{} {}",
         t.important.paint("Dry run:"),
         t.hint.paint("Showing what would be pushed")
     )?;
-    writeln!(progress)?;
+    writeln!(human)?;
 
     // Group branches by stack
     let mut branches_by_stack: std::collections::HashMap<String, Vec<&DryRunBranchInfo>> =
@@ -311,7 +316,7 @@ fn handle_dry_run(
         // Highlight stacked branches (multiple branches in same stack)
         if branches.len() > 1 {
             writeln!(
-                progress,
+                human,
                 "{} {} {}",
                 t.attention.paint("Stack:"),
                 t.local_branch.paint(stack_name),
@@ -344,9 +349,9 @@ fn handle_dry_run(
             let has_next = is_in_stack && !is_last;
 
             if is_in_stack && !is_first {
-                writeln!(progress, "{}", t.hint.paint("│"))?;
+                writeln!(human, "{}", t.hint.paint("│"))?;
             } else {
-                writeln!(progress)?;
+                writeln!(human)?;
             }
 
             // Determine the gutter character
@@ -365,7 +370,7 @@ fn handle_dry_run(
             // Display branch name with stacking indicator and visual line
             if let Some(stacked_on) = &info.stacked_on {
                 writeln!(
-                    progress,
+                    human,
                     "{} {} {} {} {}",
                     t.hint.paint(gutter),
                     t.important.paint("Branch:"),
@@ -375,7 +380,7 @@ fn handle_dry_run(
                 )?;
             } else {
                 writeln!(
-                    progress,
+                    human,
                     "{} {} {}",
                     t.hint.paint(gutter),
                     t.important.paint("Branch:"),
@@ -396,7 +401,7 @@ fn handle_dry_run(
             let line_prefix = if has_next { "│ " } else { "  " };
 
             writeln!(
-                progress,
+                human,
                 "{}  {} {} {}",
                 t.hint.paint(line_prefix),
                 t.success.paint("→"),
@@ -405,7 +410,7 @@ fn handle_dry_run(
                     .paint(format!("{}/{}", info.remote, branch_name))
             )?;
             writeln!(
-                progress,
+                human,
                 "{}  {} {} unpushed commit{}",
                 t.hint.paint(line_prefix),
                 t.hint.paint("Commits:"),
@@ -415,13 +420,13 @@ fn handle_dry_run(
 
             if !info.commits.is_empty() {
                 if is_in_stack {
-                    writeln!(progress, "{}", t.hint.paint(line_prefix))?;
+                    writeln!(human, "{}", t.hint.paint(line_prefix))?;
                 } else {
-                    writeln!(progress)?;
+                    writeln!(human)?;
                 }
                 for commit in &info.commits {
                     writeln!(
-                        progress,
+                        human,
                         "{}    {} {}",
                         t.hint.paint(line_prefix),
                         t.commit_id.paint(&commit.sha_short),
@@ -431,7 +436,7 @@ fn handle_dry_run(
 
                 if info.unpushed_commits > info.commits.len() {
                     writeln!(
-                        progress,
+                        human,
                         "{}    ... and {} more",
                         t.hint.paint(line_prefix),
                         info.unpushed_commits - info.commits.len()
@@ -441,9 +446,9 @@ fn handle_dry_run(
 
             // Show upstream commits if any
             if !info.upstream_commits.is_empty() {
-                writeln!(progress)?;
+                writeln!(human)?;
                 writeln!(
-                    progress,
+                    human,
                     "{}  {} {} {} commit{}",
                     t.hint.paint(line_prefix),
                     t.sym().warning,
@@ -455,10 +460,10 @@ fn handle_dry_run(
                         "s"
                     }
                 )?;
-                writeln!(progress)?;
+                writeln!(human)?;
                 for commit in &info.upstream_commits {
                     writeln!(
-                        progress,
+                        human,
                         "{}    {} {}",
                         t.hint.paint(line_prefix),
                         t.error.paint(&commit.sha_short),
@@ -469,9 +474,9 @@ fn handle_dry_run(
 
             // Show warning if present
             if let Some(warning) = &info.warning {
-                writeln!(progress)?;
+                writeln!(human)?;
                 writeln!(
-                    progress,
+                    human,
                     "{}  {} {}",
                     t.hint.paint(line_prefix),
                     t.sym().warning.error(),
@@ -481,9 +486,9 @@ fn handle_dry_run(
 
             // Show force push indicator
             if info.requires_force {
-                writeln!(progress)?;
+                writeln!(human)?;
                 writeln!(
-                    progress,
+                    human,
                     "{}  {} {}",
                     t.hint.paint(line_prefix),
                     t.sym().lightning,
@@ -492,15 +497,15 @@ fn handle_dry_run(
             }
         }
 
-        writeln!(progress)?;
+        writeln!(human)?;
     }
 
     let total_commits: usize = dry_run_infos.iter().map(|i| i.unpushed_commits).sum();
     let total_branches = dry_run_infos.len();
 
-    writeln!(progress)?;
+    writeln!(human)?;
     writeln!(
-        progress,
+        human,
         "{} Would push {} {} across {} {}",
         t.important.paint("Summary:"),
         t.attention.paint(total_commits.to_string()),
@@ -516,9 +521,9 @@ fn handle_dry_run(
             "branches"
         }
     )?;
-    writeln!(progress)?;
+    writeln!(human)?;
     writeln!(
-        progress,
+        human,
         "{}",
         t.hint.paint("Run without --dry-run to push these changes.")
     )?;
@@ -552,40 +557,41 @@ fn push_single_branch(
 ) -> anyhow::Result<()> {
     let t = theme::get();
     let result = push_single_branch_impl(ctx, perm, branch_name, args, gerrit_mode)?;
-    let mut progress = out.progress_channel();
 
     if let Some(out) = out.for_json() {
         out.write_value(&result)?;
     }
 
-    writeln!(progress)?;
-    writeln!(progress, "{} Push completed successfully", t.sym().success)?;
-    writeln!(progress)?;
-    if !result.branch_sha_updates.is_empty() {
-        let repo = ctx.repo.get()?.clone().for_commit_shortening();
-        let gerrit_review_ref = if gerrit_mode {
-            Some(gerrit_review_ref(ctx, perm, &repo)?)
-        } else {
-            None
-        };
-        for (branch, before_sha, after_sha) in &result.branch_sha_updates {
-            let before_str = if before_sha == "0000000000000000000000000000000000000000" {
-                "(new branch)".to_string()
+    if let Some(human) = out.for_human() {
+        writeln!(human)?;
+        writeln!(human, "{} Push completed successfully", t.sym().success)?;
+        writeln!(human)?;
+        if !result.branch_sha_updates.is_empty() {
+            let repo = ctx.repo.get()?.clone().for_commit_shortening();
+            let gerrit_review_ref = if gerrit_mode {
+                Some(gerrit_review_ref(ctx, perm, &repo)?)
             } else {
-                shorten_hex_object_id(&repo, before_sha)
+                None
             };
-            let after_str = shorten_hex_object_id(&repo, after_sha);
-            let remote_ref =
-                branch_remote_ref_for_display(&result, branch, gerrit_review_ref.as_deref());
+            for (branch, before_sha, after_sha) in &result.branch_sha_updates {
+                let before_str = if before_sha == "0000000000000000000000000000000000000000" {
+                    "(new branch)".to_string()
+                } else {
+                    shorten_hex_object_id(&repo, before_sha)
+                };
+                let after_str = shorten_hex_object_id(&repo, after_sha);
+                let remote_ref =
+                    branch_remote_ref_for_display(&result, branch, gerrit_review_ref.as_deref());
 
-            writeln!(
-                progress,
-                "  {} -> {} ({} -> {})",
-                t.local_branch.paint(branch),
-                t.hint.paint(&remote_ref),
-                t.hint.paint(&before_str),
-                t.commit_id.paint(&after_str)
-            )?;
+                writeln!(
+                    human,
+                    "  {} -> {} ({} -> {})",
+                    t.local_branch.paint(branch),
+                    t.hint.paint(&remote_ref),
+                    t.hint.paint(&before_str),
+                    t.commit_id.paint(&after_str)
+                )?;
+            }
         }
     }
 
@@ -652,11 +658,13 @@ fn push_all_branches(
             out.write_value(&batch_result)?;
         }
 
-        writeln!(
-            progress,
-            "{}",
-            t.hint.paint("No branches have unpushed commits.")
-        )?;
+        if let Some(human) = out.for_human() {
+            writeln!(
+                human,
+                "{}",
+                t.hint.paint("No branches have unpushed commits.")
+            )?;
+        }
         return Ok(false);
     }
 
@@ -712,73 +720,75 @@ fn push_all_branches(
         out.write_value(&batch_result)?;
     }
 
-    writeln!(progress)?;
+    if let Some(human) = out.for_human() {
+        writeln!(human)?;
 
-    if !pushed_results.is_empty() {
-        writeln!(
-            progress,
-            "{} {} {} {}",
-            t.sym().success,
-            t.success.paint("Successfully pushed"),
-            t.attention.paint(total_commits_pushed.to_string()),
-            if total_commits_pushed == 1 {
-                "commit"
-            } else {
-                "commits"
-            }
-        )?;
-        writeln!(progress)?;
-
-        // Print combined branch, remote, and SHA information for all pushed branches
-        let repo = ctx.repo.get()?.clone().for_commit_shortening();
-        let gerrit_review_ref = if gerrit_mode {
-            Some(gerrit_review_ref(ctx, perm, &repo)?)
-        } else {
-            None
-        };
-        for result in &pushed_results {
-            for (branch, before_sha, after_sha) in &result.branch_sha_updates {
-                let before_str = if before_sha == "0000000000000000000000000000000000000000" {
-                    "(new branch)".to_string()
+        if !pushed_results.is_empty() {
+            writeln!(
+                human,
+                "{} {} {} {}",
+                t.sym().success,
+                t.success.paint("Successfully pushed"),
+                t.attention.paint(total_commits_pushed.to_string()),
+                if total_commits_pushed == 1 {
+                    "commit"
                 } else {
-                    shorten_hex_object_id(&repo, before_sha)
-                };
-                let after_str = shorten_hex_object_id(&repo, after_sha);
-                let remote_ref =
-                    branch_remote_ref_for_display(result, branch, gerrit_review_ref.as_deref());
+                    "commits"
+                }
+            )?;
+            writeln!(human)?;
 
-                writeln!(
-                    progress,
-                    "  {} -> {} ({} -> {})",
-                    t.local_branch.paint(branch),
-                    t.hint.paint(&remote_ref),
-                    t.hint.paint(&before_str),
-                    t.commit_id.paint(&after_str)
-                )?;
+            // Print combined branch, remote, and SHA information for all pushed branches
+            let repo = ctx.repo.get()?.clone().for_commit_shortening();
+            let gerrit_review_ref = if gerrit_mode {
+                Some(gerrit_review_ref(ctx, perm, &repo)?)
+            } else {
+                None
+            };
+            for result in &pushed_results {
+                for (branch, before_sha, after_sha) in &result.branch_sha_updates {
+                    let before_str = if before_sha == "0000000000000000000000000000000000000000" {
+                        "(new branch)".to_string()
+                    } else {
+                        shorten_hex_object_id(&repo, before_sha)
+                    };
+                    let after_str = shorten_hex_object_id(&repo, after_sha);
+                    let remote_ref =
+                        branch_remote_ref_for_display(result, branch, gerrit_review_ref.as_deref());
+
+                    writeln!(
+                        human,
+                        "  {} -> {} ({} -> {})",
+                        t.local_branch.paint(branch),
+                        t.hint.paint(&remote_ref),
+                        t.hint.paint(&before_str),
+                        t.commit_id.paint(&after_str)
+                    )?;
+                }
             }
         }
-    }
 
-    if !failed_branches.is_empty() {
-        writeln!(progress)?;
-        writeln!(
-            progress,
-            "{} Failed to push {} {}:",
-            t.sym().error,
-            t.error.paint(failed_branches.len().to_string()),
-            if failed_branches.len() == 1 {
-                "branch"
-            } else {
-                "branches"
-            }
-        )?;
-        for failed in &failed_branches {
+        if !failed_branches.is_empty() {
+            writeln!(human)?;
             writeln!(
-                progress,
-                "    {} - {}",
-                t.error.paint(&failed.branch_name),
-                t.hint.paint(&failed.error)
+                human,
+                "{} Failed to push {} {}:",
+                t.sym().error,
+                t.error.paint(failed_branches.len().to_string()),
+                if failed_branches.len() == 1 {
+                    "branch"
+                } else {
+                    "branches"
+                }
             )?;
+            for failed in &failed_branches {
+                writeln!(
+                    human,
+                    "    {} - {}",
+                    t.error.paint(&failed.branch_name),
+                    t.hint.paint(&failed.error)
+                )?;
+            }
         }
     }
 

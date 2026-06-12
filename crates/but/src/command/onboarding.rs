@@ -38,8 +38,8 @@ pub fn handle(out: &mut OutputChannel) -> Result<()> {
         tracing::warn!(?err, "Failed to persist onboarding status");
     }
 
-    // Show the metrics info message (only for human output)
-    if let Some(human_out) = out.for_human() {
+    // Show the metrics info message only for interactive human UI output.
+    if let Some(human_out) = out.for_human_ui() {
         std::fmt::Write::write_str(
             human_out,
             "GitButler uses metrics to help us know what is useful and improve it. Configure with `but config metrics`.\n",

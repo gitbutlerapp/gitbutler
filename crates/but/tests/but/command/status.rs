@@ -51,7 +51,7 @@ fn unborn() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Setup required: No GitButler project found at .
+Error: Setup required: No GitButler project found at . - run `but setup` to configure the project
 
 "#]]);
     Ok(())
@@ -67,7 +67,7 @@ fn first_commit_no_workspace() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Setup required: No GitButler project found at .
+Error: Setup required: No GitButler project found at . - run `but setup` to configure the project
 
 "#]]);
 

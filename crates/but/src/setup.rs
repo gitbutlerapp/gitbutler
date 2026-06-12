@@ -73,14 +73,14 @@ pub(crate) struct InitCtxOptions {
 ///
 /// When `background_sync` is `BackgroundSync::Enabled`, a background sync is initiated if:
 /// - The fetch interval is positive (negative or zero disables background sync)
-/// - The output format is for human consumption (not JSON or shell)
+/// - The output format renders human-readable text (human or agent)
 /// - Either no previous sync exists, or the elapsed time since the last sync
 ///   exceeds the configured interval
 ///
-/// When a background sync is initiated, a human-readable message is written to the output
-/// channel showing how long ago the last sync occurred (e.g., "Last fetch was 15m ago.
-/// Initiated a background fetch..."). The time is formatted as seconds (s), minutes (m),
-/// hours (h), or days (d) depending on the elapsed duration.
+/// When a background sync is initiated and the output format allows human UI messages, a
+/// message is written to the output channel showing how long ago the last sync occurred
+/// (e.g., "Last fetch was 15m ago. Initiated a background fetch..."). The time is formatted
+/// as seconds (s), minutes (m), hours (h), or days (d) depending on the elapsed duration.
 ///
 /// When `background_sync` is `BackgroundSync::Disabled`, no background sync is performed
 /// regardless of the configured interval.
@@ -139,7 +139,9 @@ pub fn init_ctx(
                             })?
                         }
                         SetupPromptResult::Declined => {
-                            anyhow::bail!("Setup required: {message}");
+                            anyhow::bail!(
+                                "Setup required: {message} - run `but setup` to configure the project"
+                            );
                         }
                     }
                 }
@@ -171,7 +173,9 @@ pub fn init_ctx(
                             check_project_setup(&ctx, guard.read_permission())?;
                         }
                         SetupPromptResult::Declined => {
-                            anyhow::bail!("Setup required: {message}");
+                            anyhow::bail!(
+                                "Setup required: {message} - run `but setup` to configure the project"
+                            );
                         }
                     }
                 }
@@ -197,7 +201,7 @@ pub fn init_ctx(
     };
 
     // If this is the first time running GitButler, show a metrics info message and update onboarding status
-    if !ctx.settings.onboarding_complete && out.for_human().is_some() {
+    if !ctx.settings.onboarding_complete && out.format().allows_human_ui() {
         crate::command::onboarding::handle(out)?;
     }
 
@@ -211,8 +215,9 @@ pub fn init_ctx(
                 return Ok(ctx);
             }
 
-            // Background sync only done for human output
-            if !matches!(out.format(), crate::args::OutputFormat::Human) {
+            // Background sync is a data side effect wanted for human and agent sessions
+            // alike; only the ambient message is a human UI affordance.
+            if !out.format().is_human_text() {
                 return Ok(ctx);
             }
 
@@ -222,6 +227,7 @@ pub fn init_ctx(
 
             // Spawn background sync if there's anything to do
             if sync_operations.has_work() {
+                let silent = silent || !out.format().allows_human_ui();
                 spawn_background_sync(args, out, last_fetch, sync_operations, silent);
             }
         }
@@ -407,7 +413,7 @@ fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult
     use std::fmt::Write;
     let mut progress = out.progress_channel();
 
-    // Progress channel only writes when output is for humans, so we can write unconditionally
+    // Progress channel only writes when the output format allows progress, so we can write unconditionally.
     _ = writeln!(
         progress,
         "The current project is not configured to be managed by GitButler.\n"
@@ -415,9 +421,7 @@ fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult
     writeln!(progress, "{}\n", theme::get().error.paint(message)).ok();
 
     // Check if we have an interactive terminal and prompt the user
-    let user_declined_in_interactive_mode = if let Some(mut inout) =
-        out.prepare_for_terminal_input()
-    {
+    if let Some(mut inout) = out.prepare_for_terminal_input() {
         _ = writeln!(
             progress,
             "In order to manage projects with GitButler, we need to do some changes:\n\n - Switch you to a special `gitbutler/workspace` branch to enable parallel branches\n - Install Git hooks to help manage the tooling\n\nYou can go back to normal git workflows at any time by either:\n\n - Running `but teardown`\n - Manually checking out a normal branch with `git checkout <branch>`\n",
@@ -428,40 +432,18 @@ fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult
         {
             return SetupPromptResult::RunSetup;
         }
-        // User declined
-        true // indicates interactive terminal was available
-    } else {
-        false // non-interactive
-    };
-
-    // Now handle the declined/non-interactive cases with a fresh borrow
-    if user_declined_in_interactive_mode {
-        // User declined in interactive mode
-        _ = writeln!(
-            progress,
-            "{}",
-            theme::get()
-                .attention
-                .paint("Please run `but setup` to switch to GitButler management.\n")
-        );
     }
 
+    // The declined/non-interactive cases end in the caller's "Setup required" error,
+    // which carries the `but setup` remediation for every format; JSON additionally
+    // gets it as a structured value.
     if let Some(json_out) = out.for_json() {
         _ = json_out.write_value(serde_json::json!({
             "error": "setup_required",
             "message": message.to_string(),
             "hint": "run `but setup` to configure the project"
         }));
-    } else if out.for_human().is_some() && !user_declined_in_interactive_mode {
-        // Non-interactive terminal, just show the hint
-        _ = writeln!(
-            progress,
-            "{}",
-            theme::get()
-                .attention
-                .paint("Please run `but setup` to switch to GitButler management.\n")
-        );
-    };
+    }
     SetupPromptResult::Declined
 }
 
@@ -491,7 +473,7 @@ fn check_workspace_commits_before_init(
 
     // If the first line is NOT a workspace commit, someone has committed on top
     if !first_line.starts_with("GitButler Workspace Commit") {
-        if let Some(writer) = out.for_human() {
+        if let Some(writer) = out.for_human_ui() {
             writeln!(writer)?;
             writeln!(
                 writer,

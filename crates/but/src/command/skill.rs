@@ -1082,16 +1082,18 @@ fn install_skill(
 
     // Check if files already exist and warn user
     let skill_md_path = install_path.join("SKILL.md");
-    if skill_md_path.exists() {
-        writeln!(progress)?;
+    if skill_md_path.exists()
+        && let Some(writer) = out.for_human()
+    {
+        writeln!(writer)?;
         writeln!(
-            progress,
+            writer,
             "{} Skill files already exist at {}",
             t.sym().warning,
             t.config_value.paint(install_path.display().to_string())
         )?;
-        writeln!(progress, "  Overwriting existing files...")?;
-        writeln!(progress)?;
+        writeln!(writer, "  Overwriting existing files...")?;
+        writeln!(writer)?;
     }
 
     // Prepare all content before writing (validate UTF-8 and inject version)
@@ -1119,25 +1121,26 @@ fn install_skill(
         write_skill_file(&file_path, content, file.display_name)?;
     }
 
-    // Output success message
-    writeln!(progress)?;
-    writeln!(
-        progress,
-        "{} GitButler skill installed successfully!",
-        t.sym().success
-    )?;
-    writeln!(progress)?;
-    writeln!(
-        progress,
-        "  Location: {}",
-        t.config_value.paint(install_path.display().to_string())
-    )?;
-    writeln!(progress)?;
-    writeln!(progress, "  Files installed:")?;
-    for file in SKILL_FILES {
-        writeln!(progress, "    • {}", file.display_path())?;
+    if let Some(writer) = out.for_human() {
+        writeln!(writer)?;
+        writeln!(
+            writer,
+            "{} GitButler skill installed successfully!",
+            t.sym().success
+        )?;
+        writeln!(writer)?;
+        writeln!(
+            writer,
+            "  Location: {}",
+            t.config_value.paint(install_path.display().to_string())
+        )?;
+        writeln!(writer)?;
+        writeln!(writer, "  Files installed:")?;
+        for file in SKILL_FILES {
+            writeln!(writer, "    • {}", file.display_path())?;
+        }
+        writeln!(writer)?;
     }
-    writeln!(progress)?;
 
     if let Some(out) = out.for_json() {
         let file_paths: Vec<String> = SKILL_FILES.iter().map(|f| f.display_path()).collect();

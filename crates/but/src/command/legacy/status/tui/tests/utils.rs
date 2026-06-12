@@ -55,7 +55,7 @@ pub(super) fn test_tui_with_size(env: Sandbox, width: u16, height: u16) -> TestT
     let mode = but_api::legacy::modes::operating_mode(&ctx)
         .expect("failed to get operating mode")
         .operating_mode;
-    let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
+    let mut out = OutputChannel::new(OutputFormat::Human);
 
     let flags = StatusFlags::all_false();
     let options = TuiLaunchOptions {

@@ -210,6 +210,7 @@ pub fn list(
         None
     };
 
+    let allow_truncation = out.format().allows_truncation();
     if let Some(out) = out.for_json() {
         output_json(
             &applied_stacks,
@@ -231,6 +232,7 @@ pub fn list(
                 ctx,
                 commits_ahead_map.as_ref(),
                 merge_status_map.as_ref(),
+                allow_truncation,
                 out,
             )?;
         }
@@ -246,6 +248,7 @@ pub fn list(
                 &branch_review_map,
                 commits_ahead_map.as_ref(),
                 merge_status_map.as_ref(),
+                allow_truncation,
                 out,
             )?;
         }
@@ -552,6 +555,7 @@ fn print_applied_branches_table(
     ctx: &Context,
     commits_ahead_map: Option<&HashMap<String, usize>>,
     merge_status_map: Option<&HashMap<String, bool>>,
+    allow_truncation: bool,
     out: &mut (dyn std::fmt::Write + 'static),
 ) -> Result<(), anyhow::Error> {
     use crate::tui::{Table, table::Cell};
@@ -576,7 +580,7 @@ fn print_applied_branches_table(
         Cell::new("AUTHOR"),
     ];
 
-    let mut table = Table::new(headers);
+    let mut table = Table::new(headers).with_truncation(allow_truncation);
 
     for stack in applied_stacks {
         let first_branch = stack.branches.first();
@@ -686,6 +690,7 @@ fn print_branches_table(
     branch_review_map: &HashMap<String, Vec<but_forge::ForgeReview>>,
     commits_ahead_map: Option<&HashMap<String, usize>>,
     merge_status_map: Option<&HashMap<String, bool>>,
+    allow_truncation: bool,
     out: &mut (dyn std::fmt::Write + 'static),
 ) -> Result<(), anyhow::Error> {
     use crate::tui::{Table, table::Cell};
@@ -706,7 +711,7 @@ fn print_branches_table(
         Cell::new("AUTHOR"),
     ];
 
-    let mut table = Table::new(headers);
+    let mut table = Table::new(headers).with_truncation(allow_truncation);
 
     for branch in branches {
         // Ahead column

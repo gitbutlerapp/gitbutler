@@ -144,8 +144,8 @@ pub fn find_or_initialize_repo(
                 }
                 Ok(repo)
             }
-            // If for humans, try to set up a new repo interactively
-            else if out.for_human().is_some() {
+            // If prompting is available, try to set up a new repo interactively.
+            else if out.can_prompt() {
                 match setup_new_repo(repo_path, out) {
                     Ok(repo) => Ok(repo),
                     Err(e) => {
@@ -163,7 +163,9 @@ pub fn find_or_initialize_repo(
                     }
                 }
             } else {
-                anyhow::bail!("No git repository found.");
+                anyhow::bail!(
+                    "No git repository found - run `but setup --init` to initialize a new repository."
+                );
             }
         }
     }

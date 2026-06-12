@@ -4,7 +4,7 @@ use strum::IntoEnumIterator as _;
 use crate::args::{Args, SubcommandDiscriminant};
 use crate::theme::{self, Paint};
 use crate::tui::text::{terminal_width, truncate_text};
-use crate::utils::envs;
+use crate::utils::{OutputChannel, envs};
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, strum::EnumIter)]
 enum Group {
@@ -31,10 +31,23 @@ impl std::fmt::Display for Group {
     }
 }
 
-pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
+pub fn print_grouped(out: &mut OutputChannel) -> std::fmt::Result {
+    let allow_truncation = out.format().allows_truncation();
+    print_grouped_with_truncation(out, allow_truncation)
+}
+
+fn print_grouped_with_truncation(
+    out: &mut dyn std::fmt::Write,
+    allow_truncation: bool,
+) -> std::fmt::Result {
     use clap::CommandFactory;
 
-    let terminal_width = terminal_width();
+    // Without truncation, an effectively infinite width makes truncate_text a no-op.
+    let terminal_width = if allow_truncation {
+        terminal_width()
+    } else {
+        usize::MAX
+    };
 
     let cmd = Args::command();
     let clap_subcommands: Vec<_> = cmd.get_subcommands().collect();
@@ -252,7 +265,7 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
         ),
         (
             "      --format <FORMAT>",
-            "   Explicitly control how output should be formatted [possible values: human, shell, json, none]",
+            "   Explicitly control how output should be formatted [possible values: human, agent, shell, json, none]",
         ),
         ("  -h, --help", "              Print help"),
     ];
@@ -283,7 +296,7 @@ mod tests {
     #[cfg(feature = "legacy")]
     fn test_print_grouped() {
         let mut buf = String::new();
-        super::print_grouped(&mut buf).unwrap();
+        super::print_grouped_with_truncation(&mut buf, true).unwrap();
 
         snapbox::assert_data_eq!(
             // test without color because it doesn't work consistently on ci
@@ -369,10 +382,29 @@ Environment variables:
     }
 
     #[test]
+    #[cfg(feature = "legacy")]
+    fn print_grouped_keeps_full_descriptions_when_truncation_is_disabled() {
+        let mut buf = String::new();
+        super::print_grouped_with_truncation(&mut buf, false).unwrap();
+        let output = strip_ansi_codes(&buf);
+
+        assert!(
+            output.contains(
+                "Cherry-pick a commit from an unapplied branch into an applied virtual branch."
+            ),
+            "agent help should keep the full command description"
+        );
+        assert!(
+            output.contains("possible values: human, agent, shell, json, none"),
+            "manual format help should include agent"
+        );
+    }
+
+    #[test]
     #[cfg(not(feature = "legacy"))]
     fn test_print_grouped() {
         let mut buf = String::new();
-        super::print_grouped(&mut buf).unwrap();
+        super::print_grouped_with_truncation(&mut buf, true).unwrap();
 
         snapbox::assert_data_eq!(
             // test without color because it doesn't work consistently on ci

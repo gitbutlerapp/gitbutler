@@ -166,28 +166,33 @@ fn show_status_impl(
         return show_workflow_help(out);
     }
 
-    let mut progress = out.progress_channel();
-
-    writeln!(
-        progress,
-        "{}\n - resolve all conflicts \n - finalize with {} \n - OR cancel with {}\n",
-        t.important
-            .paint("You are currently in conflict resolution mode."),
-        t.success.paint("but resolve finish"),
-        t.error.paint("but resolve cancel")
-    )?;
+    // The resolution state is the command's result, so it goes to stdout for human
+    // and agent output alike; only the finalize prompt below is terminal-gated.
+    if let Some(human_out) = out.for_human() {
+        writeln!(
+            human_out,
+            "{}\n - resolve all conflicts \n - finalize with {} \n - OR cancel with {}\n",
+            t.important
+                .paint("You are currently in conflict resolution mode."),
+            t.success.paint("but resolve finish"),
+            t.error.paint("but resolve cancel")
+        )?;
+    }
 
     let all_resolved = show_conflicted_files(ctx, out)?;
 
     // If all conflicts are resolved and we're in human mode, offer to finalize
     if all_resolved && prompt_to_finalize {
-        writeln!(progress)?;
-        writeln!(
-            progress,
-            "{}",
-            t.success.paint("All conflicts have been resolved!")
-        )?;
+        if let Some(human_out) = out.for_human() {
+            writeln!(human_out)?;
+            writeln!(
+                human_out,
+                "{}",
+                t.success.paint("All conflicts have been resolved!")
+            )?;
+        }
 
+        let mut progress = out.progress_channel();
         let should_finalize = if let Some(mut inout) = out.prepare_for_terminal_input() {
             if inout.confirm("Finalize the resolution now?", ConfirmDefault::Yes)? == Confirm::Yes {
                 writeln!(progress)?;
@@ -250,46 +255,39 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
         }
     }
 
-    let mut progress = out.progress_channel();
-
     let all_resolved = still_conflicted.is_empty();
 
-    if all_resolved {
-        writeln!(
-            progress,
-            "{}",
-            t.success.paint("No conflicted files remaining!")
-        )?;
-        if !resolved.is_empty() {
-            writeln!(progress, "{} resolved:", t.success.paint("Files"))?;
-            for change in &resolved {
+    // The conflicted/resolved listing is the command's result, shown to humans and agents alike.
+    if let Some(human_out) = out.for_human() {
+        if all_resolved {
+            writeln!(
+                human_out,
+                "{}",
+                t.success.paint("No conflicted files remaining!")
+            )?;
+        } else {
+            writeln!(
+                human_out,
+                "{}:",
+                t.attention.paint("Conflicted files remaining")
+            )?;
+            for change in &still_conflicted {
                 writeln!(
-                    progress,
+                    human_out,
                     "  {} {}",
-                    t.sym().success,
-                    t.success.paint(change.path.to_str_lossy())
+                    t.sym().error,
+                    t.attention.paint(change.path.to_str_lossy())
                 )?;
             }
         }
-    } else {
-        writeln!(
-            progress,
-            "{}:",
-            t.attention.paint("Conflicted files remaining")
-        )?;
-        for change in &still_conflicted {
-            writeln!(
-                progress,
-                "  {} {}",
-                t.sym().error,
-                t.attention.paint(change.path.to_str_lossy())
-            )?;
-        }
         if !resolved.is_empty() {
-            writeln!(progress, "\n{} resolved:", t.success.paint("Files"))?;
+            if !all_resolved {
+                writeln!(human_out)?;
+            }
+            writeln!(human_out, "{} resolved:", t.success.paint("Files"))?;
             for change in &resolved {
                 writeln!(
-                    progress,
+                    human_out,
                     "  {} {}",
                     t.sym().success,
                     t.success.paint(change.path.to_str_lossy())
@@ -555,72 +553,7 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
         return show_workflow_help(out);
     }
 
-    let mut progress = out.progress_channel();
-
-    // We have conflicts - show them grouped by branch
-    if out.for_human().is_some() {
-        writeln!(
-            progress,
-            "{}",
-            t.attention.paint("Found conflicted commits:")
-        )?;
-        writeln!(progress)?;
-
-        let mut all_commits: Vec<&ConflictedCommit> = vec![];
-
-        for (branch_name, commits) in &conflicts_by_branch {
-            writeln!(
-                progress,
-                "{} {}",
-                t.important.paint("Branch:"),
-                t.local_branch.paint(branch_name)
-            )?;
-            for commit in commits {
-                writeln!(
-                    progress,
-                    "  {} {} {}",
-                    t.sym().dot.error(),
-                    t.hint.paint(&commit.commit_short_id),
-                    commit.commit_message
-                )?;
-                all_commits.push(commit);
-            }
-            writeln!(progress)?;
-        }
-
-        // Prompt user to select a commit to resolve
-        writeln!(
-            progress,
-            "{}",
-            t.important
-                .paint("Would you like to start resolving these conflicts?")
-        )?;
-
-        // Find the bottom-most commit (first in topological order) on the first branch
-        let default_commit = all_commits.first();
-
-        // Interactive prompting only for human output mode with terminal
-        let commit_id_to_resolve = if let Some((mut inout, default)) =
-            out.prepare_for_terminal_input().zip(default_commit)
-        {
-            inout
-                .prompt(format!(
-                    "Enter commit ID to resolve [default: {}]",
-                    t.commit_id.paint(&default.commit_short_id)
-                ))?
-                .unwrap_or_else(|| default.commit_short_id.clone())
-                .into()
-        } else {
-            None
-        };
-
-        if let Some(commit_id_to_resolve) = commit_id_to_resolve {
-            // Enter resolution mode for the selected commit
-            writeln!(progress)?;
-            return enter_resolution(ctx, out, &commit_id_to_resolve);
-        }
-    } else if let Some(json_out) = out.for_json() {
-        // JSON output mode
+    if let Some(json_out) = out.for_json() {
         let mut json_conflicts = serde_json::Map::new();
 
         for (branch_name, commits) in &conflicts_by_branch {
@@ -642,6 +575,78 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
             "conflicted_commits_by_branch": json_conflicts,
             "total_conflicted_commits": conflicts_by_branch.values().map(|v| v.len()).sum::<usize>(),
         }))?;
+        return Ok(());
+    }
+
+    // We have conflicts - show them grouped by branch. The listing is the command's
+    // result, so it goes to stdout for human and agent output alike; only the prompt
+    // below is gated on an interactive terminal.
+    if let Some(human_out) = out.for_human() {
+        writeln!(
+            human_out,
+            "{}",
+            t.attention.paint("Found conflicted commits:")
+        )?;
+        writeln!(human_out)?;
+
+        for (branch_name, commits) in &conflicts_by_branch {
+            writeln!(
+                human_out,
+                "{} {}",
+                t.important.paint("Branch:"),
+                t.local_branch.paint(branch_name)
+            )?;
+            for commit in commits {
+                writeln!(
+                    human_out,
+                    "  {} {} {}",
+                    t.sym().dot.error(),
+                    t.hint.paint(&commit.commit_short_id),
+                    commit.commit_message
+                )?;
+            }
+            writeln!(human_out)?;
+        }
+    }
+
+    // The bottom-most commit (first in topological order) on the first branch
+    let default_commit = conflicts_by_branch.values().flatten().next();
+
+    // Interactive prompting only for human output mode with terminal
+    let commit_id_to_resolve =
+        if let Some((mut inout, default)) = out.prepare_for_terminal_input().zip(default_commit) {
+            // Prompt user to select a commit to resolve
+            writeln!(
+                inout,
+                "{}",
+                t.important
+                    .paint("Would you like to start resolving these conflicts?")
+            )?;
+            inout
+                .prompt(format!(
+                    "Enter commit ID to resolve [default: {}]",
+                    t.commit_id.paint(&default.commit_short_id)
+                ))?
+                .unwrap_or_else(|| default.commit_short_id.clone())
+                .into()
+        } else {
+            None
+        };
+
+    if let Some(commit_id_to_resolve) = commit_id_to_resolve {
+        // Enter resolution mode for the selected commit
+        let mut progress = out.progress_channel();
+        writeln!(progress)?;
+        return enter_resolution(ctx, out, &commit_id_to_resolve);
+    }
+
+    if let Some(human_out) = out.for_human() {
+        writeln!(
+            human_out,
+            "{}",
+            t.hint
+                .paint("Run `but resolve <commit-id>` to start resolving a commit.")
+        )?;
     }
 
     Ok(())

@@ -61,7 +61,7 @@ pub struct OutputFormatArg {
     /// If unset and from a terminal, it defaults to human output, when redirected it's for shells.
     #[clap(
         long,
-        env = "BUT_OUTPUT_FORMAT",
+        env = crate::utils::envs::BUT_OUTPUT_FORMAT,
         default_value = "human",
         global = true
     )]
@@ -74,6 +74,8 @@ pub enum OutputFormat {
     /// The output to write is supposed to be for human consumption, and can be more verbose.
     #[default]
     Human,
+    /// The output is for an AI coding agent, rendered as human-readable text.
+    Agent,
     /// The output should be suitable for shells, and assigning the major result to variables so that it can be reused
     /// in subsequent CLI invocations.
     Shell,
@@ -81,6 +83,33 @@ pub enum OutputFormat {
     Json,
     /// Do not output anything, like redirecting to `/dev/null`.
     None,
+}
+
+impl OutputFormat {
+    /// Whether this format renders human-readable text.
+    pub fn is_human_text(self) -> bool {
+        matches!(self, Self::Human | Self::Agent)
+    }
+
+    /// Whether this format renders plain text.
+    pub fn is_text(self) -> bool {
+        self.is_human_text() || matches!(self, Self::Shell)
+    }
+
+    /// Whether this format may truncate long text when output is not paged.
+    pub fn allows_truncation(self) -> bool {
+        matches!(self, Self::Human | Self::Shell)
+    }
+
+    /// Whether this format may use human terminal UI affordances like pagers, progress, prompts, or ambient messages.
+    pub fn allows_human_ui(self) -> bool {
+        matches!(self, Self::Human)
+    }
+
+    /// Whether this format writes JSON values.
+    pub fn is_json(self) -> bool {
+        matches!(self, Self::Json)
+    }
 }
 
 #[derive(

@@ -51,20 +51,20 @@ pub struct OutputChannel {
 }
 
 /// A channel that implements [`std::io::Write`], to make unbuffered writes to [`std::io::stderr`]
-/// if the error channel is connected to a terminal and the output format is for humans,
+/// if the error channel is connected to a terminal and the output format permits progress,
 /// for providing progress or error information.
 /// Broken pipes will also be ignored, thus the output written to this channel should be considered optional.
 pub struct ProgressChannel {
-    /// The channel writes will go to, if we are connected to a terminal and output is for humans.
+    /// The channel writes will go to, if we are connected to a terminal and progress is enabled.
     inner: Option<std::io::Stderr>,
 }
 
 impl ProgressChannel {
-    /// Create a new progress channel that writes to stderr if it's a terminal and `for_humans` is true.
-    /// If `for_humans` is false, the channel becomes a no-op.
-    pub fn new(for_humans: bool) -> Self {
+    /// Create a new progress channel that writes to stderr if it's a terminal and progress is enabled.
+    /// If progress is disabled, the channel becomes a no-op.
+    pub fn new(progress_enabled: bool) -> Self {
         ProgressChannel {
-            inner: if for_humans {
+            inner: if progress_enabled {
                 let stderr = std::io::stderr();
                 stderr.is_terminal().then_some(stderr)
             } else {
@@ -110,6 +110,10 @@ fn ignore_broken_pipe(err: std::io::Error) -> std::io::Result<()> {
     }
 }
 
+fn ignore_broken_pipe_for_fmt(err: std::io::Error) -> std::fmt::Result {
+    ignore_broken_pipe(err).map_err(|_| std::fmt::Error)
+}
+
 /// Access
 impl OutputChannel {
     /// Get the output format setting.
@@ -120,7 +124,8 @@ impl OutputChannel {
 
 /// An [`std::fmt::Write`] implementation that supports additional utility methods for output formatting.
 pub trait WriteWithUtils: std::fmt::Write + 'static {
-    /// Truncate the given text to the specified maximum width, unless the output is passed through a pager.
+    /// Truncate the given text to the specified maximum width, unless the output is passed through a pager
+    /// or the output format opts out of truncation.
     ///
     /// Note that while copy-on-write is used internally, the returned value is always owned as it's typically
     /// used with coloring, and that always copies the string.
@@ -134,7 +139,7 @@ pub trait WriteWithUtils: std::fmt::Write + 'static {
 
 impl WriteWithUtils for OutputChannel {
     fn truncate_if_unpaged(&self, text: &str, max_width: usize) -> String {
-        if self.pager.is_some() {
+        if self.pager.is_some() || !self.format.allows_truncation() {
             text.to_owned()
         } else {
             crate::tui::text::truncate_text(text, max_width).into_owned()
@@ -148,46 +153,59 @@ impl WriteWithUtils for OutputChannel {
 
 /// Output
 impl OutputChannel {
-    /// Provide a write implementation for humans, if the format setting permits.
+    /// Provide a write implementation for human-readable text, if the format setting permits.
+    ///
+    /// This is `Some` for both human and agent output. Route terminal-only ambient messages
+    /// through [`Self::for_human_ui`] instead, so agents don't receive them.
     pub fn for_human(&mut self) -> Option<&mut dyn WriteWithUtils> {
-        matches!(self.format, OutputFormat::Human).then(|| self as &mut dyn WriteWithUtils)
+        self.format
+            .is_human_text()
+            .then_some(self as &mut dyn WriteWithUtils)
+    }
+    /// Provide a write implementation for ambient human UI messages, if the format setting permits them.
+    ///
+    /// Unlike [`Self::for_human`], this excludes agent output, which receives results as
+    /// human-readable text but without ambient UI messages.
+    pub fn for_human_ui(&mut self) -> Option<&mut dyn WriteWithUtils> {
+        self.format
+            .allows_human_ui()
+            .then_some(self as &mut dyn WriteWithUtils)
     }
     /// Provide a write implementation for Shell output, if the format setting permits.
     pub fn for_shell(&mut self) -> Option<&mut dyn WriteWithUtils> {
-        matches!(self.format, OutputFormat::Shell).then(|| self as &mut dyn WriteWithUtils)
+        matches!(self.format, OutputFormat::Shell).then_some(self as &mut dyn WriteWithUtils)
     }
     /// Provide a write implementation for text output (human or shell), if the format setting permits.
     pub fn for_human_or_shell(&mut self) -> Option<&mut dyn WriteWithUtils> {
-        matches!(self.format, OutputFormat::Human | OutputFormat::Shell)
-            .then(|| self as &mut dyn WriteWithUtils)
+        self.format
+            .is_text()
+            .then_some(self as &mut dyn WriteWithUtils)
     }
     /// Provide a handle to receive a serde-serializable value to write to stdout.
     pub fn for_json(&mut self) -> Option<&mut Self> {
-        matches!(self.format, OutputFormat::Json).then_some(self)
+        self.format.is_json().then_some(self)
     }
 
-    /// A convenience function to create a progress channel that only writes when the output is for humans.
-    /// The progress channel writes to stderr if it's a terminal and the output format is [`OutputFormat::Human`].
+    /// A convenience function to create a progress channel that only writes when the output format permits progress.
+    /// The progress channel writes to stderr if it's a terminal and the output format permits progress.
     pub fn progress_channel(&self) -> ProgressChannel {
-        ProgressChannel::new(matches!(self.format, OutputFormat::Human))
+        ProgressChannel::new(self.format.allows_human_ui())
     }
 }
 
 /// User input
 impl OutputChannel {
     /// Return `true` if external prompt support like [`Selection`](cli_prompts::prompts::Selection) can be used,
-    /// *and* the output is meant *for humans*.
+    /// and the output format permits prompts.
     ///
     /// Note that this is implied to be true if [Self::prepare_for_terminal_input()] returns `Some()`.
     pub fn can_prompt(&self) -> bool {
-        matches!(self.format, OutputFormat::Human)
-            && std::io::stdin().is_terminal()
-            && self.stdout.is_terminal()
+        self.format.allows_human_ui() && std::io::stdin().is_terminal() && self.stdout.is_terminal()
     }
 
     /// Before performing further output, obtain an input channel which always bypasses the pager when writing,
     /// while allowing prompting the user for input.
-    /// If `None` is returned, terminal input isn't available or the output isn't meant for humans,
+    /// If `None` is returned, terminal input isn't available or the output format does not permit prompts,
     /// and the caller should suggest to use command-line arguments to unambiguously specify an operation.
     pub fn prepare_for_terminal_input(&mut self) -> Option<InputOutputChannel<'_>> {
         use std::io::IsTerminal;
@@ -195,9 +213,9 @@ impl OutputChannel {
         if !stdin.is_terminal() || !self.stdout.is_terminal() {
             return None;
         }
-        if self.for_human().is_none() {
+        if !self.format.allows_human_ui() {
             tracing::warn!(
-                "Stdin is a terminal, and output wasn't configured for human consumption"
+                "Stdin is a terminal, and output wasn't configured for interactive prompts"
             );
             return None;
         }
@@ -240,7 +258,7 @@ impl OutputChannel {
     /// begins buffering so mutation output can be captured and later
     /// combined with workspace status.
     pub fn begin_status_after(&mut self, status_after: bool) {
-        if status_after && matches!(self.format, OutputFormat::Json) {
+        if status_after && self.format.is_json() {
             self.start_json_buffering();
         }
     }
@@ -252,48 +270,25 @@ impl OutputChannel {
 
     /// Returns `true` if output is in JSON mode.
     pub fn is_json(&self) -> bool {
-        matches!(self.format, OutputFormat::Json)
+        self.format.is_json()
     }
 }
 
 impl std::fmt::Write for OutputChannel {
     fn write_str(&mut self, s: &str) -> std::fmt::Result {
         use std::io::Write;
-        match self.format {
-            OutputFormat::Human | OutputFormat::Shell => {
-                match self.pager.as_mut() {
-                    Some(Pager::Builtin(pager)) => pager.write_str(s),
-                    Some(Pager::External(_, stdin)) => {
-                        stdin.write_all(s.as_bytes()).or_else(|err| {
-                            if err.kind() == std::io::ErrorKind::BrokenPipe {
-                                // Ignore broken pipes and keep writing.
-                                // This allows the caller to use `?` without having to think
-                                // about ignoring errors selectively.
-                                Ok(())
-                            } else {
-                                Err(std::fmt::Error)
-                            }
-                        })
-                    }
-                    None => {
-                        self.stdout.write_all(s.as_bytes()).or_else(|err| {
-                            if err.kind() == std::io::ErrorKind::BrokenPipe {
-                                // Ignore broken pipes and keep writing.
-                                // This allows the caller to use `?` without having to think
-                                // about ignoring errors selectively.
-                                Ok(())
-                            } else {
-                                Err(std::fmt::Error)
-                            }
-                        })
-                    }
-                }
-            }
-            OutputFormat::Json | OutputFormat::None => {
-                // It's not an error to try to write in JSON mode, it's a feature.
-                // However, the only way to write JSON is to use [Self::write_value()].
-                Ok(())
-            }
+        if !self.format.is_text() {
+            return Ok(());
+        }
+        match self.pager.as_mut() {
+            Some(Pager::Builtin(pager)) => pager.write_str(s),
+            Some(Pager::External(_, stdin)) => stdin
+                .write_all(s.as_bytes())
+                .or_else(ignore_broken_pipe_for_fmt),
+            None => self
+                .stdout
+                .write_all(s.as_bytes())
+                .or_else(ignore_broken_pipe_for_fmt),
         }
     }
 }
@@ -595,43 +590,27 @@ impl Drop for InputOutputChannel<'_> {
 
 /// Lifecycle
 impl OutputChannel {
-    /// Create a new instance to output with `format` (advisory), which affects where it prints to.
-    /// The `use_pager` parameter controls whether a pager should be created.
-    ///
-    /// It's configured to print to stdout unless [`OutputFormat::Json`] is used, then it prints everything
-    /// to a `/dev/null` equivalent, so callers never have to worry if they interleave JSON with other output.
-    pub fn new_with_optional_pager(format: OutputFormat, use_pager: bool) -> Self {
-        let stdout = std::io::stdout();
-        let pager = if !use_pager
-            || !matches!(format, OutputFormat::Human)
-            || std::env::var_os("NOPAGER").is_some()
-            || !stdout.is_terminal()
-        {
-            None
-        } else {
-            pager::try_init_pager()
-        };
-
+    /// Create a new instance to output with `format`.
+    pub fn new(format: OutputFormat) -> Self {
         OutputChannel {
             format,
-            stdout,
-            pager,
-            json_buffer: None,
-        }
-    }
-
-    /// Like [`Self::new_with_optional_pager`], but will never create a pager or write JSON.
-    /// Use this if a second instance of a channel is needed, and the first one could have a pager.
-    pub fn new_without_pager_non_json(format: OutputFormat) -> Self {
-        OutputChannel {
-            format: match format {
-                OutputFormat::Human | OutputFormat::Shell | OutputFormat::None => format,
-                OutputFormat::Json => OutputFormat::None,
-            },
             stdout: std::io::stdout(),
             pager: None,
             json_buffer: None,
         }
+    }
+
+    /// Request paging for large output. The pager is only started when human UI is allowed,
+    /// stdout is a terminal, and paging is not disabled by the environment.
+    pub fn request_pager(&mut self) {
+        if self.pager.is_some()
+            || !self.format.allows_human_ui()
+            || std::env::var_os("NOPAGER").is_some()
+            || !self.stdout.is_terminal()
+        {
+            return;
+        }
+        self.pager = pager::try_init_pager();
     }
 }
 
@@ -665,7 +644,9 @@ impl Drop for OutputChannel {
 mod tests {
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-    use super::{KeyEditAction, key_to_edit_action};
+    use crate::args::OutputFormat;
+
+    use super::{KeyEditAction, OutputChannel, WriteWithUtils, key_to_edit_action};
 
     #[test]
     fn ctrl_c_ends_input() {
@@ -694,5 +675,44 @@ mod tests {
             ),
             KeyEditAction::Ignore
         );
+    }
+
+    #[test]
+    fn agent_output_is_human_text_not_json() {
+        let mut out = OutputChannel::new(OutputFormat::Agent);
+
+        assert!(
+            out.for_human().is_some(),
+            "agent output should allow human text rendering"
+        );
+        assert!(
+            out.for_json().is_none(),
+            "agent output should not be treated as JSON"
+        );
+        assert!(!out.is_json(), "agent output should not be JSON mode");
+    }
+
+    #[test]
+    fn agent_output_does_not_truncate_unpaged_text() {
+        let out = OutputChannel::new(OutputFormat::Agent);
+        let text = "0123456789abcdef";
+
+        assert_eq!(out.truncate_if_unpaged(text, 4), text);
+    }
+
+    #[test]
+    fn agent_output_does_not_allow_progress() {
+        let out = OutputChannel::new(OutputFormat::Agent);
+
+        assert!(!out.format.allows_human_ui());
+        assert!(out.progress_channel().inner.is_none());
+    }
+
+    #[test]
+    fn agent_output_never_uses_pager() {
+        let mut out = OutputChannel::new(OutputFormat::Agent);
+        out.request_pager();
+
+        assert!(!out.is_paged(), "agent output should not use a pager");
     }
 }

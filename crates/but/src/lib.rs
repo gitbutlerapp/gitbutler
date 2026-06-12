@@ -63,6 +63,41 @@ mod tui;
 
 const CLI_DATE: CustomFormat = gix::date::time::format::ISO8601;
 
+/// The format for help output printed before clap parses arguments, taken from a
+/// `--format` argument or the `BUT_OUTPUT_FORMAT` environment variable.
+///
+/// Help is always human-readable text; the format only decides whether terminal affordances
+/// like truncation apply, so formats other than human or agent fall back to human output.
+fn early_help_format(args: &[OsString]) -> OutputFormat {
+    let parse = |value: &str| {
+        <OutputFormat as clap::ValueEnum>::from_str(value, false)
+            .ok()
+            .map(|format| {
+                if format.is_human_text() {
+                    format
+                } else {
+                    OutputFormat::Human
+                }
+            })
+    };
+    args.iter()
+        .enumerate()
+        .find_map(|(index, arg)| {
+            let arg = arg.to_str()?;
+            match arg.strip_prefix("--format=") {
+                Some(value) => parse(value),
+                None if arg == "--format" => parse(args.get(index + 1)?.to_str()?),
+                None => None,
+            }
+        })
+        .or_else(|| {
+            std::env::var(envs::BUT_OUTPUT_FORMAT)
+                .ok()
+                .and_then(|value| parse(&value))
+        })
+        .unwrap_or_default()
+}
+
 /// Handle `args` which must be what's passed by `std::env::args_os()`.
 pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let theme_preset_from_env: anyhow::Result<theme::ThemePreset> =
@@ -106,7 +141,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let has_help_flag = args.iter().any(|arg| arg == "--help" || arg == "-h");
     let has_subcommand = args.len() > 2 && args[1] != "--help" && args[1] != "-h";
     if has_help_flag && !has_subcommand {
-        let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
+        let mut out = OutputChannel::new(early_help_format(&args));
         command::help::print_grouped(&mut out)?;
         return Ok(());
     }
@@ -119,7 +154,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     if args_vec.iter().any(|arg| arg == "push")
         && args_vec.iter().any(|arg| arg == "--help" || arg == "-h")
     {
-        let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
+        let mut out = OutputChannel::new(early_help_format(&args));
         command::push::help::print(&mut out)?;
         return Ok(());
     }
@@ -128,25 +163,13 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     if args_vec.iter().any(|arg| arg == "help")
         && args_vec.iter().any(|arg| arg == "--help" || arg == "-h")
     {
-        let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
+        let mut out = OutputChannel::new(early_help_format(&args));
         command::help::print_grouped(&mut out)?;
         return Ok(());
     }
 
     let mut args: Args = Args::parse_from(args);
     args.status_after = utils::detect_agent::detect().is_some();
-    // Determine if pager should be used based on the command
-    let use_pager = match args.cmd {
-        #[cfg(feature = "legacy")]
-        Some(Subcommands::Status { .. }) => true,
-        #[cfg(feature = "legacy")]
-        Some(Subcommands::Diff { tui, .. }) => !tui,
-        #[cfg(feature = "legacy")]
-        Some(Subcommands::Stage {
-            ref file_or_hunk, ..
-        }) => file_or_hunk.is_some(),
-        _ => false,
-    };
     let _tracing_appender_worker_guard = if args.trace > 0 {
         trace::init(args.trace, args.log_file.as_deref())?
     } else {
@@ -159,9 +182,21 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let namespace = option_env!("IDENTIFIER").unwrap_or("com.gitbutler.app");
     but_secret::secret::set_application_namespace(namespace);
 
-    let mut out = OutputChannel::new_with_optional_pager(args.format.format, use_pager);
+    let mut out = OutputChannel::new(args.format.format);
+    #[cfg(feature = "legacy")]
+    if matches!(
+        &args.cmd,
+        Some(Subcommands::Status { .. })
+            | Some(Subcommands::Diff { tui: false, .. })
+            | Some(Subcommands::Stage {
+                file_or_hunk: Some(_),
+                ..
+            })
+    ) {
+        out.request_pager();
+    }
 
-    if let (Err(theme_preset_err), Some(out)) = (theme_preset_from_env, out.for_human()) {
+    if let (Err(theme_preset_err), Some(out)) = (theme_preset_from_env, out.for_human_ui()) {
         writeln!(
             out,
             "{}: {theme_preset_err}",
@@ -658,8 +693,7 @@ async fn match_subcommand(
                 use std::fmt::Write;
                 let mut progress = out.progress_channel();
                 writeln!(progress, "Pulling latest...")?;
-                let mut pull_out =
-                    OutputChannel::new_with_optional_pager(OutputFormat::None, false);
+                let mut pull_out = OutputChannel::new(OutputFormat::None);
                 command::legacy::pull::handle(&ctx, &mut pull_out, false).await?;
                 writeln!(progress, "Pull complete.")?;
             }
@@ -743,6 +777,13 @@ async fn match_subcommand(
         } => {
             use crate::command::legacy::status::{StatusFlags, StatusRenderMode, TuiLaunchOptions};
 
+            if !out.format().allows_human_ui() {
+                return Err(bad_input(
+                    "Interactive terminal UI is not available for this output format.",
+                )
+                .into());
+            }
+
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -809,6 +850,12 @@ async fn match_subcommand(
             tui,
             no_tui,
         } => {
+            if tui && !out.format().allows_human_ui() {
+                return Err(bad_input(
+                    "Interactive terminal UI is not available for this output format.",
+                )
+                .into());
+            }
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -819,7 +866,7 @@ async fn match_subcommand(
             )?;
             let use_tui = if tui {
                 true
-            } else if no_tui {
+            } else if no_tui || !out.format().allows_human_ui() {
                 false
             } else {
                 // Check git config for but.ui.tui
@@ -962,14 +1009,14 @@ async fn match_subcommand(
                 None => {
                     // Handle the regular `but commit` command
 
-                    // In JSON mode, require either -m, --message-file, or --ai to be specified
-                    if matches!(args.format.format, OutputFormat::Json)
+                    // Formats without an interactive editor must provide the message up front
+                    if !args.format.format.allows_human_ui()
                         && commit_args.message.is_none()
                         && commit_args.message_file.is_none()
                         && commit_args.ai.is_none()
                     {
                         return Err(bad_input(
-                            "In JSON mode, either --message (-m), --message-file, or --ai (-i) must be specified"
+                            "Either --message (-m), --message-file, or --ai (-i) must be specified for this output format"
                         ).into());
                     }
 
@@ -1391,8 +1438,7 @@ async fn match_subcommand(
                     .emit_metrics(metrics_ctx)
             } else {
                 // Interactive mode: but stage [--branch <branch>]
-                use std::io::IsTerminal;
-                if !std::io::stdout().is_terminal() {
+                if !out.can_prompt() {
                     return Err(bad_input(
                         "Interactive stage requires a terminal. Use: but stage <file_or_hunk> <branch>"
                     ).into());
@@ -1658,7 +1704,8 @@ async fn maybe_run_status_after<T, E>(
 /// In JSON mode, combines the mutation's buffered JSON with status JSON into
 /// `{"result": <mutation_output>, "status": <workspace_status>}`.
 /// If the GitButler skill is missing or stale, includes an agent-facing notice
-/// after the status output or under `agent_skill_notice` in JSON.
+/// after the status output or under `agent_skill_notice` in JSON. This function
+/// only runs when the CLI caller was detected as an agent.
 ///
 /// Status errors are handled gracefully: in JSON mode the mutation result is
 /// always emitted (with a `"status_error"` field on failure); in human mode
@@ -1671,7 +1718,9 @@ async fn run_status_after(
 ) {
     use crate::command::legacy::status::StatusFlags;
 
-    let agent_skill_notice = if matches!(out.format(), OutputFormat::Human | OutputFormat::Json) {
+    // Producing a notice burns its global debounce, so compute it only when the
+    // format can deliver it (human text below, or a field in the JSON object).
+    let agent_skill_notice = if out.format().is_human_text() || out.format().is_json() {
         command::skill::agent_skill_freshness_notice_for_context(Some(&mut *ctx))
     } else {
         None
