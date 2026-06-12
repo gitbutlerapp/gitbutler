@@ -2457,7 +2457,7 @@ const BranchSegment: FC<{
 				</div>
 			)}
 
-			<div className={styles.branchTail}>
+			<WorkspaceItemRowEmpty className={styles.branchTail}>
 				<GraphSegment
 					glyph="parent"
 					status={
@@ -2468,7 +2468,7 @@ const BranchSegment: FC<{
 							: "LocalOnly"
 					}
 				/>
-			</div>
+			</WorkspaceItemRowEmpty>
 		</TreeItem>
 	);
 };

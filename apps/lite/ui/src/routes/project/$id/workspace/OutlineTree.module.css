@@ -199,9 +199,8 @@
 }
 
 .branchTail {
-	display: flex;
 	height: 8px;
-	padding-left: 6px;
+	min-height: auto;
 	overflow: hidden;
 }
 
