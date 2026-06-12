@@ -61,17 +61,10 @@ type Status = "Diverged" | CommitState["type"];
 
 interface GraphSegmentProps extends ComponentProps<"div"> {
 	glyph: GlyphType;
-	stretch: boolean;
 	status: Status;
 }
 
-export const GraphSegment: FC<GraphSegmentProps> = ({
-	glyph,
-	stretch,
-	className,
-	status,
-	...props
-}) => (
+export const GraphSegment: FC<GraphSegmentProps> = ({ glyph, className, status, ...props }) => (
 	<div {...props} className={classes(className, styles.graphSegment)} data-status={status}>
 		<svg
 			className={styles.graphSegmentSvg}
@@ -90,7 +83,7 @@ export const GraphSegment: FC<GraphSegmentProps> = ({
 			)}
 		</svg>
 
-		{stretch && stretchableGlyphs.has(glyph) && (
+		{stretchableGlyphs.has(glyph) && (
 			<svg
 				viewBox="0 0 16 28"
 				preserveAspectRatio="none"

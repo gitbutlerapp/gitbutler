@@ -1257,7 +1257,6 @@ const CommitRow: FC<
 		>
 			<div className={styles.commitStateWithCheckbox}>
 				<GraphSegment
-					stretch={isRewording}
 					glyph="commit"
 					status={commitIsDiverged(commit) ? "Diverged" : commit.state.type}
 				/>
@@ -2174,7 +2173,6 @@ const BranchRow: FC<
 			isCommitTarget={isCommitTarget}
 		>
 			<GraphSegment
-				stretch={isRenaming}
 				glyph="forkRight"
 				status={(() => {
 					switch (pushStatus) {
@@ -2375,7 +2373,7 @@ const BranchSegment: FC<{
 
 			{segment.commits.length === 0 ? (
 				<WorkspaceItemRowEmpty>
-					<GraphSegment glyph="parent" status="LocalOnly" stretch={false} />
+					<GraphSegment glyph="parent" status="LocalOnly" />
 					<WorkspaceItemRowLabel>No commits.</WorkspaceItemRowLabel>
 				</WorkspaceItemRowEmpty>
 			) : (

@@ -29,7 +29,6 @@ const meta = preview.meta({
 export const Default = meta.story({
 	args: {
 		glyph: "parent",
-		stretch: false,
 		status: "LocalOnly",
 	},
 	render: (args) => (
@@ -76,7 +75,7 @@ export const AllGlyphs = meta.story({
 					}}
 				>
 					<div style={{ backgroundColor: "var(--bg-2)", display: "flex" }}>
-						<GraphSegment glyph={glyph} status="LocalOnly" stretch />
+						<GraphSegment glyph={glyph} status="LocalOnly" />
 					</div>
 					<div style={{ fontSize: 10 }}>{glyph}</div>
 				</div>
