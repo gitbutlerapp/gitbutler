@@ -25,6 +25,14 @@ pub(crate) fn reword_target(
     format: bool,
     show_diff_in_editor: ShowDiffInEditor,
 ) -> CliResult<()> {
+    // Formats without an interactive editor must provide the new message up front.
+    if message.is_none() && !format && !out.format().allows_human_ui() {
+        return Err(bad_input(
+            "A message must be provided via --message (-m) for this output format",
+        )
+        .into());
+    }
+
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 

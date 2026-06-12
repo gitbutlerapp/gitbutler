@@ -20,6 +20,7 @@ use serde::Serialize;
 
 use crate::{
     CLI_DATE, CliId, IdMap,
+    args::OutputFormat,
     command::legacy::{
         forge::review,
         status::output::{
@@ -219,10 +220,6 @@ pub(crate) async fn worktree(
             build_status_output(ctx, &status_ctx, &mut output)?;
         }
         StatusRenderMode::Tui(options) => {
-            if out.for_human().is_none() {
-                return Ok(());
-            }
-
             let mut lines = Vec::new();
             let mut output = StatusOutput::Buffer { lines: &mut lines };
             build_status_output(ctx, &status_ctx, &mut output)?;
@@ -447,7 +444,7 @@ async fn build_status_context<'a>(
     };
 
     let is_paged = out.is_paged();
-    let should_truncate_for_terminal = truncation_policy(render_mode, is_paged);
+    let should_truncate_for_terminal = truncation_policy(out.format(), render_mode, is_paged);
 
     Ok(StatusContext {
         stack_details,
@@ -472,8 +469,8 @@ async fn build_status_context<'a>(
 }
 
 /// Decide if status text should be pre-truncated for terminal output.
-fn truncation_policy(render_mode: StatusRenderMode, is_paged: bool) -> bool {
-    matches!(render_mode, StatusRenderMode::Oneshot) && !is_paged
+fn truncation_policy(format: OutputFormat, render_mode: StatusRenderMode, is_paged: bool) -> bool {
+    format.allows_truncation() && matches!(render_mode, StatusRenderMode::Oneshot) && !is_paged
 }
 
 fn build_status_output(
@@ -1742,6 +1739,7 @@ mod tests {
     use crate::command::legacy::status::TuiLaunchOptions;
 
     use super::{StatusRenderMode, truncate_when_needed, truncation_policy};
+    use crate::args::OutputFormat;
 
     #[test]
     fn truncate_when_needed_truncates_text_when_policy_requests_it() {
@@ -1760,17 +1758,35 @@ mod tests {
 
     #[test]
     fn truncation_policy_enables_truncation_for_oneshot_unpaged() {
-        assert!(truncation_policy(StatusRenderMode::Oneshot, false));
+        assert!(truncation_policy(
+            OutputFormat::Human,
+            StatusRenderMode::Oneshot,
+            false
+        ));
     }
 
     #[test]
     fn truncation_policy_disables_truncation_for_oneshot_paged() {
-        assert!(!truncation_policy(StatusRenderMode::Oneshot, true));
+        assert!(!truncation_policy(
+            OutputFormat::Human,
+            StatusRenderMode::Oneshot,
+            true
+        ));
+    }
+
+    #[test]
+    fn truncation_policy_disables_truncation_for_agent_output() {
+        assert!(!truncation_policy(
+            OutputFormat::Agent,
+            StatusRenderMode::Oneshot,
+            false
+        ));
     }
 
     #[test]
     fn truncation_policy_disables_truncation_for_tui() {
         assert!(!truncation_policy(
+            OutputFormat::Human,
             StatusRenderMode::Tui(TuiLaunchOptions {
                 debug: false,
                 ..Default::default()
@@ -1778,6 +1794,7 @@ mod tests {
             false,
         ));
         assert!(!truncation_policy(
+            OutputFormat::Human,
             StatusRenderMode::Tui(TuiLaunchOptions {
                 debug: false,
                 ..Default::default()

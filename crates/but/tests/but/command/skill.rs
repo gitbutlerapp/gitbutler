@@ -131,6 +131,38 @@ fn skill_install_absolute_path_outside_repo_does_not_require_global() -> anyhow:
 }
 
 #[test]
+fn skill_install_agent_outputs_success_message() -> anyhow::Result<()> {
+    let env = Sandbox::empty()?;
+    let install_dir = env.projects_root().join("agent-skill-install");
+
+    let output = env
+        .but("")
+        .arg("skill")
+        .arg("install")
+        .args(["--format", "agent", "--global"])
+        .arg("--path")
+        .arg(&install_dir)
+        .assert()
+        .success()
+        .stderr_eq(str![[]])
+        .get_output()
+        .stdout
+        .clone();
+
+    let stdout = std::str::from_utf8(&output)?;
+    assert!(
+        stdout.contains("GitButler skill installed successfully"),
+        "agent skill install should print the human success message, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Files installed:"),
+        "agent skill install should print installed files, got: {stdout}"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn skill_check_detects_agent_skills_installation_in_repo() -> anyhow::Result<()> {
     let env = Sandbox::open_with_default_settings("repo-no-remote")?;
     let install_path = relative_agent_skill_path(".agents");

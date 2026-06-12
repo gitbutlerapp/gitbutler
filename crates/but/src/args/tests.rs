@@ -314,6 +314,26 @@ fn status_after_is_not_shown_in_help() {
     );
 }
 
+#[test]
+fn output_format_parses_agent() {
+    use clap::Parser;
+
+    let args = Args::try_parse_from(["but", "--format", "agent"]).expect("parse agent format");
+
+    assert!(matches!(args.format.format, OutputFormat::Agent));
+}
+
+#[test]
+fn output_format_agent_is_text_without_human_ui() {
+    let format = OutputFormat::Agent;
+
+    assert!(format.is_human_text());
+    assert!(format.is_text());
+    assert!(!format.allows_human_ui());
+    assert!(!format.allows_truncation());
+    assert!(!format.is_json());
+}
+
 mod agentlog {
     use clap::Parser;
 

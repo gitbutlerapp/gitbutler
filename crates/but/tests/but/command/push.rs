@@ -3,8 +3,7 @@ use snapbox::str;
 use super::util::find_branch;
 use crate::utils::{CommandExt, Sandbox};
 
-#[test]
-fn push_dry_run_json_reports_remote_and_remote_ref() -> anyhow::Result<()> {
+fn repo_with_unpushed_branch() -> anyhow::Result<Sandbox> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     env.setup_metadata(&["A"])?;
 
@@ -21,6 +20,13 @@ fn push_dry_run_json_reports_remote_and_remote_ref() -> anyhow::Result<()> {
     env.but("commit -m 'first commit' branchB")
         .assert()
         .success();
+
+    Ok(env)
+}
+
+#[test]
+fn push_dry_run_json_reports_remote_and_remote_ref() -> anyhow::Result<()> {
+    let env = repo_with_unpushed_branch()?;
 
     let output = env
         .but("push --dry-run --format json branchB")
@@ -59,6 +65,31 @@ fn push_dry_run_json_reports_remote_and_remote_ref() -> anyhow::Result<()> {
         String::from_utf8(bytes)?
     };
     assert_eq!(remote_ref, "refs/remotes/origin/branchB");
+
+    Ok(())
+}
+
+#[test]
+fn push_dry_run_agent_reports_human_summary() -> anyhow::Result<()> {
+    let env = repo_with_unpushed_branch()?;
+
+    let output = env.but("push --dry-run --format agent branchB").output()?;
+    assert!(
+        output.status.success(),
+        "push --dry-run --format agent branchB failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Dry run:") && stdout.contains("Run without --dry-run"),
+        "agent dry-run push should print the human summary, got: {stdout}"
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "agent dry-run push should not print progress, got: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 
     Ok(())
 }

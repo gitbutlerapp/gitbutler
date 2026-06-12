@@ -756,7 +756,7 @@ fn commit_json_mode_requires_message_or_file() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: In JSON mode, either --message (-m), --message-file, or --ai (-i) must be specified
+Error: Either --message (-m), --message-file, or --ai (-i) must be specified for this output format
 
 "#]]);
 

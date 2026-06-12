@@ -436,13 +436,7 @@ pub(crate) fn commit(
     } else if let Some(msg) = message {
         msg.to_string()
     } else {
-        // In JSON mode, we should have already validated that a message was provided
-        // This is a safeguard in case the validation was missed
-        if out.for_json().is_some() {
-            return Err(anyhow::anyhow!(
-                "In JSON mode, a commit message must be provided via --message (-m), --message-file, or --ai (-i)"
-            ).into());
-        }
+        // The pre-check in lib.rs guarantees a message for formats without an interactive editor.
         get_commit_message_from_editor(ctx, &files_to_commit, &changes, show_diff_in_editor)?
     };
 

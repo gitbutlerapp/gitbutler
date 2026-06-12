@@ -476,7 +476,7 @@ fn json_output_not_a_git_repo() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: No git repository found.
+Error: No git repository found - run `but setup --init` to initialize a new repository.
 
 "#]])
         .stdout_eq(snapbox::str![]);

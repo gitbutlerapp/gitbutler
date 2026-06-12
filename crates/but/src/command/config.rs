@@ -1081,7 +1081,7 @@ fn ai_config_inner(
 
     match cmd {
         None => {
-            if out.for_human().is_some() {
+            if out.can_prompt() {
                 return ai_config_interactive(repo, out, scope);
             }
             show_ai_config(repo, out, scope)

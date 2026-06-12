@@ -1,5 +1,8 @@
 //! Environment variables used by but.
 
+/// Selects the output format when `--format` is not passed; documented via the clap arg in `args`.
+pub const BUT_OUTPUT_FORMAT: &str = "BUT_OUTPUT_FORMAT";
+
 pub const BUT_PAGER: &str = "BUT_PAGER";
 pub const BUT_PAGER_DESCRIPTION: &str = "Sets the pager for large outputs. [default: less]";
 

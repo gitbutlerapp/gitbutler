@@ -79,6 +79,7 @@ Options:
           Possible values:
           - human: The output to write is supposed to be for human consumption, and can be more
             verbose
+          - agent: The output is for an AI coding agent, rendered as human-readable text
           - shell: The output should be suitable for shells, and assigning the major result to
             variables so that it can be reused in subsequent CLI invocations
           - json:  Output detailed information as JSON for tool consumption
@@ -102,7 +103,7 @@ Arguments:
 
 Options:
       --format <FORMAT>  Explicitly control how output should be formatted [env: BUT_OUTPUT_FORMAT=]
-                         [default: human] [possible values: human, shell, json, none]
+                         [default: human] [possible values: human, agent, shell, json, none]
   -h, --help             Print help (see more with '--help')
 
 "#]]);
@@ -136,6 +137,24 @@ fn help_help_should_be_help() -> anyhow::Result<()> {
 
     let help = env.but("help").output()?.stdout;
     env.but("help --help")
+        .assert()
+        .success()
+        .stdout_eq(help.to_str_lossy().to_string());
+
+    Ok(())
+}
+
+#[test]
+fn top_level_help_honors_agent_format_after_help_flag() -> anyhow::Result<()> {
+    let env = Sandbox::empty()?;
+    let help = env.but("help --format agent").output()?.stdout;
+
+    env.but("--help --format agent")
+        .assert()
+        .success()
+        .stdout_eq(help.to_str_lossy().to_string());
+
+    env.but("--help --format=agent")
         .assert()
         .success()
         .stdout_eq(help.to_str_lossy().to_string());
