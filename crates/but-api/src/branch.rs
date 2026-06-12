@@ -21,6 +21,7 @@ use but_workspace::branch::{
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
     integrate_branch_upstream::InteractiveIntegration,
 };
+use gix::refs::transaction::PreviousValue;
 use tracing::instrument;
 
 /// Outcome after moving a branch.
@@ -709,6 +710,57 @@ pub fn branch_checkout(
     branch_checkout_with_perm(ctx, branch, guard.write_permission())
 }
 
+/// Creates a new local branch at the project target SHA, checks it out, and
+/// returns the resulting workspace state.
+///
+/// If `name` is provided, it is treated as a short branch name and normalized
+/// before creating `refs/heads/<name>`. If omitted, a unique canned branch name
+/// is generated. The resulting branch must not already exist.
+#[but_api(napi, try_from = json::BranchCheckoutResult)]
+#[instrument(err(Debug))]
+pub fn branch_checkout_new(
+    ctx: &mut but_ctx::Context,
+    name: Option<String>,
+) -> anyhow::Result<BranchCheckoutResult> {
+    let mut guard = ctx.exclusive_worktree_access();
+    branch_checkout_new_with_perm(ctx, name, guard.write_permission())
+}
+
+/// Creates a new local branch at the project target SHA and checks it out under
+/// caller-held exclusive repository access.
+pub fn branch_checkout_new_with_perm(
+    ctx: &mut but_ctx::Context,
+    name: Option<String>,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<BranchCheckoutResult> {
+    let target_commit_id = ctx.project_meta()?.target_commit_id_or_err()?;
+    let branch = {
+        let repo = ctx.repo.get()?;
+        let branch = match name {
+            Some(name) => {
+                let normalized = but_core::branch::normalize_short_name(name.as_str())?;
+                let branch = gix::refs::Category::LocalBranch.to_full_name(normalized.as_bstr())?;
+                if repo.try_find_reference(branch.as_ref())?.is_some() {
+                    bail!("Branch '{}' already exists", branch.as_bstr());
+                }
+                branch
+            }
+            None => unique_canned_refname(&repo)?,
+        };
+
+        repo.reference(
+            branch.as_ref(),
+            target_commit_id,
+            PreviousValue::MustNotExist,
+            "branch checkout new",
+        )
+        .with_context(|| format!("Could not create branch '{}'", branch.as_bstr()))?;
+        branch
+    };
+
+    branch_checkout_with_perm(ctx, branch, perm)
+}
+
 /// Checks out an existing local branch under caller-held exclusive repository
 /// access.
 ///
@@ -1026,6 +1078,7 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
 mod tests {
     use std::path::Path;
 
+    use but_core::ref_metadata::ProjectMeta;
     use but_testsupport::{CommandExt, git_at_dir, open_repo};
 
     fn repo_with_feature_branch() -> anyhow::Result<(gix::Repository, tempfile::TempDir)> {
@@ -1047,6 +1100,18 @@ mod tests {
         Ok((open_repo(tmp.path())?, tmp))
     }
 
+    fn set_project_target_to_feature(repo: &gix::Repository) -> anyhow::Result<gix::ObjectId> {
+        let mut feature = repo.find_reference("refs/heads/feature")?;
+        let target_commit_id = feature.peel_to_id()?.detach();
+        ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(target_commit_id),
+            push_remote: Some("origin".into()),
+        }
+        .persist_to_local_config(repo)?;
+        Ok(target_commit_id)
+    }
+
     fn write_file(root: &Path, relative_path: &str, content: &str) -> anyhow::Result<()> {
         std::fs::write(root.join(relative_path), content)?;
         Ok(())
@@ -1057,7 +1122,7 @@ mod tests {
         let (repo, _tmp) = repo_with_feature_branch()?;
         let mut ctx = but_ctx::Context::from_repo(repo)?.with_memory_app_cache();
         let branch = gix::refs::FullName::try_from("refs/heads/feature")?;
-        let result = super::checkout_branch(&mut ctx, branch)?;
+        let result = super::branch_checkout(&mut ctx, branch)?;
 
         let repo = ctx.repo.get()?;
         let head_name = repo.head_name()?.expect("HEAD is symbolic after checkout");
@@ -1078,11 +1143,51 @@ mod tests {
         let mut ctx = but_ctx::Context::from_repo(repo)?.with_memory_app_cache();
         let branch = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
 
-        let err = super::checkout_branch(&mut ctx, branch)
+        let err = super::branch_checkout(&mut ctx, branch)
             .expect_err("only local branch refs can be checked out");
         assert_eq!(
             err.to_string(),
             "Can only check out local branches under refs/heads, got 'refs/remotes/origin/main'"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn branch_checkout_new_creates_named_branch_at_target_and_checks_it_out() -> anyhow::Result<()>
+    {
+        let (repo, _tmp) = repo_with_feature_branch()?;
+        let target_commit_id = set_project_target_to_feature(&repo)?;
+        let mut ctx = but_ctx::Context::from_repo(repo)?.with_memory_app_cache();
+
+        let result = super::branch_checkout_new(&mut ctx, Some("new branch".into()))?;
+
+        let repo = ctx.repo.get()?;
+        let head_name = repo.head_name()?.expect("HEAD is symbolic after checkout");
+        assert_eq!(head_name.as_bstr(), "refs/heads/new-branch");
+        let mut created = repo.find_reference("refs/heads/new-branch")?;
+        assert_eq!(created.peel_to_id()?.detach(), target_commit_id);
+        let workspace_ref = result
+            .workspace
+            .head_info
+            .workspace_ref_info
+            .expect("checked out branch is the workspace ref");
+        assert_eq!(workspace_ref.ref_name.as_bstr(), "refs/heads/new-branch");
+
+        Ok(())
+    }
+
+    #[test]
+    fn branch_checkout_new_rejects_existing_explicit_name() -> anyhow::Result<()> {
+        let (repo, _tmp) = repo_with_feature_branch()?;
+        set_project_target_to_feature(&repo)?;
+        let mut ctx = but_ctx::Context::from_repo(repo)?.with_memory_app_cache();
+
+        let err = super::branch_checkout_new(&mut ctx, Some("feature".into()))
+            .expect_err("explicit names must not be uniquified");
+        assert_eq!(
+            err.to_string(),
+            "Branch 'refs/heads/feature' already exists"
         );
 
         Ok(())

@@ -59,6 +59,16 @@ export declare function assignHunk(projectId: string, assignments: Array<HunkAss
 export declare function branchCheckout(projectId: string, branch: FullNameBytes): Promise<BranchCheckoutResult>
 
 /**
+ * Creates a new local branch at the project target SHA, checks it out, and
+ * returns the resulting workspace state.
+ *
+ * If `name` is provided, it is treated as a short branch name and normalized
+ * before creating `refs/heads/<name>`. If omitted, a unique canned branch name
+ * is generated. The resulting branch must not already exist.
+ */
+export declare function branchCheckoutNew(projectId: string, name: string | null): Promise<BranchCheckoutResult>
+
+/**
  * Creates a new branch named `new_ref` at `placement`.
  *
  * This acquires exclusive worktree access from `ctx`, creates the branch,
