@@ -82,6 +82,7 @@ import {
 	TreeChange,
 	WorkspaceState,
 	InsertSide,
+	BottomUpdate,
 } from "@gitbutler/but-sdk";
 import {
 	formatForDisplay,
@@ -125,8 +126,9 @@ import {
 	outlineHotkeys,
 	selectionOperationHotkeys,
 	toElectronAccelerator,
+	workspaceHotkeys,
 } from "#ui/hotkeys.ts";
-import { stackToBottomRebaseUpdate } from "#ui/api/stack.ts";
+import { segmentBottomRelativeTo, stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
@@ -392,7 +394,10 @@ const useOutlineTreeHotkeys = ({
 		}),
 		Match.orElse(() => null),
 	);
-	const selectedStackRebaseUpdate = selectedStack ? stackToBottomRebaseUpdate(selectedStack) : null;
+	const selectedStackRelativeTo = selectedStack ? stackBottomRelativeTo(selectedStack) : null;
+	const selectedStackRebaseUpdate: BottomUpdate | null = selectedStackRelativeTo
+		? { kind: "rebase", selector: selectedStackRelativeTo }
+		: null;
 
 	const pushSelectedBranch = () => {
 		if (!selectedPushContext) return;
@@ -669,6 +674,7 @@ export const OutlineTree: FC<
 > = ({ navigationIndex, absorptionTargetKeys, ref: refProp, ...props }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
+	const dispatch = useAppDispatch();
 	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 	const hasCheckedCommits = useAppSelector((state) =>
@@ -687,6 +693,36 @@ export const OutlineTree: FC<
 	const dryRunWorkspace = dryRunOperationQuery.data?.workspace ?? null;
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const branchCreateMutation = useBranchCreate();
+
+	const createIndependentBranch = () => {
+		branchCreateMutation.mutate(
+			{
+				projectId,
+				newRef: null,
+				placement: { type: "independent" },
+			},
+			{
+				onSuccess: (response) => {
+					const newBranch = findBranchOperandByRef({
+						headInfo: response.workspace.headInfo,
+						branchRef: response.newRef.fullNameBytes,
+					});
+					if (!newBranch) return;
+
+					dispatch(
+						projectActions.selectOutline({
+							projectId,
+							selection: branchOperand(newBranch),
+						}),
+					);
+					focusSelectionScope("outline");
+				},
+			},
+		);
+	};
+	const canCreateIndependentBranch =
+		outlineMode._tag === "Default" && !branchCreateMutation.isPending;
 
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -731,8 +767,8 @@ export const OutlineTree: FC<
 							/>
 						</div>
 
-						<div className={classes(styles.headInfoScroller, uiStyles.scrollerWithSeparator)}>
-							<div className={styles.headInfo}>
+						<div className={classes(styles.stacksScroller, uiStyles.scrollerWithSeparator)}>
+							<div className={styles.stacks}>
 								{headInfo?.stacks.map((stack) => (
 									<StackC
 										key={stack.id}
@@ -741,6 +777,32 @@ export const OutlineTree: FC<
 										commitTarget={commitTarget?.relativeTo ?? null}
 									/>
 								))}
+
+								<Tooltip.Root>
+									<Tooltip.Trigger
+										className={getButtonClassName({})}
+										onClick={createIndependentBranch}
+										render={<Button focusableWhenDisabled disabled={!canCreateIndependentBranch} />}
+									>
+										{branchCreateMutation.isPending ? (
+											<Icon name="spinner" />
+										) : (
+											<Icon name="plus" />
+										)}
+										Create branch
+									</Tooltip.Trigger>
+									<Tooltip.Portal>
+										<Tooltip.Positioner sideOffset={4}>
+											<Tooltip.Popup
+												render={
+													<TooltipPopup kbd={workspaceHotkeys.createIndependentBranch.hotkey} />
+												}
+											>
+												{workspaceHotkeys.createIndependentBranch.meta.name}
+											</Tooltip.Popup>
+										</Tooltip.Positioner>
+									</Tooltip.Portal>
+								</Tooltip.Root>
 							</div>
 						</div>
 
@@ -1915,7 +1977,7 @@ const BranchRow: FC<
 		canRemoveBranch: boolean;
 		partialStackState: PartialStackState;
 		pushStatus: PushStatus;
-		bottomCommitId: string | undefined;
+		bottomRelativeTo: RelativeTo | null;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -1926,7 +1988,7 @@ const BranchRow: FC<
 	canRemoveBranch,
 	partialStackState,
 	pushStatus,
-	bottomCommitId,
+	bottomRelativeTo,
 	...restProps
 }) => {
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -2001,9 +2063,7 @@ const BranchRow: FC<
 
 	const relativeTo: RelativeTo = { type: "referenceBytes", subject: refName.fullNameBytes };
 	const bucketRelativeTo = (side: InsertSide): RelativeTo =>
-		side === "below" && bottomCommitId !== undefined
-			? { type: "commit", subject: bottomCommitId }
-			: relativeTo;
+		side === "below" && bottomRelativeTo !== null ? bottomRelativeTo : relativeTo;
 
 	const setCommitTarget = () => {
 		dispatch(projectActions.setCommitTarget({ projectId, commitTarget: relativeTo }));
@@ -2253,7 +2313,10 @@ const StackRow: FC<
 		stack: Stack;
 	} & ComponentProps<"div">
 > = ({ projectId, stack, ...restProps }) => {
-	const rebaseUpdate = stackToBottomRebaseUpdate(stack);
+	const relativeTo = stackBottomRelativeTo(stack);
+	const rebaseUpdate: BottomUpdate | null = relativeTo
+		? { kind: "rebase", selector: relativeTo }
+		: null;
 	// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
 	const operand = stackOperand({ stackId: stack.id! });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -2372,7 +2435,7 @@ const BranchSegment: FC<{
 								: false
 						}
 						pushStatus={segment.pushStatus}
-						bottomCommitId={segment.commits.at(-1)?.id}
+						bottomRelativeTo={segmentBottomRelativeTo(segment)}
 					/>
 				}
 			/>

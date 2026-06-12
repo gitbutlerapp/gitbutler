@@ -457,6 +457,9 @@ const FileRow: FC<
 			operand={item.operand}
 			onFileSelection={onFileSelection}
 			className={classes(restProps.className, styles.fileRow)}
+			onContextMenu={(event) => {
+				void showNativeContextMenu(event, menuItems);
+			}}
 		>
 			<div className={styles.fileIconWithCheckbox}>
 				<Icon name="file" />
@@ -479,11 +482,7 @@ const FileRow: FC<
 					</Tooltip.Portal>
 				</Tooltip.Root>
 			</div>
-			<WorkspaceItemRowLabel
-				onContextMenu={(event) => {
-					void showNativeContextMenu(event, menuItems);
-				}}
-			>
+			<WorkspaceItemRowLabel>
 				{item._tag === "Change" ? item.change.path : item.path}
 			</WorkspaceItemRowLabel>
 
