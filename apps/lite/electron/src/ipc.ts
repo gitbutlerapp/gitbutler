@@ -1,6 +1,7 @@
 import type {
 	AbsorptionTarget,
 	ApplyOutcome,
+	BranchCheckoutResult,
 	BranchCreatePlacement,
 	BranchCreateResult,
 	BranchDetails,
@@ -69,6 +70,11 @@ export interface BranchCreateParams {
 	projectId: string;
 	newRef: MaybeLossyFullNameRef;
 	placement: BranchCreatePlacement;
+}
+
+export interface BranchCheckoutNewParams {
+	projectId: string;
+	name: string | null;
 }
 
 export interface BranchDetailsParams {
@@ -288,6 +294,7 @@ export interface LiteElectronApi {
 	onAskpassPrompt: (callback: (event: AskpassPromptEvent) => void) => () => void;
 	submitAskpassPromptResponse: (params: AskpassSubmitPromptResponseParams) => Promise<void>;
 	assignHunk: (params: AssignHunkParams) => Promise<void>;
+	branchCheckoutNew: (params: BranchCheckoutNewParams) => Promise<BranchCheckoutResult>;
 	branchCreate: (params: BranchCreateParams) => Promise<BranchCreateResult>;
 	branchDetails: (params: BranchDetailsParams) => Promise<BranchDetails>;
 	branchDiff: (params: BranchDiffParams) => Promise<TreeChanges>;
@@ -344,6 +351,7 @@ export const liteIpcChannels = {
 	askpassPrompt: "askpass:prompt",
 	askpassSubmitResponse: "askpass:submit-response",
 	assignHunk: "workspace:assign-hunk",
+	branchCheckoutNew: "workspace:branch-checkout-new",
 	branchCreate: "workspace:branch-create",
 	branchDetails: "workspace:branch-details",
 	branchDiff: "workspace:branch-diff",

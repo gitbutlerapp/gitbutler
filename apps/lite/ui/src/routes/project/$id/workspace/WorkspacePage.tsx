@@ -6,6 +6,7 @@ import {
 } from "#ui/api/queries.ts";
 import {
 	useApplyBranch,
+	useBranchCheckoutNew,
 	useBranchCreate,
 	useWorkspaceIntegrateUpstream,
 	useRestoreSnapshot,
@@ -410,14 +411,14 @@ const outlineNavigationItems = (headInfo: RefInfo | undefined): Array<Operand> =
 	return [
 		changesSectionOperand,
 
-		...(headInfo?.stacks.flatMap((stack) => {
+		...[...(headInfo?.stacks ?? [])].reverse().flatMap((stack) => {
 			// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
 			const stackId = stack.id!;
 			return [
 				stackOperand({ stackId }),
 				...stack.segments.flatMap((segment) => segmentItems(stackId, segment)),
 			];
-		}) ?? []),
+		}),
 	];
 };
 
@@ -486,6 +487,7 @@ const WorkspacePage: FC = () => {
 	};
 
 	const branchCreateMutation = useBranchCreate();
+	const branchCheckoutNewMutation = useBranchCheckoutNew();
 	const createIndependentBranch = () => {
 		branchCreateMutation.mutate(
 			{
@@ -498,6 +500,23 @@ const WorkspacePage: FC = () => {
 					const newBranch = findBranchOperandByRef({
 						headInfo: response.workspace.headInfo,
 						branchRef: response.newRef.fullNameBytes,
+					});
+					if (newBranch) selectBranch(newBranch);
+				},
+			},
+		);
+	};
+	const resetWorkspace = () => {
+		branchCheckoutNewMutation.mutate(
+			{ projectId, name: null },
+			{
+				onSuccess: (response) => {
+					const workspaceRef = response.workspace.headInfo.workspaceRef;
+					if (!workspaceRef) return;
+
+					const newBranch = findBranchOperandByRef({
+						headInfo: response.workspace.headInfo,
+						branchRef: workspaceRef.fullNameBytes,
 					});
 					if (newBranch) selectBranch(newBranch);
 				},
@@ -534,6 +553,8 @@ const WorkspacePage: FC = () => {
 
 	const canCreateIndependentBranch =
 		outlineMode._tag === "Default" && !branchCreateMutation.isPending;
+
+	const canResetWorkspace = outlineMode._tag === "Default" && !branchCheckoutNewMutation.isPending;
 
 	const canApplyBranch = outlineMode._tag === "Default";
 
@@ -616,8 +637,6 @@ const WorkspacePage: FC = () => {
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
 
-	const updateWorkspaceLabel = "Update workspace (rebases all stacks)";
-
 	return (
 		<>
 			<div className={classes(styles.page, detailsFullscreen && styles.pageDetailsFullscreen)}>
@@ -634,7 +653,29 @@ const WorkspacePage: FC = () => {
 							<div className={styles.workspaceControlsActions}>
 								<Tooltip.Root>
 									<Tooltip.Trigger
-										aria-label={updateWorkspaceLabel}
+										aria-label="Reset workspace"
+										className={getButtonClassName({ iconOnly: true })}
+										onClick={resetWorkspace}
+										// We pass `disabled` here because we want to disable the button, not
+										// the tooltip. Other props should be passed above.
+										render={<Button focusableWhenDisabled disabled={!canResetWorkspace} />}
+									>
+										{branchCheckoutNewMutation.isPending ? (
+											<Icon name="spinner" />
+										) : (
+											<Icon name="undo" />
+										)}
+									</Tooltip.Trigger>
+									<Tooltip.Portal>
+										<Tooltip.Positioner sideOffset={4}>
+											<Tooltip.Popup render={<TooltipPopup />}>Reset workspace</Tooltip.Popup>
+										</Tooltip.Positioner>
+									</Tooltip.Portal>
+								</Tooltip.Root>
+
+								<Tooltip.Root>
+									<Tooltip.Trigger
+										aria-label={workspaceHotkeys.updateWorkspace.meta.name}
 										className={getButtonClassName({ iconOnly: true })}
 										onClick={updateWorkspace}
 										// We pass `disabled` here because we want to disable the button, not
@@ -648,7 +689,7 @@ const WorkspacePage: FC = () => {
 											<Tooltip.Popup
 												render={<TooltipPopup kbd={workspaceHotkeys.updateWorkspace.hotkey} />}
 											>
-												{updateWorkspaceLabel}
+												{workspaceHotkeys.updateWorkspace.meta.name}
 											</Tooltip.Popup>
 										</Tooltip.Positioner>
 									</Tooltip.Portal>
@@ -656,13 +697,14 @@ const WorkspacePage: FC = () => {
 
 								<Tooltip.Root>
 									<Tooltip.Trigger
-										className={getButtonClassName({})}
+										aria-label={workspaceHotkeys.applyBranch.meta.name}
+										className={getButtonClassName({ iconOnly: true })}
 										onClick={openApplyBranchPicker}
 										// We pass `disabled` here because we want to disable the button, not
 										// the tooltip. Other props should be passed above.
 										render={<Button focusableWhenDisabled disabled={!canApplyBranch} />}
 									>
-										Apply branch
+										<Icon name="plus" />
 									</Tooltip.Trigger>
 									<Tooltip.Portal>
 										<Tooltip.Positioner sideOffset={4}>
@@ -670,32 +712,6 @@ const WorkspacePage: FC = () => {
 												render={<TooltipPopup kbd={workspaceHotkeys.applyBranch.hotkey} />}
 											>
 												{workspaceHotkeys.applyBranch.meta.name}
-											</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										aria-label="Create branch"
-										className={getButtonClassName({ iconOnly: true })}
-										onClick={createIndependentBranch}
-										render={<Button focusableWhenDisabled disabled={!canCreateIndependentBranch} />}
-									>
-										{branchCreateMutation.isPending ? (
-											<Icon name="spinner" />
-										) : (
-											<Icon name="plus" />
-										)}
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup
-												render={
-													<TooltipPopup kbd={workspaceHotkeys.createIndependentBranch.hotkey} />
-												}
-											>
-												{workspaceHotkeys.createIndependentBranch.meta.name}
 											</Tooltip.Popup>
 										</Tooltip.Positioner>
 									</Tooltip.Portal>
