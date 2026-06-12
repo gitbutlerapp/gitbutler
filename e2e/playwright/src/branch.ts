@@ -70,6 +70,74 @@ export async function assertCommitSubjects(
 		.toEqual(expectedSubjects);
 }
 
+export async function assertRefEquals(
+	leftRef: string,
+	rightRef: string,
+	pathToRepo: string,
+): Promise<void> {
+	await expect
+		.poll(
+			() => {
+				try {
+					return revParse(pathToRepo, leftRef) === revParse(pathToRepo, rightRef);
+				} catch {
+					return false;
+				}
+			},
+			{
+				message: `Expected ${leftRef} and ${rightRef} to point at the same commit`,
+				intervals: [100, 200, 500, 1000],
+			},
+		)
+		.toBe(true);
+}
+
+export async function assertRefNotEquals(
+	leftRef: string,
+	rightRef: string,
+	pathToRepo: string,
+): Promise<void> {
+	await expect
+		.poll(
+			() => {
+				try {
+					return revParse(pathToRepo, leftRef) !== revParse(pathToRepo, rightRef);
+				} catch {
+					return false;
+				}
+			},
+			{
+				message: `Expected ${leftRef} and ${rightRef} to point at different commits`,
+				intervals: [100, 200, 500, 1000],
+			},
+		)
+		.toBe(true);
+}
+
+export async function assertRefExists(ref: string, pathToRepo: string): Promise<void> {
+	await expect
+		.poll(() => {
+			try {
+				return revParse(pathToRepo, ref).length > 0;
+			} catch {
+				return false;
+			}
+		})
+		.toBe(true);
+}
+
+export async function assertStatusContains(
+	expectedText: string,
+	pathToRepo: string,
+): Promise<void> {
+	await expect
+		.poll(() => git(pathToRepo, ["status", "--short", "--branch"]), {
+			message: `Expected git status to contain "${expectedText}"`,
+			intervals: [100, 200, 500, 1000],
+		})
+		.toContain(expectedText);
+}
+
 export async function assertCleanWorktree(pathToRepo: string): Promise<void> {
 	await expect
 		.poll(() => git(pathToRepo, ["status", "--porcelain"]), {
@@ -96,6 +164,10 @@ export function commitSubjects(pathToRepo: string, count: number): string[] {
 	return git(pathToRepo, ["log", `--max-count=${count}`, "--format=%s"])
 		.split("\n")
 		.filter(Boolean);
+}
+
+export function revParse(pathToRepo: string, ref: string): string {
+	return git(pathToRepo, ["rev-parse", ref]);
 }
 
 function git(pathToRepo: string, args: string[]): string {
