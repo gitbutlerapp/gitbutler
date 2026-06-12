@@ -117,7 +117,7 @@ import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { initNonEmpty, isNonEmptyArray, scanRight } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { CommitStatusType, GraphSegment } from "#ui/components/GraphSegment.tsx";
+import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import {
@@ -803,14 +803,6 @@ const CommitTargetIndicator: FC = () => (
 	</Tooltip.Root>
 );
 
-const CommitStateIndicator: FC<{
-	status: CommitStatusType;
-	glyph?: ComponentProps<typeof GraphSegment>["glyph"];
-	stretch?: boolean;
-}> = ({ status, glyph = "commit", stretch = false }) => (
-	<GraphSegment glyph={glyph} stretch={stretch} status={status} />
-);
-
 const ItemRow: FC<
 	{
 		projectId: string;
@@ -1264,9 +1256,10 @@ const CommitRow: FC<
 			isCommitTarget={isCommitTarget}
 		>
 			<div className={styles.commitStateWithCheckbox}>
-				<CommitStateIndicator
-					status={commitIsDiverged(commit) ? "Diverged" : commit.state.type}
+				<GraphSegment
 					stretch={isRewording}
+					glyph="commit"
+					status={commitIsDiverged(commit) ? "Diverged" : commit.state.type}
 				/>
 				<Tooltip.Root
 					// This gets in the way when the user tries to move their hover to a
@@ -2181,9 +2174,9 @@ const BranchRow: FC<
 			isCommitTarget={isCommitTarget}
 		>
 			{/* This will be replaced with a different icon. */}
-			<CommitStateIndicator
-				glyph="forkRight"
+			<GraphSegment
 				stretch={isRenaming}
+				glyph="forkRight"
 				status={(() => {
 					switch (pushStatus) {
 						case "nothingToPush":
