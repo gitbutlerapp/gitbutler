@@ -2230,6 +2230,7 @@ const BranchRow: FC<
 			isCommitTarget={isCommitTarget}
 		>
 			<GraphSegment
+				className={styles.branchRowGraphSegment}
 				glyph="forkRight"
 				status={(() => {
 					switch (pushStatus) {
