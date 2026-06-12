@@ -616,8 +616,7 @@ const WorkspacePage: FC = () => {
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
 
-	const updateWorkspaceLabel =
-		"Update workspace to integrate upstream changes (rebases all stacks)";
+	const updateWorkspaceLabel = "Update workspace (rebases all stacks)";
 
 	return (
 		<>
