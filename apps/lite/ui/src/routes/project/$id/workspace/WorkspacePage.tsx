@@ -680,7 +680,7 @@ const WorkspacePage: FC = () => {
 
 								<Tooltip.Root>
 									<Tooltip.Trigger
-										aria-label="Create independent branch"
+										aria-label="Create branch"
 										className={getButtonClassName({ iconOnly: true })}
 										onClick={createIndependentBranch}
 										render={<Button focusableWhenDisabled disabled={!canCreateIndependentBranch} />}
