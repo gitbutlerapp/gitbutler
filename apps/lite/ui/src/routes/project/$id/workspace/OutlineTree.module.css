@@ -34,15 +34,20 @@
 
 .segments {
 	display: flex;
-	/* The size of an item row. Eventually this should be a fixed/shared value,
-	somehow. */
-	row-gap: 10px;
 	flex-direction: column;
 }
 
-.segment {
+.segmentCommits {
 	display: flex;
 	flex-direction: column;
+}
+
+.segmentParentItemRow {
+	.segment:last-child & {
+		height: 8px;
+		min-height: auto;
+		overflow: hidden;
+	}
 }
 
 .stack {
@@ -57,8 +62,6 @@
 	flex-grow: 1;
 	flex-direction: column;
 	min-width: 0;
-	padding-block: 6px 8px;
-	padding-right: 4px;
 }
 
 .editorInput {
@@ -198,20 +201,8 @@
 	color: var(--color-text-secondary);
 }
 
-.branchTail {
-	display: flex;
-	height: 8px;
-	padding-left: 6px;
-	overflow: hidden;
-
-	& svg path {
-		vector-effect: non-scaling-stroke;
-	}
-}
-
-.commitStateWithCheckbox {
+.graphSegmentWithCheckbox {
 	display: grid;
-	align-self: stretch;
 	justify-items: center;
 
 	& > * {
@@ -248,4 +239,8 @@
 	justify-self: start;
 	margin-left: -15px;
 	margin-block-start: 5px;
+}
+
+.branchRowGraphSegment {
+	align-self: stretch;
 }

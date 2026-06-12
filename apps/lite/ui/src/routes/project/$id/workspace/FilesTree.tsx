@@ -178,7 +178,9 @@ export const FilesTree: FC<
 			>
 				<div className={styles.section}>
 					{items.length === 0 ? (
-						<WorkspaceItemRowEmpty>No changes.</WorkspaceItemRowEmpty>
+						<WorkspaceItemRowEmpty>
+							<WorkspaceItemRowLabel>No changes.</WorkspaceItemRowLabel>
+						</WorkspaceItemRowEmpty>
 					) : (
 						<div role="group">
 							{items.map((item) => (
@@ -346,49 +348,47 @@ const FileRow: FC<
 			</WorkspaceItemRowLabel>
 
 			{outlineMode._tag === "Default" && (
-				<WorkspaceItemRowToolbar forceVisible>
-					<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
-						{Match.value(item).pipe(
-							Match.when(
-								{ _tag: "Change", operand: { parent: { _tag: "Changes" } } },
-								(item) =>
-									item.dependencyCommitIds && (
-										<Toolbar.Button
-											render={
-												<DependencyIndicator
-													projectId={projectId}
-													commitIds={item.dependencyCommitIds}
-													className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-												/>
-											}
-										>
-											<Icon name="link" />
-										</Toolbar.Button>
-									),
-							),
-							Match.orElse(() => null),
-						)}
-						<Toolbar.Button
-							aria-label="File menu"
-							onClick={(event) => {
-								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-							}}
-							className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-						>
-							<Icon name="kebab" />
-						</Toolbar.Button>
-					</Toolbar.Root>
-
-					{item._tag === "Change" ? (
-						<Icon
-							name="file"
-							className={styles.fileStatusIcon}
-							data-char={statusLabel(item.change.status)}
-						/>
-					) : (
-						"C"
+				<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
+					{Match.value(item).pipe(
+						Match.when(
+							{ _tag: "Change", operand: { parent: { _tag: "Changes" } } },
+							(item) =>
+								item.dependencyCommitIds && (
+									<Toolbar.Button
+										render={
+											<DependencyIndicator
+												projectId={projectId}
+												commitIds={item.dependencyCommitIds}
+												className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+											/>
+										}
+									>
+										<Icon name="link" />
+									</Toolbar.Button>
+								),
+						),
+						Match.orElse(() => null),
 					)}
-				</WorkspaceItemRowToolbar>
+					<Toolbar.Button
+						aria-label="File menu"
+						onClick={(event) => {
+							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+						}}
+						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+					>
+						<Icon name="kebab" />
+					</Toolbar.Button>
+				</Toolbar.Root>
+			)}
+
+			{item._tag === "Change" ? (
+				<Icon
+					name="file"
+					className={styles.fileStatusIcon}
+					data-char={statusLabel(item.change.status)}
+				/>
+			) : (
+				"C"
 			)}
 		</ItemRow>
 	);

@@ -65,9 +65,9 @@ interface GraphSegmentProps extends ComponentProps<"div"> {
 }
 
 export const GraphSegment: FC<GraphSegmentProps> = ({ glyph, className, status, ...props }) => (
-	<div {...props} className={classes(className, styles.graphSegment)} data-status={status}>
+	<div {...props} className={classes(className, styles.container)} data-status={status}>
 		<svg
-			className={styles.graphSegmentSvg}
+			className={styles.mainSegment}
 			viewBox="0 0 16 28"
 			fill="none"
 			xmlns="http://www.w3.org/2000/svg"

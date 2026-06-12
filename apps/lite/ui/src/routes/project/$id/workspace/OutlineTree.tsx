@@ -116,7 +116,7 @@ import {
 } from "./WorkspaceItemRow.tsx";
 import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
-import { initNonEmpty, isNonEmptyArray, reverse, scanRight } from "effect/Array";
+import { initNonEmpty, reverse, scanRight } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -1315,7 +1315,7 @@ const CommitRow: FC<
 			className={classes(restProps.className, styles.commitRow)}
 			isCommitTarget={isCommitTarget}
 		>
-			<div className={styles.commitStateWithCheckbox}>
+			<div className={styles.graphSegmentWithCheckbox}>
 				<GraphSegment
 					glyph="commit"
 					status={commitIsDiverged(commit) ? "Diverged" : commit.state.type}
@@ -1348,33 +1348,33 @@ const CommitRow: FC<
 				</Tooltip.Root>
 			</div>
 
-			{isRewording ? (
-				<InlineRewordCommit
-					message={optimisticMessage}
-					onSubmit={saveNewMessage}
-					onExit={endEditing}
-				/>
-			) : (
-				<>
-					<WorkspaceItemRowLabel>
+			<WorkspaceItemRowLabel>
+				{isRewording ? (
+					<InlineRewordCommit
+						message={optimisticMessage}
+						onSubmit={saveNewMessage}
+						onExit={endEditing}
+					/>
+				) : (
+					<>
 						{commitTitle(commitWithOptimisticMessage.message)}
 						{hasConflicts && " ⚠️"}
-					</WorkspaceItemRowLabel>
+					</>
+				)}
+			</WorkspaceItemRowLabel>
 
-					{outlineMode._tag === "Default" && (
-						<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
-							<Toolbar.Button
-								aria-label="Commit menu"
-								onClick={(event) => {
-									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-								}}
-								className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-							>
-								<Icon name="kebab" />
-							</Toolbar.Button>
-						</Toolbar.Root>
-					)}
-				</>
+			{outlineMode._tag === "Default" && (
+				<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
+					<Toolbar.Button
+						aria-label="Commit menu"
+						onClick={(event) => {
+							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+						}}
+						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+					>
+						<Icon name="kebab" />
+					</Toolbar.Button>
+				</Toolbar.Root>
 			)}
 		</ItemRow>
 	);
@@ -1468,9 +1468,8 @@ const ChangesSectionRow: FC<{
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
-			heading
 		>
-			<WorkspaceItemRowLabel>
+			<WorkspaceItemRowLabel heading>
 				Changes
 				<span
 					className={classes("text-11", "text-semibold", workspaceItemRowStyles.changesCountBubble)}
@@ -2226,10 +2225,10 @@ const BranchRow: FC<
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
-			heading
 			isCommitTarget={isCommitTarget}
 		>
 			<GraphSegment
+				className={styles.branchRowGraphSegment}
 				glyph="forkRight"
 				status={(() => {
 					switch (pushStatus) {
@@ -2246,62 +2245,59 @@ const BranchRow: FC<
 				})()}
 			/>
 
-			{isRenaming ? (
-				<InlineRenameBranch
-					branchDisplayName={optimisticBranchDisplayName}
-					onSubmit={saveBranchName}
-					onExit={endEditing}
-				/>
-			) : (
-				<>
-					<WorkspaceItemRowLabel>{optimisticBranchDisplayName}</WorkspaceItemRowLabel>
+			<WorkspaceItemRowLabel heading>
+				{isRenaming ? (
+					<InlineRenameBranch
+						branchDisplayName={optimisticBranchDisplayName}
+						onSubmit={saveBranchName}
+						onExit={endEditing}
+					/>
+				) : (
+					optimisticBranchDisplayName
+				)}
+			</WorkspaceItemRowLabel>
 
-					{outlineMode._tag === "Default" && (
-						<Toolbar.Root
-							aria-label="Branch actions"
-							render={<WorkspaceItemRowToolbar forceVisible />}
+			{outlineMode._tag === "Default" && (
+				<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar forceVisible />}>
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={
+								<Toolbar.Button
+									aria-label={pushButtonLabel}
+									onClick={pushStack}
+									// Note this prevents the tooltip from showing, but it
+									// shouldn't: https://github.com/mui/base-ui/issues/4966
+									disabled={!canPushStack}
+									className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+								/>
+							}
 						>
-							<Tooltip.Root>
-								<Tooltip.Trigger
-									render={
-										<Toolbar.Button
-											aria-label={pushButtonLabel}
-											onClick={pushStack}
-											// Note this prevents the tooltip from showing, but it
-											// shouldn't: https://github.com/mui/base-ui/issues/4966
-											disabled={!canPushStack}
-											className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-										/>
-									}
-								>
-									{pushStackMutation.isPending ? (
-										<Icon name="spinner" />
-									) : pushesMultipleBranches ? (
-										<Icon name="arrow-double-line-up" />
-									) : (
-										<Icon name="arrow-line-up" />
-									)}
-								</Tooltip.Trigger>
-								<Tooltip.Portal>
-									<Tooltip.Positioner sideOffset={4}>
-										<Tooltip.Popup render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}>
-											{pushStackDisabledReason ?? pushButtonLabel}
-										</Tooltip.Popup>
-									</Tooltip.Positioner>
-								</Tooltip.Portal>
-							</Tooltip.Root>
-							<Toolbar.Button
-								aria-label="Branch menu"
-								onClick={(event) => {
-									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-								}}
-								className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-							>
-								<Icon name="kebab" />
-							</Toolbar.Button>
-						</Toolbar.Root>
-					)}
-				</>
+							{pushStackMutation.isPending ? (
+								<Icon name="spinner" />
+							) : pushesMultipleBranches ? (
+								<Icon name="arrow-double-line-up" />
+							) : (
+								<Icon name="arrow-line-up" />
+							)}
+						</Tooltip.Trigger>
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}>
+									{pushStackDisabledReason ?? pushButtonLabel}
+								</Tooltip.Popup>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
+					<Toolbar.Button
+						aria-label="Branch menu"
+						onClick={(event) => {
+							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+						}}
+						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+					>
+						<Icon name="kebab" />
+					</Toolbar.Button>
+				</Toolbar.Root>
 			)}
 		</ItemRow>
 	);
@@ -2377,15 +2373,6 @@ const StackRow: FC<
 	);
 };
 
-const BranchTail: FC<{ commit?: Commit }> = ({ commit }) => (
-	<div className={styles.branchTail} aria-hidden="true">
-		<GraphSegment
-			glyph="parent"
-			status={commit ? (commitIsDiverged(commit) ? "Diverged" : commit.state.type) : "LocalOnly"}
-		/>
-	</div>
-);
-
 const BranchSegment: FC<{
 	projectId: string;
 	segment: Segment;
@@ -2413,7 +2400,6 @@ const BranchSegment: FC<{
 			operand={operand}
 			aria-label={refName.displayName}
 			aria-expanded
-			className={styles.segment}
 		>
 			<OperandC
 				projectId={projectId}
@@ -2441,57 +2427,90 @@ const BranchSegment: FC<{
 			/>
 
 			{segment.commits.length === 0 ? (
-				<>
-					<WorkspaceItemRowEmpty>
-						<GraphSegment glyph="parent" status="LocalOnly" />
-						<WorkspaceItemRowLabel>No commits.</WorkspaceItemRowLabel>
-					</WorkspaceItemRowEmpty>
-					<BranchTail />
-				</>
+				<EmptySegment stackId={stackId} refName={refName} />
 			) : (
 				<div role="group">
-					{segment.commits.map((commit) => (
-						<CommitC
-							key={commit.id}
-							commit={commit}
-							projectId={projectId}
-							stackId={stackId}
-							isCommitTarget={
-								commitTarget
-									? relativeToEquals(commitTarget, { type: "commit", subject: commit.id })
-									: false
-							}
-						/>
-					))}
-					<BranchTail commit={assert(segment.commits.at(-1))} />
+					<NonEmptySegment
+						projectId={projectId}
+						segment={segment}
+						stackId={stackId}
+						commitTarget={commitTarget}
+					/>
 				</div>
 			)}
 		</TreeItem>
 	);
 };
 
-const BranchlessSegment: FC<{
+const EmptySegment: FC<{
+	stackId: string;
+	refName: BranchReference;
+}> = ({ stackId, refName }) => {
+	const navigationIndex = assert(use(NavigationIndexContext));
+	const inert = !navigationIndexIncludes(
+		navigationIndex,
+		branchOperand({ stackId, branchRef: refName.fullNameBytes }),
+		operandIdentityKey,
+	);
+
+	return (
+		<div>
+			<WorkspaceItemRowEmpty inert={inert}>
+				<GraphSegment glyph="parent" status="LocalOnly" />
+				<WorkspaceItemRowLabel>No commits.</WorkspaceItemRowLabel>
+			</WorkspaceItemRowEmpty>
+			<WorkspaceItemRowEmpty className={styles.segmentParentItemRow} inert={inert}>
+				<GraphSegment glyph="parent" status="LocalOnly" />
+			</WorkspaceItemRowEmpty>
+		</div>
+	);
+};
+
+const NonEmptySegment: FC<{
 	projectId: string;
+	/**
+	 * A segment that has at least one commit.
+	 */
 	segment: Segment;
 	stackId: string;
 	commitTarget: RelativeTo | null;
-}> = ({ projectId, segment, stackId, commitTarget }) => (
-	<div className={styles.segment}>
-		{segment.commits.map((commit) => (
-			<CommitC
-				key={commit.id}
-				commit={commit}
-				projectId={projectId}
-				stackId={stackId}
-				isCommitTarget={
-					commitTarget
-						? relativeToEquals(commitTarget, { type: "commit", subject: commit.id })
-						: false
+}> = ({ projectId, segment, stackId, commitTarget }) => {
+	const bottomCommit = assert(segment.commits.at(-1));
+	const navigationIndex = assert(use(NavigationIndexContext));
+
+	return (
+		<div className={styles.segmentCommits}>
+			{segment.commits.map((commit) => (
+				<CommitC
+					key={commit.id}
+					commit={commit}
+					projectId={projectId}
+					stackId={stackId}
+					isCommitTarget={
+						commitTarget
+							? relativeToEquals(commitTarget, { type: "commit", subject: commit.id })
+							: false
+					}
+				/>
+			))}
+			<WorkspaceItemRowEmpty
+				className={styles.segmentParentItemRow}
+				inert={
+					!navigationIndexIncludes(
+						navigationIndex,
+						commitOperand({ stackId, commitId: bottomCommit.id }),
+						operandIdentityKey,
+					)
 				}
-			/>
-		))}
-	</div>
-);
+			>
+				<GraphSegment
+					glyph="parent"
+					status={commitIsDiverged(bottomCommit) ? "Diverged" : bottomCommit.state.type}
+				/>
+			</WorkspaceItemRowEmpty>
+		</div>
+	);
+};
 
 const StackC: FC<{
 	projectId: string;
@@ -2538,30 +2557,34 @@ const StackC: FC<{
 						// https://github.com/gitbutlerapp/gitbutler/pull/14059.
 						(stackState.branchCount > 1 && index !== topBranchIndex);
 
-					return segment.refName ? (
-						<BranchSegment
-							key={JSON.stringify(segment.refName.fullNameBytes)}
-							projectId={projectId}
-							segment={segment}
-							refName={segment.refName}
-							stackId={stackId}
-							commitTarget={commitTarget}
-							canTearOffBranch={canTearOffBranch}
-							canRemoveBranch={canRemoveBranch}
-							partialStackState={partialStackState}
-						/>
-					) : (
-						// A segment should always either have a branch reference or at
-						// least one commit.
-						isNonEmptyArray(segment.commits) && (
-							<BranchlessSegment
-								key={segment.commits[0].id}
-								projectId={projectId}
-								segment={segment}
-								stackId={stackId}
-								commitTarget={commitTarget}
-							/>
-						)
+					const key = segment.refName
+						? JSON.stringify(segment.refName.fullNameBytes)
+						: // A segment should always either have a branch reference or at
+							// least one commit.
+							assert(segment.commits[0]).id;
+
+					return (
+						<div className={styles.segment} key={key}>
+							{segment.refName ? (
+								<BranchSegment
+									projectId={projectId}
+									segment={segment}
+									refName={segment.refName}
+									stackId={stackId}
+									commitTarget={commitTarget}
+									canTearOffBranch={canTearOffBranch}
+									canRemoveBranch={canRemoveBranch}
+									partialStackState={partialStackState}
+								/>
+							) : (
+								<NonEmptySegment
+									projectId={projectId}
+									segment={segment}
+									stackId={stackId}
+									commitTarget={commitTarget}
+								/>
+							)}
+						</div>
 					);
 				})}
 			</div>

@@ -1,7 +1,6 @@
-.graphSegment {
+.container {
 	display: flex;
 	flex-direction: column;
-	align-self: stretch;
 
 	color: var(--commit-status-color);
 
@@ -22,7 +21,8 @@
 	}
 }
 
-.graphSegmentSvg {
+.mainSegment {
+	flex-shrink: 0;
 	height: 28px;
 }
 

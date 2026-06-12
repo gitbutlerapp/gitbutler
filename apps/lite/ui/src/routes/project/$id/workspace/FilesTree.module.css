@@ -15,6 +15,7 @@
 }
 
 .fileStatusIcon {
+	align-self: center;
 	&[data-char="A"] {
 		color: #64d5a6;
 	}
@@ -34,6 +35,7 @@
 
 .fileIconWithCheckbox {
 	display: grid;
+	align-self: center;
 	justify-items: center;
 
 	& > * {
