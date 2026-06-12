@@ -2557,30 +2557,34 @@ const StackC: FC<{
 						// https://github.com/gitbutlerapp/gitbutler/pull/14059.
 						(stackState.branchCount > 1 && index !== topBranchIndex);
 
-					return segment.refName ? (
-						<BranchSegment
-							key={JSON.stringify(segment.refName.fullNameBytes)}
-							projectId={projectId}
-							segment={segment}
-							refName={segment.refName}
-							stackId={stackId}
-							commitTarget={commitTarget}
-							canTearOffBranch={canTearOffBranch}
-							canRemoveBranch={canRemoveBranch}
-							partialStackState={partialStackState}
-						/>
-					) : (
-						// A segment should always either have a branch reference or at
-						// least one commit.
-						isNonEmptyArray(segment.commits) && (
-							<NonEmptySegment
-								key={segment.commits[0].id}
-								projectId={projectId}
-								segment={segment}
-								stackId={stackId}
-								commitTarget={commitTarget}
-							/>
-						)
+					return (
+						<div className={styles.segment}>
+							{segment.refName ? (
+								<BranchSegment
+									key={JSON.stringify(segment.refName.fullNameBytes)}
+									projectId={projectId}
+									segment={segment}
+									refName={segment.refName}
+									stackId={stackId}
+									commitTarget={commitTarget}
+									canTearOffBranch={canTearOffBranch}
+									canRemoveBranch={canRemoveBranch}
+									partialStackState={partialStackState}
+								/>
+							) : (
+								// A segment should always either have a branch reference or at
+								// least one commit.
+								isNonEmptyArray(segment.commits) && (
+									<NonEmptySegment
+										key={segment.commits[0].id}
+										projectId={projectId}
+										segment={segment}
+										stackId={stackId}
+										commitTarget={commitTarget}
+									/>
+								)
+							)}
+						</div>
 					);
 				})}
 			</div>

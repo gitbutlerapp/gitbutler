@@ -34,9 +34,6 @@
 
 .segments {
 	display: flex;
-	/* The size of an item row. Eventually this should be a fixed/shared value,
-	somehow. */
-	row-gap: 10px;
 	flex-direction: column;
 }
 
@@ -46,9 +43,11 @@
 }
 
 .segmentTail {
-	height: 8px;
-	min-height: auto;
-	overflow: hidden;
+	.segment:last-child & {
+		height: 8px;
+		min-height: auto;
+		overflow: hidden;
+	}
 }
 
 .stack {
