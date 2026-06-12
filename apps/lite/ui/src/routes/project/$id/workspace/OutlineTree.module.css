@@ -42,7 +42,7 @@
 	flex-direction: column;
 }
 
-.segmentTail {
+.segmentParentItemRow {
 	.segment:last-child & {
 		height: 8px;
 		min-height: auto;

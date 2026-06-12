@@ -2459,7 +2459,7 @@ const EmptySegment: FC<{
 				<GraphSegment glyph="parent" status="LocalOnly" />
 				<WorkspaceItemRowLabel>No commits.</WorkspaceItemRowLabel>
 			</WorkspaceItemRowEmpty>
-			<WorkspaceItemRowEmpty className={styles.segmentTail} inert={inert}>
+			<WorkspaceItemRowEmpty className={styles.segmentParentItemRow} inert={inert}>
 				<GraphSegment glyph="parent" status="LocalOnly" />
 			</WorkspaceItemRowEmpty>
 		</div>
@@ -2494,7 +2494,7 @@ const NonEmptySegment: FC<{
 				/>
 			))}
 			<WorkspaceItemRowEmpty
-				className={styles.segmentTail}
+				className={styles.segmentParentItemRow}
 				inert={
 					!navigationIndexIncludes(
 						navigationIndex,
