@@ -116,7 +116,7 @@ import {
 } from "./WorkspaceItemRow.tsx";
 import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
-import { initNonEmpty, isNonEmptyArray, scanRight } from "effect/Array";
+import { initNonEmpty, isNonEmptyArray, reverse, scanRight } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -769,15 +769,6 @@ export const OutlineTree: FC<
 
 						<div className={classes(styles.stacksScroller, uiStyles.scrollerWithSeparator)}>
 							<div className={styles.stacks}>
-								{headInfo?.stacks.map((stack) => (
-									<StackC
-										key={stack.id}
-										projectId={projectId}
-										stack={stack}
-										commitTarget={commitTarget?.relativeTo ?? null}
-									/>
-								))}
-
 								<Tooltip.Root>
 									<Tooltip.Trigger
 										className={getButtonClassName({})}
@@ -803,6 +794,15 @@ export const OutlineTree: FC<
 										</Tooltip.Positioner>
 									</Tooltip.Portal>
 								</Tooltip.Root>
+
+								{[...(headInfo?.stacks ?? [])].reverse().map((stack) => (
+									<StackC
+										key={stack.id}
+										projectId={projectId}
+										stack={stack}
+										commitTarget={commitTarget?.relativeTo ?? null}
+									/>
+								))}
 							</div>
 						</div>
 
@@ -1540,7 +1540,7 @@ const buildCommitTargetComboboxItems = ({
 				] satisfies Array<CommitTargetComboboxItem>)
 			: []),
 		...(headInfo
-			? headInfo.stacks.flatMap(
+			? reverse(headInfo.stacks).flatMap(
 					(stack): Array<CommitTargetComboboxItem> =>
 						stack.segments.flatMap((segment): Array<CommitTargetComboboxItem> => {
 							const refName = segment.refName;

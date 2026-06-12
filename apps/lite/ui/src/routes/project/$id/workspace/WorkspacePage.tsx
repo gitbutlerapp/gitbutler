@@ -410,14 +410,14 @@ const outlineNavigationItems = (headInfo: RefInfo | undefined): Array<Operand> =
 	return [
 		changesSectionOperand,
 
-		...(headInfo?.stacks.flatMap((stack) => {
+		...[...(headInfo?.stacks ?? [])].reverse().flatMap((stack) => {
 			// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
 			const stackId = stack.id!;
 			return [
 				stackOperand({ stackId }),
 				...stack.segments.flatMap((segment) => segmentItems(stackId, segment)),
 			];
-		}) ?? []),
+		}),
 	];
 };
 
