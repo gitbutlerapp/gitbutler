@@ -60,14 +60,14 @@ const stretchableGlyphs = new Set<GlyphType>([
 type Status = "Diverged" | CommitState["type"];
 
 interface GraphSegmentProps extends ComponentProps<"div"> {
-	glyph?: GlyphType;
-	stretch?: boolean;
+	glyph: GlyphType;
+	stretch: boolean;
 	status: Status;
 }
 
 export const GraphSegment: FC<GraphSegmentProps> = ({
-	glyph = "parent",
-	stretch = false,
+	glyph,
+	stretch,
 	className,
 	status,
 	...props

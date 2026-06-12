@@ -76,7 +76,7 @@ export const AllGlyphs = meta.story({
 					}}
 				>
 					<div style={{ backgroundColor: "var(--bg-2)", display: "flex" }}>
-						<GraphSegment glyph={glyph} status="LocalOnly" />
+						<GraphSegment glyph={glyph} status="LocalOnly" stretch />
 					</div>
 					<div style={{ fontSize: 10 }}>{glyph}</div>
 				</div>
