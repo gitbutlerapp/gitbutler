@@ -5,6 +5,7 @@ import {
 	type AbsorbParams,
 	type AbsorptionPlanParams,
 	type AssignHunkParams,
+	type BranchCheckoutNewParams,
 	type BranchCreateParams,
 	type BranchDetailsParams,
 	type BranchDiffParams,
@@ -44,6 +45,7 @@ import {
 	absorptionPlan,
 	apply,
 	assignHunk,
+	branchCheckoutNew,
 	branchCreate,
 	branchDetails,
 	branchDiff,
@@ -321,6 +323,10 @@ const registerIpcHandlers = (): void => {
 		liteIpcChannels.branchCreate,
 		(_e, { projectId, newRef, placement }: BranchCreateParams) =>
 			branchCreate(projectId, newRef, placement),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.branchCheckoutNew,
+		(_e, { projectId, name }: BranchCheckoutNewParams) => branchCheckoutNew(projectId, name),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.branchDetails,

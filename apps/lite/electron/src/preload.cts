@@ -4,6 +4,7 @@ import type { UpdateDownloadedEvent } from "electron-updater";
 import type {
 	CommitAbsorption,
 	ApplyOutcome,
+	BranchCheckoutResult,
 	BranchCreateResult,
 	BranchDetails,
 	BranchListing,
@@ -60,6 +61,8 @@ const api: LiteElectronApi = {
 	submitAskpassPromptResponse: (params) =>
 		ipcRenderer.invoke("askpass:submit-response", params) as Promise<void>,
 	assignHunk: (params) => ipcRenderer.invoke("workspace:assign-hunk", params) as Promise<void>,
+	branchCheckoutNew: (params) =>
+		ipcRenderer.invoke("workspace:branch-checkout-new", params) as Promise<BranchCheckoutResult>,
 	branchCreate: (params) =>
 		ipcRenderer.invoke("workspace:branch-create", params) as Promise<BranchCreateResult>,
 	branchDetails: (params) =>

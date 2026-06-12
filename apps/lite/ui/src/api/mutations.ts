@@ -21,7 +21,7 @@ import {
 } from "@gitbutler/but-sdk";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
-import { BranchCreateParams, OpenInEditorParams } from "#electron/ipc.ts";
+import { BranchCheckoutNewParams, BranchCreateParams, OpenInEditorParams } from "#electron/ipc.ts";
 
 export const useAbsorb = ({ projectId }: { projectId: string }) => {
 	const toastManager = Toast.useToastManager();
@@ -90,6 +90,39 @@ export const useBranchCreate = () => {
 			toastManager.add({
 				type: "error",
 				title: "Failed to create branch",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useBranchCheckoutNew = () => {
+	const dispatch = useAppDispatch();
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: (input: BranchCheckoutNewParams) => window.lite.branchCheckoutNew(input),
+		onSuccess: async (response, input, _context, mutation) => {
+			mutation.client.setQueryData(
+				headInfoQueryOptions(input.projectId).queryKey,
+				response.workspace.headInfo,
+			);
+			dispatch(
+				projectActions.updateRewrittenCommitReferences({
+					projectId: input.projectId,
+					replacedCommits: response.workspace.replacedCommits,
+					headInfo: response.workspace.headInfo,
+				}),
+			);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to reset workspace",
 				description: errorMessageForToast(error),
 				priority: "high",
 			});

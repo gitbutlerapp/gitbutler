@@ -6,6 +6,7 @@ import {
 } from "#ui/api/queries.ts";
 import {
 	useApplyBranch,
+	useBranchCheckoutNew,
 	useBranchCreate,
 	useWorkspaceIntegrateUpstream,
 	useRestoreSnapshot,
@@ -486,6 +487,7 @@ const WorkspacePage: FC = () => {
 	};
 
 	const branchCreateMutation = useBranchCreate();
+	const branchCheckoutNewMutation = useBranchCheckoutNew();
 	const createIndependentBranch = () => {
 		branchCreateMutation.mutate(
 			{
@@ -498,6 +500,23 @@ const WorkspacePage: FC = () => {
 					const newBranch = findBranchOperandByRef({
 						headInfo: response.workspace.headInfo,
 						branchRef: response.newRef.fullNameBytes,
+					});
+					if (newBranch) selectBranch(newBranch);
+				},
+			},
+		);
+	};
+	const resetWorkspace = () => {
+		branchCheckoutNewMutation.mutate(
+			{ projectId, name: null },
+			{
+				onSuccess: (response) => {
+					const workspaceRef = response.workspace.headInfo.workspaceRef;
+					if (!workspaceRef) return;
+
+					const newBranch = findBranchOperandByRef({
+						headInfo: response.workspace.headInfo,
+						branchRef: workspaceRef.fullNameBytes,
 					});
 					if (newBranch) selectBranch(newBranch);
 				},
@@ -534,6 +553,8 @@ const WorkspacePage: FC = () => {
 
 	const canCreateIndependentBranch =
 		outlineMode._tag === "Default" && !branchCreateMutation.isPending;
+
+	const canResetWorkspace = outlineMode._tag === "Default" && !branchCheckoutNewMutation.isPending;
 
 	const canApplyBranch = outlineMode._tag === "Default";
 
@@ -630,6 +651,28 @@ const WorkspacePage: FC = () => {
 							</div>
 
 							<div className={styles.workspaceControlsActions}>
+								<Tooltip.Root>
+									<Tooltip.Trigger
+										aria-label="Reset workspace"
+										className={getButtonClassName({ iconOnly: true })}
+										onClick={resetWorkspace}
+										// We pass `disabled` here because we want to disable the button, not
+										// the tooltip. Other props should be passed above.
+										render={<Button focusableWhenDisabled disabled={!canResetWorkspace} />}
+									>
+										{branchCheckoutNewMutation.isPending ? (
+											<Icon name="spinner" />
+										) : (
+											<Icon name="undo" />
+										)}
+									</Tooltip.Trigger>
+									<Tooltip.Portal>
+										<Tooltip.Positioner sideOffset={4}>
+											<Tooltip.Popup render={<TooltipPopup />}>Reset workspace</Tooltip.Popup>
+										</Tooltip.Positioner>
+									</Tooltip.Portal>
+								</Tooltip.Root>
+
 								<Tooltip.Root>
 									<Tooltip.Trigger
 										aria-label={workspaceHotkeys.updateWorkspace.meta.name}
