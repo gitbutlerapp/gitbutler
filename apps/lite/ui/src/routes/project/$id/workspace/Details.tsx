@@ -648,7 +648,7 @@ const CommitDetailsContent: FC<{
 				hour: "2-digit",
 				minute: "2-digit",
 				hour12: false,
-			}).format(commitDetails.commit.committedAt);
+			}).format(commitDetails.commit.authoredAt);
 
 			const body = commitBody(commitDetails.commit.message);
 
