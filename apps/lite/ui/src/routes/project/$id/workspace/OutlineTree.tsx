@@ -2374,7 +2374,10 @@ const BranchSegment: FC<{
 			/>
 
 			{segment.commits.length === 0 ? (
-				<WorkspaceItemRowEmpty>No commits.</WorkspaceItemRowEmpty>
+				<WorkspaceItemRowEmpty>
+					<GraphSegment glyph="parent" status="LocalOnly" stretch={false} />
+					<WorkspaceItemRowLabel>No commits.</WorkspaceItemRowLabel>
+				</WorkspaceItemRowEmpty>
 			) : (
 				<div role="group">
 					{segment.commits.map((commit) => (
