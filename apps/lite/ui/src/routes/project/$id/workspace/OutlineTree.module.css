@@ -213,7 +213,7 @@
 }
 
 .commitCheckbox {
-	transform: translateY(7px);
+	margin-block-start: 7px;
 	opacity: 0;
 
 	.treeWithCheckedCommits &,
