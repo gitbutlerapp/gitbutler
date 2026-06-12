@@ -126,6 +126,7 @@ import {
 	outlineHotkeys,
 	selectionOperationHotkeys,
 	toElectronAccelerator,
+	workspaceHotkeys,
 } from "#ui/hotkeys.ts";
 import { segmentBottomRelativeTo, stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
@@ -673,6 +674,7 @@ export const OutlineTree: FC<
 > = ({ navigationIndex, absorptionTargetKeys, ref: refProp, ...props }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
+	const dispatch = useAppDispatch();
 	const selection = useOutlineSelection({ projectId, navigationIndex });
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 	const hasCheckedCommits = useAppSelector((state) =>
@@ -691,6 +693,36 @@ export const OutlineTree: FC<
 	const dryRunWorkspace = dryRunOperationQuery.data?.workspace ?? null;
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
+	const branchCreateMutation = useBranchCreate();
+
+	const createIndependentBranch = () => {
+		branchCreateMutation.mutate(
+			{
+				projectId,
+				newRef: null,
+				placement: { type: "independent" },
+			},
+			{
+				onSuccess: (response) => {
+					const newBranch = findBranchOperandByRef({
+						headInfo: response.workspace.headInfo,
+						branchRef: response.newRef.fullNameBytes,
+					});
+					if (!newBranch) return;
+
+					dispatch(
+						projectActions.selectOutline({
+							projectId,
+							selection: branchOperand(newBranch),
+						}),
+					);
+					focusSelectionScope("outline");
+				},
+			},
+		);
+	};
+	const canCreateIndependentBranch =
+		outlineMode._tag === "Default" && !branchCreateMutation.isPending;
 
 	const ref = useRef<HTMLDivElement>(null);
 
@@ -745,6 +777,32 @@ export const OutlineTree: FC<
 										commitTarget={commitTarget?.relativeTo ?? null}
 									/>
 								))}
+
+								<Tooltip.Root>
+									<Tooltip.Trigger
+										className={getButtonClassName({})}
+										onClick={createIndependentBranch}
+										render={<Button focusableWhenDisabled disabled={!canCreateIndependentBranch} />}
+									>
+										{branchCreateMutation.isPending ? (
+											<Icon name="spinner" />
+										) : (
+											<Icon name="plus" />
+										)}
+										Create branch
+									</Tooltip.Trigger>
+									<Tooltip.Portal>
+										<Tooltip.Positioner sideOffset={4}>
+											<Tooltip.Popup
+												render={
+													<TooltipPopup kbd={workspaceHotkeys.createIndependentBranch.hotkey} />
+												}
+											>
+												{workspaceHotkeys.createIndependentBranch.meta.name}
+											</Tooltip.Popup>
+										</Tooltip.Positioner>
+									</Tooltip.Portal>
+								</Tooltip.Root>
 							</div>
 						</div>
 
