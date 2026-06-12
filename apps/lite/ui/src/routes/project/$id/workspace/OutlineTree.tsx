@@ -109,10 +109,10 @@ import styles from "./OutlineTree.module.css";
 import { Checkbox } from "#ui/components/Checkbox.tsx";
 import {
 	WorkspaceItemRow,
-	WorkspaceItemRowButton,
 	WorkspaceItemRowEmpty,
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowToolbar,
+	getWorkspaceItemRowButtonClassName,
 } from "./WorkspaceItemRow.tsx";
 import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
@@ -952,10 +952,15 @@ const EditorHelp: FC<{
 }> = ({ buttons }) => (
 	<div className={styles.editorHelp}>
 		{buttons.map((button) => (
-			<WorkspaceItemRowButton type="button" onClick={button.callback} key={button.hotkey}>
+			<button
+				type="button"
+				className={getWorkspaceItemRowButtonClassName({})}
+				onClick={button.callback}
+				key={button.hotkey}
+			>
 				<kbd>{formatForDisplay(button.hotkey)}</kbd>
 				<span className={styles.editorShortcutLabel}> to {button.name}</span>
-			</WorkspaceItemRowButton>
+			</button>
 		))}
 	</div>
 );
@@ -1363,7 +1368,7 @@ const CommitRow: FC<
 								onClick={(event) => {
 									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 								}}
-								render={<WorkspaceItemRowButton iconOnly />}
+								className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
 							>
 								<Icon name="kebab" />
 							</Toolbar.Button>
@@ -1484,7 +1489,7 @@ const ChangesSectionRow: FC<{
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						render={<WorkspaceItemRowButton iconOnly />}
+						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
@@ -2265,7 +2270,7 @@ const BranchRow: FC<
 											// Note this prevents the tooltip from showing, but it
 											// shouldn't: https://github.com/mui/base-ui/issues/4966
 											disabled={!canPushStack}
-											render={<WorkspaceItemRowButton iconOnly />}
+											className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
 										/>
 									}
 								>
@@ -2290,7 +2295,7 @@ const BranchRow: FC<
 								onClick={(event) => {
 									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 								}}
-								render={<WorkspaceItemRowButton iconOnly />}
+								className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
 							>
 								<Icon name="kebab" />
 							</Toolbar.Button>
@@ -2362,7 +2367,7 @@ const StackRow: FC<
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						render={<WorkspaceItemRowButton iconOnly />}
+						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>

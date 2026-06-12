@@ -77,7 +77,7 @@ import {
 	synthesizeFilePatch,
 } from "#ui/hunk.ts";
 import { buildNavigationIndex, NavigationIndex } from "#ui/workspace/navigation-index.ts";
-import { WorkspaceItemRowButton } from "./WorkspaceItemRow";
+import { getWorkspaceItemRowButtonClassName } from "./WorkspaceItemRow";
 import {
 	type NativeMenuItem,
 	nativeMenuItem,
@@ -647,7 +647,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						render={<WorkspaceItemRowButton iconOnly />}
+						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
