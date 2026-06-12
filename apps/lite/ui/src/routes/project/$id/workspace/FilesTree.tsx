@@ -348,7 +348,7 @@ const FileRow: FC<
 			</WorkspaceItemRowLabel>
 
 			{outlineMode._tag === "Default" && (
-				<WorkspaceItemRowToolbar forceVisible>
+				<>
 					<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
 						{Match.value(item).pipe(
 							Match.when(
@@ -390,7 +390,7 @@ const FileRow: FC<
 					) : (
 						"C"
 					)}
-				</WorkspaceItemRowToolbar>
+				</>
 			)}
 		</ItemRow>
 	);

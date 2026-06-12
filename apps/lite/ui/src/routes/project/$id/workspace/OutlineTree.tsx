@@ -1468,9 +1468,8 @@ const ChangesSectionRow: FC<{
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
-			heading
 		>
-			<WorkspaceItemRowLabel>
+			<WorkspaceItemRowLabel heading>
 				Changes
 				<span
 					className={classes("text-11", "text-semibold", workspaceItemRowStyles.changesCountBubble)}
@@ -2226,7 +2225,6 @@ const BranchRow: FC<
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
-			heading
 			isCommitTarget={isCommitTarget}
 		>
 			<GraphSegment
@@ -2247,7 +2245,7 @@ const BranchRow: FC<
 				})()}
 			/>
 
-			<WorkspaceItemRowLabel>
+			<WorkspaceItemRowLabel heading>
 				{isRenaming ? (
 					<InlineRenameBranch
 						branchDisplayName={optimisticBranchDisplayName}
