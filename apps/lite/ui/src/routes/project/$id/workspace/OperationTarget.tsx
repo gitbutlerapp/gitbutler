@@ -166,14 +166,6 @@ export const OperationTarget: FC<
 		Match.orElse(() => false),
 	);
 
-	const isMainTargetTooltipActive = Match.value(outlineMode).pipe(
-		Match.tags({
-			Absorb: () => isSelected,
-			Transfer: () => isMainTargetActive,
-		}),
-		Match.orElse(() => false),
-	);
-
 	const targetEl = useRender({
 		render,
 		ref: dropRef,
@@ -186,7 +178,7 @@ export const OperationTarget: FC<
 		<div className={styles.target}>
 			<OperationTooltip
 				target={target}
-				isActive={isMainTargetTooltipActive}
+				isActive={isMainTargetActive}
 				outlineMode={outlineMode}
 				render={targetEl}
 			/>

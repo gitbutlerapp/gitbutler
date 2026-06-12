@@ -16,6 +16,7 @@ export const OperationTooltip: FC<
 	const tooltip = isActive
 		? Match.value(outlineMode).pipe(
 				Match.tags({
+					Absorb: () => <>Absorb target</>,
 					Transfer: ({ value: mode }) => {
 						const operation = getTransferOperation({ mode, target });
 						if (!operation) return null;
