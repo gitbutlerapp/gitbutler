@@ -1315,7 +1315,7 @@ const CommitRow: FC<
 			className={classes(restProps.className, styles.commitRow)}
 			isCommitTarget={isCommitTarget}
 		>
-			<div className={styles.commitStateWithCheckbox}>
+			<div className={styles.graphSegmentWithCheckbox}>
 				<GraphSegment
 					glyph="commit"
 					status={commitIsDiverged(commit) ? "Diverged" : commit.state.type}

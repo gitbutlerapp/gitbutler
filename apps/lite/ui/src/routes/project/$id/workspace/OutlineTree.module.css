@@ -202,7 +202,7 @@
 	color: var(--color-text-secondary);
 }
 
-.commitStateWithCheckbox {
+.graphSegmentWithCheckbox {
 	display: grid;
 	justify-items: center;
 
