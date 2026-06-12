@@ -2434,11 +2434,17 @@ const BranchSegment: FC<{
 				}
 			/>
 
-			{segment.commits.length === 0 ? (
-				<WorkspaceItemRowEmpty>
-					<GraphSegment glyph="parent" status="LocalOnly" />
-					<WorkspaceItemRowLabel>No commits.</WorkspaceItemRowLabel>
-				</WorkspaceItemRowEmpty>
+			{!bottomCommit ? (
+				<>
+					<WorkspaceItemRowEmpty>
+						<GraphSegment glyph="parent" status="LocalOnly" />
+						<WorkspaceItemRowLabel>No commits.</WorkspaceItemRowLabel>
+					</WorkspaceItemRowEmpty>
+
+					<WorkspaceItemRowEmpty className={styles.segmentTail}>
+						<GraphSegment glyph="parent" status="LocalOnly" />
+					</WorkspaceItemRowEmpty>
+				</>
 			) : (
 				<div role="group">
 					{segment.commits.map((commit) => (
@@ -2454,21 +2460,15 @@ const BranchSegment: FC<{
 							}
 						/>
 					))}
+
+					<WorkspaceItemRowEmpty className={styles.segmentTail}>
+						<GraphSegment
+							glyph="parent"
+							status={commitIsDiverged(bottomCommit) ? "Diverged" : bottomCommit.state.type}
+						/>
+					</WorkspaceItemRowEmpty>
 				</div>
 			)}
-
-			<WorkspaceItemRowEmpty className={styles.segmentTail}>
-				<GraphSegment
-					glyph="parent"
-					status={
-						bottomCommit
-							? commitIsDiverged(bottomCommit)
-								? "Diverged"
-								: bottomCommit.state.type
-							: "LocalOnly"
-					}
-				/>
-			</WorkspaceItemRowEmpty>
 		</TreeItem>
 	);
 };
