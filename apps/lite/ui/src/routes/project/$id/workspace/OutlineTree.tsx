@@ -126,7 +126,7 @@ import {
 	selectionOperationHotkeys,
 	toElectronAccelerator,
 } from "#ui/hotkeys.ts";
-import { stackToBottomRebaseUpdate } from "#ui/api/stack.ts";
+import { segmentBottomRelativeTo, stackToBottomRebaseUpdate } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
@@ -1915,7 +1915,7 @@ const BranchRow: FC<
 		canRemoveBranch: boolean;
 		partialStackState: PartialStackState;
 		pushStatus: PushStatus;
-		bottomCommitId: string | undefined;
+		bottomRelativeTo: RelativeTo | null;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -1926,7 +1926,7 @@ const BranchRow: FC<
 	canRemoveBranch,
 	partialStackState,
 	pushStatus,
-	bottomCommitId,
+	bottomRelativeTo,
 	...restProps
 }) => {
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -2001,9 +2001,7 @@ const BranchRow: FC<
 
 	const relativeTo: RelativeTo = { type: "referenceBytes", subject: refName.fullNameBytes };
 	const bucketRelativeTo = (side: InsertSide): RelativeTo =>
-		side === "below" && bottomCommitId !== undefined
-			? { type: "commit", subject: bottomCommitId }
-			: relativeTo;
+		side === "below" && bottomRelativeTo !== null ? bottomRelativeTo : relativeTo;
 
 	const setCommitTarget = () => {
 		dispatch(projectActions.setCommitTarget({ projectId, commitTarget: relativeTo }));
@@ -2372,7 +2370,7 @@ const BranchSegment: FC<{
 								: false
 						}
 						pushStatus={segment.pushStatus}
-						bottomCommitId={segment.commits.at(-1)?.id}
+						bottomRelativeTo={segmentBottomRelativeTo(segment)}
 					/>
 				}
 			/>
