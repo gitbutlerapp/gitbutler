@@ -15,6 +15,7 @@ export enum QueryKey {
 	CommitDetailsWithLineStats = "commitDetailsWithLineStats",
 	HeadInfo = "headInfo",
 	Branches = "branches",
+	Editors = "editors",
 	Projects = "projects",
 	TreeChangeDiffs = "treeChangeDiffs",
 	AbsorptionPlan = "absorptionPlan",
@@ -64,6 +65,11 @@ export const listBranchesQueryOptions = ({ projectId, ...params }: ListBranchesP
 export const listProjectsQueryOptions = queryOptions({
 	queryKey: [QueryKey.Projects],
 	queryFn: () => window.lite.listProjects(),
+});
+
+export const listEditorsQueryOptions = queryOptions({
+	queryKey: [QueryKey.Editors],
+	queryFn: () => window.lite.listEditors(),
 });
 
 export const treeChangeDiffsQueryOptions = ({ projectId, change }: TreeChangeDiffParams) =>
