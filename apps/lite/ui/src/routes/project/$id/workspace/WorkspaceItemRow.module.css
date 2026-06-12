@@ -74,7 +74,6 @@ selection/focus style changes which are instant.
 	justify-content: center;
 	width: 22px;
 	height: 20px;
-	margin-block: -2px;
 	padding-inline: 3px;
 	border-radius: 8px;
 	color: var(--text-1);
