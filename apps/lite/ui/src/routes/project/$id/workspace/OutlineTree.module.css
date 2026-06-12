@@ -36,7 +36,7 @@
 	display: flex;
 	/* The size of an item row. Eventually this should be a fixed/shared value,
 	somehow. */
-	row-gap: 28px;
+	row-gap: 10px;
 	flex-direction: column;
 }
 
