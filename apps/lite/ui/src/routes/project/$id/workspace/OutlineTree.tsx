@@ -2442,13 +2442,10 @@ const BranchSegment: FC<{
 			/>
 
 			{segment.commits.length === 0 ? (
-				<>
-					<WorkspaceItemRowEmpty>
-						<GraphSegment glyph="parent" status="LocalOnly" />
-						<WorkspaceItemRowLabel>No commits.</WorkspaceItemRowLabel>
-					</WorkspaceItemRowEmpty>
-					<BranchTail />
-				</>
+				<WorkspaceItemRowEmpty>
+					<GraphSegment glyph="parent" status="LocalOnly" />
+					<WorkspaceItemRowLabel>No commits.</WorkspaceItemRowLabel>
+				</WorkspaceItemRowEmpty>
 			) : (
 				<div role="group">
 					{segment.commits.map((commit) => (
@@ -2464,9 +2461,10 @@ const BranchSegment: FC<{
 							}
 						/>
 					))}
-					<BranchTail commit={assert(segment.commits.at(-1))} />
 				</div>
 			)}
+
+			<BranchTail commit={segment.commits.at(-1)} />
 		</TreeItem>
 	);
 };
