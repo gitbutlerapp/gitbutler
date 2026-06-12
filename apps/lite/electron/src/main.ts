@@ -21,6 +21,7 @@ import {
 	type CommitMoveChangesBetweenParams,
 	type CommitUncommitChangesParams,
 	type MoveBranchParams,
+	type OpenInEditorParams,
 	type PushStackParams,
 	type RemoveBranchParams,
 	type TearOffBranchParams,
@@ -61,8 +62,10 @@ import {
 	commitDetailsWithLineStats,
 	commitMoveChangesBetween,
 	listBranches,
+	listEditors,
 	listProjectsStateless,
 	moveBranch,
+	openInEditor,
 	removeBranch,
 	tearOffBranch,
 	treeChangeDiffs,
@@ -419,11 +422,17 @@ const registerIpcHandlers = (): void => {
 		liteIpcChannels.listBranches,
 		(_e, projectId: string, filter: BranchListingFilter | null) => listBranches(projectId, filter),
 	);
+	senderValidatingHandle(liteIpcChannels.listEditors, () => listEditors());
 	senderValidatingHandle(liteIpcChannels.listProjects, () => listProjectsStateless());
 	senderValidatingHandle(
 		liteIpcChannels.moveBranch,
 		(_e, { projectId, subjectBranch, targetBranch, dryRun }: MoveBranchParams) =>
 			moveBranch(projectId, subjectBranch, targetBranch, dryRun),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.openInEditor,
+		(_e, { projectId, editorId, path }: OpenInEditorParams) =>
+			openInEditor(projectId, editorId, path),
 	);
 	senderValidatingHandle(liteIpcChannels.pathJoin, (_e, ...paths: Array<string>) =>
 		path.join(...paths),

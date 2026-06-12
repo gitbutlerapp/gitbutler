@@ -233,6 +233,14 @@ export declare function commitUncommitChanges(projectId: string, commitId: strin
  */
 export declare function discardWorktreeChanges(projectId: string, worktreeChanges: Array<DiffSpec>): Promise<Array<DiffSpec>>
 
+/** Supported editor configuration for API clients. */
+export interface Editor {
+  /** Identifier used to refer to the editor. */
+  id: string
+  /** Name of the editor. */
+  name: string
+}
+
 /**
  * Web compare URL for a branch — drives the "Open in browser"
  * affordances without making the renderer hold per-forge URL
@@ -287,6 +295,9 @@ export declare function listBranches(projectId: string, filter: BranchListingFil
 
 export declare function listCiChecks(projectId: string, reference: string, cacheConfig: CacheConfig | null): Promise<Array<CiCheck>>
 
+/** List all supported editors. */
+export declare function listEditors(): Promise<Array<Editor>>
+
 export declare function listProjectsStateless(): Promise<Array<ProjectForFrontend>>
 
 export declare function listReviews(projectId: string, cacheConfig: CacheConfig | null): Promise<Array<ForgeReview>>
@@ -305,6 +316,16 @@ export declare function mergeReview(projectId: string, reviewId: number, mergeMe
  * entry is persisted.
  */
 export declare function moveBranch(projectId: string, subjectBranch: string, targetBranch: string, dryRun: boolean): Promise<MoveBranchResult>
+
+/**
+ * Open `path` within the given project's workdir.
+ *
+ * `path` must be relative to the workdir of the repository and must resolve to a file or directory
+ * within the workdir, including the workdir root itself. Otherwise an error is returned.
+ *
+ * [`list_editors`] provides the available `editor_id`s.
+ */
+export declare function openInEditor(projectId: string, editorId: string, path: string): Promise<void>
 
 /**
  * Find the final snapshot that a restore snapshot will restore from.
