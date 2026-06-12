@@ -1,4 +1,4 @@
-import { type Operand } from "#ui/operands.ts";
+import { operandEquals, type Operand } from "#ui/operands.ts";
 import { parseDragData } from "./OperationSourceC.tsx";
 import styles from "./OperationTarget.module.css";
 import { OperationTooltip } from "./OperationTooltip.tsx";
@@ -161,7 +161,8 @@ export const OperationTarget: FC<
 	const isMainTargetActive = Match.value(outlineMode).pipe(
 		Match.tags({
 			Absorb: () => isAbsorptionTarget,
-			Transfer: ({ value: mode }) => isSelected && mode.operationType === "squash",
+			Transfer: ({ value: mode }) =>
+				isSelected && mode.operationType === "squash" && !operandEquals(mode.source, target),
 		}),
 		Match.orElse(() => false),
 	);
