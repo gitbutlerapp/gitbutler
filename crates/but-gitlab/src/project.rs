@@ -21,6 +21,14 @@ impl GitLabProjectId {
             project_name: project_name.to_string(),
         }
     }
+
+    pub fn username(&self) -> &str {
+        &self.username
+    }
+
+    pub fn project_name(&self) -> &str {
+        &self.project_name
+    }
 }
 
 impl Display for GitLabProjectId {
