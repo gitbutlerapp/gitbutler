@@ -532,7 +532,7 @@ export const useRebaseAllStacks = ({ projectId }: { projectId: string }) => {
 
 			toastManager.add({
 				type: "success",
-				title: "Rebased all stacks",
+				title: "Updated all stacks",
 			});
 		},
 		onError: (error) => {
@@ -541,7 +541,7 @@ export const useRebaseAllStacks = ({ projectId }: { projectId: string }) => {
 
 			toastManager.add({
 				type: "error",
-				title: "Failed to rebase stacks",
+				title: "Failed to update stacks",
 				description: errorMessageForToast(error),
 				priority: "high",
 			});
@@ -568,7 +568,7 @@ export const useRebaseStack = ({ projectId }: { projectId: string }) => {
 
 			toastManager.add({
 				type: "success",
-				title: "Rebased stack",
+				title: "Updated stack",
 			});
 		},
 		onError: (error) => {
@@ -577,7 +577,7 @@ export const useRebaseStack = ({ projectId }: { projectId: string }) => {
 
 			toastManager.add({
 				type: "error",
-				title: "Failed to rebase stack",
+				title: "Failed to update stack",
 				description: errorMessageForToast(error),
 				priority: "high",
 			});

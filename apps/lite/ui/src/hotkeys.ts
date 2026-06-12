@@ -99,7 +99,10 @@ export const workspaceHotkeys = {
 	},
 	rebaseAllStacks: {
 		hotkey: "Alt+Shift+R",
-		meta: { group: "Stack", name: "Rebase all stacks" },
+		meta: {
+			group: "Stack",
+			name: "Update workspace to integrate upstream changes (rebases all stacks)",
+		},
 	},
 	focusPreviousSelectionScope: {
 		hotkey: "H",
@@ -174,7 +177,7 @@ export const outlineHotkeys = {
 	},
 	rebaseStack: {
 		hotkey: "Alt+R",
-		meta: { group: "Stack", name: "Rebase stack" },
+		meta: { group: "Stack", name: "Update stack to integrate upstream changes (rebases)" },
 	},
 	renameBranch: {
 		hotkey: "Enter",

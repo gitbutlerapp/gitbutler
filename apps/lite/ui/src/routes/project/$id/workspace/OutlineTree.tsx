@@ -2273,7 +2273,7 @@ const StackRow: FC<
 		nativeMenuItem({ label: "Move Down", enabled: false }),
 		nativeMenuSeparator,
 		nativeMenuItem({
-			label: "Rebase Stack",
+			label: "Update Stack (Rebases)",
 			enabled: !!rebaseUpdate,
 			accelerator: toElectronAccelerator(outlineHotkeys.rebaseStack.hotkey),
 			onSelect: rebase,
