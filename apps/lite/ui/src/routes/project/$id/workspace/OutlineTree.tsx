@@ -2393,6 +2393,7 @@ const BranchSegment: FC<{
 	partialStackState,
 }) => {
 	const operand = branchOperand({ stackId, branchRef: refName.fullNameBytes });
+	const navigationIndex = assert(use(NavigationIndexContext));
 
 	return (
 		<TreeItem
@@ -2428,12 +2429,29 @@ const BranchSegment: FC<{
 
 			{segment.commits.length === 0 ? (
 				<>
-					<WorkspaceItemRowEmpty>
+					<WorkspaceItemRowEmpty
+						inert={
+							!navigationIndexIncludes(
+								navigationIndex,
+								branchOperand({ stackId, branchRef: refName.fullNameBytes }),
+								operandIdentityKey,
+							)
+						}
+					>
 						<GraphSegment glyph="parent" status="LocalOnly" />
 						<WorkspaceItemRowLabel>No commits.</WorkspaceItemRowLabel>
 					</WorkspaceItemRowEmpty>
 
-					<WorkspaceItemRowEmpty className={styles.segmentTail}>
+					<WorkspaceItemRowEmpty
+						className={styles.segmentTail}
+						inert={
+							!navigationIndexIncludes(
+								navigationIndex,
+								branchOperand({ stackId, branchRef: refName.fullNameBytes }),
+								operandIdentityKey,
+							)
+						}
+					>
 						<GraphSegment glyph="parent" status="LocalOnly" />
 					</WorkspaceItemRowEmpty>
 				</>
@@ -2461,6 +2479,7 @@ const NonEmptySegment: FC<{
 	commitTarget: RelativeTo | null;
 }> = ({ projectId, segment, stackId, commitTarget }) => {
 	const bottomCommit = assert(segment.commits.at(-1));
+	const navigationIndex = assert(use(NavigationIndexContext));
 
 	return (
 		<div className={styles.segmentCommits}>
@@ -2477,7 +2496,16 @@ const NonEmptySegment: FC<{
 					}
 				/>
 			))}
-			<WorkspaceItemRowEmpty className={styles.segmentTail}>
+			<WorkspaceItemRowEmpty
+				className={styles.segmentTail}
+				inert={
+					!navigationIndexIncludes(
+						navigationIndex,
+						commitOperand({ stackId, commitId: bottomCommit.id }),
+						operandIdentityKey,
+					)
+				}
+			>
 				<GraphSegment
 					glyph="parent"
 					status={commitIsDiverged(bottomCommit) ? "Diverged" : bottomCommit.state.type}

@@ -4,6 +4,10 @@
 	column-gap: 8px;
 	min-height: 28px;
 	padding-inline: 8px;
+
+	&[inert] {
+		opacity: 0.5;
+	}
 }
 
 .itemRow {
@@ -11,10 +15,6 @@
 
 	&:where(:hover) {
 		background-color: var(--button-ghost-hover-bg);
-	}
-
-	&[inert] {
-		opacity: 0.5;
 	}
 }
 
