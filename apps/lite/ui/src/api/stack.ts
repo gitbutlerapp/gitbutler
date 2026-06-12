@@ -10,7 +10,7 @@ export const segmentBottomRelativeTo = (segment: Segment): RelativeTo | null => 
 	return null;
 };
 
-export const stackToBottomRelativeTo = (stack: Stack): RelativeTo | null => {
+export const stackBottomRelativeTo = (stack: Stack): RelativeTo | null => {
 	const bottomSegment = stack.segments.at(-1);
 	if (!bottomSegment) return null;
 
@@ -20,8 +20,8 @@ export const stackToBottomRelativeTo = (stack: Stack): RelativeTo | null => {
 	return null;
 };
 
-export const stackToBottomRebaseUpdate = (stack: Stack): BottomUpdate | null => {
-	const relativeTo = stackToBottomRelativeTo(stack);
+export const stackBottomRebaseUpdate = (stack: Stack): BottomUpdate | null => {
+	const relativeTo = stackBottomRelativeTo(stack);
 	if (relativeTo) return { kind: "rebase", selector: relativeTo };
 
 	return null;

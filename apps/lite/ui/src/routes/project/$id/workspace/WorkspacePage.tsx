@@ -28,7 +28,7 @@ import {
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import { globalHotkeys, workspaceHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
-import { stackToBottomRebaseUpdate } from "#ui/api/stack.ts";
+import { stackBottomRebaseUpdate } from "#ui/api/stack.ts";
 import { type AppThunk, useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { BranchListing, RefInfo, Segment, Stack } from "@gitbutler/but-sdk";
 import {
@@ -508,7 +508,7 @@ const WorkspacePage: FC = () => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const rebaseUpdates =
 		headInfo?.stacks.flatMap((stack) => {
-			const update = stackToBottomRebaseUpdate(stack);
+			const update = stackBottomRebaseUpdate(stack);
 			return update ? [update] : [];
 		}) ?? [];
 	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream({ projectId });
