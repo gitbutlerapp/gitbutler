@@ -1775,10 +1775,10 @@ const Changes: FC<{
 						<Tooltip.Root>
 							<Combobox.Trigger
 								className={classes(getButtonClassName({}), styles.commitTargetComboboxTrigger)}
-								aria-label="Select branch"
+								aria-label={changesHotkeys.selectCommitTarget.meta.name}
 								render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
 							>
-								<Combobox.Value placeholder="Select branch" />
+								<Combobox.Value placeholder={changesHotkeys.selectCommitTarget.meta.name} />
 							</Combobox.Trigger>
 							<Tooltip.Portal>
 								<Tooltip.Positioner sideOffset={4}>

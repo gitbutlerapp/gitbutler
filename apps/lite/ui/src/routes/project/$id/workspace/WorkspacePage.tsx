@@ -616,8 +616,6 @@ const WorkspacePage: FC = () => {
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
 
-	const updateWorkspaceLabel = "Update workspace (rebases all stacks)";
-
 	return (
 		<>
 			<div className={classes(styles.page, detailsFullscreen && styles.pageDetailsFullscreen)}>
@@ -634,7 +632,7 @@ const WorkspacePage: FC = () => {
 							<div className={styles.workspaceControlsActions}>
 								<Tooltip.Root>
 									<Tooltip.Trigger
-										aria-label={updateWorkspaceLabel}
+										aria-label={workspaceHotkeys.updateWorkspace.meta.name}
 										className={getButtonClassName({ iconOnly: true })}
 										onClick={updateWorkspace}
 										// We pass `disabled` here because we want to disable the button, not
@@ -648,7 +646,7 @@ const WorkspacePage: FC = () => {
 											<Tooltip.Popup
 												render={<TooltipPopup kbd={workspaceHotkeys.updateWorkspace.hotkey} />}
 											>
-												{updateWorkspaceLabel}
+												{workspaceHotkeys.updateWorkspace.meta.name}
 											</Tooltip.Popup>
 										</Tooltip.Positioner>
 									</Tooltip.Portal>
