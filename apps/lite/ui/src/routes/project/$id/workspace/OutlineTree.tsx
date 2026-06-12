@@ -767,8 +767,8 @@ export const OutlineTree: FC<
 							/>
 						</div>
 
-						<div className={classes(styles.headInfoScroller, uiStyles.scrollerWithSeparator)}>
-							<div className={styles.headInfo}>
+						<div className={classes(styles.stacksScroller, uiStyles.scrollerWithSeparator)}>
+							<div className={styles.stacks}>
 								{headInfo?.stacks.map((stack) => (
 									<StackC
 										key={stack.id}
