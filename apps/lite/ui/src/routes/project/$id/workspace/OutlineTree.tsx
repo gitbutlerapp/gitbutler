@@ -2405,7 +2405,6 @@ const BranchSegment: FC<{
 			operand={operand}
 			aria-label={refName.displayName}
 			aria-expanded
-			className={styles.branchSegment}
 		>
 			<OperandC
 				projectId={projectId}
