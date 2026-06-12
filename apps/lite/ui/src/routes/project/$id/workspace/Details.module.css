@@ -106,7 +106,7 @@
 
 .fileHeader {
 	display: grid;
-	grid-template-columns: 1fr auto auto;
+	grid-template-columns: 1fr auto auto auto;
 	align-items: center;
 	justify-content: space-between;
 	padding: 8px;
