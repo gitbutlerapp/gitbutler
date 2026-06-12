@@ -2557,11 +2557,16 @@ const StackC: FC<{
 						// https://github.com/gitbutlerapp/gitbutler/pull/14059.
 						(stackState.branchCount > 1 && index !== topBranchIndex);
 
+					const key = segment.refName
+						? JSON.stringify(segment.refName.fullNameBytes)
+						: // A segment should always either have a branch reference or at
+							// least one commit.
+							assert(segment.commits[0]).id;
+
 					return (
-						<div className={styles.segment}>
+						<div className={styles.segment} key={key}>
 							{segment.refName ? (
 								<BranchSegment
-									key={JSON.stringify(segment.refName.fullNameBytes)}
 									projectId={projectId}
 									segment={segment}
 									refName={segment.refName}
@@ -2572,10 +2577,7 @@ const StackC: FC<{
 									partialStackState={partialStackState}
 								/>
 							) : (
-								// A segment should always either have a branch reference or at
-								// least one commit.
 								<NonEmptySegment
-									key={assert(segment.commits[0]).id}
 									projectId={projectId}
 									segment={segment}
 									stackId={stackId}
