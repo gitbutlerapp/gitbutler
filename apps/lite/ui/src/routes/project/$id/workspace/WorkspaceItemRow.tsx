@@ -72,14 +72,24 @@ export const WorkspaceItemRowToolbar: FC<{ forceVisible?: boolean } & ComponentP
 	/>
 );
 
-export const WorkspaceItemRowIconButton: FC<useRender.ComponentProps<"button">> = ({
-	render,
-	...props
-}) =>
+export const WorkspaceItemRowButton: FC<
+	{
+		iconOnly?: boolean;
+	} & useRender.ComponentProps<"button">
+> = ({ iconOnly, render, ...props }) =>
 	useRender({
 		render,
 		defaultTagName: "button",
 		props: mergeProps<"button">(props, {
-			className: styles.itemRowIconButton,
+			className: classes(
+				styles.itemRowButton,
+				"text-12",
+				"text-semibold",
+				iconOnly && styles.iconOnly,
+			),
 		}),
 	});
+
+export const WorkspaceItemRowIconButton: FC<
+	Omit<ComponentProps<typeof WorkspaceItemRowButton>, "iconOnly">
+> = (props) => <WorkspaceItemRowButton {...props} iconOnly />;
