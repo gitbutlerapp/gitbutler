@@ -14,6 +14,23 @@
 	&[data-disabled] {
 		opacity: 0.5;
 	}
+
+	& [data-icon] {
+		flex-shrink: 0;
+	}
+
+	& [data-icon] svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+
+	& > svg {
+		display: block;
+		flex-shrink: 0;
+		width: var(--icon-size);
+		height: var(--icon-size);
+	}
 }
 
 .small {
@@ -37,25 +54,6 @@
 	&.iconOnly {
 		width: 28px;
 		padding-inline: 8px;
-	}
-}
-
-.button {
-	& [data-icon] {
-		flex-shrink: 0;
-	}
-
-	& [data-icon] svg {
-		display: block;
-		width: 100%;
-		height: 100%;
-	}
-
-	& > svg {
-		display: block;
-		flex-shrink: 0;
-		width: var(--icon-size);
-		height: var(--icon-size);
 	}
 }
 
