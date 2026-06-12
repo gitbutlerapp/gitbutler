@@ -1,6 +1,6 @@
 #![doc = include_str!("../../docs/merge_commit_changes.md")]
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use anyhow::{Context, Result, bail};
 use but_core::{RefMetadata, RepositoryExt};
@@ -41,12 +41,10 @@ pub struct MergeCommitChangesOutcome {
 /// merged change-range result.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MergeCommitChangesConflict {
-    /// The merge base tree for the conflicted merge step.
-    pub base_tree_id: gix::ObjectId,
-    /// The accumulated tree on the "ours" side of the conflicted merge step.
-    pub ours_tree_id: gix::ObjectId,
-    /// The selected commit tree on the "theirs" side of the conflicted merge step.
-    pub theirs_tree_id: gix::ObjectId,
+    /// The merge base trees for the conflicted merge step.
+    pub base_tree_ids: Vec<gix::ObjectId>,
+    /// The merge side trees for the conflicted merge step.
+    pub side_tree_ids: Vec<gix::ObjectId>,
     /// The paths that remained conflicted after auto-resolution.
     pub conflict_entries: but_core::commit::ConflictEntries,
 }
@@ -64,53 +62,53 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         merge_options: gix::merge::tree::Options,
     ) -> Result<MergeCommitChangesOutcome> {
         let target_commit = but_core::Commit::from_id(target_commit_id.attach(&self.repo))?;
-        let target_tree_id = target_commit.tree_id_or_auto_resolution()?.detach();
         let merge_plan =
             self.plan_commit_changes_for_merge(target_commit_id, subject_commit_ids)?;
-        if merge_plan.is_empty() {
-            let tree_id = target_tree_id;
-            let conflict = if target_commit.is_conflicted() {
-                let (base_tree_id, ours_tree_id, theirs_tree_id) = target_commit
-                    .conflicted_tree_ids()?
-                    .context("conflicted commit is missing conflicted tree sides")?;
-                Some(MergeCommitChangesConflict {
-                    base_tree_id: base_tree_id.detach(),
-                    ours_tree_id: ours_tree_id.detach(),
-                    theirs_tree_id: theirs_tree_id.detach(),
-                    conflict_entries: target_commit
-                        .conflict_entries()?
-                        .context("conflicted commit is missing conflict entries")?,
-                })
-            } else {
-                None
-            };
-            return Ok(MergeCommitChangesOutcome { tree_id, conflict });
+
+        let mut bases = VecDeque::from(target_commit.base_tree_ids()?);
+        let mut sides = VecDeque::from(target_commit.side_tree_ids()?);
+        for change in merge_plan {
+            bases.push_back(change.base_tree_id);
+            let commit = but_core::Commit::from_id(change.commit_id.attach(&self.repo))?;
+            bases.extend(commit.base_tree_ids()?);
+            sides.extend(commit.side_tree_ids()?);
         }
 
-        let mut ours = target_tree_id;
-        let mut conflict = None;
-        let conflict_kind = gix::merge::tree::TreatAsUnresolved::forced_resolution();
+        // Simplify: a base and a side that are identical cancel each other out
+        for i in (0..bases.len()).rev() {
+            if let Some(position) = sides.iter().position(|side| *side == bases[i]) {
+                sides.remove(position);
+                bases.remove(i);
+            }
+        }
 
-        for change in merge_plan {
-            let theirs = but_core::Commit::from_id(change.commit_id.attach(&self.repo))?
-                .tree_id_or_auto_resolution()?
-                .detach();
-            let mut merge = self
-                .repo
-                .merge_trees(
-                    change.base_tree_id,
-                    ours,
-                    theirs,
-                    self.repo.default_merge_labels(),
-                    merge_options.clone(),
-                )
-                .context("failed to merge commit trees")?;
+        let conflict_kind = gix::merge::tree::TreatAsUnresolved::forced_resolution();
+        let mut ours = sides
+            .pop_front()
+            .context("BUG: target_commit should have at least one side")?;
+        while let Some(base) = bases.pop_front() {
+            let theirs = sides
+                .pop_front()
+                .context("attempting to merge commit with unbalanced bases and sides")?;
+            let mut merge = self.repo.merge_trees(
+                base,
+                ours,
+                theirs,
+                self.repo.default_merge_labels(),
+                merge_options.clone(),
+            )?;
             let merged_tree_id = merge.tree.write()?.detach();
+
             if merge.has_unresolved_conflicts(conflict_kind) {
-                conflict = Some(MergeCommitChangesConflict {
-                    base_tree_id: change.base_tree_id,
-                    ours_tree_id: ours,
-                    theirs_tree_id: theirs,
+                // Push back the things that conflict when merged. Note that
+                // "ours" needs to be the frontmost, so we push "theirs" then
+                // "ours".
+                sides.push_front(theirs);
+                sides.push_front(ours);
+                bases.push_front(base);
+                let conflict = Some(MergeCommitChangesConflict {
+                    base_tree_ids: bases.into(),
+                    side_tree_ids: sides.into(),
                     conflict_entries: but_core::commit::conflict_entries_from_merge_outcome(
                         &self.repo,
                         merged_tree_id,
@@ -118,15 +116,20 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                         conflict_kind,
                     )?,
                 });
-                ours = merged_tree_id;
-                break;
+                return Ok(MergeCommitChangesOutcome {
+                    // As described in the module-level documentation, we stop
+                    // at the first unresolved merge conflict.
+                    tree_id: merged_tree_id,
+                    conflict,
+                });
             }
+
             ours = merged_tree_id;
         }
 
         Ok(MergeCommitChangesOutcome {
             tree_id: ours,
-            conflict,
+            conflict: None,
         })
     }
 

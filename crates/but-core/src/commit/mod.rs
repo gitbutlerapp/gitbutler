@@ -621,6 +621,36 @@ impl<'repo> Commit<'repo> {
         )))
     }
 
+    /// If the commit is not conflicted, returns an empty vec.
+    pub fn base_tree_ids(&self) -> anyhow::Result<Vec<gix::ObjectId>> {
+        if !self.is_conflicted() {
+            return Ok(Vec::new());
+        }
+        let tree = self.inner.tree.attach(self.id.repo).object()?.into_tree();
+        let mut ids = Vec::new();
+        let mut i = 0;
+        while let Some(entry) = tree.find_entry(format!(".conflict-base-{i}")) {
+            ids.push(entry.id().detach());
+            i += 1;
+        }
+        Ok(ids)
+    }
+
+    /// If the commit is not conflicted, returns the commit's tree as a single-element vec..
+    pub fn side_tree_ids(&self) -> anyhow::Result<Vec<gix::ObjectId>> {
+        if !self.is_conflicted() {
+            return Ok(vec![self.inner.tree]);
+        }
+        let tree = self.inner.tree.attach(self.id.repo).object()?.into_tree();
+        let mut ids = Vec::new();
+        let mut i = 0;
+        while let Some(entry) = tree.find_entry(format!(".conflict-side-{i}")) {
+            ids.push(entry.id().detach());
+            i += 1;
+        }
+        Ok(ids)
+    }
+
     /// Return our custom headers, of present.
     pub fn headers(&self) -> Option<Headers> {
         Headers::try_from_commit(&self.inner)
@@ -788,7 +818,8 @@ pub use conflict::{
 };
 
 /// Write a GitButler conflicted tree that wraps `resolved_tree_id` together
-/// with the conflict side trees and conflict file list.
+/// with the conflict base trees, the conflict side trees, and the conflict
+/// file list.
 ///
 /// - `repo` - is the repository that owns all tree objects involved and receives
 ///   the newly written conflicted tree.
@@ -796,9 +827,12 @@ pub use conflict::{
 /// - `resolved_tree_id` - is the visible auto-resolved tree that callers want to
 ///   present as the conflicted commit's main tree.
 ///
-/// - `base_tree_id` - is the merge-base tree used for the conflicted merge step.
+/// - `base_tree_ids` - are the base trees. A conflict from a 3-way merge will
+///   have 1 base.
 ///
-/// - `ours_tree_id` - is the accumulated tree on the "ours" side of the conflict.
+/// - `side_tree_ids` - are the side trees. A conflict from a 3-way merge will
+///   have 2 sides, the first side being "ours" and the second side being
+///   "theirs".
 ///
 /// - `theirs_tree_id` - is the incoming tree on the "theirs" side of the conflict.
 ///
@@ -807,30 +841,20 @@ pub use conflict::{
 pub fn write_conflicted_tree(
     repo: &gix::Repository,
     resolved_tree_id: gix::ObjectId,
-    base_tree_id: gix::ObjectId,
-    ours_tree_id: gix::ObjectId,
-    theirs_tree_id: gix::ObjectId,
+    base_tree_ids: impl IntoIterator<Item = gix::ObjectId>,
+    side_tree_ids: impl IntoIterator<Item = gix::ObjectId>,
     conflict_entries: &ConflictEntries,
 ) -> anyhow::Result<gix::ObjectId> {
     let conflicted_files_string = toml::to_string(conflict_entries)?;
     let conflicted_files_blob = repo.write_blob(conflicted_files_string.as_bytes())?;
 
     let mut tree = repo.find_tree(resolved_tree_id)?.edit()?;
-    tree.upsert(
-        TreeKind::Ours.as_tree_entry_name(),
-        EntryKind::Tree,
-        ours_tree_id,
-    )?;
-    tree.upsert(
-        TreeKind::Theirs.as_tree_entry_name(),
-        EntryKind::Tree,
-        theirs_tree_id,
-    )?;
-    tree.upsert(
-        TreeKind::Base.as_tree_entry_name(),
-        EntryKind::Tree,
-        base_tree_id,
-    )?;
+    for (i, tree_id) in base_tree_ids.into_iter().enumerate() {
+        tree.upsert(format!(".conflict-base-{i}"), EntryKind::Tree, tree_id)?;
+    }
+    for (i, tree_id) in side_tree_ids.into_iter().enumerate() {
+        tree.upsert(format!(".conflict-side-{i}"), EntryKind::Tree, tree_id)?;
+    }
     tree.upsert(
         TreeKind::AutoResolution.as_tree_entry_name(),
         EntryKind::Tree,
