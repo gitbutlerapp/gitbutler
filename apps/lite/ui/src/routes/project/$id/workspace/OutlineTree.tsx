@@ -2191,6 +2191,7 @@ const BranchRow: FC<
 			{/* This will be replaced with a different icon. */}
 			<CommitStateIndicator
 				glyph="forkRight"
+				stretch={isRenaming}
 				status={(() => {
 					switch (pushStatus) {
 						case "nothingToPush":
