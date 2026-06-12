@@ -40,7 +40,12 @@
 	flex-direction: column;
 }
 
-.segment {
+.branchSegment {
+	display: flex;
+	flex-direction: column;
+}
+
+.segmentCommits {
 	display: flex;
 	flex-direction: column;
 }

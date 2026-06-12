@@ -2399,15 +2399,13 @@ const BranchSegment: FC<{
 }) => {
 	const operand = branchOperand({ stackId, branchRef: refName.fullNameBytes });
 
-	const bottomCommit = segment.commits.at(-1);
-
 	return (
 		<TreeItem
 			projectId={projectId}
 			operand={operand}
 			aria-label={refName.displayName}
 			aria-expanded
-			className={styles.segment}
+			className={styles.branchSegment}
 		>
 			<OperandC
 				projectId={projectId}
@@ -2434,7 +2432,7 @@ const BranchSegment: FC<{
 				}
 			/>
 
-			{!bottomCommit ? (
+			{segment.commits.length === 0 ? (
 				<>
 					<WorkspaceItemRowEmpty>
 						<GraphSegment glyph="parent" status="LocalOnly" />
@@ -2447,43 +2445,31 @@ const BranchSegment: FC<{
 				</>
 			) : (
 				<div role="group">
-					{segment.commits.map((commit) => (
-						<CommitC
-							key={commit.id}
-							commit={commit}
-							projectId={projectId}
-							stackId={stackId}
-							isCommitTarget={
-								commitTarget
-									? relativeToEquals(commitTarget, { type: "commit", subject: commit.id })
-									: false
-							}
-						/>
-					))}
-
-					<WorkspaceItemRowEmpty className={styles.segmentTail}>
-						<GraphSegment
-							glyph="parent"
-							status={commitIsDiverged(bottomCommit) ? "Diverged" : bottomCommit.state.type}
-						/>
-					</WorkspaceItemRowEmpty>
+					<NonEmptySegment
+						projectId={projectId}
+						segment={segment}
+						stackId={stackId}
+						commitTarget={commitTarget}
+					/>
 				</div>
 			)}
 		</TreeItem>
 	);
 };
 
-const BranchlessSegment: FC<{
+const NonEmptySegment: FC<{
 	projectId: string;
+	/**
+	 * A segment that has at least one commit.
+	 */
 	segment: Segment;
 	stackId: string;
 	commitTarget: RelativeTo | null;
 }> = ({ projectId, segment, stackId, commitTarget }) => {
-	// A branchless segment should always have at least one commit.
 	const bottomCommit = assert(segment.commits.at(-1));
 
 	return (
-		<div className={styles.segment}>
+		<div className={styles.segmentCommits}>
 			{segment.commits.map((commit) => (
 				<CommitC
 					key={commit.id}
@@ -2568,7 +2554,7 @@ const StackC: FC<{
 						// A segment should always either have a branch reference or at
 						// least one commit.
 						isNonEmptyArray(segment.commits) && (
-							<BranchlessSegment
+							<NonEmptySegment
 								key={segment.commits[0].id}
 								projectId={projectId}
 								segment={segment}
