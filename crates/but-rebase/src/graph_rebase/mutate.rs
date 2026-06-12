@@ -30,6 +30,16 @@ pub enum InsertSide {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(InsertSide);
 
+/// Controls where reparented insertion-location parents are ordered relative to
+/// existing parents on the segment.
+#[derive(Debug, Clone)]
+pub enum ParentReparentingOrder {
+    /// Put reparented insertion-location parents before existing segment parents.
+    Prepend,
+    /// Put reparented insertion-location parents after existing segment parents.
+    Append,
+}
+
 /// Defines the start and end of a segment by pointing to it's parent-most and child-most nodes.
 #[derive(Debug, Clone)]
 pub struct SegmentDelimiter<C, P>
@@ -498,6 +508,63 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         }
     }
 
+    fn add_edges_to_parents(
+        &mut self,
+        child_node: petgraph::prelude::NodeIndex,
+        new_parent_nodes: impl IntoIterator<Item = petgraph::prelude::NodeIndex>,
+        parent_reparenting_order: ParentReparentingOrder,
+    ) {
+        let mut existing_parent_edges = self
+            .graph
+            .edges_directed(child_node, Direction::Outgoing)
+            .map(|edge| (edge.id(), edge.weight().order, edge.target()))
+            .collect::<Vec<_>>();
+        existing_parent_edges.sort_by_key(|(_, order, _)| *order);
+
+        for (edge_id, _, _) in &existing_parent_edges {
+            self.graph.remove_edge(*edge_id);
+        }
+
+        let new_parent_nodes = new_parent_nodes.into_iter().collect::<Vec<_>>();
+        match parent_reparenting_order {
+            ParentReparentingOrder::Prepend => {
+                for (order, parent_node) in new_parent_nodes.iter().enumerate() {
+                    self.graph
+                        .add_edge(child_node, *parent_node, Edge { order });
+                }
+
+                // Insertion-location parents define the first-parent lane. Existing parents stay
+                // attached after them as merge-side parents.
+                let shifted_by = new_parent_nodes.len();
+                for (offset, (_, _, parent_node)) in existing_parent_edges.into_iter().enumerate() {
+                    self.graph.add_edge(
+                        child_node,
+                        parent_node,
+                        Edge {
+                            order: shifted_by + offset,
+                        },
+                    );
+                }
+            }
+            ParentReparentingOrder::Append => {
+                let shifted_by = existing_parent_edges.len();
+                for (order, (_, _, parent_node)) in existing_parent_edges.into_iter().enumerate() {
+                    self.graph.add_edge(child_node, parent_node, Edge { order });
+                }
+
+                for (offset, parent_node) in new_parent_nodes.into_iter().enumerate() {
+                    self.graph.add_edge(
+                        child_node,
+                        parent_node,
+                        Edge {
+                            order: shifted_by + offset,
+                        },
+                    );
+                }
+            }
+        }
+    }
+
     /// Insert a segment relative to a selector.
     ///
     /// `target` - Selector to insert the segment relative to.
@@ -508,11 +575,21 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     ///
     /// `nodes_to_connect` - Optional set of selector to connect instead of the parents/children determined.
     ///
+    /// `parent_reparenting_order` - Controls how newly connected parent edges are ordered relative to
+    /// existing parent edges on the parent-most node of the inserted segment. With
+    /// [`ParentReparentingOrder::Prepend`], the newly connected parents become the lowest-order parents,
+    /// which makes the first inserted/reparented parent the first-parent traversal path. Existing parents
+    /// remain attached after them in their previous relative order. With
+    /// [`ParentReparentingOrder::Append`], existing parents keep the lowest parent orders and the newly
+    /// connected parents are appended after them.
+    ///
     /// If `nodes_to_connect` is None:
     ///     If inserted above, all the target selector's children will be disconnected and reconnected to the last
-    ///     node of the segment.
+    ///     node of the segment. If inserted below, all the target selector's parents will be disconnected and
+    ///     reconnected to the parent-most node of the segment using `parent_reparenting_order`.
     /// If `nodes_to_connect` is Some:
-    ///     If inserted above, connect the given nodes as children. If inserted below, connect the given nodes as parents.
+    ///     If inserted above, connect the given nodes as children. If inserted below, connect the given nodes as parents
+    ///     using `parent_reparenting_order`.
     ///
     pub fn insert_segment_into<C, P>(
         &mut self,
@@ -520,6 +597,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         delimiter: SegmentDelimiter<C, P>,
         side: InsertSide,
         nodes_to_connect: Option<SomeSelectors>,
+        parent_reparenting_order: ParentReparentingOrder,
     ) -> Result<()>
     where
         C: ToSelector,
@@ -583,75 +661,37 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
                     }
                 }
 
-                // Find the parent node of the highest order from the parent-most node in the segment being inserted.
-                let chubbiest_grand_parent = self
-                    .graph
-                    .edges_directed(parent.id, Direction::Outgoing)
-                    .map(|e| (e.id(), e.weight().to_owned(), e.target()))
-                    .max_by_key(|gc| gc.1.order);
-
-                let new_weight =
-                    if let Some((_, grand_parent_weight, _)) = chubbiest_grand_parent.as_ref() {
-                        Edge {
-                            order: grand_parent_weight.order + 1,
-                        }
-                    } else {
-                        Edge { order: 0 }
-                    };
-                // Connect the target to the parent-most node in the given segment.
-                self.graph.add_edge(parent.id, target.id, new_weight);
+                // Connect the target to the parent-most node in the given segment according to
+                // the requested parent ordering policy.
+                self.add_edges_to_parents(parent.id, [target.id], parent_reparenting_order);
             }
             InsertSide::Below => {
-                // Find the parent node of the highest order from the parent-most node in the segment being inserted.
-                let chubbiest_grand_parent = self
-                    .graph
-                    .edges_directed(parent.id, Direction::Outgoing)
-                    .map(|e| (e.id(), e.weight().to_owned(), e.target()))
-                    .max_by_key(|gc| gc.1.order);
-
-                if let Some(nodes_to_connect) = nodes_to_connect {
-                    // If there were nodes to connect defined, create edges into them from the parent node of the segment
-                    // being inserted.
-                    for (index, any_selector) in nodes_to_connect.as_slice().iter().enumerate() {
+                let parents_to_add = if let Some(nodes_to_connect) = nodes_to_connect {
+                    let mut nodes = Vec::new();
+                    for any_selector in nodes_to_connect.as_slice() {
                         let selector = any_selector.to_selector(self)?;
                         let node = self.history.normalize_selector(selector)?;
-                        // Avoid weight collision by adding the order value of the highest order parent plus one,
-                        // accommodating for order 0.
-                        let new_weight = if let Some((_, grand_parent_weight, _)) =
-                            chubbiest_grand_parent.as_ref()
-                        {
-                            Edge {
-                                order: index + grand_parent_weight.order + 1,
-                            }
-                        } else {
-                            Edge { order: index }
-                        };
-                        self.graph.add_edge(parent.id, node.id, new_weight);
+                        nodes.push(node.id);
                     }
+                    nodes
                 } else {
-                    let edges = self
+                    let mut edges = self
                         .graph
                         .edges_directed(target.id, Direction::Outgoing)
-                        .map(|e| (e.id(), e.weight().to_owned(), e.target()))
+                        .map(|e| (e.id(), e.weight().order, e.target()))
                         .collect::<Vec<_>>();
+                    edges.sort_by_key(|(_, order, _)| *order);
 
-                    // Connect all target's parents to the parent-most node in the given segment.
-                    for (edge_id, edge_weight, edge_target) in edges {
+                    let mut nodes = Vec::with_capacity(edges.len());
+                    for (edge_id, _, edge_target) in edges {
                         self.graph.remove_edge(edge_id);
-                        // Avoid weight collision by adding the order value of the highest order parent plus one,
-                        // accommodating for order 0.
-                        let new_weight = if let Some((_, grand_parent_weight, _)) =
-                            chubbiest_grand_parent.as_ref()
-                        {
-                            Edge {
-                                order: edge_weight.order + grand_parent_weight.order + 1,
-                            }
-                        } else {
-                            edge_weight
-                        };
-                        self.graph.add_edge(parent.id, edge_target, new_weight);
+                        nodes.push(edge_target);
                     }
-                }
+                    nodes
+                };
+
+                self.add_edges_to_parents(parent.id, parents_to_add, parent_reparenting_order);
+
                 // Find the child node of the highest order from the child-most node in the segment being inserted.
                 let chubbiest_grand_child = self
                     .graph
@@ -680,6 +720,13 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     ///
     /// If inserted above, all the target selector's children will be disconnected and reconnected to the last
     /// node of the segment.
+    /// If inserted below, all the target selector's parents will be disconnected and reconnected to the
+    /// parent-most node of the segment.
+    ///
+    /// Reparented parents are prepended by default: newly connected parents receive the lowest parent orders,
+    /// so the first inserted/reparented parent becomes the first-parent traversal path and existing parents
+    /// remain attached after them in their previous relative order. Use [`Self::insert_segment_into`] with
+    /// [`ParentReparentingOrder::Append`] when existing parents should keep the lowest parent orders instead.
     ///
     pub fn insert_segment<C, P>(
         &mut self,
@@ -691,7 +738,13 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         C: ToSelector,
         P: ToSelector,
     {
-        self.insert_segment_into(target, delimiter, side, None)
+        self.insert_segment_into(
+            target,
+            delimiter,
+            side,
+            None,
+            ParentReparentingOrder::Prepend,
+        )
     }
 
     /// Add a step node to the graph.

@@ -130,6 +130,7 @@ pub(super) mod function {
             subject_delimiter,
             but_rebase::graph_rebase::mutate::InsertSide::Above,
             Some(selectors),
+            but_rebase::graph_rebase::mutate::ParentReparentingOrder::Prepend,
         )?;
 
         // Update the workspace meta in order to create a new stack containing the
