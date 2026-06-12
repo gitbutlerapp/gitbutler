@@ -4,8 +4,7 @@
 	column-gap: 8px;
 	align-items: center;
 	min-height: 28px;
-	padding-right: 4px;
-	padding-left: 6px;
+	padding-inline: 6px 4px;
 }
 
 .itemRow {
