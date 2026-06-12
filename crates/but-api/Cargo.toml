@@ -143,6 +143,7 @@ but-schemars.workspace = true
 
 [dev-dependencies]
 but-api = { path = ".", features = ["legacy"] }
+but-testsupport.workspace = true
 insta.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["full"] }

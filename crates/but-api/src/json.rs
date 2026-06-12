@@ -469,9 +469,36 @@ impl From<MaybeLossyFullNameRef> for Option<gix::refs::FullName> {
     }
 }
 
+/// A full reference name accepted as raw bytes.
+///
+/// Use this as parameter transport when callers must avoid lossy UTF-8
+/// conversion at the API boundary.
+#[derive(Debug, Clone, schemars::JsonSchema, Deserialize)]
+#[serde(try_from = "Vec<u8>")]
+#[schemars(schema_with = "but_schemars::fullname_bytes")]
+pub struct FullNameBytes(gix::refs::FullName);
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(FullNameBytes);
+
+impl TryFrom<Vec<u8>> for FullNameBytes {
+    type Error = gix::refs::name::Error;
+
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        Ok(Self(gix::refs::FullName::try_from(bstr::BString::from(
+            value,
+        ))?))
+    }
+}
+
+impl From<FullNameBytes> for gix::refs::FullName {
+    fn from(value: FullNameBytes) -> Self {
+        value.0
+    }
+}
+
 #[cfg(test)]
 mod maybe_lossy_full_name_ref_tests {
-    use super::MaybeLossyFullNameRef;
+    use super::{FullNameBytes, MaybeLossyFullNameRef};
 
     #[test]
     fn maybe_lossy_full_name_ref() {
@@ -488,6 +515,19 @@ mod maybe_lossy_full_name_ref_tests {
         assert_eq!(actual, None);
 
         serde_json::from_str::<MaybeLossyFullNameRef>("\"not-a-full-name\"")
+            .expect_err("partial ref names are rejected");
+    }
+
+    #[test]
+    fn full_name_bytes() {
+        let actual: gix::refs::FullName = serde_json::from_str::<FullNameBytes>(
+            "[114,101,102,115,47,104,101,97,100,115,47,109,97,105,110]",
+        )
+        .expect("valid full ref name bytes")
+        .into();
+        assert_eq!(actual.as_bstr(), "refs/heads/main");
+
+        serde_json::from_str::<FullNameBytes>("[109,97,105,110]")
             .expect_err("partial ref names are rejected");
     }
 }
