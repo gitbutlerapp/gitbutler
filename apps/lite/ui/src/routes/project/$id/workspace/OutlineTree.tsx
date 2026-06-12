@@ -109,6 +109,7 @@ import styles from "./OutlineTree.module.css";
 import { Checkbox } from "#ui/components/Checkbox.tsx";
 import {
 	WorkspaceItemRow,
+	WorkspaceItemRowButton,
 	WorkspaceItemRowEmpty,
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowToolbar,
@@ -951,15 +952,10 @@ const EditorHelp: FC<{
 }> = ({ buttons }) => (
 	<div className={styles.editorHelp}>
 		{buttons.map((button) => (
-			<button
-				type="button"
-				onClick={button.callback}
-				key={button.hotkey}
-				className={getButtonClassName({ size: "small", variant: "inverted" })}
-			>
+			<WorkspaceItemRowButton type="button" onClick={button.callback} key={button.hotkey}>
 				<kbd>{formatForDisplay(button.hotkey)}</kbd>
 				<span className={styles.editorShortcutLabel}> to {button.name}</span>
-			</button>
+			</WorkspaceItemRowButton>
 		))}
 	</div>
 );

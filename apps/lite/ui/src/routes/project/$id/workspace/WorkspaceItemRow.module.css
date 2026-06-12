@@ -108,7 +108,10 @@ selection/focus style changes which are instant.
 	}
 
 	/* Ghost */
-	&:not([data-selection-scope]:focus .itemRowSelected &) {
+	&:not(
+		[data-selection-scope]:focus .itemRowSelected &,
+		.itemRowSelected:has(:is(textarea, input):focus) &
+	) {
 		& [data-icon] {
 			opacity: 0.6;
 		}
@@ -123,7 +126,8 @@ selection/focus style changes which are instant.
 	}
 
 	/* Inverted */
-	[data-selection-scope]:focus .itemRowSelected & {
+	[data-selection-scope]:focus .itemRowSelected &,
+	.itemRowSelected:has(:is(textarea, input):focus) & {
 		color: var(--text-1-invert);
 
 		& [data-icon] {
