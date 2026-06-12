@@ -36,6 +36,7 @@ import type {
 	RestoreKind,
 	Snapshot,
 	AskpassPromptEvent,
+	MaybeLossyFullNameRef,
 } from "@gitbutler/but-sdk";
 import type { UpdateDownloadedEvent } from "electron-updater";
 
@@ -66,7 +67,7 @@ export interface AssignHunkParams {
 
 export interface BranchCreateParams {
 	projectId: string;
-	newRef: string;
+	newRef: MaybeLossyFullNameRef;
 	placement: BranchCreatePlacement;
 }
 
