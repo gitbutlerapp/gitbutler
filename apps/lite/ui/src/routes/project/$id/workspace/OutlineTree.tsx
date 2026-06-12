@@ -23,7 +23,7 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import { findBranchOperandByRef, findCommit, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { decodeBytes, encodeBytes, refNamesEqual } from "#ui/api/ref-name.ts";
+import { decodeBytes, refNamesEqual } from "#ui/api/ref-name.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
 	nativeMenuItem,
@@ -131,7 +131,6 @@ import { assert } from "#ui/assert.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { OperationControls } from "#ui/routes/project/$id/workspace/OperationControls.tsx";
-import { randomBranchRef } from "#ui/routes/project/$id/workspace/branchRef.ts";
 
 const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 
@@ -251,11 +250,10 @@ const useOutlineTreeHotkeys = ({
 	};
 
 	const createDependentBranchAbove = (relativeTo: RelativeTo) => {
-		const newRef = randomBranchRef();
 		branchCreateMutation.mutate(
 			{
 				projectId,
-				newRef,
+				newRef: null,
 				placement: {
 					type: "dependent",
 					subject: {
@@ -268,7 +266,7 @@ const useOutlineTreeHotkeys = ({
 				onSuccess: (response) => {
 					const newBranch = findBranchOperandByRef({
 						headInfo: response.workspace.headInfo,
-						branchRef: encodeBytes(newRef),
+						branchRef: response.newRef.fullNameBytes,
 					});
 					if (newBranch)
 						dispatch(
@@ -1037,11 +1035,10 @@ const CommitRow: FC<
 	};
 
 	const createDependentBranch = (side: "above" | "below") => {
-		const newRef = randomBranchRef();
 		branchCreateMutation.mutate(
 			{
 				projectId,
-				newRef,
+				newRef: null,
 				placement: {
 					type: "dependent",
 					subject: {
@@ -1054,7 +1051,7 @@ const CommitRow: FC<
 				onSuccess: (response) => {
 					const newBranch = findBranchOperandByRef({
 						headInfo: response.workspace.headInfo,
-						branchRef: encodeBytes(newRef),
+						branchRef: response.newRef.fullNameBytes,
 					});
 					if (newBranch)
 						dispatch(
@@ -2033,11 +2030,10 @@ const BranchRow: FC<
 	};
 
 	const createDependentBranch = (side: "above" | "below") => {
-		const newRef = randomBranchRef();
 		branchCreateMutation.mutate(
 			{
 				projectId,
-				newRef,
+				newRef: null,
 				placement: {
 					type: "dependent",
 					subject: {
@@ -2050,7 +2046,7 @@ const BranchRow: FC<
 				onSuccess: (response) => {
 					const newBranch = findBranchOperandByRef({
 						headInfo: response.workspace.headInfo,
-						branchRef: encodeBytes(newRef),
+						branchRef: response.newRef.fullNameBytes,
 					});
 					if (newBranch)
 						dispatch(
