@@ -1,10 +1,15 @@
 import { Operand, operandEquals } from "#ui/operands.ts";
-import { getOperationSource, pointerTransferOperationMode } from "#ui/outline/mode.ts";
+import { getOperationSources, pointerTransferOperationMode } from "#ui/outline/mode.ts";
 import styles from "./OperationSourceC.module.css";
 import { operationSourceLabel } from "./operationSourceLabel.ts";
 import { headInfoQueryOptions } from "#ui/api/queries.ts";
 import { classes } from "#ui/components/classes.ts";
-import { projectActions, selectProjectOutlineModeState } from "#ui/projects/state.ts";
+import {
+	projectActions,
+	selectProjectCheckedCommitOperands,
+	selectProjectCommitChecked,
+	selectProjectOutlineModeState,
+} from "#ui/projects/state.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { centerUnderPointer } from "@atlaskit/pragmatic-drag-and-drop/element/center-under-pointer";
@@ -13,13 +18,14 @@ import { mergeProps, useRender } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import { FC, type ReactNode, useEffect, useEffectEvent, useRef } from "react";
 import { createRoot } from "react-dom/client";
+import { ensure } from "effect/Array";
 
 type DragData = {
-	source: Operand;
+	sources: Array<Operand>;
 };
 
 export const parseDragData = (data: unknown): DragData | null => {
-	if (typeof data !== "object" || data === null || !("source" in data)) return null;
+	if (typeof data !== "object" || data === null || !("sources" in data)) return null;
 	return data as DragData;
 };
 
@@ -37,6 +43,17 @@ export const OperationSourceC: FC<
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
+	const _dragSource = useAppSelector((state) => {
+		const checkedCommits = selectProjectCheckedCommitOperands(state, projectId);
+		const isCheckedCommit =
+			source._tag === "Commit" ? selectProjectCommitChecked(state, projectId, source) : false;
+		return isCheckedCommit
+			? checkedCommits
+			: // We don't create an array here in order to preserve reference identity.
+				source;
+	});
+	const dragSource = ensure(_dragSource);
+
 	const dispatch = useAppDispatch();
 	const dragRef = useRef<HTMLElement>(null);
 	const onGenerateDragPreview: Parameters<typeof draggable>[0]["onGenerateDragPreview"] =
@@ -47,7 +64,9 @@ export const OperationSourceC: FC<
 				render: ({ container }) => {
 					if (!headInfo) return;
 					const root = createRoot(container);
-					root.render(<DragPreview>{operationSourceLabel({ source, headInfo })}</DragPreview>);
+					root.render(
+						<DragPreview>{operationSourceLabel({ sources: dragSource, headInfo })}</DragPreview>,
+					);
 					return () => {
 						root.unmount();
 					};
@@ -63,13 +82,13 @@ export const OperationSourceC: FC<
 			projectActions.enterTransferMode({
 				projectId,
 				mode: pointerTransferOperationMode({
-					source,
+					sources: dragSource,
 					operationType: null,
 				}),
 			}),
 		);
 	});
-	const getInitialData = useEffectEvent((): DragData => ({ source }));
+	const getInitialData = useEffectEvent((): DragData => ({ sources: dragSource }));
 
 	useEffect(() => {
 		const element = dragRef.current;
@@ -90,8 +109,10 @@ export const OperationSourceC: FC<
 		});
 	}, [dispatch, projectId]);
 
-	const operationSource = getOperationSource(outlineMode);
-	const isActiveSource = operationSource ? operandEquals(operationSource, source) : false;
+	const operationSources = getOperationSources(outlineMode);
+	const isActiveSource = operationSources
+		? operationSources.some((operationSource) => operandEquals(operationSource, source))
+		: false;
 
 	return useRender({
 		render,

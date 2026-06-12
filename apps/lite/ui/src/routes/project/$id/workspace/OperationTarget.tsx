@@ -56,7 +56,7 @@ const useOperationDropTarget = ({
 		const dragData = parseDragData(source.data);
 		if (!dragData) return {};
 
-		const { squash, moveAbove, moveBelow } = getOperations(dragData.source, target);
+		const { squash, moveAbove, moveBelow } = getOperations(dragData.sources, target);
 		return attachInstruction(
 			{},
 			{
@@ -117,7 +117,7 @@ const useOperationDropTarget = ({
 				const operation =
 					dragData && operationType !== null
 						? getOperation({
-								source: dragData.source,
+								sources: dragData.sources,
 								target,
 								operationType,
 							})
