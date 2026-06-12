@@ -5,6 +5,8 @@ import {
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
+	listEditorsQueryOptions,
+	listProjectsQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/ref-name.ts";
@@ -32,7 +34,7 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
-import { Tooltip } from "@base-ui/react";
+import { Toolbar, Tooltip } from "@base-ui/react";
 import type {
 	CommitDetails,
 	DiffHunk,
@@ -48,13 +50,14 @@ import {
 	parsePatchFiles,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
-import { useSuspenseQueries } from "@tanstack/react-query";
+import { useQuery, useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Hash, Match } from "effect";
 import { ComponentProps, FC, type RefObject, Suspense, useDeferredValue, useRef } from "react";
 import styles from "./Details.module.css";
-import { workspaceHotkeys } from "#ui/hotkeys.ts";
+import { changesFileHotkeys, toElectronAccelerator, workspaceHotkeys } from "#ui/hotkeys.ts";
 import {
+	focusSelectionScope,
 	type SelectionScope,
 	useDiffSelection,
 	useNavigationIndexHotkeys,
@@ -74,6 +77,22 @@ import {
 	synthesizeFilePatch,
 } from "#ui/hunk.ts";
 import { buildNavigationIndex, NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { WorkspaceItemRowIconButton } from "./WorkspaceItemRow";
+import {
+	type NativeMenuItem,
+	nativeMenuItem,
+	nativeMenuItemsFromGroups,
+	showNativeContextMenu,
+	showNativeMenuFromTrigger,
+} from "#ui/native-menu.ts";
+import type { NonEmptyArray } from "effect/Array";
+import {
+	useCommitDiscardChanges,
+	useCommitUncommitChanges,
+	useDiscardWorktreeChanges,
+	useOpenInEditor,
+} from "#ui/api/mutations.ts";
+import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 
 const codeViewItemId = ({ changesetKey, path }: { changesetKey: string; path: string }): string =>
 	`${changesetKey}:${path}`;
@@ -400,10 +419,10 @@ const DiffContents: FC<{
 			renderCustomHeader={(item) => {
 				if (item.type === "file") throw new Error("Only diff items may be rendered");
 
-				const path = itemsMetadataMap.get(item.id)?.change.path;
+				const change = itemsMetadataMap.get(item.id)?.change;
 
 				// CodeView may briefly hold onto stale snapshots of our data.
-				if (path === undefined) return <div style={{ height: 38 }} />;
+				if (change === undefined) return <div style={{ height: 38 }} />;
 
 				return (
 					<DiffFileHeader
@@ -411,9 +430,9 @@ const DiffContents: FC<{
 						item={item}
 						operand={fileOperand({
 							parent: fileParent,
-							path,
+							path: change.path,
 						})}
-						path={path}
+						change={change}
 						hasDiff={item.fileDiff.hunks.length !== 0}
 					/>
 				);
@@ -462,14 +481,139 @@ type DiffFileHeaderProps = {
 	projectId: string;
 	item: CodeViewDiffItem;
 	operand: Operand;
-	path: string;
+	change: TreeChange;
 	hasDiff: boolean;
 };
 
 const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
-	const lastSepIdx = p.path.lastIndexOf("/");
-	const mpathInit = lastSepIdx !== -1 ? p.path.slice(0, lastSepIdx + 1) : null;
-	const pathLast = lastSepIdx !== -1 ? p.path.slice(lastSepIdx + 1) : p.path;
+	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
+	const { data: editors } = useQuery(listEditorsQueryOptions);
+
+	const dispatch = useAppDispatch();
+	const commitUncommitChanges = useCommitUncommitChanges();
+	const commitDiscardChanges = useCommitDiscardChanges();
+	const discardWorktreeChanges = useDiscardWorktreeChanges();
+	const openInEditor = useOpenInEditor();
+
+	const selectedProject = projects.find((project) => project.id === p.projectId);
+	if (!selectedProject) throw new Error("Could not find selected project");
+
+	const menuItemGroups: Array<NonEmptyArray<NativeMenuItem>> = [
+		[
+			nativeMenuItem({
+				label: "Open In Editor",
+				submenu:
+					editors?.map((editor) =>
+						nativeMenuItem({
+							label: editor.name,
+							enabled: !openInEditor.isPending,
+							onSelect: () =>
+								openInEditor.mutate({
+									projectId: p.projectId,
+									editorId: editor.id,
+									path: p.change.path,
+								}),
+						}),
+					) ?? [],
+			}),
+			nativeMenuItem({
+				label: "Copy Path",
+				submenu: [
+					nativeMenuItem({
+						label: "Absolute Path",
+						onSelect: async () => {
+							const absolutePath = await window.lite.pathJoin(selectedProject.path, p.change.path);
+							await window.lite.clipboardWriteText(absolutePath);
+						},
+					}),
+					nativeMenuItem({
+						label: "Relative Path",
+						onSelect: () => window.lite.clipboardWriteText(p.change.path),
+					}),
+				],
+			}),
+		],
+		...Match.value(p.operand).pipe(
+			Match.withReturnType<Array<NonEmptyArray<NativeMenuItem>>>(),
+			Match.when({ parent: { _tag: "Commit" } }, (operand) => {
+				const uncommit = () =>
+					commitUncommitChanges.mutate({
+						projectId: p.projectId,
+						commitId: operand.parent.commitId,
+						assignTo: null,
+						changes: [createDiffSpec(p.change, [])],
+						dryRun: false,
+					});
+				const discard = () =>
+					commitDiscardChanges.mutate({
+						projectId: p.projectId,
+						commitId: operand.parent.commitId,
+						changes: [createDiffSpec(p.change, [])],
+						dryRun: false,
+					});
+
+				return [
+					[
+						nativeMenuItem({
+							label: "Uncommit",
+							enabled: !commitUncommitChanges.isPending,
+							onSelect: uncommit,
+						}),
+						nativeMenuItem({
+							label: "Discard Changes",
+							enabled: !commitDiscardChanges.isPending,
+							onSelect: discard,
+						}),
+					],
+				];
+			}),
+			Match.when({ parent: { _tag: "Changes" } }, (operand) => {
+				const absorb = () => {
+					dispatch(
+						projectActions.enterAbsorbMode({
+							projectId: p.projectId,
+							source: fileOperand(operand),
+							sourceTarget: {
+								type: "treeChanges",
+								subject: {
+									changes: [p.change],
+									assignedStackId: null,
+								},
+							},
+						}),
+					);
+					focusSelectionScope("outline");
+				};
+				const discard = () =>
+					discardWorktreeChanges.mutate({
+						projectId: p.projectId,
+						changes: [createDiffSpec(p.change, [])],
+					});
+
+				return [
+					[
+						nativeMenuItem({
+							label: "Absorb",
+							accelerator: toElectronAccelerator(changesFileHotkeys.absorb.hotkey),
+							onSelect: absorb,
+						}),
+						nativeMenuItem({
+							label: "Discard Changes",
+							enabled: !discardWorktreeChanges.isPending,
+							onSelect: discard,
+						}),
+					],
+				];
+			}),
+			Match.orElse(() => []),
+		),
+	];
+
+	const menuItems = nativeMenuItemsFromGroups(menuItemGroups);
+
+	const lastSepIdx = p.change.path.lastIndexOf("/");
+	const mpathInit = lastSepIdx !== -1 ? p.change.path.slice(0, lastSepIdx + 1) : null;
+	const pathLast = lastSepIdx !== -1 ? p.change.path.slice(lastSepIdx + 1) : p.change.path;
 
 	const changeType = Match.value(p.item.fileDiff.type).pipe(
 		Match.when("new", () => "Added"),
@@ -481,7 +625,12 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 
 	return (
 		<OperationSourceC projectId={p.projectId} source={p.operand}>
-			<header className={classes(styles.fileHeader, !p.hasDiff && styles.lone)}>
+			<header
+				onContextMenu={(event) => {
+					void showNativeContextMenu(event, menuItems);
+				}}
+				className={classes(styles.fileHeader, !p.hasDiff && styles.lone)}
+			>
 				<h4 className={classes("text-13", styles.filePath)}>
 					{mpathInit}
 					<span className={styles.pathLast}>{pathLast}</span>
@@ -491,6 +640,18 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					<span className={styles.fileDiffAdded}>+{p.item.fileDiff.additionLines.length}</span>{" "}
 					<span className={styles.fileDiffDeleted}>-{p.item.fileDiff.deletionLines.length}</span>
 				</span>
+
+				<Toolbar.Root aria-label="File actions">
+					<Toolbar.Button
+						aria-label="File menu"
+						onClick={(event) => {
+							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+						}}
+						render={<WorkspaceItemRowIconButton />}
+					>
+						<Icon name="kebab" />
+					</Toolbar.Button>
+				</Toolbar.Root>
 			</header>
 		</OperationSourceC>
 	);
