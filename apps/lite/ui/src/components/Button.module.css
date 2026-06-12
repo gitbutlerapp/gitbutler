@@ -6,9 +6,12 @@
 	color: var(--text-1);
 	line-height: 1;
 	white-space: nowrap;
-	transition:
-		background-color 0.08s ease,
-		color 0.08s ease;
+
+	&:not(.disableTransition) {
+		transition:
+			background-color 0.08s ease,
+			color 0.08s ease;
+	}
 
 	&:disabled,
 	&[data-disabled] {

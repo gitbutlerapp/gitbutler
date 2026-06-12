@@ -3,6 +3,7 @@ import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { ComponentProps, FC, useLayoutEffect, useRef } from "react";
 import styles from "./WorkspaceItemRow.module.css";
 import { mergeProps, useRender } from "@base-ui/react";
+import { getButtonClassName } from "#ui/components/Button.tsx";
 
 export const WorkspaceItemRow: FC<
 	{
@@ -82,10 +83,16 @@ export const WorkspaceItemRowButton: FC<
 		defaultTagName: "button",
 		props: mergeProps<"button">(props, {
 			className: classes(
+				getButtonClassName({
+					variant: "ghost",
+					size: "small",
+					iconOnly,
+					// On selection/focus change we change the button variant. This
+					// transition would clash with other selection/focus style changes
+					// which are instant (e.g. the row background).
+					disableTransition: true,
+				}),
 				styles.itemRowButton,
-				"text-12",
-				"text-semibold",
-				iconOnly && styles.iconOnly,
 			),
 		}),
 	});

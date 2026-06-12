@@ -58,76 +58,12 @@
 	white-space: nowrap;
 }
 
-/*
-This duplicates the design system button styles so we can change variant on
-selection/focus change purely with CSS.
-
-Size: small
-Variant: inverted when selected + focused, otherwise inverted ghost
-The transition has been removed otherwise it would clash with other
-selection/focus style changes which are instant.
-*/
 .itemRowButton {
-	display: inline-flex;
-	column-gap: 4px;
-	align-items: center;
-	justify-content: center;
-	height: 20px;
-	padding-inline: 6px;
-	border-radius: 8px;
-	color: var(--text-1);
-	line-height: 1;
-	white-space: nowrap;
-	--icon-size: 14px;
-
-	&:disabled,
-	&[data-disabled] {
-		opacity: 0.5;
-	}
-
-	& [data-icon] {
-		flex-shrink: 0;
-
-		svg {
-			display: block;
-			width: 100%;
-			height: 100%;
-		}
-	}
-
-	& > svg {
-		display: block;
-		flex-shrink: 0;
-		width: var(--icon-size);
-		height: var(--icon-size);
-	}
-
-	&.iconOnly {
-		width: 22px;
-		padding-inline: 3px;
-	}
-
-	/* Ghost */
-	&:not(
-		[data-selection-scope]:focus .itemRowSelected &,
-		.itemRowSelected:has(:is(textarea, input):focus) &
-	) {
-		& [data-icon] {
-			opacity: 0.6;
-		}
-
-		&:not(:disabled, [data-disabled]):hover {
-			background-color: color-mix(in srgb, var(--scale-gray-0) 5%, transparent);
-
-			& [data-icon] {
-				opacity: 0.8;
-			}
-		}
-	}
-
-	/* Inverted */
 	[data-selection-scope]:focus .itemRowSelected &,
 	.itemRowSelected:has(:is(textarea, input):focus) & {
+		/* Duplicated styles for inverted button variant. This is necessary to make
+		the variant responsive to selection/focus changes purely with CSS. */
+
 		color: var(--text-1-invert);
 
 		& [data-icon] {
