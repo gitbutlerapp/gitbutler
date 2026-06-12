@@ -1348,33 +1348,33 @@ const CommitRow: FC<
 				</Tooltip.Root>
 			</div>
 
-			{isRewording ? (
-				<InlineRewordCommit
-					message={optimisticMessage}
-					onSubmit={saveNewMessage}
-					onExit={endEditing}
-				/>
-			) : (
-				<>
-					<WorkspaceItemRowLabel>
+			<WorkspaceItemRowLabel>
+				{isRewording ? (
+					<InlineRewordCommit
+						message={optimisticMessage}
+						onSubmit={saveNewMessage}
+						onExit={endEditing}
+					/>
+				) : (
+					<>
 						{commitTitle(commitWithOptimisticMessage.message)}
 						{hasConflicts && " ⚠️"}
-					</WorkspaceItemRowLabel>
+					</>
+				)}
+			</WorkspaceItemRowLabel>
 
-					{outlineMode._tag === "Default" && (
-						<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
-							<Toolbar.Button
-								aria-label="Commit menu"
-								onClick={(event) => {
-									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-								}}
-								className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-							>
-								<Icon name="kebab" />
-							</Toolbar.Button>
-						</Toolbar.Root>
-					)}
-				</>
+			{outlineMode._tag === "Default" && (
+				<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
+					<Toolbar.Button
+						aria-label="Commit menu"
+						onClick={(event) => {
+							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+						}}
+						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+					>
+						<Icon name="kebab" />
+					</Toolbar.Button>
+				</Toolbar.Root>
 			)}
 		</ItemRow>
 	);
@@ -2247,62 +2247,59 @@ const BranchRow: FC<
 				})()}
 			/>
 
-			{isRenaming ? (
-				<InlineRenameBranch
-					branchDisplayName={optimisticBranchDisplayName}
-					onSubmit={saveBranchName}
-					onExit={endEditing}
-				/>
-			) : (
-				<>
-					<WorkspaceItemRowLabel>{optimisticBranchDisplayName}</WorkspaceItemRowLabel>
+			<WorkspaceItemRowLabel>
+				{isRenaming ? (
+					<InlineRenameBranch
+						branchDisplayName={optimisticBranchDisplayName}
+						onSubmit={saveBranchName}
+						onExit={endEditing}
+					/>
+				) : (
+					optimisticBranchDisplayName
+				)}
+			</WorkspaceItemRowLabel>
 
-					{outlineMode._tag === "Default" && (
-						<Toolbar.Root
-							aria-label="Branch actions"
-							render={<WorkspaceItemRowToolbar forceVisible />}
+			{outlineMode._tag === "Default" && (
+				<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar forceVisible />}>
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={
+								<Toolbar.Button
+									aria-label={pushButtonLabel}
+									onClick={pushStack}
+									// Note this prevents the tooltip from showing, but it
+									// shouldn't: https://github.com/mui/base-ui/issues/4966
+									disabled={!canPushStack}
+									className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+								/>
+							}
 						>
-							<Tooltip.Root>
-								<Tooltip.Trigger
-									render={
-										<Toolbar.Button
-											aria-label={pushButtonLabel}
-											onClick={pushStack}
-											// Note this prevents the tooltip from showing, but it
-											// shouldn't: https://github.com/mui/base-ui/issues/4966
-											disabled={!canPushStack}
-											className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-										/>
-									}
-								>
-									{pushStackMutation.isPending ? (
-										<Icon name="spinner" />
-									) : pushesMultipleBranches ? (
-										<Icon name="arrow-double-line-up" />
-									) : (
-										<Icon name="arrow-line-up" />
-									)}
-								</Tooltip.Trigger>
-								<Tooltip.Portal>
-									<Tooltip.Positioner sideOffset={4}>
-										<Tooltip.Popup render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}>
-											{pushStackDisabledReason ?? pushButtonLabel}
-										</Tooltip.Popup>
-									</Tooltip.Positioner>
-								</Tooltip.Portal>
-							</Tooltip.Root>
-							<Toolbar.Button
-								aria-label="Branch menu"
-								onClick={(event) => {
-									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
-								}}
-								className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-							>
-								<Icon name="kebab" />
-							</Toolbar.Button>
-						</Toolbar.Root>
-					)}
-				</>
+							{pushStackMutation.isPending ? (
+								<Icon name="spinner" />
+							) : pushesMultipleBranches ? (
+								<Icon name="arrow-double-line-up" />
+							) : (
+								<Icon name="arrow-line-up" />
+							)}
+						</Tooltip.Trigger>
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}>
+									{pushStackDisabledReason ?? pushButtonLabel}
+								</Tooltip.Popup>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
+					<Toolbar.Button
+						aria-label="Branch menu"
+						onClick={(event) => {
+							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+						}}
+						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+					>
+						<Icon name="kebab" />
+					</Toolbar.Button>
+				</Toolbar.Root>
 			)}
 		</ItemRow>
 	);
