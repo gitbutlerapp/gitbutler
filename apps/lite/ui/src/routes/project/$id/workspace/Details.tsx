@@ -5,8 +5,6 @@ import {
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
-	listEditorsQueryOptions,
-	listProjectsQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/ref-name.ts";
@@ -50,14 +48,13 @@ import {
 	parsePatchFiles,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
-import { useQuery, useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Hash, Match } from "effect";
 import { ComponentProps, FC, type RefObject, Suspense, useDeferredValue, useRef } from "react";
 import styles from "./Details.module.css";
-import { changesFileHotkeys, toElectronAccelerator, workspaceHotkeys } from "#ui/hotkeys.ts";
+import { workspaceHotkeys } from "#ui/hotkeys.ts";
 import {
-	focusSelectionScope,
 	type SelectionScope,
 	useDiffSelection,
 	useNavigationIndexHotkeys,
@@ -77,22 +74,8 @@ import {
 	synthesizeFilePatch,
 } from "#ui/hunk.ts";
 import { buildNavigationIndex, NavigationIndex } from "#ui/workspace/navigation-index.ts";
-import { getWorkspaceItemRowButtonClassName } from "./WorkspaceItemRow";
-import {
-	type NativeMenuItem,
-	nativeMenuItem,
-	nativeMenuItemsFromGroups,
-	showNativeContextMenu,
-	showNativeMenuFromTrigger,
-} from "#ui/native-menu.ts";
-import type { NonEmptyArray } from "effect/Array";
-import {
-	useCommitDiscardChanges,
-	useCommitUncommitChanges,
-	useDiscardWorktreeChanges,
-	useOpenInEditor,
-} from "#ui/api/mutations.ts";
-import { createDiffSpec } from "#ui/operations/diff-specs.ts";
+import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
+import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 
 const codeViewItemId = ({ changesetKey, path }: { changesetKey: string; path: string }): string =>
 	`${changesetKey}:${path}`;
@@ -428,10 +411,10 @@ const DiffContents: FC<{
 					<DiffFileHeader
 						projectId={projectId}
 						item={item}
-						operand={fileOperand({
+						operand={{
 							parent: fileParent,
 							path: change.path,
-						})}
+						}}
 						change={change}
 						hasDiff={item.fileDiff.hunks.length !== 0}
 					/>
@@ -480,136 +463,18 @@ const DiffContents: FC<{
 type DiffFileHeaderProps = {
 	projectId: string;
 	item: CodeViewDiffItem;
-	operand: Operand;
+	operand: FileOperand;
 	change: TreeChange;
 	hasDiff: boolean;
 };
 
 const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
-	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
-	const { data: editors } = useQuery(listEditorsQueryOptions);
-
-	const dispatch = useAppDispatch();
-	const commitUncommitChanges = useCommitUncommitChanges();
-	const commitDiscardChanges = useCommitDiscardChanges();
-	const discardWorktreeChanges = useDiscardWorktreeChanges();
-	const openInEditor = useOpenInEditor();
-
-	const selectedProject = projects.find((project) => project.id === p.projectId);
-	if (!selectedProject) throw new Error("Could not find selected project");
-
-	const menuItemGroups: Array<NonEmptyArray<NativeMenuItem>> = [
-		[
-			nativeMenuItem({
-				label: "Open In Editor",
-				submenu:
-					editors?.map((editor) =>
-						nativeMenuItem({
-							label: editor.name,
-							enabled: !openInEditor.isPending,
-							onSelect: () =>
-								openInEditor.mutate({
-									projectId: p.projectId,
-									editorId: editor.id,
-									path: p.change.path,
-								}),
-						}),
-					) ?? [],
-			}),
-			nativeMenuItem({
-				label: "Copy Path",
-				submenu: [
-					nativeMenuItem({
-						label: "Absolute Path",
-						onSelect: async () => {
-							const absolutePath = await window.lite.pathJoin(selectedProject.path, p.change.path);
-							await window.lite.clipboardWriteText(absolutePath);
-						},
-					}),
-					nativeMenuItem({
-						label: "Relative Path",
-						onSelect: () => window.lite.clipboardWriteText(p.change.path),
-					}),
-				],
-			}),
-		],
-		...Match.value(p.operand).pipe(
-			Match.withReturnType<Array<NonEmptyArray<NativeMenuItem>>>(),
-			Match.when({ parent: { _tag: "Commit" } }, (operand) => {
-				const uncommit = () =>
-					commitUncommitChanges.mutate({
-						projectId: p.projectId,
-						commitId: operand.parent.commitId,
-						assignTo: null,
-						changes: [createDiffSpec(p.change, [])],
-						dryRun: false,
-					});
-				const discard = () =>
-					commitDiscardChanges.mutate({
-						projectId: p.projectId,
-						commitId: operand.parent.commitId,
-						changes: [createDiffSpec(p.change, [])],
-						dryRun: false,
-					});
-
-				return [
-					[
-						nativeMenuItem({
-							label: "Uncommit",
-							enabled: !commitUncommitChanges.isPending,
-							onSelect: uncommit,
-						}),
-						nativeMenuItem({
-							label: "Discard Changes",
-							enabled: !commitDiscardChanges.isPending,
-							onSelect: discard,
-						}),
-					],
-				];
-			}),
-			Match.when({ parent: { _tag: "Changes" } }, (operand) => {
-				const absorb = () => {
-					dispatch(
-						projectActions.enterAbsorbMode({
-							projectId: p.projectId,
-							source: fileOperand(operand),
-							sourceTarget: {
-								type: "treeChanges",
-								subject: {
-									changes: [p.change],
-									assignedStackId: null,
-								},
-							},
-						}),
-					);
-					focusSelectionScope("outline");
-				};
-				const discard = () =>
-					discardWorktreeChanges.mutate({
-						projectId: p.projectId,
-						changes: [createDiffSpec(p.change, [])],
-					});
-
-				return [
-					[
-						nativeMenuItem({
-							label: "Absorb",
-							accelerator: toElectronAccelerator(changesFileHotkeys.absorb.hotkey),
-							onSelect: absorb,
-						}),
-						nativeMenuItem({
-							label: "Discard Changes",
-							enabled: !discardWorktreeChanges.isPending,
-							onSelect: discard,
-						}),
-					],
-				];
-			}),
-			Match.orElse(() => []),
-		),
-	];
-
-	const menuItems = nativeMenuItemsFromGroups(menuItemGroups);
+	const menuItems = useFileMenuItems({
+		projectId: p.projectId,
+		operand: p.operand,
+		path: p.change.path,
+		change: p.change,
+	});
 
 	const lastSepIdx = p.change.path.lastIndexOf("/");
 	const mpathInit = lastSepIdx !== -1 ? p.change.path.slice(0, lastSepIdx + 1) : null;
@@ -624,7 +489,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	);
 
 	return (
-		<OperationSourceC projectId={p.projectId} source={p.operand}>
+		<OperationSourceC projectId={p.projectId} source={fileOperand(p.operand)}>
 			<header
 				onContextMenu={(event) => {
 					void showNativeContextMenu(event, menuItems);
@@ -647,7 +512,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+						className={getButtonClassName({ size: "small", variant: "ghost", iconOnly: true })}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
