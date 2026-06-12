@@ -204,8 +204,8 @@
 
 .commitStateWithCheckbox {
 	display: grid;
+	align-self: stretch;
 	justify-items: center;
-	height: 100%;
 
 	& > * {
 		grid-area: 1 / 1;
