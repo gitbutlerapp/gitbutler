@@ -89,7 +89,3 @@ export const WorkspaceItemRowButton: FC<
 			),
 		}),
 	});
-
-export const WorkspaceItemRowIconButton: FC<
-	Omit<ComponentProps<typeof WorkspaceItemRowButton>, "iconOnly">
-> = (props) => <WorkspaceItemRowButton {...props} iconOnly />;

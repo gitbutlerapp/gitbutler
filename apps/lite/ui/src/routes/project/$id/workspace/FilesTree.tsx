@@ -36,8 +36,8 @@ import { ComponentProps, createContext, FC, use, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import {
 	WorkspaceItemRow,
+	WorkspaceItemRowButton,
 	WorkspaceItemRowEmpty,
-	WorkspaceItemRowIconButton,
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowToolbar,
 } from "./WorkspaceItemRow.tsx";
@@ -496,7 +496,8 @@ const FileRow: FC<
 									item.dependencyCommitIds && (
 										<Toolbar.Button
 											render={
-												<WorkspaceItemRowIconButton
+												<WorkspaceItemRowButton
+													iconOnly
 													render={
 														<DependencyIndicator
 															projectId={projectId}
@@ -517,7 +518,7 @@ const FileRow: FC<
 							onClick={(event) => {
 								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 							}}
-							render={<WorkspaceItemRowIconButton />}
+							render={<WorkspaceItemRowButton iconOnly />}
 						>
 							<Icon name="kebab" />
 						</Toolbar.Button>

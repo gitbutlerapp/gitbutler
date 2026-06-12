@@ -110,7 +110,6 @@ import { Checkbox } from "#ui/components/Checkbox.tsx";
 import {
 	WorkspaceItemRow,
 	WorkspaceItemRowEmpty,
-	WorkspaceItemRowIconButton,
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowToolbar,
 } from "./WorkspaceItemRow.tsx";
@@ -1368,7 +1367,7 @@ const CommitRow: FC<
 								onClick={(event) => {
 									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 								}}
-								render={<WorkspaceItemRowIconButton />}
+								render={<WorkspaceItemRowButton iconOnly />}
 							>
 								<Icon name="kebab" />
 							</Toolbar.Button>
@@ -1489,7 +1488,7 @@ const ChangesSectionRow: FC<{
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						render={<WorkspaceItemRowIconButton />}
+						render={<WorkspaceItemRowButton iconOnly />}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
@@ -2270,7 +2269,7 @@ const BranchRow: FC<
 											// Note this prevents the tooltip from showing, but it
 											// shouldn't: https://github.com/mui/base-ui/issues/4966
 											disabled={!canPushStack}
-											render={<WorkspaceItemRowIconButton />}
+											render={<WorkspaceItemRowButton iconOnly />}
 										/>
 									}
 								>
@@ -2295,7 +2294,7 @@ const BranchRow: FC<
 								onClick={(event) => {
 									void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 								}}
-								render={<WorkspaceItemRowIconButton />}
+								render={<WorkspaceItemRowButton iconOnly />}
 							>
 								<Icon name="kebab" />
 							</Toolbar.Button>
@@ -2367,7 +2366,7 @@ const StackRow: FC<
 						onClick={(event) => {
 							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
 						}}
-						render={<WorkspaceItemRowIconButton />}
+						render={<WorkspaceItemRowButton iconOnly />}
 					>
 						<Icon name="kebab" />
 					</Toolbar.Button>
