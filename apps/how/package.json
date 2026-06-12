@@ -1,0 +1,96 @@
+{
+	"name": "@gitbutler/how",
+	"description": "A calm change manager for building software.",
+	"productName": "How",
+	"author": "GitButler Inc. <gitbutler@gitbutler.com> (https://gitbutler.com)",
+	"license": "FSL-1.1-MIT",
+	"homepage": "https://gitbutler.com",
+	"private": true,
+	"version": "0.0.0-dev",
+	"type": "module",
+	"main": "dist/electron/main.js",
+	"copyright": "Copyright 2026 GitButler Inc",
+	"imports": {
+		"#ui/*": "./ui/src/*",
+		"#electron/*": "./electron/src/*"
+	},
+	"scripts": {
+		"dev": "concurrently -k \"pnpm dev:ui\" \"pnpm dev:electron\"",
+		"dev:ui": "vite dev --config ui/vite.config.ts --host 0.0.0.0",
+		"dev:electron": "pnpm build:electron && wait-on tcp:5174 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5174 electron dist/electron/main.js --inspect=9239 --remote-debugging-port=9232",
+		"build": "pnpm build:ui && pnpm build:electron",
+		"build:ui": "vite build --config ui/vite.config.ts",
+		"build:electron": "tsgo -p electron/tsconfig.json",
+		"check": "tsgo -p ui/tsconfig.json --noEmit && tsgo -p electron/tsconfig.json --noEmit",
+		"test": "vitest run --config ui/vitest.config.ts --passWithNoTests"
+	},
+	"build": {
+		"appId": "com.gitbutler.how",
+		"files": [
+			"dist/ui/**/*",
+			"dist/electron/**/*",
+			"package.json"
+		],
+		"directories": {
+			"output": "release"
+		},
+		"mac": {
+			"category": "public.app-category.developer-tools",
+			"darkModeSupport": true,
+			"target": [
+				"dmg",
+				"zip"
+			]
+		},
+		"linux": {
+			"category": "Development",
+			"target": [
+				"deb",
+				"appimage"
+			],
+			"desktop": {
+				"entry": {
+					"Name": "How",
+					"Type": "Application",
+					"GenericName": "Change Manager"
+				}
+			},
+			"executableName": "how"
+		},
+		"win": {
+			"target": [
+				"portable"
+			],
+			"publish": []
+		}
+	},
+	"dependencies": {
+		"@gitbutler/but-sdk": "workspace:*",
+		"@radix-ui/react-slot": "^1.2.4",
+		"@tailwindcss/vite": "^4.1.18",
+		"@tanstack/react-router": "^1.167.4",
+		"class-variance-authority": "^0.7.1",
+		"clsx": "^2.1.1",
+		"electron-devtools-installer": "^4.0.0",
+		"lucide-react": "^0.468.0",
+		"react": "^19.2.4",
+		"react-dom": "^19.2.4",
+		"tailwind-merge": "^2.6.0",
+		"tailwindcss": "^4.1.18"
+	},
+	"devDependencies": {
+		"@types/node": "^22.19.15",
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.3",
+		"@typescript/native-preview": "7.0.0-dev.20260421.1",
+		"@vitejs/plugin-react": "^5.2.0",
+		"concurrently": "^9.2.1",
+		"cross-env": "^10.1.0",
+		"electron": "^41.1.0",
+		"electron-builder": "^26.9.0",
+		"jsdom": "28.1.0",
+		"vite": "catalog:",
+		"vitest": "catalog:",
+		"wait-on": "^9.0.4"
+	}
+}
