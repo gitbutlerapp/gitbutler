@@ -80,12 +80,7 @@
 	}
 }
 
-.editorShortcut {
-	color: var(--fill-gray-fg);
-}
-
 .editorShortcutLabel {
-	color: var(--fill-gray-fg);
 	opacity: 0.6;
 }
 

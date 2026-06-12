@@ -958,7 +958,7 @@ const EditorHelp: FC<{
 				key={button.hotkey}
 				className={getButtonClassName({ size: "small", variant: "inverted" })}
 			>
-				<kbd className={styles.editorShortcut}>{formatForDisplay(button.hotkey)}</kbd>
+				<kbd>{formatForDisplay(button.hotkey)}</kbd>
 				<span className={styles.editorShortcutLabel}> to {button.name}</span>
 			</button>
 		))}
