@@ -100,7 +100,7 @@ export const workspaceHotkeys = {
 	updateWorkspace: {
 		hotkey: "Alt+Shift+R",
 		meta: {
-			group: "Stack",
+			group: "Global",
 			name: "Update workspace to integrate upstream changes (rebases all stacks)",
 		},
 	},
