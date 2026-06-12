@@ -1,10 +1,17 @@
 use std::{borrow::Cow, collections::BTreeMap};
 
 use crate::WorkspaceState;
+use anyhow::{Context as _, bail};
+use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
-    DryRun, branch::unique_canned_refname, ref_metadata::StackId, sync::RepoExclusive,
-    ui::TreeChanges, worktree::checkout::UncommitedWorktreeChanges,
+    DryRun,
+    branch::unique_canned_refname,
+    ref_metadata::StackId,
+    sync::RepoExclusive,
+    ui::TreeChanges,
+    update_head_reference,
+    worktree::{checkout, checkout::UncommitedWorktreeChanges, safe_checkout},
 };
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
@@ -14,6 +21,7 @@ use but_workspace::branch::{
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
     integrate_branch_upstream::InteractiveIntegration,
 };
+use gix::refs::transaction::PreviousValue;
 use tracing::instrument;
 
 /// Outcome after moving a branch.
@@ -36,12 +44,20 @@ pub struct IntegrateBranchResult {
     pub workspace: WorkspaceState,
 }
 
+/// Outcome after checking out a branch.
+#[derive(Debug)]
+pub struct BranchCheckoutResult {
+    /// Workspace state after checking out the branch.
+    pub workspace: WorkspaceState,
+}
+
 /// JSON transport types for branch APIs.
 pub mod json {
     use but_workspace::ui::ref_info::BranchReference;
     use serde::{Deserialize, Serialize};
 
     use crate::branch::{
+        BranchCheckoutResult as InternalBranchCheckoutResult,
         BranchCreateResult as InternalBranchCreateResult,
         IntegrateBranchResult as InternalIntegrateBranchResult,
         MoveBranchResult as InternalMoveBranchResult,
@@ -126,6 +142,27 @@ pub mod json {
             Ok(Self {
                 workspace: value.workspace.try_into()?,
                 new_ref: value.new_ref.into(),
+            })
+        }
+    }
+
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    /// JSON transport type for checking out a branch.
+    pub struct BranchCheckoutResult {
+        /// Workspace state after checking out the branch.
+        pub workspace: crate::json::WorkspaceState,
+    }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(BranchCheckoutResult);
+
+    impl TryFrom<InternalBranchCheckoutResult> for BranchCheckoutResult {
+        type Error = anyhow::Error;
+
+        fn try_from(value: InternalBranchCheckoutResult) -> Result<Self, Self::Error> {
+            Ok(Self {
+                workspace: value.workspace.try_into()?,
             })
         }
     }
@@ -657,6 +694,134 @@ pub fn branch_create_with_perm(
     Ok(BranchCreateResult { workspace, new_ref })
 }
 
+/// Checks out an existing local branch and returns the resulting workspace state.
+///
+/// This acquires exclusive worktree access from `ctx`, updates the worktree and
+/// index through [`but_core::worktree::safe_checkout()`], then points `HEAD`
+/// symbolically at `branch`. The branch must be an existing full local branch
+/// name under `refs/heads/`.
+#[but_api(napi, try_from = json::BranchCheckoutResult)]
+#[instrument(err(Debug))]
+pub fn branch_checkout(
+    ctx: &mut but_ctx::Context,
+    #[but_api(crate::json::FullNameBytes)] branch: gix::refs::FullName,
+) -> anyhow::Result<BranchCheckoutResult> {
+    let mut guard = ctx.exclusive_worktree_access();
+    branch_checkout_with_perm(ctx, branch, guard.write_permission())
+}
+
+/// Creates a new local branch at the project target SHA, checks it out, and
+/// returns the resulting workspace state.
+///
+/// If `name` is provided, it is treated as a short branch name and normalized
+/// before creating `refs/heads/<name>`. If omitted, a unique canned branch name
+/// is generated. The resulting branch must not already exist.
+#[but_api(napi, try_from = json::BranchCheckoutResult)]
+#[instrument(err(Debug))]
+pub fn branch_checkout_new(
+    ctx: &mut but_ctx::Context,
+    name: Option<String>,
+) -> anyhow::Result<BranchCheckoutResult> {
+    let mut guard = ctx.exclusive_worktree_access();
+    branch_checkout_new_with_perm(ctx, name, guard.write_permission())
+}
+
+/// Creates a new local branch at the project target SHA and checks it out under
+/// caller-held exclusive repository access.
+pub fn branch_checkout_new_with_perm(
+    ctx: &mut but_ctx::Context,
+    name: Option<String>,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<BranchCheckoutResult> {
+    let target_commit_id = ctx.project_meta()?.target_commit_id_or_err()?;
+    let branch = {
+        let repo = ctx.repo.get()?;
+        let branch = match name {
+            Some(name) => {
+                let normalized = but_core::branch::normalize_short_name(name.as_str())?;
+                let branch = gix::refs::Category::LocalBranch.to_full_name(normalized.as_bstr())?;
+                if repo.try_find_reference(branch.as_ref())?.is_some() {
+                    bail!("Branch '{}' already exists", branch.as_bstr());
+                }
+                branch
+            }
+            None => unique_canned_refname(&repo)?,
+        };
+
+        repo.reference(
+            branch.as_ref(),
+            target_commit_id,
+            PreviousValue::MustNotExist,
+            "branch checkout new",
+        )
+        .with_context(|| format!("Could not create branch '{}'", branch.as_bstr()))?;
+        branch
+    };
+
+    branch_checkout_with_perm(ctx, branch, perm)
+}
+
+/// Checks out an existing local branch under caller-held exclusive repository
+/// access.
+///
+/// TODO: Decide whether branch checkout should record an oplog snapshot. For
+/// now this deliberately performs only the Git checkout and workspace
+/// projection rebuild.
+pub fn branch_checkout_with_perm(
+    ctx: &mut but_ctx::Context,
+    branch: gix::refs::FullName,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<BranchCheckoutResult> {
+    if !branch.as_bstr().starts_with_str("refs/heads/") {
+        bail!(
+            "Can only check out local branches under refs/heads, got '{}'",
+            branch.as_bstr()
+        );
+    }
+
+    {
+        let repo = ctx.repo.get()?;
+        let current_head = repo
+            .head_id()
+            .context("Cannot check out a branch while HEAD is unborn")?
+            .detach();
+        let mut reference = repo
+            .find_reference(branch.as_ref())
+            .with_context(|| format!("Could not find branch '{}'", branch.as_bstr()))?;
+        let target = reference
+            .peel_to_id()
+            .with_context(|| format!("Could not resolve branch '{}'", branch.as_bstr()))?
+            .detach();
+        let target_commit = repo
+            .find_commit(target)
+            .with_context(|| format!("Branch '{}' does not point to a commit", branch.as_bstr()))?;
+
+        safe_checkout(
+            current_head,
+            target,
+            &repo,
+            checkout::Options {
+                skip_head_update: true,
+                uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
+                ..Default::default()
+            },
+        )?;
+        update_head_reference(
+            &repo,
+            gix::refs::Target::Symbolic(branch.clone()),
+            false,
+            "checkout",
+            branch.as_bstr(),
+            target_commit.parent_ids().count(),
+        )?;
+    }
+
+    ctx.reload_repo_and_invalidate_workspace(perm)?;
+    let (repo, ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let workspace = WorkspaceState::from_workspace(&ws, &repo, BTreeMap::new())?;
+    Ok(BranchCheckoutResult { workspace })
+}
+
 /// Computes the worktree-visible diff for `branch` in the current workspace.
 ///
 /// `branch` is resolved by name in the repository referenced by `ctx`, and the
@@ -907,4 +1072,124 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
         repo,
         materialized.history.commit_mappings(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use but_core::ref_metadata::ProjectMeta;
+    use but_testsupport::{CommandExt, git_at_dir, open_repo};
+
+    fn repo_with_feature_branch() -> anyhow::Result<(gix::Repository, tempfile::TempDir)> {
+        let tmp = tempfile::tempdir()?;
+        git_at_dir(tmp.path()).args(["init"]).run();
+        git_at_dir(tmp.path())
+            .args(["config", "user.name", "GitButler"])
+            .run();
+        git_at_dir(tmp.path())
+            .args(["config", "user.email", "gitbutler@example.com"])
+            .run();
+        write_file(tmp.path(), "file.txt", "one\n")?;
+        git_at_dir(tmp.path()).args(["add", "file.txt"]).run();
+        git_at_dir(tmp.path()).args(["commit", "-m", "one"]).run();
+        git_at_dir(tmp.path()).args(["branch", "feature"]).run();
+        write_file(tmp.path(), "file.txt", "two\n")?;
+        git_at_dir(tmp.path()).args(["commit", "-am", "two"]).run();
+
+        Ok((open_repo(tmp.path())?, tmp))
+    }
+
+    fn set_project_target_to_feature(repo: &gix::Repository) -> anyhow::Result<gix::ObjectId> {
+        let mut feature = repo.find_reference("refs/heads/feature")?;
+        let target_commit_id = feature.peel_to_id()?.detach();
+        ProjectMeta {
+            target_ref: Some("refs/remotes/origin/main".try_into()?),
+            target_commit_id: Some(target_commit_id),
+            push_remote: Some("origin".into()),
+        }
+        .persist_to_local_config(repo)?;
+        Ok(target_commit_id)
+    }
+
+    fn write_file(root: &Path, relative_path: &str, content: &str) -> anyhow::Result<()> {
+        std::fs::write(root.join(relative_path), content)?;
+        Ok(())
+    }
+
+    #[test]
+    fn checkout_branch_switches_head_and_returns_workspace() -> anyhow::Result<()> {
+        let (repo, _tmp) = repo_with_feature_branch()?;
+        let mut ctx = but_ctx::Context::from_repo(repo)?.with_memory_app_cache();
+        let branch = gix::refs::FullName::try_from("refs/heads/feature")?;
+        let result = super::branch_checkout(&mut ctx, branch)?;
+
+        let repo = ctx.repo.get()?;
+        let head_name = repo.head_name()?.expect("HEAD is symbolic after checkout");
+        assert_eq!(head_name.as_bstr(), "refs/heads/feature");
+        let workspace_ref = result
+            .workspace
+            .head_info
+            .workspace_ref_info
+            .expect("checked out branch is the workspace ref");
+        assert_eq!(workspace_ref.ref_name.as_bstr(), "refs/heads/feature");
+
+        Ok(())
+    }
+
+    #[test]
+    fn checkout_branch_rejects_remote_refs() -> anyhow::Result<()> {
+        let (repo, _tmp) = repo_with_feature_branch()?;
+        let mut ctx = but_ctx::Context::from_repo(repo)?.with_memory_app_cache();
+        let branch = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+
+        let err = super::branch_checkout(&mut ctx, branch)
+            .expect_err("only local branch refs can be checked out");
+        assert_eq!(
+            err.to_string(),
+            "Can only check out local branches under refs/heads, got 'refs/remotes/origin/main'"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn branch_checkout_new_creates_named_branch_at_target_and_checks_it_out() -> anyhow::Result<()>
+    {
+        let (repo, _tmp) = repo_with_feature_branch()?;
+        let target_commit_id = set_project_target_to_feature(&repo)?;
+        let mut ctx = but_ctx::Context::from_repo(repo)?.with_memory_app_cache();
+
+        let result = super::branch_checkout_new(&mut ctx, Some("new branch".into()))?;
+
+        let repo = ctx.repo.get()?;
+        let head_name = repo.head_name()?.expect("HEAD is symbolic after checkout");
+        assert_eq!(head_name.as_bstr(), "refs/heads/new-branch");
+        let mut created = repo.find_reference("refs/heads/new-branch")?;
+        assert_eq!(created.peel_to_id()?.detach(), target_commit_id);
+        let workspace_ref = result
+            .workspace
+            .head_info
+            .workspace_ref_info
+            .expect("checked out branch is the workspace ref");
+        assert_eq!(workspace_ref.ref_name.as_bstr(), "refs/heads/new-branch");
+
+        Ok(())
+    }
+
+    #[test]
+    fn branch_checkout_new_rejects_existing_explicit_name() -> anyhow::Result<()> {
+        let (repo, _tmp) = repo_with_feature_branch()?;
+        set_project_target_to_feature(&repo)?;
+        let mut ctx = but_ctx::Context::from_repo(repo)?.with_memory_app_cache();
+
+        let err = super::branch_checkout_new(&mut ctx, Some("feature".into()))
+            .expect_err("explicit names must not be uniquified");
+        assert_eq!(
+            err.to_string(),
+            "Branch 'refs/heads/feature' already exists"
+        );
+
+        Ok(())
+    }
 }

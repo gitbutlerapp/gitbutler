@@ -49,6 +49,26 @@ export declare function applyBranchIntegration(projectId: string, branch: string
 export declare function assignHunk(projectId: string, assignments: Array<HunkAssignmentRequest>): Promise<void>
 
 /**
+ * Checks out an existing local branch and returns the resulting workspace state.
+ *
+ * This acquires exclusive worktree access from `ctx`, updates the worktree and
+ * index through [`but_core::worktree::safe_checkout()`], then points `HEAD`
+ * symbolically at `branch`. The branch must be an existing full local branch
+ * name under `refs/heads/`.
+ */
+export declare function branchCheckout(projectId: string, branch: FullNameBytes): Promise<BranchCheckoutResult>
+
+/**
+ * Creates a new local branch at the project target SHA, checks it out, and
+ * returns the resulting workspace state.
+ *
+ * If `name` is provided, it is treated as a short branch name and normalized
+ * before creating `refs/heads/<name>`. If omitted, a unique canned branch name
+ * is generated. The resulting branch must not already exist.
+ */
+export declare function branchCheckoutNew(projectId: string, name: string | null): Promise<BranchCheckoutResult>
+
+/**
  * Creates a new branch named `new_ref` at `placement`.
  *
  * This acquires exclusive worktree access from `ctx`, creates the branch,
@@ -649,6 +669,12 @@ export type BranchAuthor = {
   /** The email of the author as configured in the git config */
   email: string | null;
   gravatarUrl: string | null;
+};
+
+/** JSON transport type for checking out a branch. */
+export type BranchCheckoutResult = {
+  /** Workspace state after checking out the branch. */
+  workspace: WorkspaceState;
 };
 
 /** JSON transport type describing where to create a new branch. */
@@ -1332,6 +1358,14 @@ export type ForgeUser = {
   provider: "gitlab";
   details: GitlabAccountIdentifier;
 };
+
+/**
+ * A full reference name accepted as raw bytes.
+ *
+ * Use this as parameter transport when callers must avoid lossy UTF-8
+ * conversion at the API boundary.
+ */
+export type FullNameBytes = Array<number>;
 
 /** The full name of a Git reference. */
 export type FullRefName = {
