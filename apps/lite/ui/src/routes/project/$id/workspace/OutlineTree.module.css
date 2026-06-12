@@ -45,6 +45,12 @@
 	flex-direction: column;
 }
 
+.segmentTail {
+	height: 8px;
+	min-height: auto;
+	overflow: hidden;
+}
+
 .stack {
 	display: flex;
 	flex-direction: column;
@@ -196,12 +202,6 @@
 	padding-inline: 10px;
 	padding-block: 4px;
 	color: var(--color-text-secondary);
-}
-
-.segmentTail {
-	height: 8px;
-	min-height: auto;
-	overflow: hidden;
 }
 
 .commitStateWithCheckbox {
