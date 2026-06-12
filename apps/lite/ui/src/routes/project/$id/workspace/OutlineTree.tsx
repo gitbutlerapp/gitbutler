@@ -2393,7 +2393,6 @@ const BranchSegment: FC<{
 	partialStackState,
 }) => {
 	const operand = branchOperand({ stackId, branchRef: refName.fullNameBytes });
-	const navigationIndex = assert(use(NavigationIndexContext));
 
 	return (
 		<TreeItem
@@ -2428,33 +2427,7 @@ const BranchSegment: FC<{
 			/>
 
 			{segment.commits.length === 0 ? (
-				<>
-					<WorkspaceItemRowEmpty
-						inert={
-							!navigationIndexIncludes(
-								navigationIndex,
-								branchOperand({ stackId, branchRef: refName.fullNameBytes }),
-								operandIdentityKey,
-							)
-						}
-					>
-						<GraphSegment glyph="parent" status="LocalOnly" />
-						<WorkspaceItemRowLabel>No commits.</WorkspaceItemRowLabel>
-					</WorkspaceItemRowEmpty>
-
-					<WorkspaceItemRowEmpty
-						className={styles.segmentTail}
-						inert={
-							!navigationIndexIncludes(
-								navigationIndex,
-								branchOperand({ stackId, branchRef: refName.fullNameBytes }),
-								operandIdentityKey,
-							)
-						}
-					>
-						<GraphSegment glyph="parent" status="LocalOnly" />
-					</WorkspaceItemRowEmpty>
-				</>
+				<EmptySegment stackId={stackId} refName={refName} />
 			) : (
 				<div role="group">
 					<NonEmptySegment
@@ -2466,6 +2439,30 @@ const BranchSegment: FC<{
 				</div>
 			)}
 		</TreeItem>
+	);
+};
+
+const EmptySegment: FC<{
+	stackId: string;
+	refName: BranchReference;
+}> = ({ stackId, refName }) => {
+	const navigationIndex = assert(use(NavigationIndexContext));
+	const inert = !navigationIndexIncludes(
+		navigationIndex,
+		branchOperand({ stackId, branchRef: refName.fullNameBytes }),
+		operandIdentityKey,
+	);
+
+	return (
+		<div>
+			<WorkspaceItemRowEmpty inert={inert}>
+				<GraphSegment glyph="parent" status="LocalOnly" />
+				<WorkspaceItemRowLabel>No commits.</WorkspaceItemRowLabel>
+			</WorkspaceItemRowEmpty>
+			<WorkspaceItemRowEmpty className={styles.segmentTail} inert={inert}>
+				<GraphSegment glyph="parent" status="LocalOnly" />
+			</WorkspaceItemRowEmpty>
+		</div>
 	);
 };
 
