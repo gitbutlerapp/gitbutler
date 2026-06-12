@@ -2478,23 +2478,34 @@ const BranchlessSegment: FC<{
 	segment: Segment;
 	stackId: string;
 	commitTarget: RelativeTo | null;
-}> = ({ projectId, segment, stackId, commitTarget }) => (
-	<div className={styles.segment}>
-		{segment.commits.map((commit) => (
-			<CommitC
-				key={commit.id}
-				commit={commit}
-				projectId={projectId}
-				stackId={stackId}
-				isCommitTarget={
-					commitTarget
-						? relativeToEquals(commitTarget, { type: "commit", subject: commit.id })
-						: false
-				}
-			/>
-		))}
-	</div>
-);
+}> = ({ projectId, segment, stackId, commitTarget }) => {
+	// A branchless segment should always have at least one commit.
+	const bottomCommit = assert(segment.commits.at(-1));
+
+	return (
+		<div className={styles.segment}>
+			{segment.commits.map((commit) => (
+				<CommitC
+					key={commit.id}
+					commit={commit}
+					projectId={projectId}
+					stackId={stackId}
+					isCommitTarget={
+						commitTarget
+							? relativeToEquals(commitTarget, { type: "commit", subject: commit.id })
+							: false
+					}
+				/>
+			))}
+			<WorkspaceItemRowEmpty className={styles.branchTail}>
+				<GraphSegment
+					glyph="parent"
+					status={commitIsDiverged(bottomCommit) ? "Diverged" : bottomCommit.state.type}
+				/>
+			</WorkspaceItemRowEmpty>
+		</div>
+	);
+};
 
 const StackC: FC<{
 	projectId: string;
