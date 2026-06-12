@@ -14,7 +14,6 @@ import { useAppDispatch } from "#ui/store.ts";
 import { Toast } from "@base-ui/react";
 import {
 	type BottomUpdate,
-	type BranchCreatePlacement,
 	type CommitAbsorption,
 	type InsertSide,
 	type RelativeTo,
@@ -22,6 +21,7 @@ import {
 } from "@gitbutler/but-sdk";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
+import { BranchCreateParams } from "#electron/ipc.ts";
 
 export const useAbsorb = ({ projectId }: { projectId: string }) => {
 	const toastManager = Toast.useToastManager();
@@ -69,8 +69,7 @@ export const useBranchCreate = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: (input: { projectId: string; newRef: string; placement: BranchCreatePlacement }) =>
-			window.lite.branchCreate(input),
+		mutationFn: (input: BranchCreateParams) => window.lite.branchCreate(input),
 		onSuccess: async (response, input, _context, mutation) => {
 			mutation.client.setQueryData(
 				headInfoQueryOptions(input.projectId).queryKey,

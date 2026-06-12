@@ -11,7 +11,6 @@ import {
 	useRestoreSnapshot,
 } from "#ui/api/mutations.ts";
 import { findBranchOperandByRef } from "#ui/api/ref-info.ts";
-import { encodeBytes } from "#ui/api/ref-name.ts";
 import {
 	focusAdjacentSelectionScope,
 	focusSelectionScope,
@@ -71,7 +70,6 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { filterNavigationItemsForOutlineMode } from "#ui/outline/mode.ts";
 import { buildNavigationIndex } from "#ui/workspace/navigation-index.ts";
-import { randomBranchRef } from "#ui/routes/project/$id/workspace/branchRef.ts";
 
 const toggleFiles =
 	({
@@ -489,18 +487,17 @@ const WorkspacePage: FC = () => {
 
 	const branchCreateMutation = useBranchCreate();
 	const createIndependentBranch = () => {
-		const newRef = randomBranchRef();
 		branchCreateMutation.mutate(
 			{
 				projectId,
-				newRef,
+				newRef: null,
 				placement: { type: "independent" },
 			},
 			{
 				onSuccess: (response) => {
 					const newBranch = findBranchOperandByRef({
 						headInfo: response.workspace.headInfo,
-						branchRef: encodeBytes(newRef),
+						branchRef: response.newRef.fullNameBytes,
 					});
 					if (newBranch) selectBranch(newBranch);
 				},
@@ -680,7 +677,7 @@ const WorkspacePage: FC = () => {
 
 								<Tooltip.Root>
 									<Tooltip.Trigger
-										aria-label="Create independent branch"
+										aria-label="Create branch"
 										className={getButtonClassName({ iconOnly: true })}
 										onClick={createIndependentBranch}
 										render={<Button focusableWhenDisabled disabled={!canCreateIndependentBranch} />}
