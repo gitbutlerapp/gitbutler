@@ -512,7 +512,7 @@ export const usePushStack = () => {
 	});
 };
 
-export const useRebaseAllStacks = ({ projectId }: { projectId: string }) => {
+export const useRebaseStacks = ({ projectId }: { projectId: string }) => {
 	const dispatch = useAppDispatch();
 	const queryClient = useQueryClient();
 	const toastManager = Toast.useToastManager();
@@ -532,7 +532,7 @@ export const useRebaseAllStacks = ({ projectId }: { projectId: string }) => {
 
 			toastManager.add({
 				type: "success",
-				title: "Updated all stacks",
+				title: "Updated stacks",
 			});
 		},
 		onError: (error) => {

@@ -7,7 +7,7 @@ import {
 import {
 	useApplyBranch,
 	useBranchCreate,
-	useRebaseAllStacks,
+	useRebaseStacks,
 	useRestoreSnapshot,
 } from "#ui/api/mutations.ts";
 import { findBranchOperandByRef } from "#ui/api/ref-info.ts";
@@ -511,7 +511,7 @@ const WorkspacePage: FC = () => {
 			const update = stackToBottomRebaseUpdate(stack);
 			return update ? [update] : [];
 		}) ?? [];
-	const rebaseAllStacksMutation = useRebaseAllStacks({ projectId });
+	const rebaseAllStacksMutation = useRebaseStacks({ projectId });
 	const rebaseAllStacks = () => {
 		rebaseAllStacksMutation.mutate(rebaseUpdates);
 	};
