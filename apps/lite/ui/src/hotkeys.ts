@@ -97,7 +97,7 @@ export const workspaceHotkeys = {
 		hotkey: "Mod+N",
 		meta: { group: "Branches", name: "Create branch" },
 	},
-	rebaseAllStacks: {
+	updateWorkspace: {
 		hotkey: "Alt+Shift+R",
 		meta: {
 			group: "Stack",
@@ -175,7 +175,7 @@ export const outlineHotkeys = {
 		hotkey: "Shift+P",
 		meta: { group: "Branch", name: "Push with branches below" },
 	},
-	rebaseStack: {
+	updateStack: {
 		hotkey: "Alt+R",
 		meta: { group: "Stack", name: "Update stack to integrate upstream changes (rebases)" },
 	},

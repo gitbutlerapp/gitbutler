@@ -512,7 +512,7 @@ export const usePushStack = () => {
 	});
 };
 
-export const useRebaseStacks = ({ projectId }: { projectId: string }) => {
+export const useWorkspaceIntegrateUpstream = ({ projectId }: { projectId: string }) => {
 	const dispatch = useAppDispatch();
 	const queryClient = useQueryClient();
 	const toastManager = Toast.useToastManager();
