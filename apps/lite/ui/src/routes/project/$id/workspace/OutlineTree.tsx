@@ -74,7 +74,6 @@ import {
 	AbsorptionTarget,
 	BranchReference,
 	Commit,
-	CommitState,
 	RefInfo,
 	RelativeTo,
 	Segment,
@@ -118,6 +117,7 @@ import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { initNonEmpty, isNonEmptyArray, scanRight } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import {
@@ -801,16 +801,6 @@ const CommitTargetIndicator: FC = () => (
 	</Tooltip.Root>
 );
 
-type CommitStatusType = "Diverged" | CommitState["type"];
-
-const CommitStateIndicator: FC<{
-	status: CommitStatusType;
-}> = ({ status }) => (
-	<div className={styles.commitState}>
-		<span className={styles.commitStateIcon} data-status={status} />
-	</div>
-);
-
 const ItemRow: FC<
 	{
 		projectId: string;
@@ -1263,7 +1253,10 @@ const CommitRow: FC<
 			isCommitTarget={isCommitTarget}
 		>
 			<div className={styles.commitStateWithCheckbox}>
-				<CommitStateIndicator status={commitIsDiverged(commit) ? "Diverged" : commit.state.type} />
+				<GraphSegment
+					glyph="commit"
+					status={commitIsDiverged(commit) ? "Diverged" : commit.state.type}
+				/>
 				<Tooltip.Root
 					// This gets in the way when the user tries to move their hover to a
 					// sibling row.
@@ -2175,8 +2168,8 @@ const BranchRow: FC<
 			heading
 			isCommitTarget={isCommitTarget}
 		>
-			{/* This will be replaced with a different icon. */}
-			<CommitStateIndicator
+			<GraphSegment
+				glyph="forkRight"
 				status={(() => {
 					switch (pushStatus) {
 						case "nothingToPush":
@@ -2320,6 +2313,15 @@ const StackRow: FC<
 	);
 };
 
+const BranchTail: FC<{ commit?: Commit }> = ({ commit }) => (
+	<div className={styles.branchTail} aria-hidden="true">
+		<GraphSegment
+			glyph="parent"
+			status={commit ? (commitIsDiverged(commit) ? "Diverged" : commit.state.type) : "LocalOnly"}
+		/>
+	</div>
+);
+
 const BranchSegment: FC<{
 	projectId: string;
 	segment: Segment;
@@ -2375,7 +2377,13 @@ const BranchSegment: FC<{
 			/>
 
 			{segment.commits.length === 0 ? (
-				<WorkspaceItemRowEmpty>No commits.</WorkspaceItemRowEmpty>
+				<>
+					<WorkspaceItemRowEmpty>
+						<GraphSegment glyph="parent" status="LocalOnly" />
+						<WorkspaceItemRowLabel>No commits.</WorkspaceItemRowLabel>
+					</WorkspaceItemRowEmpty>
+					<BranchTail />
+				</>
 			) : (
 				<div role="group">
 					{segment.commits.map((commit) => (
@@ -2391,6 +2399,7 @@ const BranchSegment: FC<{
 							}
 						/>
 					))}
+					<BranchTail commit={assert(segment.commits.at(-1))} />
 				</div>
 			)}
 		</TreeItem>

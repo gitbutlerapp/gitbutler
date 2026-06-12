@@ -2,13 +2,10 @@
 .itemRowEmpty {
 	display: flex;
 	column-gap: 8px;
+	align-items: center;
 	min-height: 28px;
-	padding-inline: 8px;
-	padding-block: 6px;
-}
-
-.itemRowHeading {
-	padding-block: 5.5px;
+	padding-right: 4px;
+	padding-left: 6px;
 }
 
 .itemRow {

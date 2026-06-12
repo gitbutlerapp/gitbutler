@@ -1,0 +1,32 @@
+.graphSegment {
+	display: flex;
+	flex-direction: column;
+	align-self: stretch;
+
+	color: var(--commit-status-color);
+
+	&[data-status="LocalOnly"] {
+		--commit-status-color: var(--commit-local);
+	}
+
+	&[data-status="LocalAndRemote"] {
+		--commit-status-color: var(--commit-remote);
+	}
+
+	&[data-status="Integrated"] {
+		--commit-status-color: var(--commit-integrated);
+	}
+
+	&[data-status="Diverged"] {
+		--commit-status-color: var(--commit-local);
+	}
+}
+
+.graphSegmentSvg {
+	height: 28px;
+}
+
+.stretchSegment {
+	flex-grow: 1;
+	flex-basis: 0;
+}

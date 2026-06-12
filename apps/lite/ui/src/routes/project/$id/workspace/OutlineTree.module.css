@@ -36,7 +36,7 @@
 	display: flex;
 	/* The size of an item row. Eventually this should be a fixed/shared value,
 	somehow. */
-	row-gap: 28px;
+	row-gap: 10px;
 	flex-direction: column;
 }
 
@@ -48,14 +48,17 @@
 .stack {
 	display: flex;
 	flex-direction: column;
+	padding-bottom: 0;
 }
 
 .editorForm {
 	display: flex;
-	row-gap: 4px;
+	row-gap: 6px;
 	flex-grow: 1;
 	flex-direction: column;
 	min-width: 0;
+	padding-block: 6px 8px;
+	padding-right: 4px;
 }
 
 .editorInput {
@@ -200,39 +203,20 @@
 	color: var(--color-text-secondary);
 }
 
-[data-status="LocalOnly"] {
-	--commit-status-color: var(--commit-local);
-}
+.branchTail {
+	display: flex;
+	height: 8px;
+	padding-left: 6px;
+	overflow: hidden;
 
-[data-status="LocalAndRemote"] {
-	--commit-status-color: var(--commit-remote);
-}
-
-[data-status="Integrated"] {
-	--commit-status-color: var(--commit-integrated);
-}
-
-[data-status="Diverged"] {
-	--commit-status-color: var(--commit-local);
-}
-
-.commitState {
-	display: grid;
-	justify-content: center;
-	inline-size: 14px;
-	margin-block-start: 3px;
-}
-
-.commitStateIcon {
-	aspect-ratio: 1;
-	inline-size: 10px;
-	block-size: 10px;
-	border: 1.5px solid var(--commit-status-color);
-	border-radius: 50%;
+	& svg path {
+		vector-effect: non-scaling-stroke;
+	}
 }
 
 .commitStateWithCheckbox {
 	display: grid;
+	align-self: stretch;
 	justify-items: center;
 
 	& > * {
@@ -241,7 +225,7 @@
 }
 
 .commitCheckbox {
-	margin-block-start: 1px;
+	margin-block-start: 7px;
 	opacity: 0;
 
 	.treeWithCheckedCommits &,
