@@ -2,9 +2,8 @@
 .itemRowEmpty {
 	display: flex;
 	column-gap: 8px;
-	align-items: center;
 	min-height: 28px;
-	padding-inline: 6px 4px;
+	padding-inline: 6px;
 }
 
 .itemRow {
@@ -41,6 +40,8 @@
 .itemRowToolbar {
 	display: none;
 	column-gap: 2px;
+	margin: -2px;
+	padding-block: 6px;
 
 	.itemRow:hover &,
 	.itemRow:focus-within &,
@@ -55,6 +56,14 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.itemRowLabelRegular {
+	padding-block: 6px;
+}
+
+.itemRowLabelHeading {
+	padding-block: 5.5px;
 }
 
 .itemRowButton {

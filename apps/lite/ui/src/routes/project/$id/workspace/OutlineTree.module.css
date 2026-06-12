@@ -63,8 +63,6 @@
 	flex-grow: 1;
 	flex-direction: column;
 	min-width: 0;
-	padding-block: 6px 8px;
-	padding-right: 4px;
 }
 
 .editorInput {
@@ -206,7 +204,6 @@
 
 .commitStateWithCheckbox {
 	display: grid;
-	align-self: stretch;
 	justify-items: center;
 
 	& > * {
