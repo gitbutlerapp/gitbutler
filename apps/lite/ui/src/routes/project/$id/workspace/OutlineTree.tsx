@@ -2173,7 +2173,6 @@ const BranchRow: FC<
 			heading
 			isCommitTarget={isCommitTarget}
 		>
-			{/* This will be replaced with a different icon. */}
 			<GraphSegment
 				stretch={isRenaming}
 				glyph="forkRight"
