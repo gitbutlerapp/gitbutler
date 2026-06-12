@@ -1,8 +1,13 @@
-import { changesInWorktreeQueryOptions, listProjectsQueryOptions } from "#ui/api/queries.ts";
+import {
+	changesInWorktreeQueryOptions,
+	listEditorsQueryOptions,
+	listProjectsQueryOptions,
+} from "#ui/api/queries.ts";
 import {
 	useCommitDiscardChanges,
 	useCommitUncommitChanges,
 	useDiscardWorktreeChanges,
+	useOpenInEditor,
 } from "#ui/api/mutations.ts";
 import {
 	nativeMenuItem,
@@ -313,6 +318,7 @@ const FileRow: FC<
 	const dispatch = useAppDispatch();
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
+	const { data: editors } = useQuery(listEditorsQueryOptions);
 
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
@@ -320,9 +326,26 @@ const FileRow: FC<
 	const commitUncommitChanges = useCommitUncommitChanges();
 	const commitDiscardChanges = useCommitDiscardChanges();
 	const discardWorktreeChanges = useDiscardWorktreeChanges();
+	const openInEditor = useOpenInEditor();
 
 	const menuItemGroups: Array<NonEmptyArray<NativeMenuItem>> = [
 		[
+			nativeMenuItem({
+				label: "Open In Editor",
+				submenu:
+					editors?.map((editor) =>
+						nativeMenuItem({
+							label: editor.name,
+							enabled: !openInEditor.isPending,
+							onSelect: () =>
+								openInEditor.mutate({
+									projectId,
+									editorId: editor.id,
+									path: relativePath,
+								}),
+						}),
+					) ?? [],
+			}),
 			nativeMenuItem({
 				label: "Copy Path",
 				submenu: [

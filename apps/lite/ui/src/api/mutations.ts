@@ -21,7 +21,7 @@ import {
 } from "@gitbutler/but-sdk";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
-import { BranchCreateParams } from "#electron/ipc.ts";
+import { BranchCreateParams, OpenInEditorParams } from "#electron/ipc.ts";
 
 export const useAbsorb = ({ projectId }: { projectId: string }) => {
 	const toastManager = Toast.useToastManager();
@@ -90,6 +90,25 @@ export const useBranchCreate = () => {
 			toastManager.add({
 				type: "error",
 				title: "Failed to create branch",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useOpenInEditor = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: (input: OpenInEditorParams) => window.lite.openInEditor(input),
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to open in editor",
 				description: errorMessageForToast(error),
 				priority: "high",
 			});
