@@ -16,18 +16,13 @@ export const OperationTooltip: FC<
 	const tooltip = isActive
 		? Match.value(outlineMode).pipe(
 				Match.tags({
-					Transfer: ({ value: mode }) =>
-						Match.value(mode).pipe(
-							Match.tags({
-								Pointer: (mode) => {
-									const operation = getTransferOperation({ mode, target });
-									if (!operation) return null;
+					Absorb: () => <>Absorb target</>,
+					Transfer: ({ value: mode }) => {
+						const operation = getTransferOperation({ mode, target });
+						if (!operation) return null;
 
-									return <>{operationLabel(operation)}</>;
-								},
-							}),
-							Match.orElse(() => null),
-						),
+						return <>{operationLabel(operation)}</>;
+					},
 				}),
 				Match.orElse(() => null),
 			)
