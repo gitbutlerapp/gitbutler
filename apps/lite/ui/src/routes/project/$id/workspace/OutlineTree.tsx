@@ -116,7 +116,7 @@ import {
 } from "./WorkspaceItemRow.tsx";
 import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
-import { initNonEmpty, isNonEmptyArray, reverse, scanRight } from "effect/Array";
+import { initNonEmpty, reverse, scanRight } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { GraphSegment } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -2574,15 +2574,13 @@ const StackC: FC<{
 							) : (
 								// A segment should always either have a branch reference or at
 								// least one commit.
-								isNonEmptyArray(segment.commits) && (
-									<NonEmptySegment
-										key={segment.commits[0].id}
-										projectId={projectId}
-										segment={segment}
-										stackId={stackId}
-										commitTarget={commitTarget}
-									/>
-								)
+								<NonEmptySegment
+									key={assert(segment.commits[0]).id}
+									projectId={projectId}
+									segment={segment}
+									stackId={stackId}
+									commitTarget={commitTarget}
+								/>
 							)}
 						</div>
 					);
