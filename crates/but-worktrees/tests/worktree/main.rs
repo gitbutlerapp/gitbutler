@@ -1,48 +1,88 @@
-#![expect(
-    deprecated,
-    reason = "VirtualBranchesHandle should be replaced with ctx.workspace_* helpers"
-)]
-
 /// Tests for worktree creation and management
 mod util {
     use but_ctx::Context;
     use but_testsupport::gix_testtools::tempfile::TempDir;
-    use gitbutler_stack::VirtualBranchesHandle;
+    use but_worktrees::{
+        WorktreeId,
+        destroy::DestroyWorktreeOutcome,
+        integrate::{WorktreeIntegrationStatus, worktree_integrate, worktree_integration_status},
+        list::ListWorktreeOutcome,
+        new::NewWorktreeOutcome,
+    };
 
     pub fn test_ctx(name: &str) -> anyhow::Result<TestContext> {
         let (repo, tmpdir) = but_testsupport::writable_scenario(name);
-        // TODO: all this should work without `Context` once it's switched to the new rebase engine,
-        //       making this crate either obsolete or proper plumbing.
-        let mut ctx = Context::from_repo(repo)?;
-        // update the vb-toml metadata - trigger reconciliation and write the vb.toml according to what's there.
-        {
-            let _guard = ctx.exclusive_worktree_access();
-            let meta = ctx.legacy_meta()?;
-            meta.write_reconciled(&*ctx.repo.get()?)?;
-        }
-        let handle = VirtualBranchesHandle::new(ctx.project_data_dir());
+        let ctx = Context::from_repo(repo)?;
 
-        Ok(TestContext {
-            ctx,
-            handle,
-            tmpdir,
-        })
+        Ok(TestContext { ctx, tmpdir })
     }
 
-    #[expect(unused)]
     pub struct TestContext {
         pub ctx: Context,
-        pub handle: VirtualBranchesHandle,
+        #[expect(unused)]
         pub tmpdir: TempDir,
+    }
+
+    /// Derive the narrow inputs `worktree_new` needs from `ctx`.
+    pub fn worktree_new(
+        ctx: &Context,
+        perm: &but_ctx::access::RepoShared,
+        refname: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<NewWorktreeOutcome> {
+        let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
+        but_worktrees::new::worktree_new(&repo, &ws, &ctx.project_data_dir(), refname)
+    }
+
+    pub fn worktree_list(ctx: &Context) -> anyhow::Result<ListWorktreeOutcome> {
+        let repo = ctx.repo.get()?;
+        but_worktrees::list::worktree_list(&repo)
+    }
+
+    pub fn worktree_destroy_by_id(
+        ctx: &Context,
+        id: &WorktreeId,
+    ) -> anyhow::Result<DestroyWorktreeOutcome> {
+        let repo = ctx.repo.get()?;
+        but_worktrees::destroy::worktree_destroy_by_id(&repo, id)
+    }
+
+    pub fn worktree_destroy_by_reference(
+        ctx: &Context,
+        reference: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<DestroyWorktreeOutcome> {
+        let repo = ctx.repo.get()?;
+        but_worktrees::destroy::worktree_destroy_by_reference(&repo, reference)
+    }
+
+    /// Derive the narrow inputs the integration functions need from `ctx`.
+    pub fn integration_status(
+        ctx: &Context,
+        perm: &but_ctx::access::RepoExclusive,
+        id: &WorktreeId,
+        target: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<WorktreeIntegrationStatus> {
+        let mut meta = ctx.meta()?;
+        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        worktree_integration_status(&repo, &mut ws, &mut meta, id, target)
+    }
+
+    /// Derive the narrow inputs the integration functions need from `ctx`.
+    pub fn integrate(
+        ctx: &Context,
+        perm: &but_ctx::access::RepoExclusive,
+        id: &WorktreeId,
+        target: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<()> {
+        let mut meta = ctx.meta()?;
+        let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+        worktree_integrate(&repo, &mut ws, &mut meta, id, target)
     }
 }
 
 mod worktree_new;
 
 mod worktree_list {
-    use but_worktrees::{list::worktree_list, new::worktree_new};
-
-    use crate::util::test_ctx;
+    use crate::util::{test_ctx, worktree_list, worktree_new};
 
     #[test]
     fn can_list_worktrees() -> anyhow::Result<()> {
@@ -53,17 +93,17 @@ mod worktree_list {
 
         let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
         let feature_c_name = gix::refs::FullName::try_from("refs/heads/feature-c")?;
-        let a = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
-        let b = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
-        let c = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
-        let d = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
-        let e = worktree_new(&mut ctx, guard.read_permission(), feature_c_name.as_ref())?;
+        let a = worktree_new(&ctx, guard.read_permission(), feature_a_name.as_ref())?;
+        let b = worktree_new(&ctx, guard.read_permission(), feature_a_name.as_ref())?;
+        let c = worktree_new(&ctx, guard.read_permission(), feature_a_name.as_ref())?;
+        let d = worktree_new(&ctx, guard.read_permission(), feature_a_name.as_ref())?;
+        let e = worktree_new(&ctx, guard.read_permission(), feature_c_name.as_ref())?;
 
         let all = &[&a, &b, &c, &d, &e];
 
         // All should start normal
         assert!(
-            worktree_list(&mut ctx, guard.read_permission())?
+            worktree_list(&ctx)?
                 .entries
                 .iter()
                 .all(|e| all.iter().any(|a| a.created == *e))

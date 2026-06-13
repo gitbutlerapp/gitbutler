@@ -1,43 +1,38 @@
 use std::path::Path;
 
 use anyhow::{Result, bail};
-use bstr::BString;
 
 use crate::WorktreeId;
 
 /// Creates a git worktree.
-///
-/// Git does not accept fully qualified branch names. The given partial ref will
-/// be written out under `refs/heads`
-///
-/// Returns the full reference.
 pub(crate) fn git_worktree_add(
     project_path: &Path,
     path: &Path,
-    branch_name: &gix::refs::PartialNameRef,
     commit: gix::ObjectId,
-) -> Result<gix::refs::FullName> {
+) -> Result<()> {
     let output =
         std::process::Command::from(gix::command::prepare(gix::path::env::exe_invocation()))
             .current_dir(project_path)
             .arg("worktree")
             .arg("add")
-            .args(["-B", &branch_name.to_string()])
+            .arg("--detach")
             .arg(path.as_os_str())
             .arg(commit.to_string())
+            .stderr(std::process::Stdio::piped())
             .output()?;
 
-    tracing::info!("{}", str::from_utf8(&output.stdout)?);
-    tracing::error!("{}", str::from_utf8(&output.stderr)?);
+    tracing::debug!(
+        stdout = %String::from_utf8_lossy(&output.stdout),
+        stderr = %String::from_utf8_lossy(&output.stderr),
+        "git worktree add"
+    );
 
     if output.status.success() {
-        let mut out = BString::from(b"refs/heads/");
-        out.extend_from_slice(branch_name.as_bstr());
-        Ok(gix::refs::FullName::try_from(out)?)
+        Ok(())
     } else {
         bail!(
             "Failed to create worktree\n\n{}",
-            str::from_utf8(&output.stderr).unwrap_or("")
+            String::from_utf8_lossy(&output.stderr)
         )
     }
 }
@@ -55,17 +50,20 @@ pub(crate) fn git_worktree_remove(project_path: &Path, id: &WorktreeId, force: b
         command.arg("--force");
     }
 
-    let output = command.output()?;
+    let output = command.stderr(std::process::Stdio::piped()).output()?;
 
-    tracing::info!("{}", str::from_utf8(&output.stdout)?);
-    tracing::error!("{}", str::from_utf8(&output.stderr)?);
+    tracing::debug!(
+        stdout = %String::from_utf8_lossy(&output.stdout),
+        stderr = %String::from_utf8_lossy(&output.stderr),
+        "git worktree remove"
+    );
 
     if output.status.success() {
         Ok(())
     } else {
         bail!(
-            "Failed to create worktree\n\n{}",
-            str::from_utf8(&output.stderr).unwrap_or("")
+            "Failed to remove worktree\n\n{}",
+            String::from_utf8_lossy(&output.stderr)
         )
     }
 }

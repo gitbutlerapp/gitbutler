@@ -1,11 +1,8 @@
 use bstr::ByteSlice;
 use but_testsupport::{git, invoke_bash_at_dir};
-use but_worktrees::{
-    integrate::{WorktreeIntegrationStatus, worktree_integrate, worktree_integration_status},
-    new::worktree_new,
-};
+use but_worktrees::integrate::WorktreeIntegrationStatus;
 
-use crate::util::test_ctx;
+use crate::util::{integrate, integration_status, test_ctx, worktree_new};
 
 #[test]
 fn create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
@@ -16,7 +13,7 @@ fn create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
 
     let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
-    let a = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
+    let a = worktree_new(&ctx, guard.read_permission(), feature_a_name.as_ref())?;
 
     invoke_bash_at_dir(
         r#"echo "foo" > qux.txt && git add . && git commit -am "added qux!""#,
@@ -24,9 +21,9 @@ fn create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
     );
 
     assert_eq!(
-        worktree_integration_status(
-            &mut ctx,
-            guard.read_permission(),
+        integration_status(
+            &ctx,
+            guard.write_permission(),
             &a.created.id,
             feature_a_name.as_ref()
         )?,
@@ -38,9 +35,9 @@ fn create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
         "We should be able to integrate the unrelated change back into the original reference"
     );
     assert_eq!(
-        worktree_integration_status(
-            &mut ctx,
-            guard.read_permission(),
+        integration_status(
+            &ctx,
+            guard.write_permission(),
             &a.created.id,
             feature_b_name.as_ref()
         )?,
@@ -52,8 +49,8 @@ fn create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
         "We should also be able to integrate the unrelated change back into the above reference"
     );
 
-    worktree_integrate(
-        &mut ctx,
+    integrate(
+        &ctx,
         guard.write_permission(),
         &a.created.id,
         feature_a_name.as_ref(),
@@ -70,7 +67,6 @@ fn create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
     "#);
 
     // cannot show hashes as these aren't controllable yet.
-    // TODO: when making this 'modern', ensure we fully isolate it.
     let unstable_log = git(&repo)
         .args(["log", "--graph", "--pretty=format:%s %d"])
         .output()?
@@ -99,7 +95,7 @@ fn causes_conflicts_above() -> anyhow::Result<()> {
 
     let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
-    let a = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
+    let a = worktree_new(&ctx, guard.read_permission(), feature_a_name.as_ref())?;
 
     invoke_bash_at_dir(
         r#"echo "foo" > foo.txt && git add . && git commit -am "added conflicts above!""#,
@@ -107,9 +103,9 @@ fn causes_conflicts_above() -> anyhow::Result<()> {
     );
 
     assert_eq!(
-        worktree_integration_status(
-            &mut ctx,
-            guard.read_permission(),
+        integration_status(
+            &ctx,
+            guard.write_permission(),
             &a.created.id,
             feature_a_name.as_ref()
         )?,
@@ -121,9 +117,9 @@ fn causes_conflicts_above() -> anyhow::Result<()> {
         "When integrating into feature-a, it should cause the commits above which touch foo.txt to conflict"
     );
     assert_eq!(
-        worktree_integration_status(
-            &mut ctx,
-            guard.read_permission(),
+        integration_status(
+            &ctx,
+            guard.write_permission(),
             &a.created.id,
             feature_b_name.as_ref()
         )?,
@@ -135,8 +131,8 @@ fn causes_conflicts_above() -> anyhow::Result<()> {
         "When integrating into feature-b, the resulting commit should end up conflicted"
     );
 
-    worktree_integrate(
-        &mut ctx,
+    integrate(
+        &ctx,
         guard.write_permission(),
         &a.created.id,
         feature_a_name.as_ref(),
@@ -175,13 +171,12 @@ fn causes_conflicts_above() -> anyhow::Result<()> {
 fn causes_workdir_conflicts_simple() -> anyhow::Result<()> {
     let test_ctx = test_ctx("stacked-branches")?;
     let mut ctx = test_ctx.ctx;
-    ctx.settings.feature_flags.cv3 = false;
     let main_worktree_dir = ctx.workdir()?.expect("non-bare");
 
     let mut guard = ctx.exclusive_worktree_access();
 
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
-    let b = worktree_new(&mut ctx, guard.read_permission(), feature_b_name.as_ref())?;
+    let b = worktree_new(&ctx, guard.read_permission(), feature_b_name.as_ref())?;
 
     invoke_bash_at_dir(r#"echo "qux" > foo.txt"#, &main_worktree_dir);
     invoke_bash_at_dir(
@@ -190,9 +185,9 @@ fn causes_workdir_conflicts_simple() -> anyhow::Result<()> {
     );
 
     assert_eq!(
-        worktree_integration_status(
-            &mut ctx,
-            guard.read_permission(),
+        integration_status(
+            &ctx,
+            guard.write_permission(),
             &b.created.id,
             feature_b_name.as_ref()
         )?,
@@ -204,24 +199,35 @@ fn causes_workdir_conflicts_simple() -> anyhow::Result<()> {
         "In this case, we're putting a new commit on the top of the stack - the thing that should conflict is the working directory"
     );
 
-    worktree_integrate(
-        &mut ctx,
+    let feature_b_tip_before = ctx
+        .repo
+        .get()?
+        .find_reference(feature_b_name.as_ref())?
+        .id()
+        .detach();
+    let err = integrate(
+        &ctx,
         guard.write_permission(),
         &b.created.id,
         feature_b_name.as_ref(),
     )
-    .expect("it works");
+    .expect_err("integration aborts instead of clobbering uncommitted changes");
+    assert!(
+        format!("{err:#}").contains("Failed to integrate worktree"),
+        "unexpected error: {err:#}"
+    );
 
     let foo = std::fs::read_to_string(main_worktree_dir.join("foo.txt"))?;
-    insta::assert_snapshot!(foo, @r"
-    <<<<<<< ours
-    qux
-    ||||||| ancestor
-    feature-b line 1
-    =======
-    foo
-    >>>>>>> theirs
-    ");
+    insta::assert_snapshot!(foo, @"qux");
+    assert_eq!(
+        ctx.repo
+            .get()?
+            .find_reference(feature_b_name.as_ref())?
+            .id()
+            .detach(),
+        feature_b_tip_before,
+        "an aborted integration must not move any refs"
+    );
 
     Ok(())
 }
@@ -230,14 +236,13 @@ fn causes_workdir_conflicts_simple() -> anyhow::Result<()> {
 fn causes_workdir_conflicts_complex() -> anyhow::Result<()> {
     let test_ctx = test_ctx("stacked-branches")?;
     let mut ctx = test_ctx.ctx;
-    ctx.settings.feature_flags.cv3 = false;
     let main_worktree_dir = ctx.workdir()?.expect("non-bare");
 
     let mut guard = ctx.exclusive_worktree_access();
 
     let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
-    let a = worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
+    let a = worktree_new(&ctx, guard.read_permission(), feature_a_name.as_ref())?;
 
     std::fs::write(main_worktree_dir.join("foo.txt"), "qux\n")?;
     invoke_bash_at_dir(
@@ -245,9 +250,9 @@ fn causes_workdir_conflicts_complex() -> anyhow::Result<()> {
         &a.created.path,
     );
     assert_eq!(
-        worktree_integration_status(
-            &mut ctx,
-            guard.read_permission(),
+        integration_status(
+            &ctx,
+            guard.write_permission(),
             &a.created.id,
             feature_a_name.as_ref()
         )?,
@@ -259,9 +264,9 @@ fn causes_workdir_conflicts_complex() -> anyhow::Result<()> {
         "When integrating into feature-a, it should cause the commits above which touch foo.txt and the worktree to conflict"
     );
     assert_eq!(
-        worktree_integration_status(
-            &mut ctx,
-            guard.read_permission(),
+        integration_status(
+            &ctx,
+            guard.write_permission(),
             &a.created.id,
             feature_b_name.as_ref()
         )?,
@@ -273,24 +278,47 @@ fn causes_workdir_conflicts_complex() -> anyhow::Result<()> {
         "When integrating into feature-b, because the thing that commits is the cherry on top of the source, it auto-resolves to what was originally there, resulting in the working_dir not conflicting"
     );
 
-    worktree_integrate(
-        &mut ctx,
+    integrate(
+        &ctx,
         guard.write_permission(),
         &a.created.id,
         feature_a_name.as_ref(),
     )
-    .expect("it works");
+    .expect_err("integration aborts instead of clobbering uncommitted changes");
 
     let foo = std::fs::read_to_string(main_worktree_dir.join("foo.txt"))?;
-    insta::assert_snapshot!(foo, @r"
-    <<<<<<< ours
-    qux
-    ||||||| ancestor
-    feature-b line 1
-    =======
-    foo
-    >>>>>>> theirs
-    ");
+    insta::assert_snapshot!(foo, @"qux");
+
+    Ok(())
+}
+
+#[test]
+fn fresh_worktree_does_not_obscure_its_branch() -> anyhow::Result<()> {
+    let test_ctx = test_ctx("stacked-branches")?;
+    let mut ctx = test_ctx.ctx;
+
+    let mut guard = ctx.exclusive_worktree_access();
+
+    let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
+    let a = worktree_new(&ctx, guard.read_permission(), feature_a_name.as_ref())?;
+
+    // Recompute the workspace like a fresh process would; the linked worktree
+    // metadata must not obscure the source branch's segment identity.
+    ctx.invalidate_workspace_cache()?;
+
+    assert_eq!(
+        integration_status(
+            &ctx,
+            guard.write_permission(),
+            &a.created.id,
+            feature_a_name.as_ref()
+        )?,
+        WorktreeIntegrationStatus::NothingToIntegrate,
+        "the branch is still resolvable in the workspace, and the untouched worktree has nothing to integrate"
+    );
+
+    // Creating another worktree off the same branch also still works.
+    worktree_new(&ctx, guard.read_permission(), feature_a_name.as_ref())?;
 
     Ok(())
 }
@@ -300,12 +328,12 @@ fn causes_workspace_conflict() -> anyhow::Result<()> {
     let test_ctx = test_ctx("stacked-and-parallel")?;
     let mut ctx = test_ctx.ctx;
 
-    let guard = ctx.exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
 
     let feature_a_name = gix::refs::FullName::try_from("refs/heads/feature-a")?;
     let feature_b_name = gix::refs::FullName::try_from("refs/heads/feature-b")?;
     let feature_c_name = gix::refs::FullName::try_from("refs/heads/feature-c")?;
-    let c = worktree_new(&mut ctx, guard.read_permission(), feature_c_name.as_ref())?;
+    let c = worktree_new(&ctx, guard.read_permission(), feature_c_name.as_ref())?;
 
     invoke_bash_at_dir(
         r#"echo "foo" >> file.txt && git add . && git commit -am "added conflicts above!""#,
@@ -313,9 +341,9 @@ fn causes_workspace_conflict() -> anyhow::Result<()> {
     );
 
     assert_eq!(
-        worktree_integration_status(
-            &mut ctx,
-            guard.read_permission(),
+        integration_status(
+            &ctx,
+            guard.write_permission(),
             &c.created.id,
             feature_c_name.as_ref()
         )?,
@@ -323,9 +351,9 @@ fn causes_workspace_conflict() -> anyhow::Result<()> {
         "When integrating into feature-c, because we modified a file that sits in feature a & b, it causes the workspace to conflict"
     );
     assert_eq!(
-        worktree_integration_status(
-            &mut ctx,
-            guard.read_permission(),
+        integration_status(
+            &ctx,
+            guard.write_permission(),
             &c.created.id,
             feature_b_name.as_ref()
         )?,
@@ -337,9 +365,9 @@ fn causes_workspace_conflict() -> anyhow::Result<()> {
         "When integrating into feature-b, we can cherry pick, but it will conflict"
     );
     assert_eq!(
-        worktree_integration_status(
-            &mut ctx,
-            guard.read_permission(),
+        integration_status(
+            &ctx,
+            guard.write_permission(),
             &c.created.id,
             feature_a_name.as_ref()
         )?,
