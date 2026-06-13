@@ -7,6 +7,8 @@ import {
 	branchOperand,
 	commitFileParent,
 	commitOperand,
+	fileOperand,
+	hunkOperand,
 	operandEquals,
 	type BranchOperand,
 	type CommitOperand,
@@ -151,6 +153,9 @@ export const cancelMode = (state: WorkspaceState) => {
 };
 
 export const selectOutline = (state: WorkspaceState, selection: Operand | null) => {
+	if (selection && state.selection.outline && operandEquals(state.selection.outline, selection))
+		return;
+
 	state.selection.outline = selection;
 	state.selection.files = null;
 	state.selection.diff = null;
@@ -160,10 +165,24 @@ export const selectOutline = (state: WorkspaceState, selection: Operand | null) 
 };
 
 export const selectFiles = (state: WorkspaceState, selection: FileOperand | null) => {
+	if (
+		selection &&
+		state.selection.files &&
+		operandEquals(fileOperand(state.selection.files), fileOperand(selection))
+	)
+		return;
+
 	state.selection.files = selection;
 };
 
 export const selectDiff = (state: WorkspaceState, selection: HunkOperand | null) => {
+	if (
+		selection &&
+		state.selection.diff &&
+		operandEquals(hunkOperand(state.selection.diff), hunkOperand(selection))
+	)
+		return;
+
 	state.selection.diff = selection;
 };
 
