@@ -69,8 +69,7 @@ import {
 	getDependencyCommitIds,
 	getHunkDependencyDiffsByPath,
 	hunkContainsLine,
-	hunkHeaderFromHunk,
-	selectEntireHunk,
+	lineSelectionFromHunk,
 	synthesizeFilePatch,
 } from "#ui/hunk.ts";
 import { buildNavigationIndex, NavigationIndex } from "#ui/workspace/navigation-index.ts";
@@ -260,7 +259,7 @@ const build = ({ fileParent, changes, treeChangeDiffs, changesetKey }: BuildIn):
 
 				const hunkOperand: HunkOperand = {
 					parent: file,
-					hunkHeader: hunkHeaderFromHunk(hunk),
+					...lineSelectionFromHunk(hunk),
 					isResultOfBinaryToTextConversion: mdiff.subject.isResultOfBinaryToTextConversion,
 				};
 				const hunkKey = hunkOperandIdentityKey(hunkOperand);
@@ -272,7 +271,7 @@ const build = ({ fileParent, changes, treeChangeDiffs, changesetKey }: BuildIn):
 
 				selectedRangeByHunk.set(hunkKey, {
 					id: item.id,
-					range: selectEntireHunk(hunk),
+					range: hunkOperand.range,
 				});
 			}
 	}
@@ -386,7 +385,7 @@ const DiffContents: FC<{
 						parent: fileParent,
 						path: itemBySel.change.path,
 					},
-					hunkHeader: hunkHeaderFromHunk(hunk),
+					...lineSelectionFromHunk(hunk),
 					isResultOfBinaryToTextConversion:
 						itemBySel.patch.subject.isResultOfBinaryToTextConversion,
 				},

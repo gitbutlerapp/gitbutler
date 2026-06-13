@@ -1,16 +1,17 @@
 /**
  * @file We have two representations of hunks: `Hunk` from Pierre, and the assorted hunk types from
  * the SDK.
+ *
+ * When a selection does not exactly match the original SDK hunk it may need to be sent back as
+ * multiple synthetic hunk headers: selected additions and deletions are separate headers, ordered
+ * by their position in the diff, with context lines omitted.
  */
 
 import type { DiffHunk, HunkDependencies, HunkHeader, TreeChange } from "@gitbutler/but-sdk";
-import type { Hunk, SelectedLineRange, SelectionSide } from "@pierre/diffs";
+import type { ChangeContent, Hunk, SelectedLineRange, SelectionSide } from "@pierre/diffs";
 import { Array, Match } from "effect";
 
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
-
-export const formatHunkHeader = (hunk: HunkHeader): string =>
-	`-${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines}`;
 
 const hunkContainsHunk = (a: HunkHeader, b: HunkHeader): boolean =>
 	a.oldStart <= b.oldStart &&
@@ -51,7 +52,7 @@ export const getDependencyCommitIds = ({
 	return Array.isNonEmptyArray(dependencyCommitIds) ? dependencyCommitIds : undefined;
 };
 
-export const hunkHeaderFromHunk = (hunk: Hunk): HunkHeader => ({
+const hunkHeaderFromHunk = (hunk: Hunk): HunkHeader => ({
 	oldStart: hunk.deletionStart,
 	oldLines: hunk.deletionCount,
 	newStart: hunk.additionStart,
@@ -65,7 +66,22 @@ export const hunkContainsLine = (hunk: Hunk, line: number, side: SelectionSide):
 	return line >= start && line < start + count;
 };
 
-export const selectEntireHunk = (hunk: Hunk): SelectedLineRange => {
+export type HunkLineSelectionGroup = {
+	side: SelectionSide;
+	start: number;
+	lines: number;
+};
+
+export type HunkLineSelection = {
+	/** The full parsed hunk containing the selected line groups. */
+	hunkHeader: HunkHeader;
+	/** Changed-line groups covered by the single visual range, in hunk order. */
+	lineGroups: Array<HunkLineSelectionGroup>;
+	/** The single CodeView selection range to show for this selection. */
+	range: SelectedLineRange;
+};
+
+const selectEntireHunk = (hunk: Hunk): SelectedLineRange => {
 	if (hunk.deletionCount > 0 && hunk.additionCount > 0) {
 		const lastContent = hunk.hunkContent.at(-1);
 		const startsWithAddition =
@@ -95,6 +111,59 @@ export const selectEntireHunk = (hunk: Hunk): SelectedLineRange => {
 		end: hunk.additionStart + hunk.additionCount - 1,
 	};
 };
+
+const lineGroupsFromChangeContent = (
+	hunk: Hunk,
+	content: ChangeContent,
+): Array<HunkLineSelectionGroup> => [
+	...(content.deletions > 0
+		? [
+				{
+					side: "deletions" as const,
+					start: hunk.deletionStart + content.deletionLineIndex - hunk.deletionLineIndex,
+					lines: content.deletions,
+				},
+			]
+		: []),
+	...(content.additions > 0
+		? [
+				{
+					side: "additions" as const,
+					start: hunk.additionStart + content.additionLineIndex - hunk.additionLineIndex,
+					lines: content.additions,
+				},
+			]
+		: []),
+];
+
+export const lineSelectionFromHunk = (hunk: Hunk): HunkLineSelection => ({
+	hunkHeader: hunkHeaderFromHunk(hunk),
+	lineGroups: hunk.hunkContent.flatMap((content) =>
+		content.type === "change" ? lineGroupsFromChangeContent(hunk, content) : [],
+	),
+	range: selectEntireHunk(hunk),
+});
+
+export const diffSpecHunkHeadersForLineSelection = (
+	lineSelection: HunkLineSelection,
+	action: "commit" | "discard",
+): Array<HunkHeader> =>
+	lineSelection.lineGroups.map((group) => {
+		if (group.side === "deletions")
+			return {
+				oldStart: group.start,
+				oldLines: group.lines,
+				newStart: action === "commit" ? 0 : lineSelection.hunkHeader.newStart,
+				newLines: action === "commit" ? 0 : lineSelection.hunkHeader.newLines,
+			};
+
+		return {
+			oldStart: action === "commit" ? 0 : lineSelection.hunkHeader.oldStart,
+			oldLines: action === "commit" ? 0 : lineSelection.hunkHeader.oldLines,
+			newStart: group.start,
+			newLines: group.lines,
+		};
+	});
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 

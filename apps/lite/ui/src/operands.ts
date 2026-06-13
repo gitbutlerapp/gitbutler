@@ -1,5 +1,5 @@
 import { Match } from "effect";
-import { type HunkHeader } from "@gitbutler/but-sdk";
+import type { HunkLineSelection } from "#ui/hunk.ts";
 
 /** @public */
 export type BranchFileParent = { stackId: string; branchRef: Array<number> };
@@ -52,9 +52,8 @@ export type FileOperand = {
 };
 
 /** @public */
-export type HunkOperand = {
+export type HunkOperand = HunkLineSelection & {
 	parent: FileOperand;
-	hunkHeader: HunkHeader;
 	isResultOfBinaryToTextConversion: boolean;
 };
 
@@ -101,13 +100,13 @@ export const fileOperand = ({ parent, path }: FileOperand): Operand => ({
 /** @public */
 export const hunkOperand = ({
 	parent,
-	hunkHeader,
 	isResultOfBinaryToTextConversion,
+	...lineSelection
 }: HunkOperand): Operand => ({
 	_tag: "Hunk",
 	parent,
-	hunkHeader,
 	isResultOfBinaryToTextConversion,
+	...lineSelection,
 });
 
 export const operandIdentityKey = (operand: Operand): string =>
@@ -119,7 +118,14 @@ export const operandIdentityKey = (operand: Operand): string =>
 			Branch: (x) => JSON.stringify(["Branch", x.stackId, x.branchRef]),
 			Commit: (x) => JSON.stringify(["Commit", x.stackId, x.commitId]),
 			Hunk: (x) =>
-				JSON.stringify(["Hunk", x.parent, x.hunkHeader, x.isResultOfBinaryToTextConversion]),
+				JSON.stringify([
+					"Hunk",
+					x.parent,
+					x.hunkHeader,
+					x.lineGroups,
+					x.range,
+					x.isResultOfBinaryToTextConversion,
+				]),
 		}),
 	);
 
