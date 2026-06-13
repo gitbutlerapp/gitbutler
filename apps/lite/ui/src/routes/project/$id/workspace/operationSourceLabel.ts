@@ -24,7 +24,7 @@ export const operationSourceLabel = ({
 			Commit: ({ commitId }) => {
 				const commit = findCommit({ headInfo, commitId });
 				return commit
-					? `${commitTitle(commit.message)}${commit.hasConflicts ? " ⚠️" : ""}`
+					? `${commitTitle(commit.message) ?? "(no message)"}${commit.hasConflicts ? " ⚠️" : ""}`
 					: shortCommitId(commitId);
 			},
 			Stack: () => "Stack",

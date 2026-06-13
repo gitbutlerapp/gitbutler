@@ -1329,7 +1329,7 @@ const CommitRow: FC<
 				>
 					<Checkbox
 						disabled={outlineMode._tag !== "Default"}
-						aria-label={`Check commit ${commitTitle(commitWithOptimisticMessage.message)}`}
+						aria-label={`Check commit ${commitTitle(commitWithOptimisticMessage.message) ?? "(no message)"}`}
 						checked={isChecked}
 						className={styles.commitCheckbox}
 						nativeButton
@@ -1367,7 +1367,7 @@ const CommitRow: FC<
 					/>
 				) : (
 					<>
-						{commitTitle(commitWithOptimisticMessage.message)}
+						{commitTitle(commitWithOptimisticMessage.message) ?? "(no message)"}
 						{hasConflicts && " ⚠️"}
 					</>
 				)}
@@ -1402,7 +1402,7 @@ const CommitC: FC<{
 		<TreeItem
 			projectId={projectId}
 			operand={operand}
-			aria-label={commitTitle(commit.message)}
+			aria-label={commitTitle(commit.message) ?? "(no message)"}
 			render={
 				<OperandC
 					projectId={projectId}
@@ -1543,7 +1543,7 @@ const buildCommitTargetComboboxItems = ({
 		...(commitTarget
 			? ([
 					{
-						label: `Commit: ${commitTitle(commitTarget.message)}`,
+						label: `Commit: ${commitTitle(commitTarget.message) ?? "(no message)"}`,
 						relativeTo: { type: "commit", subject: commitTarget.id },
 					},
 				] satisfies Array<CommitTargetComboboxItem>)
