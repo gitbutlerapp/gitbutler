@@ -360,7 +360,7 @@ const DiffContents: FC<{
 		});
 	};
 
-	// We currently only support selecting entire hunks in a unified view.
+	// We currently only support selecting entire hunks.
 	const handleLinesSelected = (sel: CodeViewLineSelection | null): void => {
 		if (!sel) return void dispatch(projectActions.selectDiff({ projectId, selection: null }));
 
