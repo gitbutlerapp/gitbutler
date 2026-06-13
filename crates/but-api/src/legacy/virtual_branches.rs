@@ -205,10 +205,67 @@ pub fn create_virtual_branch_from_branch_with_perm(
     pr_number: Option<usize>,
     perm: &mut RepoExclusive,
 ) -> Result<gitbutler_branch_actions::CreateBranchFromBranchOutcome> {
+    // Outside the managed workspace (e.g. a stack branch was checked out directly), there is no
+    // workspace merge to add to. Rather than restore the stale `gitbutler/workspace`, rebuild a
+    // fresh one from the currently checked-out branch plus the one being applied.
+    if !gitbutler_operating_modes::in_open_workspace_mode(ctx, perm.read_permission())? {
+        return apply_by_rebuilding_workspace(ctx, branch, perm);
+    }
     let outcome = gitbutler_branch_actions::create_virtual_branch_from_branch_with_perm(
         ctx, branch, pr_number, perm,
     )?;
     Ok(outcome.into())
+}
+
+/// Apply `branch` while HEAD is outside the managed workspace by rebuilding the workspace from
+/// scratch: [`crate::branch::apply`] brings the currently checked-out branch and `branch` into a
+/// freshly created `gitbutler/workspace`. The legacy `pr_number` argument is unused here because PR
+/// associations live in branch metadata (`branch.review.pull_request`), which this rebuild leaves
+/// untouched, so they carry over without being re-applied.
+fn apply_by_rebuilding_workspace(
+    ctx: &mut Context,
+    branch: &Refname,
+    perm: &mut RepoExclusive,
+) -> Result<gitbutler_branch_actions::CreateBranchFromBranchOutcome> {
+    let branch_ref: gix::refs::FullName = branch
+        .to_string()
+        .try_into()
+        .with_context(|| format!("'{branch}' is not a valid full ref name to apply"))?;
+
+    // Discard the existing managed workspace so `apply` rebuilds it from scratch: a fresh
+    // `gitbutler/workspace` from the currently checked-out branch plus the one being applied, with
+    // any other previously-applied stacks left unapplied in metadata.
+    {
+        let mut meta = ctx.meta()?;
+        let repo = ctx.repo.get()?;
+        but_workspace::branch::discard_managed_workspace(&repo, &mut meta)?;
+        // `meta` writes virtual_branches.toml on drop, before `apply` reads it back.
+    }
+    ctx.invalidate_workspace_cache()?;
+
+    let outcome = crate::branch::apply_with_perm(ctx, branch_ref.as_ref(), perm)?;
+
+    // `stack_id` is part of the outcome shape but unused by this path's caller; report the applied
+    // branch's stack when found, otherwise any remaining stack.
+    let stack_id = outcome
+        .workspace
+        .stacks
+        .iter()
+        .find(|stack| {
+            stack.segments.iter().any(|segment| {
+                segment
+                    .ref_name()
+                    .is_some_and(|rn| rn == branch_ref.as_ref())
+            })
+        })
+        .or_else(|| outcome.workspace.stacks.first())
+        .and_then(|stack| stack.id)
+        .unwrap_or_else(StackId::generate);
+    Ok(gitbutler_branch_actions::CreateBranchFromBranchOutcome {
+        stack_id,
+        unapplied_stacks: outcome.conflicting_stack_ids.clone(),
+        unapplied_stacks_short_names: Vec::new(),
+    })
 }
 
 #[but_api]
