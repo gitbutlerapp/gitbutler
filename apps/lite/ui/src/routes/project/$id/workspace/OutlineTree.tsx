@@ -1359,7 +1359,7 @@ const CommitRow: FC<
 						label="Commit message"
 						hotkeyGroup="Reword commit"
 						onMount={(el) => {
-							const firstNewline = el.textContent.indexOf("\n");
+							const firstNewline = el.value.indexOf("\n");
 							const cursorPosition = firstNewline !== -1 ? firstNewline : el.value.length;
 							el.setSelectionRange(cursorPosition, cursorPosition);
 						}}
