@@ -1160,7 +1160,6 @@ const CommitRow: FC<
 	};
 
 	const startEditing = () => {
-		dispatch(projectActions.selectOutline({ projectId, selection: operand }));
 		dispatch(projectActions.startRewordCommit({ projectId, commit: commitOperandV }));
 	};
 
@@ -1986,7 +1985,6 @@ const BranchRow: FC<
 	});
 
 	const startEditing = () => {
-		dispatch(projectActions.selectOutline({ projectId, selection: operand }));
 		dispatch(projectActions.startRenameBranch({ projectId, branch: branchOperandV }));
 	};
 
