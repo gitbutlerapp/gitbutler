@@ -168,16 +168,6 @@ const selectAfterDiscardedCommit = ({
 	return null;
 };
 
-const useDryRunCommit = (commitId: string) => {
-	const dryRunWorkspace = use(DryRunWorkspaceContext);
-	if (!dryRunWorkspace) return null;
-
-	const dryRunCommitId = dryRunWorkspace.replacedCommits[commitId];
-	return dryRunCommitId !== undefined
-		? findCommit({ headInfo: dryRunWorkspace.headInfo, commitId: dryRunCommitId })
-		: null;
-};
-
 const useOutlineTreeHotkeys = ({
 	navigationIndex,
 	projectId,
@@ -1041,15 +1031,15 @@ const CommitRow: FC<
 		projectId: string;
 		stackId: string;
 		isCommitTarget: boolean;
+		dryRunCommit: Commit | null;
 	} & ComponentProps<"div">
-> = ({ commit, projectId, stackId, isCommitTarget, ...restProps }) => {
+> = ({ commit, projectId, stackId, isCommitTarget, dryRunCommit, ...restProps }) => {
 	const isHighlighted = useAppSelector((state) =>
 		selectProjectHighlightedCommitIds(state, projectId).includes(commit.id),
 	);
 	const isChecked = useAppSelector((state) =>
 		selectProjectCommitChecked(state, projectId, commit.id),
 	);
-	const dryRunCommit = useDryRunCommit(commit.id);
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const dispatch = useAppDispatch();
@@ -1399,7 +1389,8 @@ const CommitC: FC<{
 	projectId: string;
 	stackId: string;
 	isCommitTarget: boolean;
-}> = ({ commit, projectId, stackId, isCommitTarget }) => {
+	dryRunCommit: Commit | null;
+}> = ({ commit, projectId, stackId, isCommitTarget, dryRunCommit }) => {
 	const operand = commitOperand({ stackId, commitId: commit.id });
 
 	return (
@@ -1417,6 +1408,7 @@ const CommitC: FC<{
 							projectId={projectId}
 							stackId={stackId}
 							isCommitTarget={isCommitTarget}
+							dryRunCommit={dryRunCommit}
 						/>
 					}
 				/>
@@ -2440,21 +2432,31 @@ const SegmentContent: FC<{
 
 	const bottomCommit = assert(segment.commits.at(-1));
 
+	const dryRunWorkspace = use(DryRunWorkspaceContext);
+
 	return (
 		<div>
-			{segment.commits.map((commit) => (
-				<CommitC
-					key={commit.id}
-					commit={commit}
-					projectId={projectId}
-					stackId={stackId}
-					isCommitTarget={
-						commitTarget
-							? relativeToEquals(commitTarget, { type: "commit", subject: commit.id })
-							: false
-					}
-				/>
-			))}
+			{segment.commits.map((commit) => {
+				const dryRunCommitId = dryRunWorkspace?.replacedCommits[commit.id];
+				const dryRunCommit =
+					dryRunWorkspace && dryRunCommitId !== undefined
+						? findCommit({ headInfo: dryRunWorkspace.headInfo, commitId: dryRunCommitId })
+						: null;
+				return (
+					<CommitC
+						key={commit.id}
+						commit={commit}
+						projectId={projectId}
+						stackId={stackId}
+						isCommitTarget={
+							commitTarget
+								? relativeToEquals(commitTarget, { type: "commit", subject: commit.id })
+								: false
+						}
+						dryRunCommit={dryRunCommit}
+					/>
+				);
+			})}
 			<WorkspaceItemRow
 				interactive={false}
 				className={styles.segmentParentItemRow}
