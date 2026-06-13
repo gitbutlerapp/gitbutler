@@ -100,6 +100,7 @@ import {
 	FC,
 	SubmitEventHandler,
 	use,
+	useId,
 	useOptimistic,
 	useRef,
 	useState,
@@ -127,6 +128,7 @@ import {
 	selectionOperationHotkeys,
 	toElectronAccelerator,
 	workspaceHotkeys,
+	type CommandGroup,
 } from "#ui/hotkeys.ts";
 import { segmentBottomRelativeTo, stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { assert } from "#ui/assert.ts";
@@ -947,71 +949,72 @@ const OperandC: FC<
 	});
 };
 
-const EditorHelp: FC<{
-	buttons: Array<{ hotkey: string; name: string; callback: () => void }>;
-}> = ({ buttons }) => (
-	<div className={styles.editorHelp}>
-		{buttons.map((button) => (
-			<button
-				type="button"
-				className={getWorkspaceItemRowButtonClassName({})}
-				onClick={button.callback}
-				key={button.hotkey}
-			>
-				<kbd>{formatForDisplay(button.hotkey)}</kbd>
-				<span className={styles.editorShortcutLabel}> to {button.name}</span>
-			</button>
-		))}
-	</div>
-);
-
-const InlineRewordCommit: FC<{
-	message: string;
+const InlineEditor: FC<{
+	value: string;
+	label: string;
+	hotkeyGroup: CommandGroup;
+	onMount?: (el: HTMLTextAreaElement | HTMLInputElement) => void;
 	onSubmit: (value: string) => void;
 	onExit: () => void;
-}> = ({ message, onSubmit, onExit }) => {
+	multiline: boolean;
+}> = ({ value, label, hotkeyGroup, onMount, onSubmit, onExit, multiline }) => {
+	const name = useId();
 	const formRef = useRef<HTMLFormElement | null>(null);
-	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const textFieldRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
 	const submitAction = (formData: FormData) => {
 		onExit();
-		onSubmit(formData.get("message") as string);
+		onSubmit(formData.get(name) as string);
 	};
 
 	useHotkey("Enter", () => formRef.current?.requestSubmit(), {
 		conflictBehavior: "allow",
 		ignoreInputs: false,
-		meta: { group: "Reword commit", name: "Save reworded commit" },
-		target: textareaRef,
+		meta: { group: hotkeyGroup, name: "Save" },
+		target: textFieldRef,
 	});
 
 	useHotkey("Escape", onExit, {
 		conflictBehavior: "allow",
 		ignoreInputs: false,
-		meta: { group: "Reword commit", name: "Cancel reword commit" },
-		target: textareaRef,
+		meta: { group: hotkeyGroup, name: "Cancel" },
+		target: textFieldRef,
+	});
+
+	const allTextFieldRefs = useMergedRefs(textFieldRef, (el) => {
+		if (!el) return;
+		el.focus();
+		onMount?.(el);
 	});
 
 	return (
-		<form ref={formRef} className={styles.editorForm} action={submitAction}>
-			<textarea
-				ref={useMergedRefs(textareaRef, (el) => {
-					if (!el) return;
-					el.focus();
-					const firstNewline = el.textContent.indexOf("\n");
-					const cursorPosition = firstNewline !== -1 ? firstNewline : el.value.length;
-					el.setSelectionRange(cursorPosition, cursorPosition);
-				})}
-				aria-label="Commit message"
-				name="message"
-				defaultValue={message.trim()}
-				className={classes(styles.editorInput, styles.rewordCommitInput)}
-			/>
-			<EditorHelp
-				buttons={[
-					{ hotkey: "Enter", name: "Save", callback: () => formRef.current?.requestSubmit() },
-					{ hotkey: "Escape", name: "Cancel", callback: onExit },
-				]}
-			/>
+		<form ref={formRef} className={styles.inlineEditorForm} action={submitAction}>
+			{multiline ? (
+				<textarea
+					ref={allTextFieldRefs}
+					aria-label={label}
+					name={name}
+					defaultValue={value}
+					className={styles.inlineEditorInput}
+				/>
+			) : (
+				<input
+					ref={allTextFieldRefs}
+					aria-label={label}
+					name={name}
+					defaultValue={value}
+					className={styles.inlineEditorInput}
+				/>
+			)}
+			<div className={styles.inlineEditorHelp}>
+				<button type="submit" className={getWorkspaceItemRowButtonClassName({})}>
+					<kbd>{formatForDisplay("Enter")}</kbd>
+					<span className={styles.inlineEditorShortcutLabel}> to Save</span>
+				</button>
+				<button type="button" className={getWorkspaceItemRowButtonClassName({})} onClick={onExit}>
+					<kbd>{formatForDisplay("Escape")}</kbd>
+					<span className={styles.inlineEditorShortcutLabel}> to Cancel</span>
+				</button>
+			</div>
 		</form>
 	);
 };
@@ -1350,8 +1353,16 @@ const CommitRow: FC<
 
 			<WorkspaceItemRowLabel>
 				{isRewording ? (
-					<InlineRewordCommit
-						message={optimisticMessage}
+					<InlineEditor
+						multiline
+						value={optimisticMessage.trim()}
+						label="Commit message"
+						hotkeyGroup="Reword commit"
+						onMount={(el) => {
+							const firstNewline = el.value.indexOf("\n");
+							const cursorPosition = firstNewline !== -1 ? firstNewline : el.value.length;
+							el.setSelectionRange(cursorPosition, cursorPosition);
+						}}
 						onSubmit={saveNewMessage}
 						onExit={endEditing}
 					/>
@@ -1849,55 +1860,6 @@ const Changes: FC<{
 	);
 };
 
-const InlineRenameBranch: FC<{
-	branchDisplayName: string;
-	onSubmit: (value: string) => void;
-	onExit: () => void;
-}> = ({ branchDisplayName, onSubmit, onExit }) => {
-	const formRef = useRef<HTMLFormElement | null>(null);
-	const textareaRef = useRef<HTMLInputElement>(null);
-	const submitAction = (formData: FormData) => {
-		onExit();
-		onSubmit(formData.get("branchName") as string);
-	};
-
-	useHotkey("Enter", () => formRef.current?.requestSubmit(), {
-		conflictBehavior: "allow",
-		ignoreInputs: false,
-		meta: { group: "Rename branch", name: "Save branch name" },
-		target: textareaRef,
-	});
-
-	useHotkey("Escape", onExit, {
-		conflictBehavior: "allow",
-		ignoreInputs: false,
-		meta: { group: "Rename branch", name: "Cancel branch rename" },
-		target: textareaRef,
-	});
-
-	return (
-		<form ref={formRef} className={styles.editorForm} action={submitAction}>
-			<input
-				aria-label="Branch name"
-				ref={useMergedRefs(textareaRef, (el) => {
-					if (!el) return;
-					el.focus();
-					el.select();
-				})}
-				name="branchName"
-				defaultValue={branchDisplayName}
-				className={styles.editorInput}
-			/>
-			<EditorHelp
-				buttons={[
-					{ hotkey: "Enter", name: "Save", callback: () => formRef.current?.requestSubmit() },
-					{ hotkey: "Escape", name: "Cancel", callback: onExit },
-				]}
-			/>
-		</form>
-	);
-};
-
 const pushStatusRequiresPush = (pushStatus: PushStatus): boolean =>
 	pushStatus === "unpushedCommits" ||
 	pushStatus === "unpushedCommitsRequiringForce" ||
@@ -2247,8 +2209,14 @@ const BranchRow: FC<
 
 			<WorkspaceItemRowLabel heading>
 				{isRenaming ? (
-					<InlineRenameBranch
-						branchDisplayName={optimisticBranchDisplayName}
+					<InlineEditor
+						multiline={false}
+						value={optimisticBranchDisplayName}
+						label="Branch name"
+						hotkeyGroup="Rename branch"
+						onMount={(el) => {
+							el.select();
+						}}
 						onSubmit={saveBranchName}
 						onExit={endEditing}
 					/>

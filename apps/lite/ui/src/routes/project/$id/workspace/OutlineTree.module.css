@@ -56,7 +56,7 @@
 	padding-bottom: 0;
 }
 
-.editorForm {
+.inlineEditorForm {
 	display: flex;
 	row-gap: 6px;
 	flex-grow: 1;
@@ -64,15 +64,20 @@
 	min-width: 0;
 }
 
-.editorInput {
+.inlineEditorInput {
 	flex-grow: 1;
+
+	textarea& {
+		resize: none;
+		field-sizing: content;
+	}
 
 	&:focus {
 		outline: none;
 	}
 }
 
-.editorHelp {
+.inlineEditorHelp {
 	display: flex;
 	margin-left: -6px;
 	font-size: 11px;
@@ -83,15 +88,8 @@
 	}
 }
 
-.editorShortcutLabel {
+.inlineEditorShortcutLabel {
 	opacity: 0.6;
-}
-
-.rewordCommitInput {
-	resize: none;
-	field-sizing: content;
-	box-sizing: content-box;
-	min-height: calc(2lh);
 }
 
 .changesSection {
