@@ -477,7 +477,9 @@ export type OperationType = "squash" | "moveAbove" | "moveBelow";
 const isOperationSourceEnabled = (source: Operand): boolean =>
 	Match.value(source).pipe(
 		Match.when({ _tag: "Hunk", isResultOfBinaryToTextConversion: true }, () => false),
-		Match.when({ _tag: "Hunk" }, ({ lineGroups }) => lineGroups.length > 0),
+		Match.when({ _tag: "Hunk" }, ({ segments }) =>
+			segments.some((segment) => segment.lineGroups.length > 0),
+		),
 		Match.orElse(() => true),
 	);
 

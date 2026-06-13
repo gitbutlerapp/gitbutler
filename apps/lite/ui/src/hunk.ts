@@ -65,17 +65,22 @@ const hunkHeadersEqual = (a: HunkHeader, b: HunkHeader): boolean =>
 	a.newStart === b.newStart &&
 	a.newLines === b.newLines;
 
-export type HunkLineSelectionGroup = {
+type HunkLineSelectionGroup = {
 	side: SelectionSide;
 	start: number;
 	lines: number;
 };
 
-export type HunkLineSelection = {
+export type HunkLineSelectionSegment = {
 	/** The full parsed hunk containing the selected line groups. */
 	hunkHeader: HunkHeader;
-	/** Changed-line groups covered by the single visual range, in hunk order. */
+	/** Changed-line groups covered by the visual range within this hunk, in hunk order. */
 	lineGroups: Array<HunkLineSelectionGroup>;
+};
+
+export type HunkLineSelection = {
+	/** Per-hunk pieces covered by the single visual range, in file order. */
+	segments: Array<HunkLineSelectionSegment>;
 	/** The single CodeView selection range to show for this selection. */
 	range: SelectedLineRange;
 };
@@ -84,6 +89,11 @@ type HunkLineRow = {
 	additionLine?: number;
 	changedLine?: { side: SelectionSide; line: number };
 	deletionLine?: number;
+};
+
+type HunkLinePosition = {
+	hunkIndex: number;
+	rowIndex: number;
 };
 
 const lineGroupsFromChangeContent = (
@@ -155,6 +165,31 @@ const rowMatchesPoint = (row: HunkLineRow, line: number, side?: SelectionSide): 
 			? row.deletionLine === line
 			: row.additionLine === line;
 
+const compareLinePositions = (a: HunkLinePosition, b: HunkLinePosition): number =>
+	a.hunkIndex === b.hunkIndex ? a.rowIndex - b.rowIndex : a.hunkIndex - b.hunkIndex;
+
+const orderedLinePositions = (
+	a: HunkLinePosition,
+	b: HunkLinePosition,
+): [HunkLinePosition, HunkLinePosition] => (compareLinePositions(a, b) <= 0 ? [a, b] : [b, a]);
+
+const findLinePosition = ({
+	hunks,
+	line,
+	side,
+}: {
+	hunks: Array<Hunk>;
+	line: number;
+	side?: SelectionSide;
+}): HunkLinePosition | null => {
+	for (const [hunkIndex, hunk] of hunks.entries()) {
+		const rowIndex = lineRowsFromHunk(hunk).findIndex((row) => rowMatchesPoint(row, line, side));
+		if (rowIndex !== -1) return { hunkIndex, rowIndex };
+	}
+
+	return null;
+};
+
 const lineGroupsFromRows = (rows: Array<HunkLineRow>): Array<HunkLineSelectionGroup> => {
 	const lineGroups: Array<HunkLineSelectionGroup> = [];
 
@@ -205,8 +240,12 @@ export const contiguousSelectionsFromHunk = (hunk: Hunk): Array<HunkLineSelectio
 		if (!Array.isNonEmptyArray(lineGroups)) return [];
 
 		return {
-			hunkHeader: hunkHeaderFromHunk(hunk),
-			lineGroups,
+			segments: [
+				{
+					hunkHeader: hunkHeaderFromHunk(hunk),
+					lineGroups,
+				},
+			],
 			range: rangeFromLineGroups(lineGroups),
 		};
 	});
@@ -222,8 +261,10 @@ export const contiguousSelectionByLine = ({
 }): HunkLineSelection | null => {
 	for (const hunk of hunks)
 		for (const sel of contiguousSelectionsFromHunk(hunk)) {
-			const containsChangedLine = sel.lineGroups.some(
-				(group) => group.side === side && line >= group.start && line < group.start + group.lines,
+			const containsChangedLine = sel.segments.some((segment) =>
+				segment.lineGroups.some(
+					(group) => group.side === side && line >= group.start && line < group.start + group.lines,
+				),
 			);
 			if (containsChangedLine) return sel;
 		}
@@ -238,28 +279,36 @@ export const lineSelectionFromRange = ({
 	hunks: Array<Hunk>;
 	range: SelectedLineRange;
 }): HunkLineSelection | null => {
-	const startSide = range.side;
-	const endSide = range.endSide ?? range.side;
+	const startPosition = findLinePosition({ hunks, line: range.start, side: range.side });
+	const endPosition = findLinePosition({
+		hunks,
+		line: range.end,
+		side: range.endSide ?? range.side,
+	});
+	if (startPosition === null || endPosition === null) return null;
 
-	for (const hunk of hunks) {
+	const [firstPosition, lastPosition] = orderedLinePositions(startPosition, endPosition);
+	const segments: Array<HunkLineSelectionSegment> = [];
+
+	for (const [hunkIndex, hunk] of hunks.entries()) {
+		if (hunkIndex < firstPosition.hunkIndex || hunkIndex > lastPosition.hunkIndex) continue;
+
 		const rows = lineRowsFromHunk(hunk);
-		const startIndex = rows.findIndex((row) => rowMatchesPoint(row, range.start, startSide));
-		const endIndex = rows.findIndex((row) => rowMatchesPoint(row, range.end, endSide));
+		if (rows.length === 0) continue;
 
-		if (startIndex === -1 || endIndex === -1) continue;
-
+		const startIndex = hunkIndex === firstPosition.hunkIndex ? firstPosition.rowIndex : 0;
+		const endIndex = hunkIndex === lastPosition.hunkIndex ? lastPosition.rowIndex : rows.length - 1;
 		const lineGroups = lineGroupsFromRows(
 			rows.slice(Math.min(startIndex, endIndex), Math.max(startIndex, endIndex) + 1),
 		);
 
-		return {
+		segments.push({
 			hunkHeader: hunkHeaderFromHunk(hunk),
 			lineGroups,
-			range,
-		};
+		});
 	}
 
-	return null;
+	return { segments, range };
 };
 
 const lineGroupsIntersect = (a: HunkLineSelectionGroup, b: HunkLineSelectionGroup): boolean => {
@@ -271,7 +320,15 @@ const lineGroupsIntersect = (a: HunkLineSelectionGroup, b: HunkLineSelectionGrou
 };
 
 export const lineSelectionsIntersect = (a: HunkLineSelection, b: HunkLineSelection): boolean =>
-	a.lineGroups.some((aGroup) => b.lineGroups.some((bGroup) => lineGroupsIntersect(aGroup, bGroup)));
+	a.segments.some((aSegment) =>
+		b.segments.some(
+			(bSegment) =>
+				hunkHeadersEqual(aSegment.hunkHeader, bSegment.hunkHeader) &&
+				aSegment.lineGroups.some((aGroup) =>
+					bSegment.lineGroups.some((bGroup) => lineGroupsIntersect(aGroup, bGroup)),
+				),
+		),
+	);
 
 const lineSelectionPosition = ({
 	hunks,
@@ -279,28 +336,21 @@ const lineSelectionPosition = ({
 }: {
 	hunks: Array<Hunk>;
 	selection: HunkLineSelection;
-}): { hunkIndex: number; startRow: number; endRow: number } | null => {
-	const hunkIndex = hunks.findIndex((hunk) =>
-		hunkHeadersEqual(hunkHeaderFromHunk(hunk), selection.hunkHeader),
-	);
-	if (hunkIndex === -1) return null;
+}): { start: HunkLinePosition; end: HunkLinePosition } | null => {
+	const startPosition = findLinePosition({
+		hunks,
+		line: selection.range.start,
+		side: selection.range.side,
+	});
+	const endPosition = findLinePosition({
+		hunks,
+		line: selection.range.end,
+		side: selection.range.endSide ?? selection.range.side,
+	});
+	if (startPosition === null || endPosition === null) return null;
 
-	const hunk = hunks[hunkIndex];
-	if (hunk === undefined) return null;
-	const rows = lineRowsFromHunk(hunk);
-	const startIndex = rows.findIndex((row) =>
-		rowMatchesPoint(row, selection.range.start, selection.range.side),
-	);
-	const endIndex = rows.findIndex((row) =>
-		rowMatchesPoint(row, selection.range.end, selection.range.endSide ?? selection.range.side),
-	);
-	if (startIndex === -1 || endIndex === -1) return null;
-
-	return {
-		hunkIndex,
-		startRow: Math.min(startIndex, endIndex),
-		endRow: Math.max(startIndex, endIndex),
-	};
+	const [start, end] = orderedLinePositions(startPosition, endPosition);
+	return { start, end };
 };
 
 export const compareLineSelections = ({
@@ -316,9 +366,8 @@ export const compareLineSelections = ({
 	const bPosition = lineSelectionPosition({ hunks, selection: b });
 	if (aPosition === null || bPosition === null) return null;
 
-	if (aPosition.hunkIndex !== bPosition.hunkIndex) return aPosition.hunkIndex - bPosition.hunkIndex;
-	if (aPosition.endRow < bPosition.startRow) return -1;
-	if (aPosition.startRow > bPosition.endRow) return 1;
+	if (compareLinePositions(aPosition.end, bPosition.start) < 0) return -1;
+	if (compareLinePositions(aPosition.start, bPosition.end) > 0) return 1;
 	return 0;
 };
 
@@ -326,22 +375,24 @@ export const diffSpecHunkHeadersForLineSelection = (
 	lineSelection: HunkLineSelection,
 	action: "commit" | "discard",
 ): Array<HunkHeader> =>
-	lineSelection.lineGroups.map((group) => {
-		if (group.side === "deletions")
-			return {
-				oldStart: group.start,
-				oldLines: group.lines,
-				newStart: action === "commit" ? 0 : lineSelection.hunkHeader.newStart,
-				newLines: action === "commit" ? 0 : lineSelection.hunkHeader.newLines,
-			};
+	lineSelection.segments.flatMap((segment) =>
+		segment.lineGroups.map((group) => {
+			if (group.side === "deletions")
+				return {
+					oldStart: group.start,
+					oldLines: group.lines,
+					newStart: action === "commit" ? 0 : segment.hunkHeader.newStart,
+					newLines: action === "commit" ? 0 : segment.hunkHeader.newLines,
+				};
 
-		return {
-			oldStart: action === "commit" ? 0 : lineSelection.hunkHeader.oldStart,
-			oldLines: action === "commit" ? 0 : lineSelection.hunkHeader.oldLines,
-			newStart: group.start,
-			newLines: group.lines,
-		};
-	});
+			return {
+				oldStart: action === "commit" ? 0 : segment.hunkHeader.oldStart,
+				oldLines: action === "commit" ? 0 : segment.hunkHeader.oldLines,
+				newStart: group.start,
+				newLines: group.lines,
+			};
+		}),
+	);
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
