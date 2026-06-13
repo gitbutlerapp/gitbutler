@@ -59,13 +59,6 @@ const hunkHeaderFromHunk = (hunk: Hunk): HunkHeader => ({
 	newLines: hunk.additionCount,
 });
 
-export const hunkContainsLine = (hunk: Hunk, line: number, side: SelectionSide): boolean => {
-	const start = side === "deletions" ? hunk.deletionStart : hunk.additionStart;
-	const count = side === "deletions" ? hunk.deletionCount : hunk.additionCount;
-
-	return line >= start && line < start + count;
-};
-
 export type HunkLineSelectionGroup = {
 	side: SelectionSide;
 	start: number;
@@ -79,37 +72,6 @@ export type HunkLineSelection = {
 	lineGroups: Array<HunkLineSelectionGroup>;
 	/** The single CodeView selection range to show for this selection. */
 	range: SelectedLineRange;
-};
-
-const selectEntireHunk = (hunk: Hunk): SelectedLineRange => {
-	if (hunk.deletionCount > 0 && hunk.additionCount > 0) {
-		const lastContent = hunk.hunkContent.at(-1);
-		const startsWithAddition =
-			hunk.hunkContent[0]?.type === "change" && hunk.hunkContent[0].deletions === 0;
-		const endsWithDeletion = lastContent?.type === "change" && lastContent.additions === 0;
-
-		return {
-			start: startsWithAddition ? hunk.additionStart : hunk.deletionStart,
-			side: startsWithAddition ? "additions" : "deletions",
-			end: endsWithDeletion
-				? hunk.deletionStart + hunk.deletionCount - 1
-				: hunk.additionStart + hunk.additionCount - 1,
-			endSide: endsWithDeletion ? "deletions" : "additions",
-		};
-	}
-
-	if (hunk.deletionCount > 0)
-		return {
-			start: hunk.deletionStart,
-			side: "deletions",
-			end: hunk.deletionStart + hunk.deletionCount - 1,
-		};
-
-	return {
-		start: hunk.additionStart,
-		side: "additions",
-		end: hunk.additionStart + hunk.additionCount - 1,
-	};
 };
 
 const lineGroupsFromChangeContent = (
@@ -136,13 +98,55 @@ const lineGroupsFromChangeContent = (
 		: []),
 ];
 
-export const lineSelectionFromHunk = (hunk: Hunk): HunkLineSelection => ({
-	hunkHeader: hunkHeaderFromHunk(hunk),
-	lineGroups: hunk.hunkContent.flatMap((content) =>
-		content.type === "change" ? lineGroupsFromChangeContent(hunk, content) : [],
-	),
-	range: selectEntireHunk(hunk),
-});
+const rangeFromLineGroups = (
+	lineGroups: Array.NonEmptyArray<HunkLineSelectionGroup>,
+): SelectedLineRange => {
+	const first = Array.headNonEmpty(lineGroups);
+	const last = Array.lastNonEmpty(lineGroups);
+	const range: SelectedLineRange = {
+		start: first.start,
+		side: first.side,
+		end: last.start + last.lines - 1,
+	};
+
+	if (last.side !== first.side) range.endSide = last.side;
+
+	return range;
+};
+
+export const contiguousSelectionsFromHunk = (hunk: Hunk): Array<HunkLineSelection> =>
+	hunk.hunkContent.flatMap((content) => {
+		if (content.type !== "change") return [];
+
+		const lineGroups = lineGroupsFromChangeContent(hunk, content);
+		if (!Array.isNonEmptyArray(lineGroups)) return [];
+
+		return {
+			hunkHeader: hunkHeaderFromHunk(hunk),
+			lineGroups,
+			range: rangeFromLineGroups(lineGroups),
+		};
+	});
+
+export const contiguousSelectionByLine = ({
+	hunks,
+	line,
+	side,
+}: {
+	hunks: Array<Hunk>;
+	line: number;
+	side: SelectionSide;
+}): HunkLineSelection | null => {
+	for (const hunk of hunks)
+		for (const sel of contiguousSelectionsFromHunk(hunk)) {
+			const containsChangedLine = sel.lineGroups.some(
+				(group) => group.side === side && line >= group.start && line < group.start + group.lines,
+			);
+			if (containsChangedLine) return sel;
+		}
+
+	return null;
+};
 
 export const diffSpecHunkHeadersForLineSelection = (
 	lineSelection: HunkLineSelection,
