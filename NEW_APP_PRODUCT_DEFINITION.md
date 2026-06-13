@@ -79,16 +79,15 @@ MVP Checkpoint commit messages use the format:
 Checkpoint: <local timestamp>
 ```
 
-MVP meaningful-change detection uses the changes returned by
-`changesInWorktree`. If that list is empty after the 10-second quiet period, How
-does not create a Checkpoint.
+MVP meaningful-change detection uses Git's own status after the 10-second quiet
+period. If Git reports no changes, How does not create a Checkpoint.
 
 Because the current SDK does not expose every desired product-level operation,
 the first implementation composes lower-level capabilities in How's Electron
 process. It uses GitButler SDK calls for worktree inspection, watcher events,
-and normal Checkpoint commit creation. It may use narrow Git CLI calls in
-Electron for repository discovery, repository initialization, timeline reads,
-and the first Checkpoint in an unborn repository.
+and other application integration points where useful. Checkpoint creation uses
+narrow Git CLI calls in Electron for now, including repository discovery,
+repository initialization, timeline reads, and commits.
 
 ## Core Concepts
 

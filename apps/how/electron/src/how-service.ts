@@ -1,6 +1,6 @@
-import { checkpointMessage, createDiffSpec } from "./checkpoints.js";
+import { checkpointMessage } from "./checkpoints.js";
 import {
-	createInitialCheckpointCommit,
+	createCheckpointCommit,
 	discoverRepository,
 	encodeProjectHandle,
 	ensureGitRepository,
@@ -9,16 +9,7 @@ import {
 } from "./git.js";
 import { howIpcChannels, type Checkpoint, type HowStatus, type ProjectSummary } from "./ipc.js";
 import { plainErrorMessage } from "./plain-error.js";
-import {
-	changesInWorktree,
-	commitCreate,
-	headInfo,
-	type InsertSide,
-	type RelativeTo,
-	watcherStart,
-	type WatcherHandle,
-	type WatcherEvent,
-} from "@gitbutler/but-sdk";
+import { watcherStart, type WatcherHandle, type WatcherEvent } from "@gitbutler/but-sdk";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { Logger } from "./logger.js";
@@ -211,15 +202,15 @@ export class HowService {
 		this.#emit();
 
 		try {
-			const worktreeChanges = await changesInWorktree(project.id);
-			this.logger.info("Loaded worktree changes for checkpoint", {
+			const message = checkpointMessage(new Date());
+			this.logger.info("Creating checkpoint via git commit", {
 				projectId: project.id,
-				changeCount: worktreeChanges.changes.length,
-				ignoredChangeCount: worktreeChanges.ignoredChanges.length,
-				assignmentsError: worktreeChanges.assignmentsError,
-				dependenciesError: worktreeChanges.dependenciesError,
+				worktreePath: project.path,
+				message,
 			});
-			if (worktreeChanges.changes.length === 0) {
+			const commitId = await createCheckpointCommit(project.path, message);
+			this.logger.info("Git checkpoint result", { projectId: project.id, commitId });
+			if (commitId === null) {
 				this.#status = {
 					...this.#status,
 					saveState: "watching",
@@ -227,43 +218,6 @@ export class HowService {
 				};
 				this.#emit();
 				return;
-			}
-
-			const message = checkpointMessage(new Date());
-			const changes = worktreeChanges.changes.map((change) => createDiffSpec(change));
-			const placement = await this.#checkpointPlacement(project.id);
-
-			if (placement) {
-				this.logger.info("Creating checkpoint via but-sdk commitCreate", {
-					projectId: project.id,
-					message,
-					changeCount: changes.length,
-					placement,
-				});
-				const result = await commitCreate(
-					project.id,
-					placement.relativeTo,
-					placement.side,
-					changes,
-					message,
-					false,
-				);
-				this.logger.info("Checkpoint commitCreate result", {
-					projectId: project.id,
-					newCommit: result.newCommit,
-					rejectedChangeCount: result.rejectedChanges.length,
-				});
-				if (result.rejectedChanges.length > 0 || result.newCommit === null)
-					throw new Error("Some project changes could not be saved.");
-			} else {
-				this.logger.info("Creating initial checkpoint via git commit", {
-					projectId: project.id,
-					message,
-					changeCount: changes.length,
-				});
-				const commitId = await createInitialCheckpointCommit(project.path, message);
-				this.logger.info("Initial checkpoint result", { projectId: project.id, commitId });
-				if (commitId === null) return;
 			}
 
 			await this.#refreshTimeline();
@@ -286,35 +240,16 @@ export class HowService {
 		}
 	}
 
-	async #checkpointPlacement(
-		projectId: string,
-	): Promise<{ relativeTo: RelativeTo; side: InsertSide } | null> {
-		const info = await headInfo(projectId);
-		if (info.workspaceRef) {
-			return {
-				relativeTo: { type: "referenceBytes", subject: info.workspaceRef.fullNameBytes },
-				side: "below",
-			};
-		}
-
-		const entrypointSegment =
-			info.stacks.flatMap((stack) => stack.segments).find((segment) => segment.isEntrypoint) ??
-			info.stacks.flatMap((stack) => stack.segments)[0];
-		const topCommit = entrypointSegment?.commits[0];
-		if (!topCommit) return null;
-
-		return {
-			relativeTo: { type: "commit", subject: topCommit.id },
-			side: "above",
-		};
-	}
-
 	async #refreshTimeline(): Promise<void> {
 		const project = this.#status.project;
 		if (!project) return;
 
 		this.logger.info("Refreshing checkpoint timeline", project);
 		const commits = await listCheckpointCommits(project.path, checkpointLimit);
+		this.logger.info("Loaded checkpoint timeline", {
+			projectId: project.id,
+			checkpointCount: commits.length,
+		});
 		const checkpoints: Array<Checkpoint> = commits.map((commit) => ({
 			id: commit.id,
 			title: commit.title,

@@ -79,7 +79,6 @@ export async function listCheckpointCommits(
 			`--max-count=${limit}`,
 			"--format=%H%x1f%ct%x1f%s%x1e",
 			"--grep=^Checkpoint:",
-			"--fixed-strings",
 		],
 		{ cwd: worktreePath },
 	).catch(() => "");
@@ -100,7 +99,7 @@ export async function listCheckpointCommits(
 		.filter((commit): commit is GitCommit => commit !== null);
 }
 
-export async function createInitialCheckpointCommit(
+export async function createCheckpointCommit(
 	worktreePath: string,
 	message: string,
 ): Promise<string | null> {
@@ -109,6 +108,6 @@ export async function createInitialCheckpointCommit(
 	const status = await runGit(["status", "--porcelain"], { cwd: worktreePath });
 	if (status.length === 0) return null;
 
-	await runGit(["commit", "--message", message], { cwd: worktreePath });
+	await runGit(["commit", "--no-gpg-sign", "--message", message], { cwd: worktreePath });
 	return await runGit(["rev-parse", "HEAD"], { cwd: worktreePath });
 }
