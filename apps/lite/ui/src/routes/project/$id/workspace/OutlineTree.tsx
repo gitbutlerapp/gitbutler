@@ -1304,6 +1304,8 @@ const CommitRow: FC<
 		}),
 	];
 
+	const title = commitTitle(commitWithOptimisticMessage.message);
+
 	return (
 		<ItemRow
 			{...restProps}
@@ -1329,7 +1331,7 @@ const CommitRow: FC<
 				>
 					<Checkbox
 						disabled={outlineMode._tag !== "Default"}
-						aria-label={`Check commit ${commitTitle(commitWithOptimisticMessage.message) ?? "(no message)"}`}
+						aria-label={`Check commit ${title ?? "(no message)"}`}
 						checked={isChecked}
 						className={styles.commitCheckbox}
 						nativeButton
@@ -1350,7 +1352,7 @@ const CommitRow: FC<
 				</Tooltip.Root>
 			</div>
 
-			<WorkspaceItemRowLabel>
+			<WorkspaceItemRowLabel empty={title === undefined}>
 				{isRewording ? (
 					<InlineEditor
 						multiline
@@ -1367,7 +1369,7 @@ const CommitRow: FC<
 					/>
 				) : (
 					<>
-						{commitTitle(commitWithOptimisticMessage.message) ?? "(no message)"}
+						{title ?? "(no message)"}
 						{hasConflicts && " ⚠️"}
 					</>
 				)}
