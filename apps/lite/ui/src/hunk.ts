@@ -153,5 +153,5 @@ const patchHeaderForChange = (change: TreeChange, lineEnding: string): string =>
 export const synthesizeFilePatch = (change: TreeChange, hunks: Array<DiffHunk>): string => {
 	const lineEnding = lineEndingForDiff(hunks[0]?.diff ?? "");
 	const header = patchHeaderForChange(change, lineEnding);
-	return [header, ...hunks.map((hunk) => hunk.diff)].join(lineEnding);
+	return header + hunks.map((hunk) => hunk.diff).join("");
 };
