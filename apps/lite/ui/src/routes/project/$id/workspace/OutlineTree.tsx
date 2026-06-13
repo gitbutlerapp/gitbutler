@@ -797,7 +797,7 @@ export const OutlineTree: FC<
 									</Tooltip.Portal>
 								</Tooltip.Root>
 
-								{[...(headInfo?.stacks ?? [])].reverse().map((stack) => (
+								{reverse(headInfo?.stacks ?? []).map((stack) => (
 									<StackC
 										key={stack.id}
 										projectId={projectId}

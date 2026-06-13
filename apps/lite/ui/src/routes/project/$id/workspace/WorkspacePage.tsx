@@ -71,6 +71,7 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { filterNavigationItemsForOutlineMode } from "#ui/outline/mode.ts";
 import { buildNavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { reverse } from "effect/Array";
 
 const toggleFiles =
 	({
@@ -411,7 +412,7 @@ const outlineNavigationItems = (headInfo: RefInfo | undefined): Array<Operand> =
 	return [
 		changesSectionOperand,
 
-		...[...(headInfo?.stacks ?? [])].reverse().flatMap((stack) => {
+		...reverse(headInfo?.stacks ?? []).flatMap((stack) => {
 			// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
 			const stackId = stack.id!;
 			return [
