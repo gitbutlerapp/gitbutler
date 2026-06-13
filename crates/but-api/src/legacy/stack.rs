@@ -299,7 +299,7 @@ pub fn update_branch_name(
     stack_id: StackId,
     branch_name: String,
     new_name: String,
-) -> Result<()> {
+) -> Result<String> {
     let mut guard = ctx.exclusive_worktree_access();
     update_branch_name_with_perm(
         ctx,
@@ -307,8 +307,7 @@ pub fn update_branch_name(
         branch_name,
         new_name,
         guard.write_permission(),
-    )?;
-    Ok(())
+    )
 }
 
 /// Apply the rename from `branch_name` to `new_name` in the stack identified by
@@ -322,15 +321,14 @@ pub fn update_branch_name_with_perm(
     branch_name: String,
     new_name: String,
     perm: &mut RepoExclusive,
-) -> Result<()> {
+) -> Result<String> {
     gitbutler_branch_actions::stack::update_branch_name_with_perm(
         ctx,
         stack_id,
         branch_name,
         new_name,
         perm,
-    )?;
-    Ok(())
+    )
 }
 
 #[but_api]

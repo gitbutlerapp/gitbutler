@@ -755,9 +755,7 @@ export const useUpdateBranchName = ({
 
 	return useMutation({
 		mutationFn: window.lite.updateBranchName,
-		onSuccess: async (_response, input, _context, mutation) => {
-			// TODO: ideally the API would return the new branch name and ref?
-			const newBranchName = input.newName.replaceAll(/-+/g, "-").replaceAll(/\s+/g, "-");
+		onSuccess: async (newBranchName, _input, _context, mutation) => {
 			const newBranchRef = encodeBytes(`refs/heads/${newBranchName}`);
 			const newBranch: BranchOperand = {
 				stackId,

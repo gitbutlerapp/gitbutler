@@ -659,7 +659,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			],
 		}),
 		updateBranchName: build.mutation<
-			void,
+			string,
 			{
 				projectId: string;
 				stackId?: string;
