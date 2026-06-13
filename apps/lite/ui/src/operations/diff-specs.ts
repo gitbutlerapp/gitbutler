@@ -77,6 +77,7 @@ const resolvedDiffSpecsFromOperand = ({
 					lineSelection,
 					parent.parent._tag === "Changes" ? "commit" : "discard",
 				);
+				if (hunkHeaders.length === 0) return null;
 
 				return [createDiffSpec(change, hunkHeaders)];
 			},

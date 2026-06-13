@@ -59,6 +59,12 @@ const hunkHeaderFromHunk = (hunk: Hunk): HunkHeader => ({
 	newLines: hunk.additionCount,
 });
 
+const hunkHeadersEqual = (a: HunkHeader, b: HunkHeader): boolean =>
+	a.oldStart === b.oldStart &&
+	a.oldLines === b.oldLines &&
+	a.newStart === b.newStart &&
+	a.newLines === b.newLines;
+
 export type HunkLineSelectionGroup = {
 	side: SelectionSide;
 	start: number;
@@ -142,8 +148,12 @@ const lineRowsFromHunk = (hunk: Hunk): Array<HunkLineRow> => {
 	return rows;
 };
 
-const rowMatchesPoint = (row: HunkLineRow, line: number, side: SelectionSide): boolean =>
-	side === "deletions" ? row.deletionLine === line : row.additionLine === line;
+const rowMatchesPoint = (row: HunkLineRow, line: number, side?: SelectionSide): boolean =>
+	side === undefined
+		? row.deletionLine === line || row.additionLine === line
+		: side === "deletions"
+			? row.deletionLine === line
+			: row.additionLine === line;
 
 const lineGroupsFromRows = (rows: Array<HunkLineRow>): Array<HunkLineSelectionGroup> => {
 	const lineGroups: Array<HunkLineSelectionGroup> = [];
@@ -230,7 +240,6 @@ export const lineSelectionFromRange = ({
 }): HunkLineSelection | null => {
 	const startSide = range.side;
 	const endSide = range.endSide ?? range.side;
-	if (startSide === undefined || endSide === undefined) return null;
 
 	for (const hunk of hunks) {
 		const rows = lineRowsFromHunk(hunk);
@@ -242,7 +251,6 @@ export const lineSelectionFromRange = ({
 		const lineGroups = lineGroupsFromRows(
 			rows.slice(Math.min(startIndex, endIndex), Math.max(startIndex, endIndex) + 1),
 		);
-		if (!Array.isNonEmptyArray(lineGroups)) return null;
 
 		return {
 			hunkHeader: hunkHeaderFromHunk(hunk),
@@ -264,6 +272,55 @@ const lineGroupsIntersect = (a: HunkLineSelectionGroup, b: HunkLineSelectionGrou
 
 export const lineSelectionsIntersect = (a: HunkLineSelection, b: HunkLineSelection): boolean =>
 	a.lineGroups.some((aGroup) => b.lineGroups.some((bGroup) => lineGroupsIntersect(aGroup, bGroup)));
+
+const lineSelectionPosition = ({
+	hunks,
+	selection,
+}: {
+	hunks: Array<Hunk>;
+	selection: HunkLineSelection;
+}): { hunkIndex: number; startRow: number; endRow: number } | null => {
+	const hunkIndex = hunks.findIndex((hunk) =>
+		hunkHeadersEqual(hunkHeaderFromHunk(hunk), selection.hunkHeader),
+	);
+	if (hunkIndex === -1) return null;
+
+	const hunk = hunks[hunkIndex];
+	if (hunk === undefined) return null;
+	const rows = lineRowsFromHunk(hunk);
+	const startIndex = rows.findIndex((row) =>
+		rowMatchesPoint(row, selection.range.start, selection.range.side),
+	);
+	const endIndex = rows.findIndex((row) =>
+		rowMatchesPoint(row, selection.range.end, selection.range.endSide ?? selection.range.side),
+	);
+	if (startIndex === -1 || endIndex === -1) return null;
+
+	return {
+		hunkIndex,
+		startRow: Math.min(startIndex, endIndex),
+		endRow: Math.max(startIndex, endIndex),
+	};
+};
+
+export const compareLineSelections = ({
+	hunks,
+	a,
+	b,
+}: {
+	hunks: Array<Hunk>;
+	a: HunkLineSelection;
+	b: HunkLineSelection;
+}): number | null => {
+	const aPosition = lineSelectionPosition({ hunks, selection: a });
+	const bPosition = lineSelectionPosition({ hunks, selection: b });
+	if (aPosition === null || bPosition === null) return null;
+
+	if (aPosition.hunkIndex !== bPosition.hunkIndex) return aPosition.hunkIndex - bPosition.hunkIndex;
+	if (aPosition.endRow < bPosition.startRow) return -1;
+	if (aPosition.startRow > bPosition.endRow) return 1;
+	return 0;
+};
 
 export const diffSpecHunkHeadersForLineSelection = (
 	lineSelection: HunkLineSelection,

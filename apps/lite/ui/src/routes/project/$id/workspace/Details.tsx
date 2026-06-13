@@ -66,6 +66,7 @@ import {
 	type FileTreeItem,
 } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import {
+	compareLineSelections,
 	contiguousSelectionByLine,
 	contiguousSelectionsFromHunk,
 	getDependencyCommitIds,
@@ -339,6 +340,45 @@ const DiffContents: FC<{
 		});
 	};
 
+	const adjacentBlockForUnmatchedRange = (
+		selection: HunkOperand,
+		offset: -1 | 1,
+	): HunkOperand | null | undefined => {
+		const selectedItem = itemsMetadataMap.get(
+			codeViewItemId({ changesetKey, path: selection.parent.path }),
+		);
+		if (selectedItem === undefined) return undefined;
+
+		let previousItem: HunkOperand | null = null;
+		let seenSelectedFile = false;
+
+		for (const item of navigationIndex.items) {
+			const sameFile =
+				fileOperandIdentityKey(item.parent) === fileOperandIdentityKey(selection.parent);
+
+			if (!sameFile) {
+				if (seenSelectedFile) return offset === 1 ? item : previousItem;
+				previousItem = item;
+				continue;
+			}
+
+			seenSelectedFile = true;
+
+			const order = compareLineSelections({
+				hunks: selectedItem.item.fileDiff.hunks,
+				a: item,
+				b: selection,
+			});
+			if (order === null) return undefined;
+			if (order > 0) return offset === 1 ? item : previousItem;
+
+			previousItem = item;
+		}
+
+		if (!seenSelectedFile) return undefined;
+		return offset === 1 ? null : previousItem;
+	};
+
 	useNavigationIndexHotkeys({
 		navigationIndex,
 		projectId,
@@ -355,7 +395,8 @@ const DiffContents: FC<{
 			const selectedBlockIndexes = navigationIndex.items.flatMap((item, index) =>
 				hunkOperandsIntersect(selection, item) ? [index] : [],
 			);
-			if (!Array.isNonEmptyArray(selectedBlockIndexes)) return undefined;
+			if (!Array.isNonEmptyArray(selectedBlockIndexes))
+				return adjacentBlockForUnmatchedRange(selection, offset);
 
 			const nextIndex =
 				offset === 1
