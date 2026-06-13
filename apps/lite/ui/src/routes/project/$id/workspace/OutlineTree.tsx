@@ -1050,14 +1050,12 @@ const CommitRow: FC<
 		commitId: commit.id,
 	};
 	const operand = commitOperand(commitOperandV);
-	const isSelected = useIsSelected({ projectId, operand });
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
 	);
 	const isRewording = useAppSelector((state) => {
 		const outlineMode = selectProjectOutlineModeState(state, projectId);
 		return (
-			isSelected &&
 			outlineMode._tag === "RewordCommit" &&
 			operandEquals(operand, commitOperand(outlineMode.operand))
 		);
