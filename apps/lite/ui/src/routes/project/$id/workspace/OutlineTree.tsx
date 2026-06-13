@@ -179,7 +179,9 @@ const useOutlineTreeHotkeys = ({
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const selection = useOutlineSelection({ projectId, navigationIndex });
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const isDefaultMode = useAppSelector(
+		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
+	);
 
 	const selectedStack =
 		selection && "stackId" in selection
@@ -414,7 +416,7 @@ const useOutlineTreeHotkeys = ({
 			workspaceIntegrateUpstreamMutation.mutate([selectedStackRebaseUpdate]);
 	};
 
-	const defaultOutlineHotkeysEnabled = outlineMode._tag === "Default";
+	const defaultOutlineHotkeysEnabled = isDefaultMode;
 	const isSelectedCommit = selection?._tag === "Commit";
 	const isSelectedBranch = selection?._tag === "Branch";
 	const isSelectedChanges = selection?._tag === "ChangesSection";
@@ -1040,7 +1042,6 @@ const CommitRow: FC<
 	const isChecked = useAppSelector((state) =>
 		selectProjectCommitChecked(state, projectId, commit.id),
 	);
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const dispatch = useAppDispatch();
 	const navigationIndex = assert(use(NavigationIndexContext));
@@ -1050,10 +1051,17 @@ const CommitRow: FC<
 	};
 	const operand = commitOperand(commitOperandV);
 	const isSelected = useIsSelected({ projectId, operand });
-	const isRewording =
-		isSelected &&
-		outlineMode._tag === "RewordCommit" &&
-		operandEquals(operand, commitOperand(outlineMode.operand));
+	const isDefaultMode = useAppSelector(
+		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
+	);
+	const isRewording = useAppSelector((state) => {
+		const outlineMode = selectProjectOutlineModeState(state, projectId);
+		return (
+			isSelected &&
+			outlineMode._tag === "RewordCommit" &&
+			operandEquals(operand, commitOperand(outlineMode.operand))
+		);
+	});
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
 		(_currentMessage, nextMessage: string) => nextMessage,
@@ -1239,13 +1247,13 @@ const CommitRow: FC<
 			label: "Compose Commit Here",
 			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
 			onSelect: composeCommitHere,
-			enabled: outlineMode._tag === "Default",
+			enabled: isDefaultMode,
 		}),
 		nativeMenuItem({
 			label: "Set Commit Target",
 			accelerator: toElectronAccelerator(outlineHotkeys.setCommitTarget.hotkey),
 			onSelect: setCommitTarget,
-			enabled: outlineMode._tag === "Default",
+			enabled: isDefaultMode,
 		}),
 		nativeMenuItem({
 			label: "Copy",
@@ -1304,7 +1312,7 @@ const CommitRow: FC<
 			projectId={projectId}
 			operand={operand}
 			isHighlighted={isHighlighted}
-			onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
+			onDoubleClick={isDefaultMode ? startEditing : undefined}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
@@ -1322,7 +1330,7 @@ const CommitRow: FC<
 					disableHoverablePopup
 				>
 					<Checkbox
-						disabled={outlineMode._tag !== "Default"}
+						disabled={!isDefaultMode}
 						aria-label={`Check commit ${title ?? "(no message)"}`}
 						checked={isChecked}
 						className={styles.commitCheckbox}
@@ -1367,7 +1375,7 @@ const CommitRow: FC<
 				)}
 			</WorkspaceItemRowLabel>
 
-			{outlineMode._tag === "Default" && (
+			{isDefaultMode && (
 				<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
 					<Toolbar.Button
 						aria-label="Commit menu"
@@ -1423,7 +1431,9 @@ const ChangesSectionRow: FC<{
 	projectId: string;
 }> = ({ changes, projectId }) => {
 	const operand = changesSectionOperand;
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const isDefaultMode = useAppSelector(
+		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
+	);
 	const discardWorktreeChanges = useDiscardWorktreeChanges();
 
 	const dispatch = useAppDispatch();
@@ -1452,7 +1462,7 @@ const ChangesSectionRow: FC<{
 			label: "Compose Commit Message",
 			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitMessageFromChanges.hotkey),
 			onSelect: composeCommitMessage,
-			enabled: outlineMode._tag === "Default",
+			enabled: isDefaultMode,
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
@@ -1484,7 +1494,7 @@ const ChangesSectionRow: FC<{
 				</span>
 			</WorkspaceItemRowLabel>
 
-			{outlineMode._tag === "Default" && (
+			{isDefaultMode && (
 				<Toolbar.Root
 					aria-label="Changes actions"
 					render={<WorkspaceItemRowToolbar forceVisible />}
@@ -1618,15 +1628,16 @@ const Changes: FC<{
 	const operand = changesSectionOperand;
 	const commitTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const isDefaultMode = useAppSelector(
+		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
+	);
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const isAltHeld = useKeyHold("Alt");
 	// TODO: bug: false positive when holding alt e.g. inside commit reword input
 	const isAmendMode = isAltHeld;
 	const isCommitOrAmendPending = commitCreateMutation.isPending || commitAmendMutation.isPending;
-	const canCommitOrAmendBase =
-		outlineMode._tag === "Default" && commitTarget !== null && !isCommitOrAmendPending;
+	const canCommitOrAmendBase = isDefaultMode && commitTarget !== null && !isCommitOrAmendPending;
 	const canCommit = canCommitOrAmendBase;
 	const canAmend =
 		canCommitOrAmendBase &&
@@ -1704,7 +1715,7 @@ const Changes: FC<{
 			callback: () => setOpen(true),
 			options: {
 				conflictBehavior: "allow",
-				enabled: outlineMode._tag === "Default" && !isCommitOrAmendPending,
+				enabled: isDefaultMode && !isCommitOrAmendPending,
 				meta: changesHotkeys.selectCommitTarget.meta,
 			},
 		},
@@ -1751,7 +1762,7 @@ const Changes: FC<{
 					id={commitMessageInputId}
 					ref={commitTextareaRef}
 					aria-label="Compose commit message"
-					disabled={outlineMode._tag !== "Default"}
+					disabled={!isDefaultMode}
 					readOnly={isCommitOrAmendPending}
 					placeholder={`Compose commit message ${focusCommitMessageHotkeyLabel}`}
 					className={classes("text-14", styles.commitTextarea)}
@@ -1775,7 +1786,7 @@ const Changes: FC<{
 						itemToStringValue={(x) => relativeToKey(x.relativeTo)}
 						isItemEqualToValue={(a, b) => relativeToEquals(a.relativeTo, b.relativeTo)}
 						autoHighlight
-						disabled={outlineMode._tag !== "Default" || isCommitOrAmendPending}
+						disabled={!isDefaultMode || isCommitOrAmendPending}
 					>
 						<Tooltip.Root>
 							<Combobox.Trigger
@@ -1947,16 +1958,22 @@ const BranchRow: FC<
 	bottomRelativeTo,
 	...restProps
 }) => {
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 	const dispatch = useAppDispatch();
 	const branchOperandV: BranchOperand = {
 		stackId,
 		branchRef: refName.fullNameBytes,
 	};
 	const operand = branchOperand(branchOperandV);
-	const isRenaming =
-		outlineMode._tag === "RenameBranch" &&
-		operandEquals(operand, branchOperand(outlineMode.operand));
+	const isDefaultMode = useAppSelector(
+		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
+	);
+	const isRenaming = useAppSelector((state) => {
+		const outlineMode = selectProjectOutlineModeState(state, projectId);
+		return (
+			outlineMode._tag === "RenameBranch" &&
+			operandEquals(operand, branchOperand(outlineMode.operand))
+		);
+	});
 	const [optimisticBranchDisplayName, setOptimisticBranchDisplayName] = useOptimistic(
 		refName.displayName,
 		(_currentBranchName, nextBranchName: string) => nextBranchName,
@@ -2131,13 +2148,13 @@ const BranchRow: FC<
 			label: "Compose Commit Here",
 			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
 			onSelect: composeCommitHere,
-			enabled: outlineMode._tag === "Default",
+			enabled: isDefaultMode,
 		}),
 		nativeMenuItem({
 			label: "Set Commit Target",
 			accelerator: toElectronAccelerator(outlineHotkeys.setCommitTarget.hotkey),
 			onSelect: setCommitTarget,
-			enabled: outlineMode._tag === "Default",
+			enabled: isDefaultMode,
 		}),
 		insertBlankCommitMenuItem(insertBlankCommit),
 		nativeMenuSeparator,
@@ -2178,7 +2195,7 @@ const BranchRow: FC<
 			{...restProps}
 			projectId={projectId}
 			operand={operand}
-			onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
+			onDoubleClick={isDefaultMode ? startEditing : undefined}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
@@ -2220,7 +2237,7 @@ const BranchRow: FC<
 				)}
 			</WorkspaceItemRowLabel>
 
-			{outlineMode._tag === "Default" && (
+			{isDefaultMode && (
 				<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar forceVisible />}>
 					<Tooltip.Root>
 						<Tooltip.Trigger
@@ -2278,7 +2295,9 @@ const StackRow: FC<
 		: null;
 	// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
 	const operand = stackOperand({ stackId: stack.id! });
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const isDefaultMode = useAppSelector(
+		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
+	);
 
 	const unapplyStackMutation = useUnapplyStack();
 	const unapply = () => {
@@ -2319,7 +2338,7 @@ const StackRow: FC<
 		>
 			<WorkspaceItemRowLabel />
 
-			{outlineMode._tag === "Default" && (
+			{isDefaultMode && (
 				<Toolbar.Root aria-label="Stack actions" render={<WorkspaceItemRowToolbar forceVisible />}>
 					<Toolbar.Button
 						aria-label="Stack menu"
