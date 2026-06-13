@@ -110,7 +110,6 @@ import styles from "./OutlineTree.module.css";
 import { Checkbox } from "#ui/components/Checkbox.tsx";
 import {
 	WorkspaceItemRow,
-	WorkspaceItemRowEmpty,
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowToolbar,
 	getWorkspaceItemRowButtonClassName,
@@ -2423,13 +2422,13 @@ const EmptySegment: FC<{
 
 	return (
 		<div>
-			<WorkspaceItemRowEmpty inert={inert}>
+			<WorkspaceItemRow interactive={false} inert={inert}>
 				<GraphSegment glyph="parent" status="LocalOnly" />
-				<WorkspaceItemRowLabel>No commits.</WorkspaceItemRowLabel>
-			</WorkspaceItemRowEmpty>
-			<WorkspaceItemRowEmpty className={styles.segmentParentItemRow} inert={inert}>
+				<WorkspaceItemRowLabel empty>No commits.</WorkspaceItemRowLabel>
+			</WorkspaceItemRow>
+			<WorkspaceItemRow interactive={false} className={styles.segmentParentItemRow} inert={inert}>
 				<GraphSegment glyph="parent" status="LocalOnly" />
-			</WorkspaceItemRowEmpty>
+			</WorkspaceItemRow>
 		</div>
 	);
 };
@@ -2461,7 +2460,8 @@ const NonEmptySegment: FC<{
 					}
 				/>
 			))}
-			<WorkspaceItemRowEmpty
+			<WorkspaceItemRow
+				interactive={false}
 				className={styles.segmentParentItemRow}
 				inert={
 					!navigationIndexIncludes(
@@ -2475,7 +2475,7 @@ const NonEmptySegment: FC<{
 					glyph="parent"
 					status={commitIsDiverged(bottomCommit) ? "Diverged" : bottomCommit.state.type}
 				/>
-			</WorkspaceItemRowEmpty>
+			</WorkspaceItemRow>
 		</div>
 	);
 };

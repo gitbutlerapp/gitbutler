@@ -20,7 +20,6 @@ import { ComponentProps, createContext, FC, use, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import {
 	WorkspaceItemRow,
-	WorkspaceItemRowEmpty,
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowToolbar,
 	getWorkspaceItemRowButtonClassName,
@@ -178,9 +177,9 @@ export const FilesTree: FC<
 			>
 				<div className={styles.section}>
 					{items.length === 0 ? (
-						<WorkspaceItemRowEmpty>
-							<WorkspaceItemRowLabel>No changes.</WorkspaceItemRowLabel>
-						</WorkspaceItemRowEmpty>
+						<WorkspaceItemRow interactive={false}>
+							<WorkspaceItemRowLabel empty>No changes.</WorkspaceItemRowLabel>
+						</WorkspaceItemRow>
 					) : (
 						<div role="group">
 							{items.map((item) => (
