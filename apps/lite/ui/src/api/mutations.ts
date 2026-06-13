@@ -756,10 +756,11 @@ export const useUpdateBranchName = ({
 	return useMutation({
 		mutationFn: window.lite.updateBranchName,
 		onSuccess: async (_response, input, _context, mutation) => {
-			const newBranchRef = encodeBytes(`refs/heads/${input.newName}`);
+			// TODO: ideally the API would return the new branch name and ref?
+			const newBranchName = input.newName.replaceAll(/-+/g, "-").replaceAll(/\s+/g, "-");
+			const newBranchRef = encodeBytes(`refs/heads/${newBranchName}`);
 			const newBranch: BranchOperand = {
 				stackId,
-				// TODO: ideally the API would return the new ref?
 				branchRef: newBranchRef,
 			};
 
@@ -770,7 +771,7 @@ export const useUpdateBranchName = ({
 					headInfo,
 					stackId,
 					branchRef,
-					newName: input.newName,
+					newName: newBranchName,
 					newBranchRef,
 				});
 			});
