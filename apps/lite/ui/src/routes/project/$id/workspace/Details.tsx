@@ -25,7 +25,11 @@ import {
 	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
-import { projectActions, selectProjectFilesVisible } from "#ui/projects/state.ts";
+import {
+	projectActions,
+	selectProjectFilesVisible,
+	selectProjectSelectionDiff,
+} from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
@@ -50,15 +54,11 @@ import {
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
-import { Hash, Match } from "effect";
+import { Array, Hash, Match } from "effect";
 import { ComponentProps, FC, type RefObject, Suspense, useDeferredValue, useRef } from "react";
 import styles from "./Details.module.css";
 import { workspaceHotkeys } from "#ui/hotkeys.ts";
-import {
-	type SelectionScope,
-	useDiffSelection,
-	useNavigationIndexHotkeys,
-} from "#ui/selection-scopes.ts";
+import { type SelectionScope, useNavigationIndexHotkeys } from "#ui/selection-scopes.ts";
 import {
 	FilesTree,
 	changeFileTreeItem,
@@ -66,10 +66,13 @@ import {
 	type FileTreeItem,
 } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
 import {
-	getDependencyCommitIds,
-	getHunkDependencyDiffsByPath,
+	compareLineSelections,
 	contiguousSelectionByLine,
 	contiguousSelectionsFromHunk,
+	getDependencyCommitIds,
+	getHunkDependencyDiffsByPath,
+	lineSelectionFromRange,
+	lineSelectionsIntersect,
 	synthesizeFilePatch,
 } from "#ui/hunk.ts";
 import { buildNavigationIndex, NavigationIndex } from "#ui/workspace/navigation-index.ts";
@@ -87,6 +90,13 @@ const fileOperandIdentityKey = (operand: FileOperand): string =>
 
 const hunkOperandIdentityKey = (operand: HunkOperand): string =>
 	operandIdentityKey(hunkOperand(operand));
+
+const rangeIsSinglePoint = (range: CodeViewLineSelection["range"]): boolean =>
+	range.start === range.end && range.side === (range.endSide ?? range.side);
+
+const hunkOperandsIntersect = (a: HunkOperand, b: HunkOperand): boolean =>
+	fileOperandIdentityKey(a.parent) === fileOperandIdentityKey(b.parent) &&
+	lineSelectionsIntersect(a, b);
 
 const getCommitFileTreeItems = ({
 	commit,
@@ -212,10 +222,6 @@ type BuildOut = {
 	 * Map from file operand identity key to the file's first contiguous block hunk.
 	 */
 	initialFileHunks: Map<string, HunkOperand>;
-	/**
-	 * Map from hunk operand identity key to the hunk's computed selection range.
-	 */
-	selectedRangeByHunk: Map<string, CodeViewLineSelection>;
 };
 
 /** Build relationships between our SDK data and Pierre's view. */
@@ -233,8 +239,6 @@ const build = ({ fileParent, changes, treeChangeDiffs, changesetKey }: BuildIn):
 	>();
 
 	const initialFileHunks = new Map<string, HunkOperand>();
-
-	const selectedRangeByHunk = new Map<string, CodeViewLineSelection>();
 
 	for (const [ci, change] of changes.entries()) {
 		const mdiff = treeChangeDiffs[ci];
@@ -269,11 +273,6 @@ const build = ({ fileParent, changes, treeChangeDiffs, changesetKey }: BuildIn):
 					navigationIndex.indexByKey.set(hunkKey, len - 1);
 
 					if (!initialFileHunks.has(fileKey)) initialFileHunks.set(fileKey, hunkOperand);
-
-					selectedRangeByHunk.set(hunkKey, {
-						id: item.id,
-						range: hunkOperand.range,
-					});
 				}
 		}
 	}
@@ -283,7 +282,6 @@ const build = ({ fileParent, changes, treeChangeDiffs, changesetKey }: BuildIn):
 		itemsMetadataMap,
 		initialFileHunks,
 		navigationIndex,
-		selectedRangeByHunk,
 	};
 };
 
@@ -300,7 +298,6 @@ const DiffContents: FC<{
 		string,
 		{ item: CodeViewDiffItem; change: TreeChange; patch: UnifiedPatch | null }
 	>;
-	selectedRangeByHunk: Map<string, CodeViewLineSelection>;
 }> = ({
 	selectionScopeRef,
 	onViewerFileSelection,
@@ -311,19 +308,28 @@ const DiffContents: FC<{
 	navigationIndex,
 	items,
 	itemsMetadataMap,
-	selectedRangeByHunk,
 }) => {
 	const dispatch = useAppDispatch();
+	const rawDiffSelection = useAppSelector((state) => selectProjectSelectionDiff(state, projectId));
+	const pointerGestureIdRef = useRef(0);
+	const blockSnapGestureRef = useRef<{ blockKey: string; gestureId: number } | null>(null);
+	const rangeGestureIdRef = useRef<number | null>(null);
 
-	const diffSelection = useDiffSelection(projectId, navigationIndex);
-	const selectedRange = diffSelection
-		? (selectedRangeByHunk.get(hunkOperandIdentityKey(diffSelection)) ?? null)
-		: null;
+	const diffSelection = rawDiffSelection ?? navigationIndex.items[0] ?? null;
+	const selectionLineRange = (selection: HunkOperand | null): CodeViewLineSelection | null => {
+		if (!selection) return null;
+
+		const id = codeViewItemId({ changesetKey, path: selection.parent.path });
+		if (!itemsMetadataMap.has(id)) return null;
+
+		return { id, range: selection.range };
+	};
+	const selectedRange = selectionLineRange(diffSelection);
 
 	const selectDiff = (selection: HunkOperand) => {
 		dispatch(projectActions.selectDiff({ projectId, selection }));
 
-		const selectedRange = selectedRangeByHunk.get(hunkOperandIdentityKey(selection));
+		const selectedRange = selectionLineRange(selection);
 		if (!selectedRange) return;
 
 		viewerRef.current?.scrollTo({
@@ -332,6 +338,45 @@ const DiffContents: FC<{
 			range: selectedRange.range,
 			align: "nearest",
 		});
+	};
+
+	const adjacentBlockForUnmatchedRange = (
+		selection: HunkOperand,
+		offset: -1 | 1,
+	): HunkOperand | null | undefined => {
+		const selectedItem = itemsMetadataMap.get(
+			codeViewItemId({ changesetKey, path: selection.parent.path }),
+		);
+		if (selectedItem === undefined) return undefined;
+
+		let previousItem: HunkOperand | null = null;
+		let seenSelectedFile = false;
+
+		for (const item of navigationIndex.items) {
+			const sameFile =
+				fileOperandIdentityKey(item.parent) === fileOperandIdentityKey(selection.parent);
+
+			if (!sameFile) {
+				if (seenSelectedFile) return offset === 1 ? item : previousItem;
+				previousItem = item;
+				continue;
+			}
+
+			seenSelectedFile = true;
+
+			const order = compareLineSelections({
+				hunks: selectedItem.item.fileDiff.hunks,
+				a: item,
+				b: selection,
+			});
+			if (order === null) return undefined;
+			if (order > 0) return offset === 1 ? item : previousItem;
+
+			previousItem = item;
+		}
+
+		if (!seenSelectedFile) return undefined;
+		return offset === 1 ? null : previousItem;
 	};
 
 	useNavigationIndexHotkeys({
@@ -344,6 +389,22 @@ const DiffContents: FC<{
 		ref: selectionScopeRef,
 		getKey: hunkOperandIdentityKey,
 		operationSourceForItem: hunkOperand,
+		getAdjacentItem: ({ selection, offset }) => {
+			if (!selection) return undefined;
+
+			const selectedBlockIndexes = navigationIndex.items.flatMap((item, index) =>
+				hunkOperandsIntersect(selection, item) ? [index] : [],
+			);
+			if (!Array.isNonEmptyArray(selectedBlockIndexes))
+				return adjacentBlockForUnmatchedRange(selection, offset);
+
+			const nextIndex =
+				offset === 1
+					? Array.lastNonEmpty(selectedBlockIndexes) + 1
+					: Array.headNonEmpty(selectedBlockIndexes) - 1;
+
+			return navigationIndex.items[nextIndex] ?? null;
+		},
 	});
 
 	const selectFileAtViewportTop = (scrollTop: number, viewer: CodeViewClass<undefined>) => {
@@ -361,37 +422,98 @@ const DiffContents: FC<{
 		});
 	};
 
-	// We currently only support selecting contiguous blocks.
+	const containingNavigationBlock = (selection: HunkOperand | null): HunkOperand | null => {
+		if (selection === null) return null;
+
+		return navigationIndex.items.find((item) => hunkOperandsIntersect(selection, item)) ?? null;
+	};
+
+	const handlePointerDown = () => {
+		pointerGestureIdRef.current++;
+		blockSnapGestureRef.current = null;
+		rangeGestureIdRef.current = null;
+	};
+
 	const handleLinesSelected = (sel: CodeViewLineSelection | null): void => {
-		if (!sel) return void dispatch(projectActions.selectDiff({ projectId, selection: null }));
+		if (!sel) {
+			const selection = containingNavigationBlock(rawDiffSelection);
+			if (selection !== null)
+				blockSnapGestureRef.current = {
+					blockKey: hunkOperandIdentityKey(selection),
+					gestureId: pointerGestureIdRef.current,
+				};
+
+			return void dispatch(projectActions.selectDiff({ projectId, selection }));
+		}
 
 		const itemBySel = itemsMetadataMap.get(sel.id);
 		if (!itemBySel) throw new Error("Missing item ID in metadata map");
 		if (itemBySel.patch?.type !== "Patch") throw new Error("Selected hunk has no patch metadata");
 
+		const parent: FileOperand = {
+			parent: fileParent,
+			path: itemBySel.change.path,
+		};
+		const isResultOfBinaryToTextConversion =
+			itemBySel.patch.subject.isResultOfBinaryToTextConversion;
 		const side = sel.range.endSide ?? sel.range.side;
-		if (side === undefined) return;
-
-		const selection = contiguousSelectionByLine({
+		const contiguousSelection =
+			side === undefined
+				? null
+				: contiguousSelectionByLine({
+						hunks: itemBySel.item.fileDiff.hunks,
+						// The end range is more reliable in shift+click with preexisting selection scenarios.
+						line: sel.range.end,
+						side,
+					});
+		const contiguousOperand: HunkOperand | null = contiguousSelection && {
+			parent,
+			...contiguousSelection,
+			isResultOfBinaryToTextConversion,
+		};
+		const contiguousOperandKey =
+			contiguousOperand === null ? null : hunkOperandIdentityKey(contiguousOperand);
+		const rangeSelection = lineSelectionFromRange({
 			hunks: itemBySel.item.fileDiff.hunks,
-			// The end range is more reliable in shift+click with preexisting selection scenarios.
-			line: sel.range.end,
-			side,
+			range: sel.range,
 		});
+		const rangeOperand: HunkOperand | null = rangeSelection && {
+			parent,
+			...rangeSelection,
+			isResultOfBinaryToTextConversion,
+		};
+		const rawSelectionIntersectsClickedBlock =
+			rawDiffSelection !== null &&
+			contiguousOperand !== null &&
+			hunkOperandsIntersect(rawDiffSelection, contiguousOperand);
+		const snappedClickedBlockThisGesture =
+			contiguousOperandKey !== null &&
+			blockSnapGestureRef.current?.gestureId === pointerGestureIdRef.current &&
+			blockSnapGestureRef.current.blockKey === contiguousOperandKey;
+		const isSinglePointRange = rangeIsSinglePoint(sel.range);
+		if (!isSinglePointRange && rangeOperand !== null)
+			rangeGestureIdRef.current = pointerGestureIdRef.current;
+
+		const gestureHasSelectedRange = rangeGestureIdRef.current === pointerGestureIdRef.current;
+		const shouldUseRange =
+			rangeOperand !== null &&
+			(!isSinglePointRange ||
+				gestureHasSelectedRange ||
+				(rawSelectionIntersectsClickedBlock && !snappedClickedBlockThisGesture));
+		const selection = shouldUseRange ? rangeOperand : (contiguousOperand ?? rangeOperand);
+
 		if (!selection) return;
+
+		if (selection === contiguousOperand && contiguousOperandKey !== null)
+			blockSnapGestureRef.current = {
+				blockKey: contiguousOperandKey,
+				gestureId: pointerGestureIdRef.current,
+			};
 
 		dispatch(
 			projectActions.selectDiff({
 				projectId,
-				selection: {
-					parent: {
-						parent: fileParent,
-						path: itemBySel.change.path,
-					},
-					...selection,
-					isResultOfBinaryToTextConversion:
-						itemBySel.patch.subject.isResultOfBinaryToTextConversion,
-				},
+				selection,
 			}),
 		);
 	};
@@ -399,57 +521,58 @@ const DiffContents: FC<{
 	return items.length === 0 ? (
 		<p className="text-13">No changes.</p>
 	) : (
-		<CodeView
-			ref={viewerRef}
-			renderCustomHeader={(item) => {
-				if (item.type === "file") throw new Error("Only diff items may be rendered");
+		<div className={styles.diffContentsGestureBoundary} onPointerDownCapture={handlePointerDown}>
+			<CodeView
+				ref={viewerRef}
+				renderCustomHeader={(item) => {
+					if (item.type === "file") throw new Error("Only diff items may be rendered");
 
-				const change = itemsMetadataMap.get(item.id)?.change;
+					const change = itemsMetadataMap.get(item.id)?.change;
 
-				// CodeView may briefly hold onto stale snapshots of our data.
-				if (change === undefined) return <div style={{ height: 38 }} />;
+					// CodeView may briefly hold onto stale snapshots of our data.
+					if (change === undefined) return <div style={{ height: 38 }} />;
 
-				return (
-					<DiffFileHeader
-						projectId={projectId}
-						item={item}
-						operand={{
-							parent: fileParent,
-							path: change.path,
-						}}
-						change={change}
-						hasDiff={item.fileDiff.hunks.length !== 0}
-					/>
-				);
-			}}
-			onScroll={selectFileAtViewportTop}
-			className={styles.diffContents}
-			items={items}
-			selectedLines={selectedRange}
-			onSelectedLinesChange={handleLinesSelected}
-			options={{
-				diffStyle: "unified",
-				themeType: "system",
-				stickyHeaders: true,
-				enableLineSelection: true,
-				layout: {
-					paddingTop: 0,
-					// Match --panel-padding.
-					paddingBottom: 16,
-					gap: 10,
-				},
-				// This appears to validate before our custom header has been slotted, in which case - if
-				// our metrics are correct - we should see deltas in multiples of our custom header height
-				// as defined in the metrics. We'll see an additional set of logs if there are other issues
-				// with our metrics.
-				__devOnlyValidateItemHeights: false,
-				itemMetrics: {
-					// Computed custom header height.
-					diffHeaderHeight: 38,
-					// Default spacing plus our 1px border.
-					paddingBottom: 9,
-				},
-				unsafeCSS: `
+					return (
+						<DiffFileHeader
+							projectId={projectId}
+							item={item}
+							operand={{
+								parent: fileParent,
+								path: change.path,
+							}}
+							change={change}
+							hasDiff={item.fileDiff.hunks.length !== 0}
+						/>
+					);
+				}}
+				onScroll={selectFileAtViewportTop}
+				className={styles.diffContents}
+				items={items}
+				selectedLines={selectedRange}
+				onSelectedLinesChange={handleLinesSelected}
+				options={{
+					diffStyle: "unified",
+					themeType: "system",
+					stickyHeaders: true,
+					enableLineSelection: true,
+					layout: {
+						paddingTop: 0,
+						// Match --panel-padding.
+						paddingBottom: 16,
+						gap: 10,
+					},
+					// This appears to validate before our custom header has been slotted, in which case - if
+					// our metrics are correct - we should see deltas in multiples of our custom header height
+					// as defined in the metrics. We'll see an additional set of logs if there are other issues
+					// with our metrics.
+					__devOnlyValidateItemHeights: false,
+					itemMetrics: {
+						// Computed custom header height.
+						diffHeaderHeight: 38,
+						// Default spacing plus our 1px border.
+						paddingBottom: 9,
+					},
+					unsafeCSS: `
           [data-code] {
             border-width: 0 1px 1px 1px;
             border-style: solid;
@@ -457,8 +580,9 @@ const DiffContents: FC<{
             border-radius: 0 0 10px 10px;
           }
         `,
-			}}
-		/>
+				}}
+			/>
+		</div>
 	);
 };
 

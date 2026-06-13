@@ -27,8 +27,12 @@ export const operationSourceLabel = ({
 					: shortCommitId(commitId);
 			},
 			Stack: () => "Stack",
-			Hunk: ({ lineGroups }) => {
-				const count = lineGroups.reduce((sum, group) => sum + group.lines, 0);
+			Hunk: ({ segments }) => {
+				const count = segments.reduce(
+					(sum, segment) =>
+						sum + segment.lineGroups.reduce((segmentSum, group) => segmentSum + group.lines, 0),
+					0,
+				);
 				return `${count} changed line${count !== 1 ? "s" : ""}`;
 			},
 		}),

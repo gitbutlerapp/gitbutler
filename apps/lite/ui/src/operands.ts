@@ -118,14 +118,7 @@ export const operandIdentityKey = (operand: Operand): string =>
 			Branch: (x) => JSON.stringify(["Branch", x.stackId, x.branchRef]),
 			Commit: (x) => JSON.stringify(["Commit", x.stackId, x.commitId]),
 			Hunk: (x) =>
-				JSON.stringify([
-					"Hunk",
-					x.parent,
-					x.hunkHeader,
-					x.lineGroups,
-					x.range,
-					x.isResultOfBinaryToTextConversion,
-				]),
+				JSON.stringify(["Hunk", x.parent, x.segments, x.range, x.isResultOfBinaryToTextConversion]),
 		}),
 	);
 

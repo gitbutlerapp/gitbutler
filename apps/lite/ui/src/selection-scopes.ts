@@ -1,18 +1,10 @@
 import { selectionOperationHotkeys, type CommandGroup } from "#ui/hotkeys.ts";
 import { type OperationType } from "#ui/operations/operation.ts";
 import { keyboardTransferOperationMode } from "#ui/outline/mode.ts";
-import {
-	fileOperand,
-	hunkOperand,
-	HunkOperand,
-	operandIdentityKey,
-	type FileOperand,
-	type Operand,
-} from "#ui/operands.ts";
+import { fileOperand, operandIdentityKey, type FileOperand, type Operand } from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectOutlineModeState,
-	selectProjectSelectionDiff,
 	selectProjectSelectionFiles,
 	selectProjectSelectionOutline,
 } from "#ui/projects/state.ts";
@@ -106,17 +98,6 @@ export const useOutlineSelection = ({
 	return resolveNavigationIndexSelection(navigationIndex, selectionState, operandIdentityKey);
 };
 
-const hunkOperandIdentityKey = (operand: HunkOperand): string =>
-	operandIdentityKey(hunkOperand(operand));
-
-export const useDiffSelection = (
-	projectId: string,
-	navigationIndex: NavigationIndex<HunkOperand>,
-) => {
-	const selection = useAppSelector((state) => selectProjectSelectionDiff(state, projectId));
-	return resolveNavigationIndexSelection(navigationIndex, selection, hunkOperandIdentityKey);
-};
-
 export const useNavigationIndexHotkeys = <T>({
 	navigationIndex,
 	projectId,
@@ -128,6 +109,7 @@ export const useNavigationIndexHotkeys = <T>({
 	selectSectionPredicate,
 	operationSourceForItem,
 	getKey,
+	getAdjacentItem,
 }: {
 	navigationIndex: NavigationIndex<T>;
 	projectId: string;
@@ -139,6 +121,12 @@ export const useNavigationIndexHotkeys = <T>({
 	selectSectionPredicate?: (item: T) => boolean;
 	operationSourceForItem: (item: T) => Operand;
 	getKey: (item: T) => string;
+	getAdjacentItem?: (input: {
+		navigationIndex: NavigationIndex<T>;
+		selection: T | null;
+		offset: -1 | 1;
+		getKey: (item: T) => string;
+	}) => T | null | undefined;
 }) => {
 	const dispatch = useAppDispatch();
 
@@ -148,10 +136,18 @@ export const useNavigationIndexHotkeys = <T>({
 	};
 
 	const moveSelection = (offset: -1 | 1) => {
+		const customAdjacentItem = getAdjacentItem?.({
+			navigationIndex,
+			selection,
+			offset,
+			getKey,
+		});
 		const newItem =
-			selection === null
-				? navigationIndex.items.at(offset === 1 ? 0 : -1)
-				: getAdjacent({ navigationIndex, selection, offset, getKey });
+			customAdjacentItem !== undefined
+				? customAdjacentItem
+				: selection === null
+					? navigationIndex.items.at(offset === 1 ? 0 : -1)
+					: getAdjacent({ navigationIndex, selection, offset, getKey });
 		if (newItem === null || newItem === undefined) return;
 		selectAndFocus(newItem);
 	};

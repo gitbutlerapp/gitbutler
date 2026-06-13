@@ -52,6 +52,11 @@
 	display: grid;
 }
 
+.diffContentsGestureBoundary {
+	display: grid;
+	min-height: 0;
+}
+
 .diffContents {
 	--diffs-bg-selection-number-override: color-mix(var(--fill-gray-bg) 60%, transparent);
 	--diffs-bg-selection-override: transparent;
