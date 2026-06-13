@@ -2,6 +2,7 @@ import type {
 	AbsorptionTarget,
 	ApplyOutcome,
 	BranchCheckoutResult,
+	BranchReference,
 	BranchCreatePlacement,
 	BranchCreateResult,
 	BranchDetails,
@@ -252,7 +253,7 @@ export interface UpdateBranchNameParams {
 	newName: string;
 }
 
-export type UpdateBranchNameResult = string;
+export type UpdateBranchNameResult = BranchReference;
 
 export interface WatcherSubscribeParams {
 	projectId: string;
