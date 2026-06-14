@@ -2395,57 +2395,48 @@ const BranchSegment: FC<{
 				}
 			/>
 
-			{segment.commits.length === 0 ? (
-				<EmptySegment stackId={stackId} refName={refName} />
-			) : (
-				<div role="group">
-					<NonEmptySegment
-						projectId={projectId}
-						segment={segment}
-						stackId={stackId}
-						commitTarget={commitTarget}
-					/>
-				</div>
-			)}
+			<div role="group">
+				<SegmentContent
+					projectId={projectId}
+					segment={segment}
+					stackId={stackId}
+					commitTarget={commitTarget}
+				/>
+			</div>
 		</TreeItem>
 	);
 };
 
-const EmptySegment: FC<{
-	stackId: string;
-	refName: BranchReference;
-}> = ({ stackId, refName }) => {
-	const navigationIndex = assert(use(NavigationIndexContext));
-	const inert = !navigationIndexIncludes(
-		navigationIndex,
-		branchOperand({ stackId, branchRef: refName.fullNameBytes }),
-		operandIdentityKey,
-	);
-
-	return (
-		<div>
-			<WorkspaceItemRow interactive={false} inert={inert}>
-				<GraphSegment glyph="parent" status="LocalOnly" />
-				<WorkspaceItemRowLabel empty>No commits.</WorkspaceItemRowLabel>
-			</WorkspaceItemRow>
-			<WorkspaceItemRow interactive={false} className={styles.segmentParentItemRow} inert={inert}>
-				<GraphSegment glyph="parent" status="LocalOnly" />
-			</WorkspaceItemRow>
-		</div>
-	);
-};
-
-const NonEmptySegment: FC<{
+const SegmentContent: FC<{
 	projectId: string;
-	/**
-	 * A segment that has at least one commit.
-	 */
 	segment: Segment;
 	stackId: string;
 	commitTarget: RelativeTo | null;
 }> = ({ projectId, segment, stackId, commitTarget }) => {
-	const bottomCommit = assert(segment.commits.at(-1));
 	const navigationIndex = assert(use(NavigationIndexContext));
+
+	if (segment.commits.length === 0) {
+		const refName = assert(segment.refName);
+		const inert = !navigationIndexIncludes(
+			navigationIndex,
+			branchOperand({ stackId, branchRef: refName.fullNameBytes }),
+			operandIdentityKey,
+		);
+
+		return (
+			<div>
+				<WorkspaceItemRow interactive={false} inert={inert}>
+					<GraphSegment glyph="parent" status="LocalOnly" />
+					<WorkspaceItemRowLabel empty>No commits.</WorkspaceItemRowLabel>
+				</WorkspaceItemRow>
+				<WorkspaceItemRow interactive={false} className={styles.segmentParentItemRow} inert={inert}>
+					<GraphSegment glyph="parent" status="LocalOnly" />
+				</WorkspaceItemRow>
+			</div>
+		);
+	}
+
+	const bottomCommit = assert(segment.commits.at(-1));
 
 	return (
 		<div>
@@ -2547,7 +2538,7 @@ const StackC: FC<{
 									partialStackState={partialStackState}
 								/>
 							) : (
-								<NonEmptySegment
+								<SegmentContent
 									projectId={projectId}
 									segment={segment}
 									stackId={stackId}
