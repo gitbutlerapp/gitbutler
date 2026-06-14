@@ -39,6 +39,13 @@ let mainWindow: BrowserWindow | null = null;
 let service: HowService | null = null;
 let logger: Logger | null = null;
 
+function configureUserDataPath(): void {
+	const userDataPath = process.env.HOW_E2E_USER_DATA_DIR;
+	if (!userDataPath) return;
+	fs.mkdirSync(userDataPath, { recursive: true });
+	app.setPath("userData", userDataPath);
+}
+
 function windows(): Array<BrowserWindow> {
 	return BrowserWindow.getAllWindows();
 }
@@ -87,6 +94,7 @@ function getWindowIcon(): string | undefined {
 
 async function createMainWindow(): Promise<void> {
 	mainWindow = new BrowserWindow({
+		show: process.env.HOW_E2E_HEADLESS !== "1",
 		width: 920,
 		height: 680,
 		minWidth: 720,
@@ -98,6 +106,10 @@ async function createMainWindow(): Promise<void> {
 			nodeIntegration: false,
 			contextIsolation: true,
 		},
+	});
+
+	mainWindow.once("ready-to-show", () => {
+		if (process.env.HOW_E2E_HEADLESS !== "1") mainWindow?.show();
 	});
 
 	if (process.env.VITE_DEV_SERVER_URL) await mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
@@ -128,6 +140,14 @@ function handle<Args extends Array<unknown>, Return>(
 }
 
 async function selectProjectDirectory(mode: "open" | "start"): Promise<string | null> {
+	if (process.env.HOW_E2E_PROJECT_PATH) {
+		getLogger().info("Using e2e project directory", {
+			mode,
+			selectedPath: process.env.HOW_E2E_PROJECT_PATH,
+		});
+		return process.env.HOW_E2E_PROJECT_PATH;
+	}
+
 	getLogger().info("Opening project directory picker", { mode });
 	const options: Electron.OpenDialogOptions = {
 		title: mode === "open" ? "Open project" : "Start project",
@@ -172,6 +192,8 @@ function registerIpc(): void {
 	handle(howIpcChannels.deleteProject, async () => await getService().deleteProject());
 	handle(howIpcChannels.createCheckpointNow, async () => await getService().createCheckpointNow());
 }
+
+configureUserDataPath();
 
 app.whenReady().then(async () => {
 	logger = createLogger(path.join(app.getPath("userData"), "how.log"));

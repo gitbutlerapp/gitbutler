@@ -122,7 +122,7 @@ function Timeline({ checkpoints }: { checkpoints: Array<Checkpoint> }) {
 					className="grid grid-cols-[auto_1fr] gap-4 rounded-md bg-stone-100 border border-stone-200 px-4 py-3"
 				>
 					<div className="mt-1 h-2.5 w-2.5 rounded-full bg-stone-700" />
-					<div className="min-w-0">
+					<div className="min-w-0 flex-1">
 						<p className="truncate text-sm font-medium text-stone-950">{checkpoint.title}</p>
 						<p className="mt-1 text-xs text-stone-500">{formatTime(checkpoint.createdAt)}</p>
 					</div>
@@ -166,7 +166,7 @@ function ProjectScreen({
 					</Button>
 				</nav>
 				<header className="flex flex-wrap items-start justify-between gap-4 pb-5">
-					<div className="min-w-0">
+					<div className="min-w-0 flex-1">
 						<h1 className="truncate text-xl font-semibold tracking-normal text-stone-700">
 							{project.title}
 						</h1>

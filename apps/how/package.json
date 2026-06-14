@@ -22,7 +22,10 @@
 		"build:ui": "vite build --config ui/vite.config.ts",
 		"build:electron": "tsgo -p electron/tsconfig.json",
 		"check": "tsgo -p ui/tsconfig.json --noEmit && tsgo -p electron/tsconfig.json --noEmit",
-		"test": "vitest run --config ui/vitest.config.ts --passWithNoTests"
+		"test": "vitest run --config ui/vitest.config.ts --passWithNoTests",
+		"test:e2e": "pnpm build && cross-env HOW_E2E_HEADLESS=1 playwright test --config e2e/playwright.config.ts",
+		"test:e2e:headed": "pnpm build && playwright test --config e2e/playwright.config.ts",
+		"test:e2e:ui": "pnpm build && playwright test --config e2e/playwright.config.ts --ui"
 	},
 	"build": {
 		"appId": "com.gitbutler.how",
@@ -80,6 +83,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^22.19.15",
+		"@playwright/test": "1.58.2",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.2.3",
 		"@typescript/native-preview": "7.0.0-dev.20260421.1",

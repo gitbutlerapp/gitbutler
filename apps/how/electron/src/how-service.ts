@@ -16,7 +16,14 @@ import type { Logger } from "./logger.js";
 import type { BrowserWindow } from "electron";
 
 const checkpointLimit = 50;
-const checkpointQuietPeriodMs = 10_000;
+const defaultCheckpointQuietPeriodMs = 10_000;
+
+function checkpointQuietPeriodMs(): number {
+	const override = process.env.HOW_CHECKPOINT_QUIET_MS;
+	if (!override) return defaultCheckpointQuietPeriodMs;
+	const parsed = Number(override);
+	return Number.isFinite(parsed) && parsed >= 0 ? parsed : defaultCheckpointQuietPeriodMs;
+}
 
 type StoredState = {
 	activeProject: ProjectSummary | null;
@@ -180,7 +187,7 @@ export class HowService {
 		this.#debounce = setTimeout(() => {
 			this.#debounce = null;
 			void this.#createCheckpoint();
-		}, checkpointQuietPeriodMs);
+		}, checkpointQuietPeriodMs());
 	}
 
 	async #createCheckpoint(): Promise<void> {

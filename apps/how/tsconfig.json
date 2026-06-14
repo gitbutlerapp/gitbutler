@@ -6,6 +6,9 @@
 		},
 		{
 			"path": "./electron/tsconfig.json"
+		},
+		{
+			"path": "./e2e/tsconfig.json"
 		}
 	]
 }
