@@ -155,6 +155,58 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn can_repeat_message() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("file.txt", "Some text");
+
+    env.but("commit2 -m 'add file.txt' -m 'with more' -m 'text lines'")
+        .assert()
+        .success();
+
+    env.but("status -v")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊● b141567 author 2000-01-01 00:00:00 +0000
+┊│     add file.txt  with more  text lines
+┊● 9477ae7 author 2000-01-01 00:00:00 +0000
+┊│     add A 
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("show b141567")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Commit:    b14156794f81a138bd06c2a5287fd5db15408b56
+Change-ID: 1
+Author:    author <author@example.com>
+Date:      2000-01-02 00:00:00 +0000 (26y ago)
+Committer: committer <committer@example.com>
+
+add file.txt
+
+with more
+
+text lines
+
+Files changed:
+  A file.txt
+
+"#]]);
+}
+
+#[test]
 fn editor_user_writes_no_message() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
