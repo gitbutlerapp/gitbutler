@@ -326,6 +326,11 @@ After publishing succeeds, mark the pre-publish Checkpoint with the outcome,
 such as "Published" or "Review created". Do not create a separate post-publish
 Checkpoint unless files actually changed during the update/publish flow.
 
+MVP direct publish does not yet create a durable timeline marker or amend the
+pre-publish Checkpoint with the publish outcome. A successful publish updates
+the status text to "Published just now" only. Durable publish markers remain a
+future Git-readable design problem.
+
 ## Publish Setup
 
 Missing publish setup is handled just-in-time when the user clicks Publish.
@@ -346,13 +351,40 @@ Use plain language:
 
 ## Direct Publish
 
-Direct publish may push to `origin/main` internally, but only for projects
-explicitly configured for a non-review/direct-publish workflow. This should be a
-project configuration decision made at first Publish, not an implicit guess.
+Direct publish is available only for projects explicitly configured for a
+non-review/direct-publish workflow. The project configuration decision is made
+the first time the user clicks Publish, not during first run.
 
-Open question: for personal projects, is `origin/main` always the canonical
-published state, or should the app sometimes publish a separate remote Change
-that can later be merged/applied?
+The first-time Publish dialog asks "How should this project publish?" It shows:
+
+- **Publish directly**: enabled. "Updates the shared project without a review."
+- **Review before publishing**: disabled placeholder. "Coming later."
+
+Choosing direct publish stores only `how.publishMode = direct` in local Git
+config. How does not duplicate destination URL or branch tracking information in
+How-specific config. Normal Git remote and upstream configuration remain the
+source of truth for where the project publishes.
+
+MVP direct publish destination rules:
+
+1. If the current branch already has a remote/upstream, push to that destination.
+2. If the current branch has no upstream but the repository has remotes, publish
+   to a remote branch with the same name as the local branch and set upstream
+   tracking. Prefer `origin` when it exists; otherwise use the first remote.
+3. If the repository has no remote, ask for a project destination URL, add it as
+   `origin`, then publish the current branch to `origin/<current branch>` and
+   set upstream tracking.
+
+Direct publish creates a Checkpoint before pushing only when there are unsaved
+changes. If that Checkpoint cannot be created, publishing stops. If pushing
+fails, the Checkpoint remains because it captured the intended publish state.
+
+Direct publish never force-pushes. It does not automatically pull, merge,
+rebase, or update in the MVP. If the shared project has changed and rejects the
+push, How shows a plain-language error and leaves the local project unchanged.
+
+Publishing is disabled while browsing Checkpoints. The user must choose
+**Continue from here** or **Return to latest** before publishing.
 
 ## Update Behavior
 
@@ -486,6 +518,12 @@ Desired future APIs:
 - `returnToLatestCheckpoint(projectId)`.
 - `summarizeCheckpoint(projectId, options)`, or a stable agent summarization
   abstraction backed by configured coding agents.
+- `getDirectPublishStatus(projectId)` with current branch, upstream, and
+  destination setup state as How-level concepts.
+- `configureDirectPublish(projectId, destinationUrl?)`.
+- `publishDirect(projectId, options)` with plain failure categories for missing
+  branch, missing destination, rejected shared-project update, authentication,
+  and network failures.
 - `getCheckpointStatus(projectId)` or `projectEligibility(projectId)`.
 - `meaningfulChanges(projectId)` or a Checkpoint dry-run/status result.
 
@@ -494,8 +532,6 @@ than making the caller assemble branch, commit, diff, and repository details.
 
 ## Open Questions
 
-- For personal projects, is the shared project always backed by `origin/main`,
-  or should direct publish sometimes create a separate remote Change?
 - What exact implementation should represent Checkpoints: commits, oplog
   snapshots, branches, or a new abstraction?
 - What is the precise "meaningful diff" filter for autosave Checkpoints?

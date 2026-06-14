@@ -16,6 +16,27 @@ async function createTempDirectory(prefix: string): Promise<string> {
 	return await fs.mkdtemp(path.join(os.tmpdir(), prefix));
 }
 
+async function createBareRepository(prefix = "how-publish-remote-"): Promise<string> {
+	const repositoryPath = await createTempDirectory(prefix);
+	await runGit(repositoryPath, ["init", "--bare"]);
+	return repositoryPath;
+}
+
+async function createRegularCommit(
+	repositoryPath: string,
+	fileName = "readme.md",
+	contents = "hello\n",
+	message = "Initial",
+): Promise<void> {
+	await fs.writeFile(path.join(repositoryPath, fileName), contents);
+	await runGit(repositoryPath, ["add", "--all"]);
+	await runGit(repositoryPath, ["commit", "--no-gpg-sign", "--message", message]);
+}
+
+async function currentBranch(repositoryPath: string): Promise<string> {
+	return await runGit(repositoryPath, ["branch", "--show-current"]);
+}
+
 async function createCheckpoint(
 	page: Page,
 	repositoryPath: string,
@@ -267,6 +288,185 @@ test("saves project settings to local Git config and applies debounce immediatel
 	} finally {
 		await app.close();
 		await fs.rm(repositoryPath, { recursive: true, force: true });
+	}
+});
+
+test("configures direct publish and pushes to an existing remote", async (
+	{ browserName: _browserName },
+	testInfo,
+) => {
+	const repositoryPath = await createTempDirectory("how-direct-publish-project-");
+	const remotePath = await createBareRepository();
+	await initializeGitRepository(repositoryPath);
+	await createRegularCommit(repositoryPath);
+	await runGit(repositoryPath, ["remote", "add", "origin", remotePath]);
+	const branchName = await currentBranch(repositoryPath);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await page.getByRole("button", { name: "Publish" }).click();
+		await expect(page.getByRole("heading", { name: "How should this project publish?" })).toBeVisible();
+		await expect(page.getByText("Review before publishing")).toBeVisible();
+		await expect(page.getByRole("radio").nth(1)).toBeDisabled();
+		await page.getByRole("button", { name: "Continue" }).click();
+
+		await expect(page.getByText("Published just now")).toBeVisible();
+		await expect
+			.poll(async () => await runGit(repositoryPath, ["config", "--local", "--get", "how.publishMode"]))
+			.toBe("direct");
+		await expect
+			.poll(async () => await runGit(repositoryPath, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]))
+			.toBe(`origin/${branchName}`);
+		await expect.poll(async () => await runGit(remotePath, ["rev-parse", branchName])).toBeTruthy();
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+		await fs.rm(remotePath, { recursive: true, force: true });
+	}
+});
+
+test("asks for a project destination when publishing without a remote", async (
+	{ browserName: _browserName },
+	testInfo,
+) => {
+	const repositoryPath = await createTempDirectory("how-direct-publish-destination-project-");
+	const remotePath = await createBareRepository();
+	await initializeGitRepository(repositoryPath);
+	await createRegularCommit(repositoryPath);
+	const branchName = await currentBranch(repositoryPath);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await page.getByRole("button", { name: "Publish" }).click();
+		await page.getByRole("button", { name: "Continue" }).click();
+		await expect(page.getByRole("heading", { name: "Add a project destination" })).toBeVisible();
+		await page.getByLabel("Project destination URL").fill(remotePath);
+		await page.getByRole("button", { name: "Add destination and publish" }).click();
+
+		await expect(page.getByText("Published just now")).toBeVisible();
+		await expect.poll(async () => await runGit(repositoryPath, ["remote", "get-url", "origin"])).toBe(
+			remotePath,
+		);
+		await expect
+			.poll(async () => await runGit(repositoryPath, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]))
+			.toBe(`origin/${branchName}`);
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+		await fs.rm(remotePath, { recursive: true, force: true });
+	}
+});
+
+test("creates a checkpoint before publishing unsaved changes", async (
+	{ browserName: _browserName },
+	testInfo,
+) => {
+	const repositoryPath = await createTempDirectory("how-direct-publish-checkpoint-project-");
+	const remotePath = await createBareRepository();
+	await initializeGitRepository(repositoryPath);
+	await createRegularCommit(repositoryPath);
+	await runGit(repositoryPath, ["remote", "add", "origin", remotePath]);
+	await runGit(repositoryPath, ["config", "--local", "how.publishMode", "direct"]);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+		checkpointQuietMs: "5000",
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await fs.writeFile(path.join(repositoryPath, "notes.md"), "publish checkpoint\n");
+		await page.getByRole("button", { name: "Publish" }).click();
+
+		await expect(page.getByText("Published just now")).toBeVisible();
+		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(1);
+		await expect.poll(async () => await runGit(repositoryPath, ["status", "--porcelain"])).toBe("");
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+		await fs.rm(remotePath, { recursive: true, force: true });
+	}
+});
+
+test("disables publish while browsing checkpoints", async (
+	{ browserName: _browserName },
+	testInfo,
+) => {
+	const repositoryPath = await createTempDirectory("how-direct-publish-browsing-project-");
+	await initializeGitRepository(repositoryPath);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+		await createCheckpoint(page, repositoryPath, "notes.md", "checkpoint A\n", 1);
+		await createCheckpoint(page, repositoryPath, "notes.md", "checkpoint B\n", 2);
+
+		await viewCheckpoint(page, 1);
+
+		await expect(page.getByRole("button", { name: "Publish" })).toBeDisabled();
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+	}
+});
+
+test("shows a plain-language error when the shared project changed", async (
+	{ browserName: _browserName },
+	testInfo,
+) => {
+	const repositoryPath = await createTempDirectory("how-direct-publish-rejected-project-");
+	const remotePath = await createBareRepository();
+	const clonePath = await createTempDirectory("how-direct-publish-other-clone-");
+	await initializeGitRepository(repositoryPath);
+	await createRegularCommit(repositoryPath);
+	await runGit(repositoryPath, ["remote", "add", "origin", remotePath]);
+	await runGit(repositoryPath, ["push", "-u", "origin", `HEAD:${await currentBranch(repositoryPath)}`]);
+	await runGit(repositoryPath, ["config", "--local", "how.publishMode", "direct"]);
+	await fs.rm(clonePath, { recursive: true, force: true });
+	await runGit(os.tmpdir(), ["clone", remotePath, clonePath]);
+	await runGit(clonePath, ["config", "user.name", "How E2E"]);
+	await runGit(clonePath, ["config", "user.email", "how-e2e@example.com"]);
+	await createRegularCommit(clonePath, "remote.md", "remote change\n", "Remote change");
+	await runGit(clonePath, ["push"]);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+		checkpointQuietMs: "5000",
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+		await fs.writeFile(path.join(repositoryPath, "local.md"), "local change\n");
+
+		await page.getByRole("button", { name: "Publish" }).click();
+
+		await expect(
+			page.getByText("The shared project has changes How cannot publish over yet."),
+		).toBeVisible();
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+		await fs.rm(remotePath, { recursive: true, force: true });
+		await fs.rm(clonePath, { recursive: true, force: true });
 	}
 });
 

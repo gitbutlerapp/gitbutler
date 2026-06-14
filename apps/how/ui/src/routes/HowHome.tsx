@@ -10,6 +10,7 @@ import {
 	RefreshCw,
 	Settings,
 	Trash2,
+	Upload,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { BrowsingSession, Checkpoint, HowStatus, SaveState } from "../../../electron/src/ipc";
@@ -152,6 +153,94 @@ function DirtyBrowsingDialog({
 	);
 }
 
+function PublishModeDialog({
+	onContinue,
+	onCancel,
+	busy,
+}: {
+	onContinue: () => Promise<void>;
+	onCancel: () => void;
+	busy: boolean;
+}) {
+	return (
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/20 px-4">
+			<section className="w-full max-w-md rounded-md border border-stone-200 bg-white p-5 shadow-lg">
+				<h2 className="text-base font-semibold tracking-normal text-stone-950">
+					How should this project publish?
+				</h2>
+				<div className="mt-4 space-y-2">
+					<label className="block rounded-md border border-stone-300 bg-stone-50 px-3 py-3">
+						<span className="flex items-center gap-2 text-sm font-medium text-stone-950">
+							<input type="radio" name="publish-mode" checked readOnly />
+							Publish directly
+						</span>
+						<span className="mt-1 block pl-5 text-sm text-stone-600">
+							Updates the shared project without a review.
+						</span>
+					</label>
+					<label className="block rounded-md border border-stone-200 bg-stone-100 px-3 py-3 opacity-60">
+						<span className="flex items-center gap-2 text-sm font-medium text-stone-600">
+							<input type="radio" name="publish-mode" disabled />
+							Review before publishing
+						</span>
+						<span className="mt-1 block pl-5 text-sm text-stone-500">Coming later.</span>
+					</label>
+				</div>
+				<div className="mt-5 flex justify-end gap-2">
+					<Button variant="ghost" onClick={onCancel} disabled={busy}>
+						Cancel
+					</Button>
+					<Button onClick={() => void onContinue()} disabled={busy}>
+						Continue
+					</Button>
+				</div>
+			</section>
+		</div>
+	);
+}
+
+function PublishDestinationDialog({
+	onPublish,
+	onCancel,
+	busy,
+}: {
+	onPublish: (destinationUrl: string) => Promise<void>;
+	onCancel: () => void;
+	busy: boolean;
+}) {
+	const [destinationUrl, setDestinationUrl] = useState("");
+	return (
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/20 px-4">
+			<section className="w-full max-w-md rounded-md border border-stone-200 bg-white p-5 shadow-lg">
+				<h2 className="text-base font-semibold tracking-normal text-stone-950">
+					Add a project destination
+				</h2>
+				<label className="mt-4 block text-sm font-medium text-stone-950">
+					Project destination URL
+					<input
+						className="mt-2 h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-950 outline-none focus:border-stone-500"
+						value={destinationUrl}
+						onChange={(event) => setDestinationUrl(event.target.value)}
+						placeholder="https://github.com/you/project.git"
+						disabled={busy}
+					/>
+				</label>
+				<div className="mt-5 flex justify-end gap-2">
+					<Button variant="ghost" onClick={onCancel} disabled={busy}>
+						Cancel
+					</Button>
+					<Button
+						onClick={() => void onPublish(destinationUrl)}
+						disabled={busy || destinationUrl.trim().length === 0}
+					>
+						Add destination and publish
+					</Button>
+				</div>
+			</section>
+		</div>
+	);
+}
+
 function Timeline({
 	checkpoints,
 	browsing,
@@ -219,6 +308,7 @@ function ProjectScreen({
 	onOpen,
 	onStart,
 	onDelete,
+	onPublish,
 	onView,
 	onContinue,
 	onReturnToLatest,
@@ -228,6 +318,7 @@ function ProjectScreen({
 	onOpen: () => Promise<void>;
 	onStart: () => Promise<void>;
 	onDelete: () => Promise<void>;
+	onPublish: () => Promise<void>;
 	onView: (checkpoint: Checkpoint) => Promise<void>;
 	onContinue: () => Promise<void>;
 	onReturnToLatest: () => Promise<void>;
@@ -267,6 +358,18 @@ function ProjectScreen({
 						</div>
 					</div>
 					<div className="flex items-center gap-2">
+						<Button
+							onClick={() => void onPublish()}
+							disabled={busy || Boolean(status.browsing)}
+							title={
+								status.browsing
+									? "Continue from here or return to latest before publishing."
+									: undefined
+							}
+						>
+							<Upload className="h-4 w-4" aria-hidden />
+							{status.message === "Publishing" ? "Publishing" : "Publish"}
+						</Button>
 						<span
 							className={`inline-flex h-8 items-center gap-2 rounded-md px-3 text-xs font-medium ${statusTone(
 								status.saveState,
@@ -310,6 +413,8 @@ export function HowHome() {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [pendingDirtyAction, setPendingDirtyAction] = useState<PendingDirtyAction | null>(null);
+	const [showPublishModeDialog, setShowPublishModeDialog] = useState(false);
+	const [showPublishDestinationDialog, setShowPublishDestinationDialog] = useState(false);
 
 	useEffect(() => {
 		let mounted = true;
@@ -443,6 +548,52 @@ export function HowHome() {
 		}
 	}
 
+	async function handlePublishResult(
+		result: Awaited<ReturnType<typeof window.how.publishProject>>,
+	): Promise<void> {
+		setStatus(result.status);
+		if (result.type === "needsPublishMode") setShowPublishModeDialog(true);
+		if (result.type === "needsDestination") setShowPublishDestinationDialog(true);
+	}
+
+	async function publishProject() {
+		setBusy(true);
+		setError(null);
+		try {
+			await handlePublishResult(await window.how.publishProject());
+		} catch {
+			setError("How could not publish to the shared project.");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function continueWithDirectPublish() {
+		setBusy(true);
+		setError(null);
+		try {
+			setShowPublishModeDialog(false);
+			await handlePublishResult(await window.how.publishProject({ publishMode: "direct" }));
+		} catch {
+			setError("How could not publish to the shared project.");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function publishWithDestination(destinationUrl: string) {
+		setBusy(true);
+		setError(null);
+		try {
+			setShowPublishDestinationDialog(false);
+			await handlePublishResult(await window.how.publishProject({ destinationUrl }));
+		} catch {
+			setError("How could not publish to the shared project.");
+		} finally {
+			setBusy(false);
+		}
+	}
+
 	async function leaveBrowsingChanges() {
 		const action = pendingDirtyAction;
 		if (!action) return;
@@ -506,6 +657,7 @@ export function HowHome() {
 				onOpen={openProject}
 				onStart={startProject}
 				onDelete={deleteProject}
+				onPublish={publishProject}
 				onView={viewCheckpoint}
 				onContinue={continueFromCheckpoint}
 				onReturnToLatest={returnToLatest}
@@ -515,6 +667,20 @@ export function HowHome() {
 				<DirtyBrowsingDialog
 					onLeave={leaveBrowsingChanges}
 					onCancel={() => setPendingDirtyAction(null)}
+				/>
+			) : null}
+			{showPublishModeDialog ? (
+				<PublishModeDialog
+					onContinue={continueWithDirectPublish}
+					onCancel={() => setShowPublishModeDialog(false)}
+					busy={busy}
+				/>
+			) : null}
+			{showPublishDestinationDialog ? (
+				<PublishDestinationDialog
+					onPublish={publishWithDestination}
+					onCancel={() => setShowPublishDestinationDialog(false)}
+					busy={busy}
 				/>
 			) : null}
 		</>

@@ -3,8 +3,11 @@ import {
 	createCheckpointCommit,
 	discoverRepository,
 	listCheckpointCommits,
+	publishDirect,
+	readPublishMode,
 	readProjectSettings,
 	resetToCommit,
+	writePublishMode,
 	writeProjectSettings,
 	type GitRepository,
 } from "../../../electron/src/git";
@@ -31,6 +34,20 @@ async function createTestRepository(): Promise<GitRepository> {
 	await runGit(["config", "user.name", "How Test"], { cwd: repositoryPath });
 	await runGit(["config", "user.email", "how-test@example.com"], { cwd: repositoryPath });
 	return await discoverRepository(repositoryPath);
+}
+
+async function createBareRepository(): Promise<string> {
+	const repositoryPath = await fs.mkdtemp(path.join(os.tmpdir(), "how-bare-test-"));
+	await runGit(["init", "--bare"], { cwd: repositoryPath });
+	return repositoryPath;
+}
+
+async function createRegularCommit(repository: GitRepository): Promise<void> {
+	await fs.writeFile(path.join(repository.worktreePath, "readme.md"), "hello\n");
+	await runGit(["add", "--all"], { cwd: repository.worktreePath });
+	await runGit(["commit", "--no-gpg-sign", "--message", "Initial"], {
+		cwd: repository.worktreePath,
+	});
 }
 
 describe("git helpers", () => {
@@ -97,6 +114,64 @@ describe("git helpers", () => {
 			checkpointDebounceMs: 1_000,
 			codingAgent: "claude",
 		});
+	});
+
+	test("reads and writes direct publish mode in local Git config", async () => {
+		const repository = await createTestRepository();
+
+		expect(await readPublishMode(repository.worktreePath)).toBeNull();
+		await writePublishMode(repository.worktreePath, "direct");
+
+		expect(
+			await runGit(["config", "--local", "--get", "how.publishMode"], {
+				cwd: repository.worktreePath,
+			}),
+		).toBe("direct");
+		expect(await readPublishMode(repository.worktreePath)).toBe("direct");
+	});
+
+	test("publishes current branch to origin and sets upstream", async () => {
+		const repository = await createTestRepository();
+		const remotePath = await createBareRepository();
+		await createRegularCommit(repository);
+		await runGit(["remote", "add", "origin", remotePath], { cwd: repository.worktreePath });
+		const branchName = await runGit(["branch", "--show-current"], { cwd: repository.worktreePath });
+
+		expect(await publishDirect(repository.worktreePath)).toEqual({ type: "published" });
+
+		expect(
+			await runGit(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], {
+				cwd: repository.worktreePath,
+			}),
+		).toBe(`origin/${branchName}`);
+		expect(await runGit(["rev-parse", branchName], { cwd: remotePath })).toBeTruthy();
+	});
+
+	test("asks for a project destination when no remote exists", async () => {
+		const repository = await createTestRepository();
+		await createRegularCommit(repository);
+
+		expect(await publishDirect(repository.worktreePath)).toEqual({ type: "needsDestination" });
+	});
+
+	test("adds origin from a project destination URL before publishing", async () => {
+		const repository = await createTestRepository();
+		const remotePath = await createBareRepository();
+		await createRegularCommit(repository);
+		const branchName = await runGit(["branch", "--show-current"], { cwd: repository.worktreePath });
+
+		expect(await publishDirect(repository.worktreePath, { destinationUrl: remotePath })).toEqual({
+			type: "published",
+		});
+
+		expect(await runGit(["remote", "get-url", "origin"], { cwd: repository.worktreePath })).toBe(
+			remotePath,
+		);
+		expect(
+			await runGit(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], {
+				cwd: repository.worktreePath,
+			}),
+		).toBe(`origin/${branchName}`);
 	});
 
 	test("builds checkpoint messages after staging changes", async () => {

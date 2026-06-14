@@ -192,6 +192,23 @@ function registerIpc(): void {
 	});
 	handle(howIpcChannels.deleteProject, async () => await getService().deleteProject());
 	handle(howIpcChannels.createCheckpointNow, async () => await getService().createCheckpointNow());
+	handle(howIpcChannels.publishProject, async (_event, input) => {
+		const publishMode =
+			typeof input === "object" &&
+			input !== null &&
+			"publishMode" in input &&
+			input.publishMode === "direct"
+				? "direct"
+				: undefined;
+		const destinationUrl =
+			typeof input === "object" &&
+			input !== null &&
+			"destinationUrl" in input &&
+			typeof input.destinationUrl === "string"
+				? input.destinationUrl
+				: undefined;
+		return await getService().publishProject({ publishMode, destinationUrl });
+	});
 	handle(howIpcChannels.saveProjectSettings, async (_event, settings) => {
 		if (typeof settings !== "object" || settings === null)
 			throw new Error("How could not save settings.");

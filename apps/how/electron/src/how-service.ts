@@ -1,12 +1,16 @@
 import { checkpointMessageForStagedChanges } from "./checkpoint-summarizer.js";
 import {
 	createCheckpointCommit,
+	DirectPublishError,
 	discoverRepository,
 	ensureGitRepository,
 	hasWorktreeChanges,
 	listCheckpointCommits,
+	publishDirect,
+	readPublishMode,
 	readProjectSettings,
 	resetToCommit,
+	writePublishMode,
 	writeProjectSettings,
 	type GitRepository,
 } from "./git.js";
@@ -15,6 +19,8 @@ import {
 	type BrowsingSession,
 	type Checkpoint,
 	type HowStatus,
+	type PublishProjectInput,
+	type PublishProjectResult,
 	type ProjectSettings,
 	type ProjectSummary,
 } from "./ipc.js";
@@ -139,6 +145,86 @@ export class HowService {
 	async createCheckpointNow(): Promise<HowStatus> {
 		await this.#createCheckpoint();
 		return this.getStatus();
+	}
+
+	async publishProject(input: PublishProjectInput = {}): Promise<PublishProjectResult> {
+		const project = this.#status.project;
+		if (!project) throw new Error("How could not find an open project.");
+		if (this.#status.browsing)
+			throw new Error("Continue from here or return to latest before publishing.");
+
+		const configuredPublishMode = await readPublishMode(project.path);
+		if (configuredPublishMode !== "direct" && input.publishMode !== "direct")
+			return { type: "needsPublishMode", status: this.getStatus() };
+		if (configuredPublishMode !== "direct")
+			await this.#runInternalGitOperation(
+				project,
+				async () => await writePublishMode(project.path, "direct"),
+			);
+
+		this.logger.info("Publishing project directly", {
+			projectId: project.id,
+			worktreePath: project.path,
+			hasDestinationUrl: Boolean(input.destinationUrl),
+		});
+		this.#clearScheduledCheckpoint();
+		await this.#waitForActiveSave();
+		this.#clearScheduledCheckpoint();
+		this.#saving = true;
+		this.#dirtyWhileSaving = false;
+		this.#status = {
+			...this.#status,
+			saveState: "saving",
+			message: "Publishing",
+		};
+		this.#emit();
+
+		try {
+			await this.#createCheckpointForPublish(project);
+			const result = await this.#runInternalGitOperation(
+				project,
+				async () => await publishDirect(project.path, { destinationUrl: input.destinationUrl }),
+			);
+			this.logger.info("Direct publish result", { projectId: project.id, result });
+			if (result.type === "needsDestination") {
+				this.#status = {
+					...this.#status,
+					saveState: "watching",
+					message: "Add a project destination",
+				};
+				this.#emit();
+				return { type: "needsDestination", status: this.getStatus() };
+			}
+
+			this.#status = {
+				...this.#status,
+				saveState: "saved",
+				message: "Published just now",
+				lastSavedAt: Date.now(),
+			};
+			this.#emit();
+			return { type: "published", status: this.getStatus() };
+		} catch (error) {
+			this.logger.error("Failed to publish project directly", error, { project });
+			this.#status = {
+				...this.#status,
+				saveState: "error",
+				message:
+					error instanceof DirectPublishError
+						? error.message
+						: error instanceof Error && error.message === "How could not save before publishing."
+							? error.message
+						: "How could not publish to the shared project.",
+			};
+			this.#emit();
+			return { type: "failed", status: this.getStatus() };
+		} finally {
+			this.#saving = false;
+			if (this.#dirtyWhileSaving) {
+				this.#dirtyWhileSaving = false;
+				if (await hasWorktreeChanges(project.id)) this.#scheduleCheckpoint();
+			}
+		}
 	}
 
 	async saveProjectSettings(settings: ProjectSettings): Promise<HowStatus> {
@@ -602,6 +688,31 @@ export class HowService {
 		);
 		this.logger.info("Checkpoint before browsing result", { projectId: project.id, commitId });
 		await this.#refreshTimeline();
+	}
+
+	async #createCheckpointForPublish(project: ProjectSummary): Promise<void> {
+		if (!(await hasWorktreeChanges(project.id))) return;
+
+		this.logger.info("Creating checkpoint before publishing", {
+			projectId: project.id,
+			worktreePath: project.path,
+		});
+		try {
+			const commitId = await this.#runInternalGitOperation(
+				project,
+				async () =>
+					await createCheckpointCommit(
+						project.id,
+						async () => await this.#checkpointMessageForStagedChanges(project),
+					),
+			);
+			this.logger.info("Checkpoint before publishing result", { projectId: project.id, commitId });
+			if (commitId === null) return;
+			await this.#refreshTimeline();
+		} catch (error) {
+			this.logger.error("Failed to create checkpoint before publishing", error, { project });
+			throw new Error("How could not save before publishing.");
+		}
 	}
 
 	async #checkpointMessageForStagedChanges(project: ProjectSummary): Promise<string> {

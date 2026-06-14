@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { HowElectronApi, HowStatus, OpenProjectResult, StatusEvent } from "./ipc";
+import type {
+	HowElectronApi,
+	HowStatus,
+	OpenProjectResult,
+	PublishProjectResult,
+	StatusEvent,
+} from "./ipc";
 
 const api: HowElectronApi = {
 	getStatus: async () => await (ipcRenderer.invoke("how:get-status") as Promise<HowStatus>),
@@ -10,6 +16,8 @@ const api: HowElectronApi = {
 	deleteProject: async () => await (ipcRenderer.invoke("how:delete-project") as Promise<HowStatus>),
 	createCheckpointNow: async () =>
 		await (ipcRenderer.invoke("how:create-checkpoint-now") as Promise<HowStatus>),
+	publishProject: async (input) =>
+		await (ipcRenderer.invoke("how:publish-project", input) as Promise<PublishProjectResult>),
 	saveProjectSettings: async (settings) =>
 		await (ipcRenderer.invoke("how:save-project-settings", settings) as Promise<HowStatus>),
 	viewCheckpoint: async (checkpointId, options) =>
