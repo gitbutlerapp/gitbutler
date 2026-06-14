@@ -2437,11 +2437,11 @@ const SegmentContent: FC<{
 		return (
 			<div>
 				<WorkspaceItemRow interactive={false} inert={inert}>
-					<GraphSegment glyph="parent" status="LocalOnly" />
+					<GraphSegment glyph="parent" status={segmentPushStatusToStatus(segment.pushStatus)} />
 					<WorkspaceItemRowLabel empty>No commits.</WorkspaceItemRowLabel>
 				</WorkspaceItemRow>
 				<WorkspaceItemRow interactive={false} className={styles.segmentParentItemRow} inert={inert}>
-					<GraphSegment glyph="parent" status="LocalOnly" />
+					<GraphSegment glyph="parent" status={segmentPushStatusToStatus(segment.pushStatus)} />
 				</WorkspaceItemRow>
 			</div>
 		);
