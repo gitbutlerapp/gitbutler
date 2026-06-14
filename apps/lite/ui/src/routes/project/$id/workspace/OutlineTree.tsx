@@ -118,7 +118,7 @@ import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { initNonEmpty, reverse, scanRight } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { GraphSegment } from "#ui/components/GraphSegment.tsx";
+import { GraphSegment, Status } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import {
@@ -1931,6 +1931,20 @@ const pushContextForSegment = ({
 	};
 };
 
+const segmentPushStatusToStatus = (pushStatus: PushStatus): Status => {
+	switch (pushStatus) {
+		case "nothingToPush":
+			return "LocalAndRemote";
+		case "unpushedCommits":
+		case "completelyUnpushed":
+			return "LocalOnly";
+		case "unpushedCommitsRequiringForce":
+			return "Diverged";
+		case "integrated":
+			return "Integrated";
+	}
+};
+
 const BranchRow: FC<
 	{
 		projectId: string;
@@ -2200,19 +2214,7 @@ const BranchRow: FC<
 			<GraphSegment
 				className={styles.branchRowGraphSegment}
 				glyph="forkRight"
-				status={(() => {
-					switch (pushStatus) {
-						case "nothingToPush":
-							return "LocalAndRemote";
-						case "unpushedCommits":
-						case "completelyUnpushed":
-							return "LocalOnly";
-						case "unpushedCommitsRequiringForce":
-							return "Diverged";
-						case "integrated":
-							return "Integrated";
-					}
-				})()}
+				status={segmentPushStatusToStatus(pushStatus)}
 			/>
 
 			<WorkspaceItemRowLabel heading>

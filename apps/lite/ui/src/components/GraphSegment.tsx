@@ -57,7 +57,7 @@ const stretchableGlyphs = new Set<GlyphType>([
 	"joinBoth",
 ]);
 
-type Status = "Diverged" | CommitState["type"];
+export type Status = "Diverged" | CommitState["type"];
 
 interface GraphSegmentProps extends ComponentProps<"div"> {
 	glyph: GlyphType;
