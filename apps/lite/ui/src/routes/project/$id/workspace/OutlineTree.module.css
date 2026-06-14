@@ -37,7 +37,7 @@
 	flex-direction: column;
 }
 
-.segmentCommits {
+.nonEmptySegment {
 	display: flex;
 	flex-direction: column;
 }

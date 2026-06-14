@@ -2448,7 +2448,7 @@ const NonEmptySegment: FC<{
 	const navigationIndex = assert(use(NavigationIndexContext));
 
 	return (
-		<div className={styles.segmentCommits}>
+		<div className={styles.nonEmptySegment}>
 			{segment.commits.map((commit) => (
 				<CommitC
 					key={commit.id}
