@@ -8,11 +8,13 @@ use but_core::{RepositoryExt, TreeStatus, ref_metadata::StackId, ui};
 use but_ctx::Context;
 use but_forge::ForgeReview;
 use but_graph::SegmentIndex;
+use but_serde::BStringForFrontend;
 use but_workspace::{
     ref_info::{Commit, LocalCommit, LocalCommitRelation, Segment},
     ui::PushStatus,
 };
 use gitbutler_branch_actions::upstream_integration::BranchStatus as UpstreamBranchStatus;
+use gitbutler_branch_actions::upstream_integration::StackStatuses;
 use gitbutler_operating_modes::OperatingMode;
 use gix::date::time::CustomFormat;
 use ratatui::{style::Modifier, text::Span};
@@ -168,6 +170,7 @@ struct StatusContext<'a> {
     review_map: std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     ci_map: BTreeMap<String, Vec<but_forge::CiCheck>>,
     branch_merge_statuses: BTreeMap<String, UpstreamBranchStatus>,
+    worktree_conflicts: Vec<BStringForFrontend>,
     has_branches: bool,
     is_paged: bool,
     should_truncate_for_terminal: bool,
@@ -437,10 +440,13 @@ async fn build_status_context<'a>(
     // Compute upstream integration statuses if --upstream flag is set
     // We need to drop locks before computing merge statuses
     // because upstream_integration_statuses requires exclusive access
-    let branch_merge_statuses: BTreeMap<String, UpstreamBranchStatus> = if flags.show_upstream {
-        compute_branch_merge_statuses(ctx).await?
+    let (branch_merge_statuses, worktree_conflicts): (
+        BTreeMap<String, UpstreamBranchStatus>,
+        Vec<BStringForFrontend>,
+    ) = if flags.show_upstream {
+        compute_upstream_status_info(ctx).await?
     } else {
-        BTreeMap::new()
+        (BTreeMap::new(), Vec::new())
     };
 
     let is_paged = out.is_paged();
@@ -455,6 +461,7 @@ async fn build_status_context<'a>(
         review_map,
         ci_map,
         branch_merge_statuses,
+        worktree_conflicts,
         flags,
         has_branches,
         is_paged,
@@ -481,6 +488,7 @@ fn build_status_output(
     print_update_notice(ctx, status_ctx, output)?;
     print_worktree_status(ctx, status_ctx, output)?;
     print_upstream_state(ctx, status_ctx, output)?;
+    print_upstream_worktree_conflicts(status_ctx, output)?;
     print_common_merge_base_summary(status_ctx, output)?;
     let not_on_workspace = matches!(
         status_ctx.mode,
@@ -700,6 +708,35 @@ fn print_common_merge_base_summary(
             Span::raw(first_line.to_string()),
         ]),
     )?;
+    Ok(())
+}
+
+fn print_upstream_worktree_conflicts(
+    status_ctx: &StatusContext<'_>,
+    output: &mut StatusOutput<'_>,
+) -> anyhow::Result<()> {
+    if !status_ctx.flags.show_upstream || status_ctx.worktree_conflicts.is_empty() {
+        return Ok(());
+    }
+
+    let t = crate::theme::get();
+    output.upstream_changes(
+        Vec::from([Span::raw("┊")]),
+        Vec::from([
+            Span::styled("conflicting uncommitted files", t.attention),
+            Span::raw(format!(" ({})", status_ctx.worktree_conflicts.len())),
+        ]),
+    )?;
+
+    for path in &status_ctx.worktree_conflicts {
+        let path = path.to_str_lossy().into_owned();
+        let path = truncate_when_needed(&path, 72, status_ctx.should_truncate_for_terminal);
+        output.upstream_changes(
+            Vec::from([Span::raw("┊│")]),
+            Vec::from([Span::raw("- "), Span::styled(path, t.hint)]),
+        )?;
+    }
+
     Ok(())
 }
 
@@ -1711,19 +1748,26 @@ impl CliDisplay for but_update::AvailableUpdate {
     }
 }
 
-async fn compute_branch_merge_statuses(
+async fn compute_upstream_status_info(
     ctx: &Context,
-) -> anyhow::Result<BTreeMap<String, UpstreamBranchStatus>> {
-    use gitbutler_branch_actions::upstream_integration::StackStatuses;
-
+) -> anyhow::Result<(
+    BTreeMap<String, UpstreamBranchStatus>,
+    Vec<BStringForFrontend>,
+)> {
     // Get upstream integration statuses using the public API
     let statuses =
         but_api::legacy::virtual_branches::upstream_integration_statuses(ctx.to_sync(), None)
             .await?;
 
     let mut result = BTreeMap::new();
+    let mut worktree_conflicts = Vec::new();
 
-    if let StackStatuses::UpdatesRequired { statuses, .. } = statuses {
+    if let StackStatuses::UpdatesRequired {
+        statuses,
+        worktree_conflicts: conflicts,
+    } = statuses
+    {
+        worktree_conflicts = conflicts;
         for (_stack_id, stack_status) in statuses {
             for branch_status in stack_status.branch_statuses {
                 result.insert(branch_status.name.clone(), branch_status.status);
@@ -1731,7 +1775,7 @@ async fn compute_branch_merge_statuses(
         }
     }
 
-    Ok(result)
+    Ok((result, worktree_conflicts))
 }
 
 #[cfg(test)]
