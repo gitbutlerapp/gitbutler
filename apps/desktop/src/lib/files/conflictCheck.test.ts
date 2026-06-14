@@ -74,4 +74,25 @@ describe("hasUnresolvedConflictsOnDisk", () => {
 		expect(result).toBe(true);
 		expect(fileService.readFromWorkspace).toHaveBeenCalledTimes(1);
 	});
+
+	test("treats a conflicted binary file with null content as resolved without throwing", async () => {
+		const files = [
+			{
+				path: "image.png",
+				conflictEntryPresence: BOTH_SIDES_PRESENT,
+			},
+		];
+		// Binary files are returned by the backend with null content; the previous
+		// implementation crashed here with "null is not an object (evaluating 's.split')".
+		const fileService = {
+			readFromWorkspace: vi.fn(async () => ({
+				data: { content: null as unknown as string },
+				isLarge: false,
+			})),
+		} as unknown as FileService;
+
+		const result = await hasUnresolvedConflictsOnDisk(files, new Set(), fileService, "proj");
+
+		expect(result).toBe(false);
+	});
 });

@@ -30,7 +30,10 @@ export function conflictEntryHint(presence: ConflictEntryPresence): string {
 	return `You have ${theirsVerb} this file, They have ${oursVerb} this file.`;
 }
 
-function looksConflicted(file: string): boolean {
+function looksConflicted(file: string | null | undefined): boolean {
+	if (!file) {
+		return false;
+	}
 	const lines = file.split("\n");
 	for (const line of lines) {
 		if (line.startsWith("<<<<<<<")) {
@@ -44,7 +47,7 @@ export type ConflictState = "conflicted" | "resolved" | "unknown";
 
 export function getConflictState(
 	conflictEntryPresence: ConflictEntryPresence,
-	file: string,
+	file: string | null | undefined,
 ): ConflictState {
 	if (!conflictEntryPresence.ours || !conflictEntryPresence.theirs) {
 		return "conflicted";
