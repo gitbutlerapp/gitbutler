@@ -149,12 +149,10 @@ impl BranchArg {
     }
 
     /// Resolve the argument to a branch that exists in the repository.
-    pub fn resolve_branch(&self, ctx: &but_ctx::Context) -> CliResult<ResolvedBranchRef> {
-        let repo = ctx.repo.get()?;
-
+    pub fn resolve_branch(&self, repo: &gix::Repository) -> CliResult<ResolvedBranchRef> {
         for category in [Category::LocalBranch, Category::RemoteBranch] {
             let branch_name = category.to_full_name(&*self.0)?;
-            if let Some(resolved) = resolve_branch_ref(&repo, &branch_name)? {
+            if let Some(resolved) = resolve_branch_ref(repo, &branch_name)? {
                 return Ok(resolved);
             }
         }
@@ -165,7 +163,7 @@ impl BranchArg {
                 remote_name.as_bstr().to_str_lossy(),
                 self.0
             ))?;
-            if let Some(resolved) = resolve_branch_ref(&repo, &branch_name)? {
+            if let Some(resolved) = resolve_branch_ref(repo, &branch_name)? {
                 return Ok(resolved);
             }
         }

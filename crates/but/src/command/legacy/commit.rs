@@ -31,45 +31,48 @@ pub(crate) fn insert_blank_commit(
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
-    let (target, insert_side) = if let Some(t) = before {
-        (
-            t.resolve_in_workspace(ctx, &id_map, Purpose::Target, None)?
-                .into_branch_or_commit()?,
-            InsertSide::Below,
-        )
-    } else if let Some(t) = after {
-        (
-            t.resolve_in_workspace(ctx, &id_map, Purpose::Target, None)?
-                .into_branch_or_commit()?,
-            InsertSide::Above,
-        )
-    } else if let Some(t) = target {
-        // Default to --before behavior when using positional argument
-        (
-            t.resolve_in_workspace(ctx, &id_map, Purpose::Target, None)?
-                .into_branch_or_commit()?,
-            InsertSide::Below,
-        )
-    } else {
-        // No arguments provided - default to inserting at top of first branch
+    let (target, insert_side) = {
+        let repo = ctx.repo.get()?;
+        if let Some(t) = before {
+            (
+                t.resolve_in_workspace(&repo, &id_map, Purpose::Target, None)?
+                    .into_branch_or_commit()?,
+                InsertSide::Below,
+            )
+        } else if let Some(t) = after {
+            (
+                t.resolve_in_workspace(&repo, &id_map, Purpose::Target, None)?
+                    .into_branch_or_commit()?,
+                InsertSide::Above,
+            )
+        } else if let Some(t) = target {
+            // Default to --before behavior when using positional argument
+            (
+                t.resolve_in_workspace(&repo, &id_map, Purpose::Target, None)?
+                    .into_branch_or_commit()?,
+                InsertSide::Below,
+            )
+        } else {
+            // No arguments provided - default to inserting at top of first branch
 
-        let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
+            let stacks = crate::legacy::workspace::applied_stacks(ctx)?;
 
-        // Find the first stack with branches and convert BString to String
-        let branch_name = stacks
-            .iter()
-            .filter(|stack| stack.id.is_some())
-            .find_map(|stack| stack.top_branch_name().map(ToOwned::to_owned))
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "No branches found. Create a branch first or specify a target explicitly."
-                )
-            })?;
+            // Find the first stack with branches and convert BString to String
+            let branch_name = stacks
+                .iter()
+                .filter(|stack| stack.id.is_some())
+                .find_map(|stack| stack.top_branch_name().map(ToOwned::to_owned))
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "No branches found. Create a branch first or specify a target explicitly."
+                    )
+                })?;
 
-        (
-            BranchOrCommit::Branch(BranchArg(branch_name)),
-            InsertSide::Below,
-        )
+            (
+                BranchOrCommit::Branch(BranchArg(branch_name)),
+                InsertSide::Below,
+            )
+        }
     };
 
     let position_desc = match insert_side {
@@ -314,8 +317,9 @@ pub(crate) fn commit(
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
     let branch_hint = if let Some(branch_arg) = branch_arg {
+        let repo = ctx.repo.get()?;
         if let Some(branch) = branch_arg
-            .try_resolve(ctx, &id_map, Purpose::Branch, Some(Priority::Branch))?
+            .try_resolve(&repo, &id_map, Purpose::Branch, Some(Priority::Branch))?
             .and_then(|id| {
                 if let ResolvedCliIdArg::Branch(BranchArg(branch)) = id {
                     Some(branch)
