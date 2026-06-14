@@ -394,6 +394,36 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn create_commit_on_new_branch_with_canned_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("file.txt", "Some text");
+
+    env.but("commit2 -m 'add file.txt' -b").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄br [a-branch-1]
+┊●   633b765 add file.txt
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
 fn create_commit_on_branch_that_is_not_applied_fails() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
     env.setup_metadata(&[]).unwrap();
@@ -451,6 +481,3 @@ fn newly_created_branches_are_included_in_json_output() {
 
 "#]]);
 }
-
-// -b without branch name
-// commit2 -m 'add file.txt' -b

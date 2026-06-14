@@ -207,31 +207,39 @@ fn run(
 fn route_commit_operation(
     repo: &gix::Repository,
     head_info: &RefInfo,
-    branch: Option<BranchArg>,
+    branch: Option<Option<BranchArg>>,
 ) -> CliResult<CommitOperation> {
-    if let Some(branch) = branch {
-        if let Some(segment) = branch.try_resolve_segment(head_info)? {
-            let ref_info = segment.ref_info.with_context(|| {
-                format!("BUG: Segment resolved from branch name {branch} has no ref info")
-            })?;
+    match branch {
+        Some(Some(branch)) => {
+            if let Some(segment) = branch.try_resolve_segment(head_info)? {
+                let ref_info = segment.ref_info.with_context(|| {
+                    format!("BUG: Segment resolved from branch name {branch} has no ref info")
+                })?;
 
-            return Ok(CommitOperation::CommitToExistingBranch(
-                CommitToExistingBranchOperation {
-                    branch_name: ref_info.ref_name,
-                },
-            ));
-        } else {
-            let branch_name = BranchArg(branch.resolve_for_creation(repo, head_info).hint(
-                format!("Run `but apply {branch}` to apply the branch first"),
-            )?)
-            .resolve_local_branch_name()?;
+                return Ok(CommitOperation::CommitToExistingBranch(
+                    CommitToExistingBranchOperation {
+                        branch_name: ref_info.ref_name,
+                    },
+                ));
+            } else {
+                let branch_name = BranchArg(branch.resolve_for_creation(repo, head_info).hint(
+                    format!("Run `but apply {branch}` to apply the branch first"),
+                )?)
+                .resolve_local_branch_name()?;
+                return Ok(CommitOperation::CommitToNewBranch(
+                    CommitToNewBranchOperation {
+                        branch_name: Some(branch_name),
+                    },
+                ));
+            }
+        }
+        Some(None) => {
             return Ok(CommitOperation::CommitToNewBranch(
-                CommitToNewBranchOperation {
-                    branch_name: Some(branch_name),
-                },
+                CommitToNewBranchOperation { branch_name: None },
             ));
         }
-    }
+        None => (),
+    };
 
     let mut stacks = head_info.stacks.iter();
     if let Some(stack) = stacks.next() {
