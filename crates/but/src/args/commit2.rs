@@ -8,4 +8,6 @@ pub struct Platform {
     pub message: Option<Vec<String>>,
     #[clap(short, long)]
     pub branch: Option<Option<BranchArg>>,
+    #[clap(long)]
+    pub empty: bool,
 }

@@ -481,3 +481,38 @@ fn newly_created_branches_are_included_in_json_output() {
 
 "#]]);
 }
+
+#[test]
+fn empty_flag_to_force_empty_commit_when_changes_exist() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file(
+        "changes",
+        "Some changes that will not be included in commit",
+    );
+
+    env.but("commit2 -m 'empty commit despite changes in worktree' --empty")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes]
+┊   vq A changes
+┊
+┊╭┄br [a-branch-1]
+┊●   341ce70 empty commit despite changes in worktree (no changes)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+}
+
+// -b without branch name
+// commit2 -m 'add file.txt' -b
