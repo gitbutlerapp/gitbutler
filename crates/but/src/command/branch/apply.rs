@@ -16,6 +16,16 @@ pub fn apply(mut ctx: Context, branch_name: &str, out: &mut OutputChannel) -> an
         guard.write_permission(),
     )?;
 
+    if !outcome.conflicting_stack_ids.is_empty() {
+        let short_name = reference.name.shorten();
+        let is_remote = reference
+            .name
+            .category()
+            .is_some_and(|c| c == Category::RemoteBranch);
+        let prefix = if is_remote { "remote branch" } else { "branch" };
+        anyhow::bail!("'{short_name}' ({prefix}) conflicts with existing stacks in the workspace");
+    }
+
     if let Some(out) = out.for_human() {
         // Since `applied_branches` is the actual applied branches, turning remotes into local branches,
         // hack it into submission while the legacy version exists that it has to match.

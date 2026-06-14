@@ -464,6 +464,39 @@ Applied branch 'feature-2' to workspace
     Ok(())
 }
 
+#[test]
+fn apply_branch_conflicting_with_workspace_reports_error() -> anyhow::Result<()> {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
+    insta::assert_snapshot!(env.git_log()?, @"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
+
+    env.setup_metadata(&["A"])?;
+
+    env.invoke_bash(
+        r#"
+    git checkout main -b conflicting-branch;
+    echo 'conflicting-A-content' > A;
+    git add A;
+    git commit -m 'Add conflicting A';
+    git checkout gitbutler/workspace;
+    "#,
+    );
+
+    env.but("apply conflicting-branch")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to apply branch. 'conflicting-branch' (branch) conflicts with existing stacks in the workspace
+
+"#]])
+        .stdout_eq(str![""]);
+
+    Ok(())
+}
+
 mod utils {
     use crate::utils::Sandbox;
 
