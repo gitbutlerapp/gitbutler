@@ -111,8 +111,15 @@ pub fn post_commit_hook(ctx: &but_ctx::Context) -> Result<HookResult> {
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn message_hook(ctx: &but_ctx::Context, message: String) -> Result<MessageHookResult> {
-    gitbutler_repo::hooks::commit_msg(ctx, message)
+pub fn message_hook(
+    ctx: &but_ctx::Context,
+    message: String,
+    branch_ref: Option<String>,
+) -> Result<MessageHookResult> {
+    let branch_ref_parsed = branch_ref
+        .as_deref()
+        .and_then(|s| s.try_into().ok());
+    gitbutler_repo::hooks::commit_msg_with_branch(ctx, message, branch_ref_parsed)
 }
 
 #[but_api]

@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::Result;
 use bstr::ByteSlice;
+use but_core::RefMetadata;
 use but_ctx::Context;
 use but_oxidize::ObjectIdExt;
 use git2_hooks::{self, HookResult as H};
@@ -53,7 +54,23 @@ fn husky_search_paths(ctx: &Context) -> Option<&'static [&'static str]> {
     }
 }
 
-pub fn commit_msg(ctx: &Context, mut message: String) -> Result<MessageHookResult> {
+pub fn commit_msg(ctx: &Context, message: String) -> Result<MessageHookResult> {
+    commit_msg_with_branch(ctx, message, None)
+}
+
+pub fn commit_msg_with_branch(
+    ctx: &Context,
+    mut message: String,
+    branch_ref: Option<&gix::refs::FullNameRef>,
+) -> Result<MessageHookResult> {
+    // Set GITBUTLER_TARGET_STACK environment variable
+    // If a specific branch is provided, use that; otherwise fall back to workspace target
+    let _target_stack_guard = if let Some(branch_ref) = branch_ref {
+        set_stack_env(branch_ref)
+    } else {
+        set_target_stack_env(ctx)
+    };
+
     let original_message = message.clone();
     #[expect(deprecated, reason = "libgit2 hook adapter boundary")]
     match git2_hooks::hooks_commit_msg(
@@ -95,6 +112,9 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<Hoo
     index.read_tree(&repo.find_tree(tree_id.to_git2())?)?;
     index.write()?;
 
+    // Set GITBUTLER_TARGET_STACK environment variable if a target stack is configured
+    let _target_stack_guard = set_target_stack_env(ctx);
+
     Ok(
         match git2_hooks::hooks_pre_commit(repo, husky_search_paths(ctx))? {
             H::Ok { hook: _ } => HookResult::Success,
@@ -119,6 +139,9 @@ pub fn pre_commit_with_tree(ctx: &Context, tree_id: gix::ObjectId) -> Result<Hoo
 }
 
 pub fn post_commit(ctx: &Context) -> Result<HookResult> {
+    // Set GITBUTLER_TARGET_STACK environment variable if a target stack is configured
+    let _target_stack_guard = set_target_stack_env(ctx);
+
     #[expect(deprecated, reason = "libgit2 hook adapter boundary")]
     match git2_hooks::hooks_post_commit(&*ctx.git2_repo.get()?, husky_search_paths(ctx))? {
         H::Ok { hook: _ } => Ok(HookResult::Success),
@@ -252,4 +275,54 @@ fn join_output(stdout: String, stderr: String, code: Option<i32>) -> String {
         return stdout;
     }
     format!("stdout:\n{stdout}\n\nstderr:\n{stderr}{code}")
+}
+
+/// Set the GITBUTLER_TARGET_STACK environment variable from a specific branch reference.
+/// Returns a guard that will unset the environment variable when dropped.
+fn set_stack_env(branch_ref: &gix::refs::FullNameRef) -> Option<TargetStackEnvGuard> {
+    // Extract the short branch name from the branch ref
+    let short_branch_name = but_core::extract_short_branch_name(branch_ref)?;
+
+    // Set the environment variable
+    // SAFETY: This is safe because we're setting an environment variable in a controlled
+    // scope with the guard pattern ensuring it will be properly cleaned up when dropped.
+    // The variable name and value are both valid UTF-8 strings.
+    unsafe {
+        std::env::set_var("GITBUTLER_TARGET_STACK", &short_branch_name);
+    }
+
+    Some(TargetStackEnvGuard { was_set: true })
+}
+
+/// Set the GITBUTLER_TARGET_STACK environment variable based on the workspace's target ref.
+/// Returns a guard that will unset the environment variable when dropped.
+///
+/// This allows hooks to know which stack/branch commits are targeting, which is useful for
+/// hooks that need context about the target stack or integration branch.
+fn set_target_stack_env(ctx: &Context) -> Option<TargetStackEnvGuard> {
+    // Try to read workspace metadata to get the target ref
+    let meta = ctx.meta().ok()?;
+    let workspace_ref: &gix::refs::FullNameRef = but_core::WORKSPACE_REF_NAME.try_into().ok()?;
+    let workspace = meta.workspace(workspace_ref).ok()?;
+    let target_ref = workspace.target_ref.as_ref()?;
+
+    set_stack_env(target_ref.as_ref())
+}
+
+/// Guard that unsets the GITBUTLER_TARGET_STACK environment variable when dropped.
+struct TargetStackEnvGuard {
+    was_set: bool,
+}
+
+impl Drop for TargetStackEnvGuard {
+    fn drop(&mut self) {
+        if self.was_set {
+            // SAFETY: This is safe because we're only removing an environment variable
+            // that we set ourselves in set_target_stack_env(), and we're doing it
+            // in a controlled scope via the guard pattern to ensure proper cleanup.
+            unsafe {
+                std::env::remove_var("GITBUTLER_TARGET_STACK");
+            }
+        }
+    }
 }
