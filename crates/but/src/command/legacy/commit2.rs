@@ -128,7 +128,7 @@ fn resolve(
     let reword_op = match (no_message, message) {
         (true, None) => RewordCommitOperation::NoMessage,
         (false, None) => RewordCommitOperation::UseEditor,
-        (false, Some(message)) => RewordCommitOperation::Message(message),
+        (false, Some(message)) => RewordCommitOperation::Message(message.join("\n\n")),
         (true, Some(_)) => {
             unreachable!("--no-message and --message are mutually exclusive")
         }
