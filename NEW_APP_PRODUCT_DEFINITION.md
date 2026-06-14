@@ -185,22 +185,55 @@ require account or AI setup before it is useful.
 No diff viewer exists in v1. The timeline is for orientation and returning to
 earlier moments, not for code review.
 
-## Restore
+## Checkpoint Browsing And Restore
 
-Restore is a full-project restore to the selected Checkpoint.
+Restore is a full-project return to a selected Checkpoint, but the user should
+not be forced to choose the new direction immediately.
 
-Because v1 has no diff viewer, Restore must be forgiving. Before going back,
-the app automatically creates one last Checkpoint of the current state. If that
-Checkpoint cannot be created, the app does not restore and shows a plain-language
-error.
+Because v1 has no diff viewer, Restore must be forgiving. Going back is split
+into two distinct ideas:
 
-The MVP restore implementation resets the current branch directly to the
-selected Checkpoint. This means the last Checkpoint created before going back is
-recoverable from Git, but may no longer appear in How's simple current-branch
-timeline after the reset. This is an intentional MVP gap. A future design should
-preserve "went back from / can go forward to" information in a way that remains
-readable from Git state as much as possible, rather than hiding the recovery path
-inside app-only state.
+- **Browsing Checkpoints**: temporarily viewing an earlier Checkpoint without
+  choosing a new direction.
+- **Continue from here**: deciding that the currently viewed Checkpoint is the
+  new place to build from.
+
+Before entering browsing mode, How creates a Checkpoint for the current state if
+there are unsaved changes. If that Checkpoint cannot be created, the app does not
+enter browsing and shows a plain-language error.
+
+Browsing never changes history. While browsing, How pauses automatic Checkpoint
+creation so a local test or accidental edit does not silently turn inspection
+into a new direction. The timeline should keep showing the full Checkpoint chain
+the user was browsing from, so the user can move from A to B to C before choosing
+where to continue.
+
+If the user changes files while browsing, How should not autosave. Instead, it
+marks the state as changed while browsing. If the user tries to view another
+Checkpoint, return to the latest Checkpoint, switch projects, or delete the
+project from How, How asks what to do in plain language:
+
+- **Leave changes**: discard the browsing edits and move to the requested
+  Checkpoint or latest state.
+- **Cancel**: stay at the current browsed Checkpoint with the edits intact.
+
+**Continue from here** is a separate explicit action in the browsing UI. If the
+browsed state has edits, it creates a Checkpoint from the browsed Checkpoint plus
+the edits, exits browsing, and makes that new Checkpoint the current state. If
+the browsed state is clean, it exits browsing at the selected Checkpoint without
+creating another Checkpoint.
+
+Going back is reversible until the user explicitly starts building from the
+earlier Checkpoint by choosing **Continue from here**. Once they continue, How
+treats that as the new direction while preserving the old direction in
+recoverable project history.
+
+The MVP browsing implementation persists browsing state in How's local Electron
+state so the app can restart while still knowing that autosave is paused and
+which Checkpoint is being viewed. This is intentionally not the final history
+model. A future design should preserve "went back from / can go forward to"
+information in a way that remains readable from Git state as much as possible,
+rather than hiding the recovery path inside app-only state.
 
 ## Publish
 
@@ -381,6 +414,9 @@ Desired future APIs:
 - `createCheckpoint(projectId, options)` as a stable product abstraction.
 - `listCheckpoints(projectId, limit?)`.
 - `restoreCheckpoint(projectId, checkpointId)`.
+- `browseCheckpoint(projectId, checkpointId)`.
+- `continueFromCheckpoint(projectId, options)`.
+- `returnToLatestCheckpoint(projectId)`.
 - `getCheckpointStatus(projectId)` or `projectEligibility(projectId)`.
 - `meaningfulChanges(projectId)` or a Checkpoint dry-run/status result.
 
@@ -415,10 +451,10 @@ than making the caller assemble branch, commit, diff, and repository details.
 - Generation-completion hooks can create Checkpoints immediately.
 - Timeline is time-based, with optional AI labels.
 - No diff viewer in v1.
-- Restore is full-project restore with one last automatic Checkpoint first.
-- MVP restore creates a final Checkpoint before resetting, but the visible
-  timeline may not show that final Checkpoint after the reset. Design a
-  Git-readable forward/back history later.
+- Restore uses browsing mode: viewing Checkpoints pauses autosave and does not
+  choose a new direction until the user clicks **Continue from here**.
+- Browsing state is persisted locally for now. Design a Git-readable
+  forward/back history later.
 - Publish supports review and direct modes.
 - Publish mode is chosen at first Publish and sticks per project.
 - Direct publish is allowed only for projects configured for direct publish.

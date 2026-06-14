@@ -115,3 +115,8 @@ export async function createCheckpointCommit(
 export async function resetToCommit(worktreePath: string, commitId: string): Promise<void> {
 	await runGit(["reset", "--hard", commitId], { cwd: worktreePath });
 }
+
+export async function hasWorktreeChanges(worktreePath: string): Promise<boolean> {
+	const status = await runGit(["status", "--porcelain"], { cwd: worktreePath });
+	return status.length > 0;
+}

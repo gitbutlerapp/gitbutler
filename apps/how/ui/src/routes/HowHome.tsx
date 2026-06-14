@@ -3,14 +3,14 @@ import {
 	AlertCircle,
 	Check,
 	Clock,
+	Eye,
 	FolderOpen,
 	Plus,
 	RefreshCw,
-	RotateCcw,
 	Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { Checkpoint, HowStatus, SaveState } from "../../../electron/src/ipc";
+import type { BrowsingSession, Checkpoint, HowStatus, SaveState } from "../../../electron/src/ipc";
 
 const initialStatus: HowStatus = {
 	project: null,
@@ -18,6 +18,7 @@ const initialStatus: HowStatus = {
 	message: null,
 	lastSavedAt: null,
 	checkpoints: [],
+	browsing: null,
 };
 
 function statusLabel(status: HowStatus): string {
@@ -112,13 +113,48 @@ function EmptyState({
 	);
 }
 
+type PendingDirtyAction =
+	| { type: "view"; checkpoint: Checkpoint }
+	| { type: "returnToLatest" }
+	| { type: "open" }
+	| { type: "start" }
+	| { type: "delete" };
+
+function DirtyBrowsingDialog({
+	onLeave,
+	onCancel,
+}: {
+	onLeave: () => Promise<void>;
+	onCancel: () => void;
+}) {
+	return (
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/20 px-4">
+			<section className="w-full max-w-sm rounded-md border border-stone-200 bg-white p-5 shadow-lg">
+				<h2 className="text-base font-semibold tracking-normal text-stone-950">Leave changes?</h2>
+				<p className="mt-2 text-sm leading-6 text-stone-600">
+					You changed files while browsing this checkpoint. To keep those changes, choose
+					Continue from here first.
+				</p>
+				<div className="mt-5 flex justify-end gap-2">
+					<Button variant="ghost" onClick={onCancel}>
+						Cancel
+					</Button>
+					<Button onClick={() => void onLeave()}>Leave changes</Button>
+				</div>
+			</section>
+		</div>
+	);
+}
+
 function Timeline({
 	checkpoints,
-	onRestore,
+	browsing,
+	onView,
 	busy,
 }: {
 	checkpoints: Array<Checkpoint>;
-	onRestore: (checkpoint: Checkpoint) => Promise<void>;
+	browsing: BrowsingSession | null;
+	onView: (checkpoint: Checkpoint) => Promise<void>;
 	busy: boolean;
 }) {
 	if (checkpoints.length === 0)
@@ -136,23 +172,34 @@ function Timeline({
 			{checkpoints.map((checkpoint, index) => (
 				<li
 					key={checkpoint.id}
-					className="group grid grid-cols-[auto_1fr_auto] gap-4 rounded-md border border-stone-200 bg-stone-100 px-4 py-3"
+					className={`group grid grid-cols-[auto_1fr_auto] gap-4 rounded-md border px-4 py-3 ${
+						browsing?.currentCheckpointId === checkpoint.id
+							? "border-stone-500 bg-white"
+							: "border-stone-200 bg-stone-100"
+					}`}
 				>
 					<div className="mt-1 h-2.5 w-2.5 rounded-full bg-stone-700" />
 					<div className="min-w-0 flex-1">
-						<p className="truncate text-sm font-medium text-stone-950">{checkpoint.title}</p>
+						<div className="flex min-w-0 items-center gap-2">
+							<p className="truncate text-sm font-medium text-stone-950">{checkpoint.title}</p>
+							{browsing?.currentCheckpointId === checkpoint.id ? (
+								<span className="shrink-0 rounded-md bg-stone-200 px-2 py-0.5 text-xs font-medium text-stone-700">
+									viewing
+								</span>
+							) : null}
+						</div>
 						<p className="mt-1 text-xs text-stone-500">{formatTime(checkpoint.createdAt)}</p>
 					</div>
-					{index === 0 ? null : (
+					{(index === 0 && !browsing) || browsing?.currentCheckpointId === checkpoint.id ? null : (
 						<Button
 							variant="ghost"
 							size="sm"
 							className="invisible self-center group-hover:visible group-focus-within:visible"
-							onClick={() => void onRestore(checkpoint)}
+							onClick={() => void onView(checkpoint)}
 							disabled={busy}
 						>
-							<RotateCcw className="h-4 w-4" aria-hidden />
-							go back
+							<Eye className="h-4 w-4" aria-hidden />
+							view
 						</Button>
 					)}
 				</li>
@@ -166,14 +213,18 @@ function ProjectScreen({
 	onOpen,
 	onStart,
 	onDelete,
-	onRestore,
+	onView,
+	onContinue,
+	onReturnToLatest,
 	busy,
 }: {
 	status: HowStatus;
 	onOpen: () => Promise<void>;
 	onStart: () => Promise<void>;
 	onDelete: () => Promise<void>;
-	onRestore: (checkpoint: Checkpoint) => Promise<void>;
+	onView: (checkpoint: Checkpoint) => Promise<void>;
+	onContinue: () => Promise<void>;
+	onReturnToLatest: () => Promise<void>;
 	busy: boolean;
 }) {
 	const project = status.project;
@@ -214,8 +265,27 @@ function ProjectScreen({
 					</div>
 				</header>
 
+				{status.browsing ? (
+					<section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-stone-200 bg-white px-4 py-3">
+						<p className="text-sm text-stone-600">You are viewing an earlier checkpoint.</p>
+						<div className="flex flex-wrap gap-2">
+							<Button variant="secondary" onClick={() => void onReturnToLatest()} disabled={busy}>
+								Return to latest
+							</Button>
+							<Button onClick={() => void onContinue()} disabled={busy}>
+								Continue from here
+							</Button>
+						</div>
+					</section>
+				) : null}
+
 				<section>
-					<Timeline checkpoints={status.checkpoints} onRestore={onRestore} busy={busy} />
+					<Timeline
+						checkpoints={status.checkpoints}
+						browsing={status.browsing}
+						onView={onView}
+						busy={busy}
+					/>
 				</section>
 			</div>
 		</main>
@@ -226,6 +296,7 @@ export function HowHome() {
 	const [status, setStatus] = useState<HowStatus>(initialStatus);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [pendingDirtyAction, setPendingDirtyAction] = useState<PendingDirtyAction | null>(null);
 
 	useEffect(() => {
 		let mounted = true;
@@ -256,15 +327,50 @@ export function HowHome() {
 		}
 	}
 
+	async function leaveCleanBrowsing(): Promise<boolean> {
+		if (!status.browsing) {
+			return true;
+		}
+		if (status.browsing.dirty) {
+			return false;
+		}
+		setBusy(true);
+		setError(null);
+		try {
+			setStatus(await window.how.returnToLatest());
+			return true;
+		} catch {
+			setError("How could not return to latest.");
+			return false;
+		} finally {
+			setBusy(false);
+		}
+	}
+
 	async function openProject() {
+		if (status.browsing?.dirty) {
+			setPendingDirtyAction({ type: "open" });
+			return;
+		}
+		if (!(await leaveCleanBrowsing())) return;
 		await runProjectAction(async () => await window.how.openProject());
 	}
 
 	async function startProject() {
+		if (status.browsing?.dirty) {
+			setPendingDirtyAction({ type: "start" });
+			return;
+		}
+		if (!(await leaveCleanBrowsing())) return;
 		await runProjectAction(async () => await window.how.startProject());
 	}
 
 	async function deleteProject() {
+		if (status.browsing?.dirty) {
+			setPendingDirtyAction({ type: "delete" });
+			return;
+		}
+		if (!(await leaveCleanBrowsing())) return;
 		const confirmed = window.confirm(
 			"Remove this project from How? Your project folder and files will stay where they are.",
 		);
@@ -280,33 +386,124 @@ export function HowHome() {
 		}
 	}
 
-	async function restoreCheckpoint(checkpoint: Checkpoint) {
-		const confirmed = window.confirm(
-			"Go back to this checkpoint? How will save your current work first.",
-		);
-		if (!confirmed) return;
+	async function viewCheckpoint(checkpoint: Checkpoint) {
+		if (status.browsing?.dirty) {
+			setPendingDirtyAction({ type: "view", checkpoint });
+			return;
+		}
 		setBusy(true);
 		setError(null);
 		try {
-			setStatus(await window.how.restoreCheckpoint(checkpoint.id));
+			setStatus(await window.how.viewCheckpoint(checkpoint.id));
 		} catch {
-			setError("How could not go back.");
+			setError("How could not view that checkpoint.");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function continueFromCheckpoint() {
+		setBusy(true);
+		setError(null);
+		try {
+			setStatus(await window.how.continueFromCheckpoint());
+		} catch {
+			setError("How could not continue from here.");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function returnToLatest() {
+		if (status.browsing?.dirty) {
+			setPendingDirtyAction({ type: "returnToLatest" });
+			return;
+		}
+		setBusy(true);
+		setError(null);
+		try {
+			setStatus(await window.how.returnToLatest());
+		} catch {
+			setError("How could not return to latest.");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function leaveBrowsingChanges() {
+		const action = pendingDirtyAction;
+		if (!action) return;
+		setPendingDirtyAction(null);
+		setBusy(true);
+		setError(null);
+		try {
+			if (action.type === "view")
+				setStatus(
+					await window.how.viewCheckpoint(action.checkpoint.id, {
+						discardBrowsingChanges: true,
+					}),
+				);
+			if (action.type === "returnToLatest")
+				setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
+			if (action.type === "open") {
+				setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
+				setBusy(false);
+				await runProjectAction(async () => await window.how.openProject());
+				return;
+			}
+			if (action.type === "start") {
+				setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
+				setBusy(false);
+				await runProjectAction(async () => await window.how.startProject());
+				return;
+			}
+			if (action.type === "delete") {
+				setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
+				setBusy(false);
+				const confirmed = window.confirm(
+					"Remove this project from How? Your project folder and files will stay where they are.",
+				);
+				if (confirmed) setStatus(await window.how.deleteProject());
+				return;
+			}
+		} catch {
+			setError("How could not leave those changes.");
 		} finally {
 			setBusy(false);
 		}
 	}
 
 	if (!status.project)
-		return <EmptyState onOpen={openProject} onStart={startProject} busy={busy} error={error} />;
+		return (
+			<>
+				<EmptyState onOpen={openProject} onStart={startProject} busy={busy} error={error} />
+				{pendingDirtyAction ? (
+					<DirtyBrowsingDialog
+						onLeave={leaveBrowsingChanges}
+						onCancel={() => setPendingDirtyAction(null)}
+					/>
+				) : null}
+			</>
+		);
 
 	return (
-		<ProjectScreen
-			status={status}
-			onOpen={openProject}
-			onStart={startProject}
-			onDelete={deleteProject}
-			onRestore={restoreCheckpoint}
-			busy={busy}
-		/>
+		<>
+			<ProjectScreen
+				status={status}
+				onOpen={openProject}
+				onStart={startProject}
+				onDelete={deleteProject}
+				onView={viewCheckpoint}
+				onContinue={continueFromCheckpoint}
+				onReturnToLatest={returnToLatest}
+				busy={busy}
+			/>
+			{pendingDirtyAction ? (
+				<DirtyBrowsingDialog
+					onLeave={leaveBrowsingChanges}
+					onCancel={() => setPendingDirtyAction(null)}
+				/>
+			) : null}
+		</>
 	);
 }

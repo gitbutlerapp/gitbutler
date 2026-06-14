@@ -10,8 +10,12 @@ const api: HowElectronApi = {
 	deleteProject: async () => await (ipcRenderer.invoke("how:delete-project") as Promise<HowStatus>),
 	createCheckpointNow: async () =>
 		await (ipcRenderer.invoke("how:create-checkpoint-now") as Promise<HowStatus>),
-	restoreCheckpoint: async (checkpointId) =>
-		await (ipcRenderer.invoke("how:restore-checkpoint", checkpointId) as Promise<HowStatus>),
+	viewCheckpoint: async (checkpointId, options) =>
+		await (ipcRenderer.invoke("how:view-checkpoint", checkpointId, options) as Promise<HowStatus>),
+	continueFromCheckpoint: async () =>
+		await (ipcRenderer.invoke("how:continue-from-checkpoint") as Promise<HowStatus>),
+	returnToLatest: async (options) =>
+		await (ipcRenderer.invoke("how:return-to-latest", options) as Promise<HowStatus>),
 	onStatus: (callback) => {
 		function listener(_event: Electron.IpcRendererEvent, status: StatusEvent) {
 			callback(status);

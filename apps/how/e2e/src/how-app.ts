@@ -26,6 +26,7 @@ export async function launchHowApp({
 		env,
 	});
 	const page = await app.firstWindow();
-	await page.getByRole("heading", { name: "Manage changes." }).waitFor();
+	await page.waitForLoadState("domcontentloaded");
+	await page.locator("body").waitFor();
 	return { app, page };
 }

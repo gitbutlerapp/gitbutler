@@ -4,11 +4,18 @@ import {
 	discoverRepository,
 	encodeProjectHandle,
 	ensureGitRepository,
+	hasWorktreeChanges,
 	listCheckpointCommits,
 	projectTitleFromPath,
 	resetToCommit,
 } from "./git.js";
-import { howIpcChannels, type Checkpoint, type HowStatus, type ProjectSummary } from "./ipc.js";
+import {
+	howIpcChannels,
+	type BrowsingSession,
+	type Checkpoint,
+	type HowStatus,
+	type ProjectSummary,
+} from "./ipc.js";
 import { plainErrorMessage } from "./plain-error.js";
 import { watcherStart, type WatcherHandle, type WatcherEvent } from "@gitbutler/but-sdk";
 import fs from "node:fs/promises";
@@ -18,6 +25,7 @@ import type { BrowserWindow } from "electron";
 
 const checkpointLimit = 50;
 const defaultCheckpointQuietPeriodMs = 10_000;
+const browsingDirtyPollMs = 500;
 
 function checkpointQuietPeriodMs(): number {
 	const override = process.env.HOW_CHECKPOINT_QUIET_MS;
@@ -28,14 +36,20 @@ function checkpointQuietPeriodMs(): number {
 
 type StoredState = {
 	activeProject: ProjectSummary | null;
+	browsing: BrowsingSession | null;
 };
 
 const emptyStoredState: StoredState = {
 	activeProject: null,
+	browsing: null,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
+}
+
+async function sleep(milliseconds: number): Promise<void> {
+	await new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 export class HowService {
@@ -45,9 +59,11 @@ export class HowService {
 		message: null,
 		lastSavedAt: null,
 		checkpoints: [],
+		browsing: null,
 	};
 	#watcher: WatcherHandle | null = null;
 	#debounce: NodeJS.Timeout | null = null;
+	#browsingDirtyPoll: NodeJS.Timeout | null = null;
 	#saving = false;
 	#dirtyWhileSaving = false;
 
@@ -66,10 +82,13 @@ export class HowService {
 				...this.#status,
 				project: stored.activeProject,
 				saveState: "watching",
-				message: "Watching for changes",
+				message: stored.browsing ? "Browsing checkpoint" : "Watching for changes",
+				checkpoints: stored.browsing?.checkpoints ?? [],
+				browsing: stored.browsing,
 			};
 			try {
-				await this.#refreshTimeline();
+				if (stored.browsing) await this.#resumeBrowsingSession(stored.browsing);
+				else await this.#refreshTimeline();
 				await this.#startWatching(stored.activeProject);
 			} catch (error) {
 				this.logger.error("Failed to resume active project", error, stored.activeProject);
@@ -103,11 +122,16 @@ export class HowService {
 		return this.getStatus();
 	}
 
-	async restoreCheckpoint(checkpointId: string): Promise<HowStatus> {
+	async viewCheckpoint(
+		checkpointId: string,
+		options: { discardBrowsingChanges?: boolean } = {},
+	): Promise<HowStatus> {
 		const project = this.#status.project;
 		if (!project) throw new Error("How could not find an open project.");
 
-		this.logger.info("Restoring checkpoint", { project, checkpointId });
+		this.logger.info("Viewing checkpoint", { project, checkpointId, options });
+		this.#clearScheduledCheckpoint();
+		await this.#waitForActiveSave();
 		this.#clearScheduledCheckpoint();
 		this.#saving = true;
 		this.#dirtyWhileSaving = false;
@@ -119,41 +143,177 @@ export class HowService {
 		this.#emit();
 
 		try {
-			const message = checkpointMessage(new Date());
-			this.logger.info("Creating pre-restore checkpoint", {
-				projectId: project.id,
-				worktreePath: project.path,
-				message,
-				restoreTarget: checkpointId,
-			});
-			const beforeRestoreCommitId = await createCheckpointCommit(project.path, message);
-			this.logger.info("Pre-restore checkpoint result", {
-				projectId: project.id,
-				beforeRestoreCommitId,
-				restoreTarget: checkpointId,
-			});
+			const currentBrowsing = this.#status.browsing;
+			if (currentBrowsing) {
+				if (
+					currentBrowsing.dirty &&
+					!options.discardBrowsingChanges &&
+					currentBrowsing.currentCheckpointId !== checkpointId
+				)
+					throw new Error("Leave changes before viewing another checkpoint.");
 
-			this.logger.info("Resetting project to checkpoint", {
-				projectId: project.id,
-				worktreePath: project.path,
-				checkpointId,
-			});
+				if (currentBrowsing.currentCheckpointId !== checkpointId)
+					await resetToCommit(project.path, checkpointId);
+				const browsing: BrowsingSession = {
+					...currentBrowsing,
+					currentCheckpointId: checkpointId,
+					dirty: false,
+				};
+				this.#status = {
+					...this.#status,
+					saveState: "watching",
+					message: "Browsing checkpoint",
+					checkpoints: browsing.checkpoints,
+					browsing,
+				};
+				this.#startBrowsingDirtyPolling(project);
+				await this.#writeCurrentState();
+				this.#emit();
+				return this.getStatus();
+			}
+
+			await this.#saveCurrentWorkBeforeBrowsing(project);
+			const originalCheckpoints = this.#status.checkpoints;
+			const originalLatestCheckpointId = originalCheckpoints[0]?.id;
+			if (!originalLatestCheckpointId) throw new Error("How could not find the latest checkpoint.");
+
 			await resetToCommit(project.path, checkpointId);
+			const browsing: BrowsingSession = {
+				originalLatestCheckpointId,
+				currentCheckpointId: checkpointId,
+				checkpoints: originalCheckpoints,
+				dirty: false,
+				startedAt: Date.now(),
+			};
+			await this.#refreshTimeline();
+			this.#status = {
+				...this.#status,
+				saveState: "watching",
+				message: "Browsing checkpoint",
+				checkpoints: browsing.checkpoints,
+				browsing,
+			};
+			this.#startBrowsingDirtyPolling(project);
+			await this.#writeCurrentState();
+			this.#emit();
+			return this.getStatus();
+		} catch (error) {
+			this.logger.error("Failed to view checkpoint", error, { project, checkpointId });
+			this.#status = {
+				...this.#status,
+				saveState: "error",
+				message: "How could not view that checkpoint.",
+			};
+			this.#emit();
+			return this.getStatus();
+		} finally {
+			this.#saving = false;
+		}
+	}
+
+	async continueFromCheckpoint(): Promise<HowStatus> {
+		const project = this.#status.project;
+		const browsing = this.#status.browsing;
+		if (!project || !browsing) return this.getStatus();
+
+		this.logger.info("Continuing from browsed checkpoint", { project, browsing });
+		this.#clearScheduledCheckpoint();
+		await this.#waitForActiveSave();
+		this.#clearScheduledCheckpoint();
+		this.#saving = true;
+		this.#dirtyWhileSaving = false;
+		this.#status = {
+			...this.#status,
+			saveState: "saving",
+			message: "Saving",
+		};
+		this.#emit();
+
+		try {
+			if (browsing.dirty) {
+				const message = checkpointMessage(new Date());
+				this.logger.info("Creating checkpoint from browsing edits", {
+					projectId: project.id,
+					worktreePath: project.path,
+					message,
+					browsing,
+				});
+				await createCheckpointCommit(project.path, message);
+			}
+			this.#status = {
+				...this.#status,
+				browsing: null,
+			};
+			this.#stopBrowsingDirtyPolling();
 			await this.#refreshTimeline();
 			this.#status = {
 				...this.#status,
 				saveState: "saved",
-				message: "Went back",
+				message: "Saved",
 				lastSavedAt: Date.now(),
 			};
+			await this.#writeCurrentState();
 			this.#emit();
 			return this.getStatus();
 		} catch (error) {
-			this.logger.error("Failed to restore checkpoint", error, { project, checkpointId });
+			this.logger.error("Failed to continue from checkpoint", error, { project, browsing });
 			this.#status = {
 				...this.#status,
 				saveState: "error",
-				message: "How could not go back.",
+				message: "How could not continue from here.",
+			};
+			this.#emit();
+			return this.getStatus();
+		} finally {
+			this.#saving = false;
+		}
+	}
+
+	async returnToLatest(
+		options: { discardBrowsingChanges?: boolean } = {},
+	): Promise<HowStatus> {
+		const project = this.#status.project;
+		const browsing = this.#status.browsing;
+		if (!project || !browsing) return this.getStatus();
+		if (browsing.dirty && !options.discardBrowsingChanges)
+			throw new Error("Leave changes before returning to latest.");
+
+		this.logger.info("Returning to latest checkpoint", { project, browsing, options });
+		this.#clearScheduledCheckpoint();
+		await this.#waitForActiveSave();
+		this.#clearScheduledCheckpoint();
+		this.#saving = true;
+		this.#dirtyWhileSaving = false;
+		this.#status = {
+			...this.#status,
+			saveState: "saving",
+			message: "Saving",
+		};
+		this.#emit();
+
+		try {
+			await resetToCommit(project.path, browsing.originalLatestCheckpointId);
+			this.#status = {
+				...this.#status,
+				browsing: null,
+			};
+			this.#stopBrowsingDirtyPolling();
+			await this.#refreshTimeline();
+			this.#status = {
+				...this.#status,
+				saveState: "saved",
+				message: "Returned to latest",
+				lastSavedAt: Date.now(),
+			};
+			await this.#writeCurrentState();
+			this.#emit();
+			return this.getStatus();
+		} catch (error) {
+			this.logger.error("Failed to return to latest checkpoint", error, { project, browsing });
+			this.#status = {
+				...this.#status,
+				saveState: "error",
+				message: "How could not return to latest.",
 			};
 			this.#emit();
 			return this.getStatus();
@@ -171,14 +331,16 @@ export class HowService {
 			message: null,
 			lastSavedAt: null,
 			checkpoints: [],
+			browsing: null,
 		};
-		await this.#writeStoredState({ activeProject: null });
+		await this.#writeStoredState({ activeProject: null, browsing: null });
 		this.#emit();
 		return this.getStatus();
 	}
 
 	async stop(): Promise<void> {
 		this.#clearScheduledCheckpoint();
+		this.#stopBrowsingDirtyPolling();
 		if (this.#watcher) this.#watcher.stop();
 		this.#watcher = null;
 	}
@@ -205,8 +367,9 @@ export class HowService {
 			message: "Watching for changes",
 			lastSavedAt: null,
 			checkpoints: [],
+			browsing: null,
 		};
-		await this.#writeStoredState({ activeProject: project });
+		await this.#writeCurrentState();
 		await this.#refreshTimeline();
 		await this.#startWatching(project);
 		this.#emit();
@@ -222,7 +385,7 @@ export class HowService {
 				return;
 			}
 			this.logger.info("Watcher event", { projectId: project.id, name: event.name });
-			if (this.#eventShouldScheduleCheckpoint(event)) this.#scheduleCheckpoint();
+			if (this.#eventShouldScheduleCheckpoint(event)) void this.#handleWorktreeChangeEvent(project);
 		});
 	}
 
@@ -236,6 +399,7 @@ export class HowService {
 
 	#scheduleCheckpoint(): void {
 		if (!this.#status.project) return;
+		if (this.#status.browsing) return;
 		this.#clearScheduledCheckpoint();
 		this.#status = {
 			...this.#status,
@@ -249,14 +413,31 @@ export class HowService {
 		}, checkpointQuietPeriodMs());
 	}
 
+	async #handleWorktreeChangeEvent(project: ProjectSummary): Promise<void> {
+		if (this.#saving) {
+			if (!this.#status.browsing) this.#dirtyWhileSaving = true;
+			return;
+		}
+		if (this.#status.browsing) {
+			await this.#markBrowsingDirtyIfNeeded(project);
+			return;
+		}
+		this.#scheduleCheckpoint();
+	}
+
 	#clearScheduledCheckpoint(): void {
 		if (this.#debounce) clearTimeout(this.#debounce);
 		this.#debounce = null;
 	}
 
+	async #waitForActiveSave(): Promise<void> {
+		while (this.#saving) await sleep(25);
+	}
+
 	async #createCheckpoint(): Promise<void> {
 		const project = this.#status.project;
 		if (!project) return;
+		if (this.#status.browsing) return;
 
 		if (this.#saving) {
 			this.#dirtyWhileSaving = true;
@@ -309,6 +490,74 @@ export class HowService {
 				this.#scheduleCheckpoint();
 			}
 		}
+	}
+
+	async #saveCurrentWorkBeforeBrowsing(project: ProjectSummary): Promise<void> {
+		const message = checkpointMessage(new Date());
+		this.logger.info("Creating checkpoint before browsing", {
+			projectId: project.id,
+			worktreePath: project.path,
+			message,
+		});
+		const commitId = await createCheckpointCommit(project.path, message);
+		this.logger.info("Checkpoint before browsing result", { projectId: project.id, commitId });
+		await this.#refreshTimeline();
+	}
+
+	async #resumeBrowsingSession(browsing: BrowsingSession): Promise<void> {
+		const project = this.#status.project;
+		if (!project) return;
+		const dirty = await hasWorktreeChanges(project.path);
+		const resumedBrowsing = {
+			...browsing,
+			dirty,
+		};
+		this.#status = {
+			...this.#status,
+			saveState: "watching",
+			message: dirty ? "Changes made while browsing" : "Browsing checkpoint",
+			checkpoints: resumedBrowsing.checkpoints,
+			browsing: resumedBrowsing,
+		};
+		this.#startBrowsingDirtyPolling(project);
+		await this.#writeCurrentState();
+	}
+
+	async #markBrowsingDirtyIfNeeded(project: ProjectSummary): Promise<void> {
+		const browsing = this.#status.browsing;
+		if (!browsing || browsing.dirty) return;
+		const dirty = await hasWorktreeChanges(project.path);
+		if (!dirty) return;
+		const nextBrowsing = {
+			...browsing,
+			dirty: true,
+		};
+		this.logger.info("Browsing checkpoint has local changes", {
+			projectId: project.id,
+			currentCheckpointId: browsing.currentCheckpointId,
+		});
+		this.#status = {
+			...this.#status,
+			saveState: "watching",
+			message: "Changes made while browsing",
+			browsing: nextBrowsing,
+			checkpoints: nextBrowsing.checkpoints,
+		};
+		await this.#writeCurrentState();
+		this.#emit();
+	}
+
+	#startBrowsingDirtyPolling(project: ProjectSummary): void {
+		this.#stopBrowsingDirtyPolling();
+		this.#browsingDirtyPoll = setInterval(() => {
+			if (!this.#status.browsing || this.#saving) return;
+			void this.#markBrowsingDirtyIfNeeded(project);
+		}, browsingDirtyPollMs);
+	}
+
+	#stopBrowsingDirtyPolling(): void {
+		if (this.#browsingDirtyPoll) clearInterval(this.#browsingDirtyPoll);
+		this.#browsingDirtyPoll = null;
 	}
 
 	async #refreshTimeline(): Promise<void> {
@@ -365,10 +614,63 @@ export class HowService {
 				typeof gitDir !== "string"
 			)
 				return emptyStoredState;
-			return { activeProject: { id, title, path: projectPath, gitDir } };
+			const browsing = this.#parseBrowsingSession(parsed.browsing);
+			return {
+				activeProject: { id, title, path: projectPath, gitDir },
+				browsing,
+			};
 		} catch {
 			return emptyStoredState;
 		}
+	}
+
+	#parseBrowsingSession(value: unknown): BrowsingSession | null {
+		if (!isRecord(value)) return null;
+		const {
+			originalLatestCheckpointId,
+			currentCheckpointId,
+			checkpoints,
+			dirty,
+			startedAt,
+		} = value;
+		if (
+			typeof originalLatestCheckpointId !== "string" ||
+			typeof currentCheckpointId !== "string" ||
+			!Array.isArray(checkpoints) ||
+			typeof dirty !== "boolean" ||
+			typeof startedAt !== "number"
+		)
+			return null;
+
+		const parsedCheckpoints = checkpoints
+			.map((checkpoint): Checkpoint | null => {
+				if (!isRecord(checkpoint)) return null;
+				const { id, title, createdAt } = checkpoint;
+				if (
+					typeof id !== "string" ||
+					typeof title !== "string" ||
+					typeof createdAt !== "number"
+				)
+					return null;
+				return { id, title, createdAt };
+			})
+			.filter((checkpoint): checkpoint is Checkpoint => checkpoint !== null);
+
+		if (parsedCheckpoints.length === 0) return null;
+		return {
+			originalLatestCheckpointId,
+			currentCheckpointId,
+			checkpoints: parsedCheckpoints,
+			dirty,
+			startedAt,
+		};
+	}
+
+	async #writeCurrentState(): Promise<void> {
+		await this.#writeStoredState({
+			activeProject: this.#status.project,
+			browsing: this.#status.browsing,
+		});
 	}
 
 	async #writeStoredState(state: StoredState): Promise<void> {

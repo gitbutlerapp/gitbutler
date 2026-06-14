@@ -191,10 +191,27 @@ function registerIpc(): void {
 	});
 	handle(howIpcChannels.deleteProject, async () => await getService().deleteProject());
 	handle(howIpcChannels.createCheckpointNow, async () => await getService().createCheckpointNow());
-	handle(howIpcChannels.restoreCheckpoint, async (_event, checkpointId) => {
+	handle(howIpcChannels.viewCheckpoint, async (_event, checkpointId, options) => {
 		if (typeof checkpointId !== "string" || checkpointId.length === 0)
 			throw new Error("How could not find that checkpoint.");
-		return await getService().restoreCheckpoint(checkpointId);
+		const discardBrowsingChanges =
+			typeof options === "object" &&
+			options !== null &&
+			"discardBrowsingChanges" in options &&
+			options.discardBrowsingChanges === true;
+		return await getService().viewCheckpoint(checkpointId, { discardBrowsingChanges });
+	});
+	handle(
+		howIpcChannels.continueFromCheckpoint,
+		async () => await getService().continueFromCheckpoint(),
+	);
+	handle(howIpcChannels.returnToLatest, async (_event, options) => {
+		const discardBrowsingChanges =
+			typeof options === "object" &&
+			options !== null &&
+			"discardBrowsingChanges" in options &&
+			options.discardBrowsingChanges === true;
+		return await getService().returnToLatest({ discardBrowsingChanges });
 	});
 }
 
