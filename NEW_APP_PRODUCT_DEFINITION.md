@@ -59,11 +59,11 @@ MVP capabilities:
 - Watch project files.
 - After 10 seconds of no further file changes, create an automatic Checkpoint.
 - Show a simple Checkpoint timeline and save status.
+- Restore the project back to an earlier Checkpoint.
 
 MVP exclusions:
 
 - No Publish UI.
-- No Restore UI.
 - No diff viewer.
 - No file list.
 - No manual Checkpoints.
@@ -87,7 +87,8 @@ the first implementation composes lower-level capabilities in How's Electron
 process. It uses GitButler SDK calls for worktree inspection, watcher events,
 and other application integration points where useful. Checkpoint creation uses
 narrow Git CLI calls in Electron for now, including repository discovery,
-repository initialization, timeline reads, and commits.
+repository initialization, timeline reads, commits, and restoring to a previous
+Checkpoint.
 
 ## Core Concepts
 
@@ -188,10 +189,18 @@ earlier moments, not for code review.
 
 Restore is a full-project restore to the selected Checkpoint.
 
-Because v1 has no diff viewer, Restore must be forgiving. Before restoring, the
-app automatically creates a "Before restore" Checkpoint of the current state.
-If the user picked the wrong Checkpoint, they can restore back to that
-Checkpoint.
+Because v1 has no diff viewer, Restore must be forgiving. Before going back,
+the app automatically creates one last Checkpoint of the current state. If that
+Checkpoint cannot be created, the app does not restore and shows a plain-language
+error.
+
+The MVP restore implementation resets the current branch directly to the
+selected Checkpoint. This means the last Checkpoint created before going back is
+recoverable from Git, but may no longer appear in How's simple current-branch
+timeline after the reset. This is an intentional MVP gap. A future design should
+preserve "went back from / can go forward to" information in a way that remains
+readable from Git state as much as possible, rather than hiding the recovery path
+inside app-only state.
 
 ## Publish
 
@@ -406,7 +415,10 @@ than making the caller assemble branch, commit, diff, and repository details.
 - Generation-completion hooks can create Checkpoints immediately.
 - Timeline is time-based, with optional AI labels.
 - No diff viewer in v1.
-- Restore is full-project restore with a "Before restore" Checkpoint.
+- Restore is full-project restore with one last automatic Checkpoint first.
+- MVP restore creates a final Checkpoint before resetting, but the visible
+  timeline may not show that final Checkpoint after the reset. Design a
+  Git-readable forward/back history later.
 - Publish supports review and direct modes.
 - Publish mode is chosen at first Publish and sticks per project.
 - Direct publish is allowed only for projects configured for direct publish.

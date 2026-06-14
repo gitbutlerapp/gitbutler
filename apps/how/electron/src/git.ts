@@ -111,3 +111,7 @@ export async function createCheckpointCommit(
 	await runGit(["commit", "--no-gpg-sign", "--message", message], { cwd: worktreePath });
 	return await runGit(["rev-parse", "HEAD"], { cwd: worktreePath });
 }
+
+export async function resetToCommit(worktreePath: string, commitId: string): Promise<void> {
+	await runGit(["reset", "--hard", commitId], { cwd: worktreePath });
+}

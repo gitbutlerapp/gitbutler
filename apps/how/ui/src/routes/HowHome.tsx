@@ -1,5 +1,14 @@
 import { Button } from "#ui/components/ui/button.tsx";
-import { AlertCircle, Check, Clock, FolderOpen, Plus, RefreshCw, Trash2 } from "lucide-react";
+import {
+	AlertCircle,
+	Check,
+	Clock,
+	FolderOpen,
+	Plus,
+	RefreshCw,
+	RotateCcw,
+	Trash2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Checkpoint, HowStatus, SaveState } from "../../../electron/src/ipc";
 
@@ -103,7 +112,15 @@ function EmptyState({
 	);
 }
 
-function Timeline({ checkpoints }: { checkpoints: Array<Checkpoint> }) {
+function Timeline({
+	checkpoints,
+	onRestore,
+	busy,
+}: {
+	checkpoints: Array<Checkpoint>;
+	onRestore: (checkpoint: Checkpoint) => Promise<void>;
+	busy: boolean;
+}) {
 	if (checkpoints.length === 0)
 		return (
 			<div className="rounded-md border border-dashed border-stone-300 bg-white/70 p-8 text-center">
@@ -116,16 +133,28 @@ function Timeline({ checkpoints }: { checkpoints: Array<Checkpoint> }) {
 
 	return (
 		<ol className="space-y-3">
-			{checkpoints.map((checkpoint) => (
+			{checkpoints.map((checkpoint, index) => (
 				<li
 					key={checkpoint.id}
-					className="grid grid-cols-[auto_1fr] gap-4 rounded-md bg-stone-100 border border-stone-200 px-4 py-3"
+					className="group grid grid-cols-[auto_1fr_auto] gap-4 rounded-md border border-stone-200 bg-stone-100 px-4 py-3"
 				>
 					<div className="mt-1 h-2.5 w-2.5 rounded-full bg-stone-700" />
 					<div className="min-w-0 flex-1">
 						<p className="truncate text-sm font-medium text-stone-950">{checkpoint.title}</p>
 						<p className="mt-1 text-xs text-stone-500">{formatTime(checkpoint.createdAt)}</p>
 					</div>
+					{index === 0 ? null : (
+						<Button
+							variant="ghost"
+							size="sm"
+							className="invisible self-center group-hover:visible group-focus-within:visible"
+							onClick={() => void onRestore(checkpoint)}
+							disabled={busy}
+						>
+							<RotateCcw className="h-4 w-4" aria-hidden />
+							go back
+						</Button>
+					)}
 				</li>
 			))}
 		</ol>
@@ -137,12 +166,14 @@ function ProjectScreen({
 	onOpen,
 	onStart,
 	onDelete,
+	onRestore,
 	busy,
 }: {
 	status: HowStatus;
 	onOpen: () => Promise<void>;
 	onStart: () => Promise<void>;
 	onDelete: () => Promise<void>;
+	onRestore: (checkpoint: Checkpoint) => Promise<void>;
 	busy: boolean;
 }) {
 	const project = status.project;
@@ -184,7 +215,7 @@ function ProjectScreen({
 				</header>
 
 				<section>
-					<Timeline checkpoints={status.checkpoints} />
+					<Timeline checkpoints={status.checkpoints} onRestore={onRestore} busy={busy} />
 				</section>
 			</div>
 		</main>
@@ -249,6 +280,22 @@ export function HowHome() {
 		}
 	}
 
+	async function restoreCheckpoint(checkpoint: Checkpoint) {
+		const confirmed = window.confirm(
+			"Go back to this checkpoint? How will save your current work first.",
+		);
+		if (!confirmed) return;
+		setBusy(true);
+		setError(null);
+		try {
+			setStatus(await window.how.restoreCheckpoint(checkpoint.id));
+		} catch {
+			setError("How could not go back.");
+		} finally {
+			setBusy(false);
+		}
+	}
+
 	if (!status.project)
 		return <EmptyState onOpen={openProject} onStart={startProject} busy={busy} error={error} />;
 
@@ -258,6 +305,7 @@ export function HowHome() {
 			onOpen={openProject}
 			onStart={startProject}
 			onDelete={deleteProject}
+			onRestore={restoreCheckpoint}
 			busy={busy}
 		/>
 	);

@@ -6,6 +6,7 @@ import {
 	ensureGitRepository,
 	listCheckpointCommits,
 	projectTitleFromPath,
+	resetToCommit,
 } from "./git.js";
 import { howIpcChannels, type Checkpoint, type HowStatus, type ProjectSummary } from "./ipc.js";
 import { plainErrorMessage } from "./plain-error.js";
@@ -102,6 +103,65 @@ export class HowService {
 		return this.getStatus();
 	}
 
+	async restoreCheckpoint(checkpointId: string): Promise<HowStatus> {
+		const project = this.#status.project;
+		if (!project) throw new Error("How could not find an open project.");
+
+		this.logger.info("Restoring checkpoint", { project, checkpointId });
+		this.#clearScheduledCheckpoint();
+		this.#saving = true;
+		this.#dirtyWhileSaving = false;
+		this.#status = {
+			...this.#status,
+			saveState: "saving",
+			message: "Saving",
+		};
+		this.#emit();
+
+		try {
+			const message = checkpointMessage(new Date());
+			this.logger.info("Creating pre-restore checkpoint", {
+				projectId: project.id,
+				worktreePath: project.path,
+				message,
+				restoreTarget: checkpointId,
+			});
+			const beforeRestoreCommitId = await createCheckpointCommit(project.path, message);
+			this.logger.info("Pre-restore checkpoint result", {
+				projectId: project.id,
+				beforeRestoreCommitId,
+				restoreTarget: checkpointId,
+			});
+
+			this.logger.info("Resetting project to checkpoint", {
+				projectId: project.id,
+				worktreePath: project.path,
+				checkpointId,
+			});
+			await resetToCommit(project.path, checkpointId);
+			await this.#refreshTimeline();
+			this.#status = {
+				...this.#status,
+				saveState: "saved",
+				message: "Went back",
+				lastSavedAt: Date.now(),
+			};
+			this.#emit();
+			return this.getStatus();
+		} catch (error) {
+			this.logger.error("Failed to restore checkpoint", error, { project, checkpointId });
+			this.#status = {
+				...this.#status,
+				saveState: "error",
+				message: "How could not go back.",
+			};
+			this.#emit();
+			return this.getStatus();
+		} finally {
+			this.#saving = false;
+		}
+	}
+
 	async deleteProject(): Promise<HowStatus> {
 		this.logger.info("Deleting active project from How", this.#status.project);
 		await this.stop();
@@ -118,8 +178,7 @@ export class HowService {
 	}
 
 	async stop(): Promise<void> {
-		if (this.#debounce) clearTimeout(this.#debounce);
-		this.#debounce = null;
+		this.#clearScheduledCheckpoint();
 		if (this.#watcher) this.#watcher.stop();
 		this.#watcher = null;
 	}
@@ -177,7 +236,7 @@ export class HowService {
 
 	#scheduleCheckpoint(): void {
 		if (!this.#status.project) return;
-		if (this.#debounce) clearTimeout(this.#debounce);
+		this.#clearScheduledCheckpoint();
 		this.#status = {
 			...this.#status,
 			saveState: "pending",
@@ -188,6 +247,11 @@ export class HowService {
 			this.#debounce = null;
 			void this.#createCheckpoint();
 		}, checkpointQuietPeriodMs());
+	}
+
+	#clearScheduledCheckpoint(): void {
+		if (this.#debounce) clearTimeout(this.#debounce);
+		this.#debounce = null;
 	}
 
 	async #createCheckpoint(): Promise<void> {

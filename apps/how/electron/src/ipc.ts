@@ -38,6 +38,7 @@ export interface HowElectronApi {
 	startProject: () => Promise<OpenProjectResult>;
 	deleteProject: () => Promise<HowStatus>;
 	createCheckpointNow: () => Promise<HowStatus>;
+	restoreCheckpoint: (checkpointId: string) => Promise<HowStatus>;
 	onStatus: (callback: (status: StatusEvent) => void) => () => void;
 	platform: string;
 }
@@ -48,5 +49,6 @@ export const howIpcChannels = {
 	startProject: "how:start-project",
 	deleteProject: "how:delete-project",
 	createCheckpointNow: "how:create-checkpoint-now",
+	restoreCheckpoint: "how:restore-checkpoint",
 	status: "how:status",
 } as const;

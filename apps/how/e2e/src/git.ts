@@ -21,13 +21,17 @@ export async function initializeGitRepository(repositoryPath: string): Promise<v
 }
 
 export async function checkpointCommitCount(repositoryPath: string): Promise<number> {
+	return (await checkpointCommitIds(repositoryPath)).length;
+}
+
+export async function checkpointCommitIds(repositoryPath: string): Promise<Array<string>> {
 	const output = await runGit(repositoryPath, ["log", "--format=%H", "--grep=^Checkpoint:"]).catch(
 		() => "",
 	);
 	return output
 		.split("\n")
 		.map((line) => line.trim())
-		.filter(Boolean).length;
+		.filter(Boolean);
 }
 
 export function pathTitle(filePath: string): string {

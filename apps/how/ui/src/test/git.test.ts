@@ -1,4 +1,9 @@
-import { createCheckpointCommit, listCheckpointCommits, runGit } from "../../../electron/src/git";
+import {
+	createCheckpointCommit,
+	listCheckpointCommits,
+	resetToCommit,
+	runGit,
+} from "../../../electron/src/git";
 import { describe, expect, test } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -29,5 +34,21 @@ describe("git helpers", () => {
 
 		expect(checkpoints).toHaveLength(1);
 		expect(checkpoints[0]?.title).toBe("Checkpoint: Jun 13, 09:30");
+	});
+
+	test("resets the repository to a selected commit", async () => {
+		const repositoryPath = await createTestRepository();
+		const readmePath = path.join(repositoryPath, "readme.md");
+
+		await fs.writeFile(readmePath, "first\n");
+		const firstCommitId = await createCheckpointCommit(repositoryPath, "Checkpoint: first");
+		await fs.writeFile(readmePath, "second\n");
+		await createCheckpointCommit(repositoryPath, "Checkpoint: second");
+
+		expect(firstCommitId).toBeTruthy();
+		await resetToCommit(repositoryPath, firstCommitId ?? "");
+
+		expect(await fs.readFile(readmePath, "utf8")).toBe("first\n");
+		expect(await runGit(["rev-parse", "HEAD"], { cwd: repositoryPath })).toBe(firstCommitId);
 	});
 });

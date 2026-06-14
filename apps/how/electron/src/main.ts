@@ -191,6 +191,11 @@ function registerIpc(): void {
 	});
 	handle(howIpcChannels.deleteProject, async () => await getService().deleteProject());
 	handle(howIpcChannels.createCheckpointNow, async () => await getService().createCheckpointNow());
+	handle(howIpcChannels.restoreCheckpoint, async (_event, checkpointId) => {
+		if (typeof checkpointId !== "string" || checkpointId.length === 0)
+			throw new Error("How could not find that checkpoint.");
+		return await getService().restoreCheckpoint(checkpointId);
+	});
 }
 
 configureUserDataPath();
