@@ -37,11 +37,6 @@
 	flex-direction: column;
 }
 
-.nonEmptySegment {
-	display: flex;
-	flex-direction: column;
-}
-
 .segmentParentItemRow {
 	.segment:last-child & {
 		height: 8px;
