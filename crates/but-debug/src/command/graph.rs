@@ -36,7 +36,7 @@ pub(crate) fn run(
                 args.current_dir.display()
             )
         })?;
-        let (_guard, _repo, workspace, _db) = ctx.workspace_and_db()?;
+        let workspace = ctx.workspace_from_head()?;
         return emit_workspace(&workspace, graph_args, out, err);
     }
 
@@ -72,8 +72,8 @@ pub(crate) fn run(
         dangerously_skip_postprocessing_for_debugging: graph_args.no_post,
     };
 
-    let graph = match graph_args.ref_name.as_deref() {
-        None => but_graph::Graph::from_head(
+    let workspace = match graph_args.ref_name.as_deref() {
+        None => but_graph::Workspace::from_head(
             &repo,
             &meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -82,7 +82,7 @@ pub(crate) fn run(
         Some(ref_name) => {
             let mut reference = repo.find_reference(ref_name)?;
             let id = reference.peel_to_id()?;
-            but_graph::Graph::from_commit_traversal(
+            but_graph::Workspace::from_commit_traversal(
                 id,
                 reference.name().to_owned(),
                 &meta,
@@ -92,7 +92,6 @@ pub(crate) fn run(
         }
     }?;
 
-    let workspace = graph.into_workspace()?;
     emit_workspace(&workspace, graph_args, out, err)
 }
 
@@ -102,44 +101,39 @@ fn emit_workspace(
     out: &mut dyn io::Write,
     err: &mut dyn io::Write,
 ) -> Result<()> {
-    let errors = workspace.graph.validation_errors();
-    if !errors.is_empty() {
-        writeln!(err, "VALIDATION FAILED: {errors:?}")?;
-    }
+    let counts = format!(
+        "Workspace with {} stacks and {} segments across all stacks with {} commits total",
+        workspace.stacks.len(),
+        workspace
+            .stacks
+            .iter()
+            .map(|stack| stack.segments.len())
+            .sum::<usize>(),
+        workspace
+            .stacks
+            .iter()
+            .flat_map(|stack| stack.segments.iter().map(|segment| segment.commits.len()))
+            .sum::<usize>(),
+    );
     if graph_args.stats {
-        writeln!(err, "{:#?}", workspace.graph.statistics())?;
+        writeln!(err, "{counts}")?;
     }
-
     if graph_args.no_debug_workspace {
-        writeln!(
-            err,
-            "Workspace with {} stacks and {} segments across all stacks with {} commits total",
-            workspace.stacks.len(),
-            workspace
-                .stacks
-                .iter()
-                .map(|stack| stack.segments.len())
-                .sum::<usize>(),
-            workspace
-                .stacks
-                .iter()
-                .flat_map(|stack| stack.segments.iter().map(|segment| segment.commits.len()))
-                .sum::<usize>(),
-        )?;
+        writeln!(err, "{counts}")?;
     } else {
         writeln!(err, "{workspace:#?}")?;
     }
 
     match dot_mode(graph_args) {
         Some(DotMode::Print) => {
-            out.write_all(workspace.graph.dot_graph_pruned().as_bytes())?;
+            out.write_all(workspace.dot_graph_pruned(workspace.lower_bound).as_bytes())?;
         }
         Some(DotMode::OpenAsSvg) => {
             #[cfg(unix)]
-            workspace.graph.open_as_svg();
+            workspace.open_as_svg();
         }
         Some(DotMode::Debug) => {
-            writeln!(err, "{graph:#?}", graph = workspace.graph)?;
+            writeln!(err, "{workspace:#?}")?;
         }
         None => {}
     }
@@ -153,7 +147,7 @@ fn emit_workspace(
 /// Context discovery loads the same workspace graph used by the application,
 /// including metadata-backed target handling. The manual repository path below
 /// is still needed when any debug traversal knob is set, because those options
-/// must be passed directly into `but_graph::Graph::from_*`.
+/// must be passed directly into `but_graph::Workspace::from_*`.
 fn uses_context_discovery(graph_args: &GraphArgs) -> bool {
     graph_args.extra_target.is_none()
         && !graph_args.no_post

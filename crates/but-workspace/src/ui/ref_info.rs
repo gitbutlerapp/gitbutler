@@ -106,7 +106,8 @@ impl Target {
     fn for_ui(
         but_graph::workspace::TargetRef {
             ref_name,
-            segment_index: _,
+            tip_commit_id: _,
+            local_tracking: _,
             commits_ahead,
         }: but_graph::workspace::TargetRef,
         remote_names: &gix::remote::Names,
@@ -293,7 +294,7 @@ pub struct Segment {
     /// Read-only metadata with additional information about the branch naming the segment,
     /// or `None` if nothing was present.
     pub metadata: Option<ref_metadata::Branch>,
-    /// This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Graph::from_commit_traversal)
+    /// This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Workspace::from_commit_traversal)
     /// is this segment, and the surrounding workspace is provided for context.
     ///
     /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
@@ -323,7 +324,8 @@ impl Segment {
             ref_info,
             id: _,
             remote_tracking_ref_name,
-            remote_tracking_branch_segment_id: _,
+            remote_tip_id: _,
+            tip_commit_id: _,
             commits,
             commits_on_remote,
             commits_outside,

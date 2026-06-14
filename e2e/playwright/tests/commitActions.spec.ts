@@ -15,9 +15,11 @@ import {
 	dragAndDropByLocator,
 	getByTestId,
 	stack,
+	waitForTestId,
 	waitForTestIdToNotExist,
 } from "../src/util.ts";
 import { expect, type Page } from "@playwright/test";
+import { execFileSync } from "child_process";
 import { copyFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
@@ -224,3 +226,55 @@ function commitDescriptionFor(i: number): string {
 function amendedDescriptionFor(i: number): string {
 	return `Amended ${i + 1}`;
 }
+
+test("commit to a new branch merges it into the workspace alongside an existing stack", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await applyUpstream(gitbutler, "branch1");
+	await openWorkspace(page);
+
+	// One existing stack with commits.
+	await expect(stack(page)).toHaveCount(1);
+
+	// A freshly-created branch only materializes onto the workspace commit once it has content.
+	// Commit an unassigned change to a brand-new branch: the workspace commit must be rewritten to
+	// merge it, rather than leaving the new commit orphaned off the base.
+	const filePath = gitbutler.pathInWorkdir("local-clone/new-branch-file.txt");
+	writeFileSync(filePath, "content for the new branch\n", { flag: "w" });
+
+	await expect(
+		getByTestId(page, "file-list-item").filter({ hasText: "new-branch-file.txt" }),
+	).toBeVisible();
+
+	await clickByTestId(page, "commit-to-new-branch-button");
+	await waitForTestId(page, "new-commit-view");
+
+	const title = "Commit on a brand new branch";
+	await updateCommitMessage(page, title, "Body of the new-branch commit.");
+	await clickByTestId(page, "commit-drawer-action-button");
+
+	// Both stacks now live in the workspace and the new commit is visible on its branch.
+	await expect(stack(page)).toHaveCount(2);
+	await expect(commitRow(page, title)).toBeVisible();
+
+	// The workspace commit now has both stack tips as parents (before the fix the new branch was
+	// orphaned and the workspace commit kept its single parent).
+	const repo = gitbutler.pathInWorkdir("local-clone");
+	await expect
+		.poll(
+			() =>
+				execFileSync("git", ["rev-list", "--parents", "-n", "1", "gitbutler/workspace"], {
+					cwd: repo,
+					encoding: "utf8",
+				})
+					.trim()
+					.split(/\s+/).length - 1,
+			{
+				message: "workspace commit should merge both stacks",
+				intervals: [100, 200, 500, 1000],
+			},
+		)
+		.toBe(2);
+});

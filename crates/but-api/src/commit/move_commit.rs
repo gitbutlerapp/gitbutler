@@ -3,7 +3,7 @@ use but_api_macros::but_api;
 use but_core::{DryRun, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_rebase::graph_rebase::{
-    Editor, LookupStep as _,
+    Editor,
     mutate::{InsertSide, RelativeTo},
 };
 use tracing::instrument;
@@ -61,42 +61,8 @@ pub fn commit_move_only_with_perm(
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
-
-    let ordered_selectors = editor.order_commit_selectors_by_parentage(subject_commit_ids)?;
-    let mut ordered_ids = ordered_selectors
-        .iter()
-        .map(|selector| editor.lookup_pick(*selector))
-        .collect::<anyhow::Result<Vec<_>>>()?;
-
-    let ordered_ids = if matches!(side, InsertSide::Above) {
-        ordered_ids.reverse();
-        ordered_ids
-    } else {
-        ordered_ids
-    };
-
-    let mut subjects = ordered_ids.into_iter();
-    let first_subject = subjects
-        .next()
-        .expect("non-empty commit list always has a first subject");
-
-    let mut editor = but_workspace::commit::move_commit_no_rebase(
-        editor,
-        first_subject,
-        relative_to.clone(),
-        side,
-    )?;
-
-    for subject_id in subjects {
-        editor = but_workspace::commit::move_commit_no_rebase(
-            editor,
-            subject_id,
-            relative_to.clone(),
-            side,
-        )?;
-    }
-
-    let rebase = editor.rebase()?;
+    let rebase =
+        but_workspace::commit::move_commits(editor, subject_commit_ids, relative_to, side)?;
 
     Ok(CommitMoveResult {
         workspace: WorkspaceState::from_successful_rebase(rebase, &repo, dry_run)?,

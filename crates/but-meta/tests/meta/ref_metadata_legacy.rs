@@ -1388,7 +1388,7 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
 
     // The above being stable already fixes `dlib`.
     let repo = but_testsupport::read_only_in_memory_scenario("dlib-standin")?;
-    let graph = but_graph::Graph::from_commit_traversal(
+    let graph_ws = but_graph::Workspace::from_commit_traversal(
         repo.find_reference(ws_ref_name)?.peel_to_id()?,
         Some(ws_ref_name.to_owned()),
         &store,
@@ -1403,7 +1403,7 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
     // AND: all of the above was before the `name` field was removed which served to help with ordering, so maybe the whole
     // test was tuned for a certain outcome and now this becomes more obvious. But whatever, it's legacy and
     // it doesn't fail anymore.
-    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?), @"📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e");
+    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph_ws), @"📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e");
 
     let path = store.path().to_owned();
     store.write_reconciled(&repo)?;
@@ -1428,14 +1428,14 @@ fn dlib_rs_auto_fix() -> anyhow::Result<()> {
     "#);
 
     let ws = store.workspace(ws_ref_name)?;
-    let graph = but_graph::Graph::from_commit_traversal(
+    let graph_ws = but_graph::Workspace::from_commit_traversal(
         repo.find_reference(ws_ref_name)?.peel_to_id()?,
         Some(ws_ref_name.to_owned()),
         &store,
         store.workspace(ws_ref_name)?.project_meta(),
         but_graph::init::Options::limited(),
     )?;
-    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?), @"📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e");
+    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph_ws), @"📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on bce0c5e");
 
     let (actual, _uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
     // Reconciliation now preserves the explicitly-written stack layout instead of allowing the

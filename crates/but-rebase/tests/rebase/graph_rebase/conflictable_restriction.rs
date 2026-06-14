@@ -1,12 +1,11 @@
 //! Exercises the step option for whether a step should be allowed to enter a conflicted state.
 
 use anyhow::{Result, bail};
-use but_graph::Graph;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{Editor, LookupStep, Step, mutate::InsertSide},
 };
-use but_testsupport::{cat_commit, graph_tree, visualize_commit_graph_all};
+use but_testsupport::{branch_tree, cat_commit, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable, standard_options};
 
@@ -21,15 +20,12 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
     * 6155f21 (base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = but_graph::Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
-    )?
-    .validated()?;
-
-    let mut ws = graph.into_workspace()?;
+    )?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Replacing b with none will cause c to conflict
@@ -38,17 +34,17 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
     editor.replace(b_sel, Step::None)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     insta::assert_snapshot!(overlayed, @"
 
-    └── 👉►:0[0]:main[🌳]
+    └── 👉:0:►main
         ├── ·04d1892 (⌂|1) ►c
-        └── ·5e0ba46 (⌂|1) ►a, ►b
-            └── ►:1[1]:base
-                └── 🏁·6155f21 (⌂|1)
+        ├── ·5e0ba46 (⌂|1) ►a, ►b
+        └── :1:►base
+            └── 🏁·6155f21 (⌂|1)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(&*outcome.workspace).to_string());
 
     // We expect to see conflicted headers
     insta::assert_snapshot!(cat_commit(&repo, "c")?, @r#"
@@ -87,15 +83,12 @@ fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_err
     * 6155f21 (base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = but_graph::Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
-    )?
-    .validated()?;
-
-    let mut ws = graph.into_workspace()?;
+    )?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Replacing b with none will cause c to conflict
@@ -134,15 +127,12 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
     * 6155f21 (base) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = but_graph::Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
-    )?
-    .validated()?;
-
-    let mut ws = graph.into_workspace()?;
+    )?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // Insert an empty commit above b to cause c to get cherry picked with out a conflict
@@ -163,21 +153,21 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
     editor.replace(c_sel, Step::Pick(c_pick))?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     insta::assert_snapshot!(overlayed, @"
 
-    └── 👉►:0[0]:main[🌳]
-        └── ·8b4d335 (⌂|1) ►c
-            └── ►:1[1]:b
-                ├── ·7762cf9 (⌂|1)
-                └── ·3b3bd41 (⌂|1)
-                    └── ►:2[2]:a
-                        └── ·5e0ba46 (⌂|1)
-                            └── ►:3[3]:base
-                                └── 🏁·6155f21 (⌂|1)
+    └── 👉:0:►main
+        ├── ·8b4d335 (⌂|1) ►c
+        └── :1:►b
+            ├── ·7762cf9 (⌂|1)
+            ├── ·3b3bd41 (⌂|1)
+            └── :2:►a
+                ├── ·5e0ba46 (⌂|1)
+                └── :3:►base
+                    └── 🏁·6155f21 (⌂|1)
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(&*outcome.workspace).to_string());
 
     // The rebase is successful because `c` remained unconflicted
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"

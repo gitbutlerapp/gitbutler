@@ -9,17 +9,88 @@ use petgraph::{
     visit::{EdgeRef, IntoEdgeReferences},
 };
 
+/// The canonical rendering behind [`Testing::steps_canonical`].
+fn render_canonical(graph: &crate::graph_rebase::StepGraph) -> String {
+    use petgraph::{Direction, visit::EdgeRef as _};
+    use std::collections::{BTreeMap, BTreeSet};
+    use std::fmt::Write as _;
+
+    let resolve_pick = |start: StepGraphIndex| -> Option<String> {
+        let mut cur = start;
+        loop {
+            match &graph[cur] {
+                Step::Pick(pick) => return Some(pick.id.to_string()),
+                _ => {
+                    let mut edges: Vec<_> =
+                        graph.edges_directed(cur, Direction::Outgoing).collect();
+                    edges.sort_by_key(|e| e.weight().order);
+                    match edges.first() {
+                        Some(edge) => cur = edge.target(),
+                        None => return None,
+                    }
+                }
+            }
+        }
+    };
+
+    let mut picks: BTreeMap<String, (Vec<String>, BTreeSet<String>)> = BTreeMap::new();
+    let mut dangling: BTreeSet<String> = BTreeSet::new();
+    for node in graph.node_indices() {
+        match &graph[node] {
+            Step::Pick(pick) => {
+                let mut edges: Vec<_> = graph.edges_directed(node, Direction::Outgoing).collect();
+                edges.sort_by_key(|e| e.weight().order);
+                let parents: Vec<String> = edges
+                    .iter()
+                    .filter_map(|e| resolve_pick(e.target()))
+                    .collect();
+                picks.entry(pick.id.to_string()).or_default().0 = parents;
+            }
+            Step::Reference { refname } => {
+                let mut edges: Vec<_> = graph.edges_directed(node, Direction::Outgoing).collect();
+                edges.sort_by_key(|e| e.weight().order);
+                match edges.first().and_then(|e| resolve_pick(e.target())) {
+                    Some(pick) => {
+                        picks.entry(pick).or_default().1.insert(refname.to_string());
+                    }
+                    None => {
+                        dangling.insert(refname.to_string());
+                    }
+                }
+            }
+            Step::None => {}
+        }
+    }
+
+    let mut out = String::new();
+    for (pick, (parents, refs)) in picks {
+        writeln!(out, "{pick} <- {parents:?} {refs:?}").ok();
+    }
+    for refname in dangling {
+        writeln!(out, "dangling: {refname}").ok();
+    }
+    out
+}
+
 #[cfg(test)]
 use crate::graph_rebase::Edge;
 use crate::graph_rebase::{Editor, Pick, Step, StepGraph, StepGraphIndex, SuccessfulRebase};
 
 /// An extension trait that adds debugging output for graphs
 pub trait Testing {
+    /// Render the step graph in canonical form for structural comparison: each pick with its
+    /// ordered parent picks and the sorted set of references resolving onto it, plus dangling
+    /// references — ignoring node indices and same-commit reference order, which have no
+    /// rebase semantics.
+    fn steps_canonical(&self) -> String;
     /// Creates an ASCII graph similar to `git log --graph --oneline` with commit titles
     fn steps_ascii(&self) -> String;
 }
 
 impl<M: RefMetadata> Testing for Editor<'_, '_, M> {
+    fn steps_canonical(&self) -> String {
+        render_canonical(&self.graph)
+    }
     fn steps_ascii(&self) -> String {
         render_ascii_graph(&self.graph, &self.immutable_references, |id| {
             lookup_commit_title(&self.repo, id)
@@ -28,6 +99,9 @@ impl<M: RefMetadata> Testing for Editor<'_, '_, M> {
 }
 
 impl<M: RefMetadata> Testing for SuccessfulRebase<'_, '_, M> {
+    fn steps_canonical(&self) -> String {
+        render_canonical(&self.graph)
+    }
     fn steps_ascii(&self) -> String {
         render_ascii_graph(&self.graph, &self.immutable_references, |id| {
             lookup_commit_title(&self.repo, id)

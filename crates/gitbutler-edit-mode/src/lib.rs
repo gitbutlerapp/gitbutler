@@ -216,14 +216,13 @@ fn workspace_from_workspace_ref(ctx: &Context) -> Result<but_graph::Workspace> {
     let repo = ctx.repo.get()?;
     let meta = ctx.meta()?;
     let mut workspace_ref = open_workspace_ref(&repo)?;
-    let graph = but_graph::Graph::from_commit_traversal(
+    but_graph::Workspace::from_commit_traversal(
         workspace_ref.peel_to_id()?,
         Some(workspace_ref.inner.name.clone()),
         &meta,
         ctx.project_meta()?,
         but_graph::init::Options::limited(),
-    )?;
-    graph.into_workspace()
+    )
 }
 
 fn ensure_stack_in_workspace(ctx: &Context, stack_id: StackId) -> Result<()> {
@@ -344,14 +343,13 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         .find_reference(WORKSPACE_BRANCH_REF)?
         .peel_to_commit()?;
     let mut meta = ctx.meta()?;
-    let mut workspace = but_graph::Graph::from_commit_traversal(
+    let mut workspace = but_graph::Workspace::from_commit_traversal(
         workspace_commit.id(),
         Some(gix::refs::FullName::try_from(WORKSPACE_BRANCH_REF)?),
         &meta,
         ctx.project_meta()?,
         but_graph::init::Options::limited(),
-    )?
-    .into_workspace()?;
+    )?;
     let mut editor = Editor::create(&mut workspace, &mut meta, repo)?;
     let (target_selector, _commit) =
         editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;

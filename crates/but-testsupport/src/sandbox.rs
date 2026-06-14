@@ -262,37 +262,17 @@ impl Sandbox {
         but_ctx::Context::from_repo(self.open_repo()?).map(but_ctx::Context::with_memory_app_cache)
     }
 
-    /// Return the graph at `HEAD`, along with the `(graph, repo, meta)` repository and metadata used to create it.
-    pub fn graph_at_head(
-        &self,
-    ) -> anyhow::Result<(
-        but_graph::Graph,
-        gix::Repository,
-        impl but_core::RefMetadata,
-    )> {
+    /// Return a worktree visualisation of the directly-projected workspace at `HEAD`.
+    pub fn workspace_debug_at_head(&self) -> anyhow::Result<String> {
         let repo = self.open_repo()?;
         let meta = self.meta()?;
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &meta,
             self.project_meta()?,
             but_graph::init::Options::default(),
         )?;
-        Ok((graph, repo, meta))
-    }
-
-    /// Return a worktree visualisation, freshly read from [Self::graph_at_head()].
-    pub fn workspace_debug_at_head(&self) -> anyhow::Result<String> {
-        let (graph, _repo, _meta) = self.graph_at_head()?;
-        Ok(graph_workspace_determinisitcally(&graph.into_workspace()?).to_string())
-    }
-
-    /// Open the graph at `HEAD` as SVG for debugging.
-    #[cfg(unix)]
-    pub fn open_graph_at_head_as_svg(&self) -> anyhow::Result<()> {
-        let (graph, _repo, _meta) = self.graph_at_head()?;
-        graph.open_as_svg();
-        Ok(())
+        Ok(graph_workspace_determinisitcally(&ws).to_string())
     }
 
     /// Show a git log for all refs.

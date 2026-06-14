@@ -1538,8 +1538,6 @@ mod util {
         StackSegment {
             ref_info,
             remote_tracking_ref_name: None,
-            sibling_segment_id: None,
-            remote_tracking_branch_segment_id: None,
             id: Default::default(),
             commits,
             commits_outside: None,
@@ -1549,6 +1547,11 @@ mod util {
             commits_on_remote,
             metadata: None,
             is_entrypoint: false,
+            remote_tip_id: None,
+            tip_commit_id: None,
+            generation: 0,
+            base_ref_name: None,
+            projected_from_outside: false,
         }
     }
 

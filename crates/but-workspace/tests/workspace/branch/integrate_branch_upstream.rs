@@ -181,8 +181,8 @@ fn initial_integration_for_branch_with_strategy(
     strategy: BranchIntegrationStrategy,
 ) -> Result<InitialBranchIntegration> {
     let mut meta = InMemoryRefMetadata::default();
-    let graph = integration_graph_for_branch(ref_name, repo, target_ref_name, &meta)?;
-    let mut workspace = graph.into_workspace()?;
+    // The branch arm uses the multi-tip traversal API, which has no direct twin yet.
+    let mut workspace = integration_graph_for_branch(ref_name, repo, target_ref_name, &meta)?;
     get_initial_integration_steps_for_branch(ref_name, strategy, &mut workspace, &mut meta, repo)
 }
 
@@ -191,7 +191,7 @@ fn integration_graph_for_branch(
     repo: &gix::Repository,
     target_ref_name: Option<&gix::refs::FullNameRef>,
     meta: &InMemoryRefMetadata,
-) -> Result<but_graph::Graph> {
+) -> Result<but_graph::Workspace> {
     if let Some(target_ref_name) = target_ref_name {
         let head = repo.head()?;
         let (head_id, head_ref_name) = match head.kind {
@@ -209,7 +209,7 @@ fn integration_graph_for_branch(
             .find_reference(upstream_ref_name.as_ref())?
             .id()
             .detach();
-        but_graph::Graph::from_commit_traversal_tips(
+        but_graph::Workspace::from_commit_traversal_tips(
             repo,
             [
                 but_graph::init::Tip::entrypoint(head_id, head_ref_name),
@@ -235,7 +235,7 @@ fn integration_graph_for_branch(
             .find_reference(upstream_ref_name.as_ref())?
             .id()
             .detach();
-        but_graph::Graph::from_commit_traversal_tips(
+        but_graph::Workspace::from_commit_traversal_tips(
             repo,
             [
                 but_graph::init::Tip::entrypoint(head_id, head_ref_name),
@@ -246,7 +246,7 @@ fn integration_graph_for_branch(
             Options::limited(),
         )
     } else {
-        but_graph::Graph::from_head(repo, meta, project_meta(meta), Options::limited())
+        but_graph::Workspace::from_head(repo, meta, project_meta(meta), Options::limited())
     }
 }
 
@@ -256,8 +256,9 @@ fn integration_workspace_for_branch(
     target_ref_name: Option<&gix::refs::FullNameRef>,
 ) -> Result<(but_graph::Workspace, InMemoryRefMetadata)> {
     let meta = InMemoryRefMetadata::default();
-    let graph = integration_graph_for_branch(ref_name, repo, target_ref_name, &meta)?;
-    Ok((graph.into_workspace()?, meta))
+    // The branch arm uses the multi-tip traversal API, which has no direct twin yet.
+    let workspace = integration_graph_for_branch(ref_name, repo, target_ref_name, &meta)?;
+    Ok((workspace, meta))
 }
 
 #[test]
@@ -933,7 +934,7 @@ fn integrate_branch_with_steps_empty_errors_early() -> Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let merge_base = repo.rev_parse_single("main")?.detach();
     let integration = InteractiveIntegration {
         merge_base,
@@ -976,7 +977,7 @@ fn integrate_branch_with_merge_step_does_not_require_preceding_commit() -> Resul
     * cfbcc20 (origin/main, main) init-integration
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let remote_commit_1 = repo.rev_parse_single("origin/A~1")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -1038,7 +1039,7 @@ fn integrate_upstream_commits_into_local() -> Result<()> {
     * cfbcc20 (origin/main, main) init-integration
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -1112,7 +1113,7 @@ fn integrate_upstream_commits_into_local_with_merge_step() -> Result<()> {
     * cfbcc20 (origin/main, main) init-integration
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -1200,7 +1201,7 @@ fn integrate_upstream_commits_into_local_with_all_locals_then_merge_second_remot
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -1267,7 +1268,7 @@ fn integrate_upstream_commits_into_local_with_two_merges_in_sequence() -> Result
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -1367,7 +1368,7 @@ fn integrate_upstream_commits_into_local_with_remote_on_top() -> Result<()> {
     * cfbcc20 (origin/main, main) init-integration
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -1438,7 +1439,7 @@ fn integrate_upstream_commits_into_local_with_remote_interlaced() -> Result<()> 
     * cfbcc20 (origin/main, main) init-integration
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -1508,7 +1509,7 @@ fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote() -> R
     * cfbcc20 (origin/main, main) init-integration
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
     let remote_commit_2 = repo.rev_parse_single("origin/A")?.detach();
@@ -1572,7 +1573,7 @@ fn integrate_upstream_commits_into_local_with_remote_one_local_one_remote_and_ex
     * cfbcc20 (origin/main, main) init-integration
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
     let remote_commit_2 = repo.rev_parse_single("origin/A")?.detach();
@@ -1635,7 +1636,7 @@ fn integrate_upstream_commits_into_local_with_only_remote_commits() -> Result<()
     * cfbcc20 (origin/main, main) init-integration
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let remote_commit_2 = repo.rev_parse_single("origin/A")?.detach();
     let remote_commit_1 = repo.rev_parse_single("origin/A~1")?.detach();
@@ -1692,7 +1693,7 @@ fn integrate_upstream_commits_when_remote_is_ahead_of_local() -> Result<()> {
     * cfbcc20 (origin/main, main) init-integration
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     configure_tracking_for_branch_a(&mut repo)?;
 
     let initial = get_initial_integration_steps_for_branch(
@@ -1773,7 +1774,7 @@ fn initial_pull_rebase_plan_includes_workspace_local_commits_above_branch_ref() 
     * cfbcc20 (origin/main, main) init-integration
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     configure_tracking_for_branch_a(&mut repo)?;
 
     let initial = get_initial_integration_steps_for_branch(
@@ -1850,7 +1851,7 @@ fn integrate_initial_pull_rebase_plan_for_one_local_and_one_remote_commit() -> R
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     configure_tracking_for_branch_a(&mut repo)?;
 
     let initial = get_initial_integration_steps_for_branch(
@@ -1920,7 +1921,7 @@ fn integrate_upstream_commits_into_local_with_squashed_local_commits() -> Result
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -1977,7 +1978,7 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_commits() -> Resul
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -2037,7 +2038,7 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_commits
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -2099,7 +2100,7 @@ fn integrate_upstream_commits_into_local_with_squashed_remote_into_local_conflic
     * 2b73dee (origin/main, main) init-integration
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let local_commit_1 = repo.rev_parse_single("A")?.detach();
     let remote_commit_1 = repo.rev_parse_single("origin/A")?.detach();
@@ -2179,7 +2180,7 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts(
     * 2b73dee (origin/main, main) init-integration
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let local_commit_1 = repo.rev_parse_single("A")?.detach();
     let remote_commit_1 = repo.rev_parse_single("origin/A")?.detach();
@@ -2273,7 +2274,7 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts_
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let local_commit_1 = repo.rev_parse_single("A")?.detach();
     let remote_commit_1 = repo.rev_parse_single("origin/A")?.detach();
@@ -2295,8 +2296,7 @@ fn integrate_upstream_commits_into_local_with_merge_remote_into_local_conflicts_
 
     let rebase =
         integrate_branch_with_steps(r("refs/heads/A"), integration, &mut ws, &mut meta, &repo)?;
-    let preview_graph = rebase.overlayed_graph()?;
-    let preview_workspace = preview_graph.into_workspace()?;
+    let preview_workspace = rebase.overlayed_workspace()?;
     let ref_info = but_workspace::graph_to_ref_info(
         &preview_workspace,
         rebase.repo(),
@@ -2326,7 +2326,7 @@ fn integrate_upstream_precomputes_squash_before_later_step_graph_rewiring() -> R
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
 
     let local_commit_2 = repo.rev_parse_single("A")?.detach();
     let local_commit_1 = repo.rev_parse_single("A~1")?.detach();
@@ -2957,10 +2957,15 @@ fn git_rev_parse(repo_dir: &std::path::Path, rev: &str) -> Result<String> {
 }
 
 fn run_git(repo_dir: &std::path::Path, args: &[&str]) -> Result<()> {
+    // Pin commit dates (matching `but-testsupport`'s fixtures) so timestamps are
+    // deterministic. Otherwise wall-clock seconds tie-break `git log --graph` ordering
+    // of independent tips nondeterministically run-to-run.
     let output = std::process::Command::new("git")
         .arg("-C")
         .arg(repo_dir)
         .args(args)
+        .env("GIT_AUTHOR_DATE", "2000-01-01 00:00:00 +0000")
+        .env("GIT_COMMITTER_DATE", "2000-01-02 00:00:00 +0000")
         .output()?;
     assert_eq!(
         output.status.code(),

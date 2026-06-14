@@ -21,7 +21,7 @@ fn insert_below_commit() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("two")?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     insert_blank_commit(
         editor,
@@ -58,7 +58,7 @@ fn insert_above_commit() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("two")?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     insert_blank_commit(
         editor,
@@ -93,7 +93,7 @@ fn insert_below_reference() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let reference = repo.find_reference("two")?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     insert_blank_commit(
         editor,
@@ -128,7 +128,7 @@ fn insert_above_reference() -> Result<()> {
     let head_tree = repo.head_tree_id()?;
     let reference = repo.find_reference("two")?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     insert_blank_commit(
         editor,

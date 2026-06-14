@@ -1,12 +1,11 @@
 //! Tests key graph rebase operations against a SHA-256 repository.
 
 use anyhow::{Context, Result};
-use but_graph::Graph;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{Editor, Step, mutate::InsertSide},
 };
-use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all};
+use but_testsupport::{branch_tree, git_status, visualize_commit_graph_all};
 
 use crate::utils::{fixture_writable, standard_options};
 
@@ -26,14 +25,12 @@ fn inserting_a_step_rewrites_sha256_commits() -> Result<()> {
     * 8dcf66f (tag: base, main) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = but_graph::Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
-    )?
-    .validated()?;
-    let mut ws = graph.into_workspace()?;
+    )?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let merge_id = editor.repo().rev_parse_single("HEAD~")?.detach();
@@ -45,24 +42,24 @@ fn inserting_a_step_rewrites_sha256_commits() -> Result<()> {
     editor.insert(selector, Step::new_pick(new_commit), InsertSide::Below)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     insta::assert_snapshot!(overlayed, @"
 
-    └── 👉►:0[0]:with-inner-merge[🌳]
+    └── 👉:0:►with-inner-merge
         ├── ·f6ce7ad (⌂|1)
-        └── ·174eb34 (⌂|1)
-            └── ►:1[1]:anon:
-                └── ·3a9910d (⌂|1)
-                    ├── ►:2[2]:A
-                    │   └── ·2ff29ff (⌂|1)
-                    │       └── ►:4[3]:main
-                    │           └── 🏁·8dcf66f (⌂|1) ►tags/base
-                    └── ►:3[2]:B
-                        └── ·8f04e4a (⌂|1)
-                            └── →:4: (main)
+        ├── ·174eb34 (⌂|1)
+        └── :1:►anon:
+            ├── ·3a9910d (⌂|1)
+            ├── :2:►A
+            │   ├── ·2ff29ff (⌂|1)
+            │   └── :4:►main
+            │       └── 🏁·8dcf66f (⌂|1) ►base
+            └── :3:►B
+                ├── ·8f04e4a (⌂|1)
+                └── →:4:►main
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(&*outcome.workspace).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * f6ce7ad (HEAD -> with-inner-merge) on top of inner merge
@@ -100,14 +97,12 @@ fn replacing_a_step_rewrites_sha256_descendants() -> Result<()> {
     * 8dcf66f (tag: base, main) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = but_graph::Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
-    )?
-    .validated()?;
-    let mut ws = graph.into_workspace()?;
+    )?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let a = editor.repo().rev_parse_single("A")?.detach();
@@ -120,23 +115,23 @@ fn replacing_a_step_rewrites_sha256_descendants() -> Result<()> {
     editor.replace(a_selector, Step::new_pick(a_new))?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     insta::assert_snapshot!(overlayed, @"
 
-    └── 👉►:0[0]:with-inner-merge[🌳]
-        └── ·f6f0125 (⌂|1)
-            └── ►:1[1]:anon:
-                └── ·fccb3fd (⌂|1)
-                    ├── ►:2[2]:A
-                    │   └── ·b5c16ab (⌂|1)
-                    │       └── ►:4[3]:main
-                    │           └── 🏁·8dcf66f (⌂|1) ►tags/base
-                    └── ►:3[2]:B
-                        └── ·8f04e4a (⌂|1)
-                            └── →:4: (main)
+    └── 👉:0:►with-inner-merge
+        ├── ·f6f0125 (⌂|1)
+        └── :1:►anon:
+            ├── ·fccb3fd (⌂|1)
+            ├── :2:►A
+            │   ├── ·b5c16ab (⌂|1)
+            │   └── :4:►main
+            │       └── 🏁·8dcf66f (⌂|1) ►base
+            └── :3:►B
+                ├── ·8f04e4a (⌂|1)
+                └── →:4:►main
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(&*outcome.workspace).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * f6f0125 (HEAD -> with-inner-merge) on top of inner merge
@@ -172,14 +167,12 @@ fn changing_edges_rewrites_sha256_parentage() -> Result<()> {
     * 8dcf66f (tag: base, main) base
     ");
 
-    let graph = Graph::from_head(
+    let mut ws = but_graph::Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
-    )?
-    .validated()?;
-    let mut ws = graph.into_workspace()?;
+    )?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let inner_merge = editor.repo().rev_parse_single("HEAD~")?.detach();
@@ -200,22 +193,22 @@ fn changing_edges_rewrites_sha256_parentage() -> Result<()> {
     editor.add_edge(a_selector, b_selector, 1)?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     insta::assert_snapshot!(overlayed, @"
 
-    └── 👉►:0[0]:with-inner-merge[🌳]
+    └── 👉:0:►with-inner-merge
         ├── ·636f2bd (⌂|1)
-        └── ·93b14a1 (⌂|1)
-            └── ►:1[1]:A
-                └── ·9d083f9 (⌂|1)
-                    ├── ►:2[3]:main
-                    │   └── 🏁·8dcf66f (⌂|1) ►tags/base
-                    └── ►:3[2]:B
-                        └── ·8f04e4a (⌂|1)
-                            └── →:2: (main)
+        ├── ·93b14a1 (⌂|1)
+        └── :1:►A
+            ├── ·9d083f9 (⌂|1)
+            ├── :2:►main
+            │   └── 🏁·8dcf66f (⌂|1) ►base
+            └── :3:►B
+                ├── ·8f04e4a (⌂|1)
+                └── →:2:►main
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(&*outcome.workspace).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 636f2bd (HEAD -> with-inner-merge) on top of inner merge

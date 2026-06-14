@@ -17,7 +17,7 @@ fn reword_head_commit() -> Result<()> {
 
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("three")?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     reword(editor, id.detach(), b"New name".into())?
         .0
@@ -46,7 +46,7 @@ fn reword_middle_commit() -> Result<()> {
 
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("two")?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     reword(editor, id.detach(), b"New name".into())?
         .0
@@ -77,7 +77,7 @@ fn reword_base_commit() -> Result<()> {
 
     let head_tree = repo.head_tree_id()?;
     let id = repo.rev_parse_single("one")?;
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     reword(editor, id.detach(), b"New name".into())?
         .0

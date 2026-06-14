@@ -54,6 +54,10 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
     context_lines: u32,
 ) -> Result<CommitCreateOutcome<'ws, 'meta, M>> {
     let relative_to_selector = relative_to.to_selector(&editor)?;
+    // A freshly-created empty branch deliberately hasn't materialized onto the workspace commit,
+    // so a commit placed on it would be orphaned (the workspace commit wouldn't merge it). Detect
+    // that here, before the insert wires anything; the new commit is reconnected below.
+    let target_disconnected = editor.target_disconnected_from_workspace(relative_to_selector)?;
     let parent_commit_id =
         parent_commit_id_for_new_commit(&editor, editor.lookup_step(relative_to_selector)?, side)?;
 
@@ -100,6 +104,12 @@ pub fn commit_create<'ws, 'meta, M: RefMetadata>(
         Step::new_untracked_pick(new_commit_id),
         side,
     )?;
+
+    // The branch hadn't materialized onto the workspace commit: rewrite the workspace commit to
+    // merge the new commit now that the branch has content, rather than leaving it orphaned.
+    if target_disconnected {
+        editor.merge_commit_into_workspace(commit_selector)?;
+    }
 
     Ok(CommitCreateOutcome {
         rebase: editor.rebase()?,

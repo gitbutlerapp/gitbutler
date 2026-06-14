@@ -49,38 +49,30 @@ impl RefInfo {
     /// If `expensive` is `true`, we will run checks that involve changeset-id computation and squash-merge trials.
     pub(crate) fn compute_similarity(
         &mut self,
-        graph: &but_graph::Graph,
+        commit_graph: &but_graph::commit_graph::CommitGraph,
         repo: &gix::Repository,
         expensive: bool,
     ) -> anyhow::Result<()> {
-        let topmost_target_sidx = self
+        // The target tip commit: the target ref's tip (following empty segments), else the stored
+        // target commit. Without any notion of 'target' we can't do anything here.
+        let target_tip = self
             .target_ref
             .as_ref()
-            .map(|t| t.segment_index)
-            .or(self.target_commit.as_ref().map(|t| t.segment_index));
-        let mut upstream_commits = Vec::new();
-        let Some(target_tip) = topmost_target_sidx else {
-            // Without any notion of 'target' we can't do anything here.
-            self.compute_pushstatus(graph);
+            .and_then(|t| t.tip_commit_id)
+            .or_else(|| self.target_commit.as_ref().map(|t| t.commit_id));
+        let Some(target_tip) = target_tip else {
+            self.compute_pushstatus(commit_graph);
             return Ok(());
         };
-        let lower_bound_generation = self.lower_bound.map(|sidx| graph[sidx].generation);
-        graph.visit_all_segments_including_start_until(
-            target_tip,
-            but_graph::petgraph::Direction::Outgoing,
-            |s| {
-                let prune = true;
-                if Some(s.id) == self.lower_bound
-                    || lower_bound_generation.is_some_and(|generation| s.generation > generation)
-                {
-                    return prune;
-                }
-                for c in &s.commits {
-                    upstream_commits.push(c.id);
-                }
-                !prune
-            },
-        );
+        // Commits ahead of the workspace on the target side: reachable from the target tip but not
+        // from the lower bound (or all ancestors when there is no bound). Order is irrelevant — it
+        // only seeds a similarity lookup table.
+        let upstream_commits: Vec<gix::ObjectId> = match self.lower_bound {
+            Some(lower_bound) => {
+                commit_graph.commits_reachable_from_a_not_b(target_tip, lower_bound, false)
+            }
+            None => commit_graph.ancestor_ids(target_tip).into_iter().collect(),
+        };
 
         let cost_info = (
             upstream_commits.len(),
@@ -180,18 +172,18 @@ impl RefInfo {
                 break;
             }
         }
-        self.compute_pushstatus(graph);
+        self.compute_pushstatus(commit_graph);
         Ok(())
     }
 
     /// Recalculate everything that depends on these values and the exact set of remote commits.
-    fn compute_pushstatus(&mut self, graph: &but_graph::Graph) {
+    fn compute_pushstatus(&mut self, commit_graph: &but_graph::commit_graph::CommitGraph) {
         for segment in self
             .stacks
             .iter_mut()
             .flat_map(|stack| stack.segments.iter_mut())
         {
-            segment.push_status = PushStatus::derive_from_graph(graph, segment);
+            segment.push_status = PushStatus::derive_from_graph(commit_graph, segment);
         }
     }
 }
@@ -221,12 +213,15 @@ impl PushStatus {
     ///   would rewrite a branch state that was already merged
     /// - otherwise, either the remote is ahead of us on its branch line or the
     ///   two tips diverged; both cases require force-push
-    fn derive_from_graph(graph: &but_graph::Graph, segment: &crate::ref_info::Segment) -> Self {
-        let Some(remote_segment_id) = segment.remote_tracking_branch_segment_id else {
+    fn derive_from_graph(
+        commit_graph: &but_graph::commit_graph::CommitGraph,
+        segment: &crate::ref_info::Segment,
+    ) -> Self {
+        if segment.remote_tracking_ref_name.is_none() {
             // Generally, don't do anything if no remote relationship is set up (anymore).
             // There may be better ways to deal with this.
             return PushStatus::CompletelyUnpushed;
-        };
+        }
 
         if segment
             .commits
@@ -236,17 +231,10 @@ impl PushStatus {
             return PushStatus::Integrated;
         }
 
-        let local_segment_id = segment.id;
-        let Some(local_tip_id) = graph
-            .tip_skip_empty(local_segment_id)
-            .map(|commit| commit.id)
-        else {
+        let Some(local_tip_id) = segment.commits.first().map(|commit| commit.id) else {
             return PushStatus::NothingToPush;
         };
-        let Some(remote_tip_id) = graph
-            .tip_skip_empty(remote_segment_id)
-            .map(|commit| commit.id)
-        else {
+        let Some(remote_tip_id) = segment.remote_tip_id else {
             // A missing remote tip acts like an unpushed branch: there is a
             // remote configured, but nothing reachable on that side that could
             // block a normal push.
@@ -265,8 +253,11 @@ impl PushStatus {
         if local_tip_id == remote_tip_id {
             // Same tip, regardless of how the graph was segmented.
             PushStatus::NothingToPush
-        } else if first_parent_contains_commit(graph, local_segment_id, remote_tip_id) {
-            // Local is a straightforward first-parent extension of remote.
+        } else if commit_graph.first_parent_reaches(local_tip_id, remote_tip_id) {
+            // Local is a straightforward first-parent extension of remote. We test the
+            // first-parent line on purpose (not all-parents reachability): a merge can make a
+            // commit reachable without putting it on this branch's own line, and pushability is
+            // about advancing one tip to another without rewriting that line.
             // However, if this segment already contains an integrated commit
             // below a local tip, we preserve the previous behavior and treat it
             // as a force-push case. This covers the "remote behind after a
@@ -285,40 +276,6 @@ impl PushStatus {
             PushStatus::UnpushedCommitsRequiringForce
         }
     }
-}
-
-/// Return `true` if `sought_commit_id` occurs on the first-parent branch line
-/// of `start_segment_id`.
-///
-/// This is stricter than an all-parents reachability test on purpose:
-///
-/// - a merge can make a commit reachable without making it part of the branch's
-///   own line
-/// - pushability is about whether one branch tip can advance another branch tip
-///   without rewriting that line
-/// - therefore "reachable somewhere in history" is not the right predicate for
-///   `ahead/behind` here
-fn first_parent_contains_commit(
-    graph: &but_graph::Graph,
-    start_segment_id: but_graph::SegmentIndex,
-    sought_commit_id: gix::ObjectId,
-) -> bool {
-    let mut found = false;
-    if graph[start_segment_id]
-        .commits
-        .iter()
-        .any(|commit| commit.id == sought_commit_id)
-    {
-        return true;
-    }
-    graph.visit_segments_downward_along_first_parent_exclude_start(start_segment_id, |segment| {
-        found = segment
-            .commits
-            .iter()
-            .any(|commit| commit.id == sought_commit_id);
-        found
-    });
-    found
 }
 
 fn is_similarity_candidate(commit: &crate::ref_info::LocalCommit) -> bool {

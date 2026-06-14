@@ -99,7 +99,7 @@ pub(crate) fn stacks_v3_from_ctx(
 pub fn show_graph_svg(ctx: &Context) -> Result<()> {
     let repo = ctx.open_isolated_repo()?;
     let meta = ctx.meta()?;
-    let graph = but_graph::Graph::from_head(
+    let ws = but_graph::Workspace::from_head(
         &repo,
         &meta,
         ctx.project_meta()?,
@@ -108,7 +108,7 @@ pub fn show_graph_svg(ctx: &Context) -> Result<()> {
             ..but_graph::init::Options::limited()
         },
     )?;
-    graph.open_as_svg();
+    ws.open_as_svg();
     Ok(())
 }
 

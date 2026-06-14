@@ -147,12 +147,10 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
         .context("Cannot update a workspace with no target ref")?;
     let target_ref_commit = repo.find_reference(&target_ref.ref_name)?.id();
 
-    let entrypoint = workspace.graph.entrypoint()?;
-    let head_commit = entrypoint
-        .commit()
+    let head_commit_id = workspace
+        .entrypoint_commit_id
         .context("Cannot update workspace without head commit")?;
-    let head_commit = repo.find_commit(head_commit.id)?;
-    let head_commit_id = head_commit.id;
+    let head_commit = repo.find_commit(head_commit_id)?;
     let head_is_workspace_commit = is_managed_workspace_by_message(head_commit.message_raw()?);
 
     let editor_options = GraphEditorOptions {

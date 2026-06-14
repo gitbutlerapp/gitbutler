@@ -1,8 +1,7 @@
 //! These tests exercise the replace operation.
 use anyhow::{Context, Result};
-use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, Step};
-use but_testsupport::{git_status, graph_tree, visualize_commit_graph_all, visualize_tree};
+use but_testsupport::{branch_tree, git_status, visualize_commit_graph_all, visualize_tree};
 
 use crate::utils::{fixture_writable, standard_options};
 
@@ -23,15 +22,12 @@ fn reword_a_commit() -> Result<()> {
 
     let head_tree = repo.head_tree()?.id;
 
-    let graph = Graph::from_head(
+    let mut ws = but_graph::Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
-    )?
-    .validated()?;
-
-    let mut ws = graph.into_workspace()?;
+    )?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // get the original a
@@ -51,23 +47,23 @@ fn reword_a_commit() -> Result<()> {
     editor.replace(a_selector, Step::new_pick(a_new))?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     insta::assert_snapshot!(overlayed, @"
 
-    └── 👉►:0[0]:with-inner-merge[🌳]
-        └── ·78aaae2 (⌂|1)
-            └── ►:1[1]:anon:
-                └── ·53af95a (⌂|1)
-                    ├── ►:2[2]:A
-                    │   └── ·6de6b92 (⌂|1)
-                    │       └── ►:4[3]:main
-                    │           └── 🏁·8f0d338 (⌂|1) ►tags/base
-                    └── ►:3[2]:B
-                        └── ·984fd1c (⌂|1)
-                            └── →:4: (main)
+    └── 👉:0:►with-inner-merge
+        ├── ·78aaae2 (⌂|1)
+        └── :1:►anon:
+            ├── ·53af95a (⌂|1)
+            ├── :2:►A
+            │   ├── ·6de6b92 (⌂|1)
+            │   └── :4:►main
+            │       └── 🏁·8f0d338 (⌂|1) ►base
+            └── :3:►B
+                ├── ·984fd1c (⌂|1)
+                └── →:4:►main
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(&*outcome.workspace).to_string());
 
     assert_eq!(head_tree, repo.head_tree()?.id);
 
@@ -114,15 +110,12 @@ fn amend_a_commit() -> Result<()> {
     └── new-file:100644:f00c965 "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n"
     "#);
 
-    let graph = Graph::from_head(
+    let mut ws = but_graph::Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
-    )?
-    .validated()?;
-
-    let mut ws = graph.into_workspace()?;
+    )?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     // get the original a
@@ -152,23 +145,23 @@ fn amend_a_commit() -> Result<()> {
     editor.replace(a_selector, Step::new_pick(a_new))?;
 
     let outcome = editor.rebase()?;
-    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    let overlayed = branch_tree(&outcome.overlayed_workspace()?).to_string();
     insta::assert_snapshot!(overlayed, @"
 
-    └── 👉►:0[0]:with-inner-merge[🌳]
-        └── ·e7221b5 (⌂|1)
-            └── ►:1[1]:anon:
-                └── ·8101192 (⌂|1)
-                    ├── ►:2[2]:A
-                    │   └── ·f1905a8 (⌂|1)
-                    │       └── ►:4[3]:main
-                    │           └── 🏁·8f0d338 (⌂|1) ►tags/base
-                    └── ►:3[2]:B
-                        └── ·984fd1c (⌂|1)
-                            └── →:4: (main)
+    └── 👉:0:►with-inner-merge
+        ├── ·e7221b5 (⌂|1)
+        └── :1:►anon:
+            ├── ·8101192 (⌂|1)
+            ├── :2:►A
+            │   ├── ·f1905a8 (⌂|1)
+            │   └── :4:►main
+            │       └── 🏁·8f0d338 (⌂|1) ►base
+            └── :3:►B
+                ├── ·984fd1c (⌂|1)
+                └── →:4:►main
     ");
     let outcome = outcome.materialize()?;
-    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(overlayed, branch_tree(&*outcome.workspace).to_string());
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * e7221b5 (HEAD -> with-inner-merge) on top of inner merge

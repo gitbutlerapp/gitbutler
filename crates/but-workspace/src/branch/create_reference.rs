@@ -290,8 +290,9 @@ pub(super) mod function {
                             .try_find_segment_owner_indexes_by_refname(ref_name.as_ref())?;
                         let segment = &workspace.stacks[stack_idx].segments[seg_idx];
 
-                        let id = workspace
-                            .tip_commit_by_segment_id(segment.id)
+                        let id = segment
+                            .tip_commit_id
+                            .and_then(|tip| workspace.commit_graph_ref()?.commit(tip))
                             .map(|commit| position.resolve_commit(commit.into(), ws_base))
                             .context(
                                 "BUG: we should always see through to the base or eligible commits",
@@ -338,12 +339,9 @@ pub(super) mod function {
                     let (stack_idx, seg_idx) =
                         workspace.try_find_segment_owner_indexes_by_refname(anchor_ref.as_ref())?;
                     let segment = &workspace.stacks[stack_idx].segments[seg_idx];
-                    let ref_target_id = workspace
-                        .tip_commit_by_segment_id(segment.id)
-                        .map(|commit| commit.id)
-                        .context(
-                            "BUG: we should always see through to the base or eligible commits",
-                        )?;
+                    let ref_target_id = segment.tip_commit_id.context(
+                        "BUG: we should always see through to the base or eligible commits",
+                    )?;
                     (
                         Some(ref_target_id) != ws_base,
                         ref_target_id,
@@ -364,6 +362,18 @@ pub(super) mod function {
                     .map(|()| existing)
             })
             .transpose()?;
+
+        // A new branch landing on the workspace base is its own empty stack, and stacks are
+        // projected only from the workspace commit's parents. The base is normally not a parent, so
+        // preview a workspace commit that lists it as one — the interim shape `update_workspace_commit`
+        // later persists from metadata — and override the workspace ref to it for the re-traversal
+        // only (the real workspace commit is left untouched, so a dry-run or transaction is not
+        // mutated). Refs at an in-workspace commit (e.g. adopting an existing ref) leave it alone.
+        let preview_workspace_octopus = ws_base
+            .filter(|&base| ref_target_id == base)
+            .map(|base| preview_independent_stack_octopus(repo, workspace, base))
+            .transpose()?
+            .flatten();
         // Assure this commit is in the workspace as well.
         if check_if_id_in_workspace {
             workspace.try_find_owner_indexes_by_commit_id(ref_target_id)?;
@@ -374,7 +384,7 @@ pub(super) mod function {
             let mut branch_md = meta.branch(ref_name)?;
             update_branch_metadata(ref_name, repo, &mut branch_md)?;
 
-            workspace.graph.redo_traversal_with_overlay(
+            workspace.redo_traversal_into_workspace_with_overlay(
                 repo,
                 meta,
                 but_graph::init::Overlay::default()
@@ -383,6 +393,7 @@ pub(super) mod function {
                         target: gix::refs::Target::Object(ref_target_id),
                         peeled: None,
                     }))
+                    .with_references(preview_workspace_octopus)
                     .with_branch_metadata_override(Some((
                         branch_md.as_ref().to_owned(),
                         (*branch_md).clone(),
@@ -395,7 +406,7 @@ pub(super) mod function {
             )?
         };
 
-        let updated_workspace = graph_with_new_ref.into_workspace()?;
+        let updated_workspace = graph_with_new_ref;
         let has_new_ref_as_standalone_segment = updated_workspace
             .find_segment_and_stack_by_refname(ref_name)
             .is_some();
@@ -492,6 +503,50 @@ pub(super) mod function {
             }
         }
         Ok(None)
+    }
+
+    /// Build a *preview* workspace commit that lists `anchor` (the workspace base) as an extra
+    /// parent, and return an override of the workspace reference pointing at it.
+    ///
+    /// An empty stack is its own stack, but the projection derives stacks solely from the workspace
+    /// commit's parents (see `stack_tips_for_frame`). An empty stack's head is the base, which is
+    /// not normally a parent, so without this it would fold away. This mirrors the interim shape
+    /// `update_workspace_commit` later persists from metadata. The preview commit is written to the
+    /// object database, but only the overlay points at it — the real workspace reference is left
+    /// untouched, so a dry-run or transaction is not mutated and the caller still owns persisting
+    /// the workspace commit. Listing the base once is enough for the projection to surface every
+    /// empty stack on it.
+    ///
+    /// Returns `None` when there is no managed workspace commit to extend (e.g. an unmanaged head)
+    /// or when `anchor` is already a parent.
+    fn preview_independent_stack_octopus(
+        repo: &gix::Repository,
+        workspace: &but_graph::Workspace,
+        anchor: gix::ObjectId,
+    ) -> anyhow::Result<Option<gix::refs::Reference>> {
+        let Some(ws_ref) = workspace.ref_name() else {
+            return Ok(None);
+        };
+        let Some(ws_commit_id) = repo
+            .try_find_reference(ws_ref)?
+            .and_then(|mut r| r.peel_to_id().ok())
+            .map(|id| id.detach())
+        else {
+            return Ok(None);
+        };
+        let mut commit: gix::objs::Commit = repo.find_commit(ws_commit_id)?.decode()?.try_into()?;
+        if !but_graph::workspace::commit::is_managed_workspace_by_message(commit.message.as_bstr())
+            || commit.parents.contains(&anchor)
+        {
+            return Ok(None);
+        }
+        commit.parents.push(anchor);
+        let new_ws_commit = repo.write_object(&commit)?.detach();
+        Ok(Some(gix::refs::Reference {
+            name: ws_ref.to_owned(),
+            target: gix::refs::Target::Object(new_ws_commit),
+            peeled: Some(new_ws_commit),
+        }))
     }
 
     fn update_branch_metadata(

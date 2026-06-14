@@ -1,11 +1,6 @@
-use std::{
-    collections::{BTreeSet, VecDeque},
-    ops::Range,
-};
+use std::collections::VecDeque;
 
-use petgraph::{Direction, prelude::EdgeRef, stable_graph::EdgeReference};
-
-use crate::{CommitFlags, CommitIndex, Edge, SegmentIndex};
+use crate::CommitFlags;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Limit {
@@ -323,249 +318,31 @@ impl Goals {
     }
 }
 
+/// What to do with a popped commit in the commit-first traversal.
 #[derive(Debug, Copy, Clone)]
-pub enum Instruction {
-    /// Contains the segment into which to place this commit.
-    CollectCommit { into: SegmentIndex },
-    /// This is the first commit in a new segment which is below `parent_above` and which should be placed
-    /// at the last commit (at the time) via `at_commit`.
-    ConnectNewSegment {
-        parent_above: SegmentIndex,
-        /// Deliberately not [`CommitIndex`]/`usize`: this instruction is stored in
-        /// the traversal queue, and widening it increases the hot `QueueItem` size.
-        ///
-        /// This limit should never be reached either unless there is a repository with a trunk of 4.3 billion commits.
-        at_commit: u32,
-        /// The position of this parent among the source commit's parents (0-based).
-        /// Deliberately not `usize` for the same traversal-queue layout reason as `at_commit`.
-        ///
-        /// This limit would only be reached if there is a merge with 4.3 billion commits.
+pub enum Step {
+    /// The seeded tip of segment `into` (an initial tip or a discovered remote-tracking branch).
+    SeedTip { into: usize },
+    /// The first-parent continuation of `child`'s run.
+    Continue { child: gix::ObjectId },
+    /// The start of a new run, as parent number `parent_order` of the merge commit `child`.
+    NewRunBelow {
+        child: gix::ObjectId,
         parent_order: u32,
     },
 }
 
-impl Instruction {
-    /// Returns any segment index we may be referring to.
-    pub fn segment_idx(&self) -> SegmentIndex {
+impl Step {
+    /// The segment this step seeds, if it is a [`Step::SeedTip`].
+    pub fn seed_segment(&self) -> Option<usize> {
         match self {
-            Instruction::CollectCommit { into } => *into,
-            Instruction::ConnectNewSegment { parent_above, .. } => *parent_above,
-        }
-    }
-
-    pub fn with_replaced_sidx(self, sidx: SegmentIndex) -> Self {
-        match self {
-            Instruction::CollectCommit { into: _ } => Instruction::CollectCommit { into: sidx },
-            Instruction::ConnectNewSegment {
-                parent_above: _,
-                at_commit,
-                parent_order,
-            } => Instruction::ConnectNewSegment {
-                parent_above: sidx,
-                at_commit,
-                parent_order,
-            },
+            Step::SeedTip { into } => Some(*into),
+            Step::Continue { .. } | Step::NewRunBelow { .. } => None,
         }
     }
 }
 
-pub type QueueItem = (super::walk::TraverseInfo, CommitFlags, Instruction, Limit);
-
-#[derive(Debug)]
-pub(crate) struct EdgeOwned {
-    pub source: SegmentIndex,
-    pub target: SegmentIndex,
-    pub weight: Edge,
-    pub id: petgraph::graph::EdgeIndex,
-}
-
-impl From<EdgeReference<'_, Edge>> for EdgeOwned {
-    fn from(e: EdgeReference<'_, Edge>) -> Self {
-        EdgeOwned {
-            source: e.source(),
-            target: e.target(),
-            weight: *e.weight(),
-            id: e.id(),
-        }
-    }
-}
-
-/// A custom topological walk that always goes in a given [direction](Direction),
-/// does not need a graph reference, and which yields ranges of non-overlapping commit in a segment.
-///
-/// This walk assumes the worst-case graph where edges point to any commit, even from commits that
-/// aren't the first one or target commits that aren't the first one in a segment.
-///
-/// ### Note
-///
-/// In theory, a normal [`petgraph::visit::Topo`] would do here, if we assume that everything works
-/// as it should. So at some point, this code might be removed once it's clear we won't need it anymore.
-/// TODO: one fine day remove this in favor of `petgraph::visit::Topo`.
-pub struct TopoWalk {
-    /// The segment we
-    next: VecDeque<(SegmentIndex, Option<CommitIndex>)>,
-    /// Commits we have already yielded.
-    seen: gix::hashtable::HashSet,
-    /// If segments have no commits we can't identify them unless we track them separately.
-    seen_empty_segments: BTreeSet<SegmentIndex>,
-    /// In which direction to traverse.
-    direction: Direction,
-    /// If `true`, don't return the first segment which is always the starting point.
-    skip_tip: Option<()>,
-    /// If this is set during the iteration, we will store segment ids which didn't have any outgoing or
-    /// incoming connections, depending on the direction of traversal.
-    pub leafs: Option<Vec<SegmentIndex>>,
-}
-
-/// Lifecycle
-impl TopoWalk {
-    /// Start a walk at `segment`, possibly only from `commit`.
-    pub fn start_from(
-        segment: SegmentIndex,
-        commit: Option<CommitIndex>,
-        direction: Direction,
-    ) -> Self {
-        TopoWalk {
-            next: {
-                let mut v = VecDeque::new();
-                v.push_back((segment, commit));
-                v
-            },
-            seen: Default::default(),
-            seen_empty_segments: Default::default(),
-            direction,
-            skip_tip: None,
-            leafs: None,
-        }
-    }
-}
-
-/// Builder
-impl TopoWalk {
-    /// Call to not return the tip as part of the iteration.
-    pub fn skip_tip_segment(mut self) -> Self {
-        self.skip_tip = Some(());
-        self
-    }
-}
-
-/// Iteration
-impl TopoWalk {
-    /// Obtain the next segment and unseen commit range in the topo-walk.
-    /// Note that the returned range may yield an empty slice, or a sub-slice
-    /// of all available commits.
-    pub fn next(
-        &mut self,
-        graph: &crate::init::PetGraph,
-    ) -> Option<(SegmentIndex, Range<CommitIndex>)> {
-        while !self.next.is_empty() {
-            let res = self.next_inner(graph);
-            if res.is_some() {
-                if self.skip_tip.take().is_some() {
-                    continue;
-                }
-                return res;
-            }
-        }
-        None
-    }
-
-    fn next_inner(
-        &mut self,
-        graph: &crate::init::PetGraph,
-    ) -> Option<(SegmentIndex, Range<CommitIndex>)> {
-        let (segment, first_commit_index) = self.next.pop_front()?;
-        let available_range = self.select_range(graph, segment, first_commit_index)?;
-
-        let mut count = 0;
-        for edge in graph.edges_directed(segment, self.direction) {
-            count += 1;
-            match self.direction {
-                Direction::Outgoing => {
-                    if edge
-                        .weight()
-                        .src
-                        .is_some_and(|src_cidx| !available_range.contains(&src_cidx))
-                    {
-                        continue;
-                    }
-                    self.next.push_back((edge.target(), edge.weight().dst));
-                }
-                Direction::Incoming => {
-                    if edge
-                        .weight()
-                        .dst
-                        .is_some_and(|dst_cidx| !available_range.contains(&dst_cidx))
-                    {
-                        continue;
-                    }
-                    self.next
-                        .push_back((edge.source(), edge.weight().src.map(|cidx| cidx + 1)));
-                }
-            }
-        }
-        if let Some(leafs) = self.leafs.as_mut().filter(|_| count == 0) {
-            leafs.push(segment);
-        }
-        Some((segment, available_range))
-    }
-
-    fn select_range(
-        &mut self,
-        graph: &crate::init::PetGraph,
-        segment: SegmentIndex,
-        first_commit_index: Option<CommitIndex>,
-    ) -> Option<Range<CommitIndex>> {
-        match first_commit_index {
-            None => {
-                debug_assert!(
-                    graph[segment].commits.is_empty(),
-                    "BUG: we always assure that we set the commit index if a segment has commits: {segment:?}"
-                );
-                if !self.seen_empty_segments.insert(segment) {
-                    return None;
-                }
-                Some(0..0)
-            }
-            Some(start_commit_idx) => {
-                let segment = &graph[segment];
-                let mut range = match self.direction {
-                    Direction::Outgoing => start_commit_idx..segment.commits.len(),
-                    Direction::Incoming => 0..start_commit_idx,
-                };
-
-                // NOTE: this assumes that we always consume all segments from a given starting position,
-                //       which is assured by the lines above that set the initial range.
-                let num_inserted_from_front = segment
-                    .commits
-                    .get(range.clone())?
-                    .iter()
-                    .take_while(|c| self.seen.insert(c.id))
-                    .count();
-                if num_inserted_from_front == 0 {
-                    let num_inserted_from_back = segment
-                        .commits
-                        .get(range.clone())?
-                        .iter()
-                        .rev()
-                        .take_while(|c| self.seen.insert(c.id))
-                        .count();
-                    if num_inserted_from_back == 0 {
-                        return None;
-                    }
-                    range.start = range.end - num_inserted_from_back;
-                } else {
-                    range.end = range.start + num_inserted_from_front;
-                }
-                debug_assert!(
-                    !range.is_empty(),
-                    "BUG: empty ranges should already have been handled, must return None"
-                );
-                Some(range)
-            }
-        }
-    }
-}
+pub type QueueItem = (super::walk::TraverseInfo, CommitFlags, Step, Limit);
 
 #[cfg(test)]
 mod tests {

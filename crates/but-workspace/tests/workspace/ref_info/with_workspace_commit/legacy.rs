@@ -524,7 +524,7 @@ mod stack_details {
         // The raw workspace projection can now link the advanced tip back to `refs/heads/B` even
         // though the extra commit sits outside the workspace commit. That sibling link records the
         // outside commit separately from the in-workspace `B` commit.
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -532,11 +532,11 @@ mod stack_details {
                 ..standard_options().traversal
             },
         )?;
-        let ws = graph.into_workspace()?;
+
         insta::assert_snapshot!(graph_workspace(&ws), @"
         📕🏘️:0:gitbutler/workspace[🌳] <> ✓!
-        └── ≡📙:4:B →:1: {1}
-            ├── 📙:4:B →:1:
+        └── ≡📙:4:B {1}
+            ├── 📙:4:B
             │   ├── ·cc0bf57*
             │   └── ·d69fe94 (🏘️)
             ├── 📙:2:A
@@ -564,9 +564,9 @@ mod stack_details {
                 },
             },
             stacks: [
-                Stack(≡📙:4:B →:1: {1}) {
+                Stack(≡📙:4:B {1}) {
                     segments: [
-                        StackSegment(📙:4:B →:1:) {
+                        StackSegment(📙:4:B) {
                             commits: [
                                 "·d69fe94 (🏘\u{fe0f})",
                             ],
@@ -660,7 +660,7 @@ mod stack_details {
                     ),
                     segments: [
                         ref_info::ui::Segment {
-                            id: NodeIndex(5),
+                            id: 4,
                             ref_name: "►B",
                             remote_tracking_ref_name: "None",
                             commits: [
@@ -677,7 +677,7 @@ mod stack_details {
                             base: "09d8e52",
                         },
                         ref_info::ui::Segment {
-                            id: NodeIndex(4),
+                            id: 3,
                             ref_name: "►A",
                             remote_tracking_ref_name: "None",
                             commits: [
@@ -697,18 +697,30 @@ mod stack_details {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
-                    segment_index: NodeIndex(1),
+                    tip_commit_id: Some(
+                        Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
+                    ),
+                    local_tracking: Some(
+                        RefInfo {
+                            ref_name: FullName(
+                                "refs/heads/main",
+                            ),
+                            commit_id: Some(
+                                Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
+                            ),
+                            worktree: None,
+                        },
+                    ),
                     commits_ahead: 0,
                 },
             ),
             target_commit: Some(
                 TargetCommit {
                     commit_id: Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
-                    segment_index: NodeIndex(2),
                 },
             ),
             lower_bound: Some(
-                NodeIndex(2),
+                Sha1(85efbe4d5a663bff0ed8fb5fbc38a72be0592f55),
             ),
             is_managed_ref: true,
             is_managed_commit: true,

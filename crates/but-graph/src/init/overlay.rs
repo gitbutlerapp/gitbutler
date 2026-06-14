@@ -39,7 +39,7 @@ impl Overlay {
     /// For example, if the `but_rebase::graph_rebase::Editor` converts a
     /// `Reference` step to a `None` step which is the equivalent of running
     /// `git update-ref -d`, it should no longer be part of the
-    /// [`crate::Graph`], so we would list the particular reference as a dropped
+    /// traversal, so we would list the particular reference as a dropped
     /// reference.
     pub fn with_dropped_references(
         mut self,
@@ -226,10 +226,6 @@ impl<'repo> OverlayRepo<'repo> {
 
     pub fn find_commit(&self, id: gix::ObjectId) -> anyhow::Result<gix::Commit<'repo>> {
         Ok(self.inner.find_commit(id)?)
-    }
-
-    pub fn for_attach_only(&self) -> &'repo gix::Repository {
-        self.inner
     }
 
     pub fn for_find_only(&self) -> &'repo gix::Repository {

@@ -1,7 +1,6 @@
 //! Change id tests
 
 use anyhow::Result;
-use but_graph::Graph;
 use but_rebase::graph_rebase::{Editor, LookupStep, Step, ToSelector};
 use gix::prelude::ObjectIdExt;
 
@@ -17,16 +16,13 @@ fn temporary_change_id_persisted() -> Result<()> {
     insta::assert_snapshot!(target_commit.change_id(), @"uonoxlzsyllzwskypkxkwtqyzusvwpzp");
     insta::assert_debug_snapshot!(target_commit.extra_headers, @"[]");
 
-    let graph = Graph::from_head(
+    // An operation to cause the parent we care about to be rebased
+    let mut ws = but_graph::Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
-    )?
-    .validated()?;
-
-    // An operation to cause the parent we care about to be rebased
-    let mut ws = graph.into_workspace()?;
+    )?;
     let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
     let target_selector = target.to_selector(&editor)?;
     editor.replace(target_parent, Step::None)?;
@@ -61,15 +57,12 @@ fn temporary_change_id_persisted() -> Result<()> {
 fn empty_commit_uses_default_change_id() -> Result<()> {
     let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
 
-    let graph = Graph::from_head(
+    let mut ws = but_graph::Workspace::from_head(
         &repo,
         &*meta,
         but_core::ref_metadata::ProjectMeta::default(),
         standard_options(),
-    )?
-    .validated()?;
-
-    let mut ws = graph.into_workspace()?;
+    )?;
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let ec = editor.empty_commit()?;

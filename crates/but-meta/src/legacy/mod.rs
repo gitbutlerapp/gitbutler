@@ -177,7 +177,7 @@ impl Snapshot {
                     })
                     .collect::<BTreeMap<_, _>>()
             });
-        let mut seen_refnames = BTreeMap::<String, Option<but_graph::SegmentIndex>>::new();
+        let mut seen_refnames = BTreeMap::<String, Option<usize>>::new();
         for (stack_id, stack) in self
             .content
             .branches
@@ -265,7 +265,7 @@ impl Snapshot {
             },
             write_on_drop: false,
         });
-        let graph = but_graph::Graph::from_commit_traversal(
+        but_graph::Workspace::from_commit_traversal(
             commit_id,
             reference.name().to_owned(),
             &*sideeffect_free_meta,
@@ -273,8 +273,7 @@ impl Snapshot {
                 .workspace(reference.name())?
                 .project_meta(),
             but_graph::init::Options::limited(),
-        )?;
-        graph.into_workspace()
+        )
     }
 
     #[instrument(level = "debug", skip(self, repo, projected_workspace))]

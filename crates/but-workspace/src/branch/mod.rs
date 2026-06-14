@@ -489,17 +489,14 @@ pub(crate) fn anon_stacks(
 ) -> impl Iterator<Item = (usize, crate::commit::merge::Tip)> {
     stacks.iter().enumerate().filter_map(|(idx, s)| {
         if s.ref_name().is_none() {
-            s.tip_skip_empty().and_then(|cid| {
-                s.segments.first().map(|s| {
-                    (
-                        idx,
-                        crate::commit::merge::Tip {
-                            name: None,
-                            commit_id: cid,
-                            segment_idx: s.id,
-                        },
-                    )
-                })
+            s.tip_skip_empty().map(|cid| {
+                (
+                    idx,
+                    crate::commit::merge::Tip {
+                        name: None,
+                        commit_id: cid,
+                    },
+                )
             })
         } else {
             None

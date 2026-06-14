@@ -494,7 +494,7 @@ pub fn check_project_setup(ctx: &Context, perm: &RepoShared) -> anyhow::Result<b
     }
 
     // TODO(legacy): it's fine to have no target.
-    if ws.graph.project_meta.target_ref.is_none() {
+    if ws.project_meta.target_ref.is_none() {
         anyhow::bail!("No default target branch set.");
     }
 
@@ -530,12 +530,6 @@ fn setup_local_remote(repo: &gix::Repository, out: &mut OutputChannel) -> anyhow
         )?;
     }
 
-    edit_repo_config(repo, gix::config::Source::Local, |config| {
-        let mut section = config.section_mut_or_create_new("remote", Some("gb-local".into()))?;
-        section.push("url".try_into()?, Some(repo_url.into()));
-        Ok(())
-    })?;
-
     // Figure out what local branch is probably the default target
     let mut head_ref = repo.head()?;
     if head_ref.id().is_none() {
@@ -550,6 +544,21 @@ fn setup_local_remote(repo: &gix::Repository, out: &mut OutputChannel) -> anyhow
         .referent_name()
         .map(|n| n.shorten().to_string())
         .unwrap_or_else(|| "main".to_string());
+
+    edit_repo_config(repo, gix::config::Source::Local, |config| {
+        let mut section = config.section_mut_or_create_new("remote", Some("gb-local".into()))?;
+        section.push("url".try_into()?, Some(repo_url.into()));
+        // gb-local points at this repository itself, so the standard `+refs/heads/*` fetch mirror
+        // would clone every local ref — branches and gitbutler/* internals alike — into
+        // refs/remotes/gb-local/*, leaving stale self-referential tracking refs that confuse the
+        // workspace graph (e.g. an empty branch sitting at the base winning ownership of the base
+        // run). Track only the target branch; that is all gb-local exists to provide.
+        let fetch_spec = format!(
+            "+refs/heads/{default_branch_name}:refs/remotes/gb-local/{default_branch_name}"
+        );
+        section.push("fetch".try_into()?, Some(fetch_spec.as_str().into()));
+        Ok(())
+    })?;
 
     // Create refs/remotes/gb-local/{branch_name} pointing to the HEAD commit
     let branch_ref_name: gix::refs::FullName =

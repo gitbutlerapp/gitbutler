@@ -8,7 +8,8 @@ use petgraph::{Direction, visit::EdgeRef};
 use serde::{Deserialize, Serialize};
 
 use crate::graph_rebase::{
-    Edge, Editor, Pick, Selector, Step, ToCommitSelector, ToReferenceSelector, ToSelector,
+    Edge, Editor, Pick, Selector, Step, StepGraphIndex, ToCommitSelector, ToReferenceSelector,
+    ToSelector,
 };
 
 /// Describes where relative to the selector a step should be inserted
@@ -887,6 +888,83 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         }
 
         Ok(orders)
+    }
+
+    /// The pick node of the managed workspace commit, identified as the only non-conflictable
+    /// pick (see [`Pick::new_workspace_pick`]). `None` for an unmanaged workspace that has no
+    /// workspace commit.
+    fn workspace_commit_pick(&self) -> Option<StepGraphIndex> {
+        self.graph.node_indices().find(|&idx| {
+            matches!(
+                &self.graph[idx],
+                Step::Pick(Pick {
+                    conflictable: false,
+                    ..
+                })
+            )
+        })
+    }
+
+    /// Whether `to` is reachable from `from` by following parent (outgoing) edges.
+    fn reaches(&self, from: StepGraphIndex, to: StepGraphIndex) -> bool {
+        if from == to {
+            return true;
+        }
+        let mut seen = HashSet::from([from]);
+        let mut stack = vec![from];
+        while let Some(node) = stack.pop() {
+            for target in self
+                .graph
+                .edges_directed(node, Direction::Outgoing)
+                .map(|e| e.target())
+            {
+                if target == to {
+                    return true;
+                }
+                if seen.insert(target) {
+                    stack.push(target);
+                }
+            }
+        }
+        false
+    }
+
+    /// Whether placing a commit on `target` would orphan it from the workspace commit.
+    ///
+    /// A freshly-created empty branch deliberately doesn't materialize onto the workspace commit,
+    /// so it sits in the step graph as a leaf: neither reachable from the workspace pick nor able
+    /// to reach it. A commit placed on such a branch would dangle off the base. Anything already
+    /// in the workspace (a stack head or one of its commits) is reachable from the workspace pick,
+    /// and the workspace ref itself reaches the workspace pick; both are excluded. Always `false`
+    /// for an unmanaged workspace, which has no workspace commit to merge into.
+    pub fn target_disconnected_from_workspace(&self, target: impl ToSelector) -> Result<bool> {
+        let Some(ws) = self.workspace_commit_pick() else {
+            return Ok(false);
+        };
+        let target = self
+            .history
+            .normalize_selector(target.to_selector(self)?)?
+            .id;
+        Ok(!self.reaches(ws, target) && !self.reaches(target, ws))
+    }
+
+    /// Add `commit` as the last parent of the managed workspace commit, so the workspace commit is
+    /// rewritten to merge it. A no-op for an unmanaged workspace that has no workspace commit.
+    ///
+    /// Used when a commit lands on a branch that had yet to materialize onto the workspace commit
+    /// (see [`Self::target_disconnected_from_workspace`]).
+    pub fn merge_commit_into_workspace(&mut self, commit: impl ToSelector) -> Result<()> {
+        let Some(ws) = self.workspace_commit_pick() else {
+            return Ok(());
+        };
+        let next_order = self
+            .graph
+            .edges_directed(ws, Direction::Outgoing)
+            .map(|e| e.weight().order)
+            .max()
+            .map_or(0, |order| order + 1);
+        let ws = self.new_selector(ws);
+        self.add_edge(ws, commit, next_order)
     }
 }
 

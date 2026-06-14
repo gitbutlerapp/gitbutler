@@ -98,6 +98,30 @@ pub fn create_virtual_branch(
             is_checked_out: false,
         };
 
+        // Non-transactional path: persist the workspace commit `create_reference` previewed, so a
+        // new empty branch (base listed as a ws-commit parent) surfaces as its own stack. The
+        // projection derives stacks solely from those parents; `create_reference` only builds the
+        // octopus in an overlay. Mirrors `create_reference_with_perm` in `legacy::stack`.
+        if new_ws.kind.has_managed_commit()
+            && let (Some(ws_ref), Some(new_tip)) = (
+                new_ws.ref_name().map(ToOwned::to_owned),
+                new_ws.tip_commit_id,
+            )
+        {
+            let current = repo
+                .try_find_reference(ws_ref.as_ref())?
+                .and_then(|mut r| r.peel_to_id().ok())
+                .map(|id| id.detach());
+            if Some(new_tip) != current {
+                repo.reference(
+                    ws_ref.as_ref(),
+                    new_tip,
+                    gix::refs::transaction::PreviousValue::Any,
+                    "GitButler Workspace Commit",
+                )?;
+            }
+        }
+
         *ws = new_ws.into_owned();
         out
     };

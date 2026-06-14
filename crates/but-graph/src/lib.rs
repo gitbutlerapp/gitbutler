@@ -38,7 +38,7 @@
 //! ### New Workspace Concepts
 //!
 //! The workspace is merely a projection of *The Graph*, and as such is mostly useful for display and user interaction.
-//! In the end it boils down to passing commit-hashes, or [segment-ids](SegmentIndex) at most.
+//! In the end it boils down to passing commit-hashes, or [segment-ids](usize) at most.
 //!
 //! The workspace has been redesigned from the ground up for flexibility, enabling new user-experiences. To help thinking
 //! about these, a few new concepts will be good to know about.
@@ -86,13 +86,13 @@
 //! #### Commit Flags and Segment Flags
 //!
 //! For convenience, various boolean parameters have been aggregated into [bitflags](Commit::flags). Thanks to the way *The Graph*
-//! is traversed, we know that the first commit of any [graph segment](Segment) will always bear the flags that are also used by every other commit
-//! contained within it. Thus, [segment flags](Segment::non_empty_flags_of_first_commit()) are equivalent to the flags of
+//! is traversed, we know that the first commit of any graph segment will always bear the flags that are also used by every other commit
+//! contained within it. Thus segment flags are equivalent to the flags of
 //! their first commit.
 //!
 //! The same is *not* true for [stack segments](workspace::StackSegment), i.e. segments within a [workspace projection](Workspace).
-//! The reason for this is that they are first-parent aggregations of one *or more* [graph segments](Segment), and thus have multiple
-//! sets of flags, possibly one per [segment](Segment).
+//! The reason for this is that they are first-parent aggregations of one *or more* graph segments, and thus have multiple
+//! sets of flags, possibly one per segment.
 //!
 //! #### The 'frozen' Commit-Flag
 //!
@@ -103,17 +103,15 @@
 //!
 //! ### The Graph - Traversal and more
 //!
-//! There are three distinct steps to processing the git commit-graph into more usable forms.
+//! There are two steps to processing the git commit-graph into more usable forms.
 //!
 //! * **traversal**
-//!     - walk the git commit graph to produce a segmented graph, which assigns commits to segments,
-//!       but also splits segments on incoming and multiple outgoing connections.
-//! * **reconciliation**
-//!     - a post-processing step which adds workspace metadata into the segmented graph, as such information
-//!       can't be held in the commit-graph itself.
+//!     - a commit-first walk of the git commit graph that produces a segmented graph, assigning
+//!       commits to segments and splitting on incoming and multiple outgoing connections.
 //! * **projection**
-//!     - transform the segmented and reconciled graph into a view that is application-specific, i.e. see
-//!       stacks of first-parent traversed named segments.
+//!     - transform the segmented graph into an application-specific view — stacks of first-parent
+//!       traversed named segments — folding in workspace metadata (which the commit-graph itself
+//!       can't hold) as it goes.
 //!
 //! #### Commits are owned by Segments
 //!
@@ -191,10 +189,23 @@
 //!
 //! #### Projection
 //!
-//! A projection is a mapping of the segmented graph to any shape an application needs, and for any purpose.
-//! It cannot be stressed enough that the source of truth for all commit-graph manipulation must be the segmented graph,
-//! as projections are inherently lossy.
-//! Thus, it's useful create projects with links back to the segments that the information was extracted from.
+//! A projection is a mapping of the graph to any shape an application needs, and for any purpose.
+//! The source of truth is the commit graph; segments are themselves a derived view, and projections built on
+//! top (like [`Workspace`]) are further simplifications — inherently lossy.
+//! Keep links back to the commits/segments the information was extracted from.
+//!
+//! #### The segment family: two projections of a recorded run
+//!
+//! A "segment" is a run of commits the walk records (its name/metadata keyed by [`usize`] in the
+//! traversal `State`); two consumer-facing projections derive from those records:
+//!
+//! - [`StackSegment`](workspace::StackSegment) — projected for the **stack** view: linearized
+//!   along the first parent and enriched for display; may aggregate several recorded segments.
+//! - the [`BranchGraph`] branches — projected for the **rebase step graph**: lean, 1:1 with
+//!   recorded segments, keeping every edge so the full topology survives.
+//!
+//! The two projections are siblings (`StackSegment` : stacks :: `BranchGraph` : steps), differing only in
+//! how much topology and detail their consumer needs.
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
@@ -202,12 +213,11 @@ mod segment;
 /// Use this for basic types like [`petgraph::Direction`], and graph algorithms.
 pub use petgraph;
 pub use segment::{
-    Commit, CommitFlags, RefInfo, Segment, SegmentFlags, SegmentMetadata, StopCondition, Worktree,
-    WorktreeKind,
+    Commit, CommitFlags, RefInfo, SegmentMetadata, StopCondition, Worktree, WorktreeKind,
 };
 
-mod api;
-pub use api::FirstParent;
+// Whether a traversal follows only first-parent edges.
+boolean_enums::gen_boolean_enum!(pub FirstParent);
 /// Produce a graph from a Git repository.
 pub mod init;
 
@@ -215,211 +225,9 @@ pub mod init;
 pub mod workspace;
 pub use workspace::workspace::Workspace;
 
-mod utils;
+pub mod commit_graph;
 
-mod statistics;
-pub use statistics::Statistics;
+pub mod branch_graph;
+pub use branch_graph::BranchGraph;
 
 mod debug;
-
-/// Edges to other segments are the index into the list of local commits of the parent segment.
-/// That way we can tell where a segment branches off, despite the graph only connecting segments, and not commits.
-pub type CommitIndex = usize;
-
-/// A graph of connected segments that represent a section of the actual commit-graph.
-#[derive(Default, Debug, Clone)]
-#[must_use]
-pub struct Graph {
-    inner: init::PetGraph,
-    /// From where the graph was created. This is useful if one wants to focus on a subset of the graph.
-    ///
-    /// This is `None` only for a freshly default-initialized graph, or while a graph is being assembled before
-    /// the first segment is inserted. Graphs returned by the traversal constructors are expected to have an
-    /// entrypoint, even for unborn refs; in that case the segment is present and the commit is
-    /// [`EntryPointCommit::Unborn`].
-    ///
-    /// The second value is the traversal tip, if there is one.
-    ///
-    /// Post-processing may move the entrypoint to an empty synthetic segment, for example a named workspace ref
-    /// without a workspace commit. The segment still marks the ref's place in the graph, but it has no local
-    /// commit slot that can hold the ref target. In that case the commit id is kept here so
-    /// [`Graph::redo_traversal_with_overlay()`] can keep using the original traversal tip if the ref can no
-    /// longer be resolved in the overlay/repository.
-    entrypoint: Option<(SegmentIndex, EntryPointCommit)>,
-    /// The ref_name used when starting the graph traversal. It is set to help assure that the entrypoint stays
-    /// on the correctly named segment, knowing that the post-process may alter segments quite substantially
-    /// when crating independent and dependent branches.
-    entrypoint_ref: Option<gix::refs::FullName>,
-    /// Effective initial traversal tips, in segment creation order.
-    ///
-    /// These are the caller-provided tips plus option-derived tips after
-    /// validation, deduplication, and queue-order normalization. Segment ids are
-    /// intentionally not stored here: post-processing can split, delete, and
-    /// reconnect segments, so consumers re-resolve each tip by commit id against
-    /// the final graph shape and filter for the roles they need.
-    traversal_tips: Vec<init::Tip>,
-    /// It's `true` only if we have stopped the traversal due to a hard limit.
-    hard_limit_hit: bool,
-    /// The options used to create the graph, which allows it to regenerate itself after something
-    /// possibly changed. This can also be used to simulate changes by injecting would-be information.
-    /// Public to be able to change it before calling [Graph::redo_traversal_with_overlay()].
-    pub options: init::Options,
-    /// Project-wide metadata used for target ref, target commit, and push remote resolution.
-    pub project_meta: but_core::ref_metadata::ProjectMeta,
-    /// All remote names that aren't URLs and that were retrieved during the traversal.
-    ///
-    /// They are useful to extract remote names from remote tracking refs like `refs/remotes/origin/master`,
-    /// which may have slashes in them.
-    pub symbolic_remote_names: Vec<String>,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum EntryPointCommit {
-    /// The traversal tip is known.
-    ///
-    /// This is an object id rather than a synthetic index because an empty entrypoint segment has no commit slot
-    /// to index into, nor is it reliably reachable by traversing the graph. If the commit is present in the
-    /// entrypoint segment, its [`CommitIndex`] can be derived from the segment and this id.
-    /// This happens when a workspace reference doesn't have an (unneeded) workspace merge commit,
-    /// and is connected to one or more named empty segments which themselves only point to the workspace base.
-    /// Then from Git's point of view, all involved refs point to the workspace base, but for use it's
-    /// already a graph, and one that isn't representable even with symbolic refs as the workspace ref segment
-    /// can easily point to multiple refs at the same time.
-    AtCommit(gix::ObjectId),
-    /// The traversal started from an unborn ref and has no tip commit.
-    Unborn,
-}
-
-impl EntryPointCommit {
-    fn index_in(self, segment: &Segment) -> Option<CommitIndex> {
-        match self {
-            EntryPointCommit::AtCommit(id) => segment.commit_index_of(id),
-            EntryPointCommit::Unborn => None,
-        }
-    }
-
-    pub(crate) fn object_id(self) -> Option<gix::ObjectId> {
-        match self {
-            EntryPointCommit::AtCommit(id) => Some(id),
-            EntryPointCommit::Unborn => None,
-        }
-    }
-}
-
-impl Graph {
-    /// Return the entrypoint as a segment plus the optional position of its tip commit in that segment.
-    ///
-    /// The graph stores the tip as an object id so it survives post-processing that moves the entrypoint to
-    /// an empty or otherwise synthetic segment. Some graph-local consumers, like debug rendering and
-    /// statistics, still need the segment-relative commit position to mark where the entrypoint appears in
-    /// the current graph shape, so it is derived here instead of being stored as mutable state.
-    fn entrypoint_location(&self) -> Option<(SegmentIndex, Option<CommitIndex>)> {
-        let (segment_index, commit) = self.entrypoint?;
-        let segment = self.inner.node_weight(segment_index)?;
-        Some((segment_index, commit.index_in(segment)))
-    }
-}
-
-/// A resolved entry point into the graph for easy access to the entrypoint segment and,
-/// if present, the commit that started traversal along with the segment that owns it.
-#[derive(Debug, Copy, Clone)]
-pub struct EntryPoint<'graph> {
-    /// The segment that served starting point for the traversal into this graph.
-    pub segment: &'graph Segment,
-    /// If present, the commit that started traversal and the segment that owns it.
-    ///
-    /// This can differ from [`Self::segment`] when post-processing moved the entrypoint to an
-    /// empty synthetic segment, such as a virtual workspace tip segment.
-    ///
-    /// May be `None` if the entrypoint was a reference in a newly born repository,
-    /// which doesn't have any commits.
-    pub commit_and_owner: Option<(&'graph Commit, &'graph Segment)>,
-}
-
-impl<'graph> EntryPoint<'graph> {
-    /// The commit that started traversal, if the entrypoint is not unborn.
-    pub fn commit(&self) -> Option<&'graph Commit> {
-        self.commit_and_owner.map(|(c, _)| c)
-    }
-}
-
-/// Relationship of one segment to another in terms of graph ancestry.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum SegmentRelation {
-    /// Both segment indices point to the same segment.
-    Identity,
-    /// The first segment is an ancestor of the second segment.
-    Ancestor,
-    /// The first segment is a descendant of the second segment.
-    Descendant,
-    /// Segments share history, but neither is ancestor of the other.
-    Diverged,
-    /// Segments do not share any history.
-    Disjoint,
-}
-
-/// This structure is used as data associated with each edge and is mainly for collecting
-/// the intent of an edge, which should always represent the connection of a commit to another.
-/// Sometimes, it represents the connection from a commit (or segment) to an empty segment which
-/// doesn't yet have a commit.
-/// The idea is to write code that keeps edge information consistent, and our visualization tools highlights
-/// issues with the inherent invariants.
-#[derive(Debug, Copy, Clone)]
-pub struct Edge {
-    /// `None` if the source segment has no commit.
-    src: Option<CommitIndex>,
-    /// The commit id at `src` in the segment commit list.
-    src_id: Option<gix::ObjectId>,
-    dst: Option<CommitIndex>,
-    /// The commit id at `dst` in the segment commit list.
-    dst_id: Option<gix::ObjectId>,
-    /// The position of this edge's destination among the source commit's parents.
-    /// For a merge commit with parents `[A, B]`, the edge to `A` has `parent_order = 0`
-    /// and the edge to `B` has `parent_order = 1`.
-    /// Deliberately not `usize`: `Edge` is stored in every petgraph edge slot,
-    /// and widening this field pushes hot edge storage over an important size boundary.
-    ///
-    /// This limit would only be reached if there is a merge with 4.3 billion commits.
-    pub(crate) parent_order: u32,
-}
-
-impl Edge {
-    /// Return the 0-based position of this edge's destination among the source commit's parents.
-    /// For instance, if the source is a merge commit and this edge represents the connection
-    /// to the second parent, the output will be `Some(1)`.
-    ///
-    /// This is `None` when the edge does not point at a concrete destination commit.
-    /// That happens for synthetic graph structure such as empty virtual segments,
-    /// where there is no Git commit parent for this edge to identify.
-    pub fn parent_order(&self) -> Option<u32> {
-        self.dst_id.map(|_| self.parent_order)
-    }
-
-    /// Useful when reusing an edge to assure it doesn't list commits that don't exist in `src_idx` and `dst_idx` anymore.
-    pub(crate) fn adjusted_for(
-        mut self,
-        src_sidx: SegmentIndex,
-        dst_sidx: SegmentIndex,
-        graph: &init::PetGraph,
-    ) -> Self {
-        let commits = &graph[src_sidx].commits;
-        let (id, idx) = commits
-            .last()
-            .map(|c| (Some(c.id), Some(commits.len() - 1)))
-            .unwrap_or_default();
-        self.src_id = id;
-        self.src = idx;
-
-        let commits = &graph[dst_sidx].commits;
-        let (id, idx) = commits
-            .first()
-            .map(|c| (Some(c.id), Some(0)))
-            .unwrap_or_default();
-        self.dst_id = id;
-        self.dst = idx;
-
-        self
-    }
-}
-/// An index into the [`Graph`].
-pub type SegmentIndex = petgraph::graph::NodeIndex;

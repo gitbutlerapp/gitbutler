@@ -39,21 +39,22 @@ impl Archival {
         meta: &impl RefMetadata,
     ) -> Result<PathBuf> {
         let project_meta = but_core::ref_metadata::ProjectMeta::resolve(repo, meta)?;
-        let mut graph =
-            but_graph::Graph::from_head(repo, meta, project_meta.clone(), Default::default())
+        let mut ws =
+            but_graph::Workspace::from_head(repo, meta, project_meta.clone(), Default::default())
                 .or_else(|_| {
-                    but_graph::Graph::from_head(
-                        repo,
-                        meta,
-                        project_meta,
-                        but_graph::init::Options {
-                            // Assume it fails because of post-processing, try again without.
-                            dangerously_skip_postprocessing_for_debugging: true,
-                            ..Default::default()
-                        },
-                    )
-                })?;
-        let dot_file_contents = graph.anonymize(&repo.remote_names())?.dot_graph_pruned();
+                but_graph::Workspace::from_head(
+                    repo,
+                    meta,
+                    project_meta,
+                    but_graph::init::Options {
+                        // Assume it fails because of post-processing, try again without.
+                        dangerously_skip_postprocessing_for_debugging: true,
+                        ..Default::default()
+                    },
+                )
+            })?;
+        ws.anonymize(&repo.remote_names())?;
+        let dot_file_contents = ws.dot_graph_pruned(ws.lower_bound);
         let output_file = self.cache_dir.join(format!(
             "commit-graph-anon-{date}.zip",
             date = filesafe_date_time()

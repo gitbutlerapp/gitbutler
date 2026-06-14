@@ -49,7 +49,7 @@ pub(super) mod function {
         stack_id_override: Option<StackId>,
     ) -> anyhow::Result<Outcome<'ws, 'meta, M>> {
         let successful_rebase = editor.rebase()?;
-        let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
+        let workspace = successful_rebase.overlayed_workspace()?;
         let mut editor = successful_rebase.into_editor();
         let Some(source) = workspace.find_segment_and_stack_by_refname(subject_branch_name) else {
             bail!(
@@ -72,7 +72,7 @@ pub(super) mod function {
 
         let mut ws_meta = workspace.metadata.clone();
         if let Some(ws_meta) = ws_meta.as_mut() {
-            ws_meta.set_project_meta(workspace.graph.project_meta.clone());
+            ws_meta.set_project_meta(workspace.project_meta.clone());
         }
 
         let (source_stack, subject_segment) = source;
@@ -92,29 +92,19 @@ pub(super) mod function {
             .select_commit(workspace_head)
             .context("Failed to find the workspace head in the graph.")?;
 
-        let Some(lower_bound_ref) = workspace
-            .lower_bound_segment_id
-            .map(|segment_id| &workspace.graph[segment_id])
-            .and_then(|segment| segment.ref_name())
-        else {
+        let Some(lower_bound_ref) = workspace.lower_bound_ref_name.as_ref() else {
             bail!("Tearing off a branch requires a workspace common base");
         };
 
         let target_selector = editor
-            .select_reference(lower_bound_ref)
+            .select_reference(lower_bound_ref.as_ref())
             .context("Failed to find target reference in graph.")?;
 
         let DisconnectParameters {
             delimiter: subject_delimiter,
             children_to_disconnect,
             parents_to_disconnect,
-        } = get_disconnect_parameters(
-            &editor,
-            &workspace,
-            source_stack,
-            subject_segment,
-            workspace_head,
-        )?;
+        } = get_disconnect_parameters(&editor, source_stack, subject_segment, workspace_head)?;
 
         editor.disconnect_segment_from(
             subject_delimiter.clone(),
@@ -175,7 +165,7 @@ pub(super) mod function {
         }
 
         let successful_rebase = editor.rebase()?;
-        let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
+        let workspace = successful_rebase.overlayed_workspace()?;
         let mut editor = successful_rebase.into_editor();
 
         let (source, destination) =
@@ -200,7 +190,7 @@ pub(super) mod function {
 
         let mut ws_meta = workspace.metadata.clone();
         if let Some(ws_meta) = ws_meta.as_mut() {
-            ws_meta.set_project_meta(workspace.graph.project_meta.clone());
+            ws_meta.set_project_meta(workspace.project_meta.clone());
         }
 
         let (source_stack, subject_segment) = source;
@@ -216,13 +206,7 @@ pub(super) mod function {
             delimiter: subject_delimiter,
             children_to_disconnect,
             parents_to_disconnect,
-        } = get_disconnect_parameters(
-            &editor,
-            &workspace,
-            &source_stack,
-            &subject_segment,
-            workspace_head,
-        )?;
+        } = get_disconnect_parameters(&editor, &source_stack, &subject_segment, workspace_head)?;
 
         let skip_reconnect_step = source_stack.segments.len() == 1;
         editor.disconnect_segment_from(

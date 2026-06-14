@@ -1068,7 +1068,7 @@ fn branch_workspace_from_rebase<M: but_core::RefMetadata>(
     if let Some((ws_meta, ref_name)) = ws_meta.zip(materialized.workspace.ref_name()) {
         let mut md = materialized.meta.workspace(ref_name)?;
         *md = ws_meta;
-        md.set_project_meta(materialized.workspace.graph.project_meta.clone());
+        md.set_project_meta(materialized.workspace.project_meta.clone());
         materialized.meta.set_workspace(&md)?;
     }
 

@@ -151,9 +151,8 @@ pub fn commit_uncommit_only_with_perm(
         })?;
 
     let (workspace, replaced_commits, repo) = if dry_run.into() {
-        let graph = rebase.overlayed_graph()?;
         (
-            &mut graph.into_workspace()?,
+            &mut rebase.overlayed_workspace()?,
             rebase.history.commit_mappings(),
             rebase.repo(),
         )
@@ -281,9 +280,8 @@ pub fn commit_uncommit_changes_only_with_perm(
         but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
 
     let (workspace, replaced_commits, repo) = if dry_run.into() {
-        let graph = outcome.rebase.overlayed_graph()?;
         (
-            &mut graph.into_workspace()?,
+            &mut outcome.rebase.overlayed_workspace()?,
             outcome.rebase.history.commit_mappings(),
             outcome.rebase.repo(),
         )

@@ -154,6 +154,31 @@ pub fn create_reference_with_perm(
         .find_segment_and_stack_by_refname(new_ref.as_ref())
         .and_then(|(stack, _)| stack.id);
 
+    // Persist the workspace commit `create_reference` previewed. A new branch on the workspace base
+    // is an empty stack that only surfaces while the base is a workspace-commit parent; the
+    // projection derives stacks solely from those parents. `create_reference` builds that octopus in
+    // an overlay and leaves the real ref untouched (so a transaction can drive its own merge via the
+    // lower-level primitive). This API path is non-transactional, so write it for real here.
+    if new_ws.kind.has_managed_commit()
+        && let (Some(ws_ref), Some(new_tip)) = (
+            new_ws.ref_name().map(ToOwned::to_owned),
+            new_ws.tip_commit_id,
+        )
+    {
+        let current = repo
+            .try_find_reference(ws_ref.as_ref())?
+            .and_then(|mut r| r.peel_to_id().ok())
+            .map(|id| id.detach());
+        if Some(new_tip) != current {
+            repo.reference(
+                ws_ref.as_ref(),
+                new_tip,
+                gix::refs::transaction::PreviousValue::Any,
+                "GitButler Workspace Commit",
+            )?;
+        }
+    }
+
     *ws = new_ws.into_owned();
     Ok((stack_id, new_ref))
 }
@@ -203,7 +228,7 @@ pub fn create_branch(
                 )
                 .or_else(|| {
                     Some(but_workspace::branch::create_reference::Anchor::AtCommit {
-                        commit_id: ws.tip_commit_by_segment_id(segment.id)?.id,
+                        commit_id: segment.tip_commit_id?,
                         position: Above,
                     })
                 })

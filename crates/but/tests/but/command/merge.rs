@@ -123,14 +123,9 @@ To undo this operation:
     * e8d7818 (second-branch) second commit on branch B
     *   61888c9 (gb-local/main, gb-local/HEAD, main) Merge branch 'first-branch'
     |\  
-    | | * 71ae247 (gb-local/gitbutler/workspace) GitButler Workspace Commit
-    | |/| 
-    |/| | 
-    | | * edca1cd (gb-local/second-branch) second commit on branch B
-    | |/  
-    * / 549e10c (gb-local/first-branch) first commit on branch A
+    * | 549e10c first commit on branch A
     |/  
-    * 85efbe4 (gb-local/gitbutler/target, gitbutler/target) M
+    * 85efbe4 (gitbutler/target) M
     ");
 
     Ok(())

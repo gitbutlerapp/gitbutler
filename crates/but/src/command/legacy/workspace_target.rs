@@ -112,13 +112,12 @@ fn target_ref_name_from_workspace(workspace: &but_graph::Workspace) -> Option<gi
         .target_ref
         .as_ref()
         .map(|target| target.ref_name.clone())
-        .or_else(|| workspace.graph.project_meta.target_ref.clone())
+        .or_else(|| workspace.project_meta.target_ref.clone())
 }
 
 /// Resolve the effective target push remote name from workspace projection data.
 fn target_push_remote_name_from_workspace(workspace: &but_graph::Workspace) -> Option<String> {
     workspace
-        .graph
         .project_meta
         .push_remote
         .clone()

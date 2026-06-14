@@ -5,6 +5,7 @@
 //! and in the darknes bind them.
 
 mod creation;
+pub(crate) mod inputs;
 pub mod rebase;
 use std::collections::{BTreeMap, HashMap};
 
@@ -314,13 +315,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
         &self.repo
     }
 
-    /// Returns a preview of what the but-graph will look like after
-    /// materialization.
-    ///
-    /// Any objects referenced in the resulting graph must be accessed via the
-    /// in-memory repository owned by this [`SuccessfulRebase`] (`self.repo`),
-    /// since they might exist only in memory.
-    pub fn overlayed_graph(&self) -> Result<but_graph::Graph> {
+    fn overlay(&self) -> Result<Overlay> {
         let dropped_refs = self.ref_edits.iter().filter_map(|edit| match &edit.change {
             gix::refs::transaction::Change::Delete { .. } => Some(edit.name.clone()),
             _ => None,
@@ -365,13 +360,17 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             bail!("BUG: Tried to construct rebase engine graph overlay with no entrypoints");
         };
 
-        let overlay = Overlay::default()
+        Ok(Overlay::default()
             .with_references(updated_refs)
             .with_dropped_references(dropped_refs)
-            .with_entrypoint(entrypoint_id, entrypoint_refname);
+            .with_entrypoint(entrypoint_id, entrypoint_refname))
+    }
+
+    /// Produce the overlayed workspace directly from a re-traversal with the pending edits applied.
+    pub fn overlayed_workspace(&self) -> Result<but_graph::Workspace> {
+        let overlay = self.overlay()?;
         self.workspace
-            .graph
-            .redo_traversal_with_overlay(&self.repo, self.meta, overlay)
+            .redo_traversal_into_workspace_with_overlay(&self.repo, self.meta, overlay)
     }
 }
 

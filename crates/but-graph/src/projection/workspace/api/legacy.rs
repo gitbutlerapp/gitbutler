@@ -70,9 +70,9 @@ impl Workspace {
             .filter_map(|stack| stack.tip_skip_empty())
             .collect::<Vec<_>>();
         if heads.is_empty()
-            && let Some(entrypoint_commit) = self.graph.entrypoint()?.commit()
+            && let Some(entrypoint_commit_id) = self.entrypoint_commit_id
         {
-            heads.push(entrypoint_commit.id);
+            heads.push(entrypoint_commit_id);
         }
         let target_ref_id = repo.find_reference(target_ref)?.id();
 
@@ -107,8 +107,7 @@ impl Workspace {
             .as_ref()
             .map(|target| target.ref_name.as_ref())
             .or_else(|| {
-                self.graph
-                    .project_meta
+                self.project_meta
                     .target_ref
                     .as_ref()
                     .map(|name| name.as_ref())
@@ -130,8 +129,7 @@ impl Workspace {
     /// I think it's important to nail this semantically, and if in doubt, I'd rather make `metadata`
     /// inaccessible to provide only a single-source of truth and remove ambiguity.
     pub fn target_base_commit_id(&self) -> Option<gix::ObjectId> {
-        self.graph
-            .project_meta
+        self.project_meta
             .target_commit_id
             .or_else(|| self.target_commit.as_ref().map(|target| target.commit_id))
     }

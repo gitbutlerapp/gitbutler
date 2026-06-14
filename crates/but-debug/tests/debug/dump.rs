@@ -39,19 +39,19 @@ fn normal_repo_includes_git_state_and_unignored_worktree() -> anyhow::Result<()>
     stderr:
     ");
 
-    insta::assert_snapshot!(archive_tree(&output)?, @r"
-你好-repo-dump/
-├── .git/
-│   ├── HEAD:100644
-│   ├── config:100644
-│   ├── gitbutler:40755/
-│   │   └── vb.toml:100644
-│   └── ... 25 files not shown
-├── .gitignore:100644
-├── executable.sh:100755
-├── tracked.ignored:100644
-└── visible.txt:100644
-");
+    insta::assert_snapshot!(archive_tree(&output)?, @"
+    你好-repo-dump/
+    ├── .git/
+    │   ├── HEAD:100644
+    │   ├── config:100644
+    │   ├── gitbutler:40755/
+    │   │   └── vb.toml:100644
+    │   └── ... 11 files not shown
+    ├── .gitignore:100644
+    ├── executable.sh:100755
+    ├── tracked.ignored:100644
+    └── visible.txt:100644
+    ");
 
     Ok(())
 }
@@ -82,15 +82,15 @@ fn git_only_skips_worktree_files() -> anyhow::Result<()> {
     stderr:
     ");
 
-    insta::assert_snapshot!(archive_tree(&output)?, @r"
-你好-repo-dump/
-└── .git/
-    ├── HEAD:100644
-    ├── config:100644
-    ├── gitbutler:40755/
-    │   └── vb.toml:100644
-    └── ... 25 files not shown
-");
+    insta::assert_snapshot!(archive_tree(&output)?, @"
+    你好-repo-dump/
+    └── .git/
+        ├── HEAD:100644
+        ├── config:100644
+        ├── gitbutler:40755/
+        │   └── vb.toml:100644
+        └── ... 11 files not shown
+    ");
 
     Ok(())
 }
@@ -162,22 +162,22 @@ fn repo_dump_with_diagnostics_injects_files_at_dump_root() -> anyhow::Result<()>
     ");
 
     if dot_is_available() {
-        insta::assert_snapshot!(archive_tree(&output)?, "diagnostic files are injected right away", @r"
-你好-repo-dump/
-├── .git/
-│   ├── HEAD:100644
-│   ├── config:100644
-│   ├── gitbutler:40755/
-│   │   └── vb.toml:100644
-│   └── ... 27 files not shown
-├── .gitignore:100644
-├── executable.sh:100755
-├── graph.dot:100644
-├── graph.svg:100644
-├── tracked.ignored:100644
-├── visible.txt:100644
-└── workspace.ron.txt:100644
-");
+        insta::assert_snapshot!(archive_tree(&output)?, "diagnostic files are injected right away", @"
+        你好-repo-dump/
+        ├── .git/
+        │   ├── HEAD:100644
+        │   ├── config:100644
+        │   ├── gitbutler:40755/
+        │   │   └── vb.toml:100644
+        │   └── ... 13 files not shown
+        ├── .gitignore:100644
+        ├── executable.sh:100755
+        ├── graph.dot:100644
+        ├── graph.svg:100644
+        ├── tracked.ignored:100644
+        ├── visible.txt:100644
+        └── workspace.ron.txt:100644
+        ");
     }
 
     Ok(())
@@ -214,22 +214,22 @@ fn repo_dump_diagnostics_override_worktree_files() -> anyhow::Result<()> {
     ");
 
     if dot_is_available() {
-        insta::assert_snapshot!(archive_tree(&output)?, @r"
-你好-repo-dump/
-├── .git/
-│   ├── HEAD:100644
-│   ├── config:100644
-│   ├── gitbutler:40755/
-│   │   └── vb.toml:100644
-│   └── ... 27 files not shown
-├── .gitignore:100644
-├── executable.sh:100755
-├── graph.dot:100644
-├── graph.svg:100644
-├── tracked.ignored:100644
-├── visible.txt:100644
-└── workspace.ron.txt:100644
-");
+        insta::assert_snapshot!(archive_tree(&output)?, @"
+        你好-repo-dump/
+        ├── .git/
+        │   ├── HEAD:100644
+        │   ├── config:100644
+        │   ├── gitbutler:40755/
+        │   │   └── vb.toml:100644
+        │   └── ... 13 files not shown
+        ├── .gitignore:100644
+        ├── executable.sh:100755
+        ├── graph.dot:100644
+        ├── graph.svg:100644
+        ├── tracked.ignored:100644
+        ├── visible.txt:100644
+        └── workspace.ron.txt:100644
+        ");
     }
 
     let mut archive = zip::ZipArchive::new(File::open(&output)?)?;
@@ -258,12 +258,12 @@ fn bare_repo_extracts_as_dump_git_directory() -> anyhow::Result<()> {
     stderr:
     ");
 
-    insta::assert_snapshot!(archive_tree(&output)?, @r"
-sample-dump.git/
-├── HEAD:100644
-├── config:100644
-└── ... 16 files not shown
-");
+    insta::assert_snapshot!(archive_tree(&output)?, @"
+    sample-dump.git/
+    ├── HEAD:100644
+    ├── config:100644
+    └── ... 2 files not shown
+    ");
 
     Ok(())
 }
@@ -291,17 +291,17 @@ fn linked_worktree_is_unlinked_into_real_git_directory() -> anyhow::Result<()> {
     stderr:
     ");
 
-    insta::assert_snapshot!(archive_tree(&output)?, ".git is now a directory", @r"
-linked-dump/
-├── .git/
-│   ├── HEAD:100644
-│   ├── config:100644
-│   └── ... 30 files not shown
-├── .gitignore:100644
-├── linked-worktree-added-to-index.txt:100644
-├── linked-worktree-untracked.txt:100644
-└── tracked.ignored:100644
-");
+    insta::assert_snapshot!(archive_tree(&output)?, ".git is now a directory", @"
+    linked-dump/
+    ├── .git/
+    │   ├── HEAD:100644
+    │   ├── config:100644
+    │   └── ... 16 files not shown
+    ├── .gitignore:100644
+    ├── linked-worktree-added-to-index.txt:100644
+    ├── linked-worktree-untracked.txt:100644
+    └── tracked.ignored:100644
+    ");
 
     let extraction = TempDir::new()?;
     unzip(&output, extraction.path())?;
@@ -343,21 +343,21 @@ fn current_output_inside_worktree_is_not_archived() -> anyhow::Result<()> {
     stderr:
     ");
 
-    insta::assert_snapshot!(archive_tree(&first_output)?, "the archive being written is not included in itself", @r"
-你好-repo-dump/
-├── .git/
-│   ├── HEAD:100644
-│   ├── config:100644
-│   ├── gitbutler:40755/
-│   │   └── vb.toml:100644
-│   └── ... 25 files not shown
-├── .gitignore:100644
-├── executable.sh:100755
-├── nested:40755/
-│   └── output:40755/
-├── tracked.ignored:100644
-└── visible.txt:100644
-");
+    insta::assert_snapshot!(archive_tree(&first_output)?, "the archive being written is not included in itself", @"
+    你好-repo-dump/
+    ├── .git/
+    │   ├── HEAD:100644
+    │   ├── config:100644
+    │   ├── gitbutler:40755/
+    │   │   └── vb.toml:100644
+    │   └── ... 11 files not shown
+    ├── .gitignore:100644
+    ├── executable.sh:100755
+    ├── nested:40755/
+    │   └── output:40755/
+    ├── tracked.ignored:100644
+    └── visible.txt:100644
+    ");
 
     let second_output = repo.join("sample-second-dump.zip");
     let dump_output = run_dump(&repo, &second_output, false)?;
@@ -367,22 +367,22 @@ fn current_output_inside_worktree_is_not_archived() -> anyhow::Result<()> {
     stderr:
     ");
 
-    insta::assert_snapshot!(archive_tree(&second_output)?, "a previous dump archive in the worktree is included like any other visible file", @r"
-你好-repo-dump/
-├── .git/
-│   ├── HEAD:100644
-│   ├── config:100644
-│   ├── gitbutler:40755/
-│   │   └── vb.toml:100644
-│   └── ... 25 files not shown
-├── .gitignore:100644
-├── executable.sh:100755
-├── nested:40755/
-│   └── output:40755/
-│       └── sample-dump.zip:100644
-├── tracked.ignored:100644
-└── visible.txt:100644
-");
+    insta::assert_snapshot!(archive_tree(&second_output)?, "a previous dump archive in the worktree is included like any other visible file", @"
+    你好-repo-dump/
+    ├── .git/
+    │   ├── HEAD:100644
+    │   ├── config:100644
+    │   ├── gitbutler:40755/
+    │   │   └── vb.toml:100644
+    │   └── ... 11 files not shown
+    ├── .gitignore:100644
+    ├── executable.sh:100755
+    ├── nested:40755/
+    │   └── output:40755/
+    │       └── sample-dump.zip:100644
+    ├── tracked.ignored:100644
+    └── visible.txt:100644
+    ");
 
     std::fs::create_dir_all(repo.join("nested"))?;
     let denormalized_output = repo.join("nested/../denormalized-dump.zip");
@@ -393,23 +393,23 @@ fn current_output_inside_worktree_is_not_archived() -> anyhow::Result<()> {
     stderr:
     ");
 
-    insta::assert_snapshot!(archive_tree(&repo.join("denormalized-dump.zip"))?, "the denormalized output path is still skipped", @r"
-你好-repo-dump/
-├── .git/
-│   ├── HEAD:100644
-│   ├── config:100644
-│   ├── gitbutler:40755/
-│   │   └── vb.toml:100644
-│   └── ... 25 files not shown
-├── .gitignore:100644
-├── executable.sh:100755
-├── nested:40755/
-│   └── output:40755/
-│       └── sample-dump.zip:100644
-├── sample-second-dump.zip:100644
-├── tracked.ignored:100644
-└── visible.txt:100644
-");
+    insta::assert_snapshot!(archive_tree(&repo.join("denormalized-dump.zip"))?, "the denormalized output path is still skipped", @"
+    你好-repo-dump/
+    ├── .git/
+    │   ├── HEAD:100644
+    │   ├── config:100644
+    │   ├── gitbutler:40755/
+    │   │   └── vb.toml:100644
+    │   └── ... 11 files not shown
+    ├── .gitignore:100644
+    ├── executable.sh:100755
+    ├── nested:40755/
+    │   └── output:40755/
+    │       └── sample-dump.zip:100644
+    ├── sample-second-dump.zip:100644
+    ├── tracked.ignored:100644
+    └── visible.txt:100644
+    ");
 
     Ok(())
 }
@@ -548,6 +548,14 @@ fn archive_tree(path: &Path) -> anyhow::Result<termtree::Tree<String>> {
         let file = archive.by_index(index)?;
         let name = file.name();
         let mode = file.unix_mode();
+        // Skip git's hook templates (hooks/*.sample): how many of them `git init` writes differs by
+        // git version - e.g. sendemail-validate.sample arrived in git 2.42 - so counting them makes
+        // these snapshots flip red on a machine whose git differs from the one that captured them
+        // (and the regenerated fixtures are git-version-dependent). They are inert boilerplate
+        // irrelevant to what the dump captures, so leaving them out keeps the tree stable.
+        if name.ends_with(".sample") {
+            continue;
+        }
         match classify_entry(name, file.is_dir()) {
             EntryDisplay::Shown => root.insert(name, mode),
             EntryDisplay::Hidden { parent, entry_kind } => root.insert_hidden(&parent, entry_kind),

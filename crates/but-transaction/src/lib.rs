@@ -311,13 +311,12 @@ where
             .try_find_reference(ref_name)?
             .map(|reference| reference.target().into());
 
-        let graph = self
+        let workspace = self
             .inner
             .rebase
             .as_ref()
             .expect("rebase is always Some(_)")
-            .overlayed_graph()?;
-        let workspace = graph.into_workspace()?;
+            .overlayed_workspace()?;
         let anchor_segment_oldest_commit_id = match &anchor {
             Some(but_workspace::branch::create_reference::Anchor::AtSegment {
                 ref_name, ..
@@ -329,11 +328,7 @@ where
                         .commits
                         .last()
                         .map(|commit| commit.id)
-                        .or_else(|| {
-                            workspace
-                                .tip_commit_by_segment_id(segment.id)
-                                .map(|commit| commit.id)
-                        })
+                        .or_else(|| segment.base)
                         .ok_or_else(|| {
                             anyhow::anyhow!(
                                 "Cannot position reference below unborn segment '{}'",

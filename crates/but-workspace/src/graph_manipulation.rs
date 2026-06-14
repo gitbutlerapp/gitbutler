@@ -25,7 +25,6 @@ pub struct DisconnectParameters {
 /// as well as the right segment delimiter to move.
 pub fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
     editor: &Editor<'ws, 'meta, M>,
-    workspace: &but_graph::Workspace,
     source_stack: &Stack,
     subject_segment: &StackSegment,
     workspace_head: gix::ObjectId,
@@ -60,36 +59,19 @@ pub fn get_disconnect_parameters<'ws, 'meta, M: RefMetadata>(
         parent: delimiter_parent,
     };
 
-    // The parent segment in the stack if any.
-    // This will be `None` if the branch we want to move is at the bottom of the stack.
-    let stack_base_segment = subject_segment.base_segment_id.and_then(|base_segment_id| {
-        source_stack
-            .segments
-            .iter()
-            .find(|segment| segment.id == base_segment_id)
-    });
-
-    // The parent segment in the graph.
-    // If the `stack_base_segment` is `None` but there's a `base_segment_id` defined, it means we'll find it in the
-    // graph data, and it's probably the target branch, which is not included in the workspace.
-    let graph_base_segment = subject_segment
-        .base_segment_id
-        .map(|segment_idx| &workspace.graph[segment_idx]);
-
-    let parents_to_disconnect = if let Some(stack_base_segment) = stack_base_segment {
-        // Base segment is part of the source stack.
-        select_segment(editor, stack_base_segment)?
-    } else if let Some(graph_base_segment) = graph_base_segment {
-        // Base segment is outside of workspace (probably target branch).
-        select_segment(editor, graph_base_segment)?
-    } else if subject_segment.base_segment_id.is_some() {
-        // Base segment could not be found, but there is an ID defined. Error out.
-        bail!(
-            "Failed to find the base segment of the subject we want to move, even if it seems to be defined"
-        );
-    } else {
-        // Nothing found. Remove all parents.
-        SelectorSet::All
+    // The base to disconnect from, be it a stack segment or one outside the workspace (the target).
+    // The projection resolved its ref name and base commit, so we select it without navigating the
+    // graph: prefer the ref (as the prior segment selection did), else the base commit. With no base
+    // at all there are no parents to disconnect.
+    let parents_to_disconnect = match (subject_segment.base_ref_name.as_ref(), subject_segment.base)
+    {
+        (Some(base_ref), _) => SelectorSet::Some(SomeSelectors::new(vec![
+            editor.select_reference(base_ref.as_ref())?,
+        ])?),
+        (None, Some(base)) => {
+            SelectorSet::Some(SomeSelectors::new(vec![editor.select_commit(base)?])?)
+        }
+        (None, None) => SelectorSet::All,
     };
 
     if index_of_segment == 0 {
@@ -172,44 +154,6 @@ pub fn determine_parent_selector<'ws, 'meta, M: RefMetadata>(
     }
 }
 
-/// Select a segment by its ref name if available, otherwise fall back to its tip commit.
-fn select_segment<M: RefMetadata>(
-    editor: &Editor<'_, '_, M>,
-    segment: &impl SegmentLike,
-) -> anyhow::Result<SelectorSet> {
-    let selector = if let Some(ref_name) = segment.ref_name() {
-        editor.select_reference(ref_name)?
-    } else if let Some(tip) = segment.tip() {
-        editor.select_commit(tip)?
-    } else {
-        bail!("Base segment has neither a ref name nor any commits.");
-    };
-    let selectors = SomeSelectors::new(vec![selector])?;
-    Ok(SelectorSet::Some(selectors))
-}
-
-trait SegmentLike {
-    fn ref_name(&self) -> Option<&gix::refs::FullNameRef>;
-    fn tip(&self) -> Option<gix::ObjectId>;
-}
-
-impl SegmentLike for StackSegment {
-    fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
-        self.ref_name()
-    }
-    fn tip(&self) -> Option<gix::ObjectId> {
-        self.tip()
-    }
-}
-
-impl SegmentLike for but_graph::Segment {
-    fn ref_name(&self) -> Option<&gix::refs::FullNameRef> {
-        self.ref_name()
-    }
-    fn tip(&self) -> Option<gix::ObjectId> {
-        self.tip()
-    }
-}
 /// Which direct edge set to resolve from a selector.
 #[derive(Clone, Copy)]
 pub(crate) enum EdgeSelection {

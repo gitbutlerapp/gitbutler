@@ -1,6 +1,5 @@
 use but_core::RefMetadata;
-use but_graph::Graph;
-use but_testsupport::{graph_tree, visualize_commit_graph_all};
+use but_testsupport::{branch_tree, visualize_commit_graph_all};
 
 use super::project_meta;
 use crate::init::utils::{
@@ -13,9 +12,8 @@ fn with_target_ref_extracts_remote_name() -> anyhow::Result<()> {
 
     add_workspace(&mut meta);
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws =
+        but_graph::Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?;
 
     assert!(ws.target_ref.is_some());
     assert_eq!(
@@ -33,9 +31,8 @@ fn returns_none_when_no_target_and_no_push_remote() -> anyhow::Result<()> {
 
     add_workspace_without_target(&mut meta);
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws =
+        but_graph::Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?;
 
     assert!(ws.target_ref.is_none(), "should not have a target_ref");
     assert!(
@@ -64,17 +61,17 @@ fn target_local_tracking_ref_exists_when_other_branch_metadata_names_the_same_ti
     branch.update_times(false);
     meta.set_branch(&branch)?;
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-        .validated()?
-        .into_workspace()?;
-    insta::assert_snapshot!(graph_tree(&ws.graph), "the target remote and its local tracking branch get sibling links even when another branch owns the shared commit", @"
+    let ws =
+        but_graph::Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?;
+    insta::assert_snapshot!(branch_tree(&ws), "the target remote and its local tracking branch get sibling links even when another branch owns the shared commit", @"
 
-    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
-    │   └── 📙►:2[2]:A
+    ├── :1:►origin/main
+    │   └── :0:►A
     │       └── ✂·bce0c5e (⌂|🏘|✓|1) ►B
-    └── ►:1[0]:origin/main →:3:
-        └── ►:3[1]:main <> origin/main →:1:
-            └── →:2: (A)
+    ├── 👉:2:►gitbutler/workspace
+    │   └── →:0:►A
+    └── :3:►main
+        └── →:0:►A
     ");
 
     assert_eq!(

@@ -17,14 +17,13 @@ mod changes_in_branch {
         * c166d42 (origin/main, origin/HEAD, main) init-integration
         ");
 
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
                 .project_meta(),
             Options::limited(),
         )?;
-        let ws = graph.into_workspace()?;
 
         insta::assert_debug_snapshot!(ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/A"))?, @r#"
         TreeChanges {

@@ -22,7 +22,7 @@ fn discard_middle_commit_in_non_managed_workspace() -> Result<()> {
     let two = repo.rev_parse_single("two")?;
     let three = repo.rev_parse_single("three")?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let outcome = discard_commits(editor, [two.detach()])?;
 
@@ -86,16 +86,16 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
     let b = repo.rev_parse_single("B")?;
     let c = repo.rev_parse_single("C")?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:2:A on 85efbe4 {1}
+    │   └── 📙:2:A
     │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
+    └── ≡📙:3:C on 85efbe4 {2}
+        ├── 📙:3:C
         │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
+        └── 📙:4:B
             └── ·c813d8d (🏘️)
     ");
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -104,12 +104,12 @@ fn discard_tip_commit_in_workspace_stack() -> Result<()> {
     let outcome = outcome.materialize()?;
     insta::assert_snapshot!(graph_workspace(outcome.workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:2:A on 85efbe4 {1}
+    │   └── 📙:2:A
     │       └── ·09d8e52 (🏘️)
     └── ≡📙:5:C on 85efbe4 {2}
         ├── 📙:5:C
-        └── 📙:6:B
+        └── 📙:3:B
             └── ·c813d8d (🏘️)
     ");
 
@@ -153,16 +153,16 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
     let c = repo.rev_parse_single("C")?;
     let main = repo.rev_parse_single("main")?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:2:A on 85efbe4 {1}
+    │   └── 📙:2:A
     │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
+    └── ≡📙:3:C on 85efbe4 {2}
+        ├── 📙:3:C
         │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
+        └── 📙:4:B
             └── ·c813d8d (🏘️)
     ");
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
@@ -171,11 +171,11 @@ fn discard_bottom_commit_in_workspace_stack() -> Result<()> {
     let outcome = outcome.materialize()?;
     insta::assert_snapshot!(graph_workspace(outcome.workspace), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:2:A on 85efbe4 {1}
+    │   └── 📙:2:A
     │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
+    └── ≡📙:3:C on 85efbe4 {2}
+        ├── 📙:3:C
         │   └── ·8e00332 (🏘️)
         └── 📙:5:B
     ");
@@ -219,7 +219,7 @@ fn can_discard_conflicted_commit() -> Result<()> {
 
     let conflicted = repo.rev_parse_single("conflicted")?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     let outcome = discard_commits(editor, [conflicted.detach()])?;
 
@@ -248,7 +248,7 @@ fn discard_multiple_commits_in_single_rebase() -> Result<()> {
     let two = repo.rev_parse_single("two")?;
     let three = repo.rev_parse_single("three")?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     // Discard both two and three in a single operation.
     let outcome = discard_commits(editor, [two.into(), three.into()])?;
@@ -311,7 +311,7 @@ fn discard_both_commits_in_workspace_stack() -> Result<()> {
     let c = repo.rev_parse_single("C")?;
     let main = repo.rev_parse_single("main")?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
     // Discard both B and C in one rebase.
     let outcome = discard_commits(editor, [b.into(), c.into()])?;

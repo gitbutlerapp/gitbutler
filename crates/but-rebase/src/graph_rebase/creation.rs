@@ -2,12 +2,11 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, bail};
 use but_core::{RefMetadata, commit::SignCommit};
-use but_graph::{Commit, SegmentIndex};
-use petgraph::{Direction, visit::EdgeRef as _};
+use but_graph::Commit;
 
 use crate::graph_rebase::{
-    Checkout, Edge, Editor, ExtraRef, ExtraRefMutability, Pick, RevisionHistory, Selector, Step,
-    StepGraph, StepGraphIndex, SuccessfulRebase, util,
+    Checkout, Edge, Editor, ExtraRef, Pick, RevisionHistory, Selector, Step, StepGraph,
+    StepGraphIndex, SuccessfulRebase, inputs::select_branches, util,
 };
 
 #[derive(Clone)]
@@ -50,108 +49,37 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
         repo: &gix::Repository,
         options: &GraphEditorOptions,
     ) -> Result<Self> {
-        // This first creates runs of nodes and associates them with the
-        // but-graph segments. We then do a second pass over all the segments
-        // and use the but_graph to connect up the runs. Finally, we validate
-        // that each Pick step's parents match the commit's actual parents,
-        // and if not, we disconnect and rewire directly to the correct
-        // parent commits.
-
-        // TODO(CTO): Look into traversing "in workspace" segments that are not
-        // reachable from the entrypoint TODO(CTO): Look into stopping at the
-        // common base
-        let entrypoint = workspace.graph.entrypoint()?;
-
-        let mut mutable_entrypoints = vec![entrypoint.segment.id];
-        let mut immutable_entrypoints = vec![];
-
-        for extra_ref in &options.extra_refs {
-            let Some((segment, _)) = workspace
-                .graph
-                .segment_and_commit_by_ref_name(extra_ref.ref_name)
-            else {
-                bail!(
-                    "Failed to find corresponding segment for {}",
-                    extra_ref.ref_name
-                );
-            };
-            if extra_ref.mutability == ExtraRefMutability::Mutable {
-                mutable_entrypoints.push(segment.id);
-            } else {
-                immutable_entrypoints.push(segment.id);
-            }
-        }
-
-        let mut segments_to_add = vec![];
-        let mut seen_segments = HashSet::new();
-
-        for entrypoint in mutable_entrypoints {
-            workspace.graph.visit_all_segments_including_start_until(
-                entrypoint,
-                Direction::Outgoing,
-                |segment| {
-                    if seen_segments.insert(segment.id) {
-                        segments_to_add.push(segment.id);
-                        false
-                    } else {
-                        true
-                    }
-                },
-            );
-        }
-        let mut immutable_references = HashSet::new();
-        for entrypoint in immutable_entrypoints {
-            workspace.graph.visit_all_segments_including_start_until(
-                entrypoint,
-                Direction::Outgoing,
-                |segment| {
-                    if seen_segments.insert(segment.id) {
-                        immutable_references.extend(segment.ref_name().map(|r| r.to_owned()));
-                        immutable_references.extend(
-                            segment
-                                .commits
-                                .iter()
-                                .flat_map(|c| c.ref_name_iter())
-                                .map(|r| r.to_owned()),
-                        );
-
-                        segments_to_add.push(segment.id);
-                        false
-                    } else {
-                        true
-                    }
-                },
-            );
-        }
-
-        let workspace_commit_id = workspace
-            .graph
-            .managed_entrypoint_commit(repo)?
-            .map(|c| c.id);
+        // The step graph is built directly from the workspace's `BranchGraph`: `select_branches`
+        // picks and orders the branches the rebase operates on, then each contributes its reference
+        // and pick steps. The build validates that each pick's derived parents match the commit's
+        // actual parents: but-rebase trusts but-graph's commit-accurate topology, and a mismatch is
+        // a but-graph bug.
+        let bg = workspace.branch_graph(repo);
+        let (order, connections, immutable_references) = select_branches(&bg, &options.extra_refs)?;
+        let workspace_commit_id = bg.workspace_commit;
+        let entrypoint_name = bg
+            .branches
+            .iter()
+            .find(|b| b.is_entrypoint)
+            .and_then(|b| b.ref_name.clone());
 
         let mut commits: Vec<Commit> = vec![];
-        let mut commit_to_idx = HashMap::<gix::ObjectId, SegmentIndex>::new();
         let mut commit_to_pick_ix = HashMap::<gix::ObjectId, StepGraphIndex>::new();
         let mut graph = StepGraph::new();
         let mut head_selectors = vec![];
         let mut references = vec![];
-        struct NodeSegment {
-            nodes: Vec<StepGraphIndex>,
-        }
+        let mut branch_nodes: Vec<Vec<StepGraphIndex>> = Vec::with_capacity(order.len());
 
-        let mut segments = HashMap::<SegmentIndex, NodeSegment>::new();
-
-        for sid in segments_to_add {
-            let segment = &workspace.graph[sid];
+        for &branch_idx in &order {
+            let branch = &bg.branches[branch_idx];
             let mut nodes = vec![];
 
-            if let Some(reference) = segment.ref_name() {
-                let refname = reference.to_owned();
+            if let Some(refname) = &branch.ref_name {
                 references.push(refname.clone());
                 let ix = graph.add_node(Step::Reference {
                     refname: refname.clone(),
                 });
-                if Some(reference) == entrypoint.segment.ref_name() {
+                if branch.ref_name == entrypoint_name {
                     head_selectors.push(Selector {
                         id: ix,
                         revision: 0,
@@ -160,18 +88,11 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 nodes.push(ix);
             }
 
-            for commit in &segment.commits {
+            for commit in &branch.commits {
                 commits.push(commit.clone());
-                commit_to_idx.insert(commit.id, segment.id);
 
-                let refs = commit
-                    .refs
-                    .iter()
-                    .map(|r| r.ref_name.clone())
-                    .collect::<Vec<_>>();
-
-                for reference in refs {
-                    references.push(reference.to_owned());
+                for reference in commit.refs.iter().map(|r| r.ref_name.clone()) {
+                    references.push(reference.clone());
                     let ix = graph.add_node(Step::Reference {
                         refname: reference.clone(),
                     });
@@ -202,7 +123,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 nodes.push(ix);
             }
 
-            segments.insert(segment.id, NodeSegment { nodes });
+            branch_nodes.push(nodes);
         }
 
         let commit_ids = commits.iter().map(|c| c.id).collect::<HashSet<_>>();
@@ -227,39 +148,20 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             };
         }
 
-        for sidx in segments.keys() {
-            let Some(source) = segments.get(sidx).and_then(|n| n.nodes.last()) else {
+        for (source_idx, target_idx, parent_order) in connections {
+            let Some(source) = branch_nodes[source_idx].last() else {
                 continue;
             };
-
-            let edges = {
-                let mut v = workspace
-                    .graph
-                    .edges_directed(*sidx, Direction::Outgoing)
-                    .collect::<Vec<_>>();
-                // TODO: the code below relies on edges being in reversed order,
-                //       but that changed now and they are in commit-graph order.
-                //       This is the minimal change to make this work,
-                //       even though a second step should be the cleanup of the
-                //       whole ordering business which also compensated for out-of-order
-                //       edges (which is also fixed).
-                v.reverse();
-                v
+            let Some(target) = branch_nodes[target_idx].first() else {
+                continue;
             };
-            'inner: for edge in edges {
-                let Some(target) = segments.get(&edge.target()).and_then(|n| n.nodes.first())
-                else {
-                    tracing::warn!(
-                        "Dropping parent edge for segment {sidx:?}: edge target {:?} has no nodes",
-                        edge.target()
-                    );
-                    continue 'inner;
-                };
-
-                // TODO: does it have relevance when `parent_order()` is `None` for edges to virtual segments?
-                let order = edge.weight().parent_order().unwrap_or(0) as usize;
-                graph.add_edge(*source, *target, Edge { order });
-            }
+            graph.add_edge(
+                *source,
+                *target,
+                Edge {
+                    order: parent_order,
+                },
+            );
         }
 
         for c in &commits {
@@ -294,8 +196,22 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                 continue;
             }
 
-            tracing::warn!(
-                "but-graph inconsistent with the commit graph.\nParents for commit {} do not match.\n\nFound:{:?}\nExpected:{:?}\n\nThese IDs may be in memory, but may be helpful for debugging.",
+            // The walk stops expanding once it hits its commit budget, leaving a boundary commit
+            // with no recorded outgoing edges — even when its parent is present via another path, so
+            // the absent-parent check above misses it. Preserve its real parents, exactly as for a
+            // parent that is entirely absent, rather than treating the truncation as a bug.
+            if graph_parent_ids.is_empty() {
+                if let Step::Pick(pick) = &mut graph[pick_ix] {
+                    pick.preserved_parents = Some(c.parent_ids.clone());
+                }
+                continue;
+            }
+
+            bail!(
+                "but-graph produced a commit topology inconsistent with the commit graph for {}: \
+                 segment-derived parents {:?} != actual parents {:?}. but-rebase trusts but-graph's \
+                 (now commit-accurate) topology rather than maintaining a corrected copy, so this \
+                 indicates a but-graph bug to fix at the source.",
                 c.id,
                 graph_parent_ids
                     .iter()
@@ -306,26 +222,6 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
                     .map(|p| p.to_string())
                     .collect::<Vec<_>>(),
             );
-
-            let outgoing_edge_ids: Vec<_> = graph
-                .edges_directed(pick_ix, Direction::Outgoing)
-                .map(|e| e.id())
-                .collect();
-            for edge_id in outgoing_edge_ids {
-                graph.remove_edge(edge_id);
-            }
-
-            'inner: for (order, parent_id) in c.parent_ids.iter().enumerate() {
-                let Some(&target_ix) = commit_to_pick_ix.get(parent_id) else {
-                    tracing::warn!(
-                        "Dropping parent edge for commit {} (parent fix): parent {parent_id} not found in pick map",
-                        c.id
-                    );
-                    continue 'inner;
-                };
-
-                graph.add_edge(pick_ix, target_ix, Edge { order });
-            }
         }
 
         Ok(Self {

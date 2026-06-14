@@ -1,5 +1,3 @@
-use but_graph::Graph;
-
 use super::project_meta;
 use crate::init::utils::{
     add_workspace_with_target, add_workspace_without_target, read_only_in_memory_scenario,
@@ -14,9 +12,8 @@ fn distinguishes_target_base_from_ref_tip() -> anyhow::Result<()> {
 
     add_workspace_with_target(&mut meta, base_id);
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws =
+        but_graph::Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?;
 
     assert_eq!(ws.target_base_commit_id(), Some(base_id));
     assert_eq!(ws.target_ref_tip_commit_id(), Some(target_tip_id));
@@ -34,9 +31,8 @@ fn target_helpers_return_none_without_target() -> anyhow::Result<()> {
 
     add_workspace_without_target(&mut meta);
 
-    let ws = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
-        .validated()?
-        .into_workspace()?;
+    let ws =
+        but_graph::Workspace::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?;
 
     assert_eq!(ws.target_base_commit_id(), None);
     assert_eq!(ws.target_ref_tip_commit_id(), None);

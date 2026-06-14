@@ -27,16 +27,16 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:2:A on 85efbe4 {1}
+    │   └── 📙:2:A
     │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
+    └── ≡📙:3:C on 85efbe4 {2}
+        ├── 📙:3:C
         │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
+        └── 📙:4:B
             └── ·c813d8d (🏘️)
     ");
 
@@ -52,7 +52,7 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -67,13 +67,13 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:C on 85efbe4 {1}
-    │   ├── 📙:3:C
+    ├── ≡📙:2:C on 85efbe4 {1}
+    │   ├── 📙:2:C
     │   │   └── ·f2cc60d (🏘️)
-    │   └── 📙:4:A
+    │   └── 📙:3:A
     │       └── ·09d8e52 (🏘️)
-    └── ≡📙:5:B on 85efbe4 {2}
-        └── 📙:5:B
+    └── ≡📙:4:B on 85efbe4 {2}
+        └── 📙:4:B
             └── ·c813d8d (🏘️)
     ");
 
@@ -91,7 +91,7 @@ fn moving_branch_onto_itself_fails_without_changing_workspace() -> anyhow::Resul
             },
         )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let before = graph_workspace(&ws).to_string();
     let editor = Editor::create(&mut ws, &mut meta, &repo)?;
 
@@ -135,16 +135,16 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:2:A on 85efbe4 {1}
+    │   └── 📙:2:A
     │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
+    └── ≡📙:3:C on 85efbe4 {2}
+        ├── 📙:3:C
         │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
+        └── 📙:4:B
             └── ·c813d8d (🏘️)
     ");
 
@@ -159,7 +159,7 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -174,13 +174,13 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:B on 85efbe4 {1}
-    │   ├── 📙:3:B
+    ├── ≡📙:2:B on 85efbe4 {1}
+    │   ├── 📙:2:B
     │   │   └── ·f9061ed (🏘️)
-    │   └── 📙:4:A
+    │   └── 📙:3:A
     │       └── ·09d8e52 (🏘️)
-    └── ≡📙:5:C on 85efbe4 {2}
-        └── 📙:5:C
+    └── ≡📙:4:C on 85efbe4 {2}
+        └── 📙:4:C
             └── ·8e00332 (🏘️)
     ");
 
@@ -207,16 +207,16 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:2:A on 85efbe4 {1}
+    │   └── 📙:2:A
     │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
+    └── ≡📙:3:C on 85efbe4 {2}
+        ├── 📙:3:C
         │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
+        └── 📙:4:B
             └── ·c813d8d (🏘️)
     ");
 
@@ -232,7 +232,7 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -245,12 +245,12 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    └── ≡📙:3:A on 85efbe4 {2}
-        ├── 📙:3:A
+    └── ≡📙:2:A on 85efbe4 {2}
+        ├── 📙:2:A
         │   └── ·148f8f3 (🏘️)
-        ├── 📙:4:C
+        ├── 📙:3:C
         │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
+        └── 📙:4:B
             └── ·c813d8d (🏘️)
     ");
 
@@ -277,16 +277,16 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:2:A on 85efbe4 {1}
+    │   └── 📙:2:A
     │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
+    └── ≡📙:3:C on 85efbe4 {2}
+        ├── 📙:3:C
         │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
+        └── 📙:4:B
             └── ·c813d8d (🏘️)
     ");
 
@@ -302,7 +302,7 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -317,13 +317,13 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:2:A on 85efbe4 {1}
+    │   └── 📙:2:A
     │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:B on 85efbe4 {2}
-        ├── 📙:4:B
+    └── ≡📙:3:B on 85efbe4 {2}
+        ├── 📙:3:B
         │   └── ·de0581e (🏘️)
-        └── 📙:5:C
+        └── 📙:4:C
             └── ·8e00332 (🏘️)
     ");
 
@@ -350,16 +350,16 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:2:A on 85efbe4 {1}
+    │   └── 📙:2:A
     │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
+    └── ≡📙:3:C on 85efbe4 {2}
+        ├── 📙:3:C
         │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
+        └── 📙:4:B
             └── ·c813d8d (🏘️)
     ");
 
@@ -375,7 +375,7 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -388,12 +388,12 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    └── ≡📙:3:C on 85efbe4 {2}
-        ├── 📙:3:C
+    └── ≡📙:2:C on 85efbe4 {2}
+        ├── 📙:2:C
         │   └── ·3e7ff55 (🏘️)
-        ├── 📙:4:A
+        ├── 📙:3:A
         │   └── ·4dfe841 (🏘️)
-        └── 📙:5:B
+        └── 📙:4:B
             └── ·c813d8d (🏘️)
     ");
 
@@ -415,11 +415,11 @@ fn move_empty_branch() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main, B) M
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:2:A on 85efbe4 {1}
+    │   └── 📙:2:A
     │       └── ·09d8e52 (🏘️)
     └── ≡📙:4:B on 85efbe4 {2}
         └── 📙:4:B
@@ -437,7 +437,7 @@ fn move_empty_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -450,7 +450,7 @@ fn move_empty_branch() -> anyhow::Result<()> {
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
     └── ≡📙:4:B on 85efbe4 {1}
         ├── 📙:4:B
-        └── 📙:5:A
+        └── 📙:2:A
             └── ·09d8e52 (🏘️)
     ");
     Ok(())
@@ -471,11 +471,11 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
     * 85efbe4 (origin/main, main, B) M
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:2:A on 85efbe4 {1}
+    │   └── 📙:2:A
     │       └── ·09d8e52 (🏘️)
     └── ≡📙:4:B on 85efbe4 {2}
         └── 📙:4:B
@@ -493,7 +493,7 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
     // Materialize the operation
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -504,8 +504,8 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
 
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    └── ≡📙:3:A on 85efbe4 {2}
-        ├── 📙:3:A
+    └── ≡📙:2:A on 85efbe4 {2}
+        ├── 📙:2:A
         │   └── ·09d8e52 (🏘️)
         └── 📙:4:B
     ");
@@ -533,16 +533,16 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
     * 85efbe4 (origin/main, main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:A on 85efbe4 {1}
-    │   └── 📙:3:A
+    ├── ≡📙:2:A on 85efbe4 {1}
+    │   └── 📙:2:A
     │       └── ·09d8e52 (🏘️)
-    └── ≡📙:4:C on 85efbe4 {2}
-        ├── 📙:4:C
+    └── ≡📙:3:C on 85efbe4 {2}
+        ├── 📙:3:C
         │   └── ·09bc93e (🏘️)
-        └── 📙:5:B
+        └── 📙:4:B
             └── ·c813d8d (🏘️)
     ");
     let before_display_order = stack_display_order(&ws);
@@ -572,26 +572,26 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
 
     insta::assert_snapshot!(graph_workspace(&ws), "before refreshing `ws` the pure-virtual change isn't visible (should be fixed once meta is in db!)", @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:5:B on 85efbe4 {2}
-    │   └── 📙:5:B
+    ├── ≡📙:4:B on 85efbe4 {2}
+    │   └── 📙:4:B
     │       └── ·c813d8d (🏘️)
-    └── ≡📙:4:C on 85efbe4 {1}
-        ├── 📙:4:C
+    └── ≡📙:3:C on 85efbe4 {1}
+        ├── 📙:3:C
         │   └── ·f2cc60d (🏘️)
-        └── 📙:3:A
+        └── 📙:2:A
             └── ·09d8e52 (🏘️)
     ");
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
     insta::assert_snapshot!(graph_workspace(&ws), "after the refresh the workspace is finally uptodate (this will probably be an issue unless callers know that)", @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on 85efbe4
-    ├── ≡📙:3:C on 85efbe4 {1}
-    │   ├── 📙:3:C
+    ├── ≡📙:2:C on 85efbe4 {1}
+    │   ├── 📙:2:C
     │   │   └── ·f2cc60d (🏘️)
-    │   └── 📙:4:A
+    │   └── 📙:3:A
     │       └── ·09d8e52 (🏘️)
-    └── ≡📙:5:B on 85efbe4 {2}
-        └── 📙:5:B
+    └── ≡📙:4:B on 85efbe4 {2}
+        └── 📙:4:B
             └── ·c813d8d (🏘️)
     ");
 
@@ -637,7 +637,7 @@ fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> 
     * 85efbe4 (origin/main, main, B) M
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let before_display_order = stack_display_order(&ws);
     let before_metadata_order = metadata_stack_order(&ws);
     assert_eq!(before_display_order, before_metadata_order);
@@ -659,7 +659,7 @@ fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> 
 
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     let after_display_order = stack_display_order(&ws);
@@ -708,7 +708,7 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
     * 85efbe4 (main) M
     ");
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     insta::assert_snapshot!(graph_workspace(&ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 85efbe4
     ├── ≡📙:3:A on 85efbe4 {1}
@@ -730,7 +730,7 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
 
     rebase.materialize()?;
     set_workspace_metadata(&mut meta, &ws, ws_meta)?;
-    let project_meta = ws.graph.project_meta.clone();
+    let project_meta = ws.project_meta.clone();
     ws.refresh_from_head(&repo, &meta, project_meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -787,7 +787,7 @@ fn set_workspace_metadata(
     if let Some((ws_meta, ref_name)) = ws_meta.zip(ws.ref_name()) {
         let mut md = meta.workspace(ref_name)?;
         *md = ws_meta;
-        md.set_project_meta(ws.graph.project_meta.clone());
+        md.set_project_meta(ws.project_meta.clone());
         meta.set_workspace(&md)?;
     }
     Ok(())

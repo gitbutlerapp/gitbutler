@@ -2,7 +2,7 @@
 
 use but_core::RefMetadata;
 use but_rebase::graph_rebase::{
-    Editor, SuccessfulRebase, ToCommitSelector, ToSelector,
+    Editor, LookupStep as _, SuccessfulRebase, ToCommitSelector, ToSelector,
     mutate::{InsertSide, SegmentDelimiter, SelectorSet},
 };
 
@@ -71,4 +71,40 @@ pub fn move_commit_no_rebase<'ws, 'meta, M: RefMetadata>(
     // Step 3: Insert
     editor.insert_segment(anchor, commit_delimiter, side)?;
     Ok(editor)
+}
+
+/// Move `subject_commit_ids` to `side` of `anchor`, in parentage order, then rebase.
+///
+/// When `anchor` is a freshly-created stack that hasn't materialized onto the workspace commit (an
+/// empty leaf), the new stack's tip is merged into the workspace commit afterwards so the moved
+/// commits aren't orphaned off the base. Moving onto a stack already in the workspace is unaffected.
+pub fn move_commits<'ws, 'meta, M: RefMetadata>(
+    mut editor: Editor<'ws, 'meta, M>,
+    subject_commit_ids: Vec<gix::ObjectId>,
+    anchor: impl ToSelector + Clone,
+    side: InsertSide,
+) -> anyhow::Result<SuccessfulRebase<'ws, 'meta, M>> {
+    // Detect a disconnected target before moving anything; its tip is merged in below.
+    let target_disconnected = editor.target_disconnected_from_workspace(anchor.clone())?;
+
+    let ordered_selectors = editor.order_commit_selectors_by_parentage(subject_commit_ids)?;
+    let mut ordered_ids = ordered_selectors
+        .iter()
+        .map(|selector| editor.lookup_pick(*selector))
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    if matches!(side, InsertSide::Above) {
+        ordered_ids.reverse();
+    }
+
+    for subject_id in ordered_ids {
+        editor = move_commit_no_rebase(editor, subject_id, anchor.clone(), side)?;
+    }
+
+    // The target stack hadn't materialized onto the workspace commit: rewrite it to merge the new
+    // stack's tip now that the moved commits give it content, rather than leaving it orphaned.
+    if target_disconnected {
+        editor.merge_commit_into_workspace(anchor.clone())?;
+    }
+
+    editor.rebase()
 }

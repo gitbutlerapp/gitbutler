@@ -107,13 +107,10 @@ fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
     )?
     .rebase;
 
-    let preview_workspace = rebase.overlayed_graph()?.into_workspace()?;
+    let preview_workspace = rebase.overlayed_workspace()?;
     let preview_head = preview_workspace
-        .graph
-        .entrypoint()?
-        .commit()
-        .context("preview workspace should have a head commit")?
-        .id;
+        .entrypoint_commit_id
+        .context("preview workspace should have a head commit")?;
     assert!(
         repo.find_object(preview_head).is_err(),
         "preview commits should not have to exist in the persistent repository before materialization"
@@ -218,7 +215,7 @@ fn workspace_for_stack(
     meta: &but_meta::VirtualBranchesTomlMetadata,
 ) -> Result<but_graph::Workspace> {
     let target_sha = repo.rev_parse_single("main")?.detach();
-    let ws = but_graph::Graph::from_head(
+    let ws = but_graph::Workspace::from_head(
         repo,
         meta,
         project_meta(meta)?,
@@ -226,8 +223,7 @@ fn workspace_for_stack(
             extra_target_commit_id: Some(target_sha),
             ..Options::limited()
         },
-    )?
-    .into_workspace()?;
+    )?;
     Ok(ws)
 }
 

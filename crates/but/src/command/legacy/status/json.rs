@@ -12,7 +12,6 @@
 use std::collections::HashMap;
 
 use anyhow::Context as _;
-use but_graph::SegmentIndex;
 use but_workspace::ref_info::LocalCommit;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -302,7 +301,7 @@ impl Branch {
         repo: &gix::Repository,
         cli_id: String,
         segment: SegmentWithId,
-        push_statuses_by_segment_id: &HashMap<SegmentIndex, but_workspace::ui::PushStatus>,
+        push_statuses_by_segment_id: &HashMap<usize, but_workspace::ui::PushStatus>,
         local_commits_by_id: &HashMap<gix::ObjectId, LocalCommit>,
         remote_commits_by_id: &HashMap<gix::ObjectId, but_workspace::ref_info::Commit>,
         review_id: Option<String>,

@@ -1,20 +1,46 @@
-use anyhow::Context as _;
 use but_core::ref_metadata;
 
 use super::Stack;
-use crate::{Graph, SegmentIndex};
+use usize;
 
 pub(super) mod api;
-mod init;
-pub(crate) use init::Downgrade;
+mod debug;
 
-/// A workspace reference is a list of [Stacks](Stack), with a reference to the underlying [`Graph`].
+/// A projected workspace: the display [stacks](Stack) plus the carried commit graph and branch
+/// records the rebase derives its [`BranchGraph`](crate::BranchGraph) from.
 #[derive(Clone)]
 pub struct Workspace {
-    /// The underlying graph for providing simplified access to data.
-    pub graph: Graph,
-    /// An ID which uniquely identifies the [graph segment](crate::Segment) that represents the tip of the workspace.
-    pub id: SegmentIndex,
+    /// The commit-level graph the traversal built: one node per commit, edges child → parent.
+    /// Carried so merge-base and reachability queries read it without the record graph.
+    /// `None` for default/unborn workspaces that have no commits.
+    pub(crate) commit_graph: Option<crate::commit_graph::CommitGraph>,
+    /// Project-wide metadata (target ref, target commit, push remote) used to resolve the
+    /// workspace and to re-run the traversal via
+    /// [`Self::redo_traversal_into_workspace_with_overlay`].
+    pub project_meta: ref_metadata::ProjectMeta,
+    /// The options the traversal ran with, kept so the workspace can regenerate itself.
+    /// Public so callers can tweak them (e.g. clear `extra_target_commit_id`) before a redo.
+    pub options: crate::init::Options,
+    /// The entrypoint segment's ref name, kept so redo-traversal can re-resolve the entrypoint
+    /// when an overlay doesn't supply one.
+    pub(crate) entrypoint_ref: Option<gix::refs::FullName>,
+    /// All non-URL remote names retrieved during the traversal, used to extract remote names from
+    /// remote tracking refs. Carried from the graph so consumers need not navigate it.
+    pub(crate) symbolic_remote_names: Vec<String>,
+    /// The traversal's branch records — the flat adjacency list carrying the full topology, for
+    /// consumers that need more than the projected stacks (the rebase step graph, assembled via
+    /// [`BranchGraph`](crate::BranchGraph)). Only the direct projection fills this.
+    pub(crate) branches: Option<Vec<crate::branch_graph::Branch>>,
+    /// An ID which uniquely identifies the graph segment that represents the tip of the workspace.
+    pub id: usize,
+    /// The resolved tip commit of the workspace segment (skip-empty, ref-info fallback), or `None`
+    /// if it does not point to a commit (e.g. unborn). Computed at build time so consumers need not
+    /// navigate the graph for the workspace tip.
+    pub tip_commit_id: Option<gix::ObjectId>,
+    /// The ref-info of the workspace segment (its name, peeled commit and worktree), resolved at
+    /// build time. This is what [`Self::ref_name`]/[`Self::ref_info`] return without navigating the
+    /// graph; for managed workspaces it matches the ref-info in [`Self::kind`].
+    pub ref_info: Option<crate::RefInfo>,
     /// Specify what kind of workspace this is.
     pub kind: WorkspaceKind,
     /// One or more stacks that live in the workspace, in order of parents of the workspace commit if there are more than one.
@@ -31,8 +57,10 @@ pub struct Workspace {
     ///
     /// It is `None` there is only a single stack and no target, so nothing was integrated.
     pub lower_bound: Option<gix::ObjectId>,
-    /// If `lower_bound` is set, this is the segment owning the commit.
-    pub lower_bound_segment_id: Option<SegmentIndex>,
+    /// The ref name of the segment owning [`lower_bound`](Self::lower_bound), if it has one.
+    /// Resolved at build time so the rebase editor can select the common base by ref without
+    /// navigating the graph.
+    pub lower_bound_ref_name: Option<gix::refs::FullName>,
     /// The target, as identified by a remote tracking branch, to integrate workspace stacks into.
     ///
     /// If `None`, and if `target_commit` is `None`, this is a local workspace that doesn't know when
@@ -48,6 +76,32 @@ pub struct Workspace {
     /// It is also valid to have this field point to the same Segment as [Self::target_ref]. Both have different purposes,
     /// semantically.
     pub target_commit: Option<TargetCommit>,
+    /// The tip commit of the first integrated traversal tip, resolved at build time. It is the
+    /// fallback target side used by [`Self::effective_target_commit_id`] when neither
+    /// [`Self::target_ref`] nor [`Self::target_commit`] is set.
+    pub integrated_target_tip_commit_id: Option<gix::ObjectId>,
+    /// If the workspace reference was advanced past its managed workspace commit, this carries that
+    /// commit (found in the ancestry) and the commits sitting on top of it. The projection resolves
+    /// it at build time so consumers need not navigate the graph. `None` for managed workspaces and
+    /// when no managed commit is in the ancestry.
+    pub ancestor_workspace_commit: Option<AncestorWorkspaceCommit>,
+    /// The disambiguated name and resolved tip of every named segment the traversal saw, resolved
+    /// at build time. Lets consumers answer "is this ref a primary segment, and where does it point"
+    /// (as `segment_by_ref_name` + `tip_skip_empty` did) without navigating the graph.
+    pub named_segments: Vec<(gix::refs::FullName, gix::ObjectId)>,
+    /// Every ref name (segment names and refs sitting on commits) to its resolved commit, as
+    /// `segment_and_commit_by_ref_name` resolved them. Lets consumers resolve any ref - including a
+    /// secondary ref the segment isn't named after - to its commit without the graph.
+    pub ref_tips: Vec<(gix::refs::FullName, gix::ObjectId)>,
+    /// `true` if the traversal stopped early at its hard limit, so the workspace may be incomplete.
+    /// Carried from the graph so consumers need not hold it to know.
+    pub hard_limit_hit: bool,
+    /// `true` if the repository has more than one worktree, used only to render worktree-ownership
+    /// markers in debug output. Carried from the graph.
+    pub has_multiple_worktrees: bool,
+    /// The commit at the traversal entrypoint - i.e. what `HEAD` resolved to - or `None` if unborn.
+    /// Resolved at build time so consumers need not navigate the graph for the checked-out commit.
+    pub entrypoint_commit_id: Option<gix::ObjectId>,
     /// Read-only workspace metadata with additional information, or `None` if nothing was present.
     /// If this is `Some()` the `kind` is always [`WorkspaceKind::Managed`]
     ///
@@ -59,108 +113,41 @@ pub struct Workspace {
     pub metadata: Option<ref_metadata::Workspace>,
 }
 
-/// A copy of all workspace state, to pass it around internally.
-pub(crate) struct WorkspaceState {
-    pub id: SegmentIndex,
-    pub kind: WorkspaceKind,
-    pub stacks: Vec<Stack>,
-    pub lower_bound: Option<gix::ObjectId>,
-    pub lower_bound_segment_id: Option<SegmentIndex>,
-    pub target_ref: Option<TargetRef>,
-    pub target_commit: Option<TargetCommit>,
-    pub metadata: Option<ref_metadata::Workspace>,
-}
-
-/// Graph-level workspace facts needed while reconciling a traversed graph.
-///
-/// This deliberately stops before the final workspace projection pruning and
-/// remote-display enrichment. Reconciliation needs the workspace frame and
-/// current graph paths, not a finished [`Workspace`].
-pub(crate) struct WorkspaceReconciliationInput {
-    /// Segment that represents the workspace tip/ref being reconciled.
-    ///
-    /// In managed mode this is the workspace ref segment. Reconciliation uses
-    /// it as the root for inserting or reordering virtual stack branch
-    /// segments according to workspace metadata.
-    pub id: SegmentIndex,
-    /// Current graph paths below the workspace tip, grouped using the same
-    /// first-parent path rules as projection, but before projection-only
-    /// pruning and remote display enrichment.
-    ///
-    /// Reconciliation uses these paths to discover which already-traversed
-    /// segments can receive metadata-defined branch segments.
-    pub stacks: Vec<Stack>,
-    /// Segment that owns the computed workspace lower-bound commit, regardless
-    /// of whether that segment is currently part of [`Self::stacks`].
-    ///
-    /// This is the full frame-of-reference lower bound used to decide where
-    /// workspace stack collection stops and which base candidates are relevant.
-    /// It may point to a target/integrated segment outside the workspace paths,
-    /// unlike [`Self::lower_bound_segment_id_in_workspace()`].
-    pub lower_bound_segment_id: Option<SegmentIndex>,
-    /// Resolved target ref for the workspace, if one is available.
-    ///
-    /// Reconciliation uses the target segment to avoid creating independent
-    /// branch segments from target-side history and to identify candidates
-    /// where the target is connected from above.
-    pub target_ref: Option<TargetRef>,
-    /// Resolved target commit for the workspace, if one is available.
-    ///
-    /// This can come from workspace metadata or traversal target context. It is
-    /// used as another lower-bound/candidate anchor when reconciling branches
-    /// against the traversed graph.
-    pub target_commit: Option<TargetCommit>,
-    /// Workspace metadata that defines the desired applied/unapplied stacks,
-    /// branch order, branch names, and target settings.
-    ///
-    /// This is the non-Git input reconciliation applies to the traversed graph.
-    pub metadata: ref_metadata::Workspace,
-}
-
-impl WorkspaceReconciliationInput {
-    /// Return the lower-bound segment only if it is currently part of one of
-    /// [`Self::stacks`].
-    ///
-    /// This is narrower than [`Self::lower_bound_segment_id`]. Reconciliation
-    /// uses it for the "split lower bound out of a named stack segment" fixup,
-    /// which is only valid when that lower-bound segment is inside the current
-    /// workspace stack paths. If the lower bound comes from the target side or
-    /// another integrated context outside the workspace paths, this returns
-    /// `None` to avoid mutating unrelated graph structure.
-    pub fn lower_bound_segment_id_in_workspace(&self) -> Option<SegmentIndex> {
-        self.lower_bound_segment_id.filter(|lb_sidx| {
-            self.stacks
-                .iter()
-                .flat_map(|s| s.segments.iter().map(|s| s.id))
-                .any(|sid| sid == *lb_sidx)
-        })
-    }
-}
-
 impl Workspace {
-    fn from_state(
-        graph: Graph,
-        WorkspaceState {
-            id,
-            kind,
-            stacks,
-            lower_bound,
-            lower_bound_segment_id,
-            target_ref,
-            target_commit,
-            metadata,
-        }: WorkspaceState,
-    ) -> Self {
+    /// The traversal's branch records (the flat adjacency list), if this workspace was built by the
+    /// direct projection. The rebase reads these via [`BranchGraph`](crate::BranchGraph).
+    pub fn branches(&self) -> Option<&[crate::branch_graph::Branch]> {
+        self.branches.as_deref()
+    }
+
+    /// An empty ad-hoc workspace around the given `stacks`, for downstream tests that don't
+    /// involve a repository.
+    #[doc(hidden)]
+    pub fn for_testing(stacks: Vec<Stack>) -> Self {
         Workspace {
-            graph,
-            id,
-            kind,
+            commit_graph: None,
+            project_meta: Default::default(),
+            options: Default::default(),
+            entrypoint_ref: None,
+            symbolic_remote_names: Vec::new(),
+            branches: None,
+            id: Default::default(),
+            tip_commit_id: None,
+            ref_info: None,
+            kind: WorkspaceKind::AdHoc,
             stacks,
-            lower_bound,
-            lower_bound_segment_id,
-            target_ref,
-            target_commit,
-            metadata,
+            lower_bound: None,
+            lower_bound_ref_name: None,
+            target_ref: None,
+            target_commit: None,
+            integrated_target_tip_commit_id: None,
+            ancestor_workspace_commit: None,
+            named_segments: Vec::new(),
+            ref_tips: Vec::new(),
+            hard_limit_hit: false,
+            has_multiple_worktrees: false,
+            entrypoint_commit_id: None,
+            metadata: None,
         }
     }
 }
@@ -213,15 +200,6 @@ impl WorkspaceKind {
     }
 }
 
-impl WorkspaceKind {
-    fn managed(ref_info: &Option<crate::RefInfo>) -> anyhow::Result<Self> {
-        let ref_info = ref_info
-            .clone()
-            .context("BUG: managed workspaces must always be on a named segment")?;
-        Ok(WorkspaceKind::Managed { ref_info })
-    }
-}
-
 /// Information about the target reference, which marks a portion in the commit-graph
 /// that the workspace wants to integrate with.
 #[derive(Debug, Clone)]
@@ -229,8 +207,13 @@ pub struct TargetRef {
     /// The name of the target branch, i.e. the branch that all [Stacks](Stack) want to get merged into.
     /// Typically, this is `refs/remotes/origin/main`.
     pub ref_name: gix::refs::FullName,
-    /// The index to the respective segment in the graph, it's the segment with [`Self::ref_name`] as name.
-    pub segment_index: SegmentIndex,
+    /// The current tip commit of the target reference, resolved when the workspace was built.
+    /// `None` if the target ref did not resolve to a commit in the graph.
+    pub tip_commit_id: Option<gix::ObjectId>,
+    /// The local tracking branch of the target (its sibling in the graph), if one was configured
+    /// or inferred. Its `commit_id` is the resolved tip. Checkout fallbacks and target-membership
+    /// checks resolve through it.
+    pub local_tracking: Option<crate::RefInfo>,
     /// The amount of *all* commits that aren't included in any segment in the workspace, they are in its future.
     pub commits_ahead: usize,
 }
@@ -246,58 +229,16 @@ pub struct TargetCommit {
     /// The hash of the commit that was once included in the [target ref](TargetRef), and that we remember to expand
     /// the reach of the workspace.
     pub commit_id: gix::ObjectId,
-    /// The index to the respective segment in the graph that contains [`Self::commit_id`].
-    pub segment_index: SegmentIndex,
 }
 
-impl TargetCommit {
-    /// Find `target_commit_id` in the `graph` and store its segment in this instance, or return `None` if not found.
-    /// The `None` case is acceptable as we consider these possibly stored.
-    fn from_commit(target_commit_id: gix::ObjectId, graph: &Graph) -> Option<Self> {
-        let segment = graph.segment_by_commit_id(target_commit_id).ok()?;
-        let commit_index = segment.commit_index_of(target_commit_id)?;
-        if commit_index != 0 {
-            tracing::warn!(
-                current = ?target_commit_id,
-                segment = ?segment.id,
-                commit_index,
-                "Ignoring stored target commit because it is not the first commit in its segment"
-            );
-            return None;
-        }
-        Some(TargetCommit {
-            commit_id: target_commit_id,
-            segment_index: segment.id,
-        })
-    }
-}
-
-impl TargetRef {
-    /// Return `None` if `ref_name` wasn't found as segment in `graph`.
-    /// This can happen if a reference is configured, but not actually present as reference.
-    /// Note that `commits_ahead` isn't set yet, see [`Self::compute_and_set_commits_ahead()`].
-    fn from_ref_name_without_commits_ahead(
-        ref_name: &gix::refs::FullName,
-        graph: &Graph,
-    ) -> Option<Self> {
-        Some(TargetRef {
-            ref_name: ref_name.to_owned(),
-            segment_index: graph.segment_by_ref_name(ref_name.as_ref())?.id,
-            commits_ahead: 0,
-        })
-    }
-
-    fn compute_and_set_commits_ahead(
-        &mut self,
-        graph: &Graph,
-        lower_bound_segment: Option<SegmentIndex>,
-    ) {
-        let lower_bound = lower_bound_segment.map(|sidx| (sidx, graph[sidx].generation));
-        self.commits_ahead = 0;
-        Self::visit_upstream_commits(graph, self.segment_index, lower_bound, |s| {
-            self.commits_ahead += s.commits.len();
-        })
-    }
+/// A managed workspace commit found in the ancestry of an advanced workspace reference, along with
+/// the commits that sit on top of it (between the reference and the managed commit, in walk order).
+#[derive(Debug, Clone)]
+pub struct AncestorWorkspaceCommit {
+    /// The id of the managed workspace commit found in the ancestry.
+    pub managed_commit_id: gix::ObjectId,
+    /// The commits between the workspace reference and the managed workspace commit.
+    pub commits_outside: Vec<crate::Commit>,
 }
 
 fn find_segment_owner_indexes_by_refname(

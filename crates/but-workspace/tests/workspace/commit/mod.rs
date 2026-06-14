@@ -37,7 +37,7 @@ mod from_new_merge_with_metadata {
 
         let stacks = ["add-A"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -46,7 +46,9 @@ mod from_new_merge_with_metadata {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            ws.commit_graph_ref()
+                .expect("a merged workspace has a commit graph"),
+            &ws.ref_tips,
             &repo,
             None,
         )?;
@@ -92,7 +94,7 @@ mod from_new_merge_with_metadata {
 
         let stacks = ["add-D", "add-A", "add-C", "add-B"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -101,7 +103,9 @@ mod from_new_merge_with_metadata {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            ws.commit_graph_ref()
+                .expect("a merged workspace has a commit graph"),
+            &ws.ref_tips,
             &repo,
             Some("refs/heads/has-no-effect-outside-conflicts".try_into()?),
         )?;
@@ -179,21 +183,23 @@ mod from_new_merge_with_metadata {
         * 85efbe4 (main, gitbutler/workspace) M
         ");
         add_stacks(&mut meta, ["add-A", "add-B", "add-C"]);
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
             Options::limited(),
         )?;
 
-        let add_c_ref = "refs/heads/add-C".try_into()?;
-        let (segment, commit) = graph
-            .segment_and_commit_by_ref_name(add_c_ref)
+        let add_c_ref: gix::refs::FullName = "refs/heads/add-C".try_into()?;
+        let commit_id = ws
+            .ref_tips
+            .iter()
+            .find(|(name, _)| *name == add_c_ref)
+            .map(|(_, id)| *id)
             .expect("add-C is visible in the graph");
         let anon_c_tip = Tip {
             name: None,
-            commit_id: commit.id,
-            segment_idx: segment.id,
+            commit_id,
         };
 
         let mut stacks = to_stacks(["add-A", "add-D", "add-B"]);
@@ -205,7 +211,9 @@ mod from_new_merge_with_metadata {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &stacks,
             [(2, anon_c_tip)],
-            &graph,
+            ws.commit_graph_ref()
+                .expect("a merged workspace has a commit graph"),
+            &ws.ref_tips,
             &repo,
             None,
         )?;
@@ -255,7 +263,7 @@ mod from_new_merge_with_metadata {
             "clean-A",
         ];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -265,7 +273,9 @@ mod from_new_merge_with_metadata {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            ws.commit_graph_ref()
+                .expect("a merged workspace has a commit graph"),
+            &ws.ref_tips,
             &repo,
             Some("refs/heads/conflict-hero".try_into()?),
         )?;
@@ -310,7 +320,9 @@ mod from_new_merge_with_metadata {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            ws.commit_graph_ref()
+                .expect("a merged workspace has a commit graph"),
+            &ws.ref_tips,
             &repo,
             None,
         )?;
@@ -341,7 +353,7 @@ mod from_new_merge_with_metadata {
 
     #[test]
     fn with_conflict_commits() -> anyhow::Result<()> {
-        let (_tmp, mut graph, repo, mut meta, _description) =
+        let (_tmp, graph, repo, mut meta, _description) =
             named_writable_scenario_with_description_and_graph("with-conflict", |_| {})?;
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
         * 8450331 (HEAD -> main, tag: conflicted) GitButler WIP Commit
@@ -366,7 +378,7 @@ mod from_new_merge_with_metadata {
         let stacks = ["tip-conflicted", "unrelated"];
         add_stacks(&mut meta, stacks);
 
-        graph = graph.redo_traversal_with_overlay(
+        let ws = graph.redo_traversal_into_workspace_with_overlay(
             &repo,
             &meta,
             Overlay::default().with_references_if_new([
@@ -384,7 +396,9 @@ mod from_new_merge_with_metadata {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            ws.commit_graph_ref()
+                .expect("a merged workspace has a commit graph"),
+            &ws.ref_tips,
             &repo,
             None,
         )?;
@@ -430,7 +444,7 @@ mod from_new_merge_with_metadata {
         // NOTE: the caller would be expected to have prepared a graph that contains these branches.
         let stacks = ["clean-A", "conflict-C1", "clean-B", "conflict-C2"];
         add_stacks(&mut meta, stacks);
-        let graph = but_graph::Graph::from_head(
+        let ws = but_graph::Workspace::from_head(
             &repo,
             &*meta,
             but_core::ref_metadata::ProjectMeta::default(),
@@ -440,7 +454,9 @@ mod from_new_merge_with_metadata {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            ws.commit_graph_ref()
+                .expect("a merged workspace has a commit graph"),
+            &ws.ref_tips,
             &repo,
             None,
         )?;
@@ -504,7 +520,9 @@ mod from_new_merge_with_metadata {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(stacks),
             None,
-            &graph,
+            ws.commit_graph_ref()
+                .expect("a merged workspace has a commit graph"),
+            &ws.ref_tips,
             &repo,
             Some("refs/heads/conflict-C2".try_into()?),
         )?;
@@ -568,7 +586,9 @@ mod from_new_merge_with_metadata {
         let out = WorkspaceCommit::from_new_merge_with_metadata(
             &to_stacks(["conflict-C2", "conflict-C2", "conflict-C1", "clean-A"]),
             None,
-            &graph,
+            ws.commit_graph_ref()
+                .expect("a merged workspace has a commit graph"),
+            &ws.ref_tips,
             &repo,
             Some("refs/heads/conflict-C1".try_into()?),
         )?;

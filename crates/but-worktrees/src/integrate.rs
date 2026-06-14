@@ -151,7 +151,11 @@ fn worktree_integration_inner<'ws, 'meta, M: RefMetadata>(
     }
 
     // State needed later which can't be read while the editor borrows `ws`.
-    let ws_commit_id = ws.graph.managed_entrypoint_commit(repo)?.map(|c| c.id);
+    let ws_commit_id = ws
+        .kind
+        .has_managed_commit()
+        .then_some(ws.tip_commit_id)
+        .flatten();
     let head_id = repo.head_id().ok().map(|id| id.detach());
     let head_tree_id = repo.head_tree_id_or_empty()?.detach();
     #[expect(

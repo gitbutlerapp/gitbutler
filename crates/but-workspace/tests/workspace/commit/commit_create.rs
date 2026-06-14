@@ -27,7 +27,7 @@ fn commit_above_commit() -> Result<()> {
         "inserted\n",
     )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = commit_create(
         editor,
@@ -74,7 +74,7 @@ fn commit_below_commit() -> Result<()> {
         "inserted\n",
     )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = commit_create(
         editor,
@@ -115,7 +115,7 @@ fn commit_above_reference() -> Result<()> {
         "inserted\n",
     )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = commit_create(
         editor,
@@ -167,7 +167,7 @@ fn commit_below_merge_commit_uses_first_parent() -> Result<()> {
         "inserted\n",
     )?;
 
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
     let outcome = commit_create(
         editor,
@@ -205,7 +205,7 @@ fn commit_all_rejected_is_noop() -> Result<()> {
     let (_tmp, graph, repo, mut _meta, _description) =
         writable_scenario("reword-three-commits", |_| {})?;
     let two_id = repo.rev_parse_single("two")?.detach();
-    let mut ws = graph.into_workspace()?;
+    let mut ws = graph;
     let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
 
     let outcome = commit_create(
