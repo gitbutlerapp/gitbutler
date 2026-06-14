@@ -7,5 +7,5 @@ pub struct Platform {
     #[clap(short, long, conflicts_with = "no_message")]
     pub message: Option<Vec<String>>,
     #[clap(short, long)]
-    pub branch: Option<BranchArg>,
+    pub branch: Option<Option<BranchArg>>,
 }
