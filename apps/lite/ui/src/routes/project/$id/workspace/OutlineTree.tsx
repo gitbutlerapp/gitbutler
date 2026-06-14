@@ -110,7 +110,6 @@ import styles from "./OutlineTree.module.css";
 import { Checkbox } from "#ui/components/Checkbox.tsx";
 import {
 	WorkspaceItemRow,
-	WorkspaceItemRowEmpty,
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowToolbar,
 	getWorkspaceItemRowButtonClassName,
@@ -169,14 +168,6 @@ const selectAfterDiscardedCommit = ({
 	return null;
 };
 
-const useDryRunCommit = (commitId: string) => {
-	const dryRunWorkspace = use(DryRunWorkspaceContext);
-	if (!dryRunWorkspace) return null;
-
-	const dryRunCommitId = dryRunWorkspace.replacedCommits[commitId] ?? commitId;
-	return findCommit({ headInfo: dryRunWorkspace.headInfo, commitId: dryRunCommitId });
-};
-
 const useOutlineTreeHotkeys = ({
 	navigationIndex,
 	projectId,
@@ -188,7 +179,9 @@ const useOutlineTreeHotkeys = ({
 }) => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const selection = useOutlineSelection({ projectId, navigationIndex });
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const isDefaultMode = useAppSelector(
+		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
+	);
 
 	const selectedStack =
 		selection && "stackId" in selection
@@ -423,7 +416,7 @@ const useOutlineTreeHotkeys = ({
 			workspaceIntegrateUpstreamMutation.mutate([selectedStackRebaseUpdate]);
 	};
 
-	const defaultOutlineHotkeysEnabled = outlineMode._tag === "Default";
+	const defaultOutlineHotkeysEnabled = isDefaultMode;
 	const isSelectedCommit = selection?._tag === "Commit";
 	const isSelectedBranch = selection?._tag === "Branch";
 	const isSelectedChanges = selection?._tag === "ChangesSection";
@@ -797,7 +790,7 @@ export const OutlineTree: FC<
 									</Tooltip.Portal>
 								</Tooltip.Root>
 
-								{[...(headInfo?.stacks ?? [])].reverse().map((stack) => (
+								{reverse(headInfo?.stacks ?? []).map((stack) => (
 									<StackC
 										key={stack.id}
 										projectId={projectId}
@@ -1040,16 +1033,15 @@ const CommitRow: FC<
 		projectId: string;
 		stackId: string;
 		isCommitTarget: boolean;
+		dryRunCommit: Commit | null;
 	} & ComponentProps<"div">
-> = ({ commit, projectId, stackId, isCommitTarget, ...restProps }) => {
+> = ({ commit, projectId, stackId, isCommitTarget, dryRunCommit, ...restProps }) => {
 	const isHighlighted = useAppSelector((state) =>
 		selectProjectHighlightedCommitIds(state, projectId).includes(commit.id),
 	);
 	const isChecked = useAppSelector((state) =>
 		selectProjectCommitChecked(state, projectId, commit.id),
 	);
-	const dryRunCommit = useDryRunCommit(commit.id);
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const dispatch = useAppDispatch();
 	const navigationIndex = assert(use(NavigationIndexContext));
@@ -1058,11 +1050,16 @@ const CommitRow: FC<
 		commitId: commit.id,
 	};
 	const operand = commitOperand(commitOperandV);
-	const isSelected = useIsSelected({ projectId, operand });
-	const isRewording =
-		isSelected &&
-		outlineMode._tag === "RewordCommit" &&
-		operandEquals(operand, commitOperand(outlineMode.operand));
+	const isDefaultMode = useAppSelector(
+		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
+	);
+	const isRewording = useAppSelector((state) => {
+		const outlineMode = selectProjectOutlineModeState(state, projectId);
+		return (
+			outlineMode._tag === "RewordCommit" &&
+			operandEquals(operand, commitOperand(outlineMode.operand))
+		);
+	});
 	const [optimisticMessage, setOptimisticMessage] = useOptimistic(
 		commit.message,
 		(_currentMessage, nextMessage: string) => nextMessage,
@@ -1163,7 +1160,6 @@ const CommitRow: FC<
 	};
 
 	const startEditing = () => {
-		dispatch(projectActions.selectOutline({ projectId, selection: operand }));
 		dispatch(projectActions.startRewordCommit({ projectId, commit: commitOperandV }));
 	};
 
@@ -1248,13 +1244,13 @@ const CommitRow: FC<
 			label: "Compose Commit Here",
 			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
 			onSelect: composeCommitHere,
-			enabled: outlineMode._tag === "Default",
+			enabled: isDefaultMode,
 		}),
 		nativeMenuItem({
 			label: "Set Commit Target",
 			accelerator: toElectronAccelerator(outlineHotkeys.setCommitTarget.hotkey),
 			onSelect: setCommitTarget,
-			enabled: outlineMode._tag === "Default",
+			enabled: isDefaultMode,
 		}),
 		nativeMenuItem({
 			label: "Copy",
@@ -1305,13 +1301,15 @@ const CommitRow: FC<
 		}),
 	];
 
+	const title = commitTitle(commitWithOptimisticMessage.message);
+
 	return (
 		<ItemRow
 			{...restProps}
 			projectId={projectId}
 			operand={operand}
 			isHighlighted={isHighlighted}
-			onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
+			onDoubleClick={isDefaultMode ? startEditing : undefined}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
@@ -1329,8 +1327,8 @@ const CommitRow: FC<
 					disableHoverablePopup
 				>
 					<Checkbox
-						disabled={outlineMode._tag !== "Default"}
-						aria-label={`Check commit ${commitTitle(commitWithOptimisticMessage.message)}`}
+						disabled={!isDefaultMode}
+						aria-label={`Check commit ${title ?? "(no message)"}`}
 						checked={isChecked}
 						className={styles.commitCheckbox}
 						nativeButton
@@ -1351,7 +1349,7 @@ const CommitRow: FC<
 				</Tooltip.Root>
 			</div>
 
-			<WorkspaceItemRowLabel>
+			<WorkspaceItemRowLabel empty={title === undefined}>
 				{isRewording ? (
 					<InlineEditor
 						multiline
@@ -1368,13 +1366,13 @@ const CommitRow: FC<
 					/>
 				) : (
 					<>
-						{commitTitle(commitWithOptimisticMessage.message)}
+						{title ?? "(no message)"}
 						{hasConflicts && " ⚠️"}
 					</>
 				)}
 			</WorkspaceItemRowLabel>
 
-			{outlineMode._tag === "Default" && (
+			{isDefaultMode && (
 				<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
 					<Toolbar.Button
 						aria-label="Commit menu"
@@ -1396,14 +1394,15 @@ const CommitC: FC<{
 	projectId: string;
 	stackId: string;
 	isCommitTarget: boolean;
-}> = ({ commit, projectId, stackId, isCommitTarget }) => {
+	dryRunCommit: Commit | null;
+}> = ({ commit, projectId, stackId, isCommitTarget, dryRunCommit }) => {
 	const operand = commitOperand({ stackId, commitId: commit.id });
 
 	return (
 		<TreeItem
 			projectId={projectId}
 			operand={operand}
-			aria-label={commitTitle(commit.message)}
+			aria-label={commitTitle(commit.message) ?? "(no message)"}
 			render={
 				<OperandC
 					projectId={projectId}
@@ -1414,6 +1413,7 @@ const CommitC: FC<{
 							projectId={projectId}
 							stackId={stackId}
 							isCommitTarget={isCommitTarget}
+							dryRunCommit={dryRunCommit}
 						/>
 					}
 				/>
@@ -1428,7 +1428,9 @@ const ChangesSectionRow: FC<{
 	projectId: string;
 }> = ({ changes, projectId }) => {
 	const operand = changesSectionOperand;
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const isDefaultMode = useAppSelector(
+		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
+	);
 	const discardWorktreeChanges = useDiscardWorktreeChanges();
 
 	const dispatch = useAppDispatch();
@@ -1457,7 +1459,7 @@ const ChangesSectionRow: FC<{
 			label: "Compose Commit Message",
 			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitMessageFromChanges.hotkey),
 			onSelect: composeCommitMessage,
-			enabled: outlineMode._tag === "Default",
+			enabled: isDefaultMode,
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
@@ -1489,7 +1491,7 @@ const ChangesSectionRow: FC<{
 				</span>
 			</WorkspaceItemRowLabel>
 
-			{outlineMode._tag === "Default" && (
+			{isDefaultMode && (
 				<Toolbar.Root
 					aria-label="Changes actions"
 					render={<WorkspaceItemRowToolbar forceVisible />}
@@ -1544,7 +1546,7 @@ const buildCommitTargetComboboxItems = ({
 		...(commitTarget
 			? ([
 					{
-						label: `Commit: ${commitTitle(commitTarget.message)}`,
+						label: `Commit: ${commitTitle(commitTarget.message) ?? "(no message)"}`,
 						relativeTo: { type: "commit", subject: commitTarget.id },
 					},
 				] satisfies Array<CommitTargetComboboxItem>)
@@ -1623,15 +1625,16 @@ const Changes: FC<{
 	const operand = changesSectionOperand;
 	const commitTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const isDefaultMode = useAppSelector(
+		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
+	);
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const isAltHeld = useKeyHold("Alt");
 	// TODO: bug: false positive when holding alt e.g. inside commit reword input
 	const isAmendMode = isAltHeld;
 	const isCommitOrAmendPending = commitCreateMutation.isPending || commitAmendMutation.isPending;
-	const canCommitOrAmendBase =
-		outlineMode._tag === "Default" && commitTarget !== null && !isCommitOrAmendPending;
+	const canCommitOrAmendBase = isDefaultMode && commitTarget !== null && !isCommitOrAmendPending;
 	const canCommit = canCommitOrAmendBase;
 	const canAmend =
 		canCommitOrAmendBase &&
@@ -1709,7 +1712,7 @@ const Changes: FC<{
 			callback: () => setOpen(true),
 			options: {
 				conflictBehavior: "allow",
-				enabled: outlineMode._tag === "Default" && !isCommitOrAmendPending,
+				enabled: isDefaultMode && !isCommitOrAmendPending,
 				meta: changesHotkeys.selectCommitTarget.meta,
 			},
 		},
@@ -1756,7 +1759,7 @@ const Changes: FC<{
 					id={commitMessageInputId}
 					ref={commitTextareaRef}
 					aria-label="Compose commit message"
-					disabled={outlineMode._tag !== "Default"}
+					disabled={!isDefaultMode}
 					readOnly={isCommitOrAmendPending}
 					placeholder={`Compose commit message ${focusCommitMessageHotkeyLabel}`}
 					className={classes("text-14", styles.commitTextarea)}
@@ -1780,7 +1783,7 @@ const Changes: FC<{
 						itemToStringValue={(x) => relativeToKey(x.relativeTo)}
 						isItemEqualToValue={(a, b) => relativeToEquals(a.relativeTo, b.relativeTo)}
 						autoHighlight
-						disabled={outlineMode._tag !== "Default" || isCommitOrAmendPending}
+						disabled={!isDefaultMode || isCommitOrAmendPending}
 					>
 						<Tooltip.Root>
 							<Combobox.Trigger
@@ -1952,16 +1955,22 @@ const BranchRow: FC<
 	bottomRelativeTo,
 	...restProps
 }) => {
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 	const dispatch = useAppDispatch();
 	const branchOperandV: BranchOperand = {
 		stackId,
 		branchRef: refName.fullNameBytes,
 	};
 	const operand = branchOperand(branchOperandV);
-	const isRenaming =
-		outlineMode._tag === "RenameBranch" &&
-		operandEquals(operand, branchOperand(outlineMode.operand));
+	const isDefaultMode = useAppSelector(
+		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
+	);
+	const isRenaming = useAppSelector((state) => {
+		const outlineMode = selectProjectOutlineModeState(state, projectId);
+		return (
+			outlineMode._tag === "RenameBranch" &&
+			operandEquals(operand, branchOperand(outlineMode.operand))
+		);
+	});
 	const [optimisticBranchDisplayName, setOptimisticBranchDisplayName] = useOptimistic(
 		refName.displayName,
 		(_currentBranchName, nextBranchName: string) => nextBranchName,
@@ -1976,7 +1985,6 @@ const BranchRow: FC<
 	});
 
 	const startEditing = () => {
-		dispatch(projectActions.selectOutline({ projectId, selection: operand }));
 		dispatch(projectActions.startRenameBranch({ projectId, branch: branchOperandV }));
 	};
 
@@ -2136,13 +2144,13 @@ const BranchRow: FC<
 			label: "Compose Commit Here",
 			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitHere.hotkey),
 			onSelect: composeCommitHere,
-			enabled: outlineMode._tag === "Default",
+			enabled: isDefaultMode,
 		}),
 		nativeMenuItem({
 			label: "Set Commit Target",
 			accelerator: toElectronAccelerator(outlineHotkeys.setCommitTarget.hotkey),
 			onSelect: setCommitTarget,
-			enabled: outlineMode._tag === "Default",
+			enabled: isDefaultMode,
 		}),
 		insertBlankCommitMenuItem(insertBlankCommit),
 		nativeMenuSeparator,
@@ -2183,7 +2191,7 @@ const BranchRow: FC<
 			{...restProps}
 			projectId={projectId}
 			operand={operand}
-			onDoubleClick={outlineMode._tag === "Default" ? startEditing : undefined}
+			onDoubleClick={isDefaultMode ? startEditing : undefined}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
@@ -2225,7 +2233,7 @@ const BranchRow: FC<
 				)}
 			</WorkspaceItemRowLabel>
 
-			{outlineMode._tag === "Default" && (
+			{isDefaultMode && (
 				<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar forceVisible />}>
 					<Tooltip.Root>
 						<Tooltip.Trigger
@@ -2283,7 +2291,9 @@ const StackRow: FC<
 		: null;
 	// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
 	const operand = stackOperand({ stackId: stack.id! });
-	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
+	const isDefaultMode = useAppSelector(
+		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
+	);
 
 	const unapplyStackMutation = useUnapplyStack();
 	const unapply = () => {
@@ -2324,7 +2334,7 @@ const StackRow: FC<
 		>
 			<WorkspaceItemRowLabel />
 
-			{outlineMode._tag === "Default" && (
+			{isDefaultMode && (
 				<Toolbar.Root aria-label="Stack actions" render={<WorkspaceItemRowToolbar forceVisible />}>
 					<Toolbar.Button
 						aria-label="Stack menu"
@@ -2394,74 +2404,76 @@ const BranchSegment: FC<{
 				}
 			/>
 
-			{segment.commits.length === 0 ? (
-				<EmptySegment stackId={stackId} refName={refName} />
-			) : (
-				<div role="group">
-					<NonEmptySegment
-						projectId={projectId}
-						segment={segment}
-						stackId={stackId}
-						commitTarget={commitTarget}
-					/>
-				</div>
-			)}
+			<div role="group">
+				<SegmentContent
+					projectId={projectId}
+					segment={segment}
+					stackId={stackId}
+					commitTarget={commitTarget}
+				/>
+			</div>
 		</TreeItem>
 	);
 };
 
-const EmptySegment: FC<{
-	stackId: string;
-	refName: BranchReference;
-}> = ({ stackId, refName }) => {
-	const navigationIndex = assert(use(NavigationIndexContext));
-	const inert = !navigationIndexIncludes(
-		navigationIndex,
-		branchOperand({ stackId, branchRef: refName.fullNameBytes }),
-		operandIdentityKey,
-	);
-
-	return (
-		<div>
-			<WorkspaceItemRowEmpty inert={inert}>
-				<GraphSegment glyph="parent" status="LocalOnly" />
-				<WorkspaceItemRowLabel>No commits.</WorkspaceItemRowLabel>
-			</WorkspaceItemRowEmpty>
-			<WorkspaceItemRowEmpty className={styles.segmentParentItemRow} inert={inert}>
-				<GraphSegment glyph="parent" status="LocalOnly" />
-			</WorkspaceItemRowEmpty>
-		</div>
-	);
-};
-
-const NonEmptySegment: FC<{
+const SegmentContent: FC<{
 	projectId: string;
-	/**
-	 * A segment that has at least one commit.
-	 */
 	segment: Segment;
 	stackId: string;
 	commitTarget: RelativeTo | null;
 }> = ({ projectId, segment, stackId, commitTarget }) => {
-	const bottomCommit = assert(segment.commits.at(-1));
 	const navigationIndex = assert(use(NavigationIndexContext));
 
+	if (segment.commits.length === 0) {
+		const refName = assert(segment.refName);
+		const inert = !navigationIndexIncludes(
+			navigationIndex,
+			branchOperand({ stackId, branchRef: refName.fullNameBytes }),
+			operandIdentityKey,
+		);
+
+		return (
+			<div>
+				<WorkspaceItemRow interactive={false} inert={inert}>
+					<GraphSegment glyph="parent" status="LocalOnly" />
+					<WorkspaceItemRowLabel empty>No commits.</WorkspaceItemRowLabel>
+				</WorkspaceItemRow>
+				<WorkspaceItemRow interactive={false} className={styles.segmentParentItemRow} inert={inert}>
+					<GraphSegment glyph="parent" status="LocalOnly" />
+				</WorkspaceItemRow>
+			</div>
+		);
+	}
+
+	const bottomCommit = assert(segment.commits.at(-1));
+
+	const dryRunWorkspace = use(DryRunWorkspaceContext);
+
 	return (
-		<div className={styles.segmentCommits}>
-			{segment.commits.map((commit) => (
-				<CommitC
-					key={commit.id}
-					commit={commit}
-					projectId={projectId}
-					stackId={stackId}
-					isCommitTarget={
-						commitTarget
-							? relativeToEquals(commitTarget, { type: "commit", subject: commit.id })
-							: false
-					}
-				/>
-			))}
-			<WorkspaceItemRowEmpty
+		<div>
+			{segment.commits.map((commit) => {
+				const dryRunCommitId = dryRunWorkspace?.replacedCommits[commit.id];
+				const dryRunCommit =
+					dryRunWorkspace && dryRunCommitId !== undefined
+						? findCommit({ headInfo: dryRunWorkspace.headInfo, commitId: dryRunCommitId })
+						: null;
+				return (
+					<CommitC
+						key={commit.id}
+						commit={commit}
+						projectId={projectId}
+						stackId={stackId}
+						isCommitTarget={
+							commitTarget
+								? relativeToEquals(commitTarget, { type: "commit", subject: commit.id })
+								: false
+						}
+						dryRunCommit={dryRunCommit}
+					/>
+				);
+			})}
+			<WorkspaceItemRow
+				interactive={false}
 				className={styles.segmentParentItemRow}
 				inert={
 					!navigationIndexIncludes(
@@ -2475,7 +2487,7 @@ const NonEmptySegment: FC<{
 					glyph="parent"
 					status={commitIsDiverged(bottomCommit) ? "Diverged" : bottomCommit.state.type}
 				/>
-			</WorkspaceItemRowEmpty>
+			</WorkspaceItemRow>
 		</div>
 	);
 };
@@ -2545,7 +2557,7 @@ const StackC: FC<{
 									partialStackState={partialStackState}
 								/>
 							) : (
-								<NonEmptySegment
+								<SegmentContent
 									projectId={projectId}
 									segment={segment}
 									stackId={stackId}

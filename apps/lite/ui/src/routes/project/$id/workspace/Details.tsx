@@ -590,7 +590,7 @@ const Header: FC<{
 							>
 								<Icon name="commit" />
 								<h3 className={classes("text-14", "text-semibold")}>
-									{commitTitle(commitDetails.commit.message)}
+									{commitTitle(commitDetails.commit.message) ?? "(no message)"}
 									{commitDetails.commit.hasConflicts && " ⚠️"}
 								</h3>
 								<span className={classes("text-13", styles.commitMeta)}>

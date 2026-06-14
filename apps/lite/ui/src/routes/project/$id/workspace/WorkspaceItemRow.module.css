@@ -1,5 +1,4 @@
-.itemRow,
-.itemRowEmpty {
+.itemRow {
 	display: flex;
 	column-gap: 8px;
 	min-height: 28px;
@@ -10,16 +9,12 @@
 	}
 }
 
-.itemRow {
+.itemRowInteractive {
 	border-radius: var(--radius-m);
 
 	&:where(:hover) {
 		background-color: var(--button-ghost-hover-bg);
 	}
-}
-
-.itemRowEmpty {
-	color: var(--text-2);
 }
 
 .itemRowSelected {
@@ -65,6 +60,10 @@
 
 .itemRowLabelHeading {
 	padding-block: 5.5px;
+}
+
+.itemRowLabelEmpty {
+	color: var(--text-2);
 }
 
 .itemRowButton {
