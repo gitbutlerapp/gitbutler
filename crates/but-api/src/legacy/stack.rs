@@ -9,6 +9,7 @@ use but_core::{
 };
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
+use but_workspace::ui::ref_info::BranchReference;
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
 use gitbutler_git::PushResult;
 use gitbutler_oplog::SnapshotExt;
@@ -299,7 +300,7 @@ pub fn update_branch_name(
     stack_id: StackId,
     branch_name: String,
     new_name: String,
-) -> Result<()> {
+) -> Result<BranchReference> {
     let mut guard = ctx.exclusive_worktree_access();
     update_branch_name_with_perm(
         ctx,
@@ -307,8 +308,7 @@ pub fn update_branch_name(
         branch_name,
         new_name,
         guard.write_permission(),
-    )?;
-    Ok(())
+    )
 }
 
 /// Apply the rename from `branch_name` to `new_name` in the stack identified by
@@ -322,15 +322,18 @@ pub fn update_branch_name_with_perm(
     branch_name: String,
     new_name: String,
     perm: &mut RepoExclusive,
-) -> Result<()> {
-    gitbutler_branch_actions::stack::update_branch_name_with_perm(
+) -> Result<BranchReference> {
+    let normalized_name = gitbutler_branch_actions::stack::update_branch_name_with_perm(
         ctx,
         stack_id,
         branch_name,
         new_name,
         perm,
     )?;
-    Ok(())
+    let full_name = Category::LocalBranch
+        .to_full_name(normalized_name.as_str())
+        .map_err(anyhow::Error::from)?;
+    Ok(full_name.into())
 }
 
 #[but_api]

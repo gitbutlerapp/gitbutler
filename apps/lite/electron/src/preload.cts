@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { LiteElectronApi, WatcherSubscribeResult } from "./ipc";
+import type { LiteElectronApi, UpdateBranchNameResult, WatcherSubscribeResult } from "./ipc";
 import type { UpdateDownloadedEvent } from "electron-updater";
 import type {
 	CommitAbsorption,
@@ -123,7 +123,7 @@ const api: LiteElectronApi = {
 	pathJoin: (path, ...paths) =>
 		ipcRenderer.invoke("lite:path-join", path, ...paths) as Promise<string>,
 	updateBranchName: (params) =>
-		ipcRenderer.invoke("workspace:update-branch-name", params) as Promise<void>,
+		ipcRenderer.invoke("workspace:update-branch-name", params) as Promise<UpdateBranchNameResult>,
 	tearOffBranch: (params) =>
 		ipcRenderer.invoke("workspace:tear-off-branch", params) as Promise<MoveBranchResult>,
 	peelRestoreSnapshot: (params) =>

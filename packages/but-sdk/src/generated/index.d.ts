@@ -443,7 +443,7 @@ export declare function unapplyStack(projectId: string, stackId: string): Promis
  *
  * See [`update_branch_name_with_perm()`] for the underlying mutation.
  */
-export declare function updateBranchName(projectId: string, stackId: string, branchName: string, newName: string): Promise<void>
+export declare function updateBranchName(projectId: string, stackId: string, branchName: string, newName: string): Promise<BranchReference>
 
 /**
  * Update arbitrary fields of a single review (body, state, target base).

@@ -2,6 +2,7 @@ import type {
 	AbsorptionTarget,
 	ApplyOutcome,
 	BranchCheckoutResult,
+	BranchReference,
 	BranchCreatePlacement,
 	BranchCreateResult,
 	BranchDetails,
@@ -252,6 +253,8 @@ export interface UpdateBranchNameParams {
 	newName: string;
 }
 
+export type UpdateBranchNameResult = BranchReference;
+
 export interface WatcherSubscribeParams {
 	projectId: string;
 }
@@ -326,7 +329,7 @@ export interface LiteElectronApi {
 	moveBranch: (params: MoveBranchParams) => Promise<MoveBranchResult>;
 	openInEditor: (params: OpenInEditorParams) => Promise<void>;
 	pathJoin: (...paths: Array<string>) => Promise<string>;
-	updateBranchName: (params: UpdateBranchNameParams) => Promise<void>;
+	updateBranchName: (params: UpdateBranchNameParams) => Promise<UpdateBranchNameResult>;
 	tearOffBranch: (params: TearOffBranchParams) => Promise<MoveBranchResult>;
 	peelRestoreSnapshot: (params: PeelRestoreSnapshotParams) => Promise<Snapshot | null>;
 	pushStack: (params: PushStackParams) => Promise<PushResult>;

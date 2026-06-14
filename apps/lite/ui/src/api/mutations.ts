@@ -1,5 +1,4 @@
 import { renameBranchInHeadInfo, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { encodeBytes } from "#ui/api/ref-name.ts";
 import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { shortCommitId } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
@@ -755,12 +754,10 @@ export const useUpdateBranchName = ({
 
 	return useMutation({
 		mutationFn: window.lite.updateBranchName,
-		onSuccess: async (_response, input, _context, mutation) => {
-			const newBranchRef = encodeBytes(`refs/heads/${input.newName}`);
+		onSuccess: async (newRef, _input, _context, mutation) => {
 			const newBranch: BranchOperand = {
 				stackId,
-				// TODO: ideally the API would return the new ref?
-				branchRef: newBranchRef,
+				branchRef: newRef.fullNameBytes,
 			};
 
 			mutation.client.setQueryData(headInfoQueryOptions(projectId).queryKey, (headInfo) => {
@@ -770,8 +767,8 @@ export const useUpdateBranchName = ({
 					headInfo,
 					stackId,
 					branchRef,
-					newName: input.newName,
-					newBranchRef,
+					newName: newRef.displayName,
+					newBranchRef: newRef.fullNameBytes,
 				});
 			});
 

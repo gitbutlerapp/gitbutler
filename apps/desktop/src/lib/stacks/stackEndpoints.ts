@@ -26,6 +26,7 @@ import type {
 	AbsorptionTarget,
 	CommitAbsorption,
 	BranchDetails,
+	BranchReference,
 	UpstreamCommit,
 	Commit,
 	InitialBranchIntegration,
@@ -659,7 +660,7 @@ export function buildStackEndpoints(build: BackendEndpointBuilder) {
 			],
 		}),
 		updateBranchName: build.mutation<
-			void,
+			BranchReference,
 			{
 				projectId: string;
 				stackId?: string;
