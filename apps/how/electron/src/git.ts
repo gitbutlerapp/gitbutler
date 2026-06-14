@@ -1,9 +1,22 @@
-import { execFile } from "node:child_process";
-import fs from "node:fs/promises";
-import path from "node:path";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
+import {
+	defaultProjectSettings,
+	normalizeCheckpointDebounceMsWithFallback,
+	normalizeCodingAgent,
+	normalizeProjectSettings,
+	type ProjectSettings,
+} from "./settings.js";
+import {
+	howCreateCheckpoint,
+	howHasProjectChanges,
+	howListCheckpoints,
+	howOpenProject,
+	howReadProjectSettings,
+	howRestoreCheckpoint,
+	howStagedDiffForCheckpointSummary,
+	howStartProject,
+	howWriteProjectSettings,
+	type HowProject,
+} from "@gitbutler/but-sdk";
 
 export type GitCommit = {
 	id: string;
@@ -12,111 +25,83 @@ export type GitCommit = {
 };
 
 export type GitRepository = {
+	id: string;
+	title: string;
 	gitDir: string;
 	worktreePath: string;
 };
 
-export function encodeProjectHandle(gitDir: string): string {
-	return Buffer.from(gitDir).toString("base64url");
-}
-
-export async function runGit(
-	args: Array<string>,
-	options: { cwd?: string } = {},
-): Promise<string> {
-	const { stdout } = await execFileAsync("git", args, {
-		cwd: options.cwd,
-		maxBuffer: 10 * 1024 * 1024,
-	});
-	return stdout.trim();
-}
-
-export async function discoverGitDir(directory: string): Promise<string> {
-	const gitDir = await runGit(["rev-parse", "--absolute-git-dir"], { cwd: directory });
-	return await fs.realpath(gitDir);
-}
-
-export async function discoverRepository(directory: string): Promise<GitRepository> {
-	const [gitDir, worktreePath] = await Promise.all([
-		discoverGitDir(directory),
-		runGit(["rev-parse", "--show-toplevel"], { cwd: directory }),
-	]);
+export function projectFromSdk(project: HowProject): GitRepository {
 	return {
-		gitDir,
-		worktreePath: await fs.realpath(worktreePath),
+		id: project.id,
+		title: project.title,
+		gitDir: project.gitDir,
+		worktreePath: project.path,
 	};
 }
 
-async function hasOwnGitDirectory(directory: string): Promise<boolean> {
-	try {
-		await fs.lstat(path.join(directory, ".git"));
-		return true;
-	} catch {
-		return false;
-	}
+export async function discoverRepository(directory: string): Promise<GitRepository> {
+	return projectFromSdk(await howOpenProject(directory));
 }
 
 export async function ensureGitRepository(directory: string): Promise<GitRepository> {
-	await fs.mkdir(directory, { recursive: true });
-	if (!(await hasOwnGitDirectory(directory))) {
-		await runGit(["init"], { cwd: directory });
-	}
-	return await discoverRepository(directory);
-}
-
-export function projectTitleFromPath(worktreePath: string): string {
-	const title = path.basename(worktreePath);
-	return title.length > 0 ? title : worktreePath;
+	return projectFromSdk(await howStartProject(directory));
 }
 
 export async function listCheckpointCommits(
-	worktreePath: string,
+	projectId: string,
 	limit: number,
 ): Promise<Array<GitCommit>> {
-	const output = await runGit(
-		[
-			"log",
-			`--max-count=${limit}`,
-			"--format=%H%x1f%ct%x1f%s%x1e",
-			"--grep=^Checkpoint:",
-		],
-		{ cwd: worktreePath },
-	).catch(() => "");
-
-	return output
-		.split("\x1e")
-		.map((entry) => entry.trim())
-		.filter((entry) => entry.length > 0)
-		.map((entry) => {
-			const [id, timestamp, title] = entry.split("\x1f");
-			if (!id || !timestamp || !title) return null;
-			return {
-				id,
-				title,
-				createdAt: Number(timestamp) * 1000,
-			};
-		})
-		.filter((commit): commit is GitCommit => commit !== null);
+	return await howListCheckpoints(projectId, limit);
 }
 
 export async function createCheckpointCommit(
-	worktreePath: string,
-	message: string,
+	projectId: string,
+	message: string | (() => Promise<string>),
 ): Promise<string | null> {
-	await runGit(["add", "--all"], { cwd: worktreePath });
-
-	const status = await runGit(["status", "--porcelain"], { cwd: worktreePath });
-	if (status.length === 0) return null;
-
-	await runGit(["commit", "--no-gpg-sign", "--message", message], { cwd: worktreePath });
-	return await runGit(["rev-parse", "HEAD"], { cwd: worktreePath });
+	const resolvedMessage = typeof message === "string" ? message : await message();
+	return await howCreateCheckpoint(projectId, resolvedMessage);
 }
 
-export async function resetToCommit(worktreePath: string, commitId: string): Promise<void> {
-	await runGit(["reset", "--hard", commitId], { cwd: worktreePath });
+export async function resetToCommit(
+	projectId: string,
+	commitId: string,
+	options: { discardChanges?: boolean } = {},
+): Promise<void> {
+	await howRestoreCheckpoint(projectId, commitId, options.discardChanges ?? false);
 }
 
-export async function hasWorktreeChanges(worktreePath: string): Promise<boolean> {
-	const status = await runGit(["status", "--porcelain"], { cwd: worktreePath });
-	return status.length > 0;
+export async function hasWorktreeChanges(projectId: string): Promise<boolean> {
+	return await howHasProjectChanges(projectId);
+}
+
+export async function readProjectSettings(
+	projectId: string,
+	fallback: ProjectSettings = defaultProjectSettings,
+): Promise<ProjectSettings> {
+	const settings = await howReadProjectSettings(projectId, fallback);
+	return {
+		checkpointDebounceMs:
+			settings.checkpointDebounceMs === fallback.checkpointDebounceMs
+				? fallback.checkpointDebounceMs
+				: normalizeCheckpointDebounceMsWithFallback(
+						settings.checkpointDebounceMs,
+						fallback.checkpointDebounceMs,
+					),
+		codingAgent: normalizeCodingAgent(settings.codingAgent),
+	};
+}
+
+export async function writeProjectSettings(
+	projectId: string,
+	settings: ProjectSettings,
+): Promise<void> {
+	await howWriteProjectSettings(projectId, normalizeProjectSettings(settings));
+}
+
+export async function checkpointDiffForSummary(projectId: string): Promise<{
+	diff: string;
+	originalByteCount: number;
+}> {
+	return await howStagedDiffForCheckpointSummary(projectId);
 }

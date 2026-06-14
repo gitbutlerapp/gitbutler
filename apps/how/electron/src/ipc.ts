@@ -1,3 +1,6 @@
+import type { ProjectSettings } from "./settings.js";
+export type { CodingAgent, ProjectSettings } from "./settings.js";
+
 export type SaveState = "idle" | "watching" | "pending" | "saving" | "saved" | "error";
 
 export type ProjectSummary = {
@@ -28,6 +31,7 @@ export type HowStatus = {
 	lastSavedAt: number | null;
 	checkpoints: Array<Checkpoint>;
 	browsing: BrowsingSession | null;
+	settings: ProjectSettings;
 };
 
 export type StatusEvent = HowStatus;
@@ -47,6 +51,7 @@ export interface HowElectronApi {
 	startProject: () => Promise<OpenProjectResult>;
 	deleteProject: () => Promise<HowStatus>;
 	createCheckpointNow: () => Promise<HowStatus>;
+	saveProjectSettings: (settings: ProjectSettings) => Promise<HowStatus>;
 	viewCheckpoint: (
 		checkpointId: string,
 		options?: { discardBrowsingChanges?: boolean },
@@ -63,6 +68,7 @@ export const howIpcChannels = {
 	startProject: "how:start-project",
 	deleteProject: "how:delete-project",
 	createCheckpointNow: "how:create-checkpoint-now",
+	saveProjectSettings: "how:save-project-settings",
 	viewCheckpoint: "how:view-checkpoint",
 	continueFromCheckpoint: "how:continue-from-checkpoint",
 	returnToLatest: "how:return-to-latest",

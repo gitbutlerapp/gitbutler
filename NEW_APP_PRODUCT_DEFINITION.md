@@ -67,7 +67,6 @@ MVP exclusions:
 - No diff viewer.
 - No file list.
 - No manual Checkpoints.
-- No AI labels.
 - No secret scanning.
 
 MVP Checkpoints are implemented as normal Git commits in the current branch
@@ -76,7 +75,9 @@ history. The UI still calls them Checkpoints, never commits.
 MVP Checkpoint commit messages use the format:
 
 ```text
-Checkpoint: <local timestamp>
+Checkpoint: <AI title or local timestamp>
+
+<optional AI summary body>
 ```
 
 MVP meaningful-change detection uses Git's own status after the 10-second quiet
@@ -166,6 +167,44 @@ product definition does not yet know what a simple manual flow should look like.
 Users cannot delete, rename, pin, or manually clean up Checkpoints in v1.
 Retention and cleanup can be automatic/internal later.
 
+## AI Checkpoint Summaries
+
+When a project has a coding agent configured, How may ask that same agent to
+summarize the changes being saved into a Checkpoint. This is best-effort
+orientation, not a requirement for saving.
+
+MVP behavior:
+
+- Summaries are attempted only when `how.codingAgent` is `codex` or `claude`.
+- `none` means no AI attempt.
+- How should use the actual agent SDKs for the configured coding agent:
+  `@openai/codex-sdk` for Codex and `@anthropic-ai/claude-agent-sdk` for
+  Claude.
+- The SDKs should use the user's existing local agent setup and authentication.
+  How does not collect, store, or configure API keys.
+- How does not expose model selection in the UI.
+- The summary input is the staged Git diff for the Checkpoint being created.
+- The diff payload is capped at roughly 40 KB. If truncated, the prompt tells
+  the agent to summarize only the visible diff.
+- Summary generation is read-only. The agent should not edit files or inspect
+  the project beyond the diff How provides.
+- How waits briefly, currently 2 seconds, then falls back to the timestamp
+  title.
+- Once How falls back, it does not amend the Checkpoint later.
+- Summary failures are silent in the UI when the fallback Checkpoint succeeds.
+  Logs should include the selected agent, diff size, truncation state, timeout,
+  and fallback reason, but not the full diff or generated summary.
+
+Agent output is strict plain text. The first line is the title. Remaining text
+is the optional body. How owns the `Checkpoint:` prefix, strips an accidental
+agent-provided `Checkpoint:` prefix from the title, and stores the body only in
+the Git commit message body.
+
+The MVP implementation keeps provider wiring isolated behind a small
+Electron-only summarizer abstraction. Automated tests use an env-gated fake
+provider so CI does not depend on local agent authentication, network access, or
+real model latency.
+
 ## Checkpoint Timeline
 
 The first version shows a simple time-based timeline. AI labels are optional and
@@ -179,8 +218,9 @@ Examples:
 - "Published"
 - "Review created"
 
-AI labels must never block saving, restoring, or publishing. The app should not
-require account or AI setup before it is useful.
+AI labels may briefly delay Checkpoint creation, but they must fall back quickly
+and never prevent saving, restoring, or publishing. The app should not require
+account or AI setup before it is useful.
 
 No diff viewer exists in v1. The timeline is for orientation and returning to
 earlier moments, not for code review.
@@ -234,6 +274,33 @@ which Checkpoint is being viewed. This is intentionally not the final history
 model. A future design should preserve "went back from / can go forward to"
 information in a way that remains readable from Git state as much as possible,
 rather than hiding the recovery path inside app-only state.
+
+## Project Settings
+
+Project settings are per-project local preferences stored in the project's local
+Git config, not in committed project files.
+
+MVP settings:
+
+- `how.checkpointDebounceMs`: automatic Checkpoint quiet period in milliseconds.
+  The UI shows integer seconds from 1 to 60. The default is 10 seconds.
+- `how.codingAgent`: preferred coding agent. Values are `none`, `codex`, or
+  `claude`. The default is `none`.
+
+The coding agent setting controls best-effort AI Checkpoint summaries. It does
+not launch or configure an interactive coding agent.
+
+Missing or invalid Git config values silently fall back in the UI. Saving
+settings writes normalized values back to local Git config.
+
+Settings live on a separate route and are opened from a small gear button next
+to the project title. Settings are available while browsing Checkpoints,
+including dirty browsing, because changing these preferences does not leave the
+browsing state.
+
+Changing the debounce setting applies immediately. If a Checkpoint save is
+already running, it is allowed to finish. If a save is only pending, How
+reschedules it using the new debounce value.
 
 ## Publish
 
@@ -417,6 +484,8 @@ Desired future APIs:
 - `browseCheckpoint(projectId, checkpointId)`.
 - `continueFromCheckpoint(projectId, options)`.
 - `returnToLatestCheckpoint(projectId)`.
+- `summarizeCheckpoint(projectId, options)`, or a stable agent summarization
+  abstraction backed by configured coding agents.
 - `getCheckpointStatus(projectId)` or `projectEligibility(projectId)`.
 - `meaningfulChanges(projectId)` or a Checkpoint dry-run/status result.
 
@@ -450,6 +519,8 @@ than making the caller assemble branch, commit, diff, and repository details.
   filter.
 - Generation-completion hooks can create Checkpoints immediately.
 - Timeline is time-based, with optional AI labels.
+- AI Checkpoint summaries use the configured coding agent, staged diff only, a
+  2-second timeout, and a timestamp fallback.
 - No diff viewer in v1.
 - Restore uses browsing mode: viewing Checkpoints pauses autosave and does not
   choose a new direction until the user clicks **Continue from here**.

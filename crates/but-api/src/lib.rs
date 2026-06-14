@@ -41,6 +41,9 @@ pub mod json;
 /// Functions releated to platform detection and information.
 pub mod platform;
 
+/// Functions that support the How application.
+pub mod how;
+
 pub mod open;
 
 pub mod panic_capture;

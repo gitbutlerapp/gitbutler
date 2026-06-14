@@ -1,9 +1,6 @@
 import type { DiffSpec, HunkHeader, TreeChange } from "@gitbutler/but-sdk";
 
-export function createDiffSpec(
-	change: TreeChange,
-	hunkHeaders: Array<HunkHeader> = [],
-): DiffSpec {
+export function createDiffSpec(change: TreeChange, hunkHeaders: Array<HunkHeader> = []): DiffSpec {
 	return {
 		pathBytes: change.pathBytes,
 		previousPathBytes:

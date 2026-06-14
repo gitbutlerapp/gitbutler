@@ -16,12 +16,7 @@ function serialize(value: unknown): string {
 
 export function createLogger(logPath: string): Logger {
 	async function append(level: "info" | "error", message: string, data?: unknown): Promise<void> {
-		const line = [
-			new Date().toISOString(),
-			level.toUpperCase(),
-			message,
-			serialize(data),
-		]
+		const line = [new Date().toISOString(), level.toUpperCase(), message, serialize(data)]
 			.filter((part) => part.length > 0)
 			.join(" ");
 

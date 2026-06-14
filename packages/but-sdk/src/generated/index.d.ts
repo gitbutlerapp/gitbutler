@@ -309,6 +309,37 @@ export declare function getUndoTargetSnapshot(projectId: string): Promise<Snapsh
 export declare function headInfo(projectId: string): Promise<RefInfo>
 
 /**
+ * Create a How checkpoint commit from the current worktree state.
+ *
+ * Returns `None` when there are no worktree changes to save.
+ */
+export declare function howCreateCheckpoint(projectId: string, message: string): Promise<string | null>
+
+/** Return whether the project has worktree changes. */
+export declare function howHasProjectChanges(projectId: string): Promise<boolean>
+
+/** List How checkpoint commits from the current branch history. */
+export declare function howListCheckpoints(projectId: string, limit: number): Promise<Array<HowCheckpoint>>
+
+/** Open an existing Git repository or a path inside it for How. */
+export declare function howOpenProject(path: string): Promise<HowProject>
+
+/** Read How project settings from local Git config. */
+export declare function howReadProjectSettings(projectId: string, fallback: HowProjectSettings): Promise<HowProjectSettings>
+
+/** Reset the current branch and worktree to a checkpoint commit. */
+export declare function howRestoreCheckpoint(projectId: string, checkpointId: string, discardChanges: boolean): Promise<void>
+
+/** Produce the diff payload for summarizing the current checkpoint. */
+export declare function howStagedDiffForCheckpointSummary(projectId: string): Promise<HowStagedDiff>
+
+/** Initialize versioning in `path` if needed, then open it for How. */
+export declare function howStartProject(path: string): Promise<HowProject>
+
+/** Write How project settings to local Git config. */
+export declare function howWriteProjectSettings(projectId: string, settings: HowProjectSettings): Promise<void>
+
+/**
  * Initialize the secret namespace used by build-kind scoped credentials.
  *
  * Applications embedding the SDK should call this once during startup before
@@ -1552,6 +1583,44 @@ export type HeadSha = {
  * This is to workaround `schemars` which doesn't (always) work with transformations.
  */
 export type HexHashString = string;
+
+/** A How checkpoint. */
+export type HowCheckpoint = {
+  /** Commit id backing the checkpoint. */
+  id: string;
+  /** Commit subject shown in the timeline. */
+  title: string;
+  /** Commit time in milliseconds since Unix epoch. */
+  createdAt: number;
+};
+
+/** A project opened by How. */
+export type HowProject = {
+  /** Stable project identifier accepted by other SDK APIs. */
+  id: string;
+  /** Display title derived from the worktree path. */
+  title: string;
+  /** Absolute worktree path. */
+  path: string;
+  /** Absolute Git directory path. */
+  gitDir: string;
+};
+
+/** Project settings used by How. */
+export type HowProjectSettings = {
+  /** Autosave quiet period in milliseconds. */
+  checkpointDebounceMs: number;
+  /** Preferred coding agent. */
+  codingAgent: string;
+};
+
+/** Staged diff payload used for AI checkpoint summaries. */
+export type HowStagedDiff = {
+  /** Diff stat followed by patch text. */
+  diff: string;
+  /** Original byte count before truncation. */
+  originalByteCount: number;
+};
 
 export type HunkAssignment = {
   /**

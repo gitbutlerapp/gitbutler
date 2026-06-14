@@ -1,6 +1,7 @@
 import { HowService } from "./how-service.js";
 import { howIpcChannels, type OpenProjectResult } from "./ipc.js";
 import { createLogger, type Logger } from "./logger.js";
+import { normalizeProjectSettings } from "./settings.js";
 import {
 	app,
 	BrowserWindow,
@@ -191,6 +192,11 @@ function registerIpc(): void {
 	});
 	handle(howIpcChannels.deleteProject, async () => await getService().deleteProject());
 	handle(howIpcChannels.createCheckpointNow, async () => await getService().createCheckpointNow());
+	handle(howIpcChannels.saveProjectSettings, async (_event, settings) => {
+		if (typeof settings !== "object" || settings === null)
+			throw new Error("How could not save settings.");
+		return await getService().saveProjectSettings(normalizeProjectSettings(settings));
+	});
 	handle(howIpcChannels.viewCheckpoint, async (_event, checkpointId, options) => {
 		if (typeof checkpointId !== "string" || checkpointId.length === 0)
 			throw new Error("How could not find that checkpoint.");

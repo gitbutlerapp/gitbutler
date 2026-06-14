@@ -25,7 +25,7 @@
 		"test": "vitest run --config ui/vitest.config.ts --passWithNoTests",
 		"test:e2e": "pnpm build && cross-env HOW_E2E_HEADLESS=1 playwright test --config e2e/playwright.config.ts",
 		"test:e2e:headed": "pnpm build && playwright test --config e2e/playwright.config.ts",
-		"test:e2e:ui": "pnpm build && playwright test --config e2e/playwright.config.ts --ui"
+		"test:e2e:ui": "pnpm build && cross-env HOW_E2E_SLOW_MO_MS=350 playwright test --config e2e/playwright.config.ts --ui"
 	},
 	"build": {
 		"appId": "com.gitbutler.how",
@@ -68,7 +68,10 @@
 		}
 	},
 	"dependencies": {
+		"@anthropic-ai/claude-agent-sdk": "^0.3.175",
+		"@anthropic-ai/sdk": "^0.93.0",
 		"@gitbutler/but-sdk": "workspace:*",
+		"@openai/codex-sdk": "^0.139.0",
 		"@radix-ui/react-slot": "^1.2.4",
 		"@tailwindcss/vite": "^4.1.18",
 		"@tanstack/react-router": "^1.167.4",
@@ -82,8 +85,8 @@
 		"tailwindcss": "^4.1.18"
 	},
 	"devDependencies": {
-		"@types/node": "^22.19.15",
 		"@playwright/test": "1.58.2",
+		"@types/node": "^22.19.15",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.2.3",
 		"@typescript/native-preview": "7.0.0-dev.20260421.1",

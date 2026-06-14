@@ -2,6 +2,7 @@ import {
 	checkpointCommitCount,
 	checkpointCommitIds,
 	initializeGitRepository,
+	latestCheckpointMessage,
 	pathTitle,
 	runGit,
 } from "../src/git";
@@ -74,9 +75,9 @@ test("starts a new folder", async ({ browserName: _browserName }, testInfo) => {
 		await page.getByRole("button", { name: "Start project" }).click();
 
 		await expect(page.getByRole("heading", { name: pathTitle(projectPath) })).toBeVisible();
-		await expect.poll(async () => await fs.stat(path.join(projectPath, ".git")).then(() => true)).toBe(
-			true,
-		);
+		await expect
+			.poll(async () => await fs.stat(path.join(projectPath, ".git")).then(() => true))
+			.toBe(true);
 	} finally {
 		await app.close();
 		await fs.rm(projectPath, { recursive: true, force: true });
@@ -106,10 +107,172 @@ test("creates and shows a checkpoint", async ({ browserName: _browserName }, tes
 	}
 });
 
-test("browses checkpoints and continues from the selected one", async (
-	{ browserName: _browserName },
-	testInfo,
-) => {
+test("uses a coding agent summary for checkpoint titles and commit bodies", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-ai-checkpoint-project-");
+	await initializeGitRepository(repositoryPath);
+	await runGit(repositoryPath, ["config", "--local", "how.codingAgent", "codex"]);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+		checkpointSummary: "Adds notes screen\nStores the first note body.",
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await fs.writeFile(path.join(repositoryPath, "notes.md"), "first checkpoint\n");
+
+		await expect(page.getByText("Checkpoint: Adds notes screen")).toBeVisible();
+		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(1);
+		await expect
+			.poll(async () => await latestCheckpointMessage(repositoryPath))
+			.toBe("Checkpoint: Adds notes screen\n\nStores the first note body.");
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+	}
+});
+
+test("falls back to the date title when checkpoint summarization is too slow", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-ai-timeout-project-");
+	await initializeGitRepository(repositoryPath);
+	await runGit(repositoryPath, ["config", "--local", "how.codingAgent", "claude"]);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+		checkpointSummary: "Adds slow summary",
+		checkpointSummaryDelayMs: "200",
+		checkpointSummaryTimeoutMs: "50",
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await fs.writeFile(path.join(repositoryPath, "notes.md"), "timeout checkpoint\n");
+
+		await expect(page.getByText(/^Checkpoint: /)).toBeVisible();
+		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(1);
+		expect(await latestCheckpointMessage(repositoryPath)).not.toContain("Adds slow summary");
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+	}
+});
+
+test("does not show another save after an autosave settles", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-save-flicker-project-");
+	await initializeGitRepository(repositoryPath);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await fs.writeFile(path.join(repositoryPath, "notes.md"), "first checkpoint\n");
+
+		await expect(page.getByText("Saved just now")).toBeVisible();
+		await page.evaluate(() => {
+			const pageWindow = window as typeof window & {
+				howSaveEvents?: Array<{ saveState: string; message: string | null }>;
+				howSaveEventsUnsubscribe?: () => void;
+			};
+			pageWindow.howSaveEvents = [];
+			pageWindow.howSaveEventsUnsubscribe?.();
+			pageWindow.howSaveEventsUnsubscribe = window.how.onStatus((status) => {
+				pageWindow.howSaveEvents?.push({
+					saveState: status.saveState,
+					message: status.message,
+				});
+			});
+		});
+
+		await page.waitForTimeout(900);
+		const saveEvents = await page.evaluate(() => {
+			const pageWindow = window as typeof window & {
+				howSaveEvents?: Array<{ saveState: string; message: string | null }>;
+				howSaveEventsUnsubscribe?: () => void;
+			};
+			pageWindow.howSaveEventsUnsubscribe?.();
+			return pageWindow.howSaveEvents ?? [];
+		});
+
+		expect(saveEvents).not.toContainEqual(
+			expect.objectContaining({
+				saveState: "pending",
+			}),
+		);
+		expect(saveEvents).not.toContainEqual(
+			expect.objectContaining({
+				saveState: "saving",
+			}),
+		);
+		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(1);
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+	}
+});
+
+test("saves project settings to local Git config and applies debounce immediately", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-settings-project-");
+	await initializeGitRepository(repositoryPath);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+		checkpointQuietMs: "5000",
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await page.getByRole("link", { name: "Project settings" }).click();
+		await expect(page.getByRole("heading", { name: "Project settings" })).toBeVisible();
+
+		await page.getByLabel("Save delay").fill("1");
+		await page.getByText("Claude", { exact: true }).click();
+		await page.getByRole("button", { name: "Save" }).click();
+		await expect(page.getByText("Saved")).toBeVisible();
+
+		await expect
+			.poll(
+				async () =>
+					await runGit(repositoryPath, ["config", "--local", "--get", "how.checkpointDebounceMs"]),
+			)
+			.toBe("1000");
+		await expect
+			.poll(
+				async () => await runGit(repositoryPath, ["config", "--local", "--get", "how.codingAgent"]),
+			)
+			.toBe("claude");
+
+		await page.getByRole("link", { name: "Back" }).click();
+		await fs.writeFile(path.join(repositoryPath, "notes.md"), "settings debounce\n");
+		await page.waitForTimeout(500);
+		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(0);
+		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(1);
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+	}
+});
+
+test("browses checkpoints and continues from the selected one", async ({
+	browserName: _browserName,
+}, testInfo) => {
 	const repositoryPath = await createTempDirectory("how-browse-project-");
 	await initializeGitRepository(repositoryPath);
 	const notesPath = path.join(repositoryPath, "notes.md");
@@ -141,9 +304,9 @@ test("browses checkpoints and continues from the selected one", async (
 
 		await page.getByRole("button", { name: "Continue from here" }).click();
 		await expect(page.getByText("Saved")).toBeVisible();
-		await expect.poll(async () => await runGit(repositoryPath, ["rev-parse", "HEAD"])).toBe(
-			checkpointB,
-		);
+		await expect
+			.poll(async () => await runGit(repositoryPath, ["rev-parse", "HEAD"]))
+			.toBe(checkpointB);
 		await expect.poll(async () => await runGit(repositoryPath, ["status", "--porcelain"])).toBe("");
 	} finally {
 		await app.close();
@@ -151,10 +314,44 @@ test("browses checkpoints and continues from the selected one", async (
 	}
 });
 
-test("pauses autosave while browsing and requires leaving dirty changes before moving", async (
-	{ browserName: _browserName },
-	testInfo,
-) => {
+test("enters browsing without saving first when there are no changes", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-browse-clean-fast-project-");
+	await initializeGitRepository(repositoryPath);
+	await runGit(repositoryPath, ["config", "--local", "how.codingAgent", "codex"]);
+	const userDataPath = testInfo.outputPath("user-data");
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath,
+		checkpointSummary: "Slow summary",
+		checkpointSummaryDelayMs: "3000",
+		checkpointSummaryTimeoutMs: "3000",
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await createCheckpoint(page, repositoryPath, "notes.md", "checkpoint A\n", 1);
+		await createCheckpoint(page, repositoryPath, "notes.md", "checkpoint B\n", 2);
+
+		await viewCheckpoint(page, 1);
+
+		await expect(page.getByText("Browsing checkpoint")).toBeVisible();
+	} finally {
+		await app.close();
+	}
+
+	const log = await fs.readFile(path.join(userDataPath, "how.log"), "utf8");
+	expect(log).toContain("Skipping checkpoint before browsing because there are no changes");
+	expect(log).not.toContain("Creating checkpoint before browsing");
+	await fs.rm(repositoryPath, { recursive: true, force: true });
+});
+
+test("pauses autosave while browsing and requires leaving dirty changes before moving", async ({
+	browserName: _browserName,
+}, testInfo) => {
 	const repositoryPath = await createTempDirectory("how-browse-dirty-project-");
 	await initializeGitRepository(repositoryPath);
 	const notesPath = path.join(repositoryPath, "notes.md");
@@ -181,9 +378,9 @@ test("pauses autosave while browsing and requires leaving dirty changes before m
 		await viewCheckpoint(page, 1, { waitForBrowsing: false });
 		await expect(page.getByRole("heading", { name: "Leave changes?" })).toBeVisible();
 		await page.getByRole("button", { name: "Cancel" }).click();
-		await expect.poll(async () => await fs.readFile(notesPath, "utf8")).toBe(
-			"dirty browsing edit\n",
-		);
+		await expect
+			.poll(async () => await fs.readFile(notesPath, "utf8"))
+			.toBe("dirty browsing edit\n");
 
 		await viewCheckpoint(page, 1, { waitForBrowsing: false });
 		await page.getByRole("button", { name: "Leave changes" }).click();
@@ -220,9 +417,9 @@ test("returns to latest from clean browsing", async ({ browserName: _browserName
 
 		await expect(page.getByText("Returned to latest")).toBeVisible();
 		await expect.poll(async () => await fs.readFile(notesPath, "utf8")).toBe("checkpoint C\n");
-		await expect.poll(async () => await runGit(repositoryPath, ["rev-parse", "HEAD"])).toBe(
-			checkpointC,
-		);
+		await expect
+			.poll(async () => await runGit(repositoryPath, ["rev-parse", "HEAD"]))
+			.toBe(checkpointC);
 	} finally {
 		await app.close();
 		await fs.rm(repositoryPath, { recursive: true, force: true });
@@ -264,9 +461,9 @@ test("resumes dirty browsing after restart", async ({ browserName: _browserName 
 		).toBeVisible();
 		await expect(secondRun.page.getByText("Changes made while browsing")).toBeVisible();
 		await expect(secondRun.page.getByText("viewing", { exact: true })).toBeVisible();
-		await expect.poll(async () => await fs.readFile(notesPath, "utf8")).toBe(
-			"dirty browsing survives restart\n",
-		);
+		await expect
+			.poll(async () => await fs.readFile(notesPath, "utf8"))
+			.toBe("dirty browsing survives restart\n");
 		await secondRun.page.waitForTimeout(250);
 		await expect(secondRun.page.locator("ol > li")).toHaveCount(2);
 		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(1);

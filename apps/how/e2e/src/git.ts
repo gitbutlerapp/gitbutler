@@ -34,6 +34,10 @@ export async function checkpointCommitIds(repositoryPath: string): Promise<Array
 		.filter(Boolean);
 }
 
+export async function latestCheckpointMessage(repositoryPath: string): Promise<string> {
+	return await runGit(repositoryPath, ["log", "-1", "--format=%B", "--grep=^Checkpoint:"]);
+}
+
 export function pathTitle(filePath: string): string {
 	return path.basename(filePath);
 }

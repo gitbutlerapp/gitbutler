@@ -1,22 +1,25 @@
-import { checkpointMessage } from "./checkpoints.js";
+import { checkpointMessageForStagedChanges } from "./checkpoint-summarizer.js";
 import {
 	createCheckpointCommit,
 	discoverRepository,
-	encodeProjectHandle,
 	ensureGitRepository,
 	hasWorktreeChanges,
 	listCheckpointCommits,
-	projectTitleFromPath,
+	readProjectSettings,
 	resetToCommit,
+	writeProjectSettings,
+	type GitRepository,
 } from "./git.js";
 import {
 	howIpcChannels,
 	type BrowsingSession,
 	type Checkpoint,
 	type HowStatus,
+	type ProjectSettings,
 	type ProjectSummary,
 } from "./ipc.js";
 import { plainErrorMessage } from "./plain-error.js";
+import { defaultProjectSettings, normalizeProjectSettings } from "./settings.js";
 import { watcherStart, type WatcherHandle, type WatcherEvent } from "@gitbutler/but-sdk";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -24,14 +27,22 @@ import type { Logger } from "./logger.js";
 import type { BrowserWindow } from "electron";
 
 const checkpointLimit = 50;
-const defaultCheckpointQuietPeriodMs = 10_000;
+const fallbackCheckpointQuietPeriodMs = 10_000;
 const browsingDirtyPollMs = 500;
+const internalGitOperationQuietMs = 1_000;
 
-function checkpointQuietPeriodMs(): number {
+function defaultCheckpointQuietPeriodMs(): number {
 	const override = process.env.HOW_CHECKPOINT_QUIET_MS;
-	if (!override) return defaultCheckpointQuietPeriodMs;
+	if (!override) return fallbackCheckpointQuietPeriodMs;
 	const parsed = Number(override);
-	return Number.isFinite(parsed) && parsed >= 0 ? parsed : defaultCheckpointQuietPeriodMs;
+	return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallbackCheckpointQuietPeriodMs;
+}
+
+function defaultSettings(): ProjectSettings {
+	return {
+		...defaultProjectSettings,
+		checkpointDebounceMs: defaultCheckpointQuietPeriodMs(),
+	};
 }
 
 type StoredState = {
@@ -60,12 +71,16 @@ export class HowService {
 		lastSavedAt: null,
 		checkpoints: [],
 		browsing: null,
+		settings: defaultSettings(),
 	};
 	#watcher: WatcherHandle | null = null;
 	#debounce: NodeJS.Timeout | null = null;
 	#browsingDirtyPoll: NodeJS.Timeout | null = null;
+	#postInternalGitCheck: NodeJS.Timeout | null = null;
 	#saving = false;
 	#dirtyWhileSaving = false;
+	#internalGitOperation = false;
+	#ignoreWatcherUntil = 0;
 
 	constructor(
 		private readonly statePath: string,
@@ -87,6 +102,10 @@ export class HowService {
 				browsing: stored.browsing,
 			};
 			try {
+				this.#status = {
+					...this.#status,
+					settings: await readProjectSettings(stored.activeProject.id, defaultSettings()),
+				};
 				if (stored.browsing) await this.#resumeBrowsingSession(stored.browsing);
 				else await this.#refreshTimeline();
 				await this.#startWatching(stored.activeProject);
@@ -105,21 +124,53 @@ export class HowService {
 
 	async openProjectFromPath(selectedPath: string): Promise<HowStatus> {
 		this.logger.info("Opening selected project", { selectedPath });
-		const { gitDir, worktreePath } = await discoverRepository(selectedPath);
-		this.logger.info("Resolved selected project", { selectedPath, gitDir, worktreePath });
-		return await this.#activateProject({ gitDir, worktreePath });
+		const project = await discoverRepository(selectedPath);
+		this.logger.info("Resolved selected project", { selectedPath, project });
+		return await this.#activateProject(project);
 	}
 
 	async startProjectAtPath(selectedPath: string): Promise<HowStatus> {
 		this.logger.info("Starting selected project", { selectedPath });
-		const { gitDir, worktreePath } = await ensureGitRepository(selectedPath);
-		this.logger.info("Resolved started project", { selectedPath, gitDir, worktreePath });
-		return await this.#activateProject({ gitDir, worktreePath });
+		const project = await ensureGitRepository(selectedPath);
+		this.logger.info("Resolved started project", { selectedPath, project });
+		return await this.#activateProject(project);
 	}
 
 	async createCheckpointNow(): Promise<HowStatus> {
 		await this.#createCheckpoint();
 		return this.getStatus();
+	}
+
+	async saveProjectSettings(settings: ProjectSettings): Promise<HowStatus> {
+		const project = this.#status.project;
+		if (!project) throw new Error("How could not find an open project.");
+
+		const normalized = normalizeProjectSettings(settings);
+		this.logger.info("Saving project settings", { projectId: project.id, settings: normalized });
+		try {
+			await writeProjectSettings(project.id, normalized);
+			const hadPendingSave = this.#debounce !== null;
+			if (hadPendingSave) this.#clearScheduledCheckpoint();
+			this.#status = {
+				...this.#status,
+				settings: normalized,
+				saveState: "saved",
+				message: "Saved",
+			};
+			await this.#writeCurrentState();
+			this.#emit();
+			if (hadPendingSave) this.#scheduleCheckpoint();
+			return this.getStatus();
+		} catch (error) {
+			this.logger.error("Failed to save project settings", error, { project, settings });
+			this.#status = {
+				...this.#status,
+				saveState: "error",
+				message: "How could not save settings.",
+			};
+			this.#emit();
+			return this.getStatus();
+		}
 	}
 
 	async viewCheckpoint(
@@ -153,7 +204,13 @@ export class HowService {
 					throw new Error("Leave changes before viewing another checkpoint.");
 
 				if (currentBrowsing.currentCheckpointId !== checkpointId)
-					await resetToCommit(project.path, checkpointId);
+					await this.#runInternalGitOperation(
+						project,
+						async () =>
+							await resetToCommit(project.id, checkpointId, {
+								discardChanges: options.discardBrowsingChanges ?? false,
+							}),
+					);
 				const browsing: BrowsingSession = {
 					...currentBrowsing,
 					currentCheckpointId: checkpointId,
@@ -177,7 +234,10 @@ export class HowService {
 			const originalLatestCheckpointId = originalCheckpoints[0]?.id;
 			if (!originalLatestCheckpointId) throw new Error("How could not find the latest checkpoint.");
 
-			await resetToCommit(project.path, checkpointId);
+			await this.#runInternalGitOperation(
+				project,
+				async () => await resetToCommit(project.id, checkpointId),
+			);
 			const browsing: BrowsingSession = {
 				originalLatestCheckpointId,
 				currentCheckpointId: checkpointId,
@@ -231,14 +291,19 @@ export class HowService {
 
 		try {
 			if (browsing.dirty) {
-				const message = checkpointMessage(new Date());
 				this.logger.info("Creating checkpoint from browsing edits", {
 					projectId: project.id,
 					worktreePath: project.path,
-					message,
 					browsing,
 				});
-				await createCheckpointCommit(project.path, message);
+				await this.#runInternalGitOperation(
+					project,
+					async () =>
+						await createCheckpointCommit(
+							project.id,
+							async () => await this.#checkpointMessageForStagedChanges(project),
+						),
+				);
 			}
 			this.#status = {
 				...this.#status,
@@ -269,9 +334,7 @@ export class HowService {
 		}
 	}
 
-	async returnToLatest(
-		options: { discardBrowsingChanges?: boolean } = {},
-	): Promise<HowStatus> {
+	async returnToLatest(options: { discardBrowsingChanges?: boolean } = {}): Promise<HowStatus> {
 		const project = this.#status.project;
 		const browsing = this.#status.browsing;
 		if (!project || !browsing) return this.getStatus();
@@ -292,7 +355,13 @@ export class HowService {
 		this.#emit();
 
 		try {
-			await resetToCommit(project.path, browsing.originalLatestCheckpointId);
+			await this.#runInternalGitOperation(
+				project,
+				async () =>
+					await resetToCommit(project.id, browsing.originalLatestCheckpointId, {
+						discardChanges: options.discardBrowsingChanges ?? false,
+					}),
+			);
 			this.#status = {
 				...this.#status,
 				browsing: null,
@@ -332,6 +401,7 @@ export class HowService {
 			lastSavedAt: null,
 			checkpoints: [],
 			browsing: null,
+			settings: defaultSettings(),
 		};
 		await this.#writeStoredState({ activeProject: null, browsing: null });
 		this.#emit();
@@ -340,21 +410,21 @@ export class HowService {
 
 	async stop(): Promise<void> {
 		this.#clearScheduledCheckpoint();
+		this.#clearPostInternalGitCheck();
 		this.#stopBrowsingDirtyPolling();
 		if (this.#watcher) this.#watcher.stop();
 		this.#watcher = null;
 	}
 
 	async #activateProject({
+		id,
+		title,
 		gitDir,
 		worktreePath,
-	}: {
-		gitDir: string;
-		worktreePath: string;
-	}): Promise<HowStatus> {
+	}: GitRepository): Promise<HowStatus> {
 		const project: ProjectSummary = {
-			id: encodeProjectHandle(gitDir),
-			title: projectTitleFromPath(worktreePath),
+			id,
+			title,
 			path: worktreePath,
 			gitDir,
 		};
@@ -368,6 +438,7 @@ export class HowService {
 			lastSavedAt: null,
 			checkpoints: [],
 			browsing: null,
+			settings: await readProjectSettings(project.id, defaultSettings()),
 		};
 		await this.#writeCurrentState();
 		await this.#refreshTimeline();
@@ -410,12 +481,13 @@ export class HowService {
 		this.#debounce = setTimeout(() => {
 			this.#debounce = null;
 			void this.#createCheckpoint();
-		}, checkpointQuietPeriodMs());
+		}, this.#status.settings.checkpointDebounceMs);
 	}
 
 	async #handleWorktreeChangeEvent(project: ProjectSummary): Promise<void> {
+		if (Date.now() < this.#ignoreWatcherUntil) return;
 		if (this.#saving) {
-			if (!this.#status.browsing) this.#dirtyWhileSaving = true;
+			if (!this.#status.browsing && !this.#internalGitOperation) this.#dirtyWhileSaving = true;
 			return;
 		}
 		if (this.#status.browsing) {
@@ -444,6 +516,16 @@ export class HowService {
 			return;
 		}
 
+		if (!(await hasWorktreeChanges(project.id))) {
+			this.#status = {
+				...this.#status,
+				saveState: "watching",
+				message: "Watching for changes",
+			};
+			this.#emit();
+			return;
+		}
+
 		this.#saving = true;
 		this.logger.info("Creating checkpoint", project);
 		this.#status = {
@@ -454,13 +536,18 @@ export class HowService {
 		this.#emit();
 
 		try {
-			const message = checkpointMessage(new Date());
 			this.logger.info("Creating checkpoint via git commit", {
 				projectId: project.id,
 				worktreePath: project.path,
-				message,
 			});
-			const commitId = await createCheckpointCommit(project.path, message);
+			const commitId = await this.#runInternalGitOperation(
+				project,
+				async () =>
+					await createCheckpointCommit(
+						project.id,
+						async () => await this.#checkpointMessageForStagedChanges(project),
+					),
+			);
 			this.logger.info("Git checkpoint result", { projectId: project.id, commitId });
 			if (commitId === null) {
 				this.#status = {
@@ -487,27 +574,86 @@ export class HowService {
 			this.#saving = false;
 			if (this.#dirtyWhileSaving) {
 				this.#dirtyWhileSaving = false;
-				this.#scheduleCheckpoint();
+				if (await hasWorktreeChanges(project.id)) this.#scheduleCheckpoint();
 			}
 		}
 	}
 
 	async #saveCurrentWorkBeforeBrowsing(project: ProjectSummary): Promise<void> {
-		const message = checkpointMessage(new Date());
+		if (!(await hasWorktreeChanges(project.id))) {
+			this.logger.info("Skipping checkpoint before browsing because there are no changes", {
+				projectId: project.id,
+				worktreePath: project.path,
+			});
+			return;
+		}
+
 		this.logger.info("Creating checkpoint before browsing", {
 			projectId: project.id,
 			worktreePath: project.path,
-			message,
 		});
-		const commitId = await createCheckpointCommit(project.path, message);
+		const commitId = await this.#runInternalGitOperation(
+			project,
+			async () =>
+				await createCheckpointCommit(
+					project.id,
+					async () => await this.#checkpointMessageForStagedChanges(project),
+				),
+		);
 		this.logger.info("Checkpoint before browsing result", { projectId: project.id, commitId });
 		await this.#refreshTimeline();
+	}
+
+	async #checkpointMessageForStagedChanges(project: ProjectSummary): Promise<string> {
+		return await checkpointMessageForStagedChanges({
+			agent: this.#status.settings.codingAgent,
+			date: new Date(),
+			logger: this.logger,
+			projectId: project.id,
+			worktreePath: project.path,
+		});
+	}
+
+	async #runInternalGitOperation<T>(
+		project: ProjectSummary,
+		operation: () => Promise<T>,
+	): Promise<T> {
+		this.#internalGitOperation = true;
+		try {
+			return await operation();
+		} finally {
+			this.#internalGitOperation = false;
+			this.#ignoreWatcherUntil = Date.now() + internalGitOperationQuietMs;
+			this.#schedulePostInternalGitCheck(project);
+		}
+	}
+
+	#schedulePostInternalGitCheck(project: ProjectSummary): void {
+		this.#clearPostInternalGitCheck();
+		this.#postInternalGitCheck = setTimeout(() => {
+			this.#postInternalGitCheck = null;
+			void this.#checkForChangesAfterInternalGitOperation(project);
+		}, internalGitOperationQuietMs);
+	}
+
+	async #checkForChangesAfterInternalGitOperation(project: ProjectSummary): Promise<void> {
+		if (this.#saving || this.#status.project?.id !== project.id) return;
+		if (this.#status.browsing) {
+			await this.#markBrowsingDirtyIfNeeded(project);
+			return;
+		}
+		if (await hasWorktreeChanges(project.id)) this.#scheduleCheckpoint();
+	}
+
+	#clearPostInternalGitCheck(): void {
+		if (this.#postInternalGitCheck) clearTimeout(this.#postInternalGitCheck);
+		this.#postInternalGitCheck = null;
 	}
 
 	async #resumeBrowsingSession(browsing: BrowsingSession): Promise<void> {
 		const project = this.#status.project;
 		if (!project) return;
-		const dirty = await hasWorktreeChanges(project.path);
+		const dirty = await hasWorktreeChanges(project.id);
 		const resumedBrowsing = {
 			...browsing,
 			dirty,
@@ -526,7 +672,7 @@ export class HowService {
 	async #markBrowsingDirtyIfNeeded(project: ProjectSummary): Promise<void> {
 		const browsing = this.#status.browsing;
 		if (!browsing || browsing.dirty) return;
-		const dirty = await hasWorktreeChanges(project.path);
+		const dirty = await hasWorktreeChanges(project.id);
 		if (!dirty) return;
 		const nextBrowsing = {
 			...browsing,
@@ -565,7 +711,7 @@ export class HowService {
 		if (!project) return;
 
 		this.logger.info("Refreshing checkpoint timeline", project);
-		const commits = await listCheckpointCommits(project.path, checkpointLimit);
+		const commits = await listCheckpointCommits(project.id, checkpointLimit);
 		this.logger.info("Loaded checkpoint timeline", {
 			projectId: project.id,
 			checkpointCount: commits.length,
@@ -626,13 +772,8 @@ export class HowService {
 
 	#parseBrowsingSession(value: unknown): BrowsingSession | null {
 		if (!isRecord(value)) return null;
-		const {
-			originalLatestCheckpointId,
-			currentCheckpointId,
-			checkpoints,
-			dirty,
-			startedAt,
-		} = value;
+		const { originalLatestCheckpointId, currentCheckpointId, checkpoints, dirty, startedAt } =
+			value;
 		if (
 			typeof originalLatestCheckpointId !== "string" ||
 			typeof currentCheckpointId !== "string" ||
@@ -646,11 +787,7 @@ export class HowService {
 			.map((checkpoint): Checkpoint | null => {
 				if (!isRecord(checkpoint)) return null;
 				const { id, title, createdAt } = checkpoint;
-				if (
-					typeof id !== "string" ||
-					typeof title !== "string" ||
-					typeof createdAt !== "number"
-				)
+				if (typeof id !== "string" || typeof title !== "string" || typeof createdAt !== "number")
 					return null;
 				return { id, title, createdAt };
 			})

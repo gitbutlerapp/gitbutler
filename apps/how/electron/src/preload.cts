@@ -10,6 +10,8 @@ const api: HowElectronApi = {
 	deleteProject: async () => await (ipcRenderer.invoke("how:delete-project") as Promise<HowStatus>),
 	createCheckpointNow: async () =>
 		await (ipcRenderer.invoke("how:create-checkpoint-now") as Promise<HowStatus>),
+	saveProjectSettings: async (settings) =>
+		await (ipcRenderer.invoke("how:save-project-settings", settings) as Promise<HowStatus>),
 	viewCheckpoint: async (checkpointId, options) =>
 		await (ipcRenderer.invoke("how:view-checkpoint", checkpointId, options) as Promise<HowStatus>),
 	continueFromCheckpoint: async () =>

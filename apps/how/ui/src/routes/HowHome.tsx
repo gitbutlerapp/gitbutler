@@ -1,4 +1,5 @@
 import { Button } from "#ui/components/ui/button.tsx";
+import { Link } from "@tanstack/react-router";
 import {
 	AlertCircle,
 	Check,
@@ -7,6 +8,7 @@ import {
 	FolderOpen,
 	Plus,
 	RefreshCw,
+	Settings,
 	Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -19,6 +21,10 @@ const initialStatus: HowStatus = {
 	lastSavedAt: null,
 	checkpoints: [],
 	browsing: null,
+	settings: {
+		checkpointDebounceMs: 10_000,
+		codingAgent: "none",
+	},
 };
 
 function statusLabel(status: HowStatus): string {
@@ -132,8 +138,8 @@ function DirtyBrowsingDialog({
 			<section className="w-full max-w-sm rounded-md border border-stone-200 bg-white p-5 shadow-lg">
 				<h2 className="text-base font-semibold tracking-normal text-stone-950">Leave changes?</h2>
 				<p className="mt-2 text-sm leading-6 text-stone-600">
-					You changed files while browsing this checkpoint. To keep those changes, choose
-					Continue from here first.
+					You changed files while browsing this checkpoint. To keep those changes, choose Continue
+					from here first.
 				</p>
 				<div className="mt-5 flex justify-end gap-2">
 					<Button variant="ghost" onClick={onCancel}>
@@ -249,9 +255,16 @@ function ProjectScreen({
 				</nav>
 				<header className="flex flex-wrap items-start justify-between gap-4 pb-5">
 					<div className="min-w-0 flex-1">
-						<h1 className="truncate text-xl font-semibold tracking-normal text-stone-700">
-							{project.title}
-						</h1>
+						<div className="flex min-w-0 items-center gap-2">
+							<h1 className="truncate text-xl font-semibold tracking-normal text-stone-700">
+								{project.title}
+							</h1>
+							<Button asChild variant="ghost" size="icon" aria-label="Project settings">
+								<Link to="/settings">
+									<Settings className="h-4 w-4" aria-hidden />
+								</Link>
+							</Button>
+						</div>
 					</div>
 					<div className="flex items-center gap-2">
 						<span
