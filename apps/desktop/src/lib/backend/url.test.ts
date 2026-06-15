@@ -2,18 +2,23 @@ import { getEditorUri } from "$lib/backend/url";
 import { describe, expect, test } from "vitest";
 
 describe("getEditorUri", () => {
-	test.each(["vscode", "vscode-insiders", "vscodium", "cursor", "windsurf", "trae"])(
-		"%s keeps query parameters",
-		(schemeId) => {
-			expect(
-				getEditorUri({
-					schemeId,
-					path: ["/home/example/project"],
-					searchParams: { windowId: "_blank" },
-				}),
-			).toBe(`${schemeId}://file/home/example/project?windowId=_blank`);
-		},
-	);
+	test.each([
+		"vscode",
+		"vscode-insiders",
+		"vscodium",
+		"cursor",
+		"windsurf",
+		"trae",
+		"antigravity-ide",
+	])("%s keeps query parameters", (schemeId) => {
+		expect(
+			getEditorUri({
+				schemeId,
+				path: ["/home/example/project"],
+				searchParams: { windowId: "_blank" },
+			}),
+		).toBe(`${schemeId}://file/home/example/project?windowId=_blank`);
+	});
 
 	test("zed drops query parameters since it treats them as part of the file path", () => {
 		expect(
