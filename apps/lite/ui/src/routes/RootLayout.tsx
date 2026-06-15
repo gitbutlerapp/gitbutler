@@ -99,6 +99,7 @@ const Projects: FC = () => {
 				return (
 					<Tooltip.Root key={project.id}>
 						<Tooltip.Trigger
+							delay={0}
 							aria-label={`Select project ${project.title}`}
 							className={classes(styles.project, isSelected && styles.selected)}
 							onClick={() => selectProject(project)}
