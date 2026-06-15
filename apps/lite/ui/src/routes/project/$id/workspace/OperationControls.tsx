@@ -401,13 +401,15 @@ export const OperationControls: FC = () => {
 				headInfo && (
 					<Container>
 						<ControlsRow>
-							{absorptionPlanQuery.data ? (
+							{absorptionPlanQuery.isPending ? (
+								<Icon name="spinner" aria-label="Loading absorb plan" />
+							) : absorptionPlanQuery.isError ? (
+								<Label>Failed to load absorb plan</Label>
+							) : (
 								<Label>
 									Absorb {operandLabel({ headInfo, operand: x.source })} into{" "}
 									{absorptionPlanQuery.data.length} commits
 								</Label>
-							) : (
-								<Icon name="spinner" aria-label="Loading absorb plan" />
 							)}
 							<AbsorbControls projectId={projectId} sourceTarget={x.sourceTarget} />
 						</ControlsRow>
