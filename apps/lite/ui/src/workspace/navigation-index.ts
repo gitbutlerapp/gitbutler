@@ -3,24 +3,13 @@ export type NavigationIndex<T> = {
 	indexByKey: Map<string, number>;
 };
 
-const createNavigationIndex = <T>(): NavigationIndex<T> => ({
-	items: [],
-	indexByKey: new Map<string, number>(),
-});
-
-export const buildNavigationIndex = <T>(
+export const buildIndexByKey = <T>(
 	items: Array<T>,
 	getKey: (item: T) => string,
-): NavigationIndex<T> => {
-	const index = createNavigationIndex<T>();
-
-	for (const item of items) {
-		const itemIndex = index.items.length;
-		index.items.push(item);
-		index.indexByKey.set(getKey(item), itemIndex);
-	}
-
-	return index;
+): Map<string, number> => {
+	const indexByKey = new Map<string, number>();
+	for (const [itemIndex, item] of items.entries()) indexByKey.set(getKey(item), itemIndex);
+	return indexByKey;
 };
 
 export const getAdjacent = <T>({
