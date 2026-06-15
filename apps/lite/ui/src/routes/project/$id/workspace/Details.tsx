@@ -275,24 +275,16 @@ const DiffContents: FC<{
 	fileParent: FileParent;
 	changesetKey: string;
 	projectId: string;
+	diffView: DiffView;
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
-	navigationIndex: NavigationIndex<HunkOperand>;
-	items: Array<CodeViewDiffItem>;
-	fileByItemId: Map<string, DiffViewFile>;
-	fileByHunkKey: Map<string, DiffViewFile>;
-	hunkByKey: Map<string, DiffViewHunk>;
 }> = ({
 	selectionScopeRef,
 	onViewerFileSelection,
 	fileParent,
 	changesetKey,
 	projectId,
+	diffView: { items, navigationIndex, hunkByKey, fileByHunkKey, fileByItemId },
 	viewerRef,
-	navigationIndex,
-	items,
-	fileByItemId,
-	fileByHunkKey,
-	hunkByKey,
 }) => {
 	const dispatch = useAppDispatch();
 
@@ -750,9 +742,9 @@ const Diff: FC<{
 					fileParent={fileParent}
 					changesetKey={changesetKey}
 					projectId={projectId}
+					diffView={diffView}
 					selectionScopeRef={selectionScopeRef}
 					viewerRef={viewerRef}
-					{...diffView}
 				/>
 			</div>
 		</div>
