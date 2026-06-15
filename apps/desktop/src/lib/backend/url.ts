@@ -44,6 +44,7 @@ const VSCODE_COMPATIBLE_SCHEMES = new Set([
 	"cursor",
 	"windsurf",
 	"trae",
+	"antigravity-ide",
 ]);
 
 export function getEditorUri(params: EditorUriParams): string {

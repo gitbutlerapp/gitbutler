@@ -2,7 +2,7 @@ import { getEditorUri } from "$lib/backend/url";
 import { describe, expect, test } from "vitest";
 
 describe("getEditorUri", () => {
-	test.each(["vscode", "vscode-insiders", "vscodium", "cursor", "windsurf", "trae"])(
+	test.each(["vscode", "vscode-insiders", "vscodium", "cursor", "windsurf", "trae", "antigravity-ide"])(
 		"%s keeps query parameters",
 		(schemeId) => {
 			expect(

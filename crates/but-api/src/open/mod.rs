@@ -43,6 +43,7 @@ pub(crate) fn open_that(target_url: &Url) -> anyhow::Result<()> {
         "windsurf",
         "cursor",
         "trae",
+        "antigravity-ide",
         "file",
     ]
     .contains(&target_url.scheme())
@@ -190,7 +191,13 @@ fn wsl_editor_invocation(target_url: &Url) -> Option<(&'static str, Vec<String>)
 fn is_vscode_or_compatible(scheme: &str) -> bool {
     matches!(
         scheme,
-        "vscode" | "vscode-insiders" | "vscodium" | "cursor" | "windsurf" | "trae"
+        "vscode"
+            | "vscode-insiders"
+            | "vscodium"
+            | "cursor"
+            | "windsurf"
+            | "trae"
+            | "antigravity-ide"
     )
 }
 
@@ -207,6 +214,7 @@ fn scheme_to_wsl_editor_command(scheme: &str) -> Option<&'static str> {
         "cursor" => Some("cursor"),
         "windsurf" => Some("windsurf"),
         "trae" => Some("trae"),
+        "antigravity-ide" => Some("antigravity-ide"),
         _ => {
             tracing::warn!(%scheme, "missing WSL editor scheme mapping");
             None
@@ -243,6 +251,23 @@ mod wsl_tests {
             wsl_editor_invocation(&url),
             Some((
                 "cursor",
+                vec![
+                    "--goto".to_owned(),
+                    "/home/example/project/src/main.rs:42:7".to_owned(),
+                ],
+            ))
+        );
+    }
+
+    #[test]
+    fn antigravity_editor_url_becomes_goto_cli_invocation() {
+        let url =
+            Url::parse("antigravity-ide://file/home/example/project/src/main.rs:42:7").unwrap();
+
+        assert_eq!(
+            wsl_editor_invocation(&url),
+            Some((
+                "antigravity-ide",
                 vec![
                     "--goto".to_owned(),
                     "/home/example/project/src/main.rs:42:7".to_owned(),
