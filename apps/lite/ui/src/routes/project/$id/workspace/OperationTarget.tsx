@@ -32,7 +32,7 @@ const getOperationTypeFromData = (data: DropData): OperationType | null => {
 
 	return Match.value(instruction.operation).pipe(
 		Match.withReturnType<OperationType>(),
-		Match.when("combine", () => "combine"),
+		Match.when("combine", () => "into"),
 		Match.when("reorder-before", () => "above"),
 		Match.when("reorder-after", () => "below"),
 		Match.exhaustive,
@@ -56,7 +56,7 @@ const useOperationDropTarget = ({
 		const dragData = parseDragData(source.data);
 		if (!dragData) return {};
 
-		const { combine, above, below } = getOperations(dragData.source, target);
+		const { into, above, below } = getOperations(dragData.source, target);
 		return attachInstruction(
 			{},
 			{
@@ -65,7 +65,7 @@ const useOperationDropTarget = ({
 				operations: {
 					"reorder-before": above ? "available" : "not-available",
 					"reorder-after": below ? "available" : "not-available",
-					combine: combine ? "available" : "not-available",
+					combine: into ? "available" : "not-available",
 				},
 			},
 		);
@@ -162,7 +162,7 @@ export const OperationTarget: FC<
 		Match.tags({
 			Absorb: () => isAbsorptionTarget,
 			Transfer: ({ value: mode }) =>
-				isSelected && mode.operationType === "combine" && !operandEquals(mode.source, target),
+				isSelected && mode.operationType === "into" && !operandEquals(mode.source, target),
 		}),
 		Match.orElse(() => false),
 	);

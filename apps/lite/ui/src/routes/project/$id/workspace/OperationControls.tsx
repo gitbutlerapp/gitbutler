@@ -214,11 +214,11 @@ const TransferTypeToggleGroup: FC<{
 			},
 		},
 		{
-			hotkey: operationHotkeys.selectCombine.hotkey,
-			callback: () => setOperationType("combine"),
+			hotkey: operationHotkeys.selectInto.hotkey,
+			callback: () => setOperationType("into"),
 			options: {
 				conflictBehavior: "allow",
-				meta: operationHotkeys.selectCombine.meta,
+				meta: operationHotkeys.selectInto.meta,
 			},
 		},
 		{
@@ -255,14 +255,12 @@ const TransferTypeToggleGroup: FC<{
 				</div>
 			</Toggle>
 
-			<Toggle className={styles.toggleGroupRowToggle} value={"combine" satisfies OperationType}>
-				{operations.combine && (
-					<div className={classes("text-12", styles.operationLabel)}>
-						{operations.combine.label}
-					</div>
+			<Toggle className={styles.toggleGroupRowToggle} value={"into" satisfies OperationType}>
+				{operations.into && (
+					<div className={classes("text-12", styles.operationLabel)}>{operations.into.label}</div>
 				)}
 				<div className="text-semibold">
-					Combine <Kbd hotkey={operationHotkeys.selectCombine.hotkey} />
+					Into <Kbd hotkey={operationHotkeys.selectInto.hotkey} />
 				</div>
 			</Toggle>
 

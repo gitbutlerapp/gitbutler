@@ -231,7 +231,7 @@ const useOutlineTreeHotkeys = ({
 				projectId,
 				mode: keyboardTransferOperationMode({
 					source: changesSectionOperand,
-					operationType: "combine",
+					operationType: "into",
 				}),
 			}),
 		);
@@ -1160,7 +1160,7 @@ const CommitRow: FC<
 				projectId,
 				mode: keyboardTransferOperationMode({
 					source: operand,
-					operationType: "combine",
+					operationType: "into",
 				}),
 			}),
 		);
@@ -1211,7 +1211,7 @@ const CommitRow: FC<
 				projectId,
 				mode: keyboardTransferOperationMode({
 					source: changesSectionOperand,
-					operationType: "combine",
+					operationType: "into",
 				}),
 			}),
 		);

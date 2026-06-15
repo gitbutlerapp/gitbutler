@@ -255,8 +255,8 @@ export const operationHotkeys = {
 		hotkey: "B",
 		meta: { group: "Operation mode", name: "Select below" },
 	},
-	selectCombine: {
-		hotkey: "C",
-		meta: { group: "Operation mode", name: "Select combine" },
+	selectInto: {
+		hotkey: "I",
+		meta: { group: "Operation mode", name: "Select into" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
