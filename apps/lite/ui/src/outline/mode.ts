@@ -4,12 +4,10 @@ import {
 	branchOperand,
 	CommitOperand,
 	commitOperand,
-	operandContains,
 	operandEquals,
-	operandIdentityKey,
 	type Operand,
 } from "#ui/operands.ts";
-import { getOperation, getOperations, OperationType } from "#ui/operations/operation.ts";
+import { getOperation, OperationType } from "#ui/operations/operation.ts";
 import { AbsorptionTarget } from "@gitbutler/but-sdk";
 import { SelectionState } from "#ui/projects/workspace/state.ts";
 
@@ -142,42 +140,6 @@ export const getTransferOperation = ({
 		operationType,
 	});
 };
-
-const hasAnyOperation = (source: Operand, target: Operand) => {
-	const operations = getOperations(source, target);
-	return !!operations.squash || !!operations.moveAbove || !!operations.moveBelow;
-};
-
-export const filterNavigationItemsForOutlineMode = ({
-	items,
-	outlineMode,
-	absorptionTargetKeys,
-}: {
-	items: Array<Operand>;
-	outlineMode: OutlineMode;
-	absorptionTargetKeys: ReadonlySet<string>;
-}) =>
-	Match.value(outlineMode).pipe(
-		Match.tagsExhaustive({
-			Default: () => items,
-			Absorb: (activeMode) =>
-				items.filter(
-					(operand) =>
-						operandContains(operand, activeMode.source) ||
-						absorptionTargetKeys.has(operandIdentityKey(operand)),
-				),
-			Transfer: (activeMode) =>
-				items.filter(
-					(operand) =>
-						operandContains(operand, activeMode.value.source) ||
-						hasAnyOperation(activeMode.value.source, operand),
-				),
-			RenameBranch: (x) =>
-				items.filter((operand) => operandEquals(operand, branchOperand(x.operand))),
-			RewordCommit: (x) =>
-				items.filter((operand) => operandEquals(operand, commitOperand(x.operand))),
-		}),
-	);
 
 export const getOperationSource = (mode: OutlineMode): Operand | null =>
 	Match.value(mode).pipe(
