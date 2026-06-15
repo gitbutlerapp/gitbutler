@@ -103,7 +103,7 @@ const AbsorbControls: FC<{
 					// the tooltip. Other props should be passed above.
 					render={<Button focusableWhenDisabled disabled={!canAbsorb} />}
 				>
-					Absorb
+					Confirm
 				</Tooltip.Trigger>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
