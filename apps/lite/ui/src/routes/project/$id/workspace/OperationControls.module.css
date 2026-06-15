@@ -32,6 +32,11 @@
 	align-items: center;
 }
 
+.label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
 .controls {
 	display: flex;
 	column-gap: 4px;
