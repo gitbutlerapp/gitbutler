@@ -128,6 +128,51 @@ test("creates and shows a checkpoint", async ({ browserName: _browserName }, tes
 	}
 });
 
+test("creates bookmarks, switches to one, and preserves the previous state", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-bookmark-project-");
+	await initializeGitRepository(repositoryPath);
+	const notesPath = path.join(repositoryPath, "notes.md");
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await createCheckpoint(page, repositoryPath, "notes.md", "checkpoint A\n", 1);
+		await page.getByRole("button", { name: "Bookmark current state" }).first().click();
+		await page.getByLabel("Name").fill("Version A");
+		await page.getByRole("button", { name: "Save" }).click();
+		await expect(page.getByText("Version A")).toBeVisible();
+		await expect(page.getByText("current")).toBeVisible();
+
+		await createCheckpoint(page, repositoryPath, "notes.md", "checkpoint B\n", 2);
+		await expect(page.getByText("current")).toHaveCount(0);
+
+		await page.getByText("Version A").click();
+		await expect(page.getByText("Switched bookmark")).toBeVisible();
+		await expect.poll(async () => await fs.readFile(notesPath, "utf8")).toBe("checkpoint A\n");
+		await expect(page.getByText("Before switching to Version A")).toBeVisible();
+		await expect
+			.poll(
+				async () =>
+					await runGit(repositoryPath, [
+						"for-each-ref",
+						"--format=%(refname)",
+						"refs/gitbutler/how/bookmarks",
+					]),
+			)
+			.toContain("refs/gitbutler/how/bookmarks/");
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+	}
+});
+
 test("uses a coding agent summary for checkpoint titles and commit bodies", async ({
 	browserName: _browserName,
 }, testInfo) => {
@@ -291,37 +336,51 @@ test("saves project settings to local Git config and applies debounce immediatel
 	}
 });
 
-test("configures direct publish and pushes to an existing remote", async (
-	{ browserName: _browserName },
-	testInfo,
-) => {
-	const repositoryPath = await createTempDirectory("how-direct-publish-project-");
+test("logs in, chooses an existing GitHub project, and publishes", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-github-publish-existing-project-");
 	const remotePath = await createBareRepository();
 	await initializeGitRepository(repositoryPath);
 	await createRegularCommit(repositoryPath);
-	await runGit(repositoryPath, ["remote", "add", "origin", remotePath]);
 	const branchName = await currentBranch(repositoryPath);
 
 	const { app, page } = await launchHowApp({
 		projectPath: repositoryPath,
 		userDataPath: testInfo.outputPath("user-data"),
+		githubLogin: "how-test",
+		githubRepositories: [
+			{
+				id: "repo-1",
+				nameWithOwner: "how-test/existing-project",
+				cloneUrl: remotePath,
+				isPrivate: true,
+			},
+		],
 	});
 	try {
 		await page.getByRole("button", { name: "Open project" }).click();
 		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
 
 		await page.getByRole("button", { name: "Publish" }).click();
-		await expect(page.getByRole("heading", { name: "How should this project publish?" })).toBeVisible();
-		await expect(page.getByText("Review before publishing")).toBeVisible();
-		await expect(page.getByRole("radio").nth(1)).toBeDisabled();
-		await page.getByRole("button", { name: "Continue" }).click();
+		await expect(page.getByRole("heading", { name: "Publish with GitHub" })).toBeVisible();
+		await page.getByRole("button", { name: "Log in to GitHub" }).click();
+		await expect(page.getByRole("heading", { name: "Where should this publish?" })).toBeVisible();
+		await page.getByRole("button", { name: "Choose existing project" }).click();
+		await expect(page.getByRole("heading", { name: "Choose existing project" })).toBeVisible();
+		await page.getByRole("button", { name: "how-test/existing-project" }).click();
 
 		await expect(page.getByText("Published just now")).toBeVisible();
 		await expect
-			.poll(async () => await runGit(repositoryPath, ["config", "--local", "--get", "how.publishMode"]))
-			.toBe("direct");
-		await expect
-			.poll(async () => await runGit(repositoryPath, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]))
+			.poll(
+				async () =>
+					await runGit(repositoryPath, [
+						"rev-parse",
+						"--abbrev-ref",
+						"--symbolic-full-name",
+						"@{u}",
+					]),
+			)
 			.toBe(`origin/${branchName}`);
 		await expect.poll(async () => await runGit(remotePath, ["rev-parse", branchName])).toBeTruthy();
 	} finally {
@@ -331,11 +390,10 @@ test("configures direct publish and pushes to an existing remote", async (
 	}
 });
 
-test("asks for a project destination when publishing without a remote", async (
-	{ browserName: _browserName },
-	testInfo,
-) => {
-	const repositoryPath = await createTempDirectory("how-direct-publish-destination-project-");
+test("logs in, creates a GitHub project, and publishes", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-github-publish-create-project-");
 	const remotePath = await createBareRepository();
 	await initializeGitRepository(repositoryPath);
 	await createRegularCommit(repositoryPath);
@@ -344,23 +402,33 @@ test("asks for a project destination when publishing without a remote", async (
 	const { app, page } = await launchHowApp({
 		projectPath: repositoryPath,
 		userDataPath: testInfo.outputPath("user-data"),
+		githubLogin: "how-test",
+		githubCreateRepositoryUrl: remotePath,
 	});
 	try {
 		await page.getByRole("button", { name: "Open project" }).click();
 		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
 
 		await page.getByRole("button", { name: "Publish" }).click();
-		await page.getByRole("button", { name: "Continue" }).click();
-		await expect(page.getByRole("heading", { name: "Add a project destination" })).toBeVisible();
-		await page.getByLabel("Project destination URL").fill(remotePath);
-		await page.getByRole("button", { name: "Add destination and publish" }).click();
+		await page.getByRole("button", { name: "Log in to GitHub" }).click();
+		await page.getByRole("button", { name: "Create GitHub project" }).click();
+		await expect(page.getByRole("heading", { name: "Create GitHub project" })).toBeVisible();
+		await page.getByRole("button", { name: "Create and publish" }).click();
 
 		await expect(page.getByText("Published just now")).toBeVisible();
-		await expect.poll(async () => await runGit(repositoryPath, ["remote", "get-url", "origin"])).toBe(
-			remotePath,
-		);
 		await expect
-			.poll(async () => await runGit(repositoryPath, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]))
+			.poll(async () => await runGit(repositoryPath, ["remote", "get-url", "origin"]))
+			.toBe(remotePath);
+		await expect
+			.poll(
+				async () =>
+					await runGit(repositoryPath, [
+						"rev-parse",
+						"--abbrev-ref",
+						"--symbolic-full-name",
+						"@{u}",
+					]),
+			)
 			.toBe(`origin/${branchName}`);
 	} finally {
 		await app.close();
@@ -369,21 +437,20 @@ test("asks for a project destination when publishing without a remote", async (
 	}
 });
 
-test("creates a checkpoint before publishing unsaved changes", async (
-	{ browserName: _browserName },
-	testInfo,
-) => {
+test("creates a checkpoint before publishing unsaved changes", async ({
+	browserName: _browserName,
+}, testInfo) => {
 	const repositoryPath = await createTempDirectory("how-direct-publish-checkpoint-project-");
 	const remotePath = await createBareRepository();
 	await initializeGitRepository(repositoryPath);
 	await createRegularCommit(repositoryPath);
-	await runGit(repositoryPath, ["remote", "add", "origin", remotePath]);
-	await runGit(repositoryPath, ["config", "--local", "how.publishMode", "direct"]);
 
 	const { app, page } = await launchHowApp({
 		projectPath: repositoryPath,
 		userDataPath: testInfo.outputPath("user-data"),
 		checkpointQuietMs: "5000",
+		githubLogin: "how-test",
+		githubCreateRepositoryUrl: remotePath,
 	});
 	try {
 		await page.getByRole("button", { name: "Open project" }).click();
@@ -391,6 +458,9 @@ test("creates a checkpoint before publishing unsaved changes", async (
 
 		await fs.writeFile(path.join(repositoryPath, "notes.md"), "publish checkpoint\n");
 		await page.getByRole("button", { name: "Publish" }).click();
+		await page.getByRole("button", { name: "Log in to GitHub" }).click();
+		await page.getByRole("button", { name: "Create GitHub project" }).click();
+		await page.getByRole("button", { name: "Create and publish" }).click();
 
 		await expect(page.getByText("Published just now")).toBeVisible();
 		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(1);
@@ -402,10 +472,9 @@ test("creates a checkpoint before publishing unsaved changes", async (
 	}
 });
 
-test("disables publish while browsing checkpoints", async (
-	{ browserName: _browserName },
-	testInfo,
-) => {
+test("disables publish while browsing checkpoints", async ({
+	browserName: _browserName,
+}, testInfo) => {
 	const repositoryPath = await createTempDirectory("how-direct-publish-browsing-project-");
 	await initializeGitRepository(repositoryPath);
 
@@ -428,18 +497,22 @@ test("disables publish while browsing checkpoints", async (
 	}
 });
 
-test("shows a plain-language error when the shared project changed", async (
-	{ browserName: _browserName },
-	testInfo,
-) => {
+test("shows a plain-language error when the shared project changed", async ({
+	browserName: _browserName,
+}, testInfo) => {
 	const repositoryPath = await createTempDirectory("how-direct-publish-rejected-project-");
 	const remotePath = await createBareRepository();
 	const clonePath = await createTempDirectory("how-direct-publish-other-clone-");
 	await initializeGitRepository(repositoryPath);
 	await createRegularCommit(repositoryPath);
 	await runGit(repositoryPath, ["remote", "add", "origin", remotePath]);
-	await runGit(repositoryPath, ["push", "-u", "origin", `HEAD:${await currentBranch(repositoryPath)}`]);
-	await runGit(repositoryPath, ["config", "--local", "how.publishMode", "direct"]);
+	await runGit(repositoryPath, [
+		"push",
+		"-u",
+		"origin",
+		`HEAD:${await currentBranch(repositoryPath)}`,
+	]);
+	await runGit(repositoryPath, ["remote", "remove", "origin"]);
 	await fs.rm(clonePath, { recursive: true, force: true });
 	await runGit(os.tmpdir(), ["clone", remotePath, clonePath]);
 	await runGit(clonePath, ["config", "user.name", "How E2E"]);
@@ -451,6 +524,15 @@ test("shows a plain-language error when the shared project changed", async (
 		projectPath: repositoryPath,
 		userDataPath: testInfo.outputPath("user-data"),
 		checkpointQuietMs: "5000",
+		githubLogin: "how-test",
+		githubRepositories: [
+			{
+				id: "repo-1",
+				nameWithOwner: "how-test/rejected-project",
+				cloneUrl: remotePath,
+				isPrivate: true,
+			},
+		],
 	});
 	try {
 		await page.getByRole("button", { name: "Open project" }).click();
@@ -458,6 +540,9 @@ test("shows a plain-language error when the shared project changed", async (
 		await fs.writeFile(path.join(repositoryPath, "local.md"), "local change\n");
 
 		await page.getByRole("button", { name: "Publish" }).click();
+		await page.getByRole("button", { name: "Log in to GitHub" }).click();
+		await page.getByRole("button", { name: "Choose existing project" }).click();
+		await page.getByRole("button", { name: "how-test/rejected-project" }).click();
 
 		await expect(
 			page.getByText("The shared project has changes How cannot publish over yet."),

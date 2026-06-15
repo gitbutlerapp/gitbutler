@@ -1,3 +1,4 @@
+import { GithubService } from "./github-service.js";
 import { HowService } from "./how-service.js";
 import { howIpcChannels, type OpenProjectResult } from "./ipc.js";
 import { createLogger, type Logger } from "./logger.js";
@@ -38,6 +39,7 @@ protocol.registerSchemesAsPrivileged([
 
 let mainWindow: BrowserWindow | null = null;
 let service: HowService | null = null;
+let githubService: GithubService | null = null;
 let logger: Logger | null = null;
 
 function configureUserDataPath(): void {
@@ -192,23 +194,65 @@ function registerIpc(): void {
 	});
 	handle(howIpcChannels.deleteProject, async () => await getService().deleteProject());
 	handle(howIpcChannels.createCheckpointNow, async () => await getService().createCheckpointNow());
-	handle(howIpcChannels.publishProject, async (_event, input) => {
-		const publishMode =
-			typeof input === "object" &&
-			input !== null &&
-			"publishMode" in input &&
-			input.publishMode === "direct"
-				? "direct"
-				: undefined;
-		const destinationUrl =
-			typeof input === "object" &&
-			input !== null &&
-			"destinationUrl" in input &&
-			typeof input.destinationUrl === "string"
-				? input.destinationUrl
-				: undefined;
-		return await getService().publishProject({ publishMode, destinationUrl });
+	handle(howIpcChannels.createBookmark, async (_event, name) => {
+		if (typeof name !== "string" || name.trim().length === 0)
+			throw new Error("How could not create that bookmark.");
+		return await getService().createBookmark(name);
 	});
+	handle(howIpcChannels.createBookmarkFromCheckpoint, async (_event, name, checkpointId) => {
+		if (typeof name !== "string" || name.trim().length === 0)
+			throw new Error("How could not create that bookmark.");
+		if (typeof checkpointId !== "string" || checkpointId.length === 0)
+			throw new Error("How could not find that checkpoint.");
+		return await getService().createBookmarkFromCheckpoint(name, checkpointId);
+	});
+	handle(howIpcChannels.switchBookmark, async (_event, bookmarkId) => {
+		if (typeof bookmarkId !== "string" || bookmarkId.length === 0)
+			throw new Error("How could not find that bookmark.");
+		return await getService().switchBookmark(bookmarkId);
+	});
+	handle(howIpcChannels.updateBookmark, async (_event, bookmarkId) => {
+		if (typeof bookmarkId !== "string" || bookmarkId.length === 0)
+			throw new Error("How could not find that bookmark.");
+		return await getService().updateBookmark(bookmarkId);
+	});
+	handle(howIpcChannels.renameBookmark, async (_event, bookmarkId, name) => {
+		if (typeof bookmarkId !== "string" || bookmarkId.length === 0)
+			throw new Error("How could not find that bookmark.");
+		if (typeof name !== "string" || name.trim().length === 0)
+			throw new Error("How could not rename that bookmark.");
+		return await getService().renameBookmark(bookmarkId, name);
+	});
+	handle(howIpcChannels.deleteBookmark, async (_event, bookmarkId) => {
+		if (typeof bookmarkId !== "string" || bookmarkId.length === 0)
+			throw new Error("How could not find that bookmark.");
+		return await getService().deleteBookmark(bookmarkId);
+	});
+	handle(howIpcChannels.publishProject, async (_event, input) => {
+		const githubRepositoryCloneUrl =
+			typeof input === "object" &&
+			input !== null &&
+			"githubRepositoryCloneUrl" in input &&
+			typeof input.githubRepositoryCloneUrl === "string"
+				? input.githubRepositoryCloneUrl
+				: undefined;
+		const createGithubRepositoryName =
+			typeof input === "object" &&
+			input !== null &&
+			"createGithubRepositoryName" in input &&
+			typeof input.createGithubRepositoryName === "string"
+				? input.createGithubRepositoryName
+				: undefined;
+		return await getService().publishProject({
+			githubRepositoryCloneUrl,
+			createGithubRepositoryName,
+		});
+	});
+	handle(howIpcChannels.loginToGithub, async () => await getService().loginToGithub());
+	handle(
+		howIpcChannels.listGithubRepositories,
+		async () => await getService().listGithubRepositories(),
+	);
 	handle(howIpcChannels.saveProjectSettings, async (_event, settings) => {
 		if (typeof settings !== "object" || settings === null)
 			throw new Error("How could not save settings.");
@@ -250,7 +294,13 @@ app.whenReady().then(async () => {
 	registerProtocolHandler();
 	registerIpc();
 
-	service = new HowService(path.join(app.getPath("userData"), "state.json"), windows, logger);
+	githubService = new GithubService(path.join(app.getPath("userData"), "github.json"), logger);
+	service = new HowService(
+		path.join(app.getPath("userData"), "state.json"),
+		windows,
+		logger,
+		githubService,
+	);
 	await service.initialize();
 	await createMainWindow();
 

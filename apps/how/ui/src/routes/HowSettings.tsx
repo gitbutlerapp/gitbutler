@@ -13,6 +13,7 @@ const initialStatus: HowStatus = {
 	message: null,
 	lastSavedAt: null,
 	checkpoints: [],
+	bookmarks: [],
 	browsing: null,
 	settings: {
 		checkpointDebounceMs: 10_000,

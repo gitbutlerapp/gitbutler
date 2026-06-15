@@ -1010,6 +1010,7 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+ "uuid",
  "which",
 ]
 

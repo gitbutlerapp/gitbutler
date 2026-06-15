@@ -15,7 +15,7 @@ export async function runGit(cwd: string, args: Array<string>): Promise<string> 
 
 export async function initializeGitRepository(repositoryPath: string): Promise<void> {
 	await fs.mkdir(repositoryPath, { recursive: true });
-	await runGit(repositoryPath, ["init"]);
+	await runGit(repositoryPath, ["init", "-b", "main"]);
 	await runGit(repositoryPath, ["config", "user.name", "How E2E"]);
 	await runGit(repositoryPath, ["config", "user.email", "how-e2e@example.com"]);
 }

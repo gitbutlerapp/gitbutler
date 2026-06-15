@@ -579,7 +579,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { absorb, absorptionPlan, apply, applyBranchIntegration, assignHunk, branchCheckout, branchCheckoutNew, branchCreate, branchDetails, branchDiff, changesInWorktree, changesInWorktreeWithPerm, commitAmend, commitCreate, commitDetailsWithLineStats, commitDiscard, commitDiscardChanges, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitSquash, commitUncommit, commitUncommitChanges, discardWorktreeChanges, forgeCompareBranchUrl, forgeInfo, forgeProvider, getInitialBranchIntegration, getRedoTargetSnapshot, getRepoInfo, getReview, getReviewBaseRepoUrl, getReviewMergeStatus, getUndoTargetSnapshot, headInfo, howCreateCheckpoint, howHasProjectChanges, howListCheckpoints, howOpenProject, howReadProjectSettings, howRestoreCheckpoint, howStagedDiffForCheckpointSummary, howStartProject, howWriteProjectSettings, initApplicationNamespace, listAvailableReviewTemplates, listBranches, listCiChecks, listEditors, listProjectsStateless, listReviews, listReviewsForBranch, mergeReview, moveBranch, openInEditor, peelRestoreSnapshot, publishReview, pushStack, removeBranch, restoreSnapshotWithKind, reviewTemplate, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, tearOffBranch, treeChangeDiffs, unapplyStack, updateBranchName, updateReview, updateReviewFooters, warmCiChecksCache, workspaceBranchAndAncestorsPush, workspaceIntegrateUpstream, WatcherHandle, askpassInit, askpassSubmitPromptResponse, watcherStart } = nativeBinding
+const { absorb, absorptionPlan, apply, applyBranchIntegration, assignHunk, branchCheckout, branchCheckoutNew, branchCreate, branchDetails, branchDiff, changesInWorktree, changesInWorktreeWithPerm, commitAmend, commitCreate, commitDetailsWithLineStats, commitDiscard, commitDiscardChanges, commitInsertBlank, commitMove, commitMoveChangesBetween, commitReword, commitSquash, commitUncommit, commitUncommitChanges, discardWorktreeChanges, forgeCompareBranchUrl, forgeInfo, forgeProvider, getInitialBranchIntegration, getRedoTargetSnapshot, getRepoInfo, getReview, getReviewBaseRepoUrl, getReviewMergeStatus, getUndoTargetSnapshot, headInfo, howCreateBookmark, howCreateBookmarkFromCommit, howCreateCheckpoint, howDeleteBookmark, howHasProjectChanges, howListBookmarks, howListCheckpoints, howOpenProject, howReadProjectSettings, howRenameBookmark, howRestoreCheckpoint, howStagedDiffForCheckpointSummary, howStartProject, howSwitchBookmark, howUpdateBookmark, howWriteProjectSettings, initApplicationNamespace, listAvailableReviewTemplates, listBranches, listCiChecks, listEditors, listProjectsStateless, listReviews, listReviewsForBranch, mergeReview, moveBranch, openInEditor, peelRestoreSnapshot, publishReview, pushStack, removeBranch, restoreSnapshotWithKind, reviewTemplate, setReviewAutoMerge, setReviewDraftiness, setReviewTemplate, tearOffBranch, treeChangeDiffs, unapplyStack, updateBranchName, updateReview, updateReviewFooters, warmCiChecksCache, workspaceBranchAndAncestorsPush, workspaceIntegrateUpstream, WatcherHandle, askpassInit, askpassSubmitPromptResponse, watcherStart } = nativeBinding
 export { absorb }
 export { absorptionPlan }
 export { apply }
@@ -616,14 +616,21 @@ export { getReviewBaseRepoUrl }
 export { getReviewMergeStatus }
 export { getUndoTargetSnapshot }
 export { headInfo }
+export { howCreateBookmark }
+export { howCreateBookmarkFromCommit }
 export { howCreateCheckpoint }
+export { howDeleteBookmark }
 export { howHasProjectChanges }
+export { howListBookmarks }
 export { howListCheckpoints }
 export { howOpenProject }
 export { howReadProjectSettings }
+export { howRenameBookmark }
 export { howRestoreCheckpoint }
 export { howStagedDiffForCheckpointSummary }
 export { howStartProject }
+export { howSwitchBookmark }
+export { howUpdateBookmark }
 export { howWriteProjectSettings }
 export { initApplicationNamespace }
 export { listAvailableReviewTemplates }

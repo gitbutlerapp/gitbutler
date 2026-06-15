@@ -21,6 +21,9 @@ export async function launchHowApp({
 	checkpointSummaryDelayMs,
 	checkpointSummaryError,
 	checkpointSummaryTimeoutMs,
+	githubLogin,
+	githubRepositories,
+	githubCreateRepositoryUrl,
 }: {
 	projectPath: string;
 	userDataPath: string;
@@ -29,6 +32,14 @@ export async function launchHowApp({
 	checkpointSummaryDelayMs?: string;
 	checkpointSummaryError?: string;
 	checkpointSummaryTimeoutMs?: string;
+	githubLogin?: string;
+	githubRepositories?: Array<{
+		id: string;
+		nameWithOwner: string;
+		cloneUrl: string;
+		isPrivate: boolean;
+	}>;
+	githubCreateRepositoryUrl?: string;
 }): Promise<HowApp> {
 	const env = {
 		...process.env,
@@ -43,6 +54,11 @@ export async function launchHowApp({
 		env.HOW_E2E_CHECKPOINT_SUMMARY_ERROR = checkpointSummaryError;
 	if (checkpointSummaryTimeoutMs !== undefined)
 		env.HOW_CHECKPOINT_SUMMARY_TIMEOUT_MS = checkpointSummaryTimeoutMs;
+	if (githubLogin !== undefined) env.HOW_E2E_GITHUB_LOGIN = githubLogin;
+	if (githubRepositories !== undefined)
+		env.HOW_E2E_GITHUB_REPOSITORIES = JSON.stringify(githubRepositories);
+	if (githubCreateRepositoryUrl !== undefined)
+		env.HOW_E2E_GITHUB_CREATE_REPO_URL = githubCreateRepositoryUrl;
 	delete env.ELECTRON_RUN_AS_NODE;
 
 	const launchOptions: Parameters<typeof electron.launch>[0] = {

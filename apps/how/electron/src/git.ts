@@ -7,17 +7,29 @@ import {
 } from "./settings.js";
 import {
 	howCreateCheckpoint,
+	howCreateBookmark,
+	howCreateBookmarkFromCommit,
+	howDeleteBookmark,
 	howHasProjectChanges,
+	howListBookmarks,
 	howListCheckpoints,
 	howOpenProject,
 	howReadProjectSettings,
+	howRenameBookmark,
 	howRestoreCheckpoint,
 	howStagedDiffForCheckpointSummary,
 	howStartProject,
+	howSwitchBookmark,
+	howUpdateBookmark,
 	howWriteProjectSettings,
+	type HowBookmark,
+	type HowBookmarkKind,
 	type HowProject,
 } from "@gitbutler/but-sdk";
 import { execFile } from "node:child_process";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -34,11 +46,16 @@ export class GitCommandError extends Error {
 	}
 }
 
-async function runGit(args: Array<string>, cwd: string): Promise<string> {
+async function runGit(
+	args: Array<string>,
+	cwd: string,
+	options: { env?: NodeJS.ProcessEnv } = {},
+): Promise<string> {
 	try {
 		const { stdout } = await execFileAsync("git", args, {
 			cwd,
 			maxBuffer: 10 * 1024 * 1024,
+			env: options.env ? { ...process.env, ...options.env } : process.env,
 		});
 		return stdout.trim();
 	} catch (error) {
@@ -62,6 +79,9 @@ export type GitCommit = {
 	title: string;
 	createdAt: number;
 };
+
+export type GitBookmark = HowBookmark;
+export type GitBookmarkKind = HowBookmarkKind;
 
 export type GitRepository = {
 	id: string;
@@ -92,6 +112,50 @@ export async function listCheckpointCommits(
 	limit: number,
 ): Promise<Array<GitCommit>> {
 	return await howListCheckpoints(projectId, limit);
+}
+
+export async function listProjectBookmarks(projectId: string): Promise<Array<GitBookmark>> {
+	return await howListBookmarks(projectId);
+}
+
+export async function createProjectBookmark(
+	projectId: string,
+	name: string,
+	kind: GitBookmarkKind,
+): Promise<GitBookmark> {
+	return await howCreateBookmark(projectId, name, kind);
+}
+
+export async function createProjectBookmarkFromCommit(
+	projectId: string,
+	name: string,
+	kind: GitBookmarkKind,
+	commitId: string,
+): Promise<GitBookmark> {
+	return await howCreateBookmarkFromCommit(projectId, name, kind, commitId);
+}
+
+export async function switchProjectBookmark(projectId: string, bookmarkId: string): Promise<void> {
+	await howSwitchBookmark(projectId, bookmarkId);
+}
+
+export async function updateProjectBookmark(
+	projectId: string,
+	bookmarkId: string,
+): Promise<GitBookmark> {
+	return await howUpdateBookmark(projectId, bookmarkId);
+}
+
+export async function renameProjectBookmark(
+	projectId: string,
+	bookmarkId: string,
+	name: string,
+): Promise<GitBookmark> {
+	return await howRenameBookmark(projectId, bookmarkId, name);
+}
+
+export async function deleteProjectBookmark(projectId: string, bookmarkId: string): Promise<void> {
+	await howDeleteBookmark(projectId, bookmarkId);
 }
 
 export async function createCheckpointCommit(
@@ -145,7 +209,7 @@ export async function checkpointDiffForSummary(projectId: string): Promise<{
 	return await howStagedDiffForCheckpointSummary(projectId);
 }
 
-export type PublishMode = "direct";
+export type PublishMode = "direct" | "review";
 
 export type DirectPublishResult =
 	| {
@@ -172,11 +236,36 @@ export class DirectPublishError extends Error {
 	}
 }
 
+export function gitErrorDetails(error: unknown): unknown {
+	if (error instanceof DirectPublishError)
+		return {
+			name: error.name,
+			kind: error.kind,
+			message: error.message,
+			cause: gitErrorDetails(error.cause),
+		};
+	if (error instanceof GitCommandError)
+		return {
+			name: error.name,
+			message: error.message,
+			args: error.args,
+			stdout: error.stdout,
+			stderr: error.stderr,
+		};
+	if (error instanceof Error)
+		return {
+			name: error.name,
+			message: error.message,
+			stack: error.stack,
+		};
+	return error;
+}
+
 export async function readPublishMode(worktreePath: string): Promise<PublishMode | null> {
 	const value = await runGit(["config", "--local", "--get", "how.publishMode"], worktreePath).catch(
 		() => null,
 	);
-	return value === "direct" ? "direct" : null;
+	return value === "direct" || value === "review" ? value : null;
 }
 
 export async function writePublishMode(worktreePath: string, mode: PublishMode): Promise<void> {
@@ -185,7 +274,7 @@ export async function writePublishMode(worktreePath: string, mode: PublishMode):
 
 export async function publishDirect(
 	worktreePath: string,
-	options: { destinationUrl?: string } = {},
+	options: { destinationUrl?: string; githubToken?: string | null } = {},
 ): Promise<DirectPublishResult> {
 	const branchName = await currentBranchName(worktreePath);
 	if (!branchName) {
@@ -196,15 +285,16 @@ export async function publishDirect(
 	}
 
 	const upstream = await currentBranchUpstream(worktreePath);
+	const gitEnv = options.githubToken ? await gitAskpassEnv(options.githubToken) : undefined;
 	try {
 		if (upstream) {
-			await runGit(["push"], worktreePath);
+			await runGit(["push"], worktreePath, { env: gitEnv });
 			return { type: "published" };
 		}
 
 		const remotes = await repositoryRemotes(worktreePath);
 		if (remotes.length > 0) {
-			await pushAndTrack(worktreePath, preferredRemote(remotes), branchName);
+			await pushAndTrack(worktreePath, preferredRemote(remotes), branchName, gitEnv);
 			return { type: "published" };
 		}
 
@@ -220,7 +310,7 @@ export async function publishDirect(
 				error,
 			);
 		}
-		await pushAndTrack(worktreePath, "origin", branchName);
+		await pushAndTrackWithRetry(worktreePath, "origin", branchName, gitEnv);
 		return { type: "published" };
 	} catch (error) {
 		if (error instanceof DirectPublishError) throw error;
@@ -230,12 +320,34 @@ export async function publishDirect(
 				"The shared project has changes How cannot publish over yet.",
 				error,
 			);
-		throw new DirectPublishError(
-			"failed",
-			"How could not publish to the shared project.",
-			error,
-		);
+		throw new DirectPublishError("failed", "How could not publish to the shared project.", error);
 	}
+}
+
+export async function hasAnyRemote(worktreePath: string): Promise<boolean> {
+	return (await repositoryRemotes(worktreePath)).length > 0;
+}
+
+export async function hasGithubDestination(worktreePath: string): Promise<boolean> {
+	const upstream = await currentBranchUpstream(worktreePath);
+	if (upstream) {
+		const remote = upstream.split("/")[0];
+		if (remote && (await remoteIsGithub(worktreePath, remote))) return true;
+	}
+	const remotes = await repositoryRemotes(worktreePath);
+	for (const remote of remotes) {
+		if (await remoteIsGithub(worktreePath, remote)) return true;
+	}
+	return false;
+}
+
+export function sanitizedRepositoryName(projectTitle: string): string {
+	const sanitized = projectTitle
+		.toLowerCase()
+		.replace(/[^a-z0-9._-]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.slice(0, 80);
+	return sanitized || "how-project";
 }
 
 async function currentBranchName(worktreePath: string): Promise<string | null> {
@@ -259,6 +371,19 @@ async function repositoryRemotes(worktreePath: string): Promise<Array<string>> {
 		.filter(Boolean);
 }
 
+async function remoteIsGithub(worktreePath: string, remote: string): Promise<boolean> {
+	const url = await runGit(["remote", "get-url", remote], worktreePath).catch(() => "");
+	return isGithubRemoteUrl(url);
+}
+
+function isGithubRemoteUrl(url: string): boolean {
+	return (
+		url.startsWith("https://github.com/") ||
+		url.startsWith("git@github.com:") ||
+		url.includes("@github.com/")
+	);
+}
+
 function preferredRemote(remotes: Array<string>): string {
 	return remotes.includes("origin") ? "origin" : (remotes[0] ?? "origin");
 }
@@ -267,8 +392,29 @@ async function pushAndTrack(
 	worktreePath: string,
 	remote: string,
 	branchName: string,
+	env?: NodeJS.ProcessEnv,
 ): Promise<void> {
-	await runGit(["push", "-u", remote, `HEAD:${branchName}`], worktreePath);
+	await runGit(["push", "-u", remote, `HEAD:${branchName}`], worktreePath, { env });
+}
+
+async function pushAndTrackWithRetry(
+	worktreePath: string,
+	remote: string,
+	branchName: string,
+	env?: NodeJS.ProcessEnv,
+): Promise<void> {
+	let lastError: unknown;
+	for (let attempt = 0; attempt < 4; attempt += 1) {
+		try {
+			await pushAndTrack(worktreePath, remote, branchName, env);
+			return;
+		} catch (error) {
+			lastError = error;
+			if (!looksTemporarilyUnavailable(error)) throw error;
+			await new Promise((resolve) => setTimeout(resolve, 750 * (attempt + 1)));
+		}
+	}
+	throw lastError;
 }
 
 function isRejectedPush(error: unknown): boolean {
@@ -280,4 +426,30 @@ function isRejectedPush(error: unknown): boolean {
 		output.includes("failed to push some refs") ||
 		output.includes("rejected")
 	);
+}
+
+function looksTemporarilyUnavailable(error: unknown): boolean {
+	if (!(error instanceof GitCommandError)) return false;
+	const output = `${error.stdout}\n${error.stderr}`.toLowerCase();
+	return output.includes("repository not found") || output.includes("not found");
+}
+
+async function gitAskpassEnv(token: string): Promise<NodeJS.ProcessEnv> {
+	const scriptPath = path.join(os.tmpdir(), "how-git-askpass.sh");
+	await fs.writeFile(
+		scriptPath,
+		[
+			"#!/bin/sh",
+			'case "$1" in',
+			"  *sername*|*Username*) printf '%s' 'x-access-token' ;;",
+			"  *) printf '%s' \"$HOW_GIT_ASKPASS_TOKEN\" ;;",
+			"esac",
+		].join("\n"),
+		{ mode: 0o700 },
+	);
+	return {
+		GIT_ASKPASS: scriptPath,
+		GIT_TERMINAL_PROMPT: "0",
+		HOW_GIT_ASKPASS_TOKEN: token,
+	};
 }

@@ -1,21 +1,34 @@
 import { checkpointMessageForStagedChanges } from "./checkpoint-summarizer.js";
+import { checkpointMessage } from "./checkpoints.js";
 import {
 	createCheckpointCommit,
+	createProjectBookmark,
+	createProjectBookmarkFromCommit,
+	deleteProjectBookmark,
 	DirectPublishError,
 	discoverRepository,
 	ensureGitRepository,
+	gitErrorDetails,
+	hasAnyRemote,
+	hasGithubDestination,
 	hasWorktreeChanges,
+	listProjectBookmarks,
 	listCheckpointCommits,
 	publishDirect,
 	readPublishMode,
 	readProjectSettings,
+	renameProjectBookmark,
 	resetToCommit,
+	sanitizedRepositoryName,
+	switchProjectBookmark,
+	updateProjectBookmark,
 	writePublishMode,
 	writeProjectSettings,
 	type GitRepository,
 } from "./git.js";
 import {
 	howIpcChannels,
+	type Bookmark,
 	type BrowsingSession,
 	type Checkpoint,
 	type HowStatus,
@@ -29,6 +42,7 @@ import { defaultProjectSettings, normalizeProjectSettings } from "./settings.js"
 import { watcherStart, type WatcherHandle, type WatcherEvent } from "@gitbutler/but-sdk";
 import fs from "node:fs/promises";
 import path from "node:path";
+import type { GithubService } from "./github-service.js";
 import type { Logger } from "./logger.js";
 import type { BrowserWindow } from "electron";
 
@@ -76,6 +90,7 @@ export class HowService {
 		message: null,
 		lastSavedAt: null,
 		checkpoints: [],
+		bookmarks: [],
 		browsing: null,
 		settings: defaultSettings(),
 	};
@@ -92,6 +107,7 @@ export class HowService {
 		private readonly statePath: string,
 		private readonly getWindows: () => Array<BrowserWindow>,
 		private readonly logger: Logger,
+		private readonly github: GithubService,
 	) {}
 
 	async initialize(): Promise<HowStatus> {
@@ -105,6 +121,7 @@ export class HowService {
 				saveState: "watching",
 				message: stored.browsing ? "Browsing checkpoint" : "Watching for changes",
 				checkpoints: stored.browsing?.checkpoints ?? [],
+				bookmarks: [],
 				browsing: stored.browsing,
 			};
 			try {
@@ -112,8 +129,12 @@ export class HowService {
 					...this.#status,
 					settings: await readProjectSettings(stored.activeProject.id, defaultSettings()),
 				};
-				if (stored.browsing) await this.#resumeBrowsingSession(stored.browsing);
-				else await this.#refreshTimeline();
+				if (stored.browsing) {
+					await this.#resumeBrowsingSession(stored.browsing);
+					await this.#refreshBookmarks();
+				} else {
+					await this.#refreshProjectLists();
+				}
 				await this.#startWatching(stored.activeProject);
 			} catch (error) {
 				this.logger.error("Failed to resume active project", error, stored.activeProject);
@@ -153,19 +174,42 @@ export class HowService {
 		if (this.#status.browsing)
 			throw new Error("Continue from here or return to latest before publishing.");
 
+		if (!(await this.github.hasCredential()))
+			return { type: "needsGithubLogin", status: this.getStatus() };
+
+		const hasRemote = await hasAnyRemote(project.path);
+		const hasGithubRemote = await hasGithubDestination(project.path);
+		if (hasRemote && !hasGithubRemote)
+			return this.#publishFailure(
+				"This project already publishes somewhere How does not support yet.",
+			);
+
+		let destinationUrl = input.githubRepositoryCloneUrl;
+		if (!hasRemote && !destinationUrl && input.createGithubRepositoryName) {
+			const repository = await this.github.createRepository(input.createGithubRepositoryName);
+			destinationUrl = repository.cloneUrl;
+		}
+
+		if (!hasRemote && !destinationUrl) {
+			return {
+				type: "needsGithubRepository",
+				status: this.getStatus(),
+				defaultRepositoryName: sanitizedRepositoryName(project.title),
+				repositories: null,
+			};
+		}
+
 		const configuredPublishMode = await readPublishMode(project.path);
-		if (configuredPublishMode !== "direct" && input.publishMode !== "direct")
-			return { type: "needsPublishMode", status: this.getStatus() };
 		if (configuredPublishMode !== "direct")
 			await this.#runInternalGitOperation(
 				project,
 				async () => await writePublishMode(project.path, "direct"),
 			);
 
-		this.logger.info("Publishing project directly", {
+		this.logger.info("Publishing project to GitHub", {
 			projectId: project.id,
 			worktreePath: project.path,
-			hasDestinationUrl: Boolean(input.destinationUrl),
+			hasDestinationUrl: Boolean(destinationUrl),
 		});
 		this.#clearScheduledCheckpoint();
 		await this.#waitForActiveSave();
@@ -181,19 +225,25 @@ export class HowService {
 
 		try {
 			await this.#createCheckpointForPublish(project);
+			const githubToken = await this.github.tokenForGit();
 			const result = await this.#runInternalGitOperation(
 				project,
-				async () => await publishDirect(project.path, { destinationUrl: input.destinationUrl }),
+				async () => await publishDirect(project.path, { destinationUrl, githubToken }),
 			);
-			this.logger.info("Direct publish result", { projectId: project.id, result });
+			this.logger.info("GitHub publish result", { projectId: project.id, result });
 			if (result.type === "needsDestination") {
 				this.#status = {
 					...this.#status,
 					saveState: "watching",
-					message: "Add a project destination",
+					message: "Choose a GitHub project",
 				};
 				this.#emit();
-				return { type: "needsDestination", status: this.getStatus() };
+				return {
+					type: "needsGithubRepository",
+					status: this.getStatus(),
+					defaultRepositoryName: sanitizedRepositoryName(project.title),
+					repositories: null,
+				};
 			}
 
 			this.#status = {
@@ -205,7 +255,10 @@ export class HowService {
 			this.#emit();
 			return { type: "published", status: this.getStatus() };
 		} catch (error) {
-			this.logger.error("Failed to publish project directly", error, { project });
+			this.logger.error("Failed to publish project to GitHub", error, {
+				project,
+				details: gitErrorDetails(error),
+			});
 			this.#status = {
 				...this.#status,
 				saveState: "error",
@@ -214,7 +267,7 @@ export class HowService {
 						? error.message
 						: error instanceof Error && error.message === "How could not save before publishing."
 							? error.message
-						: "How could not publish to the shared project.",
+							: "How could not publish to the shared project.",
 			};
 			this.#emit();
 			return { type: "failed", status: this.getStatus() };
@@ -225,6 +278,24 @@ export class HowService {
 				if (await hasWorktreeChanges(project.id)) this.#scheduleCheckpoint();
 			}
 		}
+	}
+
+	async loginToGithub() {
+		return await this.github.login();
+	}
+
+	async listGithubRepositories() {
+		return await this.github.listRepositories();
+	}
+
+	#publishFailure(message: string): PublishProjectResult {
+		this.#status = {
+			...this.#status,
+			saveState: "error",
+			message,
+		};
+		this.#emit();
+		return { type: "failed", status: this.getStatus() };
 	}
 
 	async saveProjectSettings(settings: ProjectSettings): Promise<HowStatus> {
@@ -253,6 +324,222 @@ export class HowService {
 				...this.#status,
 				saveState: "error",
 				message: "How could not save settings.",
+			};
+			this.#emit();
+			return this.getStatus();
+		}
+	}
+
+	async createBookmark(name: string): Promise<HowStatus> {
+		const project = this.#status.project;
+		if (!project) throw new Error("How could not find an open project.");
+
+		this.logger.info("Creating bookmark", { project, name });
+		this.#clearScheduledCheckpoint();
+		await this.#waitForActiveSave();
+		this.#clearScheduledCheckpoint();
+		this.#saving = true;
+		this.#dirtyWhileSaving = false;
+		this.#status = { ...this.#status, saveState: "saving", message: "Saving" };
+		this.#emit();
+
+		try {
+			await this.#saveCurrentWorkBeforeBookmark(project, "normal");
+			await this.#runInternalGitOperation(
+				project,
+				async () => await createProjectBookmark(project.id, name, "user"),
+			);
+			await this.#refreshProjectLists();
+			this.#status = {
+				...this.#status,
+				saveState: "saved",
+				message: "Bookmarked",
+				lastSavedAt: Date.now(),
+			};
+			await this.#writeCurrentState();
+			this.#emit();
+			return this.getStatus();
+		} catch (error) {
+			this.logger.error("Failed to create bookmark", error, { project, name });
+			this.#status = {
+				...this.#status,
+				saveState: "error",
+				message: "How could not create that bookmark.",
+			};
+			this.#emit();
+			return this.getStatus();
+		} finally {
+			this.#saving = false;
+		}
+	}
+
+	async createBookmarkFromCheckpoint(name: string, checkpointId: string): Promise<HowStatus> {
+		const project = this.#status.project;
+		const browsing = this.#status.browsing;
+		if (!project) throw new Error("How could not find an open project.");
+		if (!browsing || browsing.dirty || browsing.currentCheckpointId !== checkpointId)
+			throw new Error("How could not bookmark that checkpoint.");
+
+		this.logger.info("Creating bookmark from checkpoint", { project, name, checkpointId });
+		try {
+			await this.#runInternalGitOperation(
+				project,
+				async () => await createProjectBookmarkFromCommit(project.id, name, "user", checkpointId),
+			);
+			await this.#refreshBookmarks();
+			this.#status = {
+				...this.#status,
+				saveState: "saved",
+				message: "Bookmarked",
+				lastSavedAt: Date.now(),
+			};
+			await this.#writeCurrentState();
+			this.#emit();
+			return this.getStatus();
+		} catch (error) {
+			this.logger.error("Failed to create bookmark from checkpoint", error, {
+				project,
+				name,
+				checkpointId,
+			});
+			this.#status = {
+				...this.#status,
+				saveState: "error",
+				message: "How could not create that bookmark.",
+			};
+			this.#emit();
+			return this.getStatus();
+		}
+	}
+
+	async switchBookmark(bookmarkId: string): Promise<HowStatus> {
+		const project = this.#status.project;
+		if (!project) throw new Error("How could not find an open project.");
+		const bookmark = this.#status.bookmarks.find((candidate) => candidate.id === bookmarkId);
+		if (!bookmark) throw new Error("How could not find that bookmark.");
+		if (bookmark.isCurrent) return this.getStatus();
+
+		this.logger.info("Switching bookmark", { project, bookmarkId });
+		this.#clearScheduledCheckpoint();
+		await this.#waitForActiveSave();
+		this.#clearScheduledCheckpoint();
+		this.#saving = true;
+		this.#dirtyWhileSaving = false;
+		this.#status = { ...this.#status, saveState: "saving", message: "Switching bookmark" };
+		this.#emit();
+
+		try {
+			await this.#saveCurrentWorkBeforeBookmark(project, "fast");
+			await this.#refreshBookmarks();
+			await this.#preserveCurrentStateAsBookmarkIfMissing(project, bookmark.name);
+			await this.#runInternalGitOperation(
+				project,
+				async () => await switchProjectBookmark(project.id, bookmarkId),
+			);
+			this.#status = { ...this.#status, browsing: null };
+			this.#stopBrowsingDirtyPolling();
+			await this.#refreshProjectLists();
+			this.#status = {
+				...this.#status,
+				saveState: "saved",
+				message: "Switched bookmark",
+				lastSavedAt: Date.now(),
+			};
+			await this.#writeCurrentState();
+			this.#emit();
+			return this.getStatus();
+		} catch (error) {
+			this.logger.error("Failed to switch bookmark", error, { project, bookmarkId });
+			this.#status = {
+				...this.#status,
+				saveState: "error",
+				message: "How could not switch bookmarks.",
+			};
+			this.#emit();
+			return this.getStatus();
+		} finally {
+			this.#saving = false;
+		}
+	}
+
+	async updateBookmark(bookmarkId: string): Promise<HowStatus> {
+		const project = this.#status.project;
+		if (!project) throw new Error("How could not find an open project.");
+		if (this.#status.browsing) throw new Error("Continue from here before updating a bookmark.");
+
+		this.logger.info("Updating bookmark", { project, bookmarkId });
+		this.#clearScheduledCheckpoint();
+		await this.#waitForActiveSave();
+		this.#clearScheduledCheckpoint();
+		this.#saving = true;
+		this.#dirtyWhileSaving = false;
+		this.#status = { ...this.#status, saveState: "saving", message: "Saving" };
+		this.#emit();
+
+		try {
+			await this.#saveCurrentWorkBeforeBookmark(project, "fast");
+			await this.#runInternalGitOperation(
+				project,
+				async () => await updateProjectBookmark(project.id, bookmarkId),
+			);
+			await this.#refreshProjectLists();
+			this.#status = {
+				...this.#status,
+				saveState: "saved",
+				message: "Bookmark updated",
+				lastSavedAt: Date.now(),
+			};
+			await this.#writeCurrentState();
+			this.#emit();
+			return this.getStatus();
+		} catch (error) {
+			this.logger.error("Failed to update bookmark", error, { project, bookmarkId });
+			this.#status = {
+				...this.#status,
+				saveState: "error",
+				message: "How could not update that bookmark.",
+			};
+			this.#emit();
+			return this.getStatus();
+		} finally {
+			this.#saving = false;
+		}
+	}
+
+	async renameBookmark(bookmarkId: string, name: string): Promise<HowStatus> {
+		const project = this.#status.project;
+		if (!project) throw new Error("How could not find an open project.");
+		try {
+			await renameProjectBookmark(project.id, bookmarkId, name);
+			await this.#refreshBookmarks();
+			this.#emit();
+			return this.getStatus();
+		} catch (error) {
+			this.logger.error("Failed to rename bookmark", error, { project, bookmarkId, name });
+			this.#status = {
+				...this.#status,
+				saveState: "error",
+				message: "How could not rename that bookmark.",
+			};
+			this.#emit();
+			return this.getStatus();
+		}
+	}
+
+	async deleteBookmark(bookmarkId: string): Promise<HowStatus> {
+		const project = this.#status.project;
+		if (!project) throw new Error("How could not find an open project.");
+		try {
+			await deleteProjectBookmark(project.id, bookmarkId);
+			await this.#refreshBookmarks();
+			this.#emit();
+			return this.getStatus();
+		} catch (error) {
+			this.logger.error("Failed to delete bookmark", error, { project, bookmarkId });
+			this.#status = {
+				...this.#status,
+				saveState: "error",
+				message: "How could not delete that bookmark.",
 			};
 			this.#emit();
 			return this.getStatus();
@@ -297,6 +584,7 @@ export class HowService {
 								discardChanges: options.discardBrowsingChanges ?? false,
 							}),
 					);
+				await this.#refreshBookmarks();
 				const browsing: BrowsingSession = {
 					...currentBrowsing,
 					currentCheckpointId: checkpointId,
@@ -331,7 +619,7 @@ export class HowService {
 				dirty: false,
 				startedAt: Date.now(),
 			};
-			await this.#refreshTimeline();
+			await this.#refreshBookmarks();
 			this.#status = {
 				...this.#status,
 				saveState: "watching",
@@ -396,7 +684,7 @@ export class HowService {
 				browsing: null,
 			};
 			this.#stopBrowsingDirtyPolling();
-			await this.#refreshTimeline();
+			await this.#refreshProjectLists();
 			this.#status = {
 				...this.#status,
 				saveState: "saved",
@@ -453,7 +741,7 @@ export class HowService {
 				browsing: null,
 			};
 			this.#stopBrowsingDirtyPolling();
-			await this.#refreshTimeline();
+			await this.#refreshProjectLists();
 			this.#status = {
 				...this.#status,
 				saveState: "saved",
@@ -486,6 +774,7 @@ export class HowService {
 			message: null,
 			lastSavedAt: null,
 			checkpoints: [],
+			bookmarks: [],
 			browsing: null,
 			settings: defaultSettings(),
 		};
@@ -502,12 +791,7 @@ export class HowService {
 		this.#watcher = null;
 	}
 
-	async #activateProject({
-		id,
-		title,
-		gitDir,
-		worktreePath,
-	}: GitRepository): Promise<HowStatus> {
+	async #activateProject({ id, title, gitDir, worktreePath }: GitRepository): Promise<HowStatus> {
 		const project: ProjectSummary = {
 			id,
 			title,
@@ -523,11 +807,12 @@ export class HowService {
 			message: "Watching for changes",
 			lastSavedAt: null,
 			checkpoints: [],
+			bookmarks: [],
 			browsing: null,
 			settings: await readProjectSettings(project.id, defaultSettings()),
 		};
 		await this.#writeCurrentState();
-		await this.#refreshTimeline();
+		await this.#refreshProjectLists();
 		await this.#startWatching(project);
 		this.#emit();
 		return this.getStatus();
@@ -645,7 +930,7 @@ export class HowService {
 				return;
 			}
 
-			await this.#refreshTimeline();
+			await this.#refreshProjectLists();
 			this.#status = {
 				...this.#status,
 				saveState: "saved",
@@ -687,7 +972,54 @@ export class HowService {
 				),
 		);
 		this.logger.info("Checkpoint before browsing result", { projectId: project.id, commitId });
-		await this.#refreshTimeline();
+		await this.#refreshProjectLists();
+	}
+
+	async #saveCurrentWorkBeforeBookmark(
+		project: ProjectSummary,
+		mode: "normal" | "fast",
+	): Promise<void> {
+		if (!(await hasWorktreeChanges(project.id))) return;
+
+		this.logger.info("Creating checkpoint before bookmark operation", {
+			projectId: project.id,
+			worktreePath: project.path,
+			mode,
+		});
+		const message =
+			mode === "fast"
+				? checkpointMessage(new Date())
+				: await this.#checkpointMessageForStagedChanges(project);
+		const commitId = await this.#runInternalGitOperation(
+			project,
+			async () => await createCheckpointCommit(project.id, message),
+		);
+		this.logger.info("Checkpoint before bookmark operation result", {
+			projectId: project.id,
+			commitId,
+		});
+		await this.#refreshProjectLists();
+	}
+
+	async #preserveCurrentStateAsBookmarkIfMissing(
+		project: ProjectSummary,
+		switchingToName: string,
+	): Promise<void> {
+		if (this.#status.bookmarks.some((bookmark) => bookmark.isCurrent)) return;
+		const fallback = checkpointMessage(new Date()).replace(/^Checkpoint:\s*/, "");
+		const name = switchingToName.trim()
+			? `Before switching to ${switchingToName.trim()}`
+			: `Before switching: ${fallback}`;
+		this.logger.info("Creating backup bookmark before switch", {
+			projectId: project.id,
+			worktreePath: project.path,
+			name,
+		});
+		await this.#runInternalGitOperation(
+			project,
+			async () => await createProjectBookmark(project.id, name, "auto"),
+		);
+		await this.#refreshBookmarks();
 	}
 
 	async #createCheckpointForPublish(project: ProjectSummary): Promise<void> {
@@ -708,7 +1040,7 @@ export class HowService {
 			);
 			this.logger.info("Checkpoint before publishing result", { projectId: project.id, commitId });
 			if (commitId === null) return;
-			await this.#refreshTimeline();
+			await this.#refreshProjectLists();
 		} catch (error) {
 			this.logger.error("Failed to create checkpoint before publishing", error, { project });
 			throw new Error("How could not save before publishing.");
@@ -836,6 +1168,31 @@ export class HowService {
 			...this.#status,
 			checkpoints,
 		};
+	}
+
+	async #refreshBookmarks(): Promise<void> {
+		const project = this.#status.project;
+		if (!project) return;
+
+		this.logger.info("Refreshing bookmarks", project);
+		const bookmarks: Array<Bookmark> = (await listProjectBookmarks(project.id)).map((bookmark) => ({
+			id: bookmark.id,
+			name: bookmark.name,
+			targetCommitId: bookmark.targetCommitId,
+			createdAt: bookmark.createdAt,
+			updatedAt: bookmark.updatedAt,
+			kind: bookmark.kind,
+			isCurrent: bookmark.isCurrent,
+		}));
+		this.#status = {
+			...this.#status,
+			bookmarks,
+		};
+	}
+
+	async #refreshProjectLists(): Promise<void> {
+		await this.#refreshTimeline();
+		await this.#refreshBookmarks();
 	}
 
 	#setError(error: unknown): void {

@@ -5,6 +5,8 @@ import type {
 	OpenProjectResult,
 	PublishProjectResult,
 	StatusEvent,
+	GithubLoginResult,
+	GithubRepositoriesResult,
 } from "./ipc";
 
 const api: HowElectronApi = {
@@ -16,8 +18,28 @@ const api: HowElectronApi = {
 	deleteProject: async () => await (ipcRenderer.invoke("how:delete-project") as Promise<HowStatus>),
 	createCheckpointNow: async () =>
 		await (ipcRenderer.invoke("how:create-checkpoint-now") as Promise<HowStatus>),
+	createBookmark: async (name) =>
+		await (ipcRenderer.invoke("how:create-bookmark", name) as Promise<HowStatus>),
+	createBookmarkFromCheckpoint: async (name, checkpointId) =>
+		await (ipcRenderer.invoke(
+			"how:create-bookmark-from-checkpoint",
+			name,
+			checkpointId,
+		) as Promise<HowStatus>),
+	switchBookmark: async (bookmarkId) =>
+		await (ipcRenderer.invoke("how:switch-bookmark", bookmarkId) as Promise<HowStatus>),
+	updateBookmark: async (bookmarkId) =>
+		await (ipcRenderer.invoke("how:update-bookmark", bookmarkId) as Promise<HowStatus>),
+	renameBookmark: async (bookmarkId, name) =>
+		await (ipcRenderer.invoke("how:rename-bookmark", bookmarkId, name) as Promise<HowStatus>),
+	deleteBookmark: async (bookmarkId) =>
+		await (ipcRenderer.invoke("how:delete-bookmark", bookmarkId) as Promise<HowStatus>),
 	publishProject: async (input) =>
 		await (ipcRenderer.invoke("how:publish-project", input) as Promise<PublishProjectResult>),
+	loginToGithub: async () =>
+		await (ipcRenderer.invoke("how:login-to-github") as Promise<GithubLoginResult>),
+	listGithubRepositories: async () =>
+		await (ipcRenderer.invoke("how:list-github-repositories") as Promise<GithubRepositoriesResult>),
 	saveProjectSettings: async (settings) =>
 		await (ipcRenderer.invoke("how:save-project-settings", settings) as Promise<HowStatus>),
 	viewCheckpoint: async (checkpointId, options) =>

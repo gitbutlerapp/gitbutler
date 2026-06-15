@@ -2,10 +2,12 @@ import { Button } from "#ui/components/ui/button.tsx";
 import { Link } from "@tanstack/react-router";
 import {
 	AlertCircle,
+	Bookmark as BookmarkIcon,
 	Check,
 	Clock,
 	Eye,
 	FolderOpen,
+	Pencil,
 	Plus,
 	RefreshCw,
 	Settings,
@@ -13,7 +15,14 @@ import {
 	Upload,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { BrowsingSession, Checkpoint, HowStatus, SaveState } from "../../../electron/src/ipc";
+import type {
+	Bookmark,
+	BrowsingSession,
+	Checkpoint,
+	GithubRepositorySummary,
+	HowStatus,
+	SaveState,
+} from "../../../electron/src/ipc";
 
 const initialStatus: HowStatus = {
 	project: null,
@@ -21,6 +30,7 @@ const initialStatus: HowStatus = {
 	message: null,
 	lastSavedAt: null,
 	checkpoints: [],
+	bookmarks: [],
 	browsing: null,
 	settings: {
 		checkpointDebounceMs: 10_000,
@@ -122,10 +132,16 @@ function EmptyState({
 
 type PendingDirtyAction =
 	| { type: "view"; checkpoint: Checkpoint }
+	| { type: "switchBookmark"; bookmark: Bookmark }
 	| { type: "returnToLatest" }
 	| { type: "open" }
 	| { type: "start" }
 	| { type: "delete" };
+
+type BookmarkNameAction = { type: "create" } | { type: "rename"; bookmark: Bookmark };
+type BookmarkConfirmAction =
+	| { type: "update"; bookmark: Bookmark }
+	| { type: "delete"; bookmark: Bookmark };
 
 function DirtyBrowsingDialog({
 	onLeave,
@@ -153,76 +169,32 @@ function DirtyBrowsingDialog({
 	);
 }
 
-function PublishModeDialog({
-	onContinue,
+function BookmarkNameDialog({
+	title,
+	initialName,
+	onSave,
 	onCancel,
 	busy,
 }: {
-	onContinue: () => Promise<void>;
+	title: string;
+	initialName: string;
+	onSave: (name: string) => Promise<void>;
 	onCancel: () => void;
 	busy: boolean;
 }) {
+	const [name, setName] = useState(initialName);
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/20 px-4">
-			<section className="w-full max-w-md rounded-md border border-stone-200 bg-white p-5 shadow-lg">
-				<h2 className="text-base font-semibold tracking-normal text-stone-950">
-					How should this project publish?
-				</h2>
-				<div className="mt-4 space-y-2">
-					<label className="block rounded-md border border-stone-300 bg-stone-50 px-3 py-3">
-						<span className="flex items-center gap-2 text-sm font-medium text-stone-950">
-							<input type="radio" name="publish-mode" checked readOnly />
-							Publish directly
-						</span>
-						<span className="mt-1 block pl-5 text-sm text-stone-600">
-							Updates the shared project without a review.
-						</span>
-					</label>
-					<label className="block rounded-md border border-stone-200 bg-stone-100 px-3 py-3 opacity-60">
-						<span className="flex items-center gap-2 text-sm font-medium text-stone-600">
-							<input type="radio" name="publish-mode" disabled />
-							Review before publishing
-						</span>
-						<span className="mt-1 block pl-5 text-sm text-stone-500">Coming later.</span>
-					</label>
-				</div>
-				<div className="mt-5 flex justify-end gap-2">
-					<Button variant="ghost" onClick={onCancel} disabled={busy}>
-						Cancel
-					</Button>
-					<Button onClick={() => void onContinue()} disabled={busy}>
-						Continue
-					</Button>
-				</div>
-			</section>
-		</div>
-	);
-}
-
-function PublishDestinationDialog({
-	onPublish,
-	onCancel,
-	busy,
-}: {
-	onPublish: (destinationUrl: string) => Promise<void>;
-	onCancel: () => void;
-	busy: boolean;
-}) {
-	const [destinationUrl, setDestinationUrl] = useState("");
-	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/20 px-4">
-			<section className="w-full max-w-md rounded-md border border-stone-200 bg-white p-5 shadow-lg">
-				<h2 className="text-base font-semibold tracking-normal text-stone-950">
-					Add a project destination
-				</h2>
+			<section className="w-full max-w-sm rounded-md border border-stone-200 bg-white p-5 shadow-lg">
+				<h2 className="text-base font-semibold tracking-normal text-stone-950">{title}</h2>
 				<label className="mt-4 block text-sm font-medium text-stone-950">
-					Project destination URL
+					Name
 					<input
 						className="mt-2 h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-950 outline-none focus:border-stone-500"
-						value={destinationUrl}
-						onChange={(event) => setDestinationUrl(event.target.value)}
-						placeholder="https://github.com/you/project.git"
+						value={name}
+						onChange={(event) => setName(event.target.value)}
 						disabled={busy}
+						autoFocus
 					/>
 				</label>
 				<div className="mt-5 flex justify-end gap-2">
@@ -230,14 +202,320 @@ function PublishDestinationDialog({
 						Cancel
 					</Button>
 					<Button
-						onClick={() => void onPublish(destinationUrl)}
-						disabled={busy || destinationUrl.trim().length === 0}
+						onClick={() => void onSave(name.trim())}
+						disabled={busy || name.trim().length === 0}
 					>
-						Add destination and publish
+						Save
 					</Button>
 				</div>
 			</section>
 		</div>
+	);
+}
+
+function BookmarkConfirmDialog({
+	title,
+	body,
+	action,
+	onConfirm,
+	onCancel,
+	busy,
+}: {
+	title: string;
+	body: string;
+	action: string;
+	onConfirm: () => Promise<void>;
+	onCancel: () => void;
+	busy: boolean;
+}) {
+	return (
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/20 px-4">
+			<section className="w-full max-w-sm rounded-md border border-stone-200 bg-white p-5 shadow-lg">
+				<h2 className="text-base font-semibold tracking-normal text-stone-950">{title}</h2>
+				<p className="mt-2 text-sm leading-6 text-stone-600">{body}</p>
+				<div className="mt-5 flex justify-end gap-2">
+					<Button variant="ghost" onClick={onCancel} disabled={busy}>
+						Cancel
+					</Button>
+					<Button onClick={() => void onConfirm()} disabled={busy}>
+						{action}
+					</Button>
+				</div>
+			</section>
+		</div>
+	);
+}
+
+function GithubLoginDialog({
+	onLogin,
+	onCancel,
+	busy,
+}: {
+	onLogin: () => Promise<void>;
+	onCancel: () => void;
+	busy: boolean;
+}) {
+	return (
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/20 px-4">
+			<section className="w-full max-w-lg rounded-md border border-stone-200 bg-white p-5 shadow-lg">
+				<h2 className="text-base font-semibold tracking-normal text-stone-950">
+					Publish with GitHub
+				</h2>
+				<p className="mt-2 text-sm leading-6 text-stone-600">
+					Log in to choose where this project publishes.
+				</p>
+				<div className="mt-5 flex flex-wrap justify-end gap-2">
+					<Button variant="ghost" onClick={onCancel} disabled={busy}>
+						Cancel
+					</Button>
+					<Button onClick={() => void onLogin()} disabled={busy}>
+						Log in to GitHub
+					</Button>
+				</div>
+			</section>
+		</div>
+	);
+}
+
+function GithubRepositoryChoiceDialog({
+	onCreate,
+	onChoose,
+	onCancel,
+	busy,
+}: {
+	onCreate: () => void;
+	onChoose: () => Promise<void>;
+	onCancel: () => void;
+	busy: boolean;
+}) {
+	return (
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/20 px-4">
+			<section className="w-full max-w-xl rounded-md border border-stone-200 bg-white p-5 shadow-lg">
+				<h2 className="text-base font-semibold tracking-normal text-stone-950">
+					Where should this publish?
+				</h2>
+				<p className="mt-2 text-sm leading-6 text-stone-600">
+					Create a new GitHub project or choose one you already have.
+				</p>
+				<div className="mt-5 flex flex-wrap justify-end gap-2">
+					<Button variant="ghost" onClick={onCancel} disabled={busy}>
+						Cancel
+					</Button>
+					<Button variant="ghost" onClick={() => void onChoose()} disabled={busy}>
+						Choose existing project
+					</Button>
+					<Button onClick={onCreate} disabled={busy}>
+						Create GitHub project
+					</Button>
+				</div>
+			</section>
+		</div>
+	);
+}
+
+function CreateGithubRepositoryDialog({
+	defaultName,
+	onPublish,
+	onCancel,
+	busy,
+}: {
+	defaultName: string;
+	onPublish: (name: string) => Promise<void>;
+	onCancel: () => void;
+	busy: boolean;
+}) {
+	const [name, setName] = useState(defaultName);
+	return (
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/20 px-4">
+			<section className="w-full max-w-md rounded-md border border-stone-200 bg-white p-5 shadow-lg">
+				<h2 className="text-base font-semibold tracking-normal text-stone-950">
+					Create GitHub project
+				</h2>
+				<label className="mt-4 block text-sm font-medium text-stone-950">
+					Project name
+					<input
+						className="mt-2 h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-950 outline-none focus:border-stone-500"
+						value={name}
+						onChange={(event) => setName(event.target.value)}
+						disabled={busy}
+					/>
+				</label>
+				<div className="mt-5 flex justify-end gap-2">
+					<Button variant="ghost" onClick={onCancel} disabled={busy}>
+						Cancel
+					</Button>
+					<Button onClick={() => void onPublish(name)} disabled={busy || name.trim().length === 0}>
+						Create and publish
+					</Button>
+				</div>
+			</section>
+		</div>
+	);
+}
+
+function ChooseGithubRepositoryDialog({
+	repositories,
+	onPublish,
+	onCancel,
+	busy,
+}: {
+	repositories: Array<GithubRepositorySummary>;
+	onPublish: (repository: GithubRepositorySummary) => Promise<void>;
+	onCancel: () => void;
+	busy: boolean;
+}) {
+	const [query, setQuery] = useState("");
+	const filtered = repositories.filter((repository) =>
+		repository.nameWithOwner.toLowerCase().includes(query.toLowerCase()),
+	);
+	return (
+		<div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/20 px-4">
+			<section className="w-full max-w-md rounded-md border border-stone-200 bg-white p-5 shadow-lg">
+				<h2 className="text-base font-semibold tracking-normal text-stone-950">
+					Choose existing project
+				</h2>
+				<input
+					aria-label="Search GitHub projects"
+					className="mt-4 h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-950 outline-none focus:border-stone-500"
+					value={query}
+					onChange={(event) => setQuery(event.target.value)}
+					placeholder="Search"
+					disabled={busy}
+				/>
+				<div className="mt-3 max-h-72 space-y-2 overflow-auto">
+					{filtered.map((repository) => (
+						<button
+							key={repository.id}
+							className="block w-full rounded-md border border-stone-200 px-3 py-2 text-left text-sm font-medium text-stone-900 hover:bg-stone-50"
+							onClick={() => void onPublish(repository)}
+							disabled={busy}
+						>
+							{repository.nameWithOwner}
+						</button>
+					))}
+					{filtered.length === 0 ? (
+						<p className="py-5 text-center text-sm text-stone-500">No projects found</p>
+					) : null}
+				</div>
+				<div className="mt-5 flex justify-end">
+					<Button variant="ghost" onClick={onCancel} disabled={busy}>
+						Cancel
+					</Button>
+				</div>
+			</section>
+		</div>
+	);
+}
+
+function BookmarkSidebar({
+	bookmarks,
+	browsing,
+	onCreate,
+	onSwitch,
+	onUpdate,
+	onRename,
+	onDelete,
+	busy,
+}: {
+	bookmarks: Array<Bookmark>;
+	browsing: BrowsingSession | null;
+	onCreate: () => Promise<void>;
+	onSwitch: (bookmark: Bookmark) => Promise<void>;
+	onUpdate: (bookmark: Bookmark) => Promise<void>;
+	onRename: (bookmark: Bookmark) => Promise<void>;
+	onDelete: (bookmark: Bookmark) => Promise<void>;
+	busy: boolean;
+}) {
+	return (
+		<aside className="w-full shrink-0 border-stone-200 lg:w-64 lg:border-r lg:pr-5">
+			<div className="mb-3 flex items-center justify-between gap-2">
+				<h2 className="text-sm font-semibold tracking-normal text-stone-950">Bookmarks</h2>
+				<Button
+					variant="ghost"
+					size="icon"
+					aria-label="Bookmark current state"
+					onClick={() => void onCreate()}
+					disabled={busy || Boolean(browsing?.dirty)}
+					title={
+						browsing?.dirty ? "Continue from here before bookmarking these changes." : undefined
+					}
+				>
+					<BookmarkIcon className="h-4 w-4" aria-hidden />
+				</Button>
+			</div>
+
+			{bookmarks.length === 0 ? (
+				<div className="rounded-md border border-dashed border-stone-300 bg-white/70 p-4">
+					<p className="text-sm font-medium text-stone-900">No bookmarks</p>
+					<Button
+						variant="secondary"
+						size="sm"
+						className="mt-3 w-full"
+						onClick={() => void onCreate()}
+						disabled={busy || Boolean(browsing?.dirty)}
+					>
+						<BookmarkIcon className="h-4 w-4" aria-hidden />
+						Bookmark current state
+					</Button>
+				</div>
+			) : (
+				<ul className="space-y-2">
+					{bookmarks.map((bookmark) => (
+						<li
+							key={bookmark.id}
+							className={`rounded-md border p-2 ${
+								bookmark.isCurrent ? "border-stone-500 bg-white" : "border-stone-200 bg-stone-100"
+							}`}
+						>
+							<button
+								className="block w-full min-w-0 text-left disabled:cursor-default"
+								onClick={() => void onSwitch(bookmark)}
+								disabled={busy || bookmark.isCurrent}
+							>
+								<span className="block truncate text-sm font-medium text-stone-950">
+									{bookmark.name}
+								</span>
+								<span className="mt-1 flex items-center gap-2 text-xs text-stone-500">
+									{bookmark.isCurrent ? "current" : formatTime(bookmark.updatedAt)}
+									{bookmark.kind === "auto" ? <span>auto</span> : null}
+								</span>
+							</button>
+							<div className="mt-2 flex flex-wrap gap-1">
+								<Button
+									variant="ghost"
+									size="sm"
+									className="h-7 px-2"
+									onClick={() => void onRename(bookmark)}
+									disabled={busy}
+								>
+									<Pencil className="h-3.5 w-3.5" aria-hidden />
+									Rename
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									className="h-7 px-2"
+									onClick={() => void onUpdate(bookmark)}
+									disabled={busy || Boolean(browsing)}
+								>
+									Update
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									className="h-7 px-2"
+									onClick={() => void onDelete(bookmark)}
+									disabled={busy}
+								>
+									<Trash2 className="h-3.5 w-3.5" aria-hidden />
+									Delete
+								</Button>
+							</div>
+						</li>
+					))}
+				</ul>
+			)}
+		</aside>
 	);
 }
 
@@ -309,6 +587,11 @@ function ProjectScreen({
 	onStart,
 	onDelete,
 	onPublish,
+	onCreateBookmark,
+	onSwitchBookmark,
+	onUpdateBookmark,
+	onRenameBookmark,
+	onDeleteBookmark,
 	onView,
 	onContinue,
 	onReturnToLatest,
@@ -319,6 +602,11 @@ function ProjectScreen({
 	onStart: () => Promise<void>;
 	onDelete: () => Promise<void>;
 	onPublish: () => Promise<void>;
+	onCreateBookmark: () => Promise<void>;
+	onSwitchBookmark: (bookmark: Bookmark) => Promise<void>;
+	onUpdateBookmark: (bookmark: Bookmark) => Promise<void>;
+	onRenameBookmark: (bookmark: Bookmark) => Promise<void>;
+	onDeleteBookmark: (bookmark: Bookmark) => Promise<void>;
 	onView: (checkpoint: Checkpoint) => Promise<void>;
 	onContinue: () => Promise<void>;
 	onReturnToLatest: () => Promise<void>;
@@ -395,14 +683,26 @@ function ProjectScreen({
 					</section>
 				) : null}
 
-				<section>
-					<Timeline
-						checkpoints={status.checkpoints}
+				<div className="flex flex-col gap-6 lg:flex-row">
+					<BookmarkSidebar
+						bookmarks={status.bookmarks}
 						browsing={status.browsing}
-						onView={onView}
+						onCreate={onCreateBookmark}
+						onSwitch={onSwitchBookmark}
+						onUpdate={onUpdateBookmark}
+						onRename={onRenameBookmark}
+						onDelete={onDeleteBookmark}
 						busy={busy}
 					/>
-				</section>
+					<section className="min-w-0 flex-1">
+						<Timeline
+							checkpoints={status.checkpoints}
+							browsing={status.browsing}
+							onView={onView}
+							busy={busy}
+						/>
+					</section>
+				</div>
 			</div>
 		</main>
 	);
@@ -413,8 +713,16 @@ export function HowHome() {
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [pendingDirtyAction, setPendingDirtyAction] = useState<PendingDirtyAction | null>(null);
-	const [showPublishModeDialog, setShowPublishModeDialog] = useState(false);
-	const [showPublishDestinationDialog, setShowPublishDestinationDialog] = useState(false);
+	const [bookmarkNameAction, setBookmarkNameAction] = useState<BookmarkNameAction | null>(null);
+	const [bookmarkConfirmAction, setBookmarkConfirmAction] = useState<BookmarkConfirmAction | null>(
+		null,
+	);
+	const [showGithubLoginDialog, setShowGithubLoginDialog] = useState(false);
+	const [showGithubRepositoryChoiceDialog, setShowGithubRepositoryChoiceDialog] = useState(false);
+	const [showCreateGithubRepositoryDialog, setShowCreateGithubRepositoryDialog] = useState(false);
+	const [showChooseGithubRepositoryDialog, setShowChooseGithubRepositoryDialog] = useState(false);
+	const [githubRepositoryName, setGithubRepositoryName] = useState("how-project");
+	const [githubRepositories, setGithubRepositories] = useState<Array<GithubRepositorySummary>>([]);
 
 	useEffect(() => {
 		let mounted = true;
@@ -520,6 +828,90 @@ export function HowHome() {
 		}
 	}
 
+	async function createBookmark() {
+		if (status.browsing?.dirty) {
+			setError("Continue from here before bookmarking these changes.");
+			return;
+		}
+		setBookmarkNameAction({ type: "create" });
+	}
+
+	async function saveBookmarkName(name: string) {
+		const action = bookmarkNameAction;
+		if (!action || name.trim().length === 0) return;
+		setBusy(true);
+		setError(null);
+		try {
+			if (action.type === "create" && status.browsing) {
+				setStatus(
+					await window.how.createBookmarkFromCheckpoint(name, status.browsing.currentCheckpointId),
+				);
+			} else if (action.type === "create") {
+				setStatus(await window.how.createBookmark(name));
+			} else {
+				setStatus(await window.how.renameBookmark(action.bookmark.id, name));
+			}
+			setBookmarkNameAction(null);
+		} catch {
+			setError(
+				action.type === "create"
+					? "How could not create that bookmark."
+					: "How could not rename that bookmark.",
+			);
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function switchBookmark(bookmark: Bookmark) {
+		if (bookmark.isCurrent) return;
+		if (status.browsing?.dirty) {
+			setPendingDirtyAction({ type: "switchBookmark", bookmark });
+			return;
+		}
+		setBusy(true);
+		setError(null);
+		try {
+			setStatus(await window.how.switchBookmark(bookmark.id));
+		} catch {
+			setError("How could not switch bookmarks.");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function updateBookmark(bookmark: Bookmark) {
+		setBookmarkConfirmAction({ type: "update", bookmark });
+	}
+
+	async function confirmBookmarkAction() {
+		const action = bookmarkConfirmAction;
+		if (!action) return;
+		setBusy(true);
+		setError(null);
+		try {
+			if (action.type === "update") setStatus(await window.how.updateBookmark(action.bookmark.id));
+			else setStatus(await window.how.deleteBookmark(action.bookmark.id));
+			setBookmarkConfirmAction(null);
+		} catch {
+			setError(
+				action.type === "update"
+					? "How could not update that bookmark."
+					: "How could not delete that bookmark.",
+			);
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function renameBookmark(bookmark: Bookmark) {
+		setBookmarkNameAction({ type: "rename", bookmark });
+	}
+
+	async function deleteBookmark(bookmark: Bookmark) {
+		setBookmarkConfirmAction({ type: "delete", bookmark });
+	}
+
 	async function continueFromCheckpoint() {
 		setBusy(true);
 		setError(null);
@@ -552,8 +944,12 @@ export function HowHome() {
 		result: Awaited<ReturnType<typeof window.how.publishProject>>,
 	): Promise<void> {
 		setStatus(result.status);
-		if (result.type === "needsPublishMode") setShowPublishModeDialog(true);
-		if (result.type === "needsDestination") setShowPublishDestinationDialog(true);
+		if (result.type === "needsGithubLogin") setShowGithubLoginDialog(true);
+		if (result.type === "needsGithubRepository") {
+			setGithubRepositoryName(result.defaultRepositoryName);
+			if (result.repositories) setGithubRepositories(result.repositories);
+			setShowGithubRepositoryChoiceDialog(true);
+		}
 	}
 
 	async function publishProject() {
@@ -568,12 +964,32 @@ export function HowHome() {
 		}
 	}
 
-	async function continueWithDirectPublish() {
+	async function loginToGithub() {
 		setBusy(true);
 		setError(null);
 		try {
-			setShowPublishModeDialog(false);
-			await handlePublishResult(await window.how.publishProject({ publishMode: "direct" }));
+			const result = await window.how.loginToGithub();
+			if (result.type === "failed") {
+				setError(result.message);
+				return;
+			}
+			setShowGithubLoginDialog(false);
+			await handlePublishResult(await window.how.publishProject());
+		} catch {
+			setError("How could not log in to GitHub.");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function createGithubRepository(name: string) {
+		setBusy(true);
+		setError(null);
+		try {
+			setShowCreateGithubRepositoryDialog(false);
+			await handlePublishResult(
+				await window.how.publishProject({ createGithubRepositoryName: name.trim() }),
+			);
 		} catch {
 			setError("How could not publish to the shared project.");
 		} finally {
@@ -581,12 +997,33 @@ export function HowHome() {
 		}
 	}
 
-	async function publishWithDestination(destinationUrl: string) {
+	async function loadGithubRepositories() {
 		setBusy(true);
 		setError(null);
 		try {
-			setShowPublishDestinationDialog(false);
-			await handlePublishResult(await window.how.publishProject({ destinationUrl }));
+			const result = await window.how.listGithubRepositories();
+			if (result.type === "failed") {
+				setError(result.message);
+				return;
+			}
+			setGithubRepositories(result.repositories);
+			setShowGithubRepositoryChoiceDialog(false);
+			setShowChooseGithubRepositoryDialog(true);
+		} catch {
+			setError("How could not load GitHub projects.");
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	async function publishWithGithubRepository(repository: GithubRepositorySummary) {
+		setBusy(true);
+		setError(null);
+		try {
+			setShowChooseGithubRepositoryDialog(false);
+			await handlePublishResult(
+				await window.how.publishProject({ githubRepositoryCloneUrl: repository.cloneUrl }),
+			);
 		} catch {
 			setError("How could not publish to the shared project.");
 		} finally {
@@ -607,6 +1044,10 @@ export function HowHome() {
 						discardBrowsingChanges: true,
 					}),
 				);
+			if (action.type === "switchBookmark") {
+				setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
+				setStatus(await window.how.switchBookmark(action.bookmark.id));
+			}
 			if (action.type === "returnToLatest")
 				setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
 			if (action.type === "open") {
@@ -658,6 +1099,11 @@ export function HowHome() {
 				onStart={startProject}
 				onDelete={deleteProject}
 				onPublish={publishProject}
+				onCreateBookmark={createBookmark}
+				onSwitchBookmark={switchBookmark}
+				onUpdateBookmark={updateBookmark}
+				onRenameBookmark={renameBookmark}
+				onDeleteBookmark={deleteBookmark}
 				onView={viewCheckpoint}
 				onContinue={continueFromCheckpoint}
 				onReturnToLatest={returnToLatest}
@@ -669,17 +1115,62 @@ export function HowHome() {
 					onCancel={() => setPendingDirtyAction(null)}
 				/>
 			) : null}
-			{showPublishModeDialog ? (
-				<PublishModeDialog
-					onContinue={continueWithDirectPublish}
-					onCancel={() => setShowPublishModeDialog(false)}
+			{bookmarkNameAction ? (
+				<BookmarkNameDialog
+					title={
+						bookmarkNameAction.type === "create" ? "Bookmark current state" : "Rename bookmark"
+					}
+					initialName={bookmarkNameAction.type === "rename" ? bookmarkNameAction.bookmark.name : ""}
+					onSave={saveBookmarkName}
+					onCancel={() => setBookmarkNameAction(null)}
 					busy={busy}
 				/>
 			) : null}
-			{showPublishDestinationDialog ? (
-				<PublishDestinationDialog
-					onPublish={publishWithDestination}
-					onCancel={() => setShowPublishDestinationDialog(false)}
+			{bookmarkConfirmAction ? (
+				<BookmarkConfirmDialog
+					title={bookmarkConfirmAction.type === "update" ? "Update bookmark?" : "Delete bookmark?"}
+					body={
+						bookmarkConfirmAction.type === "update"
+							? `Replace "${bookmarkConfirmAction.bookmark.name}" with where you are now?`
+							: `Delete "${bookmarkConfirmAction.bookmark.name}"? Your files will stay unchanged.`
+					}
+					action={bookmarkConfirmAction.type === "update" ? "Update" : "Delete"}
+					onConfirm={confirmBookmarkAction}
+					onCancel={() => setBookmarkConfirmAction(null)}
+					busy={busy}
+				/>
+			) : null}
+			{showGithubLoginDialog ? (
+				<GithubLoginDialog
+					onLogin={loginToGithub}
+					onCancel={() => setShowGithubLoginDialog(false)}
+					busy={busy}
+				/>
+			) : null}
+			{showGithubRepositoryChoiceDialog ? (
+				<GithubRepositoryChoiceDialog
+					onCreate={() => {
+						setShowGithubRepositoryChoiceDialog(false);
+						setShowCreateGithubRepositoryDialog(true);
+					}}
+					onChoose={loadGithubRepositories}
+					onCancel={() => setShowGithubRepositoryChoiceDialog(false)}
+					busy={busy}
+				/>
+			) : null}
+			{showCreateGithubRepositoryDialog ? (
+				<CreateGithubRepositoryDialog
+					defaultName={githubRepositoryName}
+					onPublish={createGithubRepository}
+					onCancel={() => setShowCreateGithubRepositoryDialog(false)}
+					busy={busy}
+				/>
+			) : null}
+			{showChooseGithubRepositoryDialog ? (
+				<ChooseGithubRepositoryDialog
+					repositories={githubRepositories}
+					onPublish={publishWithGithubRepository}
+					onCancel={() => setShowChooseGithubRepositoryDialog(false)}
 					busy={busy}
 				/>
 			) : null}

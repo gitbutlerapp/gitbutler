@@ -2,7 +2,10 @@
 
 use std::{
     collections::BTreeSet,
+    fs,
+    io::ErrorKind,
     path::{Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::{Context as _, bail};
@@ -19,6 +22,9 @@ use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 const CHECKPOINT_PREFIX: &str = "Checkpoint:";
+const BOOKMARK_REF_PREFIX: &str = "refs/gitbutler/how/bookmarks";
+const BOOKMARKS_FILE_NAME: &str = "how-bookmarks.json";
+const ACTIVE_BRANCH_REF: &str = "refs/heads/main";
 
 /// A project opened by How.
 #[derive(Debug, Clone, Serialize)]
@@ -53,6 +59,44 @@ pub struct HowCheckpoint {
 
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(HowCheckpoint);
+
+/// Whether a How bookmark was created by the user or by How as a safety backup.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub enum HowBookmarkKind {
+    /// The user intentionally created or took ownership of the bookmark.
+    User,
+    /// How created the bookmark to preserve a previous state while switching.
+    Auto,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HowBookmarkKind);
+
+/// A How bookmark.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct HowBookmark {
+    /// Stable bookmark identifier, independent from the display name.
+    pub id: String,
+    /// Display name shown in the product surface.
+    pub name: String,
+    /// Commit id the bookmark points to.
+    pub target_commit_id: String,
+    /// Bookmark creation time in milliseconds since Unix epoch.
+    pub created_at: i64,
+    /// Bookmark update time in milliseconds since Unix epoch.
+    pub updated_at: i64,
+    /// Whether this bookmark is user-created or auto-preserved.
+    pub kind: HowBookmarkKind,
+    /// Whether this bookmark points to the active HEAD commit.
+    pub is_current: bool,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HowBookmark);
 
 /// Project settings used by How.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -192,6 +236,90 @@ pub fn how_restore_checkpoint(
     safe_checkout_from_head(checkpoint_id, &repo, Default::default())
         .context("failed to restore checkpoint")?;
     Ok(())
+}
+
+/// List How bookmarks stored in local project metadata.
+#[but_api(napi)]
+#[instrument(skip(ctx), err(Debug))]
+pub fn how_list_bookmarks(ctx: &Context) -> anyhow::Result<Vec<HowBookmark>> {
+    let repo = ctx.repo.get()?;
+    list_bookmarks(&repo)
+}
+
+/// Create a How bookmark at the active HEAD commit.
+#[but_api(napi)]
+#[instrument(skip(ctx), err(Debug))]
+pub fn how_create_bookmark(
+    ctx: &Context,
+    name: String,
+    kind: HowBookmarkKind,
+) -> anyhow::Result<HowBookmark> {
+    let repo = ctx.repo.get()?;
+    let target_commit_id = repo
+        .head_id()
+        .context("How could not find the current project state.")?
+        .detach();
+    create_bookmark_at_commit(&repo, name, kind, target_commit_id)
+}
+
+/// Create a How bookmark at a specific commit.
+#[but_api(napi)]
+#[instrument(skip(ctx), err(Debug))]
+pub fn how_create_bookmark_from_commit(
+    ctx: &Context,
+    name: String,
+    kind: HowBookmarkKind,
+    commit_id: gix::ObjectId,
+) -> anyhow::Result<HowBookmark> {
+    let repo = ctx.repo.get()?;
+    repo.find_commit(commit_id)
+        .context("How could not find the bookmark state.")?;
+    create_bookmark_at_commit(&repo, name, kind, commit_id)
+}
+
+/// Switch the internal active line to a bookmark and update the worktree.
+#[but_api(napi)]
+#[instrument(skip(ctx), err(Debug))]
+pub fn how_switch_bookmark(ctx: &mut Context, bookmark_id: String) -> anyhow::Result<()> {
+    let _guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?;
+    ensure_active_branch(&repo)?;
+    let target_commit_id = bookmark_target_commit_id(&repo, &bookmark_id)?;
+    safe_checkout_from_head(target_commit_id, &repo, Default::default())
+        .context("failed to switch bookmark")?;
+    Ok(())
+}
+
+/// Update a How bookmark to the active HEAD commit.
+#[but_api(napi)]
+#[instrument(skip(ctx), err(Debug))]
+pub fn how_update_bookmark(ctx: &Context, bookmark_id: String) -> anyhow::Result<HowBookmark> {
+    let repo = ctx.repo.get()?;
+    let target_commit_id = repo
+        .head_id()
+        .context("How could not find the current project state.")?
+        .detach();
+    update_bookmark_target(&repo, &bookmark_id, target_commit_id)
+}
+
+/// Rename a How bookmark.
+#[but_api(napi)]
+#[instrument(skip(ctx), err(Debug))]
+pub fn how_rename_bookmark(
+    ctx: &Context,
+    bookmark_id: String,
+    name: String,
+) -> anyhow::Result<HowBookmark> {
+    let repo = ctx.repo.get()?;
+    rename_bookmark(&repo, &bookmark_id, name)
+}
+
+/// Delete a How bookmark pointer.
+#[but_api(napi)]
+#[instrument(skip(ctx), err(Debug))]
+pub fn how_delete_bookmark(ctx: &Context, bookmark_id: String) -> anyhow::Result<()> {
+    let repo = ctx.repo.get()?;
+    delete_bookmark(&repo, &bookmark_id)
 }
 
 /// Return whether the project has worktree changes.
@@ -358,5 +486,247 @@ fn write_index_from_tree(repo: &gix::Repository, tree_id: gix::ObjectId) -> anyh
     index
         .write(Default::default())
         .context("failed to write checkpoint index")?;
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BookmarkMetadata {
+    id: String,
+    name: String,
+    created_at: i64,
+    updated_at: i64,
+    kind: HowBookmarkKind,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BookmarkStore {
+    version: u32,
+    bookmarks: Vec<BookmarkMetadata>,
+}
+
+fn bookmarks_path(repo: &gix::Repository) -> anyhow::Result<PathBuf> {
+    Ok(repo.gitbutler_storage_path()?.join(BOOKMARKS_FILE_NAME))
+}
+
+fn read_bookmark_store(repo: &gix::Repository) -> anyhow::Result<BookmarkStore> {
+    let path = bookmarks_path(repo)?;
+    match fs::read_to_string(&path) {
+        Ok(raw) => serde_json::from_str(&raw)
+            .with_context(|| format!("failed to read How bookmarks from '{}'", path.display())),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(BookmarkStore {
+            version: 1,
+            bookmarks: Vec::new(),
+        }),
+        Err(error) => Err(error)
+            .with_context(|| format!("failed to read How bookmarks from '{}'", path.display())),
+    }
+}
+
+fn write_bookmark_store(repo: &gix::Repository, store: &BookmarkStore) -> anyhow::Result<()> {
+    let path = bookmarks_path(repo)?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create '{}'", parent.display()))?;
+    }
+    let raw = serde_json::to_string_pretty(store).context("failed to serialize How bookmarks")?;
+    fs::write(&path, format!("{raw}\n"))
+        .with_context(|| format!("failed to write How bookmarks to '{}'", path.display()))?;
+    Ok(())
+}
+
+fn now_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .min(i64::MAX as u128) as i64
+}
+
+fn bookmark_ref_name(id: &str) -> anyhow::Result<gix::refs::FullName> {
+    if id.is_empty()
+        || !id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+    {
+        bail!("Invalid bookmark id");
+    }
+    gix::refs::FullName::try_from(format!("{BOOKMARK_REF_PREFIX}/{id}"))
+        .context("failed to build bookmark ref name")
+}
+
+fn list_bookmarks(repo: &gix::Repository) -> anyhow::Result<Vec<HowBookmark>> {
+    let store = read_bookmark_store(repo)?;
+    let current_commit_id = repo.head_id().ok().map(|id| id.detach());
+    let mut bookmarks = Vec::new();
+    for metadata in store.bookmarks {
+        let ref_name = bookmark_ref_name(&metadata.id)?;
+        let Some(mut reference) = repo.try_find_reference(ref_name.as_ref())? else {
+            continue;
+        };
+        let target_commit_id = reference
+            .peel_to_id()
+            .with_context(|| format!("failed to resolve bookmark '{}'", metadata.id))?
+            .detach();
+        bookmarks.push(HowBookmark {
+            id: metadata.id,
+            name: metadata.name,
+            target_commit_id: target_commit_id.to_string(),
+            created_at: metadata.created_at,
+            updated_at: metadata.updated_at,
+            kind: metadata.kind,
+            is_current: current_commit_id == Some(target_commit_id),
+        });
+    }
+    bookmarks.sort_by(|a, b| {
+        b.is_current
+            .cmp(&a.is_current)
+            .then_with(|| bookmark_kind_rank(a.kind).cmp(&bookmark_kind_rank(b.kind)))
+            .then_with(|| b.updated_at.cmp(&a.updated_at))
+            .then_with(|| a.name.cmp(&b.name))
+    });
+    Ok(bookmarks)
+}
+
+fn bookmark_kind_rank(kind: HowBookmarkKind) -> u8 {
+    match kind {
+        HowBookmarkKind::User => 0,
+        HowBookmarkKind::Auto => 1,
+    }
+}
+
+fn create_bookmark_at_commit(
+    repo: &gix::Repository,
+    name: String,
+    kind: HowBookmarkKind,
+    target_commit_id: gix::ObjectId,
+) -> anyhow::Result<HowBookmark> {
+    repo.find_commit(target_commit_id)
+        .context("How could not find the bookmark state.")?;
+    let mut store = read_bookmark_store(repo)?;
+    let id = uuid::Uuid::new_v4().to_string();
+    let ref_name = bookmark_ref_name(&id)?;
+    repo.reference(
+        ref_name.as_ref(),
+        target_commit_id,
+        gix::refs::transaction::PreviousValue::MustNotExist,
+        "How create bookmark",
+    )
+    .context("failed to create bookmark ref")?;
+    let now = now_ms();
+    store.bookmarks.push(BookmarkMetadata {
+        id: id.clone(),
+        name: name.trim().to_owned(),
+        created_at: now,
+        updated_at: now,
+        kind,
+    });
+    write_bookmark_store(repo, &store)?;
+    list_bookmarks(repo)?
+        .into_iter()
+        .find(|bookmark| bookmark.id == id)
+        .context("created bookmark was not found")
+}
+
+fn bookmark_metadata_mut<'a>(
+    store: &'a mut BookmarkStore,
+    bookmark_id: &str,
+) -> anyhow::Result<&'a mut BookmarkMetadata> {
+    store
+        .bookmarks
+        .iter_mut()
+        .find(|bookmark| bookmark.id == bookmark_id)
+        .with_context(|| format!("How could not find bookmark '{bookmark_id}'."))
+}
+
+fn bookmark_target_commit_id(
+    repo: &gix::Repository,
+    bookmark_id: &str,
+) -> anyhow::Result<gix::ObjectId> {
+    let mut reference = repo
+        .find_reference(bookmark_ref_name(bookmark_id)?.as_ref())
+        .with_context(|| format!("How could not find bookmark '{bookmark_id}'."))?;
+    Ok(reference
+        .peel_to_id()
+        .context("failed to resolve bookmark ref")?
+        .detach())
+}
+
+fn update_bookmark_target(
+    repo: &gix::Repository,
+    bookmark_id: &str,
+    target_commit_id: gix::ObjectId,
+) -> anyhow::Result<HowBookmark> {
+    let mut store = read_bookmark_store(repo)?;
+    {
+        let metadata = bookmark_metadata_mut(&mut store, bookmark_id)?;
+        metadata.updated_at = now_ms();
+        metadata.kind = HowBookmarkKind::User;
+    }
+    let ref_name = bookmark_ref_name(bookmark_id)?;
+    let previous = bookmark_target_commit_id(repo, bookmark_id)?;
+    repo.reference(
+        ref_name.as_ref(),
+        target_commit_id,
+        gix::refs::transaction::PreviousValue::MustExistAndMatch(previous.into()),
+        "How update bookmark",
+    )
+    .context("failed to update bookmark ref")?;
+    write_bookmark_store(repo, &store)?;
+    list_bookmarks(repo)?
+        .into_iter()
+        .find(|bookmark| bookmark.id == bookmark_id)
+        .context("updated bookmark was not found")
+}
+
+fn rename_bookmark(
+    repo: &gix::Repository,
+    bookmark_id: &str,
+    name: String,
+) -> anyhow::Result<HowBookmark> {
+    let mut store = read_bookmark_store(repo)?;
+    {
+        let metadata = bookmark_metadata_mut(&mut store, bookmark_id)?;
+        metadata.name = name.trim().to_owned();
+        metadata.updated_at = now_ms();
+        metadata.kind = HowBookmarkKind::User;
+    }
+    write_bookmark_store(repo, &store)?;
+    list_bookmarks(repo)?
+        .into_iter()
+        .find(|bookmark| bookmark.id == bookmark_id)
+        .context("renamed bookmark was not found")
+}
+
+fn delete_bookmark(repo: &gix::Repository, bookmark_id: &str) -> anyhow::Result<()> {
+    let mut store = read_bookmark_store(repo)?;
+    let ref_name = bookmark_ref_name(bookmark_id)?;
+    if let Some(mut reference) = repo.try_find_reference(ref_name.as_ref())? {
+        let target = reference.peel_to_id()?.detach();
+        repo.edit_reference(gix::refs::transaction::RefEdit {
+            change: gix::refs::transaction::Change::Delete {
+                expected: gix::refs::transaction::PreviousValue::MustExistAndMatch(target.into()),
+                log: gix::refs::transaction::RefLog::AndReference,
+            },
+            name: ref_name,
+            deref: false,
+        })
+        .context("failed to delete bookmark ref")?;
+    }
+    store
+        .bookmarks
+        .retain(|bookmark| bookmark.id != bookmark_id);
+    write_bookmark_store(repo, &store)
+}
+
+fn ensure_active_branch(repo: &gix::Repository) -> anyhow::Result<()> {
+    let head_name = repo
+        .head_name()
+        .context("failed to read project state")?
+        .context("How needs the project to be on its active line.")?;
+    if head_name.as_bstr() != ACTIVE_BRANCH_REF.as_bytes() {
+        bail!("How needs the project to be on its active line.");
+    }
     Ok(())
 }

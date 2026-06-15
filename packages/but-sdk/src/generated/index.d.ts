@@ -308,6 +308,12 @@ export declare function getUndoTargetSnapshot(projectId: string): Promise<Snapsh
 
 export declare function headInfo(projectId: string): Promise<RefInfo>
 
+/** Create a How bookmark at the active HEAD commit. */
+export declare function howCreateBookmark(projectId: string, name: string, kind: HowBookmarkKind): Promise<HowBookmark>
+
+/** Create a How bookmark at a specific commit. */
+export declare function howCreateBookmarkFromCommit(projectId: string, name: string, kind: HowBookmarkKind, commitId: string): Promise<HowBookmark>
+
 /**
  * Create a How checkpoint commit from the current worktree state.
  *
@@ -315,8 +321,14 @@ export declare function headInfo(projectId: string): Promise<RefInfo>
  */
 export declare function howCreateCheckpoint(projectId: string, message: string): Promise<string | null>
 
+/** Delete a How bookmark pointer. */
+export declare function howDeleteBookmark(projectId: string, bookmarkId: string): Promise<void>
+
 /** Return whether the project has worktree changes. */
 export declare function howHasProjectChanges(projectId: string): Promise<boolean>
+
+/** List How bookmarks stored in local project metadata. */
+export declare function howListBookmarks(projectId: string): Promise<Array<HowBookmark>>
 
 /** List How checkpoint commits from the current branch history. */
 export declare function howListCheckpoints(projectId: string, limit: number): Promise<Array<HowCheckpoint>>
@@ -327,6 +339,9 @@ export declare function howOpenProject(path: string): Promise<HowProject>
 /** Read How project settings from local Git config. */
 export declare function howReadProjectSettings(projectId: string, fallback: HowProjectSettings): Promise<HowProjectSettings>
 
+/** Rename a How bookmark. */
+export declare function howRenameBookmark(projectId: string, bookmarkId: string, name: string): Promise<HowBookmark>
+
 /** Reset the current branch and worktree to a checkpoint commit. */
 export declare function howRestoreCheckpoint(projectId: string, checkpointId: string, discardChanges: boolean): Promise<void>
 
@@ -335,6 +350,12 @@ export declare function howStagedDiffForCheckpointSummary(projectId: string): Pr
 
 /** Initialize versioning in `path` if needed, then open it for How. */
 export declare function howStartProject(path: string): Promise<HowProject>
+
+/** Switch the internal active line to a bookmark and update the worktree. */
+export declare function howSwitchBookmark(projectId: string, bookmarkId: string): Promise<void>
+
+/** Update a How bookmark to the active HEAD commit. */
+export declare function howUpdateBookmark(projectId: string, bookmarkId: string): Promise<HowBookmark>
 
 /** Write How project settings to local Git config. */
 export declare function howWriteProjectSettings(projectId: string, settings: HowProjectSettings): Promise<void>
@@ -1583,6 +1604,27 @@ export type HeadSha = {
  * This is to workaround `schemars` which doesn't (always) work with transformations.
  */
 export type HexHashString = string;
+
+/** A How bookmark. */
+export type HowBookmark = {
+  /** Stable bookmark identifier, independent from the display name. */
+  id: string;
+  /** Display name shown in the product surface. */
+  name: string;
+  /** Commit id the bookmark points to. */
+  targetCommitId: string;
+  /** Bookmark creation time in milliseconds since Unix epoch. */
+  createdAt: number;
+  /** Bookmark update time in milliseconds since Unix epoch. */
+  updatedAt: number;
+  /** Whether this bookmark is user-created or auto-preserved. */
+  kind: HowBookmarkKind;
+  /** Whether this bookmark points to the active HEAD commit. */
+  isCurrent: boolean;
+};
+
+/** Whether a How bookmark was created by the user or by How as a safety backup. */
+export type HowBookmarkKind = "user" | "auto";
 
 /** A How checkpoint. */
 export type HowCheckpoint = {
