@@ -200,16 +200,22 @@ impl Graph {
             }
         };
 
-        let mut target_ref = self
+        let configured_target_ref = self
             .project_meta
             .target_ref
             .as_ref()
-            .and_then(|target_ref| TargetRef::from_ref_name_without_commits_ahead(target_ref, self))
-            .or_else(|| self.integrated_tip_target_ref());
-        let mut target_commit = self
+            .and_then(|target_ref| {
+                TargetRef::from_ref_name_without_commits_ahead(target_ref, self)
+            });
+        let configured_target_commit = self
             .project_meta
             .target_commit_id
-            .and_then(|target_commit_id| TargetCommit::from_commit(target_commit_id, self))
+            .and_then(|target_commit_id| TargetCommit::from_commit(target_commit_id, self));
+        let mut target_ref = configured_target_ref
+            .clone()
+            .or_else(|| self.integrated_tip_target_ref());
+        let mut target_commit = configured_target_commit
+            .clone()
             .or_else(|| self.integrated_tip_target_commit(target_ref.as_ref()));
         let integrated_tip_segments =
             self.integrated_tip_segments_excluding_target_ref_tip(target_ref.as_ref());
@@ -290,8 +296,8 @@ impl Graph {
             // so we are outside the workspace limits which is above us. Turn the data back into entrypoint-only.
             ws_tip_segment_id = ep_sidx;
             kind = WorkspaceKind::AdHoc;
-            target_ref = None;
-            target_commit = None;
+            target_ref = configured_target_ref;
+            target_commit = configured_target_commit;
             metadata = None;
             lower_bound = None;
             lower_bound_segment_id = None;
@@ -1117,12 +1123,15 @@ impl WorkspaceState {
         };
 
         let metadata = self.metadata.as_ref();
+        let keep_empty_segment_id = matches!(self.kind, WorkspaceKind::AdHoc).then_some(self.id);
+        let keep_if_fully_integrated =
+            upstream_advanced_past_target && !matches!(self.kind, WorkspaceKind::AdHoc);
         for stack in &mut self.stacks {
             // Upstream advanced: floor the stack at its fork point but keep a fully-integrated
-            // tip so it survives for `integrate_upstream`. Up to date: prune everything at or
-            // below the target.
-            prune_integrated_stack_segments(stack, &prune_segments, upstream_advanced_past_target);
-            remove_empty_branches(stack, metadata);
+            // tip in managed workspaces so it survives for `integrate_upstream`. Single-branch
+            // mode keeps the branch shell, but prunes integrated target/base commits from it.
+            prune_integrated_stack_segments(stack, &prune_segments, keep_if_fully_integrated);
+            remove_empty_branches(stack, metadata, keep_empty_segment_id);
             if upstream_advanced_past_target {
                 // Pruning moved the stack's bottom; refresh its base to the new fork point.
                 stack.recompute_last_segment_base(&graph.inner);
@@ -1402,12 +1411,17 @@ fn commits_are_integrated(commits: &[StackCommit]) -> bool {
 
 /// Remove empty segments unless they are mentioned in workspace metadata
 /// (e.g. a branch the user just added at the fork point with no commits yet).
-fn remove_empty_branches(stack: &mut Stack, metadata: Option<&but_core::ref_metadata::Workspace>) {
+fn remove_empty_branches(
+    stack: &mut Stack,
+    metadata: Option<&but_core::ref_metadata::Workspace>,
+    keep_empty_segment_id: Option<SegmentIndex>,
+) {
     let own_metadata_stack = stack.id.and_then(|stack_id| {
         metadata.and_then(|meta| meta.stacks(Applied).find(|ms| ms.id == stack_id))
     });
     stack.segments.retain(|seg| {
         !seg.commits.is_empty()
+            || Some(seg.id) == keep_empty_segment_id
             || own_metadata_stack.is_some_and(|ms| {
                 seg.ref_info
                     .as_ref()
