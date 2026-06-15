@@ -345,7 +345,7 @@ export declare function moveBranch(projectId: string, subjectBranch: string, tar
  *
  * [`list_editors`] provides the available `editor_id`s.
  */
-export declare function openInEditor(projectId: string, editorId: string, path: string): Promise<void>
+export declare function openInEditor(projectId: string, editorId: string, path: string, lineNr: number | null): Promise<void>
 
 /**
  * Find the final snapshot that a restore snapshot will restore from.

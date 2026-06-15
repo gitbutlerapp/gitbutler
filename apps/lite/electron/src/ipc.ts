@@ -196,6 +196,7 @@ export interface OpenInEditorParams {
 	projectId: string;
 	editorId: string;
 	path: string;
+	lineNr: number | null;
 }
 
 export interface PeelRestoreSnapshotParams {

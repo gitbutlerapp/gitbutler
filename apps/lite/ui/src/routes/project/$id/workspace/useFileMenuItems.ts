@@ -54,6 +54,7 @@ export const useFileMenuItems = ({
 									projectId,
 									editorId: editor.id,
 									path,
+									lineNr: null,
 								}),
 						}),
 					) ?? [],
