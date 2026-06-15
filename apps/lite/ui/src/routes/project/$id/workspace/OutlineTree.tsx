@@ -2378,30 +2378,25 @@ const BranchSegment: FC<{
 			operand={operand}
 			aria-label={refName.displayName}
 			aria-expanded
+			render={<OperandC projectId={projectId} operand={operand} />}
 		>
-			<OperandC
+			<BranchRow
 				projectId={projectId}
-				operand={operand}
-				render={
-					<BranchRow
-						projectId={projectId}
-						refName={refName}
-						stackId={stackId}
-						canTearOffBranch={canTearOffBranch}
-						canRemoveBranch={canRemoveBranch}
-						partialStackState={partialStackState}
-						isCommitTarget={
-							commitTarget
-								? relativeToEquals(commitTarget, {
-										type: "referenceBytes",
-										subject: refName.fullNameBytes,
-									})
-								: false
-						}
-						pushStatus={segment.pushStatus}
-						bottomRelativeTo={segmentBottomRelativeTo(segment)}
-					/>
+				refName={refName}
+				stackId={stackId}
+				canTearOffBranch={canTearOffBranch}
+				canRemoveBranch={canRemoveBranch}
+				partialStackState={partialStackState}
+				isCommitTarget={
+					commitTarget
+						? relativeToEquals(commitTarget, {
+								type: "referenceBytes",
+								subject: refName.fullNameBytes,
+							})
+						: false
 				}
+				pushStatus={segment.pushStatus}
+				bottomRelativeTo={segmentBottomRelativeTo(segment)}
 			/>
 
 			<div role="group">
