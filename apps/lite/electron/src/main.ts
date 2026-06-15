@@ -580,8 +580,7 @@ void app.whenReady().then(async () => {
 		const productionCsp =
 			"default-src 'none';" +
 			"script-src 'self' 'wasm-unsafe-eval';" +
-			// Hash is for inline style in index.html
-			"style-src 'self' 'sha256-XBXaUBQCe+0UGd1QCfoPFCc7UsLKd8xrn9oXNYqjFog=';" +
+			"style-src 'self' 'unsafe-inline';" +
 			"font-src 'self';" +
 			"connect-src 'self';" +
 			"object-src 'none';" +
