@@ -87,8 +87,8 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
     * 7de2393 (origin/master, master) o4
     *   7d62953 (o3) o3
     |\  
-    | * ffb801b (B) B
-    | * 448b195 (A) A
+    | * ffb801b B
+    | * 448b195 A
     * | d1b2089 o2
     |/  
     * 85aa44b (o1) o1
@@ -173,9 +173,9 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
     | |_|/  
     |/| |   
     | * | d6a7004 (D) D
-    * | | ffb801b (B) B
+    * | | ffb801b B
     |/ /  
-    * / 448b195 (A) A
+    * / 448b195 A
     |/  
     * 85aa44b (o1) o1
     ");
@@ -334,12 +334,173 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
     * |   4827d2f (C) C
     |\ \  
     | * | d8d0970 (D) D
-    * | | 3d3bfa7 (B) B
+    * | | 3d3bfa7 B
     |/ /  
-    * / f5b02d3 (A) A
+    * / f5b02d3 A
     |/  
     * 85aa44b (o1) o1
     ");
+
+    Ok(())
+}
+
+#[test]
+fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("integrated-bottom-branch-no-workspace")?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+
+    // No workspace branch, commit, or stack metadata: HEAD is checked out directly on `A`,
+    // the top of a two-branch stack whose bottom branch `B` is integrated into the target.
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&meta)?,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * e792f40 (HEAD -> A) add A1
+    | * 8c8a843 (origin/main) add X1
+    |/  
+    * b38b04b (B) add B1
+    * 3183e43 (main) M1
+    ");
+
+    let mut workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    ⌂:0:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
+    └── ≡:0:A[🌳] on 3183e43 {1}
+        ├── :0:A[🌳]
+        │   └── ·e792f40
+        └── :3:B
+            └── ·b38b04b
+    ");
+    let project_meta = workspace.graph.project_meta.clone();
+    let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("B")?.detach()),
+        }],
+    )?;
+
+    rebase.materialize()?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * 10e781b (HEAD -> A) add A1
+    * 8c8a843 (origin/main) add X1
+    * b38b04b add B1
+    * 3183e43 (main) M1
+    ");
+
+    assert!(
+        repo.try_find_reference("B")?.is_none(),
+        "the integrated bottom branch should be removed from the refs after rebase integration"
+    );
+    assert_eq!(
+        repo.rev_parse_single("A^")?.detach(),
+        repo.rev_parse_single("origin/main")?.detach(),
+        "the top branch should be reparented directly onto the integrated target tip"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("integrated-bottom-branch-no-workspace")?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+
+    // No workspace branch, commit, or stack metadata: HEAD is checked out directly on `A`,
+    // the top of a two-branch stack whose bottom branch `B` is integrated into the target.
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&meta)?,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * e792f40 (HEAD -> A) add A1
+    | * 8c8a843 (origin/main) add X1
+    |/  
+    * b38b04b (B) add B1
+    * 3183e43 (main) M1
+    ");
+
+    let mut workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    ⌂:0:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
+    └── ≡:0:A[🌳] on 3183e43 {1}
+        ├── :0:A[🌳]
+        │   └── ·e792f40
+        └── :3:B
+            └── ·b38b04b
+    ");
+    let project_meta = workspace.graph.project_meta.clone();
+    let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Merge,
+            selector: RelativeTo::Commit(repo.rev_parse_single("B")?.detach()),
+        }],
+    )?;
+
+    rebase.materialize()?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   7ce831c (HEAD -> A) Merge refs/remotes/origin/main into merge
+    |\  
+    | * 8c8a843 (origin/main) add X1
+    * | e792f40 add A1
+    |/  
+    * b38b04b add B1
+    * 3183e43 (main) M1
+    ");
+
+    assert!(
+        repo.try_find_reference("B")?.is_none(),
+        "the integrated bottom branch should be removed from the refs after merge integration"
+    );
+
+    let branch_tip = repo.find_commit(repo.rev_parse_single("A")?.detach())?;
+    let parents = branch_tip.parent_ids().collect::<Vec<_>>();
+    assert_eq!(
+        parents.len(),
+        2,
+        "merge integration should create a merge commit at the top of the stack"
+    );
+    assert_eq!(
+        parents[1].detach(),
+        repo.rev_parse_single("origin/main")?.detach(),
+        "merge integration should keep the integrated target tip as the second parent"
+    );
 
     Ok(())
 }
@@ -1523,7 +1684,9 @@ fn integrate_and_materialize<M: RefMetadata>(
         project_meta,
     } = integrate_upstream(workspace, meta, project_meta(&*meta)?, repo, updates)?;
     let materialized = rebase.materialize()?;
-    if let Some(ref_name) = materialized.workspace.ref_name() {
+    if let Some(ref_name) = materialized.workspace.ref_name()
+        && let Some(ws_meta) = ws_meta
+    {
         let mut md = materialized.meta.workspace(ref_name)?;
         *md = ws_meta;
         md.set_project_meta(project_meta);
