@@ -44,7 +44,7 @@ import {
 	type Operand,
 } from "#ui/operands.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
-import { getTransferOperation, keyboardTransferOperationMode } from "#ui/outline/mode.ts";
+import { keyboardTransferOperationMode } from "#ui/outline/mode.ts";
 import {
 	focusSelectionScope,
 	resolveNavigationIndexSelection,
@@ -115,7 +115,7 @@ import {
 	WorkspaceItemRowToolbar,
 	getWorkspaceItemRowButtonClassName,
 } from "./WorkspaceItemRow.tsx";
-import { useDryRunOperation } from "#ui/operations/operation.ts";
+import { getOperation, useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { initNonEmpty, reverse, scanRight } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
@@ -679,7 +679,13 @@ export const OutlineTree: FC<
 
 	const dryRunOperation = Match.value(outlineMode).pipe(
 		Match.tag("Transfer", ({ value: mode }) =>
-			selection ? (getTransferOperation({ mode, target: selection }) ?? undefined) : undefined,
+			selection && mode.operationType !== null
+				? (getOperation({
+						source: mode.source,
+						target: selection,
+						operationType: mode.operationType,
+					}) ?? undefined)
+				: undefined,
 		),
 		Match.orElse(() => undefined),
 	);

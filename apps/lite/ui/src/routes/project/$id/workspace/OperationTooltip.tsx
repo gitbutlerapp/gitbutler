@@ -1,7 +1,7 @@
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Operand } from "#ui/operands.ts";
-import { operationLabel } from "#ui/operations/operation.ts";
-import { getTransferOperation, type OutlineMode } from "#ui/outline/mode.ts";
+import { getOperation, operationLabel } from "#ui/operations/operation.ts";
+import { type OutlineMode } from "#ui/outline/mode.ts";
 import { Tooltip, useRender } from "@base-ui/react";
 import { Match } from "effect";
 import { FC } from "react";
@@ -18,7 +18,12 @@ export const OperationTooltip: FC<
 				Match.tags({
 					Absorb: () => <>Absorb target</>,
 					Transfer: ({ value: mode }) => {
-						const operation = getTransferOperation({ mode, target });
+						if (mode.operationType === null) return null;
+						const operation = getOperation({
+							source: mode.source,
+							target,
+							operationType: mode.operationType,
+						});
 						if (!operation) return null;
 
 						return <>{operationLabel(operation)}</>;
