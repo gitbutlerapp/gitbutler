@@ -20,6 +20,74 @@ const BIG_FILE_PATH_AFTER_SMALL_CHANGES = resolve(
 	import.meta.dirname,
 	"../fixtures/big-file_after-small-changes.md",
 );
+const SINGLE_HUNK_BASE = [
+	"one",
+	"two",
+	"three",
+	"four",
+	"five",
+	"six",
+	"seven",
+	"eight",
+	"nine",
+	"ten",
+].join("\n");
+const SINGLE_HUNK_CHANGED = [
+	"one",
+	"two",
+	"three",
+	"four changed",
+	"five",
+	"six",
+	"seven",
+	"eight",
+	"nine",
+	"ten",
+].join("\n");
+const MULTI_HUNK_BASE = [
+	"one",
+	"two",
+	"three",
+	"four",
+	"five",
+	"six",
+	"seven",
+	"eight",
+	"nine",
+	"ten",
+	"eleven",
+	"twelve",
+	"thirteen",
+	"fourteen",
+	"fifteen",
+	"sixteen",
+	"seventeen",
+	"eighteen",
+	"nineteen",
+	"twenty",
+].join("\n");
+const MULTI_HUNK_CHANGED = [
+	"one",
+	"two changed",
+	"three",
+	"four",
+	"five",
+	"six",
+	"seven",
+	"eight",
+	"nine",
+	"ten",
+	"eleven",
+	"twelve",
+	"thirteen",
+	"fourteen",
+	"fifteen",
+	"sixteen",
+	"seventeen",
+	"eighteen changed",
+	"nineteen",
+	"twenty",
+].join("\n");
 
 /**
  * Seed a remote-base commit with the given file content, clone it into a fresh
@@ -138,6 +206,71 @@ test("should unselect a complete hunk", async ({ page, gitbutler }) => {
 	expect(readFileSync(filePath, "utf-8")).toMatchSnapshot();
 });
 
+test("should uncommit the only hunk in a commit back to unstaged changes", async ({
+	page,
+	gitbutler,
+}) => {
+	const fileName = "single-hunk-file.md";
+	const commitTitle = "Single hunk commit";
+	const filePath = await seedRemoteFileAndCloneFresh(
+		gitbutler,
+		"single-hunk-uncommit-project",
+		fileName,
+		SINGLE_HUNK_BASE,
+		"Initial file for single hunk uncommit",
+	);
+
+	await openWorkspace(page);
+
+	writeFileSync(filePath, `${SINGLE_HUNK_CHANGED}\n`, "utf-8");
+
+	await commitFileToNewBranch(page, fileName, commitTitle);
+	await uncommitCommittedHunk(page, fileName, commitTitle, 0);
+
+	await expect(commitRow(page, commitTitle)).toBeVisible();
+	await expect(committedFileItem(page, fileName, commitTitle)).toHaveCount(0);
+	await expect(
+		getByTestId(page, "uncommitted-changes-file-list")
+			.getByTestId("file-list-item")
+			.filter({ hasText: fileName }),
+	).toBeVisible();
+});
+
+test("should uncommit one hunk and keep the remaining commit changes", async ({
+	page,
+	gitbutler,
+}) => {
+	const fileName = "multi-hunk-file.md";
+	const commitTitle = "Multi hunk commit";
+	const filePath = await seedRemoteFileAndCloneFresh(
+		gitbutler,
+		"multi-hunk-uncommit-project",
+		fileName,
+		MULTI_HUNK_BASE,
+		"Initial file for multi hunk uncommit",
+	);
+
+	await openWorkspace(page);
+
+	writeFileSync(filePath, `${MULTI_HUNK_CHANGED}\n`, "utf-8");
+
+	await commitFileToNewBranch(page, fileName, commitTitle);
+	await uncommitCommittedHunk(page, fileName, commitTitle, 0);
+
+	await expect(commitRow(page, commitTitle)).toBeVisible();
+	await expect(
+		getByTestId(page, "uncommitted-changes-file-list")
+			.getByTestId("file-list-item")
+			.filter({ hasText: fileName }),
+	).toBeVisible();
+
+	const unifiedDiffView = await openCommittedFileDiff(page, fileName, commitTitle);
+	await expect(unifiedDiffView.locator(getHunkHeaderSelector(fileName, 0))).toBeVisible();
+	await expect(unifiedDiffView.locator(getHunkHeaderSelector(fileName, 1))).toHaveCount(0);
+	await expect(unifiedDiffView).toContainText("eighteen changed");
+	await expect(unifiedDiffView).not.toContainText("two changed");
+});
+
 test("should discard an untracked added file via context menu", async ({ page, gitbutler }) => {
 	const fileName = "demo.txt";
 	const filePath = join(gitbutler.pathInWorkdir("local-clone/"), fileName);
@@ -166,6 +299,58 @@ test("should discard an untracked added file via context menu", async ({ page, g
 	await expect.poll(() => existsSync(filePath)).toBe(false);
 	await expect(fileItem).toHaveCount(0);
 });
+
+async function commitFileToNewBranch(page: Page, fileName: string, title: string) {
+	await clickByTestId(page, "commit-to-new-branch-button");
+	const fileItem = getByTestId(page, "uncommitted-changes-file-list")
+		.getByTestId("file-list-item")
+		.filter({ hasText: fileName });
+	await expect(fileItem).toBeVisible();
+	await fileItem.click();
+	await expect(getByTestId(page, "unified-diff-view")).toBeVisible();
+	await fillByTestId(page, "commit-drawer-title-input", title);
+	await clickByTestId(page, "commit-drawer-action-button");
+	await waitForTestIdToNotExist(page, "new-commit-view");
+	await expect(commitRow(page, title)).toBeVisible();
+}
+
+async function openCommittedFileDiff(page: Page, fileName: string, commitTitle: string) {
+	const row = commitRow(page, commitTitle);
+	await expect(row).toBeVisible();
+	await row.click();
+
+	const fileItem = committedFileItem(page, fileName, commitTitle);
+	await fileItem.waitFor({ state: "visible", timeout: 2000 }).catch(async () => {
+		await row.click();
+		await fileItem.waitFor({ state: "visible" });
+	});
+	await fileItem.click();
+
+	const unifiedDiffView = getByTestId(page, "unified-diff-view");
+	await expect(unifiedDiffView).toBeVisible();
+	return unifiedDiffView;
+}
+
+function committedFileItem(page: Page, fileName: string, commitTitle: string) {
+	return commitRow(page, commitTitle)
+		.locator("xpath=..")
+		.getByTestId("file-list-item")
+		.filter({ hasText: fileName });
+}
+
+async function uncommitCommittedHunk(
+	page: Page,
+	fileName: string,
+	commitTitle: string,
+	hunkIndex: number,
+) {
+	const unifiedDiffView = await openCommittedFileDiff(page, fileName, commitTitle);
+	const header = unifiedDiffView.locator(getHunkHeaderSelector(fileName, hunkIndex)).first();
+	await expect(header).toBeVisible();
+	await header.click({ button: "right" });
+	await waitForTestId(page, "hunk-context-menu");
+	await clickByTestId(page, "hunk-context-menu-uncommit-change");
+}
 
 async function unselectHunk(fileName: string, unifiedDiffView: Locator, hunkIndex: number) {
 	const header = unifiedDiffView.locator(getHunkHeaderSelector(fileName, hunkIndex)).first();

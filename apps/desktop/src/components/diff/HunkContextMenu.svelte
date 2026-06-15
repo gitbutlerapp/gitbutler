@@ -191,6 +191,7 @@
 			{#if stackId && commitId}
 				<ContextMenuSection>
 					<ContextMenuItem
+						testId={TestId.HunkContextMenu_UncommitChange}
 						label="Uncommit change"
 						icon="commit-undo"
 						onclick={async () => {
