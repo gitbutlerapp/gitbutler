@@ -269,6 +269,7 @@ const DiffContents: FC<{
 		string,
 		{ item: CodeViewDiffItem; change: TreeChange; patch: UnifiedPatch | null }
 	>;
+	initialFileHunks: Map<string, HunkOperand>;
 	selectedRangeByHunk: Map<string, CodeViewLineSelection>;
 }> = ({
 	selectionScopeRef,
@@ -685,7 +686,7 @@ const Diff: FC<{
 		queries: changes.map((change) => treeChangeDiffsQueryOptions({ projectId, change })),
 	}).map((result) => result.data);
 
-	const { initialFileHunks, ...data } = build({
+	const data = build({
 		fileParent,
 		changes,
 		treeChangeDiffs,
@@ -698,7 +699,7 @@ const Diff: FC<{
 		dispatch(
 			projectActions.selectDiff({
 				projectId,
-				selection: initialFileHunks.get(selection) ?? null,
+				selection: data.initialFileHunks.get(selection) ?? null,
 			}),
 		);
 
