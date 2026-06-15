@@ -97,7 +97,7 @@ const AbsorbControls: FC<{
 		<Controls>
 			<Tooltip.Root>
 				<Tooltip.Trigger
-					className={getButtonClassName({})}
+					className={getButtonClassName({ variant: "gray" })}
 					onClick={confirm}
 					// We pass `disabled` here because we want to disable the button, not
 					// the tooltip. Other props should be passed above.
@@ -338,7 +338,7 @@ const TransferOperationControls: FC<{
 		<Controls>
 			<Tooltip.Root>
 				<Tooltip.Trigger
-					className={getButtonClassName({})}
+					className={getButtonClassName({ variant: "gray" })}
 					onClick={run}
 					// We pass `disabled` here because we want to disable the button, not
 					// the tooltip. Other props should be passed above.
