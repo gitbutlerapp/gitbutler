@@ -180,9 +180,8 @@ const CheckedCommitControls: FC<{ checkedCommitCount: number; projectId: string 
 
 const TransferTypeToggleGroup: FC<{
 	projectId: string;
-	operations: OperationsByType;
 	operationType: OperationType;
-}> = ({ projectId, operations, operationType }) => {
+}> = ({ projectId, operationType }) => {
 	const dispatch = useAppDispatch();
 
 	const setOperationType = (operationType: OperationType) =>
@@ -236,7 +235,7 @@ const TransferTypeToggleGroup: FC<{
 					value={"above" satisfies OperationType}
 					render={<Tooltip.Trigger render={<ToggleStyles />} />}
 				>
-					{operations.above?.label ?? "Above"}
+					Above
 				</Toggle>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
@@ -252,7 +251,7 @@ const TransferTypeToggleGroup: FC<{
 					value={"combine" satisfies OperationType}
 					render={<Tooltip.Trigger render={<ToggleStyles />} />}
 				>
-					{operations.combine?.label ?? "Combine"}
+					Combine
 				</Toggle>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
@@ -268,7 +267,7 @@ const TransferTypeToggleGroup: FC<{
 					value={"below" satisfies OperationType}
 					render={<Tooltip.Trigger render={<ToggleStyles />} />}
 				>
-					{operations.below?.label ?? "Below"}
+					Below
 				</Toggle>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
@@ -419,7 +418,6 @@ export const OperationControls: FC = () => {
 								<Container>
 									<TransferTypeToggleGroup
 										projectId={projectId}
-										operations={getOperations(mode.source, selection)}
 										operationType={mode.operationType}
 									/>
 									<Separator />
