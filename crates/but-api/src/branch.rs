@@ -92,7 +92,6 @@ pub mod json {
                 workspace_ref_created,
                 workspace_merge: _,
                 conflicting_stacks: _,
-                conflicting_stack_ids: _,
             } = value;
 
             ApplyOutcome {

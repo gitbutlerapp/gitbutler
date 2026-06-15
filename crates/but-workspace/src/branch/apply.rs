@@ -55,10 +55,6 @@ pub struct Outcome<'workspace> {
     /// Each entry includes the stable stack id and its tip ref name, so callers don't have to
     /// recover names from the returned workspace graph.
     pub conflicting_stacks: Vec<ConflictingStack>,
-    /// The ids of all stacks that were conflicting and thus didn't get applied.
-    ///
-    /// Prefer [Outcome::conflicting_stacks] when names are needed.
-    pub conflicting_stack_ids: Vec<StackId>,
 }
 
 impl Outcome<'_> {
@@ -78,7 +74,6 @@ impl<'a> Outcome<'a> {
             workspace_ref_created,
             workspace_merge,
             conflicting_stacks,
-            conflicting_stack_ids,
         } = self;
 
         Outcome {
@@ -87,7 +82,6 @@ impl<'a> Outcome<'a> {
             workspace_ref_created,
             workspace_merge,
             conflicting_stacks,
-            conflicting_stack_ids,
         }
     }
 }
@@ -99,7 +93,6 @@ impl std::fmt::Debug for Outcome<'_> {
             workspace_ref_created,
             workspace_merge: _,
             conflicting_stacks,
-            conflicting_stack_ids,
             applied_branches,
         } = self;
         let mut f = f.debug_struct("Outcome");
@@ -118,8 +111,6 @@ impl std::fmt::Debug for Outcome<'_> {
             );
         if !conflicting_stacks.is_empty() {
             f.field("conflicting_stacks", conflicting_stacks);
-        } else if !conflicting_stack_ids.is_empty() {
-            f.field("conflicting_stack_ids", conflicting_stack_ids);
         }
         f.finish()
     }
@@ -266,7 +257,6 @@ pub fn apply<'ws>(
             workspace_ref_created,
             workspace_merge: None,
             conflicting_stacks: Vec::new(),
-            conflicting_stack_ids: Vec::new(),
             applied_branches: Vec::new(),
         });
     } else if ws.refname_is_segment(branch.as_ref()) {
@@ -304,7 +294,6 @@ pub fn apply<'ws>(
             workspace_ref_created: false,
             workspace_merge: None,
             conflicting_stacks: Vec::new(),
-            conflicting_stack_ids: Vec::new(),
             applied_branches: vec![branch.to_owned()],
         });
     };
@@ -497,7 +486,6 @@ pub fn apply<'ws>(
             workspace_ref_created: needs_ws_ref_creation,
             workspace_merge: None,
             conflicting_stacks: Vec::new(),
-            conflicting_stack_ids: Vec::new(),
             applied_branches,
         });
     }
@@ -535,13 +523,11 @@ pub fn apply<'ws>(
     if merge_result.has_conflicts() && on_workspace_conflict.should_abort() {
         let conflicting_stacks =
             correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
-        let conflicting_stack_ids = stack_ids_from_conflicting_stacks(&conflicting_stacks);
         return Ok(Outcome {
             workspace: Cow::Owned(ws),
             workspace_ref_created: needs_ws_ref_creation,
             workspace_merge: Some(merge_result),
             conflicting_stacks,
-            conflicting_stack_ids,
             applied_branches: Vec::new(),
         });
     }
@@ -555,8 +541,7 @@ pub fn apply<'ws>(
     let mut new_head_id = merge_result.workspace_commit_id;
     let mut conflicting_stacks =
         correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
-    let mut conflicting_stack_ids = stack_ids_from_conflicting_stacks(&conflicting_stacks);
-    remove_conflicting_stacks_from_workspace(&mut ws_md, &conflicting_stack_ids);
+    remove_conflicting_stacks_from_workspace(&mut ws_md, &conflicting_stacks);
     let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
     let overlay = overlay
         .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
@@ -657,20 +642,17 @@ pub fn apply<'ws>(
         if merge_result.has_conflicts() && on_workspace_conflict.should_abort() {
             let conflicting_stacks =
                 correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
-            let conflicting_stack_ids = stack_ids_from_conflicting_stacks(&conflicting_stacks);
             return Ok(Outcome {
                 workspace: Cow::Owned(ws),
                 workspace_ref_created: needs_ws_ref_creation,
                 workspace_merge: Some(merge_result),
                 conflicting_stacks,
-                conflicting_stack_ids,
                 applied_branches: Vec::new(),
             });
         }
         new_head_id = merge_result.workspace_commit_id;
         conflicting_stacks = correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
-        conflicting_stack_ids = stack_ids_from_conflicting_stacks(&conflicting_stacks);
-        remove_conflicting_stacks_from_workspace(&mut ws_md, &conflicting_stack_ids);
+        remove_conflicting_stacks_from_workspace(&mut ws_md, &conflicting_stacks);
         let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
         ws = ws
             .graph
@@ -731,7 +713,6 @@ pub fn apply<'ws>(
         workspace_ref_created: needs_ws_ref_creation,
         workspace_merge: Some(merge_result),
         conflicting_stacks,
-        conflicting_stack_ids,
         applied_branches,
     })
 }
@@ -764,27 +745,23 @@ fn correlate_conflicting_stacks(
         .collect()
 }
 
-fn stack_ids_from_conflicting_stacks(conflicting_stacks: &[ConflictingStack]) -> Vec<StackId> {
-    conflicting_stacks.iter().map(|stack| stack.id).collect()
-}
-
 /// Mark conflicting stacks as outside of the workspace commit.
 ///
 /// This is used when the caller materializes a best-effort merge result despite conflicts. The
 /// stack entries and branch metadata remain available, but their workspace relation is changed so
 /// the conflicted branches are no longer represented by the checked-out workspace tree.
 ///
-/// Each id is expected to come from [correlate_conflicting_stacks], so a missing stack indicates a
-/// programming error in the caller.
+/// Each stack is expected to come from [correlate_conflicting_stacks], so a missing stack indicates
+/// a programming error in the caller.
 fn remove_conflicting_stacks_from_workspace(
     ws_md: &mut Workspace,
-    conflicting_stack_ids: &[StackId],
+    conflicting_stacks: &[ConflictingStack],
 ) {
-    for conflicting_id in conflicting_stack_ids {
+    for conflicting_stack in conflicting_stacks {
         let stack = ws_md
             .stacks
             .iter_mut()
-            .find(|s| s.id == *conflicting_id)
+            .find(|s| s.id == conflicting_stack.id)
             .expect("if it was found before it will be found as id");
         // TODO: this might as well be 'Unmerged' to keep them in the workspace, but not let them be merged.
         stack.workspacecommit_relation = Outside;

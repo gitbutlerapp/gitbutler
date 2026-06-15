@@ -3412,12 +3412,9 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
             └── ·34c4591 (🏘️)
     ");
     let conflicting_stacks = out
-        .conflicting_stack_ids
+        .conflicting_stacks
         .iter()
-        .filter_map(|id| {
-            ws.find_stack_by_id(*id)
-                .and_then(|s| s.ref_name().map(|rn| rn.to_string()))
-        })
+        .map(|stack| stack.ref_name.to_string())
         .collect::<Vec<_>>();
     assert_eq!(
         conflicting_stacks,
