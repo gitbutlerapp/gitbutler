@@ -2,7 +2,6 @@ import { useAbsorb } from "#ui/api/mutations.ts";
 import { absorptionPlanQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
 import { assert } from "#ui/assert.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
-import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { operationHotkeys } from "#ui/hotkeys.ts";
 import {
@@ -32,6 +31,7 @@ import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import { FC, type ReactNode, use } from "react";
 import styles from "./OperationControls.module.css";
+import { Kbd } from "#ui/components/Kbd.tsx";
 
 const Container: FC<{ children: ReactNode }> = ({ children }) => (
 	<div className={classes("text-14", styles.container)}>{children}</div>
@@ -97,13 +97,13 @@ const AbsorbControls: FC<{
 		<Controls>
 			<Tooltip.Root>
 				<Tooltip.Trigger
-					className={getButtonClassName({})}
+					className={getButtonClassName({ variant: "gray" })}
 					onClick={confirm}
 					// We pass `disabled` here because we want to disable the button, not
 					// the tooltip. Other props should be passed above.
 					render={<Button focusableWhenDisabled disabled={!canAbsorb} />}
 				>
-					Absorb
+					Confirm
 				</Tooltip.Trigger>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
@@ -180,8 +180,9 @@ const CheckedCommitControls: FC<{ checkedCommitCount: number; projectId: string 
 
 const TransferTypeToggleGroup: FC<{
 	projectId: string;
+	operations: OperationsByType;
 	operationType: OperationType;
-}> = ({ projectId, operationType }) => {
+}> = ({ projectId, operations, operationType }) => {
 	const dispatch = useAppDispatch();
 
 	const setOperationType = (operationType: OperationType) =>
@@ -224,59 +225,39 @@ const TransferTypeToggleGroup: FC<{
 
 	return (
 		<ToggleGroup
-			render={<ToggleGroupStyles />}
 			aria-label="Operation type"
 			value={[operationType]}
 			onValueChange={onValueChange}
 			className={styles.toggleGroupRow}
 		>
-			<Tooltip.Root>
-				<Toggle
-					value={"above" satisfies OperationType}
-					render={<Tooltip.Trigger render={<ToggleStyles />} />}
-				>
-					Above
-				</Toggle>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectAbove.hotkey} />}>
-							{operationHotkeys.selectAbove.meta.name}
-						</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
+			<Toggle className={styles.toggleGroupRowToggle} value={"above" satisfies OperationType}>
+				{operations.above && (
+					<div className={classes("text-12", styles.operationLabel)}>{operations.above.label}</div>
+				)}
+				<div className="text-semibold">
+					Above <Kbd hotkey={operationHotkeys.selectAbove.hotkey} />
+				</div>
+			</Toggle>
 
-			<Tooltip.Root>
-				<Toggle
-					value={"combine" satisfies OperationType}
-					render={<Tooltip.Trigger render={<ToggleStyles />} />}
-				>
-					Combine
-				</Toggle>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectCombine.hotkey} />}>
-							{operationHotkeys.selectCombine.meta.name}
-						</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
+			<Toggle className={styles.toggleGroupRowToggle} value={"combine" satisfies OperationType}>
+				{operations.combine && (
+					<div className={classes("text-12", styles.operationLabel)}>
+						{operations.combine.label}
+					</div>
+				)}
+				<div className="text-semibold">
+					Combine <Kbd hotkey={operationHotkeys.selectCombine.hotkey} />
+				</div>
+			</Toggle>
 
-			<Tooltip.Root>
-				<Toggle
-					value={"below" satisfies OperationType}
-					render={<Tooltip.Trigger render={<ToggleStyles />} />}
-				>
-					Below
-				</Toggle>
-				<Tooltip.Portal>
-					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectBelow.hotkey} />}>
-							{operationHotkeys.selectBelow.meta.name}
-						</Tooltip.Popup>
-					</Tooltip.Positioner>
-				</Tooltip.Portal>
-			</Tooltip.Root>
+			<Toggle className={styles.toggleGroupRowToggle} value={"below" satisfies OperationType}>
+				{operations.below && (
+					<div className={classes("text-12", styles.operationLabel)}>{operations.below.label}</div>
+				)}
+				<div className="text-semibold">
+					Below <Kbd hotkey={operationHotkeys.selectBelow.hotkey} />
+				</div>
+			</Toggle>
 		</ToggleGroup>
 	);
 };
@@ -338,7 +319,7 @@ const TransferOperationControls: FC<{
 		<Controls>
 			<Tooltip.Root>
 				<Tooltip.Trigger
-					className={getButtonClassName({})}
+					className={getButtonClassName({ variant: "gray" })}
 					onClick={run}
 					// We pass `disabled` here because we want to disable the button, not
 					// the tooltip. Other props should be passed above.
@@ -427,13 +408,13 @@ export const OperationControls: FC = () => {
 									<Container>
 										<TransferTypeToggleGroup
 											projectId={projectId}
+											operations={operations}
 											operationType={mode.operationType}
 										/>
 										<Separator />
 										<ControlsRow>
 											<Label>
 												<div>Source: {operandLabel({ headInfo, operand: mode.source })}</div>
-												<div>{operations[mode.operationType]?.label}</div>
 												<div>Target: {operandLabel({ headInfo, operand: selection })}</div>
 											</Label>
 											<TransferOperationControls
