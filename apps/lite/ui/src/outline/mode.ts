@@ -7,7 +7,7 @@ import {
 	operandEquals,
 	type Operand,
 } from "#ui/operands.ts";
-import { getOperation, OperationType } from "#ui/operations/operation.ts";
+import { OperationType } from "#ui/operations/operation.ts";
 import { AbsorptionTarget } from "@gitbutler/but-sdk";
 import { SelectionState } from "#ui/projects/workspace/state.ts";
 
@@ -124,22 +124,6 @@ export const isValidOutlineModeForSelection = ({
 			RenameBranch: (mode) => operandEquals(selection, branchOperand(mode.operand)),
 		}),
 	);
-
-export const getTransferOperation = ({
-	mode,
-	target,
-}: {
-	mode: TransferOperationMode;
-	target: Operand;
-}) => {
-	const { operationType } = mode;
-	if (operationType === null) return null;
-	return getOperation({
-		source: mode.source,
-		target,
-		operationType,
-	});
-};
 
 export const getOperationSource = (mode: OutlineMode): Operand | null =>
 	Match.value(mode).pipe(

@@ -247,16 +247,16 @@ export const operationHotkeys = {
 		hotkey: "Mod+V",
 		meta: { group: "Operation mode", name: "Confirm" },
 	},
-	selectMoveAbove: {
+	selectAbove: {
 		hotkey: "A",
-		meta: { group: "Operation mode", name: "Select move above" },
+		meta: { group: "Operation mode", name: "Select above" },
 	},
-	selectMoveBelow: {
+	selectBelow: {
 		hotkey: "B",
-		meta: { group: "Operation mode", name: "Select move below" },
+		meta: { group: "Operation mode", name: "Select below" },
 	},
-	selectSquash: {
-		hotkey: "S",
-		meta: { group: "Operation mode", name: "Select squash" },
+	selectCombine: {
+		hotkey: "C",
+		meta: { group: "Operation mode", name: "Select combine" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;

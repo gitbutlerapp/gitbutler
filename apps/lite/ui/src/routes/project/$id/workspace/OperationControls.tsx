@@ -7,7 +7,6 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { operationHotkeys } from "#ui/hotkeys.ts";
 import {
 	getOperations,
-	operationLabel,
 	useRunOperation,
 	type OperationType,
 	type OperationsByType,
@@ -18,7 +17,7 @@ import {
 	selectProjectOutlineModeState,
 } from "#ui/projects/state.ts";
 import { NavigationIndexContext } from "#ui/routes/project/$id/workspace/OutlineNavigationIndexContext.ts";
-import { operationSourceLabel } from "#ui/routes/project/$id/workspace/operationSourceLabel.ts";
+import { operandLabel } from "#ui/routes/project/$id/workspace/operandLabel.ts";
 import { focusSelectionScope, useOutlineSelection } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
@@ -181,9 +180,8 @@ const CheckedCommitControls: FC<{ checkedCommitCount: number; projectId: string 
 
 const TransferTypeToggleGroup: FC<{
 	projectId: string;
-	operations: OperationsByType;
 	operationType: OperationType;
-}> = ({ projectId, operations, operationType }) => {
+}> = ({ projectId, operationType }) => {
 	const dispatch = useAppDispatch();
 
 	const setOperationType = (operationType: OperationType) =>
@@ -191,27 +189,27 @@ const TransferTypeToggleGroup: FC<{
 
 	useHotkeys([
 		{
-			hotkey: operationHotkeys.selectMoveAbove.hotkey,
-			callback: () => setOperationType("moveAbove"),
+			hotkey: operationHotkeys.selectAbove.hotkey,
+			callback: () => setOperationType("above"),
 			options: {
 				conflictBehavior: "allow",
-				meta: operationHotkeys.selectMoveAbove.meta,
+				meta: operationHotkeys.selectAbove.meta,
 			},
 		},
 		{
-			hotkey: operationHotkeys.selectSquash.hotkey,
-			callback: () => setOperationType("squash"),
+			hotkey: operationHotkeys.selectCombine.hotkey,
+			callback: () => setOperationType("combine"),
 			options: {
 				conflictBehavior: "allow",
-				meta: operationHotkeys.selectSquash.meta,
+				meta: operationHotkeys.selectCombine.meta,
 			},
 		},
 		{
-			hotkey: operationHotkeys.selectMoveBelow.hotkey,
-			callback: () => setOperationType("moveBelow"),
+			hotkey: operationHotkeys.selectBelow.hotkey,
+			callback: () => setOperationType("below"),
 			options: {
 				conflictBehavior: "allow",
-				meta: operationHotkeys.selectMoveBelow.meta,
+				meta: operationHotkeys.selectBelow.meta,
 			},
 		},
 	]);
@@ -234,15 +232,15 @@ const TransferTypeToggleGroup: FC<{
 		>
 			<Tooltip.Root>
 				<Toggle
-					value={"moveAbove" satisfies OperationType}
+					value={"above" satisfies OperationType}
 					render={<Tooltip.Trigger render={<ToggleStyles />} />}
 				>
-					{operations.moveAbove ? operationLabel(operations.moveAbove) : "Move above"}
+					Above
 				</Toggle>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectMoveAbove.hotkey} />}>
-							{operationHotkeys.selectMoveAbove.meta.name}
+						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectAbove.hotkey} />}>
+							{operationHotkeys.selectAbove.meta.name}
 						</Tooltip.Popup>
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
@@ -250,15 +248,15 @@ const TransferTypeToggleGroup: FC<{
 
 			<Tooltip.Root>
 				<Toggle
-					value={"squash" satisfies OperationType}
+					value={"combine" satisfies OperationType}
 					render={<Tooltip.Trigger render={<ToggleStyles />} />}
 				>
-					{operations.squash ? operationLabel(operations.squash) : "Squash"}
+					Combine
 				</Toggle>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectSquash.hotkey} />}>
-							{operationHotkeys.selectSquash.meta.name}
+						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectCombine.hotkey} />}>
+							{operationHotkeys.selectCombine.meta.name}
 						</Tooltip.Popup>
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
@@ -266,15 +264,15 @@ const TransferTypeToggleGroup: FC<{
 
 			<Tooltip.Root>
 				<Toggle
-					value={"moveBelow" satisfies OperationType}
+					value={"below" satisfies OperationType}
 					render={<Tooltip.Trigger render={<ToggleStyles />} />}
 				>
-					{operations.moveBelow ? operationLabel(operations.moveBelow) : "Move below"}
+					Below
 				</Toggle>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectMoveBelow.hotkey} />}>
-							{operationHotkeys.selectMoveBelow.meta.name}
+						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectBelow.hotkey} />}>
+							{operationHotkeys.selectBelow.meta.name}
 						</Tooltip.Popup>
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
@@ -298,7 +296,7 @@ const TransferOperationControls: FC<{
 
 		if (!operation) return;
 
-		runOperation(operation);
+		runOperation(operation.operation);
 	};
 
 	const cancel = () => {
@@ -403,9 +401,15 @@ export const OperationControls: FC = () => {
 				headInfo && (
 					<Container>
 						<ControlsRow>
-							<Label>{operationSourceLabel({ headInfo, source: x.source })}</Label>
-							{absorptionPlanQuery.isPending && (
+							{absorptionPlanQuery.isPending ? (
 								<Icon name="spinner" aria-label="Loading absorb plan" />
+							) : absorptionPlanQuery.isError ? (
+								<Label>Failed to load absorb plan</Label>
+							) : (
+								<Label>
+									Absorb {operandLabel({ headInfo, operand: x.source })} into{" "}
+									{absorptionPlanQuery.data.length} commits
+								</Label>
 							)}
 							<AbsorbControls projectId={projectId} sourceTarget={x.sourceTarget} />
 						</ControlsRow>
@@ -416,24 +420,31 @@ export const OperationControls: FC = () => {
 					Match.tags({
 						Keyboard: (mode) =>
 							selection &&
-							headInfo && (
-								<Container>
-									<TransferTypeToggleGroup
-										projectId={projectId}
-										operations={getOperations(mode.source, selection)}
-										operationType={mode.operationType}
-									/>
-									<Separator />
-									<ControlsRow>
-										<Label>{operationSourceLabel({ headInfo, source: mode.source })}</Label>
-										<TransferOperationControls
+							headInfo &&
+							(() => {
+								const operations = getOperations(mode.source, selection);
+								return (
+									<Container>
+										<TransferTypeToggleGroup
 											projectId={projectId}
-											operations={getOperations(mode.source, selection)}
 											operationType={mode.operationType}
 										/>
-									</ControlsRow>
-								</Container>
-							),
+										<Separator />
+										<ControlsRow>
+											<Label>
+												<div>Source: {operandLabel({ headInfo, operand: mode.source })}</div>
+												<div>{operations[mode.operationType]?.label}</div>
+												<div>Target: {operandLabel({ headInfo, operand: selection })}</div>
+											</Label>
+											<TransferOperationControls
+												projectId={projectId}
+												operations={operations}
+												operationType={mode.operationType}
+											/>
+										</ControlsRow>
+									</Container>
+								);
+							})(),
 					}),
 					Match.orElse(() => null),
 				),
