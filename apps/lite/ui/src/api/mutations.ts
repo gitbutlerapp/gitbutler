@@ -121,7 +121,7 @@ export const useBranchCheckoutNew = () => {
 
 			toastManager.add({
 				type: "error",
-				title: "Failed to reset workspace",
+				title: "Failed to switch to new branch",
 				description: errorMessageForToast(error),
 				priority: "high",
 			});

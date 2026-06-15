@@ -71,7 +71,7 @@ import { useActiveElement } from "#ui/focus.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { buildNavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { buildIndexByKey, NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { reverse } from "effect/Array";
 import { getOperations } from "#ui/operations/operation.ts";
 
@@ -427,7 +427,7 @@ const outlineNavigationItems = (headInfo: RefInfo | undefined): Array<Operand> =
 
 const hasAnyOperation = (source: Operand, target: Operand) => {
 	const operations = getOperations(source, target);
-	return !!operations.combine || !!operations.above || !!operations.below;
+	return !!operations.into || !!operations.above || !!operations.below;
 };
 
 const useOutlineNavigationIndex = ({
@@ -436,7 +436,7 @@ const useOutlineNavigationIndex = ({
 }: {
 	projectId: string;
 	absorptionTargetKeys: ReadonlySet<string>;
-}) => {
+}): NavigationIndex<Operand> => {
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -463,9 +463,9 @@ const useOutlineNavigationIndex = ({
 				items.filter((operand) => operandEquals(operand, commitOperand(x.operand))),
 		}),
 	);
-	const navigationIndex = buildNavigationIndex(filteredItems, operandIdentityKey);
+	const indexByKey = buildIndexByKey(filteredItems, operandIdentityKey);
 
-	return navigationIndex;
+	return { items: filteredItems, indexByKey };
 };
 
 const WorkspacePage: FC = () => {
@@ -677,7 +677,7 @@ const WorkspacePage: FC = () => {
 							<div className={styles.workspaceControlsActions}>
 								<Tooltip.Root>
 									<Tooltip.Trigger
-										aria-label="Reset workspace"
+										aria-label="Switch to new branch"
 										className={getButtonClassName({ iconOnly: true })}
 										onClick={resetWorkspace}
 										// We pass `disabled` here because we want to disable the button, not
@@ -692,7 +692,7 @@ const WorkspacePage: FC = () => {
 									</Tooltip.Trigger>
 									<Tooltip.Portal>
 										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup render={<TooltipPopup />}>Reset workspace</Tooltip.Popup>
+											<Tooltip.Popup render={<TooltipPopup />}>Switch to new branch</Tooltip.Popup>
 										</Tooltip.Positioner>
 									</Tooltip.Portal>
 								</Tooltip.Root>

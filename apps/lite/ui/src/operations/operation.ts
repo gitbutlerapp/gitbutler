@@ -382,7 +382,7 @@ const squashOperation = ({
 		Match.orElse(() => null),
 	);
 
-const combineOperation = ({
+const intoOperation = ({
 	source,
 	target,
 }: {
@@ -517,7 +517,7 @@ const moveOperation = ({
 	);
 };
 
-export type OperationType = "combine" | "above" | "below";
+export type OperationType = "into" | "above" | "below";
 
 const isOperationSourceEnabled = (source: Operand): boolean =>
 	Match.value(source).pipe(
@@ -530,12 +530,12 @@ export type OperationsByType = Record<OperationType, OperationWithLabel | null>;
 export const getOperations = (source: Operand, target: Operand): OperationsByType => {
 	if (operandEquals(source, target) || !isOperationSourceEnabled(source))
 		return {
-			combine: null,
+			into: null,
 			above: null,
 			below: null,
 		};
 	return {
-		combine: combineOperation({ source, target }),
+		into: intoOperation({ source, target }),
 		above: moveOperation({ source, target, side: "above" }),
 		below: moveOperation({ source, target, side: "below" }),
 	};
@@ -546,9 +546,9 @@ export const getOperation = (x: {
 	target: Operand;
 	operationType: OperationType;
 }): OperationWithLabel | null => {
-	const { combine, above, below } = getOperations(x.source, x.target);
+	const { into, above, below } = getOperations(x.source, x.target);
 	return Match.value(x.operationType).pipe(
-		Match.when("combine", () => combine),
+		Match.when("into", () => into),
 		Match.when("above", () => above),
 		Match.when("below", () => below),
 		Match.exhaustive,

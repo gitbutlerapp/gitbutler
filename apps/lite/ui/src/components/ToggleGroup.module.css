@@ -1,7 +1,6 @@
 .group {
 	display: inline-flex;
 	flex-shrink: 0;
-	align-items: center;
 	padding: 2px;
 	gap: 2px;
 	border-radius: var(--radius-m);
@@ -18,7 +17,6 @@
 	position: relative;
 	column-gap: 6px;
 	align-items: center;
-	justify-content: center;
 	height: 24px;
 	padding-inline: 7px;
 	border: 1px solid transparent;

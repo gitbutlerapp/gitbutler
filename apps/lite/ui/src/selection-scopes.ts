@@ -360,7 +360,7 @@ export const useNavigationIndexHotkeys = <T>({
 		},
 		{
 			hotkey: selectionOperationHotkeys.cut.hotkey,
-			callback: () => enterTransferModeForSelection("combine"),
+			callback: () => enterTransferModeForSelection("into"),
 			options: {
 				conflictBehavior: "allow",
 				enabled: operationEnabled,
@@ -371,7 +371,7 @@ export const useNavigationIndexHotkeys = <T>({
 		},
 		{
 			hotkey: selectionOperationHotkeys.squash.hotkey,
-			callback: () => enterTransferModeForSelection("combine"),
+			callback: () => enterTransferModeForSelection("into"),
 			options: {
 				conflictBehavior: "allow",
 				enabled: operationEnabled,

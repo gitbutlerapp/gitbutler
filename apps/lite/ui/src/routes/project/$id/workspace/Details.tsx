@@ -68,7 +68,7 @@ import {
 	contiguousSelectionsFromHunk,
 	synthesizeFilePatch,
 } from "#ui/hunk.ts";
-import { buildNavigationIndex, NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { buildIndexByKey, NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 
@@ -667,7 +667,7 @@ const Diff: FC<{
 	const viewerRef = useRef<CodeViewHandle<undefined>>(null);
 	const dispatch = useAppDispatch();
 	const files = filesItems.map((item) => item.path);
-	const filesNavigationIndex = buildNavigationIndex(files, identity);
+	const filesIndexByKey = buildIndexByKey(files, identity);
 
 	const changesetKey = Match.value(outlineSelection).pipe(
 		Match.tags({
@@ -724,7 +724,7 @@ const Diff: FC<{
 					onFileSelection={selectFileAndNavigateDiff}
 					projectId={projectId}
 					items={filesItems}
-					navigationIndex={filesNavigationIndex}
+					navigationIndex={{ items: files, indexByKey: filesIndexByKey }}
 					fileParent={fileParent}
 				/>
 			)}
