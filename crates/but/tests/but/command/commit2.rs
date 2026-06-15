@@ -972,3 +972,75 @@ For more information, try '--help'.
 
 "#]]);
 }
+
+#[test]
+fn above_branch_not_in_workspace_returns_bad_input() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    env.but("unapply B").assert().success();
+
+    env.but("commit2 --above B")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find target: 'B'
+
+Hint: Target must be an applied branch or commit. Run `but status` for applicable targets.
+
+"#]]);
+}
+
+#[test]
+fn above_commit_not_in_workspace_returns_bad_input() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("unapply B").assert().success();
+
+    env.but("commit2 --above d3")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find target: 'd3'
+
+Hint: Target must be an applied branch or commit. Run `but status` for applicable targets.
+
+"#]]);
+}
+
+#[test]
+fn above_non_branch_non_commit_target_returns_bad_input() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    env.but("commit2 --above zz")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Expected a commit or a branch, got unassigned changes
+
+Hint: Run `but status` to show applicable targets
+
+"#]]);
+}

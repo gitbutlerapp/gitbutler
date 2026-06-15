@@ -338,20 +338,21 @@ fn route_commit_above_or_below(
     position: CommitRelativeToTargetPosition,
 ) -> CliResult<CommitOperation> {
     let target = match cli_id
-        .resolve_in_workspace(repo, id_map, Purpose::Anchor, None)?
-        .into_branch_or_commit()?
+        .resolve_in_workspace(repo, id_map, Purpose::Target, None)
+        .hint(
+            "Target must be an applied branch or commit. Run `but status` for applicable targets.",
+        )?
+        .into_branch_or_commit()
+        .hint("Run `but status` to show applicable targets")?
     {
         BranchOrCommit::Commit(commit_id) => CommitRelativeToTarget::Commit {
             commit_id,
             position,
         },
-        BranchOrCommit::Branch(arg) => {
-            let _ = arg.resolve_branch(repo)?; // checks branch exists in workspace
-            CommitRelativeToTarget::Branch {
-                name: arg.resolve_local_branch_name()?,
-                position,
-            }
-        }
+        BranchOrCommit::Branch(arg) => CommitRelativeToTarget::Branch {
+            name: arg.resolve_local_branch_name()?,
+            position,
+        },
     };
     Ok(CommitOperation::CommitAt(CommitAtOperation { target }))
 }
