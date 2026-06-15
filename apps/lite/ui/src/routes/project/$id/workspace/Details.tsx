@@ -281,6 +281,7 @@ const DiffContents: FC<{
 	navigationIndex,
 	items,
 	itemsMetadataMap,
+	initialFileHunks,
 	selectedRangeByHunk,
 }) => {
 	const dispatch = useAppDispatch();
@@ -304,6 +305,8 @@ const DiffContents: FC<{
 		});
 	};
 
+	const allFirstHunks = new Set(initialFileHunks.values().map(hunkOperandIdentityKey));
+
 	useNavigationIndexHotkeys({
 		navigationIndex,
 		projectId,
@@ -311,6 +314,7 @@ const DiffContents: FC<{
 		selectionScope: "diff",
 		select: selectDiff,
 		selection: diffSelection,
+		selectSectionPredicate: (hunk) => allFirstHunks.has(hunkOperandIdentityKey(hunk)),
 		ref: selectionScopeRef,
 		getKey: hunkOperandIdentityKey,
 		operationSourceForItem: hunkOperand,
