@@ -129,7 +129,7 @@ const useOperationDropTarget = ({
 				}
 
 				dispatch(projectActions.exitMode({ projectId }));
-				runOperation(operation);
+				runOperation(operation.operation);
 			},
 		});
 	}, [dispatch, projectId, runOperation, target]);

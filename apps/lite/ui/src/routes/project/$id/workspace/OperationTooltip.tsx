@@ -1,6 +1,6 @@
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { Operand } from "#ui/operands.ts";
-import { getOperation, operationLabel } from "#ui/operations/operation.ts";
+import { getOperation } from "#ui/operations/operation.ts";
 import { type OutlineMode } from "#ui/outline/mode.ts";
 import { Tooltip, useRender } from "@base-ui/react";
 import { Match } from "effect";
@@ -26,7 +26,7 @@ export const OperationTooltip: FC<
 						});
 						if (!operation) return null;
 
-						return <>{operationLabel(operation)}</>;
+						return <>{operation.label}</>;
 					},
 				}),
 				Match.orElse(() => null),

@@ -46,7 +46,7 @@ type CommitUncommitChangesOperation = Omit<
 > & { source: Operand };
 type MoveBranchOperation = Omit<MoveBranchParams, "dryRun" | "projectId">;
 
-export type Operation =
+type Operation =
 	| ({ _tag: "CommitAmend" } & CommitAmendOperation)
 	| ({ _tag: "CommitCreate" } & CommitCreateOperation)
 	| ({ _tag: "CommitSplit" } & CommitSplitOperation)
@@ -56,6 +56,8 @@ export type Operation =
 	| ({ _tag: "CommitUncommit" } & CommitUncommitOperation)
 	| ({ _tag: "CommitUncommitChanges" } & CommitUncommitChangesOperation)
 	| ({ _tag: "MoveBranch" } & MoveBranchOperation);
+
+type OperationWithLabel = { operation: Operation; label: string };
 
 const commitAmendOperation = (operation: CommitAmendOperation): Operation => ({
 	_tag: "CommitAmend",
@@ -103,36 +105,6 @@ const moveBranchOperation = (operation: MoveBranchOperation): Operation => ({
 	_tag: "MoveBranch",
 	...operation,
 });
-
-export const operationLabel = (operation: Operation): string =>
-	Match.value(operation).pipe(
-		Match.tagsExhaustive({
-			CommitAmend: () => "Amend",
-			CommitCreate: ({ side }) =>
-				Match.value(side).pipe(
-					Match.when("above", () => "Commit above"),
-					Match.when("below", () => "Commit below"),
-					Match.exhaustive,
-				),
-			CommitSplit: ({ side }) =>
-				Match.value(side).pipe(
-					Match.when("above", () => "Commit above"),
-					Match.when("below", () => "Commit below"),
-					Match.exhaustive,
-				),
-			CommitMove: ({ side }) =>
-				Match.value(side).pipe(
-					Match.when("above", () => "Move above"),
-					Match.when("below", () => "Move below"),
-					Match.exhaustive,
-				),
-			CommitMoveChangesBetween: () => "Amend",
-			CommitSquash: () => "Squash",
-			CommitUncommit: () => "Uncommit",
-			CommitUncommitChanges: () => "Uncommit",
-			MoveBranch: () => "Move above",
-		}),
-	);
 
 const runOperation = async ({
 	projectId,
@@ -338,64 +310,74 @@ const squashOperation = ({
 }: {
 	source: Operand;
 	target: Operand;
-}): Operation | null =>
+}): OperationWithLabel | null =>
 	Match.value({ source, sourceFileParent: operandFileParent(source), target }).pipe(
 		Match.when(
 			{
 				source: { _tag: "Commit" },
 				target: { _tag: "Commit" },
 			},
-			({ source, target }) =>
-				commitSquashOperation({
+			({ source, target }): OperationWithLabel => ({
+				operation: commitSquashOperation({
 					sourceCommitIds: [source.commitId],
 					destinationCommitId: target.commitId,
 				}),
+				label: "Squash",
+			}),
 		),
 		Match.when(
 			{
 				source: { _tag: "Commit" },
 				target: { _tag: "ChangesSection" },
 			},
-			({ source }) =>
-				commitUncommitOperation({
+			({ source }): OperationWithLabel => ({
+				operation: commitUncommitOperation({
 					subjectCommitIds: [source.commitId],
 					assignTo: null,
 				}),
+				label: "Uncommit",
+			}),
 		),
 		Match.when(
 			{
 				sourceFileParent: { _tag: "Changes" },
 				target: { _tag: "Commit" },
 			},
-			({ source, target }) =>
-				commitAmendOperation({
+			({ source, target }): OperationWithLabel => ({
+				operation: commitAmendOperation({
 					commitId: target.commitId,
 					source,
 				}),
+				label: "Amend",
+			}),
 		),
 		Match.when(
 			{
 				sourceFileParent: { _tag: "Commit" },
 				target: { _tag: "ChangesSection" },
 			},
-			({ source, sourceFileParent }) =>
-				commitUncommitChangesOperation({
+			({ source, sourceFileParent }): OperationWithLabel => ({
+				operation: commitUncommitChangesOperation({
 					commitId: sourceFileParent.commitId,
 					assignTo: null,
 					source,
 				}),
+				label: "Uncommit",
+			}),
 		),
 		Match.when(
 			{
 				sourceFileParent: { _tag: "Commit" },
 				target: { _tag: "Commit" },
 			},
-			({ source, sourceFileParent, target }) =>
-				commitMoveChangesBetweenOperation({
+			({ source, sourceFileParent, target }): OperationWithLabel => ({
+				operation: commitMoveChangesBetweenOperation({
 					sourceCommitId: sourceFileParent.commitId,
 					destinationCommitId: target.commitId,
 					source,
 				}),
+				label: "Amend",
+			}),
 		),
 		Match.orElse(() => null),
 	);
@@ -408,7 +390,7 @@ const moveOperation = ({
 	source: Operand;
 	target: Operand;
 	side: InsertSide;
-}) => {
+}): OperationWithLabel | null => {
 	const branchMoveOperation = Match.value({ source, target, side }).pipe(
 		// This should support `relativeTo`:
 		// https://linear.app/gitbutler/issue/GB-1161/refsbranches-should-use-bytes-instead-of-strings
@@ -420,11 +402,13 @@ const moveOperation = ({
 				target: { _tag: "Branch" },
 				side: "above",
 			},
-			({ source, target }) =>
-				moveBranchOperation({
+			({ source, target }): OperationWithLabel => ({
+				operation: moveBranchOperation({
 					subjectBranch: decodeBytes(source.branchRef),
 					targetBranch: decodeBytes(target.branchRef),
 				}),
+				label: "Move above",
+			}),
 		),
 		Match.orElse(() => null),
 	);
@@ -453,27 +437,51 @@ const moveOperation = ({
 	if (!relativeTo) return null;
 
 	return Match.value({ source, sourceFileParent: operandFileParent(source) }).pipe(
-		Match.when({ source: { _tag: "Commit" } }, ({ source }) =>
-			commitMoveOperation({
-				subjectCommitIds: [source.commitId],
-				relativeTo,
-				side,
+		Match.when(
+			{ source: { _tag: "Commit" } },
+			({ source }): OperationWithLabel => ({
+				operation: commitMoveOperation({
+					subjectCommitIds: [source.commitId],
+					relativeTo,
+					side,
+				}),
+				label: Match.value(side).pipe(
+					Match.when("above", () => "Move above"),
+					Match.when("below", () => "Move below"),
+					Match.exhaustive,
+				),
 			}),
 		),
-		Match.when({ sourceFileParent: { _tag: "Changes" } }, ({ source }) =>
-			commitCreateOperation({
-				relativeTo,
-				side,
-				source,
-				message: "",
+		Match.when(
+			{ sourceFileParent: { _tag: "Changes" } },
+			({ source }): OperationWithLabel => ({
+				operation: commitCreateOperation({
+					relativeTo,
+					side,
+					source,
+					message: "",
+				}),
+				label: Match.value(side).pipe(
+					Match.when("above", () => "Commit above"),
+					Match.when("below", () => "Commit below"),
+					Match.exhaustive,
+				),
 			}),
 		),
-		Match.when({ sourceFileParent: { _tag: "Commit" } }, ({ source, sourceFileParent }) =>
-			commitSplitOperation({
-				sourceCommitId: sourceFileParent.commitId,
-				relativeTo,
-				side,
-				source,
+		Match.when(
+			{ sourceFileParent: { _tag: "Commit" } },
+			({ source, sourceFileParent }): OperationWithLabel => ({
+				operation: commitSplitOperation({
+					sourceCommitId: sourceFileParent.commitId,
+					relativeTo,
+					side,
+					source,
+				}),
+				label: Match.value(side).pipe(
+					Match.when("above", () => "Commit above"),
+					Match.when("below", () => "Commit below"),
+					Match.exhaustive,
+				),
 			}),
 		),
 		Match.orElse(() => null),
@@ -488,7 +496,7 @@ const isOperationSourceEnabled = (source: Operand): boolean =>
 		Match.orElse(() => true),
 	);
 
-export type OperationsByType = Record<OperationType, Operation | null>;
+export type OperationsByType = Record<OperationType, OperationWithLabel | null>;
 
 export const getOperations = (source: Operand, target: Operand): OperationsByType => {
 	if (operandEquals(source, target) || !isOperationSourceEnabled(source))
@@ -508,7 +516,7 @@ export const getOperation = (x: {
 	source: Operand;
 	target: Operand;
 	operationType: OperationType;
-}): Operation | null => {
+}): OperationWithLabel | null => {
 	const { combine, above, below } = getOperations(x.source, x.target);
 	return Match.value(x.operationType).pipe(
 		Match.when("combine", () => combine),

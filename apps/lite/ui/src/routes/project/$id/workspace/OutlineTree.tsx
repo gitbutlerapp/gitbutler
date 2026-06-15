@@ -680,11 +680,11 @@ export const OutlineTree: FC<
 	const dryRunOperation = Match.value(outlineMode).pipe(
 		Match.tag("Transfer", ({ value: mode }) =>
 			selection && mode.operationType !== null
-				? (getOperation({
+				? getOperation({
 						source: mode.source,
 						target: selection,
 						operationType: mode.operationType,
-					}) ?? undefined)
+					})?.operation
 				: undefined,
 		),
 		Match.orElse(() => undefined),

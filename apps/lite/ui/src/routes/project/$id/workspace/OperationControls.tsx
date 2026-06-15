@@ -7,7 +7,6 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { operationHotkeys } from "#ui/hotkeys.ts";
 import {
 	getOperations,
-	operationLabel,
 	useRunOperation,
 	type OperationType,
 	type OperationsByType,
@@ -237,7 +236,7 @@ const TransferTypeToggleGroup: FC<{
 					value={"above" satisfies OperationType}
 					render={<Tooltip.Trigger render={<ToggleStyles />} />}
 				>
-					{operations.above ? operationLabel(operations.above) : "Above"}
+					{operations.above?.label ?? "Above"}
 				</Toggle>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
@@ -253,7 +252,7 @@ const TransferTypeToggleGroup: FC<{
 					value={"combine" satisfies OperationType}
 					render={<Tooltip.Trigger render={<ToggleStyles />} />}
 				>
-					{operations.combine ? operationLabel(operations.combine) : "Combine"}
+					{operations.combine?.label ?? "Combine"}
 				</Toggle>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
@@ -269,7 +268,7 @@ const TransferTypeToggleGroup: FC<{
 					value={"below" satisfies OperationType}
 					render={<Tooltip.Trigger render={<ToggleStyles />} />}
 				>
-					{operations.below ? operationLabel(operations.below) : "Below"}
+					{operations.below?.label ?? "Below"}
 				</Toggle>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
@@ -298,7 +297,7 @@ const TransferOperationControls: FC<{
 
 		if (!operation) return;
 
-		runOperation(operation);
+		runOperation(operation.operation);
 	};
 
 	const cancel = () => {
