@@ -81,19 +81,19 @@ const lineGroupsFromChangeContent = (
 	...(content.deletions > 0
 		? [
 				{
-					side: "deletions" as const,
+					side: "deletions",
 					start: hunk.deletionStart + content.deletionLineIndex - hunk.deletionLineIndex,
 					lines: content.deletions,
-				},
+				} satisfies HunkLineSelectionGroup,
 			]
 		: []),
 	...(content.additions > 0
 		? [
 				{
-					side: "additions" as const,
+					side: "additions",
 					start: hunk.additionStart + content.additionLineIndex - hunk.additionLineIndex,
 					lines: content.additions,
-				},
+				} satisfies HunkLineSelectionGroup,
 			]
 		: []),
 ];
@@ -115,7 +115,7 @@ const rangeFromLineGroups = (
 };
 
 export const contiguousSelectionsFromHunk = (hunk: Hunk): Array<HunkLineSelection> =>
-	hunk.hunkContent.flatMap((content) => {
+	hunk.hunkContent.flatMap((content): HunkLineSelection | [] => {
 		if (content.type !== "change") return [];
 
 		const lineGroups = lineGroupsFromChangeContent(hunk, content);
@@ -152,7 +152,7 @@ export const diffSpecHunkHeadersForLineSelection = (
 	lineSelection: HunkLineSelection,
 	action: "commit" | "discard",
 ): Array<HunkHeader> =>
-	lineSelection.lineGroups.map((group) => {
+	lineSelection.lineGroups.map((group): HunkHeader => {
 		if (group.side === "deletions")
 			return {
 				oldStart: group.start,
