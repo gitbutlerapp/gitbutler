@@ -401,8 +401,12 @@ export const OperationControls: FC = () => {
 				headInfo && (
 					<Container>
 						<ControlsRow>
-							<Label>{operandLabel({ headInfo, operand: x.source })}</Label>
-							{absorptionPlanQuery.isPending && (
+							{absorptionPlanQuery.data ? (
+								<Label>
+									Absorb {operandLabel({ headInfo, operand: x.source })} into{" "}
+									{absorptionPlanQuery.data.length} commits
+								</Label>
+							) : (
 								<Icon name="spinner" aria-label="Loading absorb plan" />
 							)}
 							<AbsorbControls projectId={projectId} sourceTarget={x.sourceTarget} />
@@ -414,23 +418,31 @@ export const OperationControls: FC = () => {
 					Match.tags({
 						Keyboard: (mode) =>
 							selection &&
-							headInfo && (
-								<Container>
-									<TransferTypeToggleGroup
-										projectId={projectId}
-										operationType={mode.operationType}
-									/>
-									<Separator />
-									<ControlsRow>
-										<Label>{operandLabel({ headInfo, operand: mode.source })}</Label>
-										<TransferOperationControls
+							headInfo &&
+							(() => {
+								const operations = getOperations(mode.source, selection);
+								return (
+									<Container>
+										<TransferTypeToggleGroup
 											projectId={projectId}
-											operations={getOperations(mode.source, selection)}
 											operationType={mode.operationType}
 										/>
-									</ControlsRow>
-								</Container>
-							),
+										<Separator />
+										<ControlsRow>
+											<Label>
+												<div>Source: {operandLabel({ headInfo, operand: mode.source })}</div>
+												<div>{operations[mode.operationType]?.label}</div>
+												<div>Target: {operandLabel({ headInfo, operand: selection })}</div>
+											</Label>
+											<TransferOperationControls
+												projectId={projectId}
+												operations={operations}
+												operationType={mode.operationType}
+											/>
+										</ControlsRow>
+									</Container>
+								);
+							})(),
 					}),
 					Match.orElse(() => null),
 				),
