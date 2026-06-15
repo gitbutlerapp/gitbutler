@@ -26,7 +26,7 @@ export const OperationTooltip: FC<
 						});
 						if (!operation) return null;
 
-						return <>{operation.label}</>;
+						return operation.label;
 					},
 				}),
 				Match.orElse(() => null),
@@ -36,7 +36,7 @@ export const OperationTooltip: FC<
 	const trigger = useRender({ render, props });
 
 	return (
-		<Tooltip.Root open={!!tooltip} disableHoverablePopup>
+		<Tooltip.Root open={tooltip !== null} disableHoverablePopup>
 			<Tooltip.Trigger render={trigger} />
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={8} side="right">
