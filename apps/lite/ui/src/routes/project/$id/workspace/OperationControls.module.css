@@ -19,7 +19,26 @@
 }
 
 .toggleGroupRow {
-	align-self: center;
+	display: flex;
+}
+
+.toggleGroupRowToggle {
+	display: flex;
+	row-gap: 8px;
+	flex: 1;
+	flex-direction: column;
+	justify-content: end;
+	padding: 8px;
+	border-radius: var(--radius-m);
+	text-align: center;
+
+	&[data-pressed] {
+		background-color: var(--bg-2);
+	}
+}
+
+.operationLabel {
+	color: var(--text-2);
 }
 
 .separator {
