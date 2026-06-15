@@ -68,9 +68,14 @@ pub mod json {
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
     #[serde(rename_all = "camelCase")]
     pub struct ApplyOutcome {
-        /// Whether the workspace changed while applying the branch.
+        /// Whether `apply()` produced a new workspace graph.
+        ///
+        /// This can be true even when merge conflicts prevented the result from being persisted.
+        /// Use `applied_branches` to determine whether anything was persisted.
         pub workspace_changed: bool,
-        /// The branches that were actually applied.
+        /// The branches that were actually persisted into the workspace.
+        ///
+        /// This is empty when the branch was already present or when conflicts aborted the apply.
         pub applied_branches: Vec<crate::json::FullRefName>,
         /// Whether the workspace reference had to be created.
         pub workspace_ref_created: bool,
@@ -86,7 +91,7 @@ pub mod json {
                 applied_branches,
                 workspace_ref_created,
                 workspace_merge: _,
-                conflicting_stack_ids: _,
+                conflicting_stacks: _,
             } = value;
 
             ApplyOutcome {

@@ -16,6 +16,19 @@ pub fn apply(mut ctx: Context, branch_name: &str, out: &mut OutputChannel) -> an
         guard.write_permission(),
     )?;
 
+    if !outcome.conflicting_stacks.is_empty() {
+        let short_name = reference.name.shorten();
+        let conflicting_stack_names = outcome
+            .conflicting_stacks
+            .iter()
+            .map(|stack| stack.ref_name.shorten().to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        anyhow::bail!(
+            "'{short_name}' conflicts with existing stack in the workspace: {conflicting_stack_names}"
+        );
+    }
+
     if let Some(out) = out.for_human() {
         // Since `applied_branches` is the actual applied branches, turning remotes into local branches,
         // hack it into submission while the legacy version exists that it has to match.

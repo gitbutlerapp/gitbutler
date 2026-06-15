@@ -793,11 +793,11 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
         &mut meta,
         apply_options(),
     )?;
-    insta::assert_debug_snapshot!(out, @r#"
+    insta::assert_debug_snapshot!(out, "nothing was actually applied as the `main` branch is already in the workspace", @r#"
     Outcome {
         workspace_changed: false,
         workspace_ref_created: false,
-        applied_branches: "[refs/heads/main]",
+        applied_branches: "[]",
     }
     "#);
 
@@ -2767,7 +2767,7 @@ fn unapply_workspace_ref_refuses_conflicted_named_stack_checkout() -> anyhow::Re
     let ws = Graph::from_head(
         &repo,
         &meta,
-        but_core::ref_metadata::ProjectMeta::default(),
+        project_meta(&meta),
         standard_traversal_options(),
     )?
     .into_workspace()?;
@@ -3376,10 +3376,16 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
     Outcome {
         workspace_changed: true,
         workspace_ref_created: false,
-        applied_branches: "[refs/heads/conflict-hero]",
-        conflicting_stack_ids: [
-            1,
-            2,
+        applied_branches: "[]",
+        conflicting_stacks: [
+            ConflictingStack {
+                id: 1,
+                ref_name: "refs/heads/conflict-F1",
+            },
+            ConflictingStack {
+                id: 2,
+                ref_name: "refs/heads/conflict-F2",
+            },
         ],
     }
     "#);
@@ -3406,12 +3412,9 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
             └── ·34c4591 (🏘️)
     ");
     let conflicting_stacks = out
-        .conflicting_stack_ids
+        .conflicting_stacks
         .iter()
-        .filter_map(|id| {
-            ws.find_stack_by_id(*id)
-                .and_then(|s| s.ref_name().map(|rn| rn.to_string()))
-        })
+        .map(|stack| stack.ref_name.to_string())
         .collect::<Vec<_>>();
     assert_eq!(
         conflicting_stacks,
@@ -3434,9 +3437,15 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
         workspace_changed: true,
         workspace_ref_created: false,
         applied_branches: "[refs/heads/conflict-hero]",
-        conflicting_stack_ids: [
-            1,
-            2,
+        conflicting_stacks: [
+            ConflictingStack {
+                id: 1,
+                ref_name: "refs/heads/conflict-F1",
+            },
+            ConflictingStack {
+                id: 2,
+                ref_name: "refs/heads/conflict-F2",
+            },
         ],
     }
     "#);
@@ -3573,6 +3582,77 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
 }
 
 #[test]
+fn conflicting_apply_reports_no_applied_branches_and_names_conflicting_stacks() -> anyhow::Result<()>
+{
+    let (_tmp, graph, repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "one-fork-with-conflicting-sibling",
+            |_meta| {},
+        )?;
+    let graph_snapshot = visualize_commit_graph_all(&repo)?.replace("|/  ", "|/");
+    insta::assert_snapshot!(graph_snapshot, @r"
+    * bf53300 (A) add A
+    | * 543911c (add-A-too) add a different A
+    | * b1540e5 (HEAD -> main) M
+    |/
+    | * 0e391b2 (origin/B) add B
+    |/
+    * e31e6ca (origin/main, origin/HEAD) add init
+    ");
+
+    let ws = graph.into_workspace()?;
+    let out =
+        but_workspace::branch::apply(r("refs/heads/A"), &ws, &repo, &mut meta, apply_options())?;
+    let ws = out.workspace.into_owned();
+    insta::assert_snapshot!(graph_workspace(&ws), "A is applied before trying the conflicting sibling branch", @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e31e6ca
+    └── ≡📙:3:A on e31e6ca {41}
+        └── 📙:3:A
+            └── ·bf53300 (🏘️)
+    ");
+    let refs_before = visualize_commit_graph_all(&repo)?;
+    insta::assert_snapshot!(refs_before, @"
+    * 543911c (add-A-too) add a different A
+    * b1540e5 (main) M
+    | * 9f5b797 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * bf53300 (A) add A
+    |/  
+    | * 0e391b2 (origin/B) add B
+    |/  
+    * e31e6ca (origin/main, origin/HEAD) add init
+    ");
+
+    let out = but_workspace::branch::apply(
+        r("refs/heads/add-A-too"),
+        &ws,
+        &repo,
+        &mut meta,
+        apply_options(),
+    )?;
+    // The workspace is changed, notably, as it always passes the most recent projection.
+    insta::assert_snapshot!(sanitize_uuids_and_timestamps(format!("{out:#?}")), "a conflict-aborted apply must not report branches as applied", @r#"
+    Outcome {
+        workspace_changed: true,
+        workspace_ref_created: false,
+        applied_branches: "[]",
+        conflicting_stacks: [
+            ConflictingStack {
+                id: 1,
+                ref_name: "refs/heads/A",
+            },
+        ],
+    }
+    "#);
+    assert_eq!(
+        visualize_commit_graph_all(&repo)?,
+        refs_before,
+        "an aborting conflict must leave refs unchanged"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn unapply_with_workspace_merge_conflicts_always_works_as_conflicts_do_not_repeat_on_unapply()
 -> anyhow::Result<()> {
     let (_tmp, graph, repo, mut meta, _description) =
@@ -3697,11 +3777,11 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
         &mut meta,
         apply_options(),
     )?;
-    insta::assert_debug_snapshot!(out, @r#"
+    insta::assert_debug_snapshot!(out, "nothing actually changed, so nothing is mentioned", @r#"
     Outcome {
         workspace_changed: false,
         workspace_ref_created: false,
-        applied_branches: "[refs/heads/gitbutler/workspace]",
+        applied_branches: "[]",
     }
     "#);
 
@@ -3721,13 +3801,13 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
     └── ≡👉📙:3:B on e5d0542 {2}
         └── 👉📙:3:B
     ");
-    // Already applied (the HEAD points to it, it literally IS the workspace).
+    // Already applied (the HEAD points to it).
     let out = but_workspace::branch::apply(b_ref.as_ref(), &ws, &repo, &mut meta, apply_options())?;
-    insta::assert_debug_snapshot!(out, @r#"
+    insta::assert_debug_snapshot!(out, "no-ops aren't listing the already applied branches", @r#"
     Outcome {
         workspace_changed: false,
         workspace_ref_created: false,
-        applied_branches: "[refs/heads/B]",
+        applied_branches: "[]",
     }
     "#);
 
@@ -3781,7 +3861,7 @@ fn auto_checkout_of_enclosing_workspace_flat() -> anyhow::Result<()> {
     Outcome {
         workspace_changed: false,
         workspace_ref_created: false,
-        applied_branches: "[refs/heads/A]",
+        applied_branches: "[]",
     }
     "#);
 
@@ -3925,11 +4005,11 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
     // Apply the workspace ref itself, it's a no-op
     let ws_ref = r("refs/heads/gitbutler/workspace");
     let out = but_workspace::branch::apply(ws_ref, &ws, &repo, &mut meta, apply_options())?;
-    insta::assert_debug_snapshot!(out, @r#"
+    insta::assert_debug_snapshot!(out, "the workspace ref itself counts as no-op as well", @r#"
     Outcome {
         workspace_changed: false,
         workspace_ref_created: false,
-        applied_branches: "[refs/heads/gitbutler/workspace]",
+        applied_branches: "[]",
     }
     "#);
 
@@ -3958,7 +4038,7 @@ fn auto_checkout_of_enclosing_workspace_with_commits() -> anyhow::Result<()> {
     Outcome {
         workspace_changed: false,
         workspace_ref_created: false,
-        applied_branches: "[refs/heads/B]",
+        applied_branches: "[]",
     }
     "#);
 
@@ -4110,11 +4190,11 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
         &mut *meta,
         apply_options(),
     )?;
-    insta::assert_debug_snapshot!(out, @r#"
+    insta::assert_debug_snapshot!(out, "the HEAD is already at 'main', so nothing changes", @r#"
     Outcome {
         workspace_changed: false,
         workspace_ref_created: false,
-        applied_branches: "[refs/heads/main]",
+        applied_branches: "[]",
     }
     "#);
 
@@ -4127,11 +4207,11 @@ fn unborn_apply_needs_base() -> anyhow::Result<()> {
         &mut *meta,
         apply_options(),
     )?;
-    insta::assert_debug_snapshot!(out, @r#"
+    insta::assert_debug_snapshot!(out, "this won't happen (often) in the real world, but it's a no-op", @r#"
     Outcome {
         workspace_changed: false,
         workspace_ref_created: false,
-        applied_branches: "[refs/heads/main]",
+        applied_branches: "[]",
     }
     "#);
 

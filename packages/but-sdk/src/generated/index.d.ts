@@ -595,9 +595,18 @@ export type AppSettings = {
 
 /** JSON sibling of [`but_workspace::branch::apply::Outcome`]. */
 export type ApplyOutcome = {
-  /** Whether the workspace changed while applying the branch. */
+  /**
+   * Whether `apply()` produced a new workspace graph.
+   *
+   * This can be true even when merge conflicts prevented the result from being persisted.
+   * Use `applied_branches` to determine whether anything was persisted.
+   */
   workspaceChanged: boolean;
-  /** The branches that were actually applied. */
+  /**
+   * The branches that were actually persisted into the workspace.
+   *
+   * This is empty when the branch was already present or when conflicts aborted the apply.
+   */
   appliedBranches: Array<FullRefName>;
   /** Whether the workspace reference had to be created. */
   workspaceRefCreated: boolean;
