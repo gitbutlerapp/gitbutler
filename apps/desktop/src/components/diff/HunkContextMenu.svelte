@@ -30,6 +30,8 @@
 		trigger: HTMLElement | undefined;
 		projectId: string;
 		change: TreeChange;
+		stackId?: string;
+		commitId?: string;
 		discardable: boolean;
 		selectable: boolean;
 		selectAllHunkLines: (hunk: DiffHunk) => void;
@@ -41,6 +43,8 @@
 		trigger,
 		projectId,
 		change,
+		stackId,
+		commitId,
 		discardable,
 		selectable,
 		selectAllHunkLines,
@@ -49,11 +53,11 @@
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
+	const uiState = inject(UI_STATE);
 	const ircApiService = inject(IRC_API_SERVICE);
 	const projectService = inject(PROJECTS_SERVICE);
 	const urlService = inject(URL_SERVICE);
 
-	const uiState = inject(UI_STATE);
 	const defaultCodeEditor = uiState.global.defaultCodeEditor;
 
 	const filePath = $derived(change.path);
@@ -110,6 +114,32 @@
 		});
 	}
 
+	async function uncommitHunk(item: HunkContextItem) {
+		if (!(stackId && commitId)) return;
+
+		const previousPathBytes =
+			change.status.type === "Rename" ? change.status.subject.previousPathBytes : null;
+
+		unselectAllHunkLines(item.hunk);
+
+		const isWholeFileChange =
+			change.status.type === "Addition" || change.status.type === "Deletion";
+
+		await stackService.uncommitChanges({
+			projectId,
+			stackId,
+			commitId,
+			changes: [
+				{
+					previousPathBytes,
+					pathBytes: change.pathBytes,
+					hunkHeaders: isWholeFileChange ? [] : [item.hunk],
+				},
+			],
+			dryRun: false,
+		});
+	}
+
 	export function open(e: MouseEvent | HTMLElement | undefined, item: HunkContextItem) {
 		menuTarget = e;
 		menuItem = item;
@@ -156,6 +186,19 @@
 							}}
 						/>
 					{/if}
+				</ContextMenuSection>
+			{/if}
+			{#if stackId && commitId}
+				<ContextMenuSection>
+					<ContextMenuItem
+						testId={TestId.HunkContextMenu_UncommitChange}
+						label="Uncommit change"
+						icon="commit-undo"
+						onclick={async () => {
+							uncommitHunk(item);
+							menuOpen = false;
+						}}
+					/>
 				</ContextMenuSection>
 			{/if}
 			<ContextMenuSection>

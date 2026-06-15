@@ -113,6 +113,7 @@ export enum TestId {
 	HunkContextMenu_InvertSelection = "hunk-context-menu-invert-selection",
 	HunkContextMenu_DiscardChange = "hunk-context-menu-discard-change",
 	HunkContextMenu_DiscardLines = "hunk-context-menu-discard-lines",
+	HunkContextMenu_UncommitChange = "hunk-context-menu-uncommit-change",
 	HunkContextMenu_OpenInEditor = "hunk-context-menu-open-in-editor",
 	StackPushButton = "stack-push-button",
 	StackConfirmPushModalButton = "stack-confirm-push-modal-button",

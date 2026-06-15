@@ -603,13 +603,24 @@ export class StackService {
 		assignTo?: string;
 		dryRun: boolean;
 	}) {
-		return await this.backendApi.endpoints.commitUncommitChanges.mutate({
+		const result = await this.backendApi.endpoints.commitUncommitChanges.mutate({
 			projectId: args.projectId,
 			changes: args.changes,
 			commitId: args.commitId,
 			assignTo: args.assignTo,
 			dryRun: args.dryRun,
 		});
+
+		if (args.dryRun) return result;
+
+		const replacementCommit = result.workspace.replacedCommits[args.commitId];
+		const selection = this.uiState.lane(args.stackId).selection;
+
+		if (replacementCommit && selection.current?.commitId === args.commitId) {
+			selection.set({ ...selection.current, commitId: replacementCommit });
+		}
+
+		return result;
 	}
 
 	get stashIntoBranch() {
