@@ -16,6 +16,7 @@
 				"ui/src/css-modules.d.ts!",
 				"ui/src/electron.d.ts!",
 				"ui/src/react-css-properties.d.ts!",
+				"ui/src/components/ToggleGroup.tsx!",
 			],
 			"project": ["electron/src/**!", "ui/src/**!"],
 			"includeEntryExports": true,
