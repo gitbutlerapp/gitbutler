@@ -68,9 +68,8 @@ import {
 import {
 	getDependencyCommitIds,
 	getHunkDependencyDiffsByPath,
-	hunkContainsLine,
-	hunkHeaderFromHunk,
-	selectEntireHunk,
+	contiguousSelectionByLine,
+	contiguousSelectionsFromHunk,
 	synthesizeFilePatch,
 } from "#ui/hunk.ts";
 import { buildNavigationIndex, NavigationIndex } from "#ui/workspace/navigation-index.ts";
@@ -210,7 +209,7 @@ type BuildOut = {
 		{ item: CodeViewDiffItem; change: TreeChange; patch: UnifiedPatch | null }
 	>;
 	/**
-	 * Map from file operand identity key to the file's first hunk.
+	 * Map from file operand identity key to the file's first contiguous block hunk.
 	 */
 	initialFileHunks: Map<string, HunkOperand>;
 	/**
@@ -250,31 +249,33 @@ const build = ({ fileParent, changes, treeChangeDiffs, changesetKey }: BuildIn):
 
 		itemsMetadataMap.set(item.id, { item, change, patch: mdiff ?? null });
 
-		if (mdiff?.type === "Patch")
-			for (const [hi, hunk] of item.fileDiff.hunks.entries()) {
-				const file: FileOperand = {
-					parent: fileParent,
-					path: change.path,
-				};
-				const fileKey = fileOperandIdentityKey(file);
+		if (mdiff?.type === "Patch") {
+			const file: FileOperand = {
+				parent: fileParent,
+				path: change.path,
+			};
+			const fileKey = fileOperandIdentityKey(file);
 
-				const hunkOperand: HunkOperand = {
-					parent: file,
-					hunkHeader: hunkHeaderFromHunk(hunk),
-					isResultOfBinaryToTextConversion: mdiff.subject.isResultOfBinaryToTextConversion,
-				};
-				const hunkKey = hunkOperandIdentityKey(hunkOperand);
+			for (const hunk of item.fileDiff.hunks)
+				for (const selection of contiguousSelectionsFromHunk(hunk)) {
+					const hunkOperand: HunkOperand = {
+						parent: file,
+						...selection,
+						isResultOfBinaryToTextConversion: mdiff.subject.isResultOfBinaryToTextConversion,
+					};
+					const hunkKey = hunkOperandIdentityKey(hunkOperand);
 
-				const len = navigationIndex.items.push(hunkOperand);
-				navigationIndex.indexByKey.set(hunkKey, len - 1);
+					const len = navigationIndex.items.push(hunkOperand);
+					navigationIndex.indexByKey.set(hunkKey, len - 1);
 
-				if (hi === 0) initialFileHunks.set(fileKey, hunkOperand);
+					if (!initialFileHunks.has(fileKey)) initialFileHunks.set(fileKey, hunkOperand);
 
-				selectedRangeByHunk.set(hunkKey, {
-					id: item.id,
-					range: selectEntireHunk(hunk),
-				});
-			}
+					selectedRangeByHunk.set(hunkKey, {
+						id: item.id,
+						range: hunkOperand.range,
+					});
+				}
+		}
 	}
 
 	return {
@@ -360,7 +361,7 @@ const DiffContents: FC<{
 		});
 	};
 
-	// We currently only support selecting entire hunks in a unified view.
+	// We currently only support selecting contiguous blocks.
 	const handleLinesSelected = (sel: CodeViewLineSelection | null): void => {
 		if (!sel) return void dispatch(projectActions.selectDiff({ projectId, selection: null }));
 
@@ -368,15 +369,16 @@ const DiffContents: FC<{
 		if (!itemBySel) throw new Error("Missing item ID in metadata map");
 		if (itemBySel.patch?.type !== "Patch") throw new Error("Selected hunk has no patch metadata");
 
-		const hunk = itemBySel.item.fileDiff.hunks.find((hunk) =>
-			hunkContainsLine(
-				hunk,
-				// The end range is more reliable in shift+click with preexisting selection scenarios.
-				sel.range.end,
-				sel.range.endSide ?? sel.range.side ?? "additions",
-			),
-		);
-		if (!hunk) throw new Error("No hunk found for selected range");
+		const side = sel.range.endSide ?? sel.range.side;
+		if (side === undefined) return;
+
+		const selection = contiguousSelectionByLine({
+			hunks: itemBySel.item.fileDiff.hunks,
+			// The end range is more reliable in shift+click with preexisting selection scenarios.
+			line: sel.range.end,
+			side,
+		});
+		if (!selection) return;
 
 		dispatch(
 			projectActions.selectDiff({
@@ -386,7 +388,7 @@ const DiffContents: FC<{
 						parent: fileParent,
 						path: itemBySel.change.path,
 					},
-					hunkHeader: hunkHeaderFromHunk(hunk),
+					...selection,
 					isResultOfBinaryToTextConversion:
 						itemBySel.patch.subject.isResultOfBinaryToTextConversion,
 				},

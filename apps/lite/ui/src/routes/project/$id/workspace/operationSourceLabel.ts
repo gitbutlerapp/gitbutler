@@ -3,7 +3,6 @@ import { commitTitle, shortCommitId } from "#ui/commit.ts";
 import { Match } from "effect";
 import { type RefInfo } from "@gitbutler/but-sdk";
 import { Operand } from "#ui/operands.ts";
-import { formatHunkHeader } from "#ui/hunk.ts";
 import { assert } from "#ui/assert.ts";
 
 export const operationSourceLabel = ({
@@ -28,6 +27,9 @@ export const operationSourceLabel = ({
 					: shortCommitId(commitId);
 			},
 			Stack: () => "Stack",
-			Hunk: ({ hunkHeader }) => `Hunk ${formatHunkHeader(hunkHeader)}`,
+			Hunk: ({ lineGroups }) => {
+				const count = lineGroups.reduce((sum, group) => sum + group.lines, 0);
+				return `${count} changed line${count !== 1 ? "s" : ""}`;
+			},
 		}),
 	);

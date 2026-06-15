@@ -12,6 +12,7 @@ import {
 	WorktreeChanges,
 } from "@gitbutler/but-sdk";
 import { Match } from "effect";
+import { diffSpecHunkHeadersForLineSelection } from "#ui/hunk.ts";
 
 export const createDiffSpec = (change: TreeChange, hunkHeaders: Array<HunkHeader>): DiffSpec => ({
 	pathBytes: change.pathBytes,
@@ -58,7 +59,8 @@ const resolvedDiffSpecsFromOperand = ({
 				const changes = worktreeChanges.changes.map((change) => createDiffSpec(change, []));
 				return changes;
 			},
-			Hunk: ({ parent, hunkHeader }) => {
+			Hunk: (lineSelection) => {
+				const { parent } = lineSelection;
 				const changes = Match.value(parent.parent).pipe(
 					Match.tagsExhaustive({
 						Changes: () => worktreeChanges?.changes,
@@ -71,7 +73,12 @@ const resolvedDiffSpecsFromOperand = ({
 				const change = changes.find((candidate) => candidate.path === parent.path);
 				if (!change) return null;
 
-				return [createDiffSpec(change, [hunkHeader])];
+				const hunkHeaders = diffSpecHunkHeadersForLineSelection(
+					lineSelection,
+					parent.parent._tag === "Changes" ? "commit" : "discard",
+				);
+
+				return [createDiffSpec(change, hunkHeaders)];
 			},
 		}),
 		Match.orElse(() => null),

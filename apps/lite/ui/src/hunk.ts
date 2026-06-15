@@ -1,16 +1,17 @@
 /**
  * @file We have two representations of hunks: `Hunk` from Pierre, and the assorted hunk types from
  * the SDK.
+ *
+ * When a selection does not exactly match the original SDK hunk it may need to be sent back as
+ * multiple synthetic hunk headers: selected additions and deletions are separate headers, ordered
+ * by their position in the diff, with context lines omitted.
  */
 
 import type { DiffHunk, HunkDependencies, HunkHeader, TreeChange } from "@gitbutler/but-sdk";
-import type { Hunk, SelectedLineRange, SelectionSide } from "@pierre/diffs";
+import type { ChangeContent, Hunk, SelectedLineRange, SelectionSide } from "@pierre/diffs";
 import { Array, Match } from "effect";
 
 type HunkDependencyDiff = HunkDependencies["diffs"][number];
-
-export const formatHunkHeader = (hunk: HunkHeader): string =>
-	`-${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines}`;
 
 const hunkContainsHunk = (a: HunkHeader, b: HunkHeader): boolean =>
 	a.oldStart <= b.oldStart &&
@@ -51,50 +52,122 @@ export const getDependencyCommitIds = ({
 	return Array.isNonEmptyArray(dependencyCommitIds) ? dependencyCommitIds : undefined;
 };
 
-export const hunkHeaderFromHunk = (hunk: Hunk): HunkHeader => ({
+const hunkHeaderFromHunk = (hunk: Hunk): HunkHeader => ({
 	oldStart: hunk.deletionStart,
 	oldLines: hunk.deletionCount,
 	newStart: hunk.additionStart,
 	newLines: hunk.additionCount,
 });
 
-export const hunkContainsLine = (hunk: Hunk, line: number, side: SelectionSide): boolean => {
-	const start = side === "deletions" ? hunk.deletionStart : hunk.additionStart;
-	const count = side === "deletions" ? hunk.deletionCount : hunk.additionCount;
-
-	return line >= start && line < start + count;
+export type HunkLineSelectionGroup = {
+	side: SelectionSide;
+	start: number;
+	lines: number;
 };
 
-export const selectEntireHunk = (hunk: Hunk): SelectedLineRange => {
-	if (hunk.deletionCount > 0 && hunk.additionCount > 0) {
-		const lastContent = hunk.hunkContent.at(-1);
-		const startsWithAddition =
-			hunk.hunkContent[0]?.type === "change" && hunk.hunkContent[0].deletions === 0;
-		const endsWithDeletion = lastContent?.type === "change" && lastContent.additions === 0;
+export type HunkLineSelection = {
+	/** The full parsed hunk containing the selected line groups. */
+	hunkHeader: HunkHeader;
+	/** Changed-line groups covered by the single visual range, in hunk order. */
+	lineGroups: Array<HunkLineSelectionGroup>;
+	/** The single CodeView selection range to show for this selection. */
+	range: SelectedLineRange;
+};
 
-		return {
-			start: startsWithAddition ? hunk.additionStart : hunk.deletionStart,
-			side: startsWithAddition ? "additions" : "deletions",
-			end: endsWithDeletion
-				? hunk.deletionStart + hunk.deletionCount - 1
-				: hunk.additionStart + hunk.additionCount - 1,
-			endSide: endsWithDeletion ? "deletions" : "additions",
-		};
-	}
+const lineGroupsFromChangeContent = (
+	hunk: Hunk,
+	content: ChangeContent,
+): Array<HunkLineSelectionGroup> => [
+	...(content.deletions > 0
+		? [
+				{
+					side: "deletions",
+					start: hunk.deletionStart + content.deletionLineIndex - hunk.deletionLineIndex,
+					lines: content.deletions,
+				} satisfies HunkLineSelectionGroup,
+			]
+		: []),
+	...(content.additions > 0
+		? [
+				{
+					side: "additions",
+					start: hunk.additionStart + content.additionLineIndex - hunk.additionLineIndex,
+					lines: content.additions,
+				} satisfies HunkLineSelectionGroup,
+			]
+		: []),
+];
 
-	if (hunk.deletionCount > 0)
-		return {
-			start: hunk.deletionStart,
-			side: "deletions",
-			end: hunk.deletionStart + hunk.deletionCount - 1,
-		};
-
-	return {
-		start: hunk.additionStart,
-		side: "additions",
-		end: hunk.additionStart + hunk.additionCount - 1,
+const rangeFromLineGroups = (
+	lineGroups: Array.NonEmptyArray<HunkLineSelectionGroup>,
+): SelectedLineRange => {
+	const first = Array.headNonEmpty(lineGroups);
+	const last = Array.lastNonEmpty(lineGroups);
+	const range: SelectedLineRange = {
+		start: first.start,
+		side: first.side,
+		end: last.start + last.lines - 1,
 	};
+
+	if (last.side !== first.side) range.endSide = last.side;
+
+	return range;
 };
+
+export const contiguousSelectionsFromHunk = (hunk: Hunk): Array<HunkLineSelection> =>
+	hunk.hunkContent.flatMap((content): HunkLineSelection | [] => {
+		if (content.type !== "change") return [];
+
+		const lineGroups = lineGroupsFromChangeContent(hunk, content);
+		if (!Array.isNonEmptyArray(lineGroups)) return [];
+
+		return {
+			hunkHeader: hunkHeaderFromHunk(hunk),
+			lineGroups,
+			range: rangeFromLineGroups(lineGroups),
+		};
+	});
+
+export const contiguousSelectionByLine = ({
+	hunks,
+	line,
+	side,
+}: {
+	hunks: Array<Hunk>;
+	line: number;
+	side: SelectionSide;
+}): HunkLineSelection | null => {
+	for (const hunk of hunks)
+		for (const sel of contiguousSelectionsFromHunk(hunk)) {
+			const containsChangedLine = sel.lineGroups.some(
+				(group) => group.side === side && line >= group.start && line < group.start + group.lines,
+			);
+			if (containsChangedLine) return sel;
+		}
+
+	return null;
+};
+
+export const diffSpecHunkHeadersForLineSelection = (
+	lineSelection: HunkLineSelection,
+	action: "commit" | "discard",
+): Array<HunkHeader> =>
+	lineSelection.lineGroups.map((group): HunkHeader => {
+		if (group.side === "deletions")
+			return {
+				oldStart: group.start,
+				oldLines: group.lines,
+				newStart: action === "commit" ? 0 : lineSelection.hunkHeader.newStart,
+				newLines: action === "commit" ? 0 : lineSelection.hunkHeader.newLines,
+			};
+
+		return {
+			oldStart: action === "commit" ? 0 : lineSelection.hunkHeader.oldStart,
+			oldLines: action === "commit" ? 0 : lineSelection.hunkHeader.oldLines,
+			newStart: group.start,
+			newLines: group.lines,
+		};
+	});
 
 const lineEndingForDiff = (diff: string): string => (diff.includes("\r\n") ? "\r\n" : "\n");
 
@@ -153,5 +226,5 @@ const patchHeaderForChange = (change: TreeChange, lineEnding: string): string =>
 export const synthesizeFilePatch = (change: TreeChange, hunks: Array<DiffHunk>): string => {
 	const lineEnding = lineEndingForDiff(hunks[0]?.diff ?? "");
 	const header = patchHeaderForChange(change, lineEnding);
-	return [header, ...hunks.map((hunk) => hunk.diff)].join(lineEnding);
+	return header + hunks.map((hunk) => hunk.diff).join("");
 };
