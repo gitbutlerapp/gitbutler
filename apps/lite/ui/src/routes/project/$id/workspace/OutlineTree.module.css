@@ -37,7 +37,7 @@
 	flex-direction: column;
 }
 
-.segmentParentItemRow:last-child {
+.segmentParentItemRow {
 	height: 8px;
 	min-height: auto;
 	overflow: hidden;
