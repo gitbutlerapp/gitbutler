@@ -191,27 +191,27 @@ const TransferTypeToggleGroup: FC<{
 
 	useHotkeys([
 		{
-			hotkey: operationHotkeys.selectMoveAbove.hotkey,
-			callback: () => setOperationType("moveAbove"),
+			hotkey: operationHotkeys.selectAbove.hotkey,
+			callback: () => setOperationType("above"),
 			options: {
 				conflictBehavior: "allow",
-				meta: operationHotkeys.selectMoveAbove.meta,
+				meta: operationHotkeys.selectAbove.meta,
 			},
 		},
 		{
-			hotkey: operationHotkeys.selectSquash.hotkey,
-			callback: () => setOperationType("squash"),
+			hotkey: operationHotkeys.selectCombine.hotkey,
+			callback: () => setOperationType("combine"),
 			options: {
 				conflictBehavior: "allow",
-				meta: operationHotkeys.selectSquash.meta,
+				meta: operationHotkeys.selectCombine.meta,
 			},
 		},
 		{
-			hotkey: operationHotkeys.selectMoveBelow.hotkey,
-			callback: () => setOperationType("moveBelow"),
+			hotkey: operationHotkeys.selectBelow.hotkey,
+			callback: () => setOperationType("below"),
 			options: {
 				conflictBehavior: "allow",
-				meta: operationHotkeys.selectMoveBelow.meta,
+				meta: operationHotkeys.selectBelow.meta,
 			},
 		},
 	]);
@@ -234,15 +234,15 @@ const TransferTypeToggleGroup: FC<{
 		>
 			<Tooltip.Root>
 				<Toggle
-					value={"moveAbove" satisfies OperationType}
+					value={"above" satisfies OperationType}
 					render={<Tooltip.Trigger render={<ToggleStyles />} />}
 				>
-					{operations.moveAbove ? operationLabel(operations.moveAbove) : "Move above"}
+					{operations.above ? operationLabel(operations.above) : "Above"}
 				</Toggle>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectMoveAbove.hotkey} />}>
-							{operationHotkeys.selectMoveAbove.meta.name}
+						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectAbove.hotkey} />}>
+							{operationHotkeys.selectAbove.meta.name}
 						</Tooltip.Popup>
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
@@ -250,15 +250,15 @@ const TransferTypeToggleGroup: FC<{
 
 			<Tooltip.Root>
 				<Toggle
-					value={"squash" satisfies OperationType}
+					value={"combine" satisfies OperationType}
 					render={<Tooltip.Trigger render={<ToggleStyles />} />}
 				>
-					{operations.squash ? operationLabel(operations.squash) : "Squash"}
+					{operations.combine ? operationLabel(operations.combine) : "Combine"}
 				</Toggle>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectSquash.hotkey} />}>
-							{operationHotkeys.selectSquash.meta.name}
+						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectCombine.hotkey} />}>
+							{operationHotkeys.selectCombine.meta.name}
 						</Tooltip.Popup>
 					</Tooltip.Positioner>
 				</Tooltip.Portal>
@@ -266,15 +266,15 @@ const TransferTypeToggleGroup: FC<{
 
 			<Tooltip.Root>
 				<Toggle
-					value={"moveBelow" satisfies OperationType}
+					value={"below" satisfies OperationType}
 					render={<Tooltip.Trigger render={<ToggleStyles />} />}
 				>
-					{operations.moveBelow ? operationLabel(operations.moveBelow) : "Move below"}
+					{operations.below ? operationLabel(operations.below) : "Below"}
 				</Toggle>
 				<Tooltip.Portal>
 					<Tooltip.Positioner sideOffset={4}>
-						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectMoveBelow.hotkey} />}>
-							{operationHotkeys.selectMoveBelow.meta.name}
+						<Tooltip.Popup render={<TooltipPopup kbd={operationHotkeys.selectBelow.hotkey} />}>
+							{operationHotkeys.selectBelow.meta.name}
 						</Tooltip.Popup>
 					</Tooltip.Positioner>
 				</Tooltip.Portal>

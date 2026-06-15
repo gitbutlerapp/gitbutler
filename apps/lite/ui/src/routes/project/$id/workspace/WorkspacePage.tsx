@@ -427,7 +427,7 @@ const outlineNavigationItems = (headInfo: RefInfo | undefined): Array<Operand> =
 
 const hasAnyOperation = (source: Operand, target: Operand) => {
 	const operations = getOperations(source, target);
-	return !!operations.squash || !!operations.moveAbove || !!operations.moveBelow;
+	return !!operations.combine || !!operations.above || !!operations.below;
 };
 
 const useOutlineNavigationIndex = ({

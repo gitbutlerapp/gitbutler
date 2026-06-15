@@ -350,7 +350,7 @@ export const useNavigationIndexHotkeys = <T>({
 	useHotkeys([
 		{
 			hotkey: selectionOperationHotkeys.move.hotkey,
-			callback: () => enterTransferModeForSelection("moveAbove"),
+			callback: () => enterTransferModeForSelection("above"),
 			options: {
 				conflictBehavior: "allow",
 				enabled: operationEnabled,
@@ -360,7 +360,7 @@ export const useNavigationIndexHotkeys = <T>({
 		},
 		{
 			hotkey: selectionOperationHotkeys.cut.hotkey,
-			callback: () => enterTransferModeForSelection("squash"),
+			callback: () => enterTransferModeForSelection("combine"),
 			options: {
 				conflictBehavior: "allow",
 				enabled: operationEnabled,
@@ -371,7 +371,7 @@ export const useNavigationIndexHotkeys = <T>({
 		},
 		{
 			hotkey: selectionOperationHotkeys.squash.hotkey,
-			callback: () => enterTransferModeForSelection("squash"),
+			callback: () => enterTransferModeForSelection("combine"),
 			options: {
 				conflictBehavior: "allow",
 				enabled: operationEnabled,

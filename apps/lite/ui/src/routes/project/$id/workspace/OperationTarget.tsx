@@ -32,9 +32,9 @@ const getOperationTypeFromData = (data: DropData): OperationType | null => {
 
 	return Match.value(instruction.operation).pipe(
 		Match.withReturnType<OperationType>(),
-		Match.when("combine", () => "squash"),
-		Match.when("reorder-before", () => "moveAbove"),
-		Match.when("reorder-after", () => "moveBelow"),
+		Match.when("combine", () => "combine"),
+		Match.when("reorder-before", () => "above"),
+		Match.when("reorder-after", () => "below"),
 		Match.exhaustive,
 	);
 };
@@ -56,16 +56,16 @@ const useOperationDropTarget = ({
 		const dragData = parseDragData(source.data);
 		if (!dragData) return {};
 
-		const { squash, moveAbove, moveBelow } = getOperations(dragData.source, target);
+		const { combine, above, below } = getOperations(dragData.source, target);
 		return attachInstruction(
 			{},
 			{
 				input,
 				element,
 				operations: {
-					"reorder-before": moveAbove ? "available" : "not-available",
-					"reorder-after": moveBelow ? "available" : "not-available",
-					combine: squash ? "available" : "not-available",
+					"reorder-before": above ? "available" : "not-available",
+					"reorder-after": below ? "available" : "not-available",
+					combine: combine ? "available" : "not-available",
 				},
 			},
 		);
@@ -151,7 +151,7 @@ export const OperationTarget: FC<
 
 	const insertTargetOperationType = Match.value(outlineMode).pipe(
 		Match.tag("Transfer", ({ value: mode }) =>
-			isSelected && (mode.operationType === "moveAbove" || mode.operationType === "moveBelow")
+			isSelected && (mode.operationType === "above" || mode.operationType === "below")
 				? mode.operationType
 				: null,
 		),
@@ -162,7 +162,7 @@ export const OperationTarget: FC<
 		Match.tags({
 			Absorb: () => isAbsorptionTarget,
 			Transfer: ({ value: mode }) =>
-				isSelected && mode.operationType === "squash" && !operandEquals(mode.source, target),
+				isSelected && mode.operationType === "combine" && !operandEquals(mode.source, target),
 		}),
 		Match.orElse(() => false),
 	);
@@ -194,8 +194,8 @@ export const OperationTarget: FC<
 						pipe(
 							insertTargetOperationType,
 							Match.value,
-							Match.when("moveAbove", () => styles.insertionTargetAbove),
-							Match.when("moveBelow", () => styles.insertionTargetBelow),
+							Match.when("above", () => styles.insertionTargetAbove),
+							Match.when("below", () => styles.insertionTargetBelow),
 							Match.exhaustive,
 						),
 					)}
