@@ -312,8 +312,7 @@ fn apply_merge_commit_changes_outcome(
         commit.tree = write_conflicted_tree(
             repo,
             outcome.tree_id,
-            conflict.base_tree_ids,
-            conflict.side_tree_ids,
+            &conflict.tree_expression,
             &conflict.conflict_entries,
         )?;
         commit.message = add_conflict_markers(BStr::new(&message));

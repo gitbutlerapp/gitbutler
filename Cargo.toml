@@ -311,6 +311,7 @@ unicode-segmentation = "1.13.2"
 urlencoding = "2.1"
 inventory = "0.3"
 git-meta-lib = { git = "https://github.com/git-meta/git-meta", rev = "b40c108514a992abea2f739889376334481af1a3" }
+smallvec = "1.15.1"
 
 [patch.crates-io]
 # Keep workspace crates that use the `gix 0.84` line on the same git revision.

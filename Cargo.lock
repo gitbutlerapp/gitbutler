@@ -1103,6 +1103,7 @@ dependencies = [
  "schemars 1.2.1",
  "serde",
  "serde_json",
+ "smallvec",
  "tempfile",
  "toml 0.9.12+spec-1.1.0",
  "tracing",

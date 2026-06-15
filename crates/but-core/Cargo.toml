@@ -38,6 +38,7 @@ gix = { workspace = true, features = [
     "status",
     "merge",
 ] }
+smallvec.workspace = true
 # for V1 conflict commits
 toml.workspace = true
 chardetng = "0.1.17"

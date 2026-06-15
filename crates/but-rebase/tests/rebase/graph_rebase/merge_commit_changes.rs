@@ -163,11 +163,11 @@ fn reports_conflicts() -> Result<()> {
         .conflict
         .expect("conflicting merge should report conflict metadata");
     assert_eq!(
-        conflict.base_tree_ids,
+        conflict.tree_expression.base_tree_ids,
         vec![repo.rev_parse_single("A~1^{tree}")?.detach()]
     );
     assert_eq!(
-        conflict.side_tree_ids,
+        conflict.tree_expression.side_tree_ids.into_vec(),
         vec![
             repo.rev_parse_single("A^{tree}")?.detach(),
             repo.rev_parse_single("B^{tree}")?.detach()
