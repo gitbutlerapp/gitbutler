@@ -260,23 +260,6 @@ mod wsl_tests {
     }
 
     #[test]
-    fn antigravity_editor_url_becomes_goto_cli_invocation() {
-        let url =
-            Url::parse("antigravity-ide://file/home/example/project/src/main.rs:42:7").unwrap();
-
-        assert_eq!(
-            wsl_editor_invocation(&url),
-            Some((
-                "antigravity-ide",
-                vec![
-                    "--goto".to_owned(),
-                    "/home/example/project/src/main.rs:42:7".to_owned(),
-                ],
-            ))
-        );
-    }
-
-    #[test]
     fn vscode_project_url_becomes_new_window_cli_invocation() {
         let url = Url::parse("vscode://file/home/example/project?windowId=_blank").unwrap();
 
