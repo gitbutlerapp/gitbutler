@@ -11,11 +11,8 @@ import { decodeBytes } from "#ui/api/bytes.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
 	branchFileParent,
-	branchOperand,
 	changesFileParent,
-	changesSectionOperand,
 	commitFileParent,
-	commitOperand,
 	FileOperand,
 	fileOperand,
 	hunkOperand,
@@ -496,18 +493,12 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 const Header: FC<{
 	projectId: string;
 	selection: Operand;
-}> = ({ projectId, selection }) => {
-	const dispatch = useAppDispatch();
-	const selectOutlineSource = (source: Operand) => {
-		dispatch(projectActions.selectOutline({ projectId, selection: source }));
-	};
-
-	return Match.value(selection).pipe(
+}> = ({ projectId, selection }) =>
+	Match.value(selection).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
-			Branch: ({ stackId, branchRef }) => {
+			Branch: ({ branchRef }) => {
 				const decodedBranchRef = decodeBytes(branchRef);
-				const source = branchOperand({ stackId, branchRef });
 
 				return (
 					<SuspenseQuery
@@ -519,63 +510,43 @@ const Header: FC<{
 						})}
 					>
 						{({ data: branchDetails }) => (
-							<OperationSourceC
-								projectId={projectId}
-								source={source}
-								onDragStart={() => selectOutlineSource(source)}
-								render={<header className={styles.header} />}
-							>
+							<header className={styles.header}>
 								<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
 								{branchDetails.prNumber != null && (
 									<div className={classes("text-13", "text-bold", styles.pr)}>
 										PR #{branchDetails.prNumber}
 									</div>
 								)}
-							</OperationSourceC>
+							</header>
 						)}
 					</SuspenseQuery>
 				);
 			},
 			ChangesSection: () => (
-				<OperationSourceC
-					projectId={projectId}
-					source={changesSectionOperand}
-					onDragStart={() => selectOutlineSource(changesSectionOperand)}
-					render={<header className={styles.header} />}
-				>
+				<header className={styles.header}>
 					<h3 className={classes("text-14", "text-semibold")}>Changes</h3>
-				</OperationSourceC>
+				</header>
 			),
 			File: () => null,
-			Commit: ({ commitId, stackId }) => {
-				const source = commitOperand({ stackId, commitId });
-
-				return (
-					<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
-						{({ data: commitDetails }) => (
-							<OperationSourceC
-								projectId={projectId}
-								source={source}
-								onDragStart={() => selectOutlineSource(source)}
-								render={<header className={styles.header} />}
-							>
-								<Icon name="commit" />
-								<h3 className={classes("text-14", "text-semibold")}>
-									{commitTitle(commitDetails.commit.message) ?? "(no message)"}
-									{commitDetails.commit.hasConflicts && " ⚠️"}
-								</h3>
-								<span className={classes("text-13", styles.commitMeta)}>
-									#{shortCommitId(commitDetails.commit.id)}
-								</span>
-							</OperationSourceC>
-						)}
-					</SuspenseQuery>
-				);
-			},
+			Commit: ({ commitId }) => (
+				<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
+					{({ data: commitDetails }) => (
+						<header className={styles.header}>
+							<Icon name="commit" />
+							<h3 className={classes("text-14", "text-semibold")}>
+								{commitTitle(commitDetails.commit.message) ?? "(no message)"}
+								{commitDetails.commit.hasConflicts && " ⚠️"}
+							</h3>
+							<span className={classes("text-13", styles.commitMeta)}>
+								#{shortCommitId(commitDetails.commit.id)}
+							</span>
+						</header>
+					)}
+				</SuspenseQuery>
+			),
 			Hunk: () => null,
 		}),
 	);
-};
 
 const FilesToggle: FC = () => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
