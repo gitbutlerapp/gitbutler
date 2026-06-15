@@ -382,6 +382,35 @@ const squashOperation = ({
 		Match.orElse(() => null),
 	);
 
+const combineOperation = ({
+	source,
+	target,
+}: {
+	source: Operand;
+	target: Operand;
+}): OperationWithLabel | null => {
+	const squash = squashOperation({ source, target });
+	if (squash) return squash;
+
+	return Match.value({ source, target }).pipe(
+		Match.when(
+			{
+				source: { _tag: "Commit" },
+				target: { _tag: "Branch" },
+			},
+			({ source, target }): OperationWithLabel => ({
+				operation: commitMoveOperation({
+					subjectCommitIds: [source.commitId],
+					relativeTo: { type: "referenceBytes", subject: target.branchRef },
+					side: "below",
+				}),
+				label: "Move here",
+			}),
+		),
+		Match.orElse(() => null),
+	);
+};
+
 const moveOperation = ({
 	source,
 	target,
@@ -506,7 +535,7 @@ export const getOperations = (source: Operand, target: Operand): OperationsByTyp
 			below: null,
 		};
 	return {
-		combine: squashOperation({ source, target }),
+		combine: combineOperation({ source, target }),
 		above: moveOperation({ source, target, side: "above" }),
 		below: moveOperation({ source, target, side: "below" }),
 	};
