@@ -11,7 +11,6 @@ use crate::{
     },
 };
 
-#[cfg(all(feature = "legacy", feature = "but-2"))]
 pub mod experimental;
 
 /// Default value for a confirmation prompt.
@@ -123,7 +122,7 @@ impl OutputChannel {
 }
 
 /// An [`std::fmt::Write`] implementation that supports additional utility methods for output formatting.
-pub trait WriteWithUtils: std::fmt::Write + 'static {
+pub trait WriteWithUtils: std::fmt::Write {
     /// Truncate the given text to the specified maximum width, unless the output is passed through a pager
     /// or the output format opts out of truncation.
     ///

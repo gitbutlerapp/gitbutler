@@ -38,7 +38,7 @@ pub(super) fn render_app(app: &App, frame: &mut Frame) {
         Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).split(frame.area());
     let main_content_area = content_layout[0];
 
-    let (main_content_area, debug_area) = if app.options.debug {
+    let (main_content_area, debug_area) = if app.launch_options.debug {
         let layout = Layout::horizontal([Constraint::Percentage(70), Constraint::Percentage(30)])
             .split(main_content_area);
         (layout[0], Some(layout[1]))
@@ -382,7 +382,11 @@ fn render_status_list_item_with_stack_highlight(
         line.extend([Span::raw("<< discard >>").black().on_red(), Span::raw(" ")]);
     } else if is_selected {
         match &*app.mode {
-            Mode::Normal(..) | Mode::InlineReword(..) | Mode::Command(..) | Mode::Details(..) => {}
+            Mode::Normal(..)
+            | Mode::PickChanges(..)
+            | Mode::InlineReword(..)
+            | Mode::Command(..)
+            | Mode::Details(..) => {}
             Mode::Rub(RubMode {
                 source,
                 how_to_combine_messages,
@@ -428,6 +432,7 @@ fn render_status_list_item_with_stack_highlight(
     } else {
         match &*app.mode {
             Mode::Normal(..)
+            | Mode::PickChanges(..)
             | Mode::InlineReword(..)
             | Mode::Command(..)
             | Mode::Details(..)
@@ -557,6 +562,7 @@ fn render_status_list_item_with_stack_highlight(
             }
         }
         Mode::Normal(..)
+        | Mode::PickChanges(..)
         | Mode::Details(..)
         | Mode::Move(..)
         | Mode::Stack(..)
@@ -647,6 +653,7 @@ fn render_status_list_item_with_stack_highlight(
                 }
             }
             Mode::Normal(..)
+            | Mode::PickChanges(..)
             | Mode::Details(..)
             | Mode::Rub(..)
             | Mode::Stack(..)
@@ -829,6 +836,7 @@ fn render_hotbar(app: &App, area: Rect, frame: &mut Frame) {
 
     match &*app.mode {
         Mode::Normal(..)
+        | Mode::PickChanges(..)
         | Mode::Details(..)
         | Mode::Rub(..)
         | Mode::Commit(..)

@@ -25,6 +25,11 @@ pub(super) fn default_key_binds() -> KeyBinds {
             ModeDiscriminant::Normal => {
                 register_normal_mode_key_binds(&mut builder, true);
             }
+            ModeDiscriminant::PickChanges => {
+                builder.mark().register();
+                builder.confirm_and_quit().register();
+                register_non_mode_specific_key_binds(&mut builder);
+            }
             ModeDiscriminant::Rub => {
                 builder.rub_confirm().register();
                 builder.rub_use_target_message().register();
@@ -695,6 +700,15 @@ impl KeyBindsBuilder<'_> {
         self.key_bind("back", press().code(KeyCode::Esc), Message::Back)
             .hide_from_hotbar()
             .show_only_in_normal_mode_help_section()
+    }
+
+    fn confirm_and_quit(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "confirm",
+            press().code(KeyCode::Enter),
+            Message::ConfirmAndQuit,
+        )
+        .long_description("Rub target into selection")
     }
 
     fn rub_use_target_message(&mut self) -> KeyBindsInModesBuilder<'_> {

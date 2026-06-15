@@ -13,13 +13,13 @@ use temp_env::with_var;
 use crate::{
     args::OutputFormat,
     command::legacy::status::{
-        StatusFlags, StatusOutput, StatusRenderMode, TuiLaunchOptions, build_status_context,
-        build_status_output,
+        StatusFlags, StatusOutput, StatusRenderMode, TuiLaunchOptions, TuiRunOptions,
+        build_status_context, build_status_output,
         tui::{App, EventPolling, Message, ReloadCause, render_loop_once},
     },
     theme,
     tui::TerminalGuard,
-    utils::OutputChannel,
+    utils::{IntermediateChannel, OutputChannel},
 };
 
 pub(super) struct TestTui {
@@ -28,7 +28,6 @@ pub(super) struct TestTui {
     env: Option<Sandbox>,
     out: OutputChannel,
     mode: OperatingMode,
-    async_runtime: tokio::runtime::Runtime,
     width: u16,
     height: u16,
     svg_snapshot_comparison: Option<SvgSnapshotComparison>,
@@ -44,10 +43,6 @@ pub(super) fn test_tui(env: Sandbox) -> TestTui {
 }
 
 pub(super) fn test_tui_with_size(env: Sandbox, width: u16, height: u16) -> TestTui {
-    let async_runtime = tokio::runtime::Builder::new_current_thread()
-        .build()
-        .expect("failed to build async runtime");
-
     env.invoke_git("config user.name committer");
     env.invoke_git("config user.email committer@example.com");
 
@@ -58,26 +53,31 @@ pub(super) fn test_tui_with_size(env: Sandbox, width: u16, height: u16) -> TestT
     let mut out = OutputChannel::new(OutputFormat::Human);
 
     let flags = StatusFlags::all_false();
-    let options = TuiLaunchOptions {
+    let launch_options = TuiLaunchOptions {
         debug: false,
         ..Default::default()
     };
+    let run_options = TuiRunOptions::Normal;
 
-    let status_ctx = async_runtime
-        .block_on(build_status_context(
-            &mut ctx,
-            &mut out,
-            &mode,
-            flags,
-            StatusRenderMode::Tui(options),
-        ))
-        .expect("failed to build status context");
+    let mut guard = ctx.exclusive_worktree_access();
+
+    let format = out.format();
+    let status_ctx = build_status_context(
+        &mut ctx,
+        guard.write_permission(),
+        &mut out,
+        format,
+        &mode,
+        flags,
+        StatusRenderMode::Tui(launch_options),
+    )
+    .expect("failed to build status context");
     let mut lines = Vec::new();
     let mut status_output = StatusOutput::Buffer { lines: &mut lines };
-    build_status_output(&mut ctx, &status_ctx, &mut status_output)
+    build_status_output(&ctx, &status_ctx, &mut status_output)
         .expect("failed to build status output");
 
-    let app = App::new(lines, flags, options);
+    let app = App::new(lines, flags, launch_options, run_options);
     let terminal =
         Terminal::new(TestBackend::new(width, height)).expect("failed to create test terminal");
 
@@ -87,7 +87,6 @@ pub(super) fn test_tui_with_size(env: Sandbox, width: u16, height: u16) -> TestT
         env: Some(env),
         out,
         mode,
-        async_runtime,
         width,
         height,
         svg_snapshot_comparison: None,
@@ -125,19 +124,19 @@ impl TestTui {
 
         with_var("GIT_AUTHOR_DATE", Some("2000-01-01T00:00:00Z"), || {
             with_var("GIT_COMMITTER_DATE", Some("2000-01-01T00:00:00Z"), || {
-                self.async_runtime
-                    .block_on(render_loop_once(
-                        &mut self.app,
-                        &mut self.terminal,
-                        event,
-                        &mut messages,
-                        &mut other_messages,
-                        &AtomicBool::default(),
-                        &mut ctx,
-                        &mut self.out,
-                        &self.mode,
-                    ))
-                    .unwrap();
+                let mut out = IntermediateChannel::new(&mut self.out);
+                render_loop_once(
+                    &mut self.app,
+                    &mut self.terminal,
+                    event,
+                    &mut messages,
+                    &mut other_messages,
+                    &AtomicBool::default(),
+                    &mut ctx,
+                    &mut out,
+                    &self.mode,
+                )
+                .unwrap();
             });
         });
 

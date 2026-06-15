@@ -89,8 +89,7 @@ async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<
     writeln!(progress, "Checking integration statuses...")?;
 
     let status =
-        but_api::legacy::virtual_branches::upstream_integration_statuses(ctx.to_sync(), None)
-            .await?;
+        but_api::legacy::virtual_branches::upstream_integration_statuses(ctx.to_sync(), None)?;
 
     if let Some(out) = out.for_json() {
         let (up_to_date, has_worktree_conflicts, branch_statuses) = match &status {
@@ -342,8 +341,7 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
 
     // Step 2: Check integration status
     let status =
-        but_api::legacy::virtual_branches::upstream_integration_statuses(ctx.to_sync(), None)
-            .await?;
+        but_api::legacy::virtual_branches::upstream_integration_statuses(ctx.to_sync(), None)?;
 
     let resolutions = match status {
         UpToDate => {
@@ -494,8 +492,7 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                 let post_status = but_api::legacy::virtual_branches::upstream_integration_statuses(
                     ctx.to_sync(),
                     None,
-                )
-                .await?;
+                )?;
 
                 // Report detailed results for each resolution
                 let mut successful_rebases: Vec<String> = Vec::new();

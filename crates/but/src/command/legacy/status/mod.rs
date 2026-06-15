@@ -4,7 +4,12 @@ use anyhow::Context as _;
 use assignment::FileAssignment;
 use bstr::{BStr, BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
-use but_core::{RepositoryExt, TreeStatus, ref_metadata::StackId, ui};
+use but_core::{
+    RepositoryExt, TreeStatus,
+    ref_metadata::StackId,
+    sync::{RepoExclusive, RepoExclusiveGuard},
+    ui,
+};
 use but_ctx::Context;
 use but_forge::ForgeReview;
 use but_graph::SegmentIndex;
@@ -31,8 +36,8 @@ use crate::{
     id::{SegmentWithId, ShortId, StackWithId, TreeChangeWithId},
     tui::text::truncate_text,
     utils::{
-        OutputChannel, WriteWithUtils, shorten_hex_object_id, shorten_object_id,
-        time::format_relative_time_verbose,
+        IntermediateChannel, OutputChannel, WriteWithUtils, shorten_hex_object_id,
+        shorten_object_id, time::format_relative_time_verbose,
     },
 };
 
@@ -118,6 +123,28 @@ pub struct TuiLaunchOptions {
     pub quit_after_rendering_full_diff: bool,
 }
 
+#[derive(Debug, Default, Copy, Clone)]
+pub enum TuiRunOptions {
+    #[default]
+    Normal,
+    #[expect(dead_code)]
+    PickChanges,
+}
+
+/// The outcome of running the TUI.
+///
+/// Under normal circumstances this will be [`TuiOutcome::None`] but if the TUI is launched via
+/// [`tui_with_options`] it might be something else.
+///
+/// Will also be [`TuiOutcome::None`] if the user quits by pressing `q`.
+#[derive(Debug)]
+#[must_use]
+pub enum TuiOutcome {
+    None,
+    #[expect(dead_code)]
+    CliIds(Vec<CliId>),
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum CommitClassification {
     Upstream,
@@ -197,7 +224,19 @@ pub(crate) async fn worktree(
         return show_edit_mode_status(ctx, out);
     }
 
-    let status_ctx = build_status_context(ctx, out, &mode, flags, render_mode).await?;
+    let status_ctx = {
+        let mut guard = ctx.exclusive_worktree_access();
+        let format = out.format();
+        build_status_context(
+            ctx,
+            guard.write_permission(),
+            out,
+            format,
+            &mode,
+            flags,
+            render_mode,
+        )?
+    };
 
     {
         // Re-acquire repo for use after the async call
@@ -219,13 +258,26 @@ pub(crate) async fn worktree(
             let mut output = StatusOutput::Immediate { out: human_out };
             build_status_output(ctx, &status_ctx, &mut output)?;
         }
-        StatusRenderMode::Tui(options) => {
+        StatusRenderMode::Tui(launch_options) => {
+            let run_options = TuiRunOptions::Normal;
+
             let mut lines = Vec::new();
             let mut output = StatusOutput::Buffer { lines: &mut lines };
             build_status_output(ctx, &status_ctx, &mut output)?;
-            let final_lines = tui::render_tui(ctx, out, &mode, flags, lines, options).await?;
+            let (final_lines, _outcome) = {
+                let mut out = IntermediateChannel::new(out);
+                tui::render_tui(
+                    ctx,
+                    &mut out,
+                    &mode,
+                    flags,
+                    lines,
+                    launch_options,
+                    run_options,
+                )?
+            };
 
-            if !options.skip_status_after
+            if !launch_options.skip_status_after
                 && let Some(human_out) = out.for_human()
             {
                 for line in final_lines {
@@ -238,9 +290,52 @@ pub(crate) async fn worktree(
     Ok(())
 }
 
-async fn build_status_context<'a>(
+#[expect(dead_code)]
+pub(crate) fn tui_with_options(
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    mut guard: RepoExclusiveGuard,
+    out: &mut IntermediateChannel<'_>,
+    run_options: TuiRunOptions,
+) -> anyhow::Result<(RepoExclusiveGuard, TuiOutcome)> {
+    let flags = StatusFlags::for_tui();
+    let mode = but_api::legacy::modes::operating_mode_with_perm(ctx, guard.read_permission())?
+        .operating_mode;
+    let launch_options = TuiLaunchOptions::default();
+    let render_mode = StatusRenderMode::Tui(launch_options);
+
+    let status_ctx = build_status_context(
+        ctx,
+        guard.write_permission(),
+        out,
+        OutputFormat::Human,
+        &mode,
+        flags,
+        render_mode,
+    )?;
+
+    // Drop the guard while the tui runs, since it might require its own guard momentarily to
+    // perform certain operations such as reloading
+    //
+    // We don't want to hold a lock for the entire duration the tui runs since that'll block
+    // running other `but` commands.
+    drop(guard);
+
+    let mut lines = Vec::new();
+    let mut output = StatusOutput::Buffer { lines: &mut lines };
+    build_status_output(ctx, &status_ctx, &mut output)?;
+    let (_final_lines, outcome) =
+        tui::render_tui(ctx, out, &mode, flags, lines, launch_options, run_options)?;
+
+    let guard = ctx.exclusive_worktree_access();
+
+    Ok((guard, outcome))
+}
+
+fn build_status_context<'a>(
+    ctx: &mut Context,
+    perm: &mut RepoExclusive,
+    out: &mut dyn WriteWithUtils,
+    format: OutputFormat,
     mode: &'a OperatingMode,
     flags: StatusFlags,
     render_mode: StatusRenderMode,
@@ -255,10 +350,8 @@ async fn build_status_context<'a>(
     ) = {
         let context_lines = ctx.settings.context_lines;
         let mut meta = ctx.meta()?;
-        let mut guard;
         {
-            let (new_guard, repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut()?;
-            guard = new_guard;
+            let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
             if let Ok(rules) = but_rules::list_rules(&db) {
                 but_rules::process_rules(
                     rules,
@@ -266,14 +359,14 @@ async fn build_status_context<'a>(
                     &mut ws,
                     &mut db,
                     &mut meta,
-                    guard.write_permission(),
+                    perm,
                     context_lines,
                 )
                 .ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
             }
         }
 
-        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
+        let (repo, ws, _db) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
         let head_info = but_workspace::graph_to_ref_info(
             &ws,
             &repo,
@@ -321,7 +414,8 @@ async fn build_status_context<'a>(
     };
     let review_map = review::get_review_map(ctx, Some(cache_config.clone()))?;
 
-    let worktree_changes = but_api::diff::changes_in_worktree(ctx)?;
+    let worktree_changes =
+        but_api::diff::changes_in_worktree_with_perm(ctx, perm.read_permission())?;
 
     let id_map = IdMap::new(stacks, worktree_changes.assignments.clone())?;
 
@@ -351,8 +445,7 @@ async fn build_status_context<'a>(
     // to ensure repo reference is dropped before any async operations
     let (common_merge_base_data, upstream_state, last_fetched_ms, base_branch) = {
         let base_branch = {
-            let mut guard = ctx.exclusive_worktree_access();
-            but_api::legacy::virtual_branches::get_base_branch_data(ctx, guard.write_permission())
+            but_api::legacy::virtual_branches::get_base_branch_data(ctx, perm)
                 .ok()
                 .flatten()
         };
@@ -434,17 +527,16 @@ async fn build_status_context<'a>(
         )
     };
 
-    // Compute upstream integration statuses if --upstream flag is set
-    // We need to drop locks before computing merge statuses
-    // because upstream_integration_statuses requires exclusive access
+    // Compute upstream integration statuses if --upstream flag is set, reusing the existing
+    // worktree lock so status collection does not try to acquire it recursively.
     let branch_merge_statuses: BTreeMap<String, UpstreamBranchStatus> = if flags.show_upstream {
-        compute_branch_merge_statuses(ctx).await?
+        compute_branch_merge_statuses(ctx, perm)?
     } else {
         BTreeMap::new()
     };
 
     let is_paged = out.is_paged();
-    let should_truncate_for_terminal = truncation_policy(out.format(), render_mode, is_paged);
+    let should_truncate_for_terminal = truncation_policy(format, render_mode, is_paged);
 
     Ok(StatusContext {
         stack_details,
@@ -474,7 +566,7 @@ fn truncation_policy(format: OutputFormat, render_mode: StatusRenderMode, is_pag
 }
 
 fn build_status_output(
-    ctx: &mut Context,
+    ctx: &Context,
     status_ctx: &StatusContext<'_>,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
@@ -493,7 +585,7 @@ fn build_status_output(
 
 /// Print update information for human output when a newer `but` version is available.
 fn print_update_notice(
-    ctx: &mut Context,
+    ctx: &Context,
     status_ctx: &StatusContext<'_>,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
@@ -566,7 +658,7 @@ fn print_hint(
 
 /// Display upstream state information when upstream has commits ahead of the workspace base.
 fn print_upstream_state(
-    ctx: &mut Context,
+    ctx: &Context,
     status_ctx: &StatusContext<'_>,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
@@ -705,7 +797,7 @@ fn print_common_merge_base_summary(
 
 /// Print per-stack status sections for human-readable output.
 fn print_worktree_status(
-    ctx: &mut Context,
+    ctx: &Context,
     status_ctx: &StatusContext<'_>,
     output: &mut StatusOutput<'_>,
 ) -> anyhow::Result<()> {
@@ -892,7 +984,7 @@ fn print_assignments(
 }
 
 fn print_group(
-    ctx: &mut Context,
+    ctx: &Context,
     status_ctx: &StatusContext<'_>,
     stack_with_id: &Option<StackWithId>,
     assignments: &[FileAssignment],
@@ -1711,15 +1803,18 @@ impl CliDisplay for but_update::AvailableUpdate {
     }
 }
 
-async fn compute_branch_merge_statuses(
+fn compute_branch_merge_statuses(
     ctx: &Context,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<BTreeMap<String, UpstreamBranchStatus>> {
     use gitbutler_branch_actions::upstream_integration::StackStatuses;
 
     // Get upstream integration statuses using the public API
-    let statuses =
-        but_api::legacy::virtual_branches::upstream_integration_statuses(ctx.to_sync(), None)
-            .await?;
+    let statuses = but_api::legacy::virtual_branches::upstream_integration_statuses_with_perm(
+        ctx.to_sync(),
+        None,
+        perm,
+    )?;
 
     let mut result = BTreeMap::new();
 
