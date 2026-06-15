@@ -104,26 +104,33 @@ pub fn commit(
     let perm = guard.write_permission();
     let mut meta = ctx.meta()?;
 
-    let (commit_op, reword_op) = {
+    let (commit_op, commit_selection, reword_op) = {
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
         let repo = ctx.repo.get()?;
         resolve(&repo, args, &head_info)?
     };
-    run(ctx, &mut meta, perm, commit_op, reword_op)
+    run(ctx, &mut meta, perm, commit_op, commit_selection, reword_op)
 }
 
 fn resolve(
     repo: &gix::Repository,
     args: Platform,
     head_info: &RefInfo,
-) -> CliResult<(CommitOperation, RewordCommitOperation)> {
+) -> CliResult<(CommitOperation, CommitSelection, RewordCommitOperation)> {
     let Platform {
         no_message,
         message,
         branch,
+        empty,
     } = args;
 
     let commit_op = route_commit_operation(repo, head_info, branch)?;
+
+    let commit_selection = if empty {
+        CommitSelection::Nothing
+    } else {
+        CommitSelection::AllChanges
+    };
 
     let reword_op = match (no_message, message) {
         (true, None) => RewordCommitOperation::NoMessage,
@@ -134,7 +141,7 @@ fn resolve(
         }
     };
 
-    Ok((commit_op, reword_op))
+    Ok((commit_op, commit_selection, reword_op))
 }
 
 fn run(
@@ -142,17 +149,20 @@ fn run(
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     commit_op: CommitOperation,
+    commit_selection: CommitSelection,
     reword_op: RewordCommitOperation,
 ) -> CliResult<CommitOutcome> {
-    let changes = {
-        let context_lines = ctx.settings.context_lines;
-        let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let changes = match commit_selection {
+        CommitSelection::AllChanges => {
+            let context_lines = ctx.settings.context_lines;
+            let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
-        let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
-        builder.push_changes_from_unassigned(&UNASSIGNED.to_string())?;
-        builder.into_diff_specs()
+            let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+            builder.push_changes_from_unassigned(&UNASSIGNED.to_string())?;
+            builder.into_diff_specs()
+        }
+        CommitSelection::Nothing => vec![],
     };
-
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
     let result = but_transaction::with_transaction_with_perm(
         ctx,
@@ -263,6 +273,11 @@ fn route_commit_operation(
     Ok(CommitOperation::CommitToNewBranch(
         CommitToNewBranchOperation { branch_name: None },
     ))
+}
+
+enum CommitSelection {
+    AllChanges,
+    Nothing,
 }
 
 enum CommitOperation {
