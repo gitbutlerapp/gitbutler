@@ -37,12 +37,10 @@
 	flex-direction: column;
 }
 
-.segmentParentItemRow {
-	.segment:last-child & {
-		height: 8px;
-		min-height: auto;
-		overflow: hidden;
-	}
+.segmentParentItemRow:last-child {
+	height: 8px;
+	min-height: auto;
+	overflow: hidden;
 }
 
 .stack {

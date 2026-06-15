@@ -17,7 +17,7 @@ import { rejectedChangesToastOptions } from "#ui/operations/toastOptions.tsx";
 import { DiffSpec, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 import { Operand, operandEquals, operandFileParent } from "#ui/operands.ts";
 import { resolveDiffSpecs, useResolveDiffSpecs } from "#ui/operations/diff-specs.ts";
-import { decodeBytes } from "#ui/api/ref-name.ts";
+import { decodeBytes } from "#ui/api/bytes.ts";
 import { projectActions } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { useParams } from "@tanstack/react-router";

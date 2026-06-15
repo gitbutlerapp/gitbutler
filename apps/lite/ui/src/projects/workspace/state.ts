@@ -1,5 +1,5 @@
 import { type OperationType } from "#ui/operations/operation.ts";
-import { refNamesEqual } from "#ui/api/ref-name.ts";
+import { bytesEqual } from "#ui/api/bytes.ts";
 import { AbsorptionTarget, type RefInfo, type RelativeTo } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import {
@@ -296,7 +296,7 @@ export const updateRewrittenBranchReferences = (
 
 	if (
 		state.commitTarget?.type === "referenceBytes" &&
-		refNamesEqual(state.commitTarget.subject, oldBranch.branchRef)
+		bytesEqual(state.commitTarget.subject, oldBranch.branchRef)
 	)
 		state.commitTarget = { type: "referenceBytes", subject: newBranch.branchRef };
 

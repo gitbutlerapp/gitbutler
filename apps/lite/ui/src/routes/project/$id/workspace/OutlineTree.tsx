@@ -23,7 +23,7 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import { findBranchOperandByRef, findCommit, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { decodeBytes, refNamesEqual } from "#ui/api/ref-name.ts";
+import { decodeBytes, bytesEqual } from "#ui/api/bytes.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
 	nativeMenuItem,
@@ -98,6 +98,7 @@ import {
 	ComponentProps,
 	createContext,
 	FC,
+	Fragment,
 	SubmitEventHandler,
 	use,
 	useId,
@@ -191,7 +192,7 @@ const useOutlineTreeHotkeys = ({
 		selection?._tag === "Branch"
 			? selectedStack?.segments.find(
 					(segment) =>
-						!!segment.refName && refNamesEqual(segment.refName.fullNameBytes, selection.branchRef),
+						!!segment.refName && bytesEqual(segment.refName.fullNameBytes, selection.branchRef),
 				)
 			: undefined;
 
@@ -370,7 +371,7 @@ const useOutlineTreeHotkeys = ({
 
 				const segmentIndex = selectedStack.segments.findIndex(
 					(segment) =>
-						!!segment.refName && refNamesEqual(segment.refName.fullNameBytes, selection.branchRef),
+						!!segment.refName && bytesEqual(segment.refName.fullNameBytes, selection.branchRef),
 				);
 				if (segmentIndex === -1) return null;
 
@@ -2433,14 +2434,9 @@ const SegmentContent: FC<{
 					<GraphSegment glyph="parent" status={segmentPushStatusToStatus(segment.pushStatus)} />
 					<WorkspaceItemRowLabel empty>No commits.</WorkspaceItemRowLabel>
 				</WorkspaceItemRow>
-				<WorkspaceItemRow interactive={false} className={styles.segmentParentItemRow} inert={inert}>
-					<GraphSegment glyph="parent" status={segmentPushStatusToStatus(segment.pushStatus)} />
-				</WorkspaceItemRow>
 			</div>
 		);
 	}
-
-	const bottomCommit = assert(segment.commits.at(-1));
 
 	const dryRunWorkspace = use(DryRunWorkspaceContext);
 
@@ -2467,22 +2463,6 @@ const SegmentContent: FC<{
 					/>
 				);
 			})}
-			<WorkspaceItemRow
-				interactive={false}
-				className={styles.segmentParentItemRow}
-				inert={
-					!navigationIndexIncludes(
-						navigationIndex,
-						commitOperand({ stackId, commitId: bottomCommit.id }),
-						operandIdentityKey,
-					)
-				}
-			>
-				<GraphSegment
-					glyph="parent"
-					status={commitIsDiverged(bottomCommit) ? "Diverged" : bottomCommit.state.type}
-				/>
-			</WorkspaceItemRow>
 		</div>
 	);
 };
@@ -2508,6 +2488,8 @@ const StackC: FC<{
 	// This should never fail because we always have at least one segment.
 	const stackState = assert(partialStackStates[0]);
 	const topBranchIndex = stack.segments.findIndex((segment) => segment.refName);
+
+	const navigationIndex = assert(use(NavigationIndexContext));
 
 	return (
 		<TreeItem
@@ -2539,27 +2521,53 @@ const StackC: FC<{
 							assert(segment.commits[0]).id;
 
 					return (
-						<div className={styles.segment} key={key}>
-							{segment.refName ? (
-								<BranchSegment
-									projectId={projectId}
-									segment={segment}
-									refName={segment.refName}
-									stackId={stackId}
-									commitTarget={commitTarget}
-									canTearOffBranch={canTearOffBranch}
-									canRemoveBranch={canRemoveBranch}
-									partialStackState={partialStackState}
+						<Fragment key={key}>
+							<div className={styles.segment}>
+								{segment.refName ? (
+									<BranchSegment
+										projectId={projectId}
+										segment={segment}
+										refName={segment.refName}
+										stackId={stackId}
+										commitTarget={commitTarget}
+										canTearOffBranch={canTearOffBranch}
+										canRemoveBranch={canRemoveBranch}
+										partialStackState={partialStackState}
+									/>
+								) : (
+									<SegmentContent
+										projectId={projectId}
+										segment={segment}
+										stackId={stackId}
+										commitTarget={commitTarget}
+									/>
+								)}
+							</div>
+							<WorkspaceItemRow
+								interactive={false}
+								className={styles.segmentParentItemRow}
+								inert={
+									!navigationIndexIncludes(
+										navigationIndex,
+										segment.commits.length === 0
+											? branchOperand({ stackId, branchRef: assert(segment.refName).fullNameBytes })
+											: commitOperand({ stackId, commitId: assert(segment.commits.at(-1)).id }),
+										operandIdentityKey,
+									)
+								}
+							>
+								<GraphSegment
+									glyph="parent"
+									status={
+										segment.commits.length === 0
+											? segmentPushStatusToStatus(segment.pushStatus)
+											: commitIsDiverged(assert(segment.commits.at(-1)))
+												? "Diverged"
+												: assert(segment.commits.at(-1)).state.type
+									}
 								/>
-							) : (
-								<SegmentContent
-									projectId={projectId}
-									segment={segment}
-									stackId={stackId}
-									commitTarget={commitTarget}
-								/>
-							)}
-						</div>
+							</WorkspaceItemRow>
+						</Fragment>
 					);
 				})}
 			</div>

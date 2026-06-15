@@ -43,7 +43,7 @@ const ControlsRow: FC<{ children: ReactNode }> = ({ children }) => (
 );
 
 const Label: FC<{ children: ReactNode }> = ({ children }) => (
-	<div className={classes("text-bold", "text-13")}>{children}</div>
+	<div className={classes(styles.label, "text-bold", "text-13")}>{children}</div>
 );
 
 const Controls: FC<{ children: ReactNode }> = ({ children }) => (

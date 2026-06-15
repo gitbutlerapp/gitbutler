@@ -1,4 +1,4 @@
-import { decodeBytes } from "#ui/api/ref-name.ts";
+import { decodeBytes } from "#ui/api/bytes.ts";
 import type { DiffSpec, RejectionReason, RejectedChange } from "@gitbutler/but-sdk";
 import { type ToastManagerAddOptions } from "@base-ui/react";
 import { Array, pipe } from "effect";
