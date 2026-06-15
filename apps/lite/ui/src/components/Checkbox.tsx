@@ -9,14 +9,6 @@ export const Checkbox: FC<Omit<ComponentProps<typeof BaseCheckbox.Root>, "childr
 		className={(x) =>
 			classes(styles.checkbox, typeof p.className === "function" ? p.className(x) : p.className)
 		}
-		onClick={(event) => {
-			event.stopPropagation();
-			p.onClick?.(event);
-		}}
-		onDoubleClick={(event) => {
-			event.stopPropagation();
-			p.onDoubleClick?.(event);
-		}}
 	>
 		<BaseCheckbox.Indicator keepMounted className={styles.checkboxIndicator}>
 			<svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
