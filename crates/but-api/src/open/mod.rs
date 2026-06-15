@@ -638,10 +638,12 @@ pub fn list_editors() -> anyhow::Result<Vec<Editor>> {
     Ok(EDITORS.iter().map(Into::into).collect())
 }
 
-/// Open `path` within the given project's workdir.
+/// Open `path` within the given project's workdir using the editor specified by `editor_id`.
 ///
 /// `path` must be relative to the workdir of the repository and must resolve to a file or directory
 /// within the workdir, including the workdir root itself. Otherwise an error is returned.
+///
+/// `line_nr` can be provided to open a file at a specific line.
 ///
 /// [`list_editors`] provides the available `editor_id`s.
 #[but_api(napi)]

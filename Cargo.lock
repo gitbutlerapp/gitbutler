@@ -998,6 +998,8 @@ dependencies = [
  "itertools",
  "napi",
  "napi-derive",
+ "objc2-app-kit",
+ "objc2-foundation",
  "open",
  "schemars 1.2.1",
  "serde",

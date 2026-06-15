@@ -1,8 +1,11 @@
 use std::{
     ffi::OsString,
-    path::{Path, PathBuf},
+    path::Path,
     process::{Command, Stdio},
 };
+
+#[cfg(target_os = "macos")]
+use std::path::PathBuf;
 
 use crate::open::spawn::spawn_and_reap;
 
@@ -32,34 +35,34 @@ impl<'a> EditorSpec<'a> {
     #[cfg(target_os = "macos")]
     fn resolve_cli_wrapper_abspath(&self) -> anyhow::Result<PathBuf> {
         let app_dir_path = self.find_app_directory()?;
-        Ok(app_dir_path.join(&self.cli_wrapper_path))
+        let cli_wrapper_path = self
+            .cli_wrapper_path
+            .ok_or_else(|| anyhow::anyhow!("No CLI wrapper configured for {}", self.name))?;
+        Ok(app_dir_path.join(cli_wrapper_path))
     }
 
     #[cfg(target_os = "macos")]
     fn find_app_directory(&self) -> anyhow::Result<PathBuf> {
-        use std::os::unix::ffi::OsStringExt;
+        use objc2_app_kit::NSWorkspace;
+        use objc2_foundation::NSString;
 
-        let output = Command::new("/usr/bin/mdfind")
-            .arg(format!(
-                r#"kMDItemCFBundleIdentifier == "{}""#,
+        let workspace = NSWorkspace::sharedWorkspace();
+        let bundle_identifier = NSString::from_str(self.bundle_identifier);
+        let app_url = workspace
+            .URLForApplicationWithBundleIdentifier(&bundle_identifier)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Could not find application for '{}'",
+                    self.bundle_identifier
+                )
+            })?;
+
+        app_url.to_file_path().ok_or_else(|| {
+            anyhow::anyhow!(
+                "Could not resolve application path for '{}'",
                 self.bundle_identifier
-            ))
-            .output()?;
-        if !output.status.success() {
-            tracing::error!("{:?}", OsString::from_vec(output.stderr));
-            return Err(anyhow::anyhow!(
-                "Could not find application for '{}'",
-                self.bundle_identifier
-            ));
-        }
-
-        let first_line = output
-            .stdout
-            .split(|&b| b == b'\n')
-            .find(|line| !line.is_empty())
-            .expect("BUG: No output from mdfind");
-
-        Ok(PathBuf::from(OsString::from_vec(first_line.to_vec())))
+            )
+        })
     }
 }
 
@@ -234,7 +237,7 @@ pub fn open_in_editor_unchecked(
         editor
             .cli_arg_supplier
             .open_on_line(&mut cmd, path, line_nr)?;
-        spawn_and_reap(cmd, editor.executable, &path.to_string_lossy())?;
+        spawn_and_reap(cmd, editor.name, &path.to_string_lossy())?;
     } else {
         let mut cmd = Command::new("/usr/bin/open");
         let status = cmd

@@ -141,6 +141,10 @@ url.workspace = true
 which = "8.0.2"
 but-schemars.workspace = true
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSWorkspace"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString", "NSURL"] }
+
 [dev-dependencies]
 but-api = { path = ".", features = ["legacy"] }
 but-testsupport.workspace = true
