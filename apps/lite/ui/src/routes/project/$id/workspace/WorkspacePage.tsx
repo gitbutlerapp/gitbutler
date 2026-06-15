@@ -56,6 +56,8 @@ import {
 	changesSectionOperand,
 	commitOperand,
 	Operand,
+	operandContains,
+	operandEquals,
 	operandIdentityKey,
 	stackOperand,
 	type BranchOperand,
@@ -69,9 +71,9 @@ import { useActiveElement } from "#ui/focus.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { filterNavigationItemsForOutlineMode } from "#ui/outline/mode.ts";
 import { buildNavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { reverse } from "effect/Array";
+import { getOperations } from "#ui/operations/operation.ts";
 
 const toggleFiles =
 	({
@@ -423,6 +425,11 @@ const outlineNavigationItems = (headInfo: RefInfo | undefined): Array<Operand> =
 	];
 };
 
+const hasAnyOperation = (source: Operand, target: Operand) => {
+	const operations = getOperations(source, target);
+	return !!operations.squash || !!operations.moveAbove || !!operations.moveBelow;
+};
+
 const useOutlineNavigationIndex = ({
 	projectId,
 	absorptionTargetKeys,
@@ -435,11 +442,27 @@ const useOutlineNavigationIndex = ({
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 
 	const items = outlineNavigationItems(headInfo);
-	const filteredItems = filterNavigationItemsForOutlineMode({
-		items,
-		outlineMode,
-		absorptionTargetKeys,
-	});
+	const filteredItems = Match.value(outlineMode).pipe(
+		Match.tagsExhaustive({
+			Default: () => items,
+			Absorb: (activeMode) =>
+				items.filter(
+					(operand) =>
+						operandContains(operand, activeMode.source) ||
+						absorptionTargetKeys.has(operandIdentityKey(operand)),
+				),
+			Transfer: (activeMode) =>
+				items.filter(
+					(operand) =>
+						operandContains(operand, activeMode.value.source) ||
+						hasAnyOperation(activeMode.value.source, operand),
+				),
+			RenameBranch: (x) =>
+				items.filter((operand) => operandEquals(operand, branchOperand(x.operand))),
+			RewordCommit: (x) =>
+				items.filter((operand) => operandEquals(operand, commitOperand(x.operand))),
+		}),
+	);
 	const navigationIndex = buildNavigationIndex(filteredItems, operandIdentityKey);
 
 	return navigationIndex;

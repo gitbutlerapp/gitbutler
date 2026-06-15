@@ -57,6 +57,7 @@
 	--diffs-bg-selection-override: transparent;
 
 	overflow: auto;
+	user-select: text;
 
 	[data-selection-scope]:focus-within & {
 		--diffs-bg-selection-number-override: var(--fill-gray-bg);
@@ -102,6 +103,7 @@
 	font-size: 13px;
 	/* text pre */
 	white-space: pre-line;
+	user-select: text;
 }
 
 .fileHeader {

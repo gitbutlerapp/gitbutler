@@ -118,7 +118,7 @@ import { useDryRunOperation } from "#ui/operations/operation.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
 import { initNonEmpty, reverse, scanRight } from "effect/Array";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { GraphSegment } from "#ui/components/GraphSegment.tsx";
+import { GraphSegment, Status } from "#ui/components/GraphSegment.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import {
@@ -1309,7 +1309,6 @@ const CommitRow: FC<
 			projectId={projectId}
 			operand={operand}
 			isHighlighted={isHighlighted}
-			onDoubleClick={isDefaultMode ? startEditing : undefined}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
@@ -1931,6 +1930,20 @@ const pushContextForSegment = ({
 	};
 };
 
+const segmentPushStatusToStatus = (pushStatus: PushStatus): Status => {
+	switch (pushStatus) {
+		case "nothingToPush":
+			return "LocalAndRemote";
+		case "unpushedCommits":
+		case "completelyUnpushed":
+			return "LocalOnly";
+		case "unpushedCommitsRequiringForce":
+			return "Diverged";
+		case "integrated":
+			return "Integrated";
+	}
+};
+
 const BranchRow: FC<
 	{
 		projectId: string;
@@ -2191,7 +2204,6 @@ const BranchRow: FC<
 			{...restProps}
 			projectId={projectId}
 			operand={operand}
-			onDoubleClick={isDefaultMode ? startEditing : undefined}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
@@ -2200,19 +2212,7 @@ const BranchRow: FC<
 			<GraphSegment
 				className={styles.branchRowGraphSegment}
 				glyph="forkRight"
-				status={(() => {
-					switch (pushStatus) {
-						case "nothingToPush":
-							return "LocalAndRemote";
-						case "unpushedCommits":
-						case "completelyUnpushed":
-							return "LocalOnly";
-						case "unpushedCommitsRequiringForce":
-							return "Diverged";
-						case "integrated":
-							return "Integrated";
-					}
-				})()}
+				status={segmentPushStatusToStatus(pushStatus)}
 			/>
 
 			<WorkspaceItemRowLabel heading>
@@ -2435,11 +2435,11 @@ const SegmentContent: FC<{
 		return (
 			<div>
 				<WorkspaceItemRow interactive={false} inert={inert}>
-					<GraphSegment glyph="parent" status="LocalOnly" />
+					<GraphSegment glyph="parent" status={segmentPushStatusToStatus(segment.pushStatus)} />
 					<WorkspaceItemRowLabel empty>No commits.</WorkspaceItemRowLabel>
 				</WorkspaceItemRow>
 				<WorkspaceItemRow interactive={false} className={styles.segmentParentItemRow} inert={inert}>
-					<GraphSegment glyph="parent" status="LocalOnly" />
+					<GraphSegment glyph="parent" status={segmentPushStatusToStatus(segment.pushStatus)} />
 				</WorkspaceItemRow>
 			</div>
 		);

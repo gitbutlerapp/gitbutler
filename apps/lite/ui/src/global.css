@@ -6,3 +6,7 @@
 	--button-ghost-hover-bg: color-mix(var(--fill-gray-bg) 6%, transparent);
 	--panel-padding: 16px;
 }
+
+body {
+	user-select: none;
+}
