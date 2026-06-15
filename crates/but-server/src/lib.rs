@@ -1189,7 +1189,7 @@ async fn handle_command(
             match params {
                 Ok(params) => {
                     let result =
-                        legacy::virtual_branches::upstream_integration_statuses_cmd(params).await;
+                        legacy::virtual_branches::upstream_integration_statuses_cmd(params);
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),

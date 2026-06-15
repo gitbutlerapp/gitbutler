@@ -37,7 +37,7 @@ use crate::{
         self, ShowDiffInEditor,
         reword::get_branch_name_from_editor,
         status::{
-            StatusFlags, StatusOutputLine, TuiLaunchOptions,
+            StatusFlags, StatusOutputLine, TuiLaunchOptions, TuiOutcome, TuiRunOptions,
             tui::{
                 backstack::{Backstack, BackstackEntry, RememberToUpdateBackstack},
                 branch_picker::{BranchPicker, BranchPickerMessage},
@@ -57,8 +57,8 @@ use crate::{
                 mode::{
                     CommandMode, CommandModeKind, CommitMessageComposer, CommitMode, CommitSource,
                     DetailsMode, InlineRewordMode, Mode, ModeDiscriminant, MoveMode, MoveSource,
-                    NormalMode, RubMode, RubSource, StackCommitSource, StackMode,
-                    UnassignedCommitSource,
+                    NormalMode, PickUncommittedMode, RubMode, RubSource, StackCommitSource,
+                    StackMode, UnassignedCommitSource,
                 },
                 operations::stack_has_assigned_changes,
                 toast::{ToastKind, Toasts},
@@ -69,7 +69,7 @@ use crate::{
     theme::Theme,
     tui::{CrosstermTerminalGuard, HeadlessTerminalGuard, TerminalGuard},
     utils::{
-        DebugAsType, OutputChannel, binary_path::current_exe_for_but_exec,
+        DebugAsType, IntermediateChannel, WriteWithUtils, binary_path::current_exe_for_but_exec,
         diff_specs::DiffSpecBuilder,
     },
 };
@@ -120,22 +120,23 @@ const WATCHER_SELF_ECHO_SUPPRESSION: Duration = if cfg!(windows) {
     Duration::from_millis(500)
 };
 
-pub(super) async fn render_tui(
+pub(super) fn render_tui(
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    out: &mut IntermediateChannel<'_>,
     mode: &OperatingMode,
     flags: StatusFlags,
     status_lines: Vec<StatusOutputLine>,
-    options: TuiLaunchOptions,
-) -> anyhow::Result<Vec<StatusOutputLine>> {
-    let mut app = App::new(status_lines, flags, options);
+    launch_options: TuiLaunchOptions,
+    run_options: TuiRunOptions,
+) -> anyhow::Result<(Vec<StatusOutputLine>, TuiOutcome)> {
+    let mut app = App::new(status_lines, flags, launch_options, run_options);
 
     let mut messages = Vec::new();
 
     // second buffer so we can send messages from `App::handle_message`
     let mut other_messages = Vec::new();
 
-    if app.options.headless {
+    let outcome = if app.launch_options.headless {
         let mut terminal_guard = HeadlessTerminalGuard::new(240, 240)?;
         let event_polling = NoopEventPolling;
 
@@ -149,8 +150,7 @@ pub(super) async fn render_tui(
             ctx,
             out,
             mode,
-        )
-        .await?;
+        )?
     } else {
         let (_watcher_handle, received_watcher_event) =
             start_watcher(ctx).context("failed to start filesystem watcher")?;
@@ -168,14 +168,13 @@ pub(super) async fn render_tui(
             ctx,
             out,
             mode,
-        )
-        .await?;
-    }
+        )?
+    };
 
-    Ok(app.status_lines)
+    Ok((app.status_lines, outcome))
 }
 
-async fn render_loop<T, E>(
+fn render_loop<T, E>(
     app: &mut App,
     terminal_guard: &mut T,
     event_polling: E,
@@ -183,9 +182,9 @@ async fn render_loop<T, E>(
     other_messages: &mut Vec<Message>,
     received_watcher_event: Arc<AtomicBool>,
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    out: &mut IntermediateChannel<'_>,
     mode: &OperatingMode,
-) -> anyhow::Result<()>
+) -> anyhow::Result<TuiOutcome>
 where
     T: TerminalGuard,
     anyhow::Error: From<<T::Backend as Backend>::Error>,
@@ -195,11 +194,11 @@ where
 
     loop {
         if app
-            .options
+            .launch_options
             .quit_after
             .is_some_and(|quit_after| quit_after <= app.updates)
         {
-            break Ok(());
+            break Ok(TuiOutcome::None);
         }
 
         render_loop_once(
@@ -212,17 +211,16 @@ where
             ctx,
             out,
             mode,
-        )
-        .await?;
+        )?;
 
-        if app.should_quit {
-            break Ok(());
+        if let Some(outcome) = app.outcome.take() {
+            break Ok(outcome);
         }
     }
 }
 
 #[expect(clippy::too_many_arguments)]
-async fn render_loop_once<T, E>(
+fn render_loop_once<T, E>(
     app: &mut App,
     terminal_guard: &mut T,
     event_polling: E,
@@ -230,7 +228,7 @@ async fn render_loop_once<T, E>(
     other_messages: &mut Vec<Message>,
     received_watcher_event: &AtomicBool,
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    out: &mut IntermediateChannel<'_>,
     mode: &OperatingMode,
 ) -> anyhow::Result<()>
 where
@@ -248,8 +246,7 @@ where
         ctx,
         out,
         mode,
-    )
-    .await?;
+    )?;
 
     render(app, terminal_guard)?;
 
@@ -259,7 +256,7 @@ where
 }
 
 #[expect(clippy::too_many_arguments)]
-async fn update<T, E>(
+fn update<T, E>(
     app: &mut App,
     terminal_guard: &mut T,
     event_polling: E,
@@ -267,7 +264,7 @@ async fn update<T, E>(
     other_messages: &mut Vec<Message>,
     received_watcher_event: &AtomicBool,
     ctx: &mut Context,
-    out: &mut OutputChannel,
+    out: &mut IntermediateChannel<'_>,
     mode: &OperatingMode,
 ) -> anyhow::Result<()>
 where
@@ -343,8 +340,7 @@ where
                     did_reload = true;
                 }
             }
-            app.handle_message(ctx, out, mode, terminal_guard, other_messages, msg)
-                .await;
+            app.handle_message(ctx, out, mode, terminal_guard, other_messages, msg);
         }
         std::mem::swap(messages, other_messages);
     }
@@ -370,8 +366,8 @@ where
         match app.details.update(ctx, selection) {
             Ok(Some(result)) => match result {
                 RenderNextChunkResult::Done => {
-                    if app.options.quit_after_rendering_full_diff {
-                        app.should_quit = true;
+                    if app.launch_options.quit_after_rendering_full_diff {
+                        app.outcome = Some(TuiOutcome::None);
                     }
                 }
                 RenderNextChunkResult::Meta | RenderNextChunkResult::Diff => {}
@@ -411,7 +407,7 @@ where
 struct App {
     status_lines: Vec<StatusOutputLine>,
     flags: StatusFlags,
-    should_quit: bool,
+    outcome: Option<TuiOutcome>,
     should_render: bool,
     cursor: Cursor,
     scroll_top: usize,
@@ -424,7 +420,7 @@ struct App {
     modal: Option<Modal>,
     details: Details,
     is_details_visible: bool,
-    options: TuiLaunchOptions,
+    launch_options: TuiLaunchOptions,
     delayed_messages: Vec<Message>,
     incoming_out_of_band_messages: Vec<Rc<Receiver<Message>>>,
     fps: FpsCounter,
@@ -462,9 +458,10 @@ impl App {
     fn new(
         status_lines: Vec<StatusOutputLine>,
         flags: StatusFlags,
-        options: TuiLaunchOptions,
+        launch_options: TuiLaunchOptions,
+        run_options: TuiRunOptions,
     ) -> Self {
-        let cursor = if let Some(object_id) = options.select_commit {
+        let cursor = if let Some(object_id) = launch_options.select_commit {
             Cursor::select_commit(object_id, &status_lines)
                 .unwrap_or_else(|| Cursor::new(&status_lines))
         } else {
@@ -473,7 +470,7 @@ impl App {
 
         let theme = crate::theme::get();
 
-        let (mut details, is_details_visible) = (Details::new(theme), options.show_diff);
+        let (mut details, is_details_visible) = (Details::new(theme), launch_options.show_diff);
         if is_details_visible {
             details.mark_dirty();
         }
@@ -483,14 +480,19 @@ impl App {
             normal_with_marks_key_binds: normal_with_marks_key_binds(),
         };
 
+        let mode = RememberToUpdateBackstack::new(match run_options {
+            TuiRunOptions::Normal => Mode::default(),
+            TuiRunOptions::PickChanges => Mode::PickChanges(Default::default()),
+        });
+
         Self {
             status_lines,
             flags,
             cursor,
             scroll_top: 0,
-            should_quit: false,
+            outcome: None,
             should_render: true,
-            mode: Default::default(),
+            mode,
             toasts: Default::default(),
             renders: 0,
             updates: 0,
@@ -505,7 +507,7 @@ impl App {
             fps: FpsCounter::new(),
             details,
             is_details_visible,
-            options,
+            launch_options,
             status_width_percentage: 50,
             theme,
             has_focus: true,
@@ -530,10 +532,10 @@ impl App {
     }
 
     #[tracing::instrument(level = Level::TRACE, skip(self, ctx, out, mode, terminal_guard, messages))]
-    async fn handle_message<T>(
+    fn handle_message<T>(
         &mut self,
         ctx: &mut Context,
-        out: &mut OutputChannel,
+        out: &mut IntermediateChannel<'_>,
         mode: &OperatingMode,
         terminal_guard: &mut T,
         messages: &mut Vec<Message>,
@@ -542,18 +544,15 @@ impl App {
         T: TerminalGuard,
         anyhow::Error: From<<T::Backend as Backend>::Error>,
     {
-        if let Err(err) = self
-            .try_handle_message(ctx, out, mode, terminal_guard, messages, msg)
-            .await
-        {
+        if let Err(err) = self.try_handle_message(ctx, out, mode, terminal_guard, messages, msg) {
             messages.push(Message::ShowError(Arc::new(err)));
         }
     }
 
-    async fn try_handle_message<T>(
+    fn try_handle_message<T>(
         &mut self,
         ctx: &mut Context,
-        out: &mut OutputChannel,
+        out: &mut IntermediateChannel<'_>,
         mode: &OperatingMode,
         terminal_guard: &mut T,
         messages: &mut Vec<Message>,
@@ -579,7 +578,10 @@ impl App {
 
         match msg {
             Message::Quit => {
-                self.should_quit = true;
+                self.handle_quit();
+            }
+            Message::ConfirmAndQuit => {
+                self.handle_confirm_and_quit();
             }
             Message::JustRender => {}
             Message::MoveCursorUp => {
@@ -710,8 +712,7 @@ impl App {
                 }
             },
             Message::Reload(select_after_reload, cause) => {
-                self.handle_reload(ctx, out, mode, select_after_reload, cause)
-                    .await?
+                self.handle_reload(ctx, out, mode, select_after_reload, cause)?
             }
             Message::ShowError(err) => self.handle_show_error(err, messages),
             Message::Commit(commit_message) => match commit_message {
@@ -806,8 +807,7 @@ impl App {
                 self.to_be_discarded.clear();
             }
             Message::AndThen { lhs, rhs } => {
-                Box::pin(self.try_handle_message(ctx, out, mode, terminal_guard, messages, *lhs))
-                    .await?;
+                self.try_handle_message(ctx, out, mode, terminal_guard, messages, *lhs)?;
 
                 // Push `rhs` to the end of the queue. That way any messages enqueued by `lhs` will
                 // be handled first.
@@ -877,6 +877,31 @@ impl App {
         }
 
         Ok(())
+    }
+
+    fn handle_quit(&mut self) {
+        self.outcome = Some(TuiOutcome::None);
+    }
+
+    fn handle_confirm_and_quit(&mut self) {
+        self.outcome = match &*self.mode {
+            Mode::Normal(..)
+            | Mode::Rub(..)
+            | Mode::InlineReword(..)
+            | Mode::Command(..)
+            | Mode::Commit(..)
+            | Mode::Move(..)
+            | Mode::Details(..)
+            | Mode::Stack(..) => Some(TuiOutcome::None),
+            Mode::PickChanges(PickUncommittedMode { marks }) => {
+                let ids = marks
+                    .iter()
+                    .cloned()
+                    .map(|mark| mark.into_cli_id())
+                    .collect();
+                Some(TuiOutcome::CliIds(ids))
+            }
+        };
     }
 
     fn handle_unfocus_details(&mut self, messages: &mut Vec<Message>) {
@@ -970,6 +995,9 @@ impl App {
                 Mode::Normal(normal_mode) => {
                     normal_mode.marks.clear();
                 }
+                Mode::PickChanges(pick_uncommitted_mode) => {
+                    pick_uncommitted_mode.marks.clear();
+                }
                 Mode::Rub(..) => {
                     *self
                         .mode
@@ -1046,7 +1074,7 @@ impl App {
 
     fn handle_toggle_details_full_screen(&mut self, messages: &mut Vec<Message>) {
         match &*self.mode {
-            Mode::Normal(..) => {
+            Mode::Normal(..) | Mode::PickChanges(..) => {
                 messages.push(Message::DetailsLayout(DetailsLayoutMessage::Focus {
                     full_screen: true,
                 }));
@@ -1484,15 +1512,15 @@ impl App {
     }
 
     /// Handles reloading status output and restoring selection.
-    async fn handle_reload(
+    fn handle_reload(
         &mut self,
         ctx: &mut Context,
-        out: &mut OutputChannel,
+        out: &mut dyn WriteWithUtils,
         mode: &OperatingMode,
         select_after_reload: Option<SelectAfterReload>,
         cause: ReloadCause,
     ) -> anyhow::Result<()> {
-        let new_lines = operations::reload_legacy(ctx, out, mode, self.flags, self.options).await?;
+        let new_lines = operations::reload_legacy(ctx, out, mode, self.flags, self.launch_options)?;
 
         self.cursor = if let Some(select_after_reload) = select_after_reload {
             match select_after_reload {
@@ -2832,13 +2860,18 @@ impl App {
     fn handle_command_confirm<T>(
         &mut self,
         terminal_guard: &mut T,
-        out: &mut OutputChannel,
+        out: &mut IntermediateChannel<'_>,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()>
     where
         T: TerminalGuard,
         anyhow::Error: From<<T::Backend as Backend>::Error>,
     {
+        //
+        // `cfg!(test)` is false for integration tests but we currently don't have integration
+        // tests of the TUI so thats fine for now.
+        const IN_TEST: bool = cfg!(test);
+
         let Mode::Command(CommandMode { textarea, kind }) = &*self.mode else {
             messages.push(Message::EnterNormalModeAfterConfirmingOperation);
             return Ok(());
@@ -2872,7 +2905,9 @@ impl App {
 
         let status = cmd.spawn()?.wait()?;
 
-        self.prompt_to_continue(out)?;
+        if !IN_TEST && let Some(mut input_channel) = out.prepare_for_terminal_input() {
+            input_channel.prompt_single_line("\npress enter to continue...")?;
+        }
 
         if status.success() {
             messages.extend([
@@ -2887,21 +2922,6 @@ impl App {
         }
 
         drop(_suspend_guard);
-
-        Ok(())
-    }
-
-    /// Prompts the user to press enter before returning from a command execution.
-    fn prompt_to_continue(&mut self, out: &mut OutputChannel) -> anyhow::Result<()> {
-        // don't prompt for user input during tests
-        //
-        // `cfg!(test)` is false for integration tests but we currently don't have integration
-        // tests of the TUI so thats fine for now.
-        const IN_TEST: bool = cfg!(test);
-
-        if !IN_TEST && let Some(mut input_channel) = out.prepare_for_terminal_input() {
-            input_channel.prompt_single_line("\npress enter to continue...")?;
-        }
 
         Ok(())
     }
@@ -3048,7 +3068,7 @@ impl App {
 
         match &**selection {
             CliId::Commit { .. } | CliId::Uncommitted(..) => {
-                if handle_mark_commit(
+                if handle_mark_cli_id(
                     selection,
                     self.mode
                         .get_mut_without_updating_backstack_and_i_promise_not_to_change_state(),
@@ -3066,21 +3086,42 @@ impl App {
                 stack_id,
             } => {
                 // you cannot select branches in rub mode so we don't need to care about that
-                if let Mode::Normal(normal_mode) = self
-                    .mode
-                    .get_mut_without_updating_backstack_and_i_promise_not_to_change_state()
-                    && let Some(stack_id) = *stack_id
-                {
-                    handle_mark_branch(&mut normal_mode.marks, ctx, stack_id, name)?;
+                if let Some(stack_id) = *stack_id {
+                    match self
+                        .mode
+                        .get_mut_without_updating_backstack_and_i_promise_not_to_change_state()
+                    {
+                        Mode::Normal(NormalMode { marks })
+                        | Mode::PickChanges(PickUncommittedMode { marks }) => {
+                            handle_mark_branch(marks, ctx, stack_id, name)?;
+                        }
+                        Mode::Rub(..)
+                        | Mode::InlineReword(..)
+                        | Mode::Command(..)
+                        | Mode::Commit(..)
+                        | Mode::Move(..)
+                        | Mode::Details(..)
+                        | Mode::Stack(..) => {}
+                    }
                 }
             }
             CliId::Unassigned { .. } => {
                 // you cannot select unassigned changes in rub mode so we don't need to care about that
-                if let Mode::Normal(normal_mode) = self
+                match self
                     .mode
                     .get_mut_without_updating_backstack_and_i_promise_not_to_change_state()
                 {
-                    handle_mark_unassigned(&mut normal_mode.marks, &self.status_lines);
+                    Mode::Normal(NormalMode { marks })
+                    | Mode::PickChanges(PickUncommittedMode { marks }) => {
+                        handle_mark_unassigned(marks, &self.status_lines);
+                    }
+                    Mode::Rub(..)
+                    | Mode::InlineReword(..)
+                    | Mode::Command(..)
+                    | Mode::Commit(..)
+                    | Mode::Move(..)
+                    | Mode::Details(..)
+                    | Mode::Stack(..) => {}
                 }
             }
             CliId::PathPrefix { .. } | CliId::CommittedFile { .. } | CliId::Stack { .. } => {}
@@ -3327,6 +3368,7 @@ fn event_to_messages(
                         | Mode::Rub(..)
                         | Mode::Commit(..)
                         | Mode::Stack(..)
+                        | Mode::PickChanges(..)
                         | Mode::Move(..) => {}
                     }
                 }
@@ -3347,6 +3389,7 @@ fn event_to_messages(
             | Mode::Rub(..)
             | Mode::Commit(..)
             | Mode::Stack(..)
+            | Mode::PickChanges(..)
             | Mode::Move(..) => {
                 messages.push(Message::JustRender);
             }
@@ -3361,7 +3404,7 @@ fn event_to_messages(
     }
 }
 
-fn handle_mark_commit(commit: &CliId, mode: &mut Mode) -> bool {
+fn handle_mark_cli_id(commit: &CliId, mode: &mut Mode) -> bool {
     let Some(markable) = Markable::try_from_cli_id(commit) else {
         return false;
     };
@@ -3369,6 +3412,9 @@ fn handle_mark_commit(commit: &CliId, mode: &mut Mode) -> bool {
     match mode {
         Mode::Normal(normal_mode) => {
             normal_mode.marks.toggle(markable);
+        }
+        Mode::PickChanges(pick_uncommitted_mode) => {
+            pick_uncommitted_mode.marks.toggle(markable);
         }
         Mode::Rub(rub_mode) => {
             match &mut rub_mode.source {
@@ -3627,6 +3673,7 @@ enum Message {
     // Lifecycle
     JustRender,
     Quit,
+    ConfirmAndQuit,
     EnterNormalModeAfterConfirmingOperation,
     Reload(Option<SelectAfterReload>, ReloadCause),
     ShowError(Arc<anyhow::Error>),

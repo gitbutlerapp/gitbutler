@@ -5,7 +5,7 @@
 use crate::{
     args::OutputFormat,
     theme::Theme,
-    utils::{OutputChannel, WriteWithUtils},
+    utils::{InputOutputChannel, OutputChannel, WriteWithUtils},
 };
 
 pub struct IntermediateChannel<'out> {
@@ -18,29 +18,31 @@ impl std::fmt::Write for IntermediateChannel<'_> {
     }
 }
 
+impl<'out> WriteWithUtils for IntermediateChannel<'out> {
+    fn truncate_if_unpaged(&self, text: &str, max_width: usize) -> String {
+        self.out.truncate_if_unpaged(text, max_width)
+    }
+
+    fn is_paged(&self) -> bool {
+        self.out.is_paged()
+    }
+}
+
 impl<'out> IntermediateChannel<'out> {
     pub fn new(out: &'out mut OutputChannel) -> Self {
         Self { out }
     }
 
-    // TODO: some functions for prompting the user
-    // pub fn can_prompt(&self) -> bool {
-    //     self.out.can_prompt()
-    // }
-
-    // pub fn prompt(&self) -> anyhow::Result<()> {
-    //     if !self.can_prompt() {
-    //         anyhow::bail!("BUG: attempted to prompt when prompting is not allowed")
-    //     } else {
-    //         Ok(())
-    //     }
-    // }
+    pub fn prepare_for_terminal_input(&mut self) -> Option<InputOutputChannel<'_>> {
+        self.out.prepare_for_terminal_input()
+    }
 }
 
 pub trait CliOutputHuman {
     fn on_human(self, out: &mut dyn WriteWithUtils, theme: &Theme) -> anyhow::Result<()>;
 }
 
+#[allow(dead_code)]
 pub trait CliOutput: CliOutputHuman {
     fn on_shell(self, out: &mut dyn WriteWithUtils) -> anyhow::Result<()>;
 
@@ -48,9 +50,10 @@ pub trait CliOutput: CliOutputHuman {
 }
 
 pub trait OutputChannelExt {
+    #[allow(dead_code)]
     fn print_cli_output(&mut self, output: impl CliOutput) -> anyhow::Result<()>;
 
-    #[expect(dead_code)]
+    #[allow(dead_code)]
     fn print_cli_output_human(&mut self, output: impl CliOutputHuman) -> anyhow::Result<()>;
 }
 

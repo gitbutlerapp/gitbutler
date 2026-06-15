@@ -852,7 +852,7 @@ pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseB
 /// Compute upstream integration statuses, optionally scoped to `target_commit_id`.
 #[but_api]
 #[instrument(err(Debug))]
-pub async fn upstream_integration_statuses(
+pub fn upstream_integration_statuses(
     ctx: ThreadSafeContext,
     target_commit_id: Option<gix::ObjectId>,
 ) -> Result<StackStatuses> {
@@ -868,9 +868,35 @@ pub async fn upstream_integration_statuses(
         )
     };
 
-    let resolved_reviews = resolve_review_map(ctx.clone(), &base_branch).await?;
+    let resolved_reviews = resolve_review_map(ctx.clone(), &base_branch)?;
     let mut ctx = ctx.into_thread_local();
     gitbutler_branch_actions::upstream_integration_statuses(&mut ctx, commit_id, &resolved_reviews)
+}
+
+pub fn upstream_integration_statuses_with_perm(
+    ctx: ThreadSafeContext,
+    target_commit_id: Option<gix::ObjectId>,
+    perm: &mut RepoExclusive,
+) -> Result<StackStatuses> {
+    let (base_branch, commit_id, ctx) = {
+        let ctx = ctx.into_thread_local();
+
+        // Get all the actively applied reviews
+        (
+            gitbutler_branch_actions::base::get_base_branch_data(&ctx, perm.read_permission())?,
+            target_commit_id,
+            ctx.into_sync(),
+        )
+    };
+
+    let resolved_reviews = resolve_review_map(ctx.clone(), &base_branch)?;
+    let mut ctx = ctx.into_thread_local();
+    gitbutler_branch_actions::upstream_integration_statuses_with_perm(
+        &mut ctx,
+        commit_id,
+        &resolved_reviews,
+        perm,
+    )
 }
 
 #[but_api]
@@ -887,7 +913,7 @@ pub async fn integrate_upstream(
             gitbutler_branch_actions::base::get_base_branch_data(&ctx, guard.read_permission())?;
         (base_branch, ctx.to_sync())
     };
-    let resolved_reviews = resolve_review_map(ctx.clone(), &base_branch).await?;
+    let resolved_reviews = resolve_review_map(ctx.clone(), &base_branch)?;
     let mut ctx = ctx.into_thread_local();
     let outcome = gitbutler_branch_actions::integrate_upstream(
         &mut ctx,
@@ -913,7 +939,7 @@ pub async fn resolve_upstream_integration(
             gitbutler_branch_actions::base::get_base_branch_data(&ctx, guard.read_permission())?;
         (base_branch, ctx.into_sync())
     };
-    let resolved_reviews = resolve_review_map(sync_ctx.clone(), &base_branch).await?;
+    let resolved_reviews = resolve_review_map(sync_ctx.clone(), &base_branch)?;
     let mut ctx = sync_ctx.into_thread_local();
     let new_target_id = gitbutler_branch_actions::resolve_upstream_integration(
         &mut ctx,
@@ -924,7 +950,7 @@ pub async fn resolve_upstream_integration(
 }
 
 /// Resolve all actively applied reviews for the given project and command context
-async fn resolve_review_map(
+fn resolve_review_map(
     ctx: ThreadSafeContext,
     base_branch: &BaseBranch,
 ) -> Result<HashMap<String, but_forge::ForgeReview>> {

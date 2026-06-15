@@ -881,7 +881,7 @@ async fn github_oauth(mut inout: InputOutputChannel<'_>) -> Result<()> {
 
 async fn display_authenticated_github_accounts(
     known_gh_accounts: &Vec<but_github::GithubAccountIdentifier>,
-    out: &mut (dyn Write + 'static),
+    out: &mut dyn Write,
 ) -> Result<bool, anyhow::Error> {
     let t = theme::get();
     writeln!(
@@ -921,7 +921,7 @@ async fn display_authenticated_github_accounts(
 
 async fn display_authenticated_gitlab_accounts(
     known_gl_accounts: &Vec<but_gitlab::GitlabAccountIdentifier>,
-    out: &mut (dyn Write + 'static),
+    out: &mut dyn Write,
 ) -> Result<bool, anyhow::Error> {
     let t = theme::get();
     if known_gl_accounts.is_empty() {

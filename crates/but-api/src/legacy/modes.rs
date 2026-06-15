@@ -1,7 +1,7 @@
 //! In place of commands.rs
 use anyhow::Result;
 use but_api_macros::but_api;
-use but_core::{ref_metadata::StackId, ui::TreeChange};
+use but_core::{ref_metadata::StackId, sync::RepoShared, ui::TreeChange};
 use but_ctx::Context;
 use gitbutler_edit_mode::ConflictEntryPresence;
 use gitbutler_operating_modes::{EditModeMetadata, OperatingMode};
@@ -33,6 +33,20 @@ pub fn operating_mode(ctx: &Context) -> Result<HeadAndMode, Error> {
     Ok(HeadAndMode {
         head: head_ref_short,
         operating_mode: gitbutler_operating_modes::operating_mode(ctx, guard.read_permission())?,
+    })
+}
+
+pub fn operating_mode_with_perm(ctx: &Context, perm: &RepoShared) -> Result<HeadAndMode, Error> {
+    let repo = ctx.repo.get()?;
+    let head = repo.head();
+    let head_ref_short = match head.as_ref().map(|head| head.referent_name()) {
+        Ok(Some(head_ref)) => Some(head_ref.shorten().to_string()),
+        _ => None,
+    };
+
+    Ok(HeadAndMode {
+        head: head_ref_short,
+        operating_mode: gitbutler_operating_modes::operating_mode(ctx, perm)?,
     })
 }
 

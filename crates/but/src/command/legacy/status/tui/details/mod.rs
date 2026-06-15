@@ -153,6 +153,7 @@ impl Details {
             Message::JustRender
             | Message::CopySelection
             | Message::Quit
+            | Message::ConfirmAndQuit
             | Message::DetailsLayout(DetailsLayoutMessage::Focus { .. })
             | Message::Discard
             | Message::DropToBeDiscarded
@@ -732,11 +733,11 @@ impl DetailsAndDiffWidget {
 
         let first = diff_line_items
             .iter()
-            .position(|line| matches!(line, RenderedDiffLine::DiffLine { section_id, .. } if section_id == section))?;
+            .position(|line| matches!(line, RenderedDiffLine::DiffLine { section_id, .. } if section_id.eq(section)))?;
 
         let last = diff_line_items
             .iter()
-            .rposition(|line| matches!(line, RenderedDiffLine::DiffLine { section_id, .. } if section_id == section))?;
+            .rposition(|line| matches!(line, RenderedDiffLine::DiffLine { section_id, .. } if section_id.eq(section)))?;
 
         Some((
             rows_before_diff.saturating_add(first),

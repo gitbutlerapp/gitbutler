@@ -26,6 +26,7 @@ pub(super) enum Mode {
     Move(MoveMode),
     Details(DetailsMode),
     Stack(StackMode),
+    PickChanges(PickUncommittedMode),
 }
 
 impl Default for Mode {
@@ -57,6 +58,7 @@ impl Mode {
                 | CommitSource::Uncommitted(..)
                 | CommitSource::Stack(..) => None,
             },
+            Mode::PickChanges(pick_uncommitted_mode) => Some(&pick_uncommitted_mode.marks),
             Mode::InlineReword(..)
             | Mode::Command(..)
             | Mode::Move(..)
@@ -70,7 +72,7 @@ impl ModeDiscriminant {
     pub(super) fn bg(self, theme: &'static Theme) -> Color {
         match self {
             Self::Normal => theme.tui_mode_normal.bg.unwrap_or(Color::DarkGray),
-            Self::Commit => theme.tui_mode_commit.bg.unwrap_or(Color::Green),
+            Self::Commit | Self::PickChanges => theme.tui_mode_commit.bg.unwrap_or(Color::Green),
             Self::Rub => theme.tui_mode_rub.bg.unwrap_or(Color::Blue),
             Self::InlineReword | Self::Stack => {
                 theme.tui_mode_inline_reword.bg.unwrap_or(Color::Magenta)
@@ -87,7 +89,7 @@ impl ModeDiscriminant {
     pub(super) fn fg(self, theme: &'static Theme) -> Color {
         match self {
             Self::Normal => theme.tui_mode_normal.fg.unwrap_or(Color::White),
-            Self::Commit => theme.tui_mode_commit.fg.unwrap_or(Color::Black),
+            Self::Commit | Self::PickChanges => theme.tui_mode_commit.fg.unwrap_or(Color::Black),
             Self::Rub => theme.tui_mode_rub.fg.unwrap_or(Color::Black),
             Self::InlineReword | Self::Stack => {
                 theme.tui_mode_inline_reword.fg.unwrap_or(Color::Black)
@@ -105,6 +107,7 @@ impl ModeDiscriminant {
             Self::InlineReword => "reword",
             Self::Command => "command",
             Self::Commit => "commit",
+            Self::PickChanges => "pick changes",
             Self::Move => "move",
             Self::Details => "details",
             Self::Stack => "stack",
@@ -373,4 +376,9 @@ pub(super) struct DetailsMode {
 #[derive(Debug)]
 pub(super) struct StackMode {
     pub(super) stack_heads: Vec<FullName>,
+}
+
+#[derive(Debug, Default)]
+pub(super) struct PickUncommittedMode {
+    pub(super) marks: Marks,
 }

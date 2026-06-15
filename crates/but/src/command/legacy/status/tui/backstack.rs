@@ -83,6 +83,10 @@ pub(super) enum BackstackEntry {
 pub(super) struct RememberToUpdateBackstack<T>(T);
 
 impl<T> RememberToUpdateBackstack<T> {
+    pub(super) fn new(value: T) -> Self {
+        Self(value)
+    }
+
     /// Get mutable access to the inner value together with the backstack.
     ///
     /// rustc will give "unused variable" warnings if we forget to use the backstack passed into
