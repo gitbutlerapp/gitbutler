@@ -288,7 +288,7 @@ const FileRow: FC<
 		item: FileTreeItem;
 		projectId: string;
 		fileParent: FileParent;
-	} & Omit<ComponentProps<typeof ItemRow>, "projectId" | "operand">
+	} & Omit<ComponentProps<typeof ItemRow>, "projectId">
 > = ({ item, projectId, fileParent, ...restProps }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
