@@ -318,6 +318,32 @@ where
             .expect("rebase is always Some(_)")
             .overlayed_graph()?;
         let workspace = graph.into_workspace()?;
+        let anchor_segment_oldest_commit_id = match &anchor {
+            Some(but_workspace::branch::create_reference::Anchor::AtSegment {
+                ref_name, ..
+            }) => {
+                let (_, segment) =
+                    workspace.try_find_segment_and_stack_by_refname(ref_name.as_ref())?;
+                Some(
+                    segment
+                        .commits
+                        .last()
+                        .map(|commit| commit.id)
+                        .or_else(|| {
+                            workspace
+                                .tip_commit_by_segment_id(segment.id)
+                                .map(|commit| commit.id)
+                        })
+                        .ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "Cannot position reference below unborn segment '{}'",
+                                ref_name.shorten()
+                            )
+                        })?,
+                )
+            }
+            _ => None,
+        };
         let mut meta = RecordingMetadata {
             workspace_name: workspace.ref_name().map(ToOwned::to_owned),
             workspace: workspace.metadata.clone(),
@@ -326,7 +352,7 @@ where
 
         but_workspace::branch::create_reference(
             ref_name,
-            anchor,
+            anchor.clone(),
             self.repo(),
             &workspace,
             &mut meta,
@@ -356,11 +382,71 @@ where
                 .find_reference(ref_name)?
                 .peel_to_id()?
                 .detach();
-            let target = editor.select_commit(target_id)?;
-            let reference = editor.add_step(Step::Reference {
+            let reference = Step::Reference {
                 refname: ref_name.to_owned(),
-            })?;
-            editor.add_edge(reference, target, 0)?;
+            };
+
+            match anchor {
+                Some(but_workspace::branch::create_reference::Anchor::AtCommit {
+                    commit_id,
+                    position: but_workspace::branch::create_reference::Position::Below,
+                }) => {
+                    editor.insert(
+                        editor.select_commit(commit_id)?,
+                        reference,
+                        InsertSide::Below,
+                    )?;
+                }
+                Some(but_workspace::branch::create_reference::Anchor::AtSegment {
+                    ref_name: anchor_ref,
+                    position: but_workspace::branch::create_reference::Position::Above,
+                }) => {
+                    editor.insert(
+                        editor.select_reference(anchor_ref.as_ref())?,
+                        reference,
+                        InsertSide::Above,
+                    )?;
+                }
+                Some(but_workspace::branch::create_reference::Anchor::AtSegment {
+                    position: but_workspace::branch::create_reference::Position::Below,
+                    ..
+                }) => {
+                    let anchor_oldest_commit = anchor_segment_oldest_commit_id
+                        .expect("AtSegment anchor always has oldest commit resolved");
+                    editor.insert(
+                        editor.select_commit(anchor_oldest_commit)?,
+                        reference,
+                        InsertSide::Below,
+                    )?;
+                }
+                Some(but_workspace::branch::create_reference::Anchor::AtReference {
+                    ref_name: anchor_ref,
+                    position,
+                }) => {
+                    let side = match position {
+                        but_workspace::branch::create_reference::Position::Above => {
+                            InsertSide::Above
+                        }
+                        but_workspace::branch::create_reference::Position::Below => {
+                            InsertSide::Below
+                        }
+                    };
+                    editor.insert(
+                        editor.select_reference(anchor_ref.as_ref())?,
+                        reference,
+                        side,
+                    )?;
+                }
+                Some(but_workspace::branch::create_reference::Anchor::AtCommit {
+                    position: but_workspace::branch::create_reference::Position::Above,
+                    ..
+                })
+                | None => {
+                    let target = editor.select_commit(target_id)?;
+                    let reference = editor.add_step(reference)?;
+                    editor.add_edge(reference, target, 0)?;
+                }
+            }
             Ok(((), editor.rebase()?))
         })
     }

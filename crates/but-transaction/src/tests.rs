@@ -291,6 +291,77 @@ fn create_reference_then_remove_it_in_same_transaction() {
 }
 
 #[test]
+fn create_reference_then_commit_below_anchor_keeps_commit_in_workspace() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let [three, base] = find_commits(&env, ["1e25c58", "6674d4f"]);
+
+    let repo = but_testsupport::open_repo(env.projects_root()).unwrap();
+    let mut ctx = Context::from_repo(repo)
+        .map(Context::with_memory_app_cache)
+        .unwrap();
+
+    let mut meta = ctx.meta().unwrap();
+    let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
+    let branch = FullName::try_from("refs/heads/branch").unwrap();
+    let refname = FullName::try_from("refs/heads/new-lower-branch").unwrap();
+
+    let outcome = with_transaction(
+        &mut ctx,
+        &mut meta,
+        snapshot_details,
+        DryRun::No,
+        |mut tx| {
+            tx.create_reference(
+                refname.as_ref(),
+                Anchor::at_segment(branch.as_ref(), Position::Below),
+                |_| but_core::ref_metadata::StackId::generate(),
+                None,
+            )?;
+            let new_commit =
+                tx.insert_blank_commit(RelativeTo::Reference(refname.clone()), InsertSide::Below)?;
+
+            Ok(DynamicOutcome::<_, ()>::Commit(new_commit))
+        },
+    )
+    .unwrap();
+
+    let DynamicOutcome::Commit((new_commit, _workspace)) = outcome else {
+        panic!("transaction should commit");
+    };
+
+    assert_eq!(Some(new_commit), ref_target(&env, refname.as_ref()));
+
+    let repo = env.open_repo().unwrap();
+    let mut branch_commit = ref_target(&env, branch.as_ref()).unwrap();
+    let mut commits_above_new_branch = 0;
+    while branch_commit != new_commit {
+        commits_above_new_branch += 1;
+        let commit = repo.find_commit(branch_commit).unwrap();
+        let commit = commit.decode().unwrap();
+        branch_commit = commit.parents().next().unwrap();
+    }
+    assert_eq!(
+        3, commits_above_new_branch,
+        "new lower branch commit should be below oldest commit in anchored segment"
+    );
+    let lower_branch_tip = repo.find_commit(new_commit).unwrap();
+    let lower_branch_tip = lower_branch_tip.decode().unwrap();
+    assert_eq!(
+        Some(base),
+        lower_branch_tip.parents().next(),
+        "new lower branch commit should be inserted above segment base"
+    );
+    assert_ne!(
+        Some(three),
+        ref_target(&env, branch.as_ref()),
+        "upper branch should be rebased onto inserted lower branch commit"
+    );
+    assert_num_snapshots(&ctx, 1);
+}
+
+#[test]
 fn create_reference_then_commit_relative_to_it() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
