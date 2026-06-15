@@ -431,14 +431,22 @@ const moveOperation = ({
 
 	if (branchMoveOperation) return branchMoveOperation;
 
-	const relativeTo: RelativeTo | null = Match.value(target).pipe(
-		Match.tags({
-			Commit: ({ commitId }): RelativeTo | null => ({ type: "commit", subject: commitId }),
-			Branch: ({ branchRef }): RelativeTo | null => ({
-				type: "referenceBytes",
-				subject: branchRef,
-			}),
-		}),
+	const relativeTo: RelativeTo | null = Match.value({ target, side }).pipe(
+		Match.when({ target: { _tag: "Commit" } }, ({ target }): RelativeTo | null => ({
+			type: "commit",
+			subject: target.commitId,
+		})),
+		Match.when(
+			{
+				target: { _tag: "Branch" },
+				// We use the branch operand as the source/target for the branch
+				// contents. However, `RelativeTo` is interpreted to mean just the
+				// branch reference rather than the branch bucket, meaning `side:
+				// "below"` won't work as expected.
+				side: "above",
+			},
+			({ target }): RelativeTo | null => ({ type: "referenceBytes", subject: target.branchRef }),
+		),
 		Match.orElse((): RelativeTo | null => null),
 	);
 
