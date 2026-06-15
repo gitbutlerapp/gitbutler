@@ -17,7 +17,7 @@ import {
 	selectProjectOutlineModeState,
 } from "#ui/projects/state.ts";
 import { NavigationIndexContext } from "#ui/routes/project/$id/workspace/OutlineNavigationIndexContext.ts";
-import { operationSourceLabel } from "#ui/routes/project/$id/workspace/operationSourceLabel.ts";
+import { operandLabel } from "#ui/routes/project/$id/workspace/operandLabel.ts";
 import { focusSelectionScope, useOutlineSelection } from "#ui/selection-scopes.ts";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
@@ -401,7 +401,7 @@ export const OperationControls: FC = () => {
 				headInfo && (
 					<Container>
 						<ControlsRow>
-							<Label>{operationSourceLabel({ headInfo, source: x.source })}</Label>
+							<Label>{operandLabel({ headInfo, operand: x.source })}</Label>
 							{absorptionPlanQuery.isPending && (
 								<Icon name="spinner" aria-label="Loading absorb plan" />
 							)}
@@ -422,7 +422,7 @@ export const OperationControls: FC = () => {
 									/>
 									<Separator />
 									<ControlsRow>
-										<Label>{operationSourceLabel({ headInfo, source: mode.source })}</Label>
+										<Label>{operandLabel({ headInfo, operand: mode.source })}</Label>
 										<TransferOperationControls
 											projectId={projectId}
 											operations={getOperations(mode.source, selection)}
