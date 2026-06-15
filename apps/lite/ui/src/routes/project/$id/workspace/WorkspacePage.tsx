@@ -677,7 +677,7 @@ const WorkspacePage: FC = () => {
 							<div className={styles.workspaceControlsActions}>
 								<Tooltip.Root>
 									<Tooltip.Trigger
-										aria-label="Reset workspace"
+										aria-label="Switch to new branch"
 										className={getButtonClassName({ iconOnly: true })}
 										onClick={resetWorkspace}
 										// We pass `disabled` here because we want to disable the button, not
@@ -692,7 +692,7 @@ const WorkspacePage: FC = () => {
 									</Tooltip.Trigger>
 									<Tooltip.Portal>
 										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup render={<TooltipPopup />}>Reset workspace</Tooltip.Popup>
+											<Tooltip.Popup render={<TooltipPopup />}>Switch to new branch</Tooltip.Popup>
 										</Tooltip.Positioner>
 									</Tooltip.Portal>
 								</Tooltip.Root>
