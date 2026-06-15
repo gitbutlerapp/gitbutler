@@ -23,7 +23,7 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import { findBranchOperandByRef, findCommit, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { decodeBytes, bytesEqual } from "#ui/api/ref-name.ts";
+import { decodeBytes, bytesEqual } from "#ui/api/bytes.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
 	nativeMenuItem,

@@ -1,5 +1,5 @@
 import { type OperationType } from "#ui/operations/operation.ts";
-import { bytesEqual } from "#ui/api/ref-name.ts";
+import { bytesEqual } from "#ui/api/bytes.ts";
 import { AbsorptionTarget, type RefInfo, type RelativeTo } from "@gitbutler/but-sdk";
 import { Match } from "effect";
 import {

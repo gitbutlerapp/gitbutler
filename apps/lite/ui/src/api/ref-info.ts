@@ -1,4 +1,4 @@
-import { encodeBytes, bytesEqual } from "#ui/api/ref-name.ts";
+import { encodeBytes, bytesEqual } from "#ui/api/bytes.ts";
 import { BranchOperand } from "#ui/operands.ts";
 import { type Commit, type RefInfo, type RelativeTo, type Segment } from "@gitbutler/but-sdk";
 

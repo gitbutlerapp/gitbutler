@@ -7,7 +7,7 @@ import {
 	commitDetailsWithLineStatsQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
-import { decodeBytes } from "#ui/api/ref-name.ts";
+import { decodeBytes } from "#ui/api/bytes.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
 	branchFileParent,
