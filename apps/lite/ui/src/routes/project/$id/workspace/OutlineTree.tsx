@@ -23,7 +23,7 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import { findBranchOperandByRef, findCommit, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { decodeBytes, refNamesEqual } from "#ui/api/ref-name.ts";
+import { decodeBytes, bytesEqual } from "#ui/api/ref-name.ts";
 import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
 	nativeMenuItem,
@@ -192,7 +192,7 @@ const useOutlineTreeHotkeys = ({
 		selection?._tag === "Branch"
 			? selectedStack?.segments.find(
 					(segment) =>
-						!!segment.refName && refNamesEqual(segment.refName.fullNameBytes, selection.branchRef),
+						!!segment.refName && bytesEqual(segment.refName.fullNameBytes, selection.branchRef),
 				)
 			: undefined;
 
@@ -371,7 +371,7 @@ const useOutlineTreeHotkeys = ({
 
 				const segmentIndex = selectedStack.segments.findIndex(
 					(segment) =>
-						!!segment.refName && refNamesEqual(segment.refName.fullNameBytes, selection.branchRef),
+						!!segment.refName && bytesEqual(segment.refName.fullNameBytes, selection.branchRef),
 				);
 				if (segmentIndex === -1) return null;
 
