@@ -6,25 +6,58 @@ use but_core::{
 
 use crate::branch::{OnWorkspaceMergeConflict, try_find_validated_ref};
 
+/// A stack that conflicted while applying a branch.
+#[derive(Clone)]
+pub struct ConflictingStack {
+    /// The stable id of the stack in workspace metadata.
+    pub id: StackId,
+    /// The tip branch name of the stack.
+    /// Currently we require it to be named.
+    pub ref_name: gix::refs::FullName,
+}
+
+impl std::fmt::Debug for ConflictingStack {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ConflictingStack")
+            .field("id", &self.id)
+            .field("ref_name", &self.ref_name.to_string())
+            .finish()
+    }
+}
+
 /// Returned by [apply()].
 pub struct Outcome<'workspace> {
     /// The newly created workspace, if owned, or the one that was passed in if borrowed, to show how the workspace looks like now.
     ///
     /// If borrowed, the graph already contained the desired branch and nothing had to be applied. Note that metadata changes
     /// might not be included in this case, as they aren't the source of truth.
+    ///
+    /// If owned, the returned workspace can also be a proposed state that was not persisted because
+    /// [Options::on_workspace_conflict] aborted the operation. Check [Outcome::conflicting_stacks]
+    /// and [Outcome::applied_branches] to tell whether anything was actually applied.
     pub workspace: Cow<'workspace, but_graph::Workspace>,
     /// The name of the branch(es) that were actually applied.
     ///
+    /// This is empty when `apply()` did not persist any branch, including when the branch was already
+    /// present in the workspace or when workspace merge conflicts aborted the operation. In that case, take a look at [Outcome::conflicting_stacks].
+    ///
     /// If a remote tracking branch is given to apply, it will actually apply its local tracking branch, which is created on demand as well.
     /// Further, if there is no target or if the current branch isn't the target branch, then the current branch and the given one
-    /// will be applied.
+    /// will be applied, and two branches are listed here.
     pub applied_branches: Vec<gix::refs::FullName>,
     /// `true` if we created the given workspace ref as it didn't exist yet.
     pub workspace_ref_created: bool,
     /// If not `None`, an actual merge was attempted, but depending on [the settings](OnWorkspaceMergeConflict),
     /// this was persisted or not.
     pub workspace_merge: Option<crate::commit::merge::Outcome>,
-    /// The ids of all stacks that were conflicting and thus didn't get applied, and tip ref names can be derived from that.
+    /// Stacks that conflicted while trying to apply the branch.
+    ///
+    /// Each entry includes the stable stack id and its tip ref name, so callers don't have to
+    /// recover names from the returned workspace graph.
+    pub conflicting_stacks: Vec<ConflictingStack>,
+    /// The ids of all stacks that were conflicting and thus didn't get applied.
+    ///
+    /// Prefer [Outcome::conflicting_stacks] when names are needed.
     pub conflicting_stack_ids: Vec<StackId>,
 }
 
@@ -44,6 +77,7 @@ impl<'a> Outcome<'a> {
             applied_branches,
             workspace_ref_created,
             workspace_merge,
+            conflicting_stacks,
             conflicting_stack_ids,
         } = self;
 
@@ -52,6 +86,7 @@ impl<'a> Outcome<'a> {
             applied_branches,
             workspace_ref_created,
             workspace_merge,
+            conflicting_stacks,
             conflicting_stack_ids,
         }
     }
@@ -63,6 +98,7 @@ impl std::fmt::Debug for Outcome<'_> {
             workspace: _,
             workspace_ref_created,
             workspace_merge: _,
+            conflicting_stacks,
             conflicting_stack_ids,
             applied_branches,
         } = self;
@@ -80,7 +116,9 @@ impl std::fmt::Debug for Outcome<'_> {
                         .join(", ")
                 ),
             );
-        if !conflicting_stack_ids.is_empty() {
+        if !conflicting_stacks.is_empty() {
+            f.field("conflicting_stacks", conflicting_stacks);
+        } else if !conflicting_stack_ids.is_empty() {
             f.field("conflicting_stack_ids", conflicting_stack_ids);
         }
         f.finish()
@@ -153,10 +191,7 @@ use tracing::instrument;
 
 use crate::{
     WorkspaceCommit,
-    branch::{
-        anon_stacks, correlate_conflicting_stack_ids,
-        correlate_conflicting_stack_ids_and_remove_from_workspace, ensure_no_missing_stacks,
-    },
+    branch::{anon_stacks, ensure_no_missing_stacks},
     commit::merge::Tip,
     ref_info::WorkspaceExt,
 };
@@ -223,7 +258,6 @@ pub fn apply<'ws>(
         branch = upstream_branch_name;
         branch_ref = try_find_validated_ref(repo, branch.as_ref(), "apply")?;
     }
-    let conflicting_stack_ids = Vec::new();
     if ws.is_reachable_from_entrypoint(branch.as_ref()) {
         let workspace_ref_created = false;
         // When exiting early, don't try to adjust the ws commit.
@@ -231,8 +265,9 @@ pub fn apply<'ws>(
             workspace: Cow::Borrowed(workspace),
             workspace_ref_created,
             workspace_merge: None,
-            conflicting_stack_ids,
-            applied_branches: vec![branch.to_owned()],
+            conflicting_stacks: Vec::new(),
+            conflicting_stack_ids: Vec::new(),
+            applied_branches: Vec::new(),
         });
     } else if ws.refname_is_segment(branch.as_ref()) {
         // This means our workspace encloses the desired branch, but it's not checked out yet.
@@ -268,7 +303,8 @@ pub fn apply<'ws>(
             workspace: Cow::Owned(ws),
             workspace_ref_created: false,
             workspace_merge: None,
-            conflicting_stack_ids,
+            conflicting_stacks: Vec::new(),
+            conflicting_stack_ids: Vec::new(),
             applied_branches: vec![branch.to_owned()],
         });
     };
@@ -460,7 +496,8 @@ pub fn apply<'ws>(
             workspace: Cow::Owned(graph.into_workspace()?),
             workspace_ref_created: needs_ws_ref_creation,
             workspace_merge: None,
-            conflicting_stack_ids,
+            conflicting_stacks: Vec::new(),
+            conflicting_stack_ids: Vec::new(),
             applied_branches,
         });
     }
@@ -496,14 +533,16 @@ pub fn apply<'ws>(
     drop(existing_stacks_superseded_by_branch);
 
     if merge_result.has_conflicts() && on_workspace_conflict.should_abort() {
-        let conflicting_stack_ids =
-            correlate_conflicting_stack_ids(&ws_md, &merge_result.conflicting_stacks);
+        let conflicting_stacks =
+            correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
+        let conflicting_stack_ids = stack_ids_from_conflicting_stacks(&conflicting_stacks);
         return Ok(Outcome {
             workspace: Cow::Owned(ws),
             workspace_ref_created: needs_ws_ref_creation,
             workspace_merge: Some(merge_result),
+            conflicting_stacks,
             conflicting_stack_ids,
-            applied_branches,
+            applied_branches: Vec::new(),
         });
     }
 
@@ -514,10 +553,10 @@ pub fn apply<'ws>(
         .context("BUG: unborn was skipped, why no entrypoint")?
         .id;
     let mut new_head_id = merge_result.workspace_commit_id;
-    let mut conflicting_stack_ids = correlate_conflicting_stack_ids_and_remove_from_workspace(
-        &mut ws_md,
-        &merge_result.conflicting_stacks,
-    );
+    let mut conflicting_stacks =
+        correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
+    let mut conflicting_stack_ids = stack_ids_from_conflicting_stacks(&conflicting_stacks);
+    remove_conflicting_stacks_from_workspace(&mut ws_md, &conflicting_stack_ids);
     let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
     let overlay = overlay
         .with_entrypoint(new_head_id, Some(workspace_ref_name_to_update.clone()))
@@ -616,21 +655,22 @@ pub fn apply<'ws>(
         ensure_no_missing_stacks(&merge_result)?;
 
         if merge_result.has_conflicts() && on_workspace_conflict.should_abort() {
-            let conflicting_stack_ids =
-                correlate_conflicting_stack_ids(&ws_md, &merge_result.conflicting_stacks);
+            let conflicting_stacks =
+                correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
+            let conflicting_stack_ids = stack_ids_from_conflicting_stacks(&conflicting_stacks);
             return Ok(Outcome {
                 workspace: Cow::Owned(ws),
                 workspace_ref_created: needs_ws_ref_creation,
                 workspace_merge: Some(merge_result),
+                conflicting_stacks,
                 conflicting_stack_ids,
-                applied_branches,
+                applied_branches: Vec::new(),
             });
         }
         new_head_id = merge_result.workspace_commit_id;
-        conflicting_stack_ids = correlate_conflicting_stack_ids_and_remove_from_workspace(
-            &mut ws_md,
-            &merge_result.conflicting_stacks,
-        );
+        conflicting_stacks = correlate_conflicting_stacks(&ws_md, &merge_result.conflicting_stacks);
+        conflicting_stack_ids = stack_ids_from_conflicting_stacks(&conflicting_stacks);
+        remove_conflicting_stacks_from_workspace(&mut ws_md, &conflicting_stack_ids);
         let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
         ws = ws
             .graph
@@ -690,9 +730,65 @@ pub fn apply<'ws>(
         workspace: Cow::Owned(ws),
         workspace_ref_created: needs_ws_ref_creation,
         workspace_merge: Some(merge_result),
+        conflicting_stacks,
         conflicting_stack_ids,
         applied_branches,
     })
+}
+
+/// Map conflicting merge tips back to workspace stack metadata.
+///
+/// Merge conflicts report the tip ref names that could not be merged. This function resolves each
+/// reported ref name against the current workspace metadata, including both applied and unapplied
+/// stacks, so callers receive the stable stack id together with the stack's current tip branch name.
+///
+/// Conflicts without a ref name, or whose ref name is no longer present in workspace metadata, are
+/// skipped.
+fn correlate_conflicting_stacks(
+    ws_md: &Workspace,
+    conflicts: &[crate::commit::merge::ConflictingStack],
+) -> Vec<ConflictingStack> {
+    conflicts
+        .iter()
+        .filter_map(|cs| cs.ref_name.as_ref())
+        .filter_map(|conflicting_ref_name| {
+            let stack = ws_md.find_stack_with_branch(
+                conflicting_ref_name.as_ref(),
+                StackKind::AppliedAndUnapplied,
+            )?;
+            Some(ConflictingStack {
+                id: stack.id,
+                ref_name: conflicting_ref_name.to_owned(),
+            })
+        })
+        .collect()
+}
+
+fn stack_ids_from_conflicting_stacks(conflicting_stacks: &[ConflictingStack]) -> Vec<StackId> {
+    conflicting_stacks.iter().map(|stack| stack.id).collect()
+}
+
+/// Mark conflicting stacks as outside of the workspace commit.
+///
+/// This is used when the caller materializes a best-effort merge result despite conflicts. The
+/// stack entries and branch metadata remain available, but their workspace relation is changed so
+/// the conflicted branches are no longer represented by the checked-out workspace tree.
+///
+/// Each id is expected to come from [correlate_conflicting_stacks], so a missing stack indicates a
+/// programming error in the caller.
+fn remove_conflicting_stacks_from_workspace(
+    ws_md: &mut Workspace,
+    conflicting_stack_ids: &[StackId],
+) {
+    for conflicting_id in conflicting_stack_ids {
+        let stack = ws_md
+            .stacks
+            .iter_mut()
+            .find(|s| s.id == *conflicting_id)
+            .expect("if it was found before it will be found as id");
+        // TODO: this might as well be 'Unmerged' to keep them in the workspace, but not let them be merged.
+        stack.workspacecommit_relation = Outside;
+    }
 }
 
 fn filter_superseded_metadata_stacks<'a>(

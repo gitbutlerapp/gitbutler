@@ -485,11 +485,13 @@ fn apply_branch_conflicting_with_workspace_reports_error() -> anyhow::Result<()>
     "#,
     );
 
+    // It's notable that this behaviour is different from what the GUI does, which
+    // unapplies all conflicting instead.
     env.but("apply conflicting-branch")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to apply branch. 'conflicting-branch' (branch) conflicts with existing stacks in the workspace
+Failed to apply branch. 'conflicting-branch' conflicts with existing stack in the workspace: A
 
 "#]])
         .stdout_eq(str![""]);

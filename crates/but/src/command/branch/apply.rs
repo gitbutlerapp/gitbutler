@@ -16,14 +16,17 @@ pub fn apply(mut ctx: Context, branch_name: &str, out: &mut OutputChannel) -> an
         guard.write_permission(),
     )?;
 
-    if !outcome.conflicting_stack_ids.is_empty() {
+    if !outcome.conflicting_stacks.is_empty() {
         let short_name = reference.name.shorten();
-        let is_remote = reference
-            .name
-            .category()
-            .is_some_and(|c| c == Category::RemoteBranch);
-        let prefix = if is_remote { "remote branch" } else { "branch" };
-        anyhow::bail!("'{short_name}' ({prefix}) conflicts with existing stacks in the workspace");
+        let conflicting_stack_names = outcome
+            .conflicting_stacks
+            .iter()
+            .map(|stack| stack.ref_name.shorten().to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        anyhow::bail!(
+            "'{short_name}' conflicts with existing stack in the workspace: {conflicting_stack_names}"
+        );
     }
 
     if let Some(out) = out.for_human() {

@@ -410,7 +410,7 @@
 //!                                      junctions', decide which parent to
 //!                                      walk along.
 //! ```
-use but_core::ref_metadata::{StackId, StackKind, WorkspaceCommitRelation::Outside};
+use but_core::ref_metadata::StackId;
 
 use crate::ref_info;
 
@@ -519,55 +519,6 @@ pub(crate) fn ensure_no_missing_stacks(
             merge.missing_stacks
         ))
     }
-}
-
-/// Map conflicting merge tips back to stable workspace stack ids.
-///
-/// Each entry in `conflicts` may carry the ref name of the tip that could not be merged. That ref
-/// name is looked up in `ws_md` across both applied and unapplied stacks, and the owning stack's
-/// stable id is returned.
-///
-/// Conflicts without a ref name, or whose ref name is no longer known to the
-/// workspace metadata, are skipped.
-pub(crate) fn correlate_conflicting_stack_ids(
-    ws_md: &but_core::ref_metadata::Workspace,
-    conflicts: &[crate::commit::merge::ConflictingStack],
-) -> Vec<StackId> {
-    conflicts
-        .iter()
-        .filter_map(|cs| cs.ref_name.as_ref())
-        .filter_map(|ref_name| {
-            ws_md
-                .find_stack_with_branch(ref_name.as_ref(), StackKind::AppliedAndUnapplied)
-                .map(|stack| stack.id)
-        })
-        .collect()
-}
-
-/// Mark conflicting stacks as outside the workspace and return their stable stack ids.
-///
-/// This is used when the caller chooses to materialize the best-effort merge result: the
-/// conflicting branches remain known in metadata, but are no longer represented in the
-/// checked-out workspace tree.
-///
-/// For each conflicting stack id given in `conflicts` and found in `ws_md`, this changes only
-/// `WorkspaceStack::workspacecommit_relation` to `Outside`. The stack entry and its branch list
-/// stay in `ws_md`, so the branch can still be re-applied later with its metadata intact.
-pub(crate) fn correlate_conflicting_stack_ids_and_remove_from_workspace(
-    ws_md: &mut but_core::ref_metadata::Workspace,
-    conflicts: &[crate::commit::merge::ConflictingStack],
-) -> Vec<StackId> {
-    let conflicting_stack_ids = correlate_conflicting_stack_ids(ws_md, conflicts);
-    for conflicting_id in &conflicting_stack_ids {
-        let stack = ws_md
-            .stacks
-            .iter_mut()
-            .find(|s| s.id == *conflicting_id)
-            .expect("if it was found before it will be found as id");
-        // TODO: this might as well be 'Unmerged' to keep them in the workspace, but not let them be merged.
-        stack.workspacecommit_relation = Outside;
-    }
-    conflicting_stack_ids
 }
 
 /// Find `branch` in `repo` and reject it if it resolves to a symbolic reference.
