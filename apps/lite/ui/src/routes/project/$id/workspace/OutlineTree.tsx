@@ -1309,7 +1309,6 @@ const CommitRow: FC<
 			projectId={projectId}
 			operand={operand}
 			isHighlighted={isHighlighted}
-			onDoubleClick={isDefaultMode ? startEditing : undefined}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
@@ -2205,7 +2204,6 @@ const BranchRow: FC<
 			{...restProps}
 			projectId={projectId}
 			operand={operand}
-			onDoubleClick={isDefaultMode ? startEditing : undefined}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
