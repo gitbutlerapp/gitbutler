@@ -1,6 +1,6 @@
 import { changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
-import { fileOperand, operandIdentityKey, type FileOperand } from "#ui/operands.ts";
+import { changesFileParent, fileOperand, FileParent } from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectHasCheckedCommits,
@@ -15,7 +15,7 @@ import { mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
 import type { TreeChange, TreeStatus } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
-import { Array, Match } from "effect";
+import { Array, identity, Match } from "effect";
 import { ComponentProps, createContext, FC, use, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import {
@@ -40,21 +40,20 @@ import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 
-const fileOperandIdentityKey = (operand: FileOperand): string =>
-	operandIdentityKey(fileOperand(operand));
-
-const NavigationIndexContext = createContext<NavigationIndex<FileOperand> | null>(null);
+const NavigationIndexContext = createContext<NavigationIndex<string> | null>(null);
 
 const useFilesTreeHotkeys = ({
 	navigationIndex,
 	onFileSelection,
 	projectId,
 	ref,
+	fileParent,
 }: {
-	navigationIndex: NavigationIndex<FileOperand>;
-	onFileSelection: (selection: FileOperand) => void;
+	navigationIndex: NavigationIndex<string>;
+	onFileSelection: (selection: string) => void;
 	projectId: string;
 	ref: React.RefObject<HTMLElement | null>;
+	fileParent: FileParent;
 }) => {
 	const selection = useFilesSelection(projectId, navigationIndex);
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -62,20 +61,18 @@ const useFilesTreeHotkeys = ({
 
 	const dispatch = useAppDispatch();
 
-	const selectedChangesFile = selection?.parent._tag === "Changes" ? selection : null;
+	const selectedChangesFile = fileParent._tag === "Changes" ? selection : null;
 
 	const absorbSelectedFile = () => {
 		if (selectedChangesFile === null) return;
 
-		const change = worktreeChanges?.changes.find(
-			(change) => change.path === selectedChangesFile.path,
-		);
+		const change = worktreeChanges?.changes.find((change) => change.path === selectedChangesFile);
 		if (!change) return;
 
 		dispatch(
 			projectActions.enterAbsorbMode({
 				projectId,
-				source: fileOperand(selectedChangesFile),
+				source: fileOperand({ parent: changesFileParent, path: selectedChangesFile }),
 				sourceTarget: {
 					type: "treeChanges",
 					subject: {
@@ -109,36 +106,34 @@ const useFilesTreeHotkeys = ({
 		select: onFileSelection,
 		selection,
 		ref,
-		getKey: fileOperandIdentityKey,
-		operationSourceForItem: fileOperand,
+		getKey: identity,
+		operationSourceForItem: (path) => fileOperand({ parent: fileParent, path }),
 	});
 };
 
 type ChangeFileTreeItem = {
 	change: TreeChange;
 	dependencyCommitIds?: Array.NonEmptyArray<string>;
-	operand: FileOperand;
+	path: string;
 };
 
 export const changeFileTreeItem = ({
 	change,
 	dependencyCommitIds,
-	operand,
+	path,
 }: ChangeFileTreeItem): FileTreeItem => ({
 	_tag: "Change",
 	change,
 	dependencyCommitIds,
-	operand,
+	path,
 });
 
 type ConflictFileTreeItem = {
-	operand: FileOperand;
 	path: string;
 };
 
-export const conflictFileTreeItem = ({ operand, path }: ConflictFileTreeItem): FileTreeItem => ({
+export const conflictFileTreeItem = ({ path }: ConflictFileTreeItem): FileTreeItem => ({
 	_tag: "Conflict",
-	operand,
 	path,
 });
 
@@ -150,10 +145,19 @@ export const FilesTree: FC<
 	{
 		projectId: string;
 		items: Array<FileTreeItem>;
-		onFileSelection: (selection: FileOperand) => void;
-		navigationIndex: NavigationIndex<FileOperand>;
+		onFileSelection: (selection: string) => void;
+		navigationIndex: NavigationIndex<string>;
+		fileParent: FileParent;
 	} & ComponentProps<"div">
-> = ({ items, onFileSelection, projectId, navigationIndex, ref: refProp, ...props }) => {
+> = ({
+	items,
+	onFileSelection,
+	projectId,
+	navigationIndex,
+	fileParent,
+	ref: refProp,
+	...props
+}) => {
 	const selection = useFilesSelection(projectId, navigationIndex);
 
 	const ref = useRef<HTMLDivElement>(null);
@@ -163,6 +167,7 @@ export const FilesTree: FC<
 		onFileSelection,
 		projectId,
 		ref,
+		fileParent,
 	});
 
 	return (
@@ -171,7 +176,7 @@ export const FilesTree: FC<
 				{...props}
 				tabIndex={0}
 				role="tree"
-				aria-activedescendant={selection ? treeItemId(selection) : undefined}
+				aria-activedescendant={selection !== null ? treeItemId(selection) : undefined}
 				className={classes(props.className, styles.tree)}
 				ref={useMergedRefs(refProp, ref)}
 			>
@@ -184,9 +189,9 @@ export const FilesTree: FC<
 						<div role="group">
 							{items.map((item) => (
 								<TreeItem
-									key={fileOperandIdentityKey(item.operand)}
+									key={item.path}
 									projectId={projectId}
-									operand={item.operand}
+									path={item.path}
 									aria-label={
 										item._tag === "Change"
 											? `${statusLabel(item.change.status)} ${item.change.path}`
@@ -195,13 +200,15 @@ export const FilesTree: FC<
 									render={
 										<OperationSourceC
 											projectId={projectId}
-											source={fileOperand(item.operand)}
-											onDragStart={() => onFileSelection(item.operand)}
+											source={fileOperand({ parent: fileParent, path: item.path })}
+											onDragStart={() => onFileSelection(item.path)}
 											render={
 												<FileRow
 													item={item}
+													path={item.path}
 													onFileSelection={onFileSelection}
 													projectId={projectId}
+													fileParent={fileParent}
 												/>
 											}
 										/>
@@ -216,47 +223,34 @@ export const FilesTree: FC<
 	);
 };
 
-const useIsSelected = ({
-	projectId,
-	operand,
-}: {
-	projectId: string;
-	operand: FileOperand;
-}): boolean => {
+const useIsSelected = ({ projectId, path }: { projectId: string; path: string }): boolean => {
 	const navigationIndex = assert(use(NavigationIndexContext));
 	return useAppSelector((state) => {
 		const selectionState = selectProjectSelectionFiles(state, projectId);
-		const selection = resolveNavigationIndexSelection(
-			navigationIndex,
-			selectionState,
-			fileOperandIdentityKey,
-		);
+		const selection = resolveNavigationIndexSelection(navigationIndex, selectionState, identity);
 
-		return (
-			selection !== null && fileOperandIdentityKey(selection) === fileOperandIdentityKey(operand)
-		);
+		return selection !== null && selection === path;
 	});
 };
 
-const treeItemId = (operand: FileOperand): string =>
-	`files-treeitem-${encodeURIComponent(fileOperandIdentityKey(operand))}`;
+const treeItemId = (path: string): string => `files-treeitem-${encodeURIComponent(path)}`;
 
 const ItemRow: FC<
 	{
-		onFileSelection: (selection: FileOperand) => void;
+		onFileSelection: (selection: string) => void;
 		projectId: string;
-		operand: FileOperand;
+		path: string;
 	} & Omit<ComponentProps<typeof WorkspaceItemRow>, "inert" | "isSelected" | "onSelect">
-> = ({ onFileSelection, projectId, operand, ...props }) => {
+> = ({ onFileSelection, projectId, path, ...props }) => {
 	const navigationIndex = assert(use(NavigationIndexContext));
-	const isSelected = useIsSelected({ projectId, operand });
+	const isSelected = useIsSelected({ projectId, path });
 
 	return (
 		<WorkspaceItemRow
 			{...props}
-			inert={!navigationIndexIncludes(navigationIndex, operand, fileOperandIdentityKey)}
+			inert={!navigationIndexIncludes(navigationIndex, path, identity)}
 			isSelected={isSelected}
-			onSelect={() => onFileSelection(operand)}
+			onSelect={() => onFileSelection(path)}
 		/>
 	);
 };
@@ -264,16 +258,16 @@ const ItemRow: FC<
 const TreeItem: FC<
 	{
 		projectId: string;
-		operand: FileOperand;
+		path: string;
 	} & useRender.ComponentProps<"div">
-> = ({ projectId, operand, render, ...props }) => {
-	const isSelected = useIsSelected({ projectId, operand });
+> = ({ projectId, path, render, ...props }) => {
+	const isSelected = useIsSelected({ projectId, path });
 
 	return useRender({
 		render,
 		defaultTagName: "div",
 		props: mergeProps<"div">(props, {
-			id: treeItemId(operand),
+			id: treeItemId(path),
 			role: "treeitem",
 			"aria-selected": isSelected,
 		}),
@@ -292,16 +286,16 @@ const statusLabel = (status: TreeStatus): string =>
 const FileRow: FC<
 	{
 		item: FileTreeItem;
-		onFileSelection: (selection: FileOperand) => void;
 		projectId: string;
-	} & Omit<ComponentProps<typeof ItemRow>, "onFileSelection" | "projectId" | "operand">
-> = ({ item, onFileSelection, projectId, ...restProps }) => {
+		fileParent: FileParent;
+	} & Omit<ComponentProps<typeof ItemRow>, "projectId" | "operand">
+> = ({ item, projectId, fileParent, ...restProps }) => {
 	const relativePath = item._tag === "Change" ? item.change.path : item.path;
 
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
 	const menuItems = useFileMenuItems({
 		projectId,
-		operand: item.operand,
+		operand: { parent: fileParent, path: relativePath },
 		path: relativePath,
 		change: item._tag === "Change" ? item.change : undefined,
 	});
@@ -314,8 +308,7 @@ const FileRow: FC<
 		<ItemRow
 			{...restProps}
 			projectId={projectId}
-			operand={item.operand}
-			onFileSelection={onFileSelection}
+			path={item.path}
 			className={classes(restProps.className, styles.fileRow)}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
@@ -348,10 +341,10 @@ const FileRow: FC<
 
 			{outlineMode._tag === "Default" && (
 				<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
-					{Match.value(item).pipe(
+					{Match.value({ item, fileParent }).pipe(
 						Match.when(
-							{ _tag: "Change", operand: { parent: { _tag: "Changes" } } },
-							(item) =>
+							{ item: { _tag: "Change" }, fileParent: { _tag: "Changes" } },
+							({ item }) =>
 								item.dependencyCommitIds && (
 									<Toolbar.Button
 										render={
