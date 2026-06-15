@@ -245,7 +245,7 @@ fn run(
 ) -> CliResult<CommitOutcome> {
     let changes = {
         let context_lines = ctx.settings.context_lines;
-        let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
         let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
 
         match commit_selection {
