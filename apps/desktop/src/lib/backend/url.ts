@@ -36,8 +36,24 @@ export interface EditorUriParams {
 	column?: number;
 }
 
+// Mirrors `is_vscode_or_compatible` in `crates/but-api/src/open/mod.rs`.
+const VSCODE_COMPATIBLE_SCHEMES = new Set([
+	"vscode",
+	"vscode-insiders",
+	"vscodium",
+	"cursor",
+	"windsurf",
+	"trae",
+]);
+
 export function getEditorUri(params: EditorUriParams): string {
-	const searchParamsString = new URLSearchParams(params.searchParams).toString();
+	// Query parameters (e.g. `windowId=_blank`) are only understood by VS Code
+	// and its forks. Zed treats everything after `zed://file` as a literal file
+	// path, so a query would end up in the opened path.
+	const searchParams = VSCODE_COMPATIBLE_SCHEMES.has(params.schemeId)
+		? params.searchParams
+		: undefined;
+	const searchParamsString = new URLSearchParams(searchParams).toString();
 	// Separator is always a forward slash for editor paths, even on Windows
 	const pathString = params.path.join(SEPARATOR);
 
