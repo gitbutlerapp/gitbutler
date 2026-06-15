@@ -132,12 +132,11 @@ export const getTransferOperation = ({
 	mode: TransferOperationMode;
 	target: Operand;
 }) => {
-	const { operationType } = mode;
-	if (operationType === null) return null;
+	if (mode.operationType === null) return null;
 	return getOperation({
 		source: mode.source,
 		target,
-		operationType,
+		operationType: mode.operationType,
 	});
 };
 
