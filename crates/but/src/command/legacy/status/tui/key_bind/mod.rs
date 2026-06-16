@@ -706,7 +706,7 @@ impl KeyBindsBuilder<'_> {
     fn confirm_and_quit(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "confirm",
-            press().code(KeyCode::Enter),
+            press().code(KeyCode::Enter).alt_code(KeyCode::Char('c')),
             Message::ConfirmAndQuit,
         )
         .long_description("Rub target into selection")
