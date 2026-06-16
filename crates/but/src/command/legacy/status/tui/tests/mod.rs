@@ -1062,10 +1062,11 @@ fn pick_changes_mode() {
     );
 
     tui.input_then_render(None)
-        .assert_rendered_contains("pick changes");
+        .assert_rendered_term_svg_eq(file!["snapshots/pick_changes_mode_001.svg"]);
 
     tui.input_then_render('j');
-    tui.input_then_render(' ');
+    tui.input_then_render(' ')
+        .assert_rendered_term_svg_eq(file!["snapshots/pick_changes_mode_002.svg"]);
     let outcome = tui
         .input_then_render(KeyCode::Enter)
         .take_outcome()
@@ -1099,16 +1100,23 @@ fn stays_in_pick_change_mode_after_full_screen_details() {
     );
 
     tui.input_then_render(None)
-        .assert_rendered_contains("pick changes")
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/stays_in_pick_change_mode_after_full_screen_details_001.svg"
+        ])
         .assert_backstack_eq([]);
 
     // mark some changes
     tui.input_then_render('j');
     tui.input_then_render(' ')
-        .assert_backstack_eq([BackstackEntry::Mark]);
+        .assert_backstack_eq([BackstackEntry::Mark])
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/stays_in_pick_change_mode_after_full_screen_details_002.svg"
+        ]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
-        .assert_rendered_contains("details")
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/stays_in_pick_change_mode_after_full_screen_details_003.svg"
+        ])
         .assert_backstack_eq([
             BackstackEntry::LeaveNormalMode,
             BackstackEntry::OpenFullScreenDetailsView,
@@ -1116,7 +1124,9 @@ fn stays_in_pick_change_mode_after_full_screen_details() {
         ]);
 
     tui.input_then_render(KeyCode::Esc)
-        .assert_rendered_contains("pick changes")
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/stays_in_pick_change_mode_after_full_screen_details_004.svg"
+        ])
         .assert_backstack_eq([BackstackEntry::Mark]);
 
     // ensure the changes are still marked after returning from details mode
