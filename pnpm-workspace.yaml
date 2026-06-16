@@ -5,7 +5,7 @@ packages:
   - e2e
 
 catalog:
-  "@vitest/browser": 3.2.4
+  "@vitest/browser": 3.2.5
   "@vitest/ui": 3.2.4
   marked: 15.0.12
   rxjs: 7.8.2
