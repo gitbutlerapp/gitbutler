@@ -181,16 +181,6 @@ pub(crate) fn repo(
     let t = theme::get();
     let mut target_info: Option<TargetInfo> = None;
 
-    // what branch is head() pointing to?
-    let pre_head_name = {
-        let repo = ctx.repo.get()?;
-        let pre_head = repo.head()?;
-        pre_head
-            .referent_name()
-            .map(|n| n.shorten().to_string())
-            .unwrap_or_default()
-    };
-
     // find or setup the gitbutler project
     if let Some(out) = out.for_human() {
         writeln!(
@@ -334,9 +324,10 @@ pub(crate) fn repo(
         };
 
         drop(repo);
-        but_api::legacy::virtual_branches::set_base_branch_with_perm(
+        let target_ref: gix::refs::FullName = format!("refs/remotes/{name}").try_into()?;
+        but_api::branch::set_default_target_with_perm(
             ctx,
-            name.clone(),
+            target_ref.as_ref(),
             Some(remote_name.clone()),
             perm,
         )?;
@@ -391,58 +382,6 @@ pub(crate) fn repo(
             }
             writeln!(out)?;
         }
-    }
-
-    let head_name = {
-        let repo = ctx.repo.get()?;
-        let head = repo.head()?;
-        head.referent_name()
-            .map(|n| n.shorten().to_owned())
-            .unwrap_or_default()
-    };
-
-    // switch to gitbutler/workspace if not already there
-    if !head_name.starts_with(b"gitbutler/") {
-        but_api::legacy::virtual_branches::switch_back_to_workspace_with_perm(ctx, perm)?;
-    }
-
-    // Install managed hooks to prevent accidental git commits
-    if let Ok(repo) = ctx.repo.get()
-        && let Err(e) = gitbutler_repo::managed_hooks::install_managed_hooks(&repo)
-        && let Some(out) = out.for_human()
-    {
-        writeln!(
-            out,
-            "  {}",
-            t.attention.paint(format!(
-                "Warning: Failed to install GitButler managed hooks: {e}"
-            ))
-        )?;
-    }
-
-    // if we switched - tell the user what this is all about
-    if pre_head_name != "gitbutler/workspace"
-        && let Some(out) = out.for_human()
-    {
-        writeln!(
-            out,
-            "{}",
-            t.attention.paint(format!(
-                r#"
-Setting up your project for GitButler tooling. Some things to note:
-
-- Switching you to a special `gitbutler/workspace` branch to enable parallel branches
-- Installing Git hooks to help manage commits on the workspace branch
-
-To undo these changes and return to normal Git mode, either:
-
-    - Directly checkout a branch (`git checkout {pre_head_name}`)
-    - Run `but teardown`
-
-More info: https://docs.gitbutler.com/workspace-branch
-"#
-            ))
-        )?;
     }
 
     // Display splash screen for human output

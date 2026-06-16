@@ -62,19 +62,6 @@ Target branch: gb-local/main
 Remote: gb-local
 
 
-Setting up your project for GitButler tooling. Some things to note:
-
-- Switching you to a special `gitbutler/workspace` branch to enable parallel branches
-- Installing Git hooks to help manage commits on the workspace branch
-
-To undo these changes and return to normal Git mode, either:
-
-    - Directly checkout a branch (`git checkout main`)
-    - Run `but teardown`
-
-More info: https://docs.gitbutler.com/workspace-branch
-
-
 
 ██▄      ▄██  ▀██▀▀█▄ ▀██▀ ▀██▀ █▀▀██▀▀█
 ████▄  ▄████   ██  ██  ██   ██  ▀  ██  ▀
@@ -143,16 +130,12 @@ Learn more at https://docs.gitbutler.com/cli-overview
 
     env.but("status")
         .assert()
-        .success()
-        .stdout_eq(str![[r#"
-╭┄zz [unassigned changes] (no changes)
-┊
-┴ 6f66116 (common base) 2000-01-02 Initial empty commit
+        .failure()
+        .stdout_eq(str![""])
+        .stderr_eq(str![[r#"
+Error: Setup required: Not currently on a gitbutler/* branch. - run `but setup` to configure the project
 
-Hint: run `but branch new` to create a new branch to work on
-
-"#]])
-        .stderr_eq(str![""]);
+"#]]);
 
     Ok(())
 }
