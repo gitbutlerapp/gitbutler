@@ -266,6 +266,18 @@ impl TestTuiInputThenRenderResult<'_> {
         self
     }
 
+    #[track_caller]
+    #[allow(dead_code)]
+    pub(super) fn assert_rendered_not_contains(self, expected: &str) -> Self {
+        let output = self.rendered_output();
+        assert!(
+            !output.contains(expected),
+            "expected rendered output to not contain {expected:?}, got:\n{output}"
+        );
+
+        self
+    }
+
     pub(super) fn rendered_output(&self) -> String {
         self.0.terminal.backend().to_string()
     }
