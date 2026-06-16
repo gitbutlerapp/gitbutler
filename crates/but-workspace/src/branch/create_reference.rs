@@ -132,6 +132,7 @@ pub(super) mod function {
     use std::borrow::{Borrow, Cow};
 
     use anyhow::{Context as _, bail};
+    use bstr::ByteSlice;
     use but_core::{
         RefMetadata, ref_metadata,
         ref_metadata::{
@@ -427,6 +428,15 @@ pub(super) mod function {
             "Dependent branch by GitButler",
         )
         .map_err(|err| {
+            if is_not_a_directory_ref_edit_error(&err)
+                && let Ok(Some(colliding_ref)) = find_colliding_ref_ancestor(repo, ref_name)
+            {
+                return anyhow::anyhow!(
+                    "Branch name '{}' collides with existing branch '{}'",
+                    ref_name.shorten(),
+                    colliding_ref.shorten()
+                );
+            }
             let code = match err {
                 gix::reference::edit::Error::FileTransactionCommit(
                     gix::refs::file::transaction::commit::Error::CreateOrUpdateRefLog(
@@ -458,6 +468,30 @@ pub(super) mod function {
         meta.set_branch(&branch_md)?;
 
         Ok(Cow::Owned(updated_workspace))
+    }
+
+    fn is_not_a_directory_ref_edit_error(err: &gix::reference::edit::Error) -> bool {
+        matches!(
+            err,
+            gix::reference::edit::Error::FileTransactionPrepare(
+                gix::refs::file::transaction::prepare::Error::Io(io_err)
+            ) if io_err.kind() == std::io::ErrorKind::NotADirectory
+        )
+    }
+
+    fn find_colliding_ref_ancestor(
+        repo: &gix::Repository,
+        ref_name: &gix::refs::FullNameRef,
+    ) -> anyhow::Result<Option<gix::refs::FullName>> {
+        let full_name = ref_name.as_bstr().to_str_lossy();
+        // Skip the `refs` and `heads` separators so candidates start at branch components.
+        for slash_idx in full_name.match_indices('/').map(|(idx, _)| idx).skip(2) {
+            let ancestor_ref = gix::refs::FullName::try_from(full_name[..slash_idx].to_owned())?;
+            if repo.try_find_reference(ancestor_ref.as_ref())?.is_some() {
+                return Ok(Some(ancestor_ref));
+            }
+        }
+        Ok(None)
     }
 
     fn update_branch_metadata(
