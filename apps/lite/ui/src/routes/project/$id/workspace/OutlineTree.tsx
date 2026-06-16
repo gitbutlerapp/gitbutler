@@ -2219,7 +2219,6 @@ const BranchRow: FC<
 			isCommitTarget={isCommitTarget}
 		>
 			<GraphSegment
-				className={styles.branchRowGraphSegment}
 				glyph={isTopSegment ? "forkRight" : "joinRight"}
 				status={segmentPushStatusToStatus(pushStatus)}
 			/>
