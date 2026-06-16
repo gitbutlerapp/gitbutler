@@ -736,6 +736,9 @@ const Diff: FC<{
 				tabIndex={0}
 				className={styles.diffContentsContainer}
 				ref={selectionScopeRef}
+				onPointerDown={() => {
+					selectionScopeRef.current?.focus();
+				}}
 			>
 				<DiffContents
 					onViewerFileSelection={onFileSelection}
