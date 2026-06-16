@@ -19,11 +19,11 @@ Agent-focused reference for useful `but` commands.
 
 ### `but status`
 
-Overview of workspace state - this is your entry point.
+Overview of branch, stack, commit, and workspace state. Use this when you need existing branch/stack/commit/conflict context. For selected dirty-file or hunk commits, start with `but diff` instead.
 
 ```bash
-but status              # Human-readable view
-but status -fv          # File-centric view with full commit details (recommended)
+but status              # Compact human overview; avoid as routine preflight for write tasks
+but status -fv          # File-centric view with full commit details
 but status --verbose    # Detailed information
 but status --upstream   # Show upstream relationship
 ```
@@ -49,10 +49,10 @@ but show <id> --verbose # Show with full messages and file details
 Display diff for file, branch, stack, or commit.
 
 ```bash
+but diff                # Diff for entire workspace; best first command for selective dirty commits
 but diff <file-id>      # Diff for specific file
 but diff <branch-id>    # Diff for all changes in branch
 but diff <commit-id>    # Diff for specific commit
-but diff                # Diff for entire workspace
 ```
 
 **Hunk IDs:** For uncommitted changes, `but diff` shows each hunk with an ID (e.g., `e8`, `j0`). Pass these IDs to `but commit --changes` for fine-grained, hunk-level commits.
@@ -86,6 +86,8 @@ but branch new feature -a <anchor>  # Stacked branch (dependent work)
 ```
 
 Use parallel branches for independent tasks. Use stacked branches when work depends on another branch.
+
+For "commit these selected changes on a new branch", prefer `but commit <branch> -c -m "message" --changes <ids>` instead of a separate `but branch new` or preflight `but status -fv`.
 
 ### `but apply <branch-name>`
 
@@ -168,8 +170,8 @@ but commit empty --after <target>        # Insert empty commit after target
 
 **Important:** Plain `but commit <branch> -m` commits ALL uncommitted changes to the branch. Use `--changes` to commit only specific files or hunks.
 
-**Committing specific files or hunks:** Use `--changes` (or `-p`) with comma-separated CLI IDs to commit only those files or hunks:
-- **File IDs** from `but status`: commits entire files
+**Committing specific files or hunks:** Start with `but diff` for selective dirty commits, then use `--changes` (or `-p`) with comma-separated CLI IDs to commit only those files or hunks:
+- **File IDs** from `but diff` or `but status -fv`: commits entire files
 - **Hunk IDs** from `but diff`: commits individual hunks
 - `--changes` takes one argument per flag. Use `--changes a1,b2` or `--changes a1 --changes b2`, not `--changes a1 b2`.
 
@@ -177,7 +179,11 @@ but commit empty --after <target>        # Insert empty commit after target
 
 Example: `but commit my-branch -m "Fix bug" --changes ab,cd` commits files/hunks `ab` and `cd`.
 
+Example new branch: `but commit feature/contact-form -c -m "Validate contact form input" --changes ab,cd` creates `feature/contact-form` and commits only those selected file or hunk IDs.
+
 To commit specific hunks from a file with multiple changes, use `but diff` to see hunk IDs, then specify them individually.
+
+Edge case: if wanted and unwanted edits are in the same hunk, GitButler cannot split that hunk by ID. Only when the task requires keeping part of that hunk uncommitted, temporarily edit the working tree to isolate the wanted lines, commit with `--changes`, then restore the leftover lines so they remain uncommitted.
 
 If only one branch is applied, you can omit the branch ID.
 
@@ -522,7 +528,7 @@ but gui -n ../other-repo    # Short flag for opening another project in a new wi
 Useful to agents:
 
 - `-C, --current-dir <PATH>` - Run as if started in different directory
-- `-h, --help` - Show help for command
+- `-h, --help` - Show help for command. Avoid routine help probes; use this reference first.
 
 ## External commands (PATH helpers)
 
@@ -538,5 +544,7 @@ Restriction: `<command>` must consist of characters in the set `[a-zA-Z_-]`
 but --help                    # List all commands
 but <subcommand> --help       # Detailed help for specific command
 ```
+
+Use help only after a command fails or the installed references do not contain the syntax you need.
 
 Full documentation: <https://docs.gitbutler.com/cli-overview>
