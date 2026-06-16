@@ -338,14 +338,16 @@ export declare function mergeReview(projectId: string, reviewId: number, mergeMe
 export declare function moveBranch(projectId: string, subjectBranch: string, targetBranch: string, dryRun: boolean): Promise<MoveBranchResult>
 
 /**
- * Open `path` within the given project's workdir.
+ * Open `path` within the given project's workdir using the editor specified by `editor_id`.
  *
  * `path` must be relative to the workdir of the repository and must resolve to a file or directory
  * within the workdir, including the workdir root itself. Otherwise an error is returned.
  *
+ * `line_nr` can be provided to open a file at a specific line.
+ *
  * [`list_editors`] provides the available `editor_id`s.
  */
-export declare function openInEditor(projectId: string, editorId: string, path: string): Promise<void>
+export declare function openInEditor(projectId: string, editorId: string, path: string, lineNr: number | null): Promise<void>
 
 /**
  * Find the final snapshot that a restore snapshot will restore from.

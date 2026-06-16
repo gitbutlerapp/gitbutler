@@ -437,8 +437,8 @@ const registerIpcHandlers = (): void => {
 	);
 	senderValidatingHandle(
 		liteIpcChannels.openInEditor,
-		(_e, { projectId, editorId, path }: OpenInEditorParams) =>
-			openInEditor(projectId, editorId, path),
+		(_e, { projectId, editorId, path, lineNr }: OpenInEditorParams) =>
+			openInEditor(projectId, editorId, path, lineNr),
 	);
 	senderValidatingHandle(liteIpcChannels.pathJoin, (_e, ...paths: Array<string>) =>
 		path.join(...paths),

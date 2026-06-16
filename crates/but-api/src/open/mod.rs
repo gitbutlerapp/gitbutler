@@ -638,10 +638,12 @@ pub fn list_editors() -> anyhow::Result<Vec<Editor>> {
     Ok(EDITORS.iter().map(Into::into).collect())
 }
 
-/// Open `path` within the given project's workdir.
+/// Open `path` within the given project's workdir using the editor specified by `editor_id`.
 ///
 /// `path` must be relative to the workdir of the repository and must resolve to a file or directory
 /// within the workdir, including the workdir root itself. Otherwise an error is returned.
+///
+/// `line_nr` can be provided to open a file at a specific line.
 ///
 /// [`list_editors`] provides the available `editor_id`s.
 #[but_api(napi)]
@@ -650,6 +652,7 @@ pub fn open_in_editor(
     ctx: &mut but_ctx::Context,
     editor_id: String,
     path: String,
+    line_nr: Option<i32>,
 ) -> anyhow::Result<()> {
     let repo = ctx.repo.get()?;
     let workdir_path = gix::path::realpath(repo.workdir().context("project must have a workdir")?)?;
@@ -668,5 +671,5 @@ pub fn open_in_editor(
         bail_precondition!("editor_id '{editor_id}' does not exist");
     };
 
-    open_in_editor_unchecked(&resolved_path, editor)
+    open_in_editor_unchecked(editor, &resolved_path, line_nr)
 }
