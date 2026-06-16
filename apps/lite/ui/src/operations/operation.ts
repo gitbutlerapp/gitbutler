@@ -12,16 +12,16 @@ import {
 	CommitSquashParams,
 	CommitUncommitParams,
 } from "#electron/ipc.ts";
-import { headInfoQueryOptions, QueryKey } from "#ui/api/queries.ts";
+import { QueryKey } from "#ui/api/queries.ts";
 import { rejectedChangesToastOptions } from "#ui/operations/toastOptions.tsx";
 import { DiffSpec, InsertSide, RelativeTo } from "@gitbutler/but-sdk";
 import { Operand, operandEquals, operandFileParent } from "#ui/operands.ts";
 import { resolveDiffSpecs, useResolveDiffSpecs } from "#ui/operations/diff-specs.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
-import { projectActions } from "#ui/projects/state.ts";
 import { useAppDispatch } from "#ui/store.ts";
 import { useParams } from "@tanstack/react-router";
 import { errorMessageForToast } from "#ui/errors.ts";
+import { syncCoreCaches } from "#ui/api/mutations.ts";
 
 type CommitAmendOperation = Omit<CommitAmendParams, "dryRun" | "projectId" | "changes"> & {
 	source: Operand;
@@ -265,14 +265,7 @@ export const useRunOperation = () => {
 			}),
 		onSuccess: async (response, _input, _ctx, { client }) => {
 			if (response) {
-				client.setQueryData(headInfoQueryOptions(projectId).queryKey, response.workspace.headInfo);
-				dispatch(
-					projectActions.updateRewrittenCommitReferences({
-						projectId,
-						replacedCommits: response.workspace.replacedCommits,
-						headInfo: response.workspace.headInfo,
-					}),
-				);
+				syncCoreCaches(client, dispatch, projectId, response);
 
 				if ("rejectedChanges" in response && response.rejectedChanges.length > 0)
 					toastManager.add(

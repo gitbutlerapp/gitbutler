@@ -178,14 +178,7 @@ export const useCommitAmend = ({ projectId }: { projectId: string }) => {
 			});
 		},
 		onSuccess: async (response, input, _ctx, { client }) => {
-			client.setQueryData(headInfoQueryOptions(projectId).queryKey, response.workspace.headInfo);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
+			syncCoreCaches(client, dispatch, projectId, response);
 
 			if (input.relativeTo.type === "commit" && response.newCommit !== null)
 				dispatch(
@@ -413,24 +406,14 @@ export const useCommitReword = () => {
 	});
 };
 
-export const useCommitUncommit = () => {
+export const useCommitUncommit = ({ projectId }: { projectId: string }) => {
 	const dispatch = useAppDispatch();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: window.lite.commitUncommit,
-		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
+		onSuccess: async (response, _input, _context, mutation) => {
+			syncCoreCaches(mutation.client, dispatch, projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -507,21 +490,13 @@ export const usePushStack = () => {
 
 export const useWorkspaceIntegrateUpstream = ({ projectId }: { projectId: string }) => {
 	const dispatch = useAppDispatch();
-	const queryClient = useQueryClient();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: (updates: Array<BottomUpdate>) =>
 			window.lite.workspaceIntegrateUpstream({ projectId, updates, dryRun: false }),
-		onSuccess: (workspace, updates) => {
-			queryClient.setQueryData(headInfoQueryOptions(projectId).queryKey, workspace.headInfo);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId,
-					replacedCommits: workspace.replacedCommits,
-					headInfo: workspace.headInfo,
-				}),
-			);
+		onSuccess: (response, updates, _context, mutation) => {
+			syncCoreCaches(mutation.client, dispatch, projectId, response);
 
 			toastManager.add({
 				type: "success",
