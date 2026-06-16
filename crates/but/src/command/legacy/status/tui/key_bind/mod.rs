@@ -76,6 +76,7 @@ pub(super) fn default_key_binds() -> KeyBinds {
                 builder.grow_details().register();
                 builder.shrink_details().register();
                 builder.details_focus_status().register();
+                builder.focus_details().hide_from_hotbar().register();
 
                 builder.command().register();
                 builder.shell_command().register();
