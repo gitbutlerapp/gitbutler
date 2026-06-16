@@ -72,7 +72,9 @@ storybook-static
 # Claude
 .swarm
 .claude-flow
-/.agents/
+/.agents/*
+!/.agents/skills/
+!/.agents/skills/**
 /.claude/
 
 # Auto-generated design tokens
