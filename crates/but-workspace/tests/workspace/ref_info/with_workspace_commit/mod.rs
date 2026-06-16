@@ -3964,9 +3964,7 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                         id: NodeIndex(0),
                         ref_name: "►unrelated",
                         remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(c166d42, "init-integration\n", integrated(c166d42)),
-                        ],
+                        commits: [],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -3976,8 +3974,21 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target_ref: None,
-        target_commit: None,
+        target_ref: Some(
+            TargetRef {
+                ref_name: FullName(
+                    "refs/remotes/origin/main",
+                ),
+                segment_index: NodeIndex(2),
+                commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(0),
+            },
+        ),
         lower_bound: None,
         is_managed_ref: false,
         is_managed_commit: false,

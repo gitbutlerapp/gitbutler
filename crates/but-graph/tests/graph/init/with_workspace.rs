@@ -1257,13 +1257,13 @@ fn just_init_with_branches() -> anyhow::Result<()> {
         └── →:0: (main[🌳] →:2:)
     ");
 
-    // There is no workspace as `main` is the base of the workspace, so it's shown directly,
-    // outside the workspace.
+    // There is no workspace as `main` is the base of the workspace, so it's shown directly
+    // as a downgraded single-branch view. The target context is preserved, and the fully
+    // integrated base commit is pruned while keeping the branch container.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    ⌂:0:main[🌳] <> ✓!
+    ⌂:0:main[🌳] <> ✓refs/remotes/origin/main
     └── ≡:0:main[🌳] <> origin/main →:2: {1}
         └── :0:main[🌳] <> origin/main →:2:
-            └── ❄️fafd9d0 (🏘️|✓) ►A, ►B, ►C, ►D, ►E, ►F
     ");
 
     let (id, ws_ref_name) = id_at(&repo, "gitbutler/workspace");
@@ -2026,16 +2026,15 @@ fn proper_remote_ahead() -> anyhow::Result<()> {
             └── →:0: (main →:2:)
     ");
 
-    // If it's checked out, we must show it, but it's not part of the workspace.
-    // This is special as other segments still are.
+    // If it's checked out, we must show the branch container, but it's not part of the
+    // managed workspace. The target context is preserved and integrated local/base commits
+    // are pruned, leaving only target-side commits ahead of the stored target.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    ⌂:0:main <> ✓!
+    ⌂:0:main <> ✓refs/remotes/origin/main⇣2
     └── ≡:0:main <> origin/main →:2:⇣2 {1}
         └── :0:main <> origin/main →:2:⇣2
             ├── 🟣ca7baa7 (✓)
-            ├── 🟣7ea1468 (✓)
-            ├── ❄️998eae6 (🏘️|✓)
-            └── ❄️fafd9d0 (🏘️|✓)
+            └── 🟣7ea1468 (✓)
     ");
     Ok(())
 }
@@ -2726,24 +2725,13 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
                     ├── →:5: (main →:2:)
                     └── →:0: (A)
     ");
-    // It looks like some commits are missing, but it's a first-parent traversal.
+    // The entrypoint branch is downgraded to a single-branch view with target context
+    // preserved. All commits on this branch are integrated, so the branch container remains
+    // but its commit list is pruned.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    ⌂:0:A <> ✓!
-    └── ≡:0:A {1}
-        ├── :0:A
-        │   ├── ❄79bbb29 (🏘️|✓)
-        │   ├── ❄fc98174 (🏘️|✓)
-        │   ├── ❄a381df5 (🏘️|✓)
-        │   ├── ❄777b552 (🏘️|✓)
-        │   ├── ❄ce4a760 (🏘️|✓)
-        │   └── ❄01d0e1e (🏘️|✓)
-        └── :5:main <> origin/main →:2:⇣3
-            ├── 🟣d0df794 (✓)
-            ├── 🟣09c6e08 (✓)
-            ├── 🟣7b9f260 (✓)
-            ├── ❄️4b3e5a8 (🏘️|✓)
-            ├── ❄️34d0715 (🏘️|✓)
-            └── ❄️eb5f731 (🏘️|✓)
+    ⌂:0:A <> ✓refs/remotes/origin/main⇣3
+    └── ≡:0:A on 4b3e5a8 {1}
+        └── :0:A
     ");
 
     let graph = Graph::from_commit_traversal(
@@ -2779,15 +2767,12 @@ fn integrated_tips_stop_early_if_remote_is_not_configured() -> anyhow::Result<()
                     │   └── 🏁🟣eb5f731 (✓)
                     └── →:0: (A)
     ");
-    // Because the branch is integrated, the surrounding workspace isn't shown.
+    // Because the branch is integrated, the surrounding workspace isn't shown. The downgraded
+    // branch view keeps target context and prunes the integrated commits.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    ⌂:0:A <> ✓!
+    ⌂:0:A <> ✓refs/remotes/origin/main⇣6
     └── ≡:0:A {1}
         └── :0:A
-            ├── ·79bbb29 (🏘️|✓)
-            ├── ·fc98174 (🏘️|✓)
-            ├── ·a381df5 (🏘️|✓)
-            └── ✂️·777b552 (🏘️|✓)
     ");
 
     // See what happens with an out-of-workspace HEAD and an arbitrary extra target.
@@ -3045,24 +3030,13 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
                     └── →:0: (A)
     ");
 
-    // The entrypoint isn't contained in the workspace anymore, so it's standalone.
+    // The entrypoint isn't contained in the managed workspace anymore, so it's a standalone
+    // single-branch view. Target context is preserved, so integrated commits are pruned while
+    // the branch container remains visible.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    ⌂:0:A <> ✓!
-    └── ≡:0:A {1}
-        ├── :0:A
-        │   ├── ❄79bbb29 (🏘️|✓)
-        │   ├── ❄fc98174 (🏘️|✓)
-        │   ├── ❄a381df5 (🏘️|✓)
-        │   ├── ❄777b552 (🏘️|✓)
-        │   ├── ❄ce4a760 (🏘️|✓)
-        │   └── ❄01d0e1e (🏘️|✓)
-        └── :3:main <> origin/main →:2:⇣3
-            ├── 🟣d0df794 (✓)
-            ├── 🟣09c6e08 (✓)
-            ├── 🟣7b9f260 (✓)
-            ├── ❄️4b3e5a8 (🏘️|✓)
-            ├── ❄️34d0715 (🏘️|✓)
-            └── ❄️eb5f731 (🏘️|✓)
+    ⌂:0:A <> ✓refs/remotes/origin/main⇣3
+    └── ≡:0:A on 4b3e5a8 {1}
+        └── :0:A
     ");
 
     // When converting to a workspace, we are still aware of the workspace membership as long as
@@ -3100,29 +3074,26 @@ fn integrated_tips_do_not_stop_early() -> anyhow::Result<()> {
     )?
     .validated()?;
     // When the branch is below the forkpoint, the workspace also isn't shown anymore.
+    // The downgraded branch view keeps target context and prunes integrated base commits.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    ⌂:0:main <> ✓!
+    ⌂:0:main <> ✓refs/remotes/origin/main⇣3
     └── ≡:0:main <> origin/main →:2:⇣3 {1}
         └── :0:main <> origin/main →:2:⇣3
             ├── 🟣d0df794 (✓)
             ├── 🟣09c6e08 (✓)
-            ├── 🟣7b9f260 (✓)
-            ├── ❄️4b3e5a8 (🏘️|✓)
-            ├── ❄️34d0715 (🏘️|✓)
-            └── ❄️eb5f731 (🏘️|✓)
+            └── 🟣7b9f260 (✓)
     ");
 
     let id = id_by_rev(&repo, "main~1");
     let graph =
         Graph::from_commit_traversal(id, None, &*meta, project_meta(&*meta), standard_options())?
             .validated()?;
-    // Detached states are also possible.
+    // Detached states are also possible. They keep the anonymous container while
+    // preserving target context and pruning integrated commits.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    ⌂:0:DETACHED <> ✓!
+    ⌂:0:DETACHED <> ✓refs/remotes/origin/main⇣3
     └── ≡:0:anon: {1}
         └── :0:anon:
-            ├── ·34d0715 (🏘️|✓)
-            └── ·eb5f731 (🏘️|✓)
     ");
     Ok(())
 }
@@ -3579,9 +3550,11 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
                 └── 🟣1a22a39 (✓)
                     └── →:3: (workspace)
     ");
-    // Entrypoint is outside of workspace.
+    // Entrypoint is outside of the managed workspace, so it is projected as a
+    // single-branch view. Target context is preserved and integrated commits below
+    // the target trunk are pruned.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    ⌂:0:main <> ✓!
+    ⌂:0:main <> ✓refs/remotes/origin/main⇣11
     └── ≡:0:main <> origin/main →:2:⇣11 {1}
         └── :0:main <> origin/main →:2:⇣11
             ├── 🟣232ed06 (✓)
@@ -3594,18 +3567,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
             ├── 🟣0c1c23a (✓)
             ├── 🟣56d152c (✓)
             ├── 🟣e6e1360 (✓)
-            ├── 🟣1a22a39 (✓)
-            ├── ·2438292 (🏘️|✓)
-            ├── ·c056b75 (🏘️|✓)
-            ├── ·f49c977 (🏘️|✓)
-            ├── ·7b7ebb2 (🏘️|✓)
-            ├── ·dca4960 (🏘️|✓)
-            ├── ·11c29b8 (🏘️|✓)
-            ├── ·c32dd03 (🏘️|✓)
-            ├── ·b625665 (🏘️|✓)
-            ├── ·a821094 (🏘️|✓)
-            ├── ·bce0c5e (🏘️|✓)
-            └── ·3183e43 (🏘️|✓)
+            └── 🟣1a22a39 (✓)
     ");
 
     // When setting a limit when traversing 'main', it is respected.
@@ -3658,9 +3620,10 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
                 └── 🟣1a22a39 (✓)
                     └── →:3: (workspace)
     ");
-    // The limit is visible as well.
+    // The limit is visible as well. Target context is preserved in the downgraded
+    // branch view, so integrated local/base commits are pruned.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    ⌂:0:main <> ✓!
+    ⌂:0:main <> ✓refs/remotes/origin/main⇣11
     └── ≡:0:main <> origin/main →:2:⇣11 {1}
         └── :0:main <> origin/main →:2:⇣11
             ├── 🟣232ed06 (✓)
@@ -3673,13 +3636,7 @@ fn partitions_with_long_and_short_connections_to_each_other() -> anyhow::Result<
             ├── 🟣0c1c23a (✓)
             ├── 🟣56d152c (✓)
             ├── 🟣e6e1360 (✓)
-            ├── 🟣1a22a39 (✓)
-            ├── ·2438292 (🏘️|✓)
-            ├── ·c056b75 (🏘️|✓)
-            ├── ·f49c977 (🏘️|✓)
-            ├── ·7b7ebb2 (🏘️|✓)
-            ├── ·dca4960 (🏘️|✓)
-            └── ✂️·11c29b8 (🏘️|✓)
+            └── 🟣1a22a39 (✓)
     ");
 
     // From the workspace, even without limit, we don't traverse all of 'main' as it's uninteresting.
@@ -3904,9 +3861,10 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
                         └── 🟣5bac978 (✓)
                             └── →:4: (main-to-workspace)
     ");
-    // `main` is integrated, but the entrypoint so it's shown.
+    // `main` is integrated, but it is the entrypoint, so the branch container is shown.
+    // With preserved target context, integrated commits below the target trunk are pruned.
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
-    ⌂:0:main <> ✓!
+    ⌂:0:main <> ✓refs/remotes/origin/main⇣17
     └── ≡:0:main <> origin/main →:2:⇣17 {1}
         └── :0:main <> origin/main →:2:⇣17
             ├── 🟣024f837 (✓) ►long-workspace-to-target
@@ -3925,9 +3883,7 @@ fn partitions_with_long_and_short_connections_to_each_other_part_2() -> anyhow::
             ├── 🟣8d1d264 (✓)
             ├── 🟣fa7ceae (✓)
             ├── 🟣95bdbf1 (✓)
-            ├── 🟣5bac978 (✓)
-            ├── ·bce0c5e (🏘️|✓)
-            └── ·3183e43 (🏘️|✓) ►A, ►B
+            └── 🟣5bac978 (✓)
     ");
 
     // Now the target looks for the entrypoint, which is the workspace, something it can do more easily.
