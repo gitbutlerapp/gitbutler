@@ -1,4 +1,5 @@
-/// These tests cover the signing behavior on the Step::Pick.
+//! These tests cover the signing behavior on the Step::Pick.
+
 use anyhow::Result;
 use but_core::commit::SignCommit;
 use but_graph::Graph;
