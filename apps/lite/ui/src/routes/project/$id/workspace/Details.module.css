@@ -28,7 +28,7 @@
 }
 
 .loadingDiff {
-	padding-inline-start: var(--panel-padding);
+	padding-inline: var(--panel-padding);
 	padding-block-end: var(--panel-padding);
 }
 
