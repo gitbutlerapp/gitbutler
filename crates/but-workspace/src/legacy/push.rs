@@ -64,6 +64,10 @@ pub fn workspace_branch_and_ancestors_push(
                 continue;
             };
 
+            if ref_name.category() != Some(gix::refs::Category::LocalBranch) {
+                continue;
+            }
+
             if ref_name == branch {
                 refname_found = true;
             }
