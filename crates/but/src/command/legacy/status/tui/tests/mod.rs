@@ -1145,3 +1145,25 @@ fn stays_in_pick_change_mode_after_full_screen_details() {
     }
     assert_eq!(cli_ids.len(), 1);
 }
+
+#[test]
+fn pick_changes_mode_supports_focusing_details_view() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    env.file("one", "content of one");
+    env.file("two", "content of two");
+
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            run_options: TuiRunOptions::PickChanges,
+            ..Default::default()
+        },
+    );
+
+    tui.input_then_render('l')
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/pick_changes_mode_supports_focusing_details_view_001.svg"
+        ]);
+}
