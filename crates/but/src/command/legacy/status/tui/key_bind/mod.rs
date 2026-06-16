@@ -28,29 +28,29 @@ pub(super) fn default_key_binds() -> KeyBinds {
             ModeDiscriminant::PickChanges => {
                 builder.mark().register();
                 builder.confirm_and_quit().register();
-                register_non_mode_specific_key_binds(&mut builder);
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::Yes);
             }
             ModeDiscriminant::Rub => {
                 builder.rub_confirm().register();
                 builder.rub_use_target_message().register();
                 builder.rub_use_source_message().register();
                 builder.mark().register();
-                register_non_mode_specific_key_binds(&mut builder);
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Commit => {
                 builder.commit_confirm().register();
                 builder.commit_empty_message().register();
                 builder.commit_reword_inline().register();
                 builder.commit_to_new_branch().register();
-                register_non_mode_specific_key_binds(&mut builder);
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Move => {
                 builder.move_confirm().register();
-                register_non_mode_specific_key_binds(&mut builder);
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Stack => {
                 builder.unapply().register();
-                register_non_mode_specific_key_binds(&mut builder);
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Details => {
                 let scroll_distance = 5;
@@ -706,7 +706,7 @@ impl KeyBindsBuilder<'_> {
     fn confirm_and_quit(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "confirm",
-            press().code(KeyCode::Enter),
+            press().code(KeyCode::Enter).alt_code(KeyCode::Char('c')),
             Message::ConfirmAndQuit,
         )
         .long_description("Rub target into selection")
@@ -946,13 +946,26 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
     builder.quit().register();
 }
 
-fn register_non_mode_specific_key_binds(builder: &mut KeyBindsBuilder<'_>) {
+enum WithFocusDetails {
+    Yes,
+    No,
+}
+
+fn register_non_mode_specific_key_binds(
+    builder: &mut KeyBindsBuilder<'_>,
+    with_focus_details: WithFocusDetails,
+) {
     builder.up().register();
     builder.down().register();
     builder.next_section().register();
     builder.prev_section().register();
     builder.toggle_details().register();
     builder.toggle_full_screen_details().register();
+
+    if matches!(with_focus_details, WithFocusDetails::Yes) {
+        builder.focus_details().register();
+    }
+
     builder.grow_details().register();
     builder.shrink_details().register();
     builder.branch_picker().register();
