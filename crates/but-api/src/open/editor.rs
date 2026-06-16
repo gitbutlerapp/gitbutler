@@ -237,6 +237,7 @@ pub fn open_in_editor_unchecked(
         editor
             .cli_arg_supplier
             .open_on_line(&mut cmd, path, line_nr)?;
+        cmd.stdout(Stdio::null()).stderr(Stdio::null());
         spawn_and_reap(cmd, editor.name, &path.to_string_lossy())?;
     } else {
         let mut cmd = Command::new("/usr/bin/open");
