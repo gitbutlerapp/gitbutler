@@ -142,6 +142,17 @@ impl CliError {
             Self::Internal(value) => Self::Internal(value),
         }
     }
+
+    /// Add a lazily computed hint if the result is a [`CliError::BadInput`].
+    fn with_hint<S: AsRef<str>>(self, make_hint: impl FnOnce() -> S) -> Self {
+        match self {
+            Self::BadInput(value) => Self::BadInput(value.hint(make_hint())),
+            Self::ExternalCommandNotFound(command_name) => {
+                Self::ExternalCommandNotFound(command_name)
+            }
+            Self::Internal(value) => Self::Internal(value),
+        }
+    }
 }
 
 impl Display for CliError {
@@ -176,6 +187,9 @@ pub type CliResult<T> = Result<T, CliError>;
 pub trait CliResultExt<T> {
     /// Add a hint if the result is a [`CliError::BadInput`].
     fn hint<S: AsRef<str>>(self, hint: S) -> Self;
+
+    /// Add a lazily computed hint if the result is a [`CliError::BadInput`].
+    fn with_hint<S: AsRef<str>>(self, make_hint: impl FnOnce() -> S) -> Self;
 }
 
 impl<T> CliResultExt<T> for CliResult<T> {
@@ -183,6 +197,13 @@ impl<T> CliResultExt<T> for CliResult<T> {
         match self {
             Ok(_) => self,
             Err(err) => Err(err.hint(hint)),
+        }
+    }
+
+    fn with_hint<S: AsRef<str>>(self, make_hint: impl FnOnce() -> S) -> Self {
+        match self {
+            Ok(_) => self,
+            Err(err) => Err(err.with_hint(make_hint)),
         }
     }
 }

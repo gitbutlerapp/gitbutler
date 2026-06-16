@@ -930,7 +930,7 @@ fn refuses_above_and_below() {
         .stderr_eq(snapbox::str![[r#"
 error: the argument '--above <ABOVE>' cannot be used with '--below <BELOW>'
 
-Usage: but commit2 --above <ABOVE>
+Usage: but commit2 --above <ABOVE> [CHANGES]...
 
 For more information, try '--help'.
 
@@ -948,7 +948,7 @@ fn refuses_above_and_branch() {
         .stderr_eq(snapbox::str![[r#"
 error: the argument '--above <ABOVE>' cannot be used with '--branch [<BRANCH>]'
 
-Usage: but commit2 --above <ABOVE>
+Usage: but commit2 --above <ABOVE> [CHANGES]...
 
 For more information, try '--help'.
 
@@ -966,7 +966,7 @@ fn refuses_below_and_branch() {
         .stderr_eq(snapbox::str![[r#"
 error: the argument '--below <BELOW>' cannot be used with '--branch [<BRANCH>]'
 
-Usage: but commit2 --below <BELOW>
+Usage: but commit2 --below <BELOW> [CHANGES]...
 
 For more information, try '--help'.
 
@@ -1041,6 +1041,69 @@ fn above_non_branch_non_commit_target_returns_bad_input() {
 Error: Expected a commit or a branch, got unassigned changes
 
 Hint: Run `but status` to show applicable targets
+
+"#]]);
+}
+
+#[test]
+fn committing_specific_cli_ids() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("one", "content");
+    env.file("two", "content");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes]
+┊     kl A one
+┊   twop A two
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+
+    env.but("commit2 --no-message kl").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes]
+┊   twop A two
+┊
+┊╭┄g0 [A]
+┊●   f86bb7b (no commit message)
+┊│     f8:kl A one
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+}
+
+#[test]
+fn committing_something_that_isnt_a_cli_id() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.but("commit2 --no-message A")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Invalid uncommitted change. 'A' is a branch
 
 "#]]);
 }
