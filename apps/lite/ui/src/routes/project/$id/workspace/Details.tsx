@@ -534,9 +534,6 @@ const Header: FC<{
 								{commitTitle(commitDetails.commit.message) ?? "(no message)"}
 								{commitDetails.commit.hasConflicts && " ⚠️"}
 							</h3>
-							<span className={classes("text-13", styles.commitMeta)}>
-								#{shortCommitId(commitDetails.commit.id)}
-							</span>
 						</header>
 					)}
 				</SuspenseQuery>
