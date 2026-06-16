@@ -619,11 +619,6 @@ const CommitDetailsContent: FC<{
 
 			return (
 				<>
-					{body !== undefined && (
-						<p className={classes("text-monospace", "text-body", styles.commitMessageBody)}>
-							{body}
-						</p>
-					)}
 					<div className={styles.commitDetailsMeta}>
 						<img
 							src={commitDetails.commit.author.gravatarUrl}
@@ -641,6 +636,11 @@ const CommitDetailsContent: FC<{
 							{shortCommitId(commitDetails.commit.id)})
 						</div>
 					</div>
+					{body !== undefined && (
+						<p className={classes("text-monospace", "text-body", styles.commitMessageBody)}>
+							{body}
+						</p>
+					)}
 				</>
 			);
 		}}
