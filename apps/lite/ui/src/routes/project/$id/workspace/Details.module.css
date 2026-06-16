@@ -82,10 +82,6 @@
 	margin-block-end: 14px;
 }
 
-.pr {
-	color: var(--text-2);
-}
-
 .commitHeader {
 	display: flex;
 	gap: 6px;

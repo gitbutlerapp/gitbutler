@@ -532,11 +532,6 @@ const Header: FC<{
 					{({ data: branchDetails }) => (
 						<header className={styles.header}>
 							<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
-							{branchDetails.prNumber != null && (
-								<div className={classes("text-13", "text-bold", styles.pr)}>
-									PR #{branchDetails.prNumber}
-								</div>
-							)}
 						</header>
 					)}
 				</SuspenseQuery>
