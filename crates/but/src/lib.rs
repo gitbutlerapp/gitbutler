@@ -724,6 +724,7 @@ async fn match_subcommand(
             refresh_prs: sync_prs,
             upstream,
             no_hint,
+            short: _,
         } => {
             use crate::command::legacy::status::FilesStatusFlag;
             use crate::command::legacy::status::StatusFlags;

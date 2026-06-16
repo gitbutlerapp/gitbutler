@@ -160,6 +160,10 @@ pub enum Subcommands {
         /// Disable hints about available commands at the end of output.
         #[clap(long = "no-hint", default_value_t = false)]
         no_hint: bool,
+        // Hidden no-op compatibility flag because some agents have a habit of running
+        // `but status --short`.
+        #[clap(long = "short", default_value_t = false, hide = true)]
+        short: bool,
     },
 
     /// Displays the diff of changes in the repo.
