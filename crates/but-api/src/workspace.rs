@@ -211,7 +211,9 @@ pub fn workspace_integrate_upstream_only_with_perm(
         let materialized = rebase.materialize()?;
         project_meta.persist_to_local_config(&repo)?;
 
-        if let Some(ref_name) = materialized.workspace.ref_name() {
+        if let Some(ref_name) = materialized.workspace.ref_name()
+            && let Some(ws_meta) = ws_meta
+        {
             let mut md = materialized.meta.workspace(ref_name)?;
             *md = ws_meta;
             md.set_project_meta(project_meta);

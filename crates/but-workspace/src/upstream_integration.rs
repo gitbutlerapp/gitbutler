@@ -39,7 +39,7 @@ pub struct BottomUpdate {
 /// The outcome of integrating upstream
 pub struct IntegrateUpstreamOutcome<'ws, 'meta, M: RefMetadata> {
     /// The updated workspace metadata.
-    pub ws_meta: but_core::ref_metadata::Workspace,
+    pub ws_meta: Option<but_core::ref_metadata::Workspace>,
     /// The updated project metadata.
     pub project_meta: ProjectMeta,
     /// The rebased outcome.
@@ -51,6 +51,14 @@ struct AnnotatedNode {
     to_rebase: bool,
     historically_integrated: bool,
     content_integrated: bool,
+    /// Only set to Some on references. Set to Some(<reference getting
+    /// integrated>) if all the nodes exclusive to the current reference are
+    /// marked as content or historically integrated or if the reference itself
+    /// is historically integrated.
+    ///
+    /// Can be a remote reference, so care out to be exercised to ensure we
+    /// don't try deleting remote references unexpectedly.
+    reference_integrated: Option<gix::refs::FullName>,
 }
 
 impl AnnotatedNode {
@@ -59,6 +67,7 @@ impl AnnotatedNode {
             to_rebase: false,
             historically_integrated: false,
             content_integrated: false,
+            reference_integrated: None,
         }
     }
 }
@@ -128,10 +137,7 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
     repo: &gix::Repository,
     updates: Vec<BottomUpdate>,
 ) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
-    let mut ws_meta = workspace
-        .metadata
-        .clone()
-        .context("Cannot update a workspace with no metadata")?;
+    let mut ws_meta = workspace.metadata.clone();
     let target_sha = project_meta
         .target_commit_id
         .context("Cannot update a workspace without a target sha")?;
@@ -227,67 +233,46 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
     let workspace_commit_selector = head_is_workspace_commit
         .then(|| editor.select_commit(head_commit_id))
         .transpose()?;
-    let mut integrated_branch_refs = HashSet::new();
     let mut fully_integrated_workspace_parents = HashSet::new();
     for stack in &stacks {
         let is_selected = stack.nodes.values().any(|attrs| attrs.to_rebase) || stack.to_merge;
-        let is_fully_integrated = stack
-            .nodes
-            .values()
-            .all(|attrs| attrs.historically_integrated || attrs.content_integrated);
+        let is_fully_integrated = stack.nodes.values().all(|attrs| {
+            attrs.historically_integrated
+                || attrs.content_integrated
+                || attrs.reference_integrated.is_some()
+        });
         if !is_selected {
             continue;
         }
 
-        for ws_stack in ws_meta
-            .stacks
-            .iter()
-            .filter(|stack| stack.workspacecommit_relation.is_in_workspace())
-        {
-            for branch in &ws_stack.branches {
-                if branch.ref_name.as_ref() == target_ref.ref_name.as_ref() {
+        if is_fully_integrated {
+            // TODO: Look into what happens when the head is an irrelevant
+            // reference like the target_sha or a remote reference. In these
+            // cases, we should look to see if it has a relevant reference
+            // parent.
+            for head in &stack.heads {
+                let Step::Reference { refname } = editor.lookup_step(*head)? else {
+                    continue;
+                };
+                if refname.as_ref() == target_ref.ref_name.as_ref() {
                     continue;
                 }
+                fully_integrated_workspace_parents.insert(*head);
+            }
+        }
 
-                let ref_selector = match branch.ref_name.to_selector(&editor) {
-                    Ok(selector) => selector,
-                    Err(_) => continue,
-                };
-                let direct_parents = editor.direct_parents(ref_selector)?;
-                if !direct_parents.is_empty()
-                    && direct_parents.iter().all(|(parent, _)| {
-                        stack.nodes.get(parent).is_some_and(|attrs| {
-                            attrs.historically_integrated || attrs.content_integrated
-                        })
-                    })
-                {
-                    integrated_branch_refs.insert(branch.ref_name.clone());
+        // Remove integrated refs from the workspace and from git.
+        // TODO: allow to keep some references.
+        for (selector, attrs) in &stack.nodes {
+            if let Some(ref_name) = attrs.reference_integrated.as_ref()
+                && ref_name.category() == Some(gix::refs::Category::LocalBranch)
+            {
+                editor.replace(*selector, Step::None)?;
+                if let Some(ws_meta) = ws_meta.as_mut() {
+                    ws_meta.remove_segment(ref_name.as_ref());
                 }
             }
         }
-
-        if !is_fully_integrated {
-            continue;
-        }
-
-        for head in &stack.heads {
-            let Step::Reference { refname } = editor.lookup_step(*head)? else {
-                continue;
-            };
-            if refname.as_ref() == target_ref.ref_name.as_ref() {
-                continue;
-            }
-            fully_integrated_workspace_parents.insert(*head);
-        }
-    }
-
-    // Remove integrated refs from the workspace and from git.
-    // TODO: allow to keep some references.
-    for ref_name in &integrated_branch_refs {
-        if let Ok(ref_selector) = ref_name.to_selector(&editor) {
-            editor.replace(ref_selector, Step::None)?;
-        }
-        ws_meta.remove_segment(ref_name.as_ref());
     }
 
     // Disconnect all stack heads from the workspace commit, if any.
@@ -502,41 +487,70 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             }
         }
 
-        // Propagate content_integrated up to Reference or None steps who's
-        // parents are _all_ content_integrated.
+        let reference_nodes = stack
+            .nodes
+            .keys()
+            .filter_map(|n| {
+                editor
+                    .lookup_step(*n)
+                    .map(|step| match step {
+                        Step::Reference { refname } => Some((*n, refname)),
+                        _ => None,
+                    })
+                    .transpose()
+            })
+            .collect::<Result<HashMap<_, _>>>()?;
+
+        // Identify whether all the commits that are exclusively referenced by a
+        // given reference in the stack are all integrated upstream.
         //
-        // We shouldn't need to do the same for historically_integrated
-        // references because they should already be covered by the topography
-        // on the Editor's graph.
-        let mut tips = bottoms
-            .iter()
-            .filter_map(|b| stack.nodes.get(b)?.content_integrated.then_some(*b))
-            .collect::<Vec<_>>();
-        let mut seen = tips.iter().cloned().collect::<HashSet<_>>();
+        // If all the commits are integrated, or if the reference itself is
+        // considered historically integrated, we set the `reference_integrated`
+        // flag which flags the reference for deletion, if it's a selected
+        // target to be updated.
+        for (r_sel, r_name) in reference_nodes.iter() {
+            let mut tips = vec![*r_sel];
+            let mut seen = tips.iter().cloned().collect::<HashSet<_>>();
+            let mut all_integrated = true;
+            let mut traversed_commits = false;
 
-        while let Some(tip) = tips.pop() {
-            for (child, _) in editor.direct_children(tip)? {
-                if editor
-                    .direct_parents(child)?
-                    .into_iter()
-                    .filter_map(|(p, _)| stack.nodes.get(&p))
-                    .any(|p_attr| !p_attr.content_integrated)
-                {
-                    continue;
-                }
+            'traversal: while let Some(tip) = tips.pop() {
+                for (parent, _) in editor.direct_parents(tip)? {
+                    let Some(attrs) = stack.nodes.get(&parent) else {
+                        continue;
+                    };
+                    let parent_is_non_local_reference =
+                        if let Some(r_parent_name) = reference_nodes.get(&parent) {
+                            if r_parent_name.category() == Some(gix::refs::Category::LocalBranch) {
+                                continue;
+                            } else {
+                                true
+                            }
+                        } else {
+                            traversed_commits = true;
+                            false
+                        };
 
-                let c_step = editor.lookup_step(child)?;
-                let Some(c_attrs) = stack.nodes.get_mut(&child) else {
-                    continue;
-                };
-                if matches!(c_step, Step::Pick(_)) && !c_attrs.content_integrated {
-                    continue;
+                    if seen.insert(parent) {
+                        if !(parent_is_non_local_reference
+                            || attrs.content_integrated
+                            || attrs.historically_integrated)
+                        {
+                            all_integrated = false;
+                            break 'traversal;
+                        }
+                        tips.push(parent);
+                    }
                 }
-                if seen.insert(child) {
-                    tips.push(child);
+            }
+            let Some(node) = stack.nodes.get_mut(r_sel) else {
+                continue;
+            };
 
-                    c_attrs.content_integrated = true;
-                }
+            if traversed_commits {
+                node.reference_integrated = all_integrated.then_some(r_name.clone());
+            } else {
+                node.reference_integrated = node.historically_integrated.then_some(r_name.clone());
             }
         }
     }
