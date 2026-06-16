@@ -105,6 +105,8 @@ windows = []
 devtools = ["tauri/devtools"]
 ## Enable filesystem reveal integration.
 opener = ["dep:opener"]
+## Enables the revamped commands in but.
+but-2 = ["but?/but-2"]
 
 #! ## Development
 ## This feature is used for production builds where `devPath` points to the filesystem
