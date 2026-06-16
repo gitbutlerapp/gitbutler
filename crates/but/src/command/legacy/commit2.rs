@@ -1,11 +1,15 @@
 use std::fmt::Display;
 
-use anyhow::Context;
+use anyhow::Context as _;
 use bstr::{BString, ByteSlice};
 use but_api::{diff::ComputeLineStats, json::HexHash};
 use but_core::{
-    DiffSpec, DryRun, RefMetadata, diff::CommitDetails, ref_metadata::StackId, sync::RepoExclusive,
+    DiffSpec, DryRun, RefMetadata,
+    diff::CommitDetails,
+    ref_metadata::StackId,
+    sync::{RepoExclusive, RepoExclusiveGuard},
 };
+use but_ctx::Context;
 use but_error::Code;
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
 use but_transaction::{DynamicOutcome, IntermediateCommitCreateResult, Transaction};
@@ -19,13 +23,17 @@ use nonempty::NonEmpty;
 use serde::Serialize;
 
 use crate::{
-    CliResult, CliResultExt, IdMap,
+    CliId, CliResult, CliResultExt, IdMap,
     args::{
         atoms::{BranchArg, BranchOrCommit, CliIdArg, Purpose},
         commit2::Platform,
     },
     bad_input,
-    command::legacy::{ShowDiffInEditor, reword::get_commit_message_from_editor},
+    command::legacy::{
+        ShowDiffInEditor,
+        reword::get_commit_message_from_editor,
+        status::{TuiOutcome, TuiRunOptions, tui_with_options},
+    },
     id::{UNASSIGNED, UncommittedCliId},
     theme::{self, Theme},
     utils::{
@@ -109,29 +117,41 @@ impl CliOutput for CommitOutcome {
 }
 
 pub fn commit(
-    ctx: &mut but_ctx::Context,
-    _out: IntermediateChannel<'_>,
+    ctx: &mut Context,
+    mut out: IntermediateChannel<'_>,
     args: Platform,
 ) -> CliResult<CommitOutcome> {
-    let mut guard = ctx.exclusive_worktree_access();
-    let perm = guard.write_permission();
+    let guard = ctx.exclusive_worktree_access();
     let mut meta = ctx.meta()?;
-    let id_map = IdMap::new_from_context(ctx, None, perm.read_permission())?;
+    let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
-    let (commit_op, commit_selection, reword_op) = {
+    let (mut guard, commit_op, commit_selection, reword_op) = {
         let head_info = but_api::legacy::workspace::head_info(ctx)?;
-        let repo = ctx.repo.get()?;
-        resolve(&repo, args, &head_info, &id_map)?
+        resolve(guard, ctx, args, &mut out, &head_info, &id_map)?
     };
-    run(ctx, &mut meta, perm, commit_op, commit_selection, reword_op)
+    run(
+        ctx,
+        &mut meta,
+        guard.write_permission(),
+        commit_op,
+        commit_selection,
+        reword_op,
+    )
 }
 
 fn resolve(
-    repo: &gix::Repository,
+    guard: RepoExclusiveGuard,
+    ctx: &mut Context,
     args: Platform,
+    out: &mut IntermediateChannel<'_>,
     head_info: &RefInfo,
     id_map: &IdMap,
-) -> CliResult<(CommitOperation, CommitSelection, RewordCommitOperation)> {
+) -> CliResult<(
+    RepoExclusiveGuard,
+    CommitOperation,
+    CommitSelection,
+    RewordCommitOperation,
+)> {
     let Platform {
         no_message,
         message,
@@ -139,6 +159,7 @@ fn resolve(
         empty,
         above,
         below,
+        interactive,
         changes,
     } = args;
 
@@ -156,23 +177,50 @@ fn resolve(
         }
     };
 
-    let commit_op = route_commit_operation(repo, head_info, id_map, target_ish)?;
+    let commit_op = route_commit_operation(&*ctx.repo.get()?, head_info, id_map, target_ish)?;
 
-    let commit_selection = if !changes.is_empty() {
+    let (guard, commit_selection) = if !changes.is_empty() {
         let changes = changes
             .into_iter()
-            .map(|change| change.resolve_uncommitted(repo, id_map))
+            .map(|change| change.resolve_uncommitted(&*ctx.repo.get()?, id_map))
             .collect::<Result<Vec<_>, _>>()?;
         let Some(changes) = NonEmpty::from_vec(changes) else {
             return Err(bad_input("No changes to commit")
                 .hint("Run `but status` to show applicable targets")
                 .into());
         };
-        CommitSelection::Changes(Box::new(changes))
+        (guard, CommitSelection::Changes(Box::new(changes)))
+    } else if interactive {
+        let (guard, outcome) = tui_with_options(ctx, guard, out, TuiRunOptions::PickChanges)?;
+        let cli_ids = match outcome {
+            TuiOutcome::CliIds(cli_ids) => cli_ids,
+            TuiOutcome::None => {
+                return Err(bad_input("No changes to commit")
+                    .hint("Pick changes by pressing space. Confirm with enter.")
+                    .into());
+            }
+        };
+        let changes = cli_ids
+            .into_iter()
+            .map(|change| {
+                match change {
+                    CliId::Uncommitted(id) => Ok(id),
+                    _ => {
+                        Err(anyhow::anyhow!("BUG: tui should only return uncommitted changes in PickChanges mode but got {change:?}"))
+                    }
+                }
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let Some(changes) = NonEmpty::from_vec(changes) else {
+            return Err(bad_input("No changes to commit")
+                .hint("Pick changes by pressing space. Confirm with enter.")
+                .into());
+        };
+        (guard, CommitSelection::Changes(Box::new(changes)))
     } else if empty {
-        CommitSelection::Nothing
+        (guard, CommitSelection::Nothing)
     } else {
-        CommitSelection::AllChanges
+        (guard, CommitSelection::AllChanges)
     };
 
     let reword_op = match (no_message, message) {
@@ -184,11 +232,11 @@ fn resolve(
         }
     };
 
-    Ok((commit_op, commit_selection, reword_op))
+    Ok((guard, commit_op, commit_selection, reword_op))
 }
 
 fn run(
-    ctx: &mut but_ctx::Context,
+    ctx: &mut Context,
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
     commit_op: CommitOperation,
