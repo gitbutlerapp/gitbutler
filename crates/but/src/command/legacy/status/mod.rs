@@ -127,7 +127,7 @@ pub struct TuiLaunchOptions {
 pub enum TuiRunOptions {
     #[default]
     Normal,
-    #[expect(dead_code)]
+    #[cfg_attr(not(test), expect(dead_code))]
     PickChanges,
 }
 
@@ -141,7 +141,7 @@ pub enum TuiRunOptions {
 #[must_use]
 pub enum TuiOutcome {
     None,
-    #[expect(dead_code)]
+    #[cfg_attr(not(test), expect(dead_code))]
     CliIds(Vec<CliId>),
 }
 

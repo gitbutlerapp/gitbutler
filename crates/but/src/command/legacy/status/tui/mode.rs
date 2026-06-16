@@ -371,6 +371,13 @@ impl PartialEq<CliId> for MoveSource {
 #[derive(Debug)]
 pub(super) struct DetailsMode {
     pub(super) full_screen: bool,
+    pub(super) return_mode: DetailsReturnMode,
+}
+
+#[derive(Debug)]
+pub(super) enum DetailsReturnMode {
+    Normal(NormalMode),
+    PickChanges(PickUncommittedMode),
 }
 
 #[derive(Debug)]

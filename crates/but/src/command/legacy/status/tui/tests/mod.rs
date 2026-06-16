@@ -6,8 +6,12 @@ use crossterm::event::*;
 use snapbox::{file, str};
 use temp_env::with_var;
 
-use crate::command::legacy::status::tui::tests::utils::{test_tui, test_tui_with_size};
-use crate::command::legacy::status::tui::{Message, ReloadCause};
+use crate::CliId;
+use crate::command::legacy::status::tui::tests::utils::{
+    TestTuiOptions, test_tui, test_tui_with_options,
+};
+use crate::command::legacy::status::tui::{BackstackEntry, Message, ReloadCause};
+use crate::command::legacy::status::{TuiOutcome, TuiRunOptions};
 
 mod branch_picker_tests;
 mod branch_tests;
@@ -101,7 +105,14 @@ fn narrow_hotbar_prioritizes_help_and_quit() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
 
-    let mut tui = test_tui_with_size(env, 42, 20);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 42,
+            height: 20,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render(None)
         .assert_rendered_term_svg_eq(file![
@@ -114,7 +125,14 @@ fn narrow_hotbar_keeps_help_and_quit_visible_in_modal_modes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
 
-    let mut tui = test_tui_with_size(env, 36, 20);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 36,
+            height: 20,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render('r')
         .assert_rendered_term_svg_eq(file![
@@ -141,7 +159,14 @@ fn help_popup_scrolls() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
 
-    let mut tui = test_tui_with_size(env, 100, 10);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 10,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render('?')
         .assert_rendered_term_svg_eq(file!["snapshots/help_popup_scrolls_001.svg"]);
@@ -341,7 +366,14 @@ fn cursor_movement_scrolls_viewport_down() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
     env.setup_metadata(&["A", "B"]).unwrap();
 
-    let mut tui = test_tui_with_size(env, 100, 8);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 8,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render(None)
         .assert_rendered_term_svg_eq(file![
@@ -361,7 +393,14 @@ fn cursor_movement_scrolls_viewport_up() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
     env.setup_metadata(&["A", "B"]).unwrap();
 
-    let mut tui = test_tui_with_size(env, 100, 8);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 8,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
         .assert_rendered_term_svg_eq(file![
@@ -381,7 +420,14 @@ fn scrolling_keeps_three_rows_of_context_when_possible() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
     env.setup_metadata(&["A", "B"]).unwrap();
 
-    let mut tui = test_tui_with_size(env, 100, 8);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 8,
+            ..Default::default()
+        },
+    );
     let visible_height = 6;
 
     tui.input_then_render(None);
@@ -403,7 +449,14 @@ fn section_jumps_scroll_viewport_when_target_is_offscreen() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
     env.setup_metadata(&["A", "B"]).unwrap();
 
-    let mut tui = test_tui_with_size(env, 100, 8);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 8,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
         .assert_rendered_term_svg_eq(file![
@@ -429,7 +482,14 @@ fn moving_to_merge_base_scrolls_to_keep_selection_visible() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
     env.setup_metadata(&["A", "B"]).unwrap();
 
-    let mut tui = test_tui_with_size(env, 100, 8);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 8,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -446,7 +506,14 @@ fn reload_preserves_visible_selection_when_scrolled() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
     env.setup_metadata(&["A", "B"]).unwrap();
 
-    let mut tui = test_tui_with_size(env, 100, 8);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 8,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down]);
 
@@ -465,7 +532,14 @@ fn inline_reword_renders_on_visible_row_when_scrolled() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
     env.setup_metadata(&["A", "B"]).unwrap();
 
-    let mut tui = test_tui_with_size(env, 100, 8);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 8,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render([
         KeyCode::Down,
@@ -830,7 +904,14 @@ fn commit_file_toggle_on_commit_without_files_is_noop() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
 
-    let mut tui = test_tui_with_size(env, 100, 12);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 12,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -962,4 +1043,95 @@ fn commit_file_toggle_off_from_commit_row_preserves_commit_selection() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_file_toggle_off_from_commit_row_preserves_commit_selection_final.svg"
         ]);
+}
+
+#[test]
+fn pick_changes_mode() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    env.file("one", "content of one");
+    env.file("two", "content of two");
+
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            run_options: TuiRunOptions::PickChanges,
+            ..Default::default()
+        },
+    );
+
+    tui.input_then_render(None)
+        .assert_rendered_contains("pick changes");
+
+    tui.input_then_render('j');
+    tui.input_then_render(' ');
+    let outcome = tui
+        .input_then_render(KeyCode::Enter)
+        .take_outcome()
+        .unwrap();
+
+    let cli_ids = match outcome {
+        TuiOutcome::CliIds(cli_ids) => cli_ids,
+        _ => panic!("unexpected outcome {outcome:#?}"),
+    };
+
+    for id in &cli_ids {
+        assert!(matches!(dbg!(id), CliId::Uncommitted(..)));
+    }
+    assert_eq!(cli_ids.len(), 1);
+}
+
+#[test]
+fn stays_in_pick_change_mode_after_full_screen_details() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    env.file("one", "content of one");
+    env.file("two", "content of two");
+
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            run_options: TuiRunOptions::PickChanges,
+            ..Default::default()
+        },
+    );
+
+    tui.input_then_render(None)
+        .assert_rendered_contains("pick changes")
+        .assert_backstack_eq([]);
+
+    // mark some changes
+    tui.input_then_render('j');
+    tui.input_then_render(' ')
+        .assert_backstack_eq([BackstackEntry::Mark]);
+
+    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
+        .assert_rendered_contains("details")
+        .assert_backstack_eq([
+            BackstackEntry::LeaveNormalMode,
+            BackstackEntry::OpenFullScreenDetailsView,
+            BackstackEntry::Mark,
+        ]);
+
+    tui.input_then_render(KeyCode::Esc)
+        .assert_rendered_contains("pick changes")
+        .assert_backstack_eq([BackstackEntry::Mark]);
+
+    // ensure the changes are still marked after returning from details mode
+    let outcome = tui
+        .input_then_render(KeyCode::Enter)
+        .take_outcome()
+        .unwrap();
+
+    let cli_ids = match outcome {
+        TuiOutcome::CliIds(cli_ids) => cli_ids,
+        _ => panic!("unexpected outcome {outcome:#?}"),
+    };
+
+    for id in &cli_ids {
+        assert!(matches!(dbg!(id), CliId::Uncommitted(..)));
+    }
+    assert_eq!(cli_ids.len(), 1);
 }

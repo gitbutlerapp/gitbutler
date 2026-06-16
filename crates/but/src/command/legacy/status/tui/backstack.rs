@@ -67,6 +67,11 @@ impl Backstack {
     pub(super) fn clear(&mut self) {
         self.stack.clear();
     }
+
+    #[cfg(test)]
+    pub(super) fn iter(&self) -> impl Iterator<Item = &BackstackEntry> {
+        self.stack.iter()
+    }
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]

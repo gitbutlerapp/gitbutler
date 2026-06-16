@@ -4,7 +4,7 @@ use snapbox::{file, str};
 
 use crate::command::legacy::status::tui::{
     Message, ReloadCause,
-    tests::utils::{test_tui, test_tui_with_size},
+    tests::utils::{TestTuiOptions, test_tui, test_tui_with_options},
 };
 
 #[test]
@@ -33,7 +33,14 @@ fn move_mode_keeps_selected_commit_and_extension_visible_when_scrolled() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
 
-    let mut tui = test_tui_with_size(env, 100, 6);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 6,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render(None)
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
