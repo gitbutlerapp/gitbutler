@@ -357,10 +357,11 @@ fn route_commit_operation(
 
                 Ok(CommitOperation::CommitAt(CommitAtOperation { target }))
             } else {
-                let branch_name = BranchArg(branch.resolve_for_creation(repo, head_info).hint(
-                    format!("Run `but apply {branch}` to apply the branch first"),
-                )?)
-                .resolve_local_branch_name()?;
+                let branch_name =
+                    BranchArg(branch.resolve_for_creation(repo, head_info).with_hint(|| {
+                        format!("Run `but apply {branch}` to apply the branch first")
+                    })?)
+                    .resolve_local_branch_name()?;
                 Ok(CommitOperation::CommitToNewBranch(
                     CommitToNewBranchOperation {
                         branch_name: Some(branch_name),
