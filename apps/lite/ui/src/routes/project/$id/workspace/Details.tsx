@@ -269,6 +269,28 @@ const getDiffView = ({
 	};
 };
 
+const createDiffCheckboxElement = (
+	initialIsChecked: boolean,
+	setChecked: (checked: boolean) => void,
+): HTMLInputElement => {
+	const el = document.createElement("input");
+	el.type = "checkbox";
+	el.checked = initialIsChecked;
+
+	el.style.width = "20px";
+	el.style.order = "-1";
+
+	el.addEventListener("change", () => setChecked(el.checked));
+
+	// Don't capture focus from mouse.
+	el.addEventListener("mousedown", (evt) => evt.preventDefault());
+
+	// Don't bubble to Pierre which will preventDefault for line selection.
+	el.addEventListener("pointerdown", (evt) => evt.stopPropagation());
+
+	return el;
+};
+
 const DiffContents: FC<{
 	selectionScopeRef: RefObject<HTMLDivElement | null>;
 	onViewerFileSelection: (selection: string) => void;
@@ -370,6 +392,9 @@ const DiffContents: FC<{
 		);
 	};
 
+	// As an example. We could be reactive but it's more performant avoiding that.
+	const checkedLinesByFile = useRef<Map<string, Set<number>>>(new Map());
+
 	return items.length === 0 ? (
 		<p className="text-13">No changes.</p>
 	) : (
@@ -399,6 +424,37 @@ const DiffContents: FC<{
 			selectedLines={selectedRange}
 			onSelectedLinesChange={handleLinesSelected}
 			options={{
+				onPostRender: (node, instance, phase) => {
+					if (phase === "unmount") return;
+
+					if (instance.type !== "file-diff" || !instance.fileDiff) return;
+					const path = instance.fileDiff.name;
+
+					const setChecked =
+						(l: number) =>
+						(checked: boolean): void => {
+							const map = checkedLinesByFile.current;
+							const ls = map.getOrInsert(path, new Set());
+							if (checked) ls.add(l);
+							else ls.delete(l);
+						};
+
+					// We may see the same lines in successive onPostRender calls e.g. when scrolling.
+					const attr = "data-gitbutler-enhanced";
+
+					const lines = node.shadowRoot?.querySelectorAll<HTMLElement>(
+						`[data-column-number]:not([${attr}])`,
+					);
+					for (const line of lines ?? []) {
+						line.setAttribute(attr, "");
+
+						const n = Number(line.getAttribute("data-column-number"));
+						const isChecked = checkedLinesByFile.current.get(path)?.has(n) ?? false;
+						const el = createDiffCheckboxElement(isChecked, setChecked(n));
+
+						line.appendChild(el);
+					}
+				},
 				diffStyle: "unified",
 				themeType: "system",
 				stickyHeaders: true,
@@ -427,6 +483,11 @@ const DiffContents: FC<{
             border-color: var(--border-3);
             border-radius: 0 0 10px 10px;
           }
+
+          [data-column-number] {
+        		display: flex;
+            padding-inline-start: 6px;
+         	}
         `,
 			}}
 		/>
