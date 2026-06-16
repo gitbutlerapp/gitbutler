@@ -287,6 +287,7 @@
 								"tabSize",
 								"wrapText",
 								"diffFont",
+								"diffFontSize",
 								"strongContrast",
 								"colorBlindFriendly",
 								"inlineUnifiedDiffs",

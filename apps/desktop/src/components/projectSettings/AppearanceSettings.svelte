@@ -25,6 +25,7 @@
 	const diffLigatures = uiState.global.diffLigatures;
 	const wrapText = uiState.global.wrapText;
 	const diffFont = uiState.global.diffFont;
+	const diffFontSize = uiState.global.diffFontSize;
 	const strongContrast = uiState.global.strongContrast;
 	const colorBlindFriendly = uiState.global.colorBlindFriendly;
 	const inlineUnifiedDiffs = uiState.global.inlineUnifiedDiffs;
@@ -165,6 +166,7 @@
 				"tabSize",
 				"wrapText",
 				"diffFont",
+				"diffFontSize",
 				"diffLigatures",
 				"strongContrast",
 				"colorBlindFriendly",
@@ -239,6 +241,31 @@
 				diffFont.set(value);
 			}}
 		/>
+	</CardGroup.Item>
+
+	<CardGroup.Item alignment="center">
+		{#snippet title()}
+			Font size
+		{/snippet}
+		{#snippet caption()}
+			Font size of the code in the diff view.
+		{/snippet}
+
+		{#snippet actions()}
+			<Textbox
+				type="number"
+				width={100}
+				textAlign="center"
+				value={diffFontSize.current.toString()}
+				minVal={8}
+				maxVal={32}
+				showCountActions
+				onchange={(value: string) => {
+					diffFontSize.set(parseInt(value) || diffFontSize.current);
+				}}
+				placeholder={diffFontSize.current.toString()}
+			/>
+		{/snippet}
 	</CardGroup.Item>
 
 	<CardGroup.Item labelFor="allowDiffLigatures">

@@ -24,6 +24,7 @@
 		tabSize?: number;
 		wrapText?: boolean;
 		diffFont?: string;
+		diffFontSize?: number;
 		diffLigatures?: boolean;
 		inlineUnifiedDiffs?: boolean;
 		strongContrast?: boolean;
@@ -47,6 +48,7 @@
 		tabSize = 4,
 		wrapText = true,
 		diffFont = "var(--font-mono)",
+		diffFontSize = 12,
 		diffLigatures = true,
 		strongContrast = false,
 		colorBlindFriendly = false,
@@ -126,7 +128,7 @@
 	class="table__wrapper"
 	class:contrast-strong={strongContrast}
 	class:colorblind-friendly={colorBlindFriendly}
-	style="--tab-size: {tabSize}; --diff-font: {diffFont};"
+	style="--tab-size: {tabSize}; --diff-font: {diffFont}; --diff-font-size: {diffFontSize}px;"
 	style:font-variant-ligatures={diffLigatures ? "common-ligatures" : "none"}
 >
 	{#if !draggingDisabled}

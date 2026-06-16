@@ -224,7 +224,7 @@
 	.table__textContent {
 		width: 100%;
 		padding-left: 4px;
-		font-size: 12px;
+		font-size: var(--diff-font-size, 12px);
 		line-height: 1.25;
 		white-space: var(--pre-wrap);
 		cursor: text;
