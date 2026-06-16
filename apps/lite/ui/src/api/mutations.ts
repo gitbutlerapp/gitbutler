@@ -9,7 +9,7 @@ import {
 } from "#ui/operations/toastOptions.tsx";
 import { type BranchOperand } from "#ui/operands.ts";
 import { projectActions } from "#ui/projects/state.ts";
-import { useAppDispatch } from "#ui/store.ts";
+import { type AppDispatch, useAppDispatch } from "#ui/store.ts";
 import { Toast } from "@base-ui/react";
 import {
 	type BottomUpdate,
@@ -18,9 +18,31 @@ import {
 	type RelativeTo,
 	type Snapshot,
 } from "@gitbutler/but-sdk";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
 import { BranchCheckoutNewParams, BranchCreateParams, OpenInEditorParams } from "#electron/ipc.ts";
+
+// oxlint-disable-next-line typescript/no-explicit-any
+type PromiseReturnType<T> = T extends (...args: Array<any>) => Promise<infer U> ? U : never;
+type AnyResponse = PromiseReturnType<(typeof window.lite)[keyof typeof window.lite]>;
+
+export const syncCoreCaches = (
+	queryClient: QueryClient,
+	dispatch: AppDispatch,
+	projectId: string,
+	response: Exclude<AnyResponse, void>,
+) => {
+	if (typeof response !== "object" || response === null || !("workspace" in response)) return;
+
+	queryClient.setQueryData(headInfoQueryOptions(projectId).queryKey, response.workspace.headInfo);
+	dispatch(
+		projectActions.updateRewrittenCommitReferences({
+			projectId,
+			replacedCommits: response.workspace.replacedCommits,
+			headInfo: response.workspace.headInfo,
+		}),
+	);
+};
 
 export const useAbsorb = ({ projectId }: { projectId: string }) => {
 	const toastManager = Toast.useToastManager();
