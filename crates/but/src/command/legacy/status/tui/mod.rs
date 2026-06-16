@@ -905,9 +905,13 @@ impl App {
     }
 
     fn handle_unfocus_details(&mut self, messages: &mut Vec<Message>) {
-        if let Mode::Details(DetailsMode { full_screen, .. }) = &*self.mode
-            && *full_screen
-        {
+        if let Mode::Details(DetailsMode { full_screen, .. }) = &*self.mode {
+            if *full_screen {
+                return;
+            }
+
+            self.restore_mode_before_details(messages);
+            self.maybe_move_cursor_into_file_list();
             return;
         }
 
@@ -1068,6 +1072,15 @@ impl App {
     }
 
     fn handle_focus_details(&mut self, full_screen: bool, messages: &mut Vec<Message>) {
+        if !full_screen
+            && let Mode::Details(DetailsMode {
+                full_screen: false, ..
+            }) = &*self.mode
+        {
+            self.restore_mode_before_details(messages);
+            return;
+        }
+
         if self.is_details_visible {
             messages.push(Message::Details(DetailsMessage::SelectFirstSection));
         } else {

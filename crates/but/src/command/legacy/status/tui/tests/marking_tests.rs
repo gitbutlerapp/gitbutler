@@ -2,7 +2,7 @@ use but_testsupport::Sandbox;
 use crossterm::event::*;
 use snapbox::{file, str};
 
-use crate::command::legacy::status::tui::tests::utils::test_tui;
+use crate::command::legacy::status::tui::{BackstackEntry, tests::utils::test_tui};
 
 #[test]
 fn marking_individual_commit_toggles_mark_indicator() {
@@ -101,4 +101,56 @@ fn multi_squash_marked_commits_into_selected_marked_target() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/multi_squash_marked_commits_into_selected_marked_target_final.svg"
         ]);
+}
+
+#[test]
+fn marks_still_show_in_split_details() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    env.file("one", "content of one");
+    env.file("two", "content of two");
+
+    let mut tui = test_tui(env);
+
+    // mark some things
+    tui.input_then_render('j');
+    tui.input_then_render(' ')
+        .assert_rendered_contains("┊✔︎    kl A one")
+        .assert_rendered_contains("┊   twop A two")
+        .assert_backstack_eq([BackstackEntry::Mark])
+        .assert_rendered_term_svg_eq(file!["snapshots/marks_still_show_in_split_details_001.svg"]);
+
+    // open details view and still see the marks
+    tui.input_then_render('d')
+        .assert_rendered_contains("+content of two")
+        .assert_rendered_contains("┊✔︎    kl A one")
+        .assert_rendered_contains("┊   twop A two")
+        .assert_backstack_eq([BackstackEntry::OpenSplitDetailsView, BackstackEntry::Mark])
+        .assert_rendered_term_svg_eq(file!["snapshots/marks_still_show_in_split_details_002.svg"]);
+    tui.input_then_render('d')
+        .assert_backstack_eq([BackstackEntry::Mark])
+        .assert_rendered_term_svg_eq(file!["snapshots/marks_still_show_in_split_details_003.svg"]);
+
+    // opening and focusing details should still show marks
+    tui.input_then_render('l')
+        .assert_rendered_contains("details")
+        .assert_rendered_contains("+content of two")
+        .assert_rendered_contains("┊✔︎    kl A one")
+        .assert_rendered_contains("┊   twop A two")
+        .assert_backstack_eq([
+            BackstackEntry::LeaveNormalMode,
+            BackstackEntry::OpenSplitDetailsView,
+            BackstackEntry::Mark,
+        ])
+        .assert_rendered_term_svg_eq(file!["snapshots/marks_still_show_in_split_details_004.svg"]);
+
+    // going back to normal mode should retain marks and keep details open
+    tui.input_then_render('h')
+        .assert_rendered_contains("normal")
+        .assert_rendered_contains("+content of two")
+        .assert_rendered_contains("┊✔︎    kl A one")
+        .assert_rendered_contains("┊   twop A two")
+        .assert_backstack_eq([BackstackEntry::OpenSplitDetailsView, BackstackEntry::Mark])
+        .assert_rendered_term_svg_eq(file!["snapshots/marks_still_show_in_split_details_005.svg"]);
 }
