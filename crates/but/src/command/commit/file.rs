@@ -15,7 +15,7 @@ pub fn commited_file_to_another_commit_with_perm(
 ) -> Result<()> {
     let relevant_changes = {
         let context_lines = ctx.settings.context_lines;
-        let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
         let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
         builder.push_changes_from_path_in_commit(path, source_id, "First parent")?;
         builder.into_diff_specs()
@@ -69,7 +69,7 @@ pub fn uncommit_file_and_discard_with_perm(
 ) -> Result<()> {
     let context_lines = ctx.settings.context_lines;
     let relevant_changes = {
-        let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
         let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
         builder.push_changes_from_path_in_commit(path, source_id, "First parent")?;
         builder.into_diff_specs()
