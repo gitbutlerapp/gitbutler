@@ -24,7 +24,8 @@ pub fn delete(
     let branch_arg = {
         let guard = ctx.exclusive_worktree_access();
         let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
-        branch_arg.resolve_branch_in_workspace(ctx, &id_map)?
+        let repo = ctx.repo.get()?;
+        branch_arg.resolve_branch_in_workspace(&repo, &id_map)?
     };
 
     let head_info = but_api::legacy::workspace::head_info(ctx)?;
@@ -70,14 +71,17 @@ pub fn new(
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
-    let resolved_anchor = anchor_arg
-        .clone()
-        .and_then(|anchor| {
-            anchor
-                .try_resolve(ctx, &id_map, Purpose::Anchor, None)
-                .transpose()
-        })
-        .transpose()?;
+    let resolved_anchor = {
+        let repo = ctx.repo.get()?;
+        anchor_arg
+            .clone()
+            .and_then(|anchor| {
+                anchor
+                    .try_resolve(&repo, &id_map, Purpose::Anchor, None)
+                    .transpose()
+            })
+            .transpose()?
+    };
 
     let anchor = resolved_anchor
         .clone()

@@ -28,12 +28,12 @@ impl CliIdArg {
     /// workspace.
     pub fn resolve_in_workspace(
         &self,
-        ctx: &but_ctx::Context,
+        repo: &gix::Repository,
         id_map: &IdMap,
         purpose: Purpose,
         priority: Option<Priority>,
     ) -> CliResult<ResolvedCliIdArg> {
-        if let Some(id) = self.try_resolve(ctx, id_map, purpose, priority)? {
+        if let Some(id) = self.try_resolve(repo, id_map, purpose, priority)? {
             Ok(id)
         } else {
             Err(bad_input(format!("Could not find {purpose}: '{self}'")).into())
@@ -45,12 +45,12 @@ impl CliIdArg {
     /// Returns `Ok(None)` if it doesn't exist in the workspace.
     pub fn try_resolve(
         &self,
-        ctx: &but_ctx::Context,
+        repo: &gix::Repository,
         id_map: &IdMap,
         purpose: Purpose,
         priority: Option<Priority>,
     ) -> CliResult<Option<ResolvedCliIdArg>> {
-        let Some(id) = try_resolve_cli_id(self, ctx, id_map, purpose, priority)? else {
+        let Some(id) = try_resolve_cli_id(self, repo, id_map, purpose, priority)? else {
             return Ok(None);
         };
         Ok(Some(match id {
@@ -67,10 +67,10 @@ impl CliIdArg {
     /// Resolve the argument to a commit that exists in the workspace.
     pub fn resolve_commit_in_workspace(
         &self,
-        ctx: &but_ctx::Context,
+        repo: &gix::Repository,
         id_map: &IdMap,
     ) -> CliResult<gix::ObjectId> {
-        if let Some(commit) = self.try_resolve_commit(ctx, id_map)? {
+        if let Some(commit) = self.try_resolve_commit(repo, id_map)? {
             Ok(commit)
         } else {
             Err(bad_input(format!("Could not find commit: '{self}'")).into())
@@ -82,11 +82,11 @@ impl CliIdArg {
     /// Returns `Ok(None)` if it doesn't exist in the workspace.
     pub fn try_resolve_commit(
         &self,
-        ctx: &but_ctx::Context,
+        repo: &gix::Repository,
         id_map: &IdMap,
     ) -> CliResult<Option<gix::ObjectId>> {
         let Some(id) =
-            try_resolve_cli_id(self, ctx, id_map, Purpose::Commit, Some(Priority::Commit))?
+            try_resolve_cli_id(self, repo, id_map, Purpose::Commit, Some(Priority::Commit))?
         else {
             return Ok(None);
         };
@@ -107,10 +107,10 @@ impl CliIdArg {
     /// Resolve the argument to a branch that exists in the workspace.
     pub fn resolve_branch_in_workspace(
         &self,
-        ctx: &but_ctx::Context,
+        repo: &gix::Repository,
         id_map: &IdMap,
     ) -> CliResult<BranchArg> {
-        if let Some(branch) = self.try_resolve_branch(ctx, id_map)? {
+        if let Some(branch) = self.try_resolve_branch(repo, id_map)? {
             Ok(branch)
         } else {
             Err(bad_input(format!("Could not find branch: '{self}'")).into())
@@ -122,11 +122,11 @@ impl CliIdArg {
     /// Returns `Ok(None)` if it doesn't exist in the workspace.
     pub fn try_resolve_branch(
         &self,
-        ctx: &but_ctx::Context,
+        repo: &gix::Repository,
         id_map: &IdMap,
     ) -> CliResult<Option<BranchArg>> {
         let Some(id) =
-            try_resolve_cli_id(self, ctx, id_map, Purpose::Branch, Some(Priority::Branch))?
+            try_resolve_cli_id(self, repo, id_map, Purpose::Branch, Some(Priority::Branch))?
         else {
             return Ok(None);
         };
@@ -168,13 +168,13 @@ pub enum Priority {
 // the workspace so we need a specific type for that.
 fn try_resolve_cli_id(
     arg: &CliIdArg,
-    ctx: &but_ctx::Context,
+    repo: &gix::Repository,
     id_map: &IdMap,
     purpose: Purpose,
     priority: Option<Priority>,
 ) -> CliResult<Option<CliId>> {
     let mut target_ids = id_map
-        .parse_using_context(&arg.0, ctx)?
+        .parse_using_repo(&arg.0, repo)?
         .into_iter()
         .peekable();
     let Some(target) = target_ids.next() else {

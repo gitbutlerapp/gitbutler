@@ -36,7 +36,10 @@ pub(crate) fn reword_target(
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
 
-    let target = target.resolve_in_workspace(ctx, &id_map, Purpose::Target, None)?;
+    let target = {
+        let repo = ctx.repo.get()?;
+        target.resolve_in_workspace(&repo, &id_map, Purpose::Target, None)?
+    };
 
     match target.into_branch_or_commit()? {
         BranchOrCommit::Branch(BranchArg(name)) => {

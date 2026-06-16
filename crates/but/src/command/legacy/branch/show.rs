@@ -24,8 +24,9 @@ pub fn show(
     let branch_arg = {
         let guard = ctx.exclusive_worktree_access();
         let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
+        let repo = ctx.repo.get()?;
         branch_arg
-            .try_resolve_branch(ctx, &id_map)?
+            .try_resolve_branch(&repo, &id_map)?
             .unwrap_or(BranchArg(branch_arg.0))
     };
 
@@ -118,16 +119,16 @@ struct CommitRef {
 fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> CliResult<MergeCheck> {
     use but_core::RepositoryExt;
 
-    let branch = BranchArg(branch_name.to_owned()).resolve_branch(ctx)?;
+    let guard = ctx.shared_worktree_access();
+    let repo = ctx.repo.get()?;
+    let branch = BranchArg(branch_name.to_owned()).resolve_branch(&repo)?;
 
     // Find merge base
-    let guard = ctx.shared_worktree_access();
     let (merge_base, target) = workspace_target::merge_base_with_target_with_perm(
         ctx,
         guard.read_permission(),
         branch.head,
     )?;
-    let repo = ctx.repo.get()?;
     let merge_repo = ctx.clone_repo_for_merging_non_persisting()?;
     let merge_base_tree_id = repo.find_commit(merge_base)?.tree_id()?.detach();
     let target_tree_id = repo.find_commit(target.oid())?.tree_id()?.detach();
@@ -255,16 +256,16 @@ fn get_commits_ahead(
 ) -> CliResult<Vec<CommitInfo>> {
     use gix::prelude::ObjectIdExt as _;
 
-    let branch = branch_arg.resolve_branch(ctx)?;
+    let guard = ctx.shared_worktree_access();
+    let repo = ctx.repo.get()?;
+    let branch = branch_arg.resolve_branch(&repo)?;
 
     // Find merge base
-    let guard = ctx.shared_worktree_access();
     let (merge_base, _) = workspace_target::merge_base_with_target_with_perm(
         ctx,
         guard.read_permission(),
         branch.head,
     )?;
-    let repo = ctx.repo.get()?;
 
     // Walk from branch head to merge base, collecting commits
     let traversal = branch

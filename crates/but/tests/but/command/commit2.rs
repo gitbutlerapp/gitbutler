@@ -36,7 +36,7 @@ fn no_args_single_head_no_message_human_output() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Created commit 7bbfdca on 'A'
+Created commit 7bbfdca on branch 'A'
 
 "#]]);
 
@@ -514,5 +514,533 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
 "#]]);
 }
 
-// -b without branch name
-// commit2 -m 'add file.txt' -b
+#[test]
+fn commit_empty_above_commit() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9ac4652 add second
+┊●   fe12bcd add first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("commit2 --no-message --above fe")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   955bee4 add second
+┊●   4400448 (no commit message) (no changes)
+┊●   fe12bcd add first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn commit_empty_below_commit() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9ac4652 add second
+┊●   fe12bcd add first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("commit2 --no-message --below fe")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   eee1eaf add second
+┊●   c149530 add first
+┊●   8b16ff4 (no commit message) (no changes)
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn commit_above_commit() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("file.txt", "Some changes");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes]
+┊   uv A file.txt
+┊
+┊╭┄g0 [A]
+┊●   9ac4652 add second
+┊●   fe12bcd add first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+
+    env.but("commit2 -m 'add file.txt' --above fe")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   e38b8f7 add second
+┊●   94fecae add file.txt
+┊●   fe12bcd add first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn commit_above_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("file.txt", "Some changes");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes]
+┊   uv A file.txt
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+
+    env.but("commit2 -m 'add file.txt' --above g0")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄br [a-branch-1]
+┊●   092d7a9 add file.txt
+┊│
+┊├┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn commit_below_commit() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("file.txt", "Some changes");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes]
+┊   uv A file.txt
+┊
+┊╭┄g0 [A]
+┊●   9ac4652 add second
+┊●   fe12bcd add first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+
+    env.but("commit2 -m 'add file.txt' --below fe")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   d7e6d8f add second
+┊●   12982b7 add first
+┊●   bdfeaa4 add file.txt
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn commit_below_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("file.txt", "Some changes");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes]
+┊   uv A file.txt
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+
+    env.but("commit2 -m 'add file.txt' --below g0")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   8a3fbb3 add A
+┊│
+┊├┄br [a-branch-1]
+┊●   28e38bd add file.txt
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn commit_below_branch_with_multiple_commits_treats_branch_as_bucket() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.file("file.txt", "Some changes");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes]
+┊   uv A file.txt
+┊
+┊╭┄g0 [A]
+┊●   9ac4652 add second
+┊●   fe12bcd add first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+
+    env.but("commit2 -m 'add file.txt' --below g0")
+        .assert()
+        .success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   d7e6d8f add second
+┊●   12982b7 add first
+┊│
+┊├┄br [a-branch-1]
+┊●   bdfeaa4 add file.txt
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn commit_above_refuses_on_conflicts() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9ac4652 add second
+┊●   fe12bcd add first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.file("second", "Conflicting with commit 9ac4652");
+
+    env.but("commit2 -m 'add second' --above fe")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Couldn't commit all changes
+
+"#]]);
+}
+
+#[test]
+fn commit_below_refuses_on_conflicts() {
+    let env =
+        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9ac4652 add second
+┊●   fe12bcd add first
+├╯
+┊
+┴ 1bbc04b (common base) 2000-01-02 add Base
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.file("second", "Conflicting with commit 9ac4652");
+
+    env.but("commit2 -m 'add second' --below 9a")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Couldn't commit all changes
+
+"#]]);
+}
+
+#[test]
+fn refuses_above_and_below() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.but("commit2 --above dontcare --below dontcare")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the argument '--above <ABOVE>' cannot be used with '--below <BELOW>'
+
+Usage: but commit2 --above <ABOVE>
+
+For more information, try '--help'.
+
+"#]]);
+}
+
+#[test]
+fn refuses_above_and_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.but("commit2 --above dontcare -b")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the argument '--above <ABOVE>' cannot be used with '--branch [<BRANCH>]'
+
+Usage: but commit2 --above <ABOVE>
+
+For more information, try '--help'.
+
+"#]]);
+}
+
+#[test]
+fn refuses_below_and_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    env.but("commit2 --below dontcare -b")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the argument '--below <BELOW>' cannot be used with '--branch [<BRANCH>]'
+
+Usage: but commit2 --below <BELOW>
+
+For more information, try '--help'.
+
+"#]]);
+}
+
+#[test]
+fn above_branch_not_in_workspace_returns_bad_input() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    env.but("unapply B").assert().success();
+
+    env.but("commit2 --above B")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find target: 'B'
+
+Hint: Target must be an applied branch or commit. Run `but status` for applicable targets.
+
+"#]]);
+}
+
+#[test]
+fn above_commit_not_in_workspace_returns_bad_input() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄h0 [B]
+┊●   d3e2ba3 add B
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("unapply B").assert().success();
+
+    env.but("commit2 --above d3")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Could not find target: 'd3'
+
+Hint: Target must be an applied branch or commit. Run `but status` for applicable targets.
+
+"#]]);
+}
+
+#[test]
+fn above_non_branch_non_commit_target_returns_bad_input() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    env.but("commit2 --above zz")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Expected a commit or a branch, got unassigned changes
+
+Hint: Run `but status` to show applicable targets
+
+"#]]);
+}
