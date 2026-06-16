@@ -9,7 +9,7 @@ import {
 } from "#ui/operations/toastOptions.tsx";
 import { type BranchOperand } from "#ui/operands.ts";
 import { projectActions } from "#ui/projects/state.ts";
-import { useAppDispatch } from "#ui/store.ts";
+import { type AppDispatch, useAppDispatch } from "#ui/store.ts";
 import { Toast } from "@base-ui/react";
 import {
 	type BottomUpdate,
@@ -18,9 +18,31 @@ import {
 	type RelativeTo,
 	type Snapshot,
 } from "@gitbutler/but-sdk";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
 import { BranchCheckoutNewParams, BranchCreateParams, OpenInEditorParams } from "#electron/ipc.ts";
+
+// oxlint-disable-next-line typescript/no-explicit-any
+type PromiseReturnType<T> = T extends (...args: Array<any>) => Promise<infer U> ? U : never;
+type AnyResponse = PromiseReturnType<(typeof window.lite)[keyof typeof window.lite]>;
+
+export const syncCoreCaches = (
+	queryClient: QueryClient,
+	dispatch: AppDispatch,
+	projectId: string,
+	response: Exclude<AnyResponse, void>,
+) => {
+	if (typeof response !== "object" || response === null || !("workspace" in response)) return;
+
+	queryClient.setQueryData(headInfoQueryOptions(projectId).queryKey, response.workspace.headInfo);
+	dispatch(
+		projectActions.updateRewrittenCommitReferences({
+			projectId,
+			replacedCommits: response.workspace.replacedCommits,
+			headInfo: response.workspace.headInfo,
+		}),
+	);
+};
 
 export const useAbsorb = ({ projectId }: { projectId: string }) => {
 	const toastManager = Toast.useToastManager();
@@ -70,17 +92,7 @@ export const useBranchCreate = () => {
 	return useMutation({
 		mutationFn: (input: BranchCreateParams) => window.lite.branchCreate(input),
 		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -103,17 +115,7 @@ export const useBranchCheckoutNew = () => {
 	return useMutation({
 		mutationFn: (input: BranchCheckoutNewParams) => window.lite.branchCheckoutNew(input),
 		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -176,14 +178,7 @@ export const useCommitAmend = ({ projectId }: { projectId: string }) => {
 			});
 		},
 		onSuccess: async (response, input, _ctx, { client }) => {
-			client.setQueryData(headInfoQueryOptions(projectId).queryKey, response.workspace.headInfo);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
+			syncCoreCaches(client, dispatch, projectId, response);
 
 			if (input.relativeTo.type === "commit" && response.newCommit !== null)
 				dispatch(
@@ -280,17 +275,7 @@ export const useCommitDiscard = () => {
 	return useMutation({
 		mutationFn: window.lite.commitDiscard,
 		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -313,17 +298,7 @@ export const useCommitDiscardChanges = () => {
 	return useMutation({
 		mutationFn: window.lite.commitDiscardChanges,
 		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -369,17 +344,7 @@ export const useCommitInsertBlank = () => {
 	return useMutation({
 		mutationFn: window.lite.commitInsertBlank,
 		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -402,17 +367,7 @@ export const useCommitMove = () => {
 	return useMutation({
 		mutationFn: window.lite.commitMove,
 		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -435,17 +390,7 @@ export const useCommitReword = () => {
 	return useMutation({
 		mutationFn: window.lite.commitReword,
 		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -461,24 +406,14 @@ export const useCommitReword = () => {
 	});
 };
 
-export const useCommitUncommit = () => {
+export const useCommitUncommit = ({ projectId }: { projectId: string }) => {
 	const dispatch = useAppDispatch();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: window.lite.commitUncommit,
-		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
+		onSuccess: async (response, _input, _context, mutation) => {
+			syncCoreCaches(mutation.client, dispatch, projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -501,17 +436,7 @@ export const useCommitUncommitChanges = () => {
 	return useMutation({
 		mutationFn: window.lite.commitUncommitChanges,
 		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -565,21 +490,13 @@ export const usePushStack = () => {
 
 export const useWorkspaceIntegrateUpstream = ({ projectId }: { projectId: string }) => {
 	const dispatch = useAppDispatch();
-	const queryClient = useQueryClient();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: (updates: Array<BottomUpdate>) =>
 			window.lite.workspaceIntegrateUpstream({ projectId, updates, dryRun: false }),
-		onSuccess: (workspace, updates) => {
-			queryClient.setQueryData(headInfoQueryOptions(projectId).queryKey, workspace.headInfo);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId,
-					replacedCommits: workspace.replacedCommits,
-					headInfo: workspace.headInfo,
-				}),
-			);
+		onSuccess: (response, updates, _context, mutation) => {
+			syncCoreCaches(mutation.client, dispatch, projectId, response);
 
 			toastManager.add({
 				type: "success",
@@ -693,17 +610,7 @@ export const useTearOffBranch = () => {
 	return useMutation({
 		mutationFn: window.lite.tearOffBranch,
 		onSuccess: async (response, input, _context, mutation) => {
-			mutation.client.setQueryData(
-				headInfoQueryOptions(input.projectId).queryKey,
-				response.workspace.headInfo,
-			);
-			dispatch(
-				projectActions.updateRewrittenCommitReferences({
-					projectId: input.projectId,
-					replacedCommits: response.workspace.replacedCommits,
-					headInfo: response.workspace.headInfo,
-				}),
-			);
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console

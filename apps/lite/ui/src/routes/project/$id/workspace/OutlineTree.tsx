@@ -1081,7 +1081,7 @@ const CommitRow: FC<
 
 	const commitInsertBlankMutation = useCommitInsertBlank();
 	const commitDiscardMutation = useCommitDiscard();
-	const commitUncommitMutation = useCommitUncommit();
+	const commitUncommitMutation = useCommitUncommit({ projectId });
 	const commitRewordMutation = useCommitReword();
 	const branchCreateMutation = useBranchCreate();
 
