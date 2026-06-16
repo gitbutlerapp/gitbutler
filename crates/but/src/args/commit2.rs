@@ -10,9 +10,9 @@ pub struct Platform {
     pub branch: Option<Option<BranchArg>>,
     #[clap(long, group = "changes_to_commit")]
     pub empty: bool,
-    #[clap(long, group = "targeting")]
+    #[clap(short = 'A', long, group = "targeting")]
     pub above: Option<CliIdArg>,
-    #[clap(long, group = "targeting")]
+    #[clap(short = 'B', long, group = "targeting")]
     pub below: Option<CliIdArg>,
     #[clap(short, long, group = "changes_to_commit")]
     pub interactive: bool,
