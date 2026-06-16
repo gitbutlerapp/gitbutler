@@ -13,17 +13,17 @@ import { Checkbox } from "#ui/components/Checkbox.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
-import type { TreeChange, TreeStatus } from "@gitbutler/but-sdk";
+import type { TreeStatus } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
-import { Array, identity, Match } from "effect";
+import { identity, Match } from "effect";
 import { ComponentProps, createContext, FC, use, useRef } from "react";
 import styles from "./FilesTree.module.css";
 import {
 	WorkspaceItemRow,
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowToolbar,
-	getWorkspaceItemRowButtonClassName,
 } from "./WorkspaceItemRow.tsx";
+import { getWorkspaceItemRowButtonClassName } from "./WorkspaceItemRow-utils.ts";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { DependencyIndicator } from "#ui/routes/project/$id/workspace/DependencyIndicator.tsx";
 import {
@@ -39,6 +39,7 @@ import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
+import type { FileTreeItem } from "./file-tree.ts";
 
 const NavigationIndexContext = createContext<NavigationIndex<string> | null>(null);
 
@@ -110,36 +111,6 @@ const useFilesTreeHotkeys = ({
 		operationSourceForItem: (path) => fileOperand({ parent: fileParent, path }),
 	});
 };
-
-type ChangeFileTreeItem = {
-	change: TreeChange;
-	dependencyCommitIds?: Array.NonEmptyArray<string>;
-	path: string;
-};
-
-export const changeFileTreeItem = ({
-	change,
-	dependencyCommitIds,
-	path,
-}: ChangeFileTreeItem): FileTreeItem => ({
-	_tag: "Change",
-	change,
-	dependencyCommitIds,
-	path,
-});
-
-type ConflictFileTreeItem = {
-	path: string;
-};
-
-export const conflictFileTreeItem = ({ path }: ConflictFileTreeItem): FileTreeItem => ({
-	_tag: "Conflict",
-	path,
-});
-
-export type FileTreeItem =
-	| ({ _tag: "Change" } & ChangeFileTreeItem)
-	| ({ _tag: "Conflict" } & ConflictFileTreeItem);
 
 export const FilesTree: FC<
 	{

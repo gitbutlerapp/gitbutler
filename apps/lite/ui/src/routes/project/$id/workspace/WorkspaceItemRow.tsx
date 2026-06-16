@@ -2,7 +2,6 @@ import { classes } from "#ui/components/classes.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { ComponentProps, FC, useLayoutEffect, useRef } from "react";
 import styles from "./WorkspaceItemRow.module.css";
-import { getButtonClassName } from "#ui/components/Button.tsx";
 
 export const WorkspaceItemRow: FC<
 	{
@@ -78,17 +77,3 @@ export const WorkspaceItemRowToolbar: FC<{ forceVisible?: boolean } & ComponentP
 		)}
 	/>
 );
-
-export const getWorkspaceItemRowButtonClassName = ({ iconOnly = false }: { iconOnly?: boolean }) =>
-	classes(
-		getButtonClassName({
-			variant: "ghost",
-			size: "small",
-			iconOnly,
-			// On selection/focus change we change the button variant. This
-			// transition would clash with other selection/focus style changes
-			// which are instant (e.g. the row background).
-			disableTransition: true,
-		}),
-		styles.itemRowButton,
-	);
