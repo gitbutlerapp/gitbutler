@@ -282,9 +282,8 @@ fn route_commit_operation(
                     format!("BUG: Segment resolved from branch name {branch} has no ref info")
                 })?;
 
-                let target = CommitRelativeToTarget::Reference {
+                let target = CommitRelativeToTarget::BranchTip {
                     name: ref_info.ref_name,
-                    position: CommitRelativeToTargetPosition::Below,
                 };
 
                 Ok(CommitOperation::CommitAt(CommitAtOperation { target }))
@@ -316,9 +315,8 @@ fn route_commit_operation(
                     .and_then(|segment| segment.ref_info.as_ref())
                     .context("Head stack as no ref")?;
 
-                let target = CommitRelativeToTarget::Reference {
+                let target = CommitRelativeToTarget::BranchTip {
                     name: ref_info.ref_name.clone(),
-                    position: CommitRelativeToTargetPosition::Below,
                 };
 
                 return Ok(CommitOperation::CommitAt(CommitAtOperation { target }));
@@ -349,7 +347,7 @@ fn route_commit_above_or_below(
             commit_id,
             position,
         },
-        BranchOrCommit::Branch(arg) => CommitRelativeToTarget::Branch {
+        BranchOrCommit::Branch(arg) => CommitRelativeToTarget::BranchBucket {
             name: arg.resolve_local_branch_name()?,
             position,
         },
@@ -429,7 +427,7 @@ impl CommitAtOperation {
                 commit_id,
                 position,
             } => (RelativeTo::Commit(commit_id), position.into(), None),
-            CommitRelativeToTarget::Branch { name, position } => {
+            CommitRelativeToTarget::BranchBucket { name, position } => {
                 let new_branch_name = but_core::branch::unique_canned_refname(tx.repo())?;
                 let anchor = Anchor::at_segment(name.as_ref(), position.into());
                 tx.create_reference(
@@ -445,9 +443,9 @@ impl CommitAtOperation {
                     Some(BranchNameTarget::New(new_branch_name)),
                 )
             }
-            CommitRelativeToTarget::Reference { name, position } => (
+            CommitRelativeToTarget::BranchTip { name } => (
                 RelativeTo::Reference(name.clone()),
-                position.into(),
+                InsertSide::Below,
                 Some(BranchNameTarget::Existing(name)),
             ),
         };
@@ -459,17 +457,21 @@ impl CommitAtOperation {
     }
 }
 
+/// Place a commit relative to something in the workspace.
 #[derive(Clone)]
 enum CommitRelativeToTarget {
+    /// Place the commit relative to this commit, within the same branch.
     Commit {
         commit_id: gix::ObjectId,
         position: CommitRelativeToTargetPosition,
     },
-    Reference {
-        name: FullName,
-        position: CommitRelativeToTargetPosition,
-    },
-    Branch {
+    /// Place the commit at the tip of the branch denoted by this reference, moving the reference to
+    /// the new commit. This is effectively the same as committing to a branch.
+    BranchTip { name: FullName },
+    /// Place the commit relative to this branch, treating the branch as a bucket.
+    ///
+    /// The commit is always inserted on a new branch with a canned name.
+    BranchBucket {
         name: FullName,
         position: CommitRelativeToTargetPosition,
     },
