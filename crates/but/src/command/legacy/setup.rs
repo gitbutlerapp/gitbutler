@@ -43,8 +43,8 @@ struct TargetInfo {
     newly_set: bool,
 }
 
-/// Display a colorful splash screen with GitButler branding and helpful commands
-fn display_splash_screen(out: &mut dyn std::fmt::Write) -> anyhow::Result<()> {
+/// Display a colorful splash screen with GitButler branding and helpful commands.
+fn display_splash_screen(out: &mut dyn std::fmt::Write, workspace: bool) -> anyhow::Result<()> {
     let t = theme::get();
     writeln!(out)?;
     writeln!(
@@ -92,12 +92,21 @@ fn display_splash_screen(out: &mut dyn std::fmt::Write) -> anyhow::Result<()> {
         t.command_suggestion.paint("$ but push"),
         t.hint.paint("Push all branches")
     )?;
-    writeln!(
-        out,
-        "{:<45} {}",
-        t.command_suggestion.paint("$ but teardown"),
-        t.hint.paint("Return to normal Git mode")
-    )?;
+    if workspace {
+        writeln!(
+            out,
+            "{:<45} {}",
+            t.command_suggestion.paint("$ but teardown"),
+            t.hint.paint("Return to normal Git mode")
+        )?;
+    } else {
+        writeln!(
+            out,
+            "{:<45} {}",
+            t.command_suggestion.paint("$ but setup --workspace"),
+            t.hint.paint("Enter temporary legacy workspace mode")
+        )?;
+    }
     writeln!(out)?;
 
     writeln!(
@@ -176,6 +185,7 @@ pub(crate) fn repo(
     ctx: &mut Context,
     repo_path: &Path,
     out: &mut OutputChannel,
+    workspace: bool,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<()> {
     let t = theme::get();
@@ -384,9 +394,45 @@ pub(crate) fn repo(
         }
     }
 
+    if workspace {
+        if let Some(out) = out.for_human() {
+            writeln!(out)?;
+            writeln!(
+                out,
+                "{}",
+                t.hint
+                    .paint("→ Entering temporary legacy managed workspace mode")
+            )?;
+        }
+
+        but_api::legacy::virtual_branches::switch_back_to_workspace_with_perm(ctx, perm)?;
+
+        if let Some(out) = out.for_human() {
+            writeln!(
+                out,
+                "  {}",
+                t.success.paint("✓ Switched to gitbutler/workspace")
+            )?;
+            writeln!(
+                out,
+                "  {}",
+                t.success.paint("✓ Installed managed workspace hooks")
+            )?;
+            writeln!(out)?;
+            writeln!(
+                out,
+                "{}",
+                t.attention.paint(
+                    "This is a temporary compatibility mode. The long-term direction is that no command should require it."
+                )
+            )?;
+            writeln!(out)?;
+        }
+    }
+
     // Display splash screen for human output
     if let Some(out) = out.for_human() {
-        display_splash_screen(out)?;
+        display_splash_screen(out, workspace)?;
     }
 
     // Output JSON if requested
@@ -410,19 +456,14 @@ pub(crate) fn repo(
 /// - if the project is registered in GitButler
 /// - if there is a remote
 /// - if there is a default target branch set
-/// - if we're on a gitbutler/* branch
 pub fn check_project_setup(ctx: &Context, perm: &RepoShared) -> anyhow::Result<bool> {
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
 
-    // check if we're on a gitbutler/* branch
     let head = repo.head()?;
     let head_name = head
         .referent_name()
         .map(|n| n.shorten().to_owned())
         .unwrap_or_default();
-    if !head_name.starts_with(b"gitbutler/") {
-        anyhow::bail!("Not currently on a gitbutler/* branch.");
-    }
 
     // When on gitbutler/edit, the project was already set up when entering edit mode.
     // The workspace graph built from gitbutler/edit doesn't expose the target ref or

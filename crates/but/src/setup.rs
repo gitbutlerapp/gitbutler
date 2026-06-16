@@ -128,6 +128,7 @@ pub fn init_ctx(
                                 &mut ctx,
                                 &args.current_dir,
                                 out,
+                                false,
                                 guard.write_permission(),
                             )?;
                             // Retry finding the project after setup
@@ -160,6 +161,7 @@ pub fn init_ctx(
                                 &mut ctx,
                                 &args.current_dir,
                                 out,
+                                false,
                                 guard.write_permission(),
                             )?;
                             // Re-find and re-check the project after setup
@@ -424,7 +426,7 @@ fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult
     if let Some(mut inout) = out.prepare_for_terminal_input() {
         _ = writeln!(
             progress,
-            "In order to manage projects with GitButler, we need to do some changes:\n\n - Switch you to a special `gitbutler/workspace` branch to enable parallel branches\n - Install Git hooks to help manage the tooling\n\nYou can go back to normal git workflows at any time by either:\n\n - Running `but teardown`\n - Manually checking out a normal branch with `git checkout <branch>`\n",
+            "In order to manage projects with GitButler, we need to configure this repository:\n\n - Add it to the GitButler project registry\n - Configure a default target branch\n\nTo enter the temporary legacy managed workspace mode later, run:\n\n - `but setup --workspace`\n",
         );
 
         if let Ok(Confirm::Yes) =

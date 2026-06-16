@@ -75,7 +75,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -120,7 +120,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -130,10 +130,19 @@ Learn more at https://docs.gitbutler.com/cli-overview
 
     env.but("status")
         .assert()
-        .failure()
-        .stdout_eq(str![""])
-        .stderr_eq(str![[r#"
-Error: Setup required: Not currently on a gitbutler/* branch. - run `but setup` to configure the project
+        .success()
+        .stderr_eq(str![""])
+        .stdout_eq(str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄ma [main] (no commits)
+├╯
+┊
+┴ [..] (common base) 2000-01-02 Initial empty commit
+⚠️    You are in plain Git mode, directly on a branch. Some commands may be unavailable.    ⚠️
+⚠️    More info: https://github.com/gitbutlerapp/gitbutler/issues/11866                     ⚠️
+
+Hint: run `but setup --workspace` to switch back to GitButler managed mode.
 
 "#]]);
 

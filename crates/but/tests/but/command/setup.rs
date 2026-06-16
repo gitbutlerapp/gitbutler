@@ -81,7 +81,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -139,7 +139,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -202,7 +202,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -257,7 +257,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -265,6 +265,70 @@ Learn more at https://docs.gitbutler.com/cli-overview
 "#]]);
 
     assert_metadata_only_setup(&env, "main", "refs/remotes/origin/main")?;
+
+    Ok(())
+}
+
+#[test]
+fn workspace_flag_enters_legacy_managed_workspace() -> anyhow::Result<()> {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head")?;
+
+    env.but("setup --workspace")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Setting up GitButler project...
+
+→ Adding repository to GitButler project registry
+  ✓ Repository already in project registry
+
+→ Configuring default target branch
+  ✓ Using existing push remote: origin
+  ✓ Set default target to: origin/main
+
+GitButler project setup complete!
+Target branch: origin/main
+Remote: origin
+
+
+→ Entering temporary legacy managed workspace mode
+  ✓ Switched to gitbutler/workspace
+  ✓ Installed managed workspace hooks
+
+This is a temporary compatibility mode. The long-term direction is that no command should require it.
+
+
+
+██▄      ▄██  ▀██▀▀█▄ ▀██▀ ▀██▀ █▀▀██▀▀█
+████▄  ▄████   ██  ██  ██   ██  ▀  ██  ▀
+████████████   ██▀▀█▄  ██   ██     ██
+████▀  ▀████   ██  ██  ██   ██     ██
+██▀      ▀██  ▄██▄▄█▀  ▀█▄▄▄█▀   ▄▄██▄▄
+
+The command-line interface for GitButler ⋈
+
+$ but branch new <name>                       Create a new branch
+$ but status                                  View workspace status
+$ but commit -m <message>                     Commit changes to current branch
+$ but push                                    Push all branches
+$ but teardown                                Return to normal Git mode
+
+Learn more at https://docs.gitbutler.com/cli-overview
+
+
+"#]]);
+
+    let output = env.invoke_git("branch --show-current");
+    assert_eq!(output, "gitbutler/workspace");
+    env.invoke_git("show-ref --verify refs/heads/gitbutler/workspace");
+
+    let pre_commit_hook = env.projects_root().join(".git/hooks/pre-commit");
+    let hook = std::fs::read_to_string(&pre_commit_hook)?;
+    assert!(
+        hook.contains("GITBUTLER_MANAGED_HOOK_V1"),
+        "setup --workspace should install managed workspace hooks"
+    );
 
     Ok(())
 }
@@ -306,7 +370,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -508,7 +572,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -597,7 +661,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -646,7 +710,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -690,7 +754,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
