@@ -313,54 +313,54 @@ commands (blame, log, etc) can also be used, as GitButler is fully Git compatibl
 Checkout the full docs here: https://docs.gitbutler.com/cli-overview
 
 Inspection:
-  status       Overview of the project workspace state.
-  diff         Displays the diff of changes in the repo.
-  show         Shows detailed information about a commit or branch.
+  status       Overview of the project workspace state
+  diff         Displays the diff of changes in the repo
+  show         Shows detailed information about a commit or branch
 
 Branching and Committing:
-  commit       Commit changes to a stack.
-  stage        Stages a file or hunk to a specific branch.
-  branch       Commands for managing branches.
-  merge        Merge a branch into your local target branch.
-  discard      Discard uncommitted changes from the worktree.
-  resolve      Resolve conflicts in a commit.
-  unapply      Unapply a branch from the workspace.
-  apply        Apply a branch to the workspace.
-  clean        Remove empty branches from the workspace.
+  commit       Commit changes to a stack
+  stage        Stages a file or hunk to a specific branch
+  branch       Commands for managing branches
+  merge        Merge a branch into your local target branch
+  discard      Discard uncommitted changes from the worktree
+  resolve      Resolve conflicts in a commit
+  unapply      Unapply a branch from the workspace
+  apply        Apply a branch to the workspace
+  clean        Remove empty branches from the workspace
   pick         Cherry-pick a commit from an unapplied branch into an applied v…
 
 Editing Commits:
   rub          Combines two entities together to perform an operation like ame…
-  absorb       Amends changes into the appropriate commits where they belong.
-  reword       Edit the commit message of the specified commit.
+  absorb       Amends changes into the appropriate commits where they belong
+  reword       Edit the commit message of the specified commit
   uncommit     Uncommit changes from a commit or file-in-commit to the unstage…
   amend        Amend a file change into a specific commit and rebases any depe…
-  squash       Squash commits together.
-  move         Move a commit or branch to a different location.
+  squash       Squash commits together
+  move         Move a commit or branch to a different location
 
 Operation History:
-  oplog        Commands for viewing and managing operation history.
-  undo         Undo the last operation.
-  redo         Redo the last undo.
+  oplog        Commands for viewing and managing operation history
+  undo         Undo the last operation
+  redo         Redo the last undo
 
 Server Interactions:
-  push         Push changes in a branch to remote.
+  push         Push changes in a branch to remote
   pull         Updates all applied branches to be up to date with the target b…
   pr           Commands for creating and managing reviews on a forge, e.g. Git…
 
 Rules:
-  mark         Mark a commit or branch for auto-stage or auto-commit.
-  unmark       Removes any marks from the workspace.
+  mark         Mark a commit or branch for auto-stage or auto-commit
+  unmark       Removes any marks from the workspace
 
 Other Commands:
   setup        Sets up a GitButler project from a git repository in the curren…
-  teardown     Exit GitButler mode and return to normal Git workflow.
-  gui          Open the GitButler GUI for the current project.
-  tui          Show an interactive TUI.
-  update       Manage GitButler CLI and app updates.
-  alias        Manage command aliases.
-  config       View and manage GitButler configuration.
-  skill        Manage AI agent skills for GitButler.
+  teardown     Exit GitButler mode and return to normal Git workflow
+  gui          Open the GitButler GUI for the current project
+  tui          Show an interactive TUI
+  update       Manage GitButler CLI and app updates
+  alias        Manage command aliases
+  config       View and manage GitButler configuration
+  skill        Manage AI agent skills for GitButler
 
 To add command completion, add this to your shell rc: (for example ~/.zshrc)
   eval "$(but completions zsh)"
@@ -390,7 +390,7 @@ Environment variables:
 
         assert!(
             output.contains(
-                "Cherry-pick a commit from an unapplied branch into an applied virtual branch."
+                "Cherry-pick a commit from an unapplied branch into an applied virtual branch"
             ),
             "agent help should keep the full command description"
         );
@@ -421,17 +421,17 @@ commands (blame, log, etc) can also be used, as GitButler is fully Git compatibl
 Checkout the full docs here: https://docs.gitbutler.com/cli-overview
 
 Branching and Committing:
-  branch       Commands for managing branches.
+  branch       Commands for managing branches
 
 Editing Commits:
-  move         Move a commit or branch to a different location.
+  move         Move a commit or branch to a different location
 
 Other Commands:
-  gui          Open the GitButler GUI for the current project.
-  update       Manage GitButler CLI and app updates.
-  alias        Manage command aliases.
-  config       View and manage GitButler configuration.
-  skill        Manage AI agent skills for GitButler.
+  gui          Open the GitButler GUI for the current project
+  update       Manage GitButler CLI and app updates
+  alias        Manage command aliases
+  config       View and manage GitButler configuration
+  skill        Manage AI agent skills for GitButler
 
 To add command completion, add this to your shell rc: (for example ~/.zshrc)
   eval "$(but completions zsh)"
