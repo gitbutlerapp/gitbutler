@@ -282,6 +282,51 @@ fn clap() {
     Args::command().debug_assert();
 }
 
+#[cfg(feature = "legacy")]
+#[test]
+fn status_short_is_hidden_noop_compatibility_flag() {
+    use clap::Parser;
+
+    let args = Args::try_parse_from(["but", "status", "--short"]).expect("parse status --short");
+    let cmd = args.cmd.expect("subcommand");
+
+    match cmd {
+        Subcommands::Status {
+            show_files,
+            verbose,
+            refresh_prs,
+            upstream,
+            no_hint,
+            short,
+        } => {
+            assert!(short, "compatibility-only flag should parse");
+            assert!(!show_files);
+            assert!(!verbose);
+            assert!(!refresh_prs);
+            assert!(!upstream);
+            assert!(!no_hint);
+        }
+        _ => panic!("unexpected command shape"),
+    }
+}
+
+#[cfg(feature = "legacy")]
+#[test]
+fn status_short_is_not_shown_in_help() {
+    use clap::CommandFactory;
+
+    let mut command = Args::command();
+    let status = command
+        .find_subcommand_mut("status")
+        .expect("status command");
+    let help = status.render_long_help().to_string();
+
+    assert!(
+        !help.contains("--short"),
+        "compatibility-only flag should stay hidden from status help"
+    );
+}
+
 #[test]
 fn status_after_is_hidden_noop_compatibility_flag() {
     use clap::Parser;
