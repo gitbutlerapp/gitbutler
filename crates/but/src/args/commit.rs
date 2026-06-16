@@ -99,7 +99,7 @@ pub enum Subcommands {
     /// ```
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[command(group = clap::ArgGroup::new("position"))]
     Empty {
         /// The target commit or branch to insert relative to.

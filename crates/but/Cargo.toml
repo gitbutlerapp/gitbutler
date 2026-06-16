@@ -43,6 +43,8 @@ legacy = [
 tui-profiling = []
 # Enables new experimental CLI commands that'll eventually replace old commands
 but-2 = []
+# Outputs help sections exactly as written, instead of putting them through clap's Markdown formatter. This is useful e.g. for generating docs for the website.
+raw-clap-docs = []
 
 [dependencies]
 but-core.workspace = true

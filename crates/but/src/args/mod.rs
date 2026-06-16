@@ -143,7 +143,7 @@ pub enum Subcommands {
     /// ```
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Status {
         /// Determines whether the committed files should be shown as well.
         #[clap(short = 'f', alias = "files", default_value_t = false)]
@@ -176,7 +176,7 @@ pub enum Subcommands {
     /// - a commit
     /// - a file change within a commit
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Diff {
         /// The CLI ID of the entity to show the diff for
         target: Option<String>,
@@ -223,7 +223,7 @@ pub enum Subcommands {
     /// ```
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Show {
         /// The commit ID (short or full SHA), branch name, or CLI ID to show details for
         commit: String,
@@ -253,11 +253,11 @@ pub enum Subcommands {
     /// commit that you can amend changes into later using `but mark`, `but rub` or `but absorb`.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Commit(commit::Platform),
 
     #[cfg(all(feature = "legacy", feature = "but-2"))]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[clap(hide = true)]
     Commit2(commit2::Platform),
 
@@ -271,7 +271,7 @@ pub enum Subcommands {
     ///   `but stage --branch <branch>`           (interactive, specific branch)
     ///   `but stage <file-or-hunk> <branch>`     (direct staging)
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Stage {
         /// File or hunk ID to stage
         file_or_hunk: Option<String>,
@@ -290,7 +290,7 @@ pub enum Subcommands {
     ///
     /// To apply or unapply branches, use `but apply` and `but unapply`.
     ///
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Branch(branch::Platform),
 
     /// Merge a branch into your local target branch.
@@ -314,7 +314,7 @@ pub enum Subcommands {
     /// but merge my-feature-branch
     /// ```
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Merge {
         /// Branch ID or name to merge
         branch: String,
@@ -336,7 +336,7 @@ pub enum Subcommands {
     /// but discard a1
     /// ```
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Discard {
         /// The ID of the file or hunk to discard (as shown in `but status`)
         id: String,
@@ -358,7 +358,7 @@ pub enum Subcommands {
     /// When in resolution mode, `but status` will also show that you're resolving conflicts.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Resolve {
         /// Subcommand to run (defaults to entering resolution mode)
         #[clap(subcommand)]
@@ -399,7 +399,7 @@ pub enum Subcommands {
     /// ```
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Unapply {
         /// CLI ID or name of the branch/stack to unapply
         identifier: String,
@@ -422,7 +422,7 @@ pub enum Subcommands {
     /// ```
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Apply {
         /// Name of the branch to apply
         branch_name: String,
@@ -440,7 +440,7 @@ pub enum Subcommands {
     /// amended into the marked commit.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Mark {
         /// The target entity that will be marked
         target: String,
@@ -454,7 +454,7 @@ pub enum Subcommands {
     /// This will unmark anything that has been marked by the `but mark` command.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Unmark,
 
     /// Push changes in a branch to remote.
@@ -471,7 +471,7 @@ pub enum Subcommands {
     /// - `but push feature-branch` - push the branch named "feature-branch"
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Push(push::Command),
 
     /// Updates all applied branches to be up to date with the target branch.
@@ -486,7 +486,7 @@ pub enum Subcommands {
     /// merged into the target branch before running the update.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Pull {
         /// Only check the status without updating (equivalent to the old `but base check`)
         #[clap(long, short = 'c')]
@@ -558,7 +558,7 @@ pub enum Subcommands {
     /// ```
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Rub {
         /// The source entity to combine
         source: String,
@@ -585,7 +585,7 @@ pub enum Subcommands {
     /// (what changes would be absorbed by which commits) will be shown.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Absorb {
         /// If the Source is an uncommitted change - the change will be absorbed.
         /// If the Source is a stack - anything staged to the stack will be absorbed accordingly.
@@ -608,7 +608,7 @@ pub enum Subcommands {
     /// You can also use `but reword <branch-id>` to rename the branch.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Reword {
         /// Commit ID to edit the message for, or branch ID to rename
         target: CliIdArg,
@@ -640,7 +640,7 @@ pub enum Subcommands {
     ///
     /// Wrapper for `but rub <source> zz`.
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Uncommit {
         /// Commit ID or file-in-commit ID to uncommit
         source: String,
@@ -653,7 +653,7 @@ pub enum Subcommands {
     ///
     /// Wrapper for `but rub <file> <commit>`.
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Amend {
         /// File ID to amend
         file: String,
@@ -671,7 +671,7 @@ pub enum Subcommands {
     /// 3. Using a branch name: `but squash <branch>`
     ///    - Squashes all commits in the branch into the bottom-most commit
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Squash {
         /// Commit identifiers, a range (commit1..commit2), or a branch name
         commits: Vec<String>,
@@ -730,7 +730,7 @@ pub enum Subcommands {
     /// ```text
     /// but move feature/frontend zz
     /// ```
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Move {
         /// Commit/branch identifier to move
         source: String,
@@ -755,19 +755,19 @@ pub enum Subcommands {
     /// By default, shows the last 20 oplog entries (same as `but oplog list`).
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Oplog(oplog::Platform),
 
     /// Undo the last operation.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Undo,
 
     /// Redo the last undo.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Redo,
 
     /// Sets up a GitButler project from a git repository in the current directory.
@@ -791,14 +791,14 @@ pub enum Subcommands {
     /// ```
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Setup {
         /// Initialize a new git repository with an empty commit if one doesn't exist.
         ///
         /// This is useful when running in non-interactive environments (like CI/CD)
         /// where you want to ensure a git repository exists before setting up GitButler.
         #[clap(long)]
-        #[clap(verbatim_doc_comment)]
+        #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
         init: bool,
     },
 
@@ -827,7 +827,7 @@ pub enum Subcommands {
     /// ```
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Teardown {
         /// Explicit override for which local branch to checkout to.
         #[clap(long, short = 'c', value_name = "LOCAL_BRANCH")]
@@ -845,7 +845,7 @@ pub enum Subcommands {
     /// You can also just run `but .` as a shorthand to open the GUI.
     ///
     #[clap(visible_alias = ".")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Gui {
         /// Open the project in a new application window.
         #[clap(long, short = 'n', default_value_t = false)]
@@ -855,7 +855,7 @@ pub enum Subcommands {
     },
 
     /// Show an interactive TUI.
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[cfg(feature = "legacy")]
     Tui {
         /// Show debug pane with selected-line metadata.
@@ -939,7 +939,7 @@ pub enum Subcommands {
     /// ```
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Clean {
         /// Preview which branches would be removed without actually deleting them.
         #[clap(long)]
@@ -955,7 +955,7 @@ pub enum Subcommands {
     /// Manage GitButler CLI and app updates.
     ///
     /// Check for new versions, install updates, or suppress update notifications.
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Update(update::Platform),
 
     /// Manage command aliases.
@@ -984,7 +984,7 @@ pub enum Subcommands {
     /// but alias remove st
     /// ```
     ///
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Alias(alias::Platform),
 
     /// View and manage GitButler configuration.
@@ -1026,7 +1026,7 @@ pub enum Subcommands {
     /// but config metrics
     /// ```
     ///
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Config(config::Platform),
 
     /// Cherry-pick a commit from an unapplied branch into an applied virtual branch.
@@ -1065,7 +1065,7 @@ pub enum Subcommands {
     /// ```
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Pick {
         /// The commit SHA, CLI ID, or unapplied branch name to cherry-pick from
         source: String,
@@ -1098,7 +1098,7 @@ pub enum Subcommands {
     /// ```text
     /// but skill install --global
     /// ```
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Skill(skill::Platform),
 
     /// Open a file in the built-in text editor.
@@ -1114,7 +1114,8 @@ pub enum Subcommands {
     /// but edit README.md
     /// ```
     ///
-    #[clap(verbatim_doc_comment, hide = true)]
+    #[clap(hide = true)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Edit {
         /// Path to the file to edit (created if it doesn't exist)
         file: String,
@@ -1131,7 +1132,7 @@ pub enum Subcommands {
     ///
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Worktree(worktree::Platform),
 
     /// Trigger a refresh of remote data fetching from the remote, Pull Requests, and CI status.
@@ -1139,7 +1140,7 @@ pub enum Subcommands {
     /// This is a hidden command primarily used for background sync operations.
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     RefreshRemoteData {
         /// Whether to also refresh git fetch from the remote.
         #[clap(long, default_value_t = false)]
@@ -1169,18 +1170,18 @@ pub enum Subcommands {
     ///
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Mcp,
 
     /// INTERNAL: GitButler Actions are automated tasks (like macros) that can be performed on a repository.
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Actions(actions::Platform),
 
     /// INTERNAL: If metrics are permitted, this subcommand handles posthog event creation.
     #[clap(hide = true)]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Metrics {
         #[clap(long, value_enum)]
         command_name: metrics::CommandName,
@@ -1190,7 +1191,7 @@ pub enum Subcommands {
 
     /// UTILITY: Generate shell completion scripts for the specified or inferred shell.
     #[clap(hide = true)]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Completions {
         /// The shell to generate completions for, or the one extracted from the `SHELL` environment variable.
         #[clap(value_enum)]
@@ -1200,14 +1201,14 @@ pub enum Subcommands {
     /// Hidden command that redirects to `but pull --check`
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Fetch,
 
     /// Unstages a file or hunk from a branch.
     ///
     /// Wrapper for `but rub <file-or-hunk> zz`.
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[clap(hide = true)]
     Unstage {
         /// File or hunk ID to unstage
@@ -1231,7 +1232,7 @@ pub enum Subcommands {
     ///
     /// This is equivalent to running `but -h` to see the command overview.
     #[clap(hide = true)]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Help,
 
     /// INTERNAL: First-run onboarding that shows metrics info and marks onboarding complete.
@@ -1246,7 +1247,7 @@ pub enum Subcommands {
     /// Outputs workspace status as JSON and a skill-loading nudge.
     /// Intended to fire on the Stop hook.
     #[clap(hide = true)]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     EvalHook,
 
     /// External commands and aliases are resolved to this variant.
