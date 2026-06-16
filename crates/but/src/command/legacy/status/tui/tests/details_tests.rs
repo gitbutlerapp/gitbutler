@@ -3,7 +3,9 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use snapbox::{file, str};
 use temp_env::with_var;
 
-use crate::command::legacy::status::tui::tests::utils::{test_tui, test_tui_with_size};
+use crate::command::legacy::status::tui::tests::utils::{
+    TestTuiOptions, test_tui, test_tui_with_options,
+};
 
 #[test]
 fn toggle_details_view_for_commit() {
@@ -55,7 +57,14 @@ fn details_view_supports_scroll_controls() {
         .collect::<String>();
     env.file("large.txt", file_contents);
 
-    let mut tui = test_tui_with_size(env, 100, 10);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 10,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render('d')
         .assert_rendered_term_svg_eq(file![
@@ -88,7 +97,14 @@ fn commit_message_wraps_in_details_view() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
 
-    let mut tui = test_tui_with_size(env, 80, 14);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 80,
+            height: 14,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
         .assert_rendered_term_svg_eq(file![
@@ -132,7 +148,14 @@ fn details_view_renders_multiple_hunks_and_files() {
     env.file("alpha.txt", first_file);
     env.file("beta.txt", second_file);
 
-    let mut tui = test_tui_with_size(env, 100, 18);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 18,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render('d')
         .assert_rendered_term_svg_eq(file![
@@ -147,7 +170,14 @@ fn details_diff_svg_shows_plus_and_minus_backgrounds() {
 
     env.file("A", "A-changed\n");
 
-    let mut tui = test_tui_with_size(env, 100, 12);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 12,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render('d')
         .assert_rendered_term_svg_eq(file![
@@ -164,7 +194,14 @@ fn toggling_details_off_and_on_resets_scroll_position() {
         .collect::<String>();
     env.file("large.txt", file_contents);
 
-    let mut tui = test_tui_with_size(env, 100, 10);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 10,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render('d')
         .assert_rendered_term_svg_eq(file![
@@ -201,7 +238,14 @@ fn details_view_syntax_highlighting_survives_scrolling() {
         .collect::<String>();
     env.file("syntax.rs", rust_code);
 
-    let mut tui = test_tui_with_size(env, 100, 10);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 10,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render('d')
         .assert_rendered_term_svg_eq(file![
@@ -224,7 +268,14 @@ fn details_view_can_grow_and_shrink() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
 
-    let mut tui = test_tui_with_size(env, 100, 16);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 16,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render('d');
     tui.input_then_render("++-")
@@ -236,7 +287,14 @@ fn details_view_resize_clamps_to_max_and_min_width() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
 
-    let mut tui = test_tui_with_size(env, 100, 16);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 16,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render('d');
     tui.input_then_render("++++++++++++++++++++");
@@ -258,7 +316,14 @@ fn details_cursor_stays_visible_after_resizing() {
     env.file("alpha.txt", long_lines);
     env.file("beta.txt", "beta\n");
 
-    let mut tui = test_tui_with_size(env, 80, 10);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 80,
+            height: 10,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render('d');
     tui.input_then_render('l');
@@ -365,12 +430,19 @@ fn full_screen_details_scrolls_selected_hunk_to_include_final_line() {
     env.file("first-added.txt", first_file_contents);
     env.file("second-added.txt", second_file_contents);
 
-    let mut tui = test_tui_with_size(env, 100, 12);
+    let mut tui = test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 12,
+            ..Default::default()
+        },
+    );
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')));
     tui.render_with_messages(None, Vec::new());
 
-    let output = tui.render_with_messages('j', Vec::new()).output();
+    let output = tui.render_with_messages('j', Vec::new()).rendered_output();
     assert!(
         output.contains("second-04"),
         "selected second hunk should include its final line, got:\n{output}"

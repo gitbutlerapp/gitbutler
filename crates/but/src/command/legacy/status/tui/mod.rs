@@ -56,9 +56,9 @@ use crate::{
                 message_on_drop::MessageOnDrop,
                 mode::{
                     CommandMode, CommandModeKind, CommitMessageComposer, CommitMode, CommitSource,
-                    DetailsMode, InlineRewordMode, Mode, ModeDiscriminant, MoveMode, MoveSource,
-                    NormalMode, PickUncommittedMode, RubMode, RubSource, StackCommitSource,
-                    StackMode, UnassignedCommitSource,
+                    DetailsMode, DetailsReturnMode, InlineRewordMode, Mode, ModeDiscriminant,
+                    MoveMode, MoveSource, NormalMode, PickUncommittedMode, RubMode, RubSource,
+                    StackCommitSource, StackMode, UnassignedCommitSource,
                 },
                 operations::stack_has_assigned_changes,
                 toast::{ToastKind, Toasts},
@@ -905,7 +905,7 @@ impl App {
     }
 
     fn handle_unfocus_details(&mut self, messages: &mut Vec<Message>) {
-        if let Mode::Details(DetailsMode { full_screen }) = &*self.mode
+        if let Mode::Details(DetailsMode { full_screen, .. }) = &*self.mode
             && *full_screen
         {
             return;
@@ -965,23 +965,13 @@ impl App {
     fn handle_backstack_entry(&mut self, entry: BackstackEntry, messages: &mut Vec<Message>) {
         match entry {
             BackstackEntry::LeaveNormalMode => {
-                if let Mode::Details(details_mode) = &*self.mode {
-                    if details_mode.full_screen {
-                        messages.extend([
-                            Message::UnfocusDetails,
-                            Message::DetailsLayout(DetailsLayoutMessage::ToggleVisibility),
-                        ]);
-                    } else {
-                        messages.push(Message::UnfocusDetails);
-                    }
-                }
-
-                *self
-                    .mode
-                    .get_mut_without_updating_backstack_and_i_promise_not_to_change_state() =
-                    Mode::Normal(NormalMode {
-                        marks: self.marks().cloned().unwrap_or_default(),
+                if !self.restore_mode_before_details(messages) {
+                    let marks = self.marks().cloned().unwrap_or_default();
+                    self.mode.update(&mut self.backstack, |backstack, mode| {
+                        let _ = backstack;
+                        *mode = Mode::Normal(NormalMode { marks });
                     });
+                }
                 self.maybe_move_cursor_into_file_list();
             }
             BackstackEntry::ShowFileList => {
@@ -1020,6 +1010,34 @@ impl App {
                 ));
             }
         }
+    }
+
+    fn restore_mode_before_details(&mut self, messages: &mut Vec<Message>) -> bool {
+        self.mode.update(&mut self.backstack, |backstack, mode| {
+            let previous_mode = std::mem::replace(mode, Mode::Normal(NormalMode::default()));
+            let Mode::Details(details_mode) = previous_mode else {
+                *mode = previous_mode;
+                return false;
+            };
+
+            backstack.remove_leave_normal_mode();
+            if details_mode.full_screen {
+                backstack.remove_open_details_view();
+                messages.push(Message::DetailsLayout(
+                    DetailsLayoutMessage::ToggleVisibility,
+                ));
+            } else {
+                messages.push(Message::Details(DetailsMessage::Deselect));
+            }
+
+            *mode = match details_mode.return_mode {
+                DetailsReturnMode::Normal(normal_mode) => Mode::Normal(normal_mode),
+                DetailsReturnMode::PickChanges(pick_uncommitted_mode) => {
+                    Mode::PickChanges(pick_uncommitted_mode)
+                }
+            };
+            true
+        })
     }
 
     fn maybe_move_cursor_into_file_list(&mut self) {
@@ -1068,7 +1086,24 @@ impl App {
 
         self.mode
             .update_and_push_leave_normal_mode(&mut self.backstack, |mode| {
-                *mode = Mode::Details(DetailsMode { full_screen });
+                let previous_mode = std::mem::replace(mode, Mode::Normal(NormalMode::default()));
+                let return_mode = match previous_mode {
+                    Mode::PickChanges(pick_uncommitted_mode) => {
+                        DetailsReturnMode::PickChanges(pick_uncommitted_mode)
+                    }
+                    Mode::Details(details_mode) => details_mode.return_mode,
+                    Mode::Normal(normal_mode) => DetailsReturnMode::Normal(normal_mode),
+                    Mode::Rub(..)
+                    | Mode::InlineReword(..)
+                    | Mode::Command(..)
+                    | Mode::Commit(..)
+                    | Mode::Move(..)
+                    | Mode::Stack(..) => DetailsReturnMode::Normal(NormalMode::default()),
+                };
+                *mode = Mode::Details(DetailsMode {
+                    full_screen,
+                    return_mode,
+                });
             });
     }
 
@@ -1079,12 +1114,9 @@ impl App {
                     full_screen: true,
                 }));
             }
-            Mode::Details(DetailsMode { full_screen }) => {
+            Mode::Details(DetailsMode { full_screen, .. }) => {
                 if *full_screen {
-                    self.unfocus_details_regardless_if_we_are_full_screen_or_not(messages);
-                    messages.push(Message::DetailsLayout(
-                        DetailsLayoutMessage::ToggleVisibility,
-                    ));
+                    self.restore_mode_before_details(messages);
                 } else {
                     messages.push(Message::DetailsLayout(DetailsLayoutMessage::Focus {
                         full_screen: true,
@@ -1112,7 +1144,9 @@ impl App {
         } else {
             self.backstack.remove_open_details_view();
             self.details.reset_scroll();
-            messages.push(Message::UnfocusDetails);
+            if matches!(&*self.mode, Mode::Details(..)) {
+                messages.push(Message::UnfocusDetails);
+            }
         }
     }
 

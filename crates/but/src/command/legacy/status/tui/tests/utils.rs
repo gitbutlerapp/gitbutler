@@ -13,9 +13,9 @@ use temp_env::with_var;
 use crate::{
     args::OutputFormat,
     command::legacy::status::{
-        StatusFlags, StatusOutput, StatusRenderMode, TuiLaunchOptions, TuiRunOptions,
+        StatusFlags, StatusOutput, StatusRenderMode, TuiLaunchOptions, TuiOutcome, TuiRunOptions,
         build_status_context, build_status_output,
-        tui::{App, EventPolling, Message, ReloadCause, render_loop_once},
+        tui::{App, BackstackEntry, EventPolling, Message, ReloadCause, render_loop_once},
     },
     theme,
     tui::TerminalGuard,
@@ -38,11 +38,40 @@ enum SvgSnapshotComparison {
     Hint,
 }
 
-pub(super) fn test_tui(env: Sandbox) -> TestTui {
-    test_tui_with_size(env, 100, 20)
+pub(super) struct TestTuiOptions {
+    pub(super) width: u16,
+    pub(super) height: u16,
+    pub(super) run_options: TuiRunOptions,
 }
 
-pub(super) fn test_tui_with_size(env: Sandbox, width: u16, height: u16) -> TestTui {
+impl Default for TestTuiOptions {
+    fn default() -> Self {
+        Self {
+            width: 100,
+            height: 20,
+            run_options: Default::default(),
+        }
+    }
+}
+
+pub(super) fn test_tui(env: Sandbox) -> TestTui {
+    test_tui_with_options(
+        env,
+        TestTuiOptions {
+            width: 100,
+            height: 20,
+            ..Default::default()
+        },
+    )
+}
+
+pub(super) fn test_tui_with_options(env: Sandbox, options: TestTuiOptions) -> TestTui {
+    let TestTuiOptions {
+        width,
+        height,
+        run_options,
+    } = options;
+
     env.invoke_git("config user.name committer");
     env.invoke_git("config user.email committer@example.com");
 
@@ -57,7 +86,6 @@ pub(super) fn test_tui_with_size(env: Sandbox, width: u16, height: u16) -> TestT
         debug: false,
         ..Default::default()
     };
-    let run_options = TuiRunOptions::Normal;
 
     let mut guard = ctx.exclusive_worktree_access();
 
@@ -148,7 +176,14 @@ impl TestTui {
         let env = self.env.take().expect(
             "env already removed?! This shouldn't happen, only TestTui::recreate removes the env",
         );
-        self = test_tui_with_size(env, self.width, self.height);
+        self = test_tui_with_options(
+            env,
+            TestTuiOptions {
+                width: self.width,
+                height: self.height,
+                ..Default::default()
+            },
+        );
         self
     }
 }
@@ -172,7 +207,7 @@ impl Drop for TestTui {
 
         eprintln!("\nCurrent terminal state:");
 
-        for (idx, line) in render_result.output().lines().enumerate() {
+        for (idx, line) in render_result.rendered_output().lines().enumerate() {
             let line = line.trim_matches('"');
             if selected_row.is_some_and(|row| row == idx) {
                 colored::control::set_override(true);
@@ -222,7 +257,7 @@ pub(super) struct TestTuiInputThenRenderResult<'a>(&'a mut TestTui);
 impl TestTuiInputThenRenderResult<'_> {
     #[track_caller]
     pub(super) fn assert_rendered_contains(self, expected: &str) -> Self {
-        let output = self.output();
+        let output = self.rendered_output();
         assert!(
             output.contains(expected),
             "expected rendered output to contain {expected:?}, got:\n{output}"
@@ -231,7 +266,7 @@ impl TestTuiInputThenRenderResult<'_> {
         self
     }
 
-    pub(super) fn output(&self) -> String {
+    pub(super) fn rendered_output(&self) -> String {
         self.0.terminal.backend().to_string()
     }
 
@@ -286,6 +321,23 @@ impl TestTuiInputThenRenderResult<'_> {
             std::panic::Location::caller(),
         );
         snapbox::assert_data_eq!(svg, expected);
+        self
+    }
+
+    pub(super) fn take_outcome(self) -> Option<TuiOutcome> {
+        self.0.app.outcome.take()
+    }
+
+    #[track_caller]
+    pub(super) fn assert_backstack_eq(
+        self,
+        entries: impl IntoIterator<Item = BackstackEntry>,
+    ) -> Self {
+        let expected = entries.into_iter().collect::<Vec<_>>();
+        let actual = self.0.app.backstack.iter().copied().collect::<Vec<_>>();
+        if expected != actual {
+            panic!("wrong backstack\n  expected: {expected:?}\n  actual: {actual:?}");
+        }
         self
     }
 }
