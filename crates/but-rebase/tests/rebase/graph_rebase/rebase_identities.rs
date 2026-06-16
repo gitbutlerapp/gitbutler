@@ -1,5 +1,6 @@
-/// These tests demonstrate that if none of the steps are changed, the same
-/// graphs are returned.
+//! These tests demonstrate that if none of the steps are changed, the same
+//! graphs are returned.
+
 use anyhow::Result;
 use but_graph::Graph;
 use but_rebase::graph_rebase::Editor;

@@ -1,11 +1,13 @@
-/// Command-line argument parsing for GitButler CLI.
-/// Uses `clap` for defining commands and options.
-///
-/// This module defines the main `Args` struct which represents the top-level
-/// command-line interface, along with its subcommands and options.
-///
-/// Nearly all documentation for the CLI is defined here using `clap` attributes,
-/// which are then used to generate help messages and online documentation.
+//! Command-line argument parsing for GitButler CLI.
+//!
+//! Uses `clap` for defining commands and options.
+//!
+//! This module defines the main `Args` struct which represents the top-level
+//! command-line interface, along with its subcommands and options.
+//!
+//! Nearly all documentation for the CLI is defined here using `clap` attributes,
+//! which are then used to generate help messages and online documentation.
+
 use std::ffi::OsString;
 use std::path::PathBuf;
 
