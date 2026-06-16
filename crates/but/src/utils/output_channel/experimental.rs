@@ -47,6 +47,13 @@ pub trait CliOutput: CliOutputHuman {
     fn on_shell(self, out: &mut dyn WriteWithUtils) -> anyhow::Result<()>;
 
     fn on_json(self) -> impl serde::Serialize;
+
+    fn on_agent(self, out: &mut dyn WriteWithUtils, theme: &Theme) -> anyhow::Result<()>
+    where
+        Self: Sized,
+    {
+        self.on_human(out, theme)
+    }
 }
 
 pub trait OutputChannelExt {
@@ -60,7 +67,8 @@ pub trait OutputChannelExt {
 impl OutputChannelExt for OutputChannel {
     fn print_cli_output(&mut self, output: impl CliOutput) -> anyhow::Result<()> {
         match self.format {
-            OutputFormat::Human | OutputFormat::Agent => output.on_human(self, crate::theme::get()),
+            OutputFormat::Human => output.on_human(self, crate::theme::get()),
+            OutputFormat::Agent => output.on_agent(self, crate::theme::get()),
             OutputFormat::Shell => output.on_shell(self),
             OutputFormat::Json => {
                 let value = output.on_json();
