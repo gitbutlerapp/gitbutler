@@ -41,6 +41,7 @@ const readableRejectionReason = (reason: RejectionReason): string => {
 	}
 };
 
+// oxlint-disable-next-line react/only-export-components: Fix when we tidy up toasts.
 const RejectedChanges: FC<{
 	rejectedChanges: Array<RejectedChange>;
 }> = ({ rejectedChanges }) => {

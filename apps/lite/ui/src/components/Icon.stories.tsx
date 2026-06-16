@@ -1,5 +1,6 @@
 import preview from "#storybook/preview";
-import { Icon, icons } from "./Icon.tsx";
+import { Icon } from "./Icon.tsx";
+import { icons } from "./icons.ts";
 
 const iconNames = Array.from(icons.keys()).sort((a, b) => a.localeCompare(b));
 

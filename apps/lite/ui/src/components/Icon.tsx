@@ -3,19 +3,7 @@ import { ComponentProps, FC } from "react";
 import type { IconName } from "./iconNames";
 import { classes } from "#ui/components/classes.ts";
 import { assert } from "#ui/assert.ts";
-
-const svgModules = import.meta.glob("./icons/*.svg", {
-	query: "?raw",
-	import: "default",
-	eager: true,
-}) as Record<string, string>;
-
-/** @internal */
-export const icons: Map<IconName, string> = new Map();
-for (const [path, svg] of Object.entries(svgModules)) {
-	const name = path.replace(/^.*\/(.+)\.svg$/, "$1") as IconName;
-	icons.set(name, svg);
-}
+import { icons } from "./icons.ts";
 
 type Props = {
 	name: IconName;

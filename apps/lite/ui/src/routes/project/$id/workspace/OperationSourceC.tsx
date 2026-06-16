@@ -14,13 +14,8 @@ import { useQuery } from "@tanstack/react-query";
 import { FC, type ReactNode, useEffect, useEffectEvent, useRef } from "react";
 import { createRoot } from "react-dom/client";
 
-type DragData = {
+export type DragData = {
 	source: Operand;
-};
-
-export const parseDragData = (data: unknown): DragData | null => {
-	if (typeof data !== "object" || data === null || !("source" in data)) return null;
-	return data as DragData;
 };
 
 const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (

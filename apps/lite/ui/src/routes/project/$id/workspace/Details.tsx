@@ -55,12 +55,8 @@ import {
 	useDiffSelection,
 	useNavigationIndexHotkeys,
 } from "#ui/selection-scopes.ts";
-import {
-	FilesTree,
-	changeFileTreeItem,
-	conflictFileTreeItem,
-	type FileTreeItem,
-} from "#ui/routes/project/$id/workspace/FilesTree.tsx";
+import { FilesTree } from "#ui/routes/project/$id/workspace/FilesTree.tsx";
+import { changeFileTreeItem, conflictFileTreeItem, type FileTreeItem } from "./file-tree.ts";
 import {
 	getDependencyCommitIds,
 	getHunkDependencyDiffsByPath,
