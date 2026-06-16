@@ -8,10 +8,12 @@ pub struct Platform {
     pub message: Option<Vec<String>>,
     #[clap(short, long, group = "targeting")]
     pub branch: Option<Option<BranchArg>>,
-    #[clap(long)]
+    #[clap(long, group = "changes_to_commit")]
     pub empty: bool,
     #[clap(long, group = "targeting")]
     pub above: Option<CliIdArg>,
     #[clap(long, group = "targeting")]
     pub below: Option<CliIdArg>,
+    #[clap(group = "changes_to_commit")]
+    pub changes: Vec<CliIdArg>,
 }

@@ -15,6 +15,7 @@ use but_workspace::{
 };
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::{prelude::ObjectIdExt as _, refs::FullName};
+use nonempty::NonEmpty;
 use serde::Serialize;
 
 use crate::{
@@ -25,7 +26,7 @@ use crate::{
     },
     bad_input,
     command::legacy::{ShowDiffInEditor, reword::get_commit_message_from_editor},
-    id::UNASSIGNED,
+    id::{UNASSIGNED, UncommittedCliId},
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, diff_specs::DiffSpecBuilder,
@@ -138,6 +139,7 @@ fn resolve(
         empty,
         above,
         below,
+        changes,
     } = args;
 
     let target_ish = match (branch, above, below) {
@@ -156,7 +158,18 @@ fn resolve(
 
     let commit_op = route_commit_operation(repo, head_info, id_map, target_ish)?;
 
-    let commit_selection = if empty {
+    let commit_selection = if !changes.is_empty() {
+        let changes = changes
+            .into_iter()
+            .map(|change| change.resolve_uncommitted(repo, id_map))
+            .collect::<Result<Vec<_>, _>>()?;
+        let Some(changes) = NonEmpty::from_vec(changes) else {
+            return Err(bad_input("No changes to commit")
+                .hint("Run `but status` to show applicable targets")
+                .into());
+        };
+        CommitSelection::Changes(Box::new(changes))
+    } else if empty {
         CommitSelection::Nothing
     } else {
         CommitSelection::AllChanges
@@ -182,16 +195,24 @@ fn run(
     commit_selection: CommitSelection,
     reword_op: RewordCommitOperation,
 ) -> CliResult<CommitOutcome> {
-    let changes = match commit_selection {
-        CommitSelection::AllChanges => {
-            let context_lines = ctx.settings.context_lines;
-            let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+    let changes = {
+        let context_lines = ctx.settings.context_lines;
+        let (repo, ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+        let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
 
-            let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
-            builder.push_changes_from_unassigned(&UNASSIGNED.to_string())?;
-            builder.into_diff_specs()
+        match commit_selection {
+            CommitSelection::AllChanges => {
+                builder.push_changes_from_unassigned(&UNASSIGNED.to_string())?;
+            }
+            CommitSelection::Changes(changes) => {
+                for change in *changes {
+                    builder.push_changes_from_uncommitted(&change)?;
+                }
+            }
+            CommitSelection::Nothing => {}
         }
-        CommitSelection::Nothing => vec![],
+
+        builder.into_diff_specs()
     };
     let snapshot_details = SnapshotDetails::new(OperationKind::CreateCommit);
     let result = but_transaction::with_transaction_with_perm(
@@ -357,6 +378,7 @@ fn route_commit_above_or_below(
 
 enum CommitSelection {
     AllChanges,
+    Changes(Box<NonEmpty<UncommittedCliId>>),
     Nothing,
 }
 
