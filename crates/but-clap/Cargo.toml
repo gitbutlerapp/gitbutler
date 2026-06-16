@@ -15,6 +15,9 @@ name = "but-clap"
 path = "src/main.rs"
 doctest = false
 
+[features]
+raw-clap-docs = ["but/raw-clap-docs"]
+
 [dependencies]
 but.workspace = true
 clap.workspace = true

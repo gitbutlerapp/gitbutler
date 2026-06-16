@@ -33,7 +33,7 @@ pub enum Subcommands {
     /// the new branch from. This allows you to create stacked branches.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     New {
         /// Name of the new branch
         branch_name: Option<BranchArg>,
@@ -50,7 +50,7 @@ pub enum Subcommands {
     ///
     #[cfg(feature = "legacy")]
     #[clap(short_flag = 'd')]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Delete {
         /// Name of the branch to delete
         branch_name: CliIdArg,
@@ -79,7 +79,7 @@ pub enum Subcommands {
     /// make the command faster.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     List {
         /// Filter branches by name (case-insensitive substring match)
         filter: Option<String>,
@@ -150,7 +150,7 @@ pub enum Subcommands {
     /// as a parallel applied branch.
     ///
     #[cfg(not(feature = "legacy"))]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Apply {
         /// Name of the branch to apply
         branch_name: String,
@@ -161,7 +161,7 @@ pub enum Subcommands {
     /// This allows you to resolve the divergence between your local branch and its
     /// tracked remote in different ways.
     #[clap(short_flag = 'u')]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Update {
         /// Name of the local branch to integrate
         branch: String,

@@ -17,7 +17,7 @@ pub enum Subcommands {
     /// You can use `but oplog restore <oplog-sha>` to restore to a specific state.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     List {
         /// Start from this oplog SHA instead of the head
         #[clap(long)]
@@ -50,7 +50,7 @@ pub enum Subcommands {
     /// which you can find by running `but oplog` or `but oplog list`.
     ///
     #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Restore {
         /// Oplog SHA to restore to
         oplog_sha: String,

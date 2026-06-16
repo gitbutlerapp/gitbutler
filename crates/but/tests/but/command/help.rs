@@ -12,53 +12,46 @@ fn rub_looks_good() -> anyhow::Result<()> {
     env.but("rub --help").assert().success().stdout_eq(str![[r#"
 Combines two entities together to perform an operation like amend, squash, stage, or move.
 
-The `rub` command is a simple verb that helps you do a number of editing
-operations by doing combinations of two things.
+The rub command is a simple verb that helps you do a number of editing operations by doing
+combinations of two things.
 
-For example, you can "rub" a file onto a branch to stage that file to
-the branch. You can also "rub" a commit onto another commit to squash
-them together. You can rub a commit onto a branch to move that commit.
-You can rub a file from one commit to another.
+For example, you can "rub" a file onto a branch to stage that file to the branch. You can also "rub"
+a commit onto another commit to squash them together. You can rub a commit onto a branch to move
+that commit. You can rub a file from one commit to another.
 
-## Operations Matrix
+Operations Matrix
 
 Each cell shows what happens when you rub SOURCE → TARGET:
 
-```text
-SOURCE ↓ / TARGET →  │ zz (unassigned) │ Commit     │ Branch      │ Stack
-─────────────────────┼─────────────────┼────────────┼─────────────┼────────────
-File/Hunk            │ Unstage         │ Amend      │ Stage       │ Stage
-Commit               │ Undo            │ Squash     │ Move        │ -
-Branch (all changes) │ Unstage all     │ Amend all  │ Reassign    │ Reassign
-Stack (all changes)  │ Unstage all     │ -          │ Reassign    │ Reassign
-Unassigned (zz)      │ -               │ Amend all  │ Stage all   │ Stage all
-File-in-Commit       │ Uncommit        │ Move       │ Uncommit to │ -
-```
+  SOURCE ↓ / TARGET →  │ zz (unassigned) │ Commit     │ Branch      │ Stack
+  ─────────────────────┼─────────────────┼────────────┼─────────────┼────────────
+  File/Hunk            │ Unstage         │ Amend      │ Stage       │ Stage
+  Commit               │ Undo            │ Squash     │ Move        │ -
+  Branch (all changes) │ Unstage all     │ Amend all  │ Reassign    │ Reassign
+  Stack (all changes)  │ Unstage all     │ -          │ Reassign    │ Reassign
+  Unassigned (zz)      │ -               │ Amend all  │ Stage all   │ Stage all
+  File-in-Commit       │ Uncommit        │ Move       │ Uncommit to │ -
 
 Legend:
-- `zz` is a special target meaning "unassigned" (no branch)
-- `-` means the operation is not supported
+
+- zz is a special target meaning "unassigned" (no branch)
+- - means the operation is not supported
 - "all changes" / "all" refers to all uncommitted changes from that source
 
-## Examples
+Examples
 
 Squashing two commits into one (combining the commit messages):
 
-```text
-but rub 3868155 abe3f53f
-```
+  but rub 3868155 abe3f53f
 
 Amending a commit with the contents of a modified file:
 
-```text
-but rub README.md abe3f53f
-```
+  but rub README.md abe3f53f
 
 Moving a commit from one branch to another:
 
-```text
-but rub 3868155 feature-branch
-```
+  but rub 3868155 feature-branch
+
 
 Usage: but rub [OPTIONS] <SOURCE> <TARGET>
 
@@ -93,7 +86,7 @@ Options:
 
 "#]]);
     env.but("rub -h").assert().success().stdout_eq(str![[r#"
-Combines two entities together to perform an operation like amend, squash, stage, or move.
+Combines two entities together to perform an operation like amend, squash, stage, or move
 
 Usage: but rub [OPTIONS] <SOURCE> <TARGET>
 
