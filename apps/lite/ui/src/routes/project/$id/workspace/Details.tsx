@@ -498,31 +498,27 @@ const Header: FC<{
 	Match.value(selection).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
-			Branch: ({ branchRef }) => {
-				const decodedBranchRef = decodeBytes(branchRef);
-
-				return (
-					<SuspenseQuery
-						{...branchDetailsQueryOptions({
-							projectId,
-							// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
-							branchName: decodedBranchRef.replace(/^refs\/heads\//, ""),
-							remote: null,
-						})}
-					>
-						{({ data: branchDetails }) => (
-							<header className={styles.header}>
-								<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
-								{branchDetails.prNumber != null && (
-									<div className={classes("text-13", "text-bold", styles.pr)}>
-										PR #{branchDetails.prNumber}
-									</div>
-								)}
-							</header>
-						)}
-					</SuspenseQuery>
-				);
-			},
+			Branch: ({ branchRef }) => (
+				<SuspenseQuery
+					{...branchDetailsQueryOptions({
+						projectId,
+						// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
+						branchName: decodeBytes(branchRef).replace(/^refs\/heads\//, ""),
+						remote: null,
+					})}
+				>
+					{({ data: branchDetails }) => (
+						<header className={styles.header}>
+							<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
+							{branchDetails.prNumber != null && (
+								<div className={classes("text-13", "text-bold", styles.pr)}>
+									PR #{branchDetails.prNumber}
+								</div>
+							)}
+						</header>
+					)}
+				</SuspenseQuery>
+			),
 			ChangesSection: () => (
 				<header className={styles.header}>
 					<h3 className={classes("text-14", "text-semibold")}>Changes</h3>
