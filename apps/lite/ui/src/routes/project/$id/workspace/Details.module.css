@@ -78,11 +78,6 @@
 	background-color: lightgray;
 }
 
-.author,
-.commitMeta {
-	color: var(--text-3);
-}
-
 .heading {
 	margin-block-end: 14px;
 }
@@ -167,4 +162,5 @@
 	flex-wrap: wrap;
 	align-items: center;
 	gap: 8px;
+	color: var(--text-3);
 }

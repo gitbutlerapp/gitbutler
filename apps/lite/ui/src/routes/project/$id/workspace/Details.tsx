@@ -616,22 +616,22 @@ const CommitDetailsContent: FC<{
 
 			return (
 				<>
-					<div className={styles.commitDetailsMeta}>
+					<div className={classes("text-13", styles.commitDetailsMeta)}>
 						<img
 							src={commitDetails.commit.author.gravatarUrl}
 							className={styles.avatar}
 							alt="Commit author avatar"
 						/>
-						<div className={classes("text-13", styles.author)}>
+						<span>
 							<span title={commitDetails.commit.author.email}>
 								{commitDetails.commit.author.name}
 							</span>{" "}
 							at {fmtDate}
-						</div>
-						<div className={classes("text-13", styles.commitMeta)}>
+						</span>
+						<span>
 							{shortCommitId(commitDetails.commit.changeId)} (
 							{shortCommitId(commitDetails.commit.id)})
-						</div>
+						</span>
 					</div>
 					{body !== undefined && (
 						<p className={classes("text-monospace", "text-body", styles.commitMessageBody)}>
