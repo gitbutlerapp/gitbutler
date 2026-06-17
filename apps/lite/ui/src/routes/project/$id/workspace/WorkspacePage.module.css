@@ -39,7 +39,7 @@
 
 .outlinePanel {
 	display: grid;
-	grid-template-rows: auto minmax(0, 1fr);
+	grid-template-rows: auto auto minmax(0, 1fr);
 	grid-template-columns: minmax(0, 1fr);
 	gap: 12px;
 	border-right: 1px solid var(--border-3);
@@ -51,6 +51,11 @@
 	padding-top: var(--panel-padding);
 	padding-inline: var(--panel-padding);
 	gap: 6px;
+}
+
+.navContainer {
+	display: grid;
+	padding-inline: var(--panel-padding);
 }
 
 .workspaceControlsLeft {

@@ -16,7 +16,9 @@
 	display: inline-flex;
 	position: relative;
 	column-gap: 6px;
+	flex: 1;
 	align-items: center;
+	justify-content: center;
 	height: 24px;
 	padding-inline: 7px;
 	border: 1px solid transparent;
@@ -45,7 +47,7 @@
 			transform 0.12s ease;
 	}
 
-	&:not([data-pressed]):hover::before {
+	&:not([data-pressed], [data-disabled]):hover::before {
 		transform: scale(1);
 		opacity: 1;
 	}
@@ -60,7 +62,7 @@
 		color: var(--text-3);
 	}
 
-	&:hover [data-icon] {
+	&:not([data-disabled]):hover [data-icon] {
 		color: var(--text-2);
 	}
 

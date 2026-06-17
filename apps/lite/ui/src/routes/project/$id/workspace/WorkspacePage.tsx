@@ -66,7 +66,7 @@ import { PickerDialog, type PickerDialogGroup } from "#ui/components/PickerDialo
 import { Details } from "./Details.tsx";
 import styles from "./WorkspacePage.module.css";
 import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree.tsx";
-import { Button, Tooltip } from "@base-ui/react";
+import { Button, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import { useActiveElement } from "#ui/focus.ts";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
@@ -74,6 +74,7 @@ import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { buildIndexByKey, NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { reverse } from "effect/Array";
 import { getOperations } from "#ui/operations/operation.ts";
+import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 
 const toggleFiles =
 	({
@@ -742,6 +743,27 @@ const WorkspacePage: FC = () => {
 								</Tooltip.Root>
 							</div>
 						</header>
+
+						<div className={styles.navContainer}>
+							<ToggleGroup
+								render={<ToggleGroupStyles />}
+								aria-label="Navigation"
+								value={["workspace"]}
+							>
+								<Toggle render={<ToggleStyles />} value="workspace">
+									<Icon name="workbench" />
+									Workspace
+								</Toggle>
+								<Toggle render={<ToggleStyles />} value="upstream" disabled>
+									<Icon name="inbox" />
+									Upstream
+								</Toggle>
+								<Toggle render={<ToggleStyles />} value="branches" disabled>
+									<Icon name="branch" />
+									Branches
+								</Toggle>
+							</ToggleGroup>
+						</div>
 
 						<OutlineTree
 							id={"outline" satisfies SelectionScope}
