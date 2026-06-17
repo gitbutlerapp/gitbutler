@@ -773,7 +773,7 @@ export const OutlineTree: FC<
 							<div className={styles.stacks}>
 								<Tooltip.Root>
 									<Tooltip.Trigger
-										className={getButtonClassName({})}
+										className={classes("text-13", "text-semibold", styles.addNewBranchButton)}
 										onClick={createIndependentBranch}
 										render={<Button focusableWhenDisabled disabled={!canCreateIndependentBranch} />}
 									>
@@ -782,7 +782,7 @@ export const OutlineTree: FC<
 										) : (
 											<Icon name="plus" />
 										)}
-										Add new branch
+										<span>Add new branch</span>
 									</Tooltip.Trigger>
 									<Tooltip.Portal>
 										<Tooltip.Positioner sideOffset={4}>
