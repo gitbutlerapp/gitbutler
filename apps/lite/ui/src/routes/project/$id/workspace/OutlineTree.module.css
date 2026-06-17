@@ -4,6 +4,36 @@
 	background-color: var(--bg-2);
 }
 
+.addNewBranchButton {
+	display: grid;
+	padding-inline: 12px;
+	padding-block: 10px;
+	border-radius: var(--radius-l);
+	background-color: var(--bg-2);
+	color: var(--text-2);
+	text-align: center;
+
+	&:not([data-disabled]):hover {
+		background-color: light-dark(
+			color-mix(in srgb, var(--fill-gray-bg) 5%, var(--bg-2)),
+			color-mix(in srgb, var(--fill-gray-bg) 12%, var(--bg-2))
+		);
+		color: color-mix(in srgb, var(--text-2) 50%, var(--text-1));
+	}
+
+	& > * {
+		grid-area: 1 / 1;
+	}
+
+	[data-icon] {
+		justify-self: right;
+	}
+
+	&[data-disabled] {
+		opacity: 0.5;
+	}
+}
+
 .tree {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
