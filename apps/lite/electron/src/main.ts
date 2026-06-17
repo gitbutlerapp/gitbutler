@@ -83,6 +83,7 @@ import {
 	workspaceIntegrateUpstream,
 	askpassInit,
 	askpassSubmitPromptResponse,
+	initApplicationNamespace,
 } from "@gitbutler/but-sdk";
 import {
 	app,
@@ -571,6 +572,7 @@ const createMainWindow = async (): Promise<void> => {
 
 app.enableSandbox(); // forces sandboxing for all renderers, even if they try to launch without
 void app.whenReady().then(async () => {
+	await initApplicationNamespace(null);
 	configureAskpass();
 
 	if (app.isPackaged) {
