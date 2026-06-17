@@ -185,7 +185,7 @@ Staged hunk(s) → [A].
 }
 
 #[test]
-fn committed_file_to_unassigned() -> anyhow::Result<()> {
+fn jonathansdemo() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
     env.setup_metadata(&["A", "B"])?;
@@ -254,6 +254,43 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 
 "#]]);
 
+    env.but("diff fc:b.txt")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────╮
+A b.txt│
+───────╯
+       1│+first commit
+       2│+line
+       3│+line
+       4│+line
+       5│+line
+       6│+line
+       7│+line
+       8│+line
+       9│+last
+
+"#]])
+        .stderr_eq(str![""]);
+
+    env.but("diff e8:b.txt")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────╮
+M b.txt│
+───────╯
+   1  │-first commit
+     1│+second commit
+   2 2│ line
+   3 3│ line
+   4 4│ line
+
+"#]])
+        .stderr_eq(str![""]);
+
+    eprintln!("before rub");
     env.but("rub fc:b.txt zz")
         .assert()
         .success()
@@ -262,6 +299,7 @@ Uncommitted changes
 
 "#]])
         .stderr_eq(str![""]);
+    eprintln!("after rub");
 
     // Verify that `status` reflects the move.
     env.but("--format json status -f")

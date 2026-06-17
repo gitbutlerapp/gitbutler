@@ -72,6 +72,7 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                             .collect::<Result<Vec<_>>>()?,
                     };
 
+                    eprintln!("cherrypicking...");
                     let outcome = cherry_pick(
                         &self.repo,
                         pick.id,
@@ -80,6 +81,7 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
                         pick.tree_merge_mode,
                         pick.sign_commit,
                     )?;
+                    eprintln!("cherrypicking outcome is {:?}", outcome);
 
                     if matches!(outcome, CherryPickOutcome::ConflictedCommit(_))
                         && !pick.conflictable
