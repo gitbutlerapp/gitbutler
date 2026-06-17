@@ -435,7 +435,11 @@ const DiffContents: FC<{
 					paddingBottom: 9,
 				},
 				unsafeCSS: `
-          [data-code] {
+					[data-code] {
+            border-radius: 0 0 10px 10px;
+          }
+
+          [data-diff] {
             border-width: 0 1px 1px 1px;
             border-style: solid;
             border-color: var(--border-3);
