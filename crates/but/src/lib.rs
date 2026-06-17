@@ -630,6 +630,15 @@ async fn match_subcommand(
             };
             result.emit_metrics(metrics_ctx)
         }
+        Subcommands::Switch {
+            target,
+            workspace,
+            new,
+        } => {
+            let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
+            command::r#switch::handle(&mut ctx, out, target, workspace, new)
+                .emit_metrics(metrics_ctx)
+        }
         #[cfg(feature = "legacy")]
         Subcommands::Mcp => command::legacy::mcp::start(app_settings)
             .await

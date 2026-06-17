@@ -5,7 +5,7 @@ use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
-    DryRun,
+    DryRun, WORKSPACE_REF_NAME,
     branch::unique_canned_refname,
     ref_metadata::{ProjectMeta, StackId},
     sync::RepoExclusive,
@@ -860,6 +860,15 @@ pub fn branch_checkout_new_with_perm(
     branch_checkout_with_perm(ctx, branch, perm)
 }
 
+/// Checks out the GitButler workspace reference under caller-held exclusive repository access.
+pub fn workspace_checkout_with_perm(
+    ctx: &mut but_ctx::Context,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<BranchCheckoutResult> {
+    let workspace_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
+    checkout_ref_with_perm(ctx, workspace_ref, perm)
+}
+
 /// Checks out an existing local branch under caller-held exclusive repository
 /// access.
 ///
@@ -878,6 +887,14 @@ pub fn branch_checkout_with_perm(
         );
     }
 
+    checkout_ref_with_perm(ctx, branch, perm)
+}
+
+fn checkout_ref_with_perm(
+    ctx: &mut but_ctx::Context,
+    reference_name: gix::refs::FullName,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<BranchCheckoutResult> {
     {
         let repo = ctx.repo.get()?;
         let current_head = repo
@@ -885,15 +902,18 @@ pub fn branch_checkout_with_perm(
             .context("Cannot check out a branch while HEAD is unborn")?
             .detach();
         let mut reference = repo
-            .find_reference(branch.as_ref())
-            .with_context(|| format!("Could not find branch '{}'", branch.as_bstr()))?;
+            .find_reference(reference_name.as_ref())
+            .with_context(|| format!("Could not find ref '{}'", reference_name.as_bstr()))?;
         let target = reference
             .peel_to_id()
-            .with_context(|| format!("Could not resolve branch '{}'", branch.as_bstr()))?
+            .with_context(|| format!("Could not resolve ref '{}'", reference_name.as_bstr()))?
             .detach();
-        let target_commit = repo
-            .find_commit(target)
-            .with_context(|| format!("Branch '{}' does not point to a commit", branch.as_bstr()))?;
+        let target_commit = repo.find_commit(target).with_context(|| {
+            format!(
+                "Ref '{}' does not point to a commit",
+                reference_name.as_bstr()
+            )
+        })?;
 
         safe_checkout(
             current_head,
@@ -904,15 +924,22 @@ pub fn branch_checkout_with_perm(
                 uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
                 ..Default::default()
             },
-        )?;
+        )
+        .with_context(|| {
+            format!(
+                "Could not safely check out '{}' from {current_head} to {target}",
+                reference_name.as_bstr()
+            )
+        })?;
         update_head_reference(
             &repo,
-            gix::refs::Target::Symbolic(branch.clone()),
+            gix::refs::Target::Symbolic(reference_name.clone()),
             false,
             "checkout",
-            branch.as_bstr(),
+            reference_name.as_bstr(),
             target_commit.parent_ids().count(),
-        )?;
+        )
+        .with_context(|| format!("Could not update HEAD to '{}'", reference_name.as_bstr()))?;
     }
 
     ctx.reload_repo_and_invalidate_workspace(perm)?;

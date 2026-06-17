@@ -111,6 +111,21 @@ impl CliIdArg {
         }
     }
 
+    /// Resolve the argument to an existing local branch reference or workspace branch CLI ID.
+    pub fn resolve_existing_local_branch(
+        &self,
+        repo: &gix::Repository,
+        id_map: &IdMap,
+    ) -> CliResult<gix::refs::FullName> {
+        let branch = BranchArg(self.0.clone());
+        if let Some(branch_ref) = branch.try_resolve_existing_local_branch(repo)? {
+            return Ok(branch_ref);
+        }
+
+        self.resolve_branch_in_workspace(repo, id_map)?
+            .resolve_existing_local_branch(repo)
+    }
+
     /// Try and resolve the argument a branch that might exist in the workspace.
     ///
     /// Returns `Ok(None)` if it doesn't exist in the workspace.
