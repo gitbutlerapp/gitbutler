@@ -554,9 +554,9 @@ const WorkspacePage: FC = () => {
 			const relativeTo = stackBottomRelativeTo(stack);
 			return relativeTo ? [{ kind: "rebase", selector: relativeTo }] : [];
 		}) ?? [];
-	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream({ projectId });
+	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream();
 	const updateWorkspace = () => {
-		workspaceIntegrateUpstreamMutation.mutate(rebaseUpdates);
+		workspaceIntegrateUpstreamMutation.mutate({ projectId, updates: rebaseUpdates, dryRun: false });
 	};
 	const toggleDetailsFullscreen = () => {
 		if (

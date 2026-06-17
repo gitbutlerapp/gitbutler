@@ -12,7 +12,6 @@ import { projectActions } from "#ui/projects/state.ts";
 import { type AppDispatch, useAppDispatch } from "#ui/store.ts";
 import { Toast } from "@base-ui/react";
 import {
-	type BottomUpdate,
 	type CommitAbsorption,
 	type InsertSide,
 	type RelativeTo,
@@ -20,7 +19,7 @@ import {
 } from "@gitbutler/but-sdk";
 import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Match } from "effect";
-import { BranchCheckoutNewParams, BranchCreateParams, OpenInEditorParams } from "#electron/ipc.ts";
+import { OpenInEditorParams } from "#electron/ipc.ts";
 
 // oxlint-disable-next-line typescript/no-explicit-any
 type PromiseReturnType<T> = T extends (...args: Array<any>) => Promise<infer U> ? U : never;
@@ -90,7 +89,7 @@ export const useBranchCreate = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: (input: BranchCreateParams) => window.lite.branchCreate(input),
+		mutationFn: window.lite.branchCreate,
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
@@ -113,7 +112,7 @@ export const useBranchCheckoutNew = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: (input: BranchCheckoutNewParams) => window.lite.branchCheckoutNew(input),
+		mutationFn: window.lite.branchCheckoutNew,
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
@@ -177,8 +176,8 @@ export const useCommitAmend = ({ projectId }: { projectId: string }) => {
 				dryRun: false,
 			});
 		},
-		onSuccess: async (response, input, _ctx, { client }) => {
-			syncCoreCaches(client, dispatch, projectId, response);
+		onSuccess: async (response, input, _ctx, mutation) => {
+			 syncCoreCaches(mutation.client, dispatch, projectId, response);
 
 			if (input.relativeTo.type === "commit" && response.newCommit !== null)
 				dispatch(
@@ -237,8 +236,8 @@ export const useCommitCreate = ({ projectId }: { projectId: string }) => {
 				dryRun: false,
 			});
 		},
-		onSuccess: async (response, input) => {
-			syncCoreCaches(queryClient, dispatch, projectId, response);
+		onSuccess: async (response, input, _ctx, mutation) => {
+			 syncCoreCaches(mutation.client, dispatch, projectId, response);
 
 			if (input.relativeTo.type === "commit" && response.newCommit !== null)
 				dispatch(
@@ -408,14 +407,14 @@ export const useCommitReword = () => {
 	});
 };
 
-export const useCommitUncommit = ({ projectId }: { projectId: string }) => {
+export const useCommitUncommit = () => {
 	const dispatch = useAppDispatch();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: window.lite.commitUncommit,
-		onSuccess: async (response, _input, _context, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, projectId, response);
+		onSuccess: async (response, input, _context, mutation) => {
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
@@ -490,28 +489,27 @@ export const usePushStack = () => {
 	});
 };
 
-export const useWorkspaceIntegrateUpstream = ({ projectId }: { projectId: string }) => {
+export const useWorkspaceIntegrateUpstream = () => {
 	const dispatch = useAppDispatch();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
-		mutationFn: (updates: Array<BottomUpdate>) =>
-			window.lite.workspaceIntegrateUpstream({ projectId, updates, dryRun: false }),
-		onSuccess: (response, updates, _context, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, projectId, response);
+		mutationFn: window.lite.workspaceIntegrateUpstream,
+		onSuccess:  (response, input, _context, mutation) => {
+			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 
 			toastManager.add({
 				type: "success",
-				title: updates.length === 1 ? "Updated stack" : "Updated stacks",
+				title: input.updates.length === 1 ? "Updated stack" : "Updated stacks",
 			});
 		},
-		onError: (error, updates) => {
+		onError: (error, input) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
 
 			toastManager.add({
 				type: "error",
-				title: updates.length === 1 ? "Failed to update stack" : "Failed to update stacks",
+				title: input.updates.length === 1 ? "Failed to update stack" : "Failed to update stacks",
 				description: errorMessageForToast(error),
 				priority: "high",
 			});
