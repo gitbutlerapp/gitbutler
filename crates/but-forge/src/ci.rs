@@ -75,6 +75,33 @@ fn ci_checks_for_ref(
                     .collect()
             })
         }
+        ForgeName::GitLab => {
+            let preferred_account = preferred_forge_user
+                .as_ref()
+                .and_then(|user| user.gitlab().cloned());
+            let gl = but_gitlab::GitLabClient::from_storage(storage, preferred_account.as_ref())?;
+
+            // Clone owned data for thread
+            let project_id = but_gitlab::GitLabProjectId::new(owner, repo);
+            let reference = reference.to_string();
+            let reference_for_checks = reference.clone();
+
+            let pipelines = std::thread::spawn(move || -> anyhow::Result<_> {
+                let runtime = tokio::runtime::Runtime::new()
+                    .map_err(|err| anyhow::anyhow!("Failed to create tokio runtime: {err}"))?;
+                runtime.block_on(gl.list_pipeline_jobs_for_ref(project_id, &reference))
+            })
+            .join()
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
+            Ok(pipelines
+                .into_iter()
+                .map(|pipeline| {
+                    let mut ci_check = CiCheck::from(pipeline);
+                    ci_check.reference = reference_for_checks.to_string();
+                    ci_check
+                })
+                .collect())
+        }
         _ => Err(anyhow::anyhow!(
             "Listing ci checks for forge {forge:?} is not implemented yet."
         )),
@@ -172,6 +199,80 @@ pub struct PullRequestMinimal {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(PullRequestMinimal);
 
+impl From<but_gitlab::GitLabPipelineJob> for CiCheck {
+    fn from(job: but_gitlab::GitLabPipelineJob) -> Self {
+        let started_at = job
+            .started_at
+            .as_deref()
+            .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+            .map(|dt| dt.with_timezone(&chrono::Utc));
+
+        let completed_at = job
+            .finished_at
+            .as_deref()
+            .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+            .map(|dt| dt.with_timezone(&chrono::Utc));
+
+        let status = match job.status.as_str() {
+            "success" => CiStatus::Complete {
+                conclusion: CiConclusion::Success,
+                completed_at,
+            },
+            "failed" => CiStatus::Complete {
+                conclusion: if job.allow_failure {
+                    CiConclusion::Neutral
+                } else {
+                    CiConclusion::Failure
+                },
+                completed_at,
+            },
+            "canceled" => CiStatus::Complete {
+                conclusion: CiConclusion::Cancelled,
+                completed_at,
+            },
+            "skipped" => CiStatus::Complete {
+                conclusion: CiConclusion::Skipped,
+                completed_at,
+            },
+            "manual" => CiStatus::Complete {
+                conclusion: if job.allow_failure {
+                    CiConclusion::Neutral
+                } else {
+                    CiConclusion::ActionRequired
+                },
+                completed_at,
+            },
+            "running" => CiStatus::InProgress,
+            "pending" | "created" | "waiting_for_resource" | "preparing" | "scheduled" => {
+                CiStatus::Queued
+            }
+            _ => CiStatus::Unknown,
+        };
+
+        let job_url = job.web_url.clone().unwrap_or_default();
+        let pipeline_url = job
+            .pipeline
+            .web_url
+            .clone()
+            .unwrap_or_else(|| job_url.clone());
+
+        CiCheck {
+            id: job.id,
+            name: job.name,
+            output: CiOutput::default(),
+            started_at,
+            status,
+            head_sha: String::new(),
+            url: job_url.clone(),
+            html_url: job_url.clone(),
+            details_url: pipeline_url,
+            pull_requests: Vec::new(),
+            reference: String::new(),
+            last_sync_at: chrono::Local::now().naive_local(),
+        }
+    }
+}
+
 impl From<but_github::CheckRun> for CiCheck {
     fn from(value: but_github::CheckRun) -> Self {
         let completed_at = value
@@ -227,5 +328,72 @@ impl From<but_github::CheckRun> for CiCheck {
             reference: String::new(), // Will be set by the caller
             last_sync_at: chrono::Local::now().naive_local(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CiCheck, CiConclusion, CiStatus};
+
+    fn job(status: &str, web_url: Option<&str>) -> but_gitlab::GitLabPipelineJob {
+        but_gitlab::GitLabPipelineJob {
+            id: 42,
+            name: "job".into(),
+            status: status.into(),
+            allow_failure: false,
+            started_at: Some("2026-05-01T12:00:00Z".into()),
+            finished_at: Some("2026-05-01T12:05:00Z".into()),
+            web_url: web_url.map(str::to_owned),
+            pipeline: but_gitlab::GitLabPipelineRef {
+                id: 7,
+                web_url: None,
+                status: None,
+            },
+        }
+    }
+
+    #[test]
+    fn maps_manual_jobs_to_action_required_complete_status() {
+        let check = CiCheck::from(job("manual", Some("https://example.com/job")));
+
+        assert!(matches!(
+            check.status,
+            CiStatus::Complete {
+                conclusion: CiConclusion::ActionRequired,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn maps_allowed_failure_jobs_to_neutral_complete_status() {
+        let mut job = job("failed", Some("https://example.com/job"));
+        job.allow_failure = true;
+
+        let check = CiCheck::from(job);
+
+        assert!(matches!(
+            check.status,
+            CiStatus::Complete {
+                conclusion: CiConclusion::Neutral,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn maps_optional_manual_jobs_to_neutral_complete_status() {
+        let mut job = job("manual", Some("https://example.com/job"));
+        job.allow_failure = true;
+
+        let check = CiCheck::from(job);
+
+        assert!(matches!(
+            check.status,
+            CiStatus::Complete {
+                conclusion: CiConclusion::Neutral,
+                ..
+            }
+        ));
     }
 }

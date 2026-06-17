@@ -5,9 +5,9 @@ mod client;
 pub mod mr;
 mod project;
 pub use client::{
-    CreateMergeRequestParams, GitLabClient, GitLabLabel, GitLabProject, GitLabUser,
-    MergeMergeRequestParams, MergeRequest, MergeRequestMergeStatus, SetMergeRequestAutoMergeParams,
-    SetMergeRequestDraftStateParams, UpdateMergeRequestParams,
+    CreateMergeRequestParams, GitLabClient, GitLabLabel, GitLabPipelineJob, GitLabPipelineRef,
+    GitLabProject, GitLabUser, MergeMergeRequestParams, MergeRequest, MergeRequestMergeStatus,
+    SetMergeRequestAutoMergeParams, SetMergeRequestDraftStateParams, UpdateMergeRequestParams,
 };
 pub use project::{GitLabProjectId, fetch_project};
 mod token;
