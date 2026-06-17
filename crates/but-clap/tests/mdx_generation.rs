@@ -316,3 +316,13 @@ fn test_frontmatter_only_first_line() {
     // But full description should be in the body
     assert!(mdx.contains("Second line of description\nThird line"));
 }
+
+#[test]
+fn test_replaces_rustdoc_hyperlink_in_long_about_with_mdx_compatible_link() {
+    let cmd = Command::new("hyperlink").long_about("Rustdoc hyperlink <https://example.com>");
+    let mdx = but_clap::generator::generate_command_mdx(&cmd);
+    assert!(
+        mdx.contains("[https://example.com](https://example.com)"),
+        "Rustdoc (raw markdown) hyperlink replaced with MDX compatible link"
+    );
+}

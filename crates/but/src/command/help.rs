@@ -356,7 +356,7 @@ Other Commands:
   setup        Sets up a GitButler project from a git repository in the curren…
   teardown     Exit GitButler mode and return to normal Git workflow
   gui          Open the GitButler GUI for the current project
-  tui          Show an interactive TUI
+  tui          Open a live terminal workspace for branches, commits, changes, …
   update       Manage GitButler CLI and app updates
   alias        Manage command aliases
   config       View and manage GitButler configuration
