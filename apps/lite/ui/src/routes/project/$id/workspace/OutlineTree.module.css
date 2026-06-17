@@ -14,6 +14,10 @@
 	text-align: center;
 
 	&:not([data-disabled]):hover {
+		background-color: light-dark(
+			color-mix(in srgb, var(--fill-gray-bg) 5%, var(--bg-2)),
+			color-mix(in srgb, var(--fill-gray-bg) 12%, var(--bg-2))
+		);
 		color: color-mix(in srgb, var(--text-2) 50%, var(--text-1));
 	}
 
