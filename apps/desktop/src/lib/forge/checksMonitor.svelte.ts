@@ -49,6 +49,7 @@ function parseChecks(checks: CiCheck[]): ChecksStatus | null {
 	let actionRequiredCount = 0;
 	let allCompleted = true;
 	const failedNames: string[] = [];
+	const actionRequiredNames: string[] = [];
 	const startTimestamps: number[] = [];
 
 	for (const check of checks) {
@@ -65,6 +66,7 @@ function parseChecks(checks: CiCheck[]): ChecksStatus | null {
 				failedNames.push(check.name);
 			} else if (conclusion === "actionRequired") {
 				actionRequiredCount++;
+				actionRequiredNames.push(check.name);
 			}
 		}
 	}
@@ -75,7 +77,14 @@ function parseChecks(checks: CiCheck[]): ChecksStatus | null {
 	const startedAt =
 		startTimestamps.length > 0 ? new Date(Math.min(...startTimestamps)).toISOString() : null;
 
-	return { startedAt, completed, success, failedChecks: failedNames };
+	return {
+		startedAt,
+		completed,
+		success,
+		failedChecks: failedNames,
+		actionRequired: actionRequiredCount > 0,
+		actionRequiredChecks: actionRequiredNames,
+	};
 }
 
 function injectEndpoints(api: BackendApi) {

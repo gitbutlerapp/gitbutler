@@ -242,10 +242,13 @@ impl From<but_gitlab::GitLabPipelineJob> for CiCheck {
                 },
                 completed_at,
             },
-            "running" => CiStatus::InProgress,
-            "pending" | "created" | "waiting_for_resource" | "preparing" | "scheduled" => {
-                CiStatus::Queued
-            }
+            "running" | "canceling" => CiStatus::InProgress,
+            "pending"
+            | "created"
+            | "waiting_for_resource"
+            | "waiting_for_callback"
+            | "preparing"
+            | "scheduled" => CiStatus::Queued,
             _ => CiStatus::Unknown,
         };
 
@@ -395,5 +398,19 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn maps_canceling_jobs_to_in_progress_status() {
+        let check = CiCheck::from(job("canceling", Some("https://example.com/job")));
+
+        assert!(matches!(check.status, CiStatus::InProgress));
+    }
+
+    #[test]
+    fn maps_waiting_for_callback_jobs_to_queued_status() {
+        let check = CiCheck::from(job("waiting_for_callback", Some("https://example.com/job")));
+
+        assert!(matches!(check.status, CiStatus::Queued));
     }
 }
