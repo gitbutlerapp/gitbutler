@@ -177,7 +177,7 @@ fn resolve(
         }
     };
 
-    let commit_op = route_commit_operation(&*ctx.repo.get()?, head_info, id_map, target_ish)?;
+    let commit_op = route_commit_operation(&*ctx.repo.get()?, head_info, out, id_map, target_ish)?;
 
     let (guard, commit_selection) = if !changes.is_empty() {
         let changes = changes
@@ -333,6 +333,7 @@ enum CommitOperationTargetIsh {
 fn route_commit_operation(
     repo: &gix::Repository,
     head_info: &RefInfo,
+    out: &mut IntermediateChannel<'_>,
     id_map: &IdMap,
     target: CommitOperationTargetIsh,
 ) -> CliResult<CommitOperation> {
@@ -372,30 +373,60 @@ fn route_commit_operation(
         CommitOperationTargetIsh::UnstackedCannedBranch => Ok(CommitOperation::CommitToNewBranch(
             CommitToNewBranchOperation { branch_name: None },
         )),
-        CommitOperationTargetIsh::Default => {
-            let mut stacks = head_info.stacks.iter();
-            if let Some(stack) = stacks.next() {
-                if stacks.next().is_some() {
-                    return Err(anyhow::anyhow!("Found more than one stack, badness!").into());
-                }
-
+        CommitOperationTargetIsh::Default => match &head_info.stacks[..] {
+            [] => Ok(CommitOperation::CommitToNewBranch(
+                CommitToNewBranchOperation { branch_name: None },
+            )),
+            [stack] => {
                 let ref_info = stack
                     .segments
                     .first()
                     .and_then(|segment| segment.ref_info.as_ref())
-                    .context("Head stack as no ref")?;
+                    .context("Head stack has no ref")?;
+                Ok(CommitOperation::CommitAt(CommitAtOperation {
+                    target: CommitRelativeToTarget::BranchTip {
+                        name: ref_info.ref_name.clone(),
+                    },
+                }))
+            }
+            stacks => {
+                let stack_heads = stacks
+                    .iter()
+                    .filter_map(|stack| stack.segments.first())
+                    .filter_map(|segment| segment.ref_info.as_ref())
+                    .map(|ref_info| (ref_info.ref_name.shorten(), &ref_info.ref_name))
+                    .collect::<Vec<_>>();
 
-                let target = CommitRelativeToTarget::BranchTip {
-                    name: ref_info.ref_name.clone(),
+                let Some(stack_heads) = NonEmpty::from_vec(stack_heads) else {
+                    return Err(anyhow::anyhow!(
+                        "BUG: found multiple stacks but none of them have heads"
+                    )
+                    .into());
                 };
 
-                return Ok(CommitOperation::CommitAt(CommitAtOperation { target }));
-            }
+                let Some(input) = out.prepare_for_terminal_input() else {
+                    return Err(
+                        bad_input("Unclear where to commit. Found more than one stack")
+                            .hint("You can specify where to commit with `--branch [<BRANCH>]`")
+                            .into(),
+                    );
+                };
 
-            Ok(CommitOperation::CommitToNewBranch(
-                CommitToNewBranchOperation { branch_name: None },
-            ))
-        }
+                let Some(selection) = input.prompt_select(
+                    "Multiple stacks found. Choose one to commit to",
+                    &stack_heads,
+                )?
+                else {
+                    return Err(bad_input("No stack picked").into());
+                };
+
+                Ok(CommitOperation::CommitAt(CommitAtOperation {
+                    target: CommitRelativeToTarget::BranchTip {
+                        name: (*selection).clone(),
+                    },
+                }))
+            }
+        },
     }
 }
 

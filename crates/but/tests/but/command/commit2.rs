@@ -1107,3 +1107,19 @@ Error: Invalid uncommitted change. 'A' is a branch
 
 "#]]);
 }
+
+#[test]
+fn requires_specifying_stack_when_there_are_multiple() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    env.but("commit2 --empty --no-message")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Unclear where to commit. Found more than one stack
+
+Hint: You can specify where to commit with `--branch [<BRANCH>]`
+
+"#]]);
+}
