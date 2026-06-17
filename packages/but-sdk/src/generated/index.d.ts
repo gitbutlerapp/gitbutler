@@ -308,6 +308,15 @@ export declare function getUndoTargetSnapshot(projectId: string): Promise<Snapsh
 
 export declare function headInfo(projectId: string): Promise<RefInfo>
 
+/**
+ * Initialize the secret namespace used by build-kind scoped credentials.
+ *
+ * Applications embedding the SDK should call this once during startup before
+ * invoking APIs that read or write forge credentials. If `identifier` is
+ * `None`, the namespace defaults to the SDK's compiled GitButler app channel.
+ */
+export declare function initApplicationNamespace(identifier: string | null): Promise<void>
+
 /** Get the list of review template paths for the given project. */
 export declare function listAvailableReviewTemplates(projectId: string): Promise<Array<string>>
 
