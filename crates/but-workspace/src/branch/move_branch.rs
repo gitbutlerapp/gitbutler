@@ -176,7 +176,6 @@ pub(super) mod function {
 
         let successful_rebase = editor.rebase()?;
         let workspace = successful_rebase.overlayed_graph()?.into_workspace()?;
-        let mut editor = successful_rebase.into_editor();
 
         let (source, destination) =
             retrieve_branches_and_containers(&workspace, subject_branch_name, target_branch_name)?;
@@ -205,6 +204,20 @@ pub(super) mod function {
 
         let (source_stack, subject_segment) = source;
         let (_, target_segment) = destination;
+        if subject_segment.commits.is_empty()
+            && target_segment.commits.is_empty()
+            && ws_meta.is_some()
+        {
+            if let Some(ws_meta) = ws_meta.as_mut() {
+                move_branch_in_metadata(ws_meta, subject_branch_name, target_branch_name);
+            }
+            return Ok(Outcome {
+                rebase: successful_rebase,
+                ws_meta,
+            });
+        }
+
+        let mut editor = successful_rebase.into_editor();
         let target_segment_ref_name = target_segment
             .ref_name()
             .context("Target segment doesn't have a ref")?;
@@ -240,23 +253,7 @@ pub(super) mod function {
         // Keep workspace metadata aligned with the graph move outcome for all move cases.
         // We remove the subject branch from its current location and reinsert it above the target.
         if let Some(ws_meta) = ws_meta.as_mut() {
-            ws_meta.remove_segment(subject_branch_name);
-            if ws_meta
-                .insert_new_segment_above_anchor_if_not_present(
-                    subject_branch_name,
-                    target_branch_name,
-                )
-                .is_none()
-            {
-                // If metadata doesn't know the target anchor (stale metadata),
-                // keep the moved branch represented as a stack tip.
-                ws_meta.add_or_insert_new_stack_if_not_present(
-                    subject_branch_name,
-                    None,
-                    but_core::ref_metadata::WorkspaceCommitRelation::Merged,
-                    |_| StackId::generate(),
-                );
-            }
+            move_branch_in_metadata(ws_meta, subject_branch_name, target_branch_name);
         };
 
         Ok(Outcome {
@@ -322,5 +319,26 @@ pub(super) mod function {
             );
         };
         Ok((own_context(source), own_context(destination)))
+    }
+
+    fn move_branch_in_metadata(
+        ws_meta: &mut but_core::ref_metadata::Workspace,
+        subject_branch_name: &FullNameRef,
+        target_branch_name: &FullNameRef,
+    ) {
+        ws_meta.remove_segment(subject_branch_name);
+        if ws_meta
+            .insert_new_segment_above_anchor_if_not_present(subject_branch_name, target_branch_name)
+            .is_none()
+        {
+            // If metadata doesn't know the target anchor (stale metadata),
+            // keep the moved branch represented as a stack tip.
+            ws_meta.add_or_insert_new_stack_if_not_present(
+                subject_branch_name,
+                None,
+                but_core::ref_metadata::WorkspaceCommitRelation::Merged,
+                |_| StackId::generate(),
+            );
+        }
     }
 }

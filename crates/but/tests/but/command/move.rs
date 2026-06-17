@@ -1,4 +1,8 @@
 use anyhow::Context as _;
+use but_core::{
+    RefMetadata,
+    ref_metadata::{StackId, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch},
+};
 use snapbox::str;
 
 use crate::{
@@ -844,6 +848,62 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn move_empty_branch_on_top_of_empty_branch_by_cli_id() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks")?;
+
+    env.invoke_git("branch A main");
+    env.invoke_git("branch B main");
+    setup_single_stack_metadata(&env, &["B", "A"])?;
+
+    let initial_status = status_json(&env)?;
+    assert_eq!(
+        stack_branch_layout(&initial_status)?,
+        vec![vec!["B".to_string(), "A".to_string()]]
+    );
+
+    let source_branch_id = initial_status["stacks"][0]["branches"][1]["cliId"]
+        .as_str()
+        .context("Missing source branch cliId")?;
+    let target_branch_id = initial_status["stacks"][0]["branches"][0]["cliId"]
+        .as_str()
+        .context("Missing target branch cliId")?;
+
+    env.but(format!("move {source_branch_id} {target_branch_id}"))
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Moved branch A on top of B.
+
+"#]]);
+
+    let status_json = status_json(&env)?;
+    assert_eq!(
+        stack_branch_layout(&status_json)?,
+        vec![vec!["A".to_string(), "B".to_string()]]
+    );
+
+    env.but("st")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A] (no commits)
+┊│
+┊├┄h0 [B] (no commits)
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
 fn move_branch_onto_itself_fails_without_deleting_branch() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
@@ -1125,4 +1185,24 @@ fn stack_branch_layout(status_json: &serde_json::Value) -> anyhow::Result<Vec<Ve
                 .collect::<anyhow::Result<Vec<_>>>()
         })
         .collect()
+}
+
+fn setup_single_stack_metadata(env: &Sandbox, branch_names: &[&str]) -> anyhow::Result<()> {
+    let mut meta = env.meta()?;
+    let mut workspace = meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
+    workspace.stacks = vec![WorkspaceStack {
+        id: StackId::from_number_for_testing(0),
+        branches: branch_names
+            .iter()
+            .map(|branch_name| {
+                Ok(WorkspaceStackBranch {
+                    ref_name: format!("refs/heads/{branch_name}").try_into()?,
+                    archived: false,
+                })
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?,
+        workspacecommit_relation: WorkspaceCommitRelation::Merged,
+    }];
+    meta.set_workspace(&workspace)?;
+    Ok(())
 }
