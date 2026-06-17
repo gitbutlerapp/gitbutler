@@ -260,3 +260,10 @@ export const operationHotkeys = {
 		meta: { group: "Operation mode", name: "Select into" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
+
+export const diffHotkeys = {
+	toggleDiffStyle: {
+		hotkey: "Mod+B",
+		meta: { group: "Diff", name: "Toggle diff style" },
+	},
+} satisfies Record<string, HotkeyWithMeta>;
