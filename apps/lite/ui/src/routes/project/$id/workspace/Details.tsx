@@ -52,10 +52,8 @@ import { Hash, identity, Match } from "effect";
 import {
 	ComponentProps,
 	FC,
-	Ref,
 	type RefObject,
 	Suspense,
-	useDeferredValue,
 	useLayoutEffect,
 	useRef,
 	useState,
@@ -841,16 +839,10 @@ export const Details: FC<
 		onDetailsFullscreenChange: (fullscreen: boolean) => void;
 		outlineSelection: Operand | null;
 	} & ComponentProps<"div">
-> = ({
-	detailsFullscreen,
-	onDetailsFullscreenChange,
-	outlineSelection: urgentOutlineSelection,
-	...restProps
-}) => {
+> = ({ detailsFullscreen, onDetailsFullscreenChange, outlineSelection, ...restProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
-	const outlineSelection = useDeferredValue(urgentOutlineSelection);
 
 	const selectFile = (selection: string) => {
 		dispatch(projectActions.selectFiles({ projectId, selection }));
@@ -859,11 +851,7 @@ export const Details: FC<
 	if (!outlineSelection || outlineSelection._tag === "Stack") return;
 
 	return (
-		<div
-			{...restProps}
-			className={classes(restProps.className, styles.container)}
-			style={{ opacity: urgentOutlineSelection !== outlineSelection ? 0.5 : 1 }}
-		>
+		<div {...restProps} className={classes(restProps.className, styles.container)}>
 			<div className={styles.headerWrap}>
 				<div className={styles.titleRow}>
 					<Title projectId={projectId} selection={outlineSelection} />

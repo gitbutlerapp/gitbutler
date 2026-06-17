@@ -50,7 +50,7 @@ import {
 } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match, Order } from "effect";
-import { type FC, Component, ReactNode } from "react";
+import { type FC, Component, ReactNode, useDeferredValue } from "react";
 import {
 	branchOperand,
 	changesSectionOperand,
@@ -657,6 +657,8 @@ const WorkspacePage: FC = () => {
 		navigationIndex: outlineNavigationIndex,
 	});
 
+	const deferredOutlineSelection = useDeferredValue(outlineSelection);
+
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
@@ -761,7 +763,8 @@ const WorkspacePage: FC = () => {
 				)}
 
 				<Details
-					outlineSelection={outlineSelection}
+					style={{ opacity: deferredOutlineSelection !== outlineSelection ? 0.5 : 1 }}
+					outlineSelection={deferredOutlineSelection}
 					detailsFullscreen={detailsFullscreen}
 					onDetailsFullscreenChange={(fullscreen) =>
 						dispatch(projectActions.setDetailsFullscreen({ projectId, fullscreen }))
