@@ -2,6 +2,7 @@ use std::io::{IsTerminal, Write};
 
 use but_secret::Sensitive;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use nonempty::NonEmpty;
 
 use crate::{
     args::OutputFormat,
@@ -496,6 +497,26 @@ impl InputOutputChannel<'_> {
                 ReadlineInput::EndOfInput => return Ok(ConfirmOrEmpty::NoInput),
             }
         }
+    }
+
+    #[cfg_attr(not(feature = "but-2"), expect(dead_code))]
+    pub fn prompt_select<'a, Key, Value>(
+        &self,
+        prompt: &str,
+        items: &'a NonEmpty<(Key, Value)>,
+    ) -> anyhow::Result<Option<&'a Value>>
+    where
+        Key: std::fmt::Display,
+    {
+        let Some(selection) = dialoguer::Select::new()
+            .with_prompt(prompt)
+            .default(0)
+            .items(items.iter().map(|(key, _)| key))
+            .interact_on_opt(&dialoguer::console::Term::stdout())?
+        else {
+            return Ok(None);
+        };
+        Ok(Some(&items[selection].1))
     }
 }
 
