@@ -92,6 +92,34 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
         output.push('\n');
     }
 
+    replace_rustdoc_hyperlinks(&output)
+}
+
+fn replace_rustdoc_hyperlinks(input: &str) -> String {
+    let mut output = String::with_capacity(input.len());
+    let mut remaining = input;
+
+    while let Some(start) = remaining.find("<http") {
+        output.push_str(&remaining[..start]);
+        let candidate = &remaining[start + 1..];
+        let Some(end) = candidate.find('>') else {
+            output.push_str(&remaining[start..]);
+            return output;
+        };
+
+        let url = &candidate[..end];
+        if (url.starts_with("https://") || url.starts_with("http://"))
+            && !url.contains(char::is_whitespace)
+        {
+            output.push_str(&format!("[{url}]({url})"));
+            remaining = &candidate[end + 1..];
+        } else {
+            output.push_str(&remaining[start..start + 1]);
+            remaining = candidate;
+        }
+    }
+
+    output.push_str(remaining);
     output
 }
 
