@@ -24,6 +24,8 @@ pub mod merge_commit_changes;
 pub mod mutate;
 pub mod ordering;
 pub(crate) mod util;
+pub mod workspace;
+pub use workspace::{GraphWorkspace, Subgraph};
 
 /// Additional reference to include in an editor, with persistence behavior.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
