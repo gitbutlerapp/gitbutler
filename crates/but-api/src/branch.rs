@@ -7,7 +7,7 @@ use but_api_macros::but_api;
 use but_core::{
     DryRun,
     branch::unique_canned_refname,
-    ref_metadata::StackId,
+    ref_metadata::{ProjectMeta, StackId},
     sync::RepoExclusive,
     ui::TreeChanges,
     update_head_reference,
@@ -49,6 +49,75 @@ pub struct IntegrateBranchResult {
 pub struct BranchCheckoutResult {
     /// Workspace state after checking out the branch.
     pub workspace: WorkspaceState,
+}
+
+/// Set the project default target without applying branches or entering managed workspace mode.
+///
+/// This acquires exclusive worktree access from `ctx` before updating project metadata.
+pub fn set_default_target(
+    ctx: &mut Context,
+    target_ref: &gix::refs::FullNameRef,
+    push_remote: Option<String>,
+) -> anyhow::Result<ProjectMeta> {
+    let mut guard = ctx.exclusive_worktree_access();
+    set_default_target_with_perm(ctx, target_ref, push_remote, guard.write_permission())
+}
+
+/// Set the project default target under caller-held exclusive repository access.
+///
+/// This is metadata-only: it writes [`ProjectMeta`] and deliberately does not create stack
+/// metadata, create or update `gitbutler/workspace`, checkout any ref, update the index, record
+/// oplog state, or install managed workspace hooks.
+pub fn set_default_target_with_perm(
+    ctx: &mut Context,
+    target_ref: &gix::refs::FullNameRef,
+    push_remote: Option<String>,
+    _perm: &mut RepoExclusive,
+) -> anyhow::Result<ProjectMeta> {
+    if !target_ref.as_bstr().starts_with_str("refs/remotes/") {
+        bail!(
+            "Default target must be a remote-tracking branch under refs/remotes, got '{}'",
+            target_ref.as_bstr()
+        );
+    }
+
+    let (target_ref, target_commit_id) = {
+        let repo = ctx.repo.get()?;
+        let mut target_reference = repo
+            .find_reference(target_ref)
+            .with_context(|| format!("Could not find target ref '{}'", target_ref.as_bstr()))?;
+        let target_ref_commit = target_reference
+            .peel_to_commit()
+            .with_context(|| {
+                format!(
+                    "Target ref '{}' does not point to a commit",
+                    target_ref.as_bstr()
+                )
+            })?
+            .id;
+        let current_head_commit = repo
+            .head()
+            .context("Failed to get HEAD reference")?
+            .peel_to_commit()
+            .context("Failed to peel HEAD reference to commit")?
+            .id;
+        let target_commit_id = repo
+            .merge_base(current_head_commit, target_ref_commit)
+            .with_context(|| {
+                format!(
+                    "Failed to calculate merge base between {current_head_commit} and {target_ref_commit}"
+                )
+            })?
+            .detach();
+        (target_ref.to_owned(), target_commit_id)
+    };
+
+    let mut project_meta = ctx.project_meta()?;
+    project_meta.target_ref = Some(target_ref);
+    project_meta.target_commit_id = Some(target_commit_id);
+    project_meta.push_remote = push_remote;
+    ctx.set_project_meta(project_meta.clone())?;
+    Ok(project_meta)
 }
 
 /// JSON transport types for branch APIs.
@@ -1099,6 +1168,12 @@ mod tests {
         git_at_dir(tmp.path()).args(["add", "file.txt"]).run();
         git_at_dir(tmp.path()).args(["commit", "-m", "one"]).run();
         git_at_dir(tmp.path()).args(["branch", "feature"]).run();
+        git_at_dir(tmp.path())
+            .args(["config", "remote.origin.url", "../origin"])
+            .run();
+        git_at_dir(tmp.path())
+            .args(["update-ref", "refs/remotes/origin/main", "HEAD"])
+            .run();
         write_file(tmp.path(), "file.txt", "two\n")?;
         git_at_dir(tmp.path()).args(["commit", "-am", "two"]).run();
 
@@ -1119,6 +1194,74 @@ mod tests {
 
     fn write_file(root: &Path, relative_path: &str, content: &str) -> anyhow::Result<()> {
         std::fs::write(root.join(relative_path), content)?;
+        Ok(())
+    }
+
+    #[test]
+    fn set_default_target_accepts_remote_tracking_ref_and_persists_metadata() -> anyhow::Result<()>
+    {
+        let (repo, _tmp) = repo_with_feature_branch()?;
+        let mut ctx = but_ctx::Context::from_repo(repo)?.with_memory_app_cache();
+        let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/main")?;
+
+        let project_meta =
+            super::set_default_target(&mut ctx, target_ref.as_ref(), Some("origin".into()))?;
+
+        let stored_meta = ctx.project_meta()?;
+        assert_eq!(project_meta, stored_meta);
+        assert_eq!(stored_meta.target_ref.as_ref(), Some(&target_ref));
+        assert!(stored_meta.target_commit_id.is_some());
+        assert_eq!(stored_meta.push_remote.as_deref(), Some("origin"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn set_default_target_rejects_local_branch_refs() -> anyhow::Result<()> {
+        let (repo, _tmp) = repo_with_feature_branch()?;
+        let mut ctx = but_ctx::Context::from_repo(repo)?.with_memory_app_cache();
+        let target_ref = gix::refs::FullName::try_from("refs/heads/feature")?;
+
+        let err = super::set_default_target(&mut ctx, target_ref.as_ref(), None)
+            .expect_err("local branches are not valid default targets");
+        assert_eq!(
+            err.to_string(),
+            "Default target must be a remote-tracking branch under refs/remotes, got 'refs/heads/feature'"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn set_default_target_uses_merge_base_not_target_tip() -> anyhow::Result<()> {
+        let (_repo, tmp) = repo_with_feature_branch()?;
+        git_at_dir(tmp.path()).args(["checkout", "feature"]).run();
+        write_file(tmp.path(), "feature.txt", "feature\n")?;
+        git_at_dir(tmp.path()).args(["add", "feature.txt"]).run();
+        git_at_dir(tmp.path())
+            .args(["commit", "-m", "feature"])
+            .run();
+        git_at_dir(tmp.path())
+            .args(["update-ref", "refs/remotes/origin/feature", "HEAD"])
+            .run();
+        git_at_dir(tmp.path()).args(["checkout", "main"]).run();
+
+        let repo = open_repo(tmp.path())?;
+        let target_ref = gix::refs::FullName::try_from("refs/remotes/origin/feature")?;
+        let target_tip = repo
+            .find_reference(target_ref.as_ref())?
+            .peel_to_id()?
+            .detach();
+        let current_head = repo.head_id()?.detach();
+        let expected_merge_base = repo.merge_base(current_head, target_tip)?.detach();
+        assert_ne!(expected_merge_base, target_tip);
+
+        let mut ctx = but_ctx::Context::from_repo(repo)?.with_memory_app_cache();
+        let project_meta = super::set_default_target(&mut ctx, target_ref.as_ref(), None)?;
+
+        assert_eq!(project_meta.target_commit_id, Some(expected_merge_base));
+        assert_eq!(project_meta.push_remote, None);
+
         Ok(())
     }
 
