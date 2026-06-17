@@ -238,6 +238,8 @@ export const useCommitCreate = ({ projectId }: { projectId: string }) => {
 			});
 		},
 		onSuccess: async (response, input) => {
+			syncCoreCaches(queryClient, dispatch, projectId, response);
+
 			if (input.relativeTo.type === "commit" && response.newCommit !== null)
 				dispatch(
 					projectActions.setCommitTarget({
