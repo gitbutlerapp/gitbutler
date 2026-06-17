@@ -533,14 +533,14 @@ const Title: FC<{
 				>
 					{({ data: branchDetails }) => (
 						<div className={styles.title}>
-							<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
+							<h3 className={classes("text-15", "text-semibold")}>{branchDetails.name}</h3>
 						</div>
 					)}
 				</SuspenseQuery>
 			),
 			ChangesSection: () => (
 				<div className={styles.title}>
-					<h3 className={classes("text-14", "text-semibold")}>Changes</h3>
+					<h3 className={classes("text-15", "text-semibold")}>Changes</h3>
 				</div>
 			),
 			File: () => null,
@@ -549,7 +549,7 @@ const Title: FC<{
 					{({ data: commitDetails }) => (
 						<div className={styles.title}>
 							<Icon name="commit" />
-							<h3 className={classes("text-14", "text-semibold")}>
+							<h3 className={classes("text-15", "text-semibold")}>
 								{commitTitle(commitDetails.commit.message) ?? "(no message)"}
 								{commitDetails.commit.hasConflicts && " ⚠️"}
 							</h3>
