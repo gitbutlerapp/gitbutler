@@ -130,7 +130,14 @@ pub fn safe_checkout(
                         return Err(err.into());
                     }
                 } else {
+                    let workdir = repo.workdir().context("non-bare repository")?;
                     for dir_to_delete in path_to_delete.ancestors().skip(1) {
+                        let Ok(relative_to_workdir) = dir_to_delete.strip_prefix(workdir) else {
+                            break;
+                        };
+                        if relative_to_workdir.as_os_str().is_empty() {
+                            break;
+                        }
                         if !dirs_we_tried_to_delete.insert(dir_to_delete.to_owned()) {
                             break;
                         }
