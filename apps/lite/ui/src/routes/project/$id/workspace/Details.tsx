@@ -862,18 +862,20 @@ export const Details: FC<
 			style={{ opacity: urgentOutlineSelection !== outlineSelection ? 0.5 : 1 }}
 		>
 			<div className={styles.headerWrap}>
-				<Title projectId={projectId} selection={outlineSelection} />
+				<div className={styles.titleRow}>
+					<Title projectId={projectId} selection={outlineSelection} />
+					<FullscreenToggle
+						className={classes(styles.titleRowActions, getButtonClassName({ iconOnly: true }))}
+						fullscreen={detailsFullscreen}
+						onFullscreenChange={onDetailsFullscreenChange}
+					/>
+				</div>
 
 				{outlineSelection._tag === "Commit" && (
 					<CommitDetailsContent projectId={projectId} commitId={outlineSelection.commitId} />
 				)}
 
 				<div className={styles.actions}>
-					<FullscreenToggle
-						className={getButtonClassName({ iconOnly: true })}
-						fullscreen={detailsFullscreen}
-						onFullscreenChange={onDetailsFullscreenChange}
-					/>
 					<FilesToggle />
 					{canUseSplitDiff && (
 						<DiffStyleToggle

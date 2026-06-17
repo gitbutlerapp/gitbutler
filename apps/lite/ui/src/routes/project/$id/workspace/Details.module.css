@@ -16,6 +16,16 @@
 	padding-top: var(--panel-padding);
 }
 
+.titleRow {
+	display: flex;
+	column-gap: 8px;
+	align-items: center;
+}
+
+.titleRowActions {
+	margin-inline-start: auto;
+}
+
 .title {
 	display: flex;
 	gap: 8px;
