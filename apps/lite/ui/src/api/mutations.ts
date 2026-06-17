@@ -177,7 +177,7 @@ export const useCommitAmend = ({ projectId }: { projectId: string }) => {
 			});
 		},
 		onSuccess: async (response, input, _ctx, mutation) => {
-			 syncCoreCaches(mutation.client, dispatch, projectId, response);
+			syncCoreCaches(mutation.client, dispatch, projectId, response);
 
 			if (input.relativeTo.type === "commit" && response.newCommit !== null)
 				dispatch(
@@ -237,7 +237,7 @@ export const useCommitCreate = ({ projectId }: { projectId: string }) => {
 			});
 		},
 		onSuccess: async (response, input, _ctx, mutation) => {
-			 syncCoreCaches(mutation.client, dispatch, projectId, response);
+			syncCoreCaches(mutation.client, dispatch, projectId, response);
 
 			if (input.relativeTo.type === "commit" && response.newCommit !== null)
 				dispatch(
@@ -495,7 +495,7 @@ export const useWorkspaceIntegrateUpstream = () => {
 
 	return useMutation({
 		mutationFn: window.lite.workspaceIntegrateUpstream,
-		onSuccess:  (response, input, _context, mutation) => {
+		onSuccess: (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
 
 			toastManager.add({
@@ -523,10 +523,8 @@ export const useRemoveBranch = () => {
 	// TODO: This mutation doesn't trigger any watcher events, hence the manual invalidation.
 	return useMutation({
 		mutationFn: window.lite.removeBranch,
-		onSuccess: async (_response, input, _context, mutation) => {
-			await mutation.client.invalidateQueries({
-				queryKey: headInfoQueryOptions(input.projectId).queryKey,
-			});
+		onSuccess: async (_response, _input, _context, mutation) => {
+			await mutation.client.invalidateQueries();
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
