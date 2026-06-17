@@ -54,6 +54,7 @@ import {
 	FC,
 	type RefObject,
 	Suspense,
+	useId,
 	useLayoutEffect,
 	useRef,
 	useState,
@@ -512,9 +513,12 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 };
 
 const Title: FC<{
+	bodyCollapsed: boolean;
+	bodyId: string;
+	onBodyCollapsedChange: (collapsed: boolean) => void;
 	projectId: string;
 	selection: Operand;
-}> = ({ projectId, selection }) =>
+}> = ({ bodyCollapsed, bodyId, onBodyCollapsedChange, projectId, selection }) =>
 	Match.value(selection).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
@@ -549,6 +553,29 @@ const Title: FC<{
 								{commitTitle(commitDetails.commit.message) ?? "(no message)"}
 								{commitDetails.commit.hasConflicts && " ⚠️"}
 							</h3>
+							{commitBody(commitDetails.commit.message) !== undefined && (
+								<Tooltip.Root>
+									<Tooltip.Trigger
+										aria-controls={bodyId}
+										aria-expanded={!bodyCollapsed}
+										aria-label={bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+										className={getButtonClassName({
+											variant: "ghost",
+											iconOnly: true,
+										})}
+										onClick={() => onBodyCollapsedChange(!bodyCollapsed)}
+									>
+										<Icon name={bodyCollapsed ? "uncollapse" : "collapse"} />
+									</Tooltip.Trigger>
+									<Tooltip.Portal>
+										<Tooltip.Positioner sideOffset={4}>
+											<Tooltip.Popup render={<TooltipPopup />}>
+												{bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+											</Tooltip.Popup>
+										</Tooltip.Positioner>
+									</Tooltip.Portal>
+								</Tooltip.Root>
+							)}
 						</div>
 					)}
 				</SuspenseQuery>
@@ -649,9 +676,11 @@ const FullscreenToggle: FC<{
 };
 
 const CommitDetailsContent: FC<{
+	bodyCollapsed: boolean;
+	bodyId: string;
 	projectId: string;
 	commitId: string;
-}> = ({ projectId, commitId }) => {
+}> = ({ bodyCollapsed, bodyId, projectId, commitId }) => {
 	const { data: commitDetails } = useSuspenseQuery(
 		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
 	);
@@ -670,7 +699,17 @@ const CommitDetailsContent: FC<{
 	return (
 		<>
 			{body !== undefined && (
-				<p className={classes("text-monospace", "text-body", styles.commitMessageBody)}>{body}</p>
+				<p
+					id={bodyId}
+					className={classes(
+						"text-monospace",
+						"text-body",
+						styles.commitMessageBody,
+						bodyCollapsed && styles.commitMessageBodyCollapsed,
+					)}
+				>
+					{body}
+				</p>
 			)}
 			<div className={classes("text-13", styles.commitDetailsMeta)}>
 				<img
@@ -843,6 +882,8 @@ export const Details: FC<
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
+	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
+	const commitBodyId = useId();
 
 	const selectFile = (selection: string) => {
 		dispatch(projectActions.selectFiles({ projectId, selection }));
@@ -854,7 +895,13 @@ export const Details: FC<
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
 			<div className={styles.headerWrap}>
 				<div className={styles.titleRow}>
-					<Title projectId={projectId} selection={outlineSelection} />
+					<Title
+						bodyCollapsed={commitBodyCollapsed}
+						bodyId={commitBodyId}
+						onBodyCollapsedChange={setCommitBodyCollapsed}
+						projectId={projectId}
+						selection={outlineSelection}
+					/>
 					<FullscreenToggle
 						className={classes(styles.titleRowActions, getButtonClassName({ iconOnly: true }))}
 						fullscreen={detailsFullscreen}
@@ -863,7 +910,12 @@ export const Details: FC<
 				</div>
 
 				{outlineSelection._tag === "Commit" && (
-					<CommitDetailsContent projectId={projectId} commitId={outlineSelection.commitId} />
+					<CommitDetailsContent
+						bodyCollapsed={commitBodyCollapsed}
+						bodyId={commitBodyId}
+						projectId={projectId}
+						commitId={outlineSelection.commitId}
+					/>
 				)}
 			</div>
 

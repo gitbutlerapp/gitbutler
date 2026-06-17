@@ -28,6 +28,7 @@
 
 .title {
 	display: flex;
+	align-items: center;
 	gap: 8px;
 }
 
@@ -104,13 +105,16 @@
 }
 
 .commitMessageBody {
-	max-height: 4.5lh;
-	overflow: auto;
 	background-color: var(--bg-2);
 	font-size: 13px;
 	/* text pre */
 	white-space: pre-line;
 	user-select: text;
+}
+
+.commitMessageBodyCollapsed {
+	max-height: 4.5lh;
+	overflow: auto;
 }
 
 .fileHeader {
