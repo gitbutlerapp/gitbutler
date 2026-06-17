@@ -1,10 +1,12 @@
 use but_core::RefMetadata;
 use but_core::ref_metadata::StackKind;
+use but_graph::init::Options;
 use but_rebase::graph_rebase::Editor;
-use but_testsupport::{graph_workspace, visualize_commit_graph_all};
+use but_testsupport::{graph_workspace, invoke_bash, visualize_commit_graph_all};
 
 use crate::ref_info::with_workspace_commit::utils::{
-    StackState, add_stack_with_segments, named_writable_scenario_with_description_and_graph,
+    StackState, add_stack_with_segments, named_writable_scenario_with_description,
+    named_writable_scenario_with_description_and_graph,
 };
 
 #[test]
@@ -509,6 +511,122 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
         │   └── ·09d8e52 (🏘️)
         └── 📙:4:B
     ");
+    Ok(())
+}
+
+#[test]
+fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("empty-workspace-target-advanced")?;
+    invoke_bash(
+        "git branch A gitbutler/target\ngit branch B gitbutler/target\n",
+        &repo,
+    );
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
+
+    let project_meta = meta
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
+        .project_meta();
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta,
+        Options {
+            extra_target_commit_id: repo
+                .rev_parse_single("gitbutler/target")
+                .ok()
+                .map(|id| id.detach()),
+            ..Options::limited()
+        },
+    )?;
+
+    let mut ws = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+    └── ≡📙:4:B on 3183e43 {1}
+        ├── 📙:4:B
+        └── 📙:5:A
+    ");
+
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
+        but_workspace::branch::move_branch(
+            editor,
+            "refs/heads/A".try_into()?,
+            "refs/heads/B".try_into()?,
+        )?;
+
+    rebase.materialize()?;
+    set_workspace_metadata(&mut meta, &ws, ws_meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
+
+    insta::assert_snapshot!(graph_workspace(&ws), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+    └── ≡📙:4:A on 3183e43 {1}
+        ├── 📙:4:A
+        └── 📙:5:B
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("empty-workspace-target-advanced")?;
+    invoke_bash(
+        "git branch A gitbutler/target\ngit branch B gitbutler/target\n",
+        &repo,
+    );
+    add_stack_with_segments(&mut meta, 1, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "B", StackState::InWorkspace, &[]);
+
+    let project_meta = meta
+        .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
+        .project_meta();
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta,
+        Options {
+            extra_target_commit_id: repo
+                .rev_parse_single("gitbutler/target")
+                .ok()
+                .map(|id| id.detach()),
+            ..Options::limited()
+        },
+    )?;
+
+    let mut ws = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&ws), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+    ├── ≡📙:4:A on 3183e43 {1}
+    │   └── 📙:4:A
+    └── ≡📙:5:B on 3183e43 {2}
+        └── 📙:5:B
+    ");
+
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
+        but_workspace::branch::move_branch(
+            editor,
+            "refs/heads/A".try_into()?,
+            "refs/heads/B".try_into()?,
+        )?;
+
+    rebase.materialize()?;
+    set_workspace_metadata(&mut meta, &ws, ws_meta)?;
+    let project_meta = ws.graph.project_meta.clone();
+    ws.refresh_from_head(&repo, &meta, project_meta)?;
+
+    insta::assert_snapshot!(graph_workspace(&ws), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+    └── ≡📙:4:A on 3183e43 {2}
+        ├── 📙:4:A
+        └── 📙:5:B
+    ");
+
     Ok(())
 }
 
