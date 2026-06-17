@@ -1,9 +1,9 @@
 use bstr::ByteSlice;
 use but_core::worktree::{checkout, checkout::UncommitedWorktreeChanges, safe_checkout};
 use but_testsupport::{
-    git_status, read_only_in_memory_scenario, visualize_commit_graph_all,
-    visualize_disk_tree_skip_dot_git, visualize_index, visualize_tree, writable_scenario,
-    writable_scenario_slow,
+    CommandExt, git_at_dir, git_status, open_repo, read_only_in_memory_scenario,
+    visualize_commit_graph_all, visualize_disk_tree_skip_dot_git, visualize_index, visualize_tree,
+    writable_scenario, writable_scenario_slow,
 };
 use gix::{object::tree::EntryKind, prelude::ObjectIdExt};
 
@@ -199,6 +199,68 @@ fn pure_deletion_checkout_keeps_non_intersecting_worktree_deletion() -> anyhow::
     assert!(!repo.workdir_path("b.txt").unwrap().exists());
     assert!(repo.workdir_path("c.txt").unwrap().exists());
     insta::assert_snapshot!(git_status(&repo)?, @" D b.txt");
+
+    Ok(())
+}
+
+#[test]
+fn pure_deletion_checkout_keeps_empty_worktree_root() -> anyhow::Result<()> {
+    let root = but_testsupport::gix_testtools::tempfile::TempDir::new()?;
+    let git_dir = root.path().join("git-dir");
+    let worktree = root.path().join("worktree");
+    std::fs::create_dir(&worktree)?;
+
+    git_at_dir(root.path())
+        .args(["init", "--bare"])
+        .arg(&git_dir)
+        .run();
+    git_at_dir(root.path())
+        .arg(format!("--git-dir={}", git_dir.display()))
+        .args(["config", "core.bare", "false"])
+        .run();
+    git_at_dir(root.path())
+        .arg(format!("--git-dir={}", git_dir.display()))
+        .args(["config", "core.worktree"])
+        .arg(&worktree)
+        .run();
+    let repo = open_repo(&git_dir)?;
+
+    let blob_id = repo.write_blob(b"content")?;
+    let mut editor = repo.empty_tree().edit()?;
+    editor.upsert("nested/only.txt", EntryKind::Blob, blob_id)?;
+    let initial_tree_id = editor.write()?.detach();
+    let initial_commit = repo.new_commit("init", initial_tree_id, None::<gix::ObjectId>)?;
+    safe_checkout(
+        repo.empty_tree().id,
+        initial_commit.id,
+        &repo,
+        Default::default(),
+    )?;
+
+    insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(&worktree)?, @r"
+    .
+    └── nested:40755
+        └── only.txt:100644
+    ");
+
+    let (head_commit, new_commit) = build_commit(
+        &repo,
+        |tree| {
+            tree.remove("nested/only.txt")?;
+            Ok(())
+        },
+        "delete only file",
+    )?;
+    let out = safe_checkout(head_commit.id, new_commit.id, &repo, Default::default())?;
+    assert_eq!(out.num_deleted_files, 1);
+    assert_eq!(out.num_added_or_updated_files, 0);
+    assert!(
+        worktree.is_dir(),
+        "safe checkout must not delete the worktree root while cleaning up empty parents"
+    );
+    insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(&worktree)?, @r"
+    .
+    ");
 
     Ok(())
 }
