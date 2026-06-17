@@ -1962,6 +1962,7 @@ const BranchRow: FC<
 		partialStackState: PartialStackState;
 		pushStatus: PushStatus;
 		bottomRelativeTo: RelativeTo | null;
+		isTopSegment: boolean;
 	} & ComponentProps<"div">
 > = ({
 	projectId,
@@ -1973,6 +1974,7 @@ const BranchRow: FC<
 	partialStackState,
 	pushStatus,
 	bottomRelativeTo,
+	isTopSegment,
 	...restProps
 }) => {
 	const dispatch = useAppDispatch();
@@ -2217,8 +2219,7 @@ const BranchRow: FC<
 			isCommitTarget={isCommitTarget}
 		>
 			<GraphSegment
-				className={styles.branchRowGraphSegment}
-				glyph="forkRight"
+				glyph={isTopSegment ? "forkRight" : "joinRight"}
 				status={segmentPushStatusToStatus(pushStatus)}
 			/>
 
@@ -2367,6 +2368,7 @@ const BranchSegment: FC<{
 	canTearOffBranch: boolean;
 	canRemoveBranch: boolean;
 	partialStackState: PartialStackState;
+	isTopSegment: boolean;
 }> = ({
 	projectId,
 	segment,
@@ -2376,6 +2378,7 @@ const BranchSegment: FC<{
 	canTearOffBranch,
 	canRemoveBranch,
 	partialStackState,
+	isTopSegment,
 }) => {
 	const operand = branchOperand({ stackId, branchRef: refName.fullNameBytes });
 
@@ -2404,6 +2407,7 @@ const BranchSegment: FC<{
 				}
 				pushStatus={segment.pushStatus}
 				bottomRelativeTo={segmentBottomRelativeTo(segment)}
+				isTopSegment={isTopSegment}
 			/>
 
 			<div role="group">
@@ -2539,6 +2543,7 @@ const StackC: FC<{
 										canTearOffBranch={canTearOffBranch}
 										canRemoveBranch={canRemoveBranch}
 										partialStackState={partialStackState}
+										isTopSegment={index === 0}
 									/>
 								) : (
 									<SegmentContent

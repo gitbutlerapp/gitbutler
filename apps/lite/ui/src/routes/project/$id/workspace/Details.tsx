@@ -498,31 +498,27 @@ const Header: FC<{
 	Match.value(selection).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
-			Branch: ({ branchRef }) => {
-				const decodedBranchRef = decodeBytes(branchRef);
-
-				return (
-					<SuspenseQuery
-						{...branchDetailsQueryOptions({
-							projectId,
-							// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
-							branchName: decodedBranchRef.replace(/^refs\/heads\//, ""),
-							remote: null,
-						})}
-					>
-						{({ data: branchDetails }) => (
-							<header className={styles.header}>
-								<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
-								{branchDetails.prNumber != null && (
-									<div className={classes("text-13", "text-bold", styles.pr)}>
-										PR #{branchDetails.prNumber}
-									</div>
-								)}
-							</header>
-						)}
-					</SuspenseQuery>
-				);
-			},
+			Branch: ({ branchRef }) => (
+				<SuspenseQuery
+					{...branchDetailsQueryOptions({
+						projectId,
+						// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
+						branchName: decodeBytes(branchRef).replace(/^refs\/heads\//, ""),
+						remote: null,
+					})}
+				>
+					{({ data: branchDetails }) => (
+						<header className={styles.header}>
+							<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
+							{branchDetails.prNumber != null && (
+								<div className={classes("text-13", "text-bold", styles.pr)}>
+									PR #{branchDetails.prNumber}
+								</div>
+							)}
+						</header>
+					)}
+				</SuspenseQuery>
+			),
 			ChangesSection: () => (
 				<header className={styles.header}>
 					<h3 className={classes("text-14", "text-semibold")}>Changes</h3>
@@ -538,9 +534,6 @@ const Header: FC<{
 								{commitTitle(commitDetails.commit.message) ?? "(no message)"}
 								{commitDetails.commit.hasConflicts && " ⚠️"}
 							</h3>
-							<span className={classes("text-13", styles.commitMeta)}>
-								#{shortCommitId(commitDetails.commit.id)}
-							</span>
 						</header>
 					)}
 				</SuspenseQuery>
@@ -623,28 +616,28 @@ const CommitDetailsContent: FC<{
 
 			return (
 				<>
-					{body !== undefined && (
-						<p className={classes("text-monospace", "text-body", styles.commitMessageBody)}>
-							{body}
-						</p>
-					)}
-					<div className={styles.commitDetailsMeta}>
+					<div className={classes("text-13", styles.commitDetailsMeta)}>
 						<img
 							src={commitDetails.commit.author.gravatarUrl}
 							className={styles.avatar}
 							alt="Commit author avatar"
 						/>
-						<div className={classes("text-13", styles.author)}>
+						<span>
 							<span title={commitDetails.commit.author.email}>
 								{commitDetails.commit.author.name}
 							</span>{" "}
 							at {fmtDate}
-						</div>
-						<div className={classes("text-13", styles.commitMeta)}>
+						</span>
+						<span>
 							{shortCommitId(commitDetails.commit.changeId)} (
 							{shortCommitId(commitDetails.commit.id)})
-						</div>
+						</span>
 					</div>
+					{body !== undefined && (
+						<p className={classes("text-monospace", "text-body", styles.commitMessageBody)}>
+							{body}
+						</p>
+					)}
 				</>
 			);
 		}}

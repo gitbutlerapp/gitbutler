@@ -37,7 +37,7 @@
 	flex-direction: column;
 }
 
-.segmentParentItemRow {
+.segmentParentItemRow:last-child {
 	height: 8px;
 	min-height: auto;
 	overflow: hidden;
@@ -62,7 +62,10 @@
 
 	/* We can't just inherit the colour from the label because empty commit
 	messages use a different colour. */
-	color: var(--fill-gray-fg);
+	color: var(--text-1);
+	&:focus {
+		color: var(--fill-gray-fg);
+	}
 
 	textarea& {
 		resize: none;
@@ -234,8 +237,4 @@
 	justify-self: start;
 	margin-left: -15px;
 	margin-block-start: 5px;
-}
-
-.branchRowGraphSegment {
-	align-self: stretch;
 }

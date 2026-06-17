@@ -28,7 +28,7 @@
 }
 
 .loadingDiff {
-	padding-inline-start: var(--panel-padding);
+	padding-inline: var(--panel-padding);
 	padding-block-end: var(--panel-padding);
 }
 
@@ -78,17 +78,11 @@
 	background-color: lightgray;
 }
 
-.author,
-.commitMeta {
-	color: var(--text-3);
-}
-
 .heading {
 	margin-block-end: 14px;
 }
 
 .pr {
-	margin-block-end: 18px;
 	color: var(--text-2);
 }
 
@@ -168,4 +162,5 @@
 	flex-wrap: wrap;
 	align-items: center;
 	gap: 8px;
+	color: var(--text-3);
 }
