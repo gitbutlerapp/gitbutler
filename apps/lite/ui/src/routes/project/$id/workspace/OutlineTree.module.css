@@ -14,7 +14,7 @@
 	text-align: center;
 
 	&:not([data-disabled]):hover {
-		background-color: var(--bg-3);
+		color: color-mix(in srgb, var(--text-2) 50%, var(--text-1));
 	}
 
 	& > * {
