@@ -254,7 +254,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 
 "#]]);
 
-    env.but("rub fc:b.txt zz")
+    env.but("rub e8:b.txt zz")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -275,7 +275,7 @@ Uncommitted changes
     {
       "cliId": "pn",
       "filePath": "b.txt",
-      "changeType": "added"
+      "changeType": "modified"
     }
   ],
   "stacks": [
@@ -291,7 +291,7 @@ Uncommitted changes
 ...
               "changes": [
                 {
-                  "cliId": "fd:nk",
+                  "cliId": "ce:nk",
                   "filePath": "a.txt",
                   "changeType": "modified"
                 }
@@ -301,8 +301,13 @@ Uncommitted changes
 ...
               "changes": [
                 {
-                  "cliId": "99:nk",
+                  "cliId": "fc:nk",
                   "filePath": "a.txt",
+                  "changeType": "added"
+                },
+                {
+                  "cliId": "fc:pn",
+                  "filePath": "b.txt",
                   "changeType": "added"
                 }
               ]
