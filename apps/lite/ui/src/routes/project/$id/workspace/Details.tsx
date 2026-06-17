@@ -871,6 +871,11 @@ export const Details: FC<
 				</Suspense>
 
 				<div className={styles.actions}>
+					<FullscreenToggle
+						className={getButtonClassName({ iconOnly: true })}
+						fullscreen={detailsFullscreen}
+						onFullscreenChange={onDetailsFullscreenChange}
+					/>
 					<FilesToggle />
 					{canUseSplitDiff && (
 						<DiffStyleToggle
@@ -878,11 +883,6 @@ export const Details: FC<
 							onDiffStyleChange={setPreferredDiffStyle}
 						/>
 					)}
-					<FullscreenToggle
-						className={getButtonClassName({ iconOnly: true })}
-						fullscreen={detailsFullscreen}
-						onFullscreenChange={onDetailsFullscreenChange}
-					/>
 				</div>
 			</div>
 
