@@ -119,6 +119,7 @@ pub fn commit_uncommit_only_with_perm(
         anyhow::bail!("no commit IDs provided for uncommit");
     }
     let context_lines = ctx.settings.context_lines;
+    let project_meta = ctx.project_meta()?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let mut tx = db.transaction()?;
@@ -136,7 +137,7 @@ pub fn commit_uncommit_only_with_perm(
         None
     };
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &project_meta, &repo)?;
 
     let rebase = but_workspace::commit::discard_commits(editor, subject_commit_ids.iter().copied())
         .with_context(|| {
@@ -259,6 +260,7 @@ pub fn commit_uncommit_changes_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveChangesResult> {
     let context_lines = ctx.settings.context_lines;
+    let project_meta = ctx.project_meta()?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let mut tx = db.transaction()?;
@@ -276,7 +278,7 @@ pub fn commit_uncommit_changes_only_with_perm(
         None
     };
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &project_meta, &repo)?;
     let outcome =
         but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;
 

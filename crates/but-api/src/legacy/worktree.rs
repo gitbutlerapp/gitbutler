@@ -37,6 +37,7 @@ pub fn worktree_integration_status(
     target: gix::refs::FullName,
 ) -> Result<WorktreeIntegrationStatus> {
     let mut guard = ctx.exclusive_worktree_access();
+    let project_meta = ctx.project_meta()?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
 
@@ -44,6 +45,7 @@ pub fn worktree_integration_status(
         &repo,
         &mut ws,
         &mut meta,
+        &project_meta,
         &id,
         target.as_ref(),
     )
@@ -57,10 +59,18 @@ pub fn worktree_integrate(
     target: gix::refs::FullName,
 ) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
+    let project_meta = ctx.project_meta()?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
 
-    but_worktrees::integrate::worktree_integrate(&repo, &mut ws, &mut meta, &id, target.as_ref())
+    but_worktrees::integrate::worktree_integrate(
+        &repo,
+        &mut ws,
+        &mut meta,
+        &project_meta,
+        &id,
+        target.as_ref(),
+    )
 }
 
 #[but_api]

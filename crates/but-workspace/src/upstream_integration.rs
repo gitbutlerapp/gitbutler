@@ -133,7 +133,7 @@ struct Stack {
 pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
     workspace: &'ws mut but_graph::Workspace,
     meta: &'meta mut M,
-    project_meta: ProjectMeta,
+    project_meta: &'meta ProjectMeta,
     repo: &gix::Repository,
     updates: Vec<BottomUpdate>,
 ) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
@@ -159,7 +159,8 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
         extra_refs: vec![ExtraRef::immutable(target_ref.ref_name.as_ref())],
         ..GraphEditorOptions::default()
     };
-    let mut editor = Editor::create_with_opts(workspace, meta, repo, &editor_options)?;
+    let mut editor =
+        Editor::create_with_opts(workspace, meta, project_meta, repo, &editor_options)?;
 
     let updates_with_selectors = updates
         .iter()
@@ -377,7 +378,7 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
         }
     }
 
-    let mut project_meta = project_meta;
+    let mut project_meta = project_meta.clone();
     project_meta.target_commit_id = Some(target_ref_commit.detach());
     Ok(IntegrateUpstreamOutcome {
         ws_meta,

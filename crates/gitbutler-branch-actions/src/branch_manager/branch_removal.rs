@@ -43,9 +43,10 @@ impl BranchManager<'_> {
             && let Some(head) = stack.heads.last()
         {
             let full_ref_name = head.full_name()?;
+            let project_meta = self.ctx.project_meta()?;
             let mut meta = self.ctx.meta()?;
             let (repo, mut ws, _) = self.ctx.workspace_mut_and_db_with_perm(perm)?;
-            let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+            let editor = Editor::create(&mut ws, &mut meta, &project_meta, &repo)?;
             let outcome = but_workspace::commit::commit_create(
                 editor,
                 assigned_diffspec,

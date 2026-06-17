@@ -23,6 +23,7 @@ impl Handler {
                                 let mut ctx = c.ctx.clone().into_thread_local();
                                 let context_lines = ctx.settings.context_lines;
                                 let _res = (|| -> anyhow::Result<_> {
+                                    let project_meta = ctx.project_meta()?;
                                     let mut meta = ctx.meta()?;
                                     let (_guard, repo, mut ws, _db) =
                                         ctx.workspace_mut_and_db_mut()?;
@@ -32,6 +33,7 @@ impl Handler {
                                         &repo,
                                         &mut ws,
                                         &mut meta,
+                                        &project_meta,
                                         context_lines,
                                     )
                                 })();

@@ -29,7 +29,8 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta1 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta1, &repo)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
     let b_selector = editor
@@ -91,7 +92,8 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta2 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta2, &repo)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
     let b_selector = editor
@@ -159,7 +161,8 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta3 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta3, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -240,7 +243,8 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta4 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta4, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let merge_selector = editor
@@ -360,7 +364,8 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta5 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta5, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -487,7 +492,8 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta6 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta6, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -621,7 +627,8 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta7 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta7, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -699,7 +706,8 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta8 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta8, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;
@@ -777,7 +785,8 @@ fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta9 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta9, &repo)?;
 
     let merge = repo.rev_parse_single("M")?.detach();
     let m_reference = "refs/heads/M".try_into()?;

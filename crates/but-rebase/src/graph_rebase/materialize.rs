@@ -70,6 +70,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             history: self.history,
             workspace: self.workspace,
             meta: self.meta,
+            project_meta: self.project_meta,
         })
     }
 
@@ -105,6 +106,7 @@ impl<'ws, 'graph, M: RefMetadata> SuccessfulRebase<'ws, 'graph, M> {
             history: self.history,
             workspace: self.workspace,
             meta: self.meta,
+            project_meta: self.project_meta,
         })
     }
 }

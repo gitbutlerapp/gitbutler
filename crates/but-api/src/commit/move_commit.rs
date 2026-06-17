@@ -58,9 +58,10 @@ pub fn commit_move_only_with_perm(
         bail!("No commits were provided to move")
     }
 
+    let project_meta = ctx.project_meta()?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &project_meta, &repo)?;
 
     let ordered_selectors = editor.order_commit_selectors_by_parentage(subject_commit_ids)?;
     let mut ordered_ids = ordered_selectors

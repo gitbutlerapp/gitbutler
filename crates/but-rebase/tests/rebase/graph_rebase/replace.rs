@@ -32,7 +32,8 @@ fn reword_a_commit() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta1 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta1, &repo)?;
 
     // get the original a
     let a = repo.rev_parse_single("A")?.detach();
@@ -123,7 +124,8 @@ fn amend_a_commit() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta2 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta2, &repo)?;
 
     // get the original a
     let a = repo.rev_parse_single("A")?;

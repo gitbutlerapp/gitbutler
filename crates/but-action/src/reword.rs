@@ -1,6 +1,6 @@
 use anyhow::bail;
 use bstr::ByteSlice as _;
-use but_core::RefMetadata;
+use but_core::{RefMetadata, ref_metadata::ProjectMeta};
 use but_ctx::ThreadSafeContext;
 use but_rebase::graph_rebase::{Editor, LookupStep as _};
 use uuid::Uuid;
@@ -30,6 +30,7 @@ pub fn commit(
     repo: &gix::Repository,
     ws: &mut but_graph::Workspace,
     meta: &mut impl RefMetadata,
+    project_meta: &ProjectMeta,
     context_lines: u32,
 ) -> anyhow::Result<Option<(gix::ObjectId, String)>> {
     let changes =
@@ -60,7 +61,7 @@ pub fn commit(
             bail!("commit message can not be empty");
         }
 
-        let editor = Editor::create(ws, meta, repo)?;
+        let editor = Editor::create(ws, meta, project_meta, repo)?;
         let (rebase, edited_commit_selector) =
             but_workspace::commit::reword(editor, event.commit_id, message.as_bytes().as_bstr())?;
         let new_commit_id = rebase.lookup_pick(edited_commit_selector)?;

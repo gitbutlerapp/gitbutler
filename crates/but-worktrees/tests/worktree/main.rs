@@ -62,8 +62,9 @@ mod util {
         target: &gix::refs::FullNameRef,
     ) -> anyhow::Result<WorktreeIntegrationStatus> {
         let mut meta = ctx.meta()?;
+        let project_meta = ctx.project_meta()?;
         let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-        worktree_integration_status(&repo, &mut ws, &mut meta, id, target)
+        worktree_integration_status(&repo, &mut ws, &mut meta, &project_meta, id, target)
     }
 
     /// Derive the narrow inputs the integration functions need from `ctx`.
@@ -74,8 +75,9 @@ mod util {
         target: &gix::refs::FullNameRef,
     ) -> anyhow::Result<()> {
         let mut meta = ctx.meta()?;
+        let project_meta = ctx.project_meta()?;
         let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-        worktree_integrate(&repo, &mut ws, &mut meta, id, target)
+        worktree_integrate(&repo, &mut ws, &mut meta, &project_meta, id, target)
     }
 }
 

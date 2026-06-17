@@ -28,7 +28,8 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta1 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta1, &repo)?;
 
     // Modify the "c" commit to no longer be signed
     let c = repo.rev_parse_single("c")?;
@@ -78,7 +79,8 @@ fn commits_are_signed_by_default() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta2 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta2, &repo)?;
 
     // Remove the "b" commit so "c" gets cherry-picked
     let b = repo.rev_parse_single("b")?;
@@ -152,7 +154,8 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta3 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta3, &repo)?;
 
     // Modify the "c" commit to no longer be signed
     let c = repo.rev_parse_single("c")?;
@@ -222,9 +225,11 @@ fn force_picked_commit_with_sign_yes_is_signed_when_otherwise_unchanged() -> Res
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
+    let editor_project_meta4 = but_core::ref_metadata::ProjectMeta::default();
     let mut editor = Editor::create_with_opts(
         &mut ws,
         &mut *meta,
+        &editor_project_meta4,
         &repo,
         &GraphEditorOptions {
             default_sign_commit: SignCommit::No,
@@ -296,9 +301,11 @@ fn force_picked_ancestor_does_not_sign_descendants_picked_with_sign_commit_no() 
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
+    let editor_project_meta5 = but_core::ref_metadata::ProjectMeta::default();
     let mut editor = Editor::create_with_opts(
         &mut ws,
         &mut *meta,
+        &editor_project_meta5,
         &repo,
         &GraphEditorOptions {
             default_sign_commit: SignCommit::No,
@@ -389,9 +396,11 @@ fn force_picked_ancestor_triggers_cascading_signatures_on_descendants_picked_wit
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
+    let editor_project_meta6 = but_core::ref_metadata::ProjectMeta::default();
     let mut editor = Editor::create_with_opts(
         &mut ws,
         &mut *meta,
+        &editor_project_meta6,
         &repo,
         &GraphEditorOptions {
             default_sign_commit: SignCommit::Yes,
@@ -480,9 +489,11 @@ fn commit_picked_with_sign_if_enabled_is_not_signed_when_signing_config_is_disab
     .validated()?;
     let mut ws = graph.into_workspace()?;
 
+    let editor_project_meta7 = but_core::ref_metadata::ProjectMeta::default();
     let mut editor = Editor::create_with_opts(
         &mut ws,
         &mut *meta,
+        &editor_project_meta7,
         &repo,
         &GraphEditorOptions {
             default_sign_commit: SignCommit::IfSignCommitsEnabled,
@@ -554,9 +565,11 @@ fn parentless_commit_force_picked_with_sign_yes_is_signed() -> Result<()> {
     .validated()?;
     let mut ws = graph.into_workspace()?;
 
+    let editor_project_meta8 = but_core::ref_metadata::ProjectMeta::default();
     let mut editor = Editor::create_with_opts(
         &mut ws,
         &mut *meta,
+        &editor_project_meta8,
         &repo,
         &GraphEditorOptions {
             default_sign_commit: SignCommit::IfSignCommitsEnabled,

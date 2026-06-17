@@ -109,11 +109,12 @@ where
 
     let (should_rollback, outcome) = {
         let context_lines = ctx.settings.context_lines;
+        let project_meta = ctx.project_meta()?;
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
         let db_tx = db.transaction()?;
 
-        let editor = Editor::create(&mut ws, meta, &repo)?;
+        let editor = Editor::create(&mut ws, meta, &project_meta, &repo)?;
         let rebase = editor.rebase()?;
 
         let mut inner = Inner {

@@ -37,9 +37,10 @@ pub fn commit_discard_only_with_perm(
     dry_run: DryRun,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<CommitDiscardResult> {
+    let project_meta = ctx.project_meta()?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &project_meta, &repo)?;
 
     let rebase = but_workspace::commit::discard_commits(editor, [subject_commit_id])?;
 
@@ -140,9 +141,10 @@ pub fn commit_discard_changes_only_with_perm(
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<MoveChangesResult> {
     let context_lines = ctx.settings.context_lines;
+    let project_meta = ctx.project_meta()?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &project_meta, &repo)?;
 
     let outcome =
         but_workspace::commit::uncommit_changes(editor, commit_id, changes, context_lines)?;

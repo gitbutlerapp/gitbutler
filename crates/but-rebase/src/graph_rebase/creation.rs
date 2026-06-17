@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::{Result, bail};
-use but_core::{RefMetadata, commit::SignCommit};
+use but_core::{RefMetadata, commit::SignCommit, ref_metadata::ProjectMeta};
 use but_graph::{Commit, SegmentIndex};
 use petgraph::{Direction, visit::EdgeRef as _};
 
@@ -38,15 +38,23 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
     pub fn create(
         workspace: &'ws mut but_graph::Workspace,
         meta: &'meta mut M,
+        project_meta: &'meta ProjectMeta,
         repo: &gix::Repository,
     ) -> Result<Self> {
-        Self::create_with_opts(workspace, meta, repo, &GraphEditorOptions::default())
+        Self::create_with_opts(
+            workspace,
+            meta,
+            project_meta,
+            repo,
+            &GraphEditorOptions::default(),
+        )
     }
 
     /// Creates an editor out of the workspace graph with the specified options.
     pub fn create_with_opts(
         workspace: &'ws mut but_graph::Workspace,
         meta: &'meta mut M,
+        project_meta: &'meta ProjectMeta,
         repo: &gix::Repository,
         options: &GraphEditorOptions,
     ) -> Result<Self> {
@@ -345,6 +353,7 @@ impl<'ws, 'meta, M: RefMetadata> Editor<'ws, 'meta, M> {
             immutable_references,
             workspace,
             meta,
+            project_meta,
         })
     }
 }
@@ -365,6 +374,7 @@ impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
             immutable_references: self.immutable_references,
             workspace: self.workspace,
             meta: self.meta,
+            project_meta: self.project_meta,
         }
     }
 }

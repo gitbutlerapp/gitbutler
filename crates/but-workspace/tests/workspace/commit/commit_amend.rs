@@ -49,7 +49,8 @@ fn amend_commit_smoke_test() -> Result<()> {
     )?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
     let outcome = commit_amend(editor, two_id, worktree_changes_as_specs(&repo)?, 0)?;
 
     assert!(outcome.rejected_specs.is_empty());
@@ -100,7 +101,8 @@ fn amend_into_earlier_commit_leaves_no_uncommitted_changes() -> Result<()> {
 
     let context_lines = 0;
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     let outcome = commit_amend(
         editor,
         save_1_id,
@@ -176,7 +178,8 @@ fn amend_with_two_stacks_preserves_uncommitted_deletions() -> Result<()> {
     let a_commit_id = repo.rev_parse_single("A")?.detach();
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     let outcome = commit_amend(editor, a_commit_id, a_file_specs, 0)?;
 
     assert!(outcome.rejected_specs.is_empty());

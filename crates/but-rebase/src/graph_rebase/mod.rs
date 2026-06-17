@@ -9,6 +9,7 @@ pub mod rebase;
 use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context, Result, bail};
+use but_core::ref_metadata::ProjectMeta;
 use but_core::{RefMetadata, commit::SignCommit};
 use but_graph::init::Overlay;
 pub use creation::GraphEditorOptions;
@@ -283,6 +284,8 @@ pub struct Editor<'ws, 'meta, M: RefMetadata> {
     workspace: &'ws mut but_graph::Workspace,
     /// A reference to the metadata that the editor was created for.
     meta: &'meta mut M,
+    /// A reference to the project meta that the editor was created for.
+    project_meta: &'meta ProjectMeta,
 }
 
 /// Represents a successful rebase, and any valid, but potentially conflicting scenarios it had.
@@ -303,6 +306,8 @@ pub struct SuccessfulRebase<'ws, 'meta, M: RefMetadata> {
     workspace: &'ws mut but_graph::Workspace,
     /// A reference to the metadata that the editor was created for.
     meta: &'meta mut M,
+    /// A reference to the project meta that the editor was created for.
+    project_meta: &'meta ProjectMeta,
 }
 
 impl<'ws, 'meta, M: RefMetadata> SuccessfulRebase<'ws, 'meta, M> {
@@ -385,6 +390,8 @@ pub struct MaterializeOutcome<'ws, 'meta, M: RefMetadata> {
     pub workspace: &'ws mut but_graph::Workspace,
     /// A reference to the metadata that the editor was created for.
     pub meta: &'meta mut M,
+    /// A reference to the project meta that the editor was created for.
+    pub project_meta: &'meta ProjectMeta,
 }
 
 /// Provides lookup for different steps that a selector might point to.

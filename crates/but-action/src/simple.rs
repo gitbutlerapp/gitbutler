@@ -1,7 +1,11 @@
 use std::collections::HashMap;
 
 use anyhow::{Context as _, anyhow};
-use but_core::{DiffSpec, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
+use but_core::{
+    DiffSpec, RefMetadata,
+    ref_metadata::{ProjectMeta, StackId},
+    sync::RepoExclusive,
+};
 use but_db::DbHandle;
 use but_rebase::graph_rebase::{
     Editor, LookupStep as _,
@@ -42,6 +46,7 @@ pub(crate) fn handle_changes(
     ws: &mut but_graph::Workspace,
     db: &mut DbHandle,
     meta: &mut impl RefMetadata,
+    project_meta: &ProjectMeta,
     context_lines: u32,
 ) -> anyhow::Result<Outcome> {
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
@@ -114,7 +119,7 @@ pub(crate) fn handle_changes(
         let full_ref_name: gix::refs::FullName =
             format!("refs/heads/{stack_branch_name}").try_into()?;
 
-        let editor = Editor::create(ws, meta, repo)?;
+        let editor = Editor::create(ws, meta, project_meta, repo)?;
         let outcome = but_workspace::commit::commit_create(
             editor,
             diff_specs,

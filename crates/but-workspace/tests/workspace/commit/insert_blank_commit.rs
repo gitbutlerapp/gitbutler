@@ -22,7 +22,8 @@ fn insert_below_commit() -> Result<()> {
     let id = repo.rev_parse_single("two")?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
     insert_blank_commit(
         editor,
         InsertSide::Below,
@@ -59,7 +60,8 @@ fn insert_above_commit() -> Result<()> {
     let id = repo.rev_parse_single("two")?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
     insert_blank_commit(
         editor,
         InsertSide::Above,
@@ -94,7 +96,8 @@ fn insert_below_reference() -> Result<()> {
     let reference = repo.find_reference("two")?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
     insert_blank_commit(
         editor,
         InsertSide::Below,
@@ -129,7 +132,8 @@ fn insert_above_reference() -> Result<()> {
     let reference = repo.find_reference("two")?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
     insert_blank_commit(
         editor,
         InsertSide::Above,

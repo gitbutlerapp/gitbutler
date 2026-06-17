@@ -45,7 +45,8 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
     let graph =
         Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta1 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta1, &repo)?;
 
     // Drop the 'c' commit (HEAD)
     let c = repo.rev_parse_single("HEAD")?;
@@ -106,7 +107,8 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
     let graph =
         Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta2 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta2, &repo)?;
 
     // Drop the 'c' commit (HEAD)
     let c = repo.rev_parse_single("HEAD")?;
@@ -154,7 +156,8 @@ fn both_methods_update_references_identically() -> Result<()> {
         let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
             .validated()?;
         let mut ws = graph.into_workspace()?;
-        let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let editor_project_meta3 = but_core::ref_metadata::ProjectMeta::default();
+        let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta3, &repo)?;
 
         let c = repo.rev_parse_single("HEAD")?;
         let c_sel = editor.select_commit(c.detach())?;
@@ -178,7 +181,8 @@ fn both_methods_update_references_identically() -> Result<()> {
         let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
             .validated()?;
         let mut ws = graph.into_workspace()?;
-        let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let editor_project_meta4 = but_core::ref_metadata::ProjectMeta::default();
+        let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta4, &repo)?;
 
         let c = repo.rev_parse_single("HEAD")?;
         let c_sel = editor.select_commit(c.detach())?;
@@ -239,9 +243,11 @@ fn materialize_keeps_immutable_extra_refs_unchanged_while_updating_local_refs() 
     let graph =
         Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
+    let editor_project_meta5 = but_core::ref_metadata::ProjectMeta::default();
     let mut editor = Editor::create_with_opts(
         &mut ws,
         &mut *meta,
+        &editor_project_meta5,
         &repo,
         &GraphEditorOptions {
             extra_refs: vec![ExtraRef::immutable(main_ref.as_ref())],
@@ -285,9 +291,11 @@ fn materialize_does_not_delete_immutable_extra_refs_removed_from_graph() -> Resu
     let graph =
         Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
+    let editor_project_meta6 = but_core::ref_metadata::ProjectMeta::default();
     let mut editor = Editor::create_with_opts(
         &mut ws,
         &mut *meta,
+        &editor_project_meta6,
         &repo,
         &GraphEditorOptions {
             extra_refs: vec![ExtraRef::immutable(main_ref.as_ref())],

@@ -55,9 +55,10 @@ fn amend_diff_specs(
     oid: ObjectId,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<Option<ObjectId>> {
+    let project_meta = ctx.project_meta()?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &project_meta, &repo)?;
     let outcome = but_workspace::commit::commit_amend(
         editor,
         oid,

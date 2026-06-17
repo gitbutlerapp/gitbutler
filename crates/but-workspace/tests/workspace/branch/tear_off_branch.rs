@@ -39,7 +39,8 @@ fn tear_off_top_most_branch() -> anyhow::Result<()> {
             └── ·c813d8d (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     // Tear off C from the stack.
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::tear_off_branch(
@@ -114,7 +115,8 @@ fn tear_off_bottom_most_branch() -> anyhow::Result<()> {
             └── ·c813d8d (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     // Tear off B from the stack.
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::tear_off_branch(
@@ -189,7 +191,8 @@ fn tear_off_only_branch_in_stack() -> anyhow::Result<()> {
             └── ·c813d8d (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     // Tear off A from the stack. Should be a no-op.
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::tear_off_branch(
@@ -253,7 +256,8 @@ fn tear_off_from_single_stack_in_ws_top() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     // Tear off B from the stack.
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::tear_off_branch(
@@ -314,7 +318,8 @@ fn tear_off_from_single_stack_in_ws_bottom() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     // Tear off A from the stack.
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::tear_off_branch(
@@ -375,7 +380,8 @@ fn tear_off_empty_branch() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     // Tear off B from the stack.
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::tear_off_branch(
@@ -434,7 +440,8 @@ fn tear_off_non_empty_branch() -> anyhow::Result<()> {
             └── ·09d8e52 (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     // Tear off A from the stack.
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::tear_off_branch(

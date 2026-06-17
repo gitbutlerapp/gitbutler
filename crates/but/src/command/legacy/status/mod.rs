@@ -349,6 +349,7 @@ fn build_status_context<'a>(
         resolved_target,
     ) = {
         let context_lines = ctx.settings.context_lines;
+        let project_meta = ctx.project_meta()?;
         let mut meta = ctx.meta()?;
         {
             let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
@@ -359,6 +360,7 @@ fn build_status_context<'a>(
                     &mut ws,
                     &mut db,
                     &mut meta,
+                    &project_meta,
                     perm,
                     context_lines,
                 )

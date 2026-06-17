@@ -31,7 +31,8 @@ fn insert_below_merge_commit() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta1 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta1, &repo)?;
 
     let merge_id = repo.rev_parse_single("HEAD~")?;
 
@@ -115,7 +116,8 @@ fn insert_below_merge_commit_excluded_mappings() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta2 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta2, &repo)?;
 
     let merge_id = repo.rev_parse_single("HEAD~")?;
 
@@ -202,7 +204,8 @@ fn insert_above_commit_with_two_children() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta3 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta3, &repo)?;
 
     let base_id = repo.rev_parse_single("base")?;
 

@@ -97,6 +97,7 @@ impl Handler {
         perm: &mut RepoExclusive,
     ) -> Result<()> {
         let context_lines = ctx.settings.context_lines;
+        let project_meta = ctx.project_meta()?;
         let mut meta = ctx.meta()?;
         let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
         let rules = but_rules::list_rules(&db)?;
@@ -134,6 +135,7 @@ impl Handler {
             &mut ws,
             &mut db,
             &mut meta,
+            &project_meta,
             perm,
             context_lines,
         ) && update_count > 0

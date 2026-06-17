@@ -33,7 +33,8 @@ fn four_commits() -> Result<()> {
         Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta1 = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta1, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/main
@@ -65,7 +66,8 @@ fn merge_in_the_middle() -> Result<()> {
         Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta2 = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta2, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/with-inner-merge
@@ -108,7 +110,8 @@ fn three_branches_merged() -> Result<()> {
         Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta3 = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta3, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/main
@@ -156,7 +159,8 @@ fn many_references() -> Result<()> {
     ");
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta4 = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta4, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/main
@@ -210,7 +214,8 @@ fn first_parent_leg_long() -> Result<()> {
     ");
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta5 = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta5, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/with-inner-merge
@@ -270,7 +275,8 @@ fn second_parent_leg_long() -> Result<()> {
     ");
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta6 = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta6, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/with-inner-merge
@@ -336,7 +342,8 @@ fn workspace_with_empty_stack() -> Result<()> {
     ");
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta7 = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta7, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/gitbutler/workspace
@@ -392,7 +399,8 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
     ");
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta8 = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta8, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/gitbutler/workspace
@@ -436,7 +444,8 @@ fn commit_with_two_parents() -> Result<()> {
     ");
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta9 = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta9, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/main
@@ -461,7 +470,8 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
         let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
             .validated()?;
         let mut ws = graph.into_workspace()?;
-        let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+        let editor_project_meta10 = but_core::ref_metadata::ProjectMeta::default();
+        let editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta10, &repo)?;
 
         insta::assert_snapshot!(editor.steps_ascii(), @"
         ◎ refs/heads/gitbutler/workspace
@@ -483,9 +493,11 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
         let graph = Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?
             .validated()?;
         let mut ws = graph.into_workspace()?;
+        let editor_project_meta11 = but_core::ref_metadata::ProjectMeta::default();
         let editor = Editor::create_with_opts(
             &mut ws,
             &mut *meta,
+            &editor_project_meta11,
             &repo,
             &GraphEditorOptions {
                 extra_refs: vec![ExtraRef::mutable(main_ref.as_ref())],
@@ -555,7 +567,8 @@ fn merge_first_parent_older_than_second() -> Result<()> {
     ");
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta12 = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta12, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @r"
     ◎ refs/heads/first-parent
@@ -645,7 +658,9 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
         ],
         ..Default::default()
     };
-    let editor = Editor::create_with_opts(&mut ws, &mut *meta, &repo, &opts)?;
+    let editor_project_meta13 = but_core::ref_metadata::ProjectMeta::default();
+    let editor =
+        Editor::create_with_opts(&mut ws, &mut *meta, &editor_project_meta13, &repo, &opts)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/explicit-const (immutable)

@@ -29,7 +29,8 @@ fn four_commits() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.clone().into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta1 = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta1, &repo)?;
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     insta::assert_snapshot!(overlayed, @"
@@ -81,7 +82,8 @@ fn four_commits_with_short_traversal() -> Result<()> {
             └── ·35b8235
     ");
 
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta2 = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta2, &repo)?;
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     insta::assert_snapshot!(overlayed, @"
@@ -125,7 +127,8 @@ fn merge_in_the_middle() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.clone().into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta3 = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta3, &repo)?;
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     insta::assert_snapshot!(overlayed, @"
@@ -179,7 +182,8 @@ fn three_branches_merged() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.clone().into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta4 = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta4, &repo)?;
     let outcome = editor.rebase()?;
     let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
     insta::assert_snapshot!(overlayed, @"

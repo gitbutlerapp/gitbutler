@@ -20,7 +20,8 @@ fn adding_a_step_returns_a_selector_that_can_be_connected_into_the_graph() -> Re
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta1 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta1, &repo)?;
 
     let c = repo.rev_parse_single("HEAD")?.detach();
     let a = repo.rev_parse_single("HEAD~2")?.detach();
@@ -67,7 +68,8 @@ fn adding_an_existing_edge_causes_an_error() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta2 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta2, &repo)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
     let a = repo.rev_parse_single("HEAD~2")?.detach();
@@ -99,7 +101,8 @@ fn adding_an_edge_that_introduces_a_cycle_causes_an_error() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta3 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta3, &repo)?;
 
     let c = repo.rev_parse_single("HEAD")?.detach();
     let a = repo.rev_parse_single("HEAD~2")?.detach();
@@ -127,7 +130,8 @@ fn adding_a_valid_edge_is_successful() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta4 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta4, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let b = repo.rev_parse_single("B")?.detach();
@@ -169,7 +173,8 @@ fn remove_edge_returns_no_orders_when_no_edges_found() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta5 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta5, &repo)?;
 
     let c = repo.rev_parse_single("HEAD")?.detach();
     let a = repo.rev_parse_single("HEAD~2")?.detach();
@@ -193,7 +198,8 @@ fn removing_an_existing_edge_returns_its_order_and_allows_readding_it() -> Resul
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta6 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta6, &repo)?;
 
     let b = repo.rev_parse_single("HEAD~")?.detach();
     let a = repo.rev_parse_single("HEAD~2")?.detach();

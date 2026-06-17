@@ -196,7 +196,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
             rebase,
             ws_meta,
             project_meta,
-        } = but_workspace::integrate_upstream(&mut ws, &mut meta, project_meta, &repo, updates)?;
+        } = but_workspace::integrate_upstream(&mut ws, &mut meta, &project_meta, &repo, updates)?;
         let worktree_conflicts = but_workspace::worktree_conflicts_for_rebase(&rebase)?;
 
         if dry_run.into() {

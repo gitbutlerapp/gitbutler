@@ -34,7 +34,8 @@ fn inserting_a_step_rewrites_sha256_commits() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta1 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta1, &repo)?;
 
     let merge_id = editor.repo().rev_parse_single("HEAD~")?.detach();
     let (selector, mut merge_obj) = editor.find_selectable_commit(merge_id)?;
@@ -108,7 +109,8 @@ fn replacing_a_step_rewrites_sha256_descendants() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta2 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta2, &repo)?;
 
     let a = editor.repo().rev_parse_single("A")?.detach();
     let (a_selector, mut a_obj) = editor
@@ -180,7 +182,8 @@ fn changing_edges_rewrites_sha256_parentage() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta3 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta3, &repo)?;
 
     let inner_merge = editor.repo().rev_parse_single("HEAD~")?.detach();
     let a = editor.repo().rev_parse_single("A")?.detach();

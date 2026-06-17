@@ -917,6 +917,7 @@ pub fn get_initial_branch_integration(
     branch: &gix::refs::FullNameRef,
     strategy: Option<json::BranchIntegrationStrategy>,
 ) -> anyhow::Result<InitialBranchIntegration> {
+    let project_meta = ctx.project_meta()?;
     let mut meta = ctx.meta()?;
     let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
     let mut ws = ws.clone();
@@ -924,7 +925,12 @@ pub fn get_initial_branch_integration(
         .map(BranchIntegrationStrategy::from)
         .unwrap_or_default();
     but_workspace::branch::integrate_branch_upstream::get_initial_integration_steps_for_branch(
-        branch, strategy, &mut ws, &mut meta, &repo,
+        branch,
+        strategy,
+        &mut ws,
+        &mut meta,
+        &project_meta,
+        &repo,
     )
 }
 
@@ -967,6 +973,7 @@ pub fn apply_branch_integration_with_perm(
         OperationKind::GenericBranchUpdate,
         dry_run,
         |ctx, perm| {
+            let project_meta = ctx.project_meta()?;
             let mut meta = ctx.meta()?;
             let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
             let rebase = but_workspace::branch::integrate_branch_with_steps(
@@ -974,6 +981,7 @@ pub fn apply_branch_integration_with_perm(
                 integration,
                 &mut ws,
                 &mut meta,
+                &project_meta,
                 &repo,
             )?;
 
@@ -1031,9 +1039,10 @@ pub fn move_branch_with_perm(
         OperationKind::MoveBranch,
         dry_run,
         |ctx, perm| {
+            let project_meta = ctx.project_meta()?;
             let mut meta = ctx.meta()?;
             let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-            let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+            let editor = Editor::create(&mut ws, &mut meta, &project_meta, &repo)?;
             let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
                 but_workspace::branch::move_branch(editor, subject_branch, target_branch)?;
 
@@ -1083,9 +1092,10 @@ pub fn tear_off_branch_with_perm(
         OperationKind::TearOffBranch,
         dry_run,
         |ctx, perm| {
+            let project_meta = ctx.project_meta()?;
             let mut meta = ctx.meta()?;
             let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-            let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+            let editor = Editor::create(&mut ws, &mut meta, &project_meta, &repo)?;
             let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
                 but_workspace::branch::tear_off_branch(editor, subject_branch, None)?;
 

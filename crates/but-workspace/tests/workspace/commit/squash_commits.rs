@@ -25,7 +25,8 @@ fn squash_top_commit_into_parent() -> Result<()> {
     let subject_tree = repo.find_commit(subject_id)?.tree_id()?.detach();
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -84,7 +85,8 @@ fn squash_top_commit_into_parent_keeping_target_message() -> Result<()> {
     let target_id = repo.rev_parse_single("two")?.detach();
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -120,7 +122,8 @@ fn squash_top_commit_into_parent_keeping_subject_message() -> Result<()> {
     let target_id = repo.rev_parse_single("two")?.detach();
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -158,7 +161,8 @@ fn squash_reorders_when_subject_is_not_on_top() -> Result<()> {
     let target_tree = repo.find_commit(target_id)?.tree_id()?.detach();
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -200,7 +204,8 @@ fn squash_deduplicates_duplicate_subjects() -> Result<()> {
     let target_id = repo.rev_parse_single("two")?.detach();
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id, subject_id],
@@ -235,7 +240,8 @@ fn squash_same_commit_is_rejected() -> Result<()> {
     let commit_id = repo.rev_parse_single("two")?.detach();
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
 
     let err = squash_commits(
         editor,
@@ -268,7 +274,8 @@ fn squash_rejects_target_in_subject_commit_ids() -> Result<()> {
     let target_id = repo.rev_parse_single("two")?.detach();
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
 
     let err = squash_commits(
         editor,
@@ -301,7 +308,8 @@ fn squash_down_keeps_topmost_tree_for_shared_file_lineage() -> Result<()> {
     let target_id = repo.rev_parse_single("two")?.detach();
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -339,7 +347,8 @@ fn squash_move_subject_below_target_for_shared_file_lineage() -> Result<()> {
     let target_id = repo.rev_parse_single("three")?.detach();
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -383,7 +392,8 @@ fn squash_move_subject_above_target_out_of_order_for_shared_file_lineage() -> Re
     let target_id = repo.rev_parse_single("one")?.detach();
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
     let err = squash_commits(
         editor,
         vec![subject_id],
@@ -437,7 +447,8 @@ fn squash_across_stacks_subject_into_target() -> Result<()> {
     let target_id = repo.rev_parse_single("B")?.detach();
     let subject_tree = repo.find_commit(subject_id)?.tree_id()?.detach();
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -505,7 +516,8 @@ fn squash_across_stacks_target_into_subject() -> Result<()> {
     let target_id = repo.rev_parse_single("A")?.detach();
     let subject_tree = repo.find_commit(subject_id)?.tree_id()?.detach();
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -562,7 +574,8 @@ fn squash_cross_stack_commit_does_not_pull_in_ancestor_tree_state() -> Result<()
     let subject_id = repo.rev_parse_single("C")?.detach();
     let target_id = repo.rev_parse_single("A")?.detach();
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![subject_id],
@@ -631,7 +644,8 @@ fn squash_cross_stack_commit_with_deeper_stacks_does_not_pull_in_ancestor_tree_s
     let e_id = repo.rev_parse_single("E")?.detach();
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![e_id],
@@ -805,7 +819,8 @@ fn squash_all_c_commits_into_second_commit_of_b_keeps_new_file_content() -> Resu
     let target_id = repo.rev_parse_single("B~1")?.detach();
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     let outcome = squash_commits(
         editor,
         vec![c_top, c_second, c_third],

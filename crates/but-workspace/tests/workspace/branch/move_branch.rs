@@ -42,7 +42,8 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
             └── ·c813d8d (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     // Put C on top of A
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
@@ -95,7 +96,8 @@ fn moving_branch_onto_itself_fails_without_changing_workspace() -> anyhow::Resul
 
     let mut ws = graph.into_workspace()?;
     let before = graph_workspace(&ws).to_string();
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
 
     let err = but_workspace::branch::move_branch(
         editor,
@@ -150,7 +152,8 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
             └── ·c813d8d (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
@@ -222,7 +225,8 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
             └── ·c813d8d (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     // Put A on top of C
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
@@ -292,7 +296,8 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
             └── ·c813d8d (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     // Put B on top of C
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
@@ -365,7 +370,8 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
             └── ·c813d8d (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     // Put A on top of B, and below C
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
@@ -427,7 +433,8 @@ fn move_empty_branch() -> anyhow::Result<()> {
         └── 📙:4:B
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     // Put B on top of A
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
@@ -483,7 +490,8 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
         └── 📙:4:B
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     // Put A on top of B
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
@@ -548,7 +556,8 @@ fn move_empty_branch_on_top_of_empty_branch_in_same_stack() -> anyhow::Result<()
         └── 📙:5:A
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
@@ -607,7 +616,8 @@ fn move_empty_branch_on_top_of_empty_branch_across_stacks() -> anyhow::Result<()
         └── 📙:5:B
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
@@ -672,7 +682,8 @@ fn non_empty_move_updates_metadata_and_keeps_display_order_aligned() -> anyhow::
 
     // Move non-empty C on top of non-empty A.
     // This rewrites metadata and keeps display + metadata aligned.
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
@@ -762,7 +773,8 @@ fn empty_move_keeps_display_order_aligned_with_metadata() -> anyhow::Result<()> 
 
     // Move empty B on top of non-empty A.
     // This path rewrites metadata and keeps display + metadata aligned.
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(
             editor,
@@ -837,7 +849,8 @@ fn move_branch_when_base_segment_has_no_ref_name() -> anyhow::Result<()> {
             └── ·c813d8d (🏘️)
     ");
 
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut meta, &editor_project_meta, &repo)?;
     // Move B on top of A — the base segment at the old fork point has no ref name.
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
         but_workspace::branch::move_branch(

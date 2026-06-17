@@ -343,16 +343,17 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     let workspace_commit = repo
         .find_reference(WORKSPACE_BRANCH_REF)?
         .peel_to_commit()?;
+    let project_meta = ctx.project_meta()?;
     let mut meta = ctx.meta()?;
     let mut workspace = but_graph::Graph::from_commit_traversal(
         workspace_commit.id(),
         Some(gix::refs::FullName::try_from(WORKSPACE_BRANCH_REF)?),
         &meta,
-        ctx.project_meta()?,
+        project_meta.clone(),
         but_graph::init::Options::limited(),
     )?
     .into_workspace()?;
-    let mut editor = Editor::create(&mut workspace, &mut meta, repo)?;
+    let mut editor = Editor::create(&mut workspace, &mut meta, &project_meta, repo)?;
     let (target_selector, _commit) =
         editor.find_selectable_commit(edit_mode_metadata.commit_oid)?;
 

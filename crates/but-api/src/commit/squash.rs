@@ -54,9 +54,10 @@ pub fn commit_squash_only_with_perm(
         anyhow::bail!("No commits were provided to squash")
     }
 
+    let project_meta = ctx.project_meta()?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &project_meta, &repo)?;
     let SquashCommitsOutcome {
         rebase,
         commit_selector,

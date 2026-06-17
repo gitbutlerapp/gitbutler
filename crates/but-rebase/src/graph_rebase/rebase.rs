@@ -234,6 +234,7 @@ impl<'ws, 'graph, M: RefMetadata> Editor<'ws, 'graph, M> {
             immutable_references: self.immutable_references,
             workspace: self.workspace,
             meta: self.meta,
+            project_meta: self.project_meta,
         })
     }
 }

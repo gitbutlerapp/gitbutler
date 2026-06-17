@@ -368,7 +368,13 @@ pub fn create_commit(
         format!("refs/heads/{stack_branch_name}").try_into()?;
     let outcome = {
         let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
-        let editor = but_rebase::graph_rebase::Editor::create(&mut ws, &mut meta, &repo)?;
+        let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+        let editor = but_rebase::graph_rebase::Editor::create(
+            &mut ws,
+            &mut meta,
+            &editor_project_meta,
+            &repo,
+        )?;
         but_workspace::commit::commit_create(
             editor,
             file_changes,

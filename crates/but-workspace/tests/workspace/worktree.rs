@@ -29,7 +29,7 @@ fn conflict_preview_reports_dirty_worktree_paths() -> Result<()> {
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
-        project_meta,
+        &project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -66,7 +66,7 @@ fn conflict_preview_includes_index_conflicts_when_worktree_is_dirty() -> Result<
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
-        project_meta,
+        &project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -98,7 +98,7 @@ fn conflict_preview_uses_rebase_repo_for_preview_objects() -> Result<()> {
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
-        project_meta,
+        &project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -142,7 +142,7 @@ fn conflict_preview_returns_empty_for_non_conflicting_dirty_worktree() -> Result
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
-        project_meta,
+        &project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -174,7 +174,7 @@ fn conflict_preview_returns_empty_for_ignored_only_worktree_changes() -> Result<
     let rebase = integrate_upstream(
         &mut workspace,
         &mut meta,
-        project_meta,
+        &project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,

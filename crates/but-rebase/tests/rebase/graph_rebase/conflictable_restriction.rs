@@ -30,7 +30,8 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta1 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta1, &repo)?;
 
     // Replacing b with none will cause c to conflict
     let b = repo.rev_parse_single("b")?;
@@ -96,7 +97,8 @@ fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_err
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta2 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta2, &repo)?;
 
     // Replacing b with none will cause c to conflict
     let b = repo.rev_parse_single("b")?;
@@ -143,7 +145,8 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
     .validated()?;
 
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta3 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta3, &repo)?;
 
     // Insert an empty commit above b to cause c to get cherry picked with out a conflict
     let b = repo.rev_parse_single("b")?;

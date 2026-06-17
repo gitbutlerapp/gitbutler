@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::{Result, bail};
-use but_core::{RefMetadata, commit::Headers};
+use but_core::{RefMetadata, commit::Headers, ref_metadata::ProjectMeta};
 use but_rebase::graph_rebase::{
     Editor, ExtraRef, GraphEditorOptions, LookupStep, SuccessfulRebase, ToSelector,
     mutate::{SegmentDelimiter, SelectorSet},
@@ -117,6 +117,7 @@ pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
     integration: InteractiveIntegration,
     workspace: &'ws mut but_graph::Workspace,
     meta: &'meta mut M,
+    project_meta: &'meta ProjectMeta,
     repo: &gix::Repository,
 ) -> Result<SuccessfulRebase<'ws, 'meta, M>> {
     if integration.steps.is_empty() {
@@ -130,7 +131,8 @@ pub fn integrate_branch_with_steps<'ws, 'meta, M: RefMetadata>(
         extra_refs: vec![ExtraRef::immutable(upstream_ref_name)],
         ..GraphEditorOptions::default()
     };
-    let mut editor = Editor::create_with_opts(workspace, meta, repo, &editor_options)?;
+    let mut editor =
+        Editor::create_with_opts(workspace, meta, project_meta, repo, &editor_options)?;
     // Step 1: We prepare the steps before building.
     // At this point, we construct the commits for the squash steps in memory.
     let prepared_steps = prepare_integration_steps_for_editor(&editor, &integration.steps)?;
@@ -243,6 +245,7 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
     strategy: BranchIntegrationStrategy,
     workspace: &mut but_graph::Workspace,
     meta: &mut M,
+    project_meta: &ProjectMeta,
     repo: &gix::Repository,
 ) -> Result<InitialBranchIntegration> {
     // Step 1: We create the editor with the remote branch to integrate, and the project's target
@@ -265,7 +268,7 @@ pub fn get_initial_integration_steps_for_branch<M: RefMetadata>(
         extra_refs,
         ..GraphEditorOptions::default()
     };
-    let editor = Editor::create_with_opts(workspace, meta, repo, &editor_options)?;
+    let editor = Editor::create_with_opts(workspace, meta, project_meta, repo, &editor_options)?;
 
     // Step 2: We traverse the editor graph and determine the divergence between the local and remote branch.
     let BranchMergeBaseCommits {

@@ -28,7 +28,8 @@ fn commit_above_commit() -> Result<()> {
     )?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
     let outcome = commit_create(
         editor,
         worktree_changes_as_specs(&repo)?,
@@ -75,7 +76,8 @@ fn commit_below_commit() -> Result<()> {
     )?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
     let outcome = commit_create(
         editor,
         worktree_changes_as_specs(&repo)?,
@@ -116,7 +118,8 @@ fn commit_above_reference() -> Result<()> {
     )?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
     let outcome = commit_create(
         editor,
         worktree_changes_as_specs(&repo)?,
@@ -168,7 +171,8 @@ fn commit_below_merge_commit_uses_first_parent() -> Result<()> {
     )?;
 
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
     let outcome = commit_create(
         editor,
         worktree_changes_as_specs(&repo)?,
@@ -206,7 +210,8 @@ fn commit_all_rejected_is_noop() -> Result<()> {
         writable_scenario("reword-three-commits", |_| {})?;
     let two_id = repo.rev_parse_single("two")?.detach();
     let mut ws = graph.into_workspace()?;
-    let editor = Editor::create(&mut ws, &mut _meta, &repo)?;
+    let editor_project_meta = but_core::ref_metadata::ProjectMeta::default();
+    let editor = Editor::create(&mut ws, &mut _meta, &editor_project_meta, &repo)?;
 
     let outcome = commit_create(
         editor,

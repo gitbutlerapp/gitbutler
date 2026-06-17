@@ -1,4 +1,4 @@
-use but_core::{ChangeId, RefMetadata, sync::RepoExclusive};
+use but_core::{ChangeId, RefMetadata, ref_metadata::ProjectMeta, sync::RepoExclusive};
 use but_ctx::Context;
 use but_db::DbHandle;
 use serde::{Deserialize, Serialize};
@@ -333,6 +333,7 @@ pub fn list_rules(db: &DbHandle) -> anyhow::Result<Vec<WorkspaceRule>> {
 /// NOTE: may create an empty branch!
 fn process_rules_from_context(ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<()> {
     let context_lines = ctx.settings.context_lines;
+    let project_meta = ctx.project_meta()?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
     let rules = list_rules(&db)?;
@@ -342,6 +343,7 @@ fn process_rules_from_context(ctx: &mut Context, perm: &mut RepoExclusive) -> an
         &mut ws,
         &mut db,
         &mut meta,
+        &project_meta,
         perm,
         context_lines,
     )
@@ -357,12 +359,14 @@ fn process_rules_from_context(ctx: &mut Context, perm: &mut RepoExclusive) -> an
 /// applying rule actions.
 ///
 /// NOTE: may create an empty branch!
+#[expect(clippy::too_many_arguments)]
 pub fn process_rules(
     rules: Vec<WorkspaceRule>,
     repo: &gix::Repository,
     ws: &mut but_graph::Workspace,
     db: &mut DbHandle,
     meta: &mut impl RefMetadata,
+    project_meta: &ProjectMeta,
     perm: &mut RepoExclusive,
     context_lines: u32,
 ) -> anyhow::Result<()> {
@@ -380,6 +384,16 @@ pub fn process_rules(
         assignments
     };
 
-    handler::process_workspace_rules(rules, &assignments, repo, ws, db, meta, perm, context_lines)?;
+    handler::process_workspace_rules(
+        rules,
+        &assignments,
+        repo,
+        ws,
+        db,
+        meta,
+        project_meta,
+        perm,
+        context_lines,
+    )?;
     Ok(())
 }

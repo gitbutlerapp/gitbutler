@@ -1,7 +1,11 @@
 use std::str::FromStr;
 
 use anyhow::ensure;
-use but_core::{ChangeId, DiffSpec, RefMetadata, ref_metadata::StackId, sync::RepoExclusive};
+use but_core::{
+    ChangeId, DiffSpec, RefMetadata,
+    ref_metadata::{ProjectMeta, StackId},
+    sync::RepoExclusive,
+};
 use but_db::{DbHandle, HunkAssignmentsHandleMut};
 use but_hunk_assignment::HunkAssignment;
 use but_rebase::graph_rebase::Editor;
@@ -28,6 +32,7 @@ pub fn process_workspace_rules(
     ws: &mut but_graph::Workspace,
     db: &mut DbHandle,
     meta: &mut impl RefMetadata,
+    project_meta: &ProjectMeta,
     perm: &mut RepoExclusive,
     context_lines: u32,
 ) -> anyhow::Result<usize> {
@@ -97,8 +102,16 @@ pub fn process_workspace_rules(
                 } else {
                     &mut *ws
                 };
-                handle_amend(repo, ws, meta, assignments, &change_id, context_lines)
-                    .unwrap_or_default();
+                handle_amend(
+                    repo,
+                    ws,
+                    meta,
+                    project_meta,
+                    assignments,
+                    &change_id,
+                    context_lines,
+                )
+                .unwrap_or_default();
             }
             _ => continue,
         };
@@ -123,6 +136,7 @@ fn handle_amend(
     repo: &gix::Repository,
     ws: &mut but_graph::Workspace,
     meta: &mut impl but_core::RefMetadata,
+    project_meta: &ProjectMeta,
     assignments: Vec<HunkAssignment>,
     change_id: &ChangeId,
     context_lines: u32,
@@ -142,7 +156,7 @@ fn handle_amend(
         anyhow::anyhow!("No commit with Change-Id {change_id} found in the current workspace")
     })?;
 
-    let editor = Editor::create(ws, meta, repo)?;
+    let editor = Editor::create(ws, meta, project_meta, repo)?;
     let outcome = but_workspace::commit::commit_amend(editor, commit_id, changes, context_lines)?;
     if !outcome.rejected_specs.is_empty() {
         tracing::warn!(

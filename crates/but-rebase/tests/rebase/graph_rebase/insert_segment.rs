@@ -51,7 +51,8 @@ fn insert_single_node_segment_above() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta1 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta1, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -135,7 +136,8 @@ fn insert_single_node_segment_below() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta2 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta2, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -222,7 +224,8 @@ fn insert_multi_node_segment_above() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta3 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta3, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -312,7 +315,8 @@ fn insert_multi_node_segment_below() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta4 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta4, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -401,7 +405,8 @@ fn insert_single_node_segment_above_with_explicit_children() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta5 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta5, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -505,7 +510,8 @@ fn insert_single_node_segment_below_with_explicit_parents() -> Result<()> {
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta6 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta6, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor
@@ -600,7 +606,8 @@ fn insert_single_node_segment_below_can_append_reparented_parent() -> Result<()>
     )?
     .validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+    let editor_project_meta7 = but_core::ref_metadata::ProjectMeta::default();
+    let mut editor = Editor::create(&mut ws, &mut *meta, &editor_project_meta7, &repo)?;
 
     let a = repo.rev_parse_single("A")?.detach();
     let a_selector = editor

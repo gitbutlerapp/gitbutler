@@ -67,7 +67,7 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
-        project_meta,
+        &project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -149,7 +149,7 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
-        project_meta,
+        &project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Merge,
@@ -240,7 +240,7 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
-        project_meta,
+        &project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -312,7 +312,7 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
-        project_meta,
+        &project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Merge,
@@ -389,7 +389,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
-        project_meta,
+        &project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -464,7 +464,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
-        project_meta,
+        &project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Merge,
@@ -541,7 +541,7 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
-        project_meta,
+        &project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Merge,
@@ -1057,7 +1057,7 @@ fn dry_run_reports_dirty_worktree_conflicts_against_resulting_workspace_head() -
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
-        project_meta,
+        &project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -1115,7 +1115,7 @@ fn dry_run_reports_index_only_conflicts_against_resulting_workspace_head() -> Re
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
         &mut workspace,
         &mut meta,
-        project_meta,
+        &project_meta,
         &repo,
         vec![BottomUpdate {
             kind: BottomUpdateKind::Rebase,
@@ -1678,11 +1678,12 @@ fn integrate_and_materialize<M: RefMetadata>(
     repo: &gix::Repository,
     updates: Vec<BottomUpdate>,
 ) -> Result<()> {
+    let input_project_meta = project_meta(&*meta)?;
     let but_workspace::IntegrateUpstreamOutcome {
         rebase,
         ws_meta,
         project_meta,
-    } = integrate_upstream(workspace, meta, project_meta(&*meta)?, repo, updates)?;
+    } = integrate_upstream(workspace, meta, &input_project_meta, repo, updates)?;
     let materialized = rebase.materialize()?;
     if let Some(ref_name) = materialized.workspace.ref_name()
         && let Some(ws_meta) = ws_meta

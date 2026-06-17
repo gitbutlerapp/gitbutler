@@ -1,6 +1,6 @@
 use anyhow::{Context as _, Result, bail};
 use bstr::BString;
-use but_core::{RefMetadata, RepositoryExt as _};
+use but_core::{RefMetadata, RepositoryExt as _, ref_metadata::ProjectMeta};
 use but_rebase::graph_rebase::{
     Editor, LookupStep as _, Step, SuccessfulRebase, mutate::InsertSide,
 };
@@ -46,10 +46,11 @@ pub fn worktree_integration_status<M: RefMetadata>(
     repo: &gix::Repository,
     ws: &mut but_graph::Workspace,
     meta: &mut M,
+    project_meta: &ProjectMeta,
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
 ) -> Result<WorktreeIntegrationStatus> {
-    Ok(worktree_integration_inner(repo, ws, meta, id, target)?.0)
+    Ok(worktree_integration_inner(repo, ws, meta, project_meta, id, target)?.0)
 }
 
 /// Integrates a worktree if it's integratable: the worktree's state is
@@ -59,10 +60,11 @@ pub fn worktree_integrate<M: RefMetadata>(
     repo: &gix::Repository,
     ws: &mut but_graph::Workspace,
     meta: &mut M,
+    project_meta: &ProjectMeta,
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
 ) -> Result<()> {
-    let result = worktree_integration_inner(repo, ws, meta, id, target)?;
+    let result = worktree_integration_inner(repo, ws, meta, project_meta, id, target)?;
     let (WorktreeIntegrationStatus::Integratable { .. }, Some(rebase)) = result else {
         match result.0 {
             WorktreeIntegrationStatus::NoMergeBaseFound => {
@@ -101,6 +103,7 @@ fn worktree_integration_inner<'ws, 'meta, M: RefMetadata>(
     repo: &gix::Repository,
     ws: &'ws mut but_graph::Workspace,
     meta: &'meta mut M,
+    project_meta: &'meta ProjectMeta,
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
 ) -> Result<(
@@ -168,7 +171,7 @@ fn worktree_integration_inner<'ws, 'meta, M: RefMetadata>(
         .context("Failed to find author signature")?
         .to_owned()?;
 
-    let mut editor = Editor::create(ws, meta, repo)?;
+    let mut editor = Editor::create(ws, meta, project_meta, repo)?;
 
     // Create the squash commit in the editor's in-memory repository; it is
     // only persisted if the result gets materialized.

@@ -753,9 +753,10 @@ fn commit_assigned_diffspec(
         return Ok(());
     }
 
+    let project_meta = ctx.project_meta()?;
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
-    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let editor = Editor::create(&mut ws, &mut meta, &project_meta, &repo)?;
     let outcome = but_workspace::commit::commit_create(
         editor,
         assigned_diffspec,
