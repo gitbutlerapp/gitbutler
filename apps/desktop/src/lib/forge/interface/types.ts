@@ -127,6 +127,8 @@ export type ChecksStatus = {
 	completed: boolean;
 	success: boolean;
 	failedChecks: string[];
+	actionRequired: boolean;
+	actionRequiredChecks: string[];
 };
 
 export enum MergeMethod {

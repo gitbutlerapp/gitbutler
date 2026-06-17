@@ -103,6 +103,17 @@
 				};
 			}
 
+			if (checks.completed && checks.actionRequired) {
+				const checksList = checks.actionRequiredChecks.join(", ");
+				return {
+					style: "warning",
+					icon: "warning",
+					text: "Action required",
+					reducedText: "Action",
+					tooltip: checksList ? `Action required: ${checksList}` : "Action required.",
+				};
+			}
+
 			// Merge conflicts can prevent checks from running at all.
 			if (mergeableState === "dirty") {
 				return {
