@@ -6,6 +6,7 @@ use std::{
     collections::{HashMap, HashSet},
 };
 
+use anyhow::Result;
 use but_core::RefMetadata;
 use petgraph::{
     dot::{Config, Dot},
@@ -220,7 +221,14 @@ fn topological_order(
     }
 
     for &head in heads {
-        dfs(head, graph, nodes, &mut visited, &mut in_degree, &mut result);
+        dfs(
+            head,
+            graph,
+            nodes,
+            &mut visited,
+            &mut in_degree,
+            &mut result,
+        );
     }
 
     result
@@ -293,9 +301,51 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let resolve = |s: &Selector| self.history.normalize_selector(*s).ok().map(|s| s.id);
         let nodes: HashSet<StepGraphIndex> = subgraph.nodes.iter().filter_map(resolve).collect();
         let heads: Vec<StepGraphIndex> = subgraph.heads.iter().filter_map(resolve).collect();
-        render_step_graph(&self.graph, &nodes, &heads, &self.immutable_references, |id| {
-            lookup_commit_title(&self.repo, id)
-        })
+        render_step_graph(
+            &self.graph,
+            &nodes,
+            &heads,
+            &self.immutable_references,
+            |id| lookup_commit_title(&self.repo, id),
+        )
+    }
+
+    /// Render an entire [`Editor::graph_workspace`] projection for snapshot
+    /// tests: the commits above the workspace, the workspace commit, then each
+    /// stack in turn. Each section is rendered with [`Editor::subgraph_ascii`].
+    pub fn graph_workspace_ascii(&self) -> Result<String> {
+        let ws = self.graph_workspace()?;
+        let body = |rendered: String| {
+            if rendered.is_empty() {
+                "(empty)".to_string()
+            } else {
+                rendered
+            }
+        };
+
+        let mut sections = vec![format!(
+            "# Above workspace\n{}",
+            body(self.subgraph_ascii(&ws.above_workspace))
+        )];
+
+        let workspace_commit = ws.workspace_commit.map(|selector| Subgraph {
+            heads: vec![selector],
+            nodes: [selector].into(),
+        });
+        sections.push(format!(
+            "# Workspace commit\n{}",
+            body(
+                workspace_commit
+                    .map(|s| self.subgraph_ascii(&s))
+                    .unwrap_or_default()
+            )
+        ));
+
+        for (i, stack) in ws.stacks.iter().enumerate() {
+            sections.push(format!("# Stack {i}\n{}", body(self.subgraph_ascii(stack))));
+        }
+
+        Ok(sections.join("\n\n"))
     }
 }
 

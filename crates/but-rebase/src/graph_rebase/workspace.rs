@@ -60,6 +60,24 @@ pub struct GraphWorkspace {
     ///
     /// If we're outside of the workspace branch, there will be one stack that
     /// contains all commits in the rev-set `HEAD ^target_sha`.
+    ///
+    /// # Known limitation: stacks sharing a target segment collapse into one
+    ///
+    /// Today, stacks that converge on a shared segment - most importantly the
+    /// target (`origin/main`) segment every real workspace stack sits on - get
+    /// merged into a single stack instead of staying separate. This is a
+    /// consequence of how the editor's step graph is built, *not* of the rebase
+    /// topology, so a fixture can look like N obviously-distinct stacks and
+    /// still come back as one.
+    ///
+    /// The segment's head reference becomes its first node (see `Editor::create`
+    /// in `creation.rs`), and each child stack attaches to that node. So when
+    /// two stacks share the target segment, they both point at its ref node and
+    /// the split treats them as one. A target doesn't help: it excludes the
+    /// target *commit*, but the ref node sits above that commit and survives.
+    ///
+    /// In this scenario, the but graph really ought to be providing a graph
+    /// that doesn't let us put the node there.
     pub stacks: Vec<Subgraph>,
 }
 
@@ -82,7 +100,7 @@ struct NodeSet {
 }
 
 impl NodeSet {
-    /// Convert into a [`Subgraph`] by pointing every index at `revision` — the
+    /// Convert into a [`Subgraph`] by pointing every index at `revision` - the
     /// editor revision the node set was traversed against.
     fn into_subgraph(self, revision: usize) -> Subgraph {
         Subgraph {
@@ -281,6 +299,12 @@ fn divide_workspace_into_stacks(
     }
 
     // Merge stacks that share any node (they aren't actually distinct).
+    //
+    // NOTE: a shared node here includes *reference* nodes, not just commits.
+    // A segment's head ref is its first node (see `creation.rs`), so stacks that
+    // converge on a shared segment - typically the target's - both point at its
+    // ref node and collapse into one, even when a target excludes the segment's
+    // commit. This is the known limitation documented on `GraphWorkspace::stacks`.
     let mut deduplicated = vec![];
     while let Some(mut out) = initial_stacks.pop() {
         for bix in (0..initial_stacks.len()).rev() {
@@ -302,10 +326,16 @@ fn divide_workspace_into_stacks(
     for stack in &deduplicated {
         outside = outside.difference(&stack.nodes).copied().collect();
     }
+    outside.remove(&workspace_commit_ix);
 
     let above_workspace = NodeSet {
         // The entrypoint is the tip of everything above the workspace commit.
-        heads: head_not_target.heads,
+        heads: head_not_target
+            .heads
+            .iter()
+            .cloned()
+            .filter(|h| *h != workspace_commit_ix)
+            .collect(),
         nodes: outside,
     };
 
