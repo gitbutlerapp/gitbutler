@@ -366,10 +366,9 @@ mod test {
             graph.add_edge(b, c, Edge { order: 0 });
 
             insta::assert_snapshot!(render_ascii_graph(&graph, &HashSet::new(), |_| None), @"
-            ● 1000000
-            ● 2000000
-            ● 3000000
-            ╵
+            ●  1000000
+            ●  2000000
+            ●  3000000
             ");
 
             let ordered_from_a = order_steps_picking(&graph, &[a]);
@@ -429,20 +428,18 @@ mod test {
             graph.add_edge(i, j, Edge { order: 0 });
 
             insta::assert_snapshot!(render_ascii_graph(&graph, &HashSet::new(), |_| None), @"
-            ● 1000000
-            ● 2000000
-            │ ● 6000000
-            │ ● 7000000
+            ●  1000000
+            ●  2000000
+            │ ●  6000000
+            │ ●  7000000
             ├─╯
-            ● 3000000
-            │ ● 8000000
+            ●  3000000
+            │ ●  8000000
             ├─╯
-            ● 4000000
-            ● 5000000
-            ╵
-            ● 9000000
-            ● 1100000
-            ╵
+            ●  4000000
+            ●  5000000
+            ●  9000000
+            ●  1100000
             ");
 
             let ordered_from_a = order_steps_picking(&graph, &[f, h]);
@@ -478,14 +475,13 @@ mod test {
             graph.add_edge(e, b, Edge { order: 0 });
 
             insta::assert_snapshot!(render_ascii_graph(&graph, &HashSet::new(), |_| None), @"
-            ● 1000000
+            ●    1000000
             ├─╮
-            │ ● 4000000
-            │ ● 5000000
+            │ ●  4000000
+            │ ●  5000000
             ├─╯
-            ● 2000000
-            ● 3000000
-            ╵
+            ●  2000000
+            ●  3000000
             ");
 
             let ordered_from_a = order_steps_picking(&graph, &[a]);
@@ -521,14 +517,13 @@ mod test {
             graph.add_edge(a, b, Edge { order: 1 });
 
             insta::assert_snapshot!(render_ascii_graph(&graph, &HashSet::new(), |_| None), @"
-            ● 1000000
+            ●    1000000
             ├─╮
-            ● │ 4000000
-            ● │ 5000000
+            ● │  4000000
+            ● │  5000000
             ├─╯
-            ● 2000000
-            ● 3000000
-            ╵
+            ●  2000000
+            ●  3000000
             ");
 
             let ordered_from_a = order_steps_picking(&graph, &[a]);

@@ -1509,6 +1509,7 @@ dependencies = [
  "gix",
  "insta",
  "petgraph",
+ "sapling-renderdag",
  "schemars 1.2.1",
  "serde",
  "tempfile",

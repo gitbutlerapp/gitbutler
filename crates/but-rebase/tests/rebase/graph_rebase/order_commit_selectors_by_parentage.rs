@@ -45,12 +45,11 @@ fn handles_zero_nodes() -> Result<()> {
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
-    ◎ refs/heads/main
-    ● 120e3a9 c
-    ● a96434e b
-    ● d591dfe a
-    ● 35b8235 base
-    ╵
+    ◎  refs/heads/main
+    ●  120e3a9 c
+    ●  a96434e b
+    ●  d591dfe a
+    ●  35b8235 base
     ");
 
     let ordered = editor.order_commit_selectors_by_parentage(Vec::<gix::ObjectId>::new())?;
@@ -75,9 +74,8 @@ fn handles_one_node() -> Result<()> {
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
-    ◎ refs/heads/main
-    ● 35b8235 base
-    ╵
+    ◎  refs/heads/main
+    ●  35b8235 base
     ");
 
     let base = repo.head_id()?.detach();
@@ -301,10 +299,9 @@ fn errors_when_selected_commit_is_absent_from_editor_graph() -> Result<()> {
     let editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     insta::assert_snapshot!(editor.steps_ascii(), @"
-    ◎ refs/heads/main
-    ● 589e8c3 main: tip
-    ● 14f3d44 main: base
-    ╵
+    ◎  refs/heads/main
+    ●  589e8c3 main: tip
+    ●  14f3d44 main: base
     ");
 
     let orphan = repo.rev_parse_single("orphan")?.detach();
