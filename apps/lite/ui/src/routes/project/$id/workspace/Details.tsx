@@ -879,7 +879,6 @@ export const Details: FC<
 						filesItems: Array<FileTreeItem>;
 					}) => (
 						<Diff
-							key={operandIdentityKey(outlineSelection)}
 							changes={changes}
 							filesVisible={filesVisible}
 							filesItems={filesItems}

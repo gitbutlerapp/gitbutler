@@ -763,6 +763,7 @@ const WorkspacePage: FC = () => {
 				)}
 
 				<Details
+					key={deferredOutlineSelection ? operandIdentityKey(deferredOutlineSelection) : null}
 					style={{ opacity: deferredOutlineSelection !== outlineSelection ? 0.5 : 1 }}
 					outlineSelection={deferredOutlineSelection}
 					detailsFullscreen={detailsFullscreen}
