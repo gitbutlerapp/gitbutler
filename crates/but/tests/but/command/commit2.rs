@@ -1267,6 +1267,148 @@ Error: Invalid uncommitted change. 'A' is a branch
 }
 
 #[test]
+fn can_commit_with_path_prefix() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("path/to/first.txt", "first");
+    env.file("path/to/second.txt", "second");
+    env.file("path/other/to/third.txt", "third");
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes]
+┊   om A path/other/to/third.txt
+┊   ms A path/to/first.txt
+┊   rr A path/to/second.txt
+┊
+┊╭┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+
+    env.but("commit2 path/to/ --no-message").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes]
+┊   om A path/other/to/third.txt
+┊
+┊╭┄g0 [A]
+┊●   e1c5473 (no commit message)
+┊│     e1:ms A path/to/first.txt
+┊│     e1:rr A path/to/second.txt
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+}
+
+#[test]
+fn path_prefix_with_mix_of_modifications() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.file("dir/to_modify.txt", "first");
+    env.file("dir/to_delete.txt", "second");
+    env.file("dir/to_empty.txt", "third");
+
+    env.but("commit2 --no-message").assert().success();
+
+    std::fs::remove_file(env.projects_root().join("dir/to_delete.txt")).unwrap();
+    env.file("dir/to_empty.txt", "");
+    env.file(
+        env.projects_root().join("dir/to_modify.txt"),
+        "first\nnew line",
+    );
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes]
+┊   lm D dir/to_delete.txt
+┊   no M dir/to_empty.txt
+┊   xv M dir/to_modify.txt
+┊
+┊╭┄g0 [A]
+┊●   d199c17 (no commit message)
+┊│     d1:lm A dir/to_delete.txt
+┊│     d1:no A dir/to_empty.txt
+┊│     d1:xv A dir/to_modify.txt
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+
+    env.but("commit2 dir/ --no-message").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   d1a6de8 (no commit message)
+┊│     d1a:lm D dir/to_delete.txt
+┊│     d1a:no M dir/to_empty.txt
+┊│     d1a:xv M dir/to_modify.txt
+┊●   d199c17 (no commit message)
+┊│     d19:lm A dir/to_delete.txt
+┊│     d19:no A dir/to_empty.txt
+┊│     d19:xv A dir/to_modify.txt
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("diff d1a")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────────────────╮
+D dir/to_delete.txt│
+───────────────────╯
+   1  │-second
+──────────────────╮
+M dir/to_empty.txt│
+──────────────────╯
+   1  │-third
+───────────────────╮
+M dir/to_modify.txt│
+───────────────────╯
+   1 1│ first
+     2│+new line
+
+"#]]);
+}
+
+#[test]
 fn requires_specifying_stack_when_there_are_multiple() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);

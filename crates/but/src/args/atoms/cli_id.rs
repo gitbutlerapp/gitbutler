@@ -1,3 +1,4 @@
+use nonempty::NonEmpty;
 use serde::Serialize;
 
 use crate::{
@@ -150,7 +151,7 @@ impl CliIdArg {
         &self,
         repo: &gix::Repository,
         id_map: &IdMap,
-    ) -> CliResult<Option<UncommittedCliId>> {
+    ) -> CliResult<Option<Vec<UncommittedCliId>>> {
         let Some(id) = try_resolve_cli_id(
             self,
             repo,
@@ -162,7 +163,25 @@ impl CliIdArg {
             return Ok(None);
         };
         match id {
-            CliId::Uncommitted(uncommitted) => Ok(Some(uncommitted)),
+            CliId::Uncommitted(uncommitted) => Ok(Some(vec![uncommitted])),
+            CliId::PathPrefix {
+                id: _,
+                hunk_assignments,
+            } => Ok(Some(
+                hunk_assignments
+                    .into_iter()
+                    .map(|(id, assignment)| UncommittedCliId {
+                        id,
+                        hunk_assignments: NonEmpty::new(assignment),
+                        // In a world without staging, all these hunk assignments should be turned
+                        // into "entire file" assignments for every file under the given PathPrefix.
+                        // However, currently, already assigned changes are not resolved by
+                        // PathPrefix. This should all be fixed at the level of resolving the
+                        // PathPrefix rather than here, though.
+                        is_entire_file: false,
+                    })
+                    .collect(),
+            )),
             other => Err(self.wrong_kind_error(&other, "uncommitted change")),
         }
     }
@@ -172,7 +191,7 @@ impl CliIdArg {
         &self,
         repo: &gix::Repository,
         id_map: &IdMap,
-    ) -> CliResult<UncommittedCliId> {
+    ) -> CliResult<Vec<UncommittedCliId>> {
         if let Some(uncommitted) = self.try_resolve_uncommitted(repo, id_map)? {
             Ok(uncommitted)
         } else {

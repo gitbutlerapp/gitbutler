@@ -232,13 +232,11 @@ impl<'a> DiffSpecBuilder<'a> {
                 _ => None,
             };
 
-            diff_spec_order.insert(
-                DiffSpecKey {
-                    path: change.path_bytes.as_bstr(),
-                    previous_path,
-                },
-                i,
-            );
+            let key = DiffSpecKey {
+                path: change.path_bytes.as_bstr(),
+                previous_path,
+            };
+            diff_spec_order.insert(key, i);
         }
 
         self.diff_specs.sort_by_key(|item| {
