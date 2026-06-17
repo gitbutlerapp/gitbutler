@@ -10,3 +10,7 @@
 body {
 	user-select: none;
 }
+
+button {
+	app-region: no-drag;
+}

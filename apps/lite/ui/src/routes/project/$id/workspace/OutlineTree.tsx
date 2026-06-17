@@ -214,7 +214,7 @@ const useOutlineTreeHotkeys = ({
 	const commitMoveMutation = useCommitMove();
 	const commitDiscardMutation = useCommitDiscard();
 	const pushStackMutation = usePushStack();
-	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream({ projectId });
+	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream();
 	const branchCreateMutation = useBranchCreate();
 
 	const openBranchPicker = () => {
@@ -414,7 +414,11 @@ const useOutlineTreeHotkeys = ({
 
 	const updateSelectedStack = () => {
 		if (selectedStackRebaseUpdate)
-			workspaceIntegrateUpstreamMutation.mutate([selectedStackRebaseUpdate]);
+			workspaceIntegrateUpstreamMutation.mutate({
+				projectId,
+				updates: [selectedStackRebaseUpdate],
+				dryRun: false,
+			});
 	};
 
 	const defaultOutlineHotkeysEnabled = isDefaultMode;
@@ -1081,7 +1085,7 @@ const CommitRow: FC<
 
 	const commitInsertBlankMutation = useCommitInsertBlank();
 	const commitDiscardMutation = useCommitDiscard();
-	const commitUncommitMutation = useCommitUncommit({ projectId });
+	const commitUncommitMutation = useCommitUncommit();
 	const commitRewordMutation = useCommitReword();
 	const branchCreateMutation = useBranchCreate();
 
@@ -2309,9 +2313,14 @@ const StackRow: FC<
 		unapplyStackMutation.mutate({ projectId, stackId: stack.id! });
 	};
 
-	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream({ projectId });
+	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream();
 	const updateStack = () => {
-		if (rebaseUpdate) workspaceIntegrateUpstreamMutation.mutate([rebaseUpdate]);
+		if (rebaseUpdate)
+			workspaceIntegrateUpstreamMutation.mutate({
+				projectId,
+				updates: [rebaseUpdate],
+				dryRun: false,
+			});
 	};
 
 	const menuItems: Array<NativeMenuItem> = [

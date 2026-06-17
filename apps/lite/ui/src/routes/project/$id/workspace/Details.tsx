@@ -46,16 +46,15 @@ import {
 	BaseDiffOptions,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
-import { useSuspenseQueries } from "@tanstack/react-query";
+import { useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Hash, identity, Match } from "effect";
 import {
 	ComponentProps,
 	FC,
-	Ref,
 	type RefObject,
 	Suspense,
-	useDeferredValue,
+	useId,
 	useLayoutEffect,
 	useRef,
 	useState,
@@ -435,7 +434,11 @@ const DiffContents: FC<{
 					paddingBottom: 9,
 				},
 				unsafeCSS: `
-          [data-code] {
+					[data-code] {
+            border-radius: 0 0 10px 10px;
+          }
+
+          [data-diff] {
             border-width: 0 1px 1px 1px;
             border-style: solid;
             border-color: var(--border-3);
@@ -509,10 +512,13 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	);
 };
 
-const Header: FC<{
+const Title: FC<{
+	bodyCollapsed: boolean;
+	bodyId: string;
+	onBodyCollapsedChange: (collapsed: boolean) => void;
 	projectId: string;
 	selection: Operand;
-}> = ({ projectId, selection }) =>
+}> = ({ bodyCollapsed, bodyId, onBodyCollapsedChange, projectId, selection }) =>
 	Match.value(selection).pipe(
 		Match.tagsExhaustive({
 			Stack: () => null,
@@ -526,33 +532,51 @@ const Header: FC<{
 					})}
 				>
 					{({ data: branchDetails }) => (
-						<header className={styles.header}>
-							<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
-							{branchDetails.prNumber != null && (
-								<div className={classes("text-13", "text-bold", styles.pr)}>
-									PR #{branchDetails.prNumber}
-								</div>
-							)}
-						</header>
+						<div className={styles.title}>
+							<h3 className={classes("text-15", "text-semibold")}>{branchDetails.name}</h3>
+						</div>
 					)}
 				</SuspenseQuery>
 			),
 			ChangesSection: () => (
-				<header className={styles.header}>
-					<h3 className={classes("text-14", "text-semibold")}>Changes</h3>
-				</header>
+				<div className={styles.title}>
+					<h3 className={classes("text-15", "text-semibold")}>Changes</h3>
+				</div>
 			),
 			File: () => null,
 			Commit: ({ commitId }) => (
 				<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
 					{({ data: commitDetails }) => (
-						<header className={styles.header}>
+						<div className={styles.title}>
 							<Icon name="commit" />
-							<h3 className={classes("text-14", "text-semibold")}>
+							<h3 className={classes("text-15", "text-semibold")}>
 								{commitTitle(commitDetails.commit.message) ?? "(no message)"}
 								{commitDetails.commit.hasConflicts && " ⚠️"}
 							</h3>
-						</header>
+							{commitBody(commitDetails.commit.message) !== undefined && (
+								<Tooltip.Root>
+									<Tooltip.Trigger
+										aria-controls={bodyId}
+										aria-expanded={!bodyCollapsed}
+										aria-label={bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+										className={getButtonClassName({
+											variant: "ghost",
+											iconOnly: true,
+										})}
+										onClick={() => onBodyCollapsedChange(!bodyCollapsed)}
+									>
+										<Icon name={bodyCollapsed ? "uncollapse" : "collapse"} />
+									</Tooltip.Trigger>
+									<Tooltip.Portal>
+										<Tooltip.Positioner sideOffset={4}>
+											<Tooltip.Popup render={<TooltipPopup />}>
+												{bodyCollapsed ? "Expand commit body" : "Collapse commit body"}
+											</Tooltip.Popup>
+										</Tooltip.Positioner>
+									</Tooltip.Portal>
+								</Tooltip.Root>
+							)}
+						</div>
 					)}
 				</SuspenseQuery>
 			),
@@ -652,71 +676,67 @@ const FullscreenToggle: FC<{
 };
 
 const CommitDetailsContent: FC<{
+	bodyCollapsed: boolean;
+	bodyId: string;
 	projectId: string;
 	commitId: string;
-}> = ({ projectId, commitId }) => (
-	<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
-		{({ data: commitDetails }) => {
-			const fmtDate = new Intl.DateTimeFormat(undefined, {
-				day: "2-digit",
-				month: "2-digit",
-				year: "numeric",
-				hour: "2-digit",
-				minute: "2-digit",
-				hour12: false,
-			}).format(commitDetails.commit.authoredAt);
+}> = ({ bodyCollapsed, bodyId, projectId, commitId }) => {
+	const { data: commitDetails } = useSuspenseQuery(
+		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
+	);
 
-			const body = commitBody(commitDetails.commit.message);
+	const fmtDate = new Intl.DateTimeFormat(undefined, {
+		day: "2-digit",
+		month: "2-digit",
+		year: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+		hour12: false,
+	}).format(commitDetails.commit.authoredAt);
 
-			return (
-				<>
-					<div className={classes("text-13", styles.commitDetailsMeta)}>
-						<img
-							src={commitDetails.commit.author.gravatarUrl}
-							className={styles.avatar}
-							alt="Commit author avatar"
-						/>
-						<span>
-							<span title={commitDetails.commit.author.email}>
-								{commitDetails.commit.author.name}
-							</span>{" "}
-							at {fmtDate}
-						</span>
-						<span>
-							{shortCommitId(commitDetails.commit.changeId)} (
-							{shortCommitId(commitDetails.commit.id)})
-						</span>
-					</div>
-					{body !== undefined && (
-						<p className={classes("text-monospace", "text-body", styles.commitMessageBody)}>
-							{body}
-						</p>
+	const body = commitBody(commitDetails.commit.message);
+
+	return (
+		<>
+			{body !== undefined && (
+				<p
+					id={bodyId}
+					className={classes(
+						"text-monospace",
+						"text-body",
+						styles.commitMessageBody,
+						bodyCollapsed && styles.commitMessageBodyCollapsed,
 					)}
-				</>
-			);
-		}}
-	</SuspenseQuery>
-);
+				>
+					{body}
+				</p>
+			)}
+			<div className={classes("text-13", styles.commitDetailsMeta)}>
+				<img
+					src={commitDetails.commit.author.gravatarUrl}
+					className={styles.avatar}
+					alt="Commit author avatar"
+				/>
+				<span>
+					<span title={commitDetails.commit.author.email}>{commitDetails.commit.author.name}</span>{" "}
+					at {fmtDate}
+				</span>
+				<span>
+					{shortCommitId(commitDetails.commit.changeId)} ({shortCommitId(commitDetails.commit.id)})
+				</span>
+			</div>
+		</>
+	);
+};
 
 const Diff: FC<{
 	changes: Array<TreeChange>;
-	diffStyle: DiffStyle;
 	filesVisible: boolean;
 	filesItems: Array<FileTreeItem>;
-	diffContentsRef: Ref<HTMLElement>;
 	onFileSelection: (selection: string) => void;
 	outlineSelection: Operand;
 	projectId: string;
-}> = ({
-	changes,
-	diffStyle,
-	filesVisible,
-	filesItems,
-	diffContentsRef,
-	onFileSelection,
-	outlineSelection,
-	projectId,
-}) => {
+}> = ({ changes, filesVisible, filesItems, onFileSelection, outlineSelection, projectId }) => {
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
 	const viewerRef = useRef<CodeViewHandle<undefined>>(null);
 	const dispatch = useAppDispatch();
@@ -767,62 +787,6 @@ const Diff: FC<{
 		});
 	};
 
-	return (
-		<div className={classes(styles.diff, filesVisible && styles.diffWithFiles)}>
-			{filesVisible && (
-				<FilesTree
-					id={"files" satisfies SelectionScope}
-					data-selection-scope
-					tabIndex={0}
-					className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
-					onFileSelection={selectFileAndNavigateDiff}
-					projectId={projectId}
-					items={filesItems}
-					navigationIndex={{ items: files, indexByKey: filesIndexByKey }}
-					fileParent={fileParent}
-				/>
-			)}
-
-			<div
-				id={"diff" satisfies SelectionScope}
-				data-selection-scope
-				// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
-				tabIndex={0}
-				className={styles.diffContentsContainer}
-				ref={useMergedRefs(selectionScopeRef, diffContentsRef)}
-			>
-				<DiffContents
-					onViewerFileSelection={onFileSelection}
-					fileParent={fileParent}
-					changesetKey={changesetKey}
-					projectId={projectId}
-					diffView={diffView}
-					diffStyle={diffStyle}
-					selectionScopeRef={selectionScopeRef}
-					viewerRef={viewerRef}
-				/>
-			</div>
-		</div>
-	);
-};
-
-export const Details: FC<
-	{
-		detailsFullscreen: boolean;
-		onDetailsFullscreenChange: (fullscreen: boolean) => void;
-		outlineSelection: Operand | null;
-	} & ComponentProps<"div">
-> = ({
-	detailsFullscreen,
-	onDetailsFullscreenChange,
-	outlineSelection: urgentOutlineSelection,
-	...restProps
-}) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const dispatch = useAppDispatch();
-	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
-	const outlineSelection = useDeferredValue(urgentOutlineSelection);
-
 	const [preferredDiffStyle, setPreferredDiffStyle] = useState<DiffStyle>("split");
 	const [diffContentsEl, setDiffContentsEl] = useState<HTMLElement | null>(null);
 	const [canUseSplitDiff, setCanUseSplitDiff] = useState<boolean | undefined>();
@@ -855,6 +819,72 @@ export const Details: FC<
 		return () => resizeObserver.disconnect();
 	}, [diffContentsEl]);
 
+	const diffStyle = canUseSplitDiff === true ? preferredDiffStyle : "unified";
+
+	return (
+		<div className={styles.diffContainer}>
+			<div className={styles.actions}>
+				<FilesToggle />
+				{canUseSplitDiff && (
+					<DiffStyleToggle
+						diffStyle={preferredDiffStyle}
+						onDiffStyleChange={setPreferredDiffStyle}
+					/>
+				)}
+			</div>
+
+			<div className={classes(styles.diff, filesVisible && styles.diffWithFiles)}>
+				{filesVisible && (
+					<FilesTree
+						id={"files" satisfies SelectionScope}
+						data-selection-scope
+						tabIndex={0}
+						className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
+						onFileSelection={selectFileAndNavigateDiff}
+						projectId={projectId}
+						items={filesItems}
+						navigationIndex={{ items: files, indexByKey: filesIndexByKey }}
+						fileParent={fileParent}
+					/>
+				)}
+
+				<div
+					id={"diff" satisfies SelectionScope}
+					data-selection-scope
+					// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
+					tabIndex={0}
+					className={styles.diffContentsContainer}
+					ref={useMergedRefs(selectionScopeRef, setDiffContentsEl)}
+				>
+					<DiffContents
+						onViewerFileSelection={onFileSelection}
+						fileParent={fileParent}
+						changesetKey={changesetKey}
+						projectId={projectId}
+						diffView={diffView}
+						diffStyle={diffStyle}
+						selectionScopeRef={selectionScopeRef}
+						viewerRef={viewerRef}
+					/>
+				</div>
+			</div>
+		</div>
+	);
+};
+
+export const Details: FC<
+	{
+		detailsFullscreen: boolean;
+		onDetailsFullscreenChange: (fullscreen: boolean) => void;
+		outlineSelection: Operand | null;
+	} & ComponentProps<"div">
+> = ({ detailsFullscreen, onDetailsFullscreenChange, outlineSelection, ...restProps }) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
+	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
+	const commitBodyId = useId();
+
 	const selectFile = (selection: string) => {
 		dispatch(projectActions.selectFiles({ projectId, selection }));
 	};
@@ -862,34 +892,31 @@ export const Details: FC<
 	if (!outlineSelection || outlineSelection._tag === "Stack") return;
 
 	return (
-		<div
-			{...restProps}
-			className={classes(restProps.className, styles.container)}
-			style={{ opacity: urgentOutlineSelection !== outlineSelection ? 0.5 : 1 }}
-		>
+		<div {...restProps} className={classes(restProps.className, styles.container)}>
 			<div className={styles.headerWrap}>
-				<Suspense fallback={<p className="text-13">Loading details…</p>}>
-					<Header projectId={projectId} selection={outlineSelection} />
-
-					{outlineSelection._tag === "Commit" && (
-						<CommitDetailsContent projectId={projectId} commitId={outlineSelection.commitId} />
-					)}
-				</Suspense>
-
-				<div className={styles.actions}>
-					<FilesToggle />
-					{canUseSplitDiff && (
-						<DiffStyleToggle
-							diffStyle={preferredDiffStyle}
-							onDiffStyleChange={setPreferredDiffStyle}
-						/>
-					)}
+				<div className={styles.titleRow}>
+					<Title
+						bodyCollapsed={commitBodyCollapsed}
+						bodyId={commitBodyId}
+						onBodyCollapsedChange={setCommitBodyCollapsed}
+						projectId={projectId}
+						selection={outlineSelection}
+					/>
 					<FullscreenToggle
-						className={getButtonClassName({ iconOnly: true })}
+						className={classes(styles.titleRowActions, getButtonClassName({ iconOnly: true }))}
 						fullscreen={detailsFullscreen}
 						onFullscreenChange={onDetailsFullscreenChange}
 					/>
 				</div>
+
+				{outlineSelection._tag === "Commit" && (
+					<CommitDetailsContent
+						bodyCollapsed={commitBodyCollapsed}
+						bodyId={commitBodyId}
+						projectId={projectId}
+						commitId={outlineSelection.commitId}
+					/>
+				)}
 			</div>
 
 			<Suspense
@@ -904,12 +931,9 @@ export const Details: FC<
 						filesItems: Array<FileTreeItem>;
 					}) => (
 						<Diff
-							key={operandIdentityKey(outlineSelection)}
 							changes={changes}
-							diffStyle={canUseSplitDiff === true ? preferredDiffStyle : "unified"}
 							filesVisible={filesVisible}
 							filesItems={filesItems}
-							diffContentsRef={(el) => setDiffContentsEl(el)}
 							onFileSelection={selectFile}
 							outlineSelection={outlineSelection}
 							projectId={projectId}

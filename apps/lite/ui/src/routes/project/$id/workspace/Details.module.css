@@ -16,9 +16,20 @@
 	padding-top: var(--panel-padding);
 }
 
-.header {
+.titleRow {
 	display: flex;
-	gap: 8px;
+	column-gap: 8px;
+	align-items: center;
+}
+
+.titleRowActions {
+	margin-inline-start: auto;
+}
+
+.title {
+	display: flex;
+	column-gap: 8px;
+	align-items: center;
 }
 
 .actions {
@@ -32,12 +43,18 @@
 	padding-block-end: var(--panel-padding);
 }
 
+.diffContainer {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+	row-gap: 12px;
+	padding-inline: var(--panel-padding);
+}
+
 .diff {
 	display: grid;
 	grid-template-rows: minmax(0, 1fr);
 	grid-template-columns: 1fr;
 	column-gap: 12px;
-	padding-inline: var(--panel-padding);
 }
 
 .diffWithFiles {
@@ -82,31 +99,31 @@
 	margin-block-end: 14px;
 }
 
-.pr {
-	color: var(--text-2);
-}
-
 .commitHeader {
 	display: flex;
 	gap: 6px;
 }
 
 .commitMessageBody {
-	max-height: 10lh;
-	overflow: auto;
+	background-color: var(--bg-2);
 	font-size: 13px;
 	/* text pre */
 	white-space: pre-line;
 	user-select: text;
 }
 
+.commitMessageBodyCollapsed {
+	max-height: 4.5lh;
+	overflow: auto;
+}
+
 .fileHeader {
 	display: grid;
 	grid-template-columns: 1fr auto auto auto;
+	column-gap: 12px;
 	align-items: center;
 	justify-content: space-between;
 	padding: 8px;
-	gap: 12px;
 	border: 1px solid var(--border-3);
 	border-radius: 10px 10px 0 0;
 	white-space: nowrap;

@@ -50,7 +50,7 @@ import {
 } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match, Order } from "effect";
-import { type FC, Component, ReactNode } from "react";
+import { type FC, Component, ReactNode, useDeferredValue } from "react";
 import {
 	branchOperand,
 	changesSectionOperand,
@@ -555,9 +555,9 @@ const WorkspacePage: FC = () => {
 			const relativeTo = stackBottomRelativeTo(stack);
 			return relativeTo ? [{ kind: "rebase", selector: relativeTo }] : [];
 		}) ?? [];
-	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream({ projectId });
+	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream();
 	const updateWorkspace = () => {
-		workspaceIntegrateUpstreamMutation.mutate(rebaseUpdates);
+		workspaceIntegrateUpstreamMutation.mutate({ projectId, updates: rebaseUpdates, dryRun: false });
 	};
 	const toggleDetailsFullscreen = () => {
 		if (
@@ -657,6 +657,8 @@ const WorkspacePage: FC = () => {
 		projectId,
 		navigationIndex: outlineNavigationIndex,
 	});
+
+	const deferredOutlineSelection = useDeferredValue(outlineSelection);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
 	const selectedProject = projects.find((project) => project.id === projectId);
@@ -783,7 +785,9 @@ const WorkspacePage: FC = () => {
 				)}
 
 				<Details
-					outlineSelection={outlineSelection}
+					key={deferredOutlineSelection ? operandIdentityKey(deferredOutlineSelection) : null}
+					style={{ opacity: deferredOutlineSelection !== outlineSelection ? 0.5 : 1 }}
+					outlineSelection={deferredOutlineSelection}
 					detailsFullscreen={detailsFullscreen}
 					onDetailsFullscreenChange={(fullscreen) =>
 						dispatch(projectActions.setDetailsFullscreen({ projectId, fullscreen }))
