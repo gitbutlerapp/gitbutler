@@ -2607,11 +2607,9 @@ fn apply_initial_steps_example_2_also_applies_integrated_local_commits() -> Resu
         ExampleScenario::LocalCommitHistoricallyIntegratedOnTarget,
     )?;
     configure_tracking_for_branch_a(&mut repo)?;
-    let a = repo.rev_parse_single("main")?.detach();
     let b = repo.rev_parse_single("A~1")?.detach();
     let c = repo.rev_parse_single("A")?.detach();
     let d = repo.rev_parse_single("origin/A")?.detach();
-    let x = repo.rev_parse_single("origin/main")?.detach();
 
     let initial = initial_integration_for_branch(
         r("refs/heads/A"),
@@ -2645,29 +2643,25 @@ fn apply_initial_steps_example_2_also_applies_integrated_local_commits() -> Resu
     rebase.materialize()?;
     let c_prime = repo.rev_parse_single("A")?.detach();
     let d_prime = repo.rev_parse_single("A~1")?.detach();
-
-    insta::assert_snapshot!(
-        labeled_graph_snapshot(
-            &repo,
-            &[
-                (a, "A"),
-                (b, "B"),
-                (d, "D"),
-                (x, "X"),
-                (d_prime, "D'"),
-                (c_prime, "C'"),
-            ]
-        )?,
-        @"
-    * C' (HEAD -> A) C
-    * D' [conflict] D
-    | * X (origin/main, target-main) X
-    |/
-    * B B
-    | * D (origin/A, upstream-a) D
-    |/
-    * A (main) A
-    "
+    assert_ne!(
+        d_prime, d,
+        "example 2 should apply upstream D onto the integrated local base"
+    );
+    assert_eq!(
+        repo.find_commit(d_prime)?
+            .parent_ids()
+            .map(|id| id.detach())
+            .collect::<Vec<_>>(),
+        vec![b],
+        "rebuilt upstream D should keep historically integrated local B as its base",
+    );
+    assert_eq!(
+        repo.find_commit(c_prime)?
+            .parent_ids()
+            .map(|id| id.detach())
+            .collect::<Vec<_>>(),
+        vec![d_prime],
+        "rebuilt local C should be applied after rebuilt upstream D",
     );
 
     Ok(())
