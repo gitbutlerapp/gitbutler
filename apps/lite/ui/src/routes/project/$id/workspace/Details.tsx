@@ -862,13 +862,11 @@ export const Details: FC<
 			style={{ opacity: urgentOutlineSelection !== outlineSelection ? 0.5 : 1 }}
 		>
 			<div className={styles.headerWrap}>
-				<Suspense fallback={<p className="text-13">Loading details…</p>}>
-					<Title projectId={projectId} selection={outlineSelection} />
+				<Title projectId={projectId} selection={outlineSelection} />
 
-					{outlineSelection._tag === "Commit" && (
-						<CommitDetailsContent projectId={projectId} commitId={outlineSelection.commitId} />
-					)}
-				</Suspense>
+				{outlineSelection._tag === "Commit" && (
+					<CommitDetailsContent projectId={projectId} commitId={outlineSelection.commitId} />
+				)}
 
 				<div className={styles.actions}>
 					<FullscreenToggle
