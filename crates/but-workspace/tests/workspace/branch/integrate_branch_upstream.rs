@@ -1754,6 +1754,75 @@ fn integrate_upstream_commits_when_remote_is_ahead_of_local() -> Result<()> {
 }
 
 #[test]
+fn integrate_remote_advanced_branch_with_parallel_empty_branch() -> Result<()> {
+    let (_tmp, graph, mut repo, mut meta, _description) =
+        named_writable_scenario_with_description_and_graph(
+            "remote-advanced-with-empty-top-branch",
+            |meta| {
+                add_stack_with_segments(meta, 1, "feature-foo", StackState::InWorkspace, &[]);
+                add_stack_with_segments(meta, 2, "empty-branch", StackState::InWorkspace, &[]);
+            },
+        )?;
+
+    insta::assert_snapshot!(normalized_graph_snapshot(&repo)?, @"
+    * cd9798c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * 412aade (origin/feature-foo) update foo.txt (remote)
+    |/
+    * f0c6d1c (feature-foo) add foo.txt
+    * da7bed3 (origin/main, main, empty-branch) add main.txt
+    ");
+
+    let mut ws = graph.into_workspace()?;
+    configure_tracking_for_branch(&mut repo, "feature-foo")?;
+
+    let initial = get_initial_integration_steps_for_branch(
+        r("refs/heads/feature-foo"),
+        BranchIntegrationStrategy::PullRebase,
+        &mut ws,
+        &mut meta,
+        &repo,
+    )?;
+
+    let remote_commit = repo.rev_parse_single("origin/feature-foo")?.detach();
+    let local_commit = repo.rev_parse_single("feature-foo")?.detach();
+    let labels = [
+        (remote_commit, "remote-commit"),
+        (local_commit, "local-commit"),
+    ];
+
+    insta::assert_snapshot!(
+        labeled_integration_snapshot(&initial.integration, &labels),
+        @"
+    merge-base local-commit
+    pick remote-commit
+    "
+    );
+
+    let rebase = integrate_branch_with_steps(
+        r("refs/heads/feature-foo"),
+        initial.integration,
+        &mut ws,
+        &mut meta,
+        &repo,
+    )?;
+    rebase.materialize()?;
+
+    insta::assert_snapshot!(
+        labeled_graph_snapshot(&repo, &labels)?,
+        @"
+    *   abcd9a1 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\\
+    | * remote-commit (origin/feature-foo, feature-foo) update foo.txt (remote)
+    | * local-commit add foo.txt
+    |/
+    * da7bed3 (origin/main, main, empty-branch) add main.txt
+    "
+    );
+
+    Ok(())
+}
+
+#[test]
 fn initial_pull_rebase_plan_includes_workspace_local_commits_above_branch_ref() -> Result<()> {
     let (_tmp, graph, mut repo, mut meta, _description) =
         named_writable_scenario_with_description_and_graph(
@@ -2710,14 +2779,21 @@ fn initial_steps_example_3_keeps_integrated_upstream_commits_editable() -> Resul
 }
 
 fn configure_tracking_for_branch_a(repo: &mut gix::Repository) -> Result<()> {
+    configure_tracking_for_branch(repo, "A")
+}
+
+fn configure_tracking_for_branch(repo: &mut gix::Repository, branch: &str) -> Result<()> {
     let mut cfg = repo.config_snapshot_mut();
     cfg.set_raw_value(
         "remote.origin.fetch",
         gix::bstr::BStr::new(b"+refs/heads/*:refs/remotes/origin/*"),
     )?;
     cfg.set_raw_value("remote.origin.url", gix::bstr::BStr::new(b"."))?;
-    cfg.set_raw_value("branch.A.remote", gix::bstr::BStr::new(b"origin"))?;
-    cfg.set_raw_value("branch.A.merge", gix::bstr::BStr::new(b"refs/heads/A"))?;
+    let remote_key = format!("branch.{branch}.remote");
+    cfg.set_raw_value(&remote_key, gix::bstr::BStr::new(b"origin"))?;
+    let merge_key = format!("branch.{branch}.merge");
+    let merge_value = format!("refs/heads/{branch}");
+    cfg.set_raw_value(&merge_key, gix::bstr::BStr::new(merge_value.as_bytes()))?;
     Ok(())
 }
 
