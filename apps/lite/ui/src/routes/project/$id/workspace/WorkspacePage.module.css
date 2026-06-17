@@ -67,7 +67,6 @@
 	align-items: center;
 	margin-inline-start: auto;
 	gap: 4px;
-	app-region: no-drag;
 }
 
 .workspaceName {
