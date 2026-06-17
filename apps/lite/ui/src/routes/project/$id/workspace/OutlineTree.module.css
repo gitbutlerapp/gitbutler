@@ -89,6 +89,29 @@
 	flex-direction: column;
 }
 
+.branchLabel {
+	display: flex;
+	row-gap: 6px;
+	flex-direction: column;
+}
+
+.branchLabelTitle {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.branchLabelMeta {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.branchLabelMetaItem {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
 .commitControls {
 	display: flex;
 	row-gap: 8px;

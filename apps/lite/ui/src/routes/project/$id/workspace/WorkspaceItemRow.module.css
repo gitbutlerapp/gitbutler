@@ -51,17 +51,10 @@
 
 .label {
 	flex-grow: 1;
+	padding-block: 6px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-.labelRegular {
-	padding-block: 6px;
-}
-
-.labelHeading {
-	padding-block: 5.5px;
 }
 
 .fadedText {
