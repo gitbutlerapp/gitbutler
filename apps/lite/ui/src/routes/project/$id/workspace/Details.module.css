@@ -104,7 +104,7 @@
 }
 
 .commitMessageBody {
-	max-height: 10lh;
+	max-height: 4.5lh;
 	overflow: auto;
 	background-color: var(--bg-2);
 	font-size: 13px;
