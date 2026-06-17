@@ -297,11 +297,16 @@ pub(crate) fn selected_edges_from_set<M: RefMetadata>(
 /// selectors.
 ///
 /// `children` are the previously captured child edges that should point back to
-/// `delimiter.child` with their original order.
+/// `delimiter.child`. If the child is already connected to `delimiter.child`, no
+/// new edge is added. Otherwise, the original edge order is reused when
+/// available, or the next free order is used when another parent already
+/// occupies it.
 ///
 /// `parents` are the previously captured parent edges that should be restored
 /// from `delimiter.parent`, with fresh order values appended after any existing
-/// parents already connected there.
+/// parents already connected there. If a parent is already connected to
+/// `delimiter.parent`, no new edge is added. Otherwise, the appended order is
+/// reused when available, or advanced to the next free order on collision.
 ///
 /// Returns `Ok(())` after the captured child and parent edges have been
 /// reattached to the rebuilt segment.
@@ -312,7 +317,18 @@ pub(crate) fn connect_segment_to_edges<M: RefMetadata>(
     parents: &[(Selector, usize)],
 ) -> Result<()> {
     for (child, order) in children {
-        editor.add_edge(*child, delimiter.child, *order)?;
+        let direct_parents = editor.direct_parents(*child)?;
+        if direct_parents
+            .iter()
+            .any(|(parent, _)| *parent == delimiter.child)
+        {
+            continue;
+        }
+        editor.add_edge(
+            *child,
+            delimiter.child,
+            next_available_order(direct_parents.iter().map(|(_, order)| *order), *order),
+        )?;
     }
 
     let parent_order_offset = editor
@@ -324,10 +340,39 @@ pub(crate) fn connect_segment_to_edges<M: RefMetadata>(
         .unwrap_or(0);
 
     for (parent, order) in parents {
-        editor.add_edge(delimiter.parent, *parent, parent_order_offset + *order)?;
+        let direct_parents = editor.direct_parents(delimiter.parent)?;
+        if direct_parents
+            .iter()
+            .any(|(existing_parent, _)| *existing_parent == *parent)
+        {
+            continue;
+        }
+        let desired_order = parent_order_offset + *order;
+        editor.add_edge(
+            delimiter.parent,
+            *parent,
+            next_available_order(
+                direct_parents
+                    .iter()
+                    .map(|(_, existing_order)| *existing_order),
+                desired_order,
+            ),
+        )?;
     }
 
     Ok(())
+}
+
+fn next_available_order(
+    existing_orders: impl Iterator<Item = usize>,
+    desired_order: usize,
+) -> usize {
+    let used_orders = existing_orders.collect::<HashSet<_>>();
+    let mut order = desired_order;
+    while used_orders.contains(&order) {
+        order += 1;
+    }
+    order
 }
 
 /// Return a direct parent of `child` when `step` refers to a pick that is already connected.

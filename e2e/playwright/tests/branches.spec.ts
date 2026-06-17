@@ -75,6 +75,21 @@ test("should be able to apply a remote branch and integrate the remote changes -
 	await expect(commitRow(page)).toHaveCount(3);
 });
 
+test("should preview branch integration for a diverged branch with a parallel empty branch", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-with-diverged-branch-and-parallel-empty-branch.sh");
+	await openWorkspace(page);
+
+	await clickByTestId(page, "sync-button");
+	await clickByTestId(page, "upstream-commits-integrate-button");
+
+	await waitForTestId(page, "branch-integration-modal");
+	await expect(getByTestId(page, "branch-integration-preview-row").first()).toBeVisible();
+	await expect(getByTestId(page, "branch-integration-error")).toHaveCount(0);
+});
+
 test("should be able to apply a remote branch and integrate the remote changes - create commit", async ({
 	page,
 	gitbutler,
