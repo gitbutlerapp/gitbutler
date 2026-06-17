@@ -62,6 +62,25 @@ pub enum PickMode {
     Force,
 }
 
+fn debug_tree(repo: &gix::Repository, tree_id: gix::ObjectId) -> Result<()> {
+    eprintln!("start of {:?}", tree_id);
+    let tree = repo.find_tree(tree_id)?;
+    for entry in tree.iter() {
+        let entry = entry?;
+        if let Ok(blob) = repo.find_blob(entry.inner.oid) {
+            eprintln!(
+                " entry {} contents {:?}",
+                entry.inner.filename,
+                str::from_utf8(&blob.data)
+            );
+        } else {
+            eprintln!(" entry {}", entry.inner.filename);
+        }
+    }
+    eprintln!("end of {:?}", tree_id);
+    Ok(())
+}
+
 /// Cherry pick, but supports cherry-picking merge commits.
 ///
 /// When cherry-picking a commit onto two or more commits, we first find the
@@ -117,11 +136,21 @@ pub fn cherry_pick(
         return Ok(CherryPickOutcome::Identity(target.id.detach()));
     }
 
+    eprintln!("merging target {:?} ontos {:?}", target, ontos);
+    debug_tree(repo, target.tree)?;
     let base_t = find_base_tree(&target, tree_merge_mode)?;
     // We always want the "theirs-ist" side of the target if it's conflicted.
     let target_t = find_real_tree(&target, TreeKind::Theirs)?;
     // We want to cherry-pick onto the merge result.
     let onto_t = merged_tree_from_commits(repo, ontos, tree_merge_mode, TreeKind::AutoResolution)?;
+    eprintln!("base {:?} target {:?} onto {:?}", base_t, target_t, onto_t);
+    if let MergeOutcome::Success(tree_id) = base_t {
+        debug_tree(repo, tree_id)?;
+    }
+    debug_tree(repo, target_t.detach())?;
+    if let MergeOutcome::Success(tree_id) = onto_t {
+        debug_tree(repo, tree_id)?;
+    }
 
     match (&base_t, &onto_t) {
         (MergeOutcome::NoCommit, MergeOutcome::NoCommit) if pick_mode == PickMode::Force => {
