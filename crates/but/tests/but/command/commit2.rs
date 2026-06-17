@@ -928,9 +928,9 @@ fn refuses_above_and_below() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-error: the argument '--above <ABOVE>' cannot be used with '--below <BELOW>'
+error: the argument '--above <BRANCH_OR_COMMIT>' cannot be used with '--below <BRANCH_OR_COMMIT>'
 
-Usage: but commit2 --above <ABOVE> [CHANGES]...
+Usage: but commit2 --above <BRANCH_OR_COMMIT> [CHANGES]...
 
 For more information, try '--help'.
 
@@ -946,9 +946,9 @@ fn refuses_above_and_branch() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-error: the argument '--above <ABOVE>' cannot be used with '--branch [<BRANCH>]'
+error: the argument '--above <BRANCH_OR_COMMIT>' cannot be used with '--branch [<BRANCH>]'
 
-Usage: but commit2 --above <ABOVE> [CHANGES]...
+Usage: but commit2 --above <BRANCH_OR_COMMIT> [CHANGES]...
 
 For more information, try '--help'.
 
@@ -964,9 +964,9 @@ fn refuses_below_and_branch() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-error: the argument '--below <BELOW>' cannot be used with '--branch [<BRANCH>]'
+error: the argument '--below <BRANCH_OR_COMMIT>' cannot be used with '--branch [<BRANCH>]'
 
-Usage: but commit2 --below <BELOW> [CHANGES]...
+Usage: but commit2 --below <BRANCH_OR_COMMIT> [CHANGES]...
 
 For more information, try '--help'.
 
