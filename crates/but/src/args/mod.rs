@@ -269,9 +269,14 @@ pub enum Subcommands {
     /// With arguments, stages the specified file or hunk to the given branch.
     ///
     /// Usage:
-    ///   `but stage`                             (interactive TUI selector)
-    ///   `but stage --branch <branch>`           (interactive, specific branch)
-    ///   `but stage <file-or-hunk> <branch>`     (direct staging)
+    ///
+    /// ```text
+    /// but stage                         # interactive TUI selector
+    /// but stage --branch <branch>       # interactive, specific branch
+    /// but stage <file-or-hunk> <branch> # direct staging
+    /// ```
+    ///
+    /// For the interactive hunk picker workflow, see <https://docs.gitbutler.com/gitbutler-tui#stage-hunks-interactively>
     #[cfg(feature = "legacy")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Stage {
@@ -856,7 +861,10 @@ pub enum Subcommands {
         path: Option<PathBuf>,
     },
 
-    /// Show an interactive TUI.
+    /// Open a live terminal workspace for branches, commits, changes, and diffs.
+    ///
+    /// The GitButler TUI provides a visual experience similar to the GitButler GUI - right in your
+    /// terminal. For the full workflow and key bindings, see <https://docs.gitbutler.com/gitbutler-tui>
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     #[cfg(feature = "legacy")]
     Tui {
