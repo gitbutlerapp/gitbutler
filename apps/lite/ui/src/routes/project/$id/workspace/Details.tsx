@@ -25,10 +25,11 @@ import { projectActions, selectProjectFilesVisible } from "#ui/projects/state.ts
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
+import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
-import { Toolbar, Tooltip } from "@base-ui/react";
+import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
 import type {
 	CommitDetails,
 	DiffHunk,
@@ -42,14 +43,26 @@ import {
 	type CodeView as CodeViewClass,
 	type CodeViewLineSelection,
 	parsePatchFiles,
+	BaseDiffOptions,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { useSuspenseQueries } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Hash, identity, Match } from "effect";
-import { ComponentProps, FC, type RefObject, Suspense, useDeferredValue, useRef } from "react";
+import {
+	ComponentProps,
+	FC,
+	Ref,
+	type RefObject,
+	Suspense,
+	useDeferredValue,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import styles from "./Details.module.css";
-import { workspaceHotkeys } from "#ui/hotkeys.ts";
+import { diffHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
+import { useHotkeys } from "@tanstack/react-hotkeys";
 import {
 	type SelectionScope,
 	useDiffSelection,
@@ -67,6 +80,9 @@ import {
 import { buildIndexByKey, NavigationIndex } from "#ui/workspace/navigation-index.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
+import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
+
+type DiffStyle = NonNullable<BaseDiffOptions["diffStyle"]>;
 
 const codeViewItemId = ({ changesetKey, path }: { changesetKey: string; path: string }): string =>
 	`${changesetKey}:${path}`;
@@ -272,6 +288,7 @@ const DiffContents: FC<{
 	changesetKey: string;
 	projectId: string;
 	diffView: DiffView;
+	diffStyle: DiffStyle;
 	viewerRef: RefObject<CodeViewHandle<undefined> | null>;
 }> = ({
 	selectionScopeRef,
@@ -280,6 +297,7 @@ const DiffContents: FC<{
 	changesetKey,
 	projectId,
 	diffView: { items, navigationIndex, hunkByKey, fileByHunkKey, fileByItemId },
+	diffStyle,
 	viewerRef,
 }) => {
 	const dispatch = useAppDispatch();
@@ -395,7 +413,7 @@ const DiffContents: FC<{
 			selectedLines={selectedRange}
 			onSelectedLinesChange={handleLinesSelected}
 			options={{
-				diffStyle: "unified",
+				diffStyle,
 				themeType: "system",
 				stickyHeaders: true,
 				enableLineSelection: true,
@@ -567,6 +585,42 @@ const FilesToggle: FC = () => {
 	);
 };
 
+const DiffStyleToggle: FC<{
+	diffStyle: DiffStyle;
+	onDiffStyleChange: (diffStyle: DiffStyle) => void;
+}> = ({ diffStyle, onDiffStyleChange }) => (
+	<Tooltip.Root>
+		<Tooltip.Trigger
+			render={
+				<ToggleGroup
+					render={<ToggleGroupStyles />}
+					aria-label={diffHotkeys.toggleDiffStyle.meta.name}
+					value={[diffStyle]}
+					onValueChange={(value: Array<DiffStyle>) => {
+						const head = value[0];
+						if (head === undefined) return;
+						onDiffStyleChange(head);
+					}}
+				/>
+			}
+		>
+			<Toggle render={<ToggleStyles />} value={"split" satisfies DiffStyle}>
+				Split
+			</Toggle>
+			<Toggle render={<ToggleStyles />} value={"unified" satisfies DiffStyle}>
+				Unified
+			</Toggle>
+		</Tooltip.Trigger>
+		<Tooltip.Portal>
+			<Tooltip.Positioner sideOffset={4}>
+				<Tooltip.Popup render={<TooltipPopup kbd={diffHotkeys.toggleDiffStyle.hotkey} />}>
+					{diffHotkeys.toggleDiffStyle.meta.name}
+				</Tooltip.Popup>
+			</Tooltip.Positioner>
+		</Tooltip.Portal>
+	</Tooltip.Root>
+);
+
 const FullscreenToggle: FC<{
 	className?: string;
 	fullscreen: boolean;
@@ -646,12 +700,23 @@ const CommitDetailsContent: FC<{
 
 const Diff: FC<{
 	changes: Array<TreeChange>;
+	diffStyle: DiffStyle;
 	filesVisible: boolean;
 	filesItems: Array<FileTreeItem>;
+	diffContentsRef: Ref<HTMLElement>;
 	onFileSelection: (selection: string) => void;
 	outlineSelection: Operand;
 	projectId: string;
-}> = ({ changes, filesVisible, filesItems, onFileSelection, outlineSelection, projectId }) => {
+}> = ({
+	changes,
+	diffStyle,
+	filesVisible,
+	filesItems,
+	diffContentsRef,
+	onFileSelection,
+	outlineSelection,
+	projectId,
+}) => {
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
 	const viewerRef = useRef<CodeViewHandle<undefined>>(null);
 	const dispatch = useAppDispatch();
@@ -724,7 +789,7 @@ const Diff: FC<{
 				// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 				tabIndex={0}
 				className={styles.diffContentsContainer}
-				ref={selectionScopeRef}
+				ref={useMergedRefs(selectionScopeRef, diffContentsRef)}
 			>
 				<DiffContents
 					onViewerFileSelection={onFileSelection}
@@ -732,6 +797,7 @@ const Diff: FC<{
 					changesetKey={changesetKey}
 					projectId={projectId}
 					diffView={diffView}
+					diffStyle={diffStyle}
 					selectionScopeRef={selectionScopeRef}
 					viewerRef={viewerRef}
 				/>
@@ -757,6 +823,38 @@ export const Details: FC<
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
 	const outlineSelection = useDeferredValue(urgentOutlineSelection);
 
+	const [preferredDiffStyle, setPreferredDiffStyle] = useState<DiffStyle>("split");
+	const [diffContentsEl, setDiffContentsEl] = useState<HTMLElement | null>(null);
+	const [canUseSplitDiff, setCanUseSplitDiff] = useState<boolean | undefined>();
+
+	const toggleDiffStyle = () =>
+		setPreferredDiffStyle(preferredDiffStyle === "split" ? "unified" : "split");
+
+	useHotkeys([
+		{
+			hotkey: diffHotkeys.toggleDiffStyle.hotkey,
+			callback: toggleDiffStyle,
+			options: {
+				conflictBehavior: "allow",
+				enabled: canUseSplitDiff,
+				meta: diffHotkeys.toggleDiffStyle.meta,
+				ignoreInputs: true,
+			},
+		},
+	]);
+
+	useLayoutEffect(() => {
+		if (!diffContentsEl) return;
+
+		const resizeObserver = new ResizeObserver(() => {
+			setCanUseSplitDiff(diffContentsEl.getBoundingClientRect().width >= 700);
+		});
+
+		resizeObserver.observe(diffContentsEl);
+
+		return () => resizeObserver.disconnect();
+	}, [diffContentsEl]);
+
 	const selectFile = (selection: string) => {
 		dispatch(projectActions.selectFiles({ projectId, selection }));
 	};
@@ -780,6 +878,12 @@ export const Details: FC<
 
 				<div className={styles.actions}>
 					<FilesToggle />
+					{canUseSplitDiff && (
+						<DiffStyleToggle
+							diffStyle={preferredDiffStyle}
+							onDiffStyleChange={setPreferredDiffStyle}
+						/>
+					)}
 					<FullscreenToggle
 						className={getButtonClassName({ iconOnly: true })}
 						fullscreen={detailsFullscreen}
@@ -802,8 +906,10 @@ export const Details: FC<
 						<Diff
 							key={operandIdentityKey(outlineSelection)}
 							changes={changes}
+							diffStyle={canUseSplitDiff === true ? preferredDiffStyle : "unified"}
 							filesVisible={filesVisible}
 							filesItems={filesItems}
+							diffContentsRef={(el) => setDiffContentsEl(el)}
 							onFileSelection={selectFile}
 							outlineSelection={outlineSelection}
 							projectId={projectId}
