@@ -274,8 +274,8 @@
 		border-right: 1px solid var(--diff-count-border);
 		background-color: var(--diff-count-bg);
 		color: var(--diff-count-text);
-		font-size: 11px;
-		line-height: 1.5; /* Visually centered with 12px font size that diff lines have */
+		font-size: calc(var(--diff-font-size, 12px) - 1px);
+		line-height: 1.5; /* scales with the diff font, kept ~1px below the diff lines */
 		text-align: right;
 		vertical-align: top;
 		touch-action: none;

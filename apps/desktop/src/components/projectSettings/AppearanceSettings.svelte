@@ -245,7 +245,7 @@
 
 	<CardGroup.Item alignment="center">
 		{#snippet title()}
-			Font size
+			Diff Font Size
 		{/snippet}
 		{#snippet caption()}
 			Font size of the code in the diff view.
@@ -261,7 +261,8 @@
 				maxVal={32}
 				showCountActions
 				onchange={(value: string) => {
-					diffFontSize.set(parseInt(value) || diffFontSize.current);
+					const size = parseInt(value) || diffFontSize.current;
+					diffFontSize.set(Math.min(32, Math.max(8, size)));
 				}}
 				placeholder={diffFontSize.current.toString()}
 			/>

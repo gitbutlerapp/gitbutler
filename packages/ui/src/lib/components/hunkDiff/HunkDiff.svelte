@@ -81,7 +81,9 @@
 	let isVisible = $state(false);
 
 	// Rough line count for height reservation while body is not yet mounted
-	const estimatedBodyHeight = $derived(Math.max(hunkStr.split("\n").length - 1, 1) * 22);
+	const estimatedBodyHeight = $derived(
+		Math.max(hunkStr.split("\n").length - 1, 1) * ((diffFontSize * 22) / 12),
+	);
 
 	$effect(() => {
 		if (!tableWrapperElem) return;
