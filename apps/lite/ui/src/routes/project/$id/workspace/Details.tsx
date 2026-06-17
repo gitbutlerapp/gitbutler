@@ -46,7 +46,7 @@ import {
 	BaseDiffOptions,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
-import { useSuspenseQueries } from "@tanstack/react-query";
+import { useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Hash, identity, Match } from "effect";
 import {
@@ -653,49 +653,44 @@ const FullscreenToggle: FC<{
 const CommitDetailsContent: FC<{
 	projectId: string;
 	commitId: string;
-}> = ({ projectId, commitId }) => (
-	<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
-		{({ data: commitDetails }) => {
-			const fmtDate = new Intl.DateTimeFormat(undefined, {
-				day: "2-digit",
-				month: "2-digit",
-				year: "numeric",
-				hour: "2-digit",
-				minute: "2-digit",
-				hour12: false,
-			}).format(commitDetails.commit.authoredAt);
+}> = ({ projectId, commitId }) => {
+	const { data: commitDetails } = useSuspenseQuery(
+		commitDetailsWithLineStatsQueryOptions({ projectId, commitId }),
+	);
 
-			const body = commitBody(commitDetails.commit.message);
+	const fmtDate = new Intl.DateTimeFormat(undefined, {
+		day: "2-digit",
+		month: "2-digit",
+		year: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+		hour12: false,
+	}).format(commitDetails.commit.authoredAt);
 
-			return (
-				<>
-					<div className={classes("text-13", styles.commitDetailsMeta)}>
-						<img
-							src={commitDetails.commit.author.gravatarUrl}
-							className={styles.avatar}
-							alt="Commit author avatar"
-						/>
-						<span>
-							<span title={commitDetails.commit.author.email}>
-								{commitDetails.commit.author.name}
-							</span>{" "}
-							at {fmtDate}
-						</span>
-						<span>
-							{shortCommitId(commitDetails.commit.changeId)} (
-							{shortCommitId(commitDetails.commit.id)})
-						</span>
-					</div>
-					{body !== undefined && (
-						<p className={classes("text-monospace", "text-body", styles.commitMessageBody)}>
-							{body}
-						</p>
-					)}
-				</>
-			);
-		}}
-	</SuspenseQuery>
-);
+	const body = commitBody(commitDetails.commit.message);
+
+	return (
+		<>
+			<div className={classes("text-13", styles.commitDetailsMeta)}>
+				<img
+					src={commitDetails.commit.author.gravatarUrl}
+					className={styles.avatar}
+					alt="Commit author avatar"
+				/>
+				<span>
+					<span title={commitDetails.commit.author.email}>{commitDetails.commit.author.name}</span>{" "}
+					at {fmtDate}
+				</span>
+				<span>
+					{shortCommitId(commitDetails.commit.changeId)} ({shortCommitId(commitDetails.commit.id)})
+				</span>
+			</div>
+			{body !== undefined && (
+				<p className={classes("text-monospace", "text-body", styles.commitMessageBody)}>{body}</p>
+			)}
+		</>
+	);
+};
 
 const Diff: FC<{
 	changes: Array<TreeChange>;
