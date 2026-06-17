@@ -123,7 +123,6 @@ tracing-subscriber = { workspace = true, features = [
     "fmt",
 ] }
 tracing-forest.workspace = true
-cli-prompts.path = "vendor/cli-prompts"
 dirs.workspace = true
 minus = { git = "https://github.com/arijit79/minus", rev = "57f1848f831d153a10d65060562ce1fdde938a01", default-features = false, features = [
     "static_output",
@@ -159,7 +158,6 @@ tracing-appender = "0.2.5"
 uuid.workspace = true
 fuzzy-matcher = "0.3.7"
 indexmap.workspace = true
-dialoguer = { version = "0.12.0", default-features = false }
 
 [dev-dependencies]
 but-graph.workspace = true

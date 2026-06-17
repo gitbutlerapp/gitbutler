@@ -1,8 +1,8 @@
 use std::fmt::Write;
 
+use anyhow::Context as _;
 use but_core::{RepositoryExt, ref_metadata::StackId, sync::RepoShared};
 use but_ctx::Context;
-use cli_prompts::DisplayPrompt;
 use gitbutler_git::PushResult;
 use serde::Serialize;
 
@@ -15,9 +15,12 @@ use crate::{
 };
 
 /// Represents the result of branch selection when no branch is specified
+#[derive(Clone)]
 enum BranchSelection {
     /// Push a single branch
     Single(String),
+    /// Push multiple selected branches
+    Multiple(Vec<String>),
     /// Push all branches with unpushed commits
     All,
     /// User declined to push
@@ -76,6 +79,14 @@ pub async fn handle(
         BranchSelection::Single(branch_name) => {
             push_single_branch(ctx, perm, &branch_name, &args, gerrit_mode, out)?;
             true
+        }
+        BranchSelection::Multiple(branch_names) => {
+            let mut had_successful_push = false;
+            for branch_name in branch_names {
+                push_single_branch(ctx, perm, &branch_name, &args, gerrit_mode, out)?;
+                had_successful_push = true;
+            }
+            had_successful_push
         }
         BranchSelection::None => return Ok(()),
     };
@@ -845,35 +856,36 @@ fn handle_no_branch_specified(
     writeln!(progress)?;
 
     // Multiple branches with unpushed commits - let the prompt handle it
-    let mut options = vec!["all - Push all branches with unpushed commits".to_string()];
-    for (branch_name, unpushed_count, _) in &branches_with_unpushed {
-        options.push(format!(
-            "{} - {} unpushed commit{}",
-            branch_name,
-            unpushed_count,
-            if *unpushed_count == 1 { "" } else { "s" }
-        ));
-    }
+    let options = branches_with_unpushed
+        .iter()
+        .map(|(branch_name, unpushed_count, _)| {
+            (
+                format!(
+                    "{} - {} unpushed commit{}",
+                    branch_name,
+                    unpushed_count,
+                    if *unpushed_count == 1 { "" } else { "s" }
+                ),
+                branch_name.to_string(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let options = nonempty::NonEmpty::from_vec(options).context("No branches available to push")?;
+    let mut input = out
+        .prepare_for_terminal_input()
+        .context("Human input required - run this in a terminal")?;
 
-    let prompt = cli_prompts::prompts::Selection::new(
-        "Which branch(es) would you like to push?",
-        options.into_iter(),
-    );
+    let selected_branches = input
+        .prompt_multi_select("Which branch(es) would you like to push?", &options)?
+        .ok_or_else(|| anyhow::anyhow!("Selection aborted"))?
+        .into_iter()
+        .cloned()
+        .collect::<Vec<_>>();
 
-    let selection = prompt
-        .display()
-        .map_err(|e| anyhow::anyhow!("Selection aborted: {e:?}"))?;
-
-    // Parse the selection
-    if selection.starts_with("all ") {
-        Ok(BranchSelection::All)
+    if selected_branches.is_empty() {
+        Ok(BranchSelection::None)
     } else {
-        // Extract branch name from the selection
-        let branch_name = selection
-            .split(" - ")
-            .next()
-            .ok_or_else(|| anyhow::anyhow!("Invalid selection"))?;
-        Ok(BranchSelection::Single(branch_name.to_string()))
+        Ok(BranchSelection::Multiple(selected_branches))
     }
 }
 

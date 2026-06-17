@@ -609,29 +609,34 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
         }
     }
 
-    // The bottom-most commit (first in topological order) on the first branch
-    let default_commit = conflicts_by_branch.values().flatten().next();
+    let commit_options = conflicts_by_branch
+        .values()
+        .flatten()
+        .map(|commit| {
+            (
+                format!("{} {}", commit.commit_short_id, commit.commit_message),
+                commit.commit_short_id.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
 
     // Interactive prompting only for human output mode with terminal
-    let commit_id_to_resolve =
-        if let Some((mut inout, default)) = out.prepare_for_terminal_input().zip(default_commit) {
-            // Prompt user to select a commit to resolve
-            writeln!(
-                inout,
-                "{}",
-                t.important
-                    .paint("Would you like to start resolving these conflicts?")
-            )?;
-            inout
-                .prompt(format!(
-                    "Enter commit ID to resolve [default: {}]",
-                    t.commit_id.paint(&default.commit_short_id)
-                ))?
-                .unwrap_or_else(|| default.commit_short_id.clone())
-                .into()
-        } else {
-            None
+    let commit_id_to_resolve = if let Some(mut inout) = out.prepare_for_terminal_input() {
+        let Some(commit_options) = nonempty::NonEmpty::from_vec(commit_options) else {
+            return Ok(());
         };
+        writeln!(
+            inout,
+            "{}",
+            t.important
+                .paint("Would you like to start resolving these conflicts?")
+        )?;
+        inout
+            .prompt_select("Select commit to resolve", &commit_options)?
+            .cloned()
+    } else {
+        None
+    };
 
     if let Some(commit_id_to_resolve) = commit_id_to_resolve {
         // Enter resolution mode for the selected commit

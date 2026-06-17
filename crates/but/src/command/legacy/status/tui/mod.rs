@@ -155,7 +155,7 @@ pub(super) fn render_tui(
         let (_watcher_handle, received_watcher_event) =
             start_watcher(ctx).context("failed to start filesystem watcher")?;
 
-        let mut terminal_guard = CrosstermTerminalGuard::new(true)?;
+        let mut terminal_guard = CrosstermTerminalGuard::alt_screen(true)?;
         let event_polling = CrosstermEventPolling;
 
         render_loop(

@@ -7,7 +7,6 @@ use but_api::legacy::{cherry_apply, virtual_branches};
 use but_cherry_apply::CherryApplyStatus;
 use but_core::{RepositoryExt, ref_metadata::StackId, sync::RepoShared};
 use but_ctx::Context;
-use cli_prompts::DisplayPrompt;
 use gitbutler_branch_actions::BranchListingFilter;
 use gitbutler_oplog::{
     OplogExt,
@@ -46,7 +45,10 @@ pub fn handle(
     let effective_target = if target_branch.is_some() {
         target_branch
     } else if stacks.len() > 1 && out.can_prompt() {
-        let (_stack_id, branch_name) = select_target_interactively(&stacks)?;
+        let mut input = out
+            .prepare_for_terminal_input()
+            .context("Human input required - run this in a terminal")?;
+        let (_stack_id, branch_name) = select_target_interactively(&mut input, &stacks)?;
         target_branch_resolved = Some(branch_name);
         target_branch_resolved.as_deref()
     } else {
@@ -265,37 +267,30 @@ fn select_commits_from_branch(
     }
 
     // Interactive multi-selection
-    let options: Vec<String> = commits
+    let options = commits
         .iter()
         .enumerate()
         .map(|(i, (oid, message))| {
             let short_id = shorten_object_id(&repo, *oid);
             let display = out.truncate_if_unpaged(message, 60);
-            format!("[{}] {} {}", i + 1, short_id, display)
+            (format!("[{}] {} {}", i + 1, short_id, display), i)
         })
-        .collect();
+        .collect::<Vec<_>>();
+    let options = nonempty::NonEmpty::from_vec(options).context("No commits available")?;
+    let mut input = out
+        .prepare_for_terminal_input()
+        .context("Human input required - run this in a terminal")?;
 
-    let prompt = cli_prompts::prompts::Multiselect::new(
-        &format!("Pick commits from '{branch_name}':"),
-        options.iter().cloned(),
-    );
-
-    let selections = prompt
-        .display()
-        .map_err(|e| anyhow::anyhow!("Selection aborted: {e:?}"))?;
+    let selections = input
+        .prompt_multi_select(format!("Pick commits from '{branch_name}'"), &options)?
+        .ok_or_else(|| anyhow::anyhow!("Selection aborted"))?;
 
     if selections.is_empty() {
         bail!("No commits selected.");
     }
 
-    // Map selected strings back to indices in the paired `commits` vec
-    let selected_indices: Vec<usize> = selections
-        .iter()
-        .filter_map(|sel| options.iter().position(|opt| opt == sel))
-        .collect();
-
     // Return in oldest-first order so they are applied chronologically
-    let mut selected_indices_sorted = selected_indices;
+    let mut selected_indices_sorted = selections.into_iter().copied().collect::<Vec<_>>();
     selected_indices_sorted.sort_unstable();
     selected_indices_sorted.reverse();
 
@@ -356,7 +351,10 @@ Available stacks: {}",
         );
     }
 
-    select_target_interactively(stacks)
+    let mut input = out
+        .prepare_for_terminal_input()
+        .context("Human input required - run this in a terminal")?;
+    select_target_interactively(&mut input, stacks)
 }
 
 /// Handle the case where a commit is locked to a specific stack.
@@ -460,32 +458,23 @@ fn format_stack_names(stacks: &[HeadInfoStack]) -> String {
 }
 
 /// Interactive selection of target stack.
-fn select_target_interactively(stacks: &[HeadInfoStack]) -> Result<(StackId, String)> {
-    let options: Vec<String> = stacks
+fn select_target_interactively(
+    input: &mut crate::utils::InputOutputChannel<'_>,
+    stacks: &[HeadInfoStack],
+) -> Result<(StackId, String)> {
+    let options = stacks
         .iter()
-        .filter_map(|stack| stack.top_branch_name().map(ToOwned::to_owned))
-        .collect();
+        .filter_map(|stack| {
+            let stack_id = stack.id?;
+            let branch_name = stack.top_branch_name()?.to_owned();
+            Some((branch_name.clone(), (stack_id, branch_name)))
+        })
+        .collect::<Vec<_>>();
+    let options =
+        nonempty::NonEmpty::from_vec(options).context("No branches available for selection")?;
 
-    if options.is_empty() {
-        bail!("No branches available for selection.");
-    }
-
-    let prompt =
-        cli_prompts::prompts::Selection::new("Select target branch:", options.iter().cloned());
-
-    let selection = prompt
-        .display()
-        .map_err(|e| anyhow::anyhow!("Selection aborted: {e:?}"))?;
-
-    // Find the selected stack
-    for stack in stacks {
-        for branch in &stack.branches {
-            if branch.name == selection {
-                let stack_id = stack.id.context("Stack has no ID")?;
-                return Ok((stack_id, branch.name.clone()));
-            }
-        }
-    }
-
-    bail!("Selected branch not found.");
+    input
+        .prompt_select("Select target branch", &options)?
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("Selection aborted"))
 }

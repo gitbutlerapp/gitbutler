@@ -838,11 +838,9 @@ dependencies = [
  "chrono",
  "clap",
  "clap_complete",
- "cli-prompts",
  "colored",
  "command-group",
  "crossterm 0.29.0",
- "dialoguer",
  "dirs",
  "fuzzy-matcher",
  "gitbutler-branch-actions",
@@ -2082,13 +2080,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a822ea5bc7590f9d40f1ba12c0dc3c2760f3482c6984db1573ad11031420831"
 
 [[package]]
-name = "cli-prompts"
-version = "0.1.0"
-dependencies = [
- "crossterm 0.29.0",
-]
-
-[[package]]
 name = "clipboard-win"
 version = "5.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2227,7 +2218,6 @@ checksum = "d64e8af5551369d19cf50138de61f1c42074ab970f74e99be916646777f8fc87"
 dependencies = [
  "encode_unicode",
  "libc",
- "unicode-width",
  "windows-sys 0.61.2",
 ]
 
@@ -2883,16 +2873,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fbc1498156ddf9adc2eb251c1697b3a0dea599c94fb8cf1313f986adcc70f6e"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "dialoguer"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25f104b501bf2364e78d0d3974cbc774f738f5865306ed128e1e0d7499c0ad96"
-dependencies = [
- "console",
- "shell-words",
 ]
 
 [[package]]

@@ -335,7 +335,6 @@ jobs:
         run: |
           set -x
           (cd crates/gitbutler-filemonitor/vendor/debouncer && cargo test)
-          (cd crates/but/vendor/cli-prompts && cargo test)
 
   rust-test-but-api-macros:
     needs: changes

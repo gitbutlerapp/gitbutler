@@ -1,3 +1,4 @@
+use anyhow::Context as _;
 use bstr::BStr;
 use but_ctx::Context;
 
@@ -289,8 +290,6 @@ pub fn prompt_for_disambiguation(
     context: &str,
     out: &mut OutputChannel,
 ) -> anyhow::Result<CliId> {
-    use cli_prompts::{DisplayPrompt, prompts::Selection};
-
     // Defensive check
     if matches.is_empty() {
         return Err(anyhow::anyhow!(
@@ -298,7 +297,7 @@ pub fn prompt_for_disambiguation(
         ));
     }
 
-    if !out.can_prompt() {
+    let Some(mut input) = out.prepare_for_terminal_input() else {
         // In non-interactive mode, show all options and error
         let options_str = matches
             .iter()
@@ -318,17 +317,17 @@ pub fn prompt_for_disambiguation(
             "'{entity_str}' is ambiguous for {context}. Cannot prompt in non-interactive mode. Matches:\n{options_str}"
         ))
         .into());
-    }
+    };
 
     // Build options with clear descriptions
-    let options: Vec<String> = matches
-        .iter()
+    let options = matches
+        .into_iter()
         .map(|id| {
             let short_id = id.to_short_string();
             let kind = id.kind_for_humans();
 
             // Add additional context based on the type
-            match id {
+            let label = match &id {
                 CliId::Commit { commit_id, .. } => {
                     format!(
                         "{} - {} (commit {})",
@@ -360,29 +359,20 @@ pub fn prompt_for_disambiguation(
                     }
                 }
                 _ => format!("{short_id} - {kind}"),
-            }
+            };
+            (label, id)
         })
-        .collect();
+        .collect::<Vec<_>>();
+    let options = nonempty::NonEmpty::from_vec(options)
+        .context("Internal error: prompt_for_disambiguation called with empty matches")?;
 
-    let prompt = Selection::new(
-        &format!("'{entity_str}' matches multiple objects for {context}. Which one did you mean?"),
-        options.iter().cloned(),
-    );
-
-    let selection_str = prompt
-        .display()
-        .map_err(|e| anyhow::anyhow!("Selection aborted: {e:?}"))?;
-
-    // Find the index of the selected option - more robust than parsing IDs from the string
-    let selection_index = options
-        .iter()
-        .position(|opt| opt == &selection_str)
-        .ok_or_else(|| {
-            anyhow::anyhow!("Internal error: selected option not found in options list")
-        })?;
-
-    // Use the index to get the corresponding CliId
-    matches.into_iter().nth(selection_index).ok_or_else(|| {
-        anyhow::anyhow!("Internal error: selection index {selection_index} out of bounds")
-    })
+    input
+        .prompt_select(
+            format!(
+                "'{entity_str}' matches multiple objects for {context}. Which one did you mean?"
+            ),
+            &options,
+        )?
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("Selection aborted"))
 }

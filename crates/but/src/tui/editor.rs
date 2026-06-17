@@ -1074,7 +1074,7 @@ pub fn run_builtin_editor(
     initial_content: &str,
     mode: EditorMode,
 ) -> anyhow::Result<Option<String>> {
-    let mut guard = super::CrosstermTerminalGuard::new(true)?;
+    let mut guard = super::CrosstermTerminalGuard::alt_screen(true)?;
     let mut app = EditorApp::new(filename, initial_content, mode);
 
     loop {
