@@ -513,7 +513,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 	);
 };
 
-const Header: FC<{
+const Title: FC<{
 	projectId: string;
 	selection: Operand;
 }> = ({ projectId, selection }) =>
@@ -530,28 +530,28 @@ const Header: FC<{
 					})}
 				>
 					{({ data: branchDetails }) => (
-						<header className={styles.header}>
+						<div className={styles.title}>
 							<h3 className={classes("text-14", "text-semibold")}>{branchDetails.name}</h3>
-						</header>
+						</div>
 					)}
 				</SuspenseQuery>
 			),
 			ChangesSection: () => (
-				<header className={styles.header}>
+				<div className={styles.title}>
 					<h3 className={classes("text-14", "text-semibold")}>Changes</h3>
-				</header>
+				</div>
 			),
 			File: () => null,
 			Commit: ({ commitId }) => (
 				<SuspenseQuery {...commitDetailsWithLineStatsQueryOptions({ projectId, commitId })}>
 					{({ data: commitDetails }) => (
-						<header className={styles.header}>
+						<div className={styles.title}>
 							<Icon name="commit" />
 							<h3 className={classes("text-14", "text-semibold")}>
 								{commitTitle(commitDetails.commit.message) ?? "(no message)"}
 								{commitDetails.commit.hasConflicts && " ⚠️"}
 							</h3>
-						</header>
+						</div>
 					)}
 				</SuspenseQuery>
 			),
@@ -863,7 +863,7 @@ export const Details: FC<
 		>
 			<div className={styles.headerWrap}>
 				<Suspense fallback={<p className="text-13">Loading details…</p>}>
-					<Header projectId={projectId} selection={outlineSelection} />
+					<Title projectId={projectId} selection={outlineSelection} />
 
 					{outlineSelection._tag === "Commit" && (
 						<CommitDetailsContent projectId={projectId} commitId={outlineSelection.commitId} />

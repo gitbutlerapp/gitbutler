@@ -16,7 +16,7 @@
 	padding-top: var(--panel-padding);
 }
 
-.header {
+.title {
 	display: flex;
 	gap: 8px;
 }
