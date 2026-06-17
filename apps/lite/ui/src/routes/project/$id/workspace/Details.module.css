@@ -42,12 +42,18 @@
 	padding-block-end: var(--panel-padding);
 }
 
+.diffContainer {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+	row-gap: 12px;
+	padding-inline: var(--panel-padding);
+}
+
 .diff {
 	display: grid;
 	grid-template-rows: minmax(0, 1fr);
 	grid-template-columns: 1fr;
 	column-gap: 12px;
-	padding-inline: var(--panel-padding);
 }
 
 .diffWithFiles {

@@ -694,23 +694,12 @@ const CommitDetailsContent: FC<{
 
 const Diff: FC<{
 	changes: Array<TreeChange>;
-	diffStyle: DiffStyle;
 	filesVisible: boolean;
 	filesItems: Array<FileTreeItem>;
-	diffContentsRef: Ref<HTMLElement>;
 	onFileSelection: (selection: string) => void;
 	outlineSelection: Operand;
 	projectId: string;
-}> = ({
-	changes,
-	diffStyle,
-	filesVisible,
-	filesItems,
-	diffContentsRef,
-	onFileSelection,
-	outlineSelection,
-	projectId,
-}) => {
+}> = ({ changes, filesVisible, filesItems, onFileSelection, outlineSelection, projectId }) => {
 	const selectionScopeRef = useRef<HTMLDivElement>(null);
 	const viewerRef = useRef<CodeViewHandle<undefined>>(null);
 	const dispatch = useAppDispatch();
@@ -761,62 +750,6 @@ const Diff: FC<{
 		});
 	};
 
-	return (
-		<div className={classes(styles.diff, filesVisible && styles.diffWithFiles)}>
-			{filesVisible && (
-				<FilesTree
-					id={"files" satisfies SelectionScope}
-					data-selection-scope
-					tabIndex={0}
-					className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
-					onFileSelection={selectFileAndNavigateDiff}
-					projectId={projectId}
-					items={filesItems}
-					navigationIndex={{ items: files, indexByKey: filesIndexByKey }}
-					fileParent={fileParent}
-				/>
-			)}
-
-			<div
-				id={"diff" satisfies SelectionScope}
-				data-selection-scope
-				// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
-				tabIndex={0}
-				className={styles.diffContentsContainer}
-				ref={useMergedRefs(selectionScopeRef, diffContentsRef)}
-			>
-				<DiffContents
-					onViewerFileSelection={onFileSelection}
-					fileParent={fileParent}
-					changesetKey={changesetKey}
-					projectId={projectId}
-					diffView={diffView}
-					diffStyle={diffStyle}
-					selectionScopeRef={selectionScopeRef}
-					viewerRef={viewerRef}
-				/>
-			</div>
-		</div>
-	);
-};
-
-export const Details: FC<
-	{
-		detailsFullscreen: boolean;
-		onDetailsFullscreenChange: (fullscreen: boolean) => void;
-		outlineSelection: Operand | null;
-	} & ComponentProps<"div">
-> = ({
-	detailsFullscreen,
-	onDetailsFullscreenChange,
-	outlineSelection: urgentOutlineSelection,
-	...restProps
-}) => {
-	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
-	const dispatch = useAppDispatch();
-	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
-	const outlineSelection = useDeferredValue(urgentOutlineSelection);
-
 	const [preferredDiffStyle, setPreferredDiffStyle] = useState<DiffStyle>("split");
 	const [diffContentsEl, setDiffContentsEl] = useState<HTMLElement | null>(null);
 	const [canUseSplitDiff, setCanUseSplitDiff] = useState<boolean | undefined>();
@@ -849,6 +782,76 @@ export const Details: FC<
 		return () => resizeObserver.disconnect();
 	}, [diffContentsEl]);
 
+	const diffStyle = canUseSplitDiff === true ? preferredDiffStyle : "unified";
+
+	return (
+		<div className={styles.diffContainer}>
+			<div className={styles.actions}>
+				<FilesToggle />
+				{canUseSplitDiff && (
+					<DiffStyleToggle
+						diffStyle={preferredDiffStyle}
+						onDiffStyleChange={setPreferredDiffStyle}
+					/>
+				)}
+			</div>
+
+			<div className={classes(styles.diff, filesVisible && styles.diffWithFiles)}>
+				{filesVisible && (
+					<FilesTree
+						id={"files" satisfies SelectionScope}
+						data-selection-scope
+						tabIndex={0}
+						className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
+						onFileSelection={selectFileAndNavigateDiff}
+						projectId={projectId}
+						items={filesItems}
+						navigationIndex={{ items: files, indexByKey: filesIndexByKey }}
+						fileParent={fileParent}
+					/>
+				)}
+
+				<div
+					id={"diff" satisfies SelectionScope}
+					data-selection-scope
+					// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
+					tabIndex={0}
+					className={styles.diffContentsContainer}
+					ref={useMergedRefs(selectionScopeRef, setDiffContentsEl)}
+				>
+					<DiffContents
+						onViewerFileSelection={onFileSelection}
+						fileParent={fileParent}
+						changesetKey={changesetKey}
+						projectId={projectId}
+						diffView={diffView}
+						diffStyle={diffStyle}
+						selectionScopeRef={selectionScopeRef}
+						viewerRef={viewerRef}
+					/>
+				</div>
+			</div>
+		</div>
+	);
+};
+
+export const Details: FC<
+	{
+		detailsFullscreen: boolean;
+		onDetailsFullscreenChange: (fullscreen: boolean) => void;
+		outlineSelection: Operand | null;
+	} & ComponentProps<"div">
+> = ({
+	detailsFullscreen,
+	onDetailsFullscreenChange,
+	outlineSelection: urgentOutlineSelection,
+	...restProps
+}) => {
+	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
+	const dispatch = useAppDispatch();
+	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
+	const outlineSelection = useDeferredValue(urgentOutlineSelection);
+
 	const selectFile = (selection: string) => {
 		dispatch(projectActions.selectFiles({ projectId, selection }));
 	};
@@ -874,16 +877,6 @@ export const Details: FC<
 				{outlineSelection._tag === "Commit" && (
 					<CommitDetailsContent projectId={projectId} commitId={outlineSelection.commitId} />
 				)}
-
-				<div className={styles.actions}>
-					<FilesToggle />
-					{canUseSplitDiff && (
-						<DiffStyleToggle
-							diffStyle={preferredDiffStyle}
-							onDiffStyleChange={setPreferredDiffStyle}
-						/>
-					)}
-				</div>
 			</div>
 
 			<Suspense
@@ -900,10 +893,8 @@ export const Details: FC<
 						<Diff
 							key={operandIdentityKey(outlineSelection)}
 							changes={changes}
-							diffStyle={canUseSplitDiff === true ? preferredDiffStyle : "unified"}
 							filesVisible={filesVisible}
 							filesItems={filesItems}
-							diffContentsRef={(el) => setDiffContentsEl(el)}
 							onFileSelection={selectFile}
 							outlineSelection={outlineSelection}
 							projectId={projectId}
