@@ -7,11 +7,12 @@
 }
 
 .dragRegion {
+	z-index: 0;
 	position: absolute;
 	top: 0;
 	right: 0;
 	left: 0;
-	height: 16px;
+	height: 40px;
 	app-region: drag;
 }
 

@@ -62,9 +62,12 @@
 
 .workspaceControlsActions {
 	display: flex;
+	z-index: 1;
+	position: relative;
 	align-items: center;
 	margin-inline-start: auto;
 	gap: 4px;
+	app-region: no-drag;
 }
 
 .workspaceName {
