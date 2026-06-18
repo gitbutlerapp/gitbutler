@@ -1,5 +1,9 @@
 import { renameBranchInHeadInfo, resolveRelativeTo } from "#ui/api/ref-info.ts";
-import { changesInWorktreeQueryOptions, headInfoQueryOptions } from "#ui/api/queries.ts";
+import {
+	changesInWorktreeQueryOptions,
+	getReviewQueryOptions,
+	headInfoQueryOptions,
+} from "#ui/api/queries.ts";
 import { shortCommitId } from "#ui/commit.ts";
 import { errorMessageForToast } from "#ui/errors.ts";
 import { createDiffSpec } from "#ui/operations/diff-specs.ts";
@@ -100,6 +104,31 @@ export const useBranchCreate = () => {
 			toastManager.add({
 				type: "error",
 				title: "Failed to create branch",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useUpdateReview = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.updateReview,
+		onSuccess: async (_response, input, _context, mutation) => {
+			await mutation.client.invalidateQueries({
+				queryKey: getReviewQueryOptions({ projectId: input.projectId, reviewId: input.reviewId })
+					.queryKey,
+			});
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to update pull request",
 				description: errorMessageForToast(error),
 				priority: "high",
 			});
