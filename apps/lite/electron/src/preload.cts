@@ -11,6 +11,7 @@ import type {
 	CommitDetails,
 	DiffSpec,
 	Editor,
+	ForgeReview,
 	ProjectForFrontend,
 	PushResult,
 	RefInfo,
@@ -108,6 +109,7 @@ const api: LiteElectronApi = {
 	getVersion: () => ipcRenderer.invoke("lite:get-version") as Promise<string>,
 	getRedoTargetSnapshot: (params) =>
 		ipcRenderer.invoke("workspace:get-redo-target-snapshot", params) as Promise<Snapshot | null>,
+	getReview: (params) => ipcRenderer.invoke("workspace:get-review", params) as Promise<ForgeReview>,
 	getUndoTargetSnapshot: (params) =>
 		ipcRenderer.invoke("workspace:get-undo-target-snapshot", params) as Promise<Snapshot | null>,
 	headInfo: (projectId) => ipcRenderer.invoke("workspace:head-info", projectId) as Promise<RefInfo>,
@@ -117,13 +119,18 @@ const api: LiteElectronApi = {
 		>,
 	listEditors: () => ipcRenderer.invoke("workspace:list-editors") as Promise<Array<Editor>>,
 	listProjects: () => ipcRenderer.invoke("projects:list") as Promise<Array<ProjectForFrontend>>,
+	listReviewsForBranch: (params) =>
+		ipcRenderer.invoke("workspace:list-reviews-for-branch", params) as Promise<Array<ForgeReview>>,
 	moveBranch: (params) =>
 		ipcRenderer.invoke("workspace:move-branch", params) as Promise<MoveBranchResult>,
 	openInEditor: (params) => ipcRenderer.invoke("workspace:open-in-editor", params) as Promise<void>,
 	pathJoin: (path, ...paths) =>
 		ipcRenderer.invoke("lite:path-join", path, ...paths) as Promise<string>,
+	publishReview: (params) =>
+		ipcRenderer.invoke("workspace:publish-review", params) as Promise<ForgeReview>,
 	updateBranchName: (params) =>
 		ipcRenderer.invoke("workspace:update-branch-name", params) as Promise<UpdateBranchNameResult>,
+	updateReview: (params) => ipcRenderer.invoke("workspace:update-review", params) as Promise<void>,
 	tearOffBranch: (params) =>
 		ipcRenderer.invoke("workspace:tear-off-branch", params) as Promise<MoveBranchResult>,
 	peelRestoreSnapshot: (params) =>

@@ -21,13 +21,17 @@ import {
 	type CommitRewordParams,
 	type CommitMoveChangesBetweenParams,
 	type CommitUncommitChangesParams,
+	type GetReviewParams,
 	type MoveBranchParams,
+	type ListReviewsForBranchParams,
 	type OpenInEditorParams,
+	type PublishReviewParams,
 	type PushStackParams,
 	type RemoveBranchParams,
 	type TearOffBranchParams,
 	type TreeChangeDiffParams,
 	type UpdateBranchNameParams,
+	type UpdateReviewParams,
 	type ApplyParams,
 	type AskpassSubmitPromptResponseParams,
 	type ShowNativeMenuParams,
@@ -63,16 +67,20 @@ import {
 	commitMove,
 	commitDetailsWithLineStats,
 	commitMoveChangesBetween,
+	getReview,
 	listBranches,
 	listEditors,
 	listProjectsStateless,
+	listReviewsForBranch,
 	moveBranch,
 	openInEditor,
+	publishReview,
 	removeBranch,
 	tearOffBranch,
 	treeChangeDiffs,
 	unapplyStack,
 	updateBranchName,
+	updateReview,
 	workspaceBranchAndAncestorsPush,
 	BranchListingFilter,
 	commitUncommit,
@@ -421,6 +429,10 @@ const registerIpcHandlers = (): void => {
 	senderValidatingHandle(liteIpcChannels.getRedoTargetSnapshot, async (_e, projectId: string) =>
 		getRedoTargetSnapshot(projectId),
 	);
+	senderValidatingHandle(
+		liteIpcChannels.getReview,
+		(_e, { projectId, reviewId }: GetReviewParams) => getReview(projectId, reviewId),
+	);
 	senderValidatingHandle(liteIpcChannels.getUndoTargetSnapshot, async (_e, projectId: string) =>
 		getUndoTargetSnapshot(projectId),
 	);
@@ -431,6 +443,11 @@ const registerIpcHandlers = (): void => {
 	);
 	senderValidatingHandle(liteIpcChannels.listEditors, () => listEditors());
 	senderValidatingHandle(liteIpcChannels.listProjects, () => listProjectsStateless());
+	senderValidatingHandle(
+		liteIpcChannels.listReviewsForBranch,
+		(_e, { projectId, branch, filter }: ListReviewsForBranchParams) =>
+			listReviewsForBranch(projectId, branch, filter),
+	);
 	senderValidatingHandle(
 		liteIpcChannels.moveBranch,
 		(_e, { projectId, subjectBranch, targetBranch, dryRun }: MoveBranchParams) =>
@@ -445,9 +462,18 @@ const registerIpcHandlers = (): void => {
 		path.join(...paths),
 	);
 	senderValidatingHandle(
+		liteIpcChannels.publishReview,
+		(_e, { projectId, params }: PublishReviewParams) => publishReview(projectId, params),
+	);
+	senderValidatingHandle(
 		liteIpcChannels.updateBranchName,
 		(_e, { projectId, stackId, branchName, newName }: UpdateBranchNameParams) =>
 			updateBranchName(projectId, stackId, branchName, newName),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.updateReview,
+		(_e, { projectId, reviewId, body, state, targetBase }: UpdateReviewParams) =>
+			updateReview(projectId, reviewId, body, state, targetBase),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.tearOffBranch,

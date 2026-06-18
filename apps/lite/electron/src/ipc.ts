@@ -10,6 +10,8 @@ import type {
 	BranchListingFilter,
 	BottomUpdate,
 	Editor,
+	ForgeReview,
+	ForgeReviewFilter,
 	CommitAbsorption,
 	HunkAssignmentRequest,
 	CommitDetails,
@@ -27,6 +29,7 @@ import type {
 	CommitMoveResult,
 	CommitRewordResult,
 	CommitSquashResult,
+	CreateForgeReviewParams,
 	MoveBranchResult,
 	MoveChangesResult,
 	PushFlag,
@@ -35,6 +38,7 @@ import type {
 	WorktreeChanges,
 	WorkspaceState,
 	UncommitResult,
+	ReviewState,
 	RestoreKind,
 	Snapshot,
 	AskpassPromptEvent,
@@ -185,6 +189,17 @@ export interface ListBranchesParams {
 	filter: BranchListingFilter | null;
 }
 
+export interface ListReviewsForBranchParams {
+	projectId: string;
+	branch: string;
+	filter: ForgeReviewFilter | null;
+}
+
+export interface GetReviewParams {
+	projectId: string;
+	reviewId: number;
+}
+
 export interface MoveBranchParams {
 	projectId: string;
 	subjectBranch: string;
@@ -202,6 +217,11 @@ export interface OpenInEditorParams {
 export interface PeelRestoreSnapshotParams {
 	projectId: string;
 	sha: string;
+}
+
+export interface PublishReviewParams {
+	projectId: string;
+	params: CreateForgeReviewParams;
 }
 
 export interface PushStackParams {
@@ -252,6 +272,14 @@ export interface UpdateBranchNameParams {
 	stackId: string;
 	branchName: string;
 	newName: string;
+}
+
+export interface UpdateReviewParams {
+	projectId: string;
+	reviewId: number;
+	body: string | null;
+	state: ReviewState | null;
+	targetBase: string | null;
 }
 
 export type UpdateBranchNameResult = BranchReference;
@@ -319,6 +347,7 @@ export interface LiteElectronApi {
 	commitUncommitChanges: (params: CommitUncommitChangesParams) => Promise<MoveChangesResult>;
 	getVersion: () => Promise<string>;
 	getRedoTargetSnapshot: (projectId: string) => Promise<Snapshot | null>;
+	getReview: (params: GetReviewParams) => Promise<ForgeReview>;
 	getUndoTargetSnapshot: (projectId: string) => Promise<Snapshot | null>;
 	headInfo: (projectId: string) => Promise<RefInfo>;
 	listBranches: (
@@ -327,10 +356,13 @@ export interface LiteElectronApi {
 	) => Promise<Array<BranchListing>>;
 	listEditors: () => Promise<Array<Editor>>;
 	listProjects: () => Promise<Array<ProjectForFrontend>>;
+	listReviewsForBranch: (params: ListReviewsForBranchParams) => Promise<Array<ForgeReview>>;
 	moveBranch: (params: MoveBranchParams) => Promise<MoveBranchResult>;
 	openInEditor: (params: OpenInEditorParams) => Promise<void>;
 	pathJoin: (...paths: Array<string>) => Promise<string>;
+	publishReview: (params: PublishReviewParams) => Promise<ForgeReview>;
 	updateBranchName: (params: UpdateBranchNameParams) => Promise<UpdateBranchNameResult>;
+	updateReview: (params: UpdateReviewParams) => Promise<void>;
 	tearOffBranch: (params: TearOffBranchParams) => Promise<MoveBranchResult>;
 	peelRestoreSnapshot: (params: PeelRestoreSnapshotParams) => Promise<Snapshot | null>;
 	pushStack: (params: PushStackParams) => Promise<PushResult>;
@@ -375,16 +407,20 @@ export const liteIpcChannels = {
 	commitUncommit: "workspace:commit-uncommit",
 	commitUncommitChanges: "workspace:commit-uncommit-changes",
 	getRedoTargetSnapshot: "workspace:get-redo-target-snapshot",
+	getReview: "workspace:get-review",
 	getUndoTargetSnapshot: "workspace:get-undo-target-snapshot",
 	getVersion: "lite:get-version",
 	headInfo: "workspace:head-info",
 	listBranches: "workspace:list-branches",
 	listEditors: "workspace:list-editors",
 	listProjects: "projects:list",
+	listReviewsForBranch: "workspace:list-reviews-for-branch",
 	moveBranch: "workspace:move-branch",
 	openInEditor: "workspace:open-in-editor",
 	pathJoin: "lite:path-join",
+	publishReview: "workspace:publish-review",
 	updateBranchName: "workspace:update-branch-name",
+	updateReview: "workspace:update-review",
 	tearOffBranch: "workspace:tear-off-branch",
 	peelRestoreSnapshot: "workspace:peel-restore-snapshot",
 	pushStack: "workspace:push-stack",

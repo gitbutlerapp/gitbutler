@@ -38,12 +38,16 @@
 	gap: 6px;
 }
 
-.loadingDiff {
+.actionsRight {
+	margin-inline-start: auto;
+}
+
+.loadingTab {
 	padding-inline: var(--panel-padding);
 	padding-block-end: var(--panel-padding);
 }
 
-.diffContainer {
+.diffTab {
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr);
 	row-gap: 12px;
@@ -105,16 +109,50 @@
 }
 
 .commitMessageBody {
+	max-width: 700px;
 	background-color: var(--bg-2);
 	font-size: 13px;
-	/* text pre */
-	white-space: pre-line;
+	white-space: pre-wrap;
 	user-select: text;
 }
 
 .commitMessageBodyCollapsed {
 	max-height: 4.5lh;
 	overflow: auto;
+}
+
+.prTab {
+	padding-inline: var(--panel-padding);
+	padding-block-end: var(--panel-padding);
+}
+
+.prForm {
+	display: flex;
+	row-gap: 12px;
+	flex-direction: column;
+	max-width: 700px;
+}
+
+.prTitleInput,
+.prDescriptionInput {
+	padding-inline: 8px;
+	padding-block: 6px;
+	border: 1px solid var(--border-2);
+	border-radius: var(--radius-l);
+	background-color: var(--bg-1);
+}
+
+.prDescriptionInput {
+	field-sizing: content;
+	min-height: 16lh;
+	max-height: 20lh;
+	resize: none;
+}
+
+.prFormActions {
+	display: flex;
+	column-gap: 4px;
+	justify-content: flex-end;
 }
 
 .fileHeader {

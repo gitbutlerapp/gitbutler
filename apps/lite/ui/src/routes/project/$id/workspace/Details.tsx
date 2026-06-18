@@ -1,10 +1,12 @@
 import uiStyles from "#ui/components/ui.module.css";
 import { SuspenseQuery } from "@suspensive/react-query";
+import { useUpdateReview } from "#ui/api/mutations.ts";
 import {
 	branchDetailsQueryOptions,
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
+	getReviewQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { decodeBytes } from "#ui/api/bytes.ts";
@@ -53,6 +55,7 @@ import {
 	ComponentProps,
 	FC,
 	type RefObject,
+	SubmitEventHandler,
 	Suspense,
 	useId,
 	useLayoutEffect,
@@ -82,6 +85,7 @@ import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuIt
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 
 type DiffStyle = NonNullable<BaseDiffOptions["diffStyle"]>;
+type BranchTab = "diff" | "pr";
 
 const codeViewItemId = ({ changesetKey, path }: { changesetKey: string; path: string }): string =>
 	`${changesetKey}:${path}`;
@@ -612,13 +616,15 @@ const FilesToggle: FC = () => {
 };
 
 const DiffStyleToggle: FC<{
+	className?: string;
 	diffStyle: DiffStyle;
 	onDiffStyleChange: (diffStyle: DiffStyle) => void;
-}> = ({ diffStyle, onDiffStyleChange }) => (
+}> = ({ className, diffStyle, onDiffStyleChange }) => (
 	<Tooltip.Root>
 		<Tooltip.Trigger
 			render={
 				<ToggleGroup
+					className={className}
 					render={<ToggleGroupStyles />}
 					aria-label={diffHotkeys.toggleDiffStyle.meta.name}
 					value={[diffStyle]}
@@ -824,11 +830,12 @@ const Diff: FC<{
 	const diffStyle = canUseSplitDiff === true ? preferredDiffStyle : "unified";
 
 	return (
-		<div className={styles.diffContainer}>
+		<div className={styles.diffTab}>
 			<div className={styles.actions}>
 				<FilesToggle />
 				{canUseSplitDiff && (
 					<DiffStyleToggle
+						className={styles.actionsRight}
 						diffStyle={preferredDiffStyle}
 						onDiffStyleChange={setPreferredDiffStyle}
 					/>
@@ -874,6 +881,71 @@ const Diff: FC<{
 	);
 };
 
+const PullRequestForm: FC<{
+	projectId: string;
+	reviewId: number;
+	title: string;
+	body: string | null;
+}> = ({ projectId, reviewId, title, body }) => {
+	const updateReview = useUpdateReview();
+	const [draftBody, setDraftBody] = useState(body);
+	const isDirty = draftBody !== body;
+
+	const reset = () => {
+		setDraftBody(body);
+	};
+
+	const submit: SubmitEventHandler<HTMLFormElement> = (event) => {
+		event.preventDefault();
+
+		updateReview.mutate({
+			projectId,
+			reviewId,
+			body: draftBody,
+			state: null,
+			targetBase: null,
+		});
+	};
+
+	return (
+		<form className={styles.prForm} onSubmit={submit}>
+			<input
+				aria-label="Pull request title"
+				className={classes("text-15 text-semibold", styles.prTitleInput)}
+				placeholder="Title"
+				readOnly
+				required
+				value={title}
+			/>
+			<textarea
+				aria-label="Pull request description"
+				className={classes("text-13 text-body text-monospace", styles.prDescriptionInput)}
+				onChange={(event) => setDraftBody(event.currentTarget.value)}
+				placeholder="Description"
+				value={draftBody ?? ""}
+			/>
+			<div className={styles.prFormActions}>
+				<button
+					className={getButtonClassName({})}
+					disabled={!isDirty || updateReview.isPending}
+					onClick={reset}
+					type="button"
+				>
+					Reset
+				</button>
+				<button
+					className={getButtonClassName({})}
+					disabled={!isDirty || updateReview.isPending}
+					type="submit"
+				>
+					{updateReview.isPending && <Icon name="spinner" />}
+					Update Pull Request
+				</button>
+			</div>
+		</form>
+	);
+};
+
 export const Details: FC<
 	{
 		detailsFullscreen: boolean;
@@ -885,6 +957,7 @@ export const Details: FC<
 	const dispatch = useAppDispatch();
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
 	const [commitBodyCollapsed, setCommitBodyCollapsed] = useState(true);
+	const [branchTab, setBranchTab] = useState<BranchTab>("diff");
 	const commitBodyId = useId();
 
 	const selectFile = (selection: string) => {
@@ -911,6 +984,28 @@ export const Details: FC<
 					/>
 				</div>
 
+				{outlineSelection._tag === "Branch" && (
+					<div>
+						<ToggleGroup
+							render={<ToggleGroupStyles />}
+							value={[branchTab]}
+							onValueChange={(value: Array<BranchTab>) => {
+								const head = value[0];
+								if (head === undefined) return;
+								setBranchTab(head);
+							}}
+							aria-label="Branch tab"
+						>
+							<Toggle render={<ToggleStyles />} value={"diff" satisfies BranchTab}>
+								Diff
+							</Toggle>
+							<Toggle render={<ToggleStyles />} value={"pr" satisfies BranchTab}>
+								Pull Request
+							</Toggle>
+						</ToggleGroup>
+					</div>
+				)}
+
 				{outlineSelection._tag === "Commit" && (
 					<CommitDetailsContent
 						bodyCollapsed={commitBodyCollapsed}
@@ -921,11 +1016,9 @@ export const Details: FC<
 				)}
 			</div>
 
-			<Suspense
-				fallback={<div className={classes(styles.loadingDiff, "text-13")}>Loading diff…</div>}
-			>
+			<Suspense fallback={<div className={classes(styles.loadingTab, "text-13")}>Loading…</div>}>
 				{(() => {
-					const render = ({
+					const renderDiff = ({
 						changes,
 						filesItems,
 					}: {
@@ -950,7 +1043,7 @@ export const Details: FC<
 								})}
 							>
 								{({ data: commitDetails }) =>
-									render({
+									renderDiff({
 										changes: commitDetails.changes,
 										filesItems: getCommitFileTreeItems({ commitDetails }),
 									})
@@ -960,25 +1053,65 @@ export const Details: FC<
 						Match.tag("ChangesSection", () => (
 							<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
 								{({ data: worktreeChanges }) =>
-									render({
+									renderDiff({
 										changes: worktreeChanges.changes,
 										filesItems: getChangesFileTreeItems(worktreeChanges),
 									})
 								}
 							</SuspenseQuery>
 						)),
-						Match.tag("Branch", ({ branchRef }) => (
-							<SuspenseQuery
-								{...branchDiffQueryOptions({ projectId, branch: decodeBytes(branchRef) })}
-							>
-								{({ data: branchDiff }) =>
-									render({
-										changes: branchDiff.changes,
-										filesItems: getBranchFileTreeItems({ branchDiff }),
-									})
-								}
-							</SuspenseQuery>
-						)),
+						Match.tag("Branch", ({ branchRef }) =>
+							branchTab === "pr" ? (
+								<SuspenseQuery
+									{...branchDetailsQueryOptions({
+										projectId,
+										// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
+										branchName: decodeBytes(branchRef).replace(/^refs\/heads\//, ""),
+										remote: null,
+									})}
+								>
+									{({ data: branchDetails }) => {
+										const reviewId = branchDetails.prNumber;
+
+										return (
+											<div className={styles.prTab}>
+												{reviewId === null ? (
+													<p className="text-13">No pull request found.</p>
+												) : (
+													<SuspenseQuery
+														{...getReviewQueryOptions({
+															projectId,
+															reviewId,
+														})}
+													>
+														{({ data: review }) => (
+															<PullRequestForm
+																key={reviewId}
+																body={review.body}
+																projectId={projectId}
+																reviewId={reviewId}
+																title={review.title}
+															/>
+														)}
+													</SuspenseQuery>
+												)}
+											</div>
+										);
+									}}
+								</SuspenseQuery>
+							) : (
+								<SuspenseQuery
+									{...branchDiffQueryOptions({ projectId, branch: decodeBytes(branchRef) })}
+								>
+									{({ data: branchDiff }) =>
+										renderDiff({
+											changes: branchDiff.changes,
+											filesItems: getBranchFileTreeItems({ branchDiff }),
+										})
+									}
+								</SuspenseQuery>
+							),
+						),
 						Match.orElse(() => null),
 					);
 				})()}

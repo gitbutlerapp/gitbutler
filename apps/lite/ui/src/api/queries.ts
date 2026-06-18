@@ -3,6 +3,7 @@ import type {
 	BranchDetailsParams,
 	BranchDiffParams,
 	CommitDetailsWithLineStatsParams,
+	GetReviewParams,
 	ListBranchesParams,
 	TreeChangeDiffParams,
 } from "#electron/ipc.ts";
@@ -14,6 +15,7 @@ export enum QueryKey {
 	ChangesInWorktree = "changesInWorktree",
 	CommitDetailsWithLineStats = "commitDetailsWithLineStats",
 	HeadInfo = "headInfo",
+	Review = "review",
 	Branches = "branches",
 	Editors = "editors",
 	Projects = "projects",
@@ -53,6 +55,12 @@ export const headInfoQueryOptions = (projectId: string) =>
 	queryOptions({
 		queryKey: [QueryKey.HeadInfo, projectId],
 		queryFn: () => window.lite.headInfo(projectId),
+	});
+
+export const getReviewQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
+	queryOptions({
+		queryKey: [QueryKey.Review, projectId, reviewId],
+		queryFn: () => window.lite.getReview({ projectId, reviewId }),
 	});
 
 /** @public */
