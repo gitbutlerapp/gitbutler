@@ -22,6 +22,7 @@ import {
 	type CommitMoveChangesBetweenParams,
 	type CommitUncommitChangesParams,
 	type MoveBranchParams,
+	type ListReviewsForBranchParams,
 	type OpenInEditorParams,
 	type PushStackParams,
 	type RemoveBranchParams,
@@ -66,6 +67,7 @@ import {
 	listBranches,
 	listEditors,
 	listProjectsStateless,
+	listReviewsForBranch,
 	moveBranch,
 	openInEditor,
 	removeBranch,
@@ -431,6 +433,11 @@ const registerIpcHandlers = (): void => {
 	);
 	senderValidatingHandle(liteIpcChannels.listEditors, () => listEditors());
 	senderValidatingHandle(liteIpcChannels.listProjects, () => listProjectsStateless());
+	senderValidatingHandle(
+		liteIpcChannels.listReviewsForBranch,
+		(_e, { projectId, branch, filter }: ListReviewsForBranchParams) =>
+			listReviewsForBranch(projectId, branch, filter),
+	);
 	senderValidatingHandle(
 		liteIpcChannels.moveBranch,
 		(_e, { projectId, subjectBranch, targetBranch, dryRun }: MoveBranchParams) =>

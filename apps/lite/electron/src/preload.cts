@@ -11,6 +11,7 @@ import type {
 	CommitDetails,
 	DiffSpec,
 	Editor,
+	ForgeReview,
 	ProjectForFrontend,
 	PushResult,
 	RefInfo,
@@ -117,6 +118,8 @@ const api: LiteElectronApi = {
 		>,
 	listEditors: () => ipcRenderer.invoke("workspace:list-editors") as Promise<Array<Editor>>,
 	listProjects: () => ipcRenderer.invoke("projects:list") as Promise<Array<ProjectForFrontend>>,
+	listReviewsForBranch: (params) =>
+		ipcRenderer.invoke("workspace:list-reviews-for-branch", params) as Promise<Array<ForgeReview>>,
 	moveBranch: (params) =>
 		ipcRenderer.invoke("workspace:move-branch", params) as Promise<MoveBranchResult>,
 	openInEditor: (params) => ipcRenderer.invoke("workspace:open-in-editor", params) as Promise<void>,

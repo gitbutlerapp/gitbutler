@@ -10,6 +10,8 @@ import type {
 	BranchListingFilter,
 	BottomUpdate,
 	Editor,
+	ForgeReview,
+	ForgeReviewFilter,
 	CommitAbsorption,
 	HunkAssignmentRequest,
 	CommitDetails,
@@ -185,6 +187,12 @@ export interface ListBranchesParams {
 	filter: BranchListingFilter | null;
 }
 
+export interface ListReviewsForBranchParams {
+	projectId: string;
+	branch: string;
+	filter: ForgeReviewFilter | null;
+}
+
 export interface MoveBranchParams {
 	projectId: string;
 	subjectBranch: string;
@@ -327,6 +335,7 @@ export interface LiteElectronApi {
 	) => Promise<Array<BranchListing>>;
 	listEditors: () => Promise<Array<Editor>>;
 	listProjects: () => Promise<Array<ProjectForFrontend>>;
+	listReviewsForBranch: (params: ListReviewsForBranchParams) => Promise<Array<ForgeReview>>;
 	moveBranch: (params: MoveBranchParams) => Promise<MoveBranchResult>;
 	openInEditor: (params: OpenInEditorParams) => Promise<void>;
 	pathJoin: (...paths: Array<string>) => Promise<string>;
@@ -381,6 +390,7 @@ export const liteIpcChannels = {
 	listBranches: "workspace:list-branches",
 	listEditors: "workspace:list-editors",
 	listProjects: "projects:list",
+	listReviewsForBranch: "workspace:list-reviews-for-branch",
 	moveBranch: "workspace:move-branch",
 	openInEditor: "workspace:open-in-editor",
 	pathJoin: "lite:path-join",
