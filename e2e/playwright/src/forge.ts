@@ -110,6 +110,7 @@ export function forgeReview(
 		repositorySshUrl: null,
 		repositoryHttpsUrl: null,
 		repoOwner: null,
+		headRepoIsFork: false,
 		reviewers: [],
 		unitSymbol: "#",
 		lastSyncAt: "2026-06-01T00:00:00Z",

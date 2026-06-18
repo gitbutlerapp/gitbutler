@@ -70,7 +70,7 @@
 
 	const checksTagInfo: StatusInfo = $derived.by(() => {
 		const checks = checksQuery?.response;
-		if (!checksService && isFork) {
+		if (isFork) {
 			return {
 				style: "gray",
 				icon: undefined,
