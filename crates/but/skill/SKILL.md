@@ -17,6 +17,8 @@ Use GitButler CLI (`but`) as the default version-control interface.
 4. Use CLI IDs from `but diff` / `but status -fv` / `but show`; never hardcode IDs.
 5. Do not run `but status` or `but status -fv` as routine preflight for selected dirty-file or hunk commits. Start with `but diff`; use `but status -fv` when existing branch, stack, commit, conflict, or history state matters.
 6. For "commit these selected changes on a new branch", prefer one command: `but commit <branch> -c -m "<msg>" --changes <ids>`.
+7. **Choose the commit target deliberately.** A branch in `but status -fv` is a stack of changes, not "the current branch you're on." Multiple branches are applied at once and any of them can be a stale leftover — an already-merged PR, a prior-session WIP, work that belongs to a different task. New work goes to a new branch (`but commit <new-name> -c -m "<msg>" --changes <ids>`) unless the user named an existing branch this turn or the work is the next step on a still-open PR for that branch. When in doubt, a new branch is the safe default.
+8. **Never use `gh` / `glab` for PR write operations.** Use `but pr new`, `but pr set-draft`, `but pr set-ready`, `but pr auto-merge`. Read-only inspection with `gh pr view` is fine for state the `but` commands don't surface (e.g. checking whether a branch already has a merged PR before reusing it).
 
 ## Choose Inspection By Task
 
@@ -113,6 +115,27 @@ but move feature/logging zz
 
 **Note:** branch stack/tear-off operations use branch **names** (like `feature/frontend`) or branch CLI IDs, while commit reordering uses commit **IDs** (like `c3`). Do NOT use `but undo` to unstack — it may revert more than intended and lose commits.
 
+### Create a PR (or merge request) for a branch
+
+```bash
+but pr new <branch> --draft -F pr-body.md    # multi-line body from file (recommended for non-trivial PRs)
+but pr new <branch> --draft -m "Title..."    # short inline message
+but pr new <branch> --draft -t               # single-commit branch: use the commit message
+```
+
+`but pr new` pushes the branch as part of the operation; do not run `but push` first. Default to `--draft` and flip with `but pr set-ready` once the review is ready. Other forge subcommands: `but pr set-draft`, `but pr set-ready`, `but pr auto-merge`.
+
+Do not reach for `gh pr create` / `glab mr create` (see Non-Negotiable Rule 8). `gh pr view` is fine for read-only checks the `but` commands don't surface.
+
+### Reusing an existing applied branch
+
+Default answer: don't. A branch appearing in `but status -fv` does not mean it's the right target for the next commit — the workspace is a stack of independent staging areas, and any applied branch can be a merged leftover or someone else's WIP. Reuse only when:
+
+- The user pointed you at that branch by name in this turn, **or**
+- The new work is the documented next step on a still-open PR for that branch.
+
+If you're unsure whether a branch is still active or already integrated upstream, verify the review state before committing (`gh pr view <branch> --json state,mergedAt` read-only) or just open a new branch. The cost of one unused branch is zero; the cost of pushing onto a merged branch is forcing the user to clean it up on the remote.
+
 ### Stacked dependency / commit-lock recovery
 
 A **dependency lock** occurs when a file was originally committed on branch A, but you're trying to commit changes to it on branch B. Symptoms:
@@ -154,6 +177,9 @@ If `but move` causes conflicts (conflicted commits in status):
 | `git rebase -i` | `but move`, `but squash`, `but reword` |
 | `git rebase --onto` | `but move <branch> <new-base>` |
 | `git cherry-pick` | `but pick` |
+| `gh pr create` / `glab mr create` | `but pr new <branch>` |
+| `gh pr ready` / `gh pr edit --draft` | `but pr set-ready` / `but pr set-draft` |
+| `gh pr merge --auto` | `but pr auto-merge` |
 
 ## Notes
 
