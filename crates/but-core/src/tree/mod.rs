@@ -201,6 +201,15 @@ pub fn apply_worktree_changes<'repo>(
     let mut current_worktree = Vec::new();
 
     let work_dir = repo.workdir().expect("non-bare repo");
+    for possible_change in changes.iter() {
+        let change_request = match possible_change {
+            Ok(change) => change,
+            Err(_) => continue,
+        };
+        if let Some(previous_path) = change_request.previous_path.as_ref().map(|p| p.as_bstr()) {
+            base_tree_editor.remove(previous_path)?;
+        }
+    }
     'each_change: for possible_change in changes.iter_mut() {
         let change_request = match possible_change {
             Ok(change) => change,
@@ -215,10 +224,6 @@ pub fn apply_worktree_changes<'repo>(
             }
             Err(err) => return Err(err.into()),
         };
-        // NOTE: See copy below!
-        if let Some(previous_path) = change_request.previous_path.as_ref().map(|p| p.as_bstr()) {
-            base_tree_editor.remove(previous_path)?;
-        }
         if change_request.hunk_headers.is_empty() {
             let rela_path = change_request.path.as_bstr();
             match pipeline.worktree_file_to_object(rela_path, &index)? {
