@@ -55,7 +55,7 @@ export const AskpassPromptDialog: FC = () => {
 		setSubmitting(true);
 
 		try {
-			await window.lite.submitAskpassPromptResponse({ id: prompt.id, response: value });
+			await window.lite.askpassSubmitPromptResponse({ id: prompt.id, response: value });
 			setPrompts((current) => current.filter((candidate) => candidate.id !== prompt.id));
 			setSubmitError(null);
 		} catch (err) {

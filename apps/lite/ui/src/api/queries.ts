@@ -72,7 +72,7 @@ export const listBranchesQueryOptions = ({ projectId, ...params }: ListBranchesP
 
 export const listProjectsQueryOptions = queryOptions({
 	queryKey: [QueryKey.Projects],
-	queryFn: () => window.lite.listProjects(),
+	queryFn: () => window.lite.listProjectsStateless(),
 });
 
 export const listEditorsQueryOptions = queryOptions({
