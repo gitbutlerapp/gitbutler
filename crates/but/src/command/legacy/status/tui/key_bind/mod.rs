@@ -4,8 +4,8 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use strum::IntoEnumIterator;
 
 use crate::command::legacy::status::tui::{
-    BranchPickerMessage, CommandMessage, CommitMessageComposer, ConfirmMessage,
-    DetailsLayoutMessage, Message, RewordMessage, RubMessage, StackMessage, help::HelpMessage,
+    CommandMessage, CommitMessageComposer, ConfirmMessage, DetailsLayoutMessage,
+    FuzzyPickerMessage, Message, RewordMessage, RubMessage, StackMessage, help::HelpMessage,
     mode::ModeDiscriminant,
 };
 
@@ -161,7 +161,7 @@ pub(super) fn confirm_key_binds() -> KeyBinds {
     key_binds
 }
 
-pub(super) fn branch_picker_key_binds() -> KeyBinds {
+pub(super) fn fuzzy_picker_key_binds() -> KeyBinds {
     let mut key_binds = KeyBinds::new();
 
     let mut builder = key_binds.for_all_modes();
@@ -170,7 +170,7 @@ pub(super) fn branch_picker_key_binds() -> KeyBinds {
         .key_bind(
             "up",
             press().alt_code(KeyCode::Up),
-            Message::BranchPicker(BranchPickerMessage::MoveCursorUp),
+            Message::FuzzyPicker(FuzzyPickerMessage::MoveCursorUp),
         )
         .register();
 
@@ -178,7 +178,7 @@ pub(super) fn branch_picker_key_binds() -> KeyBinds {
         .key_bind(
             "down",
             press().alt_code(KeyCode::Down),
-            Message::BranchPicker(BranchPickerMessage::MoveCursorDown),
+            Message::FuzzyPicker(FuzzyPickerMessage::MoveCursorDown),
         )
         .register();
 
@@ -186,7 +186,7 @@ pub(super) fn branch_picker_key_binds() -> KeyBinds {
         .key_bind(
             "up",
             press().control().code(KeyCode::Char('p')),
-            Message::BranchPicker(BranchPickerMessage::MoveCursorUp),
+            Message::FuzzyPicker(FuzzyPickerMessage::MoveCursorUp),
         )
         .register();
 
@@ -194,7 +194,7 @@ pub(super) fn branch_picker_key_binds() -> KeyBinds {
         .key_bind(
             "down",
             press().control().code(KeyCode::Char('n')),
-            Message::BranchPicker(BranchPickerMessage::MoveCursorDown),
+            Message::FuzzyPicker(FuzzyPickerMessage::MoveCursorDown),
         )
         .register();
 
@@ -202,7 +202,7 @@ pub(super) fn branch_picker_key_binds() -> KeyBinds {
         .key_bind(
             "confirm",
             press().code(KeyCode::Enter),
-            Message::BranchPicker(BranchPickerMessage::Confirm),
+            Message::FuzzyPicker(FuzzyPickerMessage::Confirm),
         )
         .register();
 
@@ -210,7 +210,7 @@ pub(super) fn branch_picker_key_binds() -> KeyBinds {
         .key_bind(
             "back",
             press().code(KeyCode::Esc),
-            Message::BranchPicker(BranchPickerMessage::Close),
+            Message::FuzzyPicker(FuzzyPickerMessage::Close),
         )
         .register();
 
@@ -218,7 +218,7 @@ pub(super) fn branch_picker_key_binds() -> KeyBinds {
         .key_bind(
             "back",
             press().control().code(KeyCode::Char('[')),
-            Message::BranchPicker(BranchPickerMessage::Close),
+            Message::FuzzyPicker(FuzzyPickerMessage::Close),
         )
         .hide_from_hotbar()
         .register();

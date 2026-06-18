@@ -22,83 +22,79 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub(super) struct BranchPicker {
-    items: NonEmpty<Item>,
-    branches_to_show: Vec<BranchToShow>,
+pub(super) struct FuzzyPicker<T> {
+    items: NonEmpty<T>,
+    items_to_show: Vec<ItemToShow>,
     textarea: TextArea<'static>,
     cursor: usize,
     scroll_top: Cell<usize>,
     matcher: DebugAsType<SkimMatcherV2>,
-    on_branch_selected: DebugAsType<Box<dyn FnOnce(Item, &mut Vec<Message>) -> anyhow::Result<()>>>,
+    on_item_selected: DebugAsType<Box<dyn FnOnce(T, &mut Vec<Message>) -> anyhow::Result<()>>>,
     theme: &'static Theme,
 }
 
+pub(super) trait FuzzyPickerItem: Clone {
+    fn to_str(&self) -> Cow<'_, str>;
+
+    fn style(&self, theme: &'static Theme) -> Style;
+}
+
 #[derive(Debug, Clone)]
-pub(super) enum Item {
+pub(super) enum BranchItem {
     Branch(FullName),
     Unassigned,
 }
 
-impl Item {
-    fn name(&self) -> Cow<'_, str> {
+impl FuzzyPickerItem for BranchItem {
+    fn to_str(&self) -> Cow<'_, str> {
         match self {
-            Item::Branch(full_name) => full_name.shorten().to_str_lossy(),
-            Item::Unassigned => Cow::Borrowed("unassigned changes"),
+            Self::Branch(full_name) => full_name.shorten().to_str_lossy(),
+            Self::Unassigned => Cow::Borrowed("unassigned changes"),
         }
     }
 
     fn style(&self, theme: &'static Theme) -> Style {
         match self {
-            Item::Branch(..) => theme.local_branch,
-            Item::Unassigned => theme.info,
+            Self::Branch(..) => theme.local_branch,
+            Self::Unassigned => theme.info,
         }
     }
 }
 
 #[derive(Debug)]
-enum BranchToShow {
+enum ItemToShow {
     Plain {
-        branch_names_idx: usize,
+        item_idx: usize,
     },
     FuzzyMatch {
-        branch_names_idx: usize,
+        item_idx: usize,
         char_indices: Vec<usize>,
     },
 }
 
-impl BranchPicker {
-    pub(super) fn new<F>(
-        branch_names: NonEmpty<FullName>,
-        theme: &'static Theme,
-        include_unassigned: bool,
-        on_branch_selected: F,
-    ) -> Self
+impl<T> FuzzyPicker<T>
+where
+    T: FuzzyPickerItem,
+{
+    pub(super) fn new<F>(items: NonEmpty<T>, theme: &'static Theme, on_item_selected: F) -> Self
     where
-        F: FnOnce(Item, &mut Vec<Message>) -> anyhow::Result<()> + 'static,
+        F: FnOnce(T, &mut Vec<Message>) -> anyhow::Result<()> + 'static,
     {
         let mut textarea = TextArea::default();
         textarea.set_cursor_line_style(theme.default);
 
-        let items = if include_unassigned {
-            let mut items = NonEmpty::new(Item::Unassigned);
-            items.extend(branch_names.map(Item::Branch));
-            items
-        } else {
-            branch_names.map(Item::Branch)
-        };
-
         let mut this = Self {
             items,
-            branches_to_show: Default::default(),
+            items_to_show: Default::default(),
             textarea,
             cursor: 0,
             scroll_top: Cell::new(0),
-            on_branch_selected: DebugAsType(Box::new(on_branch_selected)),
+            on_item_selected: DebugAsType(Box::new(on_item_selected)),
             matcher: DebugAsType(SkimMatcherV2::default()),
             theme,
         };
 
-        this.filter_branches();
+        this.filter_items();
 
         this
     }
@@ -115,15 +111,15 @@ impl BranchPicker {
         let space_taken_up_by_border: u16 = 2;
         let input_height: u16 = 1;
 
-        let longest_branch_name_width = self
+        let longest_item_width = self
             .items
             .iter()
-            .map(|item| item.name().width())
+            .map(|item| item.to_str().width())
             .max()
             .unwrap();
 
         let horizontal_layout = Layout::horizontal([Constraint::Length(std::cmp::max(
-            (longest_branch_name_width as u16) + space_taken_up_by_border + horizontal_padding,
+            (longest_item_width as u16) + space_taken_up_by_border + horizontal_padding,
             65,
         ))])
         .flex(Flex::Center)
@@ -167,31 +163,31 @@ impl BranchPicker {
                 scroll_top = self.cursor + 1 - visible_rows;
             }
 
-            let max_scroll = self.branches_to_show.len().saturating_sub(visible_rows);
+            let max_scroll = self.items_to_show.len().saturating_sub(visible_rows);
             scroll_top = scroll_top.min(max_scroll);
         }
 
         self.scroll_top.set(scroll_top);
 
         let items = self
-            .branches_to_show
+            .items_to_show
             .iter()
             .enumerate()
             .skip(scroll_top)
             .take(visible_rows)
-            .map(|(idx, branches_to_show_idx)| {
-                let item = match branches_to_show_idx {
-                    BranchToShow::Plain { branch_names_idx } => {
-                        let item = &self.items[*branch_names_idx];
-                        ListItem::new(item.name()).style(item.style(self.theme))
+            .map(|(idx, items_to_show_idx)| {
+                let item = match items_to_show_idx {
+                    ItemToShow::Plain { item_idx } => {
+                        let item = &self.items[*item_idx];
+                        ListItem::new(item.to_str()).style(item.style(self.theme))
                     }
-                    BranchToShow::FuzzyMatch {
-                        branch_names_idx,
+                    ItemToShow::FuzzyMatch {
+                        item_idx,
                         char_indices,
                     } => {
-                        let item = &self.items[*branch_names_idx];
-                        let branch_name = item.name();
-                        let spans = branch_name.chars().enumerate().map(|(idx, c)| {
+                        let item = &self.items[*item_idx];
+                        let item_name = item.to_str();
+                        let spans = item_name.chars().enumerate().map(|(idx, c)| {
                             let span = Span::raw(c.to_string());
                             if char_indices.contains(&idx) {
                                 span.underlined()
@@ -212,7 +208,7 @@ impl BranchPicker {
         frame.render_widget(List::new(items), content_layout[1]);
     }
 
-    fn filter_branches(&mut self) {
+    fn filter_items(&mut self) {
         let query = self
             .textarea
             .lines()
@@ -220,34 +216,34 @@ impl BranchPicker {
             .map(|q| &**q)
             .unwrap_or_default();
 
-        self.branches_to_show.clear();
+        self.items_to_show.clear();
         self.cursor = 0;
         self.scroll_top.set(0);
 
         if query.is_empty() {
-            self.branches_to_show.extend(
+            self.items_to_show.extend(
                 self.items
                     .iter()
                     .enumerate()
-                    .map(|(branch_names_idx, _)| BranchToShow::Plain { branch_names_idx }),
+                    .map(|(item_idx, _)| ItemToShow::Plain { item_idx }),
             );
         } else {
             let mut fuzzy_matches = self
                 .items
                 .iter()
                 .enumerate()
-                .filter_map(|(branch_names_idx, item)| {
-                    let branch_name = item.name();
-                    let (score, indices) = self.matcher.fuzzy_indices(&branch_name, query)?;
-                    Some((branch_names_idx, branch_name, score, indices))
+                .filter_map(|(item_idx, item)| {
+                    let item_name = item.to_str();
+                    let (score, indices) = self.matcher.fuzzy_indices(&item_name, query)?;
+                    Some((item_idx, item_name, score, indices))
                 })
                 .collect::<Vec<_>>();
             fuzzy_matches.sort_unstable_by(|(_, _, score_a, _), (_, _, score_b, _)| {
                 score_a.cmp(score_b).reverse()
             });
-            self.branches_to_show.extend(fuzzy_matches.into_iter().map(
-                |(branch_names_idx, _, _, indices)| BranchToShow::FuzzyMatch {
-                    branch_names_idx,
+            self.items_to_show.extend(fuzzy_matches.into_iter().map(
+                |(item_idx, _, _, indices)| ItemToShow::FuzzyMatch {
+                    item_idx,
                     char_indices: indices,
                 },
             ));
@@ -256,47 +252,42 @@ impl BranchPicker {
 
     pub(super) fn handle_message(
         mut self,
-        msg: BranchPickerMessage,
+        msg: FuzzyPickerMessage,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<Option<Self>> {
         match msg {
-            BranchPickerMessage::Close => Ok(None),
-            BranchPickerMessage::MoveCursorDown => {
-                let cursor = if self.branches_to_show.is_empty() {
+            FuzzyPickerMessage::Close => Ok(None),
+            FuzzyPickerMessage::MoveCursorDown => {
+                let cursor = if self.items_to_show.is_empty() {
                     0
                 } else {
-                    std::cmp::min(
-                        self.cursor.saturating_add(1),
-                        self.branches_to_show.len() - 1,
-                    )
+                    std::cmp::min(self.cursor.saturating_add(1), self.items_to_show.len() - 1)
                 };
                 Ok(Some(Self { cursor, ..self }))
             }
-            BranchPickerMessage::MoveCursorUp => Ok(Some(Self {
+            FuzzyPickerMessage::MoveCursorUp => Ok(Some(Self {
                 cursor: self.cursor.saturating_sub(1),
                 ..self
             })),
-            BranchPickerMessage::Confirm => {
-                let Some(branch_name) = self
-                    .branches_to_show
+            FuzzyPickerMessage::Confirm => {
+                let Some(item) = self
+                    .items_to_show
                     .get(self.cursor)
                     .map(|idx| match idx {
-                        BranchToShow::Plain { branch_names_idx }
-                        | BranchToShow::FuzzyMatch {
-                            branch_names_idx, ..
-                        } => *branch_names_idx,
+                        ItemToShow::Plain { item_idx }
+                        | ItemToShow::FuzzyMatch { item_idx, .. } => *item_idx,
                     })
-                    .map(|branch_names_idx| &self.items[branch_names_idx])
+                    .map(|item_idx| &self.items[item_idx])
                     .cloned()
                 else {
                     return Ok(Some(self));
                 };
-                (self.on_branch_selected.0)(branch_name, messages)?;
+                (self.on_item_selected.0)(item, messages)?;
                 Ok(None)
             }
-            BranchPickerMessage::Input(event) => {
+            FuzzyPickerMessage::Input(event) => {
                 self.textarea.input(event);
-                self.filter_branches();
+                self.filter_items();
                 Ok(Some(self))
             }
         }
@@ -304,7 +295,7 @@ impl BranchPicker {
 }
 
 #[derive(Debug, Clone)]
-pub(super) enum BranchPickerMessage {
+pub(super) enum FuzzyPickerMessage {
     MoveCursorDown,
     MoveCursorUp,
     Input(Event),
