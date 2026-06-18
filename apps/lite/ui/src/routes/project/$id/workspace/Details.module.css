@@ -38,6 +38,10 @@
 	gap: 6px;
 }
 
+.actionsRight {
+	margin-inline-start: auto;
+}
+
 .loadingDiff {
 	padding-inline: var(--panel-padding);
 	padding-block-end: var(--panel-padding);

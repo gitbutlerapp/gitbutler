@@ -612,13 +612,15 @@ const FilesToggle: FC = () => {
 };
 
 const DiffStyleToggle: FC<{
+	className?: string;
 	diffStyle: DiffStyle;
 	onDiffStyleChange: (diffStyle: DiffStyle) => void;
-}> = ({ diffStyle, onDiffStyleChange }) => (
+}> = ({ className, diffStyle, onDiffStyleChange }) => (
 	<Tooltip.Root>
 		<Tooltip.Trigger
 			render={
 				<ToggleGroup
+					className={className}
 					render={<ToggleGroupStyles />}
 					aria-label={diffHotkeys.toggleDiffStyle.meta.name}
 					value={[diffStyle]}
@@ -829,6 +831,7 @@ const Diff: FC<{
 				<FilesToggle />
 				{canUseSplitDiff && (
 					<DiffStyleToggle
+						className={styles.actionsRight}
 						diffStyle={preferredDiffStyle}
 						onDiffStyleChange={setPreferredDiffStyle}
 					/>
