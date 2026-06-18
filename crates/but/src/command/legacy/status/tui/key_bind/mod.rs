@@ -49,6 +49,7 @@ pub(super) fn default_key_binds() -> KeyBinds {
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Stack => {
+                builder.apply().register();
                 builder.unapply().register();
                 builder.reorder().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
@@ -813,6 +814,15 @@ impl KeyBindsBuilder<'_> {
             press().code(KeyCode::Enter),
             Message::Move(MoveMessage::Confirm),
         )
+    }
+
+    fn apply(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "apply",
+            press().code(KeyCode::Char('a')),
+            Message::Stack(StackMessage::ShowApplyPicker),
+        )
+        .long_description("Apply stack")
     }
 
     fn unapply(&mut self) -> KeyBindsInModesBuilder<'_> {

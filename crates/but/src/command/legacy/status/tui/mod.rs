@@ -6,7 +6,7 @@ use std::{
     process::Command,
     rc::Rc,
     sync::{Arc, atomic::AtomicBool, mpsc::Receiver},
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime},
 };
 
 use anyhow::Context as _;
@@ -20,6 +20,7 @@ use but_settings::AppSettingsWithDiskSync;
 use but_transaction::DynamicOutcome;
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use gitbutler_branch_actions::BranchListingFilter;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::{
@@ -69,11 +70,12 @@ use crate::{
         },
     },
     id::UNASSIGNED,
+    resolve_legacy_top_level_apply_branch_name,
     theme::Theme,
     tui::{CrosstermTerminalGuard, HeadlessTerminalGuard, TerminalGuard},
     utils::{
         DebugAsType, InputOutputChannel, WriteWithUtils, binary_path::current_exe_for_but_exec,
-        diff_specs::DiffSpecBuilder,
+        diff_specs::DiffSpecBuilder, time::format_relative_time,
     },
 };
 
@@ -285,11 +287,17 @@ where
     };
     // poll terminal events
     for event in event_polling.poll(event_poll_timeout)? {
-        let picker = match &app.modal {
-            Some(Modal::BranchPicker { picker, .. }) => Some(&**picker),
-            Some(Modal::Confirm { .. }) | Some(Modal::Help { .. }) | None => None,
+        let picker_shown = match &app.modal {
+            Some(Modal::GotoBranchPicker { .. } | Modal::ApplyStackPicker { .. }) => true,
+            Some(Modal::Confirm { .. } | Modal::Help { .. }) | None => false,
         };
-        event_to_messages(event, app.active_key_binds(), &app.mode, picker, messages);
+        event_to_messages(
+            event,
+            app.active_key_binds(),
+            &app.mode,
+            picker_shown,
+            messages,
+        );
     }
 
     // check for any out of band messages
@@ -435,8 +443,12 @@ enum Modal {
         confirm: Confirm,
         key_binds: KeyBinds,
     },
-    BranchPicker {
-        picker: Box<FuzzyPicker<BranchItem>>,
+    GotoBranchPicker {
+        picker: Box<FuzzyPicker<GotoBranchItem>>,
+        key_binds: KeyBinds,
+    },
+    ApplyStackPicker {
+        picker: Box<FuzzyPicker<ApplyBranchItem>>,
         key_binds: KeyBinds,
     },
     Help {
@@ -514,7 +526,8 @@ impl App {
     fn active_key_binds(&self) -> &KeyBinds {
         match &self.modal {
             Some(Modal::Confirm { key_binds, .. })
-            | Some(Modal::BranchPicker { key_binds, .. })
+            | Some(Modal::GotoBranchPicker { key_binds, .. })
+            | Some(Modal::ApplyStackPicker { key_binds, .. })
             | Some(Modal::Help { key_binds, .. }) => key_binds,
             None => {
                 if let Mode::Normal(NormalMode { marks }) = &*self.mode
@@ -764,18 +777,31 @@ impl App {
                 }
                 modal => self.modal = modal,
             },
-            Message::FuzzyPicker(fuzzy_picker_message) => match self.modal.take() {
-                Some(Modal::BranchPicker { picker, key_binds }) => {
-                    self.modal =
-                        picker
-                            .handle_message(fuzzy_picker_message, messages)?
-                            .map(|picker| Modal::BranchPicker {
-                                picker: Box::new(picker),
-                                key_binds,
-                            });
+            Message::FuzzyPicker(fuzzy_picker_message) => {
+                if let Some(modal) = self.modal.take() {
+                    match modal {
+                        Modal::GotoBranchPicker { picker, key_binds } => {
+                            self.modal = picker
+                                .handle_message(fuzzy_picker_message, ctx, messages)?
+                                .map(|picker| Modal::GotoBranchPicker {
+                                    picker: Box::new(picker),
+                                    key_binds,
+                                });
+                        }
+                        Modal::ApplyStackPicker { picker, key_binds } => {
+                            self.modal = picker
+                                .handle_message(fuzzy_picker_message, ctx, messages)?
+                                .map(|picker| Modal::ApplyStackPicker {
+                                    picker: Box::new(picker),
+                                    key_binds,
+                                });
+                        }
+                        Modal::Confirm { .. } | Modal::Help { .. } => {
+                            self.modal = Some(modal);
+                        }
+                    }
                 }
-                modal => self.modal = modal,
-            },
+            }
             Message::Help(help_message) => match self.modal.take() {
                 Some(Modal::Help { help, key_binds }) => {
                     self.modal = help
@@ -851,6 +877,7 @@ impl App {
             }
             Message::Stack(stack_message) => match stack_message {
                 StackMessage::Enter => self.handle_stack_enter(ctx)?,
+                StackMessage::ShowApplyPicker => self.handle_stack_show_apply_picker(ctx)?,
                 StackMessage::Unapply => self.handle_stack_unapply(),
                 StackMessage::MoveStart => self.handle_stack_move_start(),
                 StackMessage::MoveConfirm => self.handle_stack_move_confirm(ctx, messages)?,
@@ -3077,23 +3104,23 @@ impl App {
                 });
 
             let picker_items = if include_unassigned {
-                let mut mapped_items = NonEmpty::new(BranchItem::Unassigned);
-                mapped_items.extend(branch_names.map(BranchItem::Branch));
+                let mut mapped_items = NonEmpty::new(GotoBranchItem::Unassigned);
+                mapped_items.extend(branch_names.map(GotoBranchItem::Branch));
                 mapped_items
             } else {
-                branch_names.map(BranchItem::Branch)
+                branch_names.map(GotoBranchItem::Branch)
             };
 
-            self.modal = Some(Modal::BranchPicker {
+            self.modal = Some(Modal::GotoBranchPicker {
                 picker: Box::new(FuzzyPicker::new(
                     picker_items,
                     self.theme,
-                    |item, messages| {
+                    |item, _ctx, messages| {
                         match item {
-                            BranchItem::Branch(branch_name) => {
+                            GotoBranchItem::Branch(branch_name) => {
                                 messages.push(Message::SelectBranch(branch_name));
                             }
-                            BranchItem::Unassigned => {
+                            GotoBranchItem::Unassigned => {
                                 messages.push(Message::SelectUnassigned);
                             }
                         }
@@ -3249,7 +3276,14 @@ impl App {
             .iter()
             .filter_map(|stack| stack.ref_name().cloned())
             .collect::<Vec<_>>();
+
         let Some(top_stack_head) = stack_heads.first().cloned() else {
+            self.mode
+                .update_and_push_leave_normal_mode(&mut self.backstack, |mode| {
+                    *mode = Mode::Stack(StackMode {
+                        stack_heads: Default::default(),
+                    });
+                });
             return Ok(());
         };
 
@@ -3276,6 +3310,86 @@ impl App {
                 self.cursor = cursor;
             }
         }
+
+        Ok(())
+    }
+
+    fn handle_stack_show_apply_picker(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
+        let branch_listings = but_api::legacy::virtual_branches::list_branches(
+            ctx,
+            Some(BranchListingFilter {
+                local: None,
+                applied: Some(false),
+            }),
+        )
+        .context("Failed to list branches available to apply")?
+        .into_iter();
+
+        let now = SystemTime::now();
+        let mut branches = branch_listings
+            .map(|listing| ApplyBranchItem {
+                name: listing.name.0.to_string(),
+                has_local: listing.has_local,
+                updated_at: listing.updated_at,
+                updated_at_display: format_relative_time(now, (listing.updated_at / 1000) as i64),
+                last_commiter: listing
+                    .last_commiter
+                    .name
+                    .map(|name| name.to_string())
+                    .unwrap_or_default(),
+            })
+            .collect::<Vec<_>>();
+
+        branches.sort_by(|a, b| {
+            b.has_local
+                .cmp(&a.has_local)
+                .then_with(|| b.updated_at.cmp(&a.updated_at))
+                .then_with(|| a.name.cmp(&b.name))
+        });
+
+        let Some(items) = NonEmpty::from_vec(branches) else {
+            return Ok(());
+        };
+        let picker = FuzzyPicker::new(items, self.theme, |item, ctx, messages| {
+            let reference = {
+                let repo = ctx.repo.get()?;
+                let name = resolve_legacy_top_level_apply_branch_name(&repo, &item.name)
+                    .with_context(|| format!("Failed to resolve branch '{}'", item.name))?;
+                repo.find_reference(&name)
+                    .with_context(|| format!("Failed to find branch '{name}'"))?
+                    .detach()
+            };
+
+            let outcome = but_api::branch::apply(ctx, reference.name.as_ref())
+                .with_context(|| format!("Failed to apply '{}'", reference.name.shorten()))?;
+
+            if !outcome.conflicting_stacks.is_empty() {
+                let conflicting_stack_names = outcome
+                    .conflicting_stacks
+                    .iter()
+                    .map(|stack| stack.ref_name.shorten().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                anyhow::bail!(
+                    "'{}' conflicts with existing stack in the workspace: {conflicting_stack_names}",
+                    reference.name.shorten(),
+                );
+            }
+
+            messages.extend([
+                Message::EnterNormalModeAfterConfirmingOperation,
+                Message::Reload(
+                    Some(SelectAfterReload::Branch(item.name)),
+                    ReloadCause::Mutation,
+                ),
+            ]);
+
+            Ok(())
+        });
+        self.modal = Some(Modal::ApplyStackPicker {
+            picker: Box::new(picker),
+            key_binds: fuzzy_picker_key_binds(),
+        });
 
         Ok(())
     }
@@ -3491,11 +3605,11 @@ enum UndoOrRedo {
     Redo,
 }
 
-fn event_to_messages<T>(
+fn event_to_messages(
     ev: Event,
     key_binds: &KeyBinds,
     mode: &Mode,
-    picker: Option<&FuzzyPicker<T>>,
+    picker_shown: bool,
     messages: &mut Vec<Message>,
 ) {
     match ev {
@@ -3510,7 +3624,7 @@ fn event_to_messages<T>(
             }
 
             if !handled {
-                if picker.is_some() {
+                if picker_shown {
                     messages.push(Message::FuzzyPicker(FuzzyPickerMessage::Input(ev)));
                 } else {
                     match mode {
@@ -4006,6 +4120,7 @@ enum MoveMessage {
 #[derive(Debug, Clone)]
 enum StackMessage {
     Enter,
+    ShowApplyPicker,
     Unapply,
     MoveStart,
     MoveConfirm,
@@ -4149,12 +4264,12 @@ impl TuiInputOutputChannel for InputOutputChannel<'_> {
 }
 
 #[derive(Debug, Clone)]
-pub(super) enum BranchItem {
+enum GotoBranchItem {
     Branch(FullName),
     Unassigned,
 }
 
-impl FuzzyPickerItem for BranchItem {
+impl FuzzyPickerItem for GotoBranchItem {
     fn columns(&self, searchable: SearchableToken) -> impl IntoIterator<Item = Col<'_>> {
         match self {
             Self::Branch(full_name) => [Col {
@@ -4172,6 +4287,46 @@ impl FuzzyPickerItem for BranchItem {
         match self {
             Self::Branch(..) => theme.local_branch,
             Self::Unassigned => theme.info,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ApplyBranchItem {
+    name: String,
+    last_commiter: String,
+    has_local: bool,
+    updated_at: u128,
+    updated_at_display: String,
+}
+
+impl FuzzyPickerItem for ApplyBranchItem {
+    fn columns(&self, searchable: SearchableToken) -> impl IntoIterator<Item = Col<'_>> {
+        [
+            Col {
+                text: if self.has_local { "local" } else { "remote" }.into(),
+                searchable: None,
+            },
+            Col {
+                text: self.name.as_str().into(),
+                searchable: Some(searchable),
+            },
+            Col {
+                text: self.updated_at_display.as_str().into(),
+                searchable: None,
+            },
+            Col {
+                text: self.last_commiter.as_str().into(),
+                searchable: None,
+            },
+        ]
+    }
+
+    fn style(&self, theme: &'static Theme) -> Style {
+        if self.has_local {
+            theme.local_branch
+        } else {
+            theme.remote_branch
         }
     }
 }

@@ -1,16 +1,15 @@
 use std::{borrow::Cow, cell::Cell};
 
-use bstr::ByteSlice;
+use but_ctx::Context;
 use crossterm::event::Event;
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
-use gix::refs::FullName;
 use nonempty::NonEmpty;
 use ratatui::{
     Frame,
     layout::{Constraint, Flex, Layout, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, BorderType, Clear, List, ListItem, Padding, Row, Table},
+    widgets::{Block, BorderType, Clear, Padding, Row, Table},
 };
 use ratatui_textarea::TextArea;
 use unicode_width::UnicodeWidthStr;
@@ -29,7 +28,8 @@ pub(super) struct FuzzyPicker<T> {
     cursor: usize,
     scroll_top: Cell<usize>,
     matcher: DebugAsType<SkimMatcherV2>,
-    on_item_selected: DebugAsType<Box<dyn FnOnce(T, &mut Vec<Message>) -> anyhow::Result<()>>>,
+    on_item_selected:
+        DebugAsType<Box<dyn FnOnce(T, &mut Context, &mut Vec<Message>) -> anyhow::Result<()>>>,
     theme: &'static Theme,
 }
 
@@ -65,7 +65,7 @@ where
 {
     pub(super) fn new<F>(items: NonEmpty<T>, theme: &'static Theme, on_item_selected: F) -> Self
     where
-        F: FnOnce(T, &mut Vec<Message>) -> anyhow::Result<()> + 'static,
+        F: FnOnce(T, &mut Context, &mut Vec<Message>) -> anyhow::Result<()> + 'static,
     {
         let mut textarea = TextArea::default();
         textarea.set_cursor_line_style(theme.default);
@@ -149,7 +149,7 @@ where
         .flex(Flex::Center)
         .split(area);
 
-        let popup_height = 15.min(area.height);
+        let popup_height = 20.min(area.height);
 
         let centered_layout = Layout::vertical([Constraint::Length(popup_height)])
             .flex(Flex::Center)
@@ -298,6 +298,7 @@ where
     pub(super) fn handle_message(
         mut self,
         msg: FuzzyPickerMessage,
+        ctx: &mut Context,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<Option<Self>> {
         match msg {
@@ -327,7 +328,7 @@ where
                 else {
                     return Ok(Some(self));
                 };
-                (self.on_item_selected.0)(item, messages)?;
+                (self.on_item_selected.0)(item, ctx, messages)?;
                 Ok(None)
             }
             FuzzyPickerMessage::Input(event) => {

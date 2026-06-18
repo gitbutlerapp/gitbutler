@@ -242,8 +242,10 @@ impl Details {
                     // entering stack mode might move the cursor which will require an update
                     true
                 }
-                StackMessage::Unapply => true,
-                StackMessage::MoveStart | StackMessage::MoveConfirm => false,
+                StackMessage::Unapply
+                | StackMessage::ShowApplyPicker
+                | StackMessage::MoveStart
+                | StackMessage::MoveConfirm => false,
             },
 
             Message::AndThen { .. } => true,

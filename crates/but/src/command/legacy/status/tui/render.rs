@@ -113,7 +113,10 @@ pub(super) fn render_app(app: &App, frame: &mut Frame) {
 
     match &app.modal {
         Some(Modal::Confirm { confirm, .. }) => confirm.render(app.has_focus, frame.area(), frame),
-        Some(Modal::BranchPicker { picker, .. }) => {
+        Some(Modal::GotoBranchPicker { picker, .. }) => {
+            picker.render(app.has_focus, frame.area(), frame);
+        }
+        Some(Modal::ApplyStackPicker { picker, .. }) => {
             picker.render(app.has_focus, frame.area(), frame);
         }
         Some(Modal::Help { help, .. }) => help.render(frame.area(), frame),
