@@ -318,14 +318,29 @@ where
             .expect("rebase is always Some(_)")
             .overlayed_graph()?;
         let workspace = graph.into_workspace()?;
-        let anchor_segment_oldest_commit_id = match &anchor {
+        let (anchor, anchor_segment_oldest_commit_id) = match anchor {
             Some(but_workspace::branch::create_reference::Anchor::AtSegment {
-                ref_name, ..
+                ref_name,
+                position,
             }) => {
                 let (_, segment) =
                     workspace.try_find_segment_and_stack_by_refname(ref_name.as_ref())?;
-                Some(
-                    segment
+                if matches!(
+                    position,
+                    but_workspace::branch::create_reference::Position::Below
+                ) && segment.commits.is_empty()
+                {
+                    (
+                        Some(
+                            but_workspace::branch::create_reference::Anchor::AtReference {
+                                ref_name,
+                                position,
+                            },
+                        ),
+                        None,
+                    )
+                } else {
+                    let oldest_commit_id = segment
                         .commits
                         .last()
                         .map(|commit| commit.id)
@@ -339,10 +354,17 @@ where
                                 "Cannot position reference below unborn segment '{}'",
                                 ref_name.shorten()
                             )
-                        })?,
-                )
+                        })?;
+                    (
+                        Some(but_workspace::branch::create_reference::Anchor::AtSegment {
+                            ref_name,
+                            position,
+                        }),
+                        Some(oldest_commit_id),
+                    )
+                }
             }
-            _ => None,
+            anchor => (anchor, None),
         };
         let mut meta = RecordingMetadata {
             workspace_name: workspace.ref_name().map(ToOwned::to_owned),
