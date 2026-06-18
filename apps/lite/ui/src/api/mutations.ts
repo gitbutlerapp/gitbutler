@@ -74,6 +74,14 @@ export const useApply = () => {
 
 	return useMutation({
 		mutationFn: window.lite.apply,
+		onSuccess: async (response) => {
+			if (response.appliedBranches.length === 0)
+				toastManager.add({
+					title: "Branch is already applied or conflicts with the workspace",
+					description: "No branches were applied.",
+					priority: "high",
+				});
+		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
 			console.error(error);
