@@ -105,9 +105,8 @@ vendored, or fixture data unless the task is specifically about that code.
 
 ## Testing and Validation
 
-- Run the narrowest relevant test or check first, for example `cargo nextest run
-  -p <crate> <test-name>` or `cargo check -p <crate> --all-targets`. If
-  `cargo nextest` is unavailable, use targeted `cargo test -p <crate>`.
+- Run the narrowest relevant test or check first, for example `cargo test
+  -p <crate> <test-name>` or `cargo check -p <crate> --all-targets`.
 - Use existing test-support crates and fixtures; prefer read-only fixtures for
   read-only behavior.
 - For graph, rebase, or workspace behavior, prefer fixture-backed before/after
