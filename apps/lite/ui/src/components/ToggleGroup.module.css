@@ -1,6 +1,6 @@
 .group {
 	display: inline-flex;
-	padding: 2px;
+	padding: 1px;
 	gap: 2px;
 	border-radius: var(--radius-m);
 	background-color: var(--bg-2);
@@ -12,21 +12,24 @@
 }
 
 .item {
+	--icon-size: 14px;
+	--item-color: color-mix(in srgb, var(--text-1) 50%, transparent);
+	--item-color-hover: color-mix(in srgb, var(--text-1) 60%, transparent);
+
 	display: inline-flex;
 	position: relative;
 	column-gap: 6px;
 	flex: 1;
 	align-items: center;
 	justify-content: center;
-	height: 24px;
+	height: 26px;
 	padding-inline: 7px;
 	border: 1px solid transparent;
 	border-radius: 6px;
 	background-color: transparent;
-	color: color-mix(in srgb, var(--text-2) 80%, transparent);
+	color: var(--item-color);
 	line-height: 1;
 	white-space: nowrap;
-	--icon-size: 14px;
 	transition:
 		border-color 0.08s ease,
 		box-shadow 0.08s ease,
@@ -52,7 +55,7 @@
 	}
 
 	&:not([data-pressed], [data-disabled], :disabled):hover {
-		color: var(--text-2);
+		color: var(--item-color-hover);
 	}
 
 	&[data-pressed] {
@@ -62,15 +65,12 @@
 	}
 
 	& [data-icon] {
-		color: var(--text-3);
+		color: var(--item-color);
 	}
 
-	&:not([data-disabled], :disabled):hover [data-icon] {
-		color: var(--text-2);
-	}
-
+	&:not([data-disabled], :disabled):hover [data-icon],
 	&[data-pressed] [data-icon] {
-		color: var(--text-2);
+		color: var(--item-color-hover);
 	}
 
 	&[data-disabled],
