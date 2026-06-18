@@ -80,9 +80,12 @@
 	let tableWrapperElem = $state<HTMLElement>();
 	let isVisible = $state(false);
 
-	// Rough line count for height reservation while body is not yet mounted
+	// Reserve roughly the rendered height per line (font size x line-height, kept in
+	// sync with .table__textContent) while the body is not yet mounted, so it scales
+	// with the diff font size.
+	const DIFF_LINE_HEIGHT = 1.25;
 	const estimatedBodyHeight = $derived(
-		Math.max(hunkStr.split("\n").length - 1, 1) * ((diffFontSize * 22) / 12),
+		Math.max(hunkStr.split("\n").length - 1, 1) * Math.ceil(diffFontSize * DIFF_LINE_HEIGHT),
 	);
 
 	$effect(() => {
