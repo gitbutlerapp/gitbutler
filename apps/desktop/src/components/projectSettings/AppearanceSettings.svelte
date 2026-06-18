@@ -261,8 +261,7 @@
 				maxVal={32}
 				showCountActions
 				onchange={(value: string) => {
-					const size = parseInt(value) || diffFontSize.current;
-					diffFontSize.set(Math.min(32, Math.max(8, size)));
+					diffFontSize.set(parseInt(value) || diffFontSize.current);
 				}}
 				placeholder={diffFontSize.current.toString()}
 			/>
