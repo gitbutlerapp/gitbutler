@@ -109,6 +109,7 @@
 }
 
 .commitMessageBody {
+	max-width: 700px;
 	background-color: var(--bg-2);
 	font-size: 13px;
 	white-space: pre-wrap;
