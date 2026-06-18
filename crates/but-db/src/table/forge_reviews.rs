@@ -4,10 +4,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{DbHandle, M, SchemaVersion, Transaction};
 
-pub(crate) const M: &[M<'static>] = &[M::up(
-    20260101223932,
-    SchemaVersion::Zero,
-    "-- Your SQL goes here
+pub(crate) const M: &[M<'static>] = &[
+    M::up(
+        20260101223932,
+        SchemaVersion::Zero,
+        "-- Your SQL goes here
 CREATE TABLE `forge_reviews`(
 	`html_url` TEXT NOT NULL,
 	`number` BIGINT NOT NULL PRIMARY KEY,
@@ -31,7 +32,14 @@ CREATE TABLE `forge_reviews`(
 	`last_sync_at` TIMESTAMP NOT NULL,
 	`struct_version` INTEGER NOT NULL
 );",
-)];
+    ),
+    M::up(
+        20260618093000,
+        SchemaVersion::Zero,
+        "ALTER TABLE `forge_reviews` ADD COLUMN `head_repo_is_fork` BOOL NOT NULL DEFAULT FALSE;
+DELETE FROM `forge_reviews`;",
+    ),
+];
 
 /// Tests are in `but-db/tests/db/table/forge_review.rs`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -53,6 +61,7 @@ pub struct ForgeReview {
     pub repository_ssh_url: Option<String>,
     pub repository_https_url: Option<String>,
     pub repo_owner: Option<String>,
+    pub head_repo_is_fork: bool,
     pub reviewers: String,
     pub unit_symbol: String,
     pub last_sync_at: chrono::NaiveDateTime,
@@ -97,8 +106,8 @@ impl ForgeReviewsHandle<'_> {
         let mut stmt = self.conn.prepare(
             "SELECT html_url, number, title, body, author, labels, draft, source_branch, \
              target_branch, sha, created_at, modified_at, merged_at, closed_at, \
-             repository_ssh_url, repository_https_url, repo_owner, reviewers, unit_symbol, \
-             last_sync_at, struct_version FROM forge_reviews",
+             repository_ssh_url, repository_https_url, repo_owner, head_repo_is_fork, reviewers, \
+             unit_symbol, last_sync_at, struct_version FROM forge_reviews",
         )?;
 
         let results = stmt.query_map([], |row| {
@@ -120,10 +129,11 @@ impl ForgeReviewsHandle<'_> {
                 repository_ssh_url: row.get(14)?,
                 repository_https_url: row.get(15)?,
                 repo_owner: row.get(16)?,
-                reviewers: row.get(17)?,
-                unit_symbol: row.get(18)?,
-                last_sync_at: row.get(19)?,
-                struct_version: row.get(20)?,
+                head_repo_is_fork: row.get(17)?,
+                reviewers: row.get(18)?,
+                unit_symbol: row.get(19)?,
+                last_sync_at: row.get(20)?,
+                struct_version: row.get(21)?,
             })
         })?;
 
@@ -146,9 +156,9 @@ impl ForgeReviewsHandleMut<'_> {
             self.sp.execute(
                 "INSERT INTO forge_reviews (html_url, number, title, body, author, labels, draft, \
                  source_branch, target_branch, sha, created_at, modified_at, merged_at, closed_at, \
-                 repository_ssh_url, repository_https_url, repo_owner, reviewers, unit_symbol, \
-                 last_sync_at, struct_version) \
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
+                 repository_ssh_url, repository_https_url, repo_owner, head_repo_is_fork, reviewers, \
+                 unit_symbol, last_sync_at, struct_version) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
                 rusqlite::params![
                     review.html_url,
                     review.number,
@@ -167,6 +177,7 @@ impl ForgeReviewsHandleMut<'_> {
                     review.repository_ssh_url,
                     review.repository_https_url,
                     review.repo_owner,
+                    review.head_repo_is_fork,
                     review.reviewers,
                     review.unit_symbol,
                     review.last_sync_at,
@@ -184,9 +195,9 @@ impl ForgeReviewsHandleMut<'_> {
         self.sp.execute(
             "INSERT INTO forge_reviews (html_url, number, title, body, author, labels, draft, \
              source_branch, target_branch, sha, created_at, modified_at, merged_at, closed_at, \
-             repository_ssh_url, repository_https_url, repo_owner, reviewers, unit_symbol, \
-             last_sync_at, struct_version) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21) \
+             repository_ssh_url, repository_https_url, repo_owner, head_repo_is_fork, reviewers, \
+             unit_symbol, last_sync_at, struct_version) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22) \
              ON CONFLICT(number) DO UPDATE SET
                 html_url = excluded.html_url,
                 title = excluded.title,
@@ -204,6 +215,7 @@ impl ForgeReviewsHandleMut<'_> {
                 repository_ssh_url = excluded.repository_ssh_url,
                 repository_https_url = excluded.repository_https_url,
                 repo_owner = excluded.repo_owner,
+                head_repo_is_fork = excluded.head_repo_is_fork,
                 reviewers = excluded.reviewers,
                 unit_symbol = excluded.unit_symbol,
                 last_sync_at = excluded.last_sync_at,
@@ -226,6 +238,7 @@ impl ForgeReviewsHandleMut<'_> {
                 review.repository_ssh_url,
                 review.repository_https_url,
                 review.repo_owner,
+                review.head_repo_is_fork,
                 review.reviewers,
                 review.unit_symbol,
                 review.last_sync_at,

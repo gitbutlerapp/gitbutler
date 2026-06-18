@@ -429,7 +429,7 @@ mod run {
         	`unit_symbol` TEXT NOT NULL,
         	`last_sync_at` TIMESTAMP NOT NULL,
         	`struct_version` INTEGER NOT NULL
-        );
+        , `head_repo_is_fork` BOOL NOT NULL DEFAULT FALSE);
 
         -- table gerrit_metadata
         CREATE TABLE `gerrit_metadata`(
@@ -585,6 +585,7 @@ mod run {
         Text("20260105095934")
         Text("20260219130000")
         Text("20260407120000")
+        Text("20260618093000")
 
         Table: hunk_assignments
         hunk_header | path | path_bytes | stack_id | id | branch_ref
@@ -614,7 +615,7 @@ mod run {
         change_id | commit_id | review_url | created_at | updated_at
 
         Table: forge_reviews
-        html_url | number | title | body | author | labels | draft | source_branch | target_branch | sha | created_at | modified_at | merged_at | closed_at | repository_ssh_url | repository_https_url | repo_owner | reviewers | unit_symbol | last_sync_at | struct_version
+        html_url | number | title | body | author | labels | draft | source_branch | target_branch | sha | created_at | modified_at | merged_at | closed_at | repository_ssh_url | repository_https_url | repo_owner | reviewers | unit_symbol | last_sync_at | struct_version | head_repo_is_fork
 
         Table: ci_checks
         id | name | output_summary | output_text | output_title | started_at | status_type | status_conclusion | status_completed_at | head_sha | url | html_url | details_url | pull_requests | reference | last_sync_at | struct_version

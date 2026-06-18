@@ -72,6 +72,44 @@ test("CI badge shows failed when a check fails", async ({ page, gitbutler }) => 
 	await expect(badge).toContainText("Failed");
 });
 
+test("CI badge does not error for a PR from a fork", async ({ page, gitbutler }) => {
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await applyUpstream(gitbutler as never, BRANCH);
+
+	const review = forgeReview(PR_NUMBER, BRANCH, {
+		repositoryHttpsUrl: "https://github.com/contributor/widgets.git",
+		repoOwner: "contributor",
+		headRepoIsFork: true,
+	});
+	await mockForge(page, {
+		forge_info: githubForgeInfo(),
+		list_reviews: [review],
+		get_review: review,
+		get_review_merge_status: mergeStatus(),
+		get_repo_info: repoInfo({ fork: false }),
+	});
+	let ciChecksRequests = 0;
+	await page.route("**/list_ci_checks", async (route) => {
+		ciChecksRequests += 1;
+		await route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({
+				type: "error",
+				subject: { message: "Failed to list checks for ref: 422" },
+			}),
+		});
+	});
+
+	await openWorkspace(page);
+	await waitForTestId(page, "branch-card");
+
+	const badge = await waitForTestId(page, "pr-checks-badge");
+	await expect(badge).toContainText("No checks");
+	await expect(badge).not.toContainText("Error");
+	expect(ciChecksRequests).toBe(0);
+});
+
 test("GitLab MR shows the MR review badge", async ({ page, gitbutler }) => {
 	await openWorkspaceWithMockedPr(page, gitbutler, { forgeInfo: gitlabForgeInfo() });
 

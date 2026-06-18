@@ -140,6 +140,7 @@ fn upstream_integration_status_with_merged_pr() {
             repository_ssh_url: None,
             repository_https_url: None,
             repo_owner: None,
+            head_repo_is_fork: false,
             reviewers: vec![],
             unit_symbol: "#".to_string(),
             last_sync_at: chrono::NaiveDateTime::parse_from_str(
@@ -237,6 +238,7 @@ fn upstream_integration_status_with_merged_pr_mismatched_head() {
             repository_ssh_url: None,
             repository_https_url: None,
             repo_owner: None,
+            head_repo_is_fork: false,
             reviewers: vec![],
             unit_symbol: "#".to_string(),
             last_sync_at: chrono::NaiveDateTime::parse_from_str(
@@ -334,6 +336,7 @@ fn upstream_integration_status_with_closed_but_not_merged_pr() {
             repository_ssh_url: None,
             repository_https_url: None,
             repo_owner: None,
+            head_repo_is_fork: false,
             reviewers: vec![],
             unit_symbol: "#".to_string(),
             last_sync_at: chrono::NaiveDateTime::parse_from_str(
@@ -431,6 +434,7 @@ fn upstream_integration_status_with_different_branch_pr() {
             repository_ssh_url: None,
             repository_https_url: None,
             repo_owner: None,
+            head_repo_is_fork: false,
             reviewers: vec![],
             unit_symbol: "#".to_string(),
             last_sync_at: chrono::NaiveDateTime::parse_from_str(
@@ -558,6 +562,7 @@ fn integrate_upstream_with_fully_integrated_branch_in_stack() {
             repository_ssh_url: None,
             repository_https_url: None,
             repo_owner: None,
+            head_repo_is_fork: false,
             reviewers: vec![],
             unit_symbol: "#".to_string(),
             last_sync_at: chrono::NaiveDateTime::parse_from_str(

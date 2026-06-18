@@ -23,6 +23,7 @@ function makePr(overrides: Partial<PullRequest> = {}): PullRequest {
 		repositoryHttpsUrl: undefined,
 		repoOwner: undefined,
 		reviewers: [],
+		headRepoIsFork: false,
 		...overrides,
 	};
 }

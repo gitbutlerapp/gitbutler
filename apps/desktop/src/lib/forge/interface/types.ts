@@ -55,6 +55,7 @@ export type ForgeReview = {
 	repositorySshUrl: string | null;
 	repositoryHttpsUrl: string | null;
 	repoOwner: string | null;
+	headRepoIsFork: boolean;
 	reviewers: ForgeUserDetailed[];
 };
 
@@ -76,6 +77,7 @@ export interface PullRequest {
 	repositorySshUrl?: string;
 	repositoryHttpsUrl?: string;
 	repoOwner?: string;
+	headRepoIsFork: boolean;
 	reviewers: ForgeUser[];
 }
 
@@ -106,6 +108,7 @@ export function mapForgeReviewToPullRequest(pr: ForgeReview): PullRequest {
 		repositorySshUrl: pr.repositorySshUrl ?? undefined,
 		repositoryHttpsUrl: pr.repositoryHttpsUrl ?? undefined,
 		repoOwner: pr.repoOwner ?? undefined,
+		headRepoIsFork: pr.headRepoIsFork,
 		reviewers: pr.reviewers.map((r) => ({
 			login: r.login,
 			srcUrl: r.avatarUrl ?? "",
