@@ -344,11 +344,6 @@ const registerIpcHandlers = (): void => {
 		(_e, { projectId, target }: AbsorptionPlanParams) => absorptionPlan(projectId, target),
 	);
 	senderValidatingHandle(
-		liteIpcChannels.askpassSubmitPromptResponse,
-		(_e, { id, response }: AskpassSubmitPromptResponseParams) =>
-			askpassSubmitPromptResponse(id, response),
-	);
-	senderValidatingHandle(
 		liteIpcChannels.absorb,
 		(_e, { projectId, absorptionPlan }: AbsorbParams) => absorb(projectId, absorptionPlan),
 	);
@@ -361,13 +356,13 @@ const registerIpcHandlers = (): void => {
 			applyBranchIntegration(projectId, branch, integration, dryRun),
 	);
 	senderValidatingHandle(
-		liteIpcChannels.assignHunk,
-		(_e, { projectId, assignments }: AssignHunkParams) => assignHunk(projectId, assignments),
+		liteIpcChannels.askpassSubmitPromptResponse,
+		(_e, { id, response }: AskpassSubmitPromptResponseParams) =>
+			askpassSubmitPromptResponse(id, response),
 	);
 	senderValidatingHandle(
-		liteIpcChannels.branchCreate,
-		(_e, { projectId, newRef, placement }: BranchCreateParams) =>
-			branchCreate(projectId, newRef, placement),
+		liteIpcChannels.assignHunk,
+		(_e, { projectId, assignments }: AssignHunkParams) => assignHunk(projectId, assignments),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.branchCheckout,
@@ -376,6 +371,11 @@ const registerIpcHandlers = (): void => {
 	senderValidatingHandle(
 		liteIpcChannels.branchCheckoutNew,
 		(_e, { projectId, name }: BranchCheckoutNewParams) => branchCheckoutNew(projectId, name),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.branchCreate,
+		(_e, { projectId, newRef, placement }: BranchCreateParams) =>
+			branchCreate(projectId, newRef, placement),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.branchDetails,
@@ -499,14 +499,6 @@ const registerIpcHandlers = (): void => {
 	senderValidatingHandle(liteIpcChannels.getRepoInfo, (_e, projectId: string) =>
 		getRepoInfo(projectId),
 	);
-	senderValidatingHandle(liteIpcChannels.getVersion, () => Promise.resolve(app.getVersion()));
-	senderValidatingHandle(liteIpcChannels.getRedoTargetSnapshot, async (_e, projectId: string) =>
-		getRedoTargetSnapshot(projectId),
-	);
-	senderValidatingHandle(
-		liteIpcChannels.getReview,
-		(_e, { projectId, reviewId }: GetReviewParams) => getReview(projectId, reviewId),
-	);
 	senderValidatingHandle(
 		liteIpcChannels.getReviewBaseRepoUrl,
 		(_e, { projectId, reviewId }: GetReviewBaseRepoUrlParams) =>
@@ -515,6 +507,14 @@ const registerIpcHandlers = (): void => {
 	senderValidatingHandle(
 		liteIpcChannels.getReviewMergeStatus,
 		(_e, { projectId, reviewId }: GetReviewParams) => getReviewMergeStatus(projectId, reviewId),
+	);
+	senderValidatingHandle(liteIpcChannels.getVersion, () => Promise.resolve(app.getVersion()));
+	senderValidatingHandle(liteIpcChannels.getRedoTargetSnapshot, async (_e, projectId: string) =>
+		getRedoTargetSnapshot(projectId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.getReview,
+		(_e, { projectId, reviewId }: GetReviewParams) => getReview(projectId, reviewId),
 	);
 	senderValidatingHandle(liteIpcChannels.getUndoTargetSnapshot, async (_e, projectId: string) =>
 		getUndoTargetSnapshot(projectId),
