@@ -275,7 +275,7 @@
 		background-color: var(--diff-count-bg);
 		color: var(--diff-count-text);
 		font-size: calc(var(--diff-font-size, 12px) - 1px);
-		line-height: 1.5; /* scales with the diff font, kept ~1px below the diff lines */
+		line-height: 1.25; /* match the diff line line-height so numbers stay aligned at any size */
 		text-align: right;
 		vertical-align: top;
 		touch-action: none;
