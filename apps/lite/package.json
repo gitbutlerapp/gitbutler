@@ -50,7 +50,7 @@
 			"path": "lite/${os}/${arch}",
 			"channel": "${env.CHANNEL}"
 		},
-		"extraFiles": [
+		"extraResources": [
 			{
 				"from": "resources/bin",
 				"to": "bin",
