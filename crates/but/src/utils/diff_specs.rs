@@ -194,6 +194,88 @@ impl<'a> DiffSpecBuilder<'a> {
         but_workspace::flatten_diff_specs(self.diff_specs)
     }
 
+    /// Reconciles the builder's [`DiffSpec`]s by sorting, coalescing and deduplicating all of the
+    /// specs based on worktree changes. This only works reliably if the [`DiffSpec`]s are sourced
+    /// from the worktree changes. The end result is that there is at most one [`DiffSpec`] per file
+    /// and no duplicated hunks.
+    ///
+    /// WARNING: Does not support overlapping hunks - results may get very strange if such hunks are
+    /// in the specs. The implementation naively assumes that hunk equality checks are sufficient
+    /// for reconciling changes, whereas with overlapping hunks that is not the case.
+    #[cfg(feature = "but-2")]
+    pub fn reconcile_worktree_diff_specs(&mut self) -> anyhow::Result<()> {
+        use std::collections::HashMap;
+
+        // This looks a bit odd, but we need to populate the worktree_changes cache without holding
+        // onto the mut self reference. Otherwise we cant sort the diff_specs later.
+        self.worktree_changes()?;
+        let worktree_changes = self
+            .worktree_changes
+            .as_deref()
+            .expect("BUG: worktree_changes cache should be populated!");
+
+        #[derive(Hash, Eq, PartialEq)]
+        struct DiffSpecKey<'a> {
+            path: &'a BStr,
+            previous_path: Option<&'a BStr>,
+        }
+
+        let mut diff_spec_order: HashMap<DiffSpecKey<'_>, usize> = HashMap::new();
+        for (i, change) in worktree_changes.iter().enumerate() {
+            use but_core::ui::TreeStatus;
+
+            let previous_path = match &change.status {
+                TreeStatus::Rename {
+                    previous_path_bytes,
+                    ..
+                } => Some(previous_path_bytes.as_bstr()),
+                _ => None,
+            };
+
+            diff_spec_order.insert(
+                DiffSpecKey {
+                    path: change.path_bytes.as_bstr(),
+                    previous_path,
+                },
+                i,
+            );
+        }
+
+        self.diff_specs.sort_by_key(|item| {
+            let key = DiffSpecKey {
+                path: item.path.as_bstr(),
+                previous_path: item.previous_path.as_ref().map(|p| p.as_bstr()),
+            };
+            *diff_spec_order
+                .get(&key)
+                .expect("BUG: diff_spec_order did not contain all DiffSpecs")
+        });
+
+        let mut reconciled_changes: Vec<DiffSpec> = vec![];
+        for change in self.diff_specs.iter() {
+            match reconciled_changes.last_mut() {
+                Some(last) if last.path == change.path => {
+                    for hunk in change.hunk_headers.iter() {
+                        match last.hunk_headers.binary_search(hunk) {
+                            Ok(_) => (),
+                            Err(i) => last.hunk_headers.insert(i, *hunk),
+                        }
+                    }
+                }
+                Some(_) | None => {
+                    let mut change = change.clone();
+                    change.hunk_headers.sort();
+                    change.hunk_headers.dedup();
+                    reconciled_changes.push(change)
+                }
+            }
+        }
+
+        self.diff_specs = reconciled_changes;
+
+        Ok(())
+    }
+
     fn worktree_changes(&mut self) -> anyhow::Result<&[but_core::ui::TreeChange]> {
         if self.worktree_changes.is_none() {
             self.worktree_changes = Some(but_core::diff::ui::worktree_changes(self.repo)?.changes);

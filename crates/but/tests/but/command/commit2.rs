@@ -255,8 +255,7 @@ fn editor_fails() {
         .env("GIT_EDITOR", editor_command)
         .assert()
         .failure()
-        .stdout_eq(snapbox::str![[r#"
-"#]])
+        .stdout_eq(snapbox::str![""])
         .stderr_eq(snapbox::str![[r#"
 Error: Editor exited with non-zero status
 
@@ -1090,6 +1089,172 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+}
+
+#[test]
+fn hunks_within_file_are_not_order_dependent() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let original_data = "enough\nlines\nto\ncreate\nmultiple\nhunks\nwhen\nediting";
+
+    env.file("file", original_data);
+
+    env.but("commit2 --no-message").assert().success();
+
+    env.file("file", format!("first hunk\n{original_data}\nlast hunk"));
+
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────╮
+i0 file│
+───────╯
+     1│+first hunk
+   1 2│ enough
+   2 3│ lines
+   3 4│ to
+───────╮
+j0 file│
+───────╯
+    6  7│ hunks
+    7  8│ when
+    8  9│ editing
+      10│+last hunk
+
+"#]]);
+
+    env.but("commit2 --no-message i0 j0").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   f0a3edc (no commit message)
+┊│     f0:qs M file
+┊●   21b345e (no commit message)
+┊│     21:qs A file
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("undo").assert().success();
+
+    env.but("commit2 --no-message j0 i0").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   f0a3edc (no commit message)
+┊│     f0:qs M file
+┊●   21b345e (no commit message)
+┊│     21:qs A file
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn overlapping_changes_to_modified_file_are_deduplicated() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let original_data = "enough\nlines\nto\ncreate\nmultiple\nhunks\nwhen\nediting";
+
+    env.file("file", original_data);
+
+    env.but("commit2 --no-message").assert().success();
+
+    env.file("file", format!("first hunk\n{original_data}\nlast hunk"));
+
+    env.but("diff")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+───────╮
+i0 file│
+───────╯
+     1│+first hunk
+   1 2│ enough
+   2 3│ lines
+   3 4│ to
+───────╮
+j0 file│
+───────╯
+    6  7│ hunks
+    7  8│ when
+    8  9│ editing
+      10│+last hunk
+
+"#]]);
+
+    env.but("commit2 --no-message i0 j0 i0").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   f0a3edc (no commit message)
+┊│     f0:qs M file
+┊●   21b345e (no commit message)
+┊│     21:qs A file
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("undo").assert().success();
+
+    env.but("commit2 --no-message file j0").assert().success();
+
+    env.but("status -f")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   f0a3edc (no commit message)
+┊│     f0:qs M file
+┊●   21b345e (no commit message)
+┊│     21:qs A file
+┊●   9477ae7 add A
+┊│     94:tm A A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
 
 "#]]);
 }
