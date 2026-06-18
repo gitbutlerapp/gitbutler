@@ -16,7 +16,7 @@ fn commit_mode_enter_and_escape() {
 
     tui.env().file("test.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render('c')
@@ -39,7 +39,7 @@ fn commit_confirm_on_source_is_noop() {
 
     tui.env().file("test.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render('c')
@@ -59,7 +59,7 @@ fn commiting_with_no_unassigned_changes() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -98,7 +98,7 @@ fn commit_from_unstaged_changes_creates_commit_visible_in_tui() {
 
     tui.env().file("test.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render('c')
@@ -112,7 +112,7 @@ fn commit_from_unstaged_changes_creates_commit_visible_in_tui() {
             .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"]);
     });
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_from_unstaged_changes_creates_commit_visible_in_tui_final.svg"
@@ -135,7 +135,7 @@ fn commit_from_unstaged_changes_to_new_branch_creates_branch_and_commit() {
 
     tui.env().file("test.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render('c')
@@ -149,7 +149,7 @@ fn commit_from_unstaged_changes_to_new_branch_creates_branch_and_commit() {
             .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"]);
     });
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_from_unstaged_changes_to_new_branch_creates_branch_and_commit_final.svg"
@@ -178,7 +178,7 @@ fn commit_from_unstaged_changes_with_multiple_hunks_in_same_file_commits_all_cha
 
     tui.env().file("multi-hunk.txt", &base);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render('c')
@@ -205,9 +205,9 @@ fn commit_from_unstaged_changes_with_multiple_hunks_in_same_file_commits_all_cha
         + "\n";
     tui.env().file("multi-hunk.txt", changed);
 
-    tui.input_then_render(None);
+    tui.reload();
     tui.input_then_render(std::array::repeat::<_, 20>(KeyCode::Up));
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render('c')
@@ -237,7 +237,7 @@ fn commit_mode_shows_commit_above_on_commit_rows() {
 
     tui.env().file("test.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render('c')
@@ -266,7 +266,7 @@ fn commit_to_commit_above_creates_commit_visible_in_tui() {
 
     tui.env().file("test.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render('c')
@@ -283,7 +283,7 @@ fn commit_to_commit_above_creates_commit_visible_in_tui() {
             .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"]);
     });
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_to_commit_above_creates_commit_visible_in_tui_final.svg"
@@ -306,7 +306,7 @@ fn commit_to_commit_below_creates_commit_visible_in_tui() {
 
     tui.env().file("test.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render('c')
@@ -320,7 +320,7 @@ fn commit_to_commit_below_creates_commit_visible_in_tui() {
             .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"]);
     });
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_to_commit_below_creates_commit_visible_in_tui_final.svg"
@@ -336,7 +336,7 @@ fn commit_mode_from_staged_changes_stays_within_current_stack() {
 
     tui.env().file("test.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -380,7 +380,7 @@ fn commit_with_inline_reword() {
 
     tui.env().file("test.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render('c')
@@ -423,6 +423,7 @@ fn commit_moved_file_from_unassigned_changes_line() {
 
     // commit test.txt
     tui.env().file("test.txt", "content");
+    tui.reload();
     tui.input_then_render('c');
     tui.input_then_render(KeyCode::Down);
     tui.input_then_render('i');
@@ -435,6 +436,7 @@ fn commit_moved_file_from_unassigned_changes_line() {
 
     // move the file
     tui.env().rename_file("test.txt", "moved-test.txt");
+    tui.reload();
 
     // commit the moved file
     tui.input_then_render('c');
@@ -445,7 +447,7 @@ fn commit_moved_file_from_unassigned_changes_line() {
     tui.input_then_render(KeyCode::Enter);
 
     // there should be no more changes to commit
-    tui.input_then_render(None)
+    tui.reload()
         .assert_rendered_contains("zz [unassigned changes] (no changes)");
 }
 
@@ -461,6 +463,7 @@ fn commit_moved_file_from_file_line() {
 
     // commit test.txt
     tui.env().file("test.txt", "content");
+    tui.reload();
     tui.input_then_render('c');
     tui.input_then_render(KeyCode::Down);
     tui.input_then_render('i');
@@ -473,6 +476,7 @@ fn commit_moved_file_from_file_line() {
 
     // move the file
     tui.env().rename_file("test.txt", "moved-test.txt");
+    tui.reload();
 
     // commit the moved file via the file list, not [unassigned changes]
     tui.input_then_render(KeyCode::Down)
@@ -485,7 +489,7 @@ fn commit_moved_file_from_file_line() {
     tui.input_then_render(KeyCode::Enter);
 
     // there should be no more changes to commit
-    tui.input_then_render(None)
+    tui.reload()
         .assert_rendered_contains("zz [unassigned changes] (no changes)");
 }
 
@@ -505,6 +509,7 @@ fn commit_moved_and_modified_file() {
         tui.env().append_file("test.txt", "content\n");
     }
 
+    tui.reload();
     tui.input_then_render('c');
     tui.input_then_render(KeyCode::Down);
     tui.input_then_render('i');
@@ -518,6 +523,7 @@ fn commit_moved_and_modified_file() {
     // move and modify the file
     tui.env().rename_file("test.txt", "moved-test.txt");
     tui.env().append_file("moved-test.txt", "new content\n");
+    tui.reload();
 
     // commit the moved file
     tui.input_then_render('c');
@@ -528,7 +534,7 @@ fn commit_moved_and_modified_file() {
     tui.input_then_render(KeyCode::Enter);
 
     // there should be no more changes to commit
-    tui.input_then_render(None)
+    tui.reload()
         .assert_rendered_contains("zz [unassigned changes] (no changes)");
 }
 
@@ -540,6 +546,8 @@ fn cannot_select_unassigned_files_with_commits_marked() {
     let mut tui = test_tui(env);
 
     tui.env().file("test.txt", "content");
+
+    tui.reload();
 
     // mark the commit
     tui.input_then_render('j');
@@ -566,6 +574,8 @@ fn cannot_select_committed_files_with_commits_marked() {
 
     tui.env().file("test.txt", "content");
 
+    tui.reload();
+
     // mark the commit
     tui.input_then_render('j');
     tui.input_then_render('j');
@@ -586,6 +596,8 @@ fn cannot_select_committed_files_from_global_listing_with_commits_marked() {
     let mut tui = test_tui(env);
 
     tui.env().file("test.txt", "content");
+
+    tui.reload();
 
     // mark the commit
     tui.input_then_render('j');
@@ -615,6 +627,7 @@ fn escape_from_commit_mode_preserves_marks() {
 
     tui.env().file("one", "content");
     tui.env().file("two", "content");
+    tui.reload();
 
     tui.input_then_render('j');
     tui.input_then_render(' ').assert_rendered_contains("✔︎");
@@ -635,6 +648,8 @@ fn mark_and_commit_multiple_uncommitted_files() {
     tui.env().file("one", "content");
     tui.env().file("two", "content");
     tui.env().file("three", "content");
+
+    tui.reload();
 
     tui.input_then_render('j');
     tui.input_then_render(' ');

@@ -843,6 +843,7 @@ dependencies = [
  "crossterm 0.29.0",
  "dirs",
  "fuzzy-matcher",
+ "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-commit",
  "gitbutler-edit-mode",

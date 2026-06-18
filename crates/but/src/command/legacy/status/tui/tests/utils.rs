@@ -128,14 +128,19 @@ impl TestTui {
     }
 
     #[track_caller]
-    pub(super) fn input_then_render<E>(&mut self, event: E) -> TestTuiInputThenRenderResult<'_>
-    where
-        E: EventPolling,
-    {
+    pub(super) fn reload(&mut self) -> TestTuiInputThenRenderResult<'_> {
         self.render_with_messages(
-            event,
+            None,
             Vec::from([Message::Reload(None, ReloadCause::Mutation)]),
         )
+    }
+
+    #[track_caller]
+    pub(super) fn input_then_render<E>(&mut self, event: E) -> TestTuiInputThenRenderResult<'_>
+    where
+        E: InputEventPolling,
+    {
+        self.render_with_messages(event, Vec::new())
     }
 
     #[track_caller]
@@ -202,7 +207,7 @@ impl Drop for TestTui {
         // cargo discards the test output. This makes it easier to debug test failures because so
         // much of it depends on getting the cursor on the right line.
 
-        let render_result = self.input_then_render(None);
+        let render_result = TestTuiInputThenRenderResult(self);
         let selected_row = render_result.selected_row().map(|row| row as usize);
 
         eprintln!("\nCurrent terminal state:");
@@ -935,6 +940,15 @@ impl EventPolling for Option<Event> {
     }
 }
 
+pub(super) trait InputEventPolling: EventPolling {}
+
+impl<const N: usize, T> InputEventPolling for [T; N] where
+    T: InputEventPolling + EventPolling<Error = Infallible>
+{
+}
+
+impl InputEventPolling for KeyCode {}
+
 impl EventPolling for KeyCode {
     type Error = Infallible;
 
@@ -947,6 +961,8 @@ impl EventPolling for KeyCode {
         })])
     }
 }
+
+impl InputEventPolling for (KeyModifiers, KeyCode) {}
 
 impl EventPolling for (KeyModifiers, KeyCode) {
     type Error = Infallible;
@@ -961,6 +977,8 @@ impl EventPolling for (KeyModifiers, KeyCode) {
     }
 }
 
+impl InputEventPolling for char {}
+
 impl EventPolling for char {
     type Error = Infallible;
 
@@ -968,6 +986,8 @@ impl EventPolling for char {
         KeyCode::Char(self).poll(timeout)
     }
 }
+
+impl InputEventPolling for &str {}
 
 impl EventPolling for &str {
     type Error = Infallible;

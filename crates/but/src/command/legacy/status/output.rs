@@ -61,6 +61,14 @@ impl StatusOutput<'_> {
         )
     }
 
+    pub(super) fn between_stacks(&mut self, connector: Vec<Span<'static>>) -> anyhow::Result<()> {
+        self.push_line(
+            Some(connector),
+            StatusOutputContent::Plain(<_>::default()),
+            StatusOutputLineData::BetweenStacks,
+        )
+    }
+
     pub(super) fn staged_changes(
         &mut self,
         connector: Vec<Span<'static>>,
@@ -336,8 +344,9 @@ impl StatusOutputLine {
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::MergeBase
             | StatusOutputLineData::File { .. } => true,
-            StatusOutputLineData::Connector
-            | StatusOutputLineData::UpdateNotice
+            StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::BetweenStacks
+            | StatusOutputLineData::Connector
             | StatusOutputLineData::Warning
             | StatusOutputLineData::Hint
             | StatusOutputLineData::NoAssignmentsUnstaged
@@ -351,6 +360,7 @@ impl StatusOutputLine {
 pub(super) enum StatusOutputLineData {
     UpdateNotice,
     Connector,
+    BetweenStacks,
     StagedChanges {
         cli_id: Arc<CliId>,
     },
@@ -395,6 +405,7 @@ impl StatusOutputLineData {
             | StatusOutputLineData::File { cli_id } => Some(cli_id),
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
+            | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::MergeBase

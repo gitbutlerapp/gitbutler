@@ -11,7 +11,7 @@ fn branch_key_from_unassigned_creates_new_branch() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render('b')
@@ -94,7 +94,7 @@ fn deleted_branch_name_can_be_reused_without_restoring_old_branch() {
 
     tui.input_then_render('y');
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render('b')
@@ -114,8 +114,7 @@ fn deleted_branch_name_can_be_reused_without_restoring_old_branch() {
         .assert_current_line_eq(str!["┊╭┄g0 [A] (no commits)"]);
 
     let mut tui = tui.recreate();
-    tui.input_then_render(None)
-        .assert_rendered_contains("[A] (no commits)");
+    tui.reload().assert_rendered_contains("[A] (no commits)");
 }
 
 #[test]

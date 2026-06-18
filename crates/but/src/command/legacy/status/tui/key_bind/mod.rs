@@ -50,6 +50,11 @@ pub(super) fn default_key_binds() -> KeyBinds {
             }
             ModeDiscriminant::Stack => {
                 builder.unapply().register();
+                builder.reorder().register();
+                register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
+            }
+            ModeDiscriminant::MoveStack => {
+                builder.reorder_confirm().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Details => {
@@ -817,6 +822,23 @@ impl KeyBindsBuilder<'_> {
             Message::Stack(StackMessage::Unapply),
         )
         .long_description("Unapply stack")
+    }
+
+    fn reorder(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "move",
+            press().code(KeyCode::Char('m')),
+            Message::Stack(StackMessage::MoveStart),
+        )
+        .long_description("Move stack")
+    }
+
+    fn reorder_confirm(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "confirm",
+            press().code(KeyCode::Enter),
+            Message::Stack(StackMessage::MoveConfirm),
+        )
     }
 
     fn details_next_hunk(&mut self) -> KeyBindsInModesBuilder<'_> {

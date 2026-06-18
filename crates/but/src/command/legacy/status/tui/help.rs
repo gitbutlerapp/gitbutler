@@ -43,6 +43,7 @@ impl Help {
                     | ModeDiscriminant::Commit
                     | ModeDiscriminant::Move
                     | ModeDiscriminant::Details
+                    | ModeDiscriminant::MoveStack
                     | ModeDiscriminant::Stack => {}
                 }
 
@@ -119,7 +120,7 @@ impl Help {
             .unwrap_or(0) as u16;
 
         let columns_layout = Layout::horizontal([
-            Constraint::Length(11),
+            Constraint::Length(12),
             Constraint::Length(1),
             Constraint::Length(longest_short_description),
             Constraint::Length(3),

@@ -11,7 +11,10 @@ use crate::{
         tui::{
             CommitSource, Mode, MoveSource, NormalMode, PickUncommittedMode, SelectAfterReload,
             marking::{MarkClasses, Markable, Marks},
-            render::{commit_operation_display, move_operation_display, stack_operation_display},
+            render::{
+                commit_operation_display, move_operation_display, reorder_operation_display,
+                stack_operation_display,
+            },
         },
     },
 };
@@ -409,6 +412,7 @@ impl Cursor {
                 | StatusOutputLineData::UnassignedChanges { .. } => line.data.cli_id(),
                 StatusOutputLineData::UpdateNotice
                 | StatusOutputLineData::Connector
+                | StatusOutputLineData::BetweenStacks
                 | StatusOutputLineData::StagedFile { .. }
                 | StatusOutputLineData::UnassignedFile { .. }
                 | StatusOutputLineData::CommitMessage
@@ -438,7 +442,7 @@ impl Cursor {
             .enumerate()
             .rev()
             .skip(lines.len() - self.0)
-            .find(|(_, line)| is_cursor_selectable_in_mode(line, lines, mode, show_files))?;
+            .find(|(idx, _)| is_cursor_selectable_at_index(*idx, lines, mode, show_files))?;
         Some(Self(idx))
     }
 
@@ -457,7 +461,7 @@ impl Cursor {
             .iter()
             .enumerate()
             .skip(self.0 + 1)
-            .find(|(_, line)| is_cursor_selectable_in_mode(line, lines, mode, show_files))?;
+            .find(|(idx, _)| is_cursor_selectable_at_index(*idx, lines, mode, show_files))?;
         Some(Self(idx))
     }
 
@@ -481,7 +485,7 @@ impl Cursor {
             .enumerate()
             .skip(self.0 + 1)
             .take(next_section_start.saturating_sub(self.0 + 1))
-            .find(|(_, line)| is_cursor_selectable_in_mode(line, lines, mode, show_files))?;
+            .find(|(idx, _)| is_cursor_selectable_at_index(*idx, lines, mode, show_files))?;
         Some(Self(idx))
     }
 
@@ -606,7 +610,7 @@ fn first_selectable_in_section(
         .enumerate()
         .skip(section_start)
         .take(next_section_start.saturating_sub(section_start))
-        .find(|(_, line)| is_cursor_selectable_in_mode(line, lines, mode, show_files))
+        .find(|(idx, _)| is_cursor_selectable_at_index(*idx, lines, mode, show_files))
         .map(|(idx, _)| idx)
 }
 
@@ -631,6 +635,7 @@ fn is_discard_commit_boundary(line: &StatusOutputLine) -> bool {
         | StatusOutputLineData::MergeBase => true,
         StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::Connector
+        | StatusOutputLineData::BetweenStacks
         | StatusOutputLineData::StagedFile { .. }
         | StatusOutputLineData::UnassignedFile { .. }
         | StatusOutputLineData::Commit { .. }
@@ -654,6 +659,7 @@ fn is_section_header(line: &StatusOutputLine, mode: &Mode) -> bool {
         | Mode::Commit(..)
         | Mode::Move(..)
         | Mode::Stack(..)
+        | Mode::MoveStack(..)
         | Mode::Details(..) => {
             matches!(
                 line.data,
@@ -675,14 +681,19 @@ fn is_section_header(line: &StatusOutputLine, mode: &Mode) -> bool {
     }
 }
 
-fn is_cursor_selectable_in_mode(
-    line: &StatusOutputLine,
+fn is_cursor_selectable_at_index(
+    idx: usize,
     lines: &[StatusOutputLine],
     mode: &Mode,
     show_files_flag: FilesStatusFlag,
 ) -> bool {
+    let Some(line) = lines.get(idx) else {
+        return false;
+    };
+
     is_selectable_in_mode(line, mode, show_files_flag)
         && !is_forbidden_move_commit_target(line, lines, mode)
+        && !is_noop_move_stack_target(idx, lines, mode)
 }
 
 pub(super) fn is_forbidden_move_commit_target(
@@ -695,6 +706,30 @@ pub(super) fn is_forbidden_move_commit_target(
     };
 
     forbidden_move_target(lines, mode).is_some_and(|target| **cli_id == **target)
+}
+
+fn is_noop_move_stack_target(idx: usize, lines: &[StatusOutputLine], mode: &Mode) -> bool {
+    let Mode::MoveStack(move_mode) = mode else {
+        return false;
+    };
+
+    let Some(line) = lines.get(idx) else {
+        return false;
+    };
+    if !matches!(line.data, StatusOutputLineData::BetweenStacks) {
+        return false;
+    }
+
+    let current_stack_order = super::stack_ids_in_display_order(lines);
+    let Some(source_index) = current_stack_order
+        .iter()
+        .position(|stack| *stack == move_mode.source.stack)
+    else {
+        return false;
+    };
+
+    let target_index = super::stack_ids_in_display_order(&lines[..idx]).len();
+    target_index == source_index || target_index == source_index + 1
 }
 
 fn forbidden_move_target<'a>(lines: &'a [StatusOutputLine], mode: &Mode) -> Option<&'a Arc<CliId>> {
@@ -737,6 +772,7 @@ fn source_branch_if_top_commit(
             | StatusOutputLineData::MergeBase => None,
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
+            | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UnassignedFile { .. }
             | StatusOutputLineData::Commit { .. }
@@ -755,6 +791,7 @@ fn commit_cli_id(line: &StatusOutputLine) -> Option<&Arc<CliId>> {
         StatusOutputLineData::Commit { cli_id, .. } if line.is_selectable() => Some(cli_id),
         StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::Connector
+        | StatusOutputLineData::BetweenStacks
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
         | StatusOutputLineData::UnassignedChanges { .. }
@@ -778,7 +815,13 @@ pub(super) fn is_selectable_in_mode(
     show_files_flag: FilesStatusFlag,
 ) -> bool {
     if !line.is_selectable() {
-        return false;
+        if let Mode::MoveStack(..) = mode
+            && let StatusOutputLineData::BetweenStacks = line.data
+        {
+            // `BetweenStacks` lines are selectable in reorder mode
+        } else {
+            return false;
+        }
     }
 
     // selecting the source line should always be possible
@@ -800,6 +843,13 @@ pub(super) fn is_selectable_in_mode(
         Mode::Move(move_mode) => {
             if let Some(cli_id) = line.data.cli_id()
                 && *move_mode.source == **cli_id
+            {
+                return true;
+            }
+        }
+        Mode::MoveStack(move_mode) => {
+            if let Some(cli_id) = line.data.cli_id()
+                && move_mode.source.matches(cli_id)
             {
                 return true;
             }
@@ -845,6 +895,7 @@ pub(super) fn is_selectable_in_mode(
         | Mode::Commit(..)
         | Mode::Move(..)
         | Mode::Details(..)
+        | Mode::MoveStack(..)
         | Mode::Stack(..) => {}
     }
 
@@ -867,6 +918,7 @@ pub(super) fn is_selectable_in_mode(
             .is_some_and(|cli_id| rub_mode.available_targets.contains(cli_id)),
         Mode::Commit(commit_mode) => commit_operation_display(&line.data, commit_mode).is_some(),
         Mode::Move(move_mode) => move_operation_display(&line.data, move_mode).is_some(),
+        Mode::MoveStack(move_mode) => reorder_operation_display(&line.data, move_mode).is_some(),
         Mode::Stack(stack_mode) => stack_operation_display(&line.data, stack_mode).is_some(),
         Mode::PickChanges(..) => {
             if let Some(cli_id) = line.data.cli_id() {

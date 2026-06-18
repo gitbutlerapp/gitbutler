@@ -114,10 +114,9 @@ fn narrow_hotbar_prioritizes_help_and_quit() {
         },
     );
 
-    tui.input_then_render(None)
-        .assert_rendered_term_svg_eq(file![
-            "snapshots/narrow_hotbar_prioritizes_help_and_quit.svg"
-        ]);
+    tui.reload().assert_rendered_term_svg_eq(file![
+        "snapshots/narrow_hotbar_prioritizes_help_and_quit.svg"
+    ]);
 }
 
 #[test]
@@ -238,7 +237,7 @@ fn basic_cursor_movement() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_rendered_term_svg_eq(file!["snapshots/basic_cursor_movement_001.svg"])
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
@@ -279,7 +278,7 @@ fn movement_aliases_j_k() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render('j')
@@ -302,7 +301,7 @@ fn section_jumps_shift_j_k() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
@@ -325,7 +324,7 @@ fn shift_k_from_commit_moves_to_current_section_header_first() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
@@ -345,7 +344,7 @@ fn shift_k_from_second_stack_commit_moves_to_its_header() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
@@ -375,7 +374,7 @@ fn cursor_movement_scrolls_viewport_down() {
         },
     );
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_rendered_term_svg_eq(file![
             "snapshots/cursor_movement_scrolls_viewport_down_001.svg"
         ])
@@ -430,7 +429,7 @@ fn scrolling_keeps_three_rows_of_context_when_possible() {
     );
     let visible_height = 6;
 
-    tui.input_then_render(None);
+    tui.reload();
     assert_cursor_context_rows(&tui, visible_height, 3);
 
     for _ in 0..10 {
@@ -561,7 +560,7 @@ fn creating_empty_commits() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_rendered_term_svg_eq(file!["snapshots/creating_empty_commits_001.svg"])
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
@@ -584,7 +583,7 @@ fn inline_reword() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_rendered_term_svg_eq(file!["snapshots/inline_reword_001.svg"])
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
@@ -637,12 +636,12 @@ fn esc_leaves_rub_mode() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.env().file("test.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -663,6 +662,8 @@ fn mode_key_r_enters_and_escape_leaves_rub_mode() {
     let mut tui = test_tui(env);
 
     tui.env().file("test.txt", "content");
+
+    tui.reload();
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊   vo A test.txt"]);
@@ -686,6 +687,8 @@ fn rub_mode_shift_j_lands_on_first_selectable_in_next_branch() {
 
     tui.env().file("test.txt", "content");
 
+    tui.reload();
+
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊   vo A test.txt"]);
 
@@ -704,6 +707,8 @@ fn rub_mode_shift_j_can_jump_between_branches() {
     let mut tui = test_tui(env);
 
     tui.env().file("test.txt", "content");
+
+    tui.reload();
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊   vo A test.txt"]);
@@ -726,6 +731,8 @@ fn rub_mode_shift_k_jumps_to_first_selectable_in_previous_branch() {
     let mut tui = test_tui(env);
 
     tui.env().file("test.txt", "content");
+
+    tui.reload();
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊   vo A test.txt"]);
@@ -751,6 +758,8 @@ fn mode_key_c_enters_and_escape_leaves_commit_mode() {
     let mut tui = test_tui(env);
 
     tui.env().file("test.txt", "content");
+
+    tui.reload();
 
     tui.input_then_render('c')
         .assert_rendered_term_svg_eq(file![
@@ -803,13 +812,13 @@ fn rubbing() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_rendered_term_svg_eq(file!["snapshots/rubbing_001.svg"])
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.env().file("test.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_rendered_term_svg_eq(file!["snapshots/rubbing_002.svg"])
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
@@ -1061,7 +1070,7 @@ fn pick_changes_mode() {
         },
     );
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_rendered_term_svg_eq(file!["snapshots/pick_changes_mode_001.svg"]);
 
     tui.input_then_render('j');
@@ -1099,7 +1108,7 @@ fn stays_in_pick_change_mode_after_full_screen_details() {
         },
     );
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_rendered_term_svg_eq(file![
             "snapshots/stays_in_pick_change_mode_after_full_screen_details_001.svg"
         ])
