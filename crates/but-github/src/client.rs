@@ -1145,6 +1145,7 @@ pub struct PullRequest {
     pub repository_ssh_url: Option<String>,
     pub repository_https_url: Option<String>,
     pub repo_owner: Option<String>,
+    pub head_repo_is_fork: bool,
     pub requested_reviewers: Vec<GitHubUser>,
 }
 
@@ -1169,6 +1170,8 @@ struct GitHubRepo {
     ssh_url: Option<String>,
     clone_url: Option<String>,
     owner: Option<GitHubApiUser>,
+    #[serde(default)]
+    fork: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1223,7 +1226,12 @@ impl From<GitHubPullRequest> for PullRequest {
             closed_at: pr.closed_at,
             repository_ssh_url: pr.base.repo.as_ref().and_then(|r| r.ssh_url.clone()),
             repository_https_url: pr.head.repo.as_ref().and_then(|r| r.clone_url.clone()),
-            repo_owner: pr.head.repo.and_then(|r| r.owner.map(|o| o.login)),
+            repo_owner: pr
+                .head
+                .repo
+                .as_ref()
+                .and_then(|r| r.owner.as_ref().map(|o| o.login.clone())),
+            head_repo_is_fork: pr.head.repo.as_ref().map(|r| r.fork).unwrap_or(false),
             requested_reviewers,
         }
     }

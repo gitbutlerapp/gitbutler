@@ -1317,6 +1317,8 @@ export type ForgeReview = {
    * In the case of a fork, this will be the fork owner's username.
    */
   repoOwner: string | null;
+  /** Whether the source/head repository for this review is a fork. */
+  headRepoIsFork: boolean;
   /** Users who have been requested to review or have reviewed this code. */
   reviewers: Array<ForgeReviewUser>;
   /** The platform-specific symbol for this review type (e.g., "#" for GitHub pull requests and "!" for MRs). */

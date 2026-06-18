@@ -15,7 +15,6 @@
 	import { ReorderCommitDzHandler } from "$lib/dragging/stackingReorderDropzoneManager";
 	import { FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { PR_SERVICE } from "$lib/forge/prService.svelte";
-	import { REPO_SERVICE } from "$lib/forge/repoService.svelte";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
@@ -97,13 +96,11 @@
 	const uiState = inject(UI_STATE);
 	const stackService = inject(STACK_SERVICE);
 	const prService = inject(PR_SERVICE);
-	const repoService = inject(REPO_SERVICE);
 	const forgeInfoService = inject(FORGE_INFO_SERVICE);
 
 	const forgeInfoQuery = $derived(forgeInfoService.get(projectId));
 	const forgeInfo = $derived(forgeInfoQuery.response);
 	const prUnit = $derived(forgeInfo?.unit);
-	const repoInfoEnabled = $derived(!!forgeInfo?.capabilities.repoInfo);
 	const checksEnabled = $derived(!!forgeInfo?.capabilities.checks);
 
 	const [updateName, nameUpdate] = stackService.updateBranchName;
@@ -259,7 +256,6 @@
 								{@const prQuery = prService.get(projectId, args.prNumber, { forceRefetch: true })}
 								{@const pr = prQuery.response}
 								{@const mergeStatusQuery = prService.getMergeStatus(projectId, args.prNumber)}
-								{@const repoQuery = repoInfoEnabled ? repoService.getInfo(projectId) : undefined}
 								{@const prStatus = (() => {
 									if (!pr) return "unknown";
 									if (pr.mergedAt) return "merged";
@@ -279,7 +275,7 @@
 										branchName={pr.sourceBranch}
 										prUpdatedAt={pr.modifiedAt}
 										mergeableState={mergeStatusQuery?.response?.mergeableState ?? undefined}
-										isFork={repoQuery?.response?.fork ?? false}
+										isFork={pr.headRepoIsFork}
 										isMerged={!!pr.mergedAt}
 										onrefetch={() => {
 											if (args.prNumber)

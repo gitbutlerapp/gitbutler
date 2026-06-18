@@ -320,6 +320,8 @@ pub struct ForgeReview {
     /// The owner (user or organization) of the repository from which the branch originates.
     /// In the case of a fork, this will be the fork owner's username.
     pub repo_owner: Option<String>,
+    /// Whether the source/head repository for this review is a fork.
+    pub head_repo_is_fork: bool,
     /// Users who have been requested to review or have reviewed this code.
     pub reviewers: Vec<ForgeReviewUser>,
     /// The platform-specific symbol for this review type (e.g., "#" for GitHub pull requests and "!" for MRs).
@@ -349,7 +351,7 @@ impl ForgeReview {
 
     /// The struct version for persistence compatibility purposes
     pub fn struct_version() -> i32 {
-        1
+        2
     }
 }
 
@@ -391,6 +393,7 @@ impl From<but_github::PullRequest> for ForgeReview {
             repository_ssh_url: pr.repository_ssh_url,
             repository_https_url: pr.repository_https_url,
             repo_owner: pr.repo_owner,
+            head_repo_is_fork: pr.head_repo_is_fork,
             reviewers: pr
                 .requested_reviewers
                 .into_iter()
@@ -422,6 +425,7 @@ impl From<but_gitlab::MergeRequest> for ForgeReview {
             repository_ssh_url: None,
             repository_https_url: None,
             repo_owner: None,
+            head_repo_is_fork: false,
             reviewers: mr
                 .reviewers
                 .into_iter()

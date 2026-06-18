@@ -135,12 +135,13 @@ fn handles_optional_fields() -> anyhow::Result<()> {
         repository_ssh_url: None,
         repository_https_url: None,
         repo_owner: None,
+        head_repo_is_fork: false,
         reviewers: "[]".to_string(),
         unit_symbol: "test".to_string(),
         last_sync_at: chrono::DateTime::from_timestamp(1000000, 0)
             .unwrap()
             .naive_utc(),
-        struct_version: 1,
+        struct_version: 2,
     };
 
     db.forge_reviews_mut()?.set_all(vec![review.clone()])?;
@@ -178,6 +179,7 @@ fn upsert_updates_existing_review() -> anyhow::Result<()> {
     updated_review.draft = true;
     updated_review.sha = "updatedsha123".to_string();
     updated_review.reviewers = "[\"alice\"]".to_string();
+    updated_review.head_repo_is_fork = true;
     db.forge_reviews_mut()?.upsert(updated_review.clone())?;
 
     let reviews = db.forge_reviews().list_all()?;
@@ -213,11 +215,12 @@ fn forge_review(number: i64, title: &str, source_branch: &str) -> ForgeReview {
         repository_ssh_url: Some("git@github.com:owner/repo.git".to_string()),
         repository_https_url: Some("https://github.com/owner/repo.git".to_string()),
         repo_owner: Some("owner".to_string()),
+        head_repo_is_fork: false,
         reviewers: "[]".to_string(),
         unit_symbol: "test".to_string(),
         last_sync_at: chrono::DateTime::from_timestamp(1000000, 0)
             .unwrap()
             .naive_utc(),
-        struct_version: 1,
+        struct_version: 2,
     }
 }
