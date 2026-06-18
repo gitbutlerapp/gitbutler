@@ -827,8 +827,9 @@ pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseB
             error: fetch_errors.join("\n"),
         }
     };
+    let project_meta = ctx.project_meta()?;
     let mut meta = ctx.legacy_meta()?;
-    meta.garbage_collect(&*ctx.repo.get()?)?;
+    meta.garbage_collect(&*ctx.repo.get()?, &project_meta)?;
 
     // Updates the project controller with the last fetched timestamp
     //

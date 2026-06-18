@@ -13,7 +13,7 @@ use bstr::ByteSlice;
 use but_core::{
     RefMetadata, WORKSPACE_REF_NAME, is_workspace_ref_name,
     ref_metadata::{
-        Branch, RefInfo, StackId,
+        Branch, ProjectMeta, RefInfo, StackId,
         StackKind::{Applied, AppliedAndUnapplied},
         ValueInfo, Workspace, WorkspaceCommitRelation, WorkspaceStack, WorkspaceStackBranch,
     },
@@ -510,16 +510,12 @@ impl VirtualBranchesTomlMetadata {
 
     /// Garbage collect stacks that are outside the workspace and hold no commits relative to the
     /// target, or whose head points to a missing commit.
-    pub fn garbage_collect(&mut self, repo: &gix::Repository) -> anyhow::Result<()> {
-        let target_sha = self
-            .data()
-            .default_target
-            .as_ref()
-            .ok_or_else(|| {
-                anyhow::anyhow!("there is no default target")
-                    .context(but_error::Code::DefaultTargetNotFound)
-            })?
-            .sha;
+    pub fn garbage_collect(
+        &mut self,
+        repo: &gix::Repository,
+        project_meta: &ProjectMeta,
+    ) -> anyhow::Result<()> {
+        let target_sha = project_meta.target_commit_id_or_err()?;
         let cache = repo.commit_graph_if_enabled()?;
         let mut graph = repo.revision_graph(cache.as_ref());
         let mut to_remove = Vec::new();
