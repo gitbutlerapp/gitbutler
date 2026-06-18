@@ -57,7 +57,7 @@ fn esc_closes_branch_picker_without_changing_selection() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render('t').assert_rendered_contains("> ");
@@ -124,7 +124,7 @@ fn goto_unassigned_changes() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))

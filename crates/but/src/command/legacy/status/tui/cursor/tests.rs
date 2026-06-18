@@ -15,7 +15,8 @@ use crate::{
         output::{StatusOutputContent, StatusOutputLine, StatusOutputLineData},
         tui::{
             CommitMessageComposer, CommitMode, CommitSource, InlineRewordMode, Mode, MoveMode,
-            MoveSource, NormalMode, RubMode, RubSource, SelectAfterReload, UnassignedCommitSource,
+            MoveSource, MoveStackMode, NormalMode, ReorderStackSource, RubMode, RubSource,
+            SelectAfterReload, UnassignedCommitSource,
             marking::{Markable, Marks},
         },
     },
@@ -64,6 +65,12 @@ fn branch_cli_id(name: &str, id: &str, stack_id: Option<StackId>) -> Arc<CliId> 
 fn branch_line(name: &str, id: &str) -> StatusOutputLine {
     line(StatusOutputLineData::Branch {
         cli_id: branch_cli_id(name, id, None),
+    })
+}
+
+fn stack_branch_line(name: &str, id: &str, stack_id: StackId) -> StatusOutputLine {
+    line(StatusOutputLineData::Branch {
+        cli_id: branch_cli_id(name, id, Some(stack_id)),
     })
 }
 
@@ -2033,6 +2040,60 @@ fn move_down_from_move_source_selects_commit_below_source() {
     assert_eq!(
         Cursor(2).move_down(&lines, &mode, FilesStatusFlag::All),
         Some(Cursor(3))
+    );
+}
+
+#[test]
+fn move_stack_skips_noop_target_above_source() {
+    let stack_a = StackId::generate();
+    let stack_b = StackId::generate();
+    let stack_c = StackId::generate();
+    let lines = vec![
+        line(StatusOutputLineData::BetweenStacks),
+        stack_branch_line("A", "b0", stack_a),
+        line(StatusOutputLineData::BetweenStacks),
+        stack_branch_line("B", "b1", stack_b),
+        line(StatusOutputLineData::BetweenStacks),
+        stack_branch_line("C", "b2", stack_c),
+        line(StatusOutputLineData::BetweenStacks),
+    ];
+    let mode = Mode::MoveStack(MoveStackMode {
+        source: ReorderStackSource {
+            stack: stack_b,
+            branch: "B".into(),
+        },
+    });
+
+    assert_eq!(
+        Cursor(3).move_up(&lines, &mode, FilesStatusFlag::All),
+        Some(Cursor(0))
+    );
+}
+
+#[test]
+fn move_stack_skips_noop_target_below_source() {
+    let stack_a = StackId::generate();
+    let stack_b = StackId::generate();
+    let stack_c = StackId::generate();
+    let lines = vec![
+        line(StatusOutputLineData::BetweenStacks),
+        stack_branch_line("A", "b0", stack_a),
+        line(StatusOutputLineData::BetweenStacks),
+        stack_branch_line("B", "b1", stack_b),
+        line(StatusOutputLineData::BetweenStacks),
+        stack_branch_line("C", "b2", stack_c),
+        line(StatusOutputLineData::BetweenStacks),
+    ];
+    let mode = Mode::MoveStack(MoveStackMode {
+        source: ReorderStackSource {
+            stack: stack_b,
+            branch: "B".into(),
+        },
+    });
+
+    assert_eq!(
+        Cursor(3).move_down(&lines, &mode, FilesStatusFlag::All),
+        Some(Cursor(6))
     );
 }
 

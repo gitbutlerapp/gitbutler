@@ -348,71 +348,71 @@ fn toggle_full_screen_details_view() {
     // can open details with shift+d
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggle_full_screen_details_view_for_commit_showing_full_screen_details.svg"
+            "snapshots/toggle_full_screen_details_view_for_commit_001_open_full_screen.svg"
         ]);
 
     // full screen details don't close when pressing h
     tui.input_then_render('h')
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggle_full_screen_details_view_for_commit_showing_full_screen_details.svg"
+            "snapshots/toggle_full_screen_details_view_for_commit_002_h_keeps_full_screen_open.svg"
         ]);
 
     // can close details with shift+d
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggle_full_screen_details_view_for_commit_closed_full_screen_details.svg"
+            "snapshots/toggle_full_screen_details_view_for_commit_003_shift_d_closes_full_screen.svg"
         ]);
 
     // can close full screen details with escape
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggle_full_screen_details_view_for_commit_showing_full_screen_details.svg"
+            "snapshots/toggle_full_screen_details_view_for_commit_004_reopen_full_screen.svg"
         ]);
     tui.input_then_render(KeyCode::Esc)
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggle_full_screen_details_view_for_commit_closed_full_screen_details.svg"
+            "snapshots/toggle_full_screen_details_view_for_commit_005_escape_closes_full_screen.svg"
         ]);
 
     // can close full screen details with d
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggle_full_screen_details_view_for_commit_showing_full_screen_details.svg"
+            "snapshots/toggle_full_screen_details_view_for_commit_006_reopen_full_screen.svg"
         ]);
     tui.input_then_render('d')
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggle_full_screen_details_view_for_commit_closed_full_screen_details.svg"
+            "snapshots/toggle_full_screen_details_view_for_commit_007_d_closes_full_screen.svg"
         ]);
 
     // shift+d with split details in normal mode opens full screen details
     tui.input_then_render('d')
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggle_full_screen_details_view_for_commit_split_details.svg"
+            "snapshots/toggle_full_screen_details_view_for_commit_008_split_details.svg"
         ]);
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggle_full_screen_details_view_for_commit_showing_full_screen_details.svg"
+            "snapshots/toggle_full_screen_details_view_for_commit_009_split_to_full_screen.svg"
         ]);
     tui.input_then_render(KeyCode::Esc)
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggle_full_screen_details_view_for_commit_closed_full_screen_details.svg"
+            "snapshots/toggle_full_screen_details_view_for_commit_010_escape_closes_from_split.svg"
         ]);
 
     // shift+d with split details in details mode opens full screen details
     tui.input_then_render('d')
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggle_full_screen_details_view_for_commit_split_details.svg"
+            "snapshots/toggle_full_screen_details_view_for_commit_011_split_details.svg"
         ]);
     tui.input_then_render('l')
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggle_full_screen_details_view_for_commit_split_details_mode.svg"
+            "snapshots/toggle_full_screen_details_view_for_commit_012_split_details_mode.svg"
         ]);
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggle_full_screen_details_view_for_commit_showing_full_screen_details.svg"
+            "snapshots/toggle_full_screen_details_view_for_commit_013_details_mode_to_full_screen.svg"
         ]);
     tui.input_then_render(KeyCode::Esc)
         .assert_rendered_term_svg_eq(file![
-            "snapshots/toggle_full_screen_details_view_for_commit_closed_full_screen_details.svg"
+            "snapshots/toggle_full_screen_details_view_for_commit_014_escape_closes_from_details_mode.svg"
         ]);
 }
 

@@ -57,8 +57,9 @@ use crate::{
                 mode::{
                     CommandMode, CommandModeKind, CommitMessageComposer, CommitMode, CommitSource,
                     DetailsMode, DetailsReturnMode, InlineRewordMode, Mode, ModeDiscriminant,
-                    MoveMode, MoveSource, NormalMode, PickUncommittedMode, RubMode, RubSource,
-                    StackCommitSource, StackMode, UnassignedCommitSource,
+                    MoveMode, MoveSource, MoveStackMode, NormalMode, PickUncommittedMode,
+                    ReorderStackSource, RubMode, RubSource, StackCommitSource, StackMode,
+                    UnassignedCommitSource,
                 },
                 operations::stack_has_assigned_changes,
                 toast::{ToastKind, Toasts},
@@ -857,6 +858,8 @@ impl App {
             Message::Stack(stack_message) => match stack_message {
                 StackMessage::Enter => self.handle_stack_enter(ctx)?,
                 StackMessage::Unapply => self.handle_stack_unapply(),
+                StackMessage::MoveStart => self.handle_stack_move_start(),
+                StackMessage::MoveConfirm => self.handle_stack_move_confirm(ctx, messages)?,
             },
         }
 
@@ -892,7 +895,8 @@ impl App {
             | Mode::Commit(..)
             | Mode::Move(..)
             | Mode::Details(..)
-            | Mode::Stack(..) => Some(TuiOutcome::None),
+            | Mode::Stack(..)
+            | Mode::MoveStack(..) => Some(TuiOutcome::None),
             Mode::PickChanges(PickUncommittedMode { marks }) => {
                 let ids = marks
                     .iter()
@@ -1006,6 +1010,7 @@ impl App {
                 | Mode::Commit(..)
                 | Mode::Move(..)
                 | Mode::Stack(..)
+                | Mode::MoveStack(..)
                 | Mode::Details(..) => {}
             },
             BackstackEntry::OpenSplitDetailsView | BackstackEntry::OpenFullScreenDetailsView => {
@@ -1111,6 +1116,7 @@ impl App {
                     | Mode::Command(..)
                     | Mode::Commit(..)
                     | Mode::Move(..)
+                    | Mode::MoveStack(..)
                     | Mode::Stack(..) => DetailsReturnMode::Normal(NormalMode::default()),
                 };
                 *mode = Mode::Details(DetailsMode {
@@ -1141,6 +1147,7 @@ impl App {
             | Mode::Command(..)
             | Mode::Commit(..)
             | Mode::Stack(..)
+            | Mode::MoveStack(..)
             | Mode::Move(..) => {}
         }
     }
@@ -1995,6 +2002,7 @@ impl App {
             }
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
+            | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UnassignedChanges { .. }
@@ -2100,6 +2108,7 @@ impl App {
             }
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
+            | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -2200,6 +2209,7 @@ impl App {
             | StatusOutputLineData::Commit { cli_id, .. } => cli_id,
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
+            | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UnassignedChanges { .. }
@@ -2441,6 +2451,7 @@ impl App {
             }
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
+            | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UnassignedChanges { .. }
@@ -2508,6 +2519,7 @@ impl App {
             StatusOutputLineData::MergeBase => MoveTarget::MergeBase,
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
+            | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::UnassignedChanges { .. }
@@ -2601,6 +2613,7 @@ impl App {
             | StatusOutputLineData::UnassignedFile { .. } => operations::create_branch_legacy(ctx)?,
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
+            | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
             | StatusOutputLineData::Commit { .. }
@@ -3148,6 +3161,7 @@ impl App {
                         | Mode::Commit(..)
                         | Mode::Move(..)
                         | Mode::Details(..)
+                        | Mode::MoveStack(..)
                         | Mode::Stack(..) => {}
                     }
                 }
@@ -3168,6 +3182,7 @@ impl App {
                     | Mode::Commit(..)
                     | Mode::Move(..)
                     | Mode::Details(..)
+                    | Mode::MoveStack(..)
                     | Mode::Stack(..) => {}
                 }
             }
@@ -3304,6 +3319,100 @@ impl App {
         });
     }
 
+    fn handle_stack_move_start(&mut self) {
+        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+            return;
+        };
+        let Some(CliId::Branch {
+            name,
+            stack_id: Some(stack),
+            ..
+        }) = selection.data.cli_id().map(|id| &**id)
+        else {
+            return;
+        };
+        self.mode
+            .update_and_push_leave_normal_mode(&mut self.backstack, |mode| {
+                let source = ReorderStackSource {
+                    stack: *stack,
+                    branch: name.to_owned(),
+                };
+                *mode = Mode::MoveStack(MoveStackMode { source });
+            });
+    }
+
+    fn handle_stack_move_confirm(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        let Mode::MoveStack(MoveStackMode { source }) = &*self.mode else {
+            return Ok(());
+        };
+
+        let selection_index = self.cursor.index();
+        let Some(selection) = self.status_lines.get(selection_index) else {
+            return Ok(());
+        };
+
+        if selection
+            .data
+            .cli_id()
+            .is_some_and(|target| source.matches(target))
+        {
+            messages.push(Message::EnterNormalModeAfterConfirmingOperation);
+            return Ok(());
+        }
+
+        if !matches!(selection.data, StatusOutputLineData::BetweenStacks) {
+            return Ok(());
+        }
+
+        let current_stack_order = stack_ids_in_display_order(&self.status_lines);
+        let Some(source_index) = current_stack_order
+            .iter()
+            .position(|stack| *stack == source.stack)
+        else {
+            return Ok(());
+        };
+
+        let target_index = stack_ids_in_display_order(&self.status_lines[..selection_index]).len();
+        let mut new_stack_order = current_stack_order.clone();
+        let source_stack = new_stack_order.remove(source_index);
+        let insert_index = if target_index > source_index {
+            target_index - 1
+        } else {
+            target_index
+        };
+        new_stack_order.insert(insert_index.min(new_stack_order.len()), source_stack);
+
+        if new_stack_order == current_stack_order {
+            messages.push(Message::EnterNormalModeAfterConfirmingOperation);
+            return Ok(());
+        }
+
+        let updates = new_stack_order
+            .into_iter()
+            .enumerate()
+            .map(|(order, stack)| gitbutler_branch::BranchUpdateRequest {
+                id: Some(stack),
+                order: Some(order),
+            })
+            .collect();
+
+        but_api::legacy::virtual_branches::update_stack_order(ctx, updates)?;
+
+        messages.extend([
+            Message::EnterNormalModeAfterConfirmingOperation,
+            Message::Reload(
+                Some(SelectAfterReload::Branch(source.branch.clone())),
+                ReloadCause::Mutation,
+            ),
+        ]);
+
+        Ok(())
+    }
+
     fn restore_to_target_snapshot(
         &mut self,
         kind: UndoOrRedo,
@@ -3416,6 +3525,7 @@ fn event_to_messages(
                         | Mode::Commit(..)
                         | Mode::Stack(..)
                         | Mode::PickChanges(..)
+                        | Mode::MoveStack(..)
                         | Mode::Move(..) => {}
                     }
                 }
@@ -3437,6 +3547,7 @@ fn event_to_messages(
             | Mode::Commit(..)
             | Mode::Stack(..)
             | Mode::PickChanges(..)
+            | Mode::MoveStack(..)
             | Mode::Move(..) => {
                 messages.push(Message::JustRender);
             }
@@ -3513,6 +3624,7 @@ fn handle_mark_cli_id(commit: &CliId, mode: &mut Mode) -> bool {
         | Mode::Commit(..)
         | Mode::Move(..)
         | Mode::Stack(..)
+        | Mode::MoveStack(..)
         | Mode::Details(..) => {
             return false;
         }
@@ -3555,6 +3667,7 @@ fn line_uses_top_stack_for_stack_mode(line: &StatusOutputLine) -> bool {
         }
         StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::Connector
+        | StatusOutputLineData::BetweenStacks
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::Branch { .. }
         | StatusOutputLineData::Commit { .. }
@@ -3566,6 +3679,22 @@ fn line_uses_top_stack_for_stack_mode(line: &StatusOutputLine) -> bool {
         | StatusOutputLineData::Hint
         | StatusOutputLineData::NoAssignmentsUnstaged => false,
     }
+}
+
+fn stack_ids_in_display_order(status_lines: &[StatusOutputLine]) -> Vec<StackId> {
+    let mut stack_ids = Vec::new();
+    for line in status_lines {
+        if let StatusOutputLineData::Branch { cli_id } = &line.data
+            && let CliId::Branch {
+                stack_id: Some(stack_id),
+                ..
+            } = &**cli_id
+            && !stack_ids.contains(stack_id)
+        {
+            stack_ids.push(*stack_id);
+        }
+    }
+    stack_ids
 }
 
 fn stack_id_for_line(
@@ -3581,6 +3710,7 @@ fn stack_id_for_line(
         StatusOutputLineData::Commit { stack_id, .. } => *stack_id,
         StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::Connector
+        | StatusOutputLineData::BetweenStacks
         | StatusOutputLineData::UnassignedChanges { .. }
         | StatusOutputLineData::CommitMessage
         | StatusOutputLineData::EmptyCommitMessage
@@ -3617,6 +3747,7 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
                 },
                 StatusOutputLineData::UpdateNotice
                 | StatusOutputLineData::Connector
+                | StatusOutputLineData::BetweenStacks
                 | StatusOutputLineData::StagedChanges { .. }
                 | StatusOutputLineData::StagedFile { .. }
                 | StatusOutputLineData::UnassignedChanges { .. }
@@ -3643,6 +3774,7 @@ fn handle_mark_unassigned(marks: &mut Marks, status_lines: &[StatusOutputLine]) 
         StatusOutputLineData::UnassignedFile { cli_id } => Markable::try_from_cli_id(cli_id),
         StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::Connector
+        | StatusOutputLineData::BetweenStacks
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
         | StatusOutputLineData::UnassignedChanges { .. }
@@ -3874,6 +4006,8 @@ enum MoveMessage {
 enum StackMessage {
     Enter,
     Unapply,
+    MoveStart,
+    MoveConfirm,
 }
 
 #[derive(Debug, Clone)]

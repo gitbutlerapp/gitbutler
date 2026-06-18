@@ -26,6 +26,7 @@ pub(super) enum Mode {
     Move(MoveMode),
     Details(DetailsMode),
     Stack(StackMode),
+    MoveStack(MoveStackMode),
     PickChanges(PickUncommittedMode),
 }
 
@@ -60,7 +61,11 @@ impl Mode {
             },
             Mode::PickChanges(pick_uncommitted_mode) => Some(&pick_uncommitted_mode.marks),
             Mode::Details(details_mode) => Some(details_mode.return_mode.marks()),
-            Mode::InlineReword(..) | Mode::Command(..) | Mode::Move(..) | Mode::Stack(..) => None,
+            Mode::InlineReword(..)
+            | Mode::Command(..)
+            | Mode::Move(..)
+            | Mode::Stack(..)
+            | Mode::MoveStack(..) => None,
         }
     }
 }
@@ -75,7 +80,7 @@ impl ModeDiscriminant {
                 theme.tui_mode_inline_reword.bg.unwrap_or(Color::Magenta)
             }
             Self::Command => theme.tui_mode_command.bg.unwrap_or(Color::Yellow),
-            Self::Move => theme.tui_mode_move.bg.unwrap_or(Color::Cyan),
+            Self::Move | Self::MoveStack => theme.tui_mode_move.bg.unwrap_or(Color::Cyan),
             Self::Details => theme
                 .tui_mode_details
                 .bg
@@ -92,7 +97,7 @@ impl ModeDiscriminant {
                 theme.tui_mode_inline_reword.fg.unwrap_or(Color::Black)
             }
             Self::Command => theme.tui_mode_command.fg.unwrap_or(Color::Black),
-            Self::Move => theme.tui_mode_move.fg.unwrap_or(Color::Black),
+            Self::Move | Self::MoveStack => theme.tui_mode_move.fg.unwrap_or(Color::Black),
             Self::Details => theme.tui_mode_details.fg.unwrap_or(Color::Black),
         }
     }
@@ -108,6 +113,7 @@ impl ModeDiscriminant {
             Self::Move => "move",
             Self::Details => "details",
             Self::Stack => "stack",
+            Self::MoveStack => "move stack",
         }
     }
 }
@@ -394,4 +400,31 @@ pub(super) struct StackMode {
 #[derive(Debug, Default)]
 pub(super) struct PickUncommittedMode {
     pub(super) marks: Marks,
+}
+
+#[derive(Debug)]
+pub(super) struct MoveStackMode {
+    pub(super) source: ReorderStackSource,
+}
+
+#[derive(Debug)]
+pub(super) struct ReorderStackSource {
+    pub(super) stack: StackId,
+    pub(super) branch: String,
+}
+
+impl ReorderStackSource {
+    pub(super) fn matches(&self, id: &CliId) -> bool {
+        match id {
+            CliId::Branch { name, stack_id, .. } => {
+                stack_id.is_some_and(|stack| self.stack == stack) && self.branch == *name
+            }
+            CliId::Stack { .. }
+            | CliId::Uncommitted(..)
+            | CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Commit { .. }
+            | CliId::Unassigned { .. } => false,
+        }
+    }
 }

@@ -243,6 +243,7 @@ impl Details {
                     true
                 }
                 StackMessage::Unapply => true,
+                StackMessage::MoveStart | StackMessage::MoveConfirm => false,
             },
 
             Message::AndThen { .. } => true,

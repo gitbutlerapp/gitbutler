@@ -14,7 +14,7 @@ fn esc_leaves_move_mode() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -42,7 +42,7 @@ fn move_mode_keeps_selected_commit_and_extension_visible_when_scrolled() {
         },
     );
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -73,7 +73,7 @@ fn move_commit_above_other_commit_reorders_tui() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -101,10 +101,9 @@ fn move_commit_above_other_commit_reorders_tui() {
         .assert_current_line_eq(str!["┊●   [..] add A"]);
 
     tui = tui.recreate();
-    tui.input_then_render(None)
-        .assert_rendered_term_svg_eq(file![
-            "snapshots/move_commit_above_other_commit_reorders_tui_final.svg"
-        ]);
+    tui.reload().assert_rendered_term_svg_eq(file![
+        "snapshots/move_commit_above_other_commit_reorders_tui_final.svg"
+    ]);
 }
 
 #[test]
@@ -167,7 +166,7 @@ fn move_branch_onto_other_branch_reorders_stacks() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -183,10 +182,9 @@ fn move_branch_onto_other_branch_reorders_stacks() {
         .assert_current_line_eq(str!["┊├┄[..] [A]"]);
 
     tui = tui.recreate();
-    tui.input_then_render(None)
-        .assert_rendered_term_svg_eq(file![
-            "snapshots/move_branch_onto_other_branch_reorders_stacks_final.svg"
-        ]);
+    tui.reload().assert_rendered_term_svg_eq(file![
+        "snapshots/move_branch_onto_other_branch_reorders_stacks_final.svg"
+    ]);
 }
 
 #[test]
@@ -199,7 +197,7 @@ fn move_branch_to_merge_base_tears_off_branch() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down])

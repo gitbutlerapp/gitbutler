@@ -12,12 +12,12 @@ fn rub_api_unassigned_to_commit() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.env().file("test.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -54,7 +54,7 @@ fn rub_api_unassigned_to_commit_preserves_global_file_list() {
 
     tui.env().file("test.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
@@ -86,7 +86,7 @@ fn rub_api_unassign_uncommitted_operation() {
 
     tui.env().file("test.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -109,7 +109,7 @@ fn rub_api_uncommitted_to_commit_operation() {
 
     tui.env().file("test.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -132,6 +132,8 @@ fn mark_and_rub_multiple_uncommitted_files() {
     tui.env().file("one", "content");
     tui.env().file("two", "content");
     tui.env().file("three", "content");
+
+    tui.reload();
 
     tui.input_then_render('j');
     tui.input_then_render(' ');
@@ -181,7 +183,7 @@ fn rub_api_reverse_rub_uses_unassigned_source_when_unassigned_has_changes() {
     tui.env().file("test.txt", "content");
     tui.env().invoke_git("add test.txt");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
@@ -205,7 +207,7 @@ fn rub_api_reverse_rub_uses_unassigned_source_when_stack_has_no_assigned_changes
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
@@ -228,7 +230,7 @@ fn rub_api_reverse_rub_is_noop_on_non_commit_selection() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('R')))
@@ -243,7 +245,7 @@ fn rub_api_undo_commit_operation() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
@@ -266,7 +268,7 @@ fn rub_api_squash_commits_operation() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
@@ -362,7 +364,7 @@ fn rub_api_committed_file_to_commit_operation() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
@@ -389,7 +391,7 @@ fn rub_api_committed_file_to_unassigned_operation() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
@@ -421,7 +423,7 @@ fn rub_api_unassigned_to_stack_operation() {
     tui.env().file("a.txt", "content");
     tui.env().file("z.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -448,7 +450,7 @@ fn rub_api_uncommitted_to_stack_operation() {
     tui.env().file("a.txt", "content");
     tui.env().file("z.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -474,7 +476,7 @@ fn rub_api_stack_to_unassigned_operation() {
 
     tui.env().file("test.txt", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -501,7 +503,7 @@ fn rub_api_stack_to_stack_operation() {
     tui.env().file("A", "content");
     tui.env().file("B", "content");
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
@@ -555,6 +557,7 @@ fn rub_multiple_commits_into_unassigned() {
 
     tui.env().file("A", "content");
     tui.env().file("B", "content");
+    tui.reload();
 
     tui.input_then_render('j');
     tui.input_then_render('c');

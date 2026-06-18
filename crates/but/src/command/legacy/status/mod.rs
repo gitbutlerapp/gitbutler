@@ -1224,7 +1224,7 @@ fn print_group(
     if !first {
         output.connector(Vec::from([Span::raw("├╯")]))?;
     }
-    output.connector(Vec::from([Span::raw("┊")]))?;
+    output.between_stacks(Vec::from([Span::raw("┊")]))?;
     Ok(())
 }
 

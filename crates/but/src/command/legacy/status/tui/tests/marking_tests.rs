@@ -52,7 +52,7 @@ fn marking_unassigned_toggles_all_unassigned_files() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(' ')
