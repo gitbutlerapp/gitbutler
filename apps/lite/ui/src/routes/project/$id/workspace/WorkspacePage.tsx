@@ -5,7 +5,7 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import {
-	useApplyBranch,
+	useApply,
 	useBranchCheckoutNew,
 	useBranchCreate,
 	useWorkspaceIntegrateUpstream,
@@ -271,7 +271,7 @@ const ApplyBranchPicker: FC<{
 		listBranchesQueryOptions({ projectId, filter: { local: null, applied: false } }),
 	);
 	const items = (branchesQuery.data ?? []).flatMap(branchListingToApplyBranchPickerOptions);
-	const applyBranch = useApplyBranch();
+	const apply = useApply();
 	const statusLabel =
 		items.length === 0
 			? branchesQuery.isPending
@@ -283,7 +283,7 @@ const ApplyBranchPicker: FC<{
 
 	const selectBranch = (option: ApplyBranchPickerOption) => {
 		onOpenChange(false);
-		applyBranch.mutate({ projectId, existingBranch: option.branchRef });
+		apply.mutate({ projectId, existingBranch: option.branchRef });
 	};
 
 	return (

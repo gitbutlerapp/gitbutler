@@ -69,7 +69,7 @@ export const useAbsorb = ({ projectId }: { projectId: string }) => {
 	});
 };
 
-export const useApplyBranch = () => {
+export const useApply = () => {
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
