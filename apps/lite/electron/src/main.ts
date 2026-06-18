@@ -21,6 +21,7 @@ import {
 	type CommitRewordParams,
 	type CommitMoveChangesBetweenParams,
 	type CommitUncommitChangesParams,
+	type GetReviewParams,
 	type MoveBranchParams,
 	type ListReviewsForBranchParams,
 	type OpenInEditorParams,
@@ -64,6 +65,7 @@ import {
 	commitMove,
 	commitDetailsWithLineStats,
 	commitMoveChangesBetween,
+	getReview,
 	listBranches,
 	listEditors,
 	listProjectsStateless,
@@ -422,6 +424,10 @@ const registerIpcHandlers = (): void => {
 	senderValidatingHandle(liteIpcChannels.getVersion, () => Promise.resolve(app.getVersion()));
 	senderValidatingHandle(liteIpcChannels.getRedoTargetSnapshot, async (_e, projectId: string) =>
 		getRedoTargetSnapshot(projectId),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.getReview,
+		(_e, { projectId, reviewId }: GetReviewParams) => getReview(projectId, reviewId),
 	);
 	senderValidatingHandle(liteIpcChannels.getUndoTargetSnapshot, async (_e, projectId: string) =>
 		getUndoTargetSnapshot(projectId),

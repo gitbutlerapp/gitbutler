@@ -193,6 +193,11 @@ export interface ListReviewsForBranchParams {
 	filter: ForgeReviewFilter | null;
 }
 
+export interface GetReviewParams {
+	projectId: string;
+	reviewId: number;
+}
+
 export interface MoveBranchParams {
 	projectId: string;
 	subjectBranch: string;
@@ -327,6 +332,7 @@ export interface LiteElectronApi {
 	commitUncommitChanges: (params: CommitUncommitChangesParams) => Promise<MoveChangesResult>;
 	getVersion: () => Promise<string>;
 	getRedoTargetSnapshot: (projectId: string) => Promise<Snapshot | null>;
+	getReview: (params: GetReviewParams) => Promise<ForgeReview>;
 	getUndoTargetSnapshot: (projectId: string) => Promise<Snapshot | null>;
 	headInfo: (projectId: string) => Promise<RefInfo>;
 	listBranches: (
@@ -384,6 +390,7 @@ export const liteIpcChannels = {
 	commitUncommit: "workspace:commit-uncommit",
 	commitUncommitChanges: "workspace:commit-uncommit-changes",
 	getRedoTargetSnapshot: "workspace:get-redo-target-snapshot",
+	getReview: "workspace:get-review",
 	getUndoTargetSnapshot: "workspace:get-undo-target-snapshot",
 	getVersion: "lite:get-version",
 	headInfo: "workspace:head-info",

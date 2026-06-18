@@ -109,6 +109,7 @@ const api: LiteElectronApi = {
 	getVersion: () => ipcRenderer.invoke("lite:get-version") as Promise<string>,
 	getRedoTargetSnapshot: (params) =>
 		ipcRenderer.invoke("workspace:get-redo-target-snapshot", params) as Promise<Snapshot | null>,
+	getReview: (params) => ipcRenderer.invoke("workspace:get-review", params) as Promise<ForgeReview>,
 	getUndoTargetSnapshot: (params) =>
 		ipcRenderer.invoke("workspace:get-undo-target-snapshot", params) as Promise<Snapshot | null>,
 	headInfo: (projectId) => ipcRenderer.invoke("workspace:head-info", projectId) as Promise<RefInfo>,
