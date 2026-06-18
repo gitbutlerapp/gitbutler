@@ -1370,7 +1370,7 @@ const CommitRow: FC<
 				</Tooltip.Root>
 			</div>
 
-			<WorkspaceItemRowLabel empty={title === undefined}>
+			<WorkspaceItemRowLabel>
 				{isRewording ? (
 					<InlineEditor
 						multiline
@@ -1387,7 +1387,11 @@ const CommitRow: FC<
 					/>
 				) : (
 					<>
-						{title ?? "(no message)"}
+						{title === undefined ? (
+							<span className={workspaceItemRowStyles.emptyText}>(no message)</span>
+						) : (
+							title
+						)}
 						{hasConflicts && " ⚠️"}
 					</>
 				)}
@@ -2462,7 +2466,9 @@ const SegmentContent: FC<{
 			<div>
 				<WorkspaceItemRow interactive={false} inert={inert}>
 					<GraphSegment glyph="parent" status={segmentPushStatusToStatus(segment.pushStatus)} />
-					<WorkspaceItemRowLabel empty>No commits.</WorkspaceItemRowLabel>
+					<WorkspaceItemRowLabel>
+						<span className={workspaceItemRowStyles.emptyText}>No commits.</span>
+					</WorkspaceItemRowLabel>
 				</WorkspaceItemRow>
 			</div>
 		);

@@ -533,6 +533,7 @@ const Title: FC<{
 				>
 					{({ data: branchDetails }) => (
 						<div className={styles.title}>
+							<Icon name="branch" />
 							<h3 className={classes("text-15", "text-semibold")}>{branchDetails.name}</h3>
 						</div>
 					)}
@@ -540,6 +541,7 @@ const Title: FC<{
 			),
 			ChangesSection: () => (
 				<div className={styles.title}>
+					<Icon name="file-diff" />
 					<h3 className={classes("text-15", "text-semibold")}>Changes</h3>
 				</div>
 			),

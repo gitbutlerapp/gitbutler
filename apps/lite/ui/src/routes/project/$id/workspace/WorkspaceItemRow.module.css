@@ -1,4 +1,4 @@
-.itemRow {
+.container {
 	display: flex;
 	column-gap: 8px;
 	min-height: 28px;
@@ -9,7 +9,7 @@
 	}
 }
 
-.itemRowInteractive {
+.containerInteractive {
 	border-radius: var(--radius-m);
 
 	&:where(:hover) {
@@ -17,7 +17,7 @@
 	}
 }
 
-.itemRowSelected {
+.containerSelected {
 	background-color: color-mix(var(--fill-gray-bg) 13%, transparent);
 
 	&:has(:is(textarea, input):focus),
@@ -27,48 +27,52 @@
 	}
 }
 
-.itemRowHighlighted {
+.containerHighlighted {
 	background-color: #63cdc7;
 	color: var(--text-1);
 }
 
-.itemRowToolbar {
+.toolbar {
 	display: none;
 	column-gap: 2px;
 	margin-inline: -4px;
 	margin-block: -2px;
 	padding-block: 6px;
 
-	.itemRow:hover &,
-	.itemRow:focus-within &,
-	.itemRowSelected &,
-	&.itemRowToolbarForceVisible {
+	.container:hover &,
+	.container:focus-within &,
+	.containerSelected &,
+	&.toolbarForceVisible {
 		display: flex;
 	}
 }
 
-.itemRowLabel {
+.label {
 	flex-grow: 1;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.itemRowLabelRegular {
+.labelRegular {
 	padding-block: 6px;
 }
 
-.itemRowLabelHeading {
+.labelHeading {
 	padding-block: 5.5px;
 }
 
-.itemRowLabelEmpty {
+.emptyText {
 	color: var(--text-2);
+
+	[data-selection-scope]:focus .containerSelected & {
+		color: inherit;
+	}
 }
 
-.itemRowButton {
-	[data-selection-scope]:focus .itemRowSelected &,
-	.itemRowSelected:has(:is(textarea, input):focus) & {
+.button {
+	[data-selection-scope]:focus .containerSelected &,
+	.containerSelected:has(:is(textarea, input):focus) & {
 		/* Duplicated styles for inverted button variant. This is necessary to make
 		the variant responsive to selection/focus changes purely with CSS. */
 
@@ -96,7 +100,7 @@
 	color: var(--fill-gray-fg);
 	vertical-align: middle;
 
-	[data-selection-scope]:focus .itemRowSelected & {
+	[data-selection-scope]:focus .containerSelected & {
 		background-color: var(--fill-gray-fg);
 		color: var(--fill-gray-bg);
 	}

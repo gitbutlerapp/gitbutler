@@ -31,10 +31,10 @@ export const WorkspaceItemRow: FC<
 			ref={mergedRef}
 			className={classes(
 				props.className,
-				styles.itemRow,
-				isSelected && styles.itemRowSelected,
-				isHighlighted && styles.itemRowHighlighted,
-				interactive && styles.itemRowInteractive,
+				styles.container,
+				isSelected && styles.containerSelected,
+				isHighlighted && styles.containerHighlighted,
+				interactive && styles.containerInteractive,
 			)}
 			onClick={(event) => {
 				props.onClick?.(event);
@@ -48,18 +48,18 @@ export const WorkspaceItemRow: FC<
 	);
 };
 
-export const WorkspaceItemRowLabel: FC<
-	{ heading?: boolean; empty?: boolean } & ComponentProps<"div">
-> = ({ heading, empty, ...restProps }) => (
+export const WorkspaceItemRowLabel: FC<{ heading?: boolean } & ComponentProps<"div">> = ({
+	heading,
+	...restProps
+}) => (
 	<div
 		{...restProps}
 		className={classes(
 			restProps.className,
-			styles.itemRowLabel,
+			styles.label,
 			heading ? "text-14" : "text-13",
 			heading && "text-bold",
-			heading ? styles.itemRowLabelHeading : styles.itemRowLabelRegular,
-			empty && styles.itemRowLabelEmpty,
+			heading ? styles.labelHeading : styles.labelRegular,
 		)}
 	/>
 );
@@ -70,10 +70,6 @@ export const WorkspaceItemRowToolbar: FC<{ forceVisible?: boolean } & ComponentP
 }) => (
 	<div
 		{...props}
-		className={classes(
-			props.className,
-			styles.itemRowToolbar,
-			forceVisible && styles.itemRowToolbarForceVisible,
-		)}
+		className={classes(props.className, styles.toolbar, forceVisible && styles.toolbarForceVisible)}
 	/>
 );
