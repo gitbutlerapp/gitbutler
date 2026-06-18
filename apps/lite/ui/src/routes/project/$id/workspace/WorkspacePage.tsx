@@ -300,7 +300,7 @@ const ApplyBranchPicker: FC<{
 			items={[
 				{
 					value: "Available branches",
-					items: (branchesQuery.data ?? []).flatMap(branchListingToApplyBranchPickerOptions),
+					items,
 				},
 			]}
 			open={open}
