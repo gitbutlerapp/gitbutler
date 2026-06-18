@@ -13,5 +13,5 @@ export const getWorkspaceItemRowButtonClassName = ({ iconOnly = false }: { iconO
 			// which are instant (e.g. the row background).
 			disableTransition: true,
 		}),
-		styles.itemRowButton,
+		styles.button,
 	);
