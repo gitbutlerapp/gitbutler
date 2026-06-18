@@ -45,7 +45,9 @@ use crate::{
                 details::{Details, DetailsMessage, RenderNextChunkResult},
                 event_polling::{CrosstermEventPolling, EventPolling, NoopEventPolling},
                 fps::FpsCounter,
-                fuzzy_picker::{FuzzyPicker, FuzzyPickerMessage},
+                fuzzy_picker::{
+                    Col, FuzzyPicker, FuzzyPickerItem, FuzzyPickerMessage, SearchableToken,
+                },
                 help::{Help, HelpMessage},
                 highlight::Highlights,
                 key_bind::{
@@ -434,7 +436,7 @@ enum Modal {
         key_binds: KeyBinds,
     },
     BranchPicker {
-        picker: Box<FuzzyPicker<fuzzy_picker::BranchItem>>,
+        picker: Box<FuzzyPicker<BranchItem>>,
         key_binds: KeyBinds,
     },
     Help {
@@ -3075,11 +3077,11 @@ impl App {
                 });
 
             let picker_items = if include_unassigned {
-                let mut mapped_items = NonEmpty::new(fuzzy_picker::BranchItem::Unassigned);
-                mapped_items.extend(branch_names.map(fuzzy_picker::BranchItem::Branch));
+                let mut mapped_items = NonEmpty::new(BranchItem::Unassigned);
+                mapped_items.extend(branch_names.map(BranchItem::Branch));
                 mapped_items
             } else {
-                branch_names.map(fuzzy_picker::BranchItem::Branch)
+                branch_names.map(BranchItem::Branch)
             };
 
             self.modal = Some(Modal::BranchPicker {
@@ -3088,10 +3090,10 @@ impl App {
                     self.theme,
                     |item, messages| {
                         match item {
-                            fuzzy_picker::BranchItem::Branch(branch_name) => {
+                            BranchItem::Branch(branch_name) => {
                                 messages.push(Message::SelectBranch(branch_name));
                             }
-                            fuzzy_picker::BranchItem::Unassigned => {
+                            BranchItem::Unassigned => {
                                 messages.push(Message::SelectUnassigned);
                             }
                         }
@@ -4143,5 +4145,33 @@ pub trait TuiInputOutputChannel: WriteWithUtils + private::Sealed {
 impl TuiInputOutputChannel for InputOutputChannel<'_> {
     fn prompt_single_line(&mut self, prompt: &str) -> anyhow::Result<Option<String>> {
         InputOutputChannel::prompt_single_line(self, prompt)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(super) enum BranchItem {
+    Branch(FullName),
+    Unassigned,
+}
+
+impl FuzzyPickerItem for BranchItem {
+    fn columns(&self, searchable: SearchableToken) -> impl IntoIterator<Item = Col<'_>> {
+        match self {
+            Self::Branch(full_name) => [Col {
+                text: full_name.shorten().to_str_lossy(),
+                searchable: Some(searchable),
+            }],
+            Self::Unassigned => [Col {
+                text: "unassigned changes".into(),
+                searchable: Some(searchable),
+            }],
+        }
+    }
+
+    fn style(&self, theme: &'static Theme) -> Style {
+        match self {
+            Self::Branch(..) => theme.local_branch,
+            Self::Unassigned => theme.info,
+        }
     }
 }
