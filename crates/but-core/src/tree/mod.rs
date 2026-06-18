@@ -217,7 +217,15 @@ pub fn apply_worktree_changes<'repo>(
         };
         // NOTE: See copy below!
         if let Some(previous_path) = change_request.previous_path.as_ref().map(|p| p.as_bstr()) {
-            base_tree_editor.remove(previous_path)?;
+            // A sibling change in this batch may have turned `previous_path` into a directory
+            // (e.g. `A` renamed to `B` while a new `A/` is committed at the old path). Those
+            // upserts already replaced the old blob, so only remove the source if it's still a leaf.
+            if base_tree_editor
+                .get(previous_path)
+                .is_none_or(|e| !e.mode().is_tree())
+            {
+                base_tree_editor.remove(previous_path)?;
+            }
         }
         if change_request.hunk_headers.is_empty() {
             let rela_path = change_request.path.as_bstr();
