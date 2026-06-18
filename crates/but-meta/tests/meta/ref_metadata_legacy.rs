@@ -1687,7 +1687,7 @@ fn garbage_collect_removes_outside_workspace_stack_at_target() -> anyhow::Result
         .branches
         .insert(outside_stack_id, outside_stack);
 
-    store.garbage_collect(&repo)?;
+    store.garbage_collect(&repo, &project_meta(&store))?;
 
     assert!(store.data().branches.contains_key(&workspace_stack_id));
     assert!(!store.data().branches.contains_key(&outside_stack_id));
@@ -1718,7 +1718,7 @@ fn garbage_collect_removes_outside_workspace_stack_with_missing_head() -> anyhow
         .branches
         .insert(outside_stack_id, outside_stack);
 
-    store.garbage_collect(&repo)?;
+    store.garbage_collect(&repo, &project_meta(&store))?;
 
     assert!(!store.data().branches.contains_key(&outside_stack_id));
     Ok(())
@@ -1755,7 +1755,7 @@ fn garbage_collect_removes_outside_workspace_stack_with_broken_ref() -> anyhow::
         .branches
         .insert(outside_stack_id, outside_stack);
 
-    store.garbage_collect(&repo)?;
+    store.garbage_collect(&repo, &project_meta(&store))?;
 
     assert!(!store.data().branches.contains_key(&outside_stack_id));
     Ok(())
@@ -1855,4 +1855,14 @@ fn falls_back_to_in_memory_db_when_persistent_db_open_fails() -> anyhow::Result<
         "failed on-disk DB open should not leave sqlite shm sidecars behind"
     );
     Ok(())
+}
+
+fn project_meta(meta: &impl but_core::RefMetadata) -> but_core::ref_metadata::ProjectMeta {
+    meta.workspace(
+        but_core::WORKSPACE_REF_NAME
+            .try_into()
+            .expect("valid workspace ref"),
+    )
+    .map(|workspace| workspace.project_meta())
+    .unwrap_or_default()
 }

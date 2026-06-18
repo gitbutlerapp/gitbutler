@@ -31,14 +31,13 @@ legacy = [
 
 [dependencies]
 but-core.workspace = true
-but-error.workspace = true
 but-db = { workspace = true, optional = true }
 but-project-handle = { workspace = true, optional = true }
 but-serde = { workspace = true, optional = true }
 but-graph = { workspace = true, optional = true }
 but-utils = { workspace = true, optional = true }
 
-gitbutler-reference = {workspace = true, optional = true}
+gitbutler-reference = { workspace = true, optional = true }
 
 bstr.workspace = true
 anyhow.workspace = true
@@ -53,7 +52,7 @@ hex = { version = "0.4.3", optional = true }
 sha2 = { workspace = true, optional = true }
 
 [dev-dependencies]
-but-meta = {workspace = true, features = ["legacy"] }
+but-meta = { workspace = true, features = ["legacy"] }
 but-testsupport.workspace = true
 
 insta.workspace = true
