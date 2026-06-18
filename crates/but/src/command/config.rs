@@ -663,8 +663,6 @@ fn extract_account_details(
 
 /// Authenticate with a forge provider (GitHub, GitLab, etc)
 async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
-    use cli_prompts::DisplayPrompt;
-
     #[derive(Debug, Clone)]
     enum ForgeProvider {
         GitHub,
@@ -680,16 +678,24 @@ async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
         }
     }
 
-    let auth_options = vec![ForgeProvider::GitHub, ForgeProvider::GitLab];
-
-    let auth_prompt = cli_prompts::prompts::Selection::new(
-        "Select a forge provider to authenticate with",
-        auth_options.into_iter(),
-    );
-
-    let selected_option = auth_prompt.display().map_err(|_| {
-        anyhow::anyhow!("Could not determine which forge provider to authenticate with")
-    })?;
+    let auth_options = nonempty::nonempty![
+        ("GitHub", ForgeProvider::GitHub),
+        ("GitLab", ForgeProvider::GitLab)
+    ];
+    let selected_option = {
+        let mut input = out
+            .prepare_for_terminal_input()
+            .context("Human input required - run this in a terminal")?;
+        input
+            .prompt_select(
+                "Select a forge provider to authenticate with",
+                &auth_options,
+            )?
+            .cloned()
+            .ok_or_else(|| {
+                anyhow::anyhow!("Could not determine which forge provider to authenticate with")
+            })?
+    };
 
     match selected_option {
         ForgeProvider::GitHub => github_auth(out).await,
@@ -699,7 +705,6 @@ async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
 
 /// Authenticate with GitLab
 async fn gitlab_auth(out: &mut OutputChannel) -> Result<()> {
-    use cli_prompts::DisplayPrompt;
     #[derive(Debug, Clone)]
     enum AuthMethod {
         Pat,
@@ -715,17 +720,18 @@ async fn gitlab_auth(out: &mut OutputChannel) -> Result<()> {
         }
     }
 
-    let input = out
+    let mut input = out
         .prepare_for_terminal_input()
         .context("Human input required - run this in a terminal")?;
-    let auth_method_prompt = cli_prompts::prompts::Selection::new(
-        "Select an authentication method",
-        vec![AuthMethod::Pat, AuthMethod::SelfHosted].into_iter(),
-    );
+    let auth_methods = nonempty::nonempty![
+        ("Personal Access Token (PAT)", AuthMethod::Pat),
+        ("Self-Hosted GitLab", AuthMethod::SelfHosted)
+    ];
 
-    let selected_method = auth_method_prompt
-        .display()
-        .map_err(|_| anyhow::anyhow!("Could not determine authentication method"))?;
+    let selected_method = input
+        .prompt_select("Select an authentication method", &auth_methods)?
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("Could not determine authentication method"))?;
 
     match selected_method {
         AuthMethod::Pat => gitlab_pat(input).await,
@@ -771,8 +777,6 @@ async fn gitlab_self_hosted(mut inout: InputOutputChannel<'_>) -> Result<()> {
 
 /// Authenticate with GitHub
 async fn github_auth(out: &mut OutputChannel) -> Result<()> {
-    use cli_prompts::DisplayPrompt;
-
     #[derive(Debug, Clone)]
     enum AuthMethod {
         DeviceFlow,
@@ -790,22 +794,19 @@ async fn github_auth(out: &mut OutputChannel) -> Result<()> {
         }
     }
 
-    let input = out
+    let mut input = out
         .prepare_for_terminal_input()
         .context("Human input required - run this in a terminal")?;
-    let auth_method_prompt = cli_prompts::prompts::Selection::new(
-        "Select an authentication method",
-        vec![
-            AuthMethod::DeviceFlow,
-            AuthMethod::Pat,
-            AuthMethod::Enterprise,
-        ]
-        .into_iter(),
-    );
+    let auth_methods = nonempty::nonempty![
+        ("Device flow (OAuth)", AuthMethod::DeviceFlow),
+        ("Personal Access Token (PAT)", AuthMethod::Pat),
+        ("GitHub Enterprise", AuthMethod::Enterprise)
+    ];
 
-    let selected_method = auth_method_prompt
-        .display()
-        .map_err(|_| anyhow::anyhow!("Could not determine authentication method"))?;
+    let selected_method = input
+        .prompt_select("Select an authentication method", &auth_methods)?
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("Could not determine authentication method"))?;
 
     match selected_method {
         AuthMethod::Pat => github_pat(input).await,
@@ -991,8 +992,6 @@ fn forget_account(account: &AccountToForget) -> Result<()> {
 
 /// Forget a GitHub account
 async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Result<()> {
-    use cli_prompts::DisplayPrompt;
-
     let known_gh_accounts = but_api::github::list_known_github_accounts()?;
     let known_gl_accounts = but_api::gitlab::list_known_gitlab_accounts()?;
 
@@ -1030,28 +1029,31 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
         }
         _ => {
             // Multiple accounts: prompt user to select
-            if let Some(out) = out.for_human() {
-                let account_prompt = cli_prompts::prompts::Multiselect::new_transformed(
-                    "Which of the following accounts do you want to forget?",
-                    accounts_to_delete.into_iter(),
-                    |acc| acc.to_string(),
-                );
-
-                let selected_accounts = account_prompt
-                    .display()
-                    .map_err(|_| anyhow::anyhow!("Could not determine which accounts to delete"))?;
-
-                if selected_accounts.is_empty() {
-                    writeln!(out, "No accounts were selected to forget.")?;
-                    return Ok(());
-                }
-
-                for account in selected_accounts {
-                    forget_account(&account)?;
-                    writeln!(out, "Forgot forge account '{account}'")?;
-                }
-            } else {
+            let Some(mut input) = out.prepare_for_terminal_input() else {
                 anyhow::bail!("Username ambiguous, got {accounts_to_delete:?}");
+            };
+            let account_options = accounts_to_delete
+                .into_iter()
+                .map(|account| (account.to_string(), account))
+                .collect::<Vec<_>>();
+            let account_options = nonempty::NonEmpty::from_vec(account_options)
+                .context("No accounts available to forget")?;
+
+            let selected_accounts = input
+                .prompt_multi_select(
+                    "Which of the following accounts do you want to forget?",
+                    &account_options,
+                )?
+                .ok_or_else(|| anyhow::anyhow!("Could not determine which accounts to delete"))?;
+
+            if selected_accounts.is_empty() {
+                writeln!(input, "No accounts were selected to forget.")?;
+                return Ok(());
+            }
+
+            for account in selected_accounts {
+                forget_account(account)?;
+                writeln!(input, "Forgot forge account '{account}'")?;
             }
         }
     }
@@ -1255,38 +1257,33 @@ fn ai_config_interactive(
     scope: AiScope,
 ) -> Result<()> {
     let t = theme::get();
-    use cli_prompts::DisplayPrompt;
 
     let mut inout = out
         .prepare_for_terminal_input()
         .context("Human input required - run this in a terminal")?;
 
-    let provider_prompt = cli_prompts::prompts::Selection::new(
-        "Select an AI provider",
-        vec!["OpenAI", "Anthropic", "Ollama", "LM Studio", "OpenRouter"].into_iter(),
-    );
-
-    let provider_label = provider_prompt
-        .display()
-        .map_err(|_| anyhow::anyhow!("Could not determine selected AI provider"))?;
-    let provider = match provider_label {
-        "OpenAI" => LLMProviderKind::OpenAi,
-        "Anthropic" => LLMProviderKind::Anthropic,
-        "Ollama" => LLMProviderKind::Ollama,
-        "LM Studio" => LLMProviderKind::LMStudio,
-        "OpenRouter" => LLMProviderKind::OpenRouter,
-        _ => anyhow::bail!("Unsupported AI provider selection: {provider_label}"),
-    };
+    let providers = nonempty::nonempty![
+        ("OpenAI", LLMProviderKind::OpenAi),
+        ("Anthropic", LLMProviderKind::Anthropic),
+        ("Ollama", LLMProviderKind::Ollama),
+        ("LM Studio", LLMProviderKind::LMStudio),
+        ("OpenRouter", LLMProviderKind::OpenRouter)
+    ];
+    let provider = inout
+        .prompt_select("Select an AI provider", &providers)?
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("Could not determine selected AI provider"))?;
 
     match provider {
         LLMProviderKind::OpenAi => {
-            let key_option_prompt = cli_prompts::prompts::Selection::new(
-                "Select OpenAI credential source",
-                vec![AiKeyOption::ButlerApi, AiKeyOption::BringYourOwn].into_iter(),
-            );
-            let key_option = key_option_prompt
-                .display()
-                .map_err(|_| anyhow::anyhow!("Could not determine OpenAI credential source"))?;
+            let key_options = nonempty::nonempty![
+                ("Use GitButler API", AiKeyOption::ButlerApi),
+                ("Bring your own key", AiKeyOption::BringYourOwn)
+            ];
+            let key_option = inout
+                .prompt_select("Select OpenAI credential source", &key_options)?
+                .copied()
+                .ok_or_else(|| anyhow::anyhow!("Could not determine OpenAI credential source"))?;
 
             let model = inout.prompt("Preferred OpenAI model (leave empty for default):")?;
             let endpoint = inout.prompt("Custom endpoint URL (optional):")?;
@@ -1304,13 +1301,16 @@ fn ai_config_interactive(
             apply_openai_config(repo, scope, key_option, model, endpoint, secret)?;
         }
         LLMProviderKind::Anthropic => {
-            let key_option_prompt = cli_prompts::prompts::Selection::new(
-                "Select Anthropic credential source",
-                vec![AiKeyOption::ButlerApi, AiKeyOption::BringYourOwn].into_iter(),
-            );
-            let key_option = key_option_prompt
-                .display()
-                .map_err(|_| anyhow::anyhow!("Could not determine Anthropic credential source"))?;
+            let key_options = nonempty::nonempty![
+                ("Use GitButler API", AiKeyOption::ButlerApi),
+                ("Bring your own key", AiKeyOption::BringYourOwn)
+            ];
+            let key_option = inout
+                .prompt_select("Select Anthropic credential source", &key_options)?
+                .copied()
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Could not determine Anthropic credential source")
+                })?;
 
             let model = inout.prompt("Preferred Anthropic model (leave empty for default):")?;
             let secret = if matches!(key_option, AiKeyOption::BringYourOwn) {

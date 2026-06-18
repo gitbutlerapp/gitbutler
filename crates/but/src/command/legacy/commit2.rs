@@ -404,7 +404,7 @@ fn route_commit_operation(
                     .into());
                 };
 
-                let Some(input) = out.prepare_for_terminal_input() else {
+                let Some(mut input) = out.prepare_for_terminal_input() else {
                     return Err(
                         bad_input("Unclear where to commit. Found more than one stack")
                             .hint("You can specify where to commit with `--branch [<BRANCH>]`")

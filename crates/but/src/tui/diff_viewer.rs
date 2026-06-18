@@ -517,7 +517,7 @@ fn ui(frame: &mut ratatui::Frame, app: &mut DiffViewerApp) {
 }
 
 pub(crate) fn run_diff_viewer(files: Vec<DiffFileEntry>) -> anyhow::Result<()> {
-    let mut guard = super::CrosstermTerminalGuard::new(true)?;
+    let mut guard = super::CrosstermTerminalGuard::alt_screen(true)?;
     let mut app = DiffViewerApp::new(files);
 
     loop {

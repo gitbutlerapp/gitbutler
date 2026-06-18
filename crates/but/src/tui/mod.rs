@@ -13,6 +13,9 @@ pub(crate) mod diff_viewer;
 pub mod editor;
 pub(crate) mod stage_viewer;
 
+mod picker;
+pub use picker::*;
+
 use std::{
     io,
     sync::{Arc, Mutex},
@@ -23,7 +26,7 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{
-    Terminal,
+    Terminal, TerminalOptions, Viewport,
     backend::{CrosstermBackend, TestBackend},
 };
 
@@ -34,34 +37,57 @@ type PanicHook = Box<dyn Fn(&std::panic::PanicHookInfo<'_>) + Send + Sync>;
 #[must_use]
 pub(crate) struct CrosstermTerminalGuard {
     terminal: Terminal<CrosstermBackend<io::Stdout>>,
-    mouse_captured: bool,
+    config: CrosstermTerminalConfig,
     /// Holds the original panic hook so we can restore it on drop.
     /// `None` if a panic already fired (the hook consumed itself).
     original_hook: Arc<Mutex<Option<PanicHook>>>,
 }
 
+#[derive(Clone)]
+struct CrosstermTerminalConfig {
+    terminal_options: TerminalOptions,
+    uses_alt_screen: bool,
+    captures_mouse: bool,
+    changes_focus: bool,
+}
+
 impl CrosstermTerminalGuard {
-    /// Enter raw mode, alternate screen, and optionally enable mouse capture.
+    /// Enter raw mode and the alternate screen, optionally enabling mouse capture.
     /// Returns a guard that will restore the terminal on drop.
-    pub fn new(enable_mouse: bool) -> anyhow::Result<Self> {
+    pub fn alt_screen(enable_mouse: bool) -> anyhow::Result<Self> {
+        Self::new(CrosstermTerminalConfig {
+            terminal_options: TerminalOptions {
+                viewport: Viewport::Fullscreen,
+            },
+            uses_alt_screen: true,
+            captures_mouse: enable_mouse,
+            changes_focus: true,
+        })
+    }
+
+    /// Enter raw mode and render inline at the current cursor position.
+    /// Returns a guard that will restore the terminal on drop.
+    pub fn inline(height: u16) -> anyhow::Result<Self> {
+        Self::new(CrosstermTerminalConfig {
+            terminal_options: TerminalOptions {
+                viewport: Viewport::Inline(height),
+            },
+            uses_alt_screen: false,
+            captures_mouse: false,
+            changes_focus: false,
+        })
+    }
+
+    fn new(config: CrosstermTerminalConfig) -> anyhow::Result<Self> {
         let original_hook: Arc<Mutex<Option<PanicHook>>> =
             Arc::new(Mutex::new(Some(std::panic::take_hook())));
 
         // Install panic hook to restore terminal on panic
         let hook_ref = Arc::clone(&original_hook);
-        let mouse = enable_mouse;
+        let hook_config = config.clone();
         std::panic::set_hook(Box::new(move |panic_info| {
             let _ = disable_raw_mode();
-            if mouse {
-                let _ = crossterm::execute!(
-                    io::stdout(),
-                    DisableMouseCapture,
-                    DisableFocusChange,
-                    LeaveAlternateScreen
-                );
-            } else {
-                let _ = crossterm::execute!(io::stdout(), DisableFocusChange, LeaveAlternateScreen);
-            }
+            let _ = leave_terminal_mode(&mut io::stdout(), &hook_config);
             // Take the original hook so it won't be restored on drop after a panic
             if let Some(hook) = hook_ref.lock().ok().and_then(|mut h| h.take()) {
                 hook(panic_info);
@@ -70,22 +96,13 @@ impl CrosstermTerminalGuard {
 
         enable_raw_mode()?;
         let mut stdout = io::stdout();
-        if enable_mouse {
-            crossterm::execute!(
-                stdout,
-                EnterAlternateScreen,
-                EnableMouseCapture,
-                EnableFocusChange
-            )?;
-        } else {
-            crossterm::execute!(stdout, EnterAlternateScreen, EnableFocusChange)?;
-        }
+        enter_terminal_mode(&mut stdout, &config)?;
         let backend = CrosstermBackend::new(stdout);
-        let terminal = Terminal::new(backend)?;
+        let terminal = Terminal::with_options(backend, config.terminal_options.clone())?;
 
         Ok(Self {
             terminal,
-            mouse_captured: enable_mouse,
+            config,
             original_hook,
         })
     }
@@ -94,20 +111,7 @@ impl CrosstermTerminalGuard {
 impl Drop for CrosstermTerminalGuard {
     fn drop(&mut self) {
         let _ = disable_raw_mode();
-        if self.mouse_captured {
-            let _ = crossterm::execute!(
-                self.terminal.backend_mut(),
-                DisableMouseCapture,
-                DisableFocusChange,
-                LeaveAlternateScreen
-            );
-        } else {
-            let _ = crossterm::execute!(
-                self.terminal.backend_mut(),
-                DisableFocusChange,
-                LeaveAlternateScreen
-            );
-        }
+        let _ = leave_terminal_mode(self.terminal.backend_mut(), &self.config);
         let _ = self.terminal.show_cursor();
 
         // Restore the original panic hook if it hasn't been consumed by a panic
@@ -115,6 +119,46 @@ impl Drop for CrosstermTerminalGuard {
             std::panic::set_hook(hook);
         }
     }
+}
+
+fn enter_terminal_mode<W: io::Write>(
+    writer: &mut W,
+    config: &CrosstermTerminalConfig,
+) -> io::Result<()> {
+    if config.uses_alt_screen && config.captures_mouse {
+        crossterm::execute!(
+            writer,
+            EnterAlternateScreen,
+            EnableMouseCapture,
+            EnableFocusChange
+        )?;
+    } else if config.uses_alt_screen {
+        crossterm::execute!(writer, EnterAlternateScreen, EnableFocusChange)?;
+    } else if config.changes_focus {
+        crossterm::execute!(writer, EnableFocusChange)?;
+    }
+
+    Ok(())
+}
+
+fn leave_terminal_mode<W: io::Write>(
+    writer: &mut W,
+    config: &CrosstermTerminalConfig,
+) -> io::Result<()> {
+    if config.uses_alt_screen && config.captures_mouse {
+        crossterm::execute!(
+            writer,
+            DisableMouseCapture,
+            DisableFocusChange,
+            LeaveAlternateScreen
+        )?;
+    } else if config.uses_alt_screen {
+        crossterm::execute!(writer, DisableFocusChange, LeaveAlternateScreen)?;
+    } else if config.changes_focus {
+        crossterm::execute!(writer, DisableFocusChange)?;
+    }
+
+    Ok(())
 }
 
 /// A terminal guard that renders into an in-memory backend without touching the real terminal.
@@ -168,7 +212,7 @@ pub(crate) trait TerminalGuard {
     where
         Self: 'a;
 
-    /// Temporarily leaves raw mode and the alternate screen to run an external interactive program.
+    /// Temporarily leaves raw mode and restores terminal state to run an external interactive program.
     ///
     /// This can for example be used to suspend a TUI and bring up an editor or run an external
     /// command.
@@ -187,21 +231,7 @@ impl TerminalGuard for CrosstermTerminalGuard {
 
     fn suspend(&mut self) -> anyhow::Result<Self::SuspendGuard<'_>> {
         disable_raw_mode()?;
-
-        if self.mouse_captured {
-            crossterm::execute!(
-                self.terminal.backend_mut(),
-                DisableMouseCapture,
-                DisableFocusChange,
-                LeaveAlternateScreen
-            )?;
-        } else {
-            crossterm::execute!(
-                self.terminal.backend_mut(),
-                DisableFocusChange,
-                LeaveAlternateScreen
-            )?;
-        }
+        leave_terminal_mode(self.terminal.backend_mut(), &self.config)?;
 
         Ok(SuspendGuard(self))
     }
@@ -218,20 +248,9 @@ pub(crate) struct SuspendGuard<'a>(&'a mut CrosstermTerminalGuard);
 impl Drop for SuspendGuard<'_> {
     fn drop(&mut self) {
         _ = enable_raw_mode();
-        if self.0.mouse_captured {
-            _ = crossterm::execute!(
-                self.0.terminal.backend_mut(),
-                EnterAlternateScreen,
-                EnableMouseCapture,
-                EnableFocusChange
-            );
-        } else {
-            _ = crossterm::execute!(
-                self.0.terminal.backend_mut(),
-                EnterAlternateScreen,
-                EnableFocusChange
-            );
+        _ = enter_terminal_mode(self.0.terminal.backend_mut(), &self.0.config);
+        if self.0.config.uses_alt_screen {
+            _ = self.0.terminal.clear();
         }
-        _ = self.0.terminal.clear();
     }
 }

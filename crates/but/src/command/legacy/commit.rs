@@ -685,33 +685,22 @@ fn prompt_for_stack_selection(
     stacks: &[TargetStack],
     mut inout: InputOutputChannel,
 ) -> Result<TargetStack> {
-    use std::fmt::Write;
+    let options = stacks
+        .iter()
+        .map(|target_stack| {
+            let (_stack_id, stack) = target_stack;
+            (
+                stack.top_branch_name().unwrap_or("unnamed").to_string(),
+                target_stack.clone(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let options = nonempty::NonEmpty::from_vec(options).context("No stacks available")?;
 
-    let t = theme::get();
-    writeln!(inout, "Multiple stacks found. Choose one to commit to:")?;
-
-    for (i, (_stack_id, stack)) in stacks.iter().enumerate() {
-        writeln!(
-            inout,
-            "  {}. {}",
-            i + 1,
-            t.local_branch
-                .paint(stack.top_branch_name().unwrap_or("unnamed"))
-        )?;
-    }
-
-    let selection: usize = inout
-        .prompt(format!("Enter selection (1-{}): ", stacks.len()))?
-        .context("Missing selection")?
-        .parse()
-        .map_err(|_| anyhow::anyhow!("Invalid selection"))?;
-
-    anyhow::ensure!(
-        (1..=stacks.len()).contains(&selection),
-        "Selection out of range"
-    );
-
-    Ok(stacks[selection - 1].clone())
+    inout
+        .prompt_select("Multiple stacks found. Choose one to commit to", &options)?
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("Selection aborted"))
 }
 
 fn get_commit_message_from_editor(

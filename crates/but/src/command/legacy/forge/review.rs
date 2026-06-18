@@ -3,7 +3,6 @@ use bstr::{BStr, ByteSlice};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
 use but_workspace::ui::Commit;
-use cli_prompts::DisplayPrompt;
 use gitbutler_project::Project;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -27,7 +26,7 @@ pub async fn enable_auto_merge(
     // Fail fast if no forge user is authenticated, before pushing or prompting.
     ensure_forge_authentication(ctx).await?;
 
-    let review_ids = resolve_review_selection(ctx, selector)?;
+    let review_ids = resolve_review_selection(ctx, selector, out)?;
 
     if review_ids.is_empty() {
         if let Some(out) = out.for_human() {
@@ -121,7 +120,7 @@ pub async fn set_draftiness(
     // Fail fast if no forge user is authenticated, before pushing or prompting.
     ensure_forge_authentication(ctx).await?;
 
-    let review_ids = resolve_review_selection(ctx, selector)?;
+    let review_ids = resolve_review_selection(ctx, selector, out)?;
 
     if review_ids.is_empty() {
         if let Some(out) = out.for_human() {
@@ -246,25 +245,35 @@ pub fn set_review_template(
     } else {
         let current_template = but_api::legacy::forge::review_template(ctx)?;
         let available_templates = but_api::legacy::forge::list_available_review_templates(ctx)?;
-        let template_prompt = cli_prompts::prompts::Selection::new_with_transformation(
-            "Select a review template (and press Enter)",
-            available_templates.into_iter(),
-            |s| {
-                if let Some(current) = &current_template {
-                    if s == &current.path {
-                        format!("{s} (current)")
+        let template_options = available_templates
+            .into_iter()
+            .map(|template| {
+                let label = if let Some(current) = &current_template {
+                    if template == current.path {
+                        format!("{template} (current)")
                     } else {
-                        s.clone()
+                        template.clone()
                     }
                 } else {
-                    s.clone()
-                }
-            },
-        );
-
-        let selected_template = template_prompt
-            .display()
-            .map_err(|_| anyhow::anyhow!("Could not determine selected review template"))?;
+                    template.clone()
+                };
+                (label, template)
+            })
+            .collect::<Vec<_>>();
+        let template_options = nonempty::NonEmpty::from_vec(template_options)
+            .context("No review templates available")?;
+        let selected_template = {
+            let mut input = out
+                .prepare_for_terminal_input()
+                .context("Human input required - run this in a terminal")?;
+            input
+                .prompt_select(
+                    "Select a review template (and press Enter)",
+                    &template_options,
+                )?
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("Could not determine selected review template"))?
+        };
         let message = format!("Set review template path to: {}", &selected_template);
         but_api::legacy::forge::set_review_template(ctx, Some(selected_template.clone()))?;
         if let Some(out) = out.for_human() {
@@ -521,7 +530,7 @@ pub async fn handle_multiple_branches_in_workspace(
     Ok(())
 }
 
-/// Prompt the user to select branches to publish from a numbered list.
+/// Prompt the user to select branches to publish.
 fn prompt_for_branch_selection(
     ctx: &Context,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
@@ -535,9 +544,7 @@ fn prompt_for_branch_selection(
     let base_branch_id = base_branch.current_sha;
     let repo = &*ctx.repo.get()?;
 
-    // Collect all branches with their information
-    let mut all_branches: Vec<(String, usize, Vec<String>)> = Vec::new();
-
+    let mut branch_options = Vec::new();
     for stack_entry in applied_stacks {
         for branch in &stack_entry.branches {
             let mut branch_ref = repo.find_reference(branch.reference.as_ref())?;
@@ -549,69 +556,43 @@ fn prompt_for_branch_selection(
                     reviews
                         .iter()
                         .map(|r| format!("{}{}", r.unit_symbol, r.number))
-                        .collect()
+                        .collect::<Vec<_>>()
                 })
                 .unwrap_or_default();
-
-            all_branches.push((branch.name.clone(), commits.len(), reviews));
+            let review_str = if reviews.is_empty() {
+                String::new()
+            } else {
+                format!(" ({})", reviews.join(", "))
+            };
+            branch_options.push((
+                format!(
+                    "{branch} - {num_commits} commit{plural}{review}",
+                    branch = branch.name,
+                    num_commits = commits.len(),
+                    plural = if commits.len() == 1 { "" } else { "s" },
+                    review = review_str,
+                ),
+                branch.name.clone(),
+            ));
         }
     }
 
-    if all_branches.is_empty() {
+    let Some(branch_options) = nonempty::NonEmpty::from_vec(branch_options) else {
         if let Some(out) = out.for_human() {
             writeln!(out, "No branches available to publish.")?;
         }
         return Ok(vec![]);
-    }
+    };
 
-    use std::fmt::Write;
-    let mut inout = out
+    let mut input = out
         .prepare_for_terminal_input()
         .context("Terminal input not available. Please specify branches to publish using command line arguments.")?;
-    let t = theme::get();
-
-    // Display branches with numbers
-    writeln!(inout, "\nAvailable branches to publish:\n")?;
-    for (idx, (name, commit_count, reviews)) in all_branches.iter().enumerate() {
-        let review_str = if !reviews.is_empty() {
-            format!(" ({})", reviews.join(", "))
-        } else {
-            String::new()
-        };
-        writeln!(
-            inout,
-            "  {}. {} - {} commit{}{}",
-            idx + 1,
-            t.local_branch.paint(name),
-            commit_count,
-            if *commit_count == 1 { "" } else { "s" },
-            t.pr_number.paint(&review_str)
-        )?;
-    }
-
-    let input = inout
-        .prompt("\nEnter branch numbers to publish (comma-separated, or 'all' for all branches):")?
-        .context("No branches selected. Aborting.")?;
-
-    // Parse selection
-    let selected_branches: Vec<String> = if input.eq_ignore_ascii_case("all") {
-        all_branches.into_iter().map(|(name, _, _)| name).collect()
-    } else {
-        let mut selected = Vec::new();
-        for part in input.split(',') {
-            let part = part.trim();
-            if let Ok(num) = part.parse::<usize>() {
-                if num > 0 && num <= all_branches.len() {
-                    selected.push(all_branches[num - 1].0.clone());
-                } else {
-                    println!("Warning: Ignoring invalid branch number: {num}");
-                }
-            } else {
-                println!("Warning: Ignoring invalid input: {part}");
-            }
-        }
-        selected
-    };
+    let selected_branches = input
+        .prompt_multi_select("Select branches to publish", &branch_options)?
+        .ok_or_else(|| anyhow::anyhow!("No branches selected. Aborting."))?
+        .into_iter()
+        .cloned()
+        .collect();
 
     Ok(selected_branches)
 }
@@ -1177,6 +1158,7 @@ pub fn get_review_numbers(
 fn resolve_review_selection(
     ctx: &mut Context,
     selector: Option<String>,
+    out: &mut OutputChannel,
 ) -> anyhow::Result<Vec<usize>> {
     let id_map = IdMap::legacy_new_from_context(ctx, None)?;
     let applied_stacks = crate::legacy::workspace::applied_stacks(ctx)?;
@@ -1198,49 +1180,38 @@ fn resolve_review_selection(
         unique_review_ids.dedup();
         unique_review_ids
     } else {
-        interactive_review_id_selection(&applied_stacks)?
+        interactive_review_id_selection(&applied_stacks, out)?
     };
     Ok(target_review_ids)
 }
 
-fn interactive_review_id_selection(applied_stacks: &[HeadInfoStack]) -> anyhow::Result<Vec<usize>> {
-    use cli_prompts::DisplayPrompt;
-
-    #[derive(Debug, Clone)]
-    struct BranchReview<'a> {
-        branch_name: &'a str,
-        review_id: usize,
-    }
-
-    impl From<BranchReview<'_>> for String {
-        fn from(value: BranchReview) -> Self {
-            format!("{} ({})", value.branch_name, value.review_id)
-        }
-    }
-
-    let mut branch_reviews = vec![];
-    for stack in applied_stacks {
-        for branch in &stack.branches {
-            if let Some(review_id) = branch.review_id {
-                let branch_name = branch.name.as_str();
-                branch_reviews.push(BranchReview {
-                    branch_name,
-                    review_id,
-                });
-            }
-        }
-    }
-
-    let review_selection_prompt = cli_prompts::prompts::Multiselect::new(
-        "Please select the reviews you want to target.",
-        branch_reviews.into_iter(),
-    );
-
-    let selected_reviews = review_selection_prompt
-        .display()
-        .map_err(|_| anyhow::anyhow!("Unable to determine which reviews to target"))?
+fn interactive_review_id_selection(
+    applied_stacks: &[HeadInfoStack],
+    out: &mut OutputChannel,
+) -> anyhow::Result<Vec<usize>> {
+    let branch_reviews = applied_stacks
         .iter()
-        .map(|b| b.review_id)
+        .flat_map(|stack| {
+            stack.branches.iter().filter_map(|branch| {
+                let review_id = branch.review_id?;
+                Some((format!("{} ({})", branch.name, review_id), review_id))
+            })
+        })
+        .collect::<Vec<_>>();
+    let branch_reviews =
+        nonempty::NonEmpty::from_vec(branch_reviews).context("No reviews available to select")?;
+    let mut input = out
+        .prepare_for_terminal_input()
+        .context("Human input required - run this in a terminal")?;
+
+    let selected_reviews = input
+        .prompt_multi_select(
+            "Please select the reviews you want to target.",
+            &branch_reviews,
+        )?
+        .ok_or_else(|| anyhow::anyhow!("Unable to determine which reviews to target"))?
+        .into_iter()
+        .copied()
         .collect::<Vec<_>>();
 
     Ok(selected_reviews)

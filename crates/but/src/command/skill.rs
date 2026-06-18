@@ -3,7 +3,6 @@ use std::{fmt::Write as _, path::PathBuf};
 use anyhow::{Context as _, Result};
 use but_ctx::Context;
 use chrono::{DateTime, Duration, Utc};
-use cli_prompts::{DisplayPrompt, prompts::AbortReason};
 use command_group::AsyncCommandGroup;
 use serde::Serialize;
 
@@ -921,7 +920,10 @@ fn detect_install_path(ctx: Option<&mut Context>, global: bool) -> Result<PathBu
     )
 }
 
-fn prompt_for_install_scope(progress: &mut impl std::io::Write) -> Result<InstallScope> {
+fn prompt_for_install_scope(
+    input: &mut crate::utils::InputOutputChannel<'_>,
+    progress: &mut impl std::io::Write,
+) -> Result<InstallScope> {
     let t = theme::get();
     writeln!(progress)?;
     writeln!(
@@ -931,18 +933,18 @@ fn prompt_for_install_scope(progress: &mut impl std::io::Write) -> Result<Instal
     )?;
     writeln!(progress)?;
 
-    let prompt = cli_prompts::prompts::Selection::new(
-        "Where would you like to install the skill?",
-        vec![InstallScopeOption::Local, InstallScopeOption::Global].into_iter(),
-    );
+    let options = nonempty::nonempty![
+        ("Local", InstallScopeOption::Local),
+        ("Global", InstallScopeOption::Global)
+    ];
 
-    match prompt.display() {
-        Ok(InstallScopeOption::Local) => Ok(InstallScope::Local),
-        Ok(InstallScopeOption::Global) => Ok(InstallScope::Global),
-        Err(AbortReason::Interrupt) => Err(UserCancelled.into()),
-        Err(AbortReason::Error(err)) => {
-            Err(anyhow::Error::from(err).context("Failed to read user selection"))
-        }
+    match input
+        .prompt_select("Where would you like to install the skill?", &options)?
+        .copied()
+    {
+        Some(InstallScopeOption::Local) => Ok(InstallScope::Local),
+        Some(InstallScopeOption::Global) => Ok(InstallScope::Global),
+        None => Err(UserCancelled.into()),
     }
 }
 
@@ -977,8 +979,12 @@ fn prompt_for_install_path(
         false
     };
 
+    let mut input = out
+        .prepare_for_terminal_input()
+        .context("Human input required - run this in a terminal, or specify --path/--detect to avoid interactive prompts.")?;
+
     let scope = match determine_install_scope_resolution(global, local_scope_available) {
-        InstallScopeResolution::PromptUser => prompt_for_install_scope(progress)?,
+        InstallScopeResolution::PromptUser => prompt_for_install_scope(&mut input, progress)?,
         InstallScopeResolution::Fixed(scope) => scope,
     };
 
@@ -1019,40 +1025,27 @@ fn prompt_for_install_path(
         "At least one skill format must be available for each install scope"
     );
 
-    let options: Vec<String> = available_formats
-        .iter()
+    let options = available_formats
+        .into_iter()
         .map(|format| {
             let full_path = format.get_install_path(&base_dir);
-            format!(
-                "{} - {} ({})",
-                format.name,
-                format.description,
-                t.hint.paint(full_path.display().to_string())
+            (
+                format!(
+                    "{} - {} ({})",
+                    format.name,
+                    format.description,
+                    full_path.display()
+                ),
+                format,
             )
         })
-        .collect();
+        .collect::<Vec<_>>();
+    let options =
+        nonempty::NonEmpty::from_vec(options).context("No skill folder formats available")?;
 
-    let prompt = cli_prompts::prompts::Selection::new(
-        "Which format would you like to use?",
-        options.into_iter(),
-    );
-
-    let selection: String = match prompt.display() {
-        Ok(s) => s,
-        Err(AbortReason::Interrupt) => return Err(UserCancelled.into()),
-        Err(AbortReason::Error(err)) => {
-            return Err(anyhow::Error::from(err).context("Failed to read user selection"));
-        }
-    };
-
-    // Find the format that matches the selection
-    let selected_format = available_formats
-        .into_iter()
-        .find(|format| {
-            let expected_prefix = format!("{} - {}", format.name, format.description);
-            selection.starts_with(&expected_prefix)
-        })
-        .ok_or_else(|| anyhow::anyhow!("Invalid selection"))?;
+    let selected_format = input
+        .prompt_select("Which format would you like to use?", &options)?
+        .ok_or(UserCancelled)?;
 
     Ok(selected_format.get_install_path(&base_dir))
 }

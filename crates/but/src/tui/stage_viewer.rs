@@ -625,7 +625,7 @@ pub(crate) fn run_stage_viewer(
     files: Vec<StageFileEntry>,
     branch_name: &str,
 ) -> anyhow::Result<StageResult> {
-    let mut guard = super::CrosstermTerminalGuard::new(true)?;
+    let mut guard = super::CrosstermTerminalGuard::alt_screen(true)?;
     let mut app = StageViewerApp::new(files, branch_name.to_string());
 
     loop {
@@ -658,7 +658,7 @@ pub(crate) fn run_stage_viewer(
 /// Simple TUI to pick a branch from a list.
 /// Returns None if the user cancels (q/Esc).
 pub(crate) fn run_branch_selector(branches: &[String]) -> anyhow::Result<Option<String>> {
-    let mut guard = super::CrosstermTerminalGuard::new(false)?;
+    let mut guard = super::CrosstermTerminalGuard::alt_screen(false)?;
 
     let mut list_state = ListState::default();
     if !branches.is_empty() {
