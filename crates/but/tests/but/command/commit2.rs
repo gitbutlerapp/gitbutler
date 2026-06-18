@@ -1309,3 +1309,17 @@ Hint: run `but help` for all commands
 
 "#]]);
 }
+
+#[test]
+fn gives_good_error_when_your_terminal_doesnt_support_input() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    env.but("commit2 --interactive")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Terminal doesn't support interactivity
+
+"#]]);
+}

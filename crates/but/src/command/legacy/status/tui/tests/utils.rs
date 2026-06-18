@@ -15,11 +15,14 @@ use crate::{
     command::legacy::status::{
         StatusFlags, StatusOutput, StatusRenderMode, TuiLaunchOptions, TuiOutcome, TuiRunOptions,
         build_status_context, build_status_output,
-        tui::{App, BackstackEntry, EventPolling, Message, ReloadCause, render_loop_once},
+        tui::{
+            App, BackstackEntry, EventPolling, Message, ReloadCause, TuiInputOutputChannel,
+            render_loop_once,
+        },
     },
     theme,
     tui::TerminalGuard,
-    utils::{IntermediateChannel, OutputChannel},
+    utils::{OutputChannel, WriteWithUtils},
 };
 
 pub(super) struct TestTui {
@@ -157,7 +160,7 @@ impl TestTui {
 
         with_var("GIT_AUTHOR_DATE", Some("2000-01-01T00:00:00Z"), || {
             with_var("GIT_COMMITTER_DATE", Some("2000-01-01T00:00:00Z"), || {
-                let mut out = IntermediateChannel::new(&mut self.out);
+                let mut out = TestTuiInputOutputChannel(&mut self.out);
                 render_loop_once(
                     &mut self.app,
                     &mut self.terminal,
@@ -1001,5 +1004,31 @@ impl EventPolling for &str {
                 state: KeyEventState::NONE,
             })
         }))
+    }
+}
+
+struct TestTuiInputOutputChannel<'a>(&'a mut OutputChannel);
+
+impl crate::command::legacy::status::tui::private::Sealed for TestTuiInputOutputChannel<'_> {}
+
+impl std::fmt::Write for TestTuiInputOutputChannel<'_> {
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        self.0.write_str(s)
+    }
+}
+
+impl WriteWithUtils for TestTuiInputOutputChannel<'_> {
+    fn truncate_if_unpaged(&self, text: &str, max_width: usize) -> String {
+        self.0.truncate_if_unpaged(text, max_width)
+    }
+
+    fn is_paged(&self) -> bool {
+        self.0.is_paged()
+    }
+}
+
+impl TuiInputOutputChannel for TestTuiInputOutputChannel<'_> {
+    fn prompt_single_line(&mut self, _prompt: &str) -> anyhow::Result<Option<String>> {
+        panic!("cannot get input in tests")
     }
 }

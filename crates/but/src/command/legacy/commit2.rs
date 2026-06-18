@@ -191,7 +191,11 @@ fn resolve(
         };
         (guard, CommitSelection::Changes(Box::new(changes)))
     } else if interactive {
-        let (guard, outcome) = tui_with_options(ctx, guard, out, TuiRunOptions::PickChanges)?;
+        let Some(mut inout) = out.prepare_for_terminal_input() else {
+            return Err(bad_input("Terminal doesn't support interactivity").into());
+        };
+        let (guard, outcome) =
+            tui_with_options(ctx, guard, &mut inout, TuiRunOptions::PickChanges)?;
         let cli_ids = match outcome {
             TuiOutcome::CliIds(cli_ids) => cli_ids,
             TuiOutcome::None => {

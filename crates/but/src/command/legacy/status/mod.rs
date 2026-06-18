@@ -36,7 +36,7 @@ use crate::{
     id::{SegmentWithId, ShortId, StackWithId, TreeChangeWithId},
     tui::text::truncate_text,
     utils::{
-        IntermediateChannel, OutputChannel, WriteWithUtils, shorten_hex_object_id,
+        InputOutputChannel, OutputChannel, WriteWithUtils, shorten_hex_object_id,
         shorten_object_id, time::format_relative_time_verbose,
     },
 };
@@ -259,23 +259,26 @@ pub(crate) async fn worktree(
             build_status_output(ctx, &status_ctx, &mut output)?;
         }
         StatusRenderMode::Tui(launch_options) => {
+            let mut inout = out
+                .prepare_for_terminal_input()
+                .context("input required, run this in a terminal")?;
+
             let run_options = TuiRunOptions::Normal;
 
             let mut lines = Vec::new();
             let mut output = StatusOutput::Buffer { lines: &mut lines };
             build_status_output(ctx, &status_ctx, &mut output)?;
-            let (final_lines, _outcome) = {
-                let mut out = IntermediateChannel::new(out);
-                tui::render_tui(
-                    ctx,
-                    &mut out,
-                    &mode,
-                    flags,
-                    lines,
-                    launch_options,
-                    run_options,
-                )?
-            };
+            let (final_lines, _outcome) = tui::render_tui(
+                ctx,
+                &mut inout,
+                &mode,
+                flags,
+                lines,
+                launch_options,
+                run_options,
+            )?;
+
+            drop(inout);
 
             if !launch_options.skip_status_after
                 && let Some(human_out) = out.for_human()
@@ -294,7 +297,7 @@ pub(crate) async fn worktree(
 pub(crate) fn tui_with_options(
     ctx: &mut Context,
     mut guard: RepoExclusiveGuard,
-    out: &mut IntermediateChannel<'_>,
+    out: &mut InputOutputChannel<'_>,
     run_options: TuiRunOptions,
 ) -> anyhow::Result<(RepoExclusiveGuard, TuiOutcome)> {
     let flags = StatusFlags::for_tui();

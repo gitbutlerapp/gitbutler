@@ -70,7 +70,7 @@ use crate::{
     theme::Theme,
     tui::{CrosstermTerminalGuard, HeadlessTerminalGuard, TerminalGuard},
     utils::{
-        DebugAsType, IntermediateChannel, WriteWithUtils, binary_path::current_exe_for_but_exec,
+        DebugAsType, InputOutputChannel, WriteWithUtils, binary_path::current_exe_for_but_exec,
         diff_specs::DiffSpecBuilder,
     },
 };
@@ -123,7 +123,7 @@ const WATCHER_SELF_ECHO_SUPPRESSION: Duration = if cfg!(windows) {
 
 pub(super) fn render_tui(
     ctx: &mut Context,
-    out: &mut IntermediateChannel<'_>,
+    out: &mut InputOutputChannel<'_>,
     mode: &OperatingMode,
     flags: StatusFlags,
     status_lines: Vec<StatusOutputLine>,
@@ -183,7 +183,7 @@ fn render_loop<T, E>(
     other_messages: &mut Vec<Message>,
     received_watcher_event: Arc<AtomicBool>,
     ctx: &mut Context,
-    out: &mut IntermediateChannel<'_>,
+    out: &mut dyn TuiInputOutputChannel,
     mode: &OperatingMode,
 ) -> anyhow::Result<TuiOutcome>
 where
@@ -229,7 +229,7 @@ fn render_loop_once<T, E>(
     other_messages: &mut Vec<Message>,
     received_watcher_event: &AtomicBool,
     ctx: &mut Context,
-    out: &mut IntermediateChannel<'_>,
+    out: &mut dyn TuiInputOutputChannel,
     mode: &OperatingMode,
 ) -> anyhow::Result<()>
 where
@@ -265,7 +265,7 @@ fn update<T, E>(
     other_messages: &mut Vec<Message>,
     received_watcher_event: &AtomicBool,
     ctx: &mut Context,
-    out: &mut IntermediateChannel<'_>,
+    out: &mut dyn TuiInputOutputChannel,
     mode: &OperatingMode,
 ) -> anyhow::Result<()>
 where
@@ -536,7 +536,7 @@ impl App {
     fn handle_message<T>(
         &mut self,
         ctx: &mut Context,
-        out: &mut IntermediateChannel<'_>,
+        out: &mut dyn TuiInputOutputChannel,
         mode: &OperatingMode,
         terminal_guard: &mut T,
         messages: &mut Vec<Message>,
@@ -553,7 +553,7 @@ impl App {
     fn try_handle_message<T>(
         &mut self,
         ctx: &mut Context,
-        out: &mut IntermediateChannel<'_>,
+        out: &mut dyn TuiInputOutputChannel,
         mode: &OperatingMode,
         terminal_guard: &mut T,
         messages: &mut Vec<Message>,
@@ -1569,7 +1569,7 @@ impl App {
     fn handle_reload(
         &mut self,
         ctx: &mut Context,
-        out: &mut dyn WriteWithUtils,
+        out: &mut dyn TuiInputOutputChannel,
         mode: &OperatingMode,
         select_after_reload: Option<SelectAfterReload>,
         cause: ReloadCause,
@@ -2920,7 +2920,7 @@ impl App {
     fn handle_command_confirm<T>(
         &mut self,
         terminal_guard: &mut T,
-        out: &mut IntermediateChannel<'_>,
+        out: &mut dyn TuiInputOutputChannel,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()>
     where
@@ -2965,8 +2965,8 @@ impl App {
 
         let status = cmd.spawn()?.wait()?;
 
-        if !IN_TEST && let Some(mut input_channel) = out.prepare_for_terminal_input() {
-            input_channel.prompt_single_line("\npress enter to continue...")?;
+        if !IN_TEST {
+            out.prompt_single_line("\npress enter to continue...")?;
         }
 
         if status.success() {
@@ -4122,4 +4122,27 @@ fn app_settings_sync() -> anyhow::Result<AppSettingsWithDiskSync> {
         )
     })?;
     AppSettingsWithDiskSync::new_with_customization(config_dir, None)
+}
+
+mod private {
+    pub trait Sealed {}
+    impl Sealed for crate::utils::InputOutputChannel<'_> {}
+}
+
+/// Required to abstract over input/output channels for the TUI.
+///
+/// In production we want to require `InputOutputChannel`. This means the caller must check that
+/// input is actually supported and return an error otherwise. However in tests we don't want to
+/// enforce that.
+///
+/// So this trait exists such that we can make a fake to use in tests that panics on
+/// `prompt_single_line`.
+pub trait TuiInputOutputChannel: WriteWithUtils + private::Sealed {
+    fn prompt_single_line(&mut self, prompt: &str) -> anyhow::Result<Option<String>>;
+}
+
+impl TuiInputOutputChannel for InputOutputChannel<'_> {
+    fn prompt_single_line(&mut self, prompt: &str) -> anyhow::Result<Option<String>> {
+        InputOutputChannel::prompt_single_line(self, prompt)
+    }
 }
