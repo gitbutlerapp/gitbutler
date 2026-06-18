@@ -29,10 +29,12 @@ impl<'out> WriteWithUtils for IntermediateChannel<'out> {
 }
 
 impl<'out> IntermediateChannel<'out> {
+    #[cfg_attr(not(feature = "but-2"), expect(dead_code))]
     pub fn new(out: &'out mut OutputChannel) -> Self {
         Self { out }
     }
 
+    #[cfg_attr(not(feature = "but-2"), expect(dead_code))]
     pub fn prepare_for_terminal_input(&mut self) -> Option<InputOutputChannel<'_>> {
         self.out.prepare_for_terminal_input()
     }

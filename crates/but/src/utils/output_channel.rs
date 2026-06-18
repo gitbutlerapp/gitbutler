@@ -310,6 +310,16 @@ impl std::fmt::Write for InputOutputChannel<'_> {
     }
 }
 
+impl WriteWithUtils for InputOutputChannel<'_> {
+    fn truncate_if_unpaged(&self, text: &str, max_width: usize) -> String {
+        self.out.truncate_if_unpaged(text, max_width)
+    }
+
+    fn is_paged(&self) -> bool {
+        self.out.is_paged()
+    }
+}
+
 impl InputOutputChannel<'_> {
     fn readline(&mut self, prompt: &str, echo: InputEcho) -> anyhow::Result<ReadlineInput> {
         const PLACEHOLDER_FOR_SECRET: &str = "•";
