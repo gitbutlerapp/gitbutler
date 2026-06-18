@@ -112,7 +112,7 @@
 	background-color: var(--bg-2);
 	font-size: 13px;
 	/* text pre */
-	white-space: pre-line;
+	white-space: pre-wrap;
 	user-select: text;
 }
 
