@@ -24,7 +24,7 @@ import {
 } from "#ui/api/queries.ts";
 import { findBranchOperandByRef, findCommit, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { decodeBytes, bytesEqual } from "#ui/api/bytes.ts";
-import { commitIsDiverged, commitTitle } from "#ui/commit.ts";
+import { commitBody, commitIsDiverged, commitTitle } from "#ui/commit.ts";
 import {
 	nativeMenuItem,
 	nativeMenuSeparator,
@@ -1233,6 +1233,9 @@ const CommitRow: FC<
 		focusCommitMessageInput();
 	};
 
+	const title = commitTitle(commitWithOptimisticMessage.message);
+	const body = commitBody(commitWithOptimisticMessage.message);
+
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: "Reword Commit",
@@ -1274,6 +1277,16 @@ const CommitRow: FC<
 					label: "Commit ID",
 					onSelect: () => window.lite.clipboardWriteText(commit.id),
 				}),
+				nativeMenuItem({
+					label: "Commit Title",
+					enabled: title !== undefined,
+					onSelect: () => window.lite.clipboardWriteText(title ?? ""),
+				}),
+				nativeMenuItem({
+					label: "Commit Body",
+					enabled: body !== undefined,
+					onSelect: () => window.lite.clipboardWriteText(body ?? ""),
+				}),
 			],
 		}),
 		insertBlankCommitMenuItem(insertBlankCommit),
@@ -1311,8 +1324,6 @@ const CommitRow: FC<
 				}),
 		}),
 	];
-
-	const title = commitTitle(commitWithOptimisticMessage.message);
 
 	return (
 		<ItemRow
