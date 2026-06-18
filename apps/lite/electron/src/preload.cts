@@ -128,6 +128,7 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("lite:path-join", path, ...paths) as Promise<string>,
 	updateBranchName: (params) =>
 		ipcRenderer.invoke("workspace:update-branch-name", params) as Promise<UpdateBranchNameResult>,
+	updateReview: (params) => ipcRenderer.invoke("workspace:update-review", params) as Promise<void>,
 	tearOffBranch: (params) =>
 		ipcRenderer.invoke("workspace:tear-off-branch", params) as Promise<MoveBranchResult>,
 	peelRestoreSnapshot: (params) =>

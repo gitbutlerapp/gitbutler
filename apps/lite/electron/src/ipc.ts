@@ -37,6 +37,7 @@ import type {
 	WorktreeChanges,
 	WorkspaceState,
 	UncommitResult,
+	ReviewState,
 	RestoreKind,
 	Snapshot,
 	AskpassPromptEvent,
@@ -267,6 +268,14 @@ export interface UpdateBranchNameParams {
 	newName: string;
 }
 
+export interface UpdateReviewParams {
+	projectId: string;
+	reviewId: number;
+	body: string | null;
+	state: ReviewState | null;
+	targetBase: string | null;
+}
+
 export type UpdateBranchNameResult = BranchReference;
 
 export interface WatcherSubscribeParams {
@@ -346,6 +355,7 @@ export interface LiteElectronApi {
 	openInEditor: (params: OpenInEditorParams) => Promise<void>;
 	pathJoin: (...paths: Array<string>) => Promise<string>;
 	updateBranchName: (params: UpdateBranchNameParams) => Promise<UpdateBranchNameResult>;
+	updateReview: (params: UpdateReviewParams) => Promise<void>;
 	tearOffBranch: (params: TearOffBranchParams) => Promise<MoveBranchResult>;
 	peelRestoreSnapshot: (params: PeelRestoreSnapshotParams) => Promise<Snapshot | null>;
 	pushStack: (params: PushStackParams) => Promise<PushResult>;
@@ -402,6 +412,7 @@ export const liteIpcChannels = {
 	openInEditor: "workspace:open-in-editor",
 	pathJoin: "lite:path-join",
 	updateBranchName: "workspace:update-branch-name",
+	updateReview: "workspace:update-review",
 	tearOffBranch: "workspace:tear-off-branch",
 	peelRestoreSnapshot: "workspace:peel-restore-snapshot",
 	pushStack: "workspace:push-stack",
