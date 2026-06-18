@@ -79,7 +79,7 @@ export const GraphSegment: FC<GraphSegmentProps> = ({ glyph, className, status, 
 			) : glyph === "group" ? (
 				groupGlyph
 			) : (
-				<path d={glyphPaths[glyph]} opacity="0.5" stroke="currentColor" strokeWidth="1.5" />
+				<path d={glyphPaths[glyph]} opacity="0.4" stroke="currentColor" strokeWidth="1.5" />
 			)}
 		</svg>
 
@@ -93,7 +93,7 @@ export const GraphSegment: FC<GraphSegmentProps> = ({ glyph, className, status, 
 				aria-hidden="true"
 				focusable="false"
 			>
-				<path d={glyphPaths.parent} opacity="0.5" stroke="currentColor" strokeWidth="1.5" />
+				<path d={glyphPaths.parent} opacity="0.4" stroke="currentColor" strokeWidth="1.5" />
 			</svg>
 		)}
 	</div>
