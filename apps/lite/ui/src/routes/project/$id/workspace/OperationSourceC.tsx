@@ -19,7 +19,7 @@ export type DragData = {
 };
 
 const DragPreview: FC<{ children: ReactNode }> = ({ children }) => (
-	<div className={classes(styles.dragPreview, "text-14")}>{children}</div>
+	<div className={classes(styles.dragPreview, "text-13")}>{children}</div>
 );
 
 export const OperationSourceC: FC<
