@@ -1,3 +1,4 @@
+import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import { changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
 import { changesFileParent, fileOperand, FileParent } from "#ui/operands.ts";
@@ -154,7 +155,9 @@ export const FilesTree: FC<
 				<div className={styles.section}>
 					{items.length === 0 ? (
 						<WorkspaceItemRow interactive={false}>
-							<WorkspaceItemRowLabel empty>No changes.</WorkspaceItemRowLabel>
+							<WorkspaceItemRowLabel>
+								<span className={workspaceItemRowStyles.emptyText}>No changes.</span>
+							</WorkspaceItemRowLabel>
 						</WorkspaceItemRow>
 					) : (
 						<div role="group">

@@ -90,13 +90,6 @@
 .inlineEditorInput {
 	flex-grow: 1;
 
-	/* We can't just inherit the colour from the label because empty commit
-	messages use a different colour. */
-	color: var(--text-1);
-	&:focus {
-		color: var(--fill-gray-fg);
-	}
-
 	textarea& {
 		resize: none;
 		field-sizing: content;

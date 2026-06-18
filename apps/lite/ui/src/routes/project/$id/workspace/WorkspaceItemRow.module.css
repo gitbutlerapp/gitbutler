@@ -62,8 +62,12 @@
 	padding-block: 5.5px;
 }
 
-.itemRowLabelEmpty {
+.itemRowEmptyText {
 	color: var(--text-2);
+
+	[data-selection-scope]:focus .itemRowSelected & {
+		color: inherit;
+	}
 }
 
 .itemRowButton {
