@@ -9,5 +9,9 @@ export const ToggleGroupStyles: FC<ComponentProps<"div">> = (props) => (
 
 /** @public */
 export const ToggleStyles: FC<ComponentProps<"button">> = (props) => (
-	<button {...props} type="button" className={classes(props.className, "text-13", styles.item)} />
+	<button
+		{...props}
+		type="button"
+		className={classes(props.className, "text-13 text-semibold", styles.item)}
+	/>
 );

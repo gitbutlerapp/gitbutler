@@ -23,7 +23,7 @@
 	border: 1px solid transparent;
 	border-radius: 6px;
 	background-color: transparent;
-	color: color-mix(in srgb, var(--text-1) 60%, transparent);
+	color: color-mix(in srgb, var(--text-2) 80%, transparent);
 	line-height: 1;
 	white-space: nowrap;
 	--icon-size: 14px;
@@ -46,9 +46,13 @@
 			transform 0.12s ease;
 	}
 
-	&:not([data-pressed], [data-disabled]):hover::before {
+	&:not([data-pressed], [data-disabled], :disabled):hover::before {
 		transform: scale(1);
 		opacity: 1;
+	}
+
+	&:not([data-pressed], [data-disabled], :disabled):hover {
+		color: var(--text-2);
 	}
 
 	&[data-pressed] {
@@ -61,11 +65,17 @@
 		color: var(--text-3);
 	}
 
-	&:not([data-disabled]):hover [data-icon] {
+	&:not([data-disabled], :disabled):hover [data-icon] {
 		color: var(--text-2);
 	}
 
 	&[data-pressed] [data-icon] {
 		color: var(--text-2);
+	}
+
+	&[data-disabled],
+	&:disabled {
+		cursor: not-allowed;
+		opacity: 0.6;
 	}
 }
