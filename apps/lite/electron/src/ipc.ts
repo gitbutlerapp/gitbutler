@@ -29,6 +29,7 @@ import type {
 	CommitMoveResult,
 	CommitRewordResult,
 	CommitSquashResult,
+	CreateForgeReviewParams,
 	MoveBranchResult,
 	MoveChangesResult,
 	PushFlag,
@@ -218,6 +219,11 @@ export interface PeelRestoreSnapshotParams {
 	sha: string;
 }
 
+export interface PublishReviewParams {
+	projectId: string;
+	params: CreateForgeReviewParams;
+}
+
 export interface PushStackParams {
 	projectId: string;
 	branch: string;
@@ -354,6 +360,7 @@ export interface LiteElectronApi {
 	moveBranch: (params: MoveBranchParams) => Promise<MoveBranchResult>;
 	openInEditor: (params: OpenInEditorParams) => Promise<void>;
 	pathJoin: (...paths: Array<string>) => Promise<string>;
+	publishReview: (params: PublishReviewParams) => Promise<ForgeReview>;
 	updateBranchName: (params: UpdateBranchNameParams) => Promise<UpdateBranchNameResult>;
 	updateReview: (params: UpdateReviewParams) => Promise<void>;
 	tearOffBranch: (params: TearOffBranchParams) => Promise<MoveBranchResult>;
@@ -411,6 +418,7 @@ export const liteIpcChannels = {
 	moveBranch: "workspace:move-branch",
 	openInEditor: "workspace:open-in-editor",
 	pathJoin: "lite:path-join",
+	publishReview: "workspace:publish-review",
 	updateBranchName: "workspace:update-branch-name",
 	updateReview: "workspace:update-review",
 	tearOffBranch: "workspace:tear-off-branch",

@@ -25,6 +25,7 @@ import {
 	type MoveBranchParams,
 	type ListReviewsForBranchParams,
 	type OpenInEditorParams,
+	type PublishReviewParams,
 	type PushStackParams,
 	type RemoveBranchParams,
 	type TearOffBranchParams,
@@ -73,6 +74,7 @@ import {
 	listReviewsForBranch,
 	moveBranch,
 	openInEditor,
+	publishReview,
 	removeBranch,
 	tearOffBranch,
 	treeChangeDiffs,
@@ -458,6 +460,10 @@ const registerIpcHandlers = (): void => {
 	);
 	senderValidatingHandle(liteIpcChannels.pathJoin, (_e, ...paths: Array<string>) =>
 		path.join(...paths),
+	);
+	senderValidatingHandle(
+		liteIpcChannels.publishReview,
+		(_e, { projectId, params }: PublishReviewParams) => publishReview(projectId, params),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.updateBranchName,
