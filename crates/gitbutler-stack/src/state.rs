@@ -7,16 +7,12 @@ use anyhow::{Result, anyhow};
 use but_error::Code;
 use but_meta::virtual_branches_legacy_types;
 use gitbutler_reference::Refname;
-use gitbutler_repo::commit_message::CommitMessage;
 use itertools::Itertools;
 
 use crate::{
     stack::{Stack, StackId},
     target::Target,
 };
-
-const LAST_PUSHED_BASE_VERSION_HEADER: &str = "base-commit-version";
-const LAST_PUSHED_BASE_VERSION: &str = "1";
 
 /// The state of virtual branches data, as persisted in a TOML file.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -300,95 +296,6 @@ impl VirtualBranchesHandle {
         self.write_file(&virtual_branches)?;
         Ok(())
     }
-
-    /// Returns a base commit for use when pushing a stack for review.
-    /// The last pushed base either has no parents, or either has the base
-    /// that was pushed previously as the base.
-    ///
-    /// The returned commit will always have the same tree as
-    /// `default_target.sha`.
-    ///
-    /// This function will return `Ok(None)` if there is no default target.
-    pub fn upsert_last_pushed_base(
-        &mut self,
-        repository: &gix::Repository,
-    ) -> Result<Option<gix::ObjectId>> {
-        let mut virtual_branches = self.read_file()?;
-        let Some(default_target) = &virtual_branches.default_target else {
-            return Ok(None);
-        };
-
-        let base_tree_id = repository
-            .find_commit(default_target.sha)?
-            .tree_id()?
-            .detach();
-
-        if let Some(last_pushed_base) = virtual_branches.last_pushed_base {
-            let last_pushed_tree = repository
-                .find_commit(last_pushed_base)?
-                .tree_id()?
-                .detach();
-
-            let up_to_date = repository
-                .find_commit(last_pushed_base)?
-                .decode()?
-                .extra_headers()
-                .find(LAST_PUSHED_BASE_VERSION_HEADER)
-                .unwrap_or("unversioned".into())
-                == LAST_PUSHED_BASE_VERSION;
-
-            // If the base commit's tree is the same as the previously pushed
-            // one, we have no need to update it.
-            if base_tree_id == last_pushed_tree && up_to_date {
-                return Ok(Some(last_pushed_base));
-            }
-
-            virtual_branches.last_pushed_base = Some(alter_parentage(
-                repository,
-                default_target.sha,
-                &[last_pushed_base],
-            )?);
-        } else {
-            // There was no previous last_pushed_base to point to, so we create
-            // the first base which doesn't have any parents.
-            virtual_branches.last_pushed_base =
-                Some(alter_parentage(repository, default_target.sha, &[])?);
-        }
-
-        self.write_file(&virtual_branches)?;
-
-        Ok(virtual_branches.last_pushed_base)
-    }
-
-    /// Provides direct access to the last_pushed_base. If you are actually
-    /// pushing, you probably want
-    pub fn last_pushed_base(&self) -> Result<Option<gix::ObjectId>> {
-        let virtual_branches = self.read_file()?;
-        Ok(virtual_branches.last_pushed_base)
-    }
-}
-
-/// Re-commit a commit with altered parentage
-fn alter_parentage(
-    repository: &gix::Repository,
-    to_rewrite: gix::ObjectId,
-    new_parents: &[gix::ObjectId],
-) -> Result<gix::ObjectId> {
-    let decoded = repository.find_commit(to_rewrite)?;
-    let decoded = decoded.decode()?;
-    let mut message = CommitMessage::new(decoded.clone());
-    message
-        .trailers
-        .push(("Base-Commit".into(), to_rewrite.to_hex().to_string().into()));
-    let mut to_rewrite: gix::objs::Commit = decoded.try_into()?;
-    to_rewrite.parents = new_parents.into();
-    to_rewrite.message = message.to_bstring();
-    to_rewrite.extra_headers.retain(|entry| entry.0 != "gpgsig");
-    to_rewrite.extra_headers.push((
-        LAST_PUSHED_BASE_VERSION_HEADER.into(),
-        LAST_PUSHED_BASE_VERSION.into(),
-    ));
-    Ok(repository.write_object(to_rewrite)?.into())
 }
 
 /// Additional functionality for the [`VirtualBranches`] structure.
