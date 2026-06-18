@@ -161,7 +161,7 @@ impl Details {
             | Message::ShowError(_)
             | Message::ShowToast { .. }
             | Message::Confirm(_)
-            | Message::BranchPicker(_)
+            | Message::FuzzyPicker(_)
             | Message::GrowDetails
             | Message::ShrinkDetails
             | Message::PickAndGotoBranch

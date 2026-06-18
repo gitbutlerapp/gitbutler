@@ -40,16 +40,16 @@ use crate::{
             StatusFlags, StatusOutputLine, TuiLaunchOptions, TuiOutcome, TuiRunOptions,
             tui::{
                 backstack::{Backstack, BackstackEntry, RememberToUpdateBackstack},
-                branch_picker::{BranchPicker, BranchPickerMessage},
                 confirm::{Confirm, ConfirmMessage},
                 cursor::{Cursor, is_selectable_in_mode},
                 details::{Details, DetailsMessage, RenderNextChunkResult},
                 event_polling::{CrosstermEventPolling, EventPolling, NoopEventPolling},
                 fps::FpsCounter,
+                fuzzy_picker::{FuzzyPicker, FuzzyPickerMessage},
                 help::{Help, HelpMessage},
                 highlight::Highlights,
                 key_bind::{
-                    KeyBinds, branch_picker_key_binds, confirm_key_binds, default_key_binds,
+                    KeyBinds, confirm_key_binds, default_key_binds, fuzzy_picker_key_binds,
                     help_key_binds, normal_with_marks_key_binds,
                 },
                 marking::{MarkClasses, Markable, Marks},
@@ -80,12 +80,12 @@ use super::{FilesStatusFlag, output::StatusOutputLineData};
 use render::{details_viewport, ensure_cursor_visible, render_app, status_viewport_height};
 
 mod backstack;
-mod branch_picker;
 mod confirm;
 mod cursor;
 mod details;
 mod event_polling;
 mod fps;
+mod fuzzy_picker;
 mod graph_extension;
 mod help;
 mod highlight;
@@ -283,17 +283,11 @@ where
     };
     // poll terminal events
     for event in event_polling.poll(event_poll_timeout)? {
-        let branch_picker = match &app.modal {
-            Some(Modal::BranchPicker { branch_picker, .. }) => Some(&**branch_picker),
+        let picker = match &app.modal {
+            Some(Modal::BranchPicker { picker, .. }) => Some(&**picker),
             Some(Modal::Confirm { .. }) | Some(Modal::Help { .. }) | None => None,
         };
-        event_to_messages(
-            event,
-            app.active_key_binds(),
-            &app.mode,
-            branch_picker,
-            messages,
-        );
+        event_to_messages(event, app.active_key_binds(), &app.mode, picker, messages);
     }
 
     // check for any out of band messages
@@ -440,7 +434,7 @@ enum Modal {
         key_binds: KeyBinds,
     },
     BranchPicker {
-        branch_picker: Box<BranchPicker>,
+        picker: Box<FuzzyPicker<fuzzy_picker::BranchItem>>,
         key_binds: KeyBinds,
     },
     Help {
@@ -768,17 +762,15 @@ impl App {
                 }
                 modal => self.modal = modal,
             },
-            Message::BranchPicker(branch_picker_message) => match self.modal.take() {
-                Some(Modal::BranchPicker {
-                    branch_picker,
-                    key_binds,
-                }) => {
-                    self.modal = branch_picker
-                        .handle_message(branch_picker_message, messages)?
-                        .map(|branch_picker| Modal::BranchPicker {
-                            branch_picker: Box::new(branch_picker),
-                            key_binds,
-                        });
+            Message::FuzzyPicker(fuzzy_picker_message) => match self.modal.take() {
+                Some(Modal::BranchPicker { picker, key_binds }) => {
+                    self.modal =
+                        picker
+                            .handle_message(fuzzy_picker_message, messages)?
+                            .map(|picker| Modal::BranchPicker {
+                                picker: Box::new(picker),
+                                key_binds,
+                            });
                 }
                 modal => self.modal = modal,
             },
@@ -3082,24 +3074,31 @@ impl App {
                     is_selectable_in_mode(unassigned, &self.mode, self.flags.show_files)
                 });
 
+            let picker_items = if include_unassigned {
+                let mut mapped_items = NonEmpty::new(fuzzy_picker::BranchItem::Unassigned);
+                mapped_items.extend(branch_names.map(fuzzy_picker::BranchItem::Branch));
+                mapped_items
+            } else {
+                branch_names.map(fuzzy_picker::BranchItem::Branch)
+            };
+
             self.modal = Some(Modal::BranchPicker {
-                branch_picker: Box::new(BranchPicker::new(
-                    branch_names,
+                picker: Box::new(FuzzyPicker::new(
+                    picker_items,
                     self.theme,
-                    include_unassigned,
                     |item, messages| {
                         match item {
-                            branch_picker::Item::Branch(branch_name) => {
+                            fuzzy_picker::BranchItem::Branch(branch_name) => {
                                 messages.push(Message::SelectBranch(branch_name));
                             }
-                            branch_picker::Item::Unassigned => {
+                            fuzzy_picker::BranchItem::Unassigned => {
                                 messages.push(Message::SelectUnassigned);
                             }
                         }
                         Ok(())
                     },
                 )),
-                key_binds: branch_picker_key_binds(),
+                key_binds: fuzzy_picker_key_binds(),
             });
         }
 
@@ -3490,11 +3489,11 @@ enum UndoOrRedo {
     Redo,
 }
 
-fn event_to_messages(
+fn event_to_messages<T>(
     ev: Event,
     key_binds: &KeyBinds,
     mode: &Mode,
-    branch_picker: Option<&BranchPicker>,
+    picker: Option<&FuzzyPicker<T>>,
     messages: &mut Vec<Message>,
 ) {
     match ev {
@@ -3509,8 +3508,8 @@ fn event_to_messages(
             }
 
             if !handled {
-                if branch_picker.is_some() {
-                    messages.push(Message::BranchPicker(BranchPickerMessage::Input(ev)));
+                if picker.is_some() {
+                    messages.push(Message::FuzzyPicker(FuzzyPickerMessage::Input(ev)));
                 } else {
                     match mode {
                         Mode::InlineReword(..) => {
@@ -3889,7 +3888,7 @@ enum Message {
     Stack(StackMessage),
     Details(DetailsMessage),
     DetailsLayout(DetailsLayoutMessage),
-    BranchPicker(BranchPickerMessage),
+    FuzzyPicker(FuzzyPickerMessage),
     Help(HelpMessage),
     NewBranch,
     ToggleHelp,
