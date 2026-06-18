@@ -572,8 +572,8 @@ const registerIpcHandlers = (): void => {
 	);
 	senderValidatingHandle(
 		liteIpcChannels.updateReview,
-		(_e, { projectId, reviewId, body, state, targetBase }: UpdateReviewParams) =>
-			updateReview(projectId, reviewId, body, state, targetBase),
+		(_e, { projectId, reviewId, title, body, state, targetBase }: UpdateReviewParams) =>
+			updateReview(projectId, reviewId, title, body, state, targetBase),
 	);
 	senderValidatingHandle(
 		liteIpcChannels.tearOffBranch,
