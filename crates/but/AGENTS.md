@@ -44,7 +44,7 @@ permission-taking helper.
   with `.stdout_eq(snapbox::str![...])` and
   `.stderr_eq(snapbox::str![...])`; use `[..]` or `...` wildcards for unstable
   portions instead of weakening the assertion.
-- Update CLI snapshots with `SNAPSHOTS=overwrite cargo nextest run -p but`,
+- Update CLI snapshots with `SNAPSHOTS=overwrite cargo test -p but`,
   scoped to a test name when possible. For colored terminal output, assert
   against `snapbox::file!["snapshots/<test-name>/<invocation>.stdout.term.svg"]`
   and update with the same command.
