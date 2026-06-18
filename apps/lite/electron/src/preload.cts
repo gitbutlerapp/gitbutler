@@ -72,8 +72,8 @@ const api: LiteElectronApi = {
 		ipcRenderer.on("askpass:prompt", listener);
 		return () => ipcRenderer.removeListener("askpass:prompt", listener);
 	},
-	submitAskpassPromptResponse: (params) =>
-		ipcRenderer.invoke("askpass:submit-response", params) as Promise<void>,
+	askpassSubmitPromptResponse: (params) =>
+		ipcRenderer.invoke("askpass:submit-prompt-response", params) as Promise<void>,
 	assignHunk: (params) => ipcRenderer.invoke("workspace:assign-hunk", params) as Promise<void>,
 	branchCheckout: (params) =>
 		ipcRenderer.invoke("workspace:branch-checkout", params) as Promise<BranchCheckoutResult>,
@@ -156,7 +156,8 @@ const api: LiteElectronApi = {
 	listCiChecks: (params) =>
 		ipcRenderer.invoke("workspace:list-ci-checks", params) as Promise<Array<CiCheck>>,
 	listEditors: () => ipcRenderer.invoke("workspace:list-editors") as Promise<Array<Editor>>,
-	listProjects: () => ipcRenderer.invoke("projects:list") as Promise<Array<ProjectForFrontend>>,
+	listProjectsStateless: () =>
+		ipcRenderer.invoke("projects:list-stateless") as Promise<Array<ProjectForFrontend>>,
 	listReviews: (params) =>
 		ipcRenderer.invoke("workspace:list-reviews", params) as Promise<Array<ForgeReview>>,
 	listReviewsForBranch: (params) =>

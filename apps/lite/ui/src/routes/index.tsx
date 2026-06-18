@@ -9,7 +9,7 @@ export const Route = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/",
 	loader: async () => {
-		const projects = await window.lite.listProjects();
+		const projects = await window.lite.listProjectsStateless();
 		const persistedId = window.localStorage.getItem(lastOpenedProjectKey);
 		const projectId = projects.some((project) => project.id === persistedId)
 			? persistedId

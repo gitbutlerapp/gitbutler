@@ -344,7 +344,7 @@ const registerIpcHandlers = (): void => {
 		(_e, { projectId, target }: AbsorptionPlanParams) => absorptionPlan(projectId, target),
 	);
 	senderValidatingHandle(
-		liteIpcChannels.askpassSubmitResponse,
+		liteIpcChannels.askpassSubmitPromptResponse,
 		(_e, { id, response }: AskpassSubmitPromptResponseParams) =>
 			askpassSubmitPromptResponse(id, response),
 	);
@@ -533,7 +533,7 @@ const registerIpcHandlers = (): void => {
 			listCiChecks(projectId, reference, cacheConfig),
 	);
 	senderValidatingHandle(liteIpcChannels.listEditors, () => listEditors());
-	senderValidatingHandle(liteIpcChannels.listProjects, () => listProjectsStateless());
+	senderValidatingHandle(liteIpcChannels.listProjectsStateless, () => listProjectsStateless());
 	senderValidatingHandle(
 		liteIpcChannels.listReviews,
 		(_e, { projectId, cacheConfig }: ListReviewsParams) => listReviews(projectId, cacheConfig),

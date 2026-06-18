@@ -410,7 +410,7 @@ export interface LiteElectronApi {
 	apply: (params: ApplyParams) => Promise<ApplyOutcome>;
 	applyBranchIntegration: (params: ApplyBranchIntegrationParams) => Promise<IntegrateBranchResult>;
 	onAskpassPrompt: (callback: (event: AskpassPromptEvent) => void) => () => void;
-	submitAskpassPromptResponse: (params: AskpassSubmitPromptResponseParams) => Promise<void>;
+	askpassSubmitPromptResponse: (params: AskpassSubmitPromptResponseParams) => Promise<void>;
 	assignHunk: (params: AssignHunkParams) => Promise<void>;
 	branchCheckout: (params: BranchCheckoutParams) => Promise<BranchCheckoutResult>;
 	branchCheckoutNew: (params: BranchCheckoutNewParams) => Promise<BranchCheckoutResult>;
@@ -453,7 +453,7 @@ export interface LiteElectronApi {
 	listAvailableReviewTemplates: (projectId: string) => Promise<Array<string>>;
 	listCiChecks: (params: ListCiChecksParams) => Promise<Array<CiCheck>>;
 	listEditors: () => Promise<Array<Editor>>;
-	listProjects: () => Promise<Array<ProjectForFrontend>>;
+	listProjectsStateless: () => Promise<Array<ProjectForFrontend>>;
 	listReviews: (params: ListReviewsParams) => Promise<Array<ForgeReview>>;
 	listReviewsForBranch: (params: ListReviewsForBranchParams) => Promise<Array<ForgeReview>>;
 	mergeReview: (params: MergeReviewParams) => Promise<void>;
@@ -492,7 +492,7 @@ export const liteIpcChannels = {
 	apply: "workspace:apply",
 	applyBranchIntegration: "workspace:apply-branch-integration",
 	askpassPrompt: "askpass:prompt",
-	askpassSubmitResponse: "askpass:submit-response",
+	askpassSubmitPromptResponse: "askpass:submit-prompt-response",
 	assignHunk: "workspace:assign-hunk",
 	branchCheckout: "workspace:branch-checkout",
 	branchCheckoutNew: "workspace:branch-checkout-new",
@@ -530,7 +530,7 @@ export const liteIpcChannels = {
 	listAvailableReviewTemplates: "workspace:list-available-review-templates",
 	listCiChecks: "workspace:list-ci-checks",
 	listEditors: "workspace:list-editors",
-	listProjects: "projects:list",
+	listProjectsStateless: "projects:list-stateless",
 	listReviews: "workspace:list-reviews",
 	listReviewsForBranch: "workspace:list-reviews-for-branch",
 	mergeReview: "workspace:merge-review",
