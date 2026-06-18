@@ -279,83 +279,92 @@ const FileRow: FC<
 	);
 
 	return (
-		<ItemRow
-			{...restProps}
-			projectId={projectId}
-			path={item.path}
-			className={classes(restProps.className, styles.fileRow)}
-			onContextMenu={(event) => {
-				void showNativeContextMenu(event, menuItems);
-			}}
-		>
-			<div className={styles.fileIconWithCheckbox}>
-				<Icon name="file" />
-				<Tooltip.Root
-					// This gets in the way when the user tries to move their hover to a
-					// sibling row.
-					disableHoverablePopup
-				>
-					<Checkbox
-						disabled={hasCheckedCommits || outlineMode._tag !== "Default"}
-						aria-label={`Check file ${relativePath}`}
-						className={styles.fileCheckbox}
-						nativeButton
-						render={<Tooltip.Trigger />}
-					/>
-					<Tooltip.Portal>
-						<Tooltip.Positioner sideOffset={4}>
-							<Tooltip.Popup render={<TooltipPopup />}>Check file</Tooltip.Popup>
-						</Tooltip.Positioner>
-					</Tooltip.Portal>
-				</Tooltip.Root>
-			</div>
-			<WorkspaceItemRowLabel>
-				{item._tag === "Change" ? item.change.path : item.path}
-			</WorkspaceItemRowLabel>
-
-			{outlineMode._tag === "Default" && (
-				<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
-					{Match.value({ item, fileParent }).pipe(
-						Match.when(
-							{ item: { _tag: "Change" }, fileParent: { _tag: "Changes" } },
-							({ item }) =>
-								item.dependencyCommitIds && (
-									<Toolbar.Button
-										render={
-											<DependencyIndicator
-												projectId={projectId}
-												commitIds={item.dependencyCommitIds}
-												className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-											/>
-										}
-									>
-										<Icon name="link" />
-									</Toolbar.Button>
-								),
-						),
-						Match.orElse(() => null),
-					)}
-					<Toolbar.Button
-						aria-label="File menu"
-						onClick={(event) => {
-							void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+		<Tooltip.Root disableHoverablePopup>
+			<Tooltip.Trigger
+				render={
+					<ItemRow
+						{...restProps}
+						projectId={projectId}
+						path={item.path}
+						className={classes(restProps.className, styles.fileRow)}
+						onContextMenu={(event) => {
+							void showNativeContextMenu(event, menuItems);
 						}}
-						className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+					/>
+				}
+			>
+				<div className={styles.fileIconWithCheckbox}>
+					<Icon name="file" />
+					<Tooltip.Root
+						// This gets in the way when the user tries to move their hover to a
+						// sibling row.
+						disableHoverablePopup
 					>
-						<Icon name="kebab" />
-					</Toolbar.Button>
-				</Toolbar.Root>
-			)}
+						<Checkbox
+							disabled={hasCheckedCommits || outlineMode._tag !== "Default"}
+							aria-label={`Check file ${relativePath}`}
+							className={styles.fileCheckbox}
+							nativeButton
+							render={<Tooltip.Trigger />}
+						/>
+						<Tooltip.Portal>
+							<Tooltip.Positioner sideOffset={4}>
+								<Tooltip.Popup render={<TooltipPopup />}>Check file</Tooltip.Popup>
+							</Tooltip.Positioner>
+						</Tooltip.Portal>
+					</Tooltip.Root>
+				</div>
+				<WorkspaceItemRowLabel>{relativePath}</WorkspaceItemRowLabel>
 
-			{item._tag === "Change" ? (
-				<Icon
-					name="file"
-					className={styles.fileStatusIcon}
-					data-char={statusLabel(item.change.status)}
-				/>
-			) : (
-				"C"
-			)}
-		</ItemRow>
+				{outlineMode._tag === "Default" && (
+					<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
+						{Match.value({ item, fileParent }).pipe(
+							Match.when(
+								{ item: { _tag: "Change" }, fileParent: { _tag: "Changes" } },
+								({ item }) =>
+									item.dependencyCommitIds && (
+										<Toolbar.Button
+											render={
+												<DependencyIndicator
+													projectId={projectId}
+													commitIds={item.dependencyCommitIds}
+													className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+												/>
+											}
+										>
+											<Icon name="link" />
+										</Toolbar.Button>
+									),
+							),
+							Match.orElse(() => null),
+						)}
+						<Toolbar.Button
+							aria-label="File menu"
+							onClick={(event) => {
+								void showNativeMenuFromTrigger(event.currentTarget, menuItems);
+							}}
+							className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
+						>
+							<Icon name="kebab" />
+						</Toolbar.Button>
+					</Toolbar.Root>
+				)}
+
+				{item._tag === "Change" ? (
+					<Icon
+						name="file"
+						className={styles.fileStatusIcon}
+						data-char={statusLabel(item.change.status)}
+					/>
+				) : (
+					"C"
+				)}
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4}>
+					<Tooltip.Popup render={<TooltipPopup />}>{relativePath}</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
 	);
 };
