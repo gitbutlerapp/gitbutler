@@ -9,6 +9,7 @@ use ratatui::{
     prelude::*,
     widgets::{Block, BorderType, Borders, List, ListItem},
 };
+use ratatui_textarea::TextArea;
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
@@ -568,7 +569,8 @@ fn render_status_list_item_with_stack_highlight(
                                 .first()
                                 .map(|line| line.width())
                                 .unwrap_or(0);
-                            line.push_span(Span::raw(" ".repeat(len + 1)));
+                            let padding = if cursor_at_end(textarea) { 1 } else { 0 };
+                            line.push_span(Span::raw(" ".repeat(len + padding)));
 
                             line.extend(branch_content.decoration_end.iter().cloned());
                             line.extend(branch_content.suffix.iter().cloned());
@@ -1422,4 +1424,9 @@ pub(super) fn ensure_cursor_visible(app: &mut App, visible_height: usize) {
     }
 
     clamp_scroll_top(app, visible_height);
+}
+
+fn cursor_at_end(textarea: &TextArea<'_>) -> bool {
+    let (_, col) = textarea.cursor();
+    col == textarea.lines()[0].chars().count()
 }
