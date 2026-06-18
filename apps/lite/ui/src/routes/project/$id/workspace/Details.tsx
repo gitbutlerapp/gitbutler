@@ -1099,12 +1099,7 @@ export const Details: FC<
 												{reviewId === null ? (
 													<p className="text-13">No pull request found.</p>
 												) : (
-													<SuspenseQuery
-														{...getReviewQueryOptions({
-															projectId,
-															reviewId,
-														})}
-													>
+													<SuspenseQuery {...getReviewQueryOptions({ projectId, reviewId })}>
 														{({ data: review }) => (
 															<PullRequestForm
 																key={reviewId}
