@@ -245,7 +245,7 @@
 
 	<CardGroup.Item alignment="center">
 		{#snippet title()}
-			Diff Font Size
+			Font size
 		{/snippet}
 		{#snippet caption()}
 			Font size of the code in the diff view.
