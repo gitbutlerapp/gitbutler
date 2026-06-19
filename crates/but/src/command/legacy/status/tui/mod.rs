@@ -2067,7 +2067,7 @@ impl App {
                 };
                 CommitMode {
                     source: Arc::new(source),
-                    insert_side: InsertSide::Above,
+                    insert_side: InsertSide::Below,
                     scope_to_stack: None,
                     message_composer: CommitMessageComposer::default(),
                 }
@@ -2081,7 +2081,7 @@ impl App {
                 };
                 CommitMode {
                     source: Arc::new(source),
-                    insert_side: InsertSide::Above,
+                    insert_side: InsertSide::Below,
                     scope_to_stack: cli_id.stack_id(),
                     message_composer: CommitMessageComposer::default(),
                 }
@@ -2104,7 +2104,7 @@ impl App {
                 };
                 CommitMode {
                     scope_to_stack,
-                    insert_side: InsertSide::Above,
+                    insert_side: InsertSide::Below,
                     message_composer: CommitMessageComposer::default(),
                     source: Arc::new(source),
                 }
@@ -2130,7 +2130,7 @@ impl App {
                 };
                 CommitMode {
                     source: Arc::new(source),
-                    insert_side: InsertSide::Above,
+                    insert_side: InsertSide::Below,
                     scope_to_stack,
                     message_composer: CommitMessageComposer::default(),
                 }
@@ -2195,7 +2195,7 @@ impl App {
             .update_and_push_leave_normal_mode(&mut self.backstack, |mode| {
                 *mode = Mode::Commit(CommitMode {
                     source,
-                    insert_side: InsertSide::Above,
+                    insert_side: InsertSide::Below,
                     scope_to_stack: None,
                     message_composer: CommitMessageComposer::default(),
                 });
