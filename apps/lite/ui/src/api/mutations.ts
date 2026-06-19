@@ -35,14 +35,22 @@ export const syncCoreCaches = (
 	projectId: string,
 	response: Exclude<AnyResponse, void>,
 ) => {
-	if (typeof response !== "object" || response === null || !("workspace" in response)) return;
+	if (typeof response !== "object" || response === null) return;
 
-	queryClient.setQueryData(headInfoQueryOptions(projectId).queryKey, response.workspace.headInfo);
+	const workspace =
+		"workspace" in response
+			? response.workspace
+			: "workspaceState" in response
+				? response.workspaceState
+				: null;
+	if (workspace === null) return;
+
+	queryClient.setQueryData(headInfoQueryOptions(projectId).queryKey, workspace.headInfo);
 	dispatch(
 		projectActions.updateRewrittenCommitReferences({
 			projectId,
-			replacedCommits: response.workspace.replacedCommits,
-			headInfo: response.workspace.headInfo,
+			replacedCommits: workspace.replacedCommits,
+			headInfo: workspace.headInfo,
 		}),
 	);
 };

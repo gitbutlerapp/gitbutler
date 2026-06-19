@@ -31,7 +31,7 @@ import type {
 	UnifiedPatch,
 	WatcherEvent,
 	WorktreeChanges,
-	WorkspaceState,
+	WorkspaceIntegrateUpstreamOutcome,
 	UncommitResult,
 	Snapshot,
 	AskpassPromptEvent,
@@ -197,7 +197,10 @@ const api: LiteElectronApi = {
 		ipcRenderer.invoke("workspace:tree-change-diffs", params) as Promise<UnifiedPatch | null>,
 	unapplyStack: (params) => ipcRenderer.invoke("workspace:unapply-stack", params) as Promise<void>,
 	workspaceIntegrateUpstream: (params) =>
-		ipcRenderer.invoke("workspace:integrate-upstream", params) as Promise<WorkspaceState>,
+		ipcRenderer.invoke(
+			"workspace:integrate-upstream",
+			params,
+		) as Promise<WorkspaceIntegrateUpstreamOutcome>,
 	updateReviewFooters: (params) =>
 		ipcRenderer.invoke("workspace:update-review-footers", params) as Promise<void>,
 	warmCiChecksCache: (projectId) =>

@@ -48,7 +48,7 @@ import type {
 	UnifiedPatch,
 	WatcherEvent,
 	WorktreeChanges,
-	WorkspaceState,
+	WorkspaceIntegrateUpstreamOutcome,
 	UncommitResult,
 	ReviewState,
 	ReviewMergeMethod,
@@ -475,7 +475,9 @@ export interface LiteElectronApi {
 	showNativeMenu: (params: ShowNativeMenuParams) => Promise<string | null>;
 	treeChangeDiffs: (params: TreeChangeDiffParams) => Promise<UnifiedPatch | null>;
 	unapplyStack: (params: UnapplyStackParams) => Promise<void>;
-	workspaceIntegrateUpstream: (params: WorkspaceIntegrateUpstreamParams) => Promise<WorkspaceState>;
+	workspaceIntegrateUpstream: (
+		params: WorkspaceIntegrateUpstreamParams,
+	) => Promise<WorkspaceIntegrateUpstreamOutcome>;
 	updateReviewFooters: (params: UpdateReviewFootersParams) => Promise<void>;
 	warmCiChecksCache: (projectId: string) => Promise<void>;
 	watcherSubscribe: (projectId: string, callback: (event: WatcherEvent) => void) => Promise<string>;
