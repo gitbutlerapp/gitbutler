@@ -125,10 +125,10 @@ fn discard_top_commit_selects_next_commit_in_branch() {
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render('n')
-        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
+        .assert_current_line_eq(str!["┊●   f184fc7 (no commit message) (no changes)"]);
 
     tui.input_then_render('n')
-        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
+        .assert_current_line_eq(str!["┊●   9638f28 (no commit message) (no changes)"]);
 
     tui.input_then_render('x')
         .assert_rendered_contains("Discard commit")
@@ -137,7 +137,7 @@ fn discard_top_commit_selects_next_commit_in_branch() {
     tui.input_then_render('y');
 
     tui.reload()
-        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
+        .assert_current_line_eq(str!["┊●   f184fc7 (no commit message) (no changes)"]);
 }
 
 #[test]
@@ -153,16 +153,16 @@ fn discard_stack_confirm_yes_discards_staged_changes() {
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   [..] A test.txt"]);
+        .assert_current_line_eq(str!["┊   vo A test.txt"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> [..] A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vo A test.txt"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊●   << amend >> 9477ae7 add A"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   8474410 add A"]);
 
     tui.input_then_render([KeyCode::Up, KeyCode::Up])
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
@@ -256,13 +256,13 @@ fn discard_on_committed_file_row_is_noop() {
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render('f')
-        .assert_current_line_eq(str!["┊│     [..] A A"]);
+        .assert_current_line_eq(str!["┊│     94:tm A A"]);
 
     tui.input_then_render('x')
-        .assert_current_line_eq(str!["┊│     [..] A A"])
+        .assert_current_line_eq(str!["┊│     94:tm A A"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/discard_on_committed_file_row_is_noop_final.svg"
         ]);

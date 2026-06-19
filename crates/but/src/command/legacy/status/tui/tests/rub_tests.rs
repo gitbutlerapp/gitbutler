@@ -27,7 +27,7 @@ fn rub_api_unassigned_to_commit() {
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render('n')
-        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
+        .assert_current_line_eq(str!["┊●   f184fc7 (no commit message) (no changes)"]);
 
     tui.input_then_render([KeyCode::Up, KeyCode::Up])
         .assert_current_line_eq(str!["┊   vo A test.txt"]);
@@ -37,11 +37,11 @@ fn rub_api_unassigned_to_commit() {
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str![
-            "┊●   << amend >> [..] (no commit message) (no changes)"
+            "┊●   << amend >> f184fc7 (no commit message) (no changes)"
         ]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..] (no commit message)"])
+        .assert_current_line_eq(str!["┊●   6bdd3d2 (no commit message)"])
         .assert_rendered_term_svg_eq(file!["snapshots/rub_api_unassigned_to_commit.svg"]);
 }
 
@@ -70,7 +70,7 @@ fn rub_api_unassigned_to_commit_preserves_global_file_list() {
         .assert_current_line_eq(str!["┊●   << amend >> 9477ae7 add A"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..] add A"])
+        .assert_current_line_eq(str!["┊●   8474410 add A"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/rub_api_unassigned_to_commit_preserves_global_file_list_final.svg"
         ]);
@@ -90,10 +90,10 @@ fn rub_api_unassign_uncommitted_operation() {
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   [..] A test.txt"]);
+        .assert_current_line_eq(str!["┊   vo A test.txt"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> [..] A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vo A test.txt"]);
 
     tui.input_then_render(KeyCode::Up)
         .assert_current_line_eq(str!["╭┄<< unassign hunks >> zz [unassigned changes]"]);
@@ -113,13 +113,13 @@ fn rub_api_uncommitted_to_commit_operation() {
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   [..] A test.txt"]);
+        .assert_current_line_eq(str!["┊   vo A test.txt"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> [..] A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vo A test.txt"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   << amend >> [..] add [..]"]);
+        .assert_current_line_eq(str!["┊●   << amend >> d3e2ba3 add B"]);
 }
 
 #[test]
@@ -143,7 +143,7 @@ fn mark_and_rub_multiple_uncommitted_files() {
         .assert_current_line_eq(str!["┊●   << amend >> 9477ae7 add A"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   91784b3 add A"]);
 
     let status = tui.env().invoke_git("status --porcelain");
     assert_eq!(
@@ -161,10 +161,10 @@ fn rub_api_cannot_rub_into_branches() {
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊●   << source >> << noop >> [..] add A"]);
+        .assert_current_line_eq(str!["┊●   << source >> << noop >> 9477ae7 add A"]);
 
     tui.input_then_render(KeyCode::Up)
         .assert_current_line_eq(str![
@@ -190,10 +190,10 @@ fn rub_api_reverse_rub_uses_unassigned_source_when_unassigned_has_changes() {
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('R')))
-        .assert_current_line_eq(str!["┊●   << amend >> [..] add A"]);
+        .assert_current_line_eq(str!["┊●   << amend >> 9477ae7 add A"]);
 
     tui.input_then_render([KeyCode::Up, KeyCode::Up])
         .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [unassigned changes]"]);
@@ -211,10 +211,10 @@ fn rub_api_reverse_rub_uses_unassigned_source_when_stack_has_no_assigned_changes
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('R')))
-        .assert_current_line_eq(str!["┊●   << amend >> [..] add A"]);
+        .assert_current_line_eq(str!["┊●   << amend >> 9477ae7 add A"]);
 
     tui.input_then_render([KeyCode::Up, KeyCode::Up])
         .assert_current_line_eq(str![
@@ -249,10 +249,10 @@ fn rub_api_undo_commit_operation() {
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊●   << source >> << noop >> [..] add A"]);
+        .assert_current_line_eq(str!["┊●   << source >> << noop >> 9477ae7 add A"]);
 
     tui.input_then_render([KeyCode::Up, KeyCode::Up])
         .assert_current_line_eq(str![
@@ -272,13 +272,13 @@ fn rub_api_squash_commits_operation() {
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊●   << source >> << noop >> [..] add A"]);
+        .assert_current_line_eq(str!["┊●   << source >> << noop >> 9477ae7 add A"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   << squash >> [..] add B"]);
+        .assert_current_line_eq(str!["┊●   << squash >> d3e2ba3 add B"]);
 }
 
 #[test]
@@ -289,25 +289,27 @@ fn rub_api_squash_commits_toggles_message_strategy_labels() {
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊●   << source >> << noop >> [..] add A"]);
+        .assert_current_line_eq(str!["┊●   << source >> << noop >> 9477ae7 add A"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   << squash >> [..] add B"]);
+        .assert_current_line_eq(str!["┊●   << squash >> d3e2ba3 add B"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('T')))
-        .assert_current_line_eq(str!["┊●   << squash (use this message) >> [..] add B"]);
+        .assert_current_line_eq(str!["┊●   << squash (use this message) >> d3e2ba3 add B"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('T')))
-        .assert_current_line_eq(str!["┊●   << squash >> [..] add B"]);
+        .assert_current_line_eq(str!["┊●   << squash >> d3e2ba3 add B"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('S')))
-        .assert_current_line_eq(str!["┊●   << squash (discard this message) >> [..] add B"]);
+        .assert_current_line_eq(str![
+            "┊●   << squash (discard this message) >> d3e2ba3 add B"
+        ]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('S')))
-        .assert_current_line_eq(str!["┊●   << squash >> [..] add B"]);
+        .assert_current_line_eq(str!["┊●   << squash >> d3e2ba3 add B"]);
 }
 
 #[test]
@@ -318,19 +320,19 @@ fn rub_api_squash_commits_can_keep_target_message() {
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊●   << source >> << noop >> [..] add A"]);
+        .assert_current_line_eq(str!["┊●   << source >> << noop >> 9477ae7 add A"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   << squash >> [..] add B"]);
+        .assert_current_line_eq(str!["┊●   << squash >> d3e2ba3 add B"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('T')))
-        .assert_current_line_eq(str!["┊●   << squash (use this message) >> [..] add B"]);
+        .assert_current_line_eq(str!["┊●   << squash (use this message) >> d3e2ba3 add B"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..] add B"]);
+        .assert_current_line_eq(str!["┊●   4788772 add B"]);
 }
 
 #[test]
@@ -341,19 +343,21 @@ fn rub_api_squash_commits_can_keep_source_message() {
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊●   << source >> << noop >> [..] add A"]);
+        .assert_current_line_eq(str!["┊●   << source >> << noop >> 9477ae7 add A"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   << squash >> [..] add B"]);
+        .assert_current_line_eq(str!["┊●   << squash >> d3e2ba3 add B"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('S')))
-        .assert_current_line_eq(str!["┊●   << squash (discard this message) >> [..] add B"]);
+        .assert_current_line_eq(str![
+            "┊●   << squash (discard this message) >> d3e2ba3 add B"
+        ]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   75eb901 add A"]);
 }
 
 // Tests RubOperation::CommittedFileToCommit.
@@ -368,19 +372,19 @@ fn rub_api_committed_file_to_commit_operation() {
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊│     [..] A A"]);
+        .assert_current_line_eq(str!["┊│     94:tm A A"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊│     << source >> << noop >> [..] A A"]);
+        .assert_current_line_eq(str!["┊│     << source >> << noop >> 94:tm A A"]);
 
     tui.input_then_render(KeyCode::Up)
-        .assert_current_line_eq(str!["┊●   << move file >> [..] add A"]);
+        .assert_current_line_eq(str!["┊●   << move file >> 9477ae7 add A"]);
 }
 
 // Tests RubOperation::CommittedFileToUnassigned.
@@ -395,16 +399,16 @@ fn rub_api_committed_file_to_unassigned_operation() {
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊│     [..] A A"]);
+        .assert_current_line_eq(str!["┊│     94:tm A A"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊│     << source >> << noop >> [..] A A"]);
+        .assert_current_line_eq(str!["┊│     << source >> << noop >> 94:tm A A"]);
 
     tui.input_then_render([KeyCode::Up, KeyCode::Up, KeyCode::Up])
         .assert_current_line_eq(str![
@@ -427,16 +431,16 @@ fn rub_api_unassigned_to_stack_operation() {
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   [..] A a.txt"]);
+        .assert_current_line_eq(str!["┊   nk A a.txt"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> [..] A a.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> nk A a.txt"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊●   << amend >> 9477ae7 add A"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   55d8e41 add A"]);
 }
 
 // Tests RubOperation::UncommittedToStack.
@@ -454,16 +458,16 @@ fn rub_api_uncommitted_to_stack_operation() {
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   [..] A a.txt"]);
+        .assert_current_line_eq(str!["┊   nk A a.txt"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> [..] A a.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> nk A a.txt"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊●   << amend >> 9477ae7 add A"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   55d8e41 add A"]);
 }
 
 // Tests RubOperation::StackToUnassigned.
@@ -480,16 +484,16 @@ fn rub_api_stack_to_unassigned_operation() {
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   [..] A test.txt"]);
+        .assert_current_line_eq(str!["┊   vo A test.txt"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> [..] A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vo A test.txt"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊●   << amend >> 9477ae7 add A"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   8474410 add A"]);
 }
 
 // Tests RubOperation::StackToStack.
@@ -507,16 +511,16 @@ fn rub_api_stack_to_stack_operation() {
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   [..] A[..]"]);
+        .assert_current_line_eq(str!["┊   tm M A"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> [..] A[..]"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> tm M A"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊●   << amend >> 9477ae7 add A"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   056a77b add A"]);
 
     tui.input_then_render([
         KeyCode::Up,
@@ -530,16 +534,16 @@ fn rub_api_stack_to_stack_operation() {
     .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   [..] B[..]"]);
+        .assert_current_line_eq(str!["┊   pl M B"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> [..] B[..]"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> pl M B"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   << amend >> d3e2ba3 add B"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..] add B"]);
+        .assert_current_line_eq(str!["┊●   7f2e16d add B"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('K')))
         .assert_current_line_eq(str!["┊╭┄h0 [B]"]);

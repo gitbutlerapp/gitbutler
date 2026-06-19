@@ -26,10 +26,10 @@ fn branch_key_from_commit_is_noop() {
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add B"]);
+        .assert_current_line_eq(str!["┊●   d3e2ba3 add B"]);
 
     tui.input_then_render('b')
-        .assert_current_line_eq(str!["┊●   [..] add B"]);
+        .assert_current_line_eq(str!["┊●   d3e2ba3 add B"]);
 }
 
 #[test]
@@ -161,7 +161,7 @@ fn inline_branch_reword_confirm_renames_branch() {
         .assert_current_line_eq(str!["┊╭┄g0 [new-name ]"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["[..] [new-name]"]);
+        .assert_current_line_eq(str!["┊╭┄ne [new-name]"]);
 }
 
 #[test]
@@ -204,10 +204,10 @@ fn inline_branch_reword_preserves_selection_after_reload_with_multiple_branches(
         .assert_current_line_eq(str!["┊╭┄g0 [renamed-a ]"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["[..] [renamed-a]"]);
+        .assert_current_line_eq(str!["┊╭┄re [renamed-a]"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
-        .assert_current_line_eq(str!["[..] [B]"]);
+        .assert_current_line_eq(str!["┊╭┄g0 [B]"]);
 }
 
 #[test]

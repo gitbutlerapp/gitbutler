@@ -85,7 +85,7 @@ fn commiting_with_no_unassigned_changes() {
         ]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"])
+        .assert_current_line_eq(str!["┊●   f184fc7 (no commit message) (no changes)"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commiting_with_no_unassigned_changes_003.svg"
         ]);
@@ -118,11 +118,11 @@ fn commit_from_unstaged_changes_creates_commit_visible_in_tui() {
 
     with_var("GIT_EDITOR", Some(editor_command), || {
         tui.input_then_render(KeyCode::Enter)
-            .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"]);
+            .assert_current_line_eq(str!["┊●   48fdc38 commit from tui test"]);
     });
 
     tui.reload()
-        .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"])
+        .assert_current_line_eq(str!["┊●   48fdc38 commit from tui test"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_from_unstaged_changes_creates_commit_visible_in_tui_final.svg"
         ]);
@@ -155,11 +155,11 @@ fn commit_from_unstaged_changes_to_new_branch_creates_branch_and_commit() {
 
     with_var("GIT_EDITOR", Some(editor_command), || {
         tui.input_then_render('b')
-            .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"]);
+            .assert_current_line_eq(str!["┊●   48fdc38 commit from tui test"]);
     });
 
     tui.reload()
-        .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"])
+        .assert_current_line_eq(str!["┊●   48fdc38 commit from tui test"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_from_unstaged_changes_to_new_branch_creates_branch_and_commit_final.svg"
         ]);
@@ -198,7 +198,7 @@ fn commit_from_unstaged_changes_with_multiple_hunks_in_same_file_commits_all_cha
 
     with_var("GIT_EDITOR", Some(editor_command.clone()), || {
         tui.input_then_render(KeyCode::Enter)
-            .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"]);
+            .assert_current_line_eq(str!["┊●   7f81dac commit from tui test"]);
     });
 
     let changed = base
@@ -227,7 +227,7 @@ fn commit_from_unstaged_changes_with_multiple_hunks_in_same_file_commits_all_cha
 
     with_var("GIT_EDITOR", Some(editor_command), || {
         tui.input_then_render(KeyCode::Enter)
-            .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"]);
+            .assert_current_line_eq(str!["┊●   ab9015b commit from tui test"]);
     });
 
     let status = tui.env().invoke_git("status --porcelain");
@@ -293,11 +293,11 @@ fn commit_to_commit_above_creates_commit_visible_in_tui() {
 
     with_var("GIT_EDITOR", Some(editor_command), || {
         tui.input_then_render(KeyCode::Enter)
-            .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"]);
+            .assert_current_line_eq(str!["┊●   48fdc38 commit from tui test"]);
     });
 
     tui.reload()
-        .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"])
+        .assert_current_line_eq(str!["┊●   48fdc38 commit from tui test"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_to_commit_above_creates_commit_visible_in_tui_final_002.svg"
         ]);
@@ -334,11 +334,11 @@ fn commit_to_commit_below_creates_commit_visible_in_tui() {
 
     with_var("GIT_EDITOR", Some(editor_command), || {
         tui.input_then_render(KeyCode::Enter)
-            .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"]);
+            .assert_current_line_eq(str!["┊●   584b4d0 commit from tui test"]);
     });
 
     tui.reload()
-        .assert_current_line_eq(str!["┊●   [..] commit from tui test[..]"])
+        .assert_current_line_eq(str!["┊●   584b4d0 commit from tui test"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_to_commit_below_creates_commit_visible_in_tui_final.svg"
         ]);
@@ -357,16 +357,16 @@ fn commit_mode_from_staged_changes_stays_within_current_stack() {
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   [..] A test.txt"]);
+        .assert_current_line_eq(str!["┊   vo A test.txt"]);
 
     tui.input_then_render('r')
-        .assert_current_line_eq(str!["┊   << source >> << noop >> [..] A test.txt"]);
+        .assert_current_line_eq(str!["┊   << source >> << noop >> vo A test.txt"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊●   << amend >> 9477ae7 add A"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   8474410 add A"]);
 
     tui.input_then_render([KeyCode::Up, KeyCode::Up])
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
@@ -379,7 +379,7 @@ fn commit_mode_from_staged_changes_stays_within_current_stack() {
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊●   [..] add A"])
+        .assert_current_line_eq(str!["┊●   8474410 add A"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_mode_from_staged_changes_stays_within_current_stack_001.svg"
         ]);
@@ -430,13 +430,13 @@ fn commit_with_inline_reword() {
         .assert_rendered_term_svg_eq(file!["snapshots/commit_with_inline_reword_004.svg"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..]"]);
+        .assert_current_line_eq(str!["┊●   6bdd3d2"]);
 
     tui.input_then_render("commit message here")
-        .assert_current_line_eq(str!["┊●   [..] commit message here"]);
+        .assert_current_line_eq(str!["┊●   6bdd3d2 commit message here"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..] commit message here"]);
+        .assert_current_line_eq(str!["┊●   072c144 commit message here"]);
 }
 
 #[test]
@@ -508,7 +508,7 @@ fn commit_moved_file_from_file_line() {
 
     // commit the moved file via the file list, not [unassigned changes]
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str![["┊   [..] R moved-test.txt"]]);
+        .assert_current_line_eq(str![["┊   yw R moved-test.txt"]]);
     tui.input_then_render('c');
     tui.input_then_render(KeyCode::Down);
     tui.input_then_render('i');
@@ -582,7 +582,7 @@ fn cannot_select_unassigned_files_with_commits_marked() {
     tui.input_then_render('j');
     tui.input_then_render('j');
     tui.input_then_render(' ')
-        .assert_current_line_eq(str![["┊✔︎   [..] add A"]]);
+        .assert_current_line_eq(str![["┊✔︎   9477ae7 add A"]]);
 
     // moving up selects the branch
     tui.input_then_render('k')
@@ -609,11 +609,11 @@ fn cannot_select_committed_files_with_commits_marked() {
     tui.input_then_render('j');
     tui.input_then_render('j');
     tui.input_then_render(' ')
-        .assert_current_line_eq(str![["┊✔︎   [..] add A"]]);
+        .assert_current_line_eq(str![["┊✔︎   9477ae7 add A"]]);
 
     // cannot open the file list with marked commits
     tui.input_then_render('f')
-        .assert_current_line_eq(str![["┊✔︎   [..] add A"]]);
+        .assert_current_line_eq(str![["┊✔︎   9477ae7 add A"]]);
 }
 
 #[test]
@@ -632,13 +632,13 @@ fn cannot_select_committed_files_from_global_listing_with_commits_marked() {
     tui.input_then_render('j');
     tui.input_then_render('j');
     tui.input_then_render(' ')
-        .assert_current_line_eq(str![["┊✔︎   [..] add A"]]);
+        .assert_current_line_eq(str![["┊✔︎   9477ae7 add A"]]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
-        .assert_current_line_eq(str![["┊✔︎   [..] add A"]]);
+        .assert_current_line_eq(str![["┊✔︎   9477ae7 add A"]]);
 
     tui.input_then_render('j')
-        .assert_current_line_eq(str![["┊✔︎   [..] add A"]])
+        .assert_current_line_eq(str![["┊✔︎   9477ae7 add A"]])
         .assert_rendered_term_svg_eq(file!["snapshots/cannot_select_committed_files_from_global_listing_with_commits_marked_showing_global_file_list.svg"]);
 
     // the global file list can be closed with f
