@@ -288,6 +288,29 @@ const branchListingToApplyBranchPickerOptions = (
 	}));
 };
 
+const groupApplyBranchPickerOptions = (
+	items: Array<ApplyBranchPickerOption>,
+): Array<PickerDialogGroup<ApplyBranchPickerOption>> =>
+	Array.from(
+		Map.groupBy(items, (item) => item.type),
+		([value, items]): PickerDialogGroup<ApplyBranchPickerOption> => ({
+			value,
+			items: items.toSorted(
+				value === "Local"
+					? Order.combineAll<ApplyBranchPickerOption>([
+							Order.mapInput(Order.reverse(Order.number), (option) => option.updatedAt),
+							Order.mapInput(Order.string, (option) => option.label),
+						])
+					: Order.mapInput(Order.string, (option: ApplyBranchPickerOption) => option.label),
+			),
+		}),
+	).toSorted(
+		Order.combineAll<PickerDialogGroup<ApplyBranchPickerOption>>([
+			Order.mapInput(Order.boolean, (group) => group.value !== "Local"),
+			Order.mapInput(Order.string, (group) => group.value),
+		]),
+	);
+
 const ApplyBranchPicker: FC<{
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -298,25 +321,6 @@ const ApplyBranchPicker: FC<{
 	);
 	const [now] = useState(() => Date.now());
 	const items = (branchesQuery.data ?? []).flatMap(branchListingToApplyBranchPickerOptions);
-	const groups = Array.from(
-		Map.groupBy(items, (item) => item.type),
-		([value, items]): PickerDialogGroup<ApplyBranchPickerOption> => ({
-			value,
-			items: items.toSorted(
-				value === "Local"
-					? Order.combineAll([
-							Order.mapInput(Order.reverse(Order.number), (option) => option.updatedAt),
-							Order.mapInput(Order.string, (option) => option.label),
-						])
-					: Order.mapInput(Order.string, (option) => option.label),
-			),
-		}),
-	).toSorted(
-		Order.combineAll([
-			Order.mapInput(Order.boolean, (group) => group.value !== "Local"),
-			Order.mapInput(Order.string, (group) => group.value),
-		]),
-	);
 	const apply = useApply();
 	const statusLabel =
 		items.length === 0
@@ -341,7 +345,7 @@ const ApplyBranchPicker: FC<{
 			getItemLabel={(x) => x.label}
 			getItemType={(x) => formatRelativeTime(x.updatedAt, now)}
 			itemToStringValue={(x) => x.label}
-			items={groups}
+			items={groupApplyBranchPickerOptions(items)}
 			open={open}
 			onOpenChange={onOpenChange}
 			onSelectItem={selectBranch}
