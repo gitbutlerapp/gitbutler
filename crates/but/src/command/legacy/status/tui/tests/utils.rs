@@ -8,7 +8,7 @@ use ratatui::{
     backend::TestBackend,
     style::{Color, Modifier},
 };
-use temp_env::with_var;
+use temp_env::with_vars;
 
 use crate::{
     args::OutputFormat,
@@ -77,6 +77,9 @@ pub(super) fn test_tui_with_options(env: Sandbox, options: TestTuiOptions) -> Te
 
     env.invoke_git("config user.name committer");
     env.invoke_git("config user.email committer@example.com");
+    env.invoke_git("config gitoxide.commit.authorDate '2000-01-01 00:00:00 +0000'");
+    env.invoke_git("config gitoxide.commit.committerDate '2000-01-01 00:00:00 +0000'");
+    env.invoke_git("config gitbutler.testing.changeId 1");
 
     let mut ctx = env.context().expect("failed to create context");
     let mode = but_api::legacy::modes::operating_mode(&ctx)
@@ -124,6 +127,32 @@ pub(super) fn test_tui_with_options(env: Sandbox, options: TestTuiOptions) -> Te
     }
 }
 
+pub(super) fn with_stable_commit_env<R>(closure: impl FnOnce() -> R) -> R {
+    with_vars(
+        [
+            ("GIT_AUTHOR_DATE", Some("2000-01-01 00:00:00 +0000")),
+            ("GIT_AUTHOR_EMAIL", Some("author@example.com")),
+            ("GIT_AUTHOR_NAME", Some("author")),
+            ("GIT_COMMITTER_DATE", Some("2000-01-01 00:00:00 +0000")),
+            ("GIT_COMMITTER_EMAIL", Some("committer@example.com")),
+            ("GIT_COMMITTER_NAME", Some("committer")),
+            ("TZ", Some("UTC0")),
+            ("GIT_CONFIG_COUNT", Some("5")),
+            ("GIT_CONFIG_KEY_0", Some("commit.gpgsign")),
+            ("GIT_CONFIG_VALUE_0", Some("false")),
+            ("GIT_CONFIG_KEY_1", Some("tag.gpgsign")),
+            ("GIT_CONFIG_VALUE_1", Some("false")),
+            ("GIT_CONFIG_KEY_2", Some("init.defaultBranch")),
+            ("GIT_CONFIG_VALUE_2", Some("main")),
+            ("GIT_CONFIG_KEY_3", Some("protocol.file.allow")),
+            ("GIT_CONFIG_VALUE_3", Some("always")),
+            ("GIT_CONFIG_KEY_4", Some("gitbutler.testing.changeId")),
+            ("GIT_CONFIG_VALUE_4", Some("1")),
+        ],
+        closure,
+    )
+}
+
 impl TestTui {
     #[track_caller]
     pub(super) fn env(&self) -> &Sandbox {
@@ -155,25 +184,23 @@ impl TestTui {
     where
         E: EventPolling,
     {
-        let mut ctx = self.env().context().expect("failed to create context");
         let mut other_messages = Vec::new();
 
-        with_var("GIT_AUTHOR_DATE", Some("2000-01-01T00:00:00Z"), || {
-            with_var("GIT_COMMITTER_DATE", Some("2000-01-01T00:00:00Z"), || {
-                let mut out = TestTuiInputOutputChannel(&mut self.out);
-                render_loop_once(
-                    &mut self.app,
-                    &mut self.terminal,
-                    event,
-                    &mut messages,
-                    &mut other_messages,
-                    &AtomicBool::default(),
-                    &mut ctx,
-                    &mut out,
-                    &self.mode,
-                )
-                .unwrap();
-            });
+        with_stable_commit_env(|| {
+            let mut ctx = self.env().context().expect("failed to create context");
+            let mut out = TestTuiInputOutputChannel(&mut self.out);
+            render_loop_once(
+                &mut self.app,
+                &mut self.terminal,
+                event,
+                &mut messages,
+                &mut other_messages,
+                &AtomicBool::default(),
+                &mut ctx,
+                &mut out,
+                &self.mode,
+            )
+            .unwrap();
         });
 
         TestTuiInputThenRenderResult(self)
@@ -479,18 +506,11 @@ fn backend_to_svg(backend: &TestBackend) -> String {
     ));
 
     for y in area.y..area.y.saturating_add(area.height) {
-        let volatile_spans = volatile_id_spans_in_row(buffer, area, y);
-
         for x in area.x..area.x.saturating_add(area.width) {
-            if volatile_id_skip_cell(&volatile_spans, x) {
-                continue;
-            }
-
             let cell = &buffer[(x, y)];
             let bg = color_to_rgb(cell.bg, default_bg);
             if bg != default_bg {
-                let mapped_x = x.saturating_sub(volatile_id_shift_for_x(&volatile_spans, x));
-                let rect_x = PADDING + (mapped_x - area.x) * CELL_WIDTH;
+                let rect_x = PADDING + (x - area.x) * CELL_WIDTH;
                 let rect_y = PADDING + (y - area.y) * CELL_HEIGHT;
                 svg.push_str(&format!(
                     "  <rect x=\"{rect_x}\" y=\"{rect_y}\" width=\"{CELL_WIDTH}\" height=\"{CELL_HEIGHT}\" fill=\"{}\" />\n",
@@ -501,14 +521,9 @@ fn backend_to_svg(backend: &TestBackend) -> String {
     }
 
     for y in area.y..area.y.saturating_add(area.height) {
-        let volatile_spans = volatile_id_spans_in_row(buffer, area, y);
         let text_y = PADDING + (y - area.y + 1) * CELL_HEIGHT - 4;
 
         for x in area.x..area.x.saturating_add(area.width) {
-            if volatile_id_skip_cell(&volatile_spans, x) {
-                continue;
-            }
-
             let cell = &buffer[(x, y)];
             let symbol = cell.symbol();
             if symbol.is_empty() || symbol == " " {
@@ -521,24 +536,8 @@ fn backend_to_svg(backend: &TestBackend) -> String {
                 std::mem::swap(&mut fg, &mut bg);
             }
 
-            let mapped_x = x.saturating_sub(volatile_id_shift_for_x(&volatile_spans, x));
-            let text_x = PADDING + (mapped_x - area.x) * CELL_WIDTH;
-            let normalize_hash_start = short_hash_start_for_cell(buffer, area, x, y);
-            let normalize_hash_cell = normalize_hash_start.is_some();
-            let normalize_hash_tail =
-                normalize_hash_start.is_some_and(|start| x >= start.saturating_add(2));
-            let normalize_volatile_id_cell = volatile_id_hex_prefix_cell(buffer, area, x, y);
-            let normalize_long_hash = long_hash_cell(buffer, area, x, y);
-            let symbol = if normalize_hash_cell || normalize_volatile_id_cell || normalize_long_hash
-            {
-                "0"
-            } else {
-                symbol
-            };
-
-            let style = if normalize_hash_tail {
-                format!("fill:{};opacity:0.75;", rgb_hex(default_fg))
-            } else {
+            let text_x = PADDING + (x - area.x) * CELL_WIDTH;
+            let style = {
                 let mut style = format!("fill:{};", rgb_hex(fg));
                 if cell.modifier.contains(Modifier::BOLD) {
                     style.push_str("font-weight:bold;");
@@ -567,286 +566,6 @@ fn backend_to_svg(backend: &TestBackend) -> String {
 
     svg.push_str("</svg>\n");
     svg
-}
-
-#[derive(Clone, Copy)]
-struct VolatileIdSpan {
-    hex_start: u16,
-    hex_end: u16,
-}
-
-impl VolatileIdSpan {
-    fn hex_len(self) -> u16 {
-        self.hex_end
-            .saturating_sub(self.hex_start)
-            .saturating_add(1)
-    }
-
-    fn collapsed_cells(self) -> u16 {
-        self.hex_len().saturating_sub(2)
-    }
-
-    fn skip_cell(self, x: u16) -> bool {
-        x > self.hex_start.saturating_add(1) && x <= self.hex_end
-    }
-
-    fn shift_for_x(self, x: u16) -> u16 {
-        if x > self.hex_start.saturating_add(1) {
-            self.collapsed_cells()
-        } else {
-            0
-        }
-    }
-}
-
-fn volatile_id_spans_in_row(
-    buffer: &ratatui::buffer::Buffer,
-    area: ratatui::layout::Rect,
-    y: u16,
-) -> Vec<VolatileIdSpan> {
-    let mut spans = Vec::new();
-    let row_start = area.x;
-    let row_end = area.x.saturating_add(area.width);
-
-    let mut x = row_start;
-    while x < row_end {
-        if let Some(span) = volatile_id_span_starting_at(buffer, area, x, y) {
-            spans.push(span);
-            x = span.hex_end.saturating_add(1);
-        } else {
-            x = x.saturating_add(1);
-        }
-    }
-
-    spans
-}
-
-fn volatile_id_span_starting_at(
-    buffer: &ratatui::buffer::Buffer,
-    area: ratatui::layout::Rect,
-    x: u16,
-    y: u16,
-) -> Option<VolatileIdSpan> {
-    let row_end = area.x.saturating_add(area.width);
-    let is_blue_bold = |cell: &ratatui::buffer::Cell| {
-        matches!(cell.fg, Color::Blue) && cell.modifier.contains(Modifier::BOLD)
-    };
-
-    if !is_blue_bold_hex_cell(&buffer[(x, y)]) {
-        return None;
-    }
-
-    if x > area.x && is_blue_bold_hex_cell(&buffer[(x.saturating_sub(1), y)]) {
-        return None;
-    }
-
-    let mut hex_end = x;
-    while hex_end.saturating_add(1) < row_end
-        && is_blue_bold_hex_cell(&buffer[(hex_end.saturating_add(1), y)])
-    {
-        hex_end = hex_end.saturating_add(1);
-    }
-
-    if hex_end <= x {
-        return None;
-    }
-
-    let colon_x = hex_end.checked_add(1)?;
-    let label_first_x = hex_end.checked_add(2)?;
-    let label_second_x = hex_end.checked_add(3)?;
-    if label_second_x >= row_end {
-        return None;
-    }
-
-    let colon = &buffer[(colon_x, y)];
-    if !is_blue_bold(colon) || colon.symbol() != ":" {
-        return None;
-    }
-
-    let is_blue_bold_lower = |cell: &ratatui::buffer::Cell| {
-        is_blue_bold(cell)
-            && cell
-                .symbol()
-                .chars()
-                .next()
-                .is_some_and(|c| c.is_ascii_lowercase())
-    };
-
-    if !is_blue_bold_lower(&buffer[(label_first_x, y)])
-        || !is_blue_bold_lower(&buffer[(label_second_x, y)])
-    {
-        return None;
-    }
-
-    Some(VolatileIdSpan {
-        hex_start: x,
-        hex_end,
-    })
-}
-
-fn volatile_id_skip_cell(spans: &[VolatileIdSpan], x: u16) -> bool {
-    spans.iter().any(|span| span.skip_cell(x))
-}
-
-fn volatile_id_shift_for_x(spans: &[VolatileIdSpan], x: u16) -> u16 {
-    spans.iter().map(|span| span.shift_for_x(x)).sum()
-}
-
-fn is_single_ascii_hex(symbol: &str) -> bool {
-    symbol.chars().count() == 1 && symbol.chars().next().is_some_and(|c| c.is_ascii_hexdigit())
-}
-
-fn is_blue_bold_hex_cell(cell: &ratatui::buffer::Cell) -> bool {
-    matches!(cell.fg, Color::Blue)
-        && cell.modifier.contains(Modifier::BOLD)
-        && is_single_ascii_hex(cell.symbol())
-}
-
-fn is_commit_id_hex_cell(cell: &ratatui::buffer::Cell) -> bool {
-    let commit_id_fg = crate::theme::get().commit_id.fg;
-    commit_id_fg.is_some_and(|color| cell.fg == color) && is_single_ascii_hex(cell.symbol())
-}
-
-fn short_hash_start_for_cell(
-    buffer: &ratatui::buffer::Buffer,
-    area: ratatui::layout::Rect,
-    x: u16,
-    y: u16,
-) -> Option<u16> {
-    if !is_single_ascii_hex(buffer[(x, y)].symbol()) {
-        return None;
-    }
-
-    let row_start = area.x;
-    let row_end = area.x.saturating_add(area.width);
-    let search_start = x.saturating_sub(6).max(row_start);
-
-    for start in search_start..=x {
-        let Some(end) = start.checked_add(6) else {
-            continue;
-        };
-        if end >= row_end {
-            continue;
-        }
-
-        if !is_blue_bold_hex_cell(&buffer[(start, y)])
-            || !is_blue_bold_hex_cell(&buffer[(start.saturating_add(1), y)])
-        {
-            continue;
-        }
-
-        if (start..=end).all(|cell_x| is_single_ascii_hex(buffer[(cell_x, y)].symbol())) {
-            return Some(start);
-        }
-    }
-
-    None
-}
-
-/// Detect cells that are part of a full commit ID (40-char commit_id-colored hex sequence),
-/// as rendered in the details view.
-fn long_hash_cell(
-    buffer: &ratatui::buffer::Buffer,
-    area: ratatui::layout::Rect,
-    x: u16,
-    y: u16,
-) -> bool {
-    if !is_commit_id_hex_cell(&buffer[(x, y)]) {
-        return false;
-    }
-
-    let row_start = area.x;
-    let row_end = area.x.saturating_add(area.width);
-
-    // Walk left to find the start of the commit ID hex run
-    let mut start = x;
-    while start > row_start && is_commit_id_hex_cell(&buffer[(start.saturating_sub(1), y)]) {
-        start = start.saturating_sub(1);
-    }
-
-    // Walk right to find the end
-    let mut end = x;
-    while end.saturating_add(1) < row_end
-        && is_commit_id_hex_cell(&buffer[(end.saturating_add(1), y)])
-    {
-        end = end.saturating_add(1);
-    }
-
-    // A full SHA is 40 hex chars; accept runs of 20+ to be safe
-    let len = end.saturating_sub(start).saturating_add(1);
-    len >= 20
-}
-
-fn volatile_id_hex_prefix_cell(
-    buffer: &ratatui::buffer::Buffer,
-    area: ratatui::layout::Rect,
-    x: u16,
-    y: u16,
-) -> bool {
-    if !is_single_ascii_hex(buffer[(x, y)].symbol()) {
-        return false;
-    }
-
-    let row_start = area.x;
-    let row_end = area.x.saturating_add(area.width);
-    let is_blue_bold = |cell: &ratatui::buffer::Cell| {
-        matches!(cell.fg, Color::Blue) && cell.modifier.contains(Modifier::BOLD)
-    };
-
-    let mut hex_start = x;
-    while hex_start > row_start {
-        let prev_x = hex_start.saturating_sub(1);
-        let prev_cell = &buffer[(prev_x, y)];
-        if !is_blue_bold_hex_cell(prev_cell) {
-            break;
-        }
-        hex_start = prev_x;
-    }
-
-    let mut hex_end = x;
-    while hex_end.saturating_add(1) < row_end {
-        let next_x = hex_end.saturating_add(1);
-        let next_cell = &buffer[(next_x, y)];
-        if !is_blue_bold_hex_cell(next_cell) {
-            break;
-        }
-        hex_end = next_x;
-    }
-
-    if hex_end == hex_start {
-        return false;
-    }
-
-    let Some(colon_x) = hex_end.checked_add(1) else {
-        return false;
-    };
-    let Some(label_first_x) = hex_end.checked_add(2) else {
-        return false;
-    };
-    let Some(label_second_x) = hex_end.checked_add(3) else {
-        return false;
-    };
-    if label_second_x >= row_end {
-        return false;
-    }
-
-    let colon = &buffer[(colon_x, y)];
-    if !is_blue_bold(colon) || colon.symbol() != ":" {
-        return false;
-    }
-
-    let label_first = &buffer[(label_first_x, y)];
-    let label_second = &buffer[(label_second_x, y)];
-    let is_blue_bold_lower = |cell: &ratatui::buffer::Cell| {
-        is_blue_bold(cell)
-            && cell
-                .symbol()
-                .chars()
-                .next()
-                .is_some_and(|c| c.is_ascii_lowercase())
-    };
-
-    is_blue_bold_lower(label_first) && is_blue_bold_lower(label_second)
 }
 
 fn color_to_rgb(color: Color, default: (u8, u8, u8)) -> (u8, u8, u8) {

@@ -245,7 +245,7 @@ fn basic_cursor_movement() {
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"]);
@@ -285,7 +285,7 @@ fn movement_aliases_j_k() {
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render('j')
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render('k')
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -354,7 +354,7 @@ fn shift_k_from_second_stack_commit_moves_to_its_header() {
         .assert_current_line_eq(str!["┊╭┄h0 [B]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊●   [..]"]);
+        .assert_current_line_eq(str!["┊●   d3e2ba3 add B"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('K')))
         .assert_current_line_eq(str!["┊╭┄h0 [B]"]);
@@ -384,7 +384,7 @@ fn cursor_movement_scrolls_viewport_down() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/cursor_movement_scrolls_viewport_down_002.svg"
         ])
-        .assert_current_line_eq(str!["┊●   [..] add B"]);
+        .assert_current_line_eq(str!["┊●   d3e2ba3 add B"]);
 }
 
 #[test]
@@ -405,7 +405,7 @@ fn cursor_movement_scrolls_viewport_up() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/cursor_movement_scrolls_viewport_up_001.svg"
         ])
-        .assert_current_line_eq(str!["┊●   [..] add B"]);
+        .assert_current_line_eq(str!["┊●   d3e2ba3 add B"]);
 
     tui.input_then_render([KeyCode::Up, KeyCode::Up, KeyCode::Up, KeyCode::Up])
         .assert_rendered_term_svg_eq(file![
@@ -523,7 +523,7 @@ fn reload_preserves_visible_selection_when_scrolled() {
     .assert_rendered_term_svg_eq(file![
         "snapshots/reload_preserves_visible_selection_when_scrolled_001.svg"
     ])
-    .assert_current_line_eq(str!["┊●   [..] add B"]);
+    .assert_current_line_eq(str!["┊●   d3e2ba3 add B"]);
 }
 
 #[test]
@@ -550,7 +550,7 @@ fn inline_reword_renders_on_visible_row_when_scrolled() {
     .assert_rendered_term_svg_eq(file![
         "snapshots/inline_reword_renders_on_visible_row_when_scrolled_001.svg"
     ])
-    .assert_current_line_eq(str!["┊●   [..] add B"]);
+    .assert_current_line_eq(str!["┊●   d3e2ba3 add B"]);
 }
 
 #[test]
@@ -569,11 +569,11 @@ fn creating_empty_commits() {
 
     tui.input_then_render('n')
         .assert_rendered_term_svg_eq(file!["snapshots/creating_empty_commits_002.svg"])
-        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
+        .assert_current_line_eq(str!["┊●   f184fc7 (no commit message) (no changes)"]);
 
     tui.input_then_render('n')
         .assert_rendered_term_svg_eq(file!["snapshots/creating_empty_commits_003.svg"])
-        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
+        .assert_current_line_eq(str!["┊●   9638f28 (no commit message) (no changes)"]);
 }
 
 #[test]
@@ -592,7 +592,7 @@ fn inline_reword() {
 
     tui.input_then_render('n')
         .assert_rendered_term_svg_eq(file!["snapshots/inline_reword_002.svg"])
-        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
+        .assert_current_line_eq(str!["┊●   f184fc7 (no commit message) (no changes)"]);
 
     tui.input_then_render(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/inline_reword_003.svg"]);
@@ -602,7 +602,7 @@ fn inline_reword() {
 
     tui.input_then_render(KeyCode::Enter)
         .assert_rendered_term_svg_eq(file!["snapshots/inline_reword_005.svg"])
-        .assert_current_line_eq(str!["┊●   [..] foo (no changes)"]);
+        .assert_current_line_eq(str!["┊●   cb96911 foo (no changes)"]);
 }
 
 #[test]
@@ -617,7 +617,7 @@ fn inline_reword_open_editor_keeps_inline_message_when_editor_makes_no_changes()
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render(KeyCode::Enter);
     tui.input_then_render(" updated")
@@ -625,7 +625,7 @@ fn inline_reword_open_editor_keeps_inline_message_when_editor_makes_no_changes()
 
     with_var("GIT_EDITOR", Some(editor_command), || {
         tui.input_then_render((KeyModifiers::ALT, KeyCode::Char('e')))
-            .assert_current_line_eq(str!["┊●   [..] add A updated"]);
+            .assert_current_line_eq(str!["┊●   711ccd7 add A updated"]);
     });
 }
 
@@ -696,7 +696,7 @@ fn rub_mode_shift_j_lands_on_first_selectable_in_next_branch() {
         .assert_current_line_eq(str!["┊   << source >> << noop >> vo A test.txt"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
-        .assert_current_line_eq(str!["┊●   << amend >> [..] add A"]);
+        .assert_current_line_eq(str!["┊●   << amend >> 9477ae7 add A"]);
 }
 
 #[test]
@@ -717,10 +717,10 @@ fn rub_mode_shift_j_can_jump_between_branches() {
         .assert_current_line_eq(str!["┊   << source >> << noop >> vo A test.txt"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
-        .assert_current_line_eq(str!["┊●   << amend >> [..] add A"]);
+        .assert_current_line_eq(str!["┊●   << amend >> 9477ae7 add A"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
-        .assert_current_line_eq(str!["┊●   << amend >> [..] add B"]);
+        .assert_current_line_eq(str!["┊●   << amend >> d3e2ba3 add B"]);
 }
 
 #[test]
@@ -741,13 +741,13 @@ fn rub_mode_shift_k_jumps_to_first_selectable_in_previous_branch() {
         .assert_current_line_eq(str!["┊   << source >> << noop >> vo A test.txt"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
-        .assert_current_line_eq(str!["┊●   << amend >> [..] add A"]);
+        .assert_current_line_eq(str!["┊●   << amend >> 9477ae7 add A"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
-        .assert_current_line_eq(str!["┊●   << amend >> [..] add B"]);
+        .assert_current_line_eq(str!["┊●   << amend >> d3e2ba3 add B"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('K')))
-        .assert_current_line_eq(str!["┊●   << amend >> [..] add A"]);
+        .assert_current_line_eq(str!["┊●   << amend >> 9477ae7 add A"]);
 }
 
 #[test]
@@ -829,7 +829,7 @@ fn rubbing() {
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render('n')
-        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
+        .assert_current_line_eq(str!["┊●   f184fc7 (no commit message) (no changes)"]);
 
     tui.input_then_render([KeyCode::Up, KeyCode::Up])
         .assert_current_line_eq(str!["┊   vo A test.txt"]);
@@ -838,10 +838,12 @@ fn rubbing() {
         .assert_current_line_eq(str!["┊   << source >> << noop >> vo A test.txt"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊●   << amend >> [..]"]);
+        .assert_current_line_eq(str![
+            "┊●   << amend >> f184fc7 (no commit message) (no changes)"
+        ]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊●   << amend >> [..]"]);
+        .assert_current_line_eq(str!["┊●   << amend >> 9477ae7 add A"]);
 
     tui.input_then_render(KeyCode::Enter);
     // that you end up on zz is a bug but requires moving the rub implementation to use but-api
@@ -870,13 +872,13 @@ fn global_file_list_does_not_restrict_cursor() {
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊│     [..] A A"]);
+        .assert_current_line_eq(str!["┊│     94:tm A A"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
         .assert_current_line_eq(str!["┊╭┄h0 [B]"])
@@ -893,16 +895,16 @@ fn commit_file_list_scopes_cursor_to_files_in_selected_commit() {
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render('f')
-        .assert_current_line_eq(str!["┊│     [..] A A"]);
+        .assert_current_line_eq(str!["┊│     94:tm A A"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊│     [..] A A"]);
+        .assert_current_line_eq(str!["┊│     94:tm A A"]);
 
     tui.input_then_render(KeyCode::Up)
-        .assert_current_line_eq(str!["┊│     [..] A A"])
+        .assert_current_line_eq(str!["┊│     94:tm A A"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_file_list_scopes_cursor_to_files_in_selected_commit_final.svg"
         ]);
@@ -928,12 +930,12 @@ fn commit_file_toggle_on_commit_without_files_is_noop() {
     with_var("GIT_AUTHOR_DATE", Some("2000-01-01T00:00:00Z"), || {
         with_var("GIT_COMMITTER_DATE", Some("2000-01-01T00:00:00Z"), || {
             tui.input_then_render('n')
-                .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
+                .assert_current_line_eq(str!["┊●   f184fc7 (no commit message) (no changes)"]);
         });
     });
 
     tui.input_then_render('f')
-        .assert_current_line_eq(str!["┊●   [..] (no commit message) (no changes)"]);
+        .assert_current_line_eq(str!["┊●   f184fc7 (no commit message) (no changes)"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"])
@@ -950,10 +952,10 @@ fn commit_file_list_rub_esc_leaves_rub_and_closes_file_list() {
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render('f')
-        .assert_current_line_eq(str!["┊│     [..] A A"]);
+        .assert_current_line_eq(str!["┊│     94:tm A A"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('R')))
         .assert_current_line_eq(str!["┊│     94:tm A A"]);
@@ -962,7 +964,7 @@ fn commit_file_list_rub_esc_leaves_rub_and_closes_file_list() {
         .assert_current_line_eq(str!["┊│     94:tm A A"]);
 
     tui.input_then_render(KeyCode::Esc)
-        .assert_current_line_eq(str!["┊●   [..] add A"])
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_file_list_rub_esc_leaves_rub_and_closes_file_list_final.svg"
         ]);
@@ -976,10 +978,10 @@ fn confirm_rub_keeps_commit_file_list_open() {
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render('f')
-        .assert_current_line_eq(str!["┊│     [..] A A"]);
+        .assert_current_line_eq(str!["┊│     94:tm A A"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('R')))
         .assert_current_line_eq(str!["┊│     94:tm A A"]);
@@ -999,16 +1001,16 @@ fn esc_in_normal_mode_closes_global_file_list() {
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊│     [..] A A"]);
+        .assert_current_line_eq(str!["┊│     94:tm A A"]);
 
     tui.input_then_render(KeyCode::Esc)
-        .assert_current_line_eq(str!["┊●   [..] add A"])
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/esc_in_normal_mode_closes_global_file_list_final.svg"
         ]);
@@ -1022,13 +1024,13 @@ fn esc_in_normal_mode_closes_commit_file_list() {
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render('f')
-        .assert_current_line_eq(str!["┊│     [..] A A"]);
+        .assert_current_line_eq(str!["┊│     94:tm A A"]);
 
     tui.input_then_render(KeyCode::Esc)
-        .assert_current_line_eq(str!["┊●   [..] add A"])
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/esc_in_normal_mode_closes_commit_file_list_final.svg"
         ]);
@@ -1042,13 +1044,13 @@ fn commit_file_toggle_off_from_commit_row_preserves_commit_selection() {
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render('f')
-        .assert_current_line_eq(str!["┊●   [..] add A"])
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_file_toggle_off_from_commit_row_preserves_commit_selection_final.svg"
         ]);
@@ -1175,4 +1177,16 @@ fn pick_changes_mode_supports_focusing_details_view() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/pick_changes_mode_supports_focusing_details_view_001.svg"
         ]);
+}
+
+#[test]
+fn consistent_commit_shas_in_tests() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('b');
+    tui.input_then_render('n')
+        .assert_current_line_eq("┊●   0b42c46 (no commit message) (no changes)");
 }

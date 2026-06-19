@@ -12,13 +12,13 @@ fn marking_individual_commit_toggles_mark_indicator() {
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render(' ')
         .assert_current_line_eq(str!["┊✔︎   9477ae7 add A"]);
 
     tui.input_then_render(' ')
-        .assert_current_line_eq(str!["┊●   [..] add A"])
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/marking_individual_commit_toggles_mark_indicator_final.svg"
         ]);
@@ -59,16 +59,16 @@ fn marking_unassigned_toggles_all_unassigned_files() {
         .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊✔︎  [..] A a.txt"]);
+        .assert_current_line_eq(str!["┊✔︎  nk A a.txt"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊✔︎  [..] A b.txt"]);
+        .assert_current_line_eq(str!["┊✔︎  pn A b.txt"]);
 
     tui.input_then_render('g');
     tui.input_then_render(' ');
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊   [..] A a.txt"]);
+        .assert_current_line_eq(str!["┊   nk A a.txt"]);
 }
 
 #[test]
@@ -79,7 +79,7 @@ fn multi_squash_marked_commits_into_selected_marked_target() {
     let mut tui = test_tui(env);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊●   [..] add A"]);
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
 
     tui.input_then_render(' ')
         .assert_current_line_eq(str!["┊✔︎   9477ae7 add A"]);
@@ -88,7 +88,7 @@ fn multi_squash_marked_commits_into_selected_marked_target() {
         .assert_current_line_eq(str!["┊╭┄h0 [B]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊●   [..] add B"]);
+        .assert_current_line_eq(str!["┊●   d3e2ba3 add B"]);
 
     tui.input_then_render(' ')
         .assert_current_line_eq(str!["┊✔︎   d3e2ba3 add B"]);
@@ -97,7 +97,7 @@ fn multi_squash_marked_commits_into_selected_marked_target() {
         .assert_current_line_eq(str!["┊✔︎   << source >> << squash >> d3e2ba3 add B"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["┊●   [..] add B"])
+        .assert_current_line_eq(str!["┊●   377fa8b add B"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/multi_squash_marked_commits_into_selected_marked_target_final.svg"
         ]);

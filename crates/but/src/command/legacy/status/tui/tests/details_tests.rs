@@ -471,8 +471,9 @@ fn rubbing_from_full_screen_details() {
             "snapshots/rubbing_from_full_screen_details_rubbing.svg"
         ]);
 
-    tui.input_then_render('j')
-        .assert_current_line_eq(str![["┊●   << amend >> [..] add A[..]"]]);
+    tui.input_then_render('j').assert_current_line_eq(str![[
+        "┊●   << amend >> 9477ae7 add A                    │@@ -1,0 +1,1 @@"
+    ]]);
 
     // The details view should close. The split shouldn't show either
     tui.input_then_render(KeyCode::Enter)
@@ -499,8 +500,9 @@ fn rubbing_from_split_details() {
     tui.render_with_messages('r', Vec::new())
         .assert_rendered_term_svg_eq(file!["snapshots/rubbing_from_split_details_rubbing.svg"]);
 
-    tui.input_then_render('j')
-        .assert_current_line_eq(str![["┊●   << amend >> [..] add A[..]"]]);
+    tui.input_then_render('j').assert_current_line_eq(str![[
+        "┊●   << amend >> 9477ae7 add A                    │@@ -1,0 +1,1 @@"
+    ]]);
 
     // the details view should remain open
     tui.input_then_render(KeyCode::Enter)
