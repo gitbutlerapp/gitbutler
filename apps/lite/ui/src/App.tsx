@@ -7,7 +7,6 @@ import { StrictMode } from "react";
 import { Provider } from "react-redux";
 import { store } from "#ui/store.ts";
 import { Toasts } from "#ui/components/Toasts.tsx";
-import { Updater } from "#ui/Updater.tsx";
 import { AskpassPromptDialog } from "#ui/AskpassPromptDialog.tsx";
 
 const workerFactory = (): Worker =>
@@ -31,7 +30,6 @@ export const App: React.FC<{
 						>
 							<RouterProvider router={router} />
 							<AskpassPromptDialog />
-							<Updater />
 							<Toasts />
 						</WorkerPoolContextProvider>
 					</Tooltip.Provider>

@@ -1,19 +1,32 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, dialog } from "electron";
 import electronUpdater, { type AppUpdater, type UpdateDownloadedEvent } from "electron-updater";
-import { liteIpcChannels } from "./ipc.js";
 import { env } from "node:process";
 
 let updaterWindow: BrowserWindow | null = null;
 let updaterRegistered = false;
+let updateDialogShown = false;
 
 const getAutoUpdater = (): AppUpdater => {
 	const { autoUpdater } = electronUpdater;
 	return autoUpdater;
 };
 
-const sendUpdateDownloaded = (event: UpdateDownloadedEvent): void => {
+const showUpdateDownloadedDialog = async (event: UpdateDownloadedEvent): Promise<void> => {
+	if (updateDialogShown) return;
 	if (!updaterWindow || updaterWindow.isDestroyed()) return;
-	updaterWindow.webContents.send(liteIpcChannels.updaterUpdateDownloaded, event);
+
+	updateDialogShown = true;
+
+	const { response } = await dialog.showMessageBox(updaterWindow, {
+		type: "info",
+		buttons: ["Restart and install"],
+		defaultId: 0,
+		cancelId: 0,
+		message: `Update ${event.version} downloaded`,
+		detail: "Restart GitButler to install the update.",
+	});
+
+	if (response === 0) getAutoUpdater().quitAndInstall(false);
 };
 
 export const registerUpdater = (mainWindow: BrowserWindow): void => {
@@ -24,14 +37,15 @@ export const registerUpdater = (mainWindow: BrowserWindow): void => {
 	const autoUpdater = getAutoUpdater();
 	autoUpdater.autoDownload = true;
 	autoUpdater.autoInstallOnAppQuit = true;
-	autoUpdater.on("update-downloaded", (event) => sendUpdateDownloaded(event));
+	autoUpdater.on("update-downloaded", (event) => {
+		void showUpdateDownloadedDialog(event).catch((error) => {
+			// oxlint-disable-next-line no-console
+			console.error("Failed to show update dialog", error);
+		});
+	});
 	autoUpdater.on("error", (error) => {
 		// oxlint-disable-next-line no-console
 		console.error("Update error", error);
-	});
-
-	ipcMain.handle(liteIpcChannels.updaterQuitAndInstall, () => {
-		autoUpdater.quitAndInstall(false);
 	});
 };
 
