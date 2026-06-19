@@ -437,10 +437,6 @@ fn build_status_context<'a>(
         let assignments = assignment::filter_by_stack_id(assignments_by_file.values(), &stack.id);
         stack_details.push((stack.id, (Some(stack.clone()), assignments)));
     }
-    if let OperatingMode::Edit(metadata) = mode {
-        stack_details
-            .retain(|(stack_id, _)| stack_id.is_none_or(|stack_id| stack_id == metadata.stack_id));
-    }
     let ci_map = ci_map(
         ctx,
         &cache_config,

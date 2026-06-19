@@ -2,7 +2,7 @@ use anyhow::{Context as _, Result};
 use but_core::{RepositoryExt, extract_remote_name_and_short_name, ref_metadata::StackId};
 use but_ctx::{Context, access::RepoShared};
 use gitbutler_git::{GitContextExt as _, PushResult};
-use gitbutler_operating_modes::ensure_open_workspace_mode;
+use gitbutler_operating_modes::ensure_open_workspace_or_edit_mode;
 use gitbutler_oplog::{
     OplogExt, SnapshotExt,
     entry::{OperationKind, SnapshotDetails},
@@ -39,8 +39,8 @@ pub fn create_branch(ctx: &mut Context, stack_id: StackId, req: CreateSeriesRequ
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_create_dependent_branch(&req.name, guard.write_permission());
-    ensure_open_workspace_mode(ctx, guard.read_permission())
-        .context("Requires an open workspace mode")?;
+    ensure_open_workspace_or_edit_mode(ctx, guard.read_permission())
+        .context("Requires an open workspace or edit mode")?;
     let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&req.name)?;
     let repo = ctx.repo.get()?;
@@ -98,8 +98,8 @@ pub fn update_branch_name_with_perm(
 ) -> Result<String> {
     ctx.verify(perm)?;
     let _ = ctx.snapshot_update_dependent_branch_name(&branch_name, perm);
-    ensure_open_workspace_mode(ctx, perm.read_permission())
-        .context("Requires an open workspace mode")?;
+    ensure_open_workspace_or_edit_mode(ctx, perm.read_permission())
+        .context("Requires an open workspace or edit mode")?;
     let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&new_name)?;
     stack.update_branch(
@@ -133,8 +133,8 @@ pub fn update_branch_pr_number(
         SnapshotDetails::new(OperationKind::UpdateDependentBranchPrNumber),
         guard.write_permission(),
     );
-    ensure_open_workspace_mode(ctx, guard.read_permission())
-        .context("Requires an open workspace mode")?;
+    ensure_open_workspace_or_edit_mode(ctx, guard.read_permission())
+        .context("Requires an open workspace or edit mode")?;
     let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
     stack.set_pr_number(ctx, &branch_name, pr_number)
 }
@@ -177,7 +177,8 @@ pub fn push_stack_with_perm(
     push_opts: Vec<but_gerrit::PushFlag>,
     perm: &RepoShared,
 ) -> Result<PushResult> {
-    ensure_open_workspace_mode(ctx, perm).context("Requires an open workspace mode")?;
+    ensure_open_workspace_or_edit_mode(ctx, perm)
+        .context("Requires an open workspace or edit mode")?;
     let virtual_branches = ctx.virtual_branches();
     let stack = virtual_branches.get_stack(stack_id)?;
     let (target_ref_name, target_base_oid, target_push_remote_name, target_branch_name) = {

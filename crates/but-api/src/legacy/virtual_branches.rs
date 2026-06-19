@@ -28,7 +28,7 @@ use gitbutler_branch_actions::{
     },
 };
 use gitbutler_git::GitContextExt as _;
-use gitbutler_operating_modes::ensure_open_workspace_mode;
+use gitbutler_operating_modes::ensure_open_workspace_or_edit_mode;
 use gitbutler_oplog::OplogExt;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, normalize_branch_name as normalize_name};
@@ -375,8 +375,8 @@ pub fn update_stack_order_with_perm(
     stacks: Vec<BranchUpdateRequest>,
     perm: &mut RepoExclusive,
 ) -> Result<()> {
-    ensure_open_workspace_mode(ctx, perm.read_permission())
-        .context("Updating branch order requires open workspace mode")?;
+    ensure_open_workspace_or_edit_mode(ctx, perm.read_permission())
+        .context("Updating branch order requires open workspace or edit mode")?;
 
     let mut meta = ctx.legacy_meta_mut(perm)?;
     let (_repo, mut ws, _db) = ctx.workspace_mut_and_db_with_perm(perm)?;
@@ -625,7 +625,7 @@ fn assigned_diffspec_for_stack(
 ///
 /// # Control-flow
 ///
-/// - verify that the project is in open workspace mode;
+/// - verify that the project is in open workspace or edit mode;
 /// - collect currently assigned worktree changes for `stack_id`;
 /// - identify the workspace metadata branch representing the stack;
 /// - create a best-effort unapply snapshot with all stack branch names as trailers;
@@ -644,8 +644,8 @@ fn unapply_stack_v3_with_perm(
     stack_id: StackId,
     perm: &mut RepoExclusive,
 ) -> Result<()> {
-    ensure_open_workspace_mode(ctx, perm.read_permission())
-        .context("Unapplying a stack requires open workspace mode")?;
+    ensure_open_workspace_or_edit_mode(ctx, perm.read_permission())
+        .context("Unapplying a stack requires open workspace or edit mode")?;
 
     let assigned_diffspec = assigned_diffspec_for_stack(ctx, stack_id, perm.read_permission())?;
     let stack_branches = stack_branch_names(ctx, stack_id, perm)?;

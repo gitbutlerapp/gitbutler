@@ -41,7 +41,9 @@ pub(super) fn reload_legacy(
     let mode = but_api::legacy::modes::operating_mode(ctx)?.operating_mode;
     let mut guard = ctx.exclusive_worktree_access();
 
-    {
+    if matches!(mode, OperatingMode::Edit(_)) {
+        ctx.invalidate_workspace_cache()?;
+    } else {
         let meta = ctx.meta()?;
         let project_meta = ctx.project_meta()?;
         let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;

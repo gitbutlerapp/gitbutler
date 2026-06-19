@@ -201,6 +201,21 @@ pub fn ensure_open_workspace_mode(ctx: &Context, perm: &RepoShared) -> Result<()
     }
 }
 
+pub fn in_open_workspace_or_edit_mode(ctx: &Context, perm: &RepoShared) -> Result<bool> {
+    Ok(matches!(
+        operating_mode(ctx, perm)?,
+        OperatingMode::OpenWorkspace | OperatingMode::Edit(_)
+    ))
+}
+
+pub fn ensure_open_workspace_or_edit_mode(ctx: &Context, perm: &RepoShared) -> Result<()> {
+    if in_open_workspace_or_edit_mode(ctx, perm)? {
+        Ok(())
+    } else {
+        bail!("Expected to be in open workspace or edit mode")
+    }
+}
+
 pub fn in_edit_mode(ctx: &Context, perm: &RepoShared) -> Result<bool> {
     Ok(matches!(operating_mode(ctx, perm)?, OperatingMode::Edit(_)))
 }

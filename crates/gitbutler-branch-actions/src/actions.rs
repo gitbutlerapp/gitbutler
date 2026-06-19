@@ -6,7 +6,7 @@ use but_ctx::{
 };
 use but_workspace::legacy::{stack_heads_info, ui};
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_operating_modes::ensure_open_workspace_mode;
+use gitbutler_operating_modes::ensure_open_workspace_or_edit_mode;
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
@@ -31,8 +31,8 @@ pub fn create_virtual_branch(
     perm: &mut RepoExclusive,
 ) -> Result<ui::StackEntryNoOpt> {
     ctx.verify(perm)?;
-    ensure_open_workspace_mode(ctx, perm.read_permission())
-        .context("Creating a branch requires open workspace mode")?;
+    ensure_open_workspace_or_edit_mode(ctx, perm.read_permission())
+        .context("Creating a branch requires open workspace or edit mode")?;
     let branch_manager = ctx.branch_manager();
     let stack = branch_manager.create_virtual_branch(create, perm)?;
     let repo = ctx.repo.get()?;
@@ -70,8 +70,8 @@ pub fn integrate_upstream_commits(
 ) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx, guard.read_permission())
-        .context("Integrating upstream commits requires open workspace mode")?;
+    ensure_open_workspace_or_edit_mode(ctx, guard.read_permission())
+        .context("Integrating upstream commits requires open workspace or edit mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::MergeUpstream),
         guard.write_permission(),
@@ -91,8 +91,8 @@ pub fn get_initial_integration_steps_for_branch(
     branch_name: String,
     perm: &RepoShared,
 ) -> Result<Vec<branch_upstream_integration::InteractiveIntegrationStep>> {
-    ensure_open_workspace_mode(ctx, perm)
-        .context("Getting initial integration steps requires open workspace mode")?;
+    ensure_open_workspace_or_edit_mode(ctx, perm)
+        .context("Getting initial integration steps requires open workspace or edit mode")?;
     branch_upstream_integration::get_initial_integration_steps_for_branch(
         ctx,
         stack_id,
@@ -108,8 +108,8 @@ pub fn integrate_branch_with_steps(
 ) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx, guard.read_permission())
-        .context("Integrating a branch with steps requires open workspace mode")?;
+    ensure_open_workspace_or_edit_mode(ctx, guard.read_permission())
+        .context("Integrating a branch with steps requires open workspace or edit mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::MergeUpstream),
         guard.write_permission(),
@@ -130,8 +130,8 @@ pub fn create_virtual_branch_from_branch_with_perm(
     perm: &mut RepoExclusive,
 ) -> Result<(StackId, Vec<StackId>, Vec<String>)> {
     ctx.verify(perm)?;
-    ensure_open_workspace_mode(ctx, perm.read_permission())
-        .context("Creating a virtual branch from a branch open workspace mode")?;
+    ensure_open_workspace_or_edit_mode(ctx, perm.read_permission())
+        .context("Creating a virtual branch from a branch requires open workspace or edit mode")?;
     let branch_manager = ctx.branch_manager();
     branch_manager.create_virtual_branch_from_branch(branch, pr_number, perm)
 }

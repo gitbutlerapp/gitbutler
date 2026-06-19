@@ -161,6 +161,52 @@ mod operating_modes {
         }
     }
 
+    mod open_workspace_or_edit_mode {
+        use gitbutler_operating_modes::{
+            ensure_open_workspace_or_edit_mode, in_open_workspace_or_edit_mode,
+        };
+
+        use crate::{create_and_checkout_branch, create_edit_mode_metadata, new_case};
+
+        #[test]
+        fn in_open_workspace_or_edit_mode_true_when_on_gitbutler_workspace() {
+            let case = new_case();
+            let ctx = &case.ctx;
+
+            create_and_checkout_branch(ctx, "gitbutler/workspace");
+
+            let guard = ctx.shared_worktree_access();
+            let in_workspace_or_edit =
+                in_open_workspace_or_edit_mode(ctx, guard.read_permission()).unwrap();
+            assert!(in_workspace_or_edit);
+        }
+
+        #[test]
+        fn in_open_workspace_or_edit_mode_true_when_in_edit_mode() {
+            let case = new_case();
+            let ctx = &case.ctx;
+
+            create_and_checkout_branch(ctx, "gitbutler/edit");
+            create_edit_mode_metadata(ctx);
+
+            let guard = ctx.shared_worktree_access();
+            let in_workspace_or_edit =
+                in_open_workspace_or_edit_mode(ctx, guard.read_permission()).unwrap();
+            assert!(in_workspace_or_edit);
+        }
+
+        #[test]
+        fn assure_open_workspace_or_edit_mode_err_when_on_other_branch() {
+            let case = new_case();
+            let ctx = &case.ctx;
+
+            create_and_checkout_branch(ctx, "testeroni");
+
+            let guard = ctx.shared_worktree_access();
+            assert!(ensure_open_workspace_or_edit_mode(ctx, guard.read_permission()).is_err());
+        }
+    }
+
     mod outside_workspace_mode {
         use gitbutler_operating_modes::{ensure_outside_workspace_mode, in_outside_workspace_mode};
 
