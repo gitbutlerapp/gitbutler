@@ -1,5 +1,6 @@
 .tooltip {
 	display: flex;
+	align-items: center;
 	padding: 6px 8px;
 	gap: 8px;
 	border: 1px solid var(--border-3);
