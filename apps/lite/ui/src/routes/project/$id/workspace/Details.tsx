@@ -888,20 +888,24 @@ const PullRequestForm: FC<{
 	body: string | null;
 }> = ({ projectId, reviewId, title, body }) => {
 	const updateReview = useUpdateReview();
+	const [draftTitle, setDraftTitle] = useState<string | null>(null);
 	const [draftBody, setDraftBody] = useState<string | null>(null);
+	const canSubmit = (draftTitle === null || draftTitle.trim() !== "") && !updateReview.isPending;
 
 	const reset = () => {
+		setDraftTitle(title);
 		setDraftBody(body);
 	};
 
 	const submit: SubmitEventHandler<HTMLFormElement> = (event) => {
 		event.preventDefault();
+		if (!canSubmit) return;
 
 		updateReview.mutate({
 			projectId,
 			reviewId,
-			title: null, // TODO: draft title
-			body: draftBody === body ? null : draftBody,
+			title: draftTitle,
+			body: draftBody,
 			state: null,
 			targetBase: null,
 		});
@@ -912,10 +916,10 @@ const PullRequestForm: FC<{
 			<input
 				aria-label="Pull request title"
 				className={classes("text-15 text-semibold", styles.prTitleInput)}
+				onChange={(event) => setDraftTitle(event.currentTarget.value)}
 				placeholder="Title"
-				readOnly
 				required
-				value={title}
+				value={draftTitle ?? title}
 			/>
 			<textarea
 				aria-label="Pull request description"
@@ -933,7 +937,7 @@ const PullRequestForm: FC<{
 				>
 					Reset
 				</button>
-				<button className={getButtonClassName({})} disabled={updateReview.isPending} type="submit">
+				<button className={getButtonClassName({})} disabled={!canSubmit} type="submit">
 					{updateReview.isPending && <Icon name="spinner" />}
 					Update Pull Request
 				</button>
