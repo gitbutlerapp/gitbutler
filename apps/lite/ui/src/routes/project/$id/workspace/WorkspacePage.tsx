@@ -272,7 +272,15 @@ const ApplyBranchPicker: FC<{
 	const branchesQuery = useQuery(
 		listBranchesQueryOptions({ projectId, filter: { local: null, applied: false } }),
 	);
-	const items = (branchesQuery.data ?? []).flatMap(branchListingToApplyBranchPickerOptions);
+	const items = (branchesQuery.data ?? [])
+		.toSorted(
+			Order.combineAll([
+				Order.mapInput(Order.boolean, (branch) => !branch.hasLocal),
+				Order.mapInput(Order.reverse(Order.number), (branch) => branch.updatedAt),
+				Order.mapInput(Order.string, (branch) => branch.name),
+			]),
+		)
+		.flatMap(branchListingToApplyBranchPickerOptions);
 	const apply = useApply();
 	const statusLabel =
 		items.length === 0
