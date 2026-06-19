@@ -3,6 +3,7 @@ use std::sync::Arc;
 use bstr::BString;
 use but_core::{HunkHeader, ref_metadata::StackId};
 use but_hunk_assignment::HunkAssignment;
+use but_rebase::graph_rebase::mutate::InsertSide;
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use nonempty::NonEmpty;
 use ratatui_textarea::TextArea;
@@ -159,6 +160,7 @@ fn move_commit_mode(hex: &str, id: &str) -> Mode {
             commit_id: commit_id(hex),
             id: id.into(),
         }),
+        insert_side: InsertSide::Below,
     })
 }
 
@@ -2010,23 +2012,6 @@ fn is_selectable_in_rub_mode_requires_available_target() {
 }
 
 #[test]
-fn move_up_skips_commit_directly_above_move_source() {
-    let source_hex = "2222222222222222222222222222222222222222";
-    let lines = vec![
-        branch_line("A", "b0"),
-        commit_line("1111111111111111111111111111111111111111", "c0"),
-        commit_line(source_hex, "c1"),
-        commit_line("3333333333333333333333333333333333333333", "c2"),
-    ];
-    let mode = move_commit_mode(source_hex, "c1");
-
-    assert_eq!(
-        Cursor(2).move_up(&lines, &mode, FilesStatusFlag::All),
-        Some(Cursor(0))
-    );
-}
-
-#[test]
 fn move_down_from_move_source_selects_commit_below_source() {
     let source_hex = "2222222222222222222222222222222222222222";
     let lines = vec![
@@ -2094,45 +2079,6 @@ fn move_stack_skips_noop_target_below_source() {
     assert_eq!(
         Cursor(3).move_down(&lines, &mode, FilesStatusFlag::All),
         Some(Cursor(6))
-    );
-}
-
-#[test]
-fn move_up_from_top_move_source_skips_source_branch() {
-    let source_hex = "2222222222222222222222222222222222222222";
-    let lines = vec![
-        branch_line("A", "b0"),
-        commit_line("1111111111111111111111111111111111111111", "c0"),
-        branch_line("B", "b1"),
-        commit_line(source_hex, "c1"),
-    ];
-    let mode = move_commit_mode(source_hex, "c1");
-
-    assert_eq!(
-        Cursor(3).move_up(&lines, &mode, FilesStatusFlag::All),
-        Some(Cursor(1))
-    );
-}
-
-#[test]
-fn move_up_from_top_move_source_skips_source_branch_after_unselectable_commit() {
-    let source_hex = "3333333333333333333333333333333333333333";
-    let lines = vec![
-        branch_line("A", "b0"),
-        commit_line("1111111111111111111111111111111111111111", "c0"),
-        branch_line("B", "b1"),
-        commit_line_with_classification(
-            "2222222222222222222222222222222222222222",
-            "c1",
-            CommitClassification::Upstream,
-        ),
-        commit_line(source_hex, "c2"),
-    ];
-    let mode = move_commit_mode(source_hex, "c2");
-
-    assert_eq!(
-        Cursor(4).move_up(&lines, &mode, FilesStatusFlag::All),
-        Some(Cursor(1))
     );
 }
 

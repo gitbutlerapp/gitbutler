@@ -758,6 +758,7 @@ impl App {
             },
             Message::Move(move_message) => match move_message {
                 MoveMessage::Start => self.handle_move_start(),
+                MoveMessage::ToggleInsertSide => self.handle_move_toggle_insert_side(),
                 MoveMessage::Confirm => self.handle_move_confirm(ctx, messages)?,
             },
             Message::NewBranch => {
@@ -2459,32 +2460,49 @@ impl App {
             return;
         };
 
-        let move_mode = match &selection.data {
-            StatusOutputLineData::Branch { cli_id }
-            | StatusOutputLineData::Commit { cli_id, .. } => {
-                let Ok(source) = MoveSource::try_from(Arc::unwrap_or_clone(Arc::clone(cli_id)))
-                else {
-                    return;
-                };
-                MoveMode {
-                    source: Arc::new(source),
-                }
+        let move_mode = if let Some(marks) = self.marks()
+            && !marks.is_empty()
+        {
+            let MarkClasses {
+                marked_commits,
+                marked_uncommitted,
+            } = marks.classify();
+            if !marked_commits || marked_uncommitted {
+                return;
             }
-            StatusOutputLineData::UpdateNotice
-            | StatusOutputLineData::Connector
-            | StatusOutputLineData::BetweenStacks
-            | StatusOutputLineData::StagedChanges { .. }
-            | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnassignedChanges { .. }
-            | StatusOutputLineData::UnassignedFile { .. }
-            | StatusOutputLineData::CommitMessage
-            | StatusOutputLineData::EmptyCommitMessage
-            | StatusOutputLineData::File { .. }
-            | StatusOutputLineData::MergeBase
-            | StatusOutputLineData::UpstreamChanges
-            | StatusOutputLineData::Warning
-            | StatusOutputLineData::Hint
-            | StatusOutputLineData::NoAssignmentsUnstaged => return,
+            MoveMode {
+                source: Arc::new(MoveSource::Marks(marks.clone())),
+                insert_side: InsertSide::Above,
+            }
+        } else {
+            match &selection.data {
+                StatusOutputLineData::Branch { cli_id }
+                | StatusOutputLineData::Commit { cli_id, .. } => {
+                    let Ok(source) = MoveSource::try_from(Arc::unwrap_or_clone(Arc::clone(cli_id)))
+                    else {
+                        return;
+                    };
+                    MoveMode {
+                        source: Arc::new(source),
+                        insert_side: InsertSide::Above,
+                    }
+                }
+                StatusOutputLineData::UpdateNotice
+                | StatusOutputLineData::Connector
+                | StatusOutputLineData::BetweenStacks
+                | StatusOutputLineData::StagedChanges { .. }
+                | StatusOutputLineData::StagedFile { .. }
+                | StatusOutputLineData::UnassignedChanges { .. }
+                | StatusOutputLineData::UnassignedFile { .. }
+                | StatusOutputLineData::CommitMessage
+                | StatusOutputLineData::EmptyCommitMessage
+                | StatusOutputLineData::File { .. }
+                | StatusOutputLineData::MergeBase
+                | StatusOutputLineData::UpstreamChanges
+                | StatusOutputLineData::Warning
+                | StatusOutputLineData::Hint
+                | StatusOutputLineData::NoAssignmentsUnstaged => return,
+            }
         };
 
         self.mode
@@ -2493,16 +2511,32 @@ impl App {
             });
     }
 
+    fn handle_move_toggle_insert_side(&mut self) {
+        let Mode::Move(move_mode) = self
+            .mode
+            .get_mut_without_updating_backstack_and_i_promise_not_to_change_state()
+        else {
+            return;
+        };
+        move_mode.insert_side = match move_mode.insert_side {
+            InsertSide::Above => InsertSide::Below,
+            InsertSide::Below => InsertSide::Above,
+        };
+    }
+
     fn handle_move_confirm(
         &mut self,
         ctx: &mut Context,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
-        let Mode::Move(MoveMode { source }) = &*self.mode else {
+        let Mode::Move(MoveMode {
+            source,
+            insert_side,
+        }) = &*self.mode
+        else {
             return Ok(());
         };
 
-        // find target
         let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
             return Ok(());
         };
@@ -2510,13 +2544,9 @@ impl App {
         if selection
             .data
             .cli_id()
-            .is_some_and(|target| **source == **target)
+            .is_some_and(|target| source.contains(target))
         {
             messages.push(Message::EnterNormalModeAfterConfirmingOperation);
-            return Ok(());
-        }
-
-        if cursor::is_forbidden_move_commit_target(selection, &self.status_lines, &self.mode) {
             return Ok(());
         }
 
@@ -2562,16 +2592,18 @@ impl App {
                 ..
             } => {
                 let commit_move_result = match target {
-                    MoveTarget::Branch { name } => {
-                        operations::move_commit_to_branch(ctx, *source_commit_id, name)?
-                    }
+                    MoveTarget::Branch { name } => operations::move_commit_to_branch(
+                        ctx,
+                        Vec::from([*source_commit_id]),
+                        name,
+                    )?,
                     MoveTarget::Commit {
                         commit_id: target_commit_id,
                     } => operations::move_commit_to_commit(
                         ctx,
-                        *source_commit_id,
+                        Vec::from([*source_commit_id]),
                         target_commit_id,
-                        InsertSide::Below,
+                        *insert_side,
                     )?,
                     MoveTarget::MergeBase => return Ok(()),
                 };
@@ -2581,6 +2613,44 @@ impl App {
                     .replaced_commits
                     .get(source_commit_id)
                     .copied()
+                    .map(SelectAfterReload::Commit)
+            }
+            MoveSource::Marks(marks) => {
+                let Some(sources) = marks
+                    .iter()
+                    .map(|mark| match mark {
+                        Markable::Commit { commit_id, .. } => Some(*commit_id),
+                        Markable::Uncommitted(..) => None,
+                    })
+                    .collect::<Option<Vec<_>>>()
+                else {
+                    return Ok(());
+                };
+
+                let commit_move_result = match target {
+                    MoveTarget::Branch { name } => {
+                        operations::move_commit_to_branch(ctx, sources.clone(), name)?
+                    }
+                    MoveTarget::Commit {
+                        commit_id: target_commit_id,
+                    } => operations::move_commit_to_commit(
+                        ctx,
+                        sources.clone(),
+                        target_commit_id,
+                        *insert_side,
+                    )?,
+                    MoveTarget::MergeBase => return Ok(()),
+                };
+
+                sources
+                    .iter()
+                    .find_map(|source| {
+                        commit_move_result
+                            .workspace
+                            .replaced_commits
+                            .get(source)
+                            .copied()
+                    })
                     .map(SelectAfterReload::Commit)
             }
             MoveSource::Branch {
@@ -4114,6 +4184,7 @@ enum CommitMessage {
 #[derive(Debug, Clone)]
 enum MoveMessage {
     Start,
+    ToggleInsertSide,
     Confirm,
 }
 

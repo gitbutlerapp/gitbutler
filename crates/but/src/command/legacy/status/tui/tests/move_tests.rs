@@ -61,9 +61,9 @@ fn move_mode_keeps_selected_commit_and_extension_visible_when_scrolled() {
         .assert_current_line_eq(str!["┊●   << source >> << noop >> [..] add A"]);
 
     tui.input_then_render(KeyCode::Up)
-        .assert_rendered_contains("<< move commit >>")
+        .assert_rendered_contains("<< move commit above >>")
         .assert_rendered_contains("(no commit message) (no changes)")
-        .assert_current_line_eq(str!["┊│   << move commit >>"]);
+        .assert_current_line_eq(str!["┊│   << move commit above >>"]);
 }
 
 #[test]
@@ -92,10 +92,10 @@ fn move_commit_above_other_commit_reorders_tui() {
         .assert_current_line_eq(str!["┊●   << source >> << noop >> [..] add A"]);
 
     tui.input_then_render(KeyCode::Up)
-        .assert_current_line_eq(str!["┊│   << move commit >>"]);
+        .assert_current_line_eq(str!["┊│   << move commit above >>"]);
 
     tui.input_then_render(KeyCode::Up)
-        .assert_current_line_eq(str!["┊│ << move commit >>"]);
+        .assert_current_line_eq(str!["┊│   << move commit above >>"]);
 
     tui.input_then_render(KeyCode::Enter)
         .assert_current_line_eq(str!["┊●   [..] add A"]);
@@ -130,11 +130,11 @@ fn move_commit_down_from_source_selects_next_commit() {
     ]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊│   << move commit >>"]);
+        .assert_current_line_eq(str!["┊│   << move commit above >>"]);
 }
 
 #[test]
-fn move_commit_up_from_top_commit_skips_source_branch() {
+fn move_commit_up_from_top_commit_selects_source_branch() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
     )
@@ -153,7 +153,8 @@ fn move_commit_up_from_top_commit_skips_source_branch() {
         .assert_current_line_eq(str!["┊●   << source >> << noop >> [..] add C"]);
 
     tui.input_then_render(KeyCode::Up)
-        .assert_current_line_eq(str!["┊│   << move commit >>"]);
+        .assert_current_line_eq(str!["┊╭┄h0 [C]"])
+        .assert_rendered_contains("<< move commit to branch >>");
 }
 
 #[test]
@@ -225,4 +226,32 @@ fn move_branch_to_merge_base_tears_off_branch() {
     .assert_rendered_term_svg_eq(file![
         "snapshots/move_branch_to_merge_base_tears_off_branch_final.svg"
     ]);
+}
+
+#[test]
+fn moving_multiple_commits() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('b');
+    tui.input_then_render('g')
+        .assert_rendered_term_svg_eq(file!["snapshots/moving_multiple_commits_001.svg"]);
+
+    tui.input_then_render('j');
+    tui.input_then_render('j');
+    tui.input_then_render(' ');
+
+    tui.input_then_render('j');
+    tui.input_then_render('j');
+    tui.input_then_render(' ')
+        .assert_rendered_term_svg_eq(file!["snapshots/moving_multiple_commits_002.svg"]);
+
+    tui.input_then_render('m')
+        .assert_rendered_term_svg_eq(file!["snapshots/moving_multiple_commits_003.svg"]);
+    tui.input_then_render('j')
+        .assert_rendered_term_svg_eq(file!["snapshots/moving_multiple_commits_004.svg"]);
+    tui.input_then_render(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file!["snapshots/moving_multiple_commits_005.svg"]);
 }

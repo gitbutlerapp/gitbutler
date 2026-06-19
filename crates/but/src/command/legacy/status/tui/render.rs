@@ -1,6 +1,7 @@
 use std::{borrow::Cow, collections::HashMap, iter::once};
 
 use but_core::ref_metadata::StackId;
+use but_rebase::graph_rebase::mutate::InsertSide;
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use itertools::{Either, Itertools, Position};
 use nonempty::NonEmpty;
@@ -419,7 +420,7 @@ fn render_status_list_item_with_stack_highlight(
             Mode::Move(move_mode) => {
                 if data
                     .cli_id()
-                    .is_some_and(|target| *move_mode.source == **target)
+                    .is_some_and(|target| move_mode.source.contains(target))
                     || matches!(data, StatusOutputLineData::MergeBase)
                 {
                     render_move_labels_for_selected_line(app, data, move_mode, &mut line);
@@ -473,7 +474,7 @@ fn render_status_list_item_with_stack_highlight(
             }
             Mode::Move(MoveMode { source, .. }) => {
                 if let Some(cli_id) = data.cli_id()
-                    && **source == **cli_id
+                    && source.contains(cli_id)
                 {
                     line.extend([source_span(app.theme), Span::raw(" ")]);
                 }
@@ -605,6 +606,8 @@ fn render_status_list_item_with_stack_highlight(
         }
     }
 
+    let highlight_current_line = !matches!(app.modal, Some(Modal::Help { .. })) && app.has_focus;
+
     if is_selected {
         match &*app.mode {
             Mode::Commit(commit_mode) => {
@@ -629,21 +632,29 @@ fn render_status_list_item_with_stack_highlight(
             }
             Mode::Move(move_mode) => {
                 if let StatusOutputLineData::Commit { cli_id: target, .. } = data
-                    && *move_mode.source != **target
+                    && !move_mode.source.contains(target)
                 {
                     let mut extension_line =
                         highlight_line_if(Line::default(), app.has_focus, app.theme);
                     extend_connector_spans(
                         connector.as_deref().unwrap_or_default(),
-                        ExtensionDirection::Below,
+                        move_mode.insert_side.into(),
                         &mut extension_line,
                     );
                     render_move_labels_for_selected_line(app, data, move_mode, &mut extension_line);
-                    return StatusListItem::Double(line, extension_line);
+                    let line = highlight_line_if(line, highlight_current_line, app.theme);
+                    return match move_mode.insert_side {
+                        InsertSide::Above => StatusListItem::Double(extension_line, line),
+                        InsertSide::Below => StatusListItem::Double(line, extension_line),
+                    };
                 } else if let StatusOutputLineData::Branch { cli_id: target, .. } = data
-                    && *move_mode.source != **target
+                    && !move_mode.source.contains(target)
                 {
-                    if move_mode.source.is_commit() {
+                    let source_is_commit = match &*move_mode.source {
+                        MoveSource::Marks(..) | MoveSource::Commit { .. } => true,
+                        MoveSource::Branch { .. } => false,
+                    };
+                    if source_is_commit {
                         let mut extension_line =
                             highlight_line_if(Line::default(), app.has_focus, app.theme);
                         extend_connector_spans(
@@ -657,6 +668,7 @@ fn render_status_list_item_with_stack_highlight(
                             move_mode,
                             &mut extension_line,
                         );
+                        let line = highlight_line_if(line, highlight_current_line, app.theme);
                         return StatusListItem::Double(line, extension_line);
                     } else {
                         let mut extension_line =
@@ -672,6 +684,7 @@ fn render_status_list_item_with_stack_highlight(
                             move_mode,
                             &mut extension_line,
                         );
+                        let line = highlight_line_if(line, highlight_current_line, app.theme);
                         return StatusListItem::Double(extension_line, line);
                     }
                 }
@@ -693,9 +706,7 @@ fn render_status_list_item_with_stack_highlight(
 
     line = highlight_line_if(
         line,
-        (is_selected || stack_highlight)
-            && !matches!(app.modal, Some(Modal::Help { .. }))
-            && app.has_focus,
+        (is_selected || stack_highlight) && highlight_current_line,
         app.theme,
     );
 
@@ -827,7 +838,10 @@ fn render_move_labels_for_selected_line(
     mode: &MoveMode,
     line: &mut Line<'static>,
 ) {
-    if data.cli_id().is_some_and(|target| *mode.source == **target) {
+    if data
+        .cli_id()
+        .is_some_and(|target| mode.source.contains(target))
+    {
         line.extend([source_span(app.theme), Span::raw(" ")]);
         line.extend([
             Span::raw("<< ").mode_colors(&*app.mode, app.theme),
@@ -1192,10 +1206,46 @@ pub(super) fn move_operation_display(
     data: &StatusOutputLineData,
     mode: &MoveMode,
 ) -> Option<&'static str> {
-    match &*mode.source {
+    let MoveMode {
+        source,
+        insert_side,
+    } = mode;
+    match &**source {
         MoveSource::Commit { .. } => match data {
-            StatusOutputLineData::Commit { .. } | StatusOutputLineData::Branch { .. } => {
-                Some("move commit")
+            StatusOutputLineData::Commit { .. } => match insert_side {
+                InsertSide::Above => Some("move commit above"),
+                InsertSide::Below => Some("move commit below"),
+            },
+            StatusOutputLineData::Branch { .. } => Some("move commit to branch"),
+            StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::Connector
+            | StatusOutputLineData::BetweenStacks
+            | StatusOutputLineData::StagedChanges { .. }
+            | StatusOutputLineData::StagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
+            | StatusOutputLineData::CommitMessage
+            | StatusOutputLineData::EmptyCommitMessage
+            | StatusOutputLineData::File { .. }
+            | StatusOutputLineData::MergeBase
+            | StatusOutputLineData::UpstreamChanges
+            | StatusOutputLineData::Warning
+            | StatusOutputLineData::Hint
+            | StatusOutputLineData::NoAssignmentsUnstaged => None,
+        },
+        MoveSource::Marks(marks) => match data {
+            StatusOutputLineData::Commit { .. } => match insert_side {
+                InsertSide::Above if marks.len() == 1 => Some("move commit above"),
+                InsertSide::Above => Some("move commits above"),
+                InsertSide::Below if marks.len() == 1 => Some("move commit below"),
+                InsertSide::Below => Some("move commits below"),
+            },
+            StatusOutputLineData::Branch { .. } => {
+                if marks.len() == 1 {
+                    Some("move commit to branch")
+                } else {
+                    Some("move commits to branch")
+                }
             }
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector

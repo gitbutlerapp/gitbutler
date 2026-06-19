@@ -202,7 +202,7 @@ pub(super) fn reword_commit_legacy(
 
 pub(super) fn move_commit_to_branch(
     ctx: &mut Context,
-    subject_commit_id: gix::ObjectId,
+    subject_commit_ids: Vec<gix::ObjectId>,
     branch_name: &str,
 ) -> anyhow::Result<but_api::commit::types::CommitMoveResult> {
     let repo = ctx.repo.get()?;
@@ -214,7 +214,7 @@ pub(super) fn move_commit_to_branch(
     drop(repo);
     but_api::commit::move_commit::commit_move(
         ctx,
-        vec![subject_commit_id],
+        subject_commit_ids,
         RelativeTo::Reference(target_branch_name),
         InsertSide::Below,
         DryRun::No,
@@ -224,13 +224,13 @@ pub(super) fn move_commit_to_branch(
 
 pub(super) fn move_commit_to_commit(
     ctx: &mut Context,
-    subject_commit_id: gix::ObjectId,
+    subject_commit_ids: Vec<gix::ObjectId>,
     target_commit_id: gix::ObjectId,
     insert_side: InsertSide,
 ) -> anyhow::Result<but_api::commit::types::CommitMoveResult> {
     but_api::commit::move_commit::commit_move(
         ctx,
-        vec![subject_commit_id],
+        subject_commit_ids,
         RelativeTo::Commit(target_commit_id),
         insert_side,
         DryRun::No,
