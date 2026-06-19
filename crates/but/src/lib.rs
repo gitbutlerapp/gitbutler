@@ -1565,7 +1565,10 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            let branch_name = resolve_legacy_top_level_apply_branch_name(&ctx, &branch_name)?;
+            let branch_name = {
+                let repo = ctx.repo.get()?;
+                resolve_legacy_top_level_apply_branch_name(&repo, &branch_name)?
+            };
             command::branch::apply(ctx, &branch_name, out)
                 .context("Failed to apply branch.")
                 .emit_metrics(metrics_ctx)
@@ -1620,10 +1623,9 @@ fn run_agentlog_command(
 /// identity, the original input is preserved so the shared apply command keeps its current error.
 #[cfg(feature = "legacy")]
 fn resolve_legacy_top_level_apply_branch_name(
-    ctx: &but_ctx::Context,
+    repo: &gix::Repository,
     branch_name: &str,
 ) -> Result<String> {
-    let repo = ctx.repo.get()?;
     if repo.try_find_reference(branch_name)?.is_some() {
         return Ok(branch_name.to_owned());
     }
