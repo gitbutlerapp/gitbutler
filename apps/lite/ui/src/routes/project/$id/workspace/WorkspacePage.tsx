@@ -50,7 +50,7 @@ import {
 } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match, Order } from "effect";
-import { type FC, Component, ReactNode, useDeferredValue } from "react";
+import { type FC, Component, ReactNode, useDeferredValue, useState } from "react";
 import {
 	branchOperand,
 	changesSectionOperand,
@@ -110,10 +110,12 @@ const groupCommandPaletteItems = (
 
 	return Array.from(grouped.entries())
 		.toSorted(Order.mapInput(Order.string, ([group]) => group))
-		.map(([group, items]) => ({
-			value: group,
-			items: items.toSorted(Order.mapInput(Order.string, (item) => item.name)),
-		}));
+		.map(
+			([group, items]): PickerDialogGroup<CommandPaletteItem> => ({
+				value: group,
+				items: items.toSorted(Order.mapInput(Order.string, (item) => item.name)),
+			}),
+		);
 };
 
 const CommandPalette: FC<{
@@ -241,6 +243,28 @@ type ApplyBranchPickerOption = {
 	branchRef: string;
 	label: string;
 	type: string;
+	updatedAt: number;
+};
+
+const relativeTimeFormatter = new Intl.RelativeTimeFormat(undefined, {
+	numeric: "auto",
+	style: "short",
+});
+
+const formatRelativeTime = (timestamp: number, now = Date.now()) => {
+	const seconds = Math.round((timestamp - now) / 1000);
+	const absSeconds = Math.abs(seconds);
+
+	if (absSeconds < 60) return relativeTimeFormatter.format(seconds, "seconds");
+	if (absSeconds < 60 * 60)
+		return relativeTimeFormatter.format(Math.round(seconds / 60), "minutes");
+	if (absSeconds < 60 * 60 * 24)
+		return relativeTimeFormatter.format(Math.round(seconds / 60 / 60), "hours");
+	if (absSeconds < 60 * 60 * 24 * 30)
+		return relativeTimeFormatter.format(Math.round(seconds / 60 / 60 / 24), "days");
+	if (absSeconds < 60 * 60 * 24 * 365)
+		return relativeTimeFormatter.format(Math.round(seconds / 60 / 60 / 24 / 30), "months");
+	return relativeTimeFormatter.format(Math.round(seconds / 60 / 60 / 24 / 365), "years");
 };
 
 const branchListingToApplyBranchPickerOptions = (
@@ -252,6 +276,7 @@ const branchListingToApplyBranchPickerOptions = (
 				branchRef: `refs/heads/${branch.name}`,
 				label: branch.name,
 				type: "Local",
+				updatedAt: branch.updatedAt,
 			},
 		];
 
@@ -259,8 +284,32 @@ const branchListingToApplyBranchPickerOptions = (
 		branchRef: `refs/remotes/${remote}/${branch.name}`,
 		label: branch.name,
 		type: remote,
+		updatedAt: branch.updatedAt,
 	}));
 };
+
+const groupApplyBranchPickerOptions = (
+	items: Array<ApplyBranchPickerOption>,
+): Array<PickerDialogGroup<ApplyBranchPickerOption>> =>
+	Array.from(
+		Map.groupBy(items, (item) => item.type),
+		([value, items]): PickerDialogGroup<ApplyBranchPickerOption> => ({
+			value,
+			items: items.toSorted(
+				value === "Local"
+					? Order.combineAll<ApplyBranchPickerOption>([
+							Order.mapInput(Order.reverse(Order.number), (option) => option.updatedAt),
+							Order.mapInput(Order.string, (option) => option.label),
+						])
+					: Order.mapInput(Order.string, (option: ApplyBranchPickerOption) => option.label),
+			),
+		}),
+	).toSorted(
+		Order.combineAll<PickerDialogGroup<ApplyBranchPickerOption>>([
+			Order.mapInput(Order.boolean, (group) => group.value !== "Local"),
+			Order.mapInput(Order.string, (group) => group.value),
+		]),
+	);
 
 const ApplyBranchPicker: FC<{
 	open: boolean;
@@ -270,6 +319,7 @@ const ApplyBranchPicker: FC<{
 	const branchesQuery = useQuery(
 		listBranchesQueryOptions({ projectId, filter: { local: null, applied: false } }),
 	);
+	const [now] = useState(() => Date.now());
 	const items = (branchesQuery.data ?? []).flatMap(branchListingToApplyBranchPickerOptions);
 	const apply = useApply();
 	const statusLabel =
@@ -293,14 +343,9 @@ const ApplyBranchPicker: FC<{
 			emptyLabel="No available branches found."
 			getItemKey={(x) => x.branchRef}
 			getItemLabel={(x) => x.label}
-			getItemType={(x) => x.type}
+			getItemType={(x) => formatRelativeTime(x.updatedAt, now)}
 			itemToStringValue={(x) => x.label}
-			items={[
-				{
-					value: "Available branches",
-					items: (branchesQuery.data ?? []).flatMap(branchListingToApplyBranchPickerOptions),
-				},
-			]}
+			items={groupApplyBranchPickerOptions(items)}
 			open={open}
 			onOpenChange={onOpenChange}
 			onSelectItem={selectBranch}

@@ -43,7 +43,8 @@ const groupGlyph = (
 	</>
 );
 
-type GlyphType = keyof typeof glyphPaths | "commit" | "group";
+/** @public */
+export type GlyphType = keyof typeof glyphPaths | "commit" | "group";
 
 const stretchableGlyphs = new Set<GlyphType>([
 	"parent",
