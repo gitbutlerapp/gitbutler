@@ -243,6 +243,7 @@ type ApplyBranchPickerOption = {
 	branchRef: string;
 	label: string;
 	type: string;
+	updatedAt: number;
 };
 
 const branchListingToApplyBranchPickerOptions = (
@@ -254,6 +255,7 @@ const branchListingToApplyBranchPickerOptions = (
 				branchRef: `refs/heads/${branch.name}`,
 				label: branch.name,
 				type: "Local",
+				updatedAt: branch.updatedAt,
 			},
 		];
 
@@ -261,6 +263,7 @@ const branchListingToApplyBranchPickerOptions = (
 		branchRef: `refs/remotes/${remote}/${branch.name}`,
 		label: branch.name,
 		type: remote,
+		updatedAt: branch.updatedAt,
 	}));
 };
 
@@ -272,15 +275,26 @@ const ApplyBranchPicker: FC<{
 	const branchesQuery = useQuery(
 		listBranchesQueryOptions({ projectId, filter: { local: null, applied: false } }),
 	);
-	const items = (branchesQuery.data ?? [])
-		.toSorted(
-			Order.combineAll([
-				Order.mapInput(Order.boolean, (branch) => !branch.hasLocal),
-				Order.mapInput(Order.reverse(Order.number), (branch) => branch.updatedAt),
-				Order.mapInput(Order.string, (branch) => branch.name),
-			]),
-		)
-		.flatMap(branchListingToApplyBranchPickerOptions);
+	const items = (branchesQuery.data ?? []).flatMap(branchListingToApplyBranchPickerOptions);
+	const groups = Array.from(
+		Map.groupBy(items, (item) => item.type),
+		([value, items]): PickerDialogGroup<ApplyBranchPickerOption> => ({
+			value,
+			items: items.toSorted(
+				value === "Local"
+					? Order.combineAll([
+							Order.mapInput(Order.reverse(Order.number), (option) => option.updatedAt),
+							Order.mapInput(Order.string, (option) => option.label),
+						])
+					: Order.mapInput(Order.string, (option) => option.label),
+			),
+		}),
+	).toSorted(
+		Order.combineAll([
+			Order.mapInput(Order.boolean, (group) => group.value !== "Local"),
+			Order.mapInput(Order.string, (group) => group.value),
+		]),
+	);
 	const apply = useApply();
 	const statusLabel =
 		items.length === 0
@@ -303,14 +317,9 @@ const ApplyBranchPicker: FC<{
 			emptyLabel="No available branches found."
 			getItemKey={(x) => x.branchRef}
 			getItemLabel={(x) => x.label}
-			getItemType={(x) => x.type}
+			getItemType={() => undefined}
 			itemToStringValue={(x) => x.label}
-			items={[
-				{
-					value: "Available branches",
-					items,
-				},
-			]}
+			items={groups}
 			open={open}
 			onOpenChange={onOpenChange}
 			onSelectItem={selectBranch}
