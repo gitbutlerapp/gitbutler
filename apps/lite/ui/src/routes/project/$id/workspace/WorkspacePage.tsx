@@ -50,7 +50,7 @@ import {
 } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match, Order } from "effect";
-import { type FC, Component, ReactNode, useDeferredValue } from "react";
+import { type FC, Component, ReactNode, useDeferredValue, useState } from "react";
 import {
 	branchOperand,
 	changesSectionOperand,
@@ -246,6 +246,27 @@ type ApplyBranchPickerOption = {
 	updatedAt: number;
 };
 
+const relativeTimeFormatter = new Intl.RelativeTimeFormat(undefined, {
+	numeric: "auto",
+	style: "short",
+});
+
+const formatRelativeTime = (timestamp: number, now = Date.now()) => {
+	const seconds = Math.round((timestamp - now) / 1000);
+	const absSeconds = Math.abs(seconds);
+
+	if (absSeconds < 60) return relativeTimeFormatter.format(seconds, "seconds");
+	if (absSeconds < 60 * 60)
+		return relativeTimeFormatter.format(Math.round(seconds / 60), "minutes");
+	if (absSeconds < 60 * 60 * 24)
+		return relativeTimeFormatter.format(Math.round(seconds / 60 / 60), "hours");
+	if (absSeconds < 60 * 60 * 24 * 30)
+		return relativeTimeFormatter.format(Math.round(seconds / 60 / 60 / 24), "days");
+	if (absSeconds < 60 * 60 * 24 * 365)
+		return relativeTimeFormatter.format(Math.round(seconds / 60 / 60 / 24 / 30), "months");
+	return relativeTimeFormatter.format(Math.round(seconds / 60 / 60 / 24 / 365), "years");
+};
+
 const branchListingToApplyBranchPickerOptions = (
 	branch: BranchListing,
 ): Array<ApplyBranchPickerOption> => {
@@ -275,6 +296,7 @@ const ApplyBranchPicker: FC<{
 	const branchesQuery = useQuery(
 		listBranchesQueryOptions({ projectId, filter: { local: null, applied: false } }),
 	);
+	const [now] = useState(() => Date.now());
 	const items = (branchesQuery.data ?? []).flatMap(branchListingToApplyBranchPickerOptions);
 	const groups = Array.from(
 		Map.groupBy(items, (item) => item.type),
@@ -317,7 +339,7 @@ const ApplyBranchPicker: FC<{
 			emptyLabel="No available branches found."
 			getItemKey={(x) => x.branchRef}
 			getItemLabel={(x) => x.label}
-			getItemType={() => undefined}
+			getItemType={(x) => formatRelativeTime(x.updatedAt, now)}
 			itemToStringValue={(x) => x.label}
 			items={groups}
 			open={open}
