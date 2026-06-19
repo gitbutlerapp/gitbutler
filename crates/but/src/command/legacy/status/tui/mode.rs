@@ -297,6 +297,7 @@ impl CommitSource {
 /// A subset of [`CliId`] that supports being moved
 #[derive(Debug)]
 pub(super) enum MoveSource {
+    Marks(Marks),
     Commit {
         commit_id: gix::ObjectId,
         id: ShortId,
@@ -309,34 +310,11 @@ pub(super) enum MoveSource {
 }
 
 impl MoveSource {
-    pub(super) fn is_commit(&self) -> bool {
-        matches!(self, Self::Commit { .. })
-    }
-}
-
-impl TryFrom<CliId> for MoveSource {
-    type Error = anyhow::Error;
-
-    fn try_from(id: CliId) -> Result<Self, Self::Error> {
-        match id {
-            CliId::Branch { name, id, stack_id } => Ok(Self::Branch { name, id, stack_id }),
-            CliId::Commit { commit_id, id } => Ok(Self::Commit { commit_id, id }),
-            CliId::Uncommitted(uncommitted_cli_id) => {
-                anyhow::bail!("cannot move: {:?}", uncommitted_cli_id.id)
-            }
-            CliId::PathPrefix { id, .. }
-            | CliId::CommittedFile { id, .. }
-            | CliId::Unassigned { id }
-            | CliId::Stack { id, .. } => {
-                anyhow::bail!("cannot move: {id:?}")
-            }
-        }
-    }
-}
-
-impl PartialEq<CliId> for MoveSource {
-    fn eq(&self, other: &CliId) -> bool {
+    pub(super) fn contains(&self, other: &CliId) -> bool {
         match self {
+            MoveSource::Marks(marks) => {
+                Markable::try_from_cli_id(other).is_some_and(|markable| marks.contains(&markable))
+            }
             MoveSource::Commit {
                 commit_id: commit_id_lhs,
                 id: id_lhs,
@@ -366,6 +344,26 @@ impl PartialEq<CliId> for MoveSource {
                 } else {
                     false
                 }
+            }
+        }
+    }
+}
+
+impl TryFrom<CliId> for MoveSource {
+    type Error = anyhow::Error;
+
+    fn try_from(id: CliId) -> Result<Self, Self::Error> {
+        match id {
+            CliId::Branch { name, id, stack_id } => Ok(Self::Branch { name, id, stack_id }),
+            CliId::Commit { commit_id, id } => Ok(Self::Commit { commit_id, id }),
+            CliId::Uncommitted(uncommitted_cli_id) => {
+                anyhow::bail!("cannot move: {:?}", uncommitted_cli_id.id)
+            }
+            CliId::PathPrefix { id, .. }
+            | CliId::CommittedFile { id, .. }
+            | CliId::Unassigned { id }
+            | CliId::Stack { id, .. } => {
+                anyhow::bail!("cannot move: {id:?}")
             }
         }
     }

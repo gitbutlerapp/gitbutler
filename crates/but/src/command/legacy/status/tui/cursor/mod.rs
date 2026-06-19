@@ -736,14 +736,15 @@ fn forbidden_move_target<'a>(lines: &'a [StatusOutputLine], mode: &Mode) -> Opti
     let Mode::Move(move_mode) = mode else {
         return None;
     };
-    let MoveSource::Commit { .. } = &*move_mode.source else {
-        return None;
-    };
+    match &*move_mode.source {
+        MoveSource::Commit { .. } => {}
+        MoveSource::Marks(..) | MoveSource::Branch { .. } => return None,
+    }
 
     let source_idx = lines.iter().position(|line| {
         line.data
             .cli_id()
-            .is_some_and(|cli_id| *move_mode.source == **cli_id)
+            .is_some_and(|cli_id| move_mode.source.contains(cli_id))
     })?;
 
     commit_before(lines, source_idx).or_else(|| source_branch_if_top_commit(lines, source_idx))
@@ -842,7 +843,7 @@ pub(super) fn is_selectable_in_mode(
         }
         Mode::Move(move_mode) => {
             if let Some(cli_id) = line.data.cli_id()
-                && *move_mode.source == **cli_id
+                && move_mode.source.contains(cli_id)
             {
                 return true;
             }

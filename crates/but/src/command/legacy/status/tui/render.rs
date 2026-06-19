@@ -419,7 +419,7 @@ fn render_status_list_item_with_stack_highlight(
             Mode::Move(move_mode) => {
                 if data
                     .cli_id()
-                    .is_some_and(|target| *move_mode.source == **target)
+                    .is_some_and(|target| move_mode.source.contains(target))
                     || matches!(data, StatusOutputLineData::MergeBase)
                 {
                     render_move_labels_for_selected_line(app, data, move_mode, &mut line);
@@ -473,7 +473,7 @@ fn render_status_list_item_with_stack_highlight(
             }
             Mode::Move(MoveMode { source, .. }) => {
                 if let Some(cli_id) = data.cli_id()
-                    && **source == **cli_id
+                    && source.contains(cli_id)
                 {
                     line.extend([source_span(app.theme), Span::raw(" ")]);
                 }
@@ -629,7 +629,7 @@ fn render_status_list_item_with_stack_highlight(
             }
             Mode::Move(move_mode) => {
                 if let StatusOutputLineData::Commit { cli_id: target, .. } = data
-                    && *move_mode.source != **target
+                    && !move_mode.source.contains(target)
                 {
                     let mut extension_line =
                         highlight_line_if(Line::default(), app.has_focus, app.theme);
@@ -641,9 +641,13 @@ fn render_status_list_item_with_stack_highlight(
                     render_move_labels_for_selected_line(app, data, move_mode, &mut extension_line);
                     return StatusListItem::Double(line, extension_line);
                 } else if let StatusOutputLineData::Branch { cli_id: target, .. } = data
-                    && *move_mode.source != **target
+                    && !move_mode.source.contains(target)
                 {
-                    if move_mode.source.is_commit() {
+                    let source_is_commit = match &*move_mode.source {
+                        MoveSource::Marks(..) | MoveSource::Commit { .. } => true,
+                        MoveSource::Branch { .. } => false,
+                    };
+                    if source_is_commit {
                         let mut extension_line =
                             highlight_line_if(Line::default(), app.has_focus, app.theme);
                         extend_connector_spans(
@@ -827,7 +831,10 @@ fn render_move_labels_for_selected_line(
     mode: &MoveMode,
     line: &mut Line<'static>,
 ) {
-    if data.cli_id().is_some_and(|target| *mode.source == **target) {
+    if data
+        .cli_id()
+        .is_some_and(|target| mode.source.contains(target))
+    {
         line.extend([source_span(app.theme), Span::raw(" ")]);
         line.extend([
             Span::raw("<< ").mode_colors(&*app.mode, app.theme),
@@ -1196,6 +1203,30 @@ pub(super) fn move_operation_display(
         MoveSource::Commit { .. } => match data {
             StatusOutputLineData::Commit { .. } | StatusOutputLineData::Branch { .. } => {
                 Some("move commit")
+            }
+            StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::Connector
+            | StatusOutputLineData::BetweenStacks
+            | StatusOutputLineData::StagedChanges { .. }
+            | StatusOutputLineData::StagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::UnassignedFile { .. }
+            | StatusOutputLineData::CommitMessage
+            | StatusOutputLineData::EmptyCommitMessage
+            | StatusOutputLineData::File { .. }
+            | StatusOutputLineData::MergeBase
+            | StatusOutputLineData::UpstreamChanges
+            | StatusOutputLineData::Warning
+            | StatusOutputLineData::Hint
+            | StatusOutputLineData::NoAssignmentsUnstaged => None,
+        },
+        MoveSource::Marks(marks) => match data {
+            StatusOutputLineData::Commit { .. } | StatusOutputLineData::Branch { .. } => {
+                if marks.len() == 1 {
+                    Some("move commit")
+                } else {
+                    Some("move commits")
+                }
             }
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector

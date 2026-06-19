@@ -226,3 +226,31 @@ fn move_branch_to_merge_base_tears_off_branch() {
         "snapshots/move_branch_to_merge_base_tears_off_branch_final.svg"
     ]);
 }
+
+#[test]
+fn moving_multiple_commits() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
+    env.setup_metadata(&["A", "B"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('b');
+    tui.input_then_render('g')
+        .assert_rendered_term_svg_eq(file!["snapshots/moving_multiple_commits_001.svg"]);
+
+    tui.input_then_render('j');
+    tui.input_then_render('j');
+    tui.input_then_render(' ');
+
+    tui.input_then_render('j');
+    tui.input_then_render('j');
+    tui.input_then_render(' ')
+        .assert_rendered_term_svg_eq(file!["snapshots/moving_multiple_commits_002.svg"]);
+
+    tui.input_then_render('m')
+        .assert_rendered_term_svg_eq(file!["snapshots/moving_multiple_commits_003.svg"]);
+    tui.input_then_render('j')
+        .assert_rendered_term_svg_eq(file!["snapshots/moving_multiple_commits_004.svg"]);
+    tui.input_then_render(KeyCode::Enter)
+        .assert_rendered_term_svg_eq(file!["snapshots/moving_multiple_commits_005.svg"]);
+}

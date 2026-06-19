@@ -936,7 +936,11 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
 
     if without_marks {
         builder.new_commit().register();
-        builder.move_mode().register();
+    }
+
+    builder.move_mode().register();
+
+    if without_marks {
         builder.branch().register();
         builder.stack().register();
     }
