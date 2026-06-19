@@ -737,6 +737,9 @@ impl App {
                 CommitMessage::CommitToNewBranch => {
                     self.handle_commit_to_new_branch(messages);
                 }
+                CommitMessage::ToggleInsertSide => {
+                    self.handle_commit_toggle_insert_side();
+                }
             },
             Message::Reword(reword_message) => match reword_message {
                 RewordMessage::WithEditor => {
@@ -2064,6 +2067,7 @@ impl App {
                 };
                 CommitMode {
                     source: Arc::new(source),
+                    insert_side: InsertSide::Above,
                     scope_to_stack: None,
                     message_composer: CommitMessageComposer::default(),
                 }
@@ -2077,6 +2081,7 @@ impl App {
                 };
                 CommitMode {
                     source: Arc::new(source),
+                    insert_side: InsertSide::Above,
                     scope_to_stack: cli_id.stack_id(),
                     message_composer: CommitMessageComposer::default(),
                 }
@@ -2099,6 +2104,7 @@ impl App {
                 };
                 CommitMode {
                     scope_to_stack,
+                    insert_side: InsertSide::Above,
                     message_composer: CommitMessageComposer::default(),
                     source: Arc::new(source),
                 }
@@ -2124,6 +2130,7 @@ impl App {
                 };
                 CommitMode {
                     source: Arc::new(source),
+                    insert_side: InsertSide::Above,
                     scope_to_stack,
                     message_composer: CommitMessageComposer::default(),
                 }
@@ -2188,6 +2195,7 @@ impl App {
             .update_and_push_leave_normal_mode(&mut self.backstack, |mode| {
                 *mode = Mode::Commit(CommitMode {
                     source,
+                    insert_side: InsertSide::Above,
                     scope_to_stack: None,
                     message_composer: CommitMessageComposer::default(),
                 });
@@ -2206,6 +2214,7 @@ impl App {
     {
         let Mode::Commit(CommitMode {
             source,
+            insert_side,
             scope_to_stack,
             message_composer,
         }) = &*self.mode
@@ -2249,7 +2258,7 @@ impl App {
         };
 
         let Some((insert_commit_relative_to, insert_side)) =
-            operations::where_to_place_commit(ctx, target, InsertSide::Below)?
+            operations::where_to_place_commit(ctx, target, *insert_side)?
         else {
             return Ok(());
         };
@@ -2424,6 +2433,19 @@ impl App {
 
     fn handle_commit_to_new_branch(&mut self, messages: &mut Vec<Message>) {
         messages.push(Message::NewBranch.and_then(Message::Commit(CommitMessage::Confirm)));
+    }
+
+    fn handle_commit_toggle_insert_side(&mut self) {
+        let Mode::Commit(commit_mode) = self
+            .mode
+            .get_mut_without_updating_backstack_and_i_promise_not_to_change_state()
+        else {
+            return;
+        };
+        commit_mode.insert_side = match commit_mode.insert_side {
+            InsertSide::Above => InsertSide::Below,
+            InsertSide::Below => InsertSide::Above,
+        };
     }
 
     fn handle_commit_toggle_message_composer(&mut self, composer: CommitMessageComposer) {
@@ -4179,6 +4201,7 @@ enum CommitMessage {
     ToggleMessageComposer(CommitMessageComposer),
     Confirm,
     CommitToNewBranch,
+    ToggleInsertSide,
 }
 
 #[derive(Debug, Clone)]

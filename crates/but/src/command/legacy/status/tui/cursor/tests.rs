@@ -2108,6 +2108,7 @@ fn is_selectable_in_commit_mode_scopes_commit_targets_to_stack() {
         source: Arc::new(CommitSource::Unassigned(UnassignedCommitSource {
             id: "zz".into(),
         })),
+        insert_side: InsertSide::Above,
         scope_to_stack: Some(scoped_stack_id),
         message_composer: CommitMessageComposer::default(),
     });
