@@ -357,6 +357,7 @@ export interface UpdateBranchNameParams {
 export interface UpdateReviewParams {
 	projectId: string;
 	reviewId: number;
+	title: string | null;
 	body: string | null;
 	state: ReviewState | null;
 	targetBase: string | null;

@@ -982,17 +982,46 @@ impl From<&ReviewMergeMethod> for but_github::MergeMethod {
     }
 }
 
-/// Update arbitrary fields of a single review. Each `Some` is applied;
+/// The values to update for an existing review.  Each `Some` is applied;
 /// `None` leaves the field unchanged on the forge.
+pub struct ReviewUpdatePayload {
+    title: Option<String>,
+    body: Option<String>,
+    state: Option<ReviewState>,
+    target_base: Option<String>,
+}
+
+impl ReviewUpdatePayload {
+    /// Create a new instance of the parameters of the review to update.
+    pub fn new(
+        title: Option<String>,
+        body: Option<String>,
+        state: Option<ReviewState>,
+        target_base: Option<String>,
+    ) -> Self {
+        Self {
+            title,
+            body,
+            state,
+            target_base,
+        }
+    }
+}
+
+/// Update arbitrary fields of a single review.
 pub async fn update_review(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     review_number: usize,
-    body: Option<String>,
-    state: Option<ReviewState>,
-    target_base: Option<String>,
+    payload: ReviewUpdatePayload,
     storage: &but_forge_storage::Controller,
 ) -> Result<()> {
+    let ReviewUpdatePayload {
+        title,
+        body,
+        state,
+        target_base,
+    } = payload;
     let crate::forge::ForgeRepoInfo {
         forge, owner, repo, ..
     } = forge_repo_info;
@@ -1007,7 +1036,7 @@ pub async fn update_review(
                 owner,
                 repo,
                 pr_number,
-                title: None,
+                title: title.as_deref(),
                 body: body.as_deref(),
                 base: target_base.as_deref(),
                 state: state_str,
@@ -1030,7 +1059,7 @@ pub async fn update_review(
             let params = but_gitlab::UpdateMergeRequestParams {
                 project_id,
                 mr_iid,
-                title: None,
+                title: title.as_deref(),
                 description: body.as_deref(),
                 target_branch: target_base.as_deref(),
                 state_event,

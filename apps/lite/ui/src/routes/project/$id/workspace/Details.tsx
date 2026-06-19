@@ -901,6 +901,7 @@ const PullRequestForm: FC<{
 		updateReview.mutate({
 			projectId,
 			reviewId,
+			title: null, // TODO: draft title
 			body: draftBody,
 			state: null,
 			targetBase: null,

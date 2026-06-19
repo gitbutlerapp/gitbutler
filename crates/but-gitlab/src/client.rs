@@ -310,8 +310,17 @@ impl GitLabClient {
             self.base_url, params.project_id, params.mr_iid
         );
 
+        let title = if let Some(title) = params.title {
+            let mr = self
+                .get_merge_request(params.project_id.clone(), params.mr_iid)
+                .await?;
+            Some(update_draft_state_in_title(title, mr.draft))
+        } else {
+            None
+        };
+
         let body = UpdateMergeRequestBody {
-            title: params.title,
+            title: title.as_deref(),
             description: params.description,
             target_branch: params.target_branch,
             state_event: params.state_event,
@@ -1035,6 +1044,18 @@ mod tests {
         assert_eq!(
             update_draft_state_in_title("[WIP] Add API validation", false),
             "Add API validation"
+        );
+    }
+
+    #[test]
+    fn update_title_preserves_existing_draft_state() {
+        assert_eq!(
+            update_draft_state_in_title("Rename API validation", true),
+            "Draft: Rename API validation"
+        );
+        assert_eq!(
+            update_draft_state_in_title("Draft: Rename API validation", false),
+            "Rename API validation"
         );
     }
 

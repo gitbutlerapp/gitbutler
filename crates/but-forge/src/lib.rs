@@ -14,11 +14,11 @@ pub use repo::{RepoInfo, RepoPermissions, get_repo_info};
 pub use review::{
     CacheConfig, CreateForgeReviewParams, ForgeAccountValidity, ForgeReview, ForgeReviewFilter,
     ForgeReviewTargetUpdate, ForgeReviewUpdate, ReviewMergeMethod, ReviewMergeStatus, ReviewState,
-    ReviewTemplateFunctions, available_review_templates, check_forge_account_is_valid,
-    compute_review_target_updates, create_forge_review, get_forge_review, get_review_base_repo_url,
-    get_review_merge_status, get_review_template_functions, list_forge_reviews_for_branch,
-    list_forge_reviews_with_cache, merge_review, set_review_auto_merge_state,
-    set_review_draftiness, sync_reviews, update_review,
+    ReviewTemplateFunctions, ReviewUpdatePayload, available_review_templates,
+    check_forge_account_is_valid, compute_review_target_updates, create_forge_review,
+    get_forge_review, get_review_base_repo_url, get_review_merge_status,
+    get_review_template_functions, list_forge_reviews_for_branch, list_forge_reviews_with_cache,
+    merge_review, set_review_auto_merge_state, set_review_draftiness, sync_reviews, update_review,
 };
 
 fn determine_forge_from_host(host: &str) -> Option<ForgeName> {

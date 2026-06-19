@@ -119,6 +119,7 @@ export class PrService {
 		await this.backendApi.endpoints.updateReview.mutate({
 			projectId,
 			reviewId: number,
+			title: null,
 			body: null,
 			state: "open",
 			targetBase: null,
@@ -128,11 +129,17 @@ export class PrService {
 	async update(
 		projectId: string,
 		number: number,
-		update: { description?: string; state?: "open" | "closed"; targetBase?: string },
+		update: {
+			title?: string;
+			description?: string;
+			state?: "open" | "closed";
+			targetBase?: string;
+		},
 	) {
 		await this.backendApi.endpoints.updateReview.mutate({
 			projectId,
 			reviewId: number,
+			title: update.title ?? null,
 			body: update.description ?? null,
 			state: update.state ?? null,
 			targetBase: update.targetBase ?? null,
@@ -208,6 +215,7 @@ function injectBackendEndpoints(api: BackendApi) {
 				{
 					projectId: string;
 					reviewId: number;
+					title: string | null;
 					body: string | null;
 					state: "open" | "closed" | null;
 					targetBase: string | null;

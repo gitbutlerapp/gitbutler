@@ -525,13 +525,14 @@ pub async fn set_review_draftiness(
     .await
 }
 
-/// Update arbitrary fields of a single review (body, state, target base).
+/// Update arbitrary fields of a single review (title, body, state, target base).
 /// Each `None` leaves that field unchanged on the forge.
 #[but_api(napi)]
 #[instrument(err(Debug))]
 pub async fn update_review(
     ctx: ThreadSafeContext,
     review_id: usize,
+    title: Option<String>,
     body: Option<String>,
     state: Option<but_forge::ReviewState>,
     target_base: Option<String>,
@@ -548,13 +549,12 @@ pub async fn update_review(
         )
     };
 
+    let update_payload = but_forge::ReviewUpdatePayload::new(title, body, state, target_base);
     but_forge::update_review(
         &preferred_forge_user,
         &forge_repo_info.context("No forge could be determined for this repository branch")?,
         review_id,
-        body,
-        state,
-        target_base,
+        update_payload,
         &storage,
     )
     .await

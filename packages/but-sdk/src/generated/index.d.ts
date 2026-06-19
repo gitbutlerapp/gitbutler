@@ -457,10 +457,10 @@ export declare function unapplyStack(projectId: string, stackId: string): Promis
 export declare function updateBranchName(projectId: string, stackId: string, branchName: string, newName: string): Promise<BranchReference>
 
 /**
- * Update arbitrary fields of a single review (body, state, target base).
+ * Update arbitrary fields of a single review (title, body, state, target base).
  * Each `None` leaves that field unchanged on the forge.
  */
-export declare function updateReview(projectId: string, reviewId: number, body: string | null, state: ReviewState | null, targetBase: string | null): Promise<void>
+export declare function updateReview(projectId: string, reviewId: number, title: string | null, body: string | null, state: ReviewState | null, targetBase: string | null): Promise<void>
 
 /** Update stacked reviews: description footers and, optionally, target branches. */
 export declare function updateReviewFooters(projectId: string, reviews: Array<ForgeReviewUpdate>): Promise<void>
