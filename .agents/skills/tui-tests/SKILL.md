@@ -19,7 +19,7 @@ fn describes_behavior_under_test() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render(None)
+    tui.input_then_render(KeyCode::Down)
         .assert_rendered_term_svg_eq(file!["snapshots/describes_behavior_under_test_001.svg"]);
 }
 ```
@@ -35,6 +35,7 @@ tui.input_then_render(KeyCode::Down);                              // special ke
 tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')));  // keys with modifiers
 tui.input_then_render([KeyCode::Down, KeyCode::Down]);             // multiple keys from array
 tui.input_then_render("commit message text");                      // multiple keys from string
+tui.reload();                                                      // reload state after making external changes
 ```
 
 ## Assertions
