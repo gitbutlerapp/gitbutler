@@ -351,6 +351,31 @@ impl Workspace {
     }
 }
 
+/// Return project metadata repaired for migration/recovery paths.
+///
+/// Prefer normal target setters for new writes. This function exists for old or partially
+/// migrated metadata where only one side of the target ref/commit pair is present.
+pub fn repair_target_metadata_for_migration(
+    project_meta: &ProjectMeta,
+    repo: &gix::Repository,
+) -> ProjectMeta {
+    let mut project_meta = project_meta.clone();
+    let Some(target_ref) = project_meta.target_ref.as_ref() else {
+        return project_meta;
+    };
+    match repo.find_reference(target_ref) {
+        Ok(mut target_ref) => {
+            if project_meta.target_commit_id.is_none()
+                && let Ok(commit) = target_ref.peel_to_commit()
+            {
+                project_meta.target_commit_id = Some(commit.id);
+            }
+        }
+        Err(_) => project_meta.target_ref = None,
+    }
+    project_meta
+}
+
 impl ProjectMeta {
     /// Return [`Self::target_ref`], or a [`DefaultTargetNotFound`](but_error::Code::DefaultTargetNotFound)
     /// error if no target is configured.
@@ -545,20 +570,26 @@ impl ProjectMeta {
 
     /// Persist project metadata to repository-local Git config and mark it as ported.
     pub fn persist_to_local_config(&self, repo: &gix::Repository) -> anyhow::Result<()> {
+        let project_meta = repair_target_metadata_for_migration(self, repo);
         git_config::edit_repo_config(repo, gix::config::Source::Local, |config| {
             set_or_remove(
                 config,
                 PROJECT_TARGET_REF,
-                self.target_ref.as_ref().map(ToString::to_string),
+                project_meta.target_ref.as_ref().map(ToString::to_string),
             )?;
             set_or_remove(
                 config,
                 PROJECT_TARGET_COMMIT_ID,
-                self.target_commit_id
+                project_meta
+                    .target_commit_id
                     .filter(|id| !id.is_null())
                     .map(|id| id.to_string()),
             )?;
-            set_or_remove(config, PROJECT_PUSH_REMOTE, self.push_remote.as_deref())?;
+            set_or_remove(
+                config,
+                PROJECT_PUSH_REMOTE,
+                project_meta.push_remote.as_deref(),
+            )?;
             git_config::set_config_value(config, PROJECT_PORTED_META, "true")?;
             Ok(())
         })?;
