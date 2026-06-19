@@ -141,7 +141,7 @@ const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 const AbsorptionTargetKeysContext = createContext<ReadonlySet<string> | null>(null);
 
 const isCommitDiscardBoundary = (operand: Operand): boolean =>
-	operand._tag === "Branch" || operand._tag === "Stack" || operand._tag === "ChangesSection";
+	operand._tag === "Branch" || operand._tag === "ChangesSection";
 
 const selectAfterDiscardedCommit = ({
 	navigationIndex,
@@ -163,8 +163,10 @@ const selectAfterDiscardedCommit = ({
 		if (item._tag === "Commit") return item;
 	}
 
-	for (const item of navigationIndex.items.slice(0, commitIndex + 1).reverse())
-		if (isCommitDiscardBoundary(item)) return item;
+	for (const item of navigationIndex.items.slice(0, commitIndex + 1).reverse()) {
+		if (item._tag === "Branch") return item;
+		if (isCommitDiscardBoundary(item)) break;
+	}
 
 	return null;
 };
@@ -475,7 +477,7 @@ const useOutlineTreeHotkeys = ({
 		getKey: operandIdentityKey,
 		operationSourceForItem: (operand) => operand,
 		selectSectionPredicate: (operand) =>
-			operand._tag === "Branch" || operand._tag === "ChangesSection" || operand._tag === "Stack",
+			operand._tag === "Branch" || operand._tag === "ChangesSection",
 	});
 
 	useHotkeys([
@@ -2366,14 +2368,12 @@ const StackRow: FC<
 	{
 		projectId: string;
 		stack: Stack;
-	} & ComponentProps<"div">
+	} & Omit<ComponentProps<"div">, "onSelect">
 > = ({ projectId, stack, ...restProps }) => {
 	const relativeTo = stackBottomRelativeTo(stack);
 	const rebaseUpdate: BottomUpdate | null = relativeTo
 		? { kind: "rebase", selector: relativeTo }
 		: null;
-	// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
-	const operand = stackOperand({ stackId: stack.id! });
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
 	);
@@ -2412,10 +2412,9 @@ const StackRow: FC<
 	];
 
 	return (
-		<ItemRow
+		<WorkspaceItemRow
 			{...restProps}
-			projectId={projectId}
-			operand={operand}
+			interactive={false}
 			onContextMenu={(event) => {
 				void showNativeContextMenu(event, menuItems);
 			}}
@@ -2435,7 +2434,7 @@ const StackRow: FC<
 					</Toolbar.Button>
 				</Toolbar.Root>
 			)}
-		</ItemRow>
+		</WorkspaceItemRow>
 	);
 };
 

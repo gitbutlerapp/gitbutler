@@ -49,7 +49,6 @@ import {
 	operandContains,
 	operandEquals,
 	operandIdentityKey,
-	stackOperand,
 	type BranchOperand,
 } from "#ui/operands.ts";
 import { Details } from "./Details.tsx";
@@ -195,10 +194,7 @@ const outlineNavigationItems = (headInfo: RefInfo | undefined): Array<Operand> =
 		...reverse(headInfo?.stacks ?? []).flatMap((stack) => {
 			// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]
 			const stackId = stack.id!;
-			return [
-				stackOperand({ stackId }),
-				...stack.segments.flatMap((segment) => segmentItems(stackId, segment)),
-			];
+			return stack.segments.flatMap((segment) => segmentItems(stackId, segment));
 		}),
 	];
 };
