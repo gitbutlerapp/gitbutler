@@ -902,7 +902,7 @@ const PullRequestForm: FC<{
 			projectId,
 			reviewId,
 			title: null, // TODO: draft title
-			body: draftBody,
+			body: draftBody === body ? null : draftBody,
 			state: null,
 			targetBase: null,
 		});
