@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use bstr::BString;
 use but_core::{HunkHeader, ref_metadata::StackId};
+use but_rebase::graph_rebase::mutate::InsertSide;
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use gix::refs::FullName;
 use ratatui::style::Color;
@@ -61,11 +62,13 @@ impl Mode {
             },
             Mode::PickChanges(pick_uncommitted_mode) => Some(&pick_uncommitted_mode.marks),
             Mode::Details(details_mode) => Some(details_mode.return_mode.marks()),
-            Mode::InlineReword(..)
-            | Mode::Command(..)
-            | Mode::Move(..)
-            | Mode::Stack(..)
-            | Mode::MoveStack(..) => None,
+            Mode::Move(move_mode) => match &*move_mode.source {
+                MoveSource::Marks(marks) => Some(marks),
+                MoveSource::Commit { .. } | MoveSource::Branch { .. } => None,
+            },
+            Mode::InlineReword(..) | Mode::Command(..) | Mode::Stack(..) | Mode::MoveStack(..) => {
+                None
+            }
         }
     }
 }
@@ -223,6 +226,7 @@ pub(super) enum CommitMessageComposer {
 #[derive(Debug)]
 pub(super) struct MoveMode {
     pub(super) source: Arc<MoveSource>,
+    pub(super) insert_side: InsertSide,
 }
 
 /// A subset of [`CliId`] that supports being committed

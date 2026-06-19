@@ -46,6 +46,7 @@ pub(super) fn default_key_binds() -> KeyBinds {
             }
             ModeDiscriminant::Move => {
                 builder.move_confirm().register();
+                builder.move_toggle_insert_side().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Stack => {
@@ -587,6 +588,15 @@ impl KeyBindsBuilder<'_> {
             Message::Move(MoveMessage::Start),
         )
         .long_description("Move selection somewhere else")
+    }
+
+    fn move_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "above/below",
+            press().code(KeyCode::Char('a')),
+            Message::Move(MoveMessage::ToggleInsertSide),
+        )
+        .long_description("Toggle inserting above or below")
     }
 
     fn branch(&mut self) -> KeyBindsInModesBuilder<'_> {

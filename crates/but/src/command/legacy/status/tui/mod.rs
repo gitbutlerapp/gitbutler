@@ -758,6 +758,7 @@ impl App {
             },
             Message::Move(move_message) => match move_message {
                 MoveMessage::Start => self.handle_move_start(),
+                MoveMessage::ToggleInsertSide => self.handle_move_toggle_insert_side(),
                 MoveMessage::Confirm => self.handle_move_confirm(ctx, messages)?,
             },
             Message::NewBranch => {
@@ -2471,6 +2472,7 @@ impl App {
             }
             MoveMode {
                 source: Arc::new(MoveSource::Marks(marks.clone())),
+                insert_side: InsertSide::Above,
             }
         } else {
             match &selection.data {
@@ -2482,6 +2484,7 @@ impl App {
                     };
                     MoveMode {
                         source: Arc::new(source),
+                        insert_side: InsertSide::Above,
                     }
                 }
                 StatusOutputLineData::UpdateNotice
@@ -2508,16 +2511,32 @@ impl App {
             });
     }
 
+    fn handle_move_toggle_insert_side(&mut self) {
+        let Mode::Move(move_mode) = self
+            .mode
+            .get_mut_without_updating_backstack_and_i_promise_not_to_change_state()
+        else {
+            return;
+        };
+        move_mode.insert_side = match move_mode.insert_side {
+            InsertSide::Above => InsertSide::Below,
+            InsertSide::Below => InsertSide::Above,
+        };
+    }
+
     fn handle_move_confirm(
         &mut self,
         ctx: &mut Context,
         messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
-        let Mode::Move(MoveMode { source }) = &*self.mode else {
+        let Mode::Move(MoveMode {
+            source,
+            insert_side,
+        }) = &*self.mode
+        else {
             return Ok(());
         };
 
-        // find target
         let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
             return Ok(());
         };
@@ -2528,10 +2547,6 @@ impl App {
             .is_some_and(|target| source.contains(target))
         {
             messages.push(Message::EnterNormalModeAfterConfirmingOperation);
-            return Ok(());
-        }
-
-        if cursor::is_forbidden_move_commit_target(selection, &self.status_lines, &self.mode) {
             return Ok(());
         }
 
@@ -2588,7 +2603,7 @@ impl App {
                         ctx,
                         Vec::from([*source_commit_id]),
                         target_commit_id,
-                        InsertSide::Below,
+                        *insert_side,
                     )?,
                     MoveTarget::MergeBase => return Ok(()),
                 };
@@ -2622,7 +2637,7 @@ impl App {
                         ctx,
                         sources.clone(),
                         target_commit_id,
-                        InsertSide::Below,
+                        *insert_side,
                     )?,
                     MoveTarget::MergeBase => return Ok(()),
                 };
@@ -4169,6 +4184,7 @@ enum CommitMessage {
 #[derive(Debug, Clone)]
 enum MoveMessage {
     Start,
+    ToggleInsertSide,
     Confirm,
 }
 

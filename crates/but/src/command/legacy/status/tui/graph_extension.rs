@@ -1,3 +1,4 @@
+use but_rebase::graph_rebase::mutate::InsertSide;
 use ratatui::text::Span;
 
 /// Direction in which to extend a graph connector line.
@@ -7,6 +8,15 @@ pub(super) enum ExtensionDirection {
     Above,
     /// Build the connector for a synthetic line rendered below the source line.
     Below,
+}
+
+impl From<InsertSide> for ExtensionDirection {
+    fn from(value: InsertSide) -> Self {
+        match value {
+            InsertSide::Above => Self::Above,
+            InsertSide::Below => Self::Below,
+        }
+    }
 }
 
 /// Build a connector extension line for the provided connector spans.

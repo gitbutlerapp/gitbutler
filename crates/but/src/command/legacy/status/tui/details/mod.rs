@@ -218,7 +218,7 @@ impl Details {
                 FilesMessage::ToggleGlobalFilesList | FilesMessage::ToggleFilesForCommit => true,
             },
             Message::Move(move_message) => match move_message {
-                MoveMessage::Start => false,
+                MoveMessage::Start | MoveMessage::ToggleInsertSide => false,
                 MoveMessage::Confirm => true,
             },
             Message::Details(details_message) => match details_message {
