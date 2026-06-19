@@ -1,4 +1,4 @@
-import { renameBranchInHeadInfo, resolveRelativeTo } from "#ui/api/ref-info.ts";
+import { findCommitStackId, renameBranchInHeadInfo, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import {
 	changesInWorktreeQueryOptions,
 	getReviewQueryOptions,
@@ -11,7 +11,7 @@ import {
 	discardChangesToastOptions,
 	rejectedChangesToastOptions,
 } from "#ui/operations/toastOptions.tsx";
-import { type BranchOperand } from "#ui/operands.ts";
+import { commitOperand, type BranchOperand } from "#ui/operands.ts";
 import { projectActions } from "#ui/projects/state.ts";
 import { type AppDispatch, useAppDispatch } from "#ui/store.ts";
 import { Toast } from "@base-ui/react";
@@ -383,6 +383,15 @@ export const useCommitInsertBlank = () => {
 		mutationFn: window.lite.commitInsertBlank,
 		onSuccess: async (response, input, _context, mutation) => {
 			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
+
+			const stackId = findCommitStackId(response.workspace.headInfo, response.newCommit);
+			if (stackId !== null)
+				dispatch(
+					projectActions.selectOutline({
+						projectId: input.projectId,
+						selection: commitOperand({ stackId, commitId: response.newCommit }),
+					}),
+				);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
