@@ -381,7 +381,7 @@ pub(crate) fn connect_parent_step<M: RefMetadata>(
                 editor.add_step(Step::Pick(pick))?
             }
         }
-        Step::Reference { ref refname } => editor.select_reference(refname.as_ref())?,
+        Step::Reference { ref refname, .. } => editor.select_reference(refname.as_ref())?,
         Step::None => bail!("BUG: trying to connect to none"),
     };
 

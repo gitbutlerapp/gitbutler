@@ -136,7 +136,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
         let ws_ref: gix::refs::FullName = WORKSPACE_REF_NAME.try_into()?;
         let on_workspace = matches!(
             &self.graph[entrypoint_ix],
-            Step::Reference { refname } if *refname == ws_ref
+            Step::Reference { refname, .. } if *refname == ws_ref
         );
 
         let target_ix = self.target_selector().map(|s| s.id);

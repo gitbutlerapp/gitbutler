@@ -28,7 +28,9 @@ fn render(fixture: &str, target: Option<&str>) -> Result<String> {
         Graph::from_head(&repo, &*meta, ProjectMeta::default(), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
 
-    let project_meta = ProjectMeta {
+    // The projection bounds stacks at the target commit, so wire it onto the
+    // workspace graph that the editor reads from.
+    ws.graph.project_meta = ProjectMeta {
         target_commit_id: target
             .map(|t| repo.rev_parse_single(t).map(|id| id.detach()))
             .transpose()?,

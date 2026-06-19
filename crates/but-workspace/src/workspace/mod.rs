@@ -4,9 +4,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use anyhow::Result;
 use but_core::RefMetadata;
-use but_rebase::graph_rebase::{
-    Editor, ExtraRef, GraphEditorOptions, LookupStep, Pick, Selector, Step,
-};
+use but_rebase::graph_rebase::{Editor, LookupStep, Pick, Selector, Step};
 use gix::prelude::ObjectIdExt;
 use renderdag::{Ancestor, GraphRowRenderer, LinkLine, NodeLine, PadLine, Renderer};
 
@@ -96,15 +94,7 @@ pub fn detailed_graph_workspace<M: RefMetadata>(
     meta: &mut M,
     repo: &gix::Repository,
 ) -> Result<DetailedGraphWorkspace> {
-    let target_ref = workspace.graph.project_meta.target_ref.clone();
-    let opts = GraphEditorOptions {
-        extra_refs: target_ref
-            .iter()
-            .map(|r| ExtraRef::immutable(r.as_ref()))
-            .collect(),
-        ..Default::default()
-    };
-    let editor = Editor::create_with_opts(workspace, meta, repo, &opts)?;
+    let editor = Editor::create(workspace, meta, repo)?;
     let ws = editor.graph_workspace()?;
 
     Ok(DetailedGraphWorkspace {
@@ -172,7 +162,9 @@ fn stack_rows<M: RefMetadata>(
 fn is_visible_step<M: RefMetadata>(editor: &Editor<'_, '_, M>, selector: Selector) -> Result<bool> {
     Ok(match editor.lookup_step(selector)? {
         Step::Pick(_) => true,
-        Step::Reference { refname } => refname.category() == Some(gix::refs::Category::LocalBranch),
+        Step::Reference { refname, .. } => {
+            refname.category() == Some(gix::refs::Category::LocalBranch)
+        }
         Step::None => false,
     })
 }
@@ -359,7 +351,7 @@ fn row_data<M: RefMetadata>(
         Step::Pick(Pick { id, .. }) => {
             GraphRowData::Commit(but_core::Commit::from_id(id.attach(editor.repo()))?.into())
         }
-        Step::Reference { refname } => GraphRowData::Reference {
+        Step::Reference { refname, .. } => GraphRowData::Reference {
             ref_name: refname,
             additional_ref_info: None,
         },

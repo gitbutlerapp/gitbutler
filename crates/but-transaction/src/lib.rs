@@ -423,9 +423,7 @@ where
                 .find_reference(ref_name)?
                 .peel_to_id()?
                 .detach();
-            let reference = Step::Reference {
-                refname: ref_name.to_owned(),
-            };
+            let reference = Step::new_reference(ref_name.to_owned());
 
             match anchor {
                 Some(but_workspace::branch::create_reference::Anchor::AtCommit {

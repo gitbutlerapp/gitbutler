@@ -1,7 +1,7 @@
 //! Tests for `materialize` vs `materialize_without_checkout` behavior differences
 use anyhow::Result;
 use but_graph::Graph;
-use but_rebase::graph_rebase::{Editor, ExtraRef, GraphEditorOptions, Step};
+use but_rebase::graph_rebase::{Editor, Step};
 use but_testsupport::{
     StackState, graph_tree, visualize_commit_graph_all, visualize_disk_tree_skip_dot_git,
 };
@@ -310,11 +310,10 @@ fn materialize_without_checkout_does_not_repoint_head_when_checkout_reference_is
 }
 
 #[test]
-fn materialize_keeps_immutable_extra_refs_unchanged_while_updating_local_refs() -> Result<()> {
+fn materialize_keeps_immutable_refs_unchanged_while_updating_local_refs() -> Result<()> {
     let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-empty-stack")?;
     add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "stack-2", StackState::InWorkspace, &[]);
-    let main_ref = gix::refs::FullName::try_from("refs/heads/main")?;
     let main_before = repo.rev_parse_single("main")?.detach();
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -333,15 +332,7 @@ fn materialize_keeps_immutable_extra_refs_unchanged_while_updating_local_refs() 
     let graph =
         Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create_with_opts(
-        &mut ws,
-        &mut *meta,
-        &repo,
-        &GraphEditorOptions {
-            extra_refs: vec![ExtraRef::immutable(main_ref.as_ref())],
-            ..<_>::default()
-        },
-    )?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let stack_tip = repo.rev_parse_single("stack-2")?.detach();
     let stack_tip_sel = editor.select_commit(stack_tip)?;
@@ -369,7 +360,7 @@ fn materialize_keeps_immutable_extra_refs_unchanged_while_updating_local_refs() 
 }
 
 #[test]
-fn materialize_does_not_delete_immutable_extra_refs_removed_from_graph() -> Result<()> {
+fn materialize_does_not_delete_immutable_refs_removed_from_graph() -> Result<()> {
     let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-empty-stack")?;
     add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
     add_stack_with_segments(&mut meta, 2, "stack-2", StackState::InWorkspace, &[]);
@@ -379,15 +370,7 @@ fn materialize_does_not_delete_immutable_extra_refs_removed_from_graph() -> Resu
     let graph =
         Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
     let mut ws = graph.into_workspace()?;
-    let mut editor = Editor::create_with_opts(
-        &mut ws,
-        &mut *meta,
-        &repo,
-        &GraphEditorOptions {
-            extra_refs: vec![ExtraRef::immutable(main_ref.as_ref())],
-            ..<_>::default()
-        },
-    )?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
 
     let main_sel = editor.select_reference(main_ref.as_ref())?;
     editor.replace(main_sel, Step::None)?;

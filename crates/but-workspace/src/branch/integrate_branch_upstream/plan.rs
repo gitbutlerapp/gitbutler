@@ -385,9 +385,7 @@ fn integration_steps_to_segment_steps_for_editor<M: RefMetadata>(
     ref_name: &gix::refs::FullNameRef,
     steps: &[PreparedIntegrationStep],
 ) -> Result<Vec<Step>> {
-    let mut out = vec![Step::Reference {
-        refname: ref_name.to_owned(),
-    }];
+    let mut out = vec![Step::new_reference(ref_name.to_owned())];
 
     for step in steps.iter().rev() {
         match step {
@@ -451,7 +449,17 @@ fn existing_or_new_pick_step<M: RefMetadata>(
             true,
         )?;
 
-        return editor.lookup_step(existing);
+        // The integration rebuilds this commit onto new parents, so it must be
+        // cherry-picked. Reused upstream commits live in immutable segments
+        // (they aren't reachable from HEAD), so force them mutable here.
+        let mut step = editor.lookup_step(existing)?;
+        if let Step::Pick(pick) = &mut step
+            && !pick.mutable
+        {
+            pick.mutable = true;
+            editor.replace(existing, step.clone())?;
+        }
+        return Ok(step);
     }
 
     Ok(Step::new_pick(commit_id))

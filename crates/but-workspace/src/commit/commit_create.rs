@@ -119,7 +119,7 @@ fn parent_commit_id_for_new_commit<'ws, 'meta, M: RefMetadata>(
             let commit = editor.find_commit(id)?;
             commit.parents.first().copied()
         }
-        (Step::Reference { refname }, _) => Some(editor.find_reference_target(refname)?.1.id),
+        (Step::Reference { refname, .. }, _) => Some(editor.find_reference_target(refname)?.1.id),
         (Step::None, _) => None,
     })
 }

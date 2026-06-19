@@ -1,6 +1,6 @@
 use anyhow::Result;
 use but_graph::{Graph, init::Tip};
-use but_rebase::graph_rebase::{Editor, ExtraRef, GraphEditorOptions, testing::Testing as _};
+use but_rebase::graph_rebase::{Editor, GraphEditorOptions, testing::Testing as _};
 use but_testsupport::{StackState, graph_tree, visualize_commit_graph_all};
 
 use crate::{
@@ -342,6 +342,10 @@ fn workspace_with_empty_stack() -> Result<()> {
     ● │  46ef828 Commit C
     │ ◎  refs/heads/stack-2
     ├─╯
+    │ ◎  refs/remotes/origin/main (immutable)
+    │ ◎  refs/heads/main (immutable)
+    │ ●  a0f2ac5 Commit X
+    ├─╯
     ●  f555940 Commit A
     ●  d664be0 Commit B
     ●  fafd9d0 init
@@ -397,6 +401,10 @@ fn workspace_with_three_empty_stacks() -> Result<()> {
     ├─╯ │
     │   ◎  refs/heads/stack-3
     ├───╯
+    │ ◎  refs/remotes/origin/main (immutable)
+    │ ◎  refs/heads/main (immutable)
+    │ ●  1cf9cf4 Commit X
+    ├─╯
     ●  fafd9d0 init
     ");
 
@@ -464,6 +472,10 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
         ● │  46ef828 Commit C
         │ ◎  refs/heads/stack-2
         ├─╯
+        │ ◎  refs/remotes/origin/main (immutable)
+        │ ◎  refs/heads/main (immutable)
+        │ ●  a0f2ac5 Commit X
+        ├─╯
         ●  f555940 Commit A
         ●  d664be0 Commit B
         ●  fafd9d0 init
@@ -479,7 +491,7 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
             &mut *meta,
             &repo,
             &GraphEditorOptions {
-                extra_refs: vec![ExtraRef::mutable(main_ref.as_ref())],
+                extra_mutable_refs: vec![main_ref.clone()],
                 ..<_>::default()
             },
         )?;
@@ -493,6 +505,7 @@ fn includes_extra_refs_in_editor_creation() -> Result<()> {
         ● │  46ef828 Commit C
         │ ◎  refs/heads/stack-2
         ├─╯
+        │ ◎  refs/remotes/origin/main (immutable)
         │ ◎  refs/heads/main
         │ ●  a0f2ac5 Commit X
         ├─╯
@@ -628,11 +641,7 @@ fn immutable_entrypoints_propogate_until_mutable_entrypoints() -> Result<()> {
 
     let mut ws = graph.into_workspace()?;
     let opts = GraphEditorOptions {
-        extra_refs: vec![
-            ExtraRef::mutable("refs/heads/explicit-mut".try_into()?),
-            ExtraRef::immutable("refs/heads/explicit-const".try_into()?),
-            ExtraRef::immutable("refs/heads/explicit-const-2".try_into()?),
-        ],
+        extra_mutable_refs: vec!["refs/heads/explicit-mut".try_into()?],
         ..Default::default()
     };
     let editor = Editor::create_with_opts(&mut ws, &mut *meta, &repo, &opts)?;

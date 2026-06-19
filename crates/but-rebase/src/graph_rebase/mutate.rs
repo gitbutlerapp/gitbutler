@@ -268,7 +268,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     /// Get a selector to a particular reference in the graph
     pub fn try_select_reference(&self, target: &gix::refs::FullNameRef) -> Option<Selector> {
         for node_idx in self.graph.node_indices() {
-            if let Step::Reference { refname } = &self.graph[node_idx]
+            if let Step::Reference { refname, .. } = &self.graph[node_idx]
                 && target == refname.as_ref()
             {
                 return Some(self.new_selector(node_idx));
