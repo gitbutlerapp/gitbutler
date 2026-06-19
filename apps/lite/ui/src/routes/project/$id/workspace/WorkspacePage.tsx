@@ -110,10 +110,12 @@ const groupCommandPaletteItems = (
 
 	return Array.from(grouped.entries())
 		.toSorted(Order.mapInput(Order.string, ([group]) => group))
-		.map(([group, items]) => ({
-			value: group,
-			items: items.toSorted(Order.mapInput(Order.string, (item) => item.name)),
-		}));
+		.map(
+			([group, items]): PickerDialogGroup<CommandPaletteItem> => ({
+				value: group,
+				items: items.toSorted(Order.mapInput(Order.string, (item) => item.name)),
+			}),
+		);
 };
 
 const CommandPalette: FC<{
