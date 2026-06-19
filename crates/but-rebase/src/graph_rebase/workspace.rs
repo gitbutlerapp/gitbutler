@@ -11,7 +11,9 @@ use but_core::{RefMetadata, WORKSPACE_REF_NAME};
 use but_graph::workspace::commit::is_managed_workspace_by_message;
 use petgraph::{Direction, visit::EdgeRef as _};
 
-use crate::graph_rebase::{Checkout, Editor, Pick, Selector, Step, StepGraph, StepGraphIndex};
+use crate::graph_rebase::{
+    Checkout, Editor, Pick, Selector, Step, StepGraph, StepGraphIndex, traverse,
+};
 
 /// A structure that gives a frame of reference to a key subgraph in the
 /// workspace framing. This could be the subgraph of all commits above the
@@ -142,7 +144,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
 
         if on_workspace {
             let head_not_target_commit =
-                all_commits_until_optional_limit(&self.graph, entrypoint_ix, target_ix);
+                all_until_optional_limit(&self.graph, entrypoint_ix, target_ix);
 
             // The workspace commit, if present, lives somewhere in `HEAD ^target`.
             let workspace_commit = head_not_target_commit.nodes.iter().copied().find_map(|ix| {
@@ -177,7 +179,7 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
             }
         } else {
             // We're pegging.
-            let stack = all_commits_until_optional_limit(&self.graph, entrypoint_ix, target_ix);
+            let stack = all_until_optional_limit(&self.graph, entrypoint_ix, target_ix);
 
             Ok(GraphWorkspace {
                 above_workspace: Subgraph::empty(),
@@ -207,64 +209,16 @@ impl<M: RefMetadata> Editor<'_, '_, M> {
     }
 }
 
-/// Every step reachable from `start` following parent edges (`Outgoing`).
-fn reachable_from(graph: &StepGraph, start: StepGraphIndex) -> HashSet<StepGraphIndex> {
-    let mut out = HashSet::new();
-    let mut stack = vec![start];
-    while let Some(n) = stack.pop() {
-        if !out.insert(n) {
-            continue;
-        }
-        stack.extend(
-            graph
-                .edges_directed(n, Direction::Outgoing)
-                .map(|e| e.target()),
-        );
-    }
-    out
-}
-
-/// The rev-set `start ^excluded`: steps reachable from `start` but not
-/// `excluded`.
-///
-/// We could write a more efficient algorithm, but I'm keen on first focusing on
-/// the correctness of the rest of the system before delving too deep into the
-/// weeds WRT performance.
-fn a_not_b(
-    graph: &StepGraph,
-    start: StepGraphIndex,
-    excluded: StepGraphIndex,
-) -> HashSet<StepGraphIndex> {
-    let excluded_set = reachable_from(graph, excluded);
-    let mut out = HashSet::new();
-    let mut stack = vec![start];
-    while let Some(n) = stack.pop() {
-        if excluded_set.contains(&n) || !out.insert(n) {
-            continue;
-        }
-        stack.extend(
-            graph
-                .edges_directed(n, Direction::Outgoing)
-                .map(|e| e.target()),
-        );
-    }
-    out
-}
-
 /// All steps in `start ^limit`, or everything reachable from `start` when there
-/// is no `limit`. The analog of the original `all_commits_until_optional_limit`.
-fn all_commits_until_optional_limit(
+/// is no `limit`.
+fn all_until_optional_limit(
     graph: &StepGraph,
     start: StepGraphIndex,
     limit: Option<StepGraphIndex>,
 ) -> NodeSet {
-    let nodes = match limit {
-        Some(limit) => a_not_b(graph, start, limit),
-        None => reachable_from(graph, start),
-    };
     NodeSet {
         heads: vec![start],
-        nodes,
+        nodes: traverse::all_until_optional_limit(graph, start, limit).collect(),
     }
 }
 
@@ -340,53 +294,4 @@ fn divide_workspace_into_stacks(
     };
 
     (above_workspace, deduplicated)
-}
-
-// /// An enriched segment that represents a linear portion of a subgraph.
-// ///
-// /// Having segments has been a request from the Sam and Olly.
-// pub struct UiSegment<Row> {
-//     rows: Vec<Row>,
-// }
-
-// /// An enriched workspace that provides all the information that the frontend
-// /// might want to display.
-// ///
-// /// This representation uses the renderdag library to convert the graph
-// /// structures into lists render-able line drawing instructions.
-// ///
-// /// The `Row` type parameter represents an output of renderdag which is either a
-// /// commit or reference.
-// pub struct UiWorkspace<Row> {
-//     pub above_workspace: Vec<UiSegment<Row>>,
-// }
-
-#[cfg(test)]
-mod test {
-    use std::str::FromStr as _;
-
-    use super::{a_not_b, reachable_from};
-    use crate::graph_rebase::{Edge, Step, StepGraph, StepGraphIndex};
-
-    fn pick(graph: &mut StepGraph) -> StepGraphIndex {
-        let id = gix::ObjectId::from_str("1000000000000000000000000000000000000000").unwrap();
-        graph.add_node(Step::new_pick(id))
-    }
-
-    /// `a -> b -> base` and `c -> base` (edges point child -> parent).
-    /// `a ^c` must drop `base` (shared with `c`) but keep `a`, `b`.
-    #[test]
-    fn a_not_b_excludes_shared_ancestry() {
-        let mut g = StepGraph::new();
-        let a = pick(&mut g);
-        let b = pick(&mut g);
-        let base = pick(&mut g);
-        let c = pick(&mut g);
-        g.add_edge(a, b, Edge { order: 0 });
-        g.add_edge(b, base, Edge { order: 0 });
-        g.add_edge(c, base, Edge { order: 0 });
-
-        assert_eq!(a_not_b(&g, a, c), [a, b].into_iter().collect());
-        assert_eq!(reachable_from(&g, a), [a, b, base].into_iter().collect());
-    }
 }

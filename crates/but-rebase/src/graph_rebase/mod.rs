@@ -6,6 +6,7 @@
 
 mod creation;
 pub mod rebase;
+pub mod traverse;
 use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context, Result, bail};
