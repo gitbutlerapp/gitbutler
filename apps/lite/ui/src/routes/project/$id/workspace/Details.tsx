@@ -965,7 +965,7 @@ export const Details: FC<
 		dispatch(projectActions.selectFiles({ projectId, selection }));
 	};
 
-	if (!outlineSelection || outlineSelection._tag === "Stack") return;
+	if (!outlineSelection) return;
 
 	return (
 		<div {...restProps} className={classes(restProps.className, styles.container)}>
