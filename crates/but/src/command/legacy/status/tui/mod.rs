@@ -21,7 +21,6 @@ use but_transaction::DynamicOutcome;
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use gitbutler_branch_actions::BranchListingFilter;
-use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::{
@@ -3151,34 +3150,21 @@ impl App {
         Some(*commit_id)
     }
 
-    fn selected_editable_commit(
-        &self,
-        ctx: &Context,
-    ) -> anyhow::Result<Option<(gix::ObjectId, StackId)>> {
-        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
-            return Ok(None);
-        };
+    fn selected_editable_commit(&self) -> Option<(gix::ObjectId, StackId)> {
+        let selection = self.cursor.selected_line(&self.status_lines)?;
 
         let StatusOutputLineData::Commit {
             cli_id, stack_id, ..
         } = &selection.data
         else {
-            return Ok(None);
+            return None;
         };
-        let Some(stack_id) = *stack_id else {
-            return Ok(None);
-        };
+        let stack_id = (*stack_id)?;
         let CliId::Commit { commit_id, .. } = &**cli_id else {
-            return Ok(None);
+            return None;
         };
 
-        let repo = ctx.repo.get()?;
-        let commit = repo.find_commit(*commit_id)?;
-        if commit.is_conflicted() {
-            return Ok(None);
-        }
-
-        Ok(Some((*commit_id, stack_id)))
+        Some((*commit_id, stack_id))
     }
 
     fn handle_edit_mode_toggle(
@@ -3197,26 +3183,12 @@ impl App {
 
     fn open_enter_edit_mode_confirm(
         &mut self,
-        ctx: &mut Context,
-        messages: &mut Vec<Message>,
+        _ctx: &mut Context,
+        _messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
-        let Some((commit_id, stack_id)) = self.selected_editable_commit(ctx)? else {
+        let Some((commit_id, stack_id)) = self.selected_editable_commit() else {
             return Ok(());
         };
-
-        let guard = ctx.shared_worktree_access();
-        if !but_api::diff::changes_in_worktree_with_perm(ctx, guard.read_permission())?
-            .worktree_changes
-            .changes
-            .is_empty()
-        {
-            messages.push(Message::ShowToast {
-                kind: ToastKind::Error,
-                text: "Cannot enter edit mode with uncommitted changes".to_owned(),
-            });
-            return Ok(());
-        }
-        drop(guard);
 
         let short_commit_id = commit_id.to_hex_with_len(7).to_string();
         self.modal = Some(Modal::Confirm {
