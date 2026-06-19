@@ -207,7 +207,7 @@ pub fn apply_worktree_changes<'repo>(
             Err(_) => continue,
         };
         if let Some(previous_path) = change_request.previous_path.as_ref().map(|p| p.as_bstr()) {
-            base_tree_editor.remove(previous_path)?;
+            base_tree_editor.remove_leaf(previous_path)?;
         }
     }
     'each_change: for possible_change in changes.iter_mut() {
@@ -219,7 +219,7 @@ pub fn apply_worktree_changes<'repo>(
         let md = match gix::index::fs::Metadata::from_path_no_follow(&path) {
             Ok(md) => md,
             Err(err) if gix::fs::io_err::is_not_found(err.kind(), err.raw_os_error()) => {
-                base_tree_editor.remove(change_request.path.as_bstr())?;
+                base_tree_editor.remove_leaf(change_request.path.as_bstr())?;
                 continue;
             }
             Err(err) => return Err(err.into()),
