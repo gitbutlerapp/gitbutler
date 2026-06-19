@@ -69,7 +69,7 @@ fn commiting_with_no_unassigned_changes() {
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊│   << commit above >>"])
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commiting_with_no_unassigned_changes_001.svg"
         ]);
@@ -238,7 +238,7 @@ fn commit_from_unstaged_changes_with_multiple_hunks_in_same_file_commits_all_cha
 }
 
 #[test]
-fn commit_mode_shows_commit_above_on_commit_rows() {
+fn commit_mode_shows_commit_below_on_commit_rows() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata(&["A"]).unwrap();
 
@@ -253,9 +253,9 @@ fn commit_mode_shows_commit_above_on_commit_rows() {
         .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [unassigned changes]"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊│   << commit above >>"])
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"])
         .assert_rendered_term_svg_eq(file![
-            "snapshots/commit_mode_shows_commit_above_on_commit_rows_final.svg"
+            "snapshots/commit_mode_shows_commit_below_on_commit_rows_final.svg"
         ]);
 }
 
@@ -282,10 +282,14 @@ fn commit_to_commit_above_creates_commit_visible_in_tui() {
         .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [unassigned changes]"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊│   << commit above >>"])
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_to_commit_above_creates_commit_visible_in_tui_final_001.svg"
         ]);
+
+    tui.input_then_render('a')
+        .assert_current_line_eq(str!["┊│   << commit above >>"])
+        .assert_rendered_contains("┊│   << commit above >>");
 
     with_var("GIT_EDITOR", Some(editor_command), || {
         tui.input_then_render(KeyCode::Enter)
@@ -322,13 +326,10 @@ fn commit_to_commit_below_creates_commit_visible_in_tui() {
         .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [unassigned changes]"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
-        .assert_current_line_eq(str!["┊│   << commit above >>"])
+        .assert_current_line_eq(str!["┊●   9477ae7 add A"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_to_commit_below_creates_commit_visible_in_tui_001.svg"
-        ]);
-
-    tui.input_then_render('a')
-        .assert_current_line_eq(str!["┊●   9477ae7 add A"])
+        ])
         .assert_rendered_contains("┊│   << commit below >>");
 
     with_var("GIT_EDITOR", Some(editor_command), || {
@@ -378,7 +379,7 @@ fn commit_mode_from_staged_changes_stays_within_current_stack() {
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render(KeyCode::Down)
-        .assert_current_line_eq(str!["┊│   << commit above >>"])
+        .assert_current_line_eq(str!["┊●   [..] add A"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_mode_from_staged_changes_stays_within_current_stack_001.svg"
         ]);
