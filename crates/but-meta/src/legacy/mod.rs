@@ -515,7 +515,9 @@ impl VirtualBranchesTomlMetadata {
         repo: &gix::Repository,
         project_meta: &ProjectMeta,
     ) -> anyhow::Result<()> {
-        let target_sha = project_meta.target_commit_id_or_err()?;
+        let Some(target_sha) = project_meta.target_commit_id else {
+            return Ok(());
+        };
         let cache = repo.commit_graph_if_enabled()?;
         let mut graph = repo.revision_graph(cache.as_ref());
         let mut to_remove = Vec::new();
