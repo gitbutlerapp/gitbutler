@@ -143,8 +143,16 @@ export const outlineHotkeys = {
 		hotkey: "Space",
 		meta: { group: "Branch", name: "Check branch commits" },
 	},
+	insertEmptyCommit: {
+		hotkey: "N",
+		meta: {
+			// TODO: this also works for branch selections, not just commit selections. is this group correct?
+			group: "Commit",
+			name: "Insert empty commit",
+		},
+	},
 	createDependentBranchAbove: {
-		hotkey: "N", // like lazygit
+		hotkey: "B",
 		meta: { group: "Branch", name: "Create dependent branch above" },
 	},
 	setCommitTarget: {

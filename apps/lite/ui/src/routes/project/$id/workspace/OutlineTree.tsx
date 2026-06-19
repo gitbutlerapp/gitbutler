@@ -213,6 +213,7 @@ const useOutlineTreeHotkeys = ({
 
 	const commitMoveMutation = useCommitMove();
 	const commitDiscardMutation = useCommitDiscard();
+	const commitInsertBlankMutation = useCommitInsertBlank();
 	const pushStackMutation = usePushStack();
 	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream();
 	const branchCreateMutation = useBranchCreate();
@@ -245,6 +246,37 @@ const useOutlineTreeHotkeys = ({
 	const composeCommitHere = (relativeTo: RelativeTo) => {
 		setCommitTarget(relativeTo);
 		focusCommitMessageInput();
+	};
+
+	const insertEmptyCommit = () => {
+		if (!selection) return;
+
+		type Placement = { relativeTo: RelativeTo; side: InsertSide };
+		const placement = Match.value(selection).pipe(
+			Match.tags({
+				Commit: (selection): Placement => ({
+					relativeTo: { type: "commit", subject: selection.commitId },
+					side: "above",
+				}),
+				Branch: (selection): Placement => ({
+					relativeTo: {
+						type: "referenceBytes",
+						subject: selection.branchRef,
+					},
+					side: "below",
+				}),
+			}),
+			Match.orElse(() => null),
+		);
+
+		if (!placement) return;
+
+		commitInsertBlankMutation.mutate({
+			projectId,
+			relativeTo: placement.relativeTo,
+			side: placement.side,
+			dryRun: false,
+		});
 	};
 
 	const createDependentBranchAbove = (relativeTo: RelativeTo) => {
@@ -603,6 +635,19 @@ const useOutlineTreeHotkeys = ({
 					!workspaceIntegrateUpstreamMutation.isPending,
 				target: ref,
 				meta: outlineHotkeys.updateStack.meta,
+			},
+		},
+		{
+			hotkey: outlineHotkeys.insertEmptyCommit.hotkey,
+			callback: insertEmptyCommit,
+			options: {
+				conflictBehavior: "allow",
+				enabled:
+					defaultOutlineHotkeysEnabled &&
+					(isSelectedBranch || isSelectedCommit) &&
+					!commitInsertBlankMutation.isPending,
+				target: ref,
+				meta: outlineHotkeys.insertEmptyCommit.meta,
 			},
 		},
 		...Match.value(selection).pipe(
@@ -1023,16 +1068,27 @@ const InlineEditor: FC<{
 	);
 };
 
-const insertBlankCommitMenuItem = (insertBlankCommit: (side: "above" | "below") => void) =>
+const insertBlankCommitMenuItem = (
+	insertBlankCommit: (side: "above" | "below") => void,
+	acceleratorSide: "above" | "below",
+) =>
 	nativeMenuItem({
 		label: "Add Empty Commit",
 		submenu: [
 			nativeMenuItem({
 				label: "Above",
+				accelerator:
+					acceleratorSide === "above"
+						? toElectronAccelerator(outlineHotkeys.insertEmptyCommit.hotkey)
+						: undefined,
 				onSelect: () => insertBlankCommit("above"),
 			}),
 			nativeMenuItem({
 				label: "Below",
+				accelerator:
+					acceleratorSide === "below"
+						? toElectronAccelerator(outlineHotkeys.insertEmptyCommit.hotkey)
+						: undefined,
 				onSelect: () => insertBlankCommit("below"),
 			}),
 		],
@@ -1289,7 +1345,7 @@ const CommitRow: FC<
 				}),
 			],
 		}),
-		insertBlankCommitMenuItem(insertBlankCommit),
+		insertBlankCommitMenuItem(insertBlankCommit, "above"),
 		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Create Branch",
@@ -2193,7 +2249,7 @@ const BranchRow: FC<
 			onSelect: setCommitTarget,
 			enabled: isDefaultMode,
 		}),
-		insertBlankCommitMenuItem(insertBlankCommit),
+		insertBlankCommitMenuItem(insertBlankCommit, "below"),
 		nativeMenuSeparator,
 		nativeMenuItem({
 			label: "Create Branch",
