@@ -194,7 +194,9 @@ impl Details {
                 CommitMessage::Confirm
                 | CommitMessage::CommitToNewBranch
                 | CommitMessage::CreateEmpty => true,
-                CommitMessage::Start | CommitMessage::ToggleMessageComposer(..) => false,
+                CommitMessage::Start
+                | CommitMessage::ToggleMessageComposer(..)
+                | CommitMessage::ToggleInsertSide => false,
             },
             Message::Rub(rub_message) => match rub_message {
                 RubMessage::Start

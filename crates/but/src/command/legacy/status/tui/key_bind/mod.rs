@@ -41,6 +41,7 @@ pub(super) fn default_key_binds() -> KeyBinds {
                 builder.commit_confirm().register();
                 builder.commit_empty_message().register();
                 builder.commit_reword_inline().register();
+                builder.commit_toggle_insert_side().register();
                 builder.commit_to_new_branch().register();
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
@@ -596,7 +597,7 @@ impl KeyBindsBuilder<'_> {
             press().code(KeyCode::Char('a')),
             Message::Move(MoveMessage::ToggleInsertSide),
         )
-        .long_description("Toggle inserting above or below")
+        .long_description("Toggle moving above or below")
     }
 
     fn branch(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -785,6 +786,15 @@ impl KeyBindsBuilder<'_> {
             press().code(KeyCode::Enter),
             Message::Commit(CommitMessage::Confirm),
         )
+    }
+
+    fn commit_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "above/below",
+            press().code(KeyCode::Char('a')),
+            Message::Commit(CommitMessage::ToggleInsertSide),
+        )
+        .long_description("Toggle committing above or below")
     }
 
     fn commit_empty_message(&mut self) -> KeyBindsInModesBuilder<'_> {

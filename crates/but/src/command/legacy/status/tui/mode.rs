@@ -204,6 +204,7 @@ pub(super) enum CommandModeKind {
 #[derive(Debug)]
 pub(super) struct CommitMode {
     pub(super) source: Arc<CommitSource>,
+    pub(super) insert_side: InsertSide,
     /// If set, then the commit must be made on this stack
     ///
     /// Used when committing changes staged to a specific stack

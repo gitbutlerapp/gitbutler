@@ -611,9 +611,26 @@ fn render_status_list_item_with_stack_highlight(
     if is_selected {
         match &*app.mode {
             Mode::Commit(commit_mode) => {
-                if matches!(data, StatusOutputLineData::Commit { .. })
-                    || matches!(data, StatusOutputLineData::Branch { .. })
-                {
+                if matches!(data, StatusOutputLineData::Commit { .. }) {
+                    let mut extension_line =
+                        highlight_line_if(Line::default(), app.has_focus, app.theme);
+                    extend_connector_spans(
+                        connector.as_deref().unwrap_or_default(),
+                        commit_mode.insert_side.into(),
+                        &mut extension_line,
+                    );
+                    render_commit_labels_for_selected_line(
+                        app,
+                        data,
+                        commit_mode,
+                        &mut extension_line,
+                    );
+                    let line = highlight_line_if(line, highlight_current_line, app.theme);
+                    return match commit_mode.insert_side {
+                        InsertSide::Above => StatusListItem::Double(extension_line, line),
+                        InsertSide::Below => StatusListItem::Double(line, extension_line),
+                    };
+                } else if matches!(data, StatusOutputLineData::Branch { .. }) {
                     let mut extension_line =
                         highlight_line_if(Line::default(), app.has_focus, app.theme);
                     extend_connector_spans(
@@ -627,6 +644,7 @@ fn render_status_list_item_with_stack_highlight(
                         commit_mode,
                         &mut extension_line,
                     );
+                    let line = highlight_line_if(line, highlight_current_line, app.theme);
                     return StatusListItem::Double(line, extension_line);
                 }
             }
@@ -1162,26 +1180,36 @@ pub(super) fn commit_operation_display(
     data: &StatusOutputLineData,
     mode: &CommitMode,
 ) -> Option<&'static str> {
+    let CommitMode {
+        insert_side,
+        scope_to_stack,
+        source: _,
+        message_composer: _,
+    } = mode;
+
     match data {
         StatusOutputLineData::Branch { cli_id } => {
-            if let Some(stack_scope) = mode.scope_to_stack
+            if let Some(stack_scope) = scope_to_stack
                 && let Some(stack_id) = cli_id.stack_id()
-                && stack_scope != stack_id
+                && *stack_scope != stack_id
             {
                 // don't allow selecting branches outside the scoped stack
                 None
             } else {
-                Some("insert commit")
+                Some("commit to branch")
             }
         }
         StatusOutputLineData::Commit { stack_id, .. } => {
-            if let Some(stack_scope) = mode.scope_to_stack
-                && Some(stack_scope) != *stack_id
+            if let Some(stack_scope) = scope_to_stack
+                && Some(*stack_scope) != *stack_id
             {
                 // don't allow selecting commits outside the scoped stack
                 None
             } else {
-                Some("insert commit")
+                match insert_side {
+                    InsertSide::Above => Some("commit above"),
+                    InsertSide::Below => Some("commit below"),
+                }
             }
         }
         StatusOutputLineData::StagedChanges { .. }
