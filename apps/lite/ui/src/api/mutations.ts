@@ -82,11 +82,14 @@ export const useApply = () => {
 
 	return useMutation({
 		mutationFn: window.lite.apply,
-		onSuccess: async (response) => {
-			if (response.appliedBranches.length === 0)
+		onSuccess: async (response, input) => {
+			if (response.conflictingStacks.length > 0)
 				toastManager.add({
-					title: "Branch is already applied or conflicts with the workspace",
-					description: "No branches were applied.",
+					type: "error",
+					title: "Failed to apply branch",
+					description: `'${input.existingBranch}' conflicts with existing stack in the workspace: ${response.conflictingStacks
+						.map((stack) => stack.shortName)
+						.join(", ")}`,
 					priority: "high",
 				});
 		},
