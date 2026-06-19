@@ -161,6 +161,8 @@ impl Context {
             .meta_inner_read_only()?
             .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
             .project_meta();
+        let project_meta =
+            but_core::ref_metadata::repair_target_metadata_for_migration(&project_meta, &repo);
         project_meta.persist_to_local_config(&repo)?;
         Ok(())
     }

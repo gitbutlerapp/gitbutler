@@ -201,6 +201,50 @@ fn set_project_meta_updates_git_config_toml_and_database() -> anyhow::Result<()>
 }
 
 #[test]
+fn set_project_meta_fills_missing_target_commit_id_from_target_ref() -> anyhow::Result<()> {
+    let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-base")?;
+    let expected_target_id = {
+        let mut target_ref = repo.find_reference("refs/remotes/origin/main")?;
+        target_ref.peel_to_commit()?.id
+    };
+    let ctx = Context::from_repo(repo)?;
+
+    ctx.set_project_meta(ProjectMeta {
+        target_ref: Some("refs/remotes/origin/main".try_into()?),
+        target_commit_id: None,
+        push_remote: Some("fork".into()),
+    })?;
+
+    assert_eq!(
+        ctx.project_meta()?.target_commit_id,
+        Some(expected_target_id),
+        "migration should fill a missing target commit from the target ref tip"
+    );
+    let state = storage_state(&ctx)?;
+    assert_eq!(state.config.target_commit_id, Some("[OID]"));
+    assert_eq!(state.toml.target_commit_id, Some("[OID]"));
+    Ok(())
+}
+
+#[test]
+fn set_project_meta_clears_missing_target_ref() -> anyhow::Result<()> {
+    let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-base")?;
+    let ctx = Context::from_repo(repo)?;
+
+    ctx.set_project_meta(ProjectMeta {
+        target_ref: Some("refs/remotes/origin/missing".try_into()?),
+        target_commit_id: None,
+        push_remote: Some("fork".into()),
+    })?;
+
+    assert_eq!(ctx.project_meta()?.target_ref, None);
+    let state = storage_state(&ctx)?;
+    assert_eq!(state.config.target_ref, None);
+    assert_eq!(state.toml.target_ref, None);
+    Ok(())
+}
+
+#[test]
 fn project_meta_defaults_when_config_and_toml_are_unset() -> anyhow::Result<()> {
     let (_tmp, repo, _target_commit_id) = run_fixture("project-meta-base")?;
     let ctx = Context::from_repo(repo)?;

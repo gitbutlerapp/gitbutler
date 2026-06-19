@@ -56,6 +56,38 @@ fn switching_the_target_is_observed_within_the_same_context() {
     );
 }
 
+#[test]
+fn fills_missing_target_commit_id_from_existing_target_ref() {
+    let Test { repo, ctx, .. } = &mut Test::default();
+    let target_ref = "refs/remotes/origin/master";
+    let expected_target_id = repo
+        .open()
+        .find_reference(target_ref)
+        .unwrap()
+        .peel_to_commit()
+        .unwrap()
+        .id;
+
+    let mut project_meta = ctx.project_meta().unwrap();
+    project_meta.target_ref = Some(target_ref.try_into().unwrap());
+    project_meta.target_commit_id = None;
+    ctx.set_project_meta(project_meta).unwrap();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &target_ref.parse().unwrap(),
+        guard.write_permission(),
+    )
+    .unwrap();
+    drop(guard);
+
+    assert_eq!(
+        ctx.project_meta().unwrap().target_commit_id,
+        Some(expected_target_id)
+    );
+}
+
 mod error {
     use gitbutler_reference::RemoteRefname;
 
