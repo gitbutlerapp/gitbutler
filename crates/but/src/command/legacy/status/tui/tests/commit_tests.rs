@@ -712,3 +712,24 @@ fn committing_above_below() {
     tui.input_then_render('a')
         .assert_rendered_term_svg_eq(file!["snapshots/committing_above_below_003.svg"]);
 }
+
+#[test]
+fn cannot_commit_to_new_branch_from_commit_line() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata(&["A"]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.env().file("test.txt", "content");
+
+    tui.input_then_render('c');
+    tui.input_then_render('j');
+    tui.input_then_render('j')
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/cannot_commit_to_new_branch_from_commit_line_001.svg"
+        ]);
+    tui.input_then_render('b')
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/cannot_commit_to_new_branch_from_commit_line_002.svg"
+        ]);
+}

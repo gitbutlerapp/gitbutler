@@ -2432,6 +2432,27 @@ impl App {
     }
 
     fn handle_commit_to_new_branch(&mut self, messages: &mut Vec<Message>) {
+        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+            return;
+        };
+        match &selection.data {
+            StatusOutputLineData::UnassignedFile { .. } | StatusOutputLineData::Branch { .. } => {}
+            StatusOutputLineData::UpdateNotice
+            | StatusOutputLineData::Connector
+            | StatusOutputLineData::BetweenStacks
+            | StatusOutputLineData::StagedChanges { .. }
+            | StatusOutputLineData::StagedFile { .. }
+            | StatusOutputLineData::UnassignedChanges { .. }
+            | StatusOutputLineData::Commit { .. }
+            | StatusOutputLineData::CommitMessage
+            | StatusOutputLineData::EmptyCommitMessage
+            | StatusOutputLineData::File { .. }
+            | StatusOutputLineData::MergeBase
+            | StatusOutputLineData::UpstreamChanges
+            | StatusOutputLineData::Warning
+            | StatusOutputLineData::Hint
+            | StatusOutputLineData::NoAssignmentsUnstaged => return,
+        }
         messages.push(Message::NewBranch.and_then(Message::Commit(CommitMessage::Confirm)));
     }
 
