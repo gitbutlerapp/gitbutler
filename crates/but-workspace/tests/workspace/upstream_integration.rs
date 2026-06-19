@@ -1437,6 +1437,50 @@ fn orphan_reparent_content_integrated_stack_to_target_tip() -> Result<()> {
 }
 
 #[test]
+fn orphan_reparent_squash_integrated_stack_to_target_tip() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+        "fully-squash-integrated-single-branch-target-advanced",
+    )?;
+    let target_sha = repo.rev_parse_single("main~2")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&meta)?,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+
+    integrate_and_materialize(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A^")?.detach()),
+        }],
+    )?;
+
+    assert_eq!(
+        workspace_first_parent(&repo)?,
+        repo.rev_parse_single("origin/main")?.detach(),
+        "orphaned workspace commit should be reparented to the advanced target tip after squash integration"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn content_integrated_stack_does_not_reparent_while_stack_parent_remains() -> Result<()> {
     let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
         "content-integrated-stack-with-remaining-stack-target-advanced",

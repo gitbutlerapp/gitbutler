@@ -15,7 +15,7 @@ use but_rebase::{
     },
 };
 
-use crate::changeset::compute_similarity_by_commit_ids;
+use crate::changeset::UpstreamSimilarity;
 use crate::graph_manipulation::traverse_nodes;
 
 /// Whether a bottom most commit should be rebased, or a merge commit should be
@@ -453,27 +453,29 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
     for stack in &output_stacks {
         workspace_selectors.extend(stack.nodes.keys());
     }
-    let integration = compute_similarity_by_commit_ids(
+    // The upstream similarity lookup can require expensive changeset
+    // computation for incoming commits. Build it once for this integration
+    // operation and reuse it for both per-commit matching and stack-level
+    // squash detection below.
+    let upstream_similarity = UpstreamSimilarity::new(editor.repo(), &upstream_commits, true)?;
+    let integration = upstream_similarity.compute_similarity_by_commit_ids(
         editor.repo(),
-        &upstream_commits,
         &commit_ids(editor, workspace_selectors)?,
         true,
     )?;
 
     for stack in &mut output_stacks {
-        let Stack { nodes, bottoms, .. } = stack;
-
-        for node in nodes.keys() {
+        for node in stack.nodes.keys() {
             if editor
                 .direct_parents(*node)?
                 .iter()
-                .all(|(p, _)| !nodes.contains_key(p))
+                .all(|(p, _)| !stack.nodes.contains_key(p))
             {
-                bottoms.insert(*node);
+                stack.bottoms.insert(*node);
             }
         }
 
-        for (node, attrs) in nodes.iter_mut() {
+        for (node, attrs) in stack.nodes.iter_mut() {
             if from_target_ref.contains(node) {
                 attrs.historically_integrated = true;
             }
@@ -483,6 +485,12 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             if let Step::Pick(Pick { id, .. }) = node
                 && integration.matches_by_workspace_commit.contains_key(&id)
             {
+                attrs.content_integrated = true;
+            }
+        }
+
+        if squashed_stack_upstream_match(editor, stack, &upstream_similarity)?.is_some() {
+            for attrs in stack.nodes.values_mut() {
                 attrs.content_integrated = true;
             }
         }
@@ -556,6 +564,48 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
     }
 
     Ok(output_stacks)
+}
+
+fn squashed_stack_upstream_match<M: RefMetadata>(
+    editor: &Editor<'_, '_, M>,
+    stack: &Stack,
+    upstream_similarity: &UpstreamSimilarity,
+) -> Result<Option<gix::ObjectId>> {
+    // Stack-level squash detection only has an unambiguous range for linear
+    // stacks with one head and one bottom. Multi-branch stacks keep their
+    // existing per-commit integration behavior until branch-level squash
+    // semantics are introduced.
+    if stack.heads.len() != 1 || stack.bottoms.len() != 1 {
+        return Ok(None);
+    }
+    let head = stack.heads.iter().next().copied().context("head exists")?;
+    let bottom = stack
+        .bottoms
+        .iter()
+        .next()
+        .copied()
+        .context("bottom exists")?;
+    let Some(head_id) = selector_commit_id(editor, head)? else {
+        return Ok(None);
+    };
+    let mut base_ids = Vec::new();
+    for (parent, _) in editor.direct_parents(bottom)? {
+        if stack.nodes.contains_key(&parent) {
+            continue;
+        }
+        if let Some(parent_id) = selector_commit_id(editor, parent)? {
+            base_ids.push(parent_id);
+        }
+    }
+    let [base_id] = base_ids.as_slice() else {
+        return Ok(None);
+    };
+
+    // A squash merge upstream turns all stack commits into one upstream commit.
+    // Individual commit matching cannot see that, so compare the aggregate
+    // stack diff, from the stack's external base to its head, against the
+    // precomputed upstream changeset lookup.
+    upstream_similarity.matching_changeset(editor.repo(), Some(*base_id), head_id)
 }
 
 /// Convert a list of selectors into their current commit ids.

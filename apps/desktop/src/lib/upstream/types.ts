@@ -100,6 +100,13 @@ function deriveBranchStatus(
 	segment: Segment,
 	previewSegments: Map<string, Segment>,
 ): UpstreamIntegrationBranchStatus {
+	if (segment.pushStatus === "integrated") {
+		return {
+			name: branchDisplayName(segment),
+			status: "integrated",
+		};
+	}
+
 	const key = refNameKey(segment);
 	if (!key) {
 		return {

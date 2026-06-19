@@ -339,44 +339,82 @@ pub(crate) struct SimilarityByCommitIds {
     pub(crate) matches_by_workspace_commit: HashMap<gix::ObjectId, gix::ObjectId>,
 }
 
-/// Compute upstream similarity for the provided workspace commits without depending on [`RefInfo`].
+/// Similarity lookup for one upstream-integration operation.
 ///
-/// The returned matches use the same cheap and optional expensive checks as [`RefInfo::compute_similarity`]
-/// for upstream integration: change IDs are skipped, while commit data and changeset IDs are considered.
-pub(crate) fn compute_similarity_by_commit_ids(
-    repo: &gix::Repository,
-    upstream_commit_ids: &[gix::ObjectId],
-    workspace_commit_ids: &[gix::ObjectId],
-    expensive: bool,
-) -> anyhow::Result<SimilarityByCommitIds> {
-    let cost_info = (
-        upstream_commit_ids.len(),
-        repo.index_or_empty()?.entries().len(),
-    );
-    let upstream_lut = create_similarity_lut(
-        repo,
-        upstream_commit_ids
-            .iter()
-            .filter_map(|id| commit_from_id(repo, *id).ok()),
-        cost_info,
-        expensive,
-    )?;
+/// Building the upstream lookup can require changeset computation for incoming
+/// upstream commits, so callers should create this once and reuse it for every
+/// workspace commit and stack-level squash check in the same operation. It is
+/// intentionally not persisted across calls: the lookup is tied to the current
+/// repository state and the current set of incoming upstream commits.
+pub(crate) struct UpstreamSimilarity {
+    upstream_lut: Identity,
+}
 
-    let mut time_used = std::time::Duration::default();
-    let mut matches_by_workspace_commit = HashMap::new();
-    for workspace_commit_id in workspace_commit_ids {
-        let commit = commit_from_id(repo, *workspace_commit_id)?;
-        let expensive = changeset_identifier(repo, expensive.then_some(&commit), &mut time_used)?;
-        if let Some(upstream_commit_id) =
-            lookup_similar(&upstream_lut, &commit, expensive.as_ref(), ChangeId::Skip)
-        {
-            matches_by_workspace_commit.insert(*workspace_commit_id, *upstream_commit_id);
-        }
+impl UpstreamSimilarity {
+    pub(crate) fn new(
+        repo: &gix::Repository,
+        upstream_commit_ids: &[gix::ObjectId],
+        expensive: bool,
+    ) -> anyhow::Result<Self> {
+        let cost_info = (
+            upstream_commit_ids.len(),
+            repo.index_or_empty()?.entries().len(),
+        );
+        let upstream_lut = create_similarity_lut(
+            repo,
+            upstream_commit_ids
+                .iter()
+                .filter_map(|id| commit_from_id(repo, *id).ok()),
+            cost_info,
+            expensive,
+        )?;
+
+        Ok(Self { upstream_lut })
     }
 
-    Ok(SimilarityByCommitIds {
-        matches_by_workspace_commit,
-    })
+    pub(crate) fn compute_similarity_by_commit_ids(
+        &self,
+        repo: &gix::Repository,
+        workspace_commit_ids: &[gix::ObjectId],
+        expensive: bool,
+    ) -> anyhow::Result<SimilarityByCommitIds> {
+        let mut time_used = std::time::Duration::default();
+        let mut matches_by_workspace_commit = HashMap::new();
+        for workspace_commit_id in workspace_commit_ids {
+            let commit = commit_from_id(repo, *workspace_commit_id)?;
+            let expensive =
+                changeset_identifier(repo, expensive.then_some(&commit), &mut time_used)?;
+            if let Some(upstream_commit_id) = lookup_similar(
+                &self.upstream_lut,
+                &commit,
+                expensive.as_ref(),
+                ChangeId::Skip,
+            ) {
+                matches_by_workspace_commit.insert(*workspace_commit_id, *upstream_commit_id);
+            }
+        }
+
+        Ok(SimilarityByCommitIds {
+            matches_by_workspace_commit,
+        })
+    }
+
+    /// Return the upstream commit whose changeset matches the aggregate diff
+    /// from `lhs` to `rhs`.
+    pub(crate) fn matching_changeset(
+        &self,
+        repo: &gix::Repository,
+        lhs: Option<gix::ObjectId>,
+        rhs: gix::ObjectId,
+    ) -> anyhow::Result<Option<gix::ObjectId>> {
+        let Some(changeset_id) = id_for_tree_diff(repo, lhs, rhs)? else {
+            return Ok(None);
+        };
+        Ok(self
+            .upstream_lut
+            .get(&Identifier::ChangesetId(changeset_id))
+            .cloned())
+    }
 }
 
 fn commit_from_id(

@@ -55,6 +55,10 @@ function git(pathToRepo: string, args: string[]): string {
 	}).trim();
 }
 
+function integrationSeriesRow(page: Page, branchName: string) {
+	return getByTestId(page, "integrate-upstream-series-row").filter({ hasText: branchName });
+}
+
 test("should handle the update of workspace with one conflicting branch gracefully", async ({
 	page,
 	gitbutler,
@@ -96,6 +100,27 @@ test("should handle the update of workspace with integrated branch gracefully", 
 
 	await gitbutler.runScript("merge-upstream-branch-to-base.sh", ["branch1"]);
 	await syncAndIntegrate(page);
+
+	await waitForTestIdToNotExist(page, "stack");
+});
+
+test("should handle a stack whose branch was squash merged into the target", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await applyUpstream(gitbutler, "branch1");
+	await openWorkspace(page);
+
+	await expect(stack(page)).toHaveCount(1);
+
+	await gitbutler.runScript("squash-upstream-branch-to-base.sh", ["branch1"]);
+	await clickByTestId(page, "sync-button");
+	await clickByTestId(page, "integrate-upstream-commits-button");
+
+	await expect(integrationSeriesRow(page, "branch1")).toContainText("Integrated");
+
+	await clickByTestId(page, "integrate-upstream-action-button");
 
 	await waitForTestIdToNotExist(page, "stack");
 });
@@ -158,9 +183,7 @@ test("should handle the update of workspace with integrated parent branch in sta
 	await clickByTestId(page, "sync-button");
 	await clickByTestId(page, "integrate-upstream-commits-button");
 
-	const branch1Row = page.locator('[data-integration-row-branch-name="branch1"]').first();
-	const statusBadge = branch1Row.getByTestId("integrate-upstream-series-row-status-badge");
-	await expect(statusBadge).toHaveText("Integrated");
+	await expect(integrationSeriesRow(page, "branch1")).toContainText("Integrated");
 
 	await clickByTestId(page, "integrate-upstream-action-button");
 

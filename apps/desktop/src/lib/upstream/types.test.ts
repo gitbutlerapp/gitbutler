@@ -36,9 +36,11 @@ function commit(id: string, hasConflicts = false): Commit {
 function segment({
 	name,
 	commits = [],
+	pushStatus = "unpushedCommits",
 }: {
 	name?: string;
 	commits?: Commit[];
+	pushStatus?: Segment["pushStatus"];
 } = {}): Segment {
 	return {
 		refName: name
@@ -53,7 +55,7 @@ function segment({
 		commitsOutside: null,
 		metadata: null,
 		isEntrypoint: false,
-		pushStatus: "unpushedCommits",
+		pushStatus,
 		base: null,
 	};
 }
@@ -168,6 +170,34 @@ describe("upstream integration types", () => {
 		expect(statuses[0]).toMatchObject({
 			status: "integrated",
 			fullyIntegrated: true,
+		});
+	});
+
+	test("keeps already integrated branch status even when preview still contains conflicts", () => {
+		const statuses = deriveUpstreamIntegrationStatuses(
+			[
+				stack([
+					segment({
+						name: "feature/squashed",
+						commits: [commit("local-tip")],
+						pushStatus: "integrated",
+					}),
+				]),
+			],
+			refInfo([
+				stack([
+					segment({
+						name: "feature/squashed",
+						commits: [commit("preview-conflict", true)],
+					}),
+				]),
+			]),
+		);
+
+		expect(statuses[0]).toMatchObject({
+			status: "integrated",
+			fullyIntegrated: true,
+			branchStatuses: [{ name: "feature/squashed", status: "integrated" }],
 		});
 	});
 });
