@@ -905,11 +905,17 @@ fn render_reorder_labels_for_selected_line(
 }
 
 fn render_hotbar(app: &App, area: Rect, frame: &mut Frame) {
-    let mode_span = Span::raw(format!(
-        "  {}  ",
-        ModeDiscriminant::from(&*app.mode).hotbar_string()
-    ))
-    .mode_colors(&*app.mode, app.theme);
+    let mode_span = if app.backstack.has_abort_edit_mode() {
+        Span::raw("  edit  ")
+            .fg(ModeDiscriminant::InlineReword.fg(app.theme))
+            .bg(ModeDiscriminant::InlineReword.bg(app.theme))
+    } else {
+        Span::raw(format!(
+            "  {}  ",
+            ModeDiscriminant::from(&*app.mode).hotbar_string()
+        ))
+        .mode_colors(&*app.mode, app.theme)
+    };
 
     let layout = Layout::horizontal([
         Constraint::Length(mode_span.width() as _),

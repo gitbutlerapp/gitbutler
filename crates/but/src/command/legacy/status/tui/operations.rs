@@ -34,10 +34,11 @@ use crate::{
 pub(super) fn reload_legacy(
     ctx: &mut Context,
     out: &mut dyn WriteWithUtils,
-    mode: &OperatingMode,
+    _mode: &OperatingMode,
     flags: StatusFlags,
     options: TuiLaunchOptions,
 ) -> anyhow::Result<Vec<StatusOutputLine>> {
+    let mode = but_api::legacy::modes::operating_mode(ctx)?.operating_mode;
     let mut guard = ctx.exclusive_worktree_access();
 
     {
@@ -54,7 +55,7 @@ pub(super) fn reload_legacy(
         guard.write_permission(),
         out,
         OutputFormat::Human,
-        mode,
+        &mode,
         flags,
         StatusRenderMode::Tui(options),
     )?;

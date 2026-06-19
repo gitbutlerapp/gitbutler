@@ -21,6 +21,7 @@ use but_transaction::DynamicOutcome;
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
 use gitbutler_branch_actions::BranchListingFilter;
+use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::{
@@ -764,6 +765,11 @@ impl App {
                 MoveMessage::ToggleInsertSide => self.handle_move_toggle_insert_side(),
                 MoveMessage::Confirm => self.handle_move_confirm(ctx, messages)?,
             },
+            Message::EditMode(edit_mode_message) => match edit_mode_message {
+                EditModeMessage::Toggle => self.handle_edit_mode_toggle(ctx, messages)?,
+                EditModeMessage::Entered => self.backstack.push_abort_edit_mode(),
+                EditModeMessage::Left => self.backstack.remove_abort_edit_mode(),
+            },
             Message::NewBranch => {
                 self.handle_new_branch(ctx, messages)?;
             }
@@ -977,6 +983,7 @@ impl App {
                     entries_to_handle.push(entry);
                     false
                 }
+                BackstackEntry::AbortEditMode => true,
             });
 
             *mode = Mode::Normal(NormalMode::default());
@@ -1042,6 +1049,9 @@ impl App {
                 messages.push(Message::DetailsLayout(
                     DetailsLayoutMessage::ToggleVisibility,
                 ));
+            }
+            BackstackEntry::AbortEditMode => {
+                self.open_abort_edit_mode_confirm(messages);
             }
         }
     }
@@ -3141,6 +3151,129 @@ impl App {
         Some(*commit_id)
     }
 
+    fn selected_editable_commit(
+        &self,
+        ctx: &Context,
+    ) -> anyhow::Result<Option<(gix::ObjectId, StackId)>> {
+        let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
+            return Ok(None);
+        };
+
+        let StatusOutputLineData::Commit {
+            cli_id, stack_id, ..
+        } = &selection.data
+        else {
+            return Ok(None);
+        };
+        let Some(stack_id) = *stack_id else {
+            return Ok(None);
+        };
+        let CliId::Commit { commit_id, .. } = &**cli_id else {
+            return Ok(None);
+        };
+
+        let repo = ctx.repo.get()?;
+        let commit = repo.find_commit(*commit_id)?;
+        if commit.is_conflicted() {
+            return Ok(None);
+        }
+
+        Ok(Some((*commit_id, stack_id)))
+    }
+
+    fn handle_edit_mode_toggle(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        let operating_mode = but_api::legacy::modes::operating_mode(ctx)?.operating_mode;
+        if matches!(operating_mode, OperatingMode::Edit(_)) {
+            self.open_save_edit_mode_confirm(messages);
+        } else {
+            self.open_enter_edit_mode_confirm(ctx, messages)?;
+        }
+        Ok(())
+    }
+
+    fn open_enter_edit_mode_confirm(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        let Some((commit_id, stack_id)) = self.selected_editable_commit(ctx)? else {
+            return Ok(());
+        };
+
+        let guard = ctx.shared_worktree_access();
+        if !but_api::diff::changes_in_worktree_with_perm(ctx, guard.read_permission())?
+            .worktree_changes
+            .changes
+            .is_empty()
+        {
+            messages.push(Message::ShowToast {
+                kind: ToastKind::Error,
+                text: "Cannot enter edit mode with uncommitted changes".to_owned(),
+            });
+            return Ok(());
+        }
+        drop(guard);
+
+        let short_commit_id = commit_id.to_hex_with_len(7).to_string();
+        self.modal = Some(Modal::Confirm {
+            confirm: Confirm::new(
+                NonEmpty::new(format!("Enter edit mode for commit {short_commit_id}?").into()),
+                self.theme,
+                move |ctx, messages| {
+                    but_api::legacy::modes::enter_edit_mode(ctx, commit_id, stack_id)?;
+                    messages.push(Message::EditMode(EditModeMessage::Entered));
+                    messages.push(Message::Reload(
+                        Some(SelectAfterReload::Commit(commit_id)),
+                        ReloadCause::Mutation,
+                    ));
+                    Ok(())
+                },
+            ),
+            key_binds: confirm_key_binds(),
+        });
+
+        Ok(())
+    }
+
+    fn open_save_edit_mode_confirm(&mut self, _messages: &mut Vec<Message>) {
+        self.modal = Some(Modal::Confirm {
+            confirm: Confirm::new(
+                NonEmpty::new("Save changes and exit edit mode?".into()),
+                self.theme,
+                |_ctx, messages| {
+                    but_api::legacy::modes::save_edit_and_return_to_workspace(_ctx)?;
+                    messages.push(Message::EditMode(EditModeMessage::Left));
+                    messages.push(Message::Reload(None, ReloadCause::Mutation));
+                    Ok(())
+                },
+            ),
+            key_binds: confirm_key_binds(),
+        });
+    }
+
+    fn open_abort_edit_mode_confirm(&mut self, _messages: &mut Vec<Message>) {
+        self.modal = Some(Modal::Confirm {
+            confirm: Confirm::new(
+                NonEmpty {
+                    head: "Abort edit mode?".into(),
+                    tail: vec!["Changes made in edit mode will be discarded.".into()],
+                },
+                self.theme,
+                |_ctx, messages| {
+                    but_api::legacy::modes::abort_edit_and_return_to_workspace(_ctx, true)?;
+                    messages.push(Message::EditMode(EditModeMessage::Left));
+                    messages.push(Message::Reload(None, ReloadCause::Mutation));
+                    Ok(())
+                },
+            ),
+            key_binds: confirm_key_binds(),
+        });
+    }
+
     fn update_status_width_percentage(&mut self, new: u16, terminal_area: Rect) {
         if !self.is_details_visible {
             return;
@@ -4114,6 +4247,7 @@ enum Message {
     Command(CommandMessage),
     Files(FilesMessage),
     Move(MoveMessage),
+    EditMode(EditModeMessage),
     Stack(StackMessage),
     Details(DetailsMessage),
     DetailsLayout(DetailsLayoutMessage),
@@ -4206,6 +4340,13 @@ enum RewordMessage {
     InlineStart,
     InlineInput(Event),
     InlineConfirm,
+}
+
+#[derive(Debug, Clone)]
+enum EditModeMessage {
+    Toggle,
+    Entered,
+    Left,
 }
 
 #[derive(Debug, Clone)]

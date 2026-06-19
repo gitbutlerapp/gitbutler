@@ -161,6 +161,7 @@ impl Details {
             | Message::ShowError(_)
             | Message::ShowToast { .. }
             | Message::Confirm(_)
+            | Message::EditMode(_)
             | Message::FuzzyPicker(_)
             | Message::GrowDetails
             | Message::ShrinkDetails

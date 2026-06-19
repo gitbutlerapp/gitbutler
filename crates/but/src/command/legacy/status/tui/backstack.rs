@@ -44,6 +44,19 @@ impl Backstack {
         self.remove(BackstackEntry::Mark);
     }
 
+    pub(super) fn push_abort_edit_mode(&mut self) {
+        self.remove_abort_edit_mode();
+        self.push_front(BackstackEntry::AbortEditMode);
+    }
+
+    pub(super) fn remove_abort_edit_mode(&mut self) {
+        self.remove(BackstackEntry::AbortEditMode);
+    }
+
+    pub(super) fn has_abort_edit_mode(&self) -> bool {
+        self.stack.contains(&BackstackEntry::AbortEditMode)
+    }
+
     fn push_front(&mut self, entry: BackstackEntry) {
         self.stack.push_front(entry);
     }
@@ -81,6 +94,7 @@ pub(super) enum BackstackEntry {
     Mark,
     OpenSplitDetailsView,
     OpenFullScreenDetailsView,
+    AbortEditMode,
 }
 
 /// Wrapper type that makes it hard to forget updating the backstack when updating the inner value.

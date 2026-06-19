@@ -4,7 +4,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use strum::IntoEnumIterator;
 
 use crate::command::legacy::status::tui::{
-    CommandMessage, CommitMessageComposer, ConfirmMessage, DetailsLayoutMessage,
+    CommandMessage, CommitMessageComposer, ConfirmMessage, DetailsLayoutMessage, EditModeMessage,
     FuzzyPickerMessage, Message, RewordMessage, RubMessage, StackMessage, help::HelpMessage,
     mode::ModeDiscriminant,
 };
@@ -591,6 +591,16 @@ impl KeyBindsBuilder<'_> {
         .long_description("Move selection somewhere else")
     }
 
+    fn edit_mode(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "edit commit",
+            press().code(KeyCode::Char('e')),
+            Message::EditMode(EditModeMessage::Toggle),
+        )
+        .long_description("Edit the selected commit")
+        .hide_from_hotbar()
+    }
+
     fn move_toggle_insert_side(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "above/below",
@@ -959,6 +969,7 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
     }
 
     builder.move_mode().register();
+    builder.edit_mode().register();
 
     if without_marks {
         builder.branch().register();
