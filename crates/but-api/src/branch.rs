@@ -148,7 +148,22 @@ pub mod json {
         pub applied_branches: Vec<crate::json::FullRefName>,
         /// Whether the workspace reference had to be created.
         pub workspace_ref_created: bool,
+        /// Stacks that conflicted while applying the branch.
+        pub conflicting_stacks: Vec<ConflictingStack>,
     }
+
+    /// A stack that conflicted while applying a branch.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct ConflictingStack {
+        /// The tip branch name of the stack.
+        pub ref_name: crate::json::FullRefName,
+        /// The shortened tip branch name, matching CLI display.
+        pub short_name: String,
+    }
+    #[cfg(feature = "export-schema")]
+    but_schemars::register_sdk_type!(ConflictingStack);
     #[cfg(feature = "export-schema")]
     but_schemars::register_sdk_type!(ApplyOutcome);
 
@@ -160,13 +175,23 @@ pub mod json {
                 applied_branches,
                 workspace_ref_created,
                 workspace_merge: _,
-                conflicting_stacks: _,
+                conflicting_stacks,
             } = value;
 
             ApplyOutcome {
                 workspace_changed,
                 applied_branches: applied_branches.into_iter().map(Into::into).collect(),
                 workspace_ref_created,
+                conflicting_stacks: conflicting_stacks
+                    .into_iter()
+                    .map(|stack| {
+                        let short_name = stack.ref_name.shorten().to_string();
+                        ConflictingStack {
+                            ref_name: stack.ref_name.into(),
+                            short_name,
+                        }
+                    })
+                    .collect(),
             }
         }
     }

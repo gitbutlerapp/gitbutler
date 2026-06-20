@@ -621,6 +621,8 @@ export type ApplyOutcome = {
   appliedBranches: Array<FullRefName>;
   /** Whether the workspace reference had to be created. */
   workspaceRefCreated: boolean;
+  /** Stacks that conflicted while applying the branch. */
+  conflictingStacks: Array<ConflictingStack>;
 };
 
 /** Represents the author of a commit. */
@@ -1101,6 +1103,14 @@ export type ConflictEntryPresence = {
   ours: boolean;
   theirs: boolean;
   ancestor: boolean;
+};
+
+/** A stack that conflicted while applying a branch. */
+export type ConflictingStack = {
+  /** The tip branch name of the stack. */
+  refName: FullRefName;
+  /** The shortened tip branch name, matching CLI display. */
+  shortName: string;
 };
 
 export type CreateForgeReviewParams = {
