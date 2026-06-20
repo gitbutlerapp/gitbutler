@@ -141,6 +141,18 @@ fn can_undo_but_commit_empty() {
 }
 
 #[test]
+fn can_undo_but_commit_empty_with_message() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+
+    run_mutate_undo_roundtrip_test(&env, |env| {
+        env.but("commit empty -m 'Plan empty slot'")
+            .assert()
+            .success();
+    });
+}
+
+#[test]
 fn can_undo_but_commit_empty_target() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
     env.setup_metadata_at_target(&["A"], "origin/main").unwrap();

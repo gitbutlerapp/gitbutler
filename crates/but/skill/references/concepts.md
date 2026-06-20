@@ -186,8 +186,7 @@ but commit empty --after c3
 Example workflow:
 
 ```bash
-but commit empty --before c5
-but reword <empty-commit-id> -m "TODO: Add error handling"
+but commit empty --before c5 -m "TODO: Add error handling"
 # Later, amend the error handling changes into the placeholder
 but amend <empty-commit-id> --changes <file-id>
 ```

@@ -258,6 +258,45 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn commit_empty_with_message() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    let output = env
+        .but("commit empty -m 'Plan empty slot' --format json")
+        .assert()
+        .success();
+    let json: serde_json::Value = serde_json::from_slice(&output.get_output().stdout)?;
+
+    let status = util::status_json(&env)?;
+    let commit = &status["stacks"][0]["branches"][0]["commits"][0];
+    let message = commit["message"].as_str().unwrap();
+    assert_eq!(message.trim_end(), "Plan empty slot");
+    assert_eq!(json["commit_id"], commit["commitId"]);
+
+    Ok(())
+}
+
+#[test]
+fn commit_empty_rejects_empty_message() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+    let log_before = env.git_log()?;
+
+    env.but("commit empty -m '   '")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Aborting commit due to empty commit message.
+
+"#]]);
+
+    assert_eq!(env.git_log()?, log_before);
+
+    Ok(())
+}
+
+#[test]
 fn commit_empty_with_before_flag() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @"
@@ -535,16 +574,16 @@ Error: Could not find target: 'nonexistent'
 }
 
 #[test]
-fn commit_empty_rejects_message_flag() -> anyhow::Result<()> {
+fn commit_empty_rejects_parent_message_flag() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     env.setup_metadata(&["A"])?;
 
-    // Try to use --message with empty subcommand
+    // Try to use parent --message with empty subcommand
     env.but("commit -m 'test' empty --before A")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: --message cannot be used with 'commit empty'. Empty commits have no message by default.
+Error: --message must be passed after 'empty'. Use `but commit empty -m "message"`.
 
 "#]]);
 
@@ -562,7 +601,7 @@ fn commit_empty_rejects_file_flag() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: --message-file cannot be used with 'commit empty'. Empty commits have no message by default.
+Error: --message-file cannot be used with 'commit empty'. Use `but commit empty -m "message"`.
 
 "#]]);
 

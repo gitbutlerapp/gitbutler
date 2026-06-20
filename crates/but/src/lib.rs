@@ -955,16 +955,17 @@ async fn match_subcommand(
                     target,
                     before,
                     after,
+                    message,
                 }) => {
                     // Validate that no regular commit options are specified with the empty subcommand
                     if commit_args.message.is_some() {
                         return Err(bad_input(
-                            "--message cannot be used with 'commit empty'. Empty commits have no message by default."
+                            "--message must be passed after 'empty'. Use `but commit empty -m \"message\"`."
                         ).into());
                     }
                     if commit_args.message_file.is_some() {
                         return Err(bad_input(
-                            "--message-file cannot be used with 'commit empty'. Empty commits have no message by default."
+                            "--message-file cannot be used with 'commit empty'. Use `but commit empty -m \"message\"`."
                         ).into());
                     }
                     if commit_args.branch.is_some() {
@@ -1003,7 +1004,12 @@ async fn match_subcommand(
                     // because --paths is not a flag on the empty subcommand
 
                     command::legacy::commit::insert_blank_commit(
-                        &mut ctx, out, target, before, after,
+                        &mut ctx,
+                        out,
+                        target,
+                        before,
+                        after,
+                        message.as_deref(),
                     )
                     .emit_metrics(metrics_ctx)
                 }
