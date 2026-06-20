@@ -238,6 +238,24 @@ impl LLMProvider {
         }
     }
 
+    /// Returns the configured model, or a per-provider default when none is set.
+    ///
+    /// Callers that need a concrete model name (e.g. structured output) must not
+    /// hardcode a provider-specific model, as it would 404 against other providers.
+    /// This returns the configured model when available, otherwise a sensible
+    /// default for the active provider: `claude-haiku-4-5` for Anthropic (so the
+    /// proxied path, which carries no model name, still hits a real model) and
+    /// `gpt-5-mini` for everything else.
+    pub fn model_or_default(&self) -> String {
+        if let Some(model) = self.model() {
+            return model;
+        }
+        match &self.client {
+            LLMClientType::Anthropic(_) => "claude-haiku-4-5".to_string(),
+            _ => "gpt-5-mini".to_string(),
+        }
+    }
+
     /// Creates a default OpenAI LLM provider using environment-based credentials.
     ///
     /// This is a convenience method that attempts to create an OpenAI provider
