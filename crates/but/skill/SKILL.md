@@ -46,7 +46,7 @@ but <mutation> ...
 - Commit: `but commit <branch> -m "<msg>" --changes <id>,<id>`
 - `but commit -a` is accepted as a no-op compatibility flag; GitButler already includes uncommitted changes by default.
 - Commit + create branch: `but commit <branch> -c -m "<msg>" --changes <id>`
-- Amend: `but amend <file-or-hunk-id> <commit-id>`
+- Amend: `but amend <commit-id> --changes <file-or-hunk-id>,<file-or-hunk-id>`
 - Reorder commits: `but move <source-commit-id> <target-commit-id>` (**commit IDs**, not branch names)
 - Stack branches: `but move <branch-name-or-id> <target-branch-name-or-id>` (**branch names or branch CLI IDs**)
 - Tear off a branch: `but move <branch-name-or-id> zz` (`zz` = unassigned; branch name or branch CLI ID)
@@ -82,8 +82,8 @@ Edge case: if wanted and unwanted edits are in the same diff hunk, GitButler can
 ### Amend into existing commit
 
 1. `but status -fv` (or `but show <branch-id>`)
-2. Locate file ID and target commit ID.
-3. `but amend <file-or-hunk-id> <commit-id>`
+2. Locate file/hunk IDs and target commit ID.
+3. `but amend <commit-id> --changes <file-or-hunk-id>,<file-or-hunk-id>`; use one command for multiple files/hunks that belong in the same commit.
 
 ### Reorder commits
 

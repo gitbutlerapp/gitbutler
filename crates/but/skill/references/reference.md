@@ -238,19 +238,19 @@ but squash <branch> -m "msg" # Squash with a new commit message
 but squash <branch> -i       # Squash with AI-generated commit message
 ```
 
-### `but amend <file> <commit>`
+### `but amend <commit> --changes <file>[,<file>...]`
 
-Amend file into a specific commit. Use when you know exactly which commit the change belongs to.
+Amend one or more files/hunks into a specific commit. Use when you know exactly which commit the change belongs to.
 
 ```bash
-but amend <file-id> <commit-id>                  # Amend file into specific commit
+but amend <commit-id> --changes <file-id>,<hunk-id>
 ```
 
 **When to use `amend` vs `absorb`:**
 - `but amend` - You know the target commit; explicit control
 - `but absorb` - Let GitButler auto-detect the target; smart matching based on dependencies
 
-Alias for `but rub <file> <commit>`.
+Convenience wrapper around `rub` for amending uncommitted files or hunks into a known commit.
 
 ### `but move <source> <target>`
 

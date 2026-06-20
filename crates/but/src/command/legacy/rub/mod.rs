@@ -1538,18 +1538,25 @@ pub(crate) fn handle_uncommit(
     )
 }
 
-/// Handler for `but amend <file> <commit>` - runs `but rub <file> <commit>`
-/// Validates that file is an uncommitted file/hunk and commit is a commit.
+/// Handler for `but amend <file>... <commit>` - runs `but rub <file> <commit>`
+/// semantics for one or more files/hunks.
+///
+/// Validates that sources are uncommitted files/hunks and target is a commit.
 pub(crate) fn handle_amend(
     ctx: &mut Context,
     out: &mut OutputChannel,
-    file_str: &str,
+    file_strs: &[String],
     commit_str: &str,
 ) -> anyhow::Result<()> {
     let t = theme::get();
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
-    let files = parse_sources_with_disambiguation(ctx, &id_map, file_str, out)?;
+    let mut files = Vec::new();
+    for file_str in file_strs {
+        files.extend(parse_sources_with_disambiguation(
+            ctx, &id_map, file_str, out,
+        )?);
+    }
     let commit = resolve_single_id(ctx, &id_map, commit_str, "Commit", out)?;
 
     // Validate that all files are uncommitted
@@ -1569,31 +1576,26 @@ pub(crate) fn handle_amend(
     }
 
     // Validate that commit is a commit
-    match commit {
-        CliId::Commit { commit_id, .. } => {
-            // TODO(dp by st): This is a duplication of the UncommittedToCommitOperation which was previously
-            //                 called through `handle()` after validation. The problem is that it does its own locking.
-            //                 Since these are all mutations, it would have to be changed to take `perm` as well.
-            for file in files {
-                match file {
-                    CliId::Uncommitted(uncommitted) => {
-                        create_snapshot_with_perm(
-                            ctx,
-                            OperationKind::AmendCommit,
-                            guard.write_permission(),
-                        );
-                        amend::uncommitted_to_commit_with_perm(
-                            ctx,
-                            uncommitted.hunk_assignments.as_ref(),
-                            uncommitted.describe(),
-                            commit_id,
-                            out,
-                            guard.write_permission(),
-                        )?;
-                    }
-                    _ => unreachable!("validated beforehand"),
-                }
-            }
+    match &commit {
+        CliId::Commit { .. } => {
+            let Some(source_refs) = NonEmpty::from_vec(files.iter().collect()) else {
+                bail!("At least one file or hunk must be provided.");
+            };
+            let Some(RubOperation::UncommittedToCommit(operation)) =
+                route_operation(source_refs, &commit, MessageCombinationStrategy::KeepBoth)
+            else {
+                unreachable!("amend source and target were validated before execution");
+            };
+
+            create_snapshot_with_perm(ctx, OperationKind::AmendCommit, guard.write_permission());
+            amend::uncommitted_to_commit_with_perm(
+                ctx,
+                operation.hunk_assignments,
+                operation.description,
+                operation.oid,
+                out,
+                guard.write_permission(),
+            )?;
         }
         other => {
             bail!(
