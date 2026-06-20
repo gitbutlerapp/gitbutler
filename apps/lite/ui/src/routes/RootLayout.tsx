@@ -139,10 +139,7 @@ const Projects: FC = () => {
 
 			<Tooltip.Root>
 				<Tooltip.Trigger
-					className={classes(
-						getButtonClassName({ variant: "ghost", iconOnly: true }),
-						styles.addProjectButton,
-					)}
+					className={classes(getButtonClassName({ variant: "ghost" }), styles.addProjectButton)}
 					aria-label="Select project"
 					onClick={openProjectPicker}
 				>

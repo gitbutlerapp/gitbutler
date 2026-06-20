@@ -205,7 +205,8 @@
 }
 
 .addProjectButton {
+	width: var(--sidebar-folder-width);
 	/* Unset styles from design system's button class. */
-	width: unset;
+	margin-top: 2px;
 	padding-block: 16px;
 }
