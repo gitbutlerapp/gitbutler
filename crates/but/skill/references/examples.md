@@ -29,11 +29,8 @@ but commit <api-branch-id> -m "Add user details endpoint" --changes <api-file-id
 but commit <ui-branch-id> -m "Update button hover styles" --changes <ui-file-id>
 
 # Follow-up fix that belongs in a commit you just made? Amend it in.
-# Run each mutation separately; IDs can change after every mutation.
-# Each command returns the updated workspace state — read it and take
-# fresh IDs from it for the next command.
-# but amend <api-fix-file-id> <api-commit-id>
-# but amend <ui-fix-file-id> <ui-commit-id>
+# Each mutation returns updated workspace state — take fresh IDs from it before the next command.
+# but amend <api-commit-id> --changes <api-fix-file-id>,<api-fix-hunk-id>
 
 # 6. Create pull requests (auto-pushes the branches)
 but pr new <api-branch-id>

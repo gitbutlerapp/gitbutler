@@ -705,8 +705,9 @@ mod tests {
         {
             assert_command(
                 Subcommands::Amend {
-                    file: "a1".into(),
-                    commit: "c1".into(),
+                    target_or_source: "c1".into(),
+                    legacy_commit: None,
+                    changes: vec!["a1".into()],
                 },
                 "amend",
             );
