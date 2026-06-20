@@ -2,12 +2,16 @@ use but_ctx::Context;
 use nonempty::NonEmpty;
 use ratatui::{
     Frame,
-    layout::{Constraint, Flex, Layout, Rect},
+    layout::Rect,
     text::{Line, Span},
-    widgets::{Block, BorderType, Clear, List, ListItem, Padding},
+    widgets::{List, ListItem, Padding},
 };
 
-use crate::{command::legacy::status::tui::Message, theme::Theme, utils::DebugAsType};
+use crate::{
+    command::legacy::status::tui::{Message, popup::Popup},
+    theme::Theme,
+    utils::DebugAsType,
+};
 
 #[derive(Debug)]
 pub(super) struct Confirm {
@@ -32,10 +36,6 @@ impl Confirm {
 
     pub(super) fn render(&self, has_focus: bool, area: Rect, frame: &mut Frame) {
         let padding = Padding::new(3, 6, 1, 1);
-        let horizontal_padding = padding.left + padding.right;
-        let vertical_padding = padding.top + padding.bottom;
-
-        let space_taken_up_by_border: u16 = 2;
 
         let button_line = Line::from_iter([
             style_button(
@@ -67,28 +67,19 @@ impl Confirm {
             .max()
             .unwrap_or(0)
             .max(button_width);
-        let horizontal_layout = Layout::horizontal([Constraint::Length(
-            line_width + space_taken_up_by_border + horizontal_padding,
-        )])
-        .flex(Flex::Center)
-        .split(area);
+        let popup_width = line_width
+            .saturating_add(2)
+            .saturating_add(padding.left)
+            .saturating_add(padding.right);
+        let popup_height = (items.len() as u16)
+            .saturating_add(2)
+            .saturating_add(padding.top)
+            .saturating_add(padding.bottom);
+        let popup = Popup::new(self.theme, popup_width, popup_height)
+            .padding(padding)
+            .render(area, frame);
 
-        let centered_layout = Layout::vertical([Constraint::Length(
-            (items.len() as u16) + space_taken_up_by_border + vertical_padding,
-        )])
-        .flex(Flex::Center)
-        .split(horizontal_layout[0]);
-
-        let content = List::new(items).block(
-            Block::bordered()
-                .padding(padding)
-                .border_type(BorderType::Rounded)
-                .border_style(self.theme.border),
-        );
-
-        frame.render_widget(Clear, centered_layout[0]);
-
-        frame.render_widget(content, centered_layout[0]);
+        frame.render_widget(List::new(items), popup.inner);
     }
 
     pub(super) fn handle_message(

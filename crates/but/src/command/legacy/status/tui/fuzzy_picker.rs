@@ -6,16 +6,16 @@ use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use nonempty::NonEmpty;
 use ratatui::{
     Frame,
-    layout::{Constraint, Flex, Layout, Rect},
+    layout::{Constraint, Layout, Rect},
     style::{Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, BorderType, Clear, Padding, Row, Table},
+    widgets::{Padding, Row, Table},
 };
 use ratatui_textarea::TextArea;
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
-    command::legacy::status::tui::Message,
+    command::legacy::status::tui::{Message, popup::Popup},
     theme::{PatchStyle as _, Theme},
     utils::DebugAsType,
 };
@@ -139,30 +139,19 @@ where
             .max()
             .unwrap();
 
-        let horizontal_layout = Layout::horizontal([Constraint::Length(std::cmp::max(
+        let popup_width = std::cmp::max(
             (longest_item_width as u16)
                 + (column_spacing * (num_cols - 1) as u16)
                 + space_taken_up_by_border
                 + horizontal_padding,
             65,
-        ))])
-        .flex(Flex::Center)
-        .split(area);
-
+        );
         let popup_height = 20.min(area.height);
 
-        let centered_layout = Layout::vertical([Constraint::Length(popup_height)])
-            .flex(Flex::Center)
-            .split(horizontal_layout[0]);
-
-        frame.render_widget(Clear, centered_layout[0]);
-
-        let outer_block = Block::bordered()
+        let inner_area = Popup::new(self.theme, popup_width, popup_height)
             .padding(padding)
-            .border_type(BorderType::Rounded)
-            .border_style(self.theme.border);
-        let inner_area = outer_block.inner(centered_layout[0]);
-        frame.render_widget(outer_block, centered_layout[0]);
+            .render(area, frame)
+            .inner;
 
         let content_layout =
             Layout::vertical([Constraint::Length(input_height), Constraint::Min(1)])
