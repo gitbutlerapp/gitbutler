@@ -9,10 +9,10 @@
 	position: relative;
 	align-items: center;
 	justify-content: center;
-	padding: 2px 4px;
+	padding: 2px 3px;
 	border-radius: var(--radius-s);
-	background-color: var(--bg-2);
-	color: var(--text-1);
+	background-color: color-mix(in srgb, var(--fill-gray-bg) 10%, transparent);
+	color: color-mix(in srgb, var(--text-1) 70%, transparent);
 	font-size: 11px;
 	line-height: 1;
 	font-family: inherit;
