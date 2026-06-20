@@ -1,18 +1,17 @@
 use indexmap::IndexMap;
 use ratatui::{
     Frame,
-    layout::{Constraint, Flex, Layout, Rect},
+    layout::{Constraint, Layout, Rect},
     text::{Line, Span},
-    widgets::{
-        Block, BorderType, Clear, List, ListItem, Padding, Scrollbar, ScrollbarOrientation,
-        ScrollbarState,
-    },
+    widgets::{Clear, List, ListItem, Padding, Scrollbar, ScrollbarOrientation, ScrollbarState},
 };
 use strum::IntoEnumIterator;
 use unicode_width::UnicodeWidthStr;
 
 use crate::{
-    command::legacy::status::tui::{KeyBinds, mode::ModeDiscriminant, render::SpanExt},
+    command::legacy::status::tui::{
+        KeyBinds, mode::ModeDiscriminant, popup::Popup, render::SpanExt,
+    },
     theme::Theme,
 };
 
@@ -92,24 +91,10 @@ impl Help {
             bottom: 0,
         };
 
-        let width = 100;
-
-        let horizontal_layout = Layout::horizontal([Constraint::Length(width)])
-            .flex(Flex::Center)
-            .split(area);
-
-        let centered_layout = Layout::vertical([Constraint::Length(self.height(area))])
-            .flex(Flex::Center)
-            .split(horizontal_layout[0]);
-
-        frame.render_widget(Clear, centered_layout[0]);
-
-        let outer_block = Block::bordered()
+        let popup = Popup::new(self.theme, 100, self.height(area))
             .padding(padding)
-            .border_type(BorderType::Rounded)
-            .border_style(self.theme.border);
-        let inner_area = outer_block.inner(centered_layout[0]);
-        frame.render_widget(outer_block, centered_layout[0]);
+            .render(area, frame);
+        let inner_area = popup.inner;
 
         let longest_short_description = self
             .sections
@@ -192,10 +177,10 @@ impl Help {
         let mut scrollbar_state =
             ScrollbarState::new(self.max_scroll_for_height(inner_area.height)).position(scroll_top);
         let scrollbar_area = Rect {
-            x: centered_layout[0].right().saturating_sub(1),
-            y: centered_layout[0].y.saturating_add(1),
+            x: popup.outer.right().saturating_sub(1),
+            y: popup.outer.y.saturating_add(1),
             width: 1,
-            height: centered_layout[0].height.saturating_sub(2),
+            height: popup.outer.height.saturating_sub(2),
         };
         frame.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
     }
