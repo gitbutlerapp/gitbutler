@@ -125,6 +125,29 @@ function iconForStatus(status: HowStatus) {
 	return iconForState(status.saveState);
 }
 
+function StatusLabel({ status }: { status: HowStatus }) {
+	return (
+		<span
+			className={`inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium ${statusToneForStatus(
+				status,
+			)} [&_svg]:h-3 [&_svg]:w-3`}
+		>
+			{iconForStatus(status)}
+			{statusLabel(status)}
+		</span>
+	);
+}
+
+function StatusFooter({ status }: { status: HowStatus }) {
+	return (
+		<footer className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-800 bg-stone-950/95 px-4 py-2 backdrop-blur">
+			<div className="mx-auto flex w-full max-w-7xl justify-end">
+				<StatusLabel status={status} />
+			</div>
+		</footer>
+	);
+}
+
 function EmptyState({
 	onOpen,
 	onStart,
@@ -530,7 +553,9 @@ function BookmarkSidebar({
 							<li
 								key={bookmark.id}
 								className={`relative rounded-md border p-2 ${
-									bookmark.isCurrent ? "border-stone-500 bg-stone-950" : "border-stone-800 bg-stone-900"
+									bookmark.isCurrent
+										? "border-stone-500 bg-stone-950"
+										: "border-stone-800 bg-stone-900"
 								} ${highlightedBookmarkIds.has(bookmark.id) ? "checkpoint-message-flash" : ""}`}
 							>
 								<div className="flex items-start gap-2">
@@ -794,110 +819,113 @@ function ProjectScreen({
 	const publishDisabled = publishBusy || Boolean(status.browsing) || sharedUpdateAvailable;
 
 	return (
-		<main className="min-h-screen px-6 py-6 lg:flex lg:h-screen lg:min-h-0 lg:flex-col lg:overflow-hidden">
-			<div className="mx-auto flex w-full max-w-7xl flex-col justify-start gap-6 lg:h-full lg:min-h-0">
-				<nav className="shrink-0">
-					<Button variant="ghost" size="sm" onClick={() => void onOpen()} disabled={chromeBusy}>
-						<FolderOpen className="h-4 w-4" aria-hidden />
-						Open
-					</Button>
-					<Button variant="ghost" size="sm" onClick={() => void onStart()} disabled={chromeBusy}>
-						<Plus className="h-4 w-4" aria-hidden />
-						Start
-					</Button>
-					<Button variant="ghost" size="sm" onClick={() => void onDelete()} disabled={chromeBusy}>
-						<Trash2 className="h-4 w-4" aria-hidden />
-						Delete
-					</Button>
-				</nav>
-				<header className="flex shrink-0 flex-wrap items-start justify-between gap-4 pb-3">
-					<div className="min-w-0 flex-1">
-						<div className="flex min-w-0 items-center gap-2">
-							<h1 className="truncate text-xl font-semibold tracking-normal text-stone-300">
-								{project.title}
-							</h1>
-							<Button asChild variant="ghost" size="icon" aria-label="Project settings">
-								<Link to="/settings">
-									<Settings className="h-4 w-4" aria-hidden />
-								</Link>
-							</Button>
+		<>
+			<main className="min-h-screen px-6 pb-16 pt-6 lg:flex lg:h-screen lg:min-h-0 lg:flex-col lg:overflow-hidden">
+				<div className="mx-auto flex w-full max-w-7xl flex-col justify-start gap-6 lg:h-full lg:min-h-0">
+					<nav className="shrink-0">
+						<Button variant="ghost" size="sm" onClick={() => void onOpen()} disabled={chromeBusy}>
+							<FolderOpen className="h-4 w-4" aria-hidden />
+							Open
+						</Button>
+						<Button variant="ghost" size="sm" onClick={() => void onStart()} disabled={chromeBusy}>
+							<Plus className="h-4 w-4" aria-hidden />
+							Start
+						</Button>
+						<Button variant="ghost" size="sm" onClick={() => void onDelete()} disabled={chromeBusy}>
+							<Trash2 className="h-4 w-4" aria-hidden />
+							Delete
+						</Button>
+					</nav>
+					<header className="flex shrink-0 flex-wrap items-start justify-between gap-4 pb-3">
+						<div className="min-w-0 flex-1">
+							<div className="flex min-w-0 items-center gap-2">
+								<Button asChild variant="ghost" size="icon" aria-label="Project settings">
+									<Link to="/settings">
+										<Settings className="h-4 w-4" aria-hidden />
+									</Link>
+								</Button>
+								<h1 className="truncate text-xl font-semibold tracking-normal text-stone-300">
+									{project.title}
+								</h1>
+								{sharedUpdateAvailable ? (
+									<Button
+										size="icon"
+										onClick={() => void onUpdateProject()}
+										disabled={publishBusy || Boolean(status.browsing)}
+										aria-label={
+											pendingAction === "updateProject" ? "Updating project" : "Update project"
+										}
+										title={
+											status.browsing
+												? "Continue from here or return to latest before updating."
+												: pendingAction === "updateProject"
+													? "Updating project"
+													: "Update project"
+										}
+									>
+										<RefreshCw
+											className={`h-4 w-4 ${pendingAction === "updateProject" ? "animate-spin" : ""}`}
+											aria-hidden
+										/>
+									</Button>
+								) : null}
+							</div>
 						</div>
-					</div>
-					<div className="flex items-center gap-2">
-						{sharedUpdateAvailable ? (
-							<Button
-								onClick={() => void onUpdateProject()}
-								disabled={publishBusy || Boolean(status.browsing)}
+						<div className="flex items-center gap-2">
+							<PublishButton
+								onPublish={onPublish}
+								disabled={publishDisabled}
 								title={
 									status.browsing
-										? "Continue from here or return to latest before updating."
-										: undefined
+										? "Continue from here or return to latest before publishing."
+										: sharedUpdateAvailable
+											? "Update this project before publishing."
+											: undefined
 								}
-							>
-								<RefreshCw className="h-4 w-4" aria-hidden />
-								{pendingAction === "updateProject" ? "Updating project" : "Update project"}
-							</Button>
-						) : null}
-						<PublishButton
-							onPublish={onPublish}
-							disabled={publishDisabled}
-							title={
-								status.browsing
-									? "Continue from here or return to latest before publishing."
-									: sharedUpdateAvailable
-										? "Update this project before publishing."
-										: undefined
-							}
-							label={status.message === "Publishing" ? "Publishing" : "Publish"}
-						/>
-						<span
-							className={`inline-flex h-8 items-center gap-2 rounded-md px-3 text-xs font-medium ${statusToneForStatus(
-								status,
-							)}`}
-						>
-							{iconForStatus(status)}
-							{statusLabel(status)}
-						</span>
-					</div>
-				</header>
-
-				{status.browsing ? (
-					<section className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-md border border-stone-800 bg-stone-950 px-4 py-3">
-						<p className="text-sm text-stone-500">You are viewing an earlier checkpoint.</p>
-						<BrowsingActions
-							disabled={browsingBusy}
-							onReturnToLatest={onReturnToLatest}
-							onContinue={onContinue}
-						/>
-					</section>
-				) : null}
-
-				<div className="flex flex-col gap-6 md:grid md:min-h-0 md:flex-1 md:grid-cols-[16rem_minmax(0,1fr)]">
-					<BookmarkSidebar
-						bookmarks={status.bookmarks}
-						browsing={status.browsing}
-						highlightedBookmarkIds={highlightedBookmarkIds}
-						onCreate={onCreateBookmark}
-						onSwitch={onSwitchBookmark}
-						onUpdate={onUpdateBookmark}
-						onRename={onRenameBookmark}
-						onDelete={onDeleteBookmark}
-						busy={bookmarkBusy}
-					/>
-					<section className="min-w-0 lg:min-h-0 lg:overflow-y-auto">
-						<div className="mx-auto w-full max-w-3xl pb-8">
-							<Timeline
-								checkpoints={status.checkpoints}
-								browsing={status.browsing}
-								highlightedCheckpointKeys={highlightedCheckpointKeys}
-								onView={onView}
-								busy={browsingBusy}
+								label={status.message === "Publishing" ? "Publishing" : "Publish"}
 							/>
 						</div>
-					</section>
+					</header>
+
+					{status.browsing ? (
+						<section className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-md border border-stone-800 bg-stone-950 px-4 py-3">
+							<p className="text-sm text-stone-500">You are viewing an earlier checkpoint.</p>
+							<BrowsingActions
+								disabled={browsingBusy}
+								onReturnToLatest={onReturnToLatest}
+								onContinue={onContinue}
+							/>
+						</section>
+					) : null}
+
+					<div className="flex flex-col gap-6 md:grid md:min-h-0 md:flex-1 md:grid-cols-[16rem_minmax(0,1fr)]">
+						<BookmarkSidebar
+							bookmarks={status.bookmarks}
+							browsing={status.browsing}
+							highlightedBookmarkIds={highlightedBookmarkIds}
+							onCreate={onCreateBookmark}
+							onSwitch={onSwitchBookmark}
+							onUpdate={onUpdateBookmark}
+							onRename={onRenameBookmark}
+							onDelete={onDeleteBookmark}
+							busy={bookmarkBusy}
+						/>
+						<section className="min-w-0 lg:min-h-0 lg:overflow-y-auto">
+							<div className="mx-auto w-full max-w-3xl pb-16">
+								<Timeline
+									checkpoints={status.checkpoints}
+									browsing={status.browsing}
+									highlightedCheckpointKeys={highlightedCheckpointKeys}
+									onView={onView}
+									busy={browsingBusy}
+								/>
+							</div>
+						</section>
+					</div>
 				</div>
-			</div>
-		</main>
+			</main>
+			<StatusFooter status={status} />
+		</>
 	);
 }
 

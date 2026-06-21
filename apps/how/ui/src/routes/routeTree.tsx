@@ -5,8 +5,10 @@ import { createRootRoute, createRoute, Outlet } from "@tanstack/react-router";
 const rootRoute = createRootRoute({
 	component: () => (
 		<>
-			<div className="app-drag-region" />
-			<Outlet />
+			<div className="pt-4">
+				<div className="app-drag-region" />
+				<Outlet />
+			</div>
 		</>
 	),
 });
