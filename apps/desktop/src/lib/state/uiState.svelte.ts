@@ -184,6 +184,7 @@ export type GlobalUiState = {
 	tabSize: number;
 	wrapText: boolean;
 	diffFont: string;
+	diffFontSize: number;
 	diffLigatures: boolean;
 	inlineUnifiedDiffs: boolean;
 	strongContrast: boolean;
@@ -266,6 +267,7 @@ export class UiState {
 		tabSize: 4,
 		wrapText: false,
 		diffFont: "Geist Mono, Menlo, monospace",
+		diffFontSize: 12,
 		diffLigatures: false,
 		inlineUnifiedDiffs: false,
 		strongContrast: false,

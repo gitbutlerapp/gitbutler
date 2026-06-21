@@ -24,6 +24,7 @@
 		tabSize?: number;
 		wrapText?: boolean;
 		diffFont?: string;
+		diffFontSize?: number;
 		diffLigatures?: boolean;
 		inlineUnifiedDiffs?: boolean;
 		strongContrast?: boolean;
@@ -47,6 +48,7 @@
 		tabSize = 4,
 		wrapText = true,
 		diffFont = "var(--font-mono)",
+		diffFontSize = 12,
 		diffLigatures = true,
 		strongContrast = false,
 		colorBlindFriendly = false,
@@ -78,8 +80,13 @@
 	let tableWrapperElem = $state<HTMLElement>();
 	let isVisible = $state(false);
 
-	// Rough line count for height reservation while body is not yet mounted
-	const estimatedBodyHeight = $derived(Math.max(hunkStr.split("\n").length - 1, 1) * 22);
+	// Reserve roughly the rendered height per line (font size x line-height, kept in
+	// sync with .table__textContent) while the body is not yet mounted, so it scales
+	// with the diff font size.
+	const DIFF_LINE_HEIGHT = 1.25;
+	const estimatedBodyHeight = $derived(
+		Math.max(hunkStr.split("\n").length - 1, 1) * Math.ceil(diffFontSize * DIFF_LINE_HEIGHT),
+	);
 
 	$effect(() => {
 		if (!tableWrapperElem) return;
@@ -126,7 +133,7 @@
 	class="table__wrapper"
 	class:contrast-strong={strongContrast}
 	class:colorblind-friendly={colorBlindFriendly}
-	style="--tab-size: {tabSize}; --diff-font: {diffFont};"
+	style="--tab-size: {tabSize}; --diff-font: {diffFont}; --diff-font-size: {diffFontSize}px;"
 	style:font-variant-ligatures={diffLigatures ? "common-ligatures" : "none"}
 >
 	{#if !draggingDisabled}

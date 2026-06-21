@@ -25,12 +25,15 @@
 	const diffLigatures = uiState.global.diffLigatures;
 	const wrapText = uiState.global.wrapText;
 	const diffFont = uiState.global.diffFont;
+	const diffFontSize = uiState.global.diffFontSize;
 	const strongContrast = uiState.global.strongContrast;
 	const colorBlindFriendly = uiState.global.colorBlindFriendly;
 	const inlineUnifiedDiffs = uiState.global.inlineUnifiedDiffs;
 	const svgAsImage = uiState.global.svgAsImage;
 	const scrollbarVisibilityState = uiState.global.scrollbarVisibilityState;
 	const defaultFileListMode = uiState.global.defaultFileListMode;
+	const MIN_DIFF_FONT_SIZE = 8;
+	const MAX_DIFF_FONT_SIZE = 32;
 
 	// Sync persisted syntax theme settings to the shiki highlighter.
 	$effect(() => {
@@ -56,6 +59,15 @@
 		) as ScrollbarVisilitySettings;
 
 		scrollbarVisibilityState.set(selectedScrollbarVisibility);
+	}
+
+	function clampDiffFontSize(value: string) {
+		if (value.trim() === "") return diffFontSize.current;
+
+		const parsed = Number(value);
+		if (!Number.isFinite(parsed)) return diffFontSize.current;
+
+		return Math.round(Math.min(Math.max(parsed, MIN_DIFF_FONT_SIZE), MAX_DIFF_FONT_SIZE));
 	}
 </script>
 
@@ -165,6 +177,7 @@
 				"tabSize",
 				"wrapText",
 				"diffFont",
+				"diffFontSize",
 				"diffLigatures",
 				"strongContrast",
 				"colorBlindFriendly",
@@ -239,6 +252,31 @@
 				diffFont.set(value);
 			}}
 		/>
+	</CardGroup.Item>
+
+	<CardGroup.Item alignment="center">
+		{#snippet title()}
+			Font size
+		{/snippet}
+		{#snippet caption()}
+			Font size of the code in the diff view.
+		{/snippet}
+
+		{#snippet actions()}
+			<Textbox
+				type="number"
+				width={100}
+				textAlign="center"
+				value={diffFontSize.current.toString()}
+				minVal={MIN_DIFF_FONT_SIZE}
+				maxVal={MAX_DIFF_FONT_SIZE}
+				showCountActions
+				onchange={(value: string) => {
+					diffFontSize.set(clampDiffFontSize(value));
+				}}
+				placeholder={diffFontSize.current.toString()}
+			/>
+		{/snippet}
 	</CardGroup.Item>
 
 	<CardGroup.Item labelFor="allowDiffLigatures">
