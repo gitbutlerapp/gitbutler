@@ -91,14 +91,16 @@ describe("git helpers", () => {
 	test("reads and writes How project settings in local Git config", async () => {
 		const repository = await createTestRepository();
 
-		expect(await readProjectSettings(repository.id)).toEqual({
+		expect(await readProjectSettings(repository.id, repository.worktreePath)).toEqual({
 			checkpointDebounceMs: 10_000,
 			codingAgent: "none",
+			fetchIntervalMs: 15 * 60 * 1000,
 		});
 
-		await writeProjectSettings(repository.id, {
+		await writeProjectSettings(repository.id, repository.worktreePath, {
 			checkpointDebounceMs: 1_000,
 			codingAgent: "claude",
+			fetchIntervalMs: 30 * 60 * 1000,
 		});
 
 		expect(
@@ -111,9 +113,15 @@ describe("git helpers", () => {
 				cwd: repository.worktreePath,
 			}),
 		).toBe("claude");
-		expect(await readProjectSettings(repository.id)).toEqual({
+		expect(
+			await runGit(["config", "--local", "--get", "how.fetchIntervalMs"], {
+				cwd: repository.worktreePath,
+			}),
+		).toBe(String(30 * 60 * 1000));
+		expect(await readProjectSettings(repository.id, repository.worktreePath)).toEqual({
 			checkpointDebounceMs: 1_000,
 			codingAgent: "claude",
+			fetchIntervalMs: 30 * 60 * 1000,
 		});
 	});
 

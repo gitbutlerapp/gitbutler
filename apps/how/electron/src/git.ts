@@ -2,6 +2,7 @@ import {
 	defaultProjectSettings,
 	normalizeCheckpointDebounceMsWithFallback,
 	normalizeCodingAgent,
+	normalizeFetchIntervalMsWithFallback,
 	normalizeProjectSettings,
 	type ProjectSettings,
 } from "./settings.js";
@@ -205,9 +206,14 @@ export async function hasWorktreeChanges(projectId: string): Promise<boolean> {
 
 export async function readProjectSettings(
 	projectId: string,
+	worktreePath: string,
 	fallback: ProjectSettings = defaultProjectSettings,
 ): Promise<ProjectSettings> {
 	const settings = await howReadProjectSettings(projectId, fallback);
+	const rawFetchIntervalMs = await runGit(
+		["config", "--local", "--get", "how.fetchIntervalMs"],
+		worktreePath,
+	).catch(() => String(fallback.fetchIntervalMs));
 	return {
 		checkpointDebounceMs:
 			settings.checkpointDebounceMs === fallback.checkpointDebounceMs
@@ -217,14 +223,24 @@ export async function readProjectSettings(
 						fallback.checkpointDebounceMs,
 					),
 		codingAgent: normalizeCodingAgent(settings.codingAgent),
+		fetchIntervalMs: normalizeFetchIntervalMsWithFallback(
+			rawFetchIntervalMs,
+			fallback.fetchIntervalMs,
+		),
 	};
 }
 
 export async function writeProjectSettings(
 	projectId: string,
+	worktreePath: string,
 	settings: ProjectSettings,
 ): Promise<void> {
-	await howWriteProjectSettings(projectId, normalizeProjectSettings(settings));
+	const normalized = normalizeProjectSettings(settings);
+	await howWriteProjectSettings(projectId, normalized);
+	await runGit(
+		["config", "--local", "how.fetchIntervalMs", String(normalized.fetchIntervalMs)],
+		worktreePath,
+	);
 }
 
 export async function checkpointDiffForSummary(projectId: string): Promise<{
@@ -259,6 +275,28 @@ export type DirectPublishResult =
 	  }
 	| {
 			type: "needsDestination";
+	  };
+
+export type SharedProjectStatus =
+	| {
+			state: "unknown";
+			lastCheckedAt: number | null;
+			message: string | null;
+	  }
+	| {
+			state: "current";
+			lastCheckedAt: number;
+			message: string | null;
+	  }
+	| {
+			state: "updateAvailable";
+			lastCheckedAt: number;
+			message: string | null;
+	  }
+	| {
+			state: "couldNotCheck";
+			lastCheckedAt: number | null;
+			message: string | null;
 	  };
 
 export type DirectPublishErrorKind =
@@ -366,6 +404,54 @@ export async function publishDirect(
 	}
 }
 
+export async function refreshSharedProject(
+	worktreePath: string,
+	options: { fetch?: boolean } = {},
+): Promise<SharedProjectStatus> {
+	const upstream = await currentBranchUpstream(worktreePath);
+	if (!upstream) return { state: "unknown", lastCheckedAt: null, message: null };
+
+	try {
+		if (options.fetch ?? true) await fetchUpstream(worktreePath, upstream);
+		const upstreamTip = await runGit(["rev-parse", "--verify", "@{u}"], worktreePath);
+		const mergeBase = await runGit(["merge-base", "HEAD", "@{u}"], worktreePath);
+		const checkedAt = Date.now();
+		if (mergeBase === upstreamTip) {
+			return { state: "current", lastCheckedAt: checkedAt, message: null };
+		}
+		return {
+			state: "updateAvailable",
+			lastCheckedAt: checkedAt,
+			message: "Update available",
+		};
+	} catch (error) {
+		throw new DirectPublishError(
+			"failed",
+			"How could not check for shared updates.",
+			error,
+		);
+	}
+}
+
+export async function filterUnpublishedCommits(
+	worktreePath: string,
+	commits: Array<GitCommit>,
+): Promise<Array<GitCommit>> {
+	const upstream = await currentBranchUpstream(worktreePath);
+	if (!upstream) return commits;
+	const upstreamExists = await runGit(["rev-parse", "--verify", "@{u}"], worktreePath)
+		.then(() => true)
+		.catch(() => false);
+	if (!upstreamExists) return commits;
+
+	const unpublished: Array<GitCommit> = [];
+	for (const commit of commits) {
+		const published = await commitIsAncestor(worktreePath, commit.id, "@{u}");
+		if (!published) unpublished.push(commit);
+	}
+	return unpublished;
+}
+
 export async function hasAnyRemote(worktreePath: string): Promise<boolean> {
 	return (await repositoryRemotes(worktreePath)).length > 0;
 }
@@ -403,6 +489,32 @@ async function currentBranchUpstream(worktreePath: string): Promise<string | nul
 		worktreePath,
 	).catch(() => "");
 	return upstream.length > 0 ? upstream : null;
+}
+
+async function fetchUpstream(worktreePath: string, upstream: string): Promise<void> {
+	const [remote, ...branchParts] = upstream.split("/");
+	const branch = branchParts.join("/");
+	if (!remote || !branch) {
+		await runGit(["fetch", "--quiet"], worktreePath);
+		return;
+	}
+	await runGit(
+		["fetch", "--quiet", remote, `+refs/heads/${branch}:refs/remotes/${remote}/${branch}`],
+		worktreePath,
+	);
+}
+
+async function commitIsAncestor(
+	worktreePath: string,
+	commit: string,
+	ancestorOf: string,
+): Promise<boolean> {
+	try {
+		await runGit(["merge-base", "--is-ancestor", commit, ancestorOf], worktreePath);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 async function repositoryRemotes(worktreePath: string): Promise<Array<string>> {

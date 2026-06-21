@@ -20,8 +20,22 @@ const initialStatus: HowStatus = {
 	settings: {
 		checkpointDebounceMs: 10_000,
 		codingAgent: "none",
+		fetchIntervalMs: 15 * 60 * 1000,
+	},
+	sharedProject: {
+		state: "unknown",
+		lastCheckedAt: null,
+		message: null,
 	},
 };
+
+const fetchIntervalOptions = [
+	{ label: "Off", value: 0 },
+	{ label: "5 min", value: 5 * 60 * 1000 },
+	{ label: "15 min", value: 15 * 60 * 1000 },
+	{ label: "30 min", value: 30 * 60 * 1000 },
+	{ label: "60 min", value: 60 * 60 * 1000 },
+] as const;
 
 function clampSaveDelaySeconds(value: number): number {
 	if (!Number.isFinite(value)) return 10;
@@ -49,6 +63,7 @@ export function HowSettings() {
 	);
 	const [saveDelaySeconds, setSaveDelaySeconds] = useState("10");
 	const [codingAgent, setCodingAgent] = useState<CodingAgent>("none");
+	const [fetchIntervalMs, setFetchIntervalMs] = useState(String(15 * 60 * 1000));
 	const [busy, setBusy] = useState(false);
 	const [message, setMessage] = useState<string | null>(null);
 
@@ -64,7 +79,13 @@ export function HowSettings() {
 	useEffect(() => {
 		setSaveDelaySeconds(String(status.settings.checkpointDebounceMs / 1000));
 		setCodingAgent(status.settings.codingAgent);
-	}, [status.project?.id, status.settings.checkpointDebounceMs, status.settings.codingAgent]);
+		setFetchIntervalMs(String(status.settings.fetchIntervalMs));
+	}, [
+		status.project?.id,
+		status.settings.checkpointDebounceMs,
+		status.settings.codingAgent,
+		status.settings.fetchIntervalMs,
+	]);
 
 	async function saveSettings() {
 		const normalizedSeconds = clampSaveDelaySeconds(Number(saveDelaySeconds));
@@ -74,10 +95,12 @@ export function HowSettings() {
 			const nextStatus = await window.how.saveProjectSettings({
 				checkpointDebounceMs: normalizedSeconds * 1000,
 				codingAgent,
+				fetchIntervalMs: Number(fetchIntervalMs),
 			});
 			setStatus(nextStatus);
 			setSaveDelaySeconds(String(nextStatus.settings.checkpointDebounceMs / 1000));
 			setCodingAgent(nextStatus.settings.codingAgent);
+			setFetchIntervalMs(String(nextStatus.settings.fetchIntervalMs));
 			setMessage("Saved");
 		} catch {
 			setMessage("How could not save settings.");
@@ -164,6 +187,24 @@ export function HowSettings() {
 							))}
 						</div>
 					</fieldset>
+
+					<label className="block">
+						<span className="text-sm font-medium text-stone-950">Check for shared updates</span>
+						<span className="mt-1 block text-sm text-stone-500">
+							How checks quietly without moving your files.
+						</span>
+						<select
+							className="mt-3 h-10 rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-950 outline-none focus:border-stone-900 focus:ring-2 focus:ring-stone-200"
+							value={fetchIntervalMs}
+							onChange={(event) => setFetchIntervalMs(event.currentTarget.value)}
+						>
+							{fetchIntervalOptions.map((option) => (
+								<option key={option.value} value={option.value}>
+									{option.label}
+								</option>
+							))}
+						</select>
+					</label>
 				</section>
 
 				<div className="flex items-center gap-3">

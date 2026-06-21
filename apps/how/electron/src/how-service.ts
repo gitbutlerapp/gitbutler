@@ -7,6 +7,7 @@ import {
 	createProjectBookmarkFromCommit,
 	deleteProjectBookmark,
 	DirectPublishError,
+	filterUnpublishedCommits,
 	discoverRepository,
 	ensureGitRepository,
 	gitErrorDetails,
@@ -19,6 +20,7 @@ import {
 	readPublishMode,
 	readProjectSettings,
 	renameProjectBookmark,
+	refreshSharedProject,
 	resetToCommit,
 	sanitizedRepositoryName,
 	switchProjectBookmark,
@@ -39,6 +41,7 @@ import {
 	type PublishProjectResult,
 	type ProjectSettings,
 	type ProjectSummary,
+	type SharedProjectStatus,
 } from "./ipc.js";
 import { plainErrorMessage } from "./plain-error.js";
 import { defaultProjectSettings, normalizeProjectSettings } from "./settings.js";
@@ -66,6 +69,23 @@ function defaultSettings(): ProjectSettings {
 		...defaultProjectSettings,
 		checkpointDebounceMs: defaultCheckpointQuietPeriodMs(),
 	};
+}
+
+function defaultSharedProjectStatus(): SharedProjectStatus {
+	return {
+		state: "unknown",
+		lastCheckedAt: null,
+		message: null,
+	};
+}
+
+function effectiveFetchIntervalMs(settings: ProjectSettings): number {
+	const override = process.env.HOW_SHARED_FETCH_INTERVAL_MS;
+	if (override) {
+		const parsed = Number(override);
+		if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+	}
+	return settings.fetchIntervalMs;
 }
 
 type StoredState = {
@@ -96,11 +116,13 @@ export class HowService {
 		bookmarks: [],
 		browsing: null,
 		settings: defaultSettings(),
+		sharedProject: defaultSharedProjectStatus(),
 	};
 	#watcher: WatcherHandle | null = null;
 	#debounce: NodeJS.Timeout | null = null;
 	#browsingDirtyPoll: NodeJS.Timeout | null = null;
 	#postInternalGitCheck: NodeJS.Timeout | null = null;
+	#sharedProjectFetch: NodeJS.Timeout | null = null;
 	#saving = false;
 	#dirtyWhileSaving = false;
 	#internalGitOperation = false;
@@ -123,25 +145,31 @@ export class HowService {
 			this.logger.info("Resuming active project", stored.activeProject);
 			this.#status = {
 				...this.#status,
-				project: stored.activeProject,
-				saveState: "watching",
-				message: stored.browsing ? "Browsing checkpoint" : "Watching for changes",
-				checkpoints: stored.browsing?.checkpoints ?? [],
-				bookmarks: [],
-				browsing: stored.browsing,
-			};
+					project: stored.activeProject,
+					saveState: "watching",
+					message: stored.browsing ? "Browsing checkpoint" : "Watching for changes",
+					checkpoints: stored.browsing?.checkpoints ?? [],
+					bookmarks: [],
+					browsing: stored.browsing,
+				};
 			try {
 				this.#status = {
 					...this.#status,
-					settings: await readProjectSettings(stored.activeProject.id, defaultSettings()),
+					settings: await readProjectSettings(
+						stored.activeProject.id,
+						stored.activeProject.path,
+						defaultSettings(),
+					),
 				};
 				if (stored.browsing) {
 					await this.#resumeBrowsingSession(stored.browsing);
 					await this.#refreshBookmarks();
 				} else {
+					await this.#refreshSharedProjectStatus(stored.activeProject, { fetch: true });
 					await this.#refreshProjectLists();
 				}
 				await this.#startWatching(stored.activeProject);
+				this.#startSharedProjectFetching(stored.activeProject);
 			} catch (error) {
 				this.logger.error("Failed to resume active project", error, stored.activeProject);
 				this.#setError(error);
@@ -253,6 +281,8 @@ export class HowService {
 			}
 
 			this.#cancelPendingSummaryUpdates("publish");
+			await this.#refreshSharedProjectStatus(project, { fetch: true });
+			await this.#refreshProjectLists();
 			this.#status = {
 				...this.#status,
 				saveState: "saved",
@@ -312,7 +342,7 @@ export class HowService {
 		const normalized = normalizeProjectSettings(settings);
 		this.logger.info("Saving project settings", { projectId: project.id, settings: normalized });
 		try {
-			await writeProjectSettings(project.id, normalized);
+			await writeProjectSettings(project.id, project.path, normalized);
 			const hadPendingSave = this.#debounce !== null;
 			if (hadPendingSave) this.#clearScheduledCheckpoint();
 			this.#status = {
@@ -323,6 +353,7 @@ export class HowService {
 			};
 			await this.#writeCurrentState();
 			this.#emit();
+			this.#startSharedProjectFetching(project);
 			if (hadPendingSave) this.#scheduleCheckpoint();
 			return this.getStatus();
 		} catch (error) {
@@ -444,6 +475,7 @@ export class HowService {
 			);
 			this.#status = { ...this.#status, browsing: null };
 			this.#stopBrowsingDirtyPolling();
+			await this.#refreshSharedProjectStatus(project, { fetch: false });
 			await this.#refreshProjectLists();
 			await this.#writeCurrentState();
 			this.#emit();
@@ -683,6 +715,7 @@ export class HowService {
 				browsing: null,
 			};
 			this.#stopBrowsingDirtyPolling();
+			await this.#refreshSharedProjectStatus(project, { fetch: false });
 			await this.#refreshProjectLists();
 			if (continuedCheckpoint) this.#enqueueCheckpointSummary(project, continuedCheckpoint);
 			this.#status = {
@@ -742,6 +775,7 @@ export class HowService {
 				browsing: null,
 			};
 			this.#stopBrowsingDirtyPolling();
+			await this.#refreshSharedProjectStatus(project, { fetch: false });
 			await this.#refreshProjectLists();
 			this.#status = {
 				...this.#status,
@@ -779,6 +813,7 @@ export class HowService {
 			bookmarks: [],
 			browsing: null,
 			settings: defaultSettings(),
+			sharedProject: defaultSharedProjectStatus(),
 		};
 		await this.#writeStoredState({ activeProject: null, browsing: null });
 		this.#emit();
@@ -789,6 +824,7 @@ export class HowService {
 		this.#cancelPendingSummaryUpdates("stop");
 		this.#clearScheduledCheckpoint();
 		this.#clearPostInternalGitCheck();
+		this.#stopSharedProjectFetching();
 		this.#stopBrowsingDirtyPolling();
 		if (this.#watcher) this.#watcher.stop();
 		this.#watcher = null;
@@ -813,11 +849,14 @@ export class HowService {
 			checkpoints: [],
 			bookmarks: [],
 			browsing: null,
-			settings: await readProjectSettings(project.id, defaultSettings()),
+			settings: await readProjectSettings(project.id, project.path, defaultSettings()),
+			sharedProject: defaultSharedProjectStatus(),
 		};
 		await this.#writeCurrentState();
+		await this.#refreshSharedProjectStatus(project, { fetch: true });
 		await this.#refreshProjectLists();
 		await this.#startWatching(project);
+		this.#startSharedProjectFetching(project);
 		this.#emit();
 		return this.getStatus();
 	}
@@ -1218,15 +1257,79 @@ export class HowService {
 		this.#browsingDirtyPoll = null;
 	}
 
+	#startSharedProjectFetching(project: ProjectSummary): void {
+		this.#stopSharedProjectFetching();
+		const intervalMs = effectiveFetchIntervalMs(this.#status.settings);
+		if (intervalMs <= 0) {
+			this.logger.info("Shared project fetching is disabled", { projectId: project.id });
+			return;
+		}
+		this.logger.info("Starting shared project fetch timer", {
+			projectId: project.id,
+			intervalMs,
+		});
+		this.#sharedProjectFetch = setInterval(() => {
+			void this.#refreshSharedProjectFromTimer(project);
+		}, intervalMs);
+	}
+
+	#stopSharedProjectFetching(): void {
+		if (this.#sharedProjectFetch) clearInterval(this.#sharedProjectFetch);
+		this.#sharedProjectFetch = null;
+	}
+
+	async #refreshSharedProjectFromTimer(project: ProjectSummary): Promise<void> {
+		if (this.#status.project?.id !== project.id) return;
+		if (this.#saving || this.#internalGitOperation) return;
+		await this.#refreshSharedProjectStatus(project, { fetch: true });
+		if (!this.#status.browsing) await this.#refreshTimeline();
+		this.#emit();
+	}
+
+	async #refreshSharedProjectStatus(
+		project: ProjectSummary,
+		options: { fetch: boolean },
+	): Promise<void> {
+		try {
+			this.logger.info("Refreshing shared project status", {
+				projectId: project.id,
+				fetch: options.fetch,
+			});
+			const sharedProject = await refreshSharedProject(project.path, { fetch: options.fetch });
+			this.logger.info("Shared project status refreshed", { projectId: project.id, sharedProject });
+			this.#status = {
+				...this.#status,
+				sharedProject,
+			};
+		} catch (error) {
+			this.logger.error("Failed to refresh shared project status", error, {
+				projectId: project.id,
+				details: gitErrorDetails(error),
+			});
+			this.#status = {
+				...this.#status,
+				sharedProject: {
+					state: "couldNotCheck",
+					lastCheckedAt: this.#status.sharedProject.lastCheckedAt,
+					message: "Could not check for updates",
+				},
+			};
+		}
+	}
+
 	async #refreshTimeline(): Promise<void> {
 		const project = this.#status.project;
 		if (!project) return;
 
 		this.logger.info("Refreshing checkpoint timeline", project);
-		const commits = await listCheckpointCommits(project.id, checkpointLimit);
+		const commits = await filterUnpublishedCommits(
+			project.path,
+			await listCheckpointCommits(project.id, checkpointLimit),
+		);
 		this.logger.info("Loaded checkpoint timeline", {
 			projectId: project.id,
 			checkpointCount: commits.length,
+			sharedProject: this.#status.sharedProject.state,
 		});
 		const checkpoints: Array<Checkpoint> = commits.map((commit) => ({
 			id: commit.id,

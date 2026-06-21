@@ -3,6 +3,14 @@ export type { CodingAgent, ProjectSettings } from "./settings.js";
 
 export type SaveState = "idle" | "watching" | "pending" | "saving" | "saved" | "error";
 
+export type SharedProjectState = "unknown" | "current" | "updateAvailable" | "couldNotCheck";
+
+export type SharedProjectStatus = {
+	state: SharedProjectState;
+	lastCheckedAt: number | null;
+	message: string | null;
+};
+
 export type ProjectSummary = {
 	id: string;
 	title: string;
@@ -46,6 +54,7 @@ export type HowStatus = {
 	bookmarks: Array<Bookmark>;
 	browsing: BrowsingSession | null;
 	settings: ProjectSettings;
+	sharedProject: SharedProjectStatus;
 };
 
 export type StatusEvent = HowStatus;

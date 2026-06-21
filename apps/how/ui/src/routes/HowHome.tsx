@@ -39,10 +39,18 @@ const initialStatus: HowStatus = {
 	settings: {
 		checkpointDebounceMs: 10_000,
 		codingAgent: "none",
+		fetchIntervalMs: 15 * 60 * 1000,
+	},
+	sharedProject: {
+		state: "unknown",
+		lastCheckedAt: null,
+		message: null,
 	},
 };
 
 function statusLabel(status: HowStatus): string {
+	if (status.sharedProject.state === "updateAvailable") return "Update available";
+	if (status.sharedProject.state === "couldNotCheck") return "Could not check for updates";
 	if (status.message) return status.message;
 	switch (status.saveState) {
 		case "idle":
@@ -75,6 +83,12 @@ function statusTone(state: SaveState): string {
 	}
 }
 
+function statusToneForStatus(status: HowStatus): string {
+	if (status.sharedProject.state === "updateAvailable") return "bg-amber-100 text-amber-900";
+	if (status.sharedProject.state === "couldNotCheck") return "bg-stone-100 text-stone-500";
+	return statusTone(status.saveState);
+}
+
 function formatTime(timestamp: number): string {
 	return new Intl.DateTimeFormat(undefined, {
 		month: "short",
@@ -98,6 +112,14 @@ function iconForState(state: SaveState) {
 		return <RefreshCw className="h-4 w-4 animate-spin" aria-hidden />;
 	if (state === "error") return <AlertCircle className="h-4 w-4" aria-hidden />;
 	return <Clock className="h-4 w-4" aria-hidden />;
+}
+
+function iconForStatus(status: HowStatus) {
+	if (status.sharedProject.state === "updateAvailable")
+		return <RefreshCw className="h-4 w-4" aria-hidden />;
+	if (status.sharedProject.state === "couldNotCheck")
+		return <AlertCircle className="h-4 w-4" aria-hidden />;
+	return iconForState(status.saveState);
 }
 
 function EmptyState({
@@ -765,6 +787,8 @@ function ProjectScreen({
 		pendingAction === "githubCreateRepository" ||
 		pendingAction === "githubLoadRepositories" ||
 		pendingAction === "githubPublishRepository";
+	const sharedUpdateAvailable = status.sharedProject.state === "updateAvailable";
+	const publishDisabled = publishBusy || Boolean(status.browsing) || sharedUpdateAvailable;
 
 	return (
 		<main className="min-h-screen px-6 py-6 lg:flex lg:h-screen lg:min-h-0 lg:flex-col lg:overflow-hidden">
@@ -797,22 +821,30 @@ function ProjectScreen({
 						</div>
 					</div>
 					<div className="flex items-center gap-2">
+						{sharedUpdateAvailable ? (
+							<Button disabled title="Update project is coming soon.">
+								<RefreshCw className="h-4 w-4" aria-hidden />
+								Update project
+							</Button>
+						) : null}
 						<PublishButton
 							onPublish={onPublish}
-							disabled={publishBusy || Boolean(status.browsing)}
+							disabled={publishDisabled}
 							title={
 								status.browsing
 									? "Continue from here or return to latest before publishing."
+									: sharedUpdateAvailable
+										? "Update this project before publishing."
 									: undefined
 							}
 							label={status.message === "Publishing" ? "Publishing" : "Publish"}
 						/>
 						<span
-							className={`inline-flex h-8 items-center gap-2 rounded-md px-3 text-xs font-medium ${statusTone(
-								status.saveState,
+							className={`inline-flex h-8 items-center gap-2 rounded-md px-3 text-xs font-medium ${statusToneForStatus(
+								status,
 							)}`}
 						>
-							{iconForState(status.saveState)}
+							{iconForStatus(status)}
 							{statusLabel(status)}
 						</span>
 					</div>

@@ -359,6 +359,7 @@ test("saves project settings to local Git config and applies debounce immediatel
 
 		await page.getByLabel("Save delay").fill("1");
 		await page.getByText("Claude", { exact: true }).click();
+		await page.getByLabel("Check for shared updates").selectOption(String(30 * 60 * 1000));
 		await page.getByRole("button", { name: "Save" }).click();
 		await expect(page.getByText("Saved")).toBeVisible();
 
@@ -373,6 +374,11 @@ test("saves project settings to local Git config and applies debounce immediatel
 				async () => await runGit(repositoryPath, ["config", "--local", "--get", "how.codingAgent"]),
 			)
 			.toBe("claude");
+		await expect
+			.poll(
+				async () => await runGit(repositoryPath, ["config", "--local", "--get", "how.fetchIntervalMs"]),
+			)
+			.toBe(String(30 * 60 * 1000));
 
 		await page.getByRole("link", { name: "Back" }).click();
 		await fs.writeFile(path.join(repositoryPath, "notes.md"), "settings debounce\n");
@@ -514,6 +520,151 @@ test("creates a checkpoint before publishing unsaved changes", async ({
 		await expect(page.getByText("Published just now")).toBeVisible();
 		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(1);
 		await expect.poll(async () => await runGit(repositoryPath, ["status", "--porcelain"])).toBe("");
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+		await fs.rm(remotePath, { recursive: true, force: true });
+	}
+});
+
+test("hides published checkpoints after publish refreshes the shared project", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-published-checkpoints-project-");
+	const remotePath = await createBareRepository();
+	await initializeGitRepository(repositoryPath);
+	await createRegularCommit(repositoryPath);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+		githubLogin: "how-test",
+		githubCreateRepositoryUrl: remotePath,
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await createCheckpoint(page, repositoryPath, "notes.md", "checkpoint A\n", 1);
+		await createCheckpoint(page, repositoryPath, "notes.md", "checkpoint B\n", 2);
+		await expect(page.locator("ol li")).toHaveCount(2);
+
+		await page.getByRole("button", { name: "Publish" }).click();
+		await page.getByRole("button", { name: "Log in to GitHub" }).click();
+		await page.getByRole("button", { name: "Create GitHub project" }).click();
+		await page.getByRole("button", { name: "Create and publish" }).click();
+
+		await expect(page.getByText("Published just now")).toBeVisible();
+		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(2);
+		await expect(page.locator("ol li")).toHaveCount(0);
+		await expect(page.getByText("No checkpoints yet")).toBeVisible();
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+		await fs.rm(remotePath, { recursive: true, force: true });
+	}
+});
+
+test("keeps unpublished checkpoints visible after published checkpoints are hidden", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-unpublished-checkpoints-project-");
+	const remotePath = await createBareRepository();
+	await initializeGitRepository(repositoryPath);
+	await createRegularCommit(repositoryPath);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+		githubLogin: "how-test",
+		githubCreateRepositoryUrl: remotePath,
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await createCheckpoint(page, repositoryPath, "notes.md", "published checkpoint\n", 1);
+		await page.getByRole("button", { name: "Publish" }).click();
+		await page.getByRole("button", { name: "Log in to GitHub" }).click();
+		await page.getByRole("button", { name: "Create GitHub project" }).click();
+		await page.getByRole("button", { name: "Create and publish" }).click();
+		await expect(page.locator("ol li")).toHaveCount(0);
+
+		await createCheckpoint(page, repositoryPath, "notes.md", "unpublished checkpoint\n", 2);
+
+		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(2);
+		await expect(page.locator("ol li")).toHaveCount(1);
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+		await fs.rm(remotePath, { recursive: true, force: true });
+	}
+});
+
+test("shows update available when the shared project changes", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-shared-update-project-");
+	const remotePath = await createBareRepository();
+	const clonePath = await createTempDirectory("how-shared-update-clone-");
+	await initializeGitRepository(repositoryPath);
+	await createRegularCommit(repositoryPath);
+	const branchName = await currentBranch(repositoryPath);
+	await runGit(repositoryPath, ["remote", "add", "origin", remotePath]);
+	await runGit(repositoryPath, ["push", "-u", "origin", `HEAD:${branchName}`]);
+	await fs.rm(clonePath, { recursive: true, force: true });
+	await runGit(os.tmpdir(), ["clone", remotePath, clonePath]);
+	await runGit(clonePath, ["config", "user.name", "How E2E"]);
+	await runGit(clonePath, ["config", "user.email", "how-e2e@example.com"]);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+		sharedFetchIntervalMs: "100",
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await createRegularCommit(clonePath, "remote.md", "remote change\n", "Remote change");
+		await runGit(clonePath, ["push"]);
+
+		await expect(page.getByText("Update available")).toBeVisible();
+		const publishButton = page.getByRole("button", { name: "Publish" });
+		await expect(publishButton).toBeDisabled();
+		await expect(publishButton).toHaveAttribute("title", "Update this project before publishing.");
+		await expect(page.getByRole("button", { name: "Update project" })).toBeDisabled();
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+		await fs.rm(remotePath, { recursive: true, force: true });
+		await fs.rm(clonePath, { recursive: true, force: true });
+	}
+});
+
+test("background shared update failure is soft", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-shared-fetch-failure-project-");
+	const remotePath = await createBareRepository();
+	await initializeGitRepository(repositoryPath);
+	await createRegularCommit(repositoryPath);
+	await runGit(repositoryPath, ["remote", "add", "origin", remotePath]);
+	await runGit(repositoryPath, ["push", "-u", "origin", `HEAD:${await currentBranch(repositoryPath)}`]);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+		sharedFetchIntervalMs: "100",
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+		await fs.rm(remotePath, { recursive: true, force: true });
+
+		await expect(page.getByText("Could not check for updates")).toBeVisible();
+		await createCheckpoint(page, repositoryPath, "notes.md", "local work after fetch failure\n", 1);
+		await expect(page.locator("ol li")).toHaveCount(1);
 	} finally {
 		await app.close();
 		await fs.rm(repositoryPath, { recursive: true, force: true });

@@ -140,9 +140,12 @@ V1 is essentially one calm Change screen:
 
 - Current project name.
 - Current Change status, such as "Saved just now", "Saving...", "Unsaved
-  changes", or "Could not save".
-- Time-based Checkpoint timeline, with an AI-generated label when available.
+  changes", "Update available", or "Could not save".
+- Time-based Checkpoint timeline for unpublished local work, with an
+  AI-generated label when available.
 - Primary action: Publish.
+- Shared-project action: Update project, shown when the shared version has
+  changed.
 - Checkpoint action: Restore.
 - Optional small notice when the shared version has changed.
 
@@ -171,6 +174,12 @@ product definition does not yet know what a simple manual flow should look like.
 
 Users cannot delete, rename, pin, or manually clean up Checkpoints in v1.
 Retention and cleanup can be automatic/internal later.
+
+The Checkpoint timeline should show only local work that has not yet reached the
+shared project. Once How has refreshed its upstream knowledge and a Checkpoint is
+reachable from the configured shared-project upstream, that Checkpoint is hidden
+from the normal timeline. The user should not have to see or manage published
+Checkpoints as local work.
 
 ## AI Checkpoint Summaries
 
@@ -660,8 +669,14 @@ changes. If that Checkpoint cannot be created, publishing stops. If pushing
 fails, the Checkpoint remains because it captured the intended publish state.
 
 Publishing never force-pushes. It does not automatically pull, merge, rebase, or
-update in the MVP. If the shared project has changed and rejects the push, How
-shows a plain-language error and leaves the local project unchanged.
+move the local active line in the MVP. If the shared project has changed, Publish
+is disabled and explains that the project should be updated first.
+
+After a successful Publish, How should refresh its upstream knowledge for the
+configured shared-project destination and refresh the timeline. This is not an
+active-line update: the local active line should already match what was pushed.
+The refresh lets How recognize that the just-published Checkpoints are now part
+of the shared project and should disappear from the local-work timeline.
 
 ## Future Review Publishing
 
@@ -714,19 +729,69 @@ pnpm --filter @gitbutler/how exec cross-env HOW_E2E_HEADLESS=1 playwright test -
 Do not run the How e2e suite headed by default; headed runs are only for
 intentional local debugging.
 
-## Update Behavior
+## Shared Project Freshness
 
-Updating from the shared/trunk version is mostly automatic and publish-driven.
+How should keep its knowledge of the shared project fresh without moving the
+user's files unexpectedly.
 
-Before publishing, the app checks whether the shared version has changed. If it
-has, the app creates a "Before update" Checkpoint and tries to update
-automatically. If update succeeds, publishing continues.
+The MVP includes read-only shared-project fetching and timeline filtering:
 
-Outside publishing, the app may show that the shared version has updates and
-offer one simple action: Update project.
+- How fetches the configured shared-project upstream continuously.
+- The default fetch interval is 15 minutes.
+- The interval is a project setting named **Check for shared updates** with
+  choices: Off, 5 min, 15 min, 30 min, and 60 min.
+- The setting is stored in local repository config as milliseconds, for example
+  `how.fetchIntervalMs`, and applies immediately.
+- Passive fetch failures should not interrupt the user. How logs them and may
+  show a soft "Could not check for updates" state only if useful.
+- Publish and manual update actions show direct plain-language errors because
+  those are user-initiated.
+- Background fetch is read-only and low priority. It must not interrupt
+  autosave, mutate the active line, or open login prompts.
 
-If update conflicts or otherwise requires advanced intervention, v1 stops
-safely with a plain-language error.
+After each successful fetch, How computes whether the active line is behind the
+shared project. Use the current branch's configured upstream as the source of
+truth; in the normal How path that is expected to be `origin/main`, but the UI
+should still say "shared project". If no upstream is configured, How cannot check
+for shared updates until publishing configures the project destination.
+
+The active line needs an update when its merge base with the configured upstream
+is not the upstream tip. In that state:
+
+- The main UI shows **Update available**.
+- The top action area shows **Update project**.
+- Publish is disabled with a tooltip such as "Update this project before
+  publishing."
+- Checkpoint autosave can continue normally.
+
+How does not eagerly determine whether every Bookmark is on an old base. When
+the user switches to a Bookmark, How evaluates the newly active line against the
+configured upstream. If that active line is based on an older shared-project
+state, How shows the same **Update available** state. Switching Bookmarks remains
+a local operation; updating is separate and explicit.
+
+The near-future gap is the actual **Update project** operation. When implemented,
+it should:
+
+- Be disabled while browsing Checkpoints.
+- Let any in-progress Checkpoint save finish before updating.
+- Create a normal Checkpoint first when there are unsaved changes.
+- Replay/rebase only the active line's local unpublished Checkpoints on top of
+  the updated shared project.
+- Leave Bookmarks untouched.
+- Never rewrite anything reachable from the configured upstream.
+- Never force-push.
+- If the active line has no local work and is simply behind, fast-forward or
+  reset it to the shared project.
+- If conflicts or unsupported history shapes appear, leave the project at the
+  original pre-update state and show a plain-language error.
+
+Implementation should first evaluate whether the existing
+`getInitialBranchIntegration` and `applyBranchIntegration` APIs fit this model
+using the rebase-style strategy. How should not expose merge, pick-remote,
+smart-squash, or other strategy choices. If those APIs require user choices,
+conflict handling, or cannot provide rollback guarantees, How needs a dedicated
+shared-project update API.
 
 ## Errors And Unsupported States
 
@@ -892,6 +957,18 @@ Desired future APIs:
 - `publishToGithub(projectId, options)` with plain failure categories for
   missing branch, missing GitHub destination, rejected shared-project update,
   authentication, permission, and network failures.
+- `fetchSharedProject(projectId)` or `refreshSharedProject(projectId)` that
+  fetches the configured upstream without mutating the active line.
+- `getSharedProjectStatus(projectId)` that reports configured upstream, current
+  shared tip, active merge base, whether an update is available, passive fetch
+  errors, and whether Publish should be disabled.
+- `listUnpublishedCheckpoints(projectId, limit?)`, or equivalent filtering in
+  `listCheckpoints`, so the app shows only Checkpoints not reachable from the
+  configured shared-project upstream.
+- `updateProjectFromShared(projectId)` as a product-level operation that creates
+  a pre-update Checkpoint when needed, replays only unpublished active-line work,
+  refuses to rewrite published commits, leaves Bookmarks untouched, and fails
+  closed with rollback on conflicts or unsupported states.
 - `getConfiguredGithubCredential(projectId)` that resolves the credential
   referenced by `how.githubCredential`, without requiring How to list every
   known GitHub account.
@@ -1013,7 +1090,16 @@ than making the caller assemble branch, commit, diff, and repository details.
 - Review publishing is future work, including GitHub Enterprise, forks, draft
   reviews, rework, and stacked reviews.
 - Successful publish marks the pre-publish Checkpoint with the outcome.
-- Updates before publish are automatic when possible.
+- After successful Publish, How refreshes upstream knowledge and hides
+  Checkpoints that are now part of the shared project.
+- The Checkpoint timeline shows unpublished local work only.
+- How fetches the configured shared-project upstream continuously, every 15
+  minutes by default, with a per-project **Check for shared updates** setting.
+- Background fetch is read-only and never mutates the active line.
+- When the active line is behind the shared project, How shows **Update
+  available**, offers **Update project**, and disables Publish with a tooltip.
+- The actual **Update project** operation is a near-future gap, not part of the
+  current MVP implementation.
 - No force-push, rebase choices, or conflict-resolution UI in v1.
 - No advanced mode and no Lite escape hatch in v1.
 - Errors are plain-language only.
