@@ -6,6 +6,7 @@
 	import { isLocalAndRemoteCommit } from "$components/lib";
 	import Drawer from "$components/shared/Drawer.svelte";
 	import { splitMessage } from "$lib/commits/commitMessage";
+	import { applyEditDraftUpdate, resolveEditDraft } from "$lib/commits/editCommitDraft";
 	import { rewrapCommitMessage } from "$lib/config/uiFeatureFlags";
 	import { commitUrl, FORGE_INFO_SERVICE } from "$lib/forge/forgeInfo.svelte";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
@@ -81,6 +82,20 @@
 
 	const parsedMessage = $derived(splitMessage(commit.message));
 
+	const originalMessage = $derived({
+		title: parsedMessage?.title || "",
+		description: parsedMessage?.description || "",
+	});
+	const editorSeed = $derived(
+		resolveEditDraft(laneState.editCommitMessage.current, commit.id, originalMessage),
+	);
+
+	function persistDraft(update: { title?: string; description?: string }) {
+		laneState.editCommitMessage.set(
+			applyEditDraftUpdate(laneState.editCommitMessage.current, commit.id, originalMessage, update),
+		);
+	}
+
 	function combineParts(title?: string, description?: string): string {
 		if (!title) {
 			return "";
@@ -112,6 +127,7 @@
 		if (stackId) {
 			uiState.lane(stackId).selection.set({ branchName, commitId: newCommitId, previewOpen: true });
 		}
+		laneState.editCommitMessage.set(undefined);
 		setMode("view");
 	}
 
@@ -138,6 +154,11 @@
 	let drawer = $state<ReturnType<typeof Drawer>>();
 
 	function cancelEdit() {
+		setMode("view");
+	}
+
+	function discardEdit() {
+		laneState.editCommitMessage.set(undefined);
 		setMode("view");
 	}
 </script>
@@ -231,12 +252,13 @@
 					{stackId}
 					action={({ title, description }) => saveCommitMessage(title, description)}
 					actionLabel="Save changes"
-					onCancel={cancelEdit}
+					onChange={persistDraft}
+					onCancel={discardEdit}
 					floatingBoxHeader="Reword commit"
 					loading={messageUpdateQuery.current.isLoading}
 					existingCommitId={commit.id}
-					title={parsedMessage?.title || ""}
-					description={parsedMessage?.description || ""}
+					title={editorSeed.title}
+					description={editorSeed.description}
 				/>
 			</div>
 		{:else}
