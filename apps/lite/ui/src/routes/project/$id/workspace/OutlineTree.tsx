@@ -2326,8 +2326,6 @@ const BranchRow: FC<
 								<Toolbar.Button
 									aria-label={pushButtonLabel}
 									onClick={pushStack}
-									// Note this prevents the tooltip from showing, but it
-									// shouldn't: https://github.com/mui/base-ui/issues/4966
 									disabled={!canPushStack}
 									className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
 								/>
