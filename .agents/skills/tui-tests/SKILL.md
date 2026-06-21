@@ -58,10 +58,10 @@ specialized assertions.
 
 ## Running tests
 
-- `cargo nextest run -p but <test-name>` to run one test.
-- `SNAPSHOTS=overwrite cargo nextest run -p but <test-name>` to run and update
+- `cargo test -p but <test-name>` to run one test.
+- `SNAPSHOTS=overwrite cargo test -p but <test-name>` to run and update
   snapshots.
-- `cargo nextest run -p but tui` to run all tui tests. Do this after changing
+- `cargo test -p but tui` to run all tui tests. Do this after changing
   things.
 
 If a test fails the output will include the rendered state of the test backend.
