@@ -58,7 +58,7 @@ Stacks:     m0, n0          (auto-generated, 2–3 chars)
 
 ```bash
 but commit <branch-id> -m "message"      # Commit to branch
-but amend <file-or-hunk-id> <commit-id>  # Amend file or hunk into commit
+but amend <commit-id> --changes <file-or-hunk-id>,<file-or-hunk-id>  # Amend file(s) or hunk(s) into commit
 but rub <commit-id> <commit-id>          # Squash commits
 ```
 
@@ -135,7 +135,7 @@ The operation performed depends on what you combine:
 
 These commands are wrappers around `but rub`:
 
-- `but amend <file> <commit>` = `but rub <file> <commit>`
+- `but amend` = explicitly amend uncommitted files/hunks into a known commit
 - `but squash` = Multiple `but rub <commit> <commit>` operations
 - `but move` = commit move/reorder with position control, plus branch stack/tear-off (`<branch> <target-branch>` and `<branch> zz`)
 
@@ -189,7 +189,7 @@ Example workflow:
 but commit empty --before c5
 but reword <empty-commit-id> -m "TODO: Add error handling"
 # Later, amend the error handling changes into the placeholder
-but amend <file-id> <empty-commit-id>
+but amend <empty-commit-id> --changes <file-id>
 ```
 
 ## Operation History (Oplog)

@@ -656,16 +656,26 @@ pub enum Subcommands {
         discard: bool,
     },
 
-    /// Amend a file change into a specific commit and rebases any dependent commits.
+    /// Amend one or more file changes into a specific commit and rebases any dependent commits.
     ///
-    /// Wrapper for `but rub <file> <commit>`.
+    /// Use `but amend <commit> --changes <file-or-hunk>[,<file-or-hunk>...]`.
     #[cfg(feature = "legacy")]
+    #[clap(override_usage = "but amend [OPTIONS] <COMMIT> --changes <CHANGES>")]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Amend {
-        /// File ID to amend
-        file: String,
-        /// Commit ID to amend into
-        commit: String,
+        /// Commit ID to amend into.
+        ///
+        /// In the legacy two-positional form, this can be the source ID.
+        #[clap(value_name = "COMMIT")]
+        target_or_source: String,
+        /// Commit ID to amend into for the legacy two-positional form.
+        #[clap(value_name = "COMMIT", hide = true)]
+        legacy_commit: Option<String>,
+        /// Uncommitted file or hunk CLI IDs to amend into the commit.
+        ///
+        /// Can be specified multiple times or as comma-separated values.
+        #[clap(long = "changes", short = 'p', value_delimiter = ',')]
+        changes: Vec<String>,
     },
 
     /// Squash commits together.

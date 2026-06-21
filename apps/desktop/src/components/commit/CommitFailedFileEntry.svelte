@@ -64,6 +64,7 @@
 									"tabSize",
 									"wrapText",
 									"diffFont",
+									"diffFontSize",
 									"diffLigatures",
 									"strongContrast",
 									"colorBlindFriendly",

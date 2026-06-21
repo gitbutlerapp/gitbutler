@@ -6,6 +6,8 @@
 mod absorb;
 mod alias;
 #[cfg(feature = "legacy")]
+mod amend;
+#[cfg(feature = "legacy")]
 mod branch;
 #[cfg(feature = "legacy")]
 mod clean;

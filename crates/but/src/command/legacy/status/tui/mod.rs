@@ -98,6 +98,7 @@ mod marking;
 mod message_on_drop;
 mod mode;
 mod operations;
+mod popup;
 mod render;
 mod rub;
 mod rub_from_detail_view;

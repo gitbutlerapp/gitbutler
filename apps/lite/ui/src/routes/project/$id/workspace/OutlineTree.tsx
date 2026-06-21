@@ -89,7 +89,6 @@ import {
 	useHotkey,
 	UseHotkeyDefinition,
 	useHotkeys,
-	useKeyHold,
 } from "@tanstack/react-hotkeys";
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
@@ -1713,9 +1712,6 @@ const Changes: FC<{
 	);
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const isAltHeld = useKeyHold("Alt");
-	// TODO: bug: false positive when holding alt e.g. inside commit reword input
-	const isAmendMode = isAltHeld;
 	const isCommitOrAmendPending = commitCreateMutation.isPending || commitAmendMutation.isPending;
 	const canCommitOrAmendBase = isDefaultMode && commitTarget !== null && !isCommitOrAmendPending;
 	const canCommit = canCommitOrAmendBase;
@@ -1725,7 +1721,6 @@ const Changes: FC<{
 		worktreeChanges.changes.length > 0 &&
 		headInfo &&
 		resolveRelativeTo({ headInfo, relativeTo: commitTarget.relativeTo }) !== null;
-	const canCommitOrAmend = isAmendMode ? canAmend : canCommit;
 
 	const [open, setOpen] = useState(false);
 
@@ -1765,11 +1760,6 @@ const Changes: FC<{
 	};
 	const submit: SubmitEventHandler = (event) => {
 		event.preventDefault();
-
-		if (isAmendMode) {
-			amendCommit();
-			return;
-		}
 
 		createCommit();
 	};
@@ -1899,38 +1889,22 @@ const Changes: FC<{
 								className={getButtonClassName({})}
 								// We pass `disabled` here because we want to disable the button, not
 								// the tooltip. Other props should be passed above.
-								render={<Button focusableWhenDisabled type="submit" disabled={!canCommitOrAmend} />}
+								render={<Button focusableWhenDisabled type="submit" disabled={!canCommit} />}
 							>
-								{isAmendMode ? "Amend" : "Commit"}
-								<Kbd
-									hotkey={
-										isAmendMode ? changesHotkeys.amendCommit.hotkey : changesHotkeys.commit.hotkey
-									}
-								/>
+								Commit
+								<Kbd hotkey={changesHotkeys.commit.hotkey} />
 							</Tooltip.Trigger>
 							<Tooltip.Portal>
 								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup
-										render={
-											<TooltipPopup
-												kbd={
-													isAmendMode
-														? changesHotkeys.amendCommit.hotkey
-														: changesHotkeys.commit.hotkey
-												}
-											/>
-										}
-									>
-										{isAmendMode
-											? changesHotkeys.amendCommit.meta.name
-											: changesHotkeys.commit.meta.name}
+									<Tooltip.Popup render={<TooltipPopup kbd={changesHotkeys.commit.hotkey} />}>
+										{changesHotkeys.commit.meta.name}
 									</Tooltip.Popup>
 								</Tooltip.Positioner>
 							</Tooltip.Portal>
 						</Tooltip.Root>
 						<Button
 							focusableWhenDisabled
-							disabled={!canCommitOrAmend}
+							disabled={!(canAmend || canCommit)}
 							aria-label="Commit options"
 							className={getButtonClassName({ iconOnly: true })}
 							onClick={(event) => {
@@ -2326,8 +2300,6 @@ const BranchRow: FC<
 								<Toolbar.Button
 									aria-label={pushButtonLabel}
 									onClick={pushStack}
-									// Note this prevents the tooltip from showing, but it
-									// shouldn't: https://github.com/mui/base-ui/issues/4966
 									disabled={!canPushStack}
 									className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
 								/>

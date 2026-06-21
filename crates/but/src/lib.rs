@@ -1394,7 +1394,34 @@ async fn match_subcommand(
             result.show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Amend { file, commit } => {
+        Subcommands::Amend {
+            target_or_source,
+            legacy_commit,
+            changes,
+        } => {
+            let (commit, files) = if changes.is_empty() {
+                let Some(commit) = legacy_commit.as_deref() else {
+                    return Err(bad_input(
+                        "Missing --changes <file-or-hunk>. Usage: but amend <commit> --changes <id>[,<id>]",
+                    )
+                    .into());
+                };
+                (commit, std::slice::from_ref(&target_or_source))
+            } else {
+                if let Some(extra) = legacy_commit.as_deref() {
+                    return Err(bad_input(format!(
+                        "Unexpected extra argument '{extra}'. Use comma-separated --changes values: but amend <commit> --changes <id>[,<id>]",
+                    ))
+                    .into());
+                }
+                if changes.iter().any(|change| change.trim().is_empty()) {
+                    return Err(bad_input(
+                        "Empty --changes value. Use comma-separated file or hunk IDs: but amend <commit> --changes <id>[,<id>]",
+                    )
+                    .into());
+                }
+                (target_or_source.as_str(), changes.as_slice())
+            };
             let status_after = args.status_after;
             let mut ctx = setup::init_ctx(
                 &args,
@@ -1405,7 +1432,7 @@ async fn match_subcommand(
                 out,
             )?;
             out.begin_status_after(status_after);
-            let result = command::legacy::rub::handle_amend(&mut ctx, out, &file, &commit)
+            let result = command::legacy::rub::handle_amend(&mut ctx, out, files, commit)
                 .context("Failed to amend.")
                 .emit_metrics(metrics_ctx);
             maybe_run_status_after(status_after, &result, &mut ctx, out).await;
