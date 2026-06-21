@@ -25,6 +25,7 @@ import {
 import { findBranchOperandByRef, findCommit, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { decodeBytes, bytesEqual } from "#ui/api/bytes.ts";
 import { commitBody, commitIsDiverged, commitTitle } from "#ui/commit.ts";
+import { isInputElement, useActiveElement } from "#ui/focus.ts";
 import {
 	nativeMenuItem,
 	nativeMenuSeparator,
@@ -1714,8 +1715,8 @@ const Changes: FC<{
 
 	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
 	const isAltHeld = useKeyHold("Alt");
-	// TODO: bug: false positive when holding alt e.g. inside commit reword input
-	const isAmendMode = isAltHeld;
+	const activeElement = useActiveElement();
+	const isAmendMode = isAltHeld && !isInputElement(activeElement);
 	const isCommitOrAmendPending = commitCreateMutation.isPending || commitAmendMutation.isPending;
 	const canCommitOrAmendBase = isDefaultMode && commitTarget !== null && !isCommitOrAmendPending;
 	const canCommit = canCommitOrAmendBase;
