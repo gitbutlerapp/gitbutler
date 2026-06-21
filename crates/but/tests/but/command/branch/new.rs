@@ -123,6 +123,82 @@ Error: A branch named 'A' exists but is not applied
 }
 
 #[test]
+fn handles_adding_branch_anchored_on_branch_shared_by_other_stack() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    env.but("branch new -a A first-stack").assert().success();
+
+    env.file("first.txt", "first");
+    env.but("commit -m first").assert().success();
+    env.but("unapply first-stack").assert().success();
+
+    env.but("apply A").assert().success();
+    env.but("branch new -a A second-stack").assert().success();
+    env.file("second.txt", "second");
+    env.but("commit -m second").assert().success();
+
+    env.but("apply first-stack").assert().success();
+
+    // Precondition: Two stacks that share a branch
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄se [second-stack]
+┊●   187de8a second
+┊│
+┊├┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄fi [first-stack]
+┊●   8673c86 first
+┊│
+┊├┄h0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // Act: add a branch anchored to the shared branch in _one_ of the stacks
+    env.but("branch new -a h0 first-stack-middle")
+        .assert()
+        .success();
+
+    // Assert: branch is added only to the targeted stack
+    env.but("status").assert().success().stdout_eq(str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄se [second-stack]
+┊●   187de8a second
+┊│
+┊├┄g0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┊╭┄fi [first-stack]
+┊●   8673c86 first
+┊│
+┊├┄h0 [first-stack-middle] (no commits)
+┊│
+┊├┄i0 [A]
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
 fn with_json_output() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     insta::assert_snapshot!(env.git_log()?, @"
