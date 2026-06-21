@@ -699,6 +699,21 @@ impl EventPolling for (KeyModifiers, KeyCode) {
     }
 }
 
+impl InputEventPolling for (KeyModifiers, char) {}
+
+impl EventPolling for (KeyModifiers, char) {
+    type Error = Infallible;
+
+    fn poll(self, _timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+        Ok([Event::Key(KeyEvent {
+            code: KeyCode::Char(self.1),
+            modifiers: self.0,
+            kind: KeyEventKind::Press,
+            state: KeyEventState::NONE,
+        })])
+    }
+}
+
 impl InputEventPolling for char {}
 
 impl EventPolling for char {
@@ -723,6 +738,16 @@ impl EventPolling for &str {
                 state: KeyEventState::NONE,
             })
         }))
+    }
+}
+
+impl InputEventPolling for String {}
+
+impl EventPolling for String {
+    type Error = Infallible;
+
+    fn poll(self, timeout: Duration) -> Result<impl IntoIterator<Item = Event>, Self::Error> {
+        Ok(self.as_str().poll(timeout)?.into_iter().collect::<Vec<_>>())
     }
 }
 

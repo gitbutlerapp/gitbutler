@@ -595,20 +595,28 @@ impl App {
                 self.handle_confirm_and_quit();
             }
             Message::JustRender => {}
-            Message::MoveCursorUp => {
-                if let Some(new_cursor) =
-                    self.cursor
-                        .move_up(&self.status_lines, &self.mode, self.flags.show_files)
-                {
-                    self.cursor = new_cursor;
+            Message::MoveCursorUp(count) => {
+                for _ in 0..count {
+                    if let Some(new_cursor) =
+                        self.cursor
+                            .move_up(&self.status_lines, &self.mode, self.flags.show_files)
+                    {
+                        self.cursor = new_cursor;
+                    } else {
+                        break;
+                    }
                 }
             }
-            Message::MoveCursorDown => {
-                if let Some(new_cursor) =
-                    self.cursor
-                        .move_down(&self.status_lines, &self.mode, self.flags.show_files)
-                {
-                    self.cursor = new_cursor;
+            Message::MoveCursorDown(count) => {
+                for _ in 0..count {
+                    if let Some(new_cursor) =
+                        self.cursor
+                            .move_down(&self.status_lines, &self.mode, self.flags.show_files)
+                    {
+                        self.cursor = new_cursor;
+                    } else {
+                        break;
+                    }
                 }
             }
             Message::MoveCursorPreviousSection => {
@@ -4100,8 +4108,8 @@ enum Message {
     UnfocusDetails,
 
     // Cursor movement
-    MoveCursorUp,
-    MoveCursorDown,
+    MoveCursorUp(usize),
+    MoveCursorDown(usize),
     MoveCursorPreviousSection,
     MoveCursorNextSection,
     SelectUnassigned,

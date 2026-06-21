@@ -84,7 +84,7 @@ fn multi_squash_marked_commits_into_selected_marked_target() {
     tui.input_then_render(' ')
         .assert_current_line_eq(str!["┊✔︎   9477ae7 add A"]);
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┊╭┄h0 [B]"]);
 
     tui.input_then_render(KeyCode::Down)

@@ -56,7 +56,7 @@ fn branch_key_keeps_global_file_list_open() {
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'F'))
         .assert_current_line_eq(str!["┊╭┄g0 [A]"])
         .assert_rendered_contains("94:tm A A");
 
@@ -124,10 +124,10 @@ fn focus_reload_preserves_merge_base_selection() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┴ 0dc3733 (common base) 2000-01-02 add M"]);
 
     tui.render_with_messages(Some(Event::FocusGained), Vec::new())
@@ -206,7 +206,7 @@ fn inline_branch_reword_preserves_selection_after_reload_with_multiple_branches(
     tui.input_then_render(KeyCode::Enter)
         .assert_current_line_eq(str!["┊╭┄re [renamed-a]"]);
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┊╭┄g0 [B]"]);
 }
 

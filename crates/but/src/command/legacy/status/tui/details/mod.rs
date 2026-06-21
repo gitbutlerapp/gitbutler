@@ -180,8 +180,8 @@ impl Details {
             | Message::Redo
             | Message::EnterNormalModeAfterConfirmingOperation => false,
 
-            Message::MoveCursorUp
-            | Message::MoveCursorDown
+            Message::MoveCursorUp(_)
+            | Message::MoveCursorDown(_)
             | Message::SelectBranch(_)
             | Message::MoveCursorPreviousSection
             | Message::MoveCursorNextSection

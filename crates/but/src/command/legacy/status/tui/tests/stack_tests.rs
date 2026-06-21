@@ -14,7 +14,7 @@ fn unapply_stack() {
     tui.input_then_render('j');
     tui.input_then_render('b');
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('G')));
+    tui.input_then_render((KeyModifiers::SHIFT, 'G'));
     tui.input_then_render('b');
 
     tui.input_then_render('g')
