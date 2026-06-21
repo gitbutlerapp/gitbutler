@@ -53,6 +53,7 @@ but <mutation> ...
 - Tear off a branch: `but move <branch-name-or-id> zz` (`zz` = unassigned; branch name or branch CLI ID)
 - Push: `but push <branch-name>` — always specify the branch; bare `but push` pushes ALL branches when run non-interactively
 - Pull: `but pull --check` then `but pull`
+- Open a PR: `but pr new <branch-name>` — pushes the branch and opens the PR in one step (no separate `but push`); add `--draft` for a draft. In non-interactive shells pass `-m "<title>"`, `-F <file>`, or `-t` (use default content) to skip the editor. Needs `but config forge auth`.
 
 ## Task Recipes
 
@@ -79,6 +80,15 @@ For "get latest from main", "update/sync this workspace", or "pull main":
 4. **Check the returned status** for remaining uncommitted changes. If the file still appears as unassigned or assigned to another branch after commit, it may be dependency-locked. See "Stacked dependency / commit-lock recovery" below.
 
 Edge case: if wanted and unwanted edits are in the same diff hunk, GitButler cannot split that hunk by ID. Only when the task requires keeping part of that hunk uncommitted, temporarily edit the working tree to isolate the wanted lines, commit with `--changes`, then restore the leftover lines so they remain uncommitted.
+
+### Open a pull request
+
+For "open/create a PR for this branch" (instead of `gh pr create`):
+
+1. `but pr new <branch-name>` — pushes the branch and opens the PR in one step. No separate `but push` first.
+2. In non-interactive shells, pass `-m "<title>"` (first line is the title, the rest is the description), `-F <file>`, or `-t` (use default content) to skip the editor prompt. Add `--draft` for a draft.
+
+Requires forge integration configured via `but config forge auth`.
 
 ### Amend into existing commit
 
@@ -155,6 +165,7 @@ If `but move` causes conflicts (conflicted commits in status):
 | `git rebase -i` | `but move`, `but squash`, `but reword` |
 | `git rebase --onto` | `but move <branch> <new-base>` |
 | `git cherry-pick` | `but pick` |
+| `gh pr create` | `but pr new <branch-name>` (pushes the branch, then opens the PR) |
 
 ## Notes
 
