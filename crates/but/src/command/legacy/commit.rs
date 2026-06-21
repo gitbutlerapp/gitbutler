@@ -5,6 +5,8 @@ use bstr::{BString, ByteSlice};
 use but_api::{commit::create::commit_create, diff, legacy::repo};
 use but_core::{DryRun, ref_metadata::StackId, sync::RepoExclusive, ui::TreeChange};
 use but_rebase::graph_rebase::mutate::{InsertSide, RelativeTo};
+use but_transaction::DynamicOutcome;
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_repo::hooks;
 
 use super::{ShowDiffInEditor, estimate_diff_blob_size};
@@ -12,6 +14,7 @@ use crate::{
     CliId, CliResult, IdMap,
     args::atoms::{BranchArg, BranchOrCommit, CliIdArg, Priority, Purpose, ResolvedCliIdArg},
     bad_input,
+    command::legacy::commit_message_prep::normalize_commit_message,
     command::legacy::status::assignment::{CLIHunkAssignment, FileAssignment},
     legacy::workspace::HeadInfoStack,
     theme::{self, Paint},
@@ -27,6 +30,7 @@ pub(crate) fn insert_blank_commit(
     target: Option<CliIdArg>,
     before: Option<CliIdArg>,
     after: Option<CliIdArg>,
+    message: Option<&str>,
 ) -> CliResult<()> {
     let mut guard = ctx.exclusive_worktree_access();
     let id_map = IdMap::new_from_context(ctx, None, guard.read_permission())?;
@@ -80,21 +84,30 @@ pub(crate) fn insert_blank_commit(
         InsertSide::Below => "before",
     };
 
-    // Determine target commit ID and use provided insert_side
-    let (outcome, success_message) = match target {
-        BranchOrCommit::Commit(oid) => {
-            let outcome = but_api::commit::insert_blank::commit_insert_blank_with_perm(
-                ctx,
-                RelativeTo::Commit(oid),
-                insert_side,
-                DryRun::No,
-                guard.write_permission(),
-            )?;
-            (
-                outcome,
-                format!("Created blank commit {position_desc} commit {target}"),
-            )
+    let message = if let Some(message) = message.map(normalize_commit_message) {
+        if message.is_empty() {
+            return Err(anyhow::anyhow!("Aborting commit due to empty commit message.").into());
         }
+
+        let message = message.to_owned();
+        Some(match repo::message_hook(ctx, message.clone())? {
+            hooks::MessageHookResult::Success | hooks::MessageHookResult::NotConfigured => message,
+            hooks::MessageHookResult::Message(message_data) => message_data.message,
+            hooks::MessageHookResult::Failure(error_data) => {
+                return Err(
+                    anyhow::anyhow!("commit-msg hook failed:\n{}", error_data.error).into(),
+                );
+            }
+        })
+    } else {
+        None
+    };
+
+    let (relative_to, success_message) = match target {
+        BranchOrCommit::Commit(oid) => (
+            RelativeTo::Commit(oid),
+            format!("Created blank commit {position_desc} commit {target}"),
+        ),
         BranchOrCommit::Branch(branch) => {
             let reference = branch.resolve_local_branch_name()?;
 
@@ -116,28 +129,43 @@ pub(crate) fn insert_blank_commit(
                 }
             }
 
-            let outcome = but_api::commit::insert_blank::commit_insert_blank_with_perm(
-                ctx,
-                RelativeTo::Reference(reference),
-                insert_side,
-                DryRun::No,
-                guard.write_permission(),
-            )?;
             let success_message = match insert_side {
                 InsertSide::Above => format!("Created blank commit above branch '{branch}'"),
                 InsertSide::Below => {
                     format!("Created blank commit at the tip of branch '{branch}'")
                 }
             };
-            (outcome, success_message)
+            (RelativeTo::Reference(reference), success_message)
         }
     };
+
+    let mut meta = ctx.meta()?;
+    let DynamicOutcome::Commit((new_commit, _workspace)) =
+        but_transaction::with_transaction_with_perm(
+            ctx,
+            &mut meta,
+            guard.write_permission(),
+            SnapshotDetails::new(OperationKind::InsertBlankCommit),
+            DryRun::No,
+            |mut tx| {
+                let new_commit = tx.insert_blank_commit(relative_to, insert_side)?;
+                let new_commit = if let Some(message) = message {
+                    tx.reword_commit(new_commit, message.as_bytes().as_bstr())?
+                } else {
+                    new_commit
+                };
+
+                Ok(DynamicOutcome::<_, std::convert::Infallible>::Commit(
+                    new_commit,
+                ))
+            },
+        )?;
 
     if let Some(out) = out.for_human() {
         writeln!(out, "{success_message}")?;
     } else if let Some(json_out) = out.for_json() {
         let commit_data = serde_json::json!({
-            "commit_id": outcome.new_commit.to_string(),
+            "commit_id": new_commit.to_string(),
         });
         json_out.write_value(commit_data)?;
     }

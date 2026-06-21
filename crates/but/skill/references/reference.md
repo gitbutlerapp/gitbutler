@@ -163,6 +163,7 @@ but commit <branch> --message-file msg.txt  # Read commit message from file
 but commit <branch> -c -m "message"      # Create new branch (or use existing) and commit
 but commit <branch> -n -m "message"      # Bypass git commit hooks (pre-commit, commit-msg, post-commit)
 but commit empty                         # Insert empty commit at top of first branch
+but commit empty -m "message"            # Insert empty commit with message
 but commit empty <target>                # Insert empty commit before target
 but commit empty --before <target>       # Insert empty commit before target
 but commit empty --after <target>        # Insert empty commit after target

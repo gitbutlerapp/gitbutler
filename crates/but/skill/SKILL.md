@@ -47,6 +47,7 @@ but <mutation> ...
 - `but commit -a` is accepted as a no-op compatibility flag; GitButler already includes uncommitted changes by default.
 - Commit + create branch: `but commit <branch> -c -m "<msg>" --changes <id>`
 - Amend: `but amend <commit-id> --changes <file-or-hunk-id>,<file-or-hunk-id>`
+- Insert empty commit: `but commit empty [-m "<msg>"] [<target>]`
 - Reorder commits: `but move <source-commit-id> <target-commit-id>` (**commit IDs**, not branch names)
 - Stack branches: `but move <branch-name-or-id> <target-branch-name-or-id>` (**branch names or branch CLI IDs**)
 - Tear off a branch: `but move <branch-name-or-id> zz` (`zz` = unassigned; branch name or branch CLI ID)
