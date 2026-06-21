@@ -1721,7 +1721,6 @@ const Changes: FC<{
 		worktreeChanges.changes.length > 0 &&
 		headInfo &&
 		resolveRelativeTo({ headInfo, relativeTo: commitTarget.relativeTo }) !== null;
-	const canCommitOrAmend = canAmend || canCommit;
 
 	const [open, setOpen] = useState(false);
 
@@ -1905,7 +1904,7 @@ const Changes: FC<{
 						</Tooltip.Root>
 						<Button
 							focusableWhenDisabled
-							disabled={!canCommitOrAmend}
+							disabled={!(canAmend || canCommit)}
 							aria-label="Commit options"
 							className={getButtonClassName({ iconOnly: true })}
 							onClick={(event) => {
