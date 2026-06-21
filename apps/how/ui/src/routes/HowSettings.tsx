@@ -119,7 +119,7 @@ export function HowSettings() {
 							Back
 						</Link>
 					</Button>
-					<p className="text-sm text-stone-600">Open or start a project first.</p>
+					<p className="text-sm text-stone-500">Open or start a project first.</p>
 				</div>
 			</main>
 		);
@@ -135,7 +135,7 @@ export function HowSettings() {
 							</Link>
 						</Button>
 						<div className="min-w-0">
-							<h1 className="truncate text-xl font-semibold tracking-normal text-stone-800">
+							<h1 className="truncate text-xl font-semibold tracking-normal text-stone-200">
 								Project settings
 							</h1>
 						</div>
@@ -144,13 +144,13 @@ export function HowSettings() {
 
 				<section className="space-y-6">
 					<label className="block">
-						<span className="text-sm font-medium text-stone-950">Save delay</span>
+						<span className="text-sm font-medium text-stone-50">Save delay</span>
 						<span className="mt-1 block text-sm text-stone-500">
 							How saves after this many quiet seconds.
 						</span>
 						<div className="mt-3 flex items-center gap-3">
 							<input
-								className="h-10 w-24 rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-950 outline-none focus:border-stone-900 focus:ring-2 focus:ring-stone-200"
+								className="h-10 w-24 rounded-md border border-stone-700 bg-stone-950 px-3 text-sm text-stone-50 outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-700"
 								type="number"
 								min={minimumSaveDelaySeconds}
 								max={maximumSaveDelaySeconds}
@@ -163,15 +163,15 @@ export function HowSettings() {
 					</label>
 
 					<fieldset>
-						<legend className="text-sm font-medium text-stone-950">Coding agent</legend>
+						<legend className="text-sm font-medium text-stone-50">Coding agent</legend>
 						<div className="mt-3 flex flex-wrap gap-2">
 							{(["none", "codex", "claude"] as const).map((agent) => (
 								<label
 									key={agent}
 									className={`inline-flex h-10 cursor-pointer items-center rounded-md border px-4 text-sm font-medium ${
 										codingAgent === agent
-											? "border-stone-900 bg-stone-950 text-white"
-											: "border-stone-300 bg-white text-stone-700"
+											? "border-stone-200 bg-stone-100 text-stone-950"
+											: "border-stone-700 bg-stone-950 text-stone-300"
 									}`}
 								>
 									<input
@@ -189,12 +189,12 @@ export function HowSettings() {
 					</fieldset>
 
 					<label className="block">
-						<span className="text-sm font-medium text-stone-950">Check for shared updates</span>
+						<span className="text-sm font-medium text-stone-50">Check for shared updates</span>
 						<span className="mt-1 block text-sm text-stone-500">
 							How checks quietly without moving your files.
 						</span>
 						<select
-							className="mt-3 h-10 rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-950 outline-none focus:border-stone-900 focus:ring-2 focus:ring-stone-200"
+							className="mt-3 h-10 rounded-md border border-stone-700 bg-stone-950 px-3 text-sm text-stone-50 outline-none focus:border-stone-400 focus:ring-2 focus:ring-stone-700"
 							value={fetchIntervalMs}
 							onChange={(event) => setFetchIntervalMs(event.currentTarget.value)}
 						>
@@ -211,7 +211,7 @@ export function HowSettings() {
 					<Button onClick={() => void saveSettings()} disabled={busy}>
 						{busy ? "Saving" : "Save"}
 					</Button>
-					{message ? <p className="text-sm text-stone-600">{message}</p> : null}
+					{message ? <p className="text-sm text-stone-500">{message}</p> : null}
 				</div>
 			</div>
 		</main>

@@ -3,7 +3,12 @@ import { HowSettings } from "./HowSettings.tsx";
 import { createRootRoute, createRoute, Outlet } from "@tanstack/react-router";
 
 const rootRoute = createRootRoute({
-	component: Outlet,
+	component: () => (
+		<>
+			<div className="app-drag-region" />
+			<Outlet />
+		</>
+	),
 });
 
 const indexRoute = createRoute({

@@ -102,7 +102,9 @@ async function createMainWindow(): Promise<void> {
 		height: 680,
 		minWidth: 720,
 		minHeight: 520,
-		backgroundColor: "#f8f7f2",
+		backgroundColor: "#0c0a09",
+		titleBarStyle: "hiddenInset",
+		trafficLightPosition: { x: 18, y: 18 },
 		icon: getWindowIcon(),
 		webPreferences: {
 			preload: path.join(currentDirPath, "preload.cjs"),

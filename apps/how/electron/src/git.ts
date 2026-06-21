@@ -105,6 +105,11 @@ export type GitRepository = {
 	worktreePath: string;
 };
 
+export type ProjectActivationPreparation = {
+	checkpoint: CreatedCheckpoint | null;
+	prepared: boolean;
+};
+
 export function projectFromSdk(project: HowProject): GitRepository {
 	return {
 		id: project.id,
@@ -207,6 +212,43 @@ export async function resetToCommit(
 
 export async function hasWorktreeChanges(projectId: string): Promise<boolean> {
 	return await howHasProjectChanges(projectId);
+}
+
+export async function prepareProjectForActivation(
+	projectId: string,
+	worktreePath: string,
+	createCheckpoint: () => Promise<CreatedCheckpoint | null>,
+): Promise<ProjectActivationPreparation> {
+	const expected = await expectedActiveBranchName(worktreePath);
+	const current = await currentBranchName(worktreePath);
+	if (!current) throw new Error("This project has work in a shape this app does not support yet.");
+
+	let checkpoint: CreatedCheckpoint | null = null;
+	if (await hasWorktreeChanges(projectId)) checkpoint = await createCheckpoint();
+
+	if (current === expected) return { checkpoint, prepared: false };
+
+	const currentCommit = await runGit(["rev-parse", "--verify", "HEAD"], worktreePath);
+	const expectedCommit = await runGit(["rev-parse", "--verify", `refs/heads/${expected}`], worktreePath);
+	const bookmarks = await listProjectBookmarks(projectId);
+	if (!bookmarks.some((bookmark) => bookmark.targetCommitId === currentCommit)) {
+		await createProjectBookmarkFromCommit(projectId, "Where you left off", "auto", currentCommit);
+	}
+	if (
+		expectedCommit !== currentCommit &&
+		!bookmarks.some((bookmark) => bookmark.targetCommitId === expectedCommit)
+	) {
+		await createProjectBookmarkFromCommit(
+			projectId,
+			"Shared starting point",
+			"auto",
+			expectedCommit,
+		);
+	}
+
+	await runGit(["update-ref", `refs/heads/${expected}`, currentCommit], worktreePath);
+	await runGit(["switch", "--quiet", expected], worktreePath);
+	return { checkpoint, prepared: true };
 }
 
 export async function readProjectSettings(
@@ -495,6 +537,85 @@ export function sanitizedRepositoryName(projectTitle: string): string {
 async function currentBranchName(worktreePath: string): Promise<string | null> {
 	const branchName = await runGit(["branch", "--show-current"], worktreePath).catch(() => "");
 	return branchName.length > 0 ? branchName : null;
+}
+
+async function expectedActiveBranchName(worktreePath: string): Promise<string> {
+	const remoteExpected = await expectedActiveBranchFromRemote(worktreePath);
+	if (remoteExpected) return remoteExpected;
+	const current = await currentBranchName(worktreePath);
+	if (current === "main" || current === "master") return current;
+	for (const candidate of ["main", "master"]) {
+		if (await localBranchExists(worktreePath, candidate)) return candidate;
+	}
+	throw new Error("This project has work in a shape this app does not support yet.");
+}
+
+async function expectedActiveBranchFromRemote(worktreePath: string): Promise<string | null> {
+	const remotes = await repositoryRemotes(worktreePath);
+	if (remotes.length === 0) return null;
+	if (remotes.length !== 1)
+		throw new Error("This project has work in a shape this app does not support yet.");
+
+	const remote = remotes[0]!;
+	const remoteHead = await remoteHeadBranchName(worktreePath, remote);
+	if (!remoteHead) return await currentBranchTrackingRemote(worktreePath, remote);
+
+	const trackingBranch = await localBranchTrackingRemoteHead(worktreePath, remote, remoteHead);
+	if (trackingBranch) return trackingBranch;
+
+	const remoteRef = `${remote}/${remoteHead}`;
+	const remoteRefExists = await runGit(["rev-parse", "--verify", remoteRef], worktreePath)
+		.then(() => true)
+		.catch(() => false);
+	if (!remoteRefExists)
+		throw new Error("This project has work in a shape this app does not support yet.");
+
+	if (await localBranchExists(worktreePath, remoteHead)) return remoteHead;
+	await runGit(["branch", "--track", remoteHead, remoteRef], worktreePath);
+	return remoteHead;
+}
+
+async function currentBranchTrackingRemote(
+	worktreePath: string,
+	remote: string,
+): Promise<string | null> {
+	const current = await currentBranchName(worktreePath);
+	if (!current) return null;
+	const upstream = await currentBranchUpstream(worktreePath);
+	if (!upstream?.startsWith(`${remote}/`)) return null;
+	return current;
+}
+
+async function remoteHeadBranchName(worktreePath: string, remote: string): Promise<string | null> {
+	const fullName = await runGit(
+		["symbolic-ref", "--quiet", "--short", `refs/remotes/${remote}/HEAD`],
+		worktreePath,
+	).catch(() => "");
+	const prefix = `${remote}/`;
+	return fullName.startsWith(prefix) ? fullName.slice(prefix.length) : null;
+}
+
+async function localBranchTrackingRemoteHead(
+	worktreePath: string,
+	remote: string,
+	remoteHead: string,
+): Promise<string | null> {
+	const output = await runGit(
+		["for-each-ref", "--format=%(refname:short)%09%(upstream:short)", "refs/heads"],
+		worktreePath,
+	).catch(() => "");
+	const expectedUpstream = `${remote}/${remoteHead}`;
+	for (const line of output.split("\n")) {
+		const [branch, upstream] = line.split("\t");
+		if (branch && upstream === expectedUpstream) return branch;
+	}
+	return null;
+}
+
+async function localBranchExists(worktreePath: string, branchName: string): Promise<boolean> {
+	return await runGit(["rev-parse", "--verify", `refs/heads/${branchName}`], worktreePath)
+		.then(() => true)
+		.catch(() => false);
 }
 
 async function currentBranchUpstream(worktreePath: string): Promise<string | null> {

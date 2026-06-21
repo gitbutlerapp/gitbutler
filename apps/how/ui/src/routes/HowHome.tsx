@@ -72,22 +72,22 @@ function statusLabel(status: HowStatus): string {
 function statusTone(state: SaveState): string {
 	switch (state) {
 		case "saved":
-			return "bg-emerald-100 text-emerald-900";
+			return "bg-emerald-950/60 text-emerald-100";
 		case "error":
-			return "bg-red-100 text-red-900";
+			return "bg-red-950/60 text-red-100";
 		case "saving":
 		case "pending":
-			return "bg-stone-100 text-stone-500";
+			return "bg-stone-900 text-stone-500";
 		case "idle":
 		case "watching":
-			return "bg-stone-100 text-stone-400";
+			return "bg-stone-900 text-stone-500";
 	}
 }
 
 function statusToneForStatus(status: HowStatus): string {
 	if (status.saveState === "error") return statusTone(status.saveState);
-	if (status.sharedProject.state === "updateAvailable") return "bg-amber-100 text-amber-900";
-	if (status.sharedProject.state === "couldNotCheck") return "bg-stone-100 text-stone-500";
+	if (status.sharedProject.state === "updateAvailable") return "bg-amber-950/60 text-amber-100";
+	if (status.sharedProject.state === "couldNotCheck") return "bg-stone-900 text-stone-500";
 	return statusTone(status.saveState);
 }
 
@@ -140,8 +140,8 @@ function EmptyState({
 		<main className="flex min-h-screen items-center justify-center px-6 py-10">
 			<section className="w-full max-w-xl">
 				<div className="mb-10">
-					<h1 className="text-4xl font-semibold tracking-normal text-stone-950">Manage changes.</h1>
-					<p className="mt-4 max-w-md text-base leading-7 text-stone-600">
+					<h1 className="text-4xl font-semibold tracking-normal text-stone-50">Manage changes.</h1>
+					<p className="mt-4 max-w-md text-base leading-7 text-stone-500">
 						Open a project and How will keep a simple timeline of saved moments while you build.
 					</p>
 				</div>
@@ -158,7 +158,7 @@ function EmptyState({
 				</div>
 
 				{error ? (
-					<p className="mt-5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+					<p className="mt-5 rounded-md border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-100">
 						{error}
 					</p>
 				) : null}
@@ -209,9 +209,9 @@ function DirtyBrowsingDialog({
 }) {
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/20 px-4">
-			<section className="w-full max-w-sm rounded-md border border-stone-200 bg-white p-5 shadow-lg">
-				<h2 className="text-base font-semibold tracking-normal text-stone-950">Leave changes?</h2>
-				<p className="mt-2 text-sm leading-6 text-stone-600">
+			<section className="w-full max-w-sm rounded-md border border-stone-800 bg-stone-950 p-5 shadow-lg">
+				<h2 className="text-base font-semibold tracking-normal text-stone-50">Leave changes?</h2>
+				<p className="mt-2 text-sm leading-6 text-stone-500">
 					You changed files while browsing this checkpoint. To keep those changes, choose Continue
 					from here first.
 				</p>
@@ -242,12 +242,12 @@ function BookmarkNameDialog({
 	const [name, setName] = useState(initialName);
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/20 px-4">
-			<section className="w-full max-w-sm rounded-md border border-stone-200 bg-white p-5 shadow-lg">
-				<h2 className="text-base font-semibold tracking-normal text-stone-950">{title}</h2>
-				<label className="mt-4 block text-sm font-medium text-stone-950">
+			<section className="w-full max-w-sm rounded-md border border-stone-800 bg-stone-950 p-5 shadow-lg">
+				<h2 className="text-base font-semibold tracking-normal text-stone-50">{title}</h2>
+				<label className="mt-4 block text-sm font-medium text-stone-50">
 					Name
 					<input
-						className="mt-2 h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-950 outline-none focus:border-stone-500"
+						className="mt-2 h-10 w-full rounded-md border border-stone-700 bg-stone-950 px-3 text-sm text-stone-50 outline-none focus:border-stone-400"
 						value={name}
 						onChange={(event) => setName(event.target.value)}
 						disabled={busy}
@@ -287,9 +287,9 @@ function BookmarkConfirmDialog({
 }) {
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/20 px-4">
-			<section className="w-full max-w-sm rounded-md border border-stone-200 bg-white p-5 shadow-lg">
-				<h2 className="text-base font-semibold tracking-normal text-stone-950">{title}</h2>
-				<p className="mt-2 text-sm leading-6 text-stone-600">{body}</p>
+			<section className="w-full max-w-sm rounded-md border border-stone-800 bg-stone-950 p-5 shadow-lg">
+				<h2 className="text-base font-semibold tracking-normal text-stone-50">{title}</h2>
+				<p className="mt-2 text-sm leading-6 text-stone-500">{body}</p>
 				<div className="mt-5 flex justify-end gap-2">
 					<Button variant="ghost" onClick={onCancel} disabled={busy}>
 						Cancel
@@ -314,11 +314,11 @@ function GithubLoginDialog({
 }) {
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/20 px-4">
-			<section className="w-full max-w-lg rounded-md border border-stone-200 bg-white p-5 shadow-lg">
-				<h2 className="text-base font-semibold tracking-normal text-stone-950">
+			<section className="w-full max-w-lg rounded-md border border-stone-800 bg-stone-950 p-5 shadow-lg">
+				<h2 className="text-base font-semibold tracking-normal text-stone-50">
 					Publish with GitHub
 				</h2>
-				<p className="mt-2 text-sm leading-6 text-stone-600">
+				<p className="mt-2 text-sm leading-6 text-stone-500">
 					Log in to choose where this project publishes.
 				</p>
 				<div className="mt-5 flex flex-wrap justify-end gap-2">
@@ -347,11 +347,11 @@ function GithubRepositoryChoiceDialog({
 }) {
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/20 px-4">
-			<section className="w-full max-w-xl rounded-md border border-stone-200 bg-white p-5 shadow-lg">
-				<h2 className="text-base font-semibold tracking-normal text-stone-950">
+			<section className="w-full max-w-xl rounded-md border border-stone-800 bg-stone-950 p-5 shadow-lg">
+				<h2 className="text-base font-semibold tracking-normal text-stone-50">
 					Where should this publish?
 				</h2>
-				<p className="mt-2 text-sm leading-6 text-stone-600">
+				<p className="mt-2 text-sm leading-6 text-stone-500">
 					Create a new GitHub project or choose one you already have.
 				</p>
 				<div className="mt-5 flex flex-wrap justify-end gap-2">
@@ -384,14 +384,14 @@ function CreateGithubRepositoryDialog({
 	const [name, setName] = useState(defaultName);
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/20 px-4">
-			<section className="w-full max-w-md rounded-md border border-stone-200 bg-white p-5 shadow-lg">
-				<h2 className="text-base font-semibold tracking-normal text-stone-950">
+			<section className="w-full max-w-md rounded-md border border-stone-800 bg-stone-950 p-5 shadow-lg">
+				<h2 className="text-base font-semibold tracking-normal text-stone-50">
 					Create GitHub project
 				</h2>
-				<label className="mt-4 block text-sm font-medium text-stone-950">
+				<label className="mt-4 block text-sm font-medium text-stone-50">
 					Project name
 					<input
-						className="mt-2 h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-950 outline-none focus:border-stone-500"
+						className="mt-2 h-10 w-full rounded-md border border-stone-700 bg-stone-950 px-3 text-sm text-stone-50 outline-none focus:border-stone-400"
 						value={name}
 						onChange={(event) => setName(event.target.value)}
 						disabled={busy}
@@ -427,13 +427,13 @@ function ChooseGithubRepositoryDialog({
 	);
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/20 px-4">
-			<section className="w-full max-w-md rounded-md border border-stone-200 bg-white p-5 shadow-lg">
-				<h2 className="text-base font-semibold tracking-normal text-stone-950">
+			<section className="w-full max-w-md rounded-md border border-stone-800 bg-stone-950 p-5 shadow-lg">
+				<h2 className="text-base font-semibold tracking-normal text-stone-50">
 					Choose existing project
 				</h2>
 				<input
 					aria-label="Search GitHub projects"
-					className="mt-4 h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-950 outline-none focus:border-stone-500"
+					className="mt-4 h-10 w-full rounded-md border border-stone-700 bg-stone-950 px-3 text-sm text-stone-50 outline-none focus:border-stone-400"
 					value={query}
 					onChange={(event) => setQuery(event.target.value)}
 					placeholder="Search"
@@ -443,7 +443,7 @@ function ChooseGithubRepositoryDialog({
 					{filtered.map((repository) => (
 						<button
 							key={repository.id}
-							className="block w-full rounded-md border border-stone-200 px-3 py-2 text-left text-sm font-medium text-stone-900 hover:bg-stone-50"
+							className="block w-full rounded-md border border-stone-800 px-3 py-2 text-left text-sm font-medium text-stone-100 hover:bg-stone-900"
 							onClick={() => void onPublish(repository)}
 							disabled={busy}
 						>
@@ -492,9 +492,9 @@ function BookmarkSidebar({
 	}
 
 	return (
-		<aside className="flex w-full shrink-0 flex-col border-stone-200 lg:h-full lg:min-h-0 lg:w-64 lg:border-r lg:pr-5">
+		<aside className="flex w-full shrink-0 flex-col border-stone-800 lg:h-full lg:min-h-0 lg:w-64 lg:border-r lg:pr-5">
 			<div className="mb-3 flex shrink-0 items-center justify-between gap-2">
-				<h2 className="text-sm font-semibold tracking-normal text-stone-950">Bookmarks</h2>
+				<h2 className="text-sm font-semibold tracking-normal text-stone-50">Bookmarks</h2>
 				<Button
 					variant="ghost"
 					size="icon"
@@ -511,8 +511,8 @@ function BookmarkSidebar({
 
 			<div className="pr-1 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
 				{bookmarks.length === 0 ? (
-					<div className="rounded-md border border-dashed border-stone-300 bg-white/70 p-4">
-						<p className="text-sm font-medium text-stone-900">No bookmarks</p>
+					<div className="rounded-md border border-dashed border-stone-700 bg-stone-950/70 p-4">
+						<p className="text-sm font-medium text-stone-100">No bookmarks</p>
 						<Button
 							variant="secondary"
 							size="sm"
@@ -530,7 +530,7 @@ function BookmarkSidebar({
 							<li
 								key={bookmark.id}
 								className={`relative rounded-md border p-2 ${
-									bookmark.isCurrent ? "border-stone-500 bg-white" : "border-stone-200 bg-stone-100"
+									bookmark.isCurrent ? "border-stone-500 bg-stone-950" : "border-stone-800 bg-stone-900"
 								} ${highlightedBookmarkIds.has(bookmark.id) ? "checkpoint-message-flash" : ""}`}
 							>
 								<div className="flex items-start gap-2">
@@ -539,7 +539,7 @@ function BookmarkSidebar({
 										onClick={() => void onSwitch(bookmark)}
 										disabled={busy || bookmark.isCurrent}
 									>
-										<span className="block truncate text-sm font-medium text-stone-950">
+										<span className="block truncate text-sm font-medium text-stone-50">
 											{bookmark.name}
 										</span>
 										<span className="mt-1 flex items-center gap-2 text-xs text-stone-500">
@@ -564,9 +564,9 @@ function BookmarkSidebar({
 									</Button>
 								</div>
 								{openMenuBookmarkId === bookmark.id ? (
-									<div className="absolute right-2 top-10 z-10 w-36 rounded-md border border-stone-200 bg-white p-1 shadow-lg">
+									<div className="absolute right-2 top-10 z-10 w-36 rounded-md border border-stone-800 bg-stone-950 p-1 shadow-lg">
 										<button
-											className="flex h-8 w-full items-center gap-2 rounded px-2 text-left text-sm text-stone-700 hover:bg-stone-100 disabled:cursor-not-allowed disabled:text-stone-400"
+											className="flex h-8 w-full items-center gap-2 rounded px-2 text-left text-sm text-stone-300 hover:bg-stone-900 disabled:cursor-not-allowed disabled:text-stone-500"
 											onClick={() => {
 												closeMenu();
 												void onRename(bookmark);
@@ -577,7 +577,7 @@ function BookmarkSidebar({
 											Rename
 										</button>
 										<button
-											className="flex h-8 w-full items-center gap-2 rounded px-2 text-left text-sm text-stone-700 hover:bg-stone-100 disabled:cursor-not-allowed disabled:text-stone-400"
+											className="flex h-8 w-full items-center gap-2 rounded px-2 text-left text-sm text-stone-300 hover:bg-stone-900 disabled:cursor-not-allowed disabled:text-stone-500"
 											onClick={() => {
 												closeMenu();
 												void onUpdate(bookmark);
@@ -588,7 +588,7 @@ function BookmarkSidebar({
 											Update
 										</button>
 										<button
-											className="flex h-8 w-full items-center gap-2 rounded px-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:text-stone-400"
+											className="flex h-8 w-full items-center gap-2 rounded px-2 text-left text-sm text-red-300 hover:bg-red-950/40 disabled:cursor-not-allowed disabled:text-stone-500"
 											onClick={() => {
 												closeMenu();
 												void onDelete(bookmark);
@@ -624,8 +624,8 @@ function Timeline({
 }) {
 	if (checkpoints.length === 0)
 		return (
-			<div className="rounded-md border border-dashed border-stone-300 bg-white/70 p-8 text-center">
-				<p className="text-sm font-medium text-stone-900">No checkpoints yet</p>
+			<div className="rounded-md border border-dashed border-stone-700 bg-stone-950/70 p-8 text-center">
+				<p className="text-sm font-medium text-stone-100">No checkpoints yet</p>
 				<p className="mt-2 text-sm leading-6 text-stone-500">
 					Make a change in your editor. How will save after things are quiet for a moment.
 				</p>
@@ -639,8 +639,8 @@ function Timeline({
 					key={checkpointTimelineKey(checkpoint)}
 					className={`group grid grid-cols-[auto_1fr_auto] gap-4 rounded-md border px-4 py-3 ${
 						browsing?.currentCheckpointId === checkpoint.id
-							? "border-stone-500 bg-white"
-							: "border-stone-200 bg-stone-100"
+							? "border-stone-500 bg-stone-950"
+							: "border-stone-800 bg-stone-900"
 					} ${
 						highlightedCheckpointKeys.has(checkpointTimelineKey(checkpoint))
 							? "checkpoint-message-flash"
@@ -652,11 +652,11 @@ function Timeline({
 					</div>
 					<div className="min-w-0 flex-1">
 						<div className="flex min-w-0 items-center gap-2">
-							<p className="truncate text-sm font-medium text-stone-950">
+							<p className="truncate text-sm font-medium text-stone-50">
 								{checkpointDisplayTitle(checkpoint.title)}
 							</p>
 							{browsing?.currentCheckpointId === checkpoint.id ? (
-								<span className="shrink-0 rounded-md bg-stone-200 px-2 py-0.5 text-xs font-medium text-stone-700">
+								<span className="shrink-0 rounded-md bg-stone-800 px-2 py-0.5 text-xs font-medium text-stone-300">
 									viewing
 								</span>
 							) : null}
@@ -813,7 +813,7 @@ function ProjectScreen({
 				<header className="flex shrink-0 flex-wrap items-start justify-between gap-4 pb-3">
 					<div className="min-w-0 flex-1">
 						<div className="flex min-w-0 items-center gap-2">
-							<h1 className="truncate text-xl font-semibold tracking-normal text-stone-700">
+							<h1 className="truncate text-xl font-semibold tracking-normal text-stone-300">
 								{project.title}
 							</h1>
 							<Button asChild variant="ghost" size="icon" aria-label="Project settings">
@@ -862,8 +862,8 @@ function ProjectScreen({
 				</header>
 
 				{status.browsing ? (
-					<section className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-md border border-stone-200 bg-white px-4 py-3">
-						<p className="text-sm text-stone-600">You are viewing an earlier checkpoint.</p>
+					<section className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-md border border-stone-800 bg-stone-950 px-4 py-3">
+						<p className="text-sm text-stone-500">You are viewing an earlier checkpoint.</p>
 						<BrowsingActions
 							disabled={browsingBusy}
 							onReturnToLatest={onReturnToLatest}

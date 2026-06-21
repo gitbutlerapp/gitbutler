@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 :root {
-	background: #f8f7f2;
-	color: #1c1917;
-	color-scheme: light;
+	background: #0c0a09;
+	color: #f5f5f4;
+	color-scheme: dark;
 	font-family:
 		Inter,
 		ui-sans-serif,
@@ -25,7 +25,28 @@ body {
 	min-width: 320px;
 	min-height: 100vh;
 	margin: 0;
-	background: linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0)), #f8f7f2;
+	background: radial-gradient(circle at top left, rgba(68, 64, 60, 0.28), transparent 34rem), #0c0a09;
+}
+
+main {
+	padding-top: max(1.5rem, env(titlebar-area-height, 0px));
+}
+
+.app-drag-region {
+	-webkit-app-region: drag;
+	position: fixed;
+	inset: 0 0 auto;
+	z-index: 40;
+	height: 4.25rem;
+	pointer-events: none;
+}
+
+button,
+a,
+input,
+textarea,
+select {
+	-webkit-app-region: no-drag;
 }
 
 button,
@@ -37,12 +58,12 @@ select {
 
 @keyframes checkpoint-message-flash {
 	0% {
-		border-color: #86efac;
-		background-color: #dcfce7;
+		border-color: #34d399;
+		background-color: rgba(6, 78, 59, 0.8);
 	}
 	100% {
-		border-color: #e7e5e4;
-		background-color: #f5f5f4;
+		border-color: #292524;
+		background-color: #1c1917;
 	}
 }
 

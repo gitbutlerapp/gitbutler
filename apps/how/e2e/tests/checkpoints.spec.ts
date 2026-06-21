@@ -22,6 +22,13 @@ async function createBareRepository(prefix = "how-publish-remote-"): Promise<str
 	return repositoryPath;
 }
 
+async function cloneRepository(remotePath: string, prefix: string): Promise<string> {
+	const parentPath = await createTempDirectory(prefix);
+	const repositoryPath = path.join(parentPath, "project");
+	await runGit(parentPath, ["clone", remotePath, "project"]);
+	return repositoryPath;
+}
+
 async function createRegularCommit(
 	repositoryPath: string,
 	fileName = "readme.md",
@@ -35,6 +42,14 @@ async function createRegularCommit(
 
 async function currentBranch(repositoryPath: string): Promise<string> {
 	return await runGit(repositoryPath, ["branch", "--show-current"]);
+}
+
+async function currentHead(repositoryPath: string): Promise<string> {
+	return await runGit(repositoryPath, ["rev-parse", "HEAD"]);
+}
+
+async function branchHead(repositoryPath: string, branchName: string): Promise<string> {
+	return await runGit(repositoryPath, ["rev-parse", branchName]);
 }
 
 async function createCheckpoint(
@@ -85,6 +100,210 @@ test("opens an existing Git project", async ({ browserName: _browserName }, test
 		await expect(page.getByRole("heading", { exact: true, name: "how" })).toHaveCount(0);
 	} finally {
 		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+	}
+});
+
+test("creates an opening checkpoint for dirty work on the expected line", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-open-dirty-main-project-");
+	await initializeGitRepository(repositoryPath);
+	await createRegularCommit(repositoryPath, "notes.md", "initial\n", "Initial");
+	await runGit(repositoryPath, ["config", "--local", "how.codingAgent", "codex"]);
+	await fs.writeFile(path.join(repositoryPath, "notes.md"), "opening dirty work\n");
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+		checkpointQuietMs: "5000",
+		checkpointSummary: "Captures opening work",
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await expect.poll(async () => await currentBranch(repositoryPath)).toBe("main");
+		await expect.poll(async () => await runGit(repositoryPath, ["status", "--porcelain"])).toBe("");
+		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(1);
+		await expect(page.getByText("Captures opening work", { exact: true })).toBeVisible();
+		await expect
+			.poll(async () => await latestCheckpointMessage(repositoryPath))
+			.toBe("Checkpoint: Captures opening work");
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+	}
+});
+
+test("prepares a dirty project opened away from the local trunk fallback", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-open-feature-project-");
+	await initializeGitRepository(repositoryPath);
+	await createRegularCommit(repositoryPath, "notes.md", "main state\n", "Initial");
+	await runGit(repositoryPath, ["switch", "-c", "feature"]);
+	await fs.writeFile(path.join(repositoryPath, "notes.md"), "feature dirty work\n");
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+		checkpointQuietMs: "5000",
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await expect.poll(async () => await currentBranch(repositoryPath)).toBe("main");
+		await expect.poll(async () => await fs.readFile(path.join(repositoryPath, "notes.md"), "utf8")).toBe(
+			"feature dirty work\n",
+		);
+		await expect.poll(async () => await runGit(repositoryPath, ["status", "--porcelain"])).toBe("");
+		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(1);
+		await expect(page.getByText("Where you left off")).toBeVisible();
+		await expect(page.getByText("Shared starting point")).toBeVisible();
+		await expect.poll(async () => await currentHead(repositoryPath)).toBe(
+			await branchHead(repositoryPath, "feature"),
+		);
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+	}
+});
+
+test("uses the remote HEAD trunk as the expected active line", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const remotePath = await createBareRepository("how-remote-head-remote-");
+	const sourcePath = await createTempDirectory("how-remote-head-source-");
+	await runGit(sourcePath, ["init", "-b", "trunk"]);
+	await runGit(sourcePath, ["config", "user.name", "How E2E"]);
+	await runGit(sourcePath, ["config", "user.email", "how-e2e@example.com"]);
+	await createRegularCommit(sourcePath, "notes.md", "shared trunk\n", "Initial");
+	await runGit(sourcePath, ["remote", "add", "origin", remotePath]);
+	await runGit(sourcePath, ["push", "-u", "origin", "trunk"]);
+	await runGit(remotePath, ["symbolic-ref", "HEAD", "refs/heads/trunk"]);
+	const repositoryPath = await cloneRepository(remotePath, "how-remote-head-clone-");
+	await runGit(repositoryPath, ["switch", "-c", "feature"]);
+	await createRegularCommit(repositoryPath, "notes.md", "feature state\n", "Feature");
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+		checkpointQuietMs: "5000",
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await expect.poll(async () => await currentBranch(repositoryPath)).toBe("trunk");
+		await expect.poll(async () => await fs.readFile(path.join(repositoryPath, "notes.md"), "utf8")).toBe(
+			"feature state\n",
+		);
+		await expect.poll(async () => await runGit(repositoryPath, ["status", "--porcelain"])).toBe("");
+		await expect(page.getByText("Where you left off")).toBeVisible();
+		await expect(page.getByText("Shared starting point")).toBeVisible();
+		await expect.poll(async () => await branchHead(repositoryPath, "trunk")).toBe(
+			await branchHead(repositoryPath, "feature"),
+		);
+		await expect.poll(async () => await branchHead(repositoryPath, "origin/trunk")).not.toBe(
+			await branchHead(repositoryPath, "trunk"),
+		);
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+		await fs.rm(sourcePath, { recursive: true, force: true });
+		await fs.rm(remotePath, { recursive: true, force: true });
+	}
+});
+
+test("creates the local counterpart for the remote HEAD trunk when it is missing", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const remotePath = await createBareRepository("how-remote-counterpart-remote-");
+	const sourcePath = await createTempDirectory("how-remote-counterpart-source-");
+	await runGit(sourcePath, ["init", "-b", "trunk"]);
+	await runGit(sourcePath, ["config", "user.name", "How E2E"]);
+	await runGit(sourcePath, ["config", "user.email", "how-e2e@example.com"]);
+	await createRegularCommit(sourcePath, "notes.md", "shared trunk\n", "Initial");
+	await runGit(sourcePath, ["remote", "add", "origin", remotePath]);
+	await runGit(sourcePath, ["push", "-u", "origin", "trunk"]);
+	await runGit(remotePath, ["symbolic-ref", "HEAD", "refs/heads/trunk"]);
+	const repositoryPath = await cloneRepository(remotePath, "how-remote-counterpart-clone-");
+	await runGit(repositoryPath, ["switch", "-c", "feature"]);
+	await createRegularCommit(repositoryPath, "notes.md", "feature state\n", "Feature");
+	await runGit(repositoryPath, ["branch", "--delete", "trunk"]);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+		checkpointQuietMs: "5000",
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await expect.poll(async () => await currentBranch(repositoryPath)).toBe("trunk");
+		await expect.poll(async () => await branchHead(repositoryPath, "trunk")).toBe(
+			await branchHead(repositoryPath, "feature"),
+		);
+		await expect.poll(async () => await fs.readFile(path.join(repositoryPath, "notes.md"), "utf8")).toBe(
+			"feature state\n",
+		);
+		await expect(page.getByText("Where you left off")).toBeVisible();
+		await expect(page.getByText("Shared starting point")).toBeVisible();
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+		await fs.rm(sourcePath, { recursive: true, force: true });
+		await fs.rm(remotePath, { recursive: true, force: true });
+	}
+});
+
+test("prepares again after reopening a project that was manually checked out elsewhere", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-reopen-manual-checkout-project-");
+	await initializeGitRepository(repositoryPath);
+	await createRegularCommit(repositoryPath, "notes.md", "main state\n", "Initial");
+	await runGit(repositoryPath, ["switch", "-c", "feature"]);
+	await fs.writeFile(path.join(repositoryPath, "notes.md"), "first dirty feature state\n");
+
+	const userDataPath = testInfo.outputPath("user-data");
+	const first = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath,
+		checkpointQuietMs: "5000",
+	});
+	try {
+		await first.page.getByRole("button", { name: "Open project" }).click();
+		await expect(first.page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+		await expect.poll(async () => await currentBranch(repositoryPath)).toBe("main");
+		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(1);
+	} finally {
+		await first.app.close();
+	}
+
+	await runGit(repositoryPath, ["switch", "feature"]);
+	await fs.writeFile(path.join(repositoryPath, "notes.md"), "manual dirty feature state\n");
+
+	const second = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath,
+		checkpointQuietMs: "5000",
+	});
+	try {
+		await expect(second.page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+		await expect.poll(async () => await currentBranch(repositoryPath)).toBe("main");
+		await expect
+			.poll(async () => await fs.readFile(path.join(repositoryPath, "notes.md"), "utf8"))
+			.toBe("manual dirty feature state\n");
+		await expect.poll(async () => await runGit(repositoryPath, ["status", "--porcelain"])).toBe("");
+		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(2);
+		await expect(second.page.getByText("Where you left off").first()).toBeVisible();
+		await expect(second.page.getByText("Shared starting point").first()).toBeVisible();
+	} finally {
+		await second.app.close();
 		await fs.rm(repositoryPath, { recursive: true, force: true });
 	}
 });

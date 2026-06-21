@@ -18,6 +18,7 @@ import {
 	listProjectBookmarks,
 	listCheckpointCommits,
 	prepareProjectUpdate,
+	prepareProjectForActivation,
 	publishDirect,
 	readPublishMode,
 	readProjectSettings,
@@ -181,6 +182,7 @@ export class HowService {
 					await this.#resumeBrowsingSession(stored.browsing);
 					await this.#refreshBookmarks();
 				} else {
+					await this.#prepareProjectForActivation(stored.activeProject);
 					await this.#refreshSharedProjectStatus(stored.activeProject, { fetch: true });
 					await this.#refreshProjectLists();
 				}
@@ -978,13 +980,37 @@ export class HowService {
 			settings: await readProjectSettings(project.id, project.path, defaultSettings()),
 			sharedProject: defaultSharedProjectStatus(),
 		};
+		const preparation = await this.#prepareProjectForActivation(project);
 		await this.#writeCurrentState();
 		await this.#refreshSharedProjectStatus(project, { fetch: true });
 		await this.#refreshProjectLists();
+		if (preparation.checkpoint) {
+			this.#status = {
+				...this.#status,
+				saveState: "saved",
+				message: "Saved just now",
+				lastSavedAt: Date.now(),
+			};
+		}
 		await this.#startWatching(project);
 		this.#startSharedProjectFetching(project);
 		this.#emit();
 		return this.getStatus();
+	}
+
+	async #prepareProjectForActivation(project: ProjectSummary): Promise<{
+		checkpoint: CreatedCheckpoint | null;
+		prepared: boolean;
+	}> {
+		const preparation = await prepareProjectForActivation(project.id, project.path, async () => {
+			const checkpoint = await this.#runInternalGitOperation(
+				project,
+				async () => await createCheckpointCommit(project.id, checkpointMessage(new Date())),
+			);
+			return checkpoint;
+		});
+		if (preparation.checkpoint) this.#enqueueCheckpointSummary(project, preparation.checkpoint);
+		return preparation;
 	}
 
 	async #startWatching(project: ProjectSummary): Promise<void> {

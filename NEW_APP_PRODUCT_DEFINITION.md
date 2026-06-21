@@ -401,11 +401,13 @@ Under the hood, a Bookmark is backed by a private Git ref outside
 `refs/heads`, such as `refs/gitbutler/how/bookmarks/<id>`. The UI should still
 call it a Bookmark and should not expose ref mechanics.
 
-For How's constrained model, the repository's `main` branch is the single
-internal active working line. Bookmark refs hold saved states. Switching to a
-Bookmark first ensures the current `main` tip is represented by a visible
-Bookmark unless it already is, then moves `main` to the selected Bookmark tip,
-updates the worktree, and continues automatic Checkpoints on `main`.
+For How's constrained model, the repository has a single internal active
+working line. In the common case this is the local branch that corresponds to
+the shared project's trunk; without a configured shared project, How falls back
+to conventional local trunk names. Bookmark refs hold saved states. Switching to
+a Bookmark first ensures the current active-line tip is represented by a visible
+Bookmark unless it already is, then moves the active line to the selected
+Bookmark tip, updates the worktree, and continues automatic Checkpoints there.
 
 Bookmarks have stable internal IDs separate from their display names. Display
 names should be friendly and editable later; backing refs should use generated
@@ -434,9 +436,10 @@ first and then points the new Bookmark at that resulting active state. If there
 are no unsaved changes, the Bookmark points at the current active state without
 creating another Checkpoint.
 
-How does not create a default Bookmark automatically when a project is opened or
-started. Bookmarks are intentional: the list may be empty until the user creates
-one or until How auto-preserves a state during Bookmark switching.
+How does not create a default Bookmark automatically merely because a project is
+opened or started. Bookmarks are intentional: the list may be empty until the
+user creates one or until How must auto-preserve a state to keep work
+recoverable during project preparation or Bookmark switching.
 
 Bookmark representation checks use commit identity only. A state is already
 represented by a Bookmark when an existing Bookmark ref points to the same
@@ -850,6 +853,57 @@ Initial eligibility:
 - GitHub integration is optional until Publish.
 - GitButler workspace setup can happen invisibly if needed.
 
+## Project Opening And Preparation
+
+Opening a project should leave it in the right place to start working: the
+project is on How's expected active line and there are no uncommitted changes.
+How validates that state every time a project is opened or resumed. If the
+project is already in that state, opening should be quiet and should not create
+extra Bookmarks or Checkpoints.
+
+How chooses the expected active line without exposing branch names in the UI:
+
+- If a shared project is configured, prefer the local line that follows the
+  shared project's trunk.
+- If the shared project's trunk is known but the matching local line does not
+  exist, create it from the shared project when this is unambiguous and would
+  not overwrite local state.
+- If no shared project is configured, fall back to a local `main` line, then a
+  local `master` line.
+- If no expected active line can be identified or created deterministically,
+  stop without changing files and show a plain-language unsupported-state
+  message.
+
+Branch names are implementation details. They must not appear in project
+opening UI, Bookmark names, status messages, or error copy. Logs and local
+metadata may retain implementation details needed for diagnostics and safe
+recovery.
+
+If the project has uncommitted changes during opening, How creates a Checkpoint
+immediately instead of waiting for the normal autosave debounce. The Checkpoint
+is created quickly with a timestamp title, and How may then run the normal async
+AI message-generation flow. If the Checkpoint cannot be created, opening stops
+and leaves the project unchanged.
+
+If the project opens away from the expected active line, How prepares it before
+showing the working screen:
+
+1. If there are uncommitted changes, create the opening Checkpoint on the
+   current line first.
+2. Create an auto Bookmark named **Where you left off** at the current saved
+   state, unless an existing Bookmark already points there.
+3. Create an auto Bookmark named **Shared starting point** at the expected
+   active-line state, unless an existing Bookmark already points there.
+4. Move the expected active line to **Where you left off**, update the worktree,
+   and start automatic Checkpoints from there.
+
+This preparation may move internal Git refs, but it must not lose either the
+state the user opened or the previous expected active-line state. If any step
+after creating a Bookmark fails, the Bookmark remains visible because it
+accurately preserves a recoverable state. If How cannot complete preparation
+without guessing or overwriting ambiguous state, it fails closed and leaves the
+project files as they were.
+
 ## V1 Non-Goals
 
 - No multiple active Changes.
@@ -906,7 +960,11 @@ Desired future APIs:
 - `getProject(projectId)` exposed in the JavaScript SDK.
 - `initRepository(path)` or `startProject(path)` for brand-new non-Git folders.
 - `prepareProjectForActivation(projectId)`, or a combined open/start API that
-  performs activation.
+  performs activation. Preparation validates the expected active line, creates
+  an opening Checkpoint for dirty work with async AI message generation,
+  auto-preserves **Where you left off** and **Shared starting point** when the
+  opened state is away from the expected active line, and fails closed when the
+  active line cannot be chosen deterministically.
 - `createCheckpoint(projectId, options)` as a stable product abstraction.
 - `listCheckpoints(projectId, limit?)`.
 - `restoreCheckpoint(projectId, checkpointId)`.
@@ -1057,7 +1115,21 @@ than making the caller assemble branch, commit, diff, and repository details.
   Bookmark.
 - Users can explicitly Bookmark the current state; unsaved changes are saved as
   a Checkpoint before the Bookmark is created.
-- How does not create a default Bookmark automatically on project open/start.
+- How does not create a default Bookmark merely by opening or starting a
+  project, but project preparation auto-preserves recoverable states when the
+  opened project is not already on How's expected clean active line.
+- Opening validates the project every time. If it is dirty, How creates an
+  immediate Checkpoint and may update its message asynchronously with AI.
+- If opening starts away from the expected active line, How auto-preserves
+  **Where you left off** for the opened state and **Shared starting point** for
+  the previous expected active-line state, then moves the expected active line
+  to the opened state.
+- The expected active line comes from the shared project's trunk when
+  configured, creating the local counterpart from that trunk when unambiguous;
+  otherwise How falls back to local `main`, then local `master`.
+- Branch names never appear in How's UI. They are implementation details only.
+- If the expected active line cannot be selected or created deterministically,
+  How stops without changing files.
 - Bookmark representation checks compare commit IDs only.
 - Browsing mode can create a new Bookmark from a clean browsed Checkpoint, but
   cannot update existing Bookmarks or bookmark dirty browsing edits.
