@@ -1,0 +1,79 @@
+name: CLI E2E (Continuous)
+
+on:
+  schedule:
+    # Twice daily: 6am and 6pm UTC.
+    - cron: "0 6,18 * * *"
+  workflow_dispatch:
+
+jobs:
+  cli-e2e:
+    name: cli-e2e-forge
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    container:
+      image: ghcr.io/gitbutlerapp/ci-base-image@sha256:c0ab58bb5f1cd99beb36861f460895be77515f4dd252df736c27c117a8e04a92
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: e2e-cli-rust-binaries
+          save-if: false
+
+      - name: Setup node environment
+        uses: ./.github/actions/init-env-node
+
+      - name: Build CLI
+        run: cargo build -p but
+
+      - name: Run CLI E2E tests
+        env:
+          GITHUB_TEST_TOKEN: ${{ secrets.CLI_E2E_GITHUB_TOKEN }}
+          GITLAB_TEST_TOKEN: ${{ secrets.CLI_E2E_GITLAB_TOKEN }}
+          GITHUB_TEST_REPO: ${{ vars.CLI_E2E_GITHUB_REPO }}
+          GITLAB_TEST_REPO: ${{ vars.CLI_E2E_GITLAB_REPO }}
+          BUT_BIN: ${{ github.workspace }}/target/debug/but
+        run: pnpm --filter @gitbutler/e2e-cli test:e2e:cli
+
+      - name: Upload results to Buildkite Test Engine
+        if: always() && !cancelled()
+        continue-on-error: true
+        env:
+          BUILDKITE_ANALYTICS_TOKEN: ${{ secrets.BUILDKITE_SUITE_TOKEN_CLI_E2E }}
+          RUN_BRANCH: ${{ github.head_ref || github.ref_name }}
+          RUN_COMMIT_SHA: ${{ github.sha }}
+          RUN_KEY: ${{ github.run_id }}-${{ github.run_attempt }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          curl --fail-with-body -X POST \
+            -H "Authorization: Token $BUILDKITE_ANALYTICS_TOKEN" \
+            -F "data=@e2e/cli/test-results/results.xml" \
+            -F "format=junit" \
+            -F "run_env[CI]=github_actions" \
+            -F "run_env[key]=$RUN_KEY" \
+            -F "run_env[number]=$RUN_NUMBER" \
+            -F "run_env[branch]=$RUN_BRANCH" \
+            -F "run_env[commit_sha]=$RUN_COMMIT_SHA" \
+            -F "run_env[url]=$RUN_URL" \
+            -F "tags[framework]=vitest" \
+            -F "tags[language]=typescript" \
+            -F "tags[type]=e2e-cli" \
+            -F "tags[suite]=continuous-runs" \
+            https://analytics-api.buildkite.com/v1/uploads
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: cli-e2e-output
+          path: ./e2e/cli/test-results/
+          retention-days: 14

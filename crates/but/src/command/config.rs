@@ -523,7 +523,12 @@ pub(crate) async fn forge_config(
     cmd: Option<ForgeSubcommand>,
 ) -> Result<()> {
     match cmd {
-        Some(ForgeSubcommand::Auth) => forge_auth(out).await,
+        Some(ForgeSubcommand::Auth {
+            token: Some(token),
+            provider: Some(provider),
+            host,
+        }) => forge_auth_non_interactive(out, provider, token, host).await,
+        Some(ForgeSubcommand::Auth { .. }) => forge_auth(out).await,
         Some(ForgeSubcommand::ListUsers) => forge_show_overview(out).await,
         Some(ForgeSubcommand::Forget { username }) => forge_forget(username, out).await,
         None => forge_show_overview(out).await,
@@ -659,6 +664,46 @@ fn extract_account_details(
         });
     }
     accounts
+}
+
+/// Authenticate with a forge provider non-interactively using a token.
+/// Intended for CI/automation environments.
+async fn forge_auth_non_interactive(
+    out: &mut OutputChannel,
+    provider: crate::args::config::ForgeProvider,
+    token: String,
+    host: Option<String>,
+) -> Result<()> {
+    use crate::args::config::ForgeProvider;
+
+    let token = but_secret::Sensitive(token);
+    match (provider, host) {
+        (ForgeProvider::Github, None) => {
+            let resp = but_api::github::store_github_pat(token).await?;
+            if let Some(out) = out.for_human() {
+                writeln!(out, "GitHub authentication successful! Welcome, {}.", resp.login)?;
+            }
+        }
+        (ForgeProvider::Github, Some(host)) => {
+            let resp = but_api::github::store_github_enterprise_pat(token, host).await?;
+            if let Some(out) = out.for_human() {
+                writeln!(out, "GitHub Enterprise authentication successful! Welcome, {}.", resp.login)?;
+            }
+        }
+        (ForgeProvider::Gitlab, None) => {
+            let resp = but_api::gitlab::store_gitlab_pat(token).await?;
+            if let Some(out) = out.for_human() {
+                writeln!(out, "GitLab authentication successful! Welcome, {}.", resp.username)?;
+            }
+        }
+        (ForgeProvider::Gitlab, Some(host)) => {
+            let resp = but_api::gitlab::store_gitlab_selfhosted_pat(token, host).await?;
+            if let Some(out) = out.for_human() {
+                writeln!(out, "GitLab (self-hosted) authentication successful! Welcome, {}.", resp.username)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Authenticate with a forge provider (GitHub, GitLab, etc)
