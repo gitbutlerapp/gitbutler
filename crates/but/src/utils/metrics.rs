@@ -235,8 +235,9 @@ impl Subcommands {
         let mut props = Vec::new();
         match self {
             #[cfg(feature = "legacy")]
-            Subcommands::Uncommit { discard, .. } => {
+            Subcommands::Uncommit { discard, diff, .. } => {
                 push_prop(&mut props, "uncommitDiscard", *discard);
+                push_prop(&mut props, "uncommitDiff", *diff);
                 push_prop(&mut props, "sourceKind", "commitOrCommittedFile");
                 if !*discard {
                     push_prop(&mut props, "targetKind", "unassigned");
@@ -763,13 +764,30 @@ mod tests {
             let discard = Subcommands::Uncommit {
                 source: "c1".into(),
                 discard: true,
+                diff: false,
             };
             let props = discard.to_metrics_extra_props();
             assert_eq!(
                 prop(&props, "sourceKind"),
                 Some(&serde_json::json!("commitOrCommittedFile"))
             );
+            assert_eq!(
+                prop(&props, "uncommitDiff"),
+                Some(&serde_json::json!(false))
+            );
             assert_eq!(prop(&props, "targetKind"), None);
+
+            let with_diff = Subcommands::Uncommit {
+                source: "c1".into(),
+                discard: false,
+                diff: true,
+            };
+            let props = with_diff.to_metrics_extra_props();
+            assert_eq!(prop(&props, "uncommitDiff"), Some(&serde_json::json!(true)));
+            assert_eq!(
+                prop(&props, "targetKind"),
+                Some(&serde_json::json!("unassigned"))
+            );
         }
     }
 
