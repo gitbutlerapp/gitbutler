@@ -188,22 +188,38 @@ MVP behavior:
 - The SDKs should use the user's existing local agent setup and authentication.
   How does not collect, store, or configure API keys.
 - How does not expose model selection in the UI.
-- The summary input is the staged Git diff for the Checkpoint being created.
+- The summary input is the saved Checkpoint commit patch. How creates the
+  Checkpoint first, then summarizes the saved patch asynchronously.
 - The diff payload is capped at roughly 40 KB. If truncated, the prompt tells
   the agent to summarize only the visible diff.
 - Summary generation is read-only. The agent should not edit files or inspect
   the project beyond the diff How provides.
-- How waits briefly, currently 2 seconds, then falls back to the timestamp
-  title.
-- Once How falls back, it does not amend the Checkpoint later.
+- How never waits for AI before saving. The initial Checkpoint is created
+  immediately with a timestamp title.
+- If summary generation succeeds later, How updates the Checkpoint commit
+  message by its explicit GitButler Change ID and refreshes the timeline.
+- If summary generation fails, times out, is cancelled, or the Checkpoint is no
+  longer safe to rewrite, the timestamp title remains.
 - Summary failures are silent in the UI when the fallback Checkpoint succeeds.
   Logs should include the selected agent, diff size, truncation state, timeout,
   and fallback reason, but not the full diff or generated summary.
+- Async message updates are local-only. How must not rewrite Checkpoints that
+  are already reachable from the configured published/shared branch.
+- Async generation may run in parallel, but Git message update operations are
+  serialized. How resolves the current commit by Change ID at apply time.
+- Pending async summary updates are cancelled when the active line changes:
+  switching Bookmarks, entering or leaving browsing, opening/starting/deleting a
+  project, or successfully publishing.
 
 Agent output is strict plain text. The first line is the title. Remaining text
 is the optional body. How owns the `Checkpoint:` prefix, strips an accidental
 agent-provided `Checkpoint:` prefix from the title, and stores the body only in
 the Git commit message body.
+
+New Checkpoints must store an explicit GitButler `change-id` commit header.
+That Change ID is How's durable Checkpoint identity for async message updates.
+Old Checkpoints without explicit Change IDs remain visible, but How does not
+attempt async message updates for them.
 
 The MVP implementation keeps provider wiring isolated behind a small
 Electron-only summarizer abstraction. Automated tests use an env-gated fake
@@ -223,9 +239,9 @@ Examples:
 - "Published"
 - "Review created"
 
-AI labels may briefly delay Checkpoint creation, but they must fall back quickly
-and never prevent saving, restoring, or publishing. The app should not require
-account or AI setup before it is useful.
+AI labels must never delay Checkpoint creation and never prevent saving,
+restoring, or publishing. The app should not require account or AI setup before
+it is useful.
 
 No diff viewer exists in v1. The timeline is for orientation and returning to
 earlier moments, not for code review.
@@ -310,10 +326,10 @@ a Bookmark or switches away and the switch-preserve rule applies.
 
 Switching to a Bookmark should feel as fast as possible without losing work.
 For a clean active state, clicking a Bookmark switches immediately. If the
-worktree is dirty, How first creates a Checkpoint without waiting for AI message
-generation, then preserves the resulting active state as a backup Bookmark if no
-existing Bookmark already points to it, and then switches. If saving fails, How
-does not switch.
+worktree is dirty, How first creates a timestamp Checkpoint without scheduling
+AI message generation, then preserves the resulting active state as a backup
+Bookmark if no existing Bookmark already points to it, and then switches. If
+saving fails, How does not switch.
 
 Bookmark switching fails closed. If checkout/reset, unusual repository state, or
 conflicts prevent switching, How keeps the user at the current state and shows a
@@ -855,10 +871,17 @@ Desired future APIs:
   tip, updates the worktree, and fails closed. Electron decides and performs the
   surrounding steps: fast Checkpoint if dirty, backup Bookmark if missing, UI
   status updates, and post-mutation refreshes.
-- Fast Checkpoints used during Bookmark switching or updating are an Electron
-  policy choice. Electron passes a plain timestamp message to the existing
-  Checkpoint creation API instead of asking Rust to know about AI summary
-  skipping.
+- Fast Checkpoints used during Bookmark switching, Bookmark updating, and
+  publish preparation are an Electron policy choice. Electron passes a plain
+  timestamp message and does not enqueue async AI summary updates for those
+  Checkpoints.
+- Normal autosave Checkpoints are created immediately with a timestamp title.
+  Electron may enqueue parallel AI summary generation afterwards, but applies
+  any resulting message update sequentially through a How API that resolves the
+  Checkpoint by explicit Change ID.
+- Rust should expose a How-level `updateCheckpointMessageByChangeId` operation
+  that validates the visible first-parent Checkpoint chain, skips published
+  Checkpoints, preserves the Change ID header, and rebases descendant commits.
 - Bookmark implementation requires targeted Rust API tests plus How end-to-end
   tests for create, switch, update, delete, current markers, dirty fast
   Checkpoints, and publish isolation.
@@ -964,8 +987,8 @@ than making the caller assemble branch, commit, diff, and repository details.
   filter.
 - Generation-completion hooks can create Checkpoints immediately.
 - Timeline is time-based, with optional AI labels.
-- AI Checkpoint summaries use the configured coding agent, staged diff only, a
-  2-second timeout, and a timestamp fallback.
+- AI Checkpoint summaries use the configured coding agent, the saved Checkpoint
+  patch, async best-effort generation, and a timestamp fallback.
 - No diff viewer in v1.
 - Restore uses browsing mode: viewing Checkpoints pauses autosave and does not
   choose a new direction until the user clicks **Continue from here**.

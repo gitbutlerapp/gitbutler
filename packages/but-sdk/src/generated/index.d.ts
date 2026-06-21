@@ -317,9 +317,9 @@ export declare function howCreateBookmarkFromCommit(projectId: string, name: str
 /**
  * Create a How checkpoint commit from the current worktree state.
  *
- * Returns `None` when there are no worktree changes to save.
+ * Returns `Unchanged` when there are no worktree changes to save.
  */
-export declare function howCreateCheckpoint(projectId: string, message: string): Promise<string | null>
+export declare function howCreateCheckpoint(projectId: string, message: string): Promise<HowCreateCheckpointResult>
 
 /** Delete a How bookmark pointer. */
 export declare function howDeleteBookmark(projectId: string, bookmarkId: string): Promise<void>
@@ -356,6 +356,9 @@ export declare function howSwitchBookmark(projectId: string, bookmarkId: string)
 
 /** Update a How bookmark to the active HEAD commit. */
 export declare function howUpdateBookmark(projectId: string, bookmarkId: string): Promise<HowBookmark>
+
+/** Update a visible local How checkpoint message by its explicit Change ID. */
+export declare function howUpdateCheckpointMessageByChangeId(projectId: string, changeId: string, message: string): Promise<HowUpdateCheckpointMessageResult>
 
 /** Write How project settings to local Git config. */
 export declare function howWriteProjectSettings(projectId: string, settings: HowProjectSettings): Promise<void>
@@ -1630,10 +1633,23 @@ export type HowBookmarkKind = "user" | "auto";
 export type HowCheckpoint = {
   /** Commit id backing the checkpoint. */
   id: string;
+  /** Explicit GitButler Change ID stored in the commit headers, if present. */
+  changeId: string | null;
   /** Commit subject shown in the timeline. */
   title: string;
   /** Commit time in milliseconds since Unix epoch. */
   createdAt: number;
+};
+
+/** Result of creating a How checkpoint. */
+export type HowCreateCheckpointResult = {
+  type: "unchanged";
+} | {
+  /** Commit id backing the checkpoint. */
+  commit_id: string;
+  /** Explicit GitButler Change ID stored in the checkpoint commit. */
+  change_id: string;
+  type: "created";
 };
 
 /** A project opened by How. */
@@ -1663,6 +1679,20 @@ export type HowStagedDiff = {
   /** Original byte count before truncation. */
   originalByteCount: number;
 };
+
+/** Result of updating a How checkpoint message by Change ID. */
+export type HowUpdateCheckpointMessageResult = {
+  /** The updated checkpoint. */
+  checkpoint: HowCheckpoint;
+  type: "updated";
+} | {
+  /** Why the update was skipped. */
+  reason: HowUpdateCheckpointMessageSkippedReason;
+  type: "skipped";
+};
+
+/** Why How skipped an async checkpoint message update. */
+export type HowUpdateCheckpointMessageSkippedReason = "notFound" | "published" | "notCheckpoint";
 
 export type HunkAssignment = {
   /**

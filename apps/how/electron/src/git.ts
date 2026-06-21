@@ -20,11 +20,14 @@ import {
 	howStagedDiffForCheckpointSummary,
 	howStartProject,
 	howSwitchBookmark,
+	howUpdateCheckpointMessageByChangeId,
 	howUpdateBookmark,
 	howWriteProjectSettings,
 	type HowBookmark,
 	type HowBookmarkKind,
+	type HowCreateCheckpointResult,
 	type HowProject,
+	type HowUpdateCheckpointMessageResult,
 } from "@gitbutler/but-sdk";
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
@@ -76,8 +79,14 @@ async function runGit(
 
 export type GitCommit = {
 	id: string;
+	changeId: string | null;
 	title: string;
 	createdAt: number;
+};
+
+export type CreatedCheckpoint = {
+	commitId: string;
+	changeId: string;
 };
 
 export type GitBookmark = HowBookmark;
@@ -161,9 +170,25 @@ export async function deleteProjectBookmark(projectId: string, bookmarkId: strin
 export async function createCheckpointCommit(
 	projectId: string,
 	message: string | (() => Promise<string>),
-): Promise<string | null> {
+): Promise<CreatedCheckpoint | null> {
 	const resolvedMessage = typeof message === "string" ? message : await message();
-	return await howCreateCheckpoint(projectId, resolvedMessage);
+	return createdCheckpointFromSdk(await howCreateCheckpoint(projectId, resolvedMessage));
+}
+
+function createdCheckpointFromSdk(result: HowCreateCheckpointResult): CreatedCheckpoint | null {
+	if (result.type === "unchanged") return null;
+	return {
+		commitId: result.commit_id,
+		changeId: result.change_id,
+	};
+}
+
+export async function updateCheckpointMessageByChangeId(
+	projectId: string,
+	changeId: string,
+	message: string,
+): Promise<HowUpdateCheckpointMessageResult> {
+	return await howUpdateCheckpointMessageByChangeId(projectId, changeId, message);
 }
 
 export async function resetToCommit(
@@ -207,6 +232,23 @@ export async function checkpointDiffForSummary(projectId: string): Promise<{
 	originalByteCount: number;
 }> {
 	return await howStagedDiffForCheckpointSummary(projectId);
+}
+
+export async function checkpointDiffForCommit(
+	worktreePath: string,
+	commitId: string,
+): Promise<{
+	diff: string;
+	originalByteCount: number;
+}> {
+	const diff = await runGit(
+		["show", "--format=", "--stat", "--patch", "--no-ext-diff", commitId],
+		worktreePath,
+	);
+	return {
+		diff,
+		originalByteCount: Buffer.byteLength(diff, "utf8"),
+	};
 }
 
 export type PublishMode = "direct" | "review";

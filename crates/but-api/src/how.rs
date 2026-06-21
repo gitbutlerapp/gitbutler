@@ -13,11 +13,17 @@ use bstr::ByteSlice;
 use but_api_macros::but_api;
 use but_core::{
     DiffSpec, RepositoryExt as _,
+    commit::{Headers, SignCommit},
     diff::{worktree_changes, worktree_changes_no_renames},
     snapshot::{create_tree, create_tree::State},
+    sync::RepoExclusive,
     worktree::safe_checkout_from_head,
 };
 use but_ctx::{Context, ProjectHandle};
+use but_rebase::{
+    commit::DateMode,
+    graph_rebase::{Editor, LookupStep as _},
+};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
@@ -51,6 +57,8 @@ but_schemars::register_sdk_type!(HowProject);
 pub struct HowCheckpoint {
     /// Commit id backing the checkpoint.
     pub id: String,
+    /// Explicit GitButler Change ID stored in the commit headers, if present.
+    pub change_id: Option<String>,
     /// Commit subject shown in the timeline.
     pub title: String,
     /// Commit time in milliseconds since Unix epoch.
@@ -59,6 +67,61 @@ pub struct HowCheckpoint {
 
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(HowCheckpoint);
+
+/// Result of creating a How checkpoint.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum HowCreateCheckpointResult {
+    /// No checkpoint was needed because there were no worktree changes.
+    Unchanged,
+    /// A checkpoint was created.
+    Created {
+        /// Commit id backing the checkpoint.
+        commit_id: String,
+        /// Explicit GitButler Change ID stored in the checkpoint commit.
+        change_id: String,
+    },
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HowCreateCheckpointResult);
+
+/// Why How skipped an async checkpoint message update.
+#[derive(Debug, Clone, Copy, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub enum HowUpdateCheckpointMessageSkippedReason {
+    /// The Change ID no longer belongs to a visible checkpoint on the current line.
+    NotFound,
+    /// The resolved commit was already published and should not be rewritten.
+    Published,
+    /// The supplied message was not a How checkpoint message.
+    NotCheckpoint,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HowUpdateCheckpointMessageSkippedReason);
+
+/// Result of updating a How checkpoint message by Change ID.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum HowUpdateCheckpointMessageResult {
+    /// The checkpoint message was updated.
+    Updated {
+        /// The updated checkpoint.
+        checkpoint: HowCheckpoint,
+    },
+    /// The update was safely skipped.
+    Skipped {
+        /// Why the update was skipped.
+        reason: HowUpdateCheckpointMessageSkippedReason,
+    },
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HowUpdateCheckpointMessageResult);
 
 /// Whether a How bookmark was created by the user or by How as a safety backup.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -163,58 +226,68 @@ pub fn how_list_checkpoints(ctx: &Context, limit: usize) -> anyhow::Result<Vec<H
     };
 
     let mut checkpoints = Vec::new();
-    for info in head
-        .ancestors()
-        .first_parent_only()
-        .all()
-        .context("failed to walk checkpoint history")?
-    {
+    for info in head.ancestors().first_parent_only().all()? {
         if checkpoints.len() >= limit {
             break;
         }
         let info = info.context("failed to read commit from checkpoint history")?;
-        let commit = repo
-            .find_commit(info.id)
-            .context("failed to load checkpoint commit")?;
-        let message = commit
-            .message()
-            .context("failed to read checkpoint commit message")?;
-        let title = message.title.to_string();
-        if !title.starts_with(CHECKPOINT_PREFIX) {
-            continue;
+        if let Some(checkpoint) = checkpoint_from_commit_id(&repo, info.id)? {
+            checkpoints.push(checkpoint);
         }
-        let created_at = commit.time()?.seconds.saturating_mul(1000);
-        checkpoints.push(HowCheckpoint {
-            id: info.id.to_string(),
-            title,
-            created_at,
-        });
     }
     Ok(checkpoints)
 }
 
 /// Create a How checkpoint commit from the current worktree state.
 ///
-/// Returns `None` when there are no worktree changes to save.
+/// Returns `Unchanged` when there are no worktree changes to save.
 #[but_api(napi)]
 #[instrument(skip(ctx), err(Debug))]
-pub fn how_create_checkpoint(ctx: &mut Context, message: String) -> anyhow::Result<Option<String>> {
+pub fn how_create_checkpoint(
+    ctx: &mut Context,
+    message: String,
+) -> anyhow::Result<HowCreateCheckpointResult> {
+    validate_checkpoint_message(&message)?;
     let _guard = ctx.exclusive_worktree_access();
     let repo = ctx.repo.get()?;
     let tree_id = worktree_tree(&repo)?;
     let head_tree_id = repo.head_tree_id_or_empty()?.detach();
     if tree_id == head_tree_id {
-        return Ok(None);
+        return Ok(HowCreateCheckpointResult::Unchanged);
     }
 
     let parent = repo.head_id().ok().map(|id| id.detach());
-    let parents = parent.into_iter();
-    let commit_id = repo
-        .commit("HEAD", message, tree_id, parents)
-        .context("failed to create checkpoint commit")?
-        .detach();
+    let commit_id = create_checkpoint_commit(&repo, &message, tree_id, parent.into_iter())
+        .context("failed to create checkpoint commit")?;
     write_index_from_tree(&repo, tree_id)?;
-    Ok(Some(commit_id.to_string()))
+    let change_id = explicit_change_id_for_commit(&repo, commit_id)?
+        .context("new checkpoint commit did not receive a Change ID")?;
+    Ok(HowCreateCheckpointResult::Created {
+        commit_id: commit_id.to_string(),
+        change_id,
+    })
+}
+
+/// Update a visible local How checkpoint message by its explicit Change ID.
+#[but_api(napi)]
+#[instrument(skip(ctx), err(Debug))]
+pub fn how_update_checkpoint_message_by_change_id(
+    ctx: &mut Context,
+    change_id: String,
+    message: String,
+) -> anyhow::Result<HowUpdateCheckpointMessageResult> {
+    if !message.starts_with(CHECKPOINT_PREFIX) {
+        return Ok(HowUpdateCheckpointMessageResult::Skipped {
+            reason: HowUpdateCheckpointMessageSkippedReason::NotCheckpoint,
+        });
+    }
+    let mut guard = ctx.exclusive_worktree_access();
+    how_update_checkpoint_message_by_change_id_with_perm(
+        ctx,
+        change_id,
+        message,
+        guard.write_permission(),
+    )
 }
 
 /// Reset the current branch and worktree to a checkpoint commit.
@@ -438,6 +511,196 @@ fn worktree_tree(repo: &gix::Repository) -> anyhow::Result<gix::ObjectId> {
         },
     )?;
     Ok(outcome.worktree.unwrap_or(head_tree_id.detach()))
+}
+
+fn create_checkpoint_commit(
+    repo: &gix::Repository,
+    message: &str,
+    tree_id: gix::ObjectId,
+    parents: impl IntoIterator<Item = gix::ObjectId>,
+) -> anyhow::Result<gix::ObjectId> {
+    let (author, committer) = repo.commit_signatures()?;
+    let headers = Headers::from_config(&repo.config_snapshot());
+    let commit = gix::objs::Commit {
+        message: message.into(),
+        tree: tree_id,
+        author,
+        committer,
+        encoding: None,
+        parents: parents.into_iter().collect(),
+        extra_headers: (&headers).into(),
+    };
+    let commit_id = but_rebase::commit::create(
+        repo,
+        commit,
+        DateMode::CommitterKeepAuthorKeep,
+        SignCommit::No,
+    )?;
+    update_current_head(repo, commit_id, message)?;
+    Ok(commit_id)
+}
+
+fn update_current_head(
+    repo: &gix::Repository,
+    target: gix::ObjectId,
+    message: &str,
+) -> anyhow::Result<()> {
+    match repo.head_name()? {
+        Some(name) => {
+            let name = name.as_bstr().to_string();
+            repo.reference(
+                name.as_str(),
+                target,
+                gix::refs::transaction::PreviousValue::Any,
+                message,
+            )?;
+        }
+        None => {
+            repo.edit_reference(gix::refs::transaction::RefEdit {
+                change: gix::refs::transaction::Change::Update {
+                    log: gix::refs::transaction::LogChange {
+                        mode: gix::refs::transaction::RefLog::AndReference,
+                        force_create_reflog: false,
+                        message: message.into(),
+                    },
+                    expected: gix::refs::transaction::PreviousValue::Any,
+                    new: gix::refs::Target::Object(target),
+                },
+                name: "HEAD".try_into()?,
+                deref: false,
+            })?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_checkpoint_message(message: &str) -> anyhow::Result<()> {
+    if message.starts_with(CHECKPOINT_PREFIX) {
+        Ok(())
+    } else {
+        bail!("checkpoint message must start with '{CHECKPOINT_PREFIX}'")
+    }
+}
+
+fn explicit_change_id_for_commit(
+    repo: &gix::Repository,
+    commit_id: gix::ObjectId,
+) -> anyhow::Result<Option<String>> {
+    let commit = repo
+        .find_commit(commit_id)
+        .context("failed to load checkpoint commit")?;
+    let commit = commit.decode()?;
+    let headers = Headers::try_from_commit_headers(|| commit.extra_headers());
+    Ok(headers.and_then(|headers| headers.change_id.map(|change_id| change_id.to_string())))
+}
+
+fn checkpoint_from_commit_id(
+    repo: &gix::Repository,
+    commit_id: gix::ObjectId,
+) -> anyhow::Result<Option<HowCheckpoint>> {
+    let commit = repo
+        .find_commit(commit_id)
+        .context("failed to load checkpoint commit")?;
+    let message = commit
+        .message()
+        .context("failed to read checkpoint commit message")?;
+    let title = message.title.to_string();
+    if !title.starts_with(CHECKPOINT_PREFIX) {
+        return Ok(None);
+    }
+    let decoded = commit.decode()?;
+    let change_id = Headers::try_from_commit_headers(|| decoded.extra_headers())
+        .and_then(|headers| headers.change_id.map(|change_id| change_id.to_string()));
+    let created_at = commit.time()?.seconds.saturating_mul(1000);
+    Ok(Some(HowCheckpoint {
+        id: commit_id.to_string(),
+        change_id,
+        title,
+        created_at,
+    }))
+}
+
+fn visible_checkpoint_commit_id_by_change_id(
+    repo: &gix::Repository,
+    change_id: &str,
+) -> anyhow::Result<Option<gix::ObjectId>> {
+    let Ok(head) = repo.head_id() else {
+        return Ok(None);
+    };
+    for info in head
+        .ancestors()
+        .first_parent_only()
+        .all()
+        .context("failed to walk checkpoint history")?
+    {
+        let info = info.context("failed to read commit from checkpoint history")?;
+        let Some(checkpoint) = checkpoint_from_commit_id(repo, info.id)? else {
+            continue;
+        };
+        if checkpoint.change_id.as_deref() == Some(change_id) {
+            return Ok(Some(info.id));
+        }
+    }
+    Ok(None)
+}
+
+fn commit_is_reachable_from_upstream(
+    repo: &gix::Repository,
+    commit_id: gix::ObjectId,
+) -> anyhow::Result<bool> {
+    let Some(head_name) = repo.head_name()? else {
+        return Ok(false);
+    };
+    let Ok(upstream_ref_name) =
+        but_workspace::resolve_tracking_branch_ref_name(head_name.as_ref(), repo)
+    else {
+        return Ok(false);
+    };
+    let Some(mut upstream_ref) = repo.try_find_reference(upstream_ref_name.as_ref())? else {
+        return Ok(false);
+    };
+    let upstream_tip = upstream_ref
+        .peel_to_id()
+        .context("failed to resolve upstream branch")?
+        .detach();
+    Ok(repo
+        .merge_base(commit_id, upstream_tip)
+        .ok()
+        .map(|id| id.detach())
+        == Some(commit_id))
+}
+
+fn how_update_checkpoint_message_by_change_id_with_perm(
+    ctx: &mut Context,
+    change_id: String,
+    message: String,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<HowUpdateCheckpointMessageResult> {
+    let commit_id = {
+        let repo = ctx.repo.get()?;
+        let Some(commit_id) = visible_checkpoint_commit_id_by_change_id(&repo, &change_id)? else {
+            return Ok(HowUpdateCheckpointMessageResult::Skipped {
+                reason: HowUpdateCheckpointMessageSkippedReason::NotFound,
+            });
+        };
+        if commit_is_reachable_from_upstream(&repo, commit_id)? {
+            return Ok(HowUpdateCheckpointMessageResult::Skipped {
+                reason: HowUpdateCheckpointMessageSkippedReason::Published,
+            });
+        }
+        commit_id
+    };
+
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let editor = Editor::create(&mut ws, &mut meta, &repo)?;
+    let (rebase, edited_commit_selector) =
+        but_workspace::commit::reword(editor, commit_id, message.as_bytes().as_bstr())?;
+    let new_commit_id = rebase.lookup_pick(edited_commit_selector)?;
+    rebase.materialize()?;
+    let checkpoint = checkpoint_from_commit_id(&repo, new_commit_id)?
+        .context("updated commit is no longer a checkpoint")?;
+    Ok(HowUpdateCheckpointMessageResult::Updated { checkpoint })
 }
 
 fn discard_current_workspace_changes(

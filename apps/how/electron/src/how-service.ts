@@ -1,6 +1,7 @@
-import { checkpointMessageForStagedChanges } from "./checkpoint-summarizer.js";
+import { capDiffForSummary, checkpointMessageForSavedCheckpoint } from "./checkpoint-summarizer.js";
 import { checkpointMessage } from "./checkpoints.js";
 import {
+	checkpointDiffForCommit,
 	createCheckpointCommit,
 	createProjectBookmark,
 	createProjectBookmarkFromCommit,
@@ -21,9 +22,11 @@ import {
 	resetToCommit,
 	sanitizedRepositoryName,
 	switchProjectBookmark,
+	updateCheckpointMessageByChangeId,
 	updateProjectBookmark,
 	writePublishMode,
 	writeProjectSettings,
+	type CreatedCheckpoint,
 	type GitRepository,
 } from "./git.js";
 import {
@@ -102,6 +105,9 @@ export class HowService {
 	#dirtyWhileSaving = false;
 	#internalGitOperation = false;
 	#ignoreWatcherUntil = 0;
+	#gitOperationQueue: Promise<void> = Promise.resolve();
+	#summaryGeneration = 0;
+	#summaryAbortControllers = new Set<AbortController>();
 
 	constructor(
 		private readonly statePath: string,
@@ -246,6 +252,7 @@ export class HowService {
 				};
 			}
 
+			this.#cancelPendingSummaryUpdates("publish");
 			this.#status = {
 				...this.#status,
 				saveState: "saved",
@@ -420,6 +427,7 @@ export class HowService {
 		if (bookmark.isCurrent) return this.getStatus();
 
 		this.logger.info("Switching bookmark", { project, bookmarkId });
+		this.#cancelPendingSummaryUpdates("switch bookmark");
 		this.#clearScheduledCheckpoint();
 		await this.#waitForActiveSave();
 		this.#clearScheduledCheckpoint();
@@ -554,6 +562,7 @@ export class HowService {
 		if (!project) throw new Error("How could not find an open project.");
 
 		this.logger.info("Viewing checkpoint", { project, checkpointId, options });
+		this.#cancelPendingSummaryUpdates("view checkpoint");
 		this.#clearScheduledCheckpoint();
 		await this.#waitForActiveSave();
 		this.#clearScheduledCheckpoint();
@@ -651,6 +660,7 @@ export class HowService {
 		if (!project || !browsing) return this.getStatus();
 
 		this.logger.info("Continuing from browsed checkpoint", { project, browsing });
+		this.#cancelPendingSummaryUpdates("continue from checkpoint");
 		this.#clearScheduledCheckpoint();
 		await this.#waitForActiveSave();
 		this.#clearScheduledCheckpoint();
@@ -664,19 +674,16 @@ export class HowService {
 		this.#emit();
 
 		try {
+			let continuedCheckpoint: CreatedCheckpoint | null = null;
 			if (browsing.dirty) {
 				this.logger.info("Creating checkpoint from browsing edits", {
 					projectId: project.id,
 					worktreePath: project.path,
 					browsing,
 				});
-				await this.#runInternalGitOperation(
+				continuedCheckpoint = await this.#runInternalGitOperation(
 					project,
-					async () =>
-						await createCheckpointCommit(
-							project.id,
-							async () => await this.#checkpointMessageForStagedChanges(project),
-						),
+					async () => await createCheckpointCommit(project.id, checkpointMessage(new Date())),
 				);
 			}
 			this.#status = {
@@ -685,6 +692,7 @@ export class HowService {
 			};
 			this.#stopBrowsingDirtyPolling();
 			await this.#refreshProjectLists();
+			if (continuedCheckpoint) this.#enqueueCheckpointSummary(project, continuedCheckpoint);
 			this.#status = {
 				...this.#status,
 				saveState: "saved",
@@ -716,6 +724,7 @@ export class HowService {
 			throw new Error("Leave changes before returning to latest.");
 
 		this.logger.info("Returning to latest checkpoint", { project, browsing, options });
+		this.#cancelPendingSummaryUpdates("return to latest");
 		this.#clearScheduledCheckpoint();
 		await this.#waitForActiveSave();
 		this.#clearScheduledCheckpoint();
@@ -767,6 +776,7 @@ export class HowService {
 
 	async deleteProject(): Promise<HowStatus> {
 		this.logger.info("Deleting active project from How", this.#status.project);
+		this.#cancelPendingSummaryUpdates("delete project");
 		await this.stop();
 		this.#status = {
 			project: null,
@@ -784,6 +794,7 @@ export class HowService {
 	}
 
 	async stop(): Promise<void> {
+		this.#cancelPendingSummaryUpdates("stop");
 		this.#clearScheduledCheckpoint();
 		this.#clearPostInternalGitCheck();
 		this.#stopBrowsingDirtyPolling();
@@ -800,6 +811,7 @@ export class HowService {
 		};
 
 		this.logger.info("Activating project", project);
+		this.#cancelPendingSummaryUpdates("activate project");
 		await this.stop();
 		this.#status = {
 			project,
@@ -913,13 +925,9 @@ export class HowService {
 			});
 			const commitId = await this.#runInternalGitOperation(
 				project,
-				async () =>
-					await createCheckpointCommit(
-						project.id,
-						async () => await this.#checkpointMessageForStagedChanges(project),
-					),
+				async () => await createCheckpointCommit(project.id, checkpointMessage(new Date())),
 			);
-			this.logger.info("Git checkpoint result", { projectId: project.id, commitId });
+			this.logger.info("Git checkpoint result", { projectId: project.id, checkpoint: commitId });
 			if (commitId === null) {
 				this.#status = {
 					...this.#status,
@@ -931,6 +939,7 @@ export class HowService {
 			}
 
 			await this.#refreshProjectLists();
+			this.#enqueueCheckpointSummary(project, commitId);
 			this.#status = {
 				...this.#status,
 				saveState: "saved",
@@ -965,11 +974,7 @@ export class HowService {
 		});
 		const commitId = await this.#runInternalGitOperation(
 			project,
-			async () =>
-				await createCheckpointCommit(
-					project.id,
-					async () => await this.#checkpointMessageForStagedChanges(project),
-				),
+			async () => await createCheckpointCommit(project.id, checkpointMessage(new Date())),
 		);
 		this.logger.info("Checkpoint before browsing result", { projectId: project.id, commitId });
 		await this.#refreshProjectLists();
@@ -986,10 +991,7 @@ export class HowService {
 			worktreePath: project.path,
 			mode,
 		});
-		const message =
-			mode === "fast"
-				? checkpointMessage(new Date())
-				: await this.#checkpointMessageForStagedChanges(project);
+		const message = checkpointMessage(new Date());
 		const commitId = await this.#runInternalGitOperation(
 			project,
 			async () => await createCheckpointCommit(project.id, message),
@@ -1032,11 +1034,7 @@ export class HowService {
 		try {
 			const commitId = await this.#runInternalGitOperation(
 				project,
-				async () =>
-					await createCheckpointCommit(
-						project.id,
-						async () => await this.#checkpointMessageForStagedChanges(project),
-					),
+				async () => await createCheckpointCommit(project.id, checkpointMessage(new Date())),
 			);
 			this.logger.info("Checkpoint before publishing result", { projectId: project.id, commitId });
 			if (commitId === null) return;
@@ -1047,20 +1045,98 @@ export class HowService {
 		}
 	}
 
-	async #checkpointMessageForStagedChanges(project: ProjectSummary): Promise<string> {
-		return await checkpointMessageForStagedChanges({
-			agent: this.#status.settings.codingAgent,
-			date: new Date(),
-			logger: this.logger,
-			projectId: project.id,
-			worktreePath: project.path,
+	#cancelPendingSummaryUpdates(reason: string): void {
+		this.#summaryGeneration += 1;
+		for (const controller of this.#summaryAbortControllers) controller.abort();
+		this.#summaryAbortControllers.clear();
+		this.logger.info("Cancelled pending checkpoint summary updates", {
+			reason,
+			generation: this.#summaryGeneration,
 		});
+	}
+
+	#enqueueCheckpointSummary(project: ProjectSummary, checkpoint: CreatedCheckpoint): void {
+		const agent = this.#status.settings.codingAgent;
+		if (agent === "none") return;
+		const generation = this.#summaryGeneration;
+		const controller = new AbortController();
+		this.#summaryAbortControllers.add(controller);
+		this.logger.info("Enqueued async checkpoint summary", {
+			projectId: project.id,
+			checkpoint,
+			generation,
+			agent,
+		});
+		void this.#runCheckpointSummaryJob(project, checkpoint, generation, controller);
+	}
+
+	async #runCheckpointSummaryJob(
+		project: ProjectSummary,
+		checkpoint: CreatedCheckpoint,
+		generation: number,
+		controller: AbortController,
+	): Promise<void> {
+		try {
+			const rawDiff = await checkpointDiffForCommit(project.path, checkpoint.commitId);
+			if (controller.signal.aborted || generation !== this.#summaryGeneration) return;
+			const diff = capDiffForSummary(rawDiff.diff);
+			const agent = this.#status.settings.codingAgent;
+			if (agent === "none") return;
+			const message = await checkpointMessageForSavedCheckpoint({
+				agent,
+				checkpoint,
+				date: new Date(),
+				diff: diff.diff,
+				diffTruncated: diff.truncated,
+				logger: this.logger,
+				originalByteCount: rawDiff.originalByteCount,
+				projectId: project.id,
+				signal: controller.signal,
+				worktreePath: project.path,
+			});
+			if (!message || controller.signal.aborted || generation !== this.#summaryGeneration) return;
+			if (this.#status.project?.id !== project.id || this.#status.browsing) return;
+
+			const result = await this.#runInternalGitOperation(
+				project,
+				async () =>
+					await updateCheckpointMessageByChangeId(project.id, checkpoint.changeId, message),
+			);
+			this.logger.info("Async checkpoint summary update result", {
+				projectId: project.id,
+				checkpoint,
+				result,
+			});
+			if (
+				result.type === "updated" &&
+				generation === this.#summaryGeneration &&
+				this.#status.project?.id === project.id &&
+				!this.#status.browsing
+			) {
+				await this.#refreshProjectLists();
+				this.#emit();
+			}
+		} catch (error) {
+			this.logger.error("Async checkpoint summary update failed", error, {
+				projectId: project.id,
+				checkpoint,
+				generation,
+			});
+		} finally {
+			this.#summaryAbortControllers.delete(controller);
+		}
 	}
 
 	async #runInternalGitOperation<T>(
 		project: ProjectSummary,
 		operation: () => Promise<T>,
 	): Promise<T> {
+		const previous = this.#gitOperationQueue;
+		let release!: () => void;
+		this.#gitOperationQueue = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		await previous;
 		this.#internalGitOperation = true;
 		try {
 			return await operation();
@@ -1068,6 +1144,7 @@ export class HowService {
 			this.#internalGitOperation = false;
 			this.#ignoreWatcherUntil = Date.now() + internalGitOperationQuietMs;
 			this.#schedulePostInternalGitCheck(project);
+			release();
 		}
 	}
 
@@ -1161,6 +1238,7 @@ export class HowService {
 		});
 		const checkpoints: Array<Checkpoint> = commits.map((commit) => ({
 			id: commit.id,
+			changeId: commit.changeId,
 			title: commit.title,
 			createdAt: commit.createdAt,
 		}));
@@ -1254,10 +1332,10 @@ export class HowService {
 		const parsedCheckpoints = checkpoints
 			.map((checkpoint): Checkpoint | null => {
 				if (!isRecord(checkpoint)) return null;
-				const { id, title, createdAt } = checkpoint;
+				const { id, changeId, title, createdAt } = checkpoint;
 				if (typeof id !== "string" || typeof title !== "string" || typeof createdAt !== "number")
 					return null;
-				return { id, title, createdAt };
+				return { id, changeId: typeof changeId === "string" ? changeId : null, title, createdAt };
 			})
 			.filter((checkpoint): checkpoint is Checkpoint => checkpoint !== null);
 

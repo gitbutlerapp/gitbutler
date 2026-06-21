@@ -1,5 +1,5 @@
 import { checkpointMessage } from "./checkpoints.js";
-import { checkpointDiffForSummary } from "./git.js";
+import { checkpointDiffForSummary, type CreatedCheckpoint } from "./git.js";
 import type { Logger } from "./logger.js";
 import type { CodingAgent } from "./settings.js";
 
@@ -112,12 +112,87 @@ export async function checkpointMessageForStagedChanges({
 }): Promise<string> {
 	if (agent === "none") return checkpointMessage(date);
 
-	const timeoutMs = checkpointSummaryTimeoutMs();
 	const diff = await stagedDiffForSummary(projectId);
+	const message = await checkpointMessageForDiff({
+		agent,
+		date,
+		diff: diff.diff,
+		diffTruncated: diff.truncated,
+		originalByteCount: diff.originalByteCount,
+		logger,
+		projectId,
+		signal: undefined,
+		worktreePath,
+	});
+	return message ?? checkpointMessage(date);
+}
+
+export async function checkpointMessageForSavedCheckpoint({
+	agent,
+	checkpoint,
+	date,
+	diff,
+	diffTruncated,
+	logger,
+	originalByteCount,
+	projectId,
+	signal,
+	worktreePath,
+}: {
+	agent: Exclude<CodingAgent, "none">;
+	checkpoint: CreatedCheckpoint;
+	date: Date;
+	diff: string;
+	diffTruncated: boolean;
+	logger: SummarizerLogger;
+	originalByteCount: number;
+	projectId: string;
+	signal: AbortSignal;
+	worktreePath: string;
+}): Promise<string | null> {
+	return await checkpointMessageForDiff({
+		agent,
+		date,
+		diff,
+		diffTruncated,
+		logger,
+		originalByteCount,
+		projectId,
+		signal,
+		worktreePath,
+		checkpoint,
+	});
+}
+
+async function checkpointMessageForDiff({
+	agent,
+	date,
+	diff,
+	diffTruncated,
+	logger,
+	originalByteCount,
+	projectId,
+	signal,
+	worktreePath,
+	checkpoint,
+}: {
+	agent: Exclude<CodingAgent, "none">;
+	date: Date;
+	diff: string;
+	diffTruncated: boolean;
+	logger: SummarizerLogger;
+	originalByteCount: number;
+	projectId: string;
+	signal: AbortSignal | undefined;
+	worktreePath: string;
+	checkpoint?: CreatedCheckpoint;
+}): Promise<string | null> {
+	const timeoutMs = checkpointSummaryTimeoutMs();
 	logger.info("Preparing AI checkpoint summary", {
 		agent,
-		diffByteCount: diff.originalByteCount,
-		diffTruncated: diff.truncated,
+		checkpoint,
+		diffByteCount: originalByteCount,
+		diffTruncated,
 		timeoutMs,
 	});
 
@@ -129,23 +204,24 @@ export async function checkpointMessageForStagedChanges({
 					agent,
 					projectId,
 					worktreePath,
-					diff: diff.diff,
-					truncated: diff.truncated,
+					diff,
+					truncated: diffTruncated,
 					timeoutMs,
 					signal,
 				}),
 			timeoutMs,
+			signal,
 		);
 		const summary = parseCheckpointSummary(output);
 		if (!summary) {
 			logger.info("AI checkpoint summary was not usable; falling back to timestamp", { agent });
-			return checkpointMessage(date);
+			return null;
 		}
 		logger.info("AI checkpoint summary succeeded", { agent });
 		return checkpointMessageFromSummary(date, summary);
 	} catch (error) {
 		logger.error("AI checkpoint summary failed; falling back to timestamp", error, { agent });
-		return checkpointMessage(date);
+		return null;
 	}
 }
 
@@ -160,10 +236,9 @@ function createCheckpointSummarizer(): CheckpointSummarizer {
 }
 
 class FakeCheckpointSummarizer implements CheckpointSummarizer {
-	async summarize(): Promise<string> {
+	async summarize(request: CheckpointSummaryRequest): Promise<string> {
 		const delay = Number(process.env.HOW_E2E_CHECKPOINT_SUMMARY_DELAY_MS ?? 0);
-		if (Number.isFinite(delay) && delay > 0)
-			await new Promise((resolve) => setTimeout(resolve, delay));
+		if (Number.isFinite(delay) && delay > 0) await sleepWithAbort(delay, request.signal);
 		if (process.env.HOW_E2E_CHECKPOINT_SUMMARY_ERROR)
 			throw new Error("Fake checkpoint summary failed.");
 		return process.env.HOW_E2E_CHECKPOINT_SUMMARY ?? "";
@@ -241,8 +316,10 @@ export function checkpointSummaryPrompt(request: CheckpointSummaryRequest): stri
 async function withAbortableTimeout<T>(
 	start: (signal: AbortSignal) => Promise<T>,
 	timeoutMs: number,
+	parentSignal?: AbortSignal,
 ): Promise<T> {
 	const controller = new AbortController();
+	if (parentSignal) forwardAbort(parentSignal, controller);
 	if (timeoutMs === 0) return await start(controller.signal);
 	let timeout: NodeJS.Timeout | null = null;
 	try {
@@ -258,6 +335,21 @@ async function withAbortableTimeout<T>(
 	} finally {
 		if (timeout) clearTimeout(timeout);
 	}
+}
+
+async function sleepWithAbort(milliseconds: number, signal: AbortSignal): Promise<void> {
+	if (signal.aborted) throw new Error("Checkpoint summary cancelled.");
+	await new Promise<void>((resolve, reject) => {
+		const timeout = setTimeout(resolve, milliseconds);
+		signal.addEventListener(
+			"abort",
+			() => {
+				clearTimeout(timeout);
+				reject(new Error("Checkpoint summary cancelled."));
+			},
+			{ once: true },
+		);
+	});
 }
 
 function forwardAbort(source: AbortSignal, target: AbortController): void {

@@ -67,6 +67,7 @@ describe("git helpers", () => {
 
 		expect(checkpoints).toHaveLength(1);
 		expect(checkpoints[0]?.title).toBe("Checkpoint: Jun 13, 09:30");
+		expect(checkpoints[0]?.changeId).toEqual(expect.any(String));
 	});
 
 	test("resets the repository to a selected commit", async () => {
@@ -74,16 +75,16 @@ describe("git helpers", () => {
 		const readmePath = path.join(repository.worktreePath, "readme.md");
 
 		await fs.writeFile(readmePath, "first\n");
-		const firstCommitId = await createCheckpointCommit(repository.id, "Checkpoint: first");
+		const firstCheckpoint = await createCheckpointCommit(repository.id, "Checkpoint: first");
 		await fs.writeFile(readmePath, "second\n");
 		await createCheckpointCommit(repository.id, "Checkpoint: second");
 
-		expect(firstCommitId).toBeTruthy();
-		await resetToCommit(repository.id, firstCommitId ?? "");
+		expect(firstCheckpoint).toBeTruthy();
+		await resetToCommit(repository.id, firstCheckpoint?.commitId ?? "");
 
 		expect(await fs.readFile(readmePath, "utf8")).toBe("first\n");
 		expect(await runGit(["rev-parse", "HEAD"], { cwd: repository.worktreePath })).toBe(
-			firstCommitId,
+			firstCheckpoint?.commitId,
 		);
 	});
 

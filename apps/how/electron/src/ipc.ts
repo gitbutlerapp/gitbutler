@@ -12,6 +12,7 @@ export type ProjectSummary = {
 
 export type Checkpoint = {
 	id: string;
+	changeId: string | null;
 	title: string;
 	createdAt: number;
 };
