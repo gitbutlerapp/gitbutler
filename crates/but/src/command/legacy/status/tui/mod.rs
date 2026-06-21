@@ -2437,13 +2437,14 @@ impl App {
             return;
         };
         match &selection.data {
-            StatusOutputLineData::UnassignedFile { .. } | StatusOutputLineData::Branch { .. } => {}
+            StatusOutputLineData::UnassignedFile { .. }
+            | StatusOutputLineData::Branch { .. }
+            | StatusOutputLineData::UnassignedChanges { .. } => {}
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
             | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnassignedChanges { .. }
             | StatusOutputLineData::Commit { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
