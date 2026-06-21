@@ -32,6 +32,8 @@
 	const svgAsImage = uiState.global.svgAsImage;
 	const scrollbarVisibilityState = uiState.global.scrollbarVisibilityState;
 	const defaultFileListMode = uiState.global.defaultFileListMode;
+	const MIN_DIFF_FONT_SIZE = 8;
+	const MAX_DIFF_FONT_SIZE = 32;
 
 	// Sync persisted syntax theme settings to the shiki highlighter.
 	$effect(() => {
@@ -57,6 +59,15 @@
 		) as ScrollbarVisilitySettings;
 
 		scrollbarVisibilityState.set(selectedScrollbarVisibility);
+	}
+
+	function clampDiffFontSize(value: string) {
+		if (value.trim() === "") return diffFontSize.current;
+
+		const parsed = Number(value);
+		if (!Number.isFinite(parsed)) return diffFontSize.current;
+
+		return Math.round(Math.min(Math.max(parsed, MIN_DIFF_FONT_SIZE), MAX_DIFF_FONT_SIZE));
 	}
 </script>
 
@@ -257,11 +268,11 @@
 				width={100}
 				textAlign="center"
 				value={diffFontSize.current.toString()}
-				minVal={8}
-				maxVal={32}
+				minVal={MIN_DIFF_FONT_SIZE}
+				maxVal={MAX_DIFF_FONT_SIZE}
 				showCountActions
 				onchange={(value: string) => {
-					diffFontSize.set(parseInt(value) || diffFontSize.current);
+					diffFontSize.set(clampDiffFontSize(value));
 				}}
 				placeholder={diffFontSize.current.toString()}
 			/>
