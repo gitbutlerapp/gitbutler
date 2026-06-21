@@ -127,7 +127,7 @@ fn goto_unassigned_changes() {
     tui.reload()
         .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render('t');

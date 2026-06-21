@@ -61,12 +61,12 @@ pub(super) fn default_key_binds() -> KeyBinds {
                 register_non_mode_specific_key_binds(&mut builder, WithFocusDetails::No);
             }
             ModeDiscriminant::Details => {
-                let scroll_distance = 5;
-
+                builder.details_scroll_up().register();
+                builder.details_scroll_down().register();
                 builder.details_next_hunk().register();
                 builder.details_prev_hunk().register();
-                builder.details_scroll_down(scroll_distance).register();
-                builder.details_scroll_up(scroll_distance).register();
+                builder.details_jump_up().register();
+                builder.details_jump_down().register();
 
                 builder.details_rub().register();
                 builder.details_copy().register();
@@ -245,16 +245,16 @@ pub(super) fn help_key_binds() -> KeyBinds {
     builder
         .key_bind(
             "jump up",
-            press().shift().code(KeyCode::Char('K')),
-            Message::Help(HelpMessage::ScrollUp(10)),
+            press().control().code(KeyCode::Char('u')),
+            Message::Help(HelpMessage::ScrollUp(KeyBindsBuilder::JUMP_DISTANCE)),
         )
         .register();
 
     builder
         .key_bind(
             "jump down",
-            press().shift().code(KeyCode::Char('J')),
-            Message::Help(HelpMessage::ScrollDown(10)),
+            press().control().code(KeyCode::Char('d')),
+            Message::Help(HelpMessage::ScrollDown(KeyBindsBuilder::JUMP_DISTANCE)),
         )
         .register();
 
@@ -377,7 +377,7 @@ impl KeyBindsBuilder<'_> {
     }
 
     fn down(&mut self) -> KeyBindsInModesBuilder<'_> {
-        self.down_with(Message::MoveCursorDown)
+        self.down_with(Message::MoveCursorDown(1))
             .show_only_in_normal_mode_help_section()
     }
 
@@ -390,7 +390,7 @@ impl KeyBindsBuilder<'_> {
     }
 
     fn up(&mut self) -> KeyBindsInModesBuilder<'_> {
-        self.up_with(Message::MoveCursorUp)
+        self.up_with(Message::MoveCursorUp(1))
             .show_only_in_normal_mode_help_section()
     }
 
@@ -417,6 +417,28 @@ impl KeyBindsBuilder<'_> {
             "prev section",
             press().shift().code(KeyCode::Char('K')),
             Message::MoveCursorPreviousSection,
+        )
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+    }
+
+    const JUMP_DISTANCE: usize = 10;
+
+    fn jump_up(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "jump up",
+            press().control().code(KeyCode::Char('u')),
+            Message::MoveCursorUp(Self::JUMP_DISTANCE),
+        )
+        .hide_from_hotbar()
+        .show_only_in_normal_mode_help_section()
+    }
+
+    fn jump_down(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "jump down",
+            press().control().code(KeyCode::Char('d')),
+            Message::MoveCursorDown(Self::JUMP_DISTANCE),
         )
         .hide_from_hotbar()
         .show_only_in_normal_mode_help_section()
@@ -559,7 +581,7 @@ impl KeyBindsBuilder<'_> {
             press().shift().code(KeyCode::Char('R')),
             Message::Rub(RubMessage::StartReverse),
         )
-        .long_description("Rub unassigned changed into selection")
+        .long_description("Rub unassigned changes into selection")
         .hide_from_hotbar()
     }
 
@@ -872,28 +894,50 @@ impl KeyBindsBuilder<'_> {
     }
 
     fn details_next_hunk(&mut self) -> KeyBindsInModesBuilder<'_> {
-        self.down_with(Message::Details(DetailsMessage::SelectNextSection))
-            .short_description("next hunk")
-    }
-
-    fn details_prev_hunk(&mut self) -> KeyBindsInModesBuilder<'_> {
-        self.up_with(Message::Details(DetailsMessage::SelectPrevSection))
-            .short_description("prev hunk")
-    }
-
-    fn details_scroll_down(&mut self, scroll_distance: usize) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
-            "scroll down",
+            "next hunk",
             press().shift().code(KeyCode::Char('J')),
-            Message::Details(DetailsMessage::ScrollDown(scroll_distance)),
+            Message::Details(DetailsMessage::SelectNextSection),
         )
     }
 
-    fn details_scroll_up(&mut self, scroll_distance: usize) -> KeyBindsInModesBuilder<'_> {
+    fn details_prev_hunk(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
-            "scroll up",
+            "prev hunk",
             press().shift().code(KeyCode::Char('K')),
-            Message::Details(DetailsMessage::ScrollUp(scroll_distance)),
+            Message::Details(DetailsMessage::SelectPrevSection),
+        )
+    }
+
+    fn details_scroll_up(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "up",
+            press().code(KeyCode::Char('k')).alt_code(KeyCode::Up),
+            Message::Details(DetailsMessage::ScrollUp(1)),
+        )
+    }
+
+    fn details_scroll_down(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "down",
+            press().code(KeyCode::Char('j')).alt_code(KeyCode::Down),
+            Message::Details(DetailsMessage::ScrollDown(1)),
+        )
+    }
+
+    fn details_jump_up(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "jump up",
+            press().control().code(KeyCode::Char('u')),
+            Message::Details(DetailsMessage::ScrollUp(Self::JUMP_DISTANCE)),
+        )
+    }
+
+    fn details_jump_down(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "jump down",
+            press().control().code(KeyCode::Char('d')),
+            Message::Details(DetailsMessage::ScrollDown(Self::JUMP_DISTANCE)),
         )
     }
 
@@ -945,6 +989,8 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
     builder.down().register();
     builder.next_section().register();
     builder.prev_section().register();
+    builder.jump_up().register();
+    builder.jump_down().register();
 
     builder.rub().register();
 
@@ -1015,6 +1061,8 @@ fn register_non_mode_specific_key_binds(
     builder.down().register();
     builder.next_section().register();
     builder.prev_section().register();
+    builder.jump_up().register();
+    builder.jump_down().register();
     builder.toggle_details().register();
     builder.toggle_full_screen_details().register();
 
@@ -1071,6 +1119,7 @@ impl KeyBindsInModesBuilder<'_> {
         self
     }
 
+    #[expect(dead_code)]
     fn short_description(mut self, short_description: &'static str) -> Self {
         self.short_description = short_description;
         self

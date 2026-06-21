@@ -447,7 +447,7 @@ fn commit_moved_file_from_unassigned_changes_line() {
     let mut tui = test_tui(env);
 
     // show files in commits
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')));
+    tui.input_then_render((KeyModifiers::SHIFT, 'F'));
 
     // commit test.txt
     tui.env().file("test.txt", "content");
@@ -487,7 +487,7 @@ fn commit_moved_file_from_file_line() {
     let mut tui = test_tui(env);
 
     // show files in commits
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')));
+    tui.input_then_render((KeyModifiers::SHIFT, 'F'));
 
     // commit test.txt
     tui.env().file("test.txt", "content");
@@ -529,7 +529,7 @@ fn commit_moved_and_modified_file() {
     let mut tui = test_tui(env);
 
     // show files in commits
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')));
+    tui.input_then_render((KeyModifiers::SHIFT, 'F'));
 
     // commit test.txt
     tui.env().file("test.txt", "");
@@ -634,7 +634,7 @@ fn cannot_select_committed_files_from_global_listing_with_commits_marked() {
     tui.input_then_render(' ')
         .assert_current_line_eq(str![["┊✔︎   9477ae7 add A"]]);
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'F'))
         .assert_current_line_eq(str![["┊✔︎   9477ae7 add A"]]);
 
     tui.input_then_render('j')
@@ -690,7 +690,7 @@ fn mark_and_commit_multiple_uncommitted_files() {
     tui.input_then_render('j');
     tui.input_then_render('e');
     tui.input_then_render(KeyCode::Enter);
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('F')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'F'))
         .assert_rendered_term_svg_eq(file![
             "snapshots/mark_and_commit_multiple_uncommitted_files_final.svg"
         ]);

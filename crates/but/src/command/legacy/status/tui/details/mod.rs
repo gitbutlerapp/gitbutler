@@ -180,8 +180,8 @@ impl Details {
             | Message::Redo
             | Message::EnterNormalModeAfterConfirmingOperation => false,
 
-            Message::MoveCursorUp
-            | Message::MoveCursorDown
+            Message::MoveCursorUp(_)
+            | Message::MoveCursorDown(_)
             | Message::SelectBranch(_)
             | Message::MoveCursorPreviousSection
             | Message::MoveCursorNextSection
@@ -1393,7 +1393,7 @@ fn build_hunk_assignment(
         }
     } else {
         out.push(SectionContent::DiffUnavailable(
-            "File is too large or binary - no diff available".into(),
+            "No diff available - file is either empty, binary, or too large".into(),
         ));
     }
 }

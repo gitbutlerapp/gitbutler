@@ -41,7 +41,7 @@ fn details_view_updates_with_selection_changes() {
             "snapshots/details_view_updates_with_selection_changes_002.svg"
         ]);
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('J')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'J'))
         .assert_rendered_term_svg_eq(file![
             "snapshots/details_view_updates_with_selection_changes_003.svg"
         ]);
@@ -55,7 +55,8 @@ fn details_view_supports_scroll_controls() {
     let file_contents = (1..=120)
         .map(|line| format!("line-{line:03}\n"))
         .collect::<String>();
-    env.file("large.txt", file_contents);
+    env.file("first file.txt", file_contents.clone());
+    env.file("second file.txt", file_contents);
 
     let mut tui = test_tui_with_options(
         env,
@@ -66,29 +67,43 @@ fn details_view_supports_scroll_controls() {
         },
     );
 
-    tui.input_then_render('d')
+    tui.input_then_render('l')
         .assert_rendered_term_svg_eq(file![
             "snapshots/details_view_supports_scroll_controls_001.svg"
         ]);
 
-    tui.render_with_messages((KeyModifiers::CONTROL, KeyCode::Char('n')), Vec::new())
+    // scroll by single lines
+    tui.render_with_messages('j', Vec::new());
+    tui.render_with_messages('j', Vec::new());
+    tui.render_with_messages('j', Vec::new())
         .assert_rendered_term_svg_eq(file![
             "snapshots/details_view_supports_scroll_controls_002.svg"
         ]);
-
-    tui.render_with_messages((KeyModifiers::CONTROL, KeyCode::Char('d')), Vec::new())
+    tui.render_with_messages('k', Vec::new());
+    tui.render_with_messages('k', Vec::new())
         .assert_rendered_term_svg_eq(file![
             "snapshots/details_view_supports_scroll_controls_003.svg"
         ]);
 
-    tui.render_with_messages((KeyModifiers::CONTROL, KeyCode::Char('u')), Vec::new())
+    // jump
+    tui.render_with_messages((KeyModifiers::CONTROL, 'd'), Vec::new())
         .assert_rendered_term_svg_eq(file![
             "snapshots/details_view_supports_scroll_controls_004.svg"
         ]);
-
-    tui.render_with_messages((KeyModifiers::CONTROL, KeyCode::Char('p')), Vec::new())
+    tui.render_with_messages((KeyModifiers::CONTROL, 'u'), Vec::new())
         .assert_rendered_term_svg_eq(file![
             "snapshots/details_view_supports_scroll_controls_005.svg"
+        ]);
+
+    // navigate by hunk
+    tui.render_with_messages((KeyModifiers::SHIFT, 'J'), Vec::new())
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/details_view_supports_scroll_controls_006.svg"
+        ]);
+
+    tui.render_with_messages((KeyModifiers::SHIFT, 'K'), Vec::new())
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/details_view_supports_scroll_controls_007.svg"
         ]);
 }
 
@@ -127,7 +142,7 @@ fn commit_message_wraps_in_details_view() {
 
     tui.input_then_render('d');
 
-    tui.render_with_messages((KeyModifiers::CONTROL, KeyCode::Char('n')), Vec::new())
+    tui.render_with_messages((KeyModifiers::CONTROL, 'n'), Vec::new())
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_message_wraps_in_details_view_005.svg"
         ]);
@@ -208,7 +223,7 @@ fn toggling_details_off_and_on_resets_scroll_position() {
             "snapshots/toggling_details_off_and_on_resets_scroll_position_001.svg"
         ]);
 
-    tui.input_then_render((KeyModifiers::CONTROL, KeyCode::Char('d')))
+    tui.input_then_render((KeyModifiers::CONTROL, 'd'))
         .assert_rendered_term_svg_eq(file![
             "snapshots/toggling_details_off_and_on_resets_scroll_position_002.svg"
         ]);
@@ -252,12 +267,12 @@ fn details_view_syntax_highlighting_survives_scrolling() {
             "snapshots/details_view_syntax_highlighting_survives_scrolling_001.svg"
         ]);
 
-    tui.render_with_messages((KeyModifiers::CONTROL, KeyCode::Char('d')), Vec::new())
+    tui.render_with_messages((KeyModifiers::CONTROL, 'd'), Vec::new())
         .assert_rendered_term_svg_eq(file![
             "snapshots/details_view_syntax_highlighting_survives_scrolling_002.svg"
         ]);
 
-    tui.render_with_messages((KeyModifiers::CONTROL, KeyCode::Char('u')), Vec::new())
+    tui.render_with_messages((KeyModifiers::CONTROL, 'u'), Vec::new())
         .assert_rendered_term_svg_eq(file![
             "snapshots/details_view_syntax_highlighting_survives_scrolling_003.svg"
         ]);
@@ -346,7 +361,7 @@ fn toggle_full_screen_details_view() {
     let mut tui = test_tui(env);
 
     // can open details with shift+d
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'D'))
         .assert_rendered_term_svg_eq(file![
             "snapshots/toggle_full_screen_details_view_for_commit_001_open_full_screen.svg"
         ]);
@@ -358,13 +373,13 @@ fn toggle_full_screen_details_view() {
         ]);
 
     // can close details with shift+d
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'D'))
         .assert_rendered_term_svg_eq(file![
             "snapshots/toggle_full_screen_details_view_for_commit_003_shift_d_closes_full_screen.svg"
         ]);
 
     // can close full screen details with escape
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'D'))
         .assert_rendered_term_svg_eq(file![
             "snapshots/toggle_full_screen_details_view_for_commit_004_reopen_full_screen.svg"
         ]);
@@ -374,7 +389,7 @@ fn toggle_full_screen_details_view() {
         ]);
 
     // can close full screen details with d
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'D'))
         .assert_rendered_term_svg_eq(file![
             "snapshots/toggle_full_screen_details_view_for_commit_006_reopen_full_screen.svg"
         ]);
@@ -388,7 +403,7 @@ fn toggle_full_screen_details_view() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/toggle_full_screen_details_view_for_commit_008_split_details.svg"
         ]);
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'D'))
         .assert_rendered_term_svg_eq(file![
             "snapshots/toggle_full_screen_details_view_for_commit_009_split_to_full_screen.svg"
         ]);
@@ -406,7 +421,7 @@ fn toggle_full_screen_details_view() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/toggle_full_screen_details_view_for_commit_012_split_details_mode.svg"
         ]);
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'D'))
         .assert_rendered_term_svg_eq(file![
             "snapshots/toggle_full_screen_details_view_for_commit_013_details_mode_to_full_screen.svg"
         ]);
@@ -439,10 +454,12 @@ fn full_screen_details_scrolls_selected_hunk_to_include_final_line() {
         },
     );
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')));
+    tui.input_then_render((KeyModifiers::SHIFT, 'D'));
     tui.render_with_messages(None, Vec::new());
 
-    let output = tui.render_with_messages('j', Vec::new()).rendered_output();
+    let output = tui
+        .render_with_messages((KeyModifiers::SHIFT, 'J'), Vec::new())
+        .rendered_output();
     assert!(
         output.contains("second-04"),
         "selected second hunk should include its final line, got:\n{output}"
@@ -458,7 +475,7 @@ fn rubbing_from_full_screen_details() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')))
+    tui.input_then_render((KeyModifiers::SHIFT, 'D'))
         .assert_rendered_term_svg_eq(file![
             "snapshots/rubbing_from_full_screen_details_details_open.svg"
         ]);
@@ -516,7 +533,7 @@ fn details_view_with_no_changes() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')));
+    tui.input_then_render((KeyModifiers::SHIFT, 'D'));
 
     tui.render_with_messages(None, Vec::new())
         .assert_rendered_contains("No changes");
@@ -587,8 +604,8 @@ fn escape_after_toggling_full_screen_details_closed_does_not_reopen_details() {
 
     let mut tui = test_tui(env);
 
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')));
-    tui.input_then_render((KeyModifiers::SHIFT, KeyCode::Char('D')));
+    tui.input_then_render((KeyModifiers::SHIFT, 'D'));
+    tui.input_then_render((KeyModifiers::SHIFT, 'D'));
 
     tui.input_then_render(KeyCode::Esc)
         .assert_rendered_term_svg_eq(file![
@@ -616,4 +633,17 @@ fn open_and_focus_details_split_can_be_closed_with_esc() {
         ]);
 
     tui.input_then_render(KeyCode::Esc);
+}
+
+#[test]
+fn viewing_empty_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    env.file("empty file", "");
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('d')
+        .assert_rendered_term_svg_eq(file!["snapshots/viewing_empty_file_001.svg"]);
 }
