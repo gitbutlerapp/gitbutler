@@ -119,7 +119,7 @@ test("creates and shows a checkpoint", async ({ browserName: _browserName }, tes
 
 		await fs.writeFile(path.join(repositoryPath, "notes.md"), "first checkpoint\n");
 
-		await expect(page.getByText(/^Checkpoint: /)).toBeVisible();
+		await expect(page.locator("ol li").first()).toBeVisible();
 		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(1);
 		await expect.poll(async () => await runGit(repositoryPath, ["status", "--porcelain"])).toBe("");
 	} finally {
@@ -191,7 +191,7 @@ test("uses a coding agent summary for checkpoint titles and commit bodies", asyn
 
 		await fs.writeFile(path.join(repositoryPath, "notes.md"), "first checkpoint\n");
 
-		await expect(page.getByText("Checkpoint: Adds notes screen")).toBeVisible();
+		await expect(page.getByText("Adds notes screen", { exact: true })).toBeVisible();
 		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(1);
 		await expect
 			.poll(async () => await latestCheckpointMessage(repositoryPath))
@@ -222,7 +222,7 @@ test("falls back to the date title when checkpoint summarization is too slow", a
 
 		await fs.writeFile(path.join(repositoryPath, "notes.md"), "timeout checkpoint\n");
 
-		await expect(page.getByText(/^Checkpoint: /)).toBeVisible();
+		await expect(page.locator("ol li").first()).toBeVisible();
 		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(1);
 		expect(await latestCheckpointMessage(repositoryPath)).not.toContain("Adds slow summary");
 	} finally {

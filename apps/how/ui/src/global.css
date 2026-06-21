@@ -34,3 +34,18 @@ textarea,
 select {
 	font: inherit;
 }
+
+@keyframes checkpoint-message-flash {
+	0% {
+		background-color: #dcfce7;
+		border-color: #86efac;
+	}
+	100% {
+		background-color: #f5f5f4;
+		border-color: #e7e5e4;
+	}
+}
+
+.checkpoint-message-flash {
+	animation: checkpoint-message-flash 1200ms ease-out;
+}

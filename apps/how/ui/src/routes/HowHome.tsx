@@ -7,6 +7,8 @@ import {
 	Clock,
 	Eye,
 	FolderOpen,
+	GitCommitHorizontal,
+	MoreHorizontal,
 	Pencil,
 	Plus,
 	RefreshCw,
@@ -14,7 +16,7 @@ import {
 	Trash2,
 	Upload,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
 	Bookmark,
 	BrowsingSession,
@@ -78,6 +80,10 @@ function formatTime(timestamp: number): string {
 		hour: "2-digit",
 		minute: "2-digit",
 	}).format(new Date(timestamp));
+}
+
+function checkpointDisplayTitle(title: string): string {
+	return title.replace(/^Checkpoint:\s*/i, "");
 }
 
 function iconForState(state: SaveState) {
@@ -426,6 +432,12 @@ function BookmarkSidebar({
 	onDelete: (bookmark: Bookmark) => Promise<void>;
 	busy: boolean;
 }) {
+	const [openMenuBookmarkId, setOpenMenuBookmarkId] = useState<string | null>(null);
+
+	function closeMenu() {
+		setOpenMenuBookmarkId(null);
+	}
+
 	return (
 		<aside className="flex w-full shrink-0 flex-col border-stone-200 lg:h-full lg:min-h-0 lg:w-64 lg:border-r lg:pr-5">
 			<div className="mb-3 flex shrink-0 items-center justify-between gap-2">
@@ -464,54 +476,77 @@ function BookmarkSidebar({
 						{bookmarks.map((bookmark) => (
 							<li
 								key={bookmark.id}
-								className={`rounded-md border p-2 ${
+								className={`relative rounded-md border p-2 ${
 									bookmark.isCurrent ? "border-stone-500 bg-white" : "border-stone-200 bg-stone-100"
 								}`}
 							>
-								<button
-									className="block w-full min-w-0 text-left disabled:cursor-default"
-									onClick={() => void onSwitch(bookmark)}
-									disabled={busy || bookmark.isCurrent}
-								>
-									<span className="block truncate text-sm font-medium text-stone-950">
-										{bookmark.name}
-									</span>
-									<span className="mt-1 flex items-center gap-2 text-xs text-stone-500">
-										{bookmark.isCurrent ? "current" : formatTime(bookmark.updatedAt)}
-										{bookmark.kind === "auto" ? <span>auto</span> : null}
-									</span>
-								</button>
-								<div className="mt-2 flex flex-wrap gap-1">
+								<div className="flex items-start gap-2">
+									<button
+										className="block min-w-0 flex-1 text-left disabled:cursor-default"
+										onClick={() => void onSwitch(bookmark)}
+										disabled={busy || bookmark.isCurrent}
+									>
+										<span className="block truncate text-sm font-medium text-stone-950">
+											{bookmark.name}
+										</span>
+										<span className="mt-1 flex items-center gap-2 text-xs text-stone-500">
+											{bookmark.isCurrent ? "current" : formatTime(bookmark.updatedAt)}
+											{bookmark.kind === "auto" ? <span>auto</span> : null}
+										</span>
+									</button>
 									<Button
 										variant="ghost"
-										size="sm"
-										className="h-7 px-2"
-										onClick={() => void onRename(bookmark)}
+										size="icon"
+										className="h-7 w-7 shrink-0"
+										aria-label={`More actions for ${bookmark.name}`}
+										aria-expanded={openMenuBookmarkId === bookmark.id}
+										onClick={() =>
+											setOpenMenuBookmarkId((current) =>
+												current === bookmark.id ? null : bookmark.id,
+											)
+										}
 										disabled={busy}
 									>
-										<Pencil className="h-3.5 w-3.5" aria-hidden />
-										Rename
-									</Button>
-									<Button
-										variant="ghost"
-										size="sm"
-										className="h-7 px-2"
-										onClick={() => void onUpdate(bookmark)}
-										disabled={busy || Boolean(browsing)}
-									>
-										Update
-									</Button>
-									<Button
-										variant="ghost"
-										size="sm"
-										className="h-7 px-2"
-										onClick={() => void onDelete(bookmark)}
-										disabled={busy}
-									>
-										<Trash2 className="h-3.5 w-3.5" aria-hidden />
-										Delete
+										<MoreHorizontal className="h-4 w-4" aria-hidden />
 									</Button>
 								</div>
+								{openMenuBookmarkId === bookmark.id ? (
+									<div className="absolute right-2 top-10 z-10 w-36 rounded-md border border-stone-200 bg-white p-1 shadow-lg">
+										<button
+											className="flex h-8 w-full items-center gap-2 rounded px-2 text-left text-sm text-stone-700 hover:bg-stone-100 disabled:cursor-not-allowed disabled:text-stone-400"
+											onClick={() => {
+												closeMenu();
+												void onRename(bookmark);
+											}}
+											disabled={busy}
+										>
+											<Pencil className="h-3.5 w-3.5" aria-hidden />
+											Rename
+										</button>
+										<button
+											className="flex h-8 w-full items-center gap-2 rounded px-2 text-left text-sm text-stone-700 hover:bg-stone-100 disabled:cursor-not-allowed disabled:text-stone-400"
+											onClick={() => {
+												closeMenu();
+												void onUpdate(bookmark);
+											}}
+											disabled={busy || Boolean(browsing)}
+										>
+											<RefreshCw className="h-3.5 w-3.5" aria-hidden />
+											Update
+										</button>
+										<button
+											className="flex h-8 w-full items-center gap-2 rounded px-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:text-stone-400"
+											onClick={() => {
+												closeMenu();
+												void onDelete(bookmark);
+											}}
+											disabled={busy}
+										>
+											<Trash2 className="h-3.5 w-3.5" aria-hidden />
+											Delete
+										</button>
+									</div>
+								) : null}
 							</li>
 						))}
 					</ul>
@@ -524,11 +559,13 @@ function BookmarkSidebar({
 function Timeline({
 	checkpoints,
 	browsing,
+	highlightedCheckpointIds,
 	onView,
 	busy,
 }: {
 	checkpoints: Array<Checkpoint>;
 	browsing: BrowsingSession | null;
+	highlightedCheckpointIds: Set<string>;
 	onView: (checkpoint: Checkpoint) => Promise<void>;
 	busy: boolean;
 }) {
@@ -551,12 +588,14 @@ function Timeline({
 						browsing?.currentCheckpointId === checkpoint.id
 							? "border-stone-500 bg-white"
 							: "border-stone-200 bg-stone-100"
-					}`}
+					} ${highlightedCheckpointIds.has(checkpoint.id) ? "checkpoint-message-flash" : ""}`}
 				>
-					<div className="mt-1 h-2.5 w-2.5 rounded-full bg-stone-700" />
+					<GitCommitHorizontal className="mt-0.5 h-5 w-5 text-stone-500" aria-hidden />
 					<div className="min-w-0 flex-1">
 						<div className="flex min-w-0 items-center gap-2">
-							<p className="truncate text-sm font-medium text-stone-950">{checkpoint.title}</p>
+							<p className="truncate text-sm font-medium text-stone-950">
+								{checkpointDisplayTitle(checkpoint.title)}
+							</p>
 							{browsing?.currentCheckpointId === checkpoint.id ? (
 								<span className="shrink-0 rounded-md bg-stone-200 px-2 py-0.5 text-xs font-medium text-stone-700">
 									viewing
@@ -585,6 +624,7 @@ function Timeline({
 
 function ProjectScreen({
 	status,
+	highlightedCheckpointIds,
 	onOpen,
 	onStart,
 	onDelete,
@@ -600,6 +640,7 @@ function ProjectScreen({
 	busy,
 }: {
 	status: HowStatus;
+	highlightedCheckpointIds: Set<string>;
 	onOpen: () => Promise<void>;
 	onStart: () => Promise<void>;
 	onDelete: () => Promise<void>;
@@ -701,6 +742,7 @@ function ProjectScreen({
 							<Timeline
 								checkpoints={status.checkpoints}
 								browsing={status.browsing}
+								highlightedCheckpointIds={highlightedCheckpointIds}
 								onView={onView}
 								busy={busy}
 							/>
@@ -716,6 +758,9 @@ export function HowHome() {
 	const [status, setStatus] = useState<HowStatus>(initialStatus);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [highlightedCheckpointIds, setHighlightedCheckpointIds] = useState<Set<string>>(
+		() => new Set(),
+	);
 	const [pendingDirtyAction, setPendingDirtyAction] = useState<PendingDirtyAction | null>(null);
 	const [bookmarkNameAction, setBookmarkNameAction] = useState<BookmarkNameAction | null>(null);
 	const [bookmarkConfirmAction, setBookmarkConfirmAction] = useState<BookmarkConfirmAction | null>(
@@ -727,6 +772,8 @@ export function HowHome() {
 	const [showChooseGithubRepositoryDialog, setShowChooseGithubRepositoryDialog] = useState(false);
 	const [githubRepositoryName, setGithubRepositoryName] = useState("how-project");
 	const [githubRepositories, setGithubRepositories] = useState<Array<GithubRepositorySummary>>([]);
+	const previousCheckpointTitles = useRef<Map<string, string> | null>(null);
+	const checkpointHighlightTimers = useRef<Map<string, number>>(new Map());
 
 	useEffect(() => {
 		let mounted = true;
@@ -739,6 +786,49 @@ export function HowHome() {
 		return () => {
 			mounted = false;
 			unsubscribe();
+		};
+	}, []);
+
+	useEffect(() => {
+		const previous = previousCheckpointTitles.current;
+		const next = new Map(status.checkpoints.map((checkpoint) => [checkpoint.id, checkpoint.title]));
+		if (previous) {
+			const changedCheckpointIds = status.checkpoints
+				.filter((checkpoint) => {
+					const previousTitle = previous.get(checkpoint.id);
+					return previousTitle !== undefined && previousTitle !== checkpoint.title;
+				})
+				.map((checkpoint) => checkpoint.id);
+
+			if (changedCheckpointIds.length > 0) {
+				setHighlightedCheckpointIds((current) => {
+					const updated = new Set(current);
+					for (const checkpointId of changedCheckpointIds) updated.add(checkpointId);
+					return updated;
+				});
+				for (const checkpointId of changedCheckpointIds) {
+					const existingTimer = checkpointHighlightTimers.current.get(checkpointId);
+					if (existingTimer !== undefined) window.clearTimeout(existingTimer);
+					const timer = window.setTimeout(() => {
+						setHighlightedCheckpointIds((current) => {
+							const updated = new Set(current);
+							updated.delete(checkpointId);
+							return updated;
+						});
+						checkpointHighlightTimers.current.delete(checkpointId);
+					}, 1200);
+					checkpointHighlightTimers.current.set(checkpointId, timer);
+				}
+			}
+		}
+		previousCheckpointTitles.current = next;
+	}, [status.checkpoints]);
+
+	useEffect(() => {
+		const timers = checkpointHighlightTimers.current;
+		return () => {
+			for (const timer of timers.values()) window.clearTimeout(timer);
+			timers.clear();
 		};
 	}, []);
 
@@ -1099,6 +1189,7 @@ export function HowHome() {
 		<>
 			<ProjectScreen
 				status={status}
+				highlightedCheckpointIds={highlightedCheckpointIds}
 				onOpen={openProject}
 				onStart={startProject}
 				onDelete={deleteProject}
