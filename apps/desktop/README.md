@@ -41,7 +41,7 @@ pnpm turbo run package --filter=...@gitbutler/desktop
 
 #### 3. Go to the browser
 
-Open Chrome (let's not kid ourselves) and got to `http://localhost:1420` and enjoy
+Open Chrome (let's not kid ourselves) and go to `http://localhost:1420` and enjoy
 
 ### Development
 
