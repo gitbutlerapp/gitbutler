@@ -124,6 +124,32 @@ fn switch_bookmark_moves_main_and_worktree() -> anyhow::Result<()> {
 }
 
 #[test]
+fn switching_bookmark_does_not_move_it_above_newer_bookmarks() -> anyhow::Result<()> {
+    let (repo, tmp) = repository()?;
+    let mut ctx = but_ctx::Context::from_repo(repo)?.with_memory_app_cache();
+    let older = but_api::how::how_create_bookmark(
+        &ctx,
+        "Older".into(),
+        but_api::how::HowBookmarkKind::User,
+    )?;
+
+    commit_file(tmp.path(), "notes.md", "newer\n", "Newer");
+    let newer = but_api::how::how_create_bookmark(
+        &ctx,
+        "Newer".into(),
+        but_api::how::HowBookmarkKind::User,
+    )?;
+
+    but_api::how::how_switch_bookmark(&mut ctx, older.id.clone())?;
+
+    let bookmarks = but_api::how::how_list_bookmarks(&ctx)?;
+    assert_eq!(bookmarks[0].id, newer.id);
+    assert_eq!(bookmarks[1].id, older.id);
+    assert!(bookmarks[1].is_current);
+    Ok(())
+}
+
+#[test]
 fn update_rename_and_delete_bookmark() -> anyhow::Result<()> {
     let (repo, tmp) = repository()?;
     let ctx = but_ctx::Context::from_repo(repo)?.with_memory_app_cache();

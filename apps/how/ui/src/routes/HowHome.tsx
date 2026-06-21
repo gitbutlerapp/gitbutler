@@ -1,4 +1,6 @@
 import { Button } from "#ui/components/ui/button.tsx";
+import { getHowStatus, howStatusQueryKey } from "#ui/lib/how-status-query.ts";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
 	AlertCircle,
@@ -16,7 +18,7 @@ import {
 	Trash2,
 	Upload,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
 	Bookmark,
 	BrowsingSession,
@@ -84,6 +86,10 @@ function formatTime(timestamp: number): string {
 
 function checkpointDisplayTitle(title: string): string {
 	return title.replace(/^Checkpoint:\s*/i, "");
+}
+
+function checkpointTimelineKey(checkpoint: Checkpoint): string {
+	return checkpoint.changeId ?? checkpoint.id;
 }
 
 function iconForState(state: SaveState) {
@@ -416,6 +422,7 @@ function ChooseGithubRepositoryDialog({
 function BookmarkSidebar({
 	bookmarks,
 	browsing,
+	highlightedBookmarkIds,
 	onCreate,
 	onSwitch,
 	onUpdate,
@@ -425,6 +432,7 @@ function BookmarkSidebar({
 }: {
 	bookmarks: Array<Bookmark>;
 	browsing: BrowsingSession | null;
+	highlightedBookmarkIds: Set<string>;
 	onCreate: () => Promise<void>;
 	onSwitch: (bookmark: Bookmark) => Promise<void>;
 	onUpdate: (bookmark: Bookmark) => Promise<void>;
@@ -478,7 +486,7 @@ function BookmarkSidebar({
 								key={bookmark.id}
 								className={`relative rounded-md border p-2 ${
 									bookmark.isCurrent ? "border-stone-500 bg-white" : "border-stone-200 bg-stone-100"
-								}`}
+								} ${highlightedBookmarkIds.has(bookmark.id) ? "checkpoint-message-flash" : ""}`}
 							>
 								<div className="flex items-start gap-2">
 									<button
@@ -559,13 +567,13 @@ function BookmarkSidebar({
 function Timeline({
 	checkpoints,
 	browsing,
-	highlightedCheckpointIds,
+	highlightedCheckpointKeys,
 	onView,
 	busy,
 }: {
 	checkpoints: Array<Checkpoint>;
 	browsing: BrowsingSession | null;
-	highlightedCheckpointIds: Set<string>;
+	highlightedCheckpointKeys: Set<string>;
 	onView: (checkpoint: Checkpoint) => Promise<void>;
 	busy: boolean;
 }) {
@@ -583,12 +591,16 @@ function Timeline({
 		<ol className="space-y-3">
 			{checkpoints.map((checkpoint, index) => (
 				<li
-					key={checkpoint.id}
+					key={checkpointTimelineKey(checkpoint)}
 					className={`group grid grid-cols-[auto_1fr_auto] gap-4 rounded-md border px-4 py-3 ${
 						browsing?.currentCheckpointId === checkpoint.id
 							? "border-stone-500 bg-white"
 							: "border-stone-200 bg-stone-100"
-					} ${highlightedCheckpointIds.has(checkpoint.id) ? "checkpoint-message-flash" : ""}`}
+					} ${
+						highlightedCheckpointKeys.has(checkpointTimelineKey(checkpoint))
+							? "checkpoint-message-flash"
+							: ""
+					}`}
 				>
 					<GitCommitHorizontal className="mt-0.5 h-5 w-5 text-stone-500" aria-hidden />
 					<div className="min-w-0 flex-1">
@@ -624,7 +636,8 @@ function Timeline({
 
 function ProjectScreen({
 	status,
-	highlightedCheckpointIds,
+	highlightedCheckpointKeys,
+	highlightedBookmarkIds,
 	onOpen,
 	onStart,
 	onDelete,
@@ -640,7 +653,8 @@ function ProjectScreen({
 	busy,
 }: {
 	status: HowStatus;
-	highlightedCheckpointIds: Set<string>;
+	highlightedCheckpointKeys: Set<string>;
+	highlightedBookmarkIds: Set<string>;
 	onOpen: () => Promise<void>;
 	onStart: () => Promise<void>;
 	onDelete: () => Promise<void>;
@@ -726,10 +740,11 @@ function ProjectScreen({
 					</section>
 				) : null}
 
-				<div className="flex flex-col gap-6 lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[16rem_minmax(0,1fr)]">
+				<div className="flex flex-col gap-6 md:grid md:min-h-0 md:flex-1 md:grid-cols-[16rem_minmax(0,1fr)]">
 					<BookmarkSidebar
 						bookmarks={status.bookmarks}
 						browsing={status.browsing}
+						highlightedBookmarkIds={highlightedBookmarkIds}
 						onCreate={onCreateBookmark}
 						onSwitch={onSwitchBookmark}
 						onUpdate={onUpdateBookmark}
@@ -742,7 +757,7 @@ function ProjectScreen({
 							<Timeline
 								checkpoints={status.checkpoints}
 								browsing={status.browsing}
-								highlightedCheckpointIds={highlightedCheckpointIds}
+								highlightedCheckpointKeys={highlightedCheckpointKeys}
 								onView={onView}
 								busy={busy}
 							/>
@@ -755,10 +770,28 @@ function ProjectScreen({
 }
 
 export function HowHome() {
-	const [status, setStatus] = useState<HowStatus>(initialStatus);
+	const queryClient = useQueryClient();
+	const statusQuery = useQuery({
+		queryKey: howStatusQueryKey,
+		queryFn: getHowStatus,
+		placeholderData: initialStatus,
+	});
+	const status = statusQuery.data ?? initialStatus;
+	const setStatus = useCallback(
+		(nextStatus: HowStatus | ((currentStatus: HowStatus) => HowStatus)) => {
+			queryClient.setQueryData<HowStatus>(howStatusQueryKey, (currentStatus) => {
+				if (typeof nextStatus === "function") return nextStatus(currentStatus ?? initialStatus);
+				return nextStatus;
+			});
+		},
+		[queryClient],
+	);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [highlightedCheckpointIds, setHighlightedCheckpointIds] = useState<Set<string>>(
+	const [highlightedCheckpointKeys, setHighlightedCheckpointKeys] = useState<Set<string>>(
+		() => new Set(),
+	);
+	const [highlightedBookmarkIds, setHighlightedBookmarkIds] = useState<Set<string>>(
 		() => new Set(),
 	);
 	const [pendingDirtyAction, setPendingDirtyAction] = useState<PendingDirtyAction | null>(null);
@@ -773,51 +806,51 @@ export function HowHome() {
 	const [githubRepositoryName, setGithubRepositoryName] = useState("how-project");
 	const [githubRepositories, setGithubRepositories] = useState<Array<GithubRepositorySummary>>([]);
 	const previousCheckpointTitles = useRef<Map<string, string> | null>(null);
+	const previousBookmarkIds = useRef<Set<string> | null>(null);
+	const previousBookmarkProjectId = useRef<string | null>(null);
 	const checkpointHighlightTimers = useRef<Map<string, number>>(new Map());
+	const bookmarkHighlightTimers = useRef<Map<string, number>>(new Map());
 
 	useEffect(() => {
-		let mounted = true;
-		void window.how.getStatus().then((nextStatus) => {
-			if (mounted) setStatus(nextStatus);
-		});
 		const unsubscribe = window.how.onStatus((nextStatus) => {
 			setStatus(nextStatus);
 		});
 		return () => {
-			mounted = false;
 			unsubscribe();
 		};
-	}, []);
+	}, [setStatus]);
 
 	useEffect(() => {
 		const previous = previousCheckpointTitles.current;
-		const next = new Map(status.checkpoints.map((checkpoint) => [checkpoint.id, checkpoint.title]));
+		const next = new Map(
+			status.checkpoints.map((checkpoint) => [checkpointTimelineKey(checkpoint), checkpoint.title]),
+		);
 		if (previous) {
-			const changedCheckpointIds = status.checkpoints
+			const changedCheckpointKeys = status.checkpoints
 				.filter((checkpoint) => {
-					const previousTitle = previous.get(checkpoint.id);
+					const previousTitle = previous.get(checkpointTimelineKey(checkpoint));
 					return previousTitle !== undefined && previousTitle !== checkpoint.title;
 				})
-				.map((checkpoint) => checkpoint.id);
+				.map(checkpointTimelineKey);
 
-			if (changedCheckpointIds.length > 0) {
-				setHighlightedCheckpointIds((current) => {
+			if (changedCheckpointKeys.length > 0) {
+				setHighlightedCheckpointKeys((current) => {
 					const updated = new Set(current);
-					for (const checkpointId of changedCheckpointIds) updated.add(checkpointId);
+					for (const checkpointKey of changedCheckpointKeys) updated.add(checkpointKey);
 					return updated;
 				});
-				for (const checkpointId of changedCheckpointIds) {
-					const existingTimer = checkpointHighlightTimers.current.get(checkpointId);
+				for (const checkpointKey of changedCheckpointKeys) {
+					const existingTimer = checkpointHighlightTimers.current.get(checkpointKey);
 					if (existingTimer !== undefined) window.clearTimeout(existingTimer);
 					const timer = window.setTimeout(() => {
-						setHighlightedCheckpointIds((current) => {
+						setHighlightedCheckpointKeys((current) => {
 							const updated = new Set(current);
-							updated.delete(checkpointId);
+							updated.delete(checkpointKey);
 							return updated;
 						});
-						checkpointHighlightTimers.current.delete(checkpointId);
+						checkpointHighlightTimers.current.delete(checkpointKey);
 					}, 1200);
-					checkpointHighlightTimers.current.set(checkpointId, timer);
+					checkpointHighlightTimers.current.set(checkpointKey, timer);
 				}
 			}
 		}
@@ -826,6 +859,49 @@ export function HowHome() {
 
 	useEffect(() => {
 		const timers = checkpointHighlightTimers.current;
+		return () => {
+			for (const timer of timers.values()) window.clearTimeout(timer);
+			timers.clear();
+		};
+	}, []);
+
+	useEffect(() => {
+		const previous = previousBookmarkIds.current;
+		const previousProjectId = previousBookmarkProjectId.current;
+		const currentProjectId = status.project?.id ?? null;
+		const next = new Set(status.bookmarks.map((bookmark) => bookmark.id));
+		if (previous && previousProjectId === currentProjectId) {
+			const createdBookmarkIds = status.bookmarks
+				.filter((bookmark) => bookmark.kind === "user" && !previous.has(bookmark.id))
+				.map((bookmark) => bookmark.id);
+
+			if (createdBookmarkIds.length > 0) {
+				setHighlightedBookmarkIds((current) => {
+					const updated = new Set(current);
+					for (const bookmarkId of createdBookmarkIds) updated.add(bookmarkId);
+					return updated;
+				});
+				for (const bookmarkId of createdBookmarkIds) {
+					const existingTimer = bookmarkHighlightTimers.current.get(bookmarkId);
+					if (existingTimer !== undefined) window.clearTimeout(existingTimer);
+					const timer = window.setTimeout(() => {
+						setHighlightedBookmarkIds((current) => {
+							const updated = new Set(current);
+							updated.delete(bookmarkId);
+							return updated;
+						});
+						bookmarkHighlightTimers.current.delete(bookmarkId);
+					}, 1200);
+					bookmarkHighlightTimers.current.set(bookmarkId, timer);
+				}
+			}
+		}
+		previousBookmarkIds.current = next;
+		previousBookmarkProjectId.current = currentProjectId;
+	}, [status.bookmarks, status.project?.id]);
+
+	useEffect(() => {
+		const timers = bookmarkHighlightTimers.current;
 		return () => {
 			for (const timer of timers.values()) window.clearTimeout(timer);
 			timers.clear();
@@ -1189,7 +1265,8 @@ export function HowHome() {
 		<>
 			<ProjectScreen
 				status={status}
-				highlightedCheckpointIds={highlightedCheckpointIds}
+				highlightedCheckpointKeys={highlightedCheckpointKeys}
+				highlightedBookmarkIds={highlightedBookmarkIds}
 				onOpen={openProject}
 				onStart={startProject}
 				onDelete={deleteProject}

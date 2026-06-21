@@ -1,7 +1,9 @@
 import { Button } from "#ui/components/ui/button.tsx";
+import { getHowStatus, howStatusQueryKey } from "#ui/lib/how-status-query.ts";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { CodingAgent, HowStatus } from "../../../electron/src/ipc";
 
 const minimumSaveDelaySeconds = 1;
@@ -29,28 +31,40 @@ function clampSaveDelaySeconds(value: number): number {
 }
 
 export function HowSettings() {
-	const [status, setStatus] = useState<HowStatus>(initialStatus);
+	const queryClient = useQueryClient();
+	const statusQuery = useQuery({
+		queryKey: howStatusQueryKey,
+		queryFn: getHowStatus,
+		placeholderData: initialStatus,
+	});
+	const status = statusQuery.data ?? initialStatus;
+	const setStatus = useCallback(
+		(nextStatus: HowStatus | ((currentStatus: HowStatus) => HowStatus)) => {
+			queryClient.setQueryData<HowStatus>(howStatusQueryKey, (currentStatus) => {
+				if (typeof nextStatus === "function") return nextStatus(currentStatus ?? initialStatus);
+				return nextStatus;
+			});
+		},
+		[queryClient],
+	);
 	const [saveDelaySeconds, setSaveDelaySeconds] = useState("10");
 	const [codingAgent, setCodingAgent] = useState<CodingAgent>("none");
 	const [busy, setBusy] = useState(false);
 	const [message, setMessage] = useState<string | null>(null);
 
 	useEffect(() => {
-		let mounted = true;
-		void window.how.getStatus().then((nextStatus) => {
-			if (!mounted) return;
-			setStatus(nextStatus);
-			setSaveDelaySeconds(String(nextStatus.settings.checkpointDebounceMs / 1000));
-			setCodingAgent(nextStatus.settings.codingAgent);
-		});
 		const unsubscribe = window.how.onStatus((nextStatus) => {
 			setStatus(nextStatus);
 		});
 		return () => {
-			mounted = false;
 			unsubscribe();
 		};
-	}, []);
+	}, [setStatus]);
+
+	useEffect(() => {
+		setSaveDelaySeconds(String(status.settings.checkpointDebounceMs / 1000));
+		setCodingAgent(status.settings.codingAgent);
+	}, [status.project?.id, status.settings.checkpointDebounceMs, status.settings.codingAgent]);
 
 	async function saveSettings() {
 		const normalizedSeconds = clampSaveDelaySeconds(Number(saveDelaySeconds));

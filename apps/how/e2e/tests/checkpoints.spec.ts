@@ -54,6 +54,10 @@ function checkpointItem(page: Page, index: number) {
 	return page.locator("ol > li").nth(index);
 }
 
+function bookmarkItem(page: Page, index: number) {
+	return page.locator("aside ul > li").nth(index);
+}
+
 async function viewCheckpoint(
 	page: Page,
 	index: number,
@@ -148,7 +152,11 @@ test("creates bookmarks, switches to one, and preserves the previous state", asy
 		await page.getByLabel("Name").fill("Version A");
 		await page.getByRole("button", { name: "Save" }).click();
 		await expect(page.getByText("Version A")).toBeVisible();
+		await expect(
+			page.locator("li.checkpoint-message-flash").filter({ hasText: "Version A" }),
+		).toBeVisible();
 		await expect(page.getByText("current")).toBeVisible();
+		await expect(page.locator("aside li.checkpoint-message-flash")).toHaveCount(0);
 
 		await createCheckpoint(page, repositoryPath, "notes.md", "checkpoint B\n", 2);
 		await expect(page.getByText("current")).toHaveCount(0);
@@ -157,6 +165,7 @@ test("creates bookmarks, switches to one, and preserves the previous state", asy
 		await expect(page.getByText("Switched bookmark")).toBeVisible();
 		await expect.poll(async () => await fs.readFile(notesPath, "utf8")).toBe("checkpoint A\n");
 		await expect(page.getByText("Before switching to Version A")).toBeVisible();
+		await expect(page.locator("aside li.checkpoint-message-flash")).toHaveCount(0);
 		await expect
 			.poll(
 				async () =>
@@ -167,6 +176,44 @@ test("creates bookmarks, switches to one, and preserves the previous state", asy
 					]),
 			)
 			.toContain("refs/gitbutler/how/bookmarks/");
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+	}
+});
+
+test("keeps bookmarks ordered by update time when switching", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-bookmark-order-project-");
+	await initializeGitRepository(repositoryPath);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await createCheckpoint(page, repositoryPath, "notes.md", "checkpoint A\n", 1);
+		await page.getByRole("button", { name: "Bookmark current state" }).first().click();
+		await page.getByLabel("Name").fill("Version A");
+		await page.getByRole("button", { name: "Save" }).click();
+		await expect(page.getByText("Version A")).toBeVisible();
+
+		await createCheckpoint(page, repositoryPath, "notes.md", "checkpoint B\n", 2);
+		await page.getByRole("button", { name: "Bookmark current state" }).first().click();
+		await page.getByLabel("Name").fill("Version B");
+		await page.getByRole("button", { name: "Save" }).click();
+		await expect(bookmarkItem(page, 0)).toContainText("Version B");
+		await expect(bookmarkItem(page, 1)).toContainText("Version A");
+
+		await bookmarkItem(page, 1).getByText("Version A").click();
+		await expect(page.getByText("Switched bookmark")).toBeVisible();
+		await expect(bookmarkItem(page, 0)).toContainText("Version B");
+		await expect(bookmarkItem(page, 1)).toContainText("Version A");
+		await expect(bookmarkItem(page, 1)).toContainText("current");
 	} finally {
 		await app.close();
 		await fs.rm(repositoryPath, { recursive: true, force: true });
@@ -192,6 +239,9 @@ test("uses a coding agent summary for checkpoint titles and commit bodies", asyn
 		await fs.writeFile(path.join(repositoryPath, "notes.md"), "first checkpoint\n");
 
 		await expect(page.getByText("Adds notes screen", { exact: true })).toBeVisible();
+		await expect(
+			page.locator("li.checkpoint-message-flash").filter({ hasText: "Adds notes screen" }),
+		).toBeVisible();
 		await expect.poll(async () => await checkpointCommitCount(repositoryPath)).toBe(1);
 		await expect
 			.poll(async () => await latestCheckpointMessage(repositoryPath))

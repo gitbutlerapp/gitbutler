@@ -843,20 +843,11 @@ fn list_bookmarks(repo: &gix::Repository) -> anyhow::Result<Vec<HowBookmark>> {
         });
     }
     bookmarks.sort_by(|a, b| {
-        b.is_current
-            .cmp(&a.is_current)
-            .then_with(|| bookmark_kind_rank(a.kind).cmp(&bookmark_kind_rank(b.kind)))
-            .then_with(|| b.updated_at.cmp(&a.updated_at))
+        b.updated_at
+            .cmp(&a.updated_at)
             .then_with(|| a.name.cmp(&b.name))
     });
     Ok(bookmarks)
-}
-
-fn bookmark_kind_rank(kind: HowBookmarkKind) -> u8 {
-    match kind {
-        HowBookmarkKind::User => 0,
-        HowBookmarkKind::Auto => 1,
-    }
 }
 
 fn create_bookmark_at_commit(

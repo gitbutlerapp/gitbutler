@@ -37,12 +37,12 @@ select {
 
 @keyframes checkpoint-message-flash {
 	0% {
-		background-color: #dcfce7;
 		border-color: #86efac;
+		background-color: #dcfce7;
 	}
 	100% {
-		background-color: #f5f5f4;
 		border-color: #e7e5e4;
+		background-color: #f5f5f4;
 	}
 }
 
