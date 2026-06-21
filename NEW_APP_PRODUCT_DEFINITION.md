@@ -337,6 +337,11 @@ importance. The sidebar includes the **Bookmark current state** action, the list
 of Bookmarks with the current marker, and per-Bookmark actions such as **Update
 to current state**.
 
+On desktop-sized project screens, the Bookmark sidebar lives on the left and
+scrolls independently from the Checkpoint timeline. The Checkpoint timeline keeps
+its own scroll area so a long Bookmark list never steals the main timeline's
+working space.
+
 When there are no Bookmarks, the sidebar has a compact empty state: "No
 bookmarks" and the **Bookmark current state** action. It should not use long
 educational copy or compete with the Checkpoint timeline.

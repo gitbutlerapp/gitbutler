@@ -427,8 +427,8 @@ function BookmarkSidebar({
 	busy: boolean;
 }) {
 	return (
-		<aside className="w-full shrink-0 border-stone-200 lg:w-64 lg:border-r lg:pr-5">
-			<div className="mb-3 flex items-center justify-between gap-2">
+		<aside className="flex w-full shrink-0 flex-col border-stone-200 lg:h-full lg:min-h-0 lg:w-64 lg:border-r lg:pr-5">
+			<div className="mb-3 flex shrink-0 items-center justify-between gap-2">
 				<h2 className="text-sm font-semibold tracking-normal text-stone-950">Bookmarks</h2>
 				<Button
 					variant="ghost"
@@ -444,77 +444,79 @@ function BookmarkSidebar({
 				</Button>
 			</div>
 
-			{bookmarks.length === 0 ? (
-				<div className="rounded-md border border-dashed border-stone-300 bg-white/70 p-4">
-					<p className="text-sm font-medium text-stone-900">No bookmarks</p>
-					<Button
-						variant="secondary"
-						size="sm"
-						className="mt-3 w-full"
-						onClick={() => void onCreate()}
-						disabled={busy || Boolean(browsing?.dirty)}
-					>
-						<BookmarkIcon className="h-4 w-4" aria-hidden />
-						Bookmark current state
-					</Button>
-				</div>
-			) : (
-				<ul className="space-y-2">
-					{bookmarks.map((bookmark) => (
-						<li
-							key={bookmark.id}
-							className={`rounded-md border p-2 ${
-								bookmark.isCurrent ? "border-stone-500 bg-white" : "border-stone-200 bg-stone-100"
-							}`}
+			<div className="pr-1 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+				{bookmarks.length === 0 ? (
+					<div className="rounded-md border border-dashed border-stone-300 bg-white/70 p-4">
+						<p className="text-sm font-medium text-stone-900">No bookmarks</p>
+						<Button
+							variant="secondary"
+							size="sm"
+							className="mt-3 w-full"
+							onClick={() => void onCreate()}
+							disabled={busy || Boolean(browsing?.dirty)}
 						>
-							<button
-								className="block w-full min-w-0 text-left disabled:cursor-default"
-								onClick={() => void onSwitch(bookmark)}
-								disabled={busy || bookmark.isCurrent}
+							<BookmarkIcon className="h-4 w-4" aria-hidden />
+							Bookmark current state
+						</Button>
+					</div>
+				) : (
+					<ul className="space-y-2">
+						{bookmarks.map((bookmark) => (
+							<li
+								key={bookmark.id}
+								className={`rounded-md border p-2 ${
+									bookmark.isCurrent ? "border-stone-500 bg-white" : "border-stone-200 bg-stone-100"
+								}`}
 							>
-								<span className="block truncate text-sm font-medium text-stone-950">
-									{bookmark.name}
-								</span>
-								<span className="mt-1 flex items-center gap-2 text-xs text-stone-500">
-									{bookmark.isCurrent ? "current" : formatTime(bookmark.updatedAt)}
-									{bookmark.kind === "auto" ? <span>auto</span> : null}
-								</span>
-							</button>
-							<div className="mt-2 flex flex-wrap gap-1">
-								<Button
-									variant="ghost"
-									size="sm"
-									className="h-7 px-2"
-									onClick={() => void onRename(bookmark)}
-									disabled={busy}
+								<button
+									className="block w-full min-w-0 text-left disabled:cursor-default"
+									onClick={() => void onSwitch(bookmark)}
+									disabled={busy || bookmark.isCurrent}
 								>
-									<Pencil className="h-3.5 w-3.5" aria-hidden />
-									Rename
-								</Button>
-								<Button
-									variant="ghost"
-									size="sm"
-									className="h-7 px-2"
-									onClick={() => void onUpdate(bookmark)}
-									disabled={busy || Boolean(browsing)}
-								>
-									Update
-								</Button>
-								<Button
-									variant="ghost"
-									size="sm"
-									className="h-7 px-2"
-									onClick={() => void onDelete(bookmark)}
-									disabled={busy}
-								>
-									<Trash2 className="h-3.5 w-3.5" aria-hidden />
-									Delete
-								</Button>
-							</div>
-						</li>
-					))}
-				</ul>
-			)}
+									<span className="block truncate text-sm font-medium text-stone-950">
+										{bookmark.name}
+									</span>
+									<span className="mt-1 flex items-center gap-2 text-xs text-stone-500">
+										{bookmark.isCurrent ? "current" : formatTime(bookmark.updatedAt)}
+										{bookmark.kind === "auto" ? <span>auto</span> : null}
+									</span>
+								</button>
+								<div className="mt-2 flex flex-wrap gap-1">
+									<Button
+										variant="ghost"
+										size="sm"
+										className="h-7 px-2"
+										onClick={() => void onRename(bookmark)}
+										disabled={busy}
+									>
+										<Pencil className="h-3.5 w-3.5" aria-hidden />
+										Rename
+									</Button>
+									<Button
+										variant="ghost"
+										size="sm"
+										className="h-7 px-2"
+										onClick={() => void onUpdate(bookmark)}
+										disabled={busy || Boolean(browsing)}
+									>
+										Update
+									</Button>
+									<Button
+										variant="ghost"
+										size="sm"
+										className="h-7 px-2"
+										onClick={() => void onDelete(bookmark)}
+										disabled={busy}
+									>
+										<Trash2 className="h-3.5 w-3.5" aria-hidden />
+										Delete
+									</Button>
+								</div>
+							</li>
+						))}
+					</ul>
+				)}
+			</div>
 		</aside>
 	);
 }
@@ -616,9 +618,9 @@ function ProjectScreen({
 	if (!project) return null;
 
 	return (
-		<main className="min-h-screen px-6 py-6">
-			<div className="mx-auto flex w-full h-full max-w-5xl flex-col justify-start gap-8">
-				<nav>
+		<main className="min-h-screen px-6 py-6 lg:flex lg:h-screen lg:min-h-0 lg:flex-col lg:overflow-hidden">
+			<div className="mx-auto flex w-full max-w-7xl flex-col justify-start gap-6 lg:h-full lg:min-h-0">
+				<nav className="shrink-0">
 					<Button variant="ghost" size="sm" onClick={() => void onOpen()} disabled={busy}>
 						<FolderOpen className="h-4 w-4" aria-hidden />
 						Open
@@ -632,7 +634,7 @@ function ProjectScreen({
 						Delete
 					</Button>
 				</nav>
-				<header className="flex flex-wrap items-start justify-between gap-4 pb-5">
+				<header className="flex shrink-0 flex-wrap items-start justify-between gap-4 pb-3">
 					<div className="min-w-0 flex-1">
 						<div className="flex min-w-0 items-center gap-2">
 							<h1 className="truncate text-xl font-semibold tracking-normal text-stone-700">
@@ -670,7 +672,7 @@ function ProjectScreen({
 				</header>
 
 				{status.browsing ? (
-					<section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-stone-200 bg-white px-4 py-3">
+					<section className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-md border border-stone-200 bg-white px-4 py-3">
 						<p className="text-sm text-stone-600">You are viewing an earlier checkpoint.</p>
 						<div className="flex flex-wrap gap-2">
 							<Button variant="secondary" onClick={() => void onReturnToLatest()} disabled={busy}>
@@ -683,7 +685,7 @@ function ProjectScreen({
 					</section>
 				) : null}
 
-				<div className="flex flex-col gap-6 lg:flex-row">
+				<div className="flex flex-col gap-6 lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[16rem_minmax(0,1fr)]">
 					<BookmarkSidebar
 						bookmarks={status.bookmarks}
 						browsing={status.browsing}
@@ -694,13 +696,15 @@ function ProjectScreen({
 						onDelete={onDeleteBookmark}
 						busy={busy}
 					/>
-					<section className="min-w-0 flex-1">
-						<Timeline
-							checkpoints={status.checkpoints}
-							browsing={status.browsing}
-							onView={onView}
-							busy={busy}
-						/>
+					<section className="min-w-0 lg:min-h-0 lg:overflow-y-auto">
+						<div className="mx-auto w-full max-w-3xl pb-8">
+							<Timeline
+								checkpoints={status.checkpoints}
+								browsing={status.browsing}
+								onView={onView}
+								busy={busy}
+							/>
+						</div>
 					</section>
 				</div>
 			</div>
