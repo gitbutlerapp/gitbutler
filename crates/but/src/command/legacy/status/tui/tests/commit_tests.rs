@@ -734,3 +734,22 @@ fn cannot_commit_to_new_branch_from_commit_line() {
             "snapshots/cannot_commit_to_new_branch_from_commit_line_002.svg"
         ]);
 }
+
+#[test]
+fn commit_to_new_branch_from_unassigned() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    let mut tui = test_tui(env);
+
+    tui.env().file("test.txt", "content");
+
+    tui.reload();
+
+    tui.input_then_render('c');
+    tui.input_then_render('e');
+    tui.input_then_render('b')
+        .assert_rendered_term_svg_eq(file![
+            "snapshots/commit_to_new_branch_from_unassigned_001.svg"
+        ]);
+}
