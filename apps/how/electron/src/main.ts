@@ -248,6 +248,7 @@ function registerIpc(): void {
 			createGithubRepositoryName,
 		});
 	});
+	handle(howIpcChannels.updateProject, async () => await getService().updateProject());
 	handle(howIpcChannels.loginToGithub, async () => await getService().loginToGithub());
 	handle(
 		howIpcChannels.listGithubRepositories,

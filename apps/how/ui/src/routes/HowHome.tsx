@@ -49,6 +49,7 @@ const initialStatus: HowStatus = {
 };
 
 function statusLabel(status: HowStatus): string {
+	if (status.saveState === "error" && status.message) return status.message;
 	if (status.sharedProject.state === "updateAvailable") return "Update available";
 	if (status.sharedProject.state === "couldNotCheck") return "Could not check for updates";
 	if (status.message) return status.message;
@@ -84,6 +85,7 @@ function statusTone(state: SaveState): string {
 }
 
 function statusToneForStatus(status: HowStatus): string {
+	if (status.saveState === "error") return statusTone(status.saveState);
 	if (status.sharedProject.state === "updateAvailable") return "bg-amber-100 text-amber-900";
 	if (status.sharedProject.state === "couldNotCheck") return "bg-stone-100 text-stone-500";
 	return statusTone(status.saveState);
@@ -115,6 +117,7 @@ function iconForState(state: SaveState) {
 }
 
 function iconForStatus(status: HowStatus) {
+	if (status.saveState === "error") return iconForState(status.saveState);
 	if (status.sharedProject.state === "updateAvailable")
 		return <RefreshCw className="h-4 w-4" aria-hidden />;
 	if (status.sharedProject.state === "couldNotCheck")
@@ -190,6 +193,7 @@ type PendingAction =
 	| "continueFromCheckpoint"
 	| "returnToLatest"
 	| "publish"
+	| "updateProject"
 	| "githubLogin"
 	| "githubCreateRepository"
 	| "githubLoadRepositories"
@@ -714,11 +718,7 @@ const BrowsingActions = memo(
 	}) {
 		return (
 			<div className="flex flex-wrap gap-2">
-				<Button
-					variant="secondary"
-					onClick={() => void onReturnToLatest()}
-					disabled={disabled}
-				>
+				<Button variant="secondary" onClick={() => void onReturnToLatest()} disabled={disabled}>
 					Return to latest
 				</Button>
 				<Button onClick={() => void onContinue()} disabled={disabled}>
@@ -739,6 +739,7 @@ function ProjectScreen({
 	onStart,
 	onDelete,
 	onPublish,
+	onUpdateProject,
 	onCreateBookmark,
 	onSwitchBookmark,
 	onUpdateBookmark,
@@ -756,6 +757,7 @@ function ProjectScreen({
 	onStart: () => Promise<void>;
 	onDelete: () => Promise<void>;
 	onPublish: () => Promise<void>;
+	onUpdateProject: () => Promise<void>;
 	onCreateBookmark: () => Promise<void>;
 	onSwitchBookmark: (bookmark: Bookmark) => Promise<void>;
 	onUpdateBookmark: (bookmark: Bookmark) => Promise<void>;
@@ -783,6 +785,7 @@ function ProjectScreen({
 		pendingAction === "leaveBrowsingChanges";
 	const publishBusy =
 		pendingAction === "publish" ||
+		pendingAction === "updateProject" ||
 		pendingAction === "githubLogin" ||
 		pendingAction === "githubCreateRepository" ||
 		pendingAction === "githubLoadRepositories" ||
@@ -822,9 +825,17 @@ function ProjectScreen({
 					</div>
 					<div className="flex items-center gap-2">
 						{sharedUpdateAvailable ? (
-							<Button disabled title="Update project is coming soon.">
+							<Button
+								onClick={() => void onUpdateProject()}
+								disabled={publishBusy || Boolean(status.browsing)}
+								title={
+									status.browsing
+										? "Continue from here or return to latest before updating."
+										: undefined
+								}
+							>
 								<RefreshCw className="h-4 w-4" aria-hidden />
-								Update project
+								{pendingAction === "updateProject" ? "Updating project" : "Update project"}
 							</Button>
 						) : null}
 						<PublishButton
@@ -835,7 +846,7 @@ function ProjectScreen({
 									? "Continue from here or return to latest before publishing."
 									: sharedUpdateAvailable
 										? "Update this project before publishing."
-									: undefined
+										: undefined
 							}
 							label={status.message === "Publishing" ? "Publishing" : "Publish"}
 						/>
@@ -1275,6 +1286,15 @@ export function HowHome() {
 		}
 	}
 
+	async function updateProject() {
+		setError(null);
+		try {
+			setStatus(await runPending("updateProject", async () => await window.how.updateProject()));
+		} catch {
+			setError("How could not update this project automatically.");
+		}
+	}
+
 	async function loginToGithub() {
 		setError(null);
 		try {
@@ -1445,6 +1465,7 @@ export function HowHome() {
 				onStart={startProject}
 				onDelete={deleteProject}
 				onPublish={publishProject}
+				onUpdateProject={updateProject}
 				onCreateBookmark={createBookmark}
 				onSwitchBookmark={switchBookmark}
 				onUpdateBookmark={updateBookmark}

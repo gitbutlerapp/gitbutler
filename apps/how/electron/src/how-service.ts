@@ -2,6 +2,7 @@ import { capDiffForSummary, checkpointMessageForSavedCheckpoint } from "./checkp
 import { checkpointMessage } from "./checkpoints.js";
 import {
 	checkpointDiffForCommit,
+	applyProjectUpdate,
 	createCheckpointCommit,
 	createProjectBookmark,
 	createProjectBookmarkFromCommit,
@@ -16,6 +17,7 @@ import {
 	hasWorktreeChanges,
 	listProjectBookmarks,
 	listCheckpointCommits,
+	prepareProjectUpdate,
 	publishDirect,
 	readPublishMode,
 	readProjectSettings,
@@ -102,6 +104,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
+function containsConflictedState(value: unknown): boolean {
+	if (Array.isArray(value)) return value.some((item) => containsConflictedState(item));
+	if (!isRecord(value)) return false;
+	for (const [key, child] of Object.entries(value)) {
+		if (
+			(key === "conflicted" || key === "isConflicted" || key === "hasConflicts") &&
+			child === true
+		)
+			return true;
+		if (containsConflictedState(child)) return true;
+	}
+	return false;
+}
+
 async function sleep(milliseconds: number): Promise<void> {
 	await new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
@@ -145,13 +161,13 @@ export class HowService {
 			this.logger.info("Resuming active project", stored.activeProject);
 			this.#status = {
 				...this.#status,
-					project: stored.activeProject,
-					saveState: "watching",
-					message: stored.browsing ? "Browsing checkpoint" : "Watching for changes",
-					checkpoints: stored.browsing?.checkpoints ?? [],
-					bookmarks: [],
-					browsing: stored.browsing,
-				};
+				project: stored.activeProject,
+				saveState: "watching",
+				message: stored.browsing ? "Browsing checkpoint" : "Watching for changes",
+				checkpoints: stored.browsing?.checkpoints ?? [],
+				bookmarks: [],
+				browsing: stored.browsing,
+			};
 			try {
 				this.#status = {
 					...this.#status,
@@ -308,6 +324,116 @@ export class HowService {
 			};
 			this.#emit();
 			return { type: "failed", status: this.getStatus() };
+		} finally {
+			this.#saving = false;
+			if (this.#dirtyWhileSaving) {
+				this.#dirtyWhileSaving = false;
+				if (await hasWorktreeChanges(project.id)) this.#scheduleCheckpoint();
+			}
+		}
+	}
+
+	async updateProject(): Promise<HowStatus> {
+		const project = this.#status.project;
+		if (!project) throw new Error("How could not find an open project.");
+		if (this.#status.browsing)
+			throw new Error("Continue from here or return to latest before updating.");
+
+		this.logger.info("Updating project from shared project", { project });
+		this.#cancelPendingSummaryUpdates("update project");
+		this.#clearScheduledCheckpoint();
+		await this.#waitForActiveSave();
+		this.#clearScheduledCheckpoint();
+		this.#saving = true;
+		this.#dirtyWhileSaving = false;
+		this.#status = {
+			...this.#status,
+			saveState: "saving",
+			message: "Updating project",
+		};
+		this.#emit();
+
+		try {
+			await this.#createCheckpointForUpdate(project);
+			await this.#refreshSharedProjectStatus(project, { fetch: true });
+			if (this.#status.sharedProject.state !== "updateAvailable") {
+				await this.#refreshProjectLists();
+				this.#status = {
+					...this.#status,
+					saveState: "saved",
+					message: "Up to date",
+					lastSavedAt: Date.now(),
+				};
+				this.#emit();
+				return this.getStatus();
+			}
+
+			const update = await prepareProjectUpdate(project.id);
+			if (update.integration.integration.steps.length === 0) {
+				await this.#refreshSharedProjectStatus(project, { fetch: false });
+				await this.#refreshProjectLists();
+				this.#status = {
+					...this.#status,
+					saveState: "saved",
+					message: "Up to date",
+					lastSavedAt: Date.now(),
+				};
+				this.#emit();
+				return this.getStatus();
+			}
+
+			const preview = await this.#runInternalGitOperation(
+				project,
+				async () =>
+					await applyProjectUpdate(
+						project.id,
+						update.branchRefName,
+						update.integration.integration,
+						true,
+					),
+			);
+			if (containsConflictedState(preview)) throw new Error("Update would conflict.");
+
+			await this.#runInternalGitOperation(
+				project,
+				async () =>
+					await applyProjectUpdate(
+						project.id,
+						update.branchRefName,
+						update.integration.integration,
+						false,
+					),
+			);
+			await this.#refreshSharedProjectStatus(project, { fetch: false });
+			await this.#refreshProjectLists();
+			this.#status = {
+				...this.#status,
+				saveState: "saved",
+				message: "Updated just now",
+				lastSavedAt: Date.now(),
+			};
+			this.#emit();
+			return this.getStatus();
+		} catch (error) {
+			this.logger.error("Failed to update project from shared project", error, {
+				project,
+				details: gitErrorDetails(error),
+			});
+			this.#status = {
+				...this.#status,
+				saveState: "error",
+				message: "How could not update this project automatically.",
+				sharedProject:
+					this.#status.sharedProject.state === "updateAvailable"
+						? this.#status.sharedProject
+						: {
+								state: "updateAvailable",
+								lastCheckedAt: this.#status.sharedProject.lastCheckedAt,
+								message: "Update available",
+							},
+			};
+			this.#emit();
+			return this.getStatus();
 		} finally {
 			this.#saving = false;
 			if (this.#dirtyWhileSaving) {
@@ -1073,6 +1199,30 @@ export class HowService {
 		} catch (error) {
 			this.logger.error("Failed to create checkpoint before publishing", error, { project });
 			throw new Error("How could not save before publishing.");
+		}
+	}
+
+	async #createCheckpointForUpdate(project: ProjectSummary): Promise<void> {
+		if (!(await hasWorktreeChanges(project.id))) return;
+
+		this.logger.info("Creating checkpoint before updating project", {
+			projectId: project.id,
+			worktreePath: project.path,
+		});
+		try {
+			const commitId = await this.#runInternalGitOperation(
+				project,
+				async () => await createCheckpointCommit(project.id, checkpointMessage(new Date())),
+			);
+			this.logger.info("Checkpoint before updating project result", {
+				projectId: project.id,
+				commitId,
+			});
+			if (commitId === null) return;
+			await this.#refreshProjectLists();
+		} catch (error) {
+			this.logger.error("Failed to create checkpoint before updating project", error, { project });
+			throw new Error("How could not save before updating.");
 		}
 	}
 

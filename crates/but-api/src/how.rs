@@ -8,6 +8,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use crate::branch;
 use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use but_api_macros::but_api;
@@ -69,7 +70,7 @@ pub struct HowCheckpoint {
 but_schemars::register_sdk_type!(HowCheckpoint);
 
 /// Result of creating a How checkpoint.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Serialize)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum HowCreateCheckpointResult {
@@ -188,6 +189,20 @@ pub struct HowStagedDiff {
 
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(HowStagedDiff);
+
+/// Prepared update from the configured shared project into the active How line.
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+pub struct HowProjectUpdate {
+    /// Full local branch ref for the current active line.
+    pub branch_ref_name: String,
+    /// Pull-rebase integration plan for the active branch.
+    pub integration: branch::json::InitialBranchIntegration,
+}
+
+#[cfg(feature = "export-schema")]
+but_schemars::register_sdk_type!(HowProjectUpdate);
 
 /// Open an existing Git repository or a path inside it for How.
 #[but_api(napi)]
@@ -424,6 +439,28 @@ pub fn how_staged_diff_for_checkpoint_summary(ctx: &Context) -> anyhow::Result<H
     })
 }
 
+/// Prepare a pull-rebase update from the configured upstream into the active How line.
+#[but_api(napi)]
+#[instrument(skip(ctx), err(Debug))]
+pub fn how_prepare_project_update(ctx: &Context) -> anyhow::Result<HowProjectUpdate> {
+    let mut meta = ctx.meta()?;
+    let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
+    let mut ws = ws.clone();
+    let branch_ref_name = active_local_branch_ref(&repo)?;
+    let integration =
+        but_workspace::branch::integrate_branch_upstream::get_initial_integration_steps_for_branch(
+            branch_ref_name.as_ref(),
+            branch::json::BranchIntegrationStrategy::PullRebase.into(),
+            &mut ws,
+            &mut meta,
+            &repo,
+        )?;
+    Ok(HowProjectUpdate {
+        branch_ref_name: branch_ref_name.to_string(),
+        integration: integration.try_into()?,
+    })
+}
+
 /// Read How project settings from local Git config.
 #[but_api(napi)]
 #[instrument(skip(ctx), err(Debug))]
@@ -485,6 +522,16 @@ fn project_from_repo(repo: &gix::Repository) -> anyhow::Result<HowProject> {
         path: worktree_path.display().to_string(),
         git_dir: git_dir.display().to_string(),
     })
+}
+
+fn active_local_branch_ref(repo: &gix::Repository) -> anyhow::Result<gix::refs::FullName> {
+    let head_name = repo
+        .head_name()?
+        .context("How could not find the current project version.")?;
+    if !head_name.as_bstr().starts_with_str("refs/heads/") {
+        bail!("How can only update a local project version.");
+    }
+    Ok(head_name.to_owned())
 }
 
 fn worktree_tree(repo: &gix::Repository) -> anyhow::Result<gix::ObjectId> {

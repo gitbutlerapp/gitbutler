@@ -61,8 +61,7 @@ export async function launchHowApp({
 		env.HOW_E2E_GITHUB_REPOSITORIES = JSON.stringify(githubRepositories);
 	if (githubCreateRepositoryUrl !== undefined)
 		env.HOW_E2E_GITHUB_CREATE_REPO_URL = githubCreateRepositoryUrl;
-	if (sharedFetchIntervalMs !== undefined)
-		env.HOW_SHARED_FETCH_INTERVAL_MS = sharedFetchIntervalMs;
+	if (sharedFetchIntervalMs !== undefined) env.HOW_SHARED_FETCH_INTERVAL_MS = sharedFetchIntervalMs;
 	delete env.ELECTRON_RUN_AS_NODE;
 
 	const launchOptions: Parameters<typeof electron.launch>[0] = {

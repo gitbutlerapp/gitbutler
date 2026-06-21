@@ -336,6 +336,9 @@ export declare function howListCheckpoints(projectId: string, limit: number): Pr
 /** Open an existing Git repository or a path inside it for How. */
 export declare function howOpenProject(path: string): Promise<HowProject>
 
+/** Prepare a pull-rebase update from the configured upstream into the active How line. */
+export declare function howPrepareProjectUpdate(projectId: string): Promise<HowProjectUpdate>
+
 /** Read How project settings from local Git config. */
 export declare function howReadProjectSettings(projectId: string, fallback: HowProjectSettings): Promise<HowProjectSettings>
 
@@ -1670,6 +1673,14 @@ export type HowProjectSettings = {
   checkpointDebounceMs: number;
   /** Preferred coding agent. */
   codingAgent: string;
+};
+
+/** Prepared update from the configured shared project into the active How line. */
+export type HowProjectUpdate = {
+  /** Full local branch ref for the current active line. */
+  branchRefName: string;
+  /** Pull-rebase integration plan for the active branch. */
+  integration: InitialBranchIntegration;
 };
 
 /** Staged diff payload used for AI checkpoint summaries. */

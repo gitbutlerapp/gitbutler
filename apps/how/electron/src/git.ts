@@ -7,6 +7,7 @@ import {
 	type ProjectSettings,
 } from "./settings.js";
 import {
+	applyBranchIntegration,
 	howCreateCheckpoint,
 	howCreateBookmark,
 	howCreateBookmarkFromCommit,
@@ -15,6 +16,7 @@ import {
 	howListBookmarks,
 	howListCheckpoints,
 	howOpenProject,
+	howPrepareProjectUpdate,
 	howReadProjectSettings,
 	howRenameBookmark,
 	howRestoreCheckpoint,
@@ -28,7 +30,10 @@ import {
 	type HowBookmarkKind,
 	type HowCreateCheckpointResult,
 	type HowProject,
+	type HowProjectUpdate,
 	type HowUpdateCheckpointMessageResult,
+	type IntegrateBranchResult,
+	type InteractiveIntegration,
 } from "@gitbutler/but-sdk";
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
@@ -267,6 +272,19 @@ export async function checkpointDiffForCommit(
 	};
 }
 
+export async function prepareProjectUpdate(projectId: string): Promise<HowProjectUpdate> {
+	return await howPrepareProjectUpdate(projectId);
+}
+
+export async function applyProjectUpdate(
+	projectId: string,
+	branchRefName: string,
+	integration: InteractiveIntegration,
+	dryRun: boolean,
+): Promise<IntegrateBranchResult> {
+	return await applyBranchIntegration(projectId, branchRefName, integration, dryRun);
+}
+
 export type PublishMode = "direct" | "review";
 
 export type DirectPublishResult =
@@ -425,11 +443,7 @@ export async function refreshSharedProject(
 			message: "Update available",
 		};
 	} catch (error) {
-		throw new DirectPublishError(
-			"failed",
-			"How could not check for shared updates.",
-			error,
-		);
+		throw new DirectPublishError("failed", "How could not check for shared updates.", error);
 	}
 }
 

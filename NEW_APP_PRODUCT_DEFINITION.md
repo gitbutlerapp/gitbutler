@@ -734,7 +734,8 @@ intentional local debugging.
 How should keep its knowledge of the shared project fresh without moving the
 user's files unexpectedly.
 
-The MVP includes read-only shared-project fetching and timeline filtering:
+The MVP includes shared-project fetching, timeline filtering, and an explicit
+Update project action:
 
 - How fetches the configured shared-project upstream continuously.
 - The default fetch interval is 15 minutes.
@@ -770,8 +771,7 @@ configured upstream. If that active line is based on an older shared-project
 state, How shows the same **Update available** state. Switching Bookmarks remains
 a local operation; updating is separate and explicit.
 
-The near-future gap is the actual **Update project** operation. When implemented,
-it should:
+**Update project** runs immediately from the top action area. It should:
 
 - Be disabled while browsing Checkpoints.
 - Let any in-progress Checkpoint save finish before updating.
@@ -785,13 +785,17 @@ it should:
   reset it to the shared project.
 - If conflicts or unsupported history shapes appear, leave the project at the
   original pre-update state and show a plain-language error.
+- Stop after updating. It does not publish automatically.
+- Show **Updating project** while running, **Updated just now** after a real
+  update, **Up to date** for a no-op, and "How could not update this project
+  automatically." for failures.
 
-Implementation should first evaluate whether the existing
-`getInitialBranchIntegration` and `applyBranchIntegration` APIs fit this model
-using the rebase-style strategy. How should not expose merge, pick-remote,
-smart-squash, or other strategy choices. If those APIs require user choices,
-conflict handling, or cannot provide rollback guarantees, How needs a dedicated
-shared-project update API.
+Implementation uses a How-level Rust API to prepare the update:
+`howPrepareProjectUpdate(projectId)` resolves the active local branch from HEAD
+and creates a pull-rebase integration plan. Electron then calls the existing
+`applyBranchIntegration` API in dry-run mode. If the dry run succeeds and does
+not report conflicts, Electron applies the same integration for real. If the
+dry run fails or reports conflicts, How stops with the plain failure above.
 
 ## Errors And Unsupported States
 
@@ -965,10 +969,12 @@ Desired future APIs:
 - `listUnpublishedCheckpoints(projectId, limit?)`, or equivalent filtering in
   `listCheckpoints`, so the app shows only Checkpoints not reachable from the
   configured shared-project upstream.
-- `updateProjectFromShared(projectId)` as a product-level operation that creates
-  a pre-update Checkpoint when needed, replays only unpublished active-line work,
-  refuses to rewrite published commits, leaves Bookmarks untouched, and fails
-  closed with rollback on conflicts or unsupported states.
+- `updateProjectFromShared(projectId)` remains the future fully-owned product
+  operation that creates a pre-update Checkpoint when needed, replays only
+  unpublished active-line work, refuses to rewrite published commits, leaves
+  Bookmarks untouched, and fails closed with rollback on conflicts or
+  unsupported states. The current MVP composes `howPrepareProjectUpdate` and
+  `applyBranchIntegration` in Electron.
 - `getConfiguredGithubCredential(projectId)` that resolves the credential
   referenced by `how.githubCredential`, without requiring How to list every
   known GitHub account.
@@ -1098,8 +1104,9 @@ than making the caller assemble branch, commit, diff, and repository details.
 - Background fetch is read-only and never mutates the active line.
 - When the active line is behind the shared project, How shows **Update
   available**, offers **Update project**, and disables Publish with a tooltip.
-- The actual **Update project** operation is a near-future gap, not part of the
-  current MVP implementation.
+- Update project runs immediately, dry-runs the pull-rebase integration first,
+  leaves Bookmarks untouched, stops before Publish, and shows a plain failure if
+  the update cannot be applied automatically.
 - No force-push, rebase choices, or conflict-resolution UI in v1.
 - No advanced mode and no Lite escape hatch in v1.
 - Errors are plain-language only.

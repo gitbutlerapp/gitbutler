@@ -36,6 +36,7 @@ const api: HowElectronApi = {
 		await (ipcRenderer.invoke("how:delete-bookmark", bookmarkId) as Promise<HowStatus>),
 	publishProject: async (input) =>
 		await (ipcRenderer.invoke("how:publish-project", input) as Promise<PublishProjectResult>),
+	updateProject: async () => await (ipcRenderer.invoke("how:update-project") as Promise<HowStatus>),
 	loginToGithub: async () =>
 		await (ipcRenderer.invoke("how:login-to-github") as Promise<GithubLoginResult>),
 	listGithubRepositories: async () =>

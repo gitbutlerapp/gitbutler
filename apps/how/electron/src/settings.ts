@@ -14,7 +14,13 @@ export const defaultProjectSettings: ProjectSettings = {
 
 export const minCheckpointDebounceMs = 1_000;
 export const maxCheckpointDebounceMs = 60_000;
-export const allowedFetchIntervalMs = [0, 5 * 60 * 1000, 15 * 60 * 1000, 30 * 60 * 1000, 60 * 60 * 1000];
+export const allowedFetchIntervalMs = [
+	0,
+	5 * 60 * 1000,
+	15 * 60 * 1000,
+	30 * 60 * 1000,
+	60 * 60 * 1000,
+];
 
 export function normalizeCheckpointDebounceMs(value: unknown): number {
 	const parsed = typeof value === "number" ? value : Number(value);
@@ -48,7 +54,9 @@ export function normalizeFetchIntervalMs(value: unknown): number {
 	const parsed = typeof value === "number" ? value : Number(value);
 	if (!Number.isFinite(parsed)) return defaultProjectSettings.fetchIntervalMs;
 	const rounded = Math.round(parsed);
-	return allowedFetchIntervalMs.includes(rounded) ? rounded : defaultProjectSettings.fetchIntervalMs;
+	return allowedFetchIntervalMs.includes(rounded)
+		? rounded
+		: defaultProjectSettings.fetchIntervalMs;
 }
 
 export function normalizeFetchIntervalMsWithFallback(value: unknown, fallback: number): number {

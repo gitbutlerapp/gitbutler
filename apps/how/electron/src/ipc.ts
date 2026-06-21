@@ -133,6 +133,7 @@ export interface HowElectronApi {
 	renameBookmark: (bookmarkId: string, name: string) => Promise<HowStatus>;
 	deleteBookmark: (bookmarkId: string) => Promise<HowStatus>;
 	publishProject: (input?: PublishProjectInput) => Promise<PublishProjectResult>;
+	updateProject: () => Promise<HowStatus>;
 	loginToGithub: () => Promise<GithubLoginResult>;
 	listGithubRepositories: () => Promise<GithubRepositoriesResult>;
 	saveProjectSettings: (settings: ProjectSettings) => Promise<HowStatus>;
@@ -159,6 +160,7 @@ export const howIpcChannels = {
 	renameBookmark: "how:rename-bookmark",
 	deleteBookmark: "how:delete-bookmark",
 	publishProject: "how:publish-project",
+	updateProject: "how:update-project",
 	loginToGithub: "how:login-to-github",
 	listGithubRepositories: "how:list-github-repositories",
 	saveProjectSettings: "how:save-project-settings",

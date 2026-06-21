@@ -376,7 +376,8 @@ test("saves project settings to local Git config and applies debounce immediatel
 			.toBe("claude");
 		await expect
 			.poll(
-				async () => await runGit(repositoryPath, ["config", "--local", "--get", "how.fetchIntervalMs"]),
+				async () =>
+					await runGit(repositoryPath, ["config", "--local", "--get", "how.fetchIntervalMs"]),
 			)
 			.toBe(String(30 * 60 * 1000));
 
@@ -633,7 +634,118 @@ test("shows update available when the shared project changes", async ({
 		const publishButton = page.getByRole("button", { name: "Publish" });
 		await expect(publishButton).toBeDisabled();
 		await expect(publishButton).toHaveAttribute("title", "Update this project before publishing.");
-		await expect(page.getByRole("button", { name: "Update project" })).toBeDisabled();
+		await expect(page.getByRole("button", { name: "Update project" })).toBeEnabled();
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+		await fs.rm(remotePath, { recursive: true, force: true });
+		await fs.rm(clonePath, { recursive: true, force: true });
+	}
+});
+
+test("updates the project by replaying local checkpoints onto the shared project", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-update-project-success-");
+	const remotePath = await createBareRepository();
+	const clonePath = await createTempDirectory("how-update-project-success-clone-");
+	await initializeGitRepository(repositoryPath);
+	await createRegularCommit(repositoryPath);
+	const branchName = await currentBranch(repositoryPath);
+	await runGit(repositoryPath, ["remote", "add", "origin", remotePath]);
+	await runGit(repositoryPath, ["push", "-u", "origin", `HEAD:${branchName}`]);
+	await fs.rm(clonePath, { recursive: true, force: true });
+	await runGit(os.tmpdir(), ["clone", remotePath, clonePath]);
+	await runGit(clonePath, ["config", "user.name", "How E2E"]);
+	await runGit(clonePath, ["config", "user.email", "how-e2e@example.com"]);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+		sharedFetchIntervalMs: "100",
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await createCheckpoint(page, repositoryPath, "local.md", "local checkpoint\n", 1);
+		await createRegularCommit(clonePath, "remote.md", "remote change\n", "Remote change");
+		await runGit(clonePath, ["push"]);
+		await expect(page.getByText("Update available")).toBeVisible();
+
+		await page.getByRole("button", { name: "Update project" }).click();
+
+		await expect(page.getByText("Updated just now")).toBeVisible();
+		await expect(page.getByRole("button", { name: "Publish" })).toBeEnabled();
+		await expect(page.locator("ol li")).toHaveCount(1);
+		await expect
+			.poll(async () => await fs.readFile(path.join(repositoryPath, "local.md"), "utf8"))
+			.toBe("local checkpoint\n");
+		await expect
+			.poll(async () => await fs.readFile(path.join(repositoryPath, "remote.md"), "utf8"))
+			.toBe("remote change\n");
+		await expect
+			.poll(async () =>
+				runGit(repositoryPath, ["merge-base", "--is-ancestor", "@{u}", "HEAD"])
+					.then(() => true)
+					.catch(() => false),
+			)
+			.toBe(true);
+		await expect.poll(async () => await runGit(repositoryPath, ["status", "--porcelain"])).toBe("");
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+		await fs.rm(remotePath, { recursive: true, force: true });
+		await fs.rm(clonePath, { recursive: true, force: true });
+	}
+});
+
+test("shows a plain error and leaves the project unchanged when update conflicts", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-update-project-conflict-");
+	const remotePath = await createBareRepository();
+	const clonePath = await createTempDirectory("how-update-project-conflict-clone-");
+	await initializeGitRepository(repositoryPath);
+	await createRegularCommit(repositoryPath, "notes.md", "initial\n", "Initial");
+	const branchName = await currentBranch(repositoryPath);
+	await runGit(repositoryPath, ["remote", "add", "origin", remotePath]);
+	await runGit(repositoryPath, ["push", "-u", "origin", `HEAD:${branchName}`]);
+	await fs.rm(clonePath, { recursive: true, force: true });
+	await runGit(os.tmpdir(), ["clone", remotePath, clonePath]);
+	await runGit(clonePath, ["config", "user.name", "How E2E"]);
+	await runGit(clonePath, ["config", "user.email", "how-e2e@example.com"]);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+		sharedFetchIntervalMs: "100",
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await createCheckpoint(page, repositoryPath, "notes.md", "local edit\n", 1);
+		const preUpdateHead = await runGit(repositoryPath, ["rev-parse", "HEAD"]);
+		await createRegularCommit(clonePath, "notes.md", "remote edit\n", "Remote edit");
+		await runGit(clonePath, ["push"]);
+		await expect(page.getByText("Update available")).toBeVisible();
+
+		await page.getByRole("button", { name: "Update project" }).click();
+
+		await expect(page.getByText("How could not update this project automatically.")).toBeVisible();
+		await expect
+			.poll(async () => await runGit(repositoryPath, ["rev-parse", "HEAD"]))
+			.toBe(preUpdateHead);
+		await expect
+			.poll(async () => await fs.readFile(path.join(repositoryPath, "notes.md"), "utf8"))
+			.toBe("local edit\n");
+		await expect.poll(async () => await runGit(repositoryPath, ["status", "--porcelain"])).toBe("");
+		await expect
+			.poll(async () =>
+				(await fs.readFile(path.join(repositoryPath, "notes.md"), "utf8")).includes("<<<<<<<"),
+			)
+			.toBe(false);
 	} finally {
 		await app.close();
 		await fs.rm(repositoryPath, { recursive: true, force: true });
@@ -650,7 +762,12 @@ test("background shared update failure is soft", async ({
 	await initializeGitRepository(repositoryPath);
 	await createRegularCommit(repositoryPath);
 	await runGit(repositoryPath, ["remote", "add", "origin", remotePath]);
-	await runGit(repositoryPath, ["push", "-u", "origin", `HEAD:${await currentBranch(repositoryPath)}`]);
+	await runGit(repositoryPath, [
+		"push",
+		"-u",
+		"origin",
+		`HEAD:${await currentBranch(repositoryPath)}`,
+	]);
 
 	const { app, page } = await launchHowApp({
 		projectPath: repositoryPath,
