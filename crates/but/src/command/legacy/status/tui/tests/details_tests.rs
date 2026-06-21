@@ -634,3 +634,16 @@ fn open_and_focus_details_split_can_be_closed_with_esc() {
 
     tui.input_then_render(KeyCode::Esc);
 }
+
+#[test]
+fn viewing_empty_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
+    env.setup_metadata(&[]).unwrap();
+
+    env.file("empty file", "");
+
+    let mut tui = test_tui(env);
+
+    tui.input_then_render('d')
+        .assert_rendered_term_svg_eq(file!["snapshots/viewing_empty_file_001.svg"]);
+}
