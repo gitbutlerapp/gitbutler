@@ -45,6 +45,7 @@ pub(super) struct TestTuiOptions {
     pub(super) width: u16,
     pub(super) height: u16,
     pub(super) run_options: TuiRunOptions,
+    pub(super) show_file_browser: bool,
 }
 
 impl Default for TestTuiOptions {
@@ -53,6 +54,7 @@ impl Default for TestTuiOptions {
             width: 100,
             height: 20,
             run_options: Default::default(),
+            show_file_browser: false,
         }
     }
 }
@@ -73,6 +75,7 @@ pub(super) fn test_tui_with_options(env: Sandbox, options: TestTuiOptions) -> Te
         width,
         height,
         run_options,
+        show_file_browser,
     } = options;
 
     env.invoke_git("config user.name committer");
@@ -111,7 +114,7 @@ pub(super) fn test_tui_with_options(env: Sandbox, options: TestTuiOptions) -> Te
     build_status_output(&ctx, &status_ctx, &mut status_output)
         .expect("failed to build status output");
 
-    let app = App::new(lines, flags, launch_options, run_options);
+    let app = App::new(lines, flags, launch_options, run_options, show_file_browser);
     let terminal =
         Terminal::new(TestBackend::new(width, height)).expect("failed to create test terminal");
 

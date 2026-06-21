@@ -1226,6 +1226,8 @@ export type FeatureFlags = {
   watchMode: string;
   /** Experimental. */
   writeCommitEvolution: boolean;
+  /** Show the experimental file browser in the TUI. */
+  tuiFileBrowser: boolean;
 };
 
 export type Fetch = {

@@ -45,6 +45,7 @@ use crate::{
                 cursor::{Cursor, is_selectable_in_mode},
                 details::{Details, DetailsMessage, RenderNextChunkResult},
                 event_polling::{CrosstermEventPolling, EventPolling, NoopEventPolling},
+                file_browser::FileBrowser,
                 fps::FpsCounter,
                 fuzzy_picker::{
                     Col, FuzzyPicker, FuzzyPickerItem, FuzzyPickerMessage, SearchableToken,
@@ -88,6 +89,7 @@ mod confirm;
 mod cursor;
 mod details;
 mod event_polling;
+mod file_browser;
 mod fps;
 mod fuzzy_picker;
 mod graph_extension;
@@ -135,7 +137,13 @@ pub(super) fn render_tui(
     launch_options: TuiLaunchOptions,
     run_options: TuiRunOptions,
 ) -> anyhow::Result<(Vec<StatusOutputLine>, TuiOutcome)> {
-    let mut app = App::new(status_lines, flags, launch_options, run_options);
+    let mut app = App::new(
+        status_lines,
+        flags,
+        launch_options,
+        run_options,
+        ctx.settings.feature_flags.tui_file_browser,
+    );
 
     let mut messages = Vec::new();
 
@@ -363,12 +371,13 @@ where
         app.should_render = true;
     }
 
+    let selection = app
+        .cursor
+        .selected_line(&app.status_lines)
+        .and_then(|line| line.data.cli_id())
+        .map(|id| &**id);
+
     if app.details.needs_update(app.is_details_visible) {
-        let selection = app
-            .cursor
-            .selected_line(&app.status_lines)
-            .and_then(|line| line.data.cli_id())
-            .map(|id| &**id);
         match app.details.update(ctx, selection) {
             Ok(Some(result)) => match result {
                 RenderNextChunkResult::Done => {
@@ -384,6 +393,21 @@ where
             }
         }
         app.should_render = true;
+    }
+
+    if let Some(file_browser) = &mut app.file_browser
+        && let Mode::Details(details_mode) = &*app.mode
+        && file_browser.needs_update(app.is_details_visible && details_mode.full_screen)
+    {
+        match file_browser.update(ctx, selection) {
+            Ok(true) => {
+                app.should_render = true;
+            }
+            Ok(false) => {}
+            Err(err) => {
+                messages.push(Message::ShowError(Arc::new(err)));
+            }
+        }
     }
 
     if app.fps.update() {
@@ -436,6 +460,7 @@ struct App {
     has_focus: bool,
     backstack: Backstack,
     previous_reload_caused_by_mutation_timestamp: Option<Instant>,
+    file_browser: Option<FileBrowser>,
 }
 
 #[derive(Debug)]
@@ -470,6 +495,7 @@ impl App {
         flags: StatusFlags,
         launch_options: TuiLaunchOptions,
         run_options: TuiRunOptions,
+        show_file_browser: bool,
     ) -> Self {
         let cursor = if let Some(object_id) = launch_options.select_commit {
             Cursor::select_commit(object_id, &status_lines)
@@ -494,6 +520,8 @@ impl App {
             TuiRunOptions::Normal => Mode::default(),
             TuiRunOptions::PickChanges => Mode::PickChanges(Default::default()),
         });
+
+        let file_browser = show_file_browser.then(FileBrowser::default);
 
         Self {
             status_lines,
@@ -521,6 +549,7 @@ impl App {
             status_width_percentage: 50,
             theme,
             has_focus: true,
+            file_browser,
         }
     }
 
