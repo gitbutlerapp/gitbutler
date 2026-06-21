@@ -580,6 +580,60 @@ fn uncommit_command_on_commit() -> anyhow::Result<()> {
 }
 
 #[test]
+fn uncommit_diff_json_keeps_mutation_result_and_diff() -> anyhow::Result<()> {
+    fn run(agent: bool) -> anyhow::Result<()> {
+        let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+        env.setup_metadata(&["A", "B"])?;
+        commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+
+        let before = status_json(&env)?;
+        let commit_id = branch_commit_ids(&before, "A")[0].clone();
+        let command = format!("--format json uncommit {commit_id} --diff");
+        let output = if agent {
+            env.but(command)
+                .env("AI_AGENT", "codex")
+                .allow_json()
+                .output()?
+        } else {
+            env.but(command).allow_json().output()?
+        };
+        assert!(
+            output.status.success(),
+            "uncommit --diff failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+        let result = if agent { &json["result"] } else { &json };
+        assert_eq!(result["ok"], true);
+
+        let changes = result["diff"]["changes"]
+            .as_array()
+            .expect("diff changes should be an array");
+        assert!(
+            changes
+                .iter()
+                .any(|change| change["path"].as_str() == Some("a.txt")),
+            "diff output should include the uncommitted files"
+        );
+
+        if agent {
+            assert!(
+                json.get("status").is_some(),
+                "agent JSON output should still include status"
+            );
+        }
+
+        Ok(())
+    }
+
+    run(false)?;
+    run(true)?;
+    Ok(())
+}
+
+#[test]
 fn uncommit_command_validation() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 

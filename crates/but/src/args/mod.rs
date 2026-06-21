@@ -654,6 +654,9 @@ pub enum Subcommands {
         /// Discard the selected committed changes instead of moving them to unassigned
         #[clap(long, short = 'd')]
         discard: bool,
+        /// Show the resulting uncommitted diff after uncommitting.
+        #[clap(long, conflicts_with = "discard")]
+        diff: bool,
     },
 
     /// Amend one or more file changes into a specific commit and rebases any dependent commits.

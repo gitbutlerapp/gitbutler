@@ -275,9 +275,12 @@ Uncommit changes back to unassigned changes.
 ```bash
 but uncommit <commit-id>      # Uncommit entire commit
 but uncommit <file-id>        # Uncommit specific file from its commit
+but uncommit <commit-id> --diff  # Also show resulting dirty diff with hunk IDs
 but uncommit <commit-id> -d   # Discard committed changes instead of moving to unassigned
 but uncommit <file-id> --discard  # Discard committed file changes completely
 ```
+
+Use `--diff` when you plan to recommit selected files or hunks immediately after uncommitting.
 
 ### `but reword <id>`
 
