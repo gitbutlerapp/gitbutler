@@ -433,8 +433,6 @@ export class HowService {
 		this.#clearScheduledCheckpoint();
 		this.#saving = true;
 		this.#dirtyWhileSaving = false;
-		this.#status = { ...this.#status, saveState: "saving", message: "Switching bookmark" };
-		this.#emit();
 
 		try {
 			await this.#saveCurrentWorkBeforeBookmark(project, "fast");
@@ -447,12 +445,6 @@ export class HowService {
 			this.#status = { ...this.#status, browsing: null };
 			this.#stopBrowsingDirtyPolling();
 			await this.#refreshProjectLists();
-			this.#status = {
-				...this.#status,
-				saveState: "saved",
-				message: "Switched bookmark",
-				lastSavedAt: Date.now(),
-			};
 			await this.#writeCurrentState();
 			this.#emit();
 			return this.getStatus();

@@ -162,8 +162,8 @@ test("creates bookmarks, switches to one, and preserves the previous state", asy
 		await expect(page.getByText("current")).toHaveCount(0);
 
 		await page.getByText("Version A").click();
-		await expect(page.getByText("Switched bookmark")).toBeVisible();
 		await expect.poll(async () => await fs.readFile(notesPath, "utf8")).toBe("checkpoint A\n");
+		await expect(page.getByText("Version Acurrent")).toBeVisible();
 		await expect(page.getByText("Before switching to Version A")).toBeVisible();
 		await expect(page.locator("aside li.checkpoint-message-flash")).toHaveCount(0);
 		await expect
@@ -210,7 +210,6 @@ test("keeps bookmarks ordered by update time when switching", async ({
 		await expect(bookmarkItem(page, 1)).toContainText("Version A");
 
 		await bookmarkItem(page, 1).getByText("Version A").click();
-		await expect(page.getByText("Switched bookmark")).toBeVisible();
 		await expect(bookmarkItem(page, 0)).toContainText("Version B");
 		await expect(bookmarkItem(page, 1)).toContainText("Version A");
 		await expect(bookmarkItem(page, 1)).toContainText("current");

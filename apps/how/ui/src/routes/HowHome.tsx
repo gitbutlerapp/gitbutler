@@ -9,7 +9,7 @@ import {
 	Clock,
 	Eye,
 	FolderOpen,
-	GitCommitHorizontal,
+	GitCommitVertical,
 	MoreHorizontal,
 	Pencil,
 	Plus,
@@ -18,7 +18,7 @@ import {
 	Trash2,
 	Upload,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type {
 	Bookmark,
 	BrowsingSession,
@@ -154,6 +154,25 @@ type BookmarkNameAction = { type: "create" } | { type: "rename"; bookmark: Bookm
 type BookmarkConfirmAction =
 	| { type: "update"; bookmark: Bookmark }
 	| { type: "delete"; bookmark: Bookmark };
+
+type PendingAction =
+	| "openProject"
+	| "startProject"
+	| "deleteProject"
+	| "viewCheckpoint"
+	| "createBookmark"
+	| "updateBookmark"
+	| "renameBookmark"
+	| "deleteBookmark"
+	| "switchBookmark"
+	| "continueFromCheckpoint"
+	| "returnToLatest"
+	| "publish"
+	| "githubLogin"
+	| "githubCreateRepository"
+	| "githubLoadRepositories"
+	| "githubPublishRepository"
+	| "leaveBrowsingChanges";
 
 function DirtyBrowsingDialog({
 	onLeave,
@@ -602,7 +621,9 @@ function Timeline({
 							: ""
 					}`}
 				>
-					<GitCommitHorizontal className="mt-0.5 h-5 w-5 text-stone-500" aria-hidden />
+					<div className="flex flex-col justify-center">
+						<GitCommitVertical className="mt-0.5 h-5 w-5 text-stone-500" aria-hidden />
+					</div>
 					<div className="min-w-0 flex-1">
 						<div className="flex min-w-0 items-center gap-2">
 							<p className="truncate text-sm font-medium text-stone-950">
@@ -634,10 +655,64 @@ function Timeline({
 	);
 }
 
+const PublishButton = memo(
+	function PublishButton({
+		disabled,
+		label,
+		title,
+		onPublish,
+	}: {
+		disabled: boolean;
+		label: string;
+		title?: string;
+		onPublish: () => Promise<void>;
+	}) {
+		return (
+			<Button onClick={() => void onPublish()} disabled={disabled} title={title}>
+				<Upload className="h-4 w-4" aria-hidden />
+				{label}
+			</Button>
+		);
+	},
+	(previous, next) =>
+		previous.disabled === next.disabled &&
+		previous.label === next.label &&
+		previous.title === next.title,
+);
+
+const BrowsingActions = memo(
+	function BrowsingActions({
+		disabled,
+		onReturnToLatest,
+		onContinue,
+	}: {
+		disabled: boolean;
+		onReturnToLatest: () => Promise<void>;
+		onContinue: () => Promise<void>;
+	}) {
+		return (
+			<div className="flex flex-wrap gap-2">
+				<Button
+					variant="secondary"
+					onClick={() => void onReturnToLatest()}
+					disabled={disabled}
+				>
+					Return to latest
+				</Button>
+				<Button onClick={() => void onContinue()} disabled={disabled}>
+					Continue from here
+				</Button>
+			</div>
+		);
+	},
+	(previous, next) => previous.disabled === next.disabled,
+);
+
 function ProjectScreen({
 	status,
 	highlightedCheckpointKeys,
 	highlightedBookmarkIds,
+	pendingAction,
 	onOpen,
 	onStart,
 	onDelete,
@@ -650,11 +725,11 @@ function ProjectScreen({
 	onView,
 	onContinue,
 	onReturnToLatest,
-	busy,
 }: {
 	status: HowStatus;
 	highlightedCheckpointKeys: Set<string>;
 	highlightedBookmarkIds: Set<string>;
+	pendingAction: PendingAction | null;
 	onOpen: () => Promise<void>;
 	onStart: () => Promise<void>;
 	onDelete: () => Promise<void>;
@@ -667,24 +742,43 @@ function ProjectScreen({
 	onView: (checkpoint: Checkpoint) => Promise<void>;
 	onContinue: () => Promise<void>;
 	onReturnToLatest: () => Promise<void>;
-	busy: boolean;
 }) {
 	const project = status.project;
 	if (!project) return null;
+	const chromeBusy =
+		pendingAction === "openProject" ||
+		pendingAction === "startProject" ||
+		pendingAction === "deleteProject";
+	const bookmarkBusy =
+		pendingAction === "createBookmark" ||
+		pendingAction === "updateBookmark" ||
+		pendingAction === "renameBookmark" ||
+		pendingAction === "deleteBookmark";
+	const browsingBusy =
+		pendingAction === "viewCheckpoint" ||
+		pendingAction === "continueFromCheckpoint" ||
+		pendingAction === "returnToLatest" ||
+		pendingAction === "leaveBrowsingChanges";
+	const publishBusy =
+		pendingAction === "publish" ||
+		pendingAction === "githubLogin" ||
+		pendingAction === "githubCreateRepository" ||
+		pendingAction === "githubLoadRepositories" ||
+		pendingAction === "githubPublishRepository";
 
 	return (
 		<main className="min-h-screen px-6 py-6 lg:flex lg:h-screen lg:min-h-0 lg:flex-col lg:overflow-hidden">
 			<div className="mx-auto flex w-full max-w-7xl flex-col justify-start gap-6 lg:h-full lg:min-h-0">
 				<nav className="shrink-0">
-					<Button variant="ghost" size="sm" onClick={() => void onOpen()} disabled={busy}>
+					<Button variant="ghost" size="sm" onClick={() => void onOpen()} disabled={chromeBusy}>
 						<FolderOpen className="h-4 w-4" aria-hidden />
 						Open
 					</Button>
-					<Button variant="ghost" size="sm" onClick={() => void onStart()} disabled={busy}>
+					<Button variant="ghost" size="sm" onClick={() => void onStart()} disabled={chromeBusy}>
 						<Plus className="h-4 w-4" aria-hidden />
 						Start
 					</Button>
-					<Button variant="ghost" size="sm" onClick={() => void onDelete()} disabled={busy}>
+					<Button variant="ghost" size="sm" onClick={() => void onDelete()} disabled={chromeBusy}>
 						<Trash2 className="h-4 w-4" aria-hidden />
 						Delete
 					</Button>
@@ -703,18 +797,16 @@ function ProjectScreen({
 						</div>
 					</div>
 					<div className="flex items-center gap-2">
-						<Button
-							onClick={() => void onPublish()}
-							disabled={busy || Boolean(status.browsing)}
+						<PublishButton
+							onPublish={onPublish}
+							disabled={publishBusy || Boolean(status.browsing)}
 							title={
 								status.browsing
 									? "Continue from here or return to latest before publishing."
 									: undefined
 							}
-						>
-							<Upload className="h-4 w-4" aria-hidden />
-							{status.message === "Publishing" ? "Publishing" : "Publish"}
-						</Button>
+							label={status.message === "Publishing" ? "Publishing" : "Publish"}
+						/>
 						<span
 							className={`inline-flex h-8 items-center gap-2 rounded-md px-3 text-xs font-medium ${statusTone(
 								status.saveState,
@@ -729,14 +821,11 @@ function ProjectScreen({
 				{status.browsing ? (
 					<section className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-md border border-stone-200 bg-white px-4 py-3">
 						<p className="text-sm text-stone-600">You are viewing an earlier checkpoint.</p>
-						<div className="flex flex-wrap gap-2">
-							<Button variant="secondary" onClick={() => void onReturnToLatest()} disabled={busy}>
-								Return to latest
-							</Button>
-							<Button onClick={() => void onContinue()} disabled={busy}>
-								Continue from here
-							</Button>
-						</div>
+						<BrowsingActions
+							disabled={browsingBusy}
+							onReturnToLatest={onReturnToLatest}
+							onContinue={onContinue}
+						/>
 					</section>
 				) : null}
 
@@ -750,7 +839,7 @@ function ProjectScreen({
 						onUpdate={onUpdateBookmark}
 						onRename={onRenameBookmark}
 						onDelete={onDeleteBookmark}
-						busy={busy}
+						busy={bookmarkBusy}
 					/>
 					<section className="min-w-0 lg:min-h-0 lg:overflow-y-auto">
 						<div className="mx-auto w-full max-w-3xl pb-8">
@@ -759,7 +848,7 @@ function ProjectScreen({
 								browsing={status.browsing}
 								highlightedCheckpointKeys={highlightedCheckpointKeys}
 								onView={onView}
-								busy={busy}
+								busy={browsingBusy}
 							/>
 						</div>
 					</section>
@@ -786,7 +875,7 @@ export function HowHome() {
 		},
 		[queryClient],
 	);
-	const [busy, setBusy] = useState(false);
+	const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [highlightedCheckpointKeys, setHighlightedCheckpointKeys] = useState<Set<string>>(
 		() => new Set(),
@@ -908,18 +997,25 @@ export function HowHome() {
 		};
 	}, []);
 
+	async function runPending<T>(action: PendingAction, work: () => Promise<T>): Promise<T> {
+		setPendingAction(action);
+		try {
+			return await work();
+		} finally {
+			setPendingAction(null);
+		}
+	}
+
 	async function runProjectAction(
+		pending: PendingAction,
 		action: () => Promise<{ type: "cancelled" } | { type: "opened"; status: HowStatus }>,
 	) {
-		setBusy(true);
 		setError(null);
 		try {
-			const result = await action();
+			const result = await runPending(pending, action);
 			if (result.type === "opened") setStatus(result.status);
 		} catch {
 			setError("How could not open that project.");
-		} finally {
-			setBusy(false);
 		}
 	}
 
@@ -930,16 +1026,13 @@ export function HowHome() {
 		if (status.browsing.dirty) {
 			return false;
 		}
-		setBusy(true);
 		setError(null);
 		try {
-			setStatus(await window.how.returnToLatest());
+			setStatus(await runPending("returnToLatest", async () => await window.how.returnToLatest()));
 			return true;
 		} catch {
 			setError("How could not return to latest.");
 			return false;
-		} finally {
-			setBusy(false);
 		}
 	}
 
@@ -949,7 +1042,7 @@ export function HowHome() {
 			return;
 		}
 		if (!(await leaveCleanBrowsing())) return;
-		await runProjectAction(async () => await window.how.openProject());
+		await runProjectAction("openProject", async () => await window.how.openProject());
 	}
 
 	async function startProject() {
@@ -958,7 +1051,7 @@ export function HowHome() {
 			return;
 		}
 		if (!(await leaveCleanBrowsing())) return;
-		await runProjectAction(async () => await window.how.startProject());
+		await runProjectAction("startProject", async () => await window.how.startProject());
 	}
 
 	async function deleteProject() {
@@ -971,14 +1064,11 @@ export function HowHome() {
 			"Remove this project from How? Your project folder and files will stay where they are.",
 		);
 		if (!confirmed) return;
-		setBusy(true);
 		setError(null);
 		try {
-			setStatus(await window.how.deleteProject());
+			setStatus(await runPending("deleteProject", async () => await window.how.deleteProject()));
 		} catch {
 			setError("How could not delete that project.");
-		} finally {
-			setBusy(false);
 		}
 	}
 
@@ -987,14 +1077,16 @@ export function HowHome() {
 			setPendingDirtyAction({ type: "view", checkpoint });
 			return;
 		}
-		setBusy(true);
 		setError(null);
 		try {
-			setStatus(await window.how.viewCheckpoint(checkpoint.id));
+			setStatus(
+				await runPending(
+					"viewCheckpoint",
+					async () => await window.how.viewCheckpoint(checkpoint.id),
+				),
+			);
 		} catch {
 			setError("How could not view that checkpoint.");
-		} finally {
-			setBusy(false);
 		}
 	}
 
@@ -1009,17 +1101,27 @@ export function HowHome() {
 	async function saveBookmarkName(name: string) {
 		const action = bookmarkNameAction;
 		if (!action || name.trim().length === 0) return;
-		setBusy(true);
 		setError(null);
 		try {
 			if (action.type === "create" && status.browsing) {
+				const checkpointId = status.browsing.currentCheckpointId;
 				setStatus(
-					await window.how.createBookmarkFromCheckpoint(name, status.browsing.currentCheckpointId),
+					await runPending(
+						"createBookmark",
+						async () => await window.how.createBookmarkFromCheckpoint(name, checkpointId),
+					),
 				);
 			} else if (action.type === "create") {
-				setStatus(await window.how.createBookmark(name));
+				setStatus(
+					await runPending("createBookmark", async () => await window.how.createBookmark(name)),
+				);
 			} else {
-				setStatus(await window.how.renameBookmark(action.bookmark.id, name));
+				setStatus(
+					await runPending(
+						"renameBookmark",
+						async () => await window.how.renameBookmark(action.bookmark.id, name),
+					),
+				);
 			}
 			setBookmarkNameAction(null);
 		} catch {
@@ -1028,8 +1130,6 @@ export function HowHome() {
 					? "How could not create that bookmark."
 					: "How could not rename that bookmark.",
 			);
-		} finally {
-			setBusy(false);
 		}
 	}
 
@@ -1039,14 +1139,16 @@ export function HowHome() {
 			setPendingDirtyAction({ type: "switchBookmark", bookmark });
 			return;
 		}
-		setBusy(true);
 		setError(null);
 		try {
-			setStatus(await window.how.switchBookmark(bookmark.id));
+			setStatus(
+				await runPending(
+					"switchBookmark",
+					async () => await window.how.switchBookmark(bookmark.id),
+				),
+			);
 		} catch {
 			setError("How could not switch bookmarks.");
-		} finally {
-			setBusy(false);
 		}
 	}
 
@@ -1057,11 +1159,22 @@ export function HowHome() {
 	async function confirmBookmarkAction() {
 		const action = bookmarkConfirmAction;
 		if (!action) return;
-		setBusy(true);
 		setError(null);
 		try {
-			if (action.type === "update") setStatus(await window.how.updateBookmark(action.bookmark.id));
-			else setStatus(await window.how.deleteBookmark(action.bookmark.id));
+			if (action.type === "update")
+				setStatus(
+					await runPending(
+						"updateBookmark",
+						async () => await window.how.updateBookmark(action.bookmark.id),
+					),
+				);
+			else
+				setStatus(
+					await runPending(
+						"deleteBookmark",
+						async () => await window.how.deleteBookmark(action.bookmark.id),
+					),
+				);
 			setBookmarkConfirmAction(null);
 		} catch {
 			setError(
@@ -1069,8 +1182,6 @@ export function HowHome() {
 					? "How could not update that bookmark."
 					: "How could not delete that bookmark.",
 			);
-		} finally {
-			setBusy(false);
 		}
 	}
 
@@ -1083,14 +1194,16 @@ export function HowHome() {
 	}
 
 	async function continueFromCheckpoint() {
-		setBusy(true);
 		setError(null);
 		try {
-			setStatus(await window.how.continueFromCheckpoint());
+			setStatus(
+				await runPending(
+					"continueFromCheckpoint",
+					async () => await window.how.continueFromCheckpoint(),
+				),
+			);
 		} catch {
 			setError("How could not continue from here.");
-		} finally {
-			setBusy(false);
 		}
 	}
 
@@ -1099,14 +1212,11 @@ export function HowHome() {
 			setPendingDirtyAction({ type: "returnToLatest" });
 			return;
 		}
-		setBusy(true);
 		setError(null);
 		try {
-			setStatus(await window.how.returnToLatest());
+			setStatus(await runPending("returnToLatest", async () => await window.how.returnToLatest()));
 		} catch {
 			setError("How could not return to latest.");
-		} finally {
-			setBusy(false);
 		}
 	}
 
@@ -1123,55 +1233,55 @@ export function HowHome() {
 	}
 
 	async function publishProject() {
-		setBusy(true);
 		setError(null);
 		try {
-			await handlePublishResult(await window.how.publishProject());
+			await handlePublishResult(
+				await runPending("publish", async () => await window.how.publishProject()),
+			);
 		} catch {
 			setError("How could not publish to the shared project.");
-		} finally {
-			setBusy(false);
 		}
 	}
 
 	async function loginToGithub() {
-		setBusy(true);
 		setError(null);
 		try {
-			const result = await window.how.loginToGithub();
+			const result = await runPending("githubLogin", async () => await window.how.loginToGithub());
 			if (result.type === "failed") {
 				setError(result.message);
 				return;
 			}
 			setShowGithubLoginDialog(false);
-			await handlePublishResult(await window.how.publishProject());
+			await handlePublishResult(
+				await runPending("publish", async () => await window.how.publishProject()),
+			);
 		} catch {
 			setError("How could not log in to GitHub.");
-		} finally {
-			setBusy(false);
 		}
 	}
 
 	async function createGithubRepository(name: string) {
-		setBusy(true);
 		setError(null);
 		try {
 			setShowCreateGithubRepositoryDialog(false);
 			await handlePublishResult(
-				await window.how.publishProject({ createGithubRepositoryName: name.trim() }),
+				await runPending(
+					"githubCreateRepository",
+					async () => await window.how.publishProject({ createGithubRepositoryName: name.trim() }),
+				),
 			);
 		} catch {
 			setError("How could not publish to the shared project.");
-		} finally {
-			setBusy(false);
 		}
 	}
 
 	async function loadGithubRepositories() {
-		setBusy(true);
 		setError(null);
 		try {
-			const result = await window.how.listGithubRepositories();
+			const result = await runPending(
+				"githubLoadRepositories",
+				async () => await window.how.listGithubRepositories(),
+			);
 			if (result.type === "failed") {
 				setError(result.message);
 				return;
@@ -1181,23 +1291,22 @@ export function HowHome() {
 			setShowChooseGithubRepositoryDialog(true);
 		} catch {
 			setError("How could not load GitHub projects.");
-		} finally {
-			setBusy(false);
 		}
 	}
 
 	async function publishWithGithubRepository(repository: GithubRepositorySummary) {
-		setBusy(true);
 		setError(null);
 		try {
 			setShowChooseGithubRepositoryDialog(false);
 			await handlePublishResult(
-				await window.how.publishProject({ githubRepositoryCloneUrl: repository.cloneUrl }),
+				await runPending(
+					"githubPublishRepository",
+					async () =>
+						await window.how.publishProject({ githubRepositoryCloneUrl: repository.cloneUrl }),
+				),
 			);
 		} catch {
 			setError("How could not publish to the shared project.");
-		} finally {
-			setBusy(false);
 		}
 	}
 
@@ -1205,53 +1314,85 @@ export function HowHome() {
 		const action = pendingDirtyAction;
 		if (!action) return;
 		setPendingDirtyAction(null);
-		setBusy(true);
 		setError(null);
 		try {
 			if (action.type === "view")
 				setStatus(
-					await window.how.viewCheckpoint(action.checkpoint.id, {
-						discardBrowsingChanges: true,
-					}),
+					await runPending(
+						"leaveBrowsingChanges",
+						async () =>
+							await window.how.viewCheckpoint(action.checkpoint.id, {
+								discardBrowsingChanges: true,
+							}),
+					),
 				);
 			if (action.type === "switchBookmark") {
-				setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
-				setStatus(await window.how.switchBookmark(action.bookmark.id));
+				await runPending("leaveBrowsingChanges", async () => {
+					setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
+					setStatus(await window.how.switchBookmark(action.bookmark.id));
+				});
 			}
 			if (action.type === "returnToLatest")
-				setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
+				setStatus(
+					await runPending(
+						"leaveBrowsingChanges",
+						async () => await window.how.returnToLatest({ discardBrowsingChanges: true }),
+					),
+				);
 			if (action.type === "open") {
-				setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
-				setBusy(false);
-				await runProjectAction(async () => await window.how.openProject());
+				await runPending("leaveBrowsingChanges", async () => {
+					setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
+				});
+				await runProjectAction("openProject", async () => await window.how.openProject());
 				return;
 			}
 			if (action.type === "start") {
-				setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
-				setBusy(false);
-				await runProjectAction(async () => await window.how.startProject());
+				await runPending("leaveBrowsingChanges", async () => {
+					setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
+				});
+				await runProjectAction("startProject", async () => await window.how.startProject());
 				return;
 			}
 			if (action.type === "delete") {
-				setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
-				setBusy(false);
+				await runPending("leaveBrowsingChanges", async () => {
+					setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
+				});
 				const confirmed = window.confirm(
 					"Remove this project from How? Your project folder and files will stay where they are.",
 				);
-				if (confirmed) setStatus(await window.how.deleteProject());
+				if (confirmed)
+					setStatus(
+						await runPending("deleteProject", async () => await window.how.deleteProject()),
+					);
 				return;
 			}
 		} catch {
 			setError("How could not leave those changes.");
-		} finally {
-			setBusy(false);
 		}
 	}
+
+	const projectPickerBusy = pendingAction === "openProject" || pendingAction === "startProject";
+	const bookmarkDialogBusy =
+		pendingAction === "createBookmark" ||
+		pendingAction === "renameBookmark" ||
+		pendingAction === "updateBookmark" ||
+		pendingAction === "deleteBookmark";
+	const githubDialogBusy =
+		pendingAction === "publish" ||
+		pendingAction === "githubLogin" ||
+		pendingAction === "githubCreateRepository" ||
+		pendingAction === "githubLoadRepositories" ||
+		pendingAction === "githubPublishRepository";
 
 	if (!status.project)
 		return (
 			<>
-				<EmptyState onOpen={openProject} onStart={startProject} busy={busy} error={error} />
+				<EmptyState
+					onOpen={openProject}
+					onStart={startProject}
+					busy={projectPickerBusy}
+					error={error}
+				/>
 				{pendingDirtyAction ? (
 					<DirtyBrowsingDialog
 						onLeave={leaveBrowsingChanges}
@@ -1267,6 +1408,7 @@ export function HowHome() {
 				status={status}
 				highlightedCheckpointKeys={highlightedCheckpointKeys}
 				highlightedBookmarkIds={highlightedBookmarkIds}
+				pendingAction={pendingAction}
 				onOpen={openProject}
 				onStart={startProject}
 				onDelete={deleteProject}
@@ -1279,7 +1421,6 @@ export function HowHome() {
 				onView={viewCheckpoint}
 				onContinue={continueFromCheckpoint}
 				onReturnToLatest={returnToLatest}
-				busy={busy}
 			/>
 			{pendingDirtyAction ? (
 				<DirtyBrowsingDialog
@@ -1295,7 +1436,7 @@ export function HowHome() {
 					initialName={bookmarkNameAction.type === "rename" ? bookmarkNameAction.bookmark.name : ""}
 					onSave={saveBookmarkName}
 					onCancel={() => setBookmarkNameAction(null)}
-					busy={busy}
+					busy={bookmarkDialogBusy}
 				/>
 			) : null}
 			{bookmarkConfirmAction ? (
@@ -1309,14 +1450,14 @@ export function HowHome() {
 					action={bookmarkConfirmAction.type === "update" ? "Update" : "Delete"}
 					onConfirm={confirmBookmarkAction}
 					onCancel={() => setBookmarkConfirmAction(null)}
-					busy={busy}
+					busy={bookmarkDialogBusy}
 				/>
 			) : null}
 			{showGithubLoginDialog ? (
 				<GithubLoginDialog
 					onLogin={loginToGithub}
 					onCancel={() => setShowGithubLoginDialog(false)}
-					busy={busy}
+					busy={githubDialogBusy}
 				/>
 			) : null}
 			{showGithubRepositoryChoiceDialog ? (
@@ -1327,7 +1468,7 @@ export function HowHome() {
 					}}
 					onChoose={loadGithubRepositories}
 					onCancel={() => setShowGithubRepositoryChoiceDialog(false)}
-					busy={busy}
+					busy={githubDialogBusy}
 				/>
 			) : null}
 			{showCreateGithubRepositoryDialog ? (
@@ -1335,7 +1476,7 @@ export function HowHome() {
 					defaultName={githubRepositoryName}
 					onPublish={createGithubRepository}
 					onCancel={() => setShowCreateGithubRepositoryDialog(false)}
-					busy={busy}
+					busy={githubDialogBusy}
 				/>
 			) : null}
 			{showChooseGithubRepositoryDialog ? (
@@ -1343,7 +1484,7 @@ export function HowHome() {
 					repositories={githubRepositories}
 					onPublish={publishWithGithubRepository}
 					onCancel={() => setShowChooseGithubRepositoryDialog(false)}
-					busy={busy}
+					busy={githubDialogBusy}
 				/>
 			) : null}
 		</>
