@@ -1,6 +1,4 @@
-use std::{
-    borrow::Cow, collections::HashSet, io::Write, path::Path, path::PathBuf, process::Stdio,
-};
+use std::{collections::HashSet, io::Write, path::Path, path::PathBuf, process::Stdio};
 
 use anyhow::{Context as _, bail};
 use bstr::{BStr, BString, ByteSlice};
@@ -337,13 +335,10 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
         signature_storage.write_all(buffer)?;
         let buffer_file_to_sign_path = signature_storage.into_temp_path();
 
-        let gpg_program = config
-            .trusted_program("gpg.ssh.program")
-            .filter(|program| !program.is_empty())
-            .map_or_else(
-                || Path::new("ssh-keygen").into(),
-                |program| Cow::Owned(program.into_owned().into()),
-            );
+        let gpg_program = match config.trusted_path("gpg.ssh.program").transpose()? {
+            Some(program) if !program.as_os_str().is_empty() => program,
+            _ => Path::new("ssh-keygen").into(),
+        };
 
         let mut signing_cmd = prepare_with_shell_on_windows(gpg_program.into_owned())
             .args(["-Y", "sign", "-n", "git", "-f"]);
@@ -393,13 +388,10 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
             bail!("Failed to sign SSH: {stdout} {stderr}");
         }
     } else {
-        let gpg_program = config
-            .trusted_program("gpg.program")
-            .filter(|program| !program.is_empty())
-            .map_or_else(
-                || Path::new("gpg").into(),
-                |program| Cow::Owned(program.into_owned().into()),
-            );
+        let gpg_program = match config.trusted_path("gpg.program").transpose()? {
+            Some(program) if !program.as_os_str().is_empty() => program,
+            _ => Path::new("gpg").into(),
+        };
 
         let mut cmd = into_command(
             prepare_with_shell_on_windows(gpg_program.as_ref())
