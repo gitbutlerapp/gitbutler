@@ -18,7 +18,7 @@ import {
 	Trash2,
 	Upload,
 } from "lucide-react";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type {
 	Bookmark,
 	BrowsingSession,
@@ -91,13 +91,27 @@ function statusToneForStatus(status: HowStatus): string {
 	return statusTone(status.saveState);
 }
 
-function formatTime(timestamp: number): string {
-	return new Intl.DateTimeFormat(undefined, {
-		month: "short",
-		day: "numeric",
-		hour: "2-digit",
-		minute: "2-digit",
-	}).format(new Date(timestamp));
+function formatTimeAgo(timestamp: number, now: number): string {
+	const elapsedSeconds = Math.max(0, Math.floor((now - timestamp) / 1000));
+	if (elapsedSeconds < 60) return "now";
+	const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+	if (elapsedMinutes < 60) return `${elapsedMinutes}m`;
+	const elapsedHours = Math.floor(elapsedMinutes / 60);
+	if (elapsedHours < 24) return `${elapsedHours}h`;
+	const elapsedDays = Math.floor(elapsedHours / 24);
+	if (elapsedDays < 30) return `${elapsedDays}d`;
+	const elapsedMonths = Math.floor(elapsedDays / 30);
+	if (elapsedMonths < 12) return `${elapsedMonths}mo`;
+	return `${Math.floor(elapsedDays / 365)}y`;
+}
+
+function useNow(intervalMs: number): number {
+	const [now, setNow] = useState(() => Date.now());
+	useEffect(() => {
+		const interval = window.setInterval(() => setNow(Date.now()), intervalMs);
+		return () => window.clearInterval(interval);
+	}, [intervalMs]);
+	return now;
 }
 
 function checkpointDisplayTitle(title: string): string {
@@ -106,6 +120,73 @@ function checkpointDisplayTitle(title: string): string {
 
 function checkpointTimelineKey(checkpoint: Checkpoint): string {
 	return checkpoint.changeId ?? checkpoint.id;
+}
+
+function useFlipList(itemKeys: Array<string>) {
+	const elements = useRef<Map<string, HTMLElement>>(new Map());
+	const previousRects = useRef<Map<string, DOMRect>>(new Map());
+	const previousKeys = useRef<Set<string> | null>(null);
+	const itemKeySignature = itemKeys.join("\u0000");
+
+	const setElement = useCallback((key: string, element: HTMLElement | null) => {
+		if (element) elements.current.set(key, element);
+		else elements.current.delete(key);
+	}, []);
+
+	useLayoutEffect(() => {
+		const nextRects = new Map<string, DOMRect>();
+		for (const key of itemKeys) {
+			const element = elements.current.get(key);
+			if (element) nextRects.set(key, element.getBoundingClientRect());
+		}
+
+		const priorKeys = previousKeys.current;
+		const prefersReducedMotion =
+			typeof window.matchMedia === "function" &&
+			window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+		if (priorKeys && !prefersReducedMotion) {
+			for (const key of itemKeys) {
+				const element = elements.current.get(key);
+				const nextRect = nextRects.get(key);
+				if (!element || !nextRect) continue;
+
+				const previousRect = previousRects.current.get(key);
+				if (previousRect) {
+					const deltaX = previousRect.left - nextRect.left;
+					const deltaY = previousRect.top - nextRect.top;
+					if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) continue;
+
+					element.animate(
+						[
+							{ transform: `translate(${deltaX}px, ${deltaY}px)` },
+							{ transform: "translate(0, 0)" },
+						],
+						{
+							duration: 260,
+							easing: "cubic-bezier(0.2, 0, 0, 1)",
+						},
+					);
+				} else if (!priorKeys.has(key)) {
+					element.animate(
+						[
+							{ opacity: 0, transform: "translateY(-8px) scale(0.99)" },
+							{ opacity: 1, transform: "translateY(0) scale(1)" },
+						],
+						{
+							duration: 220,
+							easing: "cubic-bezier(0.2, 0, 0, 1)",
+						},
+					);
+				}
+			}
+		}
+
+		previousRects.current = nextRects;
+		previousKeys.current = new Set(itemKeys);
+	}, [itemKeySignature, itemKeys]);
+
+	return setElement;
 }
 
 function iconForState(state: SaveState) {
@@ -491,6 +572,7 @@ function BookmarkSidebar({
 	bookmarks,
 	browsing,
 	highlightedBookmarkIds,
+	now,
 	onCreate,
 	onSwitch,
 	onUpdate,
@@ -501,6 +583,7 @@ function BookmarkSidebar({
 	bookmarks: Array<Bookmark>;
 	browsing: BrowsingSession | null;
 	highlightedBookmarkIds: Set<string>;
+	now: number;
 	onCreate: () => Promise<void>;
 	onSwitch: (bookmark: Bookmark) => Promise<void>;
 	onUpdate: (bookmark: Bookmark) => Promise<void>;
@@ -525,7 +608,9 @@ function BookmarkSidebar({
 					onClick={() => void onCreate()}
 					disabled={busy || Boolean(browsing?.dirty)}
 					title={
-						browsing?.dirty ? "Continue from here before bookmarking these changes." : undefined
+						browsing?.dirty
+							? "Continue from here before bookmarking these changes."
+							: "Bookmark current state"
 					}
 				>
 					<BookmarkIcon className="h-4 w-4" aria-hidden />
@@ -535,17 +620,7 @@ function BookmarkSidebar({
 			<div className="pr-1 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
 				{bookmarks.length === 0 ? (
 					<div className="rounded-md border border-dashed border-stone-700 bg-stone-950/70 p-4">
-						<p className="text-sm font-medium text-stone-100">No bookmarks</p>
-						<Button
-							variant="secondary"
-							size="sm"
-							className="mt-3 w-full"
-							onClick={() => void onCreate()}
-							disabled={busy || Boolean(browsing?.dirty)}
-						>
-							<BookmarkIcon className="h-4 w-4" aria-hidden />
-							Bookmark current state
-						</Button>
+						<p className="text-sm font-medium text-stone-50 opacity-60">No bookmarks</p>
 					</div>
 				) : (
 					<ul className="space-y-2">
@@ -568,7 +643,7 @@ function BookmarkSidebar({
 											{bookmark.name}
 										</span>
 										<span className="mt-1 flex items-center gap-2 text-xs text-stone-500">
-											{bookmark.isCurrent ? "current" : formatTime(bookmark.updatedAt)}
+											{bookmark.isCurrent ? "current" : formatTimeAgo(bookmark.updatedAt, now)}
 											{bookmark.kind === "auto" ? <span>auto</span> : null}
 										</span>
 									</button>
@@ -638,15 +713,20 @@ function Timeline({
 	checkpoints,
 	browsing,
 	highlightedCheckpointKeys,
+	now,
 	onView,
 	busy,
 }: {
 	checkpoints: Array<Checkpoint>;
 	browsing: BrowsingSession | null;
 	highlightedCheckpointKeys: Set<string>;
+	now: number;
 	onView: (checkpoint: Checkpoint) => Promise<void>;
 	busy: boolean;
 }) {
+	const timelineKeys = useMemo(() => checkpoints.map(checkpointTimelineKey), [checkpoints]);
+	const setTimelineElement = useFlipList(timelineKeys);
+
 	if (checkpoints.length === 0)
 		return (
 			<div className="rounded-md border border-dashed border-stone-700 bg-stone-950/70 p-8 text-center">
@@ -662,6 +742,7 @@ function Timeline({
 			{checkpoints.map((checkpoint, index) => (
 				<li
 					key={checkpointTimelineKey(checkpoint)}
+					ref={(element) => setTimelineElement(checkpointTimelineKey(checkpoint), element)}
 					className={`group grid grid-cols-[auto_1fr_auto] gap-4 rounded-md border px-4 py-3 ${
 						browsing?.currentCheckpointId === checkpoint.id
 							? "border-stone-500 bg-stone-950"
@@ -686,7 +767,9 @@ function Timeline({
 								</span>
 							) : null}
 						</div>
-						<p className="mt-1 text-xs text-stone-500">{formatTime(checkpoint.createdAt)}</p>
+						<p className="mt-1 text-xs text-stone-500">
+							{formatTimeAgo(checkpoint.createdAt, now)}
+						</p>
 					</div>
 					{(index === 0 && !browsing) || browsing?.currentCheckpointId === checkpoint.id ? null : (
 						<Button
@@ -793,6 +876,7 @@ function ProjectScreen({
 	onReturnToLatest: () => Promise<void>;
 }) {
 	const project = status.project;
+	const now = useNow(60_000);
 	if (!project) return null;
 	const chromeBusy =
 		pendingAction === "openProject" ||
@@ -900,10 +984,11 @@ function ProjectScreen({
 
 					<div className="flex flex-col gap-6 md:grid md:min-h-0 md:flex-1 md:grid-cols-[16rem_minmax(0,1fr)]">
 						<BookmarkSidebar
-							bookmarks={status.bookmarks}
-							browsing={status.browsing}
-							highlightedBookmarkIds={highlightedBookmarkIds}
-							onCreate={onCreateBookmark}
+						bookmarks={status.bookmarks}
+						browsing={status.browsing}
+						highlightedBookmarkIds={highlightedBookmarkIds}
+						now={now}
+						onCreate={onCreateBookmark}
 							onSwitch={onSwitchBookmark}
 							onUpdate={onUpdateBookmark}
 							onRename={onRenameBookmark}
@@ -913,10 +998,11 @@ function ProjectScreen({
 						<section className="min-w-0 lg:min-h-0 lg:overflow-y-auto">
 							<div className="mx-auto w-full max-w-3xl pb-16">
 								<Timeline
-									checkpoints={status.checkpoints}
-									browsing={status.browsing}
-									highlightedCheckpointKeys={highlightedCheckpointKeys}
-									onView={onView}
+								checkpoints={status.checkpoints}
+								browsing={status.browsing}
+								highlightedCheckpointKeys={highlightedCheckpointKeys}
+								now={now}
+								onView={onView}
 									busy={browsingBusy}
 								/>
 							</div>
