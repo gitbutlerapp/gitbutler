@@ -2,9 +2,20 @@ import { UpstreamIntegrationService } from "$lib/upstream/upstreamIntegrationSer
 import { describe, expect, test, vi } from "vitest";
 import type { RefInfo, Segment, Stack } from "@gitbutler/but-sdk";
 
-function segment(): Segment {
+const encoder = new TextEncoder();
+
+function bytes(value: string): number[] {
+	return [...encoder.encode(value)];
+}
+
+function segment(name?: string): Segment {
 	return {
-		refName: null,
+		refName: name
+			? {
+					fullNameBytes: bytes(`refs/heads/${name}`),
+					displayName: name,
+				}
+			: null,
 		remoteTrackingRefName: null,
 		commits: [],
 		commitsOnRemote: [],
@@ -44,7 +55,7 @@ describe("UpstreamIntegrationService", () => {
 				changes: [],
 				replacedCommits: {},
 			},
-			worktreeConflicts: [],
+			worktreeConflicts: ["conflicting.txt"],
 		});
 		const service = new UpstreamIntegrationService(
 			{
@@ -68,11 +79,69 @@ describe("UpstreamIntegrationService", () => {
 		});
 		expect(statuses).toMatchObject({
 			updates: [],
-			worktreeConflicts: [],
+			worktreeConflicts: ["conflicting.txt"],
 			subject: [
 				{
 					status: "clear",
 					fullyIntegrated: false,
+				},
+			],
+		});
+	});
+
+	test("previews non-empty update sets through the backend", async () => {
+		const stacks = [stack([segment("feature")])];
+		const mutate = vi.fn().mockResolvedValue({
+			workspaceState: {
+				headInfo: refInfo([]),
+				changes: [],
+				replacedCommits: {},
+			},
+			worktreeConflicts: [],
+		});
+		const service = new UpstreamIntegrationService(
+			{
+				endpoints: {
+					workspaceIntegrateUpstream: {
+						mutate,
+					},
+				},
+			} as any,
+			{
+				fetchStacks: vi.fn().mockResolvedValue(stacks),
+			} as any,
+		);
+
+		const statuses = await service.upstreamStatuses("project-1");
+
+		expect(mutate).toHaveBeenCalledWith({
+			projectId: "project-1",
+			updates: [
+				{
+					kind: "rebase",
+					selector: {
+						type: "referenceBytes",
+						subject: bytes("refs/heads/feature"),
+					},
+				},
+			],
+			dryRun: true,
+		});
+		expect(statuses).toMatchObject({
+			updates: [
+				{
+					kind: "rebase",
+					selector: {
+						type: "referenceBytes",
+						subject: bytes("refs/heads/feature"),
+					},
+				},
+			],
+			worktreeConflicts: [],
+			subject: [
+				{
+					status: "integrated",
+					fullyIntegrated: true,
 				},
 			],
 		});
