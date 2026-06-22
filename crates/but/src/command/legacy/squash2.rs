@@ -36,10 +36,7 @@ impl CliOutputHuman for SquashOutcome {
                 target,
                 new_commit,
             } => {
-                let sources = sources
-                    .into_iter()
-                    .map(|source| theme::Commit(source).to_string())
-                    .join(", ");
+                let sources = sources.into_iter().map(theme::Commit).join(", ");
 
                 writeln!(
                     out,
