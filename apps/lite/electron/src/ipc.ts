@@ -59,7 +59,6 @@ import type {
 	AskpassPromptEvent,
 	MaybeLossyFullNameRef,
 } from "@gitbutler/but-sdk";
-import type { UpdateDownloadedEvent } from "electron-updater";
 
 export interface AbsorbParams {
 	projectId: string;
@@ -482,8 +481,6 @@ export interface LiteElectronApi {
 	watcherSubscribe: (projectId: string, callback: (event: WatcherEvent) => void) => Promise<string>;
 	watcherUnsubscribe: (subscriptionId: string) => Promise<boolean>;
 	watcherStopAll: () => Promise<number>;
-	onUpdateDownloaded: (callback: (info: UpdateDownloadedEvent) => void) => () => void;
-	quitAndInstallUpdate: () => Promise<void>;
 	platform: string;
 }
 
@@ -559,6 +556,4 @@ export const liteIpcChannels = {
 	watcherSubscribe: "workspace:watcher-subscribe",
 	watcherUnsubscribe: "workspace:watcher-unsubscribe",
 	watcherStopAll: "workspace:watcher-stop-all",
-	updaterUpdateDownloaded: "updater:update-downloaded",
-	updaterQuitAndInstall: "updater:quit-and-install",
 } as const;

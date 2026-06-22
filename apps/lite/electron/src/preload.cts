@@ -1,6 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { LiteElectronApi, UpdateBranchNameResult, WatcherSubscribeResult } from "./ipc";
-import type { UpdateDownloadedEvent } from "electron-updater";
 import type {
 	CommitAbsorption,
 	ApplyOutcome,
@@ -260,13 +259,6 @@ const api: LiteElectronApi = {
 		watcherListenerBySubscription.clear();
 		return ipcRenderer.invoke("workspace:watcher-stop-all") as Promise<number>;
 	},
-	onUpdateDownloaded: (callback) => {
-		const listener = (_event: Electron.IpcRendererEvent, info: UpdateDownloadedEvent) =>
-			callback(info);
-		ipcRenderer.on("updater:update-downloaded", listener);
-		return () => ipcRenderer.removeListener("updater:update-downloaded", listener);
-	},
-	quitAndInstallUpdate: () => ipcRenderer.invoke("updater:quit-and-install") as Promise<void>,
 	platform: process.platform,
 };
 
