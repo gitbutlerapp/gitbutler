@@ -504,7 +504,7 @@ const WorkspacePage: FC = () => {
 										// the tooltip. Other props should be passed above.
 										render={<Button focusableWhenDisabled disabled={!canApplyBranch} />}
 									>
-										<Icon name="plus" />
+										<Icon name="branch" />
 									</Tooltip.Trigger>
 									<Tooltip.Portal>
 										<Tooltip.Positioner sideOffset={4}>
