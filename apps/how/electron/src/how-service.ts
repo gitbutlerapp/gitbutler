@@ -453,6 +453,14 @@ export class HowService {
 		return await this.github.listRepositories();
 	}
 
+	async getGithubAccount() {
+		return await this.github.account();
+	}
+
+	async logoutOfGithub() {
+		return await this.github.logout();
+	}
+
 	#publishFailure(message: string): PublishProjectResult {
 		this.#status = {
 			...this.#status,
@@ -931,6 +939,43 @@ export class HowService {
 	async deleteProject(): Promise<HowStatus> {
 		this.logger.info("Deleting active project from How", this.#status.project);
 		this.#cancelPendingSummaryUpdates("delete project");
+		await this.stop();
+		this.#status = {
+			project: null,
+			saveState: "idle",
+			message: null,
+			lastSavedAt: null,
+			checkpoints: [],
+			bookmarks: [],
+			browsing: null,
+			settings: defaultSettings(),
+			sharedProject: defaultSharedProjectStatus(),
+		};
+		await this.#writeStoredState({ activeProject: null, browsing: null });
+		this.#emit();
+		return this.getStatus();
+	}
+
+	async closeProject(options: { discardBrowsingChanges?: boolean } = {}): Promise<HowStatus> {
+		const project = this.#status.project;
+		if (!project) return this.getStatus();
+		this.logger.info("Closing active project", {
+			project,
+			discardBrowsingChanges: options.discardBrowsingChanges === true,
+		});
+
+		if (this.#status.browsing) {
+			if (this.#status.browsing.dirty && options.discardBrowsingChanges !== true)
+				throw new Error("Leave changes or cancel before closing this project.");
+			await this.returnToLatest({ discardBrowsingChanges: options.discardBrowsingChanges === true });
+		} else {
+			this.#clearScheduledCheckpoint();
+			await this.#waitForActiveSave();
+			this.#clearScheduledCheckpoint();
+			if (await hasWorktreeChanges(project.id)) await this.#createCheckpoint();
+		}
+
+		this.#cancelPendingSummaryUpdates("close project");
 		await this.stop();
 		this.#status = {
 			project: null,

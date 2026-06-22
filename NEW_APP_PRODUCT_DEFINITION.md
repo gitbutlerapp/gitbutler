@@ -134,9 +134,42 @@ The published project state on GitHub. Use this instead of `main` or
 Publishing belongs in the first complete product loop. It should not feel like a
 separate power feature.
 
-## Main Screen
+## Main Page And Project Screen
 
-V1 is essentially one calm Change screen:
+How has two main surfaces:
+
+1. **Main page**: the no-active-project home surface.
+2. **Project screen**: the active Change surface.
+
+On a fresh launch with no remembered active project, How opens on the main page.
+If there is a remembered active project, How opens that project directly. If the
+user leaves a project with the project-screen back action, How closes and
+deactivates the project, stops file watchers and other project subscriptions,
+clears the remembered active project, and returns to the main page. The next
+launch should then start on the main page.
+
+The main page is action-focused. It offers:
+
+- Open project.
+- Start project.
+- The five most recent successfully opened or started projects, stored as
+  renderer-local convenience state with title, path, and last-opened time.
+- A secondary GitHub account action.
+
+Recent projects are not durable product state. They live in renderer
+`localStorage`; losing them is fine. A recent project is added only after How
+successfully activates it. Clicking a recent project opens it directly. If How
+can no longer open it, the app shows a plain-language error and removes it from
+the recent list.
+
+The main page shows GitHub account state even when no project is active. If the
+user is not logged in, it shows **Log in to GitHub**. If the user is logged in,
+it shows the GitHub login, avatar when available, and **Log out**. GitHub login
+uses the same OAuth device-flow interaction as publishing. Logout is immediate,
+removes only How's app-wide credential, and does not mutate any project's local
+`how.githubCredential` setting.
+
+The project screen is one calm Change screen:
 
 - Current project name.
 - Current Change status, such as "Saved just now", "Saving...", "Unsaved
@@ -148,6 +181,18 @@ V1 is essentially one calm Change screen:
   changed.
 - Checkpoint action: Restore.
 - Optional small notice when the shared version has changed.
+
+The project screen does not show **Open project** or **Start project**. It has a
+back action that leaves the active project. If there are normal unsaved changes,
+How creates a Checkpoint before leaving. If the user is browsing a Checkpoint
+with dirty browsing edits, How asks **Leave changes** or **Cancel**. The back
+action is disabled while a blocking mutation is running, such as saving,
+switching, updating, publishing, or continuing from a Checkpoint. Passive
+background fetches do not block it.
+
+The project settings route is project-scoped. It is opened from the project
+screen gear, returns to the project screen, and should redirect or return to the
+main page when there is no active project.
 
 V1 should not show file lists, diffs, branch lists, commit lists, graphs,
 staging, or other source-control machinery.
@@ -174,6 +219,18 @@ product definition does not yet know what a simple manual flow should look like.
 
 Users cannot delete, rename, pin, or manually clean up Checkpoints in v1.
 Retention and cleanup can be automatic/internal later.
+
+How needs a future sensitive-change guard before Checkpoints become something
+users can fully trust without thinking about Git. The app should be able to
+detect file changes with high-entropy content, such as likely tokens or secrets,
+and stop recording those file changes into Checkpoints. This should happen as a
+capture guard, not as a scary warning-driven workflow.
+
+How also needs a recovery path for sensitive content that was already captured.
+The user should be able to remove the recorded changes for a given file from
+local Checkpoints without learning history-editing concepts. This should rewrite
+only local, unpublished Checkpoint history and should refuse to operate on
+anything already reachable from the shared project.
 
 The Checkpoint timeline should show only local work that has not yet reached the
 shared project. Once How has refreshed its upstream knowledge and a Checkpoint is
@@ -1043,6 +1100,13 @@ Desired future APIs:
   configures tracking.
 - `getCheckpointStatus(projectId)` or `projectEligibility(projectId)`.
 - `meaningfulChanges(projectId)` or a Checkpoint dry-run/status result.
+- `detectSensitiveChanges(projectId)` or an equivalent capture-time guard that
+  can identify high-entropy file changes before they are recorded into
+  Checkpoints.
+- `removeFileFromLocalCheckpoints(projectId, path)` or an equivalent
+  plain-product operation that removes a file's recorded changes from local,
+  unpublished Checkpoint history while refusing to rewrite anything already
+  reachable from the shared project.
 
 These APIs should return How-level concepts and plain failure categories rather
 than making the caller assemble branch, commit, diff, and repository details.
@@ -1061,7 +1125,10 @@ than making the caller assemble branch, commit, diff, and repository details.
 - How should stacked reviews work while preserving the one-current-Change
   product model?
 - What plain-language error taxonomy is needed for unsupported states?
-- Should we auto-detect file changes that should not be published? Ideally, we snapshot everything as commits, but we don't publish API_KEYs.
+- What exact high-entropy/sensitive-change heuristic should stop file changes
+  from being recorded into Checkpoints?
+- What is the plainest user flow for removing a file's recorded changes from
+  local Checkpoints after sensitive content was already captured?
 
 ## Decision Appendix
 

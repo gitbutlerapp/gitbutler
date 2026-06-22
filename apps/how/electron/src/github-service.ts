@@ -2,6 +2,7 @@ import { dialog, shell, safeStorage } from "electron";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type {
+	GithubAccount,
 	GithubLoginResult,
 	GithubRepositoriesResult,
 	GithubRepositorySummary,
@@ -11,6 +12,7 @@ import type { Logger } from "./logger.js";
 type StoredCredential = {
 	id: string;
 	login: string;
+	avatarUrl: string | null;
 	encryptedToken: string;
 };
 
@@ -49,10 +51,29 @@ export class GithubService {
 		return (await this.#activeToken()) !== null;
 	}
 
+	async account(): Promise<GithubAccount | null> {
+		const stored = await this.#readCredentials();
+		const active = stored.credentials.find(
+			(credential) => credential.id === stored.activeCredentialId,
+		);
+		if (!active) return null;
+		return {
+			login: active.login,
+			avatarUrl: active.avatarUrl ?? null,
+		};
+	}
+
+	async logout(): Promise<GithubAccount | null> {
+		await fs.mkdir(path.dirname(this.credentialsPath), { recursive: true });
+		await fs.writeFile(this.credentialsPath, `${JSON.stringify(emptyCredentials, null, 2)}\n`);
+		return null;
+	}
+
 	async login(): Promise<GithubLoginResult> {
 		if (process.env.HOW_E2E_GITHUB_LOGIN) {
-			await this.#storeToken("how-e2e-token", process.env.HOW_E2E_GITHUB_LOGIN);
-			return { type: "loggedIn", login: process.env.HOW_E2E_GITHUB_LOGIN };
+			const avatarUrl = process.env.HOW_E2E_GITHUB_AVATAR_URL ?? null;
+			await this.#storeToken("how-e2e-token", process.env.HOW_E2E_GITHUB_LOGIN, avatarUrl);
+			return { type: "loggedIn", login: process.env.HOW_E2E_GITHUB_LOGIN, avatarUrl };
 		}
 
 		try {
@@ -72,9 +93,9 @@ export class GithubService {
 				userCode: verification.user_code,
 			});
 			const token = await this.#pollDeviceFlow(verification);
-			const login = await this.#fetchLogin(token);
-			await this.#storeToken(token, login);
-			return { type: "loggedIn", login };
+			const account = await this.#fetchAccount(token);
+			await this.#storeToken(token, account.login, account.avatarUrl);
+			return { type: "loggedIn", login: account.login, avatarUrl: account.avatarUrl };
 		} catch (error) {
 			this.logger.error("GitHub login failed", error);
 			return {
@@ -206,9 +227,12 @@ export class GithubService {
 		throw new Error("GitHub login timed out.");
 	}
 
-	async #fetchLogin(token: string): Promise<string> {
-		const user = await this.#github<{ login: string }>("/user", token);
-		return user.login;
+	async #fetchAccount(token: string): Promise<GithubAccount> {
+		const user = await this.#github<{ login: string; avatar_url?: string | null }>("/user", token);
+		return {
+			login: user.login,
+			avatarUrl: typeof user.avatar_url === "string" ? user.avatar_url : null,
+		};
 	}
 
 	async #github<T>(pathName: string, token: string, init: RequestInit = {}): Promise<T> {
@@ -241,10 +265,11 @@ export class GithubService {
 		return decryptToken(active.encryptedToken);
 	}
 
-	async #storeToken(token: string, login: string): Promise<void> {
+	async #storeToken(token: string, login: string, avatarUrl: string | null): Promise<void> {
 		const credential: StoredCredential = {
 			id: "github",
 			login,
+			avatarUrl,
 			encryptedToken: encryptToken(token),
 		};
 		await fs.mkdir(path.dirname(this.credentialsPath), { recursive: true });

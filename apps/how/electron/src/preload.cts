@@ -13,8 +13,12 @@ const api: HowElectronApi = {
 	getStatus: async () => await (ipcRenderer.invoke("how:get-status") as Promise<HowStatus>),
 	openProject: async () =>
 		await (ipcRenderer.invoke("how:open-project") as Promise<OpenProjectResult>),
+	openProjectPath: async (projectPath) =>
+		await (ipcRenderer.invoke("how:open-project-path", projectPath) as Promise<OpenProjectResult>),
 	startProject: async () =>
 		await (ipcRenderer.invoke("how:start-project") as Promise<OpenProjectResult>),
+	closeProject: async (options) =>
+		await (ipcRenderer.invoke("how:close-project", options) as Promise<HowStatus>),
 	deleteProject: async () => await (ipcRenderer.invoke("how:delete-project") as Promise<HowStatus>),
 	createCheckpointNow: async () =>
 		await (ipcRenderer.invoke("how:create-checkpoint-now") as Promise<HowStatus>),
@@ -39,6 +43,14 @@ const api: HowElectronApi = {
 	updateProject: async () => await (ipcRenderer.invoke("how:update-project") as Promise<HowStatus>),
 	loginToGithub: async () =>
 		await (ipcRenderer.invoke("how:login-to-github") as Promise<GithubLoginResult>),
+	getGithubAccount: async () =>
+		await (ipcRenderer.invoke("how:get-github-account") as Promise<
+			Awaited<ReturnType<HowElectronApi["getGithubAccount"]>>
+		>),
+	logoutOfGithub: async () =>
+		await (ipcRenderer.invoke("how:logout-of-github") as Promise<
+			Awaited<ReturnType<HowElectronApi["logoutOfGithub"]>>
+		>),
 	listGithubRepositories: async () =>
 		await (ipcRenderer.invoke("how:list-github-repositories") as Promise<GithubRepositoriesResult>),
 	saveProjectSettings: async (settings) =>

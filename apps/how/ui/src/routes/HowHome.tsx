@@ -1,9 +1,10 @@
 import { Button } from "#ui/components/ui/button.tsx";
 import { getHowStatus, howStatusQueryKey } from "#ui/lib/how-status-query.ts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
 	AlertCircle,
+	ArrowLeft,
 	Bookmark as BookmarkIcon,
 	Check,
 	Clock,
@@ -17,12 +18,22 @@ import {
 	Settings,
 	Trash2,
 	Upload,
+	UserCircle,
 } from "lucide-react";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+	memo,
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import type {
 	Bookmark,
 	BrowsingSession,
 	Checkpoint,
+	GithubAccount,
 	GithubRepositorySummary,
 	HowStatus,
 	SaveState,
@@ -47,6 +58,14 @@ const initialStatus: HowStatus = {
 		message: null,
 	},
 };
+
+type RecentProject = {
+	title: string;
+	path: string;
+	lastOpenedAt: number;
+};
+
+const recentProjectsStorageKey = "how.recentProjects";
 
 function statusLabel(status: HowStatus): string {
 	if (status.saveState === "error" && status.message) return status.message;
@@ -112,6 +131,84 @@ function useNow(intervalMs: number): number {
 		return () => window.clearInterval(interval);
 	}, [intervalMs]);
 	return now;
+}
+
+function readRecentProjects(): Array<RecentProject> {
+	try {
+		const parsed: unknown = JSON.parse(window.localStorage.getItem(recentProjectsStorageKey) ?? "[]");
+		if (!Array.isArray(parsed)) return [];
+		return parsed
+			.map((project): RecentProject | null => {
+				if (typeof project !== "object" || project === null) return null;
+				const { title, path, lastOpenedAt } = project as Partial<RecentProject>;
+				if (
+					typeof title !== "string" ||
+					typeof path !== "string" ||
+					typeof lastOpenedAt !== "number"
+				)
+					return null;
+				return { title, path, lastOpenedAt };
+			})
+			.filter((project): project is RecentProject => project !== null)
+			.slice(0, 5);
+	} catch {
+		return [];
+	}
+}
+
+function writeRecentProjects(projects: Array<RecentProject>): void {
+	window.localStorage.setItem(recentProjectsStorageKey, JSON.stringify(projects.slice(0, 5)));
+}
+
+function addRecentProject(project: { title: string; path: string }): Array<RecentProject> {
+	const next = [
+		{ title: project.title, path: project.path, lastOpenedAt: Date.now() },
+		...readRecentProjects().filter((recent) => recent.path !== project.path),
+	].slice(0, 5);
+	writeRecentProjects(next);
+	return next;
+}
+
+function removeRecentProject(projectPath: string): Array<RecentProject> {
+	const next = readRecentProjects().filter((project) => project.path !== projectPath);
+	writeRecentProjects(next);
+	return next;
+}
+
+function parentPath(projectPath: string): string {
+	const normalized = projectPath.replace(/\/+$/, "");
+	const index = normalized.lastIndexOf("/");
+	return index > 0 ? normalized.slice(0, index) : normalized;
+}
+
+function useHowStatus() {
+	const queryClient = useQueryClient();
+	const statusQuery = useQuery({
+		queryKey: howStatusQueryKey,
+		queryFn: getHowStatus,
+		placeholderData: initialStatus,
+	});
+	const status = statusQuery.data ?? initialStatus;
+	const setStatus = useCallback(
+		(nextStatus: HowStatus | ((currentStatus: HowStatus) => HowStatus)) => {
+			queryClient.setQueryData<HowStatus>(howStatusQueryKey, (currentStatus) => {
+				if (typeof nextStatus === "function") return nextStatus(currentStatus ?? initialStatus);
+				return nextStatus;
+			});
+		},
+		[queryClient],
+	);
+
+	useEffect(() => {
+		const unsubscribe = window.how.onStatus((nextStatus) => {
+			setStatus(nextStatus);
+		});
+		return () => {
+			unsubscribe();
+		};
+	}, [setStatus]);
+
+	return { status, setStatus, statusQuery };
 }
 
 function checkpointDisplayTitle(title: string): string {
@@ -229,27 +326,34 @@ function StatusFooter({ status }: { status: HowStatus }) {
 	);
 }
 
-function EmptyState({
+function MainPage({
 	onOpen,
 	onStart,
+	onOpenRecent,
+	onLogin,
+	onLogout,
 	busy,
+	githubBusy,
 	error,
+	githubAccount,
+	recents,
+	now,
 }: {
 	onOpen: () => Promise<void>;
 	onStart: () => Promise<void>;
+	onOpenRecent: (project: RecentProject) => Promise<void>;
+	onLogin: () => Promise<void>;
+	onLogout: () => Promise<void>;
 	busy: boolean;
+	githubBusy: boolean;
 	error: string | null;
+	githubAccount: GithubAccount | null;
+	recents: Array<RecentProject>;
+	now: number;
 }) {
 	return (
 		<main className="flex min-h-screen items-center justify-center px-6 py-10">
 			<section className="w-full max-w-xl">
-				<div className="mb-10">
-					<h1 className="text-4xl font-semibold tracking-normal text-stone-50">Manage changes.</h1>
-					<p className="mt-4 max-w-md text-base leading-7 text-stone-500">
-						Open a project and How will keep a simple timeline of saved moments while you build.
-					</p>
-				</div>
-
 				<div className="flex flex-wrap gap-3">
 					<Button onClick={() => void onOpen()} disabled={busy}>
 						<FolderOpen className="h-4 w-4" aria-hidden />
@@ -260,6 +364,62 @@ function EmptyState({
 						Start project
 					</Button>
 				</div>
+
+				{recents.length > 0 ? (
+					<section className="mt-8">
+						<ul className="space-y-2">
+							{recents.map((project) => (
+								<li key={project.path}>
+									<button
+										type="button"
+										className="flex w-full items-center justify-between gap-4 rounded-md border border-stone-800 bg-stone-950 px-3 py-3 text-left text-stone-300 transition-colors hover:border-stone-700 hover:bg-stone-900 disabled:opacity-60"
+										onClick={() => void onOpenRecent(project)}
+										disabled={busy}
+									>
+										<span className="min-w-0">
+											<span className="block truncate text-sm font-medium text-stone-100">
+												{project.title}
+											</span>
+											<span className="mt-1 block truncate text-xs text-stone-500">
+												{parentPath(project.path)}
+											</span>
+										</span>
+										<span className="shrink-0 text-xs text-stone-600">
+											{formatTimeAgo(project.lastOpenedAt, now)}
+										</span>
+									</button>
+								</li>
+							))}
+						</ul>
+					</section>
+				) : null}
+
+				<section className="mt-8 flex items-center justify-between gap-3 border-t border-stone-800 pt-4">
+					{githubAccount ? (
+						<div className="flex min-w-0 items-center gap-2">
+							{githubAccount.avatarUrl ? (
+								<img
+									src={githubAccount.avatarUrl}
+									alt=""
+									className="h-7 w-7 rounded-full bg-stone-900"
+								/>
+							) : (
+								<UserCircle className="h-7 w-7 text-stone-500" aria-hidden />
+							)}
+							<span className="truncate text-sm text-stone-400">@{githubAccount.login}</span>
+						</div>
+					) : (
+						<span className="text-sm text-stone-500">GitHub</span>
+					)}
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={() => void (githubAccount ? onLogout() : onLogin())}
+						disabled={githubBusy}
+					>
+						{githubAccount ? "Log out" : "Log in to GitHub"}
+					</Button>
+				</section>
 
 				{error ? (
 					<p className="mt-5 rounded-md border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-100">
@@ -275,9 +435,7 @@ type PendingDirtyAction =
 	| { type: "view"; checkpoint: Checkpoint }
 	| { type: "switchBookmark"; bookmark: Bookmark }
 	| { type: "returnToLatest" }
-	| { type: "open" }
-	| { type: "start" }
-	| { type: "delete" };
+	| { type: "close" };
 
 type BookmarkNameAction = { type: "create" } | { type: "rename"; bookmark: Bookmark };
 type BookmarkConfirmAction =
@@ -287,7 +445,8 @@ type BookmarkConfirmAction =
 type PendingAction =
 	| "openProject"
 	| "startProject"
-	| "deleteProject"
+	| "openRecentProject"
+	| "closeProject"
 	| "viewCheckpoint"
 	| "createBookmark"
 	| "updateBookmark"
@@ -843,9 +1002,8 @@ function ProjectScreen({
 	highlightedCheckpointKeys,
 	highlightedBookmarkIds,
 	pendingAction,
-	onOpen,
-	onStart,
-	onDelete,
+	error,
+	onBack,
 	onPublish,
 	onUpdateProject,
 	onCreateBookmark,
@@ -861,9 +1019,8 @@ function ProjectScreen({
 	highlightedCheckpointKeys: Set<string>;
 	highlightedBookmarkIds: Set<string>;
 	pendingAction: PendingAction | null;
-	onOpen: () => Promise<void>;
-	onStart: () => Promise<void>;
-	onDelete: () => Promise<void>;
+	error: string | null;
+	onBack: () => Promise<void>;
 	onPublish: () => Promise<void>;
 	onUpdateProject: () => Promise<void>;
 	onCreateBookmark: () => Promise<void>;
@@ -879,9 +1036,22 @@ function ProjectScreen({
 	const now = useNow(60_000);
 	if (!project) return null;
 	const chromeBusy =
-		pendingAction === "openProject" ||
-		pendingAction === "startProject" ||
-		pendingAction === "deleteProject";
+		pendingAction === "closeProject" ||
+		pendingAction === "viewCheckpoint" ||
+		pendingAction === "createBookmark" ||
+		pendingAction === "updateBookmark" ||
+		pendingAction === "renameBookmark" ||
+		pendingAction === "deleteBookmark" ||
+		pendingAction === "switchBookmark" ||
+		pendingAction === "continueFromCheckpoint" ||
+		pendingAction === "returnToLatest" ||
+		pendingAction === "publish" ||
+		pendingAction === "updateProject" ||
+		pendingAction === "githubLogin" ||
+		pendingAction === "githubCreateRepository" ||
+		pendingAction === "githubLoadRepositories" ||
+		pendingAction === "githubPublishRepository" ||
+		pendingAction === "leaveBrowsingChanges";
 	const bookmarkBusy =
 		pendingAction === "createBookmark" ||
 		pendingAction === "updateBookmark" ||
@@ -907,17 +1077,15 @@ function ProjectScreen({
 			<main className="min-h-screen px-6 pb-16 pt-6 lg:flex lg:h-screen lg:min-h-0 lg:flex-col lg:overflow-hidden">
 				<div className="mx-auto flex w-full max-w-7xl flex-col justify-start gap-6 lg:h-full lg:min-h-0">
 					<nav className="shrink-0">
-						<Button variant="ghost" size="sm" onClick={() => void onOpen()} disabled={chromeBusy}>
-							<FolderOpen className="h-4 w-4" aria-hidden />
-							Open
-						</Button>
-						<Button variant="ghost" size="sm" onClick={() => void onStart()} disabled={chromeBusy}>
-							<Plus className="h-4 w-4" aria-hidden />
-							Start
-						</Button>
-						<Button variant="ghost" size="sm" onClick={() => void onDelete()} disabled={chromeBusy}>
-							<Trash2 className="h-4 w-4" aria-hidden />
-							Delete
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={() => void onBack()}
+							disabled={chromeBusy}
+							aria-label="Back to projects"
+							title="Back to projects"
+						>
+							<ArrowLeft className="h-4 w-4" aria-hidden />
 						</Button>
 					</nav>
 					<header className="flex shrink-0 flex-wrap items-start justify-between gap-4 pb-3">
@@ -971,6 +1139,12 @@ function ProjectScreen({
 						</div>
 					</header>
 
+					{error ? (
+						<p className="shrink-0 rounded-md border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-100">
+							{error}
+						</p>
+					) : null}
+
 					{status.browsing ? (
 						<section className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-md border border-stone-800 bg-stone-950 px-4 py-3">
 							<p className="text-sm text-stone-500">You are viewing an earlier checkpoint.</p>
@@ -1016,22 +1190,126 @@ function ProjectScreen({
 }
 
 export function HowHome() {
-	const queryClient = useQueryClient();
-	const statusQuery = useQuery({
-		queryKey: howStatusQueryKey,
-		queryFn: getHowStatus,
-		placeholderData: initialStatus,
+	const navigate = useNavigate();
+	const { status, setStatus, statusQuery } = useHowStatus();
+	const accountQuery = useQuery({
+		queryKey: ["how", "github-account"],
+		queryFn: async () => await window.how.getGithubAccount(),
 	});
-	const status = statusQuery.data ?? initialStatus;
-	const setStatus = useCallback(
-		(nextStatus: HowStatus | ((currentStatus: HowStatus) => HowStatus)) => {
-			queryClient.setQueryData<HowStatus>(howStatusQueryKey, (currentStatus) => {
-				if (typeof nextStatus === "function") return nextStatus(currentStatus ?? initialStatus);
-				return nextStatus;
-			});
-		},
-		[queryClient],
+	const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+	const [error, setError] = useState<string | null>(null);
+	const [recents, setRecents] = useState<Array<RecentProject>>(() => readRecentProjects());
+	const now = useNow(60_000);
+
+	useEffect(() => {
+		if (status.project && !statusQuery.isPlaceholderData) void navigate({ to: "/project" });
+	}, [navigate, status.project, statusQuery.isPlaceholderData]);
+
+	async function runPending<T>(action: PendingAction, work: () => Promise<T>): Promise<T> {
+		setPendingAction(action);
+		try {
+			return await work();
+		} finally {
+			setPendingAction(null);
+		}
+	}
+
+	async function activateFromResult(
+		result: { type: "cancelled" } | { type: "opened"; status: HowStatus },
+	): Promise<void> {
+		if (result.type !== "opened") return;
+		setStatus(result.status);
+		if (result.status.project) setRecents(addRecentProject(result.status.project));
+		await navigate({ to: "/project" });
+	}
+
+	async function openProject() {
+		setError(null);
+		try {
+			await activateFromResult(
+				await runPending("openProject", async () => await window.how.openProject()),
+			);
+		} catch {
+			setError("How could not open that project.");
+		}
+	}
+
+	async function startProject() {
+		setError(null);
+		try {
+			await activateFromResult(
+				await runPending("startProject", async () => await window.how.startProject()),
+			);
+		} catch {
+			setError("How could not start that project.");
+		}
+	}
+
+	async function openRecentProject(project: RecentProject) {
+		setError(null);
+		try {
+			await activateFromResult(
+				await runPending(
+					"openRecentProject",
+					async () => await window.how.openProjectPath(project.path),
+				),
+			);
+		} catch {
+			setRecents(removeRecentProject(project.path));
+			setError("How could not open that project.");
+		}
+	}
+
+	async function loginToGithubFromHome() {
+		setError(null);
+		try {
+			const result = await runPending("githubLogin", async () => await window.how.loginToGithub());
+			if (result.type === "failed") {
+				setError(result.message);
+				return;
+			}
+			void accountQuery.refetch().catch(() => undefined);
+		} catch {
+			setError("How could not log in to GitHub.");
+		}
+	}
+
+	async function logoutOfGithub() {
+		setError(null);
+		try {
+			await runPending("githubLogin", async () => await window.how.logoutOfGithub());
+			void accountQuery.refetch().catch(() => undefined);
+		} catch {
+			setError("How could not log out of GitHub.");
+		}
+	}
+
+	const projectPickerBusy =
+		pendingAction === "openProject" ||
+		pendingAction === "startProject" ||
+		pendingAction === "openRecentProject";
+	const githubBusy = pendingAction === "githubLogin" || accountQuery.isLoading;
+
+	return (
+		<MainPage
+			onOpen={openProject}
+			onStart={startProject}
+			onOpenRecent={openRecentProject}
+			onLogin={loginToGithubFromHome}
+			onLogout={logoutOfGithub}
+			busy={projectPickerBusy}
+			githubBusy={githubBusy}
+			error={error}
+			githubAccount={accountQuery.data ?? null}
+			recents={recents}
+			now={now}
+		/>
 	);
+}
+
+export function HowProjectPage() {
+	const navigate = useNavigate();
+	const { status, setStatus, statusQuery } = useHowStatus();
 	const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [highlightedCheckpointKeys, setHighlightedCheckpointKeys] = useState<Set<string>>(
@@ -1058,13 +1336,8 @@ export function HowHome() {
 	const bookmarkHighlightTimers = useRef<Map<string, number>>(new Map());
 
 	useEffect(() => {
-		const unsubscribe = window.how.onStatus((nextStatus) => {
-			setStatus(nextStatus);
-		});
-		return () => {
-			unsubscribe();
-		};
-	}, [setStatus]);
+		if (!status.project && !statusQuery.isPlaceholderData) void navigate({ to: "/" });
+	}, [navigate, status.project, statusQuery.isPlaceholderData]);
 
 	useEffect(() => {
 		const previous = previousCheckpointTitles.current;
@@ -1163,19 +1436,6 @@ export function HowHome() {
 		}
 	}
 
-	async function runProjectAction(
-		pending: PendingAction,
-		action: () => Promise<{ type: "cancelled" } | { type: "opened"; status: HowStatus }>,
-	) {
-		setError(null);
-		try {
-			const result = await runPending(pending, action);
-			if (result.type === "opened") setStatus(result.status);
-		} catch {
-			setError("How could not open that project.");
-		}
-	}
-
 	async function leaveCleanBrowsing(): Promise<boolean> {
 		if (!status.browsing) {
 			return true;
@@ -1193,39 +1453,18 @@ export function HowHome() {
 		}
 	}
 
-	async function openProject() {
+	async function closeProject() {
 		if (status.browsing?.dirty) {
-			setPendingDirtyAction({ type: "open" });
+			setPendingDirtyAction({ type: "close" });
 			return;
 		}
 		if (!(await leaveCleanBrowsing())) return;
-		await runProjectAction("openProject", async () => await window.how.openProject());
-	}
-
-	async function startProject() {
-		if (status.browsing?.dirty) {
-			setPendingDirtyAction({ type: "start" });
-			return;
-		}
-		if (!(await leaveCleanBrowsing())) return;
-		await runProjectAction("startProject", async () => await window.how.startProject());
-	}
-
-	async function deleteProject() {
-		if (status.browsing?.dirty) {
-			setPendingDirtyAction({ type: "delete" });
-			return;
-		}
-		if (!(await leaveCleanBrowsing())) return;
-		const confirmed = window.confirm(
-			"Remove this project from How? Your project folder and files will stay where they are.",
-		);
-		if (!confirmed) return;
 		setError(null);
 		try {
-			setStatus(await runPending("deleteProject", async () => await window.how.deleteProject()));
+			setStatus(await runPending("closeProject", async () => await window.how.closeProject()));
+			await navigate({ to: "/" });
 		} catch {
-			setError("How could not delete that project.");
+			setError("How could not close that project.");
 		}
 	}
 
@@ -1505,31 +1744,14 @@ export function HowHome() {
 						async () => await window.how.returnToLatest({ discardBrowsingChanges: true }),
 					),
 				);
-			if (action.type === "open") {
-				await runPending("leaveBrowsingChanges", async () => {
-					setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
-				});
-				await runProjectAction("openProject", async () => await window.how.openProject());
-				return;
-			}
-			if (action.type === "start") {
-				await runPending("leaveBrowsingChanges", async () => {
-					setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
-				});
-				await runProjectAction("startProject", async () => await window.how.startProject());
-				return;
-			}
-			if (action.type === "delete") {
-				await runPending("leaveBrowsingChanges", async () => {
-					setStatus(await window.how.returnToLatest({ discardBrowsingChanges: true }));
-				});
-				const confirmed = window.confirm(
-					"Remove this project from How? Your project folder and files will stay where they are.",
+			if (action.type === "close") {
+				setStatus(
+					await runPending(
+						"leaveBrowsingChanges",
+						async () => await window.how.closeProject({ discardBrowsingChanges: true }),
+					),
 				);
-				if (confirmed)
-					setStatus(
-						await runPending("deleteProject", async () => await window.how.deleteProject()),
-					);
+				await navigate({ to: "/" });
 				return;
 			}
 		} catch {
@@ -1537,7 +1759,6 @@ export function HowHome() {
 		}
 	}
 
-	const projectPickerBusy = pendingAction === "openProject" || pendingAction === "startProject";
 	const bookmarkDialogBusy =
 		pendingAction === "createBookmark" ||
 		pendingAction === "renameBookmark" ||
@@ -1550,23 +1771,7 @@ export function HowHome() {
 		pendingAction === "githubLoadRepositories" ||
 		pendingAction === "githubPublishRepository";
 
-	if (!status.project)
-		return (
-			<>
-				<EmptyState
-					onOpen={openProject}
-					onStart={startProject}
-					busy={projectPickerBusy}
-					error={error}
-				/>
-				{pendingDirtyAction ? (
-					<DirtyBrowsingDialog
-						onLeave={leaveBrowsingChanges}
-						onCancel={() => setPendingDirtyAction(null)}
-					/>
-				) : null}
-			</>
-		);
+	if (!status.project) return null;
 
 	return (
 		<>
@@ -1575,9 +1780,8 @@ export function HowHome() {
 				highlightedCheckpointKeys={highlightedCheckpointKeys}
 				highlightedBookmarkIds={highlightedBookmarkIds}
 				pendingAction={pendingAction}
-				onOpen={openProject}
-				onStart={startProject}
-				onDelete={deleteProject}
+				error={error}
+				onBack={closeProject}
 				onPublish={publishProject}
 				onUpdateProject={updateProject}
 				onCreateBookmark={createBookmark}

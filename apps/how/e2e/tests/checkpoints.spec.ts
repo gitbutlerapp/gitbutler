@@ -104,6 +104,88 @@ test("opens an existing Git project", async ({ browserName: _browserName }, test
 	}
 });
 
+test("opens a recent project from the main page", async ({ browserName: _browserName }, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-recent-project-");
+	await initializeGitRepository(repositoryPath);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+	});
+	try {
+		await page.getByRole("button", { name: "Open project" }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+
+		await page.getByRole("button", { name: "Back to projects" }).click();
+		await expect(page.getByRole("button", { name: "Open project" })).toBeVisible();
+		await expect(page.getByRole("button", { name: new RegExp(pathTitle(repositoryPath)) })).toBeVisible();
+
+		await page.getByRole("button", { name: new RegExp(pathTitle(repositoryPath)) }).click();
+		await expect(page.getByRole("heading", { name: pathTitle(repositoryPath) })).toBeVisible();
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+	}
+});
+
+test("opens the last active project on launch", async ({ browserName: _browserName }, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-resume-project-");
+	await initializeGitRepository(repositoryPath);
+	const userDataPath = testInfo.outputPath("user-data");
+
+	const firstRun = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath,
+	});
+	try {
+		await firstRun.page.getByRole("button", { name: "Open project" }).click();
+		await expect(
+			firstRun.page.getByRole("heading", { name: pathTitle(repositoryPath) }),
+		).toBeVisible();
+	} finally {
+		await firstRun.app.close();
+	}
+
+	const secondRun = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath,
+	});
+	try {
+		await expect(
+			secondRun.page.getByRole("heading", { name: pathTitle(repositoryPath) }),
+		).toBeVisible();
+		await expect(secondRun.page.getByRole("button", { name: "Back to projects" })).toBeVisible();
+	} finally {
+		await secondRun.app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+	}
+});
+
+test("logs in and out of GitHub from the main page", async ({
+	browserName: _browserName,
+}, testInfo) => {
+	const repositoryPath = await createTempDirectory("how-github-main-project-");
+	await initializeGitRepository(repositoryPath);
+
+	const { app, page } = await launchHowApp({
+		projectPath: repositoryPath,
+		userDataPath: testInfo.outputPath("user-data"),
+		githubLogin: "how-e2e-user",
+		githubAvatarUrl: "https://avatars.githubusercontent.com/u/1?v=4",
+	});
+	try {
+		await page.getByRole("button", { name: "Log in to GitHub" }).click();
+		await expect(page.getByText("@how-e2e-user")).toBeVisible();
+
+		await page.getByRole("button", { name: "Log out" }).click();
+		await expect(page.getByRole("button", { name: "Log in to GitHub" })).toBeVisible();
+		await expect(page.getByText("@how-e2e-user")).toHaveCount(0);
+	} finally {
+		await app.close();
+		await fs.rm(repositoryPath, { recursive: true, force: true });
+	}
+});
+
 test("creates an opening checkpoint for dirty work on the expected line", async ({
 	browserName: _browserName,
 }, testInfo) => {

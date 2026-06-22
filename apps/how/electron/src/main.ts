@@ -183,6 +183,17 @@ function registerIpc(): void {
 			throw error;
 		}
 	});
+	handle(howIpcChannels.openProjectPath, async (_event, projectPath): Promise<OpenProjectResult> => {
+		if (typeof projectPath !== "string" || projectPath.length === 0)
+			throw new Error("How could not open that project.");
+		try {
+			const status = await getService().openProjectFromPath(projectPath);
+			return { type: "opened", status };
+		} catch (error) {
+			getLogger().error("Open recent project failed", error, { projectPath });
+			throw error;
+		}
+	});
 	handle(howIpcChannels.startProject, async (): Promise<OpenProjectResult> => {
 		const selectedPath = await selectProjectDirectory("start");
 		if (!selectedPath) return { type: "cancelled" };
@@ -193,6 +204,14 @@ function registerIpc(): void {
 			getLogger().error("Start project failed", error, { selectedPath });
 			throw error;
 		}
+	});
+	handle(howIpcChannels.closeProject, async (_event, options) => {
+		const discardBrowsingChanges =
+			typeof options === "object" &&
+			options !== null &&
+			"discardBrowsingChanges" in options &&
+			options.discardBrowsingChanges === true;
+		return await getService().closeProject({ discardBrowsingChanges });
 	});
 	handle(howIpcChannels.deleteProject, async () => await getService().deleteProject());
 	handle(howIpcChannels.createCheckpointNow, async () => await getService().createCheckpointNow());
@@ -252,6 +271,8 @@ function registerIpc(): void {
 	});
 	handle(howIpcChannels.updateProject, async () => await getService().updateProject());
 	handle(howIpcChannels.loginToGithub, async () => await getService().loginToGithub());
+	handle(howIpcChannels.getGithubAccount, async () => await getService().getGithubAccount());
+	handle(howIpcChannels.logoutOfGithub, async () => await getService().logoutOfGithub());
 	handle(
 		howIpcChannels.listGithubRepositories,
 		async () => await getService().listGithubRepositories(),

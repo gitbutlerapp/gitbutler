@@ -130,7 +130,7 @@ export function HowSettings() {
 				<header className="flex items-center justify-between gap-4">
 					<div className="flex min-w-0 items-center gap-3">
 						<Button asChild variant="ghost" size="icon" aria-label="Back">
-							<Link to="/">
+							<Link to="/project">
 								<ArrowLeft className="h-4 w-4" aria-hidden />
 							</Link>
 						</Button>

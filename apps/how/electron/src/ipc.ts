@@ -91,10 +91,16 @@ export type GithubRepositorySummary = {
 	isPrivate: boolean;
 };
 
+export type GithubAccount = {
+	login: string;
+	avatarUrl: string | null;
+};
+
 export type GithubLoginResult =
 	| {
 			type: "loggedIn";
 			login: string;
+			avatarUrl: string | null;
 	  }
 	| {
 			type: "failed";
@@ -123,7 +129,9 @@ export type OpenProjectResult =
 export interface HowElectronApi {
 	getStatus: () => Promise<HowStatus>;
 	openProject: () => Promise<OpenProjectResult>;
+	openProjectPath: (projectPath: string) => Promise<OpenProjectResult>;
 	startProject: () => Promise<OpenProjectResult>;
+	closeProject: (options?: { discardBrowsingChanges?: boolean }) => Promise<HowStatus>;
 	deleteProject: () => Promise<HowStatus>;
 	createCheckpointNow: () => Promise<HowStatus>;
 	createBookmark: (name: string) => Promise<HowStatus>;
@@ -135,6 +143,8 @@ export interface HowElectronApi {
 	publishProject: (input?: PublishProjectInput) => Promise<PublishProjectResult>;
 	updateProject: () => Promise<HowStatus>;
 	loginToGithub: () => Promise<GithubLoginResult>;
+	getGithubAccount: () => Promise<GithubAccount | null>;
+	logoutOfGithub: () => Promise<GithubAccount | null>;
 	listGithubRepositories: () => Promise<GithubRepositoriesResult>;
 	saveProjectSettings: (settings: ProjectSettings) => Promise<HowStatus>;
 	viewCheckpoint: (
@@ -150,7 +160,9 @@ export interface HowElectronApi {
 export const howIpcChannels = {
 	getStatus: "how:get-status",
 	openProject: "how:open-project",
+	openProjectPath: "how:open-project-path",
 	startProject: "how:start-project",
+	closeProject: "how:close-project",
 	deleteProject: "how:delete-project",
 	createCheckpointNow: "how:create-checkpoint-now",
 	createBookmark: "how:create-bookmark",
@@ -162,6 +174,8 @@ export const howIpcChannels = {
 	publishProject: "how:publish-project",
 	updateProject: "how:update-project",
 	loginToGithub: "how:login-to-github",
+	getGithubAccount: "how:get-github-account",
+	logoutOfGithub: "how:logout-of-github",
 	listGithubRepositories: "how:list-github-repositories",
 	saveProjectSettings: "how:save-project-settings",
 	viewCheckpoint: "how:view-checkpoint",

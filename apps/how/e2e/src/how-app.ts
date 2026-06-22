@@ -22,6 +22,7 @@ export async function launchHowApp({
 	checkpointSummaryError,
 	checkpointSummaryTimeoutMs,
 	githubLogin,
+	githubAvatarUrl,
 	githubRepositories,
 	githubCreateRepositoryUrl,
 	sharedFetchIntervalMs,
@@ -34,6 +35,7 @@ export async function launchHowApp({
 	checkpointSummaryError?: string;
 	checkpointSummaryTimeoutMs?: string;
 	githubLogin?: string;
+	githubAvatarUrl?: string;
 	githubRepositories?: Array<{
 		id: string;
 		nameWithOwner: string;
@@ -57,6 +59,7 @@ export async function launchHowApp({
 	if (checkpointSummaryTimeoutMs !== undefined)
 		env.HOW_CHECKPOINT_SUMMARY_TIMEOUT_MS = checkpointSummaryTimeoutMs;
 	if (githubLogin !== undefined) env.HOW_E2E_GITHUB_LOGIN = githubLogin;
+	if (githubAvatarUrl !== undefined) env.HOW_E2E_GITHUB_AVATAR_URL = githubAvatarUrl;
 	if (githubRepositories !== undefined)
 		env.HOW_E2E_GITHUB_REPOSITORIES = JSON.stringify(githubRepositories);
 	if (githubCreateRepositoryUrl !== undefined)
