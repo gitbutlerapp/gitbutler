@@ -251,15 +251,24 @@ export const useCommitAmend = ({ projectId }: { projectId: string }) => {
 			});
 		},
 		onSuccess: async (response, input, _ctx, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, projectId, response);
-
 			if (input.relativeTo.type === "commit" && response.newCommit !== null)
-				dispatch(
-					projectActions.setCommitTarget({
-						projectId,
-						commitTarget: { type: "commit", subject: response.newCommit },
-					}),
+				syncCoreCaches(
+					mutation.client,
+					dispatch,
+					projectId,
+					// Workaround for https://linear.app/gitbutler/issue/GB-1570/amending-commit-has-wrong-replaced-commits
+					{
+						...response,
+						workspace: {
+							...response.workspace,
+							replacedCommits: {
+								...response.workspace.replacedCommits,
+								[input.relativeTo.subject]: response.newCommit,
+							},
+						},
+					},
 				);
+			else syncCoreCaches(mutation.client, dispatch, projectId, response);
 
 			if (response.rejectedChanges.length > 0)
 				toastManager.add(
