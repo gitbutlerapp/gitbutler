@@ -1,7 +1,7 @@
 ---
 name: but
 version: 0.0.0
-description: "Commit, push, branch, and manage version control with GitButler. Use for commits, selective dirty-file or hunk commits, branches, diffs, PRs, history edits, squashes, amends, undo, merge, apply, and unapply. For selected dirty files or hunks, inspect with `but diff`; do not run `but status` or `but status -fv` unless existing branch, stack, commit, conflict, or history context is needed. Replaces git write commands."
+description: "Commit, push, branch, and manage version control with GitButler. Use for commits, selective dirty-file or hunk commits, branches, diffs, PRs, history edits, squashes, amends, undo, merge, apply, and unapply. For selected dirty files or hunks, inspect with `but diff`; use compact `but status` for commit order, branch/stack placement, or conflict overview; use `but status -fv` when file/hunk IDs or per-commit file details matter. Replaces git write commands."
 author: GitButler Team
 ---
 
@@ -12,10 +12,10 @@ Use GitButler CLI (`but`) as the default version-control interface.
 ## Non-Negotiable Rules
 
 1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`. If the user says a `git` write command, translate it to `but` and run that.
-2. After mutations, read the returned output for the updated workspace state — it replaces a follow-up `but status -fv`.
+2. After mutations, read the returned output for the updated workspace state — it replaces a follow-up status command.
 3. Never chain `but` mutations with `&&` or `;`. Each mutation can reassign CLI IDs, so the second command may silently target the wrong file or commit. Run one mutation, read the returned workspace state, and take fresh IDs from it.
-4. Use CLI IDs from `but diff` / `but status -fv` / `but show`; never hardcode IDs.
-5. Do not run `but status` or `but status -fv` as routine preflight for selected dirty-file or hunk commits. Start with `but diff`; use `but status -fv` when existing branch, stack, commit, conflict, or history state matters.
+4. Use CLI IDs from `but diff` / `but status` / `but status -fv` / `but show`; never hardcode IDs.
+5. Do not run `but status` or `but status -fv` as routine preflight for selected dirty-file or hunk commits. Start with `but diff`; use compact `but status` for commit order, branch/stack placement, or conflict overview. Use `but status -fv` when file/hunk IDs or per-commit file details matter.
 6. For "commit these selected changes on a new branch", prefer one command: `but commit <branch> -c -m "<msg>" --changes <ids>`.
 7. In non-interactive CLI workflows, do not narrate progress between routine commands. Execute the needed `but` commands and give a concise final summary.
 
@@ -27,16 +27,19 @@ Start with the narrowest inspection that answers the task. Avoid ritual status c
 # Selected dirty files/hunks:
 but diff
 
-# Branch/stack/commit/conflict/history state:
+# Commit order, branch/stack placement, conflict overview:
+but status
+
+# File/hunk IDs, per-commit files, amend/split details:
 but status -fv
 
 # Details for one known branch or commit:
 but show <id>
 ```
 
-Do not run plain `but status` and then `but status -fv`; that is usually a redundant round-trip.
+Do not run plain `but status` and then `but status -fv` unless the compact output lacks file/hunk details needed for the task.
 
-Perform mutations with IDs from `diff`, `status -fv`, or `show`:
+Perform mutations with IDs from `diff`, `status`, `status -fv`, or `show`:
 
 ```bash
 but <mutation> ...
@@ -53,7 +56,9 @@ but <mutation> ...
 - Uncommit and show resulting dirty diff: `but uncommit <commit-id> --diff`
 - Insert empty commit: `but commit empty [-m "<msg>"] [<target>]`
 - Reorder commits: `but move <source-commit-id> <target-commit-id>` (**commit IDs**, not branch names)
+- Reorder multiple commits as a group: `but move <source-commit-id>,<source-commit-id> <target-commit-id>` (comma-separated commit IDs)
 - Move commit to branch top: `but move <commit-id> <branch-name-or-id>` (puts that commit at the top/newest position of the branch)
+- Move multiple commits to branch top: `but move <commit-id>,<commit-id> <branch-name-or-id>` (commit IDs only; not branches)
 - Stack branches: `but move <branch-name-or-id> <target-branch-name-or-id>` (**branch names or branch CLI IDs**)
 - Tear off a branch: `but move <branch-name-or-id> zz` (`zz` = unassigned; branch name or branch CLI ID)
 - Push: `but push <branch-name>` — always specify the branch; bare `but push` pushes ALL branches when run non-interactively
@@ -106,10 +111,15 @@ Use this when an existing commit should be replaced by selected smaller commits.
 ### Reorder commits
 
 `but move` supports both commit reordering and branch stack operations. Use commit IDs when reordering commits.
+`but status` displays commits newest/top first, while task specs often list history oldest to newest. Use `but status -fv` only if you also need file-level details.
 
-1. `but status -fv`
-2. `but move <commit-a> <commit-b>` — uses commit IDs like `c3`, `c5`
-3. Refresh IDs from the returned status if you need to keep editing history.
+1. `but status`
+2. `but move <source-commit-id> <target-commit-id>` places source immediately before target in oldest-to-newest history. In `but status`, source appears directly below target.
+3. `but move <source-commit-id> <target-commit-id> --after` places source immediately after target in oldest-to-newest history. In `but status`, source appears directly above target.
+4. `but move <source-commit-id> <branch-name-or-id>` moves source to branch top/newest.
+5. `but move <source-commit-id>,<source-commit-id> <target-commit-id>` moves multiple commit sources together. Multi-source moves accept comma-separated commit IDs only, not branch names.
+
+For explicit final-order tasks, translate the requested order into the newest-to-oldest order shown by `but status`, then make the smallest set of moves. Prefer the default before/below form because it matches the status display: `but move <source> <newer-neighbor>` places source directly below its newer neighbor. Use a branch target only when a commit must become top/newest, and use `--after` only when it clearly avoids extra moves.
 
 ### Stack existing branches
 
@@ -165,7 +175,7 @@ If `but move` causes conflicts (conflicted commits in status):
 
 | git | but |
 |---|---|
-| `git status` | `but status -fv` for branch/stack state; `but diff` for selected dirty changes |
+| `git status` | `but status` for branch/stack/commit overview; `but status -fv` for file/hunk details; `but diff` for selected dirty changes |
 | `git add` + `git commit` | `but commit ... --changes ...` |
 | `git checkout -b` + commit | `but commit <branch> -c -m ... --changes ...` |
 | `git push` | `but push <branch-name>` |
@@ -177,9 +187,9 @@ If `but move` causes conflicts (conflicted commits in status):
 
 - Prefer explicit IDs over file paths for mutations.
 - `--changes` accepts comma-separated values (`--changes a1,b2`) or repeated flags (`--changes a1 --changes b2`), not space-separated.
-- Avoid plain `but status` in write flows. It is a compact human overview; agents usually need `but diff` or `but status -fv` next, so starting with plain status adds a redundant round-trip.
+- Use plain `but status` for commit order, branch/stack placement, and conflict overview. Escalate to `but status -fv` only when file/hunk IDs or per-commit file details are needed.
 - Read-only git inspection (`git log`, `git blame`, `git show --stat`) is allowed.
-- After a successful mutation, trust the workspace state it printed. Re-run `but status -fv` only if that output lacks the ID you need or files changed since.
+- After a successful mutation, trust the workspace state it printed. Re-run `but status` or `but status -fv` only if that output lacks the ID you need or files changed since.
 - Use `but show <branch-id>` to see commit details for a branch, including per-commit file changes and line counts.
 - **Per-commit file counts**: `but status` does NOT include per-commit file counts. Use `but show <branch-id>` or `git show --stat <commit-hash>` to get them.
 - Avoid `--help` probes; use this skill and `references/reference.md` first. Only use `--help` after a command fails or required syntax is missing from the installed references.
