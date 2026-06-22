@@ -216,6 +216,100 @@ fn both_methods_update_references_identically() -> Result<()> {
 }
 
 #[test]
+fn materialize_repoints_head_when_checkout_reference_is_replaced() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
+    let replacement_ref = gix::refs::FullName::try_from("refs/heads/replacement")?;
+    let head_before = repo.rev_parse_single("HEAD")?.detach();
+
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    let main_selector = editor.select_reference("refs/heads/main".try_into()?)?;
+    editor.replace(
+        main_selector,
+        Step::Reference {
+            refname: replacement_ref.clone(),
+        },
+    )?;
+
+    let outcome = editor.rebase()?;
+    let overlayed = graph_tree(&outcome.overlayed_graph()?).to_string();
+    insta::assert_snapshot!(overlayed, @"
+
+    └── 👉►:0[0]:replacement[🌳]
+        ├── ·120e3a9 (⌂|1)
+        ├── ·a96434e (⌂|1)
+        ├── ·d591dfe (⌂|1)
+        └── 🏁·35b8235 (⌂|1)
+    ");
+    assert_eq!(
+        repo.head_name()?,
+        Some(gix::refs::FullName::try_from("refs/heads/main")?),
+        "overlay preview should not repoint HEAD before materialization"
+    );
+
+    let outcome = outcome.materialize()?;
+    assert_eq!(overlayed, graph_tree(&outcome.workspace.graph).to_string());
+    assert_eq!(
+        repo.head_name()?,
+        Some(replacement_ref.clone()),
+        "materialize should keep HEAD attached to the replacement checkout reference"
+    );
+    assert_eq!(
+        repo.find_reference(replacement_ref.as_ref())?.id(),
+        head_before,
+        "replacement branch should point at the previous checkout commit"
+    );
+    assert!(
+        repo.try_find_reference("refs/heads/main")?.is_none(),
+        "replaced checkout branch should be deleted"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn materialize_without_checkout_does_not_repoint_head_when_checkout_reference_is_replaced()
+-> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("four-commits")?;
+    let replacement_ref = gix::refs::FullName::try_from("refs/heads/replacement")?;
+
+    let graph =
+        Graph::from_head(&repo, &*meta, project_meta(&*meta), standard_options())?.validated()?;
+    let mut ws = graph.into_workspace()?;
+    let mut editor = Editor::create(&mut ws, &mut *meta, &repo)?;
+
+    let main_selector = editor.select_reference("refs/heads/main".try_into()?)?;
+    editor.replace(
+        main_selector,
+        Step::Reference {
+            refname: replacement_ref.clone(),
+        },
+    )?;
+
+    let outcome = editor.rebase()?;
+    outcome.materialize_without_checkout()?;
+
+    assert_eq!(
+        repo.head_name()?,
+        Some(gix::refs::FullName::try_from("refs/heads/main")?),
+        "materialize_without_checkout should leave the symbolic HEAD target untouched"
+    );
+    assert!(
+        repo.try_find_reference(replacement_ref.as_ref())?.is_some(),
+        "reference edits should still create the replacement branch"
+    );
+    assert!(
+        repo.try_find_reference("refs/heads/main")?.is_none(),
+        "reference edits should still delete the replaced branch"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn materialize_keeps_immutable_extra_refs_unchanged_while_updating_local_refs() -> Result<()> {
     let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-empty-stack")?;
     add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
