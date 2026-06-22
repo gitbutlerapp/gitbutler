@@ -36,10 +36,7 @@ impl CliOutputHuman for SquashOutcome {
                 target,
                 new_commit,
             } => {
-                let sources = sources
-                    .into_iter()
-                    .map(|source| theme::Commit(source).to_string())
-                    .join(", ");
+                let sources = sources.into_iter().map(theme::Commit).join(", ");
 
                 writeln!(
                     out,
@@ -56,7 +53,7 @@ impl CliOutputHuman for SquashOutcome {
                 writeln!(
                     out,
                     "Squashed branch {} to create commit {}",
-                    theme::Branch(branch_name.shorten()),
+                    theme::Branch(branch_name),
                     theme::Commit(new_commit)
                 )?;
             }

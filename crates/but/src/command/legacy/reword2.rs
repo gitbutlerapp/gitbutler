@@ -39,14 +39,14 @@ impl RewordCommitOperation {
                     ComputeLineStats::No.into(),
                 )?;
 
-                let editor_initial_message = String::new();
-                let current_message_for_comparison = "";
+                let current_message = commit_details.commit.inner.message.to_string();
+
                 get_commit_message_from_editor(
                     tx.repo(),
                     tx.context_lines(),
                     commit_details,
-                    editor_initial_message,
-                    current_message_for_comparison,
+                    current_message,
+                    "",
                     ShowDiffInEditor::Unspecified,
                 )?
                 .unwrap_or_default()

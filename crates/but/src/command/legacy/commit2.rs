@@ -1,7 +1,6 @@
 use std::fmt::Display;
 
 use anyhow::Context as _;
-use bstr::ByteSlice;
 use but_api::json::HexHash;
 use but_core::{
     DiffSpec, DryRun, RefMetadata,
@@ -64,13 +63,13 @@ impl CliOutputHuman for CommitOutcome {
                 out,
                 "Created commit {} on new branch {}",
                 theme::Commit(new_commit),
-                theme::Branch(branch_name.shorten().as_bstr())
+                theme::Branch(branch_name),
             )?,
             Some(BranchNameTarget::Existing(branch_name)) => writeln!(
                 out,
                 "Created commit {} on branch {}",
                 theme::Commit(new_commit),
-                theme::Branch(branch_name.shorten().as_bstr())
+                theme::Branch(branch_name),
             )?,
             None => writeln!(out, "Created commit {}", theme::Commit(new_commit))?,
         }
