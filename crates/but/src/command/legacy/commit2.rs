@@ -251,6 +251,8 @@ fn run(
                 for change in *changes {
                     builder.push_changes_from_uncommitted(&change)?;
                 }
+
+                builder.reconcile_worktree_diff_specs()?;
             }
             CommitSelection::Nothing => {}
         }
