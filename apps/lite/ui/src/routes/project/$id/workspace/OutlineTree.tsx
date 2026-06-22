@@ -1796,7 +1796,7 @@ const Changes: FC<{
 					>
 						<Tooltip.Root>
 							<Combobox.Trigger
-								className={classes(getButtonClassName({}), styles.commitTargetComboboxTrigger)}
+								className={classes("text-13", styles.commitTargetComboboxTrigger)}
 								aria-label={changesHotkeys.selectCommitTarget.meta.name}
 								render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
 							>
@@ -1825,7 +1825,7 @@ const Changes: FC<{
 					<div role="group" className={styles.commitDropdownButton}>
 						<Tooltip.Root>
 							<Tooltip.Trigger
-								className={getButtonClassName({})}
+								className={getButtonClassName({ variant: "pop" })}
 								// We pass `disabled` here because we want to disable the button, not
 								// the tooltip. Other props should be passed above.
 								render={<Button focusableWhenDisabled type="submit" disabled={!canCommit} />}
@@ -1845,7 +1845,7 @@ const Changes: FC<{
 							focusableWhenDisabled
 							disabled={!(canAmend || canCommit)}
 							aria-label="Commit options"
-							className={getButtonClassName({ iconOnly: true })}
+							className={getButtonClassName({ variant: "pop", iconOnly: true })}
 							onClick={(event) => {
 								void showNativeMenuFromTrigger(event.currentTarget, commitMenuItems);
 							}}
