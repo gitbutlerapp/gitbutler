@@ -1,4 +1,4 @@
-import { listProjectsQueryOptions } from "#ui/api/queries.ts";
+import { changesInWorktreeQueryOptions, listProjectsQueryOptions } from "#ui/api/queries.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { lastOpenedProjectKey } from "#ui/projects/last-opened.ts";
@@ -14,7 +14,7 @@ import {
 	useHotkeys,
 	useKeyHold,
 } from "@tanstack/react-hotkeys";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { Outlet, useMatch, useNavigate } from "@tanstack/react-router";
 import { FC, useEffect, useState } from "react";
 import styles from "./RootLayout.module.css";
@@ -23,6 +23,78 @@ import { Hash } from "effect";
 
 const projectShortcutSlots = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 const projectShortcutRevealDelayMs = 500;
+
+interface ProjectItemProps {
+	project: ProjectForFrontend;
+	isSelected: boolean;
+	shortcutSlot: number | undefined;
+	isModHeld: boolean;
+	projectShortcutsVisible: boolean;
+	onSelect: (project: ProjectForFrontend) => void;
+}
+
+const ProjectItem: FC<ProjectItemProps> = ({
+	project,
+	isSelected,
+	shortcutSlot,
+	isModHeld,
+	projectShortcutsVisible,
+	onSelect,
+}) => {
+	const hue = ((Hash.string(project.id) % 360) + 360) % 360;
+	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(project.id));
+	const hasUncommittedChanges = (worktreeChanges?.changes.length ?? 0) > 0;
+
+	return (
+		<Tooltip.Root key={project.id}>
+			<Tooltip.Trigger
+				delay={0}
+				aria-label={`Select project ${project.title}`}
+				className={classes(
+					styles.project,
+					isSelected && styles.selected,
+					hasUncommittedChanges && styles.hasUncommittedChanges,
+				)}
+				onClick={() => onSelect(project)}
+				style={{ "--hue": hue }}
+				// We pass `disabled` here because we want to disable the button, not
+				// the tooltip. Other props should be passed above.
+				render={<Button focusableWhenDisabled disabled={isSelected} />}
+			>
+				<div className={styles.folder}>
+					<span className={classes("text-bold", styles.folderFrontText)}>
+						{project.title.slice(0, 2)}
+					</span>
+
+					<div className={styles.folderFront} />
+
+					<div className={styles.folderPaperClip}>
+						<div className={styles.folderPaperLeft} />
+						<div className={styles.folderPaperRight} />
+					</div>
+
+					<div className={styles.folderBack} />
+				</div>
+				{shortcutSlot !== undefined && (
+					<span
+						aria-hidden
+						className={classes(
+							styles.projectShortcut,
+							isModHeld && projectShortcutsVisible && styles.visible,
+						)}
+					>
+						{shortcutSlot}
+					</span>
+				)}
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner sideOffset={4} side="right">
+					<Tooltip.Popup render={<TooltipPopup />}>{project.title}</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
+	);
+};
 
 const Projects: FC = () => {
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
@@ -91,51 +163,17 @@ const Projects: FC = () => {
 
 	return (
 		<div className={classes(styles.projects, isMac && styles.projectsMac)}>
-			{projects.map((project, index) => {
-				const isSelected = selectedProject?.id === project.id;
-				const hue = ((Hash.string(project.id) % 360) + 360) % 360;
-				const shortcutSlot = projectShortcutSlots[index];
-
-				return (
-					<Tooltip.Root key={project.id}>
-						<Tooltip.Trigger
-							delay={0}
-							aria-label={`Select project ${project.title}`}
-							className={classes(styles.project, isSelected && styles.selected)}
-							onClick={() => selectProject(project)}
-							style={{ "--hue": hue }}
-							// We pass `disabled` here because we want to disable the button, not
-							// the tooltip. Other props should be passed above.
-							render={<Button focusableWhenDisabled disabled={isSelected} />}
-						>
-							<div className={styles.folder}>
-								<div className={styles.folderFront}>
-									<span className={classes("text-bold", styles.folderFrontText)}>
-										{project.title.slice(0, 2)}
-									</span>
-								</div>
-								<div className={styles.folderBack} />
-							</div>
-							{shortcutSlot !== undefined && (
-								<span
-									aria-hidden
-									className={classes(
-										styles.projectShortcut,
-										isModHeld && projectShortcutsVisible && styles.visible,
-									)}
-								>
-									{shortcutSlot}
-								</span>
-							)}
-						</Tooltip.Trigger>
-						<Tooltip.Portal>
-							<Tooltip.Positioner sideOffset={4} side="right">
-								<Tooltip.Popup render={<TooltipPopup />}>{project.title}</Tooltip.Popup>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
-				);
-			})}
+			{projects.map((project, index) => (
+				<ProjectItem
+					key={project.id}
+					project={project}
+					isSelected={selectedProject?.id === project.id}
+					shortcutSlot={projectShortcutSlots[index]}
+					isModHeld={isModHeld}
+					projectShortcutsVisible={projectShortcutsVisible}
+					onSelect={selectProject}
+				/>
+			))}
 
 			<Tooltip.Root>
 				<Tooltip.Trigger

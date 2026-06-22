@@ -120,11 +120,41 @@
 		}
 
 		.folderFront {
-			transform: perspective(60px) rotateX(-18deg) scaleY(0.8);
+			transform: perspective(80px) rotateX(-18deg) scaleY(0.8);
+		}
+
+		.folderFrontText {
+			transform: scaleY(0.9) skewX(5deg) translate(-1px, 1px);
 		}
 
 		.folderBack {
 			transform: scaleY(1);
+		}
+	}
+
+	&.hasUncommittedChanges {
+		.folderBack {
+			transform: scaleY(1);
+		}
+
+		.folderPaperLeft {
+			display: block;
+		}
+	}
+
+	&.hasUncommittedChanges:not(.selected) {
+		.folderPaperRight {
+			display: block;
+		}
+	}
+
+	&.hasUncommittedChanges.selected {
+		.folderPaperClip {
+			animation: paperClipBounce 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) -0.05s;
+		}
+
+		.folderPaperRight {
+			display: block;
 		}
 	}
 }
@@ -157,25 +187,26 @@
 }
 
 .folderFront {
-	z-index: 1;
+	z-index: 2;
 	position: relative;
 	width: var(--sidebar-folder-width);
 	height: var(--sidebar-folder-height);
 	transform-origin: bottom center;
 	background: linear-gradient(to bottom, oklch(90% 0.05 var(--hue)), oklch(80% 0.12 var(--hue)));
-	mask-image: url("data:image/svg+xml,%3Csvg width='44' height='35' viewBox='0 0 44 35' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M38 35H6C2.68629 35 0 32.3137 0 29V6C0 2.68629 2.68629 0 6 0H12.3647C14.2645 0 16.052 0.899672 17.1837 2.42547L18.2009 3.79675C19.3327 5.32255 21.1202 6.22222 23.0199 6.22222H38C41.3137 6.22222 44 8.90851 44 12.2222V29C44 32.3137 41.3137 35 38 35Z' fill='black'/%3E%3C/svg%3E");
+	mask-image: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCA0MCAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMzQgMzJINkMyLjY4NjI5IDMyIDAgMjkuMzEzNyAwIDI2VjZDMCAyLjY4NjI5IDIuNjg2MjkgMCA2IDBIMTEuNjc3OUMxMy45NDk4IDAgMTYuMDI2OCAxLjI4MzEyIDE3LjA0MzUgMy4zMTQ3M0wxOC4zNDExIDUuOTA3NDlDMTkuMzU3OCA3LjkzOTEgMjEuNDM0OCA5LjIyMjIyIDIzLjcwNjcgOS4yMjIyMkgzNEMzNy4zMTM3IDkuMjIyMjIgNDAgMTEuOTA4NSA0MCAxNS4yMjIyVjI2QzQwIDI5LjMxMzcgMzcuMzEzNyAzMiAzNCAzMloiIGZpbGw9InVybCgjcGFpbnQwX2xpbmVhcl8xNzcxXzE1MTM1KSIvPjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0icGFpbnQwX2xpbmVhcl8xNzcxXzE1MTM1IiB4MT0iMjAiIHkxPSIxIiB4Mj0iMjAiIHkyPSIzMiIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPjxzdG9wIHN0b3AtY29sb3I9IiNGRkNDNDIiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNGRkI3NzgiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48L3N2Zz4=");
 	mask-repeat: no-repeat;
 	mask-size: contain;
 	transition: transform var(--anim-spring-duration) var(--anim-spring-easing);
 }
 
 .folderBack {
+	z-index: 0;
 	position: absolute;
 	top: 0;
 	left: 0;
 	width: var(--sidebar-folder-width);
 	height: var(--sidebar-folder-height);
-	transform: scaleY(0.8);
+	transform: scaleY(0.7);
 	transform-origin: bottom center;
 	border-radius: 8px;
 	background: linear-gradient(to bottom, oklch(78% 0.12 var(--hue)), oklch(60% 0.15 var(--hue)));
@@ -185,13 +216,88 @@
 
 .folderFrontText {
 	display: flex;
+	z-index: 3;
 	position: absolute;
 	bottom: 5px;
 	left: 5px;
+	transform-origin: bottom left;
 	color: oklch(38% 0.12 var(--hue));
 	font-size: 10px;
 	line-height: 1;
 	text-transform: uppercase;
+	transition: transform var(--anim-spring-duration) var(--anim-spring-easing);
+}
+
+@keyframes paperClipBounce {
+	0% {
+		transform: scaleY(1);
+	}
+	40% {
+		transform: scaleY(0.94);
+	}
+	70% {
+		transform: scaleY(1.02);
+	}
+	100% {
+		transform: scaleY(1);
+	}
+}
+
+.folderPaperClip {
+	z-index: 1;
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: var(--sidebar-folder-width);
+	height: var(--sidebar-folder-height);
+	overflow: hidden;
+	transform-origin: bottom center;
+}
+
+.folderPaperLeft,
+.folderPaperRight {
+	display: none;
+	z-index: 1;
+	position: absolute;
+	width: 18px;
+	height: 22px;
+	transform-origin: bottom center;
+	border-radius: 4px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+
+	/* lines */
+	&::before,
+	&::after {
+		position: absolute;
+		left: 50%;
+		width: 60%;
+		height: 1.5px;
+		translate: -50% 0;
+		background: #bdbdbd;
+		content: "";
+	}
+
+	&::before {
+		top: 3px;
+	}
+	&::after {
+		top: 6px;
+	}
+}
+
+.folderPaperLeft {
+	bottom: 7px;
+	left: 6px;
+	width: 15px;
+	transform: rotate(-4deg);
+	background: linear-gradient(to bottom, #fdfcfb 10%, #8e8d86 70%);
+}
+
+.folderPaperRight {
+	right: 6px;
+	bottom: 6px;
+	transform: rotate(8deg);
+	background: linear-gradient(to bottom, #fdfcfb, #8e8d86);
 }
 
 .content {
