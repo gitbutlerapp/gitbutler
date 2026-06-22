@@ -17,6 +17,7 @@ Use GitButler CLI (`but`) as the default version-control interface.
 4. Use CLI IDs from `but diff` / `but status -fv` / `but show`; never hardcode IDs.
 5. Do not run `but status` or `but status -fv` as routine preflight for selected dirty-file or hunk commits. Start with `but diff`; use `but status -fv` when existing branch, stack, commit, conflict, or history state matters.
 6. For "commit these selected changes on a new branch", prefer one command: `but commit <branch> -c -m "<msg>" --changes <ids>`.
+7. In non-interactive CLI workflows, do not narrate progress between routine commands. Execute the needed `but` commands and give a concise final summary.
 
 ## Choose Inspection By Task
 
@@ -44,12 +45,15 @@ but <mutation> ...
 ## Command Patterns
 
 - Commit: `but commit <branch> -m "<msg>" --changes <id>,<id>`
+- Batch selected commits: `but commit batch <branch> [--before <target>|--after <target>] -m "<msg>" --changes <id>,<id> -m "<msg>" --changes <id>,<id>`
 - `but commit -a` is accepted as a no-op compatibility flag; GitButler already includes uncommitted changes by default.
 - Commit + create branch: `but commit <branch> -c -m "<msg>" --changes <id>`
+- Commit at a specific history position: `but commit <branch> -m "<msg>" --changes <id>,<id> --before <commit-or-branch-id>` or `--after <commit-or-branch-id>`
 - Amend: `but amend <commit-id> --changes <file-or-hunk-id>,<file-or-hunk-id>`
 - Uncommit and show resulting dirty diff: `but uncommit <commit-id> --diff`
 - Insert empty commit: `but commit empty [-m "<msg>"] [<target>]`
 - Reorder commits: `but move <source-commit-id> <target-commit-id>` (**commit IDs**, not branch names)
+- Move commit to branch top: `but move <commit-id> <branch-name-or-id>` (puts that commit at the top/newest position of the branch)
 - Stack branches: `but move <branch-name-or-id> <target-branch-name-or-id>` (**branch names or branch CLI IDs**)
 - Tear off a branch: `but move <branch-name-or-id> zz` (`zz` = unassigned; branch name or branch CLI ID)
 - Push: `but push <branch-name>` — always specify the branch; bare `but push` pushes ALL branches when run non-interactively
@@ -86,6 +90,18 @@ Edge case: if wanted and unwanted edits are in the same diff hunk, GitButler can
 1. `but status -fv` (or `but show <branch-id>`)
 2. Locate file/hunk IDs and target commit ID.
 3. `but amend <commit-id> --changes <file-or-hunk-id>,<file-or-hunk-id>`; use one command for multiple files/hunks that belong in the same commit.
+
+### Split an existing commit
+
+Use this when an existing commit should be replaced by selected smaller commits.
+
+1. `but status -fv` when you need the source commit, branch name, or placement anchor.
+2. `but uncommit <source-commit-id> --diff` to expose that commit's changes as uncommitted changes and print committable file/hunk IDs.
+3. Pick replacement commit contents from the dirty diff printed by `but uncommit --diff`, not from the old committed diff.
+4. For multiple replacements from the same diff, prefer one batch command:
+   `but commit batch <branch> [--before <target>|--after <target>] -m "<message 1>" --changes <id>,<id> -m "<message 2>" --changes <id>,<id>`
+   Each message pairs with the changes group at the same occurrence index. Use comma-separated IDs inside each `--changes` group. Order batch entries in history order, oldest to newest; when inserting before a newer anchor, the last batch entry lands nearest that anchor.
+5. Leave unwanted changes uncommitted. If the returned workspace state shows the requested commits and leftovers, stop; do not run `status`, `diff`, `show`, or `--help` only to reconfirm.
 
 ### Reorder commits
 
