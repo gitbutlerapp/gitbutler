@@ -500,7 +500,7 @@ const DiffFileHeader: FC<DiffFileHeaderProps> = (p) => {
 					<span className={styles.fileDiffDeleted}>-{p.item.fileDiff.deletionLines.length}</span>
 				</span>
 
-				<Toolbar.Root aria-label="File actions">
+				<Toolbar.Root aria-label="File actions" className={styles.fileHeaderActions}>
 					<Toolbar.Button
 						aria-label="File menu"
 						onClick={(event) => {

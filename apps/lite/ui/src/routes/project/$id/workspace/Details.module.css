@@ -171,6 +171,10 @@
 	}
 }
 
+.fileHeaderActions {
+	display: flex;
+}
+
 .filePath {
 	overflow: hidden;
 	color: var(--text-3);
