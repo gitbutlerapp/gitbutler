@@ -14,3 +14,10 @@
 .root {
 	padding: 8px;
 }
+
+.actions {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 8px;
+	gap: 8px;
+}

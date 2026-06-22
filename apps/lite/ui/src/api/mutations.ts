@@ -1,3 +1,4 @@
+import { encodeBytes } from "#ui/api/bytes.ts";
 import { findCommitStackId, renameBranchInHeadInfo, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import {
 	changesInWorktreeQueryOptions,
@@ -78,20 +79,45 @@ export const useAbsorb = ({ projectId }: { projectId: string }) => {
 };
 
 export const useApply = () => {
+	const dispatch = useAppDispatch();
 	const toastManager = Toast.useToastManager();
 
 	return useMutation({
 		mutationFn: window.lite.apply,
-		onSuccess: async (response, input) => {
-			if (response.conflictingStacks.length > 0)
-				toastManager.add({
+		onSuccess: async (response, input, _context, mutation) => {
+			if (response.conflictingStacks.length > 0) {
+				const toastId = toastManager.add({
 					type: "error",
 					title: "Failed to apply branch",
 					description: `'${input.existingBranch}' conflicts with existing stack in the workspace: ${response.conflictingStacks
 						.map((stack) => stack.shortName)
 						.join(", ")}`,
 					priority: "high",
+					actionProps: {
+						children: "Switch to branch instead",
+						onClick: () => {
+							(async () => {
+								const checkoutResponse = await window.lite.branchCheckout({
+									projectId: input.projectId,
+									branch: encodeBytes(input.existingBranch),
+								});
+								syncCoreCaches(mutation.client, dispatch, input.projectId, checkoutResponse);
+								toastManager.close(toastId);
+							})().catch((error) => {
+								// oxlint-disable-next-line no-console
+								console.error(error);
+
+								toastManager.add({
+									type: "error",
+									title: "Failed to switch branch",
+									description: errorMessageForToast(error),
+									priority: "high",
+								});
+							});
+						},
+					},
 				});
+			}
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
