@@ -4,14 +4,14 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context, Result, bail};
 
-use but_core::{RefMetadata, ref_metadata::ProjectMeta};
+use but_core::{RefMetadata, branch::unique_canned_refname, ref_metadata::ProjectMeta};
 use but_graph::workspace::commit::is_managed_workspace_by_message;
 use but_rebase::{
     commit::DateMode,
     graph_rebase::{
         Editor, ExtraRef, GraphEditorOptions, LookupStep, Pick, Selector, Step, SuccessfulRebase,
         ToSelector,
-        mutate::{InsertSide, RelativeTo},
+        mutate::{InsertSide, RelativeTo, SegmentDelimiter, SelectorSet},
     },
 };
 
@@ -154,6 +154,11 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
     let head_commit = repo.find_commit(head_commit.id)?;
     let head_commit_id = head_commit.id;
     let head_is_workspace_commit = is_managed_workspace_by_message(head_commit.message_raw()?);
+    let direct_checkout_head_ref_name = if head_is_workspace_commit {
+        None
+    } else {
+        repo.head_name()?
+    };
 
     let editor_options = GraphEditorOptions {
         extra_refs: vec![ExtraRef::immutable(target_ref.ref_name.as_ref())],
@@ -168,6 +173,7 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
 
     let target_ref_selector = target_ref.ref_name.to_selector(&editor)?;
     let target_sha_selector = target_sha.to_selector(&editor)?;
+    let target_ref_commit_selector = target_ref_commit.detach().to_selector(&editor)?;
 
     let from_target_ref = traverse_nodes(&editor, target_ref_selector)?;
     let mut from_target_sha = traverse_nodes(&editor, target_sha_selector)?;
@@ -234,6 +240,7 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
         .then(|| editor.select_commit(head_commit_id))
         .transpose()?;
     let mut fully_integrated_workspace_parents = HashSet::new();
+    let mut direct_checkout_replacement_ref: Option<(Selector, gix::refs::FullName)> = None;
     for stack in &stacks {
         let is_selected = stack.nodes.values().any(|attrs| attrs.to_rebase) || stack.to_merge;
         let is_fully_integrated = stack.nodes.values().all(|attrs| {
@@ -246,6 +253,20 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
         }
 
         if is_fully_integrated {
+            // If we're not in the managed workspace, we haven't determined a
+            // ref replacement yet and we were checked out on a local branch.
+            if !head_is_workspace_commit
+                && direct_checkout_replacement_ref.is_none()
+                && let Some(head_ref_name) = direct_checkout_head_ref_name.as_ref()
+                && head_ref_name.as_ref().category() == Some(gix::refs::Category::LocalBranch)
+            {
+                direct_checkout_replacement_ref = Some(replace_direct_checkout_ref_with_fallback(
+                    &mut editor,
+                    repo,
+                    head_ref_name.as_ref(),
+                    target_ref_commit_selector,
+                )?);
+            }
             // TODO: Look into what happens when the head is an irrelevant
             // reference like the target_sha or a remote reference. In these
             // cases, we should look to see if it has a relevant reference
@@ -267,6 +288,12 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
             if let Some(ref_name) = attrs.reference_integrated.as_ref()
                 && ref_name.category() == Some(gix::refs::Category::LocalBranch)
             {
+                if direct_checkout_replacement_ref
+                    .as_ref()
+                    .is_some_and(|(replacement_selector, _)| replacement_selector == selector)
+                {
+                    continue;
+                }
                 editor.replace(*selector, Step::None)?;
                 if let Some(ws_meta) = ws_meta.as_mut() {
                     ws_meta.remove_segment(ref_name.as_ref());
@@ -597,4 +624,65 @@ fn selector_commit_id<M: RefMetadata>(
         ),
         Step::None => None,
     })
+}
+
+/// Replace a fully integrated direct-checkout branch with a new canned local branch at the
+/// latest target tip.
+///
+/// In a managed workspace, a fully integrated stack can simply be detached from the workspace
+/// commit and the workspace commit is reparented to the target. A direct checkout has no
+/// workspace commit to keep `HEAD` alive, so deleting the checked-out branch would leave `HEAD`
+/// pointing at a missing ref. Instead, reuse the checkout reference step for a fresh branch name
+/// and point it at the latest target commit.
+///
+/// The old checkout reference can be on the target ancestry path. Before repointing the step to
+/// the target tip, `disconnect_segment_from()` rewires its children around the old reference to
+/// preserve the existing graph and avoid introducing a cycle.
+fn replace_direct_checkout_ref_with_fallback<M: RefMetadata>(
+    editor: &mut Editor<'_, '_, M>,
+    repo: &gix::Repository,
+    head_ref_name: &gix::refs::FullNameRef,
+    target_tip_selector: Selector,
+) -> Result<(Selector, gix::refs::FullName)> {
+    let head_ref_selector = head_ref_name.to_selector(editor)?;
+    let fallback_ref_name = unique_canned_refname(repo)?;
+
+    editor.replace(
+        head_ref_selector,
+        Step::Reference {
+            refname: fallback_ref_name.clone(),
+        },
+    )?;
+
+    editor.disconnect_segment_from(
+        SegmentDelimiter {
+            child: head_ref_selector,
+            parent: head_ref_selector,
+        },
+        SelectorSet::All,
+        SelectorSet::All,
+        false,
+    )?;
+    preserve_pick_parents(editor, target_tip_selector)?;
+    editor.add_edge(head_ref_selector, target_tip_selector, 0)?;
+
+    Ok((head_ref_selector, fallback_ref_name))
+}
+
+fn preserve_pick_parents<M: RefMetadata>(
+    editor: &mut Editor<'_, '_, M>,
+    selector: Selector,
+) -> Result<()> {
+    let Step::Pick(mut pick) = editor.lookup_step(selector)? else {
+        bail!("Expected target tip selector to point to a pick");
+    };
+    let commit = editor.find_commit(pick.id)?;
+    // TODO: Teach but-rebase to treat immutable reference parents as object
+    // anchors. Until then, preserve the target tip's original parents here so
+    // graph-rebase materializes the fallback branch at the exact target ref
+    // object instead of replaying merge-based target history into an equivalent
+    // local rewrite.
+    pick.preserved_parents = Some(commit.inner.parents.iter().copied().collect());
+    editor.replace(selector, Step::Pick(pick))?;
+    Ok(())
 }

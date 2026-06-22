@@ -2,7 +2,7 @@
 
 use crate::WorkspaceState;
 use but_api_macros::but_api;
-use but_core::{DryRun, RefMetadata, sync::RepoExclusive};
+use but_core::{DryRun, RefMetadata, is_workspace_ref_name, sync::RepoExclusive};
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_serde::BStringForFrontend;
 use but_workspace::IntegrateUpstreamOutcome;
@@ -213,6 +213,7 @@ pub fn workspace_integrate_upstream_only_with_perm(
 
         if let Some(ref_name) = materialized.workspace.ref_name()
             && let Some(ws_meta) = ws_meta
+            && is_workspace_ref_name(ref_name)
         {
             let mut md = materialized.meta.workspace(ref_name)?;
             *md = ws_meta;
