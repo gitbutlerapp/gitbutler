@@ -56,7 +56,7 @@ impl CliOutputHuman for SquashOutcome {
                 writeln!(
                     out,
                     "Squashed branch {} to create commit {}",
-                    theme::Branch(branch_name.shorten()),
+                    theme::Branch(branch_name),
                     theme::Commit(new_commit)
                 )?;
             }

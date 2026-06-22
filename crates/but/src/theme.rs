@@ -29,8 +29,9 @@
 
 use std::{fmt::Display, path::Path, str::FromStr, sync::OnceLock};
 
-use bstr::{BStr, ByteSlice as _};
+use bstr::ByteSlice as _;
 use colored::{ColoredString, Colorize as _};
+use gix::refs::FullName;
 use ratatui::{
     palette::Hsl,
     style::{Color, Modifier, Style, Styled},
@@ -625,12 +626,16 @@ impl Display for Commit {
     }
 }
 
-pub struct Branch<'a>(pub &'a BStr);
+pub struct Branch<T>(pub T);
 
-impl Display for Branch<'_> {
+impl Display for Branch<FullName> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let t = get();
-        write!(f, "'{}'", t.local_branch.paint(self.0.to_str_lossy()))
+        write!(
+            f,
+            "'{}'",
+            t.local_branch.paint(self.0.shorten().to_str_lossy())
+        )
     }
 }
 
