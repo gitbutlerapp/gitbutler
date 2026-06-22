@@ -3,6 +3,7 @@ import { FC } from "react";
 import { classes } from "#ui/components/classes.ts";
 import styles from "./Toasts.module.css";
 import uiStyles from "#ui/components/ui.module.css";
+import { getButtonClassName } from "#ui/components/Button.tsx";
 
 export const Toasts: FC = () => {
 	const { toasts } = Toast.useToastManager();
@@ -20,7 +21,7 @@ export const Toasts: FC = () => {
 									<div />
 								}
 							/>
-							<Toast.Close>Dismiss</Toast.Close>
+							<Toast.Close className={getButtonClassName({})}>Dismiss</Toast.Close>
 						</Toast.Content>
 					</Toast.Root>
 				))}
