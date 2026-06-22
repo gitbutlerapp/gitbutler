@@ -1800,7 +1800,10 @@ const Changes: FC<{
 								aria-label={changesHotkeys.selectCommitTarget.meta.name}
 								render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
 							>
-								<Combobox.Value placeholder={changesHotkeys.selectCommitTarget.meta.name} />
+								<Icon name="bullseye" size={14} />
+								<span className={styles.commitTargetComboboxTriggerLabel}>
+									<Combobox.Value placeholder={changesHotkeys.selectCommitTarget.meta.name} />
+								</span>
 							</Combobox.Trigger>
 							<Tooltip.Portal>
 								<Tooltip.Positioner sideOffset={4}>

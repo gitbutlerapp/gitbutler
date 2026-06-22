@@ -121,6 +121,15 @@
 	overflow: auto;
 }
 
+.tabsRow {
+	display: flex;
+	column-gap: 12px;
+}
+
+.tabsRowRight {
+	margin-inline-start: auto;
+}
+
 .prTab {
 	padding-inline: var(--panel-padding);
 	padding-block-end: var(--panel-padding);
@@ -131,6 +140,12 @@
 	row-gap: 12px;
 	flex-direction: column;
 	max-width: 700px;
+}
+
+.prFormField {
+	display: flex;
+	row-gap: 4px;
+	flex-direction: column;
 }
 
 .prTitleInput,
@@ -169,6 +184,10 @@
 	&.lone {
 		border-radius: 10px;
 	}
+}
+
+.fileHeaderActions {
+	display: flex;
 }
 
 .filePath {

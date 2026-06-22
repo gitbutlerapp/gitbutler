@@ -2,6 +2,7 @@ import { encodeBytes } from "#ui/api/bytes.ts";
 import { findCommitStackId, renameBranchInHeadInfo } from "#ui/api/ref-info.ts";
 import {
 	changesInWorktreeQueryOptions,
+	getReviewMergeStatusQueryOptions,
 	getReviewQueryOptions,
 	headInfoQueryOptions,
 } from "#ui/api/queries.ts";
@@ -166,6 +167,72 @@ export const useUpdateReview = () => {
 				queryKey: getReviewQueryOptions({ projectId: input.projectId, reviewId: input.reviewId })
 					.queryKey,
 			});
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to update pull request",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useMergeReview = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.mergeReview,
+		onSuccess: async (_response, input, _context, mutation) => {
+			await Promise.all([
+				mutation.client.invalidateQueries({
+					queryKey: getReviewQueryOptions({ projectId: input.projectId, reviewId: input.reviewId })
+						.queryKey,
+				}),
+				mutation.client.invalidateQueries({
+					queryKey: getReviewMergeStatusQueryOptions({
+						projectId: input.projectId,
+						reviewId: input.reviewId,
+					}).queryKey,
+				}),
+			]);
+		},
+		onError: (error) => {
+			// oxlint-disable-next-line no-console
+			console.error(error);
+
+			toastManager.add({
+				type: "error",
+				title: "Failed to merge pull request",
+				description: errorMessageForToast(error),
+				priority: "high",
+			});
+		},
+	});
+};
+
+export const useSetReviewDraftiness = () => {
+	const toastManager = Toast.useToastManager();
+
+	return useMutation({
+		mutationFn: window.lite.setReviewDraftiness,
+		onSuccess: async (_response, input, _context, mutation) => {
+			await Promise.all([
+				mutation.client.invalidateQueries({
+					queryKey: getReviewQueryOptions({ projectId: input.projectId, reviewId: input.reviewId })
+						.queryKey,
+				}),
+				mutation.client.invalidateQueries({
+					queryKey: getReviewMergeStatusQueryOptions({
+						projectId: input.projectId,
+						reviewId: input.reviewId,
+					}).queryKey,
+				}),
+			]);
 		},
 		onError: (error) => {
 			// oxlint-disable-next-line no-console
