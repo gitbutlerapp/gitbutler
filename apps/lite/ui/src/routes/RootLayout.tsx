@@ -108,10 +108,13 @@ const Projects: FC = () => {
 							// the tooltip. Other props should be passed above.
 							render={<Button focusableWhenDisabled disabled={isSelected} />}
 						>
-							<div className={styles.folderFront}>
-								<span className={classes("text-bold", styles.folderFrontText)}>
-									{project.title.slice(0, 2)}
-								</span>
+							<div className={styles.folder}>
+								<div className={styles.folderFront}>
+									<span className={classes("text-bold", styles.folderFrontText)}>
+										{project.title.slice(0, 2)}
+									</span>
+								</div>
+								<div className={styles.folderBack} />
 							</div>
 							{shortcutSlot !== undefined && (
 								<span
@@ -136,10 +139,7 @@ const Projects: FC = () => {
 
 			<Tooltip.Root>
 				<Tooltip.Trigger
-					className={classes(
-						getButtonClassName({ variant: "ghost", iconOnly: true }),
-						styles.addProjectButton,
-					)}
+					className={classes(getButtonClassName({ variant: "ghost" }), styles.addProjectButton)}
 					aria-label="Select project"
 					onClick={openProjectPicker}
 				>
