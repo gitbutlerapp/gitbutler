@@ -497,6 +497,32 @@ const WorkspacePage: FC = () => {
 
 								<Tooltip.Root>
 									<Tooltip.Trigger
+										aria-label={workspaceHotkeys.createIndependentBranch.meta.name}
+										className={getButtonClassName({ iconOnly: true })}
+										onClick={createIndependentBranch}
+										render={<Button focusableWhenDisabled disabled={!canCreateIndependentBranch} />}
+									>
+										{branchCreateMutation.isPending ? (
+											<Icon name="spinner" />
+										) : (
+											<Icon name="plus" />
+										)}
+									</Tooltip.Trigger>
+									<Tooltip.Portal>
+										<Tooltip.Positioner sideOffset={4}>
+											<Tooltip.Popup
+												render={
+													<TooltipPopup kbd={workspaceHotkeys.createIndependentBranch.hotkey} />
+												}
+											>
+												{workspaceHotkeys.createIndependentBranch.meta.name}
+											</Tooltip.Popup>
+										</Tooltip.Positioner>
+									</Tooltip.Portal>
+								</Tooltip.Root>
+
+								<Tooltip.Root>
+									<Tooltip.Trigger
 										aria-label={workspaceHotkeys.applyBranch.meta.name}
 										className={getButtonClassName({ iconOnly: true })}
 										onClick={openApplyBranchPicker}
