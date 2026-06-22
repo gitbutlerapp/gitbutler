@@ -411,8 +411,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/but-sdk
       '@gitbutler/design-core':
-        specifier: 3.5.1
-        version: 3.5.1
+        specifier: 3.6.1
+        version: 3.6.1
       '@pierre/diffs':
         specifier: ^1.2.4
         version: 1.2.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1922,8 +1922,8 @@ packages:
   '@gitbutler/design-core@2.2.2':
     resolution: {integrity: sha512-oPPnYjwsKxwoTY6wK/fT9ylwhSIBgQxCOGJzYefbM8WFr2OuJePH9MnDnZ3K9UQlb94p+NR7m/QCFzhbDVRwxw==}
 
-  '@gitbutler/design-core@3.5.1':
-    resolution: {integrity: sha512-+XqQQuyLrrmRMD7KIgab4NNTRsDRwBQnoS4RX9U4EMMw2mOFxj+OeISc9HhAqcnQOc6dlZRpig6rFFKB9ZxTsw==}
+  '@gitbutler/design-core@3.6.1':
+    resolution: {integrity: sha512-SA6PexaODqL5eXwmNK3c71KcHjcXkS8sQSTMsk64cyUYeQtyQKXeqSZSSlTGefcphw6zAosjf86ShumOdYX11A==}
 
   '@hapi/address@5.1.1':
     resolution: {integrity: sha512-A+po2d/dVoY7cYajycYI43ZbYMXukuopIsqCjh5QzsBCipDtdofHntljDlpccMjIfTy6UOkg+5KPriwYch2bXA==}
@@ -10625,7 +10625,7 @@ snapshots:
 
   '@gitbutler/design-core@2.2.2': {}
 
-  '@gitbutler/design-core@3.5.1': {}
+  '@gitbutler/design-core@3.6.1': {}
 
   '@hapi/address@5.1.1':
     dependencies:

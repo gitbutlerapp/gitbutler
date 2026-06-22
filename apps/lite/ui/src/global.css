@@ -3,7 +3,7 @@
 :root {
 	color-scheme: light dark;
 
-	--button-ghost-hover-bg: color-mix(var(--fill-gray-bg) 6%, transparent);
+	--list-item-hover-bg: color-mix(var(--fill-gray-bg) var(--opacity-bg-hover), transparent);
 	--panel-padding: 16px;
 }
 
