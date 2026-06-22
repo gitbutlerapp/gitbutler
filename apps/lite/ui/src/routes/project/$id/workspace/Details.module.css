@@ -121,6 +121,15 @@
 	overflow: auto;
 }
 
+.tabsRow {
+	display: flex;
+	column-gap: 12px;
+}
+
+.tabsRowRight {
+	margin-inline-start: auto;
+}
+
 .prTab {
 	padding-inline: var(--panel-padding);
 	padding-block-end: var(--panel-padding);

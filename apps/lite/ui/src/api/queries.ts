@@ -16,6 +16,7 @@ export enum QueryKey {
 	CommitDetailsWithLineStats = "commitDetailsWithLineStats",
 	HeadInfo = "headInfo",
 	Review = "review",
+	ReviewMergeStatus = "reviewMergeStatus",
 	Branches = "branches",
 	Editors = "editors",
 	Projects = "projects",
@@ -61,6 +62,12 @@ export const getReviewQueryOptions = ({ projectId, reviewId }: GetReviewParams) 
 	queryOptions({
 		queryKey: [QueryKey.Review, projectId, reviewId],
 		queryFn: () => window.lite.getReview({ projectId, reviewId }),
+	});
+
+export const getReviewMergeStatusQueryOptions = ({ projectId, reviewId }: GetReviewParams) =>
+	queryOptions({
+		queryKey: [QueryKey.ReviewMergeStatus, projectId, reviewId],
+		queryFn: () => window.lite.getReviewMergeStatus({ projectId, reviewId }),
 	});
 
 /** @public */

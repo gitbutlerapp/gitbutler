@@ -1,11 +1,12 @@
 import uiStyles from "#ui/components/ui.module.css";
 import { SuspenseQuery } from "@suspensive/react-query";
-import { useUpdateReview } from "#ui/api/mutations.ts";
+import { useMergeReview, useSetReviewDraftiness, useUpdateReview } from "#ui/api/mutations.ts";
 import {
 	branchDetailsQueryOptions,
 	branchDiffQueryOptions,
 	changesInWorktreeQueryOptions,
 	commitDetailsWithLineStatsQueryOptions,
+	getReviewMergeStatusQueryOptions,
 	getReviewQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
@@ -967,6 +968,45 @@ const PullRequestForm: FC<{
 	);
 };
 
+const PullRequestPrimaryAction: FC<{
+	projectId: string;
+	reviewId: number;
+}> = ({ projectId, reviewId }) => {
+	const [{ data: review }, { data: mergeStatus }] = useSuspenseQueries({
+		queries: [
+			getReviewQueryOptions({ projectId, reviewId }),
+			getReviewMergeStatusQueryOptions({ projectId, reviewId }),
+		],
+	});
+
+	const mergeReview = useMergeReview();
+	const setReviewDraftiness = useSetReviewDraftiness();
+	const isPending = mergeReview.isPending || setReviewDraftiness.isPending;
+
+	const canUsePrimaryAction = (review.draft || mergeStatus.isMergeable) && !isPending;
+
+	const primaryAction = () => {
+		if (!canUsePrimaryAction) return;
+		if (review.draft) {
+			setReviewDraftiness.mutate({ projectId, reviewId, draft: false });
+			return;
+		}
+		mergeReview.mutate({ projectId, reviewId, mergeMethod: null });
+	};
+
+	return (
+		<button
+			className={getButtonClassName({ variant: "pop" })}
+			disabled={!canUsePrimaryAction}
+			onClick={primaryAction}
+			type="button"
+		>
+			{review.draft ? "Mark as Ready" : "Merge"}
+			{isPending && <Icon name="spinner" />}
+		</button>
+	);
+};
+
 export const Details: FC<
 	{
 		detailsFullscreen: boolean;
@@ -1006,7 +1046,7 @@ export const Details: FC<
 				</div>
 
 				{outlineSelection._tag === "Branch" && (
-					<div>
+					<div className={styles.tabsRow}>
 						<ToggleGroup
 							render={<ToggleGroupStyles />}
 							value={[branchTab]}
@@ -1024,6 +1064,28 @@ export const Details: FC<
 								Pull Request
 							</Toggle>
 						</ToggleGroup>
+
+						<Suspense>
+							<SuspenseQuery
+								{...branchDetailsQueryOptions({
+									projectId,
+									// https://linear.app/gitbutler/issue/GB-1226/unify-branch-identifiers
+									branchName: decodeBytes(outlineSelection.branchRef).replace(/^refs\/heads\//, ""),
+									remote: null,
+								})}
+							>
+								{({ data: branchDetails }) =>
+									branchDetails.prNumber !== null && (
+										<div className={styles.tabsRowRight}>
+											<PullRequestPrimaryAction
+												projectId={projectId}
+												reviewId={branchDetails.prNumber}
+											/>
+										</div>
+									)
+								}
+							</SuspenseQuery>
+						</Suspense>
 					</div>
 				)}
 
