@@ -45,6 +45,8 @@ mod setup;
 mod skill;
 #[cfg(feature = "legacy")]
 mod squash;
+#[cfg(all(feature = "legacy", feature = "but-2"))]
+mod squash2;
 #[cfg(feature = "legacy")]
 mod status;
 mod r#switch;

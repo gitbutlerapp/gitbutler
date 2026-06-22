@@ -15,6 +15,7 @@ pub enum CommandName {
     Stage,
     Unstage,
     Squash,
+    Squash2,
     Move,
     Diff,
     Edit,
