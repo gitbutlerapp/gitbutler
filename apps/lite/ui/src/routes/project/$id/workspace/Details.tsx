@@ -959,7 +959,7 @@ const PullRequestForm: FC<{
 					type="submit"
 				>
 					{updateReview.isPending && <Icon name="spinner" />}
-					Update Pull Request
+					Update
 					<Kbd hotkey={pullRequestHotkeys.update.hotkey} />
 				</button>
 			</div>
