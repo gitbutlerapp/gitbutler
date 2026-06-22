@@ -40,6 +40,7 @@ schemars = { workspace = true, optional = true }
 but-testsupport.workspace = true
 tempfile.workspace = true
 insta.workspace = true
+temp-env = "0.3"
 
 [lints]
 workspace = true

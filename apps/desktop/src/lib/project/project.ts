@@ -62,6 +62,9 @@ export type AddProjectOutcome =
 			type: "noDotGitDirectory";
 	  }
 	| {
+			type: "reftableRefFormatUnsupported";
+	  }
+	| {
 			type: "notAGitRepository";
 			/**
 			 * The error message received
@@ -125,6 +128,12 @@ export function handleAddProjectOutcome(
 				"The specified path does not contain a .git directory.",
 				undefined,
 				TestId.AddProjectNoDotGitDirectoryModal,
+			);
+			return true;
+		case "reftableRefFormatUnsupported":
+			showWarning(
+				"Unsupported reference format",
+				"GitButler does not support repositories using the reftable reference format yet.",
 			);
 			return true;
 		case "notAGitRepository":
