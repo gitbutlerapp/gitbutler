@@ -356,6 +356,7 @@ pub enum AddProjectOutcome {
     NonMainWorktree,
     NoWorkdir,
     NoDotGitDirectory,
+    ReftableRefFormatUnsupported,
     NotAGitRepository(String),
 }
 
@@ -390,6 +391,9 @@ impl AddProjectOutcome {
             AddProjectOutcome::NoDotGitDirectory => {
                 Err(anyhow::anyhow!("no .git directory found in repository"))
             }
+            AddProjectOutcome::ReftableRefFormatUnsupported => Err(anyhow::anyhow!(
+                "unsupported repository reference format: reftable"
+            )),
             AddProjectOutcome::NotAGitRepository(msg) => {
                 Err(anyhow::anyhow!("not a git repository: {msg}"))
             }

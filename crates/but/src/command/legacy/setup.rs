@@ -255,6 +255,10 @@ pub(crate) fn repo(
             "The repository at {} has no .git directory. GitButler requires a .git directory.",
             repo_path.display()
         )),
+        gitbutler_project::AddProjectOutcome::ReftableRefFormatUnsupported => Err(anyhow::anyhow!(
+            "The repository at {} uses the currently unsupported reftable reference format.",
+            repo_path.display()
+        )),
         gitbutler_project::AddProjectOutcome::NotAGitRepository(_) => Err(anyhow::anyhow!(
             "The path {} is not a git repository.",
             repo_path.display()
