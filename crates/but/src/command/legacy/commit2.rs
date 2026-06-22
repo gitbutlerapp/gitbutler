@@ -1,11 +1,10 @@
 use std::fmt::Display;
 
 use anyhow::Context as _;
-use bstr::{BString, ByteSlice};
-use but_api::{diff::ComputeLineStats, json::HexHash};
+use bstr::ByteSlice;
+use but_api::json::HexHash;
 use but_core::{
     DiffSpec, DryRun, RefMetadata,
-    diff::CommitDetails,
     ref_metadata::StackId,
     sync::{RepoExclusive, RepoExclusiveGuard},
 };
@@ -18,7 +17,7 @@ use but_workspace::{
     branch::create_reference::{Anchor, Position},
 };
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
-use gix::{prelude::ObjectIdExt as _, refs::FullName};
+use gix::refs::FullName;
 use nonempty::NonEmpty;
 use serde::Serialize;
 
@@ -30,8 +29,7 @@ use crate::{
     },
     bad_input,
     command::legacy::{
-        ShowDiffInEditor,
-        reword::get_commit_message_from_editor,
+        reword2::RewordCommitOperation,
         status::{TuiOutcome, TuiRunOptions, tui_with_options},
     },
     id::{UNASSIGNED, UncommittedCliId},
@@ -227,14 +225,7 @@ fn resolve(
         (guard, CommitSelection::AllChanges)
     };
 
-    let reword_op = match (no_message, message) {
-        (true, None) => RewordCommitOperation::NoMessage,
-        (false, None) => RewordCommitOperation::UseEditor,
-        (false, Some(message)) => RewordCommitOperation::Message(message.join("\n\n")),
-        (true, Some(_)) => {
-            unreachable!("--no-message and --message are mutually exclusive")
-        }
-    };
+    let reword_op = RewordCommitOperation::resolve(no_message, message);
 
     Ok((guard, commit_op, commit_selection, reword_op))
 }
@@ -614,47 +605,5 @@ impl From<CommitRelativeToTargetPosition> for Position {
             CommitRelativeToTargetPosition::Above => Self::Above,
             CommitRelativeToTargetPosition::Below => Self::Below,
         }
-    }
-}
-
-enum RewordCommitOperation {
-    NoMessage,
-    Message(String),
-    UseEditor,
-}
-
-impl RewordCommitOperation {
-    fn execute(
-        self,
-        new_commit: gix::ObjectId,
-        tx: &mut Transaction<'_, '_, impl RefMetadata>,
-    ) -> anyhow::Result<gix::ObjectId> {
-        let message = match self {
-            RewordCommitOperation::NoMessage => String::new(),
-            RewordCommitOperation::Message(message) => message,
-            RewordCommitOperation::UseEditor => {
-                let repo = tx.repo();
-                let commit_details = CommitDetails::from_commit_id(
-                    new_commit.attach(repo),
-                    ComputeLineStats::No.into(),
-                )?;
-
-                let editor_initial_message = String::new();
-                let current_message_for_comparison = "";
-                get_commit_message_from_editor(
-                    tx.repo(),
-                    tx.context_lines(),
-                    commit_details,
-                    editor_initial_message,
-                    current_message_for_comparison,
-                    ShowDiffInEditor::Unspecified,
-                )?
-                .unwrap_or_default()
-            }
-        };
-
-        let reworded_commit = tx.reword_commit(new_commit, BString::from(message).as_ref())?;
-
-        Ok(reworded_commit)
     }
 }

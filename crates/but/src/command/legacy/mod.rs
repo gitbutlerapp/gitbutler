@@ -26,9 +26,13 @@ pub mod push;
 pub mod refresh;
 pub mod resolve;
 pub mod reword;
+#[cfg(all(feature = "legacy", feature = "but-2"))]
+pub mod reword2;
 pub mod rub;
 pub mod setup;
 pub mod show;
+#[cfg(all(feature = "legacy", feature = "but-2"))]
+pub mod squash2;
 pub mod status;
 pub mod teardown;
 pub mod unapply;

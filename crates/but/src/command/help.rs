@@ -134,6 +134,8 @@ fn print_grouped_with_truncation(
                 SubcommandDiscriminant::Amend => Group::EditingCommits,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Squash => Group::EditingCommits,
+                #[cfg(all(feature = "legacy", feature = "but-2"))]
+                SubcommandDiscriminant::Squash2 => Group::EditingCommits,
                 SubcommandDiscriminant::Move => Group::EditingCommits,
 
                 #[cfg(feature = "legacy")]

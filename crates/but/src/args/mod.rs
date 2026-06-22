@@ -261,6 +261,11 @@ pub enum Subcommands {
     #[clap(hide = true)]
     Commit2(commit2::Platform),
 
+    #[cfg(all(feature = "legacy", feature = "but-2"))]
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    #[clap(hide = true)]
+    Squash2(squash2::Platform),
+
     /// Stages a file or hunk to a specific branch.
     ///
     /// Without arguments, opens an interactive TUI for selecting files and hunks to stage.
@@ -1332,6 +1337,8 @@ pub mod commit;
 pub mod commit2;
 pub mod config;
 pub mod skill;
+#[cfg(feature = "legacy")]
+pub mod squash2;
 pub mod update;
 
 pub mod actions {

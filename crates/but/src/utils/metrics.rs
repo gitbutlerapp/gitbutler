@@ -209,6 +209,8 @@ impl Subcommands {
             Subcommands::Unstage { .. } => Unstage,
             #[cfg(feature = "legacy")]
             Subcommands::Squash { .. } => Squash,
+            #[cfg(all(feature = "legacy", feature = "but-2"))]
+            Subcommands::Squash2(..) => Squash2,
             #[cfg(feature = "legacy")]
             Subcommands::Merge { .. } => Merge,
             Subcommands::Move { .. } => Move,
