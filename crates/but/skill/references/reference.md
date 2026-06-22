@@ -235,16 +235,24 @@ The core "rub two things together" operation. `zz` is a special target meaning "
 
 ### `but squash <commits>`
 
-Squash commits together.
+Squash commits together. With explicit commit IDs, all commits except the last
+are squashed into the last commit. Use `-m` to provide the resulting commit
+message.
 
 ```bash
-but squash <c1> <c2> <c3>    # Squash multiple commits (into last)
-but squash <c1>..<c4>        # Squash a range
-but squash <branch>          # Squash all commits in branch into bottom-most
-but squash <branch> -d       # Squash and drop source commit messages (keep target's)
-but squash <branch> -m "msg" # Squash with a new commit message
-but squash <branch> -i       # Squash with AI-generated commit message
+but squash <source> <target> -m "msg"           # Squash source into target
+but squash <source> <source> <target> -m "msg"  # Squash multiple commits into target
+but squash <start>..<end> -m "msg"              # Squash a contiguous range
+but squash <branch>                             # Squash all commits in branch into bottom-most
+but squash <branch> -d                          # Squash and drop source commit messages (keep target's)
+but squash <branch> -m "msg"                    # Squash with a new commit message
+but squash <branch> -i                          # Squash with AI-generated commit message
 ```
+
+Use explicit IDs when the target commit must be unambiguous. For multiple
+independent squash groups, prefer newer/top groups first; history edits can
+rewrite IDs above the edited commit, so use returned status before the next
+squash.
 
 ### `but amend <commit> --changes <file>[,<file>...]`
 
