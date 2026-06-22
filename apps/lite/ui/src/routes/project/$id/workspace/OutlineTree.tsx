@@ -1695,10 +1695,17 @@ const Changes: FC<{
 			},
 		);
 	};
-	const amendCommit = () => {
-		if (!commitTarget) return;
 
-		commitAmendMutation.mutate({ relativeTo: commitTarget.relativeTo });
+	const amendCommit = () => {
+		if (!commitTarget || !headInfo) return;
+
+		const commitId = resolveRelativeTo({
+			headInfo,
+			relativeTo: commitTarget.relativeTo,
+		});
+		if (commitId === null) throw new Error("No commit to amend.");
+
+		commitAmendMutation.mutate({ commitId });
 	};
 	const submit: SubmitEventHandler = (event) => {
 		event.preventDefault();
