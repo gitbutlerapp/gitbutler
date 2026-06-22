@@ -13,12 +13,12 @@
 	border-radius: var(--radius-m);
 
 	&:where(:hover) {
-		background-color: var(--button-ghost-hover-bg);
+		background-color: var(--list-item-hover-bg);
 	}
 }
 
 .containerSelected {
-	background-color: color-mix(var(--fill-gray-bg) 13%, transparent);
+	background-color: color-mix(var(--fill-gray-bg) var(--opacity-bg-selected-blur), transparent);
 
 	&:has(:is(textarea, input):focus),
 	[data-selection-scope]:focus & {
