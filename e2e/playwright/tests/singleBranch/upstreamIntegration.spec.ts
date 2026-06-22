@@ -6,6 +6,7 @@ import {
 	commitRow,
 	getByTestId,
 	stack,
+	waitForTestId,
 	waitForTestIdToNotExist,
 } from "../../src/util.ts";
 import { expect, type Page } from "@playwright/test";
@@ -217,4 +218,25 @@ test("rebases the checked-out branch when the target advances", async ({ page, g
 	await expectBranchParentToBeOriginMaster(localClone, REBASED_SINGLE_BRANCH);
 	await assertCleanWorktree(localClone);
 	await expectNoErrorToast(page);
+});
+
+test("shows uncommitted worktree conflicts when target advances with no stacks", async ({
+	page,
+	gitbutler,
+}) => {
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await openSingleBranchWorkspace(page);
+
+	await expect(stack(page)).toHaveCount(0);
+
+	await gitbutler.runScript(
+		"project-with-remote-branches__add-conflicting-base-and-dirty-worktree.sh",
+	);
+	await clickByTestId(page, "sync-button");
+	await expectNoErrorToast(page);
+	await clickByTestId(page, "integrate-upstream-commits-button");
+	await expectNoErrorToast(page);
+
+	const worktreeConflicts = await waitForTestId(page, "integrate-upstream-worktree-conflicts");
+	await expect(worktreeConflicts).toContainText("a_file");
 });
