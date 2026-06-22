@@ -220,3 +220,82 @@ Hint: run `but help` for all commands
 
 "#]]);
 }
+
+#[test]
+fn squash_reword_with_editor() {
+    let env = one_branch_three_commits();
+
+    env.file(
+        ".git/editor.sh",
+        "printf 'message from editor\\n' > \"$1\"\n",
+    );
+    let editor_path = env.projects_root().join(".git/editor.sh");
+    let editor_command = format!("sh {}", editor_path.display());
+
+    env.but("squash2 a-branch-1")
+        .env("GIT_EDITOR", editor_command)
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![["
+Squashed branch 'a-branch-1' to create commit 7b3d915
+
+"]]);
+
+    env.but("status -fv")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄br [a-branch-1]
+┊● 7b3d915 author 2000-01-01 00:00:00 +0000
+┊│     message from editor
+┊│     7b:kl A one
+┊│     7b:or A three
+┊│     7b:tw A two
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn squash_combine_messages_with_editor() {
+    let env = one_branch_three_commits();
+
+    env.file(".git/editor.sh", "true");
+    let editor_path = env.projects_root().join(".git/editor.sh");
+    let editor_command = format!("sh {}", editor_path.display());
+
+    env.but("squash2 a-branch-1")
+        .env("GIT_EDITOR", editor_command)
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Squashed branch 'a-branch-1' to create commit abb21d9
+
+"#]]);
+
+    env.but("status -fv")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄br [a-branch-1]
+┊● abb21d9 author 2000-01-01 00:00:00 +0000
+┊│     add one  add three  add two
+┊│     ab:kl A one
+┊│     ab:or A three
+┊│     ab:tw A two
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
