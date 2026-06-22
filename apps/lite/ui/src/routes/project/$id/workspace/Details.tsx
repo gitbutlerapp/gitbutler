@@ -26,6 +26,7 @@ import {
 import { projectActions, selectProjectFilesVisible } from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
+import { Kbd } from "#ui/components/Kbd.tsx";
 import { TooltipPopup } from "#ui/components/Tooltip.tsx";
 import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
@@ -63,8 +64,8 @@ import {
 	useState,
 } from "react";
 import styles from "./Details.module.css";
-import { diffHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
-import { useHotkeys } from "@tanstack/react-hotkeys";
+import { diffHotkeys, pullRequestHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
+import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import {
 	type SelectionScope,
 	useDiffSelection,
@@ -888,6 +889,7 @@ const PullRequestForm: FC<{
 	body: string | null;
 }> = ({ projectId, reviewId, title, body }) => {
 	const updateReview = useUpdateReview();
+	const formRef = useRef<HTMLFormElement | null>(null);
 	const [draftTitle, setDraftTitle] = useState<string | null>(null);
 	const [draftBody, setDraftBody] = useState<string | null>(null);
 	const canSubmit = (draftTitle === null || draftTitle.trim() !== "") && !updateReview.isPending;
@@ -911,8 +913,15 @@ const PullRequestForm: FC<{
 		});
 	};
 
+	useHotkey(pullRequestHotkeys.update.hotkey, () => formRef.current?.requestSubmit(), {
+		conflictBehavior: "allow",
+		ignoreInputs: false,
+		meta: pullRequestHotkeys.update.meta,
+		target: formRef,
+	});
+
 	return (
-		<form className={styles.prForm} onSubmit={submit}>
+		<form ref={formRef} className={styles.prForm} onSubmit={submit}>
 			<Field.Root className={styles.prFormField}>
 				<Field.Label className="text-14">Title</Field.Label>
 				<Field.Control
@@ -951,6 +960,7 @@ const PullRequestForm: FC<{
 				>
 					{updateReview.isPending && <Icon name="spinner" />}
 					Update Pull Request
+					<Kbd hotkey={pullRequestHotkeys.update.hotkey} />
 				</button>
 			</div>
 		</form>

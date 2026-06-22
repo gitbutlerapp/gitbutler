@@ -227,6 +227,13 @@ export const changesFileHotkeys = {
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
+export const pullRequestHotkeys = {
+	update: {
+		hotkey: "Mod+Enter",
+		meta: { group: "Details", name: "Update pull request" },
+	},
+} satisfies Record<string, HotkeyWithMeta>;
+
 export const selectionOperationHotkeys = {
 	move: {
 		hotkey: "M",
