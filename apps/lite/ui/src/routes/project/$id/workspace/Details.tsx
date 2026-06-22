@@ -1009,8 +1009,8 @@ const PullRequestPrimaryAction: FC<{
 			onClick={primaryAction}
 			type="button"
 		>
-			{review.draft ? "Mark as Ready" : "Merge"}
 			{isPending && <Icon name="spinner" />}
+			{review.draft ? "Mark as Ready" : "Merge"}
 		</button>
 	);
 };
