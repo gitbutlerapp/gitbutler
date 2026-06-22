@@ -154,9 +154,11 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
     let head_commit = repo.find_commit(head_commit.id)?;
     let head_commit_id = head_commit.id;
     let head_is_workspace_commit = is_managed_workspace_by_message(head_commit.message_raw()?);
-    let direct_checkout_head_ref_name = (!head_is_workspace_commit)
-        .then(|| workspace.ref_name().map(ToOwned::to_owned))
-        .flatten();
+    let direct_checkout_head_ref_name = if head_is_workspace_commit {
+        None
+    } else {
+        repo.head_name()?
+    };
 
     let editor_options = GraphEditorOptions {
         extra_refs: vec![ExtraRef::immutable(target_ref.ref_name.as_ref())],
@@ -661,7 +663,26 @@ fn replace_direct_checkout_ref_with_fallback<M: RefMetadata>(
         SelectorSet::All,
         false,
     )?;
+    preserve_pick_parents(editor, target_tip_selector)?;
     editor.add_edge(head_ref_selector, target_tip_selector, 0)?;
 
     Ok((head_ref_selector, fallback_ref_name))
+}
+
+fn preserve_pick_parents<M: RefMetadata>(
+    editor: &mut Editor<'_, '_, M>,
+    selector: Selector,
+) -> Result<()> {
+    let Step::Pick(mut pick) = editor.lookup_step(selector)? else {
+        bail!("Expected target tip selector to point to a pick");
+    };
+    let commit = editor.find_commit(pick.id)?;
+    // TODO: Teach but-rebase to treat immutable reference parents as object
+    // anchors. Until then, preserve the target tip's original parents here so
+    // graph-rebase materializes the fallback branch at the exact target ref
+    // object instead of replaying merge-based target history into an equivalent
+    // local rewrite.
+    pick.preserved_parents = Some(commit.inner.parents.iter().copied().collect());
+    editor.replace(selector, Step::Pick(pick))?;
+    Ok(())
 }

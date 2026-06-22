@@ -962,6 +962,93 @@ fn fully_integrated_direct_checkout_creates_unique_canned_branch_at_target_tip()
 }
 
 #[test]
+fn fully_integrated_direct_checkout_creates_canned_branch_at_merge_target_tip() -> Result<()> {
+    let (_tmp, mut repo, mut meta, _description) = named_writable_scenario_with_description(
+        "fully-integrated-single-branch-target-advanced-through-merge",
+    )?;
+    force_prefixless_canned_branch_name(&mut repo)?;
+    git(&repo).args(["checkout", "A"]).run();
+    remove_managed_workspace_ref(&repo)?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    let target_tip = repo.rev_parse_single("origin/main")?.detach();
+    let target_tip_parent = repo
+        .find_commit(target_tip)?
+        .parent_ids()
+        .next()
+        .context("target tip should have a parent")?
+        .detach();
+    assert_eq!(
+        repo.find_commit(target_tip_parent)?.parent_ids().count(),
+        2,
+        "this fixture must exercise a target tip based on a merge commit"
+    );
+    let branch_1: gix::refs::FullName = "refs/heads/branch-1".try_into()?;
+    let branch_2: gix::refs::FullName = "refs/heads/branch-2".try_into()?;
+
+    repo.reference(
+        branch_1.as_ref(),
+        target_tip,
+        PreviousValue::MustNotExist,
+        "reserve first canned branch name",
+    )?;
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&meta)?,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+    let project_meta = workspace.graph.project_meta.clone();
+
+    let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A^")?.detach()),
+        }],
+    )?;
+
+    let preview = rebase.overlayed_graph()?.into_workspace()?;
+    assert_eq!(
+        preview.ref_name(),
+        Some(branch_2.as_ref()),
+        "dry-run overlay should show the replacement canned branch as the checked-out branch"
+    );
+    drop(preview);
+
+    rebase.materialize()?;
+
+    assert!(
+        repo.try_find_reference("A")?.is_none(),
+        "fully integrated checked-out branch should be removed"
+    );
+    assert_eq!(
+        repo.find_reference(branch_2.as_ref())?.id(),
+        target_tip,
+        "replacement canned branch should point at the exact merge target tip, not a replayed merge"
+    );
+    assert_eq!(
+        repo.head_name()?,
+        Some(branch_2),
+        "HEAD should stay attached to the replacement canned branch"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn empty_workspace_reparents_workspace_commit_to_advanced_target() -> Result<()> {
     let (_tmp, repo, mut meta, _description) =
         named_writable_scenario_with_description("empty-workspace-target-advanced")?;
