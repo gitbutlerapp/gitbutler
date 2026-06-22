@@ -888,7 +888,7 @@ const PullRequestForm: FC<{
 	body: string | null;
 }> = ({ projectId, reviewId, title, body }) => {
 	const updateReview = useUpdateReview();
-	const [draftBody, setDraftBody] = useState(body);
+	const [draftBody, setDraftBody] = useState<string | null>(null);
 	const isDirty = draftBody !== body;
 
 	const reset = () => {
@@ -923,7 +923,7 @@ const PullRequestForm: FC<{
 				className={classes("text-14 text-body text-monospace", styles.prDescriptionInput)}
 				onChange={(event) => setDraftBody(event.currentTarget.value)}
 				placeholder="Description"
-				value={draftBody ?? ""}
+				value={draftBody ?? body ?? ""}
 			/>
 			<div className={styles.prFormActions}>
 				<button
