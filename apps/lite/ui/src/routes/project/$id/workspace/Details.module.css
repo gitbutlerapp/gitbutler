@@ -133,6 +133,12 @@
 	max-width: 700px;
 }
 
+.prFormField {
+	display: flex;
+	row-gap: 4px;
+	flex-direction: column;
+}
+
 .prTitleInput,
 .prDescriptionInput {
 	padding-inline: 8px;

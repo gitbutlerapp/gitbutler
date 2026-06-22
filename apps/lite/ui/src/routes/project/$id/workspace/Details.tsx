@@ -31,7 +31,7 @@ import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx"
 import { OperationSourceC } from "#ui/routes/project/$id/workspace/OperationSourceC.tsx";
 import { useAppDispatch, useAppSelector } from "#ui/store.ts";
 import { classes } from "#ui/components/classes.ts";
-import { Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
+import { Field, Toggle, ToggleGroup, Toolbar, Tooltip } from "@base-ui/react";
 import type {
 	CommitDetails,
 	DiffHunk,
@@ -913,21 +913,28 @@ const PullRequestForm: FC<{
 
 	return (
 		<form className={styles.prForm} onSubmit={submit}>
-			<input
-				aria-label="Pull request title"
-				className={classes("text-15 text-semibold", styles.prTitleInput)}
-				onChange={(event) => setDraftTitle(event.currentTarget.value)}
-				placeholder="Title"
-				required
-				value={draftTitle ?? title}
-			/>
-			<textarea
-				aria-label="Pull request description"
-				className={classes("text-14 text-body text-monospace", styles.prDescriptionInput)}
-				onChange={(event) => setDraftBody(event.currentTarget.value)}
-				placeholder="Description"
-				value={draftBody ?? body ?? ""}
-			/>
+			<Field.Root className={styles.prFormField}>
+				<Field.Label className="text-14">Title</Field.Label>
+				<Field.Control
+					className={classes("text-15 text-semibold", styles.prTitleInput)}
+					onChange={(event) => setDraftTitle(event.currentTarget.value)}
+					placeholder="Title"
+					required
+					value={draftTitle ?? title}
+				/>
+			</Field.Root>
+
+			<Field.Root className={styles.prFormField}>
+				<Field.Label className="text-14">Description</Field.Label>
+				<Field.Control
+					render={<textarea />}
+					className={classes("text-14 text-body text-monospace", styles.prDescriptionInput)}
+					onChange={(event) => setDraftBody(event.currentTarget.value)}
+					placeholder="Description"
+					value={draftBody ?? body ?? ""}
+				/>
+			</Field.Root>
+
 			<div className={styles.prFormActions}>
 				<button
 					className={getButtonClassName({})}
@@ -937,7 +944,11 @@ const PullRequestForm: FC<{
 				>
 					Reset
 				</button>
-				<button className={getButtonClassName({})} disabled={!canSubmit} type="submit">
+				<button
+					className={getButtonClassName({ variant: "pop" })}
+					disabled={!canSubmit}
+					type="submit"
+				>
 					{updateReview.isPending && <Icon name="spinner" />}
 					Update Pull Request
 				</button>
