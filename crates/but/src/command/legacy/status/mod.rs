@@ -642,7 +642,7 @@ fn print_hint(
     let has_uncommitted_files = !status_ctx.worktree_changes.is_empty();
 
     let hint_text = if not_on_workspace {
-        "Hint: run `but setup` to switch back to GitButler managed mode."
+        "Hint: run `but setup --workspace` to switch back to GitButler managed mode."
     } else if !status_ctx.has_branches {
         "Hint: run `but branch new` to create a new branch to work on"
     } else if has_uncommitted_files {

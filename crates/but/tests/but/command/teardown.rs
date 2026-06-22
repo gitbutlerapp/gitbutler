@@ -37,7 +37,7 @@ Exiting GitButler mode...
 You are now on branch: A
 
 To return to GitButler mode, run:
-  but setup
+  but setup --workspace
 
 
 "#]]);
@@ -89,7 +89,7 @@ Exiting GitButler mode...
 You are now on branch: A
 
 To return to GitButler mode, run:
-  but setup
+  but setup --workspace
 
 
 "#]]);
@@ -159,7 +159,7 @@ Attempting to fix workspace stacks...
 You are now on branch: A
 
 To return to GitButler mode, run:
-  but setup
+  but setup --workspace
 
 
 "#]]);
@@ -240,7 +240,7 @@ Attempting to fix workspace stacks...
 You are now on branch: A
 
 To return to GitButler mode, run:
-  but setup
+  but setup --workspace
 
 
 "#]]);
@@ -322,7 +322,7 @@ Attempting to fix workspace stacks...
 You are now on branch: A
 
 To return to GitButler mode, run:
-  but setup
+  but setup --workspace
 
 
 "#]]);

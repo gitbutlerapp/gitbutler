@@ -62,19 +62,6 @@ Target branch: gb-local/main
 Remote: gb-local
 
 
-Setting up your project for GitButler tooling. Some things to note:
-
-- Switching you to a special `gitbutler/workspace` branch to enable parallel branches
-- Installing Git hooks to help manage commits on the workspace branch
-
-To undo these changes and return to normal Git mode, either:
-
-    - Directly checkout a branch (`git checkout main`)
-    - Run `but teardown`
-
-More info: https://docs.gitbutler.com/workspace-branch
-
-
 
 ██▄      ▄██  ▀██▀▀█▄ ▀██▀ ▀██▀ █▀▀██▀▀█
 ████▄  ▄████   ██  ██  ██   ██  ▀  ██  ▀
@@ -88,7 +75,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -133,7 +120,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -144,15 +131,20 @@ Learn more at https://docs.gitbutler.com/cli-overview
     env.but("status")
         .assert()
         .success()
+        .stderr_eq(str![""])
         .stdout_eq(str![[r#"
 ╭┄zz [unassigned changes] (no changes)
 ┊
-┴ 6f66116 (common base) 2000-01-02 Initial empty commit
+┊╭┄ma [main] (no commits)
+├╯
+┊
+┴ [..] (common base) 2000-01-02 Initial empty commit
+⚠️    You are in plain Git mode, directly on a branch. Some commands may be unavailable.    ⚠️
+⚠️    More info: https://github.com/gitbutlerapp/gitbutler/issues/11866                     ⚠️
 
-Hint: run `but branch new` to create a new branch to work on
+Hint: run `but setup --workspace` to switch back to GitButler managed mode.
 
-"#]])
-        .stderr_eq(str![""]);
+"#]]);
 
     Ok(())
 }

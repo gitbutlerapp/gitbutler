@@ -17,6 +17,28 @@ Error: No git repository found - run `but setup --init` to initialize a new repo
     Ok(())
 }
 
+fn assert_metadata_only_setup(
+    env: &Sandbox,
+    expected_branch: &str,
+    expected_target_ref: &str,
+) -> anyhow::Result<()> {
+    let output = env.invoke_git("branch --show-current");
+    assert_eq!(output, expected_branch);
+
+    env.invoke_git_fails(
+        "show-ref --verify refs/heads/gitbutler/workspace",
+        "setup should not create gitbutler/workspace",
+    );
+
+    let output = env.invoke_git("config --get gitbutler.project.targetRef");
+    assert_eq!(output, expected_target_ref);
+
+    let output = env.invoke_git("config --get gitbutler.project.targetCommitId");
+    assert!(!output.is_empty(), "setup should write targetCommitId");
+
+    Ok(())
+}
+
 #[test]
 fn no_remote_creates_gb_local() -> anyhow::Result<()> {
     let env = Sandbox::open_with_default_settings("repo-no-remote")?;
@@ -46,19 +68,6 @@ Target branch: gb-local/main
 Remote: gb-local
 
 
-Setting up your project for GitButler tooling. Some things to note:
-
-- Switching you to a special `gitbutler/workspace` branch to enable parallel branches
-- Installing Git hooks to help manage commits on the workspace branch
-
-To undo these changes and return to normal Git mode, either:
-
-    - Directly checkout a branch (`git checkout main`)
-    - Run `but teardown`
-
-More info: https://docs.gitbutler.com/workspace-branch
-
-
 
 ██▄      ▄██  ▀██▀▀█▄ ▀██▀ ▀██▀ █▀▀██▀▀█
 ████▄  ▄████   ██  ██  ██   ██  ▀  ██  ▀
@@ -72,7 +81,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -86,6 +95,8 @@ Learn more at https://docs.gitbutler.com/cli-overview
     // Verify remote HEAD was created
     let output = env.invoke_git("symbolic-ref refs/remotes/gb-local/HEAD");
     assert_eq!(output, "refs/remotes/gb-local/main");
+
+    assert_metadata_only_setup(&env, "main", "refs/remotes/gb-local/main")?;
 
     Ok(())
 }
@@ -115,19 +126,6 @@ Target branch: gb-local/development
 Remote: gb-local
 
 
-Setting up your project for GitButler tooling. Some things to note:
-
-- Switching you to a special `gitbutler/workspace` branch to enable parallel branches
-- Installing Git hooks to help manage commits on the workspace branch
-
-To undo these changes and return to normal Git mode, either:
-
-    - Directly checkout a branch (`git checkout development`)
-    - Run `but teardown`
-
-More info: https://docs.gitbutler.com/workspace-branch
-
-
 
 ██▄      ▄██  ▀██▀▀█▄ ▀██▀ ▀██▀ █▀▀██▀▀█
 ████▄  ▄████   ██  ██  ██   ██  ▀  ██  ▀
@@ -141,7 +139,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -151,6 +149,8 @@ Learn more at https://docs.gitbutler.com/cli-overview
     // Verify gb-local remote was created with development branch
     let output = env.invoke_git("symbolic-ref refs/remotes/gb-local/HEAD");
     assert_eq!(output, "refs/remotes/gb-local/development");
+
+    assert_metadata_only_setup(&env, "development", "refs/remotes/gb-local/development")?;
 
     Ok(())
 }
@@ -189,19 +189,6 @@ Target branch: origin/main
 Remote: origin
 
 
-Setting up your project for GitButler tooling. Some things to note:
-
-- Switching you to a special `gitbutler/workspace` branch to enable parallel branches
-- Installing Git hooks to help manage commits on the workspace branch
-
-To undo these changes and return to normal Git mode, either:
-
-    - Directly checkout a branch (`git checkout main`)
-    - Run `but teardown`
-
-More info: https://docs.gitbutler.com/workspace-branch
-
-
 
 ██▄      ▄██  ▀██▀▀█▄ ▀██▀ ▀██▀ █▀▀██▀▀█
 ████▄  ▄████   ██  ██  ██   ██  ▀  ██  ▀
@@ -215,12 +202,14 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
 
 "#]]);
+
+    assert_metadata_only_setup(&env, "main", "refs/remotes/origin/main")?;
 
     Ok(())
 }
@@ -255,17 +244,59 @@ Target branch: origin/main
 Remote: origin
 
 
-Setting up your project for GitButler tooling. Some things to note:
 
-- Switching you to a special `gitbutler/workspace` branch to enable parallel branches
-- Installing Git hooks to help manage commits on the workspace branch
+██▄      ▄██  ▀██▀▀█▄ ▀██▀ ▀██▀ █▀▀██▀▀█
+████▄  ▄████   ██  ██  ██   ██  ▀  ██  ▀
+████████████   ██▀▀█▄  ██   ██     ██
+████▀  ▀████   ██  ██  ██   ██     ██
+██▀      ▀██  ▄██▄▄█▀  ▀█▄▄▄█▀   ▄▄██▄▄
 
-To undo these changes and return to normal Git mode, either:
+The command-line interface for GitButler ⋈
 
-    - Directly checkout a branch (`git checkout main`)
-    - Run `but teardown`
+$ but branch new <name>                       Create a new branch
+$ but status                                  View workspace status
+$ but commit -m <message>                     Commit changes to current branch
+$ but push                                    Push all branches
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
-More info: https://docs.gitbutler.com/workspace-branch
+Learn more at https://docs.gitbutler.com/cli-overview
+
+
+"#]]);
+
+    assert_metadata_only_setup(&env, "main", "refs/remotes/origin/main")?;
+
+    Ok(())
+}
+
+#[test]
+fn workspace_flag_enters_legacy_managed_workspace() -> anyhow::Result<()> {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head")?;
+
+    env.but("setup --workspace")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Setting up GitButler project...
+
+→ Adding repository to GitButler project registry
+  ✓ Repository already in project registry
+
+→ Configuring default target branch
+  ✓ Using existing push remote: origin
+  ✓ Set default target to: origin/main
+
+GitButler project setup complete!
+Target branch: origin/main
+Remote: origin
+
+
+→ Entering temporary legacy managed workspace mode
+  ✓ Switched to gitbutler/workspace
+  ✓ Installed managed workspace hooks
+
+This is a temporary compatibility mode. The long-term direction is that no command should require it.
 
 
 
@@ -287,6 +318,17 @@ Learn more at https://docs.gitbutler.com/cli-overview
 
 
 "#]]);
+
+    let output = env.invoke_git("branch --show-current");
+    assert_eq!(output, "gitbutler/workspace");
+    env.invoke_git("show-ref --verify refs/heads/gitbutler/workspace");
+
+    let pre_commit_hook = env.projects_root().join(".git/hooks/pre-commit");
+    let hook = std::fs::read_to_string(&pre_commit_hook)?;
+    assert!(
+        hook.contains("GITBUTLER_MANAGED_HOOK_V1"),
+        "setup --workspace should install managed workspace hooks"
+    );
 
     Ok(())
 }
@@ -328,7 +370,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -517,19 +559,6 @@ Target branch: gb-local/main
 Remote: gb-local
 
 
-Setting up your project for GitButler tooling. Some things to note:
-
-- Switching you to a special `gitbutler/workspace` branch to enable parallel branches
-- Installing Git hooks to help manage commits on the workspace branch
-
-To undo these changes and return to normal Git mode, either:
-
-    - Directly checkout a branch (`git checkout main`)
-    - Run `but teardown`
-
-More info: https://docs.gitbutler.com/workspace-branch
-
-
 
 ██▄      ▄██  ▀██▀▀█▄ ▀██▀ ▀██▀ █▀▀██▀▀█
 ████▄  ▄████   ██  ██  ██   ██  ▀  ██  ▀
@@ -543,7 +572,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -554,12 +583,13 @@ Learn more at https://docs.gitbutler.com/cli-overview
     let output = env.invoke_git("rev-parse --git-dir");
     assert!(!output.is_empty());
 
-    // Verify initial commit was created (may have additional workspace commit)
+    // Verify initial commit was created without an additional workspace commit.
     let commit_count: u32 = env.invoke_git("rev-list --count HEAD").parse()?;
-    assert!(
-        commit_count >= 1,
-        "Expected at least 1 commit, found {commit_count}"
+    assert_eq!(
+        commit_count, 1,
+        "setup should not create a workspace commit"
     );
+    assert_metadata_only_setup(&env, "main", "refs/remotes/gb-local/main")?;
 
     Ok(())
 }
@@ -618,19 +648,6 @@ Target branch: gb-local/main
 Remote: gb-local
 
 
-Setting up your project for GitButler tooling. Some things to note:
-
-- Switching you to a special `gitbutler/workspace` branch to enable parallel branches
-- Installing Git hooks to help manage commits on the workspace branch
-
-To undo these changes and return to normal Git mode, either:
-
-    - Directly checkout a branch (`git checkout main`)
-    - Run `but teardown`
-
-More info: https://docs.gitbutler.com/workspace-branch
-
-
 
 ██▄      ▄██  ▀██▀▀█▄ ▀██▀ ▀██▀ █▀▀██▀▀█
 ████▄  ▄████   ██  ██  ██   ██  ▀  ██  ▀
@@ -644,7 +661,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -680,19 +697,6 @@ Target branch: gb-local/main
 Remote: gb-local
 
 
-Setting up your project for GitButler tooling. Some things to note:
-
-- Switching you to a special `gitbutler/workspace` branch to enable parallel branches
-- Installing Git hooks to help manage commits on the workspace branch
-
-To undo these changes and return to normal Git mode, either:
-
-    - Directly checkout a branch (`git checkout main`)
-    - Run `but teardown`
-
-More info: https://docs.gitbutler.com/workspace-branch
-
-
 
 ██▄      ▄██  ▀██▀▀█▄ ▀██▀ ▀██▀ █▀▀██▀▀█
 ████▄  ▄████   ██  ██  ██   ██  ▀  ██  ▀
@@ -706,7 +710,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 
@@ -750,7 +754,7 @@ $ but branch new <name>                       Create a new branch
 $ but status                                  View workspace status
 $ but commit -m <message>                     Commit changes to current branch
 $ but push                                    Push all branches
-$ but teardown                                Return to normal Git mode
+$ but setup --workspace                       Enter temporary legacy workspace mode
 
 Learn more at https://docs.gitbutler.com/cli-overview
 

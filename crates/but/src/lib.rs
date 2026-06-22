@@ -1196,7 +1196,7 @@ async fn match_subcommand(
                 .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Setup { init } => {
+        Subcommands::Setup { init, workspace } => {
             let repo =
                 match but_api::legacy::projects::add_project_best_effort(args.current_dir.clone())?
                 {
@@ -1212,10 +1212,16 @@ async fn match_subcommand(
                 };
             let mut ctx = but_ctx::Context::from_repo(repo)?;
             let mut guard = ctx.exclusive_worktree_access();
-            command::legacy::setup::repo(&mut ctx, &args.current_dir, out, guard.write_permission())
-                .context("Failed to set up GitButler project.")
-                .emit_metrics(metrics_ctx)
-                .map_err(CliError::from)
+            command::legacy::setup::repo(
+                &mut ctx,
+                &args.current_dir,
+                out,
+                workspace,
+                guard.write_permission(),
+            )
+            .context("Failed to set up GitButler project.")
+            .emit_metrics(metrics_ctx)
+            .map_err(CliError::from)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Teardown { checkout_to } => {

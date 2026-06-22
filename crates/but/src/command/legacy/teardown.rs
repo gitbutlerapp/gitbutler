@@ -242,7 +242,11 @@ pub(crate) fn teardown(
         )?;
         writeln!(out)?;
         writeln!(out, "{}", t.info.paint("To return to GitButler mode, run:"))?;
-        writeln!(out, "  {}", t.command_suggestion.paint("but setup"))?;
+        writeln!(
+            out,
+            "  {}",
+            t.command_suggestion.paint("but setup --workspace")
+        )?;
         writeln!(out)?;
     }
 

@@ -121,7 +121,7 @@ if echo "$PREV_BRANCH" | grep -q "gitbutler/workspace"; then
         fi
 
         echo ""
-        echo "To return to GitButler mode, run: but setup"
+        echo "To return to GitButler mode, run: but setup --workspace"
         echo ""
         exit 0
     fi

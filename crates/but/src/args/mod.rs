@@ -794,9 +794,9 @@ pub enum Subcommands {
     ///
     /// This command will:
     /// - Add the repository to the global GitButler project registry
-    /// - Switch to the gitbutler/workspace branch (if not already on it)
     /// - Set up a default target branch (the remote's HEAD)
     /// - Add a gb-local remote if no push remote exists
+    /// - Optionally enter the temporary legacy gitbutler/workspace mode with --workspace
     ///
     /// If you have an existing Git repository and want to start using GitButler
     /// with it, you can run this command to set up the necessary configuration
@@ -820,6 +820,13 @@ pub enum Subcommands {
         #[clap(long)]
         #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
         init: bool,
+        /// Enter the temporary legacy gitbutler/workspace mode after setup.
+        ///
+        /// This is a compatibility escape hatch for commands that still require managed
+        /// workspace mode. The long-term direction is that commands should work without it.
+        #[clap(long)]
+        #[clap(verbatim_doc_comment)]
+        workspace: bool,
     },
 
     /// Exit GitButler mode and return to normal Git workflow.
