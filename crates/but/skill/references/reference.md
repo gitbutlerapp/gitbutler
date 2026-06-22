@@ -22,8 +22,8 @@ Agent-focused reference for useful `but` commands.
 Overview of branch, stack, commit, and workspace state. Use this when you need existing branch/stack/commit/conflict context. For selected dirty-file or hunk commits, start with `but diff` instead.
 
 ```bash
-but status              # Compact human overview; avoid as routine preflight for write tasks
-but status -fv          # File-centric view with full commit details
+but status              # Compact overview with branch, stack, commit IDs, and commit subjects
+but status -fv          # File-centric view with full commit details and file IDs
 but status --verbose    # Detailed information
 but status --upstream   # Show upstream relationship
 ```
@@ -266,13 +266,16 @@ Move commits or branches to a different location.
 
 ```bash
 but move <commit> <target-commit>            # Move before target commit
-but move <commit>,<commit> <target-commit>   # Move multiple commits before target
+but move <commit>,<commit> <target-commit>   # Move multiple commits before target commit
 but move <commit> <target-commit> --after    # Move after target commit
+but move <commit>,<commit> <target-commit> --after # Move multiple commits after target commit
 but move <commit> <branch>                   # Move commit to top of branch
+but move <commit>,<commit> <branch>          # Move multiple commits to top of branch
 but move <branch> <target-branch>            # Stack branch on top of target branch
 but move <branch> zz                          # Tear off (unstack) branch
 ```
 
+Comma-separated multi-source moves are valid for commit sources only, not branch sources.
 `--after` is valid only for commit-to-commit moves.
 
 ### `but uncommit <source>`
