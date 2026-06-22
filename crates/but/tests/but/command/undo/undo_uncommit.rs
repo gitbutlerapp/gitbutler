@@ -2,8 +2,8 @@ use crate::{command::undo::run_mutate_undo_roundtrip_test, utils::Sandbox};
 
 #[test]
 fn can_undo_but_uncommit_commit_add() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
     let path = "new-file.txt";
     env.file(path, "content");
 
@@ -16,8 +16,8 @@ fn can_undo_but_uncommit_commit_add() {
 
 #[test]
 fn can_undo_but_uncommit_commit_modify() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
     let path = "new-file.txt";
     env.file(path, "content");
 
@@ -35,8 +35,8 @@ fn can_undo_but_uncommit_commit_modify() {
 
 #[test]
 fn can_undo_but_uncommit_commit_delete() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
     let path = "new-file.txt";
     env.file(path, "content");
 
@@ -53,8 +53,8 @@ fn can_undo_but_uncommit_commit_delete() {
 
 #[test]
 fn can_undo_but_uncommit_file_add() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
     let path = "new-file.txt";
     env.file(path, "content");
 
@@ -67,8 +67,8 @@ fn can_undo_but_uncommit_file_add() {
 
 #[test]
 fn can_undo_but_uncommit_file_modify() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
     let path = "new-file.txt";
     env.file(path, "content");
 
@@ -84,8 +84,8 @@ fn can_undo_but_uncommit_file_modify() {
 
 #[test]
 fn can_undo_but_uncommit_file_delete() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
     let path = "new-file.txt";
     env.file(path, "content");
 

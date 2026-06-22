@@ -218,8 +218,8 @@ fn rejects_non_branch_cli_id() -> anyhow::Result<()> {
 }
 
 fn switch_env() -> anyhow::Result<crate::utils::Sandbox> {
-    let env = crate::utils::Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = crate::utils::Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
     Ok(env)
 }
 

@@ -31,8 +31,8 @@ pub(super) fn commit_empty_with_message(env: &Sandbox, message: &str) -> String 
 
 #[test]
 fn can_undo_but_commit() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
     let path = "new-file.txt";
     env.file(path, "content");
 
@@ -43,8 +43,8 @@ fn can_undo_but_commit() {
 
 #[test]
 fn can_undo_but_commit_on_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
     let path = "new-file.txt";
     env.file(path, "content");
 
@@ -55,8 +55,8 @@ fn can_undo_but_commit_on_branch() {
 
 #[test]
 fn can_undo_but_commit_dash_dash_create() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
     let path = "new-file.txt";
     env.file(path, "content");
 
@@ -70,8 +70,8 @@ fn can_undo_but_commit_dash_dash_create() {
 
 #[test]
 fn can_undo_but_commit_dash_dash_create_new_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
     let path = "new-file.txt";
     env.file(path, "content");
 
@@ -87,8 +87,8 @@ fn can_undo_but_commit_dash_dash_create_new_branch() {
 
 #[test]
 fn can_undo_but_commit_dash_dash_create_existing_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
     let path = "new-file.txt";
     env.file(path, "content");
 
@@ -102,8 +102,8 @@ fn can_undo_but_commit_dash_dash_create_existing_branch() {
 #[test]
 #[ignore = "undoing assignments dont work. https://linear.app/gitbutler/issue/GB-1468/undoing-but-commit-only-to-commit-only-assigned-changes-doesnt-work"]
 fn can_undo_but_commit_dash_dash_only() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
 
     env.file("assigned.txt", "assigned content");
     env.but("rub assigned.txt A").assert().success();
@@ -117,8 +117,8 @@ fn can_undo_but_commit_dash_dash_only() {
 
 #[test]
 fn can_undo_but_commit_dash_dash_changes() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
 
     env.file("new-file.txt", "content");
     env.file("other-new-file.txt", "content");
@@ -132,8 +132,8 @@ fn can_undo_but_commit_dash_dash_changes() {
 
 #[test]
 fn can_undo_but_commit_empty() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
 
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but("commit empty").assert().success();
@@ -142,8 +142,8 @@ fn can_undo_but_commit_empty() {
 
 #[test]
 fn can_undo_but_commit_empty_with_message() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
 
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but("commit empty -m 'Plan empty slot'")
@@ -154,8 +154,8 @@ fn can_undo_but_commit_empty_with_message() {
 
 #[test]
 fn can_undo_but_commit_empty_target() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
 
     env.file("new-file.txt", "content");
 
@@ -168,8 +168,8 @@ fn can_undo_but_commit_empty_target() {
 
 #[test]
 fn can_undo_but_commit_empty_dash_dash_before() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
 
     env.file("new-file.txt", "content");
 
@@ -186,8 +186,8 @@ fn can_undo_but_commit_empty_dash_dash_before() {
 
 #[test]
 fn can_undo_but_commit_empty_dash_dash_after() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata_at_target(&["A"], "origin/main").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
 
     env.file("new-file.txt", "content");
 

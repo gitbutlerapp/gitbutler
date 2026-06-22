@@ -16,9 +16,9 @@ fn find_unassigned_cli_id(status: &serde_json::Value, path: &str) -> Option<Stri
 
 #[test]
 fn uncommitted_file() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     env.but("--format json status -f")
@@ -56,7 +56,7 @@ Hint: you can run `but undo` to undo these changes
         .stderr_eq(str![""]);
 
     // Change was absorbed
-    let repo = env.open_repo()?;
+    let repo = env.open_repo();
     let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
     insta::assert_snapshot!(blob.data.as_bstr(), @"
     firsta
@@ -88,9 +88,9 @@ Hint: you can run `but undo` to undo these changes
 
 #[test]
 fn uncommitted_hunk() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Verify that the first hunk is j0, and absorb it.
@@ -134,7 +134,7 @@ Hint: you can run `but undo` to undo these changes
         .stderr_eq(str![""]);
 
     // Change was partially absorbed
-    let repo = env.open_repo()?;
+    let repo = env.open_repo();
     let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
     insta::assert_snapshot!(blob.data.as_bstr(), @"
     firsta
@@ -172,9 +172,9 @@ Hint: you can run `but undo` to undo these changes
 
 #[test]
 fn committed_hunk() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Verify that the first hunk is j0, and commit it.
@@ -377,7 +377,7 @@ Hint: run `but help` for all commands
 "#]]);
 
     // Change was full absorbed
-    let repo = env.open_repo()?;
+    let repo = env.open_repo();
     let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
     insta::assert_snapshot!(blob.data.as_bstr(), @"
     first new
@@ -396,8 +396,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn concurrent_absorb_of_independent_files_succeeds() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
     commit_file_with_worktree_changes_as_two_hunks(&env, "B", "b.txt");
@@ -438,9 +438,9 @@ fn concurrent_absorb_of_independent_files_succeeds() -> anyhow::Result<()> {
 
 #[test]
 fn dry_run_shows_plan_without_changes() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Get initial status
@@ -479,7 +479,7 @@ Dry run complete. No changes were made.
     );
 
     // Also verify the workspace commit did NOT change during dry-run
-    let repo = env.open_repo()?;
+    let repo = env.open_repo();
     let ws_id = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
     // Re-run dry-run and confirm workspace is still the same
     env.but("absorb i0 --dry-run").assert().success();
@@ -487,7 +487,7 @@ Dry run complete. No changes were made.
     assert_eq!(ws_id, ws_id_after, "dry-run must not touch workspace HEAD");
 
     // Verify the file content wasn't actually changed
-    let repo = env.open_repo()?;
+    let repo = env.open_repo();
     let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
     insta::assert_snapshot!(blob.data.as_bstr(), @"
     first
@@ -529,13 +529,13 @@ Dry run complete. No changes were made.
 /// an up-to-date synthetic commit rather than a stale one.
 #[test]
 fn workspace_head_is_refreshed_after_absorb() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata_at_target(&["A", "B"], "origin/main")?;
+    env.setup_metadata_at_target(&["A", "B"], "origin/main");
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Record the workspace commit *before* absorb.
-    let repo = env.open_repo()?;
+    let repo = env.open_repo();
     let ws_before = repo.rev_parse_single(b"gitbutler/workspace")?.detach();
 
     env.but("absorb i0").assert().success().stderr_eq(str![""]);

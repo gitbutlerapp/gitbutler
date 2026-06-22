@@ -2,7 +2,7 @@ use crate::utils::{CommandExt as _, Sandbox};
 
 #[test]
 fn first_run_shows_metrics_message() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
 
     // The sandbox sets onboarding_complete: true by default to avoid polluting other tests.
     // Delete the settings file to simulate a fresh install (will be recreated with defaults).
@@ -23,7 +23,7 @@ GitButler uses metrics to help us know what is useful and improve it. Configure 
 
 #[test]
 fn second_run_is_silent() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
 
     // The sandbox sets onboarding_complete: true by default.
     // Delete the settings file to simulate a fresh install.
@@ -48,7 +48,7 @@ GitButler uses metrics to help us know what is useful and improve it. Configure 
 
 #[test]
 fn json_mode_is_silent_but_marks_complete() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
 
     // The sandbox sets onboarding_complete: true by default.
     // Delete the settings file to simulate a fresh install.

@@ -84,7 +84,7 @@ pub(super) fn test_tui_with_options(env: Sandbox, options: TestTuiOptions) -> Te
     env.invoke_git("config gitoxide.commit.committerDate '2000-01-01 00:00:00 +0000'");
     env.invoke_git("config gitbutler.testing.changeId 1");
 
-    let mut ctx = env.context().expect("failed to create context");
+    let mut ctx = env.context();
     let mode = but_api::legacy::modes::operating_mode(&ctx)
         .expect("failed to get operating mode")
         .operating_mode;
@@ -190,7 +190,7 @@ impl TestTui {
         let mut other_messages = Vec::new();
 
         with_stable_commit_env(|| {
-            let mut ctx = self.env().context().expect("failed to create context");
+            let mut ctx = self.env().context();
             let mut out = TestTuiInputOutputChannel(&mut self.out);
             render_loop_once(
                 &mut self.app,

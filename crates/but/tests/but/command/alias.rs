@@ -4,8 +4,8 @@ use crate::utils::Sandbox;
 use snapbox::str;
 
 #[test]
-fn local_alias_roundtrip_uses_repo_config() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn local_alias_roundtrip_uses_repo_config() {
+    let env = Sandbox::empty();
     env.invoke_bash("git init repo");
 
     env.invoke_git_fails(
@@ -23,13 +23,11 @@ fn local_alias_roundtrip_uses_repo_config() -> anyhow::Result<()> {
         "-C repo config --local --get but.alias.st",
         "local alias should be removed from repo config",
     );
-
-    Ok(())
 }
 
 #[test]
-fn global_alias_roundtrip_uses_global_config() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn global_alias_roundtrip_uses_global_config() {
+    let env = Sandbox::empty();
     env.invoke_bash("git init repo");
     let global_config = env.projects_root().join("global.gitconfig");
 
@@ -54,15 +52,13 @@ fn global_alias_roundtrip_uses_global_config() -> anyhow::Result<()> {
         "config --file global.gitconfig --get but.alias.st",
         "global alias should be removed from the configured global file",
     );
-
-    Ok(())
 }
 
 #[cfg(feature = "legacy")]
 #[test]
-fn can_invoke_alias() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn can_invoke_alias() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("alias add b branch").assert().success();
 
@@ -74,15 +70,13 @@ active  ✓ *A          26y ago    author
 
 "#]])
         .stderr_eq(str![[]]);
-
-    Ok(())
 }
 
 #[cfg(feature = "legacy")]
 #[test]
 fn can_invoke_alias_with_root_flags() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("alias add b branch").assert().success();
 
@@ -110,8 +104,8 @@ fn can_invoke_alias_with_root_flags() -> anyhow::Result<()> {
 #[cfg(feature = "legacy")]
 #[test]
 fn can_invoke_alias_with_root_flags_with_args() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("alias add b branch").assert().success();
     let log_file_path = env.projects_root().join("log_file.txt");
@@ -145,8 +139,8 @@ fn can_invoke_alias_that_shadows_external_command() -> anyhow::Result<()> {
 
     use tempfile::tempdir;
 
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let bin = tempdir()?;
     let helper = bin.path().join("but-b");
@@ -185,8 +179,8 @@ active  ✓ *A          26y ago    author
 #[cfg(unix)]
 #[cfg(feature = "legacy")]
 #[test]
-fn alias_expansion_failure_falls_back_to_original_args() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+fn alias_expansion_failure_falls_back_to_original_args() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
 
     env.but("alias add bad").arg("'").assert().success();
 
@@ -205,8 +199,6 @@ Usage: but [OPTIONS] [COMMAND]
 For more information, try '--help'.
 
 "#]]);
-
-    Ok(())
 }
 
 #[cfg(unix)]
@@ -219,8 +211,8 @@ For more information, try '--help'.
 /// it impossible as known subcommands should not be parsed as external commands, and the alias
 /// expansion itself should bail if a known subcommand is passed in.
 fn alias_of_known_subcommand_is_not_expanded() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.invoke_git("config --local but.alias.branch help");
 

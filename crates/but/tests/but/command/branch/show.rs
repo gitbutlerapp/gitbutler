@@ -3,8 +3,8 @@ use crate::utils::{CommandExt, Sandbox};
 /// Show branch details for an applied branch using JSON output.
 #[test]
 fn show_lists_commits_ahead_for_applied_branch() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied")?;
-    env.setup_metadata(&["applied-branch"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    env.setup_metadata(&["applied-branch"]);
 
     let result = env
         .but("--format json branch show applied-branch")
@@ -26,8 +26,8 @@ fn show_lists_commits_ahead_for_applied_branch() -> anyhow::Result<()> {
 /// Report merge-check information for an applied branch using JSON output.
 #[test]
 fn show_check_reports_clean_merge_for_applied_branch() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied")?;
-    env.setup_metadata(&["applied-branch"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    env.setup_metadata(&["applied-branch"]);
 
     let result = env
         .but("--format json branch show applied-branch --check")
@@ -49,9 +49,9 @@ fn show_check_reports_clean_merge_for_applied_branch() -> anyhow::Result<()> {
 }
 
 #[test]
-fn show_works_for_unapplied_branches() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn show_works_for_unapplied_branches() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("branch show A")
         .assert()
@@ -84,14 +84,12 @@ Branch: A (1 commits ahead)
     1 file changed, 1 insertion, 0 deletions
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn supports_short_codes() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn supports_short_codes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("branch show g0")
         .assert()
@@ -104,14 +102,12 @@ Branch: A (1 commits ahead)
     1 file changed, 1 insertion, 0 deletions
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn show_works_for_remote_only_branches() -> anyhow::Result<()> {
-    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn show_works_for_remote_only_branches() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.invoke_bash(
         r#"
@@ -145,17 +141,14 @@ ba02e5f Add remote feature
     0 files changed, 0 insertions, 0 deletions
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
 fn showing_branch_that_isnt_top_of_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "one-stack-three-dependent-branches",
-    )
-    .unwrap();
-    env.setup_metadata(&["A", "B", "C"]).unwrap();
+    );
+    env.setup_metadata(&["A", "B", "C"]);
 
     env.but("status")
         .assert()
@@ -232,9 +225,8 @@ Branch: A (1 commits ahead)
 fn checking_merge_status_of_branch_that_isnt_top_of_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "one-stack-three-dependent-branches",
-    )
-    .unwrap();
-    env.setup_metadata(&["A", "B", "C"]).unwrap();
+    );
+    env.setup_metadata(&["A", "B", "C"]);
 
     env.but("status")
         .assert()

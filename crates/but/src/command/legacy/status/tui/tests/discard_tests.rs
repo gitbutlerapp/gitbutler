@@ -6,8 +6,8 @@ use crate::command::legacy::status::tui::tests::utils::test_tui;
 
 #[test]
 fn discard_prompt_can_be_cancelled() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -29,8 +29,8 @@ fn discard_prompt_can_be_cancelled() {
 
 #[test]
 fn discard_unassigned_confirm_yes_discards_changes() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -57,8 +57,8 @@ fn discard_unassigned_confirm_yes_discards_changes() {
 
 #[test]
 fn discard_unassigned_cancel_keeps_changes() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -88,8 +88,8 @@ fn discard_unassigned_cancel_keeps_changes() {
 
 #[test]
 fn discard_commit_confirm_yes_removes_commit() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -116,8 +116,8 @@ fn discard_commit_confirm_yes_removes_commit() {
 
 #[test]
 fn discard_top_commit_selects_next_commit_in_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -142,8 +142,8 @@ fn discard_top_commit_selects_next_commit_in_branch() {
 
 #[test]
 fn discard_stack_confirm_yes_discards_staged_changes() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -186,8 +186,8 @@ fn discard_stack_confirm_yes_discards_staged_changes() {
 
 #[test]
 fn discard_branch_confirm_yes_removes_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -218,8 +218,8 @@ fn discard_branch_confirm_yes_removes_branch() {
 
 #[test]
 fn discard_branch_cancel_keeps_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -250,8 +250,8 @@ fn discard_branch_cancel_keeps_branch() {
 
 #[test]
 fn discard_on_committed_file_row_is_noop() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -270,8 +270,8 @@ fn discard_on_committed_file_row_is_noop() {
 
 #[test]
 fn discard_multiple_commits() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     let mut tui = test_tui(env);
 
@@ -300,8 +300,8 @@ fn discard_multiple_commits() {
 
 #[test]
 fn mark_and_discard_uncommitted_files() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("one", "");
     env.file("two", "");

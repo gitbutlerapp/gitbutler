@@ -24,9 +24,9 @@ fn install_editor_script(env: &Sandbox, script: &str) -> anyhow::Result<()> {
 
 #[test]
 fn integrate_pull_rebase_applies_and_snapshots_before_and_after() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged");
 
-    insta::assert_snapshot!(env.git_log()?, @r"
+    insta::assert_snapshot!(env.git_log(), @r"
     *   a952a0b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
     | * 643ade3 (A) add only-on-local
@@ -77,7 +77,7 @@ Updated branch A.
 
 "#]]);
 
-    insta::assert_snapshot!(env.git_log()?, @r"
+    insta::assert_snapshot!(env.git_log(), @r"
     *   6a3496e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
     | * 74faa12 (A) add only-on-local
@@ -124,9 +124,9 @@ Updated branch A.
 #[test]
 fn integrate_smart_squash_applies_matching_change_ids() -> anyhow::Result<()> {
     let env =
-        Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-smart-squash")?;
+        Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-smart-squash");
 
-    insta::assert_snapshot!(env.git_log()?, @"
+    insta::assert_snapshot!(env.git_log(), @"
     * 2662ee8 (HEAD -> gitbutler/workspace, A) add only-on-local
     | * c42227a (origin/A) add only-on-remote
     |/  
@@ -149,7 +149,7 @@ Updated branch A.
 
 "#]]);
 
-    insta::assert_snapshot!(env.git_log()?, @"
+    insta::assert_snapshot!(env.git_log(), @"
     * bf02b24 (HEAD -> gitbutler/workspace, A) add only-on-remote
     | * c42227a (origin/A) add only-on-remote
     |/  
@@ -168,8 +168,8 @@ Updated branch A.
 
 #[test]
 fn integrate_dry_run_shows_preview_without_changing_repo() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged")?;
-    let before_log = env.git_log()?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged");
+    let before_log = env.git_log();
     let before_status = pretty_status(&env)?;
 
     env.but("branch update A --dry-run")
@@ -227,7 +227,7 @@ o 0dc3733
       }
     }
     "#);
-    assert_eq!(env.git_log()?, before_log, "dry-run must not rewrite refs");
+    assert_eq!(env.git_log(), before_log, "dry-run must not rewrite refs");
     assert_eq!(
         pretty_status(&env)?,
         before_status,
@@ -239,8 +239,8 @@ o 0dc3733
 
 #[test]
 fn integrate_dry_run_verbose_shows_divergence_before_preview() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged")?;
-    let before_log = env.git_log()?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged");
+    let before_log = env.git_log();
     let before_status = pretty_status(&env)?;
 
     env.but("branch update A --dry-run --verbose")
@@ -267,7 +267,7 @@ o 0dc3733
 "#]]);
 
     assert_eq!(
-        env.git_log()?,
+        env.git_log(),
         before_log,
         "verbose dry-run must not rewrite refs"
     );
@@ -281,10 +281,10 @@ o 0dc3733
 }
 
 #[test]
-fn integrate_merge_dry_run_marks_conflicted_preview_commits() -> anyhow::Result<()> {
+fn integrate_merge_dry_run_marks_conflicted_preview_commits() {
     let env = Sandbox::init_scenario_with_target_and_default_settings_slow(
         "branch-integrate-conflicting",
-    )?;
+    );
 
     env.but("branch update A -s merge --dry-run")
         .assert()
@@ -299,13 +299,11 @@ Preview
 o 6a997fd
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
 fn integrate_interactive_unchanged_script_applies_generated_plan() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged");
     install_editor_script(&env, "#!/usr/bin/env bash\n: \"$1\"\n")?;
 
     env.but("branch update A --interactive")
@@ -318,7 +316,7 @@ Updated branch A.
 
 "#]]);
 
-    insta::assert_snapshot!(env.git_log()?, @r"
+    insta::assert_snapshot!(env.git_log(), @r"
     *   6a3496e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
     | * 74faa12 (A) add only-on-local
@@ -332,9 +330,9 @@ Updated branch A.
 
 #[test]
 fn integrate_interactive_dry_run_keeps_repo_unchanged() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged");
     install_editor_script(&env, "#!/usr/bin/env bash\n: \"$1\"\n")?;
-    let before_log = env.git_log()?;
+    let before_log = env.git_log();
     let before_status = pretty_status(&env)?;
 
     env.but("branch update A --interactive --dry-run")
@@ -353,7 +351,7 @@ o 0dc3733
 "#]]);
 
     assert_eq!(
-        env.git_log()?,
+        env.git_log(),
         before_log,
         "interactive dry-run must not rewrite refs"
     );
@@ -368,7 +366,7 @@ o 0dc3733
 
 #[test]
 fn integrate_interactive_applies_edited_merge_plan() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged");
     install_editor_script(
         &env,
         r#"#!/usr/bin/env bash
@@ -385,7 +383,7 @@ EOF
         .success()
         .stderr_eq(str![]);
 
-    insta::assert_snapshot!(env.git_log()?, @r"
+    insta::assert_snapshot!(env.git_log(), @r"
     *   9e0c28c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
     | *   30a8d17 (A) Merge 28baf9a2794d7722ceff84f2967b5186545b8a48 into previous commit
@@ -403,14 +401,14 @@ EOF
 
 #[test]
 fn integrate_interactive_fails_on_parse_error() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged");
     install_editor_script(
         &env,
         r#"#!/usr/bin/env bash
 printf 'drop 643ade3\n' > "$1"
 "#,
     )?;
-    let before_log = env.git_log()?;
+    let before_log = env.git_log();
 
     env.but("branch update A --interactive")
         .env("GIT_EDITOR", "bash editor.sh")
@@ -423,7 +421,7 @@ Error: line 1: unknown command 'drop'
 "#]]);
 
     assert_eq!(
-        env.git_log()?,
+        env.git_log(),
         before_log,
         "parse failures must not rewrite refs"
     );
@@ -433,14 +431,14 @@ Error: line 1: unknown command 'drop'
 
 #[test]
 fn integrate_interactive_fails_on_out_of_scope_commit() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-diverged");
     install_editor_script(
         &env,
         r#"#!/usr/bin/env bash
 printf 'pick 0dc3733\n' > "$1"
 "#,
     )?;
-    let before_log = env.git_log()?;
+    let before_log = env.git_log();
 
     env.but("branch update A --interactive")
         .env("GIT_EDITOR", "bash editor.sh")
@@ -453,7 +451,7 @@ Error: line 1: invalid pick commit: commit '0dc3733' is not part of the editable
 "#]]);
 
     assert_eq!(
-        env.git_log()?,
+        env.git_log(),
         before_log,
         "validation failures must not rewrite refs"
     );
@@ -464,8 +462,8 @@ Error: line 1: invalid pick commit: commit '0dc3733' is not part of the editable
 #[test]
 fn integrate_errors_cleanly_without_tracking_branch() -> anyhow::Result<()> {
     let env =
-        Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-no-tracking")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
+        Sandbox::init_scenario_with_target_and_default_settings("branch-integrate-no-tracking");
+    insta::assert_snapshot!(env.git_log(), @r"
     * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 9477ae7 (A) add A
     * 0dc3733 (origin/main, origin/HEAD, main) add M

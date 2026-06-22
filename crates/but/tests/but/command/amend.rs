@@ -30,20 +30,22 @@ fn branch_commits_contain_file(
 }
 
 #[test]
-fn amend_accepts_comma_separated_uncommitted_changes() -> anyhow::Result<()> {
+fn amend_accepts_comma_separated_uncommitted_changes() {
     assert_multiple_amend(|target_commit| {
         format!("amend {target_commit} --changes one.txt,two.txt")
     })
+    .unwrap();
 }
 
 #[test]
-fn amend_legacy_form_still_accepts_comma_separated_uncommitted_changes() -> anyhow::Result<()> {
+fn amend_legacy_form_still_accepts_comma_separated_uncommitted_changes() {
     assert_multiple_amend(|target_commit| format!("amend one.txt,two.txt {target_commit}"))
+        .unwrap();
 }
 
 #[test]
-fn amend_without_changes_prints_new_usage_hint() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn amend_without_changes_prints_new_usage_hint() {
+    let env = Sandbox::empty();
 
     env.but("amend c3")
         .assert()
@@ -53,13 +55,11 @@ fn amend_without_changes_prints_new_usage_hint() -> anyhow::Result<()> {
 Error: Missing --changes <file-or-hunk>. Usage: but amend <commit> --changes <id>[,<id>]
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn amend_with_changes_rejects_extra_positional() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn amend_with_changes_rejects_extra_positional() {
+    let env = Sandbox::empty();
 
     env.but("amend c3 --changes a1 b2")
         .assert()
@@ -69,13 +69,11 @@ fn amend_with_changes_rejects_extra_positional() -> anyhow::Result<()> {
 Error: Unexpected extra argument 'b2'. Use comma-separated --changes values: but amend <commit> --changes <id>[,<id>]
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn amend_with_changes_rejects_empty_change_ids() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn amend_with_changes_rejects_empty_change_ids() {
+    let env = Sandbox::empty();
 
     env.but("amend c3 --changes a1,,b2")
         .assert()
@@ -85,13 +83,11 @@ fn amend_with_changes_rejects_empty_change_ids() -> anyhow::Result<()> {
 Error: Empty --changes value. Use comma-separated file or hunk IDs: but amend <commit> --changes <id>[,<id>]
 
 "#]]);
-
-    Ok(())
 }
 
 fn assert_multiple_amend(args: impl FnOnce(&str) -> String) -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.file("one.txt", "one\n");
     env.file("two.txt", "two\n");

@@ -5,7 +5,7 @@ use super::util::enter_edit_mode_with_conflicted_commit;
 use crate::utils::Sandbox;
 
 fn current_branch_name(env: &Sandbox) -> anyhow::Result<String> {
-    let repo = env.open_repo()?;
+    let repo = env.open_repo();
     repo.rev_parse_single("HEAD")
         .context("HEAD should resolve")?;
     repo.head_name()?
@@ -15,7 +15,7 @@ fn current_branch_name(env: &Sandbox) -> anyhow::Result<String> {
 
 #[test]
 fn resolve_status_and_finish_work_in_edit_mode() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     enter_edit_mode_with_conflicted_commit(&env)?;
 
     env.but("resolve status")
@@ -37,7 +37,7 @@ fn resolve_status_and_finish_work_in_edit_mode() -> anyhow::Result<()> {
 
 #[test]
 fn resolve_cancel_works_in_edit_mode() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     enter_edit_mode_with_conflicted_commit(&env)?;
 
     env.but("resolve cancel --force")
@@ -50,7 +50,7 @@ fn resolve_cancel_works_in_edit_mode() -> anyhow::Result<()> {
 
 #[test]
 fn resolve_cancel_requires_force_when_changes_were_made() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     enter_edit_mode_with_conflicted_commit(&env)?;
 
     env.file("test-file.txt", "resolved content with additional edits\n");

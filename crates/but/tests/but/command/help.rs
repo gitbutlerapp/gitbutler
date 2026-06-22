@@ -5,8 +5,8 @@ use crate::utils::Sandbox;
 
 #[cfg(feature = "legacy")]
 #[test]
-fn rub_looks_good() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn rub_looks_good() {
+    let env = Sandbox::empty();
 
     // Assert on plain help text so the test doesn't drift on ANSI-to-SVG styling differences.
     env.but("rub --help").assert().success().stdout_eq(str![[r#"
@@ -100,12 +100,11 @@ Options:
   -h, --help             Print help (see more with '--help')
 
 "#]]);
-    Ok(())
 }
 
 #[test]
-fn nonexistent_comman_shows_friendly_error() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn nonexistent_comman_shows_friendly_error() {
+    let env = Sandbox::empty();
 
     env.but("no-such-command")
         .assert()
@@ -119,14 +118,12 @@ Usage: but [OPTIONS] [COMMAND]
 For more information, try '--help'.
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
 /// We want the output of `help --help` to be the same as `help`.
 fn help_help_should_be_help() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
 
     let help = env.but("help").output()?.stdout;
     env.but("help --help")
@@ -139,7 +136,7 @@ fn help_help_should_be_help() -> anyhow::Result<()> {
 
 #[test]
 fn top_level_help_honors_agent_format_after_help_flag() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
     let help = env.but("help --format agent").output()?.stdout;
 
     env.but("--help --format agent")

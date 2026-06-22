@@ -53,24 +53,22 @@ impl Sandbox {
     /// Create a new instance with empty everything, except for basic application settings that prevent the app to break out.
     ///
     /// Change these if you want to test something specific on top of that.
-    pub fn empty() -> anyhow::Result<Sandbox> {
+    pub fn empty() -> Sandbox {
         #[cfg_attr(not(feature = "sandbox-but-api"), allow(unused_mut))]
         let mut sandbox = Sandbox {
-            project_root: Some(tempfile::TempDir::new()?),
+            project_root: Some(tempfile::TempDir::new().unwrap()),
             #[cfg(feature = "sandbox-but-api")]
-            app_root: Some(tempfile::TempDir::new()?),
+            app_root: Some(tempfile::TempDir::new().unwrap()),
             #[cfg(feature = "sandbox-but-api")]
             app_settings: None,
         };
         #[cfg(feature = "sandbox-but-api")]
-        sandbox.set_default_settings()?;
-        Ok(sandbox)
+        sandbox.set_default_settings();
+        sandbox
     }
 
     /// A utility to init a scenario if the legacy feature is set, or open a repo otherwise.
-    pub fn open_or_init_scenario_with_target_and_default_settings(
-        name: &str,
-    ) -> anyhow::Result<Sandbox> {
+    pub fn open_or_init_scenario_with_target_and_default_settings(name: &str) -> Sandbox {
         Self::open_or_init_scenario_with_target_inner(
             name,
             Creation::CopyFromReadOnly,
@@ -79,7 +77,7 @@ impl Sandbox {
     }
 
     /// Open a repository without any additional setup and default application settings.
-    pub fn open_with_default_settings(name: &str) -> anyhow::Result<Sandbox> {
+    pub fn open_with_default_settings(name: &str) -> Sandbox {
         Self::open_or_init_scenario_with_target_inner(
             name,
             Creation::CopyFromReadOnly,
@@ -93,7 +91,7 @@ impl Sandbox {
     /// Prefer to use [`Self::open_scenario_with_target_and_default_settings()`] instead for less side-effects
     /// TODO: we shouldn't have to add the project for interaction - it's only useful for listing.
     /// TODO: there should be no need for the target.
-    pub fn init_scenario_with_target_and_default_settings(name: &str) -> anyhow::Result<Sandbox> {
+    pub fn init_scenario_with_target_and_default_settings(name: &str) -> Sandbox {
         Self::open_or_init_scenario_with_target_inner(
             name,
             Creation::CopyFromReadOnly,
@@ -102,7 +100,7 @@ impl Sandbox {
     }
 
     /// Provide a scenario with `name` for writing, with target added.
-    pub fn open_scenario_with_target_and_default_settings(name: &str) -> anyhow::Result<Sandbox> {
+    pub fn open_scenario_with_target_and_default_settings(name: &str) -> Sandbox {
         Self::open_or_init_scenario_with_target_inner(
             name,
             Creation::CopyFromReadOnly,
@@ -112,9 +110,7 @@ impl Sandbox {
 
     /// Like [`Self::init_scenario_with_target_and_default_settings`], Execute the script at `name` instead of
     /// copying it - necessary if Git places absolute paths.
-    pub fn init_scenario_with_target_and_default_settings_slow(
-        name: &str,
-    ) -> anyhow::Result<Sandbox> {
+    pub fn init_scenario_with_target_and_default_settings_slow(name: &str) -> Sandbox {
         Self::open_or_init_scenario_with_target_inner(name, Creation::Execute, InitMetadata::Allow)
     }
 
@@ -122,29 +118,32 @@ impl Sandbox {
         name: &str,
         script_creation: Creation,
         meta_mode: InitMetadata,
-    ) -> anyhow::Result<Sandbox> {
+    ) -> Sandbox {
         let repo_dir = gix_testtools::scripted_fixture_writable_with_args(
             format!("scenario/{name}.sh"),
             None::<String>,
             script_creation,
         )
-        .map_err(anyhow::Error::from_boxed)?;
+        .map_err(anyhow::Error::from_boxed)
+        .unwrap();
         #[cfg_attr(not(feature = "sandbox-but-api"), allow(unused_mut))]
         let mut sandbox = Sandbox {
             project_root: Some(repo_dir),
             #[cfg(feature = "sandbox-but-api")]
-            app_root: Some(tempfile::TempDir::new()?),
+            app_root: Some(tempfile::TempDir::new().unwrap()),
             #[cfg(feature = "sandbox-but-api")]
             app_settings: None,
         };
-        let repo = sandbox.open_repo()?;
+        let repo = sandbox.open_repo();
 
         // This can fail on unborn repos, let it, see if we can handle unborn.
         if matches!(meta_mode, InitMetadata::Allow)
             && let Ok(commit_id) = repo.rev_parse_single("origin/main")
         {
             sandbox.file(
-                repo.gitbutler_storage_path()?.join("virtual_branches.toml"),
+                repo.gitbutler_storage_path()
+                    .unwrap()
+                    .join("virtual_branches.toml"),
                 r#"
 [default_target]
 branchName = "main"
@@ -161,8 +160,8 @@ pushRemoteName = "origin"
             );
         }
         #[cfg(feature = "sandbox-but-api")]
-        sandbox.set_default_settings()?;
-        Ok(sandbox)
+        sandbox.set_default_settings();
+        sandbox
     }
 }
 
@@ -231,25 +230,24 @@ impl Sandbox {
     }
 
     /// Open a repository on the projects-directory.
-    pub fn open_repo(&self) -> anyhow::Result<gix::Repository> {
-        Ok(gix::open_opts(
-            self.projects_root(),
-            gix::open::Options::isolated(),
-        )?)
+    pub fn open_repo(&self) -> gix::Repository {
+        gix::open_opts(self.projects_root(), gix::open::Options::isolated()).unwrap()
     }
 
     /// Create a metadata instance on the project.
-    pub fn meta(&self) -> anyhow::Result<impl but_core::RefMetadata> {
+    pub fn meta(&self) -> impl but_core::RefMetadata {
         VirtualBranchesTomlMetadata::from_path(
-            self.open_repo()?
-                .gitbutler_storage_path()?
+            self.open_repo()
+                .gitbutler_storage_path()
+                .unwrap()
                 .join("virtual_branches.toml"),
         )
+        .unwrap()
     }
 
     /// Read project-scoped metadata, falling back to legacy workspace metadata.
-    pub fn project_meta(&self) -> anyhow::Result<ProjectMeta> {
-        ProjectMeta::resolve(&self.open_repo()?, &self.meta()?)
+    pub fn project_meta(&self) -> ProjectMeta {
+        ProjectMeta::resolve(&self.open_repo(), &self.meta()).unwrap()
     }
 
     /// Return a fully isolated context configured to interact with this repository.
@@ -258,52 +256,54 @@ impl Sandbox {
     ///
     /// This feature is only meant for higher-level Client or API tests. Plumbing crates must not use the [`but_ctx::Context`].
     #[cfg(feature = "sandbox-but-api")]
-    pub fn context(&self) -> anyhow::Result<but_ctx::Context> {
-        but_ctx::Context::from_repo(self.open_repo()?).map(but_ctx::Context::with_memory_app_cache)
+    pub fn context(&self) -> but_ctx::Context {
+        but_ctx::Context::from_repo(self.open_repo())
+            .map(but_ctx::Context::with_memory_app_cache)
+            .unwrap()
     }
 
     /// Return the graph at `HEAD`, along with the `(graph, repo, meta)` repository and metadata used to create it.
     pub fn graph_at_head(
         &self,
-    ) -> anyhow::Result<(
+    ) -> (
         but_graph::Graph,
         gix::Repository,
         impl but_core::RefMetadata,
-    )> {
-        let repo = self.open_repo()?;
-        let meta = self.meta()?;
+    ) {
+        let repo = self.open_repo();
+        let meta = self.meta();
         let graph = but_graph::Graph::from_head(
             &repo,
             &meta,
-            self.project_meta()?,
+            self.project_meta(),
             but_graph::init::Options::default(),
-        )?;
-        Ok((graph, repo, meta))
+        )
+        .unwrap();
+        (graph, repo, meta)
     }
 
     /// Return a worktree visualisation, freshly read from [Self::graph_at_head()].
-    pub fn workspace_debug_at_head(&self) -> anyhow::Result<String> {
-        let (graph, _repo, _meta) = self.graph_at_head()?;
-        Ok(graph_workspace_determinisitcally(&graph.into_workspace()?).to_string())
+    pub fn workspace_debug_at_head(&self) -> String {
+        let (graph, _repo, _meta) = self.graph_at_head();
+        graph_workspace_determinisitcally(&graph.into_workspace().unwrap()).to_string()
     }
 
     /// Open the graph at `HEAD` as SVG for debugging.
     #[cfg(unix)]
-    pub fn open_graph_at_head_as_svg(&self) -> anyhow::Result<()> {
-        let (graph, _repo, _meta) = self.graph_at_head()?;
+    pub fn open_graph_at_head_as_svg(&self) {
+        let (graph, _repo, _meta) = self.graph_at_head();
         graph.open_as_svg();
-        Ok(())
     }
 
     /// Show a git log for all refs.
-    pub fn git_log(&self) -> anyhow::Result<String> {
-        Ok(visualize_commit_graph_all_from_dir(self.projects_root())?)
+    pub fn git_log(&self) -> String {
+        visualize_commit_graph_all_from_dir(self.projects_root()).unwrap()
     }
 
     /// Show the `git status` as string.
-    pub fn git_status(&self) -> anyhow::Result<String> {
-        let repo = self.open_repo()?;
-        Ok(git_status(&repo)?)
+    pub fn git_status(&self) -> String {
+        let repo = self.open_repo();
+        git_status(&repo).unwrap()
     }
 
     /// Return app settings if these were initialized.
@@ -433,9 +433,9 @@ impl Sandbox {
     // TODO: in most cases, this shouldn't be necessary as single-branch mode is a thing.
     //       Review each usage, try without.
     /// Create stack metadata for `branch_names` and return its StackIds, one per item in the input slice, in order.
-    pub fn setup_metadata(&self, branch_names: &[&str]) -> anyhow::Result<Vec<StackId>> {
-        let mut meta = self.meta()?;
-        let mut ws = meta.workspace(r(WORKSPACE_REF_NAME))?;
+    pub fn setup_metadata(&self, branch_names: &[&str]) -> Vec<StackId> {
+        let mut meta = self.meta();
+        let mut ws = meta.workspace(r(WORKSPACE_REF_NAME)).unwrap();
         let ws_data: &mut but_core::ref_metadata::Workspace = ws.deref_mut();
         for (stable_id, branch_name) in (0_u128..).zip(branch_names.iter()) {
             ws_data.add_or_insert_new_stack_if_not_present(
@@ -447,34 +447,36 @@ impl Sandbox {
         }
         let out = ws_data.stacks.iter().map(|s| s.id).collect();
         let project_meta = ws.project_meta();
-        meta.set_workspace(&ws)?;
-        project_meta.persist_to_local_config(&self.open_repo()?)?;
+        meta.set_workspace(&ws).unwrap();
+        project_meta
+            .persist_to_local_config(&self.open_repo())
+            .unwrap();
 
-        Ok(out)
+        out
     }
 
     /// Set target sha to a given refspec
     ///
     /// Returns the target sha we ended up setting.
-    pub fn set_target_sha(&self, spec: &str) -> anyhow::Result<gix::ObjectId> {
-        let mut meta = self.meta()?;
-        let mut ws = meta.workspace(r(WORKSPACE_REF_NAME))?;
-        let repo = self.open_repo()?;
-        let target_sha = repo.rev_parse_single(spec)?;
+    pub fn set_target_sha(&self, spec: &str) -> gix::ObjectId {
+        let mut meta = self.meta();
+        let mut ws = meta.workspace(r(WORKSPACE_REF_NAME)).unwrap();
+        let repo = self.open_repo();
+        let target_sha = repo.rev_parse_single(spec).unwrap();
         let mut project_meta = ws.project_meta();
         project_meta.target_commit_id = Some(target_sha.detach());
         ws.set_project_meta(project_meta);
         let project_meta = ws.project_meta();
-        meta.set_workspace(&ws)?;
-        project_meta.persist_to_local_config(&repo)?;
+        meta.set_workspace(&ws).unwrap();
+        project_meta.persist_to_local_config(&repo).unwrap();
 
-        Ok(target_sha.detach())
+        target_sha.detach()
     }
 }
 
 impl Sandbox {
     #[cfg(feature = "sandbox-but-api")]
-    fn set_default_settings(&mut self) -> anyhow::Result<()> {
+    fn set_default_settings(&mut self) {
         use but_settings::{
             AppSettings,
             app_settings::{
@@ -547,9 +549,10 @@ impl Sandbox {
                 },
             },
         };
-        settings.save(&self.app_data_dir().join("gitbutler/settings.json"), None)?;
+        settings
+            .save(&self.app_data_dir().join("gitbutler/settings.json"), None)
+            .unwrap();
         self.app_settings = Some(settings);
-        Ok(())
     }
 }
 

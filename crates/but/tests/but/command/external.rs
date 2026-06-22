@@ -8,7 +8,7 @@ use crate::utils::Sandbox;
 
 #[test]
 fn delegates_plain_name_to_but_prefixed_executable() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
     let bin = env.projects_root().join("external-cmd-bin");
     fs::create_dir_all(&bin)?;
     let helper = bin.join("but-forecast");
@@ -38,7 +38,7 @@ args: one two
 
 #[test]
 fn prefers_builtin_command_when_external_command_clashes() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     let bin = env.projects_root().join("external-cmd-bin");
     fs::create_dir_all(&bin)?;
     let helper = bin.join("but-alias");
@@ -72,7 +72,7 @@ Default aliases (overridable):
 
 #[test]
 fn propagates_reasonable_error_when_program_is_not_executable() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
     let bin = env.projects_root().join("external-cmd-bin");
     fs::create_dir_all(&bin)?;
     let helper = bin.join("but-forecast");
@@ -102,7 +102,7 @@ Caused by:
 
 #[test]
 fn refuses_to_execute_command_with_forward_slash() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
 
     env.but("bad/command")
             .assert()
@@ -121,7 +121,7 @@ Hint: Are you trying to write an extension command 'but-<command>'? Make sure th
 
 #[test]
 fn refuses_to_execute_command_with_dot() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
 
     env.but("bad.command")
             .assert()
@@ -139,8 +139,8 @@ Hint: Are you trying to write an extension command 'but-<command>'? Make sure th
 }
 
 #[test]
-fn friendly_error_when_no_such_command_exists() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn friendly_error_when_no_such_command_exists() {
+    let env = Sandbox::empty();
 
     env.but("comit").assert().failure().stderr_eq(str![[r#"
 error: unrecognized subcommand 'comit'
@@ -152,6 +152,4 @@ Usage: but [OPTIONS] [COMMAND]
 For more information, try '--help'.
 
 "#]]);
-
-    Ok(())
 }

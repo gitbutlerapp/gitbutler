@@ -7,7 +7,7 @@ use but_testsupport::{hex_to_id, hunk_header};
 use crate::{CliId, IdMap, id::id_usage::UintId};
 
 #[test]
-fn uint_id_from_short_id() -> anyhow::Result<()> {
+fn uint_id_from_short_id() {
     assert_eq!(UintId::from_name(b"a".as_slice()), None);
     assert_eq!(UintId::from_name(b"a0".as_slice()), None);
     assert_eq!(UintId::from_name(b"--".as_slice()), None);
@@ -19,11 +19,10 @@ fn uint_id_from_short_id() -> anyhow::Result<()> {
     assert_eq!(UintId::from_name(b"gz0".as_slice()), Some(UintId(1420)));
     assert_eq!(UintId::from_name(b"zzz".as_slice()), Some(UintId(26639)));
     assert_eq!(UintId::from_name(b"g000".as_slice()), None);
-    Ok(())
 }
 
 #[test]
-fn uint_id_to_short_id() -> anyhow::Result<()> {
+fn uint_id_to_short_id() {
     assert_eq!(UintId(0).to_short_id(), "g0");
     assert_eq!(UintId(19).to_short_id(), "z0");
     assert_eq!(UintId(700).to_short_id(), "gz");
@@ -41,7 +40,6 @@ fn uint_id_to_short_id() -> anyhow::Result<()> {
         "00",
         "too big always yields this"
     );
-    Ok(())
 }
 
 #[test]

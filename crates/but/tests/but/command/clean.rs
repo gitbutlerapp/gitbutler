@@ -3,9 +3,9 @@ use snapbox::str;
 use crate::utils::{CommandExt, Sandbox};
 
 #[test]
-fn no_empty_branches() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata_at_target(&["A"], "origin/main")?;
+fn no_empty_branches() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
 
     env.but("clean")
         .assert()
@@ -15,13 +15,12 @@ fn no_empty_branches() -> anyhow::Result<()> {
 No empty branches found.
 
 "#]]);
-    Ok(())
 }
 
 #[test]
-fn removes_empty_branch() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata_at_target(&["A"], "origin/main")?;
+fn removes_empty_branch() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
 
     env.but("branch new empty-branch").assert().success();
 
@@ -34,13 +33,12 @@ fn removes_empty_branch() -> anyhow::Result<()> {
 ✓ Deleted 1 empty branch(es)
 
 "#]]);
-    Ok(())
 }
 
 #[test]
-fn dry_run_does_not_delete() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata_at_target(&["A"], "origin/main")?;
+fn dry_run_does_not_delete() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
 
     env.but("branch new empty-branch").assert().success();
 
@@ -63,26 +61,24 @@ Would delete branch: empty-branch
 Found 1 empty branch(es)
 
 "#]]);
-    Ok(())
 }
 
 #[test]
-fn does_not_remove_branch_with_commits() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn does_not_remove_branch_with_commits() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     // A has a commit, so clean should find nothing
     env.but("clean").assert().success().stdout_eq(str![[r#"
 No empty branches found.
 
 "#]]);
-    Ok(())
 }
 
 #[test]
-fn json_output() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata_at_target(&["A"], "origin/main")?;
+fn json_output() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
 
     env.but("branch new empty-branch").assert().success();
 
@@ -102,13 +98,12 @@ fn json_output() -> anyhow::Result<()> {
 }
 
 "#]]);
-    Ok(())
 }
 
 #[test]
-fn json_output_dry_run() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata_at_target(&["A"], "origin/main")?;
+fn json_output_dry_run() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
 
     env.but("branch new empty-branch").assert().success();
 
@@ -128,13 +123,12 @@ fn json_output_dry_run() -> anyhow::Result<()> {
 }
 
 "#]]);
-    Ok(())
 }
 
 #[test]
-fn json_output_no_empty_branches() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata_at_target(&["A"], "origin/main")?;
+fn json_output_no_empty_branches() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata_at_target(&["A"], "origin/main");
 
     env.but("--format json clean")
         .allow_json()
@@ -148,13 +142,12 @@ fn json_output_no_empty_branches() -> anyhow::Result<()> {
 }
 
 "#]]);
-    Ok(())
 }
 
 #[test]
-fn does_not_remove_branch_with_assigned_changes() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn does_not_remove_branch_with_assigned_changes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     // Create a new empty branch
     env.but("branch new my-branch").assert().success();
@@ -168,13 +161,12 @@ fn does_not_remove_branch_with_assigned_changes() -> anyhow::Result<()> {
 No empty branches found.
 
 "#]]);
-    Ok(())
 }
 
 #[test]
 fn creates_oplog_entry() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("branch new empty-branch").assert().success();
     env.but("clean").assert().success();

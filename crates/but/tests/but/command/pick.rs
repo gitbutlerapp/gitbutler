@@ -31,9 +31,9 @@ fn branch_has_commit_message(env: &Sandbox, branch_name: &str, message_contains:
 // === Success cases ===
 
 #[test]
-fn pick_by_full_sha() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied")?;
-    env.setup_metadata(&["applied-branch"])?;
+fn pick_by_full_sha() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    env.setup_metadata(&["applied-branch"]);
 
     let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
     env.but(format!("pick {sha} applied-branch"))
@@ -45,13 +45,12 @@ fn pick_by_full_sha() -> anyhow::Result<()> {
         "applied-branch",
         "first pickable commit"
     ));
-    Ok(())
 }
 
 #[test]
-fn pick_by_short_sha() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied")?;
-    env.setup_metadata(&["applied-branch"])?;
+fn pick_by_short_sha() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    env.setup_metadata(&["applied-branch"]);
 
     let short_sha = &get_commit_sha(&env, "refs/gitbutler/pickable-first")[..7];
     env.but(format!("pick {short_sha} applied-branch"))
@@ -63,13 +62,12 @@ fn pick_by_short_sha() -> anyhow::Result<()> {
         "applied-branch",
         "first pickable commit"
     ));
-    Ok(())
 }
 
 #[test]
-fn pick_by_branch_name() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied")?;
-    env.setup_metadata(&["applied-branch"])?;
+fn pick_by_branch_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    env.setup_metadata(&["applied-branch"]);
 
     // When picking by branch name in non-interactive mode, picks the head commit
     env.but("pick unapplied-branch applied-branch")
@@ -81,13 +79,12 @@ fn pick_by_branch_name() -> anyhow::Result<()> {
         "applied-branch",
         "second pickable commit"
     ));
-    Ok(())
 }
 
 #[test]
-fn pick_auto_selects_single_stack() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied")?;
-    env.setup_metadata(&["applied-branch"])?;
+fn pick_auto_selects_single_stack() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    env.setup_metadata(&["applied-branch"]);
 
     let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
 
@@ -96,26 +93,23 @@ fn pick_auto_selects_single_stack() -> anyhow::Result<()> {
     let stdout = String::from_utf8_lossy(&result.get_output().stdout);
 
     assert!(stdout.contains("into branch applied-branch"));
-    Ok(())
 }
 
 #[test]
-fn pick_target_is_case_insensitive() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied")?;
-    env.setup_metadata(&["applied-branch"])?;
+fn pick_target_is_case_insensitive() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    env.setup_metadata(&["applied-branch"]);
 
     let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
     env.but(format!("pick {sha} APPLIED-BRANCH"))
         .assert()
         .success();
-
-    Ok(())
 }
 
 #[test]
 fn pick_json_output() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied")?;
-    let stack_ids = env.setup_metadata(&["applied-branch"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    let stack_ids = env.setup_metadata(&["applied-branch"]);
 
     let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
     let result = env
@@ -136,9 +130,9 @@ fn pick_json_output() -> anyhow::Result<()> {
 // === Error cases ===
 
 #[test]
-fn pick_invalid_source_fails() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied")?;
-    env.setup_metadata(&["applied-branch"])?;
+fn pick_invalid_source_fails() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    env.setup_metadata(&["applied-branch"]);
 
     env.but("pick nonexistent-thing applied-branch")
         .assert()
@@ -148,14 +142,12 @@ Failed to pick commit. Source 'nonexistent-thing' is not a valid commit ID, CLI 
 Run 'but status' to see available CLI IDs, or 'but branch list' to see branches.
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn pick_invalid_target_fails() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied")?;
-    env.setup_metadata(&["applied-branch"])?;
+fn pick_invalid_target_fails() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("pick-from-unapplied");
+    env.setup_metadata(&["applied-branch"]);
 
     let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
     env.but(format!("pick {sha} nonexistent-branch"))
@@ -166,6 +158,4 @@ Failed to pick commit. Target branch 'nonexistent-branch' not found among applie
 Available stacks: applied-branch
 
 "#]]);
-
-    Ok(())
 }

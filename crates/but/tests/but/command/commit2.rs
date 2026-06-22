@@ -2,8 +2,8 @@ use crate::utils::Sandbox;
 
 #[test]
 fn no_message_nothing_to_commit() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("commit2 --no-message").assert().success();
 
@@ -27,8 +27,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn no_args_single_head_no_message_human_output() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "Some text");
 
@@ -60,8 +60,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn no_args_single_head_no_message_shell_output() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "Some text");
 
@@ -76,8 +76,8 @@ fn no_args_single_head_no_message_shell_output() {
 
 #[test]
 fn no_args_single_head_no_message_json_output() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "Some text");
 
@@ -94,8 +94,8 @@ fn no_args_single_head_no_message_json_output() {
 
 #[test]
 fn no_args_single_head_message_from_editor() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     // TODO: move this into Sandbox
     env.file("editor.sh", "printf 'commit from editor\\n' > \"$1\"\n");
@@ -129,8 +129,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn single_head_with_message() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "Some text");
 
@@ -156,8 +156,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn can_repeat_message() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "Some text");
 
@@ -208,8 +208,8 @@ Files changed:
 
 #[test]
 fn editor_user_writes_no_message() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("editor.sh", "printf '' > \"$1\"\n");
     let editor_path = env.projects_root().join("editor.sh");
@@ -242,8 +242,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn editor_fails() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("editor.sh", "false");
     let editor_path = env.projects_root().join("editor.sh");
@@ -264,8 +264,8 @@ Error: Editor exited with non-zero status
 
 #[test]
 fn create_commit_on_new_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("file.txt", "Some text");
 
@@ -290,8 +290,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn create_commit_on_user_provided_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("first", "Some text");
 
@@ -394,8 +394,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn create_commit_on_new_branch_with_canned_name() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "Some text");
 
@@ -424,8 +424,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn create_commit_on_branch_that_is_not_applied_fails() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.invoke_git("branch existing");
 
@@ -444,8 +444,8 @@ Hint: Run `but apply existing` to apply the branch first
 
 #[test]
 fn bails_on_rejected_specs() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("first", "Some text");
 
@@ -464,8 +464,8 @@ Error: Couldn't commit all changes
 
 #[test]
 fn newly_created_branches_are_included_in_json_output() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("first", "Some text");
 
@@ -483,8 +483,8 @@ fn newly_created_branches_are_included_in_json_output() {
 
 #[test]
 fn empty_flag_to_force_empty_commit_when_changes_exist() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&["A"]);
 
     env.file(
         "changes",
@@ -515,9 +515,8 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
 
 #[test]
 fn commit_empty_above_commit() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     env.but("status")
         .assert()
@@ -561,9 +560,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn commit_empty_below_commit() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     env.but("status")
         .assert()
@@ -607,9 +605,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn commit_above_commit() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "Some changes");
 
@@ -656,8 +653,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn commit_above_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "Some changes");
 
@@ -704,9 +701,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn commit_below_commit() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "Some changes");
 
@@ -753,8 +749,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn commit_below_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "Some changes");
 
@@ -801,9 +797,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn commit_below_branch_with_multiple_commits_treats_branch_as_bucket() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "Some changes");
 
@@ -852,9 +847,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn commit_above_refuses_on_conflicts() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     env.but("status")
         .assert()
@@ -886,9 +880,8 @@ Error: Couldn't commit all changes
 
 #[test]
 fn commit_below_refuses_on_conflicts() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     env.but("status")
         .assert()
@@ -920,8 +913,8 @@ Error: Couldn't commit all changes
 
 #[test]
 fn refuses_above_and_below() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&["A"]);
 
     env.but("commit2 --above dontcare --below dontcare")
         .assert()
@@ -938,8 +931,8 @@ For more information, try '--help'.
 
 #[test]
 fn refuses_above_and_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&["A"]);
 
     env.but("commit2 --above dontcare -b")
         .assert()
@@ -956,8 +949,8 @@ For more information, try '--help'.
 
 #[test]
 fn refuses_below_and_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&["A"]);
 
     env.but("commit2 --below dontcare -b")
         .assert()
@@ -974,8 +967,8 @@ For more information, try '--help'.
 
 #[test]
 fn above_branch_not_in_workspace_returns_bad_input() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.but("unapply B").assert().success();
 
@@ -992,8 +985,8 @@ Hint: Target must be an applied branch or commit. Run `but status` for applicabl
 
 #[test]
 fn above_commit_not_in_workspace_returns_bad_input() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.but("status")
         .assert()
@@ -1030,8 +1023,8 @@ Hint: Target must be an applied branch or commit. Run `but status` for applicabl
 
 #[test]
 fn above_non_branch_non_commit_target_returns_bad_input() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.but("commit2 --above zz")
         .assert()
@@ -1046,8 +1039,8 @@ Hint: Run `but status` to show applicable targets
 
 #[test]
 fn committing_specific_cli_ids() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("one", "content");
     env.file("two", "content");
@@ -1095,8 +1088,8 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
 
 #[test]
 fn hunks_within_file_are_not_order_dependent() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let original_data = "enough\nlines\nto\ncreate\nmultiple\nhunks\nwhen\nediting";
 
@@ -1178,8 +1171,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn overlapping_changes_to_modified_file_are_deduplicated() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let original_data = "enough\nlines\nto\ncreate\nmultiple\nhunks\nwhen\nediting";
 
@@ -1261,8 +1254,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn committing_something_that_isnt_a_cli_id() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("commit2 --no-message A")
         .assert()
@@ -1275,8 +1268,8 @@ Error: Invalid uncommitted change. 'A' is a branch
 
 #[test]
 fn requires_specifying_stack_when_there_are_multiple() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.but("commit2 --empty --no-message")
         .assert()
@@ -1291,8 +1284,8 @@ Hint: You can specify where to commit with `--branch [<BRANCH>]`
 
 #[test]
 fn committing_above_an_empty_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("one", "one content");
 
@@ -1322,8 +1315,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn committing_below_empty_branch_with_empty_branch_below() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("one", "one content");
 
@@ -1356,8 +1349,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn committing_below_non_top_empty_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("one", "one content");
     env.file("two", "two content");
@@ -1399,8 +1392,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn committing_below_an_empty_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("one", "one content");
     env.file("two", "two content");
@@ -1477,8 +1470,8 @@ Hint: run `but help` for all commands
 
 #[test]
 fn gives_good_error_when_your_terminal_doesnt_support_input() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.but("commit2 --interactive")
         .assert()

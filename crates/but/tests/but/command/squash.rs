@@ -29,8 +29,8 @@ fn branch_commit_count(env: &Sandbox, branch: &str) -> anyhow::Result<usize> {
 
 #[test]
 fn squash_requires_at_least_two_commits() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     // Only one commit exists (from scenario)
     // Try to squash a single commit - should fail
@@ -47,8 +47,8 @@ Failed to squash commits. No matching branch or commit found for 'c0'
 
 #[test]
 fn squash_branch_with_single_commit_fails() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     // Branch A has only 1 commit from the scenario
     // Try to squash branch with single commit - should fail
@@ -65,8 +65,8 @@ Failed to squash commits. Branch 'A' has only one commit, nothing to squash
 
 #[test]
 fn squash_nonexistent_commit_fails() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     setup_branch_with_commits(&env, "A", 1);
 
@@ -87,8 +87,8 @@ Failed to squash commits. No matching commit found for 'nonexistent'
 
 #[test]
 fn squash_branch_by_name_succeeds() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     // Create more commits on branch A (scenario already has 1)
     setup_branch_with_commits(&env, "A", 2);
@@ -105,8 +105,8 @@ fn squash_branch_by_name_succeeds() -> anyhow::Result<()> {
 
 #[test]
 fn squash_with_drop_message_flag_succeeds() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     // Create 1 more commit (scenario has 1, so we'll have 2 total)
     setup_branch_with_commits(&env, "A", 1);
@@ -122,8 +122,8 @@ fn squash_with_drop_message_flag_succeeds() -> anyhow::Result<()> {
 
 #[test]
 fn squash_with_custom_message_succeeds() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     // Create 1 more commit
     setup_branch_with_commits(&env, "A", 1);
@@ -141,8 +141,8 @@ fn squash_with_custom_message_succeeds() -> anyhow::Result<()> {
 
 #[test]
 fn squash_mutually_exclusive_flags_fails() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     setup_branch_with_commits(&env, "A", 1);
 
@@ -159,8 +159,8 @@ fn squash_mutually_exclusive_flags_fails() -> anyhow::Result<()> {
 
 #[test]
 fn squash_with_invalid_range_format_fails() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     setup_branch_with_commits(&env, "A", 2);
 
@@ -181,8 +181,8 @@ Failed to squash commits. Range format should be 'start..end', got 'c0..c1..c2'
 
 #[test]
 fn squash_with_empty_range_part_fails() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     setup_branch_with_commits(&env, "A", 2);
 
@@ -197,8 +197,8 @@ fn squash_with_empty_range_part_fails() -> anyhow::Result<()> {
 
 #[test]
 fn squash_comma_list_with_nonexistent_commit_fails() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     // Try comma-separated list with only nonexistent commits
     // This tests the comma parsing path without needing real commit IDs
@@ -218,8 +218,8 @@ Failed to squash commits. Commit 'nonexistent1' not found
 
 #[test]
 fn squash_range_with_nonexistent_endpoint_fails() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     // Try range with nonexistent endpoints
     // This tests the range parsing path without needing real commit IDs
@@ -239,8 +239,8 @@ Failed to squash commits. Start of range 'nonexistent1' must match exactly one c
 
 #[test]
 fn squash_ai_conflicts_with_message() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     setup_branch_with_commits(&env, "A", 1);
 
@@ -265,8 +265,8 @@ For more information, try '--help'.
 
 #[test]
 fn squash_ai_conflicts_with_drop_message() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     setup_branch_with_commits(&env, "A", 1);
 
@@ -291,8 +291,8 @@ For more information, try '--help'.
 
 #[test]
 fn concurrent_squashes_on_independent_branches_succeed() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("branch new branchB").assert().success();
     setup_branch_with_commits(&env, "A", 1);
@@ -326,8 +326,8 @@ fn concurrent_squashes_on_independent_branches_succeed() -> anyhow::Result<()> {
 
 #[test]
 fn squash_multiple_commits_from_list_succeeds() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     setup_branch_with_commits(&env, "A", 3);
 
@@ -375,11 +375,11 @@ Squashed 2 commits → [..]
 
 #[test]
 fn squash_list_with_bottom_target_keeps_target_message_first() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
     setup_branch_with_commits(&env, "A", 3);
 
-    insta::assert_snapshot!(env.git_log()?, @"
+    insta::assert_snapshot!(env.git_log(), @"
     * ec2758d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 8a1f552 (A) commit 3
     * 39dd878 commit 2
@@ -411,7 +411,7 @@ fn squash_list_with_bottom_target_keeps_target_message_first() -> anyhow::Result
     let working_directory_after = util::working_directory_snapshot(&env)?;
     assert_eq!(working_directory_before, working_directory_after);
 
-    let log_after = env.git_log()?;
+    let log_after = env.git_log();
     assert!(
         log_after.contains("(A) commit 1"),
         "expected squashed branch tip message to be target-first (commit 1), got:\n{log_after}"
@@ -422,11 +422,11 @@ fn squash_list_with_bottom_target_keeps_target_message_first() -> anyhow::Result
 
 #[test]
 fn squash_list_with_middle_target_keeps_target_message_first() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
     setup_branch_with_commits(&env, "A", 3);
 
-    insta::assert_snapshot!(env.git_log()?, @"
+    insta::assert_snapshot!(env.git_log(), @"
     * ec2758d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 8a1f552 (A) commit 3
     * 39dd878 commit 2
@@ -462,7 +462,7 @@ Squashed 2 commits → [..]
     let working_directory_after = util::working_directory_snapshot(&env)?;
     assert_eq!(working_directory_before, working_directory_after);
 
-    let log_after = env.git_log()?;
+    let log_after = env.git_log();
     assert!(
         log_after.contains("(A) commit 2"),
         "expected squashed branch tip message to be target-first (commit 2), got:\n{log_after}"
@@ -473,11 +473,11 @@ Squashed 2 commits → [..]
 
 #[test]
 fn squash_multiple_commits_keeps_squashed_commit_content() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
     setup_branch_with_commits(&env, "A", 3);
 
-    insta::assert_snapshot!(env.git_log()?, @"
+    insta::assert_snapshot!(env.git_log(), @"
     * ec2758d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 8a1f552 (A) commit 3
     * 39dd878 commit 2
@@ -536,7 +536,7 @@ fn squash_multiple_commits_keeps_squashed_commit_content() -> anyhow::Result<()>
         format!("{target_message_before}\n\n{source_top_message}\n\n{source_second_message}")
     );
 
-    let repo = env.open_repo()?;
+    let repo = env.open_repo();
     let first_blob = repo.rev_parse_single(b"A:A-file1.txt")?.object()?;
     let second_blob = repo.rev_parse_single(b"A:A-file2.txt")?.object()?;
     let third_blob = repo.rev_parse_single(b"A:A-file3.txt")?.object()?;
@@ -545,7 +545,7 @@ fn squash_multiple_commits_keeps_squashed_commit_content() -> anyhow::Result<()>
     insta::assert_snapshot!(second_blob.data.as_bstr(), @"content for commit 2");
     insta::assert_snapshot!(third_blob.data.as_bstr(), @"content for commit 3");
 
-    let log_after = env.git_log()?;
+    let log_after = env.git_log();
     assert!(
         log_after.contains("(A) commit 1"),
         "expected squashed A tip message to start with target commit message, got:\n{log_after}"
@@ -558,8 +558,8 @@ fn squash_multiple_commits_keeps_squashed_commit_content() -> anyhow::Result<()>
 fn squash_multiple_commits_from_different_branches_on_same_stack_succeeds() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
-    )?;
-    env.setup_metadata(&["A", "B"])?;
+    );
+    env.setup_metadata(&["A", "B"]);
 
     env.file("c-extra.txt", "another change on C\n");
     env.but("commit C -m 'extra on C'").assert().success();
@@ -618,10 +618,10 @@ Squashed 2 commits → [..]
 
 #[test]
 fn squash_branch_c_in_three_stacks_keeps_content_and_updates_graph() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("three-stacks")?;
-    env.setup_metadata(&["A", "B", "C"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("three-stacks");
+    env.setup_metadata(&["A", "B", "C"]);
 
-    let normalized_log = env.git_log()?.replace("  \n", "\n");
+    let normalized_log = env.git_log().replace("  \n", "\n");
     insta::assert_snapshot!(normalized_log, @r"
     *-.   205e798 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\ \
@@ -648,7 +648,7 @@ fn squash_branch_c_in_three_stacks_keeps_content_and_updates_graph() -> anyhow::
         .context("Missing commits for branch C after squash")?;
     assert_eq!(commits_after.len(), 1);
 
-    let repo = env.open_repo()?;
+    let repo = env.open_repo();
     let new_file_blob = repo.rev_parse_single(b"C:new-file")?.object()?;
     insta::assert_snapshot!(new_file_blob.data.as_bstr(), @"
     1
@@ -683,7 +683,7 @@ fn squash_branch_c_in_three_stacks_keeps_content_and_updates_graph() -> anyhow::
     30
     ");
 
-    let normalized_log = env.git_log()?.replace("  \n", "\n");
+    let normalized_log = env.git_log().replace("  \n", "\n");
     assert!(
         normalized_log.contains("(C) C: new file with 10 lines"),
         "expected squashed C tip message to begin with target commit message, got:\n{normalized_log}"
@@ -694,8 +694,8 @@ fn squash_branch_c_in_three_stacks_keeps_content_and_updates_graph() -> anyhow::
 
 #[test]
 fn squash_all_c_commits_into_second_commit_of_b_keeps_new_file_content() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("three-stacks")?;
-    env.setup_metadata(&["A", "B", "C"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("three-stacks");
+    env.setup_metadata(&["A", "B", "C"]);
 
     let status_before = util::status_json(&env)?;
     let branch_b_before = util::find_branch(&status_before, "B")?;
@@ -730,7 +730,7 @@ fn squash_all_c_commits_into_second_commit_of_b_keeps_new_file_content() -> anyh
     let working_directory_after = util::working_directory_snapshot(&env)?;
     assert_eq!(working_directory_before, working_directory_after);
 
-    let repo = env.open_repo()?;
+    let repo = env.open_repo();
     let new_file_blob = repo.rev_parse_single(b"B:new-file")?.object()?;
     insta::assert_snapshot!(new_file_blob.data.as_bstr(), @"
     1

@@ -2,9 +2,9 @@ use crate::utils::Sandbox;
 use snapbox::str;
 
 #[test]
-fn rejects_non_existent_branch_name() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn rejects_non_existent_branch_name() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.but("branch delete no-such-branch")
         .assert()
@@ -14,14 +14,12 @@ Error: Could not find branch: 'no-such-branch'
 
 "#]])
         .stdout_eq(str![[]]);
-
-    Ok(())
 }
 
 #[test]
-fn can_delete_branch_with_commits() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A"])?;
+fn can_delete_branch_with_commits() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A"]);
 
     env.but("branch delete A")
         .assert()
@@ -47,16 +45,14 @@ Deleted branch A
 Hint: run `but help` for all commands
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn can_delete_branch_with_commits_in_the_bottom_of_a_stack() -> anyhow::Result<()> {
+fn can_delete_branch_with_commits_in_the_bottom_of_a_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "one-stack-three-dependent-branches",
-    )?;
-    env.setup_metadata(&["A", "B", "C"])?;
+    );
+    env.setup_metadata(&["A", "B", "C"]);
 
     env.but("branch delete A")
         .assert()
@@ -85,16 +81,14 @@ Deleted branch A
 Hint: run `but help` for all commands
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn can_delete_branch_with_commits_in_the_middle_of_a_stack() -> anyhow::Result<()> {
+fn can_delete_branch_with_commits_in_the_middle_of_a_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "one-stack-three-dependent-branches",
-    )?;
-    env.setup_metadata(&["A", "B", "C"])?;
+    );
+    env.setup_metadata(&["A", "B", "C"]);
 
     env.but("branch delete B")
         .assert()
@@ -123,16 +117,14 @@ Deleted branch B
 Hint: run `but help` for all commands
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn can_delete_branch_with_commits_in_the_top_of_a_stack() -> anyhow::Result<()> {
+fn can_delete_branch_with_commits_in_the_top_of_a_stack() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "one-stack-three-dependent-branches",
-    )?;
-    env.setup_metadata(&["A", "B", "C"])?;
+    );
+    env.setup_metadata(&["A", "B", "C"]);
 
     env.but("branch delete C")
         .assert()
@@ -161,16 +153,14 @@ Deleted branch C
 Hint: run `but help` for all commands
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn can_delete_branches_via_short_code() -> anyhow::Result<()> {
+fn can_delete_branches_via_short_code() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "one-stack-three-dependent-branches",
-    )?;
-    env.setup_metadata(&["A", "B", "C"])?;
+    );
+    env.setup_metadata(&["A", "B", "C"]);
 
     env.but("branch delete g0")
         .assert()
@@ -199,6 +189,4 @@ Deleted branch C
 Hint: run `but help` for all commands
 
 "#]]);
-
-    Ok(())
 }
