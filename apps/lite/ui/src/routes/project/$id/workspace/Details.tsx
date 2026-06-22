@@ -920,7 +920,7 @@ const PullRequestForm: FC<{
 			/>
 			<textarea
 				aria-label="Pull request description"
-				className={classes("text-13 text-body text-monospace", styles.prDescriptionInput)}
+				className={classes("text-14 text-body text-monospace", styles.prDescriptionInput)}
 				onChange={(event) => setDraftBody(event.currentTarget.value)}
 				placeholder="Description"
 				value={draftBody ?? ""}
