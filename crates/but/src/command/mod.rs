@@ -16,4 +16,5 @@ pub mod r#move;
 pub mod onboarding;
 pub mod push;
 pub mod skill;
+pub mod r#switch;
 pub mod update;

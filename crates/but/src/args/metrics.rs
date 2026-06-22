@@ -42,6 +42,7 @@ pub enum CommandName {
     BranchUpdate,
     BranchMove,
     BranchTearOff,
+    Switch,
     Worktree,
     Mark,
     Unmark,
