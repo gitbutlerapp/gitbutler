@@ -2,8 +2,8 @@ use crate::utils::{CommandExt as _, Sandbox};
 use snapbox::str;
 
 #[test]
-fn ai_openai_defaults_to_global_config() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn ai_openai_defaults_to_global_config() {
+    let env = Sandbox::empty();
     env.invoke_bash("git init repo");
     let global_config = env.projects_root().join("global.gitconfig");
 
@@ -29,13 +29,11 @@ fn ai_openai_defaults_to_global_config() -> anyhow::Result<()> {
         "-C repo config --local --get gitbutler.aiModelProvider",
         "default AI config should not write repo-local keys",
     );
-
-    Ok(())
 }
 
 #[test]
-fn ai_ollama_local_writes_repo_config() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn ai_ollama_local_writes_repo_config() {
+    let env = Sandbox::empty();
     env.invoke_bash("git init repo");
     #[cfg(feature = "legacy")]
     env.but("-C repo setup").assert().success();
@@ -56,13 +54,11 @@ fn ai_ollama_local_writes_repo_config() -> anyhow::Result<()> {
         env.invoke_git("-C repo config --local --get gitbutler.aiOllamaModelName"),
         "llama3.1"
     );
-
-    Ok(())
 }
 
 #[test]
-fn ai_global_config_works_outside_repository() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn ai_global_config_works_outside_repository() {
+    let env = Sandbox::empty();
     let global_config = env.projects_root().join("global.gitconfig");
 
     env.but("config ai lmstudio --endpoint http://localhost:1234/v1 --model local-model")
@@ -82,13 +78,11 @@ fn ai_global_config_works_outside_repository() -> anyhow::Result<()> {
         env.invoke_git("config --file global.gitconfig --get gitbutler.aiLMStudioModelName"),
         "local-model"
     );
-
-    Ok(())
 }
 
 #[test]
 fn ai_show_outputs_current_global_configuration_json() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
     let global_config = env.projects_root().join("global.gitconfig");
 
     env.but("config ai openai --key-option butler-api --model gpt-5.4-nano")
@@ -112,7 +106,7 @@ fn ai_show_outputs_current_global_configuration_json() -> anyhow::Result<()> {
 
 #[test]
 fn ai_show_outputs_current_local_configuration_json() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
     env.invoke_bash("git init repo");
     #[cfg(feature = "legacy")]
     env.but("-C repo setup").assert().success();
@@ -135,8 +129,8 @@ fn ai_show_outputs_current_local_configuration_json() -> anyhow::Result<()> {
 }
 
 #[test]
-fn ai_show_outputs_current_global_configuration_human() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn ai_show_outputs_current_global_configuration_human() {
+    let env = Sandbox::empty();
     let global_config = env.projects_root().join("global.gitconfig");
 
     env.but("config ai openai --key-option butler-api --model gpt-5.4-nano")
@@ -163,13 +157,11 @@ AI Configuration (global)
   LM Studio model: (not set)
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
 fn ai_openai_byok_without_api_key_fails_non_interactive() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
     let global_config = env.projects_root().join("global.gitconfig");
 
     let output = env
@@ -196,7 +188,7 @@ fn ai_openai_byok_without_api_key_fails_non_interactive() -> anyhow::Result<()> 
 
 #[test]
 fn ai_anthropic_byok_without_api_key_fails_non_interactive() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
     let global_config = env.projects_root().join("global.gitconfig");
 
     let output = env

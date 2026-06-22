@@ -3,8 +3,8 @@ use snapbox::str;
 use crate::utils::Sandbox;
 
 #[test]
-fn good_error_message_for_non_directories() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn good_error_message_for_non_directories() {
+    let env = Sandbox::empty();
 
     env.file("not-a-dir", "content-does-not-matter");
 
@@ -16,5 +16,4 @@ fn good_error_message_for_non_directories() -> anyhow::Result<()> {
 Error: Can only open the GUI on directories: './not-a-dir'
 
 "#]]);
-    Ok(())
 }

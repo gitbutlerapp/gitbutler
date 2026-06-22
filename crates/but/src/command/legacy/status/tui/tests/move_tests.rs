@@ -9,8 +9,8 @@ use crate::command::legacy::status::tui::{
 
 #[test]
 fn esc_leaves_move_mode() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -30,8 +30,8 @@ fn esc_leaves_move_mode() {
 
 #[test]
 fn move_mode_keeps_selected_commit_and_extension_visible_when_scrolled() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui_with_options(
         env,
@@ -68,8 +68,8 @@ fn move_mode_keeps_selected_commit_and_extension_visible_when_scrolled() {
 
 #[test]
 fn move_commit_above_other_commit_reorders_tui() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -108,8 +108,8 @@ fn move_commit_above_other_commit_reorders_tui() {
 
 #[test]
 fn move_commit_down_from_source_selects_next_commit() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -137,9 +137,8 @@ fn move_commit_down_from_source_selects_next_commit() {
 fn move_commit_up_from_top_commit_selects_source_branch() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
-    )
-    .unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    );
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -161,9 +160,8 @@ fn move_commit_up_from_top_commit_selects_source_branch() {
 fn move_branch_onto_other_branch_reorders_stacks() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
-    )
-    .unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    );
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -192,9 +190,8 @@ fn move_branch_onto_other_branch_reorders_stacks() {
 fn move_branch_to_merge_base_tears_off_branch() {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
-    )
-    .unwrap();
-    env.setup_metadata(&["A", "C", "B"]).unwrap();
+    );
+    env.setup_metadata(&["A", "C", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -230,8 +227,8 @@ fn move_branch_to_merge_base_tears_off_branch() {
 
 #[test]
 fn moving_multiple_commits() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 

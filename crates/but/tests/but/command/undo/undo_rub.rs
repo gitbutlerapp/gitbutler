@@ -12,9 +12,8 @@ use crate::{
 // RubOperation::SquashCommits
 #[test]
 fn undo_squash_commits() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but("rub")
@@ -31,8 +30,8 @@ fn undo_squash_commits() {
 #[test]
 #[ignore = "undo currently does not restore hunk assignment metadata for rub operations that only move changes between unassigned, branch, and stack buckets. https://linear.app/gitbutler/issue/GB-1435/cannot-undo-rub-operations-that-deal-with-uncommitted-changes"]
 fn undo_unassign_uncommitted() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     env.file("unassign-uncommitted.txt", "content\n");
     env.but("rub unassign-uncommitted.txt A").assert().success();
 
@@ -48,8 +47,8 @@ fn undo_unassign_uncommitted() {
 // RubOperation::UncommittedToCommit
 #[test]
 fn undo_uncommitted_to_commit() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     env.file("uncommitted-to-commit.txt", "content\n");
     let target_commit = branch_commit_ids(&status_json(&env).unwrap(), "A")[0].clone();
 
@@ -66,8 +65,8 @@ fn undo_uncommitted_to_commit() {
 #[test]
 #[ignore = "undo currently does not restore hunk assignment metadata for rub operations that only move changes between unassigned, branch, and stack buckets. https://linear.app/gitbutler/issue/GB-1435/cannot-undo-rub-operations-that-deal-with-uncommitted-changes"]
 fn undo_uncommitted_to_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     env.file("uncommitted-to-branch.txt", "content\n");
 
     run_mutate_undo_roundtrip_test(&env, |env| {
@@ -85,8 +84,8 @@ fn undo_uncommitted_to_branch() {
 #[test]
 #[ignore = "undo currently does not restore hunk assignment metadata for rub operations that only move changes between unassigned, branch, and stack buckets. https://linear.app/gitbutler/issue/GB-1435/cannot-undo-rub-operations-that-deal-with-uncommitted-changes"]
 fn undo_uncommitted_to_stack() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     env.file("uncommitted-to-stack.txt", "content\n");
 
     run_mutate_undo_roundtrip_test(&env, |env| {
@@ -102,8 +101,8 @@ fn undo_uncommitted_to_stack() {
 #[test]
 #[ignore = "undo currently does not restore hunk assignment metadata for rub operations that only move changes between unassigned, branch, and stack buckets. https://linear.app/gitbutler/issue/GB-1435/cannot-undo-rub-operations-that-deal-with-uncommitted-changes"]
 fn undo_stack_to_unassigned() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     env.file("stack-to-unassigned.txt", "content\n");
     env.but("rub stack-to-unassigned.txt A").assert().success();
 
@@ -120,8 +119,8 @@ fn undo_stack_to_unassigned() {
 #[test]
 #[ignore = "undo currently does not restore hunk assignment metadata for rub operations that only move changes between unassigned, branch, and stack buckets. https://linear.app/gitbutler/issue/GB-1435/cannot-undo-rub-operations-that-deal-with-uncommitted-changes"]
 fn undo_stack_to_stack() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     env.file("stack-to-stack.txt", "content\n");
     env.but("rub stack-to-stack.txt A").assert().success();
 
@@ -138,8 +137,8 @@ fn undo_stack_to_stack() {
 #[test]
 #[ignore = "undo currently does not restore hunk assignment metadata for rub operations that only move changes between unassigned, branch, and stack buckets. https://linear.app/gitbutler/issue/GB-1435/cannot-undo-rub-operations-that-deal-with-uncommitted-changes"]
 fn undo_stack_to_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     env.file("stack-to-branch.txt", "content\n");
     env.but("rub stack-to-branch.txt A").assert().success();
 
@@ -155,8 +154,8 @@ fn undo_stack_to_branch() {
 // RubOperation::StackToCommit
 #[test]
 fn undo_stack_to_commit() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     env.file("stack-to-commit.txt", "content\n");
     env.but("rub stack-to-commit.txt A").assert().success();
     let target_commit = branch_commit_ids(&status_json(&env).unwrap(), "A")[0].clone();
@@ -173,8 +172,8 @@ fn undo_stack_to_commit() {
 // RubOperation::UnassignedToCommit
 #[test]
 fn undo_unassigned_to_commit() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     env.file("unassigned-to-commit.txt", "content\n");
     let target_commit = branch_commit_ids(&status_json(&env).unwrap(), "A")[0].clone();
 
@@ -191,8 +190,8 @@ fn undo_unassigned_to_commit() {
 #[test]
 #[ignore = "undo currently does not restore hunk assignment metadata for rub operations that only move changes between unassigned, branch, and stack buckets. https://linear.app/gitbutler/issue/GB-1435/cannot-undo-rub-operations-that-deal-with-uncommitted-changes"]
 fn undo_unassigned_to_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     env.file("unassigned-to-branch.txt", "content\n");
 
     run_mutate_undo_roundtrip_test(&env, |env| {
@@ -208,8 +207,8 @@ fn undo_unassigned_to_branch() {
 #[test]
 #[ignore = "undo currently does not restore hunk assignment metadata for rub operations that only move changes between unassigned, branch, and stack buckets. https://linear.app/gitbutler/issue/GB-1435/cannot-undo-rub-operations-that-deal-with-uncommitted-changes"]
 fn undo_unassigned_to_stack() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     env.file("unassigned-to-stack.txt", "content\n");
 
     run_mutate_undo_roundtrip_test(&env, |env| {
@@ -224,8 +223,8 @@ fn undo_unassigned_to_stack() {
 // RubOperation::CommitToUnassigned
 #[test]
 fn undo_commit_to_unassigned() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     commit_two_files_as_two_hunks_each(
         &env,
         "A",
@@ -247,8 +246,8 @@ fn undo_commit_to_unassigned() {
 // RubOperation::CommitToStack
 #[test]
 fn undo_commit_to_stack() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     commit_two_files_as_two_hunks_each(
         &env,
         "A",
@@ -270,8 +269,8 @@ fn undo_commit_to_stack() {
 // RubOperation::MoveCommitToBranch
 #[test]
 fn undo_move_commit_to_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     commit_two_files_as_two_hunks_each(
         &env,
         "A",
@@ -294,8 +293,8 @@ fn undo_move_commit_to_branch() {
 #[test]
 #[ignore = "undo currently does not restore hunk assignment metadata for rub operations that only move changes between unassigned, branch, and stack buckets. https://linear.app/gitbutler/issue/GB-1435/cannot-undo-rub-operations-that-deal-with-uncommitted-changes"]
 fn undo_branch_to_unassigned() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     env.file("branch-to-unassigned.txt", "content\n");
     env.but("rub branch-to-unassigned.txt A").assert().success();
 
@@ -312,8 +311,8 @@ fn undo_branch_to_unassigned() {
 #[test]
 #[ignore = "undo currently does not restore hunk assignment metadata for rub operations that only move changes between unassigned, branch, and stack buckets. https://linear.app/gitbutler/issue/GB-1435/cannot-undo-rub-operations-that-deal-with-uncommitted-changes"]
 fn undo_branch_to_stack() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     env.file("branch-to-stack.txt", "content\n");
     env.but("rub branch-to-stack.txt A").assert().success();
 
@@ -329,8 +328,8 @@ fn undo_branch_to_stack() {
 // RubOperation::BranchToCommit
 #[test]
 fn undo_branch_to_commit() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     env.file("branch-to-commit.txt", "content\n");
     env.but("rub branch-to-commit.txt A").assert().success();
     let target_commit = branch_commit_ids(&status_json(&env).unwrap(), "A")[0].clone();
@@ -348,8 +347,8 @@ fn undo_branch_to_commit() {
 #[test]
 #[ignore = "undo currently does not restore hunk assignment metadata for rub operations that only move changes between unassigned, branch, and stack buckets. https://linear.app/gitbutler/issue/GB-1435/cannot-undo-rub-operations-that-deal-with-uncommitted-changes"]
 fn undo_branch_to_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     env.file("branch-to-branch.txt", "content\n");
     env.but("rub branch-to-branch.txt A").assert().success();
 
@@ -365,8 +364,8 @@ fn undo_branch_to_branch() {
 // RubOperation::CommittedFileToBranch
 #[test]
 fn undo_committed_file_to_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     commit_two_files_as_two_hunks_each(
         &env,
         "A",
@@ -388,8 +387,8 @@ fn undo_committed_file_to_branch() {
 // RubOperation::CommittedFileToCommit
 #[test]
 fn undo_committed_file_to_commit() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
     commit_two_files_as_two_hunks_each(&env, "A", "source-a.txt", "source-b.txt", "source");
     commit_two_files_as_two_hunks_each(&env, "A", "target-a.txt", "target-b.txt", "target");
     let status = status_json_with_files(&env).unwrap();
@@ -408,8 +407,8 @@ fn undo_committed_file_to_commit() {
 // RubOperation::CommittedFileToUnassigned
 #[test]
 fn undo_committed_file_to_unassigned() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
     commit_two_files_as_two_hunks_each(&env, "A", "file-to-zz-a.txt", "file-to-zz-b.txt", "first");
     let source_commit = branch_commit_ids(&status_json(&env).unwrap(), "A")[0].clone();
 

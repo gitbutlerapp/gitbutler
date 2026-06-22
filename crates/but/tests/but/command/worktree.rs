@@ -6,8 +6,8 @@ use crate::utils::Sandbox;
 /// work there, then squash-integrate the result back into the workspace.
 #[test]
 fn journey_new_list_integrate() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    insta::assert_snapshot!(env.git_log(), @r"
     *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
     | * 9477ae7 (A) add A
@@ -15,7 +15,7 @@ fn journey_new_list_integrate() -> anyhow::Result<()> {
     |/  
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
 
     env.but("worktree new A")
         .assert()
@@ -68,7 +68,7 @@ Target: refs/heads/A
 
 "#]]);
 
-    let log = env.git_log()?;
+    let log = env.git_log();
     assert!(
         log.contains("(A) Integrated worktree"),
         "the worktree work is squashed into a commit on the branch it was created from: {log}"
@@ -95,8 +95,8 @@ Target: refs/heads/A
 
 #[test]
 fn destroy_by_name_and_by_reference() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.but("worktree new A").assert().success();
     let a_id = single_worktree_id(&env);
@@ -139,9 +139,9 @@ No worktrees found
 }
 
 #[test]
-fn integrate_dry_run_reports_worktree_without_changes() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    env.setup_metadata(&["A", "B"])?;
+fn integrate_dry_run_reports_worktree_without_changes() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     env.but("worktree new A").assert().success();
     let wt_id = single_worktree_id(&env);
@@ -156,8 +156,6 @@ Target: refs/heads/A
 Status: Nothing to integrate - the worktree has no changes
 
 "#]]);
-
-    Ok(())
 }
 
 fn worktrees_dir(env: &Sandbox) -> std::path::PathBuf {
@@ -181,7 +179,7 @@ fn single_worktree_id(env: &Sandbox) -> String {
 
 /// All local branches under the private worktree namespace.
 fn worktree_private_branches(env: &Sandbox) -> anyhow::Result<Vec<String>> {
-    let repo = env.open_repo()?;
+    let repo = env.open_repo();
     let refs = repo.references()?;
     Ok(refs
         .prefixed(b"refs/heads/gitbutler/worktree/".as_ref())?

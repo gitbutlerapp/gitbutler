@@ -2,8 +2,8 @@ use crate::utils::Sandbox;
 
 // TODO: make fixture for this
 fn one_branch_three_commits() -> Sandbox {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("one", "content of one");
     env.file("two", "content of two");

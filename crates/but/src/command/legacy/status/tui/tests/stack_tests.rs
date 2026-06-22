@@ -6,8 +6,8 @@ use crate::command::legacy::status::tui::tests::utils::test_tui;
 
 #[test]
 fn unapply_stack() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -36,8 +36,8 @@ fn unapply_stack() {
 
 #[test]
 fn enter_stack_mode_from_commits() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -49,8 +49,8 @@ fn enter_stack_mode_from_commits() {
 
 #[test]
 fn moving_stacks() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     let mut tui = test_tui(env);
 
@@ -89,8 +89,8 @@ fn moving_stacks() {
 
 #[test]
 fn applying_stacks() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     let mut tui = test_tui(env);
 

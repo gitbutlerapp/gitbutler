@@ -3,8 +3,8 @@ use crate::utils::{CommandExt, Sandbox};
 /// Hide empty applied branches by default and show them again with `--empty`.
 #[test]
 fn list_hides_empty_applied_branches_by_default() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty")?;
-    env.setup_metadata(&["A", "B"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks-one-empty");
+    env.setup_metadata(&["A", "B"]);
 
     let result = env.but("--format json branch list").allow_json().output()?;
     assert!(result.status.success());
@@ -47,9 +47,9 @@ fn list_hides_empty_applied_branches_by_default() -> anyhow::Result<()> {
 }
 
 #[test]
-fn list_truncates_results_if_they_exceed_default_limit() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+fn list_truncates_results_if_they_exceed_default_limit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
     let default_limit = 20;
 
     for i in 0..default_limit {
@@ -124,6 +124,4 @@ local   ✓ branch-8  ↑1     26y ago    author
 
 "#]])
         .stderr_eq(snapbox::str![[]]);
-
-    Ok(())
 }

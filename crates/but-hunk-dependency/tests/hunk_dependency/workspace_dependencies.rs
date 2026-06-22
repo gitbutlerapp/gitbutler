@@ -1,5 +1,5 @@
 #[test]
-fn every_commit_is_independent() -> anyhow::Result<()> {
+fn every_commit_is_independent() {
     let actual = worktree_ranges_digest_for_workspace_separated("independent-commits");
     // Nothing to see here, there is no worktree change.
     insta::assert_debug_snapshot!(actual, @r#"
@@ -84,11 +84,10 @@ fn every_commit_is_independent() -> anyhow::Result<()> {
         },
     )
     "#);
-    Ok(())
 }
 
 #[test]
-fn multiple_stacks_with_multiple_branches_each() -> anyhow::Result<()> {
+fn multiple_stacks_with_multiple_branches_each() {
     let actual = worktree_ranges_digest_for_workspace_separated("independent-commits-multi-stack");
     // Nothing to see here, there is no worktree change.
     insta::assert_debug_snapshot!(actual, @r#"
@@ -245,11 +244,10 @@ fn multiple_stacks_with_multiple_branches_each() -> anyhow::Result<()> {
         },
     )
     "#);
-    Ok(())
 }
 
 #[test]
-fn every_commit_is_sequentially_dependent() -> anyhow::Result<()> {
+fn every_commit_is_sequentially_dependent() {
     let actual = worktree_ranges_digest_for_workspace_separated("sequentially-dependent-commits");
     insta::assert_debug_snapshot!(actual, @r#"
     Ok(
@@ -273,11 +271,10 @@ fn every_commit_is_sequentially_dependent() -> anyhow::Result<()> {
         },
     )
     "#);
-    Ok(())
 }
 
 #[test]
-fn every_commit_is_sequentially_dependent_multi_stack() -> anyhow::Result<()> {
+fn every_commit_is_sequentially_dependent_multi_stack() {
     let actual = worktree_ranges_digest_for_workspace_separated(
         "sequentially-dependent-commits-multi-stack",
     );
@@ -315,7 +312,6 @@ fn every_commit_is_sequentially_dependent_multi_stack() -> anyhow::Result<()> {
         },
     )
     "#);
-    Ok(())
 }
 
 #[test]

@@ -12,9 +12,9 @@ use crate::{
 
 #[test]
 fn move_commit_before_another_commit() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
 
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata(&["A"]);
 
     // Create three commits
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
@@ -58,9 +58,9 @@ Moved 23e1bf8 → before fce8ecc
 
 #[test]
 fn move_commit_after_another_commit() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
 
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata(&["A"]);
 
     // Create three commits
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
@@ -97,9 +97,9 @@ Moved fce8ecc → after 23e1bf8
 
 #[test]
 fn move_multiple_commits_before_another_commit() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
 
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata(&["A"]);
 
     // Create three commits
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
@@ -175,9 +175,9 @@ Hint: run `but help` for all commands
 
 #[test]
 fn move_multiple_commits_after_another_commit() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
 
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata(&["A"]);
 
     // Create three commits
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
@@ -253,9 +253,9 @@ Hint: run `but help` for all commands
 
 #[test]
 fn move_multiple_commits_from_different_branches() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("three-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("three-stacks");
 
-    env.setup_metadata(&["A", "B", "C"])?;
+    env.setup_metadata(&["A", "B", "C"]);
 
     env.but("st")
         .assert()
@@ -397,9 +397,9 @@ Hint: run `but help` for all commands
 
 #[test]
 fn move_multiple_commits_from_different_branches_after() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("three-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("three-stacks");
 
-    env.setup_metadata(&["A", "B", "C"])?;
+    env.setup_metadata(&["A", "B", "C"]);
 
     env.but("st")
         .assert()
@@ -541,9 +541,9 @@ Hint: run `but help` for all commands
 
 #[test]
 fn move_commit_to_branch() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
 
     // Create a commit on branch A
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "commit on A");
@@ -580,10 +580,10 @@ Moved [..] → [B]
 }
 
 #[test]
-fn move_commit_with_invalid_source() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+fn move_commit_with_invalid_source() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
 
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata(&["A"]);
 
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
@@ -594,15 +594,13 @@ fn move_commit_with_invalid_source() -> anyhow::Result<()> {
 Failed to move commit. Source 'nonexistent' not found. If you just performed a Git operation, try running 'but status' to refresh.
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
 fn move_commit_with_after_flag_and_branch_target() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
 
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "commit on A");
 
@@ -628,9 +626,9 @@ When moving to a branch, the commit is placed at the top of the stack by default
 
 #[test]
 fn move_same_commit_to_itself() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
 
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata(&["A"]);
 
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
@@ -655,9 +653,9 @@ Source and target are the same commit. Nothing to do.
 
 #[test]
 fn move_commit_with_invalid_target() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
 
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata(&["A"]);
 
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
 
@@ -681,9 +679,9 @@ Failed to move commit. Target 'nonexistent' not found. If you just performed a G
 
 #[test]
 fn move_cross_stack_works_yay() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
 
     // Create commits on both branches
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "commit on A");
@@ -714,9 +712,9 @@ Moved c629281 → before ae3978a
 
 #[test]
 fn move_committed_file_to_another_commit() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
 
-    env.setup_metadata(&["A"])?;
+    env.setup_metadata(&["A"]);
 
     // Create two commits with different files
     commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
@@ -781,9 +779,9 @@ Moved files between commits!
 fn move_branch_by_name_from_top_level_move() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
-    )?;
+    );
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
 
     env.but("st")
         .assert()
@@ -849,7 +847,7 @@ Hint: run `but help` for all commands
 
 #[test]
 fn move_empty_branch_on_top_of_empty_branch_by_cli_id() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
 
     env.invoke_git("branch A main");
     env.invoke_git("branch B main");
@@ -907,9 +905,9 @@ Hint: run `but help` for all commands
 fn move_branch_onto_itself_fails_without_deleting_branch() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
-    )?;
+    );
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
 
     env.but("move C C").assert().failure().stderr_eq(str![[r#"
 Failed to move branch. Cannot move branch refs/heads/C onto itself
@@ -934,9 +932,9 @@ Failed to move branch. Cannot move branch refs/heads/C onto itself
 fn move_branch_by_cli_id_from_top_level_move() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
-    )?;
+    );
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
 
     env.but("st")
         .assert()
@@ -1015,9 +1013,9 @@ Hint: run `but help` for all commands
 fn tear_off_branch_with_top_level_move_to_zz() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
-    )?;
+    );
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
 
     env.but("st")
         .assert()
@@ -1096,12 +1094,12 @@ Hint: run `but help` for all commands
 }
 
 #[test]
-fn move_branch_with_after_flag_fails_from_top_level_move() -> anyhow::Result<()> {
+fn move_branch_with_after_flag_fails_from_top_level_move() {
     let env = Sandbox::init_scenario_with_target_and_default_settings(
         "two-stacks-one-single-and-ready-to-mingle-one-double",
-    )?;
+    );
 
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
 
     env.but("st")
         .assert()
@@ -1158,7 +1156,6 @@ Failed to move branch. The --after flag only makes sense when moving a commit to
 Hint: run `but help` for all commands
 
 "#]]);
-    Ok(())
 }
 
 fn status_json(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
@@ -1188,7 +1185,7 @@ fn stack_branch_layout(status_json: &serde_json::Value) -> anyhow::Result<Vec<Ve
 }
 
 fn setup_single_stack_metadata(env: &Sandbox, branch_names: &[&str]) -> anyhow::Result<()> {
-    let mut meta = env.meta()?;
+    let mut meta = env.meta();
     let mut workspace = meta.workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?;
     workspace.stacks = vec![WorkspaceStack {
         id: StackId::from_number_for_testing(0),

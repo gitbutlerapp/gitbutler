@@ -32,21 +32,19 @@ impl DerefMut for Sandbox {
 /// Lifecycle
 impl Sandbox {
     /// Create a new instance with empty everything.
-    pub fn empty() -> anyhow::Result<Sandbox> {
-        Ok(Sandbox {
-            inner: but_testsupport::Sandbox::empty()?,
-        })
+    pub fn empty() -> Sandbox {
+        Sandbox {
+            inner: but_testsupport::Sandbox::empty(),
+        }
     }
 
     /// A utility to init a scenario if the legacy feature is set, or open a repo otherwise.
-    pub fn open_or_init_scenario_with_target_and_default_settings(
-        name: &str,
-    ) -> anyhow::Result<Sandbox> {
+    pub fn open_or_init_scenario_with_target_and_default_settings(name: &str) -> Sandbox {
         let inner =
-            but_testsupport::Sandbox::open_or_init_scenario_with_target_and_default_settings(name)?;
+            but_testsupport::Sandbox::open_or_init_scenario_with_target_and_default_settings(name);
         let this = Sandbox { inner };
         this.run_but_init_if_needed();
-        Ok(this)
+        this
     }
 
     fn run_but_init_if_needed(&self) {
@@ -59,10 +57,10 @@ impl Sandbox {
     }
 
     /// Open a repository without any additional setup and default application settings.
-    pub fn open_with_default_settings(name: &str) -> anyhow::Result<Sandbox> {
-        Ok(Sandbox {
-            inner: but_testsupport::Sandbox::open_with_default_settings(name)?,
-        })
+    pub fn open_with_default_settings(name: &str) -> Sandbox {
+        Sandbox {
+            inner: but_testsupport::Sandbox::open_with_default_settings(name),
+        }
     }
 
     /// Provide a scenario with `name` for writing, and `but setup` already invoked to add the project,
@@ -71,30 +69,28 @@ impl Sandbox {
     /// Prefer to use [`Self::open_scenario_with_target_and_default_settings()`] instead for less side-effects
     /// TODO: we shouldn't have to add the project for interaction - it's only useful for listing.
     /// TODO: there should be no need for the target.
-    pub fn init_scenario_with_target_and_default_settings(name: &str) -> anyhow::Result<Sandbox> {
-        let inner = but_testsupport::Sandbox::init_scenario_with_target_and_default_settings(name)?;
+    pub fn init_scenario_with_target_and_default_settings(name: &str) -> Sandbox {
+        let inner = but_testsupport::Sandbox::init_scenario_with_target_and_default_settings(name);
         let this = Sandbox { inner };
         this.run_but_init_if_needed();
-        Ok(this)
+        this
     }
 
     /// Provide a scenario with `name` for writing, with target added.
-    pub fn open_scenario_with_target_and_default_settings(name: &str) -> anyhow::Result<Sandbox> {
-        Ok(Sandbox {
-            inner: but_testsupport::Sandbox::open_scenario_with_target_and_default_settings(name)?,
-        })
+    pub fn open_scenario_with_target_and_default_settings(name: &str) -> Sandbox {
+        Sandbox {
+            inner: but_testsupport::Sandbox::open_scenario_with_target_and_default_settings(name),
+        }
     }
 
     /// Like [`Self::init_scenario_with_target_and_default_settings`], Execute the script at `name` instead of
     /// copying it - necessary if Git places absolute paths.
-    pub fn init_scenario_with_target_and_default_settings_slow(
-        name: &str,
-    ) -> anyhow::Result<Sandbox> {
+    pub fn init_scenario_with_target_and_default_settings_slow(name: &str) -> Sandbox {
         let inner =
-            but_testsupport::Sandbox::init_scenario_with_target_and_default_settings_slow(name)?;
+            but_testsupport::Sandbox::init_scenario_with_target_and_default_settings_slow(name);
         let this = Sandbox { inner };
         this.run_but_init_if_needed();
-        Ok(this)
+        this
     }
 }
 
@@ -110,10 +106,10 @@ impl Sandbox {
         &self,
         branch_names: &[&str],
         target_spec: &str,
-    ) -> anyhow::Result<Vec<but_core::ref_metadata::StackId>> {
-        let stack_ids = self.inner.setup_metadata(branch_names)?;
-        self.inner.set_target_sha(target_spec)?;
-        Ok(stack_ids)
+    ) -> Vec<but_core::ref_metadata::StackId> {
+        let stack_ids = self.inner.setup_metadata(branch_names);
+        self.inner.set_target_sha(target_spec);
+        stack_ids
     }
 }
 

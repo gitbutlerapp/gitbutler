@@ -1,10 +1,10 @@
 use crate::utils::Sandbox;
 
 #[test]
-fn json_flag_can_be_placed_before_or_after_subcommand() -> anyhow::Result<()> {
+fn json_flag_can_be_placed_before_or_after_subcommand() {
     // TODO: use an actual repository here, but single-branch mode isn't really supported yet
     //       so everything fails anyway.
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
 
     // Test that --format json flag works in both positions with help command (doesn't need a valid repo)
     env.but("--format json completions --help")
@@ -43,14 +43,12 @@ Please run 'but setup' to initialize the project.
 
 "#]]);
     }
-
-    Ok(())
 }
 
 #[test]
 #[cfg(feature = "legacy")]
 fn default_command_respects_c_flag_for_setup_checks() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
     env.invoke_bash("git init repo");
 
     env.but("-C repo")
@@ -67,7 +65,7 @@ Error: Setup required: No GitButler project found at repo - run `but setup` to c
 #[test]
 #[cfg(feature = "legacy")]
 fn default_alias_can_provide_c_flag_for_implicit_default_command() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
     env.invoke_bash(
         r#"
 git init .
@@ -87,7 +85,7 @@ Error: Setup required: No GitButler project found at repo - run `but setup` to c
 #[test]
 #[cfg(feature = "legacy")]
 fn explicit_c_flag_overrides_default_alias_c_flag() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
     env.invoke_bash(
         r#"
 git init .

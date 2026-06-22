@@ -90,9 +90,8 @@ Workspace has been restored to the selected snapshot.
 
 #[test]
 fn can_undo_repeatedly() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     let (status_one, new_commit) = reword(&env, "9ac4652", "one");
     let (status_two, new_commit) = reword(&env, &new_commit, "two");
@@ -185,9 +184,8 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 #[test]
 fn can_undo_explicit_restore() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     let (_, new_commit) = reword(&env, "9ac4652", "one");
     let (status_two, new_commit) = reword(&env, &new_commit, "two");
@@ -251,9 +249,8 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 #[test]
 fn can_undo_perform_operation_then_undo_again() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     let (_, new_commit) = reword(&env, "9ac4652", "one");
     let (status_two, new_commit) = reword(&env, &new_commit, "two");
@@ -333,9 +330,8 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 #[test]
 fn undoing_past_end_of_oplog() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     let status_zero = env.but("status").output().unwrap();
     let (status_one, new_commit) = reword(&env, "9ac4652", "one");
@@ -402,9 +398,8 @@ Operations History
 
 #[test]
 fn can_redo() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     let (_, new_commit) = reword(&env, "9ac4652", "one");
     let (_, new_commit) = reword(&env, &new_commit, "two");
@@ -478,9 +473,8 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 #[test]
 fn can_mix_undo_and_redo() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     let (status_one, new_commit) = reword(&env, "9ac4652", "one");
     let (status_two, new_commit) = reword(&env, &new_commit, "two");
@@ -692,9 +686,8 @@ e637109 2000-01-02 00:00:00 [REWORD] Updated commit message
 
 #[test]
 fn cannot_redo_without_undoing_first() {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack-two-commits");
+    env.setup_metadata(&["A"]);
 
     reword(&env, "9ac4652", "one");
 

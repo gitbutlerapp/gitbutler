@@ -9,8 +9,8 @@ const TEST_EDITOR_MESSAGE: &str = "commit from tui test";
 
 #[test]
 fn commit_mode_enter_and_escape() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -32,8 +32,8 @@ fn commit_mode_enter_and_escape() {
 
 #[test]
 fn commit_confirm_on_source_is_noop() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -54,8 +54,8 @@ fn commit_confirm_on_source_is_noop() {
 
 #[test]
 fn commiting_with_no_unassigned_changes() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -93,8 +93,8 @@ fn commiting_with_no_unassigned_changes() {
 
 #[test]
 fn commit_from_unstaged_changes_creates_commit_visible_in_tui() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file(
         "editor.sh",
@@ -130,8 +130,8 @@ fn commit_from_unstaged_changes_creates_commit_visible_in_tui() {
 
 #[test]
 fn commit_from_unstaged_changes_to_new_branch_creates_branch_and_commit() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file(
         "editor.sh",
@@ -167,8 +167,8 @@ fn commit_from_unstaged_changes_to_new_branch_creates_branch_and_commit() {
 
 #[test]
 fn commit_from_unstaged_changes_with_multiple_hunks_in_same_file_commits_all_changes() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file(
         ".git/editor.sh",
@@ -239,8 +239,8 @@ fn commit_from_unstaged_changes_with_multiple_hunks_in_same_file_commits_all_cha
 
 #[test]
 fn commit_mode_shows_commit_below_on_commit_rows() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -261,8 +261,8 @@ fn commit_mode_shows_commit_below_on_commit_rows() {
 
 #[test]
 fn commit_to_commit_above_creates_commit_visible_in_tui() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file(
         "editor.sh",
@@ -305,8 +305,8 @@ fn commit_to_commit_above_creates_commit_visible_in_tui() {
 
 #[test]
 fn commit_to_commit_below_creates_commit_visible_in_tui() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file(
         "editor.sh",
@@ -346,8 +346,8 @@ fn commit_to_commit_below_creates_commit_visible_in_tui() {
 
 #[test]
 fn commit_mode_from_staged_changes_stays_within_current_stack() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -393,8 +393,8 @@ fn commit_mode_from_staged_changes_stays_within_current_stack() {
 
 #[test]
 fn commit_with_inline_reword() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -441,8 +441,8 @@ fn commit_with_inline_reword() {
 
 #[test]
 fn commit_moved_file_from_unassigned_changes_line() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -481,8 +481,8 @@ fn commit_moved_file_from_unassigned_changes_line() {
 
 #[test]
 fn commit_moved_file_from_file_line() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -523,8 +523,8 @@ fn commit_moved_file_from_file_line() {
 
 #[test]
 fn commit_moved_and_modified_file() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -568,8 +568,8 @@ fn commit_moved_and_modified_file() {
 
 #[test]
 fn cannot_select_unassigned_files_with_commits_marked() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -595,8 +595,8 @@ fn cannot_select_unassigned_files_with_commits_marked() {
 
 #[test]
 fn cannot_select_committed_files_with_commits_marked() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -618,8 +618,8 @@ fn cannot_select_committed_files_with_commits_marked() {
 
 #[test]
 fn cannot_select_committed_files_from_global_listing_with_commits_marked() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -648,8 +648,8 @@ fn cannot_select_committed_files_from_global_listing_with_commits_marked() {
 
 #[test]
 fn escape_from_commit_mode_preserves_marks() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -668,8 +668,8 @@ fn escape_from_commit_mode_preserves_marks() {
 
 #[test]
 fn mark_and_commit_multiple_uncommitted_files() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -698,8 +698,8 @@ fn mark_and_commit_multiple_uncommitted_files() {
 
 #[test]
 fn committing_above_below() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -716,8 +716,8 @@ fn committing_above_below() {
 
 #[test]
 fn cannot_commit_to_new_branch_from_commit_line() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -737,8 +737,8 @@ fn cannot_commit_to_new_branch_from_commit_line() {
 
 #[test]
 fn commit_to_new_branch_from_unassigned() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     let mut tui = test_tui(env);
 

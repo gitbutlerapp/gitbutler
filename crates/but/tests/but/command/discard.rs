@@ -17,8 +17,8 @@ fn find_unassigned_cli_id(status: &serde_json::Value, path_contains: &str) -> Op
 
 #[test]
 fn discard_removes_selected_change() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("src/discard-me.ts", "export const value = true;\n");
 
@@ -42,8 +42,8 @@ fn discard_removes_selected_change() -> anyhow::Result<()> {
 
 #[test]
 fn concurrent_discard_to_independent_files_succeeds() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("src/a/discard.ts", "export const a = true;\n");
     env.file("src/b/discard.ts", "export const b = true;\n");
@@ -84,8 +84,8 @@ fn concurrent_discard_to_independent_files_succeeds() -> anyhow::Result<()> {
 
 #[test]
 fn discard_reverts_simple_rename() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("src/rename-source.ts", "export const source = true;\n");
     env.but("commit A -m 'seed rename source'")
@@ -122,8 +122,8 @@ fn discard_reverts_simple_rename() -> anyhow::Result<()> {
 
 #[test]
 fn discard_rename_does_not_discard_unrelated_changes() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("src/rename-source-only.ts", "export const source = 1;\n");
     env.but("commit A -m 'seed rename source only'")
@@ -180,8 +180,8 @@ fn discard_rename_does_not_discard_unrelated_changes() -> anyhow::Result<()> {
 
 #[test]
 fn discard_the_whole_unassigned_changes() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("src/rename-source-only.ts", "export const source = 1;\n");
     env.but("commit A -m 'seed rename source only'")
@@ -230,8 +230,8 @@ fn discard_the_whole_unassigned_changes() -> anyhow::Result<()> {
 
 #[test]
 fn discarding_multiple_hunks_in_a_file_works() -> anyhow::Result<()> {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
-    env.setup_metadata(&["A"])?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let content = "1\n2\n3\n4\n5\n6\n7";
     let file_path = "src/some_file.txt";

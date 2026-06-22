@@ -4,7 +4,7 @@ use crate::utils::{CommandExt, Sandbox};
 
 #[test]
 fn merge_first_branch_into_gb_local_and_verify_rebase() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches")?;
+    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
 
     // Run setup to create gb-local remote
     env.but("setup").assert().success();
@@ -33,7 +33,7 @@ fn merge_first_branch_into_gb_local_and_verify_rebase() -> anyhow::Result<()> {
         .success();
 
     // Verify git log shows both branches before merge
-    insta::assert_snapshot!(env.git_log()?, @r"
+    insta::assert_snapshot!(env.git_log(), @r"
     *   71ae247 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
     | * edca1cd (second-branch) second commit on branch B
@@ -118,7 +118,7 @@ To undo this operation:
     );
 
     // Verify git log shows the rebased structure
-    insta::assert_snapshot!(env.git_log()?, @r"
+    insta::assert_snapshot!(env.git_log(), @r"
     * c7f0f9d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * e8d7818 (second-branch) second commit on branch B
     *   61888c9 (gb-local/main, gb-local/HEAD, main) Merge branch 'first-branch'
@@ -138,7 +138,7 @@ To undo this operation:
 
 #[test]
 fn pull_integrates_branch_when_gb_local_target_points_at_branch_head() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches")?;
+    let env = Sandbox::open_with_default_settings("merge-gb-local-two-branches");
 
     env.but("setup").assert().success();
     env.but("branch new first-branch").assert().success();

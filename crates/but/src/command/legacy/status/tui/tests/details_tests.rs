@@ -9,8 +9,8 @@ use crate::command::legacy::status::tui::tests::utils::{
 
 #[test]
 fn toggle_details_view_for_commit() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -26,8 +26,8 @@ fn toggle_details_view_for_commit() {
 
 #[test]
 fn details_view_updates_with_selection_changes() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -49,8 +49,8 @@ fn details_view_updates_with_selection_changes() {
 
 #[test]
 fn details_view_supports_scroll_controls() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let file_contents = (1..=120)
         .map(|line| format!("line-{line:03}\n"))
@@ -109,8 +109,8 @@ fn details_view_supports_scroll_controls() {
 
 #[test]
 fn commit_message_wraps_in_details_view() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui_with_options(
         env,
@@ -150,8 +150,8 @@ fn commit_message_wraps_in_details_view() {
 
 #[test]
 fn details_view_renders_multiple_hunks_and_files() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let first_file = (1..=8)
         .map(|line| format!("alpha-{line}\n"))
@@ -180,8 +180,8 @@ fn details_view_renders_multiple_hunks_and_files() {
 
 #[test]
 fn details_diff_svg_shows_plus_and_minus_backgrounds() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("A", "A-changed\n");
 
@@ -202,8 +202,8 @@ fn details_diff_svg_shows_plus_and_minus_backgrounds() {
 
 #[test]
 fn toggling_details_off_and_on_resets_scroll_position() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
     let file_contents = (1..=80)
         .map(|line| format!("line-{line:03}\n"))
         .collect::<String>();
@@ -241,8 +241,8 @@ fn toggling_details_off_and_on_resets_scroll_position() {
 
 #[test]
 fn details_view_syntax_highlighting_survives_scrolling() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let rust_code = (1..=120)
         .map(|line| {
@@ -280,8 +280,8 @@ fn details_view_syntax_highlighting_survives_scrolling() {
 
 #[test]
 fn details_view_can_grow_and_shrink() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui_with_options(
         env,
@@ -299,8 +299,8 @@ fn details_view_can_grow_and_shrink() {
 
 #[test]
 fn details_view_resize_clamps_to_max_and_min_width() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui_with_options(
         env,
@@ -321,8 +321,8 @@ fn details_view_resize_clamps_to_max_and_min_width() {
 
 #[test]
 fn details_cursor_stays_visible_after_resizing() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let long_lines = (1..=80)
         .map(|line| format!("this is a deliberately long line in alpha.txt #{line:03} that should wrap in narrow detail panes\n"))
@@ -353,8 +353,8 @@ fn details_cursor_stays_visible_after_resizing() {
 
 #[test]
 fn toggle_full_screen_details_view() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "content");
 
@@ -433,8 +433,8 @@ fn toggle_full_screen_details_view() {
 
 #[test]
 fn full_screen_details_scrolls_selected_hunk_to_include_final_line() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let first_file_contents = (1..=4)
         .map(|line| format!("first-{line:02}\n"))
@@ -468,8 +468,8 @@ fn full_screen_details_scrolls_selected_hunk_to_include_final_line() {
 
 #[test]
 fn rubbing_from_full_screen_details() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "content");
 
@@ -501,8 +501,8 @@ fn rubbing_from_full_screen_details() {
 
 #[test]
 fn rubbing_from_split_details() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "content");
 
@@ -528,8 +528,8 @@ fn rubbing_from_split_details() {
 
 #[test]
 fn details_view_with_no_changes() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -541,8 +541,8 @@ fn details_view_with_no_changes() {
 
 #[test]
 fn unfocusing_split_details_with_escape() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "content");
 
@@ -561,8 +561,8 @@ fn unfocusing_split_details_with_escape() {
 
 #[test]
 fn close_split_details_with_escape() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "content");
 
@@ -579,8 +579,8 @@ fn close_split_details_with_escape() {
 
 #[test]
 fn escape_after_toggling_split_details_closed_does_not_reopen_details() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "content");
 
@@ -597,8 +597,8 @@ fn escape_after_toggling_split_details_closed_does_not_reopen_details() {
 
 #[test]
 fn escape_after_toggling_full_screen_details_closed_does_not_reopen_details() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "content");
 
@@ -615,8 +615,8 @@ fn escape_after_toggling_full_screen_details_closed_does_not_reopen_details() {
 
 #[test]
 fn open_and_focus_details_split_can_be_closed_with_esc() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("file.txt", "content");
 
@@ -637,8 +637,8 @@ fn open_and_focus_details_split_can_be_closed_with_esc() {
 
 #[test]
 fn viewing_empty_file() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("empty file", "");
 

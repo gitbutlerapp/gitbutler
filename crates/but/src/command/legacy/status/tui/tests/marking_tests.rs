@@ -6,8 +6,8 @@ use crate::command::legacy::status::tui::{BackstackEntry, tests::utils::test_tui
 
 #[test]
 fn marking_individual_commit_toggles_mark_indicator() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -26,8 +26,8 @@ fn marking_individual_commit_toggles_mark_indicator() {
 
 #[test]
 fn marking_branch_toggles_all_commits_in_that_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -46,7 +46,7 @@ fn marking_branch_toggles_all_commits_in_that_branch() {
 
 #[test]
 fn marking_unassigned_toggles_all_unassigned_files() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.file("a.txt", "content");
     env.file("b.txt", "content");
 
@@ -73,8 +73,8 @@ fn marking_unassigned_toggles_all_unassigned_files() {
 
 #[test]
 fn multi_squash_marked_commits_into_selected_marked_target() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -105,8 +105,8 @@ fn multi_squash_marked_commits_into_selected_marked_target() {
 
 #[test]
 fn marks_still_show_in_split_details() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("one", "content of one");
     env.file("two", "content of two");

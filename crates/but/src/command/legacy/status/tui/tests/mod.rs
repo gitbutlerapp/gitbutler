@@ -59,8 +59,8 @@ fn assert_cursor_context_rows(
 
 #[test]
 fn shows_full_error_when_message_wraps() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -78,8 +78,8 @@ fn shows_full_error_when_message_wraps() {
 
 #[test]
 fn shows_full_error_cause_chain_with_multiple_contexts() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -102,8 +102,8 @@ fn shows_full_error_cause_chain_with_multiple_contexts() {
 
 #[test]
 fn narrow_hotbar_prioritizes_help_and_quit() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui_with_options(
         env,
@@ -121,8 +121,8 @@ fn narrow_hotbar_prioritizes_help_and_quit() {
 
 #[test]
 fn narrow_hotbar_keeps_help_and_quit_visible_in_modal_modes() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui_with_options(
         env,
@@ -141,8 +141,8 @@ fn narrow_hotbar_keeps_help_and_quit_visible_in_modal_modes() {
 
 #[test]
 fn help_popup_opens_over_status_view() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -155,8 +155,8 @@ fn help_popup_opens_over_status_view() {
 
 #[test]
 fn help_popup_scrolls() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui_with_options(
         env,
@@ -182,8 +182,8 @@ fn help_popup_scrolls() {
 
 #[test]
 fn undo_opens_confirm_for_latest_snapshot() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
     let mut tui = test_tui(env);
 
     tui.env().file("test.txt", "content");
@@ -232,8 +232,8 @@ fn format_error_for_tui_shows_single_message_for_leaf_error() {
 
 #[test]
 fn basic_cursor_movement() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -273,8 +273,8 @@ fn basic_cursor_movement() {
 
 #[test]
 fn movement_aliases_j_k() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -296,8 +296,8 @@ fn movement_aliases_j_k() {
 
 #[test]
 fn section_jumps_shift_j_k() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -319,8 +319,8 @@ fn section_jumps_shift_j_k() {
 
 #[test]
 fn shift_k_from_commit_moves_to_current_section_header_first() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -339,8 +339,8 @@ fn shift_k_from_commit_moves_to_current_section_header_first() {
 
 #[test]
 fn shift_k_from_second_stack_commit_moves_to_its_header() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -362,8 +362,8 @@ fn shift_k_from_second_stack_commit_moves_to_its_header() {
 
 #[test]
 fn cursor_movement_scrolls_viewport_down() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui_with_options(
         env,
@@ -389,8 +389,8 @@ fn cursor_movement_scrolls_viewport_down() {
 
 #[test]
 fn cursor_movement_scrolls_viewport_up() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui_with_options(
         env,
@@ -416,8 +416,8 @@ fn cursor_movement_scrolls_viewport_up() {
 
 #[test]
 fn scrolling_keeps_three_rows_of_context_when_possible() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui_with_options(
         env,
@@ -445,8 +445,8 @@ fn scrolling_keeps_three_rows_of_context_when_possible() {
 
 #[test]
 fn section_jumps_scroll_viewport_when_target_is_offscreen() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui_with_options(
         env,
@@ -478,8 +478,8 @@ fn section_jumps_scroll_viewport_when_target_is_offscreen() {
 
 #[test]
 fn moving_to_merge_base_scrolls_to_keep_selection_visible() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui_with_options(
         env,
@@ -502,8 +502,8 @@ fn moving_to_merge_base_scrolls_to_keep_selection_visible() {
 
 #[test]
 fn reload_preserves_visible_selection_when_scrolled() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui_with_options(
         env,
@@ -528,8 +528,8 @@ fn reload_preserves_visible_selection_when_scrolled() {
 
 #[test]
 fn inline_reword_renders_on_visible_row_when_scrolled() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui_with_options(
         env,
@@ -555,8 +555,8 @@ fn inline_reword_renders_on_visible_row_when_scrolled() {
 
 #[test]
 fn creating_empty_commits() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -578,8 +578,8 @@ fn creating_empty_commits() {
 
 #[test]
 fn inline_reword() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -607,8 +607,8 @@ fn inline_reword() {
 
 #[test]
 fn inline_reword_open_editor_keeps_inline_message_when_editor_makes_no_changes() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file(".git/editor.sh", "exit 0\n");
     let editor_path = env.projects_root().join(".git/editor.sh");
@@ -631,8 +631,8 @@ fn inline_reword_open_editor_keeps_inline_message_when_editor_makes_no_changes()
 
 #[test]
 fn esc_leaves_rub_mode() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -656,8 +656,8 @@ fn esc_leaves_rub_mode() {
 
 #[test]
 fn mode_key_r_enters_and_escape_leaves_rub_mode() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -680,8 +680,8 @@ fn mode_key_r_enters_and_escape_leaves_rub_mode() {
 
 #[test]
 fn rub_mode_shift_j_lands_on_first_selectable_in_next_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -701,8 +701,8 @@ fn rub_mode_shift_j_lands_on_first_selectable_in_next_branch() {
 
 #[test]
 fn rub_mode_shift_j_can_jump_between_branches() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -725,8 +725,8 @@ fn rub_mode_shift_j_can_jump_between_branches() {
 
 #[test]
 fn rub_mode_shift_k_jumps_to_first_selectable_in_previous_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -752,8 +752,8 @@ fn rub_mode_shift_k_jumps_to_first_selectable_in_previous_branch() {
 
 #[test]
 fn mode_key_c_enters_and_escape_leaves_commit_mode() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -773,8 +773,8 @@ fn mode_key_c_enters_and_escape_leaves_commit_mode() {
 
 #[test]
 fn mode_key_m_enters_and_escape_leaves_move_mode() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -793,8 +793,8 @@ fn mode_key_m_enters_and_escape_leaves_move_mode() {
 
 #[test]
 fn key_b_creates_new_branch_from_selected_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -807,8 +807,8 @@ fn key_b_creates_new_branch_from_selected_branch() {
 
 #[test]
 fn rubbing() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -866,8 +866,8 @@ fn rubbing() {
 
 #[test]
 fn global_file_list_does_not_restrict_cursor() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -889,8 +889,8 @@ fn global_file_list_does_not_restrict_cursor() {
 
 #[test]
 fn commit_file_list_scopes_cursor_to_files_in_selected_commit() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -912,8 +912,8 @@ fn commit_file_list_scopes_cursor_to_files_in_selected_commit() {
 
 #[test]
 fn commit_file_toggle_on_commit_without_files_is_noop() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui_with_options(
         env,
@@ -946,8 +946,8 @@ fn commit_file_toggle_on_commit_without_files_is_noop() {
 
 #[test]
 fn commit_file_list_rub_esc_leaves_rub_and_closes_file_list() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -972,8 +972,8 @@ fn commit_file_list_rub_esc_leaves_rub_and_closes_file_list() {
 
 #[test]
 fn confirm_rub_keeps_commit_file_list_open() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -995,8 +995,8 @@ fn confirm_rub_keeps_commit_file_list_open() {
 
 #[test]
 fn esc_in_normal_mode_closes_global_file_list() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -1018,8 +1018,8 @@ fn esc_in_normal_mode_closes_global_file_list() {
 
 #[test]
 fn esc_in_normal_mode_closes_commit_file_list() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -1038,8 +1038,8 @@ fn esc_in_normal_mode_closes_commit_file_list() {
 
 #[test]
 fn commit_file_toggle_off_from_commit_row_preserves_commit_selection() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -1058,8 +1058,8 @@ fn commit_file_toggle_off_from_commit_row_preserves_commit_selection() {
 
 #[test]
 fn pick_changes_mode() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("one", "content of one");
     env.file("two", "content of two");
@@ -1096,8 +1096,8 @@ fn pick_changes_mode() {
 
 #[test]
 fn stays_in_pick_change_mode_after_full_screen_details() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("one", "content of one");
     env.file("two", "content of two");
@@ -1159,8 +1159,8 @@ fn stays_in_pick_change_mode_after_full_screen_details() {
 
 #[test]
 fn pick_changes_mode_supports_focusing_details_view() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     env.file("one", "content of one");
     env.file("two", "content of two");
@@ -1181,8 +1181,8 @@ fn pick_changes_mode_supports_focusing_details_view() {
 
 #[test]
 fn consistent_commit_shas_in_tests() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     let mut tui = test_tui(env);
 
@@ -1193,8 +1193,8 @@ fn consistent_commit_shas_in_tests() {
 
 #[test]
 fn jumping_up_down() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -1217,8 +1217,8 @@ fn jumping_up_down() {
 
 #[test]
 fn jumping_up_down_non_normal_mode() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     env.file("file", "");
 

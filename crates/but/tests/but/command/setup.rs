@@ -3,8 +3,8 @@ use serde_json::json;
 use crate::utils::{CommandExt as _, Sandbox};
 
 #[test]
-fn not_a_git_repository() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn not_a_git_repository() {
+    let env = Sandbox::empty();
 
     env.but("setup")
         .assert()
@@ -13,13 +13,11 @@ fn not_a_git_repository() -> anyhow::Result<()> {
 Error: No git repository found - run `but setup --init` to initialize a new repository.
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn no_remote_creates_gb_local() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+fn no_remote_creates_gb_local() {
+    let env = Sandbox::open_with_default_settings("repo-no-remote");
 
     // Verify initial state - no remotes
     let output = env.invoke_git("remote");
@@ -86,13 +84,11 @@ Learn more at https://docs.gitbutler.com/cli-overview
     // Verify remote HEAD was created
     let output = env.invoke_git("symbolic-ref refs/remotes/gb-local/HEAD");
     assert_eq!(output, "refs/remotes/gb-local/main");
-
-    Ok(())
 }
 
 #[test]
-fn no_remote_with_non_standard_branch() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("repo-no-remote-no-main-or-master")?;
+fn no_remote_with_non_standard_branch() {
+    let env = Sandbox::open_with_default_settings("repo-no-remote-no-main-or-master");
 
     // Run setup - should use the current branch name (development)
     env.but("setup")
@@ -151,13 +147,11 @@ Learn more at https://docs.gitbutler.com/cli-overview
     // Verify gb-local remote was created with development branch
     let output = env.invoke_git("symbolic-ref refs/remotes/gb-local/HEAD");
     assert_eq!(output, "refs/remotes/gb-local/development");
-
-    Ok(())
 }
 
 #[test]
-fn remote_exists_but_no_remote_head() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("repo-with-remote-no-head")?;
+fn remote_exists_but_no_remote_head() {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-no-head");
 
     // Verify remote exists but no HEAD
     let output = env.invoke_git("remote");
@@ -221,13 +215,11 @@ Learn more at https://docs.gitbutler.com/cli-overview
 
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn remote_exists_with_head() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head")?;
+fn remote_exists_with_head() {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
 
     // Verify remote exists with HEAD
     let output = env.invoke_git("remote");
@@ -287,13 +279,11 @@ Learn more at https://docs.gitbutler.com/cli-overview
 
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn already_setup() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("repo-already-setup")?;
+fn already_setup() {
+    let env = Sandbox::open_with_default_settings("repo-already-setup");
 
     // Run setup once to initialize
     env.but("setup").assert().success();
@@ -334,13 +324,11 @@ Learn more at https://docs.gitbutler.com/cli-overview
 
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn json_output_new_setup() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head")?;
+fn json_output_new_setup() {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-and-head");
 
     env.but("--format json setup")
         .allow_json()
@@ -359,13 +347,11 @@ fn json_output_new_setup() -> anyhow::Result<()> {
 }
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn json_output_already_setup() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("repo-already-setup")?;
+fn json_output_already_setup() {
+    let env = Sandbox::open_with_default_settings("repo-already-setup");
 
     // Run setup once to initialize
     env.but("setup").assert().success();
@@ -388,13 +374,11 @@ fn json_output_already_setup() -> anyhow::Result<()> {
 }
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn json_output_gb_local() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+fn json_output_gb_local() {
+    let env = Sandbox::open_with_default_settings("repo-no-remote");
 
     env.but("--format json setup")
         .allow_json()
@@ -413,13 +397,11 @@ fn json_output_gb_local() -> anyhow::Result<()> {
 }
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn json_output_non_standard_branch() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("repo-no-remote-no-main-or-master")?;
+fn json_output_non_standard_branch() {
+    let env = Sandbox::open_with_default_settings("repo-no-remote-no-main-or-master");
 
     env.but("--format json setup")
         .allow_json()
@@ -438,13 +420,11 @@ fn json_output_non_standard_branch() -> anyhow::Result<()> {
 }
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn json_output_remote_no_head_fallback() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("repo-with-remote-no-head")?;
+fn json_output_remote_no_head_fallback() {
+    let env = Sandbox::open_with_default_settings("repo-with-remote-no-head");
 
     env.but("--format json setup")
         .allow_json()
@@ -463,13 +443,11 @@ fn json_output_remote_no_head_fallback() -> anyhow::Result<()> {
 }
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn json_output_not_a_git_repo() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn json_output_not_a_git_repo() {
+    let env = Sandbox::empty();
 
     env.but("--format json setup")
         .allow_json()
@@ -480,13 +458,11 @@ Error: No git repository found - run `but setup --init` to initialize a new repo
 
 "#]])
         .stdout_eq(snapbox::str![]);
-
-    Ok(())
 }
 
 #[test]
 fn init_flag_creates_repo() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
 
     // Verify no git repo exists
     env.invoke_git_fails(
@@ -565,8 +541,8 @@ Learn more at https://docs.gitbutler.com/cli-overview
 }
 
 #[test]
-fn init_flag_json_output() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn init_flag_json_output() {
+    let env = Sandbox::empty();
 
     env.but("--format json setup --init")
         .allow_json()
@@ -589,13 +565,11 @@ fn init_flag_json_output() -> anyhow::Result<()> {
     // Verify git repo was created
     let output = env.invoke_git("rev-parse --git-dir");
     assert!(!output.is_empty());
-
-    Ok(())
 }
 
 #[test]
-fn init_flag_with_existing_repo() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+fn init_flag_with_existing_repo() {
+    let env = Sandbox::open_with_default_settings("repo-no-remote");
 
     // Should work the same as without --init when repo exists
     env.but("setup --init")
@@ -650,13 +624,11 @@ Learn more at https://docs.gitbutler.com/cli-overview
 
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
 fn setup_called_on_unmigrated_projects_json() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+    let env = Sandbox::open_with_default_settings("repo-no-remote");
 
     // Run first to create the metadata in `projects.json` which we then mutate
     // to create the "legacy" metadata scenario.

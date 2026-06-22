@@ -5,9 +5,9 @@ use crate::utils::Sandbox;
 
 #[cfg(not(feature = "legacy"))]
 #[test]
-fn from_unborn() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("unborn")?;
-    insta::assert_snapshot!(env.git_log()?, @r"");
+fn from_unborn() {
+    let env = Sandbox::open_with_default_settings("unborn");
+    insta::assert_snapshot!(env.git_log(), @r"");
 
     env.but("branch apply main")
         .assert()
@@ -18,14 +18,13 @@ Error: The reference 'main' did not exist
 "#]]);
 
     // TODO: we should be able to use the CLI to create a commit
-    Ok(())
 }
 
 // TODO: maybe this should be a non-legacy journey only as we start out without workspace?
 #[cfg(feature = "legacy")]
 #[test]
-fn from_empty() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn from_empty() {
+    let env = Sandbox::empty();
 
     env.but("status").assert().failure().stderr_eq(str![[r#"
 Error: No git repository found at .
@@ -153,18 +152,16 @@ Hint: run `but branch new` to create a new branch to work on
 
 "#]])
         .stderr_eq(str![""]);
-
-    Ok(())
 }
 
 #[cfg(feature = "legacy")]
 #[test]
-fn from_workspace() -> anyhow::Result<()> {
+fn from_workspace() {
     use snapbox::file;
 
     use crate::utils::CommandExt;
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
-    insta::assert_snapshot!(env.git_log()?, @r"
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    insta::assert_snapshot!(env.git_log(), @r"
     *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
     | * 9477ae7 (A) add A
@@ -172,10 +169,10 @@ fn from_workspace() -> anyhow::Result<()> {
     |/  
     * 0dc3733 (origin/main, origin/HEAD, main) add M
     ");
-    insta::assert_snapshot!(env.git_status()?, @"");
+    insta::assert_snapshot!(env.git_status(), @"");
 
     // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
-    env.setup_metadata(&["A", "B"])?;
+    env.setup_metadata(&["A", "B"]);
 
     env.but("status")
         .with_color_for_svg()
@@ -206,5 +203,4 @@ fn from_workspace() -> anyhow::Result<()> {
         .stdout_eq(file!["snapshots/from-workspace/branch01.stdout.term.svg"]);
 
     // TODO: more operations on the repository!
-    Ok(())
 }

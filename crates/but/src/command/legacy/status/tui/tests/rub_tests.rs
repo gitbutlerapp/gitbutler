@@ -7,8 +7,8 @@ use crate::command::legacy::status::tui::tests::utils::test_tui;
 // Tests RubOperation::UnassignedToCommit.
 #[test]
 fn rub_api_unassigned_to_commit() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -47,8 +47,8 @@ fn rub_api_unassigned_to_commit() {
 
 #[test]
 fn rub_api_unassigned_to_commit_preserves_global_file_list() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -79,8 +79,8 @@ fn rub_api_unassigned_to_commit_preserves_global_file_list() {
 // Tests RubOperation::UnassignUncommitted.
 #[test]
 fn rub_api_unassign_uncommitted_operation() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -102,8 +102,8 @@ fn rub_api_unassign_uncommitted_operation() {
 // Tests RubOperation::UncommittedToCommit.
 #[test]
 fn rub_api_uncommitted_to_commit_operation() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -124,8 +124,8 @@ fn rub_api_uncommitted_to_commit_operation() {
 
 #[test]
 fn mark_and_rub_multiple_uncommitted_files() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -155,8 +155,8 @@ fn mark_and_rub_multiple_uncommitted_files() {
 // Ensure rub mode does not offer branch destinations.
 #[test]
 fn rub_api_cannot_rub_into_branches() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -175,8 +175,8 @@ fn rub_api_cannot_rub_into_branches() {
 // Tests RubMessage::StartReverse on a commit when unassigned has changes.
 #[test]
 fn rub_api_reverse_rub_uses_unassigned_source_when_unassigned_has_changes() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -202,8 +202,8 @@ fn rub_api_reverse_rub_uses_unassigned_source_when_unassigned_has_changes() {
 // Tests RubMessage::StartReverse with unassigned source when stack has no assigned changes.
 #[test]
 fn rub_api_reverse_rub_uses_unassigned_source_when_stack_has_no_assigned_changes() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -225,8 +225,8 @@ fn rub_api_reverse_rub_uses_unassigned_source_when_stack_has_no_assigned_changes
 // Tests RubMessage::StartReverse is a no-op when not selecting a commit.
 #[test]
 fn rub_api_reverse_rub_is_noop_on_non_commit_selection() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -240,8 +240,8 @@ fn rub_api_reverse_rub_is_noop_on_non_commit_selection() {
 // Tests RubOperation::UndoCommit.
 #[test]
 fn rub_api_undo_commit_operation() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -263,8 +263,8 @@ fn rub_api_undo_commit_operation() {
 // Tests RubOperation::SquashCommits.
 #[test]
 fn rub_api_squash_commits_operation() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -283,8 +283,8 @@ fn rub_api_squash_commits_operation() {
 
 #[test]
 fn rub_api_squash_commits_toggles_message_strategy_labels() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -314,8 +314,8 @@ fn rub_api_squash_commits_toggles_message_strategy_labels() {
 
 #[test]
 fn rub_api_squash_commits_can_keep_target_message() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -337,8 +337,8 @@ fn rub_api_squash_commits_can_keep_target_message() {
 
 #[test]
 fn rub_api_squash_commits_can_keep_source_message() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -363,8 +363,8 @@ fn rub_api_squash_commits_can_keep_source_message() {
 // Tests RubOperation::CommittedFileToCommit.
 #[test]
 fn rub_api_committed_file_to_commit_operation() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -390,8 +390,8 @@ fn rub_api_committed_file_to_commit_operation() {
 // Tests RubOperation::CommittedFileToUnassigned.
 #[test]
 fn rub_api_committed_file_to_unassigned_operation() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -419,8 +419,8 @@ fn rub_api_committed_file_to_unassigned_operation() {
 // Tests RubOperation::UnassignedToStack.
 #[test]
 fn rub_api_unassigned_to_stack_operation() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -446,8 +446,8 @@ fn rub_api_unassigned_to_stack_operation() {
 // Tests RubOperation::UncommittedToStack.
 #[test]
 fn rub_api_uncommitted_to_stack_operation() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -473,8 +473,8 @@ fn rub_api_uncommitted_to_stack_operation() {
 // Tests RubOperation::StackToUnassigned.
 #[test]
 fn rub_api_stack_to_unassigned_operation() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -499,8 +499,8 @@ fn rub_api_stack_to_unassigned_operation() {
 // Tests RubOperation::StackToStack.
 #[test]
 fn rub_api_stack_to_stack_operation() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -554,8 +554,8 @@ fn rub_api_stack_to_stack_operation() {
 
 #[test]
 fn rub_multiple_commits_into_unassigned() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks").unwrap();
-    env.setup_metadata(&[]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
 
     let mut tui = test_tui(env);
 

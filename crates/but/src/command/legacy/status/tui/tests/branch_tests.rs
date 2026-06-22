@@ -6,8 +6,8 @@ use crate::command::legacy::status::tui::tests::utils::test_tui;
 
 #[test]
 fn branch_key_from_unassigned_creates_new_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -20,8 +20,8 @@ fn branch_key_from_unassigned_creates_new_branch() {
 
 #[test]
 fn branch_key_from_commit_is_noop() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -34,8 +34,8 @@ fn branch_key_from_commit_is_noop() {
 
 #[test]
 fn branch_key_from_branch_creates_new_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -48,8 +48,8 @@ fn branch_key_from_branch_creates_new_branch() {
 
 #[test]
 fn branch_key_keeps_global_file_list_open() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -67,8 +67,8 @@ fn branch_key_keeps_global_file_list_open() {
 
 #[test]
 fn focus_reload_preserves_branch_selection() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -81,8 +81,8 @@ fn focus_reload_preserves_branch_selection() {
 
 #[test]
 fn deleted_branch_name_can_be_reused_without_restoring_old_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -119,8 +119,8 @@ fn deleted_branch_name_can_be_reused_without_restoring_old_branch() {
 
 #[test]
 fn focus_reload_preserves_merge_base_selection() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -136,8 +136,8 @@ fn focus_reload_preserves_merge_base_selection() {
 
 #[test]
 fn inline_branch_reword_confirm_renames_branch() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -166,8 +166,8 @@ fn inline_branch_reword_confirm_renames_branch() {
 
 #[test]
 fn inline_branch_reword_esc_cancels() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 
@@ -186,8 +186,8 @@ fn inline_branch_reword_esc_cancels() {
 
 #[test]
 fn inline_branch_reword_preserves_selection_after_reload_with_multiple_branches() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks").unwrap();
-    env.setup_metadata(&["A", "B"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
+    env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
@@ -212,8 +212,8 @@ fn inline_branch_reword_preserves_selection_after_reload_with_multiple_branches(
 
 #[test]
 fn inline_branch_reword_space_before_close_bracket() {
-    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack").unwrap();
-    env.setup_metadata(&["A"]).unwrap();
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
 
     let mut tui = test_tui(env);
 

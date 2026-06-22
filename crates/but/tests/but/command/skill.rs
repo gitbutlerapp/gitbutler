@@ -15,8 +15,8 @@ fn path_ends_with_gitbutler_agents_dir(path: &str) -> bool {
 }
 
 #[test]
-fn skill_check_local_outside_repo_fails() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn skill_check_local_outside_repo_fails() {
+    let env = Sandbox::empty();
 
     env.but("skill check --local")
         .assert()
@@ -27,12 +27,11 @@ Error: Cannot check local installations: not in a git repository.
 Use --global to check global installations, or run from within a repository.
 
 "#]]);
-    Ok(())
 }
 
 #[test]
 fn skill_check_json_output_is_valid() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
 
     // Check with --global to avoid needing a repo context
     // The JSON output should always be valid even if no skills are found
@@ -60,8 +59,8 @@ fn skill_check_json_output_is_valid() -> anyhow::Result<()> {
 }
 
 #[test]
-fn skill_install_json_outside_repo_requires_path_instead_of_repo_context() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn skill_install_json_outside_repo_requires_path_instead_of_repo_context() {
+    let env = Sandbox::empty();
 
     env.but("skill install --format json")
         .allow_json()
@@ -72,13 +71,11 @@ fn skill_install_json_outside_repo_requires_path_instead_of_repo_context() -> an
 Error: In non-interactive mode, you must specify --path or --detect. Use --path <path> to specify where to install the skill, or --detect to update an existing installation.
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
-fn skill_install_path_outside_repo_requires_global() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+fn skill_install_path_outside_repo_requires_global() {
+    let env = Sandbox::empty();
     let install_path = relative_agent_skill_path(".claude");
 
     env.but("")
@@ -96,13 +93,11 @@ Error: Cannot use relative --path outside a git repository unless --global is sp
 Use --global --path <path> for a global installation, use an absolute path, or run from within a repository for local installation.
 
 "#]]);
-
-    Ok(())
 }
 
 #[test]
 fn skill_install_absolute_path_outside_repo_does_not_require_global() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
     let install_dir = env.projects_root().join("abs-skill-install");
 
     let output = env
@@ -132,7 +127,7 @@ fn skill_install_absolute_path_outside_repo_does_not_require_global() -> anyhow:
 
 #[test]
 fn skill_install_agent_outputs_success_message() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
     let install_dir = env.projects_root().join("agent-skill-install");
 
     let output = env
@@ -164,7 +159,7 @@ fn skill_install_agent_outputs_success_message() -> anyhow::Result<()> {
 
 #[test]
 fn skill_check_detects_agent_skills_installation_in_repo() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+    let env = Sandbox::open_with_default_settings("repo-no-remote");
     let install_path = relative_agent_skill_path(".agents");
 
     env.but("")
@@ -209,7 +204,7 @@ fn skill_check_detects_agent_skills_installation_in_repo() -> anyhow::Result<()>
 
 #[test]
 fn skill_install_detect_finds_agent_skills_installation_in_repo() -> anyhow::Result<()> {
-    let env = Sandbox::open_with_default_settings("repo-no-remote")?;
+    let env = Sandbox::open_with_default_settings("repo-no-remote");
     let install_path = relative_agent_skill_path(".agents");
 
     env.but("")
@@ -244,7 +239,7 @@ fn skill_install_detect_finds_agent_skills_installation_in_repo() -> anyhow::Res
 
 #[test]
 fn skill_install_surfaces_non_repo_discovery_errors() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
+    let env = Sandbox::empty();
     let invalid_dir = env.projects_root().join("not-a-directory");
     std::fs::write(&invalid_dir, "not a dir")?;
 
