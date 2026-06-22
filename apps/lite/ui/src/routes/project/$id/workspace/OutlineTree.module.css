@@ -144,7 +144,6 @@
 	overflow: hidden;
 	background-color: var(--bg-1);
 	text-overflow: ellipsis;
-	white-space: nowrap;
 }
 
 .commitTargetComboboxPopup {
