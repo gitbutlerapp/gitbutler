@@ -214,6 +214,7 @@ const useOutlineTreeHotkeys = ({
 	const commitMoveMutation = useCommitMove();
 	const commitDiscardMutation = useCommitDiscard();
 	const commitInsertBlankMutation = useCommitInsertBlank();
+	const commitAmendMutation = useCommitAmend({ projectId });
 	const pushStackMutation = usePushStack();
 	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream();
 	const branchCreateMutation = useBranchCreate();
@@ -227,16 +228,9 @@ const useOutlineTreeHotkeys = ({
 	};
 
 	const amendCommit = () => {
-		dispatch(
-			projectActions.enterTransferMode({
-				projectId,
-				mode: keyboardTransferOperationMode({
-					source: changesSectionOperand,
-					operationType: "into",
-				}),
-			}),
-		);
-		focusSelectionScope("outline");
+		if (selection?._tag !== "Commit") return;
+
+		commitAmendMutation.mutate({ commitId: selection.commitId });
 	};
 
 	const setCommitTarget = (relativeTo: RelativeTo) => {
@@ -558,7 +552,7 @@ const useOutlineTreeHotkeys = ({
 			callback: amendCommit,
 			options: {
 				conflictBehavior: "allow",
-				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit,
+				enabled: defaultOutlineHotkeysEnabled && isSelectedCommit && !commitAmendMutation.isPending,
 				target: ref,
 				meta: outlineHotkeys.amendCommit.meta,
 			},
@@ -1086,6 +1080,7 @@ const CommitRow: FC<
 	const commitDiscardMutation = useCommitDiscard();
 	const commitUncommitMutation = useCommitUncommit();
 	const commitRewordMutation = useCommitReword();
+	const commitAmendMutation = useCommitAmend({ projectId });
 	const branchCreateMutation = useBranchCreate();
 
 	const insertBlankCommit = (side: "above" | "below") => {
@@ -1208,20 +1203,11 @@ const CommitRow: FC<
 		});
 	};
 
-	const amendCommit = () => {
-		dispatch(
-			projectActions.enterTransferMode({
-				projectId,
-				mode: keyboardTransferOperationMode({
-					source: changesSectionOperand,
-					operationType: "into",
-				}),
-			}),
-		);
-		focusSelectionScope("outline");
-	};
-
 	const relativeTo: RelativeTo = { type: "commit", subject: commit.id };
+
+	const amendCommit = () => {
+		commitAmendMutation.mutate({ commitId: commit.id });
+	};
 
 	const setCommitTarget = () => {
 		dispatch(projectActions.setCommitTarget({ projectId, commitTarget: relativeTo }));
@@ -1245,6 +1231,7 @@ const CommitRow: FC<
 		nativeMenuItem({
 			label: "Amend Commit",
 			accelerator: toElectronAccelerator(outlineHotkeys.amendCommit.hotkey),
+			enabled: isDefaultMode && !commitAmendMutation.isPending,
 			onSelect: amendCommit,
 		}),
 		nativeMenuItem({
@@ -1695,10 +1682,17 @@ const Changes: FC<{
 			},
 		);
 	};
-	const amendCommit = () => {
-		if (!commitTarget) return;
 
-		commitAmendMutation.mutate({ relativeTo: commitTarget.relativeTo });
+	const amendCommit = () => {
+		if (!commitTarget || !headInfo) return;
+
+		const commitId = resolveRelativeTo({
+			headInfo,
+			relativeTo: commitTarget.relativeTo,
+		});
+		if (commitId === null) throw new Error("No commit to amend.");
+
+		commitAmendMutation.mutate({ commitId });
 	};
 	const submit: SubmitEventHandler = (event) => {
 		event.preventDefault();

@@ -1,5 +1,5 @@
 import { encodeBytes } from "#ui/api/bytes.ts";
-import { findCommitStackId, renameBranchInHeadInfo, resolveRelativeTo } from "#ui/api/ref-info.ts";
+import { findCommitStackId, renameBranchInHeadInfo } from "#ui/api/ref-info.ts";
 import {
 	changesInWorktreeQueryOptions,
 	getReviewQueryOptions,
@@ -229,15 +229,7 @@ export const useCommitAmend = ({ projectId }: { projectId: string }) => {
 	const dispatch = useAppDispatch();
 
 	return useMutation({
-		mutationFn: async ({ relativeTo }: { relativeTo: RelativeTo }) => {
-			const headInfo = await queryClient.fetchQuery(headInfoQueryOptions(projectId));
-
-			const commitId = resolveRelativeTo({
-				headInfo,
-				relativeTo,
-			});
-			if (commitId === null) throw new Error("No commit to amend.");
-
+		mutationFn: async ({ commitId }: { commitId: string }) => {
 			const worktreeChanges = await queryClient.fetchQuery(
 				changesInWorktreeQueryOptions(projectId),
 			);
@@ -251,15 +243,22 @@ export const useCommitAmend = ({ projectId }: { projectId: string }) => {
 			});
 		},
 		onSuccess: async (response, input, _ctx, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, projectId, response);
-
-			if (input.relativeTo.type === "commit" && response.newCommit !== null)
-				dispatch(
-					projectActions.setCommitTarget({
-						projectId,
-						commitTarget: { type: "commit", subject: response.newCommit },
-					}),
-				);
+			syncCoreCaches(
+				mutation.client,
+				dispatch,
+				projectId,
+				// Workaround for https://linear.app/gitbutler/issue/GB-1570/amending-commit-has-wrong-replaced-commits
+				{
+					...response,
+					workspace: {
+						...response.workspace,
+						replacedCommits: {
+							...response.workspace.replacedCommits,
+							...(response.newCommit !== null ? { [input.commitId]: response.newCommit } : {}),
+						},
+					},
+				},
+			);
 
 			if (response.rejectedChanges.length > 0)
 				toastManager.add(
