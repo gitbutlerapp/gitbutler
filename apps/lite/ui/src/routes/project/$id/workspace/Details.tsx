@@ -889,7 +889,6 @@ const PullRequestForm: FC<{
 }> = ({ projectId, reviewId, title, body }) => {
 	const updateReview = useUpdateReview();
 	const [draftBody, setDraftBody] = useState<string | null>(null);
-	const isDirty = draftBody !== body;
 
 	const reset = () => {
 		setDraftBody(body);
@@ -928,17 +927,13 @@ const PullRequestForm: FC<{
 			<div className={styles.prFormActions}>
 				<button
 					className={getButtonClassName({})}
-					disabled={!isDirty || updateReview.isPending}
+					disabled={updateReview.isPending}
 					onClick={reset}
 					type="button"
 				>
 					Reset
 				</button>
-				<button
-					className={getButtonClassName({})}
-					disabled={!isDirty || updateReview.isPending}
-					type="submit"
-				>
+				<button className={getButtonClassName({})} disabled={updateReview.isPending} type="submit">
 					{updateReview.isPending && <Icon name="spinner" />}
 					Update Pull Request
 				</button>
