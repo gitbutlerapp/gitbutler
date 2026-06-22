@@ -141,6 +141,10 @@ edition = "2024"
 rust-version = "1.95"
 
 [workspace.dependencies]
+# In-process Git transport stack (fetch/push/clone without shelling out to the
+# `git` binary), gated behind the `gitbutler.grit` config flag in `gitbutler-git`.
+# Patched to a local checkout below; see `[patch.crates-io]`.
+grit-lib = { version = "0.5", features = ["http-ureq"] }
 but-debug = { path = "crates/but-debug" }
 but = { path = "crates/but" }
 but-debugging = { path = "crates/but-debugging" }
@@ -316,6 +320,7 @@ smallvec = "1.15.1"
 [patch.crates-io]
 # Keep workspace crates that use the `gix 0.84` line on the same git revision.
 gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "66f70f3063724b4145b21c6691c4f57892c7a74e" }
+grit-lib = { path = "../grit/grit-lib" }
 
 [workspace.lints.clippy]
 # Note that `all` doesn't include everything, so extra lints should be added here.
