@@ -362,7 +362,8 @@ mod add {
             std::fs::write(&global_config, "[extensions]\n\trefStorage = reftable\n").unwrap();
 
             let outcome = temp_env::with_var("GIT_CONFIG_GLOBAL", Some(&global_config), || {
-                gitbutler_project::add_at_app_data_dir(data_dir.path(), &repo_dir).unwrap()
+                gitbutler_project::add_with_best_effort_at_app_data_dir(data_dir.path(), &repo_dir)
+                    .unwrap()
             });
             assert!(
                 matches!(outcome, AddProjectOutcome::Added(_)),
@@ -386,7 +387,10 @@ mod add {
 
             let outcome =
                 gitbutler_project::add_at_app_data_dir(data_dir.path(), &repo_dir).unwrap();
-            assert!(matches!(outcome, AddProjectOutcome::Added(_)));
+            assert!(
+                matches!(outcome, AddProjectOutcome::Added(_)),
+                "worktree configuration doesn't say that reftables should be used, only the common config"
+            );
         }
     }
 }
