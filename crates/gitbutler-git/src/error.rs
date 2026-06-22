@@ -36,4 +36,9 @@ pub enum Error<BE: std::error::Error + core::fmt::Debug + Send + Sync + 'static>
         "the force push was blocked because the remote branch contains commits that would be overwritten"
     )]
     ForcePushProtection(BE),
+    /// The in-process `grit-lib` transport backend (selected by the
+    /// `gitbutler.grit` config flag) failed. The string carries the
+    /// backend's formatted error chain.
+    #[error("grit transport error: {0}")]
+    Grit(String),
 }

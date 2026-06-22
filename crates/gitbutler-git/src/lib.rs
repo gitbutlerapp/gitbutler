@@ -13,6 +13,8 @@ mod context;
 mod error;
 /// utilities to execute a command
 pub mod executor;
+/// In-process Git transport via `grit-lib`, used when `gitbutler.grit` is set.
+pub mod grit;
 mod refspec;
 mod repository;
 
