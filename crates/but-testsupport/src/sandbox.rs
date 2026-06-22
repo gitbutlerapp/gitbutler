@@ -503,6 +503,7 @@ impl Sandbox {
                 irc: false,
                 watch_mode: "auto".into(),
                 write_commit_evolution: true,
+                tui_file_browser: false,
             },
             extra_csp: ExtraCsp {
                 hosts: vec![],

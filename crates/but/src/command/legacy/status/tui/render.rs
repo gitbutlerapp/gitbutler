@@ -58,15 +58,40 @@ pub(super) fn render_app(app: &App, frame: &mut Frame) {
     if let Mode::Details(details_mode) = &*app.mode
         && details_mode.full_screen
     {
-        let block = pane_block(app, true, Borders::BOTTOM);
-        let inner_area = block.inner(status_layout.status_area);
-        frame.render_widget(block, status_layout.status_area);
-        app.details.render(
-            matches!(app.modal, Some(Modal::Help { .. })),
-            app.has_focus,
-            inner_area,
-            frame,
-        );
+        if let Some(file_browser) = &app.file_browser {
+            let status_block = pane_block(app, true, Borders::BOTTOM);
+            let status_block_area = status_block.inner(status_layout.status_area);
+            frame.render_widget(status_block, status_layout.status_area);
+
+            let details_layout = Layout::horizontal([Constraint::Length(50), Constraint::Min(1)])
+                .split(status_block_area);
+
+            file_browser.render(details_layout[0], frame);
+
+            let details_block = Block::bordered()
+                .border_style(app.theme.border)
+                .border_type(BorderType::Plain)
+                .borders(Borders::LEFT);
+
+            let details_block_area = details_block.inner(details_layout[1]);
+            frame.render_widget(details_block, details_layout[1]);
+            app.details.render(
+                matches!(app.modal, Some(Modal::Help { .. })),
+                app.has_focus,
+                details_block_area,
+                frame,
+            );
+        } else {
+            let block = pane_block(app, true, Borders::BOTTOM);
+            let inner_area = block.inner(status_layout.status_area);
+            frame.render_widget(block, status_layout.status_area);
+            app.details.render(
+                matches!(app.modal, Some(Modal::Help { .. })),
+                app.has_focus,
+                inner_area,
+                frame,
+            );
+        }
     } else {
         let details_focused = matches!(&*app.mode, Mode::Details(..));
         let status_block = pane_block(app, !details_focused, Borders::BOTTOM);

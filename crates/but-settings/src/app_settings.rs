@@ -69,6 +69,8 @@ pub struct FeatureFlags {
     pub watch_mode: String,
     /// Experimental.
     pub write_commit_evolution: bool,
+    /// Show the experimental file browser in the TUI.
+    pub tui_file_browser: bool,
 }
 but_schemars::register_sdk_type!(FeatureFlags);
 
