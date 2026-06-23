@@ -32,6 +32,7 @@ export const Playground = meta.story({
 				"pop",
 				"gray",
 				"outline",
+				"outline-inverted",
 				"danger",
 				"ghost",
 				"ghost-inverted",
@@ -79,7 +80,7 @@ export const Playground = meta.story({
 
 export const Variants = meta.story({
 	render: () => (
-		<div style={{ display: "grid", gridTemplateColumns: "repeat(6, max-content)", gap: 12 }}>
+		<div style={{ display: "grid", gridTemplateColumns: "repeat(7, max-content)", gap: 12 }}>
 			<button type="button" className={getButtonClassName({ variant: "pop" })}>
 				Button
 			</button>
@@ -89,6 +90,11 @@ export const Variants = meta.story({
 			<button type="button" className={getButtonClassName({ variant: "outline" })}>
 				Button
 			</button>
+			<div style={invertedDemoStyle}>
+				<button type="button" className={getButtonClassName({ variant: "outline-inverted" })}>
+					Button
+				</button>
+			</div>
 			<button type="button" className={getButtonClassName({ variant: "ghost" })}>
 				Button
 			</button>
@@ -128,6 +134,15 @@ export const IconOnly = meta.story({
 			>
 				<Icon name="plus" />
 			</button>
+			<div style={invertedDemoStyle}>
+				<button
+					type="button"
+					className={getButtonClassName({ variant: "outline-inverted", iconOnly: true })}
+					aria-label="Outline inverted action"
+				>
+					<Icon name="plus" />
+				</button>
+			</div>
 			<button
 				type="button"
 				className={getButtonClassName({ variant: "ghost", iconOnly: true })}

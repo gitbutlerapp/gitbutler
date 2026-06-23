@@ -107,6 +107,15 @@
 	--button-hover-icon-opacity: 0.8;
 }
 
+.outline-inverted {
+	--button-border: 1px solid color-mix(in srgb, var(--fill-gray-fg) 30%, transparent);
+	--button-bg: transparent;
+	--button-fg: var(--text-1-invert);
+	--button-icon-opacity: 0.6;
+	--button-hover-bg: color-mix(in srgb, var(--scale-gray-100) 5%, transparent);
+	--button-hover-icon-opacity: 0.8;
+}
+
 .danger {
 	--button-border: none;
 	--button-bg: color-mix(in srgb, var(--scale-danger-50) 14%, transparent);
