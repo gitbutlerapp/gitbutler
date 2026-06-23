@@ -1862,6 +1862,8 @@ const Changes: FC<{
 							<Combobox.Trigger
 								className={classes("text-13", styles.commitTargetComboboxTrigger)}
 								aria-label={changesHotkeys.selectCommitTarget.meta.name}
+								// We pass `disabled` here because we want to disable the button, not
+								// the tooltip. Other props should be passed above.
 								render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
 							>
 								<Icon name="bullseye" size={14} />
