@@ -360,7 +360,7 @@ const FileRow: FC<
 							return (
 								<Tooltip.Root disableHoverablePopup>
 									<Tooltip.Trigger
-										className={styles.fileStatusIndicator}
+										className={styles.fileStatusBadge}
 										aria-label={tooltip}
 										data-char={label}
 										render={<span />}
