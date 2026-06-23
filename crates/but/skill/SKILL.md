@@ -195,15 +195,10 @@ If `but move` causes conflicts (conflicted commits in status):
 
 ## Notes
 
-- Prefer explicit IDs over file paths for mutations.
-- `--changes` accepts comma-separated values (`--changes a1,b2`) or repeated flags (`--changes a1 --changes b2`), not space-separated.
 - Use plain `but status` for commit order, branch/stack placement, and conflict overview. Escalate to `but status -fv` only when file/hunk IDs or per-commit file details are needed.
 - Read-only git inspection (`git log`, `git blame`, `git show --stat`) is allowed.
 - After a successful mutation, trust the workspace state it printed. Re-run `but status` or `but status -fv` only if that output lacks the ID you need or files changed since.
-- Use `but show <branch-id>` to see commit details for a branch, including per-commit file changes and line counts.
-- **Per-commit file counts**: `but status` does NOT include per-commit file counts. Use `but show <branch-id>` or `git show --stat <commit-hash>` to get them.
 - Avoid `--help` probes; use this skill and `references/reference.md` first. Only use `--help` after a command fails or required syntax is missing from the installed references.
-- Run `but skill check` only when command behavior diverges from this skill, not as routine preflight.
 - If `but` prints an `AGENT ACTION REQUIRED` skill warning, run the suggested command once, then reload/use the GitButler skill. If it repeats, report it instead of retrying.
 - For command syntax and flags: `references/reference.md`
 - For workspace model: `references/concepts.md`
