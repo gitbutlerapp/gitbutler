@@ -93,14 +93,10 @@
 
 .commitControls {
 	display: flex;
-	row-gap: 14px;
+	row-gap: 8px;
 	flex-direction: column;
-	margin-inline: -6px;
-	margin-block-end: -6px;
-	padding: 14px;
-	border-radius: var(--radius-l);
-	outline: 1px solid var(--border-2);
-	outline-offset: -1px;
+	padding: 8px;
+	border-radius: var(--radius-m);
 	background: var(--bg-1);
 }
 
@@ -135,9 +131,19 @@
 	}
 
 	& > :last-child {
-		border-left: 1px solid color-mix(in srgb, var(--fill-gray-bg) 30%, transparent);
 		border-start-start-radius: 0;
 		border-end-start-radius: 0;
+	}
+}
+
+.commitDropdownButtonSeparator {
+	display: grid;
+	width: 1px;
+	background-color: color-mix(in srgb, var(--scale-pop-60) 50%, transparent);
+
+	&:after {
+		background-color: color-mix(in srgb, var(--scale-pop-40) 20%, transparent);
+		content: "";
 	}
 }
 
