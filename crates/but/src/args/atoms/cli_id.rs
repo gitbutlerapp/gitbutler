@@ -206,7 +206,7 @@ impl CliIdArg {
         let kind = match id {
             CliId::Branch { .. } => "a branch",
             CliId::Commit { .. } => "a commit",
-            CliId::UncommittedHunkOrFile(..) => "an uncommitted file",
+            CliId::UncommittedHunkOrFile(..) => "an uncommitted change",
             CliId::PathPrefix { .. } => "a path",
             CliId::CommittedFile { .. } => "a committed file",
             CliId::Uncommitted { .. } => "uncommitted changes",
@@ -350,7 +350,7 @@ impl ResolvedCliIdArg {
         let kind = match self {
             ResolvedCliIdArg::Commit(commit) => return Ok(BranchOrCommit::Commit(commit)),
             ResolvedCliIdArg::Branch(branch) => return Ok(BranchOrCommit::Branch(branch)),
-            ResolvedCliIdArg::UncommittedHunkOrFile(..) => "uncommitted changes",
+            ResolvedCliIdArg::UncommittedHunkOrFile(..) => "an uncommitted change",
             ResolvedCliIdArg::PathPrefix => "a path",
             ResolvedCliIdArg::CommittedFile => "a committed file",
             ResolvedCliIdArg::Uncommitted => "uncommitted changes",
@@ -365,7 +365,7 @@ impl std::fmt::Display for ResolvedCliIdArg {
         match self {
             ResolvedCliIdArg::Commit(inner) => inner.to_hex_with_len(7).fmt(f),
             ResolvedCliIdArg::Branch(inner) => inner.fmt(f),
-            ResolvedCliIdArg::UncommittedHunkOrFile(..) => f.write_str("uncommitted changes"),
+            ResolvedCliIdArg::UncommittedHunkOrFile(..) => f.write_str("uncommitted file or hunk"),
             ResolvedCliIdArg::PathPrefix => f.write_str("path"),
             ResolvedCliIdArg::CommittedFile => f.write_str("committed file"),
             ResolvedCliIdArg::Uncommitted => f.write_str("uncommitted changes"),

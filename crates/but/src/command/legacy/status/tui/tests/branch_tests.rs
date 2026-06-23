@@ -12,7 +12,7 @@ fn branch_key_from_uncommitted_creates_new_branch() {
     let mut tui = test_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted] (no changes)"]);
 
     tui.input_then_render('b')
         .assert_current_line_eq(str!["┊╭┄br [c-branch-1] (no commits)"]);
@@ -95,7 +95,7 @@ fn deleted_branch_name_can_be_reused_without_restoring_old_branch() {
     tui.input_then_render('y');
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted] (no changes)"]);
 
     tui.input_then_render('b')
         .assert_current_line_eq(str!["┊╭┄br [c-branch-1] (no commits)"]);

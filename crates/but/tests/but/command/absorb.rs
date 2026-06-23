@@ -298,7 +298,7 @@ k0 a.txt│
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes]
+╭┄zz [uncommitted]
 ┊   nk M a.txt
 ┊
 ┊╭┄g0 [A]
@@ -350,7 +350,7 @@ Hint: you can run `but undo` to undo these changes
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   4822140 partial change to a.txt 3

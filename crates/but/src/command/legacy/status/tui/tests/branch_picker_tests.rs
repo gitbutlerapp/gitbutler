@@ -58,12 +58,12 @@ fn esc_closes_branch_picker_without_changing_selection() {
     let mut tui = test_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted] (no changes)"]);
 
     tui.input_then_render('t').assert_rendered_contains("> ");
 
     tui.input_then_render(KeyCode::Esc)
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted] (no changes)"]);
 }
 
 #[test]
@@ -125,15 +125,15 @@ fn goto_uncommitted_changes() {
     let mut tui = test_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted] (no changes)"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render('t');
 
-    tui.input_then_render("uncommitted changes");
+    tui.input_then_render("uncommitted");
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted] (no changes)"]);
 }

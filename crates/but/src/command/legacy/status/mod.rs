@@ -1210,7 +1210,7 @@ fn print_group(
         let mut line = Vec::from([
             Span::styled(cli_id.to_short_string().to_string(), t.cli_id),
             Span::raw(" ["),
-            Span::styled("uncommitted changes", t.info),
+            Span::styled("uncommitted", t.info),
             Span::raw("]"),
         ]);
         if assignments.is_empty() {

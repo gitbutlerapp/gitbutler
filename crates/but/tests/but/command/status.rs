@@ -529,7 +529,7 @@ fn status_upstream_and_merge_base_messages_truncate_when_unpaged() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A] [✓ upstream merges cleanly]
 ┊●   601614c add A
@@ -589,7 +589,7 @@ fn status_upstream_prunes_untracked_integrated_branch() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A] [⬆ integrated upstream]
 ┊●   756ee31 A-change
@@ -631,7 +631,7 @@ fn status_upstream_prunes_metadata_tracked_integrated_branches() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A] [⬆ integrated upstream]
 ┊●   756ee31 A-change
@@ -681,7 +681,7 @@ fn status_upstream_prunes_with_different_bases() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A] [✓ upstream merges cleanly]
 ┊●   756ee31 A-change
