@@ -13,5 +13,6 @@ pub struct Platform {
     pub use_source_message: bool,
     #[clap(long, short)]
     pub target: Option<CliIdArg>,
+    #[clap(required = true)]
     pub sources: Vec<CliIdArg>,
 }

@@ -41,8 +41,6 @@ Hint: run `but help` for all commands
 
 "#]]);
 
-    // TODO(david): handle --message
-
     env.but("_squash2 f55169f --target f63361f --message 'squashed'")
         .assert()
         .success()
@@ -490,6 +488,166 @@ Squashed branch 'a-branch-1' to create commit abb21d9
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_into_branches() {
+    let env = one_branch_three_commits();
+
+    env.but("_squash2 a-branch-1 --target a-branch-1")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Invalid commit. 'a-branch-1' is a branch
+
+Hint: --target must always target a commit
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_nothing() {
+    let env = one_branch_three_commits();
+
+    env.but("_squash2")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the following required arguments were not provided:
+  <SOURCES>...
+
+Usage: but _squash2 <SOURCES>...
+
+For more information, try '--help'.
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_only_target() {
+    let env = one_branch_three_commits();
+
+    env.but("_squash2 --target f55169f")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the following required arguments were not provided:
+  <SOURCES>...
+
+Usage: but _squash2 --target <TARGET> <SOURCES>...
+
+For more information, try '--help'.
+
+"#]]);
+}
+
+#[test]
+fn cannot_mix_sources() {
+    let env = one_branch_three_commits();
+
+    env.but("_squash2 a-branch-1 f55169f --target ea345ba")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot mix different types of sources. Got both branches and commits
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_multiple_commits_without_target() {
+    let env = one_branch_three_commits();
+
+    env.but("_squash2 f55169f ea345ba")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: When --target isn't used the source must be exactly one branch
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_multiple_branches_without_target() {
+    let env = one_branch_three_commits();
+
+    env.but("_commit2 --no-message -b second-branch")
+        .assert()
+        .success();
+
+    env.but("_squash2 a-branch-1 second-branch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: When --target isn't used the source must be exactly one branch
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_branch_with_just_one_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("one", "content of one");
+    env.but("_commit2 -m 'add one' one -b the-branch")
+        .assert()
+        .success();
+
+    env.but("_squash2 the-branch -u")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Need at least 2 commits to squash
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_commit_into_itself() {
+    let env = one_branch_three_commits();
+
+    env.but("_squash2 f55169f -t f55169f")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot squash a commit into itself
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_empty_branch_into_itself() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.but("branch new empty-branch").assert().success();
+
+    env.but("_squash2 empty-branch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot squash empty branch into itself
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_empty_branch_into_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.but("_commit2 -m 'target commit'").assert().success();
+
+    env.but("branch new empty-branch").assert().success();
+
+    env.but("_squash2 empty-branch -t 561a8d8")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Need at least 2 commits to squash
 
 "#]]);
 }

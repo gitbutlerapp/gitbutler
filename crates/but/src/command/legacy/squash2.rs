@@ -11,11 +11,12 @@ use nonempty::NonEmpty;
 use serde::Serialize;
 
 use crate::{
-    CliResult, IdMap,
+    CliResult, CliResultExt, IdMap,
     args::{
         atoms::{BranchArg, BranchOrCommit, Purpose},
         squash2::Platform,
     },
+    bad_input,
     command::legacy::reword2::RewordCommitOperation,
     theme::{self, Theme},
     utils::{CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils},
@@ -146,7 +147,9 @@ fn resolve(
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
 
     let (target, sources, branch_resolution) = if let Some(target) = target {
-        let target = target.resolve_commit_in_workspace(&repo, id_map)?;
+        let target = target
+            .resolve_commit_in_workspace(&repo, id_map)
+            .hint("--target must always target a commit")?;
         let sources = sources
             .into_iter()
             .map(|source| {
@@ -168,76 +171,82 @@ fn resolve(
         match (commit_sources.is_empty(), branch_sources.is_empty()) {
             (true, true) => {
                 // nothing to squash
-
-                todo!("empty")
+                unreachable!(
+                    "`sources` is required in `Platform` so we'll never get here with no commits and no branches"
+                )
             }
             (true, false) => {
                 // squash only branches
+                let mut sources = Vec::<FullName>::new();
+                let mut to_remove = Vec::<FullName>::new();
+                let mut commits_on_branch_sources = Vec::new();
+                for branch_name in branch_sources {
+                    let (source_branch_name, mut commits_on_branch) =
+                        resolve_commits_on_branch(&branch_name, &ws)?;
 
-                if branch_sources.is_empty() {
-                    todo!("empty")
-                } else {
-                    let mut sources = Vec::<FullName>::new();
-                    let mut to_remove = Vec::<FullName>::new();
-                    let mut commits_on_branch_sources = Vec::new();
-                    for branch_name in branch_sources {
-                        let (source_branch_name, mut commits_on_branch) =
-                            resolve_commits_on_branch(&branch_name, &ws)?;
-
-                        let mut target_commit_exists_on_branch = false;
-                        commits_on_branch.retain(|commit| {
-                            if *commit == target {
-                                target_commit_exists_on_branch = true;
-                                false
-                            } else {
-                                true
-                            }
-                        });
-                        commits_on_branch_sources.append(&mut commits_on_branch);
-
-                        if !target_commit_exists_on_branch {
-                            to_remove.push(source_branch_name.clone());
+                    let mut target_commit_exists_on_branch = false;
+                    commits_on_branch.retain(|commit| {
+                        if *commit == target {
+                            target_commit_exists_on_branch = true;
+                            false
+                        } else {
+                            true
                         }
-                        sources.push(source_branch_name);
+                    });
+                    commits_on_branch_sources.append(&mut commits_on_branch);
+
+                    if !target_commit_exists_on_branch {
+                        to_remove.push(source_branch_name.clone());
                     }
-
-                    let sources = NonEmpty::from_vec(sources)
-                        .expect("source branches is already checked to be non-empty");
-
-                    (
-                        target,
-                        commits_on_branch_sources,
-                        Some(BranchResolution { sources, to_remove }),
-                    )
+                    sources.push(source_branch_name);
                 }
+
+                let sources = NonEmpty::from_vec(sources)
+                    .expect("source branches is already checked to be non-empty");
+
+                (
+                    target,
+                    commits_on_branch_sources,
+                    Some(BranchResolution { sources, to_remove }),
+                )
             }
             (false, true) => {
                 // squash only commits
-
                 (target, commit_sources, None)
             }
             (false, false) => {
                 // mixed sources
-
-                todo!("mixed sources")
+                return Err(bad_input(
+                    "Cannot mix different types of sources. Got both branches and commits",
+                )
+                .into());
             }
         }
     } else {
-        // TODO(david): error handling
-        assert_eq!(sources.len(), 1);
+        match &sources[..] {
+            [source] => {
+                let branch = source.resolve_branch_in_workspace(&repo, id_map)?;
+                let (source_branch_name, mut sources) = resolve_commits_on_branch(&branch, &ws)?;
+                let Some(target) = sources.pop() else {
+                    return Err(bad_input("Cannot squash empty branch into itself").into());
+                };
 
-        let branch = sources[0].resolve_branch_in_workspace(&repo, id_map)?;
-        let (source_branch_name, mut sources) = resolve_commits_on_branch(&branch, &ws)?;
-        let target = sources.pop().expect("TODO");
-
-        (
-            target,
-            sources,
-            Some(BranchResolution {
-                sources: NonEmpty::new(source_branch_name),
-                to_remove: Vec::new(),
-            }),
-        )
+                (
+                    target,
+                    sources,
+                    Some(BranchResolution {
+                        sources: NonEmpty::new(source_branch_name),
+                        to_remove: Vec::new(),
+                    }),
+                )
+            }
+            _ => {
+                return Err(bad_input(
+                    "When --target isn't used the source must be exactly one branch",
+                )
+                .into());
+            }
+        }
     };
 
     let (how_to_combine_messages, reword_op) = if use_target_message {
