@@ -1494,7 +1494,7 @@ const ChangesSectionRow: FC<{
 			}}
 		>
 			<WorkspaceItemRowLabel heading>
-				Changes
+				{changes.length === 0 ? "Nothing to commit" : "Uncommitted changes"}
 				<span
 					className={classes("text-11", "text-semibold", workspaceItemRowStyles.changesCountBubble)}
 				>
