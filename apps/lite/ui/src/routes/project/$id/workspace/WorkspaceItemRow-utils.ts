@@ -1,5 +1,6 @@
 import { ButtonVariant, getButtonClassName } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
+import { Match } from "effect";
 import styles from "./WorkspaceItemRow.module.css";
 
 export const getWorkspaceItemRowButtonClassName = ({
@@ -19,12 +20,9 @@ export const getWorkspaceItemRowButtonClassName = ({
 			// which are instant (e.g. the row background).
 			disableTransition: true,
 		}),
-		(() => {
-			switch (variant) {
-				case "ghost":
-					return styles.buttonGhost;
-				case "outline":
-					return styles.buttonOutline;
-			}
-		})(),
+		Match.value(variant).pipe(
+			Match.when("ghost", () => styles.buttonGhost),
+			Match.when("outline", () => styles.buttonOutline),
+			Match.exhaustive,
+		),
 	);
