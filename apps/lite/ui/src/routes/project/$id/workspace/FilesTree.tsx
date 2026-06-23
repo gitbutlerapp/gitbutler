@@ -308,7 +308,7 @@ const FileRow: FC<
 					</Tooltip.Root>
 				</div>
 				<WorkspaceItemRowLabelContainer>
-					<WorkspaceItemRowLabel>{relativePath}</WorkspaceItemRowLabel>
+					<WorkspaceItemRowLabel singleLine>{relativePath}</WorkspaceItemRowLabel>
 				</WorkspaceItemRowLabelContainer>
 
 				{outlineMode._tag === "Default" && (

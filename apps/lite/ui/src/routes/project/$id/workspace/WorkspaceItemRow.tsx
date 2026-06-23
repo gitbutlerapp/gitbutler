@@ -52,15 +52,15 @@ export const WorkspaceItemRowLabelContainer: FC<ComponentProps<"div">> = (props)
 	<div {...props} className={classes(props.className, styles.labelContainer)} />
 );
 
-export const WorkspaceItemRowLabel: FC<{ heading?: boolean } & ComponentProps<"div">> = ({
-	heading,
-	...props
-}) => (
+export const WorkspaceItemRowLabel: FC<
+	{ heading?: boolean; singleLine?: boolean } & ComponentProps<"div">
+> = ({ heading, singleLine, ...props }) => (
 	<div
 		{...props}
 		className={classes(
 			props.className,
 			styles.label,
+			singleLine && styles.labelSingleLine,
 			heading ? "text-14" : "text-13",
 			heading && "text-bold",
 		)}
