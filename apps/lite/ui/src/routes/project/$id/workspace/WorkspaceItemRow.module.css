@@ -50,7 +50,10 @@
 }
 
 .labelContainer {
+	display: flex;
+	column-gap: 6px;
 	flex-grow: 1;
+	align-items: center;
 	padding-block: 6px;
 }
 
@@ -107,7 +110,6 @@
 }
 
 .changesCountBubble {
-	align-self: center;
 	background-color: var(--fill-gray-bg);
 	color: var(--fill-gray-fg);
 
@@ -119,7 +121,6 @@
 
 .lineStatsGroup {
 	display: inline-flex;
-	align-self: center;
 }
 
 .lineStatsBubble {
