@@ -222,6 +222,200 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn squash_whole_branch_into_commit_on_same_branch() {
+    let env = one_branch_three_commits();
+
+    env.but("_squash2 a-branch-1 -t f63361f --use-target-message")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Squashed branch 'a-branch-1' to create commit 17b59a2
+
+"#]]);
+
+    env.but("status -fv")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄br [a-branch-1]
+┊● 17b59a2 author 2000-01-01 00:00:00 +0000
+┊│     add two
+┊│     17:kl A one
+┊│     17:or A three
+┊│     17:tw A two
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn squash_whole_branch_into_commit_on_other_branch() {
+    let env = one_branch_three_commits();
+
+    env.but("_commit2 -b target-branch -m 'new commit on new branch'")
+        .assert()
+        .success();
+
+    env.file("file", "new file");
+    env.but("_commit2 file -b add-file-branch -m 'add file'")
+        .assert()
+        .success();
+
+    env.but("status -fv")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [a-branch-1]
+┊● f55169f author 2000-01-01 00:00:00 +0000
+┊│     add three
+┊│     f5:or A three
+┊● f63361f author 2000-01-01 00:00:00 +0000
+┊│     add two
+┊│     f6:tw A two
+┊● ea345ba author 2000-01-01 00:00:00 +0000
+┊│     add one
+┊│     ea:kl A one
+├╯
+┊
+┊╭┄ta [target-branch]
+┊● d1d6a19 author 2000-01-01 00:00:00 +0000 (no changes)
+┊│     new commit on new branch
+├╯
+┊
+┊╭┄fi [add-file-branch]
+┊● e528488 author 2000-01-01 00:00:00 +0000
+┊│     add file
+┊│     e5:qs A file
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_squash2 a-branch-1 add-file-branch -t d1d6a19 --use-target-message")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Squashed branches 'a-branch-1', 'add-file-branch' to create commit 44aa30a
+
+"#]]);
+
+    env.but("status -fv")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄ta [target-branch]
+┊● 44aa30a author 2000-01-01 00:00:00 +0000
+┊│     new commit on new branch
+┊│     44:qs A file
+┊│     44:kl A one
+┊│     44:or A three
+┊│     44:tw A two
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn squash_multiple_branches_into_commit_on_one_of_the_branch_sources() {
+    let env = one_branch_three_commits();
+
+    env.but("_commit2 -b target-branch -m 'target commit'")
+        .assert()
+        .success();
+    env.but("_commit2 -b target-branch -m 'random commit on target-branch'")
+        .assert()
+        .success();
+
+    env.file("file", "new file");
+    env.but("_commit2 file -b add-file-branch -m 'add file'")
+        .assert()
+        .success();
+
+    env.but("status -fv")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [a-branch-1]
+┊● f55169f author 2000-01-01 00:00:00 +0000
+┊│     add three
+┊│     f5:or A three
+┊● f63361f author 2000-01-01 00:00:00 +0000
+┊│     add two
+┊│     f6:tw A two
+┊● ea345ba author 2000-01-01 00:00:00 +0000
+┊│     add one
+┊│     ea:kl A one
+├╯
+┊
+┊╭┄ta [target-branch]
+┊● a489b93 author 2000-01-01 00:00:00 +0000 (no changes)
+┊│     random commit on target-branch
+┊● 561a8d8 author 2000-01-01 00:00:00 +0000 (no changes)
+┊│     target commit
+├╯
+┊
+┊╭┄fi [add-file-branch]
+┊● e528488 author 2000-01-01 00:00:00 +0000
+┊│     add file
+┊│     e5:qs A file
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_squash2 target-branch a-branch-1 add-file-branch -t 561a8d8 --use-target-message")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Squashed branches 'target-branch', 'a-branch-1', 'add-file-branch' to create commit 0653794
+
+"#]]);
+
+    env.but("status -fv")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄ta [target-branch]
+┊● 0653794 author 2000-01-01 00:00:00 +0000
+┊│     target commit
+┊│     06:qs A file
+┊│     06:kl A one
+┊│     06:or A three
+┊│     06:tw A two
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
 fn squash_reword_with_editor() {
     let env = one_branch_three_commits();
 
