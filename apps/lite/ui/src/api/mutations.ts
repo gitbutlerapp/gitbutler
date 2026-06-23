@@ -248,29 +248,6 @@ export const useSetReviewDraftiness = () => {
 	});
 };
 
-export const useBranchCheckoutNew = () => {
-	const dispatch = useAppDispatch();
-	const toastManager = Toast.useToastManager();
-
-	return useMutation({
-		mutationFn: window.lite.branchCheckoutNew,
-		onSuccess: async (response, input, _context, mutation) => {
-			syncCoreCaches(mutation.client, dispatch, input.projectId, response);
-		},
-		onError: (error) => {
-			// oxlint-disable-next-line no-console
-			console.error(error);
-
-			toastManager.add({
-				type: "error",
-				title: "Failed to switch to new branch",
-				description: errorMessageForToast(error),
-				priority: "high",
-			});
-		},
-	});
-};
-
 export const useOpenInEditor = () => {
 	const toastManager = Toast.useToastManager();
 
