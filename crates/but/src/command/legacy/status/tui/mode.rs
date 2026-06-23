@@ -11,7 +11,7 @@ use ratatui_textarea::TextArea;
 use crate::{
     CliId,
     command::legacy::status::tui::{Markable, Marks, MessageOnDrop},
-    id::{ShortId, UncommittedCliId},
+    id::{ShortId, UncommittedHunkOrFile},
     theme::Theme,
 };
 
@@ -56,7 +56,7 @@ impl Mode {
             },
             Mode::Commit(commit_mode) => match &*commit_mode.source {
                 CommitSource::Marks(marks) => Some(marks),
-                CommitSource::Unassigned(..)
+                CommitSource::UncommittedArea(..)
                 | CommitSource::Uncommitted(..)
                 | CommitSource::Stack(..) => None,
             },
@@ -235,13 +235,13 @@ pub(super) struct MoveMode {
 #[expect(clippy::large_enum_variant)]
 pub(super) enum CommitSource {
     Marks(Marks),
-    Unassigned(UnassignedCommitSource),
-    Uncommitted(UncommittedCliId),
+    UncommittedArea(UncommittedAreaCommitSource),
+    Uncommitted(UncommittedHunkOrFile),
     Stack(StackCommitSource),
 }
 
 #[derive(Debug)]
-pub(super) struct UnassignedCommitSource {
+pub(super) struct UncommittedAreaCommitSource {
     pub(super) id: ShortId,
 }
 
@@ -253,8 +253,12 @@ pub(super) struct StackCommitSource {
 impl CommitSource {
     pub fn try_new(id: CliId) -> Option<Self> {
         match id {
-            CliId::Unassigned { id } => Some(Self::Unassigned(UnassignedCommitSource { id })),
-            CliId::Uncommitted(uncommitted_cli_id) => Some(Self::Uncommitted(uncommitted_cli_id)),
+            CliId::Uncommitted { id } => {
+                Some(Self::UncommittedArea(UncommittedAreaCommitSource { id }))
+            }
+            CliId::UncommittedHunkOrFile(uncommitted_cli_id) => {
+                Some(Self::Uncommitted(uncommitted_cli_id))
+            }
             CliId::Stack { stack_id, .. } => Some(Self::Stack(StackCommitSource { stack_id })),
             CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
@@ -268,15 +272,15 @@ impl CommitSource {
             CommitSource::Marks(marks) => {
                 Markable::try_from_cli_id(other).is_some_and(|markable| marks.contains(&markable))
             }
-            CommitSource::Unassigned(UnassignedCommitSource { id: lhs_id }) => {
-                if let CliId::Unassigned { id: rhs_id } = other {
+            CommitSource::UncommittedArea(UncommittedAreaCommitSource { id: lhs_id }) => {
+                if let CliId::Uncommitted { id: rhs_id } = other {
                     lhs_id == rhs_id
                 } else {
                     false
                 }
             }
             CommitSource::Uncommitted(lhs) => {
-                if let CliId::Uncommitted(rhs) = other {
+                if let CliId::UncommittedHunkOrFile(rhs) = other {
                     lhs == rhs
                 } else {
                     false
@@ -361,12 +365,12 @@ impl TryFrom<CliId> for MoveSource {
         match id {
             CliId::Branch { name, id, stack_id } => Ok(Self::Branch { name, id, stack_id }),
             CliId::Commit { commit_id, id } => Ok(Self::Commit { commit_id, id }),
-            CliId::Uncommitted(uncommitted_cli_id) => {
+            CliId::UncommittedHunkOrFile(uncommitted_cli_id) => {
                 anyhow::bail!("cannot move: {:?}", uncommitted_cli_id.id)
             }
             CliId::PathPrefix { id, .. }
             | CliId::CommittedFile { id, .. }
-            | CliId::Unassigned { id }
+            | CliId::Uncommitted { id }
             | CliId::Stack { id, .. } => {
                 anyhow::bail!("cannot move: {id:?}")
             }
@@ -423,11 +427,11 @@ impl ReorderStackSource {
                 stack_id.is_some_and(|stack| self.stack == stack) && self.branch == *name
             }
             CliId::Stack { .. }
-            | CliId::Uncommitted(..)
+            | CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Commit { .. }
-            | CliId::Unassigned { .. } => false,
+            | CliId::Uncommitted { .. } => false,
         }
     }
 }

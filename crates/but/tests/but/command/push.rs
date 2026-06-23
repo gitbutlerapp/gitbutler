@@ -135,7 +135,7 @@ fn push_refuses_conflicted_commits() -> anyhow::Result<()> {
         .and_then(|commit| commit["cliId"].as_str())
         .expect("should have first commit cliId");
 
-    // Rub the first commit to unassigned (zz) - this should create a conflict
+    // Rub the first commit to uncommitted (zz) - this should create a conflict
     // in the second commit since it depends on the first
     env.but(format!("rub {first_commit_id} zz"))
         .assert()

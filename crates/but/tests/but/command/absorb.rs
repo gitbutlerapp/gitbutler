@@ -6,8 +6,8 @@ use crate::{
     utils::{CommandExt, Sandbox},
 };
 
-fn find_unassigned_cli_id(status: &serde_json::Value, path: &str) -> Option<String> {
-    status["unassignedChanges"]
+fn find_uncommitted_cli_id(status: &serde_json::Value, path: &str) -> Option<String> {
+    status["uncommittedChanges"]
         .as_array()?
         .iter()
         .find(|change| change["filePath"].as_str() == Some(path))
@@ -28,7 +28,7 @@ fn uncommitted_file() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [
+  "uncommittedChanges": [
     {
       "cliId": "nk",
       "filePath": "a.txt",
@@ -78,7 +78,7 @@ Hint: you can run `but undo` to undo these changes
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [],
+  "uncommittedChanges": [],
 ...
 
 "#]]);
@@ -156,7 +156,7 @@ Hint: you can run `but undo` to undo these changes
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [
+  "uncommittedChanges": [
     {
       "cliId": "nk",
       "filePath": "a.txt",
@@ -298,7 +298,7 @@ k0 a.txt│
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   nk M a.txt
 ┊
 ┊╭┄g0 [A]
@@ -350,7 +350,7 @@ Hint: you can run `but undo` to undo these changes
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   4822140 partial change to a.txt 3
@@ -403,8 +403,8 @@ fn concurrent_absorb_of_independent_files_succeeds() -> anyhow::Result<()> {
     commit_file_with_worktree_changes_as_two_hunks(&env, "B", "b.txt");
 
     let status = util::status_json(&env)?;
-    let id_a = find_unassigned_cli_id(&status, "a.txt").expect("should find a.txt CLI ID");
-    let id_b = find_unassigned_cli_id(&status, "b.txt").expect("should find b.txt CLI ID");
+    let id_a = find_uncommitted_cli_id(&status, "a.txt").expect("should find a.txt CLI ID");
+    let id_b = find_uncommitted_cli_id(&status, "b.txt").expect("should find b.txt CLI ID");
 
     let child_a = util::but_std_cmd(&env, &format!("absorb {id_a}")).spawn()?;
     let child_b = util::but_std_cmd(&env, &format!("absorb {id_b}")).spawn()?;
@@ -425,7 +425,7 @@ fn concurrent_absorb_of_independent_files_succeeds() -> anyhow::Result<()> {
 
     let status = util::status_json(&env)?;
     assert_eq!(
-        status["unassignedChanges"]
+        status["uncommittedChanges"]
             .as_array()
             .map(|changes| changes.len())
             .unwrap_or(0),
@@ -509,7 +509,7 @@ Dry run complete. No changes were made.
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [
+  "uncommittedChanges": [
     {
       "cliId": "nk",
       "filePath": "a.txt",

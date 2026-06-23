@@ -57,13 +57,13 @@ impl FileBrowser {
         self.tree.0.clear();
 
         let paths = match selection {
-            CliId::Unassigned { .. } => but_api::diff::changes_in_worktree(ctx)?
+            CliId::Uncommitted { .. } => but_api::diff::changes_in_worktree(ctx)?
                 .worktree_changes
                 .changes
                 .into_iter()
                 .map(|change| change.path_bytes.to_vec().into_path_buf_lossy())
                 .collect::<Vec<_>>(),
-            CliId::Uncommitted(..)
+            CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Branch { .. }

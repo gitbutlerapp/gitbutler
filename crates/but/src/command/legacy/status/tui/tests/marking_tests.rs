@@ -45,7 +45,7 @@ fn marking_branch_toggles_all_commits_in_that_branch() {
 }
 
 #[test]
-fn marking_unassigned_toggles_all_unassigned_files() {
+fn marking_uncommitted_toggles_all_uncommitted_files() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.file("a.txt", "content");
     env.file("b.txt", "content");
@@ -53,10 +53,10 @@ fn marking_unassigned_toggles_all_unassigned_files() {
     let mut tui = test_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
 
     tui.input_then_render(' ')
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊✔︎  nk A a.txt"]);

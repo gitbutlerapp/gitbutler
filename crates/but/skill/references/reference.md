@@ -31,7 +31,7 @@ but status --upstream   # Show upstream relationship
 Shows:
 
 - Applied/unapplied branches in workspace
-- Unassigned and assigned changes
+- Uncommitted and assigned changes
 - Commits on each stack
 - CLI IDs to use in other commands
 
@@ -225,13 +225,13 @@ Universal editing primitive that does different operations based on types.
 but rub <file> <commit>      # Amend file into commit
 but rub <commit> <commit>    # Squash commits together
 but rub <commit> <branch>    # Move commit to branch
-but rub <commit> zz          # Undo commit to unassigned
-but rub zz <commit>          # Amend all unassigned changes into commit
+but rub <commit> zz          # Undo commit to uncommitted
+but rub zz <commit>          # Amend all uncommitted changes into commit
 but rub <file-in-commit> zz  # Uncommit specific file from its commit
 but rub <file-in-commit> <commit>  # Move file from one commit to another
 ```
 
-The core "rub two things together" operation. `zz` is a special target meaning "unassigned" (no branch).
+The core "rub two things together" operation. `zz` is a special target meaning "uncommitted" (no branch).
 
 ### `but squash <commits>`
 
@@ -288,13 +288,13 @@ Comma-separated multi-source moves are valid for commit sources only, not branch
 
 ### `but uncommit <source>`
 
-Uncommit changes back to unassigned changes.
+Uncommit changes back to uncommitted changes.
 
 ```bash
 but uncommit <commit-id>      # Uncommit entire commit
 but uncommit <file-id>        # Uncommit specific file from its commit
 but uncommit <commit-id> --diff  # Also show resulting dirty diff with hunk IDs
-but uncommit <commit-id> -d   # Discard committed changes instead of moving to unassigned
+but uncommit <commit-id> -d   # Discard committed changes instead of moving to uncommitted
 but uncommit <file-id> --discard  # Discard committed file changes completely
 ```
 

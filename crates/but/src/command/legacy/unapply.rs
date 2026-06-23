@@ -46,12 +46,14 @@ pub fn handle(
             CliId::Commit { .. } => {
                 bail!("Cannot unapply a commit. Please specify a branch or stack identifier.");
             }
-            CliId::Uncommitted(_) | CliId::CommittedFile { .. } | CliId::PathPrefix { .. } => {
+            CliId::UncommittedHunkOrFile(_)
+            | CliId::CommittedFile { .. }
+            | CliId::PathPrefix { .. } => {
                 bail!("Cannot unapply a file. Please specify a branch or stack identifier.");
             }
-            CliId::Unassigned { .. } => {
+            CliId::Uncommitted { .. } => {
                 bail!(
-                    "Cannot unapply the unassigned area. Please specify a branch or stack identifier."
+                    "Cannot unapply the uncommitted area. Please specify a branch or stack identifier."
                 );
             }
         }

@@ -37,7 +37,7 @@ fn integrate_pull_rebase_applies_and_snapshots_before_and_after() -> anyhow::Res
     ");
     insta::assert_snapshot!(pretty_status(&env)?, @r#"
     {
-      "unassignedChanges": [],
+      "uncommittedChanges": [],
       "stacks": [],
       "mergeBase": {
         "cliId": "",
@@ -87,7 +87,7 @@ Updated branch A.
     ");
     insta::assert_snapshot!(pretty_status(&env)?, @r#"
     {
-      "unassignedChanges": [],
+      "uncommittedChanges": [],
       "stacks": [],
       "mergeBase": {
         "cliId": "",
@@ -197,7 +197,7 @@ o 0dc3733
     ");
     insta::assert_snapshot!(before_status, @r#"
     {
-      "unassignedChanges": [],
+      "uncommittedChanges": [],
       "stacks": [],
       "mergeBase": {
         "cliId": "",
@@ -470,7 +470,7 @@ fn integrate_errors_cleanly_without_tracking_branch() -> anyhow::Result<()> {
     ");
     insta::assert_snapshot!(pretty_status(&env)?, @r#"
     {
-      "unassignedChanges": [],
+      "uncommittedChanges": [],
       "stacks": [],
       "mergeBase": {
         "cliId": "",

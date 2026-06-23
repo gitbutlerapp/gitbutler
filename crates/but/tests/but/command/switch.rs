@@ -237,7 +237,7 @@ fn assert_workspace_status(env: &crate::utils::Sandbox) {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   9477ae7 add A

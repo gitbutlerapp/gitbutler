@@ -106,7 +106,7 @@ fn json_shows_paths_as_strings() {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [
+  "uncommittedChanges": [
     {
       "cliId": "qu",
       "filePath": "test-file.txt",
@@ -227,7 +227,7 @@ fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 {
-  "unassignedChanges": [
+  "uncommittedChanges": [
     {
       "cliId": "nk",
       "filePath": "a.txt",
@@ -529,7 +529,7 @@ fn status_upstream_and_merge_base_messages_truncate_when_unpaged() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A] [✓ upstream merges cleanly]
 ┊●   601614c add A
@@ -589,7 +589,7 @@ fn status_upstream_prunes_untracked_integrated_branch() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A] [⬆ integrated upstream]
 ┊●   756ee31 A-change
@@ -631,7 +631,7 @@ fn status_upstream_prunes_metadata_tracked_integrated_branches() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A] [⬆ integrated upstream]
 ┊●   756ee31 A-change
@@ -681,7 +681,7 @@ fn status_upstream_prunes_with_different_bases() {
         .success()
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A] [✓ upstream merges cleanly]
 ┊●   756ee31 A-change

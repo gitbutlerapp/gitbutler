@@ -58,12 +58,12 @@ fn esc_closes_branch_picker_without_changing_selection() {
     let mut tui = test_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 
     tui.input_then_render('t').assert_rendered_contains("> ");
 
     tui.input_then_render(KeyCode::Esc)
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 }
 
 #[test]
@@ -118,22 +118,22 @@ fn pick_and_goto_noop_when_commit_file_list_open() {
 }
 
 #[test]
-fn goto_unassigned_changes() {
+fn goto_uncommitted_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks");
     env.setup_metadata(&["A", "B"]);
 
     let mut tui = test_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render('t');
 
-    tui.input_then_render("unassigned changes");
+    tui.input_then_render("uncommitted changes");
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 }

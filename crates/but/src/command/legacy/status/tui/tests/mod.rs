@@ -239,7 +239,7 @@ fn basic_cursor_movement() {
 
     tui.reload()
         .assert_rendered_term_svg_eq(file!["snapshots/basic_cursor_movement_001.svg"])
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -268,7 +268,7 @@ fn basic_cursor_movement() {
         KeyCode::Up,
         KeyCode::Up,
     ])
-    .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+    .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 }
 
 #[test]
@@ -279,7 +279,7 @@ fn movement_aliases_j_k() {
     let mut tui = test_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 
     tui.input_then_render('j')
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -291,7 +291,7 @@ fn movement_aliases_j_k() {
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render('k')
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 }
 
 #[test]
@@ -302,7 +302,7 @@ fn section_jumps_shift_j_k() {
     let mut tui = test_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -314,7 +314,7 @@ fn section_jumps_shift_j_k() {
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, 'K'))
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 }
 
 #[test]
@@ -325,7 +325,7 @@ fn shift_k_from_commit_moves_to_current_section_header_first() {
     let mut tui = test_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   9477ae7 add A"]);
@@ -334,7 +334,7 @@ fn shift_k_from_commit_moves_to_current_section_header_first() {
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, 'K'))
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 }
 
 #[test]
@@ -345,7 +345,7 @@ fn shift_k_from_second_stack_commit_moves_to_its_header() {
     let mut tui = test_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, 'J'))
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -378,7 +378,7 @@ fn cursor_movement_scrolls_viewport_down() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/cursor_movement_scrolls_viewport_down_001.svg"
         ])
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down, KeyCode::Down, KeyCode::Down])
         .assert_rendered_term_svg_eq(file![
@@ -411,7 +411,7 @@ fn cursor_movement_scrolls_viewport_up() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/cursor_movement_scrolls_viewport_up_002.svg"
         ])
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 }
 
 #[test]
@@ -562,7 +562,7 @@ fn creating_empty_commits() {
 
     tui.reload()
         .assert_rendered_term_svg_eq(file!["snapshots/creating_empty_commits_001.svg"])
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -585,7 +585,7 @@ fn inline_reword() {
 
     tui.reload()
         .assert_rendered_term_svg_eq(file!["snapshots/inline_reword_001.svg"])
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -637,12 +637,12 @@ fn esc_leaves_rub_mode() {
     let mut tui = test_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊   vo A test.txt"]);
@@ -765,10 +765,10 @@ fn mode_key_c_enters_and_escape_leaves_commit_mode() {
         .assert_rendered_term_svg_eq(file![
             "snapshots/mode_toggle_key_c_enters_and_leaves_commit_mode_001.svg"
         ])
-        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [unassigned changes]"]);
+        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted changes]"]);
 
     tui.input_then_render(KeyCode::Esc)
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
 }
 
 #[test]
@@ -814,13 +814,13 @@ fn rubbing() {
 
     tui.reload()
         .assert_rendered_term_svg_eq(file!["snapshots/rubbing_001.svg"])
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 
     tui.env().file("test.txt", "content");
 
     tui.reload()
         .assert_rendered_term_svg_eq(file!["snapshots/rubbing_002.svg"])
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊   vo A test.txt"]);
@@ -858,7 +858,7 @@ fn rubbing() {
         KeyCode::Up,
         KeyCode::Up,
     ])
-    .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+    .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 
     tui.input_then_render((KeyModifiers::SHIFT, 'F'))
         .assert_rendered_term_svg_eq(file!["snapshots/rubbing_003.svg"]);
@@ -1089,7 +1089,7 @@ fn pick_changes_mode() {
     };
 
     for id in &cli_ids {
-        assert!(matches!(dbg!(id), CliId::Uncommitted(..)));
+        assert!(matches!(dbg!(id), CliId::UncommittedHunkOrFile(..)));
     }
     assert_eq!(cli_ids.len(), 1);
 }
@@ -1152,7 +1152,7 @@ fn stays_in_pick_change_mode_after_full_screen_details() {
     };
 
     for id in &cli_ids {
-        assert!(matches!(dbg!(id), CliId::Uncommitted(..)));
+        assert!(matches!(dbg!(id), CliId::UncommittedHunkOrFile(..)));
     }
     assert_eq!(cli_ids.len(), 1);
 }
@@ -1239,5 +1239,5 @@ fn jumping_up_down_non_normal_mode() {
     tui.input_then_render((KeyModifiers::CONTROL, 'd'))
         .assert_current_line_eq("┊●   << amend >> 9d9282f commit #21 (no changes)");
     tui.input_then_render((KeyModifiers::CONTROL, 'u'))
-        .assert_current_line_eq("╭┄<< source >> << noop >> zz [unassigned changes]");
+        .assert_current_line_eq("╭┄<< source >> << noop >> zz [uncommitted changes]");
 }

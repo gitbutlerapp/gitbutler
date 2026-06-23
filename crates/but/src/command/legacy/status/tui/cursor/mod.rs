@@ -177,8 +177,8 @@ impl Cursor {
             }
         }
 
-        if Self::select_unassigned(lines).is_some() {
-            return Some(SelectAfterReload::Unassigned);
+        if Self::select_uncommitted(lines).is_some() {
+            return Some(SelectAfterReload::Uncommitted);
         }
 
         None
@@ -263,8 +263,8 @@ impl Cursor {
             }
         }
 
-        if Self::select_unassigned(lines).is_some() {
-            return Some(SelectAfterReload::Unassigned);
+        if Self::select_uncommitted(lines).is_some() {
+            return Some(SelectAfterReload::Uncommitted);
         }
 
         None
@@ -321,7 +321,9 @@ impl Cursor {
         lines: &[StatusOutputLine],
     ) -> Option<Self> {
         let idx = lines.iter().position(|line| {
-            if let Some(CliId::Uncommitted(uncommitted)) = line.data.cli_id().map(|id| &**id) {
+            if let Some(CliId::UncommittedHunkOrFile(uncommitted)) =
+                line.data.cli_id().map(|id| &**id)
+            {
                 let assignment = uncommitted.hunk_assignments.first();
                 &**assignment.path_bytes == path && assignment.stack_id == stack_id
             } else {
@@ -331,12 +333,12 @@ impl Cursor {
         Some(Self(idx))
     }
 
-    /// Select the first line that points to the unassigned section.
-    pub(super) fn select_unassigned(lines: &[StatusOutputLine]) -> Option<Self> {
+    /// Select the first line that points to the uncommitted section.
+    pub(super) fn select_uncommitted(lines: &[StatusOutputLine]) -> Option<Self> {
         let idx = lines.iter().position(|line| {
             matches!(
                 line.data.cli_id().map(|id| &**id),
-                Some(CliId::Unassigned { .. })
+                Some(CliId::Uncommitted { .. })
             )
         })?;
         Some(Self(idx))
@@ -356,9 +358,9 @@ impl Cursor {
 
     /// Selects the previous selectable row and returns it as a reload target.
     ///
-    /// Falls back to selecting the unassigned section if there is no previous
+    /// Falls back to selecting the uncommitted section if there is no previous
     /// selectable row.
-    pub(super) fn select_previous_cli_id_or_unassigned(
+    pub(super) fn select_previous_cli_id_or_uncommitted(
         self,
         lines: &[StatusOutputLine],
         mode: &Mode,
@@ -368,7 +370,7 @@ impl Cursor {
             .and_then(|cursor| cursor.selected_line(lines))
             .and_then(|line| line.data.cli_id().cloned())
             .map(SelectAfterReload::CliId)
-            .unwrap_or(SelectAfterReload::Unassigned)
+            .unwrap_or(SelectAfterReload::Uncommitted)
     }
 
     pub(super) fn selection_cli_id_for_reload(
@@ -383,11 +385,11 @@ impl Cursor {
                 Some(CliId::CommittedFile { commit_id, .. }) => {
                     show_files.show_files_for(*commit_id)
                 }
-                Some(CliId::Uncommitted(..))
+                Some(CliId::UncommittedHunkOrFile(..))
                 | Some(CliId::PathPrefix { .. })
                 | Some(CliId::Branch { .. })
                 | Some(CliId::Commit { .. })
-                | Some(CliId::Unassigned { .. })
+                | Some(CliId::Uncommitted { .. })
                 | Some(CliId::Stack { .. }) => matches!(show_files, FilesStatusFlag::All),
                 None => false,
             };
@@ -409,12 +411,12 @@ impl Cursor {
                 StatusOutputLineData::Commit { .. }
                 | StatusOutputLineData::Branch { .. }
                 | StatusOutputLineData::StagedChanges { .. }
-                | StatusOutputLineData::UnassignedChanges { .. } => line.data.cli_id(),
+                | StatusOutputLineData::UncommittedChanges { .. } => line.data.cli_id(),
                 StatusOutputLineData::UpdateNotice
                 | StatusOutputLineData::Connector
                 | StatusOutputLineData::BetweenStacks
                 | StatusOutputLineData::StagedFile { .. }
-                | StatusOutputLineData::UnassignedFile { .. }
+                | StatusOutputLineData::UncommittedFile { .. }
                 | StatusOutputLineData::CommitMessage
                 | StatusOutputLineData::EmptyCommitMessage
                 | StatusOutputLineData::File { .. }
@@ -617,8 +619,8 @@ fn first_selectable_in_section(
 fn select_after_reload_for_cli_id(cli_id: &Arc<CliId>) -> SelectAfterReload {
     match &**cli_id {
         CliId::Commit { commit_id, .. } => SelectAfterReload::Commit(*commit_id),
-        CliId::Unassigned { .. }
-        | CliId::Uncommitted(..)
+        CliId::Uncommitted { .. }
+        | CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
         | CliId::CommittedFile { .. }
         | CliId::Branch { .. }
@@ -631,13 +633,13 @@ fn is_discard_commit_boundary(line: &StatusOutputLine) -> bool {
     match &line.data {
         StatusOutputLineData::Branch { .. }
         | StatusOutputLineData::StagedChanges { .. }
-        | StatusOutputLineData::UnassignedChanges { .. }
+        | StatusOutputLineData::UncommittedChanges { .. }
         | StatusOutputLineData::MergeBase => true,
         StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::Connector
         | StatusOutputLineData::BetweenStacks
         | StatusOutputLineData::StagedFile { .. }
-        | StatusOutputLineData::UnassignedFile { .. }
+        | StatusOutputLineData::UncommittedFile { .. }
         | StatusOutputLineData::Commit { .. }
         | StatusOutputLineData::CommitMessage
         | StatusOutputLineData::EmptyCommitMessage
@@ -664,7 +666,7 @@ fn is_section_header(line: &StatusOutputLine, mode: &Mode) -> bool {
             matches!(
                 line.data,
                 StatusOutputLineData::Branch { .. }
-                    | StatusOutputLineData::UnassignedChanges { .. }
+                    | StatusOutputLineData::UncommittedChanges { .. }
                     | StatusOutputLineData::MergeBase
             )
         }
@@ -674,7 +676,7 @@ fn is_section_header(line: &StatusOutputLine, mode: &Mode) -> bool {
                 line.data,
                 StatusOutputLineData::Branch { .. }
                     | StatusOutputLineData::StagedChanges { .. }
-                    | StatusOutputLineData::UnassignedChanges { .. }
+                    | StatusOutputLineData::UncommittedChanges { .. }
                     | StatusOutputLineData::MergeBase
             )
         }
@@ -791,8 +793,8 @@ pub(super) fn is_selectable_in_mode(
                 if marked_uncommitted
                     && !matches!(
                         &line.data,
-                        StatusOutputLineData::UnassignedChanges { .. }
-                            | StatusOutputLineData::UnassignedFile { .. },
+                        StatusOutputLineData::UncommittedChanges { .. }
+                            | StatusOutputLineData::UncommittedFile { .. },
                     )
                 {
                     return false;
@@ -833,7 +835,7 @@ pub(super) fn is_selectable_in_mode(
         Mode::PickChanges(..) => {
             if let Some(cli_id) = line.data.cli_id() {
                 match &**cli_id {
-                    CliId::Uncommitted(..) | CliId::Unassigned { .. } => true,
+                    CliId::UncommittedHunkOrFile(..) | CliId::Uncommitted { .. } => true,
                     CliId::PathPrefix { .. }
                     | CliId::CommittedFile { .. }
                     | CliId::Branch { .. }

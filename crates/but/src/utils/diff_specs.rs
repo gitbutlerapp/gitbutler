@@ -5,7 +5,7 @@ use but_hunk_assignment::HunkAssignment;
 
 use crate::{
     CliId,
-    id::{ShortId, UncommittedCliId},
+    id::{ShortId, UncommittedHunkOrFile},
 };
 
 #[cfg(feature = "legacy")]
@@ -48,7 +48,9 @@ impl<'a> DiffSpecBuilder<'a> {
     #[expect(dead_code)]
     pub fn push_changes_from_id(&mut self, id: &CliId) -> anyhow::Result<()> {
         match id {
-            CliId::Uncommitted(uncommitted) => self.push_changes_from_uncommitted(uncommitted),
+            CliId::UncommittedHunkOrFile(uncommitted) => {
+                self.push_changes_from_uncommitted(uncommitted)
+            }
             CliId::PathPrefix {
                 id,
                 hunk_assignments,
@@ -62,14 +64,14 @@ impl<'a> DiffSpecBuilder<'a> {
                 self.push_changes_from_branch(name, id, *stack_id)
             }
             CliId::Commit { commit_id, id } => self.push_changes_from_commit(*commit_id, id),
-            CliId::Unassigned { id } => self.push_changes_from_unassigned(id),
+            CliId::Uncommitted { id } => self.push_changes_from_uncommitted_area(id),
             CliId::Stack { id: _, stack_id } => self.push_changes_from_stack(*stack_id),
         }
     }
 
     pub fn push_changes_from_uncommitted(
         &mut self,
-        uncommitted: &UncommittedCliId,
+        uncommitted: &UncommittedHunkOrFile,
     ) -> anyhow::Result<()> {
         let scope_to_stack = self.scope_to_stack;
         let assignments = uncommitted
@@ -131,7 +133,7 @@ impl<'a> DiffSpecBuilder<'a> {
         Ok(())
     }
 
-    pub fn push_changes_from_unassigned(&mut self, _id: &ShortId) -> anyhow::Result<()> {
+    pub fn push_changes_from_uncommitted_area(&mut self, _id: &ShortId) -> anyhow::Result<()> {
         let changes = self.worktree_changes()?.to_vec();
         let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
             self.db.hunk_assignments_mut()?,

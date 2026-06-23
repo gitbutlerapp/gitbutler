@@ -38,7 +38,7 @@ pub(crate) fn handle(
         (&source_id, &target_id),
         (
             CliId::Branch { .. },
-            CliId::Branch { .. } | CliId::Unassigned { .. }
+            CliId::Branch { .. } | CliId::Uncommitted { .. }
         )
     );
 
@@ -59,7 +59,7 @@ pub(crate) fn handle(
             ))
         } else {
             match target_id {
-                CliId::Unassigned { .. } => super::branch::tear_off_branch_by_name_with_perm(
+                CliId::Uncommitted { .. } => super::branch::tear_off_branch_by_name_with_perm(
                     ctx,
                     source_name,
                     out,
@@ -74,7 +74,7 @@ pub(crate) fn handle(
                     out,
                     guard.write_permission(),
                 ),
-                _ => unreachable!("branch_route guarantees target is branch or unassigned"),
+                _ => unreachable!("branch_route guarantees target is branch or uncommitted"),
             }
         }
     } else {

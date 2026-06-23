@@ -33,7 +33,7 @@ use crate::{
 /// A description of a set of hunks.
 type Description = String;
 
-/// Represents moving selected uncommitted hunks to unassigned.
+/// Represents moving selected uncommitted hunks to uncommitted.
 #[derive(Debug)]
 pub(crate) struct UnassignUncommittedOperation<'a> {
     /// The uncommitted hunk assignments to unassign.
@@ -75,9 +75,9 @@ pub(crate) struct UncommittedToStackOperation<'a> {
     pub(crate) stack_id: StackId,
 }
 
-/// Represents moving all assignments from a stack to unassigned.
+/// Represents moving all assignments from a stack to uncommitted.
 #[derive(Debug)]
-pub(crate) struct StackToUnassignedOperation {
+pub(crate) struct StackToUncommittedAreaOperation {
     /// The source stack id.
     pub(crate) stack_id: StackId,
 }
@@ -108,30 +108,30 @@ pub(crate) struct StackToCommitOperation {
     pub(crate) to: gix::ObjectId,
 }
 
-/// Represents amending all unassigned hunks into a commit.
+/// Represents amending all uncommitted hunks into a commit.
 #[derive(Debug)]
-pub(crate) struct UnassignedToCommitOperation {
+pub(crate) struct UncommittedAreaToCommitOperation {
     /// The destination commit id.
     pub(crate) oid: gix::ObjectId,
 }
 
-/// Represents assigning all unassigned hunks to a branch.
+/// Represents assigning all uncommitted hunks to a branch.
 #[derive(Debug)]
-pub(crate) struct UnassignedToBranchOperation<'a> {
+pub(crate) struct UncommittedAreaToBranchOperation<'a> {
     /// The destination branch name.
     pub(crate) to: &'a str,
 }
 
-/// Represents assigning all unassigned hunks to a stack.
+/// Represents assigning all uncommitted hunks to a stack.
 #[derive(Debug)]
-pub(crate) struct UnassignedToStackOperation {
+pub(crate) struct UncommittedAreaToStackOperation {
     /// The destination stack id.
     pub(crate) to: StackId,
 }
 
 /// Represents undoing a commit.
 #[derive(Debug)]
-pub(crate) struct CommitToUnassignedOperation {
+pub(crate) struct CommitToUncommittedAreaOperation {
     /// The commits to undo.
     pub(crate) commits: NonEmpty<gix::ObjectId>,
 }
@@ -164,9 +164,9 @@ pub(crate) struct MoveCommitToBranchOperation<'a> {
     pub(crate) name: &'a str,
 }
 
-/// Represents moving all assignments from a branch to unassigned.
+/// Represents moving all assignments from a branch to uncommitted.
 #[derive(Debug)]
-pub(crate) struct BranchToUnassignedOperation<'a> {
+pub(crate) struct BranchToUncommittedAreaOperation<'a> {
     /// The source branch name.
     pub(crate) from: &'a str,
 }
@@ -220,9 +220,9 @@ pub(crate) struct CommittedFileToCommitOperation<'a> {
     pub(crate) oid: gix::ObjectId,
 }
 
-/// Represents uncommitting file changes from a commit into unassigned.
+/// Represents uncommitting file changes from a commit into uncommitted.
 #[derive(Debug)]
-pub(crate) struct CommittedFileToUnassignedOperation<'a> {
+pub(crate) struct CommittedFileToUncommittedAreaOperation<'a> {
     /// The file path.
     pub(crate) path: &'a BStr,
     /// The source commit id.
@@ -239,24 +239,24 @@ pub(crate) enum RubOperation<'a> {
     UncommittedToCommit(UncommittedToCommitOperation<'a>),
     UncommittedToBranch(UncommittedToBranchOperation<'a>),
     UncommittedToStack(UncommittedToStackOperation<'a>),
-    StackToUnassigned(StackToUnassignedOperation),
+    StackToUncommittedArea(StackToUncommittedAreaOperation),
     StackToStack(StackToStackOperation),
     StackToBranch(StackToBranchOperation<'a>),
     StackToCommit(StackToCommitOperation),
-    UnassignedToCommit(UnassignedToCommitOperation),
-    UnassignedToBranch(UnassignedToBranchOperation<'a>),
-    UnassignedToStack(UnassignedToStackOperation),
-    CommitToUnassigned(CommitToUnassignedOperation),
+    UncommittedAreaToCommit(UncommittedAreaToCommitOperation),
+    UncommittedAreaToBranch(UncommittedAreaToBranchOperation<'a>),
+    UncommittedAreaToStack(UncommittedAreaToStackOperation),
+    CommitToUncommittedArea(CommitToUncommittedAreaOperation),
     CommitToStack(CommitToStackOperation),
     SquashCommits(SquashCommitsOperation),
     MoveCommitToBranch(MoveCommitToBranchOperation<'a>),
-    BranchToUnassigned(BranchToUnassignedOperation<'a>),
+    BranchToUncommittedArea(BranchToUncommittedAreaOperation<'a>),
     BranchToStack(BranchToStackOperation<'a>),
     BranchToCommit(BranchToCommitOperation<'a>),
     BranchToBranch(BranchToBranchOperation<'a>),
     CommittedFileToBranch(CommittedFileToBranchOperation<'a>),
     CommittedFileToCommit(CommittedFileToCommitOperation<'a>),
-    CommittedFileToUnassigned(CommittedFileToUnassignedOperation<'a>),
+    CommittedFileToUncommittedArea(CommittedFileToUncommittedAreaOperation<'a>),
 }
 
 impl<'a> UnassignUncommittedOperation<'a> {
@@ -374,7 +374,7 @@ impl<'a> UncommittedToStackOperation<'a> {
     }
 }
 
-impl StackToUnassignedOperation {
+impl StackToUncommittedAreaOperation {
     /// Executes this operation.
     pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
         self.execute_inner(ctx)?;
@@ -393,7 +393,7 @@ impl StackToUnassignedOperation {
         Ok(())
     }
 
-    /// Executes `StackToUnassigned` by reassigning all hunks from the source stack into unassigned.
+    /// Executes `StackToUncommittedArea` by reassigning all hunks from the source stack into uncommitted.
     pub(crate) fn execute_inner(&self, ctx: &mut Context) -> anyhow::Result<()> {
         reassign_all_from_stack_to_stack(ctx, Some(self.stack_id), None)
     }
@@ -497,7 +497,7 @@ impl StackToCommitOperation {
     }
 }
 
-impl UnassignedToCommitOperation {
+impl UncommittedAreaToCommitOperation {
     /// Executes this operation.
     pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
         let result = self.execute_inner(ctx)?;
@@ -514,7 +514,7 @@ impl UnassignedToCommitOperation {
                     }
                 })
                 .unwrap_or_default();
-            writeln!(out, "Amended unassigned files → {new_commit}")?;
+            writeln!(out, "Amended uncommitted files → {new_commit}")?;
         } else if let Some(out) = out.for_json() {
             out.write_value(serde_json::json!({
                 "ok": true,
@@ -524,14 +524,14 @@ impl UnassignedToCommitOperation {
         Ok(())
     }
 
-    /// Executes `UnassignedToCommit` and returns the exact commit-amend API result.
+    /// Executes `UncommittedAreaToCommit` and returns the exact commit-amend API result.
     pub(crate) fn execute_inner(&self, ctx: &mut Context) -> anyhow::Result<CommitCreateResult> {
         let changes = changes_for_stack_assignment(ctx, None)?;
         but_api::commit::amend::commit_amend(ctx, self.oid, changes, DryRun::No)
     }
 }
 
-impl<'a> UnassignedToBranchOperation<'a> {
+impl<'a> UncommittedAreaToBranchOperation<'a> {
     /// Executes this operation.
     pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
         self.execute_inner(ctx)?;
@@ -549,14 +549,14 @@ impl<'a> UnassignedToBranchOperation<'a> {
         Ok(())
     }
 
-    /// Executes `UnassignedToBranch` by assigning unassigned hunks to the target branch stack.
+    /// Executes `UncommittedAreaToBranch` by assigning uncommitted hunks to the target branch stack.
     pub(crate) fn execute_inner(&self, ctx: &mut Context) -> anyhow::Result<()> {
         let target_stack_id = stack_id_for_branch_name(ctx, self.to)?;
         reassign_all_from_stack_to_stack(ctx, None, target_stack_id)
     }
 }
 
-impl UnassignedToStackOperation {
+impl UncommittedAreaToStackOperation {
     /// Executes this operation.
     pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
         self.execute_inner(ctx)?;
@@ -576,13 +576,13 @@ impl UnassignedToStackOperation {
         Ok(())
     }
 
-    /// Executes `UnassignedToStack` by assigning unassigned hunks to the target stack.
+    /// Executes `UncommittedAreaToStack` by assigning uncommitted hunks to the target stack.
     pub(crate) fn execute_inner(&self, ctx: &mut Context) -> anyhow::Result<()> {
         reassign_all_from_stack_to_stack(ctx, None, Some(self.to))
     }
 }
 
-impl CommitToUnassignedOperation {
+impl CommitToUncommittedAreaOperation {
     /// Executes this operation.
     pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
         self.execute_inner(ctx)?;
@@ -725,7 +725,7 @@ impl<'a> MoveCommitToBranchOperation<'a> {
     }
 }
 
-impl<'a> BranchToUnassignedOperation<'a> {
+impl<'a> BranchToUncommittedAreaOperation<'a> {
     /// Executes this operation.
     pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
         self.execute_inner(ctx)?;
@@ -742,7 +742,7 @@ impl<'a> BranchToUnassignedOperation<'a> {
         Ok(())
     }
 
-    /// Executes `BranchToUnassigned` by moving all branch-assigned hunks into unassigned.
+    /// Executes `BranchToUncommittedArea` by moving all branch-assigned hunks into uncommitted.
     pub(crate) fn execute_inner(&self, ctx: &mut Context) -> anyhow::Result<()> {
         let source_stack_id = stack_id_for_branch_name(ctx, self.from)?;
         reassign_all_from_stack_to_stack(ctx, source_stack_id, None)
@@ -812,7 +812,7 @@ impl<'a> BranchToCommitOperation<'a> {
     /// Executes `BranchToCommit` and returns the exact commit-amend API result.
     ///
     /// When the source branch is not associated with a stack, this amends currently
-    /// unassigned hunks to match legacy `but rub` behavior.
+    /// uncommitted hunks to match legacy `but rub` behavior.
     pub(crate) fn execute_inner(&self, ctx: &mut Context) -> anyhow::Result<CommitCreateResult> {
         let stack_id = stack_id_for_branch_name(ctx, self.name)?;
         let changes = changes_for_stack_assignment(ctx, stack_id)?;
@@ -861,7 +861,7 @@ impl<'a> CommittedFileToBranchOperation<'a> {
     /// Executes `CommittedFileToBranch` and returns the exact uncommit API result.
     ///
     /// When the target branch is not associated with a stack, this uncommits file
-    /// changes into unassigned to match legacy `but rub` behavior.
+    /// changes into uncommitted to match legacy `but rub` behavior.
     pub(crate) fn execute_inner(&self, ctx: &mut Context) -> anyhow::Result<MoveChangesResult> {
         let stack_id = stack_id_for_branch_name(ctx, self.name)?;
         let relevant_changes = file_changes_from_commit(ctx, self.commit_oid, self.path)?;
@@ -900,7 +900,7 @@ impl<'a> CommittedFileToCommitOperation<'a> {
     }
 }
 
-impl<'a> CommittedFileToUnassignedOperation<'a> {
+impl<'a> CommittedFileToUncommittedAreaOperation<'a> {
     /// Executes this operation.
     pub(crate) fn execute(self, ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
         self.execute_inner(ctx)?;
@@ -912,7 +912,7 @@ impl<'a> CommittedFileToUnassignedOperation<'a> {
         Ok(())
     }
 
-    /// Executes `CommittedFileToUnassigned` and returns the exact uncommit API result.
+    /// Executes `CommittedFileToUncommittedArea` and returns the exact uncommit API result.
     pub(crate) fn execute_inner(&self, ctx: &mut Context) -> anyhow::Result<MoveChangesResult> {
         let relevant_changes = file_changes_from_commit(ctx, self.commit_oid, self.path)?;
         but_api::commit::uncommit::commit_uncommit_changes(
@@ -933,23 +933,23 @@ impl<'a> RubOperation<'a> {
             RubOperation::UncommittedToCommit(operation) => operation.execute(ctx, out),
             RubOperation::UncommittedToBranch(operation) => operation.execute(ctx, out),
             RubOperation::UncommittedToStack(operation) => operation.execute(ctx, out),
-            RubOperation::StackToUnassigned(operation) => operation.execute(ctx, out),
+            RubOperation::StackToUncommittedArea(operation) => operation.execute(ctx, out),
             RubOperation::StackToStack(operation) => operation.execute(ctx, out),
             RubOperation::StackToBranch(operation) => operation.execute(ctx, out),
-            RubOperation::UnassignedToCommit(operation) => operation.execute(ctx, out),
-            RubOperation::UnassignedToBranch(operation) => operation.execute(ctx, out),
-            RubOperation::UnassignedToStack(operation) => operation.execute(ctx, out),
-            RubOperation::CommitToUnassigned(operation) => operation.execute(ctx, out),
+            RubOperation::UncommittedAreaToCommit(operation) => operation.execute(ctx, out),
+            RubOperation::UncommittedAreaToBranch(operation) => operation.execute(ctx, out),
+            RubOperation::UncommittedAreaToStack(operation) => operation.execute(ctx, out),
+            RubOperation::CommitToUncommittedArea(operation) => operation.execute(ctx, out),
             RubOperation::CommitToStack(operation) => operation.execute(ctx, out),
             RubOperation::SquashCommits(operation) => operation.execute(ctx, out),
             RubOperation::MoveCommitToBranch(operation) => operation.execute(ctx, out),
-            RubOperation::BranchToUnassigned(operation) => operation.execute(ctx, out),
+            RubOperation::BranchToUncommittedArea(operation) => operation.execute(ctx, out),
             RubOperation::BranchToStack(operation) => operation.execute(ctx, out),
             RubOperation::BranchToCommit(operation) => operation.execute(ctx, out),
             RubOperation::BranchToBranch(operation) => operation.execute(ctx, out),
             RubOperation::CommittedFileToBranch(operation) => operation.execute(ctx, out),
             RubOperation::CommittedFileToCommit(operation) => operation.execute(ctx, out),
-            RubOperation::CommittedFileToUnassigned(operation) => operation.execute(ctx, out),
+            RubOperation::CommittedFileToUncommittedArea(operation) => operation.execute(ctx, out),
             RubOperation::StackToCommit(operation) => operation.execute(ctx, out),
         }
     }
@@ -960,7 +960,7 @@ fn hunk_assignments_from_uncommitted_sources<'a>(
 ) -> Option<NonEmpty<&'a HunkAssignment>> {
     let mut hunk_assignments = Vec::new();
     for source in sources {
-        let CliId::Uncommitted(uncommitted) = source else {
+        let CliId::UncommittedHunkOrFile(uncommitted) = source else {
             return None;
         };
         hunk_assignments.extend(uncommitted.hunk_assignments.iter());
@@ -998,7 +998,7 @@ pub(crate) fn route_operation<'a>(
         let source = sources.first();
         match (source, target) {
             // Uncommitted -> *
-            (Uncommitted(uncommitted), Unassigned { .. }) => {
+            (UncommittedHunkOrFile(uncommitted), Uncommitted { .. }) => {
                 let hunk_assignments = uncommitted.hunk_assignments.as_ref();
                 let description = uncommitted.describe();
                 Some(RubOperation::UnassignUncommitted(
@@ -1008,7 +1008,7 @@ pub(crate) fn route_operation<'a>(
                     },
                 ))
             }
-            (Uncommitted(uncommitted), Commit { commit_id, .. }) => {
+            (UncommittedHunkOrFile(uncommitted), Commit { commit_id, .. }) => {
                 let hunk_assignments = uncommitted.hunk_assignments.as_ref();
                 let description = uncommitted.describe();
                 Some(RubOperation::UncommittedToCommit(
@@ -1019,7 +1019,7 @@ pub(crate) fn route_operation<'a>(
                     },
                 ))
             }
-            (Uncommitted(uncommitted), Branch { name, .. }) => {
+            (UncommittedHunkOrFile(uncommitted), Branch { name, .. }) => {
                 let hunk_assignments = uncommitted.hunk_assignments.as_ref();
                 let description = uncommitted.describe();
                 Some(RubOperation::UncommittedToBranch(
@@ -1030,7 +1030,7 @@ pub(crate) fn route_operation<'a>(
                     },
                 ))
             }
-            (Uncommitted(uncommitted), Stack { stack_id, .. }) => {
+            (UncommittedHunkOrFile(uncommitted), Stack { stack_id, .. }) => {
                 let hunk_assignments = uncommitted.hunk_assignments.as_ref();
                 let description = uncommitted.describe();
                 Some(RubOperation::UncommittedToStack(
@@ -1046,7 +1046,7 @@ pub(crate) fn route_operation<'a>(
                 PathPrefix {
                     hunk_assignments, ..
                 },
-                Unassigned { .. },
+                Uncommitted { .. },
             ) => {
                 let hunk_assignments = hunk_assignments
                     .as_ref()
@@ -1110,11 +1110,11 @@ pub(crate) fn route_operation<'a>(
                 ))
             }
             // Stack -> *
-            (Stack { stack_id, .. }, Unassigned { .. }) => Some(RubOperation::StackToUnassigned(
-                StackToUnassignedOperation {
+            (Stack { stack_id, .. }, Uncommitted { .. }) => Some(
+                RubOperation::StackToUncommittedArea(StackToUncommittedAreaOperation {
                     stack_id: *stack_id,
-                },
-            )),
+                }),
+            ),
             (Stack { stack_id: from, .. }, Stack { stack_id: to, .. }) => {
                 Some(RubOperation::StackToStack(StackToStackOperation {
                     from: *from,
@@ -1133,19 +1133,25 @@ pub(crate) fn route_operation<'a>(
                     to: *commit_id,
                 }))
             }
-            // Unassigned -> *
-            (Unassigned { .. }, Commit { commit_id, .. }) => Some(
-                RubOperation::UnassignedToCommit(UnassignedToCommitOperation { oid: *commit_id }),
-            ),
-            (Unassigned { .. }, Branch { name, .. }) => Some(RubOperation::UnassignedToBranch(
-                UnassignedToBranchOperation { to: name },
-            )),
-            (Unassigned { .. }, Stack { stack_id, .. }) => Some(RubOperation::UnassignedToStack(
-                UnassignedToStackOperation { to: *stack_id },
-            )),
+            // Uncommitted -> *
+            (Uncommitted { .. }, Commit { commit_id, .. }) => {
+                Some(RubOperation::UncommittedAreaToCommit(
+                    UncommittedAreaToCommitOperation { oid: *commit_id },
+                ))
+            }
+            (Uncommitted { .. }, Branch { name, .. }) => {
+                Some(RubOperation::UncommittedAreaToBranch(
+                    UncommittedAreaToBranchOperation { to: name },
+                ))
+            }
+            (Uncommitted { .. }, Stack { stack_id, .. }) => {
+                Some(RubOperation::UncommittedAreaToStack(
+                    UncommittedAreaToStackOperation { to: *stack_id },
+                ))
+            }
             // Commit -> *
-            (Commit { commit_id, .. }, Unassigned { .. }) => Some(
-                RubOperation::CommitToUnassigned(CommitToUnassignedOperation {
+            (Commit { commit_id, .. }, Uncommitted { .. }) => Some(
+                RubOperation::CommitToUncommittedArea(CommitToUncommittedAreaOperation {
                     commits: NonEmpty::new(*commit_id),
                 }),
             ),
@@ -1175,9 +1181,11 @@ pub(crate) fn route_operation<'a>(
                 }))
             }
             // Branch -> *
-            (Branch { name, .. }, Unassigned { .. }) => Some(RubOperation::BranchToUnassigned(
-                BranchToUnassignedOperation { from: name },
-            )),
+            (Branch { name, .. }, Uncommitted { .. }) => {
+                Some(RubOperation::BranchToUncommittedArea(
+                    BranchToUncommittedAreaOperation { from: name },
+                ))
+            }
             (Branch { name: from, .. }, Stack { stack_id, .. }) => {
                 Some(RubOperation::BranchToStack(BranchToStackOperation {
                     from,
@@ -1229,9 +1237,9 @@ pub(crate) fn route_operation<'a>(
                 CommittedFile {
                     path, commit_id, ..
                 },
-                Unassigned { .. },
-            ) => Some(RubOperation::CommittedFileToUnassigned(
-                CommittedFileToUnassignedOperation {
+                Uncommitted { .. },
+            ) => Some(RubOperation::CommittedFileToUncommittedArea(
+                CommittedFileToUncommittedAreaOperation {
                     path: path.as_ref(),
                     commit_oid: *commit_id,
                 },
@@ -1249,11 +1257,11 @@ pub(crate) fn route_operation<'a>(
                     .iter()
                     .map(|source| match source {
                         Commit { commit_id, id: _ } => Some(*commit_id),
-                        Uncommitted(..)
+                        UncommittedHunkOrFile(..)
                         | PathPrefix { .. }
                         | CommittedFile { .. }
                         | Branch { .. }
-                        | Unassigned { .. }
+                        | Uncommitted { .. }
                         | Stack { .. } => None,
                     })
                     .collect::<Option<Vec<_>>>()
@@ -1274,7 +1282,7 @@ pub(crate) fn route_operation<'a>(
                     })
                 }
             }
-            Unassigned { .. } => hunk_assignments_from_uncommitted_sources(&sources)
+            Uncommitted { .. } => hunk_assignments_from_uncommitted_sources(&sources)
                 .map(|hunk_assignments| {
                     RubOperation::UnassignUncommitted(UnassignUncommittedOperation {
                         hunk_assignments,
@@ -1283,7 +1291,9 @@ pub(crate) fn route_operation<'a>(
                 })
                 .or_else(|| {
                     commits_from_sources(&sources).map(|commits| {
-                        RubOperation::CommitToUnassigned(CommitToUnassignedOperation { commits })
+                        RubOperation::CommitToUncommittedArea(CommitToUncommittedAreaOperation {
+                            commits,
+                        })
                     })
                 }),
             Stack { stack_id, .. } => {
@@ -1295,7 +1305,10 @@ pub(crate) fn route_operation<'a>(
                     })
                 })
             }
-            Uncommitted(..) | PathPrefix { .. } | CommittedFile { .. } | Branch { .. } => None,
+            UncommittedHunkOrFile(..)
+            | PathPrefix { .. }
+            | CommittedFile { .. }
+            | Branch { .. } => None,
         }
     }
 }
@@ -1562,7 +1575,7 @@ pub(crate) fn handle_amend(
     // Validate that all files are uncommitted
     for file in &files {
         match file {
-            CliId::Uncommitted(_) => {
+            CliId::UncommittedHunkOrFile(_) => {
                 // Valid type for amend
             }
             _ => {
@@ -1703,7 +1716,7 @@ pub(crate) fn handle_stage(
     // Validate that all files are uncommitted or a path prefix
     for file in &files {
         match file {
-            CliId::Uncommitted(_) | CliId::PathPrefix { .. } => {
+            CliId::UncommittedHunkOrFile(_) | CliId::PathPrefix { .. } => {
                 // Valid type for stage
             }
             _ => {
@@ -1880,7 +1893,7 @@ pub(crate) fn handle_unstage(
     // Validate that all files are uncommitted or a path prefix
     for file in &files {
         match file {
-            CliId::Uncommitted(_) | CliId::PathPrefix { .. } => {
+            CliId::UncommittedHunkOrFile(_) | CliId::PathPrefix { .. } => {
                 // Valid type for unstage
             }
             _ => {
@@ -2000,13 +2013,13 @@ mod tests {
     use bstr::BString;
     use nonempty::NonEmpty;
 
-    use crate::id::UNASSIGNED;
+    use crate::id::UNCOMMITTED;
 
     use super::*;
 
     // Helper to create test CliIds
     fn uncommitted_id() -> CliId {
-        CliId::Uncommitted(crate::id::UncommittedCliId {
+        CliId::UncommittedHunkOrFile(crate::id::UncommittedHunkOrFile {
             id: "ab".to_string(),
             hunk_assignments: NonEmpty::new(but_hunk_assignment::HunkAssignment {
                 id: None,
@@ -2046,8 +2059,8 @@ mod tests {
         }
     }
 
-    fn unassigned_id() -> CliId {
-        CliId::Unassigned {
+    fn uncommitted_area_id() -> CliId {
+        CliId::Uncommitted {
             id: "zz".to_string(),
         }
     }
@@ -2060,14 +2073,14 @@ mod tests {
     }
 
     #[test]
-    fn test_route_operation_uncommitted_to_targets() {
+    fn test_route_operation_uncommitted_hunk_to_targets() {
         let uncommitted = uncommitted_id();
 
-        // Valid: Uncommitted -> Unassigned
+        // Valid: Uncommitted -> Uncommitted
         assert!(
             route_operation(
                 NonEmpty::new(&uncommitted),
-                &unassigned_id(),
+                &uncommitted_area_id(),
                 MessageCombinationStrategy::KeepBoth
             )
             .is_some()
@@ -2128,11 +2141,11 @@ mod tests {
     fn test_route_operation_commit_to_targets() {
         let commit = commit_id();
 
-        // Valid: Commit -> Unassigned
+        // Valid: Commit -> Uncommitted
         assert!(
             route_operation(
                 NonEmpty::new(&commit),
-                &unassigned_id(),
+                &uncommitted_area_id(),
                 MessageCombinationStrategy::KeepBoth
             )
             .is_some()
@@ -2193,11 +2206,11 @@ mod tests {
     fn test_route_operation_branch_to_targets() {
         let branch = branch_id();
 
-        // Valid: Branch -> Unassigned
+        // Valid: Branch -> Uncommitted
         assert!(
             route_operation(
                 NonEmpty::new(&branch),
-                &unassigned_id(),
+                &uncommitted_area_id(),
                 MessageCombinationStrategy::KeepBoth
             )
             .is_some()
@@ -2258,11 +2271,11 @@ mod tests {
     fn test_route_operation_stack_to_targets() {
         let stack = stack_id();
 
-        // Valid: Stack -> Unassigned
+        // Valid: Stack -> Uncommitted
         assert!(
             route_operation(
                 NonEmpty::new(&stack),
-                &unassigned_id(),
+                &uncommitted_area_id(),
                 MessageCombinationStrategy::KeepBoth
             )
             .is_some()
@@ -2320,63 +2333,63 @@ mod tests {
     }
 
     #[test]
-    fn test_route_operation_unassigned_to_targets() {
-        let unassigned = unassigned_id();
+    fn test_route_operation_uncommitted_area_to_targets() {
+        let uncommitted = uncommitted_area_id();
 
-        // Valid: Unassigned -> Commit
+        // Valid: Uncommitted -> Commit
         assert!(
             route_operation(
-                NonEmpty::new(&unassigned),
+                NonEmpty::new(&uncommitted),
                 &commit_id(),
                 MessageCombinationStrategy::KeepBoth
             )
             .is_some()
         );
 
-        // Valid: Unassigned -> Branch
+        // Valid: Uncommitted -> Branch
         assert!(
             route_operation(
-                NonEmpty::new(&unassigned),
+                NonEmpty::new(&uncommitted),
                 &branch_id(),
                 MessageCombinationStrategy::KeepBoth
             )
             .is_some()
         );
 
-        // Valid: Unassigned -> Stack
+        // Valid: Uncommitted -> Stack
         assert!(
             route_operation(
-                NonEmpty::new(&unassigned),
+                NonEmpty::new(&uncommitted),
                 &stack_id(),
                 MessageCombinationStrategy::KeepBoth
             )
             .is_some()
         );
 
-        // Invalid: Unassigned -> Uncommitted
+        // Invalid: Uncommitted -> Uncommitted
         assert!(
             route_operation(
-                NonEmpty::new(&unassigned),
+                NonEmpty::new(&uncommitted),
                 &uncommitted_id(),
                 MessageCombinationStrategy::KeepBoth
             )
             .is_none()
         );
 
-        // Invalid: Unassigned -> Unassigned
+        // Invalid: Uncommitted -> Uncommitted
         assert!(
             route_operation(
-                NonEmpty::new(&unassigned),
-                &unassigned_id(),
+                NonEmpty::new(&uncommitted),
+                &uncommitted_area_id(),
                 MessageCombinationStrategy::KeepBoth
             )
             .is_none()
         );
 
-        // Invalid: Unassigned -> CommittedFile
+        // Invalid: Uncommitted -> CommittedFile
         assert!(
             route_operation(
-                NonEmpty::new(&unassigned),
+                NonEmpty::new(&uncommitted),
                 &committed_file_id(),
                 MessageCombinationStrategy::KeepBoth
             )
@@ -2408,11 +2421,11 @@ mod tests {
             .is_some()
         );
 
-        // Valid: CommittedFile -> Unassigned
+        // Valid: CommittedFile -> Uncommitted
         assert!(
             route_operation(
                 NonEmpty::new(&committed_file),
-                &unassigned_id(),
+                &uncommitted_area_id(),
                 MessageCombinationStrategy::KeepBoth
             )
             .is_some()
@@ -2453,20 +2466,20 @@ mod tests {
     /// This test ensures the routing logic maps to the right operation types.
     #[test]
     fn test_route_operation_returns_correct_variants() {
-        let uncommitted = uncommitted_id();
+        let uncommitted_hunk = uncommitted_id();
         let committed_file = committed_file_id();
         let branch = branch_id();
         let commit = commit_id();
-        let unassigned = unassigned_id();
+        let uncommitted_area = uncommitted_area_id();
         let stack = stack_id();
 
         // Test a representative sample of operations to verify correct variant matching
         // We use match with wildcard to verify the variant type without destructuring all fields
 
-        // Uncommitted -> Unassigned should be UnassignUncommitted
+        // Uncommitted -> Uncommitted should be UnassignUncommitted
         match route_operation(
-            NonEmpty::new(&uncommitted),
-            &unassigned,
+            NonEmpty::new(&uncommitted_hunk),
+            &uncommitted_area,
             MessageCombinationStrategy::KeepBoth,
         ) {
             Some(RubOperation::UnassignUncommitted(..)) => {}
@@ -2475,7 +2488,7 @@ mod tests {
 
         // Uncommitted -> Commit should be UncommittedToCommit
         match route_operation(
-            NonEmpty::new(&uncommitted),
+            NonEmpty::new(&uncommitted_hunk),
             &commit,
             MessageCombinationStrategy::KeepBoth,
         ) {
@@ -2493,14 +2506,14 @@ mod tests {
             _ => panic!("Expected SquashCommits variant"),
         }
 
-        // Commit -> Unassigned should be CommitToUnassigned
+        // Commit -> Uncommitted should be CommitToUncommittedArea
         match route_operation(
             NonEmpty::new(&commit),
-            &unassigned,
+            &uncommitted_area,
             MessageCombinationStrategy::KeepBoth,
         ) {
-            Some(RubOperation::CommitToUnassigned(..)) => {}
-            _ => panic!("Expected CommitToUnassigned variant"),
+            Some(RubOperation::CommitToUncommittedArea(..)) => {}
+            _ => panic!("Expected CommitToUncommittedArea variant"),
         }
 
         // Commit -> Stack should be CommitToStack
@@ -2553,14 +2566,14 @@ mod tests {
             _ => panic!("Expected CommittedFileToCommit variant"),
         }
 
-        // Unassigned -> Stack should be UnassignedToStack
+        // Uncommitted -> Stack should be UncommittedAreaToStack
         match route_operation(
-            NonEmpty::new(&unassigned),
+            NonEmpty::new(&uncommitted_area),
             &stack,
             MessageCombinationStrategy::KeepBoth,
         ) {
-            Some(RubOperation::UnassignedToStack(..)) => {}
-            _ => panic!("Expected UnassignedToStack variant"),
+            Some(RubOperation::UncommittedAreaToStack(..)) => {}
+            _ => panic!("Expected UncommittedAreaToStack variant"),
         }
     }
 
@@ -2568,12 +2581,12 @@ mod tests {
     fn uncommit_multiple_commits() {
         let commit = commit_id();
         let commits = NonEmpty::from_vec(Vec::from([&commit, &commit, &commit])).unwrap();
-        let unassigned = CliId::Unassigned {
-            id: UNASSIGNED.to_owned(),
+        let uncommitted = CliId::Uncommitted {
+            id: UNCOMMITTED.to_owned(),
         };
         let op =
-            route_operation(commits, &unassigned, MessageCombinationStrategy::KeepBoth).unwrap();
-        let RubOperation::CommitToUnassigned(CommitToUnassignedOperation {
+            route_operation(commits, &uncommitted, MessageCombinationStrategy::KeepBoth).unwrap();
+        let RubOperation::CommitToUncommittedArea(CommitToUncommittedAreaOperation {
             commits: routed_commits,
         }) = op
         else {

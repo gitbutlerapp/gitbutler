@@ -34,7 +34,7 @@ Deleted branch A
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [B]
 ┊●   d3e2ba3 add B
@@ -67,7 +67,7 @@ Deleted branch A
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [C]
 ┊●   ec33a86 add C
@@ -103,7 +103,7 @@ Deleted branch B
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [C]
 ┊●   983f317 add C
@@ -139,7 +139,7 @@ Deleted branch C
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [B]
 ┊●   582f37b add B
@@ -175,7 +175,7 @@ Deleted branch C
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [B]
 ┊●   582f37b add B

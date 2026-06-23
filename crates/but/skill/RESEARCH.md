@@ -245,7 +245,7 @@ The key insight from the research: you don't need to run real commands. Mock the
 def mock_bash(command: str) -> str:
     if "but status --format json" in command:
         return json.dumps({
-            "unassignedChanges": [
+            "uncommittedChanges": [
                 {"cliId": "a1", "filePath": "src/auth.rs", "changeType": "modified"}
             ],
             "stacks": [{"cliId": "su", "branches": [{"cliId": "bu", "name": "main"}]}]
@@ -289,7 +289,7 @@ Tier 3 remains useful for cheap, deterministic diagnostics, but this project gat
 | 2 | Branch workflow | Create branch (`but branch new` or `but commit <branch> -c`) before committing |
 | 3 | Git synonym redirect | User says "git push", model uses `but push` and not `git push` |
 | 4 | Ordering flow | `but status --format json` occurs before `but commit` |
-| 5 | Specificity flow | Single-file commit uses `--changes`; non-target file remains unassigned in repo state |
+| 5 | Specificity flow | Single-file commit uses `--changes`; non-target file remains uncommitted in repo state |
 | 6 | Amend flow | Use `but amend` with `--format json --status-after`; no git write fallback |
 | 7 | Reorder flow | Use `but move`/`but rub` with `--format json --status-after`; no `git rebase`/checkout fallback; repo reflects target order |
 

@@ -1,6 +1,6 @@
 use crate::{
     CliId,
-    id::{ShortId, UncommittedCliId},
+    id::{ShortId, UncommittedHunkOrFile},
 };
 
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -72,7 +72,7 @@ impl<'a> IntoIterator for &'a Marks {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(super) enum Markable {
-    Uncommitted(UncommittedCliId),
+    Uncommitted(UncommittedHunkOrFile),
     Commit {
         commit_id: gix::ObjectId,
         id: ShortId,
@@ -86,7 +86,7 @@ impl Markable {
                 commit_id: *commit_id,
                 id: id.clone(),
             }),
-            CliId::Uncommitted(uncommitted) => {
+            CliId::UncommittedHunkOrFile(uncommitted) => {
                 if uncommitted
                     .hunk_assignments
                     .iter()
@@ -99,14 +99,16 @@ impl Markable {
             CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Branch { .. }
-            | CliId::Unassigned { .. }
+            | CliId::Uncommitted { .. }
             | CliId::Stack { .. } => None,
         }
     }
 
     pub fn into_cli_id(self) -> CliId {
         match self {
-            Markable::Uncommitted(uncommitted_cli_id) => CliId::Uncommitted(uncommitted_cli_id),
+            Markable::Uncommitted(uncommitted_cli_id) => {
+                CliId::UncommittedHunkOrFile(uncommitted_cli_id)
+            }
             Markable::Commit { commit_id, id } => CliId::Commit { commit_id, id },
         }
     }

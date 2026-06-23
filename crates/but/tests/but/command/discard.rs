@@ -2,8 +2,8 @@ use bstr::ByteSlice;
 
 use crate::{command::util, utils::Sandbox};
 
-fn find_unassigned_cli_id(status: &serde_json::Value, path_contains: &str) -> Option<String> {
-    status["unassignedChanges"]
+fn find_uncommitted_cli_id(status: &serde_json::Value, path_contains: &str) -> Option<String> {
+    status["uncommittedChanges"]
         .as_array()?
         .iter()
         .find(|change| {
@@ -23,14 +23,14 @@ fn discard_removes_selected_change() -> anyhow::Result<()> {
     env.file("src/discard-me.ts", "export const value = true;\n");
 
     let status = util::status_json(&env)?;
-    let cli_id = find_unassigned_cli_id(&status, "discard-me").expect("should find CLI ID");
+    let cli_id = find_uncommitted_cli_id(&status, "discard-me").expect("should find CLI ID");
 
     env.but(format!("discard {cli_id}")).assert().success();
 
     let status = util::status_json(&env)?;
     assert!(
-        find_unassigned_cli_id(&status, "discard-me").is_none(),
-        "discarded file should no longer appear in unassigned changes"
+        find_uncommitted_cli_id(&status, "discard-me").is_none(),
+        "discarded file should no longer appear in uncommitted changes"
     );
     assert!(
         !env.projects_root().join("src/discard-me.ts").exists(),
@@ -49,8 +49,8 @@ fn concurrent_discard_to_independent_files_succeeds() -> anyhow::Result<()> {
     env.file("src/b/discard.ts", "export const b = true;\n");
 
     let status = util::status_json(&env)?;
-    let id_a = find_unassigned_cli_id(&status, "a/discard").expect("should find first CLI ID");
-    let id_b = find_unassigned_cli_id(&status, "b/discard").expect("should find second CLI ID");
+    let id_a = find_uncommitted_cli_id(&status, "a/discard").expect("should find first CLI ID");
+    let id_b = find_uncommitted_cli_id(&status, "b/discard").expect("should find second CLI ID");
 
     let child_a = util::but_std_cmd(&env, &format!("discard {id_a}")).spawn()?;
     let child_b = util::but_std_cmd(&env, &format!("discard {id_b}")).spawn()?;
@@ -71,7 +71,7 @@ fn concurrent_discard_to_independent_files_succeeds() -> anyhow::Result<()> {
 
     let status = util::status_json(&env)?;
     assert_eq!(
-        status["unassignedChanges"]
+        status["uncommittedChanges"]
             .as_array()
             .map(|changes| changes.len())
             .unwrap_or(0),
@@ -99,7 +99,7 @@ fn discard_reverts_simple_rename() -> anyhow::Result<()> {
 
     let status = util::status_json(&env)?;
     let cli_id =
-        find_unassigned_cli_id(&status, "rename-target").expect("should find renamed file CLI ID");
+        find_uncommitted_cli_id(&status, "rename-target").expect("should find renamed file CLI ID");
 
     env.but(format!("discard {cli_id}")).assert().success();
 
@@ -137,7 +137,7 @@ fn discard_rename_does_not_discard_unrelated_changes() -> anyhow::Result<()> {
     env.file("src/keep-me.ts", "export const keep = true;\n");
 
     let status_before = util::status_json(&env)?;
-    let cli_id = find_unassigned_cli_id(&status_before, "rename-target-only")
+    let cli_id = find_uncommitted_cli_id(&status_before, "rename-target-only")
         .expect("should find renamed file CLI ID");
 
     env.but(format!("discard {cli_id}")).assert().success();
@@ -157,18 +157,18 @@ fn discard_rename_does_not_discard_unrelated_changes() -> anyhow::Result<()> {
 
     let status_after = util::status_json(&env)?;
     assert!(
-        find_unassigned_cli_id(&status_after, "rename-target-only").is_none(),
-        "discarded renamed file should no longer appear in unassigned changes"
+        find_uncommitted_cli_id(&status_after, "rename-target-only").is_none(),
+        "discarded renamed file should no longer appear in uncommitted changes"
     );
     assert!(
-        find_unassigned_cli_id(&status_after, "keep-me").is_some(),
-        "discarding a rename should not discard unrelated unassigned changes"
+        find_uncommitted_cli_id(&status_after, "keep-me").is_some(),
+        "discarding a rename should not discard unrelated uncommitted changes"
     );
 
     let git_status = env.invoke_git("status --porcelain");
     assert!(
         git_status.contains("src/keep-me.ts"),
-        "expected unrelated unassigned file to remain, got:\n{git_status}"
+        "expected unrelated uncommitted file to remain, got:\n{git_status}"
     );
     assert!(
         !git_status.contains("rename-target-only") && !git_status.contains("rename-source-only"),
@@ -179,7 +179,7 @@ fn discard_rename_does_not_discard_unrelated_changes() -> anyhow::Result<()> {
 }
 
 #[test]
-fn discard_the_whole_unassigned_changes() -> anyhow::Result<()> {
+fn discard_the_whole_uncommitted_changes() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -211,11 +211,11 @@ fn discard_the_whole_unassigned_changes() -> anyhow::Result<()> {
 
     let status_after = util::status_json(&env)?;
     assert!(
-        find_unassigned_cli_id(&status_after, "rename-target-only").is_none(),
-        "discarded renamed file should no longer appear in unassigned changes"
+        find_uncommitted_cli_id(&status_after, "rename-target-only").is_none(),
+        "discarded renamed file should no longer appear in uncommitted changes"
     );
     assert!(
-        find_unassigned_cli_id(&status_after, "keep-me").is_none(),
+        find_uncommitted_cli_id(&status_after, "keep-me").is_none(),
         "the added file should be gone as well"
     );
 

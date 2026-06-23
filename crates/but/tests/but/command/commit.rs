@@ -241,7 +241,7 @@ fn commit_empty_default() {
     env.setup_metadata(&["A"]);
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   9477ae7 add A
@@ -262,7 +262,7 @@ Created blank commit at the tip of branch 'A'
 "#]]);
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   2594ce3 (no commit message) (no changes)
@@ -377,7 +377,7 @@ fn commit_empty_after_stack_head_is_disallowed() -> anyhow::Result<()> {
     env.setup_metadata(&["A"]);
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   9477ae7 add A
@@ -435,7 +435,7 @@ fn commit_empty_after_branch_for_non_stack_head() -> anyhow::Result<()> {
         .success();
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   9ac4652 add second
@@ -460,7 +460,7 @@ Created blank commit above branch 'bottom'
 "#]]);
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   76b24fa add second
@@ -485,7 +485,7 @@ fn commit_empty_with_before_branch() {
     env.setup_metadata(&["A"]);
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   9477ae7 add A
@@ -506,7 +506,7 @@ Created blank commit at the tip of branch 'A'
 "#]]);
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   2594ce3 (no commit message) (no changes)
@@ -957,8 +957,8 @@ fn commit_with_specific_file_ids() -> anyhow::Result<()> {
     let stdout = std::str::from_utf8(&status_output.get_output().stdout)?;
     let status: serde_json::Value = serde_json::from_str(stdout)?;
 
-    // Find the CLI ID for file1.txt from unassignedChanges
-    let file1_id = status["unassignedChanges"]
+    // Find the CLI ID for file1.txt from uncommittedChanges
+    let file1_id = status["uncommittedChanges"]
         .as_array()
         .and_then(|changes| {
             changes.iter().find_map(|c| {
@@ -989,7 +989,7 @@ fn commit_with_specific_file_ids() -> anyhow::Result<()> {
     let stdout_after = std::str::from_utf8(&status_after.get_output().stdout)?;
     let status_after: serde_json::Value = serde_json::from_str(stdout_after)?;
 
-    let has_file2 = status_after["unassignedChanges"]
+    let has_file2 = status_after["uncommittedChanges"]
         .as_array()
         .map(|changes| {
             changes
@@ -1018,7 +1018,7 @@ fn commit_with_multiple_file_ids() -> anyhow::Result<()> {
     let status: serde_json::Value = serde_json::from_str(stdout)?;
 
     // Find CLI IDs for file1 and file2
-    let changes = status["unassignedChanges"]
+    let changes = status["uncommittedChanges"]
         .as_array()
         .expect("should have changes");
     let file1_id = changes
@@ -1044,7 +1044,7 @@ fn commit_with_multiple_file_ids() -> anyhow::Result<()> {
     let stdout_after = std::str::from_utf8(&status_after.get_output().stdout)?;
     let status_after: serde_json::Value = serde_json::from_str(stdout_after)?;
 
-    let remaining: Vec<&str> = status_after["unassignedChanges"]
+    let remaining: Vec<&str> = status_after["uncommittedChanges"]
         .as_array()
         .map(|changes| {
             changes
@@ -1077,7 +1077,7 @@ fn commit_with_short_changes_flag() -> anyhow::Result<()> {
     let stdout = std::str::from_utf8(&status_output.get_output().stdout)?;
     let status: serde_json::Value = serde_json::from_str(stdout)?;
 
-    let file1_id = status["unassignedChanges"]
+    let file1_id = status["uncommittedChanges"]
         .as_array()
         .and_then(|changes| {
             changes.iter().find_map(|c| {
@@ -1104,7 +1104,7 @@ fn commit_with_short_changes_flag() -> anyhow::Result<()> {
     let stdout_after = std::str::from_utf8(&status_after.get_output().stdout)?;
     let status_after: serde_json::Value = serde_json::from_str(stdout_after)?;
 
-    let remaining: Vec<&str> = status_after["unassignedChanges"]
+    let remaining: Vec<&str> = status_after["uncommittedChanges"]
         .as_array()
         .map(|changes| {
             changes
@@ -1212,9 +1212,9 @@ fn commit_with_empty_file_list_uses_all_files() -> anyhow::Result<()> {
     let stdout_after = std::str::from_utf8(&status_after.get_output().stdout)?;
     let status_after: serde_json::Value = serde_json::from_str(stdout_after)?;
 
-    let unassigned = status_after["unassignedChanges"].as_array();
+    let uncommitted = status_after["uncommittedChanges"].as_array();
     assert!(
-        unassigned.map(|f| f.is_empty()).unwrap_or(true),
+        uncommitted.map(|f| f.is_empty()).unwrap_or(true),
         "All files should be committed"
     );
 
@@ -1247,7 +1247,7 @@ fn commit_with_multiple_hunk_ids_from_same_file() -> anyhow::Result<()> {
     let status: serde_json::Value = serde_json::from_str(stdout)?;
 
     // Find all hunk IDs for multi-hunk.txt
-    let hunk_ids: Vec<String> = status["unassignedChanges"]
+    let hunk_ids: Vec<String> = status["uncommittedChanges"]
         .as_array()
         .map(|changes| {
             changes
@@ -1270,7 +1270,7 @@ fn commit_with_multiple_hunk_ids_from_same_file() -> anyhow::Result<()> {
         let stdout_after = std::str::from_utf8(&status_after.get_output().stdout)?;
         let status_after: serde_json::Value = serde_json::from_str(stdout_after)?;
 
-        let remaining: Vec<&str> = status_after["unassignedChanges"]
+        let remaining: Vec<&str> = status_after["uncommittedChanges"]
             .as_array()
             .map(|changes| {
                 changes
@@ -1423,8 +1423,8 @@ fn commit_batch_creates_multiple_selected_commits() -> anyhow::Result<()> {
     env.file("two.txt", "two");
 
     let status = util::status_json(&env)?;
-    let one_id = find_unassigned_cli_id(&status, "one.txt").expect("one.txt should have a CLI ID");
-    let two_id = find_unassigned_cli_id(&status, "two.txt").expect("two.txt should have a CLI ID");
+    let one_id = find_uncommitted_cli_id(&status, "one.txt").expect("one.txt should have a CLI ID");
+    let two_id = find_uncommitted_cli_id(&status, "two.txt").expect("two.txt should have a CLI ID");
 
     env.but(format!(
         "commit batch A -m 'Add one' --changes {one_id} -m 'Add two' --changes {two_id}"
@@ -1437,7 +1437,7 @@ fn commit_batch_creates_multiple_selected_commits() -> anyhow::Result<()> {
 
 "#]]);
 
-    assert_eq!(unassigned_file_count(&env), 0);
+    assert_eq!(uncommitted_file_count(&env), 0);
     let messages = branch_commit_messages(&env, "A");
     let newest_messages = messages
         .iter()
@@ -1464,8 +1464,8 @@ fn commit_batch_with_position_on_different_branch_fails() -> anyhow::Result<()> 
     env.file("new-file.txt", "content");
 
     let status = util::status_json(&env)?;
-    let file_id =
-        find_unassigned_cli_id(&status, "new-file.txt").expect("new-file.txt should have a CLI ID");
+    let file_id = find_uncommitted_cli_id(&status, "new-file.txt")
+        .expect("new-file.txt should have a CLI ID");
 
     let output = env
         .but(format!(
@@ -1491,8 +1491,8 @@ fn commit_batch_after_commit_preserves_batch_order() -> anyhow::Result<()> {
     env.file("two.txt", "two");
 
     let status = util::status_json(&env)?;
-    let one_id = find_unassigned_cli_id(&status, "one.txt").expect("one.txt should have a CLI ID");
-    let two_id = find_unassigned_cli_id(&status, "two.txt").expect("two.txt should have a CLI ID");
+    let one_id = find_uncommitted_cli_id(&status, "one.txt").expect("one.txt should have a CLI ID");
+    let two_id = find_uncommitted_cli_id(&status, "two.txt").expect("two.txt should have a CLI ID");
 
     env.but(format!(
         "commit batch A --after 9477ae7 -m 'Add one' --changes {one_id} -m 'Add two' --changes {two_id}"
@@ -1520,8 +1520,8 @@ fn commit_batch_json_outputs_single_document() -> anyhow::Result<()> {
     env.file("two.txt", "two");
 
     let status = util::status_json(&env)?;
-    let one_id = find_unassigned_cli_id(&status, "one.txt").expect("one.txt should have a CLI ID");
-    let two_id = find_unassigned_cli_id(&status, "two.txt").expect("two.txt should have a CLI ID");
+    let one_id = find_uncommitted_cli_id(&status, "one.txt").expect("one.txt should have a CLI ID");
+    let two_id = find_uncommitted_cli_id(&status, "two.txt").expect("two.txt should have a CLI ID");
 
     let output = env
         .but(format!(
@@ -1576,9 +1576,9 @@ fn but_std_cmd(env: &Sandbox, args: &str) -> std::process::Command {
     cmd
 }
 
-/// Helper: find CLI IDs for unassigned files matching a path pattern.
-fn find_unassigned_cli_id(status: &serde_json::Value, path_contains: &str) -> Option<String> {
-    status["unassignedChanges"]
+/// Helper: find CLI IDs for uncommitted files matching a path pattern.
+fn find_uncommitted_cli_id(status: &serde_json::Value, path_contains: &str) -> Option<String> {
+    status["uncommittedChanges"]
         .as_array()?
         .iter()
         .find(|c| {
@@ -1625,9 +1625,9 @@ fn branch_commit_file_paths_by_message(
         .collect()
 }
 
-/// Helper: count unassigned (uncommitted) changes in `--format json status`.
-fn unassigned_file_count(env: &Sandbox) -> usize {
-    util::status_json(env).expect("status should be valid JSON")["unassignedChanges"]
+/// Helper: count uncommitted (uncommitted) changes in `--format json status`.
+fn uncommitted_file_count(env: &Sandbox) -> usize {
+    util::status_json(env).expect("status should be valid JSON")["uncommittedChanges"]
         .as_array()
         .map(|a| a.len())
         .unwrap_or(0)
@@ -1647,8 +1647,8 @@ mod concurrent_commits {
         // Refresh status before each commit so this control test isolates
         // serialization from any possible CLI-ID churn across commands.
         let status = util::status_json(env)?;
-        let cli_id = find_unassigned_cli_id(&status, path_contains)
-            .expect("should find CLI ID for requested unassigned change");
+        let cli_id = find_uncommitted_cli_id(&status, path_contains)
+            .expect("should find CLI ID for requested uncommitted change");
 
         env.but(format!(
             "commit {branch_name} -m {message} --changes {cli_id}"
@@ -1680,11 +1680,11 @@ mod concurrent_commits {
         // Get file CLI IDs from status
         let status = util::status_json(&env)?;
         let id_a =
-            find_unassigned_cli_id(&status, "a/new").expect("should find CLI ID for src/a/new.ts");
+            find_uncommitted_cli_id(&status, "a/new").expect("should find CLI ID for src/a/new.ts");
         let id_b =
-            find_unassigned_cli_id(&status, "b/new").expect("should find CLI ID for src/b/new.ts");
+            find_uncommitted_cli_id(&status, "b/new").expect("should find CLI ID for src/b/new.ts");
         let id_c =
-            find_unassigned_cli_id(&status, "c/new").expect("should find CLI ID for src/c/new.ts");
+            find_uncommitted_cli_id(&status, "c/new").expect("should find CLI ID for src/c/new.ts");
 
         // Fire three concurrent commits
         let child_a =
@@ -1721,11 +1721,11 @@ mod concurrent_commits {
             out_c.stderr.as_bstr()
         );
 
-        // All files should be committed (not left unassigned)
-        let remaining = unassigned_file_count(&env);
+        // All files should be committed (not left uncommitted)
+        let remaining = uncommitted_file_count(&env);
         assert_eq!(
             remaining, 0,
-            "all files should be committed, but {remaining} are still unassigned"
+            "all files should be committed, but {remaining} are still uncommitted"
         );
 
         // Each branch should have the new commit
@@ -1769,10 +1769,10 @@ mod concurrent_commits {
         commit_matching_change(&env, "branchB", "commit-b", "b/new")?;
         commit_matching_change(&env, "branchC", "commit-c", "c/new")?;
 
-        let remaining = unassigned_file_count(&env);
+        let remaining = uncommitted_file_count(&env);
         assert_eq!(
             remaining, 0,
-            "all files should be committed, but {remaining} are still unassigned"
+            "all files should be committed, but {remaining} are still uncommitted"
         );
 
         let a_msgs = branch_commit_messages(&env, "A");

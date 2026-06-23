@@ -270,8 +270,8 @@ fn resolve_file_ids(
         }
 
         match &cli_ids[0] {
-            CliId::Uncommitted(uncommitted) => {
-                // Validate stack assignment for ALL hunks - each must be unassigned OR assigned to target stack
+            CliId::UncommittedHunkOrFile(uncommitted) => {
+                // Validate stack assignment for ALL hunks - each must be uncommitted OR assigned to target stack
                 for hunk in &uncommitted.hunk_assignments {
                     if hunk.stack_id.is_some() && hunk.stack_id != target_stack_id {
                         errors.push(format!(
@@ -287,7 +287,7 @@ fn resolve_file_ids(
                     continue;
                 }
 
-                // Convert UncommittedCliId to FileAssignment and merge with existing entry if present
+                // Convert UncommittedHunkOrFile to FileAssignment and merge with existing entry if present
                 let path = uncommitted.hunk_assignments.first().path_bytes.clone();
                 let new_assignments: Vec<CLIHunkAssignment> = uncommitted
                     .hunk_assignments
@@ -832,19 +832,19 @@ pub(crate) fn commit(
         // User specified specific file IDs - resolve them
         resolve_file_ids(&id_map, ctx, file_ids, Some(target_stack_id))?
     } else {
-        // Default behavior: unassigned files + files assigned to target stack
+        // Default behavior: uncommitted files + files assigned to target stack
         let assignments_by_file: BTreeMap<BString, FileAssignment> =
             FileAssignment::get_assignments_by_file(&id_map);
 
         let mut files = Vec::new();
 
         if !only {
-            // Add unassigned files (unless --only flag is used)
-            let unassigned = crate::command::legacy::status::assignment::filter_by_stack_id(
+            // Add uncommitted files (unless --only flag is used)
+            let uncommitted = crate::command::legacy::status::assignment::filter_by_stack_id(
                 assignments_by_file.values(),
                 &None,
             );
-            files.extend(unassigned);
+            files.extend(uncommitted);
         }
 
         // Add files assigned to target stack

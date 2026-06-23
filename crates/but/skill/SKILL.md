@@ -61,7 +61,7 @@ but <mutation> ...
 - Move commit to branch top: `but move <commit-id> <branch-name-or-id>` (puts that commit at the top/newest position of the branch)
 - Move multiple commits to branch top: `but move <commit-id>,<commit-id> <branch-name-or-id>` (commit IDs only; not branches)
 - Stack branches: `but move <branch-name-or-id> <target-branch-name-or-id>` (**branch names or branch CLI IDs**)
-- Tear off a branch: `but move <branch-name-or-id> zz` (`zz` = unassigned; branch name or branch CLI ID)
+- Tear off a branch: `but move <branch-name-or-id> zz` (`zz` = uncommitted; branch name or branch CLI ID)
 - Push: `but push <branch-name>` — always specify the branch; bare `but push` pushes ALL branches when run non-interactively
 - Pull: `but pull --check` then `but pull`
 
@@ -87,7 +87,7 @@ For "get latest from main", "update/sync this workspace", or "pull main":
    For an existing branch, omit `-c`: `but commit <branch> -m "<msg>" --changes <id1>,<id2>`.
    Omit IDs you don't want committed.
    Creating a new branch with `-c` does not require a prior `but branch` or `but status -fv`.
-4. **Check the returned status** for remaining uncommitted changes. If the file still appears as unassigned or assigned to another branch after commit, it may be dependency-locked. See "Stacked dependency / commit-lock recovery" below.
+4. **Check the returned status** for remaining uncommitted changes. If the file still appears as uncommitted or assigned to another branch after commit, it may be dependency-locked. See "Stacked dependency / commit-lock recovery" below.
 
 Edge case: if wanted and unwanted edits are in the same diff hunk, GitButler cannot split that hunk by ID. Only when the task requires keeping part of that hunk uncommitted, temporarily edit the working tree to isolate the wanted lines, commit with `--changes`, then restore the leftover lines so they remain uncommitted.
 
@@ -154,8 +154,8 @@ but move feature/logging zz
 ### Stacked dependency / commit-lock recovery
 
 A **dependency lock** occurs when a file was originally committed on branch A, but you're trying to commit changes to it on branch B. Symptoms:
-- `but commit` succeeds but the file still appears in `unassignedChanges` in the returned status
-- The file still shows as "unassigned" in the status output
+- `but commit` succeeds but the file still appears in `uncommittedChanges` in the returned status
+- The file still shows as "uncommitted" in the status output
 
 **Recovery:** Stack your branch on the dependency branch, then commit:
 

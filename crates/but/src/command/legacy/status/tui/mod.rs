@@ -63,14 +63,14 @@ use crate::{
                     DetailsMode, DetailsReturnMode, InlineRewordMode, Mode, ModeDiscriminant,
                     MoveMode, MoveSource, MoveStackMode, NormalMode, PickUncommittedMode,
                     ReorderStackSource, RubMode, RubSource, StackCommitSource, StackMode,
-                    UnassignedCommitSource,
+                    UncommittedAreaCommitSource,
                 },
                 operations::stack_has_assigned_changes,
                 toast::{ToastKind, Toasts},
             },
         },
     },
-    id::UNASSIGNED,
+    id::UNCOMMITTED,
     resolve_legacy_top_level_apply_branch_name,
     theme::Theme,
     tui::{CrosstermTerminalGuard, HeadlessTerminalGuard, TerminalGuard},
@@ -683,11 +683,11 @@ impl App {
                     };
                 }
             }
-            Message::SelectUnassigned => {
+            Message::SelectUncommitted => {
                 let new_cursor = Cursor::new(&self.status_lines);
-                if let Some(unassigned_line) = new_cursor.selected_line(&self.status_lines)
+                if let Some(uncommitted_line) = new_cursor.selected_line(&self.status_lines)
                     && cursor::is_selectable_in_mode(
-                        unassigned_line,
+                        uncommitted_line,
                         &self.mode,
                         self.flags.show_files,
                     )
@@ -1421,8 +1421,8 @@ impl App {
                 stack_id,
             }))
         } else {
-            RubSource::CliId(Arc::new(CliId::Unassigned {
-                id: UNASSIGNED.to_owned(),
+            RubSource::CliId(Arc::new(CliId::Uncommitted {
+                id: UNCOMMITTED.to_owned(),
             }))
         };
 
@@ -1465,7 +1465,7 @@ impl App {
         {
             let MarkClasses {
                 marked_commits,
-                // with marked uncommitted files the cursor cannot move out of the unassigned
+                // with marked uncommitted files the cursor cannot move out of the uncommitted
                 // changes section, thus you can never toggle files for a commit because that
                 // requires selecting the commit
                 marked_uncommitted: _,
@@ -1645,7 +1645,7 @@ impl App {
                     Cursor::select_commit(commit_id, &new_lines)
                 }
                 SelectAfterReload::Branch(branch) => Cursor::select_branch(&branch, &new_lines),
-                SelectAfterReload::Unassigned => Cursor::select_unassigned(&new_lines),
+                SelectAfterReload::Uncommitted => Cursor::select_uncommitted(&new_lines),
                 SelectAfterReload::UncommittedFile { path, stack_id } => {
                     Cursor::select_uncommitted_file(path.as_ref(), stack_id, &new_lines)
                 }
@@ -1744,17 +1744,17 @@ impl App {
 
         self.modal = Some(Modal::Confirm {
             confirm: match &**cli_id {
-                CliId::Unassigned { .. } => {
+                CliId::Uncommitted { .. } => {
                     self.to_be_discarded = Vec::from([Arc::clone(cli_id)]);
                     let drop_to_be_discarded =
                         message_on_drop::message_on_drop(Message::DropToBeDiscarded, messages);
                     Confirm::new(
-                        NonEmpty::new("Discard unassigned changes?".into()),
+                        NonEmpty::new("Discard uncommitted changes?".into()),
                         self.theme,
                         move |ctx, messages| {
-                            operations::discard_unassigned_legacy(ctx)?;
+                            operations::discard_uncommitted_legacy(ctx)?;
                             messages.push(Message::Reload(
-                                Some(SelectAfterReload::Unassigned),
+                                Some(SelectAfterReload::Uncommitted),
                                 ReloadCause::Mutation,
                             ));
                             drop(drop_to_be_discarded);
@@ -1762,7 +1762,7 @@ impl App {
                         },
                     )
                 }
-                CliId::Uncommitted(uncommitted) => {
+                CliId::UncommittedHunkOrFile(uncommitted) => {
                     self.to_be_discarded = Vec::from([Arc::clone(cli_id)]);
                     let uncommitted = uncommitted.clone();
 
@@ -1777,7 +1777,7 @@ impl App {
                             .unwrap_or(SelectAfterReload::Stack(stack_id))
                     } else {
                         // Discarding only part of a file: select the previous selectable line.
-                        self.cursor.select_previous_cli_id_or_unassigned(
+                        self.cursor.select_previous_cli_id_or_uncommitted(
                             &self.status_lines,
                             &self.mode,
                             self.flags.show_files,
@@ -1795,7 +1795,7 @@ impl App {
                                 .iter()
                                 .cloned()
                                 .collect::<Vec<_>>();
-                            operations::discard_uncommitted_legacy(ctx, hunk_assignments)?;
+                            operations::discard_uncommitted_hunks_legacy(ctx, hunk_assignments)?;
                             messages.push(Message::Reload(
                                 Some(select_after_reload),
                                 ReloadCause::Mutation,
@@ -2068,8 +2068,8 @@ impl App {
             | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnassignedChanges { .. }
-            | StatusOutputLineData::UnassignedFile { .. }
+            | StatusOutputLineData::UncommittedChanges { .. }
+            | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -2098,7 +2098,7 @@ impl App {
         };
 
         let commit_mode = match &selection.data {
-            StatusOutputLineData::UnassignedChanges { cli_id } => {
+            StatusOutputLineData::UncommittedChanges { cli_id } => {
                 let Some(source) = CommitSource::try_new(Arc::unwrap_or_clone(Arc::clone(cli_id)))
                 else {
                     return Ok(());
@@ -2110,7 +2110,7 @@ impl App {
                     message_composer: CommitMessageComposer::default(),
                 }
             }
-            StatusOutputLineData::UnassignedFile { cli_id }
+            StatusOutputLineData::UncommittedFile { cli_id }
             | StatusOutputLineData::StagedChanges { cli_id }
             | StatusOutputLineData::StagedFile { cli_id } => {
                 let Some(source) = CommitSource::try_new(Arc::unwrap_or_clone(Arc::clone(cli_id)))
@@ -2134,8 +2134,8 @@ impl App {
                     )
                 } else {
                     (
-                        CommitSource::Unassigned(UnassignedCommitSource {
-                            id: UNASSIGNED.to_string(),
+                        CommitSource::UncommittedArea(UncommittedAreaCommitSource {
+                            id: UNCOMMITTED.to_string(),
                         }),
                         None,
                     )
@@ -2160,8 +2160,8 @@ impl App {
                     )
                 } else {
                     (
-                        CommitSource::Unassigned(UnassignedCommitSource {
-                            id: UNASSIGNED.to_string(),
+                        CommitSource::UncommittedArea(UncommittedAreaCommitSource {
+                            id: UNCOMMITTED.to_string(),
                         }),
                         None,
                     )
@@ -2281,8 +2281,8 @@ impl App {
             | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnassignedChanges { .. }
-            | StatusOutputLineData::UnassignedFile { .. }
+            | StatusOutputLineData::UncommittedChanges { .. }
+            | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -2318,8 +2318,8 @@ impl App {
                         builder.push_changes_from_uncommitted(uncommitted)?;
                     }
                 }
-                CommitSource::Unassigned(UnassignedCommitSource { id }) => {
-                    builder.push_changes_from_unassigned(id)?;
+                CommitSource::UncommittedArea(UncommittedAreaCommitSource { id }) => {
+                    builder.push_changes_from_uncommitted_area(id)?;
                 }
                 CommitSource::Uncommitted(uncommitted) => {
                     builder.push_changes_from_uncommitted(uncommitted)?;
@@ -2474,9 +2474,9 @@ impl App {
             return;
         };
         match &selection.data {
-            StatusOutputLineData::UnassignedFile { .. }
+            StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::Branch { .. }
-            | StatusOutputLineData::UnassignedChanges { .. } => {}
+            | StatusOutputLineData::UncommittedChanges { .. } => {}
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
             | StatusOutputLineData::BetweenStacks
@@ -2574,8 +2574,8 @@ impl App {
                 | StatusOutputLineData::BetweenStacks
                 | StatusOutputLineData::StagedChanges { .. }
                 | StatusOutputLineData::StagedFile { .. }
-                | StatusOutputLineData::UnassignedChanges { .. }
-                | StatusOutputLineData::UnassignedFile { .. }
+                | StatusOutputLineData::UncommittedChanges { .. }
+                | StatusOutputLineData::UncommittedFile { .. }
                 | StatusOutputLineData::CommitMessage
                 | StatusOutputLineData::EmptyCommitMessage
                 | StatusOutputLineData::File { .. }
@@ -2655,8 +2655,8 @@ impl App {
             | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnassignedChanges { .. }
-            | StatusOutputLineData::UnassignedFile { .. }
+            | StatusOutputLineData::UncommittedChanges { .. }
+            | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -2781,9 +2781,11 @@ impl App {
                 };
                 operations::create_branch_anchored_legacy(ctx, name.to_owned())?
             }
-            StatusOutputLineData::UnassignedChanges { .. }
+            StatusOutputLineData::UncommittedChanges { .. }
             | StatusOutputLineData::MergeBase
-            | StatusOutputLineData::UnassignedFile { .. } => operations::create_branch_legacy(ctx)?,
+            | StatusOutputLineData::UncommittedFile { .. } => {
+                operations::create_branch_legacy(ctx)?
+            }
             StatusOutputLineData::UpdateNotice
             | StatusOutputLineData::Connector
             | StatusOutputLineData::BetweenStacks
@@ -2819,10 +2821,10 @@ impl App {
             CliId::Branch { name, .. } => Cow::Borrowed(&**name),
             CliId::Commit { commit_id, .. } => Cow::Owned(commit_id.to_hex_with_len(7).to_string()),
             CliId::CommittedFile { path, .. } => path.to_str_lossy(),
-            CliId::Uncommitted(uncommitted) => {
+            CliId::UncommittedHunkOrFile(uncommitted) => {
                 Cow::Borrowed(&*uncommitted.hunk_assignments.first().path)
             }
-            CliId::PathPrefix { .. } | CliId::Unassigned { .. } | CliId::Stack { .. } => {
+            CliId::PathPrefix { .. } | CliId::Uncommitted { .. } | CliId::Stack { .. } => {
                 return Ok(());
             }
         };
@@ -2912,10 +2914,10 @@ impl App {
                     textarea: Box::new(textarea),
                 }
             }
-            CliId::Uncommitted(..)
+            CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
-            | CliId::Unassigned { .. }
+            | CliId::Uncommitted { .. }
             | CliId::Stack { .. } => return Ok(()),
         };
 
@@ -3249,14 +3251,14 @@ impl App {
             .collect::<Vec<_>>();
 
         if let Some(branch_names) = NonEmpty::from_vec(branch_names) {
-            let include_unassigned = Cursor::select_unassigned(&self.status_lines)
+            let include_uncommitted = Cursor::select_uncommitted(&self.status_lines)
                 .and_then(|cursor| cursor.selected_line(&self.status_lines))
-                .is_some_and(|unassigned| {
-                    is_selectable_in_mode(unassigned, &self.mode, self.flags.show_files)
+                .is_some_and(|uncommitted| {
+                    is_selectable_in_mode(uncommitted, &self.mode, self.flags.show_files)
                 });
 
-            let picker_items = if include_unassigned {
-                let mut mapped_items = NonEmpty::new(GotoBranchItem::Unassigned);
+            let picker_items = if include_uncommitted {
+                let mut mapped_items = NonEmpty::new(GotoBranchItem::Uncommitted);
                 mapped_items.extend(branch_names.map(GotoBranchItem::Branch));
                 mapped_items
             } else {
@@ -3272,8 +3274,8 @@ impl App {
                             GotoBranchItem::Branch(branch_name) => {
                                 messages.push(Message::SelectBranch(branch_name));
                             }
-                            GotoBranchItem::Unassigned => {
-                                messages.push(Message::SelectUnassigned);
+                            GotoBranchItem::Uncommitted => {
+                                messages.push(Message::SelectUncommitted);
                             }
                         }
                         Ok(())
@@ -3307,7 +3309,7 @@ impl App {
         };
 
         match &**selection {
-            CliId::Commit { .. } | CliId::Uncommitted(..) => {
+            CliId::Commit { .. } | CliId::UncommittedHunkOrFile(..) => {
                 if handle_mark_cli_id(
                     selection,
                     self.mode
@@ -3346,15 +3348,15 @@ impl App {
                     }
                 }
             }
-            CliId::Unassigned { .. } => {
-                // you cannot select unassigned changes in rub mode so we don't need to care about that
+            CliId::Uncommitted { .. } => {
+                // you cannot select uncommitted changes in rub mode so we don't need to care about that
                 match self
                     .mode
                     .get_mut_without_updating_backstack_and_i_promise_not_to_change_state()
                 {
                     Mode::Normal(NormalMode { marks })
                     | Mode::PickChanges(PickUncommittedMode { marks }) => {
-                        handle_mark_unassigned(marks, &self.status_lines);
+                        handle_mark_uncommitted(marks, &self.status_lines);
                     }
                     Mode::Rub(..)
                     | Mode::InlineReword(..)
@@ -3561,11 +3563,11 @@ impl App {
                 ..
             } => (*stack_id, name),
             CliId::Branch { .. }
-            | CliId::Uncommitted(..)
+            | CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Commit { .. }
-            | CliId::Unassigned { .. }
+            | CliId::Uncommitted { .. }
             | CliId::Stack { .. } => return,
         };
 
@@ -3857,11 +3859,11 @@ fn handle_mark_cli_id(commit: &CliId, mode: &mut Mode) -> bool {
                             marks.toggle(markable);
                             rub_mode.source = RubSource::Marks(marks);
                         }
-                        CliId::Uncommitted(..)
+                        CliId::UncommittedHunkOrFile(..)
                         | CliId::PathPrefix { .. }
                         | CliId::CommittedFile { .. }
                         | CliId::Branch { .. }
-                        | CliId::Unassigned { .. }
+                        | CliId::Uncommitted { .. }
                         | CliId::Stack { .. } => return false,
                     }
                 }
@@ -3926,11 +3928,14 @@ fn handle_mark_branch(
 
 fn line_uses_top_stack_for_stack_mode(line: &StatusOutputLine) -> bool {
     match &line.data {
-        StatusOutputLineData::UnassignedChanges { .. } => true,
-        StatusOutputLineData::UnassignedFile { cli_id }
+        StatusOutputLineData::UncommittedChanges { .. } => true,
+        StatusOutputLineData::UncommittedFile { cli_id }
         | StatusOutputLineData::StagedFile { cli_id }
         | StatusOutputLineData::File { cli_id } => {
-            matches!(&**cli_id, CliId::Uncommitted(..) | CliId::PathPrefix { .. })
+            matches!(
+                &**cli_id,
+                CliId::UncommittedHunkOrFile(..) | CliId::PathPrefix { .. }
+            )
         }
         StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::Connector
@@ -3972,13 +3977,13 @@ fn stack_id_for_line(
         StatusOutputLineData::Branch { cli_id }
         | StatusOutputLineData::StagedChanges { cli_id }
         | StatusOutputLineData::StagedFile { cli_id }
-        | StatusOutputLineData::UnassignedFile { cli_id }
+        | StatusOutputLineData::UncommittedFile { cli_id }
         | StatusOutputLineData::File { cli_id } => stack_id_for_cli_id(cli_id, status_lines),
         StatusOutputLineData::Commit { stack_id, .. } => *stack_id,
         StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::Connector
         | StatusOutputLineData::BetweenStacks
-        | StatusOutputLineData::UnassignedChanges { .. }
+        | StatusOutputLineData::UncommittedChanges { .. }
         | StatusOutputLineData::CommitMessage
         | StatusOutputLineData::EmptyCommitMessage
         | StatusOutputLineData::MergeBase
@@ -3991,7 +3996,7 @@ fn stack_id_for_line(
 
 fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Option<StackId> {
     match cli_id {
-        CliId::Uncommitted(uncommitted) => uncommitted.hunk_assignments.first().stack_id,
+        CliId::UncommittedHunkOrFile(uncommitted) => uncommitted.hunk_assignments.first().stack_id,
         CliId::PathPrefix {
             hunk_assignments, ..
         } => hunk_assignments.first().1.stack_id,
@@ -4004,12 +4009,12 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
                         commit_id: line_commit_id,
                         ..
                     } if line_commit_id == commit_id => *stack_id,
-                    CliId::Uncommitted(..)
+                    CliId::UncommittedHunkOrFile(..)
                     | CliId::PathPrefix { .. }
                     | CliId::CommittedFile { .. }
                     | CliId::Branch { .. }
                     | CliId::Commit { .. }
-                    | CliId::Unassigned { .. }
+                    | CliId::Uncommitted { .. }
                     | CliId::Stack { .. } => None,
                 },
                 StatusOutputLineData::UpdateNotice
@@ -4017,8 +4022,8 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
                 | StatusOutputLineData::BetweenStacks
                 | StatusOutputLineData::StagedChanges { .. }
                 | StatusOutputLineData::StagedFile { .. }
-                | StatusOutputLineData::UnassignedChanges { .. }
-                | StatusOutputLineData::UnassignedFile { .. }
+                | StatusOutputLineData::UncommittedChanges { .. }
+                | StatusOutputLineData::UncommittedFile { .. }
                 | StatusOutputLineData::Branch { .. }
                 | StatusOutputLineData::CommitMessage
                 | StatusOutputLineData::EmptyCommitMessage
@@ -4032,19 +4037,19 @@ fn stack_id_for_cli_id(cli_id: &CliId, status_lines: &[StatusOutputLine]) -> Opt
         }
         CliId::Branch { stack_id, .. } => *stack_id,
         CliId::Stack { stack_id, .. } => Some(*stack_id),
-        CliId::Unassigned { .. } => None,
+        CliId::Uncommitted { .. } => None,
     }
 }
 
-fn handle_mark_unassigned(marks: &mut Marks, status_lines: &[StatusOutputLine]) {
-    let unassigned_files = status_lines.iter().filter_map(|line| match &line.data {
-        StatusOutputLineData::UnassignedFile { cli_id } => Markable::try_from_cli_id(cli_id),
+fn handle_mark_uncommitted(marks: &mut Marks, status_lines: &[StatusOutputLine]) {
+    let uncommitted_files = status_lines.iter().filter_map(|line| match &line.data {
+        StatusOutputLineData::UncommittedFile { cli_id } => Markable::try_from_cli_id(cli_id),
         StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::Connector
         | StatusOutputLineData::BetweenStacks
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
-        | StatusOutputLineData::UnassignedChanges { .. }
+        | StatusOutputLineData::UncommittedChanges { .. }
         | StatusOutputLineData::Branch { .. }
         | StatusOutputLineData::Commit { .. }
         | StatusOutputLineData::CommitMessage
@@ -4057,7 +4062,7 @@ fn handle_mark_unassigned(marks: &mut Marks, status_lines: &[StatusOutputLine]) 
         | StatusOutputLineData::NoAssignmentsUnstaged => None,
     });
 
-    toggle_markables(marks, unassigned_files);
+    toggle_markables(marks, uncommitted_files);
 }
 
 fn toggle_markables(marks: &mut Marks, markables: impl IntoIterator<Item = Markable>) {
@@ -4141,7 +4146,7 @@ enum Message {
     MoveCursorDown(usize),
     MoveCursorPreviousSection,
     MoveCursorNextSection,
-    SelectUnassigned,
+    SelectUncommitted,
     SelectMergeBase,
     PickAndGotoBranch,
     SelectBranch(FullName),
@@ -4298,7 +4303,7 @@ enum SelectAfterReload {
     Branch(String),
     Stack(StackId),
     CliId(Arc<CliId>),
-    Unassigned,
+    Uncommitted,
 }
 
 /// Formats an error for display in the terminal UI without including backtraces.
@@ -4420,7 +4425,7 @@ impl TuiInputOutputChannel for InputOutputChannel<'_> {
 #[derive(Debug, Clone)]
 enum GotoBranchItem {
     Branch(FullName),
-    Unassigned,
+    Uncommitted,
 }
 
 impl FuzzyPickerItem for GotoBranchItem {
@@ -4430,8 +4435,8 @@ impl FuzzyPickerItem for GotoBranchItem {
                 text: full_name.shorten().to_str_lossy(),
                 searchable: Some(searchable),
             }],
-            Self::Unassigned => [Col {
-                text: "unassigned changes".into(),
+            Self::Uncommitted => [Col {
+                text: "uncommitted changes".into(),
                 searchable: Some(searchable),
             }],
         }
@@ -4440,7 +4445,7 @@ impl FuzzyPickerItem for GotoBranchItem {
     fn style(&self, theme: &'static Theme) -> Style {
         match self {
             Self::Branch(..) => theme.local_branch,
-            Self::Unassigned => theme.info,
+            Self::Uncommitted => theme.info,
         }
     }
 }

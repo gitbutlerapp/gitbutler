@@ -33,7 +33,7 @@ Q: Does squash open the editor to edit the commit message
 # Examples
 Examples below assume this baseline
 ```
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   ur M flake.nix
 ┊
 ┊╭┄op [top]
@@ -55,7 +55,7 @@ Examples below assume this baseline
 but squash e28a167 -t 20e235d
 but squash top
 ```
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   ur M flake.nix
 ┊
 ┊╭┄op [top]
@@ -75,7 +75,7 @@ but squash top
 
 but squash 58410cd 5a08eb5 -t 20e235d
 ```
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   ur M flake.nix
 ┊
 ┊╭┄op [top]
@@ -94,7 +94,7 @@ but squash 58410cd 5a08eb5 -t 20e235d
 
 but squash middle -t e28a167
 ```
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   ur M flake.nix
 ┊
 ┊╭┄op [top]
@@ -111,7 +111,7 @@ but squash middle -t e28a167
 
 but squash 20e235d -t zz
 ```
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   ur M flake.nix
 ┊   ab M six
 ┊
@@ -132,7 +132,7 @@ but squash 20e235d -t zz
 
 but squash zz -t 20e235d
 ```
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄op [top]
 ┊●   20e235d six+flake.nix
@@ -152,7 +152,7 @@ but squash zz -t 20e235d
 
 but squash middle -t zz
 ```
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   ur M flake.nix
 ┊   ur M four
 ┊   ur M three

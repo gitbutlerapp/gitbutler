@@ -2,7 +2,7 @@ use nonempty::NonEmpty;
 use serde::Serialize;
 
 use crate::{
-    CliError, CliId, CliResult, IdMap, args::atoms::BranchArg, bad_input, id::UncommittedCliId,
+    CliError, CliId, CliResult, IdMap, args::atoms::BranchArg, bad_input, id::UncommittedHunkOrFile,
 };
 
 /// An argument atom for cli ids that can match multiple things like branches, commits, files, etc.
@@ -59,10 +59,12 @@ impl CliIdArg {
         Ok(Some(match id {
             CliId::Branch { name, .. } => ResolvedCliIdArg::Branch(BranchArg(name)),
             CliId::Commit { commit_id, .. } => ResolvedCliIdArg::Commit(commit_id),
-            CliId::Uncommitted(uncommitted) => ResolvedCliIdArg::Uncommitted(Box::new(uncommitted)),
+            CliId::UncommittedHunkOrFile(uncommitted) => {
+                ResolvedCliIdArg::UncommittedHunkOrFile(Box::new(uncommitted))
+            }
             CliId::PathPrefix { .. } => ResolvedCliIdArg::PathPrefix,
             CliId::CommittedFile { .. } => ResolvedCliIdArg::CommittedFile,
-            CliId::Unassigned { .. } => ResolvedCliIdArg::Unassigned,
+            CliId::Uncommitted { .. } => ResolvedCliIdArg::Uncommitted,
             CliId::Stack { .. } => ResolvedCliIdArg::Stack,
         }))
     }
@@ -151,7 +153,7 @@ impl CliIdArg {
         &self,
         repo: &gix::Repository,
         id_map: &IdMap,
-    ) -> CliResult<Option<Vec<UncommittedCliId>>> {
+    ) -> CliResult<Option<Vec<UncommittedHunkOrFile>>> {
         let Some(id) = try_resolve_cli_id(
             self,
             repo,
@@ -163,14 +165,14 @@ impl CliIdArg {
             return Ok(None);
         };
         match id {
-            CliId::Uncommitted(uncommitted) => Ok(Some(vec![uncommitted])),
+            CliId::UncommittedHunkOrFile(uncommitted) => Ok(Some(vec![uncommitted])),
             CliId::PathPrefix {
                 id: _,
                 hunk_assignments,
             } => Ok(Some(
                 hunk_assignments
                     .into_iter()
-                    .map(|(id, assignment)| UncommittedCliId {
+                    .map(|(id, assignment)| UncommittedHunkOrFile {
                         id,
                         hunk_assignments: NonEmpty::new(assignment),
                         // In a world without staging, all these hunk assignments should be turned
@@ -191,7 +193,7 @@ impl CliIdArg {
         &self,
         repo: &gix::Repository,
         id_map: &IdMap,
-    ) -> CliResult<Vec<UncommittedCliId>> {
+    ) -> CliResult<Vec<UncommittedHunkOrFile>> {
         if let Some(uncommitted) = self.try_resolve_uncommitted(repo, id_map)? {
             Ok(uncommitted)
         } else {
@@ -203,10 +205,10 @@ impl CliIdArg {
         let kind = match id {
             CliId::Branch { .. } => "a branch",
             CliId::Commit { .. } => "a commit",
-            CliId::Uncommitted(..) => "an uncommitted file",
+            CliId::UncommittedHunkOrFile(..) => "an uncommitted file",
             CliId::PathPrefix { .. } => "a path",
             CliId::CommittedFile { .. } => "a committed file",
-            CliId::Unassigned { .. } => "unassigned changes",
+            CliId::Uncommitted { .. } => "uncommitted changes",
             CliId::Stack { .. } => "a stack",
         };
         bad_input(format!("Invalid {expected}. '{self}' is {kind}")).into()
@@ -263,10 +265,10 @@ fn try_resolve_cli_id(
             match id {
                 CliId::Branch { .. } => branches.push(id),
                 CliId::Commit { .. } => commits.push(id),
-                CliId::Uncommitted(..) => uncommitted.push(id),
+                CliId::UncommittedHunkOrFile(..) => uncommitted.push(id),
                 CliId::PathPrefix { .. }
                 | CliId::CommittedFile { .. }
-                | CliId::Unassigned { .. }
+                | CliId::Uncommitted { .. }
                 | CliId::Stack { .. } => {}
             }
         }
@@ -328,22 +330,16 @@ impl std::fmt::Display for Purpose {
 
 /// A [`CliIdArg`] that has actually been resolved.
 #[derive(Debug, Clone)]
+#[expect(missing_docs)]
 pub enum ResolvedCliIdArg {
-    #[expect(missing_docs)]
     Commit(gix::ObjectId),
-    #[expect(missing_docs)]
     Branch(BranchArg),
-    #[expect(missing_docs)]
-    Uncommitted(Box<UncommittedCliId>),
+    UncommittedHunkOrFile(Box<UncommittedHunkOrFile>),
     // These have no data because we don't have any commands that use them. So just add data if you
     // have a use case
-    #[expect(missing_docs)]
     PathPrefix,
-    #[expect(missing_docs)]
     CommittedFile,
-    #[expect(missing_docs)]
-    Unassigned,
-    #[expect(missing_docs)]
+    Uncommitted,
     Stack,
 }
 
@@ -353,10 +349,10 @@ impl ResolvedCliIdArg {
         let kind = match self {
             ResolvedCliIdArg::Commit(commit) => return Ok(BranchOrCommit::Commit(commit)),
             ResolvedCliIdArg::Branch(branch) => return Ok(BranchOrCommit::Branch(branch)),
-            ResolvedCliIdArg::Uncommitted(..) => "uncommitted changes",
+            ResolvedCliIdArg::UncommittedHunkOrFile(..) => "uncommitted changes",
             ResolvedCliIdArg::PathPrefix => "a path",
             ResolvedCliIdArg::CommittedFile => "a committed file",
-            ResolvedCliIdArg::Unassigned => "unassigned changes",
+            ResolvedCliIdArg::Uncommitted => "uncommitted changes",
             ResolvedCliIdArg::Stack => "a stack",
         };
         Err(bad_input(format!("Expected a commit or a branch, got {kind}")).into())
@@ -368,10 +364,10 @@ impl std::fmt::Display for ResolvedCliIdArg {
         match self {
             ResolvedCliIdArg::Commit(inner) => inner.to_hex_with_len(7).fmt(f),
             ResolvedCliIdArg::Branch(inner) => inner.fmt(f),
-            ResolvedCliIdArg::Uncommitted(..) => f.write_str("uncommitted changes"),
+            ResolvedCliIdArg::UncommittedHunkOrFile(..) => f.write_str("uncommitted changes"),
             ResolvedCliIdArg::PathPrefix => f.write_str("path"),
             ResolvedCliIdArg::CommittedFile => f.write_str("committed file"),
-            ResolvedCliIdArg::Unassigned => f.write_str("unassigned changes"),
+            ResolvedCliIdArg::Uncommitted => f.write_str("uncommitted changes"),
             ResolvedCliIdArg::Stack => f.write_str("stack"),
         }
     }
@@ -380,10 +376,9 @@ impl std::fmt::Display for ResolvedCliIdArg {
 /// Most commands need cli ids that point to either branches or commits.
 /// [`ResolvedCliIdArg::into_branch_or_commit`] facilitates that via this enum.
 #[derive(Debug, Clone)]
+#[expect(missing_docs)]
 pub enum BranchOrCommit {
-    #[expect(missing_docs)]
     Commit(gix::ObjectId),
-    #[expect(missing_docs)]
     Branch(BranchArg),
 }
 

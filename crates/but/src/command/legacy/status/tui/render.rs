@@ -301,15 +301,15 @@ fn row_stack_ids(lines: &[StatusOutputLine]) -> Vec<Option<StackId>> {
                     current_stack_id = stack_id;
                     stack_id
                 }
-                CliId::Uncommitted(..) | CliId::PathPrefix { .. } => current_stack_id,
+                CliId::UncommittedHunkOrFile(..) | CliId::PathPrefix { .. } => current_stack_id,
                 CliId::Branch { .. }
                 | CliId::Commit { .. }
-                | CliId::Unassigned { .. }
+                | CliId::Uncommitted { .. }
                 | CliId::Stack { .. } => None,
             },
             StatusOutputLineData::UpdateNotice
-            | StatusOutputLineData::UnassignedChanges { .. }
-            | StatusOutputLineData::UnassignedFile { .. }
+            | StatusOutputLineData::UncommittedChanges { .. }
+            | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::MergeBase
             | StatusOutputLineData::UpstreamChanges
             | StatusOutputLineData::Warning
@@ -346,11 +346,11 @@ fn stack_id_from_cli_id(cli_id: &CliId) -> Option<StackId> {
     match cli_id {
         CliId::Branch { stack_id, .. } => *stack_id,
         CliId::Stack { stack_id, .. } => Some(*stack_id),
-        CliId::Uncommitted(..)
+        CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
         | CliId::CommittedFile { .. }
         | CliId::Commit { .. }
-        | CliId::Unassigned { .. } => None,
+        | CliId::Uncommitted { .. } => None,
     }
 }
 
@@ -1239,8 +1239,8 @@ pub(super) fn commit_operation_display(
         }
         StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
-        | StatusOutputLineData::UnassignedChanges { .. }
-        | StatusOutputLineData::UnassignedFile { .. }
+        | StatusOutputLineData::UncommittedChanges { .. }
+        | StatusOutputLineData::UncommittedFile { .. }
         | StatusOutputLineData::UpdateNotice
         | StatusOutputLineData::Connector
         | StatusOutputLineData::BetweenStacks
@@ -1275,8 +1275,8 @@ pub(super) fn move_operation_display(
             | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnassignedChanges { .. }
-            | StatusOutputLineData::UnassignedFile { .. }
+            | StatusOutputLineData::UncommittedChanges { .. }
+            | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -1305,8 +1305,8 @@ pub(super) fn move_operation_display(
             | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnassignedChanges { .. }
-            | StatusOutputLineData::UnassignedFile { .. }
+            | StatusOutputLineData::UncommittedChanges { .. }
+            | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -1325,8 +1325,8 @@ pub(super) fn move_operation_display(
             | StatusOutputLineData::BetweenStacks
             | StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnassignedChanges { .. }
-            | StatusOutputLineData::UnassignedFile { .. }
+            | StatusOutputLineData::UncommittedChanges { .. }
+            | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::EmptyCommitMessage
             | StatusOutputLineData::File { .. }
@@ -1348,8 +1348,8 @@ pub(super) fn reorder_operation_display(
         | StatusOutputLineData::Connector
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
-        | StatusOutputLineData::UnassignedChanges { .. }
-        | StatusOutputLineData::UnassignedFile { .. }
+        | StatusOutputLineData::UncommittedChanges { .. }
+        | StatusOutputLineData::UncommittedFile { .. }
         | StatusOutputLineData::Branch { .. }
         | StatusOutputLineData::Commit { .. }
         | StatusOutputLineData::CommitMessage
@@ -1384,8 +1384,8 @@ pub(super) fn stack_operation_display(
         | StatusOutputLineData::BetweenStacks
         | StatusOutputLineData::StagedChanges { .. }
         | StatusOutputLineData::StagedFile { .. }
-        | StatusOutputLineData::UnassignedChanges { .. }
-        | StatusOutputLineData::UnassignedFile { .. }
+        | StatusOutputLineData::UncommittedChanges { .. }
+        | StatusOutputLineData::UncommittedFile { .. }
         | StatusOutputLineData::Commit { .. }
         | StatusOutputLineData::CommitMessage
         | StatusOutputLineData::EmptyCommitMessage

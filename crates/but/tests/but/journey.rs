@@ -144,7 +144,7 @@ Learn more at https://docs.gitbutler.com/cli-overview
         .assert()
         .success()
         .stdout_eq(str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┴ 6f66116 (common base) 2000-01-02 Initial empty commit
 

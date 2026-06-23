@@ -33,8 +33,8 @@ pub fn show(
     // Get the list of commits ahead of base for this branch
     let commits = get_commits_ahead(ctx, &branch_arg, show_files)?;
 
-    // Get unassigned files for this branch
-    let unassigned_files = get_unassigned_files(ctx, &branch_arg)?;
+    // Get uncommitted files for this branch
+    let uncommitted_files = get_uncommitted_files(ctx, &branch_arg)?;
 
     let branch_name = &branch_arg.0;
 
@@ -70,7 +70,7 @@ pub fn show(
         output_json(
             branch_name,
             &commits,
-            &unassigned_files,
+            &uncommitted_files,
             &reviews,
             ai_summary.as_deref(),
             merge_check.as_ref(),
@@ -80,7 +80,7 @@ pub fn show(
         output_human(
             branch_name,
             &commits,
-            &unassigned_files,
+            &uncommitted_files,
             &reviews,
             ai_summary.as_deref(),
             merge_check.as_ref(),
@@ -313,7 +313,7 @@ fn get_commits_ahead(
     Ok(commits)
 }
 
-fn get_unassigned_files(ctx: &mut Context, branch_arg: &BranchArg) -> anyhow::Result<Vec<String>> {
+fn get_uncommitted_files(ctx: &mut Context, branch_arg: &BranchArg) -> anyhow::Result<Vec<String>> {
     use std::collections::BTreeMap;
 
     use bstr::{BString, ByteSlice};
@@ -337,17 +337,17 @@ fn get_unassigned_files(ctx: &mut Context, branch_arg: &BranchArg) -> anyhow::Re
 
         // Collect files that have hunks assigned to this stack
         // These are the "uncommitted" files for the stack
-        let mut unassigned: Vec<String> = Vec::new();
+        let mut uncommitted: Vec<String> = Vec::new();
         for (path, assignments) in &by_file {
             let has_stack_assignment = assignments.iter().any(|a| a.stack_id == Some(stack_id));
             if has_stack_assignment {
-                unassigned.push(path.to_str_lossy().to_string());
+                uncommitted.push(path.to_str_lossy().to_string());
             }
         }
 
-        Ok(unassigned)
+        Ok(uncommitted)
     } else {
-        // Branch is not in workspace, so no unassigned files
+        // Branch is not in workspace, so no uncommitted files
         Ok(vec![])
     }
 }
@@ -419,7 +419,7 @@ fn generate_branch_summary(
 fn output_json(
     branch_name: &str,
     commits: &[CommitInfo],
-    unassigned_files: &[String],
+    uncommitted_files: &[String],
     reviews: &[but_forge::ForgeReview],
     ai_summary: Option<&str>,
     merge_check: Option<&MergeCheck>,
@@ -443,7 +443,7 @@ fn output_json(
         "branch": branch_name,
         "commitsAhead": commits.len(),
         "commits": commits,
-        "unassignedFiles": unassigned_files,
+        "uncommittedFiles": uncommitted_files,
         "reviews": reviews_json,
     });
 
@@ -467,7 +467,7 @@ fn output_json(
 fn output_human(
     branch_name: &str,
     commits: &[CommitInfo],
-    unassigned_files: &[String],
+    uncommitted_files: &[String],
     reviews: &[but_forge::ForgeReview],
     ai_summary: Option<&str>,
     merge_check: Option<&MergeCheck>,
@@ -564,12 +564,12 @@ fn output_human(
         }
     }
 
-    // Display unassigned files if any exist
-    if !unassigned_files.is_empty() {
+    // Display uncommitted files if any exist
+    if !uncommitted_files.is_empty() {
         writeln!(buf)?;
         writeln!(buf)?;
-        writeln!(buf, "{}", t.important.paint("Unassigned Files:"))?;
-        for file in unassigned_files {
+        writeln!(buf, "{}", t.important.paint("Uncommitted Files:"))?;
+        for file in uncommitted_files {
             writeln!(buf, "  {}", t.attention.paint(file))?;
         }
     }

@@ -129,7 +129,7 @@ The operation performed depends on what you combine:
 | Commit | Branch | Move commit to branch  | `but rub c2 bu` |
 | Commit | `zz`   | Undo commit            | `but rub c2 zz` |
 
-`zz` is a special target meaning "unassigned" (no branch).
+`zz` is a special target meaning "uncommitted" (no branch).
 
 ### Higher-Level Conveniences
 
