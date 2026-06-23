@@ -54,11 +54,15 @@
 	column-gap: 6px;
 	flex-grow: 1;
 	align-items: center;
+	min-width: 0;
 	padding-block: 6px;
 }
 
 .label {
+	overflow: hidden;
 	line-height: 16px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .fadedText {
