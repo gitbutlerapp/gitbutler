@@ -1376,7 +1376,7 @@ const CommitRow: FC<
 				) : (
 					<>
 						{title === undefined ? (
-							<span className={workspaceItemRowStyles.emptyText}>(no message)</span>
+							<span className={workspaceItemRowStyles.fadedText}>(no message)</span>
 						) : (
 							title
 						)}
@@ -2498,7 +2498,7 @@ const SegmentContent: FC<{
 				<WorkspaceItemRow interactive={false} inert={inert}>
 					<GraphSegment glyph="parent" status={segmentPushStatusToStatus(segment.pushStatus)} />
 					<WorkspaceItemRowLabel>
-						<span className={workspaceItemRowStyles.emptyText}>No commits.</span>
+						<span className={workspaceItemRowStyles.fadedText}>No commits.</span>
 					</WorkspaceItemRowLabel>
 				</WorkspaceItemRow>
 			</div>

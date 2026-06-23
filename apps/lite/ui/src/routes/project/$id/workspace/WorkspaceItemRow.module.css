@@ -64,7 +64,7 @@
 	padding-block: 5.5px;
 }
 
-.emptyText {
+.fadedText {
 	color: var(--text-2);
 
 	[data-selection-scope]:focus .containerSelected & {
