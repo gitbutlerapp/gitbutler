@@ -24,7 +24,12 @@ import {
 	type HunkOperand,
 	type Operand,
 } from "#ui/operands.ts";
-import { projectActions, selectProjectFilesVisible } from "#ui/projects/state.ts";
+import {
+	projectActions,
+	selectProjectFilesVisible,
+	selectProjectPreferredDiffStyle,
+	type DiffStyle,
+} from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
 import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
@@ -47,7 +52,6 @@ import {
 	type CodeView as CodeViewClass,
 	type CodeViewLineSelection,
 	parsePatchFiles,
-	BaseDiffOptions,
 } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
@@ -86,7 +90,6 @@ import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-men
 import { useFileMenuItems } from "#ui/routes/project/$id/workspace/useFileMenuItems.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 
-type DiffStyle = NonNullable<BaseDiffOptions["diffStyle"]>;
 type BranchTab = "diff" | "pr";
 
 const codeViewItemId = ({ changesetKey, path }: { changesetKey: string; path: string }): string =>
@@ -797,12 +800,13 @@ const Diff: FC<{
 		});
 	};
 
-	const [preferredDiffStyle, setPreferredDiffStyle] = useState<DiffStyle>("split");
+	const preferredDiffStyle = useAppSelector((state) =>
+		selectProjectPreferredDiffStyle(state, projectId),
+	);
 	const [diffContentsEl, setDiffContentsEl] = useState<HTMLElement | null>(null);
 	const [canUseSplitDiff, setCanUseSplitDiff] = useState<boolean | undefined>();
 
-	const toggleDiffStyle = () =>
-		setPreferredDiffStyle(preferredDiffStyle === "split" ? "unified" : "split");
+	const toggleDiffStyle = () => dispatch(projectActions.togglePreferredDiffStyle({ projectId }));
 
 	useHotkeys([
 		{
@@ -839,7 +843,9 @@ const Diff: FC<{
 					<DiffStyleToggle
 						className={styles.actionsRight}
 						diffStyle={preferredDiffStyle}
-						onDiffStyleChange={setPreferredDiffStyle}
+						onDiffStyleChange={(diffStyle) =>
+							dispatch(projectActions.setPreferredDiffStyle({ projectId, diffStyle }))
+						}
 					/>
 				)}
 			</div>

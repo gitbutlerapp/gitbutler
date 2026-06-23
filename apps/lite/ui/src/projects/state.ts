@@ -17,10 +17,13 @@ type Dialog =
 	| { _tag: "BranchPicker" }
 	| { _tag: "CommandPalette" };
 
+export type DiffStyle = "split" | "unified";
+
 type ProjectState = {
 	detailsFullscreen: boolean;
 	dialog: Dialog;
 	filesVisible: boolean;
+	preferredDiffStyle: DiffStyle;
 	workspace: workspace.WorkspaceState;
 };
 
@@ -32,6 +35,7 @@ const initialProjectState: ProjectState = {
 	detailsFullscreen: false,
 	dialog: { _tag: "None" },
 	filesVisible: true,
+	preferredDiffStyle: "split",
 	workspace: workspace.initialState,
 };
 
@@ -43,6 +47,7 @@ const createProjectState = (): ProjectState => ({
 	detailsFullscreen: false,
 	dialog: { _tag: "None" },
 	filesVisible: true,
+	preferredDiffStyle: "split",
 	workspace: workspace.createInitialState(),
 });
 
@@ -214,6 +219,18 @@ const projectSlice = createSlice({
 			const projectState = ensureProjectState(state, action.payload.projectId);
 			projectState.filesVisible = !projectState.filesVisible;
 		},
+		setPreferredDiffStyle: (
+			state,
+			action: PayloadAction<{ projectId: string; diffStyle: DiffStyle }>,
+		) => {
+			const { projectId, diffStyle } = action.payload;
+			ensureProjectState(state, projectId).preferredDiffStyle = diffStyle;
+		},
+		togglePreferredDiffStyle: (state, action: PayloadAction<{ projectId: string }>) => {
+			const projectState = ensureProjectState(state, action.payload.projectId);
+			projectState.preferredDiffStyle =
+				projectState.preferredDiffStyle === "split" ? "unified" : "split";
+		},
 		setDetailsFullscreen: (
 			state,
 			action: PayloadAction<{ projectId: string; fullscreen: boolean }>,
@@ -260,6 +277,9 @@ const selectProjectState = (state: RootState, projectId: string): ProjectState =
 
 export const selectProjectFilesVisible = (state: RootState, projectId: string) =>
 	selectProjectState(state, projectId).filesVisible;
+
+export const selectProjectPreferredDiffStyle = (state: RootState, projectId: string) =>
+	selectProjectState(state, projectId).preferredDiffStyle;
 
 export const selectProjectDetailsFullscreen = (state: RootState, projectId: string) =>
 	selectProjectState(state, projectId).detailsFullscreen;
