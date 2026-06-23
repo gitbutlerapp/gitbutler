@@ -4,7 +4,6 @@ import {
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
 import {
-	useBranchCheckoutNew,
 	useBranchCreate,
 	useWorkspaceIntegrateUpstream,
 	useRestoreSnapshot,
@@ -25,11 +24,13 @@ import {
 	selectProjectOutlineModeState,
 } from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
+import { PickerDialog } from "#ui/components/PickerDialog.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
+import { lastOpenedProjectKey } from "#ui/projects/last-opened.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { type AppThunk, useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { BottomUpdate, RefInfo, Segment } from "@gitbutler/but-sdk";
-import { useHotkeys } from "@tanstack/react-hotkeys";
+import { BottomUpdate, ProjectForFrontend, RefInfo, Segment } from "@gitbutler/but-sdk";
+import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import {
 	QueryErrorResetBoundary,
 	useIsFetching,
@@ -38,7 +39,7 @@ import {
 	useQuery,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import { type FC, Component, ReactNode, useDeferredValue } from "react";
 import {
@@ -242,6 +243,50 @@ const useOutlineNavigationIndex = ({
 	return { items: filteredItems, indexByKey };
 };
 
+const isMac = window.lite.platform === "darwin";
+
+type ProjectPickerProps = {
+	open: boolean;
+	projects: Array<ProjectForFrontend>;
+	selectedProjectId: string;
+	onOpenChange: (open: boolean) => void;
+};
+
+const ProjectPicker: FC<ProjectPickerProps> = (p) => {
+	const navigate = useNavigate();
+
+	const selectProject = (project: ProjectForFrontend) => {
+		p.onOpenChange(false);
+		void navigate({
+			to: "/project/$id/workspace",
+			params: { id: project.id },
+		});
+		window.localStorage.setItem(lastOpenedProjectKey, project.id);
+	};
+
+	return (
+		<PickerDialog
+			ariaLabel="Select project"
+			closeLabel="Close project picker"
+			emptyLabel="No projects found."
+			getItemKey={(project) => project.id}
+			getItemLabel={(project) => project.title}
+			getItemType={(project) => (project.id === p.selectedProjectId ? "Current" : "Project")}
+			itemToStringValue={(project) => project.title}
+			items={[
+				{
+					value: "Projects",
+					items: p.projects,
+				},
+			]}
+			open={p.open}
+			onOpenChange={p.onOpenChange}
+			onSelectItem={selectProject}
+			placeholder="Search projects…"
+		/>
+	);
+};
+
 const WorkspacePage: FC = () => {
 	const dispatch = useAppDispatch();
 
@@ -280,12 +325,20 @@ const WorkspacePage: FC = () => {
 		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 
+	const setProjectPickerOpen = (open: boolean) => {
+		if (open) dispatch(projectActions.openProjectPicker({ projectId }));
+		else dispatch(projectActions.closeDialog({ projectId }));
+	};
+
 	const openApplyBranchPicker = () => {
 		dispatch(projectActions.openApplyBranchPicker({ projectId }));
 	};
 
+	const openProjectPicker = () => {
+		dispatch(projectActions.openProjectPicker({ projectId }));
+	};
+
 	const branchCreateMutation = useBranchCreate();
-	const branchCheckoutNewMutation = useBranchCheckoutNew();
 	const createIndependentBranch = () => {
 		branchCreateMutation.mutate(
 			{
@@ -298,23 +351,6 @@ const WorkspacePage: FC = () => {
 					const newBranch = findBranchOperandByRef({
 						headInfo: response.workspace.headInfo,
 						branchRef: response.newRef.fullNameBytes,
-					});
-					if (newBranch) selectBranch(newBranch);
-				},
-			},
-		);
-	};
-	const resetWorkspace = () => {
-		branchCheckoutNewMutation.mutate(
-			{ projectId, name: null },
-			{
-				onSuccess: (response) => {
-					const workspaceRef = response.workspace.headInfo.workspaceRef;
-					if (!workspaceRef) return;
-
-					const newBranch = findBranchOperandByRef({
-						headInfo: response.workspace.headInfo,
-						branchRef: workspaceRef.fullNameBytes,
 					});
 					if (newBranch) selectBranch(newBranch);
 				},
@@ -351,8 +387,6 @@ const WorkspacePage: FC = () => {
 
 	const canCreateIndependentBranch =
 		outlineMode._tag === "Default" && !branchCreateMutation.isPending;
-
-	const canResetWorkspace = outlineMode._tag === "Default" && !branchCheckoutNewMutation.isPending;
 
 	const canApplyBranch = outlineMode._tag === "Default";
 
@@ -434,6 +468,12 @@ const WorkspacePage: FC = () => {
 	const deferredOutlineSelection = useDeferredValue(outlineSelection);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
+
+	useHotkey(globalHotkeys.selectProject.hotkey, openProjectPicker, {
+		enabled: projects.length > 0,
+		meta: globalHotkeys.selectProject.meta,
+	});
+
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
 
@@ -443,36 +483,20 @@ const WorkspacePage: FC = () => {
 				{!detailsFullscreen && (
 					<div className={styles.outlinePanel}>
 						<header className={styles.workspaceControls}>
+							<div className={classes(isMac && styles.workspaceControlsMacSpacer)} />
 							<div className={styles.workspaceControlsLeft}>
-								<h1 className={classes("text-15", "text-bold", styles.workspaceName)}>
-									{selectedProject.title}
-								</h1>
+								<button
+									type="button"
+									className={classes("text-15", "text-bold", styles.workspaceName)}
+									onClick={openProjectPicker}
+								>
+									<span className={styles.workspaceNameLabel}>{selectedProject.title}</span>
+									<Icon name="chevron-down" className={styles.workspaceNameChevron} />
+								</button>
 								<ActivitySpinner />
 							</div>
 
 							<div className={styles.workspaceControlsActions}>
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										aria-label="Switch to new branch"
-										className={getButtonClassName({ iconOnly: true })}
-										onClick={resetWorkspace}
-										// We pass `disabled` here because we want to disable the button, not
-										// the tooltip. Other props should be passed above.
-										render={<Button focusableWhenDisabled disabled={!canResetWorkspace} />}
-									>
-										{branchCheckoutNewMutation.isPending ? (
-											<Icon name="spinner" />
-										) : (
-											<Icon name="undo" />
-										)}
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup render={<TooltipPopup />}>Switch to new branch</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-
 								<Tooltip.Root>
 									<Tooltip.Trigger
 										aria-label={workspaceHotkeys.updateWorkspace.meta.name}
@@ -604,6 +628,14 @@ const WorkspacePage: FC = () => {
 						<BranchPicker open onOpenChange={setBranchPickerOpen} onSelectBranch={selectBranch} />
 					),
 					CommandPalette: () => <CommandPalette open onOpenChange={setCommandPaletteOpen} />,
+					ProjectPicker: () => (
+						<ProjectPicker
+							open
+							projects={projects}
+							selectedProjectId={projectId}
+							onOpenChange={setProjectPickerOpen}
+						/>
+					),
 				}),
 			)}
 		</>
