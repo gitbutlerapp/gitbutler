@@ -1509,6 +1509,7 @@ const ChangesSectionRow: FC<{
 			>
 				{changes.length}
 			</span>
+
 			{lineStats && (lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
 				<span className={workspaceItemRowStyles.lineStatsGroup}>
 					{lineStats.linesAdded > 0 && (
