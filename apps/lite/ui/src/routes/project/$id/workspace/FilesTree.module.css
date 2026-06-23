@@ -14,8 +14,12 @@
 	}
 }
 
-.fileStatusIcon {
+.fileStatusIndicator {
 	align-self: center;
+	font-weight: 700;
+	font-size: 11px;
+
+	font-family: var(--text-fontfamily-base);
 	&[data-char="A"] {
 		color: var(--clr-safe-60);
 	}

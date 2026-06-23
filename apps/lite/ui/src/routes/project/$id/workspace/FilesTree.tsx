@@ -351,12 +351,13 @@ const FileRow: FC<
 				)}
 
 				{item._tag === "Change" ? (
-					<Icon
-						name="file"
+					<span
+						className={styles.fileStatusIndicator}
 						aria-label={item.change.status.type}
-						className={styles.fileStatusIcon}
 						data-char={statusLabel(item.change.status)}
-					/>
+					>
+						{statusLabel(item.change.status)}
+					</span>
 				) : (
 					"C"
 				)}
