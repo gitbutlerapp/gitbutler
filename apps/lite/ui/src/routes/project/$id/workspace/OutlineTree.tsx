@@ -979,25 +979,18 @@ const InlineEditor: FC<{
 	return (
 		<form ref={formRef} className={styles.inlineEditorForm} action={submitAction}>
 			<WorkspaceItemRowLabelContainer>
-				<WorkspaceItemRowLabel heading={heading} className={styles.inlineEditorFormLabel}>
-					{multiline ? (
-						<textarea
-							ref={allTextFieldRefs}
-							aria-label={label}
-							name={name}
-							defaultValue={value}
-							className={styles.inlineEditorInput}
-						/>
-					) : (
-						<input
-							ref={allTextFieldRefs}
-							aria-label={label}
-							name={name}
-							defaultValue={value}
-							className={styles.inlineEditorInput}
-						/>
-					)}
-				</WorkspaceItemRowLabel>
+				<WorkspaceItemRowLabel
+					heading={heading}
+					aria-label={label}
+					className={styles.inlineEditorInput}
+					render={
+						multiline ? (
+							<textarea ref={allTextFieldRefs} name={name} defaultValue={value} />
+						) : (
+							<input ref={allTextFieldRefs} name={name} defaultValue={value} />
+						)
+					}
+				/>
 			</WorkspaceItemRowLabelContainer>
 			<div className={styles.inlineEditorHelp}>
 				<button type="submit" className={getWorkspaceItemRowButtonClassName({})}>
