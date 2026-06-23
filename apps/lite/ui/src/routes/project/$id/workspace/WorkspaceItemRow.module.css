@@ -34,14 +34,14 @@
 
 .toolbar {
 	display: none;
-	column-gap: 8px;
-	padding-block: 4px;
 
 	.container:hover &,
 	.container:focus-within &,
 	.containerSelected &,
 	&.toolbarForceVisible {
 		display: flex;
+		column-gap: 8px;
+		padding-block: 4px;
 	}
 
 	button {
