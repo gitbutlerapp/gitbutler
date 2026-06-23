@@ -1,5 +1,18 @@
 use crate::utils::Sandbox;
 
+// Clanker identified edge-cases to test
+//
+// TODO: add coverage for duplicate branch sources with an external target.
+// TODO: add coverage for duplicate commit sources and verify user-facing output.
+// TODO: add coverage for duplicate branch sources when the target is on that branch.
+// TODO: add coverage for branch source whose only commit is also the explicit target.
+// TODO: add coverage for explicit same-branch targets at the top and bottom of the branch.
+// TODO: add coverage for commit sources outside the workspace and unapplied branch sources.
+// TODO: add coverage for squashes that would result in merge conflicts.
+// TODO: add coverage for --no-message on commit and branch squashes.
+// TODO: add coverage for clap mutual exclusion between commit-message flags.
+// TODO: add coverage for JSON and shell output formats for branch squashes.
+
 // TODO: make fixture for this
 fn one_branch_three_commits() -> Sandbox {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
