@@ -122,7 +122,7 @@ pub fn set_default_target_with_perm(
 
 /// JSON transport types for branch APIs.
 pub mod json {
-    use but_workspace::ui::ref_info::BranchReference;
+    use but_workspace::{branch::apply::OutcomeStatus, ui::ref_info::BranchReference};
     use serde::{Deserialize, Serialize};
 
     use crate::branch::{
@@ -137,14 +137,16 @@ pub mod json {
     #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
     #[serde(rename_all = "camelCase")]
     pub struct ApplyOutcome {
+        /// What kind of apply operation completed.
+        pub status: OutcomeStatus,
         /// Whether `apply()` produced a new workspace graph.
         ///
         /// This can be true even when merge conflicts prevented the result from being persisted.
-        /// Use `applied_branches` to determine whether anything was persisted.
+        /// Use `status` to determine whether anything was persisted.
         pub workspace_changed: bool,
-        /// The branches that were actually persisted into the workspace.
+        /// Branches activated or recorded by the operation.
         ///
-        /// This is empty when the branch was already present or when conflicts aborted the apply.
+        /// This is empty for `alreadyApplied` and `conflictAborted`, and populated for `applied`.
         pub applied_branches: Vec<crate::json::FullRefName>,
         /// Whether the workspace reference had to be created.
         pub workspace_ref_created: bool,
@@ -172,6 +174,7 @@ pub mod json {
             let workspace_changed = value.workspace_changed();
             let but_workspace::branch::apply::Outcome {
                 workspace: _,
+                status,
                 applied_branches,
                 workspace_ref_created,
                 workspace_merge: _,
@@ -179,6 +182,7 @@ pub mod json {
             } = value;
 
             ApplyOutcome {
+                status,
                 workspace_changed,
                 applied_branches: applied_branches.into_iter().map(Into::into).collect(),
                 workspace_ref_created,
@@ -625,9 +629,9 @@ pub fn apply_only(
 /// exclusive repository access.
 ///
 /// It applies the branch with the default workspace-apply options, updates the
-/// in-memory workspace stored in `ctx` to the returned workspace state, and
-/// returns the apply outcome. This variant does not create an oplog
-/// entry. For lower-level implementation details, see
+/// in-memory workspace stored in `ctx` to the returned workspace state when the
+/// state was persisted, and returns the apply outcome. This variant does not
+/// create an oplog entry. For lower-level implementation details, see
 /// [`but_workspace::branch::apply()`].
 pub fn apply_only_with_perm(
     ctx: &mut but_ctx::Context,
@@ -654,7 +658,9 @@ pub fn apply_only_with_perm(
     )?
     .into_owned();
 
-    *ws = out.workspace.clone().into_owned();
+    if out.status.persisted_mutation() {
+        *ws = out.workspace.clone().into_owned();
+    }
     Ok(out)
 }
 
@@ -696,7 +702,9 @@ pub fn apply_with_perm(
 
     let res = apply_only_with_perm(ctx, existing_branch, perm);
     if let Some(snapshot) = maybe_oplog_entry
-        && res.is_ok()
+        && res
+            .as_ref()
+            .is_ok_and(|out| out.status.persisted_mutation())
     {
         snapshot.commit(ctx, perm).ok();
     }
