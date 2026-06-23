@@ -87,14 +87,21 @@
 
 .changesSection {
 	display: flex;
-	row-gap: 2px;
+	row-gap: 4px;
 	flex-direction: column;
 }
 
 .commitControls {
 	display: flex;
-	row-gap: 2px;
+	row-gap: 14px;
 	flex-direction: column;
+	margin-inline: -6px;
+	margin-block-end: -6px;
+	padding: 14px;
+	border-radius: var(--radius-l);
+	outline: 1px solid var(--border-2);
+	outline-offset: -1px;
+	background: var(--bg-1);
 }
 
 .commitTextarea {
@@ -103,8 +110,6 @@
 	box-sizing: content-box;
 	min-height: calc(2lh);
 	max-height: calc(10lh);
-	padding-inline: 8px;
-	padding-block: 6px;
 
 	&:focus {
 		outline: none;
@@ -113,7 +118,7 @@
 
 .commitControlsFooter {
 	display: flex;
-	column-gap: 2px;
+	column-gap: 6px;
 }
 
 .commitDropdownButton {
@@ -121,7 +126,6 @@
 
 	& > * {
 		overflow: hidden;
-		background-color: var(--bg-1);
 	}
 
 	& > :first-child {
@@ -138,10 +142,14 @@
 }
 
 .commitTargetComboboxTrigger {
+	display: flex;
+	column-gap: 6px;
 	flex-grow: 1;
+	align-items: center;
 	justify-content: start;
 	min-width: 0;
-	background-color: var(--bg-1);
+	color: var(--text-2);
+	white-space: nowrap;
 }
 
 .commitTargetComboboxTriggerLabel {
