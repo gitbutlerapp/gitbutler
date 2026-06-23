@@ -241,7 +241,7 @@ fn commit_empty_default() {
     env.setup_metadata(&["A"]);
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   9477ae7 add A
@@ -262,7 +262,7 @@ Created blank commit at the tip of branch 'A'
 "#]]);
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   2594ce3 (no commit message) (no changes)
@@ -377,7 +377,7 @@ fn commit_empty_after_stack_head_is_disallowed() -> anyhow::Result<()> {
     env.setup_metadata(&["A"]);
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   9477ae7 add A
@@ -435,7 +435,7 @@ fn commit_empty_after_branch_for_non_stack_head() -> anyhow::Result<()> {
         .success();
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   9ac4652 add second
@@ -460,7 +460,7 @@ Created blank commit above branch 'bottom'
 "#]]);
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   76b24fa add second
@@ -485,7 +485,7 @@ fn commit_empty_with_before_branch() {
     env.setup_metadata(&["A"]);
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   9477ae7 add A
@@ -506,7 +506,7 @@ Created blank commit at the tip of branch 'A'
 "#]]);
 
     env.but("status").assert().success().stdout_eq(str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   2594ce3 (no commit message) (no changes)

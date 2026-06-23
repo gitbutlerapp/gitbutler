@@ -4436,7 +4436,7 @@ impl FuzzyPickerItem for GotoBranchItem {
                 searchable: Some(searchable),
             }],
             Self::Uncommitted => [Col {
-                text: "uncommitted changes".into(),
+                text: "uncommitted".into(),
                 searchable: Some(searchable),
             }],
         }

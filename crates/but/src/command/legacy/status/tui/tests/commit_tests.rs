@@ -17,10 +17,10 @@ fn commit_mode_enter_and_escape() {
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input_then_render('c')
-        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted]"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -40,13 +40,13 @@ fn commit_confirm_on_source_is_noop() {
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input_then_render('c')
-        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted]"]);
 
     tui.input_then_render(KeyCode::Enter)
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"])
+        .assert_current_line_eq(str!["╭┄zz [uncommitted]"])
         .assert_rendered_term_svg_eq(file![
             "snapshots/commit_confirm_on_source_is_noop_final.svg"
         ]);
@@ -60,7 +60,7 @@ fn commiting_with_no_uncommitted_changes() {
     let mut tui = test_tui(env);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted] (no changes)"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -108,10 +108,10 @@ fn commit_from_unstaged_changes_creates_commit_visible_in_tui() {
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input_then_render('c')
-        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted]"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -145,10 +145,10 @@ fn commit_from_unstaged_changes_to_new_branch_creates_branch_and_commit() {
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input_then_render('c')
-        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted]"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -188,10 +188,10 @@ fn commit_from_unstaged_changes_with_multiple_hunks_in_same_file_commits_all_cha
     tui.env().file("multi-hunk.txt", &base);
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input_then_render('c')
-        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted]"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -217,10 +217,10 @@ fn commit_from_unstaged_changes_with_multiple_hunks_in_same_file_commits_all_cha
     tui.reload();
     tui.input_then_render(std::array::repeat::<_, 20>(KeyCode::Up));
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input_then_render('c')
-        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted]"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -247,10 +247,10 @@ fn commit_mode_shows_commit_below_on_commit_rows() {
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input_then_render('c')
-        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted]"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   9477ae7 add A"])
@@ -276,10 +276,10 @@ fn commit_to_commit_above_creates_commit_visible_in_tui() {
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input_then_render('c')
-        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted]"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   9477ae7 add A"])
@@ -320,10 +320,10 @@ fn commit_to_commit_below_creates_commit_visible_in_tui() {
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input_then_render('c')
-        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted]"]);
 
     tui.input_then_render([KeyCode::Down, KeyCode::Down])
         .assert_current_line_eq(str!["┊●   9477ae7 add A"])
@@ -354,7 +354,7 @@ fn commit_mode_from_staged_changes_stays_within_current_stack() {
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊   vo A test.txt"]);
@@ -369,10 +369,10 @@ fn commit_mode_from_staged_changes_stays_within_current_stack() {
         .assert_current_line_eq(str!["┊●   8474410 add A"]);
 
     tui.input_then_render([KeyCode::Up, KeyCode::Up])
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted] (no changes)"]);
 
     tui.input_then_render('c').assert_current_line_eq(str![
-        "╭┄<< source >> << noop >> zz [uncommitted changes] (no changes)"
+        "╭┄<< source >> << noop >> zz [uncommitted] (no changes)"
     ]);
 
     tui.input_then_render(KeyCode::Down)
@@ -401,10 +401,10 @@ fn commit_with_inline_reword() {
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted]"]);
 
     tui.input_then_render('c')
-        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted changes]"]);
+        .assert_current_line_eq(str!["╭┄<< source >> << noop >> zz [uncommitted]"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊╭┄g0 [A]"]);
@@ -476,7 +476,7 @@ fn commit_moved_file_from_uncommitted_changes_line() {
 
     // there should be no more changes to commit
     tui.reload()
-        .assert_rendered_contains("zz [uncommitted changes] (no changes)");
+        .assert_rendered_contains("zz [uncommitted] (no changes)");
 }
 
 #[test]
@@ -506,7 +506,7 @@ fn commit_moved_file_from_file_line() {
     tui.env().rename_file("test.txt", "moved-test.txt");
     tui.reload();
 
-    // commit the moved file via the file list, not [uncommitted changes]
+    // commit the moved file via the file list, not [uncommitted]
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str![["┊   yw R moved-test.txt"]]);
     tui.input_then_render('c');
@@ -518,7 +518,7 @@ fn commit_moved_file_from_file_line() {
 
     // there should be no more changes to commit
     tui.reload()
-        .assert_rendered_contains("zz [uncommitted changes] (no changes)");
+        .assert_rendered_contains("zz [uncommitted] (no changes)");
 }
 
 #[test]
@@ -563,7 +563,7 @@ fn commit_moved_and_modified_file() {
 
     // there should be no more changes to commit
     tui.reload()
-        .assert_rendered_contains("zz [uncommitted changes] (no changes)");
+        .assert_rendered_contains("zz [uncommitted] (no changes)");
 }
 
 #[test]

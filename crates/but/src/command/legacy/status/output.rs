@@ -308,7 +308,7 @@ pub(super) struct StatusOutputLine {
     ///
     /// Example:
     ///
-    /// ╭┄zz [uncommitted changes]                                      | Some("╭┄")
+    /// ╭┄zz [uncommitted]                                      | Some("╭┄")
     /// ┊   ur M flake.nix                                              | Some("┊   ")
     /// ┊                                                               | Some("┊ ")
     /// ┊╭┄dp [dp-branch-4]                                             | Some("┊╭┄")

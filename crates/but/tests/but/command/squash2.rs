@@ -37,7 +37,7 @@ fn squash_two_commits() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄br [a-branch-1]
 ┊●   f55169f add three
@@ -66,7 +66,7 @@ Squashed f55169f into f63361f to create 7251301
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄br [a-branch-1]
 ┊●   7251301 squashed
@@ -121,7 +121,7 @@ Squashed f55169f, f63361f into ea345ba to create e355a10
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄br [a-branch-1]
 ┊●   e355a10 squashed
@@ -149,7 +149,7 @@ fn use_target_message() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄br [a-branch-1]
 ┊● 5ab5165 author 2000-01-01 00:00:00 +0000
@@ -180,7 +180,7 @@ fn use_source_message() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄br [a-branch-1]
 ┊● c441d34 author 2000-01-01 00:00:00 +0000
@@ -215,7 +215,7 @@ Squashed branch 'a-branch-1' to create commit a694042
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄br [a-branch-1]
 ┊● a694042 author 2000-01-01 00:00:00 +0000
@@ -248,7 +248,7 @@ Squashed branch 'a-branch-1' to create commit 17b59a2
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄br [a-branch-1]
 ┊● 17b59a2 author 2000-01-01 00:00:00 +0000
@@ -282,7 +282,7 @@ fn squash_whole_branch_into_commit_on_other_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [a-branch-1]
 ┊● f55169f author 2000-01-01 00:00:00 +0000
@@ -325,7 +325,7 @@ Squashed branches 'a-branch-1', 'add-file-branch' to create commit 44aa30a
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄ta [target-branch]
 ┊● 44aa30a author 2000-01-01 00:00:00 +0000
@@ -363,7 +363,7 @@ fn squash_multiple_branches_into_commit_on_one_of_the_branch_sources() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [a-branch-1]
 ┊● f55169f author 2000-01-01 00:00:00 +0000
@@ -408,7 +408,7 @@ Squashed branches 'target-branch', 'a-branch-1', 'add-file-branch' to create com
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄ta [target-branch]
 ┊● 0653794 author 2000-01-01 00:00:00 +0000
@@ -450,7 +450,7 @@ Squashed branch 'a-branch-1' to create commit 7b3d915
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄br [a-branch-1]
 ┊● 7b3d915 author 2000-01-01 00:00:00 +0000
@@ -488,7 +488,7 @@ Squashed branch 'a-branch-1' to create commit abb21d9
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄br [a-branch-1]
 ┊● abb21d9 author 2000-01-01 00:00:00 +0000

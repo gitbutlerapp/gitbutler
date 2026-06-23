@@ -154,7 +154,7 @@ fn showing_branch_that_isnt_top_of_stack() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [C]
 ┊●   aebb090 add C
@@ -232,7 +232,7 @@ fn checking_merge_status_of_branch_that_isnt_top_of_stack() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [uncommitted changes] (no changes)
+╭┄zz [uncommitted] (no changes)
 ┊
 ┊╭┄g0 [C]
 ┊●   aebb090 add C
