@@ -26,7 +26,7 @@ export const Playground = meta.story({
 				"outline",
 				"danger",
 				"ghost",
-				"inverted",
+				"ghost-inverted",
 			] satisfies Array<ButtonVariant>,
 		},
 		size: {
@@ -83,7 +83,7 @@ export const Variants = meta.story({
 			<button type="button" className={getButtonClassName({ variant: "danger" })}>
 				Button
 			</button>
-			<button type="button" className={getButtonClassName({ variant: "inverted" })}>
+			<button type="button" className={getButtonClassName({ variant: "ghost-inverted" })}>
 				Button
 			</button>
 		</div>
@@ -130,8 +130,8 @@ export const IconOnly = meta.story({
 			</button>
 			<button
 				type="button"
-				className={getButtonClassName({ variant: "inverted", iconOnly: true })}
-				aria-label="Inverted action"
+				className={getButtonClassName({ variant: "ghost-inverted", iconOnly: true })}
+				aria-label="Ghost inverted action"
 			>
 				<Icon name="plus" />
 			</button>

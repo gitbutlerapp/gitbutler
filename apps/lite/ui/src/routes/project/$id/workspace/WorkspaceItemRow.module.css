@@ -75,8 +75,8 @@
 .button {
 	[data-selection-scope]:focus .containerSelected &,
 	.containerSelected:has(:is(textarea, input):focus) & {
-		/* Duplicated styles for inverted button variant. This is necessary to make
-		the variant responsive to selection/focus changes purely with CSS. */
+		/* Duplicated styles for ghost-inverted button variant. This is necessary to
+		make the variant responsive to selection/focus changes purely with CSS. */
 
 		--button-border: none;
 		--button-bg: transparent;
