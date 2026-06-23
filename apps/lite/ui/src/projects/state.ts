@@ -31,7 +31,7 @@ type ProjectSliceState = {
 	byProjectId: Record<string, ProjectState>;
 };
 
-const createProjectState = (): ProjectState => ({
+const createInitialProjectState = (): ProjectState => ({
 	detailsFullscreen: false,
 	dialog: { _tag: "None" },
 	filesVisible: true,
@@ -39,7 +39,7 @@ const createProjectState = (): ProjectState => ({
 	workspace: workspace.createInitialState(),
 });
 
-const initialProjectState: ProjectState = createProjectState();
+const initialProjectState: ProjectState = createInitialProjectState();
 
 const initialState: ProjectSliceState = {
 	byProjectId: {},
@@ -49,7 +49,7 @@ const ensureProjectState = (state: ProjectSliceState, projectId: string): Projec
 	const existingState = state.byProjectId[projectId];
 	if (existingState) return existingState;
 
-	const projectState = createProjectState();
+	const projectState = createInitialProjectState();
 	state.byProjectId[projectId] = projectState;
 	return projectState;
 };
