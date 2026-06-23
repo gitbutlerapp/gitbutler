@@ -4,6 +4,7 @@ import type {
 	BranchDiffParams,
 	CommitDetailsWithLineStatsParams,
 	GetReviewParams,
+	ListCiChecksParams,
 	ListBranchesParams,
 	TreeChangeDiffParams,
 } from "#electron/ipc.ts";
@@ -17,6 +18,7 @@ export enum QueryKey {
 	HeadInfo = "headInfo",
 	Review = "review",
 	ReviewMergeStatus = "reviewMergeStatus",
+	CiChecks = "ciChecks",
 	Branches = "branches",
 	Editors = "editors",
 	Projects = "projects",
@@ -68,6 +70,12 @@ export const getReviewMergeStatusQueryOptions = ({ projectId, reviewId }: GetRev
 	queryOptions({
 		queryKey: [QueryKey.ReviewMergeStatus, projectId, reviewId],
 		queryFn: () => window.lite.getReviewMergeStatus({ projectId, reviewId }),
+	});
+
+export const listCiChecksQueryOptions = ({ projectId, ...params }: ListCiChecksParams) =>
+	queryOptions({
+		queryKey: [QueryKey.CiChecks, projectId, params],
+		queryFn: () => window.lite.listCiChecks({ projectId, ...params }),
 	});
 
 /** @public */

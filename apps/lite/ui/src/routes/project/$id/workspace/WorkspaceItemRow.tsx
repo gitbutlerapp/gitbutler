@@ -69,7 +69,7 @@ export const WorkspaceItemRowLabel: FC<
 		}),
 	});
 
-type WorkspaceItemRowBubbleVariant = "fillGray" | "safe" | "danger";
+export type WorkspaceItemRowBubbleVariant = "fillGray" | "lightGray" | "safe" | "warn" | "danger";
 
 export const WorkspaceItemRowBubble: FC<
 	{
@@ -85,7 +85,9 @@ export const WorkspaceItemRowBubble: FC<
 			styles.bubble,
 			Match.value(variant).pipe(
 				Match.when("fillGray", () => styles.bubbleFillGray),
+				Match.when("lightGray", () => styles.bubbleLightGray),
 				Match.when("safe", () => styles.bubbleClrSafe),
+				Match.when("warn", () => styles.bubbleClrWarn),
 				Match.when("danger", () => styles.bubbleClrDanger),
 				Match.exhaustive,
 			),

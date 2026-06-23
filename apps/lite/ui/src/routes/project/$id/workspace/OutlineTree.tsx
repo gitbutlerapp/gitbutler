@@ -20,6 +20,7 @@ import {
 import {
 	changesInWorktreeQueryOptions,
 	headInfoQueryOptions,
+	listCiChecksQueryOptions,
 	listProjectsQueryOptions,
 	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
@@ -85,6 +86,7 @@ import {
 	WorkspaceState,
 	InsertSide,
 	BottomUpdate,
+	CiCheck,
 } from "@gitbutler/but-sdk";
 import {
 	formatForDisplay,
@@ -117,6 +119,7 @@ import {
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowLabelContainer,
 	WorkspaceItemRowToolbar,
+	type WorkspaceItemRowBubbleVariant,
 } from "./WorkspaceItemRow.tsx";
 import { getWorkspaceItemRowButtonClassName } from "./WorkspaceItemRow-utils.ts";
 import { getOperation, useDryRunOperation } from "#ui/operations/operation.ts";
@@ -1984,6 +1987,39 @@ const segmentPushStatusToStatus = (pushStatus: PushStatus): Status => {
 	}
 };
 
+const ciChecksBubbleVariant = (checks: Array<CiCheck>): WorkspaceItemRowBubbleVariant | null => {
+	if (checks.length === 0) return null;
+
+	const hasRunningCheck = checks.some((check) => {
+		if (typeof check.status !== "string") return false;
+
+		switch (check.status) {
+			case "inProgress":
+			case "queued":
+				return true;
+			case "unknown":
+				return false;
+		}
+	});
+	const hasUnknownCheck = checks.some((check) => check.status === "unknown");
+	const hasFailedCheck = checks.some((check) => {
+		if (typeof check.status === "string") return false;
+
+		switch (check.status.complete.conclusion) {
+			case "neutral":
+			case "skipped":
+			case "success":
+				return false;
+			default:
+				return true;
+		}
+	});
+	if (hasFailedCheck) return "danger";
+
+	if (hasRunningCheck) return "warn";
+	return hasUnknownCheck ? "lightGray" : "safe";
+};
+
 const BranchRow: FC<
 	{
 		projectId: string;
@@ -2058,6 +2094,16 @@ const BranchRow: FC<
 	const tearOffBranchMutation = useTearOffBranch();
 	const removeBranchMutation = useRemoveBranch();
 	const branchCreateMutation = useBranchCreate();
+
+	const { data: ciChecks } = useQuery({
+		...listCiChecksQueryOptions({
+			projectId,
+			reference: refName.displayName,
+			cacheConfig: "noCache",
+		}),
+		enabled: pullRequest !== null,
+	});
+	const ciBubbleVariant = ciChecks ? ciChecksBubbleVariant(ciChecks) : null;
 
 	const pushesMultipleBranches = partialStackState.branchCount > 1;
 
@@ -2296,6 +2342,13 @@ const BranchRow: FC<
 								<Icon name="pr" />
 								PR
 							</span>
+						)}
+
+						{ciBubbleVariant !== null && (
+							<WorkspaceItemRowBubble variant={ciBubbleVariant}>
+								{ciBubbleVariant === "warn" && <Icon name="spinner" size={12} />}
+								CI
+							</WorkspaceItemRowBubble>
 						)}
 
 						<Tooltip.Root>
