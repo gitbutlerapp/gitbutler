@@ -112,6 +112,8 @@ import styles from "./OutlineTree.module.css";
 import { Checkbox } from "#ui/components/Checkbox.tsx";
 import {
 	WorkspaceItemRow,
+	WorkspaceItemRowBubble,
+	WorkspaceItemRowBubbleGroup,
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowLabelContainer,
 	WorkspaceItemRowToolbar,
@@ -1499,44 +1501,21 @@ const ChangesSectionRow: FC<{
 					{changes.length === 0 ? "Nothing to commit" : "Uncommitted changes"}
 				</WorkspaceItemRowLabel>
 
-				<span
-					className={classes(
-						"text-11",
-						"text-semibold",
-						workspaceItemRowStyles.bubble,
-						workspaceItemRowStyles.bubbleFillGray,
-					)}
-				>
-					{changes.length}
-				</span>
+				<WorkspaceItemRowBubble variant="fillGray">{changes.length}</WorkspaceItemRowBubble>
 
 				{lineStats && (lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
-					<span className={workspaceItemRowStyles.bubbleGroup}>
+					<WorkspaceItemRowBubbleGroup>
 						{lineStats.linesAdded > 0 && (
-							<span
-								className={classes(
-									"text-11",
-									"text-semibold",
-									workspaceItemRowStyles.bubble,
-									workspaceItemRowStyles.bubbleClrSafe,
-								)}
-							>
+							<WorkspaceItemRowBubble variant="safe">
 								+{lineStats.linesAdded}
-							</span>
+							</WorkspaceItemRowBubble>
 						)}
 						{lineStats.linesRemoved > 0 && (
-							<span
-								className={classes(
-									"text-11",
-									"text-semibold",
-									workspaceItemRowStyles.bubble,
-									workspaceItemRowStyles.bubbleClrDanger,
-								)}
-							>
+							<WorkspaceItemRowBubble variant="danger">
 								-{lineStats.linesRemoved}
-							</span>
+							</WorkspaceItemRowBubble>
 						)}
-					</span>
+					</WorkspaceItemRowBubbleGroup>
 				)}
 			</WorkspaceItemRowLabelContainer>
 
