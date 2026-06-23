@@ -630,6 +630,12 @@ pub struct Branch<T>(pub T);
 
 impl Display for Branch<FullName> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Branch(&self.0).fmt(f)
+    }
+}
+
+impl Display for Branch<&FullName> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let t = get();
         write!(
             f,

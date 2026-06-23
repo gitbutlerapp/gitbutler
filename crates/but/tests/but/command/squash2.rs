@@ -1,5 +1,18 @@
 use crate::utils::Sandbox;
 
+// Clanker identified edge-cases to test
+//
+// TODO: add coverage for duplicate branch sources with an external target.
+// TODO: add coverage for duplicate commit sources and verify user-facing output.
+// TODO: add coverage for duplicate branch sources when the target is on that branch.
+// TODO: add coverage for branch source whose only commit is also the explicit target.
+// TODO: add coverage for explicit same-branch targets at the top and bottom of the branch.
+// TODO: add coverage for commit sources outside the workspace and unapplied branch sources.
+// TODO: add coverage for squashes that would result in merge conflicts.
+// TODO: add coverage for --no-message on commit and branch squashes.
+// TODO: add coverage for clap mutual exclusion between commit-message flags.
+// TODO: add coverage for JSON and shell output formats for branch squashes.
+
 // TODO: make fixture for this
 fn one_branch_three_commits() -> Sandbox {
     let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
@@ -40,8 +53,6 @@ fn squash_two_commits() {
 Hint: run `but help` for all commands
 
 "#]]);
-
-    // TODO(david): handle --message
 
     env.but("_squash2 f55169f --target f63361f --message 'squashed'")
         .assert()
@@ -222,6 +233,200 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn squash_whole_branch_into_commit_on_same_branch() {
+    let env = one_branch_three_commits();
+
+    env.but("_squash2 a-branch-1 -t f63361f --use-target-message")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Squashed branch 'a-branch-1' to create commit 17b59a2
+
+"#]]);
+
+    env.but("status -fv")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄br [a-branch-1]
+┊● 17b59a2 author 2000-01-01 00:00:00 +0000
+┊│     add two
+┊│     17:kl A one
+┊│     17:or A three
+┊│     17:tw A two
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn squash_whole_branch_into_commit_on_other_branch() {
+    let env = one_branch_three_commits();
+
+    env.but("_commit2 -b target-branch -m 'new commit on new branch'")
+        .assert()
+        .success();
+
+    env.file("file", "new file");
+    env.but("_commit2 file -b add-file-branch -m 'add file'")
+        .assert()
+        .success();
+
+    env.but("status -fv")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [a-branch-1]
+┊● f55169f author 2000-01-01 00:00:00 +0000
+┊│     add three
+┊│     f5:or A three
+┊● f63361f author 2000-01-01 00:00:00 +0000
+┊│     add two
+┊│     f6:tw A two
+┊● ea345ba author 2000-01-01 00:00:00 +0000
+┊│     add one
+┊│     ea:kl A one
+├╯
+┊
+┊╭┄ta [target-branch]
+┊● d1d6a19 author 2000-01-01 00:00:00 +0000 (no changes)
+┊│     new commit on new branch
+├╯
+┊
+┊╭┄fi [add-file-branch]
+┊● e528488 author 2000-01-01 00:00:00 +0000
+┊│     add file
+┊│     e5:qs A file
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_squash2 a-branch-1 add-file-branch -t d1d6a19 --use-target-message")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Squashed branches 'a-branch-1', 'add-file-branch' to create commit 44aa30a
+
+"#]]);
+
+    env.but("status -fv")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄ta [target-branch]
+┊● 44aa30a author 2000-01-01 00:00:00 +0000
+┊│     new commit on new branch
+┊│     44:qs A file
+┊│     44:kl A one
+┊│     44:or A three
+┊│     44:tw A two
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn squash_multiple_branches_into_commit_on_one_of_the_branch_sources() {
+    let env = one_branch_three_commits();
+
+    env.but("_commit2 -b target-branch -m 'target commit'")
+        .assert()
+        .success();
+    env.but("_commit2 -b target-branch -m 'random commit on target-branch'")
+        .assert()
+        .success();
+
+    env.file("file", "new file");
+    env.but("_commit2 file -b add-file-branch -m 'add file'")
+        .assert()
+        .success();
+
+    env.but("status -fv")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄g0 [a-branch-1]
+┊● f55169f author 2000-01-01 00:00:00 +0000
+┊│     add three
+┊│     f5:or A three
+┊● f63361f author 2000-01-01 00:00:00 +0000
+┊│     add two
+┊│     f6:tw A two
+┊● ea345ba author 2000-01-01 00:00:00 +0000
+┊│     add one
+┊│     ea:kl A one
+├╯
+┊
+┊╭┄ta [target-branch]
+┊● a489b93 author 2000-01-01 00:00:00 +0000 (no changes)
+┊│     random commit on target-branch
+┊● 561a8d8 author 2000-01-01 00:00:00 +0000 (no changes)
+┊│     target commit
+├╯
+┊
+┊╭┄fi [add-file-branch]
+┊● e528488 author 2000-01-01 00:00:00 +0000
+┊│     add file
+┊│     e5:qs A file
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    env.but("_squash2 target-branch a-branch-1 add-file-branch -t 561a8d8 --use-target-message")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Squashed branches 'target-branch', 'a-branch-1', 'add-file-branch' to create commit 0653794
+
+"#]]);
+
+    env.but("status -fv")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unassigned changes] (no changes)
+┊
+┊╭┄ta [target-branch]
+┊● 0653794 author 2000-01-01 00:00:00 +0000
+┊│     target commit
+┊│     06:qs A file
+┊│     06:kl A one
+┊│     06:or A three
+┊│     06:tw A two
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
 fn squash_reword_with_editor() {
     let env = one_branch_three_commits();
 
@@ -296,6 +501,166 @@ Squashed branch 'a-branch-1' to create commit abb21d9
 ┴ 0dc3733 (common base) 2000-01-02 add M
 
 Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_into_branches() {
+    let env = one_branch_three_commits();
+
+    env.but("_squash2 a-branch-1 --target a-branch-1")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Invalid commit. 'a-branch-1' is a branch
+
+Hint: --target must always target a commit
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_nothing() {
+    let env = one_branch_three_commits();
+
+    env.but("_squash2")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the following required arguments were not provided:
+  <SOURCES>...
+
+Usage: but _squash2 <SOURCES>...
+
+For more information, try '--help'.
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_only_target() {
+    let env = one_branch_three_commits();
+
+    env.but("_squash2 --target f55169f")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+error: the following required arguments were not provided:
+  <SOURCES>...
+
+Usage: but _squash2 --target <TARGET> <SOURCES>...
+
+For more information, try '--help'.
+
+"#]]);
+}
+
+#[test]
+fn cannot_mix_sources() {
+    let env = one_branch_three_commits();
+
+    env.but("_squash2 a-branch-1 f55169f --target ea345ba")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot mix different types of sources. Got both branches and commits
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_multiple_commits_without_target() {
+    let env = one_branch_three_commits();
+
+    env.but("_squash2 f55169f ea345ba")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: When --target isn't used the source must be exactly one branch
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_multiple_branches_without_target() {
+    let env = one_branch_three_commits();
+
+    env.but("_commit2 --no-message -b second-branch")
+        .assert()
+        .success();
+
+    env.but("_squash2 a-branch-1 second-branch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: When --target isn't used the source must be exactly one branch
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_branch_with_just_one_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("one", "content of one");
+    env.but("_commit2 -m 'add one' one -b the-branch")
+        .assert()
+        .success();
+
+    env.but("_squash2 the-branch -u")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Need at least 2 commits to squash
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_commit_into_itself() {
+    let env = one_branch_three_commits();
+
+    env.but("_squash2 f55169f -t f55169f")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot squash a commit into itself
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_empty_branch_into_itself() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.but("branch new empty-branch").assert().success();
+
+    env.but("_squash2 empty-branch")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Cannot squash empty branch into itself
+
+"#]]);
+}
+
+#[test]
+fn cannot_squash_empty_branch_into_commit() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.but("_commit2 -m 'target commit'").assert().success();
+
+    env.but("branch new empty-branch").assert().success();
+
+    env.but("_squash2 empty-branch -t 561a8d8")
+        .assert()
+        .failure()
+        .stderr_eq(snapbox::str![[r#"
+Error: Need at least 2 commits to squash
 
 "#]]);
 }

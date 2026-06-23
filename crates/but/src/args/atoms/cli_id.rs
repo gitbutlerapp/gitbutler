@@ -308,6 +308,8 @@ pub enum Purpose {
     #[expect(missing_docs)]
     Target,
     #[expect(missing_docs)]
+    Source,
+    #[expect(missing_docs)]
     Uncommitted,
 }
 
@@ -317,6 +319,7 @@ impl std::fmt::Display for Purpose {
             Purpose::Anchor => f.write_str("anchor"),
             Purpose::Branch => f.write_str("branch"),
             Purpose::Target => f.write_str("target"),
+            Purpose::Source => f.write_str("source"),
             Purpose::Commit => f.write_str("commit"),
             Purpose::Uncommitted => f.write_str("uncommitted change"),
         }
