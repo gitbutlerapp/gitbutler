@@ -1862,6 +1862,8 @@ const Changes: FC<{
 							<Combobox.Trigger
 								className={classes("text-13", styles.commitTargetComboboxTrigger)}
 								aria-label={changesHotkeys.selectCommitTarget.meta.name}
+								// We pass `disabled` here because we want to disable the button, not
+								// the tooltip. Other props should be passed above.
 								render={<Button focusableWhenDisabled render={<Tooltip.Trigger />} />}
 							>
 								<Icon name="bullseye" size={14} />
@@ -2016,6 +2018,7 @@ const BranchRow: FC<
 		canRemoveBranch: boolean;
 		partialStackState: PartialStackState;
 		pushStatus: PushStatus;
+		pullRequest: number | null;
 		bottomRelativeTo: RelativeTo | null;
 		isTopSegment: boolean;
 	} & ComponentProps<"div">
@@ -2028,6 +2031,7 @@ const BranchRow: FC<
 	canRemoveBranch,
 	partialStackState,
 	pushStatus,
+	pullRequest,
 	bottomRelativeTo,
 	isTopSegment,
 	...restProps
@@ -2292,39 +2296,62 @@ const BranchRow: FC<
 						onExit={endEditing}
 					/>
 				) : (
-					optimisticBranchDisplayName
+					<div className={styles.branchLabel}>
+						<div className={styles.branchLabelTitle}>{optimisticBranchDisplayName}</div>
+						<div className={classes("text-13", styles.branchLabelMeta)}>
+							<span className={workspaceItemRowStyles.fadedText}>
+								{Match.value(pushStatus).pipe(
+									Match.when("nothingToPush", () => "Nothing to push"),
+									Match.when("unpushedCommits", () => "Some unpushed"),
+									Match.when("completelyUnpushed", () => "Unpushed branch"),
+									Match.when("unpushedCommitsRequiringForce", () => "Some unpushed"),
+									Match.when("integrated", () => "Integrated"),
+									Match.exhaustive,
+								)}
+							</span>
+
+							{pullRequest !== null && (
+								<span
+									className={classes(workspaceItemRowStyles.fadedText, styles.branchLabelMetaItem)}
+								>
+									<Icon name="pr" />
+									PR
+								</span>
+							)}
+
+							<Tooltip.Root>
+								<Tooltip.Trigger
+									aria-label={pushButtonLabel}
+									onClick={pushStack}
+									className={getWorkspaceItemRowButtonClassName({ variant: "outline" })}
+									// We pass `disabled` here because we want to disable the button, not
+									// the tooltip. Other props should be passed above.
+									render={<Button focusableWhenDisabled disabled={!canPushStack} />}
+								>
+									{pushStackMutation.isPending ? (
+										<Icon name="spinner" />
+									) : pushesMultipleBranches ? (
+										<Icon name="arrow-double-line-up" />
+									) : (
+										<Icon name="arrow-line-up" />
+									)}
+									Push
+								</Tooltip.Trigger>
+								<Tooltip.Portal>
+									<Tooltip.Positioner sideOffset={4}>
+										<Tooltip.Popup render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}>
+											{pushStackDisabledReason ?? pushButtonLabel}
+										</Tooltip.Popup>
+									</Tooltip.Positioner>
+								</Tooltip.Portal>
+							</Tooltip.Root>
+						</div>
+					</div>
 				)}
 			</WorkspaceItemRowLabel>
 
 			{isDefaultMode && (
 				<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar forceVisible />}>
-					<Tooltip.Root>
-						<Tooltip.Trigger
-							render={
-								<Toolbar.Button
-									aria-label={pushButtonLabel}
-									onClick={pushStack}
-									disabled={!canPushStack}
-									className={getWorkspaceItemRowButtonClassName({ iconOnly: true })}
-								/>
-							}
-						>
-							{pushStackMutation.isPending ? (
-								<Icon name="spinner" />
-							) : pushesMultipleBranches ? (
-								<Icon name="arrow-double-line-up" />
-							) : (
-								<Icon name="arrow-line-up" />
-							)}
-						</Tooltip.Trigger>
-						<Tooltip.Portal>
-							<Tooltip.Positioner sideOffset={4}>
-								<Tooltip.Popup render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}>
-									{pushStackDisabledReason ?? pushButtonLabel}
-								</Tooltip.Popup>
-							</Tooltip.Positioner>
-						</Tooltip.Portal>
-					</Tooltip.Root>
 					<Toolbar.Button
 						aria-label="Branch menu"
 						onClick={(event) => {
@@ -2461,6 +2488,7 @@ const BranchSegment: FC<{
 						: false
 				}
 				pushStatus={segment.pushStatus}
+				pullRequest={segment.metadata?.review.pullRequest ?? null}
 				bottomRelativeTo={segmentBottomRelativeTo(segment)}
 				isTopSegment={isTopSegment}
 			/>

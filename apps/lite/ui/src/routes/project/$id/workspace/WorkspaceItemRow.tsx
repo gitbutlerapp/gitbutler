@@ -59,7 +59,6 @@ export const WorkspaceItemRowLabel: FC<{ heading?: boolean } & ComponentProps<"d
 			styles.label,
 			heading ? "text-14" : "text-13",
 			heading && "text-bold",
-			heading ? styles.labelHeading : styles.labelRegular,
 		)}
 	/>
 );

@@ -1,8 +1,16 @@
 import styles from "./Button.module.css";
 import { classes } from "#ui/components/classes.ts";
+import { Match } from "effect";
 
 /** @public */
-export type ButtonVariant = "pop" | "gray" | "outline" | "danger" | "ghost" | "ghost-inverted";
+export type ButtonVariant =
+	| "pop"
+	| "gray"
+	| "outline"
+	| "outline-inverted"
+	| "danger"
+	| "ghost"
+	| "ghost-inverted";
 /** @public */
 export type ButtonSize = "regular" | "small";
 
@@ -24,14 +32,11 @@ export const getButtonClassName = ({
 		"text-semibold",
 		styles.button,
 		styles[variant],
-		(() => {
-			switch (size) {
-				case "small":
-					return classes(styles.small, "text-12");
-				case "regular":
-					return classes(styles.regular, "text-13");
-			}
-		})(),
+		Match.value(size).pipe(
+			Match.when("small", () => classes(styles.small, "text-12")),
+			Match.when("regular", () => classes(styles.regular, "text-13")),
+			Match.exhaustive,
+		),
 		iconOnly && styles.iconOnly,
 		disableTransition && styles.disableTransition,
 	);

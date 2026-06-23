@@ -52,9 +52,7 @@
 .inlineEditorForm {
 	display: flex;
 	row-gap: 6px;
-	flex-grow: 1;
 	flex-direction: column;
-	min-width: 0;
 }
 
 .inlineEditorInput {
@@ -87,6 +85,29 @@
 	display: flex;
 	row-gap: 4px;
 	flex-direction: column;
+}
+
+.branchLabel {
+	display: flex;
+	row-gap: 6px;
+	flex-direction: column;
+}
+
+.branchLabelTitle {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.branchLabelMeta {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.branchLabelMetaItem {
+	display: flex;
+	align-items: center;
+	gap: 4px;
 }
 
 .commitControls {

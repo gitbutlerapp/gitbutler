@@ -524,6 +524,8 @@ const WorkspacePage: FC = () => {
 										aria-label={workspaceHotkeys.createIndependentBranch.meta.name}
 										className={getButtonClassName({ iconOnly: true })}
 										onClick={createIndependentBranch}
+										// We pass `disabled` here because we want to disable the button, not
+										// the tooltip. Other props should be passed above.
 										render={<Button focusableWhenDisabled disabled={!canCreateIndependentBranch} />}
 									>
 										{branchCreateMutation.isPending ? (
