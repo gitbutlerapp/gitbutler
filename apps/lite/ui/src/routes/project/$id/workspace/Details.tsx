@@ -833,8 +833,6 @@ const Diff: FC<{
 		return () => resizeObserver.disconnect();
 	}, [diffContentsEl]);
 
-	const diffStyle = canUseSplitDiff === true ? preferredDiffStyle : "unified";
-
 	return (
 		<div className={styles.diffTab}>
 			<div className={styles.actions}>
@@ -879,7 +877,7 @@ const Diff: FC<{
 						changesetKey={changesetKey}
 						projectId={projectId}
 						diffView={diffView}
-						diffStyle={diffStyle}
+						diffStyle={canUseSplitDiff ? preferredDiffStyle : "unified"}
 						selectionScopeRef={selectionScopeRef}
 						viewerRef={viewerRef}
 					/>
