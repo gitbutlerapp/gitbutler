@@ -68,7 +68,7 @@
 	color: var(--text-2);
 
 	[data-selection-scope]:focus .containerSelected & {
-		color: inherit;
+		color: var(--text-2-invert);
 	}
 }
 
