@@ -35,8 +35,7 @@
 .toolbar {
 	display: none;
 	column-gap: 8px;
-	margin-block: -2px;
-	padding-block: 6px;
+	padding-block: 4px;
 
 	.container:hover &,
 	.container:focus-within &,
