@@ -14,22 +14,26 @@
 	}
 }
 
-.fileStatusIcon {
+.fileStatusIndicator {
 	align-self: center;
+	font-weight: 700;
+	font-size: 11px;
+
+	font-family: var(--text-fontfamily-base);
 	&[data-char="A"] {
-		color: #64d5a6;
+		color: var(--clr-safe-60);
 	}
 
 	&[data-char="D"] {
-		color: #f08a8a;
+		color: var(--clr-danger-60);
 	}
 
 	&[data-char="M"] {
-		color: #95c9f0;
+		color: var(--clr-blue-60);
 	}
 
 	&[data-char="R"] {
-		color: #a855f7;
+		color: var(--clr-purple-60);
 	}
 }
 
