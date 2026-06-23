@@ -272,7 +272,7 @@ sha2 = "0.10"
 base64 = "0.22"
 bitflags = "2.11.1"
 notify = "8.2.0"
-snapbox = "0.6.23"
+snapbox = { version = "0.6.23", features = ["json"] }
 url = "2.5.7"
 petgraph = { version = "0.8.3", default-features = false, features = [
     "stable_graph",

@@ -9546,6 +9546,7 @@ dependencies = [
  "anstyle-svg",
  "normalize-line-endings",
  "regex",
+ "serde",
  "serde_json",
  "similar",
  "snapbox-macros",
