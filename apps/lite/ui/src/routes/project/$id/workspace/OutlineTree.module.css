@@ -53,7 +53,6 @@
 	display: flex;
 	row-gap: 6px;
 	flex-direction: column;
-	min-width: 0;
 }
 
 .inlineEditorInput {
