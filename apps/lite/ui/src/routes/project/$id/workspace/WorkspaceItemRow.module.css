@@ -53,6 +53,7 @@
 	flex-grow: 1;
 	padding-block: 6px;
 	overflow: hidden;
+	line-height: 16px;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
