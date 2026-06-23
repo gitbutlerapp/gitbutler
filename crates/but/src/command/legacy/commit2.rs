@@ -313,7 +313,7 @@ fn run(
 /// Targeting modes for committing.
 enum CommitOperationTargetIsh {
     /// Target the branch if it exists, or create it at the newest base if it does not.
-    Branch(BranchArg),
+    Branch(CliIdArg),
     /// Target newest base with a new canned branch name.
     UnstackedCannedBranch,
     /// Targets above the [`CliIdArg`], which must denote either a commit or a branch.
@@ -343,8 +343,9 @@ fn route_commit_operation(
             let position = CommitRelativeToTargetPosition::Below;
             route_commit_above_or_below(repo, id_map, cli_id, position)
         }
-        CommitOperationTargetIsh::Branch(branch) => {
-            if let Some(segment) = branch.try_resolve_segment(head_info)? {
+        CommitOperationTargetIsh::Branch(cli_id) => {
+            if let Some(branch) = cli_id.try_resolve_branch(repo, id_map)? {
+                let segment = branch.resolve_segment(head_info)?;
                 let ref_info = segment.ref_info.with_context(|| {
                     format!("BUG: Segment resolved from branch name {branch} has no ref info")
                 })?;
@@ -355,6 +356,7 @@ fn route_commit_operation(
 
                 Ok(CommitOperation::CommitAt(CommitAtOperation { target }))
             } else {
+                let branch = BranchArg(cli_id.0);
                 let branch_name =
                     BranchArg(branch.resolve_for_creation(repo, head_info).with_hint(|| {
                         format!("Run `but apply {branch}` to apply the branch first")
