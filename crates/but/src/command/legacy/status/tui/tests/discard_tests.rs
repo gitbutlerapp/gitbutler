@@ -14,21 +14,21 @@ fn discard_prompt_can_be_cancelled() {
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
 
     tui.input_then_render('x')
-        .assert_rendered_contains("Discard unassigned changes?")
+        .assert_rendered_contains("Discard uncommitted changes?")
         .assert_rendered_contains("<< discard >>");
 
     tui.input_then_render('n');
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes]"])
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"])
         .assert_rendered_term_svg_eq(file!["snapshots/discard_prompt_can_be_cancelled_final.svg"]);
 }
 
 #[test]
-fn discard_unassigned_confirm_yes_discards_changes() {
+fn discard_uncommitted_confirm_yes_discards_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -37,26 +37,26 @@ fn discard_unassigned_confirm_yes_discards_changes() {
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
 
     tui.input_then_render('x')
-        .assert_rendered_contains("Discard unassigned changes?");
+        .assert_rendered_contains("Discard uncommitted changes?");
 
     tui.input_then_render('y');
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 
     let status = tui.env().invoke_git("status --porcelain");
     assert_eq!(status, "");
 
     tui.reload().assert_rendered_term_svg_eq(file![
-        "snapshots/discard_unassigned_confirm_yes_discards_changes_final.svg"
+        "snapshots/discard_uncommitted_confirm_yes_discards_changes_final.svg"
     ]);
 }
 
 #[test]
-fn discard_unassigned_cancel_keeps_changes() {
+fn discard_uncommitted_cancel_keeps_changes() {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
     env.setup_metadata(&["A"]);
 
@@ -65,24 +65,24 @@ fn discard_unassigned_cancel_keeps_changes() {
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
 
     tui.input_then_render('x')
-        .assert_rendered_contains("Discard unassigned changes?");
+        .assert_rendered_contains("Discard uncommitted changes?");
 
     tui.input_then_render('n');
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
 
     let status = tui.env().invoke_git("status --porcelain");
     assert!(
         status.contains("test.txt"),
-        "expected unassigned changes to remain, got: {status:?}"
+        "expected uncommitted changes to remain, got: {status:?}"
     );
 
     tui.reload().assert_rendered_term_svg_eq(file![
-        "snapshots/discard_unassigned_cancel_keeps_changes_final.svg"
+        "snapshots/discard_uncommitted_cancel_keeps_changes_final.svg"
     ]);
 }
 
@@ -150,7 +150,7 @@ fn discard_stack_confirm_yes_discards_staged_changes() {
     tui.env().file("test.txt", "content");
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes]"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes]"]);
 
     tui.input_then_render(KeyCode::Down)
         .assert_current_line_eq(str!["┊   vo A test.txt"]);
@@ -165,16 +165,16 @@ fn discard_stack_confirm_yes_discards_staged_changes() {
         .assert_current_line_eq(str!["┊●   8474410 add A"]);
 
     tui.input_then_render([KeyCode::Up, KeyCode::Up])
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 
     tui.input_then_render('x')
-        .assert_rendered_contains("Discard unassigned changes?")
+        .assert_rendered_contains("Discard uncommitted changes?")
         .assert_rendered_contains("<< discard >>");
 
     tui.input_then_render('y');
 
     tui.reload()
-        .assert_current_line_eq(str!["╭┄zz [unassigned changes] (no changes)"]);
+        .assert_current_line_eq(str!["╭┄zz [uncommitted changes] (no changes)"]);
 
     let status = tui.env().invoke_git("status --porcelain");
     assert_eq!(status, "");

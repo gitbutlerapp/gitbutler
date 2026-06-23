@@ -30,7 +30,7 @@ use super::StatusContext;
 #[serde(rename_all = "camelCase")]
 pub(crate) struct WorkspaceStatus {
     /// Represents uncommitted changes that are not assigned to any stack
-    unassigned_changes: Vec<FileChange>,
+    uncommitted_changes: Vec<FileChange>,
     /// The stacks that are applied in the current workspace
     stacks: Vec<Stack>,
     /// The most recent common merge base between all applied stacks and the target upstream branch
@@ -56,13 +56,13 @@ pub(crate) struct UpstreamState {
 
 impl WorkspaceStatus {
     pub fn new(
-        unassigned_changes: Vec<FileChange>,
+        uncommitted_changes: Vec<FileChange>,
         stacks: Vec<Stack>,
         merge_base: Commit,
         upstream_state: UpstreamState,
     ) -> Self {
         Self {
-            unassigned_changes,
+            uncommitted_changes,
             stacks,
             merge_base,
             upstream_state,
@@ -574,11 +574,11 @@ pub(super) fn build_workspace_status_json(
     repo: &gix::Repository,
 ) -> anyhow::Result<WorkspaceStatus> {
     let mut json_stacks = Vec::new();
-    let mut json_unassigned_changes = Vec::new();
+    let mut json_uncommitted_changes = Vec::new();
 
     for (stack_id, (stack_with_id, assignments)) in &status_ctx.stack_details {
         if stack_id.is_none() {
-            json_unassigned_changes =
+            json_uncommitted_changes =
                 convert_file_assignments(assignments, &status_ctx.worktree_changes);
         } else if let (Some(stack_id), Some(stack_with_id)) = (stack_id, stack_with_id) {
             let stack_cli_id = status_ctx
@@ -708,7 +708,7 @@ pub(super) fn build_workspace_status_json(
     };
 
     Ok(WorkspaceStatus::new(
-        json_unassigned_changes,
+        json_uncommitted_changes,
         json_stacks,
         merge_base_commit,
         upstream_state_json,

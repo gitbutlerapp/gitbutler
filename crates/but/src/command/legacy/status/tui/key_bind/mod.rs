@@ -535,11 +535,11 @@ impl KeyBindsBuilder<'_> {
         .always_show_in_hot_bar()
     }
 
-    fn unassigned(&mut self) -> KeyBindsInModesBuilder<'_> {
+    fn uncommitted_area(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
-            "goto unassigned",
+            "goto uncommitted",
             press().code(KeyCode::Char('g')),
-            Message::SelectUnassigned,
+            Message::SelectUncommitted,
         )
         .hide_from_hotbar()
         .show_only_in_normal_mode_help_section()
@@ -581,7 +581,7 @@ impl KeyBindsBuilder<'_> {
             press().shift().code(KeyCode::Char('R')),
             Message::Rub(RubMessage::StartReverse),
         )
-        .long_description("Rub unassigned changes into selection")
+        .long_description("Rub uncommitted changes into selection")
         .hide_from_hotbar()
     }
 
@@ -1033,7 +1033,7 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
     builder.redo().register();
 
     builder.branch_picker().register();
-    builder.unassigned().register();
+    builder.uncommitted_area().register();
     builder.merge_base().register();
     builder.command().register();
     builder.shell_command().register();
@@ -1073,7 +1073,7 @@ fn register_non_mode_specific_key_binds(
     builder.grow_details().register();
     builder.shrink_details().register();
     builder.branch_picker().register();
-    builder.unassigned().register();
+    builder.uncommitted_area().register();
     builder.merge_base().register();
     builder.help().register();
     builder.quit().register();

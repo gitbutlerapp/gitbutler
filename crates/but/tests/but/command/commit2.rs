@@ -11,7 +11,7 @@ fn no_message_nothing_to_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   1049574 (no commit message) (no changes)
@@ -44,7 +44,7 @@ Created commit 7bbfdca on branch 'A'
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   7bbfdca (no commit message)
@@ -113,7 +113,7 @@ fn no_args_single_head_message_from_editor() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   d4e7c2a commit from editor
@@ -140,7 +140,7 @@ fn single_head_with_message() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   a41148c add file.txt
@@ -169,7 +169,7 @@ fn can_repeat_message() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊● b141567 author 2000-01-01 00:00:00 +0000
@@ -226,7 +226,7 @@ fn editor_user_writes_no_message() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   3b915b5 (no commit message)
@@ -275,7 +275,7 @@ fn create_commit_on_new_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄br [a-branch-1]
 ┊●   d4910f8 (no commit message)
@@ -303,7 +303,7 @@ fn create_commit_on_user_provided_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄fi [file]
 ┊●   5a6fc56 add first
@@ -325,7 +325,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄fi [file]
 ┊●   49fc2f0 add second
@@ -348,7 +348,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄fi [file]
 ┊●   49fc2f0 add second
@@ -375,7 +375,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄fi [file]
 ┊●   49fc2f0 add second
@@ -407,7 +407,7 @@ fn create_commit_on_new_branch_with_canned_name() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   9477ae7 add A
@@ -501,7 +501,7 @@ fn empty_flag_to_force_empty_commit_when_changes_exist() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   vq A changes
 ┊
 ┊╭┄br [a-branch-1]
@@ -524,7 +524,7 @@ fn commit_empty_above_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   9ac4652 add second
@@ -545,7 +545,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   955bee4 add second
@@ -569,7 +569,7 @@ fn commit_empty_below_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   9ac4652 add second
@@ -590,7 +590,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   eee1eaf add second
@@ -616,7 +616,7 @@ fn commit_above_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   uv A file.txt
 ┊
 ┊╭┄g0 [A]
@@ -638,7 +638,7 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   e38b8f7 add second
@@ -664,7 +664,7 @@ fn commit_above_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   uv A file.txt
 ┊
 ┊╭┄g0 [A]
@@ -685,7 +685,7 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄br [a-branch-1]
 ┊●   092d7a9 add file.txt
@@ -712,7 +712,7 @@ fn commit_below_commit() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   uv A file.txt
 ┊
 ┊╭┄g0 [A]
@@ -734,7 +734,7 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   d7e6d8f add second
@@ -760,7 +760,7 @@ fn commit_below_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   uv A file.txt
 ┊
 ┊╭┄g0 [A]
@@ -781,7 +781,7 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   8a3fbb3 add A
@@ -808,7 +808,7 @@ fn commit_below_branch_with_multiple_commits_treats_branch_as_bucket() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   uv A file.txt
 ┊
 ┊╭┄g0 [A]
@@ -830,7 +830,7 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   d7e6d8f add second
@@ -856,7 +856,7 @@ fn commit_above_refuses_on_conflicts() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   9ac4652 add second
@@ -889,7 +889,7 @@ fn commit_below_refuses_on_conflicts() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   9ac4652 add second
@@ -994,7 +994,7 @@ fn above_commit_not_in_workspace_returns_bad_input() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   9477ae7 add A
@@ -1032,7 +1032,7 @@ fn above_non_branch_non_commit_target_returns_bad_input() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Expected a commit or a branch, got unassigned changes
+Error: Expected a commit or a branch, got uncommitted changes
 
 Hint: Run `but status` to show applicable targets
 
@@ -1051,7 +1051,7 @@ fn committing_specific_cli_ids() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊     kl A one
 ┊   twop A two
 ┊
@@ -1071,7 +1071,7 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   twop A two
 ┊
 ┊╭┄g0 [A]
@@ -1128,7 +1128,7 @@ j0 file│
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   f0a3edc (no commit message)
@@ -1153,7 +1153,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   f0a3edc (no commit message)
@@ -1211,7 +1211,7 @@ j0 file│
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   f0a3edc (no commit message)
@@ -1236,7 +1236,7 @@ Hint: run `but help` for all commands
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   f0a3edc (no commit message)
@@ -1281,7 +1281,7 @@ fn can_commit_with_path_prefix() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   om A path/other/to/third.txt
 ┊   ms A path/to/first.txt
 ┊   rr A path/to/second.txt
@@ -1302,7 +1302,7 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   om A path/other/to/third.txt
 ┊
 ┊╭┄g0 [A]
@@ -1342,7 +1342,7 @@ fn path_prefix_with_mix_of_modifications() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   lm D dir/to_delete.txt
 ┊   no M dir/to_empty.txt
 ┊   xv M dir/to_modify.txt
@@ -1368,7 +1368,7 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄g0 [A]
 ┊●   d1a6de8 (no commit message)
@@ -1442,7 +1442,7 @@ fn committing_above_an_empty_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄br [a-branch-1]
 ┊●   75b9f19 add one
@@ -1474,7 +1474,7 @@ fn committing_below_empty_branch_with_empty_branch_below() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄to [top] (no commits)
 ┊│
@@ -1514,7 +1514,7 @@ fn committing_below_non_top_empty_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄op [top] (no commits)
 ┊│
@@ -1548,7 +1548,7 @@ fn committing_below_an_empty_branch() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊     kl A one
 ┊   twop A two
 ┊
@@ -1569,7 +1569,7 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes]
+╭┄zz [uncommitted changes]
 ┊   twop A two
 ┊
 ┊╭┄to [top] (no commits)
@@ -1594,7 +1594,7 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-╭┄zz [unassigned changes] (no changes)
+╭┄zz [uncommitted changes] (no changes)
 ┊
 ┊╭┄op [top] (no commits)
 ┊│

@@ -10,7 +10,7 @@ use nonempty::NonEmpty;
 use crate::{
     CliId,
     command::legacy::{
-        rub::{CommitToUnassignedOperation, RubOperation, SquashCommitsOperation},
+        rub::{CommitToUncommittedAreaOperation, RubOperation, SquashCommitsOperation},
         status::tui::{Markable, SelectAfterReload},
     },
 };
@@ -28,24 +28,24 @@ pub(super) fn route_operation<'a>(
         )? {
             op @ RubOperation::UnassignUncommitted(..) => op,
             op @ RubOperation::UncommittedToCommit(..) => op,
-            op @ RubOperation::UnassignedToCommit(..) => op,
-            op @ RubOperation::CommitToUnassigned(..) => op,
+            op @ RubOperation::UncommittedAreaToCommit(..) => op,
+            op @ RubOperation::CommitToUncommittedArea(..) => op,
             op @ RubOperation::CommitToStack(..) => op,
             op @ RubOperation::SquashCommits(..) => op,
             op @ RubOperation::CommittedFileToCommit(..) => op,
-            op @ RubOperation::CommittedFileToUnassigned(..) => op,
+            op @ RubOperation::CommittedFileToUncommittedArea(..) => op,
             op @ RubOperation::UncommittedToStack(..) => op,
-            op @ RubOperation::StackToUnassigned(..) => op,
+            op @ RubOperation::StackToUncommittedArea(..) => op,
             op @ RubOperation::StackToStack(..) => op,
-            op @ RubOperation::UnassignedToStack(..) => op,
+            op @ RubOperation::UncommittedAreaToStack(..) => op,
             op @ RubOperation::StackToCommit(..) => op,
 
             // dont allow rubbing with branches
             RubOperation::UncommittedToBranch(..)
             | RubOperation::StackToBranch(..)
-            | RubOperation::UnassignedToBranch(..)
+            | RubOperation::UncommittedAreaToBranch(..)
             | RubOperation::MoveCommitToBranch(..)
-            | RubOperation::BranchToUnassigned(..)
+            | RubOperation::BranchToUncommittedArea(..)
             | RubOperation::BranchToStack(..)
             | RubOperation::BranchToCommit(..)
             | RubOperation::BranchToBranch(..)
@@ -57,11 +57,11 @@ pub(super) fn route_operation<'a>(
 pub(super) fn supports_rubbing(id: &CliId) -> bool {
     match id {
         CliId::Branch { .. } => false,
-        CliId::Uncommitted(..)
+        CliId::UncommittedHunkOrFile(..)
         | CliId::PathPrefix { .. }
         | CliId::CommittedFile { .. }
         | CliId::Commit { .. }
-        | CliId::Unassigned { .. }
+        | CliId::Uncommitted { .. }
         | CliId::Stack { .. } => true,
     }
 }
@@ -88,13 +88,13 @@ pub(super) fn rub_operation_display(
         RubOperation::UncommittedToCommit(..) => "amend",
         RubOperation::UncommittedToBranch(..) => "assign hunks",
         RubOperation::UncommittedToStack(..) => "assign hunks",
-        RubOperation::StackToUnassigned(..) => "unassign hunks",
+        RubOperation::StackToUncommittedArea(..) => "unassign hunks",
         RubOperation::StackToStack(..) => "reassign hunks",
         RubOperation::StackToBranch(..) => "reassign hunks",
-        RubOperation::UnassignedToCommit(..) => "amend",
-        RubOperation::UnassignedToBranch(..) => "assign hunks",
-        RubOperation::UnassignedToStack(..) => "assign hunks",
-        RubOperation::CommitToUnassigned(CommitToUnassignedOperation { commits }) => {
+        RubOperation::UncommittedAreaToCommit(..) => "amend",
+        RubOperation::UncommittedAreaToBranch(..) => "assign hunks",
+        RubOperation::UncommittedAreaToStack(..) => "assign hunks",
+        RubOperation::CommitToUncommittedArea(CommitToUncommittedAreaOperation { commits }) => {
             if commits.len() == 1 {
                 "undo commit"
             } else {
@@ -108,13 +108,13 @@ pub(super) fn rub_operation_display(
             how_to_combine_messages,
         }) => squash_operation_display(how_to_combine_messages),
         RubOperation::MoveCommitToBranch(..) => "move commit",
-        RubOperation::BranchToUnassigned(..) => "unassign hunks",
+        RubOperation::BranchToUncommittedArea(..) => "unassign hunks",
         RubOperation::BranchToStack(..) => "reassign hunks",
         RubOperation::BranchToCommit(..) => "amend",
         RubOperation::BranchToBranch(..) => "reassign hunks",
         RubOperation::CommittedFileToBranch(..) => "uncommit file",
         RubOperation::CommittedFileToCommit(..) => "move file",
-        RubOperation::CommittedFileToUnassigned(..) => "uncommit file",
+        RubOperation::CommittedFileToUncommittedArea(..) => "uncommit file",
         RubOperation::StackToCommit(..) => "amend",
     })
 }
@@ -137,14 +137,14 @@ pub(super) fn perform_operation(
     let selection = match operation {
         RubOperation::UnassignUncommitted(operation) => {
             operation.execute_inner(ctx)?;
-            SelectAfterReload::Unassigned
+            SelectAfterReload::Uncommitted
         }
         RubOperation::UncommittedToCommit(operation) => {
             let result = operation.execute_inner(ctx)?;
             result
                 .new_commit
                 .map(SelectAfterReload::Commit)
-                .unwrap_or(SelectAfterReload::Unassigned)
+                .unwrap_or(SelectAfterReload::Uncommitted)
         }
         RubOperation::UncommittedToBranch(operation) => {
             let assignment = operation.hunk_assignments.first();
@@ -161,9 +161,9 @@ pub(super) fn perform_operation(
                 stack_id: Some(operation.stack_id),
             }
         }
-        RubOperation::StackToUnassigned(operation) => {
+        RubOperation::StackToUncommittedArea(operation) => {
             operation.execute_inner(ctx)?;
-            SelectAfterReload::Unassigned
+            SelectAfterReload::Uncommitted
         }
         RubOperation::StackToStack(operation) => {
             operation.execute_inner(ctx)?;
@@ -173,21 +173,21 @@ pub(super) fn perform_operation(
             operation.execute_inner(ctx)?;
             SelectAfterReload::Branch(operation.to.to_string())
         }
-        RubOperation::UnassignedToCommit(operation) => {
+        RubOperation::UncommittedAreaToCommit(operation) => {
             let result = operation.execute_inner(ctx)?;
             SelectAfterReload::Commit(result.new_commit.unwrap_or(operation.oid))
         }
-        RubOperation::UnassignedToBranch(operation) => {
+        RubOperation::UncommittedAreaToBranch(operation) => {
             operation.execute_inner(ctx)?;
             SelectAfterReload::Branch(operation.to.to_string())
         }
-        RubOperation::UnassignedToStack(operation) => {
+        RubOperation::UncommittedAreaToStack(operation) => {
             operation.execute_inner(ctx)?;
             SelectAfterReload::Stack(operation.to)
         }
-        RubOperation::CommitToUnassigned(operation) => {
+        RubOperation::CommitToUncommittedArea(operation) => {
             operation.execute_inner(ctx)?;
-            SelectAfterReload::Unassigned
+            SelectAfterReload::Uncommitted
         }
         RubOperation::CommitToStack(operation) => {
             operation.execute_inner(ctx)?;
@@ -201,9 +201,9 @@ pub(super) fn perform_operation(
             operation.execute_inner(ctx)?;
             SelectAfterReload::Branch(operation.name.to_string())
         }
-        RubOperation::BranchToUnassigned(operation) => {
+        RubOperation::BranchToUncommittedArea(operation) => {
             operation.execute_inner(ctx)?;
-            SelectAfterReload::Unassigned
+            SelectAfterReload::Uncommitted
         }
         RubOperation::BranchToStack(operation) => {
             operation.execute_inner(ctx)?;
@@ -234,9 +234,9 @@ pub(super) fn perform_operation(
                 .unwrap_or(operation.oid);
             SelectAfterReload::Commit(destination_to_select)
         }
-        RubOperation::CommittedFileToUnassigned(operation) => {
+        RubOperation::CommittedFileToUncommittedArea(operation) => {
             operation.execute_inner(ctx)?;
-            SelectAfterReload::Unassigned
+            SelectAfterReload::Uncommitted
         }
         RubOperation::StackToCommit(operation) => {
             let result = operation.execute_inner(ctx)?;

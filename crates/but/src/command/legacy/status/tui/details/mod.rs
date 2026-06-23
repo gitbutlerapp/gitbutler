@@ -40,7 +40,7 @@ use crate::{
         details::details_cursor::DetailsCursor, highlight, message_on_drop::message_on_drop,
         mode::CommittedHunk,
     },
-    id::{UncommittedCliId, UncommittedHunk},
+    id::{UncommittedHunk, UncommittedHunkOrFile},
     theme::Theme,
 };
 
@@ -185,7 +185,7 @@ impl Details {
             | Message::SelectBranch(_)
             | Message::MoveCursorPreviousSection
             | Message::MoveCursorNextSection
-            | Message::SelectUnassigned
+            | Message::SelectUncommitted
             | Message::SelectMergeBase
             | Message::Reload(..)
             | Message::NewBranch => true,
@@ -472,7 +472,7 @@ impl Details {
                     previous_diff_line_items,
                     self.theme,
                 )?),
-                CliId::Uncommitted(uncommitted) => {
+                CliId::UncommittedHunkOrFile(uncommitted) => {
                     let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
                     let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments))?;
                     let uncommitted_hunks =
@@ -512,7 +512,7 @@ impl Details {
                     previous_diff_line_items,
                     self.theme,
                 )?),
-                CliId::Unassigned { .. } => {
+                CliId::Uncommitted { .. } => {
                     let wt_changes = but_api::diff::changes_in_worktree(ctx)?;
                     let id_map = IdMap::legacy_new_from_context(ctx, Some(wt_changes.assignments))?;
                     let uncommitted_hunks =
@@ -599,7 +599,7 @@ fn details_content_height(viewport: Rect) -> usize {
 /// Returns true if `hunk_assignment` is part of the selected uncommitted entity.
 fn uncommitted_hunk_matches_selection(
     hunk_assignment: &HunkAssignment,
-    uncommitted: &UncommittedCliId,
+    uncommitted: &UncommittedHunkOrFile,
 ) -> bool {
     let selected_hunk = uncommitted.hunk_assignments.first();
 
@@ -1723,7 +1723,7 @@ mod tests {
     use but_hunk_assignment::HunkAssignment;
     use nonempty::NonEmpty;
 
-    use crate::id::UncommittedCliId;
+    use crate::id::UncommittedHunkOrFile;
 
     fn hunk_assignment(path: &str, stack_id: Option<StackId>, old_start: u32) -> HunkAssignment {
         HunkAssignment {
@@ -1749,7 +1749,7 @@ mod tests {
         let stack_a = StackId::from_number_for_testing(1);
         let stack_b = StackId::from_number_for_testing(2);
         let selected_hunk = hunk_assignment("file.txt", Some(stack_a), 1);
-        let id = UncommittedCliId {
+        let id = UncommittedHunkOrFile {
             id: "aa".to_owned(),
             hunk_assignments: NonEmpty::new(selected_hunk.clone()),
             is_entire_file: true,
@@ -1777,7 +1777,7 @@ mod tests {
     fn single_hunk_selection_only_matches_that_hunk() {
         let stack_a = StackId::from_number_for_testing(1);
         let selected_hunk = hunk_assignment("file.txt", Some(stack_a), 1);
-        let id = UncommittedCliId {
+        let id = UncommittedHunkOrFile {
             id: "ab".to_owned(),
             hunk_assignments: NonEmpty::new(selected_hunk.clone()),
             is_entire_file: false,

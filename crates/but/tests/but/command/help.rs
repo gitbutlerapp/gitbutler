@@ -23,18 +23,18 @@ Operations Matrix
 
 Each cell shows what happens when you rub SOURCE → TARGET:
 
-  SOURCE ↓ / TARGET →  │ zz (unassigned) │ Commit     │ Branch      │ Stack
+  SOURCE ↓ / TARGET →  │ zz (uncommitted) │ Commit     │ Branch      │ Stack
   ─────────────────────┼─────────────────┼────────────┼─────────────┼────────────
   File/Hunk            │ Unstage         │ Amend      │ Stage       │ Stage
   Commit               │ Undo            │ Squash     │ Move        │ -
   Branch (all changes) │ Unstage all     │ Amend all  │ Reassign    │ Reassign
   Stack (all changes)  │ Unstage all     │ -          │ Reassign    │ Reassign
-  Unassigned (zz)      │ -               │ Amend all  │ Stage all   │ Stage all
+  Uncommitted (zz)     │ -               │ Amend all  │ Stage all   │ Stage all
   File-in-Commit       │ Uncommit        │ Move       │ Uncommit to │ -
 
 Legend:
 
-- zz is a special target meaning "unassigned" (no branch)
+- zz is a special target meaning "uncommitted" (no branch)
 - - means the operation is not supported
 - "all changes" / "all" refers to all uncommitted changes from that source
 

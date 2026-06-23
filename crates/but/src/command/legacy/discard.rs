@@ -35,7 +35,7 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
         bail!("No entity found for the given ID");
     }
 
-    // Get worktree changes once for the Unassigned case.
+    // Get worktree changes once for the Uncommitted case.
     let worktree_changes = diff::changes_in_worktree_with_perm(ctx, guard.read_permission())?;
 
     // Extract DiffSpecs from all resolved entities.
@@ -46,11 +46,11 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
 
         for resolved_id in resolved_ids {
             match resolved_id {
-                CliId::Uncommitted(uncommitted) => {
+                CliId::UncommittedHunkOrFile(uncommitted) => {
                     builder.push_hunk_assignments(uncommitted.hunk_assignments)?;
                 }
                 CliId::PathPrefix { .. } => todo!(),
-                CliId::Unassigned { .. } => {
+                CliId::Uncommitted { .. } => {
                     // Discard all uncommitted changes.
                     builder.push_hunk_assignments(worktree_changes.assignments.clone())?;
                 }

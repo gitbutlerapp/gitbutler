@@ -108,7 +108,7 @@ fn can_undo_but_commit_dash_dash_only() {
     env.file("assigned.txt", "assigned content");
     env.but("rub assigned.txt A").assert().success();
 
-    env.file("unassigned.txt", "unassigned content");
+    env.file("uncommitted.txt", "uncommitted content");
 
     run_mutate_undo_roundtrip_test(&env, |env| {
         env.but("commit -m 'Add file' --only").assert().success();

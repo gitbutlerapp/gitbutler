@@ -430,8 +430,8 @@ fn build_status_context<'a>(
         FileAssignment::get_assignments_by_file(&id_map);
     let mut stack_details: Vec<StackEntry> = Vec::new();
 
-    let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
-    stack_details.push((None, (None, unassigned)));
+    let uncommitted = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
+    stack_details.push((None, (None, uncommitted)));
 
     for stack in stacks {
         let assignments = assignment::filter_by_stack_id(assignments_by_file.values(), &stack.id);
@@ -954,7 +954,7 @@ fn print_assignments(
             &status_ctx.id_map,
             repo,
             cli_id,
-            |id| matches!(id, CliId::Uncommitted(uncommitted) if uncommitted.is_entire_file),
+            |id| matches!(id, CliId::UncommittedHunkOrFile(uncommitted) if uncommitted.is_entire_file),
             "uncommitted file",
         )?;
 
@@ -969,7 +969,7 @@ fn print_assignments(
         };
 
         if unstaged {
-            output.unassigned_file(
+            output.uncommitted_file(
                 Vec::from([Span::raw("┊"), Span::raw(" "), Span::raw("  ")]),
                 file_line,
                 file_cli_id,
@@ -1206,11 +1206,11 @@ fn print_group(
             }
         }
     } else {
-        let cli_id = status_ctx.id_map.unassigned();
+        let cli_id = status_ctx.id_map.uncommitted();
         let mut line = Vec::from([
             Span::styled(cli_id.to_short_string().to_string(), t.cli_id),
             Span::raw(" ["),
-            Span::styled("unassigned changes", t.info),
+            Span::styled("uncommitted changes", t.info),
             Span::raw("]"),
         ]);
         if assignments.is_empty() {

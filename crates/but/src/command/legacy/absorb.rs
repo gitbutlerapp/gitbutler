@@ -14,7 +14,7 @@ use itertools::Itertools;
 
 use crate::{
     CliId, IdMap,
-    id::{UncommittedCliId, parser::parse_sources},
+    id::{UncommittedHunkOrFile, parser::parse_sources},
     utils::{OutputChannel, shorten_object_id},
 };
 /// Amends changes into the appropriate commits where they belong.
@@ -42,13 +42,14 @@ pub(crate) fn handle(
         .and_then(|s| parse_sources(ctx, &id_map, s).ok())
         .and_then(|s| {
             s.into_iter().find(|s| {
-                matches!(s, CliId::Uncommitted { .. }) || matches!(s, CliId::Branch { .. })
+                matches!(s, CliId::UncommittedHunkOrFile { .. })
+                    || matches!(s, CliId::Branch { .. })
             })
         });
 
     let target = if let Some(source) = source {
         match source {
-            CliId::Uncommitted(UncommittedCliId {
+            CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
                 hunk_assignments, ..
             }) => {
                 // Absorb this particular file

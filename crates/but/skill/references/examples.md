@@ -19,7 +19,7 @@ but branch new ui-styling
 # 3. Make changes to multiple files
 # (edit api/users.js and components/Button.svelte)
 
-# 4. Check what's unassigned
+# 4. Check what's uncommitted
 but status -fv
 
 # 5. Commit specific files directly using --changes (recommended for agents)
@@ -76,7 +76,7 @@ but push user-profile
 **Scenario:** Made a small typo fix that should be part of the last commit, not a new commit.
 
 ```bash
-# 1. Check current commits and unassigned changes
+# 1. Check current commits and uncommitted changes
 but status -fv
 
 # Output shows:
@@ -435,7 +435,7 @@ but oplog restore s4
 but status -fv
 
 # Output:
-# Unassigned:
+# Uncommitted:
 #   a1: bad-changes.js
 
 # Discard it

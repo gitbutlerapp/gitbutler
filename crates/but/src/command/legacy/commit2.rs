@@ -31,7 +31,7 @@ use crate::{
         reword2::RewordCommitOperation,
         status::{TuiOutcome, TuiRunOptions, tui_with_options},
     },
-    id::{UNASSIGNED, UncommittedCliId},
+    id::{UNCOMMITTED, UncommittedHunkOrFile},
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, diff_specs::DiffSpecBuilder,
@@ -180,7 +180,7 @@ fn resolve(
         let changes = changes
             .into_iter()
             .map(|change| change.resolve_uncommitted(&*ctx.repo.get()?, id_map))
-            .collect::<CliResult<Vec<Vec<UncommittedCliId>>>>()?;
+            .collect::<CliResult<Vec<Vec<UncommittedHunkOrFile>>>>()?;
         let changes = changes.into_iter().flatten().collect();
         let Some(changes) = NonEmpty::from_vec(changes) else {
             return Err(bad_input("No changes to commit")
@@ -206,7 +206,7 @@ fn resolve(
             .into_iter()
             .map(|change| {
                 match change {
-                    CliId::Uncommitted(id) => Ok(id),
+                    CliId::UncommittedHunkOrFile(id) => Ok(id),
                     _ => {
                         Err(anyhow::anyhow!("BUG: tui should only return uncommitted changes in PickChanges mode but got {change:?}"))
                     }
@@ -245,7 +245,7 @@ fn run(
 
         match commit_selection {
             CommitSelection::AllChanges => {
-                builder.push_changes_from_unassigned(&UNASSIGNED.to_string())?;
+                builder.push_changes_from_uncommitted_area(&UNCOMMITTED.to_string())?;
             }
             CommitSelection::Changes(changes) => {
                 for change in *changes {
@@ -455,7 +455,7 @@ fn route_commit_above_or_below(
 
 enum CommitSelection {
     AllChanges,
-    Changes(Box<NonEmpty<UncommittedCliId>>),
+    Changes(Box<NonEmpty<UncommittedHunkOrFile>>),
     Nothing,
 }
 

@@ -108,13 +108,13 @@ impl StatusOutput<'_> {
         self.push_line(
             Some(connector),
             StatusOutputContent::Plain(line),
-            StatusOutputLineData::UnassignedChanges {
+            StatusOutputLineData::UncommittedChanges {
                 cli_id: Arc::new(id),
             },
         )
     }
 
-    pub(super) fn unassigned_file(
+    pub(super) fn uncommitted_file(
         &mut self,
         connector: Vec<Span<'static>>,
         line: FileLineContent,
@@ -123,7 +123,7 @@ impl StatusOutput<'_> {
         self.push_line(
             Some(connector),
             StatusOutputContent::File(line),
-            StatusOutputLineData::UnassignedFile {
+            StatusOutputLineData::UncommittedFile {
                 cli_id: Arc::new(id),
             },
         )
@@ -308,7 +308,7 @@ pub(super) struct StatusOutputLine {
     ///
     /// Example:
     ///
-    /// ╭┄zz [unassigned changes]                                       | Some("╭┄")
+    /// ╭┄zz [uncommitted changes]                                      | Some("╭┄")
     /// ┊   ur M flake.nix                                              | Some("┊   ")
     /// ┊                                                               | Some("┊ ")
     /// ┊╭┄dp [dp-branch-4]                                             | Some("┊╭┄")
@@ -338,8 +338,8 @@ impl StatusOutputLine {
             },
             StatusOutputLineData::StagedChanges { .. }
             | StatusOutputLineData::StagedFile { .. }
-            | StatusOutputLineData::UnassignedChanges { .. }
-            | StatusOutputLineData::UnassignedFile { .. }
+            | StatusOutputLineData::UncommittedChanges { .. }
+            | StatusOutputLineData::UncommittedFile { .. }
             | StatusOutputLineData::Branch { .. }
             | StatusOutputLineData::CommitMessage
             | StatusOutputLineData::MergeBase
@@ -367,10 +367,10 @@ pub(super) enum StatusOutputLineData {
     StagedFile {
         cli_id: Arc<CliId>,
     },
-    UnassignedChanges {
+    UncommittedChanges {
         cli_id: Arc<CliId>,
     },
-    UnassignedFile {
+    UncommittedFile {
         cli_id: Arc<CliId>,
     },
     Branch {
@@ -396,8 +396,8 @@ pub(super) enum StatusOutputLineData {
 impl StatusOutputLineData {
     pub(super) fn cli_id(&self) -> Option<&Arc<CliId>> {
         match self {
-            StatusOutputLineData::UnassignedChanges { cli_id }
-            | StatusOutputLineData::UnassignedFile { cli_id }
+            StatusOutputLineData::UncommittedChanges { cli_id }
+            | StatusOutputLineData::UncommittedFile { cli_id }
             | StatusOutputLineData::Branch { cli_id }
             | StatusOutputLineData::StagedChanges { cli_id }
             | StatusOutputLineData::StagedFile { cli_id }

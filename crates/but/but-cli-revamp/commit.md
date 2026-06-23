@@ -37,7 +37,7 @@ A: No. Mixing --above/--below with -b is not allowed
 ```
 but commit
 ```
-commit everything unassigned
+commit everything uncommitted
 
 ```
 but commit -i/--interactive

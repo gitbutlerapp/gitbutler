@@ -5,8 +5,8 @@ use crate::{
     utils::Sandbox,
 };
 
-fn unassigned_contains_file(status: &serde_json::Value, file_path: &str) -> bool {
-    status["unassignedChanges"]
+fn uncommitted_contains_file(status: &serde_json::Value, file_path: &str) -> bool {
+    status["uncommittedChanges"]
         .as_array()
         .unwrap()
         .iter()
@@ -107,16 +107,16 @@ Amended hunk(s) → [..]
 
     let after = status_json(&env)?;
     assert!(
-        !unassigned_contains_file(&after, "one.txt"),
-        "first amended file should no longer be unassigned"
+        !uncommitted_contains_file(&after, "one.txt"),
+        "first amended file should no longer be uncommitted"
     );
     assert!(
-        !unassigned_contains_file(&after, "two.txt"),
-        "second amended file should no longer be unassigned"
+        !uncommitted_contains_file(&after, "two.txt"),
+        "second amended file should no longer be uncommitted"
     );
     assert!(
-        unassigned_contains_file(&after, "three.txt"),
-        "unmentioned file should remain unassigned"
+        uncommitted_contains_file(&after, "three.txt"),
+        "unmentioned file should remain uncommitted"
     );
     assert!(
         branch_commits_contain_file(&after, "A", "one.txt"),

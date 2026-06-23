@@ -113,10 +113,10 @@ pub(super) fn where_to_place_commit(
             )))
         }
         CliId::Commit { commit_id, .. } => Ok(Some((RelativeTo::Commit(*commit_id), insert_side))),
-        CliId::Uncommitted(_)
+        CliId::UncommittedHunkOrFile(_)
         | CliId::PathPrefix { .. }
         | CliId::CommittedFile { .. }
-        | CliId::Unassigned { .. }
+        | CliId::Uncommitted { .. }
         | CliId::Stack { .. } => Ok(None),
     }
 }
@@ -291,7 +291,7 @@ pub(super) fn create_branch_legacy(ctx: &mut Context) -> anyhow::Result<String> 
 }
 
 #[expect(dead_code)]
-pub(super) fn has_unassigned_changes(ctx: &Context) -> anyhow::Result<bool> {
+pub(super) fn has_uncommitted_changes(ctx: &Context) -> anyhow::Result<bool> {
     let context_lines = ctx.settings.context_lines;
 
     let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
@@ -387,27 +387,27 @@ fn discard_uncommitted_legacy_with_assignments(
     Ok(())
 }
 
-pub(super) fn discard_uncommitted_legacy(
+pub(super) fn discard_uncommitted_hunks_legacy(
     ctx: &mut Context,
     hunk_assignments: Vec<but_hunk_assignment::HunkAssignment>,
 ) -> anyhow::Result<()> {
     discard_uncommitted_legacy_with_assignments(ctx, hunk_assignments)
 }
 
-pub(super) fn discard_unassigned_legacy(ctx: &mut Context) -> anyhow::Result<()> {
-    let unassigned_changes = {
+pub(super) fn discard_uncommitted_legacy(ctx: &mut Context) -> anyhow::Result<()> {
+    let uncommitted_changes = {
         let context_lines = ctx.settings.context_lines;
         let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
         let mut builder = diff_specs::DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
-        builder.push_changes_from_unassigned(&crate::id::UNASSIGNED.to_string())?;
+        builder.push_changes_from_uncommitted_area(&crate::id::UNCOMMITTED.to_string())?;
         builder.into_diff_specs()
     };
 
-    if unassigned_changes.is_empty() {
+    if uncommitted_changes.is_empty() {
         return Ok(());
     }
 
-    but_api::legacy::workspace::discard_worktree_changes(ctx, unassigned_changes)?;
+    but_api::legacy::workspace::discard_worktree_changes(ctx, uncommitted_changes)?;
 
     Ok(())
 }

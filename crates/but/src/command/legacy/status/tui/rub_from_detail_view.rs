@@ -20,12 +20,14 @@ pub(super) fn route_operation<'a>(
             source,
             target: *commit_id,
         }),
-        CliId::Unassigned { id } => Some(Operation::CommittedHunkToUnassigned { source, id }),
+        CliId::Uncommitted { id } => Some(Operation::CommittedHunkToUncommittedArea { source, id }),
         CliId::Stack { stack_id, .. } => Some(Operation::CommittedHunkToStack { source, stack_id }),
         CliId::Branch { stack_id, .. } => stack_id
             .as_ref()
             .map(|stack_id| Operation::CommittedHunkToStack { source, stack_id }),
-        CliId::Uncommitted(..) | CliId::PathPrefix { .. } | CliId::CommittedFile { .. } => None,
+        CliId::UncommittedHunkOrFile(..)
+        | CliId::PathPrefix { .. }
+        | CliId::CommittedFile { .. } => None,
     }
 }
 
@@ -36,7 +38,7 @@ pub(super) enum Operation<'a> {
         source: &'a CommittedHunk,
         target: gix::ObjectId,
     },
-    CommittedHunkToUnassigned {
+    CommittedHunkToUncommittedArea {
         source: &'a CommittedHunk,
         #[expect(dead_code)]
         id: &'a ShortId,
@@ -79,7 +81,7 @@ impl<'a> Operation<'a> {
                         .copied()?,
                 ))
             }
-            Operation::CommittedHunkToUnassigned { source, id: _ } => {
+            Operation::CommittedHunkToUncommittedArea { source, id: _ } => {
                 let CommittedHunk {
                     commit_id: source_commit_id,
                     header,
@@ -97,7 +99,7 @@ impl<'a> Operation<'a> {
                     DryRun::No,
                 )?;
 
-                Ok(SelectAfterReload::Unassigned)
+                Ok(SelectAfterReload::Uncommitted)
             }
             Operation::CommittedHunkToStack { source, stack_id } => {
                 let CommittedHunk {
@@ -141,8 +143,7 @@ pub(super) fn rub_operation_display(
 ) -> Option<&'static str> {
     Some(match route_operation(source, target)? {
         Operation::CommittedHunkToCommit { .. } => "amend commit",
-        Operation::CommittedHunkToUnassigned { .. } | Operation::CommittedHunkToStack { .. } => {
-            "unassign hunk"
-        }
+        Operation::CommittedHunkToUncommittedArea { .. }
+        | Operation::CommittedHunkToStack { .. } => "unassign hunk",
     })
 }

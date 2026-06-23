@@ -17,11 +17,11 @@ use crate::{
         tui::{
             CommitMessageComposer, CommitMode, CommitSource, InlineRewordMode, Mode, MoveMode,
             MoveSource, MoveStackMode, NormalMode, ReorderStackSource, RubMode, RubSource,
-            SelectAfterReload, UnassignedCommitSource,
+            SelectAfterReload, UncommittedAreaCommitSource,
             marking::{Markable, Marks},
         },
     },
-    id::UncommittedCliId,
+    id::UncommittedHunkOrFile,
 };
 
 fn line(data: StatusOutputLineData) -> StatusOutputLine {
@@ -32,8 +32,8 @@ fn line(data: StatusOutputLineData) -> StatusOutputLine {
     }
 }
 
-fn unassigned(id: &str) -> Arc<CliId> {
-    Arc::new(CliId::Unassigned { id: id.into() })
+fn uncommitted_area(id: &str) -> Arc<CliId> {
+    Arc::new(CliId::Uncommitted { id: id.into() })
 }
 
 fn commit_id(hex: &str) -> gix::ObjectId {
@@ -95,7 +95,7 @@ fn hunk_assignment(path: &str, old_start: u32) -> HunkAssignment {
 }
 
 fn uncommitted_cli_id(path: &str, id: &str) -> Arc<CliId> {
-    Arc::new(CliId::Uncommitted(UncommittedCliId {
+    Arc::new(CliId::UncommittedHunkOrFile(UncommittedHunkOrFile {
         id: id.to_owned(),
         hunk_assignments: NonEmpty::new(hunk_assignment(path, 1)),
         is_entire_file: true,
@@ -103,7 +103,7 @@ fn uncommitted_cli_id(path: &str, id: &str) -> Arc<CliId> {
 }
 
 fn uncommitted_file_line(path: &str, id: &str) -> StatusOutputLine {
-    line(StatusOutputLineData::UnassignedFile {
+    line(StatusOutputLineData::UncommittedFile {
         cli_id: uncommitted_cli_id(path, id),
     })
 }
@@ -113,8 +113,10 @@ fn uncommitted_source(cli_ids: &[Arc<CliId>]) -> CommitSource {
     let first = cli_ids.next().expect("test source should not be empty");
     if cli_ids.len() == 0 {
         match &**first {
-            CliId::Uncommitted(uncommitted) => CommitSource::Uncommitted(uncommitted.clone()),
-            CliId::Unassigned { .. }
+            CliId::UncommittedHunkOrFile(uncommitted) => {
+                CommitSource::Uncommitted(uncommitted.clone())
+            }
+            CliId::Uncommitted { .. }
             | CliId::PathPrefix { .. }
             | CliId::CommittedFile { .. }
             | CliId::Branch { .. }
@@ -177,11 +179,11 @@ fn new_selects_first_selectable_line() {
     let lines = vec![
         line(StatusOutputLineData::Connector),
         line(StatusOutputLineData::Hint),
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
         line(StatusOutputLineData::StagedFile {
-            cli_id: unassigned("s0"),
+            cli_id: uncommitted_area("s0"),
         }),
     ];
 
@@ -210,8 +212,8 @@ fn restore_returns_matching_line_by_cli_id() {
                 stack_id: None,
             }),
         }),
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
     ];
 
@@ -226,8 +228,8 @@ fn restore_returns_matching_line_by_cli_id() {
 
 #[test]
 fn restore_returns_none_when_cli_id_is_not_present() {
-    let lines = vec![line(StatusOutputLineData::UnassignedChanges {
-        cli_id: unassigned("u0"),
+    let lines = vec![line(StatusOutputLineData::UncommittedChanges {
+        cli_id: uncommitted_area("u0"),
     })];
 
     assert_eq!(
@@ -246,16 +248,16 @@ fn restore_returns_none_when_cli_id_is_not_present() {
 #[test]
 fn restore_selects_first_matching_line_when_cli_id_appears_multiple_times() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
         line(StatusOutputLineData::StagedChanges {
-            cli_id: unassigned("u0"),
+            cli_id: uncommitted_area("u0"),
         }),
     ];
 
     assert_eq!(
-        Cursor::restore(&CliId::Unassigned { id: "u0".into() }, &lines),
+        Cursor::restore(&CliId::Uncommitted { id: "u0".into() }, &lines),
         Some(Cursor(0))
     );
 }
@@ -565,8 +567,8 @@ fn select_after_discarded_marks_keeps_unmarked_current_commit_selected() {
 #[test]
 fn select_after_discarded_marks_keeps_unmarked_current_uncommitted_selected() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
         uncommitted_file_line("marked.txt", "f0"),
         uncommitted_file_line("current.txt", "f1"),
@@ -583,8 +585,8 @@ fn select_after_discarded_marks_keeps_unmarked_current_uncommitted_selected() {
 #[test]
 fn select_after_discarded_marks_selects_unmarked_uncommitted_below_marked_top_uncommitted() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
         uncommitted_file_line("marked.txt", "f0"),
         uncommitted_file_line("below.txt", "f1"),
@@ -601,8 +603,8 @@ fn select_after_discarded_marks_selects_unmarked_uncommitted_below_marked_top_un
 #[test]
 fn select_after_discarded_marks_selects_unmarked_uncommitted_below_marked_middle_uncommitted() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
         uncommitted_file_line("above.txt", "f0"),
         uncommitted_file_line("marked.txt", "f1"),
@@ -620,8 +622,8 @@ fn select_after_discarded_marks_selects_unmarked_uncommitted_below_marked_middle
 #[test]
 fn select_after_discarded_marks_selects_unmarked_uncommitted_above_marked_bottom_uncommitted() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
         uncommitted_file_line("above.txt", "f0"),
         uncommitted_file_line("marked.txt", "f1"),
@@ -638,8 +640,8 @@ fn select_after_discarded_marks_selects_unmarked_uncommitted_above_marked_bottom
 #[test]
 fn select_after_discarded_marks_selects_header_above_marked_uncommitted() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
         uncommitted_file_line("marked.txt", "f0"),
     ];
@@ -709,10 +711,10 @@ fn select_after_discarded_branch_selects_branch_above_when_no_branch_below() {
 }
 
 #[test]
-fn select_after_discarded_branch_selects_unassigned_when_it_is_the_only_branch() {
+fn select_after_discarded_branch_selects_uncommitted_when_it_is_the_only_branch() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
         line(StatusOutputLineData::Branch {
             cli_id: branch_cli_id("one", "b0", None),
@@ -721,7 +723,7 @@ fn select_after_discarded_branch_selects_unassigned_when_it_is_the_only_branch()
 
     assert!(matches!(
         Cursor(1).select_after_discarded_branch(&lines),
-        Some(SelectAfterReload::Unassigned)
+        Some(SelectAfterReload::Uncommitted)
     ));
 }
 
@@ -742,7 +744,7 @@ fn select_closest_commit_source_selects_current_line_when_it_is_source() {
     let source = uncommitted_source(&[Arc::clone(&source_cli_id)]);
     let lines = vec![
         uncommitted_file_line("other.txt", "u1"),
-        line(StatusOutputLineData::UnassignedFile {
+        line(StatusOutputLineData::UncommittedFile {
             cli_id: source_cli_id,
         }),
         line(StatusOutputLineData::Connector),
@@ -763,12 +765,12 @@ fn select_closest_commit_source_selects_nearest_source_when_current_line_is_not_
         Arc::clone(&nearest_source_cli_id),
     ]);
     let lines = vec![
-        line(StatusOutputLineData::UnassignedFile {
+        line(StatusOutputLineData::UncommittedFile {
             cli_id: farther_source_cli_id,
         }),
         uncommitted_file_line("other.txt", "u2"),
         line(StatusOutputLineData::Connector),
-        line(StatusOutputLineData::UnassignedFile {
+        line(StatusOutputLineData::UncommittedFile {
             cli_id: nearest_source_cli_id,
         }),
     ];
@@ -788,11 +790,11 @@ fn select_closest_commit_source_prefers_source_above_on_tie() {
         Arc::clone(&below_source_cli_id),
     ]);
     let lines = vec![
-        line(StatusOutputLineData::UnassignedFile {
+        line(StatusOutputLineData::UncommittedFile {
             cli_id: above_source_cli_id,
         }),
         line(StatusOutputLineData::Connector),
-        line(StatusOutputLineData::UnassignedFile {
+        line(StatusOutputLineData::UncommittedFile {
             cli_id: below_source_cli_id,
         }),
     ];
@@ -910,7 +912,7 @@ fn select_branch_uses_first_matching_line_when_branch_appears_multiple_times() {
 }
 
 #[test]
-fn select_unassigned_finds_unassigned_line() {
+fn select_uncommitted_finds_uncommitted_line() {
     let lines = vec![
         line(StatusOutputLineData::Branch {
             cli_id: Arc::new(CliId::Branch {
@@ -919,30 +921,30 @@ fn select_unassigned_finds_unassigned_line() {
                 stack_id: None,
             }),
         }),
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
     ];
 
-    assert_eq!(Cursor::select_unassigned(&lines), Some(Cursor(1)));
+    assert_eq!(Cursor::select_uncommitted(&lines), Some(Cursor(1)));
 }
 
 #[test]
-fn select_unassigned_uses_first_matching_line() {
+fn select_uncommitted_uses_first_matching_line() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
         line(StatusOutputLineData::StagedChanges {
-            cli_id: unassigned("u0"),
+            cli_id: uncommitted_area("u0"),
         }),
     ];
 
-    assert_eq!(Cursor::select_unassigned(&lines), Some(Cursor(0)));
+    assert_eq!(Cursor::select_uncommitted(&lines), Some(Cursor(0)));
 }
 
 #[test]
-fn select_unassigned_returns_none_when_missing() {
+fn select_uncommitted_returns_none_when_missing() {
     let lines = vec![line(StatusOutputLineData::Branch {
         cli_id: Arc::new(CliId::Branch {
             name: "main".into(),
@@ -951,7 +953,7 @@ fn select_unassigned_returns_none_when_missing() {
         }),
     })];
 
-    assert_eq!(Cursor::select_unassigned(&lines), None);
+    assert_eq!(Cursor::select_uncommitted(&lines), None);
 }
 
 #[test]
@@ -986,14 +988,14 @@ fn select_merge_base_returns_none_when_missing() {
 #[test]
 fn index_returns_the_selected_line_index() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
         line(StatusOutputLineData::StagedChanges {
-            cli_id: unassigned("s0"),
+            cli_id: uncommitted_area("s0"),
         }),
         line(StatusOutputLineData::StagedFile {
-            cli_id: unassigned("f0"),
+            cli_id: uncommitted_area("f0"),
         }),
     ];
 
@@ -1004,8 +1006,8 @@ fn index_returns_the_selected_line_index() {
 
 #[test]
 fn selected_line_returns_none_when_cursor_out_of_bounds() {
-    let lines = vec![line(StatusOutputLineData::UnassignedChanges {
-        cli_id: unassigned("u0"),
+    let lines = vec![line(StatusOutputLineData::UncommittedChanges {
+        cli_id: uncommitted_area("u0"),
     })];
 
     assert!(Cursor(99).selected_line(&lines).is_none());
@@ -1015,14 +1017,14 @@ fn selected_line_returns_none_when_cursor_out_of_bounds() {
 fn selected_line_returns_line_when_cursor_is_in_bounds() {
     let lines = vec![
         line(StatusOutputLineData::Hint),
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
     ];
 
     assert!(matches!(
         Cursor(1).selected_line(&lines).map(|line| &line.data),
-        Some(StatusOutputLineData::UnassignedChanges { .. })
+        Some(StatusOutputLineData::UncommittedChanges { .. })
     ));
 }
 
@@ -1039,7 +1041,7 @@ fn selection_cli_id_for_reload_uses_parent_when_file_is_selected_and_files_are_h
             cli_id: parent.clone(),
         }),
         line(StatusOutputLineData::File {
-            cli_id: unassigned("file0"),
+            cli_id: uncommitted_area("file0"),
         }),
     ];
 
@@ -1051,7 +1053,7 @@ fn selection_cli_id_for_reload_uses_parent_when_file_is_selected_and_files_are_h
 
 #[test]
 fn selection_cli_id_for_reload_uses_selected_file_when_files_are_shown() {
-    let file_cli = unassigned("file0");
+    let file_cli = uncommitted_area("file0");
     let lines = vec![line(StatusOutputLineData::File {
         cli_id: file_cli.clone(),
     })];
@@ -1065,7 +1067,7 @@ fn selection_cli_id_for_reload_uses_selected_file_when_files_are_shown() {
 #[test]
 fn selection_cli_id_for_reload_returns_none_when_file_has_no_parent_section() {
     let lines = vec![line(StatusOutputLineData::File {
-        cli_id: unassigned("file0"),
+        cli_id: uncommitted_area("file0"),
     })];
 
     assert_eq!(
@@ -1124,19 +1126,19 @@ fn selection_cli_id_for_reload_uses_nearest_parent_section_for_file() {
         id: "b0".into(),
         stack_id: None,
     });
-    let nearest_parent = unassigned("u0");
+    let nearest_parent = uncommitted_area("u0");
     let lines = vec![
         line(StatusOutputLineData::Branch {
             cli_id: first_parent,
         }),
         line(StatusOutputLineData::File {
-            cli_id: unassigned("file0"),
+            cli_id: uncommitted_area("file0"),
         }),
-        line(StatusOutputLineData::UnassignedChanges {
+        line(StatusOutputLineData::UncommittedChanges {
             cli_id: nearest_parent.clone(),
         }),
         line(StatusOutputLineData::File {
-            cli_id: unassigned("file1"),
+            cli_id: uncommitted_area("file1"),
         }),
     ];
 
@@ -1156,7 +1158,7 @@ fn selection_cli_id_for_reload_uses_commit_as_parent_for_hidden_file() {
             classification: CommitClassification::LocalOnly,
         }),
         line(StatusOutputLineData::File {
-            cli_id: unassigned("file0"),
+            cli_id: uncommitted_area("file0"),
         }),
     ];
 
@@ -1168,13 +1170,13 @@ fn selection_cli_id_for_reload_uses_commit_as_parent_for_hidden_file() {
 
 #[test]
 fn selection_cli_id_for_reload_uses_staged_changes_as_parent_for_hidden_file() {
-    let parent_staged = unassigned("s0");
+    let parent_staged = uncommitted_area("s0");
     let lines = vec![
         line(StatusOutputLineData::StagedChanges {
             cli_id: parent_staged.clone(),
         }),
         line(StatusOutputLineData::File {
-            cli_id: unassigned("file0"),
+            cli_id: uncommitted_area("file0"),
         }),
     ];
 
@@ -1187,12 +1189,12 @@ fn selection_cli_id_for_reload_uses_staged_changes_as_parent_for_hidden_file() {
 #[test]
 fn move_up_moves_to_previous_selectable_line() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
         line(StatusOutputLineData::Hint),
         line(StatusOutputLineData::StagedChanges {
-            cli_id: unassigned("s0"),
+            cli_id: uncommitted_area("s0"),
         }),
     ];
 
@@ -1211,11 +1213,11 @@ fn move_up_moves_to_previous_selectable_line() {
 #[test]
 fn move_up_does_not_move_when_already_at_first_selectable_line() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
         line(StatusOutputLineData::StagedChanges {
-            cli_id: unassigned("s0"),
+            cli_id: uncommitted_area("s0"),
         }),
     ];
 
@@ -1234,12 +1236,12 @@ fn move_up_does_not_move_when_already_at_first_selectable_line() {
 #[test]
 fn move_down_moves_to_next_selectable_line() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
         line(StatusOutputLineData::Hint),
         line(StatusOutputLineData::StagedChanges {
-            cli_id: unassigned("s0"),
+            cli_id: uncommitted_area("s0"),
         }),
     ];
 
@@ -1258,8 +1260,8 @@ fn move_down_moves_to_next_selectable_line() {
 #[test]
 fn move_down_does_not_move_when_no_selectable_line_below() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
         line(StatusOutputLineData::Hint),
     ];
@@ -1314,11 +1316,11 @@ fn move_down_within_section_stops_at_next_section() {
 #[test]
 fn movement_does_not_panic_or_move_when_cursor_is_out_of_bounds() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
         line(StatusOutputLineData::StagedChanges {
-            cli_id: unassigned("s0"),
+            cli_id: uncommitted_area("s0"),
         }),
     ];
 
@@ -1399,11 +1401,11 @@ fn move_next_section_moves_to_next_jump_target() {
 #[test]
 fn move_next_section_does_not_move_when_no_jump_target_below() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
-        line(StatusOutputLineData::UnassignedFile {
-            cli_id: unassigned("u1"),
+        line(StatusOutputLineData::UncommittedFile {
+            cli_id: uncommitted_area("u1"),
         }),
     ];
 
@@ -1463,14 +1465,14 @@ fn move_previous_section_moves_to_current_section_header_when_cursor_is_inside_i
 #[test]
 fn move_previous_section_moves_to_immediate_previous_when_already_on_section_header() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
-        line(StatusOutputLineData::UnassignedFile {
-            cli_id: unassigned("u1"),
+        line(StatusOutputLineData::UncommittedFile {
+            cli_id: uncommitted_area("u1"),
         }),
         line(StatusOutputLineData::StagedChanges {
-            cli_id: unassigned("s0"),
+            cli_id: uncommitted_area("s0"),
         }),
     ];
 
@@ -1489,11 +1491,11 @@ fn move_previous_section_moves_to_immediate_previous_when_already_on_section_hea
 #[test]
 fn move_previous_section_moves_to_current_header_when_only_current_section_exists_above_cursor() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
-        line(StatusOutputLineData::UnassignedFile {
-            cli_id: unassigned("u1"),
+        line(StatusOutputLineData::UncommittedFile {
+            cli_id: uncommitted_area("u1"),
         }),
     ];
 
@@ -1512,11 +1514,11 @@ fn move_previous_section_moves_to_current_header_when_only_current_section_exist
 #[test]
 fn move_previous_section_does_not_move_when_on_first_jump_target() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
         line(StatusOutputLineData::StagedFile {
-            cli_id: unassigned("s0"),
+            cli_id: uncommitted_area("s0"),
         }),
     ];
 
@@ -1545,7 +1547,7 @@ fn move_up_in_rub_mode_skips_unavailable_targets() {
         stack_id: None,
     });
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
+        line(StatusOutputLineData::UncommittedChanges {
             cli_id: allowed.clone(),
         }),
         line(StatusOutputLineData::StagedChanges { cli_id: blocked }),
@@ -1554,7 +1556,7 @@ fn move_up_in_rub_mode_skips_unavailable_targets() {
         }),
     ];
     let mode = Mode::Rub(RubMode {
-        source: RubSource::CliId(unassigned("source")),
+        source: RubSource::CliId(uncommitted_area("source")),
         available_targets: vec![allowed],
         how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
         _unlock_details: None,
@@ -1581,7 +1583,7 @@ fn move_down_in_rub_mode_skips_unavailable_targets() {
         stack_id: None,
     });
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
+        line(StatusOutputLineData::UncommittedChanges {
             cli_id: allowed.clone(),
         }),
         line(StatusOutputLineData::StagedChanges { cli_id: blocked }),
@@ -1590,7 +1592,7 @@ fn move_down_in_rub_mode_skips_unavailable_targets() {
         }),
     ];
     let mode = Mode::Rub(RubMode {
-        source: RubSource::CliId(unassigned("source")),
+        source: RubSource::CliId(uncommitted_area("source")),
         available_targets: vec![allowed],
         how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
         _unlock_details: None,
@@ -1636,7 +1638,7 @@ fn movement_in_rub_mode_handles_starting_on_unavailable_line() {
         }),
     ];
     let mode = Mode::Rub(RubMode {
-        source: RubSource::CliId(unassigned("source")),
+        source: RubSource::CliId(uncommitted_area("source")),
         available_targets: vec![allowed_a, allowed_b],
         how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
         _unlock_details: None,
@@ -1786,7 +1788,7 @@ fn move_next_section_in_rub_mode_jumps_to_first_selectable_in_next_section() {
         }),
     ];
     let mode = Mode::Rub(RubMode {
-        source: RubSource::CliId(unassigned("source")),
+        source: RubSource::CliId(uncommitted_area("source")),
         available_targets: vec![commit_a, commit_b],
         how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
         _unlock_details: None,
@@ -1820,7 +1822,7 @@ fn move_previous_section_in_rub_mode_moves_to_first_selectable_in_current_sectio
         line(StatusOutputLineData::StagedFile { cli_id: branch }),
     ];
     let mode = Mode::Rub(RubMode {
-        source: RubSource::CliId(unassigned("source")),
+        source: RubSource::CliId(uncommitted_area("source")),
         available_targets: vec![commit],
         how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
         _unlock_details: None,
@@ -1870,7 +1872,7 @@ fn move_previous_section_in_rub_mode_from_first_selectable_goes_to_previous_sect
         }),
     ];
     let mode = Mode::Rub(RubMode {
-        source: RubSource::CliId(unassigned("source")),
+        source: RubSource::CliId(uncommitted_area("source")),
         available_targets: vec![commit_a, commit_b],
         how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
         _unlock_details: None,
@@ -1917,7 +1919,7 @@ fn move_next_section_in_rub_mode_skips_sections_without_selectable_targets() {
         }),
     ];
     let mode = Mode::Rub(RubMode {
-        source: RubSource::CliId(unassigned("source")),
+        source: RubSource::CliId(uncommitted_area("source")),
         available_targets: vec![allowed_commit],
         how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
         _unlock_details: None,
@@ -1934,11 +1936,11 @@ fn move_next_section_in_rub_mode_skips_sections_without_selectable_targets() {
 #[test]
 fn movement_methods_can_move_cursor_in_inline_reword_mode() {
     let lines = vec![
-        line(StatusOutputLineData::UnassignedChanges {
-            cli_id: unassigned("u0"),
+        line(StatusOutputLineData::UncommittedChanges {
+            cli_id: uncommitted_area("u0"),
         }),
         line(StatusOutputLineData::StagedChanges {
-            cli_id: unassigned("s0"),
+            cli_id: uncommitted_area("s0"),
         }),
     ];
 
@@ -1984,11 +1986,11 @@ fn is_selectable_in_rub_mode_requires_available_target() {
     let selectable_line = line(StatusOutputLineData::StagedFile {
         cli_id: allowed.clone(),
     });
-    let blocked_line = line(StatusOutputLineData::UnassignedFile { cli_id: blocked });
+    let blocked_line = line(StatusOutputLineData::UncommittedFile { cli_id: blocked });
     let not_selectable_line = line(StatusOutputLineData::Hint);
 
     let mode = Mode::Rub(RubMode {
-        source: RubSource::CliId(unassigned("source")),
+        source: RubSource::CliId(uncommitted_area("source")),
         available_targets: vec![allowed],
         how_to_combine_messages: MessageCombinationStrategy::KeepBoth,
         _unlock_details: None,
@@ -2085,7 +2087,7 @@ fn move_stack_skips_noop_target_below_source() {
 #[test]
 fn is_selectable_is_true_in_inline_reword_mode() {
     let selectable_line = line(StatusOutputLineData::StagedChanges {
-        cli_id: unassigned("s0"),
+        cli_id: uncommitted_area("s0"),
     });
 
     let inline_reword = Mode::InlineReword(InlineRewordMode::Commit {
@@ -2105,7 +2107,7 @@ fn is_selectable_is_true_in_inline_reword_mode() {
 fn is_selectable_in_commit_mode_scopes_commit_targets_to_stack() {
     let scoped_stack_id = StackId::single_branch_id();
     let mode = Mode::Commit(CommitMode {
-        source: Arc::new(CommitSource::Unassigned(UnassignedCommitSource {
+        source: Arc::new(CommitSource::UncommittedArea(UncommittedAreaCommitSource {
             id: "zz".into(),
         })),
         insert_side: InsertSide::Above,

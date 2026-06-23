@@ -233,7 +233,7 @@ fn branches_match_by_substring() -> anyhow::Result<()> {
 }
 
 #[test]
-fn branches_avoid_unassigned_area_id() -> anyhow::Result<()> {
+fn branches_avoid_uncommitted_area_id() -> anyhow::Result<()> {
     let stacks = vec![stack([segment("zza", [id(1)], None, [])])];
     let id_map = IdMap::new(stacks, Vec::new())?;
     let changed_paths_fn = |commit_id: gix::ObjectId,
@@ -254,7 +254,7 @@ fn branches_avoid_unassigned_area_id() -> anyhow::Result<()> {
     assert_eq!(
         id_map.parse("za", Box::new(changed_paths_fn))?,
         expected,
-        "avoids unassigned area ID (zz)"
+        "avoids uncommitted area ID (zz)"
     );
     Ok(())
 }
@@ -407,8 +407,8 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
                 00000000-0000-0000-0000-000000000001,
             ),
         },
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "j0",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -427,8 +427,8 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
                 is_entire_file: false,
             },
         ),
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "k0",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -449,8 +449,8 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
                 is_entire_file: false,
             },
         ),
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "kv",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -469,8 +469,8 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
                 is_entire_file: true,
             },
         ),
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "l0",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -495,8 +495,8 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
             id: "m0",
             stack_id: 00000000-0000-0000-0000-000000000001,
         },
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "ro",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -589,8 +589,8 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
 
     insta::assert_debug_snapshot!(id_map.parse("ln", Box::new(changed_paths_fn))?, @r#"
     [
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "ln",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -656,8 +656,8 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
     // Ambiguous ID returns every possible match
     insta::assert_debug_snapshot!(id_map.parse("kp", Box::new(changed_paths_fn))?, @r#"
     [
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "kpo",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -676,8 +676,8 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
                 is_entire_file: true,
             },
         ),
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "kpr",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -701,8 +701,8 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
 
     insta::assert_debug_snapshot!(id_map.parse("kpo", Box::new(changed_paths_fn))?, @r#"
     [
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "kpo",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -725,8 +725,8 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
     "#);
     insta::assert_debug_snapshot!(id_map.parse("kpr", Box::new(changed_paths_fn))?, @r#"
     [
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "kpr",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -780,8 +780,8 @@ fn uncommitted_files_disambiguate_with_branch() -> anyhow::Result<()> {
     // More characters must be specified to get the file
     insta::assert_debug_snapshot!(id_map.parse("kpr", Box::new(changed_paths_fn))?, @r#"
     [
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "kpr",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -824,8 +824,8 @@ fn longer_id_is_ok() -> anyhow::Result<()> {
     // "kp" would be sufficient (see the "id" field in the output), but "kpr" works too
     insta::assert_debug_snapshot!(id_map.parse("kpr", Box::new(changed_paths_fn))?, @r#"
     [
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "kp",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -868,8 +868,8 @@ fn reverse_hex_filename_is_its_own_id() -> anyhow::Result<()> {
     // "klmxyz" does not have an autogenerated ID
     insta::assert_debug_snapshot!(id_map.parse("kl", Box::new(changed_paths_fn))?, @r#"
     [
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "kl",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -909,7 +909,7 @@ fn branch_and_file_by_name() -> anyhow::Result<()> {
         })
     };
 
-    // Both branches and uncommitted, unassigned files match by name, and none
+    // Both branches and uncommitted, uncommitted files match by name, and none
     // have priority over the other (i.e. if there is both a branch and a file
     // that matches, the result is ambiguous).
     insta::assert_debug_snapshot!(id_map.parse("foo", Box::new(changed_paths_fn))?, @r#"
@@ -919,8 +919,8 @@ fn branch_and_file_by_name() -> anyhow::Result<()> {
             id: "fo",
             stack_id: None,
         },
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "zo",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -952,7 +952,7 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
         ..stack([segment("gggg", [id(2)], None, [])])
     }];
     let hunk_assignments = vec![
-        hunk_assignment("unassigned", None),
+        hunk_assignment("uncommitted", None),
         hunk_assignment("assigned", Some(StackId::from_number_for_testing(1))),
     ];
     let id_map = IdMap::new(stacks, hunk_assignments)?;
@@ -965,8 +965,8 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
     // Short branch works
     insta::assert_debug_snapshot!(id_map.parse("gg@{stack}:assigned", Box::new(changed_paths_fn))?, @r#"
     [
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "mv",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -993,8 +993,8 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
     // Long branch works
     insta::assert_debug_snapshot!(id_map.parse("gggg@{stack}:assigned", Box::new(changed_paths_fn))?, @r#"
     [
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "mv",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -1018,18 +1018,18 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
     ]
     "#);
 
-    // Unassigned works
-    insta::assert_debug_snapshot!(id_map.parse("zz:unassigned", Box::new(changed_paths_fn))?, @r#"
+    // Uncommitted works
+    insta::assert_debug_snapshot!(id_map.parse("zz:uncommitted", Box::new(changed_paths_fn))?, @r#"
     [
-        Uncommitted(
-            UncommittedCliId {
-                id: "wq",
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
+                id: "pv",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
                         id: None,
                         hunk_header: None,
                         path: "",
-                        path_bytes: "unassigned",
+                        path_bytes: "uncommitted",
                         stack_id: None,
                         branch_ref_bytes: None,
                         line_nums_added: None,
@@ -1170,8 +1170,8 @@ fn short_uncommitted_files_are_properly_reverse_hexed() -> anyhow::Result<()> {
 
     insta::assert_debug_snapshot!(id_map.parse("k", Box::new(changed_paths_fn))?, @r#"
     [
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "ky",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -1195,8 +1195,8 @@ fn short_uncommitted_files_are_properly_reverse_hexed() -> anyhow::Result<()> {
 
     insta::assert_debug_snapshot!(id_map.parse("kl", Box::new(changed_paths_fn))?, @r#"
     [
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "klx",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -1220,8 +1220,8 @@ fn short_uncommitted_files_are_properly_reverse_hexed() -> anyhow::Result<()> {
 
     insta::assert_debug_snapshot!(id_map.parse("klm", Box::new(changed_paths_fn))?, @r#"
     [
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "klml",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -1271,8 +1271,8 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
 
     insta::assert_debug_snapshot!(id_map.parse("uncommitted1.txt:0", Box::new(changed_paths_fn))?, @r#"
     [
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "j0",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -1298,8 +1298,8 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
     // Short IDs for the filename part also work; should return exactly the same as above
     insta::assert_debug_snapshot!(id_map.parse("ro:0", Box::new(changed_paths_fn))?, @r#"
     [
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "j0",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -1325,8 +1325,8 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
     // Files can also be accessed through zz
     insta::assert_debug_snapshot!(id_map.parse("zz:uncommitted1.txt:0", Box::new(changed_paths_fn))?, @r#"
     [
-        Uncommitted(
-            UncommittedCliId {
+        UncommittedHunkOrFile(
+            UncommittedHunkOrFile {
                 id: "j0",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
@@ -1619,12 +1619,12 @@ mod util {
             short_ids
         }
 
-        /// Return a sorted list of all CliIds we can provide, excluding unassigned.
+        /// Return a sorted list of all CliIds we can provide, excluding uncommitted.
         pub fn all_ids(&self) -> Vec<CliId> {
             let IdMap {
                 indexed_stacks: _,
                 stack_ids,
-                unassigned: _,
+                uncommitted: _,
                 uncommitted_files,
                 uncommitted_hunks,
             } = self;
@@ -1663,7 +1663,7 @@ mod util {
             let IdMap {
                 indexed_stacks: _,
                 stack_ids,
-                unassigned: _,
+                uncommitted: _,
                 uncommitted_files,
                 uncommitted_hunks,
             } = self.inner;
