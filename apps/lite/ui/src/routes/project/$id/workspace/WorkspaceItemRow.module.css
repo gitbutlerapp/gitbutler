@@ -114,16 +114,6 @@
 	border-radius: 10px;
 }
 
-.bubbleFillGray {
-	background-color: var(--fill-gray-bg);
-	color: var(--fill-gray-fg);
-
-	[data-selection-scope]:focus .containerSelected & {
-		background-color: var(--fill-gray-fg);
-		color: var(--fill-gray-bg);
-	}
-}
-
 .bubbleGroup {
 	display: inline-flex;
 
@@ -135,6 +125,16 @@
 	& > :not(:last-child) {
 		border-start-end-radius: 0;
 		border-end-end-radius: 0;
+	}
+}
+
+.bubbleFillGray {
+	background-color: var(--fill-gray-bg);
+	color: var(--fill-gray-fg);
+
+	[data-selection-scope]:focus .containerSelected & {
+		background-color: var(--fill-gray-fg);
+		color: var(--fill-gray-bg);
 	}
 }
 
