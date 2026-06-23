@@ -55,8 +55,6 @@ export const createInitialState = (): WorkspaceState => ({
 	selection: createInitialSelectionState(),
 });
 
-export const initialState: WorkspaceState = createInitialState();
-
 export const enterTransferMode = (state: WorkspaceState, mode: TransferOperationMode) => {
 	state.mode = transferOutlineMode({
 		value: mode,

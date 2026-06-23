@@ -31,18 +31,6 @@ type ProjectSliceState = {
 	byProjectId: Record<string, ProjectState>;
 };
 
-const initialProjectState: ProjectState = {
-	detailsFullscreen: false,
-	dialog: { _tag: "None" },
-	filesVisible: true,
-	preferredDiffStyle: "split",
-	workspace: workspace.initialState,
-};
-
-const initialState: ProjectSliceState = {
-	byProjectId: {},
-};
-
 const createProjectState = (): ProjectState => ({
 	detailsFullscreen: false,
 	dialog: { _tag: "None" },
@@ -50,6 +38,12 @@ const createProjectState = (): ProjectState => ({
 	preferredDiffStyle: "split",
 	workspace: workspace.createInitialState(),
 });
+
+const initialProjectState: ProjectState = createProjectState();
+
+const initialState: ProjectSliceState = {
+	byProjectId: {},
+};
 
 const ensureProjectState = (state: ProjectSliceState, projectId: string): ProjectState => {
 	const existingState = state.byProjectId[projectId];
