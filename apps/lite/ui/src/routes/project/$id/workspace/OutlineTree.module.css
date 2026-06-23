@@ -115,10 +115,12 @@
 	border-radius: var(--radius-m);
 	background: var(--bg-1);
 
-	&:hover,
-	&:focus-within {
-		outline: 1px solid var(--border-2);
-		outline-offset: -1px;
+	&:not(:has(.commitTextarea[disabled])) {
+		&:hover,
+		&:focus-within {
+			outline: 1px solid var(--border-2);
+			outline-offset: -1px;
+		}
 	}
 }
 
@@ -182,8 +184,8 @@
 	color: color-mix(in srgb, var(--text-1) 60%, transparent);
 	white-space: nowrap;
 
-	&:hover,
-	&[aria-expanded="true"] {
+	&:not([data-disabled]):hover,
+	&:not([data-disabled])[aria-expanded="true"] {
 		background-color: color-mix(in srgb, var(--fill-gray-bg) var(--opacity-bg-hover), transparent);
 	}
 }
