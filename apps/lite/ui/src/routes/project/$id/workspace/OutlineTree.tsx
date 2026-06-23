@@ -21,6 +21,7 @@ import {
 	changesInWorktreeQueryOptions,
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
+	treeChangeDiffsQueryOptions,
 } from "#ui/api/queries.ts";
 import { findBranchOperandByRef, findCommit, resolveRelativeTo } from "#ui/api/ref-info.ts";
 import { decodeBytes, bytesEqual } from "#ui/api/bytes.ts";
@@ -80,6 +81,7 @@ import {
 	Stack,
 	PushStatus,
 	TreeChange,
+	UnifiedPatch,
 	WorkspaceState,
 	InsertSide,
 	BottomUpdate,
@@ -90,7 +92,7 @@ import {
 	UseHotkeyDefinition,
 	useHotkeys,
 } from "@tanstack/react-hotkeys";
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { useQueries, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import {
@@ -1435,9 +1437,9 @@ const CommitC: FC<{
 
 const ChangesSectionRow: FC<{
 	changes: Array<TreeChange>;
-
+	lineStats: LineStats | null;
 	projectId: string;
-}> = ({ changes, projectId }) => {
+}> = ({ changes, lineStats, projectId }) => {
 	const operand = changesSectionOperand;
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
@@ -1496,10 +1498,45 @@ const ChangesSectionRow: FC<{
 			<WorkspaceItemRowLabel heading>
 				{changes.length === 0 ? "Nothing to commit" : "Uncommitted changes"}
 				<span
-					className={classes("text-11", "text-semibold", workspaceItemRowStyles.changesCountBubble)}
+					className={classes(
+						"text-11",
+						"text-semibold",
+						workspaceItemRowStyles.bubble,
+						workspaceItemRowStyles.changesCountBubble,
+					)}
 				>
 					{changes.length}
 				</span>
+				{lineStats && (lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
+					<span className={workspaceItemRowStyles.lineStatsGroup}>
+						{lineStats.linesAdded > 0 && (
+							<span
+								className={classes(
+									"text-11",
+									"text-semibold",
+									workspaceItemRowStyles.bubble,
+									workspaceItemRowStyles.lineStatsBubble,
+									workspaceItemRowStyles.lineStatsAdded,
+								)}
+							>
+								+{lineStats.linesAdded}
+							</span>
+						)}
+						{lineStats.linesRemoved > 0 && (
+							<span
+								className={classes(
+									"text-11",
+									"text-semibold",
+									workspaceItemRowStyles.bubble,
+									workspaceItemRowStyles.lineStatsBubble,
+									workspaceItemRowStyles.lineStatsRemoved,
+								)}
+							>
+								-{lineStats.linesRemoved}
+							</span>
+						)}
+					</span>
+				)}
 			</WorkspaceItemRowLabel>
 
 			{isDefaultMode && (
@@ -1622,6 +1659,21 @@ const focusCommitMessageInput = () => {
 	document.getElementById(commitMessageInputId)?.focus();
 };
 
+type LineStats = {
+	linesAdded: number;
+	linesRemoved: number;
+};
+
+const getLineStats = (diffs: Array<UnifiedPatch | null | undefined>): LineStats => {
+	const stats: LineStats = { linesAdded: 0, linesRemoved: 0 };
+	for (const diff of diffs) {
+		if (diff?.type !== "Patch") continue;
+		stats.linesAdded += diff.subject.linesAdded;
+		stats.linesRemoved += diff.subject.linesRemoved;
+	}
+	return stats;
+};
+
 const Changes: FC<{
 	projectId: string;
 	commitTarget: CommitTargetComboboxItem | null;
@@ -1632,6 +1684,13 @@ const Changes: FC<{
 	const commitAmendMutation = useCommitAmend({ projectId });
 
 	const { data: worktreeChanges } = useQuery(changesInWorktreeQueryOptions(projectId));
+	const treeChangeDiffs = useQueries({
+		queries:
+			worktreeChanges?.changes.map((change) =>
+				treeChangeDiffsQueryOptions({ projectId, change }),
+			) ?? [],
+	});
+	const lineStats = getLineStats(treeChangeDiffs.map((result) => result.data));
 
 	const operand = changesSectionOperand;
 	const commitTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -1761,7 +1820,11 @@ const Changes: FC<{
 				<OperandC projectId={projectId} operand={operand} render={<form onSubmit={submit} />} />
 			}
 		>
-			<ChangesSectionRow changes={worktreeChanges?.changes ?? []} projectId={projectId} />
+			<ChangesSectionRow
+				changes={worktreeChanges?.changes ?? []}
+				lineStats={lineStats}
+				projectId={projectId}
+			/>
 
 			<div className={styles.commitControls}>
 				<textarea

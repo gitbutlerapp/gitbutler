@@ -85,17 +85,20 @@
 	}
 }
 
-.changesCountBubble {
+.bubble {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	min-width: 20px;
 	height: 16px;
-	margin-inline-start: 6px;
-	margin-block-start: -1px;
-	padding-inline: 4px;
+	padding-inline: 5px;
 	padding-block: 2px;
 	border-radius: 10px;
+}
+
+.changesCountBubble {
+	margin-inline-start: 6px;
+	margin-block-start: -1px;
 	background-color: var(--fill-gray-bg);
 	color: var(--fill-gray-fg);
 	vertical-align: middle;
@@ -103,5 +106,44 @@
 	[data-selection-scope]:focus .containerSelected & {
 		background-color: var(--fill-gray-fg);
 		color: var(--fill-gray-bg);
+	}
+}
+
+.lineStatsGroup {
+	display: inline-flex;
+	margin-inline-start: 6px;
+	margin-block-start: -1px;
+	vertical-align: middle;
+}
+
+.lineStatsBubble {
+	&:not(:first-child) {
+		border-start-start-radius: 0;
+		border-end-start-radius: 0;
+	}
+
+	&:not(:last-child) {
+		border-start-end-radius: 0;
+		border-end-end-radius: 0;
+	}
+}
+
+.lineStatsAdded {
+	background-color: color-mix(in srgb, var(--clr-safe-50) 18%, transparent);
+	color: var(--clr-safe-40);
+
+	[data-selection-scope]:focus .containerSelected & {
+		background-color: color-mix(in srgb, var(--clr-safe-50) 22%, transparent);
+		color: var(--clr-safe-60);
+	}
+}
+
+.lineStatsRemoved {
+	background-color: color-mix(in srgb, var(--clr-danger-50) 18%, transparent);
+	color: var(--clr-danger-40);
+
+	[data-selection-scope]:focus .containerSelected & {
+		background-color: color-mix(in srgb, var(--clr-danger-50) 22%, transparent);
+		color: var(--clr-danger-60);
 	}
 }
