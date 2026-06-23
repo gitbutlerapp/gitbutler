@@ -1511,14 +1511,13 @@ const ChangesSectionRow: FC<{
 				</span>
 
 				{lineStats && (lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
-					<span className={workspaceItemRowStyles.lineStatsGroup}>
+					<span className={workspaceItemRowStyles.bubbleGroup}>
 						{lineStats.linesAdded > 0 && (
 							<span
 								className={classes(
 									"text-11",
 									"text-semibold",
 									workspaceItemRowStyles.bubble,
-									workspaceItemRowStyles.lineStatsBubble,
 									workspaceItemRowStyles.lineStatsAdded,
 								)}
 							>
@@ -1531,7 +1530,6 @@ const ChangesSectionRow: FC<{
 									"text-11",
 									"text-semibold",
 									workspaceItemRowStyles.bubble,
-									workspaceItemRowStyles.lineStatsBubble,
 									workspaceItemRowStyles.lineStatsRemoved,
 								)}
 							>
