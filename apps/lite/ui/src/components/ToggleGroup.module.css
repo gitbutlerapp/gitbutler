@@ -62,6 +62,12 @@
 		background-color: var(--bg-1);
 		box-shadow: 0 0 0 1px var(--border-2);
 		color: var(--text-1);
+
+		&:focus-visible {
+			box-shadow:
+				0 0 0 1px var(--border-1),
+				var(--focus-ring);
+		}
 	}
 
 	& [data-icon] {
@@ -71,6 +77,11 @@
 	&:not([data-disabled], :disabled):hover [data-icon],
 	&[data-pressed] [data-icon] {
 		color: var(--item-color-hover);
+	}
+
+	&:focus-visible {
+		outline: none;
+		box-shadow: var(--focus-ring);
 	}
 
 	&[data-disabled],

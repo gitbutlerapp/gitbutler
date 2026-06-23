@@ -11,10 +11,10 @@
 .fieldControl {
 	height: 28px;
 	padding-inline: 8px;
-	border: 1px solid var(--border-2);
 	border-radius: var(--radius-ml);
 	outline: none;
 	background-color: var(--bg-1);
+	box-shadow: inset 0 0 0 1px var(--border-2);
 	color: var(--text-1);
 	transition:
 		border-color var(--transition-fast),
@@ -25,11 +25,10 @@
 	}
 
 	&:hover:not(:focus, :disabled, [data-disabled]) {
-		border-color: var(--border-1);
+		box-shadow: inset 0 0 0 1px var(--border-1);
 	}
 
 	&:focus {
-		border-color: var(--border-1);
 		box-shadow: var(--focus-ring);
 	}
 

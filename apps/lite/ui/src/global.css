@@ -4,7 +4,7 @@
 	color-scheme: light dark;
 
 	--list-item-hover-bg: color-mix(var(--fill-gray-bg) var(--opacity-bg-hover), transparent);
-	--focus-ring: 0 0 0 2px color-mix(in srgb, var(--fill-gray-bg) 24%, transparent);
+	--focus-ring: 0 0 0 1.5px color-mix(in srgb, var(--fill-gray-bg) 70%, transparent);
 	--transition-fast: 0.08s ease;
 	--panel-padding: 16px;
 }
@@ -15,4 +15,9 @@ body {
 
 button {
 	app-region: no-drag;
+
+	&:focus-visible {
+		outline: none;
+		box-shadow: var(--focus-ring);
+	}
 }

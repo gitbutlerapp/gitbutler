@@ -112,21 +112,20 @@
 
 .commitControls {
 	display: flex;
-	row-gap: 8px;
+	row-gap: 10px;
 	flex-direction: column;
 	padding: 8px;
+	border: 1px solid var(--bg-1);
 	border-radius: var(--radius-m);
 	background: var(--bg-1);
 
-	&:hover,
 	&:focus-within {
-		outline: 1px solid var(--border-2);
-		outline-offset: -1px;
+		box-shadow: var(--focus-ring);
 	}
 }
 
 .commitTextarea {
-	padding: 8px;
+	padding: 4px;
 	resize: none;
 	field-sizing: content;
 	box-sizing: content-box;
@@ -135,6 +134,10 @@
 
 	&:focus {
 		outline: none;
+	}
+
+	&::placeholder {
+		color: var(--text-3);
 	}
 }
 
