@@ -64,19 +64,19 @@
 	padding-block: 5.5px;
 }
 
-.emptyText {
+.fadedText {
 	color: var(--text-2);
 
 	[data-selection-scope]:focus .containerSelected & {
-		color: inherit;
+		color: var(--text-2-invert);
 	}
 }
 
 .button {
 	[data-selection-scope]:focus .containerSelected &,
 	.containerSelected:has(:is(textarea, input):focus) & {
-		/* Duplicated styles for inverted button variant. This is necessary to make
-		the variant responsive to selection/focus changes purely with CSS. */
+		/* Duplicated styles for ghost-inverted button variant. This is necessary to
+		make the variant responsive to selection/focus changes purely with CSS. */
 
 		--button-border: none;
 		--button-bg: transparent;

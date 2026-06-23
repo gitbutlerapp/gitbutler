@@ -7,8 +7,16 @@ import {
 } from "#ui/components/Button.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { Icon } from "#ui/components/Icon.tsx";
+import React from "react";
 
 const meta = preview.meta({});
+
+const invertedDemoStyle: React.CSSProperties = {
+	display: "inline-flex",
+	padding: 8,
+	borderRadius: 8,
+	backgroundColor: "var(--clr-gray-10)",
+};
 
 export const Playground = meta.story({
 	parameters: {
@@ -26,7 +34,7 @@ export const Playground = meta.story({
 				"outline",
 				"danger",
 				"ghost",
-				"inverted",
+				"ghost-inverted",
 			] satisfies Array<ButtonVariant>,
 		},
 		size: {
@@ -46,7 +54,7 @@ export const Playground = meta.story({
 	render: (args: React.ComponentProps<"button"> & ButtonStyleProps & { showIcon?: boolean }) => {
 		const { showIcon, children, variant, size, iconOnly, className, ...buttonArgs } = args;
 
-		return (
+		const button = (
 			<button
 				{...buttonArgs}
 				type="button"
@@ -62,6 +70,10 @@ export const Playground = meta.story({
 				)}
 			</button>
 		);
+
+		if (variant === "ghost-inverted") return <div style={invertedDemoStyle}>{button}</div>;
+
+		return button;
 	},
 });
 
@@ -80,10 +92,12 @@ export const Variants = meta.story({
 			<button type="button" className={getButtonClassName({ variant: "ghost" })}>
 				Button
 			</button>
+			<div style={invertedDemoStyle}>
+				<button type="button" className={getButtonClassName({ variant: "ghost-inverted" })}>
+					Button
+				</button>
+			</div>
 			<button type="button" className={getButtonClassName({ variant: "danger" })}>
-				Button
-			</button>
-			<button type="button" className={getButtonClassName({ variant: "inverted" })}>
 				Button
 			</button>
 		</div>
@@ -121,17 +135,19 @@ export const IconOnly = meta.story({
 			>
 				<Icon name="plus" />
 			</button>
+			<div style={invertedDemoStyle}>
+				<button
+					type="button"
+					className={getButtonClassName({ variant: "ghost-inverted", iconOnly: true })}
+					aria-label="Ghost inverted action"
+				>
+					<Icon name="plus" />
+				</button>
+			</div>
 			<button
 				type="button"
 				className={getButtonClassName({ variant: "danger", iconOnly: true })}
 				aria-label="Danger action"
-			>
-				<Icon name="plus" />
-			</button>
-			<button
-				type="button"
-				className={getButtonClassName({ variant: "inverted", iconOnly: true })}
-				aria-label="Inverted action"
 			>
 				<Icon name="plus" />
 			</button>

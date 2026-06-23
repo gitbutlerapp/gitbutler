@@ -1376,7 +1376,7 @@ const CommitRow: FC<
 				) : (
 					<>
 						{title === undefined ? (
-							<span className={workspaceItemRowStyles.emptyText}>(no message)</span>
+							<span className={workspaceItemRowStyles.fadedText}>(no message)</span>
 						) : (
 							title
 						)}
@@ -1835,7 +1835,7 @@ const Changes: FC<{
 					disabled={!isDefaultMode}
 					readOnly={isCommitOrAmendPending}
 					placeholder={`Compose commit message ${focusCommitMessageHotkeyLabel}`}
-					className={classes("text-14", styles.commitTextarea)}
+					className={classes("text-13", styles.commitTextarea)}
 					onFocus={selectChanges}
 					onKeyDown={(event) => {
 						if (event.key !== "Escape") return;
@@ -2498,7 +2498,7 @@ const SegmentContent: FC<{
 				<WorkspaceItemRow interactive={false} inert={inert}>
 					<GraphSegment glyph="parent" status={segmentPushStatusToStatus(segment.pushStatus)} />
 					<WorkspaceItemRowLabel>
-						<span className={workspaceItemRowStyles.emptyText}>No commits.</span>
+						<span className={workspaceItemRowStyles.fadedText}>No commits.</span>
 					</WorkspaceItemRowLabel>
 				</WorkspaceItemRow>
 			</div>

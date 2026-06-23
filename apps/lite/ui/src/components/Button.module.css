@@ -89,7 +89,7 @@
 	--button-hover-icon-opacity: 0.9;
 }
 
-.inverted {
+.ghost-inverted {
 	--button-border: none;
 	--button-bg: transparent;
 	--button-fg: var(--text-1-invert);

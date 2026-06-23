@@ -156,7 +156,7 @@ export const FilesTree: FC<
 					{items.length === 0 ? (
 						<WorkspaceItemRow interactive={false}>
 							<WorkspaceItemRowLabel>
-								<span className={workspaceItemRowStyles.emptyText}>No changes.</span>
+								<span className={workspaceItemRowStyles.fadedText}>No changes.</span>
 							</WorkspaceItemRowLabel>
 						</WorkspaceItemRow>
 					) : (
