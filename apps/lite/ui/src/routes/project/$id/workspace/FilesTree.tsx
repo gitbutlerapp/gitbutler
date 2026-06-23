@@ -14,7 +14,6 @@ import { Checkbox } from "#ui/components/Checkbox.tsx";
 import { classes } from "#ui/components/classes.ts";
 import { mergeProps, Tooltip, useRender } from "@base-ui/react";
 import { Toolbar } from "@base-ui/react/toolbar";
-import type { TreeStatus } from "@gitbutler/but-sdk";
 import { useQuery } from "@tanstack/react-query";
 import { identity, Match } from "effect";
 import { ComponentProps, createContext, FC, use, useRef } from "react";
@@ -168,8 +167,8 @@ export const FilesTree: FC<
 									path={item.path}
 									aria-label={
 										item._tag === "Change"
-											? `${statusLabel(item.change.status)} ${item.change.path}`
-											: `C ${item.path}`
+											? `${item.change.status.type} ${item.change.path}`
+											: `Conflict ${item.path}`
 									}
 									render={
 										<OperationSourceC
@@ -247,24 +246,6 @@ const TreeItem: FC<
 		}),
 	});
 };
-
-const statusLabel = (status: TreeStatus): string =>
-	Match.value(status).pipe(
-		Match.when({ type: "Addition" }, () => "A"),
-		Match.when({ type: "Deletion" }, () => "D"),
-		Match.when({ type: "Modification" }, () => "M"),
-		Match.when({ type: "Rename" }, () => "R"),
-		Match.exhaustive,
-	);
-
-const statusTooltip = (status: TreeStatus): string =>
-	Match.value(status).pipe(
-		Match.when({ type: "Addition" }, () => "Added"),
-		Match.when({ type: "Deletion" }, () => "Deleted"),
-		Match.when({ type: "Modification" }, () => "Modified"),
-		Match.when({ type: "Rename" }, () => "Renamed"),
-		Match.exhaustive,
-	);
 
 const FileRow: FC<
 	{
@@ -361,8 +342,20 @@ const FileRow: FC<
 
 				{item._tag === "Change"
 					? (() => {
-							const label = statusLabel(item.change.status);
-							const tooltip = statusTooltip(item.change.status);
+							const label = Match.value(item.change.status).pipe(
+								Match.when({ type: "Addition" }, () => "A"),
+								Match.when({ type: "Deletion" }, () => "D"),
+								Match.when({ type: "Modification" }, () => "M"),
+								Match.when({ type: "Rename" }, () => "R"),
+								Match.exhaustive,
+							);
+							const tooltip = Match.value(item.change.status).pipe(
+								Match.when({ type: "Addition" }, () => "Added"),
+								Match.when({ type: "Deletion" }, () => "Deleted"),
+								Match.when({ type: "Modification" }, () => "Modified"),
+								Match.when({ type: "Rename" }, () => "Renamed"),
+								Match.exhaustive,
+							);
 
 							return (
 								<Tooltip.Root disableHoverablePopup>
