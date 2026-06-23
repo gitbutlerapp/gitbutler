@@ -112,6 +112,8 @@ import styles from "./OutlineTree.module.css";
 import { Checkbox } from "#ui/components/Checkbox.tsx";
 import {
 	WorkspaceItemRow,
+	WorkspaceItemRowBubble,
+	WorkspaceItemRowBubbleGroup,
 	WorkspaceItemRowLabel,
 	WorkspaceItemRowLabelContainer,
 	WorkspaceItemRowToolbar,
@@ -1499,46 +1501,21 @@ const ChangesSectionRow: FC<{
 					{changes.length === 0 ? "Nothing to commit" : "Uncommitted changes"}
 				</WorkspaceItemRowLabel>
 
-				<span
-					className={classes(
-						"text-11",
-						"text-semibold",
-						workspaceItemRowStyles.bubble,
-						workspaceItemRowStyles.changesCountBubble,
-					)}
-				>
-					{changes.length}
-				</span>
+				<WorkspaceItemRowBubble variant="fillGray">{changes.length}</WorkspaceItemRowBubble>
 
 				{lineStats && (lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
-					<span className={workspaceItemRowStyles.lineStatsGroup}>
+					<WorkspaceItemRowBubbleGroup>
 						{lineStats.linesAdded > 0 && (
-							<span
-								className={classes(
-									"text-11",
-									"text-semibold",
-									workspaceItemRowStyles.bubble,
-									workspaceItemRowStyles.lineStatsBubble,
-									workspaceItemRowStyles.lineStatsAdded,
-								)}
-							>
+							<WorkspaceItemRowBubble variant="safe">
 								+{lineStats.linesAdded}
-							</span>
+							</WorkspaceItemRowBubble>
 						)}
 						{lineStats.linesRemoved > 0 && (
-							<span
-								className={classes(
-									"text-11",
-									"text-semibold",
-									workspaceItemRowStyles.bubble,
-									workspaceItemRowStyles.lineStatsBubble,
-									workspaceItemRowStyles.lineStatsRemoved,
-								)}
-							>
+							<WorkspaceItemRowBubble variant="danger">
 								-{lineStats.linesRemoved}
-							</span>
+							</WorkspaceItemRowBubble>
 						)}
-					</span>
+					</WorkspaceItemRowBubbleGroup>
 				)}
 			</WorkspaceItemRowLabelContainer>
 
@@ -1937,7 +1914,6 @@ type PartialStackState = {
 	requiresPush: boolean;
 	pushWithForce: boolean;
 	hasConflicts: boolean;
-	commitsCount: number;
 	branchCount: number;
 };
 
@@ -1945,7 +1921,6 @@ const emptyPartialStackState: PartialStackState = {
 	requiresPush: false,
 	pushWithForce: false,
 	hasConflicts: false,
-	commitsCount: 0,
 	branchCount: 0,
 };
 
@@ -1956,14 +1931,13 @@ const addSegmentToPartialStackState = (
 	requiresPush: state.requiresPush || pushStatusRequiresPush(segment.pushStatus),
 	pushWithForce: state.pushWithForce || segment.pushStatus === "unpushedCommitsRequiringForce",
 	hasConflicts: state.hasConflicts || segment.commits.some((commit) => commit.hasConflicts),
-	commitsCount: state.commitsCount + segment.commits.length,
 	branchCount: segment.refName ? state.branchCount + 1 : state.branchCount,
 });
 
 const partialStackPushDisabledReason = (partialStackState: PartialStackState): string | null =>
 	partialStackState.hasConflicts
 		? "Resolve conflicts before pushing"
-		: !partialStackState.requiresPush || partialStackState.commitsCount === 0
+		: !partialStackState.requiresPush
 			? "Nothing to push"
 			: null;
 

@@ -21,19 +21,19 @@
 
 	font-family: var(--text-fontfamily-base);
 	&[data-char="A"] {
-		color: var(--clr-safe-60);
+		color: var(--change-status-addition);
 	}
 
 	&[data-char="D"] {
-		color: var(--clr-danger-60);
+		color: var(--change-status-deletion);
 	}
 
 	&[data-char="M"] {
-		color: var(--clr-blue-60);
+		color: var(--change-status-modification);
 	}
 
 	&[data-char="R"] {
-		color: var(--clr-purple-60);
+		color: var(--change-status-renaming);
 	}
 }
 

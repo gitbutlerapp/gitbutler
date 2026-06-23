@@ -3,6 +3,7 @@ import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { ComponentProps, FC, useLayoutEffect, useRef } from "react";
 import styles from "./WorkspaceItemRow.module.css";
 import { mergeProps, useRender } from "@base-ui/react";
+import { Match } from "effect";
 
 export const WorkspaceItemRow: FC<
 	{
@@ -67,6 +68,34 @@ export const WorkspaceItemRowLabel: FC<
 			),
 		}),
 	});
+
+type WorkspaceItemRowBubbleVariant = "fillGray" | "safe" | "danger";
+
+export const WorkspaceItemRowBubble: FC<
+	{
+		variant: WorkspaceItemRowBubbleVariant;
+	} & ComponentProps<"span">
+> = ({ variant, ...props }) => (
+	<span
+		{...props}
+		className={classes(
+			props.className,
+			"text-11",
+			"text-semibold",
+			styles.bubble,
+			Match.value(variant).pipe(
+				Match.when("fillGray", () => styles.bubbleFillGray),
+				Match.when("safe", () => styles.bubbleClrSafe),
+				Match.when("danger", () => styles.bubbleClrDanger),
+				Match.exhaustive,
+			),
+		)}
+	/>
+);
+
+export const WorkspaceItemRowBubbleGroup: FC<ComponentProps<"span">> = (props) => (
+	<span {...props} className={classes(props.className, styles.bubbleGroup)} />
+);
 
 export const WorkspaceItemRowToolbar: FC<{ forceVisible?: boolean } & ComponentProps<"div">> = ({
 	forceVisible,

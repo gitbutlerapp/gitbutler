@@ -1,6 +1,7 @@
 .container {
 	display: flex;
 	column-gap: 8px;
+	min-height: 28px;
 	padding-inline: 8px;
 
 	&[inert] {
@@ -114,7 +115,21 @@
 	border-radius: 10px;
 }
 
-.changesCountBubble {
+.bubbleGroup {
+	display: inline-flex;
+
+	& > :not(:first-child) {
+		border-start-start-radius: 0;
+		border-end-start-radius: 0;
+	}
+
+	& > :not(:last-child) {
+		border-start-end-radius: 0;
+		border-end-end-radius: 0;
+	}
+}
+
+.bubbleFillGray {
 	background-color: var(--fill-gray-bg);
 	color: var(--fill-gray-fg);
 
@@ -124,23 +139,7 @@
 	}
 }
 
-.lineStatsGroup {
-	display: inline-flex;
-}
-
-.lineStatsBubble {
-	&:not(:first-child) {
-		border-start-start-radius: 0;
-		border-end-start-radius: 0;
-	}
-
-	&:not(:last-child) {
-		border-start-end-radius: 0;
-		border-end-end-radius: 0;
-	}
-}
-
-.lineStatsAdded {
+.bubbleClrSafe {
 	background-color: color-mix(in srgb, var(--clr-safe-50) 18%, transparent);
 	color: var(--clr-safe-40);
 
@@ -150,7 +149,7 @@
 	}
 }
 
-.lineStatsRemoved {
+.bubbleClrDanger {
 	background-color: color-mix(in srgb, var(--clr-danger-50) 18%, transparent);
 	color: var(--clr-danger-40);
 
