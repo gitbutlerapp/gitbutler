@@ -52,7 +52,6 @@
 .inlineEditorForm {
 	display: flex;
 	row-gap: 6px;
-	flex-grow: 1;
 	flex-direction: column;
 	min-width: 0;
 }
