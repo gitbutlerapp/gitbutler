@@ -1905,6 +1905,7 @@ const Changes: FC<{
 								</Tooltip.Positioner>
 							</Tooltip.Portal>
 						</Tooltip.Root>
+						<div aria-hidden className={styles.commitDropdownButtonSeparator} />
 						<Button
 							focusableWhenDisabled
 							disabled={!(canAmend || canCommit)}
