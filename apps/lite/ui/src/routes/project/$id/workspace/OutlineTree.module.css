@@ -93,14 +93,10 @@
 
 .commitControls {
 	display: flex;
-	row-gap: 14px;
+	row-gap: 8px;
 	flex-direction: column;
-	margin-inline: -6px;
-	margin-block-end: -6px;
-	padding: 14px;
-	border-radius: var(--radius-l);
-	outline: 1px solid var(--border-2);
-	outline-offset: -1px;
+	padding: 8px;
+	border-radius: var(--radius-m);
 	background: var(--bg-1);
 }
 
