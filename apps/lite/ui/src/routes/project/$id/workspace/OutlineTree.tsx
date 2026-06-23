@@ -1497,47 +1497,48 @@ const ChangesSectionRow: FC<{
 		>
 			<WorkspaceItemRowLabel heading>
 				{changes.length === 0 ? "Nothing to commit" : "Uncommitted changes"}
-				<span
-					className={classes(
-						"text-11",
-						"text-semibold",
-						workspaceItemRowStyles.bubble,
-						workspaceItemRowStyles.changesCountBubble,
-					)}
-				>
-					{changes.length}
-				</span>
-				{lineStats && (lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
-					<span className={workspaceItemRowStyles.lineStatsGroup}>
-						{lineStats.linesAdded > 0 && (
-							<span
-								className={classes(
-									"text-11",
-									"text-semibold",
-									workspaceItemRowStyles.bubble,
-									workspaceItemRowStyles.lineStatsBubble,
-									workspaceItemRowStyles.lineStatsAdded,
-								)}
-							>
-								+{lineStats.linesAdded}
-							</span>
-						)}
-						{lineStats.linesRemoved > 0 && (
-							<span
-								className={classes(
-									"text-11",
-									"text-semibold",
-									workspaceItemRowStyles.bubble,
-									workspaceItemRowStyles.lineStatsBubble,
-									workspaceItemRowStyles.lineStatsRemoved,
-								)}
-							>
-								-{lineStats.linesRemoved}
-							</span>
-						)}
-					</span>
-				)}
 			</WorkspaceItemRowLabel>
+
+			<span
+				className={classes(
+					"text-11",
+					"text-semibold",
+					workspaceItemRowStyles.bubble,
+					workspaceItemRowStyles.changesCountBubble,
+				)}
+			>
+				{changes.length}
+			</span>
+			{lineStats && (lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
+				<span className={workspaceItemRowStyles.lineStatsGroup}>
+					{lineStats.linesAdded > 0 && (
+						<span
+							className={classes(
+								"text-11",
+								"text-semibold",
+								workspaceItemRowStyles.bubble,
+								workspaceItemRowStyles.lineStatsBubble,
+								workspaceItemRowStyles.lineStatsAdded,
+							)}
+						>
+							+{lineStats.linesAdded}
+						</span>
+					)}
+					{lineStats.linesRemoved > 0 && (
+						<span
+							className={classes(
+								"text-11",
+								"text-semibold",
+								workspaceItemRowStyles.bubble,
+								workspaceItemRowStyles.lineStatsBubble,
+								workspaceItemRowStyles.lineStatsRemoved,
+							)}
+						>
+							-{lineStats.linesRemoved}
+						</span>
+					)}
+				</span>
+			)}
 
 			{isDefaultMode && (
 				<Toolbar.Root

@@ -97,11 +97,9 @@
 }
 
 .changesCountBubble {
-	margin-inline-start: 6px;
-	margin-block-start: -1px;
+	align-self: center;
 	background-color: var(--fill-gray-bg);
 	color: var(--fill-gray-fg);
-	vertical-align: middle;
 
 	[data-selection-scope]:focus .containerSelected & {
 		background-color: var(--fill-gray-fg);
@@ -111,9 +109,7 @@
 
 .lineStatsGroup {
 	display: inline-flex;
-	margin-inline-start: 6px;
-	margin-block-start: -1px;
-	vertical-align: middle;
+	align-self: center;
 }
 
 .lineStatsBubble {
