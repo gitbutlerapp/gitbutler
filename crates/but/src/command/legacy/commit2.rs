@@ -180,7 +180,8 @@ fn resolve(
         let changes = changes
             .into_iter()
             .map(|change| change.resolve_uncommitted(&*ctx.repo.get()?, id_map))
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<CliResult<Vec<Vec<UncommittedCliId>>>>()?;
+        let changes = changes.into_iter().flatten().collect();
         let Some(changes) = NonEmpty::from_vec(changes) else {
             return Err(bad_input("No changes to commit")
                 .hint("Run `but status` to show applicable targets")
