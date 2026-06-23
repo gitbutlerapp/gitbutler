@@ -34,8 +34,7 @@
 
 .toolbar {
 	display: none;
-	column-gap: 2px;
-	margin-inline: -4px;
+	column-gap: 8px;
 	margin-block: -2px;
 	padding-block: 6px;
 
@@ -44,6 +43,10 @@
 	.containerSelected &,
 	&.toolbarForceVisible {
 		display: flex;
+	}
+
+	button {
+		margin-inline: -4px;
 	}
 }
 
