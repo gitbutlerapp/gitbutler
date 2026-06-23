@@ -24,11 +24,13 @@ import {
 	selectProjectOutlineModeState,
 } from "#ui/projects/state.ts";
 import { getButtonClassName } from "#ui/components/Button.tsx";
+import { PickerDialog } from "#ui/components/PickerDialog.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
+import { lastOpenedProjectKey } from "#ui/projects/last-opened.ts";
 import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { type AppThunk, useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { BottomUpdate, RefInfo, Segment } from "@gitbutler/but-sdk";
-import { useHotkeys } from "@tanstack/react-hotkeys";
+import { BottomUpdate, ProjectForFrontend, RefInfo, Segment } from "@gitbutler/but-sdk";
+import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import {
 	QueryErrorResetBoundary,
 	useIsFetching,
@@ -37,7 +39,7 @@ import {
 	useQuery,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import { type FC, Component, ReactNode, useDeferredValue } from "react";
 import {
@@ -241,6 +243,50 @@ const useOutlineNavigationIndex = ({
 	return { items: filteredItems, indexByKey };
 };
 
+const isMac = window.lite.platform === "darwin";
+
+type ProjectPickerProps = {
+	open: boolean;
+	projects: Array<ProjectForFrontend>;
+	selectedProjectId: string;
+	onOpenChange: (open: boolean) => void;
+};
+
+const ProjectPicker: FC<ProjectPickerProps> = (p) => {
+	const navigate = useNavigate();
+
+	const selectProject = (project: ProjectForFrontend) => {
+		p.onOpenChange(false);
+		void navigate({
+			to: "/project/$id/workspace",
+			params: { id: project.id },
+		});
+		window.localStorage.setItem(lastOpenedProjectKey, project.id);
+	};
+
+	return (
+		<PickerDialog
+			ariaLabel="Select project"
+			closeLabel="Close project picker"
+			emptyLabel="No projects found."
+			getItemKey={(project) => project.id}
+			getItemLabel={(project) => project.title}
+			getItemType={(project) => (project.id === p.selectedProjectId ? "Current" : "Project")}
+			itemToStringValue={(project) => project.title}
+			items={[
+				{
+					value: "Projects",
+					items: p.projects,
+				},
+			]}
+			open={p.open}
+			onOpenChange={p.onOpenChange}
+			onSelectItem={selectProject}
+			placeholder="Search projects…"
+		/>
+	);
+};
+
 const WorkspacePage: FC = () => {
 	const dispatch = useAppDispatch();
 
@@ -279,8 +325,17 @@ const WorkspacePage: FC = () => {
 		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 
+	const setProjectPickerOpen = (open: boolean) => {
+		if (open) dispatch(projectActions.openProjectPicker({ projectId }));
+		else dispatch(projectActions.closeDialog({ projectId }));
+	};
+
 	const openApplyBranchPicker = () => {
 		dispatch(projectActions.openApplyBranchPicker({ projectId }));
+	};
+
+	const openProjectPicker = () => {
+		dispatch(projectActions.openProjectPicker({ projectId }));
 	};
 
 	const branchCreateMutation = useBranchCreate();
@@ -413,6 +468,12 @@ const WorkspacePage: FC = () => {
 	const deferredOutlineSelection = useDeferredValue(outlineSelection);
 
 	const { data: projects } = useSuspenseQuery(listProjectsQueryOptions);
+
+	useHotkey(globalHotkeys.selectProject.hotkey, openProjectPicker, {
+		enabled: projects.length > 0,
+		meta: globalHotkeys.selectProject.meta,
+	});
+
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
 
@@ -422,10 +483,16 @@ const WorkspacePage: FC = () => {
 				{!detailsFullscreen && (
 					<div className={styles.outlinePanel}>
 						<header className={styles.workspaceControls}>
+							<div className={classes(isMac && styles.workspaceControlsMacSpacer)} />
 							<div className={styles.workspaceControlsLeft}>
-								<h1 className={classes("text-15", "text-bold", styles.workspaceName)}>
-									{selectedProject.title}
-								</h1>
+								<button
+									type="button"
+									className={classes("text-15", "text-bold", styles.workspaceName)}
+									onClick={openProjectPicker}
+								>
+									<span className={styles.workspaceNameLabel}>{selectedProject.title}</span>
+									<Icon name="chevron-down" className={styles.workspaceNameChevron} />
+								</button>
 								<ActivitySpinner />
 							</div>
 
@@ -561,6 +628,14 @@ const WorkspacePage: FC = () => {
 						<BranchPicker open onOpenChange={setBranchPickerOpen} onSelectBranch={selectBranch} />
 					),
 					CommandPalette: () => <CommandPalette open onOpenChange={setCommandPaletteOpen} />,
+					ProjectPicker: () => (
+						<ProjectPicker
+							open
+							projects={projects}
+							selectedProjectId={projectId}
+							onOpenChange={setProjectPickerOpen}
+						/>
+					),
 				}),
 			)}
 		</>

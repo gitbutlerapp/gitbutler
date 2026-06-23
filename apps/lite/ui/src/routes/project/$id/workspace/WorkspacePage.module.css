@@ -1,7 +1,7 @@
 .page {
 	display: grid;
 	grid-template-rows: minmax(0, 1fr);
-	grid-template-columns: 360px 1fr;
+	grid-template-columns: 400px 1fr;
 	flex-grow: 1;
 	min-height: 0;
 }
@@ -47,10 +47,10 @@
 
 .workspaceControls {
 	display: flex;
+	column-gap: 12px;
 	align-items: center;
 	padding-top: var(--panel-padding);
 	padding-inline: var(--panel-padding);
-	gap: 6px;
 }
 
 .navContainer {
@@ -65,6 +65,12 @@
 	gap: 4px;
 }
 
+.workspaceControlsMacSpacer {
+	flex-shrink: 0;
+	align-self: stretch;
+	width: 60px;
+}
+
 .workspaceControlsActions {
 	display: flex;
 	align-items: center;
@@ -73,7 +79,21 @@
 }
 
 .workspaceName {
+	display: flex;
+	column-gap: 4px;
+	align-items: center;
 	min-width: 0;
+
+	.workspaceNameChevron {
+		color: var(--text-2);
+	}
+
+	&:hover .workspaceNameChevron {
+		color: var(--text-1);
+	}
+}
+
+.workspaceNameLabel {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;

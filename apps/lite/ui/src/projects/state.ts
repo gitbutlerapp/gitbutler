@@ -15,7 +15,8 @@ type Dialog =
 	| { _tag: "None" }
 	| { _tag: "ApplyBranchPicker" }
 	| { _tag: "BranchPicker" }
-	| { _tag: "CommandPalette" };
+	| { _tag: "CommandPalette" }
+	| { _tag: "ProjectPicker" };
 
 export type DiffStyle = "split" | "unified";
 
@@ -255,6 +256,11 @@ const projectSlice = createSlice({
 		openApplyBranchPicker: (state, action: PayloadAction<{ projectId: string }>) => {
 			ensureProjectState(state, action.payload.projectId).dialog = {
 				_tag: "ApplyBranchPicker",
+			};
+		},
+		openProjectPicker: (state, action: PayloadAction<{ projectId: string }>) => {
+			ensureProjectState(state, action.payload.projectId).dialog = {
+				_tag: "ProjectPicker",
 			};
 		},
 		closeDialog: (state, action: PayloadAction<{ projectId: string }>) => {
