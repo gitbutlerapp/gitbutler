@@ -64,6 +64,8 @@ but <mutation> ...
 - Tear off a branch: `but move <branch-name-or-id> zz` (`zz` = unassigned; branch name or branch CLI ID)
 - Push: `but push <branch-name>` — always specify the branch; bare `but push` pushes ALL branches when run non-interactively
 - Pull: `but pull --check` then `but pull`
+- Create PR: `but pr new <branch-id> [-m "Title..."] [-F pr_message.txt] [-t] [--draft]` — auto-pushes before creating the PR; do not run `but push` first
+- Manage PRs: `but pr auto-merge <selector>`, `but pr set-draft <selector>`, `but pr set-ready <selector>`
 
 ## Task Recipes
 
@@ -151,6 +153,22 @@ but move feature/logging zz
 
 **Note:** branch stack/tear-off operations use branch **names** (like `feature/frontend`) or branch CLI IDs, while commit reordering uses commit **IDs** (like `c3`). Do NOT use `but undo` to unstack — it may revert more than intended and lose commits.
 
+### Create or manage pull requests
+
+`but pr new <branch-id>` pushes the branch and creates a pull request in one step. Do not run `but push` first. Agents must provide `-F pr_message.txt`, `-t`, or `-m` with real newline characters (zsh/bash: `-m $'Title\n\nBody'`) so the command does not open an editor. If forge auth is missing, run `but config forge auth`.
+
+For independent, unstacked branches, another forge tool may be okay if the user asked for it or `but pr` is unavailable. Still prefer `but pr new` when you are already working from GitButler branch IDs.
+
+For stacked branches, `but pr` is mandatory. Create and manage stacked PRs with GitButler so PR bases match the stack and GitButler can maintain the stack metadata in PR description footers. Do not create stacked PRs with `gh pr create` or other forge tools.
+
+To publish a whole stack, create the PR from the top branch you want published:
+
+```bash
+but pr new <top-branch-id> -t
+```
+
+That creates or updates reviews for that branch and its dependencies in stack order. Use `but pr auto-merge <selector>`, `but pr set-draft <selector>`, and `but pr set-ready <selector>` for follow-up PR management; selectors can be branch names, branch IDs, stack IDs, or numeric review IDs.
+
 ### Stacked dependency / commit-lock recovery
 
 A **dependency lock** occurs when a file was originally committed on branch A, but you're trying to commit changes to it on branch B. Symptoms:
@@ -192,6 +210,7 @@ If `but move` causes conflicts (conflicted commits in status):
 | `git rebase -i` | `but move`, `but squash`, `but reword` |
 | `git rebase --onto` | `but move <branch> <new-base>` |
 | `git cherry-pick` | `but pick` |
+| `gh pr create` | `but pr new <branch-id>` (pushes the branch, then creates the PR; no separate `but push`) |
 
 ## Notes
 

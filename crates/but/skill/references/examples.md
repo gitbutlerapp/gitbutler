@@ -64,12 +64,11 @@ but branch new user-profile -a bu
 but status -fv
 but commit bv -m "Add user profile page" --changes <file-ids>
 
-# 6. Push both branches explicitly (maintains stack relationship)
-but push add-authentication
-but push user-profile
+# 6. Create stacked pull requests through GitButler (auto-pushes the stack)
+but pr new bv -t
 ```
 
-**Result:** Two PRs where user-profile PR depends on authentication PR. GitHub/GitLab shows the dependency.
+**Result:** Two PRs where user-profile targets add-authentication, with GitButler stack information in the PR descriptions.
 
 ## Example 3: Using Absorb Instead of New Commits
 
