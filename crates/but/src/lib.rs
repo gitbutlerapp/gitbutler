@@ -1097,7 +1097,7 @@ async fn match_subcommand(
             result
         }
         #[cfg(all(feature = "legacy", feature = "but-2"))]
-        Subcommands::Commit2(commit_args) => {
+        Subcommands::_Commit2(commit_args) => {
             use crate::utils::{IntermediateChannel, OutputChannelExt};
 
             let status_after = args.status_after;
@@ -1121,7 +1121,7 @@ async fn match_subcommand(
             Ok(())
         }
         #[cfg(all(feature = "legacy", feature = "but-2"))]
-        Subcommands::Squash2(squash_args) => {
+        Subcommands::_Squash2(squash_args) => {
             use crate::utils::{IntermediateChannel, OutputChannelExt};
 
             let status_after = args.status_after;

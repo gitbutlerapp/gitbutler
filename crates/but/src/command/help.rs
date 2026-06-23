@@ -88,7 +88,7 @@ fn print_grouped_with_truncation(
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Commit => Group::BranchingAndCommitting,
                 #[cfg(all(feature = "legacy", feature = "but-2"))]
-                SubcommandDiscriminant::Commit2 => Group::BranchingAndCommitting,
+                SubcommandDiscriminant::_Commit2 => Group::BranchingAndCommitting,
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Stage => Group::BranchingAndCommitting,
                 SubcommandDiscriminant::Branch => Group::BranchingAndCommitting,
@@ -135,7 +135,7 @@ fn print_grouped_with_truncation(
                 #[cfg(feature = "legacy")]
                 SubcommandDiscriminant::Squash => Group::EditingCommits,
                 #[cfg(all(feature = "legacy", feature = "but-2"))]
-                SubcommandDiscriminant::Squash2 => Group::EditingCommits,
+                SubcommandDiscriminant::_Squash2 => Group::EditingCommits,
                 SubcommandDiscriminant::Move => Group::EditingCommits,
 
                 #[cfg(feature = "legacy")]
