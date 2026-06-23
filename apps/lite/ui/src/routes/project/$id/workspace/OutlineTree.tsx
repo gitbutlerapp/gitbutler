@@ -1937,7 +1937,6 @@ type PartialStackState = {
 	requiresPush: boolean;
 	pushWithForce: boolean;
 	hasConflicts: boolean;
-	commitsCount: number;
 	branchCount: number;
 };
 
@@ -1945,7 +1944,6 @@ const emptyPartialStackState: PartialStackState = {
 	requiresPush: false,
 	pushWithForce: false,
 	hasConflicts: false,
-	commitsCount: 0,
 	branchCount: 0,
 };
 
@@ -1956,14 +1954,13 @@ const addSegmentToPartialStackState = (
 	requiresPush: state.requiresPush || pushStatusRequiresPush(segment.pushStatus),
 	pushWithForce: state.pushWithForce || segment.pushStatus === "unpushedCommitsRequiringForce",
 	hasConflicts: state.hasConflicts || segment.commits.some((commit) => commit.hasConflicts),
-	commitsCount: state.commitsCount + segment.commits.length,
 	branchCount: segment.refName ? state.branchCount + 1 : state.branchCount,
 });
 
 const partialStackPushDisabledReason = (partialStackState: PartialStackState): string | null =>
 	partialStackState.hasConflicts
 		? "Resolve conflicts before pushing"
-		: !partialStackState.requiresPush || partialStackState.commitsCount === 0
+		: !partialStackState.requiresPush
 			? "Nothing to push"
 			: null;
 
