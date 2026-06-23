@@ -140,7 +140,7 @@
 }
 
 .bubbleClrSafe {
-	background-color: color-mix(in srgb, var(--clr-safe-50) 18%, transparent);
+	background-color: color-mix(in srgb, var(--clr-safe-50) 25%, var(--bg-1));
 	color: var(--text-safe);
 
 	[data-selection-scope]:focus .containerSelected & {
@@ -150,7 +150,7 @@
 }
 
 .bubbleClrDanger {
-	background-color: color-mix(in srgb, var(--clr-danger-50) 18%, transparent);
+	background-color: color-mix(in srgb, var(--clr-danger-50) 22%, var(--bg-1));
 	color: var(--text-danger);
 
 	[data-selection-scope]:focus .containerSelected & {
