@@ -114,7 +114,7 @@
 	border-radius: 10px;
 }
 
-.changesCountBubble {
+.bubbleFillGray {
 	background-color: var(--fill-gray-bg);
 	color: var(--fill-gray-fg);
 
@@ -138,7 +138,7 @@
 	}
 }
 
-.lineStatsAdded {
+.bubbleClrSafe {
 	background-color: color-mix(in srgb, var(--clr-safe-50) 18%, transparent);
 	color: var(--clr-safe-40);
 
@@ -148,7 +148,7 @@
 	}
 }
 
-.lineStatsRemoved {
+.bubbleClrDanger {
 	background-color: color-mix(in srgb, var(--clr-danger-50) 18%, transparent);
 	color: var(--clr-danger-40);
 

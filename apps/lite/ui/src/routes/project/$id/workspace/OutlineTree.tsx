@@ -1504,7 +1504,7 @@ const ChangesSectionRow: FC<{
 						"text-11",
 						"text-semibold",
 						workspaceItemRowStyles.bubble,
-						workspaceItemRowStyles.changesCountBubble,
+						workspaceItemRowStyles.bubbleFillGray,
 					)}
 				>
 					{changes.length}
@@ -1518,7 +1518,7 @@ const ChangesSectionRow: FC<{
 									"text-11",
 									"text-semibold",
 									workspaceItemRowStyles.bubble,
-									workspaceItemRowStyles.lineStatsAdded,
+									workspaceItemRowStyles.bubbleClrSafe,
 								)}
 							>
 								+{lineStats.linesAdded}
@@ -1530,7 +1530,7 @@ const ChangesSectionRow: FC<{
 									"text-11",
 									"text-semibold",
 									workspaceItemRowStyles.bubble,
-									workspaceItemRowStyles.lineStatsRemoved,
+									workspaceItemRowStyles.bubbleClrDanger,
 								)}
 							>
 								-{lineStats.linesRemoved}
