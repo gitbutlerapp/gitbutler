@@ -92,14 +92,14 @@ export const Variants = meta.story({
 			<button type="button" className={getButtonClassName({ variant: "ghost" })}>
 				Button
 			</button>
-			<button type="button" className={getButtonClassName({ variant: "danger" })}>
-				Button
-			</button>
 			<div style={invertedDemoStyle}>
 				<button type="button" className={getButtonClassName({ variant: "ghost-inverted" })}>
 					Button
 				</button>
 			</div>
+			<button type="button" className={getButtonClassName({ variant: "danger" })}>
+				Button
+			</button>
 		</div>
 	),
 });
@@ -135,13 +135,6 @@ export const IconOnly = meta.story({
 			>
 				<Icon name="plus" />
 			</button>
-			<button
-				type="button"
-				className={getButtonClassName({ variant: "danger", iconOnly: true })}
-				aria-label="Danger action"
-			>
-				<Icon name="plus" />
-			</button>
 			<div style={invertedDemoStyle}>
 				<button
 					type="button"
@@ -151,6 +144,13 @@ export const IconOnly = meta.story({
 					<Icon name="plus" />
 				</button>
 			</div>
+			<button
+				type="button"
+				className={getButtonClassName({ variant: "danger", iconOnly: true })}
+				aria-label="Danger action"
+			>
+				<Icon name="plus" />
+			</button>
 		</div>
 	),
 });
