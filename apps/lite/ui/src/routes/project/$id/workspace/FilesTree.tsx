@@ -257,6 +257,15 @@ const statusLabel = (status: TreeStatus): string =>
 		Match.exhaustive,
 	);
 
+const statusTooltip = (status: TreeStatus): string =>
+	Match.value(status).pipe(
+		Match.when({ type: "Addition" }, () => "Added"),
+		Match.when({ type: "Deletion" }, () => "Deleted"),
+		Match.when({ type: "Modification" }, () => "Modified"),
+		Match.when({ type: "Rename" }, () => "Renamed"),
+		Match.exhaustive,
+	);
+
 const FileRow: FC<
 	{
 		item: FileTreeItem;
@@ -350,17 +359,30 @@ const FileRow: FC<
 					</Toolbar.Root>
 				)}
 
-				{item._tag === "Change" ? (
-					<span
-						className={styles.fileStatusIndicator}
-						aria-label={item.change.status.type}
-						data-char={statusLabel(item.change.status)}
-					>
-						{statusLabel(item.change.status)}
-					</span>
-				) : (
-					"C"
-				)}
+				{item._tag === "Change"
+					? (() => {
+							const label = statusLabel(item.change.status);
+							const tooltip = statusTooltip(item.change.status);
+
+							return (
+								<Tooltip.Root disableHoverablePopup>
+									<Tooltip.Trigger
+										className={styles.fileStatusIndicator}
+										aria-label={tooltip}
+										data-char={label}
+										render={<span />}
+									>
+										{label}
+									</Tooltip.Trigger>
+									<Tooltip.Portal>
+										<Tooltip.Positioner sideOffset={4}>
+											<Tooltip.Popup render={<TooltipPopup />}>{tooltip}</Tooltip.Popup>
+										</Tooltip.Positioner>
+									</Tooltip.Portal>
+								</Tooltip.Root>
+							);
+						})()
+					: "C"}
 			</Tooltip.Trigger>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
