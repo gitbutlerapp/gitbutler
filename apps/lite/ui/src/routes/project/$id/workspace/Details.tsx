@@ -803,7 +803,7 @@ const Diff: FC<{
 	const preferredDiffStyle = useAppSelector((state) =>
 		selectProjectPreferredDiffStyle(state, projectId),
 	);
-	const [diffContentsEl, setDiffContentsEl] = useState<HTMLElement | null>(null);
+	const diffContentsEl = useRef<HTMLElement | null>(null);
 	const [canUseSplitDiff, setCanUseSplitDiff] = useState<boolean | undefined>();
 
 	const toggleDiffStyle = () => dispatch(projectActions.togglePreferredDiffStyle({ projectId }));
@@ -822,13 +822,17 @@ const Diff: FC<{
 	]);
 
 	useLayoutEffect(() => {
-		if (!diffContentsEl) return;
+		const el = diffContentsEl.current;
+		if (!el) return;
+
+		const measureCanUseSplitDiff = () => el.getBoundingClientRect().width >= 700;
+
+		setCanUseSplitDiff(measureCanUseSplitDiff());
 
 		const resizeObserver = new ResizeObserver(() => {
-			setCanUseSplitDiff(diffContentsEl.getBoundingClientRect().width >= 700);
+			setCanUseSplitDiff(measureCanUseSplitDiff());
 		});
-
-		resizeObserver.observe(diffContentsEl);
+		resizeObserver.observe(el);
 
 		return () => resizeObserver.disconnect();
 	}, [diffContentsEl]);
@@ -869,7 +873,7 @@ const Diff: FC<{
 					// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
 					tabIndex={0}
 					className={styles.diffContentsContainer}
-					ref={useMergedRefs(selectionScopeRef, setDiffContentsEl)}
+					ref={useMergedRefs(selectionScopeRef, diffContentsEl)}
 				>
 					<DiffContents
 						onViewerFileSelection={onFileSelection}
