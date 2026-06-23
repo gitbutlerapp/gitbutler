@@ -141,6 +141,7 @@
 .commitControlsFooter {
 	display: flex;
 	column-gap: 4px;
+	justify-content: space-between;
 }
 
 .commitDropdownButton {
@@ -176,9 +177,7 @@
 .commitTargetComboboxTrigger {
 	display: flex;
 	column-gap: 6px;
-	flex-grow: 1;
 	align-items: center;
-	justify-content: start;
 	min-width: 0;
 	padding-inline: 8px;
 	border-radius: var(--radius-m);
@@ -193,6 +192,7 @@
 
 .commitTargetComboboxTriggerLabel {
 	overflow: hidden;
+	line-height: 1;
 	text-overflow: ellipsis;
 }
 
