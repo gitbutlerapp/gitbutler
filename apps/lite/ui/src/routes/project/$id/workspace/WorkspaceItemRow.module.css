@@ -1,7 +1,6 @@
 .container {
 	display: flex;
 	column-gap: 8px;
-	min-height: 28px;
 	padding-inline: 8px;
 
 	&[inert] {
@@ -34,14 +33,14 @@
 
 .toolbar {
 	display: none;
-	column-gap: 8px;
-	padding-block: 4px;
 
 	.container:hover &,
 	.container:focus-within &,
 	.containerSelected &,
 	&.toolbarForceVisible {
 		display: flex;
+		column-gap: 8px;
+		padding-block: 4px;
 	}
 
 	button {
@@ -49,9 +48,19 @@
 	}
 }
 
-.label {
+.labelContainer {
+	display: flex;
+	column-gap: 6px;
 	flex-grow: 1;
+	min-width: 0;
 	padding-block: 6px;
+}
+
+.label {
+	line-height: 16px;
+}
+
+.labelSingleLine {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -100,13 +109,12 @@
 	align-items: center;
 	justify-content: center;
 	min-width: 20px;
+	height: 16px;
 	padding-inline: 5px;
-	padding-block: 2px;
 	border-radius: 10px;
 }
 
 .changesCountBubble {
-	align-self: center;
 	background-color: var(--fill-gray-bg);
 	color: var(--fill-gray-fg);
 
@@ -118,7 +126,6 @@
 
 .lineStatsGroup {
 	display: inline-flex;
-	align-self: center;
 }
 
 .lineStatsBubble {
