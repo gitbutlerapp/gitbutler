@@ -21,6 +21,7 @@ import styles from "./FilesTree.module.css";
 import {
 	WorkspaceItemRow,
 	WorkspaceItemRowLabel,
+	WorkspaceItemRowLabelContainer,
 	WorkspaceItemRowToolbar,
 } from "./WorkspaceItemRow.tsx";
 import { getWorkspaceItemRowButtonClassName } from "./WorkspaceItemRow-utils.ts";
@@ -154,9 +155,11 @@ export const FilesTree: FC<
 				<div className={styles.section}>
 					{items.length === 0 ? (
 						<WorkspaceItemRow interactive={false}>
-							<WorkspaceItemRowLabel>
-								<span className={workspaceItemRowStyles.fadedText}>No changes.</span>
-							</WorkspaceItemRowLabel>
+							<WorkspaceItemRowLabelContainer>
+								<WorkspaceItemRowLabel className={workspaceItemRowStyles.fadedText}>
+									No changes.
+								</WorkspaceItemRowLabel>
+							</WorkspaceItemRowLabelContainer>
 						</WorkspaceItemRow>
 					) : (
 						<div role="group">
@@ -304,7 +307,9 @@ const FileRow: FC<
 						</Tooltip.Portal>
 					</Tooltip.Root>
 				</div>
-				<WorkspaceItemRowLabel>{relativePath}</WorkspaceItemRowLabel>
+				<WorkspaceItemRowLabelContainer>
+					<WorkspaceItemRowLabel singleLine>{relativePath}</WorkspaceItemRowLabel>
+				</WorkspaceItemRowLabelContainer>
 
 				{outlineMode._tag === "Default" && (
 					<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
@@ -360,7 +365,7 @@ const FileRow: FC<
 							return (
 								<Tooltip.Root disableHoverablePopup>
 									<Tooltip.Trigger
-										className={styles.fileStatusIndicator}
+										className={styles.fileStatusBadge}
 										aria-label={tooltip}
 										data-char={label}
 										render={<span />}

@@ -14,7 +14,7 @@
 	}
 }
 
-.fileStatusIndicator {
+.fileStatusBadge {
 	align-self: center;
 	font-weight: 700;
 	font-size: 11px;

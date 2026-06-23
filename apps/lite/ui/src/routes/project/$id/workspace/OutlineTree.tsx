@@ -113,6 +113,7 @@ import { Checkbox } from "#ui/components/Checkbox.tsx";
 import {
 	WorkspaceItemRow,
 	WorkspaceItemRowLabel,
+	WorkspaceItemRowLabelContainer,
 	WorkspaceItemRowToolbar,
 } from "./WorkspaceItemRow.tsx";
 import { getWorkspaceItemRowButtonClassName } from "./WorkspaceItemRow-utils.ts";
@@ -945,7 +946,8 @@ const InlineEditor: FC<{
 	onSubmit: (value: string) => void;
 	onExit: () => void;
 	multiline: boolean;
-}> = ({ value, label, hotkeyGroup, onMount, onSubmit, onExit, multiline }) => {
+	heading?: boolean;
+}> = ({ value, label, hotkeyGroup, onMount, onSubmit, onExit, multiline, heading }) => {
 	const name = useId();
 	const formRef = useRef<HTMLFormElement | null>(null);
 	const textFieldRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
@@ -976,23 +978,20 @@ const InlineEditor: FC<{
 
 	return (
 		<form ref={formRef} className={styles.inlineEditorForm} action={submitAction}>
-			{multiline ? (
-				<textarea
-					ref={allTextFieldRefs}
+			<WorkspaceItemRowLabelContainer>
+				<WorkspaceItemRowLabel
+					heading={heading}
 					aria-label={label}
-					name={name}
-					defaultValue={value}
 					className={styles.inlineEditorInput}
+					render={
+						multiline ? (
+							<textarea ref={allTextFieldRefs} name={name} defaultValue={value} />
+						) : (
+							<input ref={allTextFieldRefs} name={name} defaultValue={value} />
+						)
+					}
 				/>
-			) : (
-				<input
-					ref={allTextFieldRefs}
-					aria-label={label}
-					name={name}
-					defaultValue={value}
-					className={styles.inlineEditorInput}
-				/>
-			)}
+			</WorkspaceItemRowLabelContainer>
 			<div className={styles.inlineEditorHelp}>
 				<button type="submit" className={getWorkspaceItemRowButtonClassName({})}>
 					<kbd>{formatForDisplay("Enter")}</kbd>
@@ -1358,32 +1357,32 @@ const CommitRow: FC<
 				</Tooltip.Root>
 			</div>
 
-			<WorkspaceItemRowLabel>
-				{isRewording ? (
-					<InlineEditor
-						multiline
-						value={optimisticMessage.trim()}
-						label="Commit message"
-						hotkeyGroup="Reword commit"
-						onMount={(el) => {
-							const firstNewline = el.value.indexOf("\n");
-							const cursorPosition = firstNewline !== -1 ? firstNewline : el.value.length;
-							el.setSelectionRange(cursorPosition, cursorPosition);
-						}}
-						onSubmit={saveNewMessage}
-						onExit={endEditing}
-					/>
-				) : (
-					<>
+			{isRewording ? (
+				<InlineEditor
+					multiline
+					value={optimisticMessage.trim()}
+					label="Commit message"
+					hotkeyGroup="Reword commit"
+					onMount={(el) => {
+						const firstNewline = el.value.indexOf("\n");
+						const cursorPosition = firstNewline !== -1 ? firstNewline : el.value.length;
+						el.setSelectionRange(cursorPosition, cursorPosition);
+					}}
+					onSubmit={saveNewMessage}
+					onExit={endEditing}
+				/>
+			) : (
+				<WorkspaceItemRowLabelContainer>
+					<WorkspaceItemRowLabel singleLine>
 						{title === undefined ? (
 							<span className={workspaceItemRowStyles.fadedText}>(no message)</span>
 						) : (
 							title
 						)}
 						{hasConflicts && " ⚠️"}
-					</>
-				)}
-			</WorkspaceItemRowLabel>
+					</WorkspaceItemRowLabel>
+				</WorkspaceItemRowLabelContainer>
+			)}
 
 			{isDefaultMode && (
 				<Toolbar.Root aria-label="Commit actions" render={<WorkspaceItemRowToolbar />}>
@@ -1495,50 +1494,53 @@ const ChangesSectionRow: FC<{
 				void showNativeContextMenu(event, menuItems);
 			}}
 		>
-			<WorkspaceItemRowLabel heading>
-				{changes.length === 0 ? "Nothing to commit" : "Uncommitted changes"}
-			</WorkspaceItemRowLabel>
+			<WorkspaceItemRowLabelContainer>
+				<WorkspaceItemRowLabel heading>
+					{changes.length === 0 ? "Nothing to commit" : "Uncommitted changes"}
+				</WorkspaceItemRowLabel>
 
-			<span
-				className={classes(
-					"text-11",
-					"text-semibold",
-					workspaceItemRowStyles.bubble,
-					workspaceItemRowStyles.changesCountBubble,
-				)}
-			>
-				{changes.length}
-			</span>
-			{lineStats && (lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
-				<span className={workspaceItemRowStyles.lineStatsGroup}>
-					{lineStats.linesAdded > 0 && (
-						<span
-							className={classes(
-								"text-11",
-								"text-semibold",
-								workspaceItemRowStyles.bubble,
-								workspaceItemRowStyles.lineStatsBubble,
-								workspaceItemRowStyles.lineStatsAdded,
-							)}
-						>
-							+{lineStats.linesAdded}
-						</span>
+				<span
+					className={classes(
+						"text-11",
+						"text-semibold",
+						workspaceItemRowStyles.bubble,
+						workspaceItemRowStyles.changesCountBubble,
 					)}
-					{lineStats.linesRemoved > 0 && (
-						<span
-							className={classes(
-								"text-11",
-								"text-semibold",
-								workspaceItemRowStyles.bubble,
-								workspaceItemRowStyles.lineStatsBubble,
-								workspaceItemRowStyles.lineStatsRemoved,
-							)}
-						>
-							-{lineStats.linesRemoved}
-						</span>
-					)}
+				>
+					{changes.length}
 				</span>
-			)}
+
+				{lineStats && (lineStats.linesAdded > 0 || lineStats.linesRemoved > 0) && (
+					<span className={workspaceItemRowStyles.lineStatsGroup}>
+						{lineStats.linesAdded > 0 && (
+							<span
+								className={classes(
+									"text-11",
+									"text-semibold",
+									workspaceItemRowStyles.bubble,
+									workspaceItemRowStyles.lineStatsBubble,
+									workspaceItemRowStyles.lineStatsAdded,
+								)}
+							>
+								+{lineStats.linesAdded}
+							</span>
+						)}
+						{lineStats.linesRemoved > 0 && (
+							<span
+								className={classes(
+									"text-11",
+									"text-semibold",
+									workspaceItemRowStyles.bubble,
+									workspaceItemRowStyles.lineStatsBubble,
+									workspaceItemRowStyles.lineStatsRemoved,
+								)}
+							>
+								-{lineStats.linesRemoved}
+							</span>
+						)}
+					</span>
+				)}
+			</WorkspaceItemRowLabelContainer>
 
 			{isDefaultMode && (
 				<Toolbar.Root
@@ -2282,73 +2284,75 @@ const BranchRow: FC<
 				status={segmentPushStatusToStatus(pushStatus)}
 			/>
 
-			<WorkspaceItemRowLabel heading>
-				{isRenaming ? (
-					<InlineEditor
-						multiline={false}
-						value={optimisticBranchDisplayName}
-						label="Branch name"
-						hotkeyGroup="Rename branch"
-						onMount={(el) => {
-							el.select();
-						}}
-						onSubmit={saveBranchName}
-						onExit={endEditing}
-					/>
-				) : (
-					<div className={styles.branchLabel}>
-						<div className={styles.branchLabelTitle}>{optimisticBranchDisplayName}</div>
-						<div className={classes("text-13", styles.branchLabelMeta)}>
-							<span className={workspaceItemRowStyles.fadedText}>
-								{Match.value(pushStatus).pipe(
-									Match.when("nothingToPush", () => "Nothing to push"),
-									Match.when("unpushedCommits", () => "Some unpushed"),
-									Match.when("completelyUnpushed", () => "Unpushed branch"),
-									Match.when("unpushedCommitsRequiringForce", () => "Some unpushed"),
-									Match.when("integrated", () => "Integrated"),
-									Match.exhaustive,
-								)}
-							</span>
+			{isRenaming ? (
+				<InlineEditor
+					multiline={false}
+					heading
+					value={optimisticBranchDisplayName}
+					label="Branch name"
+					hotkeyGroup="Rename branch"
+					onMount={(el) => {
+						el.select();
+					}}
+					onSubmit={saveBranchName}
+					onExit={endEditing}
+				/>
+			) : (
+				<div className={styles.branchLabel}>
+					<WorkspaceItemRowLabelContainer>
+						<WorkspaceItemRowLabel heading>{optimisticBranchDisplayName}</WorkspaceItemRowLabel>
+					</WorkspaceItemRowLabelContainer>
 
-							{pullRequest !== null && (
-								<span
-									className={classes(workspaceItemRowStyles.fadedText, styles.branchLabelMetaItem)}
-								>
-									<Icon name="pr" />
-									PR
-								</span>
+					<div className={classes("text-13", styles.branchLabelMeta)}>
+						<span className={workspaceItemRowStyles.fadedText}>
+							{Match.value(pushStatus).pipe(
+								Match.when("nothingToPush", () => "Nothing to push"),
+								Match.when("unpushedCommits", () => "Some unpushed"),
+								Match.when("completelyUnpushed", () => "Unpushed branch"),
+								Match.when("unpushedCommitsRequiringForce", () => "Some unpushed"),
+								Match.when("integrated", () => "Integrated"),
+								Match.exhaustive,
 							)}
+						</span>
 
-							<Tooltip.Root>
-								<Tooltip.Trigger
-									aria-label={pushButtonLabel}
-									onClick={pushStack}
-									className={getWorkspaceItemRowButtonClassName({ variant: "outline" })}
-									// We pass `disabled` here because we want to disable the button, not
-									// the tooltip. Other props should be passed above.
-									render={<Button focusableWhenDisabled disabled={!canPushStack} />}
-								>
-									{pushStackMutation.isPending ? (
-										<Icon name="spinner" />
-									) : pushesMultipleBranches ? (
-										<Icon name="arrow-double-line-up" />
-									) : (
-										<Icon name="arrow-line-up" />
-									)}
-									Push
-								</Tooltip.Trigger>
-								<Tooltip.Portal>
-									<Tooltip.Positioner sideOffset={4}>
-										<Tooltip.Popup render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}>
-											{pushStackDisabledReason ?? pushButtonLabel}
-										</Tooltip.Popup>
-									</Tooltip.Positioner>
-								</Tooltip.Portal>
-							</Tooltip.Root>
-						</div>
+						{pullRequest !== null && (
+							<span
+								className={classes(workspaceItemRowStyles.fadedText, styles.branchLabelMetaItem)}
+							>
+								<Icon name="pr" />
+								PR
+							</span>
+						)}
+
+						<Tooltip.Root>
+							<Tooltip.Trigger
+								aria-label={pushButtonLabel}
+								onClick={pushStack}
+								className={getWorkspaceItemRowButtonClassName({ variant: "outline" })}
+								// We pass `disabled` here because we want to disable the button, not
+								// the tooltip. Other props should be passed above.
+								render={<Button focusableWhenDisabled disabled={!canPushStack} />}
+							>
+								{pushStackMutation.isPending ? (
+									<Icon name="spinner" />
+								) : pushesMultipleBranches ? (
+									<Icon name="arrow-double-line-up" />
+								) : (
+									<Icon name="arrow-line-up" />
+								)}
+								Push
+							</Tooltip.Trigger>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}>
+										{pushStackDisabledReason ?? pushButtonLabel}
+									</Tooltip.Popup>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
 					</div>
-				)}
-			</WorkspaceItemRowLabel>
+				</div>
+			)}
 
 			{isDefaultMode && (
 				<Toolbar.Root aria-label="Branch actions" render={<WorkspaceItemRowToolbar forceVisible />}>
@@ -2422,7 +2426,7 @@ const StackRow: FC<
 				void showNativeContextMenu(event, menuItems);
 			}}
 		>
-			<WorkspaceItemRowLabel />
+			<WorkspaceItemRowLabelContainer />
 
 			{isDefaultMode && (
 				<Toolbar.Root aria-label="Stack actions" render={<WorkspaceItemRowToolbar forceVisible />}>
@@ -2525,9 +2529,11 @@ const SegmentContent: FC<{
 			<div>
 				<WorkspaceItemRow interactive={false} inert={inert}>
 					<GraphSegment glyph="parent" status={segmentPushStatusToStatus(segment.pushStatus)} />
-					<WorkspaceItemRowLabel>
-						<span className={workspaceItemRowStyles.fadedText}>No commits.</span>
-					</WorkspaceItemRowLabel>
+					<WorkspaceItemRowLabelContainer>
+						<WorkspaceItemRowLabel className={workspaceItemRowStyles.fadedText}>
+							No commits.
+						</WorkspaceItemRowLabel>
+					</WorkspaceItemRowLabelContainer>
 				</WorkspaceItemRow>
 			</div>
 		);

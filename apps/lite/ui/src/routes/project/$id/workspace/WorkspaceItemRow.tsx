@@ -2,6 +2,7 @@ import { classes } from "#ui/components/classes.ts";
 import { useMergedRefs } from "@base-ui/utils/useMergedRefs";
 import { ComponentProps, FC, useLayoutEffect, useRef } from "react";
 import styles from "./WorkspaceItemRow.module.css";
+import { mergeProps, useRender } from "@base-ui/react";
 
 export const WorkspaceItemRow: FC<
 	{
@@ -48,20 +49,24 @@ export const WorkspaceItemRow: FC<
 	);
 };
 
-export const WorkspaceItemRowLabel: FC<{ heading?: boolean } & ComponentProps<"div">> = ({
-	heading,
-	...restProps
-}) => (
-	<div
-		{...restProps}
-		className={classes(
-			restProps.className,
-			styles.label,
-			heading ? "text-14" : "text-13",
-			heading && "text-bold",
-		)}
-	/>
+export const WorkspaceItemRowLabelContainer: FC<ComponentProps<"div">> = (props) => (
+	<div {...props} className={classes(props.className, styles.labelContainer)} />
 );
+
+export const WorkspaceItemRowLabel: FC<
+	{ heading?: boolean; singleLine?: boolean } & useRender.ComponentProps<"div">
+> = ({ heading, singleLine, render, ...props }) =>
+	useRender({
+		render,
+		props: mergeProps<"div">(props, {
+			className: classes(
+				styles.label,
+				singleLine && styles.labelSingleLine,
+				heading ? "text-14" : "text-13",
+				heading && "text-bold",
+			),
+		}),
+	});
 
 export const WorkspaceItemRowToolbar: FC<{ forceVisible?: boolean } & ComponentProps<"div">> = ({
 	forceVisible,
