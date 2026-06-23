@@ -9,9 +9,9 @@ fn one_branch_three_commits() -> Sandbox {
     env.file("two", "content of two");
     env.file("three", "content of three");
 
-    env.but("commit2 -m 'add one' one").assert().success();
-    env.but("commit2 -m 'add two' two").assert().success();
-    env.but("commit2 -m 'add three' three").assert().success();
+    env.but("_commit2 -m 'add one' one").assert().success();
+    env.but("_commit2 -m 'add two' two").assert().success();
+    env.but("_commit2 -m 'add three' three").assert().success();
 
     env
 }
@@ -43,7 +43,7 @@ Hint: run `but help` for all commands
 
     // TODO(david): handle --message
 
-    env.but("squash2 f55169f --target f63361f --message 'squashed'")
+    env.but("_squash2 f55169f --target f63361f --message 'squashed'")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -73,7 +73,7 @@ Hint: run `but help` for all commands
 
     env.but("undo").assert().success();
 
-    env.but("squash2 f55169f --target f63361f --message 'squashed' --format json")
+    env.but("_squash2 f55169f --target f63361f --message 'squashed' --format json")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -85,7 +85,7 @@ Hint: run `but help` for all commands
 
     env.but("undo").assert().success();
 
-    env.but("squash2 f55169f --target f63361f --message 'squashed' --format shell")
+    env.but("_squash2 f55169f --target f63361f --message 'squashed' --format shell")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -98,7 +98,7 @@ Hint: run `but help` for all commands
 fn squash_multiple_sources() {
     let env = one_branch_three_commits();
 
-    env.but("squash2 f55169f f63361f --target ea345ba --message 'squashed'")
+    env.but("_squash2 f55169f f63361f --target ea345ba --message 'squashed'")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -130,7 +130,7 @@ Hint: run `but help` for all commands
 fn use_target_message() {
     let env = one_branch_three_commits();
 
-    env.but("squash2 f55169f --target f63361f --use-target-message")
+    env.but("_squash2 f55169f --target f63361f --use-target-message")
         .assert()
         .success();
 
@@ -161,7 +161,7 @@ Hint: run `but help` for all commands
 fn use_source_message() {
     let env = one_branch_three_commits();
 
-    env.but("squash2 f55169f --target f63361f --use-source-message")
+    env.but("_squash2 f55169f --target f63361f --use-source-message")
         .assert()
         .success();
 
@@ -192,7 +192,7 @@ Hint: run `but help` for all commands
 fn squash_whole_branch() {
     let env = one_branch_three_commits();
 
-    env.but("squash2 a-branch-1 -m 'squashed a branch'")
+    env.but("_squash2 a-branch-1 -m 'squashed a branch'")
         .assert()
         .success()
         .stdout_eq(snapbox::str![["
@@ -232,7 +232,7 @@ fn squash_reword_with_editor() {
     let editor_path = env.projects_root().join(".git/editor.sh");
     let editor_command = format!("sh {}", editor_path.display());
 
-    env.but("squash2 a-branch-1")
+    env.but("_squash2 a-branch-1")
         .env("GIT_EDITOR", editor_command)
         .assert()
         .success()
@@ -270,7 +270,7 @@ fn squash_combine_messages_with_editor() {
     let editor_path = env.projects_root().join(".git/editor.sh");
     let editor_command = format!("sh {}", editor_path.display());
 
-    env.but("squash2 a-branch-1")
+    env.but("_squash2 a-branch-1")
         .env("GIT_EDITOR", editor_command)
         .assert()
         .success()

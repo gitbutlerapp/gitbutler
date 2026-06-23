@@ -258,13 +258,13 @@ pub enum Subcommands {
 
     #[cfg(all(feature = "legacy", feature = "but-2"))]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    #[clap(hide = true)]
-    Commit2(commit2::Platform),
+    #[clap(hide = true, name = "_commit2")]
+    _Commit2(commit2::Platform),
 
     #[cfg(all(feature = "legacy", feature = "but-2"))]
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
-    #[clap(hide = true)]
-    Squash2(squash2::Platform),
+    #[clap(hide = true, name = "_squash2")]
+    _Squash2(squash2::Platform),
 
     /// Stages a file or hunk to a specific branch.
     ///

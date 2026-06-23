@@ -130,7 +130,7 @@ impl Subcommands {
                 Some(crate::args::commit::Subcommands::Empty { .. }) => CommitEmpty,
             },
             #[cfg(all(feature = "legacy", feature = "but-2"))]
-            Subcommands::Commit2(..) => Commit2,
+            Subcommands::_Commit2(..) => Commit2,
             #[cfg(feature = "legacy")]
             Subcommands::Push(_) => Push,
             #[cfg(feature = "legacy")]
@@ -210,7 +210,7 @@ impl Subcommands {
             #[cfg(feature = "legacy")]
             Subcommands::Squash { .. } => Squash,
             #[cfg(all(feature = "legacy", feature = "but-2"))]
-            Subcommands::Squash2(..) => Squash2,
+            Subcommands::_Squash2(..) => Squash2,
             #[cfg(feature = "legacy")]
             Subcommands::Merge { .. } => Merge,
             Subcommands::Move { .. } => Move,
