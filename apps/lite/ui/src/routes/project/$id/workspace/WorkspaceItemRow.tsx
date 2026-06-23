@@ -48,14 +48,18 @@ export const WorkspaceItemRow: FC<
 	);
 };
 
+export const WorkspaceItemRowLabelContainer: FC<ComponentProps<"div">> = (props) => (
+	<div {...props} className={classes(props.className, styles.labelContainer)} />
+);
+
 export const WorkspaceItemRowLabel: FC<{ heading?: boolean } & ComponentProps<"div">> = ({
 	heading,
-	...restProps
+	...props
 }) => (
 	<div
-		{...restProps}
+		{...props}
 		className={classes(
-			restProps.className,
+			props.className,
 			styles.label,
 			heading ? "text-14" : "text-13",
 			heading && "text-bold",

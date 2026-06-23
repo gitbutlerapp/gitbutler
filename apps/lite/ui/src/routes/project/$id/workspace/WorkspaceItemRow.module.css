@@ -49,9 +49,12 @@
 	}
 }
 
-.label {
+.labelContainer {
 	flex-grow: 1;
 	padding-block: 6px;
+}
+
+.label {
 	line-height: 16px;
 }
 
