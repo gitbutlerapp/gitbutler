@@ -141,21 +141,21 @@
 }
 
 .lineStatsAdded {
-	background-color: color-mix(in srgb, var(--clr-safe-50) 18%, transparent);
-	color: var(--clr-safe-40);
+	background-color: color-mix(in srgb, var(--clr-safe-50) 25%, var(--bg-1));
+	color: var(--text-safe);
 
 	[data-selection-scope]:focus .containerSelected & {
-		background-color: color-mix(in srgb, var(--clr-safe-50) 22%, transparent);
-		color: var(--clr-safe-60);
+		background-color: color-mix(in srgb, var(--clr-safe-50) 37%, transparent);
+		color: var(--clr-safe-70);
 	}
 }
 
 .lineStatsRemoved {
-	background-color: color-mix(in srgb, var(--clr-danger-50) 18%, transparent);
-	color: var(--clr-danger-40);
+	background-color: color-mix(in srgb, var(--clr-danger-50) 22%, var(--bg-1));
+	color: var(--text-danger);
 
 	[data-selection-scope]:focus .containerSelected & {
-		background-color: color-mix(in srgb, var(--clr-danger-50) 22%, transparent);
-		color: var(--clr-danger-60);
+		background-color: color-mix(in srgb, var(--clr-danger-50) 40%, transparent);
+		color: var(--clr-danger-70);
 	}
 }
