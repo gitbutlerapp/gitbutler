@@ -1263,7 +1263,7 @@ fn committing_something_that_isnt_a_cli_id() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Invalid uncommitted change. 'A' is a branch
+Error: Could not find uncommitted change: 'A'
 
 "#]]);
 }
@@ -1622,6 +1622,57 @@ fn gives_good_error_when_your_terminal_doesnt_support_input() {
         .failure()
         .stderr_eq(snapbox::str![[r#"
 Error: Terminal doesn't support interactivity
+
+"#]]);
+}
+
+#[test]
+fn commit_to_existing_branch_via_short_code() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack");
+    env.setup_metadata(&["A"]);
+
+    env.but("_commit2 -b g0 -m 'new commit'").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted changes] (no changes)
+┊
+┊╭┄g0 [A]
+┊●   2e0e1d8 new commit (no changes)
+┊●   9477ae7 add A
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
+
+"#]]);
+}
+
+#[test]
+fn commit_to_new_branch_with_same_name_as_file() {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("zero-stacks");
+    env.setup_metadata(&[]);
+
+    env.file("file", "");
+
+    env.but("_commit2 -b file -m 'add file'").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [uncommitted changes] (no changes)
+┊
+┊╭┄fi [file]
+┊●   46b0823 add file
+├╯
+┊
+┴ 0dc3733 (common base) 2000-01-02 add M
+
+Hint: run `but help` for all commands
 
 "#]]);
 }

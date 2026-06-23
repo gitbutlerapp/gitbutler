@@ -210,9 +210,7 @@ fn rejects_non_branch_cli_id() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stdout_eq(str![])
-        .stderr_eq(format!(
-            "Error: Invalid branch. '{commit_cli_id}' is a commit\n"
-        ));
+        .stderr_eq(format!("Error: Could not find branch: '{commit_cli_id}'\n"));
 
     Ok(())
 }

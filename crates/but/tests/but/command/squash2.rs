@@ -513,7 +513,7 @@ fn cannot_squash_into_branches() {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Invalid commit. 'a-branch-1' is a branch
+Error: Could not find commit: 'a-branch-1'
 
 Hint: --target must always target a commit
 

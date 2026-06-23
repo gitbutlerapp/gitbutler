@@ -97,7 +97,7 @@ impl CliIdArg {
         };
         match id {
             CliId::Commit { commit_id, .. } => Ok(Some(commit_id)),
-            other => Err(self.wrong_kind_error(&other, "commit")),
+            _ => Ok(None),
         }
     }
 
@@ -144,11 +144,11 @@ impl CliIdArg {
         };
         match id {
             CliId::Branch { name, .. } => Ok(Some(BranchArg(name))),
-            other => Err(self.wrong_kind_error(&other, "branch")),
+            _ => Ok(None),
         }
     }
 
-    /// TODO
+    /// TODO: docs
     pub fn try_resolve_uncommitted(
         &self,
         repo: &gix::Repository,
@@ -184,7 +184,7 @@ impl CliIdArg {
                     })
                     .collect(),
             )),
-            other => Err(self.wrong_kind_error(&other, "uncommitted change")),
+            _ => Ok(None),
         }
     }
 
@@ -201,6 +201,7 @@ impl CliIdArg {
         }
     }
 
+    #[expect(dead_code)]
     fn wrong_kind_error(&self, id: &CliId, expected: &'static str) -> CliError {
         let kind = match id {
             CliId::Branch { .. } => "a branch",

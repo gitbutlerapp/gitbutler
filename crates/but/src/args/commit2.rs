@@ -1,6 +1,8 @@
-#![deny(missing_docs)]
 //! Arguments for `commit2`.
-use crate::args::atoms::{BranchArg, CliIdArg};
+
+#![deny(missing_docs)]
+
+use crate::args::atoms::CliIdArg;
 
 /// Create a commit.
 ///
@@ -36,7 +38,7 @@ pub struct Platform {
     ///
     /// Attempting to place a commit on a branch that exists but is not applied is an error.
     #[clap(short, long, value_name = "BRANCH", group = "targeting")]
-    pub branch: Option<Option<BranchArg>>,
+    pub branch: Option<Option<CliIdArg>>,
     /// Place the commit above `BRANCH_OR_COMMIT`, which must be an applied branch or commit.
     ///
     /// If `BRANCH_OR_COMMIT` is a commit, the new commit is placed on the same branch as the
