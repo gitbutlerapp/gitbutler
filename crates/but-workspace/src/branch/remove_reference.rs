@@ -15,6 +15,7 @@ pub struct Options {
 use anyhow::{Context as _, bail};
 use but_core::RefMetadata;
 use but_error::bail_precondition;
+use but_graph::workspace::WorkspaceKind;
 use gix::refs::transaction::PreviousValue;
 
 /// Remove the workspace reference `ref_name` (if it still exists),
@@ -34,12 +35,21 @@ pub fn remove_reference(
         keep_metadata,
     }: Options,
 ) -> anyhow::Result<Option<but_graph::Workspace>> {
-    // We assume the stack-idx can't change by deleting
-    let Some((stack, _segment)) = workspace.find_segment_and_stack_by_refname(ref_name) else {
-        return Ok(None);
-    };
+    // We assume the stack-idx can't change by deleting.
+    let stack_id =
+        if let Some((stack, _segment)) = workspace.find_segment_and_stack_by_refname(ref_name) {
+            Some(stack.id)
+        } else {
+            let ordered_ad_hoc_ref = matches!(workspace.kind, WorkspaceKind::AdHoc)
+                && meta.branch_stack_order(ref_name)?.is_some();
+            if !ordered_ad_hoc_ref {
+                return Ok(None);
+            }
+            None
+        };
 
     if avoid_anonymous_stacks
+        && let Some((stack, _segment)) = workspace.find_segment_and_stack_by_refname(ref_name)
         && (stack
             .segments
             .iter()
@@ -83,12 +93,11 @@ pub fn remove_reference(
         return Ok(None);
     }
 
-    let stack_id = stack.id;
     let mut graph = workspace
         .graph
         .redo_traversal_with_overlay(repo, meta, Default::default())?;
     let ws = graph.into_workspace()?;
-    if avoid_anonymous_stacks {
+    if avoid_anonymous_stacks && let Some(stack_id) = stack_id {
         let Some(stack) = ws.stacks.iter().find(|s| s.id == stack_id) else {
             // The whole stack is gone, so nothing that could be anonymous.
             return Ok(Some(ws));

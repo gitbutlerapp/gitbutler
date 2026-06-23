@@ -2,9 +2,12 @@ use anyhow::{Context, Result};
 use bstr::ByteSlice;
 use but_core::{Commit, RefMetadata};
 use but_graph::init::{Options, Tip};
+use but_meta::BranchOrderMetadata;
 use but_meta::virtual_branches_legacy_types::Target;
 use but_rebase::graph_rebase::mutate::RelativeTo;
-use but_testsupport::{CommandExt, git, graph_workspace, visualize_commit_graph_all};
+use but_testsupport::{
+    CommandExt, git, graph_workspace, visualize_commit_graph_all as visualize_commit_graph_all_raw,
+};
 use but_workspace::{
     BottomUpdate, BottomUpdateKind, ReviewIntegrationHint, integrate_upstream,
     integrate_upstream_with_hints, worktree_conflicts_for_rebase,
@@ -15,11 +18,24 @@ use gix::refs::transaction::PreviousValue;
 use crate::ref_info::with_workspace_commit::utils::{
     StackState, add_stack, add_stack_with_segments, named_writable_scenario_with_description,
 };
+use crate::utils::{r, rc};
 
 fn project_meta(meta: &impl RefMetadata) -> Result<but_core::ref_metadata::ProjectMeta> {
     Ok(meta
         .workspace(but_core::WORKSPACE_REF_NAME.try_into()?)?
         .project_meta())
+}
+
+fn branch_order_meta(repo: &gix::Repository) -> Result<BranchOrderMetadata> {
+    BranchOrderMetadata::from_paths(repo.path().join("virtual-branches.toml"), repo.path())
+}
+
+fn visualize_commit_graph_all(repo: &gix::Repository) -> Result<String> {
+    Ok(visualize_commit_graph_all_raw(repo)?
+        .lines()
+        .map(str::trim_end)
+        .collect::<Vec<_>>()
+        .join("\n"))
 }
 
 #[test]
@@ -49,18 +65,18 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
     * 61ee5f5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 972cf74 (E) E
     *   9e74c75 (C) C
-    |\  
+    |\
     | * d6a7004 (D) D
     | | * 7de2393 (origin/master, master) o4
     | | *   7d62953 (o3) o3
-    | | |\  
-    | |_|/  
-    |/| |   
+    | | |\
+    | |_|/
+    |/| |
     * | | ffb801b (B) B
-    |/ /  
+    |/ /
     * | 448b195 (A) A
     | * d1b2089 o2
-    |/  
+    |/
     * 85aa44b (o1) o1
     ");
 
@@ -84,16 +100,16 @@ fn diamond_partially_historically_integrated_rebase() -> Result<()> {
     * 996b85e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 2eb4a8c (E) E
     *   aecdc68 (C) C
-    |\  
+    |\
     | * 020d090 (D) D
-    |/  
+    |/
     * 7de2393 (origin/master, master) o4
     *   7d62953 (o3) o3
-    |\  
+    |\
     | * ffb801b B
     | * 448b195 A
     * | d1b2089 o2
-    |/  
+    |/
     * 85aa44b (o1) o1
     ");
 
@@ -132,18 +148,18 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
     * 61ee5f5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 972cf74 (E) E
     *   9e74c75 (C) C
-    |\  
+    |\
     | * d6a7004 (D) D
     | | * 7de2393 (origin/master, master) o4
     | | *   7d62953 (o3) o3
-    | | |\  
-    | |_|/  
-    |/| |   
+    | | |\
+    | |_|/
+    |/| |
     * | | ffb801b (B) B
-    |/ /  
+    |/ /
     * | 448b195 (A) A
     | * d1b2089 o2
-    |/  
+    |/
     * 85aa44b (o1) o1
     ");
 
@@ -165,21 +181,21 @@ fn diamond_partially_historically_integrated_merge() -> Result<()> {
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 292b0b3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     *   ed5f276 (E) Merge refs/remotes/origin/master into merge
-    |\  
+    |\
     | * 7de2393 (origin/master, master) o4
     | *   7d62953 (o3) o3
-    | |\  
+    | |\
     | * | d1b2089 o2
     * | | 972cf74 E
     * | |   9e74c75 (C) C
-    |\ \ \  
-    | |_|/  
-    |/| |   
+    |\ \ \
+    | |_|/
+    |/| |
     | * | d6a7004 (D) D
     * | | ffb801b B
-    |/ /  
+    |/ /
     * / 448b195 A
-    |/  
+    |/
     * 85aa44b (o1) o1
     ");
 
@@ -213,16 +229,16 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
     * 3e02fbd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * a6588cf (E) E
     *   4827d2f (C) C
-    |\  
+    |\
     | * d8d0970 (D) D
     * | 3d3bfa7 (B) B
-    |/  
+    |/
     * f5b02d3 (A) A
     | * 162b064 (origin/master, master) o4
     | * dd87d69 (o3) B
     | * 5c0b375 A
     | * d1b2089 o2
-    |/  
+    |/
     * 85aa44b (o1) o1
     ");
 
@@ -257,9 +273,9 @@ fn diamond_partially_content_integrated_rebase() -> Result<()> {
     * 8b48706 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * cb866ec (E) E
     *   c7b32b8 (C) C
-    |\  
+    |\
     | * e05e7c1 (D) D
-    |/  
+    |/
     * 162b064 (origin/master, master) o4
     * dd87d69 (o3) B
     * 5c0b375 A
@@ -297,16 +313,16 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
     * 3e02fbd (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * a6588cf (E) E
     *   4827d2f (C) C
-    |\  
+    |\
     | * d8d0970 (D) D
     * | 3d3bfa7 (B) B
-    |/  
+    |/
     * f5b02d3 (A) A
     | * 162b064 (origin/master, master) o4
     | * dd87d69 (o3) B
     | * 5c0b375 A
     | * d1b2089 o2
-    |/  
+    |/
     * 85aa44b (o1) o1
     ");
 
@@ -328,19 +344,19 @@ fn diamond_partially_content_integrated_merge() -> Result<()> {
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * ebd6fa2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     *   0a395ba (E) Merge refs/remotes/origin/master into merge
-    |\  
+    |\
     | * 162b064 (origin/master, master) o4
     | * dd87d69 (o3) B
     | * 5c0b375 A
     | * d1b2089 o2
     * | a6588cf E
     * |   4827d2f (C) C
-    |\ \  
+    |\ \
     | * | d8d0970 (D) D
     * | | 3d3bfa7 B
-    |/ /  
+    |/ /
     * / f5b02d3 A
-    |/  
+    |/
     * 85aa44b (o1) o1
     ");
 
@@ -381,7 +397,7 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * e792f40 (HEAD -> A) add A1
     | * 8c8a843 (origin/main) add X1
-    |/  
+    |/
     * b38b04b (B) add B1
     * 3183e43 (main) M1
     ");
@@ -495,6 +511,85 @@ fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()>
 }
 
 #[test]
+fn integrated_bottom_empty_top_no_workspace_rebase() -> Result<()> {
+    let (_tmp, repo, mut legacy_meta, _description) =
+        named_writable_scenario_with_description("integrated-bottom-empty-top-no-workspace")?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+
+    legacy_meta.set_default_target(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    })?;
+    drop(legacy_meta);
+    let mut meta = branch_order_meta(&repo)?;
+    meta.set_branch_stack_order(&[
+        rc("refs/heads/A").into_owned(),
+        rc("refs/heads/B").into_owned(),
+    ])?;
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&meta)?,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * 8c8a843 (origin/main) add X1
+    * b38b04b (HEAD -> A, B) add B1
+    * 3183e43 (main) M1
+    ");
+
+    let mut workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    ⌂:3:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
+    └── ≡:3:A[🌳] on 3183e43 {1}
+        ├── :3:A[🌳]
+        └── :0:B
+            └── ·b38b04b
+    ");
+    let project_meta = workspace.graph.project_meta.clone();
+    let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("B")?.detach()),
+        }],
+    )?;
+
+    rebase.materialize()?;
+
+    assert!(
+        repo.try_find_reference("B")?.is_none(),
+        "the integrated bottom branch should be removed from the refs after rebase integration"
+    );
+    assert_eq!(
+        repo.head_name()?.as_ref().map(|name| name.as_bstr()),
+        Some(r("refs/heads/A").as_bstr()),
+        "the empty top branch should remain checked out"
+    );
+    assert_eq!(
+        repo.rev_parse_single("A")?.detach(),
+        repo.rev_parse_single("origin/main")?.detach(),
+        "the empty top branch should move to the integrated target tip"
+    );
+    assert_eq!(
+        meta.branch_stack_order(r("refs/heads/A"))?,
+        Some(vec![rc("refs/heads/A").into_owned()]),
+        "removing the integrated bottom branch should prune it from ad-hoc branch order"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
     let (_tmp, repo, mut meta, _description) =
         named_writable_scenario_with_description("integrated-bottom-branch-no-workspace")?;
@@ -528,7 +623,7 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * e792f40 (HEAD -> A) add A1
     | * 8c8a843 (origin/main) add X1
-    |/  
+    |/
     * b38b04b (B) add B1
     * 3183e43 (main) M1
     ");
@@ -558,10 +653,10 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   7ce831c (HEAD -> A) Merge refs/remotes/origin/main into merge
-    |\  
+    |\
     | * 8c8a843 (origin/main) add X1
     * | e792f40 add A1
-    |/  
+    |/
     * b38b04b add B1
     * 3183e43 (main) M1
     ");
@@ -614,7 +709,7 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
     * 8fd8fb6 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 61c4a24 (A) local change in A 1
     | * f03fc2c (origin/A, new-origin) remote change in A 1
-    |/  
+    |/
     * 2b73dee (origin/main, main) init-integration
     ");
 
@@ -636,10 +731,10 @@ fn merge_upstream_with_conflicting_target_materializes_conflicted_merge_commit()
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 379fa91 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     *   9b4efdf (A) [conflict] Merge refs/remotes/origin/A into merge
-    |\  
+    |\
     | * f03fc2c (origin/A, new-origin) remote change in A 1
     * | 61c4a24 local change in A 1
-    |/  
+    |/
     * 2b73dee (origin/main, main) init-integration
     ");
 
@@ -704,10 +799,10 @@ fn fully_historically_integrated_branch_leaves_workspace_shape() -> Result<()> {
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   9d7da88 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
+    |\
     | * 905d6e5 (origin/main, A) add A1
     * | b38b04b (B) add B1
-    |/  
+    |/
     * 3183e43 (main) M1
     ");
 
@@ -843,7 +938,7 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_target(
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 9de7db5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | * 6b20716 (origin/main) add X
-    |/  
+    |/
     * ffde79e (A) add A
     * 86b55e6 add B
     * 8d5739f (main) add C
@@ -975,12 +1070,12 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
     * 9de7db5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | * f27db86 (origin/main) add X
     | *   4f5589a D
-    | |\  
-    | |/  
-    |/|   
+    | |\
+    | |/
+    |/|
     * | ffde79e (A) add A
     * | 86b55e6 add B
-    |/  
+    |/
     * 8d5739f (main) add C
     ");
 
@@ -1011,10 +1106,10 @@ fn fully_integrated_single_branch_reparents_workspace_commit_to_advanced_merge_t
     * d60856a (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * f27db86 (origin/main) add X
     *   4f5589a D
-    |\  
+    |\
     | * ffde79e add A
     | * 86b55e6 add B
-    |/  
+    |/
     * 8d5739f (main) add C
     ");
 
@@ -1285,12 +1380,12 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
     )?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   e854d6a (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
+    |\
     | * 90d25da (A) add A
     * | 0d97cc1 add C2
-    |/  
+    |/
     | * 20a5ffc (origin/main, main) add X
-    |/  
+    |/
     * fe9ae6e (target-sha) add C1
     ");
 
@@ -1328,11 +1423,11 @@ fn workspace_target_parent_updates_while_stack_parent_remains_anonymous_segment_
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   06beb96 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
+    |\
     | * c529875 (A) add A
     | * 20a5ffc (origin/main, main) add X
     * | 0d97cc1 add C2
-    |/  
+    |/
     * fe9ae6e (target-sha) add C1
     ");
     assert_eq!(
@@ -1475,11 +1570,11 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   cf53402 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
+    |\
     | * 44c9428 (A) add A1
     | * f1e7451 (origin/main, C) add C1
     * | b38b04b (B) add B1
-    |/  
+    |/
     * 3183e43 (main) M1
     ");
 
@@ -1526,10 +1621,10 @@ fn partially_integrated_branch_leaves_multi_branch_stack() -> Result<()> {
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   780946b (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
+    |\
     | * 44c9428 (A) add A1
     * | a27415e (B) add B1
-    |/  
+    |/
     * f1e7451 (origin/main) add C1
     * 3183e43 (main) M1
     ");
@@ -1563,11 +1658,11 @@ fn fully_integrated_multi_branch_stack_leaves_workspace_shape() -> Result<()> {
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   cf53402 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
+    |\
     | * 44c9428 (origin/main, A) add A1
     | * f1e7451 (C) add C1
     * | b38b04b (B) add B1
-    |/  
+    |/
     * 3183e43 (main) M1
     ");
 
@@ -1646,17 +1741,17 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   9d7da88 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
+    |\
     | | *   5f7d45e (origin/main, main) Merging B into base
-    | | |\  
-    | |_|/  
-    |/| |   
+    | | |\
+    | |_|/
+    |/| |
     * | | b38b04b (B) add B1
     | | * 1f7670a Merging A into base
-    | |/| 
-    |/|/  
+    | |/|
+    |/|/
     | * 905d6e5 (A) add A1
-    |/  
+    |/
     * 3183e43 M1
     ");
 
@@ -1694,14 +1789,14 @@ fn fully_integrated_two_stacks_leave_workspace_shape() -> Result<()> {
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * b44fd24 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     *   5f7d45e (origin/main, main) Merging B into base
-    |\  
+    |\
     | * b38b04b add B1
     * |   1f7670a Merging A into base
-    |\ \  
-    | |/  
-    |/|   
+    |\ \
+    | |/
+    |/|
     | * 905d6e5 add A1
-    |/  
+    |/
     * 3183e43 M1
     ");
 
@@ -2340,13 +2435,13 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   b96a78e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    |\  
+    |\
     | * ad1d22b (A) add A2
     | * fe98e29 add A1
     * | b38b04b (B) add B1
-    |/  
+    |/
     | * 56057f2 (origin/main) squash A
-    |/  
+    |/
     * 3183e43 (main) M1
     ");
 
@@ -2391,7 +2486,7 @@ fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Re
     * e4abb28 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * b38b04b (B) add B1
     | * 56057f2 (origin/main) squash A
-    |/  
+    |/
     * 3183e43 (main) M1
     ");
 
@@ -2445,7 +2540,7 @@ fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result
     * ad1d22b (HEAD -> A) add A2
     * fe98e29 add A1
     | * 56057f2 (origin/main) squash A
-    |/  
+    |/
     * 3183e43 (main) M1
     ");
 
@@ -2532,7 +2627,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_work
     * ad1d22b add A2
     * fe98e29 add A1
     | * e2f5892 (origin/main) squash A1 and A2
-    |/  
+    |/
     * 3183e43 (main) M1
     ");
 
@@ -2615,7 +2710,7 @@ fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_check
     * ad1d22b add A2
     * fe98e29 add A1
     | * e2f5892 (origin/main) squash A1 and A2
-    |/  
+    |/
     * 3183e43 (main) M1
     ");
 

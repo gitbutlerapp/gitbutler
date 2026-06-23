@@ -3,9 +3,10 @@ use std::borrow::Cow;
 use anyhow::{Context as _, Result, anyhow};
 use but_api_macros::but_api;
 use but_core::{
-    DryRun, branch,
+    DryRun, RefMetadata, branch,
     ref_metadata::StackId,
     sync::{RepoExclusive, RepoShared},
+    update_head_reference,
 };
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
@@ -237,6 +238,23 @@ pub fn remove_branch_only(
     let ref_name = Category::LocalBranch
         .to_full_name(branch_name)
         .map_err(anyhow::Error::from)?;
+    if let Some(replacement_ref) = checked_out_ad_hoc_replacement(ctx, ref_name.as_ref())? {
+        let repo = ctx.repo.get()?;
+        let mut reference = repo.find_reference(replacement_ref.as_ref())?;
+        let target = reference.peel_to_id()?.detach();
+        let parent_count = repo.find_commit(target)?.parent_ids().count();
+        update_head_reference(
+            &repo,
+            gix::refs::Target::Symbolic(replacement_ref.clone()),
+            false,
+            "checkout",
+            replacement_ref.as_bstr(),
+            parent_count,
+        )?;
+        drop(repo);
+        ctx.reload_repo_and_invalidate_workspace(perm)?;
+    }
+
     let mut meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let new_ws = but_workspace::branch::remove_reference(
@@ -254,6 +272,39 @@ pub fn remove_branch_only(
         *ws = new_ws;
     }
     Ok(())
+}
+
+fn checked_out_ad_hoc_replacement(
+    ctx: &Context,
+    ref_name: &gix::refs::FullNameRef,
+) -> Result<Option<gix::refs::FullName>> {
+    let repo = ctx.repo.get()?;
+    if repo
+        .head_name()?
+        .as_ref()
+        .is_none_or(|head_name| head_name.as_ref() != ref_name)
+    {
+        return Ok(None);
+    }
+
+    let meta = ctx.meta()?;
+    let Some(order) = meta.branch_stack_order(ref_name)? else {
+        return Ok(None);
+    };
+    let Some(idx) = order.iter().position(|branch| branch.as_ref() == ref_name) else {
+        return Ok(None);
+    };
+    let replacement_ref = order
+        .get(idx + 1)
+        .or_else(|| idx.checked_sub(1).and_then(|idx| order.get(idx)))
+        .cloned();
+    let Some(replacement_ref) = replacement_ref else {
+        return Ok(None);
+    };
+    if repo.try_find_reference(replacement_ref.as_ref())?.is_none() {
+        return Ok(None);
+    }
+    Ok(Some(replacement_ref))
 }
 
 /// Remove a branch from a stack.

@@ -1,5 +1,7 @@
 use anyhow::{Context as _, Result};
-use but_core::{RepositoryExt, extract_remote_name_and_short_name, ref_metadata::StackId};
+use but_core::{
+    RefMetadata as _, RepositoryExt, extract_remote_name_and_short_name, ref_metadata::StackId,
+};
 use but_ctx::{Context, access::RepoShared};
 use gitbutler_git::{GitContextExt as _, PushResult};
 use gitbutler_operating_modes::ensure_open_workspace_mode;
@@ -102,6 +104,12 @@ pub fn update_branch_name_with_perm(
         .context("Requires an open workspace mode")?;
     let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&new_name)?;
+    let old_ref_name = Category::LocalBranch
+        .to_full_name(branch_name.as_str())
+        .map_err(anyhow::Error::from)?;
+    let new_ref_name = Category::LocalBranch
+        .to_full_name(normalized_head_name.as_str())
+        .map_err(anyhow::Error::from)?;
     stack.update_branch(
         ctx,
         branch_name,
@@ -109,6 +117,13 @@ pub fn update_branch_name_with_perm(
             name: Some(normalized_head_name.clone()),
         },
     )?;
+    ctx.reload_repo_and_invalidate_workspace(perm)?;
+    let mut meta = but_meta::BranchOrderMetadata::from_paths(
+        ctx.project_data_dir().join("virtual_branches.toml"),
+        ctx.project_data_dir(),
+    )?;
+    meta.rename_branch_stack_order_reference(old_ref_name.as_ref(), new_ref_name.as_ref())?;
+    ctx.invalidate_workspace_cache()?;
     Ok(normalized_head_name)
 }
 

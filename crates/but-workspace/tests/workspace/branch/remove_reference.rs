@@ -1,16 +1,386 @@
-use but_core::RefMetadata;
-use but_testsupport::{graph_workspace, visualize_commit_graph_all};
+use but_core::{RefMetadata, ref_metadata::StackId};
+use but_graph::init::Options as GraphOptions;
+use but_meta::BranchOrderMetadata;
+use but_testsupport::{graph_tree, graph_workspace, visualize_commit_graph_all};
+use but_workspace::branch::create_reference::{Anchor, Position::*};
 use but_workspace::branch::remove_reference;
 use gix::refs::{Category, transaction::PreviousValue};
 
 use crate::{
     ref_info::with_workspace_commit::utils::{
-        StackState, add_stack_with_segments,
+        StackState, add_stack_with_segments, named_writable_scenario,
         named_writable_scenario_with_args_and_description_and_graph,
         named_writable_scenario_with_description_and_graph,
     },
     utils::r,
 };
+
+fn project_meta(meta: &impl RefMetadata) -> but_core::ref_metadata::ProjectMeta {
+    meta.workspace(
+        but_core::WORKSPACE_REF_NAME
+            .try_into()
+            .expect("valid workspace ref"),
+    )
+    .map(|workspace| workspace.project_meta())
+    .unwrap_or_default()
+}
+
+fn branch_order_meta(repo: &gix::Repository) -> anyhow::Result<BranchOrderMetadata> {
+    BranchOrderMetadata::from_paths(repo.path().join("virtual-branches.toml"), repo.path())
+}
+
+fn branch_order_meta_read_only(repo: &gix::Repository) -> anyhow::Result<BranchOrderMetadata> {
+    BranchOrderMetadata::from_paths_read_only(
+        repo.path().join("virtual-branches.toml"),
+        repo.path(),
+    )
+}
+
+fn stack_id_for_name(_rn: &gix::refs::FullNameRef) -> StackId {
+    StackId::generate()
+}
+
+fn workspace_from_head(
+    repo: &gix::Repository,
+    meta: &impl RefMetadata,
+    project_meta: but_core::ref_metadata::ProjectMeta,
+) -> anyhow::Result<but_graph::Workspace> {
+    but_graph::Graph::from_head(repo, meta, project_meta, GraphOptions::limited())?.into_workspace()
+}
+
+fn checkout_branch(
+    repo: &gix::Repository,
+    ref_name: &gix::refs::FullNameRef,
+) -> anyhow::Result<()> {
+    but_core::update_head_reference(
+        repo,
+        gix::refs::Target::Symbolic(ref_name.to_owned()),
+        false,
+        "checkout",
+        ref_name.as_bstr(),
+        1,
+    )
+    .map(|_| ())
+}
+
+fn create_ad_hoc_reference(
+    repo: &gix::Repository,
+    ws: &but_graph::Workspace,
+    meta: &mut impl RefMetadata,
+    ref_name: &gix::refs::FullNameRef,
+    anchor_ref: &gix::refs::FullNameRef,
+    position: but_workspace::branch::create_reference::Position,
+) -> anyhow::Result<()> {
+    but_workspace::branch::create_reference(
+        ref_name,
+        Anchor::AtReference {
+            ref_name: std::borrow::Cow::Borrowed(anchor_ref),
+            position,
+        },
+        repo,
+        ws,
+        meta,
+        stack_id_for_name,
+        None,
+    )?;
+    Ok(())
+}
+
+fn delete_reference_externally(
+    repo: &gix::Repository,
+    ref_name: &gix::refs::FullNameRef,
+) -> anyhow::Result<()> {
+    let reference = repo.find_reference(ref_name)?;
+    reference.delete()?;
+    Ok(())
+}
+
+fn assert_workspace_order(workspace: &but_graph::Workspace, refs: &[&str]) {
+    let rendered = graph_workspace(workspace).to_string();
+    let mut previous_idx = None;
+    for ref_name in refs {
+        let short_name = ref_name.trim_start_matches("refs/heads/");
+        let idx = rendered
+            .find(short_name)
+            .unwrap_or_else(|| panic!("workspace should include {short_name}:\n{rendered}"));
+        if let Some(previous_idx) = previous_idx {
+            assert!(
+                previous_idx < idx,
+                "{short_name} should appear after the previous expected ref:\n{rendered}"
+            );
+        }
+        previous_idx = Some(idx);
+    }
+}
+
+#[test]
+fn ad_hoc_remove_empty_branch_from_top_of_two_branch_stack() -> anyhow::Result<()> {
+    let (_tmp, repo, legacy_meta) = named_writable_scenario("single-branch-with-3-commits")?;
+    let project_meta = project_meta(&legacy_meta);
+    let mut meta = branch_order_meta(&repo)?;
+    let ws = workspace_from_head(&repo, &meta, project_meta.clone())?;
+
+    let top_ref = r("refs/heads/empty-top");
+    let bottom_ref = r("refs/heads/empty-bottom");
+    let main_ref = r("refs/heads/main");
+    create_ad_hoc_reference(&repo, &ws, &mut meta, top_ref, main_ref, Above)?;
+    create_ad_hoc_reference(&repo, &ws, &mut meta, bottom_ref, top_ref, Below)?;
+    checkout_branch(&repo, bottom_ref)?;
+    let ws = workspace_from_head(&repo, &meta, project_meta.clone())?;
+
+    let ws = but_workspace::branch::remove_reference(
+        top_ref,
+        &repo,
+        &ws,
+        &mut meta,
+        remove_reference::Options::default(),
+    )?
+    .expect("the ordered empty top branch should be removed");
+
+    assert!(repo.try_find_reference(top_ref)?.is_none());
+    assert_eq!(
+        meta.branch_stack_order(main_ref)?,
+        Some(vec![bottom_ref.to_owned(), main_ref.to_owned()])
+    );
+    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    insta::assert_snapshot!(graph_workspace(&ws), @"
+    ⌂:1:empty-bottom[🌳] <> ✓! on 281da94
+    └── ≡📙:1:empty-bottom[🌳] {1}
+        ├── 📙:1:empty-bottom[🌳]
+        └── :0:main
+            ├── ·281da94
+            ├── ·12995d7
+            └── ·3d57fc1
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn external_delete_of_ordered_top_branch_does_not_break_workspace_load() -> anyhow::Result<()> {
+    let (_tmp, repo, legacy_meta) = named_writable_scenario("single-branch-with-3-commits")?;
+    let project_meta = project_meta(&legacy_meta);
+    let mut meta = branch_order_meta(&repo)?;
+    let ws = workspace_from_head(&repo, &meta, project_meta.clone())?;
+
+    let top_ref = r("refs/heads/empty-top");
+    let bottom_ref = r("refs/heads/empty-bottom");
+    let main_ref = r("refs/heads/main");
+    create_ad_hoc_reference(&repo, &ws, &mut meta, top_ref, main_ref, Above)?;
+    create_ad_hoc_reference(&repo, &ws, &mut meta, bottom_ref, top_ref, Below)?;
+
+    checkout_branch(&repo, main_ref)?;
+    delete_reference_externally(&repo, top_ref)?;
+    drop(meta);
+    let read_only_meta = branch_order_meta_read_only(&repo)?;
+    assert_eq!(
+        read_only_meta.branch_stack_order(main_ref)?,
+        Some(vec![
+            top_ref.to_owned(),
+            bottom_ref.to_owned(),
+            main_ref.to_owned()
+        ]),
+        "read-only metadata should still see the stale persisted order before graph filtering"
+    );
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &read_only_meta,
+        project_meta.clone(),
+        GraphOptions::limited(),
+    )?;
+    let rendered_graph = graph_tree(&graph).to_string();
+    assert!(
+        rendered_graph.contains("empty-bottom"),
+        "graph should include surviving ordered ref before projection:\n{rendered_graph}"
+    );
+    let ws = graph.into_workspace()?;
+
+    assert_workspace_order(&ws, &["refs/heads/empty-bottom", "refs/heads/main"]);
+    let rendered = graph_workspace(&ws).to_string();
+    assert!(
+        !rendered.contains("empty-top"),
+        "stale metadata should not keep deleted top branch visible:\n{rendered}"
+    );
+    Ok(())
+}
+
+#[test]
+fn ad_hoc_remove_empty_branch_from_middle_of_three_branch_stack() -> anyhow::Result<()> {
+    let (_tmp, repo, legacy_meta) = named_writable_scenario("single-branch-with-3-commits")?;
+    let project_meta = project_meta(&legacy_meta);
+    let mut meta = branch_order_meta(&repo)?;
+    let ws = workspace_from_head(&repo, &meta, project_meta.clone())?;
+
+    let top_ref = r("refs/heads/empty-top");
+    let middle_ref = r("refs/heads/empty-middle");
+    let bottom_ref = r("refs/heads/empty-bottom");
+    let main_ref = r("refs/heads/main");
+    create_ad_hoc_reference(&repo, &ws, &mut meta, top_ref, main_ref, Above)?;
+    create_ad_hoc_reference(&repo, &ws, &mut meta, middle_ref, top_ref, Below)?;
+    create_ad_hoc_reference(&repo, &ws, &mut meta, bottom_ref, middle_ref, Below)?;
+    checkout_branch(&repo, top_ref)?;
+    let ws = workspace_from_head(&repo, &meta, project_meta.clone())?;
+
+    let ws = but_workspace::branch::remove_reference(
+        middle_ref,
+        &repo,
+        &ws,
+        &mut meta,
+        remove_reference::Options::default(),
+    )?
+    .expect("the empty middle branch should be removed");
+
+    assert!(repo.try_find_reference(middle_ref)?.is_none());
+    assert_eq!(
+        meta.branch_stack_order(main_ref)?,
+        Some(vec![
+            top_ref.to_owned(),
+            bottom_ref.to_owned(),
+            main_ref.to_owned()
+        ])
+    );
+    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    insta::assert_snapshot!(graph_workspace(&ws), @"
+    ⌂:1:empty-top[🌳] <> ✓! on 281da94
+    └── ≡📙:1:empty-top[🌳] {1}
+        ├── 📙:1:empty-top[🌳]
+        ├── 📙:2:empty-bottom
+        └── :0:main
+            ├── ·281da94
+            ├── ·12995d7
+            └── ·3d57fc1
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn external_delete_of_ordered_middle_branch_does_not_break_workspace_load() -> anyhow::Result<()> {
+    let (_tmp, repo, legacy_meta) = named_writable_scenario("single-branch-with-3-commits")?;
+    let project_meta = project_meta(&legacy_meta);
+    let mut meta = branch_order_meta(&repo)?;
+    let ws = workspace_from_head(&repo, &meta, project_meta.clone())?;
+
+    let top_ref = r("refs/heads/empty-top");
+    let middle_ref = r("refs/heads/empty-middle");
+    let bottom_ref = r("refs/heads/empty-bottom");
+    let main_ref = r("refs/heads/main");
+    create_ad_hoc_reference(&repo, &ws, &mut meta, top_ref, main_ref, Above)?;
+    create_ad_hoc_reference(&repo, &ws, &mut meta, middle_ref, top_ref, Below)?;
+    create_ad_hoc_reference(&repo, &ws, &mut meta, bottom_ref, middle_ref, Below)?;
+
+    checkout_branch(&repo, main_ref)?;
+    delete_reference_externally(&repo, middle_ref)?;
+    drop(meta);
+    let read_only_meta = branch_order_meta_read_only(&repo)?;
+    let ws = workspace_from_head(&repo, &read_only_meta, project_meta)?;
+
+    assert_workspace_order(
+        &ws,
+        &[
+            "refs/heads/empty-top",
+            "refs/heads/empty-bottom",
+            "refs/heads/main",
+        ],
+    );
+    let rendered = graph_workspace(&ws).to_string();
+    assert!(
+        !rendered.contains("empty-middle"),
+        "stale metadata should not keep deleted middle branch visible:\n{rendered}"
+    );
+    Ok(())
+}
+
+#[test]
+fn ad_hoc_remove_empty_branch_from_bottom_of_two_branch_stack() -> anyhow::Result<()> {
+    let (_tmp, repo, legacy_meta) = named_writable_scenario("single-branch-with-3-commits")?;
+    let project_meta = project_meta(&legacy_meta);
+    let mut meta = branch_order_meta(&repo)?;
+    let ws = workspace_from_head(&repo, &meta, project_meta.clone())?;
+
+    let top_ref = r("refs/heads/empty-top");
+    let bottom_ref = r("refs/heads/empty-bottom");
+    let main_ref = r("refs/heads/main");
+    create_ad_hoc_reference(&repo, &ws, &mut meta, top_ref, main_ref, Above)?;
+    create_ad_hoc_reference(&repo, &ws, &mut meta, bottom_ref, top_ref, Below)?;
+    checkout_branch(&repo, top_ref)?;
+    let ws = workspace_from_head(&repo, &meta, project_meta.clone())?;
+
+    let ws = but_workspace::branch::remove_reference(
+        bottom_ref,
+        &repo,
+        &ws,
+        &mut meta,
+        remove_reference::Options::default(),
+    )?
+    .expect("the empty bottom branch should be removed");
+
+    assert!(repo.try_find_reference(bottom_ref)?.is_none());
+    assert_eq!(
+        meta.branch_stack_order(main_ref)?,
+        Some(vec![top_ref.to_owned(), main_ref.to_owned()])
+    );
+    let ws = ws.graph.into_workspace_of_redone_traversal(&repo, &meta)?;
+    insta::assert_snapshot!(graph_workspace(&ws), @"
+    ⌂:1:empty-top[🌳] <> ✓! on 281da94
+    └── ≡📙:1:empty-top[🌳] {1}
+        ├── 📙:1:empty-top[🌳]
+        └── :0:main
+            ├── ·281da94
+            ├── ·12995d7
+            └── ·3d57fc1
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn external_delete_of_ordered_bottom_branch_does_not_break_workspace_load() -> anyhow::Result<()> {
+    let (_tmp, repo, legacy_meta) = named_writable_scenario("single-branch-with-3-commits")?;
+    let project_meta = project_meta(&legacy_meta);
+    let mut meta = branch_order_meta(&repo)?;
+    let ws = workspace_from_head(&repo, &meta, project_meta.clone())?;
+
+    let top_ref = r("refs/heads/empty-top");
+    let bottom_ref = r("refs/heads/empty-bottom");
+    let main_ref = r("refs/heads/main");
+    create_ad_hoc_reference(&repo, &ws, &mut meta, top_ref, main_ref, Above)?;
+    create_ad_hoc_reference(&repo, &ws, &mut meta, bottom_ref, top_ref, Below)?;
+
+    checkout_branch(&repo, main_ref)?;
+    delete_reference_externally(&repo, bottom_ref)?;
+    drop(meta);
+    let read_only_meta = branch_order_meta_read_only(&repo)?;
+    let ws = workspace_from_head(&repo, &read_only_meta, project_meta)?;
+
+    assert_workspace_order(&ws, &["refs/heads/empty-top", "refs/heads/main"]);
+    let rendered = graph_workspace(&ws).to_string();
+    assert!(
+        !rendered.contains("empty-bottom"),
+        "stale metadata should not keep deleted bottom branch visible:\n{rendered}"
+    );
+    Ok(())
+}
+
+#[test]
+fn metadata_only_ordered_ref_does_not_create_phantom_branch() -> anyhow::Result<()> {
+    let (_tmp, repo, legacy_meta) = named_writable_scenario("single-branch-with-3-commits")?;
+    let project_meta = project_meta(&legacy_meta);
+    let mut meta = branch_order_meta(&repo)?;
+    let phantom_ref = r("refs/heads/phantom");
+    let main_ref = r("refs/heads/main");
+    meta.set_branch_stack_order(&[phantom_ref.to_owned(), main_ref.to_owned()])?;
+
+    let read_only_meta = branch_order_meta_read_only(&repo)?;
+    let ws = workspace_from_head(&repo, &read_only_meta, project_meta)?;
+    let rendered = graph_workspace(&ws).to_string();
+
+    assert!(
+        !rendered.contains("phantom"),
+        "metadata without a Git ref should not create a projected branch:\n{rendered}"
+    );
+    Ok(())
+}
 
 #[test]
 fn no_errors_due_to_idempotency_in_empty_workspace() -> anyhow::Result<()> {
