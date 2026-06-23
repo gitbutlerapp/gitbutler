@@ -3,8 +3,8 @@
 	align-items: center;
 	padding: 6px 8px;
 	gap: 8px;
-	border: 1px solid var(--border-3);
 	border-radius: var(--radius-m);
+	outline: 1px solid color-mix(var(--scale-gray-0) 10%, transparent);
 	background-color: var(--bg-1);
 	box-shadow: var(--shadow-s);
 	color: var(--text-1);
