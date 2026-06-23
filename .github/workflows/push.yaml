@@ -124,7 +124,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/init-env-node
       - id: get_playwright_version
-        uses: eviden-actions/get-playwright-version@6941a3405e3558992ec8e42d3c07a648431abd7b # v1
+        uses: eviden-actions/get-playwright-version@11474123928c11c97f41b5a55fa895627e173da3 # v1
       - name: Cache playwright binaries
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         id: playwright-cache
@@ -684,7 +684,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/init-env-node
       - id: get_playwright_version
-        uses: eviden-actions/get-playwright-version@6941a3405e3558992ec8e42d3c07a648431abd7b # v1
+        uses: eviden-actions/get-playwright-version@11474123928c11c97f41b5a55fa895627e173da3 # v1
       - name: cache playwright binaries
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         id: playwright-cache
