@@ -139,6 +139,16 @@
 	}
 }
 
+.bubbleLightGray {
+	background-color: light-dark(hsl(0 0% 83.9% / 0.45), hsl(0 0% 0% / 0.5));
+	color: var(--text-1);
+
+	[data-selection-scope]:focus .containerSelected & {
+		background-color: light-dark(hsl(0 0% 0% / 0.5), hsl(0 0% 83.9% / 0.45));
+		color: var(--text-1-invert);
+	}
+}
+
 .bubbleClrSafe {
 	background-color: color-mix(in srgb, var(--clr-safe-50) 18%, transparent);
 	color: var(--clr-safe-40);
