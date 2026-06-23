@@ -97,7 +97,7 @@ Activate a branch in the workspace.
 but apply feature-branch  # Activate branch in workspace
 ```
 
-Applied branches are merged into `gitbutler/workspace` and visible in working directory.
+Default human output reports whether the branch was applied, was already active, or conflicted. Conflicts are reported as non-zero CLI errors.
 
 ### `but unapply <id>`
 

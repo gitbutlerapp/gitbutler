@@ -111,6 +111,16 @@ fn local_branch() {
 Applied branch 'feature-branch' to workspace
 
 "#]]);
+    env.but("apply")
+        .arg(branch_name)
+        .assert()
+        .success()
+        .stderr_eq(str![])
+        .stdout_eq(str![[r#"
+Branch 'feature-branch' is already in the workspace; nothing changed
+
+"#]]);
+
     // It's idempotent and can produce a shell value.
     env.but("--format shell apply feature-branch")
         .allow_json()
@@ -118,7 +128,10 @@ Applied branch 'feature-branch' to workspace
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-refs/heads/feature-branch
+status=alreadyApplied
+requested_branch=refs/heads/feature-branch
+workspace_changed=false
+workspace_ref_created=false
 
 "#]]);
 
@@ -153,38 +166,42 @@ fn local_branch_with_json_output() {
         .success()
         .stdout_eq(str![[r#"
 {
-  "name": {
-    "full": "refs/heads/feature-branch",
-    "full_bytes": [
-      114,
-      101,
-      102,
-      115,
-      47,
-      104,
-      101,
-      97,
-      100,
-      115,
-      47,
-      102,
-      101,
-      97,
-      116,
-      117,
-      114,
-      101,
-      45,
-      98,
-      114,
-      97,
-      110,
-      99,
-      104
-    ]
-  },
-  "target_id": "9f9d5a694afe171f5f9c72f8cf06db6210c3cf43",
-  "target_ref": null
+  "status": "applied",
+  "workspaceChanged": true,
+  "appliedBranches": [
+    {
+      "full": "refs/heads/feature-branch",
+      "full_bytes": [
+        114,
+        101,
+        102,
+        115,
+        47,
+        104,
+        101,
+        97,
+        100,
+        115,
+        47,
+        102,
+        101,
+        97,
+        116,
+        117,
+        114,
+        101,
+        45,
+        98,
+        114,
+        97,
+        110,
+        99,
+        104
+      ]
+    }
+  ],
+  "workspaceRefCreated": false,
+  "conflictingStacks": []
 }
 
 "#]])
@@ -198,6 +215,34 @@ fn local_branch_with_json_output() {
     |/  
     * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
     ");
+}
+
+#[test]
+fn local_branch_with_shell_output() {
+    let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack");
+    insta::assert_snapshot!(env.git_log(), @"
+    * edd3eb7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 9477ae7 (A) add A
+    * 0dc3733 (origin/main, origin/HEAD, main) add M
+    ");
+
+    env.setup_metadata(&["A"]);
+
+    create_local_branch_with_commit(&env, "feature-branch");
+
+    env.but("--format shell apply feature-branch")
+        .allow_json()
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+status=applied
+requested_branch=refs/heads/feature-branch
+workspace_changed=true
+workspace_ref_created=false
+applied_branch=refs/heads/feature-branch
+
+"#]])
+        .stderr_eq(str![]);
 }
 
 #[test]
@@ -479,6 +524,23 @@ Failed to apply branch. 'conflicting-branch' conflicts with existing stack in th
 
 "#]])
         .stdout_eq(str![""]);
+
+    env.but("--format shell apply conflicting-branch")
+        .allow_json()
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Failed to apply branch. 'conflicting-branch' conflicts with existing stack in the workspace: A
+
+"#]])
+        .stdout_eq(str![[r#"
+status=conflictAborted
+requested_branch=refs/heads/conflicting-branch
+workspace_changed=true
+workspace_ref_created=false
+conflicting_stack=refs/heads/A
+
+"#]]);
 }
 
 mod utils {

@@ -606,17 +606,19 @@ export type AppSettings = {
 
 /** JSON sibling of [`but_workspace::branch::apply::Outcome`]. */
 export type ApplyOutcome = {
+  /** What kind of apply operation completed. */
+  status: OutcomeStatus;
   /**
    * Whether `apply()` produced a new workspace graph.
    *
    * This can be true even when merge conflicts prevented the result from being persisted.
-   * Use `applied_branches` to determine whether anything was persisted.
+   * Use `status` to determine whether anything was persisted.
    */
   workspaceChanged: boolean;
   /**
-   * The branches that were actually persisted into the workspace.
+   * Branches activated or recorded by the operation.
    *
-   * This is empty when the branch was already present or when conflicts aborted the apply.
+   * This is empty for `alreadyApplied` and `conflictAborted`, and populated for `applied`.
    */
   appliedBranches: Array<FullRefName>;
   /** Whether the workspace reference had to be created. */
@@ -1882,6 +1884,9 @@ export type OperatingMode = {
 };
 
 export type OperationKind = "CreateCommit" | "CreateBranch" | "StashIntoBranch" | "SetBaseBranch" | "MergeUpstream" | "UpdateWorkspaceBase" | "MoveHunk" | "UpdateBranchName" | "UpdateBranchNotes" | "ReorderBranches" | "UpdateBranchRemoteName" | "GenericBranchUpdate" | "DeleteBranch" | "ApplyBranch" | "DiscardLines" | "DiscardHunk" | "DiscardFile" | "DiscardChanges" | "Discard" | "AmendCommit" | "Absorb" | "AutoCommit" | "UndoCommit" | "DiscardCommit" | "UnapplyBranch" | "CherryPick" | "SquashCommit" | "UpdateCommitMessage" | "MoveCommit" | "MoveBranch" | "TearOffBranch" | "ReorderCommit" | "InsertBlankCommit" | "MoveCommitFile" | "FileChanges" | "EnterEditMode" | "SyncWorkspace" | "CreateDependentBranch" | "RemoveDependentBranch" | "UpdateDependentBranchName" | "UpdateDependentBranchDescription" | "UpdateDependentBranchPrNumber" | "AutoHandleChangesBefore" | "AutoHandleChangesAfter" | "SplitBranch" | "CleanWorkspace" | "OnDemandSnapshot" | "Unknown" | "RestoreFromSnapshotViaUndo" | "RestoreFromSnapshotViaRedo" | "RestoreFromSnapshot";
+
+/** What kind of apply operation completed. */
+export type OutcomeStatus = "alreadyApplied" | "applied" | "conflictAborted";
 
 export type OutsideWorkspaceMetadata = {
   /** The name of the currently checked out branch or None if in detached head state. */
