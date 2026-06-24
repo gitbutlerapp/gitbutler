@@ -22,6 +22,12 @@
 	align-items: center;
 }
 
+.titleRowMacSpacer {
+	flex-shrink: 0;
+	align-self: stretch;
+	width: 60px;
+}
+
 .titleRowActions {
 	margin-inline-start: auto;
 }
