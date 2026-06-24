@@ -397,6 +397,7 @@ mod add {
 
 mod delete {
     use super::*;
+    use snapbox::prelude::*;
     #[test]
     fn success() {
         let data_dir = support::data_dir();
@@ -477,26 +478,34 @@ mod delete {
             "hidden gitbutler ref",
         )?;
 
-        insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
-        [
-            "refs/gitbutler/test-ref",
-            "refs/heads/gitbutler/workspace",
-            "refs/heads/master",
-            "refs/heads/unrelated",
-            "refs/remotes/origin/master",
-        ]
-        "#);
+        snapbox::assert_data_eq!(
+            all_refs(&repo)?.to_debug(),
+            snapbox::str![[r#"
+[
+    "refs/gitbutler/test-ref",
+    "refs/heads/gitbutler/workspace",
+    "refs/heads/master",
+    "refs/heads/unrelated",
+    "refs/remotes/origin/master",
+]
+
+"#]]
+        );
 
         gitbutler_project::delete_with_path(data_dir.path(), project.id)?;
 
         // Only only sees gitbutler references.
-        insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
-        [
-            "refs/heads/master",
-            "refs/heads/unrelated",
-            "refs/remotes/origin/master",
-        ]
-        "#);
+        snapbox::assert_data_eq!(
+            all_refs(&repo)?.to_debug(),
+            snapbox::str![[r#"
+[
+    "refs/heads/master",
+    "refs/heads/unrelated",
+    "refs/remotes/origin/master",
+]
+
+"#]]
+        );
         Ok(())
     }
 
@@ -518,13 +527,17 @@ mod delete {
             gix::refs::transaction::PreviousValue::MustNotExist,
             "unrelated workspace ref",
         )?;
-        insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
-        [
-            "refs/heads/master",
-            "refs/heads/unrelated",
-            "refs/remotes/origin/master",
-        ]
-        "#);
+        snapbox::assert_data_eq!(
+            all_refs(&repo)?.to_debug(),
+            snapbox::str![[r#"
+[
+    "refs/heads/master",
+    "refs/heads/unrelated",
+    "refs/remotes/origin/master",
+]
+
+"#]]
+        );
 
         gitbutler_project::delete_with_path(data_dir.path(), project.id)?;
 
@@ -532,13 +545,17 @@ mod delete {
         assert!(!repo.gitbutler_storage_path()?.exists());
 
         // Nothing changed - no reference was touched.
-        insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
-        [
-            "refs/heads/master",
-            "refs/heads/unrelated",
-            "refs/remotes/origin/master",
-        ]
-        "#);
+        snapbox::assert_data_eq!(
+            all_refs(&repo)?.to_debug(),
+            snapbox::str![[r#"
+[
+    "refs/heads/master",
+    "refs/heads/unrelated",
+    "refs/remotes/origin/master",
+]
+
+"#]]
+        );
 
         Ok(())
     }
