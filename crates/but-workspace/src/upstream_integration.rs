@@ -36,6 +36,17 @@ pub struct BottomUpdate {
     pub selector: RelativeTo,
 }
 
+/// A merged-review-derived integration anchor.
+///
+/// The commit points to the review head that was merged upstream. When that
+/// commit is still present in a local stack, everything reachable beneath it is
+/// considered integrated for workspace upstream integration purposes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ReviewIntegrationHint {
+    /// The merged review head commit that should act as an integration anchor.
+    pub head_commit_at_merge: gix::ObjectId,
+}
+
 /// The outcome of integrating upstream
 pub struct IntegrateUpstreamOutcome<'ws, 'meta, M: RefMetadata> {
     /// The updated workspace metadata.
@@ -51,6 +62,7 @@ struct AnnotatedNode {
     to_rebase: bool,
     historically_integrated: bool,
     content_integrated: bool,
+    review_integrated: bool,
     /// Only set to Some on references. Set to Some(<reference getting
     /// integrated>) if all the nodes exclusive to the current reference are
     /// marked as content or historically integrated or if the reference itself
@@ -67,8 +79,13 @@ impl AnnotatedNode {
             to_rebase: false,
             historically_integrated: false,
             content_integrated: false,
+            review_integrated: false,
             reference_integrated: None,
         }
+    }
+
+    fn is_integrated(&self) -> bool {
+        self.historically_integrated || self.content_integrated || self.review_integrated
     }
 }
 
@@ -137,6 +154,19 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
     repo: &gix::Repository,
     updates: Vec<BottomUpdate>,
 ) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
+    integrate_upstream_with_hints(workspace, meta, project_meta, repo, updates, &[])
+}
+
+/// Like [`integrate_upstream()`], but accepts merged-review-derived integration
+/// anchors to classify additional integrated history.
+pub fn integrate_upstream_with_hints<'ws, 'meta, M: RefMetadata>(
+    workspace: &'ws mut but_graph::Workspace,
+    meta: &'meta mut M,
+    project_meta: ProjectMeta,
+    repo: &gix::Repository,
+    updates: Vec<BottomUpdate>,
+    review_hints: &[ReviewIntegrationHint],
+) -> Result<IntegrateUpstreamOutcome<'ws, 'meta, M>> {
     let mut ws_meta = workspace.metadata.clone();
     let target_sha = project_meta
         .target_commit_id
@@ -185,6 +215,7 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
         &editor,
         from_target_sha,
         from_target_ref,
+        review_hints,
     )?;
 
     // Validate described updates and find commits to rebase
@@ -243,11 +274,10 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
     let mut direct_checkout_replacement_ref: Option<(Selector, gix::refs::FullName)> = None;
     for stack in &stacks {
         let is_selected = stack.nodes.values().any(|attrs| attrs.to_rebase) || stack.to_merge;
-        let is_fully_integrated = stack.nodes.values().all(|attrs| {
-            attrs.historically_integrated
-                || attrs.content_integrated
-                || attrs.reference_integrated.is_some()
-        });
+        let is_fully_integrated = stack
+            .nodes
+            .values()
+            .all(|attrs| attrs.is_integrated() || attrs.reference_integrated.is_some());
         if !is_selected {
             continue;
         }
@@ -286,7 +316,7 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
         // TODO: allow to keep some references.
         for (selector, attrs) in &stack.nodes {
             if let Some(ref_name) = attrs.reference_integrated.as_ref()
-                && ref_name.category() == Some(gix::refs::Category::LocalBranch)
+                && should_delete_integrated_local_branch(ref_name.as_ref())
             {
                 if direct_checkout_replacement_ref
                     .as_ref()
@@ -376,7 +406,7 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
                 if attrs.historically_integrated {
                     continue;
                 };
-                if attrs.content_integrated {
+                if attrs.content_integrated || attrs.review_integrated {
                     editor.replace(*node, Step::None)?;
                 }
 
@@ -386,7 +416,10 @@ pub fn integrate_upstream<'ws, 'meta, M: RefMetadata>(
                         continue;
                     };
 
-                    if p_attrs.historically_integrated {
+                    if p_attrs.historically_integrated
+                        || p_attrs.content_integrated
+                        || p_attrs.review_integrated
+                    {
                         edges_to_replace.insert((*node, parent));
                     }
                 }
@@ -419,6 +452,7 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
     editor: &Editor<'ws, 'meta, M>,
     from_target_sha: HashSet<Selector>,
     from_target_ref: HashSet<Selector>,
+    review_hints: &[ReviewIntegrationHint],
 ) -> Result<Vec<Stack>> {
     let mut stacks = if head_is_workspace_commit {
         editor
@@ -514,6 +548,8 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             }
         }
 
+        apply_review_integration_hints(editor, stack, review_hints)?;
+
         let reference_nodes = stack
             .nodes
             .keys()
@@ -559,10 +595,7 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
                         };
 
                     if seen.insert(parent) {
-                        if !(parent_is_non_local_reference
-                            || attrs.content_integrated
-                            || attrs.historically_integrated)
-                        {
+                        if !(parent_is_non_local_reference || attrs.is_integrated()) {
                             all_integrated = false;
                             break 'traversal;
                         }
@@ -577,12 +610,126 @@ fn collect_stacks<'ws, 'meta, M: RefMetadata>(
             if traversed_commits {
                 node.reference_integrated = all_integrated.then_some(r_name.clone());
             } else {
-                node.reference_integrated = node.historically_integrated.then_some(r_name.clone());
+                node.reference_integrated = node.is_integrated().then_some(r_name.clone());
             }
         }
     }
 
     Ok(output_stacks)
+}
+
+/// Whether an integrated local branch ref should be deleted during integration.
+///
+/// Only local branches are eligible for deletion here. As a conservative
+/// heuristic, never delete local `main` or `master`, even if the graph marks
+/// them as integrated. Those names often represent a user's primary local
+/// branch, so keeping them is safer than treating them like disposable topic
+/// branches.
+fn should_delete_integrated_local_branch(ref_name: &gix::refs::FullNameRef) -> bool {
+    let Some((gix::refs::Category::LocalBranch, short_name)) = ref_name.category_and_short_name()
+    else {
+        return false;
+    };
+
+    short_name != "main" && short_name != "master"
+}
+
+/// Mark stack commits as integrated when they are covered by merged-review hints.
+///
+/// Hints are review heads recorded at the time a forge review was merged. If a
+/// hinted review head is still present in the local stack, the review confirms
+/// that commit and all stack-local ancestors below it have landed upstream.
+/// Commits above the hinted head are intentionally left local, which lets a
+/// branch keep extra post-merge commits while dropping the already-merged prefix.
+fn apply_review_integration_hints<M: RefMetadata>(
+    editor: &Editor<'_, '_, M>,
+    stack: &mut Stack,
+    review_hints: &[ReviewIntegrationHint],
+) -> Result<()> {
+    let mut selectors_by_commit_id = HashMap::<gix::ObjectId, Selector>::new();
+    for selector in stack.nodes.keys().copied() {
+        if let Step::Pick(Pick { id, .. }) = editor.lookup_step(selector)? {
+            selectors_by_commit_id.insert(id, selector);
+        }
+    }
+
+    let matching_heads = review_hints
+        .iter()
+        .filter_map(|hint| {
+            selectors_by_commit_id
+                .get(&hint.head_commit_at_merge)
+                .copied()
+        })
+        .collect::<Vec<_>>();
+    if matching_heads.is_empty() {
+        return Ok(());
+    }
+
+    let highest_heads = highest_review_heads(editor, stack, &matching_heads)?;
+    for head in highest_heads {
+        let mut tips = vec![head];
+        let mut seen = HashSet::new();
+
+        while let Some(tip) = tips.pop() {
+            if !seen.insert(tip) {
+                continue;
+            }
+            if let Some(attrs) = stack.nodes.get_mut(&tip) {
+                attrs.review_integrated = true;
+            }
+            for (parent, _) in editor.direct_parents(tip)? {
+                if stack.nodes.contains_key(&parent) {
+                    tips.push(parent);
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Return only the highest matching review heads within the stack graph.
+///
+/// Multiple review hints can match commits in the same ancestry chain. Marking
+/// from the highest matched head is enough because the traversal from that head
+/// already covers lower matched ancestors. Keeping only the highest heads avoids
+/// repeated ancestor walks while preserving independent matched branches in a
+/// multi-head stack.
+fn highest_review_heads<M: RefMetadata>(
+    editor: &Editor<'_, '_, M>,
+    stack: &Stack,
+    matching_heads: &[Selector],
+) -> Result<Vec<Selector>> {
+    let candidates = matching_heads.iter().copied().collect::<HashSet<_>>();
+    let mut discard = HashSet::new();
+
+    for head in matching_heads {
+        let mut tips = vec![*head];
+        let mut seen = HashSet::from([*head]);
+
+        while let Some(tip) = tips.pop() {
+            for (parent, _) in editor.direct_parents(tip)? {
+                if !stack.nodes.contains_key(&parent) {
+                    continue;
+                }
+                if candidates.contains(&parent) {
+                    discard.insert(parent);
+                }
+                if seen.insert(parent) {
+                    tips.push(parent);
+                }
+            }
+        }
+    }
+
+    let mut out = Vec::new();
+    let mut added = HashSet::new();
+    for head in matching_heads {
+        if !discard.contains(head) && added.insert(*head) {
+            out.push(*head);
+        }
+    }
+    Ok(out)
 }
 
 /// Convert a list of selectors into their current commit ids.

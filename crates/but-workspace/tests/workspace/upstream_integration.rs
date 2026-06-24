@@ -1,11 +1,13 @@
 use anyhow::{Context, Result};
+use bstr::ByteSlice;
 use but_core::{Commit, RefMetadata};
-use but_graph::init::Options;
+use but_graph::init::{Options, Tip};
 use but_meta::virtual_branches_legacy_types::Target;
 use but_rebase::graph_rebase::mutate::RelativeTo;
 use but_testsupport::{CommandExt, git, graph_workspace, visualize_commit_graph_all};
 use but_workspace::{
-    BottomUpdate, BottomUpdateKind, integrate_upstream, worktree_conflicts_for_rebase,
+    BottomUpdate, BottomUpdateKind, ReviewIntegrationHint, integrate_upstream,
+    integrate_upstream_with_hints, worktree_conflicts_for_rebase,
 };
 use gix::prelude::ObjectIdExt;
 use gix::refs::transaction::PreviousValue;
@@ -359,8 +361,15 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
+        [
+            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
+            Tip::integrated(
+                repo.rev_parse_single("origin/main")?.detach(),
+                Some("refs/remotes/origin/main".try_into()?),
+            ),
+        ],
         &meta,
         project_meta(&meta)?,
         Options {
@@ -379,12 +388,12 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
 
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
-    ⌂:0:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
-    └── ≡:0:A[🌳] on 3183e43 {1}
-        ├── :0:A[🌳]
+    ⌂:1:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
+    └── ≡:1:A[🌳] on 3183e43 {1}
+        ├── :1:A[🌳]
         │   └── ·e792f40
         └── :3:B
-            └── ·b38b04b
+            └── ·b38b04b (✓)
     ");
     let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
@@ -421,6 +430,71 @@ fn integrated_bottom_branch_no_workspace_rebase() -> Result<()> {
 }
 
 #[test]
+fn integrated_bottom_branch_does_not_delete_local_main_or_master() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("integrated-bottom-branch-no-workspace")?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    let integrated_bottom_commit = repo.rev_parse_single("B")?.detach();
+
+    git(&repo).args(["branch", "-f", "main", "B"]).run();
+    git(&repo).args(["branch", "master", "B"]).run();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    let graph = but_graph::Graph::from_commit_traversal_tips(
+        &repo,
+        [
+            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
+            Tip::integrated(
+                repo.rev_parse_single("origin/main")?.detach(),
+                Some("refs/remotes/origin/main".try_into()?),
+            ),
+        ],
+        &meta,
+        project_meta(&meta)?,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+    let project_meta = workspace.graph.project_meta.clone();
+
+    let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(integrated_bottom_commit),
+        }],
+    )?;
+    rebase.materialize()?;
+
+    assert!(
+        repo.try_find_reference("B")?.is_none(),
+        "ordinary integrated local branches should still be removed",
+    );
+    assert_eq!(
+        repo.rev_parse_single("main")?.detach(),
+        integrated_bottom_commit,
+        "local main should be protected from integrated-branch deletion",
+    );
+    assert_eq!(
+        repo.rev_parse_single("master")?.detach(),
+        integrated_bottom_commit,
+        "local master should be protected from integrated-branch deletion",
+    );
+
+    Ok(())
+}
+
+#[test]
 fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
     let (_tmp, repo, mut meta, _description) =
         named_writable_scenario_with_description("integrated-bottom-branch-no-workspace")?;
@@ -434,8 +508,15 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
         sha: target_sha,
         push_remote_name: None,
     });
-    let graph = but_graph::Graph::from_head(
+    let graph = but_graph::Graph::from_commit_traversal_tips(
         &repo,
+        [
+            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
+            Tip::integrated(
+                repo.rev_parse_single("origin/main")?.detach(),
+                Some("refs/remotes/origin/main".try_into()?),
+            ),
+        ],
         &meta,
         project_meta(&meta)?,
         Options {
@@ -454,12 +535,12 @@ fn integrated_bottom_branch_no_workspace_merge() -> Result<()> {
 
     let mut workspace = graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(&workspace), @"
-    ⌂:0:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
-    └── ≡:0:A[🌳] on 3183e43 {1}
-        ├── :0:A[🌳]
+    ⌂:1:A[🌳] <> ✓refs/remotes/origin/main⇣2 on 3183e43
+    └── ≡:1:A[🌳] on 3183e43 {1}
+        ├── :1:A[🌳]
         │   └── ·e792f40
         └── :3:B
-            └── ·b38b04b
+            └── ·b38b04b (✓)
     ");
     let project_meta = workspace.graph.project_meta.clone();
     let but_workspace::IntegrateUpstreamOutcome { rebase, .. } = integrate_upstream(
@@ -1844,6 +1925,510 @@ fn orphan_reparent_two_stacks_through_merge_target() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn review_hint_fully_integrates_direct_checkout_branch() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("integrated-bottom-branch-no-workspace")?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    let review_head = repo.rev_parse_single("A")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    let graph = but_graph::Graph::from_commit_traversal_tips(
+        &repo,
+        [
+            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
+            Tip::integrated(
+                repo.rev_parse_single("origin/main")?.detach(),
+                Some("refs/remotes/origin/main".try_into()?),
+            ),
+        ],
+        &meta,
+        project_meta(&meta)?,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+    let project_meta = workspace.graph.project_meta.clone();
+
+    let out = integrate_upstream_with_hints(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("B")?.detach()),
+        }],
+        &[ReviewIntegrationHint {
+            head_commit_at_merge: review_head,
+        }],
+    )?;
+    out.rebase.materialize()?;
+
+    assert!(
+        repo.try_find_reference("A")?.is_none(),
+        "fully review-integrated direct checkout branch should be replaced",
+    );
+    assert_eq!(
+        repo.head_id()?.detach(),
+        repo.rev_parse_single("origin/main")?.detach(),
+        "replacement checkout should land at the advanced target tip",
+    );
+
+    Ok(())
+}
+
+#[test]
+fn review_hint_integrates_squashed_two_commit_stack_in_managed_workspace() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+        "review-hint-squash-integrated-two-commit-stack-with-sibling",
+    )?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    let review_head = repo.rev_parse_single("A")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    add_stack(&mut meta, 2, "B", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&meta)?,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   b96a78e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * ad1d22b (A) add A2
+    | * fe98e29 add A1
+    * | b38b04b (B) add B1
+    |/  
+    | * 56057f2 (origin/main) squash A
+    |/  
+    * 3183e43 (main) M1
+    ");
+
+    let mut workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+    ├── ≡📙:3:A on 3183e43 {1}
+    │   └── 📙:3:A
+    │       ├── ·ad1d22b (🏘️)
+    │       └── ·fe98e29 (🏘️)
+    └── ≡📙:4:B on 3183e43 {2}
+        └── 📙:4:B
+            └── ·b38b04b (🏘️)
+    ");
+
+    let project_meta = workspace.graph.project_meta.clone();
+
+    let out = integrate_upstream_with_hints(
+        &mut workspace,
+        &mut meta,
+        project_meta.clone(),
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A^")?.detach()),
+        }],
+        &[ReviewIntegrationHint {
+            head_commit_at_merge: review_head,
+        }],
+    )?;
+    out.rebase.materialize()?;
+
+    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+    └── ≡📙:3:B on 3183e43 {2}
+        └── 📙:3:B
+            └── ·b38b04b (🏘️)
+    ");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * e4abb28 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * b38b04b (B) add B1
+    | * 56057f2 (origin/main) squash A
+    |/  
+    * 3183e43 (main) M1
+    ");
+
+    assert!(
+        repo.try_find_reference("A")?.is_none(),
+        "squash-integrated stack should leave the workspace when its review head is hinted",
+    );
+    assert!(
+        repo.try_find_reference("B")?.is_some(),
+        "sibling stack should remain because it was not covered by the review hint",
+    );
+    assert_eq!(
+        workspace_parent_ids(&repo)?,
+        vec![repo.rev_parse_single("B")?.detach()],
+        "workspace commit should stay parented only to the remaining sibling stack",
+    );
+
+    Ok(())
+}
+
+#[test]
+fn review_hint_integrates_squashed_two_commit_direct_checkout_branch() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("review-hint-squash-integrated-direct-checkout")?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    let review_head = repo.rev_parse_single("A")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    let graph = but_graph::Graph::from_commit_traversal_tips(
+        &repo,
+        [
+            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
+            Tip::integrated(
+                repo.rev_parse_single("origin/main")?.detach(),
+                Some("refs/remotes/origin/main".try_into()?),
+            ),
+        ],
+        &meta,
+        project_meta(&meta)?,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * ad1d22b (HEAD -> A) add A2
+    * fe98e29 add A1
+    | * 56057f2 (origin/main) squash A
+    |/  
+    * 3183e43 (main) M1
+    ");
+
+    let mut workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    ⌂:1:A[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+    └── ≡:1:A[🌳] on 3183e43 {1}
+        └── :1:A[🌳]
+            ├── ·ad1d22b
+            └── ·fe98e29
+    ");
+
+    let project_meta = workspace.graph.project_meta.clone();
+
+    let out = integrate_upstream_with_hints(
+        &mut workspace,
+        &mut meta,
+        project_meta.clone(),
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A^")?.detach()),
+        }],
+        &[ReviewIntegrationHint {
+            head_commit_at_merge: review_head,
+        }],
+    )?;
+    out.rebase.materialize()?;
+    let graph = but_graph::Graph::from_head(&repo, &meta, project_meta, Options::limited())?;
+    let workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    ⌂:0:amo-branch-1[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+    └── ≡:0:amo-branch-1[🌳] on 3183e43 {1}
+        └── :0:amo-branch-1[🌳]
+            └── ·56057f2
+    ");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * 56057f2 (HEAD -> amo-branch-1, origin/main) squash A
+    * 3183e43 (main) M1
+    ");
+
+    assert!(
+        repo.try_find_reference("A")?.is_none(),
+        "squash-integrated direct checkout branch should be replaced",
+    );
+    assert_eq!(
+        repo.head_id()?.detach(),
+        repo.rev_parse_single("origin/main")?.detach(),
+        "replacement checkout should land at the squashed target tip",
+    );
+
+    Ok(())
+}
+
+#[test]
+fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_managed_workspace() -> Result<()>
+{
+    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+        "review-hint-squash-integrated-prefix-with-extra-commit-workspace",
+    )?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    let review_head = repo.rev_parse_single("A^")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    add_stack(&mut meta, 1, "A", StackState::InWorkspace);
+    let graph = but_graph::Graph::from_head(
+        &repo,
+        &meta,
+        project_meta(&meta)?,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * 9cf59eb (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * f015e95 (A) add A3
+    * ad1d22b add A2
+    * fe98e29 add A1
+    | * e2f5892 (origin/main) squash A1 and A2
+    |/  
+    * 3183e43 (main) M1
+    ");
+
+    let mut workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+    └── ≡📙:3:A on 3183e43 {1}
+        └── 📙:3:A
+            ├── ·f015e95 (🏘️)
+            ├── ·ad1d22b (🏘️)
+            └── ·fe98e29 (🏘️)
+    ");
+
+    integrate_with_hints_and_materialize(
+        &mut workspace,
+        &mut meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A^^")?.detach()),
+        }],
+        &[ReviewIntegrationHint {
+            head_commit_at_merge: review_head,
+        }],
+    )?;
+
+    let graph =
+        but_graph::Graph::from_head(&repo, &meta, project_meta(&meta)?, Options::limited())?;
+    let workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e2f5892
+    └── ≡📙:3:A on e2f5892 {1}
+        └── 📙:3:A
+            └── ·92f1780 (🏘️)
+    ");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * a7a874f (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 92f1780 (A) add A3
+    * e2f5892 (origin/main) squash A1 and A2
+    * 3183e43 (main) M1
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn review_hint_integrates_squashed_prefix_and_keeps_extra_commit_in_direct_checkout() -> Result<()>
+{
+    let (_tmp, repo, mut meta, _description) = named_writable_scenario_with_description(
+        "review-hint-squash-integrated-prefix-with-extra-commit-direct-checkout",
+    )?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    let review_head = repo.rev_parse_single("A^")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    let graph = but_graph::Graph::from_commit_traversal_tips(
+        &repo,
+        [
+            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
+            Tip::integrated(
+                repo.rev_parse_single("origin/main")?.detach(),
+                Some("refs/remotes/origin/main".try_into()?),
+            ),
+        ],
+        &meta,
+        project_meta(&meta)?,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * f015e95 (HEAD -> A) add A3
+    * ad1d22b add A2
+    * fe98e29 add A1
+    | * e2f5892 (origin/main) squash A1 and A2
+    |/  
+    * 3183e43 (main) M1
+    ");
+
+    let mut workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    ⌂:1:A[🌳] <> ✓refs/remotes/origin/main⇣1 on 3183e43
+    └── ≡:1:A[🌳] on 3183e43 {1}
+        └── :1:A[🌳]
+            ├── ·f015e95
+            ├── ·ad1d22b
+            └── ·fe98e29
+    ");
+
+    let current_project_meta = workspace.graph.project_meta.clone();
+    let but_workspace::IntegrateUpstreamOutcome {
+        rebase,
+        project_meta: updated_project_meta,
+        ..
+    } = integrate_upstream_with_hints(
+        &mut workspace,
+        &mut meta,
+        current_project_meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("A^^")?.detach()),
+        }],
+        &[ReviewIntegrationHint {
+            head_commit_at_merge: review_head,
+        }],
+    )?;
+    rebase.materialize()?;
+
+    let graph = but_graph::Graph::from_commit_traversal_tips(
+        &repo,
+        [
+            Tip::entrypoint(repo.head_id()?.detach(), repo.head_name()?),
+            Tip::integrated(
+                repo.rev_parse_single("origin/main")?.detach(),
+                Some("refs/remotes/origin/main".try_into()?),
+            ),
+        ],
+        &meta,
+        updated_project_meta,
+        Options::limited(),
+    )?;
+    let workspace = graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(&workspace), @"
+    ⌂:1:A[🌳] <> ✓refs/remotes/origin/main on e2f5892
+    └── ≡:1:A[🌳] on e2f5892 {1}
+        └── :1:A[🌳]
+            └── ·92f1780
+    ");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * 92f1780 (HEAD -> A) add A3
+    * e2f5892 (origin/main) squash A1 and A2
+    * 3183e43 (main) M1
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn review_hint_integrates_prefix_but_keeps_extra_local_commit() -> Result<()> {
+    let (_tmp, repo, mut meta, _description) =
+        named_writable_scenario_with_description("integrated-bottom-branch-no-workspace")?;
+    let target_sha = repo.rev_parse_single("main")?.detach();
+    let review_head = repo.rev_parse_single("A")?.detach();
+
+    meta.data_mut().default_target = Some(Target {
+        branch: gitbutler_reference::RemoteRefname::new("origin", "main"),
+        remote_url: "should not be needed and when it is extract it from `repo`".to_string(),
+        sha: target_sha,
+        push_remote_name: None,
+    });
+    std::fs::write(
+        repo.workdir()
+            .context("fixture repos should be writable")?
+            .join("file.txt"),
+        "post-review local change\n",
+    )?;
+    git(&repo).args(["add", "file.txt"]).run();
+    git(&repo)
+        .args(["commit", "-m", "post-review local commit"])
+        .run();
+
+    let graph = but_graph::Graph::from_commit_traversal_tips(
+        &repo,
+        [
+            Tip::entrypoint(repo.head_id()?.detach(), Some("refs/heads/A".try_into()?)),
+            Tip::integrated(
+                repo.rev_parse_single("origin/main")?.detach(),
+                Some("refs/remotes/origin/main".try_into()?),
+            ),
+        ],
+        &meta,
+        project_meta(&meta)?,
+        Options {
+            extra_target_commit_id: Some(target_sha),
+            ..Options::limited()
+        },
+    )?;
+    let mut workspace = graph.into_workspace()?;
+    let project_meta = workspace.graph.project_meta.clone();
+
+    let out = integrate_upstream_with_hints(
+        &mut workspace,
+        &mut meta,
+        project_meta,
+        &repo,
+        vec![BottomUpdate {
+            kind: BottomUpdateKind::Rebase,
+            selector: RelativeTo::Commit(repo.rev_parse_single("B")?.detach()),
+        }],
+        &[ReviewIntegrationHint {
+            head_commit_at_merge: review_head,
+        }],
+    )?;
+    out.rebase.materialize()?;
+
+    assert!(
+        repo.try_find_reference("A")?.is_some(),
+        "branch should remain because a local commit still sits above the merged review head",
+    );
+    assert_eq!(
+        repo.rev_parse_single("A^")?.detach(),
+        repo.rev_parse_single("origin/main")?.detach(),
+        "remaining local tip should be rebased onto the advanced target",
+    );
+    assert_eq!(
+        repo.find_commit(repo.rev_parse_single("A")?.detach())?
+            .message_raw()?
+            .to_str()?
+            .trim_end(),
+        "post-review local commit",
+    );
+
+    Ok(())
+}
+
 fn integrate_and_materialize<M: RefMetadata>(
     workspace: &mut but_graph::Workspace,
     meta: &mut M,
@@ -1855,6 +2440,39 @@ fn integrate_and_materialize<M: RefMetadata>(
         ws_meta,
         project_meta,
     } = integrate_upstream(workspace, meta, project_meta(&*meta)?, repo, updates)?;
+    let materialized = rebase.materialize()?;
+    if let Some(ref_name) = materialized.workspace.ref_name()
+        && let Some(ws_meta) = ws_meta
+    {
+        let mut md = materialized.meta.workspace(ref_name)?;
+        *md = ws_meta;
+        md.set_project_meta(project_meta);
+        materialized.meta.set_workspace(&md)?;
+    }
+    drop(materialized);
+
+    Ok(())
+}
+
+fn integrate_with_hints_and_materialize<M: RefMetadata>(
+    workspace: &mut but_graph::Workspace,
+    meta: &mut M,
+    repo: &gix::Repository,
+    updates: Vec<BottomUpdate>,
+    review_hints: &[ReviewIntegrationHint],
+) -> Result<()> {
+    let but_workspace::IntegrateUpstreamOutcome {
+        rebase,
+        ws_meta,
+        project_meta,
+    } = integrate_upstream_with_hints(
+        workspace,
+        meta,
+        project_meta(&*meta)?,
+        repo,
+        updates,
+        review_hints,
+    )?;
     let materialized = rebase.materialize()?;
     if let Some(ref_name) = materialized.workspace.ref_name()
         && let Some(ws_meta) = ws_meta

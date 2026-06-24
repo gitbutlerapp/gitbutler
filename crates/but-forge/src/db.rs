@@ -1,5 +1,7 @@
 use super::ForgeReview;
 
+const MERGED_REVIEW_RETENTION_DAYS: i64 = 15;
+
 impl TryFrom<ForgeReview> for but_db::ForgeReview {
     type Error = anyhow::Error;
     fn try_from(value: ForgeReview) -> anyhow::Result<Self, Self::Error> {
@@ -96,18 +98,27 @@ pub(crate) fn reviews_from_cache(db: &but_db::DbHandle) -> anyhow::Result<Vec<Fo
     Ok(reviews)
 }
 
+/// Refreshes the cached review rows returned by a forge listing.
+///
+/// Listed reviews are upserted instead of replacing the whole table so directly
+/// fetched reviews, such as recently merged PRs used by upstream integration,
+/// are not deleted by an open-review list response. Cached open reviews that no
+/// longer appear in the listed response are deleted, while retained merged
+/// reviews are pruned after 15 days.
 pub(crate) fn cache_reviews(
     db: &mut but_db::DbHandle,
     reviews: &[ForgeReview],
 ) -> anyhow::Result<()> {
-    let db_reviews: Vec<but_db::ForgeReview> = reviews
+    let cutoff =
+        chrono::Local::now().naive_local() - chrono::Duration::days(MERGED_REVIEW_RETENTION_DAYS);
+    let db_reviews = reviews
         .iter()
-        .map(|r| r.clone().try_into())
-        .collect::<anyhow::Result<Vec<but_db::ForgeReview>>>(
-    )?;
+        .map(|review| review.clone().try_into())
+        .collect::<anyhow::Result<Vec<_>>>()?;
     db.forge_reviews_mut()?
-        .set_all(db_reviews)
-        .map_err(Into::into)
+        .reconcile_listed(db_reviews, cutoff)
+        .map_err(anyhow::Error::from)?;
+    Ok(())
 }
 
 pub(crate) fn upsert_review(db: &mut but_db::DbHandle, review: &ForgeReview) -> anyhow::Result<()> {

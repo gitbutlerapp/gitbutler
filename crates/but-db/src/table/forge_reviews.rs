@@ -160,38 +160,7 @@ impl ForgeReviewsHandleMut<'_> {
         self.sp.execute("DELETE FROM forge_reviews", [])?;
 
         for review in reviews {
-            self.sp.execute(
-                "INSERT INTO forge_reviews (html_url, number, title, body, author, labels, draft, \
-                 source_branch, target_branch, sha, integration_commit_shas, created_at, modified_at, merged_at, closed_at, \
-                 repository_ssh_url, repository_https_url, repo_owner, head_repo_is_fork, reviewers, \
-                 unit_symbol, last_sync_at, struct_version) \
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
-                rusqlite::params![
-                    review.html_url,
-                    review.number,
-                    review.title,
-                    review.body,
-                    review.author,
-                    review.labels,
-                    review.draft,
-                    review.source_branch,
-                    review.target_branch,
-                    review.sha,
-                    review.integration_commit_shas,
-                    review.created_at,
-                    review.modified_at,
-                    review.merged_at,
-                    review.closed_at,
-                    review.repository_ssh_url,
-                    review.repository_https_url,
-                    review.repo_owner,
-                    review.head_repo_is_fork,
-                    review.reviewers,
-                    review.unit_symbol,
-                    review.last_sync_at,
-                    review.struct_version,
-                ],
-            )?;
+            self.upsert_without_commit(review)?;
         }
 
         self.sp.commit()?;
@@ -200,6 +169,61 @@ impl ForgeReviewsHandleMut<'_> {
 
     /// Inserts or updates a single forge review by review number.
     pub fn upsert(self, review: ForgeReview) -> rusqlite::Result<()> {
+        self.upsert_without_commit(review)?;
+
+        self.sp.commit()?;
+        Ok(())
+    }
+
+    /// Reconciles a fresh forge-list response with retained review rows.
+    ///
+    /// Listed reviews are inserted or updated, cached open reviews that no
+    /// longer appear in the latest list are deleted, and merged reviews at or
+    /// before `merged_cutoff` are pruned. Closed or recently merged reviews
+    /// that are absent from the list are retained so direct review lookups can
+    /// continue to serve integration hints.
+    pub fn reconcile_listed(
+        self,
+        reviews: Vec<ForgeReview>,
+        merged_cutoff: chrono::NaiveDateTime,
+    ) -> rusqlite::Result<()> {
+        let listed_numbers = reviews
+            .iter()
+            .map(|review| review.number)
+            .collect::<Vec<_>>();
+        for review in reviews {
+            self.upsert_without_commit(review)?;
+        }
+
+        if listed_numbers.is_empty() {
+            self.sp.execute(
+                "DELETE FROM forge_reviews WHERE merged_at IS NULL AND closed_at IS NULL",
+                [],
+            )?;
+        } else {
+            let placeholders = std::iter::repeat_n("?", listed_numbers.len())
+                .collect::<Vec<_>>()
+                .join(", ");
+            self.sp.execute(
+                &format!(
+                    "DELETE FROM forge_reviews \
+                     WHERE merged_at IS NULL AND closed_at IS NULL \
+                     AND number NOT IN ({placeholders})"
+                ),
+                rusqlite::params_from_iter(listed_numbers),
+            )?;
+        }
+
+        self.sp.execute(
+            "DELETE FROM forge_reviews WHERE merged_at IS NOT NULL AND merged_at <= ?1",
+            [merged_cutoff],
+        )?;
+
+        self.sp.commit()?;
+        Ok(())
+    }
+
+    fn upsert_without_commit(&self, review: ForgeReview) -> rusqlite::Result<()> {
         self.sp.execute(
             "INSERT INTO forge_reviews (html_url, number, title, body, author, labels, draft, \
              source_branch, target_branch, sha, integration_commit_shas, created_at, modified_at, merged_at, closed_at, \
@@ -254,6 +278,15 @@ impl ForgeReviewsHandleMut<'_> {
                 review.last_sync_at,
                 review.struct_version,
             ],
+        )?;
+        Ok(())
+    }
+
+    /// Deletes reviews with a merge timestamp at or before `cutoff`.
+    pub fn delete_merged_before(self, cutoff: chrono::NaiveDateTime) -> rusqlite::Result<()> {
+        self.sp.execute(
+            "DELETE FROM forge_reviews WHERE merged_at IS NOT NULL AND merged_at <= ?1",
+            [cutoff],
         )?;
 
         self.sp.commit()?;
