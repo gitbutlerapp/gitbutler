@@ -477,6 +477,9 @@ export declare function warmCiChecksCache(projectId: string): Promise<void>
 /** Push a branch and any parent references that lie within the current workspace projection. */
 export declare function workspaceBranchAndAncestorsPush(projectId: string, withForce: boolean, skipForcePushProtection: boolean, branch: string, runHooks: boolean, pushOpts: Array<PushFlag>): Promise<PushResult>
 
+/** Switch to the workspace reference */
+export declare function workspaceCheckout(projectId: string): Promise<BranchCheckoutResult>
+
 /**
  * Integrate upstream changes into the current workspace and record an oplog
  * snapshot on success.
