@@ -210,7 +210,12 @@ fn rejects_non_branch_cli_id() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stdout_eq(str![])
-        .stderr_eq(format!("Error: Could not find branch: '{commit_cli_id}'\n"));
+        .stderr_eq(str![[r#"
+Error: Could not find branch: '94'
+
+Hint: Run `but status` for applicable targets.
+
+"#]]);
 
     Ok(())
 }

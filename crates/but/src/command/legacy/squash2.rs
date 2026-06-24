@@ -149,7 +149,7 @@ fn resolve(
     let (target, sources, branch_resolution) = if let Some(target) = target {
         let target = target
             .resolve_commit_in_workspace(&repo, id_map)
-            .hint("--target must always target a commit")?;
+            .hint("--target must always target a commit on an applied branch")?;
         let sources = sources
             .into_iter()
             .map(|source| {
@@ -295,9 +295,49 @@ fn run(
     ctx: &mut Context,
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
-    squash_op: SquashOperation,
+    mut squash_op: SquashOperation,
     reword_op: Option<RewordCommitOperation>,
 ) -> CliResult<SquashOutcome> {
+    squash_op = match squash_op {
+        SquashOperation::Commits(SquashCommitsOperation {
+            mut sources,
+            target,
+            how_to_combine_messages,
+        }) => {
+            sources.sort();
+            sources.dedup();
+
+            SquashOperation::Commits(SquashCommitsOperation {
+                sources,
+                target,
+                how_to_combine_messages,
+            })
+        }
+        SquashOperation::Branch(SquashBranchOperation {
+            mut sources,
+            mut source_branches,
+            mut branches_to_remove,
+            target,
+            how_to_combine_messages,
+        }) => {
+            sources.sort();
+            sources.dedup();
+
+            branches_to_remove.sort();
+            branches_to_remove.dedup();
+
+            source_branches = non_empty_dedup_maintain_sort(source_branches);
+
+            SquashOperation::Branch(SquashBranchOperation {
+                sources,
+                source_branches,
+                branches_to_remove,
+                target,
+                how_to_combine_messages,
+            })
+        }
+    };
+
     let (sources, target, branch_names) = match squash_op.clone() {
         SquashOperation::Commits(SquashCommitsOperation {
             sources,
@@ -426,4 +466,17 @@ fn resolve_commits_on_branch(
     let (_, segment) = ws.try_find_segment_and_stack_by_refname(branch_name.as_ref())?;
     let commits_in_segment = segment.commits.iter().map(|commit| commit.id).collect();
     Ok((branch_name, commits_in_segment))
+}
+
+fn non_empty_dedup_maintain_sort<T>(non_empty: NonEmpty<T>) -> NonEmpty<T>
+where
+    T: Ord,
+{
+    let mut out = Vec::new();
+    for item in non_empty {
+        if !out.contains(&item) {
+            out.push(item);
+        }
+    }
+    NonEmpty::from_vec(out).expect("deduping a NonEmpty will never make it empty")
 }

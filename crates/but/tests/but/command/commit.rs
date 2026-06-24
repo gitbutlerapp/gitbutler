@@ -592,6 +592,8 @@ fn commit_empty_with_nonexistent_target() {
         .stderr_eq(str![[r#"
 Error: Could not find target: 'nonexistent'
 
+Hint: Run `but status` for applicable targets.
+
 "#]]);
 }
 
