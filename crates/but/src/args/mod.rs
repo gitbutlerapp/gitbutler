@@ -1190,6 +1190,28 @@ pub enum Subcommands {
     #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
     Skill(skill::Platform),
 
+    /// Set up GitButler for AI coding agents.
+    ///
+    /// Runs a guided setup wizard for installing GitButler agent skills and
+    /// writing workflow steering instructions into supported agent instruction
+    /// files.
+    ///
+    /// ## Examples
+    ///
+    /// Start the interactive setup wizard:
+    ///
+    /// ```text
+    /// but agent setup
+    /// ```
+    ///
+    /// Print the default generated steering text:
+    ///
+    /// ```text
+    /// but agent setup --print
+    /// ```
+    #[cfg_attr(feature = "raw-clap-docs", clap(verbatim_doc_comment))]
+    Agent(agent::Platform),
+
     /// Open a file in the built-in text editor.
     ///
     /// A simple terminal-based text editor for quick edits. This is the same
@@ -1348,6 +1370,7 @@ pub enum Subcommands {
     External(Vec<OsString>),
 }
 
+pub mod agent;
 pub mod alias;
 #[cfg(feature = "legacy")]
 pub mod commit;

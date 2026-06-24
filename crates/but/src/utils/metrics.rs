@@ -80,7 +80,7 @@ impl Subcommands {
     pub(crate) fn to_metrics_command(&self) -> CommandName {
         use CommandName::*;
 
-        use crate::args::{alias as alias_args, branch, forge, skill, update, worktree};
+        use crate::args::{agent, alias as alias_args, branch, forge, skill, update, worktree};
         match self {
             #[cfg(feature = "legacy")]
             Subcommands::Status { .. } => Status,
@@ -219,6 +219,9 @@ impl Subcommands {
             Subcommands::Skill(skill::Platform { cmd }) => match cmd {
                 skill::Subcommands::Install { .. } => SkillInstall,
                 skill::Subcommands::Check { .. } => SkillCheck,
+            },
+            Subcommands::Agent(agent::Platform { cmd }) => match cmd {
+                agent::Subcommands::Setup { .. } => AgentSetup,
             },
             Subcommands::Edit { .. } => Edit,
             #[cfg(feature = "legacy")]
@@ -653,7 +656,7 @@ fn emit_metrics(command: CommandName, props: &Props) {
 mod tests {
     use super::*;
     use crate::{
-        args::{Subcommands, update},
+        args::{Subcommands, agent, update},
         bad_input,
     };
 
@@ -686,6 +689,12 @@ mod tests {
                 cmd: update::Subcommands::Suppress { days: 7 },
             }),
             "updateSuppress",
+        );
+        assert_command(
+            Subcommands::Agent(agent::Platform {
+                cmd: agent::Subcommands::Setup { print: false },
+            }),
+            "agentSetup",
         );
         assert_command(
             Subcommands::Move {

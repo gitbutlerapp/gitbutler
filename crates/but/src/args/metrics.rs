@@ -69,6 +69,7 @@ pub enum CommandName {
     Merge,
     SkillInstall,
     SkillCheck,
+    AgentSetup,
     Pick,
     Clean,
     External,

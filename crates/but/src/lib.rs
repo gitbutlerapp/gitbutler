@@ -31,7 +31,7 @@ use clap::Parser;
 
 pub mod args;
 use args::{
-    Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, forge,
+    Args, OutputFormat, Subcommands, actions, agent, alias as alias_args, branch, forge,
     update as update_args, worktree,
 };
 use but_settings::AppSettings;
@@ -503,6 +503,11 @@ async fn match_subcommand(
             {
                 return Ok(());
             }
+
+            result.emit_metrics(metrics_ctx).map_err(CliError::from)
+        }
+        Subcommands::Agent(agent::Platform { cmd }) => {
+            let result = command::agent::handle(&args.current_dir, out, cmd);
 
             result.emit_metrics(metrics_ctx).map_err(CliError::from)
         }
