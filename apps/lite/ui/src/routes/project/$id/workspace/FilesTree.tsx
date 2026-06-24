@@ -345,42 +345,46 @@ const FileRow: FC<
 					</Toolbar.Root>
 				)}
 
-				{item._tag === "Change"
-					? (() => {
-							const badge = Match.value(item.change.status).pipe(
-								Match.when({ type: "Addition" }, () => "A"),
-								Match.when({ type: "Deletion" }, () => "D"),
-								Match.when({ type: "Modification" }, () => "M"),
-								Match.when({ type: "Rename" }, () => "R"),
-								Match.exhaustive,
-							);
-							const label = Match.value(item.change.status).pipe(
-								Match.when({ type: "Addition" }, () => "Added"),
-								Match.when({ type: "Deletion" }, () => "Deleted"),
-								Match.when({ type: "Modification" }, () => "Modified"),
-								Match.when({ type: "Rename" }, () => "Renamed"),
-								Match.exhaustive,
-							);
+				{(() => {
+					const badge =
+						item._tag === "Conflict"
+							? "C"
+							: Match.value(item.change.status).pipe(
+									Match.when({ type: "Addition" }, () => "A"),
+									Match.when({ type: "Deletion" }, () => "D"),
+									Match.when({ type: "Modification" }, () => "M"),
+									Match.when({ type: "Rename" }, () => "R"),
+									Match.exhaustive,
+								);
+					const label =
+						item._tag === "Conflict"
+							? "Conflict"
+							: Match.value(item.change.status).pipe(
+									Match.when({ type: "Addition" }, () => "Added"),
+									Match.when({ type: "Deletion" }, () => "Deleted"),
+									Match.when({ type: "Modification" }, () => "Modified"),
+									Match.when({ type: "Rename" }, () => "Renamed"),
+									Match.exhaustive,
+								);
 
-							return (
-								<Tooltip.Root disableHoverablePopup>
-									<Tooltip.Trigger
-										className={styles.fileStatusBadge}
-										aria-label={label}
-										data-char={badge}
-										render={<span />}
-									>
-										{badge}
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup render={<TooltipPopup />}>{label}</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-							);
-						})()
-					: "C"}
+					return (
+						<Tooltip.Root disableHoverablePopup>
+							<Tooltip.Trigger
+								className={styles.fileStatusBadge}
+								aria-label={label}
+								data-char={badge}
+								render={<span />}
+							>
+								{badge}
+							</Tooltip.Trigger>
+							<Tooltip.Portal>
+								<Tooltip.Positioner sideOffset={4}>
+									<Tooltip.Popup render={<TooltipPopup />}>{label}</Tooltip.Popup>
+								</Tooltip.Positioner>
+							</Tooltip.Portal>
+						</Tooltip.Root>
+					);
+				})()}
 			</Tooltip.Trigger>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
