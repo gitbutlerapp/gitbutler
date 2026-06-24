@@ -1453,6 +1453,19 @@ const ChangesSectionRow: FC<{
 		enterAbsorbMode(operand, { type: "all" });
 	};
 
+	const cutChanges = () => {
+		dispatch(
+			projectActions.enterTransferMode({
+				projectId,
+				mode: keyboardTransferOperationMode({
+					source: operand,
+					operationType: "into",
+				}),
+			}),
+		);
+		focusSelectionScope("outline");
+	};
+
 	const composeCommitMessage = () => {
 		dispatch(projectActions.selectOutline({ projectId, selection: uncommittedChangesOperand }));
 		focusCommitMessageInput();
@@ -1471,6 +1484,12 @@ const ChangesSectionRow: FC<{
 			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitMessageFromChanges.hotkey),
 			onSelect: composeCommitMessage,
 			enabled: isDefaultMode,
+		}),
+		nativeMenuItem({
+			label: "Cut Changes",
+			enabled: changes.length > 0,
+			onSelect: cutChanges,
+			accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
@@ -2097,6 +2116,19 @@ const BranchRow: FC<
 		focusCommitMessageInput();
 	};
 
+	const cutBranch = () => {
+		dispatch(
+			projectActions.enterTransferMode({
+				projectId,
+				mode: keyboardTransferOperationMode({
+					source: operand,
+					operationType: "into",
+				}),
+			}),
+		);
+		focusSelectionScope("outline");
+	};
+
 	const insertBlankCommit = (side: "above" | "below") => {
 		commitInsertBlankMutation.mutate({
 			projectId,
@@ -2188,6 +2220,11 @@ const BranchRow: FC<
 			enabled: !isRenamePending,
 			accelerator: toElectronAccelerator(outlineHotkeys.renameBranch.hotkey),
 			onSelect: startEditing,
+		}),
+		nativeMenuItem({
+			label: "Cut Branch",
+			onSelect: cutBranch,
+			accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
 		}),
 		nativeMenuItem({
 			label: "Copy Branch Name",
