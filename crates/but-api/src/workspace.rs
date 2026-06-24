@@ -12,7 +12,7 @@ use but_forge::ForgeReview;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_serde::BStringForFrontend;
 use but_workspace::{IntegrateUpstreamOutcome, ReviewIntegrationHint};
-use tracing::instrument;
+use tracing::{instrument, warn};
 
 /// Result of integrating upstream changes into the current workspace.
 #[derive(Debug, Clone)]
@@ -275,7 +275,16 @@ pub fn workspace_integrate_upstream_only_with_perm(
     let (workspace_state, worktree_conflicts) = {
         let (repo, mut ws, db) = ctx.workspace_mut_and_db_with_perm(perm)?;
         let project_meta = ctx.project_meta()?;
-        let review_hints = forge_review_integration_hints(&ws, &project_meta, &db)?;
+        let review_hints = match forge_review_integration_hints(&ws, &project_meta, &db) {
+            Ok(review_hints) => review_hints,
+            Err(err) => {
+                warn!(
+                    ?err,
+                    "failed to derive forge review integration hints; continuing without hints"
+                );
+                Vec::new()
+            }
+        };
         let IntegrateUpstreamOutcome {
             rebase,
             ws_meta,
