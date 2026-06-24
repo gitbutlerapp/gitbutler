@@ -2,10 +2,9 @@ use std::borrow::Cow;
 
 use anyhow::Context as _;
 use bstr::ByteSlice as _;
-use but_api::diff::ComputeLineStats;
-use but_core::diff::CommitDetails;
+use but_core::{CommitOwned, TreeChange, diff::CommitDetails};
 use but_ctx::Context;
-use gix::prelude::ObjectIdExt as _;
+use gix::{prelude::ObjectIdExt as _, refs::FullName};
 use nonempty::NonEmpty;
 use ratatui::style::Style;
 
@@ -28,6 +27,21 @@ pub(super) fn commit_picker(
             CopySelectionItem::WholeCommitMessage(commit_id),
             CopySelectionItem::CommitAuthor(commit_id),
             CopySelectionItem::CommitDiff(commit_id),
+        ])
+        .unwrap(),
+        theme,
+    )
+}
+
+pub(super) fn branch_picker(
+    branch: FullName,
+    theme: &'static Theme,
+) -> FuzzyPicker<CopySelectionItem> {
+    picker(
+        NonEmpty::from_slice(&[
+            CopySelectionItem::BranchName(branch.clone()),
+            CopySelectionItem::PullRequestUrl(branch.clone()),
+            CopySelectionItem::BranchDiff(branch.clone()),
         ])
         .unwrap(),
         theme,
@@ -61,6 +75,9 @@ pub(super) enum CopySelectionItem {
     WholeCommitMessage(gix::ObjectId),
     CommitAuthor(gix::ObjectId),
     CommitDiff(gix::ObjectId),
+    BranchName(FullName),
+    BranchDiff(FullName),
+    PullRequestUrl(FullName),
 }
 
 impl CopySelectionItem {
@@ -71,7 +88,9 @@ impl CopySelectionItem {
             CopySelectionItem::CommitMessageTitle(_) => "Message title",
             CopySelectionItem::WholeCommitMessage(_) => "Whole message",
             CopySelectionItem::CommitAuthor(_) => "Author",
-            CopySelectionItem::CommitDiff(_) => "Diff",
+            CopySelectionItem::CommitDiff(_) | CopySelectionItem::BranchDiff(_) => "Diff",
+            CopySelectionItem::BranchName(_) => "Branch name",
+            CopySelectionItem::PullRequestUrl(_) => "Pull Request URL",
         }
     }
 
@@ -107,15 +126,36 @@ impl CopySelectionItem {
             }
             CopySelectionItem::CommitDiff(commit_id) => {
                 let commit_details = commit_details(&repo, *commit_id)?;
-                commit_details
-                    .diff_with_first_parent
-                    .iter()
-                    .map(|change| change.unified_diff(&repo, ctx.settings.context_lines))
-                    .filter_map(|diff| diff.transpose())
-                    .try_fold(String::new(), |mut diff, line| -> anyhow::Result<_> {
-                        diff.push_str(&line?.to_str_lossy());
-                        Ok(diff)
-                    })
+                tree_changes_to_diff(
+                    commit_details.diff_with_first_parent,
+                    &repo,
+                    ctx.settings.context_lines,
+                )
+            }
+            CopySelectionItem::BranchName(branch_name) => {
+                Ok(branch_name.shorten().to_str_lossy().to_string())
+            }
+            CopySelectionItem::BranchDiff(branch_name) => {
+                let name = branch_name.shorten().to_str_lossy().to_string();
+                let tree_changes = but_api::branch::branch_diff(ctx, name)?;
+                tree_changes_to_diff(
+                    tree_changes.changes.into_iter().map(Into::into).collect(),
+                    &repo,
+                    ctx.settings.context_lines,
+                )
+            }
+            CopySelectionItem::PullRequestUrl(branch_name) => {
+                let name = branch_name.shorten().to_str_lossy();
+                let review_map = crate::command::legacy::forge::review::get_review_map(
+                    ctx,
+                    Some(but_forge::CacheConfig::CacheOnly),
+                )?;
+                let url = review_map
+                    .get(&*name)
+                    .and_then(|reviews| reviews.first())
+                    .map(|review| review.html_url.clone())
+                    .context("No pull request URL found")?;
+                Ok(url)
             }
         }
     }
@@ -158,4 +198,19 @@ fn commit_details(
     commit_id: gix::ObjectId,
 ) -> anyhow::Result<CommitDetails> {
     CommitDetails::from_commit_id(commit_id.attach(repo), false)
+}
+
+fn tree_changes_to_diff(
+    tree_changes: Vec<TreeChange>,
+    repo: &gix::Repository,
+    context_lines: u32,
+) -> anyhow::Result<String> {
+    tree_changes
+        .into_iter()
+        .map(|change| change.unified_diff(repo, context_lines))
+        .filter_map(|diff| diff.transpose())
+        .try_fold(String::new(), |mut diff, line| -> anyhow::Result<_> {
+            diff.push_str(&line?.to_str_lossy());
+            Ok(diff)
+        })
 }

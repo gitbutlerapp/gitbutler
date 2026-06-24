@@ -2875,8 +2875,9 @@ impl App {
                 let commit_id = *commit_id;
                 copy_selection_picker::commit_picker(commit_id, self.theme)
             }
-            CliId::Branch { .. } => {
-                todo!()
+            CliId::Branch { name, .. } => {
+                let branch = Category::LocalBranch.to_full_name(&**name)?;
+                copy_selection_picker::branch_picker(branch, self.theme)
             }
             CliId::UncommittedHunkOrFile(..)
             | CliId::PathPrefix { .. }
