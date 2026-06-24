@@ -347,14 +347,14 @@ const FileRow: FC<
 
 				{item._tag === "Change"
 					? (() => {
-							const label = Match.value(item.change.status).pipe(
+							const badge = Match.value(item.change.status).pipe(
 								Match.when({ type: "Addition" }, () => "A"),
 								Match.when({ type: "Deletion" }, () => "D"),
 								Match.when({ type: "Modification" }, () => "M"),
 								Match.when({ type: "Rename" }, () => "R"),
 								Match.exhaustive,
 							);
-							const tooltip = Match.value(item.change.status).pipe(
+							const label = Match.value(item.change.status).pipe(
 								Match.when({ type: "Addition" }, () => "Added"),
 								Match.when({ type: "Deletion" }, () => "Deleted"),
 								Match.when({ type: "Modification" }, () => "Modified"),
@@ -366,15 +366,15 @@ const FileRow: FC<
 								<Tooltip.Root disableHoverablePopup>
 									<Tooltip.Trigger
 										className={styles.fileStatusBadge}
-										aria-label={tooltip}
-										data-char={label}
+										aria-label={label}
+										data-char={badge}
 										render={<span />}
 									>
-										{label}
+										{badge}
 									</Tooltip.Trigger>
 									<Tooltip.Portal>
 										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup render={<TooltipPopup />}>{tooltip}</Tooltip.Popup>
+											<Tooltip.Popup render={<TooltipPopup />}>{label}</Tooltip.Popup>
 										</Tooltip.Positioner>
 									</Tooltip.Portal>
 								</Tooltip.Root>
