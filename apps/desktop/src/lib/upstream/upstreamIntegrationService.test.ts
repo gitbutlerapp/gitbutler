@@ -68,6 +68,9 @@ describe("UpstreamIntegrationService", () => {
 			{
 				fetchStacks: vi.fn().mockResolvedValue(stacks),
 			} as any,
+			{
+				waitForRefreshes: vi.fn().mockResolvedValue(undefined),
+			} as any,
 		);
 
 		const statuses = await service.upstreamStatuses("project-1");
@@ -110,6 +113,9 @@ describe("UpstreamIntegrationService", () => {
 			{
 				fetchStacks: vi.fn().mockResolvedValue(stacks),
 			} as any,
+			{
+				waitForRefreshes: vi.fn().mockResolvedValue(undefined),
+			} as any,
 		);
 
 		const statuses = await service.upstreamStatuses("project-1");
@@ -145,5 +151,57 @@ describe("UpstreamIntegrationService", () => {
 				},
 			],
 		});
+	});
+
+	test("waits for pending direct review refresh before previewing integration", async () => {
+		const calls: string[] = [];
+		// eslint-disable-next-line func-style
+		let finishRefresh: () => void = () => {};
+		const refresh = new Promise<void>((resolve) => {
+			finishRefresh = resolve;
+		});
+		const mutate = vi.fn().mockImplementation(async () => {
+			calls.push("preview");
+			return await Promise.resolve({
+				workspaceState: {
+					headInfo: refInfo([]),
+					changes: [],
+					replacedCommits: {},
+				},
+				worktreeConflicts: [],
+			});
+		});
+		const service = new UpstreamIntegrationService(
+			{
+				endpoints: {
+					workspaceIntegrateUpstream: {
+						mutate,
+					},
+				},
+			} as any,
+			{
+				fetchStacks: vi.fn().mockImplementation(async () => {
+					calls.push("stacks");
+					return await Promise.resolve([stack([segment("feature")])]);
+				}),
+			} as any,
+			{
+				waitForRefreshes: vi.fn().mockImplementation(async () => {
+					calls.push("wait");
+					await refresh;
+					calls.push("refreshed");
+				}),
+			} as any,
+		);
+
+		const statuses = service.upstreamStatuses("project-1");
+		await Promise.resolve();
+
+		expect(calls).toEqual(["wait"]);
+
+		finishRefresh();
+		await statuses;
+
+		expect(calls).toEqual(["wait", "refreshed", "stacks", "preview"]);
 	});
 });
