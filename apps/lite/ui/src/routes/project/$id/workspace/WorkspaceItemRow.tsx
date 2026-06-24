@@ -42,10 +42,6 @@ export const WorkspaceItemRow: FC<
 				props.onClick?.(event);
 				if (!event.defaultPrevented) onSelect?.();
 			}}
-			onContextMenu={(event) => {
-				props.onContextMenu?.(event);
-				onSelect?.();
-			}}
 		/>
 	);
 };
