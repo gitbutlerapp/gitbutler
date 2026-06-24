@@ -24,7 +24,6 @@ fn two_branches() -> Sandbox {
     env.file("three", "content of three");
     env.file("four", "content of four");
 
-    env.but("branch new first");
     env.but("_commit2 -b one -m 'add one' one")
         .assert()
         .success();
@@ -32,7 +31,6 @@ fn two_branches() -> Sandbox {
         .assert()
         .success();
 
-    env.but("branch new second");
     env.but("_commit2 -b second -m 'add three' three")
         .assert()
         .success();

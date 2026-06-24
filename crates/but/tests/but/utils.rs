@@ -118,6 +118,7 @@ impl Sandbox {
     /// Create a command suitable for testing the output of the invocation with `args`. If `args` is empty,
     /// no arguments are provided.
     /// Note that more arguments can be added to the returned [snapbox::cmd::Command] later as well.
+    #[must_use]
     pub fn but(&self, args: impl AsRef<str>) -> snapbox::cmd::Command {
         let args = args.as_ref();
         let mut cmd = snapbox::cmd::Command::new(snapbox::cmd::cargo_bin!("but"));
