@@ -4013,8 +4013,8 @@ dependencies = [
  "but-testsupport",
  "gitbutler-notify-debouncer",
  "gix",
- "insta",
  "notify",
+ "snapbox",
  "tokio",
  "tracing",
 ]
