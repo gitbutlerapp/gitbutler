@@ -48,6 +48,25 @@
 	margin-inline-start: auto;
 }
 
+.panels {
+	column-gap: 6px;
+}
+
+.panel {
+	/* Stretch single child element to fill this element. */
+	display: grid;
+	grid-template-rows: minmax(0, 1fr);
+}
+
+.resizeHandle {
+	width: 1px;
+
+	&[data-separator="hover"],
+	&[data-separator="active"] {
+		background-color: var(--border-2);
+	}
+}
+
 .loadingTab {
 	padding-inline: var(--panel-padding);
 	padding-block-end: var(--panel-padding);
@@ -58,17 +77,6 @@
 	grid-template-rows: auto minmax(0, 1fr);
 	row-gap: 12px;
 	padding-inline: var(--panel-padding);
-}
-
-.diff {
-	display: grid;
-	grid-template-rows: minmax(0, 1fr);
-	grid-template-columns: 1fr;
-	column-gap: 12px;
-}
-
-.diffWithFiles {
-	grid-template-columns: 250px minmax(300px, 1fr);
 }
 
 .diffFiles {

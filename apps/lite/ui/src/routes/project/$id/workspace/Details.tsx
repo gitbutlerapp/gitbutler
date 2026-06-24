@@ -68,6 +68,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { Group, Panel, Separator } from "react-resizable-panels";
 import styles from "./Details.module.css";
 import { diffHotkeys, pullRequestHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
@@ -854,41 +855,53 @@ const Diff: FC<{
 				)}
 			</div>
 
-			<div className={classes(styles.diff, filesVisible && styles.diffWithFiles)}>
+			<Group className={styles.panels}>
 				{filesVisible && (
-					<FilesTree
-						id={"files" satisfies SelectionScope}
-						data-selection-scope
-						tabIndex={0}
-						className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
-						onFileSelection={selectFileAndNavigateDiff}
-						projectId={projectId}
-						items={filesItems}
-						navigationIndex={{ items: files, indexByKey: filesIndexByKey }}
-						fileParent={fileParent}
-					/>
+					<>
+						<Panel
+							className={styles.panel}
+							defaultSize={250}
+							minSize={180}
+							groupResizeBehavior="preserve-pixel-size"
+						>
+							<FilesTree
+								id={"files" satisfies SelectionScope}
+								data-selection-scope
+								tabIndex={0}
+								className={classes(styles.diffFiles, uiStyles.scrollerWithSeparator)}
+								onFileSelection={selectFileAndNavigateDiff}
+								projectId={projectId}
+								items={filesItems}
+								navigationIndex={{ items: files, indexByKey: filesIndexByKey }}
+								fileParent={fileParent}
+							/>
+						</Panel>
+						<Separator className={styles.resizeHandle} />
+					</>
 				)}
 
-				<div
-					id={"diff" satisfies SelectionScope}
-					data-selection-scope
-					// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
-					tabIndex={0}
-					className={styles.diffContentsContainer}
-					ref={useMergedRefs(selectionScopeRef, diffContentsEl)}
-				>
-					<DiffContents
-						onViewerFileSelection={onFileSelection}
-						fileParent={fileParent}
-						changesetKey={changesetKey}
-						projectId={projectId}
-						diffView={diffView}
-						diffStyle={canUseSplitDiff ? preferredDiffStyle : "unified"}
-						selectionScopeRef={selectionScopeRef}
-						viewerRef={viewerRef}
-					/>
-				</div>
-			</div>
+				<Panel className={styles.panel}>
+					<div
+						id={"diff" satisfies SelectionScope}
+						data-selection-scope
+						// oxlint-disable-next-line jsx_a11y/no-noninteractive-tabindex -- Revisit this when we add hunk/line selection.
+						tabIndex={0}
+						className={styles.diffContentsContainer}
+						ref={useMergedRefs(selectionScopeRef, diffContentsEl)}
+					>
+						<DiffContents
+							onViewerFileSelection={onFileSelection}
+							fileParent={fileParent}
+							changesetKey={changesetKey}
+							projectId={projectId}
+							diffView={diffView}
+							diffStyle={canUseSplitDiff ? preferredDiffStyle : "unified"}
+							selectionScopeRef={selectionScopeRef}
+							viewerRef={viewerRef}
+						/>
+					</div>
+				</Panel>
+			</Group>
 		</div>
 	);
 };
