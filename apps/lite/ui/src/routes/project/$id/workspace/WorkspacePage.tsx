@@ -3,12 +3,7 @@ import {
 	headInfoQueryOptions,
 	listProjectsQueryOptions,
 } from "#ui/api/queries.ts";
-import {
-	useBranchCreate,
-	useWorkspaceIntegrateUpstream,
-	useRestoreSnapshot,
-} from "#ui/api/mutations.ts";
-import { findBranchOperandByRef } from "#ui/api/ref-info.ts";
+import { useRestoreSnapshot } from "#ui/api/mutations.ts";
 import {
 	focusAdjacentSelectionScope,
 	focusSelectionScope,
@@ -27,14 +22,11 @@ import { getButtonClassName } from "#ui/components/Button.tsx";
 import { PickerDialog } from "#ui/components/PickerDialog.tsx";
 import { globalHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { lastOpenedProjectKey } from "#ui/projects/last-opened.ts";
-import { stackBottomRelativeTo } from "#ui/api/stack.ts";
 import { type AppThunk, useAppDispatch, useAppSelector } from "#ui/store.ts";
-import { BottomUpdate, ProjectForFrontend, RefInfo, Segment } from "@gitbutler/but-sdk";
+import { ProjectForFrontend, RefInfo, Segment } from "@gitbutler/but-sdk";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
 import {
 	QueryErrorResetBoundary,
-	useIsFetching,
-	useIsMutating,
 	useQueries,
 	useQuery,
 	useSuspenseQuery,
@@ -44,29 +36,25 @@ import { Match } from "effect";
 import { type FC, Component, ReactNode, useDeferredValue } from "react";
 import {
 	branchOperand,
-	uncommittedChangesOperand,
 	commitOperand,
-	Operand,
 	operandContains,
 	operandEquals,
 	operandIdentityKey,
 	type BranchOperand,
+	type Operand,
+	uncommittedChangesOperand,
 } from "#ui/operands.ts";
 import { Details } from "./Details.tsx";
 import styles from "./WorkspacePage.module.css";
-import { OutlineTree } from "#ui/routes/project/$id/workspace/OutlineTree.tsx";
-import { Button, Toggle, ToggleGroup, Tooltip } from "@base-ui/react";
 import { useActiveElement } from "#ui/focus.ts";
 import { classes } from "#ui/components/classes.ts";
-import { Icon } from "#ui/components/Icon.tsx";
-import { TooltipPopup } from "#ui/components/Tooltip.tsx";
-import { buildIndexByKey, NavigationIndex } from "#ui/workspace/navigation-index.ts";
-import { reverse } from "effect/Array";
-import { getOperations } from "#ui/operations/operation.ts";
-import { ToggleGroupStyles, ToggleStyles } from "#ui/components/ToggleGroup.tsx";
 import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
 import { BranchPicker } from "./BranchPicker.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
+import { Outline } from "./Outline.tsx";
+import { getOperations } from "#ui/operations/operation.ts";
+import { buildIndexByKey, type NavigationIndex } from "#ui/workspace/navigation-index.ts";
+import { reverse } from "effect/Array";
 
 const toggleFiles =
 	({
@@ -164,23 +152,6 @@ const useWorkspaceHotkeys = (projectId: string) => {
 	]);
 };
 
-const ActivitySpinner: FC = () => {
-	const fetchingCount = useIsFetching();
-	const mutatingCount = useIsMutating();
-
-	const isFetching = fetchingCount > 0;
-	const isMutating = mutatingCount > 0;
-
-	const status = Match.value({ isFetching, isMutating }).pipe(
-		Match.when({ isFetching: true, isMutating: true }, () => "Syncing"),
-		Match.when({ isFetching: true }, () => "Loading"),
-		Match.when({ isMutating: true }, () => "Saving"),
-		Match.orElse(() => null),
-	);
-
-	return status !== null && <Icon name="spinner" aria-label={status} />;
-};
-
 const outlineNavigationItems = (headInfo: RefInfo | undefined): Array<Operand> => {
 	const segmentItems = (stackId: string, segment: Segment): Array<Operand> => [
 		...(segment.refName
@@ -242,8 +213,6 @@ const useOutlineNavigationIndex = ({
 
 	return { items: filteredItems, indexByKey };
 };
-
-const isMac = window.lite.platform === "darwin";
 
 type ProjectPickerProps = {
 	open: boolean;
@@ -330,44 +299,10 @@ const WorkspacePage: FC = () => {
 		else dispatch(projectActions.closeDialog({ projectId }));
 	};
 
-	const openApplyBranchPicker = () => {
-		dispatch(projectActions.openApplyBranchPicker({ projectId }));
-	};
-
 	const openProjectPicker = () => {
 		dispatch(projectActions.openProjectPicker({ projectId }));
 	};
 
-	const branchCreateMutation = useBranchCreate();
-	const createIndependentBranch = () => {
-		branchCreateMutation.mutate(
-			{
-				projectId,
-				newRef: null,
-				placement: { type: "independent" },
-			},
-			{
-				onSuccess: (response) => {
-					const newBranch = findBranchOperandByRef({
-						headInfo: response.workspace.headInfo,
-						branchRef: response.newRef.fullNameBytes,
-					});
-					if (newBranch) selectBranch(newBranch);
-				},
-			},
-		);
-	};
-
-	const { data: headInfo } = useQuery(headInfoQueryOptions(projectId));
-	const rebaseUpdates =
-		headInfo?.stacks.flatMap((stack): Array<BottomUpdate> => {
-			const relativeTo = stackBottomRelativeTo(stack);
-			return relativeTo ? [{ kind: "rebase", selector: relativeTo }] : [];
-		}) ?? [];
-	const workspaceIntegrateUpstreamMutation = useWorkspaceIntegrateUpstream();
-	const updateWorkspace = () => {
-		workspaceIntegrateUpstreamMutation.mutate({ projectId, updates: rebaseUpdates, dryRun: false });
-	};
 	const toggleDetailsFullWindow = () => {
 		if (
 			!detailsFullWindow &&
@@ -377,50 +312,8 @@ const WorkspacePage: FC = () => {
 
 		dispatch(projectActions.toggleDetailsFullWindow({ projectId }));
 	};
-	// This should be false if all stacks are up-to-date, but we're currently
-	// lacking this information:
-	// https://linear.app/gitbutler/issue/GB-1560/add-information-about-the-relation-to-the-upstream-to-the-head-info
-	const canUpdateWorkspace =
-		outlineMode._tag === "Default" &&
-		rebaseUpdates.length > 0 &&
-		!workspaceIntegrateUpstreamMutation.isPending;
-
-	const canCreateIndependentBranch =
-		outlineMode._tag === "Default" && !branchCreateMutation.isPending;
-
-	const canApplyBranch = outlineMode._tag === "Default";
 
 	useHotkeys([
-		{
-			hotkey: workspaceHotkeys.applyBranch.hotkey,
-			callback: openApplyBranchPicker,
-			options: {
-				conflictBehavior: "allow",
-				meta: workspaceHotkeys.applyBranch.meta,
-				enabled: canApplyBranch,
-			},
-		},
-		{
-			hotkey: workspaceHotkeys.createIndependentBranch.hotkey,
-			callback: createIndependentBranch,
-			options: {
-				conflictBehavior: "allow",
-				enabled: canCreateIndependentBranch,
-				meta: workspaceHotkeys.createIndependentBranch.meta,
-				ignoreInputs: true,
-				requireReset: true,
-			},
-		},
-		{
-			hotkey: workspaceHotkeys.updateWorkspace.hotkey,
-			callback: updateWorkspace,
-			options: {
-				conflictBehavior: "allow",
-				enabled: canUpdateWorkspace,
-				meta: workspaceHotkeys.updateWorkspace.meta,
-				ignoreInputs: true,
-			},
-		},
 		{
 			hotkey: workspaceHotkeys.toggleDetailsFullWindow.hotkey,
 			callback: toggleDetailsFullWindow,
@@ -481,132 +374,13 @@ const WorkspacePage: FC = () => {
 		<>
 			<div className={classes(styles.page, detailsFullWindow && styles.pageDetailsFullWindow)}>
 				{!detailsFullWindow && (
-					<div className={styles.outlinePanel}>
-						<header className={styles.workspaceControls}>
-							<div className={classes(isMac && styles.workspaceControlsMacSpacer)} />
-							<div className={styles.workspaceControlsLeft}>
-								<button
-									type="button"
-									className={classes("text-15", "text-bold", styles.workspaceName)}
-									onClick={openProjectPicker}
-								>
-									<span className={styles.workspaceNameLabel}>{selectedProject.title}</span>
-									<Icon name="chevron-down" className={styles.workspaceNameChevron} />
-								</button>
-								<ActivitySpinner />
-							</div>
-
-							<div className={styles.workspaceControlsActions}>
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										aria-label={workspaceHotkeys.updateWorkspace.meta.name}
-										className={getButtonClassName({ iconOnly: true })}
-										onClick={updateWorkspace}
-										// We pass `disabled` here because we want to disable the button, not
-										// the tooltip. Other props should be passed above.
-										render={<Button focusableWhenDisabled disabled={!canUpdateWorkspace} />}
-									>
-										<Icon name="arrow-line-down" />
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup
-												render={<TooltipPopup kbd={workspaceHotkeys.updateWorkspace.hotkey} />}
-											>
-												{workspaceHotkeys.updateWorkspace.meta.name}
-											</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										aria-label={workspaceHotkeys.createIndependentBranch.meta.name}
-										className={getButtonClassName({ iconOnly: true })}
-										onClick={createIndependentBranch}
-										// We pass `disabled` here because we want to disable the button, not
-										// the tooltip. Other props should be passed above.
-										render={<Button focusableWhenDisabled disabled={!canCreateIndependentBranch} />}
-									>
-										{branchCreateMutation.isPending ? (
-											<Icon name="spinner" />
-										) : (
-											<Icon name="plus" />
-										)}
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup
-												render={
-													<TooltipPopup kbd={workspaceHotkeys.createIndependentBranch.hotkey} />
-												}
-											>
-												{workspaceHotkeys.createIndependentBranch.meta.name}
-											</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										aria-label={workspaceHotkeys.applyBranch.meta.name}
-										className={getButtonClassName({ iconOnly: true })}
-										onClick={openApplyBranchPicker}
-										// We pass `disabled` here because we want to disable the button, not
-										// the tooltip. Other props should be passed above.
-										render={<Button focusableWhenDisabled disabled={!canApplyBranch} />}
-									>
-										<Icon name="branch" />
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup
-												render={<TooltipPopup kbd={workspaceHotkeys.applyBranch.hotkey} />}
-											>
-												{workspaceHotkeys.applyBranch.meta.name}
-											</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-							</div>
-						</header>
-
-						<div className={styles.navContainer}>
-							<ToggleGroup
-								render={<ToggleGroupStyles />}
-								aria-label="Navigation"
-								value={["workspace"]}
-							>
-								<Toggle render={<ToggleStyles />} value="workspace">
-									<Icon name="workbench" />
-									Workspace
-								</Toggle>
-								<Toggle render={<ToggleStyles />} value="upstream" disabled>
-									<Icon name="inbox" />
-									Upstream
-								</Toggle>
-								<Toggle render={<ToggleStyles />} value="branches" disabled>
-									<Icon name="branch" />
-									Branches
-								</Toggle>
-							</ToggleGroup>
-						</div>
-
-						<OutlineTree
-							id={"outline" satisfies SelectionScope}
-							data-selection-scope
-							tabIndex={0}
-							navigationIndex={outlineNavigationIndex}
-							absorptionTargetKeys={absorptionTargetKeys}
-							// Focus on page load.
-							ref={(el) => {
-								// Don't steal focus if this component is mounted later on.
-								if (document.activeElement !== document.body) return;
-
-								el?.focus({ focusVisible: false });
-							}}
-						/>
-					</div>
+					<Outline
+						className={styles.outlinePanelBorder}
+						projectId={projectId}
+						project={selectedProject}
+						navigationIndex={outlineNavigationIndex}
+						absorptionTargetKeys={absorptionTargetKeys}
+					/>
 				)}
 
 				<Details
