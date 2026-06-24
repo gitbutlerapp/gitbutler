@@ -898,7 +898,7 @@ impl App {
             Message::Debug(text) => {
                 messages.push(Message::ShowToast {
                     kind: ToastKind::Debug,
-                    text: text.to_owned(),
+                    text: text.to_owned().into(),
                 });
             }
             Message::GrowDetails => {
@@ -2466,7 +2466,7 @@ impl App {
 
                 messages.push(Message::ShowToast {
                     kind: ToastKind::Error,
-                    text: full_error_msg,
+                    text: full_error_msg.into(),
                 });
             }
         }
@@ -4166,7 +4166,7 @@ enum Message {
     ShowError(Arc<anyhow::Error>),
     ShowToast {
         kind: ToastKind,
-        text: String,
+        text: Text<'static>,
     },
     Confirm(ConfirmMessage),
     Discard,
