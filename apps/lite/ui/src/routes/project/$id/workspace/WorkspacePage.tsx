@@ -18,7 +18,7 @@ import {
 } from "#ui/selection-scopes.ts";
 import {
 	projectActions,
-	selectProjectDetailsFullscreen,
+	selectProjectDetailsFullWindow,
 	selectProjectDialogState,
 	selectProjectFilesVisible,
 	selectProjectOutlineModeState,
@@ -89,15 +89,15 @@ const toggleFiles =
 
 const useWorkspaceHotkeys = (projectId: string) => {
 	const dispatch = useAppDispatch();
-	const detailsFullscreen = useAppSelector((state) =>
-		selectProjectDetailsFullscreen(state, projectId),
+	const detailsFullWindow = useAppSelector((state) =>
+		selectProjectDetailsFullWindow(state, projectId),
 	);
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
 	const activeElement = useActiveElement();
 	const focusedSelectionScope = getFocusedSelectionScope(activeElement);
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
-	const outlineVisible = !detailsFullscreen;
+	const outlineVisible = !detailsFullWindow;
 
 	const restoreSnapshotMutation = useRestoreSnapshot({ projectId });
 
@@ -292,8 +292,8 @@ const WorkspacePage: FC = () => {
 
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 
-	const detailsFullscreen = useAppSelector((state) =>
-		selectProjectDetailsFullscreen(state, projectId),
+	const detailsFullWindow = useAppSelector((state) =>
+		selectProjectDetailsFullWindow(state, projectId),
 	);
 	const dialog = useAppSelector((state) => selectProjectDialogState(state, projectId));
 	const outlineMode = useAppSelector((state) => selectProjectOutlineModeState(state, projectId));
@@ -368,14 +368,14 @@ const WorkspacePage: FC = () => {
 	const updateWorkspace = () => {
 		workspaceIntegrateUpstreamMutation.mutate({ projectId, updates: rebaseUpdates, dryRun: false });
 	};
-	const toggleDetailsFullscreen = () => {
+	const toggleDetailsFullWindow = () => {
 		if (
-			!detailsFullscreen &&
+			!detailsFullWindow &&
 			getFocusedSelectionScope(document.activeElement) === ("outline" satisfies SelectionScope)
 		)
 			requestAnimationFrame(() => focusSelectionScope("diff"));
 
-		dispatch(projectActions.toggleDetailsFullscreen({ projectId }));
+		dispatch(projectActions.toggleDetailsFullWindow({ projectId }));
 	};
 	// This should be false if all stacks are up-to-date, but we're currently
 	// lacking this information:
@@ -422,20 +422,20 @@ const WorkspacePage: FC = () => {
 			},
 		},
 		{
-			hotkey: workspaceHotkeys.toggleDetailsFullscreen.hotkey,
-			callback: toggleDetailsFullscreen,
+			hotkey: workspaceHotkeys.toggleDetailsFullWindow.hotkey,
+			callback: toggleDetailsFullWindow,
 			options: {
 				conflictBehavior: "allow",
-				meta: workspaceHotkeys.toggleDetailsFullscreen.meta,
+				meta: workspaceHotkeys.toggleDetailsFullWindow.meta,
 				ignoreInputs: true,
 			},
 		},
 		{
 			hotkey: "Escape",
-			callback: toggleDetailsFullscreen,
+			callback: toggleDetailsFullWindow,
 			options: {
 				conflictBehavior: "allow",
-				enabled: detailsFullscreen,
+				enabled: detailsFullWindow,
 			},
 		},
 	]);
@@ -479,8 +479,8 @@ const WorkspacePage: FC = () => {
 
 	return (
 		<>
-			<div className={classes(styles.page, detailsFullscreen && styles.pageDetailsFullscreen)}>
-				{!detailsFullscreen && (
+			<div className={classes(styles.page, detailsFullWindow && styles.pageDetailsFullWindow)}>
+				{!detailsFullWindow && (
 					<div className={styles.outlinePanel}>
 						<header className={styles.workspaceControls}>
 							<div className={classes(isMac && styles.workspaceControlsMacSpacer)} />
@@ -613,9 +613,9 @@ const WorkspacePage: FC = () => {
 					key={deferredOutlineSelection ? operandIdentityKey(deferredOutlineSelection) : null}
 					style={{ opacity: deferredOutlineSelection !== outlineSelection ? 0.5 : 1 }}
 					outlineSelection={deferredOutlineSelection}
-					detailsFullscreen={detailsFullscreen}
-					onDetailsFullscreenChange={(fullscreen) =>
-						dispatch(projectActions.setDetailsFullscreen({ projectId, fullscreen }))
+					detailsFullWindow={detailsFullWindow}
+					onDetailsFullWindowChange={(fullWindow) =>
+						dispatch(projectActions.setDetailsFullWindow({ projectId, fullWindow }))
 					}
 				/>
 			</div>

@@ -21,7 +21,7 @@ type Dialog =
 export type DiffStyle = "split" | "unified";
 
 type ProjectState = {
-	detailsFullscreen: boolean;
+	detailsFullWindow: boolean;
 	dialog: Dialog;
 	filesVisible: boolean;
 	preferredDiffStyle: DiffStyle;
@@ -33,7 +33,7 @@ type ProjectSliceState = {
 };
 
 const createInitialProjectState = (): ProjectState => ({
-	detailsFullscreen: false,
+	detailsFullWindow: false,
 	dialog: { _tag: "None" },
 	filesVisible: true,
 	preferredDiffStyle: "split",
@@ -226,16 +226,16 @@ const projectSlice = createSlice({
 			projectState.preferredDiffStyle =
 				projectState.preferredDiffStyle === "split" ? "unified" : "split";
 		},
-		setDetailsFullscreen: (
+		setDetailsFullWindow: (
 			state,
-			action: PayloadAction<{ projectId: string; fullscreen: boolean }>,
+			action: PayloadAction<{ projectId: string; fullWindow: boolean }>,
 		) => {
-			const { projectId, fullscreen } = action.payload;
-			ensureProjectState(state, projectId).detailsFullscreen = fullscreen;
+			const { projectId, fullWindow } = action.payload;
+			ensureProjectState(state, projectId).detailsFullWindow = fullWindow;
 		},
-		toggleDetailsFullscreen: (state, action: PayloadAction<{ projectId: string }>) => {
+		toggleDetailsFullWindow: (state, action: PayloadAction<{ projectId: string }>) => {
 			const projectState = ensureProjectState(state, action.payload.projectId);
-			projectState.detailsFullscreen = !projectState.detailsFullscreen;
+			projectState.detailsFullWindow = !projectState.detailsFullWindow;
 		},
 		openCommandPalette: (
 			state,
@@ -281,8 +281,8 @@ export const selectProjectFilesVisible = (state: RootState, projectId: string) =
 export const selectProjectPreferredDiffStyle = (state: RootState, projectId: string) =>
 	selectProjectState(state, projectId).preferredDiffStyle;
 
-export const selectProjectDetailsFullscreen = (state: RootState, projectId: string) =>
-	selectProjectState(state, projectId).detailsFullscreen;
+export const selectProjectDetailsFullWindow = (state: RootState, projectId: string) =>
+	selectProjectState(state, projectId).detailsFullWindow;
 
 export const selectProjectDialogState = (state: RootState, projectId: string) =>
 	selectProjectState(state, projectId).dialog;

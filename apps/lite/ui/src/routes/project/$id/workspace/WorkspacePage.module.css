@@ -6,7 +6,7 @@
 	min-height: 0;
 }
 
-.pageDetailsFullscreen {
+.pageDetailsFullWindow {
 	grid-template-columns: 1fr;
 }
 
