@@ -1,8 +1,9 @@
+use anyhow::Context as _;
 use but_api::json::HexHash;
-use but_core::{DryRun, RefMetadata, sync::RepoExclusive};
+use but_core::{DiffSpec, DryRun, RefMetadata, sync::RepoExclusive};
 use but_ctx::Context;
 use but_graph::Workspace;
-use but_transaction::{DynamicOutcome, Transaction};
+use but_transaction::{DynamicOutcome, IntermediateCommitCreateResult, Transaction};
 use but_workspace::commit::squash_commits::MessageCombinationStrategy;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::{ObjectId, refs::FullName};
@@ -13,13 +14,16 @@ use serde::Serialize;
 use crate::{
     CliResult, CliResultExt, IdMap,
     args::{
-        atoms::{BranchArg, BranchOrCommit, Purpose},
+        atoms::{BranchArg, Purpose, ResolvedCliIdArg},
         squash2::Platform,
     },
     bad_input,
     command::legacy::reword2::RewordCommitOperation,
+    id::{UNCOMMITTED, UncommittedHunkOrFile},
     theme::{self, Theme},
-    utils::{CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils},
+    utils::{
+        CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, diff_specs::DiffSpecBuilder,
+    },
 };
 
 pub enum SquashOutcome {
@@ -32,6 +36,20 @@ pub enum SquashOutcome {
         new_commit: gix::ObjectId,
         branch_names: NonEmpty<FullName>,
     },
+    UncommittedHunks {
+        target: gix::ObjectId,
+        new_commit: gix::ObjectId,
+    },
+}
+
+impl SquashOutcome {
+    fn new_commit(&self) -> ObjectId {
+        match self {
+            SquashOutcome::Commits { new_commit, .. }
+            | SquashOutcome::UncommittedHunks { new_commit, .. }
+            | SquashOutcome::Branch { new_commit, .. } => *new_commit,
+        }
+    }
 }
 
 impl CliOutputHuman for SquashOutcome {
@@ -73,6 +91,14 @@ impl CliOutputHuman for SquashOutcome {
                     )?;
                 }
             }
+            SquashOutcome::UncommittedHunks { target, new_commit } => {
+                writeln!(
+                    out,
+                    "Amended {} to create {}",
+                    theme::Commit(target),
+                    theme::Commit(new_commit)
+                )?;
+            }
         };
 
         Ok(())
@@ -81,12 +107,7 @@ impl CliOutputHuman for SquashOutcome {
 
 impl CliOutput for SquashOutcome {
     fn on_shell(self, out: &mut dyn WriteWithUtils) -> anyhow::Result<()> {
-        let new_commit = match self {
-            SquashOutcome::Commits { new_commit, .. }
-            | SquashOutcome::Branch { new_commit, .. } => new_commit,
-        };
-
-        writeln!(out, "{new_commit}")?;
+        writeln!(out, "{}", self.new_commit())?;
 
         Ok(())
     }
@@ -97,13 +118,8 @@ impl CliOutput for SquashOutcome {
             new_commit: HexHash,
         }
 
-        let new_commit = match self {
-            SquashOutcome::Commits { new_commit, .. }
-            | SquashOutcome::Branch { new_commit, .. } => new_commit,
-        };
-
         Output {
-            new_commit: HexHash(new_commit),
+            new_commit: HexHash(self.new_commit()),
         }
     }
 }
@@ -146,81 +162,48 @@ fn resolve(
 
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm.read_permission())?;
 
-    let (target, sources, branch_resolution) = if let Some(target) = target {
+    let resolved_squash = if let Some(target) = target {
         let target = target
             .resolve_commit_in_workspace(&repo, id_map)
             .hint("--target must always target a commit on an applied branch")?;
         let sources = sources
             .into_iter()
             .map(|source| {
-                source
-                    .resolve_in_workspace(&repo, id_map, Purpose::Source, None)?
-                    .into_branch_or_commit()
+                let id = source.resolve_in_workspace(&repo, id_map, Purpose::Source, None)?;
+                Squashable::try_from_resolved_id(id)
             })
             .collect::<CliResult<Vec<_>>>()?;
 
         let mut commit_sources = Vec::new();
         let mut branch_sources = Vec::new();
+        let mut hunk_sources = Vec::new();
+        let mut uncommitted_sources = Vec::new();
         for source in sources {
             match source {
-                BranchOrCommit::Commit(object_id) => commit_sources.push(object_id),
-                BranchOrCommit::Branch(branch_arg) => branch_sources.push(branch_arg),
+                Squashable::Commit(object_id) => commit_sources.push(object_id),
+                Squashable::Branch(branch_arg) => branch_sources.push(branch_arg),
+                Squashable::UncommittedHunkOrFile(hunk) => hunk_sources.push(*hunk),
+                Squashable::Uncommitted(zz) => uncommitted_sources.push(zz),
             }
         }
 
-        match (commit_sources.is_empty(), branch_sources.is_empty()) {
-            (true, true) => {
-                // nothing to squash
-                unreachable!(
-                    "`sources` is required in `Platform` so we'll never get here with no commits and no branches"
-                )
+        match ClassifiedSquashables::try_from_sources(
+            commit_sources,
+            branch_sources,
+            hunk_sources,
+            uncommitted_sources,
+        )? {
+            ClassifiedSquashables::Commits(sources) => ResolvedSquash::Commits { target, sources },
+            ClassifiedSquashables::Branches(branch_sources) => {
+                resolve_squash_branch(target, branch_sources, &ws)?
             }
-            (true, false) => {
-                // squash only branches
-                let mut sources = Vec::<FullName>::new();
-                let mut to_remove = Vec::<FullName>::new();
-                let mut commits_on_branch_sources = Vec::new();
-                for branch_name in branch_sources {
-                    let (source_branch_name, mut commits_on_branch) =
-                        resolve_commits_on_branch(&branch_name, &ws)?;
-
-                    let mut target_commit_exists_on_branch = false;
-                    commits_on_branch.retain(|commit| {
-                        if *commit == target {
-                            target_commit_exists_on_branch = true;
-                            false
-                        } else {
-                            true
-                        }
-                    });
-                    commits_on_branch_sources.append(&mut commits_on_branch);
-
-                    if !target_commit_exists_on_branch {
-                        to_remove.push(source_branch_name.clone());
-                    }
-                    sources.push(source_branch_name);
-                }
-
-                let sources = NonEmpty::from_vec(sources)
-                    .expect("source branches is already checked to be non-empty");
-
-                (
+            ClassifiedSquashables::UncommittedHunks(source_hunks) => {
+                ResolvedSquash::UncommittedHunk(AmendUncommittedHunks {
                     target,
-                    commits_on_branch_sources,
-                    Some(BranchResolution { sources, to_remove }),
-                )
+                    source_hunks,
+                })
             }
-            (false, true) => {
-                // squash only commits
-                (target, commit_sources, None)
-            }
-            (false, false) => {
-                // mixed sources
-                return Err(bad_input(
-                    "Cannot mix different types of sources. Got both branches and commits",
-                )
-                .into());
-            }
+            ClassifiedSquashables::Uncommitted => ResolvedSquash::Uncommitted { target },
         }
     } else {
         match &sources[..] {
@@ -231,14 +214,12 @@ fn resolve(
                     return Err(bad_input("Cannot squash empty branch into itself").into());
                 };
 
-                (
+                ResolvedSquash::Branches {
                     target,
-                    sources,
-                    Some(BranchResolution {
-                        sources: NonEmpty::new(source_branch_name),
-                        to_remove: Vec::new(),
-                    }),
-                )
+                    source_commits: sources,
+                    source_branches: NonEmpty::new(source_branch_name),
+                    branches_to_remove: Vec::new(),
+                }
             }
             _ => {
                 return Err(bad_input(
@@ -260,45 +241,181 @@ fn resolve(
         )
     };
 
-    let squash_op = match branch_resolution {
-        Some(BranchResolution {
-            sources: source_branches,
-            to_remove: branches_to_remove,
-        }) => SquashOperation::Branch(SquashBranchOperation {
+    let squash_op = match resolved_squash {
+        ResolvedSquash::Commits { target, sources } => {
+            SquashOperation::Commits(SquashCommitsOperation {
+                sources,
+                target,
+                how_to_combine_messages,
+            })
+        }
+        ResolvedSquash::Branches {
+            target,
+            source_commits: sources,
+            source_branches,
+            branches_to_remove,
+        } => SquashOperation::Branch(SquashBranchOperation {
             sources,
             target,
             how_to_combine_messages,
             source_branches,
             branches_to_remove,
         }),
-        None => SquashOperation::Commits(SquashCommitsOperation {
-            sources,
-            target,
-            how_to_combine_messages,
-        }),
+        ResolvedSquash::UncommittedHunk(amend_hunks) => {
+            SquashOperation::UncommittedHunks(amend_hunks)
+        }
+        ResolvedSquash::Uncommitted { target } => SquashOperation::Uncommitted { target },
     };
 
     Ok((squash_op, reword_op))
 }
 
-/// What should happen to the branch after squashing?
-struct BranchResolution {
-    /// The branches that we're squashing.
-    ///
-    /// This is just used to generate the output.
-    sources: NonEmpty<FullName>,
-    /// The branches that should be removed after squashing the commits.
-    to_remove: Vec<FullName>,
+enum ResolvedSquash {
+    Commits {
+        target: ObjectId,
+        sources: Vec<ObjectId>,
+    },
+    Branches {
+        target: ObjectId,
+        source_commits: Vec<ObjectId>,
+        /// The branches that we're squashing.
+        ///
+        /// This is just used to generate the output.
+        source_branches: NonEmpty<FullName>,
+        /// The branches that should be removed after squashing the commits.
+        branches_to_remove: Vec<FullName>,
+    },
+    UncommittedHunk(AmendUncommittedHunks),
+    Uncommitted {
+        target: ObjectId,
+    },
+}
+
+#[derive(Clone)]
+struct AmendUncommittedHunks {
+    target: ObjectId,
+    source_hunks: Vec<UncommittedHunkOrFile>,
+}
+
+fn resolve_squash_branch(
+    target: ObjectId,
+    branch_sources: Vec<BranchArg>,
+    ws: &Workspace,
+) -> CliResult<ResolvedSquash> {
+    let mut source_branches = Vec::<FullName>::new();
+    let mut branches_to_remove = Vec::<FullName>::new();
+    let mut commits_on_branch_sources = Vec::new();
+    for branch_name in branch_sources {
+        let (source_branch_name, mut commits_on_branch) =
+            resolve_commits_on_branch(&branch_name, ws)?;
+
+        let mut target_commit_exists_on_branch = false;
+        commits_on_branch.retain(|commit| {
+            if *commit == target {
+                target_commit_exists_on_branch = true;
+                false
+            } else {
+                true
+            }
+        });
+        commits_on_branch_sources.append(&mut commits_on_branch);
+
+        if !target_commit_exists_on_branch {
+            branches_to_remove.push(source_branch_name.clone());
+        }
+        source_branches.push(source_branch_name);
+    }
+
+    let source_branches = NonEmpty::from_vec(source_branches)
+        .expect("source branches is already checked to be non-empty");
+
+    Ok(ResolvedSquash::Branches {
+        target,
+        source_commits: commits_on_branch_sources,
+        source_branches,
+        branches_to_remove,
+    })
+}
+
+enum Squashable {
+    Commit(gix::ObjectId),
+    Branch(BranchArg),
+    UncommittedHunkOrFile(Box<UncommittedHunkOrFile>),
+    Uncommitted(&'static str),
+}
+
+impl Squashable {
+    fn try_from_resolved_id(id: ResolvedCliIdArg) -> CliResult<Self> {
+        let kind = match id {
+            ResolvedCliIdArg::Commit(commit) => return Ok(Self::Commit(commit)),
+            ResolvedCliIdArg::Branch(branch) => return Ok(Self::Branch(branch)),
+            ResolvedCliIdArg::UncommittedHunkOrFile(hunk) => {
+                return Ok(Self::UncommittedHunkOrFile(hunk));
+            }
+            ResolvedCliIdArg::Uncommitted => return Ok(Self::Uncommitted(UNCOMMITTED)),
+            ResolvedCliIdArg::PathPrefix => "a path",
+            ResolvedCliIdArg::CommittedFile => "a committed file",
+            ResolvedCliIdArg::Stack => "a stack",
+        };
+        Err(bad_input(format!(
+            "Expected a commit, a branch, or an uncommitted change, got {kind}"
+        ))
+        .into())
+    }
+}
+
+enum ClassifiedSquashables {
+    Commits(Vec<gix::ObjectId>),
+    Branches(Vec<BranchArg>),
+    UncommittedHunks(Vec<UncommittedHunkOrFile>),
+    Uncommitted,
+}
+
+impl ClassifiedSquashables {
+    fn try_from_sources(
+        commit_sources: Vec<ObjectId>,
+        branch_sources: Vec<BranchArg>,
+        hunk_sources: Vec<UncommittedHunkOrFile>,
+        uncommitted_sources: Vec<&'static str>,
+    ) -> CliResult<Self> {
+        let has_commits = !commit_sources.is_empty();
+        let has_branches = !branch_sources.is_empty();
+        let has_hunks = !hunk_sources.is_empty();
+        let has_uncommitted = !uncommitted_sources.is_empty();
+
+        let source_type_count = [has_commits, has_branches, has_hunks, has_uncommitted]
+            .into_iter()
+            .filter(|has_source| *has_source)
+            .count();
+
+        if source_type_count > 1 {
+            return Err(bad_input("Cannot mix different types of sources").into());
+        }
+
+        if has_commits {
+            Ok(Self::Commits(commit_sources))
+        } else if has_branches {
+            Ok(Self::Branches(branch_sources))
+        } else if has_hunks {
+            Ok(Self::UncommittedHunks(hunk_sources))
+        } else if has_uncommitted {
+            Ok(Self::Uncommitted)
+        } else {
+            unreachable!(
+                "`sources` is required in `Platform` so we'll never get here with no sources"
+            )
+        }
+    }
 }
 
 fn run(
     ctx: &mut Context,
     meta: &mut impl RefMetadata,
     perm: &mut RepoExclusive,
-    mut squash_op: SquashOperation,
+    squash_op: SquashOperation,
     reword_op: Option<RewordCommitOperation>,
 ) -> CliResult<SquashOutcome> {
-    squash_op = match squash_op {
+    let executable_op = match squash_op {
         SquashOperation::Commits(SquashCommitsOperation {
             mut sources,
             target,
@@ -307,7 +424,7 @@ fn run(
             sources.sort();
             sources.dedup();
 
-            SquashOperation::Commits(SquashCommitsOperation {
+            ExecutableSquashOperation::Commits(SquashCommitsOperation {
                 sources,
                 target,
                 how_to_combine_messages,
@@ -328,7 +445,7 @@ fn run(
 
             source_branches = non_empty_dedup_maintain_sort(source_branches);
 
-            SquashOperation::Branch(SquashBranchOperation {
+            ExecutableSquashOperation::Branch(SquashBranchOperation {
                 sources,
                 source_branches,
                 branches_to_remove,
@@ -336,21 +453,36 @@ fn run(
                 how_to_combine_messages,
             })
         }
-    };
+        SquashOperation::UncommittedHunks(AmendUncommittedHunks {
+            target,
+            source_hunks,
+        }) => {
+            let context_lines = ctx.settings.context_lines;
+            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+            for hunk in &source_hunks {
+                builder.push_changes_from_uncommitted(hunk)?;
+            }
+            builder.reconcile_worktree_diff_specs()?;
+            let changes = builder.into_diff_specs();
 
-    let (sources, target, branch_names) = match squash_op.clone() {
-        SquashOperation::Commits(SquashCommitsOperation {
-            sources,
-            target,
-            how_to_combine_messages: _,
-        }) => (sources, target, None),
-        SquashOperation::Branch(SquashBranchOperation {
-            sources,
-            target,
-            source_branches,
-            how_to_combine_messages: _,
-            branches_to_remove: _,
-        }) => (sources, target, Some(source_branches)),
+            ExecutableSquashOperation::UncommittedHunks(AmendUncommittedDiffSpecsOperation {
+                target,
+                changes,
+            })
+        }
+        SquashOperation::Uncommitted { target } => {
+            let context_lines = ctx.settings.context_lines;
+            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+            let mut builder = DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
+            builder.push_changes_from_uncommitted_area()?;
+            let changes = builder.into_diff_specs();
+
+            ExecutableSquashOperation::UncommittedHunks(AmendUncommittedDiffSpecsOperation {
+                target,
+                changes,
+            })
+        }
     };
 
     let snapshot_details = SnapshotDetails::new(OperationKind::SquashCommit);
@@ -361,9 +493,10 @@ fn run(
         snapshot_details,
         DryRun::No,
         |mut tx| {
-            let new_commit = match squash_op {
-                SquashOperation::Commits(op) => op.execute(&mut tx)?,
-                SquashOperation::Branch(op) => op.execute(&mut tx)?,
+            let new_commit = match executable_op.clone() {
+                ExecutableSquashOperation::Commits(op) => op.execute(&mut tx)?,
+                ExecutableSquashOperation::Branch(op) => op.execute(&mut tx)?,
+                ExecutableSquashOperation::UncommittedHunks(op) => op.execute(&mut tx)?,
             };
 
             let new_commit = if let Some(reword_op) = reword_op {
@@ -380,16 +513,24 @@ fn run(
 
     let DynamicOutcome::Commit((new_commit, _ws)) = result;
 
-    match branch_names {
-        Some(branch_names) => Ok(SquashOutcome::Branch {
-            new_commit,
-            branch_names,
-        }),
-        None => Ok(SquashOutcome::Commits {
+    match executable_op.clone() {
+        ExecutableSquashOperation::Commits(SquashCommitsOperation {
+            sources, target, ..
+        }) => Ok(SquashOutcome::Commits {
             new_commit,
             sources,
             target,
         }),
+        ExecutableSquashOperation::Branch(SquashBranchOperation {
+            source_branches, ..
+        }) => Ok(SquashOutcome::Branch {
+            new_commit,
+            branch_names: source_branches,
+        }),
+        ExecutableSquashOperation::UncommittedHunks(AmendUncommittedDiffSpecsOperation {
+            target,
+            changes: _,
+        }) => Ok(SquashOutcome::UncommittedHunks { target, new_commit }),
     }
 }
 
@@ -397,6 +538,15 @@ fn run(
 enum SquashOperation {
     Commits(SquashCommitsOperation),
     Branch(SquashBranchOperation),
+    UncommittedHunks(AmendUncommittedHunks),
+    Uncommitted { target: ObjectId },
+}
+
+#[derive(Clone)]
+enum ExecutableSquashOperation {
+    Commits(SquashCommitsOperation),
+    Branch(SquashBranchOperation),
+    UncommittedHunks(AmendUncommittedDiffSpecsOperation),
 }
 
 #[derive(Clone)]
@@ -455,6 +605,30 @@ impl SquashBranchOperation {
             target,
             how_to_combine_messages.unwrap_or(MessageCombinationStrategy::KeepBoth),
         )
+    }
+}
+
+#[derive(Clone)]
+struct AmendUncommittedDiffSpecsOperation {
+    target: ObjectId,
+    changes: Vec<DiffSpec>,
+}
+
+impl AmendUncommittedDiffSpecsOperation {
+    fn execute(
+        self,
+        tx: &mut Transaction<'_, '_, impl RefMetadata>,
+    ) -> anyhow::Result<gix::ObjectId> {
+        let Self { target, changes } = self;
+
+        let IntermediateCommitCreateResult {
+            new_commit,
+            rejected_specs,
+        } = tx.amend_commit(target, changes)?;
+
+        anyhow::ensure!(rejected_specs.is_empty(), "Couldn't squash all changes");
+
+        new_commit.context("BUG: rejected_specs is empty yet nothing was committed")
     }
 }
 

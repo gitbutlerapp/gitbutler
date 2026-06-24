@@ -2323,8 +2323,8 @@ impl App {
                         builder.push_changes_from_uncommitted(uncommitted)?;
                     }
                 }
-                CommitSource::UncommittedArea(UncommittedAreaCommitSource { id }) => {
-                    builder.push_changes_from_uncommitted_area(id)?;
+                CommitSource::UncommittedArea(UncommittedAreaCommitSource { id: _ }) => {
+                    builder.push_changes_from_uncommitted_area()?;
                 }
                 CommitSource::Uncommitted(uncommitted) => {
                     builder.push_changes_from_uncommitted(uncommitted)?;

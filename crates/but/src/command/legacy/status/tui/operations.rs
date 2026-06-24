@@ -399,7 +399,7 @@ pub(super) fn discard_uncommitted_legacy(ctx: &mut Context) -> anyhow::Result<()
         let context_lines = ctx.settings.context_lines;
         let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
         let mut builder = diff_specs::DiffSpecBuilder::new(&mut db, &repo, &ws, context_lines);
-        builder.push_changes_from_uncommitted_area(&crate::id::UNCOMMITTED.to_string())?;
+        builder.push_changes_from_uncommitted_area()?;
         builder.into_diff_specs()
     };
 

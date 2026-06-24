@@ -31,7 +31,7 @@ use crate::{
         reword2::RewordCommitOperation,
         status::{TuiOutcome, TuiRunOptions, tui_with_options},
     },
-    id::{UNCOMMITTED, UncommittedHunkOrFile},
+    id::UncommittedHunkOrFile,
     theme::{self, Theme},
     utils::{
         CliOutput, CliOutputHuman, IntermediateChannel, WriteWithUtils, diff_specs::DiffSpecBuilder,
@@ -245,7 +245,7 @@ fn run(
 
         match commit_selection {
             CommitSelection::AllChanges => {
-                builder.push_changes_from_uncommitted_area(&UNCOMMITTED.to_string())?;
+                builder.push_changes_from_uncommitted_area()?;
             }
             CommitSelection::Changes(changes) => {
                 for change in *changes {

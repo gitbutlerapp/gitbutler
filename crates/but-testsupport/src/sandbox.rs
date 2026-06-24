@@ -343,6 +343,17 @@ impl Sandbox {
             .into_string()
     }
 
+    /// Prepend `data` to `path` in our projects root.
+    pub fn prepend_file(&self, path: impl AsRef<Path>, data: &str) -> &Self {
+        let path = self.projects_root().join(path);
+        let mut existing = std::fs::read(&path).expect("File exists and can be read");
+        let mut contents = Vec::with_capacity(data.len() + existing.len());
+        contents.extend_from_slice(data.as_bytes());
+        contents.append(&mut existing);
+        std::fs::write(path, contents).expect("prepending should always work");
+        self
+    }
+
     /// Append `data` to `path` in our projects root.
     pub fn append_file(&self, path: impl AsRef<Path>, data: &str) -> &Self {
         std::fs::OpenOptions::new()
