@@ -2285,9 +2285,9 @@ const BranchRow: FC<
 						{partialStackState.requiresPush &&
 							(() => {
 								const pushStackDisabledReason = pushStackMutation.isPending
-									? "Pushing"
+									? "pushing"
 									: partialStackState.hasConflicts
-										? "Resolve conflicts before pushing"
+										? "disabled due to conflicts"
 										: null;
 
 								const pushButtonLabel = `${
