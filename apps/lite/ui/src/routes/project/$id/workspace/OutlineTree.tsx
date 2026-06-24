@@ -1161,6 +1161,7 @@ const CommitRow: FC<
 				}),
 			}),
 		);
+		focusSelectionScope("outline");
 	};
 
 	const startEditing = () => {
