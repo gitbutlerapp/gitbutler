@@ -1814,7 +1814,7 @@ const Changes: FC<{
 					disabled={!isDefaultMode}
 					readOnly={isCommitOrAmendPending}
 					placeholder={`Compose commit message ${focusCommitMessageHotkeyLabel}`}
-					className={classes("text-13", styles.commitTextarea)}
+					className={classes("text-13", "text-body", styles.commitTextarea)}
 					onFocus={selectChanges}
 					onKeyDown={(event) => {
 						if (event.key !== "Escape") return;
