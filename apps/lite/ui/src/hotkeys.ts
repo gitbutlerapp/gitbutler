@@ -9,7 +9,7 @@ export type CommandGroup =
 	| "Branch"
 	| "Branches"
 	| "Changes file"
-	| "Changes"
+	| "Uncommitted changes"
 	| "Commit file"
 	| "Commit"
 	| "Details"
@@ -125,7 +125,7 @@ export const workspaceHotkeys = {
 export const outlineHotkeys = {
 	absorb: {
 		hotkey: "A",
-		meta: { group: "Changes", name: "Absorb" },
+		meta: { group: "Uncommitted changes", name: "Absorb" },
 	},
 	amendCommit: {
 		hotkey: "Shift+A",
@@ -169,7 +169,7 @@ export const outlineHotkeys = {
 	},
 	composeCommitMessageFromChanges: {
 		hotkey: "R",
-		meta: { group: "Changes", name: "Compose commit message" },
+		meta: { group: "Uncommitted changes", name: "Compose commit message" },
 	},
 	moveCommitDown: {
 		hotkey: "Alt+ArrowDown",
@@ -208,15 +208,15 @@ export const outlineHotkeys = {
 export const changesHotkeys = {
 	amendCommit: {
 		hotkey: "Mod+Alt+Enter",
-		meta: { group: "Changes", name: "Amend" },
+		meta: { group: "Uncommitted changes", name: "Amend" },
 	},
 	commit: {
 		hotkey: "Mod+Enter",
-		meta: { group: "Changes", name: "Commit" },
+		meta: { group: "Uncommitted changes", name: "Commit" },
 	},
 	selectCommitTarget: {
 		hotkey: "Mod+Shift+B",
-		meta: { group: "Changes", name: "Select commit target" },
+		meta: { group: "Uncommitted changes", name: "Select commit target" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 

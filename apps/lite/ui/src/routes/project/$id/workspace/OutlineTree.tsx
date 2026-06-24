@@ -35,7 +35,7 @@ import {
 } from "#ui/native-menu.ts";
 import {
 	branchOperand,
-	changesSectionOperand,
+	uncommittedChangesOperand,
 	commitOperand,
 	operandEquals,
 	operandIdentityKey,
@@ -144,7 +144,7 @@ const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 const AbsorptionTargetKeysContext = createContext<ReadonlySet<string> | null>(null);
 
 const isCommitDiscardBoundary = (operand: Operand): boolean =>
-	operand._tag === "Branch" || operand._tag === "ChangesSection";
+	operand._tag === "Branch" || operand._tag === "UncommittedChanges";
 
 const selectAfterDiscardedCommit = ({
 	navigationIndex,
@@ -455,7 +455,7 @@ const useOutlineTreeHotkeys = ({
 	const defaultOutlineHotkeysEnabled = isDefaultMode;
 	const isSelectedCommit = selection?._tag === "Commit";
 	const isSelectedBranch = selection?._tag === "Branch";
-	const isSelectedChanges = selection?._tag === "ChangesSection";
+	const isSelectedChanges = selection?._tag === "UncommittedChanges";
 	const canPushSelectedBranch =
 		!!selectedPushContext &&
 		!pushStackMutation.isPending &&
@@ -474,7 +474,7 @@ const useOutlineTreeHotkeys = ({
 		getKey: operandIdentityKey,
 		operationSourceForItem: (operand) => operand,
 		selectSectionPredicate: (operand) =>
-			operand._tag === "Branch" || operand._tag === "ChangesSection",
+			operand._tag === "Branch" || operand._tag === "UncommittedChanges",
 	});
 
 	useHotkeys([
@@ -489,7 +489,7 @@ const useOutlineTreeHotkeys = ({
 		{
 			hotkey: outlineHotkeys.selectChanges.hotkey,
 			callback: () => {
-				dispatch(projectActions.selectOutline({ projectId, selection: changesSectionOperand }));
+				dispatch(projectActions.selectOutline({ projectId, selection: uncommittedChangesOperand }));
 				focusSelectionScope("outline");
 			},
 			options: { conflictBehavior: "allow", meta: outlineHotkeys.selectChanges.meta },
@@ -497,7 +497,7 @@ const useOutlineTreeHotkeys = ({
 		{
 			hotkey: outlineHotkeys.composeCommitMessage.hotkey,
 			callback: () => {
-				dispatch(projectActions.selectOutline({ projectId, selection: changesSectionOperand }));
+				dispatch(projectActions.selectOutline({ projectId, selection: uncommittedChangesOperand }));
 				focusCommitMessageInput();
 			},
 			options: {
@@ -537,7 +537,7 @@ const useOutlineTreeHotkeys = ({
 				}),
 			),
 			Match.tag(
-				"ChangesSection",
+				"UncommittedChanges",
 				(): UseHotkeyDefinition => ({
 					hotkey: outlineHotkeys.composeCommitMessageFromChanges.hotkey,
 					callback: focusCommitMessageInput,
@@ -698,7 +698,7 @@ const useOutlineTreeHotkeys = ({
 		{
 			hotkey: outlineHotkeys.absorb.hotkey,
 			callback: () => {
-				enterAbsorbMode(changesSectionOperand, { type: "all" });
+				enterAbsorbMode(uncommittedChangesOperand, { type: "all" });
 			},
 			options: {
 				conflictBehavior: "allow",
@@ -1441,7 +1441,7 @@ const ChangesSectionRow: FC<{
 	lineStats: LineStats | null;
 	projectId: string;
 }> = ({ changes, lineStats, projectId }) => {
-	const operand = changesSectionOperand;
+	const operand = uncommittedChangesOperand;
 	const isDefaultMode = useAppSelector(
 		(state) => selectProjectOutlineModeState(state, projectId)._tag === "Default",
 	);
@@ -1457,7 +1457,7 @@ const ChangesSectionRow: FC<{
 	};
 
 	const composeCommitMessage = () => {
-		dispatch(projectActions.selectOutline({ projectId, selection: changesSectionOperand }));
+		dispatch(projectActions.selectOutline({ projectId, selection: uncommittedChangesOperand }));
 		focusCommitMessageInput();
 	};
 
@@ -1672,7 +1672,7 @@ const Changes: FC<{
 	});
 	const lineStats = getLineStats(treeChangeDiffs.map((result) => result.data));
 
-	const operand = changesSectionOperand;
+	const operand = uncommittedChangesOperand;
 	const commitTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
 	const isDefaultMode = useAppSelector(

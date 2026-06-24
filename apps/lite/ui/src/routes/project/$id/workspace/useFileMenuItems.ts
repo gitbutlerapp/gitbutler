@@ -111,7 +111,7 @@ export const useFileMenuItems = ({
 							],
 						];
 					}),
-					Match.when({ parent: { _tag: "Changes" } }, (operand) => {
+					Match.when({ parent: { _tag: "UncommittedChanges" } }, (operand) => {
 						const absorb = () => {
 							dispatch(
 								projectActions.enterAbsorbMode({

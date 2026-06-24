@@ -38,7 +38,7 @@ const resolvedDiffSpecsFromOperand = ({
 				Match.value(parent).pipe(
 					Match.withReturnType<Array<DiffSpec> | null>(),
 					Match.tagsExhaustive({
-						Changes: () => {
+						UncommittedChanges: () => {
 							const change = worktreeChanges?.changes.find((candidate) => candidate.path === path);
 							if (!change) return null;
 
@@ -53,7 +53,7 @@ const resolvedDiffSpecsFromOperand = ({
 						Branch: () => null,
 					}),
 				),
-			ChangesSection: () => {
+			UncommittedChanges: () => {
 				if (!worktreeChanges) return null;
 
 				const changes = worktreeChanges.changes.map((change) => createDiffSpec(change, []));
@@ -63,7 +63,7 @@ const resolvedDiffSpecsFromOperand = ({
 				const { parent } = lineSelection;
 				const changes = Match.value(parent.parent).pipe(
 					Match.tagsExhaustive({
-						Changes: () => worktreeChanges?.changes,
+						UncommittedChanges: () => worktreeChanges?.changes,
 						Commit: () => commitDetails?.changes,
 						Branch: () => null,
 					}),
@@ -75,7 +75,7 @@ const resolvedDiffSpecsFromOperand = ({
 
 				const hunkHeaders = diffSpecHunkHeadersForLineSelection(
 					lineSelection,
-					parent.parent._tag === "Changes" ? "commit" : "discard",
+					parent.parent._tag === "UncommittedChanges" ? "commit" : "discard",
 				);
 
 				return [createDiffSpec(change, hunkHeaders)];
@@ -88,7 +88,7 @@ const commitIdFromParent = (parent: FileParent) =>
 	Match.value(parent).pipe(
 		Match.withReturnType<string | null>(),
 		Match.tagsExhaustive({
-			Changes: () => null,
+			UncommittedChanges: () => null,
 			Commit: ({ commitId }) => commitId,
 			Branch: () => null,
 		}),

@@ -321,7 +321,7 @@ const squashOperation = ({
 		Match.when(
 			{
 				source: { _tag: "Commit" },
-				target: { _tag: "ChangesSection" },
+				target: { _tag: "UncommittedChanges" },
 			},
 			({ source }): OperationWithLabel => ({
 				operation: commitUncommitOperation({
@@ -333,7 +333,7 @@ const squashOperation = ({
 		),
 		Match.when(
 			{
-				sourceFileParent: { _tag: "Changes" },
+				sourceFileParent: { _tag: "UncommittedChanges" },
 				target: { _tag: "Commit" },
 			},
 			({ source, target }): OperationWithLabel => ({
@@ -347,7 +347,7 @@ const squashOperation = ({
 		Match.when(
 			{
 				sourceFileParent: { _tag: "Commit" },
-				target: { _tag: "ChangesSection" },
+				target: { _tag: "UncommittedChanges" },
 			},
 			({ source, sourceFileParent }): OperationWithLabel => ({
 				operation: commitUncommitChangesOperation({
@@ -475,7 +475,7 @@ const moveOperation = ({
 			}),
 		),
 		Match.when(
-			{ sourceFileParent: { _tag: "Changes" } },
+			{ sourceFileParent: { _tag: "UncommittedChanges" } },
 			({ source }): OperationWithLabel => ({
 				operation: commitCreateOperation({
 					relativeTo,

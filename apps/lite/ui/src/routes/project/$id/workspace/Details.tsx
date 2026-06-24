@@ -14,7 +14,7 @@ import { decodeBytes } from "#ui/api/bytes.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
 	branchFileParent,
-	changesFileParent,
+	uncommittedChangesFileParent,
 	commitFileParent,
 	FileOperand,
 	fileOperand,
@@ -548,10 +548,10 @@ const Title: FC<{
 					)}
 				</SuspenseQuery>
 			),
-			ChangesSection: () => (
+			UncommittedChanges: () => (
 				<div className={styles.title}>
 					<Icon name="file-diff" />
-					<h3 className={classes("text-15", "text-semibold")}>Changes</h3>
+					<h3 className={classes("text-15", "text-semibold")}>Uncommitted changes</h3>
 				</div>
 			),
 			File: () => null,
@@ -759,7 +759,7 @@ const Diff: FC<{
 	const changesetKey = Match.value(outlineSelection).pipe(
 		Match.tags({
 			Branch: ({ branchRef }) => decodeBytes(branchRef),
-			ChangesSection: () => "changes",
+			UncommittedChanges: () => "uncommittedChanges",
 			Commit: ({ commitId }) => commitId,
 		}),
 		Match.orElseAbsurd,
@@ -767,7 +767,7 @@ const Diff: FC<{
 	const fileParent = Match.value(outlineSelection).pipe(
 		Match.tags({
 			Branch: ({ branchRef, stackId }) => branchFileParent({ branchRef, stackId }),
-			ChangesSection: () => changesFileParent,
+			UncommittedChanges: () => uncommittedChangesFileParent,
 			Commit: ({ commitId, stackId }) => commitFileParent({ commitId, stackId }),
 		}),
 		Match.orElseAbsurd,
@@ -1141,7 +1141,7 @@ export const Details: FC<
 								}
 							</SuspenseQuery>
 						)),
-						Match.tag("ChangesSection", () => (
+						Match.tag("UncommittedChanges", () => (
 							<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
 								{({ data: worktreeChanges }) =>
 									renderDiff({
