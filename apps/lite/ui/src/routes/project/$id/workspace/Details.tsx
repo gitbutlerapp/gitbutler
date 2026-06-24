@@ -658,29 +658,29 @@ const DiffStyleToggle: FC<{
 	</Tooltip.Root>
 );
 
-const FullscreenToggle: FC<{
+const FullWindowToggle: FC<{
 	className?: string;
-	fullscreen: boolean;
-	onFullscreenChange: (fullscreen: boolean) => void;
-}> = ({ className, fullscreen, onFullscreenChange }) => {
-	const label = fullscreen ? "Exit fullscreen details" : "Fullscreen details";
+	fullWindow: boolean;
+	onFullWindowChange: (fullWindow: boolean) => void;
+}> = ({ className, fullWindow, onFullWindowChange }) => {
+	const label = fullWindow ? "Exit full window details" : "Full window details";
 
 	return (
 		<Tooltip.Root>
 			<Tooltip.Trigger
 				aria-label={label}
-				aria-pressed={fullscreen}
+				aria-pressed={fullWindow}
 				className={className}
-				onClick={() => onFullscreenChange(!fullscreen)}
+				onClick={() => onFullWindowChange(!fullWindow)}
 			>
-				<Icon name={fullscreen ? "fullscreen-exit" : "fullscreen-enter"} />
+				<Icon name={fullWindow ? "fullscreen-exit" : "fullscreen-enter"} />
 			</Tooltip.Trigger>
 			<Tooltip.Portal>
 				<Tooltip.Positioner sideOffset={4}>
 					<Tooltip.Popup
-						render={<TooltipPopup kbd={workspaceHotkeys.toggleDetailsFullscreen.hotkey} />}
+						render={<TooltipPopup kbd={workspaceHotkeys.toggleDetailsFullWindow.hotkey} />}
 					>
-						{workspaceHotkeys.toggleDetailsFullscreen.meta.name}
+						{workspaceHotkeys.toggleDetailsFullWindow.meta.name}
 					</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
@@ -1009,19 +1009,19 @@ const PullRequestPrimaryAction: FC<{
 			onClick={primaryAction}
 			type="button"
 		>
-			{review.draft ? "Mark as Ready" : "Merge"}
 			{isPending && <Icon name="spinner" />}
+			{review.draft ? "Mark as Ready" : "Merge"}
 		</button>
 	);
 };
 
 export const Details: FC<
 	{
-		detailsFullscreen: boolean;
-		onDetailsFullscreenChange: (fullscreen: boolean) => void;
+		detailsFullWindow: boolean;
+		onDetailsFullWindowChange: (fullWindow: boolean) => void;
 		outlineSelection: Operand | null;
 	} & ComponentProps<"div">
-> = ({ detailsFullscreen, onDetailsFullscreenChange, outlineSelection, ...restProps }) => {
+> = ({ detailsFullWindow, onDetailsFullWindowChange, outlineSelection, ...restProps }) => {
 	const { id: projectId } = useParams({ from: "/project/$id/workspace" });
 	const dispatch = useAppDispatch();
 	const filesVisible = useAppSelector((state) => selectProjectFilesVisible(state, projectId));
@@ -1046,10 +1046,10 @@ export const Details: FC<
 						projectId={projectId}
 						selection={outlineSelection}
 					/>
-					<FullscreenToggle
+					<FullWindowToggle
 						className={classes(styles.titleRowActions, getButtonClassName({ iconOnly: true }))}
-						fullscreen={detailsFullscreen}
-						onFullscreenChange={onDetailsFullscreenChange}
+						fullWindow={detailsFullWindow}
+						onFullWindowChange={onDetailsFullWindowChange}
 					/>
 				</div>
 

@@ -132,9 +132,9 @@ export const workspaceHotkeys = {
 		hotkey: "F",
 		meta: { group: "Files", name: "Toggle files" },
 	},
-	toggleDetailsFullscreen: {
+	toggleDetailsFullWindow: {
 		hotkey: ".",
-		meta: { group: "Details", name: "Toggle fullscreen details" },
+		meta: { group: "Details", name: "Toggle full window details" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 
@@ -258,10 +258,6 @@ export const selectionOperationHotkeys = {
 	cut: {
 		hotkey: "Mod+X",
 		meta: { group: "Selection scopes", name: "Cut" },
-	},
-	squash: {
-		hotkey: "S",
-		meta: { group: "Selection scopes", name: "Squash" },
 	},
 } satisfies Record<string, HotkeyWithMeta>;
 

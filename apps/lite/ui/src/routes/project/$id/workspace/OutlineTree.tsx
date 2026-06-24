@@ -1161,6 +1161,7 @@ const CommitRow: FC<
 				}),
 			}),
 		);
+		focusSelectionScope("outline");
 	};
 
 	const startEditing = () => {
@@ -1371,7 +1372,7 @@ const CommitRow: FC<
 				/>
 			) : (
 				<WorkspaceItemRowLabelContainer>
-					<WorkspaceItemRowLabel singleLine>
+					<WorkspaceItemRowLabel>
 						{title === undefined ? (
 							<span className={workspaceItemRowStyles.fadedText}>(no message)</span>
 						) : (
@@ -1452,6 +1453,19 @@ const ChangesSectionRow: FC<{
 		enterAbsorbMode(operand, { type: "all" });
 	};
 
+	const cutChanges = () => {
+		dispatch(
+			projectActions.enterTransferMode({
+				projectId,
+				mode: keyboardTransferOperationMode({
+					source: operand,
+					operationType: "into",
+				}),
+			}),
+		);
+		focusSelectionScope("outline");
+	};
+
 	const composeCommitMessage = () => {
 		dispatch(projectActions.selectOutline({ projectId, selection: uncommittedChangesOperand }));
 		focusCommitMessageInput();
@@ -1470,6 +1484,12 @@ const ChangesSectionRow: FC<{
 			accelerator: toElectronAccelerator(outlineHotkeys.composeCommitMessageFromChanges.hotkey),
 			onSelect: composeCommitMessage,
 			enabled: isDefaultMode,
+		}),
+		nativeMenuItem({
+			label: "Cut Changes",
+			enabled: changes.length > 0,
+			onSelect: cutChanges,
+			accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
 		}),
 		nativeMenuSeparator,
 		nativeMenuItem({
@@ -1782,9 +1802,10 @@ const Changes: FC<{
 		},
 	]);
 
-	const focusCommitMessageHotkeyLabel = formatForDisplaySorted(
-		outlineHotkeys.composeCommitMessage.hotkey,
-	);
+	useHotkey("Escape", () => focusSelectionScope("outline"), {
+		target: commitTextareaRef,
+		conflictBehavior: "allow",
+	});
 
 	return (
 		<TreeItem
@@ -1809,14 +1830,11 @@ const Changes: FC<{
 					aria-label="Compose commit message"
 					disabled={!isDefaultMode}
 					readOnly={isCommitOrAmendPending}
-					placeholder={`Compose commit message ${focusCommitMessageHotkeyLabel}`}
+					placeholder={`Compose commit message ${formatForDisplaySorted(
+						outlineHotkeys.composeCommitMessage.hotkey,
+					)}`}
 					className={classes("text-13", "text-body", styles.commitTextarea)}
 					onFocus={selectChanges}
-					onKeyDown={(event) => {
-						if (event.key !== "Escape") return;
-						event.preventDefault();
-						focusSelectionScope("outline");
-					}}
 				/>
 
 				<div className={styles.commitControlsFooter}>
@@ -2092,6 +2110,19 @@ const BranchRow: FC<
 		focusCommitMessageInput();
 	};
 
+	const cutBranch = () => {
+		dispatch(
+			projectActions.enterTransferMode({
+				projectId,
+				mode: keyboardTransferOperationMode({
+					source: operand,
+					operationType: "into",
+				}),
+			}),
+		);
+		focusSelectionScope("outline");
+	};
+
 	const insertBlankCommit = (side: "above" | "below") => {
 		commitInsertBlankMutation.mutate({
 			projectId,
@@ -2175,6 +2206,11 @@ const BranchRow: FC<
 			enabled: !isRenamePending,
 			accelerator: toElectronAccelerator(outlineHotkeys.renameBranch.hotkey),
 			onSelect: startEditing,
+		}),
+		nativeMenuItem({
+			label: "Cut Branch",
+			onSelect: cutBranch,
+			accelerator: toElectronAccelerator(selectionOperationHotkeys.cut.hotkey),
 		}),
 		nativeMenuItem({
 			label: "Copy Branch Name",
@@ -2262,7 +2298,7 @@ const BranchRow: FC<
 					</WorkspaceItemRowLabelContainer>
 
 					<div className={classes("text-13", styles.branchLabelMeta)}>
-						<span className={workspaceItemRowStyles.fadedText}>
+						<span className={classes(workspaceItemRowStyles.fadedText, styles.branchLabelMetaItem)}>
 							{Match.value(pushStatus).pipe(
 								Match.when("nothingToPush", () => "Nothing to push"),
 								Match.when("unpushedCommits", () => "Some unpushed"),

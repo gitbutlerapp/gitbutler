@@ -72,18 +72,15 @@ export const WorkspaceItemRowLabelContainer: FC<ComponentProps<"div">> = (props)
 	<div {...props} className={classes(props.className, styles.labelContainer)} />
 );
 
-export const WorkspaceItemRowLabel: FC<
-	{ heading?: boolean; singleLine?: boolean } & useRender.ComponentProps<"div">
-> = ({ heading, singleLine, render, ...props }) =>
+export const WorkspaceItemRowLabel: FC<{ heading?: boolean } & useRender.ComponentProps<"div">> = ({
+	heading,
+	render,
+	...props
+}) =>
 	useRender({
 		render,
 		props: mergeProps<"div">(props, {
-			className: classes(
-				styles.label,
-				singleLine && styles.labelSingleLine,
-				heading ? "text-14" : "text-13",
-				heading && "text-bold",
-			),
+			className: classes(styles.label, heading ? "text-14" : "text-13", heading && "text-bold"),
 		}),
 	});
 
