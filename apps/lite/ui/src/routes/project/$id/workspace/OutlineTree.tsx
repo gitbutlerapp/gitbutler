@@ -2158,7 +2158,6 @@ const BranchRow: FC<
 	const pushStackDisabledReason = pushStackMutation.isPending
 		? "Pushing"
 		: partialStackPushDisabledReason(partialStackState);
-	const canPushStack = pushStackDisabledReason === null;
 	const pushButtonLabel = pushesMultipleBranches
 		? partialStackState.pushWithForce
 			? "Force push this and all branches below"
@@ -2177,7 +2176,7 @@ const BranchRow: FC<
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: pushMenuLabel,
-			enabled: canPushStack,
+			enabled: pushStackDisabledReason === null,
 			accelerator: toElectronAccelerator(outlineHotkeys.pushStack.hotkey),
 			onSelect: pushStack,
 		}),
@@ -2301,7 +2300,9 @@ const BranchRow: FC<
 								className={getWorkspaceItemRowButtonClassName({ variant: "outline" })}
 								// We pass `disabled` here because we want to disable the button, not
 								// the tooltip. Other props should be passed above.
-								render={<Button focusableWhenDisabled disabled={!canPushStack} />}
+								render={
+									<Button focusableWhenDisabled disabled={!(pushStackDisabledReason === null)} />
+								}
 							>
 								Push
 								{pushStackMutation.isPending ? (
