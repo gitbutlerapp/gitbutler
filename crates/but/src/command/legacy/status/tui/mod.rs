@@ -931,10 +931,10 @@ impl App {
                 self.has_focus = has_focus;
             }
             Message::Undo => {
-                self.handle_undo(ctx)?;
+                self.handle_undo(ctx, messages)?;
             }
             Message::Redo => {
-                self.handle_redo(ctx)?;
+                self.handle_redo(ctx, messages)?;
             }
             Message::Stack(stack_message) => match stack_message {
                 StackMessage::Enter => self.handle_stack_enter(ctx)?,
@@ -3435,12 +3435,20 @@ impl App {
         self.mode.marks()
     }
 
-    fn handle_undo(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
-        self.restore_to_target_snapshot(UndoOrRedo::Undo, ctx)
+    fn handle_undo(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        self.restore_to_target_snapshot(UndoOrRedo::Undo, ctx, messages)
     }
 
-    fn handle_redo(&mut self, ctx: &mut Context) -> anyhow::Result<()> {
-        self.restore_to_target_snapshot(UndoOrRedo::Redo, ctx)
+    fn handle_redo(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
+        self.restore_to_target_snapshot(UndoOrRedo::Redo, ctx, messages)
     }
 
     fn selected_stack_id(&self) -> Option<StackId> {
@@ -3727,6 +3735,7 @@ impl App {
         &mut self,
         kind: UndoOrRedo,
         ctx: &mut Context,
+        messages: &mut Vec<Message>,
     ) -> anyhow::Result<()> {
         let target_snapshot = match kind {
             UndoOrRedo::Undo => operations::get_undo_target_snapshot_legacy(ctx)?,
@@ -3756,8 +3765,8 @@ impl App {
             Line::from_iter(
                 [
                     Span::raw(match kind {
-                        UndoOrRedo::Undo => "Undo ",
-                        UndoOrRedo::Redo => "Redo ",
+                        UndoOrRedo::Undo => "Undid ",
+                        UndoOrRedo::Redo => "Redid ",
                     }),
                     Span::raw(commit.to_string()).style(self.theme.cli_id),
                 ]
@@ -3768,27 +3777,27 @@ impl App {
                         Span::raw(" "),
                         Span::raw(details.operation.title()).style(self.theme.attention),
                     ]
-                }))
-                .chain([Span::raw("?")]),
+                })),
             )
         };
 
         let commit = target_snapshot.commit_id;
-        self.modal = Some(Modal::Confirm {
-            confirm: Confirm::new(NonEmpty::new(text), self.theme, move |ctx, messages| {
-                operations::restore_snapshot_with_kind_legacy(
-                    ctx,
-                    match kind {
-                        UndoOrRedo::Undo => RestoreKind::RestoreFromSnapshotViaUndo,
-                        UndoOrRedo::Redo => RestoreKind::RestoreFromSnapshotViaRedo,
-                    },
-                    commit,
-                )?;
-                messages.push(Message::Reload(None, ReloadCause::Mutation));
-                Ok(())
-            }),
-            key_binds: confirm_key_binds(),
-        });
+
+        operations::restore_snapshot_with_kind_legacy(
+            ctx,
+            match kind {
+                UndoOrRedo::Undo => RestoreKind::RestoreFromSnapshotViaUndo,
+                UndoOrRedo::Redo => RestoreKind::RestoreFromSnapshotViaRedo,
+            },
+            commit,
+        )?;
+        messages.extend([
+            Message::Reload(None, ReloadCause::Mutation),
+            Message::ShowToast {
+                kind: ToastKind::Info,
+                text: text.into(),
+            },
+        ]);
 
         Ok(())
     }
