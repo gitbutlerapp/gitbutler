@@ -1141,10 +1141,10 @@ dependencies = [
  "backoff",
  "but-utils",
  "chrono",
- "insta",
  "libc",
  "rusqlite",
  "serde",
+ "snapbox",
  "tempfile",
  "tracing",
 ]
