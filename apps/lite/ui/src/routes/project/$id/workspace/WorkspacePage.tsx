@@ -34,6 +34,7 @@ import {
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import { type FC, Component, ReactNode, useDeferredValue } from "react";
+import { Group, Panel, Separator } from "react-resizable-panels";
 import {
 	branchOperand,
 	commitOperand,
@@ -47,7 +48,6 @@ import {
 import { Details } from "./Details.tsx";
 import styles from "./WorkspacePage.module.css";
 import { useActiveElement } from "#ui/focus.ts";
-import { classes } from "#ui/components/classes.ts";
 import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
 import { BranchPicker } from "./BranchPicker.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
@@ -372,27 +372,33 @@ const WorkspacePage: FC = () => {
 
 	return (
 		<>
-			<div className={classes(styles.page, detailsFullWindow && styles.pageDetailsFullWindow)}>
+			<Group className={styles.page}>
 				{!detailsFullWindow && (
-					<Outline
-						className={styles.outlinePanelBorder}
-						projectId={projectId}
-						project={selectedProject}
-						navigationIndex={outlineNavigationIndex}
-						absorptionTargetKeys={absorptionTargetKeys}
-					/>
+					<>
+						<Panel className={styles.panel} minSize={360} defaultSize={400}>
+							<Outline
+								projectId={projectId}
+								project={selectedProject}
+								navigationIndex={outlineNavigationIndex}
+								absorptionTargetKeys={absorptionTargetKeys}
+							/>
+						</Panel>
+						<Separator className={styles.resizeHandle} />
+					</>
 				)}
 
-				<Details
-					key={deferredOutlineSelection ? operandIdentityKey(deferredOutlineSelection) : null}
-					style={{ opacity: deferredOutlineSelection !== outlineSelection ? 0.5 : 1 }}
-					outlineSelection={deferredOutlineSelection}
-					detailsFullWindow={detailsFullWindow}
-					onDetailsFullWindowChange={(fullWindow) =>
-						dispatch(projectActions.setDetailsFullWindow({ projectId, fullWindow }))
-					}
-				/>
-			</div>
+				<Panel className={styles.panel}>
+					<Details
+						key={deferredOutlineSelection ? operandIdentityKey(deferredOutlineSelection) : null}
+						style={{ opacity: deferredOutlineSelection !== outlineSelection ? 0.5 : 1 }}
+						outlineSelection={deferredOutlineSelection}
+						detailsFullWindow={detailsFullWindow}
+						onDetailsFullWindowChange={(fullWindow) =>
+							dispatch(projectActions.setDetailsFullWindow({ projectId, fullWindow }))
+						}
+					/>
+				</Panel>
+			</Group>
 
 			{Match.value(dialog).pipe(
 				Match.tagsExhaustive({
