@@ -92,6 +92,10 @@ const Controls: FC<{
 				<Tooltip.Root>
 					<Tooltip.Trigger
 						className={getButtonClassName({ variant: "gray" })}
+						onMouseDown={(event) => {
+							// Prevent stealing focus from the tree.
+							if (!event.defaultPrevented) event.preventDefault();
+						}}
 						onClick={confirm.onRun}
 						// We pass `disabled` here because we want to disable the button, not
 						// the tooltip. Other props should be passed above.
@@ -110,7 +114,14 @@ const Controls: FC<{
 			)}
 
 			<Tooltip.Root>
-				<Tooltip.Trigger className={getButtonClassName({})} onClick={onCancel}>
+				<Tooltip.Trigger
+					className={getButtonClassName({})}
+					onMouseDown={(event) => {
+						// Prevent stealing focus from the tree.
+						if (!event.defaultPrevented) event.preventDefault();
+					}}
+					onClick={onCancel}
+				>
 					Cancel
 				</Tooltip.Trigger>
 				<Tooltip.Portal>
@@ -245,6 +256,10 @@ const TransferTypeToggleGroup: FC<{
 			value={[operationType]}
 			onValueChange={onValueChange}
 			className={styles.toggleGroupRow}
+			onMouseDown={(event) => {
+				// Prevent stealing focus from the tree.
+				if (!event.defaultPrevented) event.preventDefault();
+			}}
 		>
 			<Toggle className={styles.toggleGroupRowToggle} value={"above" satisfies OperationType}>
 				{operations.above && (
