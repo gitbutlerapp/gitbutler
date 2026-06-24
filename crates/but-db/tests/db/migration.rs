@@ -451,7 +451,7 @@ CREATE TABLE `forge_reviews`(
 	`unit_symbol` TEXT NOT NULL,
 	`last_sync_at` TIMESTAMP NOT NULL,
 	`struct_version` INTEGER NOT NULL
-, `head_repo_is_fork` BOOL NOT NULL DEFAULT FALSE);
+, `head_repo_is_fork` BOOL NOT NULL DEFAULT FALSE, `integration_commit_shas` TEXT NOT NULL DEFAULT '[]');
 
 -- table gerrit_metadata
 CREATE TABLE `gerrit_metadata`(
@@ -613,6 +613,7 @@ Text("20260105095934")
 Text("20260219130000")
 Text("20260407120000")
 Text("20260618093000")
+Text("20260624170000")
 
 Table: hunk_assignments
 hunk_header | path | path_bytes | stack_id | id | branch_ref
@@ -642,7 +643,7 @@ Table: gerrit_metadata
 change_id | commit_id | review_url | created_at | updated_at
 
 Table: forge_reviews
-html_url | number | title | body | author | labels | draft | source_branch | target_branch | sha | created_at | modified_at | merged_at | closed_at | repository_ssh_url | repository_https_url | repo_owner | reviewers | unit_symbol | last_sync_at | struct_version | head_repo_is_fork
+html_url | number | title | body | author | labels | draft | source_branch | target_branch | sha | created_at | modified_at | merged_at | closed_at | repository_ssh_url | repository_https_url | repo_owner | reviewers | unit_symbol | last_sync_at | struct_version | head_repo_is_fork | integration_commit_shas
 
 Table: ci_checks
 id | name | output_summary | output_text | output_title | started_at | status_type | status_conclusion | status_completed_at | head_sha | url | html_url | details_url | pull_requests | reference | last_sync_at | struct_version
@@ -662,7 +663,6 @@ stack_id | remote_name | branch_name | remote_url | sha | push_remote_name
 
 "#]]
         );
-
         let count = migration::run(&mut db, but_db::migration::ours())?;
         assert_eq!(count, 0, "nothing has to run as everything is uptodate");
 

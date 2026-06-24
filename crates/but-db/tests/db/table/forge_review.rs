@@ -128,6 +128,7 @@ fn handles_optional_fields() -> anyhow::Result<()> {
         source_branch: "feature".to_string(),
         target_branch: "main".to_string(),
         sha: "abc123".to_string(),
+        integration_commit_shas: "[\"deadbeef\"]".to_string(),
         created_at: None,
         modified_at: None,
         merged_at: None,
@@ -178,6 +179,7 @@ fn upsert_updates_existing_review() -> anyhow::Result<()> {
     updated_review.author = Some("updated-author".to_string());
     updated_review.draft = true;
     updated_review.sha = "updatedsha123".to_string();
+    updated_review.integration_commit_shas = "[\"updated-landing-sha\"]".to_string();
     updated_review.reviewers = "[\"alice\"]".to_string();
     updated_review.head_repo_is_fork = true;
     db.forge_reviews_mut()?.upsert(updated_review.clone())?;
@@ -200,6 +202,7 @@ fn forge_review(number: i64, title: &str, source_branch: &str) -> ForgeReview {
         source_branch: source_branch.to_string(),
         target_branch: "main".to_string(),
         sha: "abc123def456".to_string(),
+        integration_commit_shas: "[\"deadbeef\"]".to_string(),
         created_at: Some(
             chrono::DateTime::from_timestamp(1000000, 0)
                 .unwrap()

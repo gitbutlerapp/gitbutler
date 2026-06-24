@@ -1317,6 +1317,8 @@ export type ForgeReview = {
   targetBranch: string;
   /** The git commit SHA that this review is based on. */
   sha: string;
+  /** Commits on the target branch that represent this review having landed. */
+  integrationCommitShas: Array<string>;
   /** ISO 8601 timestamp of when the review was created. */
   createdAt: string | null;
   /** ISO 8601 timestamp of when the review was last modified. */

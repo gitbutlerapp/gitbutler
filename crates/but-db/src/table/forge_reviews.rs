@@ -36,7 +36,12 @@ CREATE TABLE `forge_reviews`(
     M::up(
         20260618093000,
         SchemaVersion::Zero,
-        "ALTER TABLE `forge_reviews` ADD COLUMN `head_repo_is_fork` BOOL NOT NULL DEFAULT FALSE;
+        "ALTER TABLE `forge_reviews` ADD COLUMN `head_repo_is_fork` BOOL NOT NULL DEFAULT FALSE;",
+    ),
+    M::up(
+        20260624170000,
+        SchemaVersion::Zero,
+        "ALTER TABLE `forge_reviews` ADD COLUMN `integration_commit_shas` TEXT NOT NULL DEFAULT '[]';
 DELETE FROM `forge_reviews`;",
     ),
 ];
@@ -54,6 +59,7 @@ pub struct ForgeReview {
     pub source_branch: String,
     pub target_branch: String,
     pub sha: String,
+    pub integration_commit_shas: String,
     pub created_at: Option<chrono::NaiveDateTime>,
     pub modified_at: Option<chrono::NaiveDateTime>,
     pub merged_at: Option<chrono::NaiveDateTime>,
@@ -105,7 +111,7 @@ impl ForgeReviewsHandle<'_> {
     pub fn list_all(&self) -> rusqlite::Result<Vec<ForgeReview>> {
         let mut stmt = self.conn.prepare(
             "SELECT html_url, number, title, body, author, labels, draft, source_branch, \
-             target_branch, sha, created_at, modified_at, merged_at, closed_at, \
+             target_branch, sha, integration_commit_shas, created_at, modified_at, merged_at, closed_at, \
              repository_ssh_url, repository_https_url, repo_owner, head_repo_is_fork, reviewers, \
              unit_symbol, last_sync_at, struct_version FROM forge_reviews",
         )?;
@@ -122,18 +128,19 @@ impl ForgeReviewsHandle<'_> {
                 source_branch: row.get(7)?,
                 target_branch: row.get(8)?,
                 sha: row.get(9)?,
-                created_at: row.get(10)?,
-                modified_at: row.get(11)?,
-                merged_at: row.get(12)?,
-                closed_at: row.get(13)?,
-                repository_ssh_url: row.get(14)?,
-                repository_https_url: row.get(15)?,
-                repo_owner: row.get(16)?,
-                head_repo_is_fork: row.get(17)?,
-                reviewers: row.get(18)?,
-                unit_symbol: row.get(19)?,
-                last_sync_at: row.get(20)?,
-                struct_version: row.get(21)?,
+                integration_commit_shas: row.get(10)?,
+                created_at: row.get(11)?,
+                modified_at: row.get(12)?,
+                merged_at: row.get(13)?,
+                closed_at: row.get(14)?,
+                repository_ssh_url: row.get(15)?,
+                repository_https_url: row.get(16)?,
+                repo_owner: row.get(17)?,
+                head_repo_is_fork: row.get(18)?,
+                reviewers: row.get(19)?,
+                unit_symbol: row.get(20)?,
+                last_sync_at: row.get(21)?,
+                struct_version: row.get(22)?,
             })
         })?;
 
@@ -155,10 +162,10 @@ impl ForgeReviewsHandleMut<'_> {
         for review in reviews {
             self.sp.execute(
                 "INSERT INTO forge_reviews (html_url, number, title, body, author, labels, draft, \
-                 source_branch, target_branch, sha, created_at, modified_at, merged_at, closed_at, \
+                 source_branch, target_branch, sha, integration_commit_shas, created_at, modified_at, merged_at, closed_at, \
                  repository_ssh_url, repository_https_url, repo_owner, head_repo_is_fork, reviewers, \
                  unit_symbol, last_sync_at, struct_version) \
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
                 rusqlite::params![
                     review.html_url,
                     review.number,
@@ -170,6 +177,7 @@ impl ForgeReviewsHandleMut<'_> {
                     review.source_branch,
                     review.target_branch,
                     review.sha,
+                    review.integration_commit_shas,
                     review.created_at,
                     review.modified_at,
                     review.merged_at,
@@ -194,10 +202,10 @@ impl ForgeReviewsHandleMut<'_> {
     pub fn upsert(self, review: ForgeReview) -> rusqlite::Result<()> {
         self.sp.execute(
             "INSERT INTO forge_reviews (html_url, number, title, body, author, labels, draft, \
-             source_branch, target_branch, sha, created_at, modified_at, merged_at, closed_at, \
+             source_branch, target_branch, sha, integration_commit_shas, created_at, modified_at, merged_at, closed_at, \
              repository_ssh_url, repository_https_url, repo_owner, head_repo_is_fork, reviewers, \
              unit_symbol, last_sync_at, struct_version) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23) \
              ON CONFLICT(number) DO UPDATE SET
                 html_url = excluded.html_url,
                 title = excluded.title,
@@ -208,6 +216,7 @@ impl ForgeReviewsHandleMut<'_> {
                 source_branch = excluded.source_branch,
                 target_branch = excluded.target_branch,
                 sha = excluded.sha,
+                integration_commit_shas = excluded.integration_commit_shas,
                 created_at = excluded.created_at,
                 modified_at = excluded.modified_at,
                 merged_at = excluded.merged_at,
@@ -231,6 +240,7 @@ impl ForgeReviewsHandleMut<'_> {
                 review.source_branch,
                 review.target_branch,
                 review.sha,
+                review.integration_commit_shas,
                 review.created_at,
                 review.modified_at,
                 review.merged_at,

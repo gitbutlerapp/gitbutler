@@ -32,6 +32,22 @@ pub async fn list_all_for_branch(
     }
 }
 
+pub async fn list_for_commit(
+    preferred_account: Option<&crate::GithubAccountIdentifier>,
+    owner: &str,
+    repo: &str,
+    commit_sha: &str,
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<crate::client::PullRequest>> {
+    if let Ok(gh) = GitHubClient::from_storage(storage, preferred_account) {
+        gh.list_pulls_for_commit(owner, repo, commit_sha)
+            .await
+            .context("Failed to list pull requests for commit")
+    } else {
+        Ok(vec![])
+    }
+}
+
 pub async fn create(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
     params: crate::client::CreatePullRequestParams<'_>,
