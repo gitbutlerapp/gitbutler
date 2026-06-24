@@ -259,10 +259,6 @@ export const selectionOperationHotkeys = {
 		hotkey: "Mod+X",
 		meta: { group: "Selection scopes", name: "Cut" },
 	},
-	squash: {
-		hotkey: "S",
-		meta: { group: "Selection scopes", name: "Squash" },
-	},
 } satisfies Record<string, HotkeyWithMeta>;
 
 export const operationHotkeys = {
