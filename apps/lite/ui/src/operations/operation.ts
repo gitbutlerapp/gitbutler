@@ -321,7 +321,7 @@ const squashOperation = ({
 		Match.when(
 			{
 				source: { _tag: "Commit" },
-				target: { _tag: "ChangesSection" },
+				target: { _tag: "UncommittedChanges" },
 			},
 			({ source }): OperationWithLabel => ({
 				operation: commitUncommitOperation({

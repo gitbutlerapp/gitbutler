@@ -7,13 +7,13 @@ export type BranchFileParent = { stackId: string; branchRef: Array<number> };
 export type CommitFileParent = { stackId: string; commitId: string };
 
 export type FileParent =
-	| { _tag: "Changes" }
+	| { _tag: "UncommittedChanges" }
 	| ({ _tag: "Branch" } & BranchFileParent)
 	| ({ _tag: "Commit" } & CommitFileParent);
 
 /** @public */
-export const changesFileParent: FileParent = {
-	_tag: "Changes",
+export const uncommittedChangesFileParent: FileParent = {
+	_tag: "UncommittedChanges",
 };
 
 /** @public */
@@ -66,8 +66,8 @@ export type Operand =
 	| ({ _tag: "Hunk" } & HunkOperand);
 
 /** @public */
-export const changesSectionOperand: Operand = {
-	_tag: "ChangesSection",
+export const uncommittedChangesOperand: Operand = {
+	_tag: "UncommittedChanges",
 };
 
 /** @public */
@@ -137,7 +137,7 @@ export const operandFileParent = (operand: Operand): FileParent | null =>
 		Match.withReturnType<FileParent | null>(),
 		Match.tags({
 			File: ({ parent }) => parent,
-			ChangesSection: () => changesFileParent,
+			ChangesSection: () => uncommittedChangesFileParent,
 			Hunk: ({ parent }) => parent.parent,
 		}),
 		Match.orElse(() => null),
@@ -146,7 +146,7 @@ export const operandFileParent = (operand: Operand): FileParent | null =>
 const fileParentToOperand = (fileParent: FileParent): Operand =>
 	Match.value(fileParent).pipe(
 		Match.tagsExhaustive({
-			Changes: () => changesSectionOperand,
+			UncommittedChanges: () => uncommittedChangesOperand,
 			Branch: ({ stackId, branchRef }) => branchOperand({ stackId, branchRef }),
 			Commit: ({ stackId, commitId }) => commitOperand({ stackId, commitId }),
 		}),

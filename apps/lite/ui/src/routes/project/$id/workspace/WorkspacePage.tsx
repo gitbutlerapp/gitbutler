@@ -44,7 +44,7 @@ import { Match } from "effect";
 import { type FC, Component, ReactNode, useDeferredValue } from "react";
 import {
 	branchOperand,
-	changesSectionOperand,
+	uncommittedChangesOperand,
 	commitOperand,
 	Operand,
 	operandContains,
@@ -190,7 +190,7 @@ const outlineNavigationItems = (headInfo: RefInfo | undefined): Array<Operand> =
 	];
 
 	return [
-		changesSectionOperand,
+		uncommittedChangesOperand,
 
 		...reverse(headInfo?.stacks ?? []).flatMap((stack) => {
 			// oxlint-disable-next-line typescript/no-non-null-assertion -- [ref:stack-id-required]

@@ -1,7 +1,7 @@
 import workspaceItemRowStyles from "./WorkspaceItemRow.module.css";
 import { changesInWorktreeQueryOptions } from "#ui/api/queries.ts";
 import { showNativeContextMenu, showNativeMenuFromTrigger } from "#ui/native-menu.ts";
-import { changesFileParent, fileOperand, FileParent } from "#ui/operands.ts";
+import { uncommittedChangesFileParent, fileOperand, FileParent } from "#ui/operands.ts";
 import {
 	projectActions,
 	selectProjectHasCheckedCommits,
@@ -74,7 +74,7 @@ const useFilesTreeHotkeys = ({
 		dispatch(
 			projectActions.enterAbsorbMode({
 				projectId,
-				source: fileOperand({ parent: changesFileParent, path: selectedChangesFile }),
+				source: fileOperand({ parent: uncommittedChangesFileParent, path: selectedChangesFile }),
 				sourceTarget: {
 					type: "treeChanges",
 					subject: {

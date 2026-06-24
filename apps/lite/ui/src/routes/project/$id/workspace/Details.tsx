@@ -14,7 +14,7 @@ import { decodeBytes } from "#ui/api/bytes.ts";
 import { commitBody, commitTitle, shortCommitId } from "#ui/commit.ts";
 import {
 	branchFileParent,
-	changesFileParent,
+	uncommittedChangesFileParent,
 	commitFileParent,
 	FileOperand,
 	fileOperand,
@@ -767,7 +767,7 @@ const Diff: FC<{
 	const fileParent = Match.value(outlineSelection).pipe(
 		Match.tags({
 			Branch: ({ branchRef, stackId }) => branchFileParent({ branchRef, stackId }),
-			ChangesSection: () => changesFileParent,
+			ChangesSection: () => uncommittedChangesFileParent,
 			Commit: ({ commitId, stackId }) => commitFileParent({ commitId, stackId }),
 		}),
 		Match.orElseAbsurd,
@@ -1141,7 +1141,7 @@ export const Details: FC<
 								}
 							</SuspenseQuery>
 						)),
-						Match.tag("ChangesSection", () => (
+						Match.tag("UncommittedChanges", () => (
 							<SuspenseQuery {...changesInWorktreeQueryOptions(projectId)}>
 								{({ data: worktreeChanges }) =>
 									renderDiff({
