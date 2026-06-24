@@ -1679,11 +1679,11 @@ dependencies = [
  "anyhow",
  "but-api",
  "but-schemars",
- "insta",
  "inventory",
  "schemars 1.2.1",
  "serde",
  "serde_json",
+ "snapbox",
 ]
 
 [[package]]
