@@ -1931,10 +1931,10 @@ const addSegmentToPartialStackState = (
 });
 
 const partialStackPushDisabledReason = (partialStackState: PartialStackState): string | null =>
-	partialStackState.hasConflicts
-		? "Resolve conflicts before pushing"
-		: !partialStackState.requiresPush
-			? "Nothing to push"
+	!partialStackState.requiresPush
+		? "Nothing to push"
+		: partialStackState.hasConflicts
+			? "Resolve conflicts before pushing"
 			: null;
 
 const partialStackStateFromSegments = (segments: Array<Segment>): PartialStackState =>
