@@ -729,7 +729,7 @@ impl KeyBindsBuilder<'_> {
     fn copy(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "copy",
-            press().shift().code(KeyCode::Char('C')),
+            press().code(KeyCode::Char('y')),
             Message::CopySelection,
         )
         .hide_from_hotbar()
