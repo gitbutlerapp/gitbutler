@@ -152,6 +152,7 @@ impl Details {
         match msg {
             Message::JustRender
             | Message::CopySelection
+            | Message::CopySelectionPicker
             | Message::Quit
             | Message::ConfirmAndQuit
             | Message::DetailsLayout(DetailsLayoutMessage::Focus { .. })
