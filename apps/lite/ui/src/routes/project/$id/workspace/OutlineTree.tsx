@@ -1372,7 +1372,7 @@ const CommitRow: FC<
 				/>
 			) : (
 				<WorkspaceItemRowLabelContainer>
-					<WorkspaceItemRowLabel singleLine>
+					<WorkspaceItemRowLabel>
 						{title === undefined ? (
 							<span className={workspaceItemRowStyles.fadedText}>(no message)</span>
 						) : (
