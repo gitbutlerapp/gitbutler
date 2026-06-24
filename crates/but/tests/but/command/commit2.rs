@@ -1265,6 +1265,8 @@ fn committing_something_that_isnt_a_cli_id() {
         .stderr_eq(snapbox::str![[r#"
 Error: Could not find uncommitted change: 'A'
 
+Hint: Run `but status` for applicable targets.
+
 "#]]);
 }
 

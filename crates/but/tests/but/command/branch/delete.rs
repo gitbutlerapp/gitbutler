@@ -12,6 +12,8 @@ fn rejects_non_existent_branch_name() {
         .stderr_eq(str![[r#"
 Error: Could not find branch: 'no-such-branch'
 
+Hint: Run `but status` for applicable targets.
+
 "#]])
         .stdout_eq(str![[]]);
 }
