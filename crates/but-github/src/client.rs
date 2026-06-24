@@ -276,6 +276,7 @@ impl GitHubClient {
         let response = self
             .client
             .get(&url)
+            .header(ACCEPT, "application/vnd.github.groot-preview+json")
             .query(&[("per_page", "100")])
             .send()
             .await?;
