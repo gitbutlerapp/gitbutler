@@ -939,7 +939,7 @@ impl App {
             Message::Stack(stack_message) => match stack_message {
                 StackMessage::Enter => self.handle_stack_enter(ctx)?,
                 StackMessage::ShowApplyPicker => self.handle_stack_show_apply_picker(ctx)?,
-                StackMessage::Unapply => self.handle_stack_unapply(),
+                StackMessage::Unapply => self.handle_stack_unapply(ctx, messages)?,
                 StackMessage::MoveStart => self.handle_stack_move_start(),
                 StackMessage::MoveConfirm => self.handle_stack_move_confirm(ctx, messages)?,
             },
@@ -3585,12 +3585,16 @@ impl App {
         Ok(())
     }
 
-    fn handle_stack_unapply(&mut self) {
+    fn handle_stack_unapply(
+        &mut self,
+        ctx: &mut Context,
+        messages: &mut Vec<Message>,
+    ) -> anyhow::Result<()> {
         let Some(selection) = self.cursor.selected_line(&self.status_lines) else {
-            return;
+            return Ok(());
         };
         let Some(selection) = selection.data.cli_id() else {
-            return;
+            return Ok(());
         };
 
         let (stack_id, name) = match &**selection {
@@ -3605,24 +3609,24 @@ impl App {
             | CliId::CommittedFile { .. }
             | CliId::Commit { .. }
             | CliId::Uncommitted { .. }
-            | CliId::Stack { .. } => return,
+            | CliId::Stack { .. } => return Ok(()),
         };
 
-        self.modal = Some(Modal::Confirm {
-            confirm: Confirm::new(
-                NonEmpty::new(format!("Unapply '{name}'?").into()),
-                self.theme,
-                move |ctx, messages| {
-                    but_api::legacy::virtual_branches::unapply_stack(ctx, stack_id)?;
-                    messages.extend([
-                        Message::EnterNormalModeAfterConfirmingOperation,
-                        Message::Reload(None, ReloadCause::Mutation),
-                    ]);
-                    Ok(())
-                },
-            ),
-            key_binds: confirm_key_binds(),
-        });
+        but_api::legacy::virtual_branches::unapply_stack(ctx, stack_id)?;
+
+        messages.extend([
+            Message::EnterNormalModeAfterConfirmingOperation,
+            Message::Reload(None, ReloadCause::Mutation),
+            Message::ShowToast {
+                kind: ToastKind::Info,
+                text: Text::from(Line::from_iter([
+                    Span::raw("Unapplied "),
+                    Span::styled(format!("'{name}'"), self.theme.local_branch),
+                ])),
+            },
+        ]);
+
+        Ok(())
     }
 
     fn handle_stack_move_start(&mut self) {
