@@ -132,6 +132,41 @@ mod config_ai {
     }
 }
 
+mod agent_setup {
+    use clap::Parser;
+
+    use crate::args::{
+        Args, Subcommands,
+        agent::{Platform as AgentPlatform, Subcommands as AgentCmd},
+    };
+
+    #[test]
+    fn parses_agent_setup() {
+        let args = Args::try_parse_from(["but", "agent", "setup"]).expect("parse args");
+        let cmd = args.cmd.expect("subcommand");
+
+        match cmd {
+            Subcommands::Agent(AgentPlatform {
+                cmd: AgentCmd::Setup { print },
+            }) => assert!(!print),
+            _ => panic!("unexpected command shape"),
+        }
+    }
+
+    #[test]
+    fn parses_agent_setup_print() {
+        let args = Args::try_parse_from(["but", "agent", "setup", "--print"]).expect("parse args");
+        let cmd = args.cmd.expect("subcommand");
+
+        match cmd {
+            Subcommands::Agent(AgentPlatform {
+                cmd: AgentCmd::Setup { print },
+            }) => assert!(print),
+            _ => panic!("unexpected command shape"),
+        }
+    }
+}
+
 mod branch_update {
     use clap::Parser;
 

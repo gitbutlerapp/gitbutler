@@ -122,6 +122,18 @@ impl SkillFormat {
     }
 }
 
+/// Install-path components (relative to a base directory) for a skill format,
+/// selected by its display name and whether the install is global. This keeps
+/// callers outside `but skill` — e.g. the `agent setup` wizard — installing to
+/// the same locations that `but skill check`/install/update discover, instead of
+/// duplicating (and drifting from) these paths.
+pub(crate) fn path_components_for(name: &str, global: bool) -> Option<&'static [&'static str]> {
+    SKILL_FORMATS
+        .iter()
+        .find(|format| format.name == name && format.is_available_for(global))
+        .map(|format| format.path_components)
+}
+
 /// Join a relative path from components using platform-native separators.
 fn join_relative_path(base_dir: &std::path::Path, components: &[&str]) -> PathBuf {
     components
@@ -1065,7 +1077,7 @@ fn prepare_skill_content(version: &str) -> Result<String> {
 /// Write the bundled skill files into `install_path`, creating the directory
 /// structure as needed and injecting the CLI version into SKILL.md. Returns the
 /// version that was written.
-fn write_skill_files(install_path: &std::path::Path) -> Result<&'static str> {
+pub(crate) fn write_skill_files(install_path: &std::path::Path) -> Result<&'static str> {
     if SKILL_FILES.iter().any(|f| f.content.is_empty()) {
         anyhow::bail!(
             "Skill files were not properly embedded at build time. Please report this as a bug."

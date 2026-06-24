@@ -150,6 +150,7 @@ fn print_grouped_with_truncation(
                 SubcommandDiscriminant::Alias => Group::OtherCommands,
                 SubcommandDiscriminant::Config => Group::OtherCommands,
                 SubcommandDiscriminant::Skill => Group::OtherCommands,
+                SubcommandDiscriminant::Agent => Group::OtherCommands,
                 SubcommandDiscriminant::Help => Group::OtherCommands,
 
                 #[cfg(feature = "legacy")]
@@ -364,6 +365,7 @@ Other Commands:
   alias        Manage command aliases
   config       View and manage GitButler configuration
   skill        Manage AI agent skills for GitButler
+  agent        Set up GitButler for AI coding agents
 
 To add command completion, add this to your shell rc: (for example ~/.zshrc)
   eval "$(but completions zsh)"
@@ -435,6 +437,7 @@ Other Commands:
   alias        Manage command aliases
   config       View and manage GitButler configuration
   skill        Manage AI agent skills for GitButler
+  agent        Set up GitButler for AI coding agents
 
 To add command completion, add this to your shell rc: (for example ~/.zshrc)
   eval "$(but completions zsh)"
