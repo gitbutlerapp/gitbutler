@@ -279,6 +279,7 @@ mod error {
     mod tests {
         use anyhow::anyhow;
         use but_error::{Code, Context};
+        use snapbox::prelude::*;
 
         use super::*;
 
@@ -321,12 +322,14 @@ mod error {
             let original_err = std::io::Error::other("actual cause");
             let err = anyhow::Error::from(original_err).context("err msg");
 
-            insta::assert_json_snapshot!(Error(err), @r#"
-            {
-              "code": "Unknown",
-              "message": "err msg\n\nCaused by:\n    1: actual cause\n"
-            }
-            "#);
+            snapbox::assert_data_eq!(
+                Error(err).into_json(),
+                snapbox::str![[r#"{
+  "code": "Unknown",
+  "message": "err msg\n\nCaused by:\n    1: actual cause\n"
+}"#]]
+                .raw()
+            );
         }
 
         #[test]

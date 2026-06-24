@@ -24,4 +24,4 @@ workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true
-insta = "1.47.2"
+snapbox.workspace = true

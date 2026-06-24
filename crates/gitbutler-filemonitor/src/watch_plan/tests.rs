@@ -1,8 +1,8 @@
 mod compute_watch_plan {
     use std::path::{Component, Path, PathBuf};
 
-    use gix::bstr::ByteSlice;
     use notify::RecursiveMode;
+    use snapbox::prelude::*;
 
     use crate::watch_plan::compute_watch_plan_for_repo;
 
@@ -14,54 +14,58 @@ mod compute_watch_plan {
         let actual = compute_canonicalized_plan(&repo);
         // There is no node-modules here, and submodules are tracked just by their directories and special directories
         // It's OK for a directory to not exist, as `.git/logs` doesn't exist yet despite being a directory we want to add.
-        insta::assert_debug_snapshot!(actual, @r#"
-        [
-            (
-                NonRecursive,
-                "",
-            ),
-            (
-                NonRecursive,
-                ".git",
-            ),
-            (
-                Recursive,
-                ".git/refs/heads",
-            ),
-            (
-                NonRecursive,
-                "submodule-worktree",
-            ),
-            (
-                NonRecursive,
-                "submodule-worktree/dir",
-            ),
-            (
-                NonRecursive,
-                "submodule-repo",
-            ),
-            (
-                NonRecursive,
-                "submodule-repo/dir",
-            ),
-            (
-                NonRecursive,
-                "submodule-repo/.git",
-            ),
-            (
-                NonRecursive,
-                "submodule-repo/.git/logs",
-            ),
-            (
-                Recursive,
-                "submodule-repo/.git/refs/heads",
-            ),
-            (
-                NonRecursive,
-                "src",
-            ),
-        ]
-        "#);
+        snapbox::assert_data_eq!(
+            actual.to_debug(),
+            snapbox::str![[r#"
+[
+    (
+        NonRecursive,
+        "",
+    ),
+    (
+        NonRecursive,
+        ".git",
+    ),
+    (
+        Recursive,
+        ".git/refs/heads",
+    ),
+    (
+        NonRecursive,
+        "submodule-worktree",
+    ),
+    (
+        NonRecursive,
+        "submodule-worktree/dir",
+    ),
+    (
+        NonRecursive,
+        "submodule-repo",
+    ),
+    (
+        NonRecursive,
+        "submodule-repo/dir",
+    ),
+    (
+        NonRecursive,
+        "submodule-repo/.git",
+    ),
+    (
+        NonRecursive,
+        "submodule-repo/.git/logs",
+    ),
+    (
+        Recursive,
+        "submodule-repo/.git/refs/heads",
+    ),
+    (
+        NonRecursive,
+        "src",
+    ),
+]
+
+"#]]
+        );
     }
 
     #[test]
@@ -71,49 +75,51 @@ mod compute_watch_plan {
 
         // We want to see ignored directories that are tracked, `ignored_but_tracked` and `submodule-worktree`
         // as these are always tracked.
-        insta::assert_snapshot!(
-            std::fs::read(
-                repo.workdir_path(".gitignore")
-                    .expect("worktree")
-            )?.as_bstr(),
-            @"
-        ignored_but_tracked_dir/
-        submodule-repo/
-        submodule-worktree/
-        "
+        snapbox::assert_data_eq!(
+            std::fs::read(repo.workdir_path(".gitignore").expect("worktree"))?,
+            snapbox::str![[r#"
+ignored_but_tracked_dir/
+submodule-repo/
+submodule-worktree/
+
+"#]]
         );
-        insta::assert_debug_snapshot!(actual, @r#"
-        [
-            (
-                NonRecursive,
-                "",
-            ),
-            (
-                NonRecursive,
-                ".git",
-            ),
-            (
-                NonRecursive,
-                ".git/logs",
-            ),
-            (
-                Recursive,
-                ".git/refs/heads",
-            ),
-            (
-                NonRecursive,
-                "submodule-worktree",
-            ),
-            (
-                NonRecursive,
-                "normal_dir",
-            ),
-            (
-                NonRecursive,
-                "ignored_but_tracked_dir",
-            ),
-        ]
-        "#);
+        snapbox::assert_data_eq!(
+            actual.to_debug(),
+            snapbox::str![[r#"
+[
+    (
+        NonRecursive,
+        "",
+    ),
+    (
+        NonRecursive,
+        ".git",
+    ),
+    (
+        NonRecursive,
+        ".git/logs",
+    ),
+    (
+        Recursive,
+        ".git/refs/heads",
+    ),
+    (
+        NonRecursive,
+        "submodule-worktree",
+    ),
+    (
+        NonRecursive,
+        "normal_dir",
+    ),
+    (
+        NonRecursive,
+        "ignored_but_tracked_dir",
+    ),
+]
+
+"#]]
+        );
 
         Ok(())
     }

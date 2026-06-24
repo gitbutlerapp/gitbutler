@@ -39,7 +39,7 @@ schemars = { workspace = true, optional = true }
 [dev-dependencies]
 but-testsupport.workspace = true
 tempfile.workspace = true
-insta.workspace = true
+snapbox.workspace = true
 temp-env = "0.3"
 
 [lints]
