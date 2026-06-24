@@ -7,6 +7,7 @@ use anyhow::Result;
 use but_testsupport::visualize_tree;
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::prelude::ObjectIdExt;
+use snapbox::IntoData;
 use tempfile::TempDir;
 
 use but_ctx::Context;
@@ -148,15 +149,17 @@ fn merge_workspace_with_diverged_stacks() -> Result<()> {
     let merged_tree_id = gitbutler_workspace::branch_trees::merge_workspace(&gix_repo, &workspace)
         .expect("workspace should merge cleanly with per-stack merge bases");
 
-    insta::assert_snapshot!(
-        visualize_tree(merged_tree_id.attach(&gix_repo)),
-        "merged tree should contain x, y, and z when C and D are merged using A as their merge base",
-        @r#"
-    8999a87
-    ├── x:100644:587be6b "x\n"
-    ├── y:100644:975fbec "y\n"
-    └── z:100644:b680253 "z\n"
-    "#
+    // merged tree should contain x, y, and z when C and D are merged using A as their merge base
+    snapbox::assert_data_eq!(
+        visualize_tree(merged_tree_id.attach(&gix_repo)).to_string(),
+        snapbox::str![[r#"
+8999a87
+├── x:100644:587be6b "x\n"
+├── y:100644:975fbec "y\n"
+└── z:100644:b680253 "z\n"
+
+"#]]
+        .raw()
     );
 
     Ok(())
@@ -178,15 +181,17 @@ fn update_workspace_commit_with_diverged_stacks_preserves_target_content() -> Re
         .try_into_commit()?
         .tree_id()?;
 
-    insta::assert_snapshot!(
-        visualize_tree(ws_tree_id),
-        "workspace commit tree should contain x, y, and z when C and D are merged using A as their merge base",
-        @r#"
-    8999a87
-    ├── x:100644:587be6b "x\n"
-    ├── y:100644:975fbec "y\n"
-    └── z:100644:b680253 "z\n"
-    "#
+    // workspace commit tree should contain x, y, and z when C and D are merged using A as their merge base
+    snapbox::assert_data_eq!(
+        visualize_tree(ws_tree_id).to_string(),
+        snapbox::str![[r#"
+8999a87
+├── x:100644:587be6b "x\n"
+├── y:100644:975fbec "y\n"
+└── z:100644:b680253 "z\n"
+
+"#]]
+        .raw()
     );
 
     Ok(())
