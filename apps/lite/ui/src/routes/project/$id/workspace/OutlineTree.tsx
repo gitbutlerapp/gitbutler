@@ -2158,13 +2158,16 @@ const BranchRow: FC<
 	const pushStackDisabledReason = pushStackMutation.isPending
 		? "Pushing"
 		: partialStackPushDisabledReason(partialStackState);
-	const pushButtonLabel = pushesMultipleBranches
-		? partialStackState.pushWithForce
-			? "Force push this and all branches below"
-			: "Push this and all branches below"
-		: partialStackState.pushWithForce
-			? "Force push branch"
-			: "Push branch";
+
+	const pushButtonLabel = `${
+		pushesMultipleBranches
+			? partialStackState.pushWithForce
+				? "Force push this and all branches below"
+				: "Push this and all branches below"
+			: partialStackState.pushWithForce
+				? "Force push branch"
+				: "Push branch"
+	}${pushStackDisabledReason !== null ? ` (${pushStackDisabledReason})` : ""}`;
 	const pushMenuLabel = pushesMultipleBranches
 		? partialStackState.pushWithForce
 			? "Force Push With Branches Below"
@@ -2316,7 +2319,7 @@ const BranchRow: FC<
 							<Tooltip.Portal>
 								<Tooltip.Positioner sideOffset={4}>
 									<Tooltip.Popup render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}>
-										{pushStackDisabledReason ?? pushButtonLabel}
+										{pushButtonLabel}
 									</Tooltip.Popup>
 								</Tooltip.Positioner>
 							</Tooltip.Portal>
