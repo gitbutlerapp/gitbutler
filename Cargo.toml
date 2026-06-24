@@ -221,7 +221,7 @@ gix-testtools = { version = "0.19.0", git = "https://github.com/GitoxideLabs/git
 
 
 insta = { version = "1.47.2", features = ["json"] }
-git2 = { version = "0.20.4", features = [
+git2 = { version = "0.21.0", features = [
     "vendored-openssl",
     "vendored-libgit2",
 ] }
@@ -246,7 +246,7 @@ tracing-subscriber = "0.3.23"
 tempfile = "3.24"
 rand = "0.9.3"
 notify-rust = "4.16.0"
-git2-hooks = { version = "0.5.0" }
+git2-hooks = { version = "0.7.0" }
 itertools = "0.14.0"
 dirs = "6.0.0"
 rmcp = { version = "0.16.0", default-features = false, features = [
