@@ -2282,56 +2282,55 @@ const BranchRow: FC<
 							</span>
 						)}
 
-						{(() => {
-							const pushStackDisabledReason = pushStackMutation.isPending
-								? "Pushing"
-								: !partialStackState.requiresPush
-									? "Nothing to push"
+						{partialStackState.requiresPush &&
+							(() => {
+								const pushStackDisabledReason = pushStackMutation.isPending
+									? "Pushing"
 									: partialStackState.hasConflicts
 										? "Resolve conflicts before pushing"
 										: null;
 
-							const pushButtonLabel = `${
-								pushesMultipleBranches
-									? partialStackState.pushWithForce
-										? "Force push this and all branches below"
-										: "Push this and all branches below"
-									: partialStackState.pushWithForce
-										? "Force push branch"
-										: "Push branch"
-							}${pushStackDisabledReason !== null ? ` (${pushStackDisabledReason})` : ""}`;
+								const pushButtonLabel = `${
+									pushesMultipleBranches
+										? partialStackState.pushWithForce
+											? "Force push this and all branches below"
+											: "Push this and all branches below"
+										: partialStackState.pushWithForce
+											? "Force push branch"
+											: "Push branch"
+								}${pushStackDisabledReason !== null ? ` (${pushStackDisabledReason})` : ""}`;
 
-							return (
-								<Tooltip.Root>
-									<Tooltip.Trigger
-										aria-label={pushButtonLabel}
-										onClick={pushStack}
-										className={getWorkspaceItemRowButtonClassName({ variant: "outline" })}
-										// We pass `disabled` here because we want to disable the button, not
-										// the tooltip. Other props should be passed above.
-										render={<Button focusableWhenDisabled disabled={pushStackDisabled} />}
-									>
-										Push
-										{pushStackMutation.isPending ? (
-											<Icon name="spinner" />
-										) : pushesMultipleBranches ? (
-											<Icon size={12} name="arrow-double-up" />
-										) : (
-											<Icon size={12} name="arrow-up" />
-										)}
-									</Tooltip.Trigger>
-									<Tooltip.Portal>
-										<Tooltip.Positioner sideOffset={4}>
-											<Tooltip.Popup
-												render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}
-											>
-												{pushButtonLabel}
-											</Tooltip.Popup>
-										</Tooltip.Positioner>
-									</Tooltip.Portal>
-								</Tooltip.Root>
-							);
-						})()}
+								return (
+									<Tooltip.Root>
+										<Tooltip.Trigger
+											aria-label={pushButtonLabel}
+											onClick={pushStack}
+											className={getWorkspaceItemRowButtonClassName({ variant: "outline" })}
+											// We pass `disabled` here because we want to disable the button, not
+											// the tooltip. Other props should be passed above.
+											render={<Button focusableWhenDisabled disabled={pushStackDisabled} />}
+										>
+											Push
+											{pushStackMutation.isPending ? (
+												<Icon name="spinner" />
+											) : pushesMultipleBranches ? (
+												<Icon size={12} name="arrow-double-up" />
+											) : (
+												<Icon size={12} name="arrow-up" />
+											)}
+										</Tooltip.Trigger>
+										<Tooltip.Portal>
+											<Tooltip.Positioner sideOffset={4}>
+												<Tooltip.Popup
+													render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}
+												>
+													{pushButtonLabel}
+												</Tooltip.Popup>
+											</Tooltip.Positioner>
+										</Tooltip.Portal>
+									</Tooltip.Root>
+								);
+							})()}
 					</div>
 				</div>
 			)}
