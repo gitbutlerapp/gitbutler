@@ -86,12 +86,7 @@ import {
 	InsertSide,
 	BottomUpdate,
 } from "@gitbutler/but-sdk";
-import {
-	formatForDisplay,
-	useHotkey,
-	UseHotkeyDefinition,
-	useHotkeys,
-} from "@tanstack/react-hotkeys";
+import { useHotkey, UseHotkeyDefinition, useHotkeys } from "@tanstack/react-hotkeys";
 import { useQueries, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 import { Match } from "effect";
@@ -128,6 +123,7 @@ import { Icon } from "#ui/components/Icon.tsx";
 import { Kbd } from "#ui/components/Kbd.tsx";
 import {
 	changesHotkeys,
+	formatForDisplaySorted,
 	outlineHotkeys,
 	selectionOperationHotkeys,
 	toElectronAccelerator,
@@ -996,11 +992,11 @@ const InlineEditor: FC<{
 			</WorkspaceItemRowLabelContainer>
 			<div className={styles.inlineEditorHelp}>
 				<button type="submit" className={getWorkspaceItemRowButtonClassName({})}>
-					<kbd>{formatForDisplay("Enter")}</kbd>
+					<kbd>{formatForDisplaySorted("Enter")}</kbd>
 					<span className={styles.inlineEditorShortcutLabel}> to Save</span>
 				</button>
 				<button type="button" className={getWorkspaceItemRowButtonClassName({})} onClick={onExit}>
-					<kbd>{formatForDisplay("Escape")}</kbd>
+					<kbd>{formatForDisplaySorted("Escape")}</kbd>
 					<span className={styles.inlineEditorShortcutLabel}> to Cancel</span>
 				</button>
 			</div>
@@ -1786,7 +1782,7 @@ const Changes: FC<{
 		},
 	]);
 
-	const focusCommitMessageHotkeyLabel = formatForDisplay(
+	const focusCommitMessageHotkeyLabel = formatForDisplaySorted(
 		outlineHotkeys.composeCommitMessage.hotkey,
 	);
 
