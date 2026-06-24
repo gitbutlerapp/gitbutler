@@ -1768,8 +1768,8 @@ dependencies = [
  "but-serde",
  "but-testsupport",
  "gix",
- "insta",
  "serde",
+ "snapbox",
  "tracing",
  "uuid",
 ]

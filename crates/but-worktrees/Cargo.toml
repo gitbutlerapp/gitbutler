@@ -25,8 +25,7 @@ tracing.workspace = true
 [dev-dependencies]
 but-ctx.workspace = true
 but-testsupport.workspace = true
-
-insta.workspace = true
+snapbox.workspace = true
 
 [lints]
 workspace = true

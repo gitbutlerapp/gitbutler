@@ -1,6 +1,7 @@
 use bstr::ByteSlice;
 use but_testsupport::{git, invoke_bash_at_dir};
 use but_worktrees::integrate::WorktreeIntegrationStatus;
+use snapbox::IntoData;
 
 use crate::util::{integrate, integration_status, test_ctx, worktree_new};
 
@@ -58,13 +59,18 @@ fn create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
     .expect("it works");
 
     let repo = ctx.repo.get()?;
-    insta::assert_snapshot!(but_testsupport::visualize_tree(repo.head_tree_id()?), @r#"
-    c5bb3ff
-    ├── bar.txt:100644:91c021a "feature-b line 2\n"
-    ├── file.txt:100644:f2376e2 "initial content\n"
-    ├── foo.txt:100644:bf8cf71 "feature-b line 1\n"
-    └── qux.txt:100644:257cc56 "foo\n"
-    "#);
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_tree(repo.head_tree_id()?).to_string(),
+        snapbox::str![[r#"
+c5bb3ff
+├── bar.txt:100644:91c021a "feature-b line 2\n"
+├── file.txt:100644:f2376e2 "initial content\n"
+├── foo.txt:100644:bf8cf71 "feature-b line 1\n"
+└── qux.txt:100644:257cc56 "foo\n"
+
+"#]]
+        .raw()
+    );
 
     // cannot show hashes as these aren't controllable yet.
     let unstable_log = git(&repo)
@@ -73,15 +79,17 @@ fn create_unrelated_change_and_reintroduce() -> anyhow::Result<()> {
         .stdout
         .as_bstr()
         .to_owned();
-    insta::assert_snapshot!(unstable_log, @r"
-    * GitButler Workspace Commit  (HEAD -> gitbutler/workspace)
-    * feature-b: add line 2  (feature-b)
-    * feature-b: add line 1 
-    * Integrated worktree  (feature-a)
-    * feature-a: add line 2 
-    * feature-a: add line 1 
-    * init  (origin/main, main)
-    ");
+    snapbox::assert_data_eq!(
+        unstable_log.as_slice(),
+        snapbox::str![[r#"
+* GitButler Workspace Commit  (HEAD -> gitbutler/workspace)
+* feature-b: add line 2  (feature-b)
+* feature-b: add line 1 
+* Integrated worktree  (feature-a)
+* feature-a: add line 2 
+* feature-a: add line 1 
+* init  (origin/main, main)"#]]
+    );
 
     Ok(())
 }
@@ -140,12 +148,17 @@ fn causes_conflicts_above() -> anyhow::Result<()> {
     .expect("it works");
 
     let repo = ctx.repo.get()?;
-    insta::assert_snapshot!(but_testsupport::visualize_tree(repo.head_tree_id()?), @r#"
-    762a113
-    ├── bar.txt:100644:91c021a "feature-b line 2\n"
-    ├── file.txt:100644:f2376e2 "initial content\n"
-    └── foo.txt:100644:257cc56 "foo\n"
-    "#);
+    snapbox::assert_data_eq!(
+        but_testsupport::visualize_tree(repo.head_tree_id()?).to_string(),
+        snapbox::str![[r#"
+762a113
+├── bar.txt:100644:91c021a "feature-b line 2\n"
+├── file.txt:100644:f2376e2 "initial content\n"
+└── foo.txt:100644:257cc56 "foo\n"
+
+"#]]
+        .raw()
+    );
 
     // TODO: make hashes of integrated commits stable.
     let unstable_log = git(&repo)
@@ -154,15 +167,17 @@ fn causes_conflicts_above() -> anyhow::Result<()> {
         .stdout
         .as_bstr()
         .to_owned();
-    insta::assert_snapshot!(unstable_log, @"
-    * GitButler Workspace Commit  (HEAD -> gitbutler/workspace)
-    * feature-b: add line 2  (feature-b)
-    * [conflict] feature-b: add line 1 
-    * Integrated worktree  (feature-a)
-    * feature-a: add line 2 
-    * feature-a: add line 1 
-    * init  (origin/main, main)
-    ");
+    snapbox::assert_data_eq!(
+        unstable_log.as_slice(),
+        snapbox::str![[r#"
+* GitButler Workspace Commit  (HEAD -> gitbutler/workspace)
+* feature-b: add line 2  (feature-b)
+* [conflict] feature-b: add line 1 
+* Integrated worktree  (feature-a)
+* feature-a: add line 2 
+* feature-a: add line 1 
+* init  (origin/main, main)"#]]
+    );
 
     Ok(())
 }
@@ -218,7 +233,7 @@ fn causes_workdir_conflicts_simple() -> anyhow::Result<()> {
     );
 
     let foo = std::fs::read_to_string(main_worktree_dir.join("foo.txt"))?;
-    insta::assert_snapshot!(foo, @"qux");
+    snapbox::assert_data_eq!(foo.into_bytes(), snapbox::Data::binary(b"qux\n"));
     assert_eq!(
         ctx.repo
             .get()?
@@ -287,7 +302,7 @@ fn causes_workdir_conflicts_complex() -> anyhow::Result<()> {
     .expect_err("integration aborts instead of clobbering uncommitted changes");
 
     let foo = std::fs::read_to_string(main_worktree_dir.join("foo.txt"))?;
-    insta::assert_snapshot!(foo, @"qux");
+    snapbox::assert_data_eq!(foo.into_bytes(), snapbox::Data::binary(b"qux\n"));
 
     Ok(())
 }
