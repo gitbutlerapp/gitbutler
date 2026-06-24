@@ -1105,16 +1105,16 @@ fn hunks_within_file_are_not_order_dependent() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────╮
-i0 file│
-───────╯
+─────────╮
+qs:5 file│
+─────────╯
      1│+first hunk
    1 2│ enough
    2 3│ lines
    3 4│ to
-───────╮
-j0 file│
-───────╯
+─────────╮
+qs:2 file│
+─────────╯
     6  7│ hunks
     7  8│ when
     8  9│ editing
@@ -1122,7 +1122,9 @@ j0 file│
 
 "#]]);
 
-    env.but("_commit2 --no-message i0 j0").assert().success();
+    env.but("_commit2 --no-message qs:5 qs:2")
+        .assert()
+        .success();
 
     env.but("status -f")
         .assert()
@@ -1147,7 +1149,9 @@ Hint: run `but help` for all commands
 
     env.but("undo").assert().success();
 
-    env.but("_commit2 --no-message j0 i0").assert().success();
+    env.but("_commit2 --no-message qs:2 qs:5")
+        .assert()
+        .success();
 
     env.but("status -f")
         .assert()
@@ -1188,16 +1192,16 @@ fn overlapping_changes_to_modified_file_are_deduplicated() {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-───────╮
-i0 file│
-───────╯
+─────────╮
+qs:5 file│
+─────────╯
      1│+first hunk
    1 2│ enough
    2 3│ lines
    3 4│ to
-───────╮
-j0 file│
-───────╯
+─────────╮
+qs:2 file│
+─────────╯
     6  7│ hunks
     7  8│ when
     8  9│ editing
@@ -1205,7 +1209,9 @@ j0 file│
 
 "#]]);
 
-    env.but("_commit2 --no-message i0 j0 i0").assert().success();
+    env.but("_commit2 --no-message qs:5 qs:2 qs:5")
+        .assert()
+        .success();
 
     env.but("status -f")
         .assert()
@@ -1230,7 +1236,9 @@ Hint: run `but help` for all commands
 
     env.but("undo").assert().success();
 
-    env.but("_commit2 --no-message file j0").assert().success();
+    env.but("_commit2 --no-message file qs:5")
+        .assert()
+        .success();
 
     env.but("status -f")
         .assert()
