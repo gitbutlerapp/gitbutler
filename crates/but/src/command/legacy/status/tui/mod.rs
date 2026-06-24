@@ -42,6 +42,7 @@ use crate::{
             tui::{
                 backstack::{Backstack, BackstackEntry, RememberToUpdateBackstack},
                 confirm::{Confirm, ConfirmMessage},
+                copy_selection_picker::CopySelectionItem,
                 cursor::{Cursor, is_selectable_in_mode},
                 details::{Details, DetailsMessage, RenderNextChunkResult},
                 event_polling::{CrosstermEventPolling, EventPolling, NoopEventPolling},
@@ -86,6 +87,7 @@ use render::{details_viewport, ensure_cursor_visible, render_app, status_viewpor
 
 mod backstack;
 mod confirm;
+mod copy_selection_picker;
 mod cursor;
 mod details;
 mod event_polling;
@@ -297,7 +299,11 @@ where
     // poll terminal events
     for event in event_polling.poll(event_poll_timeout)? {
         let picker_shown = match &app.modal {
-            Some(Modal::GotoBranchPicker { .. } | Modal::ApplyStackPicker { .. }) => true,
+            Some(
+                Modal::GotoBranchPicker { .. }
+                | Modal::ApplyStackPicker { .. }
+                | Modal::CopySelectionPicker { .. },
+            ) => true,
             Some(Modal::Confirm { .. } | Modal::Help { .. }) | None => false,
         };
         event_to_messages(
@@ -469,6 +475,10 @@ enum Modal {
         confirm: Confirm,
         key_binds: KeyBinds,
     },
+    CopySelectionPicker {
+        picker: Box<FuzzyPicker<CopySelectionItem>>,
+        key_binds: KeyBinds,
+    },
     GotoBranchPicker {
         picker: Box<FuzzyPicker<GotoBranchItem>>,
         key_binds: KeyBinds,
@@ -558,6 +568,7 @@ impl App {
             Some(Modal::Confirm { key_binds, .. })
             | Some(Modal::GotoBranchPicker { key_binds, .. })
             | Some(Modal::ApplyStackPicker { key_binds, .. })
+            | Some(Modal::CopySelectionPicker { key_binds, .. })
             | Some(Modal::Help { key_binds, .. }) => key_binds,
             None => {
                 if let Mode::Normal(NormalMode { marks }) = &*self.mode
@@ -808,6 +819,9 @@ impl App {
             Message::CopySelection => {
                 self.handle_copy_selection()?;
             }
+            Message::CopySelectionPicker => {
+                self.handle_copy_selection_picker()?;
+            }
             Message::ShowToast { kind, text } => {
                 self.toasts.insert(kind, text);
             }
@@ -834,6 +848,14 @@ impl App {
                             self.modal = picker
                                 .handle_message(fuzzy_picker_message, ctx, messages)?
                                 .map(|picker| Modal::ApplyStackPicker {
+                                    picker: Box::new(picker),
+                                    key_binds,
+                                });
+                        }
+                        Modal::CopySelectionPicker { picker, key_binds } => {
+                            self.modal = picker
+                                .handle_message(fuzzy_picker_message, ctx, messages)?
+                                .map(|picker| Modal::CopySelectionPicker {
                                     picker: Box::new(picker),
                                     key_binds,
                                 });
@@ -2839,6 +2861,38 @@ impl App {
         Ok(())
     }
 
+    fn handle_copy_selection_picker(&mut self) -> anyhow::Result<()> {
+        let Some(selection) = self
+            .cursor
+            .selected_line(&self.status_lines)
+            .and_then(|selection| selection.data.cli_id())
+        else {
+            return Ok(());
+        };
+
+        let picker = match &**selection {
+            CliId::Commit { commit_id, .. } => {
+                let commit_id = *commit_id;
+                copy_selection_picker::commit_picker(commit_id, self.theme)
+            }
+            CliId::Branch { name, .. } => {
+                let branch = Category::LocalBranch.to_full_name(&**name)?;
+                copy_selection_picker::branch_picker(branch, self.theme)
+            }
+            CliId::UncommittedHunkOrFile(..)
+            | CliId::PathPrefix { .. }
+            | CliId::CommittedFile { .. }
+            | CliId::Uncommitted { .. }
+            | CliId::Stack { .. } => return Ok(()),
+        };
+        self.modal = Some(Modal::CopySelectionPicker {
+            picker: Box::new(picker),
+            key_binds: fuzzy_picker_key_binds(),
+        });
+
+        Ok(())
+    }
+
     /// Handles opening the full-screen commit reword editor for the selected commit.
     fn handle_reword_with_editor<T>(
         &mut self,
@@ -4172,6 +4226,7 @@ enum Message {
 
     // Utilities
     CopySelection,
+    CopySelectionPicker,
     #[expect(clippy::enum_variant_names)]
     RegisterOutOfBandMessage(Rc<Receiver<Message>>),
     WithOneFrameDelay(Box<Message>),

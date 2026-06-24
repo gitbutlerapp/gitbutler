@@ -12,7 +12,6 @@ use crate::theme::Theme;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ToastKind {
     Error,
-    #[expect(dead_code)]
     Info,
     Debug,
 }

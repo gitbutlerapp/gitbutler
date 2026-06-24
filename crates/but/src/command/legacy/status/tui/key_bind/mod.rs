@@ -729,11 +729,21 @@ impl KeyBindsBuilder<'_> {
     fn copy(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "copy",
-            press().shift().code(KeyCode::Char('C')),
+            press().code(KeyCode::Char('y')),
             Message::CopySelection,
         )
         .hide_from_hotbar()
-        .long_description("Copy selection to clipboard")
+        .long_description("Copy selection")
+    }
+
+    fn copy_picker(&mut self) -> KeyBindsInModesBuilder<'_> {
+        self.key_bind(
+            "copy more",
+            press().shift().code(KeyCode::Char('Y')),
+            Message::CopySelectionPicker,
+        )
+        .hide_from_hotbar()
+        .long_description("Copy selection picker")
     }
 
     fn back(&mut self) -> KeyBindsInModesBuilder<'_> {
@@ -1040,6 +1050,7 @@ fn register_normal_mode_key_binds(builder: &mut KeyBindsBuilder<'_>, without_mar
 
     if without_marks {
         builder.copy().register();
+        builder.copy_picker().register();
     }
 
     builder.reload().register();
