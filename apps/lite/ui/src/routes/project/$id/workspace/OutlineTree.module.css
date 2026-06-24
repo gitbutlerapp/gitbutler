@@ -106,6 +106,8 @@
 .branchLabelMetaItem {
 	display: flex;
 	align-items: center;
+	/* Match button height */
+	height: 20px;
 	gap: 4px;
 }
 

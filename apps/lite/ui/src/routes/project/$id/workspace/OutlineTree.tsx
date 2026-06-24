@@ -2310,7 +2310,7 @@ const BranchRow: FC<
 					</WorkspaceItemRowLabelContainer>
 
 					<div className={classes("text-13", styles.branchLabelMeta)}>
-						<span className={workspaceItemRowStyles.fadedText}>
+						<span className={classes(workspaceItemRowStyles.fadedText, styles.branchLabelMetaItem)}>
 							{Match.value(pushStatus).pipe(
 								Match.when("nothingToPush", () => "Nothing to push"),
 								Match.when("unpushedCommits", () => "Some unpushed"),
