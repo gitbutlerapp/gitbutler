@@ -34,7 +34,7 @@ import {
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import { type FC, Component, ReactNode, useDeferredValue } from "react";
-import { Group, Panel, Separator } from "react-resizable-panels";
+import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import {
 	branchOperand,
 	commitOperand,
@@ -367,15 +367,32 @@ const WorkspacePage: FC = () => {
 		meta: globalHotkeys.selectProject.meta,
 	});
 
+	const layoutId = `project=${projectId}:workspace`;
+	const workspaceLayout = useDefaultLayout({
+		id: layoutId,
+		panelIds: detailsFullWindow ? ["details"] : ["outline", "details"],
+	});
+
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
 
 	return (
 		<>
-			<Group className={styles.page}>
+			<Group
+				id={layoutId}
+				className={styles.page}
+				defaultLayout={workspaceLayout.defaultLayout}
+				onLayoutChanged={workspaceLayout.onLayoutChanged}
+			>
 				{!detailsFullWindow && (
 					<>
-						<Panel className={styles.panel} minSize={360} defaultSize={400}>
+						<Panel
+							id="outline"
+							className={styles.panel}
+							minSize={360}
+							defaultSize={400}
+							groupResizeBehavior="preserve-pixel-size"
+						>
 							<Outline
 								projectId={projectId}
 								project={selectedProject}
@@ -387,7 +404,7 @@ const WorkspacePage: FC = () => {
 					</>
 				)}
 
-				<Panel className={styles.panel}>
+				<Panel id="details" className={styles.panel}>
 					<Details
 						key={deferredOutlineSelection ? operandIdentityKey(deferredOutlineSelection) : null}
 						style={{ opacity: deferredOutlineSelection !== outlineSelection ? 0.5 : 1 }}

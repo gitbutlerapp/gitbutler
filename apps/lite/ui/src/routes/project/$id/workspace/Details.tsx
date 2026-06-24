@@ -68,7 +68,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Group, Panel, Separator } from "react-resizable-panels";
+import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import styles from "./Details.module.css";
 import { diffHotkeys, pullRequestHotkeys, workspaceHotkeys } from "#ui/hotkeys.ts";
 import { useHotkey, useHotkeys } from "@tanstack/react-hotkeys";
@@ -840,6 +840,12 @@ const Diff: FC<{
 		return () => resizeObserver.disconnect();
 	}, [diffContentsEl]);
 
+	const layoutId = `project=${projectId}:details`;
+	const diffLayout = useDefaultLayout({
+		id: layoutId,
+		panelIds: [...(filesVisible ? ["files"] : []), "diff"],
+	});
+
 	return (
 		<div className={styles.diffTab}>
 			<div className={styles.actions}>
@@ -855,10 +861,16 @@ const Diff: FC<{
 				)}
 			</div>
 
-			<Group className={styles.panels}>
+			<Group
+				id={layoutId}
+				className={styles.panels}
+				defaultLayout={diffLayout.defaultLayout}
+				onLayoutChanged={diffLayout.onLayoutChanged}
+			>
 				{filesVisible && (
 					<>
 						<Panel
+							id="files"
 							className={styles.panel}
 							defaultSize={250}
 							minSize={180}
@@ -880,7 +892,7 @@ const Diff: FC<{
 					</>
 				)}
 
-				<Panel className={styles.panel}>
+				<Panel id="diff" minSize={300} className={styles.panel}>
 					<div
 						id={"diff" satisfies SelectionScope}
 						data-selection-scope
