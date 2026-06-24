@@ -524,6 +524,7 @@ impl InputOutputChannel<'_> {
             items,
             PickerOptions {
                 allow_multiple: false,
+                default_selected: Vec::new(),
             },
         )?
         else {
@@ -555,6 +556,7 @@ impl InputOutputChannel<'_> {
             items,
             PickerOptions {
                 allow_multiple: true,
+                default_selected: Vec::new(),
             },
         )
     }
