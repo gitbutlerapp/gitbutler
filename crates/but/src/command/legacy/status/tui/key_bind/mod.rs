@@ -962,7 +962,7 @@ impl KeyBindsBuilder<'_> {
     fn details_copy(&mut self) -> KeyBindsInModesBuilder<'_> {
         self.key_bind(
             "copy hunk",
-            press().shift().code(KeyCode::Char('C')),
+            press().code(KeyCode::Char('y')),
             Message::Details(DetailsMessage::CopyCurrentHunk),
         )
         .hide_from_hotbar()
