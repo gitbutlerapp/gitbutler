@@ -1,13 +1,6 @@
 .page {
-	display: grid;
-	grid-template-rows: minmax(0, 1fr);
-	grid-template-columns: 400px 1fr;
 	flex-grow: 1;
 	min-height: 0;
-}
-
-.pageDetailsFullWindow {
-	grid-template-columns: 1fr;
 }
 
 .notFound {
@@ -37,6 +30,18 @@
 	word-break: break-word;
 }
 
-.outlinePanelBorder {
-	border-right: 1px solid var(--border-3);
+.panel {
+	/* Stretch single child element to fill this element. */
+	display: grid;
+	grid-template-rows: minmax(0, 1fr);
+}
+
+.resizeHandle {
+	width: 1px;
+	background-color: var(--border-3);
+
+	&[data-separator="hover"],
+	&[data-separator="active"] {
+		background-color: var(--border-2);
+	}
 }

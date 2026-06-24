@@ -34,6 +34,7 @@ import {
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { Match } from "effect";
 import { type FC, Component, ReactNode, useDeferredValue } from "react";
+import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import {
 	branchOperand,
 	commitOperand,
@@ -47,7 +48,6 @@ import {
 import { Details } from "./Details.tsx";
 import styles from "./WorkspacePage.module.css";
 import { useActiveElement } from "#ui/focus.ts";
-import { classes } from "#ui/components/classes.ts";
 import { ApplyBranchPicker } from "./ApplyBranchPicker.tsx";
 import { BranchPicker } from "./BranchPicker.tsx";
 import { CommandPalette } from "./CommandPalette.tsx";
@@ -367,32 +367,55 @@ const WorkspacePage: FC = () => {
 		meta: globalHotkeys.selectProject.meta,
 	});
 
+	const layoutId = `project=${projectId}:workspace`;
+	const workspaceLayout = useDefaultLayout({
+		id: layoutId,
+		panelIds: detailsFullWindow ? ["details"] : ["outline", "details"],
+	});
+
 	const selectedProject = projects.find((project) => project.id === projectId);
 	if (!selectedProject) throw new Error("Could not find selected project");
 
 	return (
 		<>
-			<div className={classes(styles.page, detailsFullWindow && styles.pageDetailsFullWindow)}>
+			<Group
+				id={layoutId}
+				className={styles.page}
+				defaultLayout={workspaceLayout.defaultLayout}
+				onLayoutChanged={workspaceLayout.onLayoutChanged}
+			>
 				{!detailsFullWindow && (
-					<Outline
-						className={styles.outlinePanelBorder}
-						projectId={projectId}
-						project={selectedProject}
-						navigationIndex={outlineNavigationIndex}
-						absorptionTargetKeys={absorptionTargetKeys}
-					/>
+					<>
+						<Panel
+							id="outline"
+							className={styles.panel}
+							minSize={360}
+							defaultSize={400}
+							groupResizeBehavior="preserve-pixel-size"
+						>
+							<Outline
+								projectId={projectId}
+								project={selectedProject}
+								navigationIndex={outlineNavigationIndex}
+								absorptionTargetKeys={absorptionTargetKeys}
+							/>
+						</Panel>
+						<Separator className={styles.resizeHandle} />
+					</>
 				)}
 
-				<Details
-					key={deferredOutlineSelection ? operandIdentityKey(deferredOutlineSelection) : null}
-					style={{ opacity: deferredOutlineSelection !== outlineSelection ? 0.5 : 1 }}
-					outlineSelection={deferredOutlineSelection}
-					detailsFullWindow={detailsFullWindow}
-					onDetailsFullWindowChange={(fullWindow) =>
-						dispatch(projectActions.setDetailsFullWindow({ projectId, fullWindow }))
-					}
-				/>
-			</div>
+				<Panel id="details" className={styles.panel}>
+					<Details
+						key={deferredOutlineSelection ? operandIdentityKey(deferredOutlineSelection) : null}
+						style={{ opacity: deferredOutlineSelection !== outlineSelection ? 0.5 : 1 }}
+						outlineSelection={deferredOutlineSelection}
+						detailsFullWindow={detailsFullWindow}
+						onDetailsFullWindowChange={(fullWindow) =>
+							dispatch(projectActions.setDetailsFullWindow({ projectId, fullWindow }))
+						}
+					/>
+				</Panel>
+			</Group>
 
 			{Match.value(dialog).pipe(
 				Match.tagsExhaustive({
