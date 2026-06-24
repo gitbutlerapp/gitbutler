@@ -2303,14 +2303,14 @@ const BranchRow: FC<
 								// the tooltip. Other props should be passed above.
 								render={<Button focusableWhenDisabled disabled={!canPushStack} />}
 							>
+								Push
 								{pushStackMutation.isPending ? (
 									<Icon name="spinner" />
 								) : pushesMultipleBranches ? (
-									<Icon name="arrow-double-line-up" />
+									<Icon size={12} name="arrow-up" />
 								) : (
-									<Icon name="arrow-line-up" />
+									<Icon size={12} name="arrow-double-up" />
 								)}
-								Push
 							</Tooltip.Trigger>
 							<Tooltip.Portal>
 								<Tooltip.Positioner sideOffset={4}>
