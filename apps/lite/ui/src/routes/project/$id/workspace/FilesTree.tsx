@@ -310,7 +310,7 @@ const FileRow: FC<
 				<WorkspaceItemRowLabelContainer>
 					<WorkspaceItemRowLabel>
 						{relativePath}
-						{item._tag === "Change" && " ⚠️"}
+						{item._tag === "Conflict" && " ⚠️"}
 					</WorkspaceItemRowLabel>
 				</WorkspaceItemRowLabelContainer>
 
