@@ -613,9 +613,6 @@ impl App {
         T: TerminalGuard,
         anyhow::Error: From<<T::Backend as Backend>::Error>,
     {
-        let start = Instant::now();
-        let discriminant = MessageDiscriminant::from(&msg);
-
         self.should_render = true;
         let terminal_area: Rect = terminal_guard.terminal_mut().size()?.into();
         let visible_height = status_viewport_height(self, terminal_area);
@@ -949,20 +946,6 @@ impl App {
         }
 
         ensure_cursor_visible(self, visible_height);
-
-        if cfg!(feature = "tui-profiling") && !cfg!(test) {
-            let elapsed_ms = start.elapsed().as_millis();
-            if !matches!(
-                discriminant,
-                MessageDiscriminant::Reload | MessageDiscriminant::Command
-            ) && elapsed_ms > 60
-            {
-                self.toasts.insert(
-                    ToastKind::Debug,
-                    format!("Slow message: {discriminant:?} {elapsed_ms:?} ms"),
-                );
-            }
-        }
 
         Ok(())
     }
@@ -4172,8 +4155,7 @@ fn commits_on_branch(
     Ok(commits)
 }
 
-#[derive(Debug, Clone, strum::EnumDiscriminants)]
-#[strum_discriminants(name(MessageDiscriminant))]
+#[derive(Debug, Clone)]
 enum Message {
     // Lifecycle
     JustRender,
