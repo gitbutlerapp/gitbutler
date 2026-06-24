@@ -105,11 +105,11 @@ export const workspaceHotkeys = {
 		},
 	},
 	focusPreviousSelectionScope: {
-		hotkey: "H",
+		hotkey: "Mod+Alt+ArrowLeft",
 		meta: { group: "Selection scopes", name: "Focus previous selection scope" },
 	},
 	focusNextSelectionScope: {
-		hotkey: "L",
+		hotkey: "Mod+Alt+ArrowRight",
 		meta: { group: "Selection scopes", name: "Focus next selection scope" },
 	},
 	toggleFiles: {
