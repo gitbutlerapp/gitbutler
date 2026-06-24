@@ -1806,6 +1806,11 @@ const Changes: FC<{
 		outlineHotkeys.composeCommitMessage.hotkey,
 	);
 
+	useHotkey("Escape", () => focusSelectionScope("outline"), {
+		target: commitTextareaRef,
+		conflictBehavior: "allow",
+	});
+
 	return (
 		<TreeItem
 			projectId={projectId}
@@ -1832,11 +1837,6 @@ const Changes: FC<{
 					placeholder={`Compose commit message ${focusCommitMessageHotkeyLabel}`}
 					className={classes("text-13", "text-body", styles.commitTextarea)}
 					onFocus={selectChanges}
-					onKeyDown={(event) => {
-						if (event.key !== "Escape") return;
-						event.preventDefault();
-						focusSelectionScope("outline");
-					}}
 				/>
 
 				<div className={styles.commitControlsFooter}>
