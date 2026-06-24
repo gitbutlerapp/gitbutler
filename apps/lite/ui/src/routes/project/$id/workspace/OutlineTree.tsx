@@ -144,7 +144,7 @@ const DryRunWorkspaceContext = createContext<WorkspaceState | null>(null);
 const AbsorptionTargetKeysContext = createContext<ReadonlySet<string> | null>(null);
 
 const isCommitDiscardBoundary = (operand: Operand): boolean =>
-	operand._tag === "Branch" || operand._tag === "ChangesSection";
+	operand._tag === "Branch" || operand._tag === "UncommittedChanges";
 
 const selectAfterDiscardedCommit = ({
 	navigationIndex,
@@ -455,7 +455,7 @@ const useOutlineTreeHotkeys = ({
 	const defaultOutlineHotkeysEnabled = isDefaultMode;
 	const isSelectedCommit = selection?._tag === "Commit";
 	const isSelectedBranch = selection?._tag === "Branch";
-	const isSelectedChanges = selection?._tag === "ChangesSection";
+	const isSelectedChanges = selection?._tag === "UncommittedChanges";
 	const canPushSelectedBranch =
 		!!selectedPushContext &&
 		!pushStackMutation.isPending &&
@@ -474,7 +474,7 @@ const useOutlineTreeHotkeys = ({
 		getKey: operandIdentityKey,
 		operationSourceForItem: (operand) => operand,
 		selectSectionPredicate: (operand) =>
-			operand._tag === "Branch" || operand._tag === "ChangesSection",
+			operand._tag === "Branch" || operand._tag === "UncommittedChanges",
 	});
 
 	useHotkeys([

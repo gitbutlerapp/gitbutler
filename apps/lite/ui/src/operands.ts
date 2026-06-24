@@ -58,7 +58,7 @@ export type HunkOperand = HunkLineSelection & {
 };
 
 export type Operand =
-	| { _tag: "ChangesSection" }
+	| { _tag: "UncommittedChanges" }
 	| ({ _tag: "Stack" } & StackOperand)
 	| ({ _tag: "Branch" } & BranchOperand)
 	| ({ _tag: "Commit" } & CommitOperand)
@@ -112,7 +112,7 @@ export const hunkOperand = ({
 export const operandIdentityKey = (operand: Operand): string =>
 	Match.value(operand).pipe(
 		Match.tagsExhaustive({
-			ChangesSection: () => JSON.stringify(["ChangesSection"]),
+			UncommittedChanges: () => JSON.stringify(["UncommittedChanges"]),
 			File: (x) => JSON.stringify(["File", x.parent, x.path]),
 			Stack: (x) => JSON.stringify(["Stack", x.stackId]),
 			Branch: (x) => JSON.stringify(["Branch", x.stackId, x.branchRef]),
@@ -137,7 +137,7 @@ export const operandFileParent = (operand: Operand): FileParent | null =>
 		Match.withReturnType<FileParent | null>(),
 		Match.tags({
 			File: ({ parent }) => parent,
-			ChangesSection: () => uncommittedChangesFileParent,
+			UncommittedChanges: () => uncommittedChangesFileParent,
 			Hunk: ({ parent }) => parent.parent,
 		}),
 		Match.orElse(() => null),

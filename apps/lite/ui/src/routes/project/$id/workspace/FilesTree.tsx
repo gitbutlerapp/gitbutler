@@ -63,7 +63,7 @@ const useFilesTreeHotkeys = ({
 
 	const dispatch = useAppDispatch();
 
-	const selectedChangesFile = fileParent._tag === "Changes" ? selection : null;
+	const selectedChangesFile = fileParent._tag === "UncommittedChanges" ? selection : null;
 
 	const absorbSelectedFile = () => {
 		if (selectedChangesFile === null) return;
@@ -315,7 +315,7 @@ const FileRow: FC<
 					<Toolbar.Root aria-label="File actions" render={<WorkspaceItemRowToolbar />}>
 						{Match.value({ item, fileParent }).pipe(
 							Match.when(
-								{ item: { _tag: "Change" }, fileParent: { _tag: "Changes" } },
+								{ item: { _tag: "Change" }, fileParent: { _tag: "UncommittedChanges" } },
 								({ item }) =>
 									item.dependencyCommitIds && (
 										<Toolbar.Button
