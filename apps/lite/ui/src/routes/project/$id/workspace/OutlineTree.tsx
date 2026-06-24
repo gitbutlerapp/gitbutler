@@ -455,9 +455,9 @@ const useOutlineTreeHotkeys = ({
 	const canPushSelectedBranch =
 		!!selectedPushContext &&
 		!pushStackMutation.isPending &&
-		partialStackPushDisabledReason(
+		!partialStackPushDisabled(
 			partialStackStateFromSegments(selectedPushContext.partialStackSegments),
-		) === null;
+		);
 
 	useNavigationIndexHotkeys({
 		ref,
@@ -1930,12 +1930,8 @@ const addSegmentToPartialStackState = (
 	branchCount: segment.refName ? state.branchCount + 1 : state.branchCount,
 });
 
-const partialStackPushDisabledReason = (partialStackState: PartialStackState): string | null =>
-	partialStackState.hasConflicts
-		? "Resolve conflicts before pushing"
-		: !partialStackState.requiresPush
-			? "Nothing to push"
-			: null;
+const partialStackPushDisabled = (partialStackState: PartialStackState): boolean =>
+	!partialStackState.requiresPush || partialStackState.hasConflicts;
 
 const partialStackStateFromSegments = (segments: Array<Segment>): PartialStackState =>
 	segments.reduce(addSegmentToPartialStackState, emptyPartialStackState);
@@ -2155,17 +2151,9 @@ const BranchRow: FC<
 		});
 	};
 
-	const pushStackDisabledReason = pushStackMutation.isPending
-		? "Pushing"
-		: partialStackPushDisabledReason(partialStackState);
-	const canPushStack = pushStackDisabledReason === null;
-	const pushButtonLabel = pushesMultipleBranches
-		? partialStackState.pushWithForce
-			? "Force push this and all branches below"
-			: "Push this and all branches below"
-		: partialStackState.pushWithForce
-			? "Force push branch"
-			: "Push branch";
+	const pushStackDisabled =
+		pushStackMutation.isPending || partialStackPushDisabled(partialStackState);
+
 	const pushMenuLabel = pushesMultipleBranches
 		? partialStackState.pushWithForce
 			? "Force Push With Branches Below"
@@ -2177,7 +2165,7 @@ const BranchRow: FC<
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: pushMenuLabel,
-			enabled: canPushStack,
+			enabled: !pushStackDisabled,
 			accelerator: toElectronAccelerator(outlineHotkeys.pushStack.hotkey),
 			onSelect: pushStack,
 		}),
@@ -2294,32 +2282,55 @@ const BranchRow: FC<
 							</span>
 						)}
 
-						<Tooltip.Root>
-							<Tooltip.Trigger
-								aria-label={pushButtonLabel}
-								onClick={pushStack}
-								className={getWorkspaceItemRowButtonClassName({ variant: "outline" })}
-								// We pass `disabled` here because we want to disable the button, not
-								// the tooltip. Other props should be passed above.
-								render={<Button focusableWhenDisabled disabled={!canPushStack} />}
-							>
-								Push
-								{pushStackMutation.isPending ? (
-									<Icon name="spinner" />
-								) : pushesMultipleBranches ? (
-									<Icon size={12} name="arrow-up" />
-								) : (
-									<Icon size={12} name="arrow-double-up" />
-								)}
-							</Tooltip.Trigger>
-							<Tooltip.Portal>
-								<Tooltip.Positioner sideOffset={4}>
-									<Tooltip.Popup render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}>
-										{pushStackDisabledReason ?? pushButtonLabel}
-									</Tooltip.Popup>
-								</Tooltip.Positioner>
-							</Tooltip.Portal>
-						</Tooltip.Root>
+						{partialStackState.requiresPush &&
+							(() => {
+								const pushStackDisabledReason = pushStackMutation.isPending
+									? "pushing"
+									: partialStackState.hasConflicts
+										? "disabled due to conflicts"
+										: null;
+
+								const pushButtonLabel = `${
+									pushesMultipleBranches
+										? partialStackState.pushWithForce
+											? "Force push this and all branches below"
+											: "Push this and all branches below"
+										: partialStackState.pushWithForce
+											? "Force push branch"
+											: "Push branch"
+								}${pushStackDisabledReason !== null ? ` (${pushStackDisabledReason})` : ""}`;
+
+								return (
+									<Tooltip.Root>
+										<Tooltip.Trigger
+											aria-label={pushButtonLabel}
+											onClick={pushStack}
+											className={getWorkspaceItemRowButtonClassName({ variant: "outline" })}
+											// We pass `disabled` here because we want to disable the button, not
+											// the tooltip. Other props should be passed above.
+											render={<Button focusableWhenDisabled disabled={pushStackDisabled} />}
+										>
+											Push
+											{pushStackMutation.isPending ? (
+												<Icon name="spinner" />
+											) : pushesMultipleBranches ? (
+												<Icon size={12} name="arrow-double-up" />
+											) : (
+												<Icon size={12} name="arrow-up" />
+											)}
+										</Tooltip.Trigger>
+										<Tooltip.Portal>
+											<Tooltip.Positioner sideOffset={4}>
+												<Tooltip.Popup
+													render={<TooltipPopup kbd={outlineHotkeys.pushStack.hotkey} />}
+												>
+													{pushButtonLabel}
+												</Tooltip.Popup>
+											</Tooltip.Positioner>
+										</Tooltip.Portal>
+									</Tooltip.Root>
+								);
+							})()}
 					</div>
 				</div>
 			)}
