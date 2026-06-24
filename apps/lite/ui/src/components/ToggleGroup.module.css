@@ -14,7 +14,7 @@
 .item {
 	--icon-size: 14px;
 	--item-color: color-mix(in srgb, var(--text-1) 50%, transparent);
-	--item-color-hover: color-mix(in srgb, var(--text-1) 60%, transparent);
+	--item-color-hover: color-mix(in srgb, var(--text-1) 70%, transparent);
 
 	display: inline-flex;
 	position: relative;
@@ -31,23 +31,9 @@
 	line-height: 1;
 	white-space: nowrap;
 	transition:
-		border-color 0.08s ease,
-		box-shadow 0.08s ease,
-		color 0.08s ease;
-
-	&::before {
-		position: absolute;
-		inset: 0;
-		transform: scale(0.85);
-		border-radius: inherit;
-		background-color: color-mix(in srgb, var(--fill-gray-bg) 7%, transparent);
-		content: "";
-		opacity: 0;
-		pointer-events: none;
-		transition:
-			opacity 0.12s ease,
-			transform 0.12s ease;
-	}
+		border-color 0.04s ease,
+		box-shadow 0.04s ease,
+		color 0.04s ease;
 
 	&:not([data-pressed], [data-disabled], :disabled):hover::before {
 		transform: scale(1);
@@ -78,4 +64,22 @@
 		cursor: not-allowed;
 		opacity: 0.6;
 	}
+}
+/* Divider between items — only visible when there are 3 or more items */
+.item:nth-last-child(n + 3) ~ .item::after {
+	position: absolute;
+	top: 4px;
+	bottom: 4px;
+	left: -1px;
+	width: 1px;
+	transform: translateX(-1.5px);
+	background-color: var(--border-2);
+	content: "";
+	pointer-events: none;
+}
+
+/* Hide divider when adjacent item is active */
+.item[data-pressed]::after,
+.item[data-pressed] + .item::after {
+	opacity: 0;
 }
