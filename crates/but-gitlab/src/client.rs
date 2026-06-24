@@ -169,6 +169,34 @@ impl GitLabClient {
         Ok(mrs.into_iter().map(Into::into).collect())
     }
 
+    pub async fn list_mrs_for_commit(
+        &self,
+        project_id: GitLabProjectId,
+        commit_sha: &str,
+    ) -> Result<Vec<MergeRequest>> {
+        let url = format!(
+            "{}/projects/{}/repository/commits/{}/merge_requests",
+            self.base_url, project_id, commit_sha
+        );
+
+        let response = self
+            .client
+            .get(&url)
+            .query(&[("per_page", "100")])
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            bail!(
+                "Failed to list merge requests for commit: {}",
+                response.status()
+            );
+        }
+
+        let mrs: Vec<GitLabMergeRequest> = response.json().await?;
+        Ok(mrs.into_iter().map(Into::into).collect())
+    }
+
     pub async fn create_merge_request(
         &self,
         params: &CreateMergeRequestParams<'_>,
@@ -853,6 +881,7 @@ pub struct MergeRequest {
     pub source_branch: String,
     pub target_branch: String,
     pub sha: String,
+    pub integration_commit_shas: Vec<String>,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
     pub merged_at: Option<String>,
@@ -874,6 +903,8 @@ struct GitLabMergeRequest {
     source_branch: String,
     target_branch: String,
     sha: String,
+    merge_commit_sha: Option<String>,
+    squash_commit_sha: Option<String>,
     created_at: Option<String>,
     updated_at: Option<String>,
     merged_at: Option<String>,
@@ -891,6 +922,10 @@ impl From<GitLabMergeRequest> for MergeRequest {
 
         let assignees = mr.assignees.into_iter().map(Into::into).collect();
         let reviewers = mr.reviewers.into_iter().map(Into::into).collect();
+        let integration_commit_shas = [mr.merge_commit_sha, mr.squash_commit_sha]
+            .into_iter()
+            .flatten()
+            .collect();
 
         MergeRequest {
             web_url: mr.web_url,
@@ -903,6 +938,7 @@ impl From<GitLabMergeRequest> for MergeRequest {
             source_branch: mr.source_branch,
             target_branch: mr.target_branch,
             sha: mr.sha,
+            integration_commit_shas,
             created_at: mr.created_at,
             updated_at: mr.updated_at,
             merged_at: mr.merged_at,
@@ -942,8 +978,8 @@ pub(crate) fn resolve_account(
 #[cfg(test)]
 mod tests {
     use super::{
-        GitLabPipelineJob, GitLabPipelineRef, next_page_from_headers, normalize_pipeline_jobs,
-        update_draft_state_in_title,
+        GitLabMergeRequest, GitLabPipelineJob, GitLabPipelineRef, MergeRequest,
+        next_page_from_headers, normalize_pipeline_jobs, update_draft_state_in_title,
     };
     use reqwest::header::{HeaderMap, HeaderValue};
 
@@ -1097,6 +1133,54 @@ mod tests {
         assert_eq!(
             jobs[0].web_url.as_deref(),
             Some("https://gitlab.example/group/repo/-/pipelines/123")
+        );
+    }
+
+    #[test]
+    fn associated_commit_mrs_preserve_head_sha_and_merge_state() {
+        let mr: MergeRequest = GitLabMergeRequest {
+            web_url: "https://gitlab.example/group/repo/-/merge_requests/7".into(),
+            iid: 7,
+            title: "Integrate feature".into(),
+            description: None,
+            author: None,
+            labels: vec![],
+            draft: false,
+            source_branch: "feature".into(),
+            target_branch: "main".into(),
+            sha: "1234567890abcdef1234567890abcdef12345678".into(),
+            merge_commit_sha: Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".into()),
+            squash_commit_sha: Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".into()),
+            created_at: None,
+            updated_at: None,
+            merged_at: Some("2026-06-24T12:00:00Z".into()),
+            closed_at: Some("2026-06-24T12:00:00Z".into()),
+            project_id: 1,
+            assignees: vec![],
+            reviewers: vec![],
+        }
+        .into();
+
+        assert_eq!(
+            mr.sha, "1234567890abcdef1234567890abcdef12345678",
+            "associated-commit lookup must preserve the review head SHA for integration hints"
+        );
+        assert_eq!(
+            mr.integration_commit_shas,
+            vec![
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string(),
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_string(),
+            ],
+            "GitLab review payload should preserve landing commits for cache-only integration matching"
+        );
+        assert_eq!(
+            mr.target_branch, "main",
+            "associated-commit lookup must preserve the target branch for filtering"
+        );
+        assert_eq!(
+            mr.merged_at.as_deref(),
+            Some("2026-06-24T12:00:00Z"),
+            "associated-commit lookup must preserve merge state for filtering"
         );
     }
 }

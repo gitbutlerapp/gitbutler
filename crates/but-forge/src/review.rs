@@ -305,6 +305,8 @@ pub struct ForgeReview {
     pub target_branch: String,
     /// The git commit SHA that this review is based on.
     pub sha: String,
+    /// Commits on the target branch that represent this review having landed.
+    pub integration_commit_shas: Vec<String>,
     /// ISO 8601 timestamp of when the review was created.
     pub created_at: Option<String>,
     /// ISO 8601 timestamp of when the review was last modified.
@@ -351,7 +353,7 @@ impl ForgeReview {
 
     /// The struct version for persistence compatibility purposes
     pub fn struct_version() -> i32 {
-        2
+        3
     }
 }
 
@@ -386,6 +388,7 @@ impl From<but_github::PullRequest> for ForgeReview {
             source_branch: pr.source_branch,
             target_branch: pr.target_branch,
             sha: pr.sha,
+            integration_commit_shas: pr.integration_commit_shas,
             created_at: pr.created_at,
             modified_at: pr.modified_at,
             merged_at: pr.merged_at,
@@ -418,6 +421,7 @@ impl From<but_gitlab::MergeRequest> for ForgeReview {
             source_branch: mr.source_branch,
             target_branch: mr.target_branch,
             sha: mr.sha,
+            integration_commit_shas: mr.integration_commit_shas,
             created_at: mr.created_at,
             modified_at: mr.updated_at,
             merged_at: mr.merged_at,
