@@ -1802,10 +1802,6 @@ const Changes: FC<{
 		},
 	]);
 
-	const focusCommitMessageHotkeyLabel = formatForDisplaySorted(
-		outlineHotkeys.composeCommitMessage.hotkey,
-	);
-
 	useHotkey("Escape", () => focusSelectionScope("outline"), {
 		target: commitTextareaRef,
 		conflictBehavior: "allow",
@@ -1834,7 +1830,9 @@ const Changes: FC<{
 					aria-label="Compose commit message"
 					disabled={!isDefaultMode}
 					readOnly={isCommitOrAmendPending}
-					placeholder={`Compose commit message ${focusCommitMessageHotkeyLabel}`}
+					placeholder={`Compose commit message ${formatForDisplaySorted(
+						outlineHotkeys.composeCommitMessage.hotkey,
+					)}`}
 					className={classes("text-13", "text-body", styles.commitTextarea)}
 					onFocus={selectChanges}
 				/>
