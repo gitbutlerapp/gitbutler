@@ -455,9 +455,9 @@ const useOutlineTreeHotkeys = ({
 	const canPushSelectedBranch =
 		!!selectedPushContext &&
 		!pushStackMutation.isPending &&
-		partialStackPushDisabledReason(
+		!partialStackPushDisabled(
 			partialStackStateFromSegments(selectedPushContext.partialStackSegments),
-		) === null;
+		);
 
 	useNavigationIndexHotkeys({
 		ref,
@@ -1930,12 +1930,8 @@ const addSegmentToPartialStackState = (
 	branchCount: segment.refName ? state.branchCount + 1 : state.branchCount,
 });
 
-const partialStackPushDisabledReason = (partialStackState: PartialStackState): string | null =>
-	!partialStackState.requiresPush
-		? "Nothing to push"
-		: partialStackState.hasConflicts
-			? "Resolve conflicts before pushing"
-			: null;
+const partialStackPushDisabled = (partialStackState: PartialStackState): boolean =>
+	!partialStackState.requiresPush || partialStackState.hasConflicts;
 
 const partialStackStateFromSegments = (segments: Array<Segment>): PartialStackState =>
 	segments.reduce(addSegmentToPartialStackState, emptyPartialStackState);
@@ -2155,9 +2151,15 @@ const BranchRow: FC<
 		});
 	};
 
+	const pushStackDisabled =
+		pushStackMutation.isPending || partialStackPushDisabled(partialStackState);
 	const pushStackDisabledReason = pushStackMutation.isPending
 		? "Pushing"
-		: partialStackPushDisabledReason(partialStackState);
+		: !partialStackState.requiresPush
+			? "Nothing to push"
+			: partialStackState.hasConflicts
+				? "Resolve conflicts before pushing"
+				: null;
 
 	const pushButtonLabel = `${
 		pushesMultipleBranches
@@ -2179,7 +2181,7 @@ const BranchRow: FC<
 	const menuItems: Array<NativeMenuItem> = [
 		nativeMenuItem({
 			label: pushMenuLabel,
-			enabled: pushStackDisabledReason === null,
+			enabled: !pushStackDisabled,
 			accelerator: toElectronAccelerator(outlineHotkeys.pushStack.hotkey),
 			onSelect: pushStack,
 		}),
@@ -2303,9 +2305,7 @@ const BranchRow: FC<
 								className={getWorkspaceItemRowButtonClassName({ variant: "outline" })}
 								// We pass `disabled` here because we want to disable the button, not
 								// the tooltip. Other props should be passed above.
-								render={
-									<Button focusableWhenDisabled disabled={!(pushStackDisabledReason === null)} />
-								}
+								render={<Button focusableWhenDisabled disabled={pushStackDisabled} />}
 							>
 								Push
 								{pushStackMutation.isPending ? (
